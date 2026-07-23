@@ -281,6 +281,22 @@
     },
     {
       "index": 17,
+      "filename": "275701_s.svg",
+      "relativeUrl": "275701_s/275701_s.svg",
+      "blockName": "275701_s",
+      "parentBlock": null,
+      "layer": "Viewport4ForCustomObjects_0",
+      "role": "sash",
+      "color": "#ffffff",
+      "bbox": {
+        "minX": 98.67030507355958,
+        "minY": 186.2431607404895,
+        "maxX": 120.34294537710959,
+        "maxY": 194.0931607404891
+      }
+    },
+    {
+      "index": 18,
       "filename": "200988_s.svg",
       "relativeUrl": "200988_s/200988_s.svg",
       "blockName": "200988_s",

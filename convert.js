@@ -222,8 +222,20 @@ _N
                         return; // Skip layout geometry
                     }
 
-                    e.vertices.forEach(v => {
+                    // Check if transformed vertices are outside CAD section bounds (e.g. viewports)
+                    let outside = false;
+                    const pts = [];
+                    for (let v of e.vertices) {
                         const p = currentTransform(v);
+                        if (Math.abs(p.x) > 500 || Math.abs(p.y) > 500) {
+                            outside = true;
+                            break;
+                        }
+                        pts.push(p);
+                    }
+                    if (outside) return;
+
+                    pts.forEach(p => {
                         if (p.x < globalMinX) globalMinX = p.x;
                         if (-p.y < globalMinY) globalMinY = -p.y; // note SVG Y inversion
                         if (p.x > globalMaxX) globalMaxX = p.x;
@@ -231,13 +243,17 @@ _N
                     });
                 } else if (e.type === 'LINE') {
                     if (!e.start || !e.end) return;
+                    const p1 = currentTransform(e.start);
+                    const p2 = currentTransform(e.end);
+                    if (Math.abs(p1.x) > 500 || Math.abs(p1.y) > 500 || Math.abs(p2.x) > 500 || Math.abs(p2.y) > 500) {
+                        return;
+                    }
                     // Skip long lines (like layout borders or grid lines)
                     const dx = Math.abs(e.start.x - e.end.x);
                     const dy = Math.abs(e.start.y - e.end.y);
                     if (dx > 500 || dy > 500) return;
 
-                    [e.start, e.end].forEach(v => {
-                        const p = currentTransform(v);
+                    [p1, p2].forEach(p => {
                         if (p.x < globalMinX) globalMinX = p.x;
                         if (-p.y < globalMinY) globalMinY = -p.y;
                         if (p.x > globalMaxX) globalMaxX = p.x;
@@ -246,6 +262,7 @@ _N
                 } else if (e.type === 'ARC') {
                     if (e.radius > 250) return; // Skip huge circles/arcs
                     const c = currentTransform(e.center);
+                    if (Math.abs(c.x) > 500 || Math.abs(c.y) > 500) return;
                     const r = e.radius * Math.abs(ins.xScale || 1);
                     if (c.x - r < globalMinX) globalMinX = c.x - r;
                     if (-c.y - r < globalMinY) globalMinY = -c.y - r;
@@ -427,11 +444,33 @@ _N
                 if (e.type === 'INSERT') {
                     subInserts.push(e);
                 } else if (e.type === 'LWPOLYLINE' || e.type === 'POLYLINE') {
-                    localPolylines.push(e);
+                    // Check if transformed vertices are within section bounds
+                    let outside = false;
+                    for (let v of e.vertices) {
+                        const p = currentTransform(v);
+                        if (Math.abs(p.x) > 500 || Math.abs(p.y) > 500) {
+                            outside = true;
+                            break;
+                        }
+                    }
+                    if (!outside) {
+                        localPolylines.push(e);
+                    }
                 } else if (e.type === 'LINE') {
-                    localLines.push(e);
+                    if (e.start && e.end) {
+                        const p1 = currentTransform(e.start);
+                        const p2 = currentTransform(e.end);
+                        if (Math.abs(p1.x) <= 500 && Math.abs(p1.y) <= 500 && Math.abs(p2.x) <= 500 && Math.abs(p2.y) <= 500) {
+                            localLines.push(e);
+                        }
+                    }
                 } else if (e.type === 'ARC') {
-                    localArcs.push(e);
+                    if (e.center && e.radius <= 250) {
+                        const c = currentTransform(e.center);
+                        if (Math.abs(c.x) <= 500 && Math.abs(c.y) <= 500) {
+                            localArcs.push(e);
+                        }
+                    }
                 }
             });
         }
