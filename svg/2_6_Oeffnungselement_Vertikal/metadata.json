@@ -1,0 +1,299 @@
+{
+  "dwgName": "2_6_Oeffnungselement_Vertikal.dwg",
+  "isVertical": true,
+  "globalMinX": 57.49712704920579,
+  "globalMaxX": 132.5046370103966,
+  "globalMinY": 136.98755207666156,
+  "globalMaxY": 237.1656804958328,
+  "globalCenterX": 95.0008820298012,
+  "parts": [
+    {
+      "index": 0,
+      "filename": "224068_s_1.svg",
+      "relativeUrl": "224068_s_1/224068_s_1.svg",
+      "blockName": "224068_s_1",
+      "parentBlock": null,
+      "layer": "0",
+      "role": "frame",
+      "color": "#ffbf7f",
+      "bbox": {
+        "minX": 68.70275100045045,
+        "minY": 187.01223463785436,
+        "maxX": 82.75475300045045,
+        "maxY": 209.85911549583622
+      }
+    },
+    {
+      "index": 1,
+      "filename": "245472_s_5.svg",
+      "relativeUrl": "245472_s_5/245472_s_5.svg",
+      "blockName": "245472_s_5",
+      "parentBlock": null,
+      "layer": "0",
+      "role": "sash",
+      "color": "#ffbf7f",
+      "bbox": {
+        "minX": 59.82468267603127,
+        "minY": 180.2328348914406,
+        "maxX": 67.1377370312619,
+        "maxY": 187.4651252119825
+      }
+    },
+    {
+      "index": 2,
+      "filename": "224063_s.svg",
+      "relativeUrl": "224063_s/224063_s.svg",
+      "blockName": "224063_s",
+      "parentBlock": null,
+      "layer": "0",
+      "role": "sash",
+      "color": "#ffbf7f",
+      "bbox": {
+        "minX": 59.5043593492078,
+        "minY": 137.3713945132785,
+        "maxX": 66.3006313492078,
+        "maxY": 150.4120745132785
+      }
+    },
+    {
+      "index": 3,
+      "filename": "224378_s_8.svg",
+      "relativeUrl": "224378_s_8/224378_s_8.svg",
+      "blockName": "224378_s_8",
+      "parentBlock": null,
+      "layer": "S03_AL_Kontur",
+      "role": "sash",
+      "color": "#ffbf7f",
+      "bbox": {
+        "minX": 92.817063010398,
+        "minY": 136.98755207666156,
+        "maxX": 102.16851291014437,
+        "maxY": 150.2890810772867
+      }
+    },
+    {
+      "index": 4,
+      "filename": "581910_s.svg",
+      "relativeUrl": "575770_s/575770_s/581910_s.svg",
+      "blockName": "581910_s",
+      "parentBlock": "575770_s",
+      "layer": "0",
+      "role": "frame",
+      "color": "#ffffff",
+      "bbox": {
+        "minX": 57.504720000444415,
+        "minY": 180.1656804958328,
+        "maxX": 73.80405548819378,
+        "maxY": 237.1656804958328
+      }
+    },
+    {
+      "index": 5,
+      "filename": "587270_s.svg",
+      "relativeUrl": "575770_s/575770_s/587270_s.svg",
+      "blockName": "587270_s",
+      "parentBlock": "575770_s",
+      "layer": "0",
+      "role": "frame",
+      "color": "#ffffff",
+      "bbox": {
+        "minX": 100.70538451269505,
+        "minY": 205.16568049583276,
+        "maxX": 122.50472000044442,
+        "maxY": 237.1656804958328
+      }
+    },
+    {
+      "index": 6,
+      "filename": "30065150_s.svg",
+      "relativeUrl": "575770_s/575770_s/662009_s/30065150_s.svg",
+      "blockName": "30065150_s",
+      "parentBlock": "662009_s",
+      "layer": "0",
+      "role": "frame",
+      "color": "#7fff7f",
+      "bbox": {
+        "minX": 70.01472000044443,
+        "minY": 230.6562060846653,
+        "maxX": 104.49472000044442,
+        "maxY": 236.96568049583274
+      }
+    },
+    {
+      "index": 7,
+      "filename": "30065191_s.svg",
+      "relativeUrl": "575770_s/575770_s/662019_s/30065191_s.svg",
+      "blockName": "30065191_s",
+      "parentBlock": "662019_s",
+      "layer": "0",
+      "role": "frame",
+      "color": "#7fff7f",
+      "bbox": {
+        "minX": 69.91472000044442,
+        "minY": 205.36317421438605,
+        "maxX": 104.49472000044443,
+        "maxY": 219.06317421438607
+      }
+    },
+    {
+      "index": 8,
+      "filename": "30065183_s.svg",
+      "relativeUrl": "575770_s/575770_s/662019_s/30065183_s.svg",
+      "blockName": "30065183_s",
+      "parentBlock": "662019_s",
+      "layer": "0",
+      "role": "frame",
+      "color": "#00ff00",
+      "bbox": {
+        "minX": 80.70472000044444,
+        "minY": 212.16317421438606,
+        "maxX": 95.70472000044444,
+        "maxY": 234.36317421438608
+      }
+    },
+    {
+      "index": 9,
+      "filename": "245472_s.svg",
+      "relativeUrl": "245472_s/245472_s.svg",
+      "blockName": "245472_s",
+      "parentBlock": null,
+      "layer": "S03_AL_Kontur",
+      "role": "frame",
+      "color": "#ffbf7f",
+      "bbox": {
+        "minX": 123.07637864083189,
+        "minY": 202.66553842387734,
+        "maxX": 130.6846370103971,
+        "maxY": 209.89782874441923
+      }
+    },
+    {
+      "index": 10,
+      "filename": "587290_s.svg",
+      "relativeUrl": "575790_s/575790_s/587290_s.svg",
+      "blockName": "587290_s",
+      "parentBlock": "575790_s",
+      "layer": "0",
+      "role": "sash",
+      "color": "#ffffff",
+      "bbox": {
+        "minX": 57.49712704920579,
+        "minY": 141.1656804958309,
+        "maxX": 72.99646253695477,
+        "maxY": 183.66568049583108
+      }
+    },
+    {
+      "index": 11,
+      "filename": "511130_s.svg",
+      "relativeUrl": "575790_s/575790_s/511130_s.svg",
+      "blockName": "511130_s",
+      "parentBlock": "575790_s",
+      "layer": "0",
+      "role": "sash",
+      "color": "#ffffff",
+      "bbox": {
+        "minX": 111.39779156145644,
+        "minY": 161.16568049583088,
+        "maxX": 132.4971270492058,
+        "maxY": 210.16568049583088
+      }
+    },
+    {
+      "index": 12,
+      "filename": "30065155_s.svg",
+      "relativeUrl": "575790_s/575790_s/662011_s/30065155_s.svg",
+      "blockName": "30065155_s",
+      "parentBlock": "662011_s",
+      "layer": "0",
+      "role": "sash",
+      "color": "#7fff7f",
+      "bbox": {
+        "minX": 69.20712704920518,
+        "minY": 174.85620608466365,
+        "maxX": 116.18712704920517,
+        "maxY": 193.16568049583108
+      }
+    },
+    {
+      "index": 13,
+      "filename": "30065273_s.svg",
+      "relativeUrl": "575790_s/575790_s/662015_s/30065273_s.svg",
+      "blockName": "30065273_s",
+      "parentBlock": "662015_s",
+      "layer": "0",
+      "role": "sash",
+      "color": "#7fff7f",
+      "bbox": {
+        "minX": 69.20712704920548,
+        "minY": 160.26568049583108,
+        "maxX": 115.18712704920547,
+        "maxY": 170.26568049583108
+      }
+    },
+    {
+      "index": 14,
+      "filename": "30065182_s.svg",
+      "relativeUrl": "575790_s/575790_s/662015_s/30065182_s.svg",
+      "blockName": "30065182_s",
+      "parentBlock": "662015_s",
+      "layer": "0",
+      "role": "sash",
+      "color": "#00ff00",
+      "bbox": {
+        "minX": 84.69712704920548,
+        "minY": 163.36568049583107,
+        "maxX": 99.69712704920548,
+        "maxY": 178.26568049583108
+      }
+    },
+    {
+      "index": 15,
+      "filename": "573940_s.svg",
+      "relativeUrl": "573940_s/573940_s.svg",
+      "blockName": "573940_s",
+      "parentBlock": null,
+      "layer": "0",
+      "role": "sash",
+      "color": "#ffffff",
+      "bbox": {
+        "minX": 100.5046370103966,
+        "minY": 139.1656804958309,
+        "maxX": 132.5046370103966,
+        "maxY": 165.342603572754
+      }
+    },
+    {
+      "index": 16,
+      "filename": "244511_s_2.svg",
+      "relativeUrl": "573940_s/573940_s/244511_s_2.svg",
+      "blockName": "244511_s_2",
+      "parentBlock": "573940_s",
+      "layer": "0",
+      "role": "sash",
+      "color": "#ffbf7f",
+      "bbox": {
+        "minX": 120.0046370103966,
+        "minY": 161.305211860216,
+        "maxX": 120.0046370103966,
+        "maxY": 163.22614913144585
+      }
+    },
+    {
+      "index": 17,
+      "filename": "200988_s.svg",
+      "relativeUrl": "200988_s/200988_s.svg",
+      "blockName": "200988_s",
+      "parentBlock": null,
+      "layer": "0",
+      "role": "frame",
+      "color": "#7fff7f",
+      "bbox": {
+        "minX": 76.80472000044438,
+        "minY": 193.45066364086185,
+        "maxX": 93.40472000044437,
+        "maxY": 209.9131742143861
+      }
+    }
+  ]
+}

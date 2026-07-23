@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ro">
+
+<head>
+    <meta charset="UTF-8">
+    <title>DWG Section Extrusion - Three.js</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Outfit', sans-serif;
+            background-color: #0b0f19;
+            color: #f3f4f6;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 24px;
+            border-radius: 16px;
+            z-index: 10;
+            width: 320px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 800;
+            margin: 0 0 4px 0;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        h2 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #94a3b8;
+            margin: 0 0 20px 0;
+            font-weight: 600;
+        }
+
+        label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        label span {
+            color: #60a5fa;
+        }
+
+        .control-group {
+            margin-bottom: 18px;
+        }
+
+        select,
+        input[type="number"] {
+            width: 100%;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-family: inherit;
+            box-sizing: border-box;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        select:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 8px 0;
+            -webkit-appearance: none;
+            background: rgba(30, 41, 59, 0.7);
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .mode-select {
+            margin-bottom: 18px;
+            padding: 14px;
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .mode-options {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+        }
+
+        .mode-options label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: 400;
+        }
+
+        .action-box {
+            margin-bottom: 18px;
+            padding: 14px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .action-box label {
+            margin: 0;
+            font-weight: 600;
+            color: #93c5fd;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .part-toggles {
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 16px;
+            margin-top: 16px;
+        }
+
+        .part-toggle-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        .part-color-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #3b82f6;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="loading">
+        <div class="spinner"></div>
+        <div style="font-weight: 600; font-size: 16px;">Se încarcă profilele CAD...</div>
+        <div style="font-size: 12px; color: #64748b; margin-top: 6px;">Se analizează fișierele SVG și metadata</div>
+    </div>
+
+    <div id="controls">
+        <h1>Profile Extrudate</h1>
+        <h2>Reconstrucție 3D din DWG</h2>
+
+        <div class="control-group">
+            <label>Alege Profil CAD:</label>
+            <select id="cadProfile">
+                <option value="2_6_Oeffnungselement_Vertikal" selected>2_6 Öffnungselement (Vertical - Nou)</option>
+                <option value="575760_d1">575760_d1 (Orizontal)</option>
+                <option value="AW_CT_65_Oeffnungselement_vertikal">AW CT 65 (Vertical - Vechi)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Lățime Fereastră (A): <span id="valWidth">1.20 m</span></label>
+            <input type="number" id="widthA" value="1.2" min="0.5" max="3.0" step="0.05">
+        </div>
+
+        <div class="control-group">
+            <label>Înălțime Fereastră (B): <span id="valHeight">1.50 m</span></label>
+            <input type="number" id="heightB" value="1.5" min="0.5" max="3.0" step="0.05">
+        </div>
+
+        <div class="mode-select">
+            <label>Mod deschidere:</label>
+            <div class="mode-options">
+                <label><input type="radio" id="mBatant" name="mode" value="batant" checked> Lateral (Batant)</label>
+                <label><input type="radio" id="mOscilo" name="mode" value="oscilo"> Sus (Oscilo)</label>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Unghi deschidere: <span id="valAngle">0°</span></label>
+            <input type="range" id="openAngle" min="0" max="1.5" step="0.01" value="0.0">
+        </div>
+
+        <div class="action-box">
+            <label>Vedere Explodată</label>
+            <input type="checkbox" id="cExplode">
+        </div>
+
+        <div class="part-toggles">
+            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Componente
+                Profile</label>
+            <div id="part-toggles-container"></div>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+</script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+
+        const S = 0.001; // Scale factor: CAD mm to Three.js meters
+
+        // SCENE, CAMERA & RENDERER SETUP
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a);
+        scene.fog = new THREE.FogExp2(0x0f172a, 0.1);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 50);
+        camera.position.set(1.4, 0.9, 2.2);
+
+        const container = document.getElementById('canvas-container');
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 0, 0);
+
+        // GROUND PLANE
+        const groundGeo = new THREE.PlaneGeometry(100, 100);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x1e293b,
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -1.2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // GRID HELPER
+        const gridHelper = new THREE.GridHelper(30, 30, 0x475569, 0x334155);
+        gridHelper.position.y = -1.19;
+        scene.add(gridHelper);
+
+        // LIGHTING
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight1.position.set(5, 8, 5);
+        dirLight1.castShadow = true;
+        dirLight1.shadow.mapSize.width = 2048;
+        dirLight1.shadow.mapSize.height = 2048;
+        dirLight1.shadow.bias = -0.0002;
+        scene.add(dirLight1);
+
+        const dirLight2 = new THREE.DirectionalLight(0x3b82f6, 0.5);
+        dirLight2.position.set(-5, 3, -5);
+        scene.add(dirLight2);
+
+        // MATERIALS (Matching AutoCAD Color Scheme)
+        const aluFrameMat = new THREE.MeshStandardMaterial({
+            color: 0xe2e8f0, // light grey / white anodized aluminum
+            metalness: 0.3,
+            roughness: 0.4,
+            side: THREE.DoubleSide
+        });
+        const aluSashMat = new THREE.MeshStandardMaterial({
+            color: 0xe2e8f0, // light grey / white anodized aluminum
+            metalness: 0.3,
+            roughness: 0.4,
+            side: THREE.DoubleSide
+        });
+        const thermalBreakMat = new THREE.MeshStandardMaterial({
+            color: 0x166534, // dark green polyamide break
+            metalness: 0.1,
+            roughness: 0.7,
+            side: THREE.DoubleSide
+        });
+        const centralSealMat = new THREE.MeshStandardMaterial({
+            color: 0x38bdf8, // light blue central seal
+            metalness: 0.1,
+            roughness: 0.6,
+            side: THREE.DoubleSide
+        });
+        const gasketMat = new THREE.MeshStandardMaterial({
+            color: 0xea580c, // orange EPDM gaskets
+            metalness: 0.1,
+            roughness: 0.7,
+            side: THREE.DoubleSide
+        });
+        const foamMat = new THREE.MeshStandardMaterial({
+            color: 0x22c55e, // bright green insulation foam
+            metalness: 0.0,
+            roughness: 0.9,
+            side: THREE.DoubleSide
+        });
+        const defaultMat = new THREE.MeshStandardMaterial({
+            color: 0x78716c,
+            metalness: 0.5,
+            roughness: 0.5,
+            side: THREE.DoubleSide
+        });
+
+        const glassMat = new THREE.MeshStandardMaterial({
+            color: 0x60a5fa,
+            transparent: true,
+            opacity: 0.25,
+            roughness: 0.1,
+            metalness: 0.9,
+            side: THREE.DoubleSide
+        });
+        const handleMat = new THREE.MeshStandardMaterial({
+            color: 0xe2e8f0,
+            metalness: 0.95,
+            roughness: 0.15
+        });
+
+        // LOAD PROFILE SVG FILES AND METADATA
+        const svgLoader = new SVGLoader();
+        let currentMetadata = null;
+        let profilesData = [];
+
+        async function loadProfiles(profileFolder) {
+            document.getElementById('loading').style.display = 'block';
+            profilesData = [];
+
+            try {
+                // Fetch metadata
+                const response = await fetch(`svg/${profileFolder}/metadata.json`);
+                currentMetadata = await response.json();
+
+                // Render UI toggles dynamically
+                const togglesContainer = document.getElementById('part-toggles-container');
+                togglesContainer.innerHTML = '';
+                for (let part of currentMetadata.parts) {
+                    // Load SVG shape (using relativeUrl to support nested parent-piece folders, fallback to filename)
+                    const url = `svg/${profileFolder}/${part.relativeUrl || part.filename}`;
+                    const data = await new Promise((resolve, reject) => {
+                        svgLoader.load(url, resolve, null, reject);
+                    });
+                    const path = data.paths[0];
+                    const shapes = SVGLoader.createShapes(path);
+
+                    const layer = part.layer.toLowerCase();
+                    const blockName = (part.blockName || '').toLowerCase();
+
+                    // Smart CAD catalog heuristics (Schüco part numbering system)
+                    const isAlu = layer.includes('al') || blockName.startsWith('5') || blockName.startsWith('1') || blockName.startsWith('3') || blockName.includes('alu');
+                    const isIso = layer.includes('isolation') || layer.includes('isoli') || blockName.startsWith('245') || blockName.includes('iso');
+                    const isCentralSeal = blockName.includes('224068');
+                    const isEPDM = !isCentralSeal && (layer.includes('epdm') || layer.includes('dichtung') || blockName.startsWith('224') || blockName.startsWith('200') || blockName.startsWith('244') || blockName.includes('dicht'));
+                    const isFoam = layer.includes('dämmung') || layer.includes('daemmung') || blockName.startsWith('288') || blockName.startsWith('300') || blockName.includes('dämm') || blockName.includes('daemm');
+
+                    // Resolve CAD color (extract from metadata, fallback to curated colors)
+                    let cadColor = part.color;
+                    if (!cadColor) {
+                        if (isAlu) {
+                            cadColor = '#e2e8f0';
+                        } else if (isIso) {
+                            cadColor = '#166534';
+                        } else if (isCentralSeal) {
+                            cadColor = '#38bdf8';
+                        } else if (isEPDM) {
+                            cadColor = '#ea580c';
+                        } else if (isFoam) {
+                            cadColor = '#22c55e';
+                        } else {
+                            cadColor = '#78716c';
+                        }
+                    }
+
+                    // Determine PBR physical properties based on CAD heuristics
+                    let metalness = 0.1;
+                    let roughness = 0.7;
+                    let opacity = 1.0;
+                    let transparent = false;
+
+                    if (isAlu) {
+                        metalness = 0.3;
+                        roughness = 0.4;
+                    } else if (isIso) {
+                        metalness = 0.1;
+                        roughness = 0.7;
+                    } else if (isEPDM) {
+                        metalness = 0.05;
+                        roughness = 0.8;
+                    } else if (isFoam) {
+                        metalness = 0.0;
+                        roughness = 0.95;
+                    }
+
+                    // Specific glass material override if drawing contains glass
+                    if (layer.includes('glas') || blockName.includes('glas')) {
+                        cadColor = '#60a5fa';
+                        opacity = 0.25;
+                        transparent = true;
+                        metalness = 0.9;
+                        roughness = 0.1;
+                    }
+
+                    const material = new THREE.MeshStandardMaterial({
+                        color: new THREE.Color(cadColor),
+                        metalness: metalness,
+                        roughness: roughness,
+                        opacity: opacity,
+                        transparent: transparent,
+                        side: THREE.DoubleSide
+                    });
+
+                    // Determine base explode offset
+                    let baseExplode = 0.12;
+                    if (part.role === 'sash') {
+                        baseExplode = 0.26;
+                    } else if (isIso) {
+                        baseExplode = 0.18;
+                    }
+
+                    profilesData.push({
+                        index: part.index,
+                        layer: part.layer,
+                        blockName: part.blockName || `Part ${part.index}`,
+                        role: part.role,
+                        shape: shapes[0],
+                        material: material,
+                        explodeOffset: baseExplode,
+                        bbox: part.bbox
+                    });
+
+                    // Add Toggle UI with technical piece names (fallback to generic label)
+                    const item = document.createElement('div');
+                    item.className = 'part-toggle-item';
+
+                    const colorDot = cadColor;
+
+                    const labelText = part.parentBlock ? `${part.parentBlock} / ${part.blockName}` : (part.blockName || `Part ${part.index} (${part.layer})`);
+                    item.innerHTML = `
+                        <span><span class="part-color-dot" style="background-color: ${colorDot};"></span>${labelText}</span>
+                        <input type="checkbox" id="toggle_${part.index}" checked>
+                    `;
+                    togglesContainer.appendChild(item);
+                    document.getElementById(`toggle_${part.index}`).addEventListener('change', buildWindow);
+                }
+
+            } catch (e) {
+                console.error(`Eroare la încărcarea setului de profile ${profileFolder}:`, e);
+            }
+
+            document.getElementById('loading').style.display = 'none';
+            buildWindow();
+        }
+
+        // EXPLOSION REGISTER
+        let isExploded = false;
+        let explodeProgress = 0;
+        let explodableObjects = [];
+
+        function registerExplode(obj, dx, dy, dz) {
+            obj.userData.basePos = obj.position.clone();
+            obj.userData.explodeDir = new THREE.Vector3(dx, dy, dz);
+            explodableObjects.push(obj);
+        }
+
+        // MITER ENGINE EXTRUDER
+        function createMiteredSide(profile, lengthA, lengthB, side, expDist) {
+            const isHorizontal = side === 'bottom' || side === 'top';
+            const length = isHorizontal ? lengthA : lengthB;
+
+            const extrudeSettings = { depth: length, bevelEnabled: false, curveSegments: 8, steps: 1 };
+            const geom = new THREE.ExtrudeGeometry(profile.shape, extrudeSettings);
+
+            const posAttribute = geom.attributes.position;
+            const v = new THREE.Vector3();
+
+            for (let i = 0; i < posAttribute.count; i++) {
+                v.fromBufferAttribute(posAttribute, i);
+
+                // Reconstruct CAD coordinates from SVG Space (X=x, Y=-y)
+                let x_cad = v.x;
+                let y_cad = -v.y;
+
+                // Center X coordinates around 0
+                let x_norm = x_cad - currentMetadata.globalCenterX;
+
+                // Normalize Y coordinate based on drawing type (Horizontal vs Vertical)
+                let y_norm;
+                if (currentMetadata.isVertical) {
+                    // For vertical profile: Top is Frame (inw=0), Bottom is Sash (inw=max)
+                    y_norm = currentMetadata.globalMaxY - y_cad;
+                } else {
+                    // For horizontal profile: Bottom is Frame (inw=0), Top is Sash (inw=max)
+                    y_norm = y_cad - currentMetadata.globalMinY;
+                }
+
+                let u = x_norm * S;       // Profile depth (Z axis in 3D profile space)
+                let inw = y_norm * S;     // Profile height (inward distance to glass)
+                let zRaw = v.z - length / 2;
+
+                // Calculate the 45-degree miter corner cut
+                let z_cut = zRaw > 0 ? zRaw - inw : zRaw + inw;
+
+                // Orient the side correctly around the window frame
+                let xw, yw, zw = u;
+                if (side === 'bottom') { xw = -z_cut; yw = -lengthB / 2 + inw; }
+                if (side === 'top') { xw = z_cut; yw = lengthB / 2 - inw; }
+                if (side === 'left') { xw = -lengthA / 2 + inw; yw = z_cut; }
+                if (side === 'right') { xw = lengthA / 2 - inw; yw = -z_cut; }
+
+                posAttribute.setXYZ(i, xw, yw, zw);
+            }
+            geom.computeVertexNormals();
+
+            const mesh = new THREE.Mesh(geom, profile.material);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            // Explode directions
+            let expX = 0, expY = 0;
+            if (side === 'bottom') expY = -expDist;
+            if (side === 'top') expY = expDist;
+            if (side === 'left') expX = -expDist;
+            if (side === 'right') expX = expDist;
+
+            registerExplode(mesh, expX, expY, expDist * 0.3);
+            return mesh;
+        }
+
+        // SCENE ELEMENTS
+        const mainGroup = new THREE.Group();
+        const pivotOscilo = new THREE.Group();
+        const pivotBatant = new THREE.Group();
+        let handleLeverGroup = new THREE.Group();
+        scene.add(mainGroup);
+
+        function buildWindow() {
+            if (!currentMetadata) return;
+
+            // Clear previous meshes
+            while (mainGroup.children.length > 0) mainGroup.remove(mainGroup.children[0]);
+            pivotOscilo.clear();
+            pivotBatant.clear();
+            explodableObjects = [];
+
+            const A = parseFloat(document.getElementById('widthA').value);
+            const B = parseFloat(document.getElementById('heightB').value);
+
+            // UI text update
+            document.getElementById('valWidth').innerText = A.toFixed(2) + ' m';
+            document.getElementById('valHeight').innerText = B.toFixed(2) + ' m';
+
+            const frameGroup = new THREE.Group();
+            const sashGroup = new THREE.Group();
+
+            // Check toggles from UI
+            const activeProfiles = profilesData.filter(profile => {
+                const toggle = document.getElementById(`toggle_${profile.index}`);
+                return toggle ? toggle.checked : true;
+            });
+
+            // Miter-extrude each active part on all 4 sides of the window
+            activeProfiles.forEach(profile => {
+                // ['top'].forEach(side => {
+                // ['bottom', 'top', 'left', 'right'].forEach(side => {
+                ['top'].forEach(side => {
+                    const mesh = createMiteredSide(profile, A, B, side, profile.explodeOffset);
+
+                    // Group meshes by their role
+                    if (profile.role === 'frame') {
+                        frameGroup.add(mesh);
+                    } else {
+                        sashGroup.add(mesh);
+                    }
+                });
+            });
+
+            mainGroup.add(frameGroup);
+
+            // Calculate Sash depth dynamically to align Glass and Handle
+            let sashMinX = Infinity, sashMaxX = -Infinity;
+            profilesData.forEach(p => {
+                if (p.role === 'sash' && p.layer.toLowerCase().includes('al')) {
+                    if (p.bbox.minX < sashMinX) sashMinX = p.bbox.minX;
+                    if (p.bbox.maxX > sashMaxX) sashMaxX = p.bbox.maxX;
+                }
+            });
+
+            // If no sash parts are active, fallback to frame
+            if (sashMinX === Infinity) {
+                sashMinX = currentMetadata.globalMinX;
+                sashMaxX = currentMetadata.globalMaxX;
+            }
+
+            const sashCenterX = ((sashMinX + sashMaxX) / 2 - currentMetadata.globalCenterX) * S;
+
+            // Glass
+            const glassW = A - 2 * (100 * S);
+            const glassH = B - 2 * (100 * S);
+            const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, glassH, 0.024), glassMat);
+            glass.position.set(0, 0, sashCenterX);
+            glass.castShadow = true;
+            glass.receiveShadow = true;
+
+            registerExplode(glass, 0, 0, 0.5); // Explode forward
+            sashGroup.add(glass);
+
+            // Handle
+            const handleBase = new THREE.Group();
+            const plate = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.015), handleMat);
+            plate.castShadow = true;
+
+            handleLeverGroup = new THREE.Group();
+            const lever = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.14, 0.025), handleMat);
+            lever.position.y = -0.05;
+            lever.castShadow = true;
+            handleLeverGroup.add(lever);
+            handleBase.add(plate, handleLeverGroup);
+
+            handleBase.position.set(A / 2 - 0.08, 0, sashCenterX + 0.02);
+            registerExplode(handleBase, 0.3, 0, 0.6);
+            sashGroup.add(handleBase);
+
+            // Hinge pivots logic
+            const hingeX = -A / 2 + 0.04;
+            const hingeY = -B / 2 + 0.04;
+            const hingeZ = sashCenterX;
+
+            pivotOscilo.position.set(0, hingeY, hingeZ);
+            mainGroup.add(pivotOscilo);
+
+            pivotBatant.position.set(hingeX, -hingeY, 0);
+            pivotOscilo.add(pivotBatant);
+
+            // Wrap sash inside hinge pivots
+            const sashWrapper = new THREE.Group();
+            sashWrapper.position.set(-hingeX, 0, -hingeZ);
+            sashWrapper.add(sashGroup);
+            pivotBatant.add(sashWrapper);
+        }
+
+        // ANIMATION & LOOP
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const val = parseFloat(document.getElementById('openAngle').value);
+            const isBatant = document.getElementById('mBatant').checked;
+
+            // UI text update for angle
+            document.getElementById('valAngle').innerText = Math.round(val * (180 / Math.PI)) + '°';
+
+            // Opening Physics
+            if (isBatant) {
+                pivotBatant.rotation.y = -val;
+                pivotOscilo.rotation.x = 0;
+                if (handleLeverGroup) handleLeverGroup.rotation.z = THREE.MathUtils.lerp(handleLeverGroup.rotation.z, Math.PI, 0.1);
+            } else {
+                pivotBatant.rotation.y = 0;
+                const maxOscilo = 15 * (Math.PI / 180);
+                pivotOscilo.rotation.x = Math.min(val * 0.25, maxOscilo);
+                if (handleLeverGroup) handleLeverGroup.rotation.z = THREE.MathUtils.lerp(handleLeverGroup.rotation.z, Math.PI / 2, 0.1);
+            }
+
+            // Explosion Physics
+            explodeProgress = THREE.MathUtils.lerp(explodeProgress, isExploded ? 1 : 0, 0.08);
+            explodableObjects.forEach(obj => {
+                if (obj.userData.basePos && obj.userData.explodeDir) {
+                    obj.position.copy(obj.userData.basePos).addScaledVector(obj.userData.explodeDir, explodeProgress);
+                }
+            });
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // EVENT LISTENERS
+        document.getElementById('widthA').addEventListener('input', buildWindow);
+        document.getElementById('heightB').addEventListener('input', buildWindow);
+        document.getElementById('cExplode').addEventListener('change', (e) => { isExploded = e.target.checked; });
+
+        // Dropdown change listener
+        document.getElementById('cadProfile').addEventListener('change', (e) => {
+            loadProfiles(e.target.value);
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start loading default (vertical profile)
+        loadProfiles('2_6_Oeffnungselement_Vertikal');
+        animate();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,10 @@
+(vl-file-delete "c:/Users/monin/random/incercam/dwg/AW_CT_65_Oeffnungselement_vertikal.dxf")
+(setvar "QAFLAGS" 1)
+(setq ss (ssget "X" '((0 . "INSERT"))))
+(while ss (command "_EXPLODE" ss "") (setq ss (ssget "X" '((0 . "INSERT")))))
+(setvar "QAFLAGS" 0)
+_DXFOUT
+"c:/Users/monin/random/incercam/dwg/AW_CT_65_Oeffnungselement_vertikal.dxf"
+
+_QUIT
+_N
