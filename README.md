@@ -29,7 +29,8 @@ The server will run on [http://localhost:3000](http://localhost:3000) and automa
 To convert new CAD profiles from DWG to the application's SVG/JSON format:
 
 1. Place your `.dwg` file in the `dwg/` directory.
-2. Run the converter script (requires AutoCAD 2027 Console):
+2. Ensure you have the free **ODA File Converter** installed.
+3. Run the converter script:
    ```bash
    node convert.js <dwgName>.dwg
    ```
