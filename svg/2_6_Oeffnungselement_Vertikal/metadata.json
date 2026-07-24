@@ -1,6 +1,8 @@
 {
   "dwgName": "2_6_Oeffnungselement_Vertikal.dwg",
   "isVertical": true,
+  "hasSplit": false,
+  "splitY": null,
   "globalMinX": 57.49712704920579,
   "globalMaxX": 132.5046370103966,
   "globalMinY": 136.62001495636233,
@@ -15,6 +17,7 @@
       "parentBlock": null,
       "layer": "0",
       "role": "frame",
+      "section": "top",
       "color": "#ffbf7f",
       "bbox": {
         "minX": 68.66498911869812,
@@ -32,7 +35,8 @@
       "blockName": "245472_s_5",
       "parentBlock": null,
       "layer": "0",
-      "role": "sash",
+      "role": "frame",
+      "section": "top",
       "color": "#ffbf7f",
       "bbox": {
         "minX": 59.70468267603134,
@@ -50,7 +54,8 @@
       "blockName": "224063_s",
       "parentBlock": null,
       "layer": "0",
-      "role": "sash",
+      "role": "frame",
+      "section": "top",
       "color": "#ffbf7f",
       "bbox": {
         "minX": 59.5043593492078,
@@ -69,6 +74,7 @@
       "parentBlock": null,
       "layer": "S03_AL_Kontur",
       "role": "sash",
+      "section": "top",
       "color": "#ffbf7f",
       "bbox": {
         "minX": 92.81397081583336,
@@ -87,6 +93,7 @@
       "parentBlock": "575770_s",
       "layer": "0",
       "role": "frame",
+      "section": "top",
       "color": "#ffffff",
       "bbox": {
         "minX": 57.504720000444415,
@@ -105,6 +112,7 @@
       "parentBlock": "575770_s",
       "layer": "0",
       "role": "frame",
+      "section": "top",
       "color": "#ffffff",
       "bbox": {
         "minX": 100.70473316059207,
@@ -123,6 +131,7 @@
       "parentBlock": "662009_s",
       "layer": "0",
       "role": "frame",
+      "section": "top",
       "color": "#7fff7f",
       "bbox": {
         "minX": 70.01472000044443,
@@ -141,6 +150,7 @@
       "parentBlock": "662019_s",
       "layer": "0",
       "role": "frame",
+      "section": "top",
       "color": "#7fff7f",
       "bbox": {
         "minX": 69.91472000044442,
@@ -159,6 +169,7 @@
       "parentBlock": "662019_s",
       "layer": "0",
       "role": "frame",
+      "section": "top",
       "color": "#00ff00",
       "bbox": {
         "minX": 80.70472000044444,
@@ -176,7 +187,8 @@
       "blockName": "245472_s",
       "parentBlock": null,
       "layer": "S03_AL_Kontur",
-      "role": "frame",
+      "role": "sash",
+      "section": "top",
       "color": "#ffbf7f",
       "bbox": {
         "minX": 122.71057136566625,
@@ -195,6 +207,7 @@
       "parentBlock": "575790_s",
       "layer": "0",
       "role": "sash",
+      "section": "top",
       "color": "#ffffff",
       "bbox": {
         "minX": 57.49712704920579,
@@ -213,6 +226,7 @@
       "parentBlock": "575790_s",
       "layer": "0",
       "role": "sash",
+      "section": "top",
       "color": "#ffffff",
       "bbox": {
         "minX": 111.39714020935347,
@@ -231,6 +245,7 @@
       "parentBlock": "662011_s",
       "layer": "0",
       "role": "sash",
+      "section": "top",
       "color": "#7fff7f",
       "bbox": {
         "minX": 69.20712704920518,
@@ -249,6 +264,7 @@
       "parentBlock": "662015_s",
       "layer": "0",
       "role": "sash",
+      "section": "top",
       "color": "#7fff7f",
       "bbox": {
         "minX": 69.20712704920548,
@@ -267,6 +283,7 @@
       "parentBlock": "662015_s",
       "layer": "0",
       "role": "sash",
+      "section": "top",
       "color": "#00ff00",
       "bbox": {
         "minX": 84.69712704920548,
@@ -285,6 +302,7 @@
       "parentBlock": null,
       "layer": "0",
       "role": "sash",
+      "section": "top",
       "color": "#ffffff",
       "bbox": {
         "minX": 100.5046370103966,
@@ -303,6 +321,7 @@
       "parentBlock": "573940_s",
       "layer": "0",
       "role": "sash",
+      "section": "top",
       "color": "#ffbf7f",
       "bbox": {
         "minX": 120.0046370103966,
@@ -321,6 +340,7 @@
       "parentBlock": null,
       "layer": "Viewport4ForCustomObjects_0",
       "role": "sash",
+      "section": "top",
       "color": "#ffffff",
       "bbox": {
         "minX": 100.00662522532912,
@@ -339,6 +359,7 @@
       "parentBlock": null,
       "layer": "0",
       "role": "frame",
+      "section": "top",
       "color": "#7fff7f",
       "bbox": {
         "minX": 76.80472000044438,

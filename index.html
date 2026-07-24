@@ -239,9 +239,10 @@
         <div class="control-group">
             <label>Alege Profil CAD:</label>
             <select id="cadProfile">
-                <option value="2_6_Oeffnungselement_Vertikal" selected>2_6 Öffnungselement (Vertical - Nou)</option>
-                <option value="575760_d1">575760_d1 (Orizontal)</option>
-                <option value="AW_CT_65_Oeffnungselement_vertikal">AW CT 65 (Vertical - Vechi)</option>
+                <option value="2_6_Oeffnungselement_Vertikal" selected>2_6 Öffnungselement Vertikal</option>
+                <option value="2_4_Oeffnungselemnt_Vertikal">2_4 Öffnungselement Vertikal</option>
+                <option value="575760_d1">575760_d1</option>
+                <option value="AW_CT_65_Oeffnungselement_vertikal">AW CT 65 Öffnungselement Vertikal</option>
             </select>
         </div>
 
@@ -274,7 +275,11 @@
         </div>
 
         <div class="part-toggles">
-            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Componente
+            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Filtre
+                Culori</label>
+            <div id="group-filters" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;"></div>
+            <label
+                style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: block;">Componente
                 Profile</label>
             <div id="part-toggles-container"></div>
         </div>
@@ -516,10 +521,12 @@
                         layer: part.layer,
                         blockName: part.blockName || `Part ${part.index}`,
                         role: part.role,
+                        section: part.section || 'top',
                         shape: shapes[0],
                         material: material,
                         explodeOffset: baseExplode,
-                        bbox: part.bbox
+                        bbox: part.bbox,
+                        color: cadColor
                     });
 
                     // Add Toggle UI with technical piece names (fallback to generic label)
@@ -536,6 +543,78 @@
                     togglesContainer.appendChild(item);
                     document.getElementById(`toggle_${part.index}`).addEventListener('change', buildWindow);
                 }
+
+                // Render color group filters dynamically
+                const groupFiltersContainer = document.getElementById('group-filters');
+                groupFiltersContainer.innerHTML = '';
+
+                // Get unique colors
+                const uniqueColors = [...new Set(profilesData.map(p => p.color))];
+
+                function getColorName(hex) {
+                    const names = {
+                        // '#ffffff': 'Alb (Cadru/Cercevea)',
+                        // '#ffbf7f': 'Piersică (Barieră Termică)',
+                        // '#ea580c': 'Portocaliu (Garnituri EPDM)',
+                        // '#22c55e': 'Verde (Spumă Izolatoare)',
+                        // '#38bdf8': 'Albastru (Garnituri)',
+                        // '#78716c': 'Gri Închis (Accesorii)',
+                        // '#60a5fa': 'Sticlă'
+                    };
+                    return names[hex.toLowerCase()] || `${hex.toUpperCase()}`;
+                }
+
+                uniqueColors.forEach(catColor => {
+                    const catName = getColorName(catColor);
+                    const row = document.createElement('div');
+                    row.className = 'category-filter-row';
+                    row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; font-size: 12px; background: rgba(30, 41, 59, 0.4); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);';
+
+                    row.innerHTML = `
+                        <span style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span class="part-color-dot" style="background-color: ${catColor}; margin-right: 0; width: 8px; height: 8px;"></span>
+                            <span style="font-weight: 500; color: #e2e8f0;">${catName}</span>
+                        </span>
+                        <div style="display: flex; gap: 6px;">
+                            <button class="btn-show-group" style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.35); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Arată</button>
+                            <button class="btn-hide-group" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Ascunde</button>
+                        </div>
+                    `;
+
+                    row.querySelector('.btn-show-group').addEventListener('click', () => {
+                        profilesData.forEach(p => {
+                            if (p.color === catColor) {
+                                const cb = document.getElementById(`toggle_${p.index}`);
+                                if (cb) cb.checked = true;
+                            }
+                        });
+                        buildWindow();
+                    });
+
+                    row.querySelector('.btn-hide-group').addEventListener('click', () => {
+                        profilesData.forEach(p => {
+                            if (p.color === catColor) {
+                                const cb = document.getElementById(`toggle_${p.index}`);
+                                if (cb) cb.checked = false;
+                            }
+                        });
+                        buildWindow();
+                    });
+
+                    // Add hover animations
+                    row.querySelectorAll('button').forEach(btn => {
+                        btn.addEventListener('mouseenter', () => {
+                            btn.style.transform = 'scale(1.05)';
+                            btn.style.background = btn.classList.contains('btn-show-group') ? 'rgba(14, 165, 233, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+                        });
+                        btn.addEventListener('mouseleave', () => {
+                            btn.style.transform = 'scale(1.0)';
+                            btn.style.background = btn.classList.contains('btn-show-group') ? 'rgba(14, 165, 233, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+                        });
+                    });
+
+                    groupFiltersContainer.appendChild(row);
+                });
 
             } catch (e) {
                 console.error(`Eroare la încărcarea setului de profile ${profileFolder}:`, e);
@@ -576,7 +655,11 @@
                 // Normalize Y coordinate based on drawing type (Horizontal vs Vertical)
                 let y_norm;
                 if (currentMetadata.isVertical) {
-                    y_norm = currentMetadata.globalMaxY - y_cad;
+                    if (profile.section === 'bottom') {
+                        y_norm = y_cad - currentMetadata.globalMinY;
+                    } else {
+                        y_norm = currentMetadata.globalMaxY - y_cad;
+                    }
                 } else {
                     y_norm = y_cad - currentMetadata.globalMinY;
                 }
@@ -624,10 +707,12 @@
                 // Normalize Y coordinate based on drawing type (Horizontal vs Vertical)
                 let y_norm;
                 if (currentMetadata.isVertical) {
-                    // For vertical profile: Top is Frame (inw=0), Bottom is Sash (inw=max)
-                    y_norm = currentMetadata.globalMaxY - y_cad;
+                    if (profile.section === 'bottom') {
+                        y_norm = y_cad - currentMetadata.globalMinY;
+                    } else {
+                        y_norm = currentMetadata.globalMaxY - y_cad;
+                    }
                 } else {
-                    // For horizontal profile: Bottom is Frame (inw=0), Top is Sash (inw=max)
                     y_norm = y_cad - currentMetadata.globalMinY;
                 }
 
@@ -705,6 +790,19 @@
             // Rebuild 3D sample extrusion (10cm) in front of the camera
             activeProfiles.forEach(profile => {
                 const sampleMesh = createSampleExtrusion(profile);
+                if (currentMetadata.hasSplit) {
+                    if (profile.section === 'top') {
+                        // Flip Y axis (rotation around X) so frame is at the top and sash at the bottom,
+                        // keeping X (left/right) aligned.
+                        sampleMesh.rotation.x = Math.PI;
+                        // Shift the top section sample upward
+                        sampleMesh.position.y = 0.28;
+                    } else if (profile.section === 'bottom') {
+                        // Position the bottom section sample at the base with default orientation
+                        // (frame at bottom, sash at top). No rotation is needed.
+                        sampleMesh.position.y = 0.0;
+                    }
+                }
                 sectionGroup.add(sampleMesh);
             });
             // Rotate the group to face the camera
@@ -713,6 +811,17 @@
             // Miter-extrude each active part on all 4 sides of the window
             activeProfiles.forEach(profile => {
                 ['bottom', 'top', 'left', 'right'].forEach(side => {
+                    let useProfile = true;
+                    if (currentMetadata.isVertical && currentMetadata.hasSplit) {
+                        if (profile.section === 'bottom') {
+                            useProfile = (side === 'bottom');
+                        } else if (profile.section === 'top') {
+                            useProfile = (side === 'top' || side === 'left' || side === 'right');
+                        }
+                    }
+
+                    if (!useProfile) return;
+
                     const mesh = createMiteredSide(profile, A, B, side, profile.explodeOffset);
 
                     // Group meshes by their role
