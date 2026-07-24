@@ -1,44 +1,63 @@
-# Window Configurator (3D DWG Profile Extruder)
+# Window Configurator
 
-An interactive 3D WebGL tool built with **Three.js** to visualize, extrude, and inspect window profiles directly from CAD drawings (DWG/DXF).
+Browser-based Three.js configurator that reconstructs and extrudes window profile sections exported from DWG/DXF.
 
----
+## Public website and QR-to-AR flow
 
-## Getting Started
+The repository includes a GitHub Pages workflow at:
 
-### 1. Prerequisites
-Ensure you have [Node.js](https://nodejs.org/) installed.
-
-### 2. Install Dependencies
-Install the required parser libraries:
-```bash
-npm install
+```text
+.github/workflows/deploy-pages.yml
 ```
 
-### 3. Run the Web Server
-Launch the development server:
+After the repository is pushed to GitHub:
+
+1. Open the repository on GitHub.
+2. Go to **Settings → Pages**.
+3. Under **Build and deployment**, select **GitHub Actions** as the source.
+4. Open the latest workflow run or the Pages URL shown by GitHub.
+
+Visitors only open the published HTTPS website. They do not run Node.js, Cloudflare Tunnel, command prompts, or local servers.
+
+The desktop configurator has a **Scan QR for AR view** button in the upper-right corner. The QR is generated only when that button is pressed and contains the current:
+
+- CAD profile;
+- width and height;
+- opening mode and angle;
+- exploded-view state;
+- enabled/disabled profile components.
+
+Scanning the QR opens a minimal mobile page for that exact configuration. Due to browser security, starting an immersive WebXR camera session requires one explicit tap on **View in AR**. After that, the page has no configurator menus; it detects a surface and places the window automatically. If surface hit testing is unavailable, the model is placed in front of the camera.
+
+### AR requirements
+
+- public HTTPS deployment;
+- ARCore-compatible Android phone;
+- Google Play Services for AR installed and enabled;
+- WebXR-compatible Android browser, normally Google Chrome.
+
+## Optional local development
+
+Local development still supports the existing Node server:
+
 ```bash
 node server.js
 ```
-The server will run on [http://localhost:3000](http://localhost:3000) and automatically open the application in your default browser.
 
----
+Then open `http://localhost:3000`. A QR generated from localhost is intentionally rejected because a phone cannot access that private URL as a secure public WebXR page.
 
-## DXF/SVG Conversion (Optional)
+## DXF/SVG conversion
 
-To convert new CAD profiles from DWG to the application's SVG/JSON format:
+Place a `.dwg` file in `dwg/`, then use one of the conversion scripts:
 
-1. Place your `.dwg` file in the `dwg/` directory.
-2. Run one of the conversion scripts depending on your installed CAD conversion engine:
+```bash
+node dwg_to_svg_with_autocad.js <file>.dwg
+```
 
-   * **AutoCAD Core Console (Recommended)**:
-     Uses the Autodesk AutoCAD 2027 Core Console (`accoreconsole.exe`) to perform high-fidelity block exports.
-     ```bash
-     node dwg_to_svg_with_autocad.js <dwgName>.dwg
-     ```
+or:
 
-   * **ODA File Converter**:
-     Uses the standalone ODA File Converter (`ODAFileConverter.exe`).
-     ```bash
-     node dwg_to_svg_with_oda.js <dwgName>.dwg
-     ```
+```bash
+node dwg_to_svg_with_oda.js <file>.dwg
+```
+
+The generated SVG profiles and `metadata.json` files are stored under `svg/` and are included in the static deployment.

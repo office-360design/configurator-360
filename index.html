@@ -3,6 +3,12 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <script>
+        if (new URLSearchParams(window.location.search).get('ar') === '1') {
+            document.documentElement.classList.add('ar-mode');
+        }
+    </script>
     <title>DWG Section Extrusion - Three.js</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -221,6 +227,187 @@
                 transform: rotate(360deg);
             }
         }
+
+
+        /* QR-to-AR controls */
+        #qr-ar-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 20;
+            border: 1px solid rgba(96, 165, 250, 0.55);
+            border-radius: 12px;
+            padding: 12px 18px;
+            background: rgba(15, 23, 42, 0.9);
+            color: #eff6ff;
+            font: 600 14px 'Outfit', sans-serif;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(12px);
+            transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+
+        #qr-ar-button:hover {
+            transform: translateY(-1px);
+            border-color: #60a5fa;
+            background: rgba(30, 64, 175, 0.88);
+        }
+
+        #qr-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(2, 6, 23, 0.72);
+            backdrop-filter: blur(8px);
+        }
+
+        #qr-modal.open {
+            display: flex;
+        }
+
+        .qr-dialog {
+            position: relative;
+            width: min(390px, calc(100vw - 40px));
+            box-sizing: border-box;
+            padding: 26px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 18px;
+            background: #0f172a;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+            text-align: center;
+        }
+
+        .qr-dialog h3 {
+            margin: 0 30px 8px;
+            font-size: 20px;
+        }
+
+        .qr-dialog p {
+            margin: 0 0 18px;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        #qr-code {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 260px;
+            padding: 14px;
+            border-radius: 14px;
+            background: #fff;
+            color: #0f172a;
+            overflow: hidden;
+        }
+
+        #qr-code svg {
+            display: block;
+            width: min(260px, 70vw);
+            height: auto;
+        }
+
+        #qr-error {
+            display: none;
+            min-height: 0;
+            padding: 16px;
+            border: 1px solid rgba(248, 113, 113, 0.35);
+            border-radius: 12px;
+            background: rgba(127, 29, 29, 0.2);
+            color: #fecaca;
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: left;
+        }
+
+        #qr-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 34px;
+            height: 34px;
+            border: 0;
+            border-radius: 9px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        #ar-launch {
+            position: fixed;
+            inset: 0;
+            z-index: 300;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: radial-gradient(circle at center, #172554 0%, #020617 72%);
+            text-align: center;
+        }
+
+        .ar-mode #controls,
+        .ar-mode #qr-ar-button,
+        .ar-mode #qr-modal {
+            display: none !important;
+        }
+
+        .ar-mode #ar-launch {
+            display: flex;
+        }
+
+        .ar-launch-card {
+            width: min(360px, 100%);
+        }
+
+        .ar-launch-card h1 {
+            margin-bottom: 10px;
+            font-size: 27px;
+        }
+
+        .ar-launch-card p {
+            margin: 0 0 20px;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        #ar-start-button {
+            width: 100%;
+            border: 0;
+            border-radius: 14px;
+            padding: 15px 18px;
+            background: #2563eb;
+            color: white;
+            font: 700 16px 'Outfit', sans-serif;
+            cursor: pointer;
+        }
+
+        #ar-start-button:disabled {
+            cursor: wait;
+            opacity: 0.55;
+        }
+
+        #ar-status {
+            min-height: 40px;
+            margin-top: 14px;
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        @media (max-width: 760px) {
+            #qr-ar-button {
+                top: 12px;
+                right: 12px;
+                padding: 10px 13px;
+                font-size: 12px;
+            }
+        }
+
     </style>
 </head>
 
@@ -282,6 +469,28 @@
 
     <div id="canvas-container"></div>
 
+    <button id="qr-ar-button" type="button">Scan QR for AR view</button>
+
+    <div id="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qr-title">
+        <div class="qr-dialog">
+            <button id="qr-close" type="button" aria-label="Close">×</button>
+            <h3 id="qr-title">View this configuration in AR</h3>
+            <p>Scan the code with an ARCore-compatible Android phone. The QR is generated only when this dialog is opened.</p>
+            <div id="qr-code"></div>
+            <div id="qr-error"></div>
+        </div>
+    </div>
+
+    <div id="ar-launch">
+        <div class="ar-launch-card">
+            <h1>Window AR view</h1>
+            <p>The configured window is ready. Tap once to allow the browser to open the camera and place it automatically.</p>
+            <button id="ar-start-button" type="button" disabled>Preparing AR…</button>
+            <div id="ar-status">Loading the selected profile…</div>
+        </div>
+    </div>
+
+
     <script type="importmap">
     {
         "imports": {
@@ -291,33 +500,76 @@
     }
 </script>
 
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 
+        const pageParams = new URLSearchParams(window.location.search);
+        const isARMode = pageParams.get('ar') === '1';
+        const allowedProfiles = new Set([
+            '2_6_Oeffnungselement_Vertikal',
+            '575760_d1',
+            'AW_CT_65_Oeffnungselement_vertikal'
+        ]);
+        const requestedProfileValue = pageParams.get('profile') || '2_6_Oeffnungselement_Vertikal';
+        const requestedProfile = allowedProfiles.has(requestedProfileValue)
+            ? requestedProfileValue
+            : '2_6_Oeffnungselement_Vertikal';
+        const requestedActiveParts = pageParams.has('parts')
+            ? new Set(pageParams.get('parts').split(',').filter(Boolean))
+            : null;
+
+        const parseBoundedNumber = (value, fallback, min, max) => {
+            const parsed = Number.parseFloat(value);
+            return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+        };
+
+        if (isARMode) {
+            const width = parseBoundedNumber(pageParams.get('w'), 1.2, 0.5, 3.0);
+            const height = parseBoundedNumber(pageParams.get('h'), 1.5, 0.5, 3.0);
+            const angle = parseBoundedNumber(pageParams.get('angle'), 0, 0, 1.5);
+            const mode = pageParams.get('mode') === 'oscilo' ? 'oscilo' : 'batant';
+
+            document.getElementById('cadProfile').value = requestedProfile;
+            document.getElementById('widthA').value = String(width);
+            document.getElementById('heightB').value = String(height);
+            document.getElementById('openAngle').value = String(angle);
+            document.getElementById('mBatant').checked = mode === 'batant';
+            document.getElementById('mOscilo').checked = mode === 'oscilo';
+            document.getElementById('cExplode').checked = pageParams.get('explode') === '1';
+        }
+
         const S = 0.001; // Scale factor: CAD mm to Three.js meters
 
         // SCENE, CAMERA & RENDERER SETUP
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a);
-        scene.fog = new THREE.FogExp2(0x0f172a, 0.1);
+        scene.background = isARMode ? null : new THREE.Color(0x0f172a);
+        scene.fog = isARMode ? null : new THREE.FogExp2(0x0f172a, 0.1);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 50);
         camera.position.set(1.4, 0.9, 2.2);
 
         const container = document.getElementById('canvas-container');
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: isARMode });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
+        if (isARMode) {
+            renderer.xr.enabled = true;
+            renderer.xr.setReferenceSpaceType('local');
+        }
+
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         controls.target.set(0, 0, 0);
+        controls.enabled = !isARMode;
 
         // GROUND PLANE
         const groundGeo = new THREE.PlaneGeometry(100, 100);
@@ -330,11 +582,13 @@
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = -1.2;
         ground.receiveShadow = true;
+        ground.visible = !isARMode;
         scene.add(ground);
 
         // GRID HELPER
         const gridHelper = new THREE.GridHelper(30, 30, 0x475569, 0x334155);
         gridHelper.position.y = -1.19;
+        gridHelper.visible = !isARMode;
         scene.add(gridHelper);
 
         // LIGHTING
@@ -419,10 +673,15 @@
         async function loadProfiles(profileFolder) {
             document.getElementById('loading').style.display = 'block';
             profilesData = [];
+            profilesReady = false;
+            let loadSucceeded = false;
 
             try {
                 // Fetch metadata
                 const response = await fetch(`svg/${profileFolder}/metadata.json`);
+                if (!response.ok) {
+                    throw new Error(`Metadata request failed with HTTP ${response.status}`);
+                }
                 currentMetadata = await response.json();
 
                 // Render UI toggles dynamically
@@ -529,24 +788,36 @@
                     const colorDot = cadColor;
 
                     const labelText = part.parentBlock ? `${part.parentBlock} / ${part.blockName}` : (part.blockName || `Part ${part.index} (${part.layer})`);
+                    const isRequestedPartActive = !isARMode
+                        || requestedActiveParts === null
+                        || requestedActiveParts.has(String(part.index));
                     item.innerHTML = `
                         <span><span class="part-color-dot" style="background-color: ${colorDot};"></span>${labelText}</span>
-                        <input type="checkbox" id="toggle_${part.index}" checked>
+                        <input type="checkbox" id="toggle_${part.index}" ${isRequestedPartActive ? 'checked' : ''}>
                     `;
                     togglesContainer.appendChild(item);
                     document.getElementById(`toggle_${part.index}`).addEventListener('change', buildWindow);
                 }
+                loadSucceeded = true;
 
             } catch (e) {
                 console.error(`Eroare la încărcarea setului de profile ${profileFolder}:`, e);
+                currentMetadata = null;
+                if (isARMode) {
+                    setARStatus(`The configured profile could not be loaded: ${e.message}`, true);
+                }
             }
 
             document.getElementById('loading').style.display = 'none';
-            buildWindow();
+            if (loadSucceeded) {
+                buildWindow();
+            }
+            profilesReady = loadSucceeded;
+            updateARAvailability();
         }
 
         // EXPLOSION REGISTER
-        let isExploded = false;
+        let isExploded = isARMode && pageParams.get('explode') === '1';
         let explodeProgress = 0;
         let explodableObjects = [];
 
@@ -665,15 +936,19 @@
         }
 
         // SCENE ELEMENTS
+        const placementRoot = new THREE.Group();
         const mainGroup = new THREE.Group();
         const pivotOscilo = new THREE.Group();
         const pivotBatant = new THREE.Group();
         let handleLeverGroup = new THREE.Group();
-        scene.add(mainGroup);
+        placementRoot.add(mainGroup);
+        placementRoot.visible = !isARMode;
+        scene.add(placementRoot);
 
         const sectionGroup = new THREE.Group();
         // Positioned in front of the camera, floating at eye level
         sectionGroup.position.set(0.7, 0.35, 1.1);
+        sectionGroup.visible = !isARMode;
         scene.add(sectionGroup);
 
         function buildWindow() {
@@ -702,13 +977,14 @@
                 return toggle ? toggle.checked : true;
             });
 
-            // Rebuild 3D sample extrusion (10cm) in front of the camera
-            activeProfiles.forEach(profile => {
-                const sampleMesh = createSampleExtrusion(profile);
-                sectionGroup.add(sampleMesh);
-            });
-            // Rotate the group to face the camera
-            sectionGroup.lookAt(camera.position);
+            // Rebuild 3D sample extrusion only in the desktop configurator.
+            if (!isARMode) {
+                activeProfiles.forEach(profile => {
+                    const sampleMesh = createSampleExtrusion(profile);
+                    sectionGroup.add(sampleMesh);
+                });
+                sectionGroup.lookAt(camera.position);
+            }
 
             // Miter-extrude each active part on all 4 sides of the window
             activeProfiles.forEach(profile => {
@@ -789,9 +1065,7 @@
         }
 
         // ANIMATION & LOOP
-        function animate() {
-            requestAnimationFrame(animate);
-
+        function renderFrame(_time, xrFrame) {
             const val = parseFloat(document.getElementById('openAngle').value);
             const isBatant = document.getElementById('mBatant').checked;
 
@@ -818,19 +1092,235 @@
                 }
             });
 
-            controls.update();
+            if (isARMode) {
+                updateARPlacement(xrFrame);
+            } else {
+                controls.update();
+            }
             renderer.render(scene, camera);
+        }
+
+        // QR generation and WebXR AR mode
+        let profilesReady = false;
+        let arSession = null;
+        let hitTestSource = null;
+        let arPlaced = false;
+        let arSessionStartedAt = 0;
+
+        function buildARUrl() {
+            const url = new URL(window.location.href);
+            url.search = '';
+            url.hash = '';
+            url.searchParams.set('ar', '1');
+            url.searchParams.set('profile', document.getElementById('cadProfile').value);
+            url.searchParams.set('w', document.getElementById('widthA').value);
+            url.searchParams.set('h', document.getElementById('heightB').value);
+            url.searchParams.set('mode', document.getElementById('mOscilo').checked ? 'oscilo' : 'batant');
+            url.searchParams.set('angle', document.getElementById('openAngle').value);
+            url.searchParams.set('explode', document.getElementById('cExplode').checked ? '1' : '0');
+
+            const activeParts = profilesData
+                .filter(profile => document.getElementById(`toggle_${profile.index}`)?.checked)
+                .map(profile => String(profile.index));
+            if (activeParts.length !== profilesData.length) {
+                url.searchParams.set('parts', activeParts.join(','));
+            }
+            return url.toString();
+        }
+
+        function closeQRModal() {
+            document.getElementById('qr-modal').classList.remove('open');
+        }
+
+        function openQRModal() {
+            const modal = document.getElementById('qr-modal');
+            const qrContainer = document.getElementById('qr-code');
+            const errorContainer = document.getElementById('qr-error');
+            modal.classList.add('open');
+            qrContainer.innerHTML = '';
+            qrContainer.style.display = 'flex';
+            errorContainer.style.display = 'none';
+
+            if (window.location.protocol !== 'https:') {
+                qrContainer.style.display = 'none';
+                errorContainer.style.display = 'block';
+                errorContainer.textContent = 'The QR AR view requires the configurator to be published at a public HTTPS address. Deploy this repository with GitHub Pages, then open the published site and generate the QR again.';
+                return;
+            }
+
+            if (typeof window.qrcode !== 'function') {
+                qrContainer.style.display = 'none';
+                errorContainer.style.display = 'block';
+                errorContainer.textContent = 'The QR library could not be loaded. Check the internet connection and reload the page.';
+                return;
+            }
+
+            try {
+                const qr = window.qrcode(0, 'M');
+                qr.addData(buildARUrl());
+                qr.make();
+                qrContainer.innerHTML = qr.createSvgTag({ cellSize: 7, margin: 4, scalable: true });
+            } catch (error) {
+                console.error('QR generation failed:', error);
+                qrContainer.style.display = 'none';
+                errorContainer.style.display = 'block';
+                errorContainer.textContent = 'The current configuration URL is too large to encode. Re-enable some hidden components or shorten the published site URL.';
+            }
+        }
+
+        function setARStatus(message, isError = false) {
+            const status = document.getElementById('ar-status');
+            status.textContent = message;
+            status.style.color = isError ? '#fecaca' : '#94a3b8';
+        }
+
+        async function updateARAvailability() {
+            if (!isARMode || !profilesReady) return;
+            const button = document.getElementById('ar-start-button');
+
+            if (!window.isSecureContext) {
+                button.disabled = true;
+                button.textContent = 'HTTPS required';
+                setARStatus('AR can only start from a secure HTTPS page.', true);
+                return;
+            }
+            if (!navigator.xr) {
+                button.disabled = true;
+                button.textContent = 'AR not supported';
+                setARStatus('This browser does not provide WebXR. Use Google Chrome on an ARCore-compatible Android phone.', true);
+                return;
+            }
+
+            try {
+                const supported = await navigator.xr.isSessionSupported('immersive-ar');
+                button.disabled = !supported;
+                button.textContent = supported ? 'View in AR' : 'AR not supported';
+                setARStatus(supported
+                    ? 'Tap once to open the camera. The model will be placed automatically when a surface is detected.'
+                    : 'Immersive AR is unavailable on this device or browser.', !supported);
+            } catch (error) {
+                button.disabled = true;
+                button.textContent = 'AR unavailable';
+                setARStatus(`${error.name}: ${error.message}`, true);
+            }
+        }
+
+        async function startAR() {
+            if (arSession) return;
+            const button = document.getElementById('ar-start-button');
+            button.disabled = true;
+            button.textContent = 'Opening camera…';
+            setARStatus('Waiting for camera and spatial-tracking permission…');
+
+            try {
+                arSession = await navigator.xr.requestSession('immersive-ar', {
+                    optionalFeatures: ['hit-test']
+                });
+                await renderer.xr.setSession(arSession);
+                arSessionStartedAt = performance.now();
+                arPlaced = false;
+                placementRoot.visible = false;
+                document.getElementById('ar-launch').style.display = 'none';
+
+                try {
+                    const viewerSpace = await arSession.requestReferenceSpace('viewer');
+                    hitTestSource = await arSession.requestHitTestSource({ space: viewerSpace });
+                } catch (error) {
+                    console.warn('Hit testing is unavailable; using camera-relative placement.', error);
+                    hitTestSource = null;
+                }
+
+                arSession.addEventListener('end', () => {
+                    hitTestSource?.cancel?.();
+                    hitTestSource = null;
+                    arSession = null;
+                    arPlaced = false;
+                    placementRoot.visible = false;
+                    document.getElementById('ar-launch').style.display = 'flex';
+                    button.disabled = false;
+                    button.textContent = 'View in AR';
+                    setARStatus('AR closed. Tap to open it again.');
+                }, { once: true });
+            } catch (error) {
+                console.error('AR session failed:', error);
+                arSession = null;
+                button.disabled = false;
+                button.textContent = 'Try AR again';
+                setARStatus(`${error.name}: ${error.message}`, true);
+            }
+        }
+
+        function orientWindowTowardCamera(position) {
+            const xrCamera = renderer.xr.getCamera(camera);
+            const cameraPosition = new THREE.Vector3();
+            xrCamera.getWorldPosition(cameraPosition);
+            const dx = cameraPosition.x - position.x;
+            const dz = cameraPosition.z - position.z;
+            placementRoot.rotation.set(0, Math.atan2(dx, dz), 0);
+        }
+
+        function placeWindowOnSurface(position) {
+            const height = Number.parseFloat(document.getElementById('heightB').value) || 1.5;
+            placementRoot.position.set(position.x, position.y + height / 2, position.z);
+            orientWindowTowardCamera(placementRoot.position);
+            placementRoot.visible = true;
+            arPlaced = true;
+        }
+
+        function placeWindowInFrontOfCamera() {
+            const xrCamera = renderer.xr.getCamera(camera);
+            const cameraPosition = new THREE.Vector3();
+            const cameraDirection = new THREE.Vector3();
+            xrCamera.getWorldPosition(cameraPosition);
+            xrCamera.getWorldDirection(cameraDirection);
+            const position = cameraPosition.clone().add(cameraDirection.multiplyScalar(1.6));
+            placementRoot.position.copy(position);
+            orientWindowTowardCamera(placementRoot.position);
+            placementRoot.visible = true;
+            arPlaced = true;
+        }
+
+        function updateARPlacement(xrFrame) {
+            if (!isARMode || !arSession || arPlaced || !xrFrame) return;
+            const referenceSpace = renderer.xr.getReferenceSpace();
+
+            if (hitTestSource && referenceSpace) {
+                const results = xrFrame.getHitTestResults(hitTestSource);
+                if (results.length > 0) {
+                    const pose = results[0].getPose(referenceSpace);
+                    if (pose) {
+                        placeWindowOnSurface(pose.transform.position);
+                        return;
+                    }
+                }
+            }
+
+            if (performance.now() - arSessionStartedAt > 2500) {
+                placeWindowInFrontOfCamera();
+            }
         }
 
         // EVENT LISTENERS
         document.getElementById('widthA').addEventListener('input', buildWindow);
         document.getElementById('heightB').addEventListener('input', buildWindow);
         document.getElementById('cExplode').addEventListener('change', (e) => { isExploded = e.target.checked; });
+        document.getElementById('mBatant').addEventListener('change', buildWindow);
+        document.getElementById('mOscilo').addEventListener('change', buildWindow);
 
         // Dropdown change listener
         document.getElementById('cadProfile').addEventListener('change', (e) => {
             loadProfiles(e.target.value);
         });
+
+        document.getElementById('qr-ar-button').addEventListener('click', openQRModal);
+        document.getElementById('qr-close').addEventListener('click', closeQRModal);
+        document.getElementById('qr-modal').addEventListener('click', (event) => {
+            if (event.target.id === 'qr-modal') closeQRModal();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') closeQRModal();
+        });
+        document.getElementById('ar-start-button').addEventListener('click', startAR);
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -838,9 +1328,9 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Start loading default (vertical profile)
-        loadProfiles('2_6_Oeffnungselement_Vertikal');
-        animate();
+        // Load the selected profile. In QR AR mode the selection comes from URL parameters.
+        loadProfiles(isARMode ? requestedProfile : '2_6_Oeffnungselement_Vertikal');
+        renderer.setAnimationLoop(renderFrame);
     </script>
 </body>
 
