@@ -5,12 +5,12 @@ const DxfParser = require('dxf-parser');
 
 const WORKSPACE_DIR = 'c:\\Users\\monin\\random\\incercam';
 const SVG_DIR = path.join(WORKSPACE_DIR, 'svg');
-const ODA_CONVERTER = 'C:\\Program Files\\ODA\\ODAFileConverter 27.1.0\\ODAFileConverter.exe';
+const ACAD_CONSOLE = 'C:\\Program Files\\Autodesk\\AutoCAD 2027\\accoreconsole.exe';
 
 // Geometry/export settings
 const CAD_COORD_LIMIT = 500;
 const MAX_LOCAL_GEOMETRY_SIZE = 500;
-const PATH_JOIN_TOLERANCE = 1.2;
+const PATH_JOIN_TOLERANCE = 0.1;
 const CURVE_STEP_RADIANS = Math.PI / 36; // 5 degrees per segment
 const SPLINE_SAMPLES_PER_CONTROL_POINT = 10;
 const DEBUG_BLOCK_NAME = 'problema';
@@ -163,23 +163,46 @@ function polylineToPath(entity) {
 }
 
 function lineToPath(entity) {
-    if (!isFinitePoint(entity.start) || !isFinitePoint(entity.end)) return null;
-    return normalizePath([entity.start, entity.end], false, entity.type);
+    // dxf-parser represents LINE endpoints in `vertices`.
+    // Keep support for `start` / `end` as a fallback for other parser versions.
+    let start = entity.start;
+    let end = entity.end;
+
+    if (!isFinitePoint(start) || !isFinitePoint(end)) {
+        const vertices = (entity.vertices || []).filter(isFinitePoint);
+        if (vertices.length >= 2) {
+            start = vertices[0];
+            end = vertices[1];
+        }
+    }
+
+    if (!isFinitePoint(start) || !isFinitePoint(end)) return null;
+    return normalizePath([start, end], false, entity.type);
 }
 
 function arcToPath(entity) {
     if (!isFinitePoint(entity.center) || !Number.isFinite(entity.radius)) return null;
 
     const startAngle = Number(entity.startAngle || 0);
+    const endAngle = Number(entity.endAngle || 0);
+
+    // dxf-parser stores angleLength as endAngle - startAngle.
+    // When an ARC crosses 0 degrees this value is negative, but the ARC is valid.
+    // Normalize it into the positive counter-clockwise DXF sweep.
     let sweep = Number(entity.angleLength);
     if (!Number.isFinite(sweep)) {
-        let endAngle = Number(entity.endAngle || 0);
-        while (endAngle < startAngle) endAngle += 2 * Math.PI;
         sweep = endAngle - startAngle;
     }
-    if (sweep <= 0) return null;
+    while (sweep <= 0) {
+        sweep += 2 * Math.PI;
+    }
+    while (sweep > 2 * Math.PI) {
+        sweep -= 2 * Math.PI;
+    }
 
-    const segments = Math.max(2, Math.ceil(Math.abs(sweep) / CURVE_STEP_RADIANS));
+    if (!Number.isFinite(sweep) || sweep <= 1e-12) return null;
+
+    const segments = Math.max(2, Math.ceil(sweep / CURVE_STEP_RADIANS));
     const points = [];
     for (let i = 0; i <= segments; i++) {
         const angle = startAngle + sweep * (i / segments);
@@ -548,37 +571,34 @@ function run() {
         process.exit(1);
     }
 
-    console.log('\n--- Step 1: Exporting DWG to DXF using ODA File Converter ---');
+    console.log('\n--- Step 1: Exporting DWG to DXF using AutoCAD Core Console ---');
 
-    const tempInputDir = path.join(WORKSPACE_DIR, 'intermediate', 'temp_in');
-    const tempOutputDir = path.join(WORKSPACE_DIR, 'intermediate', 'temp_out');
+    const SCR_FILE = path.join(WORKSPACE_DIR, 'intermediate', 'temp_export.scr');
+    
+    // Generate script content
+    const scrContent = `(vl-file-delete "${DXF_FILE.replace(/\\/g, '/')}")
+_DXFOUT
+"${DXF_FILE.replace(/\\/g, '/')}"
 
-    if (fs.existsSync(tempInputDir)) fs.rmSync(tempInputDir, { recursive: true, force: true });
-    if (fs.existsSync(tempOutputDir)) fs.rmSync(tempOutputDir, { recursive: true, force: true });
-    fs.mkdirSync(tempInputDir, { recursive: true });
-    fs.mkdirSync(tempOutputDir, { recursive: true });
-
-    fs.copyFileSync(DWG_FILE, path.join(tempInputDir, path.basename(DWG_FILE)));
+_QUIT
+_N
+`;
+    fs.writeFileSync(SCR_FILE, scrContent, 'utf-8');
 
     try {
-        const cmd = `"${ODA_CONVERTER}" "${tempInputDir}" "${tempOutputDir}" "ACAD2018" "DXF" "0" "0" "*.dwg"`;
-        console.log('Executing ODA File Converter...');
+        const cmd = `"${ACAD_CONSOLE}" /i "${DWG_FILE}" /s "${SCR_FILE}"`;
+        console.log('Executing accoreconsole...');
         execSync(cmd, { stdio: 'inherit', cwd: WORKSPACE_DIR });
-
-        const expectedDxf = path.join(tempOutputDir, dwgBase + '.dxf');
-        if (!fs.existsSync(expectedDxf)) {
-            throw new Error(`Expected DXF file was not generated at: ${expectedDxf}`);
+        
+        if (!fs.existsSync(DXF_FILE)) {
+            throw new Error(`Expected DXF file was not generated at: ${DXF_FILE}`);
         }
-
-        if (fs.existsSync(DXF_FILE)) fs.unlinkSync(DXF_FILE);
-        fs.copyFileSync(expectedDxf, DXF_FILE);
         console.log('DXF export complete.');
     } catch (err) {
-        console.error('Error running ODA File Converter:', err.message);
+        console.error('Error running AutoCAD console:', err.message);
         process.exit(1);
     } finally {
-        if (fs.existsSync(tempInputDir)) fs.rmSync(tempInputDir, { recursive: true, force: true });
-        if (fs.existsSync(tempOutputDir)) fs.rmSync(tempOutputDir, { recursive: true, force: true });
+        if (fs.existsSync(SCR_FILE)) fs.unlinkSync(SCR_FILE);
     }
 
     console.log('\n--- Step 2: Parsing DXF File ---');
@@ -708,6 +728,9 @@ function run() {
         const localPaths = [];
         const subInserts = [];
         let filteredPathCount = 0;
+        const convertedByType = {};
+        const invalidByType = {};
+        const filteredByType = {};
 
         for (const entity of block.entities || []) {
             if (entity.type === 'INSERT') {
@@ -718,14 +741,18 @@ function run() {
             const converted = entityToPaths(entity);
             if (converted.length === 0) {
                 unsupportedEntityCounts[entity.type] = (unsupportedEntityCounts[entity.type] || 0) + 1;
+                invalidByType[entity.type] = (invalidByType[entity.type] || 0) + 1;
                 continue;
             }
+
+            convertedByType[entity.type] = (convertedByType[entity.type] || 0) + converted.length;
 
             for (const geometryPath of converted) {
                 if (isPathWithinExportBounds(geometryPath, currentTransform)) {
                     localPaths.push(geometryPath);
                 } else {
                     filteredPathCount += 1;
+                    filteredByType[entity.type] = (filteredByType[entity.type] || 0) + 1;
                 }
             }
         }
@@ -739,7 +766,10 @@ function run() {
             console.log('INSERT position:', ins.position || { x: 0, y: 0 });
             console.log('BLOCK base point:', block.position || { x: 0, y: 0 });
             console.log('Raw entity types:', countEntityTypes(block.entities));
-            console.log(`Converted paths: ${localPaths.length}`);
+            console.log('Converted by type:', convertedByType);
+            console.log('Invalid/unconverted by type:', invalidByType);
+            console.log('Filtered by type:', filteredByType);
+            console.log(`Converted paths kept: ${localPaths.length}`);
             console.log(`Filtered paths: ${filteredPathCount}`);
             console.log(`After endpoint stitching: ${stitchedPaths.length}`);
             console.log(`Closed contours: ${closedPaths.length}`);
