@@ -293,6 +293,14 @@
             line-height: 1.45;
         }
 
+        #qr-status {
+            min-height: 22px;
+            margin: 0 0 12px;
+            color: #bfdbfe;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
         #qr-code {
             display: flex;
             align-items: center;
@@ -475,7 +483,8 @@
         <div class="qr-dialog">
             <button id="qr-close" type="button" aria-label="Close">×</button>
             <h3 id="qr-title">View this configuration in AR</h3>
-            <p>Scan the code with an ARCore-compatible Android phone. The QR is generated only when this dialog is opened.</p>
+            <p>The current configuration is converted to a temporary GLB only when this dialog is opened.</p>
+            <div id="qr-status">Preparing the AR model…</div>
             <div id="qr-code"></div>
             <div id="qr-error"></div>
         </div>
@@ -506,6 +515,7 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
         const pageParams = new URLSearchParams(window.location.search);
         const isARMode = pageParams.get('ar') === '1';
@@ -562,7 +572,8 @@
 
         if (isARMode) {
             renderer.xr.enabled = true;
-            renderer.xr.setReferenceSpaceType('local');
+            // Keep Three.js' default reference-space handling. Forcing one reference
+            // space made the same build fail on some otherwise AR-capable phones.
         }
 
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -1107,7 +1118,7 @@
         let arPlaced = false;
         let arSessionStartedAt = 0;
 
-        function buildARUrl() {
+        function buildWebXRUrl() {
             const url = new URL(window.location.href);
             url.search = '';
             url.hash = '';
@@ -1132,39 +1143,120 @@
             document.getElementById('qr-modal').classList.remove('open');
         }
 
-        function openQRModal() {
+        function setQRStatus(message) {
+            document.getElementById('qr-status').textContent = message;
+        }
+
+        function showQRError(message) {
+            const qrContainer = document.getElementById('qr-code');
+            const errorContainer = document.getElementById('qr-error');
+            qrContainer.style.display = 'none';
+            errorContainer.style.display = 'block';
+            errorContainer.textContent = message;
+        }
+
+        function renderQRCode(url) {
+            const qrContainer = document.getElementById('qr-code');
+            const errorContainer = document.getElementById('qr-error');
+            if (typeof window.qrcode !== 'function') {
+                throw new Error('The QR library could not be loaded. Reload the page and try again.');
+            }
+            const qr = window.qrcode(0, 'M');
+            qr.addData(url);
+            qr.make();
+            qrContainer.innerHTML = qr.createSvgTag({ cellSize: 7, margin: 4, scalable: true });
+            qrContainer.style.display = 'flex';
+            errorContainer.style.display = 'none';
+        }
+
+        function exportCurrentWindowToGLB() {
+            return new Promise((resolve, reject) => {
+                const exporter = new GLTFExporter();
+                const previousVisibility = placementRoot.visible;
+                placementRoot.visible = true;
+                placementRoot.updateMatrixWorld(true);
+
+                exporter.parse(
+                    placementRoot,
+                    result => {
+                        placementRoot.visible = previousVisibility;
+                        if (!(result instanceof ArrayBuffer)) {
+                            reject(new Error('The exporter did not produce a binary GLB file.'));
+                            return;
+                        }
+                        resolve(result);
+                    },
+                    error => {
+                        placementRoot.visible = previousVisibility;
+                        reject(error);
+                    },
+                    {
+                        binary: true,
+                        onlyVisible: true,
+                        truncateDrawRange: true,
+                        maxTextureSize: 2048
+                    }
+                );
+            });
+        }
+
+        async function createNativeARLink() {
+            const glb = await exportCurrentWindowToGLB();
+            const response = await fetch('./api/ar-model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'model/gltf-binary' },
+                body: glb
+            });
+
+            let payload = {};
+            try {
+                payload = await response.json();
+            } catch (_) {}
+
+            if (!response.ok || !payload.launchUrl) {
+                throw new Error(payload.error || `The AR model service returned HTTP ${response.status}.`);
+            }
+            return payload.launchUrl;
+        }
+
+        async function openQRModal() {
             const modal = document.getElementById('qr-modal');
             const qrContainer = document.getElementById('qr-code');
             const errorContainer = document.getElementById('qr-error');
             modal.classList.add('open');
             qrContainer.innerHTML = '';
-            qrContainer.style.display = 'flex';
+            qrContainer.style.display = 'none';
             errorContainer.style.display = 'none';
+            setQRStatus('Generating the current window model…');
 
-            if (window.location.protocol !== 'https:') {
-                qrContainer.style.display = 'none';
-                errorContainer.style.display = 'block';
-                errorContainer.textContent = 'The QR AR view requires the configurator to be published at a public HTTPS address. Deploy this repository with GitHub Pages, then open the published site and generate the QR again.';
-                return;
-            }
-
-            if (typeof window.qrcode !== 'function') {
-                qrContainer.style.display = 'none';
-                errorContainer.style.display = 'block';
-                errorContainer.textContent = 'The QR library could not be loaded. Check the internet connection and reload the page.';
+            if (!profilesReady) {
+                showQRError('The window profile is still loading. Close this dialog and try again in a moment.');
+                setQRStatus('');
                 return;
             }
 
             try {
-                const qr = window.qrcode(0, 'M');
-                qr.addData(buildARUrl());
-                qr.make();
-                qrContainer.innerHTML = qr.createSvgTag({ cellSize: 7, margin: 4, scalable: true });
-            } catch (error) {
-                console.error('QR generation failed:', error);
-                qrContainer.style.display = 'none';
-                errorContainer.style.display = 'block';
-                errorContainer.textContent = 'The current configuration URL is too large to encode. Re-enable some hidden components or shorten the published site URL.';
+                const launchUrl = await createNativeARLink();
+                renderQRCode(launchUrl);
+                setQRStatus('Scan with the phone camera. Android will open the native AR viewer when available.');
+            } catch (nativeError) {
+                console.warn('Native AR model generation is unavailable; trying the browser-only fallback.', nativeError);
+
+                if (window.location.protocol === 'https:') {
+                    try {
+                        renderQRCode(buildWebXRUrl());
+                        setQRStatus('Native model hosting is unavailable. This QR uses the browser WebXR fallback.');
+                        return;
+                    } catch (fallbackError) {
+                        console.error('QR fallback failed:', fallbackError);
+                    }
+                }
+
+                setQRStatus('');
+                showQRError(
+                    `${nativeError.message} ` +
+                    'Run this repository on a public HTTPS Node host. GitHub Actions are not required; the included server generates and serves the temporary GLB model.'
+                );
             }
         }
 
@@ -1216,7 +1308,12 @@
                 arSession = await navigator.xr.requestSession('immersive-ar', {
                     optionalFeatures: ['hit-test']
                 });
-                await renderer.xr.setSession(arSession);
+                try {
+                    await renderer.xr.setSession(arSession);
+                } catch (sessionSetupError) {
+                    await arSession.end().catch(() => {});
+                    throw sessionSetupError;
+                }
                 arSessionStartedAt = performance.now();
                 arPlaced = false;
                 placementRoot.visible = false;

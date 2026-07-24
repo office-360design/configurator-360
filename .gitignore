@@ -1,1 +1,3 @@
 ErrorReports/
+node_modules/
+generated/*.glb
