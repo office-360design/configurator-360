@@ -54,7 +54,7 @@
       "blockName": "224063_s",
       "parentBlock": null,
       "layer": "0",
-      "role": "frame",
+      "role": "sash",
       "section": "top",
       "color": "#ffbf7f",
       "bbox": {
@@ -187,7 +187,7 @@
       "blockName": "224063_s",
       "parentBlock": null,
       "layer": "0",
-      "role": "frame",
+      "role": "sash",
       "section": "bottom",
       "color": "#ffbf7f",
       "bbox": {
@@ -605,7 +605,7 @@
       "blockName": "288319_s",
       "parentBlock": null,
       "layer": "S03_AL_Kontur",
-      "role": "frame",
+      "role": "sash",
       "section": "bottom",
       "color": "#cc6600",
       "bbox": {

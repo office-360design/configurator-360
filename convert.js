@@ -1076,27 +1076,51 @@ _N
     console.log(`  Frame Root Block: "${frameRootName}"`);
     console.log(`  Sash Root Block: "${sashRootName}"`);
 
+    // First pass: Assign roles to parts that belong directly to root blocks
     for (const part of svgPartsMetadata) {
         const root = part.rootBlock || part.blockName;
         if (root === frameRootName) {
             part.role = 'frame';
         } else if (root === sashRootName) {
             part.role = 'sash';
-        } else {
-            const partCenterX = (part.bbox.minX + part.bbox.maxX) / 2;
-            const partCenterY = (part.bbox.minY + part.bbox.maxY) / 2;
+        }
+    }
 
-            if (isVertical) {
-                const distToFrame = Math.abs(partCenterX - ((rootBBoxes[frameRootName].minX + rootBBoxes[frameRootName].maxX)/2));
-                const distToSash = Math.abs(partCenterX - ((rootBBoxes[sashRootName].minX + rootBBoxes[sashRootName].maxX)/2));
-                part.role = distToFrame < distToSash ? 'frame' : 'sash';
-            } else {
-                const frameCenterY = (rootBBoxes[frameRootName].minY + rootBBoxes[frameRootName].maxY) / 2;
-                const sashCenterY = (rootBBoxes[sashRootName].minY + rootBBoxes[sashRootName].maxY) / 2;
-                const distToFrame = Math.abs(partCenterY - frameCenterY);
-                const distToSash = Math.abs(partCenterY - sashCenterY);
-                part.role = distToFrame < distToSash ? 'frame' : 'sash';
+    // Helper for 2D bounding box distance
+    function bboxDistance(boxA, boxB) {
+        const distX = Math.max(0, boxA.minX - boxB.maxX, boxB.minX - boxA.maxX);
+        const distY = Math.max(0, boxA.minY - boxB.maxY, boxB.minY - boxA.maxY);
+        return Math.hypot(distX, distY);
+    }
+
+    const frameCenter = (rootBBoxes[frameRootName].minX + rootBBoxes[frameRootName].maxX) / 2;
+    const sashCenter = (rootBBoxes[sashRootName].minX + rootBBoxes[sashRootName].maxX) / 2;
+
+    // Second pass: Assign roles to loose parts based on bounding box proximity to structural parts
+    for (const part of svgPartsMetadata) {
+        if (part.role) continue; // Already assigned
+
+        let minDistToFrame = Infinity;
+        let minDistToSash = Infinity;
+
+        for (const ref of svgPartsMetadata) {
+            if (!ref.role) continue;
+            const dist = bboxDistance(part.bbox, ref.bbox);
+            if (ref.role === 'frame') {
+                minDistToFrame = Math.min(minDistToFrame, dist);
+            } else if (ref.role === 'sash') {
+                minDistToSash = Math.min(minDistToSash, dist);
             }
+        }
+
+        if (Math.abs(minDistToFrame - minDistToSash) > 1e-3) {
+            part.role = minDistToFrame < minDistToSash ? 'frame' : 'sash';
+        } else {
+            // Tie-breaker: use X centroid distance to the root blocks
+            const partCenterX = (part.bbox.minX + part.bbox.maxX) / 2;
+            const distToFrame = Math.abs(partCenterX - frameCenter);
+            const distToSash = Math.abs(partCenterX - sashCenter);
+            part.role = distToFrame < distToSash ? 'frame' : 'sash';
         }
     }
 
