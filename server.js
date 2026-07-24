@@ -1,52 +1,315 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { chromium } = require('playwright');
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || '0.0.0.0';
+const ROOT = __dirname;
+const MAX_BODY_BYTES = 1024 * 1024;
+const VIEWPORT = { width: 1200, height: 900 };
+
 const MIME_TYPES = {
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'application/javascript',
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8',
     '.svg': 'image/svg+xml',
-    '.json': 'application/json'
+    '.json': 'application/json; charset=utf-8',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
 };
 
-const server = http.createServer((req, res) => {
-    let filePath = '.' + req.url;
-    if (filePath === './') {
-        filePath = './index.html';
+let browserPromise = null;
+let renderPageState = null;
+let renderQueue = Promise.resolve();
+
+function getBrowser() {
+    if (!browserPromise) {
+        browserPromise = chromium.launch({
+            headless: true,
+            args: ['--disable-dev-shm-usage'],
+        }).catch((error) => {
+            browserPromise = null;
+            throw error;
+        });
+    }
+    return browserPromise;
+}
+
+async function resetRenderPage() {
+    if (renderPageState) {
+        try {
+            await renderPageState.context.close();
+        } catch {
+            // Ignore cleanup errors.
+        }
+        renderPageState = null;
+    }
+}
+
+async function getRenderPage() {
+    if (renderPageState && !renderPageState.page.isClosed()) {
+        return renderPageState.page;
     }
 
-    // Resolve query parameters or fragments
-    filePath = filePath.split('?')[0];
+    const browser = await getBrowser();
+    const context = await browser.newContext({
+        viewport: VIEWPORT,
+        deviceScaleFactor: 1,
+    });
+    const page = await context.newPage();
+    page.on('console', (message) => {
+        if (message.type() === 'error' || message.type() === 'warning') {
+            console.error(`[browser:${message.type()}]`, message.text());
+        }
+    });
+    page.on('pageerror', (error) => {
+        console.error('[browser:pageerror]', error);
+    });
+    page.on('requestfailed', (request) => {
+        console.error('[browser:requestfailed]', request.url(), request.failure()?.errorText || 'unknown error');
+    });
 
-    const extname = String(path.extname(filePath)).toLowerCase();
-    const contentType = MIME_TYPES[extname] || 'application/octet-stream';
+    const pageUrl = `http://127.0.0.1:${PORT}/?capture=1`;
+
+    await page.goto(pageUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 15000,
+    });
+
+    await page.waitForFunction(
+        () => window.CONFIGURATOR_READY === true,
+        null,
+        { timeout: 15000 }
+    );
+
+    renderPageState = { context, page };
+    return page;
+}
+
+function sendJson(res, statusCode, payload) {
+    const body = Buffer.from(JSON.stringify(payload));
+    res.writeHead(statusCode, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Length': body.length,
+        'Cache-Control': 'no-store',
+    });
+    res.end(body);
+}
+
+function readJsonBody(req) {
+    return new Promise((resolve, reject) => {
+        const chunks = [];
+        let total = 0;
+
+        req.on('data', (chunk) => {
+            total += chunk.length;
+            if (total > MAX_BODY_BYTES) {
+                reject(new Error('Request body is too large.'));
+                req.destroy();
+                return;
+            }
+            chunks.push(chunk);
+        });
+
+        req.on('end', () => {
+            try {
+                const raw = Buffer.concat(chunks).toString('utf8');
+                resolve(raw ? JSON.parse(raw) : {});
+            } catch {
+                reject(new Error('Request body must be valid JSON.'));
+            }
+        });
+
+        req.on('error', reject);
+    });
+}
+
+function parseRenderPayload(payload) {
+    const widthMm = Number(payload.width_mm ?? payload.width);
+    const heightMm = Number(payload.height_mm ?? payload.height);
+    const widthM = widthMm > 10 ? widthMm / 1000 : widthMm;
+    const heightM = heightMm > 10 ? heightMm / 1000 : heightMm;
+
+    if (!Number.isFinite(widthM) || widthM < 0.5 || widthM > 3.0) {
+        throw new Error('Width must be between 500 and 3000 mm.');
+    }
+    if (!Number.isFinite(heightM) || heightM < 0.5 || heightM > 3.0) {
+        throw new Error('Height must be between 500 and 3000 mm.');
+    }
+
+    const colour = String(payload.colour || payload.color || '#e2e8f0');
+    if (!/^#[0-9a-fA-F]{6}$/.test(colour)) {
+        throw new Error('Colour must use the #RRGGBB format.');
+    }
+
+    const allowedProfiles = new Set([
+        '2_6_Oeffnungselement_Vertikal',
+        '575760_d1',
+        'AW_CT_65_Oeffnungselement_vertikal',
+    ]);
+    const profile = String(payload.profile || '2_6_Oeffnungselement_Vertikal');
+    if (!allowedProfiles.has(profile)) {
+        throw new Error('Unsupported CAD profile.');
+    }
+
+    return {
+        widthM,
+        heightM,
+        colour,
+        profile,
+        requestId: String(payload.request_id || ''),
+    };
+}
+
+async function performRender(payload) {
+    const requestToken = crypto.randomUUID();
+    const requested = { ...payload, requestToken };
+    let page;
+
+    async function applyAndVerify(targetPage) {
+        const applied = await targetPage.evaluate(async (configuration) => {
+            return await window.applyConfiguration(configuration);
+        }, requested);
+
+        const matches = applied
+            && applied.requestToken === requestToken
+            && Math.abs(applied.widthM - payload.widthM) < 0.000001
+            && Math.abs(applied.heightM - payload.heightM) < 0.000001
+            && String(applied.colour).toLowerCase() === payload.colour.toLowerCase()
+            && applied.profile === payload.profile;
+
+        if (!matches) {
+            throw new Error(`Configurator state verification failed. Applied: ${JSON.stringify(applied)}`);
+        }
+
+        await targetPage.waitForFunction(
+            (token) => window.CONFIGURATOR_READY === true
+                && window.LAST_APPLIED_CONFIGURATION
+                && window.LAST_APPLIED_CONFIGURATION.requestToken === token,
+            requestToken,
+            { timeout: 10000 }
+        );
+    }
+
+    try {
+        page = await getRenderPage();
+        await applyAndVerify(page);
+    } catch (firstError) {
+        console.warn('[render] first attempt failed; recreating render page:', firstError.message);
+        await resetRenderPage();
+        page = await getRenderPage();
+        await applyAndVerify(page);
+    }
+
+    return await page.screenshot({
+        type: 'png',
+        clip: {
+            x: 0,
+            y: 0,
+            width: VIEWPORT.width,
+            height: VIEWPORT.height,
+        },
+    });
+}
+
+async function renderConfigurator(req, res) {
+    try {
+        const payload = parseRenderPayload(await readJsonBody(req));
+
+        const job = renderQueue.then(() => performRender(payload));
+        renderQueue = job.catch(() => undefined);
+        const image = await job;
+
+        res.writeHead(200, {
+            'Content-Type': 'image/png',
+            'Content-Length': image.length,
+            'Cache-Control': 'no-store',
+            'X-Render-Request-Id': payload.requestId,
+        });
+        res.end(image);
+    } catch (error) {
+        console.error('[render]', error);
+        sendJson(res, 400, {
+            success: false,
+            error: error.message || 'Render failed.',
+        });
+    }
+}
+
+function serveStatic(req, res) {
+    const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    let pathname = decodeURIComponent(requestUrl.pathname);
+    if (pathname === '/') pathname = '/index.html';
+
+    const relativePath = pathname.replace(/^\/+/, '');
+    const filePath = path.resolve(ROOT, relativePath);
+
+    if (filePath !== ROOT && !filePath.startsWith(ROOT + path.sep)) {
+        sendJson(res, 403, { success: false, error: 'Forbidden path.' });
+        return;
+    }
 
     fs.readFile(filePath, (error, content) => {
         if (error) {
-            if(error.code == 'ENOENT') {
-                res.writeHead(404, { 'Content-Type': 'text/html' });
-                res.end('<h1>404 Not Found</h1>', 'utf-8');
-            } else {
-                res.writeHead(500);
-                res.end('Sorry, check with the site admin for error: '+error.code+' ..\n');
-            }
-        } else {
-            res.writeHead(200, { 'Content-Type': contentType });
-            res.end(content, 'utf-8');
+            sendJson(res, error.code === 'ENOENT' ? 404 : 500, {
+                success: false,
+                error: error.code === 'ENOENT' ? 'Not found.' : error.message,
+            });
+            return;
         }
+
+        const ext = path.extname(filePath).toLowerCase();
+        res.writeHead(200, {
+            'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
+            'Content-Length': content.length,
+        });
+        res.end(content);
     });
+}
+
+const server = http.createServer(async (req, res) => {
+    const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
+    if (req.method === 'GET' && requestUrl.pathname === '/api/health') {
+        sendJson(res, 200, { success: true, service: 'window-configurator' });
+        return;
+    }
+
+    if (req.method === 'POST' && requestUrl.pathname === '/api/render') {
+        await renderConfigurator(req, res);
+        return;
+    }
+
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+        sendJson(res, 405, { success: false, error: 'Method not allowed.' });
+        return;
+    }
+
+    serveStatic(req, res);
 });
 
-server.listen(PORT, () => {
-    console.log(`Server is running at http://localhost:${PORT}/`);
-    console.log('Press Ctrl+C to stop the server.');
-    
-    // Automatically open browser
-    const { exec } = require('child_process');
-    let startCmd = 'start';
-    if (process.platform === 'darwin') startCmd = 'open';
-    if (process.platform === 'linux') startCmd = 'xdg-open';
-    exec(`${startCmd} http://localhost:${PORT}/`);
+server.listen(PORT, HOST, () => {
+    console.log(`Window configurator: http://localhost:${PORT}/`);
+    console.log(`Render endpoint:     POST http://localhost:${PORT}/api/render`);
 });
+
+async function shutdown() {
+    server.close();
+    await resetRenderPage();
+    if (browserPromise) {
+        try {
+            const browser = await browserPromise;
+            await browser.close();
+        } catch {
+            // Ignore shutdown errors.
+        }
+    }
+    process.exit(0);
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

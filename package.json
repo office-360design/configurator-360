@@ -2,14 +2,18 @@
   "name": "incercam",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "install-browser": "npx playwright install chromium",
+    "test": "echo \"No tests configured yet\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "dxf-parser": "^1.1.2"
+    "dxf-parser": "^1.1.2",
+    "playwright": "^1.54.1",
+    "three": "^0.160.0"
   }
 }
