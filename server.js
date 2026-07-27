@@ -7,7 +7,10 @@ const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const ROOT = __dirname;
 const GENERATED_DIR = path.join(ROOT, 'generated');
 const MAX_MODEL_BYTES = 25 * 1024 * 1024;
-const MODEL_TTL_MS = Number.parseInt(process.env.MODEL_TTL_MS || String(24 * 60 * 60 * 1000), 10);
+const MODEL_TTL_MS = Number.parseInt(
+    process.env.MODEL_TTL_MS || String(24 * 60 * 60 * 1000),
+    10
+);
 
 const MIME_TYPES = {
     '.html': 'text/html; charset=utf-8',
@@ -44,6 +47,53 @@ function publicOrigin(req) {
     return `${protocol}://${host}`;
 }
 
+function validateGlb(model) {
+    if (!Buffer.isBuffer(model) || model.length < 20) {
+        return 'The GLB file is incomplete.';
+    }
+
+    if (model.readUInt32LE(0) !== 0x46546c67) {
+        return 'The file does not have a GLB magic header.';
+    }
+    if (model.readUInt32LE(4) !== 2) {
+        return 'Only glTF 2.0 GLB files are supported.';
+    }
+    if (model.readUInt32LE(8) !== model.length) {
+        return 'The GLB declared length does not match the uploaded file.';
+    }
+
+    let offset = 12;
+    let json = null;
+    while (offset + 8 <= model.length) {
+        const chunkLength = model.readUInt32LE(offset);
+        const chunkType = model.readUInt32LE(offset + 4);
+        const chunkStart = offset + 8;
+        const chunkEnd = chunkStart + chunkLength;
+        if (chunkEnd > model.length) return 'The GLB contains a truncated chunk.';
+
+        if (chunkType === 0x4e4f534a && json === null) {
+            try {
+                json = JSON.parse(model.subarray(chunkStart, chunkEnd).toString('utf8').trim());
+            } catch (_error) {
+                return 'The GLB JSON chunk is invalid.';
+            }
+        }
+        offset = chunkEnd;
+    }
+
+    if (!json || json.asset?.version !== '2.0') {
+        return 'The GLB does not contain a valid glTF 2.0 asset.';
+    }
+    if (!Array.isArray(json.meshes) || json.meshes.length === 0) {
+        return 'The GLB does not contain any meshes.';
+    }
+    if (!Array.isArray(json.scenes) || json.scenes.length === 0) {
+        return 'The GLB does not contain a scene.';
+    }
+
+    return null;
+}
+
 function cleanupExpiredModels() {
     const now = Date.now();
     fs.readdir(GENERATED_DIR, { withFileTypes: true }, (readError, entries) => {
@@ -63,22 +113,25 @@ function cleanupExpiredModels() {
 function handleModelUpload(req, res) {
     const chunks = [];
     let received = 0;
+    let tooLarge = false;
 
     req.on('data', chunk => {
+        if (tooLarge) return;
         received += chunk.length;
         if (received > MAX_MODEL_BYTES) {
+            tooLarge = true;
             sendJson(res, 413, { error: 'The generated model is too large.' });
-            req.destroy();
             return;
         }
         chunks.push(chunk);
     });
 
     req.on('end', () => {
-        if (res.writableEnded) return;
+        if (res.writableEnded || tooLarge) return;
         const model = Buffer.concat(chunks);
-        if (model.length < 20 || model.toString('utf8', 0, 4) !== 'glTF') {
-            sendJson(res, 400, { error: 'The upload is not a valid binary glTF (.glb) file.' });
+        const validationError = validateGlb(model);
+        if (validationError) {
+            sendJson(res, 400, { error: validationError });
             return;
         }
 
@@ -99,16 +152,29 @@ function handleModelUpload(req, res) {
                 id,
                 modelUrl,
                 launchUrl,
+                bytes: model.length,
                 expiresInSeconds: Math.floor(MODEL_TTL_MS / 1000)
             });
         });
     });
 
     req.on('error', error => {
-        if (!res.writableEnded) {
-            sendJson(res, 500, { error: error.message });
-        }
+        if (!res.writableEnded) sendJson(res, 500, { error: error.message });
     });
+}
+
+function commonFileHeaders(filePath, size) {
+    const extname = path.extname(filePath).toLowerCase();
+    const isGeneratedModel = filePath.startsWith(`${GENERATED_DIR}${path.sep}`);
+    return {
+        'Content-Type': MIME_TYPES[extname] || 'application/octet-stream',
+        'Content-Length': size,
+        'Cache-Control': isGeneratedModel ? 'public, max-age=86400, immutable' : 'no-cache',
+        'Access-Control-Allow-Origin': '*',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+        'X-Content-Type-Options': 'nosniff',
+        ...(isGeneratedModel ? { 'Accept-Ranges': 'bytes' } : {})
+    };
 }
 
 function serveFile(req, res, pathname) {
@@ -121,23 +187,53 @@ function serveFile(req, res, pathname) {
         return;
     }
 
-    fs.readFile(filePath, (error, content) => {
-        if (error) {
-            const status = error.code === 'ENOENT' ? 404 : 500;
+    fs.stat(filePath, (statError, stat) => {
+        if (statError || !stat.isFile()) {
+            const status = statError?.code === 'ENOENT' || !stat?.isFile?.() ? 404 : 500;
             res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end(status === 404 ? '404 Not Found' : `Server error: ${error.code}`);
+            res.end(status === 404 ? '404 Not Found' : `Server error: ${statError.code}`);
             return;
         }
 
-        const extname = path.extname(filePath).toLowerCase();
         const isGeneratedModel = filePath.startsWith(`${GENERATED_DIR}${path.sep}`);
-        res.writeHead(200, {
-            'Content-Type': MIME_TYPES[extname] || 'application/octet-stream',
-            'Cache-Control': isGeneratedModel ? 'public, max-age=86400, immutable' : 'no-cache',
-            'Access-Control-Allow-Origin': '*',
-            'X-Content-Type-Options': 'nosniff'
-        });
-        res.end(content);
+        const range = isGeneratedModel ? req.headers.range : null;
+
+        if (range) {
+            const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+            if (!match) {
+                res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` });
+                res.end();
+                return;
+            }
+
+            const start = match[1] ? Number.parseInt(match[1], 10) : 0;
+            const end = match[2] ? Number.parseInt(match[2], 10) : stat.size - 1;
+            if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= stat.size) {
+                res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` });
+                res.end();
+                return;
+            }
+
+            const boundedEnd = Math.min(end, stat.size - 1);
+            const length = boundedEnd - start + 1;
+            res.writeHead(206, {
+                ...commonFileHeaders(filePath, length),
+                'Content-Range': `bytes ${start}-${boundedEnd}/${stat.size}`
+            });
+            if (req.method === 'HEAD') {
+                res.end();
+                return;
+            }
+            fs.createReadStream(filePath, { start, end: boundedEnd }).pipe(res);
+            return;
+        }
+
+        res.writeHead(200, commonFileHeaders(filePath, stat.size));
+        if (req.method === 'HEAD') {
+            res.end();
+            return;
+        }
+        fs.createReadStream(filePath).pipe(res);
     });
 }
 

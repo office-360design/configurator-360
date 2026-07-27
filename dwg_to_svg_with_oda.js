@@ -3,84 +3,9 @@ const path = require('path');
 const { execSync } = require('child_process');
 const DxfParser = require('dxf-parser');
 
-const WORKSPACE_DIR = __dirname;
+const WORKSPACE_DIR = 'c:\\Users\\monin\\random\\incercam';
 const SVG_DIR = path.join(WORKSPACE_DIR, 'svg');
-
-// Helper to check if an executable exists in the system PATH
-function findInPath(exeName) {
-    try {
-        const cmd = process.platform === 'win32' ? `where "${exeName}"` : `which "${exeName}"`;
-        const output = execSync(cmd, { stdio: [] }).toString().trim().split(/\r?\n/)[0];
-        if (output && fs.existsSync(output)) {
-            return output;
-        }
-    } catch (e) {
-        // Ignored
-    }
-    return null;
-}
-
-// Helper to scan C:\Program Files\Autodesk for accoreconsole.exe
-function findAutoCADConsole() {
-    const exeName = process.platform === 'win32' ? 'accoreconsole.exe' : 'accoreconsole';
-    const inPath = findInPath(exeName);
-    if (inPath) return inPath;
-
-    if (process.platform === 'win32') {
-        const searchRoot = 'C:\\Program Files\\Autodesk';
-        if (fs.existsSync(searchRoot)) {
-            try {
-                const dirs = fs.readdirSync(searchRoot);
-                for (const dir of dirs) {
-                    if (dir.toLowerCase().startsWith('autocad')) {
-                        const candidate = path.join(searchRoot, dir, exeName);
-                        if (fs.existsSync(candidate)) {
-                            return candidate;
-                        }
-                    }
-                }
-            } catch (e) {
-                // Ignored
-            }
-        }
-        return 'C:\\Program Files\\Autodesk\\AutoCAD 2027\\accoreconsole.exe';
-    }
-    return exeName;
-}
-
-// Helper to scan C:\Program Files\ODA (Windows) or /usr/bin (Linux) for ODAFileConverter
-function findODAConverter() {
-    const exeName = process.platform === 'win32' ? 'ODAFileConverter.exe' : 'ODAFileConverter';
-    const inPath = findInPath(exeName);
-    if (inPath) return inPath;
-
-    if (process.platform === 'win32') {
-        const searchRoot = 'C:\\Program Files\\ODA';
-        if (fs.existsSync(searchRoot)) {
-            try {
-                const dirs = fs.readdirSync(searchRoot);
-                for (const dir of dirs) {
-                    if (dir.toLowerCase().startsWith('odafileconverter')) {
-                        const candidate = path.join(searchRoot, dir, exeName);
-                        if (fs.existsSync(candidate)) {
-                            return candidate;
-                        }
-                    }
-                }
-            } catch (e) {
-                // Ignored
-            }
-        }
-        return 'C:\\Program Files\\ODA\\ODAFileConverter 27.1.0\\ODAFileConverter.exe';
-    } else if (process.platform === 'linux') {
-        const candidate = '/usr/bin/ODAFileConverter';
-        if (fs.existsSync(candidate)) return candidate;
-    }
-    return exeName;
-}
-
-const ACAD_CONSOLE = findAutoCADConsole();
-const ODA_CONVERTER = findODAConverter();
+const ODA_CONVERTER = 'C:\\Program Files\\ODA\\ODAFileConverter 27.1.0\\ODAFileConverter.exe';
 
 // Geometry/export settings
 const CAD_COORD_LIMIT = 500;
@@ -646,70 +571,37 @@ function run() {
         process.exit(1);
     }
 
-    console.log('\n--- Step 1: Exporting DWG to DXF ---');
+    console.log('\n--- Step 1: Exporting DWG to DXF using ODA File Converter ---');
 
-    if (fs.existsSync(ACAD_CONSOLE)) {
-        console.log('AutoCAD Core Console detected. Exporting via accoreconsole...');
-        const SCR_FILE = path.join(WORKSPACE_DIR, 'intermediate', 'temp_export.scr');
-        
-        const scrContent = `(vl-file-delete "${DXF_FILE.replace(/\\/g, '/')}")
-_DXFOUT
-"${DXF_FILE.replace(/\\/g, '/')}"
+    const tempInputDir = path.join(WORKSPACE_DIR, 'intermediate', 'temp_in');
+    const tempOutputDir = path.join(WORKSPACE_DIR, 'intermediate', 'temp_out');
 
-_QUIT
-_N
-`;
-        fs.writeFileSync(SCR_FILE, scrContent, 'utf-8');
+    if (fs.existsSync(tempInputDir)) fs.rmSync(tempInputDir, { recursive: true, force: true });
+    if (fs.existsSync(tempOutputDir)) fs.rmSync(tempOutputDir, { recursive: true, force: true });
+    fs.mkdirSync(tempInputDir, { recursive: true });
+    fs.mkdirSync(tempOutputDir, { recursive: true });
 
-        try {
-            const cmd = `"${ACAD_CONSOLE}" /i "${DWG_FILE}" /s "${SCR_FILE}"`;
-            execSync(cmd, { stdio: 'inherit', cwd: WORKSPACE_DIR });
-            
-            if (!fs.existsSync(DXF_FILE)) {
-                throw new Error(`Expected DXF file was not generated at: ${DXF_FILE}`);
-            }
-            console.log('DXF export complete via AutoCAD Core Console.');
-        } catch (err) {
-            console.error('Error running AutoCAD console:', err.message);
-            process.exit(1);
-        } finally {
-            if (fs.existsSync(SCR_FILE)) fs.unlinkSync(SCR_FILE);
+    fs.copyFileSync(DWG_FILE, path.join(tempInputDir, path.basename(DWG_FILE)));
+
+    try {
+        const cmd = `"${ODA_CONVERTER}" "${tempInputDir}" "${tempOutputDir}" "ACAD2018" "DXF" "0" "0" "*.dwg"`;
+        console.log('Executing ODA File Converter...');
+        execSync(cmd, { stdio: 'inherit', cwd: WORKSPACE_DIR });
+
+        const expectedDxf = path.join(tempOutputDir, dwgBase + '.dxf');
+        if (!fs.existsSync(expectedDxf)) {
+            throw new Error(`Expected DXF file was not generated at: ${expectedDxf}`);
         }
-    } else if (fs.existsSync(ODA_CONVERTER)) {
-        console.log('ODA File Converter detected. Exporting via ODAFileConverter...');
-        const tempInputDir = path.join(WORKSPACE_DIR, 'intermediate', 'temp_in');
-        const tempOutputDir = path.join(WORKSPACE_DIR, 'intermediate', 'temp_out');
 
+        if (fs.existsSync(DXF_FILE)) fs.unlinkSync(DXF_FILE);
+        fs.copyFileSync(expectedDxf, DXF_FILE);
+        console.log('DXF export complete.');
+    } catch (err) {
+        console.error('Error running ODA File Converter:', err.message);
+        process.exit(1);
+    } finally {
         if (fs.existsSync(tempInputDir)) fs.rmSync(tempInputDir, { recursive: true, force: true });
         if (fs.existsSync(tempOutputDir)) fs.rmSync(tempOutputDir, { recursive: true, force: true });
-        fs.mkdirSync(tempInputDir, { recursive: true });
-        fs.mkdirSync(tempOutputDir, { recursive: true });
-
-        fs.copyFileSync(DWG_FILE, path.join(tempInputDir, path.basename(DWG_FILE)));
-
-        try {
-            const cmd = `"${ODA_CONVERTER}" "${tempInputDir}" "${tempOutputDir}" "ACAD2018" "DXF" "0" "0" "*.dwg"`;
-            execSync(cmd, { stdio: 'inherit', cwd: WORKSPACE_DIR });
-
-            const expectedDxf = path.join(tempOutputDir, dwgBase + '.dxf');
-            if (!fs.existsSync(expectedDxf)) {
-                throw new Error(`Expected DXF file was not generated at: ${expectedDxf}`);
-            }
-
-            if (fs.existsSync(DXF_FILE)) fs.unlinkSync(DXF_FILE);
-            fs.copyFileSync(expectedDxf, DXF_FILE);
-            console.log('DXF export complete via ODA File Converter.');
-        } catch (err) {
-            console.error('Error running ODA File Converter:', err.message);
-            process.exit(1);
-        } finally {
-            if (fs.existsSync(tempInputDir)) fs.rmSync(tempInputDir, { recursive: true, force: true });
-            if (fs.existsSync(tempOutputDir)) fs.rmSync(tempOutputDir, { recursive: true, force: true });
-        }
-    } else {
-        console.error('Error: Neither AutoCAD Core Console nor ODA File Converter was found on this system.');
-        console.error(`Checked paths:\n  - AutoCAD: ${ACAD_CONSOLE}\n  - ODA: ${ODA_CONVERTER}`);
-        process.exit(1);
     }
 
     console.log('\n--- Step 2: Parsing DXF File ---');

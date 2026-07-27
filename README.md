@@ -71,15 +71,6 @@ Place a `.dwg` file in `dwg/`, then use one of the conversion scripts:
 node dwg_to_svg_with_autocad.js <file>.dwg
 ```
 
-1. Place your `.dwg` file in the `dwg/` directory.
-2. Run the unified conversion script:
-   ```bash
-   node convert.js <dwgName>.dwg
-   ```
-   The script automatically detects and uses whichever conversion engine is installed on your system:
-   * **AutoCAD Core Console** (`accoreconsole.exe`): Used as the primary engine if Autodesk AutoCAD 2027 is installed.
-   * **ODA File Converter** (`ODAFileConverter.exe`): Used as a fallback if AutoCAD is not detected.
-=======
 or:
 
 ```bash
@@ -87,3 +78,9 @@ node dwg_to_svg_with_oda.js <file>.dwg
 ```
 
 Generated SVG profiles and `metadata.json` files are stored under `svg/`.
+
+## Native AR model compatibility
+
+The AR export path now creates a clean glTF-only copy of the configured window before upload. It removes non-portable vertex attributes, replaces non-finite geometry values, recomputes normals, bakes transforms, and centers the model on the floor. The server validates the GLB structure and serves generated models with explicit content length and byte-range support for Android Scene Viewer.
+
+After deploying this revision, generate a new QR. QR codes created by the previous deployment still reference the older generated GLB files and should not be reused.

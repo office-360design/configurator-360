@@ -1169,32 +1169,184 @@
             errorContainer.style.display = 'none';
         }
 
+        function finiteNumber(value, fallback = 0) {
+            return Number.isFinite(value) ? value : fallback;
+        }
+
+        function cloneARMaterial(source) {
+            const material = source || defaultMat;
+            const color = material.color?.clone?.() || new THREE.Color(0x94a3b8);
+            const opacity = THREE.MathUtils.clamp(finiteNumber(material.opacity, 1), 0.05, 1);
+            const transparent = Boolean(material.transparent && opacity < 0.999);
+
+            return new THREE.MeshStandardMaterial({
+                name: material.name || 'AR material',
+                color,
+                metalness: THREE.MathUtils.clamp(finiteNumber(material.metalness, 0), 0, 1),
+                roughness: THREE.MathUtils.clamp(finiteNumber(material.roughness, 0.6), 0.04, 1),
+                opacity,
+                transparent,
+                depthWrite: !transparent,
+                side: THREE.DoubleSide
+            });
+        }
+
+        function sanitizeGeometryForAR(sourceGeometry, worldMatrix) {
+            if (!sourceGeometry?.isBufferGeometry || !sourceGeometry.getAttribute('position')) return null;
+
+            const geometry = sourceGeometry.clone();
+            geometry.applyMatrix4(worldMatrix);
+
+            // Scene Viewer is stricter than Three.js. Keep only portable glTF attributes.
+            const allowedAttributes = new Set(['position', 'normal', 'uv', 'uv1']);
+            for (const attributeName of Object.keys(geometry.attributes)) {
+                if (!allowedAttributes.has(attributeName)) geometry.deleteAttribute(attributeName);
+            }
+
+            for (const attribute of Object.values(geometry.attributes)) {
+                const array = attribute?.array;
+                if (!array) continue;
+                for (let index = 0; index < array.length; index++) {
+                    if (!Number.isFinite(array[index])) array[index] = 0;
+                }
+                attribute.needsUpdate = true;
+            }
+
+            const position = geometry.getAttribute('position');
+            if (!position || position.count < 3) {
+                geometry.dispose();
+                return null;
+            }
+
+            if (geometry.index) {
+                const sourceIndex = geometry.index.array;
+                const validTriangles = [];
+                for (let index = 0; index + 2 < sourceIndex.length; index += 3) {
+                    const a = sourceIndex[index];
+                    const b = sourceIndex[index + 1];
+                    const c = sourceIndex[index + 2];
+                    if (a < position.count && b < position.count && c < position.count && a !== b && b !== c && a !== c) {
+                        validTriangles.push(a, b, c);
+                    }
+                }
+                if (validTriangles.length < 3) {
+                    geometry.dispose();
+                    return null;
+                }
+                geometry.setIndex(validTriangles);
+            }
+
+            geometry.deleteAttribute('normal');
+            geometry.computeVertexNormals();
+            geometry.computeBoundingBox();
+            geometry.computeBoundingSphere();
+
+            const box = geometry.boundingBox;
+            const sphere = geometry.boundingSphere;
+            if (!box || box.isEmpty() || !sphere || !Number.isFinite(sphere.radius)) {
+                geometry.dispose();
+                return null;
+            }
+
+            return geometry;
+        }
+
+        function buildCleanARExportRoot() {
+            const previousVisibility = placementRoot.visible;
+            placementRoot.visible = true;
+            placementRoot.updateMatrixWorld(true);
+
+            const exportRoot = new THREE.Group();
+            exportRoot.name = 'Configured window';
+            let meshCount = 0;
+
+            placementRoot.traverse(object => {
+                if (!object.isMesh || !object.visible) return;
+                const geometry = sanitizeGeometryForAR(object.geometry, object.matrixWorld);
+                if (!geometry) return;
+
+                const material = Array.isArray(object.material)
+                    ? object.material.map(cloneARMaterial)
+                    : cloneARMaterial(object.material);
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.name = object.name || `Window part ${meshCount + 1}`;
+                exportRoot.add(mesh);
+                meshCount += 1;
+            });
+
+            placementRoot.visible = previousVisibility;
+
+            if (meshCount === 0) {
+                throw new Error('The current configuration contains no exportable meshes.');
+            }
+
+            // Bake a floor-friendly origin: centered horizontally, with the bottom at Y=0.
+            exportRoot.updateMatrixWorld(true);
+            const bounds = new THREE.Box3().setFromObject(exportRoot);
+            if (bounds.isEmpty()) throw new Error('The exported window has invalid bounds.');
+            const center = bounds.getCenter(new THREE.Vector3());
+            const offset = new THREE.Matrix4().makeTranslation(-center.x, -bounds.min.y, -center.z);
+            exportRoot.traverse(object => {
+                if (object.isMesh) object.geometry.applyMatrix4(offset);
+            });
+            exportRoot.updateMatrixWorld(true);
+            return exportRoot;
+        }
+
+        function validateGLBBuffer(buffer) {
+            if (!(buffer instanceof ArrayBuffer) || buffer.byteLength < 20) {
+                throw new Error('The exporter returned an incomplete GLB file.');
+            }
+            const view = new DataView(buffer);
+            const magic = view.getUint32(0, true);
+            const version = view.getUint32(4, true);
+            const declaredLength = view.getUint32(8, true);
+            if (magic !== 0x46546c67 || version !== 2 || declaredLength !== buffer.byteLength) {
+                throw new Error('The generated GLB header is invalid.');
+            }
+            const jsonLength = view.getUint32(12, true);
+            const jsonType = view.getUint32(16, true);
+            if (jsonType !== 0x4e4f534a || 20 + jsonLength > buffer.byteLength) {
+                throw new Error('The generated GLB does not contain a valid JSON chunk.');
+            }
+            const jsonBytes = new Uint8Array(buffer, 20, jsonLength);
+            const json = JSON.parse(new TextDecoder().decode(jsonBytes).trim());
+            if (json?.asset?.version !== '2.0' || !Array.isArray(json.meshes) || json.meshes.length === 0) {
+                throw new Error('The generated GLB contains no valid glTF 2.0 meshes.');
+            }
+        }
+
         function exportCurrentWindowToGLB() {
             return new Promise((resolve, reject) => {
-                const exporter = new GLTFExporter();
-                const previousVisibility = placementRoot.visible;
-                placementRoot.visible = true;
-                placementRoot.updateMatrixWorld(true);
+                let exportRoot;
+                try {
+                    exportRoot = buildCleanARExportRoot();
+                } catch (error) {
+                    reject(error);
+                    return;
+                }
 
+                const exporter = new GLTFExporter();
                 exporter.parse(
-                    placementRoot,
+                    exportRoot,
                     result => {
-                        placementRoot.visible = previousVisibility;
-                        if (!(result instanceof ArrayBuffer)) {
-                            reject(new Error('The exporter did not produce a binary GLB file.'));
-                            return;
+                        try {
+                            if (!(result instanceof ArrayBuffer)) {
+                                throw new Error('The exporter did not produce a binary GLB file.');
+                            }
+                            validateGLBBuffer(result);
+                            resolve(result);
+                        } catch (error) {
+                            reject(error);
                         }
-                        resolve(result);
                     },
-                    error => {
-                        placementRoot.visible = previousVisibility;
-                        reject(error);
-                    },
+                    reject,
                     {
                         binary: true,
                         onlyVisible: true,
                         truncateDrawRange: true,
-                        maxTextureSize: 2048
+                        maxTextureSize: 2048,
+                        includeCustomExtensions: false
                     }
                 );
             });
