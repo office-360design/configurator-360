@@ -669,9 +669,12 @@
         </div>
 
         <div class="part-toggles">
-            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Filtre Culori</label>
+            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Filtre
+                Culori</label>
             <div id="group-filters" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;"></div>
-            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: block;">Componente Profile</label>
+            <label
+                style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: block;">Componente
+                Profile</label>
             <div id="part-toggles-container"></div>
         </div>
     </div>
@@ -719,7 +722,8 @@
     <div id="ar-launch">
         <div class="ar-launch-card">
             <h1>Window AR view</h1>
-            <p>The configured window is ready. Tap once to allow the browser to open the camera and place it automatically.</p>
+            <p>The configured window is ready. Tap once to allow the browser to open the camera and place it
+                automatically.</p>
             <button id="ar-start-button" type="button" disabled>Preparing AR…</button>
             <div id="ar-status">Loading the selected profile…</div>
         </div>
@@ -1499,6 +1503,63 @@
             explodableObjects.push(obj);
         }
 
+        const EXPLODE_Z_OFFSETS = {
+            frame: 0.0,
+            sash: 0.25,
+            bead: 0.75
+        };
+
+        function bboxDistance(boxA, boxB) {
+            if (!boxA || !boxB) return Infinity;
+            const distX = Math.max(0, boxA.minX - boxB.maxX, boxB.minX - boxA.maxX);
+            const distY = Math.max(0, boxA.minY - boxB.maxY, boxB.minY - boxA.maxY);
+            return Math.hypot(distX, distY);
+        }
+
+        function getProfileGroup(profile) {
+            if (profile.role === 'frame') {
+                return 'frame';
+            }
+            const blockName = (profile.blockName || '').toLowerCase();
+            if (profile.role === 'sash') {
+                if (blockName.includes('573940') || blockName.includes('244511') || blockName.includes('224378')) {
+                    return 'bead';
+                }
+            }
+
+            // For non-metal parts (gaskets, seals), dynamically group with frame or sash
+            // based on proximity to the main structural (aluminum) profiles.
+            const isGasketOrSeal = !profile.isAlu;
+            if (isGasketOrSeal && profilesData.length > 0) {
+                let minDistToFrameAlu = Infinity;
+                let minDistToSashAlu = Infinity;
+
+                profilesData.forEach(p => {
+                    if (!p.isAlu) return;
+
+                    // Exclude glazing bead aluminum parts when measuring sash distance
+                    const isBeadAlu = p.role === 'sash' && (
+                        p.blockName.includes('573940') ||
+                        p.blockName.includes('244511') ||
+                        p.blockName.includes('224378')
+                    );
+
+                    const dist = bboxDistance(profile.bbox, p.bbox);
+                    if (p.role === 'frame') {
+                        minDistToFrameAlu = Math.min(minDistToFrameAlu, dist);
+                    } else if (p.role === 'sash' && !isBeadAlu) {
+                        minDistToSashAlu = Math.min(minDistToSashAlu, dist);
+                    }
+                });
+
+                if (minDistToFrameAlu < minDistToSashAlu) {
+                    return 'frame';
+                }
+            }
+
+            return 'sash';
+        }
+
         // 3D SAMPLE EXTRUSION GENERATOR (10CM)
         function createSampleExtrusion(profile) {
             const extrudeSettings = { depth: 0.1, bevelEnabled: false, curveSegments: 8, steps: 1 };
@@ -1604,14 +1665,26 @@
             mesh.castShadow = !captureMode;
             mesh.receiveShadow = !captureMode;
 
+            const group = getProfileGroup(profile);
+
+            // Map each group to its outward explosion offset (X/Y)
+            const EXPLODE_XY_OFFSETS = {
+                frame: 0.12,
+                sash: 0.26,
+                bead: 0.26
+            };
+            const actualExpDist = EXPLODE_XY_OFFSETS[group] !== undefined ? EXPLODE_XY_OFFSETS[group] : expDist;
+
             // Explode directions
             let expX = 0, expY = 0;
-            if (side === 'bottom') expY = -expDist;
-            if (side === 'top') expY = expDist;
-            if (side === 'left') expX = -expDist;
-            if (side === 'right') expX = expDist;
+            if (side === 'bottom') expY = -actualExpDist;
+            if (side === 'top') expY = actualExpDist;
+            if (side === 'left') expX = -actualExpDist;
+            if (side === 'right') expX = actualExpDist;
 
-            registerExplode(mesh, expX, expY, expDist * 0.3);
+            const expZ = EXPLODE_Z_OFFSETS[group] !== undefined ? EXPLODE_Z_OFFSETS[group] : 0.0;
+
+            registerExplode(mesh, expX, expY, expZ);
             return mesh;
         }
 
@@ -1929,8 +2002,8 @@
 
                     const mesh = createMiteredSide(profile, A, B, side, profile.explodeOffset);
 
-                    // Group meshes by their role
-                    if (profile.role === 'frame') {
+                    // Group meshes by their resolved group
+                    if (getProfileGroup(profile) === 'frame') {
                         frameGroup.add(mesh);
                     } else {
                         sashGroup.add(mesh);
@@ -2010,7 +2083,7 @@
             handleBase.add(plate, handleLeverGroup);
 
             handleBase.position.set(A / 2 - 0.08, 0, sashCenterX + 0.02);
-            registerExplode(handleBase, 0.3, 0, 0.6);
+            registerExplode(handleBase, 0.26, 0, 0.9);
             sashGroup.add(handleBase);
 
             // Hinge pivots logic
@@ -2168,7 +2241,7 @@
             let payload = {};
             try {
                 payload = await response.json();
-            } catch (_) {}
+            } catch (_) { }
 
             if (!response.ok || !payload.launchUrl) {
                 throw new Error(payload.error || `The AR model service returned HTTP ${response.status}.`);
@@ -2268,7 +2341,7 @@
                 try {
                     await renderer.xr.setSession(arSession);
                 } catch (sessionSetupError) {
-                    await arSession.end().catch(() => {});
+                    await arSession.end().catch(() => { });
                     throw sessionSetupError;
                 }
                 arSessionStartedAt = performance.now();
