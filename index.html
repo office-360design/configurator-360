@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="app-build" content="webxr-diag-20260727-01">
     <script>
         if (new URLSearchParams(window.location.search).get('ar') === '1') {
             document.documentElement.classList.add('ar-mode');
@@ -380,7 +381,7 @@
             line-height: 1.5;
         }
 
-        #ar-start-button {
+        .ar-start-button {
             width: 100%;
             border: 0;
             border-radius: 14px;
@@ -389,9 +390,14 @@
             color: white;
             font: 700 16px 'Outfit', sans-serif;
             cursor: pointer;
+            margin-top: 10px;
         }
 
-        #ar-start-button:disabled {
+        .ar-start-button.secondary {
+            background: #334155;
+        }
+
+        .ar-start-button:disabled {
             cursor: wait;
             opacity: 0.55;
         }
@@ -402,6 +408,73 @@
             color: #94a3b8;
             font-size: 12px;
             line-height: 1.45;
+        }
+
+        #ar-diagnostics {
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            background: rgba(15,23,42,0.65);
+            color: #cbd5e1;
+            font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            text-align: left;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        #build-badge {
+            position: fixed;
+            right: 10px;
+            bottom: 10px;
+            z-index: 350;
+            padding: 5px 8px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            background: rgba(2,6,23,0.78);
+            color: #94a3b8;
+            font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            pointer-events: none;
+        }
+
+        .ar-tool-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .ar-tool-button,
+        .ar-tool-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            padding: 8px 10px;
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 10px;
+            background: rgba(15,23,42,0.8);
+            color: #dbeafe;
+            font: 600 11px/1.25 Inter, ui-sans-serif, system-ui, sans-serif;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .ar-tool-button:hover,
+        .ar-tool-link:hover {
+            background: rgba(30,41,59,0.95);
+        }
+
+        #build-warning {
+            display: none;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid rgba(248,113,113,0.5);
+            border-radius: 10px;
+            background: rgba(127,29,29,0.35);
+            color: #fecaca;
+            font-size: 12px;
+            line-height: 1.4;
         }
 
         @media (max-width: 760px) {
@@ -417,6 +490,7 @@
 </head>
 
 <body>
+    <div id="build-badge">Build webxr-diag-20260727-01</div>
 
     <div id="loading">
         <div class="spinner"></div>
@@ -490,9 +564,18 @@
     <div id="ar-launch">
         <div class="ar-launch-card">
             <h1>Window AR view</h1>
-            <p>The configured window is ready. Tap once to start our WebXR camera view and place it at real-world scale.</p>
-            <button id="ar-start-button" type="button" disabled>Preparing AR…</button>
+            <p>The configured window is ready. First test the minimal AR session. Surface placement is a separate capability test.</p>
+            <div id="build-warning"></div>
+            <button id="ar-start-button" class="ar-start-button" type="button" disabled>Preparing AR…</button>
+            <button id="ar-surface-button" class="ar-start-button secondary" type="button" disabled>Test surface placement</button>
             <div id="ar-status">Loading the selected profile…</div>
+            <div class="ar-tool-row">
+                <button id="ar-copy-diagnostics" class="ar-tool-button" type="button">Copy diagnostics</button>
+                <button id="ar-reload-fresh" class="ar-tool-button" type="button">Reload latest</button>
+                <a class="ar-tool-link" href="https://immersive-web.github.io/webxr-samples/immersive-ar-session.html" target="_blank" rel="noopener">Official WebXR test</a>
+                <a id="native-ar-sample" class="ar-tool-link" href="#">Native AR sample</a>
+            </div>
+            <div id="ar-diagnostics"></div>
         </div>
     </div>
 
@@ -514,7 +597,14 @@
         import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 
         const pageParams = new URLSearchParams(window.location.search);
+        const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
+        const requestedBuild = pageParams.get('build');
         const isARMode = pageParams.get('ar') === '1';
+        let deployedVersion = null;
+        let arSupportReported = null;
+        let lastARDiagnosticLine = '';
+
+        document.getElementById('build-badge').textContent = `Build ${APP_BUILD}`;
         const allowedProfiles = new Set([
             '2_6_Oeffnungselement_Vertikal',
             '575760_d1',
@@ -1120,6 +1210,7 @@
             url.search = '';
             url.hash = '';
             url.searchParams.set('ar', '1');
+            url.searchParams.set('build', APP_BUILD);
             url.searchParams.set('profile', document.getElementById('cadProfile').value);
             url.searchParams.set('w', document.getElementById('widthA').value);
             url.searchParams.set('h', document.getElementById('heightB').value);
@@ -1198,70 +1289,146 @@
             status.style.color = isError ? '#fecaca' : '#94a3b8';
         }
 
+        async function getPermissionState(name) {
+            try {
+                if (!navigator.permissions?.query) return 'permissions API unavailable';
+                const result = await navigator.permissions.query({ name });
+                return result.state;
+            } catch (error) {
+                return `not queryable (${error.name})`;
+            }
+        }
+
+        async function getUAData() {
+            try {
+                if (!navigator.userAgentData?.getHighEntropyValues) return null;
+                return await navigator.userAgentData.getHighEntropyValues([
+                    'model', 'platformVersion', 'fullVersionList'
+                ]);
+            } catch (_error) {
+                return null;
+            }
+        }
+
+        async function fetchDeployedVersion() {
+            try {
+                const response = await fetch(`version.json?cacheBust=${Date.now()}`, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                deployedVersion = await response.json();
+            } catch (error) {
+                deployedVersion = { build: 'unavailable', error: `${error.name}: ${error.message}` };
+            }
+            return deployedVersion;
+        }
+
+        function updateBuildWarning() {
+            const warning = document.getElementById('build-warning');
+            if (!warning) return;
+            const deployedBuild = deployedVersion?.build || null;
+            const mismatches = [];
+            if (requestedBuild && requestedBuild !== APP_BUILD) {
+                mismatches.push(`QR requested ${requestedBuild}, but this page is ${APP_BUILD}.`);
+            }
+            if (deployedBuild && deployedBuild !== 'unavailable' && deployedBuild !== APP_BUILD) {
+                mismatches.push(`version.json reports ${deployedBuild}, but this HTML is ${APP_BUILD}.`);
+            }
+            warning.style.display = mismatches.length ? 'block' : 'none';
+            warning.textContent = mismatches.length
+                ? `Version mismatch detected. ${mismatches.join(' ')} Press “Reload latest”.`
+                : '';
+        }
+
+        async function updateARDiagnostics(extra = '') {
+            const box = document.getElementById('ar-diagnostics');
+            if (!box) return;
+            if (extra) lastARDiagnosticLine = extra;
+            const uaData = await getUAData();
+            const cameraPermission = await getPermissionState('camera');
+            const spatialPermission = await getPermissionState('xr-spatial-tracking');
+            const policy = document.permissionsPolicy || document.featurePolicy;
+            const policyAllows = feature => {
+                try { return policy?.allowsFeature ? policy.allowsFeature(feature) : 'unknown'; }
+                catch (_error) { return 'unknown'; }
+            };
+            const values = [
+                `pageBuild: ${APP_BUILD}`,
+                `requestedBuild: ${requestedBuild || '(none)'}`,
+                `deployedBuild: ${deployedVersion?.build || '(checking)'}`,
+                `url: ${location.origin}${location.pathname}`,
+                `secureContext: ${window.isSecureContext}`,
+                `topLevelPage: ${window.top === window.self}`,
+                `visibility: ${document.visibilityState}`,
+                `navigator.xr: ${Boolean(navigator.xr)}`,
+                `immersive-ar reported: ${arSupportReported ?? '(not checked)'}`,
+                `cameraPermission: ${cameraPermission}`,
+                `xrSpatialPermission: ${spatialPermission}`,
+                `policy camera: ${policyAllows('camera')}`,
+                `policy xr-spatial-tracking: ${policyAllows('xr-spatial-tracking')}`,
+                `userActivation active: ${navigator.userActivation?.isActive ?? 'unknown'}`,
+                `userActivation ever: ${navigator.userActivation?.hasBeenActive ?? 'unknown'}`,
+                `userAgent: ${navigator.userAgent}`
+            ];
+            if (uaData) values.push(`uaData: ${JSON.stringify(uaData)}`);
+            if (deployedVersion?.error) values.push(`versionCheck: ${deployedVersion.error}`);
+            if (lastARDiagnosticLine) values.push(lastARDiagnosticLine);
+            box.textContent = values.join('\n');
+            updateBuildWarning();
+        }
+
         async function updateARAvailability() {
             if (!isARMode || !profilesReady) return;
-            const button = document.getElementById('ar-start-button');
+            const basicButton = document.getElementById('ar-start-button');
+            const surfaceButton = document.getElementById('ar-surface-button');
+            await updateARDiagnostics();
 
             if (!window.isSecureContext) {
-                button.disabled = true;
-                button.textContent = 'HTTPS required';
+                basicButton.disabled = true;
+                surfaceButton.disabled = true;
+                basicButton.textContent = 'HTTPS required';
                 setARStatus('AR can only start from a secure HTTPS page.', true);
                 return;
             }
             if (!navigator.xr) {
-                button.disabled = true;
-                button.textContent = 'AR not supported';
-                setARStatus('This browser does not provide WebXR immersive AR. Open the link in Google Chrome on an ARCore-compatible Android phone.', true);
+                basicButton.disabled = true;
+                surfaceButton.disabled = true;
+                basicButton.textContent = 'AR not supported';
+                setARStatus('This browser does not expose the WebXR API.', true);
                 return;
             }
 
             try {
                 const supported = await navigator.xr.isSessionSupported('immersive-ar');
-                button.disabled = !supported;
-                button.textContent = supported ? 'View in AR' : 'AR not supported';
+                arSupportReported = supported;
+                basicButton.disabled = !supported;
+                surfaceButton.disabled = !supported;
+                basicButton.textContent = supported ? 'Test basic AR' : 'AR not supported';
                 setARStatus(supported
-                    ? 'Tap once to start browser AR. The window will use surface placement when available and a camera-relative fallback otherwise.'
-                    : 'Immersive AR is unavailable on this device or browser.', !supported);
+                    ? 'Start with Basic AR. It requests no optional or required WebXR features.'
+                    : 'The browser reports that immersive-ar is unavailable on this device.', !supported);
+                await updateARDiagnostics(`immersive-ar reported: ${supported}`);
             } catch (error) {
-                button.disabled = true;
-                button.textContent = 'AR unavailable';
+                basicButton.disabled = true;
+                surfaceButton.disabled = true;
+                basicButton.textContent = 'AR unavailable';
                 setARStatus(`${error.name}: ${error.message}`, true);
+                await updateARDiagnostics(`isSessionSupported error: ${error.name}: ${error.message}`);
             }
         }
 
-        async function requestCompatibleARSession() {
-            const attempts = [
-                { options: { optionalFeatures: ['hit-test'] }, label: 'WebXR with hit testing' },
-                { options: {}, label: 'basic WebXR' }
-            ];
-            let lastError = null;
-
-            for (const attempt of attempts) {
-                try {
-                    const session = await navigator.xr.requestSession('immersive-ar', attempt.options);
-                    return { session, mode: attempt.label };
-                } catch (error) {
-                    lastError = error;
-                    // Permission denial will not be fixed by requesting fewer features.
-                    if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
-                        break;
-                    }
-                    console.warn(`${attempt.label} could not start; trying a simpler session.`, error);
-                }
-            }
-            throw lastError || new Error('The browser rejected the immersive AR session.');
-        }
-
-        async function startAR() {
+        async function beginARSession(sessionOptions, useSurfacePlacement, label) {
             if (arSession) return;
-            const button = document.getElementById('ar-start-button');
-            button.disabled = true;
-            button.textContent = 'Opening camera…';
-            setARStatus('Waiting for camera and spatial-tracking permission…');
+            const basicButton = document.getElementById('ar-start-button');
+            const surfaceButton = document.getElementById('ar-surface-button');
+            basicButton.disabled = true;
+            surfaceButton.disabled = true;
+            setARStatus(`Requesting ${label}…`);
+            await updateARDiagnostics(`${label} click: userActivation=${navigator.userActivation?.isActive ?? 'unknown'}`);
 
             try {
-                const result = await requestCompatibleARSession();
-                arSession = result.session;
+                // This call is deliberately made directly from a separate user click.
+                // We do not automatically retry, because a second request can lose
+                // the browser's transient user activation.
+                arSession = await navigator.xr.requestSession('immersive-ar', sessionOptions);
                 await renderer.xr.setSession(arSession);
                 arSessionStartedAt = performance.now();
                 arPlaced = false;
@@ -1269,11 +1436,9 @@
                 document.getElementById('ar-launch').style.display = 'none';
 
                 hitTestSource = null;
-                try {
+                if (useSurfacePlacement) {
                     const viewerSpace = await arSession.requestReferenceSpace('viewer');
                     hitTestSource = await arSession.requestHitTestSource({ space: viewerSpace });
-                } catch (error) {
-                    console.info('Surface hit testing is unavailable; the window will be placed in front of the camera.', error);
                 }
 
                 arSession.addEventListener('end', () => {
@@ -1283,17 +1448,31 @@
                     arPlaced = false;
                     placementRoot.visible = false;
                     document.getElementById('ar-launch').style.display = 'flex';
-                    button.disabled = false;
-                    button.textContent = 'View in AR';
-                    setARStatus('AR closed. Tap to open it again.');
+                    basicButton.disabled = false;
+                    surfaceButton.disabled = false;
+                    basicButton.textContent = 'Test basic AR';
+                    setARStatus('AR closed. Choose a test again.');
                 }, { once: true });
             } catch (error) {
-                console.error('AR session failed:', error);
+                console.error(`${label} failed:`, error);
                 arSession = null;
-                button.disabled = false;
-                button.textContent = 'Try AR again';
-                setARStatus(`${error.name}: ${error.message}`, true);
+                basicButton.disabled = false;
+                surfaceButton.disabled = false;
+                basicButton.textContent = 'Test basic AR';
+                const contradiction = error?.name === 'NotSupportedError' && arSupportReported === true;
+                setARStatus(contradiction
+                    ? `${label} failed although Chrome reported support. This is a browser / AR runtime failure before the window model is used.`
+                    : `${label} failed — ${error.name}: ${error.message}`, true);
+                await updateARDiagnostics(`${label} error: ${error.name}: ${error.message}`);
             }
+        }
+
+        function startBasicAR() {
+            return beginARSession({}, false, 'Basic immersive-ar');
+        }
+
+        function startSurfaceAR() {
+            return beginARSession({ requiredFeatures: ['hit-test'] }, true, 'Immersive-ar with hit-test');
         }
 
         function orientWindowTowardCamera(position) {
@@ -1346,6 +1525,33 @@
             }
         }
 
+        function reloadFresh() {
+            const url = new URL(window.location.href);
+            url.searchParams.set('cacheBust', Date.now().toString());
+            window.location.replace(url.toString());
+        }
+
+        async function copyDiagnostics() {
+            await updateARDiagnostics();
+            const text = document.getElementById('ar-diagnostics')?.textContent || '';
+            try {
+                await navigator.clipboard.writeText(text);
+                setARStatus('Diagnostics copied to the clipboard.');
+            } catch (_error) {
+                setARStatus('Could not access the clipboard. Select and copy the diagnostic text manually.', true);
+            }
+        }
+
+        function configureNativeARSample() {
+            const model = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Avocado/glTF/Avocado.gltf';
+            const fallback = 'https://developers.google.com/ar';
+            const intent = `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(model)}&mode=ar_preferred#Intent;scheme=https;package=com.google.android.googlequicksearchbox;action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(fallback)};end;`;
+            const link = document.getElementById('native-ar-sample');
+            link.href = /Android/i.test(navigator.userAgent)
+                ? intent
+                : 'https://developers.google.com/ar/develop/scene-viewer';
+        }
+
         // EVENT LISTENERS
         document.getElementById('widthA').addEventListener('input', buildWindow);
         document.getElementById('heightB').addEventListener('input', buildWindow);
@@ -1366,7 +1572,12 @@
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') closeQRModal();
         });
-        document.getElementById('ar-start-button').addEventListener('click', startAR);
+        document.getElementById('ar-start-button').addEventListener('click', startBasicAR);
+        document.getElementById('ar-surface-button').addEventListener('click', startSurfaceAR);
+        document.getElementById('ar-copy-diagnostics').addEventListener('click', copyDiagnostics);
+        document.getElementById('ar-reload-fresh').addEventListener('click', reloadFresh);
+        configureNativeARSample();
+        fetchDeployedVersion().then(() => updateARDiagnostics());
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;

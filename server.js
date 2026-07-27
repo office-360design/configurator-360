@@ -66,7 +66,13 @@ const server = http.createServer((req, res) => {
         const pathname = decodeURIComponent(requestUrl.pathname);
 
         if (req.method === 'GET' && pathname === '/health') {
-            sendJson(res, 200, { ok: true, arTransport: 'static-webxr-query-url' });
+            let version = null;
+            try {
+                version = JSON.parse(fs.readFileSync(path.join(ROOT, 'version.json'), 'utf8'));
+            } catch (_error) {
+                version = { build: 'unknown' };
+            }
+            sendJson(res, 200, { ok: true, arTransport: 'static-webxr-query-url', version });
             return;
         }
         if (req.method !== 'GET' && req.method !== 'HEAD') {

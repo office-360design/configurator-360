@@ -1,0 +1,7 @@
+{
+  "build": "webxr-diag-20260727-01",
+  "baseCommit": "bf4f76c",
+  "channel": "webxr-diagnostic",
+  "generatedAt": "2026-07-27T00:00:00Z",
+  "notes": "Root and static-site index are synchronized. Includes deployment/version checks and WebXR/native AR isolation tools."
+}

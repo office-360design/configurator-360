@@ -101,3 +101,35 @@ The Three.js and QR libraries are currently loaded from public CDNs. The profile
 - Browser support still depends on the device and ARCore installation.
 - The same physical window can appear slightly different between phones because tracking and lighting are device-dependent.
 - Advanced occlusion, wall recognition, persistent anchors, and server-side storage are intentionally omitted.
+
+## WebXR compatibility diagnostic
+
+The mobile AR page now exposes two independent tests:
+
+1. **Test basic AR** requests `immersive-ar` with no required or optional features.
+2. **Test surface placement** requests a separate `immersive-ar` session with `hit-test` required.
+
+Each test must be started by its own button press. The app deliberately does not retry automatically, because immersive session requests require a fresh user activation.
+
+Interpretation:
+
+- If **Basic AR** fails with `NotSupportedError`, the device/browser environment does not accept even the minimal WebXR AR session. Geometry and window dimensions are not the cause.
+- If Basic AR works but Surface Placement fails, immersive AR works but the `hit-test` feature is unavailable or rejected.
+- The diagnostics panel prints secure-context status, WebXR availability, browser user agent, and the exact error.
+
+
+## Deployment/version debugging
+
+This repository previously had two different copies of the page: `index.html` and `static-site/index.html`. The diagnostic build keeps them synchronized and displays a build ID in the lower-right corner.
+
+Before each direct static upload, double-click `PREPARE_STATIC_SITE.vbs` (or run `npm run prepare:static`). Upload the resulting `static-site/` folder. Verify the deployed build by opening `/version.json` on the public domain. The build shown there must match the badge on both desktop and phone. The QR also carries the originating build ID and the phone page warns when it receives a different cached version.
+
+The mobile page includes:
+
+- **Test basic AR**: minimal `requestSession('immersive-ar')`;
+- **Test surface placement**: the same session with required hit testing;
+- **Official WebXR test**: opens the standards sample;
+- **Native AR sample**: launches Google's official known-good Avocado asset through Scene Viewer to isolate WebXR from the native AR runtime;
+- **Copy diagnostics** and **Reload latest**.
+
+If `isSessionSupported('immersive-ar')` reports true but the minimal request returns `NotSupportedError`, the failure occurs in Chrome/ARCore before any window geometry is used.
