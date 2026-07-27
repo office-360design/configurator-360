@@ -8,6 +8,7 @@ const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
 const GENERATED_DIR = path.join(ROOT, 'generated');
+const CAD_SCREENSHOTS_DIR = path.join(ROOT, 'cad_screenshots');
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_MODEL_BYTES = 25 * 1024 * 1024;
 const MODEL_TTL_MS = Number.parseInt(process.env.MODEL_TTL_MS || String(24 * 60 * 60 * 1000), 10);
@@ -29,6 +30,7 @@ const MIME_TYPES = {
 };
 
 fs.mkdirSync(GENERATED_DIR, { recursive: true });
+fs.mkdirSync(CAD_SCREENSHOTS_DIR, { recursive: true });
 
 let browserPromise = null;
 let renderPageState = null;
@@ -334,6 +336,63 @@ function handleModelUpload(req, res) {
     });
 }
 
+function listCadScreenshots(req, res, requestUrl) {
+    const allowedProfiles = new Set([
+        '2_6_Oeffnungselement_Vertikal',
+        '2_4_Oeffnungselemnt_Vertikal',
+    ]);
+    const profile = String(requestUrl.searchParams.get('profile') || '');
+
+    if (!allowedProfiles.has(profile)) {
+        sendJson(res, 400, {
+            success: false,
+            error: 'Unsupported CAD profile.',
+        });
+        return;
+    }
+
+    const profileDirectory = path.join(CAD_SCREENSHOTS_DIR, profile);
+
+    fs.readdir(profileDirectory, { withFileTypes: true }, (error, entries) => {
+        if (error) {
+            if (error.code === 'ENOENT') {
+                sendJson(res, 200, {
+                    success: true,
+                    profile,
+                    images: [],
+                });
+                return;
+            }
+
+            sendJson(res, 500, {
+                success: false,
+                error: error.message,
+            });
+            return;
+        }
+
+        const allowedExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+        const images = entries
+            .filter(entry => entry.isFile())
+            .map(entry => entry.name)
+            .filter(filename => allowedExtensions.has(path.extname(filename).toLowerCase()))
+            .sort((a, b) => a.localeCompare(b, undefined, {
+                numeric: true,
+                sensitivity: 'base',
+            }))
+            .map(filename => ({
+                filename,
+                url: `/cad_screenshots/${encodeURIComponent(profile)}/${encodeURIComponent(filename)}`,
+            }));
+
+        sendJson(res, 200, {
+            success: true,
+            profile,
+            images,
+        });
+    });
+}
+
 function serveFile(req, res, pathname) {
     const requestedFile = pathname === '/' ? '/index.html' : pathname;
     const filePath = path.resolve(ROOT, `.${requestedFile}`);
@@ -376,6 +435,11 @@ const server = http.createServer(async (req, res) => {
 
         if (req.method === 'GET' && pathname === '/api/health') {
             sendJson(res, 200, { success: true, service: 'window-configurator' });
+            return;
+        }
+
+        if (req.method === 'GET' && pathname === '/api/cad-screenshots') {
+            listCadScreenshots(req, res, requestUrl);
             return;
         }
 
