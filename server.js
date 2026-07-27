@@ -149,6 +149,16 @@ function parseRenderPayload(payload) {
         throw new Error('Height must be between 500 and 3000 mm.');
     }
 
+    const glassThicknessMm = Number(
+        payload.glass_thickness_mm
+        ?? payload.glassThicknessMm
+        ?? payload.glass_thickness
+        ?? 24
+    );
+    if (!Number.isFinite(glassThicknessMm) || glassThicknessMm < 4 || glassThicknessMm > 60) {
+        throw new Error('Glass thickness must be between 4 and 60 mm.');
+    }
+
     const colour = String(payload.colour || payload.color || '#e2e8f0');
     if (!/^#[0-9a-fA-F]{6}$/.test(colour)) {
         throw new Error('Colour must use the #RRGGBB format.');
@@ -170,6 +180,7 @@ function parseRenderPayload(payload) {
         heightM,
         colour,
         profile,
+        glassThicknessMm,
         requestId: String(payload.request_id || ''),
     };
 }
@@ -189,7 +200,8 @@ async function performRender(payload) {
             && Math.abs(applied.widthM - payload.widthM) < 0.000001
             && Math.abs(applied.heightM - payload.heightM) < 0.000001
             && String(applied.colour).toLowerCase() === payload.colour.toLowerCase()
-            && applied.profile === payload.profile;
+            && applied.profile === payload.profile
+            && Math.abs(applied.glassThicknessMm - payload.glassThicknessMm) < 0.000001;
 
         if (!matches) {
             throw new Error(`Configurator state verification failed. Applied: ${JSON.stringify(applied)}`);

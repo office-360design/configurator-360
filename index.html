@@ -459,6 +459,14 @@
             <input type="number" id="heightB" value="1.5" min="0.5" max="3.0" step="0.05">
         </div>
 
+        <div class="control-group">
+            <label>Grosime Sticlă: <span id="valGlassThickness">24 mm</span></label>
+            <input type="range" id="glassThickness" min="4" max="60" step="1" value="24">
+            <div id="glassCavityInfo" style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                Poziția va fi calculată automat între garniturile de vitrare.
+            </div>
+        </div>
+
         <div class="mode-select">
             <label>Mod deschidere:</label>
             <div class="mode-options">
@@ -562,6 +570,13 @@
             document.getElementById('mBatant').checked = mode === 'batant';
             document.getElementById('mOscilo').checked = mode === 'oscilo';
             document.getElementById('cExplode').checked = pageParams.get('explode') === '1';
+            const glassThickness = parseBoundedNumber(
+                pageParams.get('glass_thickness'),
+                24,
+                4,
+                60
+            );
+            document.getElementById('glassThickness').value = String(glassThickness);
         }
 
         const S = 0.001; // Scale factor: CAD mm to Three.js meters
@@ -569,6 +584,9 @@
         const requestedWidth = Number.parseFloat(pageParams.get('width'));
         const requestedHeight = Number.parseFloat(pageParams.get('height'));
         const requestedColour = pageParams.get('colour');
+        const requestedGlassThickness = Number.parseFloat(
+            pageParams.get('glass_thickness') || pageParams.get('glassThickness')
+        );
 
         window.CONFIGURATOR_READY = false;
         window.LAST_APPLIED_CONFIGURATION = null;
@@ -580,6 +598,9 @@
         const widthInput = document.getElementById('widthA');
         const heightInput = document.getElementById('heightB');
         const profileInput = document.getElementById('cadProfile');
+        const glassThicknessInput = document.getElementById('glassThickness');
+        const glassThicknessLabel = document.getElementById('valGlassThickness');
+        const glassCavityInfo = document.getElementById('glassCavityInfo');
 
         if (Number.isFinite(requestedWidth)) {
             widthInput.value = String(requestedWidth);
@@ -590,9 +611,58 @@
         if (requestedProfile && [...profileInput.options].some(option => option.value === requestedProfile)) {
             profileInput.value = requestedProfile;
         }
+        if (Number.isFinite(requestedGlassThickness)) {
+            glassThicknessInput.value = String(
+                Math.min(60, Math.max(4, requestedGlassThickness))
+            );
+        }
+
+        function normalizeHexColour(value) {
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+
+                if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+                    return trimmed.toLowerCase();
+                }
+                if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
+                    return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`.toLowerCase();
+                }
+                if (/^0x[0-9a-fA-F]{6}$/.test(trimmed)) {
+                    return `#${trimmed.slice(2)}`.toLowerCase();
+                }
+                if (/^[0-9a-fA-F]{6}$/.test(trimmed)) {
+                    return `#${trimmed}`.toLowerCase();
+                }
+            }
+
+            if (typeof value === 'number' && Number.isFinite(value)) {
+                const integerColour = Math.max(0, Math.min(0xffffff, Math.trunc(value)));
+                return `#${integerColour.toString(16).padStart(6, '0')}`;
+            }
+
+            let red;
+            let green;
+            let blue;
+            if (Array.isArray(value) && value.length >= 3) {
+                [red, green, blue] = value;
+            } else if (value && typeof value === 'object') {
+                red = value.r ?? value.red;
+                green = value.g ?? value.green;
+                blue = value.b ?? value.blue;
+            }
+
+            if ([red, green, blue].every(component => Number.isFinite(Number(component)))) {
+                const toByte = component => Math.max(0, Math.min(255, Math.round(Number(component))));
+                return `#${[red, green, blue]
+                    .map(component => toByte(component).toString(16).padStart(2, '0'))
+                    .join('')}`;
+            }
+
+            return null;
+        }
 
         function normalizeRequestedColour(value) {
-            return value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : null;
+            return normalizeHexColour(value);
         }
 
         let configurationColour = normalizeRequestedColour(requestedColour);
@@ -726,9 +796,9 @@
         function getResolvedProfileColour(profile) {
             // An Odoo-selected finish intentionally overrides CAD only for aluminium.
             if (profile.materialKey === 'alu' && configurationColour) {
-                return configurationColour;
+                return normalizeHexColour(configurationColour) || '#e2e8f0';
             }
-            return profile.baseCadColor || '#78716c';
+            return normalizeHexColour(profile.baseCadColor) || '#78716c';
         }
 
         function resolveDisplayColour(profile) {
@@ -801,7 +871,7 @@
                 const isEPDM = !isCentralSeal && (layer.includes('epdm') || layer.includes('dichtung') || blockName.startsWith('224') || blockName.startsWith('200') || blockName.startsWith('244') || blockName.includes('dicht'));
                 const isFoam = layer.includes('dämmung') || layer.includes('daemmung') || blockName.startsWith('288') || blockName.startsWith('300') || blockName.includes('dämm') || blockName.includes('daemm');
 
-                let baseCadColor = part.color;
+                let baseCadColor = normalizeHexColour(part.color);
                 if (!baseCadColor) {
                     if (isAlu) {
                         baseCadColor = '#e2e8f0';
@@ -1027,6 +1097,14 @@
             if (typeof configuration.heightM === 'number' && Number.isFinite(configuration.heightM)) {
                 heightInput.value = String(configuration.heightM);
             }
+            if (
+                typeof configuration.glassThicknessMm === 'number'
+                && Number.isFinite(configuration.glassThicknessMm)
+            ) {
+                glassThicknessInput.value = String(
+                    Math.min(60, Math.max(4, configuration.glassThicknessMm))
+                );
+            }
             if (typeof configuration.colour === 'string') {
                 const nextConfigurationColour = normalizeRequestedColour(configuration.colour);
                 if (nextConfigurationColour !== configurationColour) {
@@ -1060,6 +1138,7 @@
                 heightM: Number(heightInput.value),
                 colour: configurationColour || '#e2e8f0',
                 profile: profileInput.value,
+                glassThicknessMm: Number(glassThicknessInput.value),
             };
 
             window.LAST_APPLIED_CONFIGURATION = applied;
@@ -1203,8 +1282,179 @@
         const sectionGroup = new THREE.Group();
         // Positioned in front of the camera, floating at eye level
         sectionGroup.position.set(0.7, 0.35, 1.1);
-        sectionGroup.visible = !isARMode;
+        sectionGroup.visible = !isARMode && !captureMode;
         scene.add(sectionGroup);
+
+        function profileCadCenterX(profile) {
+            return (Number(profile.bbox.minX) + Number(profile.bbox.maxX)) / 2;
+        }
+
+        function profileCadCenterY(profile) {
+            return (Number(profile.bbox.minY) + Number(profile.bbox.maxY)) / 2;
+        }
+
+        function isPotentialGlazingGasket(profile) {
+            if (
+                !profile.bbox
+                || !Number.isFinite(Number(profile.bbox.minX))
+                || !Number.isFinite(Number(profile.bbox.maxX))
+                || !Number.isFinite(Number(profile.bbox.minY))
+                || !Number.isFinite(Number(profile.bbox.maxY))
+            ) {
+                return false;
+            }
+
+            const blockName = String(profile.blockName || '').toLowerCase();
+            const layer = String(profile.layer || '').toLowerCase();
+            const cadColour = normalizeHexColour(profile.baseCadColor);
+
+            // Do not rely only on materialKey: some real gasket blocks are placed
+            // on an aluminium CAD layer and therefore get classified as aluminium.
+            const gasketIdentity =
+                profile.materialKey === 'epdm'
+                || profile.materialKey === 'centralSeal'
+                || /^(224|244)/.test(blockName)
+                || blockName.includes('dicht')
+                || layer.includes('epdm')
+                || layer.includes('dichtung');
+
+            const gasketColour =
+                cadColour === '#ffbf7f'
+                || cadColour === '#ea580c'
+                || cadColour === '#38bdf8';
+
+            return profile.role === 'sash' && (gasketIdentity || gasketColour);
+        }
+
+        function cadYToInwardDistanceMm(cadY) {
+            if (currentMetadata.isVertical) {
+                return Number(currentMetadata.globalMaxY) - cadY;
+            }
+            return cadY - Number(currentMetadata.globalMinY);
+        }
+
+        function findAutomaticGlazingCavity() {
+            const gasketProfiles = profilesData
+                .filter(isPotentialGlazingGasket)
+                .sort((a, b) => profileCadCenterX(a) - profileCadCenterX(b));
+
+            const candidates = [];
+
+            for (let leftIndex = 0; leftIndex < gasketProfiles.length; leftIndex += 1) {
+                for (let rightIndex = leftIndex + 1; rightIndex < gasketProfiles.length; rightIndex += 1) {
+                    const leftGasket = gasketProfiles[leftIndex];
+                    const rightGasket = gasketProfiles[rightIndex];
+
+                    const cavityMinX = Number(leftGasket.bbox.maxX);
+                    const cavityMaxX = Number(rightGasket.bbox.minX);
+                    const cavityWidthMm = cavityMaxX - cavityMinX;
+
+                    if (!Number.isFinite(cavityWidthMm) || cavityWidthMm < 4 || cavityWidthMm > 80) {
+                        continue;
+                    }
+
+                    // Opposing glazing gaskets must occupy the same cross-section
+                    // height. This rejects unrelated seals that merely happen to be
+                    // separated along the CAD X/depth axis.
+                    const overlapMinY = Math.max(
+                        Number(leftGasket.bbox.minY),
+                        Number(rightGasket.bbox.minY)
+                    );
+                    const overlapMaxY = Math.min(
+                        Number(leftGasket.bbox.maxY),
+                        Number(rightGasket.bbox.maxY)
+                    );
+                    const overlapHeightMm = overlapMaxY - overlapMinY;
+
+                    if (!Number.isFinite(overlapHeightMm) || overlapHeightMm < 1.5) {
+                        continue;
+                    }
+
+                    const smallerGasketHeightMm = Math.min(
+                        Number(leftGasket.bbox.maxY) - Number(leftGasket.bbox.minY),
+                        Number(rightGasket.bbox.maxY) - Number(rightGasket.bbox.minY)
+                    );
+                    const overlapRatio = overlapHeightMm / Math.max(0.001, smallerGasketHeightMm);
+
+                    if (overlapRatio < 0.25) {
+                        continue;
+                    }
+
+                    const cavityCenterX = (cavityMinX + cavityMaxX) / 2;
+                    const overlapCenterY = (overlapMinY + overlapMaxY) / 2;
+                    const glazingInsetMm = cadYToInwardDistanceMm(overlapCenterY);
+
+                    // Prefer strong Y overlap and realistic insulating-glass depth.
+                    const targetWidthMm = 28;
+                    const widthPenalty = Math.abs(cavityWidthMm - targetWidthMm) * 0.35;
+                    const overlapPenalty = (1 - Math.min(1, overlapRatio)) * 30;
+
+                    candidates.push({
+                        leftGasket,
+                        rightGasket,
+                        cavityMinX,
+                        cavityMaxX,
+                        cavityWidthMm,
+                        cavityCenterX,
+                        overlapMinY,
+                        overlapMaxY,
+                        overlapHeightMm,
+                        overlapRatio,
+                        glazingInsetMm,
+                        score: widthPenalty + overlapPenalty,
+                    });
+                }
+            }
+
+            candidates.sort((a, b) => a.score - b.score);
+            return candidates[0] || null;
+        }
+
+        function resolveGlassPlacement(fallbackCenterZ) {
+            const cavity = findAutomaticGlazingCavity();
+            const requestedThicknessMm = Math.min(
+                60,
+                Math.max(4, Number.parseFloat(glassThicknessInput.value) || 24)
+            );
+
+            if (!cavity) {
+                glassThicknessInput.max = '60';
+                glassThicknessInput.value = String(requestedThicknessMm);
+                glassThicknessLabel.textContent = `${requestedThicknessMm.toFixed(0)} mm`;
+                glassCavityInfo.textContent =
+                    'Nu a fost identificată o pereche de garnituri cu suprapunere geometrică; se folosește poziția de rezervă.';
+                glassCavityInfo.style.color = '#f59e0b';
+
+                return {
+                    centerZ: fallbackCenterZ,
+                    thicknessMm: requestedThicknessMm,
+                    insetMm: 100,
+                    cavity: null,
+                };
+            }
+
+            const clearanceMm = 1;
+            const maximumThicknessMm = Math.max(4, cavity.cavityWidthMm - clearanceMm);
+            const effectiveThicknessMm = Math.min(requestedThicknessMm, maximumThicknessMm);
+
+            glassThicknessInput.max = String(Math.max(4, Math.floor(maximumThicknessMm)));
+            glassThicknessInput.value = String(
+                Math.max(4, Math.min(effectiveThicknessMm, Number(glassThicknessInput.max)))
+            );
+            glassThicknessLabel.textContent = `${effectiveThicknessMm.toFixed(0)} mm`;
+            glassCavityInfo.textContent =
+                `Pereche: ${cavity.leftGasket.blockName} + ${cavity.rightGasket.blockName}; ` +
+                `spațiu ${cavity.cavityWidthMm.toFixed(1)} mm; ` +
+                `suprapunere ${cavity.overlapHeightMm.toFixed(1)} mm.`;
+            glassCavityInfo.style.color = '#64748b';
+
+            return {
+                centerZ: (cavity.cavityCenterX - currentMetadata.globalCenterX) * S,
+                thicknessMm: effectiveThicknessMm,
+                insetMm: Math.min(250, Math.max(20, cavity.glazingInsetMm)),
+                cavity,
+            };
+        }
 
         function buildWindow() {
             if (!currentMetadata) return;
@@ -1233,7 +1483,7 @@
             });
 
             // Rebuild 3D sample extrusion only in the desktop configurator.
-            if (!isARMode) {
+            if (!isARMode && !captureMode) {
                 activeProfiles.forEach(profile => {
                     const sampleMesh = createSampleExtrusion(profile);
                     if (currentMetadata.hasSplit) {
@@ -1257,7 +1507,7 @@
 
             // Miter-extrude each active part on all 4 sides of the window
             activeProfiles.forEach(profile => {
-                ['bottom', 'top', 'left', 'right'].forEach(side => {
+                ['top'].forEach(side => {
                     let useProfile = true;
                     if (currentMetadata.isVertical && currentMetadata.hasSplit) {
                         if (profile.section === 'bottom') {
@@ -1299,13 +1549,32 @@
 
             const sashCenterX = ((sashMinX + sashMaxX) / 2 - currentMetadata.globalCenterX) * S;
 
-            // Glass
-            const glassW = A - 2 * (100 * S);
-            const glassH = B - 2 * (100 * S);
-            const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, glassH, 0.024), glassMat);
-            glass.position.set(0, 0, sashCenterX);
+            // Glass: place it automatically in the cavity between the two
+            // detected glazing gaskets, independently of the selected profile.
+            const glassPlacement = resolveGlassPlacement(sashCenterX);
+            const glassInset = glassPlacement.insetMm * S;
+            const glassW = Math.max(0.05, A - 2 * glassInset);
+            const glassH = Math.max(0.05, B - 2 * glassInset);
+            const glass = new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    glassW,
+                    glassH,
+                    glassPlacement.thicknessMm * S
+                ),
+                glassMat
+            );
+            glass.position.set(0, 0, glassPlacement.centerZ);
             glass.castShadow = !captureMode;
             glass.receiveShadow = !captureMode;
+            glass.userData.glazingCavity = glassPlacement.cavity
+                ? {
+                    leftGasketIndex: glassPlacement.cavity.leftGasket.index,
+                    rightGasketIndex: glassPlacement.cavity.rightGasket.index,
+                    cavityWidthMm: glassPlacement.cavity.cavityWidthMm,
+                    overlapHeightMm: glassPlacement.cavity.overlapHeightMm,
+                    insetMm: glassPlacement.insetMm,
+                }
+                : null;
 
             registerExplode(glass, 0, 0, 0.5); // Explode forward
             sashGroup.add(glass);
@@ -1398,6 +1667,7 @@
             url.searchParams.set('mode', document.getElementById('mOscilo').checked ? 'oscilo' : 'batant');
             url.searchParams.set('angle', document.getElementById('openAngle').value);
             url.searchParams.set('explode', document.getElementById('cExplode').checked ? '1' : '0');
+            url.searchParams.set('glass_thickness', document.getElementById('glassThickness').value);
 
             const activeParts = profilesData
                 .filter(profile => document.getElementById(`toggle_${profile.index}`)?.checked)
@@ -1669,6 +1939,7 @@
         // EVENT LISTENERS
         document.getElementById('widthA').addEventListener('input', buildWindow);
         document.getElementById('heightB').addEventListener('input', buildWindow);
+        document.getElementById('glassThickness').addEventListener('input', buildWindow);
         document.getElementById('cExplode').addEventListener('change', (e) => { isExploded = e.target.checked; });
         document.getElementById('mBatant').addEventListener('change', buildWindow);
         document.getElementById('mOscilo').addEventListener('change', buildWindow);
