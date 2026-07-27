@@ -685,41 +685,84 @@
             });
         }
 
-        function createMaterialPool() {
-            return {
-                alu: createSurfaceMaterial({ color: 0xe2e8f0, metalness: 0.3, roughness: 0.4, shininess: 80 }),
-                iso: createSurfaceMaterial({ color: 0x166534, metalness: 0.1, roughness: 0.7, shininess: 20 }),
-                centralSeal: createSurfaceMaterial({ color: 0x38bdf8, metalness: 0.1, roughness: 0.6, shininess: 40 }),
-                epdm: createSurfaceMaterial({ color: 0xea580c, metalness: 0.05, roughness: 0.8, shininess: 15 }),
-                foam: createSurfaceMaterial({ color: 0x22c55e, metalness: 0.0, roughness: 0.95, shininess: 10 }),
-                default: createSurfaceMaterial({ color: 0x78716c, metalness: 0.5, roughness: 0.5, shininess: 35 }),
-                glass: createSurfaceMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.25, metalness: 0.9, roughness: 0.1, shininess: 90 }),
-                handle: createSurfaceMaterial({ color: 0x1f2937, metalness: 0.7, roughness: 0.25, shininess: 100, side: THREE.FrontSide }),
-            };
-        }
+        // The glass pane and handle are generated objects, so they keep dedicated materials.
+        const glassMat = createSurfaceMaterial({
+            color: 0x60a5fa,
+            transparent: true,
+            opacity: 0.25,
+            metalness: 0.9,
+            roughness: 0.1,
+            shininess: 90,
+        });
+        const handleMat = createSurfaceMaterial({
+            color: 0x1f2937,
+            metalness: 0.7,
+            roughness: 0.25,
+            shininess: 100,
+            side: THREE.FrontSide,
+        });
 
-        const materialPool = createMaterialPool();
-        const glassMat = materialPool.glass;
-        const handleMat = materialPool.handle;
+        // CAD profile materials are shared only when both their physical category
+        // and their resolved colour match. This keeps draw calls/material count low
+        // without discarding the colours extracted from CAD metadata.
+        const profileMaterialCache = new Map();
 
-        // Color group filters helper
-        function resolveDisplayColour(profile) {
+        const materialPropertiesByKey = {
+            alu: { metalness: 0.3, roughness: 0.4, shininess: 80 },
+            iso: { metalness: 0.1, roughness: 0.7, shininess: 20 },
+            centralSeal: { metalness: 0.1, roughness: 0.6, shininess: 40 },
+            epdm: { metalness: 0.05, roughness: 0.8, shininess: 15 },
+            foam: { metalness: 0.0, roughness: 0.95, shininess: 10 },
+            glass: {
+                transparent: true,
+                opacity: 0.25,
+                metalness: 0.9,
+                roughness: 0.1,
+                shininess: 90,
+            },
+            default: { metalness: 0.5, roughness: 0.5, shininess: 35 },
+        };
+
+        function getResolvedProfileColour(profile) {
+            // An Odoo-selected finish intentionally overrides CAD only for aluminium.
             if (profile.materialKey === 'alu' && configurationColour) {
                 return configurationColour;
             }
-            return profile.baseCadColor;
+            return profile.baseCadColor || '#78716c';
         }
 
-        function applyAluminiumColour() {
-            const targetColor = new THREE.Color(configurationColour || '#e2e8f0');
-            materialPool.alu.color.copy(targetColor);
+        function resolveDisplayColour(profile) {
+            return getResolvedProfileColour(profile);
         }
 
         function getMaterialForProfile(profile) {
-            return materialPool[profile.materialKey] || materialPool.default;
+            const colour = getResolvedProfileColour(profile).toLowerCase();
+            const materialKey = materialPropertiesByKey[profile.materialKey]
+                ? profile.materialKey
+                : 'default';
+            const cacheKey = `${materialKey}:${colour}`;
+
+            if (!profileMaterialCache.has(cacheKey)) {
+                profileMaterialCache.set(
+                    cacheKey,
+                    createSurfaceMaterial({
+                        color: colour,
+                        ...materialPropertiesByKey[materialKey],
+                    })
+                );
+            }
+
+            return profileMaterialCache.get(cacheKey);
         }
 
-        applyAluminiumColour();
+        function clearCachedAluminiumMaterials() {
+            for (const [cacheKey, material] of profileMaterialCache.entries()) {
+                if (cacheKey.startsWith('alu:')) {
+                    material.dispose();
+                    profileMaterialCache.delete(cacheKey);
+                }
+            }
+        }
 
         // LOAD PROFILE SVG FILES AND METADATA
         const svgLoader = new SVGLoader();
@@ -947,7 +990,6 @@
             try {
                 const definition = await getProfileDefinition(profileFolder);
                 currentMetadata = definition.metadata;
-                applyAluminiumColour();
                 profilesData = definition.profiles.map((profile) => ({
                     ...profile,
                     material: getMaterialForProfile(profile),
@@ -986,7 +1028,11 @@
                 heightInput.value = String(configuration.heightM);
             }
             if (typeof configuration.colour === 'string') {
-                configurationColour = normalizeRequestedColour(configuration.colour);
+                const nextConfigurationColour = normalizeRequestedColour(configuration.colour);
+                if (nextConfigurationColour !== configurationColour) {
+                    configurationColour = nextConfigurationColour;
+                    clearCachedAluminiumMaterials();
+                }
             }
 
             const requestedProfileName = configuration.profile && [...profileInput.options].some(option => option.value === configuration.profile)
@@ -999,7 +1045,6 @@
             if (mustReloadProfile) {
                 await loadProfiles(requestedProfileName);
             } else {
-                applyAluminiumColour();
                 profilesData.forEach((profile) => {
                     profile.material = getMaterialForProfile(profile);
                 });
