@@ -621,6 +621,7 @@ function getTransformedBBox(paths, transform) {
 }
 
 function shouldSkipBlockName(blockName) {
+    return false
     const lower = String(blockName || '').toLowerCase();
     return lower.includes('viewport') || lower.includes('border') || lower.includes('title');
 }
@@ -656,12 +657,22 @@ function run() {
     let dwgName = args[0] || '2_6_Oeffnungselement_Vertikal.dwg';
 
     function tryExport(name) {
-        const dwgBase = path.basename(name, '.dwg');
+        const isDxf = name.toLowerCase().endsWith('.dxf');
+        const dwgBase = isDxf ? path.basename(name, '.dxf') : path.basename(name, '.dwg');
         const folderName = dwgBase.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-        const DWG_FILE = path.resolve(WORKSPACE_DIR, 'dwg', dwgBase + '.dwg');
-        const DXF_FILE = path.resolve(WORKSPACE_DIR, 'intermediate', dwgBase + '.dxf');
+        const DWG_FILE = isDxf ? null : path.resolve(WORKSPACE_DIR, 'dwg', dwgBase + '.dwg');
+        const DXF_FILE = isDxf ? path.resolve(WORKSPACE_DIR, 'dwg', name) : path.resolve(WORKSPACE_DIR, 'intermediate', dwgBase + '.dxf');
         const TARGET_SVG_DIR = path.join(SVG_DIR, folderName);
+
+        if (isDxf) {
+            console.log(`Target DXF: ${DXF_FILE}`);
+            console.log(`Output SVG folder: ${TARGET_SVG_DIR}`);
+            if (!fs.existsSync(DXF_FILE)) {
+                throw new Error(`DXF file not found at: ${DXF_FILE}`);
+            }
+            return { dwgBase, folderName, DWG_FILE, DXF_FILE, TARGET_SVG_DIR };
+        }
 
         console.log(`Target DWG: ${DWG_FILE}`);
         console.log(`Output DXF: ${DXF_FILE}`);
@@ -676,7 +687,7 @@ function run() {
         if (fs.existsSync(ACAD_CONSOLE)) {
             console.log('AutoCAD Core Console detected. Exporting via accoreconsole...');
             const SCR_FILE = path.join(WORKSPACE_DIR, 'intermediate', 'temp_export.scr');
-            
+
             const scrContent = `(vl-file-delete "${DXF_FILE.replace(/\\/g, '/')}")
 _DXFOUT
 "${DXF_FILE.replace(/\\/g, '/')}"
@@ -689,7 +700,7 @@ _N
             try {
                 const cmd = `"${ACAD_CONSOLE}" /i "${DWG_FILE}" /s "${SCR_FILE}"`;
                 execSync(cmd, { stdio: 'inherit', cwd: WORKSPACE_DIR });
-                
+
                 if (!fs.existsSync(DXF_FILE)) {
                     throw new Error(`Expected DXF file was not generated at: ${DXF_FILE}`);
                 }
@@ -752,13 +763,13 @@ _N
             if (fs.existsSync(origPath)) {
                 console.log(`Renaming ${origPath} to ${sanitizedPath}...`);
                 fs.renameSync(origPath, sanitizedPath);
-                
+
                 const origBak = origPath.slice(0, -4) + '.bak';
                 const sanitizedBak = sanitizedPath.slice(0, -4) + '.bak';
                 if (fs.existsSync(origBak)) {
                     fs.renameSync(origBak, sanitizedBak);
                 }
-                
+
                 dwgName = sanitized;
                 console.log(`Retrying export with sanitized filename: ${dwgName}`);
                 try {

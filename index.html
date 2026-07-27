@@ -194,6 +194,132 @@
             margin-right: 6px;
         }
 
+        .group-dropdown {
+            margin-bottom: 12px;
+            background: rgba(30, 41, 59, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .group-dropdown[open] {
+            border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        .group-dropdown-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #cbd5e1;
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+            background: rgba(30, 41, 59, 0.5);
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .group-dropdown-header:hover {
+            background: rgba(30, 41, 59, 0.8);
+            color: #ffffff;
+        }
+
+        .group-dropdown-header::-webkit-details-marker {
+            display: none;
+        }
+
+        .group-dropdown-header .caret {
+            font-size: 8px;
+            transition: transform 0.2s ease;
+            color: #64748b;
+        }
+
+        .group-dropdown[open] .group-dropdown-header .caret {
+            transform: rotate(180deg);
+        }
+
+        .group-dropdown-content {
+            padding: 8px 12px 2px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .group-dropdown-content .part-toggle-item {
+            margin-bottom: 6px;
+        }
+
+        .btn-toggle-all-group {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            color: #60a5fa;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-toggle-all-group:hover {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.5);
+            color: #ffffff;
+            transform: scale(1.05);
+        }
+
+        /* Switch/Toggle styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 28px;
+            height: 16px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .switch-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .switch-slider:before {
+            position: absolute;
+            content: "";
+            height: 10px;
+            width: 10px;
+            left: 2px;
+            bottom: 2px;
+            background-color: #cbd5e1;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        .switch input:checked+.switch-slider {
+            background-color: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        .switch input:checked+.switch-slider:before {
+            transform: translateX(12px);
+            background-color: #60a5fa;
+        }
+
         #loading {
             position: absolute;
             top: 50%;
@@ -621,8 +747,9 @@
         <div class="control-group">
             <label>Select CAD Profile:</label>
             <select id="cadProfile">
-                <option value="2_6_Oeffnungselement_Vertikal">2_6 Opening Element (Vertical)</option>
-                <option value="2_4_Oeffnungselemnt_Vertikal" selected>2_4 Opening Element Vertical (Current)</option>
+                <option value="2_6_Oeffnungselemnt_Vertikal">2_6 Oeffnungselemnt Vertikal</option>
+                <option value="2_5_Oeffnungselemnt_Vertikal">2_5 Oeffnungselemnt Vertikal</option>
+                <option value="2_4_Oeffnungselemnt_Vertikal" selected>2_4 Oeffnungselemnt Vertikal</option>
             </select>
         </div>
 
@@ -665,14 +792,59 @@
 
         <div class="action-box">
             <label>Exploded View</label>
-            <input type="checkbox" id="cExplode">
+            <label class="switch">
+                <input type="checkbox" id="cExplode">
+                <span class="switch-slider"></span>
+            </label>
         </div>
 
         <div class="part-toggles">
-            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Colour Filters</label>
+            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Colour
+                Filters</label>
             <div id="group-filters" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;"></div>
+
             <label
-                style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: block;">Profile Components</label>
+                style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: block;">Side
+                Filters</label>
+            <div id="side-filters"
+                style="margin-bottom: 16px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 16px;">
+                <div
+                    style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #94a3b8; user-select: none;">
+                    <span>Top</span>
+                    <label class="switch">
+                        <input type="checkbox" id="side_top" checked>
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+                <div
+                    style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #94a3b8; user-select: none;">
+                    <span>Bottom</span>
+                    <label class="switch">
+                        <input type="checkbox" id="side_bottom" checked>
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+                <div
+                    style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #94a3b8; user-select: none;">
+                    <span>Left</span>
+                    <label class="switch">
+                        <input type="checkbox" id="side_left" checked>
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+                <div
+                    style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #94a3b8; user-select: none;">
+                    <span>Right</span>
+                    <label class="switch">
+                        <input type="checkbox" id="side_right" checked>
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <label
+                style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: block;">Profile
+                Components</label>
             <div id="part-toggles-container"></div>
         </div>
     </div>
@@ -692,10 +864,7 @@
         </div>
     </div>
 
-    <div id="cad-reference-modal"
-         role="dialog"
-         aria-modal="true"
-         aria-labelledby="cad-reference-title">
+    <div id="cad-reference-modal" role="dialog" aria-modal="true" aria-labelledby="cad-reference-title">
         <div class="cad-reference-dialog">
             <button id="cad-reference-close" type="button" aria-label="Close">×</button>
 
@@ -706,9 +875,7 @@
 
             <div id="cad-reference-status">Loading reference screenshots…</div>
 
-            <div id="cad-reference-content"
-                 class="cad-reference-content"
-                 style="display: none;">
+            <div id="cad-reference-content" class="cad-reference-content" style="display: none;">
                 <div id="cad-reference-main">
                     <img id="cad-reference-main-image" alt="CAD section reference">
                 </div>
@@ -749,7 +916,8 @@
         const captureMode = pageParams.get('capture') === '1';
 
         const allowedProfiles = new Set([
-            '2_6_Oeffnungselement_Vertikal',
+            '2_6_Oeffnungselemnt_Vertikal',
+            '2_5_Oeffnungselemnt_Vertikal',
             '2_4_Oeffnungselemnt_Vertikal'
         ]);
         const requestedProfileValue = pageParams.get('profile') || '2_4_Oeffnungselemnt_Vertikal';
@@ -1153,22 +1321,111 @@
             const togglesContainer = document.getElementById('part-toggles-container');
             if (!togglesContainer) return;
             togglesContainer.innerHTML = '';
+
+            const groups = {
+                frame: { title: 'Frame Components', items: [] },
+                sash: { title: 'Sash / Vent Components', items: [] },
+                bead: { title: 'Glazing Bead Components', items: [] }
+            };
+
             profilesData.forEach((profile) => {
-                const item = document.createElement('div');
-                item.className = 'part-toggle-item';
+                const grp = getProfileGroup(profile);
+                if (groups[grp]) {
+                    groups[grp].items.push(profile);
+                } else {
+                    groups.sash.items.push(profile);
+                }
+            });
 
-                const colorDot = resolveDisplayColour(profile);
-                const labelText = profile.parentBlock ? `${profile.parentBlock} / ${profile.blockName}` : profile.blockName;
-                const isRequestedPartActive = !isARMode
-                    || requestedActiveParts === null
-                    || requestedActiveParts.has(String(profile.index));
+            Object.keys(groups).forEach((key) => {
+                const grpData = groups[key];
+                if (grpData.items.length === 0) return;
 
-                item.innerHTML = `
-                    <span><span class="part-color-dot" style="background-color: ${colorDot};"></span>${labelText}</span>
-                    <input type="checkbox" id="toggle_${profile.index}" ${isRequestedPartActive ? 'checked' : ''}>
+                const details = document.createElement('details');
+                details.className = 'group-dropdown';
+                details.open = false; // Closed by default
+
+                const summary = document.createElement('summary');
+                summary.className = 'group-dropdown-header';
+                summary.innerHTML = `
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <span class="caret">▼</span>
+                        <span>${grpData.title} (${grpData.items.length})</span>
+                    </span>
+                    <button class="btn-toggle-all-group" type="button">Toggle All</button>
                 `;
-                togglesContainer.appendChild(item);
-                document.getElementById(`toggle_${profile.index}`).addEventListener('change', buildWindow);
+                details.appendChild(summary);
+
+                const content = document.createElement('div');
+                content.className = 'group-dropdown-content';
+
+                grpData.items.forEach((profile) => {
+                    const item = document.createElement('div');
+                    item.className = 'part-toggle-item';
+
+                    const colorDot = resolveDisplayColour(profile);
+                    const labelText = profile.parentBlock ? `${profile.parentBlock} / ${profile.blockName}` : profile.blockName;
+                    const isRequestedPartActive = !isARMode
+                        || requestedActiveParts === null
+                        || requestedActiveParts.has(String(profile.index));
+
+                    item.innerHTML = `
+                        <span><span class="part-color-dot" style="background-color: ${colorDot};"></span>${labelText}</span>
+                        <input type="checkbox" id="toggle_${profile.index}" ${isRequestedPartActive ? 'checked' : ''}>
+                    `;
+                    content.appendChild(item);
+                });
+
+                details.appendChild(content);
+                togglesContainer.appendChild(details);
+
+                // Add Toggle All click event listener
+                const toggleAllBtn = summary.querySelector('.btn-toggle-all-group');
+                if (toggleAllBtn) {
+                    toggleAllBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+
+                        const allChecked = grpData.items.every((profile) => {
+                            const cb = document.getElementById(`toggle_${profile.index}`);
+                            return cb ? cb.checked : false;
+                        });
+
+                        grpData.items.forEach((profile) => {
+                            const cb = document.getElementById(`toggle_${profile.index}`);
+                            if (cb) {
+                                cb.checked = !allChecked;
+                            }
+                        });
+
+                        buildWindow();
+                    });
+                }
+
+                grpData.items.forEach((profile) => {
+                    const cb = content.querySelector(`#toggle_${profile.index}`);
+                    if (cb) {
+                        cb.addEventListener('change', buildWindow);
+                    }
+                });
+            });
+        }
+
+        let renderedColorFilters = [];
+
+        function updateColorFilterToggles() {
+            renderedColorFilters.forEach(item => {
+                const matchingProfiles = profilesData.filter(p => item.filter.match(p));
+                if (matchingProfiles.length === 0) return;
+
+                const allActive = matchingProfiles.every(p => {
+                    const cb = document.getElementById(`toggle_${p.index}`);
+                    return cb ? cb.checked : true;
+                });
+
+                if (item.input) {
+                    item.input.checked = allActive;
+                }
             });
         }
 
@@ -1176,70 +1433,123 @@
             const groupFiltersContainer = document.getElementById('group-filters');
             if (!groupFiltersContainer) return;
             groupFiltersContainer.innerHTML = '';
+            renderedColorFilters = [];
 
-            // Get unique colors
-            const uniqueColors = [...new Set(profilesData.map(p => p.baseCadColor))];
+            const filterDefinitions = [
+                {
+                    name: 'Frame',
+                    color: '#ffffff',
+                    match: p => p.baseCadColor === '#ffffff' && getProfileGroup(p) === 'frame'
+                },
+                {
+                    name: 'Sash',
+                    color: '#ffffff',
+                    match: p => p.baseCadColor === '#ffffff' && (getProfileGroup(p) === 'sash' || getProfileGroup(p) === 'bead')
+                },
+                {
+                    name: 'Gasket',
+                    color: '#ffbf7f',
+                    match: p => p.baseCadColor === '#ffbf7f'
+                },
+                {
+                    name: 'Orange (EPDM Gaskets)',
+                    color: '#ea580c',
+                    match: p => p.baseCadColor === '#ea580c'
+                },
+                {
+                    name: 'Blue (Gaskets)',
+                    color: '#38bdf8',
+                    match: p => p.baseCadColor === '#38bdf8'
+                },
+                {
+                    name: 'Green (Insulating Foam)',
+                    color: '#22c55e',
+                    match: p => p.baseCadColor === '#22c55e'
+                },
+                {
+                    name: 'Thermal break',
+                    color: '#7fff7f',
+                    match: p => p.baseCadColor === '#7fff7f'
+                },
+                {
+                    name: 'Drainage cover cap',
+                    color: '#cc6600',
+                    match: p => p.baseCadColor === '#cc6600'
+                },
+                {
+                    name: 'Dark Grey (Accessories)',
+                    color: '#78716c',
+                    match: p => p.baseCadColor === '#78716c'
+                },
+                {
+                    name: 'Glass',
+                    color: '#60a5fa',
+                    match: p => p.baseCadColor === '#60a5fa'
+                },
+                {
+                    name: 'Foam',
+                    color: '#00ff00',
+                    match: p => p.baseCadColor === '#00ff00'
+                }
+            ];
 
-            function getColorName(hex) {
-                const names = {
-                    '#ffffff': 'White (Frame/Sash)',
-                    '#ffbf7f': 'Peach (Thermal Break)',
-                    '#ea580c': 'Orange (EPDM Gaskets)',
-                    '#22c55e': 'Green (Insulating Foam)',
-                    '#38bdf8': 'Blue (Gaskets)',
-                    '#78716c': 'Dark Grey (Accessories)',
-                    '#60a5fa': 'Glass'
-                };
-                return names[hex.toLowerCase()] || `${hex.toUpperCase()}`;
-            }
+            const activeFilters = [];
 
-            uniqueColors.forEach(catColor => {
-                const catName = getColorName(catColor);
+            filterDefinitions.forEach(def => {
+                const hasMatchingProfile = profilesData.some(def.match);
+                if (hasMatchingProfile) {
+                    activeFilters.push(def);
+                }
+            });
+
+            const unmatchedProfiles = profilesData.filter(p => !filterDefinitions.some(def => def.match(p)));
+            const unmatchedColors = [...new Set(unmatchedProfiles.map(p => p.baseCadColor))];
+
+            unmatchedColors.forEach(hex => {
+                activeFilters.push({
+                    name: hex.toUpperCase(),
+                    color: hex,
+                    match: p => p.baseCadColor === hex
+                });
+            });
+
+            activeFilters.forEach(filter => {
                 const row = document.createElement('div');
                 row.className = 'category-filter-row';
                 row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; font-size: 12px; background: rgba(30, 41, 59, 0.4); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);';
 
+                const matchingProfiles = profilesData.filter(p => filter.match(p));
+                const allActive = matchingProfiles.every(p => {
+                    const cb = document.getElementById(`toggle_${p.index}`);
+                    return cb ? cb.checked : true;
+                });
+
                 row.innerHTML = `
                     <span style="display: inline-flex; align-items: center; gap: 8px;">
-                        <span class="part-color-dot" style="background-color: ${catColor}; margin-right: 0; width: 8px; height: 8px;"></span>
-                        <span style="font-weight: 500; color: #e2e8f0;">${catName}</span>
+                        <span class="part-color-dot" style="background-color: ${filter.color}; margin-right: 0; width: 8px; height: 8px;"></span>
+                        <span style="font-weight: 500; color: #e2e8f0;">${filter.name}</span>
                     </span>
-                    <div style="display: flex; gap: 6px;">
-                        <button class="btn-show-group" style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.35); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Show</button>
-                        <button class="btn-hide-group" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Hide</button>
-                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="color-filter-toggle" ${allActive ? 'checked' : ''}>
+                        <span class="switch-slider"></span>
+                    </label>
                 `;
 
-                row.querySelector('.btn-show-group').addEventListener('click', () => {
+                const toggleInput = row.querySelector('.color-filter-toggle');
+                toggleInput.addEventListener('change', (e) => {
+                    const isChecked = e.target.checked;
                     profilesData.forEach(p => {
-                        if (p.baseCadColor === catColor) {
+                        if (filter.match(p)) {
                             const cb = document.getElementById(`toggle_${p.index}`);
-                            if (cb) cb.checked = true;
+                            if (cb) cb.checked = isChecked;
                         }
                     });
                     buildWindow();
                 });
 
-                row.querySelector('.btn-hide-group').addEventListener('click', () => {
-                    profilesData.forEach(p => {
-                        if (p.baseCadColor === catColor) {
-                            const cb = document.getElementById(`toggle_${p.index}`);
-                            if (cb) cb.checked = false;
-                        }
-                    });
-                    buildWindow();
-                });
-
-                // Add hover animations
-                row.querySelectorAll('button').forEach(btn => {
-                    btn.addEventListener('mouseenter', () => {
-                        btn.style.transform = 'scale(1.05)';
-                        btn.style.background = btn.classList.contains('btn-show-group') ? 'rgba(14, 165, 233, 0.3)' : 'rgba(239, 68, 68, 0.3)';
-                    });
-                    btn.addEventListener('mouseleave', () => {
-                        btn.style.transform = 'scale(1.0)';
-                        btn.style.background = btn.classList.contains('btn-show-group') ? 'rgba(14, 165, 233, 0.15)' : 'rgba(239, 68, 68, 0.15)';
-                    });
+                renderedColorFilters.push({
+                    filter,
+                    input: toggleInput
                 });
 
                 groupFiltersContainer.appendChild(row);
@@ -1262,24 +1572,36 @@
                 return cadReferenceCache.get(profileName);
             }
 
-            const response = await fetch(
-                `/api/cad-screenshots?profile=${encodeURIComponent(profileName)}`,
-                { cache: 'no-store' }
-            );
+            try {
+                const response = await fetch(
+                    `/api/cad-screenshots?profile=${encodeURIComponent(profileName)}`,
+                    { cache: 'no-store' }
+                );
 
-            if (!response.ok) {
-                let message = `HTTP ${response.status}`;
-                try {
+                if (response.ok) {
                     const payload = await response.json();
-                    message = payload.error || message;
-                } catch (_) {}
-                throw new Error(message);
+                    const images = Array.isArray(payload.images) ? payload.images : [];
+                    cadReferenceCache.set(profileName, images);
+                    return images;
+                }
+            } catch (err) {
+                console.warn('API call failed, trying static images.json fallback:', err);
             }
 
-            const payload = await response.json();
-            const images = Array.isArray(payload.images) ? payload.images : [];
-            cadReferenceCache.set(profileName, images);
-            return images;
+            try {
+                const staticResponse = await fetch(
+                    `cad_screenshots/${encodeURIComponent(profileName)}/images.json`
+                );
+                if (staticResponse.ok) {
+                    const images = await staticResponse.json();
+                    cadReferenceCache.set(profileName, images);
+                    return images;
+                }
+            } catch (err) {
+                console.error('Static images.json fallback failed:', err);
+            }
+
+            return [];
         }
 
         function selectCadReferenceImage(image, button) {
@@ -1955,11 +2277,12 @@
             const frameGroup = new THREE.Group();
             const sashGroup = new THREE.Group();
 
-            // Check toggles from UI
             const activeProfiles = profilesData.filter(profile => {
                 const toggle = document.getElementById(`toggle_${profile.index}`);
                 return toggle ? toggle.checked : true;
             });
+
+            updateColorFilterToggles();
 
             // Rebuild 3D sample extrusion only in the desktop configurator.
             if (!isARMode && !captureMode) {
@@ -1984,9 +2307,20 @@
                 sectionGroup.lookAt(camera.position);
             }
 
+            const showTop = document.getElementById('side_top')?.checked !== false;
+            const showBottom = document.getElementById('side_bottom')?.checked !== false;
+            const showLeft = document.getElementById('side_left')?.checked !== false;
+            const showRight = document.getElementById('side_right')?.checked !== false;
+
+            const sides = [];
+            if (showBottom) sides.push('bottom');
+            if (showTop) sides.push('top');
+            if (showLeft) sides.push('left');
+            if (showRight) sides.push('right');
+
             // Miter-extrude each active part on all 4 sides of the window
             activeProfiles.forEach(profile => {
-                ['bottom', 'top', 'left', 'right'].forEach(side => {
+                sides.forEach(side => {
                     let useProfile = true;
                     if (currentMetadata.isVertical && currentMetadata.hasSplit) {
                         if (profile.section === 'bottom') {
@@ -2432,6 +2766,11 @@
         document.getElementById('cExplode').addEventListener('change', (e) => { isExploded = e.target.checked; });
         document.getElementById('mBatant').addEventListener('change', buildWindow);
         document.getElementById('mOscilo').addEventListener('change', buildWindow);
+
+        document.getElementById('side_top').addEventListener('change', buildWindow);
+        document.getElementById('side_bottom').addEventListener('change', buildWindow);
+        document.getElementById('side_left').addEventListener('change', buildWindow);
+        document.getElementById('side_right').addEventListener('change', buildWindow);
 
         // Dropdown change listener
         document.getElementById('cadProfile').addEventListener('change', (e) => {

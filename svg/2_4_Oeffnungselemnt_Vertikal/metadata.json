@@ -277,6 +277,44 @@
     },
     {
       "index": 14,
+      "filename": "CustomObjectsInViewport4_0.svg",
+      "relativeUrl": "CustomObjectsInViewport4_0/CustomObjectsInViewport4_0.svg",
+      "blockName": "CustomObjectsInViewport4_0",
+      "parentBlock": null,
+      "layer": "Viewport4ForCustomObjects_0",
+      "role": "sash",
+      "section": "bottom",
+      "color": "#ffffff",
+      "bbox": {
+        "minX": 102.7279969029023,
+        "minY": 69.67351739248443,
+        "maxX": 121.72799690290412,
+        "maxY": 77.52347352917968
+      },
+      "closedContours": 1,
+      "openContours": 16
+    },
+    {
+      "index": 15,
+      "filename": "CustomObjectsInViewport4_0_inst1.svg",
+      "relativeUrl": "CustomObjectsInViewport4_0/CustomObjectsInViewport4_0_inst1.svg",
+      "blockName": "CustomObjectsInViewport4_0",
+      "parentBlock": null,
+      "layer": "Viewport4ForCustomObjects_0",
+      "role": "sash",
+      "section": "top",
+      "color": "#ffffff",
+      "bbox": {
+        "minX": 102.72799573132033,
+        "minY": 190.94161773515407,
+        "maxX": 121.72799573132215,
+        "maxY": 198.79157387184932
+      },
+      "closedContours": 1,
+      "openContours": 16
+    },
+    {
+      "index": 16,
       "filename": "581910_s.svg",
       "relativeUrl": "575760_s/575760_s/581910_s.svg",
       "blockName": "581910_s",
@@ -295,7 +333,7 @@
       "openContours": 0
     },
     {
-      "index": 15,
+      "index": 17,
       "filename": "587270_s.svg",
       "relativeUrl": "575760_s/575760_s/587270_s.svg",
       "blockName": "587270_s",
@@ -314,7 +352,7 @@
       "openContours": 0
     },
     {
-      "index": 16,
+      "index": 18,
       "filename": "30065150_s.svg",
       "relativeUrl": "575760_s/575760_s/662009_s/30065150_s.svg",
       "blockName": "30065150_s",
@@ -333,7 +371,7 @@
       "openContours": 0
     },
     {
-      "index": 17,
+      "index": 19,
       "filename": "30065126_s.svg",
       "relativeUrl": "575760_s/575760_s/662017_s/30065126_s.svg",
       "blockName": "30065126_s",
@@ -352,7 +390,7 @@
       "openContours": 0
     },
     {
-      "index": 18,
+      "index": 20,
       "filename": "581910_s_inst1.svg",
       "relativeUrl": "575760_s/575760_s/581910_s_inst1.svg",
       "blockName": "581910_s",
@@ -371,7 +409,7 @@
       "openContours": 0
     },
     {
-      "index": 19,
+      "index": 21,
       "filename": "587270_s_inst1.svg",
       "relativeUrl": "575760_s/575760_s/587270_s_inst1.svg",
       "blockName": "587270_s",
@@ -390,7 +428,7 @@
       "openContours": 0
     },
     {
-      "index": 20,
+      "index": 22,
       "filename": "30065150_s_inst1.svg",
       "relativeUrl": "575760_s/575760_s/662009_s/30065150_s_inst1.svg",
       "blockName": "30065150_s",
@@ -409,7 +447,7 @@
       "openContours": 0
     },
     {
-      "index": 21,
+      "index": 23,
       "filename": "30065126_s_inst1.svg",
       "relativeUrl": "575760_s/575760_s/662017_s/30065126_s_inst1.svg",
       "blockName": "30065126_s",
@@ -428,7 +466,7 @@
       "openContours": 0
     },
     {
-      "index": 22,
+      "index": 24,
       "filename": "587290_s.svg",
       "relativeUrl": "575780_s/575780_s/587290_s.svg",
       "blockName": "587290_s",
@@ -447,7 +485,7 @@
       "openContours": 0
     },
     {
-      "index": 23,
+      "index": 25,
       "filename": "511130_s.svg",
       "relativeUrl": "575780_s/575780_s/511130_s.svg",
       "blockName": "511130_s",
@@ -466,7 +504,7 @@
       "openContours": 0
     },
     {
-      "index": 24,
+      "index": 26,
       "filename": "30065155_s.svg",
       "relativeUrl": "575780_s/575780_s/662011_s/30065155_s.svg",
       "blockName": "30065155_s",
@@ -485,7 +523,7 @@
       "openContours": 0
     },
     {
-      "index": 25,
+      "index": 27,
       "filename": "662013_s.svg",
       "relativeUrl": "575780_s/575780_s/662013_s.svg",
       "blockName": "662013_s",
@@ -504,7 +542,7 @@
       "openContours": 0
     },
     {
-      "index": 26,
+      "index": 28,
       "filename": "587290_s_inst1.svg",
       "relativeUrl": "575780_s/575780_s/587290_s_inst1.svg",
       "blockName": "587290_s",
@@ -523,7 +561,7 @@
       "openContours": 0
     },
     {
-      "index": 27,
+      "index": 29,
       "filename": "511130_s_inst1.svg",
       "relativeUrl": "575780_s/575780_s/511130_s_inst1.svg",
       "blockName": "511130_s",
@@ -542,7 +580,7 @@
       "openContours": 0
     },
     {
-      "index": 28,
+      "index": 30,
       "filename": "30065155_s_inst1.svg",
       "relativeUrl": "575780_s/575780_s/662011_s/30065155_s_inst1.svg",
       "blockName": "30065155_s",
@@ -561,7 +599,7 @@
       "openContours": 0
     },
     {
-      "index": 29,
+      "index": 31,
       "filename": "662013_s_inst1.svg",
       "relativeUrl": "575780_s/575780_s/662013_s_inst1.svg",
       "blockName": "662013_s",
@@ -580,7 +618,7 @@
       "openContours": 0
     },
     {
-      "index": 30,
+      "index": 32,
       "filename": "208694_s.svg",
       "relativeUrl": "208694_s/208694_s.svg",
       "blockName": "208694_s",
@@ -599,7 +637,7 @@
       "openContours": 3
     },
     {
-      "index": 31,
+      "index": 33,
       "filename": "288319_s.svg",
       "relativeUrl": "288319_s/288319_s.svg",
       "blockName": "288319_s",

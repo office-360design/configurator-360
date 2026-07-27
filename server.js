@@ -339,6 +339,9 @@ function handleModelUpload(req, res) {
 function listCadScreenshots(req, res, requestUrl) {
     const allowedProfiles = new Set([
         '2_6_Oeffnungselement_Vertikal',
+        '2_6_Oeffnungselemnt_Vertikal',
+        '2_5_Oeffnungselement_Vertikal',
+        '2_5_Oeffnungselemnt_Vertikal',
         '2_4_Oeffnungselemnt_Vertikal',
     ]);
     const profile = String(requestUrl.searchParams.get('profile') || '');
