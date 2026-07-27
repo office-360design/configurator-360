@@ -1,3 +1,12 @@
-ErrorReports/
 node_modules/
-generated/*.glb
+.DS_Store
+*.log
+
+# Unity generated folders
+mobile/Configurator360AR/Library/
+mobile/Configurator360AR/Temp/
+mobile/Configurator360AR/Obj/
+mobile/Configurator360AR/Build/
+mobile/Configurator360AR/Builds/
+mobile/Configurator360AR/Logs/
+mobile/Configurator360AR/UserSettings/
