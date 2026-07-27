@@ -742,7 +742,6 @@
 
     <div id="controls">
         <h1>Extruded Profiles</h1>
-        <h2>3D Reconstruction from DWG</h2>
 
         <div class="control-group">
             <label>Select CAD Profile:</label>
@@ -2407,14 +2406,18 @@
             const plate = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.015), handleMat);
             plate.castShadow = !captureMode;
 
+            const previousRotationZ = handleLeverGroup ? handleLeverGroup.rotation.z : (document.getElementById('mBatant').checked ? -Math.PI / 2 : -Math.PI);
+
             handleLeverGroup = new THREE.Group();
+            handleLeverGroup.rotation.z = previousRotationZ;
             const lever = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.14, 0.025), handleMat);
             lever.position.y = -0.05;
             lever.castShadow = !captureMode;
             handleLeverGroup.add(lever);
             handleBase.add(plate, handleLeverGroup);
 
-            handleBase.position.set(A / 2 - 0.08, 0, sashCenterX + 0.02);
+            const sashInteriorZ = (sashMaxX - currentMetadata.globalCenterX) * S;
+            handleBase.position.set(A / 2 - rightInset + 0.04, 0, sashInteriorZ + 0.0075);
             registerExplode(handleBase, 0.26, 0, 0.9);
             sashGroup.add(handleBase);
 
@@ -2448,12 +2451,15 @@
             if (isBatant) {
                 pivotBatant.rotation.y = -val;
                 pivotOscilo.rotation.x = 0;
-                if (handleLeverGroup) handleLeverGroup.rotation.z = THREE.MathUtils.lerp(handleLeverGroup.rotation.z, Math.PI, 0.1);
             } else {
                 pivotBatant.rotation.y = 0;
                 const maxOscilo = 15 * (Math.PI / 180);
                 pivotOscilo.rotation.x = Math.min(val * 0.25, maxOscilo);
-                if (handleLeverGroup) handleLeverGroup.rotation.z = THREE.MathUtils.lerp(handleLeverGroup.rotation.z, Math.PI / 2, 0.1);
+            }
+
+            const targetRotZ = isBatant ? -Math.PI / 2 : -Math.PI; // Point left for side hung, up for tilt
+            if (handleLeverGroup) {
+                handleLeverGroup.rotation.z = THREE.MathUtils.lerp(handleLeverGroup.rotation.z, targetRotZ, 0.15);
             }
 
             // Explosion Physics
