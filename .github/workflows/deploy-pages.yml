@@ -27,7 +27,9 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html _site/index.html
+          cp ar.html _site/ar.html
           cp -R svg _site/svg
+          cp -R lib _site/lib
           touch _site/.nojekyll
 
       - name: Configure GitHub Pages
