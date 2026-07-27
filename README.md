@@ -1,89 +1,15 @@
-# Window Configurator — portable QR-to-AR build
+# 2_4 default and bottom glass correction
 
-This build no longer depends on GitHub Pages or GitHub Actions.
+Based on the latest v4 files.
 
-The configurator runs as a small Node web service. When **Scan QR for AR view** is pressed, the browser exports the current Three.js window to a temporary binary glTF file (`.glb`) and uploads it to the same server. The QR points to a minimal mobile page that attempts to open Android's native Google Scene Viewer in AR-only mode.
+Changes:
+- `2_4_Oeffnungselemnt_Vertikal` is now the default profile in the UI,
+  URL fallback, and initial page load.
+- Bottom glazing inset uses the same CAD Y mapping as the actual bottom
+  profile geometry:
+    - top/side: `globalMaxY - y`
+    - bottom: `y - globalMinY`
+- Top, side, depth, thickness, screenshot, AR, and material logic remain unchanged.
 
-## Why a hosted HTTPS service is still necessary
-
-The QR must point to an address that the phone can reach, and camera-based AR requires HTTPS. GitHub Pages was only one way to provide that public HTTPS address; GitHub Actions did not generate the AR model.
-
-End users do not run commands or see terminal windows. A developer or administrator deploys the service once, then everyone opens the public URL.
-
-## Recommended deployment without GitHub Actions
-
-The repository includes `render.yaml` and a `Dockerfile`.
-
-### Render
-
-Create a Node Web Service and use:
-
-- Build command: `npm ci`
-- Start command: `npm start`
-- Health check: `/health`
-
-Render provides a public HTTPS address. This uses Render's normal deployment system, not GitHub Actions.
-
-### Any Node or Docker host
-
-The app can also run on Railway, Fly.io, Azure, AWS, a VPS, the client's own server, or behind an existing HTTPS reverse proxy.
-
-Required runtime values:
-
-- Node.js 20 or newer
-- `PORT` supplied by the host, or port `3000`
-- write access to the local `generated/` directory
-
-For production, temporary GLB files should eventually be moved to object storage such as S3 or Cloudflare R2. The demo server deletes generated files after 24 hours.
-
-## Local development
-
-```bash
-npm install
-npm start
-```
-
-Open `http://localhost:3000`.
-
-Localhost is useful for desktop development, but a QR scanned by another device still needs a public HTTPS deployment.
-
-## AR flow
-
-1. Configure the window on desktop.
-2. Press **Scan QR for AR view**.
-3. The current model is exported and uploaded only at that moment.
-4. Scan the QR on Android.
-5. The minimal page launches native Scene Viewer where supported.
-6. If the native viewer cannot be launched, the page falls back to `<model-viewer>` / browser WebXR.
-
-## Compatibility notes
-
-- Native Scene Viewer requires an ARCore-compatible Android device and current Google Play Services for AR.
-- Browser WebXR is retained as a fallback, but browser and device support is not universal.
-- The previous forced Three.js `local` reference-space setting was removed because it caused `NotSupportedError` on some phones.
-- A single user action may still be required by the mobile browser before it opens an external AR viewer or camera.
-
-## DXF/SVG conversion
-
-Place a `.dwg` file in `dwg/`, then use one of the conversion scripts:
-
-```bash
-node dwg_to_svg_with_autocad.js <file>.dwg
-```
-
-1. Place your `.dwg` file in the `dwg/` directory.
-2. Run the unified conversion script:
-   ```bash
-   node convert.js <dwgName>.dwg
-   ```
-   The script automatically detects and uses whichever conversion engine is installed on your system:
-   * **AutoCAD Core Console** (`accoreconsole.exe`): Used as the primary engine if Autodesk AutoCAD 2027 is installed.
-   * **ODA File Converter** (`ODAFileConverter.exe`): Used as a fallback if AutoCAD is not detected.
-=======
-or:
-
-```bash
-node dwg_to_svg_with_oda.js <file>.dwg
-```
-
-Generated SVG profiles and `metadata.json` files are stored under `svg/`.
+This targets the remaining bottom-only glass gap without globally enlarging
+the pane or disturbing the correctly fitted top and side edges.

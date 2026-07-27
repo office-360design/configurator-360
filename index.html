@@ -442,8 +442,8 @@
         <div class="control-group">
             <label>Alege Profil CAD:</label>
             <select id="cadProfile">
-                <option value="2_6_Oeffnungselement_Vertikal" selected>2_6 Öffnungselement (Vertical - Nou)</option>
-                <option value="2_4_Oeffnungselemnt_Vertikal">2_4 Öffnungselement Vertikal</option>
+                <option value="2_6_Oeffnungselement_Vertikal">2_6 Öffnungselement (Vertical)</option>
+                <option value="2_4_Oeffnungselemnt_Vertikal" selected>2_4 Öffnungselement Vertikal (Current)</option>
             </select>
         </div>
 
@@ -540,10 +540,10 @@
             '2_6_Oeffnungselement_Vertikal',
             '2_4_Oeffnungselemnt_Vertikal'
         ]);
-        const requestedProfileValue = pageParams.get('profile') || '2_6_Oeffnungselement_Vertikal';
+        const requestedProfileValue = pageParams.get('profile') || '2_4_Oeffnungselemnt_Vertikal';
         const requestedProfile = allowedProfiles.has(requestedProfileValue)
             ? requestedProfileValue
-            : '2_6_Oeffnungselement_Vertikal';
+            : '2_4_Oeffnungselemnt_Vertikal';
         const requestedActiveParts = pageParams.has('parts')
             ? new Set(pageParams.get('parts').split(',').filter(Boolean))
             : null;
@@ -1326,16 +1326,25 @@
             return profile.role === 'sash' && (gasketIdentity || gasketColour);
         }
 
-        function cadYToInwardDistanceMm(cadY) {
+        function cadYToInwardDistanceMm(cadY, section = 'top') {
             if (currentMetadata.isVertical) {
+                // Match createMiteredSide(): the split bottom profile is mapped
+                // from globalMinY, while the top/side profile is mapped from
+                // globalMaxY.
+                if (section === 'bottom') {
+                    return cadY - Number(currentMetadata.globalMinY);
+                }
                 return Number(currentMetadata.globalMaxY) - cadY;
             }
             return cadY - Number(currentMetadata.globalMinY);
         }
 
-        function findAutomaticGlazingCavity() {
+        function findAutomaticGlazingCavity(section = null) {
             const gasketProfiles = profilesData
-                .filter(isPotentialGlazingGasket)
+                .filter(profile =>
+                    isPotentialGlazingGasket(profile)
+                    && (!section || profile.section === section)
+                )
                 .sort((a, b) => profileCadCenterX(a) - profileCadCenterX(b));
 
             const candidates = [];
@@ -1381,8 +1390,34 @@
                     }
 
                     const cavityCenterX = (cavityMinX + cavityMaxX) / 2;
-                    const overlapCenterY = (overlapMinY + overlapMaxY) / 2;
-                    const glazingInsetMm = cadYToInwardDistanceMm(overlapCenterY);
+
+                    // Determine the opening-side tip of EACH gasket separately.
+                    // Using only the common overlap was too conservative and left
+                    // a visible gap on profiles where one sealing lip extends
+                    // farther toward the opening.
+                    const resolvedSection =
+                        section
+                        || leftGasket.section
+                        || rightGasket.section
+                        || 'top';
+
+                    const leftEdgeInsetMm = Math.min(
+                        cadYToInwardDistanceMm(Number(leftGasket.bbox.minY), resolvedSection),
+                        cadYToInwardDistanceMm(Number(leftGasket.bbox.maxY), resolvedSection)
+                    );
+                    const rightEdgeInsetMm = Math.min(
+                        cadYToInwardDistanceMm(Number(rightGasket.bbox.minY), resolvedSection),
+                        cadYToInwardDistanceMm(Number(rightGasket.bbox.maxY), resolvedSection)
+                    );
+
+                    // Extend the pane to the outermost gasket lip, then seat it
+                    // slightly behind the lip so no background line remains visible.
+                    const openingSideInsetMm = Math.min(leftEdgeInsetMm, rightEdgeInsetMm);
+                    const gasketSeatMm = Math.min(
+                        6,
+                        Math.max(2, overlapHeightMm * 0.35)
+                    );
+                    const glazingInsetMm = Math.max(0, openingSideInsetMm - gasketSeatMm);
 
                     // Prefer strong Y overlap and realistic insulating-glass depth.
                     const targetWidthMm = 28;
@@ -1411,30 +1446,44 @@
         }
 
         function resolveGlassPlacement(fallbackCenterZ) {
-            const cavity = findAutomaticGlazingCavity();
+            // Top/left/right use the top cross-section in split vertical profiles.
+            // Bottom uses the bottom cross-section. For non-split profiles the same
+            // detected cavity is used on every side.
+            const defaultCavity = findAutomaticGlazingCavity();
+            const topCavity = currentMetadata.hasSplit
+                ? (findAutomaticGlazingCavity('top') || defaultCavity)
+                : defaultCavity;
+            const bottomCavity = currentMetadata.hasSplit
+                ? (findAutomaticGlazingCavity('bottom') || topCavity || defaultCavity)
+                : defaultCavity;
+
+            const depthCavity = topCavity || bottomCavity || defaultCavity;
             const requestedThicknessMm = Math.min(
                 60,
                 Math.max(4, Number.parseFloat(glassThicknessInput.value) || 24)
             );
 
-            if (!cavity) {
+            if (!depthCavity) {
                 glassThicknessInput.max = '60';
                 glassThicknessInput.value = String(requestedThicknessMm);
                 glassThicknessLabel.textContent = `${requestedThicknessMm.toFixed(0)} mm`;
                 glassCavityInfo.textContent =
-                    'Nu a fost identificată o pereche de garnituri cu suprapunere geometrică; se folosește poziția de rezervă.';
+                    'Nu a fost identificată o pereche de garnituri; se folosește poziția de rezervă.';
                 glassCavityInfo.style.color = '#f59e0b';
 
                 return {
                     centerZ: fallbackCenterZ,
                     thicknessMm: requestedThicknessMm,
-                    insetMm: 100,
+                    leftInsetMm: 100,
+                    rightInsetMm: 100,
+                    topInsetMm: 100,
+                    bottomInsetMm: 100,
                     cavity: null,
                 };
             }
 
             const clearanceMm = 1;
-            const maximumThicknessMm = Math.max(4, cavity.cavityWidthMm - clearanceMm);
+            const maximumThicknessMm = Math.max(4, depthCavity.cavityWidthMm - clearanceMm);
             const effectiveThicknessMm = Math.min(requestedThicknessMm, maximumThicknessMm);
 
             glassThicknessInput.max = String(Math.max(4, Math.floor(maximumThicknessMm)));
@@ -1442,17 +1491,30 @@
                 Math.max(4, Math.min(effectiveThicknessMm, Number(glassThicknessInput.max)))
             );
             glassThicknessLabel.textContent = `${effectiveThicknessMm.toFixed(0)} mm`;
+
+            const topSideInsetMm = Math.min(
+                250,
+                Math.max(0, (topCavity || depthCavity).glazingInsetMm)
+            );
+            const bottomInsetMm = Math.min(
+                250,
+                Math.max(0, (bottomCavity || depthCavity).glazingInsetMm)
+            );
+
             glassCavityInfo.textContent =
-                `Pereche: ${cavity.leftGasket.blockName} + ${cavity.rightGasket.blockName}; ` +
-                `spațiu ${cavity.cavityWidthMm.toFixed(1)} mm; ` +
-                `suprapunere ${cavity.overlapHeightMm.toFixed(1)} mm.`;
+                `Sus/laterale: ${topSideInsetMm.toFixed(1)} mm; ` +
+                `jos: ${bottomInsetMm.toFixed(1)} mm; ` +
+                `spațiu sticlă: ${depthCavity.cavityWidthMm.toFixed(1)} mm.`;
             glassCavityInfo.style.color = '#64748b';
 
             return {
-                centerZ: (cavity.cavityCenterX - currentMetadata.globalCenterX) * S,
+                centerZ: (depthCavity.cavityCenterX - currentMetadata.globalCenterX) * S,
                 thicknessMm: effectiveThicknessMm,
-                insetMm: Math.min(250, Math.max(20, cavity.glazingInsetMm)),
-                cavity,
+                leftInsetMm: topSideInsetMm,
+                rightInsetMm: topSideInsetMm,
+                topInsetMm: topSideInsetMm,
+                bottomInsetMm,
+                cavity: depthCavity,
             };
         }
 
@@ -1552,9 +1614,16 @@
             // Glass: place it automatically in the cavity between the two
             // detected glazing gaskets, independently of the selected profile.
             const glassPlacement = resolveGlassPlacement(sashCenterX);
-            const glassInset = glassPlacement.insetMm * S;
-            const glassW = Math.max(0.05, A - 2 * glassInset);
-            const glassH = Math.max(0.05, B - 2 * glassInset);
+            const leftInset = glassPlacement.leftInsetMm * S;
+            const rightInset = glassPlacement.rightInsetMm * S;
+            const topInset = glassPlacement.topInsetMm * S;
+            const bottomInset = glassPlacement.bottomInsetMm * S;
+
+            const glassW = Math.max(0.05, A - leftInset - rightInset);
+            const glassH = Math.max(0.05, B - topInset - bottomInset);
+            const glassCenterX = (leftInset - rightInset) / 2;
+            const glassCenterY = (bottomInset - topInset) / 2;
+
             const glass = new THREE.Mesh(
                 new THREE.BoxGeometry(
                     glassW,
@@ -1563,7 +1632,7 @@
                 ),
                 glassMat
             );
-            glass.position.set(0, 0, glassPlacement.centerZ);
+            glass.position.set(glassCenterX, glassCenterY, glassPlacement.centerZ);
             glass.castShadow = !captureMode;
             glass.receiveShadow = !captureMode;
             glass.userData.glazingCavity = glassPlacement.cavity
@@ -1572,7 +1641,10 @@
                     rightGasketIndex: glassPlacement.cavity.rightGasket.index,
                     cavityWidthMm: glassPlacement.cavity.cavityWidthMm,
                     overlapHeightMm: glassPlacement.cavity.overlapHeightMm,
-                    insetMm: glassPlacement.insetMm,
+                    leftInsetMm: glassPlacement.leftInsetMm,
+                    rightInsetMm: glassPlacement.rightInsetMm,
+                    topInsetMm: glassPlacement.topInsetMm,
+                    bottomInsetMm: glassPlacement.bottomInsetMm,
                 }
                 : null;
 
@@ -1966,7 +2038,7 @@
         });
 
         // Load the selected profile. In QR AR mode the selection comes from URL parameters.
-        loadProfiles(isARMode ? requestedProfile : '2_6_Oeffnungselement_Vertikal');
+        loadProfiles(isARMode ? requestedProfile : '2_4_Oeffnungselemnt_Vertikal');
         renderer.setAnimationLoop(renderFrame);
     </script>
 </body>
