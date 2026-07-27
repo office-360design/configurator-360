@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ro">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -610,19 +610,19 @@
 
     <div id="loading">
         <div class="spinner"></div>
-        <div style="font-weight: 600; font-size: 16px;">Se încarcă profilele CAD...</div>
-        <div style="font-size: 12px; color: #64748b; margin-top: 6px;">Se analizează fișierele SVG și metadata</div>
+        <div style="font-weight: 600; font-size: 16px;">Loading CAD profiles...</div>
+        <div style="font-size: 12px; color: #64748b; margin-top: 6px;">Analysing SVG files and metadata</div>
     </div>
 
     <div id="controls">
-        <h1>Profile Extrudate</h1>
-        <h2>Reconstrucție 3D din DWG</h2>
+        <h1>Extruded Profiles</h1>
+        <h2>3D Reconstruction from DWG</h2>
 
         <div class="control-group">
-            <label>Alege Profil CAD:</label>
+            <label>Select CAD Profile:</label>
             <select id="cadProfile">
-                <option value="2_6_Oeffnungselement_Vertikal">2_6 Öffnungselement (Vertical)</option>
-                <option value="2_4_Oeffnungselemnt_Vertikal" selected>2_4 Öffnungselement Vertikal (Current)</option>
+                <option value="2_6_Oeffnungselement_Vertikal">2_6 Opening Element (Vertical)</option>
+                <option value="2_4_Oeffnungselemnt_Vertikal" selected>2_4 Opening Element Vertical (Current)</option>
             </select>
         </div>
 
@@ -633,48 +633,46 @@
         </div>
 
         <div class="control-group">
-            <label>Lățime Fereastră (A): <span id="valWidth">1.20 m</span></label>
+            <label>Window Width (A): <span id="valWidth">1.20 m</span></label>
             <input type="number" id="widthA" value="1.2" min="0.5" max="3.0" step="0.05">
         </div>
 
         <div class="control-group">
-            <label>Înălțime Fereastră (B): <span id="valHeight">1.50 m</span></label>
+            <label>Window Height (B): <span id="valHeight">1.50 m</span></label>
             <input type="number" id="heightB" value="1.5" min="0.5" max="3.0" step="0.05">
         </div>
 
         <div class="control-group">
-            <label>Grosime Sticlă: <span id="valGlassThickness">24 mm</span></label>
+            <label>Glass Thickness: <span id="valGlassThickness">24 mm</span></label>
             <input type="range" id="glassThickness" min="4" max="60" step="1" value="24">
             <div id="glassCavityInfo" style="font-size: 11px; color: #64748b; margin-top: 4px;">
-                Poziția va fi calculată automat între garniturile de vitrare.
+                The position will be calculated automatically between the glazing gaskets.
             </div>
         </div>
 
         <div class="mode-select">
-            <label>Mod deschidere:</label>
+            <label>Opening Mode:</label>
             <div class="mode-options">
-                <label><input type="radio" id="mBatant" name="mode" value="batant" checked> Lateral (Batant)</label>
-                <label><input type="radio" id="mOscilo" name="mode" value="oscilo"> Sus (Oscilo)</label>
+                <label><input type="radio" id="mBatant" name="mode" value="batant" checked> Side-hung</label>
+                <label><input type="radio" id="mOscilo" name="mode" value="oscilo"> Tilt</label>
             </div>
         </div>
 
         <div class="control-group">
-            <label>Unghi deschidere: <span id="valAngle">0°</span></label>
+            <label>Opening Angle: <span id="valAngle">0°</span></label>
             <input type="range" id="openAngle" min="0" max="1.5" step="0.01" value="0.0">
         </div>
 
         <div class="action-box">
-            <label>Vedere Explodată</label>
+            <label>Exploded View</label>
             <input type="checkbox" id="cExplode">
         </div>
 
         <div class="part-toggles">
-            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Filtre
-                Culori</label>
+            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Colour Filters</label>
             <div id="group-filters" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;"></div>
             <label
-                style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: block;">Componente
-                Profile</label>
+                style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: block;">Profile Components</label>
             <div id="part-toggles-container"></div>
         </div>
     </div>
@@ -1184,13 +1182,13 @@
 
             function getColorName(hex) {
                 const names = {
-                    '#ffffff': 'Alb (Cadru/Cercevea)',
-                    '#ffbf7f': 'Piersică (Barieră Termică)',
-                    '#ea580c': 'Portocaliu (Garnituri EPDM)',
-                    '#22c55e': 'Verde (Spumă Izolatoare)',
-                    '#38bdf8': 'Albastru (Garnituri)',
-                    '#78716c': 'Gri Închis (Accesorii)',
-                    '#60a5fa': 'Sticlă'
+                    '#ffffff': 'White (Frame/Sash)',
+                    '#ffbf7f': 'Peach (Thermal Break)',
+                    '#ea580c': 'Orange (EPDM Gaskets)',
+                    '#22c55e': 'Green (Insulating Foam)',
+                    '#38bdf8': 'Blue (Gaskets)',
+                    '#78716c': 'Dark Grey (Accessories)',
+                    '#60a5fa': 'Glass'
                 };
                 return names[hex.toLowerCase()] || `${hex.toUpperCase()}`;
             }
@@ -1207,8 +1205,8 @@
                         <span style="font-weight: 500; color: #e2e8f0;">${catName}</span>
                     </span>
                     <div style="display: flex; gap: 6px;">
-                        <button class="btn-show-group" style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.35); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Arată</button>
-                        <button class="btn-hide-group" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Ascunde</button>
+                        <button class="btn-show-group" style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.35); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Show</button>
+                        <button class="btn-hide-group" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Hide</button>
                     </div>
                 `;
 
@@ -1419,7 +1417,7 @@
             } catch (e) {
                 window.CONFIGURATOR_READY = false;
                 currentMetadata = null;
-                console.error(`Eroare la încărcarea setului de profile ${profileFolder}:`, e);
+                console.error(`Error loading profile set ${profileFolder}:`, e);
                 if (isARMode) {
                     setARStatus(`The configured profile could not be loaded: ${e.message}`, true);
                 }
@@ -1887,7 +1885,7 @@
                 glassThicknessInput.value = String(requestedThicknessMm);
                 glassThicknessLabel.textContent = `${requestedThicknessMm.toFixed(0)} mm`;
                 glassCavityInfo.textContent =
-                    'Nu a fost identificată o pereche de garnituri; se folosește poziția de rezervă.';
+                    'No gasket pair was identified; the fallback position is being used.';
                 glassCavityInfo.style.color = '#f59e0b';
 
                 return {
@@ -1921,9 +1919,9 @@
             );
 
             glassCavityInfo.textContent =
-                `Sus/laterale: ${topSideInsetMm.toFixed(1)} mm; ` +
-                `jos: ${bottomInsetMm.toFixed(1)} mm; ` +
-                `spațiu sticlă: ${depthCavity.cavityWidthMm.toFixed(1)} mm.`;
+                `Top/sides: ${topSideInsetMm.toFixed(1)} mm; ` +
+                `bottom: ${bottomInsetMm.toFixed(1)} mm; ` +
+                `glass cavity: ${depthCavity.cavityWidthMm.toFixed(1)} mm.`;
             glassCavityInfo.style.color = '#64748b';
 
             return {
