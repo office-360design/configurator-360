@@ -43,3 +43,7 @@ coverage/
 # Build output, if you later add Vite/esbuild
 dist/
 build/
+
+*:Zone.Identifier
+*.Zone.Identifier
+
