@@ -1151,7 +1151,11 @@
                 let y_norm;
                 if (currentMetadata.isVertical) {
                     // For vertical profile: Top is Frame (inw=0), Bottom is Sash (inw=max)
-                    y_norm = currentMetadata.globalMaxY - y_cad;
+                    if (profile.section === 'bottom') {
+                        y_norm = y_cad - currentMetadata.globalMinY;
+                    } else {
+                        y_norm = currentMetadata.globalMaxY - y_cad;
+                    }
                 } else {
                     // For horizontal profile: Bottom is Frame (inw=0), Top is Sash (inw=max)
                     y_norm = y_cad - currentMetadata.globalMinY;
