@@ -3,6 +3,12 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <script>
+        if (new URLSearchParams(window.location.search).get('ar') === '1') {
+            document.documentElement.classList.add('ar-mode');
+        }
+    </script>
     <title>DWG Section Extrusion - Three.js</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,7 +17,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            font-family: 'Outfit', sans-serif;
+            font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background-color: #0b0f19;
             color: #f3f4f6;
         }
@@ -221,6 +227,203 @@
                 transform: rotate(360deg);
             }
         }
+
+        body.capture-mode #controls,
+        body.capture-mode #loading {
+            display: none !important;
+        }
+
+        body.capture-mode #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* QR-to-AR controls */
+        #qr-ar-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 20;
+            border: 1px solid rgba(96, 165, 250, 0.55);
+            border-radius: 12px;
+            padding: 12px 18px;
+            background: rgba(15, 23, 42, 0.9);
+            color: #eff6ff;
+            font: 600 14px 'Outfit', sans-serif;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(12px);
+            transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+
+        #qr-ar-button:hover {
+            transform: translateY(-1px);
+            border-color: #60a5fa;
+            background: rgba(30, 64, 175, 0.88);
+        }
+
+        #qr-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(2, 6, 23, 0.72);
+            backdrop-filter: blur(8px);
+        }
+
+        #qr-modal.open {
+            display: flex;
+        }
+
+        .qr-dialog {
+            position: relative;
+            width: min(390px, calc(100vw - 40px));
+            box-sizing: border-box;
+            padding: 26px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 18px;
+            background: #0f172a;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+            text-align: center;
+        }
+
+        .qr-dialog h3 {
+            margin: 0 30px 8px;
+            font-size: 20px;
+        }
+
+        .qr-dialog p {
+            margin: 0 0 18px;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        #qr-status {
+            min-height: 22px;
+            margin: 0 0 12px;
+            color: #bfdbfe;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        #qr-code {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 260px;
+            padding: 14px;
+            border-radius: 14px;
+            background: #fff;
+            color: #0f172a;
+            overflow: hidden;
+        }
+
+        #qr-code svg {
+            display: block;
+            width: min(260px, 70vw);
+            height: auto;
+        }
+
+        #qr-error {
+            display: none;
+            min-height: 0;
+            padding: 16px;
+            border: 1px solid rgba(248, 113, 113, 0.35);
+            border-radius: 12px;
+            background: rgba(127, 29, 29, 0.2);
+            color: #fecaca;
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: left;
+        }
+
+        #qr-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 34px;
+            height: 34px;
+            border: 0;
+            border-radius: 9px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        #ar-launch {
+            position: fixed;
+            inset: 0;
+            z-index: 300;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: radial-gradient(circle at center, #172554 0%, #020617 72%);
+            text-align: center;
+        }
+
+        .ar-mode #controls,
+        .ar-mode #qr-ar-button,
+        .ar-mode #qr-modal {
+            display: none !important;
+        }
+
+        .ar-mode #ar-launch {
+            display: flex;
+        }
+
+        .ar-launch-card {
+            width: min(360px, 100%);
+        }
+
+        .ar-launch-card h1 {
+            margin-bottom: 10px;
+            font-size: 27px;
+        }
+
+        .ar-launch-card p {
+            margin: 0 0 20px;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        #ar-start-button {
+            width: 100%;
+            border: 0;
+            border-radius: 14px;
+            padding: 15px 18px;
+            background: #2563eb;
+            color: white;
+            font: 700 16px 'Outfit', sans-serif;
+            cursor: pointer;
+        }
+
+        #ar-start-button:disabled {
+            cursor: wait;
+            opacity: 0.55;
+        }
+
+        #ar-status {
+            min-height: 40px;
+            margin-top: 14px;
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        @media (max-width: 760px) {
+            #qr-ar-button {
+                top: 12px;
+                right: 12px;
+                padding: 10px 13px;
+                font-size: 12px;
+            }
+        }
     </style>
 </head>
 
@@ -239,10 +442,10 @@
         <div class="control-group">
             <label>Alege Profil CAD:</label>
             <select id="cadProfile">
-                <option value="2_6_Oeffnungselement_Vertikal" selected>2_6 Öffnungselement Vertikal</option>
+                <option value="2_6_Oeffnungselement_Vertikal" selected>2_6 Öffnungselement (Vertical - Nou)</option>
                 <option value="2_4_Oeffnungselemnt_Vertikal">2_4 Öffnungselement Vertikal</option>
-                <option value="575760_d1">575760_d1</option>
-                <option value="AW_CT_65_Oeffnungselement_vertikal">AW CT 65 Öffnungselement Vertikal</option>
+                <option value="575760_d1">575760_d1 (Orizontal)</option>
+                <option value="AW_CT_65_Oeffnungselement_vertikal">AW CT 65 (Vertical - Vechi)</option>
             </select>
         </div>
 
@@ -275,54 +478,153 @@
         </div>
 
         <div class="part-toggles">
-            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Filtre
-                Culori</label>
+            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px;">Filtre Culori</label>
             <div id="group-filters" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;"></div>
-            <label
-                style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: block;">Componente
-                Profile</label>
+            <label style="font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; display: block;">Componente Profile</label>
             <div id="part-toggles-container"></div>
         </div>
     </div>
 
     <div id="canvas-container"></div>
 
+    <button id="qr-ar-button" type="button">Scan QR for AR view</button>
+
+    <div id="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qr-title">
+        <div class="qr-dialog">
+            <button id="qr-close" type="button" aria-label="Close">×</button>
+            <h3 id="qr-title">View this configuration in AR</h3>
+            <p>The current configuration is converted to a temporary GLB only when this dialog is opened.</p>
+            <div id="qr-status">Preparing the AR model…</div>
+            <div id="qr-code"></div>
+            <div id="qr-error"></div>
+        </div>
+    </div>
+
+    <div id="ar-launch">
+        <div class="ar-launch-card">
+            <h1>Window AR view</h1>
+            <p>The configured window is ready. Tap once to allow the browser to open the camera and place it automatically.</p>
+            <button id="ar-start-button" type="button" disabled>Preparing AR…</button>
+            <div id="ar-status">Loading the selected profile…</div>
+        </div>
+    </div>
+
     <script type="importmap">
     {
         "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            "three": "/node_modules/three/build/three.module.js",
+            "three/addons/": "/node_modules/three/examples/jsm/"
         }
     }
-</script>
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+        const pageParams = new URLSearchParams(window.location.search);
+        const isARMode = pageParams.get('ar') === '1';
+        const captureMode = pageParams.get('capture') === '1';
+
+        const allowedProfiles = new Set([
+            '2_6_Oeffnungselement_Vertikal',
+            '2_4_Oeffnungselemnt_Vertikal',
+            '575760_d1',
+            'AW_CT_65_Oeffnungselement_vertikal'
+        ]);
+        const requestedProfileValue = pageParams.get('profile') || '2_6_Oeffnungselement_Vertikal';
+        const requestedProfile = allowedProfiles.has(requestedProfileValue)
+            ? requestedProfileValue
+            : '2_6_Oeffnungselement_Vertikal';
+        const requestedActiveParts = pageParams.has('parts')
+            ? new Set(pageParams.get('parts').split(',').filter(Boolean))
+            : null;
+
+        const parseBoundedNumber = (value, fallback, min, max) => {
+            const parsed = Number.parseFloat(value);
+            return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+        };
+
+        if (isARMode) {
+            const width = parseBoundedNumber(pageParams.get('w'), 1.2, 0.5, 3.0);
+            const height = parseBoundedNumber(pageParams.get('h'), 1.5, 0.5, 3.0);
+            const angle = parseBoundedNumber(pageParams.get('angle'), 0, 0, 1.5);
+            const mode = pageParams.get('mode') === 'oscilo' ? 'oscilo' : 'batant';
+
+            document.getElementById('cadProfile').value = requestedProfile;
+            document.getElementById('widthA').value = String(width);
+            document.getElementById('heightB').value = String(height);
+            document.getElementById('openAngle').value = String(angle);
+            document.getElementById('mBatant').checked = mode === 'batant';
+            document.getElementById('mOscilo').checked = mode === 'oscilo';
+            document.getElementById('cExplode').checked = pageParams.get('explode') === '1';
+        }
 
         const S = 0.001; // Scale factor: CAD mm to Three.js meters
 
+        const requestedWidth = Number.parseFloat(pageParams.get('width'));
+        const requestedHeight = Number.parseFloat(pageParams.get('height'));
+        const requestedColour = pageParams.get('colour');
+
+        window.CONFIGURATOR_READY = false;
+        window.LAST_APPLIED_CONFIGURATION = null;
+
+        if (captureMode) {
+            document.body.classList.add('capture-mode');
+        }
+
+        const widthInput = document.getElementById('widthA');
+        const heightInput = document.getElementById('heightB');
+        const profileInput = document.getElementById('cadProfile');
+
+        if (Number.isFinite(requestedWidth)) {
+            widthInput.value = String(requestedWidth);
+        }
+        if (Number.isFinite(requestedHeight)) {
+            heightInput.value = String(requestedHeight);
+        }
+        if (requestedProfile && [...profileInput.options].some(option => option.value === requestedProfile)) {
+            profileInput.value = requestedProfile;
+        }
+
+        function normalizeRequestedColour(value) {
+            return value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : null;
+        }
+
+        let configurationColour = normalizeRequestedColour(requestedColour);
+        const profileCache = new Map();
+
         // SCENE, CAMERA & RENDERER SETUP
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a);
-        scene.fog = new THREE.FogExp2(0x0f172a, 0.1);
+        scene.background = isARMode ? null : new THREE.Color(0x0f172a);
+        scene.fog = isARMode ? null : new THREE.FogExp2(0x0f172a, 0.1);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 50);
         camera.position.set(1.4, 0.9, 2.2);
 
         const container = document.getElementById('canvas-container');
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: !captureMode, alpha: isARMode });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.setPixelRatio(captureMode ? 1 : Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = !captureMode;
+        if (!captureMode) {
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        }
         container.appendChild(renderer.domElement);
 
+        if (isARMode) {
+            renderer.xr.enabled = true;
+        }
+
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
+        controls.enableDamping = !captureMode;
         controls.dampingFactor = 0.05;
         controls.target.set(0, 0, 0);
+        controls.enabled = !isARMode;
 
         // GROUND PLANE
         const groundGeo = new THREE.PlaneGeometry(100, 100);
@@ -334,12 +636,14 @@
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = -1.2;
-        ground.receiveShadow = true;
+        ground.receiveShadow = !captureMode;
+        ground.visible = !isARMode;
         scene.add(ground);
 
         // GRID HELPER
         const gridHelper = new THREE.GridHelper(30, 30, 0x475569, 0x334155);
         gridHelper.position.y = -1.19;
+        gridHelper.visible = !isARMode;
         scene.add(gridHelper);
 
         // LIGHTING
@@ -348,7 +652,7 @@
 
         const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.2);
         dirLight1.position.set(5, 8, 5);
-        dirLight1.castShadow = true;
+        dirLight1.castShadow = !captureMode;
         dirLight1.shadow.mapSize.width = 2048;
         dirLight1.shadow.mapSize.height = 2048;
         dirLight1.shadow.bias = -0.0002;
@@ -358,274 +662,368 @@
         dirLight2.position.set(-5, 3, -5);
         scene.add(dirLight2);
 
-        // MATERIALS (Matching AutoCAD Color Scheme)
-        const aluFrameMat = new THREE.MeshStandardMaterial({
-            color: 0xe2e8f0, // light grey / white anodized aluminum
-            metalness: 0.3,
-            roughness: 0.4,
-            side: THREE.DoubleSide
-        });
-        const aluSashMat = new THREE.MeshStandardMaterial({
-            color: 0xe2e8f0, // light grey / white anodized aluminum
-            metalness: 0.3,
-            roughness: 0.4,
-            side: THREE.DoubleSide
-        });
-        const thermalBreakMat = new THREE.MeshStandardMaterial({
-            color: 0x166534, // dark green polyamide break
-            metalness: 0.1,
-            roughness: 0.7,
-            side: THREE.DoubleSide
-        });
-        const centralSealMat = new THREE.MeshStandardMaterial({
-            color: 0x38bdf8, // light blue central seal
-            metalness: 0.1,
-            roughness: 0.6,
-            side: THREE.DoubleSide
-        });
-        const gasketMat = new THREE.MeshStandardMaterial({
-            color: 0xea580c, // orange EPDM gaskets
-            metalness: 0.1,
-            roughness: 0.7,
-            side: THREE.DoubleSide
-        });
-        const foamMat = new THREE.MeshStandardMaterial({
-            color: 0x22c55e, // bright green insulation foam
-            metalness: 0.0,
-            roughness: 0.9,
-            side: THREE.DoubleSide
-        });
-        const defaultMat = new THREE.MeshStandardMaterial({
-            color: 0x78716c,
-            metalness: 0.5,
-            roughness: 0.5,
-            side: THREE.DoubleSide
-        });
+        // MATERIALS (shared and optimized)
+        function createSurfaceMaterial(options) {
+            const materialOptions = {
+                color: options.color,
+                side: options.side || THREE.DoubleSide,
+                transparent: options.transparent || false,
+                opacity: options.opacity ?? 1,
+            };
 
-        const glassMat = new THREE.MeshStandardMaterial({
-            color: 0x60a5fa,
-            transparent: true,
-            opacity: 0.25,
-            roughness: 0.1,
-            metalness: 0.9,
-            side: THREE.DoubleSide
-        });
-        const handleMat = new THREE.MeshStandardMaterial({
-            color: 0xe2e8f0,
-            metalness: 0.95,
-            roughness: 0.15
-        });
+            if (captureMode) {
+                return new THREE.MeshPhongMaterial({
+                    ...materialOptions,
+                    shininess: options.shininess ?? 45,
+                });
+            }
+
+            return new THREE.MeshStandardMaterial({
+                ...materialOptions,
+                metalness: options.metalness ?? 0.1,
+                roughness: options.roughness ?? 0.7,
+            });
+        }
+
+        function createMaterialPool() {
+            return {
+                alu: createSurfaceMaterial({ color: 0xe2e8f0, metalness: 0.3, roughness: 0.4, shininess: 80 }),
+                iso: createSurfaceMaterial({ color: 0x166534, metalness: 0.1, roughness: 0.7, shininess: 20 }),
+                centralSeal: createSurfaceMaterial({ color: 0x38bdf8, metalness: 0.1, roughness: 0.6, shininess: 40 }),
+                epdm: createSurfaceMaterial({ color: 0xea580c, metalness: 0.05, roughness: 0.8, shininess: 15 }),
+                foam: createSurfaceMaterial({ color: 0x22c55e, metalness: 0.0, roughness: 0.95, shininess: 10 }),
+                default: createSurfaceMaterial({ color: 0x78716c, metalness: 0.5, roughness: 0.5, shininess: 35 }),
+                glass: createSurfaceMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.25, metalness: 0.9, roughness: 0.1, shininess: 90 }),
+                handle: createSurfaceMaterial({ color: 0x1f2937, metalness: 0.7, roughness: 0.25, shininess: 100, side: THREE.FrontSide }),
+            };
+        }
+
+        const materialPool = createMaterialPool();
+        const glassMat = materialPool.glass;
+        const handleMat = materialPool.handle;
+
+        // Color group filters helper
+        function resolveDisplayColour(profile) {
+            if (profile.materialKey === 'alu' && configurationColour) {
+                return configurationColour;
+            }
+            return profile.baseCadColor;
+        }
+
+        function applyAluminiumColour() {
+            const targetColor = new THREE.Color(configurationColour || '#e2e8f0');
+            materialPool.alu.color.copy(targetColor);
+        }
+
+        function getMaterialForProfile(profile) {
+            return materialPool[profile.materialKey] || materialPool.default;
+        }
+
+        applyAluminiumColour();
 
         // LOAD PROFILE SVG FILES AND METADATA
         const svgLoader = new SVGLoader();
         let currentMetadata = null;
         let profilesData = [];
 
-        async function loadProfiles(profileFolder) {
-            document.getElementById('loading').style.display = 'block';
-            profilesData = [];
-
-            try {
-                // Fetch metadata
-                const response = await fetch(`svg/${profileFolder}/metadata.json`);
-                currentMetadata = await response.json();
-
-                // Render UI toggles dynamically
-                const togglesContainer = document.getElementById('part-toggles-container');
-                togglesContainer.innerHTML = '';
-                for (let part of currentMetadata.parts) {
-                    // Load SVG shape (using relativeUrl to support nested parent-piece folders, fallback to filename)
-                    const url = `svg/${profileFolder}/${part.relativeUrl || part.filename}`;
-                    const data = await new Promise((resolve, reject) => {
-                        svgLoader.load(url, resolve, null, reject);
-                    });
-                    const path = data.paths[0];
-                    const shapes = SVGLoader.createShapes(path);
-
-                    const layer = part.layer.toLowerCase();
-                    const blockName = (part.blockName || '').toLowerCase();
-
-                    // Smart CAD catalog heuristics (Schüco part numbering system)
-                    const isAlu = layer.includes('al') || blockName.startsWith('5') || blockName.startsWith('1') || blockName.startsWith('3') || blockName.includes('alu');
-                    const isIso = layer.includes('isolation') || layer.includes('isoli') || blockName.startsWith('245') || blockName.includes('iso');
-                    const isCentralSeal = blockName.includes('224068');
-                    const isEPDM = !isCentralSeal && (layer.includes('epdm') || layer.includes('dichtung') || blockName.startsWith('224') || blockName.startsWith('200') || blockName.startsWith('244') || blockName.includes('dicht'));
-                    const isFoam = layer.includes('dämmung') || layer.includes('daemmung') || blockName.startsWith('288') || blockName.startsWith('300') || blockName.includes('dämm') || blockName.includes('daemm');
-
-                    // Resolve CAD color (extract from metadata, fallback to curated colors)
-                    let cadColor = part.color;
-                    if (!cadColor) {
-                        if (isAlu) {
-                            cadColor = '#e2e8f0';
-                        } else if (isIso) {
-                            cadColor = '#166534';
-                        } else if (isCentralSeal) {
-                            cadColor = '#38bdf8';
-                        } else if (isEPDM) {
-                            cadColor = '#ea580c';
-                        } else if (isFoam) {
-                            cadColor = '#22c55e';
-                        } else {
-                            cadColor = '#78716c';
-                        }
-                    }
-
-                    // Determine PBR physical properties based on CAD heuristics
-                    let metalness = 0.1;
-                    let roughness = 0.7;
-                    let opacity = 1.0;
-                    let transparent = false;
-
-                    if (isAlu) {
-                        metalness = 0.3;
-                        roughness = 0.4;
-                    } else if (isIso) {
-                        metalness = 0.1;
-                        roughness = 0.7;
-                    } else if (isEPDM) {
-                        metalness = 0.05;
-                        roughness = 0.8;
-                    } else if (isFoam) {
-                        metalness = 0.0;
-                        roughness = 0.95;
-                    }
-
-                    // Specific glass material override if drawing contains glass
-                    if (layer.includes('glas') || blockName.includes('glas')) {
-                        cadColor = '#60a5fa';
-                        opacity = 0.25;
-                        transparent = true;
-                        metalness = 0.9;
-                        roughness = 0.1;
-                    }
-
-                    const material = new THREE.MeshStandardMaterial({
-                        color: new THREE.Color(cadColor),
-                        metalness: metalness,
-                        roughness: roughness,
-                        opacity: opacity,
-                        transparent: transparent,
-                        side: THREE.DoubleSide
-                    });
-
-                    // Determine base explode offset
-                    let baseExplode = 0.12;
-                    if (part.role === 'sash') {
-                        baseExplode = 0.26;
-                    } else if (isIso) {
-                        baseExplode = 0.18;
-                    }
-
-                    profilesData.push({
-                        index: part.index,
-                        layer: part.layer,
-                        blockName: part.blockName || `Part ${part.index}`,
-                        role: part.role,
-                        section: part.section || 'top',
-                        shape: shapes[0],
-                        material: material,
-                        explodeOffset: baseExplode,
-                        bbox: part.bbox,
-                        color: cadColor
-                    });
-
-                    // Add Toggle UI with technical piece names (fallback to generic label)
-                    const item = document.createElement('div');
-                    item.className = 'part-toggle-item';
-
-                    const colorDot = cadColor;
-
-                    const labelText = part.parentBlock ? `${part.parentBlock} / ${part.blockName}` : (part.blockName || `Part ${part.index} (${part.layer})`);
-                    item.innerHTML = `
-                        <span><span class="part-color-dot" style="background-color: ${colorDot};"></span>${labelText}</span>
-                        <input type="checkbox" id="toggle_${part.index}" checked>
-                    `;
-                    togglesContainer.appendChild(item);
-                    document.getElementById(`toggle_${part.index}`).addEventListener('change', buildWindow);
-                }
-
-                // Render color group filters dynamically
-                const groupFiltersContainer = document.getElementById('group-filters');
-                groupFiltersContainer.innerHTML = '';
-
-                // Get unique colors
-                const uniqueColors = [...new Set(profilesData.map(p => p.color))];
-
-                function getColorName(hex) {
-                    const names = {
-                        // '#ffffff': 'Alb (Cadru/Cercevea)',
-                        // '#ffbf7f': 'Piersică (Barieră Termică)',
-                        // '#ea580c': 'Portocaliu (Garnituri EPDM)',
-                        // '#22c55e': 'Verde (Spumă Izolatoare)',
-                        // '#38bdf8': 'Albastru (Garnituri)',
-                        // '#78716c': 'Gri Închis (Accesorii)',
-                        // '#60a5fa': 'Sticlă'
-                    };
-                    return names[hex.toLowerCase()] || `${hex.toUpperCase()}`;
-                }
-
-                uniqueColors.forEach(catColor => {
-                    const catName = getColorName(catColor);
-                    const row = document.createElement('div');
-                    row.className = 'category-filter-row';
-                    row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; font-size: 12px; background: rgba(30, 41, 59, 0.4); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);';
-
-                    row.innerHTML = `
-                        <span style="display: inline-flex; align-items: center; gap: 8px;">
-                            <span class="part-color-dot" style="background-color: ${catColor}; margin-right: 0; width: 8px; height: 8px;"></span>
-                            <span style="font-weight: 500; color: #e2e8f0;">${catName}</span>
-                        </span>
-                        <div style="display: flex; gap: 6px;">
-                            <button class="btn-show-group" style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.35); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Arată</button>
-                            <button class="btn-hide-group" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Ascunde</button>
-                        </div>
-                    `;
-
-                    row.querySelector('.btn-show-group').addEventListener('click', () => {
-                        profilesData.forEach(p => {
-                            if (p.color === catColor) {
-                                const cb = document.getElementById(`toggle_${p.index}`);
-                                if (cb) cb.checked = true;
-                            }
-                        });
-                        buildWindow();
-                    });
-
-                    row.querySelector('.btn-hide-group').addEventListener('click', () => {
-                        profilesData.forEach(p => {
-                            if (p.color === catColor) {
-                                const cb = document.getElementById(`toggle_${p.index}`);
-                                if (cb) cb.checked = false;
-                            }
-                        });
-                        buildWindow();
-                    });
-
-                    // Add hover animations
-                    row.querySelectorAll('button').forEach(btn => {
-                        btn.addEventListener('mouseenter', () => {
-                            btn.style.transform = 'scale(1.05)';
-                            btn.style.background = btn.classList.contains('btn-show-group') ? 'rgba(14, 165, 233, 0.3)' : 'rgba(239, 68, 68, 0.3)';
-                        });
-                        btn.addEventListener('mouseleave', () => {
-                            btn.style.transform = 'scale(1.0)';
-                            btn.style.background = btn.classList.contains('btn-show-group') ? 'rgba(14, 165, 233, 0.15)' : 'rgba(239, 68, 68, 0.15)';
-                        });
-                    });
-
-                    groupFiltersContainer.appendChild(row);
-                });
-
-            } catch (e) {
-                console.error(`Eroare la încărcarea setului de profile ${profileFolder}:`, e);
-            }
-
-            document.getElementById('loading').style.display = 'none';
-            buildWindow();
+        function loadSvg(url) {
+            return new Promise((resolve, reject) => {
+                svgLoader.load(url, resolve, null, reject);
+            });
         }
 
+        async function getProfileDefinition(profileFolder) {
+            if (profileCache.has(profileFolder)) {
+                return profileCache.get(profileFolder);
+            }
+
+            const response = await fetch(`svg/${profileFolder}/metadata.json`);
+            if (!response.ok) {
+                throw new Error(`Metadata request failed with HTTP ${response.status}`);
+            }
+            const metadata = await response.json();
+
+            const profiles = await Promise.all(metadata.parts.map(async (part) => {
+                const url = `svg/${profileFolder}/${part.relativeUrl || part.filename}`;
+                const data = await loadSvg(url);
+                const path = data.paths[0];
+                const shapes = SVGLoader.createShapes(path);
+
+                const layer = part.layer.toLowerCase();
+                const blockName = (part.blockName || '').toLowerCase();
+
+                const isAlu = layer.includes('al') || blockName.startsWith('5') || blockName.startsWith('1') || blockName.startsWith('3') || blockName.includes('alu');
+                const isIso = layer.includes('isolation') || layer.includes('isoli') || blockName.startsWith('245') || blockName.includes('iso');
+                const isCentralSeal = blockName.includes('224068');
+                const isEPDM = !isCentralSeal && (layer.includes('epdm') || layer.includes('dichtung') || blockName.startsWith('224') || blockName.startsWith('200') || blockName.startsWith('244') || blockName.includes('dicht'));
+                const isFoam = layer.includes('dämmung') || layer.includes('daemmung') || blockName.startsWith('288') || blockName.startsWith('300') || blockName.includes('dämm') || blockName.includes('daemm');
+
+                let baseCadColor = part.color;
+                if (!baseCadColor) {
+                    if (isAlu) {
+                        baseCadColor = '#e2e8f0';
+                    } else if (isIso) {
+                        baseCadColor = '#166534';
+                    } else if (isCentralSeal) {
+                        baseCadColor = '#38bdf8';
+                    } else if (isEPDM) {
+                        baseCadColor = '#ea580c';
+                    } else if (isFoam) {
+                        baseCadColor = '#22c55e';
+                    } else {
+                        baseCadColor = '#78716c';
+                    }
+                }
+
+                const isGlass = layer.includes('glas') || blockName.includes('glas');
+
+                let materialKey = 'default';
+                if (isGlass) {
+                    baseCadColor = '#60a5fa';
+                    materialKey = 'glass';
+                } else if (isAlu) {
+                    materialKey = 'alu';
+                } else if (isIso) {
+                    materialKey = 'iso';
+                } else if (isCentralSeal) {
+                    materialKey = 'centralSeal';
+                } else if (isEPDM) {
+                    materialKey = 'epdm';
+                } else if (isFoam) {
+                    materialKey = 'foam';
+                }
+
+                let baseExplode = 0.12;
+                if (part.role === 'sash') {
+                    baseExplode = 0.26;
+                } else if (isIso) {
+                    baseExplode = 0.18;
+                }
+
+                return {
+                    index: part.index,
+                    layer: part.layer,
+                    blockName: part.blockName || `Part ${part.index}`,
+                    parentBlock: part.parentBlock,
+                    role: part.role,
+                    section: part.section || 'top',
+                    shape: shapes[0],
+                    baseCadColor,
+                    materialKey,
+                    explodeOffset: baseExplode,
+                    bbox: part.bbox,
+                    isAlu,
+                };
+            }));
+
+            const definition = { metadata, profiles };
+            profileCache.set(profileFolder, definition);
+            return definition;
+        }
+
+        function renderPartToggles() {
+            const togglesContainer = document.getElementById('part-toggles-container');
+            if (!togglesContainer) return;
+            togglesContainer.innerHTML = '';
+            profilesData.forEach((profile) => {
+                const item = document.createElement('div');
+                item.className = 'part-toggle-item';
+
+                const colorDot = resolveDisplayColour(profile);
+                const labelText = profile.parentBlock ? `${profile.parentBlock} / ${profile.blockName}` : profile.blockName;
+                const isRequestedPartActive = !isARMode
+                    || requestedActiveParts === null
+                    || requestedActiveParts.has(String(profile.index));
+
+                item.innerHTML = `
+                    <span><span class="part-color-dot" style="background-color: ${colorDot};"></span>${labelText}</span>
+                    <input type="checkbox" id="toggle_${profile.index}" ${isRequestedPartActive ? 'checked' : ''}>
+                `;
+                togglesContainer.appendChild(item);
+                document.getElementById(`toggle_${profile.index}`).addEventListener('change', buildWindow);
+            });
+        }
+
+        function renderGroupFilters() {
+            const groupFiltersContainer = document.getElementById('group-filters');
+            if (!groupFiltersContainer) return;
+            groupFiltersContainer.innerHTML = '';
+
+            // Get unique colors
+            const uniqueColors = [...new Set(profilesData.map(p => p.baseCadColor))];
+
+            function getColorName(hex) {
+                const names = {
+                    '#ffffff': 'Alb (Cadru/Cercevea)',
+                    '#ffbf7f': 'Piersică (Barieră Termică)',
+                    '#ea580c': 'Portocaliu (Garnituri EPDM)',
+                    '#22c55e': 'Verde (Spumă Izolatoare)',
+                    '#38bdf8': 'Albastru (Garnituri)',
+                    '#78716c': 'Gri Închis (Accesorii)',
+                    '#60a5fa': 'Sticlă'
+                };
+                return names[hex.toLowerCase()] || `${hex.toUpperCase()}`;
+            }
+
+            uniqueColors.forEach(catColor => {
+                const catName = getColorName(catColor);
+                const row = document.createElement('div');
+                row.className = 'category-filter-row';
+                row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; font-size: 12px; background: rgba(30, 41, 59, 0.4); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);';
+
+                row.innerHTML = `
+                    <span style="display: inline-flex; align-items: center; gap: 8px;">
+                        <span class="part-color-dot" style="background-color: ${catColor}; margin-right: 0; width: 8px; height: 8px;"></span>
+                        <span style="font-weight: 500; color: #e2e8f0;">${catName}</span>
+                    </span>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn-show-group" style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.35); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Arată</button>
+                        <button class="btn-hide-group" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Ascunde</button>
+                    </div>
+                `;
+
+                row.querySelector('.btn-show-group').addEventListener('click', () => {
+                    profilesData.forEach(p => {
+                        if (p.baseCadColor === catColor) {
+                            const cb = document.getElementById(`toggle_${p.index}`);
+                            if (cb) cb.checked = true;
+                        }
+                    });
+                    buildWindow();
+                });
+
+                row.querySelector('.btn-hide-group').addEventListener('click', () => {
+                    profilesData.forEach(p => {
+                        if (p.baseCadColor === catColor) {
+                            const cb = document.getElementById(`toggle_${p.index}`);
+                            if (cb) cb.checked = false;
+                        }
+                    });
+                    buildWindow();
+                });
+
+                // Add hover animations
+                row.querySelectorAll('button').forEach(btn => {
+                    btn.addEventListener('mouseenter', () => {
+                        btn.style.transform = 'scale(1.05)';
+                        btn.style.background = btn.classList.contains('btn-show-group') ? 'rgba(14, 165, 233, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+                    });
+                    btn.addEventListener('mouseleave', () => {
+                        btn.style.transform = 'scale(1.0)';
+                        btn.style.background = btn.classList.contains('btn-show-group') ? 'rgba(14, 165, 233, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+                    });
+                });
+
+                groupFiltersContainer.appendChild(row);
+            });
+        }
+
+        async function forceSceneRender() {
+            renderer.compile(scene, camera);
+            renderer.render(scene, camera);
+
+            const gl = renderer.getContext();
+            if (gl && typeof gl.finish === 'function') {
+                gl.finish();
+            }
+
+            await new Promise((resolve) => {
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+            });
+
+            renderer.render(scene, camera);
+            if (gl && typeof gl.finish === 'function') {
+                gl.finish();
+            }
+        }
+
+        async function loadProfiles(profileFolder) {
+            window.CONFIGURATOR_READY = false;
+            document.getElementById('loading').style.display = 'block';
+            profilesData = [];
+            profilesReady = false;
+            let loadSucceeded = false;
+
+            try {
+                const definition = await getProfileDefinition(profileFolder);
+                currentMetadata = definition.metadata;
+                applyAluminiumColour();
+                profilesData = definition.profiles.map((profile) => ({
+                    ...profile,
+                    material: getMaterialForProfile(profile),
+                }));
+                renderPartToggles();
+                renderGroupFilters();
+                buildWindow();
+                await forceSceneRender();
+                loadSucceeded = true;
+                window.CONFIGURATOR_READY = true;
+            } catch (e) {
+                window.CONFIGURATOR_READY = false;
+                currentMetadata = null;
+                console.error(`Eroare la încărcarea setului de profile ${profileFolder}:`, e);
+                if (isARMode) {
+                    setARStatus(`The configured profile could not be loaded: ${e.message}`, true);
+                }
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                if (loadSucceeded) {
+                    buildWindow();
+                }
+                profilesReady = loadSucceeded;
+                updateARAvailability();
+            }
+        }
+
+        window.applyConfiguration = async function applyConfiguration(configuration) {
+            window.CONFIGURATOR_READY = false;
+            window.LAST_APPLIED_CONFIGURATION = null;
+
+            if (typeof configuration.widthM === 'number' && Number.isFinite(configuration.widthM)) {
+                widthInput.value = String(configuration.widthM);
+            }
+            if (typeof configuration.heightM === 'number' && Number.isFinite(configuration.heightM)) {
+                heightInput.value = String(configuration.heightM);
+            }
+            if (typeof configuration.colour === 'string') {
+                configurationColour = normalizeRequestedColour(configuration.colour);
+            }
+
+            const requestedProfileName = configuration.profile && [...profileInput.options].some(option => option.value === configuration.profile)
+                ? configuration.profile
+                : profileInput.value;
+
+            const mustReloadProfile = profileInput.value !== requestedProfileName || !currentMetadata;
+            profileInput.value = requestedProfileName;
+
+            if (mustReloadProfile) {
+                await loadProfiles(requestedProfileName);
+            } else {
+                applyAluminiumColour();
+                profilesData.forEach((profile) => {
+                    profile.material = getMaterialForProfile(profile);
+                });
+                renderPartToggles();
+                renderGroupFilters();
+                buildWindow();
+                await forceSceneRender();
+            }
+
+            const applied = {
+                requestToken: String(configuration.requestToken || ''),
+                widthM: Number(widthInput.value),
+                heightM: Number(heightInput.value),
+                colour: configurationColour || '#e2e8f0',
+                profile: profileInput.value,
+            };
+
+            window.LAST_APPLIED_CONFIGURATION = applied;
+            window.CONFIGURATOR_READY = true;
+            return applied;
+        };
+
         // EXPLOSION REGISTER
-        let isExploded = false;
+        let isExploded = (isARMode && pageParams.get('explode') === '1') || document.getElementById('cExplode').checked;
         let explodeProgress = 0;
         let explodableObjects = [];
 
@@ -678,8 +1076,8 @@
             geom.computeVertexNormals();
 
             const mesh = new THREE.Mesh(geom, profile.material);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
+            mesh.castShadow = !captureMode;
+            mesh.receiveShadow = !captureMode;
             return mesh;
         }
 
@@ -707,12 +1105,10 @@
                 // Normalize Y coordinate based on drawing type (Horizontal vs Vertical)
                 let y_norm;
                 if (currentMetadata.isVertical) {
-                    if (profile.section === 'bottom') {
-                        y_norm = y_cad - currentMetadata.globalMinY;
-                    } else {
-                        y_norm = currentMetadata.globalMaxY - y_cad;
-                    }
+                    // For vertical profile: Top is Frame (inw=0), Bottom is Sash (inw=max)
+                    y_norm = currentMetadata.globalMaxY - y_cad;
                 } else {
+                    // For horizontal profile: Bottom is Frame (inw=0), Top is Sash (inw=max)
                     y_norm = y_cad - currentMetadata.globalMinY;
                 }
 
@@ -735,8 +1131,8 @@
             geom.computeVertexNormals();
 
             const mesh = new THREE.Mesh(geom, profile.material);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
+            mesh.castShadow = !captureMode;
+            mesh.receiveShadow = !captureMode;
 
             // Explode directions
             let expX = 0, expY = 0;
@@ -750,15 +1146,19 @@
         }
 
         // SCENE ELEMENTS
+        const placementRoot = new THREE.Group();
         const mainGroup = new THREE.Group();
         const pivotOscilo = new THREE.Group();
         const pivotBatant = new THREE.Group();
         let handleLeverGroup = new THREE.Group();
-        scene.add(mainGroup);
+        placementRoot.add(mainGroup);
+        placementRoot.visible = !isARMode;
+        scene.add(placementRoot);
 
         const sectionGroup = new THREE.Group();
         // Positioned in front of the camera, floating at eye level
         sectionGroup.position.set(0.7, 0.35, 1.1);
+        sectionGroup.visible = !isARMode;
         scene.add(sectionGroup);
 
         function buildWindow() {
@@ -787,26 +1187,28 @@
                 return toggle ? toggle.checked : true;
             });
 
-            // Rebuild 3D sample extrusion (10cm) in front of the camera
-            activeProfiles.forEach(profile => {
-                const sampleMesh = createSampleExtrusion(profile);
-                if (currentMetadata.hasSplit) {
-                    if (profile.section === 'top') {
-                        // Flip Y axis (rotation around X) so frame is at the top and sash at the bottom,
-                        // keeping X (left/right) aligned.
-                        sampleMesh.rotation.x = Math.PI;
-                        // Shift the top section sample upward
-                        sampleMesh.position.y = 0.28;
-                    } else if (profile.section === 'bottom') {
-                        // Position the bottom section sample at the base with default orientation
-                        // (frame at bottom, sash at top). No rotation is needed.
-                        sampleMesh.position.y = 0.0;
+            // Rebuild 3D sample extrusion only in the desktop configurator.
+            if (!isARMode) {
+                activeProfiles.forEach(profile => {
+                    const sampleMesh = createSampleExtrusion(profile);
+                    if (currentMetadata.hasSplit) {
+                        if (profile.section === 'top') {
+                            // Flip Y axis (rotation around X) so frame is at the top and sash at the bottom,
+                            // keeping X (left/right) aligned.
+                            sampleMesh.rotation.x = Math.PI;
+                            // Shift the top section sample upward
+                            sampleMesh.position.y = 0.28;
+                        } else if (profile.section === 'bottom') {
+                            // Position the bottom section sample at the base with default orientation
+                            // (frame at bottom, sash at top). No rotation is needed.
+                            sampleMesh.position.y = 0.0;
+                        }
                     }
-                }
-                sectionGroup.add(sampleMesh);
-            });
-            // Rotate the group to face the camera
-            sectionGroup.lookAt(camera.position);
+                    sectionGroup.add(sampleMesh);
+                });
+                // Rotate the group to face the camera
+                sectionGroup.lookAt(camera.position);
+            }
 
             // Miter-extrude each active part on all 4 sides of the window
             activeProfiles.forEach(profile => {
@@ -857,8 +1259,8 @@
             const glassH = B - 2 * (100 * S);
             const glass = new THREE.Mesh(new THREE.BoxGeometry(glassW, glassH, 0.024), glassMat);
             glass.position.set(0, 0, sashCenterX);
-            glass.castShadow = true;
-            glass.receiveShadow = true;
+            glass.castShadow = !captureMode;
+            glass.receiveShadow = !captureMode;
 
             registerExplode(glass, 0, 0, 0.5); // Explode forward
             sashGroup.add(glass);
@@ -866,12 +1268,12 @@
             // Handle
             const handleBase = new THREE.Group();
             const plate = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.015), handleMat);
-            plate.castShadow = true;
+            plate.castShadow = !captureMode;
 
             handleLeverGroup = new THREE.Group();
             const lever = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.14, 0.025), handleMat);
             lever.position.y = -0.05;
-            lever.castShadow = true;
+            lever.castShadow = !captureMode;
             handleLeverGroup.add(lever);
             handleBase.add(plate, handleLeverGroup);
 
@@ -898,9 +1300,7 @@
         }
 
         // ANIMATION & LOOP
-        function animate() {
-            requestAnimationFrame(animate);
-
+        function renderFrame(_time, xrFrame) {
             const val = parseFloat(document.getElementById('openAngle').value);
             const isBatant = document.getElementById('mBatant').checked;
 
@@ -927,19 +1327,321 @@
                 }
             });
 
-            controls.update();
+            if (isARMode) {
+                updateARPlacement(xrFrame);
+            } else if (!captureMode) {
+                controls.update();
+            }
             renderer.render(scene, camera);
+        }
+
+        // QR generation and WebXR AR mode
+        let profilesReady = false;
+        let arSession = null;
+        let hitTestSource = null;
+        let arPlaced = false;
+        let arSessionStartedAt = 0;
+
+        function buildWebXRUrl() {
+            const url = new URL(window.location.href);
+            url.search = '';
+            url.hash = '';
+            url.searchParams.set('ar', '1');
+            url.searchParams.set('profile', document.getElementById('cadProfile').value);
+            url.searchParams.set('w', document.getElementById('widthA').value);
+            url.searchParams.set('h', document.getElementById('heightB').value);
+            url.searchParams.set('mode', document.getElementById('mOscilo').checked ? 'oscilo' : 'batant');
+            url.searchParams.set('angle', document.getElementById('openAngle').value);
+            url.searchParams.set('explode', document.getElementById('cExplode').checked ? '1' : '0');
+
+            const activeParts = profilesData
+                .filter(profile => document.getElementById(`toggle_${profile.index}`)?.checked)
+                .map(profile => String(profile.index));
+            if (activeParts.length !== profilesData.length) {
+                url.searchParams.set('parts', activeParts.join(','));
+            }
+            return url.toString();
+        }
+
+        function closeQRModal() {
+            document.getElementById('qr-modal').classList.remove('open');
+        }
+
+        function setQRStatus(message) {
+            document.getElementById('qr-status').textContent = message;
+        }
+
+        function showQRError(message) {
+            const qrContainer = document.getElementById('qr-code');
+            const errorContainer = document.getElementById('qr-error');
+            qrContainer.style.display = 'none';
+            errorContainer.style.display = 'block';
+            errorContainer.textContent = message;
+        }
+
+        function renderQRCode(url) {
+            const qrContainer = document.getElementById('qr-code');
+            const errorContainer = document.getElementById('qr-error');
+            if (typeof window.qrcode !== 'function') {
+                throw new Error('The QR library could not be loaded. Reload the page and try again.');
+            }
+            const qr = window.qrcode(0, 'M');
+            qr.addData(url);
+            qr.make();
+            qrContainer.innerHTML = qr.createSvgTag({ cellSize: 7, margin: 4, scalable: true });
+            qrContainer.style.display = 'flex';
+            errorContainer.style.display = 'none';
+        }
+
+        function exportCurrentWindowToGLB() {
+            return new Promise((resolve, reject) => {
+                const exporter = new GLTFExporter();
+                const previousVisibility = placementRoot.visible;
+                placementRoot.visible = true;
+                placementRoot.updateMatrixWorld(true);
+
+                exporter.parse(
+                    placementRoot,
+                    result => {
+                        placementRoot.visible = previousVisibility;
+                        if (!(result instanceof ArrayBuffer)) {
+                            reject(new Error('The exporter did not produce a binary GLB file.'));
+                            return;
+                        }
+                        resolve(result);
+                    },
+                    error => {
+                        placementRoot.visible = previousVisibility;
+                        reject(error);
+                    },
+                    {
+                        binary: true,
+                        onlyVisible: true,
+                        truncateDrawRange: true,
+                        maxTextureSize: 2048
+                    }
+                );
+            });
+        }
+
+        async function createNativeARLink() {
+            const glb = await exportCurrentWindowToGLB();
+            const response = await fetch('./api/ar-model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'model/gltf-binary' },
+                body: glb
+            });
+
+            let payload = {};
+            try {
+                payload = await response.json();
+            } catch (_) {}
+
+            if (!response.ok || !payload.launchUrl) {
+                throw new Error(payload.error || `The AR model service returned HTTP ${response.status}.`);
+            }
+            return payload.launchUrl;
+        }
+
+        async function openQRModal() {
+            const modal = document.getElementById('qr-modal');
+            const qrContainer = document.getElementById('qr-code');
+            const errorContainer = document.getElementById('qr-error');
+            modal.classList.add('open');
+            qrContainer.innerHTML = '';
+            qrContainer.style.display = 'none';
+            errorContainer.style.display = 'none';
+            setQRStatus('Generating the current window model…');
+
+            if (!profilesReady) {
+                showQRError('The window profile is still loading. Close this dialog and try again in a moment.');
+                setQRStatus('');
+                return;
+            }
+
+            try {
+                const launchUrl = await createNativeARLink();
+                renderQRCode(launchUrl);
+                setQRStatus('Scan with the phone camera. Android will open the native AR viewer when available.');
+            } catch (nativeError) {
+                console.warn('Native AR model generation is unavailable; trying the browser-only fallback.', nativeError);
+
+                if (window.location.protocol === 'https:') {
+                    try {
+                        renderQRCode(buildWebXRUrl());
+                        setQRStatus('Native model hosting is unavailable. This QR uses the browser WebXR fallback.');
+                        return;
+                    } catch (fallbackError) {
+                        console.error('QR fallback failed:', fallbackError);
+                    }
+                }
+
+                setQRStatus('');
+                showQRError(
+                    `${nativeError.message} ` +
+                    'Run this repository on a public HTTPS Node host. GitHub Actions are not required; the included server generates and serves the temporary GLB model.'
+                );
+            }
+        }
+
+        function setARStatus(message, isError = false) {
+            const status = document.getElementById('ar-status');
+            status.textContent = message;
+            status.style.color = isError ? '#fecaca' : '#94a3b8';
+        }
+
+        async function updateARAvailability() {
+            if (!isARMode || !profilesReady) return;
+            const button = document.getElementById('ar-start-button');
+
+            if (!window.isSecureContext) {
+                button.disabled = true;
+                button.textContent = 'HTTPS required';
+                setARStatus('AR can only start from a secure HTTPS page.', true);
+                return;
+            }
+            if (!navigator.xr) {
+                button.disabled = true;
+                button.textContent = 'AR not supported';
+                setARStatus('This browser does not provide WebXR. Use Google Chrome on an ARCore-compatible Android phone.', true);
+                return;
+            }
+
+            try {
+                const supported = await navigator.xr.isSessionSupported('immersive-ar');
+                button.disabled = !supported;
+                button.textContent = supported ? 'View in AR' : 'AR not supported';
+                setARStatus(supported
+                    ? 'Tap once to open the camera. The model will be placed automatically when a surface is detected.'
+                    : 'Immersive AR is unavailable on this device or browser.', !supported);
+            } catch (error) {
+                button.disabled = true;
+                button.textContent = 'AR unavailable';
+                setARStatus(`${error.name}: ${error.message}`, true);
+            }
+        }
+
+        async function startAR() {
+            if (arSession) return;
+            const button = document.getElementById('ar-start-button');
+            button.disabled = true;
+            button.textContent = 'Opening camera…';
+            setARStatus('Waiting for camera and spatial-tracking permission…');
+
+            try {
+                arSession = await navigator.xr.requestSession('immersive-ar', {
+                    optionalFeatures: ['hit-test']
+                });
+                try {
+                    await renderer.xr.setSession(arSession);
+                } catch (sessionSetupError) {
+                    await arSession.end().catch(() => {});
+                    throw sessionSetupError;
+                }
+                arSessionStartedAt = performance.now();
+                arPlaced = false;
+                placementRoot.visible = false;
+                document.getElementById('ar-launch').style.display = 'none';
+
+                try {
+                    const viewerSpace = await arSession.requestReferenceSpace('viewer');
+                    hitTestSource = await arSession.requestHitTestSource({ space: viewerSpace });
+                } catch (error) {
+                    console.warn('Hit testing is unavailable; using camera-relative placement.', error);
+                    hitTestSource = null;
+                }
+
+                arSession.addEventListener('end', () => {
+                    hitTestSource?.cancel?.();
+                    hitTestSource = null;
+                    arSession = null;
+                    arPlaced = false;
+                    placementRoot.visible = false;
+                    document.getElementById('ar-launch').style.display = 'flex';
+                    button.disabled = false;
+                    button.textContent = 'View in AR';
+                    setARStatus('AR closed. Tap to open it again.');
+                }, { once: true });
+            } catch (error) {
+                console.error('AR session failed:', error);
+                arSession = null;
+                button.disabled = false;
+                button.textContent = 'Try AR again';
+                setARStatus(`${error.name}: ${error.message}`, true);
+            }
+        }
+
+        function orientWindowTowardCamera(position) {
+            const xrCamera = renderer.xr.getCamera(camera);
+            const cameraPosition = new THREE.Vector3();
+            xrCamera.getWorldPosition(cameraPosition);
+            const dx = cameraPosition.x - position.x;
+            const dz = cameraPosition.z - position.z;
+            placementRoot.rotation.set(0, Math.atan2(dx, dz), 0);
+        }
+
+        function placeWindowOnSurface(position) {
+            const height = Number.parseFloat(document.getElementById('heightB').value) || 1.5;
+            placementRoot.position.set(position.x, position.y + height / 2, position.z);
+            orientWindowTowardCamera(placementRoot.position);
+            placementRoot.visible = true;
+            arPlaced = true;
+        }
+
+        function placeWindowInFrontOfCamera() {
+            const xrCamera = renderer.xr.getCamera(camera);
+            const cameraPosition = new THREE.Vector3();
+            const cameraDirection = new THREE.Vector3();
+            xrCamera.getWorldPosition(cameraPosition);
+            xrCamera.getWorldDirection(cameraDirection);
+            const position = cameraPosition.clone().add(cameraDirection.multiplyScalar(1.6));
+            placementRoot.position.copy(position);
+            orientWindowTowardCamera(placementRoot.position);
+            placementRoot.visible = true;
+            arPlaced = true;
+        }
+
+        function updateARPlacement(xrFrame) {
+            if (!isARMode || !arSession || arPlaced || !xrFrame) return;
+            const referenceSpace = renderer.xr.getReferenceSpace();
+
+            if (hitTestSource && referenceSpace) {
+                const results = xrFrame.getHitTestResults(hitTestSource);
+                if (results.length > 0) {
+                    const pose = results[0].getPose(referenceSpace);
+                    if (pose) {
+                        placeWindowOnSurface(pose.transform.position);
+                        return;
+                    }
+                }
+            }
+
+            if (performance.now() - arSessionStartedAt > 2500) {
+                placeWindowInFrontOfCamera();
+            }
         }
 
         // EVENT LISTENERS
         document.getElementById('widthA').addEventListener('input', buildWindow);
         document.getElementById('heightB').addEventListener('input', buildWindow);
         document.getElementById('cExplode').addEventListener('change', (e) => { isExploded = e.target.checked; });
+        document.getElementById('mBatant').addEventListener('change', buildWindow);
+        document.getElementById('mOscilo').addEventListener('change', buildWindow);
 
         // Dropdown change listener
         document.getElementById('cadProfile').addEventListener('change', (e) => {
             loadProfiles(e.target.value);
         });
+
+        document.getElementById('qr-ar-button').addEventListener('click', openQRModal);
+        document.getElementById('qr-close').addEventListener('click', closeQRModal);
+        document.getElementById('qr-modal').addEventListener('click', (event) => {
+            if (event.target.id === 'qr-modal') closeQRModal();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') closeQRModal();
+        });
+        document.getElementById('ar-start-button').addEventListener('click', startAR);
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -947,9 +1649,9 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Start loading default (vertical profile)
-        loadProfiles('2_6_Oeffnungselement_Vertikal');
-        animate();
+        // Load the selected profile. In QR AR mode the selection comes from URL parameters.
+        loadProfiles(isARMode ? requestedProfile : '2_6_Oeffnungselement_Vertikal');
+        renderer.setAnimationLoop(renderFrame);
     </script>
 </body>
 
