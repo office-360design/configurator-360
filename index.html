@@ -444,8 +444,6 @@
             <select id="cadProfile">
                 <option value="2_6_Oeffnungselement_Vertikal" selected>2_6 Öffnungselement (Vertical - Nou)</option>
                 <option value="2_4_Oeffnungselemnt_Vertikal">2_4 Öffnungselement Vertikal</option>
-                <option value="575760_d1">575760_d1 (Orizontal)</option>
-                <option value="AW_CT_65_Oeffnungselement_vertikal">AW CT 65 (Vertical - Vechi)</option>
             </select>
         </div>
 
@@ -520,8 +518,8 @@
     <script type="importmap">
     {
         "imports": {
-            "three": "/node_modules/three/build/three.module.js",
-            "three/addons/": "/node_modules/three/examples/jsm/"
+            "three": "./lib/three.module.js",
+            "three/addons/": "./lib/"
         }
     }
     </script>
@@ -540,9 +538,7 @@
 
         const allowedProfiles = new Set([
             '2_6_Oeffnungselement_Vertikal',
-            '2_4_Oeffnungselemnt_Vertikal',
-            '575760_d1',
-            'AW_CT_65_Oeffnungselement_vertikal'
+            '2_4_Oeffnungselemnt_Vertikal'
         ]);
         const requestedProfileValue = pageParams.get('profile') || '2_6_Oeffnungselement_Vertikal';
         const requestedProfile = allowedProfiles.has(requestedProfileValue)
@@ -1230,7 +1226,11 @@
                 let y_norm;
                 if (currentMetadata.isVertical) {
                     // For vertical profile: Top is Frame (inw=0), Bottom is Sash (inw=max)
-                    y_norm = currentMetadata.globalMaxY - y_cad;
+                    if (profile.section === 'bottom') {
+                        y_norm = y_cad - currentMetadata.globalMinY;
+                    } else {
+                        y_norm = currentMetadata.globalMaxY - y_cad;
+                    }
                 } else {
                     // For horizontal profile: Bottom is Frame (inw=0), Top is Sash (inw=max)
                     y_norm = y_cad - currentMetadata.globalMinY;

@@ -167,8 +167,6 @@ function parseRenderPayload(payload) {
     const allowedProfiles = new Set([
         '2_6_Oeffnungselement_Vertikal',
         '2_4_Oeffnungselemnt_Vertikal',
-        '575760_d1',
-        'AW_CT_65_Oeffnungselement_vertikal',
     ]);
     const profile = String(payload.profile || '2_6_Oeffnungselement_Vertikal');
     if (!allowedProfiles.has(profile)) {
