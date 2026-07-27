@@ -702,16 +702,17 @@
         const glassMat = materialPool.glass;
         const handleMat = materialPool.handle;
 
-        function applyAluminiumColour() {
-            const targetColor = new THREE.Color(configurationColour || '#e2e8f0');
-            materialPool.alu.color.copy(targetColor);
-        }
-
+        // Color group filters helper
         function resolveDisplayColour(profile) {
             if (profile.materialKey === 'alu' && configurationColour) {
                 return configurationColour;
             }
             return profile.baseCadColor;
+        }
+
+        function applyAluminiumColour() {
+            const targetColor = new THREE.Color(configurationColour || '#e2e8f0');
+            materialPool.alu.color.copy(targetColor);
         }
 
         function getMaterialForProfile(profile) {

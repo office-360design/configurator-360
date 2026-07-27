@@ -128,8 +128,14 @@ function removeConsecutiveDuplicatePoints(points, tolerance = 1e-9) {
 function createTransform(ins, parentTransform = null, blockBasePoint = null) {
     const pos = ins.position || { x: 0, y: 0, z: 0 };
     const base = blockBasePoint || { x: 0, y: 0, z: 0 };
-    const scaleX = ins.xScale !== undefined ? ins.xScale : 1;
-    const scaleY = ins.yScale !== undefined ? ins.yScale : 1;
+    let scaleX = ins.xScale !== undefined ? ins.xScale : 1;
+    let scaleY = ins.yScale !== undefined ? ins.yScale : 1;
+
+    // AutoCAD Arbitrary Axis Algorithm: if Z extrusion direction is negative, the local X-axis is mirrored.
+    if (ins.extrusionDirection && ins.extrusionDirection.z < 0) {
+        scaleX = -scaleX;
+    }
+
     const rotation = ins.rotation !== undefined ? ins.rotation : 0;
     const rad = rotation * Math.PI / 180;
     const cos = Math.cos(rad);
@@ -627,90 +633,151 @@ function countEntityTypes(entities) {
     return counts;
 }
 
+function sanitizeFilename(filename) {
+    const parsed = path.parse(filename);
+    let name = parsed.name;
+    const mapping = {
+        'Ä': 'Ae', 'ä': 'ae',
+        'Ö': 'Oe', 'ö': 'oe',
+        'Ü': 'Ue', 'ü': 'ue',
+        'ß': 'ss'
+    };
+    for (const [key, val] of Object.entries(mapping)) {
+        name = name.split(key).join(val);
+    }
+    name = name.replace(/[^a-zA-Z0-9_-]/g, '_');
+    name = name.replace(/_+/g, '_');
+    name = name.replace(/^_+|_+$/g, '');
+    return name + parsed.ext;
+}
+
 function run() {
     const args = process.argv.slice(2);
-    const dwgName = args[0] || '2_6_Oeffnungselement_Vertikal.dwg';
-    const dwgBase = path.basename(dwgName, '.dwg');
-    const folderName = dwgBase.replace(/[^a-zA-Z0-9_-]/g, '_');
+    let dwgName = args[0] || '2_6_Oeffnungselement_Vertikal.dwg';
 
-    const DWG_FILE = path.resolve(WORKSPACE_DIR, 'dwg', dwgBase + '.dwg');
-    const DXF_FILE = path.resolve(WORKSPACE_DIR, 'intermediate', dwgBase + '.dxf');
-    const TARGET_SVG_DIR = path.join(SVG_DIR, folderName);
+    function tryExport(name) {
+        const dwgBase = path.basename(name, '.dwg');
+        const folderName = dwgBase.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-    console.log(`Target DWG: ${DWG_FILE}`);
-    console.log(`Output DXF: ${DXF_FILE}`);
-    console.log(`Output SVG folder: ${TARGET_SVG_DIR}`);
+        const DWG_FILE = path.resolve(WORKSPACE_DIR, 'dwg', dwgBase + '.dwg');
+        const DXF_FILE = path.resolve(WORKSPACE_DIR, 'intermediate', dwgBase + '.dxf');
+        const TARGET_SVG_DIR = path.join(SVG_DIR, folderName);
 
-    if (!fs.existsSync(DWG_FILE)) {
-        console.error(`DWG file not found at: ${DWG_FILE}`);
-        process.exit(1);
-    }
+        console.log(`Target DWG: ${DWG_FILE}`);
+        console.log(`Output DXF: ${DXF_FILE}`);
+        console.log(`Output SVG folder: ${TARGET_SVG_DIR}`);
 
-    console.log('\n--- Step 1: Exporting DWG to DXF ---');
+        if (!fs.existsSync(DWG_FILE)) {
+            throw new Error(`DWG file not found at: ${DWG_FILE}`);
+        }
 
-    if (fs.existsSync(ACAD_CONSOLE)) {
-        console.log('AutoCAD Core Console detected. Exporting via accoreconsole...');
-        const SCR_FILE = path.join(WORKSPACE_DIR, 'intermediate', 'temp_export.scr');
-        
-        const scrContent = `(vl-file-delete "${DXF_FILE.replace(/\\/g, '/')}")
+        console.log('\n--- Step 1: Exporting DWG to DXF ---');
+
+        if (fs.existsSync(ACAD_CONSOLE)) {
+            console.log('AutoCAD Core Console detected. Exporting via accoreconsole...');
+            const SCR_FILE = path.join(WORKSPACE_DIR, 'intermediate', 'temp_export.scr');
+            
+            const scrContent = `(vl-file-delete "${DXF_FILE.replace(/\\/g, '/')}")
 _DXFOUT
 "${DXF_FILE.replace(/\\/g, '/')}"
 
 _QUIT
 _N
 `;
-        fs.writeFileSync(SCR_FILE, scrContent, 'utf-8');
+            fs.writeFileSync(SCR_FILE, scrContent, 'utf-8');
 
-        try {
-            const cmd = `"${ACAD_CONSOLE}" /i "${DWG_FILE}" /s "${SCR_FILE}"`;
-            execSync(cmd, { stdio: 'inherit', cwd: WORKSPACE_DIR });
-            
-            if (!fs.existsSync(DXF_FILE)) {
-                throw new Error(`Expected DXF file was not generated at: ${DXF_FILE}`);
+            try {
+                const cmd = `"${ACAD_CONSOLE}" /i "${DWG_FILE}" /s "${SCR_FILE}"`;
+                execSync(cmd, { stdio: 'inherit', cwd: WORKSPACE_DIR });
+                
+                if (!fs.existsSync(DXF_FILE)) {
+                    throw new Error(`Expected DXF file was not generated at: ${DXF_FILE}`);
+                }
+                console.log('DXF export complete via AutoCAD Core Console.');
+            } finally {
+                if (fs.existsSync(SCR_FILE)) fs.unlinkSync(SCR_FILE);
             }
-            console.log('DXF export complete via AutoCAD Core Console.');
-        } catch (err) {
-            console.error('Error running AutoCAD console:', err.message);
-            process.exit(1);
-        } finally {
-            if (fs.existsSync(SCR_FILE)) fs.unlinkSync(SCR_FILE);
-        }
-    } else if (fs.existsSync(ODA_CONVERTER)) {
-        console.log('ODA File Converter detected. Exporting via ODAFileConverter...');
-        const tempInputDir = path.join(WORKSPACE_DIR, 'intermediate', 'temp_in');
-        const tempOutputDir = path.join(WORKSPACE_DIR, 'intermediate', 'temp_out');
+        } else if (fs.existsSync(ODA_CONVERTER)) {
+            console.log('ODA File Converter detected. Exporting via ODAFileConverter...');
+            const tempInputDir = path.join(WORKSPACE_DIR, 'intermediate', 'temp_in');
+            const tempOutputDir = path.join(WORKSPACE_DIR, 'intermediate', 'temp_out');
 
-        if (fs.existsSync(tempInputDir)) fs.rmSync(tempInputDir, { recursive: true, force: true });
-        if (fs.existsSync(tempOutputDir)) fs.rmSync(tempOutputDir, { recursive: true, force: true });
-        fs.mkdirSync(tempInputDir, { recursive: true });
-        fs.mkdirSync(tempOutputDir, { recursive: true });
-
-        fs.copyFileSync(DWG_FILE, path.join(tempInputDir, path.basename(DWG_FILE)));
-
-        try {
-            const cmd = `"${ODA_CONVERTER}" "${tempInputDir}" "${tempOutputDir}" "ACAD2018" "DXF" "0" "0" "*.dwg"`;
-            execSync(cmd, { stdio: 'inherit', cwd: WORKSPACE_DIR });
-
-            const expectedDxf = path.join(tempOutputDir, dwgBase + '.dxf');
-            if (!fs.existsSync(expectedDxf)) {
-                throw new Error(`Expected DXF file was not generated at: ${expectedDxf}`);
-            }
-
-            if (fs.existsSync(DXF_FILE)) fs.unlinkSync(DXF_FILE);
-            fs.copyFileSync(expectedDxf, DXF_FILE);
-            console.log('DXF export complete via ODA File Converter.');
-        } catch (err) {
-            console.error('Error running ODA File Converter:', err.message);
-            process.exit(1);
-        } finally {
             if (fs.existsSync(tempInputDir)) fs.rmSync(tempInputDir, { recursive: true, force: true });
             if (fs.existsSync(tempOutputDir)) fs.rmSync(tempOutputDir, { recursive: true, force: true });
+            fs.mkdirSync(tempInputDir, { recursive: true });
+            fs.mkdirSync(tempOutputDir, { recursive: true });
+
+            fs.copyFileSync(DWG_FILE, path.join(tempInputDir, path.basename(DWG_FILE)));
+
+            try {
+                const cmd = `"${ODA_CONVERTER}" "${tempInputDir}" "${tempOutputDir}" "ACAD2018" "DXF" "0" "0" "*.dwg"`;
+                execSync(cmd, { stdio: 'inherit', cwd: WORKSPACE_DIR });
+
+                const expectedDxf = path.join(tempOutputDir, dwgBase + '.dxf');
+                if (!fs.existsSync(expectedDxf)) {
+                    throw new Error(`Expected DXF file was not generated at: ${expectedDxf}`);
+                }
+
+                if (fs.existsSync(DXF_FILE)) fs.unlinkSync(DXF_FILE);
+                fs.copyFileSync(expectedDxf, DXF_FILE);
+                console.log('DXF export complete via ODA File Converter.');
+            } finally {
+                if (fs.existsSync(tempInputDir)) fs.rmSync(tempInputDir, { recursive: true, force: true });
+                if (fs.existsSync(tempOutputDir)) fs.rmSync(tempOutputDir, { recursive: true, force: true });
+            }
+        } else {
+            throw new Error(`Neither AutoCAD Core Console nor ODA File Converter was found on this system.`);
         }
-    } else {
-        console.error('Error: Neither AutoCAD Core Console nor ODA File Converter was found on this system.');
-        console.error(`Checked paths:\n  - AutoCAD: ${ACAD_CONSOLE}\n  - ODA: ${ODA_CONVERTER}`);
-        process.exit(1);
+
+        return { dwgBase, folderName, DWG_FILE, DXF_FILE, TARGET_SVG_DIR };
     }
+
+    let exportResult;
+    try {
+        const origDwgFile = path.resolve(WORKSPACE_DIR, 'dwg', dwgName);
+        if (!fs.existsSync(origDwgFile)) {
+            const sanitized = sanitizeFilename(dwgName);
+            const checkPath = path.resolve(WORKSPACE_DIR, 'dwg', sanitized);
+            if (fs.existsSync(checkPath)) {
+                dwgName = sanitized;
+            }
+        }
+        exportResult = tryExport(dwgName);
+    } catch (err) {
+        console.warn(`Initial export attempt failed: ${err.message}`);
+        const sanitized = sanitizeFilename(dwgName);
+        if (sanitized !== dwgName) {
+            const origPath = path.join(WORKSPACE_DIR, 'dwg', dwgName);
+            const sanitizedPath = path.join(WORKSPACE_DIR, 'dwg', sanitized);
+            if (fs.existsSync(origPath)) {
+                console.log(`Renaming ${origPath} to ${sanitizedPath}...`);
+                fs.renameSync(origPath, sanitizedPath);
+                
+                const origBak = origPath.slice(0, -4) + '.bak';
+                const sanitizedBak = sanitizedPath.slice(0, -4) + '.bak';
+                if (fs.existsSync(origBak)) {
+                    fs.renameSync(origBak, sanitizedBak);
+                }
+                
+                dwgName = sanitized;
+                console.log(`Retrying export with sanitized filename: ${dwgName}`);
+                try {
+                    exportResult = tryExport(dwgName);
+                } catch (retryErr) {
+                    console.error(`Export retry failed: ${retryErr.message}`);
+                    process.exit(1);
+                }
+            } else {
+                console.error(`Original file does not exist, and sanitized attempt failed.`);
+                process.exit(1);
+            }
+        } else {
+            console.error(`Export failed and filename is already sanitized.`);
+            process.exit(1);
+        }
+    }
+
+    const { dwgBase, folderName, DWG_FILE, DXF_FILE, TARGET_SVG_DIR } = exportResult;
 
     console.log('\n--- Step 2: Parsing DXF File ---');
     const parser = new DxfParser();
@@ -806,7 +873,7 @@ _N
     const unsupportedEntityCounts = {};
     let globalIndex = 0;
 
-    function processInsert(ins, parentTransform, parentPath, parentBlockName = null) {
+    function processInsert(ins, parentTransform, parentPath, parentBlockName = null, rootBlockName = null) {
         const blockName = ins.name;
         if (shouldSkipBlockName(blockName)) return;
 
@@ -872,6 +939,8 @@ _N
         const closedPaths = stitchedPaths.filter(p => p.closed);
         const openPaths = stitchedPaths.filter(p => !p.closed);
 
+        const currentRoot = rootBlockName || blockName;
+
         if (blockName.toLowerCase() === DEBUG_BLOCK_NAME.toLowerCase()) {
             console.log(`\n--- Export debug: ${blockName} ---`);
             console.log('INSERT position:', ins.position || { x: 0, y: 0 });
@@ -922,6 +991,7 @@ _N
                     relativeUrl: svgRelativeUrl,
                     blockName,
                     parentBlock: parentBlockName,
+                    rootBlock: currentRoot,
                     layer: ins.layer || block.layer || '0',
                     color: partColor,
                     bbox,
@@ -933,12 +1003,12 @@ _N
         }
 
         for (const sub of subInserts) {
-            processInsert(sub, currentTransform, currentPath, blockName);
+            processInsert(sub, currentTransform, currentPath, blockName, currentRoot);
         }
     }
 
     for (const entity of dxf.entities) {
-        if (entity.type === 'INSERT') processInsert(entity, null, '', null);
+        if (entity.type === 'INSERT') processInsert(entity, null, '', null, null);
     }
 
     console.log(`Exported ${svgPartsMetadata.length} pieces.`);
@@ -946,52 +1016,153 @@ _N
         console.log('Ignored unsupported DXF entity types:', unsupportedEntityCounts);
     }
 
-    const sortedByArea = [...svgPartsMetadata].sort((a, b) => b.area - a.area);
-    if (sortedByArea.length < 2) {
+    const isVertical = dwgBase.toLowerCase().includes('vertikal') || dwgBase.toLowerCase().includes('vertical');
+
+    // Group parts by rootBlock (top-level block name) and sum their areas for robust role identification
+    const rootAreas = {};
+    const rootBBoxes = {};
+    for (const part of svgPartsMetadata) {
+        const root = part.rootBlock || part.blockName;
+        rootAreas[root] = (rootAreas[root] || 0) + part.area;
+        if (!rootBBoxes[root]) {
+            rootBBoxes[root] = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+        }
+        rootBBoxes[root].minX = Math.min(rootBBoxes[root].minX, part.bbox.minX);
+        rootBBoxes[root].maxX = Math.max(rootBBoxes[root].maxX, part.bbox.maxX);
+        rootBBoxes[root].minY = Math.min(rootBBoxes[root].minY, part.bbox.minY);
+        rootBBoxes[root].maxY = Math.max(rootBBoxes[root].maxY, part.bbox.maxY);
+    }
+
+    const sortedRoots = Object.keys(rootAreas).map(name => ({
+        name,
+        area: rootAreas[name],
+        bbox: rootBBoxes[name],
+        centerX: (rootBBoxes[name].minX + rootBBoxes[name].maxX) / 2,
+        centerY: (rootBBoxes[name].minY + rootBBoxes[name].maxY) / 2
+    })).sort((a, b) => b.area - a.area);
+
+    if (sortedRoots.length < 2) {
         console.error('Could not find enough parts to identify Frame and Sash roles.');
         process.exit(1);
     }
 
-    const mainA = sortedByArea[0];
-    const mainB = sortedByArea[1];
-    const mainAY = (mainA.bbox.minY + mainA.bbox.maxY) / 2;
-    const mainBY = (mainB.bbox.minY + mainB.bbox.maxY) / 2;
+    const rootA = sortedRoots[0];
+    const rootB = sortedRoots[1];
 
-    let framePart;
-    let sashPart;
-    const isVertical = dwgBase.toLowerCase().includes('vertikal') || dwgBase.toLowerCase().includes('vertical');
+    let frameRootName;
+    let sashRootName;
 
     if (isVertical) {
-        if (mainAY > mainBY) {
-            framePart = mainA;
-            sashPart = mainB;
+        // Frame is on the left (smaller X), sash is on the right (larger X)
+        if (rootA.centerX < rootB.centerX) {
+            frameRootName = rootA.name;
+            sashRootName = rootB.name;
         } else {
-            framePart = mainB;
-            sashPart = mainA;
+            frameRootName = rootB.name;
+            sashRootName = rootA.name;
         }
-    } else if (mainAY < mainBY) {
-        framePart = mainA;
-        sashPart = mainB;
     } else {
-        framePart = mainB;
-        sashPart = mainA;
+        // For horizontal profiles, use the existing Y center comparison
+        if (rootA.centerY < rootB.centerY) {
+            frameRootName = rootA.name;
+            sashRootName = rootB.name;
+        } else {
+            frameRootName = rootB.name;
+            sashRootName = rootA.name;
+        }
     }
 
-    const frameYCenter = (framePart.bbox.minY + framePart.bbox.maxY) / 2;
-    const sashYCenter = (sashPart.bbox.minY + sashPart.bbox.maxY) / 2;
+    console.log('Role Identification (grouped by root block):');
+    console.log(`  Frame Root Block: "${frameRootName}"`);
+    console.log(`  Sash Root Block: "${sashRootName}"`);
 
-    console.log('Role Identification:');
-    console.log(`  Frame: BlockName="${framePart.blockName}", CenterY=${frameYCenter.toFixed(2)}`);
-    console.log(`  Sash: BlockName="${sashPart.blockName}", CenterY=${sashYCenter.toFixed(2)}`);
+    // First pass: Assign roles to parts that belong directly to root blocks
+    for (const part of svgPartsMetadata) {
+        const root = part.rootBlock || part.blockName;
+        if (root === frameRootName) {
+            part.role = 'frame';
+        } else if (root === sashRootName) {
+            part.role = 'sash';
+        }
+    }
+
+    // Helper for 2D bounding box distance
+    function bboxDistance(boxA, boxB) {
+        const distX = Math.max(0, boxA.minX - boxB.maxX, boxB.minX - boxA.maxX);
+        const distY = Math.max(0, boxA.minY - boxB.maxY, boxB.minY - boxA.maxY);
+        return Math.hypot(distX, distY);
+    }
+
+    const frameCenter = (rootBBoxes[frameRootName].minX + rootBBoxes[frameRootName].maxX) / 2;
+    const sashCenter = (rootBBoxes[sashRootName].minX + rootBBoxes[sashRootName].maxX) / 2;
+
+    // Second pass: Assign roles to loose parts based on bounding box proximity to structural parts
+    for (const part of svgPartsMetadata) {
+        if (part.role) continue; // Already assigned
+
+        let minDistToFrame = Infinity;
+        let minDistToSash = Infinity;
+
+        for (const ref of svgPartsMetadata) {
+            if (!ref.role) continue;
+            const dist = bboxDistance(part.bbox, ref.bbox);
+            if (ref.role === 'frame') {
+                minDistToFrame = Math.min(minDistToFrame, dist);
+            } else if (ref.role === 'sash') {
+                minDistToSash = Math.min(minDistToSash, dist);
+            }
+        }
+
+        if (Math.abs(minDistToFrame - minDistToSash) > 1e-3) {
+            part.role = minDistToFrame < minDistToSash ? 'frame' : 'sash';
+        } else {
+            // Tie-breaker: use X centroid distance to the root blocks
+            const partCenterX = (part.bbox.minX + part.bbox.maxX) / 2;
+            const distToFrame = Math.abs(partCenterX - frameCenter);
+            const distToSash = Math.abs(partCenterX - sashCenter);
+            part.role = distToFrame < distToSash ? 'frame' : 'sash';
+        }
+    }
+
+    // Y spatial gap splitting analysis
+    let hasSplit = false;
+    let splitY = null;
+
+    if (isVertical && svgPartsMetadata.length > 1) {
+        const sortedParts = [...svgPartsMetadata].map(p => ({
+            minY: p.bbox.minY,
+            maxY: p.bbox.maxY,
+            centerY: (p.bbox.minY + p.bbox.maxY) / 2
+        })).sort((a, b) => a.centerY - b.centerY);
+
+        let maxGap = -1;
+        let bestSplit = null;
+
+        for (let i = 0; i < sortedParts.length - 1; i++) {
+            const currentPart = sortedParts[i];
+            const nextPart = sortedParts[i + 1];
+            const gap = nextPart.minY - currentPart.maxY;
+            if (gap > maxGap) {
+                maxGap = gap;
+                bestSplit = (currentPart.maxY + nextPart.minY) / 2;
+            }
+        }
+
+        if (maxGap > 10.0) {
+            hasSplit = true;
+            splitY = bestSplit;
+            console.log(`Detected vertical profile split Y: ${splitY.toFixed(2)} with gap: ${maxGap.toFixed(2)}`);
+        } else {
+            console.log(`No significant vertical profile split detected (max gap: ${maxGap.toFixed(2)}).`);
+        }
+    }
 
     for (const part of svgPartsMetadata) {
-        if (part.blockName === framePart.blockName) part.role = 'frame';
-        else if (part.blockName === sashPart.blockName) part.role = 'sash';
-        else {
+        if (hasSplit) {
             const centerY = (part.bbox.minY + part.bbox.maxY) / 2;
-            const distToFrame = Math.abs(centerY - frameYCenter);
-            const distToSash = Math.abs(centerY - sashYCenter);
-            part.role = distToFrame < distToSash ? 'frame' : 'sash';
+            part.section = centerY < splitY ? 'bottom' : 'top';
+        } else {
+            part.section = 'top';
         }
     }
 
@@ -1009,6 +1180,8 @@ _N
     const metadata = {
         dwgName,
         isVertical,
+        hasSplit,
+        splitY,
         globalMinX: cadMinX,
         globalMaxX: cadMaxX,
         globalMinY: cadMinY,
@@ -1022,6 +1195,7 @@ _N
             parentBlock: p.parentBlock,
             layer: p.layer,
             role: p.role,
+            section: p.section,
             color: p.color,
             bbox: p.bbox,
             closedContours: p.closedContours,
