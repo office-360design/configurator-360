@@ -4,23 +4,31 @@ const path = require('path');
 const crypto = require('crypto');
 const { chromium } = require('playwright');
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
+const GENERATED_DIR = path.join(ROOT, 'generated');
 const MAX_BODY_BYTES = 1024 * 1024;
+const MAX_MODEL_BYTES = 25 * 1024 * 1024;
+const MODEL_TTL_MS = Number.parseInt(process.env.MODEL_TTL_MS || String(24 * 60 * 60 * 1000), 10);
 const VIEWPORT = { width: 1200, height: 900 };
 
 const MIME_TYPES = {
     '.html': 'text/html; charset=utf-8',
     '.css': 'text/css; charset=utf-8',
     '.js': 'application/javascript; charset=utf-8',
-    '.svg': 'image/svg+xml',
+    '.mjs': 'application/javascript; charset=utf-8',
+    '.svg': 'image/svg+xml; charset=utf-8',
     '.json': 'application/json; charset=utf-8',
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
     '.webp': 'image/webp',
+    '.glb': 'model/gltf-binary',
+    '.gltf': 'model/gltf+json'
 };
+
+fs.mkdirSync(GENERATED_DIR, { recursive: true });
 
 let browserPromise = null;
 let renderPageState = null;
@@ -148,6 +156,7 @@ function parseRenderPayload(payload) {
 
     const allowedProfiles = new Set([
         '2_6_Oeffnungselement_Vertikal',
+        '2_4_Oeffnungselemnt_Vertikal',
         '575760_d1',
         'AW_CT_65_Oeffnungselement_vertikal',
     ]);
@@ -240,15 +249,86 @@ async function renderConfigurator(req, res) {
     }
 }
 
-function serveStatic(req, res) {
-    const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    let pathname = decodeURIComponent(requestUrl.pathname);
-    if (pathname === '/') pathname = '/index.html';
+function publicOrigin(req) {
+    const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+    const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+    const protocol = forwardedProto || (req.socket.encrypted ? 'https' : 'http');
+    const host = forwardedHost || req.headers.host || `localhost:${PORT}`;
+    return `${protocol}://${host}`;
+}
 
-    const relativePath = pathname.replace(/^\/+/, '');
-    const filePath = path.resolve(ROOT, relativePath);
+function cleanupExpiredModels() {
+    const now = Date.now();
+    fs.readdir(GENERATED_DIR, { withFileTypes: true }, (readError, entries) => {
+        if (readError) return;
+        for (const entry of entries) {
+            if (!entry.isFile() || !entry.name.endsWith('.glb')) continue;
+            const filePath = path.join(GENERATED_DIR, entry.name);
+            fs.stat(filePath, (statError, stat) => {
+                if (!statError && now - stat.mtimeMs > MODEL_TTL_MS) {
+                    fs.unlink(filePath, () => {});
+                }
+            });
+        }
+    });
+}
 
-    if (filePath !== ROOT && !filePath.startsWith(ROOT + path.sep)) {
+function handleModelUpload(req, res) {
+    const chunks = [];
+    let received = 0;
+
+    req.on('data', chunk => {
+        received += chunk.length;
+        if (received > MAX_MODEL_BYTES) {
+            sendJson(res, 413, { error: 'The generated model is too large.' });
+            req.destroy();
+            return;
+        }
+        chunks.push(chunk);
+    });
+
+    req.on('end', () => {
+        if (res.writableEnded) return;
+        const model = Buffer.concat(chunks);
+        if (model.length < 20 || model.toString('utf8', 0, 4) !== 'glTF') {
+            sendJson(res, 400, { error: 'The upload is not a valid binary glTF (.glb) file.' });
+            return;
+        }
+
+        const id = crypto.randomUUID();
+        const filename = `${id}.glb`;
+        const filePath = path.join(GENERATED_DIR, filename);
+
+        fs.writeFile(filePath, model, writeError => {
+            if (writeError) {
+                sendJson(res, 500, { error: 'Could not store the generated AR model.' });
+                return;
+            }
+
+            const origin = publicOrigin(req);
+            const modelUrl = `${origin}/generated/${filename}`;
+            const launchUrl = `${origin}/ar.html?model=${encodeURIComponent(modelUrl)}`;
+            sendJson(res, 201, {
+                id,
+                modelUrl,
+                launchUrl,
+                expiresInSeconds: Math.floor(MODEL_TTL_MS / 1000)
+            });
+        });
+    });
+
+    req.on('error', error => {
+        if (!res.writableEnded) {
+            sendJson(res, 500, { error: error.message });
+        }
+    });
+}
+
+function serveFile(req, res, pathname) {
+    const requestedFile = pathname === '/' ? '/index.html' : pathname;
+    const filePath = path.resolve(ROOT, `.${requestedFile}`);
+
+    if (filePath !== ROOT && !filePath.startsWith(`${ROOT}${path.sep}`)) {
         sendJson(res, 403, { success: false, error: 'Forbidden path.' });
         return;
     }
@@ -262,39 +342,69 @@ function serveStatic(req, res) {
             return;
         }
 
-        const ext = path.extname(filePath).toLowerCase();
+        const extname = path.extname(filePath).toLowerCase();
+        const isGeneratedModel = filePath.startsWith(`${GENERATED_DIR}${path.sep}`);
         res.writeHead(200, {
-            'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
-            'Content-Length': content.length,
+            'Content-Type': MIME_TYPES[extname] || 'application/octet-stream',
+            'Cache-Control': isGeneratedModel ? 'public, max-age=86400, immutable' : 'no-cache',
+            'Access-Control-Allow-Origin': '*',
+            'X-Content-Type-Options': 'nosniff'
         });
         res.end(content);
     });
 }
 
 const server = http.createServer(async (req, res) => {
-    const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    try {
+        const requestUrl = new URL(req.url, `http://${req.headers.host || `localhost:${PORT}`}`);
+        const pathname = decodeURIComponent(requestUrl.pathname);
 
-    if (req.method === 'GET' && requestUrl.pathname === '/api/health') {
-        sendJson(res, 200, { success: true, service: 'window-configurator' });
-        return;
+        if (req.method === 'GET' && pathname === '/health') {
+            sendJson(res, 200, { ok: true });
+            return;
+        }
+
+        if (req.method === 'GET' && pathname === '/api/health') {
+            sendJson(res, 200, { success: true, service: 'window-configurator' });
+            return;
+        }
+
+        if (req.method === 'POST' && pathname === '/api/render') {
+            await renderConfigurator(req, res);
+            return;
+        }
+
+        if (req.method === 'POST' && pathname === '/api/ar-model') {
+            handleModelUpload(req, res);
+            return;
+        }
+
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+            sendJson(res, 405, { success: false, error: 'Method not allowed.' });
+            return;
+        }
+
+        serveFile(req, res, pathname);
+    } catch (error) {
+        sendJson(res, 400, { success: false, error: `Bad request: ${error.message}` });
     }
-
-    if (req.method === 'POST' && requestUrl.pathname === '/api/render') {
-        await renderConfigurator(req, res);
-        return;
-    }
-
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-        sendJson(res, 405, { success: false, error: 'Method not allowed.' });
-        return;
-    }
-
-    serveStatic(req, res);
 });
 
+cleanupExpiredModels();
+setInterval(cleanupExpiredModels, 60 * 60 * 1000).unref();
+
 server.listen(PORT, HOST, () => {
-    console.log(`Window configurator: http://localhost:${PORT}/`);
+    console.log(`Window Configurator: http://localhost:${PORT}/`);
     console.log(`Render endpoint:     POST http://localhost:${PORT}/api/render`);
+
+    // Automatically open browser (if not in a headless/automated environment)
+    if (!process.env.PORT && !process.env.HOST) {
+        const { exec } = require('child_process');
+        let startCmd = 'start';
+        if (process.platform === 'darwin') startCmd = 'open';
+        if (process.platform === 'linux') startCmd = 'xdg-open';
+        exec(`${startCmd} http://localhost:${PORT}/`);
+    }
 });
 
 async function shutdown() {

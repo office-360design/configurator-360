@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: window-configurator
+    runtime: node
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
