@@ -621,7 +621,7 @@ function getTransformedBBox(paths, transform) {
 }
 
 function shouldSkipBlockName(blockName) {
-    return false
+    return false;
     const lower = String(blockName || '').toLowerCase();
     return lower.includes('viewport') || lower.includes('border') || lower.includes('title');
 }
@@ -793,10 +793,63 @@ _N
     console.log('\n--- Step 2: Parsing DXF File ---');
     const parser = new DxfParser();
     let dxf;
+    const blockHatchLayers = {};
     try {
         const fileContent = fs.readFileSync(DXF_FILE, 'utf-8');
         dxf = parser.parseSync(fileContent);
         console.log(`DXF successfully parsed. Total entities: ${dxf.entities.length}`);
+
+        // Scan raw DXF file content for block hatch layers
+        const fileLines = fileContent.split(/\r?\n/);
+        let currentBlock = null;
+        for (let i = 0; i < fileLines.length; i += 2) {
+            if (i + 1 >= fileLines.length) break;
+            const code = parseInt(fileLines[i].trim(), 10);
+            const value = fileLines[i + 1].trim();
+
+            if (code === 0) {
+                const valLower = value.toLowerCase();
+                if (valLower === 'block') {
+                    currentBlock = null;
+                    for (let j = i + 2; j < fileLines.length; j += 2) {
+                        if (j + 1 >= fileLines.length) break;
+                        const nextCode = parseInt(fileLines[j].trim(), 10);
+                        const nextVal = fileLines[j + 1].trim();
+                        if (nextCode === 0) break;
+                        if (nextCode === 2) {
+                            currentBlock = nextVal;
+                            break;
+                        }
+                    }
+                } else if (valLower === 'endblk') {
+                    currentBlock = null;
+                } else if (valLower === 'hatch' && currentBlock) {
+                    let hatchLayer = null;
+                    for (let j = i + 2; j < fileLines.length; j += 2) {
+                        if (j + 1 >= fileLines.length) break;
+                        const nextCode = parseInt(fileLines[j].trim(), 10);
+                        const nextVal = fileLines[j + 1].trim();
+                        if (nextCode === 0) break;
+                        if (nextCode === 8) {
+                            hatchLayer = nextVal;
+                            break;
+                        }
+                    }
+                    if (hatchLayer) {
+                        const existing = blockHatchLayers[currentBlock];
+                        if (!existing) {
+                            blockHatchLayers[currentBlock] = hatchLayer;
+                        } else {
+                            const newIsSchraff = hatchLayer.toLowerCase().includes('schraff') || hatchLayer.toLowerCase().includes('grau');
+                            const oldIsSchraff = existing.toLowerCase().includes('schraff') || existing.toLowerCase().includes('grau');
+                            if (newIsSchraff && !oldIsSchraff) {
+                                blockHatchLayers[currentBlock] = hatchLayer;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     } catch (err) {
         console.error('Error parsing DXF file:', err);
         process.exit(1);
@@ -899,7 +952,7 @@ _N
                 break;
             }
         }
-        const resolvedLayer = specificLayer || ins.layer || '0';
+        const resolvedLayer = blockHatchLayers[blockName] || specificLayer || ins.layer || '0';
         if (layerColors[resolvedLayer]) partColor = layerColors[resolvedLayer];
 
         const instKey = parentBlockName ? `${parentBlockName}_${blockName}` : blockName;
@@ -1003,7 +1056,7 @@ _N
                     blockName,
                     parentBlock: parentBlockName,
                     rootBlock: currentRoot,
-                    layer: ins.layer || block.layer || '0',
+                    layer: resolvedLayer,
                     color: partColor,
                     bbox,
                     area: (bbox.maxX - bbox.minX) * (bbox.maxY - bbox.minY),

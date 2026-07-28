@@ -51,3 +51,4 @@ node_modules/
 generated/*.glb
 
 .gemini/
+scratch/

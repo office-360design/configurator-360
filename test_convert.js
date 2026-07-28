@@ -515,13 +515,13 @@ function stitchOpenPaths(inputPaths, tolerance = PATH_JOIN_TOLERANCE) {
                     joinedAny = true;
                     break;
                 } else if (pointsClose(end1, end2, tolerance)) {
-                    p1.points.push(...p2.points.map(p => ({...p})).reverse().slice(1));
+                    p1.points.push(...p2.points.map(p => ({ ...p })).reverse().slice(1));
                     p1.sourceTypes = mergeSourceTypes(p1.sourceTypes, p2.sourceTypes);
                     result.splice(j, 1);
                     joinedAny = true;
                     break;
                 } else if (pointsClose(start1, start2, tolerance)) {
-                    p1.points = p1.points.map(p => ({...p})).reverse();
+                    p1.points = p1.points.map(p => ({ ...p })).reverse();
                     p1.points.push(...p2.points.slice(1));
                     p1.sourceTypes = mergeSourceTypes(p1.sourceTypes, p2.sourceTypes);
                     result.splice(j, 1);
@@ -631,7 +631,7 @@ function main() {
 
     const inputFile = path.resolve(args[0]);
     const inputExt = path.extname(inputFile).toLowerCase();
-    
+
     if (inputExt !== '.dxf' && inputExt !== '.dwg') {
         console.error("Error: Input file must be a .dxf or .dwg file.");
         process.exit(1);
@@ -658,10 +658,10 @@ function main() {
         if (!fs.existsSync(intermediateDir)) {
             fs.mkdirSync(intermediateDir, { recursive: true });
         }
-        
+
         const dwgBase = path.basename(inputFile, '.dwg');
         tempDxfFile = path.join(intermediateDir, `temp_single_${dwgBase}.dxf`);
-        
+
         try {
             exportDwgToDxf(inputFile, tempDxfFile);
             dxfFileToParse = tempDxfFile;

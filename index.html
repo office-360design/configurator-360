@@ -1247,45 +1247,31 @@
                 const layer = part.layer.toLowerCase();
                 const blockName = (part.blockName || '').toLowerCase();
 
-                const isAlu = layer.includes('al') || blockName.startsWith('5') || blockName.startsWith('1') || blockName.startsWith('3') || blockName.includes('alu');
-                const isIso = layer.includes('isolation') || layer.includes('isoli') || blockName.startsWith('245') || blockName.includes('iso');
-                const isCentralSeal = blockName.includes('224068');
-                const isEPDM = !isCentralSeal && (layer.includes('epdm') || layer.includes('dichtung') || blockName.startsWith('224') || blockName.startsWith('200') || blockName.startsWith('244') || blockName.includes('dicht'));
-                const isFoam = layer.includes('dämmung') || layer.includes('daemmung') || blockName.startsWith('288') || blockName.startsWith('300') || blockName.includes('dämm') || blockName.includes('daemm');
+                // Map physical category based on DWG layer name keywords or catalog block name prefixes
+                const isAlu = layer.includes('al') || layer.includes('alu');
+                const isIso = layer.includes('isolation') || layer.includes('isoli') || layer.includes('iso');
+                const isGlass = layer.includes('glas') || layer.includes('glass');
+                const isFoam = layer.includes('dämmung') || layer.includes('daemmung') || layer.includes('dämm') || layer.includes('daemm') || layer.includes('foam');
 
-                let baseCadColor = normalizeHexColour(part.color);
-                if (!baseCadColor) {
-                    if (isAlu) {
-                        baseCadColor = '#e2e8f0';
-                    } else if (isIso) {
-                        baseCadColor = '#166534';
-                    } else if (isCentralSeal) {
-                        baseCadColor = '#38bdf8';
-                    } else if (isEPDM) {
-                        baseCadColor = '#ea580c';
-                    } else if (isFoam) {
-                        baseCadColor = '#22c55e';
-                    } else {
-                        baseCadColor = '#78716c';
-                    }
-                }
+                let baseCadColor = normalizeHexColour(part.color) || '#78716c';
 
-                const isGlass = layer.includes('glas') || blockName.includes('glas');
+                // Differentiate central seal vs regular EPDM gasket based on CAD color, layer, or fallback block name
+                const isCentralSeal = baseCadColor === '#7fbfff' || baseCadColor === '#38bdf8' || layer.includes('grau_13') || blockName.includes('224068') || blockName.includes('problema');
+                const isEPDM = !isCentralSeal && (layer.includes('epdm') || layer.includes('dichtung') || layer.includes('dicht') || layer.includes('gasket') || baseCadColor === '#ffbf7f' || baseCadColor === '#ea580c' || /^(200|224|244)/.test(blockName));
 
                 let materialKey = 'default';
                 if (isGlass) {
-                    baseCadColor = '#60a5fa';
                     materialKey = 'glass';
-                } else if (isAlu) {
-                    materialKey = 'alu';
-                } else if (isIso) {
-                    materialKey = 'iso';
                 } else if (isCentralSeal) {
                     materialKey = 'centralSeal';
                 } else if (isEPDM) {
                     materialKey = 'epdm';
+                } else if (isIso) {
+                    materialKey = 'iso';
                 } else if (isFoam) {
                     materialKey = 'foam';
+                } else if (isAlu) {
+                    materialKey = 'alu';
                 }
 
                 let baseExplode = 0.12;
@@ -1437,58 +1423,38 @@
             const filterDefinitions = [
                 {
                     name: 'Frame',
-                    color: '#ffffff',
-                    match: p => p.baseCadColor === '#ffffff' && getProfileGroup(p) === 'frame'
+                    color: '#adadad',
+                    match: p => p.baseCadColor === '#adadad' && getProfileGroup(p) === 'frame'
                 },
                 {
                     name: 'Sash',
-                    color: '#ffffff',
-                    match: p => p.baseCadColor === '#ffffff' && (getProfileGroup(p) === 'sash' || getProfileGroup(p) === 'bead')
+                    color: '#adadad',
+                    match: p => p.baseCadColor === '#adadad' && (getProfileGroup(p) === 'sash' || getProfileGroup(p) === 'bead')
                 },
                 {
                     name: 'Gasket',
-                    color: '#ffbf7f',
-                    match: p => p.baseCadColor === '#ffbf7f'
-                },
-                {
-                    name: 'Orange (EPDM Gaskets)',
-                    color: '#ea580c',
-                    match: p => p.baseCadColor === '#ea580c'
-                },
-                {
-                    name: 'Blue (Gaskets)',
-                    color: '#38bdf8',
-                    match: p => p.baseCadColor === '#38bdf8'
-                },
-                {
-                    name: 'Green (Insulating Foam)',
-                    color: '#22c55e',
-                    match: p => p.baseCadColor === '#22c55e'
-                },
-                {
-                    name: 'Thermal break',
-                    color: '#7fff7f',
-                    match: p => p.baseCadColor === '#7fff7f'
+                    color: '#ccb266',
+                    match: p => p.baseCadColor === '#ccb266'
                 },
                 {
                     name: 'Drainage cover cap',
-                    color: '#cc6600',
-                    match: p => p.baseCadColor === '#cc6600'
+                    color: '#cc9966',
+                    match: p => p.baseCadColor === '#cc9966'
                 },
                 {
-                    name: 'Dark Grey (Accessories)',
-                    color: '#78716c',
-                    match: p => p.baseCadColor === '#78716c'
+                    name: 'Insulating foam',
+                    color: '#00ffbf',
+                    match: p => p.baseCadColor === '#00ffbf'
                 },
                 {
-                    name: 'Glass',
-                    color: '#60a5fa',
-                    match: p => p.baseCadColor === '#60a5fa'
+                    name: 'Insulating bar',
+                    color: '#66cc7f',
+                    match: p => p.baseCadColor === '#66cc7f'
                 },
                 {
-                    name: 'Foam',
-                    color: '#00ff00',
-                    match: p => p.baseCadColor === '#00ff00'
+                    name: 'Locking bars',
+                    color: '#7fbfff',
+                    match: p => p.baseCadColor === '#7fbfff'
                 }
             ];
 
@@ -1844,38 +1810,8 @@
                 if (blockName.includes('573940') || blockName.includes('244511') || blockName.includes('224378')) {
                     return 'bead';
                 }
+                return 'sash';
             }
-
-            // For non-metal parts (gaskets, seals), dynamically group with frame or sash
-            // based on proximity to the main structural (aluminum) profiles.
-            const isGasketOrSeal = !profile.isAlu;
-            if (isGasketOrSeal && profilesData.length > 0) {
-                let minDistToFrameAlu = Infinity;
-                let minDistToSashAlu = Infinity;
-
-                profilesData.forEach(p => {
-                    if (!p.isAlu) return;
-
-                    // Exclude glazing bead aluminum parts when measuring sash distance
-                    const isBeadAlu = p.role === 'sash' && (
-                        p.blockName.includes('573940') ||
-                        p.blockName.includes('244511') ||
-                        p.blockName.includes('224378')
-                    );
-
-                    const dist = bboxDistance(profile.bbox, p.bbox);
-                    if (p.role === 'frame') {
-                        minDistToFrameAlu = Math.min(minDistToFrameAlu, dist);
-                    } else if (p.role === 'sash' && !isBeadAlu) {
-                        minDistToSashAlu = Math.min(minDistToSashAlu, dist);
-                    }
-                });
-
-                if (minDistToFrameAlu < minDistToSashAlu) {
-                    return 'frame';
-                }
-            }
-
             return 'sash';
         }
 
