@@ -1641,10 +1641,13 @@
         }
 
         function getProfileShape(profile) {
-            if (!profile.isGlazingBeadTemplate || !profile.beadShapes) {
-                return profile.shape;
+            if (profile.isGlazingBeadTemplate && profile.beadShapes) {
+                return profile.beadShapes[getActiveGlazingBeadCode()] || profile.shape;
             }
-            return profile.beadShapes[getActiveGlazingBeadCode()] || profile.shape;
+            if (profile.isGasketTemplate && profile.gasketShapes) {
+                return profile.gasketShapes[getActiveGasketCode()] || profile.shape;
+            }
+            return profile.shape;
         }
 
         const shapeBoundsCache = new WeakMap();
@@ -1702,7 +1705,7 @@
         function getProfileCadXShiftMm(profile) {
             const blockName = String(profile.blockName || '');
 
-            if (blockName.includes('224378')) {
+            if (blockName.includes('224378') || profile.isGasketTemplate) {
                 return getGlazingBeadArmShiftMm(profile.section || 'top');
             }
 
@@ -1726,6 +1729,10 @@
                 const suffix = profile.section === 'bottom' ? '_s_inst1' : '_s';
                 return `${getActiveGlazingBeadCode()}${suffix}`;
             }
+            if (profile.isGasketTemplate) {
+                const suffix = profile.section === 'bottom' ? '_s_8_inst1' : '_s_8';
+                return `${getActiveGasketCode()}${suffix}`;
+            }
             return profile.blockName;
         }
 
@@ -1746,6 +1753,38 @@
                 }
             }
             throw lastError || new Error(`None of the SVG candidates could be loaded: ${urls.join(', ')}`);
+        }
+
+        function getActiveGasketCode() {
+            const thickness = Number(glassThicknessInput?.value) || 24;
+            const rem = thickness % 5;
+            if (rem === 0) {
+                return '224379';
+            } else if (rem === 1 || rem === 2) {
+                return '224378';
+            } else {
+                return '224350';
+            }
+        }
+
+        async function loadGasketShape(profileFolder, code, section) {
+            const isBottom = section === 'bottom';
+            const filename = `${code}_s_8${isBottom ? '_inst1' : ''}.svg`;
+
+            const candidates = [
+                `svg/${profileFolder}/${code}_s_8/${filename}`,
+            ];
+
+            const data = await loadFirstAvailableSvg(candidates);
+            const path = data.paths[0];
+            if (!path) {
+                throw new Error(`No SVG path was found in ${filename}.`);
+            }
+            const shapes = SVGLoader.createShapes(path);
+            if (!shapes.length) {
+                throw new Error(`No closed shape was found in ${filename}.`);
+            }
+            return shapes[0];
         }
 
         async function loadGlazingBeadShape(profileFolder, code, section) {
@@ -1787,6 +1826,10 @@
                 const shapes = [];
                 if (data.paths) {
                     for (const path of data.paths) {
+                        const style = path.userData ? path.userData.style : null;
+                        if (style && style.fill === 'none') {
+                            continue;
+                        }
                         shapes.push(...SVGLoader.createShapes(path));
                     }
                 }
@@ -1855,6 +1898,32 @@
                     }
                 }
 
+                const isGasketTemplate =
+                    String(part.blockName || '').includes('224378');
+
+                let gasketShapes = null;
+                if (isGasketTemplate) {
+                    gasketShapes = {
+                        '224378': shapes[0],
+                    };
+
+                    for (const gasketCode of ['224379', '224350']) {
+                        try {
+                            gasketShapes[gasketCode] = await loadGasketShape(
+                                profileFolder,
+                                gasketCode,
+                                section
+                            );
+                        } catch (error) {
+                            console.warn(
+                                `Could not load gasket ${gasketCode} (${section}); ` +
+                                '224378 will be used as a fallback.',
+                                error
+                            );
+                        }
+                    }
+                }
+
                 return {
                     index: part.index,
                     layer: part.layer,
@@ -1865,6 +1934,8 @@
                     shape: shapes,
                     beadShapes,
                     isGlazingBeadTemplate,
+                    gasketShapes,
+                    isGasketTemplate,
                     baseCadColor,
                     materialKey,
                     explodeOffset: baseExplode,
@@ -1909,8 +1980,37 @@
             });
         }
 
+        function updateGasketToggleLabels() {
+            profilesData.forEach(profile => {
+                if (!profile.isGasketTemplate) {
+                    return;
+                }
+
+                const checkbox = document.getElementById(`toggle_${profile.index}`);
+                const item = checkbox?.closest('.part-toggle-item');
+                const textContainer = item?.querySelector(':scope > span');
+                if (!textContainer) return;
+
+                const colorDot = textContainer.querySelector('.part-color-dot');
+                const displayedBlockName = getDisplayedBlockName(profile);
+                const labelText = displayedBlockName;
+
+                textContainer.textContent = '';
+                if (colorDot) {
+                    textContainer.appendChild(colorDot);
+                } else {
+                    const dot = document.createElement('span');
+                    dot.className = 'part-color-dot';
+                    dot.style.backgroundColor = resolveDisplayColour(profile);
+                    textContainer.appendChild(dot);
+                }
+                textContainer.appendChild(document.createTextNode(labelText));
+            });
+        }
+
         function updateComponentPictures() {
             const beadCode = getActiveGlazingBeadCode();
+            const gasketCode = getActiveGasketCode();
             const section = document.getElementById('componentPicturesSection');
             const gasketPic = document.getElementById('gasketPic');
             const beadPic = document.getElementById('beadPic');
@@ -1926,7 +2026,7 @@
                 section.style.display = 'flex';
             }
 
-            const gasketSrc = `icons/gaskets/224378.svg`;
+            const gasketSrc = `icons/gaskets/${gasketCode}.svg`;
             const beadSrc = `icons/glazing_beads/${beadCode}.svg`;
 
             if (gasketPic) {
@@ -1958,7 +2058,7 @@
             }
 
             if (gasketLabel) {
-                gasketLabel.textContent = 'Gasket: 224378';
+                gasketLabel.textContent = `Gasket: ${gasketCode}`;
             }
             if (beadLabel) {
                 beadLabel.textContent = `Bead: ${beadCode}`;
@@ -2651,7 +2751,7 @@
         }
 
         function isMovingGlazingBeadGasket(profile) {
-            return String(profile?.blockName || '').includes('224378');
+            return String(profile?.blockName || '').includes('224378') || profile.isGasketTemplate === true;
         }
 
         function resolveAnchoredGlassDepth(cavity, thicknessMm, fallbackCenterZ) {
@@ -3648,6 +3748,7 @@
         }
         let pendingGlassThicknessFrame = null;
         let lastRenderedGlazingBeadCode = getActiveGlazingBeadCode();
+        let lastRenderedGasketCode = getActiveGasketCode();
 
         document.getElementById('glassThickness').addEventListener('input', () => {
             const thickness = Math.min(
@@ -3674,6 +3775,12 @@
                 if (nextBeadCode !== lastRenderedGlazingBeadCode) {
                     lastRenderedGlazingBeadCode = nextBeadCode;
                     updateGlazingBeadToggleLabels();
+                }
+
+                const nextGasketCode = getActiveGasketCode();
+                if (nextGasketCode !== lastRenderedGasketCode) {
+                    lastRenderedGasketCode = nextGasketCode;
+                    updateGasketToggleLabels();
                 }
 
                 buildWindow();
