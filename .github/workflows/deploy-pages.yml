@@ -26,8 +26,15 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p _site
+          node generate_screenshots_json.js
           cp index.html _site/index.html
+          cp ar.html _site/ar.html
+          cp ar-viewer.html _site/ar-viewer.html
+          cp ar-export.js _site/ar-export.js
+          cp ar-upload-config.js _site/ar-upload-config.js
           cp -R svg _site/svg
+          cp -R lib _site/lib
+          if [ -d cad_screenshots ]; then cp -R cad_screenshots _site/cad_screenshots; fi
           touch _site/.nojekyll
 
       - name: Configure GitHub Pages
