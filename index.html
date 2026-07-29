@@ -1083,7 +1083,7 @@
         <div class="qr-dialog">
             <button id="qr-close" type="button" aria-label="Close">×</button>
             <h3 id="qr-title">Export and view this window in AR</h3>
-            <p>The browser creates an optimized GLB. In the cost-safe static workflow, download it, place it in <code>static-site/models</code>, redeploy Netlify, then let this dialog verify the public file and create the QR.</p>
+            <p>The browser creates and validates an optimized GLB, uploads it directly to Supabase Storage through a short-lived ticket from Netlify, then generates the Scene Viewer QR automatically.</p>
             <div id="qr-status">Preparing the optimized GLB export…</div>
             <pre id="qr-export-stats"></pre>
             <div id="qr-publish-help"></div>
@@ -1135,13 +1135,14 @@
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
     <script src="./ar-upload-config.js"></script>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-        import { createWindowGLB, downloadGLB, uploadGLB, formatExportStats, sha256Hex } from './ar-export.js';
+        import { createWindowGLB, downloadGLB, uploadGLB, uploadGLBToSupabase, formatExportStats, sha256Hex } from './ar-export.js';
 
         const pageParams = new URLSearchParams(window.location.search);
         const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -2895,6 +2896,79 @@
             checkButton.disabled = false;
         }
 
+        function readUploadAccessKey(config, forcePrompt = false) {
+            const storageName = String(config.uploadKeySessionStorageName || 'configurator360.arUploadKey');
+            let value = '';
+            if (!forcePrompt) {
+                try { value = sessionStorage.getItem(storageName) || ''; } catch (_error) {}
+            }
+            if (!value) {
+                value = window.prompt('Enter the AR upload access key configured in Netlify:') || '';
+                if (!value) throw new Error('The AR upload was cancelled because no access key was entered.');
+                try { sessionStorage.setItem(storageName, value); } catch (_error) {}
+            }
+            return value;
+        }
+
+        function clearUploadAccessKey(config) {
+            const storageName = String(config.uploadKeySessionStorageName || 'configurator360.arUploadKey');
+            try { sessionStorage.removeItem(storageName); } catch (_error) {}
+        }
+
+        async function waitForPublishedModel(modelUrl, expectedBytes) {
+            let lastError = null;
+            for (let attempt = 0; attempt < 10; attempt += 1) {
+                try {
+                    return await probePublishedModel(modelUrl, expectedBytes);
+                } catch (error) {
+                    lastError = error;
+                    await new Promise(resolve => setTimeout(resolve, 900 + attempt * 250));
+                }
+            }
+            throw lastError || new Error('The uploaded Supabase model did not become publicly reachable.');
+        }
+
+        async function publishWithSupabase(exported) {
+            const config = window.AR_UPLOAD_CONFIG || {};
+            let accessKey = readUploadAccessKey(config);
+            let uploadResult = null;
+
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+                try {
+                    uploadResult = await uploadGLBToSupabase({
+                        ticketEndpoint: config.ticketEndpoint || '/api/ar-upload-ticket',
+                        accessKey,
+                        arrayBuffer: exported.arrayBuffer,
+                        filename: exported.filename,
+                        sha256: exported.hash,
+                        appBuild: APP_BUILD,
+                        onProgress(bytesUploaded, bytesTotal) {
+                            const percentage = bytesTotal > 0 ? Math.min(100, 100 * bytesUploaded / bytesTotal) : 0;
+                            setQRStatus(`2/3 Uploading the optimized GLB directly to Supabase… ${percentage.toFixed(1)}%`);
+                        }
+                    });
+                    break;
+                } catch (error) {
+                    if (error?.status === 401 && attempt === 0) {
+                        clearUploadAccessKey(config);
+                        accessKey = readUploadAccessKey(config, true);
+                        continue;
+                    }
+                    throw error;
+                }
+            }
+
+            if (!uploadResult?.publicUrl) {
+                throw new Error('Supabase did not return a public GLB URL.');
+            }
+
+            setQRStatus(uploadResult.exists
+                ? '2/3 This exact GLB already exists in Supabase. Verifying its public URL…'
+                : '3/3 Upload completed. Waiting for the public Supabase URL…');
+            await waitForPublishedModel(uploadResult.publicUrl, latestExpectedBytes);
+            completePublishedQR(uploadResult.publicUrl, exported.modelName);
+        }
+
         async function checkLatestStaticModel() {
             if (!latestStaticModelUrl) return;
             const checkButton = document.getElementById('qr-check-published');
@@ -2951,6 +3025,11 @@
                 downloadButton.disabled = false;
 
                 const config = window.AR_UPLOAD_CONFIG || {};
+                if (config.mode === 'supabase') {
+                    setQRStatus('2/3 The optimized GLB passed browser validation. Requesting a secure Supabase upload ticket…');
+                    await publishWithSupabase(exported);
+                    return;
+                }
                 if (config.mode === 'api' && config.endpoint) {
                     setQRStatus('2/3 The optimized GLB passed browser validation. Uploading to the configured server…');
                     const uploaded = await uploadGLB({

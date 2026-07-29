@@ -59,3 +59,6 @@ cloudflare-worker/.wrangler/
 
 # Content-addressed local AR models
 generated/**/*.glb
+
+# Netlify CLI local state
+.netlify/

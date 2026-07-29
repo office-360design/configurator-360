@@ -1,14 +1,16 @@
 {
   "name": "incercam",
   "version": "1.0.0",
-  "description": "",
+  "description": "Production window configurator with browser GLB export, Netlify upload tickets, Supabase Storage, and Scene Viewer AR.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "install-browser": "npx playwright install chromium",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare:static": "node prepare_static_site.js",
-    "check:merged": "node --check server.js && node --check prepare_static_site.js && node --check ar-export.js && node --check cloudflare-worker/src/index.js"
+    "check:merged": "node --check server.js && node --check prepare_static_site.js && node --check ar-export.js && node --check cloudflare-worker/src/index.js",
+    "check:supabase": "node --check server.js && node --check prepare_static_site.js && node --check ar-export.js && node --check netlify/functions/ar-upload-ticket.mjs",
+    "deploy:netlify": "npm run prepare:static && npx --yes netlify-cli@latest deploy --prod --dir=static-site --functions=netlify/functions"
   },
   "keywords": [],
   "author": "",
