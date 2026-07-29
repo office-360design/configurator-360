@@ -539,6 +539,179 @@ export async function uploadGLB({ endpoint, arrayBuffer, modelName, appBuild }) 
     return payload;
 }
 
+
+function uploadError(message, status = 0, code = '') {
+    const error = new Error(message);
+    error.status = status;
+    error.code = code;
+    return error;
+}
+
+async function requestSupabaseUploadTicket({
+    ticketEndpoint,
+    accessKey,
+    arrayBuffer,
+    filename,
+    sha256,
+    appBuild
+}) {
+    if (!ticketEndpoint) throw uploadError('No Netlify upload-ticket endpoint is configured.');
+    const response = await fetch(ticketEndpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-AR-Upload-Key': accessKey || ''
+        },
+        body: JSON.stringify({
+            filename,
+            sha256,
+            bytes: arrayBuffer.byteLength,
+            contentType: 'model/gltf-binary',
+            appBuild: appBuild || 'unknown'
+        })
+    });
+
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch (_error) {}
+    if (!response.ok || !payload?.publicUrl) {
+        throw uploadError(
+            payload?.message || payload?.error || `The upload ticket failed with HTTP ${response.status}.`,
+            response.status,
+            payload?.error || ''
+        );
+    }
+    return payload;
+}
+
+function uploadWithTus({ ticket, arrayBuffer, filename, sha256, appBuild, onProgress }) {
+    return new Promise((resolve, reject) => {
+        if (!globalThis.tus?.Upload) {
+            reject(uploadError('The resumable upload library did not load.'));
+            return;
+        }
+
+        const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' });
+        const upload = new globalThis.tus.Upload(blob, {
+            endpoint: ticket.tusEndpoint,
+            retryDelays: [0, 3000, 5000, 10000, 20000],
+            headers: {
+                'x-signature': ticket.token,
+                'x-upsert': 'false'
+            },
+            uploadDataDuringCreation: true,
+            removeFingerprintOnSuccess: true,
+            chunkSize: 6 * 1024 * 1024,
+            metadata: {
+                bucketName: ticket.bucket,
+                objectName: ticket.path,
+                filename,
+                contentType: 'model/gltf-binary',
+                cacheControl: '31536000',
+                metadata: JSON.stringify({
+                    sha256,
+                    appBuild: appBuild || 'unknown'
+                })
+            },
+            onError(error) {
+                reject(uploadError(
+                    error?.message || 'The resumable Supabase upload failed.',
+                    0,
+                    'TUS_UPLOAD_FAILED'
+                ));
+            },
+            onProgress(bytesUploaded, bytesTotal) {
+                if (typeof onProgress === 'function') {
+                    onProgress(bytesUploaded, bytesTotal);
+                }
+            },
+            onSuccess() {
+                resolve({
+                    ...ticket,
+                    uploadUrl: upload.url || ''
+                });
+            }
+        });
+
+        upload.start();
+    });
+}
+
+async function uploadWithSignedPut({ ticket, arrayBuffer }) {
+    if (!ticket.signedUrl) throw uploadError('Supabase did not return a signed upload URL.');
+    const form = new FormData();
+    form.append('cacheControl', '31536000');
+    form.append('', new Blob([arrayBuffer], { type: 'model/gltf-binary' }));
+    const response = await fetch(ticket.signedUrl, {
+        method: 'PUT',
+        headers: { 'x-upsert': 'false' },
+        body: form
+    });
+    if (!response.ok) {
+        let detail = '';
+        try {
+            const payload = await response.json();
+            detail = payload?.message || payload?.error || '';
+        } catch (_error) {}
+        throw uploadError(
+            `The fallback Supabase upload failed with HTTP ${response.status}${detail ? `: ${detail}` : ''}.`,
+            response.status,
+            'SIGNED_PUT_FAILED'
+        );
+    }
+    return ticket;
+}
+
+export async function uploadGLBToSupabase({
+    ticketEndpoint,
+    accessKey,
+    arrayBuffer,
+    filename,
+    sha256,
+    appBuild,
+    onProgress
+}) {
+    const ticket = await requestSupabaseUploadTicket({
+        ticketEndpoint,
+        accessKey,
+        arrayBuffer,
+        filename,
+        sha256,
+        appBuild
+    });
+
+    if (ticket.exists) {
+        if (typeof onProgress === 'function') onProgress(arrayBuffer.byteLength, arrayBuffer.byteLength);
+        return ticket;
+    }
+
+    if (globalThis.tus?.Upload && ticket.tusEndpoint && ticket.token) {
+        try {
+            return await uploadWithTus({
+                ticket,
+                arrayBuffer,
+                filename,
+                sha256,
+                appBuild,
+                onProgress
+            });
+        } catch (error) {
+            // The signed PUT route is a useful compatibility fallback if the
+            // resumable endpoint is temporarily unavailable. The GLB still
+            // uploads directly from the browser to Supabase, not through
+            // Netlify.
+            if (ticket.signedUrl) {
+                console.warn('Signed resumable upload failed; retrying signed PUT.', error);
+                return uploadWithSignedPut({ ticket, arrayBuffer });
+            }
+            throw error;
+        }
+    }
+
+    return uploadWithSignedPut({ ticket, arrayBuffer });
+}
+
 export function formatExportStats(stats) {
     const size = stats.dimensionsMeters;
     const reduction = stats.originalTriangleCount > 0
