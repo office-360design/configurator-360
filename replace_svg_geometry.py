@@ -170,14 +170,17 @@ def dedupe(points: list[tuple[float, float]], tolerance: float) -> list[tuple[fl
 def alignment_score(
     source: list[tuple[float, float]],
     target: list[tuple[float, float]],
-    sy: int,
+    m11: int,
+    m12: int,
+    m21: int,
+    m22: int,
     tx: float,
     ty: float,
     tolerance: float,
 ) -> int:
     grid = {(round(x / tolerance), round(y / tolerance)) for x, y in target}
     return sum(
-        (round((x + tx) / tolerance), round((sy * y + ty) / tolerance)) in grid
+        (round((m11 * x + m21 * y + tx) / tolerance), round((m12 * x + m22 * y + ty) / tolerance)) in grid
         for x, y in source
     )
 
@@ -186,28 +189,40 @@ def find_alignment(
     source: list[tuple[float, float]],
     target: list[tuple[float, float]],
     tolerance: float,
-) -> tuple[int, float, float, int]:
+) -> tuple[int, int, int, int, float, float, int]:
     source = dedupe(source, tolerance)
     target = dedupe(target, tolerance)
 
-    best: tuple[int, float, float, int] | None = None
-    # A histogram of point-pair offsets reveals the translation shared by the
-    # unchanged portion of the two components.
-    for sy in (1, -1):
+    best: tuple[int, int, int, int, float, float, int] | None = None
+    
+    # 8 orthogonal matrices for combining 0/90/180/270 degree rotations and mirroring
+    ORTHO_MATRICES = [
+        (1, 0, 0, 1),
+        (1, 0, 0, -1),
+        (-1, 0, 0, 1),
+        (-1, 0, 0, -1),
+        (0, 1, 1, 0),
+        (0, 1, -1, 0),
+        (0, -1, 1, 0),
+        (0, -1, -1, 0)
+    ]
+
+    for m11, m12, m21, m22 in ORTHO_MATRICES:
         offsets: Counter[tuple[int, int]] = Counter()
         for sx, sy0 in source:
-            my = sy * sy0
+            nx = m11 * sx + m21 * sy0
+            ny = m12 * sx + m22 * sy0
             for tx0, ty0 in target:
-                offsets[(round((tx0 - sx) / tolerance), round((ty0 - my) / tolerance))] += 1
+                offsets[(round((tx0 - nx) / tolerance), round((ty0 - ny) / tolerance))] += 1
 
         # Evaluate several strongest candidates because repeated CAD details can
         # create local offset peaks.
         for (qx, qy), _votes in offsets.most_common(30):
             tx = qx * tolerance
             ty = qy * tolerance
-            score = alignment_score(source, target, sy, tx, ty, tolerance)
-            candidate = (sy, tx, ty, score)
-            if best is None or score > best[3]:
+            score = alignment_score(source, target, m11, m12, m21, m22, tx, ty, tolerance)
+            candidate = (m11, m12, m21, m22, tx, ty, score)
+            if best is None or score > best[6]:
                 best = candidate
 
     assert best is not None
@@ -225,7 +240,10 @@ def read_svg(path: Path) -> tuple[ET.ElementTree, ET.Element]:
 def make_output(
     reference_root: ET.Element,
     input_root: ET.Element,
-    sy: int,
+    m11: int,
+    m12: int,
+    m21: int,
+    m22: int,
     tx: float,
     ty: float,
 ) -> ET.Element:
@@ -240,8 +258,8 @@ def make_output(
 
     group = ET.SubElement(output_root, f"{{{SVG_NS}}}g")
     # SVG transform functions apply right-to-left. A matrix states the exact
-    # desired mapping directly: x' = x + tx, y' = sy*y + ty.
-    group.set("transform", f"matrix(1 0 0 {sy} {tx:.6f} {ty:.6f})")
+    # desired mapping directly: x' = m11*x + m21*y + tx, y' = m12*x + m22*y + ty.
+    group.set("transform", f"matrix({m11} {m12} {m21} {m22} {tx:.6f} {ty:.6f})")
 
     for child in input_root:
         if local_name(child.tag) not in {"defs", "metadata", "title", "desc", "style"}:
@@ -256,6 +274,8 @@ def main() -> int:
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--tolerance", type=float, default=0.001)
+    parser.add_argument("--threshold", type=float, default=0.20)
+    parser.add_argument("--align-right", action="store_true")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
@@ -264,24 +284,29 @@ def main() -> int:
         _, input_root = read_svg(args.input)
         reference_points = element_points(reference_root)
         input_points = element_points(input_root)
-        sy, tx, ty, score = find_alignment(input_points, reference_points, args.tolerance)
+        m11, m12, m21, m22, tx, ty, score = find_alignment(input_points, reference_points, args.tolerance)
+
+        if args.align_right:
+            ref_maxX = max(x for x, y in reference_points)
+            input_maxX = max(m11 * x + m21 * y for x, y in input_points)
+            tx = ref_maxX - input_maxX
 
         min_count = min(len(dedupe(input_points, args.tolerance)), len(dedupe(reference_points, args.tolerance)))
         ratio = score / min_count if min_count else 0.0
-        if ratio < 0.20:
+        if ratio < args.threshold:
             raise ValueError(
                 f"Low geometry match ({ratio:.1%}). The files may not be related components."
             )
 
-        output_root = make_output(reference_root, input_root, sy, tx, ty)
+        output_root = make_output(reference_root, input_root, m11, m12, m21, m22, tx, ty)
         ET.ElementTree(output_root).write(
             args.output, encoding="utf-8", xml_declaration=True
         )
 
-        orientation = "vertical mirror" if sy == -1 else "original orientation"
+        matrix_str = f"[{m11} {m12} {m21} {m22}]"
         print(
             f"Created {args.output}\n"
-            f"Alignment: {orientation}, tx={tx:.6f}, ty={ty:.6f}, "
+            f"Alignment Matrix: {matrix_str}, tx={tx:.6f}, ty={ty:.6f}, "
             f"matched={score}/{min_count} ({ratio:.1%})"
         )
         if args.debug:
