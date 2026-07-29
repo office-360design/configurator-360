@@ -579,6 +579,41 @@
             opacity: 0.45;
         }
 
+        .square-toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            background: rgba(30, 41, 59, 0.5);
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .square-toggle-btn:hover {
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #f3f4f6;
+        }
+
+        .square-toggle-btn.active {
+            border-color: rgba(96, 165, 250, 0.45);
+            background: rgba(37, 99, 235, 0.12);
+            color: #60a5fa;
+        }
+
+        .square-toggle-btn.active:hover {
+            background: rgba(37, 99, 235, 0.25);
+            border-color: #60a5fa;
+            color: #93c5fd;
+        }
+
         #cad-reference-modal {
             position: fixed;
             inset: 0;
@@ -849,7 +884,7 @@
             width: 100%;
             height: 100%;
             object-fit: contain;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
             transition: opacity 0.2s ease;
         }
     </style>
@@ -869,6 +904,19 @@
         <div class="control-group">
             <label>Select CAD Profile:</label>
             <div style="display: flex; gap: 8px; align-items: center;">
+                <button id="toggleSectionViewBtn" type="button" aria-label="Toggle 10cm Section View"
+                    title="Toggle 10cm Section View" class="square-toggle-btn active">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                        </path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                        <line x1="2" y1="12" x2="22" y2="12" stroke="#ef4444" stroke-dasharray="3,3" stroke-width="2.5">
+                        </line>
+                    </svg>
+                </button>
                 <select id="cadProfile" style="margin: 0; flex: 1;">
                     <option value="2_6_Oeffnungselemnt_Vertikal">2_6 Oeffnungselemnt Vertikal</option>
                     <option value="2_5_Oeffnungselemnt_Vertikal">2_5 Oeffnungselemnt Vertikal</option>
@@ -898,7 +946,7 @@
         </div>
 
         <div class="control-group">
-            <label>Handle:</label>
+            <label>Opening:</label>
             <div style="display: flex; gap: 8px;">
                 <button type="button" id="btnHandleLeft" class="handle-side-btn"
                     style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -928,7 +976,8 @@
             <input type="range" id="glassThickness" min="16" max="29" step="1" value="24">
         </div>
 
-        <div id="componentPicturesSection" style="display: none; gap: 12px; justify-content: space-between; margin-top: 14px; margin-bottom: 14px;">
+        <div id="componentPicturesSection"
+            style="display: none; gap: 12px; justify-content: space-between; margin-top: 14px; margin-bottom: 14px;">
             <div class="component-bubble-card">
                 <span class="component-bubble-label" id="gasketLabel">224378</span>
                 <div class="component-svg-wrapper">
@@ -3361,6 +3410,16 @@
         // EVENT LISTENERS
         document.getElementById('widthA').addEventListener('input', buildWindow);
         document.getElementById('heightB').addEventListener('input', buildWindow);
+
+        const toggleSectionBtn = document.getElementById('toggleSectionViewBtn');
+        if (toggleSectionBtn) {
+            toggleSectionBtn.addEventListener('click', () => {
+                const isActive = toggleSectionBtn.classList.toggle('active');
+                if (sectionGroup) {
+                    sectionGroup.visible = isActive;
+                }
+            });
+        }
         let pendingGlassThicknessFrame = null;
         let lastRenderedGlazingBeadCode = getActiveGlazingBeadCode();
 
