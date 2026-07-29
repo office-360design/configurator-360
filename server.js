@@ -157,8 +157,8 @@ function parseRenderPayload(payload) {
         ?? payload.glass_thickness
         ?? 24
     );
-    if (!Number.isFinite(glassThicknessMm) || glassThicknessMm < 4 || glassThicknessMm > 60) {
-        throw new Error('Glass thickness must be between 4 and 60 mm.');
+    if (!Number.isFinite(glassThicknessMm) || glassThicknessMm < 16 || glassThicknessMm > 29) {
+        throw new Error('Glass thickness must be between 16 and 29 mm.');
     }
 
     const colour = String(payload.colour || payload.color || '#e2e8f0');
