@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const GLB_MAGIC = 0x46546c67;
 const GLB_VERSION = 2;
@@ -261,6 +260,7 @@ export function inspectGLB(arrayBuffer) {
 }
 
 async function validateRoundTrip(arrayBuffer) {
+    const { GLTFLoader } = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js');
     const loader = new GLTFLoader();
     const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' });
     const blobUrl = URL.createObjectURL(blob);

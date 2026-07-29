@@ -1,15 +1,21 @@
 {
-  "name": "window-configurator-glb-ar",
+  "name": "incercam",
   "version": "1.0.0",
-  "private": true,
-  "description": "Three.js window configurator with browser-side GLB export and Scene Viewer delivery through Cloudflare R2.",
+  "description": "",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "install-browser": "npx playwright install chromium",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "prepare:static": "node prepare_static_site.js",
-    "check": "node --check server.js && node --check prepare_static_site.js && node --check ar-export.js && node --check cloudflare-worker/src/index.js"
+    "check:merged": "node --check server.js && node --check prepare_static_site.js && node --check ar-export.js && node --check cloudflare-worker/src/index.js"
   },
+  "keywords": [],
+  "author": "",
   "license": "ISC",
   "dependencies": {
-    "dxf-parser": "^1.1.2"
+    "dxf-parser": "^1.1.2",
+    "playwright": "^1.54.1",
+    "three": "^0.160.0"
   }
 }

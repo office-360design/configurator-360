@@ -1,7 +1,7 @@
 {
-  "build": "20260728T140031Z-nogit",
+  "build": "20260729T075748Z-nogit",
   "baseCommit": "nogit",
-  "channel": "scene-viewer-glb-r2",
-  "generatedAt": "2026-07-28T14:00:31.956Z",
-  "architecture": "browser GLB export -> Cloudflare Worker -> R2 -> Scene Viewer"
+  "channel": "production-main-plus-scene-viewer-r2",
+  "generatedAt": "2026-07-29T07:57:48.613Z",
+  "architecture": "production configurator -> browser GLB export -> Cloudflare Worker/R2 -> Scene Viewer"
 }
