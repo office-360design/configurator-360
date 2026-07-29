@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#020617">
+    <title>Configured Window AR</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <style>
+        :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; background: #020617; color: #f8fafc; }
+        body { display: grid; grid-template-rows: minmax(280px, 58vh) auto; }
+        model-viewer {
+            width: 100%; height: 100%; min-height: 280px;
+            background: radial-gradient(circle at 50% 35%, #172554, #020617 72%);
+            --poster-color: transparent;
+        }
+        .panel {
+            padding: 22px max(20px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+            border-top: 1px solid rgba(255,255,255,.1);
+            background: #0f172a;
+        }
+        .content { width: min(560px, 100%); margin: 0 auto; }
+        h1 { margin: 0 0 8px; color: #60a5fa; font-size: clamp(25px, 7vw, 38px); }
+        p { margin: 0 0 16px; color: #cbd5e1; line-height: 1.5; }
+        button, .link-button {
+            display: block; width: 100%; border: 0; border-radius: 14px; padding: 15px 18px;
+            background: #2563eb; color: #fff; font: 700 17px/1.2 inherit; text-align: center; cursor: pointer;
+            text-decoration: none;
+        }
+        .secondary { margin-top: 10px; background: #1e293b; border: 1px solid rgba(148,163,184,.35); font-size: 14px; }
+        #status { min-height: 22px; margin: 13px 0 0; color: #bfdbfe; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+        #diagnostics {
+            margin-top: 12px; padding: 10px; border-radius: 9px; background: rgba(2,6,23,.5);
+            color: #94a3b8; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: pre-wrap; overflow-wrap: anywhere;
+        }
+        [hidden] { display: none !important; }
+    </style>
+</head>
+<body>
+    <model-viewer id="viewer"
+        camera-controls
+        shadow-intensity="1"
+        exposure="1"
+        environment-image="neutral"
+        ar
+        ar-modes="scene-viewer"
+        ar-scale="fixed"
+        ar-placement="floor">
+    </model-viewer>
+
+    <section class="panel">
+        <div class="content">
+            <h1 id="title">Configured window</h1>
+            <p>Confirm that the 3D preview loads, then open the same uploaded GLB in the native Android AR viewer.</p>
+            <button id="open-ar" type="button" disabled>Checking uploaded model…</button>
+            <a id="download-model" class="link-button secondary" href="#" download>Download uploaded GLB</a>
+            <div id="status">Reading the model URL…</div>
+            <div id="diagnostics"></div>
+        </div>
+    </section>
+
+    <script>
+        const params = new URLSearchParams(location.search);
+        const modelParam = params.get('model');
+        const titleParam = params.get('title') || 'Configured window';
+        const build = params.get('build') || '(unknown)';
+        const viewer = document.getElementById('viewer');
+        const title = document.getElementById('title');
+        const button = document.getElementById('open-ar');
+        const status = document.getElementById('status');
+        const diagnostics = document.getElementById('diagnostics');
+        const download = document.getElementById('download-model');
+
+        title.textContent = titleParam;
+        let modelUrl = '';
+        try {
+            const parsed = new URL(modelParam || '', location.href);
+            if (parsed.protocol === 'https:' || (parsed.protocol === 'http:' && parsed.hostname === 'localhost')) {
+                modelUrl = parsed.href;
+            }
+        } catch (_error) {}
+
+        function setDiagnostics(extra = '') {
+            diagnostics.textContent = [
+                `build: ${build}`,
+                `page: ${location.origin}${location.pathname}`,
+                `model: ${modelUrl || '(invalid)'}`,
+                `android: ${/Android/i.test(navigator.userAgent)}`,
+                `userAgent: ${navigator.userAgent}`,
+                extra
+            ].filter(Boolean).join('\n');
+        }
+
+        function sceneViewerIntent() {
+            const fallback = new URL(location.href);
+            fallback.searchParams.set('fallback', '1');
+            return `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(modelUrl)}` +
+                `&mode=ar_preferred&resizable=false` +
+                `#Intent;scheme=https;package=com.google.android.googlequicksearchbox;` +
+                `action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(fallback.href)};end;`;
+        }
+
+        async function probeModel() {
+            if (!modelUrl) {
+                status.textContent = 'The QR does not contain a valid public HTTPS GLB URL.';
+                setDiagnostics('probe: invalid model URL');
+                return;
+            }
+
+            viewer.src = modelUrl;
+            download.href = modelUrl;
+            try {
+                let response = await fetch(modelUrl, { method: 'HEAD', mode: 'cors', cache: 'no-store' });
+                if (!response.ok && response.status !== 405) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                if (response.status === 405) {
+                    response = await fetch(modelUrl, {
+                        method: 'GET', mode: 'cors', cache: 'no-store',
+                        headers: { Range: 'bytes=0-19' }
+                    });
+                    if (!response.ok && response.status !== 206) throw new Error(`HTTP ${response.status}`);
+                }
+                const type = response.headers.get('content-type') || '(missing)';
+                const length = response.headers.get('content-length') || '(unknown)';
+                status.textContent = `Uploaded model reachable. Content-Type: ${type}; bytes: ${length}.`;
+                button.disabled = false;
+                button.textContent = 'Open in AR';
+                setDiagnostics(`probe: HTTP ${response.status}; content-type=${type}; content-length=${length}`);
+            } catch (error) {
+                status.textContent = `The uploaded model URL could not be verified: ${error.message}`;
+                button.disabled = false;
+                button.textContent = 'Try opening in AR anyway';
+                setDiagnostics(`probe error: ${error.name}: ${error.message}`);
+            }
+        }
+
+        button.addEventListener('click', async () => {
+            if (!modelUrl) return;
+            status.textContent = 'Opening Google Scene Viewer…';
+            if (/Android/i.test(navigator.userAgent) && params.get('fallback') !== '1') {
+                location.href = sceneViewerIntent();
+                return;
+            }
+            try {
+                await viewer.activateAR();
+            } catch (error) {
+                status.textContent = `${error.name || 'AR error'}: ${error.message || 'Could not start AR.'}`;
+                setDiagnostics(`activateAR error: ${error.name}: ${error.message}`);
+            }
+        });
+
+        viewer.addEventListener('load', () => {
+            status.textContent = '3D preview loaded. The GLB can now be opened in AR.';
+            button.disabled = false;
+            button.textContent = 'Open in AR';
+        });
+        viewer.addEventListener('error', event => {
+            status.textContent = 'The 3D preview could not parse the uploaded GLB.';
+            setDiagnostics(`model-viewer error: ${event.detail?.type || 'unknown'}`);
+        });
+
+        setDiagnostics();
+        probeModel();
+    </script>
+</body>
+</html>

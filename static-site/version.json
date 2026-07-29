@@ -1,7 +1,7 @@
 {
-  "build": "webxr-diag-20260727-01",
-  "baseCommit": "bf4f76c",
-  "channel": "webxr-diagnostic",
-  "generatedAt": "2026-07-27T00:00:00Z",
-  "notes": "Root and static-site index are synchronized. Includes deployment/version checks and WebXR/native AR isolation tools."
+  "build": "20260728T140031Z-nogit",
+  "baseCommit": "nogit",
+  "channel": "scene-viewer-glb-r2",
+  "generatedAt": "2026-07-28T14:00:31.956Z",
+  "architecture": "browser GLB export -> Cloudflare Worker -> R2 -> Scene Viewer"
 }

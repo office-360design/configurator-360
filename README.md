@@ -1,135 +1,148 @@
-# Window Configurator — static WebXR proof of concept
+# Window Configurator — browser GLB export, R2 storage, Scene Viewer
 
-This revision removes the custom mobile application, Scene Viewer, generated GLB uploads, Render web service, and GitHub Actions from the AR flow.
+This revision replaces the failed custom WebXR path with the native Android AR route that was proven to work on the test phone.
 
-## Architecture
-
-```text
-Desktop configurator
-    ↓
-QR contains a public HTTPS URL plus configuration values
-    ↓
-The same static website opens on the Android phone in AR mode
-    ↓
-The phone loads the profile SVG files and rebuilds the window locally
-    ↓
-WebXR uses ARCore for camera tracking and placement
-```
-
-The QR carries:
-
-- CAD profile;
-- width and height;
-- opening mode and angle;
-- exploded-view state;
-- enabled profile parts.
-
-It does not contain or upload a 3D model.
-
-## What is required
-
-- The site must be published over HTTPS.
-- The phone must be an ARCore-supported Android device.
-- Google Play Services for AR must be installed and enabled.
-- The AR link must be opened in a WebXR-compatible browser. Google Chrome on Android is the supported test target.
-- The user must press **View in AR** once; browsers do not allow a QR link to silently take over the camera.
-
-This proof of concept does not provide custom browser-rendered AR on iPhone because iOS browsers do not expose an equivalent general-purpose handheld WebXR path.
-
-## Fastest free public deployment: Netlify Drop
-
-A ready-to-upload folder is included at:
+## Runtime architecture
 
 ```text
-static-site/
+Netlify static site opened on the laptop
+    ↓
+The laptop browser builds the current Three.js window
+    ↓
+GLTFExporter creates a binary GLB in browser memory
+    ↓
+The page sanitizes it and re-imports it with GLTFLoader
+    ↓
+The page uploads the exact validated bytes to a Cloudflare Worker
+    ↓
+The Worker validates the GLB header and stores it in Cloudflare R2
+    ↓
+The Worker returns a public HTTPS model URL
+    ↓
+The QR opens ar-viewer.html on the phone
+    ↓
+The phone launches Google Scene Viewer with the uploaded GLB URL
 ```
 
-1. Sign in to Netlify.
-2. Open Netlify Drop.
-3. Drag the entire `static-site` folder or the supplied static-site ZIP into the drop area.
-4. Open the generated `https://...netlify.app` URL.
-5. Configure the window, press **Scan QR for AR view**, and scan the QR with the Android phone.
+The laptop does not directly send the model to the phone. The laptop browser uploads it to public object storage, and Scene Viewer downloads it from there.
 
-No repository connection, GitHub Actions, Docker, Node process, or backend is required.
+## Main files
 
-## Alternative: Cloudflare Pages Direct Upload
+- `index.html` — configurator UI, Three.js scene, current pose, QR workflow.
+- `ar-export.js` — portable GLB export, material/geometry sanitation, structural inspection, browser round-trip validation, download, and upload.
+- `ar-upload-config.js` — public upload endpoint configuration. Contains no secret credentials.
+- `ar-viewer.html` — phone page that checks the public model URL, previews it, and launches native Scene Viewer.
+- `server.js` — local static server plus a local-only GLB upload emulator for desktop testing.
+- `prepare_static_site.js` — generates a build ID and prepares all public frontend files in `static-site/`.
+- `cloudflare-worker/` — Worker and R2 storage service used by the public Netlify site.
 
-Create a Pages project using **Direct Upload → Drag and drop**, and upload the contents of `static-site/`. The resulting `pages.dev` address is HTTPS and can be used in the QR flow.
+## First setup
 
-## Local desktop preview
-
-The normal 3D configurator can be tested locally by double-clicking:
-
-```text
-START_LOCAL_SITE.vbs
-```
-
-or by running:
+### 1. Deploy the Worker and R2 bucket
 
 ```powershell
-node server.js
+cd cloudflare-worker
+npm install
+npx wrangler login
+npm run create-bucket
+npm run deploy
 ```
 
-Local desktop preview does not make the page reachable from the phone. Use the public static deployment for the QR test.
-
-## How AR starts
-
-The phone page first checks:
-
-1. secure HTTPS context;
-2. `navigator.xr` availability;
-3. support for `immersive-ar`.
-
-When **View in AR** is pressed, the page first requests WebXR with optional surface hit testing. If the browser rejects that configuration, it retries with a basic immersive AR session. When hit testing works, the window is placed on the first detected surface. Otherwise, it is placed in front of the camera as a compatibility fallback.
-
-## Deployment contents
-
-Only these files are required by the public site:
+The deployment prints a URL such as:
 
 ```text
-static-site/
-├── index.html
-├── _headers
-└── svg/
+https://window-ar-model-storage.<your-subdomain>.workers.dev
 ```
 
-The Three.js and QR libraries are currently loaded from public CDNs. The profile geometry and configuration data are served from the static site itself.
+### 2. Connect the frontend to the Worker
 
-## Current limitations
+Edit `ar-upload-config.js`:
 
-- Android WebXR only for the custom camera experience.
-- Browser support still depends on the device and ARCore installation.
-- The same physical window can appear slightly different between phones because tracking and lighting are device-dependent.
-- Advanced occlusion, wall recognition, persistent anchors, and server-side storage are intentionally omitted.
+```javascript
+endpoint: 'https://window-ar-model-storage.<your-subdomain>.workers.dev/api/models'
+```
 
-## WebXR compatibility diagnostic
+Do not place Cloudflare account credentials, API tokens, or R2 keys in that file.
 
-The mobile AR page now exposes two independent tests:
+### 3. Prepare and deploy Netlify
 
-1. **Test basic AR** requests `immersive-ar` with no required or optional features.
-2. **Test surface placement** requests a separate `immersive-ar` session with `hit-test` required.
+Double-click:
 
-Each test must be started by its own button press. The app deliberately does not retry automatically, because immersive session requests require a fresh user activation.
+```text
+PREPARE_STATIC_SITE.vbs
+```
 
-Interpretation:
+or run:
 
-- If **Basic AR** fails with `NotSupportedError`, the device/browser environment does not accept even the minimal WebXR AR session. Geometry and window dimensions are not the cause.
-- If Basic AR works but Surface Placement fails, immersive AR works but the `hit-test` feature is unavailable or rejected.
-- The diagnostics panel prints secure-context status, WebXR availability, browser user agent, and the exact error.
+```powershell
+npm run prepare:static
+```
 
+Upload the complete `static-site/` folder to Netlify Drop. Verify the build badge and `/version.json` after deployment.
 
-## Deployment/version debugging
+## Using the configurator
 
-This repository previously had two different copies of the page: `index.html` and `static-site/index.html`. The diagnostic build keeps them synchronized and displays a build ID in the lower-right corner.
+1. Open the Netlify site on the laptop.
+2. Configure the profile, dimensions, active components, opening mode, angle, and exploded state.
+3. Press **Generate AR QR**.
+4. Wait for the three stages: export, browser validation, storage upload.
+5. Review the displayed GLB statistics.
+6. The **Download diagnostic GLB** button downloads the exact bytes that were uploaded.
+7. Scan the QR on Android.
+8. Confirm that the 3D preview loads on `ar-viewer.html`.
+9. Press **Open in AR** to launch Scene Viewer.
 
-Before each direct static upload, double-click `PREPARE_STATIC_SITE.vbs` (or run `npm run prepare:static`). Upload the resulting `static-site/` folder. Verify the deployed build by opening `/version.json` on the public domain. The build shown there must match the badge on both desktop and phone. The QR also carries the originating build ID and the phone page warns when it receives a different cached version.
+## Why the export is stricter than the previous attempt
 
-The mobile page includes:
+The exporter does not send the complete Three.js scene. It creates a clean model that contains only visible window meshes. It:
 
-- **Test basic AR**: minimal `requestSession('immersive-ar')`;
-- **Test surface placement**: the same session with required hit testing;
-- **Official WebXR test**: opens the standards sample;
-- **Native AR sample**: launches Google's official known-good Avocado asset through Scene Viewer to isolate WebXR from the native AR runtime;
-- **Copy diagnostics** and **Reload latest**.
+- applies the current frame, sash, opening, handle, and exploded-view transforms;
+- bakes mesh world transforms into geometry;
+- converts indexed geometry to non-indexed triangles;
+- removes unused attributes;
+- recomputes normals;
+- rejects non-finite vertex data;
+- normalizes materials to portable PBR `MeshStandardMaterial` values;
+- reuses equivalent materials;
+- centers the model horizontally and moves its bottom to `Y = 0`;
+- exports binary glTF 2.0;
+- parses the GLB header and JSON chunk;
+- re-imports the produced GLB with Three.js `GLTFLoader` before upload.
 
-If `isSessionSupported('immersive-ar')` reports true but the minimal request returns `NotSupportedError`, the failure occurs in Chrome/ARCore before any window geometry is used.
+This browser round trip does not replace the Khronos validator, but it catches malformed files and exporter/runtime incompatibilities before object storage is involved.
+
+## Local testing
+
+Run:
+
+```powershell
+npm start
+```
+
+and open:
+
+```text
+http://localhost:3000
+```
+
+On localhost, `ar-upload-config.js` automatically uses the local `POST /api/models` endpoint. The generated model URL is only reachable from the laptop, so local mode tests export and upload but not the public phone flow.
+
+## Storage behavior
+
+The Worker stores files by SHA-256 hash:
+
+```text
+/models/ab/<64-character-sha256>.glb
+```
+
+Uploading the same GLB again reuses the same object and URL. Public GET responses use the correct GLB content type, immutable caching, CORS, and byte-range support. The Worker accepts files up to 25 MB; Scene Viewer performs best with significantly smaller models.
+
+The current upload endpoint is a proof of concept. It restricts browser uploads to configured origins, but origin checking alone is not production authentication. Add user authentication, quotas, rate limiting, and an R2 lifecycle policy before production use.
+
+## Debugging order
+
+1. **Export failed:** use the error shown by the laptop page; no upload occurred.
+2. **Export passed, upload failed:** verify Worker `/health`, `ALLOWED_ORIGINS`, and `ar-upload-config.js`.
+3. **Upload passed, phone preview failed:** download the uploaded GLB from the phone page and validate that exact file.
+4. **Phone preview works, Scene Viewer fails:** compare the GLB statistics with Scene Viewer limits and run the Khronos glTF Validator.
+5. **Everything works on a small profile but not a large one:** reduce triangles, mesh count, material count, and total GLB size.

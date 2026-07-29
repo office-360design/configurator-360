@@ -17,6 +17,10 @@ function gitShortHash() {
     }
 }
 
+function copyFile(name) {
+    fs.copyFileSync(path.join(root, name), path.join(staticRoot, name));
+}
+
 const date = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 const build = `${date}-${gitShortHash()}`;
 const sourcePath = path.join(root, 'index.html');
@@ -24,16 +28,23 @@ let html = fs.readFileSync(sourcePath, 'utf8');
 html = html.replace(/<meta name="app-build" content="[^"]*">/, `<meta name="app-build" content="${build}">`);
 html = html.replace(/<div id="build-badge">Build [^<]*<\/div>/, `<div id="build-badge">Build ${build}</div>`);
 fs.writeFileSync(sourcePath, html);
+
 fs.mkdirSync(staticRoot, { recursive: true });
 fs.writeFileSync(path.join(staticRoot, 'index.html'), html);
+copyFile('ar-viewer.html');
+copyFile('ar-export.js');
+copyFile('ar-upload-config.js');
 fs.cpSync(path.join(root, 'svg'), path.join(staticRoot, 'svg'), { recursive: true, force: true });
+
 const version = {
     build,
     baseCommit: gitShortHash(),
-    channel: 'webxr-diagnostic',
-    generatedAt: new Date().toISOString()
+    channel: 'scene-viewer-glb-r2',
+    generatedAt: new Date().toISOString(),
+    architecture: 'browser GLB export -> Cloudflare Worker -> R2 -> Scene Viewer'
 };
 const json = `${JSON.stringify(version, null, 2)}\n`;
 fs.writeFileSync(path.join(root, 'version.json'), json);
 fs.writeFileSync(path.join(staticRoot, 'version.json'), json);
 console.log(`Prepared static-site build ${build}`);
+console.log('Copied index.html, ar-viewer.html, ar-export.js, ar-upload-config.js, version.json, and svg/.');

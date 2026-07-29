@@ -1,12 +1,6 @@
 node_modules/
-.DS_Store
+cloudflare-worker/node_modules/
+cloudflare-worker/.wrangler/
+generated/**/*.glb
 *.log
-
-# Unity generated folders
-mobile/Configurator360AR/Library/
-mobile/Configurator360AR/Temp/
-mobile/Configurator360AR/Obj/
-mobile/Configurator360AR/Build/
-mobile/Configurator360AR/Builds/
-mobile/Configurator360AR/Logs/
-mobile/Configurator360AR/UserSettings/
+.DS_Store
