@@ -40,8 +40,24 @@ html = html.replace(
     `<meta name="app-build" content="${build}">`
 );
 
+// Preserve manually published GLBs. They are deliberately outside the generated
+// website files, so preparing a new Netlify build must not delete them.
+const preservedModels = path.join(root, '.static-models-preserved');
+const currentModels = path.join(staticRoot, 'models');
+fs.rmSync(preservedModels, { recursive: true, force: true });
+if (fs.existsSync(currentModels)) {
+    fs.cpSync(currentModels, preservedModels, { recursive: true, force: true });
+}
+
 fs.rmSync(staticRoot, { recursive: true, force: true });
 fs.mkdirSync(staticRoot, { recursive: true });
+if (fs.existsSync(preservedModels)) {
+    fs.cpSync(preservedModels, path.join(staticRoot, 'models'), { recursive: true, force: true });
+    fs.rmSync(preservedModels, { recursive: true, force: true });
+} else {
+    fs.mkdirSync(path.join(staticRoot, 'models'), { recursive: true });
+    fs.writeFileSync(path.join(staticRoot, 'models', '.gitkeep'), '');
+}
 fs.writeFileSync(path.join(staticRoot, 'index.html'), html);
 
 [
@@ -65,9 +81,9 @@ if (fs.existsSync(headersSource)) {
 const version = {
     build,
     baseCommit: hash,
-    channel: 'production-main-plus-scene-viewer-r2',
+    channel: 'production-main-plus-static-scene-viewer',
     generatedAt: generatedAt.toISOString(),
-    architecture: 'production configurator -> browser GLB export -> Cloudflare Worker/R2 -> Scene Viewer'
+    architecture: 'production configurator -> optimized browser GLB export -> static Netlify model -> Scene Viewer'
 };
 const json = `${JSON.stringify(version, null, 2)}\n`;
 fs.writeFileSync(path.join(root, 'version.json'), json);
@@ -75,4 +91,4 @@ fs.writeFileSync(path.join(staticRoot, 'version.json'), json);
 fs.writeFileSync(path.join(staticRoot, '.nojekyll'), '');
 
 console.log(`Prepared static-site build ${build}`);
-console.log('Included production index, SVG profiles, Three.js library, CAD screenshots, and AR/R2 files.');
+console.log('Included production index, SVG profiles, Three.js library, CAD screenshots, AR files, and preserved static models.');

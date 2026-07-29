@@ -97,9 +97,13 @@
         function sceneViewerIntent() {
             const fallback = new URL(location.href);
             fallback.searchParams.set('fallback', '1');
+
+            // ar_preferred/ar_only belong to the Google Play Services for AR
+            // package. The earlier code paired ar_preferred with the Google
+            // Search package, which only documents 3d_preferred/3d_only.
             return `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(modelUrl)}` +
-                `&mode=ar_preferred&resizable=false` +
-                `#Intent;scheme=https;package=com.google.android.googlequicksearchbox;` +
+                `&mode=ar_preferred` +
+                `#Intent;scheme=https;package=com.google.ar.core;` +
                 `action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(fallback.href)};end;`;
         }
 
@@ -141,13 +145,20 @@
         button.addEventListener('click', async () => {
             if (!modelUrl) return;
             status.textContent = 'Opening Google Scene Viewer…';
-            if (/Android/i.test(navigator.userAgent) && params.get('fallback') !== '1') {
-                location.href = sceneViewerIntent();
-                return;
-            }
+
+            // Let model-viewer create its current documented Scene Viewer
+            // launch first. If the host browser blocks that route, use the
+            // explicit ARCore intent with the matching ar_preferred mode.
             try {
                 await viewer.activateAR();
+                return;
             } catch (error) {
+                if (/Android/i.test(navigator.userAgent) && params.get('fallback') !== '1') {
+                    setDiagnostics(`model-viewer fallback: ${error.name || 'unknown'}: ${error.message || 'activateAR failed'}
+intent package: com.google.ar.core; mode=ar_preferred`);
+                    location.href = sceneViewerIntent();
+                    return;
+                }
                 status.textContent = `${error.name || 'AR error'}: ${error.message || 'Could not start AR.'}`;
                 setDiagnostics(`activateAR error: ${error.name}: ${error.message}`);
             }

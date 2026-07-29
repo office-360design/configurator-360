@@ -1,13 +1,15 @@
-/*
- * Public frontend configuration.
- *
- * After deploying cloudflare-worker/, replace the workers.dev placeholder below
- * with the URL returned by `npx wrangler deploy`, keeping `/api/models`.
- * No Cloudflare secret or R2 credential belongs in this file.
- */
 window.AR_UPLOAD_CONFIG = Object.freeze({
-    endpoint: location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-        ? '/api/models'
-        : 'https://REPLACE-WITH-YOUR-WORKER.workers.dev/api/models',
-    maxBytes: 25 * 1024 * 1024
+    // Default, cost-safe workflow: the browser creates an optimized GLB and
+    // checks for the same filename under this site's /models/ directory.
+    mode: 'static',
+    staticModelDirectory: 'models/',
+
+    // Scene Viewer recommends <=100,000 triangles and <=10 MB. The exporter
+    // aims slightly below the triangle recommendation while preserving detail.
+    targetTriangles: 90000,
+    maxBytes: 15 * 1024 * 1024,
+
+    // Optional future own-server mode. Set mode to 'api' and provide a public
+    // HTTPS endpoint accepting POST model/gltf-binary. No Cloudflare is needed.
+    endpoint: ''
 });

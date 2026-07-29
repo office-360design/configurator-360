@@ -4,10 +4,34 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 const GLB_MAGIC = 0x46546c67;
 const GLB_VERSION = 2;
 const JSON_CHUNK_TYPE = 0x4e4f534a;
-const DEFAULT_MAX_BYTES = 25 * 1024 * 1024;
+const DEFAULT_MAX_BYTES = 15 * 1024 * 1024;
+const DEFAULT_TARGET_TRIANGLES = 90000;
+const MIN_SIMPLIFY_TRIANGLES = 180;
+const MIN_TRIANGLES_PER_MESH = 24;
+const WELD_TOLERANCE = 1e-5;
+
+let optimizationModulesPromise = null;
+
+function loadOptimizationModules() {
+    if (!optimizationModulesPromise) {
+        optimizationModulesPromise = Promise.all([
+            import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/modifiers/SimplifyModifier.js'),
+            import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js')
+        ]).then(([modifierModule, geometryUtils]) => ({
+            SimplifyModifier: modifierModule.SimplifyModifier,
+            mergeVertices: geometryUtils.mergeVertices
+        }));
+    }
+    return optimizationModulesPromise;
+}
 
 function finiteNumber(value, fallback = 0) {
     return Number.isFinite(value) ? value : fallback;
+}
+
+function triangleCountForGeometry(geometry) {
+    if (!geometry?.attributes?.position) return 0;
+    return Math.floor((geometry.index?.count || geometry.attributes.position.count) / 3);
 }
 
 function normalizeMaterial(source, cache) {
@@ -31,7 +55,14 @@ function normalizeMaterial(source, cache) {
     const roughness = THREE.MathUtils.clamp(finiteNumber(material.roughness, 0.65), 0, 1);
     const metalness = THREE.MathUtils.clamp(finiteNumber(material.metalness, 0), 0, 1);
     const side = material.side === THREE.DoubleSide ? THREE.DoubleSide : THREE.FrontSide;
-    const signature = [color, opacity.toFixed(4), transparent ? 1 : 0, roughness.toFixed(4), metalness.toFixed(4), side].join('|');
+    const signature = [
+        color,
+        opacity.toFixed(4),
+        transparent ? 1 : 0,
+        roughness.toFixed(4),
+        metalness.toFixed(4),
+        side
+    ].join('|');
 
     if (!cache.has(signature)) {
         const normalized = new THREE.MeshStandardMaterial({
@@ -61,21 +92,19 @@ function validateFiniteAttribute(attribute, label) {
     }
 }
 
-function sanitizeGeometry(sourceGeometry, worldMatrix, meshName) {
+function prepareGeometry(sourceGeometry, worldMatrix, meshName) {
     if (!sourceGeometry?.attributes?.position) {
         throw new Error(`${meshName} has no position attribute.`);
     }
 
-    let geometry = sourceGeometry.index
+    const geometry = sourceGeometry.index
         ? sourceGeometry.toNonIndexed()
         : sourceGeometry.clone();
 
     geometry.applyMatrix4(worldMatrix);
 
     for (const attributeName of Object.keys(geometry.attributes)) {
-        if (attributeName !== 'position' && attributeName !== 'normal') {
-            geometry.deleteAttribute(attributeName);
-        }
+        if (attributeName !== 'position') geometry.deleteAttribute(attributeName);
     }
 
     const position = geometry.getAttribute('position');
@@ -85,25 +114,15 @@ function sanitizeGeometry(sourceGeometry, worldMatrix, meshName) {
     }
     validateFiniteAttribute(position, `${meshName} positions`);
 
-    geometry.deleteAttribute('normal');
-    geometry.computeVertexNormals();
-    const normal = geometry.getAttribute('normal');
-    validateFiniteAttribute(normal, `${meshName} normals`);
-
     const completeVertexCount = Math.floor(position.count / 3) * 3;
     if (completeVertexCount < 3) {
         geometry.dispose();
         return null;
     }
-    if (completeVertexCount !== position.count) {
-        geometry.setDrawRange(0, completeVertexCount);
-    }
+    if (completeVertexCount !== position.count) geometry.setDrawRange(0, completeVertexCount);
 
     geometry.clearGroups();
-    geometry.addGroup(0, completeVertexCount, 0);
     geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-
     const box = geometry.boundingBox;
     if (!box || !Number.isFinite(box.min.x) || !Number.isFinite(box.max.x)) {
         geometry.dispose();
@@ -113,42 +132,188 @@ function sanitizeGeometry(sourceGeometry, worldMatrix, meshName) {
     return geometry;
 }
 
-function buildPortableExportRoot(sourceRoot) {
+function removeDegenerateTriangles(sourceGeometry) {
+    const geometry = sourceGeometry.index ? sourceGeometry.toNonIndexed() : sourceGeometry;
+    const position = geometry.getAttribute('position');
+    const values = position.array;
+    const kept = [];
+    const ab = new THREE.Vector3();
+    const ac = new THREE.Vector3();
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    const c = new THREE.Vector3();
+
+    for (let offset = 0; offset + 8 < values.length; offset += 9) {
+        a.set(values[offset], values[offset + 1], values[offset + 2]);
+        b.set(values[offset + 3], values[offset + 4], values[offset + 5]);
+        c.set(values[offset + 6], values[offset + 7], values[offset + 8]);
+        ab.subVectors(b, a);
+        ac.subVectors(c, a);
+        if (ab.cross(ac).lengthSq() <= 1e-18) continue;
+        kept.push(
+            a.x, a.y, a.z,
+            b.x, b.y, b.z,
+            c.x, c.y, c.z
+        );
+    }
+
+    if (geometry !== sourceGeometry) sourceGeometry.dispose();
+    if (kept.length === values.length) return geometry;
+
+    geometry.dispose();
+    if (kept.length < 9) return null;
+    const cleaned = new THREE.BufferGeometry();
+    cleaned.setAttribute('position', new THREE.Float32BufferAttribute(kept, 3));
+    return cleaned;
+}
+
+async function optimizeGeometry(sourceGeometry, desiredTriangles, meshName, modules) {
+    let geometry = sourceGeometry;
+    const originalTriangles = triangleCountForGeometry(geometry);
+    let simplified = false;
+
+    if (
+        originalTriangles >= MIN_SIMPLIFY_TRIANGLES &&
+        desiredTriangles < originalTriangles - 4
+    ) {
+        const positionCount = geometry.getAttribute('position').count;
+        const desiredVertices = Math.max(MIN_TRIANGLES_PER_MESH * 3, desiredTriangles * 3);
+        const removeCount = Math.max(0, Math.min(positionCount - 12, positionCount - desiredVertices));
+
+        if (removeCount > 0) {
+            try {
+                const modifier = new modules.SimplifyModifier();
+                const result = modifier.modify(geometry, removeCount);
+                if (triangleCountForGeometry(result) >= 4) {
+                    geometry.dispose();
+                    geometry = result;
+                    simplified = true;
+                } else {
+                    result.dispose();
+                }
+            } catch (error) {
+                console.warn(`AR simplification skipped for ${meshName}:`, error);
+            }
+        }
+    }
+
+    geometry = removeDegenerateTriangles(geometry);
+    if (!geometry) return null;
+
+    geometry.deleteAttribute('normal');
+    geometry.computeVertexNormals();
+    validateFiniteAttribute(geometry.getAttribute('normal'), `${meshName} normals`);
+
+    // mergeVertices hashes positions and face normals together. Coplanar duplicates are
+    // indexed, while vertices across sharp profile edges remain split.
+    const indexed = modules.mergeVertices(geometry, WELD_TOLERANCE);
+    if (indexed !== geometry) geometry.dispose();
+    geometry = indexed;
+
+    geometry.clearGroups();
+    geometry.addGroup(0, geometry.index?.count || geometry.getAttribute('position').count, 0);
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+
+    return {
+        geometry,
+        simplified,
+        originalTriangles,
+        optimizedTriangles: triangleCountForGeometry(geometry),
+        originalVertices: sourceGeometry.getAttribute('position')?.count || 0,
+        optimizedVertices: geometry.getAttribute('position')?.count || 0
+    };
+}
+
+async function buildPortableExportRoot(sourceRoot, options = {}) {
     sourceRoot.updateWorldMatrix(true, true);
+    const modules = await loadOptimizationModules();
+    const prepared = [];
+    let skippedMeshCount = 0;
+
+    sourceRoot.traverse(object => {
+        if (!object.isMesh || !object.visible) return;
+        const meshName = object.name || `Mesh ${prepared.length + skippedMeshCount + 1}`;
+        const geometry = prepareGeometry(object.geometry, object.matrixWorld, meshName);
+        if (!geometry) {
+            skippedMeshCount += 1;
+            return;
+        }
+        prepared.push({
+            meshName,
+            geometry,
+            materialSource: object.material,
+            triangles: triangleCountForGeometry(geometry)
+        });
+    });
+
+    if (prepared.length === 0) {
+        throw new Error('The configured window does not contain any exportable meshes.');
+    }
+
+    const originalTriangleCount = prepared.reduce((sum, item) => sum + item.triangles, 0);
+    const requestedTarget = Math.max(10000, Math.floor(finiteNumber(options.targetTriangles, DEFAULT_TARGET_TRIANGLES)));
+    const targetTriangles = Math.min(originalTriangleCount, requestedTarget);
+    const protectedTriangles = prepared
+        .filter(item => item.triangles < MIN_SIMPLIFY_TRIANGLES)
+        .reduce((sum, item) => sum + item.triangles, 0);
+    const eligibleTriangles = Math.max(0, originalTriangleCount - protectedTriangles);
+    const eligibleTarget = Math.max(0, targetTriangles - protectedTriangles);
+    const simplifyRatio = eligibleTriangles > 0
+        ? THREE.MathUtils.clamp(eligibleTarget / eligibleTriangles, 0.05, 1)
+        : 1;
 
     const exportRoot = new THREE.Group();
     exportRoot.name = 'Configured window';
     const materialCache = new Map();
     let meshCount = 0;
+    let simplifiedMeshCount = 0;
+    let sourceVertexCount = 0;
     let vertexCount = 0;
     let triangleCount = 0;
-    let skippedMeshCount = 0;
 
-    sourceRoot.traverse(object => {
-        if (!object.isMesh || !object.visible) return;
+    try {
+        for (let index = 0; index < prepared.length; index += 1) {
+            const item = prepared[index];
+            const desiredTriangles = item.triangles < MIN_SIMPLIFY_TRIANGLES
+                ? item.triangles
+                : Math.max(MIN_TRIANGLES_PER_MESH, Math.floor(item.triangles * simplifyRatio));
 
-        const meshName = object.name || `Mesh ${meshCount + skippedMeshCount + 1}`;
-        const geometry = sanitizeGeometry(object.geometry, object.matrixWorld, meshName);
-        if (!geometry) {
-            skippedMeshCount += 1;
-            return;
+            const optimized = await optimizeGeometry(
+                item.geometry,
+                desiredTriangles,
+                item.meshName,
+                modules
+            );
+            if (!optimized) {
+                skippedMeshCount += 1;
+                continue;
+            }
+
+            const material = normalizeMaterial(item.materialSource, materialCache);
+            const mesh = new THREE.Mesh(optimized.geometry, material);
+            mesh.name = item.meshName;
+            mesh.castShadow = false;
+            mesh.receiveShadow = false;
+            exportRoot.add(mesh);
+
+            meshCount += 1;
+            if (optimized.simplified) simplifiedMeshCount += 1;
+            sourceVertexCount += optimized.originalVertices;
+            vertexCount += optimized.optimizedVertices;
+            triangleCount += optimized.optimizedTriangles;
+
+            // Give the browser a chance to repaint the progress text during heavier exports.
+            if (index % 4 === 3) await new Promise(resolve => setTimeout(resolve, 0));
         }
-
-        const material = normalizeMaterial(object.material, materialCache);
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.name = meshName;
-        mesh.castShadow = false;
-        mesh.receiveShadow = false;
-        exportRoot.add(mesh);
-
-        const vertices = geometry.getAttribute('position').count;
-        meshCount += 1;
-        vertexCount += vertices;
-        triangleCount += Math.floor(vertices / 3);
-    });
+    } finally {
+        for (const item of prepared) {
+            if (item.geometry?.attributes?.position) item.geometry.dispose();
+        }
+    }
 
     if (meshCount === 0) {
-        throw new Error('The configured window does not contain any exportable meshes.');
+        throw new Error('Geometry optimization removed every mesh from the configured window.');
     }
 
     exportRoot.updateMatrixWorld(true);
@@ -170,15 +335,15 @@ function buildPortableExportRoot(sourceRoot) {
         exportRoot,
         stats: {
             meshCount,
+            simplifiedMeshCount,
             skippedMeshCount,
             materialCount: materialCache.size,
-            vertexCount,
+            originalTriangleCount,
             triangleCount,
-            dimensionsMeters: {
-                x: size.x,
-                y: size.y,
-                z: size.z
-            },
+            sourceVertexCount,
+            vertexCount,
+            targetTriangles,
+            dimensionsMeters: { x: size.x, y: size.y, z: size.z },
             boundsMeters: {
                 min: { x: min.x, y: min.y, z: min.z },
                 max: { x: max.x, y: max.y, z: max.z }
@@ -247,6 +412,12 @@ export function inspectGLB(arrayBuffer) {
         throw new Error(`The GLB asset version is ${document.asset?.version || 'missing'}, not 2.0.`);
     }
 
+    const unsupportedExtensions = (document.extensionsUsed || []).filter(name => ![
+        'KHR_materials_pbrSpecularGlossiness',
+        'KHR_materials_unlit',
+        'KHR_texture_transform'
+    ].includes(name));
+
     return {
         byteLength: arrayBuffer.byteLength,
         sceneCount: document.scenes?.length || 0,
@@ -255,7 +426,8 @@ export function inspectGLB(arrayBuffer) {
         materialCount: document.materials?.length || 0,
         accessorCount: document.accessors?.length || 0,
         bufferViewCount: document.bufferViews?.length || 0,
-        extensionNames: Array.isArray(document.extensionsUsed) ? document.extensionsUsed : []
+        extensionNames: Array.isArray(document.extensionsUsed) ? document.extensionsUsed : [],
+        unsupportedExtensions
     };
 }
 
@@ -273,9 +445,7 @@ async function validateRoundTrip(arrayBuffer) {
         gltf.scene.traverse(object => {
             if (!object.isMesh) return;
             meshCount += 1;
-            const geometry = object.geometry;
-            if (geometry.index) triangleCount += Math.floor(geometry.index.count / 3);
-            else triangleCount += Math.floor((geometry.getAttribute('position')?.count || 0) / 3);
+            triangleCount += triangleCountForGeometry(object.geometry);
         });
         const bounds = new THREE.Box3().setFromObject(gltf.scene);
         if (meshCount === 0 || bounds.isEmpty()) {
@@ -295,12 +465,13 @@ async function validateRoundTrip(arrayBuffer) {
 export async function createWindowGLB({
     sourceRoot,
     applyPose,
-    maxBytes = DEFAULT_MAX_BYTES
+    maxBytes = DEFAULT_MAX_BYTES,
+    targetTriangles = DEFAULT_TARGET_TRIANGLES
 }) {
     if (!sourceRoot?.isObject3D) throw new TypeError('sourceRoot must be a Three.js Object3D.');
     if (typeof applyPose === 'function') applyPose();
 
-    const { exportRoot, stats } = buildPortableExportRoot(sourceRoot);
+    const { exportRoot, stats } = await buildPortableExportRoot(sourceRoot, { targetTriangles });
     try {
         const arrayBuffer = await exportBinary(exportRoot);
         const structure = inspectGLB(arrayBuffer);
@@ -324,6 +495,12 @@ export async function createWindowGLB({
     }
 }
 
+export async function sha256Hex(arrayBuffer) {
+    if (!globalThis.crypto?.subtle) throw new Error('SHA-256 requires a secure browser context.');
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', arrayBuffer);
+    return Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
+}
+
 export function downloadGLB(arrayBuffer, filename = 'configured-window.glb') {
     const blob = new Blob([arrayBuffer], { type: 'model/gltf-binary' });
     const url = URL.createObjectURL(blob);
@@ -336,10 +513,9 @@ export function downloadGLB(arrayBuffer, filename = 'configured-window.glb') {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Kept for a future own-server deployment. Static Netlify mode does not call it.
 export async function uploadGLB({ endpoint, arrayBuffer, modelName, appBuild }) {
-    if (!endpoint || /REPLACE-WITH-YOUR-WORKER/i.test(endpoint)) {
-        throw new Error('AR model storage is not configured. Set endpoint in ar-upload-config.js after deploying the Cloudflare Worker.');
-    }
+    if (!endpoint) throw new Error('No AR model upload endpoint is configured.');
 
     const response = await fetch(endpoint, {
         method: 'POST',
@@ -355,27 +531,28 @@ export async function uploadGLB({ endpoint, arrayBuffer, modelName, appBuild }) 
     let payload = null;
     try {
         payload = await response.json();
-    } catch (_error) {
-        // Preserve the HTTP status in the error below.
-    }
+    } catch (_error) {}
 
     if (!response.ok || !payload?.modelUrl) {
         throw new Error(payload?.error || `Model upload failed with HTTP ${response.status}.`);
     }
-
     return payload;
 }
 
 export function formatExportStats(stats) {
     const size = stats.dimensionsMeters;
+    const reduction = stats.originalTriangleCount > 0
+        ? 100 * (1 - stats.triangleCount / stats.originalTriangleCount)
+        : 0;
     return [
         `GLB: ${(stats.fileBytes / 1048576).toFixed(2)} MB`,
-        `Meshes: ${stats.meshCount} (${stats.skippedMeshCount} skipped)`,
+        `Meshes: ${stats.meshCount} (${stats.simplifiedMeshCount} simplified, ${stats.skippedMeshCount} skipped)`,
         `Materials: ${stats.materialCount}`,
-        `Triangles: ${stats.triangleCount.toLocaleString()}`,
-        `Vertices: ${stats.vertexCount.toLocaleString()}`,
+        `Triangles: ${stats.originalTriangleCount.toLocaleString()} → ${stats.triangleCount.toLocaleString()} (${reduction.toFixed(1)}% reduction)`,
+        `Indexed vertices: ${stats.sourceVertexCount.toLocaleString()} → ${stats.vertexCount.toLocaleString()}`,
         `Dimensions: ${size.x.toFixed(3)} × ${size.y.toFixed(3)} × ${size.z.toFixed(3)} m`,
         `Round-trip: ${stats.roundTrip.meshCount} meshes / ${stats.roundTrip.triangleCount.toLocaleString()} triangles`,
-        `glTF structure: ${stats.structure.nodeCount} nodes, ${stats.structure.accessorCount} accessors`
+        `glTF structure: ${stats.structure.nodeCount} nodes, ${stats.structure.accessorCount} accessors`,
+        stats.triangleCount > 100000 ? 'Warning: still above Scene Viewer’s recommended 100,000-triangle limit.' : 'Scene Viewer triangle recommendation: passed.'
     ].join('\n');
 }

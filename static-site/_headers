@@ -18,3 +18,8 @@
 /*.glb
   Content-Type: model/gltf-binary
   Access-Control-Allow-Origin: *
+
+/models/*
+  Content-Type: model/gltf-binary
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=31536000, immutable

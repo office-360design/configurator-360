@@ -1,7 +1,7 @@
 {
-  "build": "20260729T075748Z-nogit",
-  "baseCommit": "nogit",
-  "channel": "production-main-plus-scene-viewer-r2",
-  "generatedAt": "2026-07-29T07:57:48.613Z",
-  "architecture": "production configurator -> browser GLB export -> Cloudflare Worker/R2 -> Scene Viewer"
+  "build": "20260729T101828Z-2e2ac54",
+  "baseCommit": "2e2ac54",
+  "channel": "production-main-plus-static-scene-viewer",
+  "generatedAt": "2026-07-29T10:18:28.373Z",
+  "architecture": "production configurator -> optimized browser GLB export -> static Netlify model -> Scene Viewer"
 }
