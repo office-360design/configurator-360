@@ -841,7 +841,7 @@
             </div>
         </div>
 
-        <div class="control-group" style="display: flex; gap: 16px;">
+        <div class="control-group" style="display: flex; gap: 8px;">
             <div style="flex: 1;">
                 <label>Width: </label>
                 <input type="number" id="widthA" value="1.2" min="0.5" max="3.0" step="0.05">
@@ -850,11 +850,6 @@
                 <label>Height: </label>
                 <input type="number" id="heightB" value="1.5" min="0.5" max="3.0" step="0.05">
             </div>
-        </div>
-
-        <div class="control-group">
-            <label>Glass Thickness: <span id="valGlassThickness">24 mm</span></label>
-            <input type="range" id="glassThickness" min="4" max="60" step="1" value="24">
         </div>
 
         <div class="control-group">
@@ -883,6 +878,11 @@
             </div>
         </div>
 
+        <div class="control-group">
+            <label>Glass Thickness: <span id="valGlassThickness">24 mm</span></label>
+            <input type="range" id="glassThickness" min="4" max="60" step="1" value="24">
+        </div>
+
         <details class="clean-dropdown">
             <summary class="clean-dropdown-header"
                 style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
@@ -900,18 +900,18 @@
                     <div style="display: flex; gap: 8px;">
                         <button type="button" id="btnModeBatant" class="handle-side-btn active"
                             style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="30" viewBox="6 3 12 18" fill="none"
-                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="30" viewBox="6 3 12 18"
+                                fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                stroke-linejoin="round">
                                 <rect x="7" y="4" width="10" height="16" stroke-width="1" />
                                 <polyline points="7 4 17 12 7 20" stroke-width="0.6" />
                             </svg>
-                            <span>Side-hung</span>
                         </button>
                         <button type="button" id="btnModeOscilo" class="handle-side-btn"
                             style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <span>Tilt</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="30" viewBox="6 3 12 18" fill="none"
-                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="30" viewBox="6 3 12 18"
+                                fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                stroke-linejoin="round">
                                 <rect x="7" y="4" width="10" height="16" stroke-width="1" />
                                 <polyline points="7 20 12 4 17 20" stroke-width="0.6" />
                             </svg>
@@ -1433,8 +1433,12 @@
             const profiles = await Promise.all(metadata.parts.map(async (part) => {
                 const url = `svg/${profileFolder}/${part.relativeUrl || part.filename}`;
                 const data = await loadSvg(url);
-                const path = data.paths[0];
-                const shapes = SVGLoader.createShapes(path);
+                const shapes = [];
+                if (data.paths) {
+                    for (const path of data.paths) {
+                        shapes.push(...SVGLoader.createShapes(path));
+                    }
+                }
 
                 const layer = part.layer.toLowerCase();
                 const blockName = (part.blockName || '').toLowerCase();
@@ -1480,7 +1484,7 @@
                     parentBlock: part.parentBlock,
                     role: part.role,
                     section: part.section || 'top',
-                    shape: shapes[0],
+                    shape: shapes,
                     baseCadColor,
                     materialKey,
                     explodeOffset: baseExplode,
