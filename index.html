@@ -880,7 +880,7 @@
 
         <div class="control-group">
             <label>Glass Thickness: <span id="valGlassThickness">24 mm</span></label>
-            <input type="range" id="glassThickness" min="4" max="60" step="1" value="24">
+            <input type="range" id="glassThickness" min="16" max="29" step="1" value="24">
         </div>
 
         <details class="clean-dropdown">
@@ -2191,6 +2191,8 @@
                 glassThicknessMm: Number(glassThicknessInput.value),
                 glazingBeadCode: getActiveGlazingBeadCode(),
                 glazingGasket224378ShiftMm: getGlazingBeadArmShiftMm('top'),
+                glassAnchorGasket: '224063',
+                movingGlassSideGasket: '224378',
             };
 
             window.LAST_APPLIED_CONFIGURATION = applied;
@@ -2392,6 +2394,79 @@
         function profileCadCenterY(profile) {
             const bbox = getEffectiveProfileBbox(profile);
             return bbox ? (bbox.minY + bbox.maxY) / 2 : 0;
+        }
+
+        function isFixedGlassAnchorGasket(profile) {
+            return String(profile?.blockName || '').includes('224063');
+        }
+
+        function isMovingGlazingBeadGasket(profile) {
+            return String(profile?.blockName || '').includes('224378');
+        }
+
+        function resolveAnchoredGlassDepth(cavity, thicknessMm, fallbackCenterZ) {
+            if (!cavity) {
+                return {
+                    centerZ: fallbackCenterZ,
+                    anchorGasket: null,
+                    movingGasket: null,
+                    fixedFaceCadX: null,
+                    movingFaceCadX: null,
+                    direction: 0,
+                };
+            }
+
+            const pair = [cavity.leftGasket, cavity.rightGasket];
+            const anchorGasket = pair.find(isFixedGlassAnchorGasket) || null;
+            const movingGasket = pair.find(isMovingGlazingBeadGasket) || null;
+
+            if (!anchorGasket) {
+                return {
+                    centerZ: (cavity.cavityCenterX - currentMetadata.globalCenterX) * S,
+                    anchorGasket: null,
+                    movingGasket,
+                    fixedFaceCadX: null,
+                    movingFaceCadX: null,
+                    direction: 0,
+                };
+            }
+
+            const anchorBbox = getEffectiveProfileBbox(anchorGasket);
+            if (!anchorBbox) {
+                return {
+                    centerZ: (cavity.cavityCenterX - currentMetadata.globalCenterX) * S,
+                    anchorGasket,
+                    movingGasket,
+                    fixedFaceCadX: null,
+                    movingFaceCadX: null,
+                    direction: 0,
+                };
+            }
+
+            const anchorIsLeft = profileCadCenterX(anchorGasket) <= cavity.cavityCenterX;
+            const direction = anchorIsLeft ? 1 : -1;
+
+            // Keep this glass face fixed beside 224063. Only the opposite face
+            // moves when the glass thickness changes.
+            const anchorClearanceMm = 1;
+            const anchorContactCadX = anchorIsLeft
+                ? anchorBbox.maxX
+                : anchorBbox.minX;
+            const fixedFaceCadX =
+                anchorContactCadX + direction * anchorClearanceMm;
+            const movingFaceCadX =
+                fixedFaceCadX + direction * thicknessMm;
+            const centerCadX =
+                (fixedFaceCadX + movingFaceCadX) / 2;
+
+            return {
+                centerZ: (centerCadX - currentMetadata.globalCenterX) * S,
+                anchorGasket,
+                movingGasket,
+                fixedFaceCadX,
+                movingFaceCadX,
+                direction,
+            };
         }
 
         function isPotentialGlazingGasket(profile) {
@@ -2611,14 +2686,25 @@
 
 
 
+            const anchoredDepth = resolveAnchoredGlassDepth(
+                depthCavity,
+                effectiveThicknessMm,
+                fallbackCenterZ
+            );
+
             return {
-                centerZ: (depthCavity.cavityCenterX - currentMetadata.globalCenterX) * S,
+                centerZ: anchoredDepth.centerZ,
                 thicknessMm: effectiveThicknessMm,
                 leftInsetMm: topSideInsetMm,
                 rightInsetMm: topSideInsetMm,
                 topInsetMm: topSideInsetMm,
                 bottomInsetMm,
                 cavity: depthCavity,
+                anchorGasket: anchoredDepth.anchorGasket,
+                movingGasket: anchoredDepth.movingGasket,
+                fixedFaceCadX: anchoredDepth.fixedFaceCadX,
+                movingFaceCadX: anchoredDepth.movingFaceCadX,
+                depthDirection: anchoredDepth.direction,
             };
         }
 
@@ -2764,6 +2850,11 @@
                     rightInsetMm: glassPlacement.rightInsetMm,
                     topInsetMm: glassPlacement.topInsetMm,
                     bottomInsetMm: glassPlacement.bottomInsetMm,
+                    anchorGasketIndex: glassPlacement.anchorGasket?.index ?? null,
+                    movingGasketIndex: glassPlacement.movingGasket?.index ?? null,
+                    fixedFaceCadX: glassPlacement.fixedFaceCadX,
+                    movingFaceCadX: glassPlacement.movingFaceCadX,
+                    depthDirection: glassPlacement.depthDirection,
                 }
                 : null;
 
