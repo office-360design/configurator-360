@@ -1093,7 +1093,7 @@
 
                 <div class="control-group">
                     <label>Opening Angle: <span id="valAngle">0°</span></label>
-                    <input type="range" id="openAngle" min="0" max="1.5" step="0.01" value="0.0">
+                    <input type="range" id="openAngle" min="0" max="80" step="1" value="0">
                 </div>
 
                 <div class="action-box">
@@ -1279,15 +1279,16 @@
         if (isARMode) {
             const width = parseBoundedNumber(pageParams.get('w'), 1.2, 0.5, 3.0);
             const height = parseBoundedNumber(pageParams.get('h'), 1.5, 0.5, 3.0);
-            const angle = parseBoundedNumber(pageParams.get('angle'), 0, 0, 1.5);
             const mode = pageParams.get('mode') === 'oscilo' ? 'oscilo' : 'batant';
+            const maxAngle = mode === 'batant' ? 80 : 15;
+            const angle = parseBoundedNumber(pageParams.get('angle'), 0, 0, maxAngle);
 
             document.getElementById('cadProfile').value = requestedProfile;
             document.getElementById('widthA').value = String(width);
             document.getElementById('heightB').value = String(height);
-            document.getElementById('openAngle').value = String(angle);
             document.getElementById('mBatant').checked = mode === 'batant';
             document.getElementById('mOscilo').checked = mode === 'oscilo';
+            document.getElementById('openAngle').value = String(angle);
             document.getElementById('cExplode').checked = pageParams.get('explode') === '1';
             const glassThickness = parseBoundedNumber(
                 pageParams.get('glass_thickness'),
@@ -1367,6 +1368,18 @@
                 } else {
                     btnOscilo.classList.add('active');
                     btnBatant.classList.remove('active');
+                }
+            }
+
+            const openAngleInput = document.getElementById('openAngle');
+            if (openAngleInput) {
+                const currentVal = parseFloat(openAngleInput.value) || 0;
+                if (isBatant) {
+                    openAngleInput.max = "80";
+                    openAngleInput.value = String(Math.min(80, Math.max(0, currentVal)));
+                } else {
+                    openAngleInput.max = "15";
+                    openAngleInput.value = String(Math.min(15, Math.max(0, currentVal)));
                 }
             }
         }
@@ -3153,12 +3166,13 @@
             const isLeftHandle = selectedHandleSide === 'left';
 
             if (isBatant) {
-                pivotBatant.rotation.y = isLeftHandle ? value : -value;
+                const valRad = Math.min(value, 80) * (Math.PI / 180);
+                pivotBatant.rotation.y = isLeftHandle ? valRad : -valRad;
                 pivotOscilo.rotation.x = 0;
             } else {
                 pivotBatant.rotation.y = 0;
-                const maxOscilo = 15 * (Math.PI / 180);
-                pivotOscilo.rotation.x = Math.min(value * 0.25, maxOscilo);
+                const valRad = Math.min(value, 15) * (Math.PI / 180);
+                pivotOscilo.rotation.x = valRad;
             }
 
             if (handleLeverGroup) {
@@ -3181,23 +3195,24 @@
 
         // ANIMATION & LOOP
         function renderFrame(_time, xrFrame) {
-            const val = parseFloat(document.getElementById('openAngle').value);
+            const val = parseFloat(document.getElementById('openAngle').value) || 0;
             const isBatant = document.getElementById('mBatant').checked;
 
             // UI text update for angle
             const valAngleEl = document.getElementById('valAngle');
-            if (valAngleEl) valAngleEl.innerText = Math.round(val * (180 / Math.PI)) + '°';
+            if (valAngleEl) valAngleEl.innerText = Math.round(val) + '°';
 
             const isLeftHandle = (selectedHandleSide === 'left');
 
             // Opening Physics
             if (isBatant) {
-                pivotBatant.rotation.y = isLeftHandle ? val : -val;
+                const valRad = Math.min(val, 80) * (Math.PI / 180);
+                pivotBatant.rotation.y = isLeftHandle ? valRad : -valRad;
                 pivotOscilo.rotation.x = 0;
             } else {
                 pivotBatant.rotation.y = 0;
-                const maxOscilo = 15 * (Math.PI / 180);
-                pivotOscilo.rotation.x = Math.min(val * 0.25, maxOscilo);
+                const valRad = Math.min(val, 15) * (Math.PI / 180);
+                pivotOscilo.rotation.x = valRad;
             }
 
             const targetRotZ = isBatant
