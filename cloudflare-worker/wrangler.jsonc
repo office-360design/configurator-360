@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "window-ar-model-storage",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-28",
+  "r2_buckets": [
+    {
+      "binding": "MODELS",
+      "bucket_name": "window-ar-models"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://brilliant-klepon-fbae3a.netlify.app,http://localhost:3000"
+  }
+}

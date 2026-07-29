@@ -52,3 +52,10 @@ generated/*.glb
 
 .gemini/
 scratch/
+
+# Cloudflare Worker local state
+cloudflare-worker/node_modules/
+cloudflare-worker/.wrangler/
+
+# Content-addressed local AR models
+generated/**/*.glb

@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="app-build" content="unprepared-main-ar-merge">
     <script>
         if (new URLSearchParams(window.location.search).get('ar') === '1') {
             document.documentElement.classList.add('ar-mode');
@@ -415,7 +416,7 @@
 
         .qr-dialog {
             position: relative;
-            width: min(390px, calc(100vw - 40px));
+            width: min(460px, calc(100vw - 40px));
             box-sizing: border-box;
             padding: 26px;
             border: 1px solid rgba(255, 255, 255, 0.12);
@@ -474,6 +475,69 @@
             font-size: 13px;
             line-height: 1.5;
             text-align: left;
+        }
+
+
+        #qr-export-stats {
+            display: none;
+            margin: 0 0 12px;
+            padding: 12px;
+            border: 1px solid rgba(96, 165, 250, 0.2);
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.8);
+            color: #cbd5e1;
+            font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            text-align: left;
+            white-space: pre-wrap;
+        }
+
+        #qr-launch-link {
+            display: none;
+            margin: 12px 0 0;
+            color: #93c5fd;
+            font-size: 12px;
+            overflow-wrap: anywhere;
+        }
+
+        #qr-download-glb,
+        #qr-check-published {
+            width: 100%;
+            margin-top: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            border-radius: 10px;
+            padding: 10px 12px;
+            background: rgba(30, 41, 59, 0.8);
+            color: #e2e8f0;
+            font: 600 12px 'Outfit', system-ui, sans-serif;
+            cursor: pointer;
+        }
+
+        #qr-check-published {
+            display: none;
+        }
+
+        #qr-download-glb:disabled,
+        #qr-check-published:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+
+        #qr-publish-help {
+            display: none;
+            margin: 0 0 12px;
+            padding: 12px;
+            border: 1px solid rgba(96, 165, 250, 0.35);
+            border-radius: 10px;
+            background: rgba(30, 64, 175, 0.16);
+            color: #dbeafe;
+            font-size: 12px;
+            line-height: 1.5;
+            text-align: left;
+            overflow-wrap: anywhere;
+        }
+
+        #qr-publish-help code {
+            color: #bfdbfe;
         }
 
         #qr-close {
@@ -1073,15 +1137,20 @@
 
     <div id="canvas-container"></div>
 
-    <button id="qr-ar-button" type="button">Scan QR for AR view</button>
+    <button id="qr-ar-button" type="button">Generate AR QR</button>
 
     <div id="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qr-title">
         <div class="qr-dialog">
             <button id="qr-close" type="button" aria-label="Close">×</button>
-            <h3 id="qr-title">View this configuration in AR</h3>
-            <p>The current configuration is converted to a temporary GLB only when this dialog is opened.</p>
-            <div id="qr-status">Preparing the AR model…</div>
+            <h3 id="qr-title">Export and view this window in AR</h3>
+            <p>The browser creates an optimized GLB. In the cost-safe static workflow, download it, place it in <code>static-site/models</code>, redeploy Netlify, then let this dialog verify the public file and create the QR.</p>
+            <div id="qr-status">Preparing the optimized GLB export…</div>
+            <pre id="qr-export-stats"></pre>
+            <div id="qr-publish-help"></div>
             <div id="qr-code"></div>
+            <a id="qr-launch-link" href="#" target="_blank" rel="noopener">Open phone launcher page</a>
+            <button id="qr-download-glb" type="button" disabled>Download optimized GLB</button>
+            <button id="qr-check-published" type="button" disabled>Check published model and create QR</button>
             <div id="qr-error"></div>
         </div>
     </div>
@@ -1126,14 +1195,16 @@
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="./ar-upload-config.js"></script>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+        import { createWindowGLB, downloadGLB, uploadGLB, formatExportStats, sha256Hex } from './ar-export.js';
 
         const pageParams = new URLSearchParams(window.location.search);
+        const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
         const isARMode = pageParams.get('ar') === '1';
         const captureMode = pageParams.get('capture') === '1';
 
@@ -3026,6 +3097,38 @@
             updateComponentPictures();
         }
 
+        function applyCurrentPoseInstantly() {
+            const value = Number.parseFloat(document.getElementById('openAngle').value) || 0;
+            const isBatant = document.getElementById('mBatant').checked;
+            const isLeftHandle = selectedHandleSide === 'left';
+
+            if (isBatant) {
+                pivotBatant.rotation.y = isLeftHandle ? value : -value;
+                pivotOscilo.rotation.x = 0;
+            } else {
+                pivotBatant.rotation.y = 0;
+                const maxOscilo = 15 * (Math.PI / 180);
+                pivotOscilo.rotation.x = Math.min(value * 0.25, maxOscilo);
+            }
+
+            if (handleLeverGroup) {
+                handleLeverGroup.rotation.z = isBatant
+                    ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
+                    : (isLeftHandle ? Math.PI : -Math.PI);
+            }
+
+            const targetExplode = isExploded ? 1 : 0;
+            explodeProgress = targetExplode;
+            explodableObjects.forEach(object => {
+                if (object.userData.basePos && object.userData.explodeDir) {
+                    object.position.copy(object.userData.basePos)
+                        .addScaledVector(object.userData.explodeDir, targetExplode);
+                }
+            });
+
+            mainGroup.updateWorldMatrix(true, true);
+        }
+
         // ANIMATION & LOOP
         function renderFrame(_time, xrFrame) {
             const val = parseFloat(document.getElementById('openAngle').value);
@@ -3130,65 +3233,159 @@
             errorContainer.style.display = 'none';
         }
 
-        function exportCurrentWindowToGLB() {
-            return new Promise((resolve, reject) => {
-                const exporter = new GLTFExporter();
-                const previousVisibility = placementRoot.visible;
-                placementRoot.visible = true;
-                placementRoot.updateMatrixWorld(true);
+        let latestExportedGLB = null;
+        let latestExportFilename = 'configured-window.glb';
+        let latestStaticModelUrl = '';
+        let latestExpectedBytes = 0;
+        let latestModelTitle = 'configured-window';
 
-                exporter.parse(
-                    placementRoot,
-                    result => {
-                        placementRoot.visible = previousVisibility;
-                        if (!(result instanceof ArrayBuffer)) {
-                            reject(new Error('The exporter did not produce a binary GLB file.'));
-                            return;
-                        }
-                        resolve(result);
-                    },
-                    error => {
-                        placementRoot.visible = previousVisibility;
-                        reject(error);
-                    },
-                    {
-                        binary: true,
-                        onlyVisible: true,
-                        truncateDrawRange: true,
-                        maxTextureSize: 2048
-                    }
-                );
-            });
+        function makeExportName() {
+            const profile = document.getElementById('cadProfile').value;
+            const width = document.getElementById('widthA').value;
+            const height = document.getElementById('heightB').value;
+            const mode = document.getElementById('mOscilo').checked ? 'oscilo' : 'batant';
+            const handleSide = selectedHandleSide === 'left' ? 'left-handle' : 'right-handle';
+            const safe = `${profile}-${width}x${height}-${mode}-${handleSide}`
+                .replace(/[^a-zA-Z0-9._-]+/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+            return safe || 'configured-window';
         }
 
-        async function createNativeARLink() {
-            const glb = await exportCurrentWindowToGLB();
-            const response = await fetch('./api/ar-model', {
-                method: 'POST',
-                headers: { 'Content-Type': 'model/gltf-binary' },
-                body: glb
+        function buildSceneViewerLauncherUrl(modelUrl, modelTitle) {
+            const url = new URL('./ar-viewer.html', window.location.href);
+            url.searchParams.set('model', modelUrl);
+            url.searchParams.set('title', modelTitle);
+            url.searchParams.set('build', APP_BUILD);
+            return url.toString();
+        }
+
+        async function generateCurrentWindowGLB() {
+            const config = window.AR_UPLOAD_CONFIG || {};
+            const modelName = makeExportName();
+            const result = await createWindowGLB({
+                sourceRoot: mainGroup,
+                applyPose: applyCurrentPoseInstantly,
+                maxBytes: Number.isFinite(config.maxBytes) ? config.maxBytes : 15 * 1024 * 1024,
+                targetTriangles: Number.isFinite(config.targetTriangles) ? config.targetTriangles : 90000
+            });
+            const hash = await sha256Hex(result.arrayBuffer);
+            latestExportedGLB = result.arrayBuffer;
+            latestExportFilename = `${modelName}-${hash.slice(0, 12)}.glb`;
+            latestModelTitle = modelName;
+            latestExpectedBytes = result.arrayBuffer.byteLength;
+            return { ...result, modelName, hash, filename: latestExportFilename };
+        }
+
+        function buildStaticModelUrl(filename) {
+            const config = window.AR_UPLOAD_CONFIG || {};
+            const directory = String(config.staticModelDirectory || 'models/').replace(/^\/+/, '').replace(/\/*$/, '/');
+            return new URL(`./${directory}${encodeURIComponent(filename)}`, window.location.href).href;
+        }
+
+        async function probePublishedModel(modelUrl, expectedBytes) {
+            let response = await fetch(modelUrl, {
+                method: 'HEAD',
+                cache: 'no-store'
             });
 
-            let payload = {};
-            try {
-                payload = await response.json();
-            } catch (_) { }
-
-            if (!response.ok || !payload.launchUrl) {
-                throw new Error(payload.error || `The AR model service returned HTTP ${response.status}.`);
+            if (response.status === 405) {
+                response = await fetch(modelUrl, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    headers: { Range: 'bytes=0-19' }
+                });
             }
-            return payload.launchUrl;
+
+            if (!response.ok && response.status !== 206) {
+                throw new Error(`The model is not published yet (HTTP ${response.status}).`);
+            }
+
+            const contentType = response.headers.get('content-type') || '';
+            const contentLengthHeader = response.headers.get('content-length');
+            const contentRange = response.headers.get('content-range') || '';
+            let publicBytes = Number.parseInt(contentLengthHeader || '', 10);
+            const rangeMatch = /\/(\d+)$/.exec(contentRange);
+            if (rangeMatch) publicBytes = Number.parseInt(rangeMatch[1], 10);
+
+            if (Number.isFinite(publicBytes) && expectedBytes && publicBytes !== expectedBytes) {
+                throw new Error(`A file exists at that URL, but its size is ${publicBytes} bytes instead of ${expectedBytes}. Redeploy the new GLB.`);
+            }
+
+            if (contentType && !/model\/gltf-binary|application\/octet-stream/i.test(contentType)) {
+                console.warn(`Unexpected GLB Content-Type: ${contentType}`);
+            }
+
+            return { publicBytes, contentType };
+        }
+
+        function completePublishedQR(modelUrl, modelTitle) {
+            const launcherUrl = buildSceneViewerLauncherUrl(modelUrl, modelTitle);
+            renderQRCode(launcherUrl);
+            const launchLink = document.getElementById('qr-launch-link');
+            launchLink.href = launcherUrl;
+            launchLink.style.display = 'inline-block';
+            document.getElementById('qr-publish-help').style.display = 'none';
+            setQRStatus('The public GLB was verified. Scan the QR, then press “Open in AR” on the phone.');
+        }
+
+        function showStaticPublishInstructions(filename, modelUrl) {
+            const help = document.getElementById('qr-publish-help');
+            help.innerHTML = [
+                '<strong>The optimized GLB is ready but is not yet present on Netlify.</strong>',
+                `1. Download <code>${filename}</code>.`,
+                `2. Place it in <code>static-site/models/</code>.`,
+                '3. Redeploy the existing Netlify site.',
+                '4. Return here and press “Check published model and create QR”.',
+                `<br>Expected public URL:<br><code>${modelUrl}</code>`
+            ].join('<br>');
+            help.style.display = 'block';
+            const checkButton = document.getElementById('qr-check-published');
+            checkButton.style.display = 'block';
+            checkButton.disabled = false;
+        }
+
+        async function checkLatestStaticModel() {
+            if (!latestStaticModelUrl) return;
+            const checkButton = document.getElementById('qr-check-published');
+            checkButton.disabled = true;
+            setQRStatus('Checking the published Netlify GLB…');
+            try {
+                await probePublishedModel(latestStaticModelUrl, latestExpectedBytes);
+                completePublishedQR(latestStaticModelUrl, latestModelTitle);
+                checkButton.style.display = 'none';
+            } catch (error) {
+                setQRStatus(error.message);
+                checkButton.disabled = false;
+            }
         }
 
         async function openQRModal() {
             const modal = document.getElementById('qr-modal');
             const qrContainer = document.getElementById('qr-code');
             const errorContainer = document.getElementById('qr-error');
+            const statsContainer = document.getElementById('qr-export-stats');
+            const downloadButton = document.getElementById('qr-download-glb');
+            const checkButton = document.getElementById('qr-check-published');
+            const launchLink = document.getElementById('qr-launch-link');
+            const publishHelp = document.getElementById('qr-publish-help');
+
             modal.classList.add('open');
             qrContainer.innerHTML = '';
             qrContainer.style.display = 'none';
             errorContainer.style.display = 'none';
-            setQRStatus('Generating the current window model…');
+            statsContainer.style.display = 'none';
+            statsContainer.textContent = '';
+            publishHelp.style.display = 'none';
+            publishHelp.innerHTML = '';
+            launchLink.style.display = 'none';
+            launchLink.removeAttribute('href');
+            checkButton.style.display = 'none';
+            checkButton.disabled = true;
+            latestExportedGLB = null;
+            latestStaticModelUrl = '';
+            latestExpectedBytes = 0;
+            downloadButton.disabled = true;
 
             if (!profilesReady) {
                 showQRError('The window profile is still loading. Close this dialog and try again in a moment.');
@@ -3197,27 +3394,40 @@
             }
 
             try {
-                const launchUrl = await createNativeARLink();
-                renderQRCode(launchUrl);
-                setQRStatus('Scan with the phone camera. Android will open the native AR viewer when available.');
-            } catch (nativeError) {
-                console.warn('Native AR model generation is unavailable; trying the browser-only fallback.', nativeError);
+                setQRStatus('1/3 Building and simplifying the current production window for Scene Viewer…');
+                const exported = await generateCurrentWindowGLB();
+                statsContainer.textContent = formatExportStats(exported.stats);
+                statsContainer.style.display = 'block';
+                downloadButton.disabled = false;
 
-                if (window.location.protocol === 'https:') {
-                    try {
-                        renderQRCode(buildWebXRUrl());
-                        setQRStatus('Native model hosting is unavailable. This QR uses the browser WebXR fallback.');
-                        return;
-                    } catch (fallbackError) {
-                        console.error('QR fallback failed:', fallbackError);
-                    }
+                const config = window.AR_UPLOAD_CONFIG || {};
+                if (config.mode === 'api' && config.endpoint) {
+                    setQRStatus('2/3 The optimized GLB passed browser validation. Uploading to the configured server…');
+                    const uploaded = await uploadGLB({
+                        endpoint: config.endpoint,
+                        arrayBuffer: exported.arrayBuffer,
+                        modelName: exported.modelName,
+                        appBuild: APP_BUILD
+                    });
+                    completePublishedQR(uploaded.modelUrl, exported.modelName);
+                    return;
                 }
 
-                setQRStatus('');
-                showQRError(
-                    `${nativeError.message} ` +
-                    'Run this repository on a public HTTPS Node host. GitHub Actions are not required; the included server generates and serves the temporary GLB model.'
-                );
+                latestStaticModelUrl = buildStaticModelUrl(exported.filename);
+                setQRStatus('2/3 The optimized GLB passed browser validation. Checking whether this exact file is already published…');
+                try {
+                    await probePublishedModel(latestStaticModelUrl, latestExpectedBytes);
+                    completePublishedQR(latestStaticModelUrl, exported.modelName);
+                } catch (_notPublished) {
+                    setQRStatus('3/3 Download and publish the optimized GLB, then verify it here. No paid storage service is involved.');
+                    showStaticPublishInstructions(exported.filename, latestStaticModelUrl);
+                }
+            } catch (error) {
+                console.error('GLB export/publish preparation failed:', error);
+                setQRStatus(latestExportedGLB
+                    ? 'The GLB was generated locally, but the publication or QR step failed.'
+                    : 'The GLB export or optimization failed before publication.');
+                showQRError(error.message || 'The configured window could not be prepared for AR.');
             }
         }
 
@@ -3449,6 +3659,10 @@
 
         document.getElementById('qr-ar-button').addEventListener('click', openQRModal);
         document.getElementById('qr-close').addEventListener('click', closeQRModal);
+        document.getElementById('qr-download-glb').addEventListener('click', () => {
+            if (latestExportedGLB) downloadGLB(latestExportedGLB, latestExportFilename);
+        });
+        document.getElementById('qr-check-published').addEventListener('click', checkLatestStaticModel);
         document.getElementById('qr-modal').addEventListener('click', (event) => {
             if (event.target.id === 'qr-modal') closeQRModal();
         });

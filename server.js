@@ -100,12 +100,13 @@ async function getRenderPage() {
     return page;
 }
 
-function sendJson(res, statusCode, payload) {
+function sendJson(res, statusCode, payload, extraHeaders = {}) {
     const body = Buffer.from(JSON.stringify(payload));
     res.writeHead(statusCode, {
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Length': body.length,
         'Cache-Control': 'no-store',
+        ...extraHeaders,
     });
     res.end(body);
 }
@@ -336,6 +337,139 @@ function handleModelUpload(req, res) {
     });
 }
 
+function inspectUploadedGLB(buffer) {
+    if (buffer.length < 20 || buffer.toString('utf8', 0, 4) !== 'glTF') {
+        throw new Error('Missing GLB header.');
+    }
+    const version = buffer.readUInt32LE(4);
+    const declaredLength = buffer.readUInt32LE(8);
+    const jsonLength = buffer.readUInt32LE(12);
+    const jsonType = buffer.readUInt32LE(16);
+    if (version !== 2) throw new Error(`Unsupported GLB version ${version}.`);
+    if (declaredLength !== buffer.length) throw new Error('GLB file length does not match its header.');
+    if (jsonType !== 0x4e4f534a || 20 + jsonLength > buffer.length) {
+        throw new Error('Invalid GLB JSON chunk.');
+    }
+    const document = JSON.parse(
+        buffer.subarray(20, 20 + jsonLength).toString('utf8').replace(/\0+$/g, '').trim()
+    );
+    if (document.asset?.version !== '2.0' || !document.meshes?.length) {
+        throw new Error('The GLB is not a mesh-containing glTF 2.0 asset.');
+    }
+    return {
+        meshes: document.meshes.length,
+        materials: document.materials?.length || 0,
+        nodes: document.nodes?.length || 0,
+    };
+}
+
+function handleContentAddressedModelUpload(req, res) {
+    const chunks = [];
+    let received = 0;
+    let rejected = false;
+
+    req.on('data', chunk => {
+        if (rejected) return;
+        received += chunk.length;
+        if (received > MAX_MODEL_BYTES) {
+            rejected = true;
+            sendJson(res, 413, { error: `The generated GLB exceeds ${MAX_MODEL_BYTES} bytes.` });
+            req.destroy();
+            return;
+        }
+        chunks.push(chunk);
+    });
+
+    req.on('end', () => {
+        if (rejected || res.writableEnded) return;
+        const model = Buffer.concat(chunks);
+        let structure;
+        try {
+            structure = inspectUploadedGLB(model);
+        } catch (error) {
+            sendJson(res, 400, { error: `GLB validation failed: ${error.message}` });
+            return;
+        }
+
+        const hash = crypto.createHash('sha256').update(model).digest('hex');
+        const directory = path.join(GENERATED_DIR, hash.slice(0, 2));
+        const filename = `${hash}.glb`;
+        const filePath = path.join(directory, filename);
+        fs.mkdirSync(directory, { recursive: true });
+        const created = !fs.existsSync(filePath);
+        if (created) fs.writeFileSync(filePath, model);
+
+        const origin = publicOrigin(req);
+        sendJson(res, created ? 201 : 200, {
+            ok: true,
+            created,
+            key: `models/${hash.slice(0, 2)}/${filename}`,
+            modelUrl: `${origin}/models/${hash.slice(0, 2)}/${filename}`,
+            size: model.length,
+            sha256: hash,
+            structure,
+            note: 'This local URL is not reachable from a phone unless the server is exposed over public HTTPS.',
+        });
+    });
+
+    req.on('error', error => {
+        if (!res.writableEnded) sendJson(res, 500, { error: error.message });
+    });
+}
+
+function serveContentAddressedModel(req, res, pathname) {
+    const match = pathname.match(/^\/models\/([a-f0-9]{2})\/([a-f0-9]{64})\.glb$/);
+    if (!match) return false;
+
+    const filePath = path.join(GENERATED_DIR, match[1], `${match[2]}.glb`);
+    if (!fs.existsSync(filePath)) {
+        res.writeHead(404, {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+        });
+        res.end('Not Found');
+        return true;
+    }
+
+    const stat = fs.statSync(filePath);
+    const headers = {
+        'Content-Type': 'model/gltf-binary',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+        'Accept-Ranges': 'bytes',
+        'X-Content-Type-Options': 'nosniff',
+    };
+
+    const range = req.headers.range;
+    if (range) {
+        const parsed = /^bytes=(\d*)-(\d*)$/.exec(range);
+        if (!parsed) {
+            res.writeHead(416, { ...headers, 'Content-Range': `bytes */${stat.size}` });
+            res.end();
+            return true;
+        }
+        const start = parsed[1] ? Number.parseInt(parsed[1], 10) : 0;
+        const end = parsed[2] ? Math.min(Number.parseInt(parsed[2], 10), stat.size - 1) : stat.size - 1;
+        if (start > end || start >= stat.size) {
+            res.writeHead(416, { ...headers, 'Content-Range': `bytes */${stat.size}` });
+            res.end();
+            return true;
+        }
+        headers['Content-Range'] = `bytes ${start}-${end}/${stat.size}`;
+        headers['Content-Length'] = end - start + 1;
+        res.writeHead(206, headers);
+        if (req.method === 'HEAD') res.end();
+        else fs.createReadStream(filePath, { start, end }).pipe(res);
+        return true;
+    }
+
+    headers['Content-Length'] = stat.size;
+    res.writeHead(200, headers);
+    if (req.method === 'HEAD') res.end();
+    else fs.createReadStream(filePath).pipe(res);
+    return true;
+}
+
 function listCadScreenshots(req, res, requestUrl) {
     const allowedProfiles = new Set([
         '2_6_Oeffnungselement_Vertikal',
@@ -431,6 +565,26 @@ const server = http.createServer(async (req, res) => {
         const requestUrl = new URL(req.url, `http://${req.headers.host || `localhost:${PORT}`}`);
         const pathname = decodeURIComponent(requestUrl.pathname);
 
+        if (req.method === 'OPTIONS' && pathname === '/api/models') {
+            res.writeHead(204, {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, X-Model-Name, X-App-Build',
+                'Access-Control-Max-Age': '86400',
+            });
+            res.end();
+            return;
+        }
+
+        if (req.method === 'POST' && pathname === '/api/models') {
+            handleContentAddressedModelUpload(req, res);
+            return;
+        }
+
+        if ((req.method === 'GET' || req.method === 'HEAD') && serveContentAddressedModel(req, res, pathname)) {
+            return;
+        }
+
         if (req.method === 'GET' && pathname === '/health') {
             sendJson(res, 200, { ok: true });
             return;
@@ -473,6 +627,7 @@ setInterval(cleanupExpiredModels, 60 * 60 * 1000).unref();
 server.listen(PORT, HOST, () => {
     console.log(`Window Configurator: http://localhost:${PORT}/`);
     console.log(`Render endpoint:     POST http://localhost:${PORT}/api/render`);
+    console.log(`Local AR upload:     POST http://localhost:${PORT}/api/models`);
 
     // Automatically open browser (if not in a headless/automated environment)
     if (!process.env.PORT && !process.env.HOST) {
