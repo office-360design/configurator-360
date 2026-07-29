@@ -854,7 +854,7 @@
 
         <div class="control-group">
             <label>Glass Thickness: <span id="valGlassThickness">24 mm</span></label>
-            <input type="range" id="glassThickness" min="4" max="60" step="1" value="24">
+            <input type="range" id="glassThickness" min="16" max="29" step="1" value="24">
         </div>
 
         <div class="control-group">
@@ -1111,8 +1111,8 @@
             const glassThickness = parseBoundedNumber(
                 pageParams.get('glass_thickness'),
                 24,
-                4,
-                60
+                16,
+                29
             );
             document.getElementById('glassThickness').value = String(glassThickness);
             const handleSide = pageParams.get('handle_side') === 'left' ? 'left' : 'right';
@@ -1171,7 +1171,7 @@
         }
         if (Number.isFinite(requestedGlassThickness)) {
             glassThicknessInput.value = String(
-                Math.min(60, Math.max(4, requestedGlassThickness))
+                Math.min(29, Math.max(16, requestedGlassThickness))
             );
         }
 
@@ -1419,6 +1419,163 @@
             });
         }
 
+        const GLAZING_BEAD_BY_THICKNESS = [
+            { min: 16, max: 19, code: '573940' },
+            { min: 20, max: 24, code: '573930' },
+            { min: 25, max: 29, code: '573920' },
+        ];
+
+        function getGlazingBeadCode(thicknessMm) {
+            const thickness = Number(thicknessMm);
+            const match = GLAZING_BEAD_BY_THICKNESS.find(
+                item => thickness >= item.min && thickness <= item.max
+            );
+            return match?.code || (thickness < 20 ? '573940' : thickness < 25 ? '573930' : '573920');
+        }
+
+        function isGlazingBeadProfile(profile) {
+            const name = String(profile.blockName || '');
+            return /5739(?:20|30|40)/.test(name) || profile.isGlazingBeadTemplate === true;
+        }
+
+        function isGlazingBeadChild(profile) {
+            return String(profile.blockName || '').includes('244511');
+        }
+
+        function getActiveGlazingBeadCode() {
+            return getGlazingBeadCode(Number(glassThicknessInput?.value) || 24);
+        }
+
+        function getProfileShape(profile) {
+            if (!profile.isGlazingBeadTemplate || !profile.beadShapes) {
+                return profile.shape;
+            }
+            return profile.beadShapes[getActiveGlazingBeadCode()] || profile.shape;
+        }
+
+        const shapeBoundsCache = new WeakMap();
+
+        function getShapeBounds(shape) {
+            if (!shape) return null;
+
+            if (shapeBoundsCache.has(shape)) {
+                return shapeBoundsCache.get(shape);
+            }
+
+            const points = shape.getPoints(64);
+            if (!points.length) return null;
+
+            const bounds = new THREE.Box2();
+            bounds.setFromPoints(points);
+            shapeBoundsCache.set(shape, bounds);
+            return bounds;
+        }
+
+        const glazingBeadArmShiftCache = new Map();
+
+        function getGlazingBeadArmShiftMm(section = 'top') {
+            const activeCode = getActiveGlazingBeadCode();
+            const cacheKey = `${section}:${activeCode}`;
+
+            if (glazingBeadArmShiftCache.has(cacheKey)) {
+                return glazingBeadArmShiftCache.get(cacheKey);
+            }
+
+            const template = profilesData.find(profile =>
+                profile.isGlazingBeadTemplate
+                && profile.section === section
+            );
+
+            if (!template?.beadShapes) {
+                return 0;
+            }
+
+            const referenceShape = template.beadShapes['573940'] || template.shape;
+            const activeShape = template.beadShapes[activeCode] || referenceShape;
+
+            const referenceBounds = getShapeBounds(referenceShape);
+            const activeBounds = getShapeBounds(activeShape);
+
+            if (!referenceBounds || !activeBounds) {
+                return 0;
+            }
+
+            const shiftMm = activeBounds.min.x - referenceBounds.min.x;
+            glazingBeadArmShiftCache.set(cacheKey, shiftMm);
+            return shiftMm;
+        }
+
+        function getProfileCadXShiftMm(profile) {
+            const blockName = String(profile.blockName || '');
+
+            if (blockName.includes('224378')) {
+                return getGlazingBeadArmShiftMm(profile.section || 'top');
+            }
+
+            return 0;
+        }
+
+        function getEffectiveProfileBbox(profile) {
+            if (!profile?.bbox) return null;
+
+            const shiftX = getProfileCadXShiftMm(profile);
+            return {
+                minX: Number(profile.bbox.minX) + shiftX,
+                maxX: Number(profile.bbox.maxX) + shiftX,
+                minY: Number(profile.bbox.minY),
+                maxY: Number(profile.bbox.maxY),
+            };
+        }
+
+        function getDisplayedBlockName(profile) {
+            if (profile.isGlazingBeadTemplate) {
+                const suffix = profile.section === 'bottom' ? '_s_inst1' : '_s';
+                return `${getActiveGlazingBeadCode()}${suffix}`;
+            }
+            return profile.blockName;
+        }
+
+        function getDisplayedParentBlock(profile) {
+            if (isGlazingBeadChild(profile)) {
+                return `${getActiveGlazingBeadCode()}_s`;
+            }
+            return profile.parentBlock;
+        }
+
+        async function loadFirstAvailableSvg(urls) {
+            let lastError = null;
+            for (const url of urls) {
+                try {
+                    return await loadSvg(url);
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+            throw lastError || new Error(`None of the SVG candidates could be loaded: ${urls.join(', ')}`);
+        }
+
+        async function loadGlazingBeadShape(profileFolder, code, section) {
+            const isBottom = section === 'bottom';
+            const filename = `${code}_s${isBottom ? '_inst1' : ''}.svg`;
+
+            const candidates = [
+                `svg/${profileFolder}/${code}_s/${filename}`,
+                `svg/${profileFolder}/${code}/${filename}`,
+                `svg/${profileFolder}/${code}_s/${code}_s/${filename}`,
+            ];
+
+            const data = await loadFirstAvailableSvg(candidates);
+            const path = data.paths[0];
+            if (!path) {
+                throw new Error(`No SVG path was found in ${filename}.`);
+            }
+            const shapes = SVGLoader.createShapes(path);
+            if (!shapes.length) {
+                throw new Error(`No closed shape was found in ${filename}.`);
+            }
+            return shapes[0];
+        }
+
         async function getProfileDefinition(profileFolder) {
             if (profileCache.has(profileFolder)) {
                 return profileCache.get(profileFolder);
@@ -1473,14 +1630,43 @@
                     baseExplode = 0.18;
                 }
 
+                const section = part.section || 'top';
+                const isGlazingBeadTemplate =
+                    String(part.blockName || '').includes('573940');
+
+                let beadShapes = null;
+                if (isGlazingBeadTemplate) {
+                    beadShapes = {
+                        '573940': shapes[0],
+                    };
+
+                    for (const beadCode of ['573930', '573920']) {
+                        try {
+                            beadShapes[beadCode] = await loadGlazingBeadShape(
+                                profileFolder,
+                                beadCode,
+                                section
+                            );
+                        } catch (error) {
+                            console.warn(
+                                `Could not load glazing bead ${beadCode} (${section}); ` +
+                                '573940 will be used as a fallback.',
+                                error
+                            );
+                        }
+                    }
+                }
+
                 return {
                     index: part.index,
                     layer: part.layer,
                     blockName: part.blockName || `Part ${part.index}`,
                     parentBlock: part.parentBlock,
                     role: part.role,
-                    section: part.section || 'top',
+                    section,
                     shape: shapes[0],
+                    beadShapes,
+                    isGlazingBeadTemplate,
                     baseCadColor,
                     materialKey,
                     explodeOffset: baseExplode,
@@ -1492,6 +1678,37 @@
             const definition = { metadata, profiles };
             profileCache.set(profileFolder, definition);
             return definition;
+        }
+
+        function updateGlazingBeadToggleLabels() {
+            profilesData.forEach(profile => {
+                if (!profile.isGlazingBeadTemplate && !isGlazingBeadChild(profile)) {
+                    return;
+                }
+
+                const checkbox = document.getElementById(`toggle_${profile.index}`);
+                const item = checkbox?.closest('.part-toggle-item');
+                const textContainer = item?.querySelector(':scope > span');
+                if (!textContainer) return;
+
+                const colorDot = textContainer.querySelector('.part-color-dot');
+                const displayedBlockName = getDisplayedBlockName(profile);
+                const displayedParentBlock = getDisplayedParentBlock(profile);
+                const labelText = displayedParentBlock
+                    ? `${displayedParentBlock} / ${displayedBlockName}`
+                    : displayedBlockName;
+
+                textContainer.textContent = '';
+                if (colorDot) {
+                    textContainer.appendChild(colorDot);
+                } else {
+                    const dot = document.createElement('span');
+                    dot.className = 'part-color-dot';
+                    dot.style.backgroundColor = resolveDisplayColour(profile);
+                    textContainer.appendChild(dot);
+                }
+                textContainer.appendChild(document.createTextNode(labelText));
+            });
         }
 
         function renderPartToggles() {
@@ -1541,7 +1758,11 @@
                     item.className = 'part-toggle-item';
 
                     const colorDot = resolveDisplayColour(profile);
-                    const labelText = profile.parentBlock ? `${profile.parentBlock} / ${profile.blockName}` : profile.blockName;
+                    const displayedBlockName = getDisplayedBlockName(profile);
+                    const displayedParentBlock = getDisplayedParentBlock(profile);
+                    const labelText = displayedParentBlock
+                        ? `${displayedParentBlock} / ${displayedBlockName}`
+                        : displayedBlockName;
                     const isRequestedPartActive = !isARMode
                         || requestedActiveParts === null
                         || requestedActiveParts.has(String(profile.index));
@@ -1927,7 +2148,7 @@
                 && Number.isFinite(configuration.glassThicknessMm)
             ) {
                 glassThicknessInput.value = String(
-                    Math.min(60, Math.max(4, configuration.glassThicknessMm))
+                    Math.min(29, Math.max(16, configuration.glassThicknessMm))
                 );
             }
             if (typeof configuration.colour === 'string') {
@@ -1964,6 +2185,8 @@
                 colour: configurationColour || '#e2e8f0',
                 profile: profileInput.value,
                 glassThicknessMm: Number(glassThicknessInput.value),
+                glazingBeadCode: getActiveGlazingBeadCode(),
+                glazingGasket224378ShiftMm: getGlazingBeadArmShiftMm('top'),
             };
 
             window.LAST_APPLIED_CONFIGURATION = applied;
@@ -2001,7 +2224,11 @@
             }
             const blockName = (profile.blockName || '').toLowerCase();
             if (profile.role === 'sash') {
-                if (blockName.includes('573940') || blockName.includes('244511') || blockName.includes('224378')) {
+                if (
+                    isGlazingBeadProfile(profile)
+                    || blockName.includes('244511')
+                    || blockName.includes('224378')
+                ) {
                     return 'bead';
                 }
                 return 'sash';
@@ -2012,7 +2239,7 @@
         // 3D SAMPLE EXTRUSION GENERATOR (10CM)
         function createSampleExtrusion(profile) {
             const extrudeSettings = { depth: 0.1, bevelEnabled: false, curveSegments: 8, steps: 1 };
-            const geom = new THREE.ExtrudeGeometry(profile.shape, extrudeSettings);
+            const geom = new THREE.ExtrudeGeometry(getProfileShape(profile), extrudeSettings);
             const posAttribute = geom.attributes.position;
             const v = new THREE.Vector3();
 
@@ -2020,7 +2247,7 @@
                 v.fromBufferAttribute(posAttribute, i);
 
                 // Reconstruct CAD coordinates from SVG Space (X=x, Y=-y)
-                let x_cad = v.x;
+                let x_cad = v.x + getProfileCadXShiftMm(profile);
                 let y_cad = -v.y;
 
                 // Center X coordinates around 0
@@ -2063,7 +2290,7 @@
             const length = isHorizontal ? lengthA : lengthB;
 
             const extrudeSettings = { depth: length, bevelEnabled: false, curveSegments: 8, steps: 1 };
-            const geom = new THREE.ExtrudeGeometry(profile.shape, extrudeSettings);
+            const geom = new THREE.ExtrudeGeometry(getProfileShape(profile), extrudeSettings);
 
             const posAttribute = geom.attributes.position;
             const v = new THREE.Vector3();
@@ -2072,7 +2299,7 @@
                 v.fromBufferAttribute(posAttribute, i);
 
                 // Reconstruct CAD coordinates from SVG Space (X=x, Y=-y)
-                let x_cad = v.x;
+                let x_cad = v.x + getProfileCadXShiftMm(profile);
                 let y_cad = -v.y;
 
                 // Center X coordinates around 0
@@ -2154,20 +2381,23 @@
         scene.add(sectionGroup);
 
         function profileCadCenterX(profile) {
-            return (Number(profile.bbox.minX) + Number(profile.bbox.maxX)) / 2;
+            const bbox = getEffectiveProfileBbox(profile);
+            return bbox ? (bbox.minX + bbox.maxX) / 2 : 0;
         }
 
         function profileCadCenterY(profile) {
-            return (Number(profile.bbox.minY) + Number(profile.bbox.maxY)) / 2;
+            const bbox = getEffectiveProfileBbox(profile);
+            return bbox ? (bbox.minY + bbox.maxY) / 2 : 0;
         }
 
         function isPotentialGlazingGasket(profile) {
+            const effectiveBbox = getEffectiveProfileBbox(profile);
             if (
-                !profile.bbox
-                || !Number.isFinite(Number(profile.bbox.minX))
-                || !Number.isFinite(Number(profile.bbox.maxX))
-                || !Number.isFinite(Number(profile.bbox.minY))
-                || !Number.isFinite(Number(profile.bbox.maxY))
+                !effectiveBbox
+                || !Number.isFinite(effectiveBbox.minX)
+                || !Number.isFinite(effectiveBbox.maxX)
+                || !Number.isFinite(effectiveBbox.minY)
+                || !Number.isFinite(effectiveBbox.maxY)
             ) {
                 return false;
             }
@@ -2221,9 +2451,15 @@
                 for (let rightIndex = leftIndex + 1; rightIndex < gasketProfiles.length; rightIndex += 1) {
                     const leftGasket = gasketProfiles[leftIndex];
                     const rightGasket = gasketProfiles[rightIndex];
+                    const leftBbox = getEffectiveProfileBbox(leftGasket);
+                    const rightBbox = getEffectiveProfileBbox(rightGasket);
 
-                    const cavityMinX = Number(leftGasket.bbox.maxX);
-                    const cavityMaxX = Number(rightGasket.bbox.minX);
+                    if (!leftBbox || !rightBbox) {
+                        continue;
+                    }
+
+                    const cavityMinX = leftBbox.maxX;
+                    const cavityMaxX = rightBbox.minX;
                     const cavityWidthMm = cavityMaxX - cavityMinX;
 
                     if (!Number.isFinite(cavityWidthMm) || cavityWidthMm < 4 || cavityWidthMm > 80) {
@@ -2234,12 +2470,12 @@
                     // height. This rejects unrelated seals that merely happen to be
                     // separated along the CAD X/depth axis.
                     const overlapMinY = Math.max(
-                        Number(leftGasket.bbox.minY),
-                        Number(rightGasket.bbox.minY)
+                        leftBbox.minY,
+                        rightBbox.minY
                     );
                     const overlapMaxY = Math.min(
-                        Number(leftGasket.bbox.maxY),
-                        Number(rightGasket.bbox.maxY)
+                        leftBbox.maxY,
+                        rightBbox.maxY
                     );
                     const overlapHeightMm = overlapMaxY - overlapMinY;
 
@@ -2248,8 +2484,8 @@
                     }
 
                     const smallerGasketHeightMm = Math.min(
-                        Number(leftGasket.bbox.maxY) - Number(leftGasket.bbox.minY),
-                        Number(rightGasket.bbox.maxY) - Number(rightGasket.bbox.minY)
+                        leftBbox.maxY - leftBbox.minY,
+                        rightBbox.maxY - rightBbox.minY
                     );
                     const overlapRatio = overlapHeightMm / Math.max(0.001, smallerGasketHeightMm);
 
@@ -2270,12 +2506,12 @@
                         || 'top';
 
                     const leftEdgeInsetMm = Math.min(
-                        cadYToInwardDistanceMm(Number(leftGasket.bbox.minY), resolvedSection),
-                        cadYToInwardDistanceMm(Number(leftGasket.bbox.maxY), resolvedSection)
+                        cadYToInwardDistanceMm(leftBbox.minY, resolvedSection),
+                        cadYToInwardDistanceMm(leftBbox.maxY, resolvedSection)
                     );
                     const rightEdgeInsetMm = Math.min(
-                        cadYToInwardDistanceMm(Number(rightGasket.bbox.minY), resolvedSection),
-                        cadYToInwardDistanceMm(Number(rightGasket.bbox.maxY), resolvedSection)
+                        cadYToInwardDistanceMm(rightBbox.minY, resolvedSection),
+                        cadYToInwardDistanceMm(rightBbox.maxY, resolvedSection)
                     );
 
                     // Extend the pane to the outermost gasket lip, then seat it
@@ -2327,12 +2563,12 @@
 
             const depthCavity = topCavity || bottomCavity || defaultCavity;
             const requestedThicknessMm = Math.min(
-                60,
-                Math.max(4, Number.parseFloat(glassThicknessInput.value) || 24)
+                29,
+                Math.max(16, Number.parseFloat(glassThicknessInput.value) || 24)
             );
 
             if (!depthCavity) {
-                glassThicknessInput.max = '60';
+                glassThicknessInput.max = '29';
                 glassThicknessInput.value = String(requestedThicknessMm);
                 if (glassThicknessLabel) {
                     glassThicknessLabel.textContent = `${requestedThicknessMm.toFixed(0)} mm`;
@@ -2349,14 +2585,13 @@
                 };
             }
 
-            const clearanceMm = 1;
-            const maximumThicknessMm = Math.max(4, depthCavity.cavityWidthMm - clearanceMm);
-            const effectiveThicknessMm = Math.min(requestedThicknessMm, maximumThicknessMm);
+            // The available bead catalogue defines the supported range.
+            // Do not let the legacy cavity-width heuristic reduce the UI maximum.
+            const effectiveThicknessMm = Math.min(29, Math.max(16, requestedThicknessMm));
 
-            glassThicknessInput.max = String(Math.max(4, Math.floor(maximumThicknessMm)));
-            glassThicknessInput.value = String(
-                Math.max(4, Math.min(effectiveThicknessMm, Number(glassThicknessInput.max)))
-            );
+            glassThicknessInput.min = '16';
+            glassThicknessInput.max = '29';
+            glassThicknessInput.value = String(effectiveThicknessMm);
             if (glassThicknessLabel) {
                 glassThicknessLabel.textContent = `${effectiveThicknessMm.toFixed(0)} mm`;
             }
@@ -2410,7 +2645,8 @@
                 return toggle ? toggle.checked : true;
             });
 
-            updateColorFilterToggles();
+            // Colour-filter controls only need synchronization after explicit
+            // component/filter changes, not during every glass slider frame.
 
             // Rebuild 3D sample extrusion only in the desktop configurator.
             if (!isARMode && !captureMode) {
@@ -2911,7 +3147,36 @@
         // EVENT LISTENERS
         document.getElementById('widthA').addEventListener('input', buildWindow);
         document.getElementById('heightB').addEventListener('input', buildWindow);
-        document.getElementById('glassThickness').addEventListener('input', buildWindow);
+        let pendingGlassThicknessFrame = null;
+        let lastRenderedGlazingBeadCode = getActiveGlazingBeadCode();
+
+        document.getElementById('glassThickness').addEventListener('input', () => {
+            const thickness = Math.min(
+                29,
+                Math.max(16, Number.parseFloat(glassThicknessInput.value) || 24)
+            );
+            glassThicknessInput.value = String(thickness);
+
+            if (glassThicknessLabel) {
+                glassThicknessLabel.textContent = `${thickness.toFixed(0)} mm`;
+            }
+
+            if (pendingGlassThicknessFrame !== null) {
+                return;
+            }
+
+            pendingGlassThicknessFrame = requestAnimationFrame(() => {
+                pendingGlassThicknessFrame = null;
+
+                const nextBeadCode = getActiveGlazingBeadCode();
+                if (nextBeadCode !== lastRenderedGlazingBeadCode) {
+                    lastRenderedGlazingBeadCode = nextBeadCode;
+                    updateGlazingBeadToggleLabels();
+                }
+
+                buildWindow();
+            });
+        });
         document.getElementById('cExplode').addEventListener('change', (e) => { isExploded = e.target.checked; });
         document.getElementById('mBatant').addEventListener('change', buildWindow);
         document.getElementById('mOscilo').addEventListener('change', buildWindow);
