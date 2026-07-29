@@ -1,0 +1,30 @@
+Production-priority merge verification
+====================================
+
+UNCHANGED  README.md
+UNCHANGED  README_API.md
+UNCHANGED  README_CAD_SCREENSHOTS.md
+UNCHANGED  README_FAST.md
+UNCHANGED  Dockerfile
+UNCHANGED  render.yaml
+UNCHANGED  ar.html
+UNCHANGED  convert.js
+UNCHANGED  generate_screenshots_json.js
+UNCHANGED  test_convert.js
+UNCHANGED  lib/three.module.js
+UNCHANGED  lib/controls/OrbitControls.js
+UNCHANGED  lib/loaders/SVGLoader.js
+UNCHANGED  lib/exporters/GLTFExporter.js
+UNCHANGED  svg/2_4_Oeffnungselemnt_Vertikal/metadata.json
+UNCHANGED  svg/2_5_Oeffnungselemnt_Vertikal/metadata.json
+UNCHANGED  svg/2_6_Oeffnungselemnt_Vertikal/metadata.json
+UNCHANGED  cad_screenshots/2_4_Oeffnungselemnt_Vertikal/images.json
+
+Expected intentionally changed production files:
+- index.html (AR export/upload integration only)
+- server.js (additive /api/models and /models routes)
+- package.json (additive scripts)
+- .gitignore (additive Worker/model ignores)
+- .github/workflows/deploy-pages.yml (copies added AR runtime files)
+
+Exact-path source-data conflicts were retained from main.

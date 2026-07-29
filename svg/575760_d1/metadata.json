@@ -1,0 +1,59 @@
+{
+  "dwgName": "575760_d1.dwg",
+  "isVertical": false,
+  "globalMinX": -69.42836150067922,
+  "globalMaxX": 119.9188870895117,
+  "globalMinY": 116.9612488330106,
+  "globalMaxY": 181.9612488330106,
+  "globalCenterX": 25.24526279441624,
+  "parts": [
+    {
+      "index": 0,
+      "filename": "part_0.svg",
+      "layer": "S03_AL_Kontur",
+      "role": "frame",
+      "bbox": {
+        "minX": 62.91888708951177,
+        "minY": 116.9612488330106,
+        "maxX": 119.9188870895117,
+        "maxY": 133.2605843207599
+      }
+    },
+    {
+      "index": 1,
+      "filename": "part_1.svg",
+      "layer": "S03_AL_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 62.91888708951174,
+        "minY": 160.1619133452612,
+        "maxX": 94.91888708951174,
+        "maxY": 181.9612488330106
+      }
+    },
+    {
+      "index": 2,
+      "filename": "part_2.svg",
+      "layer": "S07_Isolation_Kontur",
+      "role": "frame",
+      "bbox": {
+        "minX": -69.42836150067922,
+        "minY": 129.4712488330106,
+        "maxX": -63.11888708951176,
+        "maxY": 163.9512488330106
+      }
+    },
+    {
+      "index": 3,
+      "filename": "part_3.svg",
+      "layer": "S07_Isolation_Kontur",
+      "role": "frame",
+      "bbox": {
+        "minX": 83.60941267834434,
+        "minY": 129.4712488330106,
+        "maxX": 94.71888708951178,
+        "maxY": 163.9512488330106
+      }
+    }
+  ]
+}

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "install-browser": "npx playwright install chromium",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare:static": "node prepare_static_site.js",
+    "check:merged": "node --check server.js && node --check prepare_static_site.js && node --check ar-export.js && node --check cloudflare-worker/src/index.js"
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,227 @@
+{
+  "dwgName": "AW_CT_65_Oeffnungselement_vertikal.dwg",
+  "isVertical": true,
+  "globalMinX": 31.3101012291487,
+  "globalMaxX": 106.3176111903395,
+  "globalMinY": 145.1505277685413,
+  "globalMaxY": 245.3286561877126,
+  "globalCenterX": 68.8138562097441,
+  "parts": [
+    {
+      "index": 0,
+      "filename": "part_0.svg",
+      "layer": "S05_EPDM_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 42.51572518039334,
+        "minY": 195.1752103297341,
+        "maxX": 56.56772718039334,
+        "maxY": 218.022091187716
+      }
+    },
+    {
+      "index": 1,
+      "filename": "part_1.svg",
+      "layer": "S05_EPDM_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 33.63765685597417,
+        "minY": 188.3958105833204,
+        "maxX": 40.9507112112048,
+        "maxY": 195.6281009038623
+      }
+    },
+    {
+      "index": 2,
+      "filename": "part_2.svg",
+      "layer": "S05_EPDM_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 33.3173335291507,
+        "minY": 145.5343702051582,
+        "maxX": 40.11360552915069,
+        "maxY": 158.5750502051582
+      }
+    },
+    {
+      "index": 3,
+      "filename": "part_3.svg",
+      "layer": "S05_EPDM_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 66.63003719034093,
+        "minY": 145.1505277685413,
+        "maxX": 75.9814870900873,
+        "maxY": 158.4520567691665
+      }
+    },
+    {
+      "index": 4,
+      "filename": "part_4.svg",
+      "layer": "S05_EPDM_Kontur",
+      "role": "frame",
+      "bbox": {
+        "minX": 96.88935282077483,
+        "minY": 210.828514115757,
+        "maxX": 104.49761119034,
+        "maxY": 218.0608044362989
+      }
+    },
+    {
+      "index": 5,
+      "filename": "part_5.svg",
+      "layer": "S03_AL_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 74.31761119033953,
+        "minY": 147.3286561877107,
+        "maxX": 106.3176111903395,
+        "maxY": 173.5055792646338
+      }
+    },
+    {
+      "index": 6,
+      "filename": "part_6.svg",
+      "layer": "S07_Isolation_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 50.61769418038734,
+        "minY": 201.6136393327416,
+        "maxX": 67.21769418038734,
+        "maxY": 218.0761499062658
+      }
+    },
+    {
+      "index": 7,
+      "filename": "part_7.svg",
+      "layer": "S03_AL_Kontur",
+      "role": "frame",
+      "bbox": {
+        "minX": 31.31769418038734,
+        "minY": 188.3286561877125,
+        "maxX": 47.61702966813671,
+        "maxY": 245.3286561877126
+      }
+    },
+    {
+      "index": 8,
+      "filename": "part_8.svg",
+      "layer": "S03_AL_Kontur",
+      "role": "frame",
+      "bbox": {
+        "minX": 74.51835869263799,
+        "minY": 213.3286561877125,
+        "maxX": 96.31769418038736,
+        "maxY": 245.3286561877125
+      }
+    },
+    {
+      "index": 9,
+      "filename": "part_9.svg",
+      "layer": "S03_AL_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 31.3101012291487,
+        "minY": 149.3286561877107,
+        "maxX": 46.80943671689767,
+        "maxY": 191.8286561877109
+      }
+    },
+    {
+      "index": 10,
+      "filename": "part_10.svg",
+      "layer": "S03_AL_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 85.21076574139934,
+        "minY": 169.3286561877107,
+        "maxX": 106.3101012291487,
+        "maxY": 218.3286561877107
+      }
+    },
+    {
+      "index": 11,
+      "filename": "part_11.svg",
+      "layer": "S05_EPDM_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 93.81761119033956,
+        "minY": 169.4681875520958,
+        "maxX": 93.81761119033956,
+        "maxY": 171.3891248233256
+      }
+    },
+    {
+      "index": 12,
+      "filename": "part_12.svg",
+      "layer": "S07_Isolation_Kontur",
+      "role": "frame",
+      "bbox": {
+        "minX": 43.82769418038735,
+        "minY": 238.8191817765451,
+        "maxX": 78.30769418038736,
+        "maxY": 245.1286561877125
+      }
+    },
+    {
+      "index": 13,
+      "filename": "part_13.svg",
+      "layer": "S07_Isolation_Kontur",
+      "role": "frame",
+      "bbox": {
+        "minX": 43.72769418038734,
+        "minY": 213.5261499062658,
+        "maxX": 78.30769418038734,
+        "maxY": 227.2261499062658
+      }
+    },
+    {
+      "index": 14,
+      "filename": "part_14.svg",
+      "layer": "S35_Dämmung_Kontur",
+      "role": "frame",
+      "bbox": {
+        "minX": 54.51769418038735,
+        "minY": 220.3261499062658,
+        "maxX": 69.51769418038735,
+        "maxY": 242.5261499062658
+      }
+    },
+    {
+      "index": 15,
+      "filename": "part_15.svg",
+      "layer": "S07_Isolation_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 43.0201012291481,
+        "minY": 183.0191817765434,
+        "maxX": 90.0001012291481,
+        "maxY": 201.3286561877109
+      }
+    },
+    {
+      "index": 16,
+      "filename": "part_16.svg",
+      "layer": "S07_Isolation_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 43.02010122914839,
+        "minY": 168.4286561877109,
+        "maxX": 89.00010122914838,
+        "maxY": 178.4286561877109
+      }
+    },
+    {
+      "index": 17,
+      "filename": "part_17.svg",
+      "layer": "S35_Dämmung_Kontur",
+      "role": "sash",
+      "bbox": {
+        "minX": 58.51010122914839,
+        "minY": 171.5286561877109,
+        "maxX": 73.51010122914839,
+        "maxY": 186.4286561877109
+      }
+    }
+  ]
+}
