@@ -35,6 +35,7 @@ jobs:
           cp -R svg _site/svg
           cp -R lib _site/lib
           if [ -d cad_screenshots ]; then cp -R cad_screenshots _site/cad_screenshots; fi
+          if [ -d icons ]; then cp -R icons _site/icons; fi
           touch _site/.nojekyll
 
       - name: Configure GitHub Pages
