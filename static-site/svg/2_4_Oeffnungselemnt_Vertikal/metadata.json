@@ -3,11 +3,11 @@
   "isVertical": true,
   "hasSplit": true,
   "splitY": 134.2810682712684,
-  "globalMinX": 14.728414565144163,
+  "globalMinX": 53.22475682678241,
   "globalMaxX": 135.2260086879694,
   "globalMinY": 26.49804291533921,
   "globalMaxY": 242.0640936271977,
-  "globalCenterX": 74.97721162655678,
+  "globalCenterX": 94.22538275737591,
   "parts": [
     {
       "index": 0,
@@ -600,25 +600,6 @@
     },
     {
       "index": 31,
-      "filename": "288319_s.svg",
-      "relativeUrl": "288319_s/288319_s.svg",
-      "blockName": "288319_s",
-      "parentBlock": null,
-      "layer": "S27_Grau_13",
-      "role": "sash",
-      "section": "bottom",
-      "color": "#7fbfff",
-      "bbox": {
-        "minX": 14.728414565144163,
-        "minY": 102.49804291534085,
-        "maxX": 119.01841456514612,
-        "maxY": 114.05248717455505
-      },
-      "closedContours": 0,
-      "openContours": 33
-    },
-    {
-      "index": 32,
       "filename": "275701_s.svg",
       "relativeUrl": "275701_s/275701_s.svg",
       "blockName": "275701_s",
@@ -637,7 +618,7 @@
       "openContours": 2
     },
     {
-      "index": 33,
+      "index": 32,
       "filename": "275701_s_inst1.svg",
       "relativeUrl": "275701_s/275701_s_inst1.svg",
       "blockName": "275701_s",
@@ -654,6 +635,25 @@
       },
       "closedContours": 1,
       "openContours": 2
+    },
+    {
+      "index": 33,
+      "filename": "288319_s.svg",
+      "relativeUrl": "288319_s/288319_s.svg",
+      "blockName": "288319_s",
+      "parentBlock": null,
+      "layer": "S27_Grau_13",
+      "role": "sash",
+      "section": "bottom",
+      "color": "#7fbfff",
+      "bbox": {
+        "minX": 61.7706527779227,
+        "minY": 102.34119985847553,
+        "maxX": 118.9706527779237,
+        "maxY": 113.89564411768953
+      },
+      "closedContours": 16,
+      "openContours": 0
     }
   ]
 }
