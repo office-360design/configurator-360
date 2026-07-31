@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="app-build" content="unprepared-main-ar-merge">
+    <meta name="app-build" content="20260729T115625Z-nogit">
     <script>
         if (new URLSearchParams(window.location.search).get('ar') === '1') {
             document.documentElement.classList.add('ar-mode');
@@ -375,73 +375,11 @@
         }
 
         /* QR-to-AR controls */
-        #ar-publish-controls {
+        #qr-ar-button {
             position: absolute;
             top: 20px;
             right: 20px;
             z-index: 20;
-            width: 214px;
-            display: grid;
-            gap: 8px;
-        }
-
-        .ar-platform-switch {
-            position: relative;
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            padding: 4px;
-            border: 1px solid rgba(96, 165, 250, 0.42);
-            border-radius: 13px;
-            background: rgba(15, 23, 42, 0.9);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
-            backdrop-filter: blur(12px);
-            isolation: isolate;
-        }
-
-        .ar-platform-highlight {
-            position: absolute;
-            z-index: 0;
-            top: 4px;
-            bottom: 4px;
-            left: 4px;
-            width: calc(50% - 4px);
-            border-radius: 9px;
-            background: linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(14, 165, 233, 0.88));
-            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.32);
-            transform: translateX(0);
-            transition: transform 0.22s ease;
-            pointer-events: none;
-        }
-
-        .ar-platform-switch[data-platform="ios"] .ar-platform-highlight {
-            transform: translateX(100%);
-        }
-
-        .ar-platform-option {
-            position: relative;
-            z-index: 1;
-            min-width: 0;
-            border: 0;
-            border-radius: 9px;
-            padding: 8px 10px;
-            background: transparent;
-            color: #94a3b8;
-            font: 600 12px 'Outfit', sans-serif;
-            cursor: pointer;
-            transition: color 0.18s ease;
-        }
-
-        .ar-platform-option[aria-pressed="true"] {
-            color: #eff6ff;
-        }
-
-        .ar-platform-option:focus-visible {
-            outline: 2px solid #93c5fd;
-            outline-offset: 2px;
-        }
-
-        #qr-ar-button {
-            width: 100%;
             border: 1px solid rgba(96, 165, 250, 0.55);
             border-radius: 12px;
             padding: 12px 18px;
@@ -561,7 +499,7 @@
             overflow-wrap: anywhere;
         }
 
-        #qr-download-model,
+        #qr-download-glb,
         #qr-check-published {
             width: 100%;
             margin-top: 12px;
@@ -578,7 +516,7 @@
             display: none;
         }
 
-        #qr-download-model:disabled,
+        #qr-download-glb:disabled,
         #qr-check-published:disabled {
             cursor: not-allowed;
             opacity: 0.45;
@@ -629,7 +567,7 @@
         }
 
         .ar-mode #controls,
-        .ar-mode #ar-publish-controls,
+        .ar-mode #qr-ar-button,
         .ar-mode #qr-modal {
             display: none !important;
         }
@@ -862,20 +800,11 @@
         }
 
         @media (max-width: 760px) {
-            #ar-publish-controls {
+            #qr-ar-button {
                 top: 12px;
                 right: 12px;
-                width: 184px;
-            }
-
-            #qr-ar-button {
                 padding: 10px 13px;
                 font-size: 12px;
-            }
-
-            .ar-platform-option {
-                padding: 7px 8px;
-                font-size: 11px;
             }
         }
 
@@ -1148,26 +1077,19 @@
 
     <div id="canvas-container"></div>
 
-    <div id="ar-publish-controls">
-        <div id="ar-platform-switch" class="ar-platform-switch" data-platform="android" role="group" aria-label="AR phone platform">
-            <span class="ar-platform-highlight" aria-hidden="true"></span>
-            <button class="ar-platform-option" type="button" data-platform="android" aria-pressed="true">Android</button>
-            <button class="ar-platform-option" type="button" data-platform="ios" aria-pressed="false">iOS</button>
-        </div>
-        <button id="qr-ar-button" type="button">Generate AR QR</button>
-    </div>
+    <button id="qr-ar-button" type="button">Generate AR QR</button>
 
     <div id="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qr-title">
         <div class="qr-dialog">
             <button id="qr-close" type="button" aria-label="Close">×</button>
             <h3 id="qr-title">Export and view this window in AR</h3>
-            <p id="qr-description">Android selected: the browser will generate a GLB for Google Scene Viewer.</p>
-            <div id="qr-status">Preparing the optimized AR export…</div>
+            <p>The browser creates and validates an optimized GLB, uploads it directly to Supabase Storage through a short-lived ticket from Netlify, then generates the Scene Viewer QR automatically.</p>
+            <div id="qr-status">Preparing the optimized GLB export…</div>
             <pre id="qr-export-stats"></pre>
             <div id="qr-publish-help"></div>
             <div id="qr-code"></div>
             <a id="qr-launch-link" href="#" target="_blank" rel="noopener">Open phone launcher page</a>
-            <button id="qr-download-model" type="button" disabled>Download optimized model</button>
+            <button id="qr-download-glb" type="button" disabled>Download optimized GLB</button>
             <button id="qr-check-published" type="button" disabled>Check published model and create QR</button>
             <div id="qr-error"></div>
         </div>
@@ -1220,7 +1142,7 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-        import { createWindowARAsset, downloadARAsset, uploadARAsset, uploadARAssetToSupabase, formatExportStats, sha256Hex } from './ar-export.js';
+        import { createWindowGLB, downloadGLB, uploadGLB, uploadGLBToSupabase, formatExportStats, sha256Hex } from './ar-export.js';
 
         const pageParams = new URLSearchParams(window.location.search);
         const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -1563,140 +1485,6 @@
         let currentMetadata = null;
         let profilesData = [];
 
-        // CAD/DXF exports contain circles and rounded profile edges as hundreds of
-        // tiny straight SVG segments. A sub-0.05 mm contour tolerance is visually
-        // imperceptible at real scale, but removes most redundant points before
-        // Three.js creates caps and extrusion side walls.
-        const PROFILE_CURVE_SEGMENTS = 3;
-        const PROFILE_SIMPLIFY_TOLERANCE_MM = Object.freeze({
-            alu: 0.04,
-            epdm: 0.025,
-            centralSeal: 0.025,
-            glass: 0.03,
-            iso: 0.05,
-            foam: 0.05,
-            default: 0.04,
-        });
-
-        function distanceToSegmentSquared(point, start, end) {
-            const dx = end.x - start.x;
-            const dy = end.y - start.y;
-            if (dx === 0 && dy === 0) return point.distanceToSquared(start);
-            const t = THREE.MathUtils.clamp(
-                ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy),
-                0,
-                1
-            );
-            const px = start.x + t * dx;
-            const py = start.y + t * dy;
-            const ox = point.x - px;
-            const oy = point.y - py;
-            return ox * ox + oy * oy;
-        }
-
-        function simplifyOpenPoints(points, toleranceSquared) {
-            if (points.length <= 2) return points.slice();
-            const first = points[0];
-            const last = points[points.length - 1];
-            let furthestIndex = -1;
-            let furthestDistance = -1;
-
-            for (let index = 1; index < points.length - 1; index += 1) {
-                const distance = distanceToSegmentSquared(points[index], first, last);
-                if (distance > furthestDistance) {
-                    furthestDistance = distance;
-                    furthestIndex = index;
-                }
-            }
-
-            if (furthestDistance <= toleranceSquared || furthestIndex < 0) {
-                return [first.clone(), last.clone()];
-            }
-
-            const left = simplifyOpenPoints(points.slice(0, furthestIndex + 1), toleranceSquared);
-            const right = simplifyOpenPoints(points.slice(furthestIndex), toleranceSquared);
-            return left.slice(0, -1).concat(right);
-        }
-
-        function simplifyClosedContour(sourcePoints, toleranceMm) {
-            const toleranceSquared = toleranceMm * toleranceMm;
-            const duplicateToleranceSquared = Math.max(1e-12, toleranceSquared * 0.0004);
-            const points = [];
-
-            for (const sourcePoint of sourcePoints || []) {
-                const point = new THREE.Vector2(sourcePoint.x, sourcePoint.y);
-                if (
-                    points.length === 0
-                    || point.distanceToSquared(points[points.length - 1]) > duplicateToleranceSquared
-                ) {
-                    points.push(point);
-                }
-            }
-
-            if (
-                points.length > 1
-                && points[0].distanceToSquared(points[points.length - 1]) <= duplicateToleranceSquared
-            ) {
-                points.pop();
-            }
-            if (points.length <= 3) return points;
-
-            let oppositeIndex = 1;
-            let maximumDistance = -1;
-            for (let index = 1; index < points.length; index += 1) {
-                const distance = points[0].distanceToSquared(points[index]);
-                if (distance > maximumDistance) {
-                    maximumDistance = distance;
-                    oppositeIndex = index;
-                }
-            }
-
-            const firstChain = points.slice(0, oppositeIndex + 1);
-            const secondChain = points.slice(oppositeIndex).concat(points[0]);
-            const simplifiedFirst = simplifyOpenPoints(firstChain, toleranceSquared);
-            const simplifiedSecond = simplifyOpenPoints(secondChain, toleranceSquared);
-            const simplified = simplifiedFirst.slice(0, -1).concat(simplifiedSecond.slice(0, -1));
-            return simplified.length >= 3 ? simplified : points;
-        }
-
-        function appendClosedContour(path, points) {
-            if (!points || points.length < 3) return false;
-            path.moveTo(points[0].x, points[0].y);
-            for (let index = 1; index < points.length; index += 1) {
-                path.lineTo(points[index].x, points[index].y);
-            }
-            path.closePath();
-            return true;
-        }
-
-        function simplifyProfileShape(sourceShape, materialKey) {
-            const toleranceMm = PROFILE_SIMPLIFY_TOLERANCE_MM[materialKey]
-                ?? PROFILE_SIMPLIFY_TOLERANCE_MM.default;
-            const extracted = sourceShape.extractPoints(PROFILE_CURVE_SEGMENTS);
-            const sourcePointCount = extracted.shape.length
-                + (extracted.holes || []).reduce((sum, hole) => sum + hole.length, 0);
-            const outer = simplifyClosedContour(extracted.shape, toleranceMm);
-            if (outer.length < 3) return sourceShape;
-
-            const shape = new THREE.Shape();
-            appendClosedContour(shape, outer);
-            let optimizedPointCount = outer.length;
-            for (const sourceHole of extracted.holes || []) {
-                const holePoints = simplifyClosedContour(sourceHole, toleranceMm * 0.8);
-                const hole = new THREE.Path();
-                if (appendClosedContour(hole, holePoints)) {
-                    shape.holes.push(hole);
-                    optimizedPointCount += holePoints.length;
-                }
-            }
-            shape.userData = {
-                sourcePointCount,
-                optimizedPointCount,
-                toleranceMm,
-            };
-            return shape;
-        }
-
         function loadSvg(url) {
             return new Promise((resolve, reject) => {
                 svgLoader.load(url, resolve, null, reject);
@@ -1719,9 +1507,6 @@
                 const data = await loadSvg(url);
                 const path = data.paths[0];
                 const shapes = SVGLoader.createShapes(path);
-                if (!shapes.length) {
-                    throw new Error(`No closed profile shape could be created from ${url}.`);
-                }
 
                 const layer = part.layer.toLowerCase();
                 const blockName = (part.blockName || '').toLowerCase();
@@ -1753,8 +1538,6 @@
                     materialKey = 'alu';
                 }
 
-                const optimizedShape = simplifyProfileShape(shapes[0], materialKey);
-
                 let baseExplode = 0.12;
                 if (part.role === 'sash') {
                     baseExplode = 0.26;
@@ -1769,9 +1552,7 @@
                     parentBlock: part.parentBlock,
                     role: part.role,
                     section: part.section || 'top',
-                    shape: optimizedShape,
-                    sourceContourPoints: optimizedShape.userData?.sourcePointCount || 0,
-                    optimizedContourPoints: optimizedShape.userData?.optimizedPointCount || 0,
+                    shape: shapes[0],
                     baseCadColor,
                     materialKey,
                     explodeOffset: baseExplode,
@@ -1779,17 +1560,6 @@
                     isAlu,
                 };
             }));
-
-            const sourceContourPoints = profiles.reduce((sum, profile) => sum + profile.sourceContourPoints, 0);
-            const optimizedContourPoints = profiles.reduce((sum, profile) => sum + profile.optimizedContourPoints, 0);
-            if (sourceContourPoints > 0) {
-                const reduction = 100 * (1 - optimizedContourPoints / sourceContourPoints);
-                console.info(
-                    `Profile contour optimization for ${profileFolder}: ` +
-                    `${sourceContourPoints.toLocaleString()} → ${optimizedContourPoints.toLocaleString()} points ` +
-                    `(${reduction.toFixed(1)}% fewer).`
-                );
-            }
 
             const definition = { metadata, profiles };
             profileCache.set(profileFolder, definition);
@@ -2313,7 +2083,7 @@
 
         // 3D SAMPLE EXTRUSION GENERATOR (10CM)
         function createSampleExtrusion(profile) {
-            const extrudeSettings = { depth: 0.1, bevelEnabled: false, curveSegments: PROFILE_CURVE_SEGMENTS, steps: 1 };
+            const extrudeSettings = { depth: 0.1, bevelEnabled: false, curveSegments: 8, steps: 1 };
             const geom = new THREE.ExtrudeGeometry(profile.shape, extrudeSettings);
             const posAttribute = geom.attributes.position;
             const v = new THREE.Vector3();
@@ -2364,7 +2134,7 @@
             const isHorizontal = side === 'bottom' || side === 'top';
             const length = isHorizontal ? lengthA : lengthB;
 
-            const extrudeSettings = { depth: length, bevelEnabled: false, curveSegments: PROFILE_CURVE_SEGMENTS, steps: 1 };
+            const extrudeSettings = { depth: length, bevelEnabled: false, curveSegments: 8, steps: 1 };
             const geom = new THREE.ExtrudeGeometry(profile.shape, extrudeSettings);
 
             const posAttribute = geom.attributes.position;
@@ -3014,47 +2784,11 @@
             errorContainer.style.display = 'none';
         }
 
-        const AR_PLATFORM_FORMATS = Object.freeze({
-            android: Object.freeze({
-                platform: 'android',
-                format: 'glb',
-                extension: 'glb',
-                contentType: 'model/gltf-binary',
-                label: 'Android',
-                viewer: 'Google Scene Viewer'
-            }),
-            ios: Object.freeze({
-                platform: 'ios',
-                format: 'usdz',
-                extension: 'usdz',
-                contentType: 'model/vnd.usdz+zip',
-                label: 'iOS',
-                viewer: 'Apple AR Quick Look'
-            })
-        });
-
-        let selectedARPlatform = 'android';
-        let latestExportedAsset = null;
-        let latestExportFormat = 'glb';
+        let latestExportedGLB = null;
         let latestExportFilename = 'configured-window.glb';
         let latestStaticModelUrl = '';
         let latestExpectedBytes = 0;
         let latestModelTitle = 'configured-window';
-        let latestPublishedPlatform = 'android';
-
-        function selectedARInfo() {
-            return AR_PLATFORM_FORMATS[selectedARPlatform] || AR_PLATFORM_FORMATS.android;
-        }
-
-        function setSelectedARPlatform(platform) {
-            if (!AR_PLATFORM_FORMATS[platform]) return;
-            selectedARPlatform = platform;
-            const switchElement = document.getElementById('ar-platform-switch');
-            switchElement.dataset.platform = platform;
-            switchElement.querySelectorAll('.ar-platform-option').forEach(button => {
-                button.setAttribute('aria-pressed', button.dataset.platform === platform ? 'true' : 'false');
-            });
-        }
 
         function makeExportName() {
             const profile = document.getElementById('cadProfile').value;
@@ -3069,55 +2803,29 @@
             return safe || 'configured-window';
         }
 
-        function buildARLauncherUrl(modelUrl, modelTitle, platform, format) {
+        function buildSceneViewerLauncherUrl(modelUrl, modelTitle) {
             const url = new URL('./ar-viewer.html', window.location.href);
             url.searchParams.set('model', modelUrl);
             url.searchParams.set('title', modelTitle);
-            url.searchParams.set('platform', platform);
-            url.searchParams.set('format', format);
             url.searchParams.set('build', APP_BUILD);
             return url.toString();
         }
 
-        async function generateCurrentWindowARAsset(platform) {
+        async function generateCurrentWindowGLB() {
             const config = window.AR_UPLOAD_CONFIG || {};
-            const platformInfo = AR_PLATFORM_FORMATS[platform];
-            if (!platformInfo) throw new Error(`Unsupported AR platform: ${platform}.`);
-
             const modelName = makeExportName();
-            const maxBytes = platformInfo.format === 'usdz'
-                ? (Number.isFinite(config.maxUsdzBytes) ? config.maxUsdzBytes : 45 * 1024 * 1024)
-                : (Number.isFinite(config.maxGlbBytes)
-                    ? config.maxGlbBytes
-                    : (Number.isFinite(config.maxBytes) ? config.maxBytes : 10 * 1024 * 1024));
-            const targetTriangles = platformInfo.format === 'usdz'
-                ? (Number.isFinite(config.targetUsdzTriangles)
-                    ? config.targetUsdzTriangles
-                    : 22000)
-                : (Number.isFinite(config.targetGlbTriangles)
-                    ? config.targetGlbTriangles
-                    : (Number.isFinite(config.targetTriangles) ? config.targetTriangles : 45000));
-            const result = await createWindowARAsset({
+            const result = await createWindowGLB({
                 sourceRoot: mainGroup,
                 applyPose: applyCurrentPoseInstantly,
-                format: platformInfo.format,
-                maxBytes,
-                targetTriangles
+                maxBytes: Number.isFinite(config.maxBytes) ? config.maxBytes : 15 * 1024 * 1024,
+                targetTriangles: Number.isFinite(config.targetTriangles) ? config.targetTriangles : 90000
             });
             const hash = await sha256Hex(result.arrayBuffer);
-            latestExportedAsset = result.arrayBuffer;
-            latestExportFormat = platformInfo.format;
-            latestExportFilename = `${modelName}-${hash.slice(0, 12)}.${platformInfo.extension}`;
+            latestExportedGLB = result.arrayBuffer;
+            latestExportFilename = `${modelName}-${hash.slice(0, 12)}.glb`;
             latestModelTitle = modelName;
             latestExpectedBytes = result.arrayBuffer.byteLength;
-            latestPublishedPlatform = platform;
-            return {
-                ...result,
-                modelName,
-                hash,
-                filename: latestExportFilename,
-                platform
-            };
+            return { ...result, modelName, hash, filename: latestExportFilename };
         }
 
         function buildStaticModelUrl(filename) {
@@ -3126,7 +2834,7 @@
             return new URL(`./${directory}${encodeURIComponent(filename)}`, window.location.href).href;
         }
 
-        async function probePublishedModel(modelUrl, expectedBytes, format) {
+        async function probePublishedModel(modelUrl, expectedBytes) {
             let response = await fetch(modelUrl, {
                 method: 'HEAD',
                 cache: 'no-store'
@@ -3152,43 +2860,34 @@
             if (rangeMatch) publicBytes = Number.parseInt(rangeMatch[1], 10);
 
             if (Number.isFinite(publicBytes) && expectedBytes && publicBytes !== expectedBytes) {
-                throw new Error(`A file exists at that URL, but its size is ${publicBytes} bytes instead of ${expectedBytes}. Republish the new AR model.`);
+                throw new Error(`A file exists at that URL, but its size is ${publicBytes} bytes instead of ${expectedBytes}. Redeploy the new GLB.`);
             }
 
-            const expectedType = format === 'usdz'
-                ? /model\/vnd\.usdz\+zip|application\/octet-stream/i
-                : /model\/gltf-binary|application\/octet-stream/i;
-            if (contentType && !expectedType.test(contentType)) {
-                console.warn(`Unexpected ${format.toUpperCase()} Content-Type: ${contentType}`);
+            if (contentType && !/model\/gltf-binary|application\/octet-stream/i.test(contentType)) {
+                console.warn(`Unexpected GLB Content-Type: ${contentType}`);
             }
 
             return { publicBytes, contentType };
         }
 
-        function completePublishedQR(modelUrl, modelTitle, platform, format) {
-            const platformInfo = AR_PLATFORM_FORMATS[platform];
-            const launcherUrl = buildARLauncherUrl(modelUrl, modelTitle, platform, format);
+        function completePublishedQR(modelUrl, modelTitle) {
+            const launcherUrl = buildSceneViewerLauncherUrl(modelUrl, modelTitle);
             renderQRCode(launcherUrl);
             const launchLink = document.getElementById('qr-launch-link');
             launchLink.href = launcherUrl;
             launchLink.style.display = 'inline-block';
             document.getElementById('qr-publish-help').style.display = 'none';
-            setQRStatus(
-                `The public ${format.toUpperCase()} was verified. Scan this ${platformInfo.label} QR, ` +
-                `then press “View in AR” on the phone.`
-            );
+            setQRStatus('The public GLB was verified. Scan the QR, then press “Open in AR” on the phone.');
         }
 
-        function showStaticPublishInstructions(filename, modelUrl, platform, format) {
-            const platformInfo = AR_PLATFORM_FORMATS[platform];
+        function showStaticPublishInstructions(filename, modelUrl) {
             const help = document.getElementById('qr-publish-help');
             help.innerHTML = [
-                `<strong>The optimized ${format.toUpperCase()} is ready but is not yet present on Netlify.</strong>`,
+                '<strong>The optimized GLB is ready but is not yet present on Netlify.</strong>',
                 `1. Download <code>${filename}</code>.`,
                 `2. Place it in <code>static-site/models/</code>.`,
                 '3. Redeploy the existing Netlify site.',
                 '4. Return here and press “Check published model and create QR”.',
-                `<br>Platform: <code>${platformInfo.label}</code>`,
                 `<br>Expected public URL:<br><code>${modelUrl}</code>`
             ].join('<br>');
             help.style.display = 'block';
@@ -3197,11 +2896,30 @@
             checkButton.disabled = false;
         }
 
-        async function waitForPublishedModel(modelUrl, expectedBytes, format) {
+        function readUploadAccessKey(config, forcePrompt = false) {
+            const storageName = String(config.uploadKeySessionStorageName || 'configurator360.arUploadKey');
+            let value = '';
+            if (!forcePrompt) {
+                try { value = sessionStorage.getItem(storageName) || ''; } catch (_error) {}
+            }
+            if (!value) {
+                value = window.prompt('Enter the AR upload access key configured in Netlify:') || '';
+                if (!value) throw new Error('The AR upload was cancelled because no access key was entered.');
+                try { sessionStorage.setItem(storageName, value); } catch (_error) {}
+            }
+            return value;
+        }
+
+        function clearUploadAccessKey(config) {
+            const storageName = String(config.uploadKeySessionStorageName || 'configurator360.arUploadKey');
+            try { sessionStorage.removeItem(storageName); } catch (_error) {}
+        }
+
+        async function waitForPublishedModel(modelUrl, expectedBytes) {
             let lastError = null;
             for (let attempt = 0; attempt < 10; attempt += 1) {
                 try {
-                    return await probePublishedModel(modelUrl, expectedBytes, format);
+                    return await probePublishedModel(modelUrl, expectedBytes);
                 } catch (error) {
                     lastError = error;
                     await new Promise(resolve => setTimeout(resolve, 900 + attempt * 250));
@@ -3212,56 +2930,53 @@
 
         async function publishWithSupabase(exported) {
             const config = window.AR_UPLOAD_CONFIG || {};
-            const formatLabel = exported.format.toUpperCase();
-            const uploadResult = await uploadARAssetToSupabase({
-                ticketEndpoint: config.ticketEndpoint || '/api/ar-upload-ticket',
-                arrayBuffer: exported.arrayBuffer,
-                filename: exported.filename,
-                sha256: exported.hash,
-                appBuild: APP_BUILD,
-                format: exported.format,
-                platform: exported.platform,
-                onProgress(bytesUploaded, bytesTotal) {
-                    const percentage = bytesTotal > 0
-                        ? Math.min(100, 100 * bytesUploaded / bytesTotal)
-                        : 0;
-                    setQRStatus(`2/3 Uploading the optimized ${formatLabel} directly to Supabase… ${percentage.toFixed(1)}%`);
+            let accessKey = readUploadAccessKey(config);
+            let uploadResult = null;
+
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+                try {
+                    uploadResult = await uploadGLBToSupabase({
+                        ticketEndpoint: config.ticketEndpoint || '/api/ar-upload-ticket',
+                        accessKey,
+                        arrayBuffer: exported.arrayBuffer,
+                        filename: exported.filename,
+                        sha256: exported.hash,
+                        appBuild: APP_BUILD,
+                        onProgress(bytesUploaded, bytesTotal) {
+                            const percentage = bytesTotal > 0 ? Math.min(100, 100 * bytesUploaded / bytesTotal) : 0;
+                            setQRStatus(`2/3 Uploading the optimized GLB directly to Supabase… ${percentage.toFixed(1)}%`);
+                        }
+                    });
+                    break;
+                } catch (error) {
+                    if (error?.status === 401 && attempt === 0) {
+                        clearUploadAccessKey(config);
+                        accessKey = readUploadAccessKey(config, true);
+                        continue;
+                    }
+                    throw error;
                 }
-            });
+            }
 
             if (!uploadResult?.publicUrl) {
-                throw new Error(`Supabase did not return a public ${formatLabel} URL.`);
+                throw new Error('Supabase did not return a public GLB URL.');
             }
 
             setQRStatus(uploadResult.exists
-                ? `2/3 This exact ${formatLabel} already exists in Supabase. Verifying its public URL…`
+                ? '2/3 This exact GLB already exists in Supabase. Verifying its public URL…'
                 : '3/3 Upload completed. Waiting for the public Supabase URL…');
-            await waitForPublishedModel(
-                uploadResult.publicUrl,
-                exported.arrayBuffer.byteLength,
-                exported.format
-            );
-            completePublishedQR(
-                uploadResult.publicUrl,
-                exported.modelName,
-                exported.platform,
-                exported.format
-            );
+            await waitForPublishedModel(uploadResult.publicUrl, latestExpectedBytes);
+            completePublishedQR(uploadResult.publicUrl, exported.modelName);
         }
 
         async function checkLatestStaticModel() {
             if (!latestStaticModelUrl) return;
             const checkButton = document.getElementById('qr-check-published');
             checkButton.disabled = true;
-            setQRStatus(`Checking the published Netlify ${latestExportFormat.toUpperCase()}…`);
+            setQRStatus('Checking the published Netlify GLB…');
             try {
-                await probePublishedModel(latestStaticModelUrl, latestExpectedBytes, latestExportFormat);
-                completePublishedQR(
-                    latestStaticModelUrl,
-                    latestModelTitle,
-                    latestPublishedPlatform,
-                    latestExportFormat
-                );
+                await probePublishedModel(latestStaticModelUrl, latestExpectedBytes);
+                completePublishedQR(latestStaticModelUrl, latestModelTitle);
                 checkButton.style.display = 'none';
             } catch (error) {
                 setQRStatus(error.message);
@@ -3274,17 +2989,12 @@
             const qrContainer = document.getElementById('qr-code');
             const errorContainer = document.getElementById('qr-error');
             const statsContainer = document.getElementById('qr-export-stats');
-            const downloadButton = document.getElementById('qr-download-model');
+            const downloadButton = document.getElementById('qr-download-glb');
             const checkButton = document.getElementById('qr-check-published');
             const launchLink = document.getElementById('qr-launch-link');
             const publishHelp = document.getElementById('qr-publish-help');
-            const description = document.getElementById('qr-description');
-            const publicationPlatform = selectedARPlatform;
-            const platformInfo = AR_PLATFORM_FORMATS[publicationPlatform];
-            const formatLabel = platformInfo.format.toUpperCase();
 
             modal.classList.add('open');
-            description.textContent = `${platformInfo.label} selected: the browser will generate a ${formatLabel} for ${platformInfo.viewer}.`;
             qrContainer.innerHTML = '';
             qrContainer.style.display = 'none';
             errorContainer.style.display = 'none';
@@ -3296,13 +3006,10 @@
             launchLink.removeAttribute('href');
             checkButton.style.display = 'none';
             checkButton.disabled = true;
-            latestExportedAsset = null;
-            latestExportFormat = platformInfo.format;
+            latestExportedGLB = null;
             latestStaticModelUrl = '';
             latestExpectedBytes = 0;
-            latestPublishedPlatform = publicationPlatform;
             downloadButton.disabled = true;
-            downloadButton.textContent = `Download optimized ${formatLabel}`;
 
             if (!profilesReady) {
                 showQRError('The window profile is still loading. Close this dialog and try again in a moment.');
@@ -3311,60 +3018,44 @@
             }
 
             try {
-                setQRStatus(`1/3 Building and simplifying the current production window for ${platformInfo.viewer}…`);
-                const exported = await generateCurrentWindowARAsset(publicationPlatform);
+                setQRStatus('1/3 Building and simplifying the current production window for Scene Viewer…');
+                const exported = await generateCurrentWindowGLB();
                 statsContainer.textContent = formatExportStats(exported.stats);
                 statsContainer.style.display = 'block';
                 downloadButton.disabled = false;
 
                 const config = window.AR_UPLOAD_CONFIG || {};
                 if (config.mode === 'supabase') {
-                    setQRStatus(`2/3 The optimized ${formatLabel} passed browser validation. Requesting a secure Supabase upload ticket…`);
+                    setQRStatus('2/3 The optimized GLB passed browser validation. Requesting a secure Supabase upload ticket…');
                     await publishWithSupabase(exported);
                     return;
                 }
                 if (config.mode === 'api' && config.endpoint) {
-                    setQRStatus(`2/3 The optimized ${formatLabel} passed browser validation. Uploading to the configured server…`);
-                    const uploaded = await uploadARAsset({
+                    setQRStatus('2/3 The optimized GLB passed browser validation. Uploading to the configured server…');
+                    const uploaded = await uploadGLB({
                         endpoint: config.endpoint,
                         arrayBuffer: exported.arrayBuffer,
                         modelName: exported.modelName,
-                        appBuild: APP_BUILD,
-                        format: exported.format
+                        appBuild: APP_BUILD
                     });
-                    completePublishedQR(
-                        uploaded.modelUrl,
-                        exported.modelName,
-                        exported.platform,
-                        exported.format
-                    );
+                    completePublishedQR(uploaded.modelUrl, exported.modelName);
                     return;
                 }
 
                 latestStaticModelUrl = buildStaticModelUrl(exported.filename);
-                setQRStatus(`2/3 The optimized ${formatLabel} passed browser validation. Checking whether this exact file is already published…`);
+                setQRStatus('2/3 The optimized GLB passed browser validation. Checking whether this exact file is already published…');
                 try {
-                    await probePublishedModel(latestStaticModelUrl, latestExpectedBytes, exported.format);
-                    completePublishedQR(
-                        latestStaticModelUrl,
-                        exported.modelName,
-                        exported.platform,
-                        exported.format
-                    );
+                    await probePublishedModel(latestStaticModelUrl, latestExpectedBytes);
+                    completePublishedQR(latestStaticModelUrl, exported.modelName);
                 } catch (_notPublished) {
-                    setQRStatus(`3/3 Download and publish the optimized ${formatLabel}, then verify it here. No paid storage service is involved.`);
-                    showStaticPublishInstructions(
-                        exported.filename,
-                        latestStaticModelUrl,
-                        exported.platform,
-                        exported.format
-                    );
+                    setQRStatus('3/3 Download and publish the optimized GLB, then verify it here. No paid storage service is involved.');
+                    showStaticPublishInstructions(exported.filename, latestStaticModelUrl);
                 }
             } catch (error) {
-                console.error('AR export/publish preparation failed:', error);
-                setQRStatus(latestExportedAsset
-                    ? `The ${formatLabel} was generated locally, but the publication or QR step failed.`
-                    : `The ${formatLabel} export or optimization failed before publication.`);
+                console.error('GLB export/publish preparation failed:', error);
+                setQRStatus(latestExportedGLB
+                    ? 'The GLB was generated locally, but the publication or QR step failed.'
+                    : 'The GLB export or optimization failed before publication.');
                 showQRError(error.message || 'The configured window could not be prepared for AR.');
             }
         }
@@ -3563,15 +3254,10 @@
             if (event.target.id === 'cad-reference-modal') closeCadReferenceModal();
         });
 
-        document.querySelectorAll('.ar-platform-option').forEach(button => {
-            button.addEventListener('click', () => setSelectedARPlatform(button.dataset.platform));
-        });
         document.getElementById('qr-ar-button').addEventListener('click', openQRModal);
         document.getElementById('qr-close').addEventListener('click', closeQRModal);
-        document.getElementById('qr-download-model').addEventListener('click', () => {
-            if (latestExportedAsset) {
-                downloadARAsset(latestExportedAsset, latestExportFilename, latestExportFormat);
-            }
+        document.getElementById('qr-download-glb').addEventListener('click', () => {
+            if (latestExportedGLB) downloadGLB(latestExportedGLB, latestExportFilename);
         });
         document.getElementById('qr-check-published').addEventListener('click', checkLatestStaticModel);
         document.getElementById('qr-modal').addEventListener('click', (event) => {

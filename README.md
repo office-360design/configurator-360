@@ -1,32 +1,35 @@
-# Configurator 360 — automated Scene Viewer AR
+# Configurator 360 — Android and iOS AR publication
 
-The production configurator remains the source of the window geometry. Its AR workflow is now:
+The production configurator remains the source of the window geometry. Before generating a QR, the operator selects one target platform:
 
 ```text
-Browser exports and optimizes the current window as GLB
-        ↓
-Netlify Function validates the request and creates a short-lived upload ticket
-        ↓
-Browser uploads the GLB directly to Supabase Storage with resumable TUS
-        ↓
-Supabase returns a public, content-addressed GLB URL
-        ↓
-The configurator creates the phone QR automatically
-        ↓
-Google Scene Viewer opens the uploaded model in native Android AR
+Android selected                         iOS selected
+       ↓                                      ↓
+Optimized GLB generated                  Optimized USDZ generated
+       ↓                                      ↓
+Netlify creates a short-lived Supabase upload ticket
+       ↓
+The browser uploads the selected binary directly to Supabase Storage
+       ↓
+One platform-specific QR opens the shared Netlify phone page
+       ↓                                      ↓
+Google Scene Viewer                    Apple AR Quick Look
 ```
 
-The 7–15 MB GLB never passes through the Netlify Function. The Function receives only a small JSON request, keeps the Supabase secret key server-side, applies storage safety limits, and returns a temporary signed-upload token.
+Only the selected representation is generated and uploaded for that QR. An Android publication contains a GLB; an iOS publication contains a USDZ. Existing publications are not deleted when another platform is selected, so previously generated QR codes remain valid.
+
+The model bytes never pass through the Netlify Function. The Function receives only a small JSON request, keeps the Supabase secret key server-side, validates platform/format/size metadata, applies storage limits, and returns a temporary signed-upload token.
 
 Setup and deployment instructions are in [`SUPABASE_NETLIFY_SETUP.md`](SUPABASE_NETLIFY_SETUP.md).
 
 ## Main AR files
 
-- `ar-export.js` — GLB sanitation, simplification, validation, hashing, and direct Supabase upload.
-- `ar-upload-config.js` — public, non-secret frontend settings.
-- `ar-viewer.html` — phone preview and native Scene Viewer launcher.
-- `netlify/functions/ar-upload-ticket.mjs` — protected signed-upload-ticket endpoint.
+- `index.html` — Android/iOS segmented selector and platform-specific QR workflow.
+- `ar-export.js` — shared geometry optimization, GLB/USDZ export, validation, hashing, and direct Supabase upload.
+- `ar-upload-config.js` — public frontend export limits and upload endpoint.
+- `ar-viewer.html` — shared phone page, device/platform mismatch handling, Scene Viewer, and Quick Look launcher.
+- `netlify/functions/ar-upload-ticket.mjs` — origin-restricted signed upload-ticket endpoint for GLB and USDZ.
 - `netlify.toml` — Netlify static-site and Functions configuration.
-- `.env.example` — names and safe defaults for required Netlify environment variables.
+- `.env.example` — required Netlify environment variables and safe defaults.
 
-The former static/manual model publication remains available as a fallback through the **Download optimized GLB** button. The old Cloudflare files are retained only as historical project material and are not used by this implementation.
+The manual fallback remains available through the format-aware **Download optimized GLB/USDZ** button.

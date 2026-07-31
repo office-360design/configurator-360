@@ -7,15 +7,59 @@
     <title>Configured Window AR</title>
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
     <style>
-        :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        :root {
+            color-scheme: dark;
+            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
         * { box-sizing: border-box; }
         html, body { margin: 0; min-height: 100%; background: #020617; color: #f8fafc; }
         body { display: grid; grid-template-rows: minmax(280px, 58vh) auto; }
-        model-viewer {
-            width: 100%; height: 100%; min-height: 280px;
+        model-viewer, .asset-stage {
+            width: 100%;
+            height: 100%;
+            min-height: 280px;
             background: radial-gradient(circle at 50% 35%, #172554, #020617 72%);
-            --poster-color: transparent;
         }
+        model-viewer { --poster-color: transparent; }
+        .asset-stage {
+            display: grid;
+            place-items: center;
+            padding: 28px;
+            text-align: center;
+        }
+        .stage-card {
+            width: min(360px, 100%);
+            padding: 26px;
+            border: 1px solid rgba(96, 165, 250, .25);
+            border-radius: 22px;
+            background: rgba(15, 23, 42, .66);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, .36);
+            backdrop-filter: blur(14px);
+        }
+        .stage-icon {
+            position: relative;
+            width: 86px;
+            height: 86px;
+            margin: 0 auto 18px;
+            border: 1px solid rgba(147, 197, 253, .36);
+            border-radius: 24px;
+            background: linear-gradient(145deg, rgba(37, 99, 235, .3), rgba(14, 165, 233, .08));
+        }
+        .stage-icon::before,
+        .stage-icon::after {
+            content: "";
+            position: absolute;
+            inset: 22px;
+            border: 2px solid #93c5fd;
+            transform: rotate(30deg) skewY(-8deg);
+        }
+        .stage-icon::after {
+            inset: 30px 20px 18px 32px;
+            border-color: rgba(224, 242, 254, .75);
+            transform: rotate(-28deg) skewX(10deg);
+        }
+        .stage-card strong { display: block; margin-bottom: 8px; color: #dbeafe; font-size: 18px; }
+        .stage-card span { color: #94a3b8; font-size: 14px; line-height: 1.5; }
         .panel {
             padding: 22px max(20px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
             border-top: 1px solid rgba(255,255,255,.1);
@@ -25,22 +69,43 @@
         h1 { margin: 0 0 8px; color: #60a5fa; font-size: clamp(25px, 7vw, 38px); }
         p { margin: 0 0 16px; color: #cbd5e1; line-height: 1.5; }
         button, .link-button {
-            display: block; width: 100%; border: 0; border-radius: 14px; padding: 15px 18px;
-            background: #2563eb; color: #fff; font: 700 17px/1.2 inherit; text-align: center; cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            width: 100%;
+            min-height: 52px;
+            border: 0;
+            border-radius: 14px;
+            padding: 15px 18px;
+            background: #2563eb;
+            color: #fff;
+            font: 700 17px/1.2 inherit;
+            text-align: center;
+            cursor: pointer;
             text-decoration: none;
         }
+        button:disabled, .link-button[aria-disabled="true"] { cursor: not-allowed; opacity: .55; pointer-events: none; }
+        .quick-look-icon { width: 22px; height: 22px; object-fit: contain; }
         .secondary { margin-top: 10px; background: #1e293b; border: 1px solid rgba(148,163,184,.35); font-size: 14px; }
         #status { min-height: 22px; margin: 13px 0 0; color: #bfdbfe; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+        #status.error { color: #fecaca; }
         #diagnostics {
-            margin-top: 12px; padding: 10px; border-radius: 9px; background: rgba(2,6,23,.5);
-            color: #94a3b8; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            white-space: pre-wrap; overflow-wrap: anywhere;
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 9px;
+            background: rgba(2,6,23,.5);
+            color: #94a3b8;
+            font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
         }
         [hidden] { display: none !important; }
     </style>
 </head>
 <body>
     <model-viewer id="viewer"
+        hidden
         camera-controls
         shadow-intensity="1"
         exposure="1"
@@ -51,30 +116,92 @@
         ar-placement="floor">
     </model-viewer>
 
+    <section id="asset-stage" class="asset-stage" hidden>
+        <div class="stage-card">
+            <div class="stage-icon" aria-hidden="true"></div>
+            <strong id="stage-title">AR model ready</strong>
+            <span id="stage-message">Use the button below to open the configured window.</span>
+        </div>
+    </section>
+
     <section class="panel">
         <div class="content">
             <h1 id="title">Configured window</h1>
-            <p>Confirm that the 3D preview loads, then open the same uploaded GLB in the native Android AR viewer.</p>
-            <button id="open-ar" type="button" disabled>Checking uploaded model…</button>
-            <a id="download-model" class="link-button secondary" href="#" download>Download uploaded GLB</a>
+            <p id="description">Checking the AR publication and this device…</p>
+            <button id="open-android-ar" type="button" hidden disabled>Checking uploaded model…</button>
+            <a id="open-ios-ar" class="link-button" rel="ar" href="#" hidden aria-disabled="true">
+                <img class="quick-look-icon" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 2 3.5 6.8v10.4L12 22l8.5-4.8V6.8L12 2Zm0 2.3 5.9 3.3-5.9 3.3-5.9-3.3L12 4.3Zm-6.5 5.2 5.5 3.1v6.5l-5.5-3.1V9.5Zm7.5 9.6v-6.5l5.5-3.1V16L13 19.1Z'/%3E%3C/svg%3E">
+                <span>View in AR</span>
+            </a>
+            <a id="download-model" class="link-button secondary" href="#" download hidden>Download uploaded model</a>
             <div id="status">Reading the model URL…</div>
             <div id="diagnostics"></div>
         </div>
     </section>
 
     <script>
+        const PLATFORM_FORMATS = Object.freeze({
+            android: Object.freeze({
+                platform: 'android',
+                format: 'glb',
+                label: 'Android',
+                contentType: /model\/gltf-binary|application\/octet-stream/i
+            }),
+            ios: Object.freeze({
+                platform: 'ios',
+                format: 'usdz',
+                label: 'iOS',
+                contentType: /model\/vnd\.usdz\+zip|application\/octet-stream/i
+            })
+        });
+
         const params = new URLSearchParams(location.search);
         const modelParam = params.get('model');
         const titleParam = params.get('title') || 'Configured window';
         const build = params.get('build') || '(unknown)';
         const viewer = document.getElementById('viewer');
+        const assetStage = document.getElementById('asset-stage');
+        const stageTitle = document.getElementById('stage-title');
+        const stageMessage = document.getElementById('stage-message');
         const title = document.getElementById('title');
-        const button = document.getElementById('open-ar');
+        const description = document.getElementById('description');
+        const androidButton = document.getElementById('open-android-ar');
+        const iosLink = document.getElementById('open-ios-ar');
         const status = document.getElementById('status');
         const diagnostics = document.getElementById('diagnostics');
         const download = document.getElementById('download-model');
 
+        function detectDevicePlatform() {
+            if (/Android/i.test(navigator.userAgent)) return 'android';
+            if (
+                /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+            ) return 'ios';
+            return 'unsupported';
+        }
+
+        function inferPublication() {
+            const explicitPlatform = String(params.get('platform') || '').toLowerCase();
+            const explicitFormat = String(params.get('format') || '').toLowerCase();
+            if (PLATFORM_FORMATS[explicitPlatform]) {
+                return {
+                    platform: explicitPlatform,
+                    format: explicitFormat || PLATFORM_FORMATS[explicitPlatform].format
+                };
+            }
+
+            // Backward compatibility for QR links created before the platform
+            // selector existed. Those publications were Android GLBs.
+            if (explicitFormat === 'usdz' || /\.usdz(?:$|[?#])/i.test(modelParam || '')) {
+                return { platform: 'ios', format: 'usdz' };
+            }
+            return { platform: 'android', format: 'glb' };
+        }
+
         title.textContent = titleParam;
+        const devicePlatform = detectDevicePlatform();
+        const publication = inferPublication();
+        const expected = PLATFORM_FORMATS[publication.platform];
         let modelUrl = '';
         try {
             const parsed = new URL(modelParam || '', location.href);
@@ -83,12 +210,26 @@
             }
         } catch (_error) {}
 
+        function setStatus(message, isError = false) {
+            status.textContent = message;
+            status.classList.toggle('error', Boolean(isError));
+        }
+
+        function showStage(heading, message) {
+            viewer.hidden = true;
+            assetStage.hidden = false;
+            stageTitle.textContent = heading;
+            stageMessage.textContent = message;
+        }
+
         function setDiagnostics(extra = '') {
             diagnostics.textContent = [
                 `build: ${build}`,
                 `page: ${location.origin}${location.pathname}`,
                 `model: ${modelUrl || '(invalid)'}`,
-                `android: ${/Android/i.test(navigator.userAgent)}`,
+                `published platform: ${publication.platform}`,
+                `published format: ${publication.format}`,
+                `detected device: ${devicePlatform}`,
                 `userAgent: ${navigator.userAgent}`,
                 extra
             ].filter(Boolean).join('\n');
@@ -97,25 +238,50 @@
         function sceneViewerIntent() {
             const fallback = new URL(location.href);
             fallback.searchParams.set('fallback', '1');
-
-            // ar_preferred/ar_only belong to the Google Play Services for AR
-            // package. The earlier code paired ar_preferred with the Google
-            // Search package, which only documents 3d_preferred/3d_only.
             return `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(modelUrl)}` +
                 `&mode=ar_preferred` +
                 `#Intent;scheme=https;package=com.google.ar.core;` +
                 `action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(fallback.href)};end;`;
         }
 
+        function showIncompatiblePage() {
+            androidButton.hidden = true;
+            iosLink.hidden = true;
+            download.hidden = true;
+
+            if (!expected || publication.format !== expected.format) {
+                title.textContent = 'Invalid AR publication';
+                description.textContent = 'The QR contains an unsupported platform and model-format combination.';
+                showStage('Invalid QR data', 'Generate the AR QR again from the configurator.');
+                setStatus('The model format does not match the platform stored in this QR.', true);
+                setDiagnostics('compatibility: invalid publication metadata');
+                return;
+            }
+
+            if (devicePlatform === 'unsupported') {
+                title.textContent = `${expected.label} AR model`;
+                description.textContent = `This QR was generated for ${expected.label}. Open it on a compatible ${expected.label} phone or tablet.`;
+                showStage('Mobile device required', `This publication uses ${publication.format.toUpperCase()} for ${expected.label}.`);
+                setStatus('Desktop browsers cannot launch the selected native mobile AR viewer.', true);
+                setDiagnostics('compatibility: unsupported desktop/non-mobile device');
+                return;
+            }
+
+            const correct = devicePlatform === 'ios' ? 'iOS' : 'Android';
+            title.textContent = 'Wrong QR version';
+            description.textContent = `This QR was generated for ${expected.label}. Return to the configurator, select ${correct}, and generate the QR again.`;
+            showStage('Different phone platform detected', `Selected QR: ${expected.label}. This device: ${correct}.`);
+            setStatus(`Use the ${correct} option beside “Generate AR QR” on the configurator site.`, true);
+            setDiagnostics('compatibility: platform mismatch');
+        }
+
         async function probeModel() {
             if (!modelUrl) {
-                status.textContent = 'The QR does not contain a valid public HTTPS GLB URL.';
+                setStatus('The QR does not contain a valid public HTTPS model URL.', true);
                 setDiagnostics('probe: invalid model URL');
                 return;
             }
 
-            viewer.src = modelUrl;
-            download.href = modelUrl;
             try {
                 let response = await fetch(modelUrl, { method: 'HEAD', mode: 'cors', cache: 'no-store' });
                 if (!response.ok && response.status !== 405) {
@@ -123,59 +289,89 @@
                 }
                 if (response.status === 405) {
                     response = await fetch(modelUrl, {
-                        method: 'GET', mode: 'cors', cache: 'no-store',
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'no-store',
                         headers: { Range: 'bytes=0-19' }
                     });
                     if (!response.ok && response.status !== 206) throw new Error(`HTTP ${response.status}`);
                 }
                 const type = response.headers.get('content-type') || '(missing)';
                 const length = response.headers.get('content-length') || '(unknown)';
-                status.textContent = `Uploaded model reachable. Content-Type: ${type}; bytes: ${length}.`;
-                button.disabled = false;
-                button.textContent = 'Open in AR';
+                const typeWarning = type !== '(missing)' && !expected.contentType.test(type)
+                    ? ` Unexpected Content-Type for ${publication.format.toUpperCase()}.`
+                    : '';
+                setStatus(`Uploaded ${publication.format.toUpperCase()} reachable. Content-Type: ${type}; bytes: ${length}.${typeWarning}`);
                 setDiagnostics(`probe: HTTP ${response.status}; content-type=${type}; content-length=${length}`);
             } catch (error) {
-                status.textContent = `The uploaded model URL could not be verified: ${error.message}`;
-                button.disabled = false;
-                button.textContent = 'Try opening in AR anyway';
+                // Native viewers may still fetch the public asset even when the
+                // browser-side CORS probe is blocked, so keep the AR action usable.
+                setStatus(`The browser could not verify the uploaded model (${error.message}). You can still try opening it in AR.`);
                 setDiagnostics(`probe error: ${error.name}: ${error.message}`);
             }
         }
 
-        button.addEventListener('click', async () => {
-            if (!modelUrl) return;
-            status.textContent = 'Opening Google Scene Viewer…';
+        function prepareAndroid() {
+            assetStage.hidden = true;
+            viewer.hidden = false;
+            viewer.src = modelUrl;
+            androidButton.hidden = false;
+            androidButton.disabled = false;
+            androidButton.textContent = 'View in AR';
+            download.hidden = false;
+            download.href = modelUrl;
+            download.download = `${titleParam}.glb`;
+            download.textContent = 'Download uploaded GLB';
+            description.textContent = 'Confirm that the 3D preview loads, then open the GLB in Google Scene Viewer.';
+        }
 
-            // Let model-viewer create its current documented Scene Viewer
-            // launch first. If the host browser blocks that route, use the
-            // explicit ARCore intent with the matching ar_preferred mode.
+        function prepareIOS() {
+            showStage('Apple AR Quick Look model ready', 'The configured window is stored as USDZ for this iPhone or iPad.');
+            iosLink.hidden = false;
+            iosLink.href = modelUrl;
+            iosLink.setAttribute('aria-disabled', 'false');
+            download.hidden = false;
+            download.href = modelUrl;
+            download.download = `${titleParam}.usdz`;
+            download.textContent = 'Download uploaded USDZ';
+            description.textContent = 'Open the configured USDZ in Apple AR Quick Look to place it in your space.';
+        }
+
+        androidButton.addEventListener('click', async () => {
+            if (!modelUrl) return;
+            setStatus('Opening Google Scene Viewer…');
             try {
                 await viewer.activateAR();
                 return;
             } catch (error) {
-                if (/Android/i.test(navigator.userAgent) && params.get('fallback') !== '1') {
-                    setDiagnostics(`model-viewer fallback: ${error.name || 'unknown'}: ${error.message || 'activateAR failed'}
-intent package: com.google.ar.core; mode=ar_preferred`);
+                if (devicePlatform === 'android' && params.get('fallback') !== '1') {
+                    setDiagnostics(`model-viewer fallback: ${error.name || 'unknown'}: ${error.message || 'activateAR failed'}\nintent package: com.google.ar.core; mode=ar_preferred`);
                     location.href = sceneViewerIntent();
                     return;
                 }
-                status.textContent = `${error.name || 'AR error'}: ${error.message || 'Could not start AR.'}`;
+                setStatus(`${error.name || 'AR error'}: ${error.message || 'Could not start AR.'}`, true);
                 setDiagnostics(`activateAR error: ${error.name}: ${error.message}`);
             }
         });
 
         viewer.addEventListener('load', () => {
-            status.textContent = '3D preview loaded. The GLB can now be opened in AR.';
-            button.disabled = false;
-            button.textContent = 'Open in AR';
+            setStatus('3D preview loaded. The GLB can now be opened in AR.');
+            androidButton.disabled = false;
+            androidButton.textContent = 'View in AR';
         });
         viewer.addEventListener('error', event => {
-            status.textContent = 'The 3D preview could not parse the uploaded GLB.';
+            setStatus('The 3D preview could not parse the uploaded GLB. You can still try Scene Viewer.', true);
             setDiagnostics(`model-viewer error: ${event.detail?.type || 'unknown'}`);
         });
 
         setDiagnostics();
-        probeModel();
+        if (!expected || publication.format !== expected.format || devicePlatform !== publication.platform) {
+            showIncompatiblePage();
+        } else {
+            if (publication.platform === 'android') prepareAndroid();
+            else prepareIOS();
+            probeModel();
+        }
     </script>
 </body>
 </html>

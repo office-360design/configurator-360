@@ -26,6 +26,7 @@ const MIME_TYPES = {
     '.jpeg': 'image/jpeg',
     '.webp': 'image/webp',
     '.glb': 'model/gltf-binary',
+    '.usdz': 'model/vnd.usdz+zip',
     '.gltf': 'model/gltf+json'
 };
 

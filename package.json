@@ -1,7 +1,7 @@
 {
   "name": "incercam",
   "version": "1.0.0",
-  "description": "Production window configurator with browser GLB export, Netlify upload tickets, Supabase Storage, and Scene Viewer AR.",
+  "description": "Production window configurator with selectable GLB/USDZ export, Netlify upload tickets, Supabase Storage, Android Scene Viewer, and Apple AR Quick Look.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
