@@ -19,7 +19,16 @@
   Content-Type: model/gltf-binary
   Access-Control-Allow-Origin: *
 
-/models/*
+/*.usdz
+  Content-Type: model/vnd.usdz+zip
+  Access-Control-Allow-Origin: *
+
+/models/*.glb
   Content-Type: model/gltf-binary
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=31536000, immutable
+
+/models/*.usdz
+  Content-Type: model/vnd.usdz+zip
   Access-Control-Allow-Origin: *
   Cache-Control: public, max-age=31536000, immutable

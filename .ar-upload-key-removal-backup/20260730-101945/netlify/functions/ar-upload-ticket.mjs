@@ -1,25 +1,11 @@
+import crypto from 'node:crypto';
+
 const DEFAULT_BUCKET = 'window-ar-models';
-const DEFAULT_MAX_GLB_BYTES = 10 * 1024 * 1024;
-const DEFAULT_MAX_USDZ_BYTES = 45 * 1024 * 1024;
+const DEFAULT_MAX_FILE_BYTES = 15 * 1024 * 1024;
 const DEFAULT_MAX_MODELS = 90;
 const DEFAULT_MAX_TOTAL_BYTES = 800 * 1024 * 1024;
 const MODEL_PREFIX = 'models';
-const FORMATS = Object.freeze({
-    glb: Object.freeze({
-        format: 'glb',
-        platform: 'android',
-        extension: 'glb',
-        contentType: 'model/gltf-binary',
-        label: 'GLB'
-    }),
-    usdz: Object.freeze({
-        format: 'usdz',
-        platform: 'ios',
-        extension: 'usdz',
-        contentType: 'model/vnd.usdz+zip',
-        label: 'USDZ'
-    })
-});
+const GLB_CONTENT_TYPE = 'model/gltf-binary';
 
 function json(data, status = 200, extraHeaders = {}) {
     return Response.json(data, {
@@ -37,16 +23,18 @@ function positiveInteger(value, fallback) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function optionalPositiveInteger(value) {
-    const parsed = Number.parseInt(String(value || ''), 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
-
 function splitOrigins(value) {
     return String(value || '')
         .split(',')
         .map(item => item.trim().replace(/\/$/, ''))
         .filter(Boolean);
+}
+
+function timingSafeTextEqual(left, right) {
+    const a = Buffer.from(String(left || ''), 'utf8');
+    const b = Buffer.from(String(right || ''), 'utf8');
+    if (a.length !== b.length || a.length === 0) return false;
+    return crypto.timingSafeEqual(a, b);
 }
 
 function encodePath(value) {
@@ -98,7 +86,7 @@ async function existingObject(storageBase, headers, bucket, objectPath, expected
 
     // Some storage/CDN paths do not expose HEAD consistently. A one-byte range
     // request provides the same existence and total-size check without loading
-    // the AR asset into the Function.
+    // the GLB into the Function.
     if (response.status === 405) {
         response = await fetch(url, {
             method: 'GET',
@@ -131,15 +119,13 @@ async function usageGuard(storageBase, headers, bucket, incomingBytes, maxModels
             prefix: MODEL_PREFIX,
             limit: maxModels + 1,
             offset: 0,
-            sortBy: { column: 'created_at', order: 'asc' }
+            sortBy: { column: 'created_at', order: 'asc' },
+            search: '.glb'
         })
     }, 'Supabase storage usage check');
 
     const models = Array.isArray(files)
-        ? files.filter(item => {
-            const name = String(item?.name || '').toLowerCase();
-            return name.endsWith('.glb') || name.endsWith('.usdz');
-        })
+        ? files.filter(item => item && typeof item.name === 'string' && item.name.toLowerCase().endsWith('.glb'))
         : [];
     const totalBytes = models.reduce((sum, item) => {
         const size = Number(item?.metadata?.size ?? item?.metadata?.contentLength ?? 0);
@@ -147,7 +133,7 @@ async function usageGuard(storageBase, headers, bucket, incomingBytes, maxModels
     }, 0);
 
     if (models.length >= maxModels) {
-        const error = new Error(`The safety limit of ${maxModels} stored AR models has been reached. Delete old GLB or USDZ files from Supabase Storage before uploading another model.`);
+        const error = new Error(`The safety limit of ${maxModels} stored AR models has been reached. Delete old files from Supabase Storage before uploading another model.`);
         error.status = 507;
         throw error;
     }
@@ -166,15 +152,9 @@ export default async (request) => {
     const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
     const secretKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '');
     const bucket = String(process.env.SUPABASE_BUCKET || DEFAULT_BUCKET);
+    const uploadKey = String(process.env.AR_UPLOAD_KEY || '');
     const allowedOrigins = splitOrigins(process.env.AR_ALLOWED_ORIGINS);
-    const legacyMaxFileBytes = optionalPositiveInteger(process.env.AR_MAX_FILE_BYTES);
-    const maxGlbBytes = positiveInteger(
-        process.env.AR_MAX_GLB_BYTES,
-        legacyMaxFileBytes || DEFAULT_MAX_GLB_BYTES
-    );
-    // USDZ is a text-heavy, store-only ZIP and is normally much larger than the
-    // equivalent GLB. Do not inherit the old 15 MiB GLB-only variable here.
-    const maxUsdzBytes = positiveInteger(process.env.AR_MAX_USDZ_BYTES, DEFAULT_MAX_USDZ_BYTES);
+    const maxFileBytes = positiveInteger(process.env.AR_MAX_FILE_BYTES, DEFAULT_MAX_FILE_BYTES);
     const maxModels = positiveInteger(process.env.AR_MAX_MODELS, DEFAULT_MAX_MODELS);
     const maxTotalBytes = positiveInteger(process.env.AR_MAX_TOTAL_BYTES, DEFAULT_MAX_TOTAL_BYTES);
 
@@ -182,17 +162,11 @@ export default async (request) => {
         return json({
             ok: true,
             service: 'ar-upload-ticket',
-            configured: Boolean(supabaseUrl && secretKey && allowedOrigins.length),
+            configured: Boolean(supabaseUrl && secretKey && uploadKey && allowedOrigins.length),
             bucket,
-            limits: {
-                glbMaxBytes: maxGlbBytes,
-                usdzMaxBytes: maxUsdzBytes,
-                maxModels,
-                maxTotalBytes
-            },
-            acceptedFormats: Object.values(FORMATS),
+            limits: { maxFileBytes, maxModels, maxTotalBytes },
             allowedOriginCount: allowedOrigins.length,
-            build: 'supabase-dual-platform-size-optimized-20260730-02',
+            build: 'supabase-tus-sign-20260729-01',
             uploadProtocol: 'tus-signed',
             tusEndpointPath: '/storage/v1/upload/resumable/sign'
         });
@@ -201,7 +175,7 @@ export default async (request) => {
         return json({ error: 'METHOD_NOT_ALLOWED', message: 'Use POST to request an AR upload ticket.' }, 405, { Allow: 'GET, POST' });
     }
 
-    if (!supabaseUrl || !secretKey || allowedOrigins.length === 0) {
+    if (!supabaseUrl || !secretKey || !uploadKey || allowedOrigins.length === 0) {
         return json({
             error: 'SERVER_NOT_CONFIGURED',
             message: 'The Netlify function is missing one or more required environment variables.'
@@ -213,6 +187,10 @@ export default async (request) => {
         return json({ error: 'ORIGIN_NOT_ALLOWED', message: 'This site origin is not allowed to request model uploads.' }, 403);
     }
 
+    if (!timingSafeTextEqual(request.headers.get('x-ar-upload-key'), uploadKey)) {
+        return json({ error: 'UPLOAD_KEY_INVALID', message: 'The AR upload access key is missing or incorrect.' }, 401);
+    }
+
     let body;
     try {
         body = await request.json();
@@ -220,25 +198,10 @@ export default async (request) => {
         return json({ error: 'INVALID_JSON', message: 'The upload ticket request must contain valid JSON.' }, 400);
     }
 
-    const format = String(body?.format || 'glb').toLowerCase();
-    const formatInfo = FORMATS[format];
-    if (!formatInfo) {
-        return json({ error: 'INVALID_FORMAT', message: 'Only GLB and USDZ AR assets are accepted.' }, 415);
-    }
-
-    const platform = String(body?.platform || formatInfo.platform).toLowerCase();
-    if (platform !== formatInfo.platform) {
-        return json({
-            error: 'PLATFORM_FORMAT_MISMATCH',
-            message: `${formatInfo.label} is only accepted for the ${formatInfo.platform} AR route.`
-        }, 400);
-    }
-
     const sha256 = String(body?.sha256 || '').toLowerCase();
     const bytes = Number(body?.bytes);
-    const originalName = String(body?.filename || `configured-window.${formatInfo.extension}`).slice(0, 180);
-    const contentType = String(body?.contentType || formatInfo.contentType).toLowerCase();
-    const maxFileBytes = format === 'usdz' ? maxUsdzBytes : maxGlbBytes;
+    const originalName = String(body?.filename || 'configured-window.glb').slice(0, 180);
+    const contentType = String(body?.contentType || GLB_CONTENT_TYPE);
 
     if (!/^[a-f0-9]{64}$/.test(sha256)) {
         return json({ error: 'INVALID_HASH', message: 'A 64-character SHA-256 hash is required.' }, 400);
@@ -246,17 +209,14 @@ export default async (request) => {
     if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes > maxFileBytes) {
         return json({
             error: 'INVALID_SIZE',
-            message: `The ${formatInfo.label} must be between 1 byte and ${maxFileBytes} bytes.`
+            message: `The GLB must be between 1 byte and ${maxFileBytes} bytes.`
         }, 413);
     }
-    if (contentType !== formatInfo.contentType) {
-        return json({
-            error: 'INVALID_CONTENT_TYPE',
-            message: `${formatInfo.label} uploads must use ${formatInfo.contentType}.`
-        }, 415);
+    if (contentType !== GLB_CONTENT_TYPE) {
+        return json({ error: 'INVALID_CONTENT_TYPE', message: `Only ${GLB_CONTENT_TYPE} uploads are accepted.` }, 415);
     }
 
-    const objectPath = `${MODEL_PREFIX}/${sha256}.${formatInfo.extension}`;
+    const objectPath = `${MODEL_PREFIX}/${sha256}.glb`;
     const storageBase = `${supabaseUrl}/storage/v1`;
     const headers = storageHeaders(secretKey);
     const publicUrl = publicObjectUrl(storageBase, bucket, objectPath);
@@ -271,10 +231,7 @@ export default async (request) => {
                 path: objectPath,
                 publicUrl,
                 bytes: existing.bytes,
-                originalName,
-                format,
-                platform,
-                contentType: formatInfo.contentType
+                originalName
             });
         }
 
@@ -304,10 +261,7 @@ export default async (request) => {
             tusEndpoint: signedTusEndpoint(supabaseUrl),
             expiresInSeconds: 7200,
             usageBeforeUpload: usage,
-            originalName,
-            format,
-            platform,
-            contentType: formatInfo.contentType
+            originalName
         });
     } catch (error) {
         console.error('AR upload ticket failed:', error);

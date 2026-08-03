@@ -40,8 +40,8 @@ html = html.replace(
     `<meta name="app-build" content="${build}">`
 );
 
-// Preserve manually published GLBs. They are deliberately outside the generated
-// website files, so preparing a new Netlify build must not delete them.
+// Preserve manually published GLB/USDZ assets. They are deliberately outside
+// the generated website files, so preparing a new Netlify build must not delete them.
 const preservedModels = path.join(root, '.static-models-preserved');
 const currentModels = path.join(staticRoot, 'models');
 fs.rmSync(preservedModels, { recursive: true, force: true });
@@ -81,9 +81,9 @@ if (fs.existsSync(headersSource)) {
 const version = {
     build,
     baseCommit: hash,
-    channel: 'production-main-plus-supabase-ar-automation',
+    channel: 'production-dual-platform-supabase-ar',
     generatedAt: generatedAt.toISOString(),
-    architecture: 'production configurator -> optimized browser GLB export -> Netlify upload ticket -> direct Supabase Storage upload -> Scene Viewer'
+    architecture: 'production configurator -> selected GLB or USDZ browser export -> Netlify upload ticket -> direct Supabase Storage upload -> Scene Viewer or Quick Look'
 };
 const json = `${JSON.stringify(version, null, 2)}\n`;
 fs.writeFileSync(path.join(root, 'version.json'), json);
@@ -91,4 +91,4 @@ fs.writeFileSync(path.join(staticRoot, 'version.json'), json);
 fs.writeFileSync(path.join(staticRoot, '.nojekyll'), '');
 
 console.log(`Prepared static-site build ${build}`);
-console.log('Included production index, SVG profiles, Three.js library, CAD screenshots, and automated Supabase AR files. Netlify Functions are deployed separately from netlify/functions.');
+console.log('Included production index, SVG profiles, Three.js library, CAD screenshots, and dual-platform Supabase AR files. Netlify Functions are deployed separately from netlify/functions.');

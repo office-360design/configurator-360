@@ -1,217 +1,112 @@
-# Supabase + Netlify automated AR publication
+# Supabase + Netlify dual-platform AR publication
 
-## Resulting workflow
+## Workflow
 
-```text
-Netlify configurator in the laptop browser
-        ↓
-Optimized GLB generated and validated locally
-        ↓
-Small JSON request to a Netlify Function
-        ↓
-Netlify Function verifies the private upload access key
-        ↓
-Netlify Function creates a two-hour Supabase signed upload token
-        ↓
-Browser uploads the 7–15 MB GLB directly to Supabase using resumable TUS
-        ↓
-Supabase public GLB URL is verified
-        ↓
-QR is generated immediately
-        ↓
-Phone opens the GLB in Google Scene Viewer
-```
-
-The GLB bytes do **not** pass through Netlify Functions. Netlify only creates a small signed-upload ticket, so the Netlify binary request limit is irrelevant.
-
-## Cost controls already built into the code
-
-The Netlify Function refuses new uploads when any configured safety limit would be crossed:
-
-- maximum single GLB: 15 MiB;
-- maximum stored models: 90;
-- maximum total model storage: 800 MiB;
-- only `model/gltf-binary` files;
-- storage path is the GLB SHA-256 hash, so identical models are reused instead of uploaded twice;
-- an upload access key is required and is never stored in public source code.
-
-The Supabase Free plan currently includes 1 GB file storage, 5 GB egress, 5 GB cached egress, and a 50 MB maximum file upload. Supabase states that Free-plan use is not charged; continued excess usage can instead lead to service restrictions. Keep the organization on **Free** and do not upgrade it if a strict zero-charge setup is required. The application also stops accepting uploads at 800 MiB or 90 models by default, before the included storage quota is reached.
-
-## 1. Create the Supabase project
-
-1. Create a Supabase account.
-2. Choose **New project**.
-3. Select your organization.
-4. Enter a project name, for example `configurator-360-ar`.
-5. Generate and save the database password. The application does not use it, but Supabase requires one.
-6. Choose a nearby EU region.
-7. Keep the project on **Free**.
-8. Wait until project provisioning finishes.
-
-## 2. Create the public Storage bucket
-
-In the Supabase project:
-
-1. Open **Storage**.
-2. Select **New bucket**.
-3. Bucket name:
-
-   ```text
-   window-ar-models
-   ```
-
-4. Enable **Public bucket**.
-5. Set the file-size limit to:
-
-   ```text
-   15 MB
-   ```
-
-6. If the UI offers allowed MIME types, add:
-
-   ```text
-   model/gltf-binary
-   ```
-
-7. Create the bucket.
-
-A public bucket only makes file downloads public. It does not automatically allow anonymous uploads. This implementation creates signed upload tokens on the trusted Netlify Function, so no anonymous Storage INSERT policy is required.
-
-## 3. Obtain the two Supabase values
-
-Open the Supabase project's **Connect** dialog or **Project Settings → API Keys**.
-
-Copy:
-
-1. **Project URL**, shaped like:
-
-   ```text
-   https://abcdefghijklmnop.supabase.co
-   ```
-
-2. **Secret key**, shaped like:
-
-   ```text
-   sb_secret_...
-   ```
-
-Use the new secret key where available. The older legacy `service_role` key also works through the fallback environment-variable name, but must never be placed in browser code or committed to Git.
-
-## 4. Create a private AR upload access key
-
-Generate a long random password. A PowerShell option is:
-
-```powershell
--join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | ForEach-Object {[char]$_})
-```
-
-Save the resulting value in a password manager. You will enter it in the configurator once per browser tab when generating an AR model.
-
-## 5. Add Netlify environment variables
-
-In the existing Netlify project:
+The selector beside **Generate AR QR** defaults to Android.
 
 ```text
-Project configuration
-→ Environment variables
-→ Add a variable
+Android → optimized GLB → Supabase → shared phone page → Scene Viewer
+iOS     → optimized USDZ → Supabase → shared phone page → AR Quick Look
 ```
 
-Add these values with the **Functions** scope, or all scopes when the UI does not ask:
+Each QR contains:
+
+- the public Supabase model URL;
+- the selected platform (`android` or `ios`);
+- the selected format (`glb` or `usdz`);
+- the configurator build and model title.
+
+The phone page detects the actual device. When an Android QR is opened on iOS, or an iOS QR is opened on Android, it hides the incompatible AR action and tells the user which selector option must be used on the configurator.
+
+The model bytes do **not** pass through Netlify Functions. Netlify creates a short-lived signed upload ticket, after which the browser uploads directly to Supabase using signed resumable TUS with signed PUT as a compatibility fallback.
+
+## Storage protections
+
+The Function enforces these defaults:
+
+- GLB maximum: 15 MiB;
+- USDZ maximum: 60 MiB;
+- maximum stored AR files: 90;
+- maximum combined model storage: 800 MiB;
+- Android accepts only `model/gltf-binary` and `.glb`;
+- iOS accepts only `model/vnd.usdz+zip` and `.usdz`;
+- object paths use the binary SHA-256 hash, so identical assets of the same format are reused;
+- requests are accepted only from `AR_ALLOWED_ORIGINS`.
+
+Stored files look like:
 
 ```text
-SUPABASE_URL
-https://YOUR_PROJECT_REF.supabase.co
+models/<sha256>.glb
+models/<sha256>.usdz
 ```
 
-```text
-SUPABASE_SECRET_KEY
-sb_secret_YOUR_REAL_SECRET_KEY
-```
+The application does not automatically delete an earlier publication when the selector changes. This prevents old QR codes from becoming invalid.
+
+## 1. Supabase bucket
+
+Create or keep the public Storage bucket:
 
 ```text
-SUPABASE_BUCKET
 window-ar-models
 ```
 
-```text
-AR_UPLOAD_KEY
-YOUR_LONG_RANDOM_ACCESS_KEY
-```
+The bucket must allow both MIME types and a file size large enough for the USDZ limit:
 
 ```text
-AR_ALLOWED_ORIGINS
-https://brilliant-klepon-fbae3a.netlify.app
+model/gltf-binary
+model/vnd.usdz+zip
 ```
 
-Add the safety limits:
+Recommended bucket file-size limit:
 
 ```text
-AR_MAX_FILE_BYTES
-15728640
+60 MB or higher
 ```
+
+A public bucket permits public downloads. Uploads remain protected because the trusted Netlify Function creates short-lived signed tokens; no public anonymous INSERT policy is required.
+
+## 2. Netlify environment variables
+
+Set these under **Project configuration → Environment variables**:
 
 ```text
-AR_MAX_MODELS
-90
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_YOUR_REAL_SECRET_KEY
+SUPABASE_BUCKET=window-ar-models
+AR_ALLOWED_ORIGINS=https://brilliant-klepon-fbae3a.netlify.app
 ```
+
+Optional safety overrides:
 
 ```text
-AR_MAX_TOTAL_BYTES
-838860800
+AR_MAX_GLB_BYTES=15728640
+AR_MAX_USDZ_BYTES=62914560
+AR_MAX_MODELS=90
+AR_MAX_TOTAL_BYTES=838860800
 ```
 
-Do not add a trailing slash to `AR_ALLOWED_ORIGINS`.
+The old `AR_MAX_FILE_BYTES` variable is still accepted as the GLB limit when `AR_MAX_GLB_BYTES` is absent. It intentionally does not limit USDZ files.
 
-Do not put `SUPABASE_SECRET_KEY` or `AR_UPLOAD_KEY` in:
+Do not put `SUPABASE_SECRET_KEY` in frontend files, Git, URLs, or QR codes.
 
-- `ar-upload-config.js`;
-- `index.html`;
-- GitHub;
-- a URL;
-- a QR code.
+## 3. Deploy the full site and Function
 
-Netlify applies Function environment variables from the values present at deployment time. After setting or changing these values, perform one production deploy.
-
-## 6. Deploy the site and Function once
-
-Dragging only `static-site` into Netlify publishes static files but is not the reliable way to deploy the Function. Use Netlify CLI for this deployment.
-
-Open PowerShell in the repository root, where `package.json` and `netlify.toml` are located. You do not need to install another permanent global package. Run Netlify CLI through `npx.cmd`:
-
-```powershell
-npx.cmd --yes netlify-cli@latest login
-```
-
-Link the local folder to the existing Netlify project:
-
-```powershell
-npx.cmd --yes netlify-cli@latest link
-```
-
-Choose the existing project:
-
-```text
-brilliant-klepon-fbae3a
-```
-
-Prepare the current public files:
+From the repository root:
 
 ```powershell
 npm.cmd run prepare:static
-```
-
-Deploy the static site and Function together:
-
-```powershell
 npx.cmd --yes netlify-cli@latest deploy --prod --dir=static-site --functions=netlify/functions
 ```
 
-The included `DEPLOY_NETLIFY_WITH_FUNCTIONS.cmd` performs the same sequence interactively. Do not use Netlify Drop for this particular deployment because dragging only `static-site` does not deploy the Function.
+The included script performs the same deployment:
 
-This consumes **one** production deployment. On Netlify credit-based plans, a successful production deployment currently consumes 15 credits. New GLB models do not create deployments: each one uses only a short Function call plus the direct Supabase upload.
+```text
+DEPLOY_NETLIFY_WITH_FUNCTIONS.cmd
+```
 
-## 7. Verify the Function
+Do not use a static-only Netlify Drop deployment because it does not update the Function.
+
+## 4. Verify the Function
 
 Open:
 
@@ -219,95 +114,83 @@ Open:
 https://brilliant-klepon-fbae3a.netlify.app/api/ar-upload-ticket
 ```
 
-Expected result:
+The response should contain:
 
 ```json
 {
   "ok": true,
   "service": "ar-upload-ticket",
   "configured": true,
-  "bucket": "window-ar-models"
+  "acceptedFormats": [
+    { "format": "glb", "platform": "android" },
+    { "format": "usdz", "platform": "ios" }
+  ]
 }
 ```
 
-If `configured` is `false`, inspect the Netlify environment variables and redeploy.
+## 5. Test Android
 
-## 8. Test the complete automated flow
+1. Leave **Android** selected.
+2. Press **Generate AR QR**.
+3. Confirm that the dialog reports a GLB export.
+4. Scan the QR on an Android phone.
+5. Press **View in AR**.
+6. Confirm that Google Scene Viewer opens.
 
-1. Open the Netlify configurator on the laptop.
-2. Configure the window.
-3. Press **Generate AR QR**.
-4. The browser exports and optimizes the GLB.
-5. Enter `AR_UPLOAD_KEY` when prompted.
-6. The dialog displays the upload percentage.
-7. The public Supabase URL is verified.
-8. The QR appears automatically.
-9. Scan the QR on the phone.
-10. Confirm that the 3D preview loads.
-11. Press **Open in AR**.
+Opening this QR on an iPhone must show the platform-mismatch message and no usable AR button.
 
-The access key is kept only in `sessionStorage`, so it is forgotten when the tab/session ends.
+## 6. Test iOS
 
-## 9. Managing stored models
+1. Select **iOS**.
+2. Press **Generate AR QR**.
+3. Confirm that the dialog reports a USDZ export.
+4. Scan the QR using the iPhone Camera app or open it in Safari.
+5. Press **View in AR**.
+6. Confirm that Apple AR Quick Look opens.
 
-Supabase Storage contains files such as:
+Opening this QR on Android must show the platform-mismatch message and no usable AR button.
 
-```text
-models/<sha256>.glb
-```
-
-Identical GLBs share the same hash and are not uploaded again.
-
-To free space:
-
-1. Open **Supabase → Storage → window-ar-models → models**.
-2. Delete old `.glb` files.
-
-The application intentionally does not delete files automatically. It stops accepting uploads before reaching the configured storage safety cap.
-
-## 10. Common errors
+## 7. Common errors
 
 ### `SERVER_NOT_CONFIGURED`
 
-One or more Netlify environment variables are missing. Set them and redeploy.
-
-### `UPLOAD_KEY_INVALID`
-
-The password entered in the configurator does not match `AR_UPLOAD_KEY` in Netlify.
+One or more required Netlify environment variables are missing. Set them and redeploy.
 
 ### `ORIGIN_NOT_ALLOWED`
 
 `AR_ALLOWED_ORIGINS` does not exactly match the public Netlify origin.
 
-### `NoSuchBucket`
+### `PLATFORM_FORMAT_MISMATCH`
 
-The bucket does not exist or its name differs from `SUPABASE_BUCKET`.
+The request attempted an invalid pair, such as Android + USDZ or iOS + GLB. The frontend selector should always send Android + GLB or iOS + USDZ.
 
-### Safety-cap error
+### `INVALID_SIZE` for USDZ
 
-Delete old GLBs from Supabase Storage or deliberately raise the configured limit while remaining within the plan quota.
+Check all three limits:
 
-### 3D preview works but Scene Viewer fails
+- `ar-upload-config.js` → `maxUsdzBytes`;
+- Netlify → `AR_MAX_USDZ_BYTES`;
+- Supabase bucket → file-size limit.
 
-Download the exact GLB from the phone page and validate it. The storage/upload pipeline is already working in that case.
+### Quick Look downloads instead of opening AR
 
-## Official references
+Confirm that:
 
-- Supabase resumable uploads: https://supabase.com/docs/guides/storage/uploads/resumable-uploads
-- Supabase Storage buckets: https://supabase.com/docs/guides/storage/buckets/fundamentals
-- Supabase API keys: https://supabase.com/docs/guides/getting-started/api-keys
-- Supabase cost controls: https://supabase.com/docs/guides/platform/cost-control
-- Netlify Functions: https://docs.netlify.com/build/functions/get-started/
-- Netlify Function environment variables: https://docs.netlify.com/build/functions/environment-variables/
-- Netlify CLI: https://docs.netlify.com/api-and-cli-guides/cli-guides/get-started-with-cli/
+- the phone page is opened in Safari or through the iPhone Camera QR flow;
+- the public file ends in `.usdz`;
+- Supabase serves `Content-Type: model/vnd.usdz+zip`;
+- the visible action is the `rel="ar"` link on `ar-viewer.html`.
+
+### Scene Viewer fails but the preview works
+
+Use the phone page download action to inspect the exact GLB. In this case the storage and QR pipeline are already functioning.
 
 ## Signed resumable endpoint
 
-This build uses Supabase's signed TUS endpoint:
+The Function uses:
 
 ```text
 /storage/v1/upload/resumable/sign
 ```
 
-The similar endpoint without `/sign` is for normal JWT-authenticated resumable uploads and will reject a signed-upload token with an `Invalid Compact JWS` error. After deployment, the health endpoint reports `build: supabase-tus-sign-20260729-01`.
-
+The similar endpoint without `/sign` is for normal JWT-authenticated resumable uploads and rejects a signed-upload token.
