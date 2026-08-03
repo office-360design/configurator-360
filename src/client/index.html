@@ -3138,6 +3138,28 @@
         let activeHousePresetKey = null;
         let houseWasVisible = false;
 
+        function getHouseExplodedWindowForwardOffset() {
+            const showHouse = document.getElementById('cShowHouse')?.checked === true;
+            if (isARMode || !showHouse) {
+                return 0;
+            }
+
+            const width = Number.parseFloat(document.getElementById('widthA')?.value) || 1.2;
+            const height = Number.parseFloat(document.getElementById('heightB')?.value) || 1.5;
+            const isSmallHouse = width <= 1.2 && height <= 1.2;
+            const houseDimensions = isSmallHouse
+                ? SMALL_HOUSE_DIMENSIONS
+                : LARGE_HOUSE_DIMENSIONS;
+
+            // Pull the whole window slightly toward the camera while exploded so
+            // no frame sections appear embedded inside the front wall thickness.
+            return houseDimensions.wallThickness + 0.05;
+        }
+
+        function applyExplodedWindowForwardOffset(progress) {
+            mainGroup.position.z = getHouseExplodedWindowForwardOffset() * progress;
+        }
+
         const sectionGroup = new THREE.Group();
         // Positioned in front of the camera, floating at eye level
         sectionGroup.position.set(0.7, 0.35, 1.1);
@@ -3582,6 +3604,20 @@
             const X_wall_min = -W_wall / 2;
             const X_wall_max = W_wall / 2;
 
+            // The side walls and floor sit between the inner faces of the
+            // front and rear walls. Keep a small overlap at every joint so
+            // shadows and floating-point precision cannot reveal cracks.
+            const wallJointOverlap = Math.min(0.01, wallThickness * 0.1);
+            const innerShellCenterZ = -houseDepth / 2 + wallThickness / 4;
+            const innerShellDepth = Math.max(
+                wallThickness,
+                houseDepth - wallThickness * 1.5 + wallJointOverlap * 2
+            );
+            const innerFloorWidth = Math.max(
+                wallThickness,
+                W_wall - wallThickness * 2 + wallJointOverlap * 2
+            );
+
             ground.position.y = Y_floor;
             gridHelper.position.y = Y_floor + 0.005;
 
@@ -3674,8 +3710,8 @@
                 sharedBoxGeo,
                 sharedBoxEdges,
                 wallMat,
-                { x: X_wall_min + wallThickness / 2, y: Y_floor + H_wall / 2, z: -houseDepth / 2 },
-                { x: wallThickness, y: H_wall, z: houseDepth - wallThickness * 1.5 }
+                { x: X_wall_min + wallThickness / 2, y: Y_floor + H_wall / 2, z: innerShellCenterZ },
+                { x: wallThickness, y: H_wall, z: innerShellDepth }
             );
 
             addSharedMeshWithOutline(
@@ -3683,8 +3719,8 @@
                 sharedBoxGeo,
                 sharedBoxEdges,
                 wallMat,
-                { x: X_wall_max - wallThickness / 2, y: Y_floor + H_wall / 2, z: -houseDepth / 2 },
-                { x: wallThickness, y: H_wall, z: houseDepth - wallThickness * 1.5 }
+                { x: X_wall_max - wallThickness / 2, y: Y_floor + H_wall / 2, z: innerShellCenterZ },
+                { x: wallThickness, y: H_wall, z: innerShellDepth }
             );
 
             addSharedMeshWithOutline(
@@ -3692,8 +3728,8 @@
                 sharedBoxGeo,
                 sharedBoxEdges,
                 wallMat,
-                { x: 0, y: Y_floor + 0.01, z: -houseDepth / 2 },
-                { x: W_wall - wallThickness * 2, y: 0.02, z: houseDepth - wallThickness * 1.5 }
+                { x: 0, y: Y_floor + 0.01, z: innerShellCenterZ },
+                { x: innerFloorWidth, y: 0.02, z: innerShellDepth }
             );
 
             addSharedMeshWithOutline(
@@ -4117,6 +4153,7 @@
             const t_house_start = performance.now();
             // Build House Environment
             buildHouse(A, B);
+            applyExplodedWindowForwardOffset(explodeProgress);
             const t_house_end = performance.now();
 
             const t_dims_start = performance.now();
@@ -4166,6 +4203,7 @@
                 }
             });
 
+            applyExplodedWindowForwardOffset(targetExplode);
             mainGroup.updateWorldMatrix(true, true);
         }
 
@@ -4205,6 +4243,7 @@
                     obj.position.copy(obj.userData.basePos).addScaledVector(obj.userData.explodeDir, explodeProgress);
                 }
             });
+            applyExplodedWindowForwardOffset(explodeProgress);
 
             if (isARMode) {
                 updateARPlacement(xrFrame);
