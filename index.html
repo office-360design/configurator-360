@@ -997,14 +997,21 @@
             </div>
         </div>
 
-        <div class="control-group" style="display: flex; gap: 8px;">
-            <div style="flex: 1;">
-                <label>Width: </label>
-                <input type="number" id="widthA" value="1.2" min="0.5" max="3.0" step="0.05">
+        <div class="control-group">
+            <label>Width: <span id="valWidth">1.20 m</span></label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" id="btnWidthDec" class="handle-side-btn" style="width: 38px; height: 38px; padding: 0;">-</button>
+                <input type="range" id="widthA" min="0.5" max="3.0" step="0.05" value="1.2" style="flex: 1; margin: 0;">
+                <button type="button" id="btnWidthInc" class="handle-side-btn" style="width: 38px; height: 38px; padding: 0;">+</button>
             </div>
-            <div style="flex: 1;">
-                <label>Height: </label>
-                <input type="number" id="heightB" value="1.5" min="0.5" max="3.0" step="0.05">
+        </div>
+
+        <div class="control-group">
+            <label>Height: <span id="valHeight">1.50 m</span></label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" id="btnHeightDec" class="handle-side-btn" style="width: 38px; height: 38px; padding: 0;">-</button>
+                <input type="range" id="heightB" min="0.5" max="3.0" step="0.05" value="1.5" style="flex: 1; margin: 0;">
+                <button type="button" id="btnHeightInc" class="handle-side-btn" style="width: 38px; height: 38px; padding: 0;">+</button>
             </div>
         </div>
 
@@ -4072,6 +4079,28 @@
         // EVENT LISTENERS
         document.getElementById('widthA').addEventListener('input', buildWindow);
         document.getElementById('heightB').addEventListener('input', buildWindow);
+
+        function changeInputValue(input, delta) {
+            const min = parseFloat(input.min) || 0.5;
+            const max = parseFloat(input.max) || 3.0;
+            const val = parseFloat(input.value) || 1.2;
+            const newVal = Math.min(max, Math.max(min, val + delta));
+            input.value = newVal.toFixed(2);
+            input.dispatchEvent(new Event('input'));
+        }
+
+        document.getElementById('btnWidthDec').addEventListener('click', () => {
+            changeInputValue(document.getElementById('widthA'), -0.05);
+        });
+        document.getElementById('btnWidthInc').addEventListener('click', () => {
+            changeInputValue(document.getElementById('widthA'), 0.05);
+        });
+        document.getElementById('btnHeightDec').addEventListener('click', () => {
+            changeInputValue(document.getElementById('heightB'), -0.05);
+        });
+        document.getElementById('btnHeightInc').addEventListener('click', () => {
+            changeInputValue(document.getElementById('heightB'), 0.05);
+        });
 
         const toggleSectionBtn = document.getElementById('toggleSectionViewBtn');
         if (toggleSectionBtn) {
