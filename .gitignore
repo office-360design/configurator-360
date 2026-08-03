@@ -62,3 +62,21 @@ generated/**/*.glb
 
 # Netlify CLI local state
 .netlify/
+
+# Generated website
+dist/
+
+# Runtime-generated local AR models
+runtime/generated/*
+!runtime/generated/.gitkeep
+
+# Temporary build preservation directory
+.dist-models-preserved/
+
+# Local Netlify state and old updater backups
+.netlify/
+.ar-upload-key-removal-backup/
+
+# CAD conversion temporary files
+cad/intermediate/temp_*/
+cad/intermediate/temp_export.scr
