@@ -1104,6 +1104,14 @@
                     </label>
                 </div>
 
+                <div class="action-box">
+                    <label>Show House</label>
+                    <label class="switch">
+                        <input type="checkbox" id="cShowHouse">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+
                 <div class="part-toggles" style="margin-top: 0; border-top: none; padding-top: 0;">
                     <details class="clean-dropdown">
                         <summary class="clean-dropdown-header">
@@ -1193,7 +1201,8 @@
             <h3 id="qr-title">Export and view this window in AR</h3>
             <p>The browser creates an optimized GLB. In the cost-safe static workflow, download it, place it in
                 <code>static-site/models</code>, redeploy Netlify, then let this dialog verify the public file and
-                create the QR.</p>
+                create the QR.
+            </p>
             <div id="qr-status">Preparing the optimized GLB export…</div>
             <pre id="qr-export-stats"></pre>
             <div id="qr-publish-help"></div>
@@ -2730,6 +2739,9 @@
         placementRoot.visible = !isARMode;
         scene.add(placementRoot);
 
+        const houseGroup = new THREE.Group();
+        scene.add(houseGroup);
+
         const sectionGroup = new THREE.Group();
         // Positioned in front of the camera, floating at eye level
         sectionGroup.position.set(0.7, 0.35, 1.1);
@@ -3058,10 +3070,328 @@
             };
         }
 
+        function buildHouse(A, B) {
+            // Leak-proof cleanup of previous house meshes
+            while (houseGroup.children.length > 0) {
+                const child = houseGroup.children[0];
+                houseGroup.remove(child);
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => m.dispose());
+                    } else {
+                        child.material.dispose();
+                    }
+                }
+                // Clear and dispose lines
+                child.children.forEach(subChild => {
+                    if (subChild.geometry) subChild.geometry.dispose();
+                    if (subChild.material) subChild.material.dispose();
+                });
+            }
+
+            const showHouse = document.getElementById('cShowHouse')?.checked === true;
+            if (isARMode || !showHouse) {
+                // Restore ground and grid helper positions
+                ground.position.y = -1.2;
+                gridHelper.position.y = -1.19;
+                return;
+            }
+
+            // Dynamically adjust floor level relative to window bottom (-B/2)
+            const Y_floor = -B / 2 - 0.4;
+            ground.position.y = Y_floor;
+            gridHelper.position.y = Y_floor + 0.005;
+
+            // Dimensions
+            const W_wall = A + 2.0;
+            const H_wall = B + 0.8;
+            const Y_wall_top = B / 2 + 0.4;
+            const X_wall_min = -W_wall / 2;
+            const X_wall_max = W_wall / 2;
+            const houseDepth = 3.0; // total depth from front to back
+            const wallThickness = 0.1;
+            const gableHeight = 1.0;
+
+            // Materials (Slate theme matching the project background and grid helper)
+            const wallMat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                roughness: 0.8,
+                metalness: 0.2,
+                side: THREE.DoubleSide
+            });
+            const roofMat = new THREE.MeshStandardMaterial({
+                color: 0x334155,
+                roughness: 0.6,
+                metalness: 0.2,
+                side: THREE.DoubleSide
+            });
+            const outlineMat = new THREE.LineBasicMaterial({
+                color: 0x475569
+            });
+
+            function addMeshWithOutline(geometry, material, pos = null, rot = null) {
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.castShadow = !captureMode;
+                mesh.receiveShadow = !captureMode;
+                if (pos) mesh.position.set(pos.x, pos.y, pos.z);
+                if (rot) mesh.rotation.set(rot.x, rot.y, rot.z);
+                houseGroup.add(mesh);
+
+                const edges = new THREE.EdgesGeometry(geometry);
+                const line = new THREE.LineSegments(edges, outlineMat);
+                mesh.add(line);
+                return mesh;
+            }
+
+            // 1. FRONT WALL (with window cutout)
+            const frontShape = new THREE.Shape();
+            frontShape.moveTo(X_wall_min, Y_floor);
+            frontShape.lineTo(X_wall_max, Y_floor);
+            frontShape.lineTo(X_wall_max, Y_wall_top);
+            frontShape.lineTo(X_wall_min, Y_wall_top);
+            frontShape.closePath();
+
+            const holePath = new THREE.Path();
+            holePath.moveTo(-A / 2, -B / 2);
+            holePath.lineTo(A / 2, -B / 2);
+            holePath.lineTo(A / 2, B / 2);
+            holePath.lineTo(-A / 2, B / 2);
+            holePath.closePath();
+            frontShape.holes.push(holePath);
+
+            const frontGeo = new THREE.ExtrudeGeometry(frontShape, {
+                depth: wallThickness,
+                bevelEnabled: false
+            });
+            // ExtrudeGeometry spans 0 to 0.1 along Z. To center it at Z = 0: position at Z = -0.05
+            addMeshWithOutline(frontGeo, wallMat, { x: 0, y: 0, z: -0.05 });
+
+            // 2. BACK WALL
+            const backGeo = new THREE.BoxGeometry(W_wall, H_wall, wallThickness);
+            addMeshWithOutline(backGeo, wallMat, { x: 0, y: Y_floor + H_wall / 2, z: -houseDepth + wallThickness / 2 });
+
+            // 3. LEFT WALL
+            const leftGeo = new THREE.BoxGeometry(wallThickness, H_wall, 2.85);
+            addMeshWithOutline(leftGeo, wallMat, {
+                x: X_wall_min + wallThickness / 2,
+                y: Y_floor + H_wall / 2,
+                z: -1.475
+            });
+
+            // 4. RIGHT WALL
+            const rightGeo = new THREE.BoxGeometry(wallThickness, H_wall, 2.85);
+            addMeshWithOutline(rightGeo, wallMat, {
+                x: X_wall_max - wallThickness / 2,
+                y: Y_floor + H_wall / 2,
+                z: -1.475
+            });
+
+            // 5. FLOOR
+            const floorGeo = new THREE.BoxGeometry(W_wall - wallThickness * 2, 0.02, 2.85);
+            addMeshWithOutline(floorGeo, wallMat, {
+                x: 0,
+                y: Y_floor + 0.01,
+                z: -1.475
+            });
+
+            // 6. GABLES (2 Upright Triangles on Front and Back)
+            const frontGableShape = new THREE.Shape();
+            frontGableShape.moveTo(X_wall_min, Y_wall_top);
+            frontGableShape.lineTo(X_wall_max, Y_wall_top);
+            frontGableShape.lineTo(0, Y_wall_top + gableHeight);
+            frontGableShape.closePath();
+
+            const frontGableGeo = new THREE.ExtrudeGeometry(frontGableShape, {
+                depth: wallThickness,
+                bevelEnabled: false
+            });
+            addMeshWithOutline(frontGableGeo, wallMat, { x: 0, y: 0, z: -0.05 });
+
+            const backGableShape = new THREE.Shape();
+            backGableShape.moveTo(X_wall_min, Y_wall_top);
+            backGableShape.lineTo(X_wall_max, Y_wall_top);
+            backGableShape.lineTo(0, Y_wall_top + gableHeight);
+            backGableShape.closePath();
+
+            const backGableGeo = new THREE.ExtrudeGeometry(backGableShape, {
+                depth: wallThickness,
+                bevelEnabled: false
+            });
+            addMeshWithOutline(backGableGeo, wallMat, { x: 0, y: 0, z: -3.00 });
+
+            // 7. ROOF PANELS (2 extruded shapes for a perfect miter joint at X = 0)
+            const theta = Math.atan2(gableHeight, W_wall / 2);
+            const roofDepthExact = 3.15;
+            const roofThickness = 0.05;
+            const t_vertical = roofThickness / Math.cos(theta);
+
+            const overhangX = 0.05;
+            const X_roof_min = X_wall_min - overhangX;
+            const X_roof_max = X_wall_max + overhangX;
+            const Y_roof_min = Y_wall_top - overhangX * Math.tan(theta);
+
+            // Left roof shape
+            const leftRoofShape = new THREE.Shape();
+            leftRoofShape.moveTo(X_roof_min, Y_roof_min);
+            leftRoofShape.lineTo(0, Y_wall_top + gableHeight);
+            leftRoofShape.lineTo(0, Y_wall_top + gableHeight + t_vertical);
+            leftRoofShape.lineTo(X_roof_min, Y_roof_min + t_vertical);
+            leftRoofShape.closePath();
+
+            const leftRoofGeo = new THREE.ExtrudeGeometry(leftRoofShape, {
+                depth: roofDepthExact,
+                bevelEnabled: false
+            });
+            addMeshWithOutline(leftRoofGeo, roofMat, { x: 0, y: 0, z: -3.05 });
+
+            // Right roof shape
+            const rightRoofShape = new THREE.Shape();
+            rightRoofShape.moveTo(0, Y_wall_top + gableHeight);
+            rightRoofShape.lineTo(X_roof_max, Y_roof_min);
+            rightRoofShape.lineTo(X_roof_max, Y_roof_min + t_vertical);
+            rightRoofShape.lineTo(0, Y_wall_top + gableHeight + t_vertical);
+            rightRoofShape.closePath();
+
+            const rightRoofGeo = new THREE.ExtrudeGeometry(rightRoofShape, {
+                depth: roofDepthExact,
+                bevelEnabled: false
+            });
+            addMeshWithOutline(rightRoofGeo, roofMat, { x: 0, y: 0, z: -3.05 });
+
+            // 8. COZY INTERIOR LIGHT
+            const interiorLight = new THREE.PointLight(0xffaa44, 1.5, 10);
+            interiorLight.position.set(0, Y_floor + 1.2, -houseDepth / 2);
+            houseGroup.add(interiorLight);
+        }
+
+        const dimLineMaterial = new THREE.LineBasicMaterial({
+            color: 0x38bdf8
+        });
+
+        function createLabelSprite(text) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 128;
+
+            // Draw capsule background
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)'; // dark slate
+            ctx.strokeStyle = '#38bdf8'; // sky blue border
+            ctx.lineWidth = 4;
+            
+            const x = 32;
+            const y = 32;
+            const w = 192;
+            const h = 64;
+            const r = 32; // fully rounded corners
+            
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw text
+            ctx.fillStyle = '#eff6ff'; // off white
+            ctx.font = 'bold 28px Outfit, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 128, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture, 
+                transparent: true,
+                depthTest: false,
+                depthWrite: false
+            });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(0.35, 0.175, 1);
+            return sprite;
+        }
+
+        function buildDimensionLines(A, B) {
+            const dimensionsGroup = new THREE.Group();
+            mainGroup.add(dimensionsGroup);
+
+            const zPos = 0.052; 
+            const tickSize = 0.04;
+            const offset = 0.15; 
+
+            function addLineSegment(p1, p2) {
+                const geom = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+                const line = new THREE.Line(geom, dimLineMaterial);
+                dimensionsGroup.add(line);
+            }
+
+            // 1. TOP DIMENSION (Width)
+            const topY = B / 2 + offset;
+            addLineSegment(new THREE.Vector3(-A / 2, topY, zPos), new THREE.Vector3(A / 2, topY, zPos));
+            addLineSegment(new THREE.Vector3(-A / 2, topY - tickSize, zPos), new THREE.Vector3(-A / 2, topY + tickSize, zPos));
+            addLineSegment(new THREE.Vector3(A / 2, topY - tickSize, zPos), new THREE.Vector3(A / 2, topY + tickSize, zPos));
+            
+            const topLabel = createLabelSprite(`${A.toFixed(2)} m`);
+            topLabel.position.set(0, topY, zPos);
+            dimensionsGroup.add(topLabel);
+
+            // 2. BOTTOM DIMENSION (Width)
+            const bottomY = -B / 2 - offset;
+            addLineSegment(new THREE.Vector3(-A / 2, bottomY, zPos), new THREE.Vector3(A / 2, bottomY, zPos));
+            addLineSegment(new THREE.Vector3(-A / 2, bottomY - tickSize, zPos), new THREE.Vector3(-A / 2, bottomY + tickSize, zPos));
+            addLineSegment(new THREE.Vector3(A / 2, bottomY - tickSize, zPos), new THREE.Vector3(A / 2, bottomY + tickSize, zPos));
+
+            const bottomLabel = createLabelSprite(`${A.toFixed(2)} m`);
+            bottomLabel.position.set(0, bottomY, zPos);
+            dimensionsGroup.add(bottomLabel);
+
+            // 3. LEFT DIMENSION (Height)
+            const leftX = -A / 2 - offset;
+            addLineSegment(new THREE.Vector3(leftX, -B / 2, zPos), new THREE.Vector3(leftX, B / 2, zPos));
+            addLineSegment(new THREE.Vector3(leftX - tickSize, -B / 2, zPos), new THREE.Vector3(leftX + tickSize, -B / 2, zPos));
+            addLineSegment(new THREE.Vector3(leftX - tickSize, B / 2, zPos), new THREE.Vector3(leftX + tickSize, B / 2, zPos));
+
+            const leftLabel = createLabelSprite(`${B.toFixed(2)} m`);
+            leftLabel.position.set(leftX, 0, zPos);
+            dimensionsGroup.add(leftLabel);
+
+            // 4. RIGHT DIMENSION (Height)
+            const rightX = A / 2 + offset;
+            addLineSegment(new THREE.Vector3(rightX, -B / 2, zPos), new THREE.Vector3(rightX, B / 2, zPos));
+            addLineSegment(new THREE.Vector3(rightX - tickSize, -B / 2, zPos), new THREE.Vector3(rightX + tickSize, -B / 2, zPos));
+            addLineSegment(new THREE.Vector3(rightX - tickSize, B / 2, zPos), new THREE.Vector3(rightX + tickSize, B / 2, zPos));
+
+            const rightLabel = createLabelSprite(`${B.toFixed(2)} m`);
+            rightLabel.position.set(rightX, 0, zPos);
+            dimensionsGroup.add(rightLabel);
+        }
+
         function buildWindow() {
             if (!currentMetadata) return;
 
-            // Clear previous meshes
+            // Clear previous meshes and dispose materials/geometries to prevent memory leaks
+            mainGroup.traverse(child => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => {
+                            if (m.map) m.map.dispose();
+                            m.dispose();
+                        });
+                    } else {
+                        if (child.material.map) child.material.map.dispose();
+                        child.material.dispose();
+                    }
+                }
+            });
             while (mainGroup.children.length > 0) mainGroup.remove(mainGroup.children[0]);
             pivotOscilo.clear();
             pivotBatant.clear();
@@ -3258,6 +3588,12 @@
 
             // Update side-by-side component pictures
             updateComponentPictures();
+
+            // Build House Environment
+            buildHouse(A, B);
+
+            // Build Dimension Lines
+            buildDimensionLines(A, B);
         }
 
         function applyCurrentPoseInstantly() {
@@ -3827,6 +4163,7 @@
         document.getElementById('side_bottom').addEventListener('change', buildWindow);
         document.getElementById('side_left').addEventListener('change', buildWindow);
         document.getElementById('side_right').addEventListener('change', buildWindow);
+        document.getElementById('cShowHouse').addEventListener('change', buildWindow);
 
         // Dropdown change listener
         document.getElementById('cadProfile').addEventListener('change', (e) => {
