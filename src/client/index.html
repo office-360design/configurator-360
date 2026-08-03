@@ -1152,22 +1152,23 @@
         </div>
 
         <div class="control-group">
-            <label>Width: <span id="valWidth">1200 mm</span></label>
+            <label>Width: <span id="valWidth">600 mm</span></label>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button type="button" id="btnWidthDec" class="handle-side-btn"
                     style="width: 38px; height: 38px; padding: 0;">-</button>
-                <input type="range" id="widthA" min="0.4" max="2.0" step="0.05" value="1.2" style="flex: 1; margin: 0;">
+                <input type="range" id="widthA" min="0.45" max="1.0" step="0.05" value="0.6"
+                    style="flex: 1; margin: 0;">
                 <button type="button" id="btnWidthInc" class="handle-side-btn"
                     style="width: 38px; height: 38px; padding: 0;">+</button>
             </div>
         </div>
 
         <div class="control-group">
-            <label>Height: <span id="valHeight">1500 mm</span></label>
+            <label>Height: <span id="valHeight">900 mm</span></label>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button type="button" id="btnHeightDec" class="handle-side-btn"
                     style="width: 38px; height: 38px; padding: 0;">-</button>
-                <input type="range" id="heightB" min="0.4" max="2.0" step="0.05" value="1.5"
+                <input type="range" id="heightB" min="0.45" max="2.2" step="0.05" value="0.9"
                     style="flex: 1; margin: 0;">
                 <button type="button" id="btnHeightInc" class="handle-side-btn"
                     style="width: 38px; height: 38px; padding: 0;">+</button>
@@ -1460,14 +1461,31 @@
             ? new Set(pageParams.get('parts').split(',').filter(Boolean))
             : null;
 
+        const WINDOW_WIDTH_MIN_M = 0.45;
+        const WINDOW_WIDTH_MAX_M = 1.0;
+        const WINDOW_HEIGHT_MIN_M = 0.45;
+        const WINDOW_HEIGHT_MAX_M = 2.2;
+        const HOUSE_WIDTH_SWITCH_M = (WINDOW_WIDTH_MIN_M + WINDOW_WIDTH_MAX_M) / 2;
+        const HOUSE_HEIGHT_SWITCH_M = (WINDOW_HEIGHT_MIN_M + WINDOW_HEIGHT_MAX_M) / 2;
+
         const parseBoundedNumber = (value, fallback, min, max) => {
             const parsed = Number.parseFloat(value);
             return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
         };
 
         if (isARMode) {
-            const width = parseBoundedNumber(pageParams.get('w'), 1.2, 0.4, 2.0);
-            const height = parseBoundedNumber(pageParams.get('h'), 1.5, 0.4, 2.0);
+            const width = parseBoundedNumber(
+                pageParams.get('w'),
+                WINDOW_WIDTH_MAX_M,
+                WINDOW_WIDTH_MIN_M,
+                WINDOW_WIDTH_MAX_M
+            );
+            const height = parseBoundedNumber(
+                pageParams.get('h'),
+                1.5,
+                WINDOW_HEIGHT_MIN_M,
+                WINDOW_HEIGHT_MAX_M
+            );
             const mode = pageParams.get('mode') === 'oscilo' ? 'oscilo' : 'batant';
             const maxAngle = mode === 'batant' ? 80 : 15;
             const angle = parseBoundedNumber(pageParams.get('angle'), 0, 0, maxAngle);
@@ -1521,10 +1539,14 @@
         const cadReferenceSubtitle = document.getElementById('cad-reference-subtitle');
 
         if (Number.isFinite(requestedWidth)) {
-            widthInput.value = String(Math.min(2.0, Math.max(0.4, requestedWidth)));
+            widthInput.value = String(
+                Math.min(WINDOW_WIDTH_MAX_M, Math.max(WINDOW_WIDTH_MIN_M, requestedWidth))
+            );
         }
         if (Number.isFinite(requestedHeight)) {
-            heightInput.value = String(Math.min(2.0, Math.max(0.4, requestedHeight)));
+            heightInput.value = String(
+                Math.min(WINDOW_HEIGHT_MAX_M, Math.max(WINDOW_HEIGHT_MIN_M, requestedHeight))
+            );
         }
         if (requestedProfile && [...profileInput.options].some(option => option.value === requestedProfile)) {
             profileInput.value = requestedProfile;
@@ -2823,10 +2845,14 @@
             window.LAST_APPLIED_CONFIGURATION = null;
 
             if (typeof configuration.widthM === 'number' && Number.isFinite(configuration.widthM)) {
-                widthInput.value = String(Math.min(2.0, Math.max(0.4, configuration.widthM)));
+                widthInput.value = String(
+                    Math.min(WINDOW_WIDTH_MAX_M, Math.max(WINDOW_WIDTH_MIN_M, configuration.widthM))
+                );
             }
             if (typeof configuration.heightM === 'number' && Number.isFinite(configuration.heightM)) {
-                heightInput.value = String(Math.min(2.0, Math.max(0.4, configuration.heightM)));
+                heightInput.value = String(
+                    Math.min(WINDOW_HEIGHT_MAX_M, Math.max(WINDOW_HEIGHT_MIN_M, configuration.heightM))
+                );
             }
             if (
                 typeof configuration.glassThicknessMm === 'number'
@@ -3144,12 +3170,10 @@
                 return 0;
             }
 
-            const width = Number.parseFloat(document.getElementById('widthA')?.value) || 1.2;
+            const width = Number.parseFloat(document.getElementById('widthA')?.value)
+                || WINDOW_WIDTH_MAX_M;
             const height = Number.parseFloat(document.getElementById('heightB')?.value) || 1.5;
-            const isSmallHouse = width <= 1.2 && height <= 1.2;
-            const houseDimensions = isSmallHouse
-                ? SMALL_HOUSE_DIMENSIONS
-                : LARGE_HOUSE_DIMENSIONS;
+            const houseDimensions = getHouseDimensions(width, height);
 
             // Pull the whole window slightly toward the camera while exploded so
             // no frame sections appear embedded inside the front wall thickness.
@@ -3517,8 +3541,8 @@
             color: 0x475569
         });
 
-        // Two fixed-size house environments. The selected house changes only
-        // when the window crosses the 1.2 m threshold; neither house scales
+        // Two fixed-size house environments. The preset changes around the
+        // midpoint of the allowed width and height ranges; neither house scales
         // continuously with the window.
         const SMALL_HOUSE_DIMENSIONS = Object.freeze({
             width: 2.0,
@@ -3536,8 +3560,12 @@
             gableHeight: 0.7,
         });
 
+        function usesSmallHouse(A, B) {
+            return A <= HOUSE_WIDTH_SWITCH_M && B <= HOUSE_HEIGHT_SWITCH_M;
+        }
+
         function getHouseDimensions(A, B) {
-            return A <= 1.2 && B <= 1.2
+            return usesSmallHouse(A, B)
                 ? SMALL_HOUSE_DIMENSIONS
                 : LARGE_HOUSE_DIMENSIONS;
         }
@@ -3588,11 +3616,9 @@
             houseWasVisible = true;
             houseGroup.visible = true;
 
-            const isSmallHouse = A <= 1.2 && B <= 1.2;
+            const isSmallHouse = usesSmallHouse(A, B);
             const housePresetKey = isSmallHouse ? 'small' : 'large';
-            const houseDimensions = isSmallHouse
-                ? SMALL_HOUSE_DIMENSIONS
-                : LARGE_HOUSE_DIMENSIONS;
+            const houseDimensions = getHouseDimensions(A, B);
 
             const W_wall = houseDimensions.width;
             const H_wall = houseDimensions.wallHeight;
@@ -4829,7 +4855,7 @@
         let lastSizeRebuildAt = 0;
 
         function updateSizeLabelsOnly() {
-            const width = Number.parseFloat(widthInput.value) || 1.2;
+            const width = Number.parseFloat(widthInput.value) || WINDOW_WIDTH_MAX_M;
             const height = Number.parseFloat(heightInput.value) || 1.5;
             document.getElementById('valWidth').innerText = `${Math.round(width * 1000)} mm`;
             document.getElementById('valHeight').innerText = `${Math.round(height * 1000)} mm`;
@@ -4869,9 +4895,9 @@
         heightInput.addEventListener('change', flushWindowSizeRebuild);
 
         function changeInputValue(input, delta) {
-            const min = parseFloat(input.min) || 0.4;
-            const max = parseFloat(input.max) || 2.0;
-            const val = parseFloat(input.value) || 1.2;
+            const min = Number.parseFloat(input.min);
+            const max = Number.parseFloat(input.max);
+            const val = Number.parseFloat(input.value) || min;
             const newVal = Math.min(max, Math.max(min, val + delta));
             input.value = newVal.toFixed(2);
             input.dispatchEvent(new Event('input'));
