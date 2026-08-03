@@ -1,5 +1,6 @@
 [build]
-  publish = "static-site"
+  command = "npm run prepare:static"
+  publish = "dist/site"
   functions = "netlify/functions"
 
 [functions]

@@ -1,7 +1,0 @@
-{
-  "build": "20260730T123652Z-418349e",
-  "baseCommit": "418349e",
-  "channel": "production-dual-platform-supabase-ar",
-  "generatedAt": "2026-07-30T12:36:52.021Z",
-  "architecture": "production configurator -> selected GLB or USDZ browser export -> Netlify upload ticket -> direct Supabase Storage upload -> Scene Viewer or Quick Look"
-}

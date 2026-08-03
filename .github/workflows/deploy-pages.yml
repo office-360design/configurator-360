@@ -23,20 +23,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Prepare static site
-        run: |
-          mkdir -p _site
-          node generate_screenshots_json.js
-          cp index.html _site/index.html
-          cp ar.html _site/ar.html
-          cp ar-viewer.html _site/ar-viewer.html
-          cp ar-export.js _site/ar-export.js
-          cp ar-upload-config.js _site/ar-upload-config.js
-          cp -R svg _site/svg
-          cp -R lib _site/lib
-          if [ -d cad_screenshots ]; then cp -R cad_screenshots _site/cad_screenshots; fi
-          if [ -d icons ]; then cp -R icons _site/icons; fi
-          touch _site/.nojekyll
+        run: npm run prepare:static
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -44,7 +41,7 @@ jobs:
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: dist/site
 
   deploy:
     environment:
