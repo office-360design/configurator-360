@@ -83,8 +83,8 @@
             box-shadow: 8px 0 24px rgba(0, 0, 0, 0.22);
             backdrop-filter: blur(12px);
             transition: left 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-                        background 0.15s ease,
-                        color 0.15s ease;
+                background 0.15s ease,
+                color 0.15s ease;
         }
 
         #sidebar-toggle:hover {
@@ -1151,14 +1151,26 @@
             </div>
         </div>
 
-        <div class="control-group" style="display: flex; gap: 8px;">
-            <div style="flex: 1;">
-                <label>Width: </label>
-                <input type="number" id="widthA" value="1.2" min="0.5" max="3.0" step="0.05">
+        <div class="control-group">
+            <label>Width: <span id="valWidth">1200 mm</span></label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" id="btnWidthDec" class="handle-side-btn"
+                    style="width: 38px; height: 38px; padding: 0;">-</button>
+                <input type="range" id="widthA" min="0.4" max="2.0" step="0.05" value="1.2" style="flex: 1; margin: 0;">
+                <button type="button" id="btnWidthInc" class="handle-side-btn"
+                    style="width: 38px; height: 38px; padding: 0;">+</button>
             </div>
-            <div style="flex: 1;">
-                <label>Height: </label>
-                <input type="number" id="heightB" value="1.5" min="0.5" max="3.0" step="0.05">
+        </div>
+
+        <div class="control-group">
+            <label>Height: <span id="valHeight">1500 mm</span></label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" id="btnHeightDec" class="handle-side-btn"
+                    style="width: 38px; height: 38px; padding: 0;">-</button>
+                <input type="range" id="heightB" min="0.4" max="2.0" step="0.05" value="1.5"
+                    style="flex: 1; margin: 0;">
+                <button type="button" id="btnHeightInc" class="handle-side-btn"
+                    style="width: 38px; height: 38px; padding: 0;">+</button>
             </div>
         </div>
 
@@ -1258,6 +1270,14 @@
                     </label>
                 </div>
 
+                <div class="action-box">
+                    <label>Show House</label>
+                    <label class="switch">
+                        <input type="checkbox" id="cShowHouse">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+
                 <div class="part-toggles" style="margin-top: 0; border-top: none; padding-top: 0;">
                     <details class="clean-dropdown">
                         <summary class="clean-dropdown-header">
@@ -1337,12 +1357,9 @@
         </details>
     </div>
 
-    <button id="sidebar-toggle" type="button"
-        aria-label="Hide sidebar" aria-expanded="true" title="Hide sidebar">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"
-            aria-hidden="true">
+    <button id="sidebar-toggle" type="button" aria-label="Hide sidebar" aria-expanded="true" title="Hide sidebar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6"></polyline>
         </svg>
     </button>
@@ -1350,9 +1367,11 @@
     <div id="canvas-container"></div>
 
     <div id="ar-publish-controls">
-        <div id="ar-platform-switch" class="ar-platform-switch" data-platform="android" role="group" aria-label="AR phone platform">
+        <div id="ar-platform-switch" class="ar-platform-switch" data-platform="android" role="group"
+            aria-label="AR phone platform">
             <span class="ar-platform-highlight" aria-hidden="true"></span>
-            <button class="ar-platform-option" type="button" data-platform="android" aria-pressed="true">Android</button>
+            <button class="ar-platform-option" type="button" data-platform="android"
+                aria-pressed="true">Android</button>
             <button class="ar-platform-option" type="button" data-platform="ios" aria-pressed="false">iOS</button>
         </div>
         <button id="qr-ar-button" type="button">Generate AR QR</button>
@@ -1447,8 +1466,8 @@
         };
 
         if (isARMode) {
-            const width = parseBoundedNumber(pageParams.get('w'), 1.2, 0.5, 3.0);
-            const height = parseBoundedNumber(pageParams.get('h'), 1.5, 0.5, 3.0);
+            const width = parseBoundedNumber(pageParams.get('w'), 1.2, 0.4, 2.0);
+            const height = parseBoundedNumber(pageParams.get('h'), 1.5, 0.4, 2.0);
             const mode = pageParams.get('mode') === 'oscilo' ? 'oscilo' : 'batant';
             const maxAngle = mode === 'batant' ? 80 : 15;
             const angle = parseBoundedNumber(pageParams.get('angle'), 0, 0, maxAngle);
@@ -1502,10 +1521,10 @@
         const cadReferenceSubtitle = document.getElementById('cad-reference-subtitle');
 
         if (Number.isFinite(requestedWidth)) {
-            widthInput.value = String(requestedWidth);
+            widthInput.value = String(Math.min(2.0, Math.max(0.4, requestedWidth)));
         }
         if (Number.isFinite(requestedHeight)) {
-            heightInput.value = String(requestedHeight);
+            heightInput.value = String(Math.min(2.0, Math.max(0.4, requestedHeight)));
         }
         if (requestedProfile && [...profileInput.options].some(option => option.value === requestedProfile)) {
             profileInput.value = requestedProfile;
@@ -1617,7 +1636,7 @@
         const container = document.getElementById('canvas-container');
         const renderer = new THREE.WebGLRenderer({ antialias: !captureMode, alpha: isARMode });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(captureMode ? 1 : Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(captureMode ? 1 : Math.min(window.devicePixelRatio, 1.5));
         renderer.shadowMap.enabled = !captureMode;
         if (!captureMode) {
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -2762,6 +2781,8 @@
         async function loadProfiles(profileFolder) {
             window.CONFIGURATOR_READY = false;
             document.getElementById('loading').style.display = 'block';
+            clearTemplateGeometryCache();
+            lastSectionSampleSignature = '';
             profilesData = [];
             profilesReady = false;
             let loadSucceeded = false;
@@ -2802,10 +2823,10 @@
             window.LAST_APPLIED_CONFIGURATION = null;
 
             if (typeof configuration.widthM === 'number' && Number.isFinite(configuration.widthM)) {
-                widthInput.value = String(configuration.widthM);
+                widthInput.value = String(Math.min(2.0, Math.max(0.4, configuration.widthM)));
             }
             if (typeof configuration.heightM === 'number' && Number.isFinite(configuration.heightM)) {
-                heightInput.value = String(configuration.heightM);
+                heightInput.value = String(Math.min(2.0, Math.max(0.4, configuration.heightM)));
             }
             if (
                 typeof configuration.glassThicknessMm === 'number'
@@ -2950,19 +2971,48 @@
             return mesh;
         }
 
+        const templateGeometryCache = new Map();
+
+        function getTemplateGeometry(profile) {
+            const shape = getProfileShape(profile);
+            const activeBead = getActiveGlazingBeadCode();
+            const activeGasket = getActiveGasketCode();
+            const cacheKey = `${profile.index}:${activeBead}:${activeGasket}`;
+
+            if (!templateGeometryCache.has(cacheKey)) {
+                const extrudeSettings = { depth: 1.0, bevelEnabled: false, curveSegments: 8, steps: 1 };
+                const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                templateGeometryCache.set(cacheKey, geom);
+            }
+
+            return templateGeometryCache.get(cacheKey);
+        }
+
+        function clearTemplateGeometryCache() {
+            for (const geom of templateGeometryCache.values()) {
+                geom.dispose();
+            }
+            templateGeometryCache.clear();
+        }
+
         // MITER ENGINE EXTRUDER
         function createMiteredSide(profile, lengthA, lengthB, side, expDist) {
             const isHorizontal = side === 'bottom' || side === 'top';
             const length = isHorizontal ? lengthA : lengthB;
 
-            const extrudeSettings = { depth: length, bevelEnabled: false, curveSegments: PROFILE_CURVE_SEGMENTS, steps: 1 };
-            const geom = new THREE.ExtrudeGeometry(profile.shape, extrudeSettings);
+            const templateGeom = getTemplateGeometry(profile);
+            const geom = templateGeom.clone();
 
             const posAttribute = geom.attributes.position;
+            const normAttribute = geom.attributes.normal;
+            const templateNormAttribute = templateGeom.attributes.normal;
+
             const v = new THREE.Vector3();
+            const n = new THREE.Vector3();
 
             for (let i = 0; i < posAttribute.count; i++) {
                 v.fromBufferAttribute(posAttribute, i);
+                n.fromBufferAttribute(templateNormAttribute, i);
 
                 // Reconstruct CAD coordinates from SVG Space (X=x, Y=-y)
                 let x_cad = v.x + getProfileCadXShiftMm(profile);
@@ -2987,21 +3037,60 @@
 
                 let u = x_norm * S;       // Profile depth (Z axis in 3D profile space)
                 let inw = y_norm * S;     // Profile height (inward distance to glass)
-                let zRaw = v.z - length / 2;
+
+                // Scale v.z (which is between 0 and 1.0 in the template) to the new length
+                let zScaled = v.z * length;
+                let zRaw = zScaled - length / 2;
 
                 // Calculate the 45-degree miter corner cut
                 let z_cut = zRaw > 0 ? zRaw - inw : zRaw + inw;
 
                 // Orient the side correctly around the window frame
                 let xw, yw, zw = u;
-                if (side === 'bottom') { xw = -z_cut; yw = -lengthB / 2 + inw; }
-                if (side === 'top') { xw = z_cut; yw = lengthB / 2 - inw; }
-                if (side === 'left') { xw = -lengthA / 2 + inw; yw = z_cut; }
-                if (side === 'right') { xw = lengthA / 2 - inw; yw = -z_cut; }
+                let nx_world, ny_world, nz_world;
+
+                // Convert SVG normal coordinate system (Y is flipped) to local normal coordinate system
+                let nx_local = n.x;
+                let ny_local = -n.y;
+                let nz_local = n.z;
+
+                if (side === 'bottom') {
+                    xw = -z_cut;
+                    yw = -lengthB / 2 + inw;
+
+                    nx_world = -nz_local;
+                    ny_world = ny_local;
+                    nz_world = nx_local;
+                }
+                else if (side === 'top') {
+                    xw = z_cut;
+                    yw = lengthB / 2 - inw;
+
+                    nx_world = nz_local;
+                    ny_world = -ny_local;
+                    nz_world = nx_local;
+                }
+                else if (side === 'left') {
+                    xw = -lengthA / 2 + inw;
+                    yw = z_cut;
+
+                    nx_world = ny_local;
+                    ny_world = nz_local;
+                    nz_world = nx_local;
+                }
+                else if (side === 'right') {
+                    xw = lengthA / 2 - inw;
+                    yw = -z_cut;
+
+                    nx_world = -ny_local;
+                    ny_world = -nz_local;
+                    nz_world = nx_local;
+                }
 
                 posAttribute.setXYZ(i, xw, yw, zw);
+                // Convert world normals back to SVG space (nx = nx_world, ny = -ny_world, nz = nz_world)
+                normAttribute.setXYZ(i, nx_world, -ny_world, nz_world);
             }
-            geom.computeVertexNormals();
 
             const mesh = new THREE.Mesh(geom, profile.material);
             mesh.castShadow = !captureMode;
@@ -3039,6 +3128,15 @@
         placementRoot.add(mainGroup);
         placementRoot.visible = !isARMode;
         scene.add(placementRoot);
+
+        const houseGroup = new THREE.Group();
+        const houseStaticGroup = new THREE.Group();
+        const houseFrontGroup = new THREE.Group();
+        houseGroup.add(houseStaticGroup, houseFrontGroup);
+        scene.add(houseGroup);
+
+        let activeHousePresetKey = null;
+        let houseWasVisible = false;
 
         const sectionGroup = new THREE.Group();
         // Positioned in front of the camera, floating at eye level
@@ -3368,24 +3466,486 @@
             };
         }
 
+        const sharedBoxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const sharedBoxEdges = new THREE.EdgesGeometry(sharedBoxGeo);
+
+        const sharedGableShape = new THREE.Shape();
+        sharedGableShape.moveTo(-0.5, 0);
+        sharedGableShape.lineTo(0.5, 0);
+        sharedGableShape.lineTo(0, 1.0);
+        sharedGableShape.closePath();
+        const sharedGableGeo = new THREE.ExtrudeGeometry(sharedGableShape, { depth: 1.0, bevelEnabled: false });
+        sharedGableGeo.center();
+        const sharedGableEdges = new THREE.EdgesGeometry(sharedGableGeo);
+
+        // Global materials for the house to prevent compilation overhead
+        const wallMat = new THREE.MeshStandardMaterial({
+            color: 0x1e293b,
+            roughness: 0.8,
+            metalness: 0.2,
+            side: THREE.DoubleSide
+        });
+        const roofMat = new THREE.MeshStandardMaterial({
+            color: 0x334155,
+            roughness: 0.6,
+            metalness: 0.2,
+            side: THREE.DoubleSide
+        });
+        const outlineMat = new THREE.LineBasicMaterial({
+            color: 0x475569
+        });
+
+        // Two fixed-size house environments. The selected house changes only
+        // when the window crosses the 1.2 m threshold; neither house scales
+        // continuously with the window.
+        const SMALL_HOUSE_DIMENSIONS = Object.freeze({
+            width: 2.0,
+            wallHeight: 2.1,
+            depth: 1.6,
+            wallThickness: 0.1,
+            gableHeight: 0.5,
+        });
+
+        const LARGE_HOUSE_DIMENSIONS = Object.freeze({
+            width: 3.0,
+            wallHeight: 2.8,
+            depth: 2.2,
+            wallThickness: 0.1,
+            gableHeight: 0.7,
+        });
+
+        function getHouseDimensions(A, B) {
+            return A <= 1.2 && B <= 1.2
+                ? SMALL_HOUSE_DIMENSIONS
+                : LARGE_HOUSE_DIMENSIONS;
+        }
+
+        function clearGeneratedGroup(group, sharedGeometries = null) {
+            const shared = sharedGeometries || new Set();
+
+            group.traverse(child => {
+                if (child.geometry && !shared.has(child.geometry)) {
+                    child.geometry.dispose();
+                }
+
+                // Only sprites own unique materials/textures. House and window
+                // meshes use shared cached materials and must not dispose them.
+                if (child.isSprite && child.material) {
+                    child.material.map?.dispose();
+                    child.material.dispose();
+                }
+            });
+
+            group.clear();
+        }
+
+        const sharedHouseGeometries = new Set([
+            sharedBoxGeo,
+            sharedBoxEdges,
+            sharedGableGeo,
+            sharedGableEdges,
+        ]);
+
+        function buildHouse(A, B) {
+            const showHouse = document.getElementById('cShowHouse')?.checked === true;
+
+            if (isARMode || !showHouse) {
+                if (houseWasVisible) {
+                    clearGeneratedGroup(houseFrontGroup, sharedHouseGeometries);
+                    clearGeneratedGroup(houseStaticGroup, sharedHouseGeometries);
+                    activeHousePresetKey = null;
+                }
+
+                houseWasVisible = false;
+                houseGroup.visible = false;
+                ground.position.y = -1.2;
+                gridHelper.position.y = -1.19;
+                return;
+            }
+
+            houseWasVisible = true;
+            houseGroup.visible = true;
+
+            const isSmallHouse = A <= 1.2 && B <= 1.2;
+            const housePresetKey = isSmallHouse ? 'small' : 'large';
+            const houseDimensions = isSmallHouse
+                ? SMALL_HOUSE_DIMENSIONS
+                : LARGE_HOUSE_DIMENSIONS;
+
+            const W_wall = houseDimensions.width;
+            const H_wall = houseDimensions.wallHeight;
+            const houseDepth = houseDimensions.depth;
+            const wallThickness = houseDimensions.wallThickness;
+            const gableHeight = houseDimensions.gableHeight;
+            const Y_floor = -H_wall / 2;
+            const Y_wall_top = Y_floor + H_wall;
+            const X_wall_min = -W_wall / 2;
+            const X_wall_max = W_wall / 2;
+
+            ground.position.y = Y_floor;
+            gridHelper.position.y = Y_floor + 0.005;
+
+            function addMeshWithOutline(targetGroup, geometry, material, pos = null, rot = null) {
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.castShadow = !captureMode;
+                mesh.receiveShadow = !captureMode;
+
+                if (pos) mesh.position.set(pos.x, pos.y, pos.z);
+                if (rot) mesh.rotation.set(rot.x, rot.y, rot.z);
+
+                const edges = new THREE.EdgesGeometry(geometry);
+                mesh.add(new THREE.LineSegments(edges, outlineMat));
+                targetGroup.add(mesh);
+                return mesh;
+            }
+
+            function addSharedMeshWithOutline(
+                targetGroup,
+                geometry,
+                edgesGeometry,
+                material,
+                pos,
+                scale = null,
+                rot = null
+            ) {
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.castShadow = !captureMode;
+                mesh.receiveShadow = !captureMode;
+
+                if (pos) mesh.position.set(pos.x, pos.y, pos.z);
+                if (scale) mesh.scale.set(scale.x, scale.y, scale.z);
+                if (rot) mesh.rotation.set(rot.x, rot.y, rot.z);
+
+                mesh.add(new THREE.LineSegments(edgesGeometry, outlineMat));
+                targetGroup.add(mesh);
+                return mesh;
+            }
+
+            // Only the front wall and its hole depend on the current window size.
+            clearGeneratedGroup(houseFrontGroup, sharedHouseGeometries);
+
+            const frontShape = new THREE.Shape();
+            frontShape.moveTo(X_wall_min, Y_floor);
+            frontShape.lineTo(X_wall_max, Y_floor);
+            frontShape.lineTo(X_wall_max, Y_wall_top);
+            frontShape.lineTo(X_wall_min, Y_wall_top);
+            frontShape.closePath();
+
+            const holePath = new THREE.Path();
+            holePath.moveTo(-A / 2, -B / 2);
+            holePath.lineTo(A / 2, -B / 2);
+            holePath.lineTo(A / 2, B / 2);
+            holePath.lineTo(-A / 2, B / 2);
+            holePath.closePath();
+            frontShape.holes.push(holePath);
+
+            const frontGeo = new THREE.ExtrudeGeometry(frontShape, {
+                depth: wallThickness,
+                bevelEnabled: false,
+                curveSegments: 1,
+                steps: 1,
+            });
+            addMeshWithOutline(
+                houseFrontGroup,
+                frontGeo,
+                wallMat,
+                { x: 0, y: 0, z: -wallThickness / 2 }
+            );
+
+            // Everything else is static for the selected house preset.
+            if (activeHousePresetKey === housePresetKey) {
+                return;
+            }
+
+            clearGeneratedGroup(houseStaticGroup, sharedHouseGeometries);
+            activeHousePresetKey = housePresetKey;
+
+            addSharedMeshWithOutline(
+                houseStaticGroup,
+                sharedBoxGeo,
+                sharedBoxEdges,
+                wallMat,
+                { x: 0, y: Y_floor + H_wall / 2, z: -houseDepth + wallThickness / 2 },
+                { x: W_wall, y: H_wall, z: wallThickness }
+            );
+
+            addSharedMeshWithOutline(
+                houseStaticGroup,
+                sharedBoxGeo,
+                sharedBoxEdges,
+                wallMat,
+                { x: X_wall_min + wallThickness / 2, y: Y_floor + H_wall / 2, z: -houseDepth / 2 },
+                { x: wallThickness, y: H_wall, z: houseDepth - wallThickness * 1.5 }
+            );
+
+            addSharedMeshWithOutline(
+                houseStaticGroup,
+                sharedBoxGeo,
+                sharedBoxEdges,
+                wallMat,
+                { x: X_wall_max - wallThickness / 2, y: Y_floor + H_wall / 2, z: -houseDepth / 2 },
+                { x: wallThickness, y: H_wall, z: houseDepth - wallThickness * 1.5 }
+            );
+
+            addSharedMeshWithOutline(
+                houseStaticGroup,
+                sharedBoxGeo,
+                sharedBoxEdges,
+                wallMat,
+                { x: 0, y: Y_floor + 0.01, z: -houseDepth / 2 },
+                { x: W_wall - wallThickness * 2, y: 0.02, z: houseDepth - wallThickness * 1.5 }
+            );
+
+            addSharedMeshWithOutline(
+                houseStaticGroup,
+                sharedGableGeo,
+                sharedGableEdges,
+                wallMat,
+                { x: 0, y: Y_wall_top + gableHeight / 2, z: 0 },
+                { x: W_wall, y: gableHeight, z: wallThickness }
+            );
+
+            addSharedMeshWithOutline(
+                houseStaticGroup,
+                sharedGableGeo,
+                sharedGableEdges,
+                wallMat,
+                { x: 0, y: Y_wall_top + gableHeight / 2, z: -houseDepth + wallThickness / 2 },
+                { x: W_wall, y: gableHeight, z: wallThickness }
+            );
+
+            const theta = Math.atan2(gableHeight, W_wall / 2);
+            const roofDepthExact = houseDepth + 0.15;
+            const roofThickness = 0.05;
+            const verticalRoofThickness = roofThickness / Math.cos(theta);
+            const overhangX = 0.05;
+            const X_roof_min = X_wall_min - overhangX;
+            const X_roof_max = X_wall_max + overhangX;
+            const Y_roof_min = Y_wall_top - overhangX * Math.tan(theta);
+
+            const leftRoofShape = new THREE.Shape();
+            leftRoofShape.moveTo(X_roof_min, Y_roof_min);
+            leftRoofShape.lineTo(0, Y_wall_top + gableHeight);
+            leftRoofShape.lineTo(0, Y_wall_top + gableHeight + verticalRoofThickness);
+            leftRoofShape.lineTo(X_roof_min, Y_roof_min + verticalRoofThickness);
+            leftRoofShape.closePath();
+
+            const leftRoofGeo = new THREE.ExtrudeGeometry(leftRoofShape, {
+                depth: roofDepthExact,
+                bevelEnabled: false,
+                curveSegments: 1,
+                steps: 1,
+            });
+            addMeshWithOutline(
+                houseStaticGroup,
+                leftRoofGeo,
+                roofMat,
+                { x: 0, y: 0, z: -houseDepth - 0.05 }
+            );
+
+            const rightRoofShape = new THREE.Shape();
+            rightRoofShape.moveTo(0, Y_wall_top + gableHeight);
+            rightRoofShape.lineTo(X_roof_max, Y_roof_min);
+            rightRoofShape.lineTo(X_roof_max, Y_roof_min + verticalRoofThickness);
+            rightRoofShape.lineTo(0, Y_wall_top + gableHeight + verticalRoofThickness);
+            rightRoofShape.closePath();
+
+            const rightRoofGeo = new THREE.ExtrudeGeometry(rightRoofShape, {
+                depth: roofDepthExact,
+                bevelEnabled: false,
+                curveSegments: 1,
+                steps: 1,
+            });
+            addMeshWithOutline(
+                houseStaticGroup,
+                rightRoofGeo,
+                roofMat,
+                { x: 0, y: 0, z: -houseDepth - 0.05 }
+            );
+
+            const interiorLight = new THREE.PointLight(0xffaa44, 1.5, 10);
+            interiorLight.position.set(0, Y_floor + 1.2, -houseDepth / 2);
+            houseStaticGroup.add(interiorLight);
+        }
+
+        const dimLineMaterial = new THREE.LineBasicMaterial({
+            color: 0x38bdf8
+        });
+
+        function createLabelSprite(text) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 128;
+
+            // Draw capsule background
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)'; // dark slate
+            ctx.strokeStyle = '#38bdf8'; // sky blue border
+            ctx.lineWidth = 4;
+
+            const x = 32;
+            const y = 32;
+            const w = 192;
+            const h = 64;
+            const r = 32; // fully rounded corners
+
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw text
+            ctx.fillStyle = '#eff6ff'; // off white
+            ctx.font = 'bold 28px Outfit, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 128, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({
+                map: texture,
+                transparent: true,
+                depthTest: false,
+                depthWrite: false
+            });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(0.35, 0.175, 1);
+            return sprite;
+        }
+
+        function buildDimensionLines(A, B) {
+            const dimensionsGroup = new THREE.Group();
+            mainGroup.add(dimensionsGroup);
+
+            const zPos = 0.052;
+            const tickSize = 0.04;
+            const offset = 0.15;
+
+            function addLineSegment(p1, p2) {
+                const geom = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+                const line = new THREE.Line(geom, dimLineMaterial);
+                dimensionsGroup.add(line);
+            }
+
+            // 1. TOP DIMENSION (Width)
+            const topY = B / 2 + offset;
+            addLineSegment(new THREE.Vector3(-A / 2, topY, zPos), new THREE.Vector3(A / 2, topY, zPos));
+            addLineSegment(new THREE.Vector3(-A / 2, topY - tickSize, zPos), new THREE.Vector3(-A / 2, topY + tickSize, zPos));
+            addLineSegment(new THREE.Vector3(A / 2, topY - tickSize, zPos), new THREE.Vector3(A / 2, topY + tickSize, zPos));
+
+            const topLabel = createLabelSprite(`${Math.round(A * 1000)} mm`);
+            topLabel.position.set(0, topY, zPos);
+            dimensionsGroup.add(topLabel);
+
+            // 2. BOTTOM DIMENSION (Width)
+            const bottomY = -B / 2 - offset;
+            addLineSegment(new THREE.Vector3(-A / 2, bottomY, zPos), new THREE.Vector3(A / 2, bottomY, zPos));
+            addLineSegment(new THREE.Vector3(-A / 2, bottomY - tickSize, zPos), new THREE.Vector3(-A / 2, bottomY + tickSize, zPos));
+            addLineSegment(new THREE.Vector3(A / 2, bottomY - tickSize, zPos), new THREE.Vector3(A / 2, bottomY + tickSize, zPos));
+
+            const bottomLabel = createLabelSprite(`${Math.round(A * 1000)} mm`);
+            bottomLabel.position.set(0, bottomY, zPos);
+            dimensionsGroup.add(bottomLabel);
+
+            // 3. LEFT DIMENSION (Height)
+            const leftX = -A / 2 - offset;
+            addLineSegment(new THREE.Vector3(leftX, -B / 2, zPos), new THREE.Vector3(leftX, B / 2, zPos));
+            addLineSegment(new THREE.Vector3(leftX - tickSize, -B / 2, zPos), new THREE.Vector3(leftX + tickSize, -B / 2, zPos));
+            addLineSegment(new THREE.Vector3(leftX - tickSize, B / 2, zPos), new THREE.Vector3(leftX + tickSize, B / 2, zPos));
+
+            const leftLabel = createLabelSprite(`${Math.round(B * 1000)} mm`);
+            leftLabel.position.set(leftX, 0, zPos);
+            dimensionsGroup.add(leftLabel);
+
+            // 4. RIGHT DIMENSION (Height)
+            const rightX = A / 2 + offset;
+            addLineSegment(new THREE.Vector3(rightX, -B / 2, zPos), new THREE.Vector3(rightX, B / 2, zPos));
+            addLineSegment(new THREE.Vector3(rightX - tickSize, -B / 2, zPos), new THREE.Vector3(rightX + tickSize, -B / 2, zPos));
+            addLineSegment(new THREE.Vector3(rightX - tickSize, B / 2, zPos), new THREE.Vector3(rightX + tickSize, B / 2, zPos));
+
+            const rightLabel = createLabelSprite(`${Math.round(B * 1000)} mm`);
+            rightLabel.position.set(rightX, 0, zPos);
+            dimensionsGroup.add(rightLabel);
+        }
+
+        let lastSectionSampleSignature = '';
+
+        function rebuildSectionSamplesIfNeeded(activeProfiles) {
+            if (isARMode || captureMode) {
+                return;
+            }
+
+            const signature = [
+                profileInput.value,
+                configurationColour || '',
+                getActiveGlazingBeadCode(),
+                getActiveGasketCode(),
+                activeProfiles.map(profile => profile.index).join(','),
+            ].join('|');
+
+            if (signature === lastSectionSampleSignature) {
+                return;
+            }
+
+            clearGeneratedGroup(sectionGroup);
+            lastSectionSampleSignature = signature;
+
+            activeProfiles.forEach(profile => {
+                const sampleMesh = createSampleExtrusion(profile);
+
+                if (currentMetadata.hasSplit) {
+                    if (profile.section === 'top') {
+                        sampleMesh.rotation.x = Math.PI;
+                        sampleMesh.position.y = 0.28;
+                    } else if (profile.section === 'bottom') {
+                        sampleMesh.position.y = 0;
+                    }
+                }
+
+                sectionGroup.add(sampleMesh);
+            });
+
+            sectionGroup.lookAt(camera.position);
+        }
+
         function buildWindow() {
             if (!currentMetadata) return;
+            const t_start = performance.now();
 
-            // Clear previous meshes
-            while (mainGroup.children.length > 0) mainGroup.remove(mainGroup.children[0]);
+            // Generated geometries are unique and must be disposed. Materials are
+            // shared/cached, so disposing them here causes shader recompilation and
+            // severe slider lag.
+            mainGroup.traverse(child => {
+                child.geometry?.dispose();
+
+                if (child.isSprite && child.material) {
+                    child.material.map?.dispose();
+                    child.material.dispose();
+                }
+            });
+            mainGroup.clear();
             pivotOscilo.clear();
             pivotBatant.clear();
             explodableObjects = [];
-            sectionGroup.clear();
+            const t_clear = performance.now();
 
             const A = parseFloat(document.getElementById('widthA').value);
             const B = parseFloat(document.getElementById('heightB').value);
 
             // UI text update
             const valWidthEl = document.getElementById('valWidth');
-            if (valWidthEl) valWidthEl.innerText = A.toFixed(2) + ' m';
+            if (valWidthEl) valWidthEl.innerText = `${Math.round(A * 1000)} mm`;
             const valHeightEl = document.getElementById('valHeight');
-            if (valHeightEl) valHeightEl.innerText = B.toFixed(2) + ' m';
+            if (valHeightEl) valHeightEl.innerText = `${Math.round(B * 1000)} mm`;
 
             const frameGroup = new THREE.Group();
             const sashGroup = new THREE.Group();
@@ -3398,28 +3958,9 @@
             // Colour-filter controls only need synchronization after explicit
             // component/filter changes, not during every glass slider frame.
 
-            // Rebuild 3D sample extrusion only in the desktop configurator.
-            if (!isARMode && !captureMode) {
-                activeProfiles.forEach(profile => {
-                    const sampleMesh = createSampleExtrusion(profile);
-                    if (currentMetadata.hasSplit) {
-                        if (profile.section === 'top') {
-                            // Flip Y axis (rotation around X) so frame is at the top and sash at the bottom,
-                            // keeping X (left/right) aligned.
-                            sampleMesh.rotation.x = Math.PI;
-                            // Shift the top section sample upward
-                            sampleMesh.position.y = 0.28;
-                        } else if (profile.section === 'bottom') {
-                            // Position the bottom section sample at the base with default orientation
-                            // (frame at bottom, sash at top). No rotation is needed.
-                            sampleMesh.position.y = 0.0;
-                        }
-                    }
-                    sectionGroup.add(sampleMesh);
-                });
-                // Rotate the group to face the camera
-                sectionGroup.lookAt(camera.position);
-            }
+            const t_samples_start = performance.now();
+            rebuildSectionSamplesIfNeeded(activeProfiles);
+            const t_samples_end = performance.now();
 
             const showTop = document.getElementById('side_top')?.checked !== false;
             const showBottom = document.getElementById('side_bottom')?.checked !== false;
@@ -3433,6 +3974,7 @@
             if (showRight) sides.push('right');
 
             // Miter-extrude each active part on all 4 sides of the window
+            const t_meshes_start = performance.now();
             activeProfiles.forEach(profile => {
                 sides.forEach(side => {
                     let useProfile = true;
@@ -3456,6 +3998,7 @@
                     }
                 });
             });
+            const t_meshes_end = performance.now();
 
             mainGroup.add(frameGroup);
 
@@ -3566,8 +4109,31 @@
             sashWrapper.add(sashGroup);
             pivotBatant.add(sashWrapper);
 
+            const t_pics_start = performance.now();
             // Update side-by-side component pictures
             updateComponentPictures();
+            const t_pics_end = performance.now();
+
+            const t_house_start = performance.now();
+            // Build House Environment
+            buildHouse(A, B);
+            const t_house_end = performance.now();
+
+            const t_dims_start = performance.now();
+            // Build Dimension Lines
+            buildDimensionLines(A, B);
+            const t_dims_end = performance.now();
+
+            const t_end = performance.now();
+            console.log("PERF:", JSON.stringify({
+                total: t_end - t_start,
+                clear: t_clear - t_start,
+                samples: t_samples_end - t_samples_start,
+                meshes: t_meshes_end - t_meshes_start,
+                pics: t_pics_end - t_pics_start,
+                house: t_house_end - t_house_start,
+                dims: t_dims_end - t_dims_start
+            }));
         }
 
         function applyCurrentPoseInstantly() {
@@ -4219,8 +4785,71 @@
         });
 
         // EVENT LISTENERS
-        document.getElementById('widthA').addEventListener('input', buildWindow);
-        document.getElementById('heightB').addEventListener('input', buildWindow);
+        const SIZE_REBUILD_INTERVAL_MS = 70;
+        let pendingWindowRebuildTimer = null;
+        let lastSizeRebuildAt = 0;
+
+        function updateSizeLabelsOnly() {
+            const width = Number.parseFloat(widthInput.value) || 1.2;
+            const height = Number.parseFloat(heightInput.value) || 1.5;
+            document.getElementById('valWidth').innerText = `${Math.round(width * 1000)} mm`;
+            document.getElementById('valHeight').innerText = `${Math.round(height * 1000)} mm`;
+        }
+
+        function flushWindowSizeRebuild() {
+            if (pendingWindowRebuildTimer !== null) {
+                clearTimeout(pendingWindowRebuildTimer);
+                pendingWindowRebuildTimer = null;
+            }
+
+            lastSizeRebuildAt = performance.now();
+            buildWindow();
+        }
+
+        function triggerWindowRebuild() {
+            updateSizeLabelsOnly();
+
+            const elapsed = performance.now() - lastSizeRebuildAt;
+            if (elapsed >= SIZE_REBUILD_INTERVAL_MS && pendingWindowRebuildTimer === null) {
+                flushWindowSizeRebuild();
+                return;
+            }
+
+            if (pendingWindowRebuildTimer === null) {
+                pendingWindowRebuildTimer = setTimeout(() => {
+                    pendingWindowRebuildTimer = null;
+                    lastSizeRebuildAt = performance.now();
+                    buildWindow();
+                }, Math.max(0, SIZE_REBUILD_INTERVAL_MS - elapsed));
+            }
+        }
+
+        widthInput.addEventListener('input', triggerWindowRebuild);
+        heightInput.addEventListener('input', triggerWindowRebuild);
+        widthInput.addEventListener('change', flushWindowSizeRebuild);
+        heightInput.addEventListener('change', flushWindowSizeRebuild);
+
+        function changeInputValue(input, delta) {
+            const min = parseFloat(input.min) || 0.4;
+            const max = parseFloat(input.max) || 2.0;
+            const val = parseFloat(input.value) || 1.2;
+            const newVal = Math.min(max, Math.max(min, val + delta));
+            input.value = newVal.toFixed(2);
+            input.dispatchEvent(new Event('input'));
+        }
+
+        document.getElementById('btnWidthDec').addEventListener('click', () => {
+            changeInputValue(document.getElementById('widthA'), -0.05);
+        });
+        document.getElementById('btnWidthInc').addEventListener('click', () => {
+            changeInputValue(document.getElementById('widthA'), 0.05);
+        });
+        document.getElementById('btnHeightDec').addEventListener('click', () => {
+            changeInputValue(document.getElementById('heightB'), -0.05);
+        });
+        document.getElementById('btnHeightInc').addEventListener('click', () => {
+            changeInputValue(document.getElementById('heightB'), 0.05);
+        });
 
         const toggleSectionBtn = document.getElementById('toggleSectionViewBtn');
         if (toggleSectionBtn) {
@@ -4312,6 +4941,7 @@
         document.getElementById('side_bottom').addEventListener('change', buildWindow);
         document.getElementById('side_left').addEventListener('change', buildWindow);
         document.getElementById('side_right').addEventListener('change', buildWindow);
+        document.getElementById('cShowHouse').addEventListener('change', buildWindow);
 
         // Dropdown change listener
         document.getElementById('cadProfile').addEventListener('change', (e) => {
