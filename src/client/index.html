@@ -2274,6 +2274,12 @@
                     role: part.role,
                     section: part.section || 'top',
                     shape: optimizedShape,
+
+                    isGlazingBeadTemplate,
+                    beadShapes,
+                    isGasketTemplate,
+                    gasketShapes,
+
                     sourceContourPoints: optimizedShape.userData?.sourcePointCount || 0,
                     optimizedContourPoints: optimizedShape.userData?.optimizedPointCount || 0,
                     baseCadColor,
