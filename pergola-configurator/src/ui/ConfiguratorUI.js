@@ -114,6 +114,7 @@ export class ConfiguratorUI {
     this.activeSide = 'front';
     this.activeOutletPole = 'frontLeft';
     this.environmentOpen = false;
+    this.toolsOpen = false;
     this.sidebarHidden = false;
     this.expandedStep = null;
     this.toastTimer = null;
@@ -148,7 +149,6 @@ export class ConfiguratorUI {
             <img src="./assets/360CONFIGURATOR.png" alt="360 Configurator" />
           </a>
           <div class="site-header__actions">
-            <button class="text-button" type="button" data-action="save">Save</button>
             <button class="text-button" type="button" data-action="share">Share</button>
             <button class="text-button" type="button" data-action="reset">Reset</button>
             <button class="login-button" type="button" data-action="login">Login</button>
@@ -157,24 +157,22 @@ export class ConfiguratorUI {
 
         <main class="configurator-layout">
           <section class="viewport" data-viewport aria-label="3D pergola preview">
-            <div class="viewport-toolbar viewport-toolbar--left">
-              <button class="round-tool" type="button" data-action="toggle-environment" aria-label="Sun and orientation settings" title="Sun and orientation">
-                <span aria-hidden="true">☀</span>
-              </button>
-              <button class="round-tool is-active" type="button" data-action="toggle-dimensions" aria-label="Toggle dimensions" title="Toggle dimensions">
-                <span aria-hidden="true">↔</span>
-              </button>
-              <button class="round-tool" type="button" data-action="toggle-compass" aria-label="Toggle compass" title="Toggle compass">
-                <span aria-hidden="true">🧭</span>
-              </button>
-              <button class="round-tool" type="button" data-action="cycle-camera" aria-label="Change camera" title="Change camera">
-                <span aria-hidden="true">⌖</span>
-              </button>
-            </div>
-
-            <div class="viewport-toolbar viewport-toolbar--bottom">
-              <button class="tool-pill" type="button" data-action="snapshot">Download image</button>
-              <button class="tool-pill" type="button" data-action="view-ar">View in AR</button>
+            <div class="viewport-toolbar viewport-toolbar--left tools-toolbar ${this.toolsOpen ? 'is-open' : ''}">
+              <button class="tool-launcher" type="button" data-action="toggle-tools" aria-expanded="${this.toolsOpen}" aria-label="Toggle tools">Tools</button>
+              <div class="tools-toolbar__panel ${this.toolsOpen ? 'is-open' : ''}">
+                <button class="round-tool" type="button" data-action="toggle-environment" aria-label="Sun and orientation settings" title="Sun and orientation">
+                  <span aria-hidden="true">☀</span>
+                </button>
+                <button class="round-tool is-active" type="button" data-action="toggle-dimensions" aria-label="Toggle dimensions" title="Toggle dimensions">
+                  <span aria-hidden="true">↔</span>
+                </button>
+                <button class="round-tool" type="button" data-action="toggle-compass" aria-label="Toggle compass" title="Toggle compass">
+                  <span aria-hidden="true">🧭</span>
+                </button>
+                <button class="round-tool" type="button" data-action="cycle-camera" aria-label="Change camera" title="Change camera">
+                  <span aria-hidden="true">⌖</span>
+                </button>
+              </div>
             </div>
 
             <section class="environment-panel" data-environment-panel aria-label="Lighting and orientation controls"></section>
@@ -183,10 +181,10 @@ export class ConfiguratorUI {
 
           <aside class="configurator-sidebar" aria-label="Pergola options">
             <button class="sidebar-collapse-handle" type="button" data-action="toggle-sidebar" aria-label="Hide or show menu">❯</button>
-            <div class="sidebar-header sidebar-header--compact">
+            <div class="sidebar-header sidebar-header--compact sidebar-header--minimal">
               <div>
                 <span class="step-counter" data-step-counter></span>
-                <h1 data-step-title>Pergola options</h1>
+                <h1 data-step-title></h1>
               </div>
             </div>
 
@@ -209,7 +207,7 @@ export class ConfiguratorUI {
   }
 
   render() {
-    this.stepTitle.textContent = 'Pergola options';
+    this.stepTitle.textContent = '';
     this.stepCounter.textContent = '';
     this.stepCounter.style.display = 'none';
     if (this.progress) this.progress.innerHTML = '';
@@ -1030,6 +1028,9 @@ export class ConfiguratorUI {
     } else if (action === 'toggle-sidebar') {
       this.sidebarHidden = !this.sidebarHidden;
       this.render();
+    } else if (action === 'toggle-tools') {
+      this.toolsOpen = !this.toolsOpen;
+      this.render();
     } else if (action === 'toggle-environment') {
       this.environmentOpen = !this.environmentOpen;
       this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
@@ -1144,8 +1145,12 @@ export class ConfiguratorUI {
   syncToolbar() {
     const dimensionButton = this.root.querySelector('[data-action="toggle-dimensions"]');
     const compassButton = this.root.querySelector('[data-action="toggle-compass"]');
+    const toolsPanel = this.root.querySelector('.tools-toolbar__panel');
+    const toolsLauncher = this.root.querySelector('[data-action="toggle-tools"]');
     dimensionButton?.classList.toggle('is-active', this.state.view.dimensionsVisible);
     compassButton?.classList.toggle('is-active', this.state.view.compassVisible);
+    toolsPanel?.classList.toggle('is-open', this.toolsOpen);
+    toolsLauncher?.classList.toggle('is-active', this.toolsOpen);
     this.root.querySelector('.sidebar-collapse-handle')?.classList.toggle('is-hidden-state', this.sidebarHidden);
   }
 

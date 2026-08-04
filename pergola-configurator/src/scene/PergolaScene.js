@@ -33,47 +33,8 @@ function createCompassTexture(size = 1024) {
   const ctx = canvas.getContext('2d');
   const cx = size / 2;
   const cy = size / 2;
-  const outer = size * 0.47;
-  const inner = size * 0.37;
 
   ctx.clearRect(0, 0, size, size);
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  ctx.beginPath();
-  ctx.arc(cx, cy, outer, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = '#0b6aa5';
-  ctx.lineWidth = size * 0.008;
-  ctx.beginPath();
-  ctx.arc(cx, cy, outer, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(cx, cy, inner, 0, Math.PI * 2);
-  ctx.stroke();
-
-  for (let deg = 0; deg < 360; deg += 2) {
-    const rad = (deg - 90) * Math.PI / 180;
-    const isMajor = deg % 10 === 0;
-    const isMid = deg % 5 === 0;
-    const r1 = outer - (isMajor ? size * 0.035 : isMid ? size * 0.024 : size * 0.016);
-    const r2 = outer;
-    ctx.beginPath();
-    ctx.strokeStyle = isMajor ? '#0b6aa5' : '#dd6d6d';
-    ctx.lineWidth = isMajor ? size * 0.006 : size * 0.0024;
-    ctx.moveTo(cx + Math.cos(rad) * r1, cy + Math.sin(rad) * r1);
-    ctx.lineTo(cx + Math.cos(rad) * r2, cy + Math.sin(rad) * r2);
-    ctx.stroke();
-  }
-
-  ctx.fillStyle = '#0b6aa5';
-  ctx.font = `bold ${Math.round(size * 0.028)}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  for (let deg = 0; deg < 360; deg += 10) {
-    const rad = (deg - 90) * Math.PI / 180;
-    const r = outer - size * 0.065;
-    ctx.fillText(String(deg), cx + Math.cos(rad) * r, cy + Math.sin(rad) * r);
-  }
 
   const drawTriangle = (points, fill) => {
     ctx.beginPath();
@@ -83,20 +44,24 @@ function createCompassTexture(size = 1024) {
     ctx.fillStyle = fill;
     ctx.fill();
   };
-  drawTriangle([[cx, cy - size * 0.26], [cx - size * 0.04, cy], [cx, cy + size * 0.04], [cx + size * 0.04, cy]], '#e34f53');
-  drawTriangle([[cx + size * 0.26, cy], [cx, cy - size * 0.04], [cx - size * 0.04, cy], [cx, cy + size * 0.04]], '#0b6aa5');
-  drawTriangle([[cx, cy + size * 0.26], [cx - size * 0.04, cy], [cx, cy - size * 0.04], [cx + size * 0.04, cy]], '#0b5d97');
-  drawTriangle([[cx - size * 0.26, cy], [cx, cy - size * 0.04], [cx + size * 0.04, cy], [cx, cy + size * 0.04]], '#084d7e');
+
+  drawTriangle([[cx, cy - size * 0.25], [cx - size * 0.04, cy], [cx, cy + size * 0.038], [cx + size * 0.04, cy]], '#e34f53');
+  drawTriangle([[cx + size * 0.25, cy], [cx, cy - size * 0.04], [cx - size * 0.038, cy], [cx, cy + size * 0.04]], '#0b6aa5');
+  drawTriangle([[cx, cy + size * 0.25], [cx - size * 0.04, cy], [cx, cy - size * 0.038], [cx + size * 0.04, cy]], '#0b5d97');
+  drawTriangle([[cx - size * 0.25, cy], [cx, cy - size * 0.04], [cx + size * 0.038, cy], [cx, cy + size * 0.04]], '#084d7e');
+  drawTriangle([[cx, cy - size * 0.07], [cx + size * 0.07, cy], [cx, cy + size * 0.07], [cx - size * 0.07, cy]], '#0661a8');
 
   const cardinal = [
-    ['N', 0, -size * 0.335, '#b31d2c'],
-    ['E', size * 0.335, 0, '#0b6aa5'],
-    ['S', 0, size * 0.335, '#0b6aa5'],
-    ['W', -size * 0.335, 0, '#0b6aa5'],
+    ['N', 0, -size * 0.34, '#b31d2c'],
+    ['E', size * 0.34, 0, '#0b6aa5'],
+    ['S', 0, size * 0.34, '#0b6aa5'],
+    ['W', -size * 0.34, 0, '#0b6aa5'],
   ];
   cardinal.forEach(([label, dx, dy, fill]) => {
     ctx.fillStyle = fill;
-    ctx.font = `bold ${Math.round(size * 0.08)}px Arial`;
+    ctx.font = `bold ${Math.round(size * 0.1)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(label, cx + dx, cy + dy);
   });
 
@@ -266,10 +231,6 @@ export class PergolaScene {
     );
     compassPlane.rotation.x = -Math.PI / 2;
     compass.add(compassPlane);
-    const compassGlow = new THREE.PointLight('#2b7cff', 0, 3.2, 2);
-    compassGlow.position.set(0, 0.12, 0);
-    compass.add(compassGlow);
-    compass.userData.glow = compassGlow;
     compass.name = 'north-compass';
     this.environmentGroup.add(compass);
     this.northCompass = compass;
@@ -495,9 +456,6 @@ export class PergolaScene {
       this.northCompass.visible = compassVisible;
       this.northCompass.rotation.y = THREE.MathUtils.degToRad(-northDirection);
       this.northCompass.position.set(0, pergolaHeight + 0.5, 0);
-      if (this.northCompass.userData.glow) {
-        this.northCompass.userData.glow.intensity = compassVisible && night ? 0.8 : 0;
-      }
     }
 
     this.updateHousePlacement();
