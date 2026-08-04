@@ -3036,15 +3036,10 @@
             const geom = templateGeom.clone();
 
             const posAttribute = geom.attributes.position;
-            const normAttribute = geom.attributes.normal;
-            const templateNormAttribute = templateGeom.attributes.normal;
-
             const v = new THREE.Vector3();
-            const n = new THREE.Vector3();
 
             for (let i = 0; i < posAttribute.count; i++) {
                 v.fromBufferAttribute(posAttribute, i);
-                n.fromBufferAttribute(templateNormAttribute, i);
 
                 // Reconstruct CAD coordinates from SVG Space (X=x, Y=-y)
                 let x_cad = v.x + getProfileCadXShiftMm(profile);
@@ -3079,50 +3074,36 @@
 
                 // Orient the side correctly around the window frame
                 let xw, yw, zw = u;
-                let nx_world, ny_world, nz_world;
-
-                // Convert SVG normal coordinate system (Y is flipped) to local normal coordinate system
-                let nx_local = n.x;
-                let ny_local = -n.y;
-                let nz_local = n.z;
 
                 if (side === 'bottom') {
                     xw = -z_cut;
                     yw = -lengthB / 2 + inw;
-
-                    nx_world = -nz_local;
-                    ny_world = ny_local;
-                    nz_world = nx_local;
                 }
                 else if (side === 'top') {
                     xw = z_cut;
                     yw = lengthB / 2 - inw;
-
-                    nx_world = nz_local;
-                    ny_world = -ny_local;
-                    nz_world = nx_local;
                 }
                 else if (side === 'left') {
                     xw = -lengthA / 2 + inw;
                     yw = z_cut;
-
-                    nx_world = ny_local;
-                    ny_world = nz_local;
-                    nz_world = nx_local;
                 }
                 else if (side === 'right') {
                     xw = lengthA / 2 - inw;
                     yw = -z_cut;
-
-                    nx_world = -ny_local;
-                    ny_world = -nz_local;
-                    nz_world = nx_local;
                 }
 
                 posAttribute.setXYZ(i, xw, yw, zw);
-                // Convert world normals back to SVG space (nx = nx_world, ny = -ny_world, nz = nz_world)
-                normAttribute.setXYZ(i, nx_world, -ny_world, nz_world);
             }
+
+            posAttribute.needsUpdate = true;
+
+            // Recalculate lighting normals from the final transformed and mitered geometry.
+            geom.deleteAttribute('normal');
+            geom.computeVertexNormals();
+            geom.normalizeNormals();
+
+            geom.computeBoundingBox();
+            geom.computeBoundingSphere();
 
             const mesh = new THREE.Mesh(geom, profile.material);
             mesh.castShadow = !captureMode;
@@ -3636,18 +3617,16 @@
             const X_wall_min = -W_wall / 2;
             const X_wall_max = W_wall / 2;
 
-            // The side walls and floor sit between the inner faces of the
-            // front and rear walls. Keep a small overlap at every joint so
-            // shadows and floating-point precision cannot reveal cracks.
-            const wallJointOverlap = Math.min(0.01, wallThickness * 0.1);
+            // The side walls and floor fit exactly between the inner faces
+            // of the surrounding walls, so the corners meet without overlap.
             const innerShellCenterZ = -houseDepth / 2 + wallThickness / 4;
             const innerShellDepth = Math.max(
                 wallThickness,
-                houseDepth - wallThickness * 1.5 + wallJointOverlap * 2
+                houseDepth - wallThickness * 1.5
             );
             const innerFloorWidth = Math.max(
                 wallThickness,
-                W_wall - wallThickness * 2 + wallJointOverlap * 2
+                W_wall - wallThickness * 2
             );
 
             ground.position.y = Y_floor;
@@ -3905,14 +3884,14 @@
             }
 
             // 1. TOP DIMENSION (Width)
-            const topY = B / 2 + offset;
-            addLineSegment(new THREE.Vector3(-A / 2, topY, zPos), new THREE.Vector3(A / 2, topY, zPos));
-            addLineSegment(new THREE.Vector3(-A / 2, topY - tickSize, zPos), new THREE.Vector3(-A / 2, topY + tickSize, zPos));
-            addLineSegment(new THREE.Vector3(A / 2, topY - tickSize, zPos), new THREE.Vector3(A / 2, topY + tickSize, zPos));
+            // const topY = B / 2 + offset;
+            // addLineSegment(new THREE.Vector3(-A / 2, topY, zPos), new THREE.Vector3(A / 2, topY, zPos));
+            // addLineSegment(new THREE.Vector3(-A / 2, topY - tickSize, zPos), new THREE.Vector3(-A / 2, topY + tickSize, zPos));
+            // addLineSegment(new THREE.Vector3(A / 2, topY - tickSize, zPos), new THREE.Vector3(A / 2, topY + tickSize, zPos));
 
-            const topLabel = createLabelSprite(`${Math.round(A * 1000)} mm`);
-            topLabel.position.set(0, topY, zPos);
-            dimensionsGroup.add(topLabel);
+            // const topLabel = createLabelSprite(`${Math.round(A * 1000)} mm`);
+            // topLabel.position.set(0, topY, zPos);
+            // dimensionsGroup.add(topLabel);
 
             // 2. BOTTOM DIMENSION (Width)
             const bottomY = -B / 2 - offset;
@@ -3936,13 +3915,100 @@
 
             // 4. RIGHT DIMENSION (Height)
             const rightX = A / 2 + offset;
-            addLineSegment(new THREE.Vector3(rightX, -B / 2, zPos), new THREE.Vector3(rightX, B / 2, zPos));
-            addLineSegment(new THREE.Vector3(rightX - tickSize, -B / 2, zPos), new THREE.Vector3(rightX + tickSize, -B / 2, zPos));
-            addLineSegment(new THREE.Vector3(rightX - tickSize, B / 2, zPos), new THREE.Vector3(rightX + tickSize, B / 2, zPos));
+            // addLineSegment(new THREE.Vector3(rightX, -B / 2, zPos), new THREE.Vector3(rightX, B / 2, zPos));
+            // addLineSegment(new THREE.Vector3(rightX - tickSize, -B / 2, zPos), new THREE.Vector3(rightX + tickSize, -B / 2, zPos));
+            // addLineSegment(new THREE.Vector3(rightX - tickSize, B / 2, zPos), new THREE.Vector3(rightX + tickSize, B / 2, zPos));
 
-            const rightLabel = createLabelSprite(`${Math.round(B * 1000)} mm`);
-            rightLabel.position.set(rightX, 0, zPos);
-            dimensionsGroup.add(rightLabel);
+            // const rightLabel = createLabelSprite(`${Math.round(B * 1000)} mm`);
+            // rightLabel.position.set(rightX, 0, zPos);
+            // dimensionsGroup.add(rightLabel);
+
+            // 5. SECTION WIDTH / DEPTH DIMENSION (Z axis)
+            const depthX = -A / 2 - offset;
+            const depthY = -B / 2 - offset;
+
+            const isDrainageCoverCap = profile =>
+                String(profile.baseCadColor || '').toLowerCase() === '#cc9966';
+
+            function calculateSectionBounds(sectionProfiles) {
+                let minX = Infinity;
+                let maxX = -Infinity;
+
+                sectionProfiles.forEach(profile => {
+                    const bbox = getEffectiveProfileBbox(profile);
+                    if (!bbox) return;
+
+                    minX = Math.min(minX, bbox.minX);
+                    maxX = Math.max(maxX, bbox.maxX);
+                });
+
+                return { minX, maxX };
+            }
+
+            // Use the top section because the drainage cover cap belongs to the
+            // bottom section and should not affect the displayed section depth.
+            let dimensionProfiles = profilesData.filter(profile => {
+                const toggle = document.getElementById(`toggle_${profile.index}`);
+                const isVisible = toggle ? toggle.checked : true;
+
+                return (
+                    isVisible &&
+                    profile.section === 'top' &&
+                    !isDrainageCoverCap(profile)
+                );
+            });
+
+            let sectionBounds = calculateSectionBounds(dimensionProfiles);
+
+            // Fallback for CAD profiles that do not have top/bottom section metadata.
+            if (
+                !Number.isFinite(sectionBounds.minX) ||
+                !Number.isFinite(sectionBounds.maxX)
+            ) {
+                dimensionProfiles = profilesData.filter(profile => {
+                    const toggle = document.getElementById(`toggle_${profile.index}`);
+                    const isVisible = toggle ? toggle.checked : true;
+
+                    return isVisible && !isDrainageCoverCap(profile);
+                });
+
+                sectionBounds = calculateSectionBounds(dimensionProfiles);
+            }
+
+            const sectionZMin =
+                (sectionBounds.minX - currentMetadata.globalCenterX) * S;
+
+            const sectionZMax =
+                (sectionBounds.maxX - currentMetadata.globalCenterX) * S;
+
+            const sectionDepthMm = Math.round(
+                sectionBounds.maxX - sectionBounds.minX
+            );
+
+            // main depth line
+            addLineSegment(
+                new THREE.Vector3(depthX, depthY, sectionZMin),
+                new THREE.Vector3(depthX, depthY, sectionZMax)
+            );
+
+            // end ticks
+            addLineSegment(
+                new THREE.Vector3(depthX - tickSize, depthY, sectionZMin),
+                new THREE.Vector3(depthX + tickSize, depthY, sectionZMin)
+            );
+            addLineSegment(
+                new THREE.Vector3(depthX - tickSize, depthY, sectionZMax),
+                new THREE.Vector3(depthX + tickSize, depthY, sectionZMax)
+            );
+
+            // label
+            const depthLabel = createLabelSprite(`${sectionDepthMm} mm`);
+            depthLabel.position.set(
+                depthX + 0.10,
+                depthY,
+                (sectionZMin + sectionZMax) / 2
+            );
+            dimensionsGroup.add(depthLabel);
         }
 
         let lastSectionSampleSignature = '';
