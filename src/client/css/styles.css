@@ -1317,7 +1317,6 @@ body.capture-mode #component-selection-popup,
 }
 
 @media (max-width: 760px) {
-
     #component-selection-popup,
     body.sidebar-is-collapsed #component-selection-popup {
         left: 12px;

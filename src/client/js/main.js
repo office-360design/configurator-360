@@ -1,18 +1,36 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { createWindowARAsset, downloadARAsset, uploadARAsset, uploadARAssetToSupabase, formatExportStats, sha256Hex } from './ar-export.js';
+import { createWindowARAsset, downloadARAsset, uploadARAsset, uploadARAssetToSupabase, formatExportStats, sha256Hex } from '../ar-export.js';
+import {
+    allowedProfiles,
+    WINDOW_WIDTH_MIN_M,
+    WINDOW_WIDTH_MAX_M,
+    WINDOW_HEIGHT_MIN_M,
+    WINDOW_HEIGHT_MAX_M,
+    ALUMINIUM_FINISH_CATALOG,
+    FIXED_PROFILE_COLOURS,
+    normalizeHexColour,
+    normalizeRequestedColour,
+    getFinishDefinition,
+    createFinishSelection,
+    createRalFinishSelectionFromColour,
+    getGlazingBeadCode,
+} from './config.js';
+import { createComponentSelection } from './component-selection.js';
+import {
+    PROFILE_CURVE_SEGMENTS,
+    createRoundedRectShape,
+    simplifyProfileShape,
+} from './geometry-utils.js';
+import { getHouseDimensions } from './house-config.js';
+import { createSceneContext } from './scene.js';
+import { createHouseBuilder } from './house-builder.js';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
 const isARMode = pageParams.get('ar') === '1';
 const captureMode = pageParams.get('capture') === '1';
 
-const allowedProfiles = new Set([
-    '2_6_Oeffnungselemnt_Vertikal',
-    '2_5_Oeffnungselemnt_Vertikal',
-    '2_4_Oeffnungselemnt_Vertikal'
-]);
 const requestedProfileValue = pageParams.get('profile') || '2_4_Oeffnungselemnt_Vertikal';
 const requestedProfile = allowedProfiles.has(requestedProfileValue)
     ? requestedProfileValue
@@ -20,13 +38,6 @@ const requestedProfile = allowedProfiles.has(requestedProfileValue)
 const requestedActiveParts = pageParams.has('parts')
     ? new Set(pageParams.get('parts').split(',').filter(Boolean))
     : null;
-
-const WINDOW_WIDTH_MIN_M = 0.45;
-const WINDOW_WIDTH_MAX_M = 1.0;
-const WINDOW_HEIGHT_MIN_M = 0.45;
-const WINDOW_HEIGHT_MAX_M = 2.2;
-const HOUSE_WIDTH_SWITCH_M = (WINDOW_WIDTH_MIN_M + WINDOW_WIDTH_MAX_M) / 2;
-const HOUSE_HEIGHT_SWITCH_M = (WINDOW_HEIGHT_MIN_M + WINDOW_HEIGHT_MAX_M) / 2;
 
 const parseBoundedNumber = (value, fallback, min, max) => {
     const parsed = Number.parseFloat(value);
@@ -157,151 +168,7 @@ function syncModeButtons() {
 }
 syncModeButtons();
 
-function normalizeHexColour(value) {
-    if (typeof value === 'string') {
-        const trimmed = value.trim();
 
-        if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
-            return trimmed.toLowerCase();
-        }
-        if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
-            return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`.toLowerCase();
-        }
-        if (/^0x[0-9a-fA-F]{6}$/.test(trimmed)) {
-            return `#${trimmed.slice(2)}`.toLowerCase();
-        }
-        if (/^[0-9a-fA-F]{6}$/.test(trimmed)) {
-            return `#${trimmed}`.toLowerCase();
-        }
-    }
-
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        const integerColour = Math.max(0, Math.min(0xffffff, Math.trunc(value)));
-        return `#${integerColour.toString(16).padStart(6, '0')}`;
-    }
-
-    let red;
-    let green;
-    let blue;
-    if (Array.isArray(value) && value.length >= 3) {
-        [red, green, blue] = value;
-    } else if (value && typeof value === 'object') {
-        red = value.r ?? value.red;
-        green = value.g ?? value.green;
-        blue = value.b ?? value.blue;
-    }
-
-    if ([red, green, blue].every(component => Number.isFinite(Number(component)))) {
-        const toByte = component => Math.max(0, Math.min(255, Math.round(Number(component))));
-        return `#${[red, green, blue]
-            .map(component => toByte(component).toString(16).padStart(2, '0'))
-            .join('')}`;
-    }
-
-    return null;
-}
-
-function normalizeRequestedColour(value) {
-    return normalizeHexColour(value);
-}
-
-const ALUMINIUM_FINISH_CATALOG = Object.freeze({
-    mill: Object.freeze({
-        label: 'Mill finish',
-        material: Object.freeze({ metalness: 0.82, roughness: 0.28, shininess: 105 }),
-        presets: Object.freeze([
-            Object.freeze({ id: 'natural', name: 'Natural aluminum gray', color: '#aeb4b9' }),
-        ]),
-    }),
-    anodized: Object.freeze({
-        label: 'Anodized',
-        material: Object.freeze({ metalness: 0.68, roughness: 0.32, shininess: 92 }),
-        presets: Object.freeze([
-            Object.freeze({ id: 'natural', name: 'Natural anodized', color: '#9ca3a7' }),
-            Object.freeze({ id: 'champagne', name: 'Champagne anodized', color: '#b0a184' }),
-            Object.freeze({ id: 'light-bronze', name: 'Light bronze anodized', color: '#887863' }),
-            Object.freeze({ id: 'dark-bronze', name: 'Dark bronze anodized', color: '#4d443a' }),
-            Object.freeze({ id: 'black', name: 'Black anodized', color: '#24272b' }),
-        ]),
-    }),
-    coated: Object.freeze({
-        label: 'Color coated',
-        material: Object.freeze({ metalness: 0.22, roughness: 0.46, shininess: 62 }),
-        presets: Object.freeze([
-            Object.freeze({ id: 'ral-9016', name: 'RAL 9016 – Traffic white', color: '#f1f0ea' }),
-            Object.freeze({ id: 'ral-9010', name: 'RAL 9010 – Pure white', color: '#f1ece1' }),
-            Object.freeze({ id: 'ral-9001', name: 'RAL 9001 – Cream', color: '#e9e0d2' }),
-            Object.freeze({ id: 'ral-7035', name: 'RAL 7035 – Light grey', color: '#cbd0cc' }),
-            Object.freeze({ id: 'ral-7040', name: 'RAL 7040 – Window grey', color: '#9da3a6' }),
-            Object.freeze({ id: 'ral-7001', name: 'RAL 7001 – Silver grey', color: '#8a9597' }),
-            Object.freeze({ id: 'ral-7016', name: 'RAL 7016 – Anthracite grey', color: '#383e42' }),
-            Object.freeze({ id: 'ral-7021', name: 'RAL 7021 – Black grey', color: '#2f3234' }),
-            Object.freeze({ id: 'ral-9005', name: 'RAL 9005 – Jet black', color: '#0a0a0d' }),
-            Object.freeze({ id: 'ral-8014', name: 'RAL 8014 – Sepia brown', color: '#4a3526' }),
-            Object.freeze({ id: 'ral-8017', name: 'RAL 8017 – Chocolate brown', color: '#45322e' }),
-            Object.freeze({ id: 'ral-6005', name: 'RAL 6005 – Moss green', color: '#0f4336' }),
-            Object.freeze({ id: 'ral-6009', name: 'RAL 6009 – Fir green', color: '#27352a' }),
-            Object.freeze({ id: 'ral-3005', name: 'RAL 3005 – Wine red', color: '#5e2028' }),
-            Object.freeze({ id: 'ral-5011', name: 'RAL 5011 – Steel blue', color: '#1f2a44' }),
-        ]),
-    }),
-});
-
-const FIXED_PROFILE_COLOURS = Object.freeze({
-    epdm: '#20242a',
-    centralSeal: '#2f343a',
-    iso: '#41474e',
-    foam: '#9aa1a8',
-    glass: '#60a5fa',
-    default: '#4b5158',
-});
-
-function getFinishDefinition(type) {
-    return ALUMINIUM_FINISH_CATALOG[type] || ALUMINIUM_FINISH_CATALOG.mill;
-}
-
-function createFinishSelection(type = 'mill', presetId = null) {
-    const finishType = ALUMINIUM_FINISH_CATALOG[type] ? type : 'mill';
-    const definition = getFinishDefinition(finishType);
-    const requestedPreset = definition.presets.find(preset => preset.id === presetId);
-    const preset = requestedPreset || definition.presets[0];
-    return {
-        type: finishType,
-        presetId: preset.id,
-        color: preset.color,
-        name: preset.name,
-    };
-}
-
-function hexColourToRgb(colour) {
-    const normalized = normalizeHexColour(colour);
-    if (!normalized) return null;
-    return {
-        r: Number.parseInt(normalized.slice(1, 3), 16),
-        g: Number.parseInt(normalized.slice(3, 5), 16),
-        b: Number.parseInt(normalized.slice(5, 7), 16),
-    };
-}
-
-function findNearestRalPreset(colour) {
-    const requestedRgb = hexColourToRgb(colour);
-    const ralPresets = getFinishDefinition('coated').presets;
-    if (!requestedRgb) return ralPresets[0];
-
-    return ralPresets.reduce((nearest, preset) => {
-        const presetRgb = hexColourToRgb(preset.color);
-        const distance = (
-            (requestedRgb.r - presetRgb.r) ** 2
-            + (requestedRgb.g - presetRgb.g) ** 2
-            + (requestedRgb.b - presetRgb.b) ** 2
-        );
-        return distance < nearest.distance ? { preset, distance } : nearest;
-    }, { preset: ralPresets[0], distance: Number.POSITIVE_INFINITY }).preset;
-}
-
-function createRalFinishSelectionFromColour(colour) {
-    return createFinishSelection('coated', findNearestRalPreset(colour).id);
-}
 
 function createFinishSelectionFromParams(side, fallbackSelection) {
     const type = pageParams.get(`${side}_finish_type`);
@@ -335,197 +202,26 @@ let configurationColour = outsideFinishSelection.color;
 let debugColoursEnabled = pageParams.get('debug_colors') === '1';
 const profileCache = new Map();
 
-// SCENE, CAMERA & RENDERER SETUP
-const scene = new THREE.Scene();
-scene.background = isARMode ? null : new THREE.Color(0xf1f3f5);
-scene.fog = isARMode ? null : new THREE.FogExp2(0xf1f3f5, 0.1);
-
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 50);
-camera.position.set(1.4, 0.9, 2.2);
-
-const container = document.getElementById('canvas-container');
-const renderer = new THREE.WebGLRenderer({ antialias: !captureMode, alpha: isARMode });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(captureMode ? 1 : Math.min(window.devicePixelRatio, 1.5));
-renderer.shadowMap.enabled = !captureMode;
-if (!captureMode) {
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-}
-container.appendChild(renderer.domElement);
-
-if (isARMode) {
-    renderer.xr.enabled = true;
-}
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = !captureMode;
-controls.dampingFactor = 0.05;
-controls.target.set(0, 0, 0);
-controls.enabled = !isARMode;
-
-const componentSelectionPopup = document.getElementById('component-selection-popup');
-const componentSelectionName = document.getElementById('component-selection-name');
-const componentSelectionSource = document.getElementById('component-selection-source');
-const componentSelectionClose = document.getElementById('component-selection-close');
-const componentRaycaster = new THREE.Raycaster();
-const componentPointer = new THREE.Vector2();
-const selectionHighlightColour = new THREE.Color(0x3b82f6);
-let selectableComponentMeshes = [];
-let selectedComponentMesh = null;
-let selectedComponentOriginalMaterial = null;
-let componentPointerStart = null;
-
-function cloneHighlightedMaterial(material) {
-    if (Array.isArray(material)) {
-        return material.map(cloneHighlightedMaterial);
-    }
-
-    const highlighted = material.clone();
-    if (highlighted.emissive?.isColor) {
-        highlighted.emissive.copy(selectionHighlightColour);
-        if ('emissiveIntensity' in highlighted) {
-            highlighted.emissiveIntensity = Math.max(
-                Number(highlighted.emissiveIntensity) || 0,
-                0.7
-            );
-        }
-    }
-    highlighted.needsUpdate = true;
-    return highlighted;
-}
-
-function disposeHighlightedMaterial(material) {
-    if (Array.isArray(material)) {
-        material.forEach(disposeHighlightedMaterial);
-        return;
-    }
-    material?.dispose?.();
-}
-
-function clearComponentSelection() {
-    if (selectedComponentMesh && selectedComponentOriginalMaterial) {
-        const highlightedMaterial = selectedComponentMesh.material;
-        selectedComponentMesh.material = selectedComponentOriginalMaterial;
-        disposeHighlightedMaterial(highlightedMaterial);
-    }
-
-    selectedComponentMesh = null;
-    selectedComponentOriginalMaterial = null;
-    if (componentSelectionPopup) {
-        componentSelectionPopup.hidden = true;
-    }
-}
-
-function getComponentSourceLabel(source) {
-    if (source === 'frame') return 'Frame';
-    if (source === 'bead') return 'Glazing bead';
-    return 'Sash / Vent';
-}
-
-function selectComponentMesh(mesh) {
-    const component = mesh?.userData?.componentSelection;
-    if (!component) return;
-    if (mesh === selectedComponentMesh) return;
-
-    clearComponentSelection();
-    selectedComponentMesh = mesh;
-    selectedComponentOriginalMaterial = mesh.material;
-    mesh.material = cloneHighlightedMaterial(mesh.material);
-
-    if (componentSelectionName) {
-        componentSelectionName.textContent = component.name;
-    }
-    if (componentSelectionSource) {
-        componentSelectionSource.textContent = getComponentSourceLabel(component.source);
-    }
-    if (componentSelectionPopup) {
-        componentSelectionPopup.hidden = false;
-    }
-}
-
-function raycastSelectableComponent(event) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    if (!rect.width || !rect.height) return null;
-
-    componentPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    componentPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    componentRaycaster.setFromCamera(componentPointer, camera);
-    return componentRaycaster.intersectObjects(selectableComponentMeshes, false)[0]?.object || null;
-}
-
-function handleComponentPointerDown(event) {
-    if (!isExploded || event.button !== 0) {
-        componentPointerStart = null;
-        return;
-    }
-
-    componentPointerStart = {
-        pointerId: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-    };
-}
-
-function handleComponentPointerUp(event) {
-    const start = componentPointerStart;
-    componentPointerStart = null;
-    if (!start || start.pointerId !== event.pointerId || !isExploded) return;
-
-    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
-    if (moved > 5) return;
-
-    const selectedMesh = raycastSelectableComponent(event);
-    if (selectedMesh) {
-        selectComponentMesh(selectedMesh);
-    } else {
-        clearComponentSelection();
-    }
-}
-
-if (!isARMode && !captureMode) {
-    renderer.domElement.addEventListener('pointerdown', handleComponentPointerDown);
-    renderer.domElement.addEventListener('pointerup', handleComponentPointerUp);
-    renderer.domElement.addEventListener('pointercancel', () => {
-        componentPointerStart = null;
-    });
-    componentSelectionClose?.addEventListener('click', clearComponentSelection);
-}
-
-// GROUND PLANE
-const groundGeo = new THREE.PlaneGeometry(100, 100);
-const groundMat = new THREE.MeshStandardMaterial({
-    color: 0xd9dde1,
-    roughness: 0.95,
-    metalness: 0
+// SCENE, CAMERA, RENDERER, CONTROLS, GROUND & LIGHTING
+const {
+    scene,
+    camera,
+    renderer,
+    controls,
+    ground,
+    gridHelper,
+} = createSceneContext({
+    container: document.getElementById('canvas-container'),
+    isARMode,
+    captureMode,
 });
-const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -1.2;
-ground.receiveShadow = !captureMode;
-ground.visible = !isARMode;
-scene.add(ground);
 
-// GRID HELPER
-const gridHelper = new THREE.GridHelper(30, 30, 0x475569, 0x334155);
-gridHelper.position.y = -1.19;
-gridHelper.visible = !isARMode;
-// scene.add(gridHelper);
-
-// LIGHTING
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambientLight);
-
-const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.2);
-dirLight1.position.set(5, 8, 5);
-dirLight1.castShadow = !captureMode;
-dirLight1.shadow.mapSize.width = 2048;
-dirLight1.shadow.mapSize.height = 2048;
-dirLight1.shadow.bias = -0.0002;
-scene.add(dirLight1);
-
-const dirLight2 = new THREE.DirectionalLight(0x3b82f6, 0.5);
-dirLight2.position.set(-5, 3, -5);
-scene.add(dirLight2);
+const componentSelection = createComponentSelection({
+    renderer,
+    camera,
+    enabled: !isARMode && !captureMode,
+    isSelectionEnabled: () => isExploded,
+});
 
 // MATERIALS (shared and optimized)
 function createSurfaceMaterial(options) {
@@ -875,139 +571,7 @@ const svgLoader = new SVGLoader();
 let currentMetadata = null;
 let profilesData = [];
 
-// CAD/DXF exports contain circles and rounded profile edges as hundreds of
-// tiny straight SVG segments. A sub-0.05 mm contour tolerance is visually
-// imperceptible at real scale, but removes most redundant points before
-// Three.js creates caps and extrusion side walls.
-const PROFILE_CURVE_SEGMENTS = 3;
-const PROFILE_SIMPLIFY_TOLERANCE_MM = Object.freeze({
-    alu: 0.04,
-    epdm: 0.025,
-    centralSeal: 0.025,
-    glass: 0.03,
-    iso: 0.05,
-    foam: 0.05,
-    default: 0.04,
-});
 
-function distanceToSegmentSquared(point, start, end) {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    if (dx === 0 && dy === 0) return point.distanceToSquared(start);
-    const t = THREE.MathUtils.clamp(
-        ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy),
-        0,
-        1
-    );
-    const px = start.x + t * dx;
-    const py = start.y + t * dy;
-    const ox = point.x - px;
-    const oy = point.y - py;
-    return ox * ox + oy * oy;
-}
-
-function simplifyOpenPoints(points, toleranceSquared) {
-    if (points.length <= 2) return points.slice();
-    const first = points[0];
-    const last = points[points.length - 1];
-    let furthestIndex = -1;
-    let furthestDistance = -1;
-
-    for (let index = 1; index < points.length - 1; index += 1) {
-        const distance = distanceToSegmentSquared(points[index], first, last);
-        if (distance > furthestDistance) {
-            furthestDistance = distance;
-            furthestIndex = index;
-        }
-    }
-
-    if (furthestDistance <= toleranceSquared || furthestIndex < 0) {
-        return [first.clone(), last.clone()];
-    }
-
-    const left = simplifyOpenPoints(points.slice(0, furthestIndex + 1), toleranceSquared);
-    const right = simplifyOpenPoints(points.slice(furthestIndex), toleranceSquared);
-    return left.slice(0, -1).concat(right);
-}
-
-function simplifyClosedContour(sourcePoints, toleranceMm) {
-    const toleranceSquared = toleranceMm * toleranceMm;
-    const duplicateToleranceSquared = Math.max(1e-12, toleranceSquared * 0.0004);
-    const points = [];
-
-    for (const sourcePoint of sourcePoints || []) {
-        const point = new THREE.Vector2(sourcePoint.x, sourcePoint.y);
-        if (
-            points.length === 0
-            || point.distanceToSquared(points[points.length - 1]) > duplicateToleranceSquared
-        ) {
-            points.push(point);
-        }
-    }
-
-    if (
-        points.length > 1
-        && points[0].distanceToSquared(points[points.length - 1]) <= duplicateToleranceSquared
-    ) {
-        points.pop();
-    }
-    if (points.length <= 3) return points;
-
-    let oppositeIndex = 1;
-    let maximumDistance = -1;
-    for (let index = 1; index < points.length; index += 1) {
-        const distance = points[0].distanceToSquared(points[index]);
-        if (distance > maximumDistance) {
-            maximumDistance = distance;
-            oppositeIndex = index;
-        }
-    }
-
-    const firstChain = points.slice(0, oppositeIndex + 1);
-    const secondChain = points.slice(oppositeIndex).concat(points[0]);
-    const simplifiedFirst = simplifyOpenPoints(firstChain, toleranceSquared);
-    const simplifiedSecond = simplifyOpenPoints(secondChain, toleranceSquared);
-    const simplified = simplifiedFirst.slice(0, -1).concat(simplifiedSecond.slice(0, -1));
-    return simplified.length >= 3 ? simplified : points;
-}
-
-function appendClosedContour(path, points) {
-    if (!points || points.length < 3) return false;
-    path.moveTo(points[0].x, points[0].y);
-    for (let index = 1; index < points.length; index += 1) {
-        path.lineTo(points[index].x, points[index].y);
-    }
-    path.closePath();
-    return true;
-}
-
-function simplifyProfileShape(sourceShape, materialKey) {
-    const toleranceMm = PROFILE_SIMPLIFY_TOLERANCE_MM[materialKey]
-        ?? PROFILE_SIMPLIFY_TOLERANCE_MM.default;
-    const extracted = sourceShape.extractPoints(PROFILE_CURVE_SEGMENTS);
-    const sourcePointCount = extracted.shape.length
-        + (extracted.holes || []).reduce((sum, hole) => sum + hole.length, 0);
-    const outer = simplifyClosedContour(extracted.shape, toleranceMm);
-    if (outer.length < 3) return sourceShape;
-
-    const shape = new THREE.Shape();
-    appendClosedContour(shape, outer);
-    let optimizedPointCount = outer.length;
-    for (const sourceHole of extracted.holes || []) {
-        const holePoints = simplifyClosedContour(sourceHole, toleranceMm * 0.8);
-        const hole = new THREE.Path();
-        if (appendClosedContour(hole, holePoints)) {
-            shape.holes.push(hole);
-            optimizedPointCount += holePoints.length;
-        }
-    }
-    shape.userData = {
-        sourcePointCount,
-        optimizedPointCount,
-        toleranceMm,
-    };
-    return shape;
-}
 
 function loadSvg(url) {
     return new Promise((resolve, reject) => {
@@ -1015,19 +579,7 @@ function loadSvg(url) {
     });
 }
 
-const GLAZING_BEAD_BY_THICKNESS = [
-    { min: 16, max: 19, code: '573940' },
-    { min: 20, max: 24, code: '573930' },
-    { min: 25, max: 29, code: '573920' },
-];
 
-function getGlazingBeadCode(thicknessMm) {
-    const thickness = Number(thicknessMm);
-    const match = GLAZING_BEAD_BY_THICKNESS.find(
-        item => thickness >= item.min && thickness <= item.max
-    );
-    return match?.code || (thickness < 20 ? '573940' : thickness < 25 ? '573930' : '573920');
-}
 
 function isGlazingBeadProfile(profile) {
     const name = String(profile.blockName || '');
@@ -2232,7 +1784,7 @@ function createMiteredSide(profile, lengthA, lengthB, side, expDist) {
         profileIndex: profile.index,
         side,
     };
-    selectableComponentMeshes.push(mesh);
+    componentSelection.add(mesh);
 
     // Map each group to its outward explosion offset (X/Y)
     const EXPLODE_XY_OFFSETS = {
@@ -2265,14 +1817,13 @@ placementRoot.add(mainGroup);
 placementRoot.visible = !isARMode;
 scene.add(placementRoot);
 
-const houseGroup = new THREE.Group();
-const houseStaticGroup = new THREE.Group();
-const houseFrontGroup = new THREE.Group();
-houseGroup.add(houseStaticGroup, houseFrontGroup);
-scene.add(houseGroup);
-
-let activeHousePresetKey = null;
-let houseWasVisible = false;
+const { buildHouse } = createHouseBuilder({
+    scene,
+    ground,
+    gridHelper,
+    isARMode,
+    captureMode,
+});
 
 function getHouseExplodedWindowForwardOffset() {
     const showHouse = document.getElementById('cShowHouse')?.checked === true;
@@ -2622,64 +2173,6 @@ function resolveGlassPlacement(fallbackCenterZ) {
     };
 }
 
-const sharedBoxGeo = new THREE.BoxGeometry(1, 1, 1);
-const sharedBoxEdges = new THREE.EdgesGeometry(sharedBoxGeo);
-
-const sharedGableShape = new THREE.Shape();
-sharedGableShape.moveTo(-0.5, 0);
-sharedGableShape.lineTo(0.5, 0);
-sharedGableShape.lineTo(0, 1.0);
-sharedGableShape.closePath();
-const sharedGableGeo = new THREE.ExtrudeGeometry(sharedGableShape, { depth: 1.0, bevelEnabled: false });
-sharedGableGeo.center();
-const sharedGableEdges = new THREE.EdgesGeometry(sharedGableGeo);
-
-// Global materials for the house to prevent compilation overhead
-const wallMat = new THREE.MeshStandardMaterial({
-    color: 0xf2f2f0,
-    roughness: 0.9,
-    metalness: 0,
-    side: THREE.DoubleSide
-});
-const roofMat = new THREE.MeshStandardMaterial({
-    color: 0xc7cbd0,
-    roughness: 0.85,
-    metalness: 0,
-    side: THREE.DoubleSide
-});
-const outlineMat = new THREE.LineBasicMaterial({
-    color: 0x9aa0a6
-});
-
-// Two fixed-size house environments. The preset changes around the
-// midpoint of the allowed width and height ranges; neither house scales
-// continuously with the window.
-const SMALL_HOUSE_DIMENSIONS = Object.freeze({
-    width: 2.0,
-    wallHeight: 2.1,
-    depth: 1.6,
-    wallThickness: 0.1,
-    gableHeight: 0.5,
-});
-
-const LARGE_HOUSE_DIMENSIONS = Object.freeze({
-    width: 3.0,
-    wallHeight: 2.8,
-    depth: 2.2,
-    wallThickness: 0.1,
-    gableHeight: 0.7,
-});
-
-function usesSmallHouse(A, B) {
-    return A <= HOUSE_WIDTH_SWITCH_M && B <= HOUSE_HEIGHT_SWITCH_M;
-}
-
-function getHouseDimensions(A, B) {
-    return usesSmallHouse(A, B)
-        ? SMALL_HOUSE_DIMENSIONS
-        : LARGE_HOUSE_DIMENSIONS;
-}
-
 function clearGeneratedGroup(group, sharedGeometries = null) {
     const shared = sharedGeometries || new Set();
 
@@ -2688,8 +2181,8 @@ function clearGeneratedGroup(group, sharedGeometries = null) {
             child.geometry.dispose();
         }
 
-        // Only sprites own unique materials/textures. House and window
-        // meshes use shared cached materials and must not dispose them.
+        // Only sprites own unique materials/textures. Window meshes use
+        // shared cached materials and must not dispose them here.
         if (child.isSprite && child.material) {
             child.material.map?.dispose();
             child.material.dispose();
@@ -2697,245 +2190,6 @@ function clearGeneratedGroup(group, sharedGeometries = null) {
     });
 
     group.clear();
-}
-
-const sharedHouseGeometries = new Set([
-    sharedBoxGeo,
-    sharedBoxEdges,
-    sharedGableGeo,
-    sharedGableEdges,
-]);
-
-function buildHouse(A, B) {
-    const showHouse = document.getElementById('cShowHouse')?.checked === true;
-
-    if (isARMode || !showHouse) {
-        if (houseWasVisible) {
-            clearGeneratedGroup(houseFrontGroup, sharedHouseGeometries);
-            clearGeneratedGroup(houseStaticGroup, sharedHouseGeometries);
-            activeHousePresetKey = null;
-        }
-
-        houseWasVisible = false;
-        houseGroup.visible = false;
-        ground.position.y = -1.2;
-        gridHelper.position.y = -1.19;
-        return;
-    }
-
-    houseWasVisible = true;
-    houseGroup.visible = true;
-
-    const isSmallHouse = usesSmallHouse(A, B);
-    const housePresetKey = isSmallHouse ? 'small' : 'large';
-    const houseDimensions = getHouseDimensions(A, B);
-
-    const W_wall = houseDimensions.width;
-    const H_wall = houseDimensions.wallHeight;
-    const houseDepth = houseDimensions.depth;
-    const wallThickness = houseDimensions.wallThickness;
-    const gableHeight = houseDimensions.gableHeight;
-    const Y_floor = -H_wall / 2;
-    const Y_wall_top = Y_floor + H_wall;
-    const X_wall_min = -W_wall / 2;
-    const X_wall_max = W_wall / 2;
-
-    // The side walls and floor fit exactly between the inner faces
-    // of the surrounding walls, so the corners meet without overlap.
-    const innerShellCenterZ = -houseDepth / 2 + wallThickness / 4;
-    const innerShellDepth = Math.max(
-        wallThickness,
-        houseDepth - wallThickness * 1.5
-    );
-    const innerFloorWidth = Math.max(
-        wallThickness,
-        W_wall - wallThickness * 2
-    );
-
-    ground.position.y = Y_floor;
-    gridHelper.position.y = Y_floor + 0.005;
-
-    function addMeshWithOutline(targetGroup, geometry, material, pos = null, rot = null) {
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.castShadow = !captureMode;
-        mesh.receiveShadow = !captureMode;
-
-        if (pos) mesh.position.set(pos.x, pos.y, pos.z);
-        if (rot) mesh.rotation.set(rot.x, rot.y, rot.z);
-
-        const edges = new THREE.EdgesGeometry(geometry);
-        mesh.add(new THREE.LineSegments(edges, outlineMat));
-        targetGroup.add(mesh);
-        return mesh;
-    }
-
-    function addSharedMeshWithOutline(
-        targetGroup,
-        geometry,
-        edgesGeometry,
-        material,
-        pos,
-        scale = null,
-        rot = null
-    ) {
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.castShadow = !captureMode;
-        mesh.receiveShadow = !captureMode;
-
-        if (pos) mesh.position.set(pos.x, pos.y, pos.z);
-        if (scale) mesh.scale.set(scale.x, scale.y, scale.z);
-        if (rot) mesh.rotation.set(rot.x, rot.y, rot.z);
-
-        mesh.add(new THREE.LineSegments(edgesGeometry, outlineMat));
-        targetGroup.add(mesh);
-        return mesh;
-    }
-
-    // Only the front wall and its hole depend on the current window size.
-    clearGeneratedGroup(houseFrontGroup, sharedHouseGeometries);
-
-    const frontShape = new THREE.Shape();
-    frontShape.moveTo(X_wall_min, Y_floor);
-    frontShape.lineTo(X_wall_max, Y_floor);
-    frontShape.lineTo(X_wall_max, Y_wall_top);
-    frontShape.lineTo(X_wall_min, Y_wall_top);
-    frontShape.closePath();
-
-    const holePath = new THREE.Path();
-    holePath.moveTo(-A / 2, -B / 2);
-    holePath.lineTo(A / 2, -B / 2);
-    holePath.lineTo(A / 2, B / 2);
-    holePath.lineTo(-A / 2, B / 2);
-    holePath.closePath();
-    frontShape.holes.push(holePath);
-
-    const frontGeo = new THREE.ExtrudeGeometry(frontShape, {
-        depth: wallThickness,
-        bevelEnabled: false,
-        curveSegments: 1,
-        steps: 1,
-    });
-    addMeshWithOutline(
-        houseFrontGroup,
-        frontGeo,
-        wallMat,
-        { x: 0, y: 0, z: -wallThickness / 2 }
-    );
-
-    // Everything else is static for the selected house preset.
-    if (activeHousePresetKey === housePresetKey) {
-        return;
-    }
-
-    clearGeneratedGroup(houseStaticGroup, sharedHouseGeometries);
-    activeHousePresetKey = housePresetKey;
-
-    addSharedMeshWithOutline(
-        houseStaticGroup,
-        sharedBoxGeo,
-        sharedBoxEdges,
-        wallMat,
-        { x: 0, y: Y_floor + H_wall / 2, z: -houseDepth + wallThickness / 2 },
-        { x: W_wall, y: H_wall, z: wallThickness }
-    );
-
-    addSharedMeshWithOutline(
-        houseStaticGroup,
-        sharedBoxGeo,
-        sharedBoxEdges,
-        wallMat,
-        { x: X_wall_min + wallThickness / 2, y: Y_floor + H_wall / 2, z: innerShellCenterZ },
-        { x: wallThickness, y: H_wall, z: innerShellDepth }
-    );
-
-    addSharedMeshWithOutline(
-        houseStaticGroup,
-        sharedBoxGeo,
-        sharedBoxEdges,
-        wallMat,
-        { x: X_wall_max - wallThickness / 2, y: Y_floor + H_wall / 2, z: innerShellCenterZ },
-        { x: wallThickness, y: H_wall, z: innerShellDepth }
-    );
-
-    addSharedMeshWithOutline(
-        houseStaticGroup,
-        sharedBoxGeo,
-        sharedBoxEdges,
-        wallMat,
-        { x: 0, y: Y_floor + 0.01, z: innerShellCenterZ },
-        { x: innerFloorWidth, y: 0.02, z: innerShellDepth }
-    );
-
-    addSharedMeshWithOutline(
-        houseStaticGroup,
-        sharedGableGeo,
-        sharedGableEdges,
-        wallMat,
-        { x: 0, y: Y_wall_top + gableHeight / 2, z: 0 },
-        { x: W_wall, y: gableHeight, z: wallThickness }
-    );
-
-    addSharedMeshWithOutline(
-        houseStaticGroup,
-        sharedGableGeo,
-        sharedGableEdges,
-        wallMat,
-        { x: 0, y: Y_wall_top + gableHeight / 2, z: -houseDepth + wallThickness / 2 },
-        { x: W_wall, y: gableHeight, z: wallThickness }
-    );
-
-    const theta = Math.atan2(gableHeight, W_wall / 2);
-    const roofDepthExact = houseDepth + 0.15;
-    const roofThickness = 0.05;
-    const verticalRoofThickness = roofThickness / Math.cos(theta);
-    const overhangX = 0.05;
-    const X_roof_min = X_wall_min - overhangX;
-    const X_roof_max = X_wall_max + overhangX;
-    const Y_roof_min = Y_wall_top - overhangX * Math.tan(theta);
-
-    const leftRoofShape = new THREE.Shape();
-    leftRoofShape.moveTo(X_roof_min, Y_roof_min);
-    leftRoofShape.lineTo(0, Y_wall_top + gableHeight);
-    leftRoofShape.lineTo(0, Y_wall_top + gableHeight + verticalRoofThickness);
-    leftRoofShape.lineTo(X_roof_min, Y_roof_min + verticalRoofThickness);
-    leftRoofShape.closePath();
-
-    const leftRoofGeo = new THREE.ExtrudeGeometry(leftRoofShape, {
-        depth: roofDepthExact,
-        bevelEnabled: false,
-        curveSegments: 1,
-        steps: 1,
-    });
-    addMeshWithOutline(
-        houseStaticGroup,
-        leftRoofGeo,
-        roofMat,
-        { x: 0, y: 0, z: -houseDepth - 0.05 }
-    );
-
-    const rightRoofShape = new THREE.Shape();
-    rightRoofShape.moveTo(0, Y_wall_top + gableHeight);
-    rightRoofShape.lineTo(X_roof_max, Y_roof_min);
-    rightRoofShape.lineTo(X_roof_max, Y_roof_min + verticalRoofThickness);
-    rightRoofShape.lineTo(0, Y_wall_top + gableHeight + verticalRoofThickness);
-    rightRoofShape.closePath();
-
-    const rightRoofGeo = new THREE.ExtrudeGeometry(rightRoofShape, {
-        depth: roofDepthExact,
-        bevelEnabled: false,
-        curveSegments: 1,
-        steps: 1,
-    });
-    addMeshWithOutline(
-        houseStaticGroup,
-        rightRoofGeo,
-        roofMat,
-        { x: 0, y: 0, z: -houseDepth - 0.05 }
-    );
-
-    const interiorLight = new THREE.PointLight(0xffaa44, 1.5, 10);
-    interiorLight.position.set(0, Y_floor + 1.2, -houseDepth / 2);
-    houseStaticGroup.add(interiorLight);
 }
 
 const dimLineMaterial = new THREE.LineBasicMaterial({
@@ -3178,30 +2432,13 @@ function rebuildSectionSamplesIfNeeded(activeProfiles) {
     sectionGroup.lookAt(camera.position);
 }
 
-function createRoundedRectShape(width, height, radius) {
-    const w = width / 2;
-    const h = height / 2;
-    const r = Math.min(radius, w, h);
 
-    const shape = new THREE.Shape();
-    shape.moveTo(-w + r, -h);
-    shape.lineTo(w - r, -h);
-    shape.quadraticCurveTo(w, -h, w, -h + r);
-    shape.lineTo(w, h - r);
-    shape.quadraticCurveTo(w, h, w - r, h);
-    shape.lineTo(-w + r, h);
-    shape.quadraticCurveTo(-w, h, -w, h - r);
-    shape.lineTo(-w, -h + r);
-    shape.quadraticCurveTo(-w, -h, -w + r, -h);
-    return shape;
-}
 
 function buildWindow() {
     if (!currentMetadata) return;
     const t_start = performance.now();
 
-    clearComponentSelection();
-    selectableComponentMeshes = [];
+    componentSelection.reset();
 
     // Generated geometries are unique and must be disposed. Materials are
     // shared/cached, so disposing them here causes shader recompilation and
@@ -4273,7 +3510,7 @@ document.getElementById('glassThickness').addEventListener('input', () => {
 document.getElementById('cExplode').addEventListener('change', (e) => {
     isExploded = e.target.checked;
     if (!isExploded) {
-        clearComponentSelection();
+        componentSelection.clear();
     }
 });
 document.getElementById('mBatant').addEventListener('change', buildWindow);
@@ -4345,7 +3582,7 @@ document.getElementById('qr-modal').addEventListener('click', (event) => {
 });
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
-        clearComponentSelection();
+        componentSelection.clear();
         closeQRModal();
         closeCadReferenceModal();
     }
