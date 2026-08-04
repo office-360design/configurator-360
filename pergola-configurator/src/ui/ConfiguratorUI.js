@@ -210,10 +210,10 @@ export class ConfiguratorUI {
 
   render() {
     this.stepTitle.textContent = 'Pergola options';
-    this.stepCounter.textContent = '6 configurable groups';
+    this.stepCounter.textContent = '';
+    this.stepCounter.style.display = 'none';
     if (this.progress) this.progress.innerHTML = '';
     this.root.querySelector('.configurator-sidebar')?.classList.toggle('is-hidden', this.sidebarHidden);
-    this.root.querySelector('.configurator-layout')?.classList.toggle('menu-hidden', this.sidebarHidden);
 
     this.stepContent.innerHTML = this.renderAccordionSections();
     this.sidebarFooter.innerHTML = this.renderFooter();

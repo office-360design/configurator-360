@@ -1762,3 +1762,50 @@ button.accessory-card {
 .configurator-layout.menu-hidden {
   grid-template-columns: minmax(0, 1fr) 0 !important;
 }
+
+
+/* v1.3.2 fixes */
+.configurator-layout {
+  grid-template-columns: minmax(0, 1fr);
+  position: relative;
+}
+
+.configurator-sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: clamp(360px, 25vw, 470px);
+  max-width: min(470px, 92vw);
+}
+
+.configurator-sidebar.is-hidden {
+  transform: translateX(calc(100% - 18px));
+}
+
+.sidebar-collapse-handle {
+  left: -22px;
+  z-index: 25;
+}
+
+.step-counter:empty {
+  display: none;
+}
+
+.configurator-layout.menu-hidden {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+@media (max-width: 1100px) {
+  .configurator-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .configurator-sidebar {
+    position: absolute;
+    top: 58px;
+    right: 0;
+    bottom: 0;
+    width: min(92vw, 430px);
+  }
+}
