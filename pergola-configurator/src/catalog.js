@@ -62,6 +62,15 @@ export const SCREEN_COLORS = [
   { value: '#5c4c40', label: 'Bronze mesh' },
 ];
 
+export const PRIVACY_WALL_COLORS = [
+  { value: '#111619', label: 'Jet black' },
+  { value: '#26343c', label: 'Anthracite' },
+  { value: '#657078', label: 'Cool grey' },
+  { value: '#d8d9d6', label: 'Soft white' },
+  { value: '#806751', label: 'Bronze' },
+  { value: '#58634e', label: 'Olive' },
+];
+
 export const LED_COLORS = [
   { value: '#ffd27d', label: 'Warm 2700 K' },
   { value: '#fff1b4', label: 'Warm 3000 K' },
@@ -146,36 +155,49 @@ export const ACCESSORY_OPTIONS = [
     label: 'Perimeter LED strip',
     description: 'Color-selectable integrated light under the frame.',
     model: './assets/models/accessories/led-strip.glb',
+    icon: './assets/icons/accessory-led.svg',
   },
   {
     key: 'spotlights',
     label: 'Integrated spotlights',
-    description: 'Dimmable roof spotlights.',
+    description: 'Dimmable lights attached to fixed support rails.',
     model: './assets/models/accessories/spotlight.glb',
+    icon: './assets/icons/accessory-spotlights.svg',
   },
   {
     key: 'heaters',
     label: 'Infrared heaters',
     description: 'Suspended frame-mounted radiant heating.',
     model: './assets/models/accessories/heater.glb',
+    icon: './assets/icons/accessory-heater.svg',
   },
   {
-    key: 'sensors',
-    label: 'Weather sensors',
-    description: 'Selectable rain and wind sensor positions.',
+    key: 'rainSensor',
+    label: 'Rain sensor',
+    description: 'Roof-mounted precipitation sensor.',
     model: './assets/models/accessories/rain-sensor.glb',
+    icon: './assets/icons/accessory-rain.svg',
+  },
+  {
+    key: 'windSensor',
+    label: 'Wind sensor',
+    description: 'Roof-mounted wind sensor.',
+    model: './assets/models/accessories/wind-sensor.glb',
+    icon: './assets/icons/accessory-wind.svg',
   },
   {
     key: 'speakers',
     label: 'Outdoor speakers',
     description: 'One speaker can be mounted to each support pole.',
     model: './assets/models/accessories/speaker.glb',
+    icon: './assets/icons/accessory-speaker.svg',
   },
   {
     key: 'outlets',
     label: 'Electrical outlets',
-    description: 'Up to four outlets per post at three heights.',
-    model: './assets/models/accessories/outlet.glb',
+    description: 'European or American outlets with continuous height positioning.',
+    model: './assets/models/accessories/outlet-eu.glb',
+    icon: './assets/icons/accessory-outlet.svg',
   },
 ];
 
@@ -211,11 +233,9 @@ export const POLE_FACES = [
   { value: 'left', label: 'Left face' },
 ];
 
-export const OUTLET_HEIGHTS = [
-  { value: null, label: 'Off' },
-  { value: '10', label: '10%' },
-  { value: '50', label: '50%' },
-  { value: '80', label: '80%' },
+export const OUTLET_TYPES = [
+  { value: 'eu', label: 'European · Type F' },
+  { value: 'us', label: 'American · Type B' },
 ];
 
 export const SIDE_NAMES = ['front', 'back', 'left', 'right'];

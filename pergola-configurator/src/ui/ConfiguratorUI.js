@@ -7,8 +7,9 @@ import {
   LED_COLORS,
   LOUVER_COLORS,
   MODEL_OPTIONS,
-  OUTLET_HEIGHTS,
+  OUTLET_TYPES,
   POLE_FACES,
+  PRIVACY_WALL_COLORS,
   SCREEN_COLORS,
   SENSOR_POSITIONS,
   SERVICE_OPTIONS,
@@ -23,7 +24,13 @@ import {
   formatMoney,
   sideLabel,
 } from '../pricing.js';
-import { poleIsAvailable } from '../state.js';
+import {
+  canPlaceOutlet,
+  poleFaceIsAvailable,
+  poleIsAvailable,
+  resolvePoleMountFace,
+  resolveSpeakerFace,
+} from '../state.js';
 
 const CAMERA_PRESETS = ['perspective', 'front', 'left', 'right', 'top'];
 
@@ -107,6 +114,8 @@ export class ConfiguratorUI {
     this.activeSide = 'front';
     this.activeOutletPole = 'frontLeft';
     this.environmentOpen = false;
+    this.sidebarHidden = false;
+    this.expandedStep = null;
     this.toastTimer = null;
 
     this.root.innerHTML = this.shellTemplate();
@@ -136,7 +145,7 @@ export class ConfiguratorUI {
       <div class="app-shell">
         <header class="site-header">
           <a class="brand" href="#" aria-label="Pergola configurator home">
-            <img src="./assets/logo.svg" alt="Pergola Studio" />
+            <img src="./assets/360CONFIGURATOR.png" alt="360 Configurator" />
           </a>
           <div class="site-header__actions">
             <button class="text-button" type="button" data-action="save">Save</button>
@@ -155,6 +164,9 @@ export class ConfiguratorUI {
               <button class="round-tool is-active" type="button" data-action="toggle-dimensions" aria-label="Toggle dimensions" title="Toggle dimensions">
                 <span aria-hidden="true">↔</span>
               </button>
+              <button class="round-tool" type="button" data-action="toggle-compass" aria-label="Toggle compass" title="Toggle compass">
+                <span aria-hidden="true">🧭</span>
+              </button>
               <button class="round-tool" type="button" data-action="cycle-camera" aria-label="Change camera" title="Change camera">
                 <span aria-hidden="true">⌖</span>
               </button>
@@ -170,16 +182,12 @@ export class ConfiguratorUI {
           </section>
 
           <aside class="configurator-sidebar" aria-label="Pergola options">
-            <div class="sidebar-header">
-              <div class="step-navigation">
-                <button class="step-arrow" type="button" data-action="previous-step" aria-label="Previous step">‹</button>
-                <div>
-                  <span class="step-counter" data-step-counter></span>
-                  <h1 data-step-title></h1>
-                </div>
-                <button class="step-arrow" type="button" data-action="next-step" aria-label="Next step">›</button>
+            <button class="sidebar-collapse-handle" type="button" data-action="toggle-sidebar" aria-label="Hide or show menu">❯</button>
+            <div class="sidebar-header sidebar-header--compact">
+              <div>
+                <span class="step-counter" data-step-counter></span>
+                <h1 data-step-title>Pergola options</h1>
               </div>
-              <div class="step-progress" data-progress></div>
             </div>
 
             <div class="sidebar-scroll" data-step-content></div>
@@ -201,20 +209,13 @@ export class ConfiguratorUI {
   }
 
   render() {
-    const step = STEPS[this.state.step];
-    this.stepTitle.textContent = step.label;
-    this.stepCounter.textContent = `${this.state.step + 1} / ${STEPS.length}`;
-    this.progress.innerHTML = STEPS.map((item, index) => `
-      <button
-        type="button"
-        class="step-progress__item ${index === this.state.step ? 'is-active' : ''} ${index < this.state.step ? 'is-complete' : ''}"
-        data-action="go-step"
-        data-step="${index}"
-        aria-label="Go to ${escapeHtml(item.label)}"
-      ></button>
-    `).join('');
+    this.stepTitle.textContent = 'Pergola options';
+    this.stepCounter.textContent = '6 configurable groups';
+    if (this.progress) this.progress.innerHTML = '';
+    this.root.querySelector('.configurator-sidebar')?.classList.toggle('is-hidden', this.sidebarHidden);
+    this.root.querySelector('.configurator-layout')?.classList.toggle('menu-hidden', this.sidebarHidden);
 
-    this.stepContent.innerHTML = this.renderCurrentStep();
+    this.stepContent.innerHTML = this.renderAccordionSections();
     this.sidebarFooter.innerHTML = this.renderFooter();
     this.environmentPanel.innerHTML = this.renderEnvironmentPanel();
     this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
@@ -231,6 +232,34 @@ export class ConfiguratorUI {
       case 'summary': return this.renderSummaryStep();
       default: return '';
     }
+  }
+
+
+  renderStepById(id) {
+    switch (id) {
+      case 'structure': return this.renderStructureStep();
+      case 'finish': return this.renderFinishStep();
+      case 'automation': return this.renderAutomationStep();
+      case 'sides': return this.renderSidesStep();
+      case 'accessories': return this.renderAccessoriesStep();
+      case 'summary': return this.renderSummaryStep();
+      default: return '';
+    }
+  }
+
+  renderAccordionSections() {
+    return STEPS.map((step) => {
+      const expanded = this.expandedStep === step.id;
+      return `
+        <section class="accordion-section ${expanded ? 'is-open' : ''}">
+          <button type="button" class="accordion-toggle" data-action="toggle-step-section" data-step-id="${step.id}" aria-expanded="${expanded}">
+            <span>${escapeHtml(step.label)}</span>
+            <span class="accordion-toggle__arrow">▾</span>
+          </button>
+          ${expanded ? `<div class="accordion-panel">${this.renderStepById(step.id)}</div>` : ''}
+        </section>
+      `;
+    }).join('');
   }
 
   renderStructureStep() {
@@ -330,18 +359,92 @@ export class ConfiguratorUI {
   }
 
   renderAutomationStep() {
+    const automation = this.state.automation;
+    const manual = this.state.automationSettings.manual;
+    const switches = this.state.automationSettings.wallSwitches;
+    const switchCount = Object.values(switches).filter((value) => value !== null).length;
+
     return `
       <section class="form-section">
         <div class="section-heading section-heading--center"><h2>Automation</h2></div>
         <div class="option-grid option-grid--stacked">
           ${AUTOMATION_OPTIONS.map((option) => optionCard(
             option,
-            this.state.automation === option.value,
+            automation === option.value,
             'automation',
             'option-card--large-icon',
           )).join('')}
         </div>
       </section>
+
+      ${automation === 'manual' ? `
+        <section class="form-section automation-mount-panel">
+          <div class="section-heading">
+            <h2>Hand-crank position</h2>
+            <p>The crank uses a dedicated GLB model and is automatically placed on a free pole face.</p>
+          </div>
+          <div class="pole-grid">
+            ${SUPPORT_POLES.map(({ value, label }) => {
+              const available = poleIsAvailable(this.state, value)
+                && Boolean(resolvePoleMountFace(this.state, 'manual', value, manual.height));
+              return `
+                <button
+                  type="button"
+                  class="pole-button ${manual.pole === value ? 'is-selected' : ''}"
+                  data-option-path="automationSettings.manual.pole"
+                  data-option-value="${value}"
+                  aria-pressed="${manual.pole === value}"
+                  ${available ? '' : 'disabled aria-disabled="true"'}
+                ><span>${label}</span><small>${available ? 'Collision-free face' : 'No free mounting face'}</small></button>
+              `;
+            }).join('')}
+          </div>
+          <div class="mount-height-control">
+            <div><strong>Mounting height</strong><output data-manual-height-output>${manual.height}%</output></div>
+            <input class="range-input" type="range" min="10" max="80" step="1" value="${manual.height}"
+              data-path="automationSettings.manual.height" data-value-type="number" data-continuous="true" />
+            <div class="range-labels"><span>10%</span><span>80%</span></div>
+          </div>
+        </section>
+      ` : ''}
+
+      ${automation === 'wall-switch' ? `
+        <section class="form-section automation-mount-panel">
+          <div class="section-heading">
+            <h2>Pergola switches</h2>
+            <p>Select up to one switch per existing support pole. Each selected switch has a continuous 10–80% height control.</p>
+          </div>
+          <div class="accessory-summary-line">
+            <span class="accessory-model-mark"><img src="./assets/icons/automation-switch.svg" alt="" /></span>
+            <span><strong>${switchCount} selected</strong><small>Maximum four</small></span>
+          </div>
+          <div class="switch-pole-list">
+            ${SUPPORT_POLES.map(({ value, label }) => {
+              const selected = switches[value] !== null;
+              const available = poleIsAvailable(this.state, value);
+              const face = selected ? resolvePoleMountFace(this.state, 'switch', value, switches[value]) : null;
+              return `
+                <article class="switch-pole-row ${selected ? 'is-selected' : ''}">
+                  <div>
+                    <strong>${label}</strong>
+                    <small>${available ? (face ? `${capitalize(face)} face` : 'Enable to place') : 'No support pole'}</small>
+                  </div>
+                  <button type="button" class="compact-toggle ${selected ? 'is-selected' : ''}"
+                    data-action="toggle-wall-switch" data-pole="${value}" aria-pressed="${selected}"
+                    ${available ? '' : 'disabled aria-disabled="true"'}>${selected ? 'On' : 'Off'}</button>
+                  ${selected ? `
+                    <label class="inline-range">
+                      <span><output data-switch-height-output="${value}">${switches[value]}%</output></span>
+                      <input class="range-input" type="range" min="10" max="80" step="1" value="${switches[value]}"
+                        data-path="automationSettings.wallSwitches.${value}" data-value-type="number" data-continuous="true" />
+                    </label>
+                  ` : ''}
+                </article>
+              `;
+            }).join('')}
+          </div>
+        </section>
+      ` : ''}
 
       <section class="form-section">
         <div class="section-heading section-heading--center">
@@ -369,6 +472,7 @@ export class ConfiguratorUI {
       </section>
     `;
   }
+
 
   renderSidesStep() {
     const config = this.state.sides[this.activeSide];
@@ -449,16 +553,27 @@ export class ConfiguratorUI {
             )}
           </section>
         ` : ''}
+
+        ${config.type === 'privacy-wall' ? `
+          <section class="form-section">
+            <div class="section-heading">
+              <h2>Privacy-wall color</h2>
+              <p>The finish is remembered separately for every side.</p>
+            </div>
+            ${colorSwatches(PRIVACY_WALL_COLORS, config.privacyColor, `sides.${this.activeSide}.privacyColor`)}
+          </section>
+        ` : ''}
       `}
     `;
   }
+
 
   renderAccessoriesStep() {
     const accessories = this.state.accessories;
     const heaterCount = Object.values(accessories.heaters).filter(Boolean).length;
     const speakerCount = Object.values(accessories.speakers).filter(Boolean).length;
     const outletCount = Object.values(accessories.outlets).reduce(
-      (total, faces) => total + Object.values(faces).filter(Boolean).length,
+      (total, faces) => total + Object.values(faces).filter((value) => value !== null).length,
       0,
     );
 
@@ -466,7 +581,7 @@ export class ConfiguratorUI {
       <section class="form-section">
         <div class="section-heading">
           <h2>Lighting</h2>
-          <p>All accessories shown in the scene now use dedicated local GLB models.</p>
+          <p>Lights are attached to fixed metal rails, independently of the moving louvers.</p>
         </div>
         ${this.accessoryToggleCard(
           'perimeterLed',
@@ -484,7 +599,7 @@ export class ConfiguratorUI {
 
         <article class="accessory-card accessory-card--config ${accessories.spotlights > 0 ? 'is-selected' : ''}">
           ${this.accessoryModelMark('spotlights')}
-          <div><strong>Integrated spotlights</strong><small>Dimmable roof spotlights positioned in an even grid.</small></div>
+          <div><strong>Integrated spotlights</strong><small>Downlights mounted below dedicated support rails.</small></div>
           <div class="counter-control">
             <button type="button" data-action="counter" data-key="spotlights" data-delta="-2" aria-label="Decrease spotlights">−</button>
             <output>${accessories.spotlights}</output>
@@ -496,7 +611,7 @@ export class ConfiguratorUI {
       <section class="form-section">
         <div class="section-heading">
           <h2>Infrared heaters</h2>
-          <p>Select up to one suspended heater per side. Each heater receives two metal mounting bars.</p>
+          <p>Select up to one inward-facing suspended heater per side. Metal rails keep heaters clear of side closings.</p>
         </div>
         <div class="accessory-summary-line">
           ${this.accessoryModelMark('heaters')}
@@ -510,7 +625,7 @@ export class ConfiguratorUI {
               data-action="toggle-heater-side"
               data-side="${value}"
               aria-pressed="${accessories.heaters[value]}"
-            ><span>${label}</span><small>Frame mounted</small></button>
+            ><span>${label}</span><small>Suspended rail</small></button>
           `).join('')}
         </div>
       </section>
@@ -518,7 +633,7 @@ export class ConfiguratorUI {
       <section class="form-section">
         <div class="section-heading">
           <h2>Weather sensors</h2>
-          <p>Rain and wind sensors cannot occupy the same roof position.</p>
+          <p>Both sensors use fixed mounting plates and cannot occupy the same roof position.</p>
         </div>
         ${this.renderSensorControl('rain', 'Rain sensor')}
         ${this.renderSensorControl('wind', 'Wind sensor')}
@@ -527,15 +642,16 @@ export class ConfiguratorUI {
       <section class="form-section">
         <div class="section-heading">
           <h2>Outdoor speakers</h2>
-          <p>Select a maximum of one speaker on each existing support pole.</p>
+          <p>One speaker per support pole. The configurator chooses an unobstructed vertical mounting face.</p>
         </div>
         <div class="accessory-summary-line">
           ${this.accessoryModelMark('speakers')}
-          <span><strong>${speakerCount} selected</strong><small>Unavailable wall-mounted posts are disabled</small></span>
+          <span><strong>${speakerCount} selected</strong><small>Wall and outlet collisions are prevented</small></span>
         </div>
         <div class="pole-grid">
           ${SUPPORT_POLES.map(({ value, label }) => {
-            const available = poleIsAvailable(this.state, value);
+            const available = poleIsAvailable(this.state, value)
+              && (!accessories.speakers[value] || Boolean(resolveSpeakerFace(this.state, value)));
             return `
               <button
                 type="button"
@@ -544,7 +660,7 @@ export class ConfiguratorUI {
                 data-pole="${value}"
                 aria-pressed="${accessories.speakers[value]}"
                 ${available ? '' : 'disabled aria-disabled="true"'}
-              ><span>${label}</span><small>${available ? 'Support pole' : 'No post on mounted side'}</small></button>
+              ><span>${label}</span><small>${available ? 'Free mounting face' : 'No collision-free face'}</small></button>
             `;
           }).join('')}
         </div>
@@ -553,11 +669,11 @@ export class ConfiguratorUI {
       <section class="form-section">
         <div class="section-heading">
           <h2>Electrical outlets</h2>
-          <p>Each pole can hold one outlet on each physical face, at 10%, 50% or 80% of post height.</p>
+          <p>Exterior pole faces are always available. Interior faces are available only while the adjacent side is open.</p>
         </div>
         <div class="accessory-summary-line">
           ${this.accessoryModelMark('outlets')}
-          <span><strong>${outletCount} selected</strong><small>Maximum four per available pole</small></span>
+          <span><strong>${outletCount} selected</strong><small>Each outlet can use its own EU or US standard</small></span>
         </div>
         <div class="outlet-pole-tabs">
           ${SUPPORT_POLES.map(({ value, label }) => {
@@ -578,15 +694,16 @@ export class ConfiguratorUI {
     `;
   }
 
+
   accessoryModelMark(key) {
     const item = ACCESSORY_OPTIONS.find((option) => option.key === key);
     return `
-      <span class="accessory-model-mark" title="${escapeHtml(item?.model ?? '')}">
-        <span aria-hidden="true">3D</span>
-        <small>GLB</small>
+      <span class="accessory-model-mark" title="${escapeHtml(item?.label ?? '')}">
+        <img src="${item?.icon ?? './assets/icons/accessory-outlet.svg'}" alt="" />
       </span>
     `;
   }
+
 
   accessoryToggleCard(key, label, description, selected, action) {
     return `
@@ -609,6 +726,7 @@ export class ConfiguratorUI {
     const sensor = sensors[type];
     const otherType = type === 'rain' ? 'wind' : 'rain';
     const other = sensors[otherType];
+    const markKey = type === 'rain' ? 'rainSensor' : 'windSensor';
     return `
       <div class="sensor-config ${sensor.enabled ? 'is-enabled' : ''}">
         <button
@@ -618,7 +736,7 @@ export class ConfiguratorUI {
           data-sensor="${type}"
           aria-pressed="${sensor.enabled}"
         >
-          ${this.accessoryModelMark('sensors')}
+          ${this.accessoryModelMark(markKey)}
           <span><strong>${label}</strong><small>${type === 'rain' ? 'Detects precipitation and closes the louvers.' : 'Protects the roof during high winds.'}</small></span>
           <span class="toggle-indicator" aria-hidden="true"></span>
         </button>
@@ -643,6 +761,7 @@ export class ConfiguratorUI {
     `;
   }
 
+
   renderOutletPole() {
     const pole = this.activeOutletPole;
     const available = poleIsAvailable(this.state, pole);
@@ -658,30 +777,44 @@ export class ConfiguratorUI {
     const faces = this.state.accessories.outlets[pole];
     return `
       <div class="outlet-face-list">
-        ${POLE_FACES.map(({ value, label }) => `
-          <div class="outlet-face-row">
-            <div><strong>${label}</strong><small>Mounting height</small></div>
-            <div class="mini-segmented">
-              ${OUTLET_HEIGHTS.map((height) => {
-                const selected = (faces[value] ?? null) === height.value;
-                return `
-                  <button
-                    type="button"
-                    class="${selected ? 'is-selected' : ''}"
-                    data-action="set-outlet"
-                    data-pole="${pole}"
-                    data-face="${value}"
-                    data-level="${height.value ?? 'off'}"
-                    aria-pressed="${selected}"
-                  >${height.label}</button>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        `).join('')}
+        ${POLE_FACES.map(({ value, label }) => {
+          const mount = faces[value];
+          const enabled = mount !== null;
+          const faceAvailable = poleFaceIsAvailable(this.state, pole, value);
+          const collisionFree = enabled || canPlaceOutlet(this.state, pole, value, { height: 50, type: 'eu' });
+          const selectable = faceAvailable && collisionFree;
+          return `
+            <article class="outlet-face-row ${enabled ? 'is-selected' : ''} ${selectable ? '' : 'is-disabled'}">
+              <div>
+                <strong>${label}</strong>
+                <small>${!faceAvailable
+                  ? 'Blocked by an adjacent side closing'
+                  : !collisionFree
+                    ? 'No collision-free default position'
+                    : enabled
+                      ? `${mount.height}% of pole height · ${mount.type === 'us' ? 'US' : 'EU'} outlet`
+                      : 'Available mounting face'}</small>
+              </div>
+              <button type="button" class="compact-toggle ${enabled ? 'is-selected' : ''}"
+                data-action="toggle-outlet-face" data-pole="${pole}" data-face="${value}"
+                aria-pressed="${enabled}" ${selectable ? '' : 'disabled aria-disabled="true"'}>${enabled ? 'On' : 'Off'}</button>
+              ${enabled ? `
+                <div class="inline-field-stack">
+                  <div class="outlet-type-row">${segmented(OUTLET_TYPES, mount.type, `accessories.outlets.${pole}.${value}.type`)}</div>
+                  <label class="inline-range inline-range--full">
+                    <span><output data-outlet-height-output="${pole}.${value}">${mount.height}%</output></span>
+                    <input class="range-input" type="range" min="10" max="80" step="1" value="${mount.height}"
+                      data-path="accessories.outlets.${pole}.${value}.height" data-value-type="number" data-continuous="true" />
+                  </label>
+                </div>
+              ` : ''}
+            </article>
+          `;
+        }).join('')}
       </div>
     `;
   }
+
 
   renderSummaryStep() {
     const price = calculatePrice(this.state);
@@ -745,10 +878,8 @@ export class ConfiguratorUI {
         <strong>${formatMoney(price.total)}</strong>
       </div>
       <div class="footer-actions">
-        ${this.state.step > 0 ? '<button class="secondary-button" type="button" data-action="previous-step">Back</button>' : ''}
-        ${this.state.step < STEPS.length - 1
-          ? '<button class="primary-button" type="button" data-action="next-step">Next</button>'
-          : '<button class="primary-button" type="button" data-action="focus-quote">Request quote</button>'}
+        <button class="secondary-button" type="button" data-action="snapshot">Snapshot</button>
+        <button class="primary-button" type="button" data-action="toggle-step-section" data-step-id="summary">Summary & quote</button>
       </div>
     `;
   }
@@ -833,7 +964,7 @@ export class ConfiguratorUI {
     const option = event.target.closest('[data-option-path]');
     if (option) {
       const updated = this.store.update(option.dataset.optionPath, option.dataset.optionValue);
-      if (updated === false) this.showToast('That roof position is already occupied.');
+      if (updated === false) this.showToast(this.store.getLastError?.() || 'That option cannot be placed there.');
       return;
     }
 
@@ -876,20 +1007,36 @@ export class ConfiguratorUI {
     } else if (action === 'toggle-speaker-pole') {
       const pole = actionTarget.dataset.pole;
       if (poleIsAvailable(this.state, pole)) {
-        this.store.update(`accessories.speakers.${pole}`, !this.state.accessories.speakers[pole]);
+        const updated = this.store.update(`accessories.speakers.${pole}`, !this.state.accessories.speakers[pole]);
+        if (updated === false) this.showToast(this.store.getLastError?.() || 'That speaker cannot be placed there.');
       }
     } else if (action === 'select-outlet-pole') {
       this.activeOutletPole = actionTarget.dataset.pole;
       this.render();
-    } else if (action === 'set-outlet') {
-      const { pole, face, level } = actionTarget.dataset;
-      const value = level === 'off' ? null : level;
-      this.store.update(`accessories.outlets.${pole}.${face}`, value);
+    } else if (action === 'toggle-outlet-face') {
+      const { pole, face } = actionTarget.dataset;
+      const current = this.state.accessories.outlets[pole][face];
+      const updated = this.store.update(`accessories.outlets.${pole}.${face}`, current === null ? { height: 50, type: 'eu' } : null);
+      if (updated === false) this.showToast(this.store.getLastError?.() || 'That outlet cannot be placed there.');
+    } else if (action === 'toggle-wall-switch') {
+      const pole = actionTarget.dataset.pole;
+      const current = this.state.automationSettings.wallSwitches[pole];
+      const updated = this.store.update(`automationSettings.wallSwitches.${pole}`, current === null ? 55 : null);
+      if (updated === false) this.showToast(this.store.getLastError?.() || 'That switch cannot be placed there.');
+    } else if (action === 'toggle-step-section') {
+      const stepId = actionTarget.dataset.stepId;
+      this.expandedStep = this.expandedStep === stepId ? null : stepId;
+      this.render();
+    } else if (action === 'toggle-sidebar') {
+      this.sidebarHidden = !this.sidebarHidden;
+      this.render();
     } else if (action === 'toggle-environment') {
       this.environmentOpen = !this.environmentOpen;
       this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
     } else if (action === 'toggle-dimensions') {
       this.store.update('view.dimensionsVisible', !this.state.view.dimensionsVisible);
+    } else if (action === 'toggle-compass') {
+      this.store.update('view.compassVisible', !this.state.view.compassVisible);
     } else if (action === 'cycle-camera') {
       const index = CAMERA_PRESETS.indexOf(this.state.view.cameraPreset);
       const next = CAMERA_PRESETS[(index + 1) % CAMERA_PRESETS.length];
@@ -939,7 +1086,15 @@ export class ConfiguratorUI {
   updateFromInput(input, continuous) {
     let value = input.type === 'checkbox' ? input.checked : input.value;
     if (input.dataset.valueType === 'number') value = Number(value);
-    this.store.update(input.dataset.path, value, { continuous });
+    const updated = this.store.update(input.dataset.path, value, { continuous });
+    if (updated === false) {
+      input.value = this.valueAtPath(input.dataset.path) ?? input.value;
+      this.showToast(this.store.getLastError?.() || 'That position overlaps another component.');
+    }
+  }
+
+  valueAtPath(path) {
+    return path.split('.').reduce((value, key) => value?.[key], this.state);
   }
 
   handleSubmit(event) {
@@ -974,11 +1129,24 @@ export class ConfiguratorUI {
       const openness = config.screenSettings?.[config.type]?.openness ?? 50;
       screen.textContent = `${Math.round(openness)}% open`;
     }
+    const manualHeight = this.stepContent.querySelector('[data-manual-height-output]');
+    if (manualHeight) manualHeight.textContent = `${this.state.automationSettings.manual.height}%`;
+    this.stepContent.querySelectorAll('[data-switch-height-output]').forEach((output) => {
+      const value = this.state.automationSettings.wallSwitches[output.dataset.switchHeightOutput];
+      output.textContent = `${value}%`;
+    });
+    this.stepContent.querySelectorAll('[data-outlet-height-output]').forEach((output) => {
+      const [pole, face] = output.dataset.outletHeightOutput.split('.');
+      output.textContent = `${this.state.accessories.outlets[pole][face]?.height ?? 0}%`;
+    });
   }
 
   syncToolbar() {
     const dimensionButton = this.root.querySelector('[data-action="toggle-dimensions"]');
+    const compassButton = this.root.querySelector('[data-action="toggle-compass"]');
     dimensionButton?.classList.toggle('is-active', this.state.view.dimensionsVisible);
+    compassButton?.classList.toggle('is-active', this.state.view.compassVisible);
+    this.root.querySelector('.sidebar-collapse-handle')?.classList.toggle('is-hidden-state', this.sidebarHidden);
   }
 
   async copyShareLink() {

@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { fitAssetToBox } from './AssetLibrary.js';
-import { poleIsAvailable } from '../state.js';
+import {
+  poleFaceIsAvailable,
+  poleIsAvailable,
+  resolvePoleMountFace,
+  resolveSpeakerFace,
+} from '../state.js';
 
 const METERS_PER_MM = 0.001;
 const SCREEN_TYPES = ['screen', 'motorized-screen'];
@@ -217,9 +222,8 @@ function addScreen(container, transform, config, motorized, assets) {
   }
 }
 
-function addPrivacyWall(container, transform, frameMaterial) {
-  const slatMaterial = frameMaterial.clone();
-  slatMaterial.color.offsetHSL(0, -0.02, 0.06);
+function addPrivacyWall(container, transform, color) {
+  const slatMaterial = material(color, { roughness: 0.42, metalness: 0.72 });
   const count = Math.max(8, Math.floor(transform.usableHeight / 0.14));
   const spacing = transform.usableHeight / count;
   for (let index = 0; index < count; index += 1) {
@@ -229,6 +233,7 @@ function addPrivacyWall(container, transform, frameMaterial) {
     container.add(slat);
   }
 }
+
 
 function addGlass(container, transform, frameMaterial) {
   const panelCount = Math.max(2, Math.round(transform.span / 1.25));
@@ -279,7 +284,7 @@ function addSideClosings(group, state, width, depth, height, frameMaterial, asse
     if (SCREEN_TYPES.includes(config.type)) {
       addScreen(container, transform, config, config.type === 'motorized-screen', assets);
     } else if (config.type === 'privacy-wall') {
-      addPrivacyWall(container, transform, frameMaterial);
+      addPrivacyWall(container, transform, config.privacyColor ?? state.roof.frameColor);
     } else if (config.type === 'glass') {
       addGlass(container, transform, frameMaterial);
     }
@@ -359,31 +364,52 @@ function styleSpotlight(object) {
   });
 }
 
-function addSpotlights(group, count, width, depth, height, assets) {
+function addSpotlights(group, count, width, depth, height, beamHeight, frameMaterial, assets) {
   if (count <= 0) return;
-  const columns = Math.ceil(Math.sqrt(count));
-  const rows = Math.ceil(count / columns);
-  let created = 0;
 
+  const columns = Math.min(4, Math.max(1, Math.ceil(Math.sqrt(count))));
+  const rows = Math.ceil(count / columns);
+  const railY = height - beamHeight - 0.045;
+  const lightY = railY - 0.032;
+  const railMaterial = frameMaterial.clone();
+  railMaterial.color.offsetHSL(0, -0.02, 0.04);
+
+  const rowPositions = rows === 1
+    ? [0]
+    : Array.from({ length: rows }, (_, index) => THREE.MathUtils.lerp(
+      -depth * 0.28,
+      depth * 0.28,
+      index / (rows - 1),
+    ));
+
+  rowPositions.forEach((z) => {
+    const rail = box(width - 0.42, 0.035, 0.045, railMaterial);
+    rail.position.set(0, railY, z);
+    group.add(rail);
+  });
+
+  let created = 0;
   for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      if (created >= count) break;
-      const x = columns === 1 ? 0 : THREE.MathUtils.lerp(-width * 0.32, width * 0.32, column / (columns - 1));
-      const z = rows === 1 ? 0 : THREE.MathUtils.lerp(-depth * 0.28, depth * 0.28, row / (rows - 1));
-      const model = cloneFittedAsset(assets, 'spotlight', new THREE.Vector3(0.14, 0.055, 0.14));
+    const lightsInRow = Math.min(columns, count - created);
+    for (let column = 0; column < lightsInRow; column += 1) {
+      const x = lightsInRow === 1
+        ? 0
+        : THREE.MathUtils.lerp(-width * 0.32, width * 0.32, column / (lightsInRow - 1));
+      const model = cloneFittedAsset(assets, 'spotlight', new THREE.Vector3(0.14, 0.065, 0.14));
       if (model) {
         styleSpotlight(model);
-        model.position.set(x, height - 0.255, z);
+        model.position.set(x, lightY, rowPositions[row]);
         group.add(model);
       } else {
         const body = cylinder(0.055, 0.035, material('#111719'), 20);
-        body.position.set(x, height - 0.24, z);
+        body.position.set(x, lightY, rowPositions[row]);
         group.add(body);
       }
       created += 1;
     }
   }
 }
+
 
 function styleHeater(object) {
   object.traverse((child) => {
@@ -402,55 +428,72 @@ function styleHeater(object) {
 }
 
 function addHeaterBrackets(group, side, width, depth, height, beamHeight, heaterY, frameMaterial) {
-  const beamBottom = height - beamHeight;
-  const heaterTop = heaterY + 0.09;
-  const bracketHeight = Math.max(0.08, beamBottom - heaterTop);
-  const bracketY = heaterTop + bracketHeight / 2;
-  const barSize = 0.025;
+  const beamBottom = height - beamHeight + 0.01;
+  const heaterTop = heaterY + 0.11;
+  const inset = 0.31;
+  const anchorInset = 0.14;
+  const rodThickness = 0.022;
+  const hangerMaterial = frameMaterial.clone();
+  hangerMaterial.color.offsetHSL(0, -0.03, 0.03);
+
+  const makeRod = (start, end) => {
+    const direction = new THREE.Vector3().subVectors(end, start);
+    const length = direction.length();
+    const rod = box(rodThickness, length, rodThickness, hangerMaterial);
+    rod.position.copy(start).add(end).multiplyScalar(0.5);
+    rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+    group.add(rod);
+  };
 
   if (side === 'front' || side === 'back') {
-    const z = side === 'front' ? depth / 2 - 0.16 : -depth / 2 + 0.16;
-    [-0.28, 0.28].forEach((xOffset) => {
-      const bracket = box(barSize, bracketHeight, barSize, frameMaterial);
-      bracket.position.set(xOffset, bracketY, z);
-      group.add(bracket);
-    });
-    const rail = box(0.72, barSize, barSize, frameMaterial);
-    rail.position.set(0, beamBottom - barSize / 2, z);
+    const z = side === 'front' ? depth / 2 - inset : -depth / 2 + inset;
+    const anchorZ = side === 'front' ? depth / 2 - anchorInset : -depth / 2 + anchorInset;
+    const rail = box(0.76, rodThickness, 0.045, hangerMaterial);
+    rail.position.set(0, heaterTop + 0.015, z);
     group.add(rail);
+    [-0.31, 0.31].forEach((xOffset) => {
+      makeRod(
+        new THREE.Vector3(xOffset, heaterTop + 0.03, z),
+        new THREE.Vector3(xOffset * 0.65, beamBottom, anchorZ),
+      );
+    });
   } else {
-    const x = side === 'right' ? width / 2 - 0.16 : -width / 2 + 0.16;
-    [-0.28, 0.28].forEach((zOffset) => {
-      const bracket = box(barSize, bracketHeight, barSize, frameMaterial);
-      bracket.position.set(x, bracketY, zOffset);
-      group.add(bracket);
-    });
-    const rail = box(barSize, barSize, 0.72, frameMaterial);
-    rail.position.set(x, beamBottom - barSize / 2, 0);
+    const x = side === 'right' ? width / 2 - inset : -width / 2 + inset;
+    const anchorX = side === 'right' ? width / 2 - anchorInset : -width / 2 + anchorInset;
+    const rail = box(0.045, rodThickness, 0.76, hangerMaterial);
+    rail.position.set(x, heaterTop + 0.015, 0);
     group.add(rail);
+    [-0.31, 0.31].forEach((zOffset) => {
+      makeRod(
+        new THREE.Vector3(x, heaterTop + 0.03, zOffset),
+        new THREE.Vector3(anchorX, beamBottom, zOffset * 0.65),
+      );
+    });
   }
 }
 
+
 function addHeaters(group, selectedSides, width, depth, height, beamHeight, frameMaterial, assets) {
+  const inset = 0.31;
   Object.entries(selectedSides).forEach(([side, selected]) => {
     if (!selected) return;
 
-    const heaterY = height - beamHeight - 0.34;
+    const heaterY = height - beamHeight - 0.29;
     const heater = cloneFittedAsset(assets, 'heater', new THREE.Vector3(0.92, 0.18, 0.17));
     if (!heater) return;
     styleHeater(heater);
 
     if (side === 'front') {
-      heater.position.set(0, heaterY, depth / 2 - 0.16);
-      heater.rotation.y = 0;
-    } else if (side === 'back') {
-      heater.position.set(0, heaterY, -depth / 2 + 0.16);
+      heater.position.set(0, heaterY, depth / 2 - inset);
       heater.rotation.y = Math.PI;
+    } else if (side === 'back') {
+      heater.position.set(0, heaterY, -depth / 2 + inset);
+      heater.rotation.y = 0;
     } else if (side === 'left') {
-      heater.position.set(-width / 2 + 0.16, heaterY, 0);
+      heater.position.set(-width / 2 + inset, heaterY, 0);
       heater.rotation.y = Math.PI / 2;
     } else {
-      heater.position.set(width / 2 - 0.16, heaterY, 0);
+      heater.position.set(width / 2 - inset, heaterY, 0);
       heater.rotation.y = -Math.PI / 2;
     }
 
@@ -459,8 +502,9 @@ function addHeaters(group, selectedSides, width, depth, height, beamHeight, fram
   });
 }
 
+
 function sensorPosition(position, width, depth, height) {
-  const inset = 0.27;
+  const inset = 0.18;
   const xPositions = {
     left: -width / 2 + inset,
     center: 0,
@@ -473,11 +517,12 @@ function sensorPosition(position, width, depth, height) {
   };
 
   const [first, second] = position.split('-');
-  if (first === 'front' || first === 'back') {
-    return new THREE.Vector3(xPositions[second], height + 0.04, zPositions[first]);
-  }
-  return new THREE.Vector3(xPositions[first], height + 0.04, zPositions.center);
+  const vector = first === 'front' || first === 'back'
+    ? new THREE.Vector3(xPositions[second], height + 0.05, zPositions[first])
+    : new THREE.Vector3(xPositions[first], height + 0.05, zPositions.center);
+  return vector;
 }
+
 
 function styleWeatherSensor(model, type) {
   model.traverse((child) => {
@@ -489,24 +534,27 @@ function styleWeatherSensor(model, type) {
 }
 
 function addSensors(group, sensors, width, depth, height, assets) {
-  if (sensors.rain.enabled) {
-    const sensor = cloneFittedAsset(assets, 'rainSensor', new THREE.Vector3(0.17, 0.12, 0.17), 'bottom');
-    if (sensor) {
-      styleWeatherSensor(sensor, 'rain');
-      sensor.position.copy(sensorPosition(sensors.rain.position, width, depth, height));
-      group.add(sensor);
-    }
-  }
+  const mountMaterial = material('#2b353a', { roughness: 0.38, metalness: 0.68 });
 
-  if (sensors.wind.enabled) {
-    const sensor = cloneFittedAsset(assets, 'windSensor', new THREE.Vector3(0.28, 0.34, 0.28), 'bottom');
-    if (sensor) {
-      styleWeatherSensor(sensor, 'wind');
-      sensor.position.copy(sensorPosition(sensors.wind.position, width, depth, height));
-      group.add(sensor);
-    }
-  }
+  const addSensor = (type, key, size) => {
+    const config = sensors[type];
+    if (!config.enabled) return;
+    const position = sensorPosition(config.position, width, depth, height);
+    const plate = box(0.18, 0.025, 0.18, mountMaterial);
+    plate.position.set(position.x, height + 0.014, position.z);
+    group.add(plate);
+
+    const sensor = cloneFittedAsset(assets, key, size, 'bottom');
+    if (!sensor) return;
+    styleWeatherSensor(sensor, type);
+    sensor.position.copy(position);
+    group.add(sensor);
+  };
+
+  addSensor('rain', 'rainSensor', new THREE.Vector3(0.16, 0.105, 0.16));
+  addSensor('wind', 'windSensor', new THREE.Vector3(0.27, 0.31, 0.28));
 }
+
 
 function poleCoordinates(width, depth, postSize) {
   const x = width / 2 - postSize / 2;
@@ -519,11 +567,38 @@ function poleCoordinates(width, depth, postSize) {
   };
 }
 
+function faceVector(face) {
+  return {
+    front: new THREE.Vector3(0, 0, 1),
+    right: new THREE.Vector3(1, 0, 0),
+    back: new THREE.Vector3(0, 0, -1),
+    left: new THREE.Vector3(-1, 0, 0),
+  }[face];
+}
+
+function faceRotation(face) {
+  return {
+    front: 0,
+    right: Math.PI / 2,
+    back: Math.PI,
+    left: -Math.PI / 2,
+  }[face];
+}
+
+function placeOnPole(model, base, face, height, postSize, depthOffset = 0.018) {
+  const outward = faceVector(face);
+  model.position.copy(base).addScaledVector(outward, postSize / 2 + depthOffset);
+  model.position.y = height;
+  model.rotation.y = faceRotation(face);
+}
+
 function addSpeakers(group, state, width, depth, height, postSize, assets) {
   const coordinates = poleCoordinates(width, depth, postSize);
   Object.entries(state.accessories.speakers).forEach(([pole, selected]) => {
     if (!selected || !poleIsAvailable(state, pole)) return;
-    const model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.12));
+    const face = resolveSpeakerFace(state, pole);
+    if (!face) return;
+    const model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
     if (!model) return;
 
     model.traverse((child) => {
@@ -534,77 +609,79 @@ function addSpeakers(group, state, width, depth, height, postSize, assets) {
       });
     });
 
-    const base = coordinates[pole];
-    const isFront = pole.startsWith('front');
-    const innerZ = isFront ? -1 : 1;
-    model.position.set(base.x, height - 0.5, base.z + innerZ * (postSize / 2 + 0.07));
-    model.rotation.y = isFront ? Math.PI : 0;
+    placeOnPole(model, coordinates[pole], face, height * 0.78, postSize, 0.09);
     group.add(model);
   });
 }
 
+
 function addOutlets(group, state, width, depth, height, postSize, assets) {
   const coordinates = poleCoordinates(width, depth, postSize);
-  const faceVectors = {
-    front: new THREE.Vector3(0, 0, 1),
-    right: new THREE.Vector3(1, 0, 0),
-    back: new THREE.Vector3(0, 0, -1),
-    left: new THREE.Vector3(-1, 0, 0),
-  };
-  const faceRotations = {
-    front: 0,
-    right: Math.PI / 2,
-    back: Math.PI,
-    left: -Math.PI / 2,
-  };
 
   Object.entries(state.accessories.outlets).forEach(([pole, faces]) => {
     if (!poleIsAvailable(state, pole)) return;
-    Object.entries(faces).forEach(([face, level]) => {
-      if (!level) return;
-      const model = cloneFittedAsset(assets, 'outlet', new THREE.Vector3(0.11, 0.15, 0.03));
+    Object.entries(faces).forEach(([face, mount]) => {
+      if (mount === null || !poleFaceIsAvailable(state, pole, face)) return;
+      const assetKey = mount.type === 'us' ? 'outletUs' : 'outletEu';
+      const model = cloneFittedAsset(assets, assetKey, new THREE.Vector3(0.11, 0.15, 0.045));
       if (!model) return;
       model.traverse((child) => {
         if (!child.isMesh) return;
-        child.material = material(/hole/i.test(child.name) ? '#1e2529' : '#e7e9e6', {
+        child.material = material(/hole|slot|ground/i.test(child.name) ? '#1e2529' : '#e7e9e6', {
           roughness: 0.6,
           metalness: 0.12,
         });
       });
 
-      const outward = faceVectors[face];
-      const base = coordinates[pole];
-      const ratio = Number(level) / 100;
-      model.position.copy(base).addScaledVector(outward, postSize / 2 + 0.018);
-      model.position.y = height * ratio;
-      model.rotation.y = faceRotations[face];
+      placeOnPole(model, coordinates[pole], face, height * (Number(mount.height) / 100), postSize, 0.024);
       group.add(model);
     });
   });
 }
 
-function addAutomation(group, state, width, depth, height) {
-  if (state.automation === 'manual') {
-    const crankMaterial = material('#c4c8ca', { roughness: 0.25, metalness: 0.8 });
-    const rod = cylinder(0.012, 0.8, crankMaterial, 10);
-    rod.position.set(width / 2 - 0.16, height - 0.67, depth / 2 - 0.17);
-    group.add(rod);
-    const handle = cylinder(0.012, 0.16, crankMaterial, 10);
-    handle.rotation.z = Math.PI / 2;
-    handle.position.set(width / 2 - 0.08, height - 1.06, depth / 2 - 0.17);
-    group.add(handle);
-  } else {
-    const motorMaterial = material('#111719', { roughness: 0.35, metalness: 0.75 });
-    const motor = box(0.34, 0.13, 0.13, motorMaterial);
-    motor.position.set(width / 2 - 0.32, height - 0.11, -depth / 2 + 0.13);
-    group.add(motor);
-    if (state.automation === 'wall-switch') {
-      const switchBox = box(0.06, 0.11, 0.025, material('#eceeea', { roughness: 0.7, metalness: 0 }));
-      switchBox.position.set(width / 2 - 0.09, 1.25, depth / 2 - 0.09);
-      group.add(switchBox);
-    }
-  }
+
+function styleAutomationAsset(model) {
+  model.traverse((child) => {
+    if (!child.isMesh) return;
+    child.material = material(/button/i.test(child.name) ? '#0878c9' : /face/i.test(child.name) ? '#eceeea' : '#566168', {
+      roughness: /metal|rod|eye|grip/i.test(child.name) ? 0.28 : 0.58,
+      metalness: /metal|rod|eye/i.test(child.name) ? 0.75 : 0.12,
+    });
+  });
 }
+
+function addAutomation(group, state, width, depth, height, postSize, assets) {
+  const coordinates = poleCoordinates(width, depth, postSize);
+  if (state.automation === 'manual') {
+    const { pole, height: percent } = state.automationSettings.manual;
+    const face = resolvePoleMountFace(state, 'manual', pole, percent);
+    if (!face || !coordinates[pole]) return;
+    const crank = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
+    if (!crank) return;
+    styleAutomationAsset(crank);
+    placeOnPole(crank, coordinates[pole], face, height * (Number(percent) / 100), postSize, 0.07);
+    group.add(crank);
+    return;
+  }
+
+  const motorMaterial = material('#111719', { roughness: 0.35, metalness: 0.75 });
+  const motor = box(0.34, 0.13, 0.13, motorMaterial);
+  motor.position.set(width / 2 - 0.32, height - 0.11, -depth / 2 + 0.13);
+  group.add(motor);
+
+  if (state.automation !== 'wall-switch') return;
+  Object.entries(state.automationSettings.wallSwitches).forEach(([pole, percent]) => {
+    if (percent === null || !coordinates[pole]) return;
+    const face = resolvePoleMountFace(state, 'switch', pole, percent);
+    if (!face) return;
+    const switchModel = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
+    if (!switchModel) return;
+    styleAutomationAsset(switchModel);
+    placeOnPole(switchModel, coordinates[pole], face, height * (Number(percent) / 100), postSize, 0.025);
+    group.add(switchModel);
+  });
+}
+
 
 export function buildPergola(state, assets = null) {
   const group = new THREE.Group();
@@ -650,12 +727,12 @@ export function buildPergola(state, assets = null) {
   addLouvers(group, state, width, depth, height - beamHeight - 0.015, louverMaterial);
   addDrainage(group, state, width, depth, height);
   addSideClosings(group, state, width, depth, height, frameMaterial, assets);
-  addAutomation(group, state, width, depth, height);
+  addAutomation(group, state, width, depth, height, postSize, assets);
 
   if (state.accessories.perimeterLed.enabled) {
     addPerimeterLed(group, width, depth, height, state.accessories.perimeterLed, assets);
   }
-  addSpotlights(group, state.accessories.spotlights, width, depth, height, assets);
+  addSpotlights(group, state.accessories.spotlights, width, depth, height, beamHeight, frameMaterial, assets);
   addHeaters(
     group,
     state.accessories.heaters,

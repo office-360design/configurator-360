@@ -141,7 +141,7 @@ export class PergolaScene {
 
     this.houseGroup = fitAssetToBox(
       this.assets.clone('house') ?? this.makeHouseFallback(),
-      new THREE.Vector3(9.5, 6.25, 2.45),
+      new THREE.Vector3(9.8, 6.15, 4.9),
       { alignY: 'bottom' },
     );
     this.houseGroup.name = 'environment-house';
@@ -164,34 +164,91 @@ export class PergolaScene {
       this.treeGroups.push(tree);
     });
 
-    const arrow = new THREE.Group();
-    const arrowMaterial = makeMaterial('#e04b43', { roughness: 0.55 });
-    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.015, 0.7), arrowMaterial);
-    shaft.position.z = -0.15;
-    arrow.add(shaft);
-    const head = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.42, 3), arrowMaterial);
-    head.rotation.x = Math.PI / 2;
-    head.position.z = -0.65;
-    arrow.add(head);
-    arrow.position.set(0, 0.075, 2.45);
-    arrow.name = 'north-arrow';
-    this.environmentGroup.add(arrow);
-    this.northArrow = arrow;
+    const compass = new THREE.Group();
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.55, 0.02, 10, 48),
+      makeMaterial('#1976d2', { roughness: 0.4, metalness: 0.55 }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    compass.add(ring);
+    const northArrow = new THREE.Mesh(
+      new THREE.ConeGeometry(0.12, 0.28, 4),
+      makeMaterial('#e24e45', { roughness: 0.45 }),
+    );
+    northArrow.rotation.x = -Math.PI / 2;
+    northArrow.position.z = -0.55;
+    compass.add(northArrow);
+    ['N', 'E', 'S', 'W'].forEach((label, index) => {
+      const el = document.createElement('span');
+      el.className = 'dimension-label';
+      el.textContent = label;
+      const obj = new CSS2DObject(el);
+      const angle = index * Math.PI / 2;
+      obj.position.set(Math.sin(angle) * 0.72, 0.02, -Math.cos(angle) * 0.72);
+      compass.add(obj);
+    });
+    compass.name = 'north-compass';
+    this.environmentGroup.add(compass);
+    this.northCompass = compass;
 
     this.updateEnvironment();
   }
 
   makeHouseFallback() {
     const group = new THREE.Group();
-    const wallMaterial = makeMaterial('#d8dde0', { roughness: 0.95 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(9.5, 5.2, 2.1), wallMaterial);
-    body.position.y = 2.6;
+    const wallMaterial = makeMaterial('#d7ddd8', { roughness: 0.95 });
+    const trimMaterial = makeMaterial('#707981', { roughness: 0.65, metalness: 0.35 });
+    const glassMaterial = makeMaterial('#b9d9e4', {
+      roughness: 0.06,
+      metalness: 0.02,
+      transparent: true,
+      opacity: 0.32,
+      side: THREE.DoubleSide,
+    });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(9.2, 4.3, 2.4), wallMaterial);
+    body.position.y = 2.15;
     group.add(body);
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(6.4, 2.1, 4), wallMaterial);
-    roof.rotation.y = Math.PI / 4;
-    roof.position.y = 5.55;
-    roof.scale.z = 0.42;
+
+    const roofGeometry = new THREE.BufferGeometry();
+    const vertices = new Float32Array([
+      -5.0, 4.3, -1.45,   0.0, 5.9, -1.45,   5.0, 4.3, -1.45,
+      -5.0, 4.3, 1.45,    0.0, 5.9, 1.45,    5.0, 4.3, 1.45,
+    ]);
+    roofGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    roofGeometry.setIndex([
+      0, 3, 4,  0, 4, 1,
+      1, 4, 5,  1, 5, 2,
+      0, 1, 2,  0, 2, 5,  0, 5, 3,
+    ]);
+    roofGeometry.computeVertexNormals();
+    const roof = new THREE.Mesh(roofGeometry, makeMaterial('#c8c7bc', { roughness: 0.92 }));
     group.add(roof);
+
+    const eave = new THREE.Mesh(new THREE.BoxGeometry(10.0, 0.08, 2.7), trimMaterial);
+    eave.position.set(0, 4.24, 0);
+    group.add(eave);
+
+    const windowSet = new THREE.Group();
+    const spacing = 1.85;
+    [-2.75, -0.95, 1.0, 2.8].forEach((x) => {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.65, 0.08), trimMaterial);
+      frame.position.set(x, 2.65, 1.17);
+      windowSet.add(frame);
+      const pane = new THREE.Mesh(new THREE.BoxGeometry(0.98, 1.48, 0.03), glassMaterial);
+      pane.position.set(x, 2.65, 1.22);
+      windowSet.add(pane);
+    });
+    const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.35, 0.09), trimMaterial);
+    doorFrame.position.set(-4.05, 1.63, 1.16);
+    windowSet.add(doorFrame);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.92, 2.16, 0.045), makeMaterial('#1b2024', { roughness: 0.55, metalness: 0.2 }));
+    door.position.set(-4.05, 1.63, 1.22);
+    windowSet.add(door);
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.03), makeMaterial('#888e92', { roughness: 0.3, metalness: 0.7 }));
+    handle.position.set(-3.78, 1.63, 1.26);
+    windowSet.add(handle);
+    group.add(windowSet);
     return group;
   }
 
@@ -217,6 +274,7 @@ export class PergolaScene {
       dimensions: state.dimensions,
       roof: state.roof,
       automation: state.automation,
+      automationSettings: state.automationSettings,
       sides: state.sides,
       accessories: state.accessories,
       units: state.units,
@@ -347,7 +405,13 @@ export class PergolaScene {
     const ground = this.environmentGroup.getObjectByName('environment-ground');
     ground?.material?.color.set(night ? '#273039' : palette.ground);
     this.renderer.toneMappingExposure = night ? 0.7 : 1.08;
-    this.northArrow.rotation.y = THREE.MathUtils.degToRad(-northDirection);
+
+    const pergolaHeight = this.state.dimensions.height / 1000;
+    if (this.northCompass) {
+      this.northCompass.visible = Boolean(this.state.view.compassVisible);
+      this.northCompass.rotation.y = THREE.MathUtils.degToRad(-northDirection);
+      this.northCompass.position.set(0, pergolaHeight + 0.5, 0);
+    }
 
     this.updateHousePlacement();
     if (this.houseGroup) this.houseGroup.visible = season !== 'studio';
@@ -368,20 +432,21 @@ export class PergolaScene {
     const depth = this.state.dimensions.depth / 1000;
     const attached = this.state.installation === 'wall-mounted';
     const side = attached ? this.state.mountedSide : 'back';
-    const gap = attached ? 0 : 2.0;
+    const gap = attached ? 0.05 : 2.0;
+    const houseHalfDepth = 2.45;
 
     this.houseGroup.rotation.y = 0;
     if (side === 'back') {
-      this.houseGroup.position.set(0, 0, -depth / 2 - 1.05 - gap);
+      this.houseGroup.position.set(0, 0, -depth / 2 - houseHalfDepth - gap);
     } else if (side === 'front') {
       this.houseGroup.rotation.y = Math.PI;
-      this.houseGroup.position.set(0, 0, depth / 2 + 1.05 + gap);
+      this.houseGroup.position.set(0, 0, depth / 2 + houseHalfDepth + gap);
     } else if (side === 'left') {
       this.houseGroup.rotation.y = Math.PI / 2;
-      this.houseGroup.position.set(-width / 2 - 1.05 - gap, 0, 0);
+      this.houseGroup.position.set(-width / 2 - houseHalfDepth - gap, 0, 0);
     } else {
       this.houseGroup.rotation.y = -Math.PI / 2;
-      this.houseGroup.position.set(width / 2 + 1.05 + gap, 0, 0);
+      this.houseGroup.position.set(width / 2 + houseHalfDepth + gap, 0, 0);
     }
   }
 

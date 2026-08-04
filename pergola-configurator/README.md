@@ -11,6 +11,7 @@ It does not modify or depend on the window configurator. Future pergola updates 
 ## Included functionality
 
 - Real-time parametric 3D pergola generated with Three.js.
+- Shared 360 Configurator branding and blue interface styling aligned with the window configurator.
 - Lite, Comfort and Premium structural variants.
 - Freestanding and wall-mounted installations.
 - Front, back, left and right mounting selection.
@@ -20,19 +21,22 @@ It does not modify or depend on the window configurator. Future pergola updates 
 - Louver span direction and adjustable louver tilt.
 - Integrated/standard drainage visualization.
 - Manual crank, motorized remote and pergola-switch automation.
+- Dedicated hand-crank GLB with selectable support pole and continuous 10–80% mounting height.
+- Up to four pergola switches, one per available support pole, each with a continuous 10–80% mounting-height slider.
 - Optional transport, assembly and warranty services.
 - Independent side selection for all four sides.
-- Pull-down screens, motorized screens, privacy walls and glass sliding panels.
+- Pull-down screens, motorized screens, color-selectable privacy walls and glass sliding panels.
 - Pull-down and motorized screens default to 50% openness and independently remember openness and color for every side and screen type.
-- Color-selectable perimeter LED lighting and configurable spotlight count.
-- Frame-mounted infrared heaters with one selectable heater per side.
-- Independently positioned rain and wind sensors with collision prevention.
-- One selectable outdoor speaker per available support pole.
-- Up to four electrical outlets per available support pole, selectable per face at 10%, 50% or 80% of post height.
+- Color-selectable perimeter LED lighting and configurable spotlight count. Spotlights are attached to fixed metal rails below the moving louvers.
+- Inward-facing infrared heaters with one selectable heater per side, suspended from dedicated metal rails and offset from side closings.
+- Independently positioned rain and wind sensors with mounting plates and collision prevention.
+- One selectable upright outdoor speaker per available support pole, automatically assigned to an unobstructed pole face.
+- Up to four electrical outlets per available support pole, selectable per face with continuous 10–80% mounting-height sliders. European Type F and American Type B models are included.
 - Lighting/orientation menu with sun position, louver tilt and north direction.
 - Winter, summer, studio and night previews.
 - Orbit/zoom controls and camera presets.
 - Live dimensions, itemized demo pricing and estimated total.
+- Pole-face and vertical-clearance collision rules for outlets, speakers, switches and the manual crank.
 - Browser persistence, reset, shareable URLs, PNG snapshot and JSON export.
 - Contact/inquiry demo, printable summary and AR integration placeholder.
 - Responsive desktop/tablet/mobile layout.
@@ -43,9 +47,9 @@ The quote submission is deliberately frontend-only: it stores the latest demo in
 
 `public/assets/profiles/` contains original SVG cross-section concepts for the post, beam, louver, gutter and privacy slat. The current demo uses equivalent parametric Three.js geometry because this is more robust when dimensions change continuously. The SVG profiles are ready to be replaced with manufacturer-accurate profiles later.
 
-The house, trees, screen cassette and every configurable accessory are bundled as local GLB models under `public/assets/models/`. These low-poly demo assets are released under CC0; details and open-source reference kits are documented in `public/assets/models/ASSET_LICENSES.md`.
+The house, upright trees, screen cassette, automation hardware and configurable accessories are bundled as local GLB models under `public/assets/models/`. These lightweight demo assets are released under CC0; their procedural source is included in `tools/generate_demo_assets.py`. Licensing details and public-domain reference libraries are documented in `public/assets/models/ASSET_LICENSES.md`.
 
-All remaining UI icons and the demo logo are original SVG files under `public/assets/`.
+Accessory icons are original SVG files under `public/assets/icons/`. The header uses the project-supplied `public/assets/360CONFIGURATOR.png` brand asset.
 
 ## Run locally on Windows
 

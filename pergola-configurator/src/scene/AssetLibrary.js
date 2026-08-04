@@ -10,7 +10,10 @@ const ASSET_URLS = Object.freeze({
   rainSensor: './assets/models/accessories/rain-sensor.glb',
   windSensor: './assets/models/accessories/wind-sensor.glb',
   speaker: './assets/models/accessories/speaker.glb',
-  outlet: './assets/models/accessories/outlet.glb',
+  outletEu: './assets/models/accessories/outlet-eu.glb',
+  outletUs: './assets/models/accessories/outlet-us.glb',
+  wallSwitch: './assets/models/accessories/wall-switch.glb',
+  handCrank: './assets/models/accessories/hand-crank.glb',
   screenCassette: './assets/models/accessories/screen-cassette.glb',
 });
 
