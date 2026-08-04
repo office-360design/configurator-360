@@ -176,6 +176,156 @@
             margin-bottom: 18px;
         }
 
+        .finish-mode-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 38px;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .finish-mode-toggle {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            align-items: stretch;
+            gap: 6px;
+            padding: 4px;
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .finish-mode-btn {
+            min-width: 0;
+            height: 38px;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            padding: 7px 8px;
+            background: transparent;
+            color: #94a3b8;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .finish-mode-row .finish-debug-btn {
+            width: 38px;
+            height: 38px;
+        }
+
+        .finish-mode-btn.active {
+            color: #eff6ff;
+            border-color: rgba(96, 165, 250, 0.35);
+            background: rgba(59, 130, 246, 0.18);
+        }
+
+        .finish-side-card {
+            padding: 10px;
+            margin-top: 8px;
+            border-radius: 10px;
+            background: rgba(30, 41, 59, 0.42);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .finish-side-card[hidden] {
+            display: none;
+        }
+
+        .finish-side-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            color: #e2e8f0;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .finish-side-note {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .finish-type-toggle {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            align-items: stretch;
+            gap: 5px;
+            margin-bottom: 9px;
+            padding: 4px;
+            border-radius: 9px;
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .finish-type-btn {
+            min-width: 0;
+            min-height: 36px;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            padding: 6px 5px;
+            background: transparent;
+            color: #94a3b8;
+            font-family: inherit;
+            font-size: 10px;
+            line-height: 1.15;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .finish-type-btn:hover {
+            color: #cbd5e1;
+        }
+
+        .finish-type-btn.active {
+            color: #eff6ff;
+            border-color: rgba(96, 165, 250, 0.35);
+            background: rgba(59, 130, 246, 0.18);
+        }
+
+        .finish-swatches {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 7px;
+        }
+
+        .finish-swatch {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            padding: 0;
+            border-radius: 7px;
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            background: var(--swatch-color);
+            cursor: pointer;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+            transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+        }
+
+        .finish-swatch:hover {
+            transform: translateY(-1px);
+        }
+
+        .finish-swatch.active {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.28), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+        }
+
+        .finish-swatches[hidden] {
+            display: none;
+        }
+
+        .finish-selected-name {
+            margin-top: 7px;
+            color: #94a3b8;
+            font-size: 10px;
+            line-height: 1.35;
+        }
+
         select,
         input[type="number"] {
             width: 100%;
@@ -1151,6 +1301,53 @@
             </div>
         </div>
 
+        <div class="control-group" id="aluminiumFinishControls">
+            <label>Aluminum finish</label>
+            <div class="finish-mode-row">
+                <div class="finish-mode-toggle" role="group" aria-label="Inside and outside finish mode">
+                    <button id="finishModeSame" type="button" class="finish-mode-btn">Uniform</button>
+                    <button id="finishModeDifferent" type="button" class="finish-mode-btn active">Bicolor</button>
+                </div>
+
+                <button id="debugColorsButton" type="button" class="square-toggle-btn finish-debug-btn"
+                    aria-label="Toggle debug colors" aria-pressed="false" title="Show original CAD/debug colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                        <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                        <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                        <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="finish-side-card" id="outsideFinishCard">
+                <div class="finish-side-header">
+                    <span id="outsideFinishTitle">Outside</span>
+                </div>
+                <div id="outsideFinishType" class="finish-type-toggle" role="group" aria-label="Outside finish type">
+                    <button type="button" class="finish-type-btn" data-finish-type="mill">Mill finish</button>
+                    <button type="button" class="finish-type-btn" data-finish-type="anodized">Anodized</button>
+                    <button type="button" class="finish-type-btn" data-finish-type="coated">Color coated</button>
+                </div>
+                <div id="outsideFinishSwatches" class="finish-swatches"></div>
+                <div id="outsideFinishName" class="finish-selected-name"></div>
+            </div>
+
+            <div class="finish-side-card" id="insideFinishCard">
+                <div class="finish-side-header">
+                    <span>Inside</span>
+                </div>
+                <div id="insideFinishType" class="finish-type-toggle" role="group" aria-label="Inside finish type">
+                    <button type="button" class="finish-type-btn" data-finish-type="mill">Mill finish</button>
+                    <button type="button" class="finish-type-btn" data-finish-type="anodized">Anodized</button>
+                    <button type="button" class="finish-type-btn" data-finish-type="coated">Color coated</button>
+                </div>
+                <div id="insideFinishSwatches" class="finish-swatches"></div>
+                <div id="insideFinishName" class="finish-selected-name"></div>
+            </div>
+        </div>
+
         <div class="control-group">
             <label>Width: <span id="valWidth">600 mm</span></label>
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -1473,6 +1670,8 @@
             return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
         };
 
+        let selectedHandleSide = 'right';
+
         if (isARMode) {
             const width = parseBoundedNumber(
                 pageParams.get('w'),
@@ -1508,7 +1707,6 @@
             selectedHandleSide = handleSide;
         }
 
-        let selectedHandleSide = 'right';
         const S = 0.001; // Scale factor: CAD mm to Three.js meters
 
         const requestedWidth = Number.parseFloat(pageParams.get('width'));
@@ -1644,7 +1842,134 @@
             return normalizeHexColour(value);
         }
 
-        let configurationColour = normalizeRequestedColour(requestedColour);
+        const ALUMINIUM_FINISH_CATALOG = Object.freeze({
+            mill: Object.freeze({
+                label: 'Mill finish',
+                material: Object.freeze({ metalness: 0.82, roughness: 0.28, shininess: 105 }),
+                presets: Object.freeze([
+                    Object.freeze({ id: 'natural', name: 'Natural aluminum gray', color: '#aeb4b9' }),
+                ]),
+            }),
+            anodized: Object.freeze({
+                label: 'Anodized',
+                material: Object.freeze({ metalness: 0.68, roughness: 0.32, shininess: 92 }),
+                presets: Object.freeze([
+                    Object.freeze({ id: 'natural', name: 'Natural anodized', color: '#9ca3a7' }),
+                    Object.freeze({ id: 'champagne', name: 'Champagne anodized', color: '#b0a184' }),
+                    Object.freeze({ id: 'light-bronze', name: 'Light bronze anodized', color: '#887863' }),
+                    Object.freeze({ id: 'dark-bronze', name: 'Dark bronze anodized', color: '#4d443a' }),
+                    Object.freeze({ id: 'black', name: 'Black anodized', color: '#24272b' }),
+                ]),
+            }),
+            coated: Object.freeze({
+                label: 'Color coated',
+                material: Object.freeze({ metalness: 0.22, roughness: 0.46, shininess: 62 }),
+                presets: Object.freeze([
+                    Object.freeze({ id: 'ral-9016', name: 'RAL 9016 – Traffic white', color: '#f1f0ea' }),
+                    Object.freeze({ id: 'ral-9010', name: 'RAL 9010 – Pure white', color: '#f1ece1' }),
+                    Object.freeze({ id: 'ral-9001', name: 'RAL 9001 – Cream', color: '#e9e0d2' }),
+                    Object.freeze({ id: 'ral-7035', name: 'RAL 7035 – Light grey', color: '#cbd0cc' }),
+                    Object.freeze({ id: 'ral-7040', name: 'RAL 7040 – Window grey', color: '#9da3a6' }),
+                    Object.freeze({ id: 'ral-7001', name: 'RAL 7001 – Silver grey', color: '#8a9597' }),
+                    Object.freeze({ id: 'ral-7016', name: 'RAL 7016 – Anthracite grey', color: '#383e42' }),
+                    Object.freeze({ id: 'ral-7021', name: 'RAL 7021 – Black grey', color: '#2f3234' }),
+                    Object.freeze({ id: 'ral-9005', name: 'RAL 9005 – Jet black', color: '#0a0a0d' }),
+                    Object.freeze({ id: 'ral-8014', name: 'RAL 8014 – Sepia brown', color: '#4a3526' }),
+                    Object.freeze({ id: 'ral-8017', name: 'RAL 8017 – Chocolate brown', color: '#45322e' }),
+                    Object.freeze({ id: 'ral-6005', name: 'RAL 6005 – Moss green', color: '#0f4336' }),
+                    Object.freeze({ id: 'ral-6009', name: 'RAL 6009 – Fir green', color: '#27352a' }),
+                    Object.freeze({ id: 'ral-3005', name: 'RAL 3005 – Wine red', color: '#5e2028' }),
+                    Object.freeze({ id: 'ral-5011', name: 'RAL 5011 – Steel blue', color: '#1f2a44' }),
+                ]),
+            }),
+        });
+
+        const FIXED_PROFILE_COLOURS = Object.freeze({
+            epdm: '#20242a',
+            centralSeal: '#2f343a',
+            iso: '#41474e',
+            foam: '#9aa1a8',
+            glass: '#60a5fa',
+            default: '#4b5158',
+        });
+
+        function getFinishDefinition(type) {
+            return ALUMINIUM_FINISH_CATALOG[type] || ALUMINIUM_FINISH_CATALOG.mill;
+        }
+
+        function createFinishSelection(type = 'mill', presetId = null) {
+            const finishType = ALUMINIUM_FINISH_CATALOG[type] ? type : 'mill';
+            const definition = getFinishDefinition(finishType);
+            const requestedPreset = definition.presets.find(preset => preset.id === presetId);
+            const preset = requestedPreset || definition.presets[0];
+            return {
+                type: finishType,
+                presetId: preset.id,
+                color: preset.color,
+                name: preset.name,
+            };
+        }
+
+        function hexColourToRgb(colour) {
+            const normalized = normalizeHexColour(colour);
+            if (!normalized) return null;
+            return {
+                r: Number.parseInt(normalized.slice(1, 3), 16),
+                g: Number.parseInt(normalized.slice(3, 5), 16),
+                b: Number.parseInt(normalized.slice(5, 7), 16),
+            };
+        }
+
+        function findNearestRalPreset(colour) {
+            const requestedRgb = hexColourToRgb(colour);
+            const ralPresets = getFinishDefinition('coated').presets;
+            if (!requestedRgb) return ralPresets[0];
+
+            return ralPresets.reduce((nearest, preset) => {
+                const presetRgb = hexColourToRgb(preset.color);
+                const distance = (
+                    (requestedRgb.r - presetRgb.r) ** 2
+                    + (requestedRgb.g - presetRgb.g) ** 2
+                    + (requestedRgb.b - presetRgb.b) ** 2
+                );
+                return distance < nearest.distance ? { preset, distance } : nearest;
+            }, { preset: ralPresets[0], distance: Number.POSITIVE_INFINITY }).preset;
+        }
+
+        function createRalFinishSelectionFromColour(colour) {
+            return createFinishSelection('coated', findNearestRalPreset(colour).id);
+        }
+
+        function createFinishSelectionFromParams(side, fallbackSelection) {
+            const type = pageParams.get(`${side}_finish_type`);
+            const preset = pageParams.get(`${side}_finish_preset`);
+            const colour = normalizeHexColour(pageParams.get(`${side}_colour`));
+
+            if (!ALUMINIUM_FINISH_CATALOG[type]) {
+                return fallbackSelection;
+            }
+
+            if (type === 'coated' && colour) {
+                return createRalFinishSelectionFromColour(colour);
+            }
+
+            return createFinishSelection(type, preset);
+        }
+
+        const normalizedRequestedColour = normalizeRequestedColour(requestedColour);
+        let aluminiumFinishMode = pageParams.get('finish_mode') === 'same' ? 'same' : 'different';
+        let outsideFinishSelection = normalizedRequestedColour
+            ? createRalFinishSelectionFromColour(normalizedRequestedColour)
+            : createFinishSelection('mill', 'natural');
+        let insideFinishSelection = createFinishSelection('mill', 'natural');
+
+        outsideFinishSelection = createFinishSelectionFromParams('outside', outsideFinishSelection);
+        insideFinishSelection = createFinishSelectionFromParams('inside', insideFinishSelection);
+
+        // Keep the existing Odoo/server "colour" field as the exterior color.
+        // The interior remains natural aluminum unless the user explicitly changes it.
+        let configurationColour = outsideFinishSelection.color;
+        let debugColoursEnabled = pageParams.get('debug_colors') === '1';
         const profileCache = new Map();
 
         // SCENE, CAMERA & RENDERER SETUP
@@ -1757,7 +2082,7 @@
         const profileMaterialCache = new Map();
 
         const materialPropertiesByKey = {
-            alu: { metalness: 0.3, roughness: 0.4, shininess: 80 },
+            alu: { metalness: 0.82, roughness: 0.28, shininess: 105 },
             iso: { metalness: 0.1, roughness: 0.7, shininess: 20 },
             centralSeal: { metalness: 0.1, roughness: 0.6, shininess: 40 },
             epdm: { metalness: 0.05, roughness: 0.8, shininess: 15 },
@@ -1772,31 +2097,108 @@
             default: { metalness: 0.5, roughness: 0.5, shininess: 35 },
         };
 
-        function getResolvedProfileColour(profile) {
-            // An Odoo-selected finish intentionally overrides CAD only for aluminium.
-            if (profile.materialKey === 'alu' && configurationColour) {
-                return normalizeHexColour(configurationColour) || '#e2e8f0';
+        function isDrainageCoverCap(profile) {
+            return normalizeHexColour(profile?.baseCadColor) === '#cc9966';
+        }
+
+        function usesAluminiumFinish(profile) {
+            return profile?.materialKey === 'alu' || isDrainageCoverCap(profile);
+        }
+
+        function getEffectiveAluminiumFinish(profile) {
+            // The drainage cover cap is installed on the exterior and always
+            // follows the outside aluminum finish, even in two-color mode.
+            if (isDrainageCoverCap(profile)) {
+                return outsideFinishSelection;
             }
-            return normalizeHexColour(profile.baseCadColor) || '#78716c';
+            if (profile.aluminiumSide === 'inside' && aluminiumFinishMode === 'different') {
+                return insideFinishSelection;
+            }
+            return outsideFinishSelection;
+        }
+
+        function getResolvedProfileColour(profile) {
+            if (debugColoursEnabled) {
+                return normalizeHexColour(profile.baseCadColor)
+                    || FIXED_PROFILE_COLOURS.default;
+            }
+            if (usesAluminiumFinish(profile)) {
+                return getEffectiveAluminiumFinish(profile).color;
+            }
+            return FIXED_PROFILE_COLOURS[profile.materialKey]
+                || normalizeHexColour(profile.baseCadColor)
+                || FIXED_PROFILE_COLOURS.default;
         }
 
         function resolveDisplayColour(profile) {
             return getResolvedProfileColour(profile);
         }
 
+        function makeColourIndicatorBackground(profiles) {
+            const colours = [...new Set(
+                profiles
+                    .map(profile => resolveDisplayColour(profile))
+                    .filter(Boolean)
+                    .map(colour => colour.toLowerCase())
+            )];
+
+            if (colours.length === 0) {
+                return FIXED_PROFILE_COLOURS.default;
+            }
+            if (colours.length === 1) {
+                return colours[0];
+            }
+
+            // A split indicator represents bicolor aluminum and also remains
+            // useful in debug mode when a component group contains CAD colors.
+            const visibleColours = colours.slice(0, 4);
+            const stopSize = 100 / visibleColours.length;
+            const stops = visibleColours.flatMap((colour, index) => {
+                const start = (index * stopSize).toFixed(2);
+                const end = ((index + 1) * stopSize).toFixed(2);
+                return [`${colour} ${start}%`, `${colour} ${end}%`];
+            });
+            return `linear-gradient(90deg, ${stops.join(', ')})`;
+        }
+
+        function setColourIndicatorBackground(element, background) {
+            if (!element) return;
+            if (String(background).startsWith('linear-gradient(')) {
+                element.style.backgroundColor = 'transparent';
+                element.style.backgroundImage = background;
+            } else {
+                element.style.backgroundImage = 'none';
+                element.style.backgroundColor = background;
+            }
+        }
+
+        function updateProfileColourIndicators() {
+            profilesData.forEach(profile => {
+                const checkbox = document.getElementById(`toggle_${profile.index}`);
+                const dot = checkbox?.closest('.part-toggle-item')?.querySelector('.part-color-dot');
+                setColourIndicatorBackground(dot, resolveDisplayColour(profile));
+            });
+        }
+
         function getMaterialForProfile(profile) {
             const colour = getResolvedProfileColour(profile).toLowerCase();
-            const materialKey = materialPropertiesByKey[profile.materialKey]
-                ? profile.materialKey
-                : 'default';
-            const cacheKey = `${materialKey}:${colour}`;
+            const usesFinish = !debugColoursEnabled && usesAluminiumFinish(profile);
+            const materialKey = usesFinish
+                ? 'alu'
+                : (materialPropertiesByKey[profile.materialKey] ? profile.materialKey : 'default');
+            const finish = usesFinish ? getEffectiveAluminiumFinish(profile) : null;
+            const finishType = finish?.type || (debugColoursEnabled ? 'debug' : 'fixed');
+            const materialProperties = finish
+                ? getFinishDefinition(finish.type).material
+                : materialPropertiesByKey[materialKey];
+            const cacheKey = `${debugColoursEnabled ? 'debug' : 'finish'}:${materialKey}:${finishType}:${colour}`;
 
             if (!profileMaterialCache.has(cacheKey)) {
                 profileMaterialCache.set(
                     cacheKey,
                     createSurfaceMaterial({
                         color: colour,
-                        ...materialPropertiesByKey[materialKey],
+                        ...materialProperties,
                     })
                 );
             }
@@ -1806,11 +2208,175 @@
 
         function clearCachedAluminiumMaterials() {
             for (const [cacheKey, material] of profileMaterialCache.entries()) {
-                if (cacheKey.startsWith('alu:')) {
+                if (cacheKey.includes(':alu:')) {
                     material.dispose();
                     profileMaterialCache.delete(cacheKey);
                 }
             }
+        }
+
+        function clearAllCachedProfileMaterials() {
+            for (const material of profileMaterialCache.values()) {
+                material.dispose();
+            }
+            profileMaterialCache.clear();
+        }
+
+        function getFinishSelection(side) {
+            return side === 'inside' ? insideFinishSelection : outsideFinishSelection;
+        }
+
+        function setFinishSelection(side, selection) {
+            if (side === 'inside') {
+                insideFinishSelection = selection;
+            } else {
+                outsideFinishSelection = selection;
+                configurationColour = selection.color;
+            }
+        }
+
+        function getFinishUi(side) {
+            const prefix = side === 'inside' ? 'inside' : 'outside';
+            const typeToggle = document.getElementById(`${prefix}FinishType`);
+            return {
+                typeToggle,
+                typeButtons: typeToggle ? [...typeToggle.querySelectorAll('[data-finish-type]')] : [],
+                swatches: document.getElementById(`${prefix}FinishSwatches`),
+                selectedName: document.getElementById(`${prefix}FinishName`),
+            };
+        }
+
+        function renderFinishSideControls(side) {
+            const ui = getFinishUi(side);
+            const selection = getFinishSelection(side);
+            const definition = getFinishDefinition(selection.type);
+            if (!ui.typeToggle || !ui.swatches) return;
+
+            ui.typeButtons.forEach(button => {
+                const isActive = button.dataset.finishType === selection.type;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+
+            ui.swatches.innerHTML = '';
+            ui.swatches.hidden = false;
+
+            definition.presets.forEach(preset => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `finish-swatch${selection.presetId === preset.id ? ' active' : ''}`;
+                button.style.setProperty('--swatch-color', preset.color);
+                button.title = preset.name;
+                button.setAttribute('aria-label', preset.name);
+                button.setAttribute('aria-pressed', selection.presetId === preset.id ? 'true' : 'false');
+                button.addEventListener('click', () => {
+                    setFinishSelection(side, createFinishSelection(selection.type, preset.id));
+                    syncFinishControls();
+                    refreshAluminiumFinishMaterials();
+                });
+                ui.swatches.appendChild(button);
+            });
+
+            if (ui.selectedName) {
+                ui.selectedName.textContent = selection.name;
+            }
+        }
+
+        function syncFinishControls() {
+            const sameButton = document.getElementById('finishModeSame');
+            const differentButton = document.getElementById('finishModeDifferent');
+            const insideCard = document.getElementById('insideFinishCard');
+            const outsideTitle = document.getElementById('outsideFinishTitle');
+            const debugButton = document.getElementById('debugColorsButton');
+
+            sameButton?.classList.toggle('active', aluminiumFinishMode === 'same');
+            differentButton?.classList.toggle('active', aluminiumFinishMode === 'different');
+            if (debugButton) {
+                debugButton.classList.toggle('active', debugColoursEnabled);
+                debugButton.setAttribute('aria-pressed', debugColoursEnabled ? 'true' : 'false');
+            }
+            if (insideCard) insideCard.hidden = aluminiumFinishMode === 'same';
+            if (outsideTitle) {
+                outsideTitle.textContent = aluminiumFinishMode === 'same' ? 'Inside and outside' : 'Outside';
+            }
+
+            renderFinishSideControls('outside');
+            renderFinishSideControls('inside');
+        }
+
+        function refreshAluminiumFinishMaterials() {
+            configurationColour = outsideFinishSelection.color;
+
+            // Finish choices are retained while debug colors are visible. They
+            // are applied as soon as debug mode is switched off.
+            if (debugColoursEnabled) return;
+
+            clearCachedAluminiumMaterials();
+            profilesData.forEach(profile => {
+                if (usesAluminiumFinish(profile)) {
+                    profile.material = getMaterialForProfile(profile);
+                }
+            });
+            lastSectionSampleSignature = '';
+
+            if (currentMetadata) {
+                updateProfileColourIndicators();
+                renderGroupFilters();
+                buildWindow();
+            }
+        }
+
+        function refreshAllProfileMaterials() {
+            clearAllCachedProfileMaterials();
+            profilesData.forEach(profile => {
+                profile.material = getMaterialForProfile(profile);
+            });
+            lastSectionSampleSignature = '';
+
+            if (currentMetadata) {
+                updateProfileColourIndicators();
+                renderGroupFilters();
+                buildWindow();
+            }
+        }
+
+        function initializeAluminiumFinishControls() {
+            document.getElementById('finishModeSame')?.addEventListener('click', () => {
+                if (aluminiumFinishMode === 'same') return;
+                aluminiumFinishMode = 'same';
+                syncFinishControls();
+                refreshAluminiumFinishMaterials();
+            });
+
+            document.getElementById('finishModeDifferent')?.addEventListener('click', () => {
+                if (aluminiumFinishMode === 'different') return;
+                aluminiumFinishMode = 'different';
+                syncFinishControls();
+                refreshAluminiumFinishMaterials();
+            });
+
+            for (const side of ['outside', 'inside']) {
+                const ui = getFinishUi(side);
+                ui.typeButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const nextType = button.dataset.finishType;
+                        if (!ALUMINIUM_FINISH_CATALOG[nextType]) return;
+                        const currentSelection = getFinishSelection(side);
+                        if (currentSelection.type === nextType) return;
+                        setFinishSelection(side, createFinishSelection(nextType));
+                        syncFinishControls();
+                        refreshAluminiumFinishMaterials();
+                    });
+                });
+            }
+
+            document.getElementById('debugColorsButton')?.addEventListener('click', () => {
+                debugColoursEnabled = !debugColoursEnabled;
+                syncFinishControls();
+                refreshAllProfileMaterials();
+            });
+
+            syncFinishControls();
         }
 
         // LOAD PROFILE SVG FILES AND METADATA
@@ -2266,6 +2832,13 @@
                     }
                 }
 
+                const bboxCenterX = part.bbox
+                    ? (Number(part.bbox.minX) + Number(part.bbox.maxX)) / 2
+                    : metadata.globalCenterX;
+                const aluminiumSide = materialKey === 'alu'
+                    ? (bboxCenterX < metadata.globalCenterX ? 'outside' : 'inside')
+                    : null;
+
                 return {
                     index: part.index,
                     layer: part.layer,
@@ -2284,6 +2857,7 @@
                     optimizedContourPoints: optimizedShape.userData?.optimizedPointCount || 0,
                     baseCadColor,
                     materialKey,
+                    aluminiumSide,
                     explodeOffset: baseExplode,
                     bbox: part.bbox,
                     isAlu,
@@ -2325,14 +2899,13 @@
                     : displayedBlockName;
 
                 textContainer.textContent = '';
-                if (colorDot) {
-                    textContainer.appendChild(colorDot);
-                } else {
-                    const dot = document.createElement('span');
+                let dot = colorDot;
+                if (!dot) {
+                    dot = document.createElement('span');
                     dot.className = 'part-color-dot';
-                    dot.style.backgroundColor = resolveDisplayColour(profile);
-                    textContainer.appendChild(dot);
                 }
+                setColourIndicatorBackground(dot, resolveDisplayColour(profile));
+                textContainer.appendChild(dot);
                 textContainer.appendChild(document.createTextNode(labelText));
             });
         }
@@ -2353,14 +2926,13 @@
                 const labelText = displayedBlockName;
 
                 textContainer.textContent = '';
-                if (colorDot) {
-                    textContainer.appendChild(colorDot);
-                } else {
-                    const dot = document.createElement('span');
+                let dot = colorDot;
+                if (!dot) {
+                    dot = document.createElement('span');
                     dot.className = 'part-color-dot';
-                    dot.style.backgroundColor = resolveDisplayColour(profile);
-                    textContainer.appendChild(dot);
                 }
+                setColourIndicatorBackground(dot, resolveDisplayColour(profile));
+                textContainer.appendChild(dot);
                 textContainer.appendChild(document.createTextNode(labelText));
             });
         }
@@ -2547,38 +3119,31 @@
             const filterDefinitions = [
                 {
                     name: 'Frame',
-                    color: '#adadad',
-                    match: p => p.baseCadColor === '#adadad' && getProfileGroup(p) === 'frame'
+                    match: p => p.materialKey === 'alu' && getProfileGroup(p) === 'frame'
                 },
                 {
                     name: 'Sash',
-                    color: '#adadad',
-                    match: p => p.baseCadColor === '#adadad' && (getProfileGroup(p) === 'sash' || getProfileGroup(p) === 'bead')
+                    match: p => p.materialKey === 'alu' && (getProfileGroup(p) === 'sash' || getProfileGroup(p) === 'bead')
                 },
                 {
-                    name: 'Gasket',
-                    color: '#ccb266',
-                    match: p => p.baseCadColor === '#ccb266'
+                    name: 'Gaskets and seals',
+                    match: p => p.materialKey === 'epdm'
                 },
                 {
                     name: 'Drainage cover cap',
-                    color: '#cc9966',
-                    match: p => p.baseCadColor === '#cc9966'
+                    match: p => isDrainageCoverCap(p)
                 },
                 {
                     name: 'Insulating foam',
-                    color: '#00ffbf',
-                    match: p => p.baseCadColor === '#00ffbf'
+                    match: p => p.materialKey === 'foam'
                 },
                 {
                     name: 'Insulating bar',
-                    color: '#66cc7f',
-                    match: p => p.baseCadColor === '#66cc7f'
+                    match: p => p.materialKey === 'iso'
                 },
                 {
                     name: 'Locking bars',
-                    color: '#7fbfff',
-                    match: p => p.baseCadColor === '#7fbfff'
+                    match: p => p.materialKey === 'centralSeal'
                 }
             ];
 
@@ -2597,7 +3162,6 @@
             unmatchedColors.forEach(hex => {
                 activeFilters.push({
                     name: hex.toUpperCase(),
-                    color: hex,
                     match: p => p.baseCadColor === hex
                 });
             });
@@ -2608,6 +3172,7 @@
                 row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; font-size: 12px; background: rgba(30, 41, 59, 0.4); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);';
 
                 const matchingProfiles = profilesData.filter(p => filter.match(p));
+                const indicatorBackground = makeColourIndicatorBackground(matchingProfiles);
                 const allActive = matchingProfiles.every(p => {
                     const cb = document.getElementById(`toggle_${p.index}`);
                     return cb ? cb.checked : true;
@@ -2615,7 +3180,7 @@
 
                 row.innerHTML = `
                     <span style="display: inline-flex; align-items: center; gap: 8px;">
-                        <span class="part-color-dot" style="background-color: ${filter.color}; margin-right: 0; width: 8px; height: 8px;"></span>
+                        <span class="part-color-dot" style="margin-right: 0; width: 8px; height: 8px;"></span>
                         <span style="font-weight: 500; color: #e2e8f0;">${filter.name}</span>
                     </span>
                     <label class="switch">
@@ -2623,6 +3188,11 @@
                         <span class="switch-slider"></span>
                     </label>
                 `;
+
+                setColourIndicatorBackground(
+                    row.querySelector('.part-color-dot'),
+                    indicatorBackground
+                );
 
                 const toggleInput = row.querySelector('.color-filter-toggle');
                 toggleInput.addEventListener('change', (e) => {
@@ -2868,12 +3438,52 @@
                     Math.min(29, Math.max(16, configuration.glassThicknessMm))
                 );
             }
+
+            let finishConfigurationChanged = false;
+            const requestedFinishMode = configuration.finishMode || configuration.finish_mode;
+            if (requestedFinishMode === 'same' || requestedFinishMode === 'different') {
+                if (aluminiumFinishMode !== requestedFinishMode) {
+                    aluminiumFinishMode = requestedFinishMode;
+                    finishConfigurationChanged = true;
+                }
+            }
+
             if (typeof configuration.colour === 'string') {
                 const nextConfigurationColour = normalizeRequestedColour(configuration.colour);
-                if (nextConfigurationColour !== configurationColour) {
-                    configurationColour = nextConfigurationColour;
-                    clearCachedAluminiumMaterials();
+                if (nextConfigurationColour) {
+                    const nextOutsideFinish = createRalFinishSelectionFromColour(nextConfigurationColour);
+                    if (
+                        nextOutsideFinish.color !== outsideFinishSelection.color
+                        || outsideFinishSelection.type !== 'coated'
+                        || outsideFinishSelection.presetId !== nextOutsideFinish.presetId
+                    ) {
+                        setFinishSelection('outside', nextOutsideFinish);
+                        finishConfigurationChanged = true;
+                    }
+
+                    // Legacy Odoo render requests only send one colour. Treat that
+                    // value as exterior-only and reset the interior to aluminum gray.
+                    if (!requestedFinishMode) {
+                        aluminiumFinishMode = 'different';
+                        insideFinishSelection = createFinishSelection('mill', 'natural');
+                        finishConfigurationChanged = true;
+                    }
                 }
+            }
+
+            const requestedInsideColour = normalizeRequestedColour(
+                configuration.insideColour || configuration.inside_colour
+            );
+            if (requestedInsideColour) {
+                insideFinishSelection = createRalFinishSelectionFromColour(requestedInsideColour);
+                finishConfigurationChanged = true;
+            }
+
+            if (finishConfigurationChanged) {
+                configurationColour = outsideFinishSelection.color;
+                clearCachedAluminiumMaterials();
+                syncFinishControls();
+                lastSectionSampleSignature = '';
             }
 
             const requestedProfileName = configuration.profile && [...profileInput.options].some(option => option.value === configuration.profile)
@@ -2899,7 +3509,13 @@
                 requestToken: String(configuration.requestToken || ''),
                 widthM: Number(widthInput.value),
                 heightM: Number(heightInput.value),
-                colour: configurationColour || '#e2e8f0',
+                colour: configurationColour,
+                finishMode: aluminiumFinishMode,
+                outsideFinish: { ...outsideFinishSelection },
+                insideFinish: aluminiumFinishMode === 'same'
+                    ? { ...outsideFinishSelection }
+                    : { ...insideFinishSelection },
+                debugColors: debugColoursEnabled,
                 profile: profileInput.value,
                 glassThicknessMm: Number(glassThicknessInput.value),
                 glazingBeadCode: getActiveGlazingBeadCode(),
@@ -2957,8 +3573,12 @@
 
         // 3D SAMPLE EXTRUSION GENERATOR (10CM)
         function createSampleExtrusion(profile) {
+            // Use the same thickness-aware template as the full window. Using
+            // profile.shape here locked the section sample to the original 573940
+            // glazing bead even after the glass thickness selected 573930/573920.
+            const activeShape = getProfileShape(profile);
             const extrudeSettings = { depth: 0.1, bevelEnabled: false, curveSegments: PROFILE_CURVE_SEGMENTS, steps: 1 };
-            const geom = new THREE.ExtrudeGeometry(profile.shape, extrudeSettings);
+            const geom = new THREE.ExtrudeGeometry(activeShape, extrudeSettings);
             const posAttribute = geom.attributes.position;
             const v = new THREE.Vector3();
 
@@ -3036,15 +3656,10 @@
             const geom = templateGeom.clone();
 
             const posAttribute = geom.attributes.position;
-            const normAttribute = geom.attributes.normal;
-            const templateNormAttribute = templateGeom.attributes.normal;
-
             const v = new THREE.Vector3();
-            const n = new THREE.Vector3();
 
             for (let i = 0; i < posAttribute.count; i++) {
                 v.fromBufferAttribute(posAttribute, i);
-                n.fromBufferAttribute(templateNormAttribute, i);
 
                 // Reconstruct CAD coordinates from SVG Space (X=x, Y=-y)
                 let x_cad = v.x + getProfileCadXShiftMm(profile);
@@ -3079,50 +3694,36 @@
 
                 // Orient the side correctly around the window frame
                 let xw, yw, zw = u;
-                let nx_world, ny_world, nz_world;
-
-                // Convert SVG normal coordinate system (Y is flipped) to local normal coordinate system
-                let nx_local = n.x;
-                let ny_local = -n.y;
-                let nz_local = n.z;
 
                 if (side === 'bottom') {
                     xw = -z_cut;
                     yw = -lengthB / 2 + inw;
-
-                    nx_world = -nz_local;
-                    ny_world = ny_local;
-                    nz_world = nx_local;
                 }
                 else if (side === 'top') {
                     xw = z_cut;
                     yw = lengthB / 2 - inw;
-
-                    nx_world = nz_local;
-                    ny_world = -ny_local;
-                    nz_world = nx_local;
                 }
                 else if (side === 'left') {
                     xw = -lengthA / 2 + inw;
                     yw = z_cut;
-
-                    nx_world = ny_local;
-                    ny_world = nz_local;
-                    nz_world = nx_local;
                 }
                 else if (side === 'right') {
                     xw = lengthA / 2 - inw;
                     yw = -z_cut;
-
-                    nx_world = -ny_local;
-                    ny_world = -nz_local;
-                    nz_world = nx_local;
                 }
 
                 posAttribute.setXYZ(i, xw, yw, zw);
-                // Convert world normals back to SVG space (nx = nx_world, ny = -ny_world, nz = nz_world)
-                normAttribute.setXYZ(i, nx_world, -ny_world, nz_world);
             }
+
+            posAttribute.needsUpdate = true;
+
+            // Recalculate lighting normals from the final transformed and mitered geometry.
+            geom.deleteAttribute('normal');
+            geom.computeVertexNormals();
+            geom.normalizeNormals();
+
+            geom.computeBoundingBox();
+            geom.computeBoundingSphere();
 
             const mesh = new THREE.Mesh(geom, profile.material);
             mesh.castShadow = !captureMode;
@@ -3636,18 +4237,16 @@
             const X_wall_min = -W_wall / 2;
             const X_wall_max = W_wall / 2;
 
-            // The side walls and floor sit between the inner faces of the
-            // front and rear walls. Keep a small overlap at every joint so
-            // shadows and floating-point precision cannot reveal cracks.
-            const wallJointOverlap = Math.min(0.01, wallThickness * 0.1);
+            // The side walls and floor fit exactly between the inner faces
+            // of the surrounding walls, so the corners meet without overlap.
             const innerShellCenterZ = -houseDepth / 2 + wallThickness / 4;
             const innerShellDepth = Math.max(
                 wallThickness,
-                houseDepth - wallThickness * 1.5 + wallJointOverlap * 2
+                houseDepth - wallThickness * 1.5
             );
             const innerFloorWidth = Math.max(
                 wallThickness,
-                W_wall - wallThickness * 2 + wallJointOverlap * 2
+                W_wall - wallThickness * 2
             );
 
             ground.position.y = Y_floor;
@@ -3905,14 +4504,14 @@
             }
 
             // 1. TOP DIMENSION (Width)
-            const topY = B / 2 + offset;
-            addLineSegment(new THREE.Vector3(-A / 2, topY, zPos), new THREE.Vector3(A / 2, topY, zPos));
-            addLineSegment(new THREE.Vector3(-A / 2, topY - tickSize, zPos), new THREE.Vector3(-A / 2, topY + tickSize, zPos));
-            addLineSegment(new THREE.Vector3(A / 2, topY - tickSize, zPos), new THREE.Vector3(A / 2, topY + tickSize, zPos));
+            // const topY = B / 2 + offset;
+            // addLineSegment(new THREE.Vector3(-A / 2, topY, zPos), new THREE.Vector3(A / 2, topY, zPos));
+            // addLineSegment(new THREE.Vector3(-A / 2, topY - tickSize, zPos), new THREE.Vector3(-A / 2, topY + tickSize, zPos));
+            // addLineSegment(new THREE.Vector3(A / 2, topY - tickSize, zPos), new THREE.Vector3(A / 2, topY + tickSize, zPos));
 
-            const topLabel = createLabelSprite(`${Math.round(A * 1000)} mm`);
-            topLabel.position.set(0, topY, zPos);
-            dimensionsGroup.add(topLabel);
+            // const topLabel = createLabelSprite(`${Math.round(A * 1000)} mm`);
+            // topLabel.position.set(0, topY, zPos);
+            // dimensionsGroup.add(topLabel);
 
             // 2. BOTTOM DIMENSION (Width)
             const bottomY = -B / 2 - offset;
@@ -3936,13 +4535,100 @@
 
             // 4. RIGHT DIMENSION (Height)
             const rightX = A / 2 + offset;
-            addLineSegment(new THREE.Vector3(rightX, -B / 2, zPos), new THREE.Vector3(rightX, B / 2, zPos));
-            addLineSegment(new THREE.Vector3(rightX - tickSize, -B / 2, zPos), new THREE.Vector3(rightX + tickSize, -B / 2, zPos));
-            addLineSegment(new THREE.Vector3(rightX - tickSize, B / 2, zPos), new THREE.Vector3(rightX + tickSize, B / 2, zPos));
+            // addLineSegment(new THREE.Vector3(rightX, -B / 2, zPos), new THREE.Vector3(rightX, B / 2, zPos));
+            // addLineSegment(new THREE.Vector3(rightX - tickSize, -B / 2, zPos), new THREE.Vector3(rightX + tickSize, -B / 2, zPos));
+            // addLineSegment(new THREE.Vector3(rightX - tickSize, B / 2, zPos), new THREE.Vector3(rightX + tickSize, B / 2, zPos));
 
-            const rightLabel = createLabelSprite(`${Math.round(B * 1000)} mm`);
-            rightLabel.position.set(rightX, 0, zPos);
-            dimensionsGroup.add(rightLabel);
+            // const rightLabel = createLabelSprite(`${Math.round(B * 1000)} mm`);
+            // rightLabel.position.set(rightX, 0, zPos);
+            // dimensionsGroup.add(rightLabel);
+
+            // 5. SECTION WIDTH / DEPTH DIMENSION (Z axis)
+            const depthX = -A / 2 - offset;
+            const depthY = -B / 2 - offset;
+
+            const isDrainageCoverCap = profile =>
+                String(profile.baseCadColor || '').toLowerCase() === '#cc9966';
+
+            function calculateSectionBounds(sectionProfiles) {
+                let minX = Infinity;
+                let maxX = -Infinity;
+
+                sectionProfiles.forEach(profile => {
+                    const bbox = getEffectiveProfileBbox(profile);
+                    if (!bbox) return;
+
+                    minX = Math.min(minX, bbox.minX);
+                    maxX = Math.max(maxX, bbox.maxX);
+                });
+
+                return { minX, maxX };
+            }
+
+            // Use the top section because the drainage cover cap belongs to the
+            // bottom section and should not affect the displayed section depth.
+            let dimensionProfiles = profilesData.filter(profile => {
+                const toggle = document.getElementById(`toggle_${profile.index}`);
+                const isVisible = toggle ? toggle.checked : true;
+
+                return (
+                    isVisible &&
+                    profile.section === 'top' &&
+                    !isDrainageCoverCap(profile)
+                );
+            });
+
+            let sectionBounds = calculateSectionBounds(dimensionProfiles);
+
+            // Fallback for CAD profiles that do not have top/bottom section metadata.
+            if (
+                !Number.isFinite(sectionBounds.minX) ||
+                !Number.isFinite(sectionBounds.maxX)
+            ) {
+                dimensionProfiles = profilesData.filter(profile => {
+                    const toggle = document.getElementById(`toggle_${profile.index}`);
+                    const isVisible = toggle ? toggle.checked : true;
+
+                    return isVisible && !isDrainageCoverCap(profile);
+                });
+
+                sectionBounds = calculateSectionBounds(dimensionProfiles);
+            }
+
+            const sectionZMin =
+                (sectionBounds.minX - currentMetadata.globalCenterX) * S;
+
+            const sectionZMax =
+                (sectionBounds.maxX - currentMetadata.globalCenterX) * S;
+
+            const sectionDepthMm = Math.round(
+                sectionBounds.maxX - sectionBounds.minX
+            );
+
+            // main depth line
+            addLineSegment(
+                new THREE.Vector3(depthX, depthY, sectionZMin),
+                new THREE.Vector3(depthX, depthY, sectionZMax)
+            );
+
+            // end ticks
+            addLineSegment(
+                new THREE.Vector3(depthX - tickSize, depthY, sectionZMin),
+                new THREE.Vector3(depthX + tickSize, depthY, sectionZMin)
+            );
+            addLineSegment(
+                new THREE.Vector3(depthX - tickSize, depthY, sectionZMax),
+                new THREE.Vector3(depthX + tickSize, depthY, sectionZMax)
+            );
+
+            // label
+            const depthLabel = createLabelSprite(`${sectionDepthMm} mm`);
+            depthLabel.position.set(
+                depthX + 0.10,
+                depthY,
+                (sectionZMin + sectionZMax) / 2
+            );
+            dimensionsGroup.add(depthLabel);
         }
 
         let lastSectionSampleSignature = '';
@@ -3954,7 +4640,11 @@
 
             const signature = [
                 profileInput.value,
-                configurationColour || '',
+                aluminiumFinishMode,
+                outsideFinishSelection.type,
+                outsideFinishSelection.color,
+                insideFinishSelection.type,
+                insideFinishSelection.color,
                 getActiveGlazingBeadCode(),
                 getActiveGasketCode(),
                 activeProfiles.map(profile => profile.index).join(','),
@@ -3983,6 +4673,24 @@
             });
 
             sectionGroup.lookAt(camera.position);
+        }
+
+        function createRoundedRectShape(width, height, radius) {
+            const w = width / 2;
+            const h = height / 2;
+            const r = Math.min(radius, w, h);
+
+            const shape = new THREE.Shape();
+            shape.moveTo(-w + r, -h);
+            shape.lineTo(w - r, -h);
+            shape.quadraticCurveTo(w, -h, w, -h + r);
+            shape.lineTo(w, h - r);
+            shape.quadraticCurveTo(w, h, w - r, h);
+            shape.lineTo(-w + r, h);
+            shape.quadraticCurveTo(-w, h, -w, h - r);
+            shape.lineTo(-w, -h + r);
+            shape.quadraticCurveTo(-w, -h, -w + r, -h);
+            return shape;
         }
 
         function buildWindow() {
@@ -4134,9 +4842,22 @@
 
             // Handle
             const handleBase = new THREE.Group();
-            const plate = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.015), handleMat);
-            plate.castShadow = !captureMode;
 
+            // --- backplate: stretched circle / rounded capsule plate ---
+            const plateShape = createRoundedRectShape(0.04, 0.1, 0.027);
+            const plateGeo = new THREE.ExtrudeGeometry(plateShape, {
+                depth: 0.005,
+                bevelEnabled: false,
+                curveSegments: 20
+            });
+            plateGeo.translate(0, 0, -0.007);
+
+            const plate = new THREE.Mesh(plateGeo, handleMat);
+            plate.castShadow = !captureMode;
+            plate.receiveShadow = !captureMode;
+            handleBase.add(plate);
+
+            // --- rotation group for the moving handle part ---
             const isLeftHandle = (selectedHandleSide === 'left');
             const defaultRot = document.getElementById('mBatant').checked
                 ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
@@ -4145,18 +4866,81 @@
 
             handleLeverGroup = new THREE.Group();
             handleLeverGroup.rotation.z = previousRotationZ;
-            const lever = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.14, 0.025), handleMat);
-            lever.position.y = -0.05;
+
+            // --- cylinder neck between plate and lever ---
+            const neckShape = new THREE.Shape();
+            neckShape.lineTo(0, 0.01);
+            let centerX = 0;
+            let centerY = 0;
+            let radius = 0.01;
+            let segments = 32;
+
+            for (let i = 1; i <= segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+
+                const x = centerX + Math.sin(angle) * radius;
+                const y = centerY + Math.cos(angle) * radius;
+
+                neckShape.lineTo(x, y);
+            }
+
+            const neckGeo = new THREE.ExtrudeGeometry(neckShape, {
+                depth: 0.014,
+                bevelEnabled: false,
+                curveSegments: 24
+            });
+            neckGeo.center();
+            neckGeo.translate(0, 0, -0.001);
+
+            const neck = new THREE.Mesh(neckGeo, handleMat);
+            neck.position.set(0, 0, 0.006)
+            neck.castShadow = !captureMode;
+            neck.receiveShadow = !captureMode;
+
+            // Add it to the fixed base, not the rotating lever group.
+            handleBase.add(neck);
+
+            // --- lever: stretched body with rounded lower end ---
+            const leverShape = new THREE.Shape();
+            leverShape.moveTo(-0.01, 0.055);
+
+            centerX = 0;
+            centerY = 0.055;
+            radius = 0.01;
+            segments = 16;
+
+            for (let i = 1; i <= segments; i++) {
+                const angle = 3 * Math.PI / 2 + (i / segments) * Math.PI;
+
+                const x = centerX + Math.sin(angle) * radius;
+                const y = centerY + Math.cos(angle) * radius;
+
+                leverShape.lineTo(x, y);
+            }
+
+            leverShape.lineTo(0.01, -0.055);
+            leverShape.lineTo(-0.01, -0.055);
+            leverShape.lineTo(-0.01, 0.055);
+
+            const leverGeo = new THREE.ExtrudeGeometry(leverShape, {
+                depth: 0.012,
+                bevelEnabled: false,
+                curveSegments: 24
+            });
+            leverGeo.center();
+            leverGeo.translate(0, -0.050, 0.018);
+
+            const lever = new THREE.Mesh(leverGeo, handleMat);
             lever.castShadow = !captureMode;
+            lever.receiveShadow = !captureMode;
             handleLeverGroup.add(lever);
-            handleBase.add(plate, handleLeverGroup);
+
+            handleBase.add(handleLeverGroup);
 
             const sashInteriorZ = (sashMaxX - currentMetadata.globalCenterX) * S;
-            if (isLeftHandle) {
-                handleBase.position.set(-A / 2 + leftInset - 0.04, 0, sashInteriorZ + 0.0075);
-            } else {
-                handleBase.position.set(A / 2 - rightInset + 0.04, 0, sashInteriorZ + 0.0075);
-            }
+            const handleInwardShift = 0.01;
+            const handleX = isLeftHandle ? -A / 2 + leftInset - 0.04 + handleInwardShift : A / 2 - rightInset + 0.04 - handleInwardShift;
+            handleBase.position.set(handleX, 0, sashInteriorZ + 0.0075);
             registerExplode(handleBase, isLeftHandle ? -0.26 : 0.26, 0, 0.9);
             sashGroup.add(handleBase);
 
@@ -4305,6 +5089,15 @@
             url.searchParams.set('explode', document.getElementById('cExplode').checked ? '1' : '0');
             url.searchParams.set('glass_thickness', document.getElementById('glassThickness').value);
             url.searchParams.set('handle_side', selectedHandleSide);
+            url.searchParams.set('finish_mode', aluminiumFinishMode);
+            url.searchParams.set('colour', outsideFinishSelection.color);
+            url.searchParams.set('outside_finish_type', outsideFinishSelection.type);
+            url.searchParams.set('outside_finish_preset', outsideFinishSelection.presetId);
+            url.searchParams.set('outside_colour', outsideFinishSelection.color);
+            url.searchParams.set('inside_finish_type', insideFinishSelection.type);
+            url.searchParams.set('inside_finish_preset', insideFinishSelection.presetId);
+            url.searchParams.set('inside_colour', insideFinishSelection.color);
+            url.searchParams.set('debug_colors', debugColoursEnabled ? '1' : '0');
 
             const activeParts = profilesData
                 .filter(profile => document.getElementById(`toggle_${profile.index}`)?.checked)
@@ -5052,6 +5845,8 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        initializeAluminiumFinishControls();
 
         // Load the selected profile. In QR AR mode the selection comes from URL parameters.
         loadProfiles(isARMode ? requestedProfile : '2_4_Oeffnungselemnt_Vertikal');
