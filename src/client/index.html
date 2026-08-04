@@ -1255,6 +1255,93 @@
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
             transition: opacity 0.2s ease;
         }
+
+        #component-selection-popup {
+            position: fixed;
+            left: 364px;
+            bottom: 24px;
+            z-index: 18;
+            width: min(280px, calc(100vw - 48px));
+            box-sizing: border-box;
+            padding: 16px 48px 16px 18px;
+            border: 1px solid rgba(96, 165, 250, 0.5);
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.92);
+            color: #f8fafc;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+            backdrop-filter: blur(12px);
+            transition: left 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s ease;
+        }
+
+        #component-selection-popup[hidden] {
+            display: none;
+        }
+
+        body.sidebar-is-collapsed #component-selection-popup {
+            left: 24px;
+        }
+
+        .component-selection-kicker {
+            margin-bottom: 3px;
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        #component-selection-name {
+            color: #60a5fa;
+            font-size: 24px;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+
+        .component-selection-source {
+            margin-top: 7px;
+            color: #cbd5e1;
+            font-size: 13px;
+        }
+
+        #component-selection-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #94a3b8;
+            font: inherit;
+            font-size: 23px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        #component-selection-close:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+        }
+
+        body.capture-mode #component-selection-popup,
+        .ar-mode #component-selection-popup {
+            display: none !important;
+        }
+
+        @media (max-width: 760px) {
+
+            #component-selection-popup,
+            body.sidebar-is-collapsed #component-selection-popup {
+                left: 12px;
+                bottom: 12px;
+                width: min(280px, calc(100vw - 24px));
+            }
+        }
     </style>
 </head>
 
@@ -1563,6 +1650,13 @@
     </button>
 
     <div id="canvas-container"></div>
+
+    <aside id="component-selection-popup" hidden aria-live="polite" aria-label="Selected component">
+        <button id="component-selection-close" type="button" aria-label="Deselect component and close">×</button>
+        <div class="component-selection-kicker">Selected component</div>
+        <div id="component-selection-name"></div>
+        <div class="component-selection-source">Part: <span id="component-selection-source"></span></div>
+    </aside>
 
     <div id="ar-publish-controls">
         <div id="ar-platform-switch" class="ar-platform-switch" data-platform="android" role="group"
@@ -1999,6 +2093,134 @@
         controls.dampingFactor = 0.05;
         controls.target.set(0, 0, 0);
         controls.enabled = !isARMode;
+
+        const componentSelectionPopup = document.getElementById('component-selection-popup');
+        const componentSelectionName = document.getElementById('component-selection-name');
+        const componentSelectionSource = document.getElementById('component-selection-source');
+        const componentSelectionClose = document.getElementById('component-selection-close');
+        const componentRaycaster = new THREE.Raycaster();
+        const componentPointer = new THREE.Vector2();
+        const selectionHighlightColour = new THREE.Color(0x3b82f6);
+        let selectableComponentMeshes = [];
+        let selectedComponentMesh = null;
+        let selectedComponentOriginalMaterial = null;
+        let componentPointerStart = null;
+
+        function cloneHighlightedMaterial(material) {
+            if (Array.isArray(material)) {
+                return material.map(cloneHighlightedMaterial);
+            }
+
+            const highlighted = material.clone();
+            if (highlighted.emissive?.isColor) {
+                highlighted.emissive.copy(selectionHighlightColour);
+                if ('emissiveIntensity' in highlighted) {
+                    highlighted.emissiveIntensity = Math.max(
+                        Number(highlighted.emissiveIntensity) || 0,
+                        0.7
+                    );
+                }
+            }
+            highlighted.needsUpdate = true;
+            return highlighted;
+        }
+
+        function disposeHighlightedMaterial(material) {
+            if (Array.isArray(material)) {
+                material.forEach(disposeHighlightedMaterial);
+                return;
+            }
+            material?.dispose?.();
+        }
+
+        function clearComponentSelection() {
+            if (selectedComponentMesh && selectedComponentOriginalMaterial) {
+                const highlightedMaterial = selectedComponentMesh.material;
+                selectedComponentMesh.material = selectedComponentOriginalMaterial;
+                disposeHighlightedMaterial(highlightedMaterial);
+            }
+
+            selectedComponentMesh = null;
+            selectedComponentOriginalMaterial = null;
+            if (componentSelectionPopup) {
+                componentSelectionPopup.hidden = true;
+            }
+        }
+
+        function getComponentSourceLabel(source) {
+            if (source === 'frame') return 'Frame';
+            if (source === 'bead') return 'Glazing bead';
+            return 'Sash / Vent';
+        }
+
+        function selectComponentMesh(mesh) {
+            const component = mesh?.userData?.componentSelection;
+            if (!component) return;
+            if (mesh === selectedComponentMesh) return;
+
+            clearComponentSelection();
+            selectedComponentMesh = mesh;
+            selectedComponentOriginalMaterial = mesh.material;
+            mesh.material = cloneHighlightedMaterial(mesh.material);
+
+            if (componentSelectionName) {
+                componentSelectionName.textContent = component.name;
+            }
+            if (componentSelectionSource) {
+                componentSelectionSource.textContent = getComponentSourceLabel(component.source);
+            }
+            if (componentSelectionPopup) {
+                componentSelectionPopup.hidden = false;
+            }
+        }
+
+        function raycastSelectableComponent(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            if (!rect.width || !rect.height) return null;
+
+            componentPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            componentPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            componentRaycaster.setFromCamera(componentPointer, camera);
+            return componentRaycaster.intersectObjects(selectableComponentMeshes, false)[0]?.object || null;
+        }
+
+        function handleComponentPointerDown(event) {
+            if (!isExploded || event.button !== 0) {
+                componentPointerStart = null;
+                return;
+            }
+
+            componentPointerStart = {
+                pointerId: event.pointerId,
+                x: event.clientX,
+                y: event.clientY,
+            };
+        }
+
+        function handleComponentPointerUp(event) {
+            const start = componentPointerStart;
+            componentPointerStart = null;
+            if (!start || start.pointerId !== event.pointerId || !isExploded) return;
+
+            const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+            if (moved > 5) return;
+
+            const selectedMesh = raycastSelectableComponent(event);
+            if (selectedMesh) {
+                selectComponentMesh(selectedMesh);
+            } else {
+                clearComponentSelection();
+            }
+        }
+
+        if (!isARMode && !captureMode) {
+            renderer.domElement.addEventListener('pointerdown', handleComponentPointerDown);
+            renderer.domElement.addEventListener('pointerup', handleComponentPointerUp);
+            renderer.domElement.addEventListener('pointercancel', () => {
+                componentPointerStart = null;
+            });
+            componentSelectionClose?.addEventListener('click', clearComponentSelection);
+        }
 
         // GROUND PLANE
         const groundGeo = new THREE.PlaneGeometry(100, 100);
@@ -2645,6 +2867,11 @@
                 return `${getActiveGasketCode()}${suffix}`;
             }
             return profile.blockName;
+        }
+
+        function getProfileComponentNumber(profile) {
+            const displayedName = String(getDisplayedBlockName(profile) || profile.blockName || '');
+            return displayedName.match(/\d+/)?.[0] || displayedName || `Part ${profile.index}`;
         }
 
         function getDisplayedParentBlock(profile) {
@@ -3730,6 +3957,13 @@
             mesh.receiveShadow = !captureMode;
 
             const group = getProfileGroup(profile);
+            mesh.userData.componentSelection = {
+                name: getProfileComponentNumber(profile),
+                source: group,
+                profileIndex: profile.index,
+                side,
+            };
+            selectableComponentMeshes.push(mesh);
 
             // Map each group to its outward explosion offset (X/Y)
             const EXPLODE_XY_OFFSETS = {
@@ -4696,6 +4930,9 @@
         function buildWindow() {
             if (!currentMetadata) return;
             const t_start = performance.now();
+
+            clearComponentSelection();
+            selectableComponentMeshes = [];
 
             // Generated geometries are unique and must be disposed. Materials are
             // shared/cached, so disposing them here causes shader recompilation and
@@ -5764,7 +6001,12 @@
                 buildWindow();
             });
         });
-        document.getElementById('cExplode').addEventListener('change', (e) => { isExploded = e.target.checked; });
+        document.getElementById('cExplode').addEventListener('change', (e) => {
+            isExploded = e.target.checked;
+            if (!isExploded) {
+                clearComponentSelection();
+            }
+        });
         document.getElementById('mBatant').addEventListener('change', buildWindow);
         document.getElementById('mOscilo').addEventListener('change', buildWindow);
 
@@ -5834,6 +6076,7 @@
         });
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
+                clearComponentSelection();
                 closeQRModal();
                 closeCadReferenceModal();
             }
