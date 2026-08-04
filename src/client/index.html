@@ -4244,18 +4244,47 @@
             handleLeverGroup.rotation.z = previousRotationZ;
 
             // --- cylinder neck between plate and lever ---
-            const neckGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.014, 24);
+            // const neckGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.014, 24);
+            // const neck = new THREE.Mesh(neckGeo, handleMat);
+
+            // // CylinderGeometry points along Y by default.
+            // // Rotate it so its axis points outward along Z.
+            // neck.rotation.x = Math.PI / 2;
+
+            // // Backplate front is approximately z = -0.002.
+            // // Lever back is approximately z = 0.012.
+            // // This cylinder bridges them with a small overlap.
+            // neck.position.set(0, 0, 0.006);
+
+            // neck.castShadow = !captureMode;
+            // neck.receiveShadow = !captureMode;
+
+            const neckShape = new THREE.Shape();
+            neckShape.lineTo(0, 0.01);
+            let centerX = 0;
+            let centerY = 0;
+            let radius = 0.01;
+            let segments = 32;
+
+            for (let i = 1; i <= segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+
+                const x = centerX + Math.sin(angle) * radius;
+                const y = centerY + Math.cos(angle) * radius;
+
+                neckShape.lineTo(x, y);
+            }
+
+            const neckGeo = new THREE.ExtrudeGeometry(neckShape, {
+                depth: 0.014,
+                bevelEnabled: false,
+                curveSegments: 24
+            });
+            neckGeo.center();
+            neckGeo.translate(0, 0, -0.001);
+
             const neck = new THREE.Mesh(neckGeo, handleMat);
-
-            // CylinderGeometry points along Y by default.
-            // Rotate it so its axis points outward along Z.
-            neck.rotation.x = Math.PI / 2;
-
-            // Backplate front is approximately z = -0.002.
-            // Lever back is approximately z = 0.012.
-            // This cylinder bridges them with a small overlap.
-            neck.position.set(0, 0, 0.006);
-
+            neck.position.set(0, 0, 0.006)
             neck.castShadow = !captureMode;
             neck.receiveShadow = !captureMode;
 
@@ -4266,10 +4295,10 @@
             const leverShape = new THREE.Shape();
             leverShape.moveTo(-0.01, 0.055);
 
-            const centerX = 0;
-            const centerY = 0.055;
-            const radius = 0.01;
-            const segments = 24;
+            centerX = 0;
+            centerY = 0.055;
+            radius = 0.01;
+            segments = 16;
 
             for (let i = 1; i <= segments; i++) {
                 const angle = 3 * Math.PI / 2 + (i / segments) * Math.PI;
