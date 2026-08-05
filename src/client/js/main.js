@@ -24,6 +24,7 @@ import { getHouseDimensions } from './house-config.js';
 import { createSceneContext } from './scene.js';
 import { createHouseBuilder } from './house-builder.js';
 import { createProfileLoader } from './profile-loader.js';
+import { initializeUIControls } from './ui-controls.js';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -3148,226 +3149,43 @@ function updateARPlacement(xrFrame) {
     }
 }
 
-function setSidebarCollapsed(collapsed) {
-    const controlsPanel = document.getElementById('controls');
-    const toggleButton = document.getElementById('sidebar-toggle');
-    if (!controlsPanel || !toggleButton) return;
-
-    controlsPanel.classList.toggle('sidebar-collapsed', collapsed);
-    document.body.classList.toggle('sidebar-is-collapsed', collapsed);
-    toggleButton.setAttribute('aria-expanded', String(!collapsed));
-    toggleButton.setAttribute('aria-label', collapsed ? 'Show sidebar' : 'Hide sidebar');
-    toggleButton.title = collapsed ? 'Show sidebar' : 'Hide sidebar';
-}
-
-document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
-    const controlsPanel = document.getElementById('controls');
-    const collapsed = controlsPanel?.classList.contains('sidebar-collapsed') || false;
-    setSidebarCollapsed(!collapsed);
-});
-
-// EVENT LISTENERS
-const SIZE_REBUILD_INTERVAL_MS = 70;
-let pendingWindowRebuildTimer = null;
-let lastSizeRebuildAt = 0;
-
-function updateSizeLabelsOnly() {
-    const width = Number.parseFloat(widthInput.value) || WINDOW_WIDTH_MAX_M;
-    const height = Number.parseFloat(heightInput.value) || 1.5;
-    document.getElementById('valWidth').innerText = `${Math.round(width * 1000)} mm`;
-    document.getElementById('valHeight').innerText = `${Math.round(height * 1000)} mm`;
-}
-
-function flushWindowSizeRebuild() {
-    if (pendingWindowRebuildTimer !== null) {
-        clearTimeout(pendingWindowRebuildTimer);
-        pendingWindowRebuildTimer = null;
-    }
-
-    lastSizeRebuildAt = performance.now();
-    buildWindow();
-}
-
-function triggerWindowRebuild() {
-    updateSizeLabelsOnly();
-
-    const elapsed = performance.now() - lastSizeRebuildAt;
-    if (elapsed >= SIZE_REBUILD_INTERVAL_MS && pendingWindowRebuildTimer === null) {
-        flushWindowSizeRebuild();
-        return;
-    }
-
-    if (pendingWindowRebuildTimer === null) {
-        pendingWindowRebuildTimer = setTimeout(() => {
-            pendingWindowRebuildTimer = null;
-            lastSizeRebuildAt = performance.now();
-            buildWindow();
-        }, Math.max(0, SIZE_REBUILD_INTERVAL_MS - elapsed));
-    }
-}
-
-widthInput.addEventListener('input', triggerWindowRebuild);
-heightInput.addEventListener('input', triggerWindowRebuild);
-widthInput.addEventListener('change', flushWindowSizeRebuild);
-heightInput.addEventListener('change', flushWindowSizeRebuild);
-
-function changeInputValue(input, delta) {
-    const min = Number.parseFloat(input.min);
-    const max = Number.parseFloat(input.max);
-    const val = Number.parseFloat(input.value) || min;
-    const newVal = Math.min(max, Math.max(min, val + delta));
-    input.value = newVal.toFixed(2);
-    input.dispatchEvent(new Event('input'));
-}
-
-document.getElementById('btnWidthDec').addEventListener('click', () => {
-    changeInputValue(document.getElementById('widthA'), -0.05);
-});
-document.getElementById('btnWidthInc').addEventListener('click', () => {
-    changeInputValue(document.getElementById('widthA'), 0.05);
-});
-document.getElementById('btnHeightDec').addEventListener('click', () => {
-    changeInputValue(document.getElementById('heightB'), -0.05);
-});
-document.getElementById('btnHeightInc').addEventListener('click', () => {
-    changeInputValue(document.getElementById('heightB'), 0.05);
-});
-
-const toggleSectionBtn = document.getElementById('toggleSectionViewBtn');
-if (toggleSectionBtn) {
-    toggleSectionBtn.addEventListener('click', () => {
-        const isActive = toggleSectionBtn.classList.toggle('active');
-        if (sectionGroup) {
-            sectionGroup.visible = isActive;
+initializeUIControls({
+    widthInput,
+    heightInput,
+    glassThicknessInput,
+    glassThicknessLabel,
+    cadReferenceButton,
+    cadReferenceModal,
+    sectionGroup,
+    camera,
+    renderer,
+    componentSelection,
+    buildWindow,
+    loadProfiles,
+    syncModeButtons,
+    setExploded: (value) => {
+        isExploded = value;
+    },
+    setSelectedHandleSide: (value) => {
+        selectedHandleSide = value;
+    },
+    getActiveGlazingBeadCode,
+    getActiveGasketCode,
+    updateGlazingBeadToggleLabels,
+    updateGasketToggleLabels,
+    updateComponentPictures,
+    openCadReferenceModal,
+    closeCadReferenceModal,
+    setSelectedARPlatform,
+    openQRModal,
+    closeQRModal,
+    downloadLatestARAsset: () => {
+        if (latestExportedAsset) {
+            downloadARAsset(latestExportedAsset, latestExportFilename, latestExportFormat);
         }
-    });
-}
-let pendingGlassThicknessFrame = null;
-let lastRenderedGlazingBeadCode = getActiveGlazingBeadCode();
-let lastRenderedGasketCode = getActiveGasketCode();
-
-document.getElementById('glassThickness').addEventListener('input', () => {
-    const thickness = Math.min(
-        29,
-        Math.max(16, Number.parseFloat(glassThicknessInput.value) || 24)
-    );
-    glassThicknessInput.value = String(thickness);
-
-    if (glassThicknessLabel) {
-        glassThicknessLabel.textContent = `${thickness.toFixed(0)} mm`;
-    }
-
-    // Update pictures immediately for responsive dragging
-    updateComponentPictures();
-
-    if (pendingGlassThicknessFrame !== null) {
-        return;
-    }
-
-    pendingGlassThicknessFrame = requestAnimationFrame(() => {
-        pendingGlassThicknessFrame = null;
-
-        const nextBeadCode = getActiveGlazingBeadCode();
-        if (nextBeadCode !== lastRenderedGlazingBeadCode) {
-            lastRenderedGlazingBeadCode = nextBeadCode;
-            updateGlazingBeadToggleLabels();
-        }
-
-        const nextGasketCode = getActiveGasketCode();
-        if (nextGasketCode !== lastRenderedGasketCode) {
-            lastRenderedGasketCode = nextGasketCode;
-            updateGasketToggleLabels();
-        }
-
-        buildWindow();
-    });
-});
-document.getElementById('cExplode').addEventListener('change', (e) => {
-    isExploded = e.target.checked;
-    if (!isExploded) {
-        componentSelection.clear();
-    }
-});
-document.getElementById('mBatant').addEventListener('change', buildWindow);
-document.getElementById('mOscilo').addEventListener('change', buildWindow);
-
-const btnHandleLeft = document.getElementById('btnHandleLeft');
-const btnHandleRight = document.getElementById('btnHandleRight');
-if (btnHandleLeft && btnHandleRight) {
-    btnHandleLeft.addEventListener('click', () => {
-        selectedHandleSide = 'left';
-        btnHandleLeft.classList.add('active');
-        btnHandleRight.classList.remove('active');
-        buildWindow();
-    });
-    btnHandleRight.addEventListener('click', () => {
-        selectedHandleSide = 'right';
-        btnHandleRight.classList.add('active');
-        btnHandleLeft.classList.remove('active');
-        buildWindow();
-    });
-}
-const btnModeBatant = document.getElementById('btnModeBatant');
-const btnModeOscilo = document.getElementById('btnModeOscilo');
-if (btnModeBatant && btnModeOscilo) {
-    btnModeBatant.addEventListener('click', () => {
-        document.getElementById('mBatant').checked = true;
-        document.getElementById('mOscilo').checked = false;
-        syncModeButtons();
-        buildWindow();
-    });
-    btnModeOscilo.addEventListener('click', () => {
-        document.getElementById('mOscilo').checked = true;
-        document.getElementById('mBatant').checked = false;
-        syncModeButtons();
-        buildWindow();
-    });
-}
-
-document.getElementById('side_top').addEventListener('change', buildWindow);
-document.getElementById('side_bottom').addEventListener('change', buildWindow);
-document.getElementById('side_left').addEventListener('change', buildWindow);
-document.getElementById('side_right').addEventListener('change', buildWindow);
-document.getElementById('cShowHouse').addEventListener('change', buildWindow);
-
-// Dropdown change listener
-document.getElementById('cadProfile').addEventListener('change', (e) => {
-    loadProfiles(e.target.value);
-});
-
-cadReferenceButton.addEventListener('click', openCadReferenceModal);
-document.getElementById('cad-reference-close').addEventListener('click', closeCadReferenceModal);
-cadReferenceModal.addEventListener('click', (event) => {
-    if (event.target.id === 'cad-reference-modal') closeCadReferenceModal();
-});
-
-document.querySelectorAll('.ar-platform-option').forEach(button => {
-    button.addEventListener('click', () => setSelectedARPlatform(button.dataset.platform));
-});
-document.getElementById('qr-ar-button').addEventListener('click', openQRModal);
-document.getElementById('qr-close').addEventListener('click', closeQRModal);
-document.getElementById('qr-download-model').addEventListener('click', () => {
-    if (latestExportedAsset) {
-        downloadARAsset(latestExportedAsset, latestExportFilename, latestExportFormat);
-    }
-});
-document.getElementById('qr-check-published').addEventListener('click', checkLatestStaticModel);
-document.getElementById('qr-modal').addEventListener('click', (event) => {
-    if (event.target.id === 'qr-modal') closeQRModal();
-});
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-        componentSelection.clear();
-        closeQRModal();
-        closeCadReferenceModal();
-    }
-});
-document.getElementById('ar-start-button').addEventListener('click', startAR);
-
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    },
+    checkLatestStaticModel,
+    startAR,
 });
 
 initializeAluminiumFinishControls();
