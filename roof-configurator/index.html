@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Real-time parametric roof configurator" />
+  <title>RoofLab - 3D Roof Configurator</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="./styles.css?v=12" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="sidebar" aria-label="Roof configuration controls">
+      <header class="brand-row">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+        <div>
+          <div class="brand-name">RoofLab</div>
+          <div class="brand-subtitle">Parametric roof studio</div>
+        </div>
+        <div class="live-pill"><i></i> Live</div>
+      </header>
+
+      <section class="panel-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Step 1</p>
+            <h1>Roof type</h1>
+          </div>
+          <span class="section-number">01</span>
+        </div>
+
+        <div class="roof-type-grid" id="roofTypeGrid">
+          <button class="roof-card" type="button" data-roof-type="gable" aria-pressed="true">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M8 38 40 12l32 26"/><path d="M15 36v10h50V36"/><path class="accent" d="M8 38 40 12l32 26"/></svg>
+            <span>2 slopes</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="hip" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M8 37 26 14h28l18 23"/><path d="m8 37 32-9 32 9"/><path d="M18 36v10h44V36"/><path class="accent" d="M8 37 26 14h28l18 23"/></svg>
+            <span>4 slopes</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="shed" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M10 33 68 14"/><path d="M16 31v15h48V16"/><path class="accent" d="M10 33 68 14"/></svg>
+            <span>1 slope</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="lshape" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="m8 35 22-20 18 12 13-10 12 16"/><path d="M15 34v12h49V33"/><path class="accent" d="m8 35 22-20 18 12 13-10 12 16"/></svg>
+            <span>L-shaped</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="dormer" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M7 38 40 12l33 26"/><path d="m31 31 10-10 10 10"/><path d="M15 37v9h50v-9"/><path class="accent" d="M7 38 40 12l33 26M31 31l10-10 10 10"/></svg>
+            <span>Dormer</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="custom" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true">
+              <path d="M17 7h31l15 15v23H17z"/>
+              <path d="M48 7v15h15M28 35l12-12 12 12M40 23v18"/>
+              <path class="accent" d="M17 7h31l15 15v23H17zM28 35l12-12 12 12M40 23v18"/>
+            </svg>
+            <span>Custom</span>
+          </button>
+        </div>
+
+        <div class="custom-plan-panel" id="customPlanPanel" hidden>
+          <div class="custom-plan-copy">
+            <strong>Upload custom roof planning</strong>
+            <span>Proof of concept only — the file will be stored in this browser session but is not processed yet.</span>
+          </div>
+          <label class="custom-plan-dropzone" id="customPlanDropzone" for="customPlanInput">
+            <input id="customPlanInput" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.dwg,.dxf" />
+            <span class="custom-plan-icon" aria-hidden="true">↑</span>
+            <span class="custom-plan-main">Choose a plan or drop it here</span>
+            <span class="custom-plan-types">PDF, image, DWG or DXF</span>
+          </label>
+          <div class="custom-plan-file" id="customPlanFile" hidden>
+            <span class="custom-plan-file-icon" aria-hidden="true">▧</span>
+            <span class="custom-plan-file-details">
+              <strong id="customPlanFileName">No file selected</strong>
+              <small id="customPlanFileMeta"></small>
+            </span>
+            <button type="button" id="customPlanRemove" aria-label="Remove uploaded plan">×</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-section parameters-section">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Step 2</p>
+            <h2>Dimensions</h2>
+          </div>
+          <span class="section-number">02</span>
+        </div>
+
+        <div class="control-list">
+          <label class="range-control" data-control="length">
+            <span class="control-label"><b>Length</b><output>10.0 m</output></span>
+            <span class="range-row">
+              <input type="range" min="4" max="20" step="0.1" value="10" />
+              <input class="number-input" type="number" min="4" max="20" step="0.1" value="10" aria-label="Length in meters" />
+            </span>
+          </label>
+
+          <label class="range-control" data-control="depth">
+            <span class="control-label"><b>Depth</b><output>7.0 m</output></span>
+            <span class="range-row">
+              <input type="range" min="3" max="14" step="0.1" value="7" />
+              <input class="number-input" type="number" min="3" max="14" step="0.1" value="7" aria-label="Depth in meters" />
+            </span>
+          </label>
+
+          <label class="range-control" data-control="wallHeight">
+            <span class="control-label"><b>Wall height</b><output>3.0 m</output></span>
+            <span class="range-row">
+              <input type="range" min="2.2" max="5" step="0.1" value="3" />
+              <input class="number-input" type="number" min="2.2" max="5" step="0.1" value="3" aria-label="Wall height in meters" />
+            </span>
+          </label>
+
+          <label class="range-control" data-control="pitch">
+            <span class="control-label"><b>Roof pitch</b><output>30°</output></span>
+            <span class="range-row">
+              <input type="range" min="5" max="60" step="1" value="30" />
+              <input class="number-input" type="number" min="5" max="60" step="1" value="30" aria-label="Roof pitch in degrees" />
+            </span>
+          </label>
+
+          <label class="range-control" data-control="overhang">
+            <span class="control-label"><b>Eaves overhang</b><output>0.45 m</output></span>
+            <span class="range-row">
+              <input type="range" min="0" max="1.2" step="0.05" value="0.45" />
+              <input class="number-input" type="number" min="0" max="1.2" step="0.05" value="0.45" aria-label="Eaves overhang in meters" />
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel-section finish-section">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Step 3</p>
+            <h2>Covering</h2>
+          </div>
+          <span class="section-number">03</span>
+        </div>
+
+        <label class="select-label" for="coveringSelect">Material preset</label>
+        <select id="coveringSelect">
+          <option value="generic">Generic metal tile</option>
+          <option value="roca">Mineral-granule metal tile</option>
+          <option value="teclado">Slate-style mineral tile</option>
+        </select>
+        <p class="rule-note" id="pitchRuleNote">Visualization preset - pitch is freely adjustable.</p>
+
+        <div class="color-heading">Roof colour</div>
+        <div class="swatch-row" id="swatchRow" aria-label="Roof colour">
+          <button type="button" class="swatch selected" data-color="#7f1d2d" style="--swatch:#7f1d2d" aria-label="Burgundy"></button>
+          <button type="button" class="swatch" data-color="#293544" style="--swatch:#293544" aria-label="Graphite"></button>
+          <button type="button" class="swatch" data-color="#684230" style="--swatch:#684230" aria-label="Brown"></button>
+          <button type="button" class="swatch" data-color="#8a3428" style="--swatch:#8a3428" aria-label="Terracotta"></button>
+          <button type="button" class="swatch" data-color="#315449" style="--swatch:#315449" aria-label="Forest green"></button>
+        </div>
+      </section>
+    </aside>
+
+    <section class="viewer-panel">
+      <header class="viewer-header">
+        <div>
+          <p class="eyebrow">Real-time model</p>
+          <h2 id="viewerTitle">Two-slope roof</h2>
+        </div>
+        <div class="viewer-actions-wrap">
+          <button type="button" class="estimate-button" id="bomOpenButton" aria-controls="bomPanel" aria-haspopup="dialog">
+            <span>BOM &amp; price</span>
+            <strong id="headerEstimateTotal">—</strong>
+          </button>
+          <div class="view-actions" aria-label="Camera controls">
+            <button type="button" data-view="perspective" class="active">3D</button>
+            <button type="button" data-view="front">Front</button>
+            <button type="button" data-view="top">Top</button>
+            <button type="button" data-view="reset" title="Reset view">Reset</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="viewer-stage" id="viewerStage">
+        <div id="canvasHost" aria-label="Interactive 3D roof model"></div>
+        <div class="stage-hint">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
+        <div class="model-options">
+          <label><input type="checkbox" id="dimensionsToggle" checked /> Dimensions</label>
+          <label><input type="checkbox" id="wireframeToggle" /> Technical edges</label>
+        </div>
+        <div class="custom-viewer-notice" id="customViewerNotice" hidden>
+          <span class="custom-viewer-notice-icon" aria-hidden="true">⌁</span>
+          <strong>Custom plan mode</strong>
+          <p>Upload is available as a proof of concept. Automatic geometry generation is not implemented yet.</p>
+        </div>
+      </div>
+
+      <footer class="metrics-bar">
+        <article>
+          <span>Footprint</span>
+          <strong id="metricFootprint">70.0 m²</strong>
+        </article>
+        <article>
+          <span>Approx. roof area</span>
+          <strong id="metricRoofArea">91.5 m²</strong>
+        </article>
+        <article>
+          <span>Ridge elevation</span>
+          <strong id="metricRidge">5.0 m</strong>
+        </article>
+        <article>
+          <span>Pitch</span>
+          <strong id="metricPitch">30°</strong>
+        </article>
+      </footer>
+    </section>
+  </main>
+
+
+  <dialog class="bom-panel" id="bomPanel" aria-labelledby="bomTitle">
+    <header class="bom-header">
+      <div>
+        <p class="eyebrow">Proof-of-concept estimate</p>
+        <h2 id="bomTitle">Bill of materials</h2>
+      </div>
+      <button type="button" class="bom-close" id="bomCloseButton" aria-label="Close BOM">×</button>
+    </header>
+
+    <section class="bom-summary" aria-label="Price summary">
+      <article>
+        <span>Without VAT</span>
+        <strong id="bomSubtotal">—</strong>
+      </article>
+      <article>
+        <span>VAT 19%</span>
+        <strong id="bomVat">—</strong>
+      </article>
+      <article class="bom-total-card">
+        <span>Estimated total</span>
+        <strong id="bomTotal">—</strong>
+      </article>
+    </section>
+
+    <div class="bom-disclaimer">
+      Quantities are generated from the current roof geometry. Unit prices are copied from the supplied reference offer dated 30/10/2024 and are reused for every covering preset. This is not a construction quotation.
+    </div>
+
+    <div class="bom-table-wrap">
+      <table class="bom-table">
+        <thead>
+          <tr>
+            <th>Nr.</th>
+            <th>Product</th>
+            <th>U.M.</th>
+            <th>Qty.</th>
+            <th>Unit price</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody id="bomTableBody"></tbody>
+      </table>
+    </div>
+
+    <section class="bom-assumptions">
+      <h3>Calculation basis</h3>
+      <div class="assumption-grid" id="bomAssumptions"></div>
+      <p>Roof-window items and the advance-payment row from the reference offer are excluded because the configurator does not currently expose those parameters.</p>
+    </section>
+
+    <footer class="bom-footer">
+      <button type="button" class="secondary-action" id="bomExportButton">Export CSV</button>
+      <button type="button" class="primary-action" id="bomDoneButton">Done</button>
+    </footer>
+  </dialog>
+
+
+  <script>
+    (() => {
+      const panel = document.getElementById('bomPanel');
+      const openButton = document.getElementById('bomOpenButton');
+      const closeButton = document.getElementById('bomCloseButton');
+      const doneButton = document.getElementById('bomDoneButton');
+
+      const openPanel = () => {
+        if (!panel || panel.open) return;
+        if (typeof panel.showModal === 'function') panel.showModal();
+        else panel.setAttribute('open', '');
+        document.body.classList.add('bom-is-open');
+      };
+
+      const closePanel = () => {
+        if (!panel) return;
+        if (typeof panel.close === 'function' && panel.open) panel.close();
+        else panel.removeAttribute('open');
+        document.body.classList.remove('bom-is-open');
+      };
+
+      openButton?.addEventListener('click', openPanel);
+      closeButton?.addEventListener('click', closePanel);
+      doneButton?.addEventListener('click', closePanel);
+      panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
+    })();
+  </script>
+  <script type="module" src="./js/app.js?v=12"></script>
+</body>
+</html>
