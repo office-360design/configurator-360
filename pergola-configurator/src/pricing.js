@@ -1,7 +1,15 @@
-const money = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
+const CURRENCY_PROFILES = Object.freeze({
+  USD: {
+    locale: 'en-US',
+    rateFromUsd: 1,
+    maximumFractionDigits: 0,
+  },
+  RON: {
+    locale: 'ro-RO',
+    // Demo conversion rate. Replace with a backend or live-rate service later.
+    rateFromUsd: 4.6,
+    maximumFractionDigits: 0,
+  },
 });
 
 const modelBase = {
@@ -30,8 +38,14 @@ const servicePrices = {
   warranty: 450,
 };
 
-export function formatMoney(value) {
-  return money.format(Math.round(value));
+export function formatMoney(value, currency = 'USD', locale = null) {
+  const profile = CURRENCY_PROFILES[currency] ?? CURRENCY_PROFILES.USD;
+  const converted = Number(value) * profile.rateFromUsd;
+  return new Intl.NumberFormat(locale || profile.locale, {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: profile.maximumFractionDigits,
+  }).format(Math.round(converted));
 }
 
 function sideLengthMeters(side, dimensions) {
@@ -132,7 +146,7 @@ export function calculatePrice(state) {
   const tax = subtotal * 0.095;
   const total = subtotal + tax;
 
-  return { lines, subtotal, tax, total, area };
+  return { lines, subtotal, tax, total, area, baseCurrency: 'USD' };
 }
 
 export function automationLabel(value) {
