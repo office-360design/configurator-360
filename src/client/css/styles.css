@@ -1006,14 +1006,39 @@ body.capture-mode #canvas-container {
     position: absolute;
     top: 12px;
     right: 12px;
+    display: grid;
+    place-items: center;
     width: 34px;
     height: 34px;
-    border: 0;
+    padding: 0;
+    border: 1px solid transparent;
     border-radius: 9px;
     background: rgba(255, 255, 255, 0.08);
     color: #fff;
     font-size: 20px;
+    line-height: 1;
     cursor: pointer;
+    transition:
+        background-color 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease,
+        transform 0.18s ease;
+}
+
+#cad-reference-close:hover {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(248, 113, 113, 0.55);
+    color: #fca5a5;
+    transform: none;
+}
+
+#cad-reference-close:active {
+    transform: scale(0.95);
+}
+
+#cad-reference-close:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
 }
 
 .cad-reference-content {
@@ -1048,7 +1073,8 @@ body.capture-mode #canvas-container {
     flex-direction: column;
     gap: 10px;
     overflow-y: auto;
-    padding-right: 4px;
+    padding: 32px 4px 0 0;
+    box-sizing: border-box;
 }
 
 .cad-reference-thumb {
@@ -1109,6 +1135,7 @@ body.capture-mode #cad-reference-button {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         overflow: visible;
+        padding-top: 0;
     }
 }
 

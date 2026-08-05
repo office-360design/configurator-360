@@ -824,8 +824,8 @@ export function createWindowBuilder({
         // label
         const depthLabel = createLabelSprite(`${sectionDepthMm} mm`);
         depthLabel.position.set(
-            depthX + 0.10,
-            depthY,
+            depthX,
+            depthY - 0.05,
             (sectionZMin + sectionZMax) / 2
         );
         dimensionsGroup.add(depthLabel);
