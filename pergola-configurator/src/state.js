@@ -1,5 +1,5 @@
-const STORAGE_KEY = 'pergola-configurator:v4';
-const LEGACY_STORAGE_KEYS = ['pergola-configurator:v3', 'pergola-configurator:v2', 'pergola-configurator:v1'];
+const STORAGE_KEY = 'pergola-configurator:v6';
+const LEGACY_STORAGE_KEYS = ['pergola-configurator:v5', 'pergola-configurator:v4', 'pergola-configurator:v3', 'pergola-configurator:v2', 'pergola-configurator:v1'];
 
 export const SCREEN_TYPES = ['screen', 'motorized-screen'];
 export const SENSOR_POSITIONS = [
@@ -100,7 +100,12 @@ export const DEFAULT_STATE = Object.freeze({
   model: 'premium',
   installation: 'freestanding',
   mountedSide: 'back',
-  units: 'metric',
+  locale: 'en-US',
+  units: 'imperial',
+  currency: 'USD',
+  quality: 'balanced',
+  defaultArPlatform: 'android',
+  darkMode: false,
   dimensions: { width: 5000, depth: 3500, height: 2700 },
   roof: {
     orientation: 'width',
@@ -161,6 +166,46 @@ function clampHeight(value, fallback = 50) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.round(Math.min(MAX_MOUNT_HEIGHT, Math.max(MIN_MOUNT_HEIGHT, number)));
+}
+
+function normalizePreferences(state, incoming = {}, options = {}) {
+  const profiles = {
+    'en-US': { units: 'imperial', currency: 'USD' },
+    'ro-RO': { units: 'metric', currency: 'RON' },
+  };
+
+  const incomingLocale = typeof incoming.locale === 'string' && profiles[incoming.locale]
+    ? incoming.locale
+    : null;
+  const currentLocale = typeof state.locale === 'string' && profiles[state.locale]
+    ? state.locale
+    : null;
+  const locale = incomingLocale ?? currentLocale ?? 'en-US';
+  const defaults = profiles[locale];
+
+  state.locale = locale;
+
+  // Previous stored project versions had no language/currency preference and
+  // defaulted to metric units. Migrate those states once during initial load.
+  if (options.migrateLegacy && !incomingLocale) {
+    state.units = defaults.units;
+    state.currency = defaults.currency;
+    return;
+  }
+
+  state.units = ['metric', 'imperial'].includes(state.units)
+    ? state.units
+    : defaults.units;
+  state.currency = ['USD', 'RON'].includes(state.currency)
+    ? state.currency
+    : defaults.currency;
+  state.quality = ['low', 'balanced', 'high'].includes(state.quality)
+    ? state.quality
+    : 'balanced';
+  state.defaultArPlatform = ['android', 'ios'].includes(state.defaultArPlatform)
+    ? state.defaultArPlatform
+    : 'android';
+  state.darkMode = Boolean(state.darkMode);
 }
 
 function normalizeScreenSides(state, incoming = {}) {
@@ -427,6 +472,7 @@ function normalizePoleMountedItems(state) {
 }
 
 function normalizeState(state, incoming = {}, options = {}) {
+  normalizePreferences(state, incoming, options);
   normalizeScreenSides(state, incoming);
   normalizeAutomation(state);
   normalizeAccessories(state, incoming);
@@ -476,7 +522,7 @@ function setAtPath(target, path, value) {
 export class ConfiguratorStore {
   constructor() {
     const incoming = readSharedState() ?? readStoredState() ?? {};
-    this.state = normalizeState(deepMerge(clone(DEFAULT_STATE), incoming), incoming);
+    this.state = normalizeState(deepMerge(clone(DEFAULT_STATE), incoming), incoming, { migrateLegacy: true });
     this.listeners = new Set();
     this.lastError = '';
     this.history = [];

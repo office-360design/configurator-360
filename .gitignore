@@ -79,3 +79,7 @@ runtime/generated/*
 # CAD conversion temporary files
 cad/intermediate/temp_*/
 cad/intermediate/temp_export.scr
+
+# automation of workflow scripts
+run_update.bat
+update_from_latest_zip.ps1
