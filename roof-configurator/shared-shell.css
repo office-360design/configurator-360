@@ -1,0 +1,137 @@
+:root {
+  --shared-topbar-height: 47px;
+  --shared-settings-gap: 20px;
+  --shared-settings-width: 360px;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body.shared-ui-mounted .app-shell {
+  position: fixed;
+  inset: var(--shared-topbar-height) 0 0;
+  display: block;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  background: #eef1f2;
+}
+
+body.shared-ui-mounted .viewer-panel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body.shared-ui-mounted .sidebar {
+  position: absolute;
+  top: var(--shared-settings-gap);
+  right: var(--shared-settings-gap);
+  bottom: var(--shared-settings-gap);
+  left: auto;
+  z-index: 25;
+  width: var(--shared-settings-width);
+  max-height: calc(100% - (var(--shared-settings-gap) * 2));
+  overflow: auto;
+  border: 1px solid rgba(20, 27, 35, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 14px 38px rgba(24, 39, 47, 0.18);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+body.shared-ui-mounted .sidebar.is-collapsed {
+  transform: translateX(calc(100% + var(--shared-settings-gap)));
+}
+
+body.shared-ui-mounted .brand-row {
+  display: none;
+}
+
+#roofSidebarToggle {
+  position: absolute;
+  top: calc(var(--shared-settings-gap) + 14px);
+  right: calc(var(--shared-settings-width) + var(--shared-settings-gap));
+  z-index: 28;
+  display: inline-flex;
+  width: 34px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #dfe4e6;
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  color: #273746;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: -8px 0 22px rgba(24, 39, 47, 0.14);
+  cursor: pointer;
+  transition:
+    right 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+#roofSidebarToggle:hover {
+  color: #005a9f;
+  background: #f4f7f8;
+}
+
+#roofSidebarToggle svg {
+  transform: rotate(180deg);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body.roof-sidebar-collapsed #roofSidebarToggle {
+  right: 0;
+}
+
+body.roof-sidebar-collapsed #roofSidebarToggle svg {
+  transform: rotate(0deg);
+}
+
+body.shared-ui-mounted .panel-section:first-of-type {
+  padding-top: 24px;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --shared-settings-gap: 12px;
+    --shared-settings-width: min(340px, calc(100vw - 56px));
+  }
+
+  body.shared-ui-mounted .sidebar {
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: min(340px, calc(100vw - 56px));
+    max-height: calc(100% - 24px);
+  }
+
+  #roofSidebarToggle {
+    top: 26px;
+    right: min(352px, calc(100vw - 44px));
+  }
+
+  body.roof-sidebar-collapsed #roofSidebarToggle {
+    right: 0;
+  }
+
+  body.shared-ui-mounted .viewer-header {
+    padding-right: 18px;
+  }
+}
