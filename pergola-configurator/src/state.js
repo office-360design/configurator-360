@@ -479,10 +479,43 @@ export class ConfiguratorStore {
     this.state = normalizeState(deepMerge(clone(DEFAULT_STATE), incoming), incoming);
     this.listeners = new Set();
     this.lastError = '';
+    this.history = [];
+    this.historyLimit = 100;
+    this.continuousHistoryPath = null;
+    this.continuousHistoryTimer = null;
   }
 
   get() { return this.state; }
   getLastError() { return this.lastError; }
+  canUndo() { return this.history.length > 0; }
+
+  recordHistory(path = '', meta = {}) {
+    if (meta.skipHistory) return;
+
+    if (meta.continuous && path && this.continuousHistoryPath === path) {
+      window.clearTimeout(this.continuousHistoryTimer);
+      this.continuousHistoryTimer = window.setTimeout(() => {
+        this.continuousHistoryPath = null;
+        this.continuousHistoryTimer = null;
+      }, 450);
+      return;
+    }
+
+    this.history.push(clone(this.state));
+    if (this.history.length > this.historyLimit) this.history.shift();
+
+    window.clearTimeout(this.continuousHistoryTimer);
+    if (meta.continuous && path) {
+      this.continuousHistoryPath = path;
+      this.continuousHistoryTimer = window.setTimeout(() => {
+        this.continuousHistoryPath = null;
+        this.continuousHistoryTimer = null;
+      }, 450);
+    } else {
+      this.continuousHistoryPath = null;
+      this.continuousHistoryTimer = null;
+    }
+  }
 
   subscribe(listener) {
     this.listeners.add(listener);
@@ -574,12 +607,14 @@ export class ConfiguratorStore {
       }
     }
 
+    this.recordHistory(path, meta);
     this.state = candidate;
     this.notify({ path, ...meta });
     return true;
   }
 
   patch(partial, meta = {}) {
+    this.recordHistory(meta.path ?? 'patch', meta);
     this.state = normalizeState(deepMerge(this.state, partial), partial);
     this.notify(meta);
   }
@@ -595,9 +630,21 @@ export class ConfiguratorStore {
   }
 
   reset() {
+    this.recordHistory('reset');
     this.state = clone(DEFAULT_STATE);
     window.history.replaceState({}, '', window.location.pathname);
     this.notify({ reset: true });
+  }
+
+  undo() {
+    const previous = this.history.pop();
+    if (!previous) return false;
+    window.clearTimeout(this.continuousHistoryTimer);
+    this.continuousHistoryPath = null;
+    this.continuousHistoryTimer = null;
+    this.state = previous;
+    this.notify({ undo: true, skipHistory: true });
+    return true;
   }
 
   getShareUrl() {
