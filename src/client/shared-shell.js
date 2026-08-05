@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from './shared-ui/src/index.js';
+import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=2';
 
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Window',
@@ -16,6 +16,11 @@ const shell = mountStandaloneConfiguratorShell({
     onViewAR() {
       document.querySelector('#qr-ar-button')?.click();
     },
+    onPreferenceChange(path, value) {
+      if (path === 'defaultArPlatform') {
+        document.querySelector(`.ar-platform-option[data-platform="${value}"]`)?.click();
+      }
+    },
     getShareUrl() {
       return window.location.href;
     },
@@ -30,6 +35,13 @@ if (controls) {
   controls.addEventListener('click', markDirty, true);
   controls.addEventListener('input', markDirty, true);
   controls.addEventListener('change', markDirty, true);
+}
+
+const preferredPlatform = shell.state?.defaultArPlatform;
+if (preferredPlatform) {
+  window.setTimeout(() => {
+    document.querySelector(`.ar-platform-option[data-platform="${preferredPlatform}"]`)?.click();
+  }, 0);
 }
 
 window.WINDOW_CONFIGURATOR_SHARED_SHELL = shell;

@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/index.js';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=2';
 
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Roof',

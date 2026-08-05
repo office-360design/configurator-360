@@ -29,6 +29,7 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
   const canReset = capabilities.reset !== false;
   const canShare = capabilities.share !== false;
   const language = getLanguageProfile(state.locale);
+  const enabled = { viewAR: true, save: true, undo: true, reset: true, share: true, ...capabilities };
   return `
     <header class="site-header">
       <a class="brand" href="#" aria-label="Configurator home">

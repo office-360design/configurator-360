@@ -1,12 +1,15 @@
 import { LANGUAGE_PROFILES, getLanguageProfile } from './config.js';
 import { renderActionFeedback } from './components/feedback.js';
 import { renderTopBar } from './components/topBar.js';
+import { renderToolsMenu } from './components/toolsMenu.js';
 
 const MAX_PROJECT_NUMBER = 1000;
 
 function safeJsonParse(value, fallback) {
+  if (value === null || value === undefined || value === '') return fallback;
   try {
-    return JSON.parse(value);
+    const parsed = JSON.parse(value);
+    return parsed === null || parsed === undefined ? fallback : parsed;
   } catch {
     return fallback;
   }
@@ -46,13 +49,14 @@ export class StandaloneConfiguratorShell {
       ...preferences,
     };
 
-    const meta = safeJsonParse(window.localStorage.getItem(this.projectMetaKey), {});
+    const meta = safeJsonParse(window.localStorage.getItem(this.projectMetaKey), {}) || {};
     this.projectName = meta.name || this.getNextDefaultProjectName();
     this.lastSavedProjectName = meta.savedName || '';
     this.dirty = meta.dirty ?? true;
     this.accountOpen = false;
     this.accountSettingsOpen = false;
     this.languageOpen = false;
+    this.toolsOpen = false;
     this.feedbackTimer = 0;
 
     this.host = document.createElement('div');
@@ -84,6 +88,7 @@ export class StandaloneConfiguratorShell {
         capabilities: this.options.capabilities,
       })}
       ${renderActionFeedback()}
+      ${renderToolsMenu(this.toolsOpen, { items: [] })}
     `;
 
     this.projectInput = this.host.querySelector('[data-project-name]');
@@ -147,6 +152,9 @@ export class StandaloneConfiguratorShell {
       if (this.languageOpen) {
         window.setTimeout(() => this.host.querySelector('[data-language-search]')?.focus(), 0);
       }
+    } else if (action === 'toggle-tools') {
+      this.toolsOpen = !this.toolsOpen;
+      this.syncTools();
     } else if (action === 'toggle-account-settings') {
       this.accountSettingsOpen = !this.accountSettingsOpen;
       this.syncAccountSettings();
@@ -295,6 +303,9 @@ export class StandaloneConfiguratorShell {
     this.syncMenus();
     this.syncAccountSettings();
     this.syncLanguage();
+    this.syncTools();
+    document.body.classList.toggle('shared-ui-dark-mode', Boolean(this.state.darkMode));
+    document.querySelector('.app-shell')?.classList.toggle('is-dark-mode', Boolean(this.state.darkMode));
   }
 
   syncDirty() {
@@ -333,6 +344,17 @@ export class StandaloneConfiguratorShell {
     if (label) label.textContent = this.state.darkMode ? 'On' : 'Off';
   }
 
+
+  syncTools() {
+    const toolbar = this.host.querySelector('.tools-toolbar');
+    const panel = this.host.querySelector('.tools-toolbar__panel');
+    const launcher = this.host.querySelector('[data-action="toggle-tools"]');
+    toolbar?.classList.toggle('is-open', this.toolsOpen);
+    panel?.classList.toggle('is-open', this.toolsOpen);
+    launcher?.classList.toggle('is-active', this.toolsOpen);
+    launcher?.setAttribute('aria-expanded', String(this.toolsOpen));
+  }
+
   syncLanguage() {
     const profile = getLanguageProfile(this.state.locale);
     const button = this.host.querySelector('[data-action="language"]');
@@ -355,7 +377,8 @@ export class StandaloneConfiguratorShell {
     document.removeEventListener('click', this.onDocumentClick);
     document.removeEventListener('keydown', this.onKeyDown);
     this.host.remove();
-    document.body.classList.remove('shared-ui-mounted');
+    document.body.classList.remove('shared-ui-mounted', 'shared-ui-dark-mode');
+    document.querySelector('.app-shell')?.classList.remove('is-dark-mode');
   }
 }
 
