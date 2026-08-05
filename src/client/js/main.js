@@ -14,6 +14,7 @@ import { initializeUIControls } from './ui-controls.js';
 import { createWindowBuilder } from './window-builder.js';
 import { createMaterialManager } from './materials.js';
 import { createARController } from './ar-controller.js';
+import { createCadReferenceController } from './cad-reference.js';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -92,11 +93,6 @@ const glassThicknessInput = document.getElementById('glassThickness');
 const glassThicknessLabel = document.getElementById('valGlassThickness');
 const cadReferenceButton = document.getElementById('cad-reference-button');
 const cadReferenceModal = document.getElementById('cad-reference-modal');
-const cadReferenceStatus = document.getElementById('cad-reference-status');
-const cadReferenceContent = document.getElementById('cad-reference-content');
-const cadReferenceMainImage = document.getElementById('cad-reference-main-image');
-const cadReferenceThumbnails = document.getElementById('cad-reference-thumbnails');
-const cadReferenceSubtitle = document.getElementById('cad-reference-subtitle');
 
 if (Number.isFinite(requestedWidth)) {
     widthInput.value = String(
@@ -214,6 +210,19 @@ const {
 
 // LOAD PROFILE SVG FILES AND METADATA
 const { getProfileDefinition } = createProfileLoader();
+
+const cadReferenceController = createCadReferenceController({
+    captureMode,
+    isARMode,
+    profileInput,
+    button: cadReferenceButton,
+    modal: cadReferenceModal,
+    status: document.getElementById('cad-reference-status'),
+    content: document.getElementById('cad-reference-content'),
+    mainImage: document.getElementById('cad-reference-main-image'),
+    thumbnails: document.getElementById('cad-reference-thumbnails'),
+    subtitle: document.getElementById('cad-reference-subtitle'),
+});
 
 function isGlazingBeadProfile(profile) {
     const name = String(profile.blockName || '');
@@ -704,148 +713,6 @@ function renderGroupFilters() {
     });
 }
 
-const cadReferenceCache = new Map();
-let currentCadReferenceImages = [];
-
-function readableScreenshotName(filename) {
-    return filename
-        .replace(/\.[^.]+$/, '')
-        .replace(/[-_]+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-async function fetchCadReferenceImages(profileName) {
-    if (cadReferenceCache.has(profileName)) {
-        return cadReferenceCache.get(profileName);
-    }
-
-    try {
-        const response = await fetch(
-            `/api/cad-screenshots?profile=${encodeURIComponent(profileName)}`,
-            { cache: 'no-store' }
-        );
-
-        if (response.ok) {
-            const payload = await response.json();
-            const images = Array.isArray(payload.images) ? payload.images : [];
-            cadReferenceCache.set(profileName, images);
-            return images;
-        }
-    } catch (err) {
-        console.warn('API call failed, trying static images.json fallback:', err);
-    }
-
-    try {
-        const staticResponse = await fetch(
-            `cad_screenshots/${encodeURIComponent(profileName)}/images.json`
-        );
-        if (staticResponse.ok) {
-            const images = await staticResponse.json();
-            cadReferenceCache.set(profileName, images);
-            return images;
-        }
-    } catch (err) {
-        console.error('Static images.json fallback failed:', err);
-    }
-
-    return [];
-}
-
-function selectCadReferenceImage(image, button) {
-    cadReferenceMainImage.src = image.url;
-    cadReferenceMainImage.alt = `CAD section reference: ${readableScreenshotName(image.filename)}`;
-
-    cadReferenceThumbnails
-        .querySelectorAll('.cad-reference-thumb')
-        .forEach(item => item.classList.remove('active'));
-
-    button?.classList.add('active');
-}
-
-function renderCadReferenceGallery(images) {
-    cadReferenceThumbnails.innerHTML = '';
-
-    images.forEach((image, index) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'cad-reference-thumb';
-
-        const thumbnail = document.createElement('img');
-        thumbnail.src = image.url;
-        thumbnail.alt = '';
-
-        const label = document.createElement('span');
-        label.textContent = readableScreenshotName(image.filename);
-
-        button.append(thumbnail, label);
-        button.addEventListener('click', () => {
-            selectCadReferenceImage(image, button);
-        });
-
-        cadReferenceThumbnails.appendChild(button);
-
-        if (index === 0) {
-            selectCadReferenceImage(image, button);
-        }
-    });
-}
-
-async function refreshCadReferenceAvailability() {
-    if (captureMode || isARMode) return;
-
-    const profileName = profileInput.value;
-    cadReferenceButton.disabled = true;
-    cadReferenceButton.title = 'Checking CAD references…';
-
-    try {
-        const images = await fetchCadReferenceImages(profileName);
-        currentCadReferenceImages = images;
-        cadReferenceButton.disabled = images.length === 0;
-        cadReferenceButton.title = images.length
-            ? `CAD Section Reference (${images.length})`
-            : 'No CAD references';
-    } catch (error) {
-        currentCadReferenceImages = [];
-        cadReferenceButton.disabled = true;
-        cadReferenceButton.title = 'CAD references unavailable';
-        console.warn('Could not load CAD reference screenshots:', error);
-    }
-}
-
-async function openCadReferenceModal() {
-    const profileName = profileInput.value;
-    cadReferenceModal.classList.add('open');
-    if (cadReferenceSubtitle) {
-        cadReferenceSubtitle.textContent = profileName;
-    }
-    cadReferenceStatus.style.display = 'block';
-    cadReferenceStatus.textContent = 'Loading reference screenshots…';
-    cadReferenceContent.style.display = 'none';
-
-    try {
-        const images = await fetchCadReferenceImages(profileName);
-        currentCadReferenceImages = images;
-
-        if (!images.length) {
-            cadReferenceStatus.textContent =
-                'No screenshots were found for this CAD profile.';
-            return;
-        }
-
-        renderCadReferenceGallery(images);
-        cadReferenceStatus.style.display = 'none';
-        cadReferenceContent.style.display = 'grid';
-    } catch (error) {
-        cadReferenceStatus.textContent =
-            `Reference screenshots could not be loaded: ${error.message}`;
-    }
-}
-
-function closeCadReferenceModal() {
-    cadReferenceModal.classList.remove('open');
-}
-
 async function forceSceneRender() {
     renderer.compile(scene, camera);
     renderer.render(scene, camera);
@@ -937,7 +804,7 @@ async function loadProfiles(profileFolder) {
         await forceSceneRender();
         loadSucceeded = true;
         window.CONFIGURATOR_READY = true;
-        await refreshCadReferenceAvailability();
+        await cadReferenceController.refreshAvailability();
     } catch (e) {
         window.CONFIGURATOR_READY = false;
         currentMetadata = null;
@@ -1056,8 +923,8 @@ initializeUIControls({
     updateGlazingBeadToggleLabels,
     updateGasketToggleLabels,
     updateComponentPictures,
-    openCadReferenceModal,
-    closeCadReferenceModal,
+    openCadReferenceModal: cadReferenceController.openModal,
+    closeCadReferenceModal: cadReferenceController.closeModal,
     setSelectedARPlatform: arController.setSelectedARPlatform,
     openQRModal: arController.openQRModal,
     closeQRModal: arController.closeQRModal,
