@@ -1317,10 +1317,25 @@ body.capture-mode #component-selection-popup,
 }
 
 @media (max-width: 760px) {
+
     #component-selection-popup,
     body.sidebar-is-collapsed #component-selection-popup {
         left: 12px;
         bottom: 12px;
         width: min(280px, calc(100vw - 24px));
     }
+}
+
+/* Prevent text selection inside the left sidebar */
+#controls {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Keep editable fields selectable */
+#controls input[type="text"],
+#controls input[type="number"],
+#controls textarea {
+    user-select: text;
+    -webkit-user-select: text;
 }
