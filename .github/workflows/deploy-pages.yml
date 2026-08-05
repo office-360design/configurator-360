@@ -46,11 +46,14 @@ jobs:
       - name: Build pergola configurator
         run: npm run build --prefix pergola-configurator
 
-      # Combine both sites into one Pages artifact
-      - name: Add pergola configurator to Pages output
+      # Add the other configurators to the Pages artifact
+      - name: Add configurators to Pages output
         run: |
           mkdir -p dist/site/pergola-configurator
           cp -R pergola-configurator/dist/. dist/site/pergola-configurator/
+
+          mkdir -p dist/site/roof-configurator
+          cp -R roof-configurator/. dist/site/roof-configurator/
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
