@@ -6,3 +6,5 @@ export * from './components/languageMenu.js';
 export * from './components/topBar.js';
 export * from './components/toolsMenu.js';
 export * from './components/feedback.js';
+
+export * from './standaloneShell.js';

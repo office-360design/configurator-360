@@ -6,8 +6,8 @@
   --ink: #17202a;
   --muted: #697480;
   --line: #dce1e5;
-  --accent: #e04444;
-  --accent-soft: #fff0f0;
+  --accent: #0878c9;
+  --accent-soft: #e9f5fd;
   --shadow: 0 24px 70px rgba(20, 27, 35, 0.12);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -110,7 +110,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer;
   outline: none;
 }
 .number-input { padding: 0 9px; text-align: right; font-variant-numeric: tabular-nums; }
-.number-input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(224,68,68,.1); }
+.number-input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(8,120,201,.1); }
 .select-label, .color-heading { display: block; font-size: 11px; color: var(--muted); margin-bottom: 7px; }
 select { padding: 0 11px; }
 .rule-note { min-height: 30px; margin: 8px 0 16px; font-size: 10px; line-height: 1.45; color: var(--muted); }
@@ -177,7 +177,7 @@ select { padding: 0 11px; }
 
 .estimate-button {
   min-height: 42px;
-  border: 1px solid rgba(224, 68, 68, .24);
+  border: 1px solid rgba(8, 120, 201, .24);
   border-radius: 11px;
   padding: 7px 12px;
   background: var(--accent-soft);
@@ -192,7 +192,7 @@ select { padding: 0 11px; }
 .estimate-button:hover {
   transform: translateY(-1px);
   border-color: var(--accent);
-  box-shadow: 0 7px 18px rgba(224, 68, 68, .12);
+  box-shadow: 0 7px 18px rgba(8, 120, 201, .12);
 }
 
 .estimate-button span {
@@ -310,7 +310,7 @@ select { padding: 0 11px; }
 
 .bom-summary .bom-total-card {
   background: var(--accent-soft);
-  border-color: rgba(224, 68, 68, .25);
+  border-color: rgba(8, 120, 201, .25);
 }
 
 .bom-summary .bom-total-card strong { color: var(--accent); }
@@ -500,7 +500,7 @@ select { padding: 0 11px; }
 .custom-plan-file {
   min-height: 62px;
   padding: 10px 10px 10px 12px;
-  border: 1px solid rgba(224, 68, 68, .22);
+  border: 1px solid rgba(8, 120, 201, .22);
   border-radius: 11px;
   background: #fff;
   display: grid;
