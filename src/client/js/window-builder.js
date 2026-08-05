@@ -256,6 +256,8 @@ export function createWindowBuilder({
     const pivotOscilo = new THREE.Group();
     const pivotBatant = new THREE.Group();
     let handleLeverGroup = new THREE.Group();
+    let lastBuiltHandleSide = null;
+    let handleHoldUntil = 0;
     placementRoot.add(mainGroup);
     placementRoot.visible = !isARMode;
     scene.add(placementRoot);
@@ -1050,14 +1052,29 @@ export function createWindowBuilder({
         handleBase.add(plate);
 
         // --- rotation group for the moving handle part ---
-        const isLeftHandle = (getSelectedHandleSide() === 'left');
+        const currentHandleSide = getSelectedHandleSide();
+        const isLeftHandle = currentHandleSide === 'left';
+
         const defaultRot = document.getElementById('mBatant').checked
             ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
             : (isLeftHandle ? Math.PI : -Math.PI);
-        const previousRotationZ = handleLeverGroup ? handleLeverGroup.rotation.z : defaultRot;
+
+        const handleSideChanged =
+            lastBuiltHandleSide !== null &&
+            lastBuiltHandleSide !== currentHandleSide;
+
+        if (handleSideChanged) {
+            handleHoldUntil = performance.now() + 50;
+        }
+
+        const previousRotationZ = handleSideChanged
+            ? 0 // Start facing downward after switching sides
+            : (handleLeverGroup ? handleLeverGroup.rotation.z : defaultRot);
 
         handleLeverGroup = new THREE.Group();
         handleLeverGroup.rotation.z = previousRotationZ;
+
+        lastBuiltHandleSide = currentHandleSide;
 
         // --- cylinder neck between plate and lever ---
         const neckShape = new THREE.Shape();
@@ -1238,11 +1255,13 @@ export function createWindowBuilder({
         const targetRotationZ = isBatant
             ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
             : (isLeftHandle ? Math.PI : -Math.PI);
-        if (handleLeverGroup) {
+        if (performance.now() < handleHoldUntil) {
+            handleLeverGroup.rotation.z = 0;
+        } else {
             handleLeverGroup.rotation.z = THREE.MathUtils.lerp(
                 handleLeverGroup.rotation.z,
                 targetRotationZ,
-                0.15
+                0.10
             );
         }
 

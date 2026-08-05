@@ -5,6 +5,29 @@ import { simplifyProfileShape } from './geometry-utils.js';
 const GLAZING_BEAD_CODES = ['573930', '573920'];
 const GASKET_CODES = ['224379', '224350'];
 
+function getFilledSvgShapes(data) {
+    const shapes = [];
+
+    for (const path of data.paths || []) {
+        const style = path.userData?.style || {};
+        const fill = String(style.fill ?? '#000').trim().toLowerCase();
+        const fillOpacity = Number(style.fillOpacity ?? 1);
+
+        // Ignore SVG linework and invisible paths.
+        if (
+            fill === 'none'
+            || fill === 'transparent'
+            || (Number.isFinite(fillOpacity) && fillOpacity <= 0)
+        ) {
+            continue;
+        }
+
+        shapes.push(...SVGLoader.createShapes(path));
+    }
+
+    return shapes;
+}
+
 export function createProfileLoader() {
     const svgLoader = new SVGLoader();
     const profileCache = new Map();
@@ -80,11 +103,10 @@ export function createProfileLoader() {
     async function loadProfilePart(profileFolder, metadata, part) {
         const url = `svg/${profileFolder}/${part.relativeUrl || part.filename}`;
         const data = await loadSvg(url);
-        const path = data.paths[0];
-        const shapes = SVGLoader.createShapes(path);
+        const shapes = getFilledSvgShapes(data);
 
         if (!shapes.length) {
-            throw new Error(`No closed profile shape could be created from ${url}.`);
+            throw new Error(`No filled profile shape could be created from ${url}.`);
         }
 
         const layer = part.layer.toLowerCase();
@@ -130,7 +152,23 @@ export function createProfileLoader() {
             materialKey = 'alu';
         }
 
-        const optimizedShape = simplifyProfileShape(shapes[0], materialKey);
+        const optimizedShapes = shapes.map(shape =>
+            simplifyProfileShape(shape, materialKey)
+        );
+
+        const optimizedShape = optimizedShapes.length === 1
+            ? optimizedShapes[0]
+            : optimizedShapes;
+
+        const sourceContourPoints = optimizedShapes.reduce(
+            (sum, shape) => sum + (shape.userData?.sourcePointCount || 0),
+            0
+        );
+
+        const optimizedContourPoints = optimizedShapes.reduce(
+            (sum, shape) => sum + (shape.userData?.optimizedPointCount || 0),
+            0
+        );
 
         let baseExplode = 0.12;
         if (part.role === 'sash') {
@@ -209,8 +247,8 @@ export function createProfileLoader() {
             beadShapes,
             isGasketTemplate,
             gasketShapes,
-            sourceContourPoints: optimizedShape.userData?.sourcePointCount || 0,
-            optimizedContourPoints: optimizedShape.userData?.optimizedPointCount || 0,
+            sourceContourPoints,
+            optimizedContourPoints,
             baseCadColor,
             materialKey,
             aluminiumSide,
