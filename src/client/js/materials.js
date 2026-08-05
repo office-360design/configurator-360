@@ -36,7 +36,7 @@ export function createMaterialManager({
     }
 
     const normalizedRequestedColour = normalizeRequestedColour(requestedColour);
-    let aluminiumFinishMode = pageParams.get('finish_mode') === 'same' ? 'same' : 'different';
+    let aluminiumFinishMode = pageParams.get('finish_mode') === 'different' ? 'different' : 'same';
     let outsideFinishSelection = normalizedRequestedColour
         ? createRalFinishSelectionFromColour(normalizedRequestedColour)
         : createFinishSelection('mill', 'natural');
@@ -46,7 +46,7 @@ export function createMaterialManager({
     insideFinishSelection = createFinishSelectionFromParams('inside', insideFinishSelection);
 
     let configurationColour = outsideFinishSelection.color;
-    let debugColoursEnabled = pageParams.get('debug_colors') === '1';
+    let debugColoursEnabled = pageParams.get('debug_colors') !== '0';
 
     function createSurfaceMaterial(options) {
         const materialOptions = {
