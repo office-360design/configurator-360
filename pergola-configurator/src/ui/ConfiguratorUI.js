@@ -33,6 +33,92 @@ import {
 } from '../state.js';
 
 const CAMERA_PRESETS = ['perspective', 'front', 'left', 'right', 'top'];
+const PROJECT_META_KEY = 'pergola-configurator:project-meta';
+const PROJECT_COUNTER_KEY = 'pergola-configurator:next-project-number';
+const SAVED_PROJECTS_KEY = 'pergola-configurator:saved-projects';
+const MAX_PROJECT_NUMBER = 1000;
+
+function topBarIcon(type) {
+  const icons = {
+    cloud: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7.4 18.2H6.2a4.2 4.2 0 0 1-.5-8.37A6.4 6.4 0 0 1 18 8.5a4.85 4.85 0 0 1-.2 9.7h-1.2" />
+        <path d="M12 11.4v8" />
+        <path d="m8.9 14.5 3.1-3.1 3.1 3.1" />
+      </svg>`,
+    success: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m8.3 12.2 2.35 2.35 5.2-5.35" />
+      </svg>`,
+    failure: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.7v5.5" />
+        <path d="M12 16.6h.01" />
+      </svg>`,
+    undo: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m9 8-4 4 4 4" />
+        <path d="M5 12h7.2a6.3 6.3 0 0 1 6.3 6.3" />
+      </svg>`,
+    reset: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20 7v5h-5" />
+        <path d="M4 17v-5h5" />
+        <path d="M6.1 8.2A7.5 7.5 0 0 1 19.3 12" />
+        <path d="M17.9 15.8A7.5 7.5 0 0 1 4.7 12" />
+      </svg>`,
+    account: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="8" r="3.2" />
+        <path d="M5.7 19a6.3 6.3 0 0 1 12.6 0" />
+        <circle cx="12" cy="12" r="9" />
+      </svg>`,
+    share: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="18" cy="5" r="2.2" />
+        <circle cx="6" cy="12" r="2.2" />
+        <circle cx="18" cy="19" r="2.2" />
+        <path d="m8 11 7.9-4.7" />
+        <path d="m8 13 7.9 4.7" />
+      </svg>`,
+    ar: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+        <path d="m4.4 7.7 7.6 4.2 7.6-4.2" />
+        <path d="M12 12v9" />
+      </svg>`,
+    folder: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3.5 6.5h6l2 2H20.5v9.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V6.5Z" />
+      </svg>`,
+    settings: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19 12a7.2 7.2 0 0 0-.1-1l2-1.5-2-3.4-2.5 1a7.4 7.4 0 0 0-1.8-1L14.2 3h-4.4l-.4 3.1a7.4 7.4 0 0 0-1.8 1l-2.5-1-2 3.4 2 1.5a7.2 7.2 0 0 0 0 2l-2 1.5 2 3.4 2.5-1a7.4 7.4 0 0 0 1.8 1l.4 3.1h4.4l.4-3.1a7.4 7.4 0 0 0 1.8-1l2.5 1 2-3.4-2-1.5a7.2 7.2 0 0 0 .1-1Z" />
+      </svg>`,
+  };
+  return icons[type] ?? '';
+}
+
+function savePreviewButton() {
+  return `
+    <button class="topbar-icon-button save-preview-button" type="button" data-action="save-success-demo" data-tooltip="Save" aria-label="Save">
+      <span class="save-icon save-icon--cloud">${topBarIcon('cloud')}</span>
+      <span class="save-icon save-icon--success">${topBarIcon('success')}</span>
+    </button>
+  `;
+}
+
+function sharePreviewButton() {
+  return `
+    <button class="topbar-icon-button share-preview-button" type="button" data-action="share" data-tooltip="Share" aria-label="Share">
+      <span class="share-icon share-icon--default">${topBarIcon('share')}</span>
+      <span class="share-icon share-icon--success">${topBarIcon('success')}</span>
+    </button>
+  `;
+}
 
 function escapeHtml(value = '') {
   return String(value)
@@ -118,6 +204,16 @@ export class ConfiguratorUI {
     this.sidebarHidden = false;
     this.expandedStep = null;
     this.toastTimer = null;
+    this.saveFeedbackTimer = null;
+    this.accountMenuOpen = false;
+    this.accountSettingsOpen = false;
+    this.languageMenuOpen = false;
+
+    const projectMeta = this.readProjectMeta();
+    this.projectName = projectMeta.name || this.getNextDefaultProjectName();
+    this.lastSavedProjectName = projectMeta.savedName || '';
+    this.lastSavedState = projectMeta.savedState || '';
+    this.projectDirty = this.computeProjectDirty();
 
     this.root.innerHTML = this.shellTemplate();
     this.stepContent = this.root.querySelector('[data-step-content]');
@@ -128,17 +224,156 @@ export class ConfiguratorUI {
     this.environmentPanel = this.root.querySelector('[data-environment-panel]');
     this.toast = this.root.querySelector('[data-toast]');
     this.modalRoot = this.root.querySelector('[data-modal-root]');
+    this.projectNameInput = this.root.querySelector('[data-project-name]');
+    this.projectNameMeasure = this.root.querySelector('[data-project-name-measure]');
+    this.projectDirtyIndicator = this.root.querySelector('[data-project-dirty]');
+    this.saveFeedback = this.root.querySelector('[data-save-feedback]');
+    this.saveFeedbackText = this.root.querySelector('[data-save-feedback-text]');
+    this.accountMenu = this.root.querySelector('[data-account-menu]');
+    this.languageMenu = this.root.querySelector('[data-language-menu]');
+    this.languageSearch = this.root.querySelector('[data-language-search]');
+
+    this.handleDocumentClickBound = (event) => this.handleDocumentClick(event);
+    document.addEventListener('click', this.handleDocumentClickBound);
 
     this.root.addEventListener('click', (event) => this.handleClick(event));
     this.root.addEventListener('change', (event) => this.handleChange(event));
     this.root.addEventListener('input', (event) => this.handleInput(event));
     this.root.addEventListener('submit', (event) => this.handleSubmit(event));
+    this.root.addEventListener('keydown', (event) => this.handleKeyDown(event));
 
     this.unsubscribe = this.store.subscribe((state, meta) => this.onStateChange(state, meta));
   }
 
   attachScene(scene) {
     this.scene = scene;
+  }
+
+  readProjectMeta() {
+    try {
+      return JSON.parse(window.localStorage.getItem(PROJECT_META_KEY) || '{}');
+    } catch {
+      return {};
+    }
+  }
+
+  getNextDefaultProjectName() {
+    const stored = Number(window.localStorage.getItem(PROJECT_COUNTER_KEY));
+    const number = Number.isFinite(stored) && stored >= 1
+      ? Math.min(MAX_PROJECT_NUMBER, Math.floor(stored))
+      : 1;
+    return `Pergola#${number}`;
+  }
+
+  serializeCurrentState() {
+    return JSON.stringify(this.state);
+  }
+
+  computeProjectDirty() {
+    return this.projectName !== this.lastSavedProjectName
+      || this.serializeCurrentState() !== this.lastSavedState;
+  }
+
+  persistProjectMeta() {
+    try {
+      window.localStorage.setItem(PROJECT_META_KEY, JSON.stringify({
+        name: this.projectName,
+        savedName: this.lastSavedProjectName,
+        savedState: this.lastSavedState,
+      }));
+    } catch {
+      // Project metadata persistence is a non-critical local preview feature.
+    }
+  }
+
+  reserveNextDefaultName() {
+    const match = /^Pergola#(\d{1,4})$/i.exec(this.projectName.trim());
+    if (!match) return;
+    const current = Math.min(MAX_PROJECT_NUMBER, Number(match[1]));
+    const stored = Number(window.localStorage.getItem(PROJECT_COUNTER_KEY)) || 1;
+    const next = Math.min(MAX_PROJECT_NUMBER, Math.max(stored, current + 1));
+    try {
+      window.localStorage.setItem(PROJECT_COUNTER_KEY, String(next));
+    } catch {
+      // Ignore local preview storage failures.
+    }
+  }
+
+  saveProjectLocallyForPreview() {
+    this.lastSavedProjectName = this.projectName;
+    this.lastSavedState = this.serializeCurrentState();
+    this.projectDirty = false;
+    this.reserveNextDefaultName();
+
+    try {
+      const savedProjects = JSON.parse(window.localStorage.getItem(SAVED_PROJECTS_KEY) || '{}');
+      savedProjects[this.projectName] = {
+        name: this.projectName,
+        savedAt: new Date().toISOString(),
+        configuration: this.state,
+      };
+      window.localStorage.setItem(SAVED_PROJECTS_KEY, JSON.stringify(savedProjects));
+    } catch {
+      // The visual success button intentionally remains a deterministic demo.
+    }
+
+    this.persistProjectMeta();
+    this.syncTopBar();
+  }
+
+  runSavePreview(button) {
+    button.classList.remove('is-success');
+    void button.offsetWidth;
+    button.classList.add('is-success');
+    this.saveProjectLocallyForPreview();
+    this.showActionFeedback('Saved');
+
+    window.setTimeout(() => {
+      button.classList.remove('is-success');
+    }, 1050);
+  }
+
+  runSharePreview(button) {
+    button.classList.remove('is-success');
+    void button.offsetWidth;
+    button.classList.add('is-success');
+    this.showActionFeedback('Link copied!');
+    window.setTimeout(() => button.classList.remove('is-success'), 1050);
+  }
+
+  showActionFeedback(message) {
+    if (!this.saveFeedback) return;
+    window.clearTimeout(this.saveFeedbackTimer);
+    this.saveFeedback.classList.remove('is-success', 'is-failure', 'is-animating');
+    void this.saveFeedback.offsetWidth;
+    this.saveFeedback.classList.add('is-success', 'is-animating');
+    if (this.saveFeedbackText) this.saveFeedbackText.textContent = message;
+    this.saveFeedbackTimer = window.setTimeout(() => {
+      this.saveFeedback.classList.remove('is-animating');
+    }, 1050);
+  }
+
+  syncTopBar() {
+    if (this.projectNameInput && document.activeElement !== this.projectNameInput) {
+      this.projectNameInput.value = this.projectName;
+    }
+    this.projectDirtyIndicator?.classList.toggle('is-hidden', !this.projectDirty);
+    this.syncProjectNameWidth();
+    const undoButton = this.root.querySelector('[data-action="undo"]');
+    if (undoButton) {
+      undoButton.disabled = !this.store.canUndo?.();
+      undoButton.setAttribute('aria-disabled', String(undoButton.disabled));
+    }
+  }
+
+  syncProjectNameWidth() {
+    if (!this.projectNameInput || !this.projectNameMeasure) return;
+    const displayValue = this.projectName || ' ';
+    this.projectNameMeasure.textContent = displayValue;
+    const measuredWidth = Math.ceil(this.projectNameMeasure.getBoundingClientRect().width);
+    const minWidth = 96;
+    const maxWidth = Math.min(520, Math.max(180, window.innerWidth * 0.44));
+    this.projectNameInput.style.width = `${Math.min(maxWidth, Math.max(minWidth, measuredWidth + 20))}px`;
   }
 
   shellTemplate() {
@@ -148,11 +383,63 @@ export class ConfiguratorUI {
           <a class="brand" href="#" aria-label="Pergola configurator home">
             <img src="./assets/360CONFIGURATOR.png" alt="360 Configurator" />
           </a>
-          <div class="site-header__actions">
-            <button class="text-button" type="button" data-action="share">Share</button>
-            <button class="text-button" type="button" data-action="reset">Reset</button>
-            <button class="login-button" type="button" data-action="login">Login</button>
+
+          <div class="project-name-shell">
+            <span class="project-name-measure" data-project-name-measure aria-hidden="true">${escapeHtml(this.projectName)}</span>
+            <input
+              class="project-name-input"
+              type="text"
+              value="${escapeHtml(this.projectName)}"
+              maxlength="80"
+              data-project-name
+              aria-label="Project name"
+              spellcheck="false"
+            />
+            <span class="project-dirty-indicator" data-project-dirty aria-label="Unsaved changes">*</span>
           </div>
+
+          <div class="site-header__actions">
+            ${savePreviewButton()}
+            <button class="topbar-icon-button" type="button" data-action="undo" data-tooltip="Undo" aria-label="Undo">
+              ${topBarIcon('undo')}
+            </button>
+            <button class="topbar-icon-button" type="button" data-action="reset" data-tooltip="Reset" aria-label="Reset">
+              ${topBarIcon('reset')}
+            </button>
+            ${sharePreviewButton()}
+            <button class="topbar-icon-button" type="button" data-action="account" data-tooltip="Account" aria-label="Account" aria-expanded="false">
+              ${topBarIcon('account')}
+            </button>
+            <button class="topbar-icon-button language-button" type="button" data-action="language" data-tooltip="English (US)" aria-label="English (US)" aria-expanded="false">
+              <span class="language-flag" aria-hidden="true">🇺🇸</span>
+            </button>
+          </div>
+
+          <section class="account-menu" data-account-menu aria-label="Account menu">
+            <div class="account-menu__profile">
+              <span class="account-menu__avatar">${topBarIcon('account')}</span>
+              <strong>Hello, User#0</strong>
+            </div>
+            <nav class="account-menu__items">
+              <button type="button" data-action="account-view-ar"><span>${topBarIcon('ar')}</span><strong>View in AR</strong></button>
+              <button type="button" data-action="account-saved"><span>${topBarIcon('folder')}</span><strong>Saved configurations</strong></button>
+              <button type="button" data-action="toggle-account-settings" aria-expanded="false"><span>${topBarIcon('settings')}</span><strong>Settings</strong><span class="account-menu__chevron">›</span></button>
+              <div class="account-settings" data-account-settings>
+                <button type="button" data-action="darkmode-preview"><span>Dark mode</span><strong>Off</strong></button>
+              </div>
+            </nav>
+          </section>
+
+          <section class="language-menu" data-language-menu aria-label="Language menu">
+            <div class="language-menu__current"><span aria-hidden="true">🇺🇸</span><strong>English (US)</strong></div>
+            <label class="language-search">
+              <span aria-hidden="true">⌕</span>
+              <input type="search" placeholder="Search languages" data-language-search aria-label="Search languages" />
+            </label>
+            <div class="language-list" data-language-list>
+              <button type="button" data-action="select-language" data-language-name="română"><span aria-hidden="true">🇷🇴</span><strong>Română</strong></button>
+            </div>
+          </section>
         </header>
 
         <main class="configurator-layout">
@@ -180,7 +467,11 @@ export class ConfiguratorUI {
           </section>
 
           <aside class="configurator-sidebar" aria-label="Pergola options">
-            <button class="sidebar-collapse-handle" type="button" data-action="toggle-sidebar" aria-label="Hide or show menu">❯</button>
+            <button class="sidebar-collapse-handle" type="button" data-action="toggle-sidebar" aria-label="Hide or show menu" aria-expanded="${!this.sidebarHidden}" title="${this.sidebarHidden ? 'Show configurator options' : 'Hide configurator options'}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
             <div class="sidebar-header sidebar-header--compact sidebar-header--minimal">
               <div>
                 <span class="step-counter" data-step-counter></span>
@@ -192,6 +483,10 @@ export class ConfiguratorUI {
             <footer class="sidebar-footer" data-sidebar-footer></footer>
           </aside>
         </main>
+        <div class="save-feedback" data-save-feedback role="status" aria-live="polite">
+          <span class="save-feedback__icon save-feedback__icon--success">${topBarIcon('success')}</span>
+          <strong data-save-feedback-text>Saved</strong>
+        </div>
         <div data-modal-root></div>
       </div>
     `;
@@ -199,8 +494,10 @@ export class ConfiguratorUI {
 
   onStateChange(state, meta = {}) {
     this.state = state;
+    this.projectDirty = this.computeProjectDirty();
     if (meta.continuous) {
       this.syncContinuousValues();
+      this.syncTopBar();
       return;
     }
     this.render();
@@ -218,6 +515,7 @@ export class ConfiguratorUI {
     this.environmentPanel.innerHTML = this.renderEnvironmentPanel();
     this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
     this.syncToolbar();
+    this.syncTopBar();
   }
 
   renderCurrentStep() {
@@ -252,7 +550,9 @@ export class ConfiguratorUI {
         <section class="accordion-section ${expanded ? 'is-open' : ''}">
           <button type="button" class="accordion-toggle" data-action="toggle-step-section" data-step-id="${step.id}" aria-expanded="${expanded}">
             <span>${escapeHtml(step.label)}</span>
-            <span class="accordion-toggle__arrow">▾</span>
+            <svg class="accordion-toggle__arrow" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
           </button>
           ${expanded ? `<div class="accordion-panel">${this.renderStepById(step.id)}</div>` : ''}
         </section>
@@ -970,7 +1270,32 @@ export class ConfiguratorUI {
     if (!actionTarget) return;
     const { action } = actionTarget.dataset;
 
-    if (action === 'next-step') {
+    if (action === 'save-success-demo') {
+      this.runSavePreview(actionTarget);
+    } else if (action === 'undo') {
+      if (!this.store.undo?.()) this.showToast('Nothing to undo.');
+    } else if (action === 'account') {
+      this.toggleAccountMenu();
+    } else if (action === 'language') {
+      this.toggleLanguageMenu();
+    } else if (action === 'toggle-account-settings') {
+      this.accountSettingsOpen = !this.accountSettingsOpen;
+      this.syncAccountMenu();
+    } else if (action === 'account-view-ar') {
+      this.closeHeaderMenus();
+      this.showModal('AR integration', `
+        <p>This standalone pergola demo does not publish a GLB or USDZ yet.</p>
+        <p>The account-menu entry is ready to connect to the existing project AR pipeline later.</p>
+      `);
+    } else if (action === 'account-saved') {
+      this.closeHeaderMenus();
+      this.showSavedConfigurations();
+    } else if (action === 'darkmode-preview') {
+      this.showToast('Dark mode is not connected yet.');
+    } else if (action === 'select-language') {
+      this.closeHeaderMenus();
+      this.showToast('Romanian translation is not connected yet.');
+    } else if (action === 'next-step') {
       this.store.nextStep(STEPS.length - 1);
     } else if (action === 'previous-step') {
       this.store.previousStep();
@@ -1049,7 +1374,7 @@ export class ConfiguratorUI {
       this.store.notify({ save: true });
       this.showToast('Configuration saved in this browser.');
     } else if (action === 'share') {
-      this.copyShareLink();
+      this.copyShareLink(actionTarget);
     } else if (action === 'reset') {
       if (window.confirm('Reset all pergola options?')) this.store.reset();
     } else if (action === 'snapshot') {
@@ -1073,15 +1398,54 @@ export class ConfiguratorUI {
   }
 
   handleChange(event) {
+    const projectNameInput = event.target.closest('[data-project-name]');
+    if (projectNameInput) {
+      this.updateProjectName(projectNameInput.value);
+      return;
+    }
     const input = event.target.closest('[data-path]');
     if (!input || input.dataset.continuous === 'true') return;
     this.updateFromInput(input, false);
   }
 
   handleInput(event) {
+    const languageSearch = event.target.closest('[data-language-search]');
+    if (languageSearch) {
+      this.filterLanguages(languageSearch.value);
+      return;
+    }
+    const projectNameInput = event.target.closest('[data-project-name]');
+    if (projectNameInput) {
+      this.updateProjectName(projectNameInput.value);
+      return;
+    }
     const input = event.target.closest('[data-path][data-continuous="true"]');
     if (!input) return;
     this.updateFromInput(input, true);
+  }
+
+  updateProjectName(value) {
+    const cleaned = String(value).replace(/[\r\n\t]/g, ' ').slice(0, 80);
+    this.projectName = cleaned;
+    this.projectDirty = this.computeProjectDirty();
+    this.persistProjectMeta();
+    this.syncTopBar();
+  }
+
+  handleKeyDown(event) {
+    if (event.key === 'Escape') {
+      this.closeHeaderMenus();
+    }
+    const projectNameInput = event.target.closest('[data-project-name]');
+    if (!projectNameInput) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      projectNameInput.blur();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      projectNameInput.value = this.projectName;
+      projectNameInput.blur();
+    }
   }
 
   updateFromInput(input, continuous) {
@@ -1154,14 +1518,93 @@ export class ConfiguratorUI {
     this.root.querySelector('.sidebar-collapse-handle')?.classList.toggle('is-hidden-state', this.sidebarHidden);
   }
 
-  async copyShareLink() {
+  toggleAccountMenu() {
+    this.accountMenuOpen = !this.accountMenuOpen;
+    this.languageMenuOpen = false;
+    this.syncAccountMenu();
+    this.syncLanguageMenu();
+  }
+
+  toggleLanguageMenu() {
+    this.languageMenuOpen = !this.languageMenuOpen;
+    this.accountMenuOpen = false;
+    this.syncLanguageMenu();
+    this.syncAccountMenu();
+    if (this.languageMenuOpen) window.setTimeout(() => this.languageSearch?.focus(), 0);
+  }
+
+  closeHeaderMenus() {
+    this.accountMenuOpen = false;
+    this.languageMenuOpen = false;
+    this.syncAccountMenu();
+    this.syncLanguageMenu();
+  }
+
+  syncAccountMenu() {
+    this.accountMenu?.classList.toggle('is-open', this.accountMenuOpen);
+    this.root.querySelector('[data-action="account"]')?.setAttribute('aria-expanded', String(this.accountMenuOpen));
+    const settings = this.root.querySelector('[data-account-settings]');
+    const settingsButton = this.root.querySelector('[data-action="toggle-account-settings"]');
+    settings?.classList.toggle('is-open', this.accountSettingsOpen);
+    settingsButton?.setAttribute('aria-expanded', String(this.accountSettingsOpen));
+  }
+
+  syncLanguageMenu() {
+    this.languageMenu?.classList.toggle('is-open', this.languageMenuOpen);
+    this.root.querySelector('[data-action="language"]')?.setAttribute('aria-expanded', String(this.languageMenuOpen));
+  }
+
+  handleDocumentClick(event) {
+    if (!event.target.closest('[data-account-menu], [data-action="account"]')) {
+      this.accountMenuOpen = false;
+      this.syncAccountMenu();
+    }
+    if (!event.target.closest('[data-language-menu], [data-action="language"]')) {
+      this.languageMenuOpen = false;
+      this.syncLanguageMenu();
+    }
+  }
+
+  filterLanguages(query) {
+    const normalized = String(query).trim().toLocaleLowerCase('ro');
+    this.root.querySelectorAll('[data-language-name]').forEach((button) => {
+      button.hidden = normalized && !button.dataset.languageName.includes(normalized);
+    });
+  }
+
+  showSavedConfigurations() {
+    let savedProjects = [];
+    try {
+      savedProjects = Object.values(JSON.parse(window.localStorage.getItem(SAVED_PROJECTS_KEY) || '{}'));
+    } catch {
+      savedProjects = [];
+    }
+    savedProjects.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+    const content = savedProjects.length
+      ? `<div class="saved-project-list">${savedProjects.map((project) => `<article><strong>${escapeHtml(project.name)}</strong><small>${new Date(project.savedAt).toLocaleString()}</small></article>`).join('')}</div>`
+      : '<p>No configurations have been saved in this browser yet.</p>';
+    this.showModal('Saved configurations', content);
+  }
+
+  async copyShareLink(button) {
     const url = this.store.getShareUrl();
+    let copied = false;
     try {
       await navigator.clipboard.writeText(url);
-      this.showToast('Share link copied.');
+      copied = true;
     } catch {
-      window.prompt('Copy this link:', url);
+      const textarea = document.createElement('textarea');
+      textarea.value = url;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.append(textarea);
+      textarea.select();
+      copied = document.execCommand('copy');
+      textarea.remove();
     }
+    if (copied) this.runSharePreview(button);
+    else window.prompt('Copy this link:', url);
   }
 
   downloadSnapshot() {
@@ -1209,5 +1652,6 @@ export class ConfiguratorUI {
 
   destroy() {
     this.unsubscribe?.();
+    document.removeEventListener('click', this.handleDocumentClickBound);
   }
 }
