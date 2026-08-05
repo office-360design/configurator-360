@@ -6,13 +6,6 @@ import {
     WINDOW_WIDTH_MAX_M,
     WINDOW_HEIGHT_MIN_M,
     WINDOW_HEIGHT_MAX_M,
-    ALUMINIUM_FINISH_CATALOG,
-    FIXED_PROFILE_COLOURS,
-    normalizeHexColour,
-    normalizeRequestedColour,
-    getFinishDefinition,
-    createFinishSelection,
-    createRalFinishSelectionFromColour,
     getGlazingBeadCode,
 } from './config.js';
 import { createComponentSelection } from './component-selection.js';
@@ -20,6 +13,7 @@ import { createSceneContext } from './scene.js';
 import { createProfileLoader } from './profile-loader.js';
 import { initializeUIControls } from './ui-controls.js';
 import { createWindowBuilder } from './window-builder.js';
+import { createMaterialManager } from './materials.js';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -164,36 +158,6 @@ syncModeButtons();
 
 
 
-function createFinishSelectionFromParams(side, fallbackSelection) {
-    const type = pageParams.get(`${side}_finish_type`);
-    const preset = pageParams.get(`${side}_finish_preset`);
-    const colour = normalizeHexColour(pageParams.get(`${side}_colour`));
-
-    if (!ALUMINIUM_FINISH_CATALOG[type]) {
-        return fallbackSelection;
-    }
-
-    if (type === 'coated' && colour) {
-        return createRalFinishSelectionFromColour(colour);
-    }
-
-    return createFinishSelection(type, preset);
-}
-
-const normalizedRequestedColour = normalizeRequestedColour(requestedColour);
-let aluminiumFinishMode = pageParams.get('finish_mode') === 'same' ? 'same' : 'different';
-let outsideFinishSelection = normalizedRequestedColour
-    ? createRalFinishSelectionFromColour(normalizedRequestedColour)
-    : createFinishSelection('mill', 'natural');
-let insideFinishSelection = createFinishSelection('mill', 'natural');
-
-outsideFinishSelection = createFinishSelectionFromParams('outside', outsideFinishSelection);
-insideFinishSelection = createFinishSelectionFromParams('inside', insideFinishSelection);
-
-// Keep the existing Odoo/server "colour" field as the exterior color.
-// The interior remains natural aluminum unless the user explicitly changes it.
-let configurationColour = outsideFinishSelection.color;
-let debugColoursEnabled = pageParams.get('debug_colors') === '1';
 
 // SCENE, CAMERA, RENDERER, CONTROLS, GROUND & LIGHTING
 const {
@@ -222,353 +186,33 @@ const componentSelection = createComponentSelection({
         windowBuilder?.getIsExploded() ?? initialExplodedState,
 });
 
-// MATERIALS (shared and optimized)
-function createSurfaceMaterial(options) {
-    const materialOptions = {
-        color: options.color,
-        side: options.side || THREE.DoubleSide,
-        transparent: options.transparent || false,
-        opacity: options.opacity ?? 1,
-    };
+// MATERIALS AND ALUMINUM FINISH STATE
+let currentMetadata = null;
+let profilesData = [];
 
-    if (captureMode) {
-        return new THREE.MeshPhongMaterial({
-            ...materialOptions,
-            shininess: options.shininess ?? 45,
-        });
-    }
-
-    return new THREE.MeshStandardMaterial({
-        ...materialOptions,
-        metalness: options.metalness ?? 0.1,
-        roughness: options.roughness ?? 0.7,
-    });
-}
-
-// The glass pane and handle are generated objects, so they keep dedicated materials.
-const glassMat = createSurfaceMaterial({
-    color: 0x60a5fa,
-    transparent: true,
-    opacity: 0.25,
-    metalness: 0.9,
-    roughness: 0.1,
-    shininess: 90,
-});
-const handleMat = createSurfaceMaterial({
-    color: 0x1f2937,
-    metalness: 0.7,
-    roughness: 0.25,
-    shininess: 100,
-    side: THREE.FrontSide,
+const materialManager = createMaterialManager({
+    captureMode,
+    pageParams,
+    requestedColour,
+    getProfilesData: () => profilesData,
+    hasCurrentMetadata: () => Boolean(currentMetadata),
+    invalidateSectionSamples: () => windowBuilder?.invalidateSectionSamples(),
+    renderGroupFilters,
+    buildWindow: () => windowBuilder?.buildWindow(),
 });
 
-// CAD profile materials are shared only when both their physical category
-// and their resolved colour match. This keeps draw calls/material count low
-// without discarding the colours extracted from CAD metadata.
-const profileMaterialCache = new Map();
-
-const materialPropertiesByKey = {
-    alu: { metalness: 0.82, roughness: 0.28, shininess: 105 },
-    iso: { metalness: 0.1, roughness: 0.7, shininess: 20 },
-    centralSeal: { metalness: 0.1, roughness: 0.6, shininess: 40 },
-    epdm: { metalness: 0.05, roughness: 0.8, shininess: 15 },
-    foam: { metalness: 0.0, roughness: 0.95, shininess: 10 },
-    glass: {
-        transparent: true,
-        opacity: 0.25,
-        metalness: 0.9,
-        roughness: 0.1,
-        shininess: 90,
-    },
-    default: { metalness: 0.5, roughness: 0.5, shininess: 35 },
-};
-
-function isDrainageCoverCap(profile) {
-    return normalizeHexColour(profile?.baseCadColor) === '#cc9966';
-}
-
-function usesAluminiumFinish(profile) {
-    return profile?.materialKey === 'alu' || isDrainageCoverCap(profile);
-}
-
-function getEffectiveAluminiumFinish(profile) {
-    // The drainage cover cap is installed on the exterior and always
-    // follows the outside aluminum finish, even in two-color mode.
-    if (isDrainageCoverCap(profile)) {
-        return outsideFinishSelection;
-    }
-    if (profile.aluminiumSide === 'inside' && aluminiumFinishMode === 'different') {
-        return insideFinishSelection;
-    }
-    return outsideFinishSelection;
-}
-
-function getResolvedProfileColour(profile) {
-    if (debugColoursEnabled) {
-        return normalizeHexColour(profile.baseCadColor)
-            || FIXED_PROFILE_COLOURS.default;
-    }
-    if (usesAluminiumFinish(profile)) {
-        return getEffectiveAluminiumFinish(profile).color;
-    }
-    return FIXED_PROFILE_COLOURS[profile.materialKey]
-        || normalizeHexColour(profile.baseCadColor)
-        || FIXED_PROFILE_COLOURS.default;
-}
-
-function resolveDisplayColour(profile) {
-    return getResolvedProfileColour(profile);
-}
-
-function makeColourIndicatorBackground(profiles) {
-    const colours = [...new Set(
-        profiles
-            .map(profile => resolveDisplayColour(profile))
-            .filter(Boolean)
-            .map(colour => colour.toLowerCase())
-    )];
-
-    if (colours.length === 0) {
-        return FIXED_PROFILE_COLOURS.default;
-    }
-    if (colours.length === 1) {
-        return colours[0];
-    }
-
-    // A split indicator represents bicolor aluminum and also remains
-    // useful in debug mode when a component group contains CAD colors.
-    const visibleColours = colours.slice(0, 4);
-    const stopSize = 100 / visibleColours.length;
-    const stops = visibleColours.flatMap((colour, index) => {
-        const start = (index * stopSize).toFixed(2);
-        const end = ((index + 1) * stopSize).toFixed(2);
-        return [`${colour} ${start}%`, `${colour} ${end}%`];
-    });
-    return `linear-gradient(90deg, ${stops.join(', ')})`;
-}
-
-function setColourIndicatorBackground(element, background) {
-    if (!element) return;
-    if (String(background).startsWith('linear-gradient(')) {
-        element.style.backgroundColor = 'transparent';
-        element.style.backgroundImage = background;
-    } else {
-        element.style.backgroundImage = 'none';
-        element.style.backgroundColor = background;
-    }
-}
-
-function updateProfileColourIndicators() {
-    profilesData.forEach(profile => {
-        const checkbox = document.getElementById(`toggle_${profile.index}`);
-        const dot = checkbox?.closest('.part-toggle-item')?.querySelector('.part-color-dot');
-        setColourIndicatorBackground(dot, resolveDisplayColour(profile));
-    });
-}
-
-function getMaterialForProfile(profile) {
-    const colour = getResolvedProfileColour(profile).toLowerCase();
-    const usesFinish = !debugColoursEnabled && usesAluminiumFinish(profile);
-    const materialKey = usesFinish
-        ? 'alu'
-        : (materialPropertiesByKey[profile.materialKey] ? profile.materialKey : 'default');
-    const finish = usesFinish ? getEffectiveAluminiumFinish(profile) : null;
-    const finishType = finish?.type || (debugColoursEnabled ? 'debug' : 'fixed');
-    const materialProperties = finish
-        ? getFinishDefinition(finish.type).material
-        : materialPropertiesByKey[materialKey];
-    const cacheKey = `${debugColoursEnabled ? 'debug' : 'finish'}:${materialKey}:${finishType}:${colour}`;
-
-    if (!profileMaterialCache.has(cacheKey)) {
-        profileMaterialCache.set(
-            cacheKey,
-            createSurfaceMaterial({
-                color: colour,
-                ...materialProperties,
-            })
-        );
-    }
-
-    return profileMaterialCache.get(cacheKey);
-}
-
-function clearCachedAluminiumMaterials() {
-    for (const [cacheKey, material] of profileMaterialCache.entries()) {
-        if (cacheKey.includes(':alu:')) {
-            material.dispose();
-            profileMaterialCache.delete(cacheKey);
-        }
-    }
-}
-
-function clearAllCachedProfileMaterials() {
-    for (const material of profileMaterialCache.values()) {
-        material.dispose();
-    }
-    profileMaterialCache.clear();
-}
-
-function getFinishSelection(side) {
-    return side === 'inside' ? insideFinishSelection : outsideFinishSelection;
-}
-
-function setFinishSelection(side, selection) {
-    if (side === 'inside') {
-        insideFinishSelection = selection;
-    } else {
-        outsideFinishSelection = selection;
-        configurationColour = selection.color;
-    }
-}
-
-function getFinishUi(side) {
-    const prefix = side === 'inside' ? 'inside' : 'outside';
-    const typeToggle = document.getElementById(`${prefix}FinishType`);
-    return {
-        typeToggle,
-        typeButtons: typeToggle ? [...typeToggle.querySelectorAll('[data-finish-type]')] : [],
-        swatches: document.getElementById(`${prefix}FinishSwatches`),
-        selectedName: document.getElementById(`${prefix}FinishName`),
-    };
-}
-
-function renderFinishSideControls(side) {
-    const ui = getFinishUi(side);
-    const selection = getFinishSelection(side);
-    const definition = getFinishDefinition(selection.type);
-    if (!ui.typeToggle || !ui.swatches) return;
-
-    ui.typeButtons.forEach(button => {
-        const isActive = button.dataset.finishType === selection.type;
-        button.classList.toggle('active', isActive);
-        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    });
-
-    ui.swatches.innerHTML = '';
-    ui.swatches.hidden = false;
-
-    definition.presets.forEach(preset => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `finish-swatch${selection.presetId === preset.id ? ' active' : ''}`;
-        button.style.setProperty('--swatch-color', preset.color);
-        button.title = preset.name;
-        button.setAttribute('aria-label', preset.name);
-        button.setAttribute('aria-pressed', selection.presetId === preset.id ? 'true' : 'false');
-        button.addEventListener('click', () => {
-            setFinishSelection(side, createFinishSelection(selection.type, preset.id));
-            syncFinishControls();
-            refreshAluminiumFinishMaterials();
-        });
-        ui.swatches.appendChild(button);
-    });
-
-    if (ui.selectedName) {
-        ui.selectedName.textContent = selection.name;
-    }
-}
-
-function syncFinishControls() {
-    const sameButton = document.getElementById('finishModeSame');
-    const differentButton = document.getElementById('finishModeDifferent');
-    const insideCard = document.getElementById('insideFinishCard');
-    const outsideTitle = document.getElementById('outsideFinishTitle');
-    const debugButton = document.getElementById('debugColorsButton');
-
-    sameButton?.classList.toggle('active', aluminiumFinishMode === 'same');
-    differentButton?.classList.toggle('active', aluminiumFinishMode === 'different');
-    if (debugButton) {
-        debugButton.classList.toggle('active', debugColoursEnabled);
-        debugButton.setAttribute('aria-pressed', debugColoursEnabled ? 'true' : 'false');
-    }
-    if (insideCard) insideCard.hidden = aluminiumFinishMode === 'same';
-    if (outsideTitle) {
-        outsideTitle.textContent = aluminiumFinishMode === 'same' ? 'Inside and outside' : 'Outside';
-    }
-
-    renderFinishSideControls('outside');
-    renderFinishSideControls('inside');
-}
-
-function refreshAluminiumFinishMaterials() {
-    configurationColour = outsideFinishSelection.color;
-
-    // Finish choices are retained while debug colors are visible. They
-    // are applied as soon as debug mode is switched off.
-    if (debugColoursEnabled) return;
-
-    clearCachedAluminiumMaterials();
-    profilesData.forEach(profile => {
-        if (usesAluminiumFinish(profile)) {
-            profile.material = getMaterialForProfile(profile);
-        }
-    });
-    windowBuilder.invalidateSectionSamples();
-
-    if (currentMetadata) {
-        updateProfileColourIndicators();
-        renderGroupFilters();
-        buildWindow();
-    }
-}
-
-function refreshAllProfileMaterials() {
-    clearAllCachedProfileMaterials();
-    profilesData.forEach(profile => {
-        profile.material = getMaterialForProfile(profile);
-    });
-    windowBuilder.invalidateSectionSamples();
-
-    if (currentMetadata) {
-        updateProfileColourIndicators();
-        renderGroupFilters();
-        buildWindow();
-    }
-}
-
-function initializeAluminiumFinishControls() {
-    document.getElementById('finishModeSame')?.addEventListener('click', () => {
-        if (aluminiumFinishMode === 'same') return;
-        aluminiumFinishMode = 'same';
-        syncFinishControls();
-        refreshAluminiumFinishMaterials();
-    });
-
-    document.getElementById('finishModeDifferent')?.addEventListener('click', () => {
-        if (aluminiumFinishMode === 'different') return;
-        aluminiumFinishMode = 'different';
-        syncFinishControls();
-        refreshAluminiumFinishMaterials();
-    });
-
-    for (const side of ['outside', 'inside']) {
-        const ui = getFinishUi(side);
-        ui.typeButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const nextType = button.dataset.finishType;
-                if (!ALUMINIUM_FINISH_CATALOG[nextType]) return;
-                const currentSelection = getFinishSelection(side);
-                if (currentSelection.type === nextType) return;
-                setFinishSelection(side, createFinishSelection(nextType));
-                syncFinishControls();
-                refreshAluminiumFinishMaterials();
-            });
-        });
-    }
-
-    document.getElementById('debugColorsButton')?.addEventListener('click', () => {
-        debugColoursEnabled = !debugColoursEnabled;
-        syncFinishControls();
-        refreshAllProfileMaterials();
-    });
-
-    syncFinishControls();
-}
+const {
+    glassMat,
+    handleMat,
+    resolveDisplayColour,
+    makeColourIndicatorBackground,
+    setColourIndicatorBackground,
+    getMaterialForProfile,
+    isDrainageCoverCap,
+} = materialManager;
 
 // LOAD PROFILE SVG FILES AND METADATA
 const { getProfileDefinition } = createProfileLoader();
-let currentMetadata = null;
-let profilesData = [];
 
 function isGlazingBeadProfile(profile) {
     const name = String(profile.blockName || '');
@@ -1243,11 +887,7 @@ windowBuilder = createWindowBuilder({
     getProfileComponentNumber,
     getEffectiveProfileBbox,
     updateComponentPictures,
-    getFinishState: () => ({
-        aluminiumFinishMode,
-        outsideFinishSelection,
-        insideFinishSelection,
-    }),
+    getFinishState: materialManager.getFinishState,
     getSelectedHandleSide: () => selectedHandleSide,
 });
 
@@ -1324,52 +964,7 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
         );
     }
 
-    let finishConfigurationChanged = false;
-    const requestedFinishMode = configuration.finishMode || configuration.finish_mode;
-    if (requestedFinishMode === 'same' || requestedFinishMode === 'different') {
-        if (aluminiumFinishMode !== requestedFinishMode) {
-            aluminiumFinishMode = requestedFinishMode;
-            finishConfigurationChanged = true;
-        }
-    }
-
-    if (typeof configuration.colour === 'string') {
-        const nextConfigurationColour = normalizeRequestedColour(configuration.colour);
-        if (nextConfigurationColour) {
-            const nextOutsideFinish = createRalFinishSelectionFromColour(nextConfigurationColour);
-            if (
-                nextOutsideFinish.color !== outsideFinishSelection.color
-                || outsideFinishSelection.type !== 'coated'
-                || outsideFinishSelection.presetId !== nextOutsideFinish.presetId
-            ) {
-                setFinishSelection('outside', nextOutsideFinish);
-                finishConfigurationChanged = true;
-            }
-
-            // Legacy Odoo render requests only send one colour. Treat that
-            // value as exterior-only and reset the interior to aluminum gray.
-            if (!requestedFinishMode) {
-                aluminiumFinishMode = 'different';
-                insideFinishSelection = createFinishSelection('mill', 'natural');
-                finishConfigurationChanged = true;
-            }
-        }
-    }
-
-    const requestedInsideColour = normalizeRequestedColour(
-        configuration.insideColour || configuration.inside_colour
-    );
-    if (requestedInsideColour) {
-        insideFinishSelection = createRalFinishSelectionFromColour(requestedInsideColour);
-        finishConfigurationChanged = true;
-    }
-
-    if (finishConfigurationChanged) {
-        configurationColour = outsideFinishSelection.color;
-        clearCachedAluminiumMaterials();
-        syncFinishControls();
-        windowBuilder.invalidateSectionSamples();
-    }
+    materialManager.applyConfiguration(configuration);
 
     const requestedProfileName = configuration.profile && [...profileInput.options].some(option => option.value === configuration.profile)
         ? configuration.profile
@@ -1394,13 +989,7 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
         requestToken: String(configuration.requestToken || ''),
         widthM: Number(widthInput.value),
         heightM: Number(heightInput.value),
-        colour: configurationColour,
-        finishMode: aluminiumFinishMode,
-        outsideFinish: { ...outsideFinishSelection },
-        insideFinish: aluminiumFinishMode === 'same'
-            ? { ...outsideFinishSelection }
-            : { ...insideFinishSelection },
-        debugColors: debugColoursEnabled,
+        ...materialManager.getConfigurationSnapshot(),
         profile: profileInput.value,
         glassThicknessMm: Number(glassThicknessInput.value),
         glazingBeadCode: getActiveGlazingBeadCode(),
@@ -1446,15 +1035,7 @@ function buildWebXRUrl() {
     url.searchParams.set('explode', document.getElementById('cExplode').checked ? '1' : '0');
     url.searchParams.set('glass_thickness', document.getElementById('glassThickness').value);
     url.searchParams.set('handle_side', selectedHandleSide);
-    url.searchParams.set('finish_mode', aluminiumFinishMode);
-    url.searchParams.set('colour', outsideFinishSelection.color);
-    url.searchParams.set('outside_finish_type', outsideFinishSelection.type);
-    url.searchParams.set('outside_finish_preset', outsideFinishSelection.presetId);
-    url.searchParams.set('outside_colour', outsideFinishSelection.color);
-    url.searchParams.set('inside_finish_type', insideFinishSelection.type);
-    url.searchParams.set('inside_finish_preset', insideFinishSelection.presetId);
-    url.searchParams.set('inside_colour', insideFinishSelection.color);
-    url.searchParams.set('debug_colors', debugColoursEnabled ? '1' : '0');
+    materialManager.appendUrlParams(url);
 
     const activeParts = profilesData
         .filter(profile => document.getElementById(`toggle_${profile.index}`)?.checked)
@@ -2026,7 +1607,7 @@ initializeUIControls({
     startAR,
 });
 
-initializeAluminiumFinishControls();
+materialManager.initializeControls();
 
 // Load the selected profile. In QR AR mode the selection comes from URL parameters.
 loadProfiles(isARMode ? requestedProfile : '2_4_Oeffnungselemnt_Vertikal');
