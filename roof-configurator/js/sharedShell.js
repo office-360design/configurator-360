@@ -63,8 +63,20 @@ const shell = mountStandaloneConfiguratorShell({
     getShareUrl() {
       return window.location.href;
     },
+    onPreferenceChange(name, value, preferences) {
+      const snapshot = { ...preferences };
+      window.ROOF_SHELL_PREFERENCES = snapshot;
+      window.dispatchEvent(new CustomEvent('roof-preference-change', {
+        detail: { name, value, preferences: snapshot },
+      }));
+    },
   },
 });
+
+window.ROOF_SHELL_PREFERENCES = { ...shell.state };
+window.dispatchEvent(new CustomEvent('roof-preference-change', {
+  detail: { name: 'initial', value: null, preferences: { ...shell.state } },
+}));
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#roofSidebarToggle');

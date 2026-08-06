@@ -1,6 +1,19 @@
-import { state } from './state.js?v=13';
-import { RoofScene } from './scene.js?v=15';
-import { RoofUI } from './ui.js?v=13';
+import { state } from './state.js?v=14';
+import { RoofScene } from './scene.js?v=16';
+import { RoofUI } from './ui.js?v=14';
+import {
+  getFallbackCurrencyRate,
+  normalizeCurrency,
+  normalizeUnits,
+  resolveCurrencyRate,
+} from './preferences.js?v=1';
+
+const initialPreferences = window.ROOF_SHELL_PREFERENCES || {};
+state.units = normalizeUnits(initialPreferences.units ?? state.units);
+state.currency = normalizeCurrency(initialPreferences.currency ?? state.currency);
+state.currencyRate = getFallbackCurrencyRate(state.currency);
+state.currencyRateSource = state.currency === 'RON' ? 'reference currency' : 'temporary fallback estimate';
+state.currencyRateIsFallback = state.currency !== 'RON';
 
 const host = document.querySelector('#canvasHost');
 const scene = new RoofScene(host);
@@ -8,6 +21,7 @@ const VIEW_ORDER = ['perspective', 'front', 'top'];
 let currentView = 'perspective';
 let lastMetrics = null;
 let ui = null;
+let preferenceRequest = 0;
 
 function syncViewButtons() {
   document.querySelectorAll('[data-view]').forEach((button) => {
@@ -29,6 +43,44 @@ function emitToolsState() {
       currentView,
     },
   }));
+}
+
+async function refreshCurrencyRate(currency) {
+  const requestId = ++preferenceRequest;
+  const rateInfo = await resolveCurrencyRate(currency);
+  if (requestId !== preferenceRequest || normalizeCurrency(currency) !== state.currency) return;
+
+  state.currencyRate = rateInfo.rate;
+  state.currencyRateDate = rateInfo.date || null;
+  state.currencyRateSource = rateInfo.source;
+  state.currencyRateIsFallback = Boolean(rateInfo.isFallback);
+  ui?.setPreferences();
+}
+
+function applyShellPreferences(preferences = {}) {
+  const nextUnits = normalizeUnits(preferences.units ?? state.units);
+  const nextCurrency = normalizeCurrency(preferences.currency ?? state.currency);
+  const unitsChanged = nextUnits !== state.units;
+  const currencyChanged = nextCurrency !== state.currency;
+
+  state.units = nextUnits;
+  state.currency = nextCurrency;
+
+  if (currencyChanged) {
+    state.currencyRate = getFallbackCurrencyRate(nextCurrency);
+    state.currencyRateDate = null;
+    state.currencyRateSource = nextCurrency === 'RON' ? 'reference currency' : 'temporary fallback estimate';
+    state.currencyRateIsFallback = nextCurrency !== 'RON';
+  }
+
+  if (unitsChanged && lastMetrics) {
+    rebuild({ fitCamera: false });
+    ui?.syncDimensionControls();
+  } else {
+    ui?.setPreferences();
+  }
+
+  if (currencyChanged) refreshCurrencyRate(nextCurrency);
 }
 
 function rebuild({ fitCamera = false } = {}) {
@@ -58,7 +110,9 @@ lastMetrics = scene.rebuild(state, true);
 scene.setEnvironment(state);
 scene.setCompassVisible(state.showCompass);
 ui.updateMetrics(lastMetrics);
+ui.setPreferences();
 syncViewButtons();
+refreshCurrencyRate(state.currency);
 
 document.querySelectorAll('[data-view]').forEach((button) => {
   button.addEventListener('click', () => {
@@ -85,6 +139,8 @@ const configuratorApi = {
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
       currentView,
+      units: state.units,
+      currency: state.currency,
     };
   },
 
@@ -141,6 +197,10 @@ const configuratorApi = {
     return applyView(VIEW_ORDER[(currentIndex + 1) % VIEW_ORDER.length]);
   },
 };
+
+window.addEventListener('roof-preference-change', (event) => {
+  applyShellPreferences(event.detail?.preferences || event.detail || {});
+});
 
 window.ROOF_CONFIGURATOR_API = configuratorApi;
 window.dispatchEvent(new CustomEvent('roof-configurator-ready', { detail: configuratorApi.getState() }));

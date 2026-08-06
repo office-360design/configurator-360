@@ -98,7 +98,7 @@ h2 { font-size: 19px; }
 .control-label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
 .control-label b { font-weight: 700; }
 .control-label output { color: var(--muted); font-variant-numeric: tabular-nums; }
-.range-row { display: grid; grid-template-columns: 1fr 72px; align-items: center; gap: 12px; }
+.range-row { display: grid; grid-template-columns: 1fr 88px; align-items: center; gap: 12px; }
 input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
 .number-input, select {
   width: 100%;

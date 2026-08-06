@@ -84,3 +84,12 @@ The final roof-type card opens a local file picker for PDF, image, DWG, or DXF p
 ## Rainwater components drawer
 
 The last button in the shared **Tools** stack opens a searchable side drawer with an exploded system overview and 21 reference components. The images are prototype reference crops supplied for the UI proof of concept; selecting or viewing them does not yet change the 3D scene or BOM.
+
+## Shared measuring units and currency
+
+The configurator reads the unified shell preferences from the sibling `shared-ui` package.
+
+- Geometry remains stored internally in metres.
+- **Metric (mm)** displays dimension controls and 3D annotations in millimetres, while areas remain in square metres.
+- **Imperial (ft / in)** displays lengths in feet/inches, editable numeric fields in decimal feet, and areas in square feet.
+- BOM source prices remain based in RON. Selecting USD converts the displayed BOM and CSV export using the latest daily RON→USD reference rate from Frankfurter, cached locally for 12 hours. If the network is unavailable and no cached rate exists, the UI clearly labels its temporary fallback estimate.
