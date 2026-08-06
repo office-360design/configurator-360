@@ -120,18 +120,52 @@ select { padding: 0 11px; }
 .swatch.selected { box-shadow: 0 0 0 2px var(--ink); }
 
 .viewer-panel { min-width: 0; display: grid; grid-template-rows: auto 1fr auto; }
-.viewer-header { min-height: 75px; padding: 17px 22px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); }
+.viewer-header {
+  min-height: 75px;
+  padding: 12px 22px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+}
 .viewer-header h2 { font-size: 22px; }
+.viewer-title-block { grid-column: 2; text-align: center; white-space: nowrap; }
+.viewer-title-block .eyebrow { margin-bottom: 3px; }
+.viewer-header-spacer { grid-column: 3; min-width: 0; }
 .view-actions { display: flex; gap: 6px; padding: 4px; background: var(--panel-soft); border-radius: 11px; }
 .view-actions button { border: 0; background: transparent; border-radius: 8px; padding: 8px 11px; font-size: 11px; font-weight: 700; cursor: pointer; }
 .view-actions button:hover, .view-actions button.active { background: #fff; box-shadow: 0 2px 8px rgba(20,27,35,.08); }
 
 .viewer-stage { position: relative; min-height: 0; overflow: hidden; background: radial-gradient(circle at 55% 42%, #fff 0%, #f5f6f7 40%, #e7eaed 100%); }
+.roof-tools-anchor {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  z-index: 24;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+/* The shared Tools button stays in its original shell DOM so all shared-ui
+   styling continues to apply. These rules only relocate it visually. */
+.roof-relocated-tools-button {
+  position: fixed !important;
+  top: var(--roof-tools-top, 0) !important;
+  left: var(--roof-tools-left, 0) !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: 80 !important;
+  margin: 0 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
 #canvasHost { position: absolute; inset: 0; }
 #canvasHost canvas { display: block; width: 100%; height: 100%; }
 .stage-hint { position: absolute; left: 18px; bottom: 17px; color: #747f89; font-size: 10px; padding: 8px 11px; border-radius: 999px; background: rgba(255,255,255,.72); backdrop-filter: blur(8px); pointer-events: none; }
-.model-options { position: absolute; right: 17px; top: 17px; display: flex; gap: 7px; }
-.model-options label { display: flex; align-items: center; gap: 7px; background: rgba(255,255,255,.8); border: 1px solid rgba(20,27,35,.08); border-radius: 9px; padding: 8px 10px; font-size: 10px; font-weight: 700; cursor: pointer; backdrop-filter: blur(8px); }
+.model-options { display: flex; gap: 7px; }
+.model-options label { display: flex; align-items: center; gap: 7px; min-height: 34px; background: var(--panel-soft); border: 1px solid rgba(20,27,35,.08); border-radius: 9px; padding: 7px 9px; font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .model-options input { accent-color: var(--accent); }
 
 .metrics-bar { display: grid; grid-template-columns: repeat(4, 1fr); min-height: 82px; border-top: 1px solid var(--line); background: #fff; }
@@ -162,17 +196,21 @@ select { padding: 0 11px; }
   .app-shell { padding: 0; gap: 0; }
   .sidebar, .viewer-panel { border-radius: 0; border-left: 0; border-right: 0; }
   .roof-type-grid { grid-template-columns: repeat(2, 1fr); }
-  .viewer-header { align-items: flex-start; gap: 12px; }
-  .view-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .viewer-header { align-items: stretch; gap: 10px; }
+  .view-actions { flex-wrap: wrap; justify-content: flex-start; }
   .metrics-bar { grid-template-columns: repeat(2, 1fr); }
   .metrics-bar article:nth-child(2) { border-right: 0; }
   .metrics-bar article:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
 }
 
 .viewer-actions-wrap {
+  grid-column: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .estimate-button {
@@ -214,7 +252,8 @@ select { padding: 0 11px; }
   inset: 14px 14px 14px auto;
   width: min(720px, calc(100vw - 28px));
   max-width: none;
-  max-height: none;
+  height: calc(100dvh - 28px);
+  max-height: calc(100dvh - 28px);
   margin: 0;
   padding: 0;
   background: #fff;
@@ -231,9 +270,28 @@ select { padding: 0 11px; }
 
 .bom-panel[open] {
   display: grid;
-  grid-template-rows: auto auto auto minmax(180px, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   animation: bom-panel-in .22s cubic-bezier(.22, .7, .2, 1);
 }
+
+
+.bom-scroll-region {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+
+.bom-scroll-region::-webkit-scrollbar { width: 10px; }
+.bom-scroll-region::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(91, 103, 114, .42);
+  background-clip: padding-box;
+}
+.bom-scroll-region::-webkit-scrollbar-track { background: transparent; }
 
 .bom-panel::backdrop {
   background: rgba(14, 20, 27, .36);
@@ -328,7 +386,8 @@ select { padding: 0 11px; }
 
 .bom-table-wrap {
   min-height: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
   margin: 0 22px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -435,11 +494,24 @@ select { padding: 0 11px; }
   .estimate-button strong { display: none; }
 }
 
+@media (max-width: 1120px) {
+  .viewer-header {
+    grid-template-columns: 1fr;
+    padding: 12px 16px;
+  }
+  .viewer-actions-wrap,
+  .viewer-title-block,
+  .viewer-header-spacer { grid-column: 1; }
+  .viewer-title-block { grid-row: 1; }
+  .viewer-actions-wrap { grid-row: 2; justify-content: center; }
+  .viewer-header-spacer { display: none; }
+}
+
 @media (max-width: 760px) {
-  .viewer-actions-wrap { align-items: flex-end; flex-direction: column-reverse; }
+  .viewer-actions-wrap { align-items: center; flex-direction: row; justify-content: flex-start; }
   .estimate-button { min-height: 34px; display: flex; align-items: center; gap: 7px; }
   .estimate-button strong { display: block; }
-  .bom-panel { inset: 0; width: 100%; border-radius: 0; }
+  .bom-panel { inset: 0; width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
   .bom-summary { grid-template-columns: repeat(2, 1fr); }
   .bom-summary .bom-total-card { grid-column: 1 / -1; }
   .assumption-grid { grid-template-columns: repeat(2, 1fr); }
@@ -573,3 +645,7 @@ select { padding: 0 11px; }
 .bom-empty-row td strong { font-size: 12px; }
 .bom-empty-row td small { margin-top: 5px !important; font-size: 9px !important; }
 .secondary-action:disabled { opacity: .45; cursor: not-allowed; }
+
+@media (max-width: 760px) {
+  .roof-tools-anchor { top: 12px; left: 12px; }
+}

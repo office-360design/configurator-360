@@ -29,6 +29,8 @@ export class StandaloneConfiguratorShell {
       storagePrefix: '360-configurator:standalone',
       capabilities: {},
       callbacks: {},
+      tools: { items: [], placement: {} },
+      settingsPanel: null,
       ...options,
     };
 
@@ -58,6 +60,9 @@ export class StandaloneConfiguratorShell {
     this.languageOpen = false;
     this.toolsOpen = false;
     this.feedbackTimer = 0;
+    this.settingsPanelCollapsed = false;
+    this.settingsPanel = null;
+    this.settingsToggle = null;
 
     this.host = document.createElement('div');
     this.host.className = 'shared-ui-host';
@@ -67,6 +72,7 @@ export class StandaloneConfiguratorShell {
     document.body.classList.add('shared-ui-mounted');
 
     this.bindEvents();
+    this.bindSettingsPanel();
     this.sync();
   }
 
@@ -88,7 +94,7 @@ export class StandaloneConfiguratorShell {
         capabilities: this.options.capabilities,
       })}
       ${renderActionFeedback()}
-      ${renderToolsMenu(this.toolsOpen, { items: [] })}
+      ${renderToolsMenu(this.toolsOpen, this.options.tools)}
     `;
 
     this.projectInput = this.host.querySelector('[data-project-name]');
@@ -124,6 +130,34 @@ export class StandaloneConfiguratorShell {
       }
     };
     document.addEventListener('keydown', this.onKeyDown);
+  }
+
+
+  bindSettingsPanel() {
+    const config = this.options.settingsPanel;
+    if (!config) return;
+
+    this.settingsPanel = document.querySelector(config.panelSelector);
+    this.settingsToggle = document.querySelector(config.toggleSelector);
+    if (!this.settingsPanel || !this.settingsToggle) return;
+
+    this.onSettingsToggle = () => this.setSettingsPanelCollapsed(!this.settingsPanelCollapsed);
+    this.settingsToggle.addEventListener('click', this.onSettingsToggle);
+    this.setSettingsPanelCollapsed(Boolean(config.initiallyCollapsed), { silent: true });
+  }
+
+  setSettingsPanelCollapsed(collapsed, { silent = false } = {}) {
+    const config = this.options.settingsPanel;
+    if (!config || !this.settingsPanel || !this.settingsToggle) return;
+    this.settingsPanelCollapsed = Boolean(collapsed);
+    this.settingsPanel.classList.toggle(config.collapsedClass ?? 'is-collapsed', this.settingsPanelCollapsed);
+    if (config.bodyCollapsedClass) {
+      document.body.classList.toggle(config.bodyCollapsedClass, this.settingsPanelCollapsed);
+    }
+    this.settingsToggle.setAttribute('aria-expanded', String(!this.settingsPanelCollapsed));
+    this.settingsToggle.setAttribute('aria-label', this.settingsPanelCollapsed ? 'Show configurator settings' : 'Hide configurator settings');
+    this.settingsToggle.setAttribute('title', this.settingsPanelCollapsed ? 'Show configurator settings' : 'Hide configurator settings');
+    if (!silent) this.options.callbacks.onSettingsPanelToggle?.(this.settingsPanelCollapsed);
   }
 
   handleClick(event) {
@@ -376,6 +410,9 @@ export class StandaloneConfiguratorShell {
   destroy() {
     document.removeEventListener('click', this.onDocumentClick);
     document.removeEventListener('keydown', this.onKeyDown);
+    if (this.settingsToggle && this.onSettingsToggle) {
+      this.settingsToggle.removeEventListener('click', this.onSettingsToggle);
+    }
     this.host.remove();
     document.body.classList.remove('shared-ui-mounted', 'shared-ui-dark-mode');
     document.querySelector('.app-shell')?.classList.remove('is-dark-mode');
