@@ -1,4 +1,10 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=2';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=3';
+import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
+
+const history = new SharedUndoManager({
+  capture: () => window.ROOF_CONFIGURATOR_API?.captureState?.(),
+  restore: (snapshot) => window.ROOF_CONFIGURATOR_API?.restoreState?.(snapshot),
+});
 
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Roof',
@@ -8,11 +14,26 @@ const shell = mountStandaloneConfiguratorShell({
   capabilities: {
     viewAR: false,
     save: true,
-    undo: false,
+    undo: true,
     reset: true,
     share: true,
   },
+  // The shared framework renders an empty Tools launcher. Roof developers can
+  // opt into specific shared tools later without another configurator receiving them.
+  tools: {
+    items: [],
+    placement: { side: 'left', direction: 'down', offsetX: 12, offsetY: 12 },
+  },
+  settingsPanel: {
+    panelSelector: '.sidebar',
+    toggleSelector: '#roofSidebarToggle',
+    collapsedClass: 'is-collapsed',
+    bodyCollapsedClass: 'roof-sidebar-collapsed',
+  },
   callbacks: {
+    onUndo() {
+      history.undo();
+    },
     onReset() {
       document.querySelector('[data-view="reset"]')?.click();
     },
@@ -23,19 +44,8 @@ const shell = mountStandaloneConfiguratorShell({
 });
 
 const sidebar = document.querySelector('.sidebar');
-const sidebarToggle = document.querySelector('#roofSidebarToggle');
-
-function setSidebarCollapsed(collapsed) {
-  sidebar?.classList.toggle('is-collapsed', collapsed);
-  document.body.classList.toggle('roof-sidebar-collapsed', collapsed);
-  sidebarToggle?.setAttribute('aria-expanded', String(!collapsed));
-  sidebarToggle?.setAttribute('aria-label', collapsed ? 'Show roof settings' : 'Hide roof settings');
-  sidebarToggle?.setAttribute('title', collapsed ? 'Show roof settings' : 'Hide roof settings');
-}
-
-sidebarToggle?.addEventListener('click', () => {
-  setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed'));
-});
+history.bindSource(sidebar);
+history.bindSource(document.querySelector('.model-options'));
 
 if (sidebar) {
   const markDirty = (event) => {
@@ -98,3 +108,4 @@ window.addEventListener('resize', scheduleToolsPosition);
 new ResizeObserver(scheduleToolsPosition).observe(toolsAnchor);
 requestAnimationFrame(scheduleToolsPosition);
 
+window.ROOF_CONFIGURATOR_UNDO_HISTORY = history;

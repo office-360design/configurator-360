@@ -109,6 +109,44 @@ export class RoofUI {
   }
 
 
+
+  applyStateToControls() {
+    document.querySelectorAll('[data-roof-type]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.roofType === this.state.roofType));
+    });
+    this.viewerTitle.textContent = roofNames[this.state.roofType];
+
+    document.querySelectorAll('[data-control]').forEach((control) => {
+      const key = control.dataset.control;
+      const range = control.querySelector('input[type="range"]');
+      const number = control.querySelector('input[type="number"]');
+      const output = control.querySelector('output');
+      const value = Number(this.state[key]);
+      if (!Number.isFinite(value)) return;
+      range.value = String(value);
+      number.value = String(value);
+      output.value = formatters[key](value);
+    });
+
+    const covering = document.querySelector('#coveringSelect');
+    if (covering) covering.value = this.state.covering;
+    const pitchRule = pitchRules[this.state.covering];
+    const pitchControl = document.querySelector('[data-control="pitch"]');
+    pitchControl?.querySelectorAll('input').forEach((input) => { input.min = String(pitchRule.minimum); });
+    this.pitchRuleNote.textContent = pitchRule.note;
+
+    document.querySelectorAll('.swatch').forEach((swatch) => {
+      swatch.classList.toggle('selected', swatch.dataset.color === this.state.roofColor);
+    });
+    const dimensions = document.querySelector('#dimensionsToggle');
+    const wireframe = document.querySelector('#wireframeToggle');
+    if (dimensions) dimensions.checked = Boolean(this.state.showDimensions);
+    if (wireframe) wireframe.checked = Boolean(this.state.technicalEdges);
+
+    this.updateCustomMode();
+    this.renderCustomPlanFile();
+  }
+
   updateCustomMode() {
     const isCustom = this.state.roofType === 'custom';
     const panel = document.querySelector('#customPlanPanel');

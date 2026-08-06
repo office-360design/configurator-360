@@ -1,4 +1,10 @@
-import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=2';
+import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=3';
+import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
+
+const history = new SharedUndoManager({
+  capture: () => window.WINDOW_CONFIGURATOR_API?.captureState?.(),
+  restore: (snapshot) => window.WINDOW_CONFIGURATOR_API?.restoreState?.(snapshot),
+});
 
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Window',
@@ -8,13 +14,28 @@ const shell = mountStandaloneConfiguratorShell({
   capabilities: {
     viewAR: true,
     save: true,
-    undo: false,
+    undo: true,
     reset: false,
     share: true,
+  },
+  // Tools are deliberately opt-in. Window developers can select tools from the
+  // root registry later; none are enabled by this shared-UI update.
+  tools: {
+    items: [],
+    placement: { side: 'left', direction: 'down', offsetX: 12, offsetY: 12 },
+  },
+  settingsPanel: {
+    panelSelector: '#controls',
+    toggleSelector: '#sidebar-toggle',
+    collapsedClass: 'sidebar-collapsed',
+    bodyCollapsedClass: 'sidebar-is-collapsed',
   },
   callbacks: {
     onViewAR() {
       document.querySelector('#qr-ar-button')?.click();
+    },
+    onUndo() {
+      history.undo();
     },
     onPreferenceChange(path, value) {
       if (path === 'defaultArPlatform') {
@@ -28,6 +49,8 @@ const shell = mountStandaloneConfiguratorShell({
 });
 
 const controls = document.querySelector('#controls');
+history.bindSource(controls);
+
 if (controls) {
   const markDirty = (event) => {
     if (event.target.closest('button, input, select, textarea, summary')) shell.markDirty();
@@ -45,3 +68,4 @@ if (preferredPlatform) {
 }
 
 window.WINDOW_CONFIGURATOR_SHARED_SHELL = shell;
+window.WINDOW_CONFIGURATOR_UNDO_HISTORY = history;

@@ -1,6 +1,6 @@
 import { state } from './state.js?v=12';
 import { RoofScene } from './scene.js?v=14';
-import { RoofUI } from './ui.js?v=12';
+import { RoofUI } from './ui.js?v=13';
 
 const host = document.querySelector('#canvasHost');
 const scene = new RoofScene(host);
@@ -25,3 +25,19 @@ document.querySelectorAll('[data-view]').forEach((button) => {
     }
   });
 });
+
+
+window.ROOF_CONFIGURATOR_API = {
+  captureState() {
+    return JSON.parse(JSON.stringify(state));
+  },
+  restoreState(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    Object.keys(state).forEach((key) => { delete state[key]; });
+    Object.assign(state, JSON.parse(JSON.stringify(snapshot)));
+    ui.applyStateToControls();
+    lastMetrics = scene.rebuild(state, false);
+    ui.updateMetrics(lastMetrics);
+    return true;
+  },
+};
