@@ -1,0 +1,28 @@
+name: Task Nou / Feature
+description: Adaugă un task nou specificând configuratorul vizat.
+title: "[Task]: "
+labels: ["feature"]
+body:
+  - type: dropdown
+    id: configurator
+    attributes:
+      label: Configurator / Modul
+      description: Selectează modulul pentru care se aplică acest task.
+      options:
+        - Core
+        - Pergola
+        - Aluminum Joinery
+        - Roofing
+        - Solar Panels
+        - Metal Halls
+        - Fences
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descriere Task
+      placeholder: Detaliază cerințele tehnice sau de UI...
+    validations:
+      required: true
