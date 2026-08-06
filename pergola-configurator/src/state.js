@@ -1,5 +1,6 @@
-const STORAGE_KEY = 'pergola-configurator:v7';
+const STORAGE_KEY = 'pergola-configurator:v8';
 const LEGACY_STORAGE_KEYS = [
+  'pergola-configurator:v7',
   'pergola-configurator:v6',
   'pergola-configurator:v5',
   'pergola-configurator:v4',
@@ -88,8 +89,22 @@ function createSide() {
   };
 }
 
+function createPoleFaceMounts() {
+  return {
+    speaker: null,
+    outlet: null,
+    'hand-crank': null,
+    switch: null,
+  };
+}
+
 function createPoleFaces() {
-  return { front: null, right: null, back: null, left: null };
+  return {
+    front: createPoleFaceMounts(),
+    right: createPoleFaceMounts(),
+    back: createPoleFaceMounts(),
+    left: createPoleFaceMounts(),
+  };
 }
 
 function createPoleMounts() {
@@ -323,17 +338,53 @@ export function poleFaceIsAvailable(state, pole, face) {
   return !side || side.type === 'none';
 }
 
-function normalizePoleMountValue(value) {
-  if (!value || typeof value !== 'object' || !POLE_MOUNT_TYPES.includes(value.type)) return null;
-  return createPoleMount(value.type, {
+function normalizePoleMountValue(value, expectedType = null) {
+  if (!value || typeof value !== 'object') return null;
+  const type = expectedType ?? value.type;
+  if (!POLE_MOUNT_TYPES.includes(type)) return null;
+  return createPoleMount(type, {
     height: value.height,
-    outletType: value.outletType ?? value.typeStandard ?? value.standard ?? value.type,
+    outletType: value.outletType ?? value.typeStandard ?? value.standard,
   });
 }
 
-function findAvailableFace(state, pole, occupied = null) {
-  const faces = FACE_PREFERENCE[pole] ?? POLE_FACES;
-  return faces.find((face) => poleFaceIsAvailable(state, pole, face) && !occupied?.[pole]?.[face]) ?? null;
+function normalizePoleFaceValue(value) {
+  const normalized = createPoleFaceMounts();
+  if (!value || typeof value !== 'object') return normalized;
+
+  // v7 and earlier stored one mount directly on each face.
+  if (!Array.isArray(value) && POLE_MOUNT_TYPES.includes(value.type)) {
+    normalized[value.type] = normalizePoleMountValue(value);
+    return normalized;
+  }
+
+  const entries = Array.isArray(value)
+    ? value.map((mount) => [mount?.type, mount])
+    : Object.entries(value);
+
+  entries.forEach(([type, mount]) => {
+    if (!POLE_MOUNT_TYPES.includes(type)) return;
+    normalized[type] = normalizePoleMountValue(mount, type);
+  });
+  return normalized;
+}
+
+export function getPoleFaceMounts(state, pole, face) {
+  return state.poleMounts?.[pole]?.[face] ?? createPoleFaceMounts();
+}
+
+export function faceHasMountedItems(state, pole, face) {
+  return Object.values(getPoleFaceMounts(state, pole, face)).some(Boolean);
+}
+
+function findAvailableFace(state, pole, mounts = null, type = null) {
+  const faces = (FACE_PREFERENCE[pole] ?? POLE_FACES)
+    .filter((face) => poleFaceIsAvailable(state, pole, face));
+  const source = mounts ?? state.poleMounts;
+  const acceptsType = (face) => !type || !source?.[pole]?.[face]?.[type];
+  return faces.find((face) => acceptsType(face) && !Object.values(source?.[pole]?.[face] ?? {}).some(Boolean))
+    ?? faces.find(acceptsType)
+    ?? null;
 }
 
 function legacyOutletMount(value) {
@@ -356,15 +407,15 @@ function migrateLegacyPoleMounts(state, incoming) {
     POLE_FACES.forEach((face) => {
       const legacyOutlet = legacyAccessories.outlets?.[pole]?.[face];
       if (legacyOutlet && poleFaceIsAvailable(state, pole, face)) {
-        mounts[pole][face] = legacyOutletMount(legacyOutlet);
+        mounts[pole][face].outlet = legacyOutletMount(legacyOutlet);
       }
     });
   });
 
   SUPPORT_POLES.forEach((pole) => {
     if (!legacyAccessories.speakers?.[pole] || !poleIsAvailable(state, pole)) return;
-    const face = findAvailableFace(state, pole, mounts);
-    if (face) mounts[pole][face] = createPoleMount('speaker');
+    const face = findAvailableFace(state, pole, mounts, 'speaker');
+    if (face) mounts[pole][face].speaker = createPoleMount('speaker');
   });
 
   const legacyAutomation = incoming.automationSettings ?? {};
@@ -375,9 +426,9 @@ function migrateLegacyPoleMounts(state, incoming) {
     const orderedPoles = [preferredPole, ...SUPPORT_POLES.filter((pole) => pole !== preferredPole)];
     for (const pole of orderedPoles) {
       if (!poleIsAvailable(state, pole)) continue;
-      const face = findAvailableFace(state, pole, mounts);
+      const face = findAvailableFace(state, pole, mounts, 'hand-crank');
       if (!face) continue;
-      mounts[pole][face] = createPoleMount('hand-crank', { height: legacyAutomation.manual?.height });
+      mounts[pole][face]['hand-crank'] = createPoleMount('hand-crank', { height: legacyAutomation.manual?.height });
       break;
     }
   }
@@ -386,8 +437,8 @@ function migrateLegacyPoleMounts(state, incoming) {
     SUPPORT_POLES.forEach((pole) => {
       const height = legacyAutomation.wallSwitches?.[pole];
       if (height === null || height === false || height === 'off' || height === undefined) return;
-      const face = findAvailableFace(state, pole, mounts);
-      if (face) mounts[pole][face] = createPoleMount('switch', { height });
+      const face = findAvailableFace(state, pole, mounts, 'switch');
+      if (face) mounts[pole][face].switch = createPoleMount('switch', { height });
     });
   }
 
@@ -404,8 +455,9 @@ export function countPoleMounts(state, type = null) {
   let count = 0;
   SUPPORT_POLES.forEach((pole) => {
     POLE_FACES.forEach((face) => {
-      const mount = state.poleMounts?.[pole]?.[face];
-      if (mount && (!type || mount.type === type)) count += 1;
+      Object.entries(getPoleFaceMounts(state, pole, face)).forEach(([mountType, mount]) => {
+        if (mount && (!type || mountType === type)) count += 1;
+      });
     });
   });
   return count;
@@ -414,53 +466,95 @@ export function countPoleMounts(state, type = null) {
 export function findPoleMount(state, type) {
   for (const pole of SUPPORT_POLES) {
     for (const face of POLE_FACES) {
-      const mount = state.poleMounts?.[pole]?.[face];
-      if (mount?.type === type) return { pole, face, mount };
+      const mount = getPoleFaceMounts(state, pole, face)[type];
+      if (mount) return { pole, face, type, mount };
     }
   }
   return null;
 }
 
-function mountVerticalHalfSpanPercent(type) {
-  const physicalHeight = MOUNT_PHYSICAL_HEIGHT_METERS[type] ?? MOUNT_PHYSICAL_HEIGHT_METERS.outlet;
-  return (physicalHeight / 2 / MINIMUM_PERGOLA_HEIGHT_METERS) * 100;
+function pergolaHeightMeters(state) {
+  const configuredHeight = Number(state.dimensions?.height) / 1000;
+  return Number.isFinite(configuredHeight) && configuredHeight > 0
+    ? configuredHeight
+    : MINIMUM_PERGOLA_HEIGHT_METERS;
 }
 
-function mountsOverlapVertically(first, second) {
+function mountVerticalHalfSpanPercent(state, type) {
+  const physicalHeight = MOUNT_PHYSICAL_HEIGHT_METERS[type] ?? MOUNT_PHYSICAL_HEIGHT_METERS.outlet;
+  return (physicalHeight / 2 / pergolaHeightMeters(state)) * 100;
+}
+
+function mountsOverlapVertically(state, first, second) {
   if (!first || !second) return false;
-  const requiredSeparation = mountVerticalHalfSpanPercent(first.type)
-    + mountVerticalHalfSpanPercent(second.type)
-    + (MOUNT_VERTICAL_CLEARANCE_METERS / MINIMUM_PERGOLA_HEIGHT_METERS) * 100;
+  const height = pergolaHeightMeters(state);
+  const requiredSeparation = mountVerticalHalfSpanPercent(state, first.type)
+    + mountVerticalHalfSpanPercent(state, second.type)
+    + (MOUNT_VERTICAL_CLEARANCE_METERS / height) * 100;
   return Math.abs(Number(first.height) - Number(second.height)) < requiredSeparation;
 }
 
-export function findPoleMountCollision(state, pole, face, mount = null) {
-  const candidate = mount ?? state.poleMounts?.[pole]?.[face];
-  if (!candidate) return null;
-  for (const otherFace of POLE_FACES) {
-    if (otherFace === face) continue;
-    const otherMount = state.poleMounts?.[pole]?.[otherFace];
-    if (otherMount && mountsOverlapVertically(candidate, otherMount)) {
-      return { pole, face: otherFace, mount: otherMount };
-    }
-  }
-  return null;
+export function findPoleMountCollisions(state, pole, face, type, mount = null) {
+  const candidate = mount ?? getPoleFaceMounts(state, pole, face)[type];
+  if (!candidate) return [];
+  return Object.entries(getPoleFaceMounts(state, pole, face))
+    .filter(([otherType, otherMount]) => otherType !== type && otherMount && mountsOverlapVertically(state, candidate, otherMount))
+    .map(([otherType, otherMount]) => ({ pole, face, type: otherType, mount: otherMount }));
 }
 
-function findNearestNonOverlappingHeight(state, pole, face, mount) {
-  const limits = getPoleMountHeightLimits(mount.type);
-  const preferred = clampMountHeight(mount.type, mount.height);
+export function findPoleMountCollision(state, pole, face, type, mount = null) {
+  return findPoleMountCollisions(state, pole, face, type, mount)[0] ?? null;
+}
+
+export function getPoleMountConflictMap(state) {
+  const map = {};
+  SUPPORT_POLES.forEach((pole) => {
+    POLE_FACES.forEach((face) => {
+      const faceMounts = getPoleFaceMounts(state, pole, face);
+      const types = new Set();
+      const pairs = [];
+      POLE_MOUNT_TYPES.forEach((type, index) => {
+        const mount = faceMounts[type];
+        if (!mount) return;
+        POLE_MOUNT_TYPES.slice(index + 1).forEach((otherType) => {
+          const otherMount = faceMounts[otherType];
+          if (!otherMount || !mountsOverlapVertically(state, mount, otherMount)) return;
+          types.add(type);
+          types.add(otherType);
+          pairs.push([type, otherType]);
+        });
+      });
+      if (types.size) {
+        map[pole] ??= {};
+        map[pole][face] = { types: [...types], pairs };
+      }
+    });
+  });
+  return map;
+}
+
+export function hasPoleMountConflicts(state) {
+  return Object.keys(getPoleMountConflictMap(state)).length > 0;
+}
+
+export function isPergolaConfigurationValid(state) {
+  return !hasPoleMountConflicts(state);
+}
+
+export function findAvailablePoleMountHeight(state, pole, face, type, preferredHeight = null) {
+  const limits = getPoleMountHeightLimits(type);
+  const preferred = clampMountHeight(type, preferredHeight ?? limits.default);
   const candidates = [];
   for (let height = limits.min; height <= limits.max; height += 1) candidates.push(height);
   candidates.sort((first, second) => Math.abs(first - preferred) - Math.abs(second - preferred));
   for (const height of candidates) {
-    const candidate = { ...mount, height };
-    if (!findPoleMountCollision(state, pole, face, candidate)) return height;
+    const candidate = createPoleMount(type, { height });
+    if (!findPoleMountCollision(state, pole, face, type, candidate)) return height;
   }
   return null;
 }
 
-function orderedMountSlots(state, preferredPole = null) {
+function orderedMountSlots(state, type, preferredPole = null) {
   const orderedPoles = preferredPole && SUPPORT_POLES.includes(preferredPole)
     ? [preferredPole, ...SUPPORT_POLES.filter((pole) => pole !== preferredPole)]
     : SUPPORT_POLES;
@@ -469,35 +563,24 @@ function orderedMountSlots(state, preferredPole = null) {
     if (!poleIsAvailable(state, pole)) return;
     const faces = FACE_PREFERENCE[pole] ?? POLE_FACES;
     faces.forEach((face) => {
-      if (poleFaceIsAvailable(state, pole, face)) slots.push({ pole, face });
+      if (poleFaceIsAvailable(state, pole, face) && !getPoleFaceMounts(state, pole, face)[type]) {
+        slots.push({ pole, face });
+      }
     });
   });
   return slots;
 }
 
-function findFirstMountSlot(state, preferredPole = null) {
-  const slots = orderedMountSlots(state, preferredPole);
-  return slots.find(({ pole, face }) => !state.poleMounts?.[pole]?.[face]) ?? slots[0] ?? null;
+function findFirstMountSlot(state, type, preferredPole = null) {
+  const slots = orderedMountSlots(state, type, preferredPole);
+  return slots.find(({ pole, face }) => !faceHasMountedItems(state, pole, face)) ?? slots[0] ?? null;
 }
 
-function resolvePoleMountCollisions(state) {
-  SUPPORT_POLES.forEach((pole) => {
-    const mounts = POLE_FACES
-      .map((face) => ({ face, mount: state.poleMounts?.[pole]?.[face] ?? null }))
-      .filter(({ mount }) => Boolean(mount))
-      .sort((first, second) => {
-        const priority = (entry) => {
-          if (entry.mount.type === 'hand-crank' && state.automation === 'manual') return 0;
-          if (entry.mount.type === 'switch' && state.automation === 'wall-switch') return 1;
-          return 2;
-        };
-        return priority(first) - priority(second);
-      });
-
-    POLE_FACES.forEach((face) => { state.poleMounts[pole][face] = null; });
-    mounts.forEach(({ face, mount }) => {
-      const safeHeight = findNearestNonOverlappingHeight(state, pole, face, mount);
-      if (safeHeight !== null) state.poleMounts[pole][face] = { ...mount, height: safeHeight };
+function removeOtherMountsOfType(state, type, pole, face) {
+  SUPPORT_POLES.forEach((otherPole) => {
+    POLE_FACES.forEach((otherFace) => {
+      if (otherPole === pole && otherFace === face) return;
+      state.poleMounts[otherPole][otherFace][type] = null;
     });
   });
 }
@@ -505,17 +588,13 @@ function resolvePoleMountCollisions(state) {
 function ensureRequiredAutomationMounts(state) {
   if (state.automation !== 'manual') {
     SUPPORT_POLES.forEach((pole) => {
-      POLE_FACES.forEach((face) => {
-        if (state.poleMounts[pole][face]?.type === 'hand-crank') state.poleMounts[pole][face] = null;
-      });
+      POLE_FACES.forEach((face) => { state.poleMounts[pole][face]['hand-crank'] = null; });
     });
   }
 
   if (state.automation !== 'wall-switch') {
     SUPPORT_POLES.forEach((pole) => {
-      POLE_FACES.forEach((face) => {
-        if (state.poleMounts[pole][face]?.type === 'switch') state.poleMounts[pole][face] = null;
-      });
+      POLE_FACES.forEach((face) => { state.poleMounts[pole][face].switch = null; });
     });
   }
 
@@ -523,19 +602,19 @@ function ensureRequiredAutomationMounts(state) {
     const cranks = [];
     SUPPORT_POLES.forEach((pole) => {
       POLE_FACES.forEach((face) => {
-        if (state.poleMounts[pole][face]?.type === 'hand-crank') cranks.push({ pole, face });
+        if (state.poleMounts[pole][face]['hand-crank']) cranks.push({ pole, face });
       });
     });
-    cranks.slice(1).forEach(({ pole, face }) => { state.poleMounts[pole][face] = null; });
+    cranks.slice(1).forEach(({ pole, face }) => { state.poleMounts[pole][face]['hand-crank'] = null; });
     if (cranks.length === 0) {
-      const slot = findFirstMountSlot(state, 'frontRight');
-      if (slot) state.poleMounts[slot.pole][slot.face] = createPoleMount('hand-crank');
+      const slot = findFirstMountSlot(state, 'hand-crank', 'frontRight');
+      if (slot) state.poleMounts[slot.pole][slot.face]['hand-crank'] = createPoleMount('hand-crank');
     }
   }
 
   if (state.automation === 'wall-switch' && countPoleMounts(state, 'switch') === 0) {
-    const slot = findFirstMountSlot(state, 'frontRight');
-    if (slot) state.poleMounts[slot.pole][slot.face] = createPoleMount('switch');
+    const slot = findFirstMountSlot(state, 'switch', 'frontRight');
+    if (slot) state.poleMounts[slot.pole][slot.face].switch = createPoleMount('switch');
   }
 }
 
@@ -550,21 +629,21 @@ function normalizePoleMounts(state, incoming = {}, options = {}) {
   SUPPORT_POLES.forEach((pole) => {
     state.poleMounts[pole] = deepMerge(createPoleFaces(), state.poleMounts[pole] ?? {});
     POLE_FACES.forEach((face) => {
-      const mount = normalizePoleMountValue(state.poleMounts[pole][face]);
-      if (
-        !mount
-        || !poleFaceIsAvailable(state, pole, face)
-        || !mountTypeAllowedForAutomation(state, mount.type)
-      ) {
-        state.poleMounts[pole][face] = null;
-      } else {
-        state.poleMounts[pole][face] = mount;
-      }
+      const faceMounts = normalizePoleFaceValue(state.poleMounts[pole][face]);
+      POLE_MOUNT_TYPES.forEach((type) => {
+        const mount = faceMounts[type];
+        if (
+          !mount
+          || !poleFaceIsAvailable(state, pole, face)
+          || !mountTypeAllowedForAutomation(state, type)
+        ) {
+          faceMounts[type] = null;
+        }
+      });
+      state.poleMounts[pole][face] = faceMounts;
     });
   });
 
-  ensureRequiredAutomationMounts(state);
-  resolvePoleMountCollisions(state);
   ensureRequiredAutomationMounts(state);
   delete state.automationSettings;
   delete state.accessories.speakers;
@@ -590,7 +669,7 @@ function getSideMountPairs(side) {
 }
 
 export function sideHasMountedItems(state, side) {
-  return getSideMountPairs(side).some(({ pole, face }) => Boolean(state.poleMounts?.[pole]?.[face]));
+  return getSideMountPairs(side).some(({ pole, face }) => faceHasMountedItems(state, pole, face));
 }
 
 function normalizeState(state, incoming = {}, options = {}) {
@@ -641,20 +720,14 @@ function setAtPath(target, path, value) {
 }
 
 function mountPathParts(path) {
-  const match = path.match(/^poleMounts\.([^.]+)\.([^.]+)(?:\.(height|outletType))?$/);
-  if (!match) return null;
-  return { pole: match[1], face: match[2], field: match[3] ?? null };
-}
-
-function removeOtherHandCranks(state, pole, face) {
-  SUPPORT_POLES.forEach((otherPole) => {
-    POLE_FACES.forEach((otherFace) => {
-      if (otherPole === pole && otherFace === face) return;
-      if (state.poleMounts?.[otherPole]?.[otherFace]?.type === 'hand-crank') {
-        state.poleMounts[otherPole][otherFace] = null;
-      }
-    });
-  });
+  const match = path.match(/^poleMounts\.([^.]+)\.([^.]+)\.([^.]+)(?:\.(height|outletType))?$/);
+  if (!match || !POLE_MOUNT_TYPES.includes(match[3])) return null;
+  return {
+    pole: match[1],
+    face: match[2],
+    type: match[3],
+    field: match[4] ?? null,
+  };
 }
 
 export class ConfiguratorStore {
@@ -738,49 +811,47 @@ export class ConfiguratorStore {
     const mountPath = mountPathParts(path);
     let normalizedValue = value;
     if (mountPath) {
-      const currentMount = this.state.poleMounts?.[mountPath.pole]?.[mountPath.face] ?? null;
+      const currentMount = this.state.poleMounts?.[mountPath.pole]?.[mountPath.face]?.[mountPath.type] ?? null;
       if (mountPath.field === 'height') {
         if (!currentMount) return false;
-        normalizedValue = clampMountHeight(currentMount.type, value);
+        normalizedValue = clampMountHeight(mountPath.type, value);
       } else if (mountPath.field === 'outletType') {
-        if (currentMount?.type !== 'outlet') return false;
+        if (mountPath.type !== 'outlet' || !currentMount) return false;
         normalizedValue = value === 'us' ? 'us' : 'eu';
       } else {
-        normalizedValue = normalizePoleMountValue(value);
+        normalizedValue = normalizePoleMountValue(value, mountPath.type);
       }
     }
 
     const candidate = clone(this.state);
     setAtPath(candidate, path, normalizedValue);
 
-    if (mountPath && !mountPath.field && normalizedValue?.type === 'hand-crank') {
-      removeOtherHandCranks(candidate, mountPath.pole, mountPath.face);
+    if (mountPath && !mountPath.field && normalizedValue && mountPath.type === 'hand-crank') {
+      removeOtherMountsOfType(candidate, 'hand-crank', mountPath.pole, mountPath.face);
     }
 
     if (mountPath) {
-      const mount = candidate.poleMounts?.[mountPath.pole]?.[mountPath.face] ?? null;
-      if (mount && !canPlacePoleMount(candidate, mountPath.pole, mountPath.face, mount.type)) {
+      const mount = candidate.poleMounts?.[mountPath.pole]?.[mountPath.face]?.[mountPath.type] ?? null;
+      if (mount && !canPlacePoleMount(candidate, mountPath.pole, mountPath.face, mountPath.type)) {
         this.lastError = 'That component is not available on this pole face.';
         return false;
       }
-      if (mount) {
-        if (mountPath.field === 'height') {
-          const collision = findPoleMountCollision(candidate, mountPath.pole, mountPath.face);
-          if (collision) {
-            this.lastError = `This height overlaps the ${collision.mount.type.replace('-', ' ')} on the ${collision.face} face.`;
-            return false;
-          }
-        } else if (!mountPath.field) {
-          const safeHeight = findNearestNonOverlappingHeight(candidate, mountPath.pole, mountPath.face, mount);
-          if (safeHeight === null) {
-            this.lastError = 'There is no collision-free height available on this pole. Move or remove another component first.';
-            return false;
-          }
-          candidate.poleMounts[mountPath.pole][mountPath.face].height = safeHeight;
+
+      if (mount && !mountPath.field) {
+        const safeHeight = findAvailablePoleMountHeight(
+          candidate,
+          mountPath.pole,
+          mountPath.face,
+          mountPath.type,
+          mount.height,
+        );
+        if (safeHeight !== null) {
+          candidate.poleMounts[mountPath.pole][mountPath.face][mountPath.type].height = safeHeight;
         }
       }
+
       if (candidate.automation === 'manual' && countPoleMounts(candidate, 'hand-crank') === 0) {
-        this.lastError = 'Manual automation requires one hand crank. Move it to another face before replacing it.';
+        this.lastError = 'Manual automation requires one hand crank. Move it to another face before removing it.';
         return false;
       }
       if (candidate.automation === 'wall-switch' && countPoleMounts(candidate, 'switch') === 0) {

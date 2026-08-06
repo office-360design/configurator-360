@@ -1396,3 +1396,31 @@ body.roof-sidebar-collapsed .shared-settings-toggle {
     right: 0 !important;
   }
 }
+
+/* v1.5.0 paired theme colors: the same semantic role uses one light/dark pair. */
+.app-shell {
+  --ui-text-primary: #172027;
+  --ui-text-secondary: #778087;
+  --ui-text-action: #005a9f;
+  --ui-surface-primary: #ffffff;
+  --ui-surface-secondary: #f5f7f7;
+  --ui-border-color: #dfe4e6;
+  --ui-danger: #c62828;
+  --ui-danger-surface: #fff1f1;
+}
+
+.app-shell.is-dark-mode {
+  --ui-text-primary: #e2e8f0;
+  --ui-text-secondary: #94a3b8;
+  --ui-text-action: #93c5fd;
+  --ui-surface-primary: #1e293b;
+  --ui-surface-secondary: #263548;
+  --ui-border-color: rgba(255, 255, 255, 0.12);
+  --ui-danger: #fca5a5;
+  --ui-danger-surface: rgba(127, 29, 29, 0.28);
+}
+
+.account-settings__cookies strong,
+.app-shell.is-dark-mode .account-settings__cookies strong {
+  color: var(--ui-text-action);
+}

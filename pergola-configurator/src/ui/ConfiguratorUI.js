@@ -1,6 +1,12 @@
 import { STEPS } from '../catalog.js';
 import { calculatePrice, formatMoney } from '../pricing.js';
-import { createPoleMount, findPoleMount, poleIsAvailable } from '../state.js';
+import {
+  createPoleMount,
+  findPoleMount,
+  getPoleMountConflictMap,
+  hasPoleMountConflicts,
+  poleIsAvailable,
+} from '../state.js';
 import {
   LANGUAGE_PROFILES,
   escapeHtml,
@@ -249,6 +255,7 @@ export class ConfiguratorUI {
     this.projectDirty = this.computeProjectDirty();
     if (meta.continuous) {
       this.syncContinuousValues();
+      this.syncPoleConflictState();
       this.syncTopBar();
       return;
     }
@@ -378,18 +385,23 @@ export class ConfiguratorUI {
     } else if (action === 'select-pole-face') {
       this.activePoleFace = actionTarget.dataset.face;
       this.render();
-    } else if (action === 'set-pole-mount') {
+    } else if (action === 'add-pole-mount') {
       const type = actionTarget.dataset.mountType;
-      const path = `poleMounts.${this.activePole}.${this.activePoleFace}`;
-      const current = this.state.poleMounts[this.activePole]?.[this.activePoleFace] ?? null;
-      const value = type === 'none'
-        ? null
-        : createPoleMount(type, {
-          height: current?.type === type ? current.height : undefined,
-          outletType: current?.type === 'outlet' ? current.outletType : 'eu',
-        });
+      const path = `poleMounts.${this.activePole}.${this.activePoleFace}.${type}`;
+      const current = this.state.poleMounts[this.activePole]?.[this.activePoleFace]?.[type] ?? null;
+      if (current) return;
+      const existing = type === 'hand-crank' ? findPoleMount(this.state, 'hand-crank')?.mount : null;
+      const value = createPoleMount(type, {
+        height: existing?.height,
+        outletType: type === 'outlet' ? 'eu' : undefined,
+      });
       const updated = this.store.update(path, value);
       if (updated === false) this.showToast(this.store.getLastError?.() || 'That component cannot be placed there.');
+    } else if (action === 'remove-pole-mount') {
+      const type = actionTarget.dataset.mountType;
+      const path = `poleMounts.${this.activePole}.${this.activePoleFace}.${type}`;
+      const updated = this.store.update(path, null);
+      if (updated === false) this.showToast(this.store.getLastError?.() || 'That component cannot be removed.');
     } else if (action === 'toggle-step-section') {
       const stepId = actionTarget.dataset.stepId;
       this.expandedStep = this.expandedStep === stepId ? null : stepId;
@@ -529,7 +541,7 @@ export class ConfiguratorUI {
 
   syncContinuousValues() {
     const sun = this.environmentPanel.querySelector('[data-sun-output]');
-    const tilt = this.environmentPanel.querySelector('[data-tilt-output]');
+    const tilt = this.root.querySelector('[data-tilt-output]');
     const north = this.environmentPanel.querySelector('[data-north-output]');
     const screen = this.stepContent.querySelector('[data-screen-openness-label]');
     if (sun) sun.textContent = `${Math.round(this.state.environment.sunPosition * 100)}%`;
@@ -541,9 +553,35 @@ export class ConfiguratorUI {
       screen.textContent = `${Math.round(openness)}% open`;
     }
     this.stepContent.querySelectorAll('[data-pole-mount-height-output]').forEach((output) => {
-      const [pole, face] = output.dataset.poleMountHeightOutput.split('.');
-      output.textContent = `${this.state.poleMounts[pole]?.[face]?.height ?? 0}%`;
+      const [pole, face, type] = output.dataset.poleMountHeightOutput.split('.');
+      output.textContent = `${this.state.poleMounts[pole]?.[face]?.[type]?.height ?? 0}%`;
     });
+  }
+
+
+  syncPoleConflictState() {
+    const conflicts = getPoleMountConflictMap(this.state);
+    const currentFaceConflict = conflicts[this.activePole]?.[this.activePoleFace] ?? null;
+    const currentTypes = new Set(currentFaceConflict?.types ?? []);
+
+    this.stepContent.querySelectorAll('[data-action="select-pole"][data-pole]').forEach((button) => {
+      button.classList.toggle('is-invalid', Boolean(conflicts[button.dataset.pole]));
+    });
+    this.stepContent.querySelectorAll('[data-action="select-pole-face"][data-face]').forEach((button) => {
+      button.classList.toggle('is-invalid', Boolean(conflicts[this.activePole]?.[button.dataset.face]));
+    });
+    this.stepContent.querySelector('.pole-mount-editor')?.classList.toggle('is-invalid', Boolean(currentFaceConflict));
+    this.stepContent.querySelector('[data-pole-overlap-warning]')?.toggleAttribute('hidden', !currentFaceConflict);
+    this.stepContent.querySelector('.accessory-summary-line')?.classList.toggle('is-invalid', hasPoleMountConflicts(this.state));
+
+    this.stepContent.querySelectorAll('[data-action="add-pole-mount"][data-mount-type]').forEach((button) => {
+      button.classList.toggle('is-invalid', currentTypes.has(button.dataset.mountType));
+    });
+    this.stepContent.querySelectorAll('[data-pole-mount-card]').forEach((card) => {
+      const [pole, face, type] = card.dataset.poleMountCard.split('.');
+      card.classList.toggle('is-invalid', Boolean(conflicts[pole]?.[face]?.types?.includes(type)));
+    });
+    this.sidebarFooter.querySelector('[data-step-id="summary"]')?.classList.toggle('is-invalid', hasPoleMountConflicts(this.state));
   }
 
   syncToolbar() {

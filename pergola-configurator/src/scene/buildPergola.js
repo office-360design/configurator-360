@@ -680,32 +680,35 @@ function addPoleMounts(group, state, width, depth, height, postSize, assets) {
 
   Object.entries(state.poleMounts ?? {}).forEach(([pole, faces]) => {
     if (!poleIsAvailable(state, pole) || !coordinates[pole]) return;
-    Object.entries(faces ?? {}).forEach(([face, mount]) => {
-      if (!mount || !poleFaceIsAvailable(state, pole, face)) return;
-      const mountHeight = height * (Number(mount.height) / 100);
-      let model = null;
-      let depthOffset = 0.02;
+    Object.entries(faces ?? {}).forEach(([face, mounts]) => {
+      if (!poleFaceIsAvailable(state, pole, face)) return;
+      Object.values(mounts ?? {}).forEach((mount) => {
+        if (!mount) return;
+        const mountHeight = height * (Number(mount.height) / 100);
+        let model = null;
+        let depthOffset = 0.02;
 
-      if (mount.type === 'speaker') {
-        model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
-        if (model) styleSpeakerModel(model);
-        depthOffset = 0.045;
-      } else if (mount.type === 'outlet') {
-        model = buildOutletModel(mount.outletType === 'us' ? 'us' : 'eu');
-        depthOffset = 0.006;
-      } else if (mount.type === 'hand-crank') {
-        model = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
-        if (model) styleAutomationAsset(model);
-        depthOffset = 0.07;
-      } else if (mount.type === 'switch') {
-        model = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
-        if (model) styleAutomationAsset(model);
-        depthOffset = 0.025;
-      }
+        if (mount.type === 'speaker') {
+          model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
+          if (model) styleSpeakerModel(model);
+          depthOffset = 0.045;
+        } else if (mount.type === 'outlet') {
+          model = buildOutletModel(mount.outletType === 'us' ? 'us' : 'eu');
+          depthOffset = 0.006;
+        } else if (mount.type === 'hand-crank') {
+          model = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
+          if (model) styleAutomationAsset(model);
+          depthOffset = 0.07;
+        } else if (mount.type === 'switch') {
+          model = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
+          if (model) styleAutomationAsset(model);
+          depthOffset = 0.025;
+        }
 
-      if (!model) return;
-      placeOnPole(model, coordinates[pole], face, mountHeight, postSize, depthOffset);
-      group.add(model);
+        if (!model) return;
+        placeOnPole(model, coordinates[pole], face, mountHeight, postSize, depthOffset);
+        group.add(model);
+      });
     });
   });
 }

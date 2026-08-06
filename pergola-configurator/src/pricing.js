@@ -60,7 +60,10 @@ function countSelected(record = {}) {
 
 function countPoleMounts(poleMounts = {}, type) {
   return Object.values(poleMounts).reduce(
-    (total, pole) => total + Object.values(pole ?? {}).filter((mount) => mount?.type === type).length,
+    (poleTotal, pole) => poleTotal + Object.values(pole ?? {}).reduce(
+      (faceTotal, face) => faceTotal + (face?.[type] ? 1 : 0),
+      0,
+    ),
     0,
   );
 }
