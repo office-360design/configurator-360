@@ -649,3 +649,258 @@ select { padding: 0 11px; }
 @media (max-width: 760px) {
   .roof-tools-anchor { top: 12px; left: 12px; }
 }
+
+/* Roof implementation of the opt-in shared viewport tools. */
+.shared-ui-host .roof-relocated-tools-toolbar {
+  position: fixed !important;
+  top: var(--roof-tools-top, 0) !important;
+  left: var(--roof-tools-left, 0) !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: 920 !important;
+  margin: 0 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.shared-ui-host .roof-relocated-tools-toolbar .tools-toolbar__panel {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+}
+
+.shared-ui-host .roof-relocated-tools-toolbar .tools-toolbar__panel.is-open {
+  display: flex;
+}
+
+.shared-ui-host .round-tool {
+  display: inline-grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(17, 29, 35, 0.08);
+  border-radius: 50%;
+  color: #152633;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 8px 22px rgba(20, 32, 39, 0.12);
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, transform 150ms ease, opacity 150ms ease;
+}
+
+.shared-ui-host .round-tool:hover:not(:disabled),
+.shared-ui-host .round-tool:focus-visible:not(:disabled) {
+  color: #0878c9;
+  transform: translateY(-1px);
+}
+
+.shared-ui-host .round-tool.is-active {
+  color: #fff;
+  background: #0878c9;
+}
+
+.shared-ui-host .round-tool:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.shared-ui-host .round-tool > span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+}
+
+.shared-ui-host .round-tool svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.roof-environment-panel {
+  position: fixed;
+  top: var(--roof-environment-top, 140px);
+  left: var(--roof-environment-left, 106px);
+  z-index: 940;
+  width: var(--roof-environment-width, 390px);
+  max-width: calc(100vw - 24px);
+  padding: 24px;
+  border: 1px solid rgba(20, 27, 35, 0.1);
+  border-radius: 18px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.985);
+  box-shadow: 0 18px 54px rgba(24, 39, 47, 0.2);
+  backdrop-filter: blur(18px);
+}
+
+.roof-environment-panel[hidden] { display: none; }
+
+.roof-environment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.roof-environment-header h2 {
+  font-size: 18px;
+  letter-spacing: -0.035em;
+}
+
+.roof-environment-header button {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #17202a;
+  background: transparent;
+  cursor: pointer;
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.roof-environment-header button:hover,
+.roof-environment-header button:focus-visible { background: #eef1f3; }
+
+.roof-environment-control {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 24px;
+}
+
+.roof-environment-control__heading,
+.roof-environment-control__ends {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.roof-environment-control__heading label {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.roof-environment-control__heading output,
+.roof-environment-control__ends {
+  color: #3c4c59;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.roof-environment-control input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: #0878c9;
+}
+
+.roof-night-preview {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 70px;
+  padding: 14px 15px;
+  border: 1px solid #dce2e6;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.roof-night-preview__icon {
+  color: #17202a;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.roof-night-preview__copy {
+  display: grid;
+  gap: 3px;
+}
+
+.roof-night-preview__copy strong { font-size: 13px; }
+.roof-night-preview__copy small { color: var(--muted); font-size: 10px; }
+.roof-night-preview input { position: absolute; opacity: 0; pointer-events: none; }
+
+.roof-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #cbd2d7;
+  transition: background 160ms ease;
+}
+
+.roof-switch::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(18, 28, 36, 0.22);
+  content: '';
+  transition: transform 160ms ease;
+}
+
+.roof-night-preview input:checked + .roof-switch { background: #0878c9; }
+.roof-night-preview input:checked + .roof-switch::after { transform: translateX(18px); }
+.roof-night-preview input:focus-visible + .roof-switch { outline: 3px solid rgba(8, 120, 201, 0.2); outline-offset: 2px; }
+
+.viewer-stage.is-night-preview {
+  background: radial-gradient(circle at 55% 42%, #24334d 0%, #15233a 48%, #091321 100%);
+}
+
+.viewer-stage.is-night-preview .stage-hint {
+  color: #d5dfeb;
+  background: rgba(11, 22, 37, 0.72);
+}
+
+.compass-label {
+  display: grid;
+  min-width: 21px;
+  height: 21px;
+  place-items: center;
+  border: 1px solid rgba(17, 29, 35, 0.14);
+  border-radius: 50%;
+  color: #223240;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 3px 10px rgba(16, 28, 36, 0.16);
+  font-size: 10px;
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.compass-label--north { color: #c72f3d; }
+
+body.shared-ui-dark-mode .roof-environment-panel {
+  color: #e7eef3;
+  background: rgba(20, 31, 45, 0.985);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.shared-ui-dark-mode .roof-environment-header button,
+body.shared-ui-dark-mode .roof-night-preview__icon { color: #e7eef3; }
+body.shared-ui-dark-mode .roof-environment-header button:hover { background: rgba(255, 255, 255, 0.08); }
+body.shared-ui-dark-mode .roof-environment-control__heading output,
+body.shared-ui-dark-mode .roof-environment-control__ends,
+body.shared-ui-dark-mode .roof-night-preview__copy small { color: #b9c6d0; }
+body.shared-ui-dark-mode .roof-night-preview { border-color: rgba(255, 255, 255, 0.12); }
+body.shared-ui-dark-mode .shared-ui-host .round-tool { color: #e7eef3; background: rgba(20, 31, 45, 0.96); border-color: rgba(255, 255, 255, 0.11); }
+body.shared-ui-dark-mode .shared-ui-host .round-tool.is-active { color: #fff; background: #0878c9; }
+
+@media (max-width: 760px) {
+  .roof-environment-panel {
+    padding: 19px;
+    border-radius: 16px;
+  }
+
+  .roof-environment-header { margin-bottom: 20px; }
+  .roof-environment-control { margin-bottom: 20px; }
+}

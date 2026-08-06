@@ -18,6 +18,10 @@ export const state = {
   roofColor: '#7f1d2d',
   showDimensions: true,
   technicalEdges: false,
+  showCompass: false,
+  sunPosition: 42,
+  northDirection: 108,
+  nightPreview: false,
   customPlan: null,
 };
 

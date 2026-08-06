@@ -1,4 +1,4 @@
-import { pitchRules, roofNames } from './state.js?v=12';
+import { pitchRules, roofNames } from './state.js?v=13';
 import { bomToCsv, calculateBom, formatLei } from './bom.js?v=12';
 
 const formatters = {
@@ -98,67 +98,19 @@ export class RoofUI {
   }
 
   bindToggles() {
-    document.querySelector('#dimensionsToggle').addEventListener('change', (event) => {
-      this.state.showDimensions = event.target.checked;
-      this.onChange({ fitCamera: false });
-    });
-    document.querySelector('#wireframeToggle').addEventListener('change', (event) => {
+    document.querySelector('#wireframeToggle')?.addEventListener('change', (event) => {
       this.state.technicalEdges = event.target.checked;
       this.onChange({ fitCamera: false });
     });
   }
 
 
-
-  applyStateToControls() {
-    document.querySelectorAll('[data-roof-type]').forEach((button) => {
-      button.setAttribute('aria-pressed', String(button.dataset.roofType === this.state.roofType));
-    });
-    this.viewerTitle.textContent = roofNames[this.state.roofType];
-
-    document.querySelectorAll('[data-control]').forEach((control) => {
-      const key = control.dataset.control;
-      const range = control.querySelector('input[type="range"]');
-      const number = control.querySelector('input[type="number"]');
-      const output = control.querySelector('output');
-      const value = Number(this.state[key]);
-      if (!Number.isFinite(value)) return;
-      range.value = String(value);
-      number.value = String(value);
-      output.value = formatters[key](value);
-    });
-
-    const covering = document.querySelector('#coveringSelect');
-    if (covering) covering.value = this.state.covering;
-    const pitchRule = pitchRules[this.state.covering];
-    const pitchControl = document.querySelector('[data-control="pitch"]');
-    pitchControl?.querySelectorAll('input').forEach((input) => { input.min = String(pitchRule.minimum); });
-    this.pitchRuleNote.textContent = pitchRule.note;
-
-    document.querySelectorAll('.swatch').forEach((swatch) => {
-      swatch.classList.toggle('selected', swatch.dataset.color === this.state.roofColor);
-    });
-    const dimensions = document.querySelector('#dimensionsToggle');
-    const wireframe = document.querySelector('#wireframeToggle');
-    if (dimensions) dimensions.checked = Boolean(this.state.showDimensions);
-    if (wireframe) wireframe.checked = Boolean(this.state.technicalEdges);
-
-    this.updateCustomMode();
-    this.renderCustomPlanFile();
-  }
-
   updateCustomMode() {
     const isCustom = this.state.roofType === 'custom';
     const panel = document.querySelector('#customPlanPanel');
     const notice = document.querySelector('#customViewerNotice');
-    const dimensionsToggle = document.querySelector('#dimensionsToggle');
-
     if (panel) panel.hidden = !isCustom;
     if (notice) notice.hidden = !isCustom;
-    if (dimensionsToggle) {
-      dimensionsToggle.disabled = isCustom;
-      dimensionsToggle.closest('label')?.classList.toggle('disabled', isCustom);
-    }
   }
 
   bindCustomPlan() {
