@@ -99,3 +99,330 @@ body.shared-ui-dark-mode #roofSidebarToggle { color: #e7eef3; background: rgba(2
   body.roof-sidebar-collapsed #roofSidebarToggle { right: 0; }
   body.shared-ui-mounted .viewer-header { padding-right: 18px; }
 }
+
+/* Complete roof-configurator dark theme. The shared shell adds
+   body.shared-ui-dark-mode when the account-menu preference is enabled. */
+body.shared-ui-dark-mode {
+  color-scheme: dark;
+  --bg: #0f172a;
+  --panel: #14202d;
+  --panel-soft: #1d2a3a;
+  --ink: #e7eef3;
+  --muted: #aebbc6;
+  --line: rgba(255, 255, 255, 0.11);
+  --accent-soft: rgba(8, 120, 201, 0.18);
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+}
+
+body.shared-ui-dark-mode .viewer-header {
+  color: var(--ink);
+  background: #14202d;
+}
+
+body.shared-ui-dark-mode .viewer-title-block h2,
+body.shared-ui-dark-mode .estimate-button strong,
+body.shared-ui-dark-mode .model-options label,
+body.shared-ui-dark-mode .view-actions button {
+  color: var(--ink);
+}
+
+body.shared-ui-dark-mode .viewer-title-block .eyebrow,
+body.shared-ui-dark-mode .estimate-button span {
+  color: #65bff8;
+}
+
+body.shared-ui-dark-mode .estimate-button {
+  color: #65bff8;
+  background: rgba(8, 120, 201, 0.17);
+  border-color: rgba(87, 188, 248, 0.32);
+  box-shadow: none;
+}
+
+body.shared-ui-dark-mode .estimate-button:hover,
+body.shared-ui-dark-mode .estimate-button:focus-visible {
+  background: rgba(8, 120, 201, 0.25);
+  border-color: #55b9f3;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
+}
+
+body.shared-ui-dark-mode .view-actions {
+  background: #0f1a27;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.shared-ui-dark-mode .view-actions button {
+  color: #b9c6d0;
+}
+
+body.shared-ui-dark-mode .view-actions button:hover,
+body.shared-ui-dark-mode .view-actions button:focus-visible,
+body.shared-ui-dark-mode .view-actions button.active {
+  color: #ffffff;
+  background: #26364a;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.24);
+}
+
+body.shared-ui-dark-mode .model-options label {
+  background: #1b2a3b;
+  border-color: rgba(255, 255, 255, 0.11);
+}
+
+body.shared-ui-dark-mode .model-options label:hover {
+  background: #24354a;
+}
+
+body.shared-ui-dark-mode .stage-hint {
+  color: #c6d2dc;
+  background: rgba(12, 23, 36, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.shared-ui-dark-mode .section-number { color: #536274; }
+body.shared-ui-dark-mode .control-label output,
+body.shared-ui-dark-mode .select-label,
+body.shared-ui-dark-mode .color-heading,
+body.shared-ui-dark-mode .rule-note,
+body.shared-ui-dark-mode .brand-subtitle { color: var(--muted); }
+
+body.shared-ui-dark-mode .roof-card {
+  color: var(--ink);
+  background: #1a2939;
+  border-color: rgba(255, 255, 255, 0.11);
+}
+
+body.shared-ui-dark-mode .roof-card:hover {
+  background: #223449;
+  border-color: rgba(143, 201, 237, 0.42);
+}
+
+body.shared-ui-dark-mode .roof-card[aria-pressed="true"] {
+  background: rgba(8, 120, 201, 0.2);
+  border-color: #3da8e8;
+  box-shadow: inset 0 0 0 1px rgba(61, 168, 232, 0.45);
+}
+
+body.shared-ui-dark-mode .roof-card svg { stroke: #a9b7c2; }
+body.shared-ui-dark-mode .roof-card[aria-pressed="true"] svg .accent { stroke: #64c3fb; }
+body.shared-ui-dark-mode .number-input,
+body.shared-ui-dark-mode select {
+  color: var(--ink);
+  background: #1d2d40;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.shared-ui-dark-mode .number-input:focus,
+body.shared-ui-dark-mode select:focus {
+  border-color: #4eb3ed;
+  box-shadow: 0 0 0 3px rgba(78, 179, 237, 0.15);
+}
+
+body.shared-ui-dark-mode .swatch {
+  border-color: #1a2736;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+body.shared-ui-dark-mode .swatch.selected {
+  box-shadow: 0 0 0 2px #dbe7ef;
+}
+
+body.shared-ui-dark-mode .custom-plan-panel {
+  color: var(--ink);
+  background: linear-gradient(145deg, #172535, #12202e);
+  border-color: rgba(255, 255, 255, 0.11);
+}
+
+body.shared-ui-dark-mode .custom-plan-copy span,
+body.shared-ui-dark-mode .custom-plan-types,
+body.shared-ui-dark-mode .custom-plan-file-details small,
+body.shared-ui-dark-mode .custom-viewer-notice p {
+  color: var(--muted);
+}
+
+body.shared-ui-dark-mode .custom-plan-dropzone {
+  color: var(--ink);
+  background: rgba(25, 40, 55, 0.88);
+  border-color: rgba(174, 190, 202, 0.48);
+}
+
+body.shared-ui-dark-mode .custom-plan-dropzone:hover,
+body.shared-ui-dark-mode .custom-plan-dropzone.is-dragging {
+  background: rgba(8, 120, 201, 0.18);
+  border-color: #53b8f1;
+}
+
+body.shared-ui-dark-mode .custom-plan-file {
+  color: var(--ink);
+  background: #1a2a3a;
+  border-color: rgba(83, 184, 241, 0.3);
+}
+
+body.shared-ui-dark-mode .custom-plan-file-icon,
+body.shared-ui-dark-mode .custom-viewer-notice-icon {
+  color: #66c4fb;
+  background: rgba(8, 120, 201, 0.2);
+}
+
+body.shared-ui-dark-mode .custom-plan-file button {
+  color: var(--ink);
+  background: #223347;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.shared-ui-dark-mode .custom-plan-file button:hover,
+body.shared-ui-dark-mode .custom-plan-file button:focus-visible {
+  background: #2b4057;
+  border-color: rgba(130, 201, 244, 0.42);
+}
+
+body.shared-ui-dark-mode .custom-viewer-notice {
+  color: var(--ink);
+  background: rgba(17, 30, 44, 0.9);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.35);
+}
+
+body.shared-ui-dark-mode .compass-label {
+  color: #dbe7ef;
+  background: rgba(20, 34, 48, 0.94);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+}
+
+body.shared-ui-dark-mode .compass-label--north { color: #ff7d88; }
+
+/* BOM modal */
+body.shared-ui-dark-mode .bom-panel {
+  color: var(--ink);
+  background: #111d2a;
+  border-color: rgba(255, 255, 255, 0.11);
+  box-shadow: 0 34px 110px rgba(0, 0, 0, 0.56);
+}
+
+body.shared-ui-dark-mode .bom-panel::backdrop {
+  background: rgba(2, 8, 17, 0.62);
+}
+
+body.shared-ui-dark-mode .bom-header,
+body.shared-ui-dark-mode .bom-footer {
+  color: var(--ink);
+  background: #142231;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.shared-ui-dark-mode .bom-scroll-region {
+  background: #111d2a;
+}
+
+body.shared-ui-dark-mode .bom-scroll-region::-webkit-scrollbar-thumb {
+  background: rgba(190, 207, 220, 0.42);
+  background-clip: padding-box;
+}
+
+body.shared-ui-dark-mode .bom-close {
+  color: var(--ink);
+  background: #203145;
+  border-color: rgba(255, 255, 255, 0.11);
+}
+
+body.shared-ui-dark-mode .bom-close:hover,
+body.shared-ui-dark-mode .bom-close:focus-visible {
+  background: #2a4057;
+  border-color: rgba(121, 196, 240, 0.38);
+}
+
+body.shared-ui-dark-mode .bom-summary article,
+body.shared-ui-dark-mode .assumption-grid div {
+  color: var(--ink);
+  background: #1a2939;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.shared-ui-dark-mode .bom-summary .bom-total-card {
+  background: rgba(8, 120, 201, 0.19);
+  border-color: rgba(84, 185, 243, 0.34);
+}
+
+body.shared-ui-dark-mode .bom-summary .bom-total-card strong {
+  color: #6ac7fc;
+}
+
+body.shared-ui-dark-mode .bom-summary span,
+body.shared-ui-dark-mode .assumption-grid span,
+body.shared-ui-dark-mode .bom-assumptions p,
+body.shared-ui-dark-mode .bom-table td small {
+  color: var(--muted);
+}
+
+body.shared-ui-dark-mode .bom-disclaimer {
+  color: #d9c8bc;
+  background: #2b241f;
+  border-left-color: #e99a5e;
+}
+
+body.shared-ui-dark-mode .bom-table-wrap {
+  background: #121f2d;
+  border-color: rgba(255, 255, 255, 0.11);
+}
+
+body.shared-ui-dark-mode .bom-table th {
+  color: #bdc9d2;
+  background: #1d2c3d;
+}
+
+body.shared-ui-dark-mode .bom-table th,
+body.shared-ui-dark-mode .bom-table td {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+body.shared-ui-dark-mode .bom-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+body.shared-ui-dark-mode .bom-assumptions {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+body.shared-ui-dark-mode .secondary-action {
+  color: var(--ink);
+  background: #203145;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.shared-ui-dark-mode .secondary-action:hover,
+body.shared-ui-dark-mode .secondary-action:focus-visible {
+  background: #2a4057;
+  border-color: rgba(121, 196, 240, 0.38);
+}
+
+body.shared-ui-dark-mode .primary-action {
+  color: #fff;
+  background: #0878c9;
+  border-color: #2094df;
+}
+
+/* Keep the product photography legible while darkening its surrounding catalog. */
+body.shared-ui-dark-mode .roof-system-overview figcaption,
+body.shared-ui-dark-mode .roof-component-copy {
+  background: #162331;
+}
+
+body.shared-ui-dark-mode .roof-system-overview figcaption {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+body.shared-ui-dark-mode .roof-components-content::-webkit-scrollbar-thumb {
+  background: #536577;
+  border-color: #111c28;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body.shared-ui-dark-mode .estimate-button,
+  body.shared-ui-dark-mode .view-actions button,
+  body.shared-ui-dark-mode .model-options label,
+  body.shared-ui-dark-mode .custom-plan-dropzone,
+  body.shared-ui-dark-mode .custom-plan-file button,
+  body.shared-ui-dark-mode .bom-close,
+  body.shared-ui-dark-mode .secondary-action {
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  }
+}
