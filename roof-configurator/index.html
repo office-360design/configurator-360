@@ -6,8 +6,8 @@
   <meta name="description" content="Real-time parametric roof configurator" />
   <title>RoofLab - 3D Roof Configurator</title>
   <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="./styles.css?v=15" />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=3" />
-  <link rel="stylesheet" href="./styles.css?v=12" />
   <link rel="stylesheet" href="./shared-shell.css?v=3" />
   <script type="importmap">
     {
@@ -180,10 +180,6 @@
 
     <section class="viewer-panel">
       <header class="viewer-header">
-        <div>
-          <p class="eyebrow">Real-time model</p>
-          <h2 id="viewerTitle">Two-slope roof</h2>
-        </div>
         <div class="viewer-actions-wrap">
           <button type="button" class="estimate-button" id="bomOpenButton" aria-controls="bomPanel" aria-haspopup="dialog">
             <span>BOM &amp; price</span>
@@ -195,16 +191,24 @@
             <button type="button" data-view="top">Top</button>
             <button type="button" data-view="reset" title="Reset view">Reset</button>
           </div>
+          <div class="model-options" aria-label="Model display options">
+            <label><input type="checkbox" id="dimensionsToggle" checked /> Dimensions</label>
+            <label><input type="checkbox" id="wireframeToggle" /> Technical edges</label>
+          </div>
         </div>
+
+        <div class="viewer-title-block">
+          <p class="eyebrow">Real-time model</p>
+          <h2 id="viewerTitle">Two-slope roof</h2>
+        </div>
+
+        <div class="viewer-header-spacer" aria-hidden="true"></div>
       </header>
 
       <div class="viewer-stage" id="viewerStage">
+        <div class="roof-tools-anchor" id="roofToolsAnchor" aria-label="Tools control"></div>
         <div id="canvasHost" aria-label="Interactive 3D roof model"></div>
         <div class="stage-hint">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
-        <div class="model-options">
-          <label><input type="checkbox" id="dimensionsToggle" checked /> Dimensions</label>
-          <label><input type="checkbox" id="wireframeToggle" /> Technical edges</label>
-        </div>
         <div class="custom-viewer-notice" id="customViewerNotice" hidden>
           <span class="custom-viewer-notice-icon" aria-hidden="true">⌁</span>
           <strong>Custom plan mode</strong>
@@ -243,6 +247,7 @@
       <button type="button" class="bom-close" id="bomCloseButton" aria-label="Close BOM">×</button>
     </header>
 
+    <div class="bom-scroll-region">
     <section class="bom-summary" aria-label="Price summary">
       <article>
         <span>Without VAT</span>
@@ -283,6 +288,7 @@
       <div class="assumption-grid" id="bomAssumptions"></div>
       <p>Roof-window items and the advance-payment row from the reference offer are excluded because the configurator does not currently expose those parameters.</p>
     </section>
+    </div>
 
     <footer class="bom-footer">
       <button type="button" class="secondary-action" id="bomExportButton">Export CSV</button>
@@ -318,7 +324,7 @@
       panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
     })();
   </script>
-  <script type="module" src="./js/app.js?v=13"></script>
-  <script type="module" src="./js/sharedShell.js?v=3"></script>
+  <script type="module" src="./js/app.js?v=14"></script>
+  <script type="module" src="./js/sharedShell.js?v=4"></script>
 </body>
 </html>

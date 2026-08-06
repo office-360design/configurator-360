@@ -1,5 +1,5 @@
 import { state } from './state.js?v=12';
-import { RoofScene } from './scene.js?v=12';
+import { RoofScene } from './scene.js?v=14';
 import { RoofUI } from './ui.js?v=13';
 
 const host = document.querySelector('#canvasHost');
