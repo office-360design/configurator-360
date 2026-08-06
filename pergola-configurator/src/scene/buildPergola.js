@@ -1,11 +1,6 @@
 import * as THREE from 'three';
 import { fitAssetToBox } from './AssetLibrary.js';
-import {
-  poleFaceIsAvailable,
-  poleIsAvailable,
-  resolvePoleMountFace,
-  resolveSpeakerFace,
-} from '../state.js';
+import { poleFaceIsAvailable, poleIsAvailable } from '../state.js';
 
 const METERS_PER_MM = 0.001;
 const SCREEN_TYPES = ['screen', 'motorized-screen'];
@@ -601,28 +596,15 @@ function placeOnPole(model, base, face, height, postSize, depthOffset = 0.018) {
   model.rotation.y = faceRotation(face);
 }
 
-function addSpeakers(group, state, width, depth, height, postSize, assets) {
-  const coordinates = poleCoordinates(width, depth, postSize);
-  Object.entries(state.accessories.speakers).forEach(([pole, selected]) => {
-    if (!selected || !poleIsAvailable(state, pole)) return;
-    const face = resolveSpeakerFace(state, pole);
-    if (!face) return;
-    const model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
-    if (!model) return;
-
-    model.traverse((child) => {
-      if (!child.isMesh) return;
-      child.material = material(/grille|driver/i.test(child.name) ? '#3b454a' : '#171d20', {
-        roughness: 0.44,
-        metalness: 0.45,
-      });
+function styleSpeakerModel(model) {
+  model.traverse((child) => {
+    if (!child.isMesh) return;
+    child.material = material(/grille|driver/i.test(child.name) ? '#3b454a' : '#171d20', {
+      roughness: 0.44,
+      metalness: 0.45,
     });
-
-    placeOnPole(model, coordinates[pole], face, height * 0.78, postSize, 0.045);
-    group.add(model);
   });
 }
-
 
 
 function buildOutletModel(type) {
@@ -675,21 +657,6 @@ function buildOutletModel(type) {
   return outlet;
 }
 
-function addOutlets(group, state, width, depth, height, postSize, assets) {
-  const coordinates = poleCoordinates(width, depth, postSize);
-
-  Object.entries(state.accessories.outlets).forEach(([pole, faces]) => {
-    if (!poleIsAvailable(state, pole)) return;
-    Object.entries(faces).forEach(([face, mount]) => {
-      if (mount === null || !poleFaceIsAvailable(state, pole, face)) return;
-      const model = buildOutletModel(mount.type === 'us' ? 'us' : 'eu');
-      placeOnPole(model, coordinates[pole], face, height * (Number(mount.height) / 100), postSize, 0.006);
-      group.add(model);
-    });
-  });
-}
-
-
 function styleAutomationAsset(model) {
   model.traverse((child) => {
     if (!child.isMesh) return;
@@ -700,35 +667,46 @@ function styleAutomationAsset(model) {
   });
 }
 
-function addAutomation(group, state, width, depth, height, postSize, assets) {
-  const coordinates = poleCoordinates(width, depth, postSize);
-  if (state.automation === 'manual') {
-    const { pole, height: percent } = state.automationSettings.manual;
-    const face = resolvePoleMountFace(state, 'manual', pole, percent);
-    if (!face || !coordinates[pole]) return;
-    const crank = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
-    if (!crank) return;
-    styleAutomationAsset(crank);
-    placeOnPole(crank, coordinates[pole], face, height * (Number(percent) / 100), postSize, 0.07);
-    group.add(crank);
-    return;
-  }
-
+function addMotorizedAutomation(group, state, width, depth, height) {
+  if (state.automation === 'manual') return;
   const motorMaterial = material('#111719', { roughness: 0.35, metalness: 0.75 });
   const motor = box(0.34, 0.13, 0.13, motorMaterial);
   motor.position.set(width / 2 - 0.32, height - 0.11, -depth / 2 + 0.13);
   group.add(motor);
+}
 
-  if (state.automation !== 'wall-switch') return;
-  Object.entries(state.automationSettings.wallSwitches).forEach(([pole, percent]) => {
-    if (percent === null || !coordinates[pole]) return;
-    const face = resolvePoleMountFace(state, 'switch', pole, percent);
-    if (!face) return;
-    const switchModel = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
-    if (!switchModel) return;
-    styleAutomationAsset(switchModel);
-    placeOnPole(switchModel, coordinates[pole], face, height * (Number(percent) / 100), postSize, 0.025);
-    group.add(switchModel);
+function addPoleMounts(group, state, width, depth, height, postSize, assets) {
+  const coordinates = poleCoordinates(width, depth, postSize);
+
+  Object.entries(state.poleMounts ?? {}).forEach(([pole, faces]) => {
+    if (!poleIsAvailable(state, pole) || !coordinates[pole]) return;
+    Object.entries(faces ?? {}).forEach(([face, mount]) => {
+      if (!mount || !poleFaceIsAvailable(state, pole, face)) return;
+      const mountHeight = height * (Number(mount.height) / 100);
+      let model = null;
+      let depthOffset = 0.02;
+
+      if (mount.type === 'speaker') {
+        model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
+        if (model) styleSpeakerModel(model);
+        depthOffset = 0.045;
+      } else if (mount.type === 'outlet') {
+        model = buildOutletModel(mount.outletType === 'us' ? 'us' : 'eu');
+        depthOffset = 0.006;
+      } else if (mount.type === 'hand-crank') {
+        model = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
+        if (model) styleAutomationAsset(model);
+        depthOffset = 0.07;
+      } else if (mount.type === 'switch') {
+        model = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
+        if (model) styleAutomationAsset(model);
+        depthOffset = 0.025;
+      }
+
+      if (!model) return;
+      placeOnPole(model, coordinates[pole], face, mountHeight, postSize, depthOffset);
+      group.add(model);
+    });
   });
 }
 
@@ -777,7 +755,7 @@ export function buildPergola(state, assets = null) {
   addLouvers(group, state, width, depth, height - beamHeight - 0.015, louverMaterial);
   addDrainage(group, state, width, depth, height);
   addSideClosings(group, state, width, depth, height, frameMaterial, assets);
-  addAutomation(group, state, width, depth, height, postSize, assets);
+  addMotorizedAutomation(group, state, width, depth, height);
 
   const isNight = Boolean(state.environment?.night);
   if (state.accessories.perimeterLed.enabled) {
@@ -795,8 +773,7 @@ export function buildPergola(state, assets = null) {
     assets,
   );
   addSensors(group, state.accessories.sensors, width, depth, height, assets);
-  addSpeakers(group, state, width, depth, height, postSize, assets);
-  addOutlets(group, state, width, depth, height, postSize, assets);
+  addPoleMounts(group, state, width, depth, height, postSize, assets);
 
   group.userData.dimensions = { width, depth, height };
   group.userData.postSize = postSize;

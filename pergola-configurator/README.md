@@ -21,8 +21,9 @@ It does not modify or depend on the window configurator. Future pergola updates 
 - Louver span direction and adjustable louver tilt.
 - Integrated/standard drainage visualization.
 - Manual crank, motorized remote and pergola-switch automation.
-- Dedicated hand-crank GLB with selectable support pole and continuous 10–80% mounting height.
-- Up to four pergola switches, one per available support pole, each with a continuous 10–80% mounting-height slider.
+- Unified pole customization menu with explicit pole and face selection.
+- Exactly one movable manual hand crank for the whole pergola, plus configurable pergola switches, speakers and EU/US outlets.
+- Maximum one component per pole face, with component-specific roof-safe height ranges and vertical collision prevention between components on the same pole.
 - Optional transport, assembly and warranty services.
 - Independent side selection for all four sides.
 - Pull-down screens, motorized screens, color-selectable privacy walls and glass sliding panels.
@@ -30,8 +31,8 @@ It does not modify or depend on the window configurator. Future pergola updates 
 - Color-selectable perimeter LED lighting and configurable spotlight count. Spotlights are attached to fixed metal rails below the moving louvers.
 - Inward-facing infrared heaters with one selectable heater per side, suspended from dedicated metal rails and offset from side closings.
 - Independently positioned rain and wind sensors with mounting plates and collision prevention.
-- One selectable upright outdoor speaker per available support pole, automatically assigned to an unobstructed pole face.
-- Up to four electrical outlets per available support pole, selectable per face with continuous 10–80% mounting-height sliders. European Type F and American Type B models are included.
+- Speakers, switches and outlets can be assigned independently to any available pole face; outlets retain independent European Type F or American Type B selection.
+- Side screens, privacy walls and glass panels are blocked whenever either inward-facing pole surface needed by that side is occupied, and pole components are blocked by existing side closings.
 - Lighting/orientation menu with sun position, louver tilt and north direction.
 - Winter, summer, studio and night previews.
 - Orbit/zoom controls and camera presets.

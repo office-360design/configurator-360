@@ -318,7 +318,7 @@ export class PergolaScene {
       dimensions: state.dimensions,
       roof: state.roof,
       automation: state.automation,
-      automationSettings: state.automationSettings,
+      poleMounts: state.poleMounts,
       sides: state.sides,
       accessories: state.accessories,
       units: state.units,

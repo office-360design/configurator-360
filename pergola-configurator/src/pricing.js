@@ -58,9 +58,9 @@ function countSelected(record = {}) {
   return Object.values(record).filter(Boolean).length;
 }
 
-function countOutlets(outlets = {}) {
-  return Object.values(outlets).reduce(
-    (total, pole) => total + Object.values(pole ?? {}).filter(Boolean).length,
+function countPoleMounts(poleMounts = {}, type) {
+  return Object.values(poleMounts).reduce(
+    (total, pole) => total + Object.values(pole ?? {}).filter((mount) => mount?.type === type).length,
     0,
   );
 }
@@ -114,8 +114,8 @@ export function calculatePrice(state) {
   });
 
   const heaterCount = countSelected(state.accessories.heaters);
-  const speakerCount = countSelected(state.accessories.speakers);
-  const outletCount = countOutlets(state.accessories.outlets);
+  const speakerCount = countPoleMounts(state.poleMounts, 'speaker');
+  const outletCount = countPoleMounts(state.poleMounts, 'outlet');
   const rainEnabled = state.accessories.sensors.rain.enabled;
   const windEnabled = state.accessories.sensors.wind.enabled;
 
