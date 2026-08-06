@@ -93,3 +93,7 @@ The configurator reads the unified shell preferences from the sibling `shared-ui
 - **Metric (mm)** displays dimension controls and 3D annotations in millimetres, while areas remain in square metres.
 - **Imperial (ft / in)** displays lengths in feet/inches, editable numeric fields in decimal feet, and areas in square feet.
 - BOM source prices remain based in RON. Selecting USD converts the displayed BOM and CSV export using the latest daily RON→USD reference rate from Frankfurter, cached locally for 12 hours. If the network is unavailable and no cached rate exists, the UI clearly labels its temporary fallback estimate.
+
+## BOM inclusion checklist
+
+Each generated BOM row includes an inclusion checkbox. Excluding a row immediately removes its value from the subtotal, VAT, estimated total, header estimate, and CSV export. Include all / Exclude all controls are available above the BOM table, and exclusions remain selected while the current browser session is open.

@@ -1,6 +1,6 @@
-import { state } from './state.js?v=14';
+import { state } from './state.js?v=15';
 import { RoofScene } from './scene.js?v=16';
-import { RoofUI } from './ui.js?v=14';
+import { RoofUI } from './ui.js?v=15';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,

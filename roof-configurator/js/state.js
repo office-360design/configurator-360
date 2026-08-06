@@ -29,6 +29,7 @@ export const state = {
   currencyRateDate: null,
   currencyRateSource: 'reference currency',
   currencyRateIsFallback: false,
+  excludedBomItems: [],
 };
 
 export const pitchRules = {

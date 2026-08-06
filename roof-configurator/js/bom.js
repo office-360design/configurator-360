@@ -207,8 +207,10 @@ export function calculateBom(state, metrics) {
 
   const currency = normalizeCurrency(state.currency);
   const exchangeRate = currency === 'RON' ? 1 : Math.max(0, Number(state.currencyRate) || 1);
+  const excludedItems = new Set(Array.isArray(state.excludedBomItems) ? state.excludedBomItems : []);
   const convertedLines = lines.map((line) => ({
     ...line,
+    included: !excludedItems.has(line.key),
     baseUnitPrice: line.unitPrice,
     baseValue: line.value,
     baseVat: line.vat,
@@ -216,7 +218,7 @@ export function calculateBom(state, metrics) {
     value: line.value * exchangeRate,
     vat: line.vat * exchangeRate,
   }));
-  const subtotal = convertedLines.reduce((sum, line) => sum + line.value, 0);
+  const subtotal = convertedLines.reduce((sum, line) => sum + (line.included ? line.value : 0), 0);
   const vat = subtotal * VAT_RATE;
   return {
     lines: convertedLines,
@@ -245,7 +247,7 @@ export function bomToCsv(bom) {
   const currency = bom.currency || 'RON';
   const rows = [
     ['Nr.', 'Denumire', 'U.M.', 'Cant.', `Preț unitar fără TVA (${currency})`, `Valoare fără TVA (${currency})`, `TVA (${currency})`],
-    ...bom.lines.map((line, index) => [
+    ...bom.lines.filter((line) => line.included !== false).map((line, index) => [
       index + 1,
       line.name,
       line.unit,

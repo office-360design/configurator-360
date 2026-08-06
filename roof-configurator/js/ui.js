@@ -1,5 +1,5 @@
-import { pitchRules, roofNames } from './state.js?v=14';
-import { bomToCsv, calculateBom } from './bom.js?v=13';
+import { pitchRules, roofNames } from './state.js?v=15';
+import { bomToCsv, calculateBom } from './bom.js?v=14';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -235,6 +235,48 @@ export class RoofUI {
 
   bindBom() {
     document.querySelector('#bomExportButton')?.addEventListener('click', () => this.exportBom());
+
+    document.querySelector('#bomTableBody')?.addEventListener('change', (event) => {
+      const checkbox = event.target.closest('[data-bom-line-toggle]');
+      if (!checkbox) return;
+      this.setBomLineIncluded(checkbox.dataset.bomLineToggle, checkbox.checked);
+    });
+
+    document.querySelector('#bomToggleAll')?.addEventListener('change', (event) => {
+      this.setAllBomLinesIncluded(event.target.checked);
+    });
+
+    document.querySelector('#bomIncludeAll')?.addEventListener('click', () => {
+      this.setAllBomLinesIncluded(true);
+    });
+
+    document.querySelector('#bomExcludeAll')?.addEventListener('click', () => {
+      this.setAllBomLinesIncluded(false);
+    });
+  }
+
+  getExcludedBomItems() {
+    return new Set(Array.isArray(this.state.excludedBomItems) ? this.state.excludedBomItems : []);
+  }
+
+  setBomLineIncluded(key, included) {
+    if (!key) return;
+    const excluded = this.getExcludedBomItems();
+    if (included) excluded.delete(key);
+    else excluded.add(key);
+    this.state.excludedBomItems = [...excluded];
+    if (this.lastMetrics) this.updateBom(this.lastMetrics);
+  }
+
+  setAllBomLinesIncluded(included) {
+    if (!this.currentBom) return;
+    const excluded = this.getExcludedBomItems();
+    this.currentBom.lines.forEach((line) => {
+      if (included) excluded.delete(line.key);
+      else excluded.add(line.key);
+    });
+    this.state.excludedBomItems = [...excluded];
+    if (this.lastMetrics) this.updateBom(this.lastMetrics);
   }
 
   exportBom() {
@@ -267,8 +309,9 @@ export class RoofUI {
       const body = document.querySelector('#bomTableBody');
       const row = document.createElement('tr');
       row.className = 'bom-empty-row';
-      row.innerHTML = '<td colspan="6"><strong>No BOM generated</strong><small>Custom plan parsing is not implemented in this proof of concept.</small></td>';
+      row.innerHTML = '<td colspan="7"><strong>No BOM generated</strong><small>Custom plan parsing is not implemented in this proof of concept.</small></td>';
       body.replaceChildren(row);
+      this.updateBomSelectionControls(bom);
 
       const assumptionGrid = document.querySelector('#bomAssumptions');
       const status = document.createElement('div');
@@ -289,7 +332,16 @@ export class RoofUI {
     const body = document.querySelector('#bomTableBody');
     body.replaceChildren(...bom.lines.map((line, index) => {
       const row = document.createElement('tr');
+      row.classList.toggle('is-excluded', line.included === false);
       row.innerHTML = `
+        <td class="bom-check-cell">
+          <input
+            type="checkbox"
+            data-bom-line-toggle="${line.key}"
+            aria-label="Include ${line.name} in BOM"
+            ${line.included === false ? '' : 'checked'}
+          />
+        </td>
         <td>${index + 1}</td>
         <td><strong>${line.name}</strong>${line.note ? `<small>${line.note}</small>` : ''}</td>
         <td>${line.unit}</td>
@@ -299,6 +351,7 @@ export class RoofUI {
       `;
       return row;
     }));
+    this.updateBomSelectionControls(bom);
 
     const assumptions = [
       ['Roof area', formatArea(bom.assumptions.roofArea, this.state.units)],
@@ -326,6 +379,25 @@ export class RoofUI {
       item.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
       return item;
     }));
+  }
+
+  updateBomSelectionControls(bom) {
+    const lines = bom?.lines ?? [];
+    const includedCount = lines.filter((line) => line.included !== false).length;
+    const totalCount = lines.length;
+    const toggleAll = document.querySelector('#bomToggleAll');
+    const includeAll = document.querySelector('#bomIncludeAll');
+    const excludeAll = document.querySelector('#bomExcludeAll');
+    const status = document.querySelector('#bomSelectionStatus');
+
+    if (toggleAll) {
+      toggleAll.disabled = totalCount === 0;
+      toggleAll.checked = totalCount > 0 && includedCount === totalCount;
+      toggleAll.indeterminate = includedCount > 0 && includedCount < totalCount;
+    }
+    if (includeAll) includeAll.disabled = totalCount === 0 || includedCount === totalCount;
+    if (excludeAll) excludeAll.disabled = totalCount === 0 || includedCount === 0;
+    if (status) status.textContent = `${includedCount} of ${totalCount} items included`;
   }
 
   updateMetrics(metrics) {

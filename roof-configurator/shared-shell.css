@@ -426,3 +426,20 @@ body.shared-ui-dark-mode .roof-components-content::-webkit-scrollbar-thumb {
     transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
   }
 }
+
+
+body.shared-ui-dark-mode .bom-selection-toolbar button {
+  color: #e7eef3;
+  background: #1d2a3a;
+  border-color: rgba(255, 255, 255, 0.11);
+}
+
+body.shared-ui-dark-mode .bom-selection-toolbar button:hover:not(:disabled),
+body.shared-ui-dark-mode .bom-selection-toolbar button:focus-visible:not(:disabled) {
+  background: rgba(8, 120, 201, 0.22);
+  border-color: rgba(87, 188, 248, 0.45);
+}
+
+body.shared-ui-dark-mode .bom-table tbody tr.is-excluded td {
+  background: rgba(255, 255, 255, 0.025);
+}
