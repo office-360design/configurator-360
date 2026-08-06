@@ -7,7 +7,7 @@
   <title>RoofLab - 3D Roof Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
-  <link rel="stylesheet" href="./styles.css?v=13" />
+  <link rel="stylesheet" href="./styles.css?v=15" />
   <link rel="stylesheet" href="./shared-shell.css?v=2" />
   <script type="importmap">
     {
@@ -206,6 +206,7 @@
       </header>
 
       <div class="viewer-stage" id="viewerStage">
+        <div class="roof-tools-anchor" id="roofToolsAnchor" aria-label="Tools control"></div>
         <div id="canvasHost" aria-label="Interactive 3D roof model"></div>
         <div class="stage-hint">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
         <div class="custom-viewer-notice" id="customViewerNotice" hidden>
@@ -246,6 +247,7 @@
       <button type="button" class="bom-close" id="bomCloseButton" aria-label="Close BOM">×</button>
     </header>
 
+    <div class="bom-scroll-region">
     <section class="bom-summary" aria-label="Price summary">
       <article>
         <span>Without VAT</span>
@@ -286,6 +288,7 @@
       <div class="assumption-grid" id="bomAssumptions"></div>
       <p>Roof-window items and the advance-payment row from the reference offer are excluded because the configurator does not currently expose those parameters.</p>
     </section>
+    </div>
 
     <footer class="bom-footer">
       <button type="button" class="secondary-action" id="bomExportButton">Export CSV</button>
@@ -322,6 +325,6 @@
     })();
   </script>
   <script type="module" src="./js/app.js?v=12"></script>
-  <script type="module" src="./js/sharedShell.js?v=2"></script>
+  <script type="module" src="./js/sharedShell.js?v=4"></script>
 </body>
 </html>
