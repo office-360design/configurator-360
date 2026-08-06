@@ -8,3 +8,6 @@ export * from './components/toolsMenu.js';
 export * from './components/feedback.js';
 
 export * from './standaloneShell.js';
+
+export * from './tools/registry.js';
+export * from './history/undoManager.js';

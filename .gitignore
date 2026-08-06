@@ -81,5 +81,7 @@ cad/intermediate/temp_*/
 cad/intermediate/temp_export.scr
 
 # automation of workflow scripts
-run_update_git.bat
-update_from_latest_zip_git.ps1
+run_update.bat
+update_from_latest_zip.ps1
+# Local commit-message handoff for pergola update automation
+pergola-configurator/commit_message.md

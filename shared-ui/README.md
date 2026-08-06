@@ -20,3 +20,20 @@ unchanged.
 Product settings panels use the shared `shared-settings-panel` and
 `shared-settings-toggle` classes so all configurators place their controls at the same
 right-side coordinates and use the same collapse geometry.
+
+## Shared tools
+
+`shared-ui/src/tools/registry.js` defines reusable tool contracts. Tools are
+opt-in: each configurator selects only the tools its developer supports. The
+shared definition owns the launcher icon, label, active/disabled presentation,
+and generic configuration defaults; the configurator owns scene behavior such
+as compass position, scale, rotation, and height.
+
+Window and Roof currently pass `items: []`, so their Tools launcher is empty.
+Pergola continues to use the existing four tools through the shared defaults.
+
+## Undo
+
+`SharedUndoManager` provides the common history stack and event grouping. Each
+configurator must provide `captureState()` and `restoreState()` adapters because
+product state and rebuild logic are configurator-specific.

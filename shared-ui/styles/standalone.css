@@ -333,3 +333,26 @@ body.shared-ui-dark-mode { background: #0f172a !important; }
   .shared-ui-host .account-menu,
   .shared-ui-host .language-menu { right: 6px; width: min(280px,calc(100vw - 12px)); }
 }
+
+/* Generic shared tools placement. Configurators opt into individual tools. */
+.shared-ui-host .tools-toolbar {
+  position: fixed;
+  top: calc(var(--shared-topbar-height) + var(--shared-tools-offset-y, 12px));
+  z-index: 900;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.shared-ui-host .tools-toolbar--left { left: var(--shared-tools-offset-x, 12px); }
+.shared-ui-host .tools-toolbar--right { right: var(--shared-tools-offset-x, 12px); }
+.shared-ui-host .tools-toolbar--down { flex-direction: column; }
+.shared-ui-host .tools-toolbar--up { flex-direction: column-reverse; }
+.shared-ui-host .tools-toolbar--inward.tools-toolbar--right { flex-direction: row-reverse; }
+.shared-ui-host .tools-toolbar--inward.tools-toolbar--left { flex-direction: row; }
+.shared-ui-host .tools-toolbar__panel {
+  display: flex;
+  gap: 10px;
+}
+.shared-ui-host .tools-toolbar--down .tools-toolbar__panel,
+.shared-ui-host .tools-toolbar--up .tools-toolbar__panel { flex-direction: column; }
+.shared-ui-host .tools-toolbar__panel:empty { display: none; }
