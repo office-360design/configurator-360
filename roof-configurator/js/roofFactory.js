@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-console.info('[RoofLab] roofFactory build 9 loaded');
+console.info('[RoofLab] roofFactory build 10 loaded');
 
 const WALL_COLOR = 0xe9e6df;
 const TRIM_COLOR = 0x4b2428;
@@ -1178,6 +1178,35 @@ function addFacadeDetails(group, state) {
   group.add(window);
 }
 
+
+function addLShapeFacadeDetails(group, state) {
+  // The front of the house is the negative-Z facade, consistent with the
+  // regular roof models and the corrected Front camera view.
+  addFacadeDetails(group, state);
+
+  // Add an extra window to the exposed rear wall of the wing so the
+  // L-shaped house also has facade detail in the default 3D perspective.
+  const glass = new THREE.MeshStandardMaterial({
+    color: 0x8eb0bc,
+    roughness: 0.2,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.72,
+  });
+  const wingWindowHeight = Math.min(1.25, state.wallHeight * 0.42);
+  const wingWindowWidth = Math.min(1.9, state.length * 0.2);
+  const wingWindow = new THREE.Mesh(
+    new THREE.BoxGeometry(wingWindowWidth, wingWindowHeight, 0.065),
+    glass,
+  );
+  wingWindow.position.set(
+    -state.length * 0.29,
+    Math.min(1.65, state.wallHeight * 0.55),
+    state.depth / 2 + 0.034,
+  );
+  group.add(wingWindow);
+}
+
 export function buildRoofModel(state) {
   const materials = materialSet(state);
   const group = new THREE.Group();
@@ -1188,6 +1217,7 @@ export function buildRoofModel(state) {
     metrics = buildCustomPlaceholder(group, state, materials);
   } else if (state.roofType === 'lshape') {
     metrics = buildLShape(group, state, materials);
+    addLShapeFacadeDetails(group, state);
   } else {
     addBase(group, state, materials);
     if (state.roofType === 'hip') metrics = buildHipRoof(group, state, materials);

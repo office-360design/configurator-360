@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildRoofModel } from './roofFactory.js?v=12';
+import { buildRoofModel } from './roofFactory.js?v=13';
 import { createDimensions } from './dimensions.js?v=12';
 
 export class RoofScene {
@@ -11,7 +11,7 @@ export class RoofScene {
     this.scene.background = null;
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 300);
-    this.camera.position.set(13, 10, 15);
+    this.camera.position.set(-13, 10, -15);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -122,7 +122,7 @@ export class RoofScene {
   fitCamera(state, ridgeElevation) {
     const size = Math.max(state.length, state.depth, ridgeElevation * 1.3);
     const distance = size * 1.65;
-    this.camera.position.set(distance * 0.72, distance * 0.55, distance * 0.82);
+    this.camera.position.set(-distance * 0.72, distance * 0.55, -distance * 0.82);
     this.camera.near = Math.max(0.05, distance / 150);
     this.camera.far = distance * 20;
     this.camera.updateProjectionMatrix();
@@ -134,9 +134,9 @@ export class RoofScene {
     const target = new THREE.Vector3(0, Math.max(1.2, ridgeElevation * 0.34), 0);
     this.controls.target.copy(target);
 
-    if (view === 'front') this.camera.position.set(0, target.y + size * 0.12, size * 1.75);
+    if (view === 'front') this.camera.position.set(0, target.y + size * 0.12, -size * 1.75);
     else if (view === 'top') this.camera.position.set(0.01, size * 2.1, 0.01);
-    else this.camera.position.set(size * 1.15, size * 0.78, size * 1.25);
+    else this.camera.position.set(-size * 1.15, size * 0.78, -size * 1.25);
     this.camera.lookAt(target);
     this.controls.update();
   }
