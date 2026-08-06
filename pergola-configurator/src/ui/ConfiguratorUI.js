@@ -1,6 +1,6 @@
 import { STEPS } from '../catalog.js';
 import { calculatePrice, formatMoney } from '../pricing.js';
-import { poleIsAvailable } from '../state.js';
+import { createPoleMount, findPoleMount, poleIsAvailable } from '../state.js';
 import {
   LANGUAGE_PROFILES,
   escapeHtml,
@@ -27,7 +27,8 @@ export class ConfiguratorUI {
     this.state = store.get();
     this.scene = null;
     this.activeSide = 'front';
-    this.activeOutletPole = 'frontLeft';
+    this.activePole = 'frontLeft';
+    this.activePoleFace = 'front';
     this.environmentOpen = false;
     this.toolsOpen = false;
     this.sidebarHidden = false;
@@ -355,25 +356,40 @@ export class ConfiguratorUI {
     } else if (action === 'toggle-sensor') {
       const sensor = actionTarget.dataset.sensor;
       this.store.update(`accessories.sensors.${sensor}.enabled`, !this.state.accessories.sensors[sensor].enabled);
-    } else if (action === 'toggle-speaker-pole') {
+    } else if (action === 'open-pole-customization') {
+      const automationMount = this.state.automation === 'manual'
+        ? findPoleMount(this.state, 'hand-crank')
+        : this.state.automation === 'wall-switch'
+          ? findPoleMount(this.state, 'switch')
+          : null;
+      if (automationMount) {
+        this.activePole = automationMount.pole;
+        this.activePoleFace = automationMount.face;
+      }
+      this.expandedStep = 'accessories';
+      this.render();
+      window.setTimeout(() => this.stepContent.querySelector('[data-pole-customizer]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+    } else if (action === 'select-pole') {
       const pole = actionTarget.dataset.pole;
       if (poleIsAvailable(this.state, pole)) {
-        const updated = this.store.update(`accessories.speakers.${pole}`, !this.state.accessories.speakers[pole]);
-        if (updated === false) this.showToast(this.store.getLastError?.() || 'That speaker cannot be placed there.');
+        this.activePole = pole;
+        this.render();
       }
-    } else if (action === 'select-outlet-pole') {
-      this.activeOutletPole = actionTarget.dataset.pole;
+    } else if (action === 'select-pole-face') {
+      this.activePoleFace = actionTarget.dataset.face;
       this.render();
-    } else if (action === 'toggle-outlet-face') {
-      const { pole, face } = actionTarget.dataset;
-      const current = this.state.accessories.outlets[pole][face];
-      const updated = this.store.update(`accessories.outlets.${pole}.${face}`, current === null ? { height: 50, type: 'eu' } : null);
-      if (updated === false) this.showToast(this.store.getLastError?.() || 'That outlet cannot be placed there.');
-    } else if (action === 'toggle-wall-switch') {
-      const pole = actionTarget.dataset.pole;
-      const current = this.state.automationSettings.wallSwitches[pole];
-      const updated = this.store.update(`automationSettings.wallSwitches.${pole}`, current === null ? 55 : null);
-      if (updated === false) this.showToast(this.store.getLastError?.() || 'That switch cannot be placed there.');
+    } else if (action === 'set-pole-mount') {
+      const type = actionTarget.dataset.mountType;
+      const path = `poleMounts.${this.activePole}.${this.activePoleFace}`;
+      const current = this.state.poleMounts[this.activePole]?.[this.activePoleFace] ?? null;
+      const value = type === 'none'
+        ? null
+        : createPoleMount(type, {
+          height: current?.type === type ? current.height : undefined,
+          outletType: current?.type === 'outlet' ? current.outletType : 'eu',
+        });
+      const updated = this.store.update(path, value);
+      if (updated === false) this.showToast(this.store.getLastError?.() || 'That component cannot be placed there.');
     } else if (action === 'toggle-step-section') {
       const stepId = actionTarget.dataset.stepId;
       this.expandedStep = this.expandedStep === stepId ? null : stepId;
@@ -524,15 +540,9 @@ export class ConfiguratorUI {
       const openness = config.screenSettings?.[config.type]?.openness ?? 50;
       screen.textContent = `${Math.round(openness)}% open`;
     }
-    const manualHeight = this.stepContent.querySelector('[data-manual-height-output]');
-    if (manualHeight) manualHeight.textContent = `${this.state.automationSettings.manual.height}%`;
-    this.stepContent.querySelectorAll('[data-switch-height-output]').forEach((output) => {
-      const value = this.state.automationSettings.wallSwitches[output.dataset.switchHeightOutput];
-      output.textContent = `${value}%`;
-    });
-    this.stepContent.querySelectorAll('[data-outlet-height-output]').forEach((output) => {
-      const [pole, face] = output.dataset.outletHeightOutput.split('.');
-      output.textContent = `${this.state.accessories.outlets[pole][face]?.height ?? 0}%`;
+    this.stepContent.querySelectorAll('[data-pole-mount-height-output]').forEach((output) => {
+      const [pole, face] = output.dataset.poleMountHeightOutput.split('.');
+      output.textContent = `${this.state.poleMounts[pole]?.[face]?.height ?? 0}%`;
     });
   }
 

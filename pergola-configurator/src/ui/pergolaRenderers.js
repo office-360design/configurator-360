@@ -25,14 +25,33 @@ import {
   sideLabel,
 } from '../pricing.js';
 import {
-  canPlaceOutlet,
+  canPlacePoleMount,
+  countPoleMounts,
+  findPoleMount,
+  getConnectedSideForPoleFace,
+  getPoleMountHeightLimits,
   poleFaceIsAvailable,
   poleIsAvailable,
-  resolvePoleMountFace,
-  resolveSpeakerFace,
+  sideHasMountedItems,
 } from '../state.js';
 import { escapeHtml } from '../../../shared-ui/src/index.js';
 import { optionCard, segmented, colorSwatches } from './renderHelpers.js';
+
+const POLE_MOUNT_OPTIONS = [
+  { value: 'speaker', label: 'Speaker', icon: './assets/icons/accessory-speaker.svg' },
+  { value: 'outlet', label: 'Outlet', icon: './assets/icons/accessory-outlet.svg' },
+  { value: 'hand-crank', label: 'Hand crank', icon: './assets/icons/automation-manual.svg' },
+  { value: 'switch', label: 'Switch', icon: './assets/icons/automation-switch.svg' },
+];
+
+function poleMountLabel(type) {
+  return POLE_MOUNT_OPTIONS.find((option) => option.value === type)?.label ?? 'Component';
+}
+
+function capitalize(value) {
+  const text = String(value ?? '');
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+}
 
 export const pergolaRenderers = {
   renderCurrentStep() {
@@ -174,9 +193,8 @@ export const pergolaRenderers = {
 
   renderAutomationStep() {
     const automation = this.state.automation;
-    const manual = this.state.automationSettings.manual;
-    const switches = this.state.automationSettings.wallSwitches;
-    const switchCount = Object.values(switches).filter((value) => value !== null).length;
+    const crank = findPoleMount(this.state, 'hand-crank');
+    const switchCount = countPoleMounts(this.state, 'switch');
 
     return `
       <section class="form-section">
@@ -192,71 +210,30 @@ export const pergolaRenderers = {
       </section>
 
       ${automation === 'manual' ? `
-        <section class="form-section automation-mount-panel">
+        <section class="form-section pole-placement-notice">
           <div class="section-heading">
-            <h2>Hand-crank position</h2>
-            <p>The crank uses a dedicated GLB model and is automatically placed on a free pole face.</p>
+            <h2>Hand-crank placement</h2>
+            <p>Manual control requires exactly one crank for the whole pergola.</p>
           </div>
-          <div class="pole-grid">
-            ${SUPPORT_POLES.map(({ value, label }) => {
-              const available = poleIsAvailable(this.state, value)
-                && Boolean(resolvePoleMountFace(this.state, 'manual', value, manual.height));
-              return `
-                <button
-                  type="button"
-                  class="pole-button ${manual.pole === value ? 'is-selected' : ''}"
-                  data-option-path="automationSettings.manual.pole"
-                  data-option-value="${value}"
-                  aria-pressed="${manual.pole === value}"
-                  ${available ? '' : 'disabled aria-disabled="true"'}
-                ><span>${label}</span><small>${available ? 'Collision-free face' : 'No free mounting face'}</small></button>
-              `;
-            }).join('')}
+          <div class="pole-placement-notice__status">
+            <img src="./assets/icons/automation-manual.svg" alt="" />
+            <span><strong>${crank ? 'Hand crank positioned' : 'Position required'}</strong><small>${crank ? `${SUPPORT_POLES.find((item) => item.value === crank.pole)?.label}, ${capitalize(crank.face)} face` : 'Choose a pole and face before completing the configuration.'}</small></span>
           </div>
-          <div class="mount-height-control">
-            <div><strong>Mounting height</strong><output data-manual-height-output>${manual.height}%</output></div>
-            <input class="range-input" type="range" min="10" max="80" step="1" value="${manual.height}"
-              data-path="automationSettings.manual.height" data-value-type="number" data-continuous="true" />
-            <div class="range-labels"><span>10%</span><span>80%</span></div>
-          </div>
+          <button type="button" class="secondary-action secondary-action--full" data-action="open-pole-customization">Configure pole components</button>
         </section>
       ` : ''}
 
       ${automation === 'wall-switch' ? `
-        <section class="form-section automation-mount-panel">
+        <section class="form-section pole-placement-notice">
           <div class="section-heading">
-            <h2>Pergola switches</h2>
-            <p>Select up to one switch per existing support pole. Each selected switch has a continuous 10–80% height control.</p>
+            <h2>Pergola-switch placement</h2>
+            <p>At least one switch is required. Additional switches can be placed on any free pole face.</p>
           </div>
-          <div class="accessory-summary-line">
-            <span class="accessory-model-mark"><img src="./assets/icons/automation-switch.svg" alt="" /></span>
-            <span><strong>${switchCount} selected</strong><small>Maximum four</small></span>
+          <div class="pole-placement-notice__status">
+            <img src="./assets/icons/automation-switch.svg" alt="" />
+            <span><strong>${switchCount} switch${switchCount === 1 ? '' : 'es'} configured</strong><small>Maximum one component on each pole face</small></span>
           </div>
-          <div class="switch-pole-list">
-            ${SUPPORT_POLES.map(({ value, label }) => {
-              const selected = switches[value] !== null;
-              const available = poleIsAvailable(this.state, value);
-              const face = selected ? resolvePoleMountFace(this.state, 'switch', value, switches[value]) : null;
-              return `
-                <article class="switch-pole-row ${selected ? 'is-selected' : ''}">
-                  <div>
-                    <strong>${label}</strong>
-                    <small>${available ? (face ? `${capitalize(face)} face` : 'Enable to place') : 'No support pole'}</small>
-                  </div>
-                  <button type="button" class="compact-toggle ${selected ? 'is-selected' : ''}"
-                    data-action="toggle-wall-switch" data-pole="${value}" aria-pressed="${selected}"
-                    ${available ? '' : 'disabled aria-disabled="true"'}>${selected ? 'On' : 'Off'}</button>
-                  ${selected ? `
-                    <label class="inline-range">
-                      <span><output data-switch-height-output="${value}">${switches[value]}%</output></span>
-                      <input class="range-input" type="range" min="10" max="80" step="1" value="${switches[value]}"
-                        data-path="automationSettings.wallSwitches.${value}" data-value-type="number" data-continuous="true" />
-                    </label>
-                  ` : ''}
-                </article>
-              `;
-            }).join('')}
-          </div>
+          <button type="button" class="secondary-action secondary-action--full" data-action="open-pole-customization">Configure pole components</button>
         </section>
       ` : ''}
 
@@ -290,6 +267,7 @@ export const pergolaRenderers = {
   renderSidesStep() {
     const config = this.state.sides[this.activeSide];
     const disabledByWall = this.state.installation === 'wall-mounted' && this.state.mountedSide === this.activeSide;
+    const blockedByPoleMounts = sideHasMountedItems(this.state, this.activeSide);
     const isScreen = ['screen', 'motorized-screen'].includes(config.type);
     const settings = isScreen ? config.screenSettings[config.type] : null;
 
@@ -320,11 +298,21 @@ export const pergolaRenderers = {
           <span>Side closings are not available on the mounted edge.</span>
         </div>
       ` : `
+        ${blockedByPoleMounts ? `
+          <div class="info-banner info-banner--warning side-pole-conflict-warning">
+            <strong>${capitalize(this.activeSide)} closing is blocked by pole components.</strong>
+            <span>Clear the two pole faces that point toward each other across this side before adding a screen, wall or glass panel.</span>
+          </div>
+        ` : ''}
         <section class="form-section">
           <div class="section-heading"><h2>${capitalize(this.activeSide)} side</h2></div>
           <div class="side-option-grid">
             ${SIDE_OPTIONS.map((option) => optionCard(
-              option,
+              {
+                ...option,
+                disabled: blockedByPoleMounts && option.value !== 'none',
+                disabledReason: 'Remove the components from both connected pole faces first.',
+              },
               config.type === option.value,
               `sides.${this.activeSide}.type`,
             )).join('')}
@@ -383,11 +371,6 @@ export const pergolaRenderers = {
   renderAccessoriesStep() {
     const accessories = this.state.accessories;
     const heaterCount = Object.values(accessories.heaters).filter(Boolean).length;
-    const speakerCount = Object.values(accessories.speakers).filter(Boolean).length;
-    const outletCount = Object.values(accessories.outlets).reduce(
-      (total, faces) => total + Object.values(faces).filter((value) => value !== null).length,
-      0,
-    );
 
     return `
       <section class="form-section">
@@ -451,58 +434,7 @@ export const pergolaRenderers = {
         ${this.renderSensorControl('wind', 'Wind sensor')}
       </section>
 
-      <section class="form-section">
-        <div class="section-heading">
-          <h2>Outdoor speakers</h2>
-          <p>One speaker per support pole. The configurator chooses an unobstructed vertical mounting face.</p>
-        </div>
-        <div class="accessory-summary-line">
-          ${this.accessoryModelMark('speakers')}
-          <span><strong>${speakerCount} selected</strong><small>Wall and outlet collisions are prevented</small></span>
-        </div>
-        <div class="pole-grid">
-          ${SUPPORT_POLES.map(({ value, label }) => {
-            const available = poleIsAvailable(this.state, value)
-              && (!accessories.speakers[value] || Boolean(resolveSpeakerFace(this.state, value)));
-            return `
-              <button
-                type="button"
-                class="pole-button ${accessories.speakers[value] ? 'is-selected' : ''}"
-                data-action="toggle-speaker-pole"
-                data-pole="${value}"
-                aria-pressed="${accessories.speakers[value]}"
-                ${available ? '' : 'disabled aria-disabled="true"'}
-              ><span>${label}</span><small>${available ? 'Free mounting face' : 'No collision-free face'}</small></button>
-            `;
-          }).join('')}
-        </div>
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading">
-          <h2>Electrical outlets</h2>
-          <p>Exterior pole faces are always available. Interior faces are available only while the adjacent side is open.</p>
-        </div>
-        <div class="accessory-summary-line">
-          ${this.accessoryModelMark('outlets')}
-          <span><strong>${outletCount} selected</strong><small>Each outlet can use its own EU or US standard</small></span>
-        </div>
-        <div class="outlet-pole-tabs">
-          ${SUPPORT_POLES.map(({ value, label }) => {
-            const available = poleIsAvailable(this.state, value);
-            return `
-              <button
-                type="button"
-                class="outlet-pole-tab ${this.activeOutletPole === value ? 'is-selected' : ''}"
-                data-action="select-outlet-pole"
-                data-pole="${value}"
-                ${available ? '' : 'disabled aria-disabled="true"'}
-              >${label}</button>
-            `;
-          }).join('')}
-        </div>
-        ${this.renderOutletPole()}
-      </section>
+      ${this.renderPoleCustomization()}
     `;
   },
 
@@ -571,55 +503,137 @@ export const pergolaRenderers = {
     `;
   },
 
-  renderOutletPole() {
-    const pole = this.activeOutletPole;
-    const available = poleIsAvailable(this.state, pole);
-    if (!available) {
-      const firstAvailable = SUPPORT_POLES.find((item) => poleIsAvailable(this.state, item.value));
-      if (firstAvailable) {
-        this.activeOutletPole = firstAvailable.value;
-        return this.renderOutletPole();
-      }
-      return '<div class="info-banner"><strong>No support poles are available.</strong></div>';
+  renderPoleCustomization() {
+    let pole = this.activePole;
+    if (!poleIsAvailable(this.state, pole)) {
+      pole = SUPPORT_POLES.find((item) => poleIsAvailable(this.state, item.value))?.value ?? SUPPORT_POLES[0].value;
+      this.activePole = pole;
     }
 
-    const faces = this.state.accessories.outlets[pole];
+    const face = POLE_FACES.some((item) => item.value === this.activePoleFace)
+      ? this.activePoleFace
+      : POLE_FACES[0].value;
+    this.activePoleFace = face;
+
+    const mount = this.state.poleMounts[pole]?.[face] ?? null;
+    const faceAvailable = poleFaceIsAvailable(this.state, pole, face);
+    const connectedSide = getConnectedSideForPoleFace(pole, face);
+    const totalMounts = countPoleMounts(this.state);
+    const poleLabel = SUPPORT_POLES.find((item) => item.value === pole)?.label ?? pole;
+    const mountIsRequired = Boolean(mount) && (
+      (mount.type === 'hand-crank' && this.state.automation === 'manual' && countPoleMounts(this.state, 'hand-crank') === 1)
+      || (mount.type === 'switch' && this.state.automation === 'wall-switch' && countPoleMounts(this.state, 'switch') === 1)
+    );
+
     return `
-      <div class="outlet-face-list">
-        ${POLE_FACES.map(({ value, label }) => {
-          const mount = faces[value];
-          const enabled = mount !== null;
-          const faceAvailable = poleFaceIsAvailable(this.state, pole, value);
-          const collisionFree = enabled || canPlaceOutlet(this.state, pole, value, { height: 50, type: 'eu' });
-          const selectable = faceAvailable && collisionFree;
-          return `
-            <article class="outlet-face-row ${enabled ? 'is-selected' : ''} ${selectable ? '' : 'is-disabled'}">
-              <div>
-                <strong>${label}</strong>
-                <small>${!faceAvailable
-                  ? 'Blocked by an adjacent side closing'
-                  : !collisionFree
-                    ? 'No collision-free default position'
-                    : enabled
-                      ? `${mount.height}% of pole height · ${mount.type === 'us' ? 'US' : 'EU'} outlet`
-                      : 'Available mounting face'}</small>
-              </div>
-              <button type="button" class="compact-toggle ${enabled ? 'is-selected' : ''}"
-                data-action="toggle-outlet-face" data-pole="${pole}" data-face="${value}"
-                aria-pressed="${enabled}" ${selectable ? '' : 'disabled aria-disabled="true"'}>${enabled ? 'On' : 'Off'}</button>
-              ${enabled ? `
-                <div class="inline-field-stack">
-                  <div class="outlet-type-row">${segmented(OUTLET_TYPES, mount.type, `accessories.outlets.${pole}.${value}.type`)}</div>
-                  <label class="inline-range inline-range--full">
-                    <span><output data-outlet-height-output="${pole}.${value}">${mount.height}%</output></span>
-                    <input class="range-input" type="range" min="10" max="80" step="1" value="${mount.height}"
-                      data-path="accessories.outlets.${pole}.${value}.height" data-value-type="number" data-continuous="true" />
-                  </label>
-                </div>
-              ` : ''}
-            </article>
-          `;
-        }).join('')}
+      <section class="form-section pole-customizer" data-pole-customizer>
+        <div class="section-heading">
+          <h2>Pole customization</h2>
+          <p>Select a pole, then a face. Every face accepts a maximum of one component and uses a roof-safe height range.</p>
+        </div>
+        <div class="accessory-summary-line">
+          <span class="pole-customizer__summary-icon" aria-hidden="true">▥</span>
+          <span><strong>${totalMounts} pole component${totalMounts === 1 ? '' : 's'}</strong><small>Walls and mounted components reserve the same connected pole faces</small></span>
+        </div>
+
+        <div class="pole-customizer__group">
+          <div class="detail-heading"><strong>1. Select a pole</strong><small>${poleLabel}</small></div>
+          <div class="pole-selector">
+            ${SUPPORT_POLES.map(({ value, label }) => {
+              const available = poleIsAvailable(this.state, value);
+              const occupied = Object.values(this.state.poleMounts[value] ?? {}).filter(Boolean).length;
+              return `
+                <button type="button" class="pole-selector__button ${pole === value ? 'is-selected' : ''}"
+                  data-action="select-pole" data-pole="${value}" aria-pressed="${pole === value}"
+                  ${available ? '' : 'disabled aria-disabled="true"'}>
+                  <span>${label}</span><small>${available ? `${occupied}/4 faces occupied` : 'No pole in this installation'}</small>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="pole-customizer__group">
+          <div class="detail-heading"><strong>2. Select a face</strong><small>${capitalize(face)} face</small></div>
+          <div class="pole-face-selector">
+            ${POLE_FACES.map(({ value, label }) => {
+              const item = this.state.poleMounts[pole]?.[value] ?? null;
+              const available = poleFaceIsAvailable(this.state, pole, value);
+              const side = getConnectedSideForPoleFace(pole, value);
+              const status = item
+                ? `${poleMountLabel(item.type)} · ${item.height}%`
+                : available
+                  ? (side ? `Open toward ${side} side` : 'Exterior face available')
+                  : (side ? `${capitalize(side)} side closing occupies this face` : 'Unavailable');
+              return `
+                <button type="button" class="pole-face-selector__button ${face === value ? 'is-selected' : ''} ${item ? 'is-occupied' : ''}"
+                  data-action="select-pole-face" data-face="${value}" aria-pressed="${face === value}">
+                  <span>${label}</span><small>${status}</small>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="pole-customizer__group pole-mount-editor ${faceAvailable ? '' : 'is-blocked'}">
+          <div class="detail-heading"><strong>3. Choose a component</strong><small>${faceAvailable ? `${poleLabel} · ${capitalize(face)} face` : 'This face is reserved by a side closing'}</small></div>
+          ${faceAvailable ? `
+            <div class="pole-mount-type-grid">
+              <button type="button" class="pole-mount-type ${mount === null ? 'is-selected' : ''}" data-action="set-pole-mount" data-mount-type="none" aria-pressed="${mount === null}"
+                ${mountIsRequired ? 'disabled aria-disabled="true" title="Move or add the required automation control before clearing this face"' : ''}>
+                <span class="pole-mount-type__icon pole-mount-type__icon--empty">×</span><span><strong>Empty</strong><small>${mountIsRequired ? 'Required automation control' : 'Keep this face free'}</small></span>
+              </button>
+              ${POLE_MOUNT_OPTIONS.map((option) => {
+                const selected = mount?.type === option.value;
+                const allowed = canPlacePoleMount(this.state, pole, face, option.value)
+                  && (!mountIsRequired || selected);
+                const existingCrank = option.value === 'hand-crank' ? findPoleMount(this.state, 'hand-crank') : null;
+                let note = 'Place on this face';
+                if (option.value === 'hand-crank') note = this.state.automation === 'manual'
+                  ? (existingCrank && (existingCrank.pole !== pole || existingCrank.face !== face) ? 'Move the single crank here' : 'Single crank for the pergola')
+                  : 'Requires manual automation';
+                if (option.value === 'switch') note = this.state.automation === 'wall-switch'
+                  ? 'Add a pergola switch'
+                  : 'Requires switch automation';
+                return `
+                  <button type="button" class="pole-mount-type ${selected ? 'is-selected' : ''}" data-action="set-pole-mount"
+                    data-mount-type="${option.value}" aria-pressed="${selected}" ${allowed ? '' : 'disabled aria-disabled="true"'}>
+                    <span class="pole-mount-type__icon"><img src="${option.icon}" alt="" /></span><span><strong>${option.label}</strong><small>${note}</small></span>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+            ${mount ? this.renderPoleMountEditor(pole, face, mount, mountIsRequired) : '<div class="info-banner pole-mount-empty-note"><strong>This pole face is free.</strong><span>Select a component above to configure its mounting height.</span></div>'}
+          ` : `
+            <div class="info-banner info-banner--warning"><strong>Face unavailable</strong><span>Set the ${connectedSide ? `${connectedSide} side` : 'connected side'} to Open side before mounting a component here.</span></div>
+          `}
+        </div>
+      </section>
+    `;
+  },
+
+  renderPoleMountEditor(pole, face, mount, required = false) {
+    const limits = getPoleMountHeightLimits(mount.type);
+    return `
+      <div class="pole-mount-settings">
+        <div class="pole-mount-settings__header">
+          <span><strong>${poleMountLabel(mount.type)}</strong><small>${required ? 'Required by the selected automation mode' : 'Maximum one component on this face'}</small></span>
+          <button type="button" class="pole-mount-remove" data-action="set-pole-mount" data-mount-type="none"
+            ${required ? 'disabled aria-disabled="true" title="Move or add the required automation control first"' : ''}>${required ? 'Required' : 'Remove'}</button>
+        </div>
+        ${mount.type === 'outlet' ? `
+          <div class="pole-mount-setting-row">
+            <span><strong>Outlet standard</strong><small>Configured independently for this face</small></span>
+            ${segmented(OUTLET_TYPES, mount.outletType, `poleMounts.${pole}.${face}.outletType`)}
+          </div>
+        ` : ''}
+        <label class="mount-height-control pole-mount-height-control">
+          <div><strong>Mounting height</strong><output data-pole-mount-height-output="${pole}.${face}">${mount.height}%</output></div>
+          <input class="range-input" type="range" min="${limits.min}" max="${limits.max}" step="1" value="${mount.height}"
+            data-path="poleMounts.${pole}.${face}.height" data-value-type="number" data-continuous="true" />
+          <div class="range-labels"><span>${limits.min}%</span><span>Roof-safe limit ${limits.max}%</span></div>
+          <small class="pole-mount-height-hint">Positions that would overlap another component on this pole are blocked.</small>
+        </label>
       </div>
     `;
   },
@@ -641,6 +655,7 @@ export const pergolaRenderers = {
           <div><dt>Size</dt><dd>${this.formatDimensionLine()}</dd></div>
           <div><dt>Roof</dt><dd>${capitalize(this.state.roof.orientation)} orientation, ${this.state.roof.louverTilt}° tilt</dd></div>
           <div><dt>Automation</dt><dd>${automationLabel(this.state.automation)}</dd></div>
+          <div><dt>Pole components</dt><dd>${countPoleMounts(this.state)} configured</dd></div>
         </dl>
       </section>
 
