@@ -6,6 +6,7 @@ const projectRoot = path.resolve(__dirname, '..', '..');
 const sourceRoot = path.join(projectRoot, 'src', 'client');
 const distRoot = path.join(projectRoot, 'dist', 'site');
 const headersSource = path.join(projectRoot, 'netlify', '_headers');
+const sharedUiSource = path.join(projectRoot, 'shared-ui');
 
 function gitShortHash() {
     try {
@@ -40,6 +41,10 @@ if (fs.existsSync(currentModels)) {
 fs.rmSync(distRoot, { recursive: true, force: true });
 fs.mkdirSync(path.dirname(distRoot), { recursive: true });
 fs.cpSync(sourceRoot, distRoot, { recursive: true, force: true });
+
+if (fs.existsSync(sharedUiSource)) {
+    fs.cpSync(sharedUiSource, path.join(distRoot, 'shared-ui'), { recursive: true, force: true });
+}
 
 if (fs.existsSync(preservedModels)) {
     fs.cpSync(preservedModels, path.join(distRoot, 'models'), { recursive: true, force: true });

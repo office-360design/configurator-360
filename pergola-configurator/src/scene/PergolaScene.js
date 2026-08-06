@@ -92,9 +92,8 @@ export class PergolaScene {
       preserveDrawingBuffer: true,
       powerPreference: 'high-performance',
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.lastQuality = null;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
@@ -130,6 +129,7 @@ export class PergolaScene {
     this.sun.shadow.bias = -0.00035;
     this.scene.add(this.sun);
     this.scene.add(this.sun.target);
+    this.applyQuality(this.state.quality);
 
     this.environmentGroup = new THREE.Group();
     this.scene.add(this.environmentGroup);
@@ -327,6 +327,7 @@ export class PergolaScene {
 
   update(state, meta = {}) {
     this.state = state;
+    this.applyQuality(state.quality);
     const signature = this.structuralSignature(state);
     if (signature !== this.lastStructuralSignature) {
       this.rebuildPergola();
@@ -514,6 +515,23 @@ export class PergolaScene {
   capturePNG() {
     this.renderer.render(this.scene, this.camera);
     return this.renderer.domElement.toDataURL('image/png');
+  }
+
+  applyQuality(quality = 'balanced') {
+    if (this.lastQuality === quality) return;
+    const profile = {
+      low: { pixelRatio: 1, shadows: false, shadowSize: 512 },
+      balanced: { pixelRatio: Math.min(window.devicePixelRatio, 1.5), shadows: true, shadowSize: 1024 },
+      high: { pixelRatio: Math.min(window.devicePixelRatio, 2), shadows: true, shadowSize: 2048 },
+    }[quality] ?? { pixelRatio: Math.min(window.devicePixelRatio, 1.5), shadows: true, shadowSize: 1024 };
+
+    this.renderer.setPixelRatio(profile.pixelRatio);
+    this.renderer.shadowMap.enabled = profile.shadows;
+    this.sun.castShadow = profile.shadows;
+    this.sun.shadow.mapSize.set(profile.shadowSize, profile.shadowSize);
+    this.sun.shadow.map?.dispose?.();
+    this.lastQuality = quality;
+    if (this.container?.clientWidth && this.container?.clientHeight) this.resize();
   }
 
   resize() {

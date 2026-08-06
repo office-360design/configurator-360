@@ -1,194 +1,23 @@
+import { STEPS } from '../catalog.js';
+import { calculatePrice, formatMoney } from '../pricing.js';
+import { poleIsAvailable } from '../state.js';
 import {
-  ACCESSORY_OPTIONS,
-  AUTOMATION_OPTIONS,
-  DIMENSION_PRESETS,
-  FRAME_COLORS,
-  HEATER_SIDES,
-  LED_COLORS,
-  LOUVER_COLORS,
-  MODEL_OPTIONS,
-  OUTLET_TYPES,
-  POLE_FACES,
-  PRIVACY_WALL_COLORS,
-  SCREEN_COLORS,
-  SENSOR_POSITIONS,
-  SERVICE_OPTIONS,
-  SIDE_NAMES,
-  SIDE_OPTIONS,
-  STEPS,
-  SUPPORT_POLES,
-} from '../catalog.js';
-import {
-  automationLabel,
-  calculatePrice,
-  formatMoney,
-  sideLabel,
-} from '../pricing.js';
-import {
-  canPlaceOutlet,
-  poleFaceIsAvailable,
-  poleIsAvailable,
-  resolvePoleMountFace,
-  resolveSpeakerFace,
-} from '../state.js';
+  LANGUAGE_PROFILES,
+  escapeHtml,
+  getLanguageProfile,
+  renderActionFeedback,
+  renderToolsMenu,
+  renderTopBar,
+} from '../../../shared-ui/src/index.js';
+import { pergolaRenderers } from './pergolaRenderers.js';
 
 const CAMERA_PRESETS = ['perspective', 'front', 'left', 'right', 'top'];
 const PROJECT_META_KEY = 'pergola-configurator:project-meta';
 const PROJECT_COUNTER_KEY = 'pergola-configurator:next-project-number';
 const SAVED_PROJECTS_KEY = 'pergola-configurator:saved-projects';
 const MAX_PROJECT_NUMBER = 1000;
-
-function topBarIcon(type) {
-  const icons = {
-    cloud: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M7.4 18.2H6.2a4.2 4.2 0 0 1-.5-8.37A6.4 6.4 0 0 1 18 8.5a4.85 4.85 0 0 1-.2 9.7h-1.2" />
-        <path d="M12 11.4v8" />
-        <path d="m8.9 14.5 3.1-3.1 3.1 3.1" />
-      </svg>`,
-    success: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="8.5" />
-        <path d="m8.3 12.2 2.35 2.35 5.2-5.35" />
-      </svg>`,
-    failure: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="8.5" />
-        <path d="M12 7.7v5.5" />
-        <path d="M12 16.6h.01" />
-      </svg>`,
-    undo: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m9 8-4 4 4 4" />
-        <path d="M5 12h7.2a6.3 6.3 0 0 1 6.3 6.3" />
-      </svg>`,
-    reset: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M20 7v5h-5" />
-        <path d="M4 17v-5h5" />
-        <path d="M6.1 8.2A7.5 7.5 0 0 1 19.3 12" />
-        <path d="M17.9 15.8A7.5 7.5 0 0 1 4.7 12" />
-      </svg>`,
-    account: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="8" r="3.2" />
-        <path d="M5.7 19a6.3 6.3 0 0 1 12.6 0" />
-        <circle cx="12" cy="12" r="9" />
-      </svg>`,
-    share: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="18" cy="5" r="2.2" />
-        <circle cx="6" cy="12" r="2.2" />
-        <circle cx="18" cy="19" r="2.2" />
-        <path d="m8 11 7.9-4.7" />
-        <path d="m8 13 7.9 4.7" />
-      </svg>`,
-    ar: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
-        <path d="m4.4 7.7 7.6 4.2 7.6-4.2" />
-        <path d="M12 12v9" />
-      </svg>`,
-    folder: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M3.5 6.5h6l2 2H20.5v9.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V6.5Z" />
-      </svg>`,
-    settings: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19 12a7.2 7.2 0 0 0-.1-1l2-1.5-2-3.4-2.5 1a7.4 7.4 0 0 0-1.8-1L14.2 3h-4.4l-.4 3.1a7.4 7.4 0 0 0-1.8 1l-2.5-1-2 3.4 2 1.5a7.2 7.2 0 0 0 0 2l-2 1.5 2 3.4 2.5-1a7.4 7.4 0 0 0 1.8 1l.4 3.1h4.4l.4-3.1a7.4 7.4 0 0 0 1.8-1l2.5 1 2-3.4-2-1.5a7.2 7.2 0 0 0 .1-1Z" />
-      </svg>`,
-  };
-  return icons[type] ?? '';
-}
-
-function savePreviewButton() {
-  return `
-    <button class="topbar-icon-button save-preview-button" type="button" data-action="save-success-demo" data-tooltip="Save" aria-label="Save">
-      <span class="save-icon save-icon--cloud">${topBarIcon('cloud')}</span>
-      <span class="save-icon save-icon--success">${topBarIcon('success')}</span>
-    </button>
-  `;
-}
-
-function sharePreviewButton() {
-  return `
-    <button class="topbar-icon-button share-preview-button" type="button" data-action="share" data-tooltip="Share" aria-label="Share">
-      <span class="share-icon share-icon--default">${topBarIcon('share')}</span>
-      <span class="share-icon share-icon--success">${topBarIcon('success')}</span>
-    </button>
-  `;
-}
-
-function escapeHtml(value = '') {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
-
 function capitalize(value) {
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function optionCard({ value, label, description = '', icon = '', badge = '' }, selected, path, extraClass = '') {
-  return `
-    <button
-      class="option-card ${selected ? 'is-selected' : ''} ${extraClass}"
-      type="button"
-      data-option-path="${path}"
-      data-option-value="${value}"
-      aria-pressed="${selected}"
-    >
-      ${icon ? `<span class="option-card__icon"><img src="${icon}" alt="" /></span>` : ''}
-      <span class="option-card__copy">
-        <strong>${escapeHtml(label)}</strong>
-        ${description ? `<small>${escapeHtml(description)}</small>` : ''}
-      </span>
-      ${badge ? `<span class="option-card__badge">${escapeHtml(badge)}</span>` : ''}
-      <span class="option-card__check" aria-hidden="true">✓</span>
-    </button>
-  `;
-}
-
-function segmented(options, selected, path) {
-  return `
-    <div class="segmented-control" role="group">
-      ${options.map((option) => `
-        <button
-          type="button"
-          class="segmented-control__item ${selected === option.value ? 'is-selected' : ''}"
-          data-option-path="${path}"
-          data-option-value="${option.value ?? 'off'}"
-          aria-pressed="${selected === option.value}"
-          ${option.disabled ? 'disabled aria-disabled="true"' : ''}
-        >${escapeHtml(option.label)}</button>
-      `).join('')}
-    </div>
-  `;
-}
-
-function colorSwatches(colors, selected, path) {
-  return `
-    <div class="color-grid">
-      ${colors.map((color) => `
-        <button
-          type="button"
-          class="color-swatch ${selected === color.value ? 'is-selected' : ''}"
-          data-option-path="${path}"
-          data-option-value="${color.value}"
-          title="${escapeHtml(color.label)}"
-          aria-label="${escapeHtml(color.label)}"
-          aria-pressed="${selected === color.value}"
-        >
-          <span style="--swatch:${color.value}"></span>
-          <small>${escapeHtml(color.label)}</small>
-        </button>
-      `).join('')}
-    </div>
-  `;
 }
 
 export class ConfiguratorUI {
@@ -376,117 +205,39 @@ export class ConfiguratorUI {
     this.projectNameInput.style.width = `${Math.min(maxWidth, Math.max(minWidth, measuredWidth + 20))}px`;
   }
 
+  getCurrentLanguageProfile() {
+    return getLanguageProfile(this.state.locale);
+  }
+
   shellTemplate() {
     return `
       <div class="app-shell">
-        <header class="site-header">
-          <a class="brand" href="#" aria-label="Pergola configurator home">
-            <img src="./assets/360CONFIGURATOR.png" alt="360 Configurator" />
-          </a>
-
-          <div class="project-name-shell">
-            <span class="project-name-measure" data-project-name-measure aria-hidden="true">${escapeHtml(this.projectName)}</span>
-            <input
-              class="project-name-input"
-              type="text"
-              value="${escapeHtml(this.projectName)}"
-              maxlength="80"
-              data-project-name
-              aria-label="Project name"
-              spellcheck="false"
-            />
-            <span class="project-dirty-indicator" data-project-dirty aria-label="Unsaved changes">*</span>
-          </div>
-
-          <div class="site-header__actions">
-            ${savePreviewButton()}
-            <button class="topbar-icon-button" type="button" data-action="undo" data-tooltip="Undo" aria-label="Undo">
-              ${topBarIcon('undo')}
-            </button>
-            <button class="topbar-icon-button" type="button" data-action="reset" data-tooltip="Reset" aria-label="Reset">
-              ${topBarIcon('reset')}
-            </button>
-            ${sharePreviewButton()}
-            <button class="topbar-icon-button" type="button" data-action="account" data-tooltip="Account" aria-label="Account" aria-expanded="false">
-              ${topBarIcon('account')}
-            </button>
-            <button class="topbar-icon-button language-button" type="button" data-action="language" data-tooltip="English (US)" aria-label="English (US)" aria-expanded="false">
-              <span class="language-flag" aria-hidden="true">🇺🇸</span>
-            </button>
-          </div>
-
-          <section class="account-menu" data-account-menu aria-label="Account menu">
-            <div class="account-menu__profile">
-              <span class="account-menu__avatar">${topBarIcon('account')}</span>
-              <strong>Hello, User#0</strong>
-            </div>
-            <nav class="account-menu__items">
-              <button type="button" data-action="account-view-ar"><span>${topBarIcon('ar')}</span><strong>View in AR</strong></button>
-              <button type="button" data-action="account-saved"><span>${topBarIcon('folder')}</span><strong>Saved configurations</strong></button>
-              <button type="button" data-action="toggle-account-settings" aria-expanded="false"><span>${topBarIcon('settings')}</span><strong>Settings</strong><span class="account-menu__chevron">›</span></button>
-              <div class="account-settings" data-account-settings>
-                <button type="button" data-action="darkmode-preview"><span>Dark mode</span><strong>Off</strong></button>
-              </div>
-            </nav>
-          </section>
-
-          <section class="language-menu" data-language-menu aria-label="Language menu">
-            <div class="language-menu__current"><span aria-hidden="true">🇺🇸</span><strong>English (US)</strong></div>
-            <label class="language-search">
-              <span aria-hidden="true">⌕</span>
-              <input type="search" placeholder="Search languages" data-language-search aria-label="Search languages" />
-            </label>
-            <div class="language-list" data-language-list>
-              <button type="button" data-action="select-language" data-language-name="română"><span aria-hidden="true">🇷🇴</span><strong>Română</strong></button>
-            </div>
-          </section>
-        </header>
+        ${renderTopBar({
+          brandSrc: './assets/360CONFIGURATOR.png',
+          brandAlt: '360 Configurator',
+          projectName: this.projectName,
+          state: this.state,
+        })}
 
         <main class="configurator-layout">
           <section class="viewport" data-viewport aria-label="3D pergola preview">
-            <div class="viewport-toolbar viewport-toolbar--left tools-toolbar ${this.toolsOpen ? 'is-open' : ''}">
-              <button class="tool-launcher" type="button" data-action="toggle-tools" aria-expanded="${this.toolsOpen}" aria-label="Toggle tools">Tools</button>
-              <div class="tools-toolbar__panel ${this.toolsOpen ? 'is-open' : ''}">
-                <button class="round-tool" type="button" data-action="toggle-environment" aria-label="Sun and orientation settings" title="Sun and orientation">
-                  <span aria-hidden="true">☀</span>
-                </button>
-                <button class="round-tool is-active" type="button" data-action="toggle-dimensions" aria-label="Toggle dimensions" title="Toggle dimensions">
-                  <span aria-hidden="true">↔</span>
-                </button>
-                <button class="round-tool" type="button" data-action="toggle-compass" aria-label="Toggle compass" title="Toggle compass">
-                  <span aria-hidden="true">🧭</span>
-                </button>
-                <button class="round-tool" type="button" data-action="cycle-camera" aria-label="Change camera" title="Change camera">
-                  <span aria-hidden="true">⌖</span>
-                </button>
-              </div>
-            </div>
-
+            ${renderToolsMenu(this.toolsOpen)}
             <section class="environment-panel" data-environment-panel aria-label="Lighting and orientation controls"></section>
             <div class="toast" data-toast role="status"></div>
           </section>
 
           <aside class="configurator-sidebar" aria-label="Pergola options">
             <button class="sidebar-collapse-handle" type="button" data-action="toggle-sidebar" aria-label="Hide or show menu" aria-expanded="${!this.sidebarHidden}" title="${this.sidebarHidden ? 'Show configurator options' : 'Hide configurator options'}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
             <div class="sidebar-header sidebar-header--compact sidebar-header--minimal">
-              <div>
-                <span class="step-counter" data-step-counter></span>
-                <h1 data-step-title></h1>
-              </div>
+              <div><span class="step-counter" data-step-counter></span><h1 data-step-title></h1></div>
             </div>
-
             <div class="sidebar-scroll" data-step-content></div>
             <footer class="sidebar-footer" data-sidebar-footer></footer>
           </aside>
         </main>
-        <div class="save-feedback" data-save-feedback role="status" aria-live="polite">
-          <span class="save-feedback__icon save-feedback__icon--success">${topBarIcon('success')}</span>
-          <strong data-save-feedback-text>Saved</strong>
-        </div>
+        ${renderActionFeedback()}
         <div data-modal-root></div>
       </div>
     `;
@@ -509,6 +260,7 @@ export class ConfiguratorUI {
     this.stepCounter.style.display = 'none';
     if (this.progress) this.progress.innerHTML = '';
     this.root.querySelector('.configurator-sidebar')?.classList.toggle('is-hidden', this.sidebarHidden);
+    this.root.querySelector('.app-shell')?.classList.toggle('is-dark-mode', Boolean(this.state.darkMode));
 
     this.stepContent.innerHTML = this.renderAccordionSections();
     this.sidebarFooter.innerHTML = this.renderFooter();
@@ -516,746 +268,8 @@ export class ConfiguratorUI {
     this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
     this.syncToolbar();
     this.syncTopBar();
-  }
-
-  renderCurrentStep() {
-    switch (STEPS[this.state.step].id) {
-      case 'structure': return this.renderStructureStep();
-      case 'finish': return this.renderFinishStep();
-      case 'automation': return this.renderAutomationStep();
-      case 'sides': return this.renderSidesStep();
-      case 'accessories': return this.renderAccessoriesStep();
-      case 'summary': return this.renderSummaryStep();
-      default: return '';
-    }
-  }
-
-
-  renderStepById(id) {
-    switch (id) {
-      case 'structure': return this.renderStructureStep();
-      case 'finish': return this.renderFinishStep();
-      case 'automation': return this.renderAutomationStep();
-      case 'sides': return this.renderSidesStep();
-      case 'accessories': return this.renderAccessoriesStep();
-      case 'summary': return this.renderSummaryStep();
-      default: return '';
-    }
-  }
-
-  renderAccordionSections() {
-    return STEPS.map((step) => {
-      const expanded = this.expandedStep === step.id;
-      return `
-        <section class="accordion-section ${expanded ? 'is-open' : ''}">
-          <button type="button" class="accordion-toggle" data-action="toggle-step-section" data-step-id="${step.id}" aria-expanded="${expanded}">
-            <span>${escapeHtml(step.label)}</span>
-            <svg class="accordion-toggle__arrow" viewBox="0 0 24 24" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-          ${expanded ? `<div class="accordion-panel">${this.renderStepById(step.id)}</div>` : ''}
-        </section>
-      `;
-    }).join('');
-  }
-
-  renderStructureStep() {
-    const state = this.state;
-    const isWallMounted = state.installation === 'wall-mounted';
-    const currentPreset = DIMENSION_PRESETS.find(
-      ([width, depth]) => width === state.dimensions.width && depth === state.dimensions.depth,
-    );
-    return `
-      <section class="form-section">
-        <div class="section-heading">
-          <h2>Model</h2>
-          <p>Choose the structural specification for the demo pergola.</p>
-        </div>
-        <div class="option-grid option-grid--models">
-          ${MODEL_OPTIONS.map((option) => optionCard(option, state.model === option.value, 'model')).join('')}
-        </div>
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading"><h2>Installation type</h2></div>
-        ${segmented([
-          { value: 'freestanding', label: 'Freestanding' },
-          { value: 'wall-mounted', label: 'Wall-mounted' },
-        ], state.installation, 'installation')}
-        ${isWallMounted ? `
-          <div class="subsection">
-            <label class="field-label">Mounted side</label>
-            ${segmented(SIDE_NAMES.map((side) => ({ value: side, label: capitalize(side) })), state.mountedSide, 'mountedSide')}
-          </div>
-        ` : ''}
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading section-heading--row">
-          <div>
-            <h2>Dimensions</h2>
-            <p>Dimension changes are reflected immediately in 3D.</p>
-          </div>
-          ${segmented([
-            { value: 'metric', label: 'mm' },
-            { value: 'imperial', label: 'ft / in' },
-          ], state.units, 'units')}
-        </div>
-
-        <div class="preset-grid">
-          ${DIMENSION_PRESETS.map(([width, depth]) => `
-            <button
-              class="preset-button ${currentPreset?.[0] === width && currentPreset?.[1] === depth ? 'is-selected' : ''}"
-              type="button"
-              data-action="dimension-preset"
-              data-width="${width}"
-              data-depth="${depth}"
-            >${this.formatCompactDimension(width)} × ${this.formatCompactDimension(depth)}</button>
-          `).join('')}
-          <span class="preset-button preset-button--custom ${currentPreset ? '' : 'is-selected'}">Custom</span>
-        </div>
-
-        <div class="dimension-fields">
-          ${this.numberField('Width', 'dimensions.width', state.dimensions.width, 2500, 8000, 100)}
-          ${this.numberField('Depth', 'dimensions.depth', state.dimensions.depth, 2000, 6000, 100)}
-          ${this.numberField('Height', 'dimensions.height', state.dimensions.height, 2200, 3200, 50)}
-        </div>
-      </section>
-    `;
-  }
-
-  renderFinishStep() {
-    const state = this.state;
-    return `
-      <section class="form-section">
-        <div class="section-heading"><h2>Frame color</h2><p>Powder-coated aluminium finish.</p></div>
-        ${colorSwatches(FRAME_COLORS, state.roof.frameColor, 'roof.frameColor')}
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading"><h2>Louver color</h2></div>
-        ${colorSwatches(LOUVER_COLORS, state.roof.louverColor, 'roof.louverColor')}
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading"><h2>Louver direction</h2><p>Controls the span direction of the roof blades.</p></div>
-        <div class="visual-choice-grid">
-          ${optionCard({ value: 'width', label: 'Across width', description: 'Louvers run left to right.', icon: './assets/profiles/louver-profile.svg' }, state.roof.orientation === 'width', 'roof.orientation')}
-          ${optionCard({ value: 'depth', label: 'Across depth', description: 'Louvers run front to back.', icon: './assets/profiles/louver-profile.svg' }, state.roof.orientation === 'depth', 'roof.orientation')}
-        </div>
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading"><h2>Drainage</h2></div>
-        ${segmented([
-          { value: 'standard', label: 'Standard' },
-          { value: 'integrated', label: 'Integrated' },
-        ], state.roof.drainage, 'roof.drainage')}
-      </section>
-    `;
-  }
-
-  renderAutomationStep() {
-    const automation = this.state.automation;
-    const manual = this.state.automationSettings.manual;
-    const switches = this.state.automationSettings.wallSwitches;
-    const switchCount = Object.values(switches).filter((value) => value !== null).length;
-
-    return `
-      <section class="form-section">
-        <div class="section-heading section-heading--center"><h2>Automation</h2></div>
-        <div class="option-grid option-grid--stacked">
-          ${AUTOMATION_OPTIONS.map((option) => optionCard(
-            option,
-            automation === option.value,
-            'automation',
-            'option-card--large-icon',
-          )).join('')}
-        </div>
-      </section>
-
-      ${automation === 'manual' ? `
-        <section class="form-section automation-mount-panel">
-          <div class="section-heading">
-            <h2>Hand-crank position</h2>
-            <p>The crank uses a dedicated GLB model and is automatically placed on a free pole face.</p>
-          </div>
-          <div class="pole-grid">
-            ${SUPPORT_POLES.map(({ value, label }) => {
-              const available = poleIsAvailable(this.state, value)
-                && Boolean(resolvePoleMountFace(this.state, 'manual', value, manual.height));
-              return `
-                <button
-                  type="button"
-                  class="pole-button ${manual.pole === value ? 'is-selected' : ''}"
-                  data-option-path="automationSettings.manual.pole"
-                  data-option-value="${value}"
-                  aria-pressed="${manual.pole === value}"
-                  ${available ? '' : 'disabled aria-disabled="true"'}
-                ><span>${label}</span><small>${available ? 'Collision-free face' : 'No free mounting face'}</small></button>
-              `;
-            }).join('')}
-          </div>
-          <div class="mount-height-control">
-            <div><strong>Mounting height</strong><output data-manual-height-output>${manual.height}%</output></div>
-            <input class="range-input" type="range" min="10" max="80" step="1" value="${manual.height}"
-              data-path="automationSettings.manual.height" data-value-type="number" data-continuous="true" />
-            <div class="range-labels"><span>10%</span><span>80%</span></div>
-          </div>
-        </section>
-      ` : ''}
-
-      ${automation === 'wall-switch' ? `
-        <section class="form-section automation-mount-panel">
-          <div class="section-heading">
-            <h2>Pergola switches</h2>
-            <p>Select up to one switch per existing support pole. Each selected switch has a continuous 10–80% height control.</p>
-          </div>
-          <div class="accessory-summary-line">
-            <span class="accessory-model-mark"><img src="./assets/icons/automation-switch.svg" alt="" /></span>
-            <span><strong>${switchCount} selected</strong><small>Maximum four</small></span>
-          </div>
-          <div class="switch-pole-list">
-            ${SUPPORT_POLES.map(({ value, label }) => {
-              const selected = switches[value] !== null;
-              const available = poleIsAvailable(this.state, value);
-              const face = selected ? resolvePoleMountFace(this.state, 'switch', value, switches[value]) : null;
-              return `
-                <article class="switch-pole-row ${selected ? 'is-selected' : ''}">
-                  <div>
-                    <strong>${label}</strong>
-                    <small>${available ? (face ? `${capitalize(face)} face` : 'Enable to place') : 'No support pole'}</small>
-                  </div>
-                  <button type="button" class="compact-toggle ${selected ? 'is-selected' : ''}"
-                    data-action="toggle-wall-switch" data-pole="${value}" aria-pressed="${selected}"
-                    ${available ? '' : 'disabled aria-disabled="true"'}>${selected ? 'On' : 'Off'}</button>
-                  ${selected ? `
-                    <label class="inline-range">
-                      <span><output data-switch-height-output="${value}">${switches[value]}%</output></span>
-                      <input class="range-input" type="range" min="10" max="80" step="1" value="${switches[value]}"
-                        data-path="automationSettings.wallSwitches.${value}" data-value-type="number" data-continuous="true" />
-                    </label>
-                  ` : ''}
-                </article>
-              `;
-            }).join('')}
-          </div>
-        </section>
-      ` : ''}
-
-      <section class="form-section">
-        <div class="section-heading section-heading--center">
-          <h2>Services</h2>
-          <p>Multiple values can be selected.</p>
-        </div>
-        <div class="option-grid option-grid--stacked">
-          ${SERVICE_OPTIONS.map((option) => {
-            const selected = this.state.services[option.value];
-            return `
-              <button
-                class="option-card option-card--large-icon ${selected ? 'is-selected' : ''}"
-                type="button"
-                data-action="toggle-service"
-                data-service="${option.value}"
-                aria-pressed="${selected}"
-              >
-                <span class="option-card__icon"><img src="${option.icon}" alt="" /></span>
-                <span class="option-card__copy"><strong>${escapeHtml(option.label)}</strong></span>
-                <span class="option-card__check" aria-hidden="true">✓</span>
-              </button>
-            `;
-          }).join('')}
-        </div>
-      </section>
-    `;
-  }
-
-
-  renderSidesStep() {
-    const config = this.state.sides[this.activeSide];
-    const disabledByWall = this.state.installation === 'wall-mounted' && this.state.mountedSide === this.activeSide;
-    const isScreen = ['screen', 'motorized-screen'].includes(config.type);
-    const settings = isScreen ? config.screenSettings[config.type] : null;
-
-    return `
-      <section class="form-section">
-        <div class="section-heading">
-          <h2>Choose a side</h2>
-          <p>Each side can use a different closing system.</p>
-        </div>
-        <div class="side-tabs">
-          ${SIDE_NAMES.map((side) => `
-            <button
-              type="button"
-              class="side-tab ${side === this.activeSide ? 'is-selected' : ''}"
-              data-action="select-side"
-              data-side="${side}"
-            >
-              <span>${capitalize(side)}</span>
-              <small>${sideLabel(this.state.sides[side].type)}</small>
-            </button>
-          `).join('')}
-        </div>
-      </section>
-
-      ${disabledByWall ? `
-        <div class="info-banner">
-          <strong>${capitalize(this.activeSide)} is attached to the building.</strong>
-          <span>Side closings are not available on the mounted edge.</span>
-        </div>
-      ` : `
-        <section class="form-section">
-          <div class="section-heading"><h2>${capitalize(this.activeSide)} side</h2></div>
-          <div class="side-option-grid">
-            ${SIDE_OPTIONS.map((option) => optionCard(
-              option,
-              config.type === option.value,
-              `sides.${this.activeSide}.type`,
-            )).join('')}
-          </div>
-        </section>
-
-        ${isScreen ? `
-          <section class="form-section">
-            <div class="section-heading section-heading--row">
-              <div>
-                <h2>Screen position</h2>
-                <p>${config.type === 'motorized-screen' ? 'Motorized' : 'Pull-down'} screen settings are remembered separately.</p>
-              </div>
-              <strong data-screen-openness-label>${Math.round(settings.openness)}% open</strong>
-            </div>
-            <input
-              class="range-input"
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value="${settings.openness}"
-              data-path="sides.${this.activeSide}.screenSettings.${config.type}.openness"
-              data-value-type="number"
-              data-continuous="true"
-            />
-            <div class="range-labels"><span>Closed</span><span>Open</span></div>
-          </section>
-
-          <section class="form-section">
-            <div class="section-heading">
-              <h2>Screen color</h2>
-              <p>The selected color is stored independently for this screen type and side.</p>
-            </div>
-            ${colorSwatches(
-              SCREEN_COLORS,
-              settings.color,
-              `sides.${this.activeSide}.screenSettings.${config.type}.color`,
-            )}
-          </section>
-        ` : ''}
-
-        ${config.type === 'privacy-wall' ? `
-          <section class="form-section">
-            <div class="section-heading">
-              <h2>Privacy-wall color</h2>
-              <p>The finish is remembered separately for every side.</p>
-            </div>
-            ${colorSwatches(PRIVACY_WALL_COLORS, config.privacyColor, `sides.${this.activeSide}.privacyColor`)}
-          </section>
-        ` : ''}
-      `}
-    `;
-  }
-
-
-  renderAccessoriesStep() {
-    const accessories = this.state.accessories;
-    const heaterCount = Object.values(accessories.heaters).filter(Boolean).length;
-    const speakerCount = Object.values(accessories.speakers).filter(Boolean).length;
-    const outletCount = Object.values(accessories.outlets).reduce(
-      (total, faces) => total + Object.values(faces).filter((value) => value !== null).length,
-      0,
-    );
-
-    return `
-      <section class="form-section">
-        <div class="section-heading">
-          <h2>Lighting</h2>
-          <p>Lights are attached to fixed metal rails, independently of the moving louvers.</p>
-        </div>
-        ${this.accessoryToggleCard(
-          'perimeterLed',
-          'Perimeter LED strip',
-          'Integrated lighting around all four beams.',
-          accessories.perimeterLed.enabled,
-          'toggle-led',
-        )}
-        ${accessories.perimeterLed.enabled ? `
-          <div class="accessory-detail-panel">
-            <div class="detail-heading"><strong>LED color</strong><small>Applied to all four strips</small></div>
-            ${colorSwatches(LED_COLORS, accessories.perimeterLed.color, 'accessories.perimeterLed.color')}
-          </div>
-        ` : ''}
-
-        <article class="accessory-card accessory-card--config ${accessories.spotlights > 0 ? 'is-selected' : ''}">
-          ${this.accessoryModelMark('spotlights')}
-          <div><strong>Integrated spotlights</strong><small>Downlights mounted below dedicated support rails.</small></div>
-          <div class="counter-control">
-            <button type="button" data-action="counter" data-key="spotlights" data-delta="-2" aria-label="Decrease spotlights">−</button>
-            <output>${accessories.spotlights}</output>
-            <button type="button" data-action="counter" data-key="spotlights" data-delta="2" aria-label="Increase spotlights">+</button>
-          </div>
-        </article>
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading">
-          <h2>Infrared heaters</h2>
-          <p>Select up to one inward-facing suspended heater per side. Metal rails keep heaters clear of side closings.</p>
-        </div>
-        <div class="accessory-summary-line">
-          ${this.accessoryModelMark('heaters')}
-          <span><strong>${heaterCount} selected</strong><small>Maximum four</small></span>
-        </div>
-        <div class="position-grid position-grid--four">
-          ${HEATER_SIDES.map(({ value, label }) => `
-            <button
-              type="button"
-              class="position-button ${accessories.heaters[value] ? 'is-selected' : ''}"
-              data-action="toggle-heater-side"
-              data-side="${value}"
-              aria-pressed="${accessories.heaters[value]}"
-            ><span>${label}</span><small>Suspended rail</small></button>
-          `).join('')}
-        </div>
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading">
-          <h2>Weather sensors</h2>
-          <p>Both sensors use fixed mounting plates and cannot occupy the same roof position.</p>
-        </div>
-        ${this.renderSensorControl('rain', 'Rain sensor')}
-        ${this.renderSensorControl('wind', 'Wind sensor')}
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading">
-          <h2>Outdoor speakers</h2>
-          <p>One speaker per support pole. The configurator chooses an unobstructed vertical mounting face.</p>
-        </div>
-        <div class="accessory-summary-line">
-          ${this.accessoryModelMark('speakers')}
-          <span><strong>${speakerCount} selected</strong><small>Wall and outlet collisions are prevented</small></span>
-        </div>
-        <div class="pole-grid">
-          ${SUPPORT_POLES.map(({ value, label }) => {
-            const available = poleIsAvailable(this.state, value)
-              && (!accessories.speakers[value] || Boolean(resolveSpeakerFace(this.state, value)));
-            return `
-              <button
-                type="button"
-                class="pole-button ${accessories.speakers[value] ? 'is-selected' : ''}"
-                data-action="toggle-speaker-pole"
-                data-pole="${value}"
-                aria-pressed="${accessories.speakers[value]}"
-                ${available ? '' : 'disabled aria-disabled="true"'}
-              ><span>${label}</span><small>${available ? 'Free mounting face' : 'No collision-free face'}</small></button>
-            `;
-          }).join('')}
-        </div>
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading">
-          <h2>Electrical outlets</h2>
-          <p>Exterior pole faces are always available. Interior faces are available only while the adjacent side is open.</p>
-        </div>
-        <div class="accessory-summary-line">
-          ${this.accessoryModelMark('outlets')}
-          <span><strong>${outletCount} selected</strong><small>Each outlet can use its own EU or US standard</small></span>
-        </div>
-        <div class="outlet-pole-tabs">
-          ${SUPPORT_POLES.map(({ value, label }) => {
-            const available = poleIsAvailable(this.state, value);
-            return `
-              <button
-                type="button"
-                class="outlet-pole-tab ${this.activeOutletPole === value ? 'is-selected' : ''}"
-                data-action="select-outlet-pole"
-                data-pole="${value}"
-                ${available ? '' : 'disabled aria-disabled="true"'}
-              >${label}</button>
-            `;
-          }).join('')}
-        </div>
-        ${this.renderOutletPole()}
-      </section>
-    `;
-  }
-
-
-  accessoryModelMark(key) {
-    const item = ACCESSORY_OPTIONS.find((option) => option.key === key);
-    return `
-      <span class="accessory-model-mark" title="${escapeHtml(item?.label ?? '')}">
-        <img src="${item?.icon ?? './assets/icons/accessory-outlet.svg'}" alt="" />
-      </span>
-    `;
-  }
-
-
-  accessoryToggleCard(key, label, description, selected, action) {
-    return `
-      <button
-        type="button"
-        class="accessory-card ${selected ? 'is-selected' : ''}"
-        data-action="${action}"
-        data-key="${key}"
-        aria-pressed="${selected}"
-      >
-        ${this.accessoryModelMark(key)}
-        <span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(description)}</small></span>
-        <span class="toggle-indicator" aria-hidden="true"></span>
-      </button>
-    `;
-  }
-
-  renderSensorControl(type, label) {
-    const sensors = this.state.accessories.sensors;
-    const sensor = sensors[type];
-    const otherType = type === 'rain' ? 'wind' : 'rain';
-    const other = sensors[otherType];
-    const markKey = type === 'rain' ? 'rainSensor' : 'windSensor';
-    return `
-      <div class="sensor-config ${sensor.enabled ? 'is-enabled' : ''}">
-        <button
-          type="button"
-          class="accessory-card ${sensor.enabled ? 'is-selected' : ''}"
-          data-action="toggle-sensor"
-          data-sensor="${type}"
-          aria-pressed="${sensor.enabled}"
-        >
-          ${this.accessoryModelMark(markKey)}
-          <span><strong>${label}</strong><small>${type === 'rain' ? 'Detects precipitation and closes the louvers.' : 'Protects the roof during high winds.'}</small></span>
-          <span class="toggle-indicator" aria-hidden="true"></span>
-        </button>
-        ${sensor.enabled ? `
-          <div class="sensor-position-grid">
-            ${SENSOR_POSITIONS.map((position) => {
-              const occupied = other.enabled && other.position === position.value;
-              return `
-                <button
-                  type="button"
-                  class="sensor-position ${sensor.position === position.value ? 'is-selected' : ''} ${occupied ? 'is-occupied' : ''}"
-                  data-option-path="accessories.sensors.${type}.position"
-                  data-option-value="${position.value}"
-                  aria-pressed="${sensor.position === position.value}"
-                  ${occupied ? 'disabled aria-disabled="true" title="Occupied by the other sensor"' : ''}
-                ><span>${position.label}</span>${occupied ? '<small>Occupied</small>' : ''}</button>
-              `;
-            }).join('')}
-          </div>
-        ` : ''}
-      </div>
-    `;
-  }
-
-
-  renderOutletPole() {
-    const pole = this.activeOutletPole;
-    const available = poleIsAvailable(this.state, pole);
-    if (!available) {
-      const firstAvailable = SUPPORT_POLES.find((item) => poleIsAvailable(this.state, item.value));
-      if (firstAvailable) {
-        this.activeOutletPole = firstAvailable.value;
-        return this.renderOutletPole();
-      }
-      return '<div class="info-banner"><strong>No support poles are available.</strong></div>';
-    }
-
-    const faces = this.state.accessories.outlets[pole];
-    return `
-      <div class="outlet-face-list">
-        ${POLE_FACES.map(({ value, label }) => {
-          const mount = faces[value];
-          const enabled = mount !== null;
-          const faceAvailable = poleFaceIsAvailable(this.state, pole, value);
-          const collisionFree = enabled || canPlaceOutlet(this.state, pole, value, { height: 50, type: 'eu' });
-          const selectable = faceAvailable && collisionFree;
-          return `
-            <article class="outlet-face-row ${enabled ? 'is-selected' : ''} ${selectable ? '' : 'is-disabled'}">
-              <div>
-                <strong>${label}</strong>
-                <small>${!faceAvailable
-                  ? 'Blocked by an adjacent side closing'
-                  : !collisionFree
-                    ? 'No collision-free default position'
-                    : enabled
-                      ? `${mount.height}% of pole height · ${mount.type === 'us' ? 'US' : 'EU'} outlet`
-                      : 'Available mounting face'}</small>
-              </div>
-              <button type="button" class="compact-toggle ${enabled ? 'is-selected' : ''}"
-                data-action="toggle-outlet-face" data-pole="${pole}" data-face="${value}"
-                aria-pressed="${enabled}" ${selectable ? '' : 'disabled aria-disabled="true"'}>${enabled ? 'On' : 'Off'}</button>
-              ${enabled ? `
-                <div class="inline-field-stack">
-                  <div class="outlet-type-row">${segmented(OUTLET_TYPES, mount.type, `accessories.outlets.${pole}.${value}.type`)}</div>
-                  <label class="inline-range inline-range--full">
-                    <span><output data-outlet-height-output="${pole}.${value}">${mount.height}%</output></span>
-                    <input class="range-input" type="range" min="10" max="80" step="1" value="${mount.height}"
-                      data-path="accessories.outlets.${pole}.${value}.height" data-value-type="number" data-continuous="true" />
-                  </label>
-                </div>
-              ` : ''}
-            </article>
-          `;
-        }).join('')}
-      </div>
-    `;
-  }
-
-
-  renderSummaryStep() {
-    const price = calculatePrice(this.state);
-    return `
-      <section class="summary-hero">
-        <span>Your configuration</span>
-        <strong>${formatMoney(price.total)}</strong>
-        <small>Estimated total including demonstration tax.</small>
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading"><h2>Configuration overview</h2></div>
-        <dl class="configuration-overview">
-          <div><dt>Model</dt><dd>${capitalize(this.state.model)}</dd></div>
-          <div><dt>Installation</dt><dd>${capitalize(this.state.installation)}</dd></div>
-          <div><dt>Size</dt><dd>${this.formatDimensionLine()}</dd></div>
-          <div><dt>Roof</dt><dd>${capitalize(this.state.roof.orientation)} orientation, ${this.state.roof.louverTilt}° tilt</dd></div>
-          <div><dt>Automation</dt><dd>${automationLabel(this.state.automation)}</dd></div>
-        </dl>
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading"><h2>Estimated price</h2></div>
-        <div class="price-breakdown">
-          ${price.lines.filter((line) => line.value > 0).map((line) => `
-            <div><span>${escapeHtml(line.label)}</span><strong>${formatMoney(line.value)}</strong></div>
-          `).join('')}
-          <div class="price-breakdown__subtotal"><span>Subtotal</span><strong>${formatMoney(price.subtotal)}</strong></div>
-          <div><span>Estimated tax</span><strong>${formatMoney(price.tax)}</strong></div>
-          <div class="price-breakdown__total"><span>Total</span><strong>${formatMoney(price.total)}</strong></div>
-        </div>
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading"><h2>Request a quote</h2><p>This demo stores the inquiry locally; connect it to your API later.</p></div>
-        <form class="quote-form" data-quote-form>
-          ${this.textField('Full name', 'customer.name', this.state.customer.name, 'text', true)}
-          ${this.textField('Email', 'customer.email', this.state.customer.email, 'email', true)}
-          ${this.textField('Phone', 'customer.phone', this.state.customer.phone, 'tel', false)}
-          ${this.textField('ZIP / postcode', 'customer.postcode', this.state.customer.postcode, 'text', false)}
-          <label class="form-field form-field--full">
-            <span>Project notes</span>
-            <textarea data-path="customer.notes" data-continuous="true" rows="4" placeholder="Site details, preferred installation date…">${escapeHtml(this.state.customer.notes)}</textarea>
-          </label>
-          <button class="primary-button form-field--full" type="submit">Send inquiry</button>
-        </form>
-      </section>
-
-      <section class="summary-actions">
-        <button type="button" class="secondary-button" data-action="download-json">Download configuration</button>
-        <button type="button" class="secondary-button" data-action="print">Print quote</button>
-      </section>
-    `;
-  }
-
-  renderFooter() {
-    const price = calculatePrice(this.state);
-    return `
-      <div class="footer-price">
-        <small>Estimated total</small>
-        <strong>${formatMoney(price.total)}</strong>
-      </div>
-      <div class="footer-actions">
-        <button class="secondary-button" type="button" data-action="snapshot">Snapshot</button>
-        <button class="primary-button" type="button" data-action="toggle-step-section" data-step-id="summary">Summary & quote</button>
-      </div>
-    `;
-  }
-
-  renderEnvironmentPanel() {
-    const environment = this.state.environment;
-    return `
-      <div class="environment-panel__header">
-        <strong>Light & orientation</strong>
-        <button type="button" data-action="toggle-environment" aria-label="Close">×</button>
-      </div>
-
-      <label class="environment-control">
-        <span><strong>Sun position</strong><output data-sun-output>${Math.round(environment.sunPosition * 100)}%</output></span>
-        <input class="range-input" type="range" min="0" max="1" step="0.01" value="${environment.sunPosition}" data-path="environment.sunPosition" data-value-type="number" data-continuous="true" />
-        <small><span>Morning</span><span>Evening</span></small>
-      </label>
-
-      <label class="environment-control">
-        <span><strong>Louvers tilt</strong><output data-tilt-output>${this.state.roof.louverTilt}°</output></span>
-        <input class="range-input" type="range" min="0" max="85" step="1" value="${this.state.roof.louverTilt}" data-path="roof.louverTilt" data-value-type="number" data-continuous="true" />
-        <small><span>Closed</span><span>Open</span></small>
-      </label>
-
-      <label class="environment-control">
-        <span><strong>North direction</strong><output data-north-output>${environment.northDirection}°</output></span>
-        <input class="range-input" type="range" min="0" max="360" step="1" value="${environment.northDirection}" data-path="environment.northDirection" data-value-type="number" data-continuous="true" />
-        <small><span>0°</span><span>360°</span></small>
-      </label>
-
-      <div class="environment-control">
-        <span><strong>Scene</strong></span>
-        ${segmented([
-          { value: 'winter', label: 'Winter' },
-          { value: 'summer', label: 'Summer' },
-          { value: 'studio', label: 'Studio' },
-        ], environment.season, 'environment.season')}
-      </div>
-
-      <button type="button" class="night-toggle ${environment.night ? 'is-selected' : ''}" data-action="toggle-night" aria-pressed="${environment.night}">
-        <span>☾</span>
-        <span><strong>Night preview</strong><small>Preview the configured lighting.</small></span>
-        <span class="toggle-indicator"></span>
-      </button>
-    `;
-  }
-
-  numberField(label, path, value, min, max, step) {
-    return `
-      <label class="form-field">
-        <span>${escapeHtml(label)}</span>
-        <div class="number-input">
-          <input type="number" value="${value}" min="${min}" max="${max}" step="${step}" data-path="${path}" data-value-type="number" />
-          <small>mm</small>
-        </div>
-      </label>
-    `;
-  }
-
-  textField(label, path, value, type = 'text', required = false) {
-    return `
-      <label class="form-field">
-        <span>${escapeHtml(label)}${required ? ' *' : ''}</span>
-        <input type="${type}" value="${escapeHtml(value)}" data-path="${path}" data-continuous="true" ${required ? 'required' : ''} />
-      </label>
-    `;
-  }
-
-  formatCompactDimension(mm) {
-    if (this.state.units === 'imperial') {
-      const feet = mm / 304.8;
-      return `${feet.toFixed(1)} ft`;
-    }
-    return `${(mm / 1000).toFixed(mm % 1000 === 0 ? 0 : 1)} m`;
-  }
-
-  formatDimensionLine() {
-    return `${this.formatCompactDimension(this.state.dimensions.width)} × ${this.formatCompactDimension(this.state.dimensions.depth)} × ${this.formatCompactDimension(this.state.dimensions.height)}`;
+    this.syncAccountMenu();
+    this.syncLanguageMenu();
   }
 
   handleClick(event) {
@@ -1281,20 +295,34 @@ export class ConfiguratorUI {
     } else if (action === 'toggle-account-settings') {
       this.accountSettingsOpen = !this.accountSettingsOpen;
       this.syncAccountMenu();
-    } else if (action === 'account-view-ar') {
+    } else if (action === 'account-profile') {
       this.closeHeaderMenus();
-      this.showModal('AR integration', `
-        <p>This standalone pergola demo does not publish a GLB or USDZ yet.</p>
-        <p>The account-menu entry is ready to connect to the existing project AR pipeline later.</p>
-      `);
+      this.showModal('My profile', '<p>The profile page will be connected when authentication is implemented.</p>');
     } else if (action === 'account-saved') {
       this.closeHeaderMenus();
       this.showSavedConfigurations();
-    } else if (action === 'darkmode-preview') {
-      this.showToast('Dark mode is not connected yet.');
-    } else if (action === 'select-language') {
+    } else if (action === 'account-help') {
       this.closeHeaderMenus();
-      this.showToast('Romanian translation is not connected yet.');
+      this.showModal('Help', '<p>Help articles, tutorials and support contact options will be available here.</p>');
+    } else if (action === 'toggle-dark-mode') {
+      this.store.update('darkMode', !this.state.darkMode);
+    } else if (action === 'cookies-placeholder') {
+      this.showToast('Cookie preferences are not connected yet.');
+    } else if (action === 'account-signout') {
+      this.closeHeaderMenus();
+      this.showToast('Sign out will be connected with authentication.');
+    } else if (action === 'select-language') {
+      const locale = actionTarget.dataset.locale;
+      const profile = LANGUAGE_PROFILES[locale];
+      if (profile) {
+        this.store.patch({
+          locale,
+          units: profile.units,
+          currency: profile.currency,
+        }, { path: 'locale' });
+        this.showToast(`${profile.nativeName}: ${profile.units === 'imperial' ? 'Imperial' : 'Metric'} · ${profile.currency}`);
+      }
+      this.closeHeaderMenus();
     } else if (action === 'next-step') {
       this.store.nextStep(STEPS.length - 1);
     } else if (action === 'previous-step') {
@@ -1380,9 +408,10 @@ export class ConfiguratorUI {
     } else if (action === 'snapshot') {
       this.downloadSnapshot();
     } else if (action === 'view-ar') {
+      const platform = this.state.defaultArPlatform === 'ios' ? 'iOS' : 'Android';
       this.showModal('AR integration', `
+        <p>The preferred AR platform is currently <strong>${platform}</strong>.</p>
         <p>This standalone pergola demo does not publish a GLB or USDZ yet.</p>
-        <p>The button is intentionally present so the existing project AR pipeline can be connected in a later update.</p>
       `);
     } else if (action === 'download-json') {
       this.downloadJSON();
@@ -1451,6 +480,7 @@ export class ConfiguratorUI {
   updateFromInput(input, continuous) {
     let value = input.type === 'checkbox' ? input.checked : input.value;
     if (input.dataset.valueType === 'number') value = Number(value);
+    if (input.dataset.dimensionUnit === 'inches') value = Math.round(value * 25.4);
     const updated = this.store.update(input.dataset.path, value, { continuous });
     if (updated === false) {
       input.value = this.valueAtPath(input.dataset.path) ?? input.value;
@@ -1476,7 +506,7 @@ export class ConfiguratorUI {
     window.localStorage.setItem('pergola-configurator:last-inquiry', JSON.stringify(inquiry));
     this.showModal('Inquiry prepared', `
       <p><strong>${escapeHtml(inquiry.id)}</strong> has been stored locally as a demo inquiry.</p>
-      <p>Estimated total: <strong>${formatMoney(price.total)}</strong></p>
+      <p>Estimated total: <strong>${formatMoney(price.total, this.state.currency, this.state.locale)}</strong></p>
       <p>Connect the submit handler to the project backend, CRM or email workflow when the API is available.</p>
     `);
   }
@@ -1547,11 +577,40 @@ export class ConfiguratorUI {
     const settingsButton = this.root.querySelector('[data-action="toggle-account-settings"]');
     settings?.classList.toggle('is-open', this.accountSettingsOpen);
     settingsButton?.setAttribute('aria-expanded', String(this.accountSettingsOpen));
+    const unitsSelect = settings?.querySelector('[data-path="units"]');
+    const currencySelect = settings?.querySelector('[data-path="currency"]');
+    const qualitySelect = settings?.querySelector('[data-path="quality"]');
+    const arPlatformSelect = settings?.querySelector('[data-path="defaultArPlatform"]');
+    const darkModeButton = settings?.querySelector('[data-action="toggle-dark-mode"]');
+    const darkModeSwitch = darkModeButton?.querySelector('.settings-switch');
+    const darkModeLabel = darkModeButton?.querySelector('[data-dark-mode-label]');
+    if (unitsSelect) unitsSelect.value = this.state.units;
+    if (currencySelect) currencySelect.value = this.state.currency;
+    if (qualitySelect) qualitySelect.value = this.state.quality;
+    if (arPlatformSelect) arPlatformSelect.value = this.state.defaultArPlatform;
+    darkModeButton?.setAttribute('aria-pressed', String(Boolean(this.state.darkMode)));
+    darkModeSwitch?.classList.toggle('is-on', Boolean(this.state.darkMode));
+    if (darkModeLabel) darkModeLabel.textContent = this.state.darkMode ? 'On' : 'Off';
   }
 
   syncLanguageMenu() {
     this.languageMenu?.classList.toggle('is-open', this.languageMenuOpen);
-    this.root.querySelector('[data-action="language"]')?.setAttribute('aria-expanded', String(this.languageMenuOpen));
+    const profile = this.getCurrentLanguageProfile();
+    const button = this.root.querySelector('[data-action="language"]');
+    button?.setAttribute('aria-expanded', String(this.languageMenuOpen));
+    button?.setAttribute('aria-label', profile.nativeName);
+    button?.setAttribute('data-tooltip', profile.nativeName);
+    const buttonFlag = this.root.querySelector('[data-language-button-flag]');
+    const currentFlag = this.root.querySelector('[data-current-language-flag]');
+    const currentName = this.root.querySelector('[data-current-language-name]');
+    if (buttonFlag) buttonFlag.textContent = profile.flag;
+    if (currentFlag) currentFlag.textContent = profile.flag;
+    if (currentName) currentName.textContent = profile.nativeName;
+    this.root.querySelectorAll('[data-action="select-language"]').forEach((languageButton) => {
+      const selected = languageButton.dataset.locale === this.state.locale;
+      languageButton.classList.toggle('is-selected', selected);
+      languageButton.setAttribute('aria-current', selected ? 'true' : 'false');
+    });
   }
 
   handleDocumentClick(event) {
@@ -1655,3 +714,5 @@ export class ConfiguratorUI {
     document.removeEventListener('click', this.handleDocumentClickBound);
   }
 }
+
+Object.assign(ConfiguratorUI.prototype, pergolaRenderers);

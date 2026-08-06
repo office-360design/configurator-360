@@ -1125,7 +1125,7 @@ function buildCustomPlaceholder(group, state, materials) {
   addBase(group, state, materials);
 
   const outlineMaterial = new THREE.LineDashedMaterial({
-    color: 0xe04444,
+    color: 0x1494de,
     dashSize: 0.28,
     gapSize: 0.16,
     transparent: true,
@@ -1146,7 +1146,7 @@ function buildCustomPlaceholder(group, state, materials) {
   group.add(outline);
 
   const guideMaterial = new THREE.MeshBasicMaterial({
-    color: 0xe04444,
+    color: 0x1494de,
     transparent: true,
     opacity: 0.035,
     side: THREE.DoubleSide,

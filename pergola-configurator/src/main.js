@@ -1,4 +1,5 @@
-import './styles.css';
+import './styles/pergola.css';
+import '../../shared-ui/styles/index.css';
 import { ConfiguratorStore } from './state.js';
 import { PergolaScene } from './scene/PergolaScene.js';
 import { ConfiguratorUI } from './ui/ConfiguratorUI.js';

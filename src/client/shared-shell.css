@@ -1,0 +1,63 @@
+:root {
+  --shared-topbar-height: 47px;
+  --shared-settings-gap: 20px;
+  --shared-settings-width: 360px;
+}
+
+body.shared-ui-mounted #canvas-container {
+  top: var(--shared-topbar-height);
+  height: calc(100vh - var(--shared-topbar-height));
+}
+
+body.shared-ui-mounted #controls {
+  top: calc(var(--shared-topbar-height) + var(--shared-settings-gap));
+  right: var(--shared-settings-gap);
+  left: auto;
+  width: var(--shared-settings-width);
+  max-height: calc(100vh - var(--shared-topbar-height) - (var(--shared-settings-gap) * 2));
+  border-radius: 18px;
+}
+
+body.shared-ui-mounted #controls.sidebar-collapsed {
+  transform: translateX(calc(100% + var(--shared-settings-gap)));
+}
+
+body.shared-ui-mounted #sidebar-toggle {
+  top: calc(var(--shared-topbar-height) + 34px);
+  right: calc(var(--shared-settings-width) + var(--shared-settings-gap));
+  left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  transition: right 0.32s cubic-bezier(0.22, 1, 0.36, 1), background 0.15s ease, color 0.15s ease;
+}
+
+body.shared-ui-mounted #sidebar-toggle svg { transform: rotate(180deg); }
+body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle { right: 0; left: auto; }
+body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle svg { transform: rotate(0deg); }
+
+/* The shared top-bar AR action replaces this old floating publisher control. */
+body.shared-ui-mounted #ar-publish-controls { display: none !important; }
+
+body.capture-mode .shared-ui-host,
+.ar-mode .shared-ui-host { display: none !important; }
+body.capture-mode #canvas-container,
+.ar-mode #canvas-container { top: 0 !important; height: 100vh !important; }
+
+@media (max-width: 760px) {
+  :root {
+    --shared-settings-gap: 12px;
+    --shared-settings-width: min(320px, calc(100vw - 56px));
+  }
+  body.shared-ui-mounted #controls {
+    top: calc(var(--shared-topbar-height) + 12px);
+    right: 12px;
+    width: min(320px, calc(100vw - 56px));
+    max-height: calc(100vh - var(--shared-topbar-height) - 24px);
+  }
+  body.shared-ui-mounted #sidebar-toggle {
+    top: calc(var(--shared-topbar-height) + 26px);
+    right: min(332px, calc(100vw - 44px));
+  }
+  body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle { right: 0; }
+}

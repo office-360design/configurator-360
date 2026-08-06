@@ -9,7 +9,7 @@
     "test": "npm run check",
     "prepare:static": "node scripts/build/prepare_static_site.js",
     "generate:cad-screenshots": "node cad/tools/generate_screenshots_json.js",
-    "check": "node --check src/server/server.js && node --check scripts/build/prepare_static_site.js && node --check src/client/ar-export.js && node --check cad/tools/convert.js && node --check cad/tools/test_convert.js && node --check netlify/functions/ar-upload-ticket.mjs",
+    "check": "node --check src/server/server.js && node --check scripts/build/prepare_static_site.js && node --check src/client/ar-export.js && node --check cad/tools/convert.js && node --check cad/tools/test_convert.js && node --check netlify/functions/ar-upload-ticket.mjs && node --check shared-ui/src/standaloneShell.js && node --check shared-ui/src/components/topBar.js && node --check src/client/shared-shell.js && node --check roof-configurator/js/sharedShell.js",
     "check:cloudflare": "node --check infrastructure/cloudflare-worker/src/index.js",
     "deploy:netlify": "npm run prepare:static && npx --yes netlify-cli@latest deploy --prod --dir=dist/site --functions=netlify/functions"
   },
