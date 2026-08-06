@@ -2,6 +2,7 @@ export function createCadReferenceController({
     captureMode,
     isARMode,
     profileInput,
+    getProfileSetId = () => profileInput?.value || '',
     button,
     modal,
     status,
@@ -104,7 +105,7 @@ export function createCadReferenceController({
     async function refreshAvailability() {
         if (captureMode || isARMode || !button || !profileInput) return;
 
-        const profileName = profileInput.value;
+        const profileName = getProfileSetId();
         button.disabled = true;
         button.title = 'Checking CAD references…';
 
@@ -124,7 +125,7 @@ export function createCadReferenceController({
     async function openModal() {
         if (!modal || !profileInput || !status || !content) return;
 
-        const profileName = profileInput.value;
+        const profileName = getProfileSetId();
         modal.classList.add('open');
 
         if (subtitle) {

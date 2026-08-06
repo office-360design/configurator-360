@@ -1,5 +1,4 @@
 import {
-    allowedProfiles,
     WINDOW_WIDTH_MIN_M,
     WINDOW_WIDTH_MAX_M,
     WINDOW_HEIGHT_MIN_M,
@@ -13,16 +12,27 @@ import { createMaterialManager } from './materials.js';
 import { createARController } from './ar-controller.js';
 import { createCadReferenceController } from './cad-reference.js';
 import { createProfileController } from './profile-controller.js';
+import { createAccessoryController } from './accessory-controller.js';
+import { createProfileSelectionController } from './profile-selection-controller.js';
+import { resolveLegacyProfileSelection } from './profile-compatibility.js';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
 const isARMode = pageParams.get('ar') === '1';
 const captureMode = pageParams.get('capture') === '1';
 
-const requestedProfileValue = pageParams.get('profile') || '2_4_Oeffnungselemnt_Vertikal';
-const requestedProfile = allowedProfiles.has(requestedProfileValue)
-    ? requestedProfileValue
-    : '2_4_Oeffnungselemnt_Vertikal';
+const requestedCadAssemblyId = pageParams.get('cad_assembly')
+    || pageParams.get('cadAssembly');
+const requestedProfileSelection = {
+    ...resolveLegacyProfileSelection({
+        profileSetId: pageParams.get('profile'),
+        outerFrameProfileId: pageParams.get('outer_frame')
+            || pageParams.get('outer_frame_profile'),
+        sashProfileId: pageParams.get('sash_profile'),
+    }),
+    cadAssemblyId: requestedCadAssemblyId,
+};
+const requestedProfile = requestedProfileSelection.profileSetId;
 const requestedActiveParts = pageParams.has('parts')
     ? new Set(pageParams.get('parts').split(',').filter(Boolean))
     : null;
@@ -51,7 +61,9 @@ if (isARMode) {
     const maxAngle = mode === 'batant' ? 80 : 15;
     const angle = parseBoundedNumber(pageParams.get('angle'), 0, 0, maxAngle);
 
-    document.getElementById('cadProfile').value = requestedProfile;
+    document.getElementById('cadProfile').value = requestedCadAssemblyId || requestedProfile;
+    document.getElementById('outerFrameProfile').value = requestedProfileSelection.outerFrameProfileId;
+    document.getElementById('sashProfile').value = requestedProfileSelection.sashProfileId;
     document.getElementById('widthA').value = String(width);
     document.getElementById('heightB').value = String(height);
     document.getElementById('mBatant').checked = mode === 'batant';
@@ -87,6 +99,8 @@ if (captureMode) {
 const widthInput = document.getElementById('widthA');
 const heightInput = document.getElementById('heightB');
 const profileInput = document.getElementById('cadProfile');
+const outerFrameInput = document.getElementById('outerFrameProfile');
+const sashInput = document.getElementById('sashProfile');
 const glassThicknessInput = document.getElementById('glassThickness');
 const glassThicknessLabel = document.getElementById('valGlassThickness');
 const cadReferenceButton = document.getElementById('cad-reference-button');
@@ -102,8 +116,14 @@ if (Number.isFinite(requestedHeight)) {
         Math.min(WINDOW_HEIGHT_MAX_M, Math.max(WINDOW_HEIGHT_MIN_M, requestedHeight))
     );
 }
-if (requestedProfile && [...profileInput.options].some(option => option.value === requestedProfile)) {
-    profileInput.value = requestedProfile;
+if (requestedProfile) {
+    profileInput.value = requestedCadAssemblyId || requestedProfile;
+}
+if (requestedProfileSelection.outerFrameProfileId) {
+    outerFrameInput.value = requestedProfileSelection.outerFrameProfileId;
+}
+if (requestedProfileSelection.sashProfileId) {
+    sashInput.value = requestedProfileSelection.sashProfileId;
 }
 const requestedHandleSide = pageParams.get('handle_side') || pageParams.get('handleSide');
 if (requestedHandleSide === 'left' || requestedHandleSide === 'right') {
@@ -172,6 +192,7 @@ const initialExplodedState =
     || document.getElementById('cExplode').checked;
 let windowBuilder = null;
 let profileController = null;
+let profileSelectionController = null;
 let arController = null;
 
 const componentSelection = createComponentSelection({
@@ -204,10 +225,39 @@ const {
     isDrainageCoverCap,
 } = materialManager;
 
+const accessoryController = createAccessoryController({
+    pageParams,
+    isARMode,
+    requestedActiveParts,
+    getCurrentProfileSetId: () => profileSelectionController?.getCurrentProfileSetId()
+        || profileInput.value,
+    getOuterFrameProfileId: () => profileSelectionController?.getOuterFrameProfileId()
+        || outerFrameInput.value,
+    getSashProfileId: () => profileSelectionController?.getSashProfileId()
+        || sashInput.value,
+    getProfilesData: () => profileController?.getProfilesData() ?? [],
+    getResolvedAccessoryProfileId: groupId => (
+        groupId === 'inner-glazing-gasket'
+            ? profileController?.getActiveGasketCode()
+            : null
+    ),
+    isProfileGroupVisible: profile =>
+        profileController?.isProfileGroupVisible(profile) ?? true,
+    buildWindow: () => windowBuilder?.buildWindow(),
+    onStateChange: ({ source } = {}) => {
+        profileController?.updateColorFilterToggles();
+        if (source !== 'cad-assembly' && source !== 'configuration') {
+            profileSelectionController?.markCustomCadAssembly();
+        }
+    },
+});
+
 const cadReferenceController = createCadReferenceController({
     captureMode,
     isARMode,
     profileInput,
+    getProfileSetId: () => profileSelectionController?.getCurrentProfileSetId()
+        || requestedProfile,
     button: cadReferenceButton,
     modal: cadReferenceModal,
     status: document.getElementById('cad-reference-status'),
@@ -233,13 +283,34 @@ profileController = createProfileController({
     getWindowBuilder: () => windowBuilder,
     getARController: () => arController,
     refreshCadReferenceAvailability: cadReferenceController.refreshAvailability,
+    initializeAccessoryProfiles: accessoryController.initializeProfiles,
+    isManagedAccessoryProfile: accessoryController.isManagedAccessoryProfile,
+    isAccessoryProfileEnabled: accessoryController.isProfileEnabled,
+    setAccessoryProfileEnabled: accessoryController.setAccessoryProfileEnabled,
+    setAccessoryProfilesEnabled: accessoryController.setAccessoryProfilesEnabled,
+});
+
+profileSelectionController = createProfileSelectionController({
+    profileSetInput: profileInput,
+    outerFrameInput,
+    sashInput,
+    initialSelection: requestedProfileSelection,
+    loadProfiles: selection => profileController.loadProfileSelection(selection),
+    onCadAssemblyPresetSelected: ({ accessoryPresetId }) => {
+        accessoryController.setAccessoryPreset(accessoryPresetId, {
+            rebuild: false,
+            source: 'cad-assembly',
+        });
+    },
 });
 
 const {
     isGlazingBeadProfile,
     getProfileGroup,
+    isProfileGroupVisible,
     getProfileShape,
     getProfileCadXShiftMm,
+    getProfileCadYShiftMm,
     getActiveGlazingBeadCode,
     getActiveGasketCode,
     getProfileComponentNumber,
@@ -268,6 +339,7 @@ windowBuilder = createWindowBuilder({
     getProfileGroup,
     getProfileShape,
     getProfileCadXShiftMm,
+    getProfileCadYShiftMm,
     getActiveGlazingBeadCode,
     getActiveGasketCode,
     getProfileComponentNumber,
@@ -275,6 +347,8 @@ windowBuilder = createWindowBuilder({
     updateComponentPictures,
     getFinishState: materialManager.getFinishState,
     getSelectedHandleSide: () => selectedHandleSide,
+    isProfileEnabled: accessoryController.isProfileEnabled,
+    canPlaceProfileOnSide: accessoryController.canPlaceProfileOnSide,
 });
 
 const {
@@ -297,6 +371,8 @@ arController = createARController({
     getProfilesReady: profileController.getProfilesReady,
     getProfilesData: profileController.getProfilesData,
     getSelectedHandleSide: () => selectedHandleSide,
+    appendAccessoryUrlParams: accessoryController.appendUrlParams,
+    appendProfileSelectionUrlParams: profileSelectionController.appendUrlParams,
 });
 
 window.applyConfiguration = async function applyConfiguration(configuration) {
@@ -324,18 +400,33 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
 
     materialManager.applyConfiguration(configuration);
 
-    const requestedProfileName = configuration.profile && [...profileInput.options].some(option => option.value === configuration.profile)
-        ? configuration.profile
-        : profileInput.value;
-
-    const mustReloadProfile = profileInput.value !== requestedProfileName
-        || !profileController.hasCurrentMetadata();
-    profileInput.value = requestedProfileName;
+    const selectedProfiles = await profileSelectionController.applyConfiguration(
+        configuration,
+        { reload: false }
+    );
+    accessoryController.applyConfiguration(configuration, {
+        rebuild: false,
+        source: 'configuration',
+    });
+    const mustReloadProfile = !profileController.hasCurrentMetadata()
+        || profileController.getCurrentSelectionSignature()
+            !== selectedProfiles.selectionSignature;
 
     if (mustReloadProfile) {
-        await profileController.loadProfiles(requestedProfileName);
+        await profileController.loadProfileSelection(selectedProfiles);
     } else {
         await profileController.refreshProfileMaterials();
+    }
+
+    const selectedProfileSet = profileSelectionController.getConfigurationSnapshot();
+    const expectedAccessoryPresetId = String(selectedProfileSet.profileVariantCode || '')
+        .trim()
+        .toLowerCase();
+    if (
+        selectedProfileSet.cadAssemblyId !== 'custom'
+        && !accessoryController.matchesPreset(expectedAccessoryPresetId)
+    ) {
+        profileSelectionController.markCustomCadAssembly();
     }
 
     const applied = {
@@ -343,7 +434,8 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
         widthM: Number(widthInput.value),
         heightM: Number(heightInput.value),
         ...materialManager.getConfigurationSnapshot(),
-        profile: profileInput.value,
+        ...accessoryController.getConfigurationSnapshot(),
+        ...profileSelectionController.getConfigurationSnapshot(),
         glassThicknessMm: Number(glassThicknessInput.value),
         glazingBeadCode: getActiveGlazingBeadCode(),
         glazingGasket224378ShiftMm: getGlazingBeadArmShiftMm('top'),
@@ -381,7 +473,6 @@ initializeUIControls({
     renderer,
     componentSelection,
     buildWindow,
-    loadProfiles: profileController.loadProfiles,
     syncModeButtons,
     setExploded: (value) => {
         windowBuilder.setExploded(value);
@@ -404,10 +495,30 @@ initializeUIControls({
     startAR: arController.startAR,
 });
 
+profileSelectionController.initializeControls();
 materialManager.initializeControls();
+accessoryController.initializeControls({
+    presetInput: document.getElementById('accessoryPreset'),
+    presetDescription: document.getElementById('accessoryPresetDescription'),
+    container: document.getElementById('accessoryOptions'),
+});
+glassThicknessInput?.addEventListener('input', () => {
+    accessoryController.syncControls('inner-glazing-gasket');
+});
 
 // Load the selected profile. In QR AR mode the selection comes from URL parameters.
-profileController.loadProfiles(
-    isARMode ? requestedProfile : '2_4_Oeffnungselemnt_Vertikal'
-);
+profileController.loadProfileSelection(
+    profileSelectionController.getConfigurationSnapshot()
+).then(() => {
+    const selection = profileSelectionController.getConfigurationSnapshot();
+    const expectedAccessoryPresetId = String(selection.profileVariantCode || '')
+        .trim()
+        .toLowerCase();
+    if (
+        selection.cadAssemblyId !== 'custom'
+        && !accessoryController.matchesPreset(expectedAccessoryPresetId)
+    ) {
+        profileSelectionController.markCustomCadAssembly();
+    }
+});
 renderer.setAnimationLoop(renderFrame);

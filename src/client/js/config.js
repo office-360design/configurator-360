@@ -1,8 +1,10 @@
-export const allowedProfiles = new Set([
-    '2_6_Oeffnungselemnt_Vertikal',
-    '2_5_Oeffnungselemnt_Vertikal',
-    '2_4_Oeffnungselemnt_Vertikal',
-]);
+import { getLegacyProfileSetIds } from './profile-catalog.js';
+import {
+    resolveGlazingBeadProfileId,
+    resolveMovableGasketProfileId,
+} from './profile-compatibility.js';
+
+export const allowedProfiles = new Set(getLegacyProfileSetIds());
 
 export const WINDOW_WIDTH_MIN_M = 0.45;
 export const WINDOW_WIDTH_MAX_M = 1.0;
@@ -157,16 +159,10 @@ export function createRalFinishSelectionFromColour(colour) {
     return createFinishSelection('coated', findNearestRalPreset(colour).id);
 }
 
-const GLAZING_BEAD_BY_THICKNESS = Object.freeze([
-    Object.freeze({ min: 16, max: 19, code: '573940' }),
-    Object.freeze({ min: 20, max: 24, code: '573930' }),
-    Object.freeze({ min: 25, max: 29, code: '573920' }),
-]);
-
 export function getGlazingBeadCode(thicknessMm) {
-    const thickness = Number(thicknessMm);
-    const match = GLAZING_BEAD_BY_THICKNESS.find(
-        item => thickness >= item.min && thickness <= item.max
-    );
-    return match?.code || (thickness < 20 ? '573940' : thickness < 25 ? '573930' : '573920');
+    return resolveGlazingBeadProfileId(thicknessMm);
+}
+
+export function getGasketCode(thicknessMm) {
+    return resolveMovableGasketProfileId(thicknessMm);
 }

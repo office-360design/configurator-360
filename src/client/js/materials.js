@@ -8,6 +8,7 @@ import {
     createFinishSelection,
     createRalFinishSelectionFromColour,
 } from './config.js';
+import { isDrainageCapProfile } from './profile-catalog.js';
 
 export function createMaterialManager({
     captureMode,
@@ -106,7 +107,8 @@ export function createMaterialManager({
     };
 
     function isDrainageCoverCap(profile) {
-        return normalizeHexColour(profile?.baseCadColor) === '#cc9966';
+        return isDrainageCapProfile(profile)
+            || normalizeHexColour(profile?.baseCadColor) === '#cc9966';
     }
 
     function usesAluminiumFinish(profile) {

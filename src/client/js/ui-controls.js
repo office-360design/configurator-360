@@ -35,7 +35,6 @@ export function initializeUIControls({
     renderer,
     componentSelection,
     buildWindow,
-    loadProfiles,
     syncModeButtons,
     setExploded,
     setSelectedHandleSide,
@@ -213,10 +212,6 @@ export function initializeUIControls({
     document.getElementById('side_left').addEventListener('change', buildWindow);
     document.getElementById('side_right').addEventListener('change', buildWindow);
     document.getElementById('cShowHouse').addEventListener('change', buildWindow);
-
-    document.getElementById('cadProfile').addEventListener('change', (event) => {
-        loadProfiles(event.target.value);
-    });
 
     cadReferenceButton.addEventListener('click', openCadReferenceModal);
     document.getElementById('cad-reference-close').addEventListener('click', closeCadReferenceModal);

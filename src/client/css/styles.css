@@ -87,9 +87,10 @@ body.sidebar-is-collapsed #sidebar-toggle svg {
     transform: rotate(180deg);
 }
 
+/* 
 #qr-ar-button {
     display: none !important;
-}
+} */
 
 body.capture-mode #sidebar-toggle,
 .ar-mode #sidebar-toggle {
@@ -1365,4 +1366,129 @@ body.capture-mode #component-selection-popup,
 #controls textarea {
     user-select: text;
     -webkit-user-select: text;
+}
+/* Catalog-driven frame and sash profile selection */
+.profile-selection-group {
+    padding-bottom: 14px;
+}
+
+.profile-selection-toolbar {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.profile-selection-toolbar > .square-toggle-btn {
+    flex: 0 0 auto;
+    margin-top: 20px;
+}
+
+.profile-selection-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+    min-width: 0;
+    flex: 1;
+}
+
+.profile-selection-fields label {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #64748b;
+}
+
+.profile-selection-fields select {
+    width: 100%;
+    margin: 0;
+}
+
+.profile-variant-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.profile-variant-row select {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-variant-row #cad-reference-button {
+    flex: 0 0 auto;
+}
+
+/* Accessory selection */
+.accessory-selection-group > select {
+    width: 100%;
+    margin-top: 6px;
+}
+
+.accessory-preset-description {
+    margin-top: 7px;
+    color: #94a3b8;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.accessory-options {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: 10px;
+}
+
+.accessory-option-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(30, 41, 59, 0.38);
+}
+
+.accessory-option-text {
+    min-width: 0;
+    flex: 1;
+}
+
+.accessory-option-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+}
+
+.accessory-option-label {
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.accessory-option-profile {
+    color: #38bdf8;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.accessory-option-description,
+.accessory-option-status,
+.accessory-availability-note {
+    color: #94a3b8;
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.accessory-option-status {
+    color: #fbbf24;
+    margin-top: 2px;
+}
+
+.accessory-option-unavailable {
+    opacity: 0.58;
+}
+
+.accessory-availability-note {
+    margin-top: 8px;
 }

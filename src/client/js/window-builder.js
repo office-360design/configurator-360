@@ -5,6 +5,7 @@ import {
     createRoundedRectShape,
 } from './geometry-utils.js';
 import { getHouseDimensions } from './house-config.js';
+import { isDrainageCapProfile } from './profile-catalog.js';
 import { createHouseBuilder } from './house-builder.js';
 
 const S = 0.001;
@@ -27,6 +28,7 @@ export function createWindowBuilder({
     getProfileGroup,
     getProfileShape,
     getProfileCadXShiftMm,
+    getProfileCadYShiftMm = () => 0,
     getActiveGlazingBeadCode,
     getActiveGasketCode,
     getProfileComponentNumber,
@@ -34,6 +36,8 @@ export function createWindowBuilder({
     updateComponentPictures,
     getFinishState,
     getSelectedHandleSide,
+    isProfileEnabled = () => true,
+    canPlaceProfileOnSide = () => true,
 }) {
     let currentMetadata = null;
     let profilesData = [];
@@ -78,7 +82,7 @@ export function createWindowBuilder({
 
             // Reconstruct CAD coordinates from SVG Space (X=x, Y=-y)
             let x_cad = v.x + getProfileCadXShiftMm(profile);
-            let y_cad = -v.y;
+            let y_cad = -v.y + getProfileCadYShiftMm(profile);
 
             // Center X coordinates around 0
             let x_norm = x_cad - currentMetadata.globalCenterX;
@@ -154,7 +158,7 @@ export function createWindowBuilder({
 
             // Reconstruct CAD coordinates from SVG Space (X=x, Y=-y)
             let x_cad = v.x + getProfileCadXShiftMm(profile);
-            let y_cad = -v.y;
+            let y_cad = -v.y + getProfileCadYShiftMm(profile);
 
             // Center X coordinates around 0
             let x_norm = x_cad - currentMetadata.globalCenterX;
@@ -224,7 +228,10 @@ export function createWindowBuilder({
         mesh.userData.componentSelection = {
             name: getProfileComponentNumber(profile),
             source: group,
+            componentId: profile.componentId,
+            componentType: profile.componentType,
             profileIndex: profile.index,
+            legacyIndex: profile.legacyIndex,
             side,
         };
         componentSelection.add(mesh);
@@ -750,7 +757,8 @@ export function createWindowBuilder({
         const depthY = -B / 2 - offset;
 
         const isDrainageCoverCap = profile =>
-            String(profile.baseCadColor || '').toLowerCase() === '#cc9966';
+            isDrainageCapProfile(profile)
+            || String(profile.baseCadColor || '').toLowerCase() === '#cc9966';
 
         function calculateSectionBounds(sectionProfiles) {
             let minX = Infinity;
@@ -922,7 +930,8 @@ export function createWindowBuilder({
 
         const activeProfiles = profilesData.filter(profile => {
             const toggle = document.getElementById(`toggle_${profile.index}`);
-            return toggle ? toggle.checked : true;
+            const componentEnabled = toggle ? toggle.checked : true;
+            return componentEnabled && isProfileEnabled(profile);
         });
 
         // Colour-filter controls only need synchronization after explicit
@@ -947,6 +956,8 @@ export function createWindowBuilder({
         const t_meshes_start = performance.now();
         activeProfiles.forEach(profile => {
             sides.forEach(side => {
+                if (!canPlaceProfileOnSide(profile, side)) return;
+
                 let useProfile = true;
                 if (currentMetadata.isVertical && currentMetadata.hasSplit) {
                     if (profile.section === 'bottom') {

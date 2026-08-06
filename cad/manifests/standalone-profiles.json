@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "description": "Standalone aluminum profiles currently present in cad/source. Source paths reflect the current archive layout only; semantic roles are defined explicitly here and do not depend on folder names.",
+  "profiles": [
+    {
+      "id": "575760",
+      "label": "Normal outer frame 575760",
+      "role": "outer-frame",
+      "source": "wall-sash_frames/L/575760_d1.dwg",
+      "canonicalOrientation": {
+        "side": "top",
+        "exteriorDirection": "unspecified",
+        "cavityDirection": "unspecified"
+      },
+      "allowedSides": ["top", "right", "bottom", "left"],
+      "allowedTransforms": {
+        "rotations": [0, 90, 180, 270],
+        "mirrorX": false,
+        "mirrorY": false
+      }
+    },
+    {
+      "id": "575770",
+      "label": "Normal outer frame 575770",
+      "role": "outer-frame",
+      "source": "wall-sash_frames/L/575770_d1.dwg",
+      "canonicalOrientation": {
+        "side": "top",
+        "exteriorDirection": "unspecified",
+        "cavityDirection": "unspecified"
+      },
+      "allowedSides": ["top", "right", "bottom", "left"],
+      "allowedTransforms": {
+        "rotations": [0, 90, 180, 270],
+        "mirrorX": false,
+        "mirrorY": false
+      }
+    },
+    {
+      "id": "575780",
+      "label": "Normal sash 575780",
+      "role": "opening-sash",
+      "source": "wall-sash_frames/Z/575780_d1.dwg",
+      "canonicalOrientation": {
+        "side": "top",
+        "exteriorDirection": "unspecified",
+        "cavityDirection": "unspecified"
+      },
+      "allowedSides": ["top", "right", "bottom", "left"],
+      "allowedTransforms": {
+        "rotations": [0, 90, 180, 270],
+        "mirrorX": false,
+        "mirrorY": false
+      }
+    },
+    {
+      "id": "575790",
+      "label": "Normal sash 575790",
+      "role": "opening-sash",
+      "source": "wall-sash_frames/Z/575790_d1.dwg",
+      "canonicalOrientation": {
+        "side": "top",
+        "exteriorDirection": "unspecified",
+        "cavityDirection": "unspecified"
+      },
+      "allowedSides": ["top", "right", "bottom", "left"],
+      "allowedTransforms": {
+        "rotations": [0, 90, 180, 270],
+        "mirrorX": false,
+        "mirrorY": false
+      }
+    },
+    {
+      "id": "575800",
+      "label": "Mullion/transom 575800",
+      "role": "mullion-transom",
+      "source": "sash-sash_frames(mullion)/575800_d1.dwg",
+      "canonicalOrientation": {
+        "side": "top",
+        "exteriorDirection": "unspecified",
+        "cavityDirection": "unspecified"
+      },
+      "allowedSides": ["top", "right", "bottom", "left"],
+      "allowedTransforms": {
+        "rotations": [0, 90, 180, 270],
+        "mirrorX": false,
+        "mirrorY": false
+      }
+    },
+    {
+      "id": "575810",
+      "label": "Mullion/transom 575810",
+      "role": "mullion-transom",
+      "source": "sash-sash_frames(mullion)/575810_d1.dwg",
+      "canonicalOrientation": {
+        "side": "top",
+        "exteriorDirection": "unspecified",
+        "cavityDirection": "unspecified"
+      },
+      "allowedSides": ["top", "right", "bottom", "left"],
+      "allowedTransforms": {
+        "rotations": [0, 90, 180, 270],
+        "mirrorX": false,
+        "mirrorY": false
+      }
+    },
+    {
+      "id": "575820",
+      "label": "Double-vent secondary sash profile 575820",
+      "role": "double-vent-sash",
+      "source": "double_vent_profile/575820_d1.dwg",
+      "canonicalOrientation": {
+        "side": "right",
+        "exteriorDirection": "unspecified",
+        "cavityDirection": "unspecified"
+      },
+      "allowedSides": ["left", "right"],
+      "allowedTransforms": {
+        "rotations": [90, 270],
+        "mirrorX": false,
+        "mirrorY": false
+      }
+    },
+    {
+      "id": "575830",
+      "label": "Double-vent secondary sash profile 575830",
+      "role": "double-vent-sash",
+      "source": "double_vent_profile/575830_d1.dwg",
+      "canonicalOrientation": {
+        "side": "right",
+        "exteriorDirection": "unspecified",
+        "cavityDirection": "unspecified"
+      },
+      "allowedSides": ["left", "right"],
+      "allowedTransforms": {
+        "rotations": [90, 270],
+        "mirrorX": false,
+        "mirrorY": false
+      }
+    }
+  ]
+}

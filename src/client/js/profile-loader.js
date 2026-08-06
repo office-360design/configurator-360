@@ -1,32 +1,26 @@
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { normalizeHexColour } from './config.js';
 import { simplifyProfileShape } from './geometry-utils.js';
+import {
+    collapseProfileShapes,
+    extractFilledSvgShapes,
+    mapProfileShapes,
+} from './svg-profile-shapes.js';
+import {
+    DEFAULT_GASKET_PROFILE_ID,
+    DEFAULT_GLAZING_BEAD_PROFILE_ID,
+    createLegacyComponentMetadata,
+    getGlazingBeadProfileIds,
+    getLegacySvgCandidates,
+    getSelectableGasketProfileIds,
+} from './profile-catalog.js';
 
-const GLAZING_BEAD_CODES = ['573930', '573920'];
-const GASKET_CODES = ['224379', '224350'];
-
-function getFilledSvgShapes(data) {
-    const shapes = [];
-
-    for (const path of data.paths || []) {
-        const style = path.userData?.style || {};
-        const fill = String(style.fill ?? '#000').trim().toLowerCase();
-        const fillOpacity = Number(style.fillOpacity ?? 1);
-
-        // Ignore SVG linework and invisible paths.
-        if (
-            fill === 'none'
-            || fill === 'transparent'
-            || (Number.isFinite(fillOpacity) && fillOpacity <= 0)
-        ) {
-            continue;
-        }
-
-        shapes.push(...SVGLoader.createShapes(path));
-    }
-
-    return shapes;
-}
+const GLAZING_BEAD_CODES = getGlazingBeadProfileIds().filter(
+    code => code !== DEFAULT_GLAZING_BEAD_PROFILE_ID
+);
+const GASKET_CODES = getSelectableGasketProfileIds().filter(
+    code => code !== DEFAULT_GASKET_PROFILE_ID
+);
 
 export function createProfileLoader() {
     const svgLoader = new SVGLoader();
@@ -54,56 +48,35 @@ export function createProfileLoader() {
         );
     }
 
-    async function loadGasketShape(profileFolder, code, section) {
-        const isBottom = section === 'bottom';
-        const filename = `${code}_s_8${isBottom ? '_inst1' : ''}.svg`;
-        const candidates = [
-            `svg/${profileFolder}/${code}_s_8/${filename}`,
-        ];
+    async function loadCatalogAccessoryShapes(profileFolder, code, section) {
+        const candidates = getLegacySvgCandidates(code, profileFolder, section);
+        if (!candidates.length) {
+            throw new Error(`No legacy SVG candidates are cataloged for profile ${code}.`);
+        }
 
         const data = await loadFirstAvailableSvg(candidates);
-        const path = data.paths[0];
+        const shapes = extractFilledSvgShapes(data);
+        const filename = candidates[0].split('/').pop();
 
-        if (!path) {
-            throw new Error(`No SVG path was found in ${filename}.`);
-        }
-
-        const shapes = SVGLoader.createShapes(path);
         if (!shapes.length) {
-            throw new Error(`No closed shape was found in ${filename}.`);
+            throw new Error(`No filled profile shape was found in ${filename}.`);
         }
 
-        return shapes[0];
+        return collapseProfileShapes(shapes);
     }
 
-    async function loadGlazingBeadShape(profileFolder, code, section) {
-        const isBottom = section === 'bottom';
-        const filename = `${code}_s${isBottom ? '_inst1' : ''}.svg`;
-        const candidates = [
-            `svg/${profileFolder}/${code}_s/${filename}`,
-            `svg/${profileFolder}/${code}/${filename}`,
-            `svg/${profileFolder}/${code}_s/${code}_s/${filename}`,
-        ];
+    async function loadGasketShapes(profileFolder, code, section) {
+        return loadCatalogAccessoryShapes(profileFolder, code, section);
+    }
 
-        const data = await loadFirstAvailableSvg(candidates);
-        const path = data.paths[0];
-
-        if (!path) {
-            throw new Error(`No SVG path was found in ${filename}.`);
-        }
-
-        const shapes = SVGLoader.createShapes(path);
-        if (!shapes.length) {
-            throw new Error(`No closed shape was found in ${filename}.`);
-        }
-
-        return shapes[0];
+    async function loadGlazingBeadShapes(profileFolder, code, section) {
+        return loadCatalogAccessoryShapes(profileFolder, code, section);
     }
 
     async function loadProfilePart(profileFolder, metadata, part) {
         const url = `svg/${profileFolder}/${part.relativeUrl || part.filename}`;
         const data = await loadSvg(url);
-        const shapes = getFilledSvgShapes(data);
+        const shapes = extractFilledSvgShapes(data);
 
         if (!shapes.length) {
             throw new Error(`No filled profile shape could be created from ${url}.`);
@@ -152,13 +125,19 @@ export function createProfileLoader() {
             materialKey = 'alu';
         }
 
-        const optimizedShapes = shapes.map(shape =>
-            simplifyProfileShape(shape, materialKey)
-        );
+        const legacyComponentMetadata = createLegacyComponentMetadata({
+            profileFolder,
+            part,
+            materialKey,
+        });
 
-        const optimizedShape = optimizedShapes.length === 1
-            ? optimizedShapes[0]
-            : optimizedShapes;
+        const optimizedShape = mapProfileShapes(
+            shapes,
+            shape => simplifyProfileShape(shape, materialKey)
+        );
+        const optimizedShapes = Array.isArray(optimizedShape)
+            ? optimizedShape
+            : [optimizedShape];
 
         const sourceContourPoints = optimizedShapes.reduce(
             (sum, shape) => sum + (shape.userData?.sourcePointCount || 0),
@@ -178,17 +157,18 @@ export function createProfileLoader() {
         }
 
         const section = part.section || 'top';
-        const isGlazingBeadTemplate = String(part.blockName || '').includes('573940');
+        const isGlazingBeadTemplate = legacyComponentMetadata.profileId
+            === DEFAULT_GLAZING_BEAD_PROFILE_ID;
         let beadShapes = null;
 
         if (isGlazingBeadTemplate) {
             beadShapes = {
-                '573940': shapes[0],
+                [DEFAULT_GLAZING_BEAD_PROFILE_ID]: optimizedShape,
             };
 
             for (const beadCode of GLAZING_BEAD_CODES) {
                 try {
-                    beadShapes[beadCode] = await loadGlazingBeadShape(
+                    beadShapes[beadCode] = await loadGlazingBeadShapes(
                         profileFolder,
                         beadCode,
                         section
@@ -203,17 +183,18 @@ export function createProfileLoader() {
             }
         }
 
-        const isGasketTemplate = String(part.blockName || '').includes('224378');
+        const isGasketTemplate = legacyComponentMetadata.profileId
+            === DEFAULT_GASKET_PROFILE_ID;
         let gasketShapes = null;
 
         if (isGasketTemplate) {
             gasketShapes = {
-                '224378': shapes[0],
+                [DEFAULT_GASKET_PROFILE_ID]: optimizedShape,
             };
 
             for (const gasketCode of GASKET_CODES) {
                 try {
-                    gasketShapes[gasketCode] = await loadGasketShape(
+                    gasketShapes[gasketCode] = await loadGasketShapes(
                         profileFolder,
                         gasketCode,
                         section
@@ -236,6 +217,7 @@ export function createProfileLoader() {
             : null;
 
         return {
+            ...legacyComponentMetadata,
             index: part.index,
             layer: part.layer,
             blockName: part.blockName || `Part ${part.index}`,

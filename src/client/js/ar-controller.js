@@ -20,6 +20,8 @@ export function createARController({
     getProfilesReady,
     getProfilesData,
     getSelectedHandleSide,
+    appendAccessoryUrlParams = () => {},
+    appendProfileSelectionUrlParams = () => {},
 }) {
     let arSession = null;
     let hitTestSource = null;
@@ -40,6 +42,8 @@ export function createARController({
         url.searchParams.set('glass_thickness', document.getElementById('glassThickness').value);
         url.searchParams.set('handle_side', getSelectedHandleSide());
         materialManager.appendUrlParams(url);
+        appendProfileSelectionUrlParams(url);
+        appendAccessoryUrlParams(url);
 
         const activeParts = getProfilesData()
             .filter(profile => document.getElementById(`toggle_${profile.index}`)?.checked)

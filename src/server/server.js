@@ -15,6 +15,74 @@ const MAX_MODEL_BYTES = 25 * 1024 * 1024;
 const MODEL_TTL_MS = Number.parseInt(process.env.MODEL_TTL_MS || String(24 * 60 * 60 * 1000), 10);
 const VIEWPORT = { width: 1200, height: 900 };
 
+
+const PROFILE_SELECTIONS = Object.freeze({
+    '2_4_Oeffnungselemnt_Vertikal': Object.freeze({
+        profile: '2_4_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575760',
+        sashProfileId: '575780',
+    }),
+    '2_5_Oeffnungselemnt_Vertikal': Object.freeze({
+        profile: '2_5_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575770',
+        sashProfileId: '575790',
+    }),
+    '2_6_Oeffnungselemnt_Vertikal': Object.freeze({
+        profile: '2_6_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575770',
+        sashProfileId: '575790',
+    }),
+});
+
+const PROFILE_ALIASES = Object.freeze({
+    '2_6_Oeffnungselement_Vertikal': '2_6_Oeffnungselemnt_Vertikal',
+});
+
+function normalizeProfileSetId(value) {
+    const requested = String(value || '').trim();
+    return PROFILE_ALIASES[requested] || requested;
+}
+
+function resolveRenderProfileSelection(payload) {
+    const requestedProfileValue = payload.profile || '2_6_Oeffnungselemnt_Vertikal';
+    const requestedProfileId = normalizeProfileSetId(requestedProfileValue);
+    const requestedProfile = PROFILE_SELECTIONS[requestedProfileId] || null;
+
+    if (!requestedProfile) {
+        throw new Error('Unsupported CAD profile.');
+    }
+
+    const outerFrameProfileId = String(
+        payload.outer_frame_profile
+        ?? payload.outer_frame
+        ?? payload.outerFrameProfileId
+        ?? requestedProfile.outerFrameProfileId
+    ).trim();
+    const sashProfileId = String(
+        payload.sash_profile
+        ?? payload.sashProfileId
+        ?? requestedProfile.sashProfileId
+    ).trim();
+
+    const availableOuterFrames = new Set(['575760', '575770']);
+    const availableSashes = new Set(['575780', '575790']);
+
+    if (!availableOuterFrames.has(outerFrameProfileId)) {
+        throw new Error(`Outer-frame profile ${outerFrameProfileId} has no converted geometry.`);
+    }
+    if (!availableSashes.has(sashProfileId)) {
+        throw new Error(`Sash profile ${sashProfileId} has no converted geometry.`);
+    }
+
+    // Frame and sash are intentionally independent. The selected complete CAD
+    // assembly is retained only as a temporary source for legacy geometry.
+    return {
+        ...requestedProfile,
+        outerFrameProfileId,
+        sashProfileId,
+    };
+}
+
 const MIME_TYPES = {
     '.html': 'text/html; charset=utf-8',
     '.css': 'text/css; charset=utf-8',
@@ -141,6 +209,67 @@ function readJsonBody(req) {
     });
 }
 
+function parseBooleanPayload(value, fallback = true) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (value === null || value === undefined || value === '') return fallback;
+
+    const normalized = String(value).trim().toLowerCase();
+    if (['0', 'false', 'off', 'no', 'disabled'].includes(normalized)) return false;
+    if (['1', 'true', 'on', 'yes', 'enabled'].includes(normalized)) return true;
+    return fallback;
+}
+
+
+const ACCESSORY_PRESET_DEFAULTS = Object.freeze({
+    'b2-6': Object.freeze({ insulationProfile: false }),
+    'b2-7': Object.freeze({ insulationProfile: false }),
+    'b2-8': Object.freeze({ insulationProfile: true }),
+});
+
+const ACCESSORY_FIELDS = Object.freeze([
+    ['lockingBar', 'locking_bar', 'locking-bar', true],
+    ['centreGasket', 'centre_gasket', 'centre-gasket', true],
+    ['insulationProfile', 'insulation_profile', 'insulation-profile', false],
+    ['glazingRebateInsulation', 'glazing_rebate_insulation', 'glazing-rebate-insulation', false],
+    ['rebateGasket', 'rebate_gasket', 'rebate-gasket', true],
+    ['outerGlazingGasket', 'outer_glazing_gasket', 'outer-glazing-gasket', true],
+    ['innerGlazingGasket', 'inner_glazing_gasket', 'inner-glazing-gasket', true],
+    ['glazingBridge', 'glazing_bridge', 'glazing-bridge', true],
+    ['jointSealingPiece', 'joint_sealing_piece', 'joint-sealing-piece', false],
+    ['doubleVentEndCap', 'double_vent_end_cap', 'double-vent-end-cap', false],
+    ['drainageCap', 'drainage_cap', 'drainage-cap', true],
+]);
+
+function parseAccessoryPayload(payload) {
+    const requestedPreset = String(
+        payload.accessory_preset
+        ?? payload.accessoryPreset
+        ?? 'b2-6'
+    ).trim().toLowerCase();
+    const basePresetId = ACCESSORY_PRESET_DEFAULTS[requestedPreset]
+        ? requestedPreset
+        : 'b2-6';
+    const presetDefaults = ACCESSORY_PRESET_DEFAULTS[basePresetId];
+    const result = {};
+    let customized = requestedPreset === 'custom';
+
+    for (const [camelKey, snakeKey, groupId, fallback] of ACCESSORY_FIELDS) {
+        const nestedValue = payload.accessories?.[groupId]?.enabled;
+        const rawValue = payload[snakeKey] ?? payload[camelKey] ?? nestedValue;
+        const defaultValue = Object.prototype.hasOwnProperty.call(presetDefaults, camelKey)
+            ? presetDefaults[camelKey]
+            : fallback;
+        result[camelKey] = parseBooleanPayload(rawValue, defaultValue);
+        if (rawValue !== undefined && result[camelKey] !== defaultValue) {
+            customized = true;
+        }
+    }
+
+    result.accessoryPreset = customized ? 'custom' : basePresetId;
+    return result;
+}
+
 function parseRenderPayload(payload) {
     const widthMm = Number(payload.width_mm ?? payload.width);
     const heightMm = Number(payload.height_mm ?? payload.height);
@@ -164,26 +293,24 @@ function parseRenderPayload(payload) {
         throw new Error('Glass thickness must be between 16 and 29 mm.');
     }
 
+    const accessoryConfiguration = parseAccessoryPayload(payload);
+
     const colour = String(payload.colour || payload.color || '#e2e8f0');
     if (!/^#[0-9a-fA-F]{6}$/.test(colour)) {
         throw new Error('Colour must use the #RRGGBB format.');
     }
 
-    const allowedProfiles = new Set([
-        '2_6_Oeffnungselement_Vertikal',
-        '2_4_Oeffnungselemnt_Vertikal',
-    ]);
-    const profile = String(payload.profile || '2_6_Oeffnungselement_Vertikal');
-    if (!allowedProfiles.has(profile)) {
-        throw new Error('Unsupported CAD profile.');
-    }
+    const profileSelection = resolveRenderProfileSelection(payload);
 
     return {
         widthM,
         heightM,
         colour,
-        profile,
+        profile: profileSelection.profile,
+        outerFrameProfileId: profileSelection.outerFrameProfileId,
+        sashProfileId: profileSelection.sashProfileId,
         glassThicknessMm,
+        ...accessoryConfiguration,
         requestId: String(payload.request_id || ''),
     };
 }
@@ -204,7 +331,11 @@ async function performRender(payload) {
             && Math.abs(applied.heightM - payload.heightM) < 0.000001
             && String(applied.colour).toLowerCase() === payload.colour.toLowerCase()
             && applied.profile === payload.profile
-            && Math.abs(applied.glassThicknessMm - payload.glassThicknessMm) < 0.000001;
+            && applied.outerFrameProfileId === payload.outerFrameProfileId
+            && applied.sashProfileId === payload.sashProfileId
+            && Math.abs(applied.glassThicknessMm - payload.glassThicknessMm) < 0.000001
+            && applied.accessoryPreset === payload.accessoryPreset
+            && ACCESSORY_FIELDS.every(([camelKey]) => applied[camelKey] === payload[camelKey]);
 
         if (!matches) {
             throw new Error(`Configurator state verification failed. Applied: ${JSON.stringify(applied)}`);

@@ -1,6 +1,18 @@
 import * as THREE from 'three';
-import { getGlazingBeadCode } from './config.js';
+import { getGlazingBeadCode, getGasketCode } from './config.js';
 import { createProfileLoader } from './profile-loader.js';
+import { getProfileShapeBounds } from './svg-profile-shapes.js';
+import {
+    areSelectedComponentProfilesVisible,
+    shouldCheckComponentProfile,
+} from './component-group-visibility.js';
+import {
+    composeLegacyProfileDefinitions,
+    composeSupplementalAccessoryProfiles,
+    createProfileSelectionSignature,
+    getRequiredSupplementalAccessorySourceProfileSetIds,
+    resolveLegacyProfileSources,
+} from './profile-composition.js';
 
 export function createProfileController({
     isARMode,
@@ -18,6 +30,11 @@ export function createProfileController({
     getWindowBuilder,
     getARController,
     refreshCadReferenceAvailability,
+    initializeAccessoryProfiles = () => {},
+    isManagedAccessoryProfile = () => false,
+    isAccessoryProfileEnabled = () => true,
+    setAccessoryProfileEnabled = () => false,
+    setAccessoryProfilesEnabled = () => false,
 }) {
     const { getProfileDefinition } = createProfileLoader();
 
@@ -25,9 +42,15 @@ export function createProfileController({
     let profilesData = [];
     let profilesReady = false;
     let renderedColorFilters = [];
+    let currentSelectionSignature = null;
 
     const shapeBoundsCache = new WeakMap();
     const glazingBeadArmShiftCache = new Map();
+    const componentGroupVisibility = new Map([
+        ['frame', true],
+        ['sash', true],
+        ['bead', true],
+    ]);
 
     function buildWindow() {
         getWindowBuilder()?.buildWindow();
@@ -35,7 +58,10 @@ export function createProfileController({
 
     function isGlazingBeadProfile(profile) {
         const name = String(profile.blockName || '');
-        return /5739(?:20|30|40)/.test(name) || profile.isGlazingBeadTemplate === true;
+        return profile.componentType === 'glazing-bead'
+            || profile.componentType === 'glazing-bead-child'
+            || /5739(?:20|30|40)/.test(name)
+            || profile.isGlazingBeadTemplate === true;
     }
 
     function getProfileGroup(profile) {
@@ -58,8 +84,16 @@ export function createProfileController({
         return 'sash';
     }
 
+    function isProfileGroupVisible(profileOrGroup) {
+        const group = typeof profileOrGroup === 'string'
+            ? profileOrGroup
+            : getProfileGroup(profileOrGroup);
+        return componentGroupVisibility.get(group) !== false;
+    }
+
     function isGlazingBeadChild(profile) {
-        return String(profile.blockName || '').includes('244511');
+        return profile.componentType === 'glazing-bead-child'
+            || String(profile.blockName || '').includes('244511');
     }
 
     function getActiveGlazingBeadCode() {
@@ -67,16 +101,7 @@ export function createProfileController({
     }
 
     function getActiveGasketCode() {
-        const thickness = Number(glassThicknessInput?.value) || 24;
-        const remainder = thickness % 5;
-
-        if (remainder === 0) {
-            return '224379';
-        }
-        if (remainder === 1 || remainder === 2) {
-            return '224378';
-        }
-        return '224350';
+        return getGasketCode(Number(glassThicknessInput?.value) || 24);
     }
 
     function getProfileShape(profile) {
@@ -96,11 +121,8 @@ export function createProfileController({
             return shapeBoundsCache.get(shape);
         }
 
-        const points = shape.getPoints(64);
-        if (!points.length) return null;
-
-        const bounds = new THREE.Box2();
-        bounds.setFromPoints(points);
+        const bounds = getProfileShapeBounds(shape, 64);
+        if (!bounds) return null;
         shapeBoundsCache.set(shape, bounds);
         return bounds;
     }
@@ -139,23 +161,28 @@ export function createProfileController({
 
     function getProfileCadXShiftMm(profile) {
         const blockName = String(profile.blockName || '');
+        const assemblyShift = Number(profile?.cadAlignmentShiftXMm) || 0;
+        const glazingShift = blockName.includes('224378') || profile.isGasketTemplate
+            ? getGlazingBeadArmShiftMm(profile.section || 'top')
+            : 0;
 
-        if (blockName.includes('224378') || profile.isGasketTemplate) {
-            return getGlazingBeadArmShiftMm(profile.section || 'top');
-        }
+        return assemblyShift + glazingShift;
+    }
 
-        return 0;
+    function getProfileCadYShiftMm(profile) {
+        return Number(profile?.cadAlignmentShiftYMm) || 0;
     }
 
     function getEffectiveProfileBbox(profile) {
         if (!profile?.bbox) return null;
 
         const shiftX = getProfileCadXShiftMm(profile);
+        const shiftY = getProfileCadYShiftMm(profile);
         return {
             minX: Number(profile.bbox.minX) + shiftX,
             maxX: Number(profile.bbox.maxX) + shiftX,
-            minY: Number(profile.bbox.minY),
-            maxY: Number(profile.bbox.maxY),
+            minY: Number(profile.bbox.minY) + shiftY,
+            maxY: Number(profile.bbox.maxY) + shiftY,
         };
     }
 
@@ -322,6 +349,7 @@ export function createProfileController({
 
             const details = document.createElement('details');
             details.className = 'group-dropdown';
+            details.dataset.profileGroup = key;
             details.open = false;
 
             const summary = document.createElement('summary');
@@ -350,11 +378,16 @@ export function createProfileController({
                     : displayedBlockName;
                 const isRequestedPartActive = !isARMode
                     || requestedActiveParts === null
-                    || requestedActiveParts.has(String(profile.index));
+                    || requestedActiveParts.has(String(profile.index))
+                    || requestedActiveParts.has(profile.componentId);
+                const isSelectedForPiece = isManagedAccessoryProfile(profile)
+                    ? isAccessoryProfileEnabled(profile)
+                    : isRequestedPartActive;
+                const isActive = isProfileGroupVisible(key) && isSelectedForPiece;
 
                 item.innerHTML = `
                     <span><span class="part-color-dot" style="background-color: ${colorDot};"></span>${labelText}</span>
-                    <input type="checkbox" id="toggle_${profile.index}" ${isRequestedPartActive ? 'checked' : ''}>
+                    <input type="checkbox" id="toggle_${profile.index}" ${isActive ? 'checked' : ''}>
                 `;
                 content.appendChild(item);
             });
@@ -367,25 +400,45 @@ export function createProfileController({
                 event.stopPropagation();
                 event.preventDefault();
 
-                const allChecked = groupData.items.every(profile => {
-                    const checkbox = document.getElementById(`toggle_${profile.index}`);
-                    return checkbox ? checkbox.checked : false;
+                const allSelectedItemsVisible = areSelectedComponentProfilesVisible({
+                    profiles: groupData.items,
+                    getCheckboxChecked: profile => {
+                        const checkbox = document.getElementById(`toggle_${profile.index}`);
+                        return checkbox ? checkbox.checked : false;
+                    },
+                    isManagedAccessoryProfile,
+                    isAccessoryProfileEnabled,
                 });
 
+                const nextVisible = !allSelectedItemsVisible;
+                componentGroupVisibility.set(key, nextVisible);
                 groupData.items.forEach(profile => {
                     const checkbox = document.getElementById(`toggle_${profile.index}`);
-                    if (checkbox) {
-                        checkbox.checked = !allChecked;
-                    }
+                    if (!checkbox) return;
+
+                    checkbox.checked = shouldCheckComponentProfile({
+                        profile,
+                        groupVisible: nextVisible,
+                        isManagedAccessoryProfile,
+                        isAccessoryProfileEnabled,
+                    });
                 });
 
                 buildWindow();
+                updateColorFilterToggles();
             });
 
             groupData.items.forEach(profile => {
                 content
                     .querySelector(`#toggle_${profile.index}`)
-                    ?.addEventListener('change', buildWindow);
+                    ?.addEventListener('change', event => {
+                        if (isManagedAccessoryProfile(profile)) {
+                            setAccessoryProfileEnabled(profile, event.target.checked);
+                            return;
+                        }
+                        buildWindow();
+                        updateColorFilterToggles();
+                    });
             });
         });
     }
@@ -491,13 +544,17 @@ export function createProfileController({
             const toggleInput = row.querySelector('.color-filter-toggle');
             toggleInput.addEventListener('change', event => {
                 const isChecked = event.target.checked;
+                const matchingProfileStates = [];
                 profilesData.forEach(profile => {
                     if (filter.match(profile)) {
                         const checkbox = document.getElementById(`toggle_${profile.index}`);
                         if (checkbox) checkbox.checked = isChecked;
+                        matchingProfileStates.push({ profile, enabled: isChecked });
                     }
                 });
+                setAccessoryProfilesEnabled(matchingProfileStates, { rebuild: false });
                 buildWindow();
+                updateColorFilterToggles();
             });
 
             renderedColorFilters.push({
@@ -528,12 +585,16 @@ export function createProfileController({
         }
     }
 
-    async function loadProfiles(profileFolder) {
+    async function loadProfileSelection(selection) {
         window.CONFIGURATOR_READY = false;
         if (loadingElement) {
             loadingElement.style.display = 'block';
         }
 
+        const normalizedSelection = typeof selection === 'string'
+            ? { profileSetId: selection, profile: selection }
+            : { ...selection };
+        const selectionSignature = createProfileSelectionSignature(normalizedSelection);
         const windowBuilder = getWindowBuilder();
         windowBuilder?.clearTemplateGeometryCache();
         windowBuilder?.invalidateSectionSamples();
@@ -543,12 +604,39 @@ export function createProfileController({
         let loadSucceeded = false;
 
         try {
-            const definition = await getProfileDefinition(profileFolder);
+            const sources = resolveLegacyProfileSources(normalizedSelection);
+            const sourceIds = new Set([
+                sources.profileSetId,
+                sources.frameSourceProfileSetId,
+                sources.sashSourceProfileSetId,
+                ...getRequiredSupplementalAccessorySourceProfileSetIds(),
+            ].filter(Boolean));
+            const definitionsByProfileSetId = new Map();
+
+            await Promise.all([...sourceIds].map(async profileSetId => {
+                definitionsByProfileSetId.set(
+                    profileSetId,
+                    await getProfileDefinition(profileSetId)
+                );
+            }));
+
+            const legacyDefinition = composeLegacyProfileDefinitions({
+                selection: normalizedSelection,
+                definitionsByProfileSetId,
+            });
+            const definition = composeSupplementalAccessoryProfiles({
+                definition: legacyDefinition,
+                definitionsByProfileSetId,
+            });
             currentMetadata = definition.metadata;
-            profilesData = definition.profiles.map(profile => ({
+            profilesData = definition.profiles.map((profile, index) => ({
                 ...profile,
+                index,
+                legacyIndex: profile.legacyIndex ?? profile.index,
                 material: getMaterialForProfile(profile),
             }));
+            currentSelectionSignature = selectionSignature;
+            initializeAccessoryProfiles(profilesData);
             windowBuilder?.setProfileData(currentMetadata, profilesData);
             renderPartToggles();
             renderGroupFilters();
@@ -560,11 +648,12 @@ export function createProfileController({
         } catch (error) {
             window.CONFIGURATOR_READY = false;
             currentMetadata = null;
+            currentSelectionSignature = null;
             windowBuilder?.setProfileData(null, []);
-            console.error(`Error loading profile set ${profileFolder}:`, error);
+            console.error('Error loading the selected frame and sash profiles:', error);
             if (isARMode) {
                 getARController()?.setARStatus(
-                    `The configured profile could not be loaded: ${error.message}`,
+                    `The configured profiles could not be loaded: ${error.message}`,
                     true
                 );
             }
@@ -580,6 +669,10 @@ export function createProfileController({
         }
     }
 
+    async function loadProfiles(profileFolder) {
+        return loadProfileSelection({ profileSetId: profileFolder, profile: profileFolder });
+    }
+
     async function refreshProfileMaterials() {
         profilesData.forEach(profile => {
             profile.material = getMaterialForProfile(profile);
@@ -593,8 +686,10 @@ export function createProfileController({
     return {
         isGlazingBeadProfile,
         getProfileGroup,
+        isProfileGroupVisible,
         getProfileShape,
         getProfileCadXShiftMm,
+        getProfileCadYShiftMm,
         getActiveGlazingBeadCode,
         getActiveGasketCode,
         getProfileComponentNumber,
@@ -607,10 +702,12 @@ export function createProfileController({
         renderPartToggles,
         renderGroupFilters,
         loadProfiles,
+        loadProfileSelection,
         refreshProfileMaterials,
         getProfilesData: () => profilesData,
         getProfilesReady: () => profilesReady,
         getCurrentMetadata: () => currentMetadata,
+        getCurrentSelectionSignature: () => currentSelectionSignature,
         hasCurrentMetadata: () => Boolean(currentMetadata),
     };
 }
