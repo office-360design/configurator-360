@@ -23,6 +23,13 @@ export const state = {
   northDirection: 108,
   nightPreview: false,
   customPlan: null,
+  units: 'metric',
+  currency: 'RON',
+  currencyRate: 1,
+  currencyRateDate: null,
+  currencyRateSource: 'reference currency',
+  currencyRateIsFallback: false,
+  excludedBomItems: [],
 };
 
 export const pitchRules = {

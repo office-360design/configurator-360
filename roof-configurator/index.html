@@ -7,8 +7,8 @@
   <title>RoofLab - 3D Roof Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
-  <link rel="stylesheet" href="./styles.css?v=16" />
-  <link rel="stylesheet" href="./shared-shell.css?v=2" />
+  <link rel="stylesheet" href="./styles.css?v=19" />
+  <link rel="stylesheet" href="./shared-shell.css?v=3" />
   <script type="importmap">
     {
       "imports": {
@@ -272,6 +272,213 @@
     </label>
   </section>
 
+
+  <div class="roof-components-backdrop" id="roofComponentsBackdrop" aria-hidden="true"></div>
+  <aside class="roof-components-drawer" id="roofComponentsDrawer" aria-labelledby="roofComponentsTitle" aria-hidden="true">
+    <header class="roof-components-header">
+      <div>
+        <p class="eyebrow">Reference library</p>
+        <h2 id="roofComponentsTitle">Rainwater system</h2>
+      </div>
+      <button type="button" id="roofComponentsClose" aria-label="Close rainwater components">×</button>
+    </header>
+
+    <div class="roof-components-toolbar">
+      <label for="roofComponentsSearch">Search components</label>
+      <div class="roof-components-search-row">
+        <span aria-hidden="true">⌕</span>
+        <input id="roofComponentsSearch" type="search" placeholder="Gutter, bracket, downpipe…" autocomplete="off" />
+        <small>21 parts</small>
+      </div>
+    </div>
+
+    <div class="roof-components-content">
+      <figure class="roof-system-overview">
+        <div class="roof-system-overview-image">
+          <img src="./assets/rainwater/system-overview.jpg" alt="Exploded reference view of the rainwater system components" />
+        </div>
+        <figcaption>
+          <strong>System overview</strong>
+          <span>The numbered view matches the cards. This catalog is visual reference only and is not yet connected to the 3D model or BOM.</span>
+        </figcaption>
+      </figure>
+
+      <section class="roof-component-results" aria-label="Rainwater components">
+        <div class="roof-component-grid" id="roofComponentGrid">
+          <article class="roof-component-card" data-component-card data-search="jgheab colectează apa de pe versanți. disponibil în lungimi de 3 m și 4 m pentru montaj facil.">
+            <span class="roof-component-number">1</span>
+            <img src="./assets/rainwater/01.jpg" alt="Jgheab" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Jgheab</h3>
+              <p>Colectează apa de pe versanți. Disponibil în lungimi de 3 m și 4 m pentru montaj facil.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="burlan tub vertical ø 90 mm sau ø 100 mm care coboară apa spre sol.">
+            <span class="roof-component-number">2</span>
+            <img src="./assets/rainwater/02.jpg" alt="Burlan" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Burlan</h3>
+              <p>Tub vertical Ø 90 mm sau Ø 100 mm care coboară apa spre sol.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="colțar interior schimbă direcția jgheabului la 90° spre interiorul clădirii.">
+            <span class="roof-component-number">3</span>
+            <img src="./assets/rainwater/03.jpg" alt="Colțar interior" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Colțar interior</h3>
+              <p>Schimbă direcția jgheabului la 90° spre interiorul clădirii.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="colțar exterior schimbă direcția jgheabului la 90° spre exteriorul clădirii.">
+            <span class="roof-component-number">4</span>
+            <img src="./assets/rainwater/04.jpg" alt="Colțar exterior" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Colțar exterior</h3>
+              <p>Schimbă direcția jgheabului la 90° spre exteriorul clădirii.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="element îmbinare jgheab unește două tronsoane de jgheab etanș, cu garnitură de cauciuc integrată.">
+            <span class="roof-component-number">5</span>
+            <img src="./assets/rainwater/05.jpg" alt="Element îmbinare jgheab" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Element îmbinare jgheab</h3>
+              <p>Unește două tronsoane de jgheab etanș, cu garnitură de cauciuc integrată.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="capac jgheab închide capetele jgheabului. garnitura pre-montată elimină siliconul suplimentar.">
+            <span class="roof-component-number">6</span>
+            <img src="./assets/rainwater/06.jpg" alt="Capac jgheab" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Capac jgheab</h3>
+              <p>Închide capetele jgheabului. Garnitura pre-montată elimină siliconul suplimentar.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cârlig jgheab 210 cârlig lung pentru montaj pe căpriori înainte de astereală.">
+            <span class="roof-component-number">7</span>
+            <img src="./assets/rainwater/07.jpg" alt="Cârlig jgheab 210" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cârlig jgheab 210</h3>
+              <p>Cârlig lung pentru montaj pe căpriori înainte de astereală.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cârlig răsucit variantă pentru pantă mare sau fruntar înclinat.">
+            <span class="roof-component-number">8</span>
+            <img src="./assets/rainwater/08.jpg" alt="Cârlig răsucit" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cârlig răsucit</h3>
+              <p>Variantă pentru pantă mare sau fruntar înclinat.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cârlig jgheab 160 cârlig scurt pentru montaj pe fruntar sau scândura de margine.">
+            <span class="roof-component-number">9</span>
+            <img src="./assets/rainwater/09.jpg" alt="Cârlig jgheab 160" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cârlig jgheab 160</h3>
+              <p>Cârlig scurt pentru montaj pe fruntar sau scândura de margine.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cârlig combi cârlig versatil care se poate monta atât pe căprior, cât și pe fruntar.">
+            <span class="roof-component-number">10</span>
+            <img src="./assets/rainwater/10.jpg" alt="Cârlig combi" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cârlig combi</h3>
+              <p>Cârlig versatil care se poate monta atât pe căprior, cât și pe fruntar.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cârlig reglabil permite ajustarea pantei jgheabului după montaj.">
+            <span class="roof-component-number">11</span>
+            <img src="./assets/rainwater/11.jpg" alt="Cârlig reglabil" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cârlig reglabil</h3>
+              <p>Permite ajustarea pantei jgheabului după montaj.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="bridă jgheab asigură suplimentar jgheabul în zonele cu vânt puternic sau zăpadă mare.">
+            <span class="roof-component-number">12</span>
+            <img src="./assets/rainwater/12.jpg" alt="Bridă jgheab" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Bridă jgheab</h3>
+              <p>Asigură suplimentar jgheabul în zonele cu vânt puternic sau zăpadă mare.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="racord jgheab-burlan leagă jgheabul de burlan prin clemele laterale și conduce apa către burlan.">
+            <span class="roof-component-number">13</span>
+            <img src="./assets/rainwater/13.jpg" alt="Racord jgheab-burlan" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Racord jgheab-burlan</h3>
+              <p>Leagă jgheabul de burlan prin clemele laterale și conduce apa către burlan.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cot 60° leagă racordul de burlan sau ocolește elementele fațadei.">
+            <span class="roof-component-number">14</span>
+            <img src="./assets/rainwater/14.jpg" alt="Cot 60°" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cot 60°</h3>
+              <p>Leagă racordul de burlan sau ocolește elementele fațadei.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="prelungitor intermediar ajustează distanța dintre două coturi atunci când fațada are ieșiri.">
+            <span class="roof-component-number">15</span>
+            <img src="./assets/rainwater/15.jpg" alt="Prelungitor intermediar" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Prelungitor intermediar</h3>
+              <p>Ajustează distanța dintre două coturi atunci când fațada are ieșiri.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="colier burlan fixează burlanul de zid. distanța maximă recomandată între prinderi este de 2 m.">
+            <span class="roof-component-number">16</span>
+            <img src="./assets/rainwater/16.jpg" alt="Colier burlan" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Colier burlan</h3>
+              <p>Fixează burlanul de zid. Distanța maximă recomandată între prinderi este de 2 m.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="brățară burlan colier cu distanțier din cauciuc, care ține burlanul departe de zid și reduce zgomotul.">
+            <span class="roof-component-number">17</span>
+            <img src="./assets/rainwater/17.jpg" alt="Brățară burlan" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Brățară burlan</h3>
+              <p>Colier cu distanțier din cauciuc, care ține burlanul departe de zid și reduce zgomotul.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="pâlnie colectează apa din jgheab către burlan, cu ieșire mărită pentru debite mari.">
+            <span class="roof-component-number">18</span>
+            <img src="./assets/rainwater/18.jpg" alt="Pâlnie" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Pâlnie</h3>
+              <p>Colectează apa din jgheab către burlan, cu ieșire mărită pentru debite mari.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="ramificație burlan permite unirea a două burlane într-unul singur, utilă pentru acoperișuri complexe.">
+            <span class="roof-component-number">19</span>
+            <img src="./assets/rainwater/19.jpg" alt="Ramificație burlan" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Ramificație burlan</h3>
+              <p>Permite unirea a două burlane într-unul singur, utilă pentru acoperișuri complexe.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="derivație evacuare deviază apa spre grilă, canal sau rezervor de colectare.">
+            <span class="roof-component-number">20</span>
+            <img src="./assets/rainwater/20.jpg" alt="Derivație evacuare" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Derivație evacuare</h3>
+              <p>Deviază apa spre grilă, canal sau rezervor de colectare.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cot de evacuare direcționează apa la baza burlanului, departe de fațadă.">
+            <span class="roof-component-number">21</span>
+            <img src="./assets/rainwater/21.jpg" alt="Cot de evacuare" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cot de evacuare</h3>
+              <p>Direcționează apa la baza burlanului, departe de fațadă.</p>
+            </div>
+          </article>
+        </div>
+        <p class="roof-components-empty" id="roofComponentsEmpty" hidden>No components match this search.</p>
+      </section>
+    </div>
+  </aside>
+
   <dialog class="bom-panel" id="bomPanel" aria-labelledby="bomTitle">
     <header class="bom-header">
       <div>
@@ -298,13 +505,24 @@
     </section>
 
     <div class="bom-disclaimer">
-      Quantities are generated from the current roof geometry. Unit prices are copied from the supplied reference offer dated 30/10/2024 and are reused for every covering preset. This is not a construction quotation.
+      Quantities are generated from the current roof geometry. Unit prices are copied from the supplied reference offer dated 30/10/2024 and are reused for every covering preset. This is not a construction quotation.<span id="bomCurrencyNote"></span>
+    </div>
+
+    <div class="bom-selection-toolbar" aria-label="BOM inclusion controls">
+      <span id="bomSelectionStatus">0 of 0 items included</span>
+      <div>
+        <button type="button" id="bomIncludeAll">Include all</button>
+        <button type="button" id="bomExcludeAll">Exclude all</button>
+      </div>
     </div>
 
     <div class="bom-table-wrap">
       <table class="bom-table">
         <thead>
           <tr>
+            <th class="bom-check-cell">
+              <input id="bomToggleAll" type="checkbox" aria-label="Include or exclude all BOM items" />
+            </th>
             <th>Nr.</th>
             <th>Product</th>
             <th>U.M.</th>
@@ -358,7 +576,7 @@
       panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
     })();
   </script>
-  <script type="module" src="./js/sharedShell.js?v=5"></script>
-  <script type="module" src="./js/app.js?v=15"></script>
+  <script type="module" src="./js/sharedShell.js?v=7"></script>
+  <script type="module" src="./js/app.js?v=17"></script>
 </body>
 </html>

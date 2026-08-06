@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { formatLength } from './preferences.js?v=1';
 
 const LINE_COLOR = 0x4f5963;
 
@@ -39,7 +40,7 @@ export function createDimensions(state, ridgeElevation) {
     new THREE.Vector3(halfL, 0.07, -halfD - margin),
     new THREE.Vector3(0, 0, tick),
     new THREE.Vector3(0, 0, tick),
-    `L ${state.length.toFixed(1)} m`,
+    `L ${formatLength(state.length, state.units)}`,
     new THREE.Vector3(0, 0.16, 0),
   );
 
@@ -49,7 +50,7 @@ export function createDimensions(state, ridgeElevation) {
     new THREE.Vector3(halfL + margin, 0.07, halfD),
     new THREE.Vector3(tick, 0, 0),
     new THREE.Vector3(tick, 0, 0),
-    `D ${state.depth.toFixed(1)} m`,
+    `D ${formatLength(state.depth, state.units)}`,
     new THREE.Vector3(0, 0.16, 0),
   );
 
@@ -59,7 +60,7 @@ export function createDimensions(state, ridgeElevation) {
     new THREE.Vector3(-halfL - margin * 0.72, ridgeElevation, halfD + margin * 0.45),
     new THREE.Vector3(tick, 0, 0),
     new THREE.Vector3(tick, 0, 0),
-    `H ${ridgeElevation.toFixed(2)} m`,
+    `H ${formatLength(ridgeElevation, state.units)}`,
     new THREE.Vector3(-0.15, 0, 0),
   );
 

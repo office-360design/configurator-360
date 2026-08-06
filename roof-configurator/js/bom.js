@@ -1,3 +1,5 @@
+import { normalizeCurrency } from './preferences.js?v=1';
+
 const VAT_RATE = 0.19;
 const PANEL_EFFECTIVE_AREA = 0.47;
 const PANEL_WASTE_FACTOR = 1.05;
@@ -156,6 +158,11 @@ export function calculateBom(state, metrics) {
         panelEffectiveArea: PANEL_EFFECTIVE_AREA,
         wastePercent: (PANEL_WASTE_FACTOR - 1) * 100,
       },
+      currency: normalizeCurrency(state.currency),
+      exchangeRate: Number(state.currencyRate) || 1,
+      exchangeRateDate: state.currencyRateDate || null,
+      exchangeRateSource: state.currencyRateSource || 'reference currency',
+      exchangeRateIsFallback: Boolean(state.currencyRateIsFallback),
     };
   }
 
@@ -198,14 +205,32 @@ export function calculateBom(state, metrics) {
   addLine(lines, 'downpipe-bracket', 'Brățară burlan', 'buc.', downpipeBrackets, unitPrices.downpipeBracket);
   addLine(lines, 'discharge-elbow', 'Cot de evacuare', 'buc.', downspouts, unitPrices.dischargeElbow);
 
-  const subtotal = lines.reduce((sum, line) => sum + line.value, 0);
+  const currency = normalizeCurrency(state.currency);
+  const exchangeRate = currency === 'RON' ? 1 : Math.max(0, Number(state.currencyRate) || 1);
+  const excludedItems = new Set(Array.isArray(state.excludedBomItems) ? state.excludedBomItems : []);
+  const convertedLines = lines.map((line) => ({
+    ...line,
+    included: !excludedItems.has(line.key),
+    baseUnitPrice: line.unitPrice,
+    baseValue: line.value,
+    baseVat: line.vat,
+    unitPrice: line.unitPrice * exchangeRate,
+    value: line.value * exchangeRate,
+    vat: line.vat * exchangeRate,
+  }));
+  const subtotal = convertedLines.reduce((sum, line) => sum + (line.included ? line.value : 0), 0);
   const vat = subtotal * VAT_RATE;
   return {
-    lines,
+    lines: convertedLines,
     subtotal,
     vat,
     total: subtotal + vat,
     vatRate: VAT_RATE,
+    currency,
+    exchangeRate,
+    exchangeRateDate: state.currencyRateDate || null,
+    exchangeRateSource: state.currencyRateSource || 'reference currency',
+    exchangeRateIsFallback: Boolean(state.currencyRateIsFallback),
     assumptions: {
       roofArea,
       ridgeLength: lengths.ridge,
@@ -218,17 +243,11 @@ export function calculateBom(state, metrics) {
   };
 }
 
-export function formatLei(value) {
-  return new Intl.NumberFormat('ro-RO', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
 export function bomToCsv(bom) {
+  const currency = bom.currency || 'RON';
   const rows = [
-    ['Nr.', 'Denumire', 'U.M.', 'Cant.', 'Preț unitar fără TVA (Lei)', 'Valoare fără TVA (Lei)', 'TVA (Lei)'],
-    ...bom.lines.map((line, index) => [
+    ['Nr.', 'Denumire', 'U.M.', 'Cant.', `Preț unitar fără TVA (${currency})`, `Valoare fără TVA (${currency})`, `TVA (${currency})`],
+    ...bom.lines.filter((line) => line.included !== false).map((line, index) => [
       index + 1,
       line.name,
       line.unit,
@@ -241,10 +260,14 @@ export function bomToCsv(bom) {
     ['', 'Total fără TVA', '', '', '', bom.subtotal.toFixed(2), ''],
     ['', `TVA ${Math.round(bom.vatRate * 100)}%`, '', '', '', '', bom.vat.toFixed(2)],
     ['', 'Total plată', '', '', '', '', bom.total.toFixed(2)],
+    [],
+    ['', 'Monedă afișată', '', '', currency, '', ''],
+    ['', 'Rată față de RON', '', '', bom.exchangeRate.toFixed(6), '', ''],
+    ['', 'Sursă rată', '', '', bom.exchangeRateSource || '', bom.exchangeRateDate || '', ''],
   ];
 
   return rows.map((row) => row.map((cell) => {
-    const text = String(cell ?? '');
-    return `"${text.replaceAll('"', '""')}"`;
+    const value = String(cell ?? '');
+    return `"${value.replaceAll('\"', '\"\"')}"`;
   }).join(',')).join('\n');
 }
