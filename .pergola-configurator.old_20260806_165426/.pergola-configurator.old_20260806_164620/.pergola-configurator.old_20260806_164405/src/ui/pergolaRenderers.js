@@ -545,7 +545,7 @@ export const pergolaRenderers = {
           <p>Select a pole and one of its faces. A face can hold one item of each type, provided the items do not overlap vertically.</p>
         </div>
         <div class="accessory-summary-line ${hasPoleMountConflicts(this.state) ? 'is-invalid' : ''}">
-          <span class="pole-customizer__summary-icon" aria-hidden="true"><img src="./assets/icons/pole-components.svg" alt="" /></span>
+          <span class="pole-customizer__summary-icon" aria-hidden="true">▥</span>
           <span><strong>${totalMounts} pole component${totalMounts === 1 ? '' : 's'}</strong><small>Walls and mounted components reserve the same connected pole faces</small></span>
         </div>
 
@@ -555,7 +555,7 @@ export const pergolaRenderers = {
             ${SUPPORT_POLES.map(({ value, label }) => {
               const available = poleIsAvailable(this.state, value);
               const occupied = POLE_FACES.reduce(
-                (total, poleFace) => total + Object.values(getPoleFaceMounts(this.state, value, poleFace.value)).filter(Boolean).length,
+                (total, poleFace) => total + Object.values(getPoleFaceMounts(this.state, value, poleFace)).filter(Boolean).length,
                 0,
               );
               const invalid = Boolean(conflicts[value]);

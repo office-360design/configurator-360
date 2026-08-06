@@ -389,22 +389,14 @@ export class ConfiguratorUI {
       const type = actionTarget.dataset.mountType;
       const path = `poleMounts.${this.activePole}.${this.activePoleFace}.${type}`;
       const current = this.state.poleMounts[this.activePole]?.[this.activePoleFace]?.[type] ?? null;
-      let value = null;
-
-      if (!current) {
-        const existing = type === 'hand-crank' ? findPoleMount(this.state, 'hand-crank')?.mount : null;
-        value = createPoleMount(type, {
-          height: existing?.height,
-          outletType: type === 'outlet' ? 'eu' : undefined,
-        });
-      }
-
+      if (current) return;
+      const existing = type === 'hand-crank' ? findPoleMount(this.state, 'hand-crank')?.mount : null;
+      const value = createPoleMount(type, {
+        height: existing?.height,
+        outletType: type === 'outlet' ? 'eu' : undefined,
+      });
       const updated = this.store.update(path, value);
-      if (updated === false) {
-        this.showToast(this.store.getLastError?.() || (current
-          ? 'That component cannot be removed.'
-          : 'That component cannot be placed there.'));
-      }
+      if (updated === false) this.showToast(this.store.getLastError?.() || 'That component cannot be placed there.');
     } else if (action === 'remove-pole-mount') {
       const type = actionTarget.dataset.mountType;
       const path = `poleMounts.${this.activePole}.${this.activePoleFace}.${type}`;

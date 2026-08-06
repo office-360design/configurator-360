@@ -1,0 +1,20 @@
+{
+  "name": "pergola-configurator",
+  "version": "1.5.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "start": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "check": "node --check src/main.js && node --check src/state.js && node --check src/catalog.js && node --check src/pricing.js && node --check src/scene/AssetLibrary.js && node --check src/scene/PergolaScene.js && node --check src/scene/buildPergola.js && node --check src/ui/ConfiguratorUI.js",
+    "generate-assets": "python tools/generate_demo_assets.py"
+  },
+  "dependencies": {
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "vite": "8.1.5"
+  }
+}
