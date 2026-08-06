@@ -80,3 +80,7 @@ roof-configurator/
 ## Custom roof plan proof of concept
 
 The final roof-type card opens a local file picker for PDF, image, DWG, or DXF plans. The selected file name and size are displayed, but the file is intentionally not parsed, uploaded, or converted into geometry yet.
+
+## Rainwater components drawer
+
+The last button in the shared **Tools** stack opens a searchable side drawer with an exploded system overview and 21 reference components. The images are prototype reference crops supplied for the UI proof of concept; selecting or viewing them does not yet change the 3D scene or BOM.
