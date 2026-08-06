@@ -6,9 +6,9 @@
   <meta name="description" content="Real-time parametric roof configurator" />
   <title>RoofLab - 3D Roof Configurator</title>
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="./styles.css?v=15" />
-  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=3" />
-  <link rel="stylesheet" href="./shared-shell.css?v=3" />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
+  <link rel="stylesheet" href="./styles.css?v=16" />
+  <link rel="stylesheet" href="./shared-shell.css?v=2" />
   <script type="importmap">
     {
       "imports": {
@@ -192,7 +192,6 @@
             <button type="button" data-view="reset" title="Reset view">Reset</button>
           </div>
           <div class="model-options" aria-label="Model display options">
-            <label><input type="checkbox" id="dimensionsToggle" checked /> Dimensions</label>
             <label><input type="checkbox" id="wireframeToggle" /> Technical edges</label>
           </div>
         </div>
@@ -237,6 +236,41 @@
     </section>
   </main>
 
+
+  <section class="roof-environment-panel" id="roofEnvironmentPanel" aria-labelledby="roofEnvironmentTitle" hidden>
+    <header class="roof-environment-header">
+      <h2 id="roofEnvironmentTitle">Light &amp; orientation</h2>
+      <button type="button" id="roofEnvironmentClose" aria-label="Close light and orientation menu">×</button>
+    </header>
+
+    <div class="roof-environment-control">
+      <div class="roof-environment-control__heading">
+        <label for="sunPositionControl">Sun position</label>
+        <output id="sunPositionValue" for="sunPositionControl">42%</output>
+      </div>
+      <input id="sunPositionControl" type="range" min="0" max="100" step="1" value="42" />
+      <div class="roof-environment-control__ends"><span>Morning</span><span>Evening</span></div>
+    </div>
+
+    <div class="roof-environment-control">
+      <div class="roof-environment-control__heading">
+        <label for="northDirectionControl">North direction</label>
+        <output id="northDirectionValue" for="northDirectionControl">108°</output>
+      </div>
+      <input id="northDirectionControl" type="range" min="0" max="360" step="1" value="108" />
+      <div class="roof-environment-control__ends"><span>0°</span><span>360°</span></div>
+    </div>
+
+    <label class="roof-night-preview" for="nightPreviewToggle">
+      <span class="roof-night-preview__icon" aria-hidden="true">◔</span>
+      <span class="roof-night-preview__copy">
+        <strong>Night preview</strong>
+        <small>Preview the configured lighting.</small>
+      </span>
+      <input id="nightPreviewToggle" type="checkbox" />
+      <span class="roof-switch" aria-hidden="true"></span>
+    </label>
+  </section>
 
   <dialog class="bom-panel" id="bomPanel" aria-labelledby="bomTitle">
     <header class="bom-header">
@@ -324,7 +358,7 @@
       panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
     })();
   </script>
-  <script type="module" src="./js/app.js?v=14"></script>
-  <script type="module" src="./js/sharedShell.js?v=4"></script>
+  <script type="module" src="./js/sharedShell.js?v=5"></script>
+  <script type="module" src="./js/app.js?v=15"></script>
 </body>
 </html>

@@ -18,7 +18,8 @@ A browser-based, real-time roof configurator built with Three.js primitives.
 - Roof pitch
 - Eaves overhang
 - Covering preset and colour
-- Dimension labels and technical edge overlay
+- Shared Tools menu with sun position, north direction, night preview, dimensions, compass, and camera cycling
+- Technical edge overlay
 - Perspective, front, and top camera views
 - Real-time proof-of-concept bill of materials and price estimate
 - CSV export for the generated BOM
@@ -41,12 +42,14 @@ This is a visual and commercial proof of concept, not a construction quotation. 
 
 This project uses ES modules and loads a pinned Three.js build from jsDelivr, so serve the folder through a local HTTP server instead of opening `index.html` directly. An internet connection is required unless the Three.js files are downloaded locally later.
 
+The configurator imports the sibling `shared-ui` folder, so start the server from the repository root:
+
 ```bash
-cd roof-configurator
+cd path/to/repository-root
 python -m http.server 8080 --bind 127.0.0.1
 ```
 
-Open `http://127.0.0.1:8080/`.
+Open `http://127.0.0.1:8080/roof-configurator/`.
 
 ## File structure
 
@@ -60,6 +63,7 @@ roof-configurator/
 │   ├── dimensions.js
 │   ├── roofFactory.js
 │   ├── scene.js
+│   ├── sharedShell.js
 │   ├── state.js
 │   └── ui.js
 ```
