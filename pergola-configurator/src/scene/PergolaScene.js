@@ -204,18 +204,18 @@ export class PergolaScene {
 
     this.treeGroups = [];
     [
-      [-6.5, -3.6, 0.9, 40],
-      [7.2, -4.2, 1.2, 80],
-      [-7.8, 3.8, 0.7, 0],
-    ].forEach(([x, z, scale, rotationDeg]) => {
+      [-6.3, -0.9, 0.9, 40],
+      [6.5, -1.3, 1.2, 80],
+      [-4.8, -4.1, 0.7, 0],
+    ].forEach(([houseX, houseZ, scale, rotationDeg]) => {
       const tree = fitAssetToBox(
         this.assets.clone('tree') ?? this.makeTreeFallback(),
         new THREE.Vector3(2.7 * scale, 4.7 * scale, 2.7 * scale),
         { alignY: 'bottom' },
       );
-      tree.position.set(x, 0, z);
-      tree.rotation.y = THREE.MathUtils.degToRad(rotationDeg);
       tree.userData.environmentTree = true;
+      tree.userData.houseOffset = new THREE.Vector3(houseX, 0, houseZ);
+      tree.userData.houseRotationOffset = THREE.MathUtils.degToRad(rotationDeg);
       this.environmentGroup.add(tree);
       this.treeGroups.push(tree);
     });
@@ -487,6 +487,7 @@ export class PergolaScene {
     }
 
     this.updateHousePlacement();
+    this.updateTreePlacement();
     if (this.houseGroup) this.houseGroup.visible = season !== 'studio';
     this.treeGroups.forEach((tree) => {
       tree.visible = season !== 'studio';
@@ -521,6 +522,29 @@ export class PergolaScene {
       this.houseGroup.rotation.y = -Math.PI / 2;
       this.houseGroup.position.set(width / 2 + houseHalfDepth + gap, 0, 0);
     }
+  }
+
+
+  updateTreePlacement() {
+    if (!this.houseGroup || !this.treeGroups?.length) return;
+
+    const houseRotation = this.houseGroup.rotation.y;
+    const cos = Math.cos(houseRotation);
+    const sin = Math.sin(houseRotation);
+
+    this.treeGroups.forEach((tree) => {
+      const offset = tree.userData.houseOffset;
+      if (!offset) return;
+
+      const rotatedX = offset.x * cos + offset.z * sin;
+      const rotatedZ = -offset.x * sin + offset.z * cos;
+      tree.position.set(
+        this.houseGroup.position.x + rotatedX,
+        0,
+        this.houseGroup.position.z + rotatedZ,
+      );
+      tree.rotation.y = houseRotation + (tree.userData.houseRotationOffset ?? 0);
+    });
   }
 
   setCameraPreset(preset) {
