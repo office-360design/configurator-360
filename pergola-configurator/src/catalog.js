@@ -219,13 +219,6 @@ export const HEATER_SIDES = [
   { value: 'right', label: 'Right' },
 ];
 
-export const SUPPORT_POLES = [
-  { value: 'frontLeft', label: 'Front left' },
-  { value: 'frontRight', label: 'Front right' },
-  { value: 'backLeft', label: 'Back left' },
-  { value: 'backRight', label: 'Back right' },
-];
-
 export const POLE_FACES = [
   { value: 'front', label: 'Front face' },
   { value: 'right', label: 'Right face' },

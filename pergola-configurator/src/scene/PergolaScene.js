@@ -171,18 +171,19 @@ export class PergolaScene {
     this.environmentGroup.add(ground);
 
     const deckMaterial = makeMaterial('#aa9477', { roughness: 0.82 });
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.12, 7.4), deckMaterial);
-    deck.position.set(0, -0.01, 0);
-    deck.receiveShadow = true;
-    deck.castShadow = true;
-    this.environmentGroup.add(deck);
+    this.deckPlatform = new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), deckMaterial);
+    this.deckPlatform.position.set(0, -0.01, 0);
+    this.deckPlatform.receiveShadow = true;
+    this.deckPlatform.castShadow = true;
+    this.deckPlatform.name = 'environment-platform';
+    this.environmentGroup.add(this.deckPlatform);
 
-    const plankMaterial = makeMaterial('#c1ad90', { roughness: 0.88 });
-    for (let index = 0; index < 24; index += 1) {
-      const plank = new THREE.Mesh(new THREE.BoxGeometry(9.25, 0.008, 0.008), plankMaterial);
-      plank.position.set(0, 0.055, -3.55 + index * 0.305);
-      this.environmentGroup.add(plank);
-    }
+    this.deckPlankMaterial = makeMaterial('#c1ad90', { roughness: 0.88 });
+    this.deckPlankGroup = new THREE.Group();
+    this.deckPlankGroup.name = 'environment-platform-planks';
+    this.environmentGroup.add(this.deckPlankGroup);
+    this.platformSizeSignature = '';
+    this.updatePlatformSize();
 
     this.houseGroup = fitAssetToBox(
       this.assets.clone('house') ?? this.makeHouseFallback(),
@@ -203,18 +204,18 @@ export class PergolaScene {
 
     this.treeGroups = [];
     [
-      [-6.5, -3.6, 0.9, 40],
-      [7.2, -4.2, 1.2, 80],
-      [-7.8, 3.8, 0.7, 0],
-    ].forEach(([x, z, scale, rotationDeg]) => {
+      [-6.3, -0.9, 0.9, 40],
+      [6.5, -1.3, 1.2, 80],
+      [-4.8, -4.1, 0.7, 0],
+    ].forEach(([houseX, houseZ, scale, rotationDeg]) => {
       const tree = fitAssetToBox(
         this.assets.clone('tree') ?? this.makeTreeFallback(),
         new THREE.Vector3(2.7 * scale, 4.7 * scale, 2.7 * scale),
         { alignY: 'bottom' },
       );
-      tree.position.set(x, 0, z);
-      tree.rotation.y = THREE.MathUtils.degToRad(rotationDeg);
       tree.userData.environmentTree = true;
+      tree.userData.houseOffset = new THREE.Vector3(houseX, 0, houseZ);
+      tree.userData.houseRotationOffset = THREE.MathUtils.degToRad(rotationDeg);
       this.environmentGroup.add(tree);
       this.treeGroups.push(tree);
     });
@@ -319,7 +320,7 @@ export class PergolaScene {
       roof: state.roof,
       automation: state.automation,
       poleMounts: state.poleMounts,
-      sides: state.sides,
+      sideSegments: state.sideSegments,
       accessories: state.accessories,
       units: state.units,
     });
@@ -420,7 +421,33 @@ export class PergolaScene {
     return `${Math.round(mm)} mm`;
   }
 
+  updatePlatformSize() {
+    if (!this.deckPlatform || !this.deckPlankGroup) return;
+    const platformWidth = this.state.dimensions.width / 1000 + 2;
+    const platformDepth = this.state.dimensions.depth / 1000 + 2;
+    const signature = `${platformWidth.toFixed(3)}x${platformDepth.toFixed(3)}`;
+    if (signature === this.platformSizeSignature) return;
+
+    this.deckPlatform.scale.set(platformWidth, 1, platformDepth);
+
+    this.deckPlankGroup.children.forEach((child) => child.geometry?.dispose?.());
+    this.deckPlankGroup.clear();
+    const inset = 0.14;
+    const usableDepth = Math.max(0.1, platformDepth - inset * 2);
+    const plankCount = Math.max(2, Math.ceil(usableDepth / 0.305) + 1);
+    const spacing = usableDepth / (plankCount - 1);
+    const plankWidth = Math.max(0.1, platformWidth - inset * 2);
+    for (let index = 0; index < plankCount; index += 1) {
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(plankWidth, 0.008, 0.008), this.deckPlankMaterial);
+      plank.position.set(0, 0.055, -usableDepth / 2 + index * spacing);
+      this.deckPlankGroup.add(plank);
+    }
+
+    this.platformSizeSignature = signature;
+  }
+
   updateEnvironment() {
+    this.updatePlatformSize();
     const { sunPosition, northDirection, night, season } = this.state.environment;
     const progress = THREE.MathUtils.clamp(sunPosition, 0, 1);
     const azimuth = THREE.MathUtils.degToRad(-110 + progress * 220 + northDirection);
@@ -460,6 +487,7 @@ export class PergolaScene {
     }
 
     this.updateHousePlacement();
+    this.updateTreePlacement();
     if (this.houseGroup) this.houseGroup.visible = season !== 'studio';
     this.treeGroups.forEach((tree) => {
       tree.visible = season !== 'studio';
@@ -494,6 +522,29 @@ export class PergolaScene {
       this.houseGroup.rotation.y = -Math.PI / 2;
       this.houseGroup.position.set(width / 2 + houseHalfDepth + gap, 0, 0);
     }
+  }
+
+
+  updateTreePlacement() {
+    if (!this.houseGroup || !this.treeGroups?.length) return;
+
+    const houseRotation = this.houseGroup.rotation.y;
+    const cos = Math.cos(houseRotation);
+    const sin = Math.sin(houseRotation);
+
+    this.treeGroups.forEach((tree) => {
+      const offset = tree.userData.houseOffset;
+      if (!offset) return;
+
+      const rotatedX = offset.x * cos + offset.z * sin;
+      const rotatedZ = -offset.x * sin + offset.z * cos;
+      tree.position.set(
+        this.houseGroup.position.x + rotatedX,
+        0,
+        this.houseGroup.position.z + rotatedZ,
+      );
+      tree.rotation.y = houseRotation + (tree.userData.houseRotationOffset ?? 0);
+    });
   }
 
   setCameraPreset(preset) {

@@ -22,7 +22,7 @@ export const SHARED_TOOL_DEFINITIONS = Object.freeze({
   environment: freezeTool({
     id: 'environment',
     action: 'toggle-environment',
-    label: 'Sun and orientation',
+    label: 'Light & orientation',
     icon: '☀',
     defaults: { panelPlacement: 'near-launcher' },
   }),

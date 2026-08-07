@@ -1,3 +1,5 @@
+import { buildPoleGrid } from './layout.js';
+
 const CURRENCY_PROFILES = Object.freeze({
   USD: {
     locale: 'en-US',
@@ -48,19 +50,16 @@ export function formatMoney(value, currency = 'USD', locale = null) {
   }).format(Math.round(converted));
 }
 
-function sideLengthMeters(side, dimensions) {
-  return (side === 'front' || side === 'back')
-    ? dimensions.width / 1000
-    : dimensions.depth / 1000;
-}
-
 function countSelected(record = {}) {
   return Object.values(record).filter(Boolean).length;
 }
 
 function countPoleMounts(poleMounts = {}, type) {
   return Object.values(poleMounts).reduce(
-    (total, pole) => total + Object.values(pole ?? {}).filter((mount) => mount?.type === type).length,
+    (poleTotal, pole) => poleTotal + Object.values(pole ?? {}).reduce(
+      (faceTotal, face) => faceTotal + (face?.[type] ? 1 : 0),
+      0,
+    ),
     0,
   );
 }
@@ -101,13 +100,19 @@ export function calculatePrice(state) {
     },
   ];
 
-  Object.entries(state.sides).forEach(([side, config]) => {
+  const grid = buildPoleGrid(state.dimensions);
+  grid.segments.forEach((segment) => {
+    const config = state.sideSegments?.[segment.id];
+    if (!config) return;
     const rate = sideRates[config.type] ?? 0;
-    const value = rate * sideLengthMeters(side, state.dimensions);
+    const value = rate * (segment.lengthMm / 1000);
     if (value > 0) {
+      const position = segment.boundary
+        ? `${capitalize(segment.boundary)} segment`
+        : segment.axis === 'horizontal' ? 'Interior horizontal segment' : 'Interior vertical segment';
       lines.push({
-        key: `side-${side}`,
-        label: `${capitalize(side)}: ${sideLabel(config.type)}`,
+        key: `side-${segment.id}`,
+        label: `${position}: ${sideLabel(config.type)}`,
         value,
       });
     }

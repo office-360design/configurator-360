@@ -1,6 +1,17 @@
 import { STEPS } from '../catalog.js';
 import { calculatePrice, formatMoney } from '../pricing.js';
-import { createPoleMount, findPoleMount, poleIsAvailable } from '../state.js';
+import {
+  createPoleMount,
+  findPoleMount,
+  getPoleGrid,
+  getPoleMountConflictMap,
+  getSideSegmentConfig,
+  hasLayoutCustomizations,
+  hasPoleMountConflicts,
+  normalizeDimensionInput,
+  poleIsAvailable,
+  segmentIsAvailable,
+} from '../state.js';
 import {
   LANGUAGE_PROFILES,
   escapeHtml,
@@ -26,8 +37,8 @@ export class ConfiguratorUI {
     this.store = store;
     this.state = store.get();
     this.scene = null;
-    this.activeSide = 'front';
-    this.activePole = 'frontLeft';
+    this.activeSideSegment = null;
+    this.activePole = null;
     this.activePoleFace = 'front';
     this.environmentOpen = false;
     this.toolsOpen = false;
@@ -38,6 +49,7 @@ export class ConfiguratorUI {
     this.accountMenuOpen = false;
     this.accountSettingsOpen = false;
     this.languageMenuOpen = false;
+    this.pendingDimensionChange = null;
 
     const projectMeta = this.readProjectMeta();
     this.projectName = projectMeta.name || this.getNextDefaultProjectName();
@@ -246,9 +258,18 @@ export class ConfiguratorUI {
 
   onStateChange(state, meta = {}) {
     this.state = state;
+    if (meta.dimensionsReset) {
+      this.activePole = null;
+      this.activePoleFace = 'front';
+      this.activeSideSegment = null;
+    }
+    const grid = getPoleGrid(state);
+    if (this.activePole && !grid.poles.some((pole) => pole.id === this.activePole)) this.activePole = null;
+    if (this.activeSideSegment && !grid.segments.some((segment) => segment.id === this.activeSideSegment)) this.activeSideSegment = null;
     this.projectDirty = this.computeProjectDirty();
     if (meta.continuous) {
       this.syncContinuousValues();
+      this.syncPoleConflictState();
       this.syncTopBar();
       return;
     }
@@ -331,17 +352,19 @@ export class ConfiguratorUI {
     } else if (action === 'go-step') {
       this.store.update('step', Number(actionTarget.dataset.step));
     } else if (action === 'dimension-preset') {
-      this.store.patch({ dimensions: {
-        ...this.state.dimensions,
+      this.requestDimensionChange({
         width: Number(actionTarget.dataset.width),
         depth: Number(actionTarget.dataset.depth),
-      } });
+      }, 'dimension-preset');
     } else if (action === 'toggle-service') {
       const key = actionTarget.dataset.service;
       this.store.update(`services.${key}`, !this.state.services[key]);
-    } else if (action === 'select-side') {
-      this.activeSide = actionTarget.dataset.side;
-      this.render();
+    } else if (action === 'select-side-segment') {
+      const segmentId = actionTarget.dataset.segment;
+      if (segmentIsAvailable(this.state, segmentId)) {
+        this.activeSideSegment = this.activeSideSegment === segmentId ? null : segmentId;
+        this.render();
+      }
     } else if (action === 'counter') {
       const key = actionTarget.dataset.key;
       const delta = Number(actionTarget.dataset.delta);
@@ -372,24 +395,38 @@ export class ConfiguratorUI {
     } else if (action === 'select-pole') {
       const pole = actionTarget.dataset.pole;
       if (poleIsAvailable(this.state, pole)) {
-        this.activePole = pole;
+        this.activePole = this.activePole === pole ? null : pole;
+        if (this.activePole) this.activePoleFace = 'front';
         this.render();
       }
     } else if (action === 'select-pole-face') {
       this.activePoleFace = actionTarget.dataset.face;
       this.render();
-    } else if (action === 'set-pole-mount') {
+    } else if (action === 'add-pole-mount') {
       const type = actionTarget.dataset.mountType;
-      const path = `poleMounts.${this.activePole}.${this.activePoleFace}`;
-      const current = this.state.poleMounts[this.activePole]?.[this.activePoleFace] ?? null;
-      const value = type === 'none'
-        ? null
-        : createPoleMount(type, {
-          height: current?.type === type ? current.height : undefined,
-          outletType: current?.type === 'outlet' ? current.outletType : 'eu',
+      const path = `poleMounts.${this.activePole}.${this.activePoleFace}.${type}`;
+      const current = this.state.poleMounts[this.activePole]?.[this.activePoleFace]?.[type] ?? null;
+      let value = null;
+
+      if (!current) {
+        const existing = type === 'hand-crank' ? findPoleMount(this.state, 'hand-crank')?.mount : null;
+        value = createPoleMount(type, {
+          height: existing?.height,
+          outletType: type === 'outlet' ? 'eu' : undefined,
         });
+      }
+
       const updated = this.store.update(path, value);
-      if (updated === false) this.showToast(this.store.getLastError?.() || 'That component cannot be placed there.');
+      if (updated === false) {
+        this.showToast(this.store.getLastError?.() || (current
+          ? 'That component cannot be removed.'
+          : 'That component cannot be placed there.'));
+      }
+    } else if (action === 'remove-pole-mount') {
+      const type = actionTarget.dataset.mountType;
+      const path = `poleMounts.${this.activePole}.${this.activePoleFace}.${type}`;
+      const updated = this.store.update(path, null);
+      if (updated === false) this.showToast(this.store.getLastError?.() || 'That component cannot be removed.');
     } else if (action === 'toggle-step-section') {
       const stepId = actionTarget.dataset.stepId;
       this.expandedStep = this.expandedStep === stepId ? null : stepId;
@@ -435,8 +472,16 @@ export class ConfiguratorUI {
       window.print();
     } else if (action === 'focus-quote') {
       this.root.querySelector('[data-quote-form]')?.scrollIntoView({ behavior: 'smooth' });
-    } else if (action === 'close-modal') {
+    } else if (action === 'confirm-dimension-change') {
+      const pending = this.pendingDimensionChange;
+      this.pendingDimensionChange = null;
       this.modalRoot.innerHTML = '';
+      if (pending) this.store.setDimensions(pending.dimensions, { path: pending.path ?? 'dimensions' });
+    } else if (action === 'cancel-dimension-change' || action === 'close-modal') {
+      const wasPendingDimensionChange = Boolean(this.pendingDimensionChange);
+      this.pendingDimensionChange = null;
+      this.modalRoot.innerHTML = '';
+      if (wasPendingDimensionChange) this.render();
     } else if (action === 'login') {
       this.showModal('Demo login', '<p>Authentication is not connected in this frontend-only implementation.</p>');
     }
@@ -497,11 +542,56 @@ export class ConfiguratorUI {
     let value = input.type === 'checkbox' ? input.checked : input.value;
     if (input.dataset.valueType === 'number') value = Number(value);
     if (input.dataset.dimensionUnit === 'inches') value = Math.round(value * 25.4);
+
+    const dimensionMatch = input.dataset.path.match(/^dimensions\.(width|depth|height)$/);
+    if (dimensionMatch) {
+      const key = dimensionMatch[1];
+      this.requestDimensionChange({ [key]: normalizeDimensionInput(key, value) }, input.dataset.path);
+      return;
+    }
+
     const updated = this.store.update(input.dataset.path, value, { continuous });
     if (updated === false) {
       input.value = this.valueAtPath(input.dataset.path) ?? input.value;
       this.showToast(this.store.getLastError?.() || 'That position overlaps another component.');
     }
+  }
+
+  requestDimensionChange(partial, path = 'dimensions') {
+    const dimensions = { ...this.state.dimensions };
+    Object.entries(partial).forEach(([key, value]) => {
+      dimensions[key] = normalizeDimensionInput(key, value);
+    });
+    const changed = ['width', 'depth', 'height'].some((key) => dimensions[key] !== this.state.dimensions[key]);
+    if (!changed) {
+      this.render();
+      return;
+    }
+
+    if (hasLayoutCustomizations(this.state)) {
+      this.pendingDimensionChange = { dimensions, path };
+      this.showDimensionChangeWarning();
+      return;
+    }
+    this.store.setDimensions(dimensions, { path });
+  }
+
+  showDimensionChangeWarning() {
+    this.modalRoot.innerHTML = `
+      <div class="modal-backdrop" role="presentation">
+        <section class="modal dimension-warning-modal" role="dialog" aria-modal="true" aria-labelledby="dimension-warning-title">
+          <header><h2 id="dimension-warning-title">Change pergola size?</h2><button type="button" data-action="cancel-dimension-change" aria-label="Cancel">×</button></header>
+          <div class="modal__body">
+            <p><strong>All pole accessories will be removed and all side closings will disappear.</strong></p>
+            <p>This prevents accessories or walls from being left attached to poles that no longer exist.</p>
+          </div>
+          <footer class="dimension-warning-modal__actions">
+            <button class="secondary-button" type="button" data-action="cancel-dimension-change">Cancel</button>
+            <button class="primary-button" type="button" data-action="confirm-dimension-change">Change size</button>
+          </footer>
+        </section>
+      </div>
+    `;
   }
 
   valueAtPath(path) {
@@ -529,21 +619,47 @@ export class ConfiguratorUI {
 
   syncContinuousValues() {
     const sun = this.environmentPanel.querySelector('[data-sun-output]');
-    const tilt = this.environmentPanel.querySelector('[data-tilt-output]');
+    const tilt = this.root.querySelector('[data-tilt-output]');
     const north = this.environmentPanel.querySelector('[data-north-output]');
     const screen = this.stepContent.querySelector('[data-screen-openness-label]');
     if (sun) sun.textContent = `${Math.round(this.state.environment.sunPosition * 100)}%`;
     if (tilt) tilt.textContent = `${Math.round(this.state.roof.louverTilt)}°`;
     if (north) north.textContent = `${Math.round(this.state.environment.northDirection)}°`;
-    if (screen) {
-      const config = this.state.sides[this.activeSide];
+    if (screen && this.activeSideSegment) {
+      const config = getSideSegmentConfig(this.state, this.activeSideSegment);
       const openness = config.screenSettings?.[config.type]?.openness ?? 50;
       screen.textContent = `${Math.round(openness)}% open`;
     }
     this.stepContent.querySelectorAll('[data-pole-mount-height-output]').forEach((output) => {
-      const [pole, face] = output.dataset.poleMountHeightOutput.split('.');
-      output.textContent = `${this.state.poleMounts[pole]?.[face]?.height ?? 0}%`;
+      const [pole, face, type] = output.dataset.poleMountHeightOutput.split('.');
+      output.textContent = `${this.state.poleMounts[pole]?.[face]?.[type]?.height ?? 0}%`;
     });
+  }
+
+
+  syncPoleConflictState() {
+    const conflicts = getPoleMountConflictMap(this.state);
+    const currentFaceConflict = conflicts[this.activePole]?.[this.activePoleFace] ?? null;
+    const currentTypes = new Set(currentFaceConflict?.types ?? []);
+
+    this.stepContent.querySelectorAll('[data-action="select-pole"][data-pole]').forEach((button) => {
+      button.classList.toggle('is-invalid', Boolean(conflicts[button.dataset.pole]));
+    });
+    this.stepContent.querySelectorAll('[data-action="select-pole-face"][data-face]').forEach((button) => {
+      button.classList.toggle('is-invalid', Boolean(conflicts[this.activePole]?.[button.dataset.face]));
+    });
+    this.stepContent.querySelector('.pole-mount-editor')?.classList.toggle('is-invalid', Boolean(currentFaceConflict));
+    this.stepContent.querySelector('[data-pole-overlap-warning]')?.toggleAttribute('hidden', !currentFaceConflict);
+    this.stepContent.querySelector('.accessory-summary-line')?.classList.toggle('is-invalid', hasPoleMountConflicts(this.state));
+
+    this.stepContent.querySelectorAll('[data-action="add-pole-mount"][data-mount-type]').forEach((button) => {
+      button.classList.toggle('is-invalid', currentTypes.has(button.dataset.mountType));
+    });
+    this.stepContent.querySelectorAll('[data-pole-mount-card]').forEach((card) => {
+      const [pole, face, type] = card.dataset.poleMountCard.split('.');
+      card.classList.toggle('is-invalid', Boolean(conflicts[pole]?.[face]?.types?.includes(type)));
+    });
+    this.sidebarFooter.querySelector('[data-step-id="summary"]')?.classList.toggle('is-invalid', hasPoleMountConflicts(this.state));
   }
 
   syncToolbar() {
@@ -561,6 +677,7 @@ export class ConfiguratorUI {
   toggleAccountMenu() {
     this.accountMenuOpen = !this.accountMenuOpen;
     this.languageMenuOpen = false;
+    this.pendingDimensionChange = null;
     this.syncAccountMenu();
     this.syncLanguageMenu();
   }
@@ -576,6 +693,7 @@ export class ConfiguratorUI {
   closeHeaderMenus() {
     this.accountMenuOpen = false;
     this.languageMenuOpen = false;
+    this.pendingDimensionChange = null;
     this.syncAccountMenu();
     this.syncLanguageMenu();
   }
@@ -709,8 +827,8 @@ export class ConfiguratorUI {
 
   showModal(title, body) {
     this.modalRoot.innerHTML = `
-      <div class="modal-backdrop" role="presentation" data-action="close-modal">
-        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick="event.stopPropagation()">
+      <div class="modal-backdrop" role="presentation">
+        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
           <header><h2 id="modal-title">${escapeHtml(title)}</h2><button type="button" data-action="close-modal" aria-label="Close">×</button></header>
           <div class="modal__body">${body}</div>
           <footer><button class="primary-button" type="button" data-action="close-modal">Close</button></footer>
