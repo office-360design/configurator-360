@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Real-time residential solar roof configurator with energy simulation" />
+  <title>SolarLab - 3D Solar Configurator</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
+  <link rel="stylesheet" href="./styles.css?v=1" />
+  <link rel="stylesheet" href="./shared-shell.css?v=1" />
+  <link rel="stylesheet" href="./solar.css?v=2" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="sidebar shared-settings-panel shared-settings-panel--light" aria-label="Solar configuration controls">
+      <header class="brand-row">
+        <div class="brand-mark solar-brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div>
+          <div class="brand-name">SolarLab</div>
+          <div class="brand-subtitle">Residential PV studio</div>
+        </div>
+        <div class="live-pill"><i></i> Live</div>
+      </header>
+
+      <section class="panel-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">Step 1</p><h1>Roof</h1></div>
+          <span class="section-number">01</span>
+        </div>
+        <div class="roof-type-grid solar-roof-type-grid" id="roofTypeGrid">
+          <button class="roof-card" type="button" data-roof-type="gable" aria-pressed="true">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M8 38 40 12l32 26"/><path d="M15 36v10h50V36"/><path class="accent" d="M8 38 40 12l32 26"/></svg>
+            <span>2 slopes</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="hip" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M8 37 26 14h28l18 23"/><path d="m8 37 32-9 32 9"/><path d="M18 36v10h44V36"/><path class="accent" d="M8 37 26 14h28l18 23"/></svg>
+            <span>4 slopes</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="shed" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M10 33 68 14"/><path d="M16 31v15h48V16"/><path class="accent" d="M10 33 68 14"/></svg>
+            <span>1 slope</span>
+          </button>
+        </div>
+
+        <div class="control-list solar-compact-controls">
+          <label class="range-control" data-control="length">
+            <span class="control-label"><b>Roof length</b><output>10.0 m</output></span>
+            <span class="range-row"><input type="range" min="5" max="20" step="0.1" value="10" /><input class="number-input" type="number" min="5" max="20" step="0.1" value="10" /></span>
+          </label>
+          <label class="range-control" data-control="depth">
+            <span class="control-label"><b>Roof depth</b><output>7.0 m</output></span>
+            <span class="range-row"><input type="range" min="4" max="14" step="0.1" value="7" /><input class="number-input" type="number" min="4" max="14" step="0.1" value="7" /></span>
+          </label>
+          <label class="range-control" data-control="pitch">
+            <span class="control-label"><b>Roof pitch</b><output>30°</output></span>
+            <span class="range-row"><input type="range" min="5" max="55" step="1" value="30" /><input class="number-input" type="number" min="5" max="55" step="1" value="30" /></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-heading compact">
+          <div><p class="eyebrow">Step 2</p><h2>PV array</h2></div>
+          <span class="section-number">02</span>
+        </div>
+
+        <label class="select-label" for="modulePresetSelect">Solar module</label>
+        <select id="modulePresetSelect">
+          <option value="standard475">Residential N-type · 475 W</option>
+          <option value="compact450">Residential N-type · 450 W</option>
+          <option value="premium490">High-efficiency · 490 W</option>
+        </select>
+        <div class="module-reference" id="moduleReference"></div>
+
+        <div class="solar-two-column-controls">
+          <label class="solar-number-control">
+            <span><b>Total requested panels</b><small>1–80</small></span>
+            <div><input id="panelCountRange" type="range" min="1" max="80" step="1" value="12" /><input id="panelCountInput" class="number-input" type="number" min="1" max="80" step="1" value="12" /></div>
+          </label>
+          <label class="solar-number-control">
+            <span><b>Columns</b><small id="layoutReadout">4 × 3 target grid</small></span>
+            <div><input id="panelColumnsRange" type="range" min="1" max="10" step="1" value="4" /><input id="panelColumnsInput" class="number-input" type="number" min="1" max="10" step="1" value="4" /></div>
+          </label>
+        </div>
+
+        <div class="solar-option-heading">Quick array layout · per roof plane</div>
+        <div class="segmented-options four-up solar-layout-presets">
+          <button type="button" data-layout-preset="2x3" aria-pressed="false">2 × 3</button>
+          <button type="button" data-layout-preset="3x3" aria-pressed="false">3 × 3</button>
+          <button type="button" data-layout-preset="4x3" aria-pressed="true">4 × 3</button>
+          <button type="button" data-layout-preset="5x5" aria-pressed="false">5 × 5</button>
+        </div>
+
+        <div class="solar-option-heading">Module orientation</div>
+        <div class="segmented-options two-up">
+          <button type="button" data-module-orientation="portrait" aria-pressed="true">Portrait</button>
+          <button type="button" data-module-orientation="landscape" aria-pressed="false">Landscape</button>
+        </div>
+
+        <div class="solar-option-heading">Roof plane</div>
+        <div class="segmented-options four-up">
+          <button type="button" data-roof-side="best" aria-pressed="true">Auto best</button>
+          <button type="button" data-roof-side="front" aria-pressed="false">Front</button>
+          <button type="button" data-roof-side="back" aria-pressed="false">Back</button>
+          <button type="button" data-roof-side="both" aria-pressed="false">Both</button>
+        </div>
+        <p class="inline-warning" id="panelFitWarning" hidden></p>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-heading compact">
+          <div><p class="eyebrow">Step 3</p><h2>Energy & location</h2></div>
+          <span class="section-number">03</span>
+        </div>
+
+        <div class="solar-option-heading">Grid connection</div>
+        <div class="segmented-options two-up">
+          <button type="button" data-grid-connection="single" aria-pressed="true">Single-phase</button>
+          <button type="button" data-grid-connection="three" aria-pressed="false">Three-phase</button>
+        </div>
+
+        <div class="solar-input-grid">
+          <label><span>Monthly bill (RON)</span><input id="monthlyBillInput" type="number" min="0" step="10" value="400" /></label>
+          <label><span>Energy tariff (RON/kWh)</span><input id="energyTariffInput" type="number" min="0.05" step="0.01" value="1.3" /></label>
+        </div>
+
+        <div class="solar-option-heading">Region</div>
+        <div class="region-grid">
+          <button type="button" data-region="dobrogea" aria-pressed="false"><b>South / Dobrogea</b><small>Constanța</small></button>
+          <button type="button" data-region="muntenia" aria-pressed="true"><b>Muntenia / Oltenia</b><small>Bucharest</small></button>
+          <button type="button" data-region="moldova" aria-pressed="false"><b>Moldova</b><small>Iași</small></button>
+          <button type="button" data-region="transylvania" aria-pressed="false"><b>Transylvania / Banat</b><small>Cluj</small></button>
+          <button type="button" data-region="northwest" aria-pressed="false"><b>North-West / Mountain</b><small>Oradea</small></button>
+        </div>
+        <div class="region-status-row"><span id="regionDetail">Bucharest reference</span><strong id="productionSourceBadge">PVGIS-calibrated model</strong></div>
+
+        <div class="solar-option-heading">Daytime consumption profile</div>
+        <div class="consumption-grid">
+          <button type="button" data-consumption-profile="away" aria-pressed="false"><b>Away all day</b><small>Most usage morning/evening</small></button>
+          <button type="button" data-consumption-profile="partial" aria-pressed="true"><b>Partly home</b><small>Balanced residential profile</small></button>
+          <button type="button" data-consumption-profile="always" aria-pressed="false"><b>Someone home</b><small>Steadier daytime load</small></button>
+          <button type="button" data-consumption-profile="optimized" aria-pressed="false"><b>Solar optimized</b><small>Shift EV / appliances to daytime</small></button>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-heading compact">
+          <div><p class="eyebrow">Step 4</p><h2>Storage</h2></div>
+          <span class="section-number">04</span>
+        </div>
+        <label class="solar-switch-row">
+          <span><b>Add LiFePO₄ battery</b><small>Store surplus for evening and night usage</small></span>
+          <input id="batteryEnabledToggle" type="checkbox" checked />
+          <i aria-hidden="true"></i>
+        </label>
+        <label class="solar-switch-row secondary">
+          <span><b>Auto-size battery</b><small>Uses PV power and estimated daily consumption</small></span>
+          <input id="batteryAutoToggle" type="checkbox" checked />
+          <i aria-hidden="true"></i>
+        </label>
+        <div id="batteryManualControls" hidden>
+          <label class="solar-number-control">
+            <span><b>Battery capacity</b><small>kWh</small></span>
+            <div><input id="batteryCapacityRange" type="range" min="2" max="20" step="1" value="5" /><input id="batteryCapacityInput" class="number-input" type="number" min="2" max="20" step="1" value="5" /></div>
+          </label>
+        </div>
+
+        <details class="advanced-pricing">
+          <summary>Advanced estimate assumptions</summary>
+          <div class="solar-input-grid">
+            <label><span>Mounting / panel</span><input id="mountingPriceInput" type="number" min="0" step="10" /></label>
+            <label><span>Install / kWp</span><input id="installationPriceInput" type="number" min="0" step="50" /></label>
+            <label><span>Design & paperwork</span><input id="paperworkPriceInput" type="number" min="0" step="100" /></label>
+            <label><span>Battery / kWh</span><input id="batteryPriceInput" type="number" min="0" step="50" /></label>
+            <label><span>VAT rate (%)</span><input id="vatRateInput" type="number" min="0" max="50" step="1" value="21" /></label>
+          </div>
+        </details>
+      </section>
+    </aside>
+
+    <button id="solarSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide solar settings" aria-expanded="true" title="Hide solar settings">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+
+    <section class="viewer-panel">
+      <header class="viewer-header">
+        <div class="viewer-actions-wrap">
+          <button type="button" class="estimate-button" id="estimateOpenButton" aria-controls="estimatePanel" aria-haspopup="dialog">
+            <span>System estimate</span><strong id="headerEstimateTotal">—</strong>
+          </button>
+          <div class="view-actions" aria-label="Camera controls">
+            <button type="button" data-view="perspective" class="active">3D</button>
+            <button type="button" data-view="front">Front</button>
+            <button type="button" data-view="top">Top</button>
+            <button type="button" data-view="reset" title="Reset view">Reset</button>
+          </div>
+          <div class="model-options" aria-label="Model display options"><label><input type="checkbox" id="wireframeToggle" /> Technical edges</label></div>
+        </div>
+        <div class="viewer-title-block"><p class="eyebrow">Real-time model</p><h2 id="viewerTitle">Two-slope solar roof</h2></div>
+        <div class="viewer-header-spacer" aria-hidden="true"></div>
+      </header>
+
+      <div class="viewer-stage" id="viewerStage">
+        <div class="roof-tools-anchor" id="solarToolsAnchor" aria-label="Tools control"></div>
+        <div id="canvasHost" aria-label="Interactive 3D solar roof model"></div>
+        <div class="stage-hint">Drag to orbit · Scroll to zoom · Tools for sun, compass & day simulation</div>
+        <aside class="solar-live-card" aria-label="Live solar simulation">
+          <div class="solar-live-card__head"><span>Simulation time</span><strong id="simulationTimeReadout">12:00</strong></div>
+          <div class="solar-live-card__grid">
+            <div><span>PV output</span><strong id="instantProduction">—</strong></div>
+            <div><span>House load</span><strong id="instantConsumption">—</strong></div>
+            <div><span>Battery</span><strong id="instantBattery">—</strong></div>
+          </div>
+        </aside>
+      </div>
+
+      <section class="solar-simulation-panel" aria-label="Day energy simulation">
+        <header>
+          <div><p class="eyebrow">24-hour energy flow</p><h3>Production vs. consumption</h3></div>
+          <button id="simulationPlayButton" type="button">Run day simulation</button>
+        </header>
+        <div class="simulation-summary-grid">
+          <article><span>PV generation</span><strong id="energyProductionReadout">—</strong></article>
+          <article><span>Home consumption</span><strong id="energyConsumptionReadout">—</strong></article>
+          <article><span>Self-sufficiency</span><strong id="selfSufficiencyReadout">—</strong></article>
+          <article><span>Grid import</span><strong id="gridImportReadout">—</strong></article>
+          <article><span>Grid export</span><strong id="gridExportReadout">—</strong></article>
+          <article><span>Storage</span><strong id="batteryCapacityReadout">—</strong></article>
+        </div>
+        <div class="simulation-chart-wrap">
+          <svg id="simulationChart" viewBox="0 0 720 230" role="img" aria-label="Hourly solar production, household consumption, and battery state of charge"></svg>
+          <div class="chart-legend"><span class="legend-production">PV production</span><span class="legend-consumption">Consumption</span><span class="legend-battery">Battery SOC</span></div>
+        </div>
+      </section>
+
+      <footer class="metrics-bar solar-metrics-bar">
+        <article><span>Installed power</span><strong id="metricSystemSize">5.70 kWp</strong></article>
+        <article><span>Panels fitted</span><strong id="metricPanels">12 panels</strong></article>
+        <article><span>Average production/day</span><strong id="metricDaily">—</strong></article>
+        <article><span>Estimated production/year</span><strong id="metricAnnual">—</strong></article>
+      </footer>
+    </section>
+  </main>
+
+  <section class="roof-environment-panel" id="solarEnvironmentPanel" aria-labelledby="solarEnvironmentTitle" hidden>
+    <header class="roof-environment-header">
+      <h2 id="solarEnvironmentTitle">Sun & roof orientation</h2>
+      <button type="button" id="solarEnvironmentClose" aria-label="Close sun and orientation menu">×</button>
+    </header>
+    <div class="roof-environment-control">
+      <div class="roof-environment-control__heading"><label for="sunPositionControl">Sun position</label><output id="sunPositionValue" for="sunPositionControl">50%</output></div>
+      <input id="sunPositionControl" type="range" min="0" max="100" step="1" value="50" />
+      <div class="roof-environment-control__ends"><span>Sunrise</span><span>Sunset</span></div>
+    </div>
+    <div class="roof-environment-control">
+      <div class="roof-environment-control__heading"><label for="northDirectionControl">Roof front azimuth</label><output id="northDirectionValue" for="northDirectionControl">0°</output></div>
+      <input id="northDirectionControl" type="range" min="0" max="360" step="1" value="0" />
+      <div class="roof-environment-control__ends"><span>0° N</span><span>180° S</span></div>
+    </div>
+    <label class="roof-night-preview" for="nightPreviewToggle">
+      <span class="roof-night-preview__icon" aria-hidden="true">◔</span>
+      <span class="roof-night-preview__copy"><strong>Night preview</strong><small>Darkens the scene and shows night-time conditions.</small></span>
+      <input id="nightPreviewToggle" type="checkbox" /><span class="roof-switch" aria-hidden="true"></span>
+    </label>
+  </section>
+
+  <dialog class="bom-panel" id="estimatePanel" aria-labelledby="estimateTitle">
+    <header class="bom-header">
+      <div><p class="eyebrow">Indicative 2026 estimate</p><h2 id="estimateTitle">Solar system estimate</h2></div>
+      <button type="button" class="bom-close" id="estimateCloseButton" aria-label="Close estimate">×</button>
+    </header>
+    <div class="bom-scroll-region">
+      <section class="bom-summary" aria-label="Price summary">
+        <article><span>Before VAT</span><strong id="estimateSubtotal">—</strong></article>
+        <article><span>VAT</span><strong id="estimateVat">—</strong></article>
+        <article class="bom-total-card"><span>Estimated total</span><strong id="estimateTotal">—</strong></article>
+      </section>
+      <div class="bom-disclaimer">Indicative component and installation allowances, not a commercial quotation. Prices are calibrated to current Romanian retail / installed-system references and can be edited under Advanced estimate assumptions.<span id="estimateCurrencyNote"></span></div>
+      <div class="bom-table-wrap">
+        <table class="bom-table">
+          <thead><tr><th class="bom-check-cell"></th><th>Nr.</th><th>Item</th><th>Unit</th><th>Qty.</th><th>Unit price</th><th>Value</th></tr></thead>
+          <tbody id="estimateTableBody"></tbody>
+        </table>
+      </div>
+      <section class="bom-assumptions"><h3>Calculation basis</h3><div class="assumption-grid" id="estimateAssumptions"></div></section>
+    </div>
+    <footer class="bom-footer"><button type="button" class="secondary-action" id="estimateExportButton">Export CSV</button><button type="button" class="primary-action" id="estimateDoneButton">Done</button></footer>
+  </dialog>
+
+  <script>
+    (() => {
+      const panel = document.getElementById('estimatePanel');
+      const openButton = document.getElementById('estimateOpenButton');
+      const closeButton = document.getElementById('estimateCloseButton');
+      const doneButton = document.getElementById('estimateDoneButton');
+      const openPanel = () => {
+        if (!panel || panel.open) return;
+        if (typeof panel.showModal === 'function') panel.showModal();
+        else panel.setAttribute('open', '');
+        document.body.classList.add('bom-is-open');
+      };
+      const closePanel = () => {
+        if (!panel) return;
+        if (typeof panel.close === 'function' && panel.open) panel.close();
+        else panel.removeAttribute('open');
+        document.body.classList.remove('bom-is-open');
+      };
+      openButton?.addEventListener('click', openPanel);
+      closeButton?.addEventListener('click', closePanel);
+      doneButton?.addEventListener('click', closePanel);
+      panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
+    })();
+  </script>
+  <script type="module" src="./js/sharedShell.js?v=1"></script>
+  <script type="module" src="./js/app.js?v=3"></script>
+</body>
+</html>
