@@ -9,7 +9,8 @@
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
   <link rel="stylesheet" href="./styles.css?v=1" />
   <link rel="stylesheet" href="./shared-shell.css?v=1" />
-  <link rel="stylesheet" href="./solar.css?v=2" />
+  <link rel="stylesheet" href="./solar.css?v=3" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script type="importmap">
     {
       "imports": {
@@ -133,7 +134,7 @@
           <label><span>Energy tariff (RON/kWh)</span><input id="energyTariffInput" type="number" min="0.05" step="0.01" value="1.3" /></label>
         </div>
 
-        <div class="solar-option-heading">Region</div>
+        <div class="solar-option-heading">Regional production fallback</div>
         <div class="region-grid">
           <button type="button" data-region="dobrogea" aria-pressed="false"><b>South / Dobrogea</b><small>Constanța</small></button>
           <button type="button" data-region="muntenia" aria-pressed="true"><b>Muntenia / Oltenia</b><small>Bucharest</small></button>
@@ -142,6 +143,7 @@
           <button type="button" data-region="northwest" aria-pressed="false"><b>North-West / Mountain</b><small>Oradea</small></button>
         </div>
         <div class="region-status-row"><span id="regionDetail">Bucharest reference</span><strong id="productionSourceBadge">PVGIS-calibrated model</strong></div>
+        <button type="button" class="solar-location-launch" id="exactLocationButton">Choose exact location</button>
 
         <div class="solar-option-heading">Daytime consumption profile</div>
         <div class="consumption-grid">
@@ -212,9 +214,10 @@
       <div class="viewer-stage" id="viewerStage">
         <div class="roof-tools-anchor" id="solarToolsAnchor" aria-label="Tools control"></div>
         <div id="canvasHost" aria-label="Interactive 3D solar roof model"></div>
-        <div class="stage-hint">Drag to orbit · Scroll to zoom · Tools for sun, compass & day simulation</div>
+        <div class="stage-hint">Drag to orbit · Scroll to zoom · Tools for location, seasons, real sun & shadows</div>
         <aside class="solar-live-card" aria-label="Live solar simulation">
           <div class="solar-live-card__head"><span>Simulation time</span><strong id="simulationTimeReadout">12:00</strong></div>
+          <div class="solar-live-card__sun" id="liveSunReadout">Sun position loading…</div>
           <div class="solar-live-card__grid">
             <div><span>PV output</span><strong id="instantProduction">—</strong></div>
             <div><span>House load</span><strong id="instantConsumption">—</strong></div>
@@ -225,7 +228,7 @@
 
       <section class="solar-simulation-panel" aria-label="Day energy simulation">
         <header>
-          <div><p class="eyebrow">24-hour energy flow</p><h3>Production vs. consumption</h3></div>
+          <div><p class="eyebrow" id="simulationDateReadout">24-hour energy flow</p><h3>Production vs. consumption</h3></div>
           <button id="simulationPlayButton" type="button">Run day simulation</button>
         </header>
         <div class="simulation-summary-grid">
@@ -251,27 +254,79 @@
     </section>
   </main>
 
-  <section class="roof-environment-panel" id="solarEnvironmentPanel" aria-labelledby="solarEnvironmentTitle" hidden>
+  <section class="roof-environment-panel solar-phase1-environment" id="solarEnvironmentPanel" aria-labelledby="solarEnvironmentTitle" hidden>
     <header class="roof-environment-header">
-      <h2 id="solarEnvironmentTitle">Sun & roof orientation</h2>
-      <button type="button" id="solarEnvironmentClose" aria-label="Close sun and orientation menu">×</button>
+      <div><p class="eyebrow">Real solar geometry</p><h2 id="solarEnvironmentTitle">Location, sun & orientation</h2></div>
+      <button type="button" id="solarEnvironmentClose" aria-label="Close location and sun menu">×</button>
     </header>
+
+    <section class="solar-env-block">
+      <div class="solar-env-block__head"><span>Location</span><strong id="environmentLocationMode">Regional reference</strong></div>
+      <div class="solar-env-location-card">
+        <div><b id="environmentLocationLabel">Bucharest reference</b><small id="environmentCoordinates">44.4268, 26.1025</small></div>
+        <button type="button" id="environmentChooseLocation">Choose on map</button>
+      </div>
+    </section>
+
+    <section class="solar-env-block">
+      <div class="solar-env-block__head"><span>Date & season</span><button type="button" class="solar-env-link" id="environmentTodayButton">Today</button></div>
+      <input class="solar-env-date" id="simulationDateControl" type="date" />
+      <div class="solar-season-grid" aria-label="Season presets">
+        <button type="button" data-season-preset="spring">Spring</button>
+        <button type="button" data-season-preset="summer">Summer</button>
+        <button type="button" data-season-preset="autumn">Autumn</button>
+        <button type="button" data-season-preset="winter">Winter</button>
+      </div>
+    </section>
+
     <div class="roof-environment-control">
-      <div class="roof-environment-control__heading"><label for="sunPositionControl">Sun position</label><output id="sunPositionValue" for="sunPositionControl">50%</output></div>
-      <input id="sunPositionControl" type="range" min="0" max="100" step="1" value="50" />
-      <div class="roof-environment-control__ends"><span>Sunrise</span><span>Sunset</span></div>
+      <div class="roof-environment-control__heading"><label for="simulationTimeControl">Time of day</label><output id="simulationTimeValue" for="simulationTimeControl">12:00</output></div>
+      <input id="simulationTimeControl" type="range" min="0" max="23.9833" step="0.05" value="12" />
+      <div class="roof-environment-control__ends"><span id="sunriseValue">Sunrise —</span><span id="sunsetValue">Sunset —</span></div>
     </div>
+
+    <div class="solar-sun-facts" aria-label="Current sun position">
+      <div><span>Elevation</span><strong id="sunElevationValue">—</strong></div>
+      <div><span>Azimuth</span><strong id="sunAzimuthValue">—</strong></div>
+      <div><span>Solar noon</span><strong id="solarNoonValue">—</strong></div>
+    </div>
+
     <div class="roof-environment-control">
-      <div class="roof-environment-control__heading"><label for="northDirectionControl">Roof front azimuth</label><output id="northDirectionValue" for="northDirectionControl">0°</output></div>
-      <input id="northDirectionControl" type="range" min="0" max="360" step="1" value="0" />
-      <div class="roof-environment-control__ends"><span>0° N</span><span>180° S</span></div>
+      <div class="roof-environment-control__heading"><label for="northDirectionControl">Roof front bearing</label><output id="northDirectionValue" for="northDirectionControl">0° N</output></div>
+      <input id="northDirectionControl" type="range" min="0" max="359" step="1" value="0" />
+      <div class="roof-environment-control__ends"><span>0° North</span><span>180° South</span></div>
     </div>
+
+    <label class="roof-night-preview" for="sunPathToggle">
+      <span class="roof-night-preview__icon solar-path-icon" aria-hidden="true">⌒</span>
+      <span class="roof-night-preview__copy"><strong>Show sun path</strong><small>Displays the real daily sun arc for the selected date.</small></span>
+      <input id="sunPathToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+    </label>
+
     <label class="roof-night-preview" for="nightPreviewToggle">
       <span class="roof-night-preview__icon" aria-hidden="true">◔</span>
-      <span class="roof-night-preview__copy"><strong>Night preview</strong><small>Darkens the scene and shows night-time conditions.</small></span>
+      <span class="roof-night-preview__copy"><strong>Force night preview</strong><small>Useful for checking the scene; real night is automatic when the sun is below the horizon.</small></span>
       <input id="nightPreviewToggle" type="checkbox" /><span class="roof-switch" aria-hidden="true"></span>
     </label>
   </section>
+
+  <dialog class="solar-location-dialog" id="locationPickerDialog" aria-labelledby="locationPickerTitle">
+    <header class="solar-location-dialog__header">
+      <div><p class="eyebrow">Romania · Phase 1</p><h2 id="locationPickerTitle">Choose exact location</h2></div>
+      <button type="button" id="locationPickerClose" aria-label="Close location picker">×</button>
+    </header>
+    <div class="solar-location-search-row">
+      <input id="locationSearchInput" type="search" placeholder="Search city, street or address" autocomplete="off" />
+      <button type="button" id="locationSearchButton">Search</button>
+      <button type="button" class="secondary-action" id="locationGeolocateButton">Use my location</button>
+    </div>
+    <div class="solar-location-search-results" id="locationSearchResults" hidden></div>
+    <div class="solar-location-map" id="locationMap" aria-label="Map for choosing the solar installation location"></div>
+    <footer class="solar-location-dialog__footer">
+      <div><strong id="locationSelectionLabel">Click the map to choose a point</strong><span id="locationSelectionCoordinates">—</span></div>
+      <div><button type="button" class="secondary-action" id="locationPickerCancel">Cancel</button><button type="button" class="primary-action" id="locationPickerUse" disabled>Use this location</button></div>
+    </footer>
+  </dialog>
 
   <dialog class="bom-panel" id="estimatePanel" aria-labelledby="estimateTitle">
     <header class="bom-header">
@@ -320,7 +375,8 @@
       panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
     })();
   </script>
-  <script type="module" src="./js/sharedShell.js?v=1"></script>
-  <script type="module" src="./js/app.js?v=3"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="./js/sharedShell.js?v=2"></script>
+  <script type="module" src="./js/app.js?v=4"></script>
 </body>
 </html>

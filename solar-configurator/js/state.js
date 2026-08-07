@@ -1,3 +1,15 @@
+const initialSimulationDate = (() => {
+  try {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Bucharest',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date()).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+})();
+
 export const roofNames = {
   gable: 'Two-slope solar roof',
   hip: 'Four-slope solar roof',
@@ -95,6 +107,12 @@ export const state = {
   effectivePanelCount: 12,
 
   region: 'muntenia',
+  locationMode: 'region',
+  locationLat: null,
+  locationLon: null,
+  locationLabel: '',
+  locationTimeZone: 'Europe/Bucharest',
+  simulationDate: initialSimulationDate,
   monthlyBillRon: 400,
   energyTariffRon: 1.3,
   gridConnection: 'single',
@@ -115,6 +133,7 @@ export const state = {
   showDimensions: false,
   technicalEdges: false,
   showCompass: true,
+  showSunPath: true,
   sunPosition: 50,
   northDirection: 0,
   nightPreview: false,

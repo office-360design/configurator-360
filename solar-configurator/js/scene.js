@@ -4,8 +4,10 @@ import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer
 import { buildRoofModel } from './roofFactory.js?v=1';
 import { buildSolarArray } from './solarFactory.js?v=2';
 import { createDimensions } from './dimensions.js?v=1';
+import { getSolarContext, getSunPathSamples } from './solarPosition.js?v=1';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
+const DEG = Math.PI / 180;
 
 function createCompassLabel(text, className = '') {
   const element = document.createElement('div');
@@ -14,16 +16,37 @@ function createCompassLabel(text, className = '') {
   return new CSS2DObject(element);
 }
 
+function sunVector(elevationDeg, trueAzimuthDeg, roofFrontAzimuthDeg, radius = 22) {
+  const elevation = elevationDeg * DEG;
+  const localAzimuth = (trueAzimuthDeg - roofFrontAzimuthDeg) * DEG;
+  const horizontal = Math.cos(elevation) * radius;
+  return new THREE.Vector3(
+    Math.sin(localAzimuth) * horizontal,
+    Math.sin(elevation) * radius,
+    -Math.cos(localAzimuth) * horizontal,
+  );
+}
+
 export class RoofScene {
   constructor(host) {
     this.host = host;
     this.scene = new THREE.Scene();
     this.scene.background = null;
     this.environmentState = {
-      sunPosition: 42,
-      northDirection: 108,
+      northDirection: 0,
       nightPreview: false,
+      showSunPath: true,
+      simulationHour: 12,
+      simulationDate: '',
+      locationMode: 'region',
+      locationLat: null,
+      locationLon: null,
+      locationLabel: '',
+      locationTimeZone: 'Europe/Bucharest',
+      region: 'muntenia',
     };
+    this.lastSolarContext = null;
+    this.sunPathKey = '';
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 300);
     this.camera.position.set(-13, 10, -15);
@@ -63,11 +86,11 @@ export class RoofScene {
     this.compassRoot = this.createCompass();
     this.compassRoot.visible = false;
     this.scene.add(this.compassRoot);
+    this.createSunVisuals();
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(this.host);
     this.resize();
-    this.updateLighting();
 
     this.clock = new THREE.Clock();
     this.animate = this.animate.bind(this);
@@ -86,8 +109,13 @@ export class RoofScene {
     this.keyLight.shadow.camera.right = 25;
     this.keyLight.shadow.camera.top = 25;
     this.keyLight.shadow.camera.bottom = -25;
-    this.keyLight.shadow.bias = -0.0004;
+    this.keyLight.shadow.camera.near = 0.1;
+    this.keyLight.shadow.camera.far = 80;
+    this.keyLight.shadow.bias = -0.00035;
+    this.keyLight.shadow.normalBias = 0.012;
+    this.keyLight.target.position.set(0, 2, 0);
     this.scene.add(this.keyLight);
+    this.scene.add(this.keyLight.target);
 
     this.fillLight = new THREE.DirectionalLight(0xcbdcff, 1.35);
     this.fillLight.position.set(10, 7, -10);
@@ -107,6 +135,31 @@ export class RoofScene {
     this.grid.material.transparent = true;
     this.grid.material.opacity = 0.25;
     this.scene.add(this.grid);
+  }
+
+  createSunVisuals() {
+    this.sunPathRoot = new THREE.Group();
+    this.sunPathRoot.name = 'real-sun-path';
+    this.scene.add(this.sunPathRoot);
+
+    this.sunPathLine = new THREE.Line(
+      new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({
+        color: 0xe2a72b,
+        transparent: true,
+        opacity: 0.72,
+        depthTest: false,
+      }),
+    );
+    this.sunPathLine.renderOrder = 20;
+    this.sunPathRoot.add(this.sunPathLine);
+
+    this.sunDisc = new THREE.Mesh(
+      new THREE.SphereGeometry(0.34, 24, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffc64a, toneMapped: false }),
+    );
+    this.sunDisc.renderOrder = 21;
+    this.sunPathRoot.add(this.sunDisc);
   }
 
   createCompass() {
@@ -192,68 +245,89 @@ export class RoofScene {
       0.02,
       -state.depth / 2 - 1.55 * scale,
     );
-    this.compassRoot.rotation.y = -THREE.MathUtils.degToRad(this.environmentState.northDirection);
+    this.compassRoot.rotation.y = THREE.MathUtils.degToRad(this.environmentState.northDirection);
   }
 
   setCompassVisible(visible) {
     this.compassRoot.visible = Boolean(visible);
   }
 
+  updateSunPath() {
+    const state = this.environmentState;
+    const key = [
+      state.simulationDate,
+      state.region,
+      state.locationMode,
+      Number(state.locationLat).toFixed?.(5) || '',
+      Number(state.locationLon).toFixed?.(5) || '',
+      Number(state.northDirection || 0).toFixed(1),
+    ].join('|');
+    this.sunPathRoot.visible = Boolean(state.showSunPath);
+    if (!state.showSunPath || key === this.sunPathKey) return;
+    this.sunPathKey = key;
+    const samples = getSunPathSamples(state, 12);
+    const points = samples
+      .filter((sample) => sample.elevationDeg >= -1)
+      .map((sample) => sunVector(sample.elevationDeg, sample.azimuthDeg, state.northDirection, 22));
+    this.sunPathLine.geometry.dispose();
+    this.sunPathLine.geometry = new THREE.BufferGeometry().setFromPoints(points);
+  }
+
   setEnvironment(settings = {}) {
-    if (Number.isFinite(Number(settings.sunPosition))) {
-      this.environmentState.sunPosition = clamp(Number(settings.sunPosition), 0, 100);
-    }
+    const copyKeys = [
+      'simulationHour', 'simulationDate', 'locationMode', 'locationLat', 'locationLon',
+      'locationLabel', 'locationTimeZone', 'region', 'showSunPath',
+    ];
+    copyKeys.forEach((key) => {
+      if (settings[key] !== undefined) this.environmentState[key] = settings[key];
+    });
     if (Number.isFinite(Number(settings.northDirection))) {
       this.environmentState.northDirection = ((Number(settings.northDirection) % 360) + 360) % 360;
     }
     if (typeof settings.nightPreview === 'boolean') {
       this.environmentState.nightPreview = settings.nightPreview;
     }
-    this.compassRoot.rotation.y = -THREE.MathUtils.degToRad(this.environmentState.northDirection);
-    this.updateLighting();
+    this.compassRoot.rotation.y = THREE.MathUtils.degToRad(this.environmentState.northDirection);
+    this.updateSunPath();
+    return this.updateLighting();
   }
 
   updateLighting() {
-    const progress = clamp(this.environmentState.sunPosition / 100, 0, 1);
-    const sunArc = Math.sin(progress * Math.PI);
-    const elevation = THREE.MathUtils.degToRad(8 + sunArc * 57);
-    // The compass treats -Z as north at 0°. The sun travels from east
-    // through south to west as the slider moves from morning to evening.
-    const relativeAzimuth = 70 - progress * 140;
-    const azimuth = THREE.MathUtils.degToRad(-this.environmentState.northDirection + relativeAzimuth);
-    const radius = 20;
-    const horizontalRadius = Math.cos(elevation) * radius;
+    const solar = getSolarContext(this.environmentState, this.environmentState.simulationHour);
+    this.lastSolarContext = solar;
+    const position = sunVector(solar.elevationDeg, solar.azimuthDeg, this.environmentState.northDirection, 28);
+    this.keyLight.position.copy(position);
+    this.sunDisc.position.copy(sunVector(solar.elevationDeg, solar.azimuthDeg, this.environmentState.northDirection, 22));
+    this.sunDisc.visible = Boolean(this.environmentState.showSunPath) && solar.elevationDeg > -1.5;
 
-    this.keyLight.position.set(
-      Math.sin(azimuth) * horizontalRadius,
-      Math.sin(elevation) * radius,
-      Math.cos(azimuth) * horizontalRadius,
-    );
-
-    const isNight = this.environmentState.nightPreview;
+    const daylightStrength = clamp((solar.elevationDeg + 4) / 52, 0, 1);
+    const automaticNight = solar.elevationDeg <= -0.833;
+    const isNight = Boolean(this.environmentState.nightPreview) || automaticNight;
     if (isNight) {
       this.keyLight.color.setHex(0x9db9ff);
-      this.keyLight.intensity = 0.55;
-      this.hemisphereLight.intensity = 0.34;
+      this.keyLight.intensity = automaticNight ? 0 : 0.42;
+      this.hemisphereLight.intensity = automaticNight ? 0.22 : 0.34;
       this.hemisphereLight.color.setHex(0x8da9dd);
       this.hemisphereLight.groundColor.setHex(0x111827);
-      this.fillLight.intensity = 0.16;
-      this.renderer.toneMappingExposure = 0.62;
+      this.fillLight.intensity = 0.12;
+      this.renderer.toneMappingExposure = automaticNight ? 0.48 : 0.62;
       this.groundMaterial.color.setHex(0x26313f);
       this.grid.material.opacity = 0.11;
     } else {
-      this.keyLight.color.setHex(0xffffff);
-      this.keyLight.intensity = 2.8 + sunArc * 1.8;
-      this.hemisphereLight.intensity = 1.45;
+      const warm = clamp(1 - solar.elevationDeg / 18, 0, 1);
+      this.keyLight.color.setRGB(1, 0.90 + 0.10 * (1 - warm), 0.76 + 0.24 * (1 - warm));
+      this.keyLight.intensity = 1.2 + daylightStrength * 4.1;
+      this.hemisphereLight.intensity = 0.85 + daylightStrength * 0.75;
       this.hemisphereLight.color.setHex(0xffffff);
       this.hemisphereLight.groundColor.setHex(0x72777d);
-      this.fillLight.intensity = 1.15;
-      this.renderer.toneMappingExposure = 1.08;
+      this.fillLight.intensity = 0.65 + daylightStrength * 0.55;
+      this.renderer.toneMappingExposure = 0.88 + daylightStrength * 0.22;
       this.groundMaterial.color.setHex(0xd9dddf);
       this.grid.material.opacity = 0.25;
     }
 
     this.host.closest('.viewer-stage')?.classList.toggle('is-night-preview', isNight);
+    return solar;
   }
 
   rebuild(state, fitCamera = false) {

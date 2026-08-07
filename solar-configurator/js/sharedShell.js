@@ -1,5 +1,6 @@
 import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=3';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
+import { formatAzimuth, getSeasonForDate } from './solarPosition.js?v=1';
 
 const icon = (body) => `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -11,7 +12,7 @@ const tools = [
   ...resolveSharedTools([
     {
       id: 'environment',
-      label: 'Sun & orientation',
+      label: 'Location & sun',
       icon: icon('<circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.2v2.1M12 19.7v2.1M2.2 12h2.1M19.7 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"></path>'),
     },
     {
@@ -98,16 +99,34 @@ if (sidebar) {
 const toolsAnchor = document.querySelector('#solarToolsAnchor');
 const environmentPanel = document.querySelector('#solarEnvironmentPanel');
 const environmentClose = document.querySelector('#solarEnvironmentClose');
-const sunPositionControl = document.querySelector('#sunPositionControl');
-const sunPositionValue = document.querySelector('#sunPositionValue');
+const simulationTimeControl = document.querySelector('#simulationTimeControl');
+const simulationTimeValue = document.querySelector('#simulationTimeValue');
+const simulationDateControl = document.querySelector('#simulationDateControl');
+const environmentTodayButton = document.querySelector('#environmentTodayButton');
 const northDirectionControl = document.querySelector('#northDirectionControl');
 const northDirectionValue = document.querySelector('#northDirectionValue');
 const nightPreviewToggle = document.querySelector('#nightPreviewToggle');
+const sunPathToggle = document.querySelector('#sunPathToggle');
+const environmentChooseLocation = document.querySelector('#environmentChooseLocation');
+const environmentLocationMode = document.querySelector('#environmentLocationMode');
+const environmentLocationLabel = document.querySelector('#environmentLocationLabel');
+const environmentCoordinates = document.querySelector('#environmentCoordinates');
+const sunriseValue = document.querySelector('#sunriseValue');
+const sunsetValue = document.querySelector('#sunsetValue');
+const sunElevationValue = document.querySelector('#sunElevationValue');
+const sunAzimuthValue = document.querySelector('#sunAzimuthValue');
+const solarNoonValue = document.querySelector('#solarNoonValue');
 let relocatedToolsToolbar = null;
 let toolsPositionFrame = 0;
+let lastToolsState = null;
 
 const getApi = () => window.SOLAR_CONFIGURATOR_API;
 const getToolButton = (toolId) => shell.host.querySelector(`[data-tool-id="${toolId}"]`);
+
+function formatHour(decimalHour) {
+  const totalMinutes = Math.min(1439, Math.max(0, Math.round((Number(decimalHour) || 0) * 60)));
+  return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+}
 
 function setToolState(toolId, { active = false, disabled = false, title = null } = {}) {
   const button = getToolButton(toolId);
@@ -131,15 +150,14 @@ function positionToolsUi() {
   relocatedToolsToolbar.style.setProperty('--roof-tools-left', `${toolbarLeft}px`);
   relocatedToolsToolbar.style.setProperty('--roof-tools-top', `${toolbarTop}px`);
   if (!environmentPanel) return;
-  const panelWidth = Math.min(390, Math.max(296, window.innerWidth - 24));
+  const panelWidth = Math.min(430, Math.max(310, window.innerWidth - 24));
   const launcherWidth = relocatedToolsToolbar.querySelector('.tool-launcher')?.getBoundingClientRect().width || 74;
   let panelLeft = toolbarLeft + launcherWidth + 14;
-  let panelTop = toolbarTop;
+  let panelTop = Math.max(12, Math.min(toolbarTop, 72));
   if (panelLeft + panelWidth > window.innerWidth - 12) {
     panelLeft = 12;
-    panelTop = toolbarTop + 58;
+    panelTop = Math.max(12, Math.min(toolbarTop + 58, 72));
   }
-  panelTop = Math.min(panelTop, Math.max(12, window.innerHeight - 430));
   environmentPanel.style.setProperty('--roof-environment-left', `${Math.round(panelLeft)}px`);
   environmentPanel.style.setProperty('--roof-environment-top', `${Math.round(panelTop)}px`);
   environmentPanel.style.setProperty('--roof-environment-width', `${Math.round(panelWidth)}px`);
@@ -165,12 +183,13 @@ function setEnvironmentPanelOpen(open) {
   const isOpen = Boolean(open);
   environmentPanel.hidden = !isOpen;
   environmentPanel.classList.toggle('is-open', isOpen);
-  setToolState('environment', { active: isOpen, title: 'Sun and roof orientation' });
+  setToolState('environment', { active: isOpen, title: 'Location, sun and roof orientation' });
   scheduleToolsPosition();
 }
 
 function syncToolsState(detail = getApi()?.getState?.()) {
   if (!detail) return;
+  lastToolsState = detail;
   setToolState('dimensions', { active: Boolean(detail.showDimensions), title: 'Toggle dimensions' });
   setToolState('compass', { active: Boolean(detail.showCompass), title: detail.showCompass ? 'Hide compass' : 'Show compass' });
   setToolState('simulation', {
@@ -183,11 +202,26 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   const nextView = order[(index + 1) % order.length];
   setToolState('camera', { title: `Change orientation: ${names[nextView]}` });
 
-  if (sunPositionControl) sunPositionControl.value = String(detail.sunPosition ?? 50);
-  if (sunPositionValue) sunPositionValue.textContent = `${Math.round(detail.sunPosition ?? 50)}%`;
+  if (simulationTimeControl) simulationTimeControl.value = String(detail.simulationHour ?? 12);
+  if (simulationTimeValue) simulationTimeValue.textContent = formatHour(detail.simulationHour ?? 12);
+  if (simulationDateControl) simulationDateControl.value = detail.simulationDate || '';
   if (northDirectionControl) northDirectionControl.value = String(detail.northDirection ?? 0);
-  if (northDirectionValue) northDirectionValue.textContent = `${Math.round(detail.northDirection ?? 0)}°`;
+  if (northDirectionValue) northDirectionValue.textContent = formatAzimuth(detail.northDirection ?? 0);
   if (nightPreviewToggle) nightPreviewToggle.checked = Boolean(detail.nightPreview);
+  if (sunPathToggle) sunPathToggle.checked = Boolean(detail.showSunPath);
+  if (sunriseValue) sunriseValue.textContent = `Sunrise ${detail.sunriseLabel || '—'}`;
+  if (sunsetValue) sunsetValue.textContent = `Sunset ${detail.sunsetLabel || '—'}`;
+  if (sunElevationValue) sunElevationValue.textContent = `${Number(detail.solarElevationDeg || 0).toFixed(1)}°`;
+  if (sunAzimuthValue) sunAzimuthValue.textContent = formatAzimuth(detail.solarAzimuthDeg || 0);
+  if (solarNoonValue) solarNoonValue.textContent = detail.solarNoonLabel || '—';
+  if (environmentLocationMode) environmentLocationMode.textContent = detail.locationMode === 'exact' ? 'Exact location' : 'Regional reference';
+  if (environmentLocationLabel) environmentLocationLabel.textContent = detail.activeLocationLabel || 'Bucharest reference';
+  if (environmentCoordinates) environmentCoordinates.textContent = `${Number(detail.activeLocationLat || 0).toFixed(5)}, ${Number(detail.activeLocationLon || 0).toFixed(5)}`;
+
+  const season = getSeasonForDate(detail.simulationDate);
+  document.querySelectorAll('[data-season-preset]').forEach((button) => {
+    button.setAttribute('aria-pressed', String(button.dataset.seasonPreset === season));
+  });
 }
 
 shell.host.addEventListener('click', (event) => {
@@ -212,20 +246,207 @@ shell.host.addEventListener('click', (event) => {
 });
 
 environmentClose?.addEventListener('click', () => setEnvironmentPanelOpen(false));
-sunPositionControl?.addEventListener('input', () => {
-  const value = Number(sunPositionControl.value);
-  if (sunPositionValue) sunPositionValue.textContent = `${Math.round(value)}%`;
-  getApi()?.setSunPosition(value);
+simulationTimeControl?.addEventListener('input', () => {
+  const value = Number(simulationTimeControl.value);
+  if (simulationTimeValue) simulationTimeValue.textContent = formatHour(value);
+  getApi()?.setSimulationHour(value);
+});
+simulationDateControl?.addEventListener('change', () => getApi()?.setSimulationDate(simulationDateControl.value));
+environmentTodayButton?.addEventListener('click', () => getApi()?.setToday());
+document.querySelectorAll('[data-season-preset]').forEach((button) => {
+  button.addEventListener('click', () => getApi()?.setSeasonPreset(button.dataset.seasonPreset));
 });
 northDirectionControl?.addEventListener('input', () => {
   const value = Number(northDirectionControl.value);
-  if (northDirectionValue) northDirectionValue.textContent = `${Math.round(value)}°`;
+  if (northDirectionValue) northDirectionValue.textContent = formatAzimuth(value);
   getApi()?.setNorthDirection(value);
 });
 nightPreviewToggle?.addEventListener('change', () => getApi()?.setNightPreview(nightPreviewToggle.checked));
+sunPathToggle?.addEventListener('change', () => getApi()?.setSunPathVisible(sunPathToggle.checked));
+
+// Exact-location picker. Phase 1 deliberately keeps the picker within Romania,
+// matching the existing production model and Europe/Bucharest time zone.
+const locationDialog = document.querySelector('#locationPickerDialog');
+const locationMapElement = document.querySelector('#locationMap');
+const locationPickerClose = document.querySelector('#locationPickerClose');
+const locationPickerCancel = document.querySelector('#locationPickerCancel');
+const locationPickerUse = document.querySelector('#locationPickerUse');
+const locationSearchInput = document.querySelector('#locationSearchInput');
+const locationSearchButton = document.querySelector('#locationSearchButton');
+const locationSearchResults = document.querySelector('#locationSearchResults');
+const locationGeolocateButton = document.querySelector('#locationGeolocateButton');
+const locationSelectionLabel = document.querySelector('#locationSelectionLabel');
+const locationSelectionCoordinates = document.querySelector('#locationSelectionCoordinates');
+let locationMap = null;
+let locationMarker = null;
+let pendingLocation = null;
+
+const ROMANIA_BOUNDS = {
+  south: 43.55,
+  west: 20.15,
+  north: 48.35,
+  east: 29.85,
+};
+
+function inRomaniaBounds(lat, lon) {
+  return lat >= ROMANIA_BOUNDS.south && lat <= ROMANIA_BOUNDS.north
+    && lon >= ROMANIA_BOUNDS.west && lon <= ROMANIA_BOUNDS.east;
+}
+
+function setPendingLocation(lat, lon, label = 'Selected map point', { moveMap = true } = {}) {
+  const latitude = Number(lat);
+  const longitude = Number(lon);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  if (!inRomaniaBounds(latitude, longitude)) {
+    if (locationSelectionLabel) locationSelectionLabel.textContent = 'Phase 1 location selection is limited to Romania.';
+    if (locationSelectionCoordinates) locationSelectionCoordinates.textContent = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+    if (locationPickerUse) locationPickerUse.disabled = true;
+    return false;
+  }
+  pendingLocation = { lat: latitude, lon: longitude, label };
+  if (locationSelectionLabel) locationSelectionLabel.textContent = label;
+  if (locationSelectionCoordinates) locationSelectionCoordinates.textContent = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+  if (locationPickerUse) locationPickerUse.disabled = false;
+  if (locationMap && window.L) {
+    if (!locationMarker) locationMarker = window.L.marker([latitude, longitude]).addTo(locationMap);
+    else locationMarker.setLatLng([latitude, longitude]);
+    if (moveMap) locationMap.setView([latitude, longitude], Math.max(locationMap.getZoom(), 14));
+  }
+  return true;
+}
+
+function ensureLocationMap() {
+  if (locationMap || !locationMapElement) return;
+  if (!window.L) {
+    locationMapElement.textContent = 'Map library could not be loaded. Check the network connection and reopen the picker.';
+    return;
+  }
+  const detail = lastToolsState || getApi()?.getState?.() || {};
+  const lat = Number(detail.activeLocationLat) || 44.4268;
+  const lon = Number(detail.activeLocationLon) || 26.1025;
+  locationMap = window.L.map(locationMapElement, {
+    minZoom: 6,
+    maxZoom: 19,
+    maxBounds: [[ROMANIA_BOUNDS.south, ROMANIA_BOUNDS.west], [ROMANIA_BOUNDS.north, ROMANIA_BOUNDS.east]],
+    maxBoundsViscosity: 0.8,
+  }).setView([lat, lon], 11);
+  window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(locationMap);
+  locationMap.on('click', (event) => setPendingLocation(event.latlng.lat, event.latlng.lng, 'Selected map point', { moveMap: false }));
+}
+
+function openLocationPicker() {
+  if (!locationDialog) return;
+  ensureLocationMap();
+  const detail = lastToolsState || getApi()?.getState?.() || {};
+  const lat = Number(detail.activeLocationLat) || 44.4268;
+  const lon = Number(detail.activeLocationLon) || 26.1025;
+  setPendingLocation(lat, lon, detail.activeLocationLabel || 'Current location', { moveMap: false });
+  if (typeof locationDialog.showModal === 'function' && !locationDialog.open) locationDialog.showModal();
+  else locationDialog.setAttribute('open', '');
+  requestAnimationFrame(() => {
+    locationMap?.invalidateSize();
+    locationMap?.setView([lat, lon], detail.locationMode === 'exact' ? 15 : 11);
+  });
+}
+
+function closeLocationPicker() {
+  if (!locationDialog) return;
+  if (typeof locationDialog.close === 'function' && locationDialog.open) locationDialog.close();
+  else locationDialog.removeAttribute('open');
+}
+
+function renderSearchResults(items) {
+  if (!locationSearchResults) return;
+  locationSearchResults.replaceChildren();
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'solar-location-search-empty';
+    empty.textContent = 'No Romanian locations found. You can still click directly on the map.';
+    locationSearchResults.appendChild(empty);
+    locationSearchResults.hidden = false;
+    return;
+  }
+  items.forEach((item) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'solar-location-result';
+    const title = document.createElement('strong');
+    title.textContent = item.display_name || 'Search result';
+    const coords = document.createElement('small');
+    coords.textContent = `${Number(item.lat).toFixed(5)}, ${Number(item.lon).toFixed(5)}`;
+    button.append(title, coords);
+    button.addEventListener('click', () => {
+      setPendingLocation(item.lat, item.lon, item.display_name || 'Search result');
+      locationSearchResults.hidden = true;
+    });
+    locationSearchResults.appendChild(button);
+  });
+  locationSearchResults.hidden = false;
+}
+
+async function searchLocation() {
+  const query = String(locationSearchInput?.value || '').trim();
+  if (!query) return;
+  if (locationSearchButton) locationSearchButton.disabled = true;
+  if (locationSelectionLabel) locationSelectionLabel.textContent = 'Searching…';
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      format: 'jsonv2',
+      limit: '5',
+      countrycodes: 'ro',
+      addressdetails: '1',
+    });
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: { Accept: 'application/json', 'Accept-Language': 'en,ro;q=0.9' },
+    });
+    if (!response.ok) throw new Error(`Search HTTP ${response.status}`);
+    renderSearchResults(await response.json());
+    if (locationSelectionLabel) locationSelectionLabel.textContent = pendingLocation?.label || 'Choose one of the search results';
+  } catch (error) {
+    console.info('[Solar configurator] Location search unavailable.', error);
+    renderSearchResults([]);
+    if (locationSelectionLabel) locationSelectionLabel.textContent = 'Search unavailable — click directly on the map.';
+  } finally {
+    if (locationSearchButton) locationSearchButton.disabled = false;
+  }
+}
+
+environmentChooseLocation?.addEventListener('click', openLocationPicker);
+window.addEventListener('solar-open-location-picker', openLocationPicker);
+locationPickerClose?.addEventListener('click', closeLocationPicker);
+locationPickerCancel?.addEventListener('click', closeLocationPicker);
+locationPickerUse?.addEventListener('click', () => {
+  if (!pendingLocation) return;
+  getApi()?.setLocation(pendingLocation);
+  shell.markDirty();
+  closeLocationPicker();
+});
+locationSearchButton?.addEventListener('click', searchLocation);
+locationSearchInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    searchLocation();
+  }
+});
+locationGeolocateButton?.addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    if (locationSelectionLabel) locationSelectionLabel.textContent = 'Browser geolocation is not available.';
+    return;
+  }
+  if (locationSelectionLabel) locationSelectionLabel.textContent = 'Requesting browser location…';
+  navigator.geolocation.getCurrentPosition(
+    (position) => setPendingLocation(position.coords.latitude, position.coords.longitude, 'My current location'),
+    () => { if (locationSelectionLabel) locationSelectionLabel.textContent = 'Could not access your location. Choose a point on the map instead.'; },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+  );
+});
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && !environmentPanel?.hidden) setEnvironmentPanelOpen(false);
+  if (event.key === 'Escape' && !environmentPanel?.hidden && !locationDialog?.open) setEnvironmentPanelOpen(false);
 });
 window.addEventListener('solar-configurator-ready', (event) => syncToolsState(event.detail));
 window.addEventListener('solar-tools-state-change', (event) => syncToolsState(event.detail));

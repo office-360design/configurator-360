@@ -1,8 +1,10 @@
-import { regionPresets } from './state.js?v=1';
+import { regionPresets } from './state.js?v=2';
+import { getActiveLocation, getSolarContext, getSunTimes } from './solarPosition.js?v=1';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const normalizeDeg = (value) => ((value % 360) + 360) % 360;
 const signedAngle = (value) => ((normalizeDeg(value) + 180) % 360) - 180;
+const seasonalPotentialCache = new Map();
 
 const PROFILE_WEIGHTS = {
   away: [
@@ -53,38 +55,50 @@ export function tiltFactor(pitch) {
   return clamp(1 - 0.00055 * delta * delta, 0.72, 1);
 }
 
+function surfaceDescriptors(solarMetrics) {
+  const surfaces = (solarMetrics?.selectedSurfaces || [])
+    .filter((surface) => Number(surface.placed) > 0)
+    .map((surface) => ({
+      azimuth: normalizeDeg(Number(surface.azimuth) || 0),
+      weight: Math.max(0, Number(surface.placed) || 0),
+    }));
+  if (surfaces.length) return surfaces;
+  return [{ azimuth: normalizeDeg(Number(solarMetrics?.arrayAzimuth) || 180), weight: 1 }];
+}
+
+function weightedOrientationFactor(solarMetrics) {
+  const surfaces = surfaceDescriptors(solarMetrics);
+  const weight = surfaces.reduce((sum, surface) => sum + surface.weight, 0) || 1;
+  return surfaces.reduce((sum, surface) => sum + orientationFactor(surface.azimuth) * surface.weight, 0) / weight;
+}
+
 export function estimateAnnualProduction(state, solarMetrics) {
   const region = regionPresets[state.region] || regionPresets.muntenia;
   const systemKwp = Math.max(0, solarMetrics.systemKwp || 0);
-  const azimuth = Number.isFinite(solarMetrics.arrayAzimuth) ? solarMetrics.arrayAzimuth : 180;
-  const localSpecificYield = region.specificYield * orientationFactor(azimuth) * tiltFactor(state.pitch);
+  const orientation = weightedOrientationFactor(solarMetrics);
+  const localSpecificYield = region.specificYield * orientation * tiltFactor(state.pitch);
   const localAnnual = systemKwp * localSpecificYield;
   const pvgisAnnual = Number(state.pvgisAnnualKWh);
   const usePvgis = Number.isFinite(pvgisAnnual) && pvgisAnnual > 0;
   const annualKWh = usePvgis ? pvgisAnnual : localAnnual;
+  const location = getActiveLocation(state);
   return {
     annualKWh,
     dailyAverageKWh: annualKWh / 365,
     specificYield: systemKwp > 0 ? annualKWh / systemKwp : 0,
-    source: usePvgis ? 'PVGIS 5.3 · server proxy' : 'PVGIS-calibrated regional model',
-    orientationFactor: orientationFactor(azimuth),
+    source: usePvgis
+      ? 'PVGIS 5.3 · server proxy'
+      : (location.mode === 'exact' ? 'Regional yield · exact sun geometry' : 'PVGIS-calibrated regional model'),
+    orientationFactor: orientation,
     tiltFactor: tiltFactor(state.pitch),
     region,
-    azimuth,
+    location,
+    azimuth: Number.isFinite(solarMetrics.arrayAzimuth) ? solarMetrics.arrayAzimuth : 180,
   };
 }
 
-function sunPositionForHour(hour) {
-  const midpoint = Number(hour) + 0.5;
-  if (midpoint <= 6 || midpoint >= 18) return null;
-  const progress = (midpoint - 6) / 12;
-  const elevationDeg = 8 + Math.sin(progress * Math.PI) * 57;
-  const azimuthDeg = 90 + progress * 180;
-  return { elevationDeg, azimuthDeg };
-}
-
 function incidenceFactor(panelAzimuth, pitch, sun) {
-  if (!sun) return 0;
+  if (!sun || sun.elevationDeg <= -0.833) return 0;
   const elevation = sun.elevationDeg * Math.PI / 180;
   const tilt = clamp(Number(pitch) || 30, 0, 90) * Math.PI / 180;
   const azimuthDelta = signedAngle(sun.azimuthDeg - panelAzimuth) * Math.PI / 180;
@@ -93,20 +107,68 @@ function incidenceFactor(panelAzimuth, pitch, sun) {
   return Math.max(0, cosine);
 }
 
-function productionWeights(azimuth, pitch) {
+function aggregateSolarPotential(sun, pitch, surfaces) {
+  if (!sun || sun.elevationDeg <= -0.833) return 0;
+  const totalWeight = surfaces.reduce((sum, surface) => sum + surface.weight, 0) || 1;
+  const incidence = surfaces.reduce((sum, surface) => (
+    sum + Math.pow(incidenceFactor(surface.azimuth, pitch, sun), 1.08) * surface.weight
+  ), 0) / totalWeight;
+  const clearSkyEnvelope = Math.pow(Math.max(0, Math.sin(sun.elevationDeg * Math.PI / 180)), 0.72);
+  return incidence * clearSkyEnvelope;
+}
+
+function productionWeights(state, solarMetrics) {
+  const surfaces = surfaceDescriptors(solarMetrics);
   const values = [];
   for (let hour = 0; hour < 24; hour += 1) {
-    const sun = sunPositionForHour(hour);
-    if (!sun) {
-      values.push(0);
-      continue;
-    }
-    const incidence = incidenceFactor(azimuth, pitch, sun);
-    const clearSkyEnvelope = Math.pow(Math.max(0, Math.sin(sun.elevationDeg * Math.PI / 180)), 0.72);
-    values.push(Math.pow(incidence, 1.08) * clearSkyEnvelope);
+    const sun = getSolarContext(state, hour + 0.5);
+    values.push(aggregateSolarPotential(sun, state.pitch, surfaces));
   }
   const total = values.reduce((sum, value) => sum + value, 0) || 1;
   return values.map((value) => value / total);
+}
+
+function dayPotential(state, solarMetrics, dateString) {
+  const surfaces = surfaceDescriptors(solarMetrics);
+  let total = 0;
+  for (let halfHour = 0; halfHour < 48; halfHour += 1) {
+    const hour = halfHour / 2 + 0.25;
+    const sun = getSolarContext({ ...state, simulationDate: dateString }, hour);
+    total += aggregateSolarPotential(sun, state.pitch, surfaces) * 0.5;
+  }
+  return total;
+}
+
+function monthMidDate(year, month) {
+  return `${year}-${String(month).padStart(2, '0')}-15`;
+}
+
+function annualMeanPotential(state, solarMetrics) {
+  const location = getActiveLocation(state);
+  const surfaces = surfaceDescriptors(solarMetrics);
+  const surfaceKey = surfaces.map((surface) => `${surface.azimuth.toFixed(1)}:${surface.weight}`).join(',');
+  const year = String(state.simulationDate || new Date().toISOString().slice(0, 10)).slice(0, 4);
+  const cacheKey = `${location.lat.toFixed(3)}|${location.lon.toFixed(3)}|${state.pitch}|${surfaceKey}|${year}`;
+  if (seasonalPotentialCache.has(cacheKey)) return seasonalPotentialCache.get(cacheKey);
+
+  let weightedTotal = 0;
+  let daysTotal = 0;
+  for (let month = 1; month <= 12; month += 1) {
+    const days = new Date(Number(year), month, 0).getDate();
+    weightedTotal += dayPotential(state, solarMetrics, monthMidDate(year, month)) * days;
+    daysTotal += days;
+  }
+  const mean = weightedTotal / Math.max(1, daysTotal);
+  seasonalPotentialCache.set(cacheKey, mean);
+  if (seasonalPotentialCache.size > 60) seasonalPotentialCache.delete(seasonalPotentialCache.keys().next().value);
+  return mean;
+}
+
+export function seasonalDayFactor(state, solarMetrics) {
+  const selected = dayPotential(state, solarMetrics, state.simulationDate);
+  const mean = annualMeanPotential(state, solarMetrics);
+  if (!(mean > 0)) return 1;
+  return clamp(selected / mean, 0.12, 2.2);
 }
 
 export function autoBatteryCapacity(dailyConsumptionKWh, systemKwp) {
@@ -120,8 +182,9 @@ export function autoBatteryCapacity(dailyConsumptionKWh, systemKwp) {
 export function simulateDay(state, solarMetrics, productionEstimate) {
   const consumption = estimateDailyConsumption(state);
   const loadWeights = normalizedProfile(state.consumptionProfile);
-  const generationWeights = productionWeights(productionEstimate.azimuth, state.pitch);
-  const dailyGeneration = Math.max(0, productionEstimate.dailyAverageKWh);
+  const generationWeights = productionWeights(state, solarMetrics);
+  const selectedDayFactor = seasonalDayFactor(state, solarMetrics);
+  const dailyGeneration = Math.max(0, productionEstimate.dailyAverageKWh * selectedDayFactor);
   const dailyLoad = Math.max(0, consumption.dailyKWh);
   const generation = generationWeights.map((weight) => dailyGeneration * weight);
   const load = loadWeights.map((weight) => dailyLoad * weight);
@@ -209,14 +272,13 @@ export function simulateDay(state, solarMetrics, productionEstimate) {
   };
 
   if (batteryEnabled) {
-    // Warm up repeated average days so the reported day does not receive
-    // artificial energy from an arbitrary initial state of charge.
     for (let day = 0; day < 6; day += 1) runDay(false);
   }
   const result = runDay(true);
   const servedBySolar = result.directUse + result.batteryToLoad;
   const selfSufficiency = dailyLoad > 0 ? (servedBySolar / dailyLoad) * 100 : 0;
   const selfConsumption = dailyGeneration > 0 ? ((dailyGeneration - result.gridExport) / dailyGeneration) * 100 : 0;
+  const sunTimes = getSunTimes(state);
 
   return {
     hours: result.hours,
@@ -233,6 +295,11 @@ export function simulateDay(state, solarMetrics, productionEstimate) {
     batteryEndPct: batteryCapacity > 0 ? (result.endSoc / batteryCapacity) * 100 : 0,
     batteryCharged: result.batteryCharged,
     batteryDischarged: result.batteryDischarged,
+    seasonalFactor: selectedDayFactor,
+    sunriseHour: sunTimes.sunriseHour,
+    sunsetHour: sunTimes.sunsetHour,
+    sunriseLabel: sunTimes.sunriseLabel,
+    sunsetLabel: sunTimes.sunsetLabel,
   };
 }
 
@@ -244,13 +311,13 @@ export function instantaneousPowerAtHour(simulation, hour) {
 
 export async function fetchPvgisAnnual(state, solarMetrics, signal, endpoint) {
   if (!endpoint) throw new Error('No PVGIS server proxy configured');
-  const region = regionPresets[state.region] || regionPresets.muntenia;
+  const location = getActiveLocation(state);
   const peakpower = Math.max(0.1, solarMetrics.systemKwp || 0.1);
   const compassAzimuth = Number.isFinite(solarMetrics.arrayAzimuth) ? solarMetrics.arrayAzimuth : 180;
   const aspect = clamp(signedAngle(compassAzimuth - 180), -180, 180);
   const params = new URLSearchParams({
-    lat: String(region.lat),
-    lon: String(region.lon),
+    lat: String(location.lat),
+    lon: String(location.lon),
     peakpower: peakpower.toFixed(3),
     pvtechchoice: 'crystSi2025',
     mountingplace: 'building',

@@ -54,11 +54,11 @@ The static app uses a fast local model so all controls react immediately:
 
 1. A regional reference specific yield is selected.
 2. Annual production is corrected for roof azimuth and pitch.
-3. The 24-hour curve uses sun elevation/azimuth and panel incidence to distribute the average daily production through daylight hours.
+3. The 24-hour curve uses the exact selected date/location, calculated sun elevation/azimuth, each active roof plane, and panel incidence to distribute production through the real daylight window.
 4. Household load is distributed using the selected consumption profile.
 5. The battery simulation is warmed up over repeated average days before reporting the final 24-hour result, avoiding arbitrary “free” starting battery energy.
 
-This is an estimator, not an engineering yield guarantee. It does not yet model nearby-object shading, snow cover, temperature hour-by-hour, inverter clipping, string topology, or seasonal monthly variation.
+This is an estimator, not an engineering yield guarantee. Phase 1 models astronomical seasonality but does not yet model nearby-object shading, local terrain, monthly weather/cloud statistics, snow cover, temperature hour-by-hour, inverter clipping, or string topology.
 
 ## PVGIS integration note
 
@@ -79,3 +79,13 @@ A GitHub Pages-only deployment will use the local model. Exact live PVGIS lookup
 - `js/state.js` — defaults and editable model presets.
 
 See `RESEARCH.md` for the market/specification references used to choose the default panel dimensions, powers, production ranges, and indicative pricing.
+
+## Phase 1 geographic sun simulation
+
+The configurator now supports an exact Romanian installation location, real calendar dates, season presets, geographic roof bearing, sunrise/sunset, a visible daily sun path, and real-time Three.js shadows driven by calculated solar altitude and azimuth.
+
+- **Location picker:** OpenStreetMap tiles through Leaflet, with explicit address search through Nominatim. The Phase 1 picker is intentionally bounded to Romania because the current production model and civil-time calculations use `Europe/Bucharest`.
+- **Date / seasons:** Any date can be selected. Spring, summer, autumn and winter presets use the equinox/solstice reference dates in the selected year.
+- **Daily energy curve:** Hourly panel incidence uses the real solar position for the selected coordinates/date and each selected roof plane. A geometry-based seasonal factor redistributes the annual regional yield across the selected day.
+- **Shadows:** The visible Three.js sun and directional light follow the calculated sun vector. Real night is automatic when the sun is below the horizon; `Force night preview` remains available as a visual override.
+- **Current limitation:** Phase 1 does not yet load real terrain, surrounding buildings, trees or DSM shading. Those belong to the environment/shading phases. Annual yield is still calibrated from the nearest regional reference unless a PVGIS proxy is configured.

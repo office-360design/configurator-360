@@ -1,4 +1,4 @@
-import { modulePresets } from './state.js?v=1';
+import { modulePresets } from './state.js?v=2';
 import { normalizeCurrency } from './preferences.js?v=1';
 
 export const VAT_RATE = 0.21;
