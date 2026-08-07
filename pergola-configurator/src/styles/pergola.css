@@ -3136,3 +3136,192 @@ select {
 .app-shell.is-dark-mode .environment-panel .night-toggle small {
   color: var(--ui-text-secondary, #94a3b8);
 }
+
+/* Dynamic pole / side-closing layout grid. */
+.pergola-grid {
+  width: 100%;
+  padding: 18px 20px;
+  border: 1px solid #dfe4e6;
+  border-radius: 18px;
+  background: #f7f9f9;
+}
+
+.pergola-grid__canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--pergola-grid-aspect, 1.4);
+  min-height: 150px;
+  max-height: 330px;
+  margin: 0 auto;
+}
+
+.pergola-grid__segment {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9ba7ae;
+}
+
+button.pergola-grid__segment {
+  cursor: pointer;
+}
+
+.pergola-grid__segment.is-horizontal {
+  height: 24px;
+  transform: translateY(-50%);
+}
+
+.pergola-grid__segment.is-vertical {
+  width: 24px;
+  transform: translateX(-50%);
+}
+
+.pergola-grid__segment > span {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  background: currentColor;
+  transition: background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.pergola-grid__segment.is-horizontal > span {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  transform: translateY(-50%);
+}
+
+.pergola-grid__segment.is-vertical > span {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  transform: translateX(-50%);
+}
+
+button.pergola-grid__segment:hover {
+  color: #0878c9;
+}
+
+.pergola-grid__segment.has-closing {
+  color: #0878c9;
+}
+
+.pergola-grid__segment.is-selected {
+  color: #005d9f;
+  z-index: 2;
+}
+
+.pergola-grid__segment.is-selected > span {
+  box-shadow: 0 0 0 4px rgba(8, 120, 201, 0.18);
+}
+
+.pergola-grid__segment.is-blocked:not(.has-closing) {
+  color: #d59a2c;
+}
+
+.pergola-grid__segment.is-unavailable {
+  color: #d5dade;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.pergola-grid__pole {
+  position: absolute;
+  z-index: 4;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #26343c;
+  box-shadow: 0 0 0 2px #8b989f, 0 2px 8px rgba(24, 36, 43, 0.2);
+  transform: translate(-50%, -50%);
+  transition: background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+button.pergola-grid__pole {
+  cursor: pointer;
+}
+
+button.pergola-grid__pole:hover {
+  background: #0878c9;
+  box-shadow: 0 0 0 3px rgba(8, 120, 201, 0.26), 0 3px 10px rgba(24, 36, 43, 0.22);
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.pergola-grid__pole.is-selected {
+  background: #0878c9;
+  box-shadow: 0 0 0 4px rgba(8, 120, 201, 0.24), 0 3px 10px rgba(24, 36, 43, 0.22);
+}
+
+.pergola-grid__pole.is-invalid {
+  box-shadow: 0 0 0 3px #d62929, 0 0 0 7px rgba(214, 41, 41, 0.16), 0 3px 10px rgba(24, 36, 43, 0.22);
+}
+
+.pergola-grid__pole.is-unavailable {
+  background: #bac2c7;
+  box-shadow: 0 0 0 2px #d6dcdf;
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.pergola-grid--segments .pergola-grid__pole {
+  pointer-events: none;
+}
+
+.pergola-grid--poles .pergola-grid__segment {
+  pointer-events: none;
+}
+
+.pergola-grid__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  margin-top: 10px;
+  color: #78858d;
+  font-size: 12px;
+}
+
+.pergola-grid__legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.pergola-grid__legend .legend-line {
+  display: inline-block;
+  width: 25px;
+  height: 4px;
+  border-radius: 999px;
+  background: #9ba7ae;
+}
+
+.pergola-grid__legend .legend-line.has-closing {
+  background: #0878c9;
+}
+
+.dimension-warning-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dimension-warning-modal .modal__body strong {
+  color: #a32222;
+}
+
+@media (max-width: 640px) {
+  .pergola-grid {
+    padding: 16px 17px;
+  }
+
+  .pergola-grid__pole {
+    width: 25px;
+    height: 25px;
+  }
+}

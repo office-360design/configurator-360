@@ -3,9 +3,14 @@ import { calculatePrice, formatMoney } from '../pricing.js';
 import {
   createPoleMount,
   findPoleMount,
+  getPoleGrid,
   getPoleMountConflictMap,
+  getSideSegmentConfig,
+  hasLayoutCustomizations,
   hasPoleMountConflicts,
+  normalizeDimensionInput,
   poleIsAvailable,
+  segmentIsAvailable,
 } from '../state.js';
 import {
   LANGUAGE_PROFILES,
@@ -32,8 +37,8 @@ export class ConfiguratorUI {
     this.store = store;
     this.state = store.get();
     this.scene = null;
-    this.activeSide = 'front';
-    this.activePole = 'frontLeft';
+    this.activeSideSegment = null;
+    this.activePole = null;
     this.activePoleFace = 'front';
     this.environmentOpen = false;
     this.toolsOpen = false;
@@ -44,6 +49,7 @@ export class ConfiguratorUI {
     this.accountMenuOpen = false;
     this.accountSettingsOpen = false;
     this.languageMenuOpen = false;
+    this.pendingDimensionChange = null;
 
     const projectMeta = this.readProjectMeta();
     this.projectName = projectMeta.name || this.getNextDefaultProjectName();
@@ -252,6 +258,14 @@ export class ConfiguratorUI {
 
   onStateChange(state, meta = {}) {
     this.state = state;
+    if (meta.dimensionsReset) {
+      this.activePole = null;
+      this.activePoleFace = 'front';
+      this.activeSideSegment = null;
+    }
+    const grid = getPoleGrid(state);
+    if (this.activePole && !grid.poles.some((pole) => pole.id === this.activePole)) this.activePole = null;
+    if (this.activeSideSegment && !grid.segments.some((segment) => segment.id === this.activeSideSegment)) this.activeSideSegment = null;
     this.projectDirty = this.computeProjectDirty();
     if (meta.continuous) {
       this.syncContinuousValues();
@@ -338,17 +352,19 @@ export class ConfiguratorUI {
     } else if (action === 'go-step') {
       this.store.update('step', Number(actionTarget.dataset.step));
     } else if (action === 'dimension-preset') {
-      this.store.patch({ dimensions: {
-        ...this.state.dimensions,
+      this.requestDimensionChange({
         width: Number(actionTarget.dataset.width),
         depth: Number(actionTarget.dataset.depth),
-      } });
+      }, 'dimension-preset');
     } else if (action === 'toggle-service') {
       const key = actionTarget.dataset.service;
       this.store.update(`services.${key}`, !this.state.services[key]);
-    } else if (action === 'select-side') {
-      this.activeSide = actionTarget.dataset.side;
-      this.render();
+    } else if (action === 'select-side-segment') {
+      const segmentId = actionTarget.dataset.segment;
+      if (segmentIsAvailable(this.state, segmentId)) {
+        this.activeSideSegment = this.activeSideSegment === segmentId ? null : segmentId;
+        this.render();
+      }
     } else if (action === 'counter') {
       const key = actionTarget.dataset.key;
       const delta = Number(actionTarget.dataset.delta);
@@ -379,7 +395,8 @@ export class ConfiguratorUI {
     } else if (action === 'select-pole') {
       const pole = actionTarget.dataset.pole;
       if (poleIsAvailable(this.state, pole)) {
-        this.activePole = pole;
+        this.activePole = this.activePole === pole ? null : pole;
+        if (this.activePole) this.activePoleFace = 'front';
         this.render();
       }
     } else if (action === 'select-pole-face') {
@@ -455,8 +472,16 @@ export class ConfiguratorUI {
       window.print();
     } else if (action === 'focus-quote') {
       this.root.querySelector('[data-quote-form]')?.scrollIntoView({ behavior: 'smooth' });
-    } else if (action === 'close-modal') {
+    } else if (action === 'confirm-dimension-change') {
+      const pending = this.pendingDimensionChange;
+      this.pendingDimensionChange = null;
       this.modalRoot.innerHTML = '';
+      if (pending) this.store.setDimensions(pending.dimensions, { path: pending.path ?? 'dimensions' });
+    } else if (action === 'cancel-dimension-change' || action === 'close-modal') {
+      const wasPendingDimensionChange = Boolean(this.pendingDimensionChange);
+      this.pendingDimensionChange = null;
+      this.modalRoot.innerHTML = '';
+      if (wasPendingDimensionChange) this.render();
     } else if (action === 'login') {
       this.showModal('Demo login', '<p>Authentication is not connected in this frontend-only implementation.</p>');
     }
@@ -517,11 +542,57 @@ export class ConfiguratorUI {
     let value = input.type === 'checkbox' ? input.checked : input.value;
     if (input.dataset.valueType === 'number') value = Number(value);
     if (input.dataset.dimensionUnit === 'inches') value = Math.round(value * 25.4);
+
+    const dimensionMatch = input.dataset.path.match(/^dimensions\.(width|depth|height)$/);
+    if (dimensionMatch) {
+      const key = dimensionMatch[1];
+      this.requestDimensionChange({ [key]: normalizeDimensionInput(key, value) }, input.dataset.path);
+      return;
+    }
+
     const updated = this.store.update(input.dataset.path, value, { continuous });
     if (updated === false) {
       input.value = this.valueAtPath(input.dataset.path) ?? input.value;
       this.showToast(this.store.getLastError?.() || 'That position overlaps another component.');
     }
+  }
+
+  requestDimensionChange(partial, path = 'dimensions') {
+    const dimensions = { ...this.state.dimensions };
+    Object.entries(partial).forEach(([key, value]) => {
+      dimensions[key] = normalizeDimensionInput(key, value);
+    });
+    const changed = ['width', 'depth', 'height'].some((key) => dimensions[key] !== this.state.dimensions[key]);
+    if (!changed) {
+      this.render();
+      return;
+    }
+
+    if (hasLayoutCustomizations(this.state)) {
+      this.pendingDimensionChange = { dimensions, path };
+      this.showDimensionChangeWarning();
+      return;
+    }
+    this.store.setDimensions(dimensions, { path });
+  }
+
+  showDimensionChangeWarning() {
+    this.modalRoot.innerHTML = `
+      <div class="modal-backdrop" role="presentation">
+        <section class="modal dimension-warning-modal" role="dialog" aria-modal="true" aria-labelledby="dimension-warning-title" onclick="event.stopPropagation()">
+          <header><h2 id="dimension-warning-title">Change pergola size?</h2><button type="button" data-action="cancel-dimension-change" aria-label="Cancel">×</button></header>
+          <div class="modal__body">
+            <p>Changing the pergola dimensions rebuilds the pole grid.</p>
+            <p><strong>All pole accessories will be removed and all side closings will disappear.</strong></p>
+            <p>This prevents accessories or walls from being left attached to poles that no longer exist.</p>
+          </div>
+          <footer class="dimension-warning-modal__actions">
+            <button class="secondary-button" type="button" data-action="cancel-dimension-change">Cancel</button>
+            <button class="primary-button" type="button" data-action="confirm-dimension-change">Change size</button>
+          </footer>
+        </section>
+      </div>
+    `;
   }
 
   valueAtPath(path) {
@@ -555,8 +626,8 @@ export class ConfiguratorUI {
     if (sun) sun.textContent = `${Math.round(this.state.environment.sunPosition * 100)}%`;
     if (tilt) tilt.textContent = `${Math.round(this.state.roof.louverTilt)}°`;
     if (north) north.textContent = `${Math.round(this.state.environment.northDirection)}°`;
-    if (screen) {
-      const config = this.state.sides[this.activeSide];
+    if (screen && this.activeSideSegment) {
+      const config = getSideSegmentConfig(this.state, this.activeSideSegment);
       const openness = config.screenSettings?.[config.type]?.openness ?? 50;
       screen.textContent = `${Math.round(openness)}% open`;
     }
@@ -607,6 +678,7 @@ export class ConfiguratorUI {
   toggleAccountMenu() {
     this.accountMenuOpen = !this.accountMenuOpen;
     this.languageMenuOpen = false;
+    this.pendingDimensionChange = null;
     this.syncAccountMenu();
     this.syncLanguageMenu();
   }
@@ -622,6 +694,7 @@ export class ConfiguratorUI {
   closeHeaderMenus() {
     this.accountMenuOpen = false;
     this.languageMenuOpen = false;
+    this.pendingDimensionChange = null;
     this.syncAccountMenu();
     this.syncLanguageMenu();
   }
@@ -676,6 +749,7 @@ export class ConfiguratorUI {
     }
     if (!event.target.closest('[data-language-menu], [data-action="language"]')) {
       this.languageMenuOpen = false;
+    this.pendingDimensionChange = null;
       this.syncLanguageMenu();
     }
   }

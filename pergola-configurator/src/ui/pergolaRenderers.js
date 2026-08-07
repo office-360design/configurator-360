@@ -16,7 +16,6 @@ import {
   SIDE_NAMES,
   SIDE_OPTIONS,
   STEPS,
-  SUPPORT_POLES,
 } from '../catalog.js';
 import {
   automationLabel,
@@ -29,14 +28,19 @@ import {
   countPoleMounts,
   findPoleMount,
   findAvailablePoleMountHeight,
-  getConnectedSideForPoleFace,
+  getConnectedSegmentForPoleFace,
   getPoleFaceMounts,
+  getPoleGrid,
+  getPoleLabel,
   getPoleMountConflictMap,
   getPoleMountHeightLimits,
+  getSideSegment,
+  getSideSegmentConfig,
   hasPoleMountConflicts,
   poleFaceIsAvailable,
   poleIsAvailable,
-  sideHasMountedItems,
+  segmentHasMountedItems,
+  segmentIsAvailable,
 } from '../state.js';
 import { escapeHtml } from '../../../shared-ui/src/index.js';
 import { optionCard, segmented, colorSwatches } from './renderHelpers.js';
@@ -55,6 +59,83 @@ function poleMountLabel(type) {
 function capitalize(value) {
   const text = String(value ?? '');
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+}
+
+
+function segmentDisplayLabel(state, segmentOrId) {
+  const segment = typeof segmentOrId === 'string' ? getSideSegment(state, segmentOrId) : segmentOrId;
+  if (!segment) return 'Grid segment';
+  if (segment.boundary) {
+    const ordinal = segment.axis === 'horizontal' ? segment.column + 1 : segment.row + 1;
+    return `${capitalize(segment.boundary)} segment ${ordinal}`;
+  }
+  return segment.axis === 'horizontal'
+    ? `Interior row ${segment.row + 1}, segment ${segment.column + 1}`
+    : `Interior column ${segment.column + 1}, segment ${segment.row + 1}`;
+}
+
+function renderPergolaGrid(state, options = {}) {
+  const grid = getPoleGrid(state);
+  const mode = options.mode === 'segments' ? 'segments' : 'poles';
+  const conflicts = options.conflicts ?? {};
+  const aspect = Math.min(3.2, Math.max(0.7, grid.width / grid.depth));
+  const xPercent = (column) => grid.columns <= 1 ? 50 : (column / (grid.columns - 1)) * 100;
+  const yPercent = (row) => grid.rows <= 1 ? 50 : (row / (grid.rows - 1)) * 100;
+
+  const segmentMarkup = grid.segments.map((segment) => {
+    const available = segmentIsAvailable(state, segment.id);
+    const configured = getSideSegmentConfig(state, segment.id).type !== 'none';
+    const blocked = segmentHasMountedItems(state, segment.id);
+    const selected = options.selectedSegment === segment.id;
+    let style = '';
+    if (segment.axis === 'horizontal') {
+      const left = xPercent(segment.column);
+      const right = xPercent(segment.column + 1);
+      style = `left:${left}%;top:${yPercent(segment.row)}%;width:${right - left}%;`;
+    } else {
+      const top = yPercent(segment.row);
+      const bottom = yPercent(segment.row + 1);
+      style = `left:${xPercent(segment.column)}%;top:${top}%;height:${bottom - top}%;`;
+    }
+    const classes = [
+      'pergola-grid__segment',
+      `is-${segment.axis}`,
+      configured ? 'has-closing' : '',
+      blocked ? 'is-blocked' : '',
+      selected ? 'is-selected' : '',
+      available ? '' : 'is-unavailable',
+    ].filter(Boolean).join(' ');
+    if (mode === 'segments') {
+      return `<button type="button" class="${classes}" style="${style}" data-action="select-side-segment" data-segment="${segment.id}" aria-pressed="${selected}" title="${escapeHtml(segmentDisplayLabel(state, segment))}" ${available ? '' : 'disabled aria-disabled="true"'}><span></span></button>`;
+    }
+    return `<span class="${classes}" style="${style}" aria-hidden="true"><span></span></span>`;
+  }).join('');
+
+  const poleMarkup = grid.poles.map((pole) => {
+    const available = poleIsAvailable(state, pole.id);
+    const invalid = Boolean(conflicts[pole.id]);
+    const selected = options.selectedPole === pole.id;
+    const classes = [
+      'pergola-grid__pole',
+      selected ? 'is-selected' : '',
+      invalid ? 'is-invalid' : '',
+      available ? '' : 'is-unavailable',
+    ].filter(Boolean).join(' ');
+    const style = `left:${xPercent(pole.column)}%;top:${yPercent(pole.row)}%;`;
+    if (mode === 'poles') {
+      return `<button type="button" class="${classes}" style="${style}" data-action="select-pole" data-pole="${pole.id}" aria-pressed="${selected}" title="${escapeHtml(pole.label)}" ${available ? '' : 'disabled aria-disabled="true"'}><span></span></button>`;
+    }
+    return `<span class="${classes}" style="${style}" title="${escapeHtml(pole.label)}" aria-hidden="true"><span></span></span>`;
+  }).join('');
+
+  return `
+    <div class="pergola-grid pergola-grid--${mode}" style="--pergola-grid-aspect:${aspect};">
+      <div class="pergola-grid__canvas">
+        ${segmentMarkup}
+        ${poleMarkup}
+      </div>
+    </div>
+  `;
 }
 
 export const pergolaRenderers = {
@@ -156,9 +237,9 @@ export const pergolaRenderers = {
         </div>
 
         <div class="dimension-fields">
-          ${this.numberField('Width', 'dimensions.width', state.dimensions.width, 2500, 8000, 100)}
-          ${this.numberField('Depth', 'dimensions.depth', state.dimensions.depth, 2000, 6000, 100)}
-          ${this.numberField('Height', 'dimensions.height', state.dimensions.height, 2200, 3200, 50)}
+          ${this.numberField('Width', 'dimensions.width', state.dimensions.width, 2000, 20000, 100)}
+          ${this.numberField('Depth', 'dimensions.depth', state.dimensions.depth, 2000, 20000, 100)}
+          ${this.numberField('Height', 'dimensions.height', state.dimensions.height, 2000, 3000, 50)}
         </div>
       </section>
     `;
@@ -230,7 +311,7 @@ export const pergolaRenderers = {
           </div>
           <div class="pole-placement-notice__status">
             <img src="./assets/icons/automation-manual.svg" alt="" />
-            <span><strong>${crank ? 'Hand crank positioned' : 'Position required'}</strong><small>${crank ? `${SUPPORT_POLES.find((item) => item.value === crank.pole)?.label}, ${capitalize(crank.face)} face` : 'Choose a pole and face before completing the configuration.'}</small></span>
+            <span><strong>${crank ? 'Hand crank positioned' : 'Position required'}</strong><small>${crank ? `${getPoleLabel(this.state, crank.pole)}, ${capitalize(crank.face)} face` : 'Choose a pole and face before completing the configuration.'}</small></span>
           </div>
           <button type="button" class="secondary-action secondary-action--full" data-action="open-pole-customization">Configure pole components</button>
         </section>
@@ -278,47 +359,43 @@ export const pergolaRenderers = {
   },
 
   renderSidesStep() {
-    const config = this.state.sides[this.activeSide];
-    const disabledByWall = this.state.installation === 'wall-mounted' && this.state.mountedSide === this.activeSide;
-    const blockedByPoleMounts = sideHasMountedItems(this.state, this.activeSide);
-    const isScreen = ['screen', 'motorized-screen'].includes(config.type);
+    const grid = getPoleGrid(this.state);
+    if (this.activeSideSegment && !grid.segments.some((segment) => segment.id === this.activeSideSegment && segmentIsAvailable(this.state, segment.id))) {
+      this.activeSideSegment = null;
+    }
+
+    const segmentId = this.activeSideSegment;
+    const segment = segmentId ? getSideSegment(this.state, segmentId) : null;
+    const config = segmentId ? getSideSegmentConfig(this.state, segmentId) : null;
+    const blockedByPoleMounts = segmentId ? segmentHasMountedItems(this.state, segmentId) : false;
+    const isScreen = config ? ['screen', 'motorized-screen'].includes(config.type) : false;
     const settings = isScreen ? config.screenSettings[config.type] : null;
 
     return `
       <section class="form-section">
         <div class="section-heading">
-          <h2>Choose a side</h2>
-          <p>Each side can use a different closing system.</p>
+          <h2>Choose a closing segment</h2>
+          <p>Select a line between two adjacent poles. Poles are shown for reference but are not clickable in this section.</p>
         </div>
-        <div class="side-tabs">
-          ${SIDE_NAMES.map((side) => `
-            <button
-              type="button"
-              class="side-tab ${side === this.activeSide ? 'is-selected' : ''}"
-              data-action="select-side"
-              data-side="${side}"
-            >
-              <span>${capitalize(side)}</span>
-              <small>${sideLabel(this.state.sides[side].type)}</small>
-            </button>
-          `).join('')}
-        </div>
+        ${renderPergolaGrid(this.state, { mode: 'segments', selectedSegment: segmentId })}
+        <div class="pergola-grid__legend"><span><i class="legend-line"></i> Click a segment</span><span><i class="legend-line has-closing"></i> Closing configured</span></div>
       </section>
 
-      ${disabledByWall ? `
+      ${!segmentId ? `
         <div class="info-banner">
-          <strong>${capitalize(this.activeSide)} is attached to the building.</strong>
-          <span>Side closings are not available on the mounted edge.</span>
+          <strong>Select a grid segment.</strong>
+          <span>Each horizontal or vertical space between adjacent poles can be configured independently.</span>
         </div>
       ` : `
         ${blockedByPoleMounts ? `
           <div class="info-banner info-banner--warning side-pole-conflict-warning">
-            <strong>${capitalize(this.activeSide)} closing is blocked by pole components.</strong>
-            <span>Clear the two pole faces that point toward each other across this side before adding a screen, wall or glass panel.</span>
+            <strong>${escapeHtml(segmentDisplayLabel(this.state, segment))} is blocked by pole components.</strong>
+            <span>Clear the two pole faces that point toward this segment before adding a screen, privacy wall or glass panel.</span>
           </div>
         ` : ''}
+
         <section class="form-section">
-          <div class="section-heading"><h2>${capitalize(this.activeSide)} side</h2></div>
+          <div class="section-heading"><h2>${escapeHtml(segmentDisplayLabel(this.state, segment))}</h2><p>${Math.round(segment.lengthMm / 10) / 100} m between pole centers.</p></div>
           <div class="side-option-grid">
             ${SIDE_OPTIONS.map((option) => optionCard(
               {
@@ -327,7 +404,7 @@ export const pergolaRenderers = {
                 disabledReason: 'Remove the components from both connected pole faces first.',
               },
               config.type === option.value,
-              `sides.${this.activeSide}.type`,
+              `sideSegments.${segmentId}.type`,
             )).join('')}
           </div>
         </section>
@@ -337,7 +414,7 @@ export const pergolaRenderers = {
             <div class="section-heading section-heading--row">
               <div>
                 <h2>Screen position</h2>
-                <p>${config.type === 'motorized-screen' ? 'Motorized' : 'Pull-down'} screen settings are remembered separately.</p>
+                <p>${config.type === 'motorized-screen' ? 'Motorized' : 'Pull-down'} screen settings are remembered separately for this segment.</p>
               </div>
               <strong data-screen-openness-label>${Math.round(settings.openness)}% open</strong>
             </div>
@@ -348,7 +425,7 @@ export const pergolaRenderers = {
               max="100"
               step="1"
               value="${settings.openness}"
-              data-path="sides.${this.activeSide}.screenSettings.${config.type}.openness"
+              data-path="sideSegments.${segmentId}.screenSettings.${config.type}.openness"
               data-value-type="number"
               data-continuous="true"
             />
@@ -358,12 +435,12 @@ export const pergolaRenderers = {
           <section class="form-section">
             <div class="section-heading">
               <h2>Screen color</h2>
-              <p>The selected color is stored independently for this screen type and side.</p>
+              <p>The selected color is stored independently for this screen type and segment.</p>
             </div>
             ${colorSwatches(
               SCREEN_COLORS,
               settings.color,
-              `sides.${this.activeSide}.screenSettings.${config.type}.color`,
+              `sideSegments.${segmentId}.screenSettings.${config.type}.color`,
             )}
           </section>
         ` : ''}
@@ -372,9 +449,9 @@ export const pergolaRenderers = {
           <section class="form-section">
             <div class="section-heading">
               <h2>Privacy-wall color</h2>
-              <p>The finish is remembered separately for every side.</p>
+              <p>The finish is remembered separately for this grid segment.</p>
             </div>
-            ${colorSwatches(PRIVACY_WALL_COLORS, config.privacyColor, `sides.${this.activeSide}.privacyColor`)}
+            ${colorSwatches(PRIVACY_WALL_COLORS, config.privacyColor, `sideSegments.${segmentId}.privacyColor`)}
           </section>
         ` : ''}
       `}
@@ -517,77 +594,47 @@ export const pergolaRenderers = {
   },
 
   renderPoleCustomization() {
-    let pole = this.activePole;
-    if (!poleIsAvailable(this.state, pole)) {
-      pole = SUPPORT_POLES.find((item) => poleIsAvailable(this.state, item.value))?.value ?? SUPPORT_POLES[0].value;
-      this.activePole = pole;
-    }
-
-    const face = POLE_FACES.some((item) => item.value === this.activePoleFace)
-      ? this.activePoleFace
-      : POLE_FACES[0].value;
-    this.activePoleFace = face;
-
-    const mounts = getPoleFaceMounts(this.state, pole, face);
-    const configuredMounts = Object.entries(mounts).filter(([, mount]) => Boolean(mount));
-    const faceAvailable = poleFaceIsAvailable(this.state, pole, face);
-    const connectedSide = getConnectedSideForPoleFace(pole, face);
-    const totalMounts = countPoleMounts(this.state);
-    const poleLabel = SUPPORT_POLES.find((item) => item.value === pole)?.label ?? pole;
     const conflicts = getPoleMountConflictMap(this.state);
-    const faceConflict = conflicts[pole]?.[face] ?? null;
-    const conflictingTypes = new Set(faceConflict?.types ?? []);
+    const totalMounts = countPoleMounts(this.state);
+    const pole = this.activePole && poleIsAvailable(this.state, this.activePole) ? this.activePole : null;
+    if (this.activePole && !pole) this.activePole = null;
 
-    return `
-      <section class="form-section pole-customizer" data-pole-customizer>
-        <div class="section-heading">
-          <h2>Pole customization</h2>
-          <p>Select a pole and one of its faces. A face can hold one item of each type, provided the items do not overlap vertically.</p>
-        </div>
-        <div class="accessory-summary-line ${hasPoleMountConflicts(this.state) ? 'is-invalid' : ''}">
-          <span class="pole-customizer__summary-icon" aria-hidden="true"><img src="./assets/icons/pole-components.svg" alt="" /></span>
-          <span><strong>${totalMounts} pole component${totalMounts === 1 ? '' : 's'}</strong><small>Walls and mounted components reserve the same connected pole faces</small></span>
-        </div>
+    let selectedDetails = '';
+    if (pole) {
+      const face = POLE_FACES.some((item) => item.value === this.activePoleFace)
+        ? this.activePoleFace
+        : POLE_FACES[0].value;
+      this.activePoleFace = face;
 
+      const mounts = getPoleFaceMounts(this.state, pole, face);
+      const configuredMounts = Object.entries(mounts).filter(([, mount]) => Boolean(mount));
+      const faceAvailable = poleFaceIsAvailable(this.state, pole, face);
+      const connectedSegmentId = getConnectedSegmentForPoleFace(this.state, pole, face);
+      const connectedSegment = connectedSegmentId ? getSideSegment(this.state, connectedSegmentId) : null;
+      const poleLabel = getPoleLabel(this.state, pole);
+      const faceConflict = conflicts[pole]?.[face] ?? null;
+      const conflictingTypes = new Set(faceConflict?.types ?? []);
+
+      selectedDetails = `
         <div class="pole-customizer__group">
-          <div class="detail-heading"><strong>1. Select a pole</strong><small>${poleLabel}</small></div>
-          <div class="pole-selector">
-            ${SUPPORT_POLES.map(({ value, label }) => {
-              const available = poleIsAvailable(this.state, value);
-              const occupied = POLE_FACES.reduce(
-                (total, poleFace) => total + Object.values(getPoleFaceMounts(this.state, value, poleFace.value)).filter(Boolean).length,
-                0,
-              );
-              const invalid = Boolean(conflicts[value]);
-              return `
-                <button type="button" class="pole-selector__button ${pole === value ? 'is-selected' : ''} ${invalid ? 'is-invalid' : ''}"
-                  data-action="select-pole" data-pole="${value}" aria-pressed="${pole === value}"
-                  ${available ? '' : 'disabled aria-disabled="true"'}>
-                  <span>${label}</span><small>${available ? `${occupied} component${occupied === 1 ? '' : 's'}${invalid ? ' · overlapping items' : ''}` : 'No pole in this installation'}</small>
-                </button>
-              `;
-            }).join('')}
-          </div>
-        </div>
-
-        <div class="pole-customizer__group">
-          <div class="detail-heading"><strong>2. Select a face</strong><small>${capitalize(face)} face</small></div>
+          <div class="detail-heading"><strong>2. Select a face</strong><small>${escapeHtml(poleLabel)} · ${capitalize(face)} face</small></div>
           <div class="pole-face-selector">
             ${POLE_FACES.map(({ value, label }) => {
               const faceMounts = getPoleFaceMounts(this.state, pole, value);
               const items = Object.entries(faceMounts).filter(([, mount]) => Boolean(mount));
               const available = poleFaceIsAvailable(this.state, pole, value);
-              const side = getConnectedSideForPoleFace(pole, value);
+              const segmentId = getConnectedSegmentForPoleFace(this.state, pole, value);
+              const segment = segmentId ? getSideSegment(this.state, segmentId) : null;
               const invalid = Boolean(conflicts[pole]?.[value]);
               const status = items.length
                 ? `${items.map(([type]) => poleMountLabel(type)).join(', ')}${invalid ? ' · overlapping' : ''}`
                 : available
-                  ? (side ? `Open toward ${side} side` : 'Exterior face available')
-                  : (side ? `${capitalize(side)} side closing occupies this face` : 'Unavailable');
+                  ? (segment ? `${segmentDisplayLabel(this.state, segment)} is open` : 'Exterior face available')
+                  : (segment ? `${segmentDisplayLabel(this.state, segment)} has a closing` : 'Unavailable');
               return `
                 <button type="button" class="pole-face-selector__button ${face === value ? 'is-selected' : ''} ${items.length ? 'is-occupied' : ''} ${invalid ? 'is-invalid' : ''}"
                   data-action="select-pole-face" data-face="${value}" aria-pressed="${face === value}">
-                  <span>${label}</span><small>${status}</small>
+                  <span>${label}</span><small>${escapeHtml(status)}</small>
                 </button>
               `;
             }).join('')}
@@ -595,7 +642,7 @@ export const pergolaRenderers = {
         </div>
 
         <div class="pole-customizer__group pole-mount-editor ${faceAvailable ? '' : 'is-blocked'} ${faceConflict ? 'is-invalid' : ''}">
-          <div class="detail-heading"><strong>3. Choose components</strong><small>${faceAvailable ? `${poleLabel} · ${capitalize(face)} face` : 'This face is reserved by a side closing'}</small></div>
+          <div class="detail-heading"><strong>3. Choose components</strong><small>${faceAvailable ? `${escapeHtml(poleLabel)} · ${capitalize(face)} face` : 'This face is reserved by a side closing'}</small></div>
           ${faceAvailable ? `
             <div class="pole-mount-type-grid">
               ${POLE_MOUNT_OPTIONS.map((option) => {
@@ -631,9 +678,29 @@ export const pergolaRenderers = {
               }).join('')}</div>`
               : '<div class="info-banner pole-mount-empty-note"><strong>This pole face is free.</strong><span>Add one or more different component types above.</span></div>'}
           ` : `
-            <div class="info-banner info-banner--warning"><strong>Face unavailable</strong><span>Set the ${connectedSide ? `${connectedSide} side` : 'connected side'} to Open side before mounting a component here.</span></div>
+            <div class="info-banner info-banner--warning"><strong>Face unavailable</strong><span>${connectedSegment ? `${escapeHtml(segmentDisplayLabel(this.state, connectedSegment))} already contains a side closing.` : 'This face is unavailable for the selected installation.'}</span></div>
           `}
         </div>
+      `;
+    }
+
+    return `
+      <section class="form-section pole-customizer" data-pole-customizer>
+        <div class="section-heading">
+          <h2>Pole customization</h2>
+          <p>Select a pole from the layout grid. Click the selected pole again to deselect it. Pole controls only appear while a pole is selected.</p>
+        </div>
+        <div class="accessory-summary-line ${hasPoleMountConflicts(this.state) ? 'is-invalid' : ''}">
+          <span class="pole-customizer__summary-icon" aria-hidden="true"><img src="./assets/icons/pole-components.svg" alt="" /></span>
+          <span><strong>${totalMounts} pole component${totalMounts === 1 ? '' : 's'}</strong><small>Red pole outlines identify poles containing overlapping items</small></span>
+        </div>
+
+        <div class="pole-customizer__group">
+          <div class="detail-heading"><strong>1. Select a pole</strong><small>${pole ? escapeHtml(getPoleLabel(this.state, pole)) : 'No pole selected'}</small></div>
+          ${renderPergolaGrid(this.state, { mode: 'poles', selectedPole: pole, conflicts })}
+        </div>
+
+        ${selectedDetails}
       </section>
     `;
   },

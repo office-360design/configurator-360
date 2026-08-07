@@ -319,7 +319,7 @@ export class PergolaScene {
       roof: state.roof,
       automation: state.automation,
       poleMounts: state.poleMounts,
-      sides: state.sides,
+      sideSegments: state.sideSegments,
       accessories: state.accessories,
       units: state.units,
     });
