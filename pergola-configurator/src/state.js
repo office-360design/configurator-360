@@ -567,8 +567,31 @@ export function hasPoleMountConflicts(state) {
   return Object.keys(getPoleMountConflictMap(state)).length > 0;
 }
 
+export function getPergolaConfigurationIssues(state) {
+  const issues = [];
+  if (hasPoleMountConflicts(state)) {
+    issues.push({
+      code: 'pole-overlap',
+      message: 'Invalid pergola configuration. There are overlapping items.',
+    });
+  }
+  if (state.automation === 'manual' && countPoleMounts(state, 'hand-crank') === 0) {
+    issues.push({
+      code: 'missing-hand-crank',
+      message: 'Invalid pergola configuration. You must place one hand crank for the pergola in the Accessories tab.',
+    });
+  }
+  if (state.automation === 'wall-switch' && countPoleMounts(state, 'switch') === 0) {
+    issues.push({
+      code: 'missing-switch',
+      message: 'Invalid pergola configuration. You must place at least one switch for the pergola in the Accessories tab.',
+    });
+  }
+  return issues;
+}
+
 export function isPergolaConfigurationValid(state) {
-  return !hasPoleMountConflicts(state);
+  return getPergolaConfigurationIssues(state).length === 0;
 }
 
 export function findAvailablePoleMountHeight(state, pole, face, type, preferredHeight = null) {
@@ -948,14 +971,6 @@ export class ConfiguratorStore {
         }
       }
 
-      if (candidate.automation === 'manual' && countPoleMounts(candidate, 'hand-crank') === 0) {
-        this.lastError = 'Manual automation requires one hand crank. Move it to another face before removing it.';
-        return false;
-      }
-      if (candidate.automation === 'wall-switch' && countPoleMounts(candidate, 'switch') === 0) {
-        this.lastError = 'Switch automation requires at least one switch. Add another switch before removing this one.';
-        return false;
-      }
     }
 
     const normalizedCandidate = normalizeState(candidate, candidate);

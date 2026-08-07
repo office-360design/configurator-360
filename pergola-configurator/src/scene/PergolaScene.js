@@ -171,18 +171,19 @@ export class PergolaScene {
     this.environmentGroup.add(ground);
 
     const deckMaterial = makeMaterial('#aa9477', { roughness: 0.82 });
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.12, 7.4), deckMaterial);
-    deck.position.set(0, -0.01, 0);
-    deck.receiveShadow = true;
-    deck.castShadow = true;
-    this.environmentGroup.add(deck);
+    this.deckPlatform = new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), deckMaterial);
+    this.deckPlatform.position.set(0, -0.01, 0);
+    this.deckPlatform.receiveShadow = true;
+    this.deckPlatform.castShadow = true;
+    this.deckPlatform.name = 'environment-platform';
+    this.environmentGroup.add(this.deckPlatform);
 
-    const plankMaterial = makeMaterial('#c1ad90', { roughness: 0.88 });
-    for (let index = 0; index < 24; index += 1) {
-      const plank = new THREE.Mesh(new THREE.BoxGeometry(9.25, 0.008, 0.008), plankMaterial);
-      plank.position.set(0, 0.055, -3.55 + index * 0.305);
-      this.environmentGroup.add(plank);
-    }
+    this.deckPlankMaterial = makeMaterial('#c1ad90', { roughness: 0.88 });
+    this.deckPlankGroup = new THREE.Group();
+    this.deckPlankGroup.name = 'environment-platform-planks';
+    this.environmentGroup.add(this.deckPlankGroup);
+    this.platformSizeSignature = '';
+    this.updatePlatformSize();
 
     this.houseGroup = fitAssetToBox(
       this.assets.clone('house') ?? this.makeHouseFallback(),
@@ -420,7 +421,33 @@ export class PergolaScene {
     return `${Math.round(mm)} mm`;
   }
 
+  updatePlatformSize() {
+    if (!this.deckPlatform || !this.deckPlankGroup) return;
+    const platformWidth = this.state.dimensions.width / 1000 + 2;
+    const platformDepth = this.state.dimensions.depth / 1000 + 2;
+    const signature = `${platformWidth.toFixed(3)}x${platformDepth.toFixed(3)}`;
+    if (signature === this.platformSizeSignature) return;
+
+    this.deckPlatform.scale.set(platformWidth, 1, platformDepth);
+
+    this.deckPlankGroup.children.forEach((child) => child.geometry?.dispose?.());
+    this.deckPlankGroup.clear();
+    const inset = 0.14;
+    const usableDepth = Math.max(0.1, platformDepth - inset * 2);
+    const plankCount = Math.max(2, Math.ceil(usableDepth / 0.305) + 1);
+    const spacing = usableDepth / (plankCount - 1);
+    const plankWidth = Math.max(0.1, platformWidth - inset * 2);
+    for (let index = 0; index < plankCount; index += 1) {
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(plankWidth, 0.008, 0.008), this.deckPlankMaterial);
+      plank.position.set(0, 0.055, -usableDepth / 2 + index * spacing);
+      this.deckPlankGroup.add(plank);
+    }
+
+    this.platformSizeSignature = signature;
+  }
+
   updateEnvironment() {
+    this.updatePlatformSize();
     const { sunPosition, northDirection, night, season } = this.state.environment;
     const progress = THREE.MathUtils.clamp(sunPosition, 0, 1);
     const azimuth = THREE.MathUtils.degToRad(-110 + progress * 220 + northDirection);

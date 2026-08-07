@@ -32,6 +32,7 @@ import {
   getPoleFaceMounts,
   getPoleGrid,
   getPoleLabel,
+  getPergolaConfigurationIssues,
   getPoleMountConflictMap,
   getPoleMountHeightLimits,
   getSideSegment,
@@ -61,6 +62,10 @@ function capitalize(value) {
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
 }
 
+function configurationValidationMessages(state) {
+  return getPergolaConfigurationIssues(state).map((issue) => issue.message);
+}
+
 
 function segmentDisplayLabel(state, segmentOrId) {
   const segment = typeof segmentOrId === 'string' ? getSideSegment(state, segmentOrId) : segmentOrId;
@@ -80,7 +85,8 @@ function renderPergolaGrid(state, options = {}) {
   const conflicts = options.conflicts ?? {};
   const aspect = Math.min(3.2, Math.max(0.7, grid.width / grid.depth));
   const xPercent = (column) => grid.columns <= 1 ? 50 : (column / (grid.columns - 1)) * 100;
-  const yPercent = (row) => grid.rows <= 1 ? 50 : (row / (grid.rows - 1)) * 100;
+  // Front is the viewer-facing edge, so it belongs at the bottom of the plan view.
+  const yPercent = (row) => grid.rows <= 1 ? 50 : 100 - (row / (grid.rows - 1)) * 100;
 
   const segmentMarkup = grid.segments.map((segment) => {
     const available = segmentIsAvailable(state, segment.id);
@@ -93,9 +99,10 @@ function renderPergolaGrid(state, options = {}) {
       const right = xPercent(segment.column + 1);
       style = `left:${left}%;top:${yPercent(segment.row)}%;width:${right - left}%;`;
     } else {
-      const top = yPercent(segment.row);
-      const bottom = yPercent(segment.row + 1);
-      style = `left:${xPercent(segment.column)}%;top:${top}%;height:${bottom - top}%;`;
+      const first = yPercent(segment.row);
+      const second = yPercent(segment.row + 1);
+      const top = Math.min(first, second);
+      style = `left:${xPercent(segment.column)}%;top:${top}%;height:${Math.abs(second - first)}%;`;
     }
     const classes = [
       'pergola-grid__segment',
@@ -307,7 +314,7 @@ export const pergolaRenderers = {
         <section class="form-section pole-placement-notice">
           <div class="section-heading">
             <h2>Hand-crank placement</h2>
-            <p>Manual control requires exactly one crank for the whole pergola.</p>
+            <p>Manual control requires one hand crank before the configuration can be completed.</p>
           </div>
           <div class="pole-placement-notice__status">
             <img src="./assets/icons/automation-manual.svg" alt="" />
@@ -321,7 +328,7 @@ export const pergolaRenderers = {
         <section class="form-section pole-placement-notice">
           <div class="section-heading">
             <h2>Pergola-switch placement</h2>
-            <p>At least one switch is required. Additional switches can be placed on any free pole face.</p>
+            <p>At least one switch is required before the configuration can be completed. Additional switches can be placed on any available pole face.</p>
           </div>
           <div class="pole-placement-notice__status">
             <img src="./assets/icons/automation-switch.svg" alt="" />
@@ -671,11 +678,8 @@ export const pergolaRenderers = {
             </div>
             <div class="pole-overlap-warning" role="alert" data-pole-overlap-warning ${faceConflict ? '' : 'hidden'}><strong>Overlapping items</strong><span>Move the outlined components until their vertical ranges no longer intersect.</span></div>
             ${configuredMounts.length
-              ? `<div class="pole-mounted-items">${configuredMounts.map(([type, mount]) => {
-                const required = (type === 'hand-crank' && this.state.automation === 'manual' && countPoleMounts(this.state, 'hand-crank') === 1)
-                  || (type === 'switch' && this.state.automation === 'wall-switch' && countPoleMounts(this.state, 'switch') === 1);
-                return this.renderPoleMountEditor(pole, face, type, mount, required, conflictingTypes.has(type));
-              }).join('')}</div>`
+              ? `<div class="pole-mounted-items">${configuredMounts.map(([type, mount]) =>
+                this.renderPoleMountEditor(pole, face, type, mount, false, conflictingTypes.has(type))).join('')}</div>`
               : '<div class="info-banner pole-mount-empty-note"><strong>This pole face is free.</strong><span>Add one or more different component types above.</span></div>'}
           ` : `
             <div class="info-banner info-banner--warning"><strong>Face unavailable</strong><span>${connectedSegment ? `${escapeHtml(segmentDisplayLabel(this.state, connectedSegment))} already contains a side closing.` : 'This face is unavailable for the selected installation.'}</span></div>
@@ -707,12 +711,13 @@ export const pergolaRenderers = {
 
   renderPoleMountEditor(pole, face, type, mount, required = false, conflicting = false) {
     const limits = getPoleMountHeightLimits(type);
+    const automationRequired = (type === 'hand-crank' && this.state.automation === 'manual')
+      || (type === 'switch' && this.state.automation === 'wall-switch');
     return `
       <div class="pole-mount-settings ${conflicting ? 'is-invalid' : ''}" data-pole-mount-card="${pole}.${face}.${type}">
         <div class="pole-mount-settings__header">
-          <span><strong>${poleMountLabel(type)}</strong><small>${required ? 'Required by the selected automation mode' : 'One item of this type is allowed on this face'}</small></span>
-          <button type="button" class="pole-mount-remove" data-action="remove-pole-mount" data-mount-type="${type}"
-            ${required ? 'disabled aria-disabled="true" title="Move or add the required automation control first"' : ''}>${required ? 'Required' : 'Remove'}</button>
+          <span><strong>${poleMountLabel(type)}</strong><small>${automationRequired ? 'Required to complete the selected automation mode, but removable while editing' : 'One item of this type is allowed on this face'}</small></span>
+          <button type="button" class="pole-mount-remove" data-action="remove-pole-mount" data-mount-type="${type}">Remove</button>
         </div>
         ${type === 'outlet' ? `
           <div class="pole-mount-setting-row">
@@ -732,10 +737,11 @@ export const pergolaRenderers = {
   },
 
   renderSummaryStep() {
-    if (hasPoleMountConflicts(this.state)) {
+    const validationMessages = configurationValidationMessages(this.state);
+    if (validationMessages.length) {
       return `
         <section class="invalid-configuration-message" role="alert">
-          <strong>Invalid pergola configuration. There are overlapping items.</strong>
+          ${validationMessages.map((message) => `<strong>${escapeHtml(message)}</strong>`).join('')}
         </section>
       `;
     }
@@ -802,7 +808,7 @@ export const pergolaRenderers = {
       </div>
       <div class="footer-actions">
         <button class="secondary-button" type="button" data-action="snapshot">Snapshot</button>
-        <button class="primary-button ${hasPoleMountConflicts(this.state) ? 'is-invalid' : ''}" type="button" data-action="toggle-step-section" data-step-id="summary">Summary & quote</button>
+        <button class="primary-button ${configurationValidationMessages(this.state).length ? 'is-invalid' : ''}" type="button" data-action="toggle-step-section" data-step-id="summary">Summary & quote</button>
       </div>
     `;
   },

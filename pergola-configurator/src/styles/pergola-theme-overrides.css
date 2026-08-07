@@ -307,3 +307,33 @@
 .app-shell.is-dark-mode .dimension-warning-modal .modal__body strong {
   color: #ff9b9b;
 }
+
+
+/* Pole component removal stays legible in both themes and remains available for automation controls. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-mount-remove {
+  color: #8f1f1f;
+  background: #fff0f0;
+  border-color: #e5a2a2;
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-mount-remove:hover {
+  color: #721515;
+  background: #ffe2e2;
+  border-color: #d97878;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-remove {
+  color: #ffd1d1;
+  background: rgba(153, 27, 27, 0.38);
+  border-color: rgba(248, 113, 113, 0.62);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-remove:hover {
+  color: #fff1f1;
+  background: rgba(185, 28, 28, 0.52);
+  border-color: rgba(252, 165, 165, 0.8);
+}
+
+.invalid-configuration-message strong + strong {
+  margin-top: 8px;
+}

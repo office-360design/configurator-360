@@ -579,10 +579,9 @@ export class ConfiguratorUI {
   showDimensionChangeWarning() {
     this.modalRoot.innerHTML = `
       <div class="modal-backdrop" role="presentation">
-        <section class="modal dimension-warning-modal" role="dialog" aria-modal="true" aria-labelledby="dimension-warning-title" onclick="event.stopPropagation()">
+        <section class="modal dimension-warning-modal" role="dialog" aria-modal="true" aria-labelledby="dimension-warning-title">
           <header><h2 id="dimension-warning-title">Change pergola size?</h2><button type="button" data-action="cancel-dimension-change" aria-label="Cancel">×</button></header>
           <div class="modal__body">
-            <p>Changing the pergola dimensions rebuilds the pole grid.</p>
             <p><strong>All pole accessories will be removed and all side closings will disappear.</strong></p>
             <p>This prevents accessories or walls from being left attached to poles that no longer exist.</p>
           </div>
@@ -749,7 +748,6 @@ export class ConfiguratorUI {
     }
     if (!event.target.closest('[data-language-menu], [data-action="language"]')) {
       this.languageMenuOpen = false;
-    this.pendingDimensionChange = null;
       this.syncLanguageMenu();
     }
   }
@@ -829,8 +827,8 @@ export class ConfiguratorUI {
 
   showModal(title, body) {
     this.modalRoot.innerHTML = `
-      <div class="modal-backdrop" role="presentation" data-action="close-modal">
-        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick="event.stopPropagation()">
+      <div class="modal-backdrop" role="presentation">
+        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
           <header><h2 id="modal-title">${escapeHtml(title)}</h2><button type="button" data-action="close-modal" aria-label="Close">×</button></header>
           <div class="modal__body">${body}</div>
           <footer><button class="primary-button" type="button" data-action="close-modal">Close</button></footer>
