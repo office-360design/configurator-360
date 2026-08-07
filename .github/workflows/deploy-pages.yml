@@ -55,6 +55,9 @@ jobs:
           mkdir -p dist/site/roof-configurator
           cp -R roof-configurator/. dist/site/roof-configurator/
 
+          mkdir -p dist/site/solar-configurator
+          cp -R solar-configurator/. dist/site/solar-configurator/
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
