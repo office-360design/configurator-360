@@ -1,111 +1,129 @@
-# CAD conversion workflows
+# CAD source and conversion workflows
 
-The project now has two separate conversion workflows.
-
-## Complete CAD assemblies
-
-`cad/tools/convert.js` remains the legacy converter for complete assembled window sections such as B2-6, B2-7, and B2-8.
-
-Use it only when the source drawing contains the complete frame, sash, glazing, gasket, and accessory section expected by the existing assembly loader.
-
-## Standalone profiles and accessories
-
-Use `cad/tools/convert_standalone_profile.js` when a DWG/DXF contains one reusable cross-section, such as:
-
-- Outer frame
-- Opening sash
-- Mullion/transom
-- Double-vent secondary sash profile
-- Glazing bead
-- Gasket
-- Locking bar
-- Insulation profile
-- Glazing bridge
-- Drainage cap
-- Other profile accessory
-
-The standalone converter does not infer a role from geometry or folder names. The role is supplied explicitly through the command or manifest.
-
-It generates only:
+The active CAD sources are organized by physical role:
 
 ```text
-profile.svg
-profile.meta.json
+cad/source/
+├─ frame/                 # 575760, 575770
+├─ sash/                  # 575780, 575790
+├─ mullion/               # 575800, 575810
+├─ join/                  # five left/right connection-reference assemblies
+├─ bead/                  # 573920, 573930, 573940
+├─ gasket/                # 224350, 224378, 224379
+├─ double_vent_profile/   # deferred; not in the active manifests
+└─ 2_4, 2_5, 2_6 DWGs    # complete B2 reference assemblies
 ```
 
-It never deletes the original DWG/DXF and does not delete an existing output directory. Without `--force`, it refuses to overwrite generated files.
+Do not infer a runtime role from a source folder. The manifests provide the explicit role and connection semantics.
 
-## Check the current conversion plan
+## Standalone profiles and glazing accessories
 
-This validates nested source paths and metadata without requiring AutoCAD or ODA File Converter:
+`cad/tools/convert_standalone_profile.js` converts reusable cross-sections while keeping physical CAD components separately selectable.
 
-```bash
-npm run cad:standalone:plan
-```
-
-The current manifest is:
+The active manifest is:
 
 ```text
 cad/manifests/standalone-profiles.json
 ```
 
-It describes profiles `575760` through `575830` using their actual roles. The source paths still point to the existing archive folders; those folders can be reorganized later without changing the profile roles.
+It contains:
 
-## Convert one profile
+- Outer frames: `575760`, `575770`
+- Opening sashes: `575780`, `575790`
+- Mullion/transom profiles: `575800`, `575810`
+- Glazing beads: `573920`, `573930`, `573940`
+- Glazing-bead gaskets: `224350`, `224378`, `224379`
 
-Example:
+Double-vent profiles `575820` and `575830` are intentionally excluded.
 
-```bash
-node cad/tools/convert_standalone_profile.js \
-  --source wall-sash_frames/L/575760_d1.dwg \
-  --profile-id 575760 \
-  --role outer-frame
-```
-
-On Windows PowerShell, use one line or PowerShell backticks instead of backslashes.
-
-The default output is:
-
-```text
-src/client/svg/standalone/profiles/outer-frames/575760/
-```
-
-## Convert selected manifest entries
+Check the complete source/output plan without requiring AutoCAD or ODA:
 
 ```bash
-node cad/tools/convert_standalone_profile.js \
-  --manifest cad/manifests/standalone-profiles.json \
-  --only 575760,575780
+npm run cad:standalone:plan
 ```
 
-Convert every manifest entry:
+Convert all active entries:
 
 ```bash
 npm run cad:standalone:convert
 ```
 
-## DWG conversion requirement
+DWG sources require AutoCAD Core Console or ODA File Converter. DXF and SVG sources do not require a DWG converter. Use `--force` only after review when replacing generated outputs.
 
-DWG input requires one of these applications on the machine running the command:
+The generated structure is:
 
-- AutoCAD Core Console (`accoreconsole.exe`)
-- ODA File Converter
+```text
+profile.svg
+profile.meta.json
+parts/
+  000-<component>.svg
+  ...
+excluded/                 # only when detached components are filtered
+```
 
-DXF and SVG input do not require either application.
+The original CAD source is never changed.
 
-If neither DWG converter is installed, use `--dry-run` to validate the plan or export the DWG files to DXF first.
+## Left/right connection references
 
-## Review before catalog registration
+The `join/` DWGs are cataloged in:
 
-Generated standalone files are deliberately not registered in `src/client/js/profile-catalog.js` automatically.
+```text
+cad/manifests/connection-assemblies.json
+```
 
-Before registration:
+Validate and display the mapping with:
 
-1. Open `profile.svg` and confirm that the filled cross-section is correct.
-2. Confirm the source drawing unit is millimetres.
-3. Verify exterior and cavity orientation.
-4. Confirm valid rotations and whether mirroring is safe.
-5. Add the reviewed SVG and metadata path to the central catalog.
-6. Add the profile to the appropriate selector or layout relationship.
+```bash
+npm run cad:connections:plan
+```
 
-This review prevents a converted but incorrectly oriented profile from silently entering the working configurator.
+The active mappings are:
+
+| Connection ID | Source |
+|---|---|
+| `frame-fixed` | `join/frame-window.dwg` |
+| `frame-sash` | `join/frame-sash-window.dwg` |
+| `mullion-fixed-sash` | `join/window-mullion-sash-window.dwg` |
+| `mullion-fixed-fixed` | `join/window-mullion-window.dwg` |
+| `mullion-sash-sash` | `join/window-sash-mullion-sash-window.dwg` |
+
+These files are one representative **left/right section**, not separate top and bottom drawings. They define:
+
+- Which structural profiles participate in a connection.
+- The left/right cell relationship.
+- Relative cross-section placement.
+- Accessory membership and local placement references.
+- Whether mirroring is explicitly allowed.
+
+They must not be flattened into one indivisible runtime mesh. Standalone `frame`, `sash`, `mullion`, `bead`, and `gasket` geometry remains the reusable physical geometry.
+
+## Complete B2 assemblies
+
+`cad/tools/convert.js` remains the legacy complete-assembly converter for B2-6, B2-7, and B2-8.
+
+The complete assemblies remain useful for:
+
+- Existing presets and regression comparison.
+- Accessory membership and profile IDs.
+- Glass-thickness-dependent bead/gasket behavior.
+- Bottom-only drainage-cap and glazing-bridge behavior.
+- Host-relative accessory placement references.
+
+They are not the primary structural profile source for new divided-window composition.
+
+## Mullion conversion note
+
+Profiles `575800` and `575810` contain reflected nested `INSERT` geometry with negative-Z extrusion. The shared `cad/tools/insert_transform.js` converts insertion points and block vectors from OCS to WCS so the reflected component remains in the assembled profile instead of shifting 60 mm left.
+
+The mullion manifest entries use `modelSpacePolicy: "inserts-only"` and `main-cluster` component selection. This keeps the block hierarchy authoritative and excludes unrelated direct model-space/proxy geometry without discarding valid profile parts.
+
+## Validation
+
+Run:
+
+```bash
+npm run check
+npm run prepare:static
+```
+
+The checks verify the source-folder mappings, profile catalog paths, standalone conversion plan, join manifest, runtime module graph, and existing configurator behavior.

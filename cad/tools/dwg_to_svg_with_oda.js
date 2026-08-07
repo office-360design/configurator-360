@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const DxfParser = require('dxf-parser');
+const { createInsertTransform: createTransform } = require('./insert_transform');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const WORKSPACE_DIR = path.resolve(__dirname, '..');
@@ -47,43 +48,6 @@ function removeConsecutiveDuplicatePoints(points, tolerance = 1e-9) {
     return result;
 }
 
-// Correct INSERT transform:
-// 1. subtract the BLOCK base point
-// 2. apply INSERT scale
-// 3. apply INSERT rotation
-// 4. add INSERT position
-// 5. apply parent INSERT transforms
-function createTransform(ins, parentTransform = null, blockBasePoint = null) {
-    const pos = ins.position || { x: 0, y: 0, z: 0 };
-    const base = blockBasePoint || { x: 0, y: 0, z: 0 };
-    const scaleX = ins.xScale !== undefined ? ins.xScale : 1;
-    const scaleY = ins.yScale !== undefined ? ins.yScale : 1;
-    const rotation = ins.rotation !== undefined ? ins.rotation : 0;
-    const rad = rotation * Math.PI / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-
-    return function transformPoint(p) {
-        if (!p) return { x: 0, y: 0 };
-
-        // BLOCK geometry is stored relative to the BLOCK base point.
-        const localX = (p.x !== undefined ? p.x : 0) - (base.x || 0);
-        const localY = (p.y !== undefined ? p.y : 0) - (base.y || 0);
-
-        const sx = localX * scaleX;
-        const sy = localY * scaleY;
-
-        const rx = sx * cos - sy * sin;
-        const ry = sx * sin + sy * cos;
-
-        const localP = {
-            x: rx + (pos.x || 0),
-            y: ry + (pos.y || 0)
-        };
-
-        return parentTransform ? parentTransform(localP) : localP;
-    };
-}
 
 function normalizePath(points, closed, sourceType) {
     const cleaned = removeConsecutiveDuplicatePoints(points);

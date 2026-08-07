@@ -255,6 +255,9 @@ const baseAluminiumProfile = ({
     legacyProfileSets,
     preferredLegacyProfileSetId = null,
     compatibleAccessories = {},
+    generatedSvg = null,
+    generatedMetadata = null,
+    runtimeRegistered = false,
 }) => freeze({
     id,
     label,
@@ -263,8 +266,10 @@ const baseAluminiumProfile = ({
     profileClass,
     geometry: freeze({
         sourceDwg,
-        generatedSvg: null,
-        sourceOnly: true,
+        generatedSvg,
+        generatedMetadata,
+        runtimeRegistered,
+        sourceOnly: !runtimeRegistered,
         units: 'mm',
         canonicalOrientation: freeze({
             sourceSide: 'top',
@@ -300,6 +305,7 @@ const profileAccessory = ({
     accessoryType,
     legacySvg = {},
     sourceCad = null,
+    generatedMetadata = null,
     previewImage = null,
     attachment = null,
     finish = null,
@@ -317,6 +323,7 @@ const profileAccessory = ({
     status,
     geometry: freeze({
         sourceCad,
+        generatedMetadata,
         legacySvg: freeze({
             top: freeze(legacySvg.top || []),
             bottom: freeze(legacySvg.bottom || []),
@@ -338,7 +345,7 @@ export const PROFILE_CATALOG = freeze({
         id: '575760',
         label: '575760',
         profileClass: 'outer-frame',
-        sourceDwg: 'cad/source/wall-sash_frames/L/575760_d1.dwg',
+        sourceDwg: 'cad/source/frame/575760_d1.dwg',
         structuralRoles: ['outer-boundary'],
         closesAgainst: ['opening-sash', 'fixed-glass'],
         legacyProfileSets: ['2_4_Oeffnungselemnt_Vertikal'],
@@ -347,12 +354,15 @@ export const PROFILE_CATALOG = freeze({
             glazingSystems: ['legacy-fixed-glazing'],
             drainageCaps: [DRAINAGE_CAP_PROFILE_ID],
         },
+        generatedSvg: 'svg/standalone/profiles/outer-frames/575760/profile.svg',
+        generatedMetadata: 'svg/standalone/profiles/outer-frames/575760/profile.meta.json',
+        runtimeRegistered: true,
     }),
     '575770': baseAluminiumProfile({
         id: '575770',
         label: '575770',
         profileClass: 'outer-frame',
-        sourceDwg: 'cad/source/wall-sash_frames/L/575770_d1.dwg',
+        sourceDwg: 'cad/source/frame/575770_d1.dwg',
         structuralRoles: ['outer-boundary'],
         closesAgainst: ['opening-sash', 'fixed-glass'],
         legacyProfileSets: [
@@ -364,12 +374,15 @@ export const PROFILE_CATALOG = freeze({
             glazingSystems: ['legacy-fixed-glazing'],
             drainageCaps: [DRAINAGE_CAP_PROFILE_ID],
         },
+        generatedSvg: 'svg/standalone/profiles/outer-frames/575770/profile.svg',
+        generatedMetadata: 'svg/standalone/profiles/outer-frames/575770/profile.meta.json',
+        runtimeRegistered: true,
     }),
     '575780': baseAluminiumProfile({
         id: '575780',
         label: '575780',
         profileClass: 'sash',
-        sourceDwg: 'cad/source/wall-sash_frames/Z/575780_d1.dwg',
+        sourceDwg: 'cad/source/sash/575780_d1.dwg',
         structuralRoles: ['opening-sash-boundary'],
         closesAgainst: ['outer-frame'],
         legacyProfileSets: ['2_4_Oeffnungselemnt_Vertikal'],
@@ -377,12 +390,15 @@ export const PROFILE_CATALOG = freeze({
         compatibleAccessories: {
             glazingSystems: [DEFAULT_GLAZING_SYSTEM_ID],
         },
+        generatedSvg: 'svg/standalone/profiles/opening-sashes/575780/profile.svg',
+        generatedMetadata: 'svg/standalone/profiles/opening-sashes/575780/profile.meta.json',
+        runtimeRegistered: true,
     }),
     '575790': baseAluminiumProfile({
         id: '575790',
         label: '575790',
         profileClass: 'sash',
-        sourceDwg: 'cad/source/wall-sash_frames/Z/575790_d1.dwg',
+        sourceDwg: 'cad/source/sash/575790_d1.dwg',
         structuralRoles: ['opening-sash-boundary'],
         closesAgainst: ['outer-frame'],
         legacyProfileSets: [
@@ -393,31 +409,40 @@ export const PROFILE_CATALOG = freeze({
         compatibleAccessories: {
             glazingSystems: [DEFAULT_GLAZING_SYSTEM_ID],
         },
+        generatedSvg: 'svg/standalone/profiles/opening-sashes/575790/profile.svg',
+        generatedMetadata: 'svg/standalone/profiles/opening-sashes/575790/profile.meta.json',
+        runtimeRegistered: true,
     }),
 
     '575800': baseAluminiumProfile({
         id: '575800',
         label: '575800',
         profileClass: 'mullion-transom',
-        sourceDwg: 'cad/source/sash-sash_frames(mullion)/575800_d1.dwg',
+        sourceDwg: 'cad/source/mullion/575800_d1.dwg',
         structuralRoles: ['mullion', 'transom', 'fixed-divider'],
         closesAgainst: ['opening-sash', 'fixed-glass'],
         legacyProfileSets: [],
         compatibleAccessories: {
             glazingSystems: ['legacy-fixed-glazing'],
         },
+        generatedSvg: 'svg/standalone/profiles/mullions-transoms/575800/profile.svg',
+        generatedMetadata: 'svg/standalone/profiles/mullions-transoms/575800/profile.meta.json',
+        runtimeRegistered: true,
     }),
     '575810': baseAluminiumProfile({
         id: '575810',
         label: '575810',
         profileClass: 'mullion-transom',
-        sourceDwg: 'cad/source/sash-sash_frames(mullion)/575810_d1.dwg',
+        sourceDwg: 'cad/source/mullion/575810_d1.dwg',
         structuralRoles: ['mullion', 'transom', 'fixed-divider'],
         closesAgainst: ['opening-sash', 'fixed-glass'],
         legacyProfileSets: [],
         compatibleAccessories: {
             glazingSystems: ['legacy-fixed-glazing'],
         },
+        generatedSvg: 'svg/standalone/profiles/mullions-transoms/575810/profile.svg',
+        generatedMetadata: 'svg/standalone/profiles/mullions-transoms/575810/profile.meta.json',
+        runtimeRegistered: true,
     }),
     '575820': baseAluminiumProfile({
         id: '575820',
@@ -590,6 +615,8 @@ export const PROFILE_CATALOG = freeze({
         id: '573940',
         componentType: 'glazing-bead',
         accessoryType: 'glazing-bead',
+        sourceCad: 'cad/source/bead/573940.dxf',
+        generatedMetadata: 'svg/standalone/accessories/glazing-beads/573940/profile.meta.json',
         legacySvg: {
             top: ['svg/{profileFolder}/573940_s/573940_s.svg'],
             bottom: ['svg/{profileFolder}/573940_s/573940_s_inst1.svg'],
@@ -602,6 +629,8 @@ export const PROFILE_CATALOG = freeze({
         id: '573930',
         componentType: 'glazing-bead',
         accessoryType: 'glazing-bead',
+        sourceCad: 'cad/source/bead/573930.dxf',
+        generatedMetadata: 'svg/standalone/accessories/glazing-beads/573930/profile.meta.json',
         legacySvg: {
             top: [
                 'svg/{profileFolder}/573930_s/573930_s.svg',
@@ -622,6 +651,8 @@ export const PROFILE_CATALOG = freeze({
         id: '573920',
         componentType: 'glazing-bead',
         accessoryType: 'glazing-bead',
+        sourceCad: 'cad/source/bead/573920.dxf',
+        generatedMetadata: 'svg/standalone/accessories/glazing-beads/573920/profile.meta.json',
         legacySvg: {
             top: [
                 'svg/{profileFolder}/573920_s/573920_s.svg',
@@ -666,7 +697,8 @@ export const PROFILE_CATALOG = freeze({
             top: ['svg/{profileFolder}/224378_s_8/224378_s_8.svg'],
             bottom: ['svg/{profileFolder}/224378_s_8/224378_s_8_inst1.svg'],
         },
-        sourceCad: 'cad/source/224378.dxf',
+        sourceCad: 'cad/source/gasket/224378.dxf',
+        generatedMetadata: 'svg/standalone/accessories/gaskets/224378/profile.meta.json',
         previewImage: 'icons/gaskets/224378.svg',
         attachment: freeze({
             role: 'glazing-bead-gasket',
@@ -684,7 +716,8 @@ export const PROFILE_CATALOG = freeze({
             top: ['svg/{profileFolder}/224379_s_8/224379_s_8.svg'],
             bottom: ['svg/{profileFolder}/224379_s_8/224379_s_8_inst1.svg'],
         },
-        sourceCad: 'cad/source/224379.dxf',
+        sourceCad: 'cad/source/gasket/224379.dxf',
+        generatedMetadata: 'svg/standalone/accessories/gaskets/224379/profile.meta.json',
         previewImage: 'icons/gaskets/224379.svg',
         attachment: freeze({
             role: 'glazing-bead-gasket',
@@ -702,7 +735,8 @@ export const PROFILE_CATALOG = freeze({
             top: ['svg/{profileFolder}/224350_s_8/224350_s_8.svg'],
             bottom: ['svg/{profileFolder}/224350_s_8/224350_s_8_inst1.svg'],
         },
-        sourceCad: 'cad/source/224350.dxf',
+        sourceCad: 'cad/source/gasket/224350.dxf',
+        generatedMetadata: 'svg/standalone/accessories/gaskets/224350/profile.meta.json',
         previewImage: 'icons/gaskets/224350.svg',
         attachment: freeze({
             role: 'glazing-bead-gasket',
@@ -888,9 +922,32 @@ export function getPreferredLegacyProfileSetIdForProfile(profileOrId, requestedP
     return profile?.legacy?.preferredProfileSetId || profileSets[0] || null;
 }
 
+export function isStandaloneProfileGeometryRegistered(profileOrId) {
+    const profile = getProfileCatalogEntry(profileOrId);
+    return Boolean(
+        profile?.type === 'base-aluminium-profile'
+        && profile.geometry?.runtimeRegistered
+        && profile.geometry?.generatedMetadata
+    );
+}
+
+export function getStandaloneProfileMetadataUrl(profileOrId) {
+    const profile = getProfileCatalogEntry(profileOrId);
+    return profile?.geometry?.generatedMetadata || null;
+}
+
+export function getRegisteredStandaloneProfileIds(profileClass = null) {
+    return getBaseAluminiumProfiles(profileClass)
+        .filter(isStandaloneProfileGeometryRegistered)
+        .map(profile => profile.id);
+}
+
 export function isProfileGeometryAvailable(profileOrId) {
     const profile = getProfileCatalogEntry(profileOrId);
-    return Boolean(profile?.legacy?.profileSets?.length || profile?.geometry?.generatedSvg);
+    return Boolean(
+        profile?.legacy?.profileSets?.length
+        || profile?.geometry?.generatedSvg
+    );
 }
 
 export function getEdgeTransformForProfile(profileOrId, side) {

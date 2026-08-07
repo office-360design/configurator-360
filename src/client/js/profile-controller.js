@@ -1,18 +1,27 @@
 import * as THREE from 'three';
 import { getGlazingBeadCode, getGasketCode } from './config.js';
 import { createProfileLoader } from './profile-loader.js';
+import {
+    createConnectionTemplateLoader,
+    getConnectionTemplateIdForLayout,
+} from './connection-template-loader.js';
 import { getProfileShapeBounds } from './svg-profile-shapes.js';
 import {
     areSelectedComponentProfilesVisible,
     shouldCheckComponentProfile,
 } from './component-group-visibility.js';
 import {
-    composeLegacyProfileDefinitions,
+    composeRegisteredProfileDefinitions,
     composeSupplementalAccessoryProfiles,
     createProfileSelectionSignature,
     getRequiredSupplementalAccessorySourceProfileSetIds,
     resolveLegacyProfileSources,
 } from './profile-composition.js';
+import {
+    getProfileCatalogEntry,
+    isStandaloneProfileGeometryRegistered,
+} from './profile-catalog.js';
+import { transformCadPoint } from './profile-coordinate-transform.js';
 
 export function createProfileController({
     isARMode,
@@ -36,7 +45,11 @@ export function createProfileController({
     setAccessoryProfileEnabled = () => false,
     setAccessoryProfilesEnabled = () => false,
 }) {
-    const { getProfileDefinition } = createProfileLoader();
+    const {
+        getProfileDefinition,
+        getStandaloneProfileDefinition,
+    } = createProfileLoader();
+    const { loadConnectionTemplate } = createConnectionTemplateLoader();
 
     let currentMetadata = null;
     let profilesData = [];
@@ -50,6 +63,7 @@ export function createProfileController({
         ['frame', true],
         ['sash', true],
         ['bead', true],
+        ['divider', true],
     ]);
 
     function buildWindow() {
@@ -67,6 +81,9 @@ export function createProfileController({
     function getProfileGroup(profile) {
         if (profile.role === 'frame') {
             return 'frame';
+        }
+        if (profile.role === 'divider') {
+            return 'divider';
         }
 
         const blockName = String(profile.blockName || '').toLowerCase();
@@ -173,16 +190,40 @@ export function createProfileController({
         return Number(profile?.cadAlignmentShiftYMm) || 0;
     }
 
+    function transformProfileCadPoint(profile, sourceCadX, sourceCadY) {
+        if (profile?.cadCoordinateTransform) {
+            return transformCadPoint(
+                profile.cadCoordinateTransform,
+                sourceCadX,
+                sourceCadY
+            );
+        }
+
+        return {
+            x: Number(sourceCadX) + getProfileCadXShiftMm(profile),
+            y: Number(sourceCadY) + getProfileCadYShiftMm(profile),
+        };
+    }
+
+    function getProfileCadPointMm(profile, svgX, svgY) {
+        return transformProfileCadPoint(profile, Number(svgX), -Number(svgY));
+    }
+
     function getEffectiveProfileBbox(profile) {
         if (!profile?.bbox) return null;
 
-        const shiftX = getProfileCadXShiftMm(profile);
-        const shiftY = getProfileCadYShiftMm(profile);
+        const corners = [
+            transformProfileCadPoint(profile, profile.bbox.minX, profile.bbox.minY),
+            transformProfileCadPoint(profile, profile.bbox.minX, profile.bbox.maxY),
+            transformProfileCadPoint(profile, profile.bbox.maxX, profile.bbox.minY),
+            transformProfileCadPoint(profile, profile.bbox.maxX, profile.bbox.maxY),
+        ];
+
         return {
-            minX: Number(profile.bbox.minX) + shiftX,
-            maxX: Number(profile.bbox.maxX) + shiftX,
-            minY: Number(profile.bbox.minY) + shiftY,
-            maxY: Number(profile.bbox.maxY) + shiftY,
+            minX: Math.min(...corners.map(point => point.x)),
+            maxX: Math.max(...corners.map(point => point.x)),
+            minY: Math.min(...corners.map(point => point.y)),
+            maxY: Math.max(...corners.map(point => point.y)),
         };
     }
 
@@ -332,6 +373,7 @@ export function createProfileController({
             frame: { title: 'Frame Components', items: [] },
             sash: { title: 'Sash / Vent Components', items: [] },
             bead: { title: 'Glazing Bead Components', items: [] },
+            divider: { title: 'Mullion / Transom Components', items: [] },
         };
 
         profilesData.forEach(profile => {
@@ -376,9 +418,14 @@ export function createProfileController({
                 const labelText = displayedParentBlock
                     ? `${displayedParentBlock} / ${displayedBlockName}`
                     : displayedBlockName;
+                const legacyIndexes = [
+                    profile.legacyIndex,
+                    ...(profile.legacyIndexes || []),
+                ].filter(index => index !== null && index !== undefined);
                 const isRequestedPartActive = !isARMode
                     || requestedActiveParts === null
                     || requestedActiveParts.has(String(profile.index))
+                    || legacyIndexes.some(index => requestedActiveParts.has(String(index)))
                     || requestedActiveParts.has(profile.componentId);
                 const isSelectedForPiece = isManagedAccessoryProfile(profile)
                     ? isAccessoryProfileEnabled(profile)
@@ -612,6 +659,7 @@ export function createProfileController({
                 ...getRequiredSupplementalAccessorySourceProfileSetIds(),
             ].filter(Boolean));
             const definitionsByProfileSetId = new Map();
+            const standaloneDefinitionsByProfileId = new Map();
 
             await Promise.all([...sourceIds].map(async profileSetId => {
                 definitionsByProfileSetId.set(
@@ -620,12 +668,81 @@ export function createProfileController({
                 );
             }));
 
-            const legacyDefinition = composeLegacyProfileDefinitions({
+            const selectedBaseProfileIds = [
+                sources.outerFrameProfileId,
+                sources.sashProfileId,
+                normalizedSelection.dividerOrientation
+                    ? normalizedSelection.dividerProfileId
+                    : null,
+            ].filter(profileId =>
+                isStandaloneProfileGeometryRegistered(
+                    getProfileCatalogEntry(profileId)
+                )
+            );
+            await Promise.all(selectedBaseProfileIds.map(async profileId => {
+                standaloneDefinitionsByProfileId.set(
+                    profileId,
+                    await getStandaloneProfileDefinition(profileId)
+                );
+            }));
+
+            const connectionTemplateId = getConnectionTemplateIdForLayout({
+                dividerOrientation: normalizedSelection.dividerOrientation,
+                leftCell: normalizedSelection.leftCell || 'fixed-glazing',
+                rightCell: normalizedSelection.rightCell || 'opening-sash',
+            });
+            const connectionTemplate = connectionTemplateId
+                ? await loadConnectionTemplate(connectionTemplateId)
+                : null;
+            const hasFixedGlazingCell = normalizedSelection.leftCell === 'fixed-glazing'
+                || normalizedSelection.rightCell === 'fixed-glazing';
+            const [
+                fixedGlazingFrameTemplate,
+                standaloneBeadDefinition,
+                fixedGlazingDividerTemplate,
+            ] = hasFixedGlazingCell
+                ? await Promise.all([
+                    loadConnectionTemplate('frame-fixed'),
+                    getStandaloneProfileDefinition('573940'),
+                    normalizedSelection.dividerOrientation === 'vertical'
+                        ? (
+                            connectionTemplateId === 'mullion-fixed-fixed'
+                                ? Promise.resolve(connectionTemplate)
+                                : loadConnectionTemplate('mullion-fixed-fixed')
+                        )
+                        : Promise.resolve(null),
+                ])
+                : [null, null, null];
+            // The fixed/fixed join has no opening-sash occurrence, so it cannot
+            // by itself bridge join coordinates into the already-working B2
+            // runtime assembly. Reuse the visually accepted mixed-join sash
+            // bridge only for absolute mullion depth placement, while the active
+            // fixed/fixed template remains the connection source of truth.
+            const placementConnectionTemplate = connectionTemplateId === 'mullion-fixed-fixed'
+                ? await loadConnectionTemplate('mullion-fixed-sash')
+                : connectionTemplate;
+            // Mullion-side fixed-glazing gaskets must come from the active join:
+            // fixed/fixed -> window-mullion-window, mixed fixed/sash ->
+            // window-mullion-sash-window. Keep this separate from the bead
+            // template because bead placement has its own verified fallback path.
+            const fixedGlazingDividerGasketTemplate = hasFixedGlazingCell
+                && normalizedSelection.dividerOrientation === 'vertical'
+                ? connectionTemplate
+                : null;
+
+            const registeredDefinition = composeRegisteredProfileDefinitions({
                 selection: normalizedSelection,
                 definitionsByProfileSetId,
+                standaloneDefinitionsByProfileId,
+                connectionTemplate,
+                placementConnectionTemplate,
+                fixedGlazingFrameTemplate,
+                fixedGlazingDividerTemplate,
+                fixedGlazingDividerGasketTemplate,
+                standaloneBeadDefinition,
             });
             const definition = composeSupplementalAccessoryProfiles({
-                definition: legacyDefinition,
+                definition: registeredDefinition,
                 definitionsByProfileSetId,
             });
             currentMetadata = definition.metadata;
@@ -690,6 +807,7 @@ export function createProfileController({
         getProfileShape,
         getProfileCadXShiftMm,
         getProfileCadYShiftMm,
+        getProfileCadPointMm,
         getActiveGlazingBeadCode,
         getActiveGasketCode,
         getProfileComponentNumber,

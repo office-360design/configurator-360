@@ -19,6 +19,9 @@ const {
     getGasketCodeForThickness,
     getGlazingBeadCodeForThickness,
     getLegacySvgCandidates,
+    getRegisteredStandaloneProfileIds,
+    getStandaloneProfileMetadataUrl,
+    isStandaloneProfileGeometryRegistered,
 } = catalogModule;
 
 const errors = [];
@@ -84,6 +87,78 @@ for (const [profileId, expected] of expectedProfileRoles) {
     assert(
         !Object.prototype.hasOwnProperty.call(profile || {}, 'crossSectionFamily'),
         `${profileId} must not use L/Z cross-section-family metadata`
+    );
+}
+
+const registeredStandaloneIds = getRegisteredStandaloneProfileIds();
+for (const profileId of ['575760', '575770', '575780', '575790']) {
+    const profile = PROFILE_CATALOG[profileId];
+    assert(
+        isStandaloneProfileGeometryRegistered(profile),
+        `${profileId} should use registered standalone runtime geometry.`
+    );
+    assert(
+        registeredStandaloneIds.includes(profileId),
+        `${profileId} is missing from the registered standalone profile list.`
+    );
+    const metadataUrl = getStandaloneProfileMetadataUrl(profileId);
+    assert(Boolean(metadataUrl), `${profileId} is missing its standalone metadata URL.`);
+    assert(
+        metadataUrl && existsFromClient(metadataUrl),
+        `Missing standalone metadata for ${profileId}: src/client/${metadataUrl}`
+    );
+    if (metadataUrl && existsFromClient(metadataUrl)) {
+        const standaloneMetadata = JSON.parse(
+            fs.readFileSync(path.join(clientRoot, metadataUrl), 'utf8')
+        );
+        assert(
+            standaloneMetadata.catalogRegistration?.status === 'registered',
+            `${profileId} standalone metadata must be marked as registered.`
+        );
+        assert(
+            standaloneMetadata.catalogRegistration?.runtimeMode
+                === 'standalone-base-with-legacy-accessories',
+            `${profileId} standalone metadata has the wrong runtime registration mode.`
+        );
+    }
+    assert(
+        profile?.geometry?.generatedSvg && existsFromClient(profile.geometry.generatedSvg),
+        `Missing standalone composite SVG for ${profileId}.`
+    );
+}
+for (const profileId of ['575800', '575810']) {
+    const profile = PROFILE_CATALOG[profileId];
+    assert(
+        isStandaloneProfileGeometryRegistered(profile),
+        `${profileId} should be registered for the single-divider layout.`
+    );
+    assert(
+        registeredStandaloneIds.includes(profileId),
+        `${profileId} is missing from the registered standalone profile list.`
+    );
+    const metadataUrl = getStandaloneProfileMetadataUrl(profileId);
+    assert(Boolean(metadataUrl), `${profileId} is missing its standalone metadata URL.`);
+    assert(
+        metadataUrl && existsFromClient(metadataUrl),
+        `Missing standalone metadata for ${profileId}: src/client/${metadataUrl}`
+    );
+    if (metadataUrl && existsFromClient(metadataUrl)) {
+        const standaloneMetadata = JSON.parse(
+            fs.readFileSync(path.join(clientRoot, metadataUrl), 'utf8')
+        );
+        assert(
+            standaloneMetadata.catalogRegistration?.status === 'registered',
+            `${profileId} standalone metadata must be marked as registered.`
+        );
+        assert(
+            standaloneMetadata.catalogRegistration?.runtimeMode === 'single-divider-layout',
+            `${profileId} standalone metadata has the wrong runtime registration mode.`
+        );
+    }
+    assert(
+        profile?.geometry?.generatedSvg
+            && existsFromClient(profile.geometry.generatedSvg),
+        `Converted mullion SVG is missing for ${profileId}.`
     );
 }
 

@@ -14,7 +14,12 @@ import { createCadReferenceController } from './cad-reference.js';
 import { createProfileController } from './profile-controller.js';
 import { createAccessoryController } from './accessory-controller.js';
 import { createProfileSelectionController } from './profile-selection-controller.js';
+import {
+    createWindowLayoutController,
+    getWindowLayoutRequest,
+} from './window-layout-controller.js';
 import { resolveLegacyProfileSelection } from './profile-compatibility.js';
+import { createProfileSelectionSignature } from './profile-composition.js';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -33,6 +38,10 @@ const requestedProfileSelection = {
     cadAssemblyId: requestedCadAssemblyId,
 };
 const requestedProfile = requestedProfileSelection.profileSetId;
+const requestedWindowLayoutSelection = getWindowLayoutRequest({
+    window_layout: pageParams.get('window_layout') || pageParams.get('layout'),
+    divider_profile: pageParams.get('divider_profile') || pageParams.get('mullion_profile'),
+});
 const requestedActiveParts = pageParams.has('parts')
     ? new Set(pageParams.get('parts').split(',').filter(Boolean))
     : null;
@@ -101,6 +110,8 @@ const heightInput = document.getElementById('heightB');
 const profileInput = document.getElementById('cadProfile');
 const outerFrameInput = document.getElementById('outerFrameProfile');
 const sashInput = document.getElementById('sashProfile');
+const windowLayoutInput = document.getElementById('windowLayout');
+const dividerProfileInput = document.getElementById('dividerProfile');
 const glassThicknessInput = document.getElementById('glassThickness');
 const glassThicknessLabel = document.getElementById('valGlassThickness');
 const cadReferenceButton = document.getElementById('cad-reference-button');
@@ -193,6 +204,7 @@ const initialExplodedState =
 let windowBuilder = null;
 let profileController = null;
 let profileSelectionController = null;
+let windowLayoutController = null;
 let arController = null;
 
 const componentSelection = createComponentSelection({
@@ -295,11 +307,28 @@ profileSelectionController = createProfileSelectionController({
     outerFrameInput,
     sashInput,
     initialSelection: requestedProfileSelection,
-    loadProfiles: selection => profileController.loadProfileSelection(selection),
-    onCadAssemblyPresetSelected: ({ accessoryPresetId }) => {
+    loadProfiles: selection => profileController.loadProfileSelection({
+        ...selection,
+        ...windowLayoutController?.getConfigurationSnapshot(),
+    }),
+    onCadAssemblyPresetSelected: async ({ accessoryPresetId }) => {
+        await windowLayoutController?.setLayout('single', { notify: false });
         accessoryController.setAccessoryPreset(accessoryPresetId, {
             rebuild: false,
             source: 'cad-assembly',
+        });
+    },
+});
+
+windowLayoutController = createWindowLayoutController({
+    layoutInput: windowLayoutInput,
+    dividerProfileInput,
+    initialSelection: requestedWindowLayoutSelection,
+    onLayoutChange: async layoutSelection => {
+        profileSelectionController?.markCustomCadAssembly();
+        await profileController.loadProfileSelection({
+            ...profileSelectionController.getConfigurationSnapshot(),
+            ...layoutSelection,
         });
     },
 });
@@ -311,6 +340,7 @@ const {
     getProfileShape,
     getProfileCadXShiftMm,
     getProfileCadYShiftMm,
+    getProfileCadPointMm,
     getActiveGlazingBeadCode,
     getActiveGasketCode,
     getProfileComponentNumber,
@@ -340,6 +370,7 @@ windowBuilder = createWindowBuilder({
     getProfileShape,
     getProfileCadXShiftMm,
     getProfileCadYShiftMm,
+    getProfileCadPointMm,
     getActiveGlazingBeadCode,
     getActiveGasketCode,
     getProfileComponentNumber,
@@ -349,6 +380,11 @@ windowBuilder = createWindowBuilder({
     getSelectedHandleSide: () => selectedHandleSide,
     isProfileEnabled: accessoryController.isProfileEnabled,
     canPlaceProfileOnSide: accessoryController.canPlaceProfileOnSide,
+    getWindowLayoutState: () => windowLayoutController?.getConfigurationSnapshot() || {
+        layoutId: 'single',
+        dividerOrientation: null,
+        dividerProfileId: null,
+    },
 });
 
 const {
@@ -373,6 +409,7 @@ arController = createARController({
     getSelectedHandleSide: () => selectedHandleSide,
     appendAccessoryUrlParams: accessoryController.appendUrlParams,
     appendProfileSelectionUrlParams: profileSelectionController.appendUrlParams,
+    appendWindowLayoutUrlParams: windowLayoutController.appendUrlParams,
 });
 
 window.applyConfiguration = async function applyConfiguration(configuration) {
@@ -400,9 +437,20 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
 
     materialManager.applyConfiguration(configuration);
 
+    const selectedLayout = await windowLayoutController.applyConfiguration(
+        configuration,
+        { notify: false }
+    );
     const selectedProfiles = await profileSelectionController.applyConfiguration(
         configuration,
         { reload: false }
+    );
+    const combinedProfileSelection = {
+        ...selectedProfiles,
+        ...selectedLayout,
+    };
+    combinedProfileSelection.selectionSignature = createProfileSelectionSignature(
+        combinedProfileSelection
     );
     accessoryController.applyConfiguration(configuration, {
         rebuild: false,
@@ -410,10 +458,10 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
     });
     const mustReloadProfile = !profileController.hasCurrentMetadata()
         || profileController.getCurrentSelectionSignature()
-            !== selectedProfiles.selectionSignature;
+            !== combinedProfileSelection.selectionSignature;
 
     if (mustReloadProfile) {
-        await profileController.loadProfileSelection(selectedProfiles);
+        await profileController.loadProfileSelection(combinedProfileSelection);
     } else {
         await profileController.refreshProfileMaterials();
     }
@@ -424,7 +472,10 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
         .toLowerCase();
     if (
         selectedProfileSet.cadAssemblyId !== 'custom'
-        && !accessoryController.matchesPreset(expectedAccessoryPresetId)
+        && (
+            !accessoryController.matchesPreset(expectedAccessoryPresetId)
+            || selectedLayout.layoutId !== 'single'
+        )
     ) {
         profileSelectionController.markCustomCadAssembly();
     }
@@ -436,6 +487,7 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
         ...materialManager.getConfigurationSnapshot(),
         ...accessoryController.getConfigurationSnapshot(),
         ...profileSelectionController.getConfigurationSnapshot(),
+        ...windowLayoutController.getConfigurationSnapshot(),
         glassThicknessMm: Number(glassThicknessInput.value),
         glazingBeadCode: getActiveGlazingBeadCode(),
         glazingGasket224378ShiftMm: getGlazingBeadArmShiftMm('top'),
@@ -496,6 +548,7 @@ initializeUIControls({
 });
 
 profileSelectionController.initializeControls();
+windowLayoutController.initializeControls();
 materialManager.initializeControls();
 accessoryController.initializeControls({
     presetInput: document.getElementById('accessoryPreset'),
@@ -507,16 +560,20 @@ glassThicknessInput?.addEventListener('input', () => {
 });
 
 // Load the selected profile. In QR AR mode the selection comes from URL parameters.
-profileController.loadProfileSelection(
-    profileSelectionController.getConfigurationSnapshot()
-).then(() => {
+profileController.loadProfileSelection({
+    ...profileSelectionController.getConfigurationSnapshot(),
+    ...windowLayoutController.getConfigurationSnapshot(),
+}).then(() => {
     const selection = profileSelectionController.getConfigurationSnapshot();
     const expectedAccessoryPresetId = String(selection.profileVariantCode || '')
         .trim()
         .toLowerCase();
     if (
         selection.cadAssemblyId !== 'custom'
-        && !accessoryController.matchesPreset(expectedAccessoryPresetId)
+        && (
+            !accessoryController.matchesPreset(expectedAccessoryPresetId)
+            || windowLayoutController.getLayoutId() !== 'single'
+        )
     ) {
         profileSelectionController.markCustomCadAssembly();
     }

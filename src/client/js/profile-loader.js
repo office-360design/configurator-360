@@ -12,7 +12,9 @@ import {
     createLegacyComponentMetadata,
     getGlazingBeadProfileIds,
     getLegacySvgCandidates,
+    getProfileCatalogEntry,
     getSelectableGasketProfileIds,
+    getStandaloneProfileMetadataUrl,
 } from './profile-catalog.js';
 
 const GLAZING_BEAD_CODES = getGlazingBeadProfileIds().filter(
@@ -22,9 +24,150 @@ const GASKET_CODES = getSelectableGasketProfileIds().filter(
     code => code !== DEFAULT_GASKET_PROFILE_ID
 );
 
+function getProfileRole(profileClass) {
+    if (profileClass === 'outer-frame') return 'frame';
+    if (profileClass === 'sash' || profileClass === 'double-vent-sash') return 'sash';
+    if (profileClass === 'mullion-transom') return 'divider';
+    return 'frame';
+}
+
+function getPartMaterialInfo(part = {}) {
+    const layer = String(part.layer || '').toLowerCase();
+    const blockName = String(part.blockName || '').toLowerCase();
+
+    const isAlu = layer.includes('al') || layer.includes('alu');
+    const isIso = layer.includes('isolation') || layer.includes('isoli') || layer.includes('iso');
+    const isGlass = layer.includes('glas') || layer.includes('glass');
+    const isFoam = layer.includes('dämmung')
+        || layer.includes('daemmung')
+        || layer.includes('dämm')
+        || layer.includes('daemm')
+        || layer.includes('foam');
+
+    const reviewedLayerColour = isFoam
+        ? '#00ffbf'
+        : (isIso
+            ? '#66cc7f'
+            : (isAlu ? '#adadad' : null));
+    const baseCadColor = normalizeHexColour(part.color)
+        || reviewedLayerColour
+        || '#78716c';
+    const isCentralSeal = baseCadColor === '#7fbfff'
+        || baseCadColor === '#38bdf8'
+        || layer.includes('grau_13')
+        || blockName.includes('224068')
+        || blockName.includes('problema');
+    const isEPDM = !isCentralSeal && (
+        layer.includes('epdm')
+        || layer.includes('dichtung')
+        || layer.includes('dicht')
+        || layer.includes('gasket')
+        || baseCadColor === '#ffbf7f'
+        || baseCadColor === '#ea580c'
+        || /^(200|224|244)/.test(blockName)
+    );
+
+    let materialKey = 'default';
+    if (isGlass) {
+        materialKey = 'glass';
+    } else if (isCentralSeal) {
+        materialKey = 'centralSeal';
+    } else if (isEPDM) {
+        materialKey = 'epdm';
+    } else if (isIso) {
+        materialKey = 'iso';
+    } else if (isFoam) {
+        materialKey = 'foam';
+    } else if (isAlu) {
+        materialKey = 'alu';
+    }
+
+    return {
+        layer,
+        blockName,
+        baseCadColor,
+        materialKey,
+        isAlu,
+        isIso,
+    };
+}
+
+function optimizeLoadedShapes(shapes, materialKey) {
+    const optimizedShape = mapProfileShapes(
+        shapes,
+        shape => simplifyProfileShape(shape, materialKey)
+    );
+    const optimizedShapes = Array.isArray(optimizedShape)
+        ? optimizedShape
+        : [optimizedShape];
+
+    return {
+        optimizedShape,
+        sourceContourPoints: optimizedShapes.reduce(
+            (sum, shape) => sum + (shape.userData?.sourcePointCount || 0),
+            0
+        ),
+        optimizedContourPoints: optimizedShapes.reduce(
+            (sum, shape) => sum + (shape.userData?.optimizedPointCount || 0),
+            0
+        ),
+    };
+}
+
+function logContourOptimization(label, profiles) {
+    const sourceContourPoints = profiles.reduce(
+        (sum, profile) => sum + profile.sourceContourPoints,
+        0
+    );
+    const optimizedContourPoints = profiles.reduce(
+        (sum, profile) => sum + profile.optimizedContourPoints,
+        0
+    );
+
+    if (sourceContourPoints <= 0) return;
+
+    const reduction = 100 * (1 - optimizedContourPoints / sourceContourPoints);
+    console.info(
+        `Profile contour optimization for ${label}: `
+        + `${sourceContourPoints.toLocaleString()} → `
+        + `${optimizedContourPoints.toLocaleString()} points `
+        + `(${reduction.toFixed(1)}% fewer).`
+    );
+}
+
+function getComponentBounds(components) {
+    const bounds = (components || [])
+        .map(component => component.bbox)
+        .filter(Boolean);
+
+    if (!bounds.length) {
+        return {
+            globalMinX: 0,
+            globalMaxX: 0,
+            globalMinY: 0,
+            globalMaxY: 0,
+            globalCenterX: 0,
+        };
+    }
+
+    const globalMinX = Math.min(...bounds.map(bbox => Number(bbox.minX)));
+    const globalMaxX = Math.max(...bounds.map(bbox => Number(bbox.maxX)));
+    const globalMinY = Math.min(...bounds.map(bbox => Number(bbox.minY)));
+    const globalMaxY = Math.max(...bounds.map(bbox => Number(bbox.maxY)));
+
+    return {
+        globalMinX,
+        globalMaxX,
+        globalMinY,
+        globalMaxY,
+        globalCenterX: (globalMinX + globalMaxX) / 2,
+    };
+}
+
 export function createProfileLoader() {
     const svgLoader = new SVGLoader();
     const profileCache = new Map();
+    const standaloneProfileCache = new Map();
 
     function loadSvg(url) {
         return new Promise((resolve, reject) => {
@@ -82,77 +225,22 @@ export function createProfileLoader() {
             throw new Error(`No filled profile shape could be created from ${url}.`);
         }
 
-        const layer = part.layer.toLowerCase();
-        const blockName = (part.blockName || '').toLowerCase();
-
-        const isAlu = layer.includes('al') || layer.includes('alu');
-        const isIso = layer.includes('isolation') || layer.includes('isoli') || layer.includes('iso');
-        const isGlass = layer.includes('glas') || layer.includes('glass');
-        const isFoam = layer.includes('dämmung')
-            || layer.includes('daemmung')
-            || layer.includes('dämm')
-            || layer.includes('daemm')
-            || layer.includes('foam');
-
-        const baseCadColor = normalizeHexColour(part.color) || '#78716c';
-        const isCentralSeal = baseCadColor === '#7fbfff'
-            || baseCadColor === '#38bdf8'
-            || layer.includes('grau_13')
-            || blockName.includes('224068')
-            || blockName.includes('problema');
-        const isEPDM = !isCentralSeal && (
-            layer.includes('epdm')
-            || layer.includes('dichtung')
-            || layer.includes('dicht')
-            || layer.includes('gasket')
-            || baseCadColor === '#ffbf7f'
-            || baseCadColor === '#ea580c'
-            || /^(200|224|244)/.test(blockName)
-        );
-
-        let materialKey = 'default';
-        if (isGlass) {
-            materialKey = 'glass';
-        } else if (isCentralSeal) {
-            materialKey = 'centralSeal';
-        } else if (isEPDM) {
-            materialKey = 'epdm';
-        } else if (isIso) {
-            materialKey = 'iso';
-        } else if (isFoam) {
-            materialKey = 'foam';
-        } else if (isAlu) {
-            materialKey = 'alu';
-        }
-
+        const materialInfo = getPartMaterialInfo(part);
         const legacyComponentMetadata = createLegacyComponentMetadata({
             profileFolder,
             part,
-            materialKey,
+            materialKey: materialInfo.materialKey,
         });
-
-        const optimizedShape = mapProfileShapes(
-            shapes,
-            shape => simplifyProfileShape(shape, materialKey)
-        );
-        const optimizedShapes = Array.isArray(optimizedShape)
-            ? optimizedShape
-            : [optimizedShape];
-
-        const sourceContourPoints = optimizedShapes.reduce(
-            (sum, shape) => sum + (shape.userData?.sourcePointCount || 0),
-            0
-        );
-
-        const optimizedContourPoints = optimizedShapes.reduce(
-            (sum, shape) => sum + (shape.userData?.optimizedPointCount || 0),
-            0
-        );
+        const {
+            optimizedShape,
+            sourceContourPoints,
+            optimizedContourPoints,
+        } = optimizeLoadedShapes(shapes, materialInfo.materialKey);
 
         let baseExplode = 0.12;
         if (part.role === 'sash') {
             baseExplode = 0.26;
-        } else if (isIso) {
+        } else if (materialInfo.isIso) {
             baseExplode = 0.18;
         }
 
@@ -212,7 +300,7 @@ export function createProfileLoader() {
         const bboxCenterX = part.bbox
             ? (Number(part.bbox.minX) + Number(part.bbox.maxX)) / 2
             : metadata.globalCenterX;
-        const aluminiumSide = materialKey === 'alu'
+        const aluminiumSide = materialInfo.materialKey === 'alu'
             ? (bboxCenterX < metadata.globalCenterX ? 'outside' : 'inside')
             : null;
 
@@ -231,12 +319,75 @@ export function createProfileLoader() {
             gasketShapes,
             sourceContourPoints,
             optimizedContourPoints,
-            baseCadColor,
-            materialKey,
+            baseCadColor: materialInfo.baseCadColor,
+            materialKey: materialInfo.materialKey,
             aluminiumSide,
             explodeOffset: baseExplode,
             bbox: part.bbox,
-            isAlu,
+            sourceTransform: part.sourceTransform || null,
+            isAlu: materialInfo.isAlu,
+        };
+    }
+
+    async function loadStandaloneProfilePart({
+        entry,
+        metadata,
+        component,
+        componentIndex,
+        baseUrl,
+    }) {
+        const url = `${baseUrl}/${component.svg}`;
+        const data = await loadSvg(url);
+        const shapes = extractFilledSvgShapes(data);
+
+        if (!shapes.length) {
+            throw new Error(`No filled standalone profile shape could be created from ${url}.`);
+        }
+
+        const materialInfo = getPartMaterialInfo(component);
+        const {
+            optimizedShape,
+            sourceContourPoints,
+            optimizedContourPoints,
+        } = optimizeLoadedShapes(shapes, materialInfo.materialKey);
+        const role = getProfileRole(entry.profileClass);
+
+        let explodeOffset = role === 'sash' ? 0.26 : 0.12;
+        if (materialInfo.isIso) {
+            explodeOffset = 0.18;
+        }
+
+        return {
+            index: componentIndex,
+            legacyIndex: null,
+            legacyIndexes: [],
+            componentId: `standalone:${entry.id}:${component.id}`,
+            componentType: 'aluminium-profile',
+            componentRole: entry.profileClass,
+            profileId: entry.id,
+            catalogProfileId: entry.id,
+            layer: component.layer || '',
+            blockName: component.blockName || component.id || `Part ${componentIndex}`,
+            parentBlock: component.parentBlock || metadata.id,
+            rootBlock: component.rootBlock || metadata.id,
+            role,
+            section: 'top',
+            placementSection: 'all',
+            shape: optimizedShape,
+            sourceContourPoints,
+            optimizedContourPoints,
+            baseCadColor: materialInfo.baseCadColor,
+            materialKey: materialInfo.materialKey,
+            aluminiumSide: null,
+            explodeOffset,
+            bbox: component.bbox,
+            isAlu: materialInfo.isAlu,
+            isStandaloneProfileComponent: true,
+            standaloneProfileId: entry.id,
+            standaloneComponentId: component.id,
+            standaloneMetadataUrl: entry.geometry.generatedMetadata,
+            standaloneSvgUrl: url,
+            sourceHierarchy: component.hierarchy || [],
         };
     }
 
@@ -255,31 +406,72 @@ export function createProfileLoader() {
             metadata.parts.map(part => loadProfilePart(profileFolder, metadata, part))
         );
 
-        const sourceContourPoints = profiles.reduce(
-            (sum, profile) => sum + profile.sourceContourPoints,
-            0
-        );
-        const optimizedContourPoints = profiles.reduce(
-            (sum, profile) => sum + profile.optimizedContourPoints,
-            0
-        );
-
-        if (sourceContourPoints > 0) {
-            const reduction = 100 * (1 - optimizedContourPoints / sourceContourPoints);
-            console.info(
-                `Profile contour optimization for ${profileFolder}: `
-                + `${sourceContourPoints.toLocaleString()} → `
-                + `${optimizedContourPoints.toLocaleString()} points `
-                + `(${reduction.toFixed(1)}% fewer).`
-            );
-        }
+        logContourOptimization(profileFolder, profiles);
 
         const definition = { metadata, profiles };
         profileCache.set(profileFolder, definition);
         return definition;
     }
 
+    async function getStandaloneProfileDefinition(profileId) {
+        const entry = getProfileCatalogEntry(profileId);
+        const metadataUrl = getStandaloneProfileMetadataUrl(entry);
+        if (!entry || !metadataUrl) {
+            throw new Error(`Profile ${profileId} has no registered standalone runtime geometry.`);
+        }
+
+        if (standaloneProfileCache.has(entry.id)) {
+            return standaloneProfileCache.get(entry.id);
+        }
+
+        const response = await fetch(metadataUrl);
+        if (!response.ok) {
+            throw new Error(
+                `Standalone metadata request for ${entry.id} failed with HTTP ${response.status}`
+            );
+        }
+
+        const rawMetadata = await response.json();
+        const components = rawMetadata.geometry?.components || [];
+        if (!components.length) {
+            throw new Error(`Standalone profile ${entry.id} contains no selectable components.`);
+        }
+
+        const baseUrl = metadataUrl.slice(0, metadataUrl.lastIndexOf('/'));
+        const profiles = await Promise.all(components.map((component, componentIndex) =>
+            loadStandaloneProfilePart({
+                entry,
+                metadata: rawMetadata,
+                component,
+                componentIndex,
+                baseUrl,
+            })
+        ));
+        const componentBounds = getComponentBounds(components);
+        const metadata = {
+            ...rawMetadata,
+            ...componentBounds,
+            profileId: entry.id,
+            profileClass: entry.profileClass,
+            isVertical: false,
+            hasSplit: false,
+            geometrySource: 'standalone-profile',
+        };
+
+        logContourOptimization(`standalone ${entry.id}`, profiles);
+
+        const definition = {
+            metadata,
+            rawMetadata,
+            profiles,
+            catalogEntry: entry,
+        };
+        standaloneProfileCache.set(entry.id, definition);
+        return definition;
+    }
+
     return {
         getProfileDefinition,
+        getStandaloneProfileDefinition,
     };
 }

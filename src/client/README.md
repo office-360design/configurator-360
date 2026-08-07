@@ -192,6 +192,20 @@ Change this file when adjusting house proportions or the threshold between house
 
 ## Profiles and components
 
+### `js/profile-catalog.js`
+
+Defines the central profile, assembly, glazing-system, accessory-group, and accessory-preset catalog.
+
+The reviewed standalone base profiles `575760`, `575770`, `575780`, and `575790` are registered here. Mullion/transom profiles `575800` and `575810` have converted geometry but remain unregistered until layout integration is implemented.
+
+### `js/profile-coordinate-transform.js`
+
+Fits reviewed standalone profile coordinates to the corresponding legacy complete-assembly section using quarter-turn rotations and translation. Mirroring is not enabled for the registered profiles.
+
+### `js/profile-composition.js`
+
+Builds the runtime component list. It replaces legacy outer-frame and sash base pieces with registered standalone components while retaining the selected complete assembly as the accessory, preset, and alignment source.
+
 ### `js/profile-loader.js`
 
 Loads and prepares raw profile data.
@@ -205,6 +219,7 @@ It handles:
 - Detecting material categories
 - Reading component roles and aluminum-side metadata
 - Loading alternative glazing-bead and gasket shapes
+- Loading registered standalone profile metadata and selectable `parts/` SVGs
 - Caching loaded profile definitions
 
 This is the low-level data-loading layer. It should not directly manage buttons or menus.
@@ -216,6 +231,7 @@ Manages active profile and component state.
 It handles:
 
 - Selecting and loading the current profile
+- Composing registered standalone frame/sash geometry with legacy assembly accessories
 - Tracking profile readiness
 - Active glazing-bead selection
 - Active gasket selection

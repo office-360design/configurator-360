@@ -1492,3 +1492,16 @@ body.capture-mode #component-selection-popup,
 .accessory-availability-note {
     margin-top: 8px;
 }
+
+.divider-profile-field {
+    display: contents;
+}
+
+.divider-profile-field.is-disabled label {
+    opacity: 0.45;
+}
+
+.divider-profile-field select:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}

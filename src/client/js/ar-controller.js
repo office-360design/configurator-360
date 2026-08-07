@@ -22,6 +22,7 @@ export function createARController({
     getSelectedHandleSide,
     appendAccessoryUrlParams = () => {},
     appendProfileSelectionUrlParams = () => {},
+    appendWindowLayoutUrlParams = () => {},
 }) {
     let arSession = null;
     let hitTestSource = null;
@@ -43,6 +44,7 @@ export function createARController({
         url.searchParams.set('handle_side', getSelectedHandleSide());
         materialManager.appendUrlParams(url);
         appendProfileSelectionUrlParams(url);
+        appendWindowLayoutUrlParams(url);
         appendAccessoryUrlParams(url);
 
         const activeParts = getProfilesData()
