@@ -1032,14 +1032,20 @@ assert(
         && affineFixedGasketTemplate?.fixedGlazingDividerPlacementMethod
             === 'exact-224063-same-mullion-affine-bridge'
         && Boolean(affineFixedGasketTemplate?.fixedGlazingFrameCadTransform)
-        && Boolean(affineFixedGasketTemplate?.fixedGlazingDividerCadTransforms?.left),
-    '224063 must preserve both the direct frame-window and mixed-mullion INSERT affine bases when legacy source INSERT transforms are available.'
+        && Boolean(affineFixedGasketTemplate?.fixedGlazingDividerCadTransforms?.left)
+        && Boolean(affineFixedGasketTemplate?.mullionConnectionCadTransform)
+        && affineFixedGasketTemplate?.mullionConnectionPlacementMethod
+            === 'exact-direct-join-gasket-mounted-on-mullion-with-180-face-compensation',
+    '224063 must preserve its direct CAD INSERT and expose a divider-mounted mixed-join transform when legacy source INSERT transforms are available.'
 );
 assert(
     affineRebateGasketTemplate?.mullionSashPlacementMethod
         === 'exact-245472-same-mullion-affine-bridge'
-        && Boolean(affineRebateGasketTemplate?.mullionSashCadTransform),
-    '245472 must preserve the direct mixed-join INSERT affine basis when legacy source INSERT transforms are available.'
+        && Boolean(affineRebateGasketTemplate?.mullionSashCadTransform)
+        && Boolean(affineRebateGasketTemplate?.mullionConnectionCadTransform)
+        && affineRebateGasketTemplate?.mullionConnectionPlacementMethod
+            === 'exact-direct-join-gasket-mounted-on-mullion-with-180-face-compensation',
+    '245472_s_5 must preserve its direct CAD INSERT and expose a divider-mounted mixed-join transform.'
 );
 
 const distinct247472ConnectionTemplate = structuredClone(connectionTemplate);
@@ -1160,6 +1166,68 @@ const actualMixedConnectionTemplate = JSON.parse(fs.readFileSync(
     ),
     'utf8'
 ));
+const actualMixedAffineGasketComposition = composeRegisteredProfileDefinitions({
+    selection: {
+        profileSetId: '2_4_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575760',
+        sashProfileId: '575780',
+        dividerProfileId: '575800',
+        dividerOrientation: 'vertical',
+        leftCell: 'fixed-glazing',
+        rightCell: 'opening-sash',
+    },
+    definitionsByProfileSetId: affineLegacyDefinitions,
+    standaloneDefinitionsByProfileId: actualStandaloneDefinitions,
+    connectionTemplate: actualMixedConnectionTemplate,
+    placementConnectionTemplate: actualMixedConnectionTemplate,
+    fixedGlazingFrameTemplate: frameFixedPlacementTemplate,
+    fixedGlazingDividerTemplate: fixedFixedConnectionTemplate,
+    fixedGlazingDividerGasketTemplate: actualMixedConnectionTemplate,
+    standaloneBeadDefinition: actualStandaloneBeadDefinition,
+});
+const actualMixedAffine224063 = actualMixedAffineGasketComposition.profiles.find(profile =>
+    String(profile.blockName || '').includes('224063')
+    && profile.section === 'top'
+);
+const actualMixedAffine245472 = actualMixedAffineGasketComposition.profiles.find(profile =>
+    profile.role === 'frame'
+    && String(profile.blockName || '').includes('245472_s_5')
+    && profile.section === 'top'
+);
+const actualMixedDividerCenterX = (
+    actualMixedAffineGasketComposition.metadata.dividerSourceBounds.minX
+    + actualMixedAffineGasketComposition.metadata.dividerSourceBounds.maxX
+) / 2;
+const actualMixed224063MountedBbox = transformCadBbox(
+    actualMixedAffine224063?.bbox,
+    actualMixedAffine224063?.mullionConnectionCadTransform
+);
+const actualMixed245472MountedBbox = transformCadBbox(
+    actualMixedAffine245472?.bbox,
+    actualMixedAffine245472?.mullionConnectionCadTransform
+);
+const actualMixed224063PreRotationFace = actualMixed224063MountedBbox
+    ? (actualMixed224063MountedBbox.minX + actualMixed224063MountedBbox.maxX) / 2
+        - actualMixedDividerCenterX
+    : NaN;
+const actualMixed245472PreRotationFace = actualMixed245472MountedBbox
+    ? (actualMixed245472MountedBbox.minX + actualMixed245472MountedBbox.maxX) / 2
+        - actualMixedDividerCenterX
+    : NaN;
+assert(
+    Number.isFinite(actualMixed224063PreRotationFace)
+        && Number.isFinite(actualMixed245472PreRotationFace)
+        // createDividerSegment applies the accepted 180° correction, so the
+        // final face sign is the negative of this pre-rotation join face.
+        && -actualMixed224063PreRotationFace < 0
+        && -actualMixed245472PreRotationFace > 0
+        && actualMixedAffine224063?.mullionConnectionCellSide === 'left'
+        && actualMixedAffine245472?.mullionConnectionCellSide === 'right'
+        && actualMixedAffine224063?.mullionConnectionOccurrenceIndex === 0
+        && actualMixedAffine245472?.mullionConnectionOccurrenceIndex === 0,
+    'The real mixed-join metadata must mount direct 224063 occurrence 0 on fixed-left and direct 245472_s_5 occurrence 0 on sash-right after the accepted 180-degree mullion correction.'
+);
+
 const actualMixedBoundaryComposition = composeRegisteredProfileDefinitions({
     selection: {
         profileSetId: '2_4_Oeffnungselemnt_Vertikal',

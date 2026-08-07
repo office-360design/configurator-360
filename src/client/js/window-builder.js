@@ -1576,6 +1576,44 @@ export function createWindowBuilder({
                     )
                 );
             });
+
+            // Direct mixed-join gaskets are physically mounted on the mullion,
+            // not on the neighbouring fixed/sash cell perimeter. Render them in
+            // the same join coordinate system and with the same longitudinal V
+            // cut as the mullion itself. Only the top legacy section is needed
+            // as the extrusion template for a vertical run.
+            if (dividerOrientation === 'vertical') {
+                activeProfiles
+                    .filter(profile =>
+                        profile.section !== 'bottom'
+                        && profile.mullionConnectionCadTransform
+                        && (isFixedGlassAnchorGasket(profile)
+                            || isFrameToSashRebateGasket(profile))
+                    )
+                    .forEach(profile => {
+                        const placedProfile = {
+                            ...profile,
+                            cadCoordinateTransform: profile.mullionConnectionCadTransform,
+                            cadAlignmentShiftXMm: 0,
+                            cadAlignmentShiftYMm: 0,
+                            dividerSectionRotationDeg:
+                                Number(currentMetadata.dividerConnection?.sectionRotationDeg) || 180,
+                        };
+                        const mesh = createDividerSegment(
+                            placedProfile,
+                            dividerLength,
+                            dividerOrientation,
+                            dividerBounds,
+                            dividerDepthOffset,
+                            frameJointInwardSpan
+                        );
+                        mesh.userData.mullionConnectionGasket = true;
+                        mesh.userData.connectionBoundary =
+                            `mullion-${profile.mullionConnectionCellSide}`;
+                        mesh.userData.connectionProfileId = profile.mullionConnectionProfileId;
+                        dividerGroup.add(mesh);
+                    });
+            }
         }
 
         // In the mixed fixed | mullion | sash connection, the mullion carries
@@ -1588,6 +1626,7 @@ export function createWindowBuilder({
             activeProfiles
                 .filter(profile =>
                     isFrameToSashRebateGasket(profile)
+                    && !profile.mullionConnectionCadTransform
                     && profile.mullionSashCadTransform
                     && shouldPlaceProfileOnSide(
                         profile,
@@ -1658,6 +1697,12 @@ export function createWindowBuilder({
                 const dividerTransform = dividerSide
                     ? profile.fixedGlazingDividerCadTransforms?.[dividerSide]
                     : null;
+                if (dividerSide && profile.mullionConnectionCadTransform) {
+                    // This physical gasket is rendered as part of dividerGroup
+                    // from the direct mixed-join INSERT. Do not render a second
+                    // copy as a fixed-cell perimeter side.
+                    return { profile: null, connectionBoundary: null };
+                }
                 if (dividerTransform) {
                     transform = dividerTransform;
                     connectionBoundary = `mullion-${dividerSide}`;

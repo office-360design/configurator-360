@@ -994,6 +994,89 @@ function getConnectionOccurrenceDistanceToDividerFaceMm(occurrence, dividerOccur
     return Math.abs(finiteNumber(occurrenceCenter.x) - dividerFaceX);
 }
 
+function createMixedMullionMountedGasketTarget({
+    definition,
+    dividerConnectionTemplate,
+    profile,
+    profileId,
+    cellType,
+}) {
+    if (
+        dividerConnectionTemplate?.id !== 'mullion-fixed-sash'
+        || definition.metadata?.dividerOrientation !== 'vertical'
+        || !profile?.bbox
+        || !hasCadAffineTransform(profile.sourceTransform)
+    ) {
+        return null;
+    }
+
+    const cellSide = ['left', 'right'].find(side =>
+        dividerConnectionTemplate?.[`${side}Cell`] === cellType
+    );
+    if (!cellSide) return null;
+
+    const dividerProfileId = definition.metadata?.dividerProfileId;
+    const dividerOccurrence = resolveConnectionOccurrence(
+        dividerConnectionTemplate,
+        dividerProfileId,
+        'mullion-transom'
+    );
+    const dividerBounds = definition.metadata?.dividerSourceBounds;
+    if (!dividerOccurrence?.bbox || !dividerBounds) return null;
+
+    let accessoryOccurrences = resolveConnectionOccurrences(
+        dividerConnectionTemplate,
+        profileId,
+        'gasket'
+    ).filter(occurrence =>
+        occurrence?.bbox
+        && hasCadAffineTransform(occurrence.transform)
+        && String(occurrence.profileId || '') === String(profileId)
+        && occurrence.matchStrategy === 'direct-named-join-component'
+        && getConnectionOccurrenceJoinSide(occurrence, dividerOccurrence) === cellSide
+    );
+
+    const sourceBlockName = normalizeBlockName(profile.blockName);
+    const exactBlockOccurrences = accessoryOccurrences.filter(occurrence =>
+        (occurrence.directBlockNames || []).some(blockName =>
+            normalizeBlockName(blockName) === sourceBlockName
+        )
+    );
+    if (exactBlockOccurrences.length) accessoryOccurrences = exactBlockOccurrences;
+
+    accessoryOccurrences.sort((left, right) =>
+        getConnectionOccurrenceDistanceToDividerFaceMm(left, dividerOccurrence, cellSide)
+        - getConnectionOccurrenceDistanceToDividerFaceMm(right, dividerOccurrence, cellSide)
+    );
+    const accessoryOccurrence = accessoryOccurrences[0] || null;
+    if (!accessoryOccurrence) return null;
+
+    const rawSvgToJoin = composeCadTransforms(
+        accessoryOccurrence.transform,
+        invertCadTransform(profile.sourceTransform)
+    );
+
+    const dividerCenterX = (
+        finiteNumber(dividerBounds.minX)
+        + finiteNumber(dividerBounds.maxX)
+    ) / 2;
+    const faceCompensation = Object.freeze({
+        a: -1,
+        b: 0,
+        c: 0,
+        d: 1,
+        tx: 2 * dividerCenterX,
+        ty: 0,
+    });
+
+    return Object.freeze({
+        cellSide,
+        occurrence: accessoryOccurrence,
+        cadTransform: composeCadTransforms(faceCompensation, rawSvgToJoin),
+        placementMethod: 'exact-direct-join-gasket-mounted-on-mullion-with-180-face-compensation',
+    });
+}
+
 function createDividerFixedDirectAccessoryTargets({
     definition,
     dividerConnectionTemplate,
@@ -1822,6 +1905,13 @@ function applyFixedGlazingConnectionPlacements({
         const section = profile.section === 'bottom' ? 'bottom' : 'top';
 
         if (isFixedAnchorGasket(profile)) {
+            const mixedMullionMountedTarget = createMixedMullionMountedGasketTarget({
+                definition,
+                dividerConnectionTemplate: dividerGasketConnectionTemplate,
+                profile,
+                profileId: '224063',
+                cellType: 'fixed-glazing',
+            });
             const frameTarget = normalizeWorkingPointForSection(
                 definition,
                 frameFixedGasketTarget?.point,
@@ -1869,6 +1959,13 @@ function applyFixedGlazingConnectionPlacements({
                 fixedGlazingFrameCadTransform,
                 fixedGlazingDividerCadTransforms: Object.freeze(fixedGlazingDividerCadTransforms),
                 fixedGlazingConnectionOnly: true,
+                mullionConnectionCadTransform: mixedMullionMountedTarget?.cadTransform || null,
+                mullionConnectionCellSide: mixedMullionMountedTarget?.cellSide || null,
+                mullionConnectionProfileId: mixedMullionMountedTarget ? '224063' : null,
+                mullionConnectionOccurrenceIndex:
+                    mixedMullionMountedTarget?.occurrence?.occurrenceIndex ?? null,
+                mullionConnectionPlacementMethod:
+                    mixedMullionMountedTarget?.placementMethod || null,
                 fixedGlazingFramePlacementMethod: exactFrameTransform
                     ? 'exact-224063-same-frame-affine-bridge'
                     : 'exact-224063-join-occurrence-center-bridge',
@@ -1887,6 +1984,13 @@ function applyFixedGlazingConnectionPlacements({
         if (isFrameToSashRebateGasket(profile)) {
             if (mullionSashRebateGasketProfileId !== '245472') return profile;
 
+            const mixedMullionMountedTarget = createMixedMullionMountedGasketTarget({
+                definition,
+                dividerConnectionTemplate: dividerGasketConnectionTemplate,
+                profile,
+                profileId: mullionSashRebateGasketProfileId,
+                cellType: 'opening-sash',
+            });
             const dividerOpeningSashTarget = createDividerOpeningSashDirectAccessoryTarget({
                 definition,
                 dividerConnectionTemplate: dividerGasketConnectionTemplate,
@@ -1921,6 +2025,14 @@ function applyFixedGlazingConnectionPlacements({
                 ...profile,
                 mullionSashCadTransform,
                 mullionSashCellSide: dividerOpeningSashTarget.cellSide,
+                mullionConnectionCadTransform: mixedMullionMountedTarget?.cadTransform || null,
+                mullionConnectionCellSide: mixedMullionMountedTarget?.cellSide || null,
+                mullionConnectionProfileId:
+                    mixedMullionMountedTarget ? mullionSashRebateGasketProfileId : null,
+                mullionConnectionOccurrenceIndex:
+                    mixedMullionMountedTarget?.occurrence?.occurrenceIndex ?? null,
+                mullionConnectionPlacementMethod:
+                    mixedMullionMountedTarget?.placementMethod || null,
                 mullionSashPlacementMethod: exactTransform
                     ? 'exact-245472-same-mullion-affine-bridge'
                     : 'exact-245472-join-occurrence-center-bridge',
@@ -1990,6 +2102,11 @@ function applyFixedGlazingConnectionPlacements({
                     Boolean(profile.mullionSashCadTransform)
                 )
                     ? 'active-mullion-join-direct-rebate-gasket'
+                    : null,
+                mixedMullionGasketHostMethod: profiles.some(profile =>
+                    Boolean(profile.mullionConnectionCadTransform)
+                )
+                    ? 'direct-join-inserts-mounted-on-divider'
                     : null,
                 dividerCellBoundariesMm: Object.freeze(Object.fromEntries(
                     beadPlacement.cellBoundariesMm
