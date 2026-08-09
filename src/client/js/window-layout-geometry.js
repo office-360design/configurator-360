@@ -136,6 +136,37 @@ export function getLinearDividerLayout({
 }
 
 
+export function getFixedGlassPanePlacement({
+    width,
+    height,
+    centerX = 0,
+    centerY = 0,
+    outerInset = 0.05,
+}) {
+    const normalizedWidth = Math.max(0, finiteNumber(width));
+    const normalizedHeight = Math.max(0, finiteNumber(height));
+    const normalizedCenterX = finiteNumber(centerX);
+    const normalizedCenterY = finiteNumber(centerY);
+    const normalizedOuterInset = Math.max(0, finiteNumber(outerInset, 0.05));
+
+    // Fixed glass always follows the resolved CAD connection rectangle first,
+    // then receives the same accepted inset on all four sides. For one-divider
+    // layouts that rectangle is already the cell rectangle. Repeated layouts
+    // pass their CAD-derived fixedAccessory rectangle so glass, beads and
+    // gaskets all share the exact same connection seats instead of applying a
+    // separate hand-tuned mullion/transom extension.
+    return Object.freeze({
+        width: Math.max(0.05, normalizedWidth - normalizedOuterInset * 2),
+        height: Math.max(0.05, normalizedHeight - normalizedOuterInset * 2),
+        centerX: normalizedCenterX,
+        centerY: normalizedCenterY,
+        leftInset: normalizedOuterInset,
+        rightInset: normalizedOuterInset,
+        bottomInset: normalizedOuterInset,
+        topInset: normalizedOuterInset,
+    });
+}
+
 export function getFrameSidePlacements({
     orientation,
     width,

@@ -1,6 +1,7 @@
 import {
     getDividerArrowAlongCoordinate,
     getDividerCrossSectionMetrics,
+    getFixedGlassPanePlacement,
     getFrameDividerSocketInset,
     getFrameSidePlacements,
     getLinearDividerLayout,
@@ -133,6 +134,49 @@ assert(
 assert(
     repeatedLayout.cells.some(cell => Math.abs(cell.connectionSpan - cell.span) > 1e-3),
     'Repeated layouts must retain a separate CAD connection rectangle instead of moving structural divider centres to absorb seat offsets.'
+);
+
+const repeatedColumnGlass = repeatedLayout.cells.map(cell => getFixedGlassPanePlacement({
+    width: cell.connectionSpan,
+    height: 1.5,
+    centerX: cell.connectionCenter,
+    centerY: 0,
+    outerInset: 0.05,
+}));
+assert(
+    repeatedColumnGlass.every((pane, index) => {
+        const cell = repeatedLayout.cells[index];
+        const paneStart = pane.centerX - pane.width / 2;
+        const paneEnd = pane.centerX + pane.width / 2;
+        return Math.abs(paneStart - (cell.connectionStart + 0.05)) < 1e-12
+            && Math.abs(paneEnd - (cell.connectionEnd - 0.05)) < 1e-12;
+    }),
+    'Three-column glass must be derived from each exact CAD connection rectangle, then use the same 50 mm inset as accepted fixed layouts.'
+);
+assert(
+    repeatedColumnGlass.every(pane => (
+        Math.abs(pane.leftInset - 0.05) < 1e-12
+        && Math.abs(pane.rightInset - 0.05) < 1e-12
+    )),
+    'Repeated fixed glass must not use a hand-tuned internal stretch once CAD connection seats are available.'
+);
+
+const repeatedRowGlass = repeatedLayout.cells.map(cell => getFixedGlassPanePlacement({
+    width: 1.2,
+    height: cell.connectionSpan,
+    centerX: 0,
+    centerY: cell.connectionCenter,
+    outerInset: 0.05,
+}));
+assert(
+    repeatedRowGlass.every((pane, index) => {
+        const cell = repeatedLayout.cells[index];
+        const paneStart = pane.centerY - pane.height / 2;
+        const paneEnd = pane.centerY + pane.height / 2;
+        return Math.abs(paneStart - (cell.connectionStart + 0.05)) < 1e-12
+            && Math.abs(paneEnd - (cell.connectionEnd - 0.05)) < 1e-12;
+    }),
+    'Three-row glass must derive bottom/top placement from the exact CAD transom connection seats and then apply the accepted 50 mm inset.'
 );
 const repeatedTop = getFrameSidePlacements({
     orientation: 'vertical',

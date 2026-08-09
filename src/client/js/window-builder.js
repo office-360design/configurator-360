@@ -12,6 +12,7 @@ import { splitTriangleAtScalarZero } from './mesh-joint-geometry.js';
 import {
     getDividerArrowAlongCoordinate,
     getDividerCrossSectionMetrics,
+    getFixedGlassPanePlacement,
     getFrameDividerSocketInset,
     getFrameSidePlacements,
     getLinearDividerLayout,
@@ -1327,6 +1328,7 @@ export function createWindowBuilder({
         const leftCellType = layoutCellTypes[0] || 'fixed-glazing';
         const rightCellType = layoutCellTypes.at(-1) || 'opening-sash';
         let dividerPositions = [];
+        let dividerSeats = [];
 
         if (dividerOrientation === 'vertical' || dividerOrientation === 'horizontal') {
             const axisLength = dividerOrientation === 'vertical' ? A : B;
@@ -1369,7 +1371,7 @@ export function createWindowBuilder({
                 return defaultBoundary;
             };
 
-            const dividerSeats = [];
+            dividerSeats = [];
             for (let index = 0; index < layoutCellTypes.length - 1; index += 1) {
                 dividerSeats.push({
                     left: resolveLocalBoundary('left', layoutCellTypes[index]),
@@ -2068,13 +2070,19 @@ export function createWindowBuilder({
         }
 
         if (fixedCells.length) {
-            const fixedInset = 0.05;
             fixedCells.forEach(fixedCell => {
+                const panePlacement = getFixedGlassPanePlacement({
+                    width: fixedCell.fixedAccessoryWidth ?? fixedCell.width,
+                    height: fixedCell.fixedAccessoryHeight ?? fixedCell.height,
+                    centerX: fixedCell.fixedAccessoryCenterX ?? fixedCell.centerX,
+                    centerY: fixedCell.fixedAccessoryCenterY ?? fixedCell.centerY,
+                    outerInset: 0.05,
+                });
                 frameGroup.add(createGlassPane({
-                    width: fixedCell.width - fixedInset * 2,
-                    height: fixedCell.height - fixedInset * 2,
-                    centerX: fixedCell.centerX,
-                    centerY: fixedCell.centerY,
+                    width: panePlacement.width,
+                    height: panePlacement.height,
+                    centerX: panePlacement.centerX,
+                    centerY: panePlacement.centerY,
                     isFixed: true,
                     cellId: fixedCell.id,
                 }));
