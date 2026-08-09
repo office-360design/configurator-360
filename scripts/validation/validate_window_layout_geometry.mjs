@@ -111,22 +111,28 @@ assert(
 const repeatedLayout = getLinearDividerLayout({
     axisLength: 1.2,
     cellTypes: ['fixed-glazing', 'fixed-glazing', 'fixed-glazing'],
+    // Use the real asymmetric fixed/fixed CAD seats. They are valid accessory
+    // connection seats but must not move the two structural mullion centres.
     dividerSeats: [
-        { left: -0.044, right: 0.044 },
-        { left: -0.044, right: 0.044 },
+        { left: -0.036893485763644165, right: 0.05963295627220266 },
+        { left: -0.036893485763644165, right: 0.05963295627220266 },
     ],
 });
 assert(
     repeatedLayout.dividerPositions.length === 2
         && repeatedLayout.cells.length === 3
-        && repeatedLayout.dividerPositions[0] < repeatedLayout.dividerPositions[1]
-        && Math.abs(repeatedLayout.dividerPositions[1] - repeatedLayout.dividerPositions[0]) > 0.05,
-    'Three fixed columns must create two distinct divider centres and three cells.'
+        && Math.abs(repeatedLayout.dividerPositions[0] - (-0.2)) < 1e-12
+        && Math.abs(repeatedLayout.dividerPositions[1] - 0.2) < 1e-12,
+    'Three fixed bays must keep the two structural divider centres on exact thirds even when CAD seats are asymmetric.'
 );
 assert(
     Math.max(...repeatedLayout.cells.map(cell => cell.span))
         - Math.min(...repeatedLayout.cells.map(cell => cell.span)) < 1e-9,
-    'Repeated dividers must preserve equal clear cell sizes after subtracting CAD seat widths.'
+    'Repeated layouts must keep all complete window bays exactly equal.'
+);
+assert(
+    repeatedLayout.cells.some(cell => Math.abs(cell.connectionSpan - cell.span) > 1e-3),
+    'Repeated layouts must retain a separate CAD connection rectangle instead of moving structural divider centres to absorb seat offsets.'
 );
 const repeatedTop = getFrameSidePlacements({
     orientation: 'vertical',

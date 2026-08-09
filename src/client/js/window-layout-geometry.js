@@ -82,29 +82,38 @@ export function getLinearDividerLayout({
         });
     }
 
-    const totalSeatSpan = normalizedSeats.reduce(
-        (sum, seat) => sum + Math.max(0, seat.right - seat.left),
-        0
-    );
-    const clearCellSpan = Math.max(
-        normalizedMinCellSpan,
-        (normalizedAxisLength - totalSeatSpan) / normalizedCellTypes.length
-    );
-
-    let cursor = -normalizedAxisLength / 2;
-    const dividerPositions = normalizedSeats.map(seat => {
-        const cellEnd = cursor + clearCellSpan;
-        const dividerCenter = cellEnd - seat.left;
-        cursor = dividerCenter + seat.right;
-        return dividerCenter;
-    });
+    // Repeated dividers define complete window bays. Those structural bays must
+    // stay equal, regardless of asymmetric left/right CAD glazing seats on the
+    // mullion profile. The previous solver equalised the CAD bead rectangle by
+    // translating the mullion centres; with the real fixed/fixed seat values
+    // that made one complete bay visibly wider than the other two.
+    //
+    // Keep structural divider centre-lines on exact equal subdivisions, and
+    // carry a second CAD-connection rectangle for accessories that genuinely
+    // need the exact divider-side seat.
+    const structuralCellSpan = normalizedCellTypes.length
+        ? normalizedAxisLength / normalizedCellTypes.length
+        : normalizedAxisLength;
+    const halfAxis = normalizedAxisLength / 2;
+    const dividerPositions = normalizedSeats.map((seat, index) => (
+        -halfAxis + structuralCellSpan * (index + 1)
+    ));
     const cells = normalizedCellTypes.map((cellType, index) => {
-        const start = index === 0
-            ? -normalizedAxisLength / 2
-            : dividerPositions[index - 1] + normalizedSeats[index - 1].right;
+        const start = -halfAxis + structuralCellSpan * index;
         const end = index === normalizedCellTypes.length - 1
-            ? normalizedAxisLength / 2
+            ? halfAxis
+            : -halfAxis + structuralCellSpan * (index + 1);
+        const connectionStart = index === 0
+            ? start
+            : dividerPositions[index - 1] + normalizedSeats[index - 1].right;
+        const connectionEnd = index === normalizedCellTypes.length - 1
+            ? end
             : dividerPositions[index] + normalizedSeats[index].left;
+        const connectionSpan = Math.max(
+            normalizedMinCellSpan,
+            connectionEnd - connectionStart
+        );
+
         return Object.freeze({
             index,
             cellType,
@@ -112,11 +121,15 @@ export function getLinearDividerLayout({
             end,
             span: Math.max(normalizedMinCellSpan, end - start),
             center: (start + end) / 2,
+            connectionStart,
+            connectionEnd,
+            connectionSpan,
+            connectionCenter: (connectionStart + connectionEnd) / 2,
         });
     });
 
     return Object.freeze({
-        clearCellSpan,
+        clearCellSpan: structuralCellSpan,
         dividerPositions: Object.freeze(dividerPositions),
         cells: Object.freeze(cells),
     });

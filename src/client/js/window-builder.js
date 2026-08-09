@@ -1396,6 +1396,12 @@ export function createWindowBuilder({
                         ...(index > 0 ? { bottom: 'right' } : {}),
                         ...(index < layoutCellTypes.length - 1 ? { top: 'left' } : {}),
                     };
+                const connectionSpan = Number.isFinite(cellLayout.connectionSpan)
+                    ? cellLayout.connectionSpan
+                    : span;
+                const connectionCenter = Number.isFinite(cellLayout.connectionCenter)
+                    ? cellLayout.connectionCenter
+                    : center;
                 const cell = {
                     id: `${cellType === 'opening-sash' ? 'opening' : 'fixed'}-${index}`,
                     cellIndex: index,
@@ -1404,6 +1410,10 @@ export function createWindowBuilder({
                     height: dividerOrientation === 'horizontal' ? span : B,
                     centerX: dividerOrientation === 'vertical' ? center : 0,
                     centerY: dividerOrientation === 'horizontal' ? center : 0,
+                    fixedAccessoryWidth: dividerOrientation === 'vertical' ? connectionSpan : A,
+                    fixedAccessoryHeight: dividerOrientation === 'horizontal' ? connectionSpan : B,
+                    fixedAccessoryCenterX: dividerOrientation === 'vertical' ? connectionCenter : 0,
+                    fixedAccessoryCenterY: dividerOrientation === 'horizontal' ? connectionCenter : 0,
                     dividerBoundaryX: dividerOrientation === 'vertical'
                         ? (index < dividerPositions.length
                             ? dividerPositions[index] + dividerSeats[index].left
@@ -1823,12 +1833,12 @@ export function createWindowBuilder({
 
                             const mesh = createMiteredSide(
                                 placement.profile,
-                                fixedCell.width,
-                                fixedCell.height,
+                                fixedCell.fixedAccessoryWidth ?? fixedCell.width,
+                                fixedCell.fixedAccessoryHeight ?? fixedCell.height,
                                 side,
                                 profile.explodeOffset,
-                                fixedCell.centerX,
-                                fixedCell.centerY
+                                fixedCell.fixedAccessoryCenterX ?? fixedCell.centerX,
+                                fixedCell.fixedAccessoryCenterY ?? fixedCell.centerY
                             );
                             mesh.userData.windowCell = fixedCell.id;
                             mesh.userData.fixedGlazingAccessory = true;
