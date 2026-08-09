@@ -14,6 +14,7 @@ import {
     getDividerCrossSectionMetrics,
     getFrameDividerSocketInset,
     getFrameSidePlacements,
+    getLinearDividerLayout,
 } from './window-layout-geometry.js';
 
 const S = 0.001;
@@ -268,7 +269,8 @@ export function createWindowBuilder({
         orientation,
         bounds,
         depthOffset = 0,
-        frameInwardSpan = 0
+        frameInwardSpan = 0,
+        alongOffset = 0
     ) {
         const shape = getProfileShape(profile);
         const sourceGeom = new THREE.ExtrudeGeometry(shape, {
@@ -330,6 +332,14 @@ export function createWindowBuilder({
         geom.computeBoundingSphere();
 
         const mesh = new THREE.Mesh(geom, profile.material);
+        // Apply the layout position before registerExplode() captures basePos.
+        // Repeated dividers used to be translated only afterwards, so the pose
+        // animation reset every copy to (0, 0) and collapsed them into one.
+        if (orientation === 'vertical') {
+            mesh.position.x = (Number(alongOffset) || 0);
+        } else if (orientation === 'horizontal') {
+            mesh.position.y = (Number(alongOffset) || 0);
+        }
         mesh.castShadow = !captureMode;
         mesh.receiveShadow = !captureMode;
         mesh.userData.componentSelection = {
@@ -398,7 +408,12 @@ export function createWindowBuilder({
         // frame halves stop meeting each other vertically and begin the 45°
         // faces that touch the mullion V. Insert vertices exactly on that break
         // before deformation so one straight SVG edge cannot bridge both regions.
-        if (dividerJoint?.localJointEnd && Number(dividerJoint.faceSpan) > 0) {
+        const dividerJointEnds = new Set(
+            Array.isArray(dividerJoint?.localJointEnds) && dividerJoint.localJointEnds.length
+                ? dividerJoint.localJointEnds
+                : (dividerJoint?.localJointEnd ? [dividerJoint.localJointEnd] : [])
+        );
+        if (dividerJointEnds.size && Number(dividerJoint.faceSpan) > 0) {
             const halfDividerFace = Number(dividerJoint.faceSpan) / 2;
             const frameInwardSpan = Math.max(
                 0,
@@ -466,13 +481,14 @@ export function createWindowBuilder({
             // other. Only the inner part opens at 45° to receive the mullion V.
             let positiveEndInset = inw;
             let negativeEndInset = inw;
-            if (dividerJoint?.localJointEnd === 'positive') {
+            if (dividerJointEnds.has('positive')) {
                 positiveEndInset = getFrameDividerSocketInset({
                     inwardDistance: inw,
                     dividerFaceSpan: dividerJoint.faceSpan,
                     frameInwardSpan: dividerJoint.frameInwardSpan,
                 });
-            } else if (dividerJoint?.localJointEnd === 'negative') {
+            }
+            if (dividerJointEnds.has('negative')) {
                 negativeEndInset = getFrameDividerSocketInset({
                     inwardDistance: inw,
                     dividerFaceSpan: dividerJoint.faceSpan,
@@ -560,6 +576,7 @@ export function createWindowBuilder({
     const pivotOscilo = new THREE.Group();
     const pivotBatant = new THREE.Group();
     let handleLeverGroup = new THREE.Group();
+    let sashPoseAssemblies = [];
     let lastBuiltHandleSide = null;
     let handleHoldUntil = 0;
     placementRoot.add(mainGroup);
@@ -1243,6 +1260,11 @@ export function createWindowBuilder({
         mainGroup.clear();
         pivotOscilo.clear();
         pivotBatant.clear();
+        pivotOscilo.position.set(0, 0, 0);
+        pivotOscilo.rotation.set(0, 0, 0);
+        pivotBatant.position.set(0, 0, 0);
+        pivotBatant.rotation.set(0, 0, 0);
+        sashPoseAssemblies = [];
         explodableObjects = [];
         const t_clear = performance.now();
 
@@ -1282,18 +1304,32 @@ export function createWindowBuilder({
         let sashB = B;
         let sashOriginX = 0;
         let sashOriginY = 0;
-        let openingCell = {
+        let openingCells = [{
             id: 'opening',
             width: A,
             height: B,
             centerX: 0,
             centerY: 0,
-        };
+            joinCellSide: null,
+        }];
+        let openingCell = openingCells[0];
         const fixedCells = [];
-        const leftCellType = layoutState.leftCell || 'fixed-glazing';
-        const rightCellType = layoutState.rightCell || 'opening-sash';
+        const layoutCellTypes = dividerOrientation
+            ? (
+                Array.isArray(layoutState.cells) && layoutState.cells.length >= 2
+                    ? [...layoutState.cells]
+                    : [
+                        layoutState.leftCell || 'fixed-glazing',
+                        layoutState.rightCell || 'opening-sash',
+                    ]
+            )
+            : ['opening-sash'];
+        const leftCellType = layoutCellTypes[0] || 'fixed-glazing';
+        const rightCellType = layoutCellTypes.at(-1) || 'opening-sash';
+        let dividerPositions = [];
 
-        if (dividerOrientation === 'vertical') {
+        if (dividerOrientation === 'vertical' || dividerOrientation === 'horizontal') {
+            const axisLength = dividerOrientation === 'vertical' ? A : B;
             const halfDividerFace = dividerFaceSpan / 2;
             const fixedBoundaryMm = currentMetadata.fixedGlazingConnections
                 ?.dividerCellBoundariesMm || {};
@@ -1303,97 +1339,11 @@ export function createWindowBuilder({
             );
             const openingBoundarySide = currentMetadata.dividerConnection
                 ?.openingSashCellSide || null;
-            const minCellWidth = 0.05;
-            const clampInnerBoundary = value => Math.min(
-                A / 2 - minCellWidth,
-                Math.max(-A / 2 + minCellWidth, Number(value) || 0)
-            );
-            const resolveInnerBoundary = (cellSide, cellType) => {
-                const defaultBoundary = cellSide === 'left'
-                    ? -halfDividerFace
-                    : halfDividerFace;
+            const openingBoundariesMm = currentMetadata.dividerConnection
+                ?.openingSashDividerBoundariesMm || {};
+            const minCellSpan = 0.05;
 
-                if (cellType === 'fixed-glazing') {
-                    const cadBoundaryMm = Number(fixedBoundaryMm[cellSide]);
-                    if (Number.isFinite(cadBoundaryMm)) {
-                        return clampInnerBoundary(cadBoundaryMm * S);
-                    }
-                }
-                if (
-                    cellType === 'opening-sash'
-                    && openingBoundarySide === cellSide
-                    && Number.isFinite(openingBoundaryMm)
-                ) {
-                    return clampInnerBoundary(openingBoundaryMm * S);
-                }
-                return clampInnerBoundary(defaultBoundary);
-            };
-
-            const leftInnerBoundary = resolveInnerBoundary('left', leftCellType);
-            const rightInnerBoundary = resolveInnerBoundary('right', rightCellType);
-            const leftOuterBoundary = -A / 2;
-            const rightOuterBoundary = A / 2;
-            const leftCellWidth = Math.max(
-                minCellWidth,
-                leftInnerBoundary - leftOuterBoundary
-            );
-            const rightCellWidth = Math.max(
-                minCellWidth,
-                rightOuterBoundary - rightInnerBoundary
-            );
-            const leftCell = {
-                id: 'fixed-left',
-                width: leftCellWidth,
-                height: B,
-                centerX: (leftOuterBoundary + leftInnerBoundary) / 2,
-                centerY: 0,
-                dividerBoundaryX: leftInnerBoundary,
-            };
-            const rightCell = {
-                id: 'fixed-right',
-                width: rightCellWidth,
-                height: B,
-                centerX: (rightInnerBoundary + rightOuterBoundary) / 2,
-                centerY: 0,
-                dividerBoundaryX: rightInnerBoundary,
-            };
-
-            openingCell = null;
-            if (leftCellType === 'opening-sash') {
-                openingCell = { ...leftCell, id: 'opening-left' };
-            } else if (leftCellType === 'fixed-glazing') {
-                fixedCells.push(leftCell);
-            }
-            if (rightCellType === 'opening-sash') {
-                if (openingCell) {
-                    console.warn('Multiple opening-sash cells are not active yet; only the first opening cell will be rendered.');
-                } else {
-                    openingCell = { ...rightCell, id: 'opening-right' };
-                }
-            } else if (rightCellType === 'fixed-glazing') {
-                fixedCells.push(rightCell);
-            }
-        } else if (dividerOrientation === 'horizontal') {
-            // The connection CAD remains a left/right cross-section. When the
-            // same divider is rotated into a transom, join-left becomes the
-            // bottom cell and join-right becomes the top cell. Use the same
-            // CAD-derived virtual boundaries as the accepted vertical mullion
-            // instead of stopping both cells at the visible transom face.
-            const halfDividerFace = dividerFaceSpan / 2;
-            const fixedBoundaryMm = currentMetadata.fixedGlazingConnections
-                ?.dividerCellBoundariesMm || {};
-            const openingBoundaryMm = Number(
-                currentMetadata.dividerConnection
-                    ?.openingSashDividerBoundaryFromCenterMm
-            );
-            const openingBoundarySide = currentMetadata.dividerConnection
-                ?.openingSashCellSide || null;
-            const minCellHeight = 0.05;
-            const clampInnerBoundary = value => Math.min(
-                B / 2 - minCellHeight,
-                Math.max(-B / 2 + minCellHeight, Number(value) || 0)
-            );
-            const resolveInnerBoundary = (joinCellSide, cellType) => {
+            const resolveLocalBoundary = (joinCellSide, cellType) => {
                 const defaultBoundary = joinCellSide === 'left'
                     ? -halfDividerFace
                     : halfDividerFace;
@@ -1401,59 +1351,80 @@ export function createWindowBuilder({
                 if (cellType === 'fixed-glazing') {
                     const cadBoundaryMm = Number(fixedBoundaryMm[joinCellSide]);
                     if (Number.isFinite(cadBoundaryMm)) {
-                        return clampInnerBoundary(cadBoundaryMm * S);
+                        return cadBoundaryMm * S;
                     }
                 }
-                if (
-                    cellType === 'opening-sash'
-                    && openingBoundarySide === joinCellSide
-                    && Number.isFinite(openingBoundaryMm)
-                ) {
-                    return clampInnerBoundary(openingBoundaryMm * S);
+                if (cellType === 'opening-sash') {
+                    const perSideBoundaryMm = Number(openingBoundariesMm[joinCellSide]);
+                    if (Number.isFinite(perSideBoundaryMm)) {
+                        return perSideBoundaryMm * S;
+                    }
+                    if (
+                        openingBoundarySide === joinCellSide
+                        && Number.isFinite(openingBoundaryMm)
+                    ) {
+                        return openingBoundaryMm * S;
+                    }
                 }
-                return clampInnerBoundary(defaultBoundary);
+                return defaultBoundary;
             };
 
-            const bottomInnerBoundary = resolveInnerBoundary('left', leftCellType);
-            const topInnerBoundary = resolveInnerBoundary('right', rightCellType);
-            const bottomOuterBoundary = -B / 2;
-            const topOuterBoundary = B / 2;
-            const bottomCellHeight = Math.max(
-                minCellHeight,
-                bottomInnerBoundary - bottomOuterBoundary
-            );
-            const topCellHeight = Math.max(
-                minCellHeight,
-                topOuterBoundary - topInnerBoundary
-            );
-            const firstCell = {
-                id: 'fixed-bottom',
-                width: A,
-                height: bottomCellHeight,
-                centerX: 0,
-                centerY: (bottomOuterBoundary + bottomInnerBoundary) / 2,
-                dividerBoundaryY: bottomInnerBoundary,
-            };
-            const secondCell = {
-                id: 'fixed-top',
-                width: A,
-                height: topCellHeight,
-                centerX: 0,
-                centerY: (topInnerBoundary + topOuterBoundary) / 2,
-                dividerBoundaryY: topInnerBoundary,
-            };
+            const dividerSeats = [];
+            for (let index = 0; index < layoutCellTypes.length - 1; index += 1) {
+                dividerSeats.push({
+                    left: resolveLocalBoundary('left', layoutCellTypes[index]),
+                    right: resolveLocalBoundary('right', layoutCellTypes[index + 1]),
+                });
+            }
 
-            openingCell = null;
-            if (leftCellType === 'opening-sash') {
-                openingCell = { ...firstCell, id: 'opening-bottom' };
-            } else if (leftCellType === 'fixed-glazing') {
-                fixedCells.push(firstCell);
-            }
-            if (rightCellType === 'opening-sash') {
-                if (!openingCell) openingCell = { ...secondCell, id: 'opening-top' };
-            } else if (rightCellType === 'fixed-glazing') {
-                fixedCells.push(secondCell);
-            }
+            const linearLayout = getLinearDividerLayout({
+                axisLength,
+                cellTypes: layoutCellTypes,
+                dividerSeats,
+                minCellSpan,
+            });
+            dividerPositions = [...linearLayout.dividerPositions];
+
+            const axisCells = linearLayout.cells.map(cellLayout => {
+                const { index, cellType, span, center } = cellLayout;
+                const dividerJoinSideByBoundary = dividerOrientation === 'vertical'
+                    ? {
+                        ...(index > 0 ? { left: 'right' } : {}),
+                        ...(index < layoutCellTypes.length - 1 ? { right: 'left' } : {}),
+                    }
+                    : {
+                        ...(index > 0 ? { bottom: 'right' } : {}),
+                        ...(index < layoutCellTypes.length - 1 ? { top: 'left' } : {}),
+                    };
+                const cell = {
+                    id: `${cellType === 'opening-sash' ? 'opening' : 'fixed'}-${index}`,
+                    cellIndex: index,
+                    cellType,
+                    width: dividerOrientation === 'vertical' ? span : A,
+                    height: dividerOrientation === 'horizontal' ? span : B,
+                    centerX: dividerOrientation === 'vertical' ? center : 0,
+                    centerY: dividerOrientation === 'horizontal' ? center : 0,
+                    dividerBoundaryX: dividerOrientation === 'vertical'
+                        ? (index < dividerPositions.length
+                            ? dividerPositions[index] + dividerSeats[index].left
+                            : null)
+                        : null,
+                    dividerBoundaryY: dividerOrientation === 'horizontal'
+                        ? (index < dividerPositions.length
+                            ? dividerPositions[index] + dividerSeats[index].left
+                            : null)
+                        : null,
+                    dividerJoinSideByBoundary: Object.freeze(dividerJoinSideByBoundary),
+                    joinCellSide: layoutCellTypes.length === 2
+                        ? (index === 0 ? 'left' : 'right')
+                        : null,
+                };
+                return cell;
+            });
+
+            openingCells = axisCells.filter(cell => cell.cellType === 'opening-sash');
+            fixedCells.push(...axisCells.filter(cell => cell.cellType === 'fixed-glazing'));
+            openingCell = openingCells[0] || null;
         }
 
         if (openingCell) {
@@ -1518,24 +1489,23 @@ export function createWindowBuilder({
             return true;
         }
 
+        const sashGroupsByCell = new Map();
+        openingCells.forEach((cell, index) => {
+            sashGroupsByCell.set(
+                cell.id,
+                index === 0 ? sashGroup : new THREE.Group()
+            );
+        });
+
         function getFrameBoundaryCellType(side, placement) {
+            if (placement?.cellType) return placement.cellType;
             if (dividerOrientation === 'vertical') {
-                if (side === 'left') return leftCellType;
-                if (side === 'right') return rightCellType;
-                if (side === 'top' || side === 'bottom') {
-                    return Number(placement?.originX) < 0
-                        ? leftCellType
-                        : rightCellType;
-                }
+                if (side === 'left') return layoutCellTypes[0] || leftCellType;
+                if (side === 'right') return layoutCellTypes.at(-1) || rightCellType;
             }
             if (dividerOrientation === 'horizontal') {
-                if (side === 'bottom') return leftCellType;
-                if (side === 'top') return rightCellType;
-                if (side === 'left' || side === 'right') {
-                    return Number(placement?.originY) < 0
-                        ? leftCellType
-                        : rightCellType;
-                }
+                if (side === 'bottom') return layoutCellTypes[0] || leftCellType;
+                if (side === 'top') return layoutCellTypes.at(-1) || rightCellType;
             }
             return openingCell ? 'opening-sash' : 'fixed-glazing';
         }
@@ -1545,32 +1515,37 @@ export function createWindowBuilder({
             .forEach(profile => {
                 const group = getProfileGroup(profile);
                 const usesFullOuterBoundary = group === 'frame';
-                if (!usesFullOuterBoundary && !openingCell) return;
-                const profileA = usesFullOuterBoundary ? A : sashA;
-                const profileB = usesFullOuterBoundary ? B : sashB;
-                const originX = usesFullOuterBoundary ? 0 : sashOriginX;
-                const originY = usesFullOuterBoundary ? 0 : sashOriginY;
+                if (!usesFullOuterBoundary && !openingCells.length) return;
 
                 sides.forEach(side => {
                     if (!shouldPlaceProfileOnSide(profile, side)) return;
 
-                    const placements = usesFullOuterBoundary && dividerOrientation
-                        ? getFrameSidePlacements({
-                            orientation: dividerOrientation,
-                            width: A,
-                            height: B,
-                            side,
-                        })
-                        : [{
-                            id: side,
-                            width: profileA,
-                            height: profileB,
-                            originX,
-                            originY,
-                            windowCell: usesFullOuterBoundary
-                                ? 'outer-boundary'
-                                : 'opening',
-                        }];
+                    const placements = usesFullOuterBoundary
+                        ? (dividerOrientation
+                            ? getFrameSidePlacements({
+                                orientation: dividerOrientation,
+                                width: A,
+                                height: B,
+                                side,
+                                dividerPositions,
+                                cellTypes: layoutCellTypes,
+                            })
+                            : [{
+                                id: side,
+                                width: A,
+                                height: B,
+                                originX: 0,
+                                originY: 0,
+                                windowCell: 'outer-boundary',
+                            }])
+                        : openingCells.map(cell => ({
+                            id: `${side}-${cell.id}`,
+                            width: cell.width,
+                            height: cell.height,
+                            originX: cell.centerX,
+                            originY: cell.centerY,
+                            windowCell: cell.id,
+                        }));
 
                     placements.forEach(placement => {
                         // 245472 is the frame-to-sash rebate gasket. A frame
@@ -1596,6 +1571,7 @@ export function createWindowBuilder({
                             placement.jointEnd === 'divider'
                                 ? {
                                     localJointEnd: placement.localJointEnd,
+                                    localJointEnds: placement.localJointEnds,
                                     faceSpan: dividerFaceSpan,
                                     frameInwardSpan: frameJointInwardSpan,
                                 }
@@ -1605,11 +1581,13 @@ export function createWindowBuilder({
                         mesh.userData.frameSegment = placement.id;
                         mesh.userData.frameJoint = placement.jointEnd || null;
                         mesh.userData.frameJointLocalEnd = placement.localJointEnd || null;
+                        mesh.userData.frameJointLocalEnds = placement.localJointEnds || [];
 
                         if (group === 'frame') {
                             frameGroup.add(mesh);
                         } else {
-                            sashGroup.add(mesh);
+                            const targetSashGroup = sashGroupsByCell.get(placement.windowCell);
+                            targetSashGroup?.add(mesh);
                         }
                     });
                 });
@@ -1617,17 +1595,28 @@ export function createWindowBuilder({
 
         if (dividerOrientation && dividerBounds) {
             const dividerLength = dividerOrientation === 'vertical' ? B : A;
+            const activeDividerPositions = dividerPositions.length ? dividerPositions : [0];
+            const placeDividerMesh = (mesh, dividerPosition, dividerIndex) => {
+                mesh.userData.dividerIndex = dividerIndex;
+                mesh.userData.dividerPosition = dividerPosition;
+                dividerGroup.add(mesh);
+            };
             activeDividerProfiles.forEach(profile => {
-                dividerGroup.add(
-                    createDividerSegment(
-                        profile,
-                        dividerLength,
-                        dividerOrientation,
-                        dividerBounds,
-                        dividerDepthOffset,
-                        frameJointInwardSpan
-                    )
-                );
+                activeDividerPositions.forEach((dividerPosition, dividerIndex) => {
+                    placeDividerMesh(
+                        createDividerSegment(
+                            profile,
+                            dividerLength,
+                            dividerOrientation,
+                            dividerBounds,
+                            dividerDepthOffset,
+                            frameJointInwardSpan,
+                            dividerPosition
+                        ),
+                        dividerPosition,
+                        dividerIndex
+                    );
+                });
             });
 
             // Direct mixed-join gaskets are physically mounted on the mullion,
@@ -1639,32 +1628,49 @@ export function createWindowBuilder({
                 activeProfiles
                     .filter(profile =>
                         profile.section !== 'bottom'
-                        && profile.mullionConnectionCadTransform
+                        && (
+                            profile.mullionConnectionCadTransform
+                            || Object.keys(profile.mullionConnectionCadTransforms || {}).length
+                        )
                         && (isFixedGlassAnchorGasket(profile)
                             || isFrameToSashRebateGasket(profile))
                     )
                     .forEach(profile => {
-                        const placedProfile = {
-                            ...profile,
-                            cadCoordinateTransform: profile.mullionConnectionCadTransform,
-                            cadAlignmentShiftXMm: 0,
-                            cadAlignmentShiftYMm: 0,
-                            dividerSectionRotationDeg:
-                                Number(currentMetadata.dividerConnection?.sectionRotationDeg) || 180,
-                        };
-                        const mesh = createDividerSegment(
-                            placedProfile,
-                            dividerLength,
-                            dividerOrientation,
-                            dividerBounds,
-                            dividerDepthOffset,
-                            frameJointInwardSpan
+                        const connectionTransforms = Object.entries(
+                            profile.mullionConnectionCadTransforms || {}
                         );
-                        mesh.userData.mullionConnectionGasket = true;
-                        mesh.userData.connectionBoundary =
-                            `mullion-${profile.mullionConnectionCellSide}`;
-                        mesh.userData.connectionProfileId = profile.mullionConnectionProfileId;
-                        dividerGroup.add(mesh);
+                        if (!connectionTransforms.length && profile.mullionConnectionCadTransform) {
+                            connectionTransforms.push([
+                                profile.mullionConnectionCellSide || 'unknown',
+                                profile.mullionConnectionCadTransform,
+                            ]);
+                        }
+
+                        connectionTransforms.forEach(([cellSide, cadTransform]) => {
+                            const placedProfile = {
+                                ...profile,
+                                cadCoordinateTransform: cadTransform,
+                                cadAlignmentShiftXMm: 0,
+                                cadAlignmentShiftYMm: 0,
+                                dividerSectionRotationDeg:
+                                    Number(currentMetadata.dividerConnection?.sectionRotationDeg) || 180,
+                            };
+                            activeDividerPositions.forEach((dividerPosition, dividerIndex) => {
+                                const mesh = createDividerSegment(
+                                    placedProfile,
+                                    dividerLength,
+                                    dividerOrientation,
+                                    dividerBounds,
+                                    dividerDepthOffset,
+                                    frameJointInwardSpan,
+                                    dividerPosition
+                                );
+                                mesh.userData.mullionConnectionGasket = true;
+                                mesh.userData.connectionBoundary = `mullion-${cellSide}`;
+                                mesh.userData.connectionProfileId = profile.mullionConnectionProfileId;
+                                placeDividerMesh(mesh, dividerPosition, dividerIndex);
+                            });
+                        });
                     });
             }
         }
@@ -1680,6 +1686,7 @@ export function createWindowBuilder({
                 .filter(profile =>
                     isFrameToSashRebateGasket(profile)
                     && !profile.mullionConnectionCadTransform
+                    && !Object.keys(profile.mullionConnectionCadTransforms || {}).length
                     && profile.mullionSashCadTransform
                     && shouldPlaceProfileOnSide(
                         profile,
@@ -1746,24 +1753,24 @@ export function createWindowBuilder({
             let connectionBoundary = transform ? 'outer-frame' : null;
 
             if (dividerOrientation) {
-                let dividerSide = null;
-                if (dividerOrientation === 'vertical') {
-                    dividerSide = fixedCell.id.includes('left') && side === 'right'
-                        ? 'left'
-                        : (fixedCell.id.includes('right') && side === 'left' ? 'right' : null);
-                } else if (dividerOrientation === 'horizontal') {
-                    // Join-left is the bottom cell; join-right is the top cell.
-                    dividerSide = fixedCell.id.includes('bottom') && side === 'top'
-                        ? 'left'
-                        : (fixedCell.id.includes('top') && side === 'bottom' ? 'right' : null);
-                }
+                const dividerSide = fixedCell.dividerJoinSideByBoundary?.[side] || null;
                 const dividerTransform = dividerSide
                     ? profile.fixedGlazingDividerCadTransforms?.[dividerSide]
                     : null;
-                if (dividerSide && profile.mullionConnectionCadTransform) {
+                const dividerMountedTransforms = profile.mullionConnectionCadTransforms || {};
+                if (
+                    dividerSide
+                    && (
+                        dividerMountedTransforms[dividerSide]
+                        || (
+                            profile.mullionConnectionCadTransform
+                            && profile.mullionConnectionCellSide === dividerSide
+                        )
+                    )
+                ) {
                     // This physical gasket is rendered as part of dividerGroup
-                    // from the direct mixed-join INSERT. Do not render a second
-                    // copy as a fixed-cell perimeter side.
+                    // from the direct join INSERT. Do not render a second copy
+                    // as a fixed-cell perimeter side.
                     return { profile: null, connectionBoundary: null };
                 }
                 if (dividerTransform) {
@@ -1871,11 +1878,7 @@ export function createWindowBuilder({
             return pane;
         }
 
-        if (openingCell) {
-            const openingGlassW = Math.max(0.05, sashA - leftInset - rightInset);
-            const openingGlassH = Math.max(0.05, sashB - topInset - bottomInset);
-            const openingGlassCenterX = sashOriginX + (leftInset - rightInset) / 2;
-            const openingGlassCenterY = sashOriginY + (bottomInset - topInset) / 2;
+        if (openingCells.length) {
             const glazingCavity = glassPlacement.cavity
                 ? {
                     leftGasketIndex: glassPlacement.cavity.leftGasket.index,
@@ -1893,156 +1896,161 @@ export function createWindowBuilder({
                     depthDirection: glassPlacement.depthDirection,
                 }
                 : null;
-
-            sashGroup.add(createGlassPane({
-                width: openingGlassW,
-                height: openingGlassH,
-                centerX: openingGlassCenterX,
-                centerY: openingGlassCenterY,
-                cellId: openingCell.id,
-                glazingCavity,
-            }));
-
-            // Handle
-            const handleBase = new THREE.Group();
-
-            // --- backplate: stretched circle / rounded capsule plate ---
-            const plateShape = createRoundedRectShape(0.04, 0.1, 0.027);
-            const plateGeo = new THREE.ExtrudeGeometry(plateShape, {
-                depth: 0.005,
-                bevelEnabled: false,
-                curveSegments: 20
-            });
-            plateGeo.translate(0, 0, -0.007);
-
-            const plate = new THREE.Mesh(plateGeo, handleMat);
-            plate.castShadow = !captureMode;
-            plate.receiveShadow = !captureMode;
-            handleBase.add(plate);
-
-            // --- rotation group for the moving handle part ---
-            const currentHandleSide = getSelectedHandleSide();
-            const isLeftHandle = currentHandleSide === 'left';
-
-            const defaultRot = document.getElementById('mBatant').checked
-                ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
-                : (isLeftHandle ? Math.PI : -Math.PI);
-
-            const handleSideChanged =
-                lastBuiltHandleSide !== null &&
-                lastBuiltHandleSide !== currentHandleSide;
-
-            if (handleSideChanged) {
+            const isMultiOpening = openingCells.length > 1;
+            const selectedHandleSide = getSelectedHandleSide();
+            const selectedHandleSideChanged = !isMultiOpening
+                && lastBuiltHandleSide !== null
+                && lastBuiltHandleSide !== selectedHandleSide;
+            if (selectedHandleSideChanged) {
                 handleHoldUntil = performance.now() + 50;
             }
+            const previousPrimaryHandleRotationZ = handleLeverGroup?.rotation?.z;
+            handleLeverGroup = null;
 
-            const previousRotationZ = handleSideChanged
-                ? 0 // Start facing downward after switching sides
-                : (handleLeverGroup ? handleLeverGroup.rotation.z : defaultRot);
+            openingCells.forEach((cell, cellIndex) => {
+                const targetSashGroup = sashGroupsByCell.get(cell.id);
+                if (!targetSashGroup) return;
 
-            handleLeverGroup = new THREE.Group();
-            handleLeverGroup.rotation.z = previousRotationZ;
+                const openingGlassW = Math.max(0.05, cell.width - leftInset - rightInset);
+                const openingGlassH = Math.max(0.05, cell.height - topInset - bottomInset);
+                const openingGlassCenterX = cell.centerX + (leftInset - rightInset) / 2;
+                const openingGlassCenterY = cell.centerY + (bottomInset - topInset) / 2;
+                targetSashGroup.add(createGlassPane({
+                    width: openingGlassW,
+                    height: openingGlassH,
+                    centerX: openingGlassCenterX,
+                    centerY: openingGlassCenterY,
+                    cellId: cell.id,
+                    glazingCavity,
+                }));
 
-            lastBuiltHandleSide = currentHandleSide;
+                // In a sash/sash mullion layout both handles sit toward the
+                // mullion and both hinges sit on the outer frame. Other layouts
+                // keep the user's existing global handle-side selection.
+                const cellHandleSide = isMultiOpening && dividerOrientation === 'vertical'
+                    ? (cell.joinCellSide === 'left' ? 'right' : 'left')
+                    : selectedHandleSide;
+                const isLeftHandle = cellHandleSide === 'left';
+                const defaultRot = document.getElementById('mBatant').checked
+                    ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
+                    : (isLeftHandle ? Math.PI : -Math.PI);
+                const leverGroup = new THREE.Group();
+                leverGroup.rotation.z = (
+                    cellIndex === 0
+                    && !isMultiOpening
+                    && !selectedHandleSideChanged
+                    && Number.isFinite(previousPrimaryHandleRotationZ)
+                )
+                    ? previousPrimaryHandleRotationZ
+                    : (selectedHandleSideChanged ? 0 : defaultRot);
+                if (cellIndex === 0) handleLeverGroup = leverGroup;
 
-            // --- cylinder neck between plate and lever ---
-            const neckShape = new THREE.Shape();
-            neckShape.lineTo(0, 0.01);
-            let centerX = 0;
-            let centerY = 0;
-            let radius = 0.01;
-            let segments = 32;
+                const handleBase = new THREE.Group();
+                const plateShape = createRoundedRectShape(0.04, 0.1, 0.027);
+                const plateGeo = new THREE.ExtrudeGeometry(plateShape, {
+                    depth: 0.005,
+                    bevelEnabled: false,
+                    curveSegments: 20
+                });
+                plateGeo.translate(0, 0, -0.007);
+                const plate = new THREE.Mesh(plateGeo, handleMat);
+                plate.castShadow = !captureMode;
+                plate.receiveShadow = !captureMode;
+                handleBase.add(plate);
 
-            for (let i = 1; i <= segments; i++) {
-                const angle = (i / segments) * Math.PI * 2;
+                const neckShape = new THREE.Shape();
+                neckShape.lineTo(0, 0.01);
+                let centerX = 0;
+                let centerY = 0;
+                let radius = 0.01;
+                let segments = 32;
+                for (let i = 1; i <= segments; i++) {
+                    const angle = (i / segments) * Math.PI * 2;
+                    neckShape.lineTo(
+                        centerX + Math.sin(angle) * radius,
+                        centerY + Math.cos(angle) * radius
+                    );
+                }
+                const neckGeo = new THREE.ExtrudeGeometry(neckShape, {
+                    depth: 0.014,
+                    bevelEnabled: false,
+                    curveSegments: 24
+                });
+                neckGeo.center();
+                neckGeo.translate(0, 0, -0.001);
+                const neck = new THREE.Mesh(neckGeo, handleMat);
+                neck.position.set(0, 0, 0.006);
+                neck.castShadow = !captureMode;
+                neck.receiveShadow = !captureMode;
+                handleBase.add(neck);
 
-                const x = centerX + Math.sin(angle) * radius;
-                const y = centerY + Math.cos(angle) * radius;
+                const leverShape = new THREE.Shape();
+                leverShape.moveTo(-0.01, 0.055);
+                centerX = 0;
+                centerY = 0.055;
+                radius = 0.01;
+                segments = 16;
+                for (let i = 1; i <= segments; i++) {
+                    const angle = 3 * Math.PI / 2 + (i / segments) * Math.PI;
+                    leverShape.lineTo(
+                        centerX + Math.sin(angle) * radius,
+                        centerY + Math.cos(angle) * radius
+                    );
+                }
+                leverShape.lineTo(0.01, -0.055);
+                leverShape.lineTo(-0.01, -0.055);
+                leverShape.lineTo(-0.01, 0.055);
+                const leverGeo = new THREE.ExtrudeGeometry(leverShape, {
+                    depth: 0.012,
+                    bevelEnabled: false,
+                    curveSegments: 24
+                });
+                leverGeo.center();
+                leverGeo.translate(0, -0.050, 0.018);
+                const lever = new THREE.Mesh(leverGeo, handleMat);
+                lever.castShadow = !captureMode;
+                lever.receiveShadow = !captureMode;
+                leverGroup.add(lever);
+                handleBase.add(leverGroup);
 
-                neckShape.lineTo(x, y);
-            }
+                const sashInteriorZ = (sashMaxX - currentMetadata.globalCenterX) * S;
+                const handleInwardShift = 0.01;
+                const handleLocalX = isLeftHandle
+                    ? -cell.width / 2 + leftInset - 0.04 + handleInwardShift
+                    : cell.width / 2 - rightInset + 0.04 - handleInwardShift;
+                const handleX = cell.centerX + handleLocalX;
+                handleBase.position.set(handleX, cell.centerY, sashInteriorZ + 0.0075);
+                registerExplode(handleBase, isLeftHandle ? -0.26 : 0.26, 0, 0.9);
+                targetSashGroup.add(handleBase);
 
-            const neckGeo = new THREE.ExtrudeGeometry(neckShape, {
-                depth: 0.014,
-                bevelEnabled: false,
-                curveSegments: 24
+                const hingeX = cell.centerX + (
+                    isLeftHandle ? (cell.width / 2 - 0.04) : (-cell.width / 2 + 0.04)
+                );
+                const hingeY = cell.centerY - cell.height / 2 + 0.04;
+                const hingeZ = sashCenterX;
+                const cellPivotOscilo = cellIndex === 0 ? pivotOscilo : new THREE.Group();
+                const cellPivotBatant = cellIndex === 0 ? pivotBatant : new THREE.Group();
+                cellPivotOscilo.position.set(0, hingeY, hingeZ);
+                cellPivotOscilo.rotation.set(0, 0, 0);
+                cellPivotBatant.position.set(hingeX, -hingeY, 0);
+                cellPivotBatant.rotation.set(0, 0, 0);
+                mainGroup.add(cellPivotOscilo);
+                cellPivotOscilo.add(cellPivotBatant);
+
+                const sashWrapper = new THREE.Group();
+                sashWrapper.position.set(-hingeX, 0, -hingeZ);
+                sashWrapper.add(targetSashGroup);
+                cellPivotBatant.add(sashWrapper);
+                sashPoseAssemblies.push({
+                    pivotOscilo: cellPivotOscilo,
+                    pivotBatant: cellPivotBatant,
+                    handleLeverGroup: leverGroup,
+                    isLeftHandle,
+                    cellId: cell.id,
+                });
             });
-            neckGeo.center();
-            neckGeo.translate(0, 0, -0.001);
 
-            const neck = new THREE.Mesh(neckGeo, handleMat);
-            neck.position.set(0, 0, 0.006)
-            neck.castShadow = !captureMode;
-            neck.receiveShadow = !captureMode;
-
-            // Add it to the fixed base, not the rotating lever group.
-            handleBase.add(neck);
-
-            // --- lever: stretched body with rounded lower end ---
-            const leverShape = new THREE.Shape();
-            leverShape.moveTo(-0.01, 0.055);
-
-            centerX = 0;
-            centerY = 0.055;
-            radius = 0.01;
-            segments = 16;
-
-            for (let i = 1; i <= segments; i++) {
-                const angle = 3 * Math.PI / 2 + (i / segments) * Math.PI;
-
-                const x = centerX + Math.sin(angle) * radius;
-                const y = centerY + Math.cos(angle) * radius;
-
-                leverShape.lineTo(x, y);
-            }
-
-            leverShape.lineTo(0.01, -0.055);
-            leverShape.lineTo(-0.01, -0.055);
-            leverShape.lineTo(-0.01, 0.055);
-
-            const leverGeo = new THREE.ExtrudeGeometry(leverShape, {
-                depth: 0.012,
-                bevelEnabled: false,
-                curveSegments: 24
-            });
-            leverGeo.center();
-            leverGeo.translate(0, -0.050, 0.018);
-
-            const lever = new THREE.Mesh(leverGeo, handleMat);
-            lever.castShadow = !captureMode;
-            lever.receiveShadow = !captureMode;
-            handleLeverGroup.add(lever);
-
-            handleBase.add(handleLeverGroup);
-
-            const sashInteriorZ = (sashMaxX - currentMetadata.globalCenterX) * S;
-            const handleInwardShift = 0.01;
-            const handleLocalX = isLeftHandle
-                ? -sashA / 2 + leftInset - 0.04 + handleInwardShift
-                : sashA / 2 - rightInset + 0.04 - handleInwardShift;
-            const handleX = sashOriginX + handleLocalX;
-            handleBase.position.set(handleX, sashOriginY, sashInteriorZ + 0.0075);
-            registerExplode(handleBase, isLeftHandle ? -0.26 : 0.26, 0, 0.9);
-            sashGroup.add(handleBase);
-
-            // Hinge pivots logic
-            const hingeX = sashOriginX + (
-                isLeftHandle ? (sashA / 2 - 0.04) : (-sashA / 2 + 0.04)
-            );
-            const hingeY = sashOriginY - sashB / 2 + 0.04;
-            const hingeZ = sashCenterX;
-
-            pivotOscilo.position.set(0, hingeY, hingeZ);
-            mainGroup.add(pivotOscilo);
-
-            pivotBatant.position.set(hingeX, -hingeY, 0);
-            pivotOscilo.add(pivotBatant);
-
-            // Wrap sash inside hinge pivots
-            const sashWrapper = new THREE.Group();
-            sashWrapper.position.set(-hingeX, 0, -hingeZ);
-            sashWrapper.add(sashGroup);
-            pivotBatant.add(sashWrapper);
+            lastBuiltHandleSide = isMultiOpening ? null : selectedHandleSide;
         } else {
             handleLeverGroup = null;
             lastBuiltHandleSide = null;
@@ -2094,23 +2102,25 @@ export function createWindowBuilder({
     function applyCurrentPoseInstantly() {
         const value = Number.parseFloat(document.getElementById('openAngle').value) || 0;
         const isBatant = document.getElementById('mBatant').checked;
-        const isLeftHandle = getSelectedHandleSide() === 'left';
 
-        if (isBatant) {
-            const valRad = Math.min(value, 80) * (Math.PI / 180);
-            pivotBatant.rotation.y = isLeftHandle ? valRad : -valRad;
-            pivotOscilo.rotation.x = 0;
-        } else {
-            pivotBatant.rotation.y = 0;
-            const valRad = Math.min(value, 15) * (Math.PI / 180);
-            pivotOscilo.rotation.x = valRad;
-        }
+        sashPoseAssemblies.forEach(assembly => {
+            const isLeftHandle = assembly.isLeftHandle;
+            if (isBatant) {
+                const valRad = Math.min(value, 80) * (Math.PI / 180);
+                assembly.pivotBatant.rotation.y = isLeftHandle ? valRad : -valRad;
+                assembly.pivotOscilo.rotation.x = 0;
+            } else {
+                assembly.pivotBatant.rotation.y = 0;
+                const valRad = Math.min(value, 15) * (Math.PI / 180);
+                assembly.pivotOscilo.rotation.x = valRad;
+            }
 
-        if (handleLeverGroup) {
-            handleLeverGroup.rotation.z = isBatant
-                ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
-                : (isLeftHandle ? Math.PI : -Math.PI);
-        }
+            if (assembly.handleLeverGroup) {
+                assembly.handleLeverGroup.rotation.z = isBatant
+                    ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
+                    : (isLeftHandle ? Math.PI : -Math.PI);
+            }
+        });
 
         const targetExplode = isExploded ? 1 : 0;
         explodeProgress = targetExplode;
@@ -2133,32 +2143,33 @@ export function createWindowBuilder({
             valAngleEl.innerText = `${Math.round(value)}°`;
         }
 
-        const isLeftHandle = getSelectedHandleSide() === 'left';
-
-        if (isBatant) {
-            const valueRad = Math.min(value, 80) * (Math.PI / 180);
-            pivotBatant.rotation.y = isLeftHandle ? valueRad : -valueRad;
-            pivotOscilo.rotation.x = 0;
-        } else {
-            pivotBatant.rotation.y = 0;
-            const valueRad = Math.min(value, 15) * (Math.PI / 180);
-            pivotOscilo.rotation.x = valueRad;
-        }
-
-        const targetRotationZ = isBatant
-            ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
-            : (isLeftHandle ? Math.PI : -Math.PI);
-        if (handleLeverGroup) {
-            if (performance.now() < handleHoldUntil) {
-                handleLeverGroup.rotation.z = 0;
+        sashPoseAssemblies.forEach(assembly => {
+            const isLeftHandle = assembly.isLeftHandle;
+            if (isBatant) {
+                const valueRad = Math.min(value, 80) * (Math.PI / 180);
+                assembly.pivotBatant.rotation.y = isLeftHandle ? valueRad : -valueRad;
+                assembly.pivotOscilo.rotation.x = 0;
             } else {
-                handleLeverGroup.rotation.z = THREE.MathUtils.lerp(
-                    handleLeverGroup.rotation.z,
-                    targetRotationZ,
-                    0.10
-                );
+                assembly.pivotBatant.rotation.y = 0;
+                const valueRad = Math.min(value, 15) * (Math.PI / 180);
+                assembly.pivotOscilo.rotation.x = valueRad;
             }
-        }
+
+            const targetRotationZ = isBatant
+                ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
+                : (isLeftHandle ? Math.PI : -Math.PI);
+            if (assembly.handleLeverGroup) {
+                if (performance.now() < handleHoldUntil && sashPoseAssemblies.length === 1) {
+                    assembly.handleLeverGroup.rotation.z = 0;
+                } else {
+                    assembly.handleLeverGroup.rotation.z = THREE.MathUtils.lerp(
+                        assembly.handleLeverGroup.rotation.z,
+                        targetRotationZ,
+                        0.10
+                    );
+                }
+            }
+        });
 
         explodeProgress = THREE.MathUtils.lerp(
             explodeProgress,

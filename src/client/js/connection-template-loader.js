@@ -2,6 +2,7 @@ const CONNECTION_TEMPLATE_URLS = Object.freeze({
     'frame-fixed': 'cad-connections/frame-fixed/connection.meta.json',
     'mullion-fixed-sash': 'cad-connections/mullion-fixed-sash/connection.meta.json',
     'mullion-fixed-fixed': 'cad-connections/mullion-fixed-fixed/connection.meta.json',
+    'mullion-sash-sash': 'cad-connections/mullion-sash-sash/connection.meta.json',
 });
 
 function validateTransform(transform, label) {
@@ -147,11 +148,21 @@ export function getConnectionTemplateIdForLayout({
         return 'mullion-fixed-sash';
     }
     if (
-        dividerOrientation === 'vertical'
+        (dividerOrientation === 'vertical' || dividerOrientation === 'horizontal')
         && leftCell === 'fixed-glazing'
         && rightCell === 'fixed-glazing'
     ) {
+        // Fixed/fixed mullion and transom runs use the same left/right join
+        // section. Horizontal placement is a runtime rotation of that exact
+        // connection, just like the verified mixed transom path.
         return 'mullion-fixed-fixed';
+    }
+    if (
+        dividerOrientation === 'vertical'
+        && leftCell === 'opening-sash'
+        && rightCell === 'opening-sash'
+    ) {
+        return 'mullion-sash-sash';
     }
     return null;
 }

@@ -27,6 +27,22 @@ export const WINDOW_LAYOUTS = Object.freeze({
         dividerOrientation: 'vertical',
         leftCell: 'fixed-glazing',
         rightCell: 'fixed-glazing',
+        cells: Object.freeze(['fixed-glazing', 'fixed-glazing']),
+    }),
+    'vertical-fixed-fixed-fixed': Object.freeze({
+        id: 'vertical-fixed-fixed-fixed',
+        label: 'Three fixed columns',
+        dividerOrientation: 'vertical',
+        leftCell: 'fixed-glazing',
+        rightCell: 'fixed-glazing',
+        cells: Object.freeze(['fixed-glazing', 'fixed-glazing', 'fixed-glazing']),
+    }),
+    'vertical-sash-sash': Object.freeze({
+        id: 'vertical-sash-sash',
+        label: 'Vertical mullion — sash / sash',
+        dividerOrientation: 'vertical',
+        leftCell: 'opening-sash',
+        rightCell: 'opening-sash',
     }),
     'horizontal-divider': Object.freeze({
         id: 'horizontal-divider',
@@ -34,6 +50,14 @@ export const WINDOW_LAYOUTS = Object.freeze({
         dividerOrientation: 'horizontal',
         leftCell: 'fixed-glazing',
         rightCell: 'opening-sash',
+    }),
+    'horizontal-fixed-fixed-fixed': Object.freeze({
+        id: 'horizontal-fixed-fixed-fixed',
+        label: 'Three fixed rows',
+        dividerOrientation: 'horizontal',
+        leftCell: 'fixed-glazing',
+        rightCell: 'fixed-glazing',
+        cells: Object.freeze(['fixed-glazing', 'fixed-glazing', 'fixed-glazing']),
     }),
 });
 
@@ -131,13 +155,18 @@ export function createWindowLayoutController({
 
     function getConfigurationSnapshot() {
         const layout = getWindowLayoutDefinition(layoutId);
+        const cells = layout.cells
+            ? [...layout.cells]
+            : [layout.leftCell, layout.rightCell].filter(Boolean);
         return {
             layoutId,
             windowLayout: layoutId,
             dividerProfileId,
             dividerOrientation: layout.dividerOrientation,
-        leftCell: layout.leftCell,
-        rightCell: layout.rightCell,
+            leftCell: layout.leftCell,
+            rightCell: layout.rightCell,
+            cells,
+            dividerCount: Math.max(0, cells.length - 1),
             layoutSignature: createWindowLayoutSignature({ layoutId, dividerProfileId }),
         };
     }

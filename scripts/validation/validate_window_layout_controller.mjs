@@ -35,12 +35,46 @@ assert(
     'The horizontal-divider layout must resolve to a horizontal divider.'
 );
 assert(
+    WINDOW_LAYOUTS['vertical-sash-sash'].dividerOrientation === 'vertical'
+        && WINDOW_LAYOUTS['vertical-sash-sash'].leftCell === 'opening-sash'
+        && WINDOW_LAYOUTS['vertical-sash-sash'].rightCell === 'opening-sash',
+    'The sash/sash mullion layout must resolve to two opening-sash cells.'
+);
+assert(
+    WINDOW_LAYOUTS['vertical-fixed-fixed-fixed'].dividerOrientation === 'vertical'
+        && WINDOW_LAYOUTS['vertical-fixed-fixed-fixed'].cells?.length === 3
+        && WINDOW_LAYOUTS['vertical-fixed-fixed-fixed'].cells.every(cell => cell === 'fixed-glazing'),
+    'The three-column layout must expose three fixed-glazing cells.'
+);
+assert(
+    WINDOW_LAYOUTS['horizontal-fixed-fixed-fixed'].dividerOrientation === 'horizontal'
+        && WINDOW_LAYOUTS['horizontal-fixed-fixed-fixed'].cells?.length === 3
+        && WINDOW_LAYOUTS['horizontal-fixed-fixed-fixed'].cells.every(cell => cell === 'fixed-glazing'),
+    'The three-row layout must expose three fixed-glazing cells.'
+);
+assert(
+    getConnectionTemplateIdForLayout({
+        dividerOrientation: 'vertical',
+        leftCell: 'opening-sash',
+        rightCell: 'opening-sash',
+    }) === 'mullion-sash-sash',
+    'The sash/sash mullion must use window-sash-mullion-sash-window CAD metadata.'
+);
+assert(
     getConnectionTemplateIdForLayout({
         dividerOrientation: 'horizontal',
         leftCell: 'fixed-glazing',
         rightCell: 'opening-sash',
     }) === 'mullion-fixed-sash',
     'The horizontal transom must reuse the verified fixed/mullion/sash CAD connection.'
+);
+assert(
+    getConnectionTemplateIdForLayout({
+        dividerOrientation: 'horizontal',
+        leftCell: 'fixed-glazing',
+        rightCell: 'fixed-glazing',
+    }) === 'mullion-fixed-fixed',
+    'Repeated fixed transoms must reuse the verified fixed/mullion/fixed CAD connection.'
 );
 
 const request = getWindowLayoutRequest({
@@ -84,10 +118,19 @@ assert(
     'The controller must expose fixed/fixed cell semantics to the runtime builder.'
 );
 
+await controller.setLayout('vertical-fixed-fixed-fixed', { notify: false });
+const threeColumnSnapshot = controller.getConfigurationSnapshot();
+assert(
+    threeColumnSnapshot.cells.length === 3
+        && threeColumnSnapshot.dividerCount === 2
+        && threeColumnSnapshot.cells.every(cell => cell === 'fixed-glazing'),
+    'Three fixed columns must expose three cells and two repeated mullions.'
+);
+
 const url = new URL('https://example.test/configurator');
 controller.appendUrlParams(url);
 assert(
-    url.searchParams.get('window_layout') === 'vertical-fixed-fixed',
+    url.searchParams.get('window_layout') === 'vertical-fixed-fixed-fixed',
     'The selected layout must be preserved in AR/configuration URLs.'
 );
 assert(
@@ -100,5 +143,5 @@ if (errors.length) {
     errors.forEach(error => console.error(`- ${error}`));
     process.exitCode = 1;
 } else {
-    console.log('Window layout controller valid: single, mixed mullion, fixed/fixed mullion, and horizontal layouts passed.');
+    console.log('Window layout controller valid: single, mixed, fixed/fixed, sash/sash, horizontal, and repeated fixed layouts passed.');
 }

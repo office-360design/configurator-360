@@ -3,6 +3,7 @@ import {
     getDividerCrossSectionMetrics,
     getFrameDividerSocketInset,
     getFrameSidePlacements,
+    getLinearDividerLayout,
 } from '../../src/client/js/window-layout-geometry.js';
 
 const errors = [];
@@ -87,6 +88,76 @@ assert(
     horizontalRight[0].localJointEnd === 'negative'
         && horizontalRight[1].localJointEnd === 'positive',
     'The mirrored right frame must reverse the local transom-joint ends.'
+);
+
+const acceptedSingleDivider = getLinearDividerLayout({
+    axisLength: 1.2,
+    cellTypes: ['fixed-glazing', 'fixed-glazing'],
+    // Real fixed/fixed CAD seats are intentionally asymmetric around the
+    // mullion centre. They must size the cells without translating the mullion.
+    dividerSeats: [{ left: -0.036893485763644165, right: 0.05963295627220266 }],
+});
+assert(
+    acceptedSingleDivider.dividerPositions.length === 1
+        && Math.abs(acceptedSingleDivider.dividerPositions[0]) < 1e-12,
+    'A one-mullion/transom layout must preserve the accepted structural centre at zero even when CAD cell seats are asymmetric.'
+);
+assert(
+    Math.abs(acceptedSingleDivider.cells[0].end - (-0.036893485763644165)) < 1e-12
+        && Math.abs(acceptedSingleDivider.cells[1].start - 0.05963295627220266) < 1e-12,
+    'Single-divider cells must still use their exact CAD-derived left/right boundaries around the centred divider.'
+);
+
+const repeatedLayout = getLinearDividerLayout({
+    axisLength: 1.2,
+    cellTypes: ['fixed-glazing', 'fixed-glazing', 'fixed-glazing'],
+    dividerSeats: [
+        { left: -0.044, right: 0.044 },
+        { left: -0.044, right: 0.044 },
+    ],
+});
+assert(
+    repeatedLayout.dividerPositions.length === 2
+        && repeatedLayout.cells.length === 3
+        && repeatedLayout.dividerPositions[0] < repeatedLayout.dividerPositions[1]
+        && Math.abs(repeatedLayout.dividerPositions[1] - repeatedLayout.dividerPositions[0]) > 0.05,
+    'Three fixed columns must create two distinct divider centres and three cells.'
+);
+assert(
+    Math.max(...repeatedLayout.cells.map(cell => cell.span))
+        - Math.min(...repeatedLayout.cells.map(cell => cell.span)) < 1e-9,
+    'Repeated dividers must preserve equal clear cell sizes after subtracting CAD seat widths.'
+);
+const repeatedTop = getFrameSidePlacements({
+    orientation: 'vertical',
+    width: 1.2,
+    height: 1.5,
+    side: 'top',
+    dividerPositions: repeatedLayout.dividerPositions,
+    cellTypes: ['fixed-glazing', 'fixed-glazing', 'fixed-glazing'],
+});
+assert(
+    repeatedTop.length === 3,
+    'Two vertical mullions must split the top perimeter frame into three pieces.'
+);
+assert(
+    repeatedTop[1].localJointEnds.includes('negative')
+        && repeatedTop[1].localJointEnds.includes('positive'),
+    'The middle perimeter-frame piece must receive a mullion socket at both ends.'
+);
+const repeatedHorizontal = getFrameSidePlacements({
+    orientation: 'horizontal',
+    width: 1.2,
+    height: 1.5,
+    side: 'left',
+    dividerPositions: [-0.25, 0.25],
+    cellTypes: ['fixed-glazing', 'fixed-glazing', 'fixed-glazing'],
+});
+assert(
+    repeatedHorizontal.length === 3
+        && repeatedHorizontal[1].localJointEnds.includes('negative')
+        && repeatedHorizontal[1].localJointEnds.includes('positive'),
+    'Two horizontal transoms must split a side frame into three pieces with two-ended sockets on the middle piece.'
 );
 
 const dividerFaceSpan = 0.088;

@@ -48,6 +48,17 @@ assert(
     }) === '2_6_Oeffnungselemnt_Vertikal|575760|575790|575800|vertical|fixed-glazing|fixed-glazing',
     'Divider cell types must participate in the profile selection signature.'
 );
+assert(
+    createProfileSelectionSignature({
+        ...selection,
+        dividerProfileId: '575800',
+        dividerOrientation: 'vertical',
+        leftCell: 'fixed-glazing',
+        rightCell: 'fixed-glazing',
+        layoutId: 'vertical-fixed-fixed-fixed',
+    }).endsWith('|layout:vertical-fixed-fixed-fixed'),
+    'Repeated-divider layout IDs must participate in the profile selection signature.'
+);
 
 const frameMetadata = {
     globalCenterX: 94,
@@ -1278,6 +1289,62 @@ assert(
         && actualMixedBoundaryComposition.metadata.dividerConnection
             .openingSashDividerBoundaryFromCenterMm < 0,
     'The mixed vertical layout must derive the sash-side virtual boundary from the left/right join instead of stopping the sash at the visible mullion face.'
+);
+
+
+// Sash/sash uses the same connection-driven divider bridge, but both sides
+// must retain their own sash boundary and direct mullion rebate gasket.
+const sashSashConnectionTemplate = structuredClone(actualMixedConnectionTemplate);
+sashSashConnectionTemplate.id = 'mullion-sash-sash';
+sashSashConnectionTemplate.leftCell = 'opening-sash';
+sashSashConnectionTemplate.rightCell = 'opening-sash';
+const sourceSashOccurrence = sashSashConnectionTemplate.profileOccurrences['575780'][0];
+const leftSashOccurrence = structuredClone(sourceSashOccurrence);
+leftSashOccurrence.occurrenceIndex = 99;
+leftSashOccurrence.transform.tx -= 100;
+leftSashOccurrence.bbox.minX -= 100;
+leftSashOccurrence.bbox.maxX -= 100;
+sashSashConnectionTemplate.profileOccurrences['575780'].push(leftSashOccurrence);
+sashSashConnectionTemplate.roleOccurrences['opening-sash'].push(structuredClone(leftSashOccurrence));
+const sourceRebateOccurrence = sashSashConnectionTemplate.profileOccurrences['245472']
+    .find(occurrence => (occurrence.directBlockNames || []).includes('245472_s_5'));
+const leftRebateOccurrence = structuredClone(sourceRebateOccurrence);
+leftRebateOccurrence.occurrenceIndex = 99;
+leftRebateOccurrence.transform.tx -= 80;
+leftRebateOccurrence.bbox.minX -= 80;
+leftRebateOccurrence.bbox.maxX -= 80;
+leftRebateOccurrence.center.x -= 80;
+sashSashConnectionTemplate.profileOccurrences['245472'].push(leftRebateOccurrence);
+sashSashConnectionTemplate.roleOccurrences.gasket.push(structuredClone(leftRebateOccurrence));
+const sashSashComposition = composeRegisteredProfileDefinitions({
+    selection: {
+        profileSetId: '2_4_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575760',
+        sashProfileId: '575780',
+        dividerProfileId: '575800',
+        dividerOrientation: 'vertical',
+        leftCell: 'opening-sash',
+        rightCell: 'opening-sash',
+    },
+    definitionsByProfileSetId: actualLegacyDefinitions,
+    standaloneDefinitionsByProfileId: actualStandaloneDefinitions,
+    connectionTemplate: sashSashConnectionTemplate,
+    placementConnectionTemplate: sashSashConnectionTemplate,
+});
+const sashSashBoundaries = sashSashComposition.metadata.dividerConnection
+    ?.openingSashDividerBoundariesMm || {};
+const sashSashRebateProfile = sashSashComposition.profiles.find(profile =>
+    profile.role === 'frame'
+    && String(profile.blockName || '').includes('245472_s_5')
+    && profile.section === 'top'
+);
+assert(
+    Number.isFinite(Number(sashSashBoundaries.left))
+        && Number.isFinite(Number(sashSashBoundaries.right))
+        && Object.keys(sashSashRebateProfile?.mullionConnectionCadTransforms || {}).sort().join(',')
+            === 'left,right'
+        && sashSashComposition.metadata.dividerOpeningSashConnections?.placedSideCount === 2,
+    'Sash/sash must preserve one CAD-derived sash boundary and one direct 245472 mullion gasket on each side.'
 );
 
 if (errors.length) {

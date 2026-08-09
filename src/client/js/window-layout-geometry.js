@@ -26,73 +26,187 @@ export function getDividerCrossSectionMetrics(bounds = {}) {
     });
 }
 
+export function getLinearDividerLayout({
+    axisLength,
+    cellTypes,
+    dividerSeats,
+    minCellSpan = 0.05,
+}) {
+    const normalizedAxisLength = Math.max(0, finiteNumber(axisLength));
+    const normalizedCellTypes = Array.isArray(cellTypes) && cellTypes.length
+        ? [...cellTypes]
+        : ['fixed-glazing', 'fixed-glazing'];
+    const expectedDividerCount = Math.max(0, normalizedCellTypes.length - 1);
+    const normalizedSeats = Array.from({ length: expectedDividerCount }, (_, index) => {
+        const seat = dividerSeats?.[index] || {};
+        return Object.freeze({
+            left: finiteNumber(seat.left),
+            right: finiteNumber(seat.right),
+        });
+    });
+    const normalizedMinCellSpan = Math.max(0, finiteNumber(minCellSpan, 0.05));
+
+    // Existing one-divider layouts were visually accepted with the mullion /
+    // transom centred exactly on the window origin. CAD-derived seat offsets
+    // describe the neighbouring cell boundaries relative to that divider; they
+    // must not be allowed to translate the structural divider itself.
+    if (expectedDividerCount === 1) {
+        const halfAxis = normalizedAxisLength / 2;
+        const clampBoundary = value => Math.min(
+            halfAxis - normalizedMinCellSpan,
+            Math.max(-halfAxis + normalizedMinCellSpan, finiteNumber(value))
+        );
+        const seat = normalizedSeats[0];
+        const leftBoundary = clampBoundary(seat.left);
+        const rightBoundary = clampBoundary(seat.right);
+        const boundaries = [
+            Object.freeze({ start: -halfAxis, end: leftBoundary }),
+            Object.freeze({ start: rightBoundary, end: halfAxis }),
+        ];
+        const cells = normalizedCellTypes.map((cellType, index) => {
+            const boundary = boundaries[index];
+            return Object.freeze({
+                index,
+                cellType,
+                start: boundary.start,
+                end: boundary.end,
+                span: Math.max(normalizedMinCellSpan, boundary.end - boundary.start),
+                center: (boundary.start + boundary.end) / 2,
+            });
+        });
+
+        return Object.freeze({
+            clearCellSpan: cells.reduce((sum, cell) => sum + cell.span, 0) / cells.length,
+            dividerPositions: Object.freeze([0]),
+            cells: Object.freeze(cells),
+        });
+    }
+
+    const totalSeatSpan = normalizedSeats.reduce(
+        (sum, seat) => sum + Math.max(0, seat.right - seat.left),
+        0
+    );
+    const clearCellSpan = Math.max(
+        normalizedMinCellSpan,
+        (normalizedAxisLength - totalSeatSpan) / normalizedCellTypes.length
+    );
+
+    let cursor = -normalizedAxisLength / 2;
+    const dividerPositions = normalizedSeats.map(seat => {
+        const cellEnd = cursor + clearCellSpan;
+        const dividerCenter = cellEnd - seat.left;
+        cursor = dividerCenter + seat.right;
+        return dividerCenter;
+    });
+    const cells = normalizedCellTypes.map((cellType, index) => {
+        const start = index === 0
+            ? -normalizedAxisLength / 2
+            : dividerPositions[index - 1] + normalizedSeats[index - 1].right;
+        const end = index === normalizedCellTypes.length - 1
+            ? normalizedAxisLength / 2
+            : dividerPositions[index] + normalizedSeats[index].left;
+        return Object.freeze({
+            index,
+            cellType,
+            start,
+            end,
+            span: Math.max(normalizedMinCellSpan, end - start),
+            center: (start + end) / 2,
+        });
+    });
+
+    return Object.freeze({
+        clearCellSpan,
+        dividerPositions: Object.freeze(dividerPositions),
+        cells: Object.freeze(cells),
+    });
+}
+
+
 export function getFrameSidePlacements({
     orientation,
     width,
     height,
     side,
+    dividerPositions = null,
+    cellTypes = null,
 }) {
     const normalizedWidth = Math.max(0, finiteNumber(width));
     const normalizedHeight = Math.max(0, finiteNumber(height));
+    const normalizedDividerPositions = Array.isArray(dividerPositions)
+        ? dividerPositions.map(position => finiteNumber(position)).sort((a, b) => a - b)
+        : [0];
+    const normalizedCellTypes = Array.isArray(cellTypes) && cellTypes.length
+        ? [...cellTypes]
+        : ['fixed-glazing', 'opening-sash'];
+
+    function buildSegments({ axisLength, axis, worldToLocalEnd }) {
+        const min = -axisLength / 2;
+        const max = axisLength / 2;
+        const cuts = normalizedDividerPositions.filter(position => position > min && position < max);
+        const boundaries = [min, ...cuts, max];
+        const placements = [];
+
+        for (let index = 0; index < boundaries.length - 1; index += 1) {
+            const lower = boundaries[index];
+            const upper = boundaries[index + 1];
+            const span = Math.max(0, upper - lower);
+            const center = (lower + upper) / 2;
+            const localJointEnds = [];
+            if (index > 0) localJointEnds.push(worldToLocalEnd('negative'));
+            if (index < boundaries.length - 2) localJointEnds.push(worldToLocalEnd('positive'));
+            const cellType = normalizedCellTypes[index] || normalizedCellTypes.at(-1) || 'fixed-glazing';
+
+            placements.push(Object.freeze({
+                id: `${side}-cell-${index}`,
+                width: axis === 'x' ? span : normalizedWidth,
+                height: axis === 'y' ? span : normalizedHeight,
+                originX: axis === 'x' ? center : 0,
+                originY: axis === 'y' ? center : 0,
+                windowCell: normalizedCellTypes.length === 2
+                    ? (cellType === 'opening-sash' ? 'opening' : 'fixed')
+                    : `cell-${index}`,
+                cellIndex: index,
+                cellType,
+                jointEnd: localJointEnds.length ? 'divider' : null,
+                localJointEnd: localJointEnds.length === 1 ? localJointEnds[0] : null,
+                localJointEnds: Object.freeze(localJointEnds),
+            }));
+        }
+
+        return placements;
+    }
 
     if (
         orientation === 'vertical'
         && (side === 'top' || side === 'bottom')
     ) {
-        // The supplied mixed join CAD is fixed-left / sash-right. Keep the
-        // runtime cell order identical so no unverified mirroring is needed.
-        return [
-            Object.freeze({
-                id: `${side}-fixed`,
-                width: normalizedWidth / 2,
-                height: normalizedHeight,
-                originX: -normalizedWidth / 4,
-                originY: 0,
-                windowCell: 'fixed',
-                jointEnd: 'divider',
-                localJointEnd: side === 'top' ? 'positive' : 'negative',
-            }),
-            Object.freeze({
-                id: `${side}-opening`,
-                width: normalizedWidth / 2,
-                height: normalizedHeight,
-                originX: normalizedWidth / 4,
-                originY: 0,
-                windowCell: 'opening',
-                jointEnd: 'divider',
-                localJointEnd: side === 'top' ? 'negative' : 'positive',
-            }),
-        ];
+        return buildSegments({
+            axisLength: normalizedWidth,
+            axis: 'x',
+            worldToLocalEnd: worldDirection => {
+                if (side === 'top') {
+                    return worldDirection === 'negative' ? 'negative' : 'positive';
+                }
+                return worldDirection === 'negative' ? 'positive' : 'negative';
+            },
+        });
     }
 
     if (
         orientation === 'horizontal'
         && (side === 'left' || side === 'right')
     ) {
-        return [
-            Object.freeze({
-                id: `${side}-fixed`,
-                width: normalizedWidth,
-                height: normalizedHeight / 2,
-                originX: 0,
-                originY: -normalizedHeight / 4,
-                windowCell: 'fixed',
-                jointEnd: 'divider',
-                // Left-side extrusion runs bottom -> top; right-side extrusion
-                // is mirrored in world Y by createMiteredSide().
-                localJointEnd: side === 'left' ? 'positive' : 'negative',
-            }),
-            Object.freeze({
-                id: `${side}-opening`,
-                width: normalizedWidth,
-                height: normalizedHeight / 2,
-                originX: 0,
-                originY: normalizedHeight / 4,
-                windowCell: 'opening',
-                jointEnd: 'divider',
-                localJointEnd: side === 'left' ? 'negative' : 'positive',
-            }),
-        ];
+        return buildSegments({
+            axisLength: normalizedHeight,
+            axis: 'y',
+            worldToLocalEnd: worldDirection => {
+                if (side === 'left') {
+                    return worldDirection === 'negative' ? 'negative' : 'positive';
+                }
+                return worldDirection === 'negative' ? 'positive' : 'negative';
+            },
+        });
     }
 
     return [Object.freeze({
@@ -102,9 +216,13 @@ export function getFrameSidePlacements({
         originX: 0,
         originY: 0,
         windowCell: 'outer-boundary',
+        cellIndex: null,
+        cellType: null,
         jointEnd: null,
+        localJointEnds: Object.freeze([]),
     })];
 }
+
 
 
 export function getFrameDividerSocketInset({
