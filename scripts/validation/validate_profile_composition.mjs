@@ -628,6 +628,32 @@ assert(
     'The CAD mullion must keep its standalone section plane, apply only the verified 180-degree front/back correction, and bridge join placement through the B2-aligned sash coordinate system.'
 );
 
+const cadJoinedHorizontalComposition = composeRegisteredProfileDefinitions({
+    selection: {
+        profileSetId: '2_4_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575760',
+        sashProfileId: '575780',
+        dividerProfileId: '575800',
+        dividerOrientation: 'horizontal',
+    },
+    definitionsByProfileSetId: actualLegacyDefinitions,
+    standaloneDefinitionsByProfileId: actualStandaloneDefinitions,
+    connectionTemplate,
+});
+const cadJoinedHorizontalDivider = cadJoinedHorizontalComposition.profiles.find(
+    profile => profile.geometrySource === 'standalone-divider-profile'
+);
+assert(
+    JSON.stringify(cadJoinedHorizontalDivider?.cadCoordinateTransform)
+        === JSON.stringify(connectionTransform)
+        && cadJoinedHorizontalDivider?.dividerSectionRotationDeg === 180
+        && cadJoinedHorizontalComposition.metadata.dividerConnection?.templateId
+            === 'mullion-fixed-sash'
+        && cadJoinedHorizontalComposition.metadata.dividerConnection?.sectionRotationDeg === 180
+        && cadJoinedHorizontalComposition.metadata.dividerConnection?.openingSashCellSide === 'right',
+    'The horizontal transom must use the same accepted CAD connection transform, 180-degree cross-section correction, and fixed/sash side semantics as the vertical mullion.'
+);
+
 const fixedFixedConnectionTemplate = {
     id: 'mullion-fixed-fixed',
     leftCell: 'fixed-glazing',

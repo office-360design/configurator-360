@@ -136,10 +136,14 @@ export function getConnectionTemplateIdForLayout({
     rightCell = 'opening-sash',
 } = {}) {
     if (
-        dividerOrientation === 'vertical'
+        (dividerOrientation === 'vertical' || dividerOrientation === 'horizontal')
         && leftCell === 'fixed-glazing'
         && rightCell === 'opening-sash'
     ) {
+        // The join CAD is a left/right cross-section. A horizontal transom uses
+        // the same physical fixed-side / sash-side relationship, rotated into
+        // bottom/top window space by the builder. Reuse the exact same join
+        // metadata instead of falling back to the old unconnected transom path.
         return 'mullion-fixed-sash';
     }
     if (

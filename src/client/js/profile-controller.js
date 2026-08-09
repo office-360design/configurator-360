@@ -704,7 +704,7 @@ export function createProfileController({
                 ? await Promise.all([
                     loadConnectionTemplate('frame-fixed'),
                     getStandaloneProfileDefinition('573940'),
-                    normalizedSelection.dividerOrientation === 'vertical'
+                    normalizedSelection.dividerOrientation
                         ? (
                             connectionTemplateId === 'mullion-fixed-fixed'
                                 ? Promise.resolve(connectionTemplate)
@@ -726,7 +726,7 @@ export function createProfileController({
             // window-mullion-sash-window. Keep this separate from the bead
             // template because bead placement has its own verified fallback path.
             const fixedGlazingDividerGasketTemplate = hasFixedGlazingCell
-                && normalizedSelection.dividerOrientation === 'vertical'
+                && normalizedSelection.dividerOrientation
                 ? connectionTemplate
                 : null;
 

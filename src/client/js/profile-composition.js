@@ -597,7 +597,7 @@ function appendStandaloneDividerProfiles({
             // Keep the visually verified standalone section plane. Only the
             // front/back correction is applied; join transforms provide the
             // placement reference rather than another section rotation.
-            dividerSectionRotationDeg: connectionTemplate && orientation === 'vertical' ? 180 : 0,
+            dividerSectionRotationDeg: connectionTemplate ? 180 : 0,
             dividerSourceBounds: {
                 ...dividerSourceBounds,
                 centerX: (dividerSourceBounds.minX + dividerSourceBounds.maxX) / 2,
@@ -650,7 +650,7 @@ function appendStandaloneDividerProfiles({
                         || null,
                     sashTransformSource: sashOccurrence?.transformSource || null,
                     placementTemplateId: placementConnectionTemplate?.id || null,
-                    sectionRotationDeg: orientation === 'vertical' ? 180 : 0,
+                    sectionRotationDeg: 180,
                     orientationMode: 'standalone-canonical-with-front-back-correction',
                     depthCenterFromAssemblyCenterMm: dividerDepthCenterFromAssemblyCenterMm,
                     depthOffsetMethod: placementConnectionTemplate?.id === connectionTemplate.id
@@ -1003,7 +1003,7 @@ function createMixedMullionMountedGasketTarget({
 }) {
     if (
         dividerConnectionTemplate?.id !== 'mullion-fixed-sash'
-        || definition.metadata?.dividerOrientation !== 'vertical'
+        || !definition.metadata?.dividerOrientation
         || !profile?.bbox
         || !hasCadAffineTransform(profile.sourceTransform)
     ) {
@@ -1084,7 +1084,7 @@ function createDividerFixedDirectAccessoryTargets({
     role,
     cellBoundariesMm = null,
 }) {
-    if (!dividerConnectionTemplate || definition.metadata?.dividerOrientation !== 'vertical') {
+    if (!dividerConnectionTemplate || !definition.metadata?.dividerOrientation) {
         return new Map();
     }
 
@@ -1280,7 +1280,7 @@ function createDividerOpeningSashDirectAccessoryTarget({
 }) {
     if (
         !dividerConnectionTemplate
-        || definition.metadata?.dividerOrientation !== 'vertical'
+        || !definition.metadata?.dividerOrientation
         || !profile?.bbox
     ) {
         return null;
@@ -1598,7 +1598,7 @@ function createDividerFixedAccessorySourceTransforms({
     standaloneDefinition,
     canonicalYShiftsMm = null,
 }) {
-    if (!dividerConnectionTemplate || definition.metadata?.dividerOrientation !== 'vertical') {
+    if (!dividerConnectionTemplate || !definition.metadata?.dividerOrientation) {
         return new Map();
     }
 
@@ -1678,7 +1678,7 @@ function createDividerFixedAccessorySourceTransforms({
             dividerSourceCenter.y
         );
 
-        // The accepted vertical mullion applies only the verified 180-degree
+        // The accepted divider cross-section applies only the verified 180-degree
         // front/back correction, therefore runtime face = -(join X - centre X).
         const runtimeFaceMm = -(workingDividerCenter.x - centerX);
         const cellSide = runtimeFaceMm < 0 ? 'left' : 'right';

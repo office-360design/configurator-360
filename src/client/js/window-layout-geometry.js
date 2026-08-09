@@ -78,6 +78,9 @@ export function getFrameSidePlacements({
                 originY: -normalizedHeight / 4,
                 windowCell: 'fixed',
                 jointEnd: 'divider',
+                // Left-side extrusion runs bottom -> top; right-side extrusion
+                // is mirrored in world Y by createMiteredSide().
+                localJointEnd: side === 'left' ? 'positive' : 'negative',
             }),
             Object.freeze({
                 id: `${side}-opening`,
@@ -87,6 +90,7 @@ export function getFrameSidePlacements({
                 originY: normalizedHeight / 4,
                 windowCell: 'opening',
                 jointEnd: 'divider',
+                localJointEnd: side === 'left' ? 'negative' : 'positive',
             }),
         ];
     }

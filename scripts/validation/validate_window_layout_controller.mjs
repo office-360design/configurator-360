@@ -1,4 +1,7 @@
 import {
+    getConnectionTemplateIdForLayout,
+} from '../../src/client/js/connection-template-loader.js';
+import {
     DEFAULT_DIVIDER_PROFILE_ID,
     DEFAULT_WINDOW_LAYOUT_ID,
     WINDOW_LAYOUTS,
@@ -30,6 +33,14 @@ assert(
 assert(
     WINDOW_LAYOUTS['horizontal-divider'].dividerOrientation === 'horizontal',
     'The horizontal-divider layout must resolve to a horizontal divider.'
+);
+assert(
+    getConnectionTemplateIdForLayout({
+        dividerOrientation: 'horizontal',
+        leftCell: 'fixed-glazing',
+        rightCell: 'opening-sash',
+    }) === 'mullion-fixed-sash',
+    'The horizontal transom must reuse the verified fixed/mullion/sash CAD connection.'
 );
 
 const request = getWindowLayoutRequest({

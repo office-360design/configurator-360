@@ -72,6 +72,22 @@ assert(
     horizontalLeft[0].originY === -0.4 && horizontalLeft[1].originY === 0.4,
     'Horizontal-layout frame pieces must meet at the transom centre.'
 );
+assert(
+    horizontalLeft[0].localJointEnd === 'positive'
+        && horizontalLeft[1].localJointEnd === 'negative',
+    'The left frame must apply the divider socket cut to the ends that actually meet the transom.'
+);
+const horizontalRight = getFrameSidePlacements({
+    orientation: 'horizontal',
+    width: 1.2,
+    height: 1.6,
+    side: 'right',
+});
+assert(
+    horizontalRight[0].localJointEnd === 'negative'
+        && horizontalRight[1].localJointEnd === 'positive',
+    'The mirrored right frame must reverse the local transom-joint ends.'
+);
 
 const dividerFaceSpan = 0.088;
 const frameInwardSpan = 0.075;

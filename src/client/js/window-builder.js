@@ -1374,20 +1374,73 @@ export function createWindowBuilder({
                 fixedCells.push(rightCell);
             }
         } else if (dividerOrientation === 'horizontal') {
-            const cellHeight = Math.max(0.05, (B - dividerFaceSpan) / 2);
+            // The connection CAD remains a left/right cross-section. When the
+            // same divider is rotated into a transom, join-left becomes the
+            // bottom cell and join-right becomes the top cell. Use the same
+            // CAD-derived virtual boundaries as the accepted vertical mullion
+            // instead of stopping both cells at the visible transom face.
+            const halfDividerFace = dividerFaceSpan / 2;
+            const fixedBoundaryMm = currentMetadata.fixedGlazingConnections
+                ?.dividerCellBoundariesMm || {};
+            const openingBoundaryMm = Number(
+                currentMetadata.dividerConnection
+                    ?.openingSashDividerBoundaryFromCenterMm
+            );
+            const openingBoundarySide = currentMetadata.dividerConnection
+                ?.openingSashCellSide || null;
+            const minCellHeight = 0.05;
+            const clampInnerBoundary = value => Math.min(
+                B / 2 - minCellHeight,
+                Math.max(-B / 2 + minCellHeight, Number(value) || 0)
+            );
+            const resolveInnerBoundary = (joinCellSide, cellType) => {
+                const defaultBoundary = joinCellSide === 'left'
+                    ? -halfDividerFace
+                    : halfDividerFace;
+
+                if (cellType === 'fixed-glazing') {
+                    const cadBoundaryMm = Number(fixedBoundaryMm[joinCellSide]);
+                    if (Number.isFinite(cadBoundaryMm)) {
+                        return clampInnerBoundary(cadBoundaryMm * S);
+                    }
+                }
+                if (
+                    cellType === 'opening-sash'
+                    && openingBoundarySide === joinCellSide
+                    && Number.isFinite(openingBoundaryMm)
+                ) {
+                    return clampInnerBoundary(openingBoundaryMm * S);
+                }
+                return clampInnerBoundary(defaultBoundary);
+            };
+
+            const bottomInnerBoundary = resolveInnerBoundary('left', leftCellType);
+            const topInnerBoundary = resolveInnerBoundary('right', rightCellType);
+            const bottomOuterBoundary = -B / 2;
+            const topOuterBoundary = B / 2;
+            const bottomCellHeight = Math.max(
+                minCellHeight,
+                bottomInnerBoundary - bottomOuterBoundary
+            );
+            const topCellHeight = Math.max(
+                minCellHeight,
+                topOuterBoundary - topInnerBoundary
+            );
             const firstCell = {
                 id: 'fixed-bottom',
                 width: A,
-                height: cellHeight,
+                height: bottomCellHeight,
                 centerX: 0,
-                centerY: -(dividerFaceSpan + cellHeight) / 2,
+                centerY: (bottomOuterBoundary + bottomInnerBoundary) / 2,
+                dividerBoundaryY: bottomInnerBoundary,
             };
             const secondCell = {
                 id: 'fixed-top',
                 width: A,
-                height: cellHeight,
+                height: topCellHeight,
                 centerX: 0,
-                centerY: (dividerFaceSpan + cellHeight) / 2,
+                centerY: (topInnerBoundary + topOuterBoundary) / 2,
+                dividerBoundaryY: topInnerBoundary,
             };
 
             openingCell = null;
@@ -1580,9 +1633,9 @@ export function createWindowBuilder({
             // Direct mixed-join gaskets are physically mounted on the mullion,
             // not on the neighbouring fixed/sash cell perimeter. Render them in
             // the same join coordinate system and with the same longitudinal V
-            // cut as the mullion itself. Only the top legacy section is needed
-            // as the extrusion template for a vertical run.
-            if (dividerOrientation === 'vertical') {
+            // cut as the divider itself. Only the top legacy section is needed
+            // as the extrusion template for either a mullion or a transom run.
+            if (dividerOrientation) {
                 activeProfiles
                     .filter(profile =>
                         profile.section !== 'bottom'
@@ -1622,7 +1675,7 @@ export function createWindowBuilder({
         // Place the frame-role 245472_s_5 from the exact INSERT in
         // window-mullion-sash-window.dwg, using the opening cell boundary as
         // the local side on which createMiteredSide() operates.
-        if (dividerOrientation === 'vertical' && openingCell) {
+        if (dividerOrientation && openingCell) {
             activeProfiles
                 .filter(profile =>
                     isFrameToSashRebateGasket(profile)
@@ -1630,13 +1683,15 @@ export function createWindowBuilder({
                     && profile.mullionSashCadTransform
                     && shouldPlaceProfileOnSide(
                         profile,
-                        profile.mullionSashCellSide === 'left' ? 'right' : 'left'
+                        dividerOrientation === 'horizontal'
+                            ? (profile.mullionSashCellSide === 'left' ? 'top' : 'bottom')
+                            : (profile.mullionSashCellSide === 'left' ? 'right' : 'left')
                     )
                 )
                 .forEach(profile => {
-                    const openingSide = profile.mullionSashCellSide === 'left'
-                        ? 'right'
-                        : 'left';
+                    const openingSide = dividerOrientation === 'horizontal'
+                        ? (profile.mullionSashCellSide === 'left' ? 'top' : 'bottom')
+                        : (profile.mullionSashCellSide === 'left' ? 'right' : 'left');
                     const placedProfile = {
                         ...profile,
                         cadCoordinateTransform: profile.mullionSashCadTransform,
@@ -1690,10 +1745,18 @@ export function createWindowBuilder({
             let transform = profile.fixedGlazingFrameCadTransform || null;
             let connectionBoundary = transform ? 'outer-frame' : null;
 
-            if (dividerOrientation === 'vertical') {
-                const dividerSide = fixedCell.id.includes('left') && side === 'right'
-                    ? 'left'
-                    : (fixedCell.id.includes('right') && side === 'left' ? 'right' : null);
+            if (dividerOrientation) {
+                let dividerSide = null;
+                if (dividerOrientation === 'vertical') {
+                    dividerSide = fixedCell.id.includes('left') && side === 'right'
+                        ? 'left'
+                        : (fixedCell.id.includes('right') && side === 'left' ? 'right' : null);
+                } else if (dividerOrientation === 'horizontal') {
+                    // Join-left is the bottom cell; join-right is the top cell.
+                    dividerSide = fixedCell.id.includes('bottom') && side === 'top'
+                        ? 'left'
+                        : (fixedCell.id.includes('top') && side === 'bottom' ? 'right' : null);
+                }
                 const dividerTransform = dividerSide
                     ? profile.fixedGlazingDividerCadTransforms?.[dividerSide]
                     : null;
@@ -1705,7 +1768,7 @@ export function createWindowBuilder({
                 }
                 if (dividerTransform) {
                     transform = dividerTransform;
-                    connectionBoundary = `mullion-${dividerSide}`;
+                    connectionBoundary = `divider-${dividerSide}`;
                 }
             }
 
