@@ -1192,6 +1192,85 @@ assert(
     'Fixed/fixed 224063 must use both direct window-mullion-window occurrences and measure them from the same CAD-derived cell boundaries as the divider glazing beads.'
 );
 
+const actualFixedFixedConnectionTemplate = JSON.parse(fs.readFileSync(
+    path.join(
+        projectRoot,
+        'src',
+        'client',
+        'cad-connections',
+        'mullion-fixed-fixed',
+        'connection.meta.json'
+    ),
+    'utf8'
+));
+const actualFrameFixedConnectionTemplate = JSON.parse(fs.readFileSync(
+    path.join(
+        projectRoot,
+        'src',
+        'client',
+        'cad-connections',
+        'frame-fixed',
+        'connection.meta.json'
+    ),
+    'utf8'
+));
+const actualMixedPlacementConnectionTemplate = JSON.parse(fs.readFileSync(
+    path.join(
+        projectRoot,
+        'src',
+        'client',
+        'cad-connections',
+        'mullion-fixed-sash',
+        'connection.meta.json'
+    ),
+    'utf8'
+));
+const actualHorizontalFixedFixedComposition = composeRegisteredProfileDefinitions({
+    selection: {
+        profileSetId: '2_4_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575760',
+        sashProfileId: '575780',
+        dividerProfileId: '575800',
+        dividerOrientation: 'horizontal',
+        leftCell: 'fixed-glazing',
+        rightCell: 'fixed-glazing',
+        layoutId: 'horizontal-fixed-fixed-fixed',
+    },
+    definitionsByProfileSetId: actualLegacyDefinitions,
+    standaloneDefinitionsByProfileId: actualStandaloneDefinitions,
+    connectionTemplate: actualFixedFixedConnectionTemplate,
+    placementConnectionTemplate: actualMixedPlacementConnectionTemplate,
+    fixedGlazingFrameTemplate: actualFrameFixedConnectionTemplate,
+    fixedGlazingDividerTemplate: actualFixedFixedConnectionTemplate,
+    fixedGlazingDividerGasketTemplate: actualFixedFixedConnectionTemplate,
+    standaloneBeadDefinition: actualStandaloneBeadDefinition,
+});
+const actualHorizontalBottomBead = actualHorizontalFixedFixedComposition.profiles.find(profile =>
+    String(profile.blockName || '').includes('573940')
+    && profile.section === 'bottom'
+);
+const actualHorizontalBottomFrameTransform =
+    actualHorizontalBottomBead?.fixedGlazingFrameCadTransform;
+const actualHorizontalBottomDividerTransform =
+    actualHorizontalBottomBead?.fixedGlazingDividerCadTransforms?.right;
+assert(
+    actualHorizontalBottomFrameTransform
+        && actualHorizontalBottomDividerTransform
+        && actualHorizontalBottomDividerTransform.a === actualHorizontalBottomFrameTransform.a
+        && actualHorizontalBottomDividerTransform.b === actualHorizontalBottomFrameTransform.b
+        && actualHorizontalBottomDividerTransform.c === actualHorizontalBottomFrameTransform.c
+        && actualHorizontalBottomDividerTransform.d === actualHorizontalBottomFrameTransform.d
+        && Math.abs(
+            actualHorizontalBottomDividerTransform.ty
+                - actualHorizontalBottomFrameTransform.ty
+        ) < 1e-9
+        && Math.abs(
+            actualHorizontalBottomDividerTransform.tx
+                - actualHorizontalBottomFrameTransform.tx
+        ) > 1e-6,
+    'Horizontal divider-facing bottom glazing beads must keep the accepted bottom-section orientation/inward seat and apply only the CAD-derived transom depth delta.'
+);
+
 const actualMixedConnectionTemplate = JSON.parse(fs.readFileSync(
     path.join(
         projectRoot,

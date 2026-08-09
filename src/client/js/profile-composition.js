@@ -2105,18 +2105,45 @@ function applyFixedGlazingConnectionPlacements({
             profile,
             frameFollowerDeltas.get(section)
         );
+        if (!fixedGlazingFrameCadTransform) return profile;
 
-        const currentRawToWorking = getProfileWorkingTransform(profile);
-        const referenceWorkingToSource = invertCadTransform(referenceSourceToWorking);
         const fixedGlazingDividerCadTransforms = {};
+        const useHorizontalBottomFollowerBasis =
+            definition.metadata?.dividerOrientation === 'horizontal'
+            && section === 'bottom';
+        const frameSourceTransformInverse = useHorizontalBottomFollowerBasis
+            ? invertCadTransform(frameBeadSourceTransform)
+            : null;
+        const referenceWorkingToSource = useHorizontalBottomFollowerBasis
+            ? null
+            : invertCadTransform(referenceSourceToWorking);
+
         for (const [cellSide, targetSourceTransform] of beadPlacement.transforms) {
+            if (useHorizontalBottomFollowerBasis) {
+                // A horizontal transom exposes a fixed cell's bottom edge to the
+                // divider join. The direct divider target is expressed in the
+                // canonical/top follower basis; applying it directly to the B2
+                // bottom follower mirrors the bead and moves its inward seat.
+                // Preserve the already-correct bottom frame basis and apply only
+                // the physical frame-to-divider CAD delta.
+                const frameToDividerDelta = composeCadTransforms(
+                    targetSourceTransform,
+                    frameSourceTransformInverse
+                );
+                fixedGlazingDividerCadTransforms[cellSide] = composeCadTransforms(
+                    frameToDividerDelta,
+                    fixedGlazingFrameCadTransform
+                );
+                continue;
+            }
+
             const dividerWorkingDelta = composeCadTransforms(
                 targetSourceTransform,
                 referenceWorkingToSource
             );
             fixedGlazingDividerCadTransforms[cellSide] = composeCadTransforms(
                 dividerWorkingDelta,
-                currentRawToWorking
+                getProfileWorkingTransform(profile)
             );
         }
 
