@@ -1,4 +1,5 @@
-import { buildBom, bomToCsv } from './bom.js?v=4';
+import { buildBom, bomToCsv } from './bom.js?v=5';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=5';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
@@ -10,21 +11,40 @@ const formatters = {
   rollerDoorHeight: (v) => `${v.toFixed(2).replace(/0$/, '')} m`,
 };
 
+const climateNotes = {
+  none: 'General warehouse envelope with no active refrigeration package.',
+  comfort: 'Comfort HVAC package with external condenser units and indoor air handling.',
+  chilled: 'Chilled-storage package intended for approximately +2 to +8 °C operation.',
+  frozen: 'Frozen-storage package intended for approximately -20 °C operation with additional refrigeration capacity.',
+};
+
 export class HallUI {
   constructor(state, callbacks) {
     this.state = state;
     this.callbacks = callbacks;
     this.currentBuild = null;
+    this.bindAccordions();
     this.bindRanges();
     this.bindSelects();
     this.bindToggles();
     this.bindSwatches();
-    this.bindViews();
     this.bindExplode();
     this.bindBom();
     this.applyStateToControls();
   }
 
+  bindAccordions() {
+    document.querySelectorAll('.accordion-section').forEach((section) => {
+      const button = section.querySelector('.accordion-toggle');
+      const panel = section.querySelector('.accordion-panel');
+      button?.addEventListener('click', () => {
+        const open = !section.classList.contains('is-open');
+        section.classList.toggle('is-open', open);
+        button.setAttribute('aria-expanded', String(open));
+        if (panel) panel.hidden = !open;
+      });
+    });
+  }
 
   bindRanges() {
     document.querySelectorAll('[data-control]').forEach((control) => {
@@ -37,7 +57,7 @@ export class HallUI {
       const update = (raw, source, { fitCamera = false } = {}) => {
         const parsed = Number(raw);
         if (!Number.isFinite(parsed)) return;
-        let min = Number(source.min);
+        const min = Number(source.min);
         let max = Number(source.max);
         if (key === 'rollerDoorWidth') max = Math.min(max, Math.max(2.5, this.state.width - 1.2));
         if (key === 'rollerDoorHeight') max = Math.min(max, Math.max(2.5, this.state.eaveHeight - .2));
@@ -79,14 +99,30 @@ export class HallUI {
   }
 
   bindSelects() {
-    document.querySelector('#structurePreset')?.addEventListener('change', (event) => {
-      this.state.structurePreset = event.target.value;
-      this.callbacks.onModelChange?.({ fitCamera: false });
+    const bindings = {
+      structurePreset: 'structurePreset',
+      claddingProfile: 'claddingProfile',
+      buildingUse: 'buildingUse',
+      climateSystem: 'climateSystem',
+    };
+    Object.entries(bindings).forEach(([id, key]) => {
+      document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
+        this.state[key] = event.target.value;
+        if (key === 'buildingUse') this.applyUsePreset(event.target.value);
+        this.updateClimateNote();
+        this.callbacks.onModelChange?.({ fitCamera: false });
+      });
     });
-    document.querySelector('#claddingProfile')?.addEventListener('change', (event) => {
-      this.state.claddingProfile = event.target.value;
-      this.callbacks.onModelChange?.({ fitCamera: false });
-    });
+  }
+
+  applyUsePreset(use) {
+    if (use === 'cold') { this.state.climateSystem = 'frozen'; this.state.claddingProfile = 'sandwich'; }
+    else if (use === 'food' && this.state.climateSystem === 'none') { this.state.climateSystem = 'chilled'; this.state.claddingProfile = 'sandwich'; }
+    else if (use === 'workshop' && this.state.climateSystem === 'none') this.state.climateSystem = 'comfort';
+    const climate = document.querySelector('#climateSystem');
+    const cladding = document.querySelector('#claddingProfile');
+    if (climate) climate.value = this.state.climateSystem;
+    if (cladding) cladding.value = this.state.claddingProfile;
   }
 
   bindToggles() {
@@ -96,9 +132,14 @@ export class HallUI {
       rollerDoorToggle: 'rollerDoor',
       personnelDoorToggle: 'personnelDoor',
       windowsToggle: 'windows',
+      roofSkylightsToggle: 'roofSkylights',
+      guttersToggle: 'gutters',
+      highBayLightingToggle: 'highBayLighting',
+      fireSprinklersToggle: 'fireSprinklers',
       dimensionsToggle: 'showDimensions',
       edgesToggle: 'technicalEdges',
       claddingToggle: 'showCladding',
+      sceneryToggle: 'showScenery',
     };
     Object.entries(toggles).forEach(([id, key]) => {
       document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
@@ -121,16 +162,6 @@ export class HallUI {
     };
     bind('#wallSwatches', 'wallColor');
     bind('#roofSwatches', 'roofColor');
-  }
-
-  bindViews() {
-    document.querySelectorAll('[data-view]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const view = button.dataset.view;
-        document.querySelectorAll('[data-view]').forEach((item) => item.classList.toggle('active', item === button));
-        this.callbacks.onView?.(view);
-      });
-    });
   }
 
   bindExplode() {
@@ -166,6 +197,7 @@ export class HallUI {
     document.querySelector('#bomCloseButton')?.addEventListener('click', close);
     document.querySelector('#bomDoneButton')?.addEventListener('click', close);
     document.querySelector('#bomExportButton')?.addEventListener('click', () => this.exportBom());
+    document.querySelector('#bomExportInlineButton')?.addEventListener('click', () => this.exportBom());
   }
 
   exportBom() {
@@ -186,6 +218,11 @@ export class HallUI {
     document.querySelector('#rollerDoorControls')?.classList.toggle('is-disabled', !this.state.rollerDoor);
   }
 
+  updateClimateNote() {
+    const note = document.querySelector('#climateNote');
+    if (note) note.textContent = climateNotes[this.state.climateSystem] ?? climateNotes.none;
+  }
+
   applyStateToControls() {
     document.querySelectorAll('[data-control]').forEach((control) => {
       const key = control.dataset.control;
@@ -196,17 +233,24 @@ export class HallUI {
       if (output) output.value = formatters[key]?.(value) ?? String(value);
     });
 
-    document.querySelector('#structurePreset').value = this.state.structurePreset;
-    document.querySelector('#claddingProfile').value = this.state.claddingProfile;
+    ['structurePreset', 'claddingProfile', 'buildingUse', 'climateSystem'].forEach((id) => {
+      const element = document.querySelector(`#${id}`);
+      if (element) element.value = this.state[id];
+    });
     const checkboxMap = {
       secondaryStructureToggle: this.state.secondaryStructure,
       slabToggle: this.state.slab,
       rollerDoorToggle: this.state.rollerDoor,
       personnelDoorToggle: this.state.personnelDoor,
       windowsToggle: this.state.windows,
+      roofSkylightsToggle: this.state.roofSkylights,
+      guttersToggle: this.state.gutters,
+      highBayLightingToggle: this.state.highBayLighting,
+      fireSprinklersToggle: this.state.fireSprinklers,
       dimensionsToggle: this.state.showDimensions,
       edgesToggle: this.state.technicalEdges,
       claddingToggle: this.state.showCladding,
+      sceneryToggle: this.state.showScenery,
     };
     Object.entries(checkboxMap).forEach(([id, checked]) => { const element = document.querySelector(`#${id}`); if (element) element.checked = Boolean(checked); });
     document.querySelectorAll('#wallSwatches .swatch').forEach((button) => button.classList.toggle('selected', button.dataset.color === this.state.wallColor));
@@ -217,6 +261,7 @@ export class HallUI {
     document.querySelector('#explodeToggleButton').textContent = this.state.explode > 0 ? 'Assemble' : 'Explode';
     this.ensureOpeningLimits();
     this.updateDoorControls();
+    this.updateClimateNote();
   }
 
   update(build) {
@@ -250,11 +295,41 @@ export class HallUI {
       item.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
       return item;
     }));
+
+    this.updateSummary(lines, metrics);
   }
 
-  captureState() {
-    return structuredClone(this.state);
+  updateSummary(lines, metrics) {
+    const estimate = estimateHallPrice(this.state, this.currentBuild);
+    document.querySelector('#summaryTotal').textContent = formatPrice(estimate.total, estimate.currency);
+    const breakdown = document.querySelector('#summaryPriceBreakdown');
+    breakdown.replaceChildren(...[
+      ...estimate.items.map((item) => [item.label, formatPrice(item.amount, estimate.currency)]),
+      ['Engineering & installation allowance', formatPrice(estimate.engineeringAndInstall, estimate.currency)],
+    ].map(([label, value]) => {
+      const row = document.createElement('div');
+      row.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+      return row;
+    }));
+
+    const metricsBox = document.querySelector('#summaryMetrics');
+    metricsBox.innerHTML = `<div><span>Footprint</span><strong>${metrics.footprint.toFixed(1)} m²</strong></div><div><span>Portal frames</span><strong>${metrics.frameCount}</strong></div><div><span>Use</span><strong>${this.state.buildingUse.replace('-', ' ')}</strong></div><div><span>Climate</span><strong>${this.state.climateSystem}</strong></div>`;
+
+    const preview = document.querySelector('#summaryBomList');
+    preview.replaceChildren(...lines.slice(0, 8).map((line) => {
+      const row = document.createElement('div');
+      row.innerHTML = `<span>${line.name}</span><strong>${line.quantity} ${line.unit}</strong>`;
+      return row;
+    }));
+    if (lines.length > 8) {
+      const more = document.createElement('div');
+      more.className = 'summary-bom-more';
+      more.textContent = `+ ${lines.length - 8} additional BOM lines`;
+      preview.append(more);
+    }
   }
+
+  captureState() { return structuredClone(this.state); }
 
   restoreState(snapshot) {
     Object.assign(this.state, snapshot);

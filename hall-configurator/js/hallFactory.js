@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets } from './state.js?v=4';
+import { deriveHallMetrics, structurePresets } from './state.js?v=5';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -420,6 +420,55 @@ function createPersonnelDoorAssembly(trimMat, leafMat, glassMat, fastenerMat, te
   return group;
 }
 
+
+function createCondenserUnit(width, height, depth, casingMat, fanMat, technicalEdges = false) {
+  const group = new THREE.Group();
+  const body = boxMesh(new THREE.Vector3(width, height, depth), casingMat, 'condenser-casing', technicalEdges);
+  body.position.y = height / 2;
+  group.add(body);
+  const fanRadius = Math.min(width, height) * .28;
+  for (const x of [-width * .22, width * .22]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(fanRadius, .025, 8, 28), fanMat);
+    ring.position.set(x, height * .56, -depth / 2 - .012);
+    group.add(ring);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(.055, .055, .04, 16), fanMat);
+    hub.rotation.x = Math.PI / 2;
+    hub.position.copy(ring.position);
+    group.add(hub);
+    for (let i = 0; i < 4; i += 1) {
+      const blade = boxMesh(new THREE.Vector3(fanRadius * .72, .035, .018), fanMat, `condenser-fan-blade-${i}`, false);
+      blade.position.copy(ring.position);
+      blade.rotation.z = i * Math.PI / 2 + Math.PI / 4;
+      group.add(blade);
+    }
+  }
+  for (const x of [-width * .38, width * .38]) {
+    const foot = boxMesh(new THREE.Vector3(.16, .10, depth * .75), fanMat, 'condenser-foot', false);
+    foot.position.set(x, .05, 0);
+    group.add(foot);
+  }
+  return group;
+}
+
+function createHighBayLight(mat, glowMat) {
+  const group = new THREE.Group();
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .38, 8), mat);
+  stem.position.y = .19;
+  group.add(stem);
+  const shade = new THREE.Mesh(new THREE.CylinderGeometry(.09, .25, .12, 24, 1, true), mat);
+  shade.position.y = -.04;
+  group.add(shade);
+  const lamp = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .025, 24), glowMat);
+  lamp.position.y = -.11;
+  group.add(lamp);
+  return group;
+}
+
+function createSkylight(length, width, mat, name, technicalEdges = false) {
+  const mesh = boxMesh(new THREE.Vector3(length, .035, width), mat, name, technicalEdges);
+  return mesh;
+}
+
 function roofPoint(state, metrics, side, t, z) {
   const halfW = state.width / 2;
   if (side < 0) {
@@ -497,8 +546,10 @@ export function buildHallModel(state) {
   plates.name = 'connection-plates';
   const anchors = setExplode(new THREE.Group(), 0, -.62, 0);
   anchors.name = 'anchor-rods';
+  anchors.userData.detailOnly = true;
   const fasteners = setExplode(new THREE.Group(), 0, .82, 0);
   fasteners.name = 'bolts-nuts-washers';
+  fasteners.userData.detailOnly = true;
   connectionRoot.add(plates, anchors, fasteners);
 
   const columnSection = {
@@ -780,7 +831,7 @@ export function buildHallModel(state) {
     for (const side of [-1, 1]) {
       for (const t of [.32, .68]) {
         const p = roofPoint(state, metrics, side, t, z);
-        const q = p.clone().add(new THREE.Vector3(side * -.22, -.28, .20));
+        const q = p.clone().add(new THREE.Vector3(side * -.18, -.26, 0));
         bracing.add(angleMemberBetween(p, q, .06, .008, braceMat, `stay-L60x6-${frameIndex}-${side}-${t}`, technicalEdges));
         counts.stays += 1;
       }
@@ -855,7 +906,7 @@ export function buildHallModel(state) {
   envelope.add(roofTrim);
   const ridgeCapMat = material(state.roofColor, { metalness: .38, roughness: .40 });
   const ridgeCap = createRidgeCap(roofLength + .04, pitchRad, .42, .028, ridgeCapMat, 'folded-ridge-cap', technicalEdges);
-  ridgeCap.position.set(0, ridgeY + .16, 0);
+  ridgeCap.position.set(0, ridgeY + .105, 0);
   roofTrim.add(ridgeCap);
 
   const leftEave = memberBetween(
@@ -926,6 +977,94 @@ export function buildHallModel(state) {
     }
   }
 
+
+  // Optional hall services are modeled as separate assemblies so they can be
+  // inspected without confusing the load-bearing steel structure.
+  const services = setExplode(new THREE.Group(), 0, 1.4, 0);
+  services.name = 'building-services';
+  root.add(services);
+
+  if (state.gutters) {
+    const gutterMat = material('#5d6971', { metalness: .72, roughness: .32 });
+    const gutterY = state.eaveHeight + .01;
+    for (const side of [-1, 1]) {
+      const x = side * (halfW + .17);
+      services.add(memberBetween(new THREE.Vector3(x, gutterY, -halfL - .12), new THREE.Vector3(x, gutterY, halfL + .12), .14, .12, gutterMat, `eave-gutter-${side}`, technicalEdges));
+      for (const z of [-halfL + .14, halfL - .14]) {
+        services.add(cylinderBetween(new THREE.Vector3(x, gutterY - .02, z), new THREE.Vector3(x, .18, z), .038, gutterMat, `downpipe-${side}-${z}`, 14));
+      }
+    }
+  }
+
+  if (state.roofSkylights) {
+    const skyMat = material('#b9e6f5', { transparent: true, opacity: .62, metalness: .03, roughness: .18 });
+    const modulesPerSide = Math.max(1, Math.floor(metrics.skylightCount / 2));
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < modulesPerSide; i += 1) {
+        const z = modulesPerSide === 1 ? 0 : -halfL * .72 + i * (state.length * 1.44 / (modulesPerSide - 1));
+        const panel = createSkylight(Math.min(1.35, metrics.slopeLength * .25), 1.15, skyMat, `roof-skylight-${side}-${i}`, technicalEdges);
+        panel.position.set(side * halfW * .48, state.eaveHeight + metrics.ridgeRise * .52 + .135, z);
+        panel.rotation.z = side < 0 ? pitchRad : -pitchRad;
+        services.add(panel);
+      }
+    }
+  }
+
+  if (state.highBayLighting) {
+    const fixtureMat = material('#313d45', { metalness: .65, roughness: .32 });
+    const glowMat = new THREE.MeshStandardMaterial({ color: 0xf6fbff, emissive: 0xd6efff, emissiveIntensity: 1.35, roughness: .25 });
+    const columns = Math.max(1, Math.ceil(state.width / 9));
+    const rows = Math.max(2, Math.ceil(metrics.highBayFixtureCount / columns));
+    let created = 0;
+    for (let r = 0; r < rows && created < metrics.highBayFixtureCount; r += 1) {
+      const z = rows === 1 ? 0 : -halfL * .72 + r * (state.length * 1.44 / (rows - 1));
+      for (let c = 0; c < columns && created < metrics.highBayFixtureCount; c += 1) {
+        const x = columns === 1 ? 0 : -halfW * .55 + c * (state.width * 1.10 / (columns - 1));
+        const light = createHighBayLight(fixtureMat, glowMat);
+        light.position.set(x, Math.min(state.eaveHeight - .35, ridgeY - .8), z);
+        services.add(light);
+        created += 1;
+      }
+    }
+  }
+
+  if (state.fireSprinklers) {
+    const pipeMat = material('#b63d38', { metalness: .45, roughness: .38 });
+    const pipeY = Math.max(2.7, state.eaveHeight - .65);
+    services.add(cylinderBetween(new THREE.Vector3(0, pipeY, -halfL + .4), new THREE.Vector3(0, pipeY, halfL - .4), .032, pipeMat, 'sprinkler-main', 12));
+    const branchCount = Math.max(2, Math.ceil(state.length / 6));
+    for (let i = 0; i < branchCount; i += 1) {
+      const z = branchCount === 1 ? 0 : -halfL * .78 + i * (state.length * 1.56 / (branchCount - 1));
+      services.add(cylinderBetween(new THREE.Vector3(-halfW + .6, pipeY, z), new THREE.Vector3(halfW - .6, pipeY, z), .022, pipeMat, `sprinkler-branch-${i}`, 10));
+      const headCount = Math.max(2, Math.ceil(state.width / 4));
+      for (let h = 0; h < headCount; h += 1) {
+        const x = headCount === 1 ? 0 : -halfW * .7 + h * (state.width * 1.4 / (headCount - 1));
+        const stem = cylinderBetween(new THREE.Vector3(x, pipeY, z), new THREE.Vector3(x, pipeY - .16, z), .008, pipeMat, `sprinkler-drop-${i}-${h}`, 8);
+        services.add(stem);
+        const head = new THREE.Mesh(new THREE.CylinderGeometry(.035, .018, .025, 12), pipeMat);
+        head.position.set(x, pipeY - .18, z);
+        services.add(head);
+      }
+    }
+  }
+
+  if (state.climateSystem !== 'none') {
+    const casingMat = material('#d9e1e4', { metalness: .42, roughness: .52 });
+    const fanMat = material('#35434c', { metalness: .62, roughness: .33 });
+    const unitCount = metrics.refrigerationUnitCount || Math.max(1, Math.ceil(metrics.footprint / 280));
+    const unitWidth = state.climateSystem === 'frozen' ? 2.5 : 2.0;
+    for (let i = 0; i < unitCount; i += 1) {
+      const z = unitCount === 1 ? 0 : -Math.min(halfL - 1.5, unitCount * 1.8) + i * (Math.min(state.length - 3, unitCount * 3.6) / Math.max(1, unitCount - 1));
+      const unit = createCondenserUnit(unitWidth, 1.45, .72, casingMat, fanMat, technicalEdges);
+      unit.position.set(halfW + 1.35, .12, z);
+      unit.rotation.y = -Math.PI / 2;
+      services.add(unit);
+      const pipeA = cylinderBetween(new THREE.Vector3(halfW + .05, 1.15, z - .10), new THREE.Vector3(halfW + 1.0, .95, z - .10), .018, fanMat, `climate-pipe-a-${i}`, 10);
+      const pipeB = cylinderBetween(new THREE.Vector3(halfW + .05, 1.02, z + .10), new THREE.Vector3(halfW + 1.0, .82, z + .10), .014, fanMat, `climate-pipe-b-${i}`, 10);
+      services.add(pipeA, pipeB);
+    }
+  }
+
   root.traverse((object) => {
     if (!object.userData.basePosition) object.userData.basePosition = object.position.clone();
   });
@@ -948,6 +1087,7 @@ export function buildHallModel(state) {
 export function applyExplodedView(root, amount) {
   const t = THREE.MathUtils.clamp(amount, 0, 1);
   root.traverse((object) => {
+    if (object.userData.detailOnly) object.visible = t > .015;
     const base = object.userData.basePosition;
     if (!base) return;
     const offset = object.userData.explodeOffset;
