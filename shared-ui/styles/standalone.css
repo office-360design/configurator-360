@@ -356,3 +356,21 @@ body.shared-ui-dark-mode { background: #0f172a !important; }
 .shared-ui-host .tools-toolbar--down .tools-toolbar__panel,
 .shared-ui-host .tools-toolbar--up .tools-toolbar__panel { flex-direction: column; }
 .shared-ui-host .tools-toolbar__panel:empty { display: none; }
+
+/* v1.5.0 paired theme colors for standalone shared shells. */
+.shared-ui-host {
+  --ui-text-primary: #172027;
+  --ui-text-secondary: #778087;
+  --ui-text-action: #005a9f;
+}
+
+.shared-ui-host.is-dark-mode {
+  --ui-text-primary: #e2e8f0;
+  --ui-text-secondary: #94a3b8;
+  --ui-text-action: #93c5fd;
+}
+
+.shared-ui-host .account-settings__cookies strong,
+.shared-ui-host.is-dark-mode .account-settings__cookies strong {
+  color: var(--ui-text-action);
+}

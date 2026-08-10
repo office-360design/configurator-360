@@ -188,14 +188,14 @@ export const ACCESSORY_OPTIONS = [
   {
     key: 'speakers',
     label: 'Outdoor speakers',
-    description: 'One speaker can be mounted to each support pole.',
+    description: 'Speakers can be assigned to any free support-pole face.',
     model: './assets/models/accessories/speaker.glb',
     icon: './assets/icons/accessory-speaker.svg',
   },
   {
     key: 'outlets',
     label: 'Electrical outlets',
-    description: 'European or American outlets with continuous height positioning.',
+    description: 'EU or US outlets for any free support-pole face.',
     model: './assets/models/accessories/outlet-eu.glb',
     icon: './assets/icons/accessory-outlet.svg',
   },
@@ -217,13 +217,6 @@ export const HEATER_SIDES = [
   { value: 'back', label: 'Back' },
   { value: 'left', label: 'Left' },
   { value: 'right', label: 'Right' },
-];
-
-export const SUPPORT_POLES = [
-  { value: 'frontLeft', label: 'Front left' },
-  { value: 'frontRight', label: 'Front right' },
-  { value: 'backLeft', label: 'Back left' },
-  { value: 'backRight', label: 'Back right' },
 ];
 
 export const POLE_FACES = [

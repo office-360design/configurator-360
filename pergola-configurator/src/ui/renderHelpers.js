@@ -1,8 +1,8 @@
 import { escapeHtml } from '../../../shared-ui/src/index.js';
 
-export function optionCard({ value, label, description = '', icon = '', badge = '' }, selected, path, extraClass = '') {
+export function optionCard({ value, label, description = '', icon = '', badge = '', disabled = false, disabledReason = '' }, selected, path, extraClass = '') {
   return `
-    <button class="option-card ${selected ? 'is-selected' : ''} ${extraClass}" type="button" data-option-path="${path}" data-option-value="${value}" aria-pressed="${selected}">
+    <button class="option-card ${selected ? 'is-selected' : ''} ${disabled ? 'is-disabled' : ''} ${extraClass}" type="button" data-option-path="${path}" data-option-value="${value}" aria-pressed="${selected}" ${disabled ? `disabled aria-disabled="true"${disabledReason ? ` title="${escapeHtml(disabledReason)}"` : ''}` : ''}>
       ${icon ? `<span class="option-card__icon"><img src="${icon}" alt="" /></span>` : ''}
       <span class="option-card__copy">
         <strong>${escapeHtml(label)}</strong>

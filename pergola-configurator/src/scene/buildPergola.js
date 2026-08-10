@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { fitAssetToBox } from './AssetLibrary.js';
 import {
+  getPoleGrid,
+  getSideSegmentConfig,
   poleFaceIsAvailable,
   poleIsAvailable,
-  resolvePoleMountFace,
-  resolveSpeakerFace,
+  segmentIsAvailable,
 } from '../state.js';
 
 const METERS_PER_MM = 0.001;
@@ -133,39 +134,21 @@ function addDrainage(group, state, width, depth, height) {
   }
 }
 
-function sideTransform(side, width, depth, height) {
+function segmentTransform(state, segment, width, depth, height, postSize) {
+  const coordinates = poleCoordinates(state, width, depth, postSize);
+  const first = coordinates[segment.a];
+  const second = coordinates[segment.b];
+  if (!first || !second) return null;
+
   const top = height - 0.24;
   const bottom = 0.12;
   const usableHeight = top - bottom;
-
-  if (side === 'front') {
-    return {
-      span: width - 0.26,
-      position: new THREE.Vector3(0, bottom + usableHeight / 2, depth / 2 - 0.075),
-      rotationY: 0,
-      usableHeight,
-    };
-  }
-  if (side === 'back') {
-    return {
-      span: width - 0.26,
-      position: new THREE.Vector3(0, bottom + usableHeight / 2, -depth / 2 + 0.075),
-      rotationY: Math.PI,
-      usableHeight,
-    };
-  }
-  if (side === 'left') {
-    return {
-      span: depth - 0.26,
-      position: new THREE.Vector3(-width / 2 + 0.075, bottom + usableHeight / 2, 0),
-      rotationY: Math.PI / 2,
-      usableHeight,
-    };
-  }
+  const midpoint = first.clone().add(second).multiplyScalar(0.5);
+  const distance = first.distanceTo(second);
   return {
-    span: depth - 0.26,
-    position: new THREE.Vector3(width / 2 - 0.075, bottom + usableHeight / 2, 0),
-    rotationY: -Math.PI / 2,
+    span: Math.max(0.18, distance - postSize - 0.04),
+    position: new THREE.Vector3(midpoint.x, bottom + usableHeight / 2, midpoint.z),
+    rotationY: segment.axis === 'horizontal' ? 0 : Math.PI / 2,
     usableHeight,
   };
 }
@@ -271,12 +254,14 @@ function addGlass(container, transform, frameMaterial) {
   container.add(bottomRail);
 }
 
-function addSideClosings(group, state, width, depth, height, frameMaterial, assets) {
-  Object.entries(state.sides).forEach(([side, config]) => {
-    if (!config || config.type === 'none') return;
-    if (state.installation === 'wall-mounted' && side === state.mountedSide) return;
+function addSideClosings(group, state, width, depth, height, postSize, frameMaterial, assets) {
+  const grid = getPoleGrid(state);
+  grid.segments.forEach((segment) => {
+    const config = getSideSegmentConfig(state, segment.id);
+    if (!config || config.type === 'none' || !segmentIsAvailable(state, segment.id)) return;
 
-    const transform = sideTransform(side, width, depth, height);
+    const transform = segmentTransform(state, segment, width, depth, height, postSize);
+    if (!transform) return;
     const container = new THREE.Group();
     container.position.copy(transform.position);
     container.rotation.y = transform.rotationY;
@@ -565,15 +550,19 @@ function addSensors(group, sensors, width, depth, height, assets) {
 }
 
 
-function poleCoordinates(width, depth, postSize) {
-  const x = width / 2 - postSize / 2;
-  const z = depth / 2 - postSize / 2;
-  return {
-    frontLeft: new THREE.Vector3(-x, 0, z),
-    frontRight: new THREE.Vector3(x, 0, z),
-    backLeft: new THREE.Vector3(-x, 0, -z),
-    backRight: new THREE.Vector3(x, 0, -z),
-  };
+function poleCoordinates(state, width, depth, postSize) {
+  const grid = getPoleGrid(state);
+  const xLeft = -width / 2 + postSize / 2;
+  const xRight = width / 2 - postSize / 2;
+  const zFront = depth / 2 - postSize / 2;
+  const zBack = -depth / 2 + postSize / 2;
+  const coordinates = {};
+  grid.poles.forEach((pole) => {
+    const x = THREE.MathUtils.lerp(xLeft, xRight, pole.xRatio);
+    const z = THREE.MathUtils.lerp(zFront, zBack, pole.zRatio);
+    coordinates[pole.id] = new THREE.Vector3(x, 0, z);
+  });
+  return coordinates;
 }
 
 function faceVector(face) {
@@ -601,28 +590,15 @@ function placeOnPole(model, base, face, height, postSize, depthOffset = 0.018) {
   model.rotation.y = faceRotation(face);
 }
 
-function addSpeakers(group, state, width, depth, height, postSize, assets) {
-  const coordinates = poleCoordinates(width, depth, postSize);
-  Object.entries(state.accessories.speakers).forEach(([pole, selected]) => {
-    if (!selected || !poleIsAvailable(state, pole)) return;
-    const face = resolveSpeakerFace(state, pole);
-    if (!face) return;
-    const model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
-    if (!model) return;
-
-    model.traverse((child) => {
-      if (!child.isMesh) return;
-      child.material = material(/grille|driver/i.test(child.name) ? '#3b454a' : '#171d20', {
-        roughness: 0.44,
-        metalness: 0.45,
-      });
+function styleSpeakerModel(model) {
+  model.traverse((child) => {
+    if (!child.isMesh) return;
+    child.material = material(/grille|driver/i.test(child.name) ? '#3b454a' : '#171d20', {
+      roughness: 0.44,
+      metalness: 0.45,
     });
-
-    placeOnPole(model, coordinates[pole], face, height * 0.78, postSize, 0.045);
-    group.add(model);
   });
 }
-
 
 
 function buildOutletModel(type) {
@@ -675,21 +651,6 @@ function buildOutletModel(type) {
   return outlet;
 }
 
-function addOutlets(group, state, width, depth, height, postSize, assets) {
-  const coordinates = poleCoordinates(width, depth, postSize);
-
-  Object.entries(state.accessories.outlets).forEach(([pole, faces]) => {
-    if (!poleIsAvailable(state, pole)) return;
-    Object.entries(faces).forEach(([face, mount]) => {
-      if (mount === null || !poleFaceIsAvailable(state, pole, face)) return;
-      const model = buildOutletModel(mount.type === 'us' ? 'us' : 'eu');
-      placeOnPole(model, coordinates[pole], face, height * (Number(mount.height) / 100), postSize, 0.006);
-      group.add(model);
-    });
-  });
-}
-
-
 function styleAutomationAsset(model) {
   model.traverse((child) => {
     if (!child.isMesh) return;
@@ -700,35 +661,49 @@ function styleAutomationAsset(model) {
   });
 }
 
-function addAutomation(group, state, width, depth, height, postSize, assets) {
-  const coordinates = poleCoordinates(width, depth, postSize);
-  if (state.automation === 'manual') {
-    const { pole, height: percent } = state.automationSettings.manual;
-    const face = resolvePoleMountFace(state, 'manual', pole, percent);
-    if (!face || !coordinates[pole]) return;
-    const crank = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
-    if (!crank) return;
-    styleAutomationAsset(crank);
-    placeOnPole(crank, coordinates[pole], face, height * (Number(percent) / 100), postSize, 0.07);
-    group.add(crank);
-    return;
-  }
-
+function addMotorizedAutomation(group, state, width, depth, height) {
+  if (state.automation === 'manual') return;
   const motorMaterial = material('#111719', { roughness: 0.35, metalness: 0.75 });
   const motor = box(0.34, 0.13, 0.13, motorMaterial);
   motor.position.set(width / 2 - 0.32, height - 0.11, -depth / 2 + 0.13);
   group.add(motor);
+}
 
-  if (state.automation !== 'wall-switch') return;
-  Object.entries(state.automationSettings.wallSwitches).forEach(([pole, percent]) => {
-    if (percent === null || !coordinates[pole]) return;
-    const face = resolvePoleMountFace(state, 'switch', pole, percent);
-    if (!face) return;
-    const switchModel = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
-    if (!switchModel) return;
-    styleAutomationAsset(switchModel);
-    placeOnPole(switchModel, coordinates[pole], face, height * (Number(percent) / 100), postSize, 0.025);
-    group.add(switchModel);
+function addPoleMounts(group, state, width, depth, height, postSize, assets) {
+  const coordinates = poleCoordinates(state, width, depth, postSize);
+
+  Object.entries(state.poleMounts ?? {}).forEach(([pole, faces]) => {
+    if (!poleIsAvailable(state, pole) || !coordinates[pole]) return;
+    Object.entries(faces ?? {}).forEach(([face, mounts]) => {
+      if (!poleFaceIsAvailable(state, pole, face)) return;
+      Object.values(mounts ?? {}).forEach((mount) => {
+        if (!mount) return;
+        const mountHeight = height * (Number(mount.height) / 100);
+        let model = null;
+        let depthOffset = 0.02;
+
+        if (mount.type === 'speaker') {
+          model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
+          if (model) styleSpeakerModel(model);
+          depthOffset = 0.045;
+        } else if (mount.type === 'outlet') {
+          model = buildOutletModel(mount.outletType === 'us' ? 'us' : 'eu');
+          depthOffset = 0.006;
+        } else if (mount.type === 'hand-crank') {
+          model = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
+          if (model) styleAutomationAsset(model);
+          depthOffset = 0.07;
+        } else if (mount.type === 'switch') {
+          model = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
+          if (model) styleAutomationAsset(model);
+          depthOffset = 0.025;
+        }
+
+        if (!model) return;
+        placeOnPole(model, coordinates[pole], face, mountHeight, postSize, depthOffset);
+        group.add(model);
+      });
+    });
   });
 }
 
@@ -754,30 +729,29 @@ export function buildPergola(state, assets = null) {
     metalness: 0.72,
   });
 
-  const coordinates = poleCoordinates(width, depth, postSize);
+  const grid = getPoleGrid(state);
+  const coordinates = poleCoordinates(state, width, depth, postSize);
   Object.entries(coordinates).forEach(([key, position]) => {
     if (!poleIsAvailable(state, key)) return;
     addPost(group, position.x, position.z, height, postSize, frameMaterial, isPremium);
   });
 
   const beamY = height - beamHeight / 2;
-  addBeam(group, new THREE.Vector3(0, beamY, depth / 2 - beamDepth / 2), new THREE.Vector3(width, beamHeight, beamDepth), frameMaterial, isPremium);
-  addBeam(group, new THREE.Vector3(0, beamY, -depth / 2 + beamDepth / 2), new THREE.Vector3(width, beamHeight, beamDepth), frameMaterial, isPremium);
-  addBeam(group, new THREE.Vector3(width / 2 - beamDepth / 2, beamY, 0), new THREE.Vector3(beamDepth, beamHeight, depth), frameMaterial, isPremium);
-  addBeam(group, new THREE.Vector3(-width / 2 + beamDepth / 2, beamY, 0), new THREE.Vector3(beamDepth, beamHeight, depth), frameMaterial, isPremium);
-
-  if (state.model !== 'lite' && Math.max(width, depth) > 5.5) {
-    const centerBeam = state.roof.orientation === 'width'
-      ? box(beamDepth, beamHeight * 0.72, depth - beamDepth * 2, frameMaterial)
-      : box(width - beamDepth * 2, beamHeight * 0.72, beamDepth, frameMaterial);
-    centerBeam.position.set(0, height - beamHeight * 0.56, 0);
-    group.add(centerBeam);
+  for (let row = 0; row < grid.rows; row += 1) {
+    const rowPole = grid.poles.find((item) => item.row === row && item.column === 0);
+    const z = coordinates[rowPole?.id]?.z ?? 0;
+    addBeam(group, new THREE.Vector3(0, beamY, z), new THREE.Vector3(width, beamHeight, beamDepth), frameMaterial, isPremium);
+  }
+  for (let column = 0; column < grid.columns; column += 1) {
+    const columnPole = grid.poles.find((item) => item.row === 0 && item.column === column);
+    const x = coordinates[columnPole?.id]?.x ?? 0;
+    addBeam(group, new THREE.Vector3(x, beamY, 0), new THREE.Vector3(beamDepth, beamHeight, depth), frameMaterial, isPremium);
   }
 
   addLouvers(group, state, width, depth, height - beamHeight - 0.015, louverMaterial);
   addDrainage(group, state, width, depth, height);
-  addSideClosings(group, state, width, depth, height, frameMaterial, assets);
-  addAutomation(group, state, width, depth, height, postSize, assets);
+  addSideClosings(group, state, width, depth, height, postSize, frameMaterial, assets);
+  addMotorizedAutomation(group, state, width, depth, height);
 
   const isNight = Boolean(state.environment?.night);
   if (state.accessories.perimeterLed.enabled) {
@@ -795,8 +769,7 @@ export function buildPergola(state, assets = null) {
     assets,
   );
   addSensors(group, state.accessories.sensors, width, depth, height, assets);
-  addSpeakers(group, state, width, depth, height, postSize, assets);
-  addOutlets(group, state, width, depth, height, postSize, assets);
+  addPoleMounts(group, state, width, depth, height, postSize, assets);
 
   group.userData.dimensions = { width, depth, height };
   group.userData.postSize = postSize;
