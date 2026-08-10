@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=4';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=5';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
 
 const history = new SharedUndoManager({

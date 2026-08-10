@@ -29,9 +29,14 @@ export function buildBom(state, build) {
   );
 
   if (state.slab) lines.push({ name: 'Concrete floor slab', unit: 'm²', quantity: metrics.footprint.toFixed(1), notes: 'Model footprint' });
-  if (state.rollerDoor) lines.push({ name: 'Roller shutter door', unit: 'pcs', quantity: 1, notes: `${state.rollerDoorWidth.toFixed(2)} × ${state.rollerDoorHeight.toFixed(2)} m` });
-  if (state.personnelDoor) lines.push({ name: 'Personnel door', unit: 'pcs', quantity: 1, notes: '1.00 × 2.10 m' });
+  if (state.rollerDoor) lines.push({ name: 'Roller shutter door assembly', unit: 'pcs', quantity: 1, notes: `${state.rollerDoorWidth.toFixed(2)} × ${state.rollerDoorHeight.toFixed(2)} m` });
+  if (state.personnelDoor) lines.push({ name: 'Personnel door assembly', unit: 'pcs', quantity: 1, notes: '1.00 × 2.10 m' });
   if (state.windows) lines.push({ name: 'Side windows', unit: 'pcs', quantity: 4, notes: 'Two per long wall' });
+  if (state.roofSkylights) lines.push({ name: 'Roof skylight modules', unit: 'pcs', quantity: metrics.skylightCount, notes: 'Translucent roof daylight modules' });
+  if (state.gutters) lines.push({ name: 'Eave gutters', unit: 'm', quantity: (state.length * 2).toFixed(1), notes: 'Both eaves' }, { name: 'Downpipes', unit: 'pcs', quantity: 4, notes: 'Corner rainwater downpipes' });
+  if (state.highBayLighting) lines.push({ name: 'High-bay LED luminaires', unit: 'pcs', quantity: metrics.highBayFixtureCount, notes: 'Suspended internal fixtures' });
+  if (state.fireSprinklers) lines.push({ name: 'Sprinkler heads', unit: 'pcs', quantity: metrics.sprinklerHeadCount, notes: 'Indicative ceiling grid' }, { name: 'Sprinkler main / branch pipework', unit: 'm', quantity: (state.length * 2 + state.width * Math.max(2, Math.ceil(state.length / 6))).toFixed(1), notes: 'Visualized internal pipe network' });
+  if (state.climateSystem !== 'none') lines.push({ name: state.climateSystem === 'frozen' || state.climateSystem === 'chilled' ? 'Refrigeration condensing units' : 'HVAC condenser units', unit: 'pcs', quantity: metrics.refrigerationUnitCount || Math.max(1, Math.ceil(metrics.footprint / 280)), notes: state.climateSystem });
 
   return lines;
 }

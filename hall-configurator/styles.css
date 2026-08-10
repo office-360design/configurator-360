@@ -244,3 +244,59 @@ body.shared-ui-dark-mode .secondary-action { color: #dfeaf1; background: #223149
 @media (max-width: 620px) {
   .assumption-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
+
+/* v5 accordion settings layout — mirrors the compact pergola settings pattern. */
+.accordion-section { border-bottom: 1px solid #e8edef; background: transparent; }
+.accordion-toggle {
+  width: 100%; min-height: 60px; padding: 0 26px; display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  border: 0; color: var(--hall-ink); background: transparent; text-align: left; font-size: 16px; font-weight: 850;
+}
+.accordion-toggle:hover { background: #f7fafb; }
+.accordion-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .18s ease; }
+.accordion-section.is-open .accordion-toggle { color: #0b5f91; background: #eef8fd; }
+.accordion-section.is-open .accordion-toggle svg { transform: rotate(180deg); }
+.accordion-panel { padding: 4px 26px 25px; }
+.accordion-panel[hidden] { display: none !important; }
+.top-label { margin-top: 16px; }
+.service-note { margin-top: 13px; padding: 12px 13px; border: 1px solid #d7e6ee; border-radius: 10px; color: #5f7480; background: #f4f9fc; font-size: 10px; line-height: 1.5; }
+
+.summary-section { padding-bottom: 16px; }
+.summary-total-card { display: grid; gap: 4px; padding: 16px; border: 1px solid #b8dced; border-radius: 14px; background: linear-gradient(145deg,#edf8fd,#f8fcfe); }
+.summary-total-card span { color: #526a78; font-size: 11px; font-weight: 750; }
+.summary-total-card strong { color: #086fa9; font-size: 29px; letter-spacing: -.035em; }
+.summary-total-card small { color: #788b95; font-size: 9px; line-height: 1.45; }
+.summary-price-breakdown, .summary-bom-list { display: grid; gap: 0; margin-top: 13px; border: 1px solid #e0e7ea; border-radius: 11px; overflow: hidden; }
+.summary-price-breakdown > div, .summary-bom-list > div { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 9px 10px; border-bottom: 1px solid #edf0f2; background: #fff; font-size: 10px; }
+.summary-price-breakdown > div:last-child, .summary-bom-list > div:last-child { border-bottom: 0; }
+.summary-price-breakdown span, .summary-bom-list span { color: #637680; }
+.summary-price-breakdown strong, .summary-bom-list strong { color: #263b47; text-align: right; }
+.summary-metrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-top: 13px; }
+.summary-metrics > div { display: grid; gap: 3px; padding: 10px; border: 1px solid #e0e7ea; border-radius: 10px; background: #fafcfc; }
+.summary-metrics span { color: #72848e; font-size: 9px; text-transform: capitalize; }
+.summary-metrics strong { color: #213642; font-size: 11px; text-transform: capitalize; }
+.summary-bom-preview { margin-top: 18px; }
+.summary-subheading { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #263b47; font-size: 12px; }
+.summary-subheading span { color: #087bb9; font-size: 10px; font-weight: 850; }
+.summary-bom-more { color: #73858f !important; font-size: 9px !important; font-weight: 700; }
+.summary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.summary-actions button { width: 100%; }
+
+/* Hide the old step-specific decorations even if a cached shared stylesheet still defines them. */
+.section-number { display: none !important; }
+.panel-section .section-heading .eyebrow { display: none !important; }
+
+body.shared-ui-dark-mode .accordion-section { border-color: #293a50; }
+body.shared-ui-dark-mode .accordion-toggle { color: #eef5f8; }
+body.shared-ui-dark-mode .accordion-toggle:hover { background: #1c2a3e; }
+body.shared-ui-dark-mode .accordion-section.is-open .accordion-toggle { color: #89d1ff; background: #20354a; }
+body.shared-ui-dark-mode .service-note { color: #b6c7d2; background: #1d3247; border-color: #36526a; }
+body.shared-ui-dark-mode .summary-total-card { background: linear-gradient(145deg,#1b3349,#1c2d42); border-color: #365b75; }
+body.shared-ui-dark-mode .summary-total-card span, body.shared-ui-dark-mode .summary-total-card small { color: #b0c0cb; }
+body.shared-ui-dark-mode .summary-total-card strong { color: #79ccff; }
+body.shared-ui-dark-mode .summary-price-breakdown, body.shared-ui-dark-mode .summary-bom-list { border-color: #34455c; }
+body.shared-ui-dark-mode .summary-price-breakdown > div, body.shared-ui-dark-mode .summary-bom-list > div { background: #1d2b41; border-color: #2c3c51; }
+body.shared-ui-dark-mode .summary-price-breakdown span, body.shared-ui-dark-mode .summary-bom-list span { color: #aec0cc; }
+body.shared-ui-dark-mode .summary-price-breakdown strong, body.shared-ui-dark-mode .summary-bom-list strong { color: #edf4f7; }
+body.shared-ui-dark-mode .summary-metrics > div { background: #1d2b41; border-color: #34455c; }
+body.shared-ui-dark-mode .summary-metrics span { color: #aebdca; }
+body.shared-ui-dark-mode .summary-metrics strong, body.shared-ui-dark-mode .summary-subheading { color: #edf4f7; }
