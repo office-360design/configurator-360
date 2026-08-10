@@ -6,6 +6,46 @@ import {
 export const DEFAULT_WINDOW_LAYOUT_ID = 'single';
 export const DEFAULT_DIVIDER_PROFILE_ID = '575800';
 
+function createRepeatedFixedLayout({ id, label, orientation, cellCount }) {
+    const normalizedCount = Math.max(2, Math.floor(Number(cellCount) || 2));
+    const cells = Object.freeze(Array.from({ length: normalizedCount }, () => 'fixed-glazing'));
+    return Object.freeze({
+        id,
+        label,
+        dividerOrientation: orientation,
+        leftCell: 'fixed-glazing',
+        rightCell: 'fixed-glazing',
+        cells,
+    });
+}
+
+const REPEATED_FIXED_LAYOUTS = Object.freeze([
+    createRepeatedFixedLayout({
+        id: 'vertical-fixed-fixed',
+        label: 'Vertical mullion — fixed / fixed',
+        orientation: 'vertical',
+        cellCount: 2,
+    }),
+    createRepeatedFixedLayout({
+        id: 'vertical-fixed-fixed-fixed',
+        label: 'Three fixed columns',
+        orientation: 'vertical',
+        cellCount: 3,
+    }),
+    createRepeatedFixedLayout({
+        id: 'horizontal-fixed-fixed',
+        label: 'Horizontal transom — fixed / fixed',
+        orientation: 'horizontal',
+        cellCount: 2,
+    }),
+    createRepeatedFixedLayout({
+        id: 'horizontal-fixed-fixed-fixed',
+        label: 'Three fixed rows',
+        orientation: 'horizontal',
+        cellCount: 3,
+    }),
+]);
+
 export const WINDOW_LAYOUTS = Object.freeze({
     single: Object.freeze({
         id: 'single',
@@ -21,28 +61,36 @@ export const WINDOW_LAYOUTS = Object.freeze({
         leftCell: 'fixed-glazing',
         rightCell: 'opening-sash',
     }),
-    'vertical-fixed-fixed': Object.freeze({
-        id: 'vertical-fixed-fixed',
-        label: 'Vertical mullion — fixed / fixed',
-        dividerOrientation: 'vertical',
-        leftCell: 'fixed-glazing',
-        rightCell: 'fixed-glazing',
-        cells: Object.freeze(['fixed-glazing', 'fixed-glazing']),
-    }),
-    'vertical-fixed-fixed-fixed': Object.freeze({
-        id: 'vertical-fixed-fixed-fixed',
-        label: 'Three fixed columns',
-        dividerOrientation: 'vertical',
-        leftCell: 'fixed-glazing',
-        rightCell: 'fixed-glazing',
-        cells: Object.freeze(['fixed-glazing', 'fixed-glazing', 'fixed-glazing']),
-    }),
+    ...Object.fromEntries(
+        REPEATED_FIXED_LAYOUTS
+            .filter(layout => layout.dividerOrientation === 'vertical')
+            .map(layout => [layout.id, layout])
+    ),
     'vertical-sash-sash': Object.freeze({
         id: 'vertical-sash-sash',
         label: 'Vertical mullion — sash / sash',
         dividerOrientation: 'vertical',
         leftCell: 'opening-sash',
         rightCell: 'opening-sash',
+    }),
+    'top-fixed-bottom-sash-sash': Object.freeze({
+        id: 'top-fixed-bottom-sash-sash',
+        label: 'Top fixed — two sashes below',
+        layoutKind: 't-grid',
+        dividerOrientation: 'grid',
+        // The layout topology is a grid, but the primary CAD connection that
+        // composes the top fixed light is the horizontal transom. Keep that
+        // connection orientation explicit so transform composition does not
+        // fall back to vertical/top follower assumptions.
+        primaryDividerOrientation: 'horizontal',
+        leftCell: 'fixed-glazing',
+        rightCell: 'opening-sash',
+        cells: Object.freeze([
+            'fixed-glazing',
+            'opening-sash',
+            'opening-sash',
+        ]),
+        topRowFraction: 0.30,
     }),
     'horizontal-divider': Object.freeze({
         id: 'horizontal-divider',
@@ -51,14 +99,11 @@ export const WINDOW_LAYOUTS = Object.freeze({
         leftCell: 'fixed-glazing',
         rightCell: 'opening-sash',
     }),
-    'horizontal-fixed-fixed-fixed': Object.freeze({
-        id: 'horizontal-fixed-fixed-fixed',
-        label: 'Three fixed rows',
-        dividerOrientation: 'horizontal',
-        leftCell: 'fixed-glazing',
-        rightCell: 'fixed-glazing',
-        cells: Object.freeze(['fixed-glazing', 'fixed-glazing', 'fixed-glazing']),
-    }),
+    ...Object.fromEntries(
+        REPEATED_FIXED_LAYOUTS
+            .filter(layout => layout.dividerOrientation === 'horizontal')
+            .map(layout => [layout.id, layout])
+    ),
 });
 
 function firstDefined(...values) {
@@ -163,6 +208,10 @@ export function createWindowLayoutController({
             windowLayout: layoutId,
             dividerProfileId,
             dividerOrientation: layout.dividerOrientation,
+            primaryDividerOrientation:
+                layout.primaryDividerOrientation || layout.dividerOrientation || null,
+            layoutKind: layout.layoutKind || 'linear',
+            topRowFraction: Number(layout.topRowFraction) || null,
             leftCell: layout.leftCell,
             rightCell: layout.rightCell,
             cells,

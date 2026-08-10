@@ -1,10 +1,13 @@
 import {
     getDividerArrowAlongCoordinate,
     getDividerCrossSectionMetrics,
+    getDividerSegmentAlongCoordinate,
     getFixedGlassPanePlacement,
+    getHorizontalConnectionFaceDirection,
     getFrameDividerSocketInset,
     getFrameSidePlacements,
     getLinearDividerLayout,
+    getTopFixedBottomSashSashLayout,
 } from '../../src/client/js/window-layout-geometry.js';
 
 const errors = [];
@@ -210,6 +213,50 @@ assert(
     'Two horizontal transoms must split a side frame into three pieces with two-ended sockets on the middle piece.'
 );
 
+const tLayout = getTopFixedBottomSashSashLayout({
+    width: 1.2,
+    height: 1.5,
+    topRowFraction: 0.30,
+    horizontalFixedBoundary: -0.0369,
+    horizontalSashBoundary: 0.0596,
+    verticalLeftSashBoundary: -0.052,
+    verticalRightSashBoundary: 0.052,
+});
+assert(
+    Math.abs(tLayout.transomCenterY - 0.30) < 1e-12,
+    'The T layout transom must keep the reference image proportion with a 30% top light.'
+);
+assert(
+    tLayout.fixedCells.length === 1
+        && tLayout.openingCells.length === 2
+        && tLayout.fixedCells[0].centerY > tLayout.transomCenterY
+        && tLayout.openingCells.every(cell => cell.centerY < tLayout.transomCenterY),
+    'The T layout must place one fixed pane above two opening sashes.'
+);
+assert(
+    tLayout.openingCells[0].handleSide === 'right'
+        && tLayout.openingCells[1].handleSide === 'left',
+    'The two lower sash handles must face the central mullion.'
+);
+assert(
+    Math.abs(tLayout.openingCells[0].width - tLayout.openingCells[1].width) < 1e-12,
+    'Symmetric sash/sash CAD seats must produce equal lower sash widths.'
+);
+assert(
+    tLayout.fixedCells[0].dividerJoinSideByBoundary.bottom === 'left',
+    'The top fixed pane must use the mixed join fixed-side CAD seat on its lower transom boundary.'
+);
+
+assert(
+    getHorizontalConnectionFaceDirection({
+        lowerCellType: 'opening-sash',
+        upperCellType: 'fixed-glazing',
+        joinLeftCell: 'fixed-glazing',
+        joinRightCell: 'opening-sash',
+    }) === 1,
+    'The T-layout transom must rotate join-left/fixed onto the upper window side.'
+);
+
 const dividerFaceSpan = 0.088;
 const frameInwardSpan = 0.075;
 const straightContactSpan = frameInwardSpan - dividerFaceSpan / 2;
@@ -326,6 +373,208 @@ assert(
 assert(
     Math.abs(quarterPoint + threeQuarterPoint) < 1e-9,
     'The two 90-degree mullion tips must remain longitudinally symmetric after topology splitting.'
+);
+
+
+const tLeftGasketInnerAtOuterFace = getDividerSegmentAlongCoordinate({
+    extrusionT: 1,
+    length: 0.6,
+    faceOffset: straightContactSpan,
+    faceSpan,
+    frameInwardSpan,
+    negativeEndMode: 'arrow',
+    positiveEndMode: 'socket',
+    socketInwardDistance: straightContactSpan,
+});
+const tLeftGasketInnerAtShoulder = getDividerSegmentAlongCoordinate({
+    extrusionT: 1,
+    length: 0.6,
+    faceOffset: frameInwardSpan,
+    faceSpan,
+    frameInwardSpan,
+    negativeEndMode: 'arrow',
+    positiveEndMode: 'socket',
+    socketInwardDistance: frameInwardSpan,
+});
+const tRightGasketInnerAtShoulder = getDividerSegmentAlongCoordinate({
+    extrusionT: 0,
+    length: 0.6,
+    faceOffset: frameInwardSpan,
+    faceSpan,
+    frameInwardSpan,
+    negativeEndMode: 'socket',
+    positiveEndMode: 'arrow',
+    socketInwardDistance: frameInwardSpan,
+});
+assert(
+    Math.abs(tLeftGasketInnerAtOuterFace - 0.3) < 1e-9,
+    'The T-layout sash-side horizontal gasket socket must stay on the centre split plane before the vertical-mullion V begins.'
+);
+assert(
+    Math.abs(tLeftGasketInnerAtShoulder - (0.3 - faceSpan / 2)) < 1e-9
+        && Math.abs(tRightGasketInnerAtShoulder - (-0.3 + faceSpan / 2)) < 1e-9,
+    'The two horizontal gasket halves must open symmetrically at 45 degrees around the vertical mullion, matching the accepted top-frame socket shape.'
+);
+
+// The structural T joint uses the mullion/transom profile on both axes. The
+// two transom halves therefore keep touching over the upper half of their face
+// and open into a 90-degree socket over the lower half. The vertical mullion
+// extends to the transom's top-face datum so its arrow end fills that socket.
+const tStructuralJointSpan = faceSpan;
+const tStructuralHalfFace = tStructuralJointSpan / 2;
+
+// A divider-mounted component must inherit the structural transom's exact
+// socket plane rather than being shortened by its own independent centre trim.
+// With the same host joint parameters, a component vertex at any face offset
+// lands on the same 45-degree line as the structural profile at that offset.
+const tMountedComponentFaceOffset = tStructuralHalfFace * 0.8;
+const tMountedComponentLeftInner = getDividerSegmentAlongCoordinate({
+    extrusionT: 1,
+    length: 0.6,
+    faceOffset: tMountedComponentFaceOffset,
+    faceSpan,
+    frameInwardSpan,
+    positiveFrameInwardSpan: tStructuralJointSpan,
+    negativeEndMode: 'arrow',
+    positiveEndMode: 'socket',
+    socketInwardDistance: tMountedComponentFaceOffset + tStructuralHalfFace,
+});
+const tMountedComponentRightInner = getDividerSegmentAlongCoordinate({
+    extrusionT: 0,
+    length: 0.6,
+    faceOffset: tMountedComponentFaceOffset,
+    faceSpan,
+    frameInwardSpan,
+    negativeFrameInwardSpan: tStructuralJointSpan,
+    negativeEndMode: 'socket',
+    positiveEndMode: 'arrow',
+    socketInwardDistance: tMountedComponentFaceOffset + tStructuralHalfFace,
+});
+assert(
+    Math.abs(tMountedComponentLeftInner - (0.3 - tMountedComponentFaceOffset)) < 1e-9
+        && Math.abs(tMountedComponentRightInner - (-0.3 + tMountedComponentFaceOffset)) < 1e-9,
+    'A T-transom-mounted gasket/component must be cut by the same 45-degree socket plane as the structural transom instead of using a separate hard-coded centre stop.'
+);
+const tStructuralLeftTop = getDividerSegmentAlongCoordinate({
+    extrusionT: 1,
+    length: 0.6,
+    faceOffset: -tStructuralHalfFace,
+    faceSpan,
+    frameInwardSpan,
+    positiveFrameInwardSpan: tStructuralJointSpan,
+    negativeEndMode: 'arrow',
+    positiveEndMode: 'socket',
+    socketInwardDistance: 0,
+});
+const tStructuralLeftApex = getDividerSegmentAlongCoordinate({
+    extrusionT: 1,
+    length: 0.6,
+    faceOffset: 0,
+    faceSpan,
+    frameInwardSpan,
+    positiveFrameInwardSpan: tStructuralJointSpan,
+    negativeEndMode: 'arrow',
+    positiveEndMode: 'socket',
+    socketInwardDistance: tStructuralHalfFace,
+});
+const tStructuralLeftLowerShoulder = getDividerSegmentAlongCoordinate({
+    extrusionT: 1,
+    length: 0.6,
+    faceOffset: tStructuralHalfFace,
+    faceSpan,
+    frameInwardSpan,
+    positiveFrameInwardSpan: tStructuralJointSpan,
+    negativeEndMode: 'arrow',
+    positiveEndMode: 'socket',
+    socketInwardDistance: tStructuralJointSpan,
+});
+const tStructuralRightLowerShoulder = getDividerSegmentAlongCoordinate({
+    extrusionT: 0,
+    length: 0.6,
+    faceOffset: tStructuralHalfFace,
+    faceSpan,
+    frameInwardSpan,
+    negativeFrameInwardSpan: tStructuralJointSpan,
+    negativeEndMode: 'socket',
+    positiveEndMode: 'arrow',
+    socketInwardDistance: tStructuralJointSpan,
+});
+assert(
+    Math.abs(tStructuralLeftTop - 0.3) < 1e-9
+        && Math.abs(tStructuralLeftApex - 0.3) < 1e-9,
+    'The two structural transom halves must remain joined on the top side down to the V apex.'
+);
+assert(
+    Math.abs(tStructuralLeftLowerShoulder - (0.3 - tStructuralHalfFace)) < 1e-9
+        && Math.abs(tStructuralRightLowerShoulder - (-0.3 + tStructuralHalfFace)) < 1e-9,
+    'The structural transom inner ends must open symmetrically into a 90-degree V socket below the centre contact point.'
+);
+
+const tStructuralVerticalLength = 1.0;
+const tStructuralVerticalTip = getDividerSegmentAlongCoordinate({
+    extrusionT: 1,
+    length: tStructuralVerticalLength,
+    faceOffset: 0,
+    faceSpan,
+    frameInwardSpan,
+    positiveFrameInwardSpan: tStructuralJointSpan,
+});
+const tStructuralVerticalShoulder = getDividerSegmentAlongCoordinate({
+    extrusionT: 1,
+    length: tStructuralVerticalLength,
+    faceOffset: tStructuralHalfFace,
+    faceSpan,
+    frameInwardSpan,
+    positiveFrameInwardSpan: tStructuralJointSpan,
+});
+const tStructuralNominalTopY = tLayout.transomCenterY + tStructuralHalfFace;
+const tStructuralVerticalCenterY = tStructuralNominalTopY - tStructuralVerticalLength / 2;
+assert(
+    Math.abs(tStructuralVerticalCenterY + tStructuralVerticalTip - tLayout.transomCenterY) < 1e-9,
+    'The lower vertical mullion V tip must land on the T transom centre plane.'
+);
+assert(
+    Math.abs(
+        tStructuralVerticalCenterY
+        + tStructuralVerticalShoulder
+        - (tLayout.transomCenterY - tStructuralHalfFace)
+    ) < 1e-9,
+    'The lower vertical mullion V shoulders must land on the lower face of the split T transom.'
+);
+
+// A gasket mounted on the lower vertical mullion must inherit that same
+// structural span and the same positive-end V cut. Its top is therefore
+// determined by its CAD face offset on the shared 45-degree plane, rather than
+// by a separate shorter gasket extrusion.
+const tVerticalMountedGasketFaceOffset = tStructuralHalfFace * 0.8;
+const tVerticalMountedGasketTop = getDividerSegmentAlongCoordinate({
+    extrusionT: 1,
+    length: tStructuralVerticalLength,
+    faceOffset: tVerticalMountedGasketFaceOffset,
+    faceSpan,
+    frameInwardSpan,
+    positiveFrameInwardSpan: tStructuralJointSpan,
+});
+assert(
+    Math.abs(
+        tStructuralVerticalCenterY
+        + tVerticalMountedGasketTop
+        - (tLayout.transomCenterY - tVerticalMountedGasketFaceOffset)
+    ) < 1e-9,
+    'A T-layout vertical-mullion gasket must use the structural mullion span/cut so it reaches the transom V joint instead of ending short below it.'
+);
+
+const tStructuralBottomTip = getDividerSegmentAlongCoordinate({
+    extrusionT: 0,
+    length: tStructuralVerticalLength,
+    faceOffset: 0,
+    faceSpan,
+    frameInwardSpan,
+    positiveFrameInwardSpan: tStructuralJointSpan,
+});
+assert(
+    Math.abs(tStructuralBottomTip - (-tStructuralVerticalLength / 2 + straightContactSpan)) < 1e-9,
+    'Giving the T mullion a transom-specific top span must not change its accepted bottom-frame V joint.'
 );
 
 if (errors.length) {

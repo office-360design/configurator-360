@@ -136,6 +136,31 @@ export function getLinearDividerLayout({
 }
 
 
+export function getHorizontalConnectionFaceDirection({
+    lowerCellType,
+    upperCellType,
+    joinLeftCell,
+    joinRightCell,
+    fallback = 1,
+} = {}) {
+    const lower = String(lowerCellType || '');
+    const upper = String(upperCellType || '');
+    const left = String(joinLeftCell || '');
+    const right = String(joinRightCell || '');
+
+    // createDividerSegment() with faceDirection=+1 maps the accepted CAD
+    // join-left face to world +Y (top) after the verified 180-degree divider
+    // correction. faceDirection=-1 maps join-left to world -Y (bottom).
+    // Resolve that rotation from cell semantics instead of hard-coding a
+    // different sign in every horizontal layout.
+    if (lower && upper && left && right) {
+        if (lower === left && upper === right) return -1;
+        if (lower === right && upper === left) return 1;
+    }
+
+    return Number(fallback) < 0 ? -1 : 1;
+}
+
 export function getFixedGlassPanePlacement({
     width,
     height,
@@ -297,37 +322,176 @@ export function getFrameDividerSocketInset({
     return Math.min(diagonalInwardDistance, halfDividerFace);
 }
 
-export function getDividerArrowAlongCoordinate({
+export function getDividerSegmentAlongCoordinate({
     extrusionT,
     length,
     faceOffset,
     faceSpan,
     frameInwardSpan = 0,
+    negativeFrameInwardSpan = null,
+    positiveFrameInwardSpan = null,
+    negativeEndMode = 'arrow',
+    positiveEndMode = 'arrow',
+    socketInwardDistance = 0,
 }) {
     const normalizedLength = Math.max(0, finiteNumber(length));
     const normalizedFaceSpan = Math.max(0, finiteNumber(faceSpan));
     const halfFace = normalizedFaceSpan / 2;
     const normalizedFrameInwardSpan = Math.max(0, finiteNumber(frameInwardSpan));
-    const straightContactSpan = Math.max(
-        0,
-        normalizedFrameInwardSpan - halfFace
+    const normalizeEndFrameInwardSpan = value => {
+        if (value === null || value === undefined || value === '') {
+            return normalizedFrameInwardSpan;
+        }
+        const parsed = Number(value);
+        return Number.isFinite(parsed)
+            ? Math.max(0, parsed)
+            : normalizedFrameInwardSpan;
+    };
+    const negativeEndFrameInwardSpan = normalizeEndFrameInwardSpan(
+        negativeFrameInwardSpan
     );
-    const tipInset = Math.min(straightContactSpan, normalizedLength / 2);
+    const positiveEndFrameInwardSpan = normalizeEndFrameInwardSpan(
+        positiveFrameInwardSpan
+    );
     const clampedFaceOffset = Math.min(
         halfFace,
         Math.abs(finiteNumber(faceOffset))
     );
     const normalizedT = Math.min(1, Math.max(0, finiteNumber(extrusionT)));
+    const normalizedSocketInwardDistance = Math.max(
+        0,
+        finiteNumber(socketInwardDistance)
+    );
 
-    // The mullion V no longer reaches the outside face of the perimeter frame.
-    // Its apex starts after the straight left/right frame-contact region. From
-    // that apex, each V face rises at 45 degrees until the mullion shoulder at
-    // the inner edge of the frame section. The top end is the vertical mirror.
-    const lowerEnd = -normalizedLength / 2 + tipInset + clampedFaceOffset;
-    const upperEnd = normalizedLength / 2 - tipInset - clampedFaceOffset;
+    const getEndInset = (mode, endFrameInwardSpan) => {
+        if (mode === 'socket') {
+            return getFrameDividerSocketInset({
+                inwardDistance: normalizedSocketInwardDistance,
+                dividerFaceSpan: normalizedFaceSpan,
+                frameInwardSpan: endFrameInwardSpan,
+            });
+        }
+        if (mode === 'square') return 0;
+        const straightContactSpan = Math.max(
+            0,
+            endFrameInwardSpan - halfFace
+        );
+        const tipInset = Math.min(straightContactSpan, normalizedLength / 2);
+        return tipInset + clampedFaceOffset;
+    };
+
+    const lowerEnd = -normalizedLength / 2 + getEndInset(
+        negativeEndMode,
+        negativeEndFrameInwardSpan
+    );
+    const upperEnd = normalizedLength / 2 - getEndInset(
+        positiveEndMode,
+        positiveEndFrameInwardSpan
+    );
 
     // Triangle splitting can insert vertices on a side-wall edge whose source
     // extrusion coordinate lies between 0 and 1. Preserve that longitudinal
     // interpolation instead of snapping the new topology to one end.
     return lowerEnd + (upperEnd - lowerEnd) * normalizedT;
+}
+
+export function getDividerArrowAlongCoordinate(args) {
+    return getDividerSegmentAlongCoordinate({
+        ...args,
+        negativeEndMode: 'arrow',
+        positiveEndMode: 'arrow',
+    });
+}
+
+export function getTopFixedBottomSashSashLayout({
+    width,
+    height,
+    topRowFraction = 0.30,
+    horizontalFixedBoundary = -0.04,
+    horizontalSashBoundary = 0.04,
+    verticalLeftSashBoundary = -0.04,
+    verticalRightSashBoundary = 0.04,
+    minCellSpan = 0.05,
+}) {
+    const normalizedWidth = Math.max(0, finiteNumber(width));
+    const normalizedHeight = Math.max(0, finiteNumber(height));
+    const normalizedTopFraction = Math.min(
+        0.7,
+        Math.max(0.2, finiteNumber(topRowFraction, 0.30))
+    );
+    const normalizedMinCellSpan = Math.max(0.02, finiteNumber(minCellSpan, 0.05));
+    const halfWidth = normalizedWidth / 2;
+    const halfHeight = normalizedHeight / 2;
+
+    // The reference drawing has a shallow fixed light above two taller sashes.
+    // Keep the structural transom centre from that visual ratio, then let the
+    // exact CAD connection seats define where the glazing/sash rectangles stop.
+    const transomCenterY = halfHeight - normalizedHeight * normalizedTopFraction;
+
+    // The mixed join is authored left=fixed, right=sash. For this T layout that
+    // cross-section is rotated so CAD-left becomes world-top and CAD-right
+    // becomes world-bottom, therefore the join offsets change sign on world Y.
+    const fixedBottomY = transomCenterY - finiteNumber(horizontalFixedBoundary);
+    const sashTopY = transomCenterY - finiteNumber(horizontalSashBoundary);
+
+    const clampY = value => Math.min(
+        halfHeight - normalizedMinCellSpan,
+        Math.max(-halfHeight + normalizedMinCellSpan, finiteNumber(value))
+    );
+    const clampX = value => Math.min(
+        halfWidth - normalizedMinCellSpan,
+        Math.max(-halfWidth + normalizedMinCellSpan, finiteNumber(value))
+    );
+
+    const fixedBottom = clampY(fixedBottomY);
+    const lowerSashTop = clampY(sashTopY);
+    const leftSashRight = clampX(verticalLeftSashBoundary);
+    const rightSashLeft = clampX(verticalRightSashBoundary);
+
+    const topFixed = Object.freeze({
+        id: 'fixed-top',
+        cellType: 'fixed-glazing',
+        width: normalizedWidth,
+        height: Math.max(normalizedMinCellSpan, halfHeight - fixedBottom),
+        centerX: 0,
+        centerY: (fixedBottom + halfHeight) / 2,
+        fixedAccessoryWidth: normalizedWidth,
+        fixedAccessoryHeight: Math.max(normalizedMinCellSpan, halfHeight - fixedBottom),
+        fixedAccessoryCenterX: 0,
+        fixedAccessoryCenterY: (fixedBottom + halfHeight) / 2,
+        dividerJoinSideByBoundary: Object.freeze({ bottom: 'left' }),
+    });
+
+    const lowerHeight = Math.max(normalizedMinCellSpan, lowerSashTop + halfHeight);
+    const lowerCenterY = (-halfHeight + lowerSashTop) / 2;
+    const leftOpening = Object.freeze({
+        id: 'opening-left',
+        cellType: 'opening-sash',
+        width: Math.max(normalizedMinCellSpan, leftSashRight + halfWidth),
+        height: lowerHeight,
+        centerX: (-halfWidth + leftSashRight) / 2,
+        centerY: lowerCenterY,
+        joinCellSide: 'left',
+        handleSide: 'right',
+    });
+    const rightOpening = Object.freeze({
+        id: 'opening-right',
+        cellType: 'opening-sash',
+        width: Math.max(normalizedMinCellSpan, halfWidth - rightSashLeft),
+        height: lowerHeight,
+        centerX: (rightSashLeft + halfWidth) / 2,
+        centerY: lowerCenterY,
+        joinCellSide: 'right',
+        handleSide: 'left',
+    });
+
+    return Object.freeze({
+        layoutKind: 't-grid',
+        transomCenterY,
+        verticalMullionCenterX: 0,
+        lowerStructuralHeight: Math.max(0, transomCenterY + halfHeight),
+        lowerStructuralCenterY: (-halfHeight + transomCenterY) / 2,
+        fixedCells: Object.freeze([topFixed]),
+        openingCells: Object.freeze([leftOpening, rightOpening]),
+    });
 }

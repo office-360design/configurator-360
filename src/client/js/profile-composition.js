@@ -1068,8 +1068,26 @@ function createMullionMountedGasketTargets({
         dividerProfileId,
         'mullion-transom'
     );
+    const dividerProfiles = definition.profiles.filter(candidate =>
+        candidate.role === 'divider'
+        && candidate.geometrySource === 'standalone-divider-profile'
+        && candidate.cadCoordinateTransform
+    );
+    const dividerSourceBounds = unionProfileSourceBounds(dividerProfiles);
+    const joinDividerTransform = dividerOccurrence
+        ? retargetRoleReferenceTransform(dividerSourceBounds, dividerOccurrence)
+        : null;
+    const workingDividerCoordinateTransform =
+        dividerProfiles[0]?.cadCoordinateTransform || null;
     const dividerBounds = definition.metadata?.dividerSourceBounds;
-    if (!dividerOccurrence?.bbox || !dividerBounds) return new Map();
+    if (
+        !dividerOccurrence?.bbox
+        || !dividerBounds
+        || !joinDividerTransform
+        || !workingDividerCoordinateTransform
+    ) {
+        return new Map();
+    }
 
     const allOccurrences = resolveConnectionOccurrences(
         dividerConnectionTemplate,
@@ -1095,6 +1113,16 @@ function createMullionMountedGasketTargets({
         tx: 2 * dividerCenterX,
         ty: 0,
     });
+    // Direct gasket INSERTs are authored in the connection template's join
+    // coordinate system. The T layout composes its horizontal divider from the
+    // mixed fixed/sash join, while the lower vertical mullion's two rebate
+    // gaskets come from the sash/sash join. Retarget through the common
+    // standalone divider source before applying the accepted 180-degree face
+    // correction so both direct INSERTs land on the active divider faces.
+    const joinToWorkingDivider = composeCadTransforms(
+        workingDividerCoordinateTransform,
+        invertCadTransform(joinDividerTransform)
+    );
     const targets = new Map();
 
     for (const cellSide of targetSides) {
@@ -1119,11 +1147,19 @@ function createMullionMountedGasketTargets({
             accessoryOccurrence.transform,
             invertCadTransform(profile.sourceTransform)
         );
+        const rawSvgToWorkingDivider = composeCadTransforms(
+            joinToWorkingDivider,
+            rawSvgToJoin
+        );
         targets.set(cellSide, Object.freeze({
             cellSide,
             occurrence: accessoryOccurrence,
-            cadTransform: composeCadTransforms(faceCompensation, rawSvgToJoin),
-            placementMethod: 'exact-direct-join-gasket-mounted-on-mullion-with-180-face-compensation',
+            cadTransform: composeCadTransforms(
+                faceCompensation,
+                rawSvgToWorkingDivider
+            ),
+            placementMethod:
+                'exact-direct-join-gasket-retargeted-through-divider-source-with-180-face-compensation',
         }));
     }
 
@@ -2202,7 +2238,7 @@ function applyFixedGlazingConnectionPlacements({
     };
 }
 
-function applyOpeningSashDividerConnectionPlacements({
+export function applyOpeningSashDividerConnectionPlacements({
     definition,
     dividerConnectionTemplate,
 }) {
@@ -2328,7 +2364,14 @@ export function composeRegisteredProfileDefinitions({
         });
     }
 
-    const dividerOrientation = selection.dividerOrientation || null;
+    // A layout can contain more than one divider direction (for example the
+    // T layout), while this composition pass still represents one concrete CAD
+    // connection. Keep the layout topology (`grid`) separate from the physical
+    // orientation of the primary connection so horizontal bead/gasket bridges
+    // use the same transform basis as the ordinary horizontal-transom layout.
+    const dividerOrientation = selection.primaryDividerOrientation
+        || selection.dividerOrientation
+        || null;
     const dividerProfileId = selection.dividerProfileId || null;
     if (dividerOrientation && dividerProfileId) {
         const entry = getProfileCatalogEntry(dividerProfileId);

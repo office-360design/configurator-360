@@ -53,6 +53,21 @@ assert(
     'The three-row layout must expose three fixed-glazing cells.'
 );
 assert(
+    WINDOW_LAYOUTS['top-fixed-bottom-sash-sash'].layoutKind === 't-grid'
+        && WINDOW_LAYOUTS['top-fixed-bottom-sash-sash'].dividerOrientation === 'grid'
+        && WINDOW_LAYOUTS['top-fixed-bottom-sash-sash'].primaryDividerOrientation === 'horizontal'
+        && WINDOW_LAYOUTS['top-fixed-bottom-sash-sash'].cells?.join(',')
+            === 'fixed-glazing,opening-sash,opening-sash',
+    'The T layout must expose one top fixed light and two lower opening sashes.'
+);
+assert(
+    !WINDOW_LAYOUTS['vertical-fixed-4']
+        && !WINDOW_LAYOUTS['vertical-fixed-5']
+        && !WINDOW_LAYOUTS['horizontal-fixed-4']
+        && !WINDOW_LAYOUTS['horizontal-fixed-5'],
+    'No layout may expose more than three window cells.'
+);
+assert(
     getConnectionTemplateIdForLayout({
         dividerOrientation: 'vertical',
         leftCell: 'opening-sash',
@@ -75,6 +90,15 @@ assert(
         rightCell: 'fixed-glazing',
     }) === 'mullion-fixed-fixed',
     'Repeated fixed transoms must reuse the verified fixed/mullion/fixed CAD connection.'
+);
+assert(
+    getConnectionTemplateIdForLayout({
+        layoutId: 'top-fixed-bottom-sash-sash',
+        dividerOrientation: 'grid',
+        leftCell: 'fixed-glazing',
+        rightCell: 'opening-sash',
+    }) === 'mullion-fixed-sash',
+    'The T layout must use the mixed join for its horizontal fixed/transom/sash connection.'
 );
 
 const request = getWindowLayoutRequest({
@@ -126,6 +150,19 @@ assert(
         && threeColumnSnapshot.cells.every(cell => cell === 'fixed-glazing'),
     'Three fixed columns must expose three cells and two repeated mullions.'
 );
+
+await controller.setLayout('top-fixed-bottom-sash-sash', { notify: false });
+const tLayoutSnapshot = controller.getConfigurationSnapshot();
+assert(
+    tLayoutSnapshot.layoutKind === 't-grid'
+        && tLayoutSnapshot.dividerOrientation === 'grid'
+        && tLayoutSnapshot.primaryDividerOrientation === 'horizontal'
+        && tLayoutSnapshot.dividerCount === 2
+        && tLayoutSnapshot.cells.join(',') === 'fixed-glazing,opening-sash,opening-sash',
+    'The T layout snapshot must preserve one fixed top light and two lower sashes.'
+);
+
+await controller.setLayout('vertical-fixed-fixed-fixed', { notify: false });
 
 const url = new URL('https://example.test/configurator');
 controller.appendUrlParams(url);

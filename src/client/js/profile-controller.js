@@ -11,6 +11,7 @@ import {
     shouldCheckComponentProfile,
 } from './component-group-visibility.js';
 import {
+    applyOpeningSashDividerConnectionPlacements,
     composeRegisteredProfileDefinitions,
     composeSupplementalAccessoryProfiles,
     createProfileSelectionSignature,
@@ -687,6 +688,7 @@ export function createProfileController({
             }));
 
             const connectionTemplateId = getConnectionTemplateIdForLayout({
+                layoutId: normalizedSelection.layoutId || normalizedSelection.windowLayout || null,
                 dividerOrientation: normalizedSelection.dividerOrientation,
                 leftCell: normalizedSelection.leftCell || 'fixed-glazing',
                 rightCell: normalizedSelection.rightCell || 'opening-sash',
@@ -730,7 +732,7 @@ export function createProfileController({
                 ? connectionTemplate
                 : null;
 
-            const registeredDefinition = composeRegisteredProfileDefinitions({
+            let registeredDefinition = composeRegisteredProfileDefinitions({
                 selection: normalizedSelection,
                 definitionsByProfileSetId,
                 standaloneDefinitionsByProfileId,
@@ -741,6 +743,84 @@ export function createProfileController({
                 fixedGlazingDividerGasketTemplate,
                 standaloneBeadDefinition,
             });
+
+            if ((normalizedSelection.layoutId || normalizedSelection.windowLayout)
+                === 'top-fixed-bottom-sash-sash') {
+                // The T layout has two different physical connections using the
+                // same standalone mullion/transom profile: the horizontal run is
+                // fixed | transom | sash, while the lower vertical run is
+                // sash | mullion | sash. Compose the second join independently
+                // and carry only its exact boundary/gasket transforms into the
+                // primary definition. This avoids mirroring the mixed join or
+                // guessing a second 245472 placement.
+                const sashSashTemplate = await loadConnectionTemplate('mullion-sash-sash');
+                const sashSashDefinition = composeRegisteredProfileDefinitions({
+                    selection: {
+                        ...normalizedSelection,
+                        dividerOrientation: 'vertical',
+                        primaryDividerOrientation: 'vertical',
+                        leftCell: 'opening-sash',
+                        rightCell: 'opening-sash',
+                    },
+                    definitionsByProfileSetId,
+                    standaloneDefinitionsByProfileId,
+                    connectionTemplate: sashSashTemplate,
+                    placementConnectionTemplate: sashSashTemplate,
+                });
+
+                // Recalculate the sash/sash gasket INSERT transforms against the
+                // exact gasket geometry that will actually be rendered by the T
+                // layout.  Copying transforms from sashSashDefinition by legacy
+                // key is unsafe: the mixed-layout and sash/sash legacy instances
+                // can use different source INSERT transforms even when they share
+                // profile ID 245472.  A transform composed for one source instance
+                // can therefore make the other instance fly away, and a missing
+                // legacy-key match can silently drop the opposite-side gasket.
+                const tVerticalPlacementDefinition =
+                    applyOpeningSashDividerConnectionPlacements({
+                        definition: {
+                            ...registeredDefinition,
+                            metadata: {
+                                ...registeredDefinition.metadata,
+                                dividerOrientation: 'vertical',
+                            },
+                        },
+                        dividerConnectionTemplate: sashSashTemplate,
+                    });
+
+                registeredDefinition = {
+                    ...registeredDefinition,
+                    metadata: {
+                        ...registeredDefinition.metadata,
+                        tLayoutVerticalDividerConnection:
+                            sashSashDefinition.metadata?.dividerConnection || null,
+                        tLayoutVerticalOpeningConnections:
+                            tVerticalPlacementDefinition.metadata
+                                ?.dividerOpeningSashConnections
+                                || sashSashDefinition.metadata?.dividerOpeningSashConnections
+                                || null,
+                    },
+                    profiles: registeredDefinition.profiles.map((profile, index) => {
+                        const verticalProfile =
+                            tVerticalPlacementDefinition.profiles[index] || null;
+                        const verticalTransforms =
+                            verticalProfile?.mullionConnectionCadTransforms || {};
+                        if (!Object.keys(verticalTransforms).length) return profile;
+                        return {
+                            ...profile,
+                            tLayoutVerticalMullionConnectionCadTransforms:
+                                verticalTransforms,
+                            tLayoutVerticalMullionConnectionProfileId:
+                                verticalProfile.mullionConnectionProfileId || null,
+                            tLayoutVerticalMullionConnectionOccurrenceIndexes:
+                                verticalProfile.mullionConnectionOccurrenceIndexes || {},
+                            tLayoutVerticalMullionConnectionPlacementMethods:
+                                verticalProfile.mullionConnectionPlacementMethods || {},
+                        };
+                    }),
+                };
+            }
+
             const definition = composeSupplementalAccessoryProfiles({
                 definition: registeredDefinition,
                 definitionsByProfileSetId,

@@ -132,10 +132,18 @@ export function resolveConnectionDepthAxisSign(template) {
 }
 
 export function getConnectionTemplateIdForLayout({
+    layoutId = null,
     dividerOrientation,
     leftCell = 'fixed-glazing',
     rightCell = 'opening-sash',
 } = {}) {
+    if (layoutId === 'top-fixed-bottom-sash-sash') {
+        // The T layout uses this connection for the horizontal transom:
+        // fixed glazing above, opening sashes below. The builder rotates the
+        // verified left/right join into top/bottom space and separately loads
+        // mullion-sash-sash for the lower vertical mullion.
+        return 'mullion-fixed-sash';
+    }
     if (
         (dividerOrientation === 'vertical' || dividerOrientation === 'horizontal')
         && leftCell === 'fixed-glazing'

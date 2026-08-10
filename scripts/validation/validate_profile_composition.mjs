@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+    applyOpeningSashDividerConnectionPlacements,
     composeLegacyProfileDefinitions,
     composeRegisteredProfileDefinitions,
     composeSupplementalAccessoryProfiles,
@@ -1072,7 +1073,7 @@ assert(
         && Boolean(affineFixedGasketTemplate?.fixedGlazingDividerCadTransforms?.left)
         && Boolean(affineFixedGasketTemplate?.mullionConnectionCadTransform)
         && affineFixedGasketTemplate?.mullionConnectionPlacementMethod
-            === 'exact-direct-join-gasket-mounted-on-mullion-with-180-face-compensation',
+            === 'exact-direct-join-gasket-retargeted-through-divider-source-with-180-face-compensation',
     '224063 must preserve its direct CAD INSERT and expose a divider-mounted mixed-join transform when legacy source INSERT transforms are available.'
 );
 assert(
@@ -1081,7 +1082,7 @@ assert(
         && Boolean(affineRebateGasketTemplate?.mullionSashCadTransform)
         && Boolean(affineRebateGasketTemplate?.mullionConnectionCadTransform)
         && affineRebateGasketTemplate?.mullionConnectionPlacementMethod
-            === 'exact-direct-join-gasket-mounted-on-mullion-with-180-face-compensation',
+            === 'exact-direct-join-gasket-retargeted-through-divider-source-with-180-face-compensation',
     '245472_s_5 must preserve its direct CAD INSERT and expose a divider-mounted mixed-join transform.'
 );
 
@@ -1271,6 +1272,46 @@ assert(
     'Horizontal divider-facing bottom glazing beads must keep the accepted bottom-section orientation/inward seat and apply only the CAD-derived transom depth delta.'
 );
 
+const actualTPrimaryComposition = composeRegisteredProfileDefinitions({
+    selection: {
+        profileSetId: '2_4_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575760',
+        sashProfileId: '575780',
+        dividerProfileId: '575800',
+        dividerOrientation: 'grid',
+        primaryDividerOrientation: 'horizontal',
+        layoutKind: 't-grid',
+        layoutId: 'top-fixed-bottom-sash-sash',
+        leftCell: 'fixed-glazing',
+        rightCell: 'opening-sash',
+    },
+    definitionsByProfileSetId: actualLegacyDefinitions,
+    standaloneDefinitionsByProfileId: actualStandaloneDefinitions,
+    connectionTemplate: actualMixedPlacementConnectionTemplate,
+    placementConnectionTemplate: actualMixedPlacementConnectionTemplate,
+    fixedGlazingFrameTemplate: actualFrameFixedConnectionTemplate,
+    fixedGlazingDividerTemplate: actualFixedFixedConnectionTemplate,
+    fixedGlazingDividerGasketTemplate: actualMixedPlacementConnectionTemplate,
+    standaloneBeadDefinition: actualStandaloneBeadDefinition,
+});
+const actualTBottomBead = actualTPrimaryComposition.profiles.find(profile =>
+    String(profile.blockName || '').includes('573940')
+    && profile.section === 'bottom'
+);
+const actualTBottomFrameTransform = actualTBottomBead?.fixedGlazingFrameCadTransform;
+const actualTBottomDividerTransform = actualTBottomBead?.fixedGlazingDividerCadTransforms?.left;
+assert(
+    actualTPrimaryComposition.metadata.dividerOrientation === 'horizontal'
+        && actualTBottomFrameTransform
+        && actualTBottomDividerTransform
+        && actualTBottomDividerTransform.a === actualTBottomFrameTransform.a
+        && actualTBottomDividerTransform.b === actualTBottomFrameTransform.b
+        && actualTBottomDividerTransform.c === actualTBottomFrameTransform.c
+        && actualTBottomDividerTransform.d === actualTBottomFrameTransform.d
+        && Math.abs(actualTBottomDividerTransform.ty - actualTBottomFrameTransform.ty) < 1e-9,
+    'The T-layout primary fixed/transom connection must compose as horizontal so its bottom glazing bead keeps the accepted bottom follower basis and inward seat.'
+);
+
 const actualMixedConnectionTemplate = JSON.parse(fs.readFileSync(
     path.join(
         projectRoot,
@@ -1278,6 +1319,17 @@ const actualMixedConnectionTemplate = JSON.parse(fs.readFileSync(
         'client',
         'cad-connections',
         'mullion-fixed-sash',
+        'connection.meta.json'
+    ),
+    'utf8'
+));
+const actualSashSashConnectionTemplate = JSON.parse(fs.readFileSync(
+    path.join(
+        projectRoot,
+        'src',
+        'client',
+        'cad-connections',
+        'mullion-sash-sash',
         'connection.meta.json'
     ),
     'utf8'
@@ -1424,6 +1476,85 @@ assert(
             === 'left,right'
         && sashSashComposition.metadata.dividerOpeningSashConnections?.placedSideCount === 2,
     'Sash/sash must preserve one CAD-derived sash boundary and one direct 245472 mullion gasket on each side.'
+);
+
+const tLayoutVerticalRecomposition = applyOpeningSashDividerConnectionPlacements({
+    definition: {
+        ...actualTPrimaryComposition,
+        metadata: {
+            ...actualTPrimaryComposition.metadata,
+            dividerOrientation: 'vertical',
+        },
+    },
+    dividerConnectionTemplate: sashSashConnectionTemplate,
+});
+const tLayoutVerticalRebateProfile = tLayoutVerticalRecomposition.profiles.find(profile =>
+    profile.role === 'frame'
+    && String(profile.blockName || '').includes('245472_s_5')
+    && profile.section === 'top'
+);
+assert(
+    Object.keys(tLayoutVerticalRebateProfile?.mullionConnectionCadTransforms || {})
+        .sort().join(',') === 'left,right'
+        && tLayoutVerticalRecomposition.metadata.dividerOpeningSashConnections
+            ?.placedSideCount === 2,
+    'The T-layout lower mullion must recompute both sash/sash 245472 transforms against the exact mixed-layout gasket geometry instead of copying transforms from a different legacy source instance.'
+);
+
+// The real T layout composes its structural divider in the mixed-join working
+// coordinate space, then sources the lower vertical rebate gaskets from the
+// sash/sash join. Verify that the exact direct 245472 INSERTs are bridged
+// through the common divider source and land symmetrically on the two active
+// mullion faces.
+const actualTVerticalRecomposition = applyOpeningSashDividerConnectionPlacements({
+    definition: {
+        ...actualTPrimaryComposition,
+        metadata: {
+            ...actualTPrimaryComposition.metadata,
+            dividerOrientation: 'vertical',
+        },
+    },
+    dividerConnectionTemplate: actualSashSashConnectionTemplate,
+});
+const actualTVerticalRebateProfile = actualTVerticalRecomposition.profiles.find(profile =>
+    profile.role === 'frame'
+    && String(profile.blockName || '').includes('245472_s_5')
+    && profile.section === 'top'
+);
+const actualTDividerCenterX = (
+    actualTPrimaryComposition.metadata.dividerSourceBounds.minX
+    + actualTPrimaryComposition.metadata.dividerSourceBounds.maxX
+) / 2;
+const actualTLeftMountedBbox = transformCadBbox(
+    actualTVerticalRebateProfile?.bbox,
+    actualTVerticalRebateProfile?.mullionConnectionCadTransforms?.left
+);
+const actualTRightMountedBbox = transformCadBbox(
+    actualTVerticalRebateProfile?.bbox,
+    actualTVerticalRebateProfile?.mullionConnectionCadTransforms?.right
+);
+const actualTLeftRuntimeFace = actualTLeftMountedBbox
+    ? -(
+        (actualTLeftMountedBbox.minX + actualTLeftMountedBbox.maxX) / 2
+        - actualTDividerCenterX
+    )
+    : NaN;
+const actualTRightRuntimeFace = actualTRightMountedBbox
+    ? -(
+        (actualTRightMountedBbox.minX + actualTRightMountedBbox.maxX) / 2
+        - actualTDividerCenterX
+    )
+    : NaN;
+assert(
+    actualTVerticalRebateProfile?.mullionConnectionOccurrenceIndexes?.left === 0
+        && actualTVerticalRebateProfile?.mullionConnectionOccurrenceIndexes?.right === 2
+        && Number.isFinite(actualTLeftRuntimeFace)
+        && Number.isFinite(actualTRightRuntimeFace)
+        && actualTLeftRuntimeFace < 0
+        && actualTRightRuntimeFace > 0
+        && Math.abs(actualTLeftRuntimeFace + actualTRightRuntimeFace) < 1e-9
+        && Math.abs(Math.abs(actualTLeftRuntimeFace) - 40.320091900616) < 1e-6,
+    'The real T-layout lower mullion must mount exact sash/sash 245472_s_5 occurrences 0/2 symmetrically on the visual left/right faces after bridging the sash/sash join into the active mixed-join divider coordinate space.'
 );
 
 if (errors.length) {

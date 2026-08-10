@@ -10,9 +10,11 @@ import { translateCadTransformSource } from './profile-coordinate-transform.js';
 import { createHouseBuilder } from './house-builder.js';
 import { splitTriangleAtScalarZero } from './mesh-joint-geometry.js';
 import {
-    getDividerArrowAlongCoordinate,
+    getDividerSegmentAlongCoordinate,
     getDividerCrossSectionMetrics,
     getFixedGlassPanePlacement,
+    getHorizontalConnectionFaceDirection,
+    getTopFixedBottomSashSashLayout,
     getFrameDividerSocketInset,
     getFrameSidePlacements,
     getLinearDividerLayout,
@@ -271,7 +273,10 @@ export function createWindowBuilder({
         bounds,
         depthOffset = 0,
         frameInwardSpan = 0,
-        alongOffset = 0
+        perpendicularOffset = 0,
+        longitudinalOffset = 0,
+        faceDirection = 1,
+        longitudinalJoint = null
     ) {
         const shape = getProfileShape(profile);
         const sourceGeom = new THREE.ExtrudeGeometry(shape, {
@@ -306,17 +311,28 @@ export function createWindowBuilder({
                 sectionDepth = -sectionDepth;
                 face = -face;
             }
+            face *= Number(faceDirection) < 0 ? -1 : 1;
             // Keep every standalone mullion component on its exact CAD depth.
             // Unlike the detached 10 cm sample, the assembled divider must not
             // stagger components by profile index; even sub-millimetre offsets
             // make the section appear slightly displaced from the joined frame.
             const depth = sectionDepth + depthOffset;
-            const along = getDividerArrowAlongCoordinate({
+            const socketInwardSign = Number(longitudinalJoint?.socketInwardSign) || 0;
+            const socketInwardOffset = Number(longitudinalJoint?.socketInwardOffset) || 0;
+            const socketInwardDistance = socketInwardSign
+                ? face * socketInwardSign + socketInwardOffset
+                : Math.abs(face);
+            const along = getDividerSegmentAlongCoordinate({
                 extrusionT: point.z,
                 length,
                 faceOffset: face,
                 faceSpan: metrics.faceSpanM,
                 frameInwardSpan,
+                negativeFrameInwardSpan: longitudinalJoint?.negativeFrameInwardSpan,
+                positiveFrameInwardSpan: longitudinalJoint?.positiveFrameInwardSpan,
+                negativeEndMode: longitudinalJoint?.negativeEndMode || 'arrow',
+                positiveEndMode: longitudinalJoint?.positiveEndMode || 'arrow',
+                socketInwardDistance,
             });
 
             if (orientation === 'horizontal') {
@@ -337,9 +353,11 @@ export function createWindowBuilder({
         // Repeated dividers used to be translated only afterwards, so the pose
         // animation reset every copy to (0, 0) and collapsed them into one.
         if (orientation === 'vertical') {
-            mesh.position.x = (Number(alongOffset) || 0);
+            mesh.position.x = (Number(perpendicularOffset) || 0);
+            mesh.position.y = (Number(longitudinalOffset) || 0);
         } else if (orientation === 'horizontal') {
-            mesh.position.y = (Number(alongOffset) || 0);
+            mesh.position.y = (Number(perpendicularOffset) || 0);
+            mesh.position.x = (Number(longitudinalOffset) || 0);
         }
         mesh.castShadow = !captureMode;
         mesh.receiveShadow = !captureMode;
@@ -1289,12 +1307,16 @@ export function createWindowBuilder({
         });
         const activeDividerProfiles = activeProfiles.filter(profile => profile.role === 'divider');
         const layoutState = getWindowLayoutState();
+        const isTopFixedBottomSashSash = layoutState.layoutId === 'top-fixed-bottom-sash-sash'
+            || layoutState.layoutKind === 't-grid';
         const dividerOrientation = activeDividerProfiles.length
             ? layoutState.dividerOrientation
             : null;
         const dividerBounds = getDividerSourceBounds(activeDividerProfiles);
         const dividerFaceSpan = Math.min(
-            dividerOrientation === 'vertical' ? A * 0.3 : B * 0.3,
+            dividerOrientation === 'vertical'
+                ? A * 0.3
+                : (dividerOrientation === 'horizontal' ? B * 0.3 : Math.min(A, B) * 0.3),
             getDividerFaceSpanM(activeDividerProfiles)
         );
         const frameJointInwardSpan = dividerOrientation
@@ -1327,10 +1349,61 @@ export function createWindowBuilder({
             : ['opening-sash'];
         const leftCellType = layoutCellTypes[0] || 'fixed-glazing';
         const rightCellType = layoutCellTypes.at(-1) || 'opening-sash';
+        // Only the T-layout transom needs to remap the authored CAD join
+        // left/right faces onto a reversed top/bottom cell order. The ordinary
+        // horizontal-transom layout keeps its previously accepted/default
+        // divider face orientation unchanged.
+        const tTransomConnectionFaceDirection = isTopFixedBottomSashSash
+            ? getHorizontalConnectionFaceDirection({
+                lowerCellType: 'opening-sash',
+                upperCellType: 'fixed-glazing',
+                joinLeftCell: currentMetadata.dividerConnection?.leftCell,
+                joinRightCell: currentMetadata.dividerConnection?.rightCell,
+            })
+            : 1;
         let dividerPositions = [];
         let dividerSeats = [];
+        let tLayoutGeometry = null;
 
-        if (dividerOrientation === 'vertical' || dividerOrientation === 'horizontal') {
+        if (isTopFixedBottomSashSash && dividerOrientation) {
+            const halfDividerFace = dividerFaceSpan / 2;
+            const fixedBoundaryMm = currentMetadata.fixedGlazingConnections
+                ?.dividerCellBoundariesMm || {};
+            const horizontalOpeningBoundariesMm = currentMetadata.dividerConnection
+                ?.openingSashDividerBoundariesMm || {};
+            const verticalOpeningBoundariesMm = currentMetadata.tLayoutVerticalDividerConnection
+                ?.openingSashDividerBoundariesMm || {};
+
+            const finiteBoundaryM = (value, fallback) => {
+                const numeric = Number(value);
+                return Number.isFinite(numeric) ? numeric * S : fallback;
+            };
+
+            tLayoutGeometry = getTopFixedBottomSashSashLayout({
+                width: A,
+                height: B,
+                topRowFraction: Number(layoutState.topRowFraction) || 0.30,
+                horizontalFixedBoundary: finiteBoundaryM(
+                    fixedBoundaryMm.left,
+                    -halfDividerFace
+                ),
+                horizontalSashBoundary: finiteBoundaryM(
+                    horizontalOpeningBoundariesMm.right,
+                    halfDividerFace
+                ),
+                verticalLeftSashBoundary: finiteBoundaryM(
+                    verticalOpeningBoundariesMm.left,
+                    -halfDividerFace
+                ),
+                verticalRightSashBoundary: finiteBoundaryM(
+                    verticalOpeningBoundariesMm.right,
+                    halfDividerFace
+                ),
+            });
+            openingCells = [...tLayoutGeometry.openingCells];
+            fixedCells.push(...tLayoutGeometry.fixedCells);
+            openingCell = openingCells[0] || null;
+        } else if (dividerOrientation === 'vertical' || dividerOrientation === 'horizontal') {
             const axisLength = dividerOrientation === 'vertical' ? A : B;
             const halfDividerFace = dividerFaceSpan / 2;
             const fixedBoundaryMm = currentMetadata.fixedGlazingConnections
@@ -1511,6 +1584,10 @@ export function createWindowBuilder({
 
         function getFrameBoundaryCellType(side, placement) {
             if (placement?.cellType) return placement.cellType;
+            if (isTopFixedBottomSashSash) {
+                if (side === 'top') return 'fixed-glazing';
+                if (side === 'bottom') return 'opening-sash';
+            }
             if (dividerOrientation === 'vertical') {
                 if (side === 'left') return layoutCellTypes[0] || leftCellType;
                 if (side === 'right') return layoutCellTypes.at(-1) || rightCellType;
@@ -1520,6 +1597,57 @@ export function createWindowBuilder({
                 if (side === 'top') return layoutCellTypes.at(-1) || rightCellType;
             }
             return openingCell ? 'opening-sash' : 'fixed-glazing';
+        }
+
+        function getOuterFramePlacements(side) {
+            if (!isTopFixedBottomSashSash || !tLayoutGeometry) {
+                return dividerOrientation
+                    ? getFrameSidePlacements({
+                        orientation: dividerOrientation,
+                        width: A,
+                        height: B,
+                        side,
+                        dividerPositions,
+                        cellTypes: layoutCellTypes,
+                    })
+                    : [{
+                        id: side,
+                        width: A,
+                        height: B,
+                        originX: 0,
+                        originY: 0,
+                        windowCell: 'outer-boundary',
+                    }];
+            }
+
+            if (side === 'left' || side === 'right') {
+                return getFrameSidePlacements({
+                    orientation: 'horizontal',
+                    width: A,
+                    height: B,
+                    side,
+                    dividerPositions: [tLayoutGeometry.transomCenterY],
+                    cellTypes: ['opening-sash', 'fixed-glazing'],
+                });
+            }
+            if (side === 'bottom') {
+                return getFrameSidePlacements({
+                    orientation: 'vertical',
+                    width: A,
+                    height: B,
+                    side,
+                    dividerPositions: [tLayoutGeometry.verticalMullionCenterX],
+                    cellTypes: ['opening-sash', 'opening-sash'],
+                });
+            }
+            return [{
+                id: side,
+                width: A,
+                height: B,
+                originX: 0,
+                originY: 0,
+                windowCell: 'outer-boundary',
+            }];
         }
 
         activeProfiles
@@ -1533,23 +1661,7 @@ export function createWindowBuilder({
                     if (!shouldPlaceProfileOnSide(profile, side)) return;
 
                     const placements = usesFullOuterBoundary
-                        ? (dividerOrientation
-                            ? getFrameSidePlacements({
-                                orientation: dividerOrientation,
-                                width: A,
-                                height: B,
-                                side,
-                                dividerPositions,
-                                cellTypes: layoutCellTypes,
-                            })
-                            : [{
-                                id: side,
-                                width: A,
-                                height: B,
-                                originX: 0,
-                                originY: 0,
-                                windowCell: 'outer-boundary',
-                            }])
+                        ? getOuterFramePlacements(side)
                         : openingCells.map(cell => ({
                             id: `${side}-${cell.id}`,
                             width: cell.width,
@@ -1605,7 +1717,240 @@ export function createWindowBuilder({
                 });
             });
 
-        if (dividerOrientation && dividerBounds) {
+        if (isTopFixedBottomSashSash && dividerBounds && tLayoutGeometry) {
+            const verticalDividerConnection = currentMetadata.tLayoutVerticalDividerConnection || {};
+            const verticalDividerDepthOffset = (
+                Number(verticalDividerConnection.depthCenterFromAssemblyCenterMm) || 0
+            ) * S;
+            const placeTDividerMesh = (mesh, kind, connectionSide = null) => {
+                mesh.userData.tLayoutDivider = kind;
+                mesh.userData.connectionBoundary = connectionSide
+                    ? `${kind}-${connectionSide}`
+                    : null;
+                dividerGroup.add(mesh);
+            };
+
+            const tJointFaceSpan = Math.max(0, dividerFaceSpan);
+            const tJointHalfFace = tJointFaceSpan / 2;
+            const splitX = Number(tLayoutGeometry.verticalMullionCenterX) || 0;
+
+            // The split transom is one assembled section: structural profile,
+            // gaskets and other divider-mounted components must all be cut by
+            // the same two joint planes. Keep the segment/joint definition in
+            // one place and reuse it for every component instead of deriving a
+            // second gasket-specific centre trim.
+            const tTransomSegments = [
+                {
+                    id: 'left',
+                    length: Math.max(0, splitX + A / 2),
+                    centerX: (-A / 2 + splitX) / 2,
+                    joint: {
+                        negativeEndMode: 'arrow',
+                        positiveEndMode: 'socket',
+                        socketInwardSign: 1,
+                        socketInwardOffset: tJointHalfFace,
+                        negativeFrameInwardSpan: frameJointInwardSpan,
+                        positiveFrameInwardSpan: tJointFaceSpan,
+                    },
+                },
+                {
+                    id: 'right',
+                    length: Math.max(0, A / 2 - splitX),
+                    centerX: (splitX + A / 2) / 2,
+                    joint: {
+                        negativeEndMode: 'socket',
+                        positiveEndMode: 'arrow',
+                        socketInwardSign: 1,
+                        socketInwardOffset: tJointHalfFace,
+                        negativeFrameInwardSpan: tJointFaceSpan,
+                        positiveFrameInwardSpan: frameJointInwardSpan,
+                    },
+                },
+            ];
+            // The lower vertical mullion is also an assembly: its mounted
+            // gaskets must use the same nominal span and the same two cut
+            // planes as the structural profile. The extra half-face at the top
+            // is not a gasket-specific extension; it is the structural span
+            // required for the V head that enters the transom socket.
+            const tLowerMullionSegment = {
+                length: Math.max(
+                    0,
+                    tLayoutGeometry.lowerStructuralHeight + tJointHalfFace
+                ),
+                centerY:
+                    tLayoutGeometry.lowerStructuralCenterY + tJointHalfFace / 2,
+                joint: {
+                    negativeEndMode: 'arrow',
+                    positiveEndMode: 'arrow',
+                    negativeFrameInwardSpan: frameJointInwardSpan,
+                    positiveFrameInwardSpan: tJointFaceSpan,
+                },
+            };
+
+            activeDividerProfiles.forEach(profile => {
+
+                // The T transom is a real two-piece joint, not one continuous
+                // extrusion. Its two halves still touch on the fixed/top half
+                // of the profile, while their lower inner faces open at 45° to
+                // receive the V-shaped head of the lower vertical mullion.
+                tTransomSegments.forEach(segment => {
+                    if (segment.length <= 1e-6) return;
+                    const mesh = createDividerSegment(
+                        profile,
+                        segment.length,
+                        'horizontal',
+                        dividerBounds,
+                        dividerDepthOffset,
+                        frameJointInwardSpan,
+                        tLayoutGeometry.transomCenterY,
+                        segment.centerX,
+                        -1,
+                        segment.joint
+                    );
+                    mesh.userData.tLayoutStructuralSegment = segment.id;
+                    placeTDividerMesh(mesh, 'transom');
+                });
+
+                // Lower mullion: keep the accepted bottom-frame V joint, but
+                // extend the nominal top end to the top face of the transom.
+                // With a transom-sized positive-end span, its V apex lands on
+                // the transom centre plane and the shoulders land on the lower
+                // transom face, exactly inside the two-piece socket above.
+                const verticalProfile = {
+                    ...profile,
+                    dividerSectionRotationDeg:
+                        Number(verticalDividerConnection.sectionRotationDeg) || 180,
+                };
+                placeTDividerMesh(
+                    createDividerSegment(
+                        verticalProfile,
+                        tLowerMullionSegment.length,
+                        'vertical',
+                        dividerBounds,
+                        verticalDividerDepthOffset,
+                        frameJointInwardSpan,
+                        tLayoutGeometry.verticalMullionCenterX,
+                        tLowerMullionSegment.centerY,
+                        1,
+                        tLowerMullionSegment.joint
+                    ),
+                    'lower-mullion'
+                );
+            });
+
+            activeProfiles
+                .filter(profile =>
+                    profile.section !== 'bottom'
+                    && (isFixedGlassAnchorGasket(profile) || isFrameToSashRebateGasket(profile))
+                )
+                .forEach(profile => {
+                    // Mixed fixed/transom/sash direct INSERTs for the horizontal run.
+                    const horizontalConnectionTransforms = Object.entries(
+                        profile.mullionConnectionCadTransforms || {}
+                    );
+                    if (
+                        !horizontalConnectionTransforms.length
+                        && profile.mullionConnectionCadTransform
+                    ) {
+                        horizontalConnectionTransforms.push([
+                            profile.mullionConnectionCellSide || 'unknown',
+                            profile.mullionConnectionCadTransform,
+                        ]);
+                    }
+                    horizontalConnectionTransforms
+                        .forEach(([cellSide, cadTransform]) => {
+                            const placedProfile = {
+                                ...profile,
+                                cadCoordinateTransform: cadTransform,
+                                cadAlignmentShiftXMm: 0,
+                                cadAlignmentShiftYMm: 0,
+                                dividerSectionRotationDeg:
+                                    Number(currentMetadata.dividerConnection?.sectionRotationDeg) || 180,
+                            };
+                            const connectionCellType =
+                                currentMetadata.dividerConnection?.[`${cellSide}Cell`] || null;
+                            const splitAtLowerMullion =
+                                connectionCellType === 'opening-sash'
+                                && isFrameToSashRebateGasket(profile);
+
+                            if (splitAtLowerMullion) {
+                                // Treat the sash-side gasket as a component of the
+                                // horizontal transom assembly. It uses the exact
+                                // same segment lengths and 45-degree socket planes
+                                // as the structural mullion profile, so changing the
+                                // structural joint automatically changes the gasket
+                                // cut as well. Only the gasket's CAD cross-section
+                                // remains its own.
+                                tTransomSegments.forEach(segment => {
+                                    if (segment.length <= 1e-6) return;
+                                    const mesh = createDividerSegment(
+                                        placedProfile,
+                                        segment.length,
+                                        'horizontal',
+                                        dividerBounds,
+                                        dividerDepthOffset,
+                                        frameJointInwardSpan,
+                                        tLayoutGeometry.transomCenterY,
+                                        segment.centerX,
+                                        tTransomConnectionFaceDirection,
+                                        segment.joint
+                                    );
+                                    mesh.userData.mullionConnectionGasket = true;
+                                    mesh.userData.connectionProfileId =
+                                        profile.mullionConnectionProfileId;
+                                    mesh.userData.tLayoutGasketSegment = segment.id;
+                                    placeTDividerMesh(mesh, 'transom', cellSide);
+                                });
+                                return;
+                            }
+
+                            const mesh = createDividerSegment(
+                                placedProfile,
+                                A,
+                                'horizontal',
+                                dividerBounds,
+                                dividerDepthOffset,
+                                frameJointInwardSpan,
+                                tLayoutGeometry.transomCenterY,
+                                0,
+                                tTransomConnectionFaceDirection
+                            );
+                            mesh.userData.mullionConnectionGasket = true;
+                            mesh.userData.connectionProfileId = profile.mullionConnectionProfileId;
+                            placeTDividerMesh(mesh, 'transom', cellSide);
+                        });
+
+                    // Exact two-sided 245472 INSERTs from mullion-sash-sash for
+                    // the lower vertical mullion. No mixed-join mirroring.
+                    Object.entries(profile.tLayoutVerticalMullionConnectionCadTransforms || {})
+                        .forEach(([cellSide, cadTransform]) => {
+                            const placedProfile = {
+                                ...profile,
+                                cadCoordinateTransform: cadTransform,
+                                cadAlignmentShiftXMm: 0,
+                                cadAlignmentShiftYMm: 0,
+                                dividerSectionRotationDeg:
+                                    Number(verticalDividerConnection.sectionRotationDeg) || 180,
+                            };
+                            const mesh = createDividerSegment(
+                                placedProfile,
+                                tLowerMullionSegment.length,
+                                'vertical',
+                                dividerBounds,
+                                verticalDividerDepthOffset,
+                                frameJointInwardSpan,
+                                tLayoutGeometry.verticalMullionCenterX,
+                                tLowerMullionSegment.centerY,
+                                1,
+                                tLowerMullionSegment.joint
+                            );
+                            mesh.userData.mullionConnectionGasket = true;
+                            mesh.userData.connectionProfileId =
+                                profile.tLayoutVerticalMullionConnectionProfileId;
+                            placeTDividerMesh(mesh, 'lower-mullion', cellSide);
+                        });
+                });
+        } else if (dividerOrientation && dividerBounds) {
             const dividerLength = dividerOrientation === 'vertical' ? B : A;
             const activeDividerPositions = dividerPositions.length ? dividerPositions : [0];
             const placeDividerMesh = (mesh, dividerPosition, dividerIndex) => {
@@ -1693,7 +2038,7 @@ export function createWindowBuilder({
         // Place the frame-role 245472_s_5 from the exact INSERT in
         // window-mullion-sash-window.dwg, using the opening cell boundary as
         // the local side on which createMiteredSide() operates.
-        if (dividerOrientation && openingCell) {
+        if (dividerOrientation && openingCell && !isTopFixedBottomSashSash) {
             activeProfiles
                 .filter(profile =>
                     isFrameToSashRebateGasket(profile)
@@ -1939,9 +2284,10 @@ export function createWindowBuilder({
                 // In a sash/sash mullion layout both handles sit toward the
                 // mullion and both hinges sit on the outer frame. Other layouts
                 // keep the user's existing global handle-side selection.
-                const cellHandleSide = isMultiOpening && dividerOrientation === 'vertical'
-                    ? (cell.joinCellSide === 'left' ? 'right' : 'left')
-                    : selectedHandleSide;
+                const cellHandleSide = cell.handleSide
+                    || (isMultiOpening && dividerOrientation === 'vertical'
+                        ? (cell.joinCellSide === 'left' ? 'right' : 'left')
+                        : selectedHandleSide);
                 const isLeftHandle = cellHandleSide === 'left';
                 const defaultRot = document.getElementById('mBatant').checked
                     ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
