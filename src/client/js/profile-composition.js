@@ -1209,6 +1209,7 @@ function createDividerFixedDirectAccessoryTargets({
     profileId,
     role,
     cellBoundariesMm = null,
+    selection = null,
 }) {
     if (!dividerConnectionTemplate || !definition.metadata?.dividerOrientation) {
         return new Map();
@@ -1265,121 +1266,146 @@ function createDividerFixedDirectAccessoryTargets({
     const globalMaxY = finiteNumber(definition.metadata?.globalMaxY);
     const joinToDividerSource = invertCadTransform(joinDividerTransform);
     const candidatesBySide = new Map();
-    const semanticFixedCellSides = ['left', 'right'].filter(cellSide =>
-        dividerConnectionTemplate?.[`${cellSide}Cell`] === 'fixed-glazing'
-    );
-    const semanticSingleFixedCellSide = semanticFixedCellSides.length === 1
-        ? semanticFixedCellSides[0]
-        : null;
+    const layoutFixedCellSides = ['left', 'right'].filter(side => {
+        if (selection) {
+            if (selection.cells && selection.cells.length >= 2) {
+                for (let i = 0; i < selection.cells.length - 1; i++) {
+                    if (side === 'left' && selection.cells[i] === 'fixed-glazing') return true;
+                    if (side === 'right' && selection.cells[i+1] === 'fixed-glazing') return true;
+                }
+            } else {
+                if (side === 'left' && selection.leftCell === 'fixed-glazing') return true;
+                if (side === 'right' && selection.rightCell === 'fixed-glazing') return true;
+            }
+            return false;
+        }
+        return dividerConnectionTemplate?.[`${side}Cell`] === 'fixed-glazing';
+    });
 
-    for (const accessoryOccurrence of accessoryOccurrences) {
-        const joinCenter = accessoryOccurrence.center || bboxCenter(accessoryOccurrence.bbox);
-        const dividerSourceCenter = transformCadPoint(
-            joinToDividerSource,
-            joinCenter.x,
-            joinCenter.y
-        );
-        const workingDividerCenter = transformCadPoint(
-            workingDividerCoordinateTransform,
-            dividerSourceCenter.x,
-            dividerSourceCenter.y
-        );
-        const runtimeFaceMm = -(workingDividerCenter.x - centerX);
-        const geometricCellSide = runtimeFaceMm < 0 ? 'left' : 'right';
-        const joinCellSide = getConnectionOccurrenceJoinSide(
-            accessoryOccurrence,
-            dividerOccurrence
-        );
-        // For a mixed join, select the physical INSERT from the declared cell
-        // side while both the gasket and mullion are still in the SAME join
-        // coordinate system. Do not collapse every matching gasket occurrence
-        // onto the declared side after the accepted 180-degree runtime mullion
-        // mapping; that allowed a sash-side INSERT to masquerade as the fixed
-        // gasket and produced a negative inward distance / outward miter.
-        if (
-            semanticSingleFixedCellSide
-            && joinCellSide !== semanticSingleFixedCellSide
-        ) {
-            continue;
-        }
-        const cellSide = semanticSingleFixedCellSide || geometricCellSide;
-        const sideSign = cellSide === 'left' ? -1 : 1;
-        const inwardFromMullionFaceMm = Math.max(
-            0,
-            Math.abs(runtimeFaceMm) - halfFaceMm
-        );
-        // Fixed-glazing cells do not necessarily terminate at the visible
-        // mullion aluminium face. Their inner boundary is derived from the
-        // glazing-bead INSERTs in the join CAD so the horizontal and vertical
-        // bead runs form one continuous rectangle. Place direct mullion
-        // accessories (224063) relative to that SAME boundary; otherwise the
-        // fixed/fixed layout keeps the old visible-face offset even though the
-        // cell itself has already moved.
-        const defaultBoundaryMm = sideSign * halfFaceMm;
-        const configuredBoundaryMm = finiteNumber(
-            cellBoundariesMm?.get(cellSide),
-            NaN
-        );
-        const cellBoundaryMm = Number.isFinite(configuredBoundaryMm)
-            ? configuredBoundaryMm
-            : defaultBoundaryMm;
-        // Keep this signed. A gasket lip may legitimately sit on the
-        // mullion side of the virtual bead rectangle; clamping negative values
-        // to zero snaps the fixed/fixed gasket back to the old mullion face and
-        // discards the position encoded by window-mullion-window.dwg.
-        const inwardFromCellBoundaryMm = sideSign
-            * (runtimeFaceMm - cellBoundaryMm);
-        const runtimeDepthMm = workingDividerCenter.y - centerY + depthOffset;
-        const canonicalPoint = Object.freeze({
-            x: globalCenterX + runtimeDepthMm,
-            y: globalMaxY - inwardFromCellBoundaryMm,
-        });
-        const dividerToCanonical = cellSide === 'left'
-            ? Object.freeze({
-                a: 0,
-                b: 1,
-                c: -1,
-                d: 0,
-                tx: globalCenterX - centerY + depthOffset,
-                ty: globalMaxY + centerX + halfFaceMm,
-            })
-            : Object.freeze({
-                a: 0,
-                b: 1,
-                c: 1,
-                d: 0,
-                tx: globalCenterX - centerY + depthOffset,
-                ty: globalMaxY - centerX + halfFaceMm,
-            });
-        let localToCanonicalTransform = composeCadTransforms(
-            dividerToCanonical,
-            composeCadTransforms(
+    const templateFixedSides = ['left', 'right'].filter(side =>
+        dividerConnectionTemplate?.[`${side}Cell`] === 'fixed-glazing'
+    );
+
+    for (const cellSide of layoutFixedCellSides) {
+        const useBothSides = templateFixedSides.length === 2;
+        const targetSourceSide = useBothSides ? cellSide : templateFixedSides[0];
+
+        if (!targetSourceSide) continue;
+
+        for (const accessoryOccurrence of accessoryOccurrences) {
+            const joinCenter = accessoryOccurrence.center || bboxCenter(accessoryOccurrence.bbox);
+            const dividerSourceCenter = transformCadPoint(
+                joinToDividerSource,
+                joinCenter.x,
+                joinCenter.y
+            );
+            const workingDividerCenter = transformCadPoint(
                 workingDividerCoordinateTransform,
+                dividerSourceCenter.x,
+                dividerSourceCenter.y
+            );
+
+            const runtimeFaceMm = -(workingDividerCenter.x - centerX);
+            const geometricCellSide = runtimeFaceMm < 0 ? 'left' : 'right';
+
+            if (geometricCellSide !== targetSourceSide) continue;
+
+            const isOppositeNeeded = cellSide !== geometricCellSide;
+
+            let occurrenceTransform = accessoryOccurrence.transform;
+            let finalDividerSourceCenter = dividerSourceCenter;
+
+            if (isOppositeNeeded) {
+                const dividerX = joinDividerTransform.tx;
+                occurrenceTransform = {
+                    a: -occurrenceTransform.a,
+                    b: occurrenceTransform.b,
+                    c: -occurrenceTransform.c,
+                    d: occurrenceTransform.d,
+                    tx: 2 * dividerX - occurrenceTransform.tx,
+                    ty: occurrenceTransform.ty,
+                };
+                const dx = dividerSourceCenter.x - centerX;
+                finalDividerSourceCenter = {
+                    x: centerX - dx,
+                    y: dividerSourceCenter.y
+                };
+            }
+
+            const finalWorkingDividerCenter = transformCadPoint(
+                workingDividerCoordinateTransform,
+                finalDividerSourceCenter.x,
+                finalDividerSourceCenter.y
+            );
+            const finalRuntimeFaceMm = -(finalWorkingDividerCenter.x - centerX);
+            const sideSign = cellSide === 'left' ? -1 : 1;
+            const inwardFromMullionFaceMm = Math.max(
+                0,
+                Math.abs(finalRuntimeFaceMm) - halfFaceMm
+            );
+
+            const defaultBoundaryMm = sideSign * halfFaceMm;
+            const configuredBoundaryMm = finiteNumber(
+                cellBoundariesMm?.get(cellSide),
+                NaN
+            );
+            const cellBoundaryMm = Number.isFinite(configuredBoundaryMm)
+                ? configuredBoundaryMm
+                : defaultBoundaryMm;
+            const inwardFromCellBoundaryMm = sideSign
+                * (finalRuntimeFaceMm - cellBoundaryMm);
+            const runtimeDepthMm = finalWorkingDividerCenter.y - centerY + depthOffset;
+            const canonicalPoint = Object.freeze({
+                x: globalCenterX + runtimeDepthMm,
+                y: globalMaxY - inwardFromCellBoundaryMm,
+            });
+            const dividerToCanonical = cellSide === 'left'
+                ? Object.freeze({
+                    a: 0,
+                    b: 1,
+                    c: -1,
+                    d: 0,
+                    tx: globalCenterX - centerY + depthOffset,
+                    ty: globalMaxY + centerX + halfFaceMm,
+                })
+                : Object.freeze({
+                    a: 0,
+                    b: 1,
+                    c: 1,
+                    d: 0,
+                    tx: globalCenterX - centerY + depthOffset,
+                    ty: globalMaxY - centerX + halfFaceMm,
+                });
+            let localToCanonicalTransform = composeCadTransforms(
+                dividerToCanonical,
                 composeCadTransforms(
-                    joinToDividerSource,
-                    accessoryOccurrence.transform
+                    workingDividerCoordinateTransform,
+                    composeCadTransforms(
+                        joinToDividerSource,
+                        occurrenceTransform
+                    )
                 )
-            )
-        );
-        const boundaryShiftY = sideSign * (cellBoundaryMm - defaultBoundaryMm);
-        if (boundaryShiftY) {
-            localToCanonicalTransform = Object.freeze({
-                ...localToCanonicalTransform,
-                ty: finiteNumber(localToCanonicalTransform.ty) + boundaryShiftY,
+            );
+            const boundaryShiftY = sideSign * (cellBoundaryMm - defaultBoundaryMm);
+            if (boundaryShiftY) {
+                localToCanonicalTransform = Object.freeze({
+                    ...localToCanonicalTransform,
+                    ty: finiteNumber(localToCanonicalTransform.ty) + boundaryShiftY,
+                });
+            }
+            if (!candidatesBySide.has(cellSide)) candidatesBySide.set(cellSide, []);
+            candidatesBySide.get(cellSide).push({
+                point: canonicalPoint,
+                localToCanonicalTransform,
+                occurrence: accessoryOccurrence,
+                inwardFromMullionFaceMm,
+                joinFaceDistanceMm: getConnectionOccurrenceDistanceToDividerFaceMm(
+                    accessoryOccurrence,
+                    dividerOccurrence,
+                    cellSide
+                ),
             });
         }
-        if (!candidatesBySide.has(cellSide)) candidatesBySide.set(cellSide, []);
-        candidatesBySide.get(cellSide).push({
-            point: canonicalPoint,
-            localToCanonicalTransform,
-            occurrence: accessoryOccurrence,
-            inwardFromMullionFaceMm,
-            joinFaceDistanceMm: getConnectionOccurrenceDistanceToDividerFaceMm(
-                accessoryOccurrence,
-                dividerOccurrence,
-                cellSide
-            ),
-        });
     }
 
     const targets = new Map();
@@ -1723,6 +1749,7 @@ function createDividerFixedAccessorySourceTransforms({
     role,
     standaloneDefinition,
     canonicalYShiftsMm = null,
+    selection = null,
 }) {
     if (!dividerConnectionTemplate || !definition.metadata?.dividerOrientation) {
         return new Map();
@@ -1780,102 +1807,154 @@ function createDividerFixedAccessorySourceTransforms({
     const joinToDividerSource = invertCadTransform(joinDividerTransform);
     const sourceCenter = bboxCenter(accessorySourceBounds);
     const candidatesBySide = new Map();
+    const layoutFixedCellSides = ['left', 'right'].filter(side => {
+        if (selection) {
+            if (selection.cells && selection.cells.length >= 2) {
+                for (let i = 0; i < selection.cells.length - 1; i++) {
+                    if (side === 'left' && selection.cells[i] === 'fixed-glazing') return true;
+                    if (side === 'right' && selection.cells[i+1] === 'fixed-glazing') return true;
+                }
+            } else {
+                if (side === 'left' && selection.leftCell === 'fixed-glazing') return true;
+                if (side === 'right' && selection.rightCell === 'fixed-glazing') return true;
+            }
+            return false;
+        }
+        return dividerConnectionTemplate?.[`${side}Cell`] === 'fixed-glazing';
+    });
 
-    for (const accessoryOccurrence of accessoryOccurrences) {
-        if (!accessoryOccurrence?.transform || !accessoryOccurrence?.bbox) continue;
+    const templateFixedSides = ['left', 'right'].filter(side =>
+        dividerConnectionTemplate?.[`${side}Cell`] === 'fixed-glazing'
+    );
 
-        const occurrenceTransform = retargetRoleReferenceTransform(
-            accessorySourceBounds,
-            accessoryOccurrence
-        );
-        const joinCenter = transformCadPoint(
-            occurrenceTransform,
-            sourceCenter.x,
-            sourceCenter.y
-        );
-        const dividerSourceCenter = transformCadPoint(
-            joinToDividerSource,
-            joinCenter.x,
-            joinCenter.y
-        );
-        const workingDividerCenter = transformCadPoint(
-            workingDividerCoordinateTransform,
-            dividerSourceCenter.x,
-            dividerSourceCenter.y
-        );
+    for (const cellSide of layoutFixedCellSides) {
+        const useBothSides = templateFixedSides.length === 2;
+        const targetSourceSide = useBothSides ? cellSide : templateFixedSides[0];
 
-        // The accepted divider cross-section applies only the verified 180-degree
-        // front/back correction, therefore runtime face = -(join X - centre X).
-        const runtimeFaceMm = -(workingDividerCenter.x - centerX);
-        const cellSide = runtimeFaceMm < 0 ? 'left' : 'right';
-        const sideSign = cellSide === 'left' ? -1 : 1;
-        const inwardFromMullionFaceMm = Math.max(
-            0,
-            Math.abs(runtimeFaceMm) - halfFaceMm
-        );
+        if (!targetSourceSide) continue;
 
-        // Convert the accepted mullion runtime section into the canonical
-        // outer-boundary coordinates expected by createMiteredSide(). In those
-        // coordinates X is depth and (globalMaxY - Y) is the inward distance
-        // from the boundary. Each side gets its own inward direction.
-        const dividerToCanonical = cellSide === 'left'
-            ? Object.freeze({
-                a: 0,
-                b: 1,
-                c: -1,
-                d: 0,
-                tx: globalCenterX - centerY + depthOffset,
-                ty: globalMaxY + centerX + halfFaceMm,
-            })
-            : Object.freeze({
-                a: 0,
-                b: 1,
-                c: 1,
-                d: 0,
-                tx: globalCenterX - centerY + depthOffset,
-                ty: globalMaxY - centerX + halfFaceMm,
-            });
+        for (const accessoryOccurrence of accessoryOccurrences) {
+            if (!accessoryOccurrence?.transform || !accessoryOccurrence?.bbox) continue;
 
-        let targetTransform = composeCadTransforms(
-            dividerToCanonical,
-            composeCadTransforms(
+            const occurrenceTransform = retargetRoleReferenceTransform(
+                accessorySourceBounds,
+                accessoryOccurrence
+            );
+            const joinCenter = transformCadPoint(
+                occurrenceTransform,
+                sourceCenter.x,
+                sourceCenter.y
+            );
+            const dividerSourceCenter = transformCadPoint(
+                joinToDividerSource,
+                joinCenter.x,
+                joinCenter.y
+            );
+            const workingDividerCenter = transformCadPoint(
                 workingDividerCoordinateTransform,
+                dividerSourceCenter.x,
+                dividerSourceCenter.y
+            );
+
+            const runtimeFaceMm = -(workingDividerCenter.x - centerX);
+            const geometricCellSide = runtimeFaceMm < 0 ? 'left' : 'right';
+
+            if (geometricCellSide !== targetSourceSide) continue;
+
+            const isOppositeNeeded = cellSide !== geometricCellSide;
+
+            let finalOccurrenceTransform = occurrenceTransform;
+            let finalDividerSourceCenter = dividerSourceCenter;
+
+            if (isOppositeNeeded) {
+                const dividerX = joinDividerTransform.tx;
+                finalOccurrenceTransform = {
+                    a: -occurrenceTransform.a,
+                    b: occurrenceTransform.b,
+                    c: -occurrenceTransform.c,
+                    d: occurrenceTransform.d,
+                    tx: 2 * dividerX - occurrenceTransform.tx,
+                    ty: occurrenceTransform.ty,
+                };
+                const dx = dividerSourceCenter.x - centerX;
+                finalDividerSourceCenter = {
+                    x: centerX - dx,
+                    y: dividerSourceCenter.y
+                };
+            }
+
+            const finalWorkingDividerCenter = transformCadPoint(
+                workingDividerCoordinateTransform,
+                finalDividerSourceCenter.x,
+                finalDividerSourceCenter.y
+            );
+
+            const finalRuntimeFaceMm = -(finalWorkingDividerCenter.x - centerX);
+            const sideSign = cellSide === 'left' ? -1 : 1;
+            const inwardFromMullionFaceMm = Math.max(
+                0,
+                Math.abs(finalRuntimeFaceMm) - halfFaceMm
+            );
+
+            const dividerToCanonical = cellSide === 'left'
+                ? Object.freeze({
+                    a: 0,
+                    b: 1,
+                    c: -1,
+                    d: 0,
+                    tx: globalCenterX - centerY + depthOffset,
+                    ty: globalMaxY + centerX + halfFaceMm,
+                })
+                : Object.freeze({
+                    a: 0,
+                    b: 1,
+                    c: 1,
+                    d: 0,
+                    tx: globalCenterX - centerY + depthOffset,
+                    ty: globalMaxY - centerX + halfFaceMm,
+                });
+
+            let targetTransform = composeCadTransforms(
+                dividerToCanonical,
                 composeCadTransforms(
-                    joinToDividerSource,
-                    occurrenceTransform
+                    workingDividerCoordinateTransform,
+                    composeCadTransforms(
+                        joinToDividerSource,
+                        finalOccurrenceTransform
+                    )
                 )
-            )
-        );
+            );
 
-        const yShiftMm = finiteNumber(canonicalYShiftsMm?.get(cellSide));
-        if (yShiftMm) {
-            targetTransform = Object.freeze({
-                ...targetTransform,
-                ty: finiteNumber(targetTransform.ty) + yShiftMm,
-            });
+            const yShiftMm = finiteNumber(canonicalYShiftsMm?.get(cellSide));
+            if (yShiftMm) {
+                targetTransform = Object.freeze({
+                    ...targetTransform,
+                    ty: finiteNumber(targetTransform.ty) + yShiftMm,
+                });
+            }
+
+            const explicitProfileMatchCount = finiteNumber(
+                accessoryOccurrence.explicitProfileMatchCount
+            );
+            const matchedComponentCount = finiteNumber(
+                accessoryOccurrence.matchedComponentCount
+            );
+            const candidate = {
+                transform: targetTransform,
+                cellSide,
+                sideSign,
+                runtimeFaceMm: finalRuntimeFaceMm,
+                inwardFromMullionFaceMm,
+                explicitProfileMatchCount,
+                matchedComponentCount,
+                maxBboxErrorMm: finiteNumber(accessoryOccurrence.maxBboxErrorMm, Infinity),
+            };
+
+            if (!candidatesBySide.has(cellSide)) {
+                candidatesBySide.set(cellSide, []);
+            }
+            candidatesBySide.get(cellSide).push(candidate);
         }
-
-        const explicitProfileMatchCount = finiteNumber(
-            accessoryOccurrence.explicitProfileMatchCount
-        );
-        const matchedComponentCount = finiteNumber(
-            accessoryOccurrence.matchedComponentCount
-        );
-        const candidate = {
-            transform: targetTransform,
-            cellSide,
-            sideSign,
-            runtimeFaceMm,
-            inwardFromMullionFaceMm,
-            explicitProfileMatchCount,
-            matchedComponentCount,
-            maxBboxErrorMm: finiteNumber(accessoryOccurrence.maxBboxErrorMm, Infinity),
-        };
-
-        if (!candidatesBySide.has(cellSide)) {
-            candidatesBySide.set(cellSide, []);
-        }
-        candidatesBySide.get(cellSide).push(candidate);
     }
 
     const transforms = new Map();
@@ -1900,6 +1979,7 @@ function createDividerFixedBeadPlacement({
     dividerConnectionTemplate,
     standaloneBeadDefinition,
     frameBeadSourceTransform,
+    selection = null,
 }) {
     const rawTransforms = createDividerFixedAccessorySourceTransforms({
         definition,
@@ -1907,6 +1987,7 @@ function createDividerFixedBeadPlacement({
         profileId: '573940',
         role: 'glazing-bead',
         standaloneDefinition: standaloneBeadDefinition,
+        selection,
     });
     if (!rawTransforms.size) {
         return {
@@ -1950,6 +2031,15 @@ function createDividerFixedBeadPlacement({
             sourceCenter.y
         );
         const dividerInwardMm = globalMaxY - dividerPoint.y;
+        console.log("BEAD PLACEMENT DETAIL:", {
+            cellSide,
+            sideSign,
+            halfFaceMm,
+            dividerInwardMm,
+            frameInwardMm,
+            dividerPoint,
+            globalMaxY
+        });
 
         // Keep the exact physical bead position from the fixed/fixed join while
         // redefining the cell's virtual inner boundary so the frame-mounted
@@ -1972,6 +2062,7 @@ function createDividerFixedBeadPlacement({
         role: 'glazing-bead',
         standaloneDefinition: standaloneBeadDefinition,
         canonicalYShiftsMm,
+        selection,
     });
 
     return {
@@ -1987,6 +2078,7 @@ function applyFixedGlazingConnectionPlacements({
     frameFixedTemplate,
     dividerConnectionTemplate,
     dividerGasketConnectionTemplate = dividerConnectionTemplate,
+    selection = null,
 }) {
     if (!standaloneBeadDefinition || !frameFixedTemplate) return definition;
 
@@ -2015,6 +2107,7 @@ function applyFixedGlazingConnectionPlacements({
         dividerConnectionTemplate,
         standaloneBeadDefinition,
         frameBeadSourceTransform,
+        selection,
     });
     const dividerFixedGasketTargets = createDividerFixedDirectAccessoryTargets({
         definition,
@@ -2022,6 +2115,7 @@ function applyFixedGlazingConnectionPlacements({
         profileId: '224063',
         role: 'gasket',
         cellBoundariesMm: beadPlacement.cellBoundariesMm,
+        selection,
     });
     const mullionSashRebateGasketProfileId = resolveMixedJoinRebateGasketProfileId(
         dividerGasketConnectionTemplate
@@ -2273,13 +2367,27 @@ function applyFixedGlazingConnectionPlacements({
 export function applyOpeningSashDividerConnectionPlacements({
     definition,
     dividerConnectionTemplate,
+    selection = null,
 }) {
     if (!dividerConnectionTemplate || !definition.metadata?.dividerOrientation) {
         return definition;
     }
-    const openingCellSides = ['left', 'right'].filter(side =>
-        dividerConnectionTemplate?.[`${side}Cell`] === 'opening-sash'
-    );
+    const openingCellSides = ['left', 'right'].filter(side => {
+        if (dividerConnectionTemplate?.[`${side}Cell`] === 'opening-sash') return true;
+        const sel = selection || definition?.metadata;
+        if (sel) {
+            if (sel.cells && sel.cells.length >= 2) {
+                for (let i = 0; i < sel.cells.length - 1; i++) {
+                    if (side === 'left' && sel.cells[i] === 'opening-sash') return true;
+                    if (side === 'right' && sel.cells[i+1] === 'opening-sash') return true;
+                }
+            } else {
+                if (side === 'left' && sel.leftCell === 'opening-sash') return true;
+                if (side === 'right' && sel.rightCell === 'opening-sash') return true;
+            }
+        }
+        return false;
+    });
     if (!openingCellSides.length) return definition;
 
     const rebateGasketProfileId = resolveMixedJoinRebateGasketProfileId(
@@ -2547,6 +2655,54 @@ export function composeRegisteredProfileDefinitions({
     fixedGlazingDividerGasketTemplate = fixedGlazingDividerTemplate,
     standaloneBeadDefinition = null,
 }) {
+    if (
+        connectionTemplate &&
+        connectionTemplate.id === 'mullion-fixed-sash' &&
+        selection.leftCell === 'opening-sash' &&
+        selection.rightCell === 'fixed-glazing'
+    ) {
+        connectionTemplate = {
+            ...connectionTemplate,
+            leftCell: 'opening-sash',
+            rightCell: 'fixed-glazing',
+        };
+    }
+    if (
+        placementConnectionTemplate &&
+        placementConnectionTemplate.id === 'mullion-fixed-sash' &&
+        selection.leftCell === 'opening-sash' &&
+        selection.rightCell === 'fixed-glazing'
+    ) {
+        placementConnectionTemplate = {
+            ...placementConnectionTemplate,
+            leftCell: 'opening-sash',
+            rightCell: 'fixed-glazing',
+        };
+    }
+    if (
+        fixedGlazingDividerTemplate &&
+        fixedGlazingDividerTemplate.id === 'mullion-fixed-sash' &&
+        selection.leftCell === 'opening-sash' &&
+        selection.rightCell === 'fixed-glazing'
+    ) {
+        fixedGlazingDividerTemplate = {
+            ...fixedGlazingDividerTemplate,
+            leftCell: 'opening-sash',
+            rightCell: 'fixed-glazing',
+        };
+    }
+    if (
+        fixedGlazingDividerGasketTemplate &&
+        fixedGlazingDividerGasketTemplate.id === 'mullion-fixed-sash' &&
+        selection.leftCell === 'opening-sash' &&
+        selection.rightCell === 'fixed-glazing'
+    ) {
+        fixedGlazingDividerGasketTemplate = {
+            ...fixedGlazingDividerGasketTemplate,
+            leftCell: 'opening-sash',
+            rightCell: 'fixed-glazing',
+        };
+    }
     let definition = composeLegacyProfileDefinitions({
         selection,
         definitionsByProfileSetId,
@@ -2613,6 +2769,7 @@ export function composeRegisteredProfileDefinitions({
     if (
         selection.leftCell === 'fixed-glazing'
         || selection.rightCell === 'fixed-glazing'
+        || selection.cells?.includes('fixed-glazing')
     ) {
         definition = applyFixedGlazingConnectionPlacements({
             definition,
@@ -2620,16 +2777,18 @@ export function composeRegisteredProfileDefinitions({
             frameFixedTemplate: fixedGlazingFrameTemplate,
             dividerConnectionTemplate: fixedGlazingDividerTemplate,
             dividerGasketConnectionTemplate: fixedGlazingDividerGasketTemplate,
+            selection,
         });
     }
 
     if (
         dividerOrientation
-        && (selection.leftCell === 'opening-sash' || selection.rightCell === 'opening-sash')
+        && (selection.leftCell === 'opening-sash' || selection.rightCell === 'opening-sash' || selection.cells?.includes('opening-sash'))
     ) {
         definition = applyOpeningSashDividerConnectionPlacements({
             definition,
             dividerConnectionTemplate: connectionTemplate,
+            selection,
         });
     }
 

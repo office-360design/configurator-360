@@ -659,6 +659,41 @@ export function createWindowBuilder({
         return String(profile?.blockName || '').includes('224378') || profile.isGasketTemplate === true;
     }
 
+    function shouldRenderMullionAccessory(profile, cellSide, dividerOrientation, dividerIndex, layoutCellTypes, segmentId = null, isTLayout = false) {
+        if (!dividerOrientation) return true;
+        
+        let sideCellType = null;
+        if (isTLayout) {
+            if (dividerOrientation === 'vertical') {
+                sideCellType = cellSide === 'left' ? layoutCellTypes[1] : layoutCellTypes[2];
+            } else {
+                if (cellSide === 'left') {
+                    sideCellType = layoutCellTypes[0];
+                } else {
+                    if (segmentId === 'left') {
+                        sideCellType = layoutCellTypes[1];
+                    } else if (segmentId === 'right') {
+                        sideCellType = layoutCellTypes[2];
+                    } else {
+                        sideCellType = layoutCellTypes[1] || layoutCellTypes[2];
+                    }
+                }
+            }
+        } else {
+            sideCellType = cellSide === 'left'
+                ? layoutCellTypes[dividerIndex]
+                : layoutCellTypes[dividerIndex + 1];
+        }
+
+        if (isFrameToSashRebateGasket(profile) && sideCellType !== 'opening-sash') {
+            return false;
+        }
+        if (isFixedGlassAnchorGasket(profile) && sideCellType !== 'fixed-glazing') {
+            return false;
+        }
+        return true;
+    }
+
     function resolveAnchoredGlassDepth(cavity, thicknessMm, fallbackCenterZ) {
         if (!cavity) {
             return {
@@ -1336,7 +1371,7 @@ export function createWindowBuilder({
             joinCellSide: null,
         }];
         let openingCell = openingCells[0];
-        const fixedCells = [];
+        let fixedCells = [];
         const layoutCellTypes = dividerOrientation
             ? (
                 Array.isArray(layoutState.cells) && layoutState.cells.length >= 2
@@ -1346,7 +1381,11 @@ export function createWindowBuilder({
                         layoutState.rightCell || 'opening-sash',
                     ]
             )
-            : ['opening-sash'];
+            : (
+                Array.isArray(layoutState.cells) && layoutState.cells.length
+                    ? [...layoutState.cells]
+                    : [layoutState.rightCell || 'opening-sash']
+            );
         const leftCellType = layoutCellTypes[0] || 'fixed-glazing';
         const rightCellType = layoutCellTypes.at(-1) || 'opening-sash';
         // Only the T-layout transom needs to remap the authored CAD join
@@ -1408,6 +1447,7 @@ export function createWindowBuilder({
             const halfDividerFace = dividerFaceSpan / 2;
             const fixedBoundaryMm = currentMetadata.fixedGlazingConnections
                 ?.dividerCellBoundariesMm || {};
+
             const openingBoundaryMm = Number(
                 currentMetadata.dividerConnection
                     ?.openingSashDividerBoundaryFromCenterMm
@@ -1507,9 +1547,54 @@ export function createWindowBuilder({
                 return cell;
             });
 
+            console.log("3-WINDOW DEBUG: " + JSON.stringify({
+                layoutId: layoutState.layoutId,
+                cells: layoutCellTypes,
+                fixedBoundaryMm,
+                dividerSeats,
+                dividerPositions,
+                axisCells: axisCells.map(c => ({
+                    index: c.cellIndex,
+                    cellType: c.cellType,
+                    width: c.width,
+                    centerX: c.centerX,
+                    fixedAccessoryWidth: c.fixedAccessoryWidth,
+                    fixedAccessoryCenterX: c.fixedAccessoryCenterX
+                }))
+            }));
+
             openingCells = axisCells.filter(cell => cell.cellType === 'opening-sash');
             fixedCells.push(...axisCells.filter(cell => cell.cellType === 'fixed-glazing'));
             openingCell = openingCells[0] || null;
+        } else {
+            // Single window (no divider)
+            const cellType = layoutCellTypes[0] || 'opening-sash';
+            if (cellType === 'opening-sash') {
+                openingCells = [{
+                    id: 'opening-0',
+                    cellIndex: 0,
+                    cellType: 'opening-sash',
+                    width: A,
+                    height: B,
+                    centerX: 0,
+                    centerY: 0,
+                    handleSide: layoutState.cellHandleSides?.[0] || null,
+                }];
+                fixedCells = [];
+                openingCell = openingCells[0];
+            } else {
+                openingCells = [];
+                fixedCells = [{
+                    id: 'fixed-0',
+                    cellIndex: 0,
+                    cellType: 'fixed-glazing',
+                    width: A,
+                    height: B,
+                    centerX: 0,
+                    centerY: 0,
+                }];
+                openingCell = null;
+            }
         }
 
         if (openingCell) {
@@ -1951,6 +2036,9 @@ export function createWindowBuilder({
                                 // remains its own.
                                 tTransomSegments.forEach(segment => {
                                     if (segment.length <= 1e-6) return;
+                                    if (!shouldRenderMullionAccessory(profile, cellSide, dividerOrientation, 0, layoutCellTypes, segment.id, true)) {
+                                        return;
+                                    }
                                     const mesh = createDividerSegment(
                                         placedProfile,
                                         segment.length,
@@ -1992,6 +2080,9 @@ export function createWindowBuilder({
                     // the lower vertical mullion. No mixed-join mirroring.
                     Object.entries(profile.tLayoutVerticalMullionConnectionCadTransforms || {})
                         .forEach(([cellSide, cadTransform]) => {
+                            if (!shouldRenderMullionAccessory(profile, cellSide, 'vertical', 0, layoutCellTypes, null, true)) {
+                                return;
+                            }
                             const placedProfile = {
                                 ...profile,
                                 cadCoordinateTransform: cadTransform,
@@ -2047,6 +2138,9 @@ export function createWindowBuilder({
                             };
                             tTransomSegments.forEach(segment => {
                                 if (segment.length <= 1e-6) return;
+                                if (!shouldRenderMullionAccessory(profile, cellSide, dividerOrientation, 0, layoutCellTypes, segment.id, true)) {
+                                    return;
+                                }
                                 const mesh = createDividerSegment(
                                     placedProfile,
                                     segment.length,
@@ -2072,6 +2166,9 @@ export function createWindowBuilder({
                     Object.entries(
                         profile.tLayoutVerticalMullionAccessoryCadTransforms || {}
                     ).forEach(([cellSide, cadTransform]) => {
+                        if (!shouldRenderMullionAccessory(profile, cellSide, 'vertical', 0, layoutCellTypes, null, true)) {
+                            return;
+                        }
                         const placedProfile = {
                             ...profile,
                             cadCoordinateTransform: cadTransform,
@@ -2163,6 +2260,9 @@ export function createWindowBuilder({
                                     Number(currentMetadata.dividerConnection?.sectionRotationDeg) || 180,
                             };
                             activeDividerPositions.forEach((dividerPosition, dividerIndex) => {
+                                if (!shouldRenderMullionAccessory(profile, cellSide, dividerOrientation, dividerIndex, layoutCellTypes, null, isTopFixedBottomSashSash)) {
+                                    return;
+                                }
                                 const mesh = createDividerSegment(
                                     placedProfile,
                                     dividerLength,
@@ -2206,6 +2306,9 @@ export function createWindowBuilder({
                                     Number(currentMetadata.dividerConnection?.sectionRotationDeg) || 180,
                             };
                             activeDividerPositions.forEach((dividerPosition, dividerIndex) => {
+                                if (!shouldRenderMullionAccessory(profile, cellSide, dividerOrientation, dividerIndex, layoutCellTypes, null, isTopFixedBottomSashSash)) {
+                                    return;
+                                }
                                 const mesh = createDividerSegment(
                                     placedProfile,
                                     dividerLength,

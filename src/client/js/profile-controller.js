@@ -699,7 +699,8 @@ export function createProfileController({
                 ? await loadConnectionTemplate(connectionTemplateId)
                 : null;
             const hasFixedGlazingCell = normalizedSelection.leftCell === 'fixed-glazing'
-                || normalizedSelection.rightCell === 'fixed-glazing';
+                || normalizedSelection.rightCell === 'fixed-glazing'
+                || normalizedSelection.cells?.includes?.('fixed-glazing');
             const hasOpeningSashCell = normalizedSelection.leftCell === 'opening-sash'
                 || normalizedSelection.rightCell === 'opening-sash'
                 || normalizedSelection.cells?.includes?.('opening-sash');
@@ -753,8 +754,10 @@ export function createProfileController({
                 standaloneBeadDefinition,
             });
 
-            if ((normalizedSelection.layoutId || normalizedSelection.windowLayout)
-                === 'top-fixed-bottom-sash-sash') {
+            const isTLayout = (normalizedSelection.layoutId || normalizedSelection.windowLayout) === 'top-fixed-bottom-sash-sash'
+                || normalizedSelection.layoutKind === 't-grid'
+                || (normalizedSelection.layoutId && normalizedSelection.layoutId.startsWith('t-layout-'));
+            if (isTLayout) {
                 // The T layout has two different physical connections using the
                 // same standalone mullion/transom profile: the horizontal run is
                 // fixed | transom | sash, while the lower vertical run is

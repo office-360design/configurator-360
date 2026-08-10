@@ -1222,7 +1222,147 @@ body.capture-mode #cad-reference-button {
     color: #60a5fa;
 }
 
+.layout-selector-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+}
+
+.layout-categories-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.layout-category-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.layout-category-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #cbd5e1;
+    padding: 8px 4px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 4px;
+    min-height: 58px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.layout-category-btn svg.layout-cat-svg {
+    width: 20px;
+    height: 30px;
+    color: #94a3b8;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.layout-category-btn:hover:not(.active) {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+
+.layout-category-btn:hover:not(.active) svg.layout-cat-svg {
+    color: #fff;
+}
+
+.layout-category-btn.active {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: #3b82f6;
+    color: #60a5fa;
+}
+
+.layout-category-btn.active svg.layout-cat-svg {
+    color: #60a5fa;
+}
+
+/* Submenu container styles */
+.layout-submenu-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+/* Custom scrollbar for submenu container */
+.layout-submenu-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.layout-submenu-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.layout-submenu-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.layout-submenu-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    padding: 6px 2px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 4px;
+    min-height: 52px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.layout-submenu-btn svg {
+    width: 18px;
+    height: 26px;
+    color: #94a3b8;
+    transition: color 0.2s ease;
+}
+
+.layout-submenu-btn:hover:not(.active) {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.layout-submenu-btn:hover:not(.active) svg {
+    color: #fff;
+}
+
+.layout-submenu-btn.active {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: #3b82f6;
+    color: #60a5fa;
+}
+
+.layout-submenu-btn.active svg {
+    color: #60a5fa;
+}
+
 /* Premium Component Bubbles Section */
+
 .component-bubble-card {
     flex: 1;
     display: flex;

@@ -140,13 +140,7 @@ const requestedHandleSide = pageParams.get('handle_side') || pageParams.get('han
 if (requestedHandleSide === 'left' || requestedHandleSide === 'right') {
     selectedHandleSide = requestedHandleSide;
 }
-if (selectedHandleSide === 'left') {
-    document.getElementById('btnHandleLeft')?.classList.add('active');
-    document.getElementById('btnHandleRight')?.classList.remove('active');
-} else {
-    document.getElementById('btnHandleRight')?.classList.add('active');
-    document.getElementById('btnHandleLeft')?.classList.remove('active');
-}
+
 if (Number.isFinite(requestedGlassThickness)) {
     glassThicknessInput.value = String(
         Math.min(29, Math.max(16, requestedGlassThickness))

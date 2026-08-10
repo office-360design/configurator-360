@@ -28,6 +28,65 @@
     <div id="controls">
         <h1>Schüco Window System AW CT 65</h1>
 
+        <!-- Window Layout Selector -->
+        <div class="control-group layout-selector-group">
+            <label>Window Layout</label>
+            <div class="layout-categories-container">
+                <!-- First row -->
+                <div class="layout-category-row">
+                    <button type="button" class="layout-category-btn" data-category="1-window" title="1 Window">
+                        <svg class="layout-cat-svg" viewBox="6 3 12 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="7" y="4" width="10" height="16" stroke-width="1" />
+                        </svg>
+                        <span>1 window</span>
+                    </button>
+                    <button type="button" class="layout-category-btn" data-category="2-window" title="2 Windows">
+                        <svg class="layout-cat-svg" viewBox="6 3 12 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="7" y="4" width="4.7" height="16" stroke-width="1" />
+                            <rect x="12.3" y="4" width="4.7" height="16" stroke-width="1" />
+                        </svg>
+                        <span>2 window</span>
+                    </button>
+                    <button type="button" class="layout-category-btn" data-category="3-window" title="3 Windows">
+                        <svg class="layout-cat-svg" viewBox="6 3 12 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="7" y="4" width="3" height="16" stroke-width="1" />
+                            <rect x="10.5" y="4" width="3" height="16" stroke-width="1" />
+                            <rect x="14" y="4" width="3" height="16" stroke-width="1" />
+                        </svg>
+                        <span>3 window</span>
+                    </button>
+                </div>
+                <!-- Second row -->
+                <div class="layout-category-row" style="margin-top: 8px;">
+                    <button type="button" class="layout-category-btn" data-category="fixed-top" title="Fixed Window Top">
+                        <svg class="layout-cat-svg" viewBox="6 3 12 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="7" y="4" width="10" height="16" stroke-width="1" />
+                            <line x1="7" y1="9" x2="17" y2="9" stroke-width="1" />
+                        </svg>
+                        <span>fixed top</span>
+                    </button>
+                    <button type="button" class="layout-category-btn" data-category="fixed-bottom" title="Fixed Window Bottom">
+                        <svg class="layout-cat-svg" viewBox="6 3 12 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="7" y="4" width="10" height="16" stroke-width="1" />
+                            <line x1="7" y1="15" x2="17" y2="15" stroke-width="1" />
+                        </svg>
+                        <span>fixed bottom</span>
+                    </button>
+                    <button type="button" class="layout-category-btn" data-category="t-layout" title="Fixed Top, 2 Bottom">
+                        <svg class="layout-cat-svg" viewBox="6 3 12 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="7" y="4" width="10" height="16" stroke-width="1" />
+                            <line x1="7" y1="9" x2="17" y2="9" stroke-width="1" />
+                            <line x1="12" y1="9" x2="12" y2="20" stroke-width="1" />
+                        </svg>
+                        <span>fixed top + 2 bottom</span>
+                    </button>
+                </div>
+            </div>
+
+            <label style="margin-top: 14px; margin-bottom: 6px;">Layout options</label>
+            <div class="layout-submenu-container" id="layoutSubmenuContainer"></div>
+        </div>
+
         <div class="control-group profile-selection-group">
             <div class="profile-selection-toolbar">
                 <button id="toggleSectionViewBtn" type="button" aria-label="Toggle 10cm Section View"
@@ -74,8 +133,8 @@
                         <option value="575790">575790</option>
                     </select>
 
-                    <label for="windowLayout">Window layout</label>
-                    <select id="windowLayout">
+                    <label for="windowLayout" style="display: none;">Window layout</label>
+                    <select id="windowLayout" style="display: none;">
                         <option value="single" selected>Single opening</option>
                         <option value="vertical-divider">Vertical mullion</option>
                         <option value="vertical-fixed-fixed">Vertical mullion — fixed / fixed</option>
@@ -172,31 +231,7 @@
             </div>
         </div>
 
-        <div class="control-group">
-            <label>Opening:</label>
-            <div style="display: flex; gap: 8px;">
-                <button type="button" id="btnHandleLeft" class="handle-side-btn"
-                    style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="30" viewBox="6 3 12 18" fill="none"
-                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="7" y="4" width="10" height="16" stroke-width="1" />
-                        <polyline points="17 4 7 12 17 20" stroke-width="0.6" />
-                        <polyline points="7 20 12 4 17 20" stroke-width="0.6" />
-                    </svg>
-                    <span>Left</span>
-                </button>
-                <button type="button" id="btnHandleRight" class="handle-side-btn active"
-                    style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <span>Right</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="30" viewBox="6 3 12 18" fill="none"
-                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="7" y="4" width="10" height="16" stroke-width="1" />
-                        <polyline points="7 4 17 12 7 20" stroke-width="0.6" />
-                        <polyline points="7 20 12 4 17 20" stroke-width="0.6" />
-                    </svg>
-                </button>
-            </div>
-        </div>
+
 
         <div class="control-group">
             <label>Glass Thickness: <span id="valGlassThickness">24 mm</span></label>

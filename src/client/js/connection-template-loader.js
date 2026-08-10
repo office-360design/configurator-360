@@ -138,40 +138,33 @@ export function getConnectionTemplateIdForLayout({
     leftCell = 'fixed-glazing',
     rightCell = 'opening-sash',
 } = {}) {
-    if (layoutId === 'top-fixed-bottom-sash-sash') {
+    if (layoutId === 'top-fixed-bottom-sash-sash' || (layoutId && layoutId.startsWith('t-layout-'))) {
         // The T layout uses this connection for the horizontal transom:
         // fixed glazing above, opening sashes below. The builder rotates the
         // verified left/right join into top/bottom space and separately loads
         // mullion-sash-sash for the lower vertical mullion.
         return 'mullion-fixed-sash';
     }
-    if (
-        (dividerOrientation === 'vertical' || dividerOrientation === 'horizontal')
-        && leftCell === 'fixed-glazing'
-        && rightCell === 'opening-sash'
-    ) {
-        // The join CAD is a left/right cross-section. A horizontal transom uses
-        // the same physical fixed-side / sash-side relationship, rotated into
-        // bottom/top window space by the builder. Reuse the exact same join
-        // metadata instead of falling back to the old unconnected transom path.
-        return 'mullion-fixed-sash';
-    }
-    if (
-        (dividerOrientation === 'vertical' || dividerOrientation === 'horizontal')
-        && leftCell === 'fixed-glazing'
-        && rightCell === 'fixed-glazing'
-    ) {
-        // Fixed/fixed mullion and transom runs use the same left/right join
-        // section. Horizontal placement is a runtime rotation of that exact
-        // connection, just like the verified mixed transom path.
-        return 'mullion-fixed-fixed';
-    }
-    if (
-        dividerOrientation === 'vertical'
-        && leftCell === 'opening-sash'
-        && rightCell === 'opening-sash'
-    ) {
-        return 'mullion-sash-sash';
+    if (dividerOrientation === 'vertical' || dividerOrientation === 'horizontal') {
+        if (
+            (leftCell === 'fixed-glazing' && rightCell === 'opening-sash') ||
+            (leftCell === 'opening-sash' && rightCell === 'fixed-glazing')
+        ) {
+            // The join CAD is a left/right cross-section. A horizontal transom uses
+            // the same physical fixed-side / sash-side relationship, rotated into
+            // bottom/top window space by the builder. Reuse the exact same join
+            // metadata instead of falling back to the old unconnected transom path.
+            return 'mullion-fixed-sash';
+        }
+        if (leftCell === 'fixed-glazing' && rightCell === 'fixed-glazing') {
+            // Fixed/fixed mullion and transom runs use the same left/right join
+            // section. Horizontal placement is a runtime rotation of that exact
+            // connection, just like the verified mixed transom path.
+            return 'mullion-fixed-fixed';
+        }
+        if (leftCell === 'opening-sash' && rightCell === 'opening-sash') {
+            return 'mullion-sash-sash';
+        }
     }
     return null;
 }

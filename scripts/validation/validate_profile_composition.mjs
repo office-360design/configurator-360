@@ -1580,6 +1580,9 @@ const actualHorizontalBottomFrameTransform =
     actualHorizontalBottomBead?.fixedGlazingFrameCadTransform;
 const actualHorizontalBottomDividerTransform =
     actualHorizontalBottomBead?.fixedGlazingDividerCadTransforms?.right;
+console.log('DEBUG COMPOSITION (Horizontal):');
+console.log('actualHorizontalBottomFrameTransform:', actualHorizontalBottomFrameTransform);
+console.log('actualHorizontalBottomDividerTransform:', actualHorizontalBottomDividerTransform);
 assert(
     actualHorizontalBottomFrameTransform
         && actualHorizontalBottomDividerTransform
@@ -1626,6 +1629,9 @@ const actualTBottomBead = actualTPrimaryComposition.profiles.find(profile =>
 );
 const actualTBottomFrameTransform = actualTBottomBead?.fixedGlazingFrameCadTransform;
 const actualTBottomDividerTransform = actualTBottomBead?.fixedGlazingDividerCadTransforms?.left;
+console.log('DEBUG COMPOSITION (T-layout):');
+console.log('actualTBottomFrameTransform:', actualTBottomFrameTransform);
+console.log('actualTBottomDividerTransform:', actualTBottomDividerTransform);
 assert(
     actualTPrimaryComposition.metadata.dividerOrientation === 'horizontal'
         && actualTBottomFrameTransform

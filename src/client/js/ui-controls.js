@@ -173,22 +173,6 @@ export function initializeUIControls({
     document.getElementById('mBatant').addEventListener('change', buildWindow);
     document.getElementById('mOscilo').addEventListener('change', buildWindow);
 
-    const handleLeftButton = document.getElementById('btnHandleLeft');
-    const handleRightButton = document.getElementById('btnHandleRight');
-    if (handleLeftButton && handleRightButton) {
-        handleLeftButton.addEventListener('click', () => {
-            setSelectedHandleSide('left');
-            handleLeftButton.classList.add('active');
-            handleRightButton.classList.remove('active');
-            buildWindow();
-        });
-        handleRightButton.addEventListener('click', () => {
-            setSelectedHandleSide('right');
-            handleRightButton.classList.add('active');
-            handleLeftButton.classList.remove('active');
-            buildWindow();
-        });
-    }
 
     const batantButton = document.getElementById('btnModeBatant');
     const osciloButton = document.getElementById('btnModeOscilo');
