@@ -32,7 +32,7 @@ jobs:
             package-lock.json
             pergola-configurator/package-lock.json
 
-      # Window configurator
+      # Window configurator / shared static site
       - name: Install window configurator dependencies
         run: npm ci
 
@@ -46,17 +46,28 @@ jobs:
       - name: Build pergola configurator
         run: npm run build --prefix pergola-configurator
 
-      # Add the other configurators to the Pages artifact
+      # Add standalone configurators to the same Pages artifact. These projects
+      # import the common ../shared-ui resources already prepared in dist/site.
       - name: Add configurators to Pages output
+        shell: bash
         run: |
+          set -euo pipefail
+
           mkdir -p dist/site/pergola-configurator
           cp -R pergola-configurator/dist/. dist/site/pergola-configurator/
 
-          mkdir -p dist/site/roof-configurator
-          cp -R roof-configurator/. dist/site/roof-configurator/
+          if [ -d roof-configurator ]; then
+            mkdir -p dist/site/roof-configurator
+            cp -R roof-configurator/. dist/site/roof-configurator/
+          fi
 
-          mkdir -p dist/site/solar-configurator
-          cp -R solar-configurator/. dist/site/solar-configurator/
+          if [ -d solar-configurator ]; then
+            mkdir -p dist/site/solar-configurator
+            cp -R solar-configurator/. dist/site/solar-configurator/
+          fi
+
+          mkdir -p dist/site/hall-configurator
+          cp -R hall-configurator/. dist/site/hall-configurator/
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
