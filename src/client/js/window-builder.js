@@ -1730,13 +1730,21 @@ export function createWindowBuilder({
         // cross-sectional seat comes only from CAD. On divided layouts the
         // accessory is emitted only on frame segments bordering an opening sash.
         activeProfiles
-            .filter(profile =>
-                profile.section !== 'bottom'
-                && Boolean(profile.frameAccessoryCadTransform)
-            )
+            .filter(profile => Boolean(profile.frameAccessoryCadTransform))
             .forEach(profile => {
                 sides.forEach(side => {
                     if (!shouldPlaceProfileOnSide(profile, side)) return;
+
+                    // Supplemental connection accessories can carry separate
+                    // top and bottom source sections. The top source is the
+                    // reusable section for top/left/right, while the bottom
+                    // source contains the CAD/source orientation required by
+                    // the bottom frame. Previously the bottom source was
+                    // filtered out entirely, so the exact frame-sash 200988
+                    // path could never emit a bottom-frame component.
+                    const placementSection = profile.placementSection || profile.section;
+                    if (placementSection === 'bottom' && side !== 'bottom') return;
+                    if (placementSection === 'top' && side === 'bottom') return;
 
                     const placedProfile = {
                         ...profile,
