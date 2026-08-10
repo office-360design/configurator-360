@@ -357,20 +357,65 @@ body.shared-ui-dark-mode { background: #0f172a !important; }
 .shared-ui-host .tools-toolbar--up .tools-toolbar__panel { flex-direction: column; }
 .shared-ui-host .tools-toolbar__panel:empty { display: none; }
 
-/* v1.5.0 paired theme colors for standalone shared shells. */
-.shared-ui-host {
-  --ui-text-primary: #172027;
-  --ui-text-secondary: #778087;
-  --ui-text-action: #005a9f;
+/* Shared tools v2: tool buttons expand from the launcher instead of remaining
+   permanently visible. This is shared behavior for every standalone configurator. */
+.shared-ui-host .tools-toolbar {
+  align-items: center;
 }
-
-.shared-ui-host.is-dark-mode {
-  --ui-text-primary: #e2e8f0;
-  --ui-text-secondary: #94a3b8;
-  --ui-text-action: #93c5fd;
+.shared-ui-host .tools-toolbar__panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 0;
+  max-height: 58px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-8px) scale(.98);
+  transform-origin: left center;
+  transition: max-width .18s ease, max-height .18s ease, opacity .15s ease, transform .18s ease;
 }
-
-.shared-ui-host .account-settings__cookies strong,
-.shared-ui-host.is-dark-mode .account-settings__cookies strong {
-  color: var(--ui-text-action);
+.shared-ui-host .tools-toolbar__panel.is-open {
+  max-width: 380px;
+  max-height: 380px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0) scale(1);
 }
+.shared-ui-host .tools-toolbar--down .tools-toolbar__panel,
+.shared-ui-host .tools-toolbar--up .tools-toolbar__panel {
+  max-width: 58px;
+  max-height: 0;
+  transform: translateY(-8px) scale(.98);
+  transform-origin: top center;
+}
+.shared-ui-host .tools-toolbar--down .tools-toolbar__panel.is-open,
+.shared-ui-host .tools-toolbar--up .tools-toolbar__panel.is-open {
+  max-height: 380px;
+  transform: translateY(0) scale(1);
+}
+.shared-ui-host .round-tool {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(17,29,35,.08);
+  border-radius: 50%;
+  color: #173b52;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 8px 22px rgba(20,32,39,.12);
+  cursor: pointer;
+  transition: transform .16s ease, background .16s ease, color .16s ease, border-color .16s ease;
+}
+.shared-ui-host .round-tool:hover:not(:disabled) { transform: translateY(-1px); }
+.shared-ui-host .round-tool.is-active { color: #fff; background: var(--blue-700); border-color: var(--blue-700); }
+.shared-ui-host .round-tool > span { display: grid; width: 23px; height: 23px; place-items: center; }
+.shared-ui-host .round-tool svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.shared-ui-host.is-dark-mode .round-tool {
+  color: #e7eef3;
+  background: rgba(20,31,45,.94);
+  border-color: rgba(255,255,255,.11);
+}
+.shared-ui-host.is-dark-mode .round-tool.is-active { color: #fff; background: var(--blue-700); border-color: var(--blue-700); }
