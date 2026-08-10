@@ -1,5 +1,4 @@
-import { deriveHallMetrics } from './state.js?v=2';
-import { buildBom, bomToCsv } from './bom.js?v=2';
+import { buildBom, bomToCsv } from './bom.js?v=4';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
@@ -23,31 +22,9 @@ export class HallUI {
     this.bindViews();
     this.bindExplode();
     this.bindBom();
-    this.bindSidebar();
     this.applyStateToControls();
   }
 
-
-  bindSidebar() {
-    const panel = document.querySelector('.sidebar');
-    const toggle = document.querySelector('#hallSidebarToggle');
-    const jump = document.querySelector('#settingsJumpButton');
-    if (!panel || !toggle) return;
-
-    const setCollapsed = (collapsed) => {
-      panel.classList.toggle('is-collapsed', collapsed);
-      document.body.classList.toggle('hall-sidebar-collapsed', collapsed);
-      toggle.setAttribute('aria-expanded', String(!collapsed));
-      toggle.setAttribute('aria-label', collapsed ? 'Show hall settings' : 'Hide hall settings');
-      toggle.title = collapsed ? 'Show hall settings' : 'Hide hall settings';
-    };
-
-    toggle.addEventListener('click', () => setCollapsed(!panel.classList.contains('is-collapsed')));
-    jump?.addEventListener('click', () => {
-      setCollapsed(false);
-      panel.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  }
 
   bindRanges() {
     document.querySelectorAll('[data-control]').forEach((control) => {
@@ -249,10 +226,6 @@ export class HallUI {
     document.querySelector('#actualSpacingInfo').textContent = `${metrics.bayCount} bays · ${metrics.actualBaySpacing.toFixed(2)} m actual spacing`;
     const profileInfo = document.querySelector('#profileInfo');
     if (profileInfo && build.profileSchedule) profileInfo.textContent = `${build.profileSchedule.columns} columns · ${build.profileSchedule.rafters} rafters · ${build.profileSchedule.purlins} purlins`;
-    document.querySelector('#metricFootprint').textContent = `${metrics.footprint.toFixed(0)} m²`;
-    document.querySelector('#metricFrames').textContent = String(metrics.frameCount);
-    document.querySelector('#metricSpacing').textContent = `${metrics.actualBaySpacing.toFixed(2)} m`;
-    document.querySelector('#metricRidge').textContent = `${metrics.ridgeElevation.toFixed(2)} m`;
 
     const lines = buildBom(this.state, build);
     document.querySelector('#headerBomSummary').textContent = `${lines.length} lines`;

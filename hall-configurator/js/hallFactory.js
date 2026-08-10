@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets } from './state.js?v=2';
+import { deriveHallMetrics, structurePresets } from './state.js?v=4';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -62,35 +62,90 @@ function cylinderBetween(a, b, radius, mat, name, radialSegments = 10) {
   return mesh;
 }
 
+function iSectionGeometry(section, length) {
+  const d = section.depth;
+  const b = section.flangeWidth;
+  const tf = Math.min(section.flange, d * .24);
+  const tw = Math.min(section.web, b * .36);
+  const x = b / 2;
+  const y = d / 2;
+  const wx = tw / 2;
+  const fy = y - tf;
+  const shape = new THREE.Shape();
+  shape.moveTo(-x, y);
+  shape.lineTo(x, y);
+  shape.lineTo(x, fy);
+  shape.lineTo(wx, fy);
+  shape.lineTo(wx, -fy);
+  shape.lineTo(x, -fy);
+  shape.lineTo(x, -y);
+  shape.lineTo(-x, -y);
+  shape.lineTo(-x, -fy);
+  shape.lineTo(-wx, -fy);
+  shape.lineTo(-wx, fy);
+  shape.lineTo(-x, fy);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: Math.max(.01, length),
+    bevelEnabled: false,
+    curveSegments: 1,
+    steps: 1,
+  });
+  geometry.translate(0, 0, -length / 2);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function iMemberBetween(a, b, section, mat, name, technicalEdges = false) {
   const group = new THREE.Group();
   group.name = name;
   const length = orientGroupBetween(group, a, b, AXIS_Z);
-  const depth = section.depth;
-  const flangeWidth = section.flangeWidth;
-  const flange = Math.min(section.flange, depth * .22);
-  const web = Math.min(section.web, flangeWidth * .35);
-  const webHeight = Math.max(.01, depth - flange * 2);
-
-  const top = boxMesh(new THREE.Vector3(flangeWidth, flange, length), mat, `${name}-top-flange`, technicalEdges);
-  top.position.y = depth / 2 - flange / 2;
-  const bottom = boxMesh(new THREE.Vector3(flangeWidth, flange, length), mat, `${name}-bottom-flange`, technicalEdges);
-  bottom.position.y = -depth / 2 + flange / 2;
-  const webMesh = boxMesh(new THREE.Vector3(web, webHeight, length), mat, `${name}-web`, technicalEdges);
-  group.add(top, bottom, webMesh);
+  const mesh = new THREE.Mesh(iSectionGeometry(section, length), mat);
+  mesh.name = `${name}-rolled-i-section`;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  addEdges(mesh, technicalEdges);
+  group.add(mesh);
   return group;
+}
+
+function zSectionGeometry(depth, flangeWidth, thickness, length) {
+  const d = depth;
+  const f = flangeWidth;
+  const t = Math.min(thickness, Math.min(d, f) * .3);
+  const shape = new THREE.Shape();
+  // Open thin-walled Z profile. Keeping it as one extruded section makes the real
+  // cross-section visible in close-up and exploded views instead of three bars.
+  shape.moveTo(-t / 2, d / 2);
+  shape.lineTo(f - t / 2, d / 2);
+  shape.lineTo(f - t / 2, d / 2 - t);
+  shape.lineTo(t / 2, d / 2 - t);
+  shape.lineTo(t / 2, -d / 2 + t);
+  shape.lineTo(-f + t / 2, -d / 2 + t);
+  shape.lineTo(-f + t / 2, -d / 2);
+  shape.lineTo(-t / 2, -d / 2);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: Math.max(.01, length),
+    bevelEnabled: false,
+    curveSegments: 1,
+    steps: 1,
+  });
+  geometry.translate(0, 0, -length / 2);
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 function zMemberBetween(a, b, depth, flangeWidth, thickness, mat, name, technicalEdges = false) {
   const group = new THREE.Group();
   group.name = name;
   const length = orientGroupBetween(group, a, b, AXIS_Z);
-  const web = boxMesh(new THREE.Vector3(thickness, depth, length), mat, `${name}-web`, technicalEdges);
-  const top = boxMesh(new THREE.Vector3(flangeWidth, thickness, length), mat, `${name}-top-flange`, technicalEdges);
-  const bottom = boxMesh(new THREE.Vector3(flangeWidth, thickness, length), mat, `${name}-bottom-flange`, technicalEdges);
-  top.position.set(flangeWidth / 2 - thickness / 2, depth / 2 - thickness / 2, 0);
-  bottom.position.set(-flangeWidth / 2 + thickness / 2, -depth / 2 + thickness / 2, 0);
-  group.add(web, top, bottom);
+  const mesh = new THREE.Mesh(zSectionGeometry(depth, flangeWidth, thickness, length), mat);
+  mesh.name = `${name}-rolled-z-section`;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  addEdges(mesh, technicalEdges);
+  group.add(mesh);
   return group;
 }
 
@@ -161,6 +216,210 @@ function addBoltHeadAlongZ(group, position, radius, length, mat, name) {
   return bolt;
 }
 
+function addWasherAlongZ(group, position, outerRadius, thickness, mat, name) {
+  const washer = new THREE.Mesh(new THREE.CylinderGeometry(outerRadius, outerRadius, thickness, 18), mat);
+  washer.name = name;
+  washer.rotation.x = Math.PI / 2;
+  washer.position.copy(position);
+  washer.castShadow = true;
+  group.add(washer);
+  return washer;
+}
+
+function addBoltAssemblyAlongZ(group, position, shankRadius, gripLength, mat, name) {
+  const assembly = new THREE.Group();
+  assembly.name = name;
+  const shank = new THREE.Mesh(new THREE.CylinderGeometry(shankRadius, shankRadius, gripLength, 12), mat);
+  shank.rotation.x = Math.PI / 2;
+  shank.castShadow = true;
+  assembly.add(shank);
+
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(shankRadius * 1.75, shankRadius * 1.75, shankRadius * .95, 6), mat);
+  head.rotation.x = Math.PI / 2;
+  head.position.z = -gripLength / 2 - shankRadius * .48;
+  head.castShadow = true;
+  assembly.add(head);
+
+  const washerA = new THREE.Mesh(new THREE.CylinderGeometry(shankRadius * 2.05, shankRadius * 2.05, shankRadius * .35, 18), mat);
+  washerA.rotation.x = Math.PI / 2;
+  washerA.position.z = -gripLength / 2 + shankRadius * .20;
+  assembly.add(washerA);
+  const washerB = washerA.clone();
+  washerB.position.z = gripLength / 2 - shankRadius * .20;
+  assembly.add(washerB);
+
+  const nut = new THREE.Mesh(new THREE.CylinderGeometry(shankRadius * 1.82, shankRadius * 1.82, shankRadius * 1.05, 6), mat);
+  nut.rotation.x = Math.PI / 2;
+  nut.position.z = gripLength / 2 + shankRadius * .52;
+  nut.castShadow = true;
+  assembly.add(nut);
+  assembly.position.copy(position);
+  group.add(assembly);
+  return assembly;
+}
+
+function triangularPrism(points, thickness, mat, name, technicalEdges = false) {
+  const shape = new THREE.Shape();
+  shape.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i += 1) shape.lineTo(points[i][0], points[i][1]);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, steps: 1 });
+  geometry.translate(0, 0, -thickness / 2);
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, mat);
+  mesh.name = name;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  addEdges(mesh, technicalEdges);
+  return mesh;
+}
+
+function createRidgeCap(length, pitchRad, legLength, thickness, mat, name, technicalEdges = false) {
+  const run = Math.cos(pitchRad) * legLength;
+  const fall = Math.sin(pitchRad) * legLength;
+  const innerDrop = Math.max(thickness, .012);
+  const shape = new THREE.Shape();
+  // One folded sheet instead of two intersecting bars: the ridge fold remains visible
+  // and the inner skin follows the same V so no daylight appears at the crown.
+  shape.moveTo(-run, -fall);
+  shape.lineTo(0, 0);
+  shape.lineTo(run, -fall);
+  shape.lineTo(run, -fall - innerDrop);
+  shape.lineTo(0, -innerDrop / Math.max(.45, Math.cos(pitchRad)));
+  shape.lineTo(-run, -fall - innerDrop);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: length,
+    bevelEnabled: false,
+    curveSegments: 1,
+    steps: 1,
+  });
+  geometry.translate(0, 0, -length / 2);
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, mat);
+  mesh.name = name;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  addEdges(mesh, technicalEdges);
+  return mesh;
+}
+
+function addWallSeams(group, orientation, width, height, position, color = 0x8a969e) {
+  const positions = [];
+  const step = 1.0;
+  if (orientation === 'front' || orientation === 'back') {
+    for (let x = -width / 2 + step; x < width / 2 - .01; x += step) {
+      positions.push(x, 0, 0, x, height, 0);
+    }
+  } else {
+    for (let z = -width / 2 + step; z < width / 2 - .01; z += step) {
+      positions.push(0, 0, z, 0, height, z);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color, transparent: true, opacity: .18 }));
+  lines.position.copy(position);
+  group.add(lines);
+  return lines;
+}
+
+function createRollerDoorAssembly(width, height, doorMat, trimMat, fastenerMat, technicalEdges = false) {
+  const group = new THREE.Group();
+  group.name = 'roller-shutter-assembly';
+  const leaf = boxMesh(new THREE.Vector3(width, height, .065), doorMat, 'roller-door-leaf', technicalEdges);
+  leaf.position.y = height / 2;
+  group.add(leaf);
+
+  const jamb = .12;
+  for (const side of [-1, 1]) {
+    const track = boxMesh(new THREE.Vector3(jamb, height + .20, .13), trimMat, `roller-door-track-${side}`, technicalEdges);
+    track.position.set(side * (width / 2 + jamb / 2), (height + .20) / 2, -.005);
+    group.add(track);
+  }
+  const lintel = boxMesh(new THREE.Vector3(width + jamb * 2, .16, .14), trimMat, 'roller-door-lintel', technicalEdges);
+  lintel.position.set(0, height + .08, 0);
+  group.add(lintel);
+  const hood = boxMesh(new THREE.Vector3(width + .34, .30, .24), trimMat, 'roller-door-hood', technicalEdges);
+  hood.position.set(0, height + .31, .03);
+  group.add(hood);
+  const bottomRail = boxMesh(new THREE.Vector3(width, .10, .095), trimMat, 'roller-door-bottom-rail', technicalEdges);
+  bottomRail.position.set(0, .05, -.045);
+  group.add(bottomRail);
+
+  const slatSpacing = .22;
+  const slatCount = Math.max(6, Math.floor(height / slatSpacing));
+  for (let i = 1; i < slatCount; i += 1) {
+    const slat = boxMesh(new THREE.Vector3(width - .08, .022, .075), trimMat, `roller-door-slat-${i}`, false);
+    slat.position.set(0, (height * i) / slatCount, -.04);
+    group.add(slat);
+  }
+
+  const lockPlate = boxMesh(new THREE.Vector3(.19, .14, .035), trimMat, 'roller-door-lock-plate', technicalEdges);
+  lockPlate.position.set(.22, .78, -.07);
+  group.add(lockPlate);
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(.017, .017, .15, 12), fastenerMat);
+  handle.rotation.x = Math.PI / 2;
+  handle.position.set(.22, .78, -.12);
+  group.add(handle);
+  return group;
+}
+
+function createPersonnelDoorAssembly(trimMat, leafMat, glassMat, fastenerMat, technicalEdges = false) {
+  const group = new THREE.Group();
+  group.name = 'personnel-door-assembly';
+  const width = 1.0;
+  const height = 2.1;
+  const frameT = .075;
+  const leaf = boxMesh(new THREE.Vector3(width - frameT * 2, height - frameT * 2, .055), leafMat, 'personnel-door-leaf', technicalEdges);
+  leaf.position.y = height / 2;
+  group.add(leaf);
+  for (const side of [-1, 1]) {
+    const jamb = boxMesh(new THREE.Vector3(frameT, height + .08, .10), trimMat, `personnel-door-jamb-${side}`, technicalEdges);
+    jamb.position.set(side * (width / 2 - frameT / 2), (height + .08) / 2, 0);
+    group.add(jamb);
+  }
+  const head = boxMesh(new THREE.Vector3(width, frameT, .10), trimMat, 'personnel-door-head', technicalEdges);
+  head.position.set(0, height - frameT / 2, 0);
+  group.add(head);
+  const threshold = boxMesh(new THREE.Vector3(width, .035, .12), trimMat, 'personnel-door-threshold', technicalEdges);
+  threshold.position.set(0, .018, 0);
+  group.add(threshold);
+
+  const visionWidth = .30;
+  const visionHeight = .48;
+  const visionFrameT = .03;
+  const vision = boxMesh(new THREE.Vector3(visionWidth, visionHeight, .025), glassMat, 'personnel-door-vision-panel', technicalEdges);
+  vision.position.set(0, 1.55, -.047);
+  group.add(vision);
+  for (const side of [-1, 1]) {
+    const bar = boxMesh(new THREE.Vector3(visionFrameT, visionHeight + visionFrameT * 2, .038), trimMat, `personnel-door-vision-frame-side-${side}`, technicalEdges);
+    bar.position.set(side * (visionWidth / 2 + visionFrameT / 2), 1.55, -.028);
+    group.add(bar);
+  }
+  for (const side of [-1, 1]) {
+    const bar = boxMesh(new THREE.Vector3(visionWidth + visionFrameT * 2, visionFrameT, .038), trimMat, `personnel-door-vision-frame-horizontal-${side}`, technicalEdges);
+    bar.position.set(0, 1.55 + side * (visionHeight / 2 + visionFrameT / 2), -.028);
+    group.add(bar);
+  }
+  vision.renderOrder = 2;
+
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .16, 12), fastenerMat);
+  handle.rotation.x = Math.PI / 2;
+  handle.position.set(.34, 1.02, -.09);
+  group.add(handle);
+  const escutcheon = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .018, 16), trimMat);
+  escutcheon.rotation.x = Math.PI / 2;
+  escutcheon.position.set(.34, 1.02, -.067);
+  group.add(escutcheon);
+  for (const y of [.42, 1.05, 1.72]) {
+    const hinge = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .12, 10), fastenerMat);
+    hinge.position.set(-width / 2 + .03, y, .055);
+    group.add(hinge);
+  }
+  return group;
+}
+
 function roofPoint(state, metrics, side, t, z) {
   const halfW = state.width / 2;
   if (side < 0) {
@@ -198,6 +457,7 @@ export function buildHallModel(state) {
     primaryColumns: 0,
     rafters: 0,
     footings: 0,
+    foundationPiers: 0,
     roofPurlinLines: 0,
     wallGirtLines: 0,
     endPosts: 0,
@@ -209,6 +469,7 @@ export function buildHallModel(state) {
     connectionPlates: 0,
     anchorRods: 0,
     fasteners: 0,
+    washers: 0,
     purlinCleats: 0,
   };
 
@@ -267,58 +528,98 @@ export function buildHallModel(state) {
     counts.primaryColumns += 2;
     counts.rafters += 2;
 
-    const braceInset = Math.min(1.35, state.width * .09);
-    const braceDrop = Math.min(1.1, state.eaveHeight * .21);
-    primary.add(memberBetween(
-      new THREE.Vector3(-halfW, state.eaveHeight - braceDrop, z),
-      new THREE.Vector3(-halfW + braceInset, state.eaveHeight + Math.tan(pitchRad) * braceInset, z),
-      .085, .085, primaryMat, `frame-${frameIndex}-left-haunch`, technicalEdges,
-    ));
-    primary.add(memberBetween(
-      new THREE.Vector3(halfW, state.eaveHeight - braceDrop, z),
-      new THREE.Vector3(halfW - braceInset, state.eaveHeight + Math.tan(pitchRad) * braceInset, z),
-      .085, .085, primaryMat, `frame-${frameIndex}-right-haunch`, technicalEdges,
-    ));
+    const braceInset = Math.min(1.55, state.width * .11);
+    const braceDrop = Math.min(1.25, state.eaveHeight * .23);
+    const leftHaunch = triangularPrism([
+      [-halfW + .02, state.eaveHeight - braceDrop],
+      [-halfW + .02, state.eaveHeight - .10],
+      [-halfW + braceInset, state.eaveHeight + Math.tan(pitchRad) * braceInset - .13],
+    ], Math.max(.12, preset.rafterFlangeWidth * .72), primaryMat, `frame-${frameIndex}-left-tapered-haunch`, technicalEdges);
+    leftHaunch.position.z = z;
+    primary.add(leftHaunch);
+    const rightHaunch = triangularPrism([
+      [halfW - .02, state.eaveHeight - braceDrop],
+      [halfW - .02, state.eaveHeight - .10],
+      [halfW - braceInset, state.eaveHeight + Math.tan(pitchRad) * braceInset - .13],
+    ], Math.max(.12, preset.rafterFlangeWidth * .72), primaryMat, `frame-${frameIndex}-right-tapered-haunch`, technicalEdges);
+    rightHaunch.position.z = z;
+    primary.add(rightHaunch);
 
     for (const side of [-1, 1]) {
       const x = side * halfW;
-      const footing = boxMesh(new THREE.Vector3(.82, .28, .82), footingMat, `frame-${frameIndex}-footing-${side}`, technicalEdges);
-      footing.position.set(x, -.20, z);
+
+      // Concrete pad + raised pedestal create the visible foundation pylon / anchor cage
+      // seen in the IFC reference when the envelope is removed or exploded.
+      const footing = boxMesh(new THREE.Vector3(1.05, .28, 1.05), footingMat, `frame-${frameIndex}-foundation-pad-${side}`, technicalEdges);
+      footing.position.set(x, -.62, z);
       footingsGroup.add(footing);
       counts.footings += 1;
+      const pedestal = boxMesh(new THREE.Vector3(.68, .78, .68), footingMat, `frame-${frameIndex}-foundation-pedestal-${side}`, technicalEdges);
+      pedestal.position.set(x, -.25, z);
+      footingsGroup.add(pedestal);
+      counts.foundationPiers += 1;
 
-      const basePlate = boxMesh(new THREE.Vector3(.50, .035, .50), plateMat, `frame-${frameIndex}-base-plate-${side}`, technicalEdges);
-      basePlate.position.set(x, .018, z);
-      basePlate.userData.explodeOffset = new THREE.Vector3(side * .22, .15, 0);
+      const grout = boxMesh(new THREE.Vector3(.62, .055, .62), slabMat, `frame-${frameIndex}-grout-bed-${side}`, technicalEdges);
+      grout.position.set(x, .015, z);
+      footingsGroup.add(grout);
+
+      const basePlate = boxMesh(new THREE.Vector3(.57, .025, .57), plateMat, `frame-${frameIndex}-base-plate-BL25x570-${side}`, technicalEdges);
+      basePlate.position.set(x, .055, z);
+      basePlate.userData.explodeOffset = new THREE.Vector3(side * .26, .18, 0);
       plates.add(basePlate);
       counts.connectionPlates += 1;
 
-      for (const dx of [-.17, .17]) {
-        for (const dz of [-.17, .17]) {
-          const rodA = new THREE.Vector3(x + dx, -.34, z + dz);
-          const rodB = new THREE.Vector3(x + dx, .15, z + dz);
-          const rod = cylinderBetween(rodA, rodB, .018, fastenerMat, `anchor-M27-${frameIndex}-${side}-${dx}-${dz}`, 12);
-          rod.userData.explodeOffset = new THREE.Vector3(side * .34, -.18, Math.sign(dz) * .10);
+      const anchorCoordinates = [-.21, .21];
+      for (const dx of anchorCoordinates) {
+        for (const dz of anchorCoordinates) {
+          const rodA = new THREE.Vector3(x + dx, -.83, z + dz);
+          const rodB = new THREE.Vector3(x + dx, .24, z + dz);
+          const rod = cylinderBetween(rodA, rodB, .0135, fastenerMat, `anchor-D27-${frameIndex}-${side}-${dx}-${dz}`, 14);
+          rod.userData.explodeOffset = new THREE.Vector3(side * .38, -.32, Math.sign(dz) * .14);
           anchors.add(rod);
           counts.anchorRods += 1;
-          const nut = addHexNut(fasteners, new THREE.Vector3(x + dx, .17, z + dz), .038, .025, fastenerMat, `anchor-nut-M27-${frameIndex}-${side}-${dx}-${dz}`);
-          nut.userData.explodeOffset = new THREE.Vector3(side * .48, .24, Math.sign(dz) * .14);
+
+          const washerPosition = new THREE.Vector3(x + dx, .092, z + dz);
+          const washer = new THREE.Mesh(new THREE.CylinderGeometry(.040, .040, .010, 20), fastenerMat);
+          washer.name = `anchor-washer-PD40-${frameIndex}-${side}-${dx}-${dz}`;
+          washer.position.copy(washerPosition);
+          washer.userData.explodeOffset = new THREE.Vector3(side * .50, .22, Math.sign(dz) * .17);
+          fasteners.add(washer);
+          counts.washers += 1;
+
+          const nut = addHexNut(fasteners, new THREE.Vector3(x + dx, .125, z + dz), .038, .030, fastenerMat, `anchor-nut-M24-${frameIndex}-${side}-${dx}-${dz}`);
+          nut.userData.explodeOffset = new THREE.Vector3(side * .56, .27, Math.sign(dz) * .18);
+          counts.fasteners += 1;
+          const lockNut = addHexNut(fasteners, new THREE.Vector3(x + dx, .165, z + dz), .036, .026, fastenerMat, `anchor-locknut-M24-${frameIndex}-${side}-${dx}-${dz}`);
+          lockNut.userData.explodeOffset = new THREE.Vector3(side * .64, .34, Math.sign(dz) * .20);
           counts.fasteners += 1;
         }
       }
 
-      const kneePlate = boxMesh(new THREE.Vector3(.34, .62, .026), plateMat, `frame-${frameIndex}-knee-gusset-${side}`, technicalEdges);
-      kneePlate.position.set(side * (halfW - .07), state.eaveHeight - .05, z);
-      kneePlate.rotation.z = side * -pitchRad * .35;
-      kneePlate.userData.explodeOffset = new THREE.Vector3(side * .45, .18, 0);
+      const kneePlate = boxMesh(new THREE.Vector3(.42, .82, .030), plateMat, `frame-${frameIndex}-knee-end-plate-${side}`, technicalEdges);
+      kneePlate.position.set(side * (halfW - .055), state.eaveHeight - .05, z);
+      kneePlate.rotation.z = side * -pitchRad * .28;
+      kneePlate.userData.explodeOffset = new THREE.Vector3(side * .50, .22, 0);
       plates.add(kneePlate);
       counts.connectionPlates += 1;
 
-      const boltX = side * (halfW - .075);
-      for (const [bi, dy] of [-.19, -.06, .07, .20].entries()) {
-        const bolt = addBoltHeadAlongZ(fasteners, new THREE.Vector3(boltX, state.eaveHeight + dy, z), .026, .075, fastenerMat, `knee-bolt-M20-${frameIndex}-${side}-${bi}`);
-        bolt.userData.explodeOffset = new THREE.Vector3(side * .62, .30 + bi * .04, side * .12);
-        counts.fasteners += 1;
+      // Eight M20 assemblies per knee, arranged as two bolt columns like the Tekla detail.
+      const boltXBase = side * (halfW - .072);
+      const boltDy = [-.27, -.09, .09, .27];
+      for (const dzOffset of [-.085, .085]) {
+        for (const [bi, dy] of boltDy.entries()) {
+          const bolt = addBoltAssemblyAlongZ(
+            fasteners,
+            new THREE.Vector3(boltXBase, state.eaveHeight + dy, z + dzOffset),
+            .010,
+            .125,
+            fastenerMat,
+            `knee-bolt-M20-${frameIndex}-${side}-${bi}-${dzOffset}`,
+          );
+          bolt.userData.explodeOffset = new THREE.Vector3(side * .68, .34 + bi * .035, Math.sign(dzOffset) * .28);
+          counts.fasteners += 1;
+          counts.washers += 2;
+        }
       }
     }
 
@@ -330,10 +631,20 @@ export function buildHallModel(state) {
     ridgePlateBack.userData.explodeOffset = new THREE.Vector3(0, .55, .32);
     plates.add(ridgePlateFront, ridgePlateBack);
     counts.connectionPlates += 2;
-    for (const [bi, x] of [-.16, 0, .16].entries()) {
-      const bolt = addBoltHeadAlongZ(fasteners, new THREE.Vector3(x, ridgeY - .08, z), .024, .15, fastenerMat, `ridge-bolt-M20-${frameIndex}-${bi}`);
-      bolt.userData.explodeOffset = new THREE.Vector3(x * 1.4, .78, .45 * (bi - 1));
-      counts.fasteners += 1;
+    for (const [row, yOffset] of [-.16, .10].entries()) {
+      for (const [bi, x] of [-.18, 0, .18].entries()) {
+        const bolt = addBoltAssemblyAlongZ(
+          fasteners,
+          new THREE.Vector3(x, ridgeY + yOffset, z),
+          .010,
+          .16,
+          fastenerMat,
+          `ridge-bolt-M20-${frameIndex}-${row}-${bi}`,
+        );
+        bolt.userData.explodeOffset = new THREE.Vector3(x * 1.6, .78 + row * .09, .38 * (bi - 1));
+        counts.fasteners += 1;
+        counts.washers += 2;
+      }
     }
   }
 
@@ -384,6 +695,19 @@ export function buildHallModel(state) {
         cleat.position.copy(point);
         cleat.userData.explodeOffset = new THREE.Vector3(side * .20, .35, ((frameIndex % 2) ? .16 : -.16));
         plates.add(cleat);
+        for (const boltOffset of [-.032, .032]) {
+          const bolt = addBoltAssemblyAlongZ(
+            fasteners,
+            point.clone().add(new THREE.Vector3(0, boltOffset, 0)),
+            .006,
+            .075,
+            fastenerMat,
+            `purlin-cleat-bolt-M12-${frameIndex}-${side}-${ti}-${boltOffset}`,
+          );
+          bolt.userData.explodeOffset = new THREE.Vector3(side * .30, .46, boltOffset * 5);
+          counts.fasteners += 1;
+          counts.washers += 2;
+        }
         counts.purlinCleats += 1;
         counts.connectionPlates += 1;
       }
@@ -476,60 +800,112 @@ export function buildHallModel(state) {
   const rightRoof = setExplode(new THREE.Group(), 2.0, 3.25, 0);
   envelope.add(leftWall, rightWall, frontWall, backWall, leftRoof, rightRoof);
 
-  const wallThickness = .075;
+  const wallThickness = .065;
+  const envelopeOffset = .075;
   const leftPanel = boxMesh(new THREE.Vector3(wallThickness, state.eaveHeight, state.length), wallMat, 'left-wall-cladding', technicalEdges);
-  leftPanel.position.set(-halfW - wallThickness / 2 - .08, state.eaveHeight / 2, 0);
+  leftPanel.position.set(-halfW - wallThickness / 2 - envelopeOffset, state.eaveHeight / 2, 0);
   leftWall.add(leftPanel);
-  const rightPanel = boxMesh(new THREE.Vector3(wallThickness, state.eaveHeight, state.length), wallMat, 'right-wall-cladding', technicalEdges);
-  rightPanel.position.set(halfW + wallThickness / 2 + .08, state.eaveHeight / 2, 0);
-  rightWall.add(rightPanel);
+  addWallSeams(leftWall, 'side', state.length, state.eaveHeight, new THREE.Vector3(-halfW - wallThickness - envelopeOffset - .004, 0, 0));
 
+  const rightPanel = boxMesh(new THREE.Vector3(wallThickness, state.eaveHeight, state.length), wallMat, 'right-wall-cladding', technicalEdges);
+  rightPanel.position.set(halfW + wallThickness / 2 + envelopeOffset, state.eaveHeight / 2, 0);
+  rightWall.add(rightPanel);
+  addWallSeams(rightWall, 'side', state.length, state.eaveHeight, new THREE.Vector3(halfW + wallThickness + envelopeOffset + .004, 0, 0));
+
+  const frontZ = -halfL - wallThickness / 2 - envelopeOffset;
   const frontRect = boxMesh(new THREE.Vector3(state.width, state.eaveHeight, wallThickness), wallMat, 'front-wall-cladding', technicalEdges);
-  frontRect.position.set(0, state.eaveHeight / 2, -halfL - wallThickness / 2 - .08);
+  frontRect.position.set(0, state.eaveHeight / 2, frontZ);
   frontWall.add(frontRect);
+  addWallSeams(frontWall, 'front', state.width, state.eaveHeight, new THREE.Vector3(0, 0, frontZ - wallThickness / 2 - .004));
   const frontTriangle = createTriangleWall(state.width, metrics.ridgeRise, wallMat, 'front-gable-cladding', technicalEdges, false);
-  frontTriangle.position.set(0, state.eaveHeight, -halfL - wallThickness - .08);
+  frontTriangle.position.set(0, state.eaveHeight, frontZ - wallThickness / 2);
   frontWall.add(frontTriangle);
 
+  const backZ = halfL + wallThickness / 2 + envelopeOffset;
   const backRect = boxMesh(new THREE.Vector3(state.width, state.eaveHeight, wallThickness), wallMat, 'back-wall-cladding', technicalEdges);
-  backRect.position.set(0, state.eaveHeight / 2, halfL + wallThickness / 2 + .08);
+  backRect.position.set(0, state.eaveHeight / 2, backZ);
   backWall.add(backRect);
+  addWallSeams(backWall, 'back', state.width, state.eaveHeight, new THREE.Vector3(0, 0, backZ + wallThickness / 2 + .004));
   const backTriangle = createTriangleWall(state.width, metrics.ridgeRise, wallMat, 'back-gable-cladding', technicalEdges, true);
-  backTriangle.position.set(0, state.eaveHeight, halfL + wallThickness + .08);
+  backTriangle.position.set(0, state.eaveHeight, backZ + wallThickness / 2);
   backTriangle.rotation.y = Math.PI;
   backWall.add(backTriangle);
 
-  const slopeCenterY = state.eaveHeight + metrics.ridgeRise / 2 + .14;
-  const leftRoofPanel = boxMesh(new THREE.Vector3(metrics.slopeLength, .075, state.length + .18), roofMat, 'left-roof-cladding', technicalEdges);
+  // Thin sandwich/trapezoidal roof sheets are aligned directly to the roof plane.
+  // A dedicated ridge cap and eave/barge flashings cover the panel ends so the roof
+  // does not show the old open/stacked strip artefact at the ridge and gable edges.
+  const roofThickness = .048;
+  const roofClearance = .085;
+  const slopeCenterY = state.eaveHeight + metrics.ridgeRise / 2 + roofClearance;
+  const roofLength = state.length + .22;
+  const leftRoofPanel = boxMesh(new THREE.Vector3(metrics.slopeLength + .06, roofThickness, roofLength), roofMat, 'left-roof-cladding', technicalEdges);
   leftRoofPanel.position.set(-halfW / 2, slopeCenterY, 0);
   leftRoofPanel.rotation.z = pitchRad;
-  addCorrugationLines(leftRoofPanel, 'x', Math.max(8, Math.floor(metrics.slopeLength / .45)), state.length, metrics.slopeLength);
+  addCorrugationLines(leftRoofPanel, 'x', Math.max(10, Math.floor(metrics.slopeLength / .34)), roofLength, metrics.slopeLength);
   leftRoof.add(leftRoofPanel);
 
-  const rightRoofPanel = boxMesh(new THREE.Vector3(metrics.slopeLength, .075, state.length + .18), roofMat, 'right-roof-cladding', technicalEdges);
+  const rightRoofPanel = boxMesh(new THREE.Vector3(metrics.slopeLength + .06, roofThickness, roofLength), roofMat, 'right-roof-cladding', technicalEdges);
   rightRoofPanel.position.set(halfW / 2, slopeCenterY, 0);
   rightRoofPanel.rotation.z = -pitchRad;
-  addCorrugationLines(rightRoofPanel, 'x', Math.max(8, Math.floor(metrics.slopeLength / .45)), state.length, metrics.slopeLength);
+  addCorrugationLines(rightRoofPanel, 'x', Math.max(10, Math.floor(metrics.slopeLength / .34)), roofLength, metrics.slopeLength);
   rightRoof.add(rightRoofPanel);
+
+  const roofTrim = setExplode(new THREE.Group(), 0, 3.55, 0);
+  roofTrim.name = 'roof-flashings';
+  envelope.add(roofTrim);
+  const ridgeCapMat = material(state.roofColor, { metalness: .38, roughness: .40 });
+  const ridgeCap = createRidgeCap(roofLength + .04, pitchRad, .42, .028, ridgeCapMat, 'folded-ridge-cap', technicalEdges);
+  ridgeCap.position.set(0, ridgeY + .16, 0);
+  roofTrim.add(ridgeCap);
+
+  const leftEave = memberBetween(
+    new THREE.Vector3(-halfW - .03, state.eaveHeight + .075, -halfL - .13),
+    new THREE.Vector3(-halfW - .03, state.eaveHeight + .075, halfL + .13),
+    .13, .07, ridgeCapMat, 'left-eave-flashing', technicalEdges,
+  );
+  const rightEave = memberBetween(
+    new THREE.Vector3(halfW + .03, state.eaveHeight + .075, -halfL - .13),
+    new THREE.Vector3(halfW + .03, state.eaveHeight + .075, halfL + .13),
+    .13, .07, ridgeCapMat, 'right-eave-flashing', technicalEdges,
+  );
+  roofTrim.add(leftEave, rightEave);
+
+  for (const z of [-halfL - .125, halfL + .125]) {
+    roofTrim.add(memberBetween(
+      new THREE.Vector3(-halfW, state.eaveHeight + .10, z),
+      new THREE.Vector3(0, ridgeY + .10, z),
+      .09, .055, ridgeCapMat, `barge-flashing-left-${z}`, technicalEdges,
+    ));
+    roofTrim.add(memberBetween(
+      new THREE.Vector3(0, ridgeY + .10, z),
+      new THREE.Vector3(halfW, state.eaveHeight + .10, z),
+      .09, .055, ridgeCapMat, `barge-flashing-right-${z}`, technicalEdges,
+    ));
+  }
 
   const openings = new THREE.Group();
   openings.name = 'openings';
   root.add(openings);
 
   if (state.rollerDoor) {
-    const group = setExplode(new THREE.Group(), 0, 0, -3.1);
+    const group = setExplode(new THREE.Group(), 0, 0, -3.15);
+    group.name = 'front-roller-door';
     const width = Math.min(state.rollerDoorWidth, state.width - 1.2);
-    const height = Math.min(state.rollerDoorHeight, state.eaveHeight - .2);
-    const door = boxMesh(new THREE.Vector3(width, height, .11), doorMat, 'roller-door', technicalEdges);
-    door.position.set(0, height / 2, -halfL - .18);
+    const height = Math.min(state.rollerDoorHeight, state.eaveHeight - .40);
+    const trimMat = material('#1d3448', { metalness: .62, roughness: .34 });
+    const door = createRollerDoorAssembly(width, height, doorMat, trimMat, fastenerMat, technicalEdges);
+    door.position.set(0, 0, frontZ - .075);
     group.add(door);
     openings.add(group);
   }
 
   if (state.personnelDoor) {
-    const group = setExplode(new THREE.Group(), 0, 0, -3.1);
-    const door = boxMesh(new THREE.Vector3(1.0, 2.1, .12), material('#e7eef2', { metalness: .12 }), 'personnel-door', technicalEdges);
-    door.position.set(Math.min(halfW - .9, Math.max(1.8, state.rollerDoorWidth / 2 + 1.15)), 1.05, -halfL - .19);
+    const group = setExplode(new THREE.Group(), 0, 0, -3.15);
+    group.name = 'front-personnel-door';
+    const trimMat = material('#284b61', { metalness: .55, roughness: .36 });
+    const leafMat = material('#e5ebee', { metalness: .18, roughness: .55 });
+    const door = createPersonnelDoorAssembly(trimMat, leafMat, glassMat, fastenerMat, technicalEdges);
+    door.position.set(Math.min(halfW - .75, Math.max(1.55, state.rollerDoorWidth / 2 + .95)), 0, frontZ - .085);
     group.add(door);
     openings.add(group);
   }

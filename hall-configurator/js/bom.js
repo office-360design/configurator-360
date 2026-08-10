@@ -3,7 +3,8 @@ export function buildBom(state, build) {
   const lines = [
     { name: `Primary columns · ${profileSchedule.columns}`, unit: 'pcs', quantity: counts.primaryColumns, notes: `${metrics.frameCount} portal frames` },
     { name: `Primary rafters · ${profileSchedule.rafters}`, unit: 'pcs', quantity: counts.rafters, notes: 'Two sloped rafters per frame' },
-    { name: 'Concrete column footings', unit: 'pcs', quantity: counts.footings, notes: 'One footing per primary column' },
+    { name: 'Concrete foundation pads', unit: 'pcs', quantity: counts.footings, notes: 'One foundation pad per primary column' },
+    { name: 'Concrete foundation pedestals', unit: 'pcs', quantity: counts.foundationPiers, notes: 'Raised anchor-cage pedestals / pylons' },
     { name: `RHS border / longitudinal members · ${profileSchedule.border}`, unit: 'pcs', quantity: counts.borderMembers, notes: 'Eave, ridge and gable border members' },
   ];
 
@@ -20,8 +21,9 @@ export function buildBom(state, build) {
 
   lines.push(
     { name: 'Connection / gusset / base plates', unit: 'pcs', quantity: counts.connectionPlates, notes: `${counts.purlinCleats} shown as purlin cleats` },
-    { name: 'Anchor rods', unit: 'pcs', quantity: counts.anchorRods, notes: 'M27-style detailed visualization' },
-    { name: 'Connection nuts / bolts', unit: 'pcs', quantity: counts.fasteners, notes: 'Detailed exploded-view fasteners' },
+    { name: 'Anchor rods · D27', unit: 'pcs', quantity: counts.anchorRods, notes: 'Four per base plate in the visualized anchor cage' },
+    { name: 'Connection nuts / bolts', unit: 'pcs', quantity: counts.fasteners, notes: 'M20/M24/M12-style detailed exploded-view fasteners' },
+    { name: 'Structural washers', unit: 'pcs', quantity: counts.washers, notes: 'Anchor and connection washer visualization' },
     { name: 'Roof cladding', unit: 'm²', quantity: metrics.roofArea.toFixed(1), notes: state.claddingProfile },
     { name: 'Wall cladding', unit: 'm²', quantity: metrics.netWallArea.toFixed(1), notes: 'Net of configured openings' },
   );

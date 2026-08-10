@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=2';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=4';
 
 function disposeObject(object) {
   object.traverse((child) => {

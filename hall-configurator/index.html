@@ -6,8 +6,8 @@
   <meta name="description" content="360 Configurator industrial hall and warehouse configurator" />
   <title>360 Configurator - Hall</title>
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=1" />
-  <link rel="stylesheet" href="./styles.css?v=2" />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=4" />
+  <link rel="stylesheet" href="./styles.css?v=4" />
   <script type="importmap">
     {
       "imports": {
@@ -19,54 +19,17 @@
 </head>
 <body>
   <main class="app-shell">
-    <section class="viewer-panel">
-      <header class="viewer-header">
-        <div class="viewer-actions-wrap">
-          <button type="button" class="estimate-button" id="bomOpenButton"><span>Bill of materials</span><strong id="headerBomSummary">—</strong></button>
-          <div class="view-actions" aria-label="Camera controls">
-            <button type="button" data-view="perspective" class="active">3D</button>
-            <button type="button" data-view="front">Front</button>
-            <button type="button" data-view="side">Side</button>
-            <button type="button" data-view="top">Top</button>
-            <button type="button" data-view="reset">Reset</button>
-          </div>
-        </div>
-
-        <div class="viewer-title-block">
-          <p class="eyebrow">Real-time model</p>
-          <h2>Steel warehouse hall</h2>
-        </div>
-
-        <button type="button" class="settings-jump" id="settingsJumpButton" title="Hall settings" aria-label="Open hall settings">
-          <span>Hall settings</span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.4 1.08V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8.6 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1.08-.4H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .4-1.08V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15.4 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.12.38.33.72.6 1 .28.27.62.48 1 .6h.09a2 2 0 1 1 0 4H21a1.65 1.65 0 0 0-1.6.4Z"/></svg>
-        </button>
-      </header>
-
+    <section class="viewer-panel" aria-label="Hall 3D viewer">
       <div class="viewer-stage" id="viewerStage">
         <div id="canvasHost" aria-label="Interactive 3D hall model"></div>
-        <div class="stage-hint">Drag to orbit · Scroll to zoom · Use Hall settings for exploded inspection</div>
-        <div class="structure-legend">
-          <span><i class="legend-primary"></i>Primary frame</span>
-          <span><i class="legend-secondary"></i>Secondary support</span>
-          <span><i class="legend-detail"></i>Connections & bracing</span>
-          <span><i class="legend-envelope"></i>Envelope</span>
-        </div>
       </div>
-
-      <footer class="metrics-bar">
-        <article><span>Footprint</span><strong id="metricFootprint">288 m²</strong></article>
-        <article><span>Portal frames</span><strong id="metricFrames">5</strong></article>
-        <article><span>Actual bay spacing</span><strong id="metricSpacing">6.00 m</strong></article>
-        <article><span>Ridge elevation</span><strong id="metricRidge">6.28 m</strong></article>
-      </footer>
     </section>
 
     <aside class="sidebar shared-settings-panel shared-settings-panel--light" aria-label="Hall settings">
       <section class="panel-section intro-section">
         <p class="eyebrow">Industrial building</p>
         <h1>Hall settings</h1>
-        <p class="section-copy">All hall configuration controls are kept here. The detailed steel structure is based on the supplied IFC member families and connection hierarchy.</p>
+        <p class="section-copy">Configure the warehouse envelope, structural frame, openings and exploded structural inspection from this panel.</p>
       </section>
 
       <section class="panel-section">
@@ -117,8 +80,8 @@
         </div>
 
         <div class="toggle-stack">
-          <label class="toggle-row"><span><b>Secondary beams</b><small>Purlins, girts, border members and bracing</small></span><input id="secondaryStructureToggle" type="checkbox" checked /><i></i></label>
-          <label class="toggle-row"><span><b>Concrete slab</b><small>Warehouse floor slab</small></span><input id="slabToggle" type="checkbox" checked /><i></i></label>
+          <label class="toggle-row"><span><b>Secondary beams</b><small>Purlins, girts, stays, compression members and wind bracing</small></span><input id="secondaryStructureToggle" type="checkbox" checked /><i></i></label>
+          <label class="toggle-row"><span><b>Concrete slab</b><small>Warehouse floor slab and column foundations</small></span><input id="slabToggle" type="checkbox" checked /><i></i></label>
         </div>
       </section>
 
@@ -157,9 +120,9 @@
           <span class="section-number">04</span>
         </div>
         <div class="toggle-stack">
-          <label class="toggle-row"><span><b>Front roller door</b><small>Centered on the front gable wall</small></span><input id="rollerDoorToggle" type="checkbox" checked /><i></i></label>
-          <label class="toggle-row"><span><b>Personnel door</b><small>Front wall, right side</small></span><input id="personnelDoorToggle" type="checkbox" checked /><i></i></label>
-          <label class="toggle-row"><span><b>Side windows</b><small>Two windows per long side</small></span><input id="windowsToggle" type="checkbox" checked /><i></i></label>
+          <label class="toggle-row"><span><b>Front roller door</b><small>Framed industrial roller shutter on the front gable</small></span><input id="rollerDoorToggle" type="checkbox" checked /><i></i></label>
+          <label class="toggle-row"><span><b>Personnel door</b><small>Framed steel access door with handle and hinges</small></span><input id="personnelDoorToggle" type="checkbox" checked /><i></i></label>
+          <label class="toggle-row"><span><b>Side windows</b><small>Two framed windows per long side</small></span><input id="windowsToggle" type="checkbox" checked /><i></i></label>
         </div>
         <div class="door-controls" id="rollerDoorControls">
           <label class="range-control compact-control" data-control="rollerDoorWidth">
@@ -186,17 +149,22 @@
 
         <div class="explode-control" aria-label="Exploded view control">
           <div class="explode-heading"><span>Exploded view</span><strong id="explodeValue">0%</strong></div>
-          <p class="explode-copy">Separate cladding, purlins, bracing, connection plates, anchors and fasteners to inspect the steel assembly.</p>
+          <p class="explode-copy">Separate cladding, purlins, braces, steel sections, connection plates, anchor cages and fasteners for close inspection.</p>
           <div class="explode-row">
             <input id="explodeRange" type="range" min="0" max="100" step="1" value="0" />
             <button type="button" id="explodeToggleButton">Explode</button>
           </div>
         </div>
+
+        <button type="button" class="bom-settings-button" id="bomOpenButton" aria-controls="bomPanel" aria-haspopup="dialog">
+          <span><b>Bill of materials</b><small>Generated from the current hall model</small></span>
+          <strong id="headerBomSummary">—</strong>
+        </button>
       </section>
     </aside>
 
     <button id="hallSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide hall settings" aria-expanded="true" title="Hide hall settings">
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
     </button>
   </main>
 
@@ -218,7 +186,7 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/app.js?v=2"></script>
-  <script type="module" src="./js/sharedShell.js?v=2"></script>
+  <script type="module" src="./js/sharedShell.js?v=4"></script>
+  <script type="module" src="./js/app.js?v=4"></script>
 </body>
 </html>

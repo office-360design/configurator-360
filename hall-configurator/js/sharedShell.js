@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=4';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
 
 const history = new SharedUndoManager({
@@ -27,7 +27,7 @@ const shell = mountStandaloneConfiguratorShell({
   },
   callbacks: {
     onUndo() { history.undo(); },
-    onReset() { document.querySelector('[data-view="reset"]')?.click(); },
+    onReset() { window.HALL_CONFIGURATOR_API?.resetView?.(); },
     getShareUrl() { return window.location.href; },
     onPreferenceChange(path, value) {
       if (path === 'darkMode') window.HALL_CONFIGURATOR_API?.setDarkMode?.(Boolean(value));
@@ -36,7 +36,6 @@ const shell = mountStandaloneConfiguratorShell({
 });
 
 history.bindSource(document.querySelector('.sidebar'));
-history.bindSource(document.querySelector('.viewer-header'));
 
 const sidebar = document.querySelector('.sidebar');
 if (sidebar) {

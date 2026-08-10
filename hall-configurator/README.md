@@ -1,66 +1,82 @@
 # Hall Configurator
 
-360 Configurator proof of concept for a rectangular industrial hall / warehouse.
+360 Configurator prototype for a parametric industrial hall / warehouse with a detailed structural exploded view.
 
-## Current structure
+## UI structure
 
-- The full hall configuration is contained in the **Hall settings** panel on the right side.
-- Camera/view controls and BOM access remain in the viewer header because they are viewer actions rather than hall configuration settings.
-- No Hall-specific Tools menu has been introduced yet.
+- The configurator uses the common Configurator 360 top navigation supplied by `shared-ui`.
+- Hall-specific configuration is contained only in the **Hall settings** drawer on the **right-hand side**.
+- The Hall settings drawer contains dimensions, structural choices, envelope/opening choices, display options, BOM access and exploded-view controls.
+- The only hall-specific control outside that drawer is the common **Tools** launcher supplied by the shared shell.
+- There is no hall-specific upper toolbar and no hall-specific lower metrics/status bar.
+
+`start_local_site.cmd` intentionally starts a server from the repository root and opens `/hall-configurator/`, so relative imports such as `../shared-ui/...` resolve exactly as they do in the combined repository and GitHub Pages deployment.
 
 ## Parametric configuration
 
 - Hall length, width, eave height and roof pitch.
 - Target portal-frame spacing with automatically generated equal bays.
 - Light, standard and heavy steel visualization presets.
-- Secondary steel, floor slab, cladding, roller door, personnel door and windows.
+- Secondary steel, floor slab, wall/roof cladding, roller shutter, personnel door and windows.
 - Roof/wall finishes and display controls.
-- Exploded-view amount is configured from Hall settings.
+- Exploded-view amount configured from Hall settings.
 
 ## IFC-informed structural detail
 
-The detailed steel visualization uses the supplied Tekla IFC2X3 export as the main structural reference. The reference contains profile/member families and connection-detail categories including:
+The supplied Tekla IFC2X3 model is the structural reference for the detailed visualization. The current model represents the member/profile families visible in that file, including:
 
-- HEB280 and HEA220 columns.
-- IPE400 and IPE180 rafters/beams.
-- ZZ200 purlin families.
-- RHS150x50 border members.
-- RHS80x4 / RHS80x5 compression and bracing members.
-- L60x6 stays.
-- D20 / D27 rods and bracing.
-- Base plates, gusset/splice plates, cleats, anchor rods, nuts, washers and bolt assemblies.
+- HEB280-style primary columns using an actual extruded I-section cross-section.
+- IPE400-style primary rafters using an actual extruded I-section cross-section.
+- ZZ200-style roof purlins and wall girts using a visible Z cross-section.
+- RHS border/compression members.
+- L-angle stays.
+- Wall and roof bracing.
+- Tapered portal-frame haunch plates.
+- Ridge splice and knee connection plates.
+- Purlin cleats.
+- Concrete foundation pads and raised foundation pedestals.
+- BL25×570-style base plates.
+- D27-style anchor rods and exposed anchor cages.
+- Hex nuts, lock nuts, washers and multi-part bolt assemblies at representative connections.
 
-The configurator uses these families as a visual/detailing basis while keeping the hall itself parametric. The exploded view separates the envelope, secondary steel and connection-detail groups so the user can inspect more than a simplified shell.
+The result remains fully parametric rather than embedding the supplied IFC as a fixed mesh.
+
+## Envelope and openings
+
+The envelope now uses thin roof sheets aligned to the actual roof pitch, with separate ridge caps, eave flashings and gable/barge flashings to avoid the previous open/stacked roof edges.
+
+The roller shutter is an assembly containing side tracks, lintel, hood, individual visual slats, bottom rail and lock/handle detail. The personnel door contains a separate frame, leaf, threshold, glazed vision panel with perimeter frame, hinges and handle hardware.
 
 ## Exploded view
 
-The exploded model exposes:
+The exploded model separates major systems so detailed parts remain inspectable:
 
-- primary portal-frame I-sections;
-- secondary Z/RHS members;
-- wall and roof bracing;
-- purlin/frame stays;
-- base plates and footings;
-- anchor rods and nuts;
-- knee gussets and bolts;
-- ridge splice plates and bolts;
-- representative purlin cleats;
-- wall/roof cladding and openings as separate envelope groups.
+- foundations and anchor cages;
+- primary rolled steel portal frames;
+- secondary Z/RHS/L members;
+- wind bracing and stays;
+- plates and cleats;
+- bolts, nuts and washers;
+- wall and roof cladding;
+- roof flashings;
+- doors and windows.
 
-The supplied DWG is an AutoCAD 2000 DWG originating from the Tekla workflow. The IFC is used as the authoritative machine-readable structural reference in this version because it exposes the member/profile and assembly hierarchy directly.
+The supplied DWG is useful as a visual cross-check. The IFC remains the primary machine-readable source because it exposes the profile/member and assembly hierarchy directly.
 
 ## Important
 
-The profile selection, connection placement and BOM remain configurator visualization logic, not structural engineering calculations or fabrication output. Final member sizing, connection design and foundation design require structural verification for the actual site loads and code requirements.
+The configurator is a visualization/configuration model, not structural engineering or fabrication output. Final member sizing, connection design, foundations, loads and code compliance require project-specific structural verification.
 
 ## Run locally
 
-Serve the repository root over HTTP and open `/hall-configurator/`.
+Double-click:
 
-For example, from the repository root:
-
-```powershell
-python -m http.server 8000
+```text
+hall-configurator/start_local_site.cmd
 ```
 
-Then open `http://localhost:8000/hall-configurator/`.
+It serves the **repository root** on port 8000 and opens:
+
+```text
+http://localhost:8000/hall-configurator/
+```
