@@ -6,8 +6,8 @@
   <meta name="description" content="360 Configurator industrial hall and warehouse configurator" />
   <title>360 Configurator - Hall</title>
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=5" />
-  <link rel="stylesheet" href="./styles.css?v=5" />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=7" />
+  <link rel="stylesheet" href="./styles.css?v=7" />
   <script type="importmap">
     {
       "imports": {
@@ -92,8 +92,49 @@
       <section class="accordion-section" data-accordion="display">
         <button class="accordion-toggle" type="button" aria-expanded="false"><span>Model display</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
         <div class="accordion-panel" hidden>
-          <div class="toggle-stack"><label class="toggle-row"><span><b>Dimensions</b><small>Show footprint and ridge dimensions</small></span><input type="checkbox" id="dimensionsToggle" checked /><i></i></label><label class="toggle-row"><span><b>Technical edges</b><small>Outline structural and envelope geometry</small></span><input type="checkbox" id="edgesToggle" /><i></i></label><label class="toggle-row"><span><b>Cladding</b><small>Show wall and roof envelope</small></span><input type="checkbox" id="claddingToggle" checked /><i></i></label><label class="toggle-row"><span><b>Scenery</b><small>House and trees for real-world scale reference</small></span><input type="checkbox" id="sceneryToggle" checked /><i></i></label></div>
-          <div class="explode-control" aria-label="Exploded view control"><div class="explode-heading"><span>Exploded view</span><strong id="explodeValue">0%</strong></div><p class="explode-copy">Separate cladding, purlins, braces, steel sections, connection plates, anchor cages and fasteners for close inspection.</p><div class="explode-row"><input id="explodeRange" type="range" min="0" max="100" step="1" value="0" /><button type="button" id="explodeToggleButton">Explode</button></div></div>
+          <div class="toggle-stack">
+            <label class="toggle-row"><span><b>Cladding</b><small>Show wall and roof envelope</small></span><input type="checkbox" id="claddingToggle" checked /><i></i></label>
+            <label class="toggle-row"><span><b>Scenery</b><small>House and trees for real-world scale reference</small></span><input type="checkbox" id="sceneryToggle" checked /><i></i></label>
+          </div>
+
+          <div class="display-tool-group">
+            <div class="display-tool-heading"><b>Structural inspection</b><small>Inspect structural layers and connections without changing the configured hall.</small></div>
+            <label class="select-label" for="inspectionMode">Visible assembly</label>
+            <select id="inspectionMode">
+              <option value="all">Complete hall</option>
+              <option value="primary">Primary steel</option>
+              <option value="secondary">Secondary steel & bracing</option>
+              <option value="connections">Connections & fasteners</option>
+              <option value="foundations">Foundations & anchors</option>
+              <option value="envelope">Envelope & openings</option>
+              <option value="services">Building services</option>
+            </select>
+            <div class="toggle-stack compact-toggle-stack">
+              <label class="toggle-row"><span><b>Connection detail</b><small>Show bolts, washers, nuts and anchor cages in the assembled model</small></span><input type="checkbox" id="connectionDetailsToggle" /><i></i></label>
+              <label class="toggle-row"><span><b>Section cut</b><small>Clip the building along its length for interior inspection</small></span><input type="checkbox" id="sectionCutToggle" /><i></i></label>
+            </div>
+            <label class="range-control compact-control display-slider is-disabled" id="sectionCutControl" data-control="sectionCutPosition"><span class="control-label"><b>Section position</b><output>50%</output></span><span class="range-row range-row--single"><input type="range" min="5" max="95" step="1" value="50" /></span></label>
+            <div class="explode-control" aria-label="Exploded view control"><div class="explode-heading"><span>Exploded view</span><strong id="explodeValue">0%</strong></div><p class="explode-copy">Separate cladding, purlins, braces, steel sections, connection plates, anchor cages and fasteners for close inspection.</p><div class="explode-row"><input id="explodeRange" type="range" min="0" max="100" step="1" value="0" /><button type="button" id="explodeToggleButton">Explode</button></div></div>
+          </div>
+
+          <div class="display-tool-group">
+            <div class="display-tool-heading"><b>Warehouse planning</b><small>Preview usable storage and vehicle circulation inside the hall.</small></div>
+            <label class="select-label" for="rackDensity">Rack layout</label>
+            <select id="rackDensity"><option value="light">Wide aisles</option><option value="standard" selected>Standard pallet aisles</option><option value="dense">High-density storage</option></select>
+            <div class="toggle-stack compact-toggle-stack">
+              <label class="toggle-row"><span><b>Pallet racking preview</b><small>Show indicative rack rows within the usable floor area</small></span><input type="checkbox" id="warehouseRackingToggle" /><i></i></label>
+              <label class="toggle-row"><span><b>Forklift clearance</b><small>Show main circulation aisles and turning-clearance zones</small></span><input type="checkbox" id="forkliftClearanceToggle" /><i></i></label>
+            </div>
+          </div>
+
+          <div class="display-tool-group">
+            <div class="display-tool-heading"><b>Building-services inspection</b><small>Isolate installed systems or show indicative service coverage.</small></div>
+            <label class="select-label" for="serviceVisibility">Visible services</label>
+            <select id="serviceVisibility"><option value="all">All installed services</option><option value="lighting">Lighting only</option><option value="fire">Fire protection only</option><option value="climate">Climate / refrigeration only</option><option value="drainage">Roof drainage only</option><option value="none">Hide all services</option></select>
+            <div class="toggle-stack compact-toggle-stack">
+              <label class="toggle-row"><span><b>Coverage zones</b><small>Show indicative lighting, sprinkler and climate service areas</small></span><input type="checkbox" id="serviceCoverageToggle" /><i></i></label>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -112,13 +153,22 @@
     <button id="hallSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide hall settings" aria-expanded="true" title="Hide hall settings"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
   </main>
 
+
+  <section class="environment-panel" id="hallEnvironmentPanel" aria-label="Light and orientation" aria-hidden="true">
+    <div class="environment-panel__header"><strong>Light &amp; orientation</strong><button type="button" id="environmentCloseButton" aria-label="Close">×</button></div>
+    <label class="environment-control"><span><strong>Sun position</strong><output id="sunPositionOutput">47%</output></span><input id="sunPositionRange" type="range" min="0" max="1" step="0.01" value="0.47" /><small><span>Morning</span><span>Evening</span></small></label>
+    <label class="environment-control"><span><strong>North direction</strong><output id="northDirectionOutput">0°</output></span><input id="northDirectionRange" type="range" min="0" max="360" step="1" value="0" /><small><span>0°</span><span>360°</span></small></label>
+    <div class="environment-control"><span><strong>Scene</strong></span><div class="scene-segmented" id="sceneSegmented"><button type="button" data-scene="winter" class="is-selected">Winter</button><button type="button" data-scene="summer">Summer</button><button type="button" data-scene="studio">Studio</button></div></div>
+    <label class="night-preview-row"><span class="night-preview-icon">☾</span><span><strong>Night preview</strong><small>Preview the configured lighting.</small></span><input id="nightPreviewToggle" type="checkbox" /><i></i></label>
+  </section>
+
   <dialog class="bom-panel" id="bomPanel" aria-labelledby="bomTitle">
     <header class="bom-header"><div><p class="eyebrow">Generated from model</p><h2 id="bomTitle">Bill of materials</h2></div><button type="button" class="bom-close" id="bomCloseButton" aria-label="Close BOM">×</button></header>
     <div class="bom-scroll-region"><div class="bom-disclaimer">Indicative geometric quantities only. Profile families mirror the supplied IFC reference, but this configurator is not a structural calculation or fabrication model.</div><div class="bom-table-wrap"><table class="bom-table"><thead><tr><th>Nr.</th><th>Component</th><th>Unit</th><th>Quantity</th><th>Notes</th></tr></thead><tbody id="bomTableBody"></tbody></table></div><section class="bom-assumptions"><h3>Model basis</h3><div class="assumption-grid" id="bomAssumptions"></div></section></div>
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=5"></script>
-  <script type="module" src="./js/app.js?v=5"></script>
+  <script type="module" src="./js/sharedShell.js?v=7"></script>
+  <script type="module" src="./js/app.js?v=7"></script>
 </body>
 </html>

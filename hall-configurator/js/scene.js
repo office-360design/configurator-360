@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=5';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=7';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -12,15 +12,15 @@ function disposeObject(object) {
   });
 }
 
-function makeLine(points, color = 0x46606e) {
+function makeLine(points, color = 0x46606e, opacity = .72) {
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: .72 });
+  const material = new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity });
   return new THREE.Line(geometry, material);
 }
 
-function labelObject(text, position) {
+function labelObject(text, position, className = 'dimension-label') {
   const element = document.createElement('div');
-  element.className = 'dimension-label';
+  element.className = className;
   element.textContent = text;
   const label = new CSS2DObject(element);
   label.position.copy(position);
@@ -38,26 +38,71 @@ function fitAssetToBox(object, target, alignY = 'bottom') {
   object.scale.multiplyScalar(scale);
   const scaledBox = new THREE.Box3().setFromObject(object);
   const center = scaledBox.getCenter(new THREE.Vector3());
-  const minY = scaledBox.min.y;
   object.position.x -= center.x;
   object.position.z -= center.z;
-  if (alignY === 'bottom') object.position.y -= minY;
+  if (alignY === 'bottom') object.position.y -= scaledBox.min.y;
   return object;
 }
 
 function makeHouseFallback() {
   const group = new THREE.Group();
-  const wall = new THREE.MeshStandardMaterial({ color: 0xe7e1d7, roughness: .9 });
-  const roof = new THREE.MeshStandardMaterial({ color: 0x6c5548, roughness: .82 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(8, 3.3, 4.6), wall);
-  body.position.y = 1.65;
+  group.name = 'reference-house-procedural';
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xe8e3db, roughness: .9, side: THREE.DoubleSide });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xd1d5d7, roughness: .72, side: THREE.DoubleSide });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x4d514d, roughness: .78, side: THREE.DoubleSide });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x8ec9df, roughness: .16, metalness: .02, transparent: true, opacity: .72, side: THREE.DoubleSide });
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x27323a, roughness: .62, side: THREE.DoubleSide });
+
+  const width = 8.2;
+  const depth = 4.6;
+  const eave = 3.35;
+  const rise = 1.35;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(width, eave, depth), wallMat);
+  body.position.y = eave / 2;
+  body.castShadow = true;
+  body.receiveShadow = true;
   group.add(body);
-  const roofShape = new THREE.ConeGeometry(4.9, 2.2, 4);
-  roofShape.rotation.y = Math.PI / 4;
-  roofShape.scale.z = .62;
-  roofShape.position.y = 4.25;
-  roofShape.material = roof;
-  group.add(roofShape);
+
+  // Two roof sheets share the same ridge line and sit directly on the wall eaves.
+  // This replaces the old GLB roof whose detached slab and cap were visibly floating.
+  const halfDepth = depth / 2;
+  const slope = Math.hypot(halfDepth, rise);
+  const pitch = Math.atan2(rise, halfDepth);
+  const overhang = .34;
+  const roofWidth = width + overhang * 2;
+  const roofSlope = slope + overhang * 1.25;
+  const roofThickness = .14;
+  const centerY = eave + rise / 2 + .02;
+  const centerZ = halfDepth / 2;
+
+  const frontRoof = new THREE.Mesh(new THREE.BoxGeometry(roofWidth, roofThickness, roofSlope), roofMat);
+  frontRoof.position.set(0, centerY, -centerZ);
+  frontRoof.rotation.x = -pitch;
+  frontRoof.castShadow = true;
+  frontRoof.receiveShadow = true;
+  group.add(frontRoof);
+
+  const backRoof = frontRoof.clone();
+  backRoof.position.z = centerZ;
+  backRoof.rotation.x = pitch;
+  group.add(backRoof);
+
+  const ridge = new THREE.Mesh(new THREE.BoxGeometry(roofWidth + .08, .12, .16), roofMat);
+  ridge.position.set(0, eave + rise + .04, 0);
+  group.add(ridge);
+
+  // Front façade details provide a recognisable residential scale reference.
+  const frontZ = -depth / 2 - .012;
+  const door = new THREE.Mesh(new THREE.BoxGeometry(.95, 2.05, .055), doorMat);
+  door.position.set(-width * .34, 1.025, frontZ);
+  group.add(door);
+  for (const x of [-1.2, .35, 1.9, 3.05]) {
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.18, .065), trimMat);
+    frame.position.set(x, 1.72, frontZ - .01);
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(.88, 1.04, .025), glassMat);
+    glass.position.set(x, 1.72, frontZ - .05);
+    group.add(frame, glass);
+  }
   return group;
 }
 
@@ -72,22 +117,42 @@ function makeTreeFallback() {
   return group;
 }
 
+function createCompass() {
+  const group = new THREE.Group();
+  group.name = 'hall-compass';
+  const long = 1.0;
+  const short = .58;
+  group.add(makeLine([new THREE.Vector3(0, .005, -long), new THREE.Vector3(0, .005, long)], 0x173e58, .9));
+  group.add(makeLine([new THREE.Vector3(-long, .005, 0), new THREE.Vector3(long, .005, 0)], 0x173e58, .9));
+  group.add(makeLine([new THREE.Vector3(0, .008, -long), new THREE.Vector3(-.16, .008, -.72), new THREE.Vector3(.16, .008, -.72), new THREE.Vector3(0, .008, -long)], 0x0b86d1, 1));
+  group.add(labelObject('N', new THREE.Vector3(0, .04, -long - .18), 'compass-label'));
+  group.add(labelObject('S', new THREE.Vector3(0, .04, long + .16), 'compass-label'));
+  group.add(labelObject('W', new THREE.Vector3(-long - .18, .04, 0), 'compass-label'));
+  group.add(labelObject('E', new THREE.Vector3(long + .18, .04, 0), 'compass-label'));
+  group.scale.setScalar(short / .58);
+  return group;
+}
+
 export class HallScene {
   constructor(host) {
     this.host = host;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xdce8eb);
     this.currentState = null;
+    this.currentBuild = null;
+    this.darkMode = false;
     this.environmentAssets = { house: null, tree: null };
+    this.environmentKey = '';
 
     this.camera = new THREE.PerspectiveCamera(42, 1, .1, 500);
     this.camera.position.set(19, 14, 25);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.localClippingEnabled = true;
     host.appendChild(this.renderer.domElement);
 
     this.labelRenderer = new CSS2DRenderer();
@@ -108,8 +173,10 @@ export class HallScene {
     this.dimensionRoot = new THREE.Group();
     this.groundRoot = new THREE.Group();
     this.sceneryRoot = new THREE.Group();
-    this.scene.add(this.groundRoot, this.sceneryRoot, this.modelRoot, this.dimensionRoot);
+    this.compassRoot = createCompass();
+    this.scene.add(this.groundRoot, this.sceneryRoot, this.modelRoot, this.dimensionRoot, this.compassRoot);
 
+    this.sectionPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     this.addLighting();
     this.loadEnvironmentAssets();
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -119,33 +186,32 @@ export class HallScene {
   }
 
   addLighting() {
-    this.scene.add(new THREE.HemisphereLight(0xeaf8ff, 0x7d7668, 2.15));
-    const sun = new THREE.DirectionalLight(0xffffff, 2.25);
-    sun.position.set(-18, 28, -14);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -60;
-    sun.shadow.camera.right = 60;
-    sun.shadow.camera.top = 60;
-    sun.shadow.camera.bottom = -60;
-    sun.shadow.camera.near = .5;
-    sun.shadow.camera.far = 130;
-    this.scene.add(sun);
-    const fill = new THREE.DirectionalLight(0xbcdcf0, .8);
-    fill.position.set(22, 15, 25);
-    this.scene.add(fill);
+    this.hemiLight = new THREE.HemisphereLight(0xeaf8ff, 0x7d7668, 2.15);
+    this.scene.add(this.hemiLight);
+    this.sunLight = new THREE.DirectionalLight(0xffffff, 2.25);
+    this.sunLight.position.set(-18, 28, -14);
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.set(1024, 1024);
+    this.sunLight.shadow.camera.left = -60;
+    this.sunLight.shadow.camera.right = 60;
+    this.sunLight.shadow.camera.top = 60;
+    this.sunLight.shadow.camera.bottom = -60;
+    this.sunLight.shadow.camera.near = .5;
+    this.sunLight.shadow.camera.far = 130;
+    this.scene.add(this.sunLight);
+    this.fillLight = new THREE.DirectionalLight(0xbcdcf0, .8);
+    this.fillLight.position.set(22, 15, 25);
+    this.scene.add(this.fillLight);
   }
 
   async loadEnvironmentAssets() {
     const loader = new GLTFLoader();
     const load = (url) => new Promise((resolve) => loader.load(url, (gltf) => resolve(gltf.scene), undefined, () => resolve(null)));
-    const [house, tree] = await Promise.all([
-      load('./assets/models/environment/house.glb'),
-      load('./assets/models/environment/tree.glb'),
-    ]);
-    this.environmentAssets.house = house;
-    this.environmentAssets.tree = tree;
-    if (this.currentState) this.updateEnvironment(this.currentState);
+    // Trees intentionally keep using the same shared pergola asset. The house is
+    // procedural so its roof can remain watertight at every scale and browser.
+    this.environmentAssets.house = null;
+    this.environmentAssets.tree = await load('./assets/models/environment/tree.glb');
+    if (this.currentState) this.updateEnvironment(this.currentState, { force: true });
   }
 
   cloneAsset(key) {
@@ -153,15 +219,17 @@ export class HallScene {
     return source ? source.clone(true) : null;
   }
 
-  updateEnvironment(state) {
+  updateEnvironment(state, { force = false } = {}) {
     this.currentState = state;
+    const key = `${state.width}|${state.length}|${state.showScenery}|${Boolean(this.environmentAssets.house)}|${Boolean(this.environmentAssets.tree)}`;
+    if (!force && key === this.environmentKey) return;
+    this.environmentKey = key;
     this.groundRoot.clear();
     this.sceneryRoot.clear();
-    const size = Math.max(state.length + 34, state.width + 34, 54);
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(size, size),
-      new THREE.MeshStandardMaterial({ color: 0xcfd9d3, roughness: .95, metalness: 0 }),
-    );
+
+    const size = Math.max(state.length + 40, state.width + 40, 58);
+    this.groundMaterial = new THREE.MeshStandardMaterial({ color: 0xcfd9d3, roughness: .95, metalness: 0 });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), this.groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -.31;
     ground.receiveShadow = true;
@@ -173,28 +241,39 @@ export class HallScene {
     grid.material.opacity = .20;
     this.groundRoot.add(grid);
 
-    if (!state.showScenery) return;
+    if (!state.showScenery) {
+      this.updateCompass(state);
+      return;
+    }
     const halfW = state.width / 2;
     const halfL = state.length / 2;
 
-    const house = fitAssetToBox(this.cloneAsset('house') ?? makeHouseFallback(), new THREE.Vector3(9.8, 6.15, 4.9));
-    house.position.set(-halfW - 7.2, 0, -halfL - 6.2);
+    const houseX = -halfW - 10.5;
+    const houseZ = -halfL - 8.5;
+    const house = fitAssetToBox(makeHouseFallback(), new THREE.Vector3(9.8, 6.15, 4.9));
+    house.position.set(houseX, 0, houseZ);
     house.rotation.y = THREE.MathUtils.degToRad(28);
     house.name = 'scale-reference-house';
     house.traverse((child) => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
     this.sceneryRoot.add(house);
 
+    // Trees are intentionally arranged outside the hall footprint and away from the
+    // house bounding area, so resizing the hall cannot swallow either reference.
     const treeSpecs = [
-      [-halfW - 4.8, -halfL + 2.0, .85, 0],
-      [-halfW - 8.4, 0, 1.15, 40],
-      [-halfW - 6.0, halfL + 5.5, .95, 80],
-      [-2.0, halfL + 7.0, 1.25, 120],
-      [halfW + 5.0, halfL + 5.0, 1.05, 160],
-      [halfW + 7.5, 0, .8, 210],
-      [halfW + 5.2, -halfL - 5.0, 1.2, 260],
-      [2.5, -halfL - 8.0, .9, 310],
-      [-halfW - 10.5, -halfL - 2.0, .7, 345],
-    ];
+      [-halfW - 5.0, -halfL + state.length * .20, .85, 0],
+      [-halfW - 7.0, state.length * .08, 1.15, 34],
+      [-halfW - 5.8, halfL + 5.8, .95, 72],
+      [-state.width * .20, halfL + 7.2, 1.25, 108],
+      [state.width * .22, halfL + 8.0, .88, 142],
+      [halfW + 5.2, halfL + 5.4, 1.05, 176],
+      [halfW + 7.6, state.length * .12, .82, 212],
+      [halfW + 6.3, -halfL - 5.6, 1.18, 248],
+      [state.width * .24, -halfL - 8.0, .92, 284],
+      [-state.width * .12, -halfL - 7.0, .78, 318],
+      [halfW + 8.5, -state.length * .18, .72, 346],
+      [-halfW - 8.5, halfL * .55, .74, 22],
+    ].filter(([x, z]) => Math.hypot(x - houseX, z - houseZ) > 10.5);
+
     treeSpecs.forEach(([x, z, scale, rotation]) => {
       const tree = fitAssetToBox(this.cloneAsset('tree') ?? makeTreeFallback(), new THREE.Vector3(2.7 * scale, 4.7 * scale, 2.7 * scale));
       tree.position.set(x, 0, z);
@@ -203,6 +282,15 @@ export class HallScene {
       tree.traverse((child) => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
       this.sceneryRoot.add(tree);
     });
+    this.updateCompass(state);
+  }
+
+  updateCompass(state) {
+    const halfW = state.width / 2;
+    const halfL = state.length / 2;
+    this.compassRoot.visible = Boolean(state.compassVisible);
+    this.compassRoot.position.set(halfW + 2.8, -.205, -halfL - 2.8);
+    this.compassRoot.rotation.y = THREE.MathUtils.degToRad(-state.northDirection);
   }
 
   updateDimensions(state, metrics) {
@@ -236,16 +324,120 @@ export class HallScene {
     const built = buildHallModel(state);
     this.currentBuild = built;
     this.modelRoot.add(built.root);
+    built.root.userData.showConnectionDetails = Boolean(state.connectionDetails || state.inspectionMode === 'connections' || state.inspectionMode === 'foundations');
     applyExplodedView(built.root, state.explode / 100);
     this.updateEnvironment(state);
     this.updateDimensions(state, built.metrics);
+    this.applyDisplayState(state);
+    this.applyEnvironment(state);
     if (fitCamera) this.fitCamera(state, built.metrics);
     return built;
   }
 
-  setExplode(amount) {
+  setExplode(amount, state = this.currentState) {
     if (!this.currentBuild?.root) return;
+    this.currentBuild.root.userData.showConnectionDetails = Boolean(state?.connectionDetails || state?.inspectionMode === 'connections' || state?.inspectionMode === 'foundations');
     applyExplodedView(this.currentBuild.root, amount / 100);
+  }
+
+  applyDisplayState(state) {
+    if (!this.currentBuild?.root) return;
+    const root = this.currentBuild.root;
+    const get = (name) => root.getObjectByName(name);
+    const primary = get('primary-structure');
+    const secondary = get('secondary-structure');
+    const connections = get('connection-detail');
+    const foundation = get('foundation');
+    const envelope = get('envelope');
+    const openings = get('openings');
+    const services = get('building-services');
+    const planning = get('warehouse-planning');
+
+    const mode = state.inspectionMode ?? 'all';
+    if (primary) primary.visible = mode === 'all' || mode === 'primary' || mode === 'secondary' || mode === 'connections' || mode === 'foundations';
+    if (secondary) secondary.visible = state.secondaryStructure && (mode === 'all' || mode === 'secondary');
+    if (connections) connections.visible = mode === 'connections' || mode === 'foundations' || (mode === 'all' && (state.connectionDetails || state.explode > 0));
+    if (foundation) foundation.visible = mode === 'all' || mode === 'foundations';
+    if (envelope) envelope.visible = state.showCladding && (mode === 'all' || mode === 'envelope');
+    if (openings) openings.visible = mode === 'all' || mode === 'envelope';
+    if (services) services.visible = mode === 'all' || mode === 'services';
+    if (planning) planning.visible = (mode === 'all' || mode === 'services') && (state.warehouseRacking || state.forkliftClearance);
+
+    const serviceNames = {
+      lighting: 'service-lighting',
+      fire: 'service-fire',
+      climate: 'service-climate',
+      drainage: 'service-drainage',
+      skylights: 'service-skylights',
+      coverage: 'service-coverage',
+    };
+    Object.entries(serviceNames).forEach(([key, name]) => {
+      const group = get(name);
+      if (!group) return;
+      if (key === 'coverage') group.visible = Boolean(state.serviceCoverage) && state.serviceVisibility !== 'none';
+      else group.visible = state.serviceVisibility === 'all' || state.serviceVisibility === key;
+    });
+    if (services && state.serviceVisibility === 'none') services.visible = false;
+
+    const racks = get('warehouse-racking');
+    const aisles = get('forklift-clearance');
+    if (racks) racks.visible = Boolean(state.warehouseRacking) && planning?.visible !== false;
+    if (aisles) aisles.visible = Boolean(state.forkliftClearance) && planning?.visible !== false;
+
+    root.userData.showConnectionDetails = Boolean(state.connectionDetails || mode === 'connections' || mode === 'foundations');
+    applyExplodedView(root, state.explode / 100);
+    this.applyClipping(state);
+    this.updateCompass(state);
+  }
+
+  applyClipping(state) {
+    if (!this.currentBuild?.root) return;
+    const planes = state.sectionCutEnabled ? [this.sectionPlane] : [];
+    if (state.sectionCutEnabled) {
+      const halfL = state.length / 2;
+      const cutZ = -halfL + state.length * (state.sectionCutPosition / 100);
+      this.sectionPlane.set(new THREE.Vector3(0, 0, 1), -cutZ);
+    }
+    this.currentBuild.root.traverse((object) => {
+      const materials = Array.isArray(object.material) ? object.material : object.material ? [object.material] : [];
+      materials.forEach((mat) => {
+        mat.clippingPlanes = planes;
+        mat.clipShadows = true;
+        mat.needsUpdate = true;
+      });
+    });
+  }
+
+  applyEnvironment(state) {
+    this.currentState = state;
+    const angle = THREE.MathUtils.degToRad(-70 + state.sunPosition * 140 + state.northDirection);
+    const radius = 34;
+    this.sunLight.position.set(Math.sin(angle) * radius, 26 + Math.sin(state.sunPosition * Math.PI) * 8, Math.cos(angle) * radius);
+
+    const season = state.season ?? 'winter';
+    const night = Boolean(state.nightPreview);
+    const dark = this.darkMode || night;
+    const palettes = {
+      winter: { bg: 0xdce8eb, ground: 0xcfd9d3 },
+      summer: { bg: 0xd8edf2, ground: 0xc8d6c1 },
+      studio: { bg: 0xe8edf0, ground: 0xd7dcde },
+    };
+    const palette = palettes[season] ?? palettes.winter;
+    this.scene.background = new THREE.Color(dark ? 0x111b2a : palette.bg);
+    if (this.groundMaterial) this.groundMaterial.color.setHex(dark ? 0x26313a : palette.ground);
+    this.hemiLight.intensity = night ? .38 : (this.darkMode ? 1.1 : 2.15);
+    this.sunLight.intensity = night ? .15 : (this.darkMode ? 1.25 : 2.25);
+    this.fillLight.intensity = night ? .18 : .8;
+
+    if (this.currentBuild?.root) {
+      this.currentBuild.root.traverse((object) => {
+        if (object.name?.includes('high-bay-lamp') && object.material?.emissive) {
+          object.material.emissiveIntensity = night ? 3.2 : .75;
+          object.material.needsUpdate = true;
+        }
+      });
+    }
+    this.updateCompass(state);
   }
 
   fitCamera(state, metrics) {
@@ -270,8 +462,10 @@ export class HallScene {
     this.controls.update();
   }
 
-  setDarkMode(enabled) {
-    this.scene.background = new THREE.Color(enabled ? 0x172536 : 0xdce8eb);
+  setDarkMode(enabled, state = this.currentState) {
+    this.darkMode = Boolean(enabled);
+    if (state) this.applyEnvironment(state);
+    else this.scene.background = new THREE.Color(this.darkMode ? 0x172536 : 0xdce8eb);
   }
 
   resize() {

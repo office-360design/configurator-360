@@ -1,5 +1,5 @@
-import { buildBom, bomToCsv } from './bom.js?v=5';
-import { estimateHallPrice, formatPrice } from './pricing.js?v=5';
+import { buildBom, bomToCsv } from './bom.js?v=7';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=7';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
@@ -9,6 +9,7 @@ const formatters = {
   targetBaySpacing: (v) => `${v.toFixed(2).replace(/0$/, '')} m`,
   rollerDoorWidth: (v) => `${v.toFixed(2).replace(/0$/, '')} m`,
   rollerDoorHeight: (v) => `${v.toFixed(2).replace(/0$/, '')} m`,
+  sectionCutPosition: (v) => `${Math.round(v)}%`,
 };
 
 const climateNotes = {
@@ -17,6 +18,8 @@ const climateNotes = {
   chilled: 'Chilled-storage package intended for approximately +2 to +8 °C operation.',
   frozen: 'Frozen-storage package intended for approximately -20 °C operation with additional refrigeration capacity.',
 };
+
+const modelSelects = new Set(['structurePreset', 'claddingProfile', 'buildingUse', 'climateSystem', 'rackDensity']);
 
 export class HallUI {
   constructor(state, callbacks) {
@@ -29,6 +32,7 @@ export class HallUI {
     this.bindToggles();
     this.bindSwatches();
     this.bindExplode();
+    this.bindEnvironmentPanel();
     this.bindBom();
     this.applyStateToControls();
   }
@@ -52,32 +56,34 @@ export class HallUI {
       const range = control.querySelector('input[type="range"]');
       const number = control.querySelector('input[type="number"]');
       const output = control.querySelector('output');
-      if (!range || !number) return;
+      if (!range && !number) return;
 
-      const update = (raw, source, { fitCamera = false } = {}) => {
+      const update = (raw, source, { immediate = false } = {}) => {
         const parsed = Number(raw);
         if (!Number.isFinite(parsed)) return;
-        const min = Number(source.min);
-        let max = Number(source.max);
+        const min = Number(source?.min ?? range?.min ?? number?.min ?? -Infinity);
+        let max = Number(source?.max ?? range?.max ?? number?.max ?? Infinity);
         if (key === 'rollerDoorWidth') max = Math.min(max, Math.max(2.5, this.state.width - 1.2));
         if (key === 'rollerDoorHeight') max = Math.min(max, Math.max(2.5, this.state.eaveHeight - .2));
         const value = Math.min(max, Math.max(min, parsed));
         this.state[key] = value;
-        range.max = String(max);
-        number.max = String(max);
-        range.value = String(value);
-        number.value = String(value);
+        if (range) { range.max = String(max); range.value = String(value); }
+        if (number) { number.max = String(max); number.value = String(value); }
         if (output) output.value = formatters[key]?.(value) ?? String(value);
         this.ensureOpeningLimits();
-        this.callbacks.onModelChange?.({ fitCamera });
+
+        if (key === 'sectionCutPosition') this.callbacks.onDisplayChange?.();
+        else this.callbacks.onModelChange?.({ fitCamera: false, immediate });
       };
 
-      range.addEventListener('input', () => update(range.value, range));
-      number.addEventListener('input', () => {
+      range?.addEventListener('input', () => update(range.value, range, { immediate: key === 'sectionCutPosition' }));
+      range?.addEventListener('change', () => update(range.value, range, { immediate: true }));
+      number?.addEventListener('input', () => {
         const parsed = Number(number.value);
-        if (Number.isFinite(parsed)) update(parsed, number);
+        if (Number.isFinite(parsed)) update(parsed, number, { immediate: false });
       });
-      number.addEventListener('blur', () => update(number.value, number));
+      number?.addEventListener('change', () => update(number.value, number, { immediate: true }));
+      number?.addEventListener('blur', () => update(number.value, number, { immediate: true }));
     });
   }
 
@@ -90,11 +96,11 @@ export class HallUI {
     this.state.rollerDoorHeight = Math.min(this.state.rollerDoorHeight, maxHeight);
     if (widthControl) {
       widthControl.querySelectorAll('input').forEach((input) => { input.max = String(maxWidth); input.value = String(this.state.rollerDoorWidth); });
-      widthControl.querySelector('output').value = formatters.rollerDoorWidth(this.state.rollerDoorWidth);
+      const out = widthControl.querySelector('output'); if (out) out.value = formatters.rollerDoorWidth(this.state.rollerDoorWidth);
     }
     if (heightControl) {
       heightControl.querySelectorAll('input').forEach((input) => { input.max = String(maxHeight); input.value = String(this.state.rollerDoorHeight); });
-      heightControl.querySelector('output').value = formatters.rollerDoorHeight(this.state.rollerDoorHeight);
+      const out = heightControl.querySelector('output'); if (out) out.value = formatters.rollerDoorHeight(this.state.rollerDoorHeight);
     }
   }
 
@@ -104,13 +110,18 @@ export class HallUI {
       claddingProfile: 'claddingProfile',
       buildingUse: 'buildingUse',
       climateSystem: 'climateSystem',
+      inspectionMode: 'inspectionMode',
+      rackDensity: 'rackDensity',
+      serviceVisibility: 'serviceVisibility',
     };
     Object.entries(bindings).forEach(([id, key]) => {
       document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
         this.state[key] = event.target.value;
         if (key === 'buildingUse') this.applyUsePreset(event.target.value);
         this.updateClimateNote();
-        this.callbacks.onModelChange?.({ fitCamera: false });
+        if (key === 'inspectionMode') this.callbacks.onInspectionChange?.();
+        else if (key === 'serviceVisibility') this.callbacks.onDisplayChange?.();
+        else if (modelSelects.has(key)) this.callbacks.onModelChange?.({ fitCamera: false, immediate: true });
       });
     });
   }
@@ -126,7 +137,7 @@ export class HallUI {
   }
 
   bindToggles() {
-    const toggles = {
+    const modelToggles = {
       secondaryStructureToggle: 'secondaryStructure',
       slabToggle: 'slab',
       rollerDoorToggle: 'rollerDoor',
@@ -136,17 +147,35 @@ export class HallUI {
       guttersToggle: 'gutters',
       highBayLightingToggle: 'highBayLighting',
       fireSprinklersToggle: 'fireSprinklers',
-      dimensionsToggle: 'showDimensions',
-      edgesToggle: 'technicalEdges',
-      claddingToggle: 'showCladding',
-      sceneryToggle: 'showScenery',
     };
-    Object.entries(toggles).forEach(([id, key]) => {
+    Object.entries(modelToggles).forEach(([id, key]) => {
       document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
         this.state[key] = event.target.checked;
         if (key === 'rollerDoor') this.updateDoorControls();
-        this.callbacks.onModelChange?.({ fitCamera: false });
+        this.callbacks.onModelChange?.({ fitCamera: false, immediate: true });
       });
+    });
+
+    const displayToggles = {
+      claddingToggle: 'showCladding',
+      sceneryToggle: 'showScenery',
+      sectionCutToggle: 'sectionCutEnabled',
+      warehouseRackingToggle: 'warehouseRacking',
+      forkliftClearanceToggle: 'forkliftClearance',
+      serviceCoverageToggle: 'serviceCoverage',
+    };
+    Object.entries(displayToggles).forEach(([id, key]) => {
+      document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
+        this.state[key] = event.target.checked;
+        if (key === 'sectionCutEnabled') this.updateSectionCutControl();
+        if (key === 'showScenery') this.callbacks.onSceneryChange?.();
+        else this.callbacks.onDisplayChange?.();
+      });
+    });
+
+    document.querySelector('#connectionDetailsToggle')?.addEventListener('change', (event) => {
+      this.state.connectionDetails = event.target.checked;
+      this.callbacks.onConnectionDetailsChange?.();
     });
   }
 
@@ -156,7 +185,7 @@ export class HallUI {
         button.addEventListener('click', () => {
           this.state[key] = button.dataset.color;
           document.querySelectorAll(`${selector} .swatch`).forEach((item) => item.classList.toggle('selected', item === button));
-          this.callbacks.onModelChange?.({ fitCamera: false });
+          this.callbacks.onModelChange?.({ fitCamera: false, immediate: true });
         });
       });
     };
@@ -164,23 +193,56 @@ export class HallUI {
     bind('#roofSwatches', 'roofColor');
   }
 
+  setExplodeValue(value, { notify = true } = {}) {
+    this.state.explode = Math.max(0, Math.min(100, Number(value) || 0));
+    const range = document.querySelector('#explodeRange');
+    const output = document.querySelector('#explodeValue');
+    const button = document.querySelector('#explodeToggleButton');
+    if (range) range.value = String(this.state.explode);
+    if (output) output.textContent = `${Math.round(this.state.explode)}%`;
+    if (button) button.textContent = this.state.explode > 0 ? 'Assemble' : 'Explode';
+    if (notify) this.callbacks.onExplode?.(this.state.explode);
+  }
+
   bindExplode() {
     const range = document.querySelector('#explodeRange');
-    const value = document.querySelector('#explodeValue');
     const button = document.querySelector('#explodeToggleButton');
-    range?.addEventListener('input', () => {
-      this.state.explode = Number(range.value);
-      value.textContent = `${Math.round(this.state.explode)}%`;
-      button.textContent = this.state.explode > 0 ? 'Assemble' : 'Explode';
-      this.callbacks.onExplode?.(this.state.explode);
+    range?.addEventListener('input', () => this.setExplodeValue(range.value));
+    button?.addEventListener('click', () => this.setExplodeValue(this.state.explode > 0 ? 0 : 100));
+  }
+
+  bindEnvironmentPanel() {
+    document.querySelector('#environmentCloseButton')?.addEventListener('click', () => this.callbacks.onEnvironmentPanelToggle?.(false));
+    const sun = document.querySelector('#sunPositionRange');
+    const north = document.querySelector('#northDirectionRange');
+    sun?.addEventListener('input', () => {
+      this.state.sunPosition = Number(sun.value);
+      const output = document.querySelector('#sunPositionOutput'); if (output) output.textContent = `${Math.round(this.state.sunPosition * 100)}%`;
+      this.callbacks.onEnvironmentChange?.();
     });
-    button?.addEventListener('click', () => {
-      this.state.explode = this.state.explode > 0 ? 0 : 100;
-      range.value = String(this.state.explode);
-      value.textContent = `${this.state.explode}%`;
-      button.textContent = this.state.explode > 0 ? 'Assemble' : 'Explode';
-      this.callbacks.onExplode?.(this.state.explode);
+    north?.addEventListener('input', () => {
+      this.state.northDirection = Number(north.value);
+      const output = document.querySelector('#northDirectionOutput'); if (output) output.textContent = `${Math.round(this.state.northDirection)}°`;
+      this.callbacks.onEnvironmentChange?.();
     });
+    document.querySelector('#nightPreviewToggle')?.addEventListener('change', (event) => {
+      this.state.nightPreview = event.target.checked;
+      this.callbacks.onEnvironmentChange?.();
+    });
+    document.querySelectorAll('[data-scene]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.state.season = button.dataset.scene;
+        document.querySelectorAll('[data-scene]').forEach((item) => item.classList.toggle('is-selected', item === button));
+        this.callbacks.onEnvironmentChange?.();
+      });
+    });
+  }
+
+  setEnvironmentPanelOpen(open) {
+    const panel = document.querySelector('#hallEnvironmentPanel');
+    if (!panel) return;
+    panel.classList.toggle('is-open', Boolean(open));
+    panel.setAttribute('aria-hidden', String(!open));
   }
 
   bindBom() {
@@ -218,6 +280,10 @@ export class HallUI {
     document.querySelector('#rollerDoorControls')?.classList.toggle('is-disabled', !this.state.rollerDoor);
   }
 
+  updateSectionCutControl() {
+    document.querySelector('#sectionCutControl')?.classList.toggle('is-disabled', !this.state.sectionCutEnabled);
+  }
+
   updateClimateNote() {
     const note = document.querySelector('#climateNote');
     if (note) note.textContent = climateNotes[this.state.climateSystem] ?? climateNotes.none;
@@ -233,7 +299,7 @@ export class HallUI {
       if (output) output.value = formatters[key]?.(value) ?? String(value);
     });
 
-    ['structurePreset', 'claddingProfile', 'buildingUse', 'climateSystem'].forEach((id) => {
+    ['structurePreset', 'claddingProfile', 'buildingUse', 'climateSystem', 'inspectionMode', 'rackDensity', 'serviceVisibility'].forEach((id) => {
       const element = document.querySelector(`#${id}`);
       if (element) element.value = this.state[id];
     });
@@ -247,20 +313,27 @@ export class HallUI {
       guttersToggle: this.state.gutters,
       highBayLightingToggle: this.state.highBayLighting,
       fireSprinklersToggle: this.state.fireSprinklers,
-      dimensionsToggle: this.state.showDimensions,
-      edgesToggle: this.state.technicalEdges,
       claddingToggle: this.state.showCladding,
       sceneryToggle: this.state.showScenery,
+      connectionDetailsToggle: this.state.connectionDetails,
+      sectionCutToggle: this.state.sectionCutEnabled,
+      warehouseRackingToggle: this.state.warehouseRacking,
+      forkliftClearanceToggle: this.state.forkliftClearance,
+      serviceCoverageToggle: this.state.serviceCoverage,
+      nightPreviewToggle: this.state.nightPreview,
     };
     Object.entries(checkboxMap).forEach(([id, checked]) => { const element = document.querySelector(`#${id}`); if (element) element.checked = Boolean(checked); });
     document.querySelectorAll('#wallSwatches .swatch').forEach((button) => button.classList.toggle('selected', button.dataset.color === this.state.wallColor));
     document.querySelectorAll('#roofSwatches .swatch').forEach((button) => button.classList.toggle('selected', button.dataset.color === this.state.roofColor));
-    const explodeRange = document.querySelector('#explodeRange');
-    if (explodeRange) explodeRange.value = String(this.state.explode);
-    document.querySelector('#explodeValue').textContent = `${Math.round(this.state.explode)}%`;
-    document.querySelector('#explodeToggleButton').textContent = this.state.explode > 0 ? 'Assemble' : 'Explode';
+    const sun = document.querySelector('#sunPositionRange'); if (sun) sun.value = String(this.state.sunPosition);
+    const sunOut = document.querySelector('#sunPositionOutput'); if (sunOut) sunOut.textContent = `${Math.round(this.state.sunPosition * 100)}%`;
+    const north = document.querySelector('#northDirectionRange'); if (north) north.value = String(this.state.northDirection);
+    const northOut = document.querySelector('#northDirectionOutput'); if (northOut) northOut.textContent = `${Math.round(this.state.northDirection)}°`;
+    document.querySelectorAll('[data-scene]').forEach((button) => button.classList.toggle('is-selected', button.dataset.scene === this.state.season));
+    this.setExplodeValue(this.state.explode, { notify: false });
     this.ensureOpeningLimits();
     this.updateDoorControls();
+    this.updateSectionCutControl();
     this.updateClimateNote();
   }
 
@@ -334,6 +407,6 @@ export class HallUI {
   restoreState(snapshot) {
     Object.assign(this.state, snapshot);
     this.applyStateToControls();
-    this.callbacks.onModelChange?.({ fitCamera: true });
+    this.callbacks.onModelChange?.({ fitCamera: true, immediate: true });
   }
 }

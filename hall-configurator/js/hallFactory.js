@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets } from './state.js?v=5';
+import { deriveHallMetrics, structurePresets } from './state.js?v=7';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -100,6 +100,31 @@ function iMemberBetween(a, b, section, mat, name, technicalEdges = false) {
   const group = new THREE.Group();
   group.name = name;
   const length = orientGroupBetween(group, a, b, AXIS_Z);
+  const mesh = new THREE.Mesh(iSectionGeometry(section, length), mat);
+  mesh.name = `${name}-rolled-i-section`;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  addEdges(mesh, technicalEdges);
+  group.add(mesh);
+  return group;
+}
+
+function iMemberBetweenWithNormal(a, b, section, mat, name, normal, technicalEdges = false) {
+  const direction = new THREE.Vector3().subVectors(b, a);
+  const length = direction.length();
+  const group = new THREE.Group();
+  group.name = name;
+  group.position.copy(a).add(b).multiplyScalar(.5);
+  if (length > 0) {
+    direction.normalize();
+    const yAxis = normal.clone().normalize();
+    // Cross-section flange width runs across the hall, while section depth follows
+    // the roof normal. This removes the mirrored/rolled look produced by the generic
+    // shortest-arc quaternion on opposite roof slopes.
+    const xAxis = new THREE.Vector3().crossVectors(yAxis, direction).normalize();
+    const basis = new THREE.Matrix4().makeBasis(xAxis, yAxis, direction);
+    group.quaternion.setFromRotationMatrix(basis);
+  }
   const mesh = new THREE.Mesh(iSectionGeometry(section, length), mat);
   mesh.name = `${name}-rolled-i-section`;
   mesh.castShadow = true;
@@ -459,6 +484,7 @@ function createHighBayLight(mat, glowMat) {
   shade.position.y = -.04;
   group.add(shade);
   const lamp = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .025, 24), glowMat);
+  lamp.name = 'high-bay-lamp-glow';
   lamp.position.y = -.11;
   group.add(lamp);
   return group;
@@ -475,6 +501,11 @@ function roofPoint(state, metrics, side, t, z) {
     return new THREE.Vector3(-halfW + halfW * t, state.eaveHeight + metrics.ridgeRise * t, z);
   }
   return new THREE.Vector3(halfW - halfW * t, state.eaveHeight + metrics.ridgeRise * t, z);
+}
+
+function roofNormal(state, side) {
+  const pitch = THREE.MathUtils.degToRad(state.pitch);
+  return new THREE.Vector3(side * Math.sin(pitch), Math.cos(pitch), 0).normalize();
 }
 
 export function buildHallModel(state) {
@@ -500,6 +531,7 @@ export function buildHallModel(state) {
   const ridgeY = metrics.ridgeElevation;
   const technicalEdges = state.technicalEdges;
   const pitchRad = state.pitch * Math.PI / 180;
+  const detailGeometry = state.explode > 0 || state.connectionDetails || state.inspectionMode === 'connections' || state.inspectionMode === 'foundations';
   const framePositions = Array.from({ length: metrics.frameCount }, (_, i) => -halfL + i * metrics.actualBaySpacing);
 
   const counts = {
@@ -572,9 +604,21 @@ export function buildHallModel(state) {
     const rightTop = new THREE.Vector3(halfW, state.eaveHeight, z);
     const rightBottom = new THREE.Vector3(halfW, 0, z);
 
+    // Trim the rafter ends slightly around the knee and ridge joints. Connection
+    // plates/haunches bridge those gaps, avoiding the old visual interpenetration
+    // of complete I-sections at the joints.
+    const kneeTrimRatio = Math.min(.06, Math.max(.015, preset.columnDepth * .34 / Math.max(metrics.slopeLength, .1)));
+    const ridgeTrimRatio = Math.min(.06, Math.max(.012, preset.rafterDepth * .30 / Math.max(metrics.slopeLength, .1)));
+    const leftRafterStart = leftTop.clone().lerp(ridge, kneeTrimRatio);
+    const leftRafterEnd = ridge.clone().lerp(leftTop, ridgeTrimRatio);
+    const rightRafterStart = ridge.clone().lerp(rightTop, ridgeTrimRatio);
+    const rightRafterEnd = rightTop.clone().lerp(ridge, kneeTrimRatio);
+
     primary.add(iMemberBetween(leftBottom, leftTop, columnSection, primaryMat, `frame-${frameIndex}-left-column-${preset.columnProfile}`, technicalEdges));
-    primary.add(iMemberBetween(leftTop, ridge, rafterSection, primaryMat, `frame-${frameIndex}-left-rafter-${preset.rafterProfile}`, technicalEdges));
-    primary.add(iMemberBetween(ridge, rightTop, rafterSection, primaryMat, `frame-${frameIndex}-right-rafter-${preset.rafterProfile}`, technicalEdges));
+    primary.add(iMemberBetweenWithNormal(leftRafterStart, leftRafterEnd, rafterSection, primaryMat, `frame-${frameIndex}-left-rafter-${preset.rafterProfile}`, roofNormal(state, -1), technicalEdges));
+    // Both rafters use an explicit roof-normal basis, so the two rolled sections are
+    // true mirror counterparts in section view rather than differently rolled beams.
+    primary.add(iMemberBetweenWithNormal(rightRafterEnd, rightRafterStart, rafterSection, primaryMat, `frame-${frameIndex}-right-rafter-${preset.rafterProfile}`, roofNormal(state, 1), technicalEdges));
     primary.add(iMemberBetween(rightTop, rightBottom, columnSection, primaryMat, `frame-${frameIndex}-right-column-${preset.columnProfile}`, technicalEdges));
     counts.primaryColumns += 2;
     counts.rafters += 2;
@@ -623,27 +667,28 @@ export function buildHallModel(state) {
       const anchorCoordinates = [-.21, .21];
       for (const dx of anchorCoordinates) {
         for (const dz of anchorCoordinates) {
+          counts.anchorRods += 1;
+          counts.washers += 1;
+          counts.fasteners += 2;
+          if (!detailGeometry) continue;
+
           const rodA = new THREE.Vector3(x + dx, -.83, z + dz);
           const rodB = new THREE.Vector3(x + dx, .24, z + dz);
-          const rod = cylinderBetween(rodA, rodB, .0135, fastenerMat, `anchor-D27-${frameIndex}-${side}-${dx}-${dz}`, 14);
+          const rod = cylinderBetween(rodA, rodB, .0135, fastenerMat, `anchor-D27-${frameIndex}-${side}-${dx}-${dz}`, 12);
           rod.userData.explodeOffset = new THREE.Vector3(side * .38, -.32, Math.sign(dz) * .14);
           anchors.add(rod);
-          counts.anchorRods += 1;
 
           const washerPosition = new THREE.Vector3(x + dx, .092, z + dz);
-          const washer = new THREE.Mesh(new THREE.CylinderGeometry(.040, .040, .010, 20), fastenerMat);
+          const washer = new THREE.Mesh(new THREE.CylinderGeometry(.040, .040, .010, 12), fastenerMat);
           washer.name = `anchor-washer-PD40-${frameIndex}-${side}-${dx}-${dz}`;
           washer.position.copy(washerPosition);
           washer.userData.explodeOffset = new THREE.Vector3(side * .50, .22, Math.sign(dz) * .17);
           fasteners.add(washer);
-          counts.washers += 1;
 
           const nut = addHexNut(fasteners, new THREE.Vector3(x + dx, .125, z + dz), .038, .030, fastenerMat, `anchor-nut-M24-${frameIndex}-${side}-${dx}-${dz}`);
           nut.userData.explodeOffset = new THREE.Vector3(side * .56, .27, Math.sign(dz) * .18);
-          counts.fasteners += 1;
           const lockNut = addHexNut(fasteners, new THREE.Vector3(x + dx, .165, z + dz), .036, .026, fastenerMat, `anchor-locknut-M24-${frameIndex}-${side}-${dx}-${dz}`);
           lockNut.userData.explodeOffset = new THREE.Vector3(side * .64, .34, Math.sign(dz) * .20);
-          counts.fasteners += 1;
         }
       }
 
@@ -659,6 +704,9 @@ export function buildHallModel(state) {
       const boltDy = [-.27, -.09, .09, .27];
       for (const dzOffset of [-.085, .085]) {
         for (const [bi, dy] of boltDy.entries()) {
+          counts.fasteners += 1;
+          counts.washers += 2;
+          if (!detailGeometry) continue;
           const bolt = addBoltAssemblyAlongZ(
             fasteners,
             new THREE.Vector3(boltXBase, state.eaveHeight + dy, z + dzOffset),
@@ -668,8 +716,6 @@ export function buildHallModel(state) {
             `knee-bolt-M20-${frameIndex}-${side}-${bi}-${dzOffset}`,
           );
           bolt.userData.explodeOffset = new THREE.Vector3(side * .68, .34 + bi * .035, Math.sign(dzOffset) * .28);
-          counts.fasteners += 1;
-          counts.washers += 2;
         }
       }
     }
@@ -684,6 +730,9 @@ export function buildHallModel(state) {
     counts.connectionPlates += 2;
     for (const [row, yOffset] of [-.16, .10].entries()) {
       for (const [bi, x] of [-.18, 0, .18].entries()) {
+        counts.fasteners += 1;
+        counts.washers += 2;
+        if (!detailGeometry) continue;
         const bolt = addBoltAssemblyAlongZ(
           fasteners,
           new THREE.Vector3(x, ridgeY + yOffset, z),
@@ -693,16 +742,17 @@ export function buildHallModel(state) {
           `ridge-bolt-M20-${frameIndex}-${row}-${bi}`,
         );
         bolt.userData.explodeOffset = new THREE.Vector3(x * 1.6, .78 + row * .09, .38 * (bi - 1));
-        counts.fasteners += 1;
-        counts.washers += 2;
       }
     }
   }
 
   // RHS border/tie members from the IFC reference family.
-  primary.add(memberBetween(new THREE.Vector3(-halfW, state.eaveHeight, -halfL), new THREE.Vector3(-halfW, state.eaveHeight, halfL), .15, .05, primaryMat, `left-eave-${preset.borderProfile}`, technicalEdges));
-  primary.add(memberBetween(new THREE.Vector3(halfW, state.eaveHeight, -halfL), new THREE.Vector3(halfW, state.eaveHeight, halfL), .15, .05, primaryMat, `right-eave-${preset.borderProfile}`, technicalEdges));
-  primary.add(memberBetween(new THREE.Vector3(0, ridgeY, -halfL), new THREE.Vector3(0, ridgeY, halfL), .15, .05, primaryMat, `ridge-tie-${preset.borderProfile}`, technicalEdges));
+  const eaveTieY = state.eaveHeight - Math.max(.08, preset.rafterDepth * .18);
+  const eaveTieInset = Math.max(.04, preset.columnDepth * .16);
+  const ridgeTieY = ridgeY - Math.max(.16, preset.rafterDepth * .58);
+  primary.add(memberBetween(new THREE.Vector3(-halfW + eaveTieInset, eaveTieY, -halfL), new THREE.Vector3(-halfW + eaveTieInset, eaveTieY, halfL), .15, .05, primaryMat, `left-eave-${preset.borderProfile}`, technicalEdges));
+  primary.add(memberBetween(new THREE.Vector3(halfW - eaveTieInset, eaveTieY, -halfL), new THREE.Vector3(halfW - eaveTieInset, eaveTieY, halfL), .15, .05, primaryMat, `right-eave-${preset.borderProfile}`, technicalEdges));
+  primary.add(memberBetween(new THREE.Vector3(0, ridgeTieY, -halfL), new THREE.Vector3(0, ridgeTieY, halfL), .15, .05, primaryMat, `ridge-tie-${preset.borderProfile}`, technicalEdges));
   counts.borderMembers += 3;
 
   const secondary = new THREE.Group();
@@ -725,13 +775,20 @@ export function buildHallModel(state) {
   for (let i = 1; i < roofPurlinCountPerSlope; i += 1) {
     const t = i / roofPurlinCountPerSlope;
     purlinTs.push(t);
-    const leftA = roofPoint(state, metrics, -1, t, -halfL);
-    const leftB = roofPoint(state, metrics, -1, t, halfL);
-    const rightA = roofPoint(state, metrics, 1, t, -halfL);
-    const rightB = roofPoint(state, metrics, 1, t, halfL);
-    leftA.y += .055; leftB.y += .055; rightA.y += .055; rightB.y += .055;
-    roofSecondaryLeft.add(zMemberBetween(leftA, leftB, .20, .075, .012, secondaryMat, `left-purlin-${i}-${preset.purlinProfile}`, technicalEdges));
-    roofSecondaryRight.add(zMemberBetween(rightA, rightB, .20, .075, .012, secondaryMat, `right-purlin-${i}-${preset.purlinProfile}`, technicalEdges));
+    const purlinDepth = .20;
+    const purlinSeatOffset = preset.rafterDepth / 2 + purlinDepth / 2 + .012;
+    const leftNormal = roofNormal(state, -1);
+    const rightNormal = roofNormal(state, 1);
+    const leftA = roofPoint(state, metrics, -1, t, -halfL).addScaledVector(leftNormal, purlinSeatOffset);
+    const leftB = roofPoint(state, metrics, -1, t, halfL).addScaledVector(leftNormal, purlinSeatOffset);
+    const rightA = roofPoint(state, metrics, 1, t, -halfL).addScaledVector(rightNormal, purlinSeatOffset);
+    const rightB = roofPoint(state, metrics, 1, t, halfL).addScaledVector(rightNormal, purlinSeatOffset);
+    const leftPurlin = zMemberBetween(leftA, leftB, purlinDepth, .075, .012, secondaryMat, `left-purlin-${i}-${preset.purlinProfile}`, technicalEdges);
+    const rightPurlin = zMemberBetween(rightA, rightB, purlinDepth, .075, .012, secondaryMat, `right-purlin-${i}-${preset.purlinProfile}`, technicalEdges);
+    leftPurlin.rotation.z = pitchRad;
+    rightPurlin.rotation.z = -pitchRad;
+    roofSecondaryLeft.add(leftPurlin);
+    roofSecondaryRight.add(rightPurlin);
     counts.roofPurlinLines += 2;
   }
 
@@ -740,13 +797,16 @@ export function buildHallModel(state) {
     for (const side of [-1, 1]) {
       for (const [ti, t] of purlinTs.entries()) {
         if ((ti + frameIndex) % 2 !== 0) continue;
-        const point = roofPoint(state, metrics, side, t, z);
-        point.y += .03;
+        const point = roofPoint(state, metrics, side, t, z)
+          .addScaledVector(roofNormal(state, side), preset.rafterDepth / 2 + .035);
         const cleat = boxMesh(new THREE.Vector3(.07, .13, .045), plateMat, `purlin-cleat-${frameIndex}-${side}-${ti}`, technicalEdges);
         cleat.position.copy(point);
         cleat.userData.explodeOffset = new THREE.Vector3(side * .20, .35, ((frameIndex % 2) ? .16 : -.16));
         plates.add(cleat);
         for (const boltOffset of [-.032, .032]) {
+          counts.fasteners += 1;
+          counts.washers += 2;
+          if (!detailGeometry) continue;
           const bolt = addBoltAssemblyAlongZ(
             fasteners,
             point.clone().add(new THREE.Vector3(0, boltOffset, 0)),
@@ -756,8 +816,6 @@ export function buildHallModel(state) {
             `purlin-cleat-bolt-M12-${frameIndex}-${side}-${ti}-${boltOffset}`,
           );
           bolt.userData.explodeOffset = new THREE.Vector3(side * .30, .46, boltOffset * 5);
-          counts.fasteners += 1;
-          counts.washers += 2;
         }
         counts.purlinCleats += 1;
         counts.connectionPlates += 1;
@@ -768,8 +826,8 @@ export function buildHallModel(state) {
   const girtLevels = Math.max(3, Math.ceil(state.eaveHeight / 1.35));
   for (let i = 1; i < girtLevels; i += 1) {
     const y = (state.eaveHeight * i) / girtLevels;
-    sideSecondaryLeft.add(zMemberBetween(new THREE.Vector3(-halfW - .04, y, -halfL), new THREE.Vector3(-halfW - .04, y, halfL), .15, .055, .01, secondaryMat, `left-wall-girt-${i}`, technicalEdges));
-    sideSecondaryRight.add(zMemberBetween(new THREE.Vector3(halfW + .04, y, -halfL), new THREE.Vector3(halfW + .04, y, halfL), .15, .055, .01, secondaryMat, `right-wall-girt-${i}`, technicalEdges));
+    sideSecondaryLeft.add(zMemberBetween(new THREE.Vector3(-halfW + .08, y, -halfL), new THREE.Vector3(-halfW + .08, y, halfL), .15, .055, .01, secondaryMat, `left-wall-girt-${i}`, technicalEdges));
+    sideSecondaryRight.add(zMemberBetween(new THREE.Vector3(halfW - .08, y, -halfL), new THREE.Vector3(halfW - .08, y, halfL), .15, .055, .01, secondaryMat, `right-wall-girt-${i}`, technicalEdges));
     frontSecondary.add(memberBetween(new THREE.Vector3(-halfW, y, -halfL - .04), new THREE.Vector3(halfW, y, -halfL - .04), .10, .06, secondaryMat, `front-wall-girt-${i}`, technicalEdges));
     backSecondary.add(memberBetween(new THREE.Vector3(-halfW, y, halfL + .04), new THREE.Vector3(halfW, y, halfL + .04), .10, .06, secondaryMat, `back-wall-girt-${i}`, technicalEdges));
     counts.wallGirtLines += 4;
@@ -803,23 +861,23 @@ export function buildHallModel(state) {
     if (!Number.isFinite(z0) || !Number.isFinite(z1)) continue;
 
     for (const side of [-1, 1]) {
-      const x = side * (halfW + .025);
+      const x = side * (halfW - .10);
       bracing.add(cylinderBetween(new THREE.Vector3(x, .65, z0), new THREE.Vector3(x, state.eaveHeight - .5, z1), .018, braceMat, `wall-windbrace-D20-${bayIndex}-${side}-a`, 10));
       bracing.add(cylinderBetween(new THREE.Vector3(x, state.eaveHeight - .5, z0), new THREE.Vector3(x, .65, z1), .018, braceMat, `wall-windbrace-D20-${bayIndex}-${side}-b`, 10));
       bracing.add(memberBetween(new THREE.Vector3(x, state.eaveHeight * .55, z0), new THREE.Vector3(x, state.eaveHeight * .55, z1), .08, .08, braceMat, `wall-compression-RHS80x4-${bayIndex}-${side}`, technicalEdges));
       counts.wallBraces += 2;
       counts.compressionBars += 1;
 
-      const a0 = roofPoint(state, metrics, side, .14, z0);
-      const a1 = roofPoint(state, metrics, side, .86, z1);
-      const b0 = roofPoint(state, metrics, side, .86, z0);
-      const b1 = roofPoint(state, metrics, side, .14, z1);
-      a0.y += .08; a1.y += .08; b0.y += .08; b1.y += .08;
+      const braceRoofOffset = preset.rafterDepth / 2 + .028;
+      const roofN = roofNormal(state, side);
+      const a0 = roofPoint(state, metrics, side, .14, z0).addScaledVector(roofN, braceRoofOffset);
+      const a1 = roofPoint(state, metrics, side, .86, z1).addScaledVector(roofN, braceRoofOffset);
+      const b0 = roofPoint(state, metrics, side, .86, z0).addScaledVector(roofN, braceRoofOffset);
+      const b1 = roofPoint(state, metrics, side, .14, z1).addScaledVector(roofN, braceRoofOffset);
       bracing.add(cylinderBetween(a0, a1, .016, braceMat, `roof-windbrace-D20-${bayIndex}-${side}-a`, 10));
       bracing.add(cylinderBetween(b0, b1, .016, braceMat, `roof-windbrace-D20-${bayIndex}-${side}-b`, 10));
-      const c0 = roofPoint(state, metrics, side, .5, z0);
-      const c1 = roofPoint(state, metrics, side, .5, z1);
-      c0.y += .075; c1.y += .075;
+      const c0 = roofPoint(state, metrics, side, .5, z0).addScaledVector(roofN, braceRoofOffset);
+      const c1 = roofPoint(state, metrics, side, .5, z1).addScaledVector(roofN, braceRoofOffset);
       bracing.add(memberBetween(c0, c1, .08, .08, braceMat, `roof-compression-RHS80x4-${bayIndex}-${side}`, technicalEdges));
       counts.roofBraces += 2;
       counts.compressionBars += 1;
@@ -885,18 +943,22 @@ export function buildHallModel(state) {
   // Thin sandwich/trapezoidal roof sheets are aligned directly to the roof plane.
   // A dedicated ridge cap and eave/barge flashings cover the panel ends so the roof
   // does not show the old open/stacked strip artefact at the ridge and gable edges.
-  const roofThickness = .048;
-  const roofClearance = .085;
-  const slopeCenterY = state.eaveHeight + metrics.ridgeRise / 2 + roofClearance;
+  const roofThickness = .052;
+  const purlinDepth = .20;
+  // Seat the roof directly on the purlin top. Using a global Y-only clearance made
+  // the sheets visibly float and gave the left/right slopes different apparent gaps.
+  const roofSurfaceOffset = preset.rafterDepth / 2 + purlinDepth + roofThickness / 2 + .012;
   const roofLength = state.length + .22;
+  const leftRoofCenter = roofPoint(state, metrics, -1, .5, 0).addScaledVector(roofNormal(state, -1), roofSurfaceOffset);
   const leftRoofPanel = boxMesh(new THREE.Vector3(metrics.slopeLength + .06, roofThickness, roofLength), roofMat, 'left-roof-cladding', technicalEdges);
-  leftRoofPanel.position.set(-halfW / 2, slopeCenterY, 0);
+  leftRoofPanel.position.copy(leftRoofCenter);
   leftRoofPanel.rotation.z = pitchRad;
   addCorrugationLines(leftRoofPanel, 'x', Math.max(10, Math.floor(metrics.slopeLength / .34)), roofLength, metrics.slopeLength);
   leftRoof.add(leftRoofPanel);
 
+  const rightRoofCenter = roofPoint(state, metrics, 1, .5, 0).addScaledVector(roofNormal(state, 1), roofSurfaceOffset);
   const rightRoofPanel = boxMesh(new THREE.Vector3(metrics.slopeLength + .06, roofThickness, roofLength), roofMat, 'right-roof-cladding', technicalEdges);
-  rightRoofPanel.position.set(halfW / 2, slopeCenterY, 0);
+  rightRoofPanel.position.copy(rightRoofCenter);
   rightRoofPanel.rotation.z = -pitchRad;
   addCorrugationLines(rightRoofPanel, 'x', Math.max(10, Math.floor(metrics.slopeLength / .34)), roofLength, metrics.slopeLength);
   rightRoof.add(rightRoofPanel);
@@ -906,30 +968,30 @@ export function buildHallModel(state) {
   envelope.add(roofTrim);
   const ridgeCapMat = material(state.roofColor, { metalness: .38, roughness: .40 });
   const ridgeCap = createRidgeCap(roofLength + .04, pitchRad, .42, .028, ridgeCapMat, 'folded-ridge-cap', technicalEdges);
-  ridgeCap.position.set(0, ridgeY + .105, 0);
+  ridgeCap.position.set(0, ridgeY + Math.cos(pitchRad) * roofSurfaceOffset + .040, 0);
   roofTrim.add(ridgeCap);
 
   const leftEave = memberBetween(
-    new THREE.Vector3(-halfW - .03, state.eaveHeight + .075, -halfL - .13),
-    new THREE.Vector3(-halfW - .03, state.eaveHeight + .075, halfL + .13),
+    new THREE.Vector3(-halfW - .03, state.eaveHeight + Math.cos(pitchRad) * roofSurfaceOffset - .010, -halfL - .13),
+    new THREE.Vector3(-halfW - .03, state.eaveHeight + Math.cos(pitchRad) * roofSurfaceOffset - .010, halfL + .13),
     .13, .07, ridgeCapMat, 'left-eave-flashing', technicalEdges,
   );
   const rightEave = memberBetween(
-    new THREE.Vector3(halfW + .03, state.eaveHeight + .075, -halfL - .13),
-    new THREE.Vector3(halfW + .03, state.eaveHeight + .075, halfL + .13),
+    new THREE.Vector3(halfW + .03, state.eaveHeight + Math.cos(pitchRad) * roofSurfaceOffset - .010, -halfL - .13),
+    new THREE.Vector3(halfW + .03, state.eaveHeight + Math.cos(pitchRad) * roofSurfaceOffset - .010, halfL + .13),
     .13, .07, ridgeCapMat, 'right-eave-flashing', technicalEdges,
   );
   roofTrim.add(leftEave, rightEave);
 
   for (const z of [-halfL - .125, halfL + .125]) {
     roofTrim.add(memberBetween(
-      new THREE.Vector3(-halfW, state.eaveHeight + .10, z),
-      new THREE.Vector3(0, ridgeY + .10, z),
+      new THREE.Vector3(-halfW, state.eaveHeight + Math.cos(pitchRad) * roofSurfaceOffset + .010, z),
+      new THREE.Vector3(0, ridgeY + Math.cos(pitchRad) * roofSurfaceOffset + .010, z),
       .09, .055, ridgeCapMat, `barge-flashing-left-${z}`, technicalEdges,
     ));
     roofTrim.add(memberBetween(
-      new THREE.Vector3(0, ridgeY + .10, z),
-      new THREE.Vector3(halfW, state.eaveHeight + .10, z),
+      new THREE.Vector3(0, ridgeY + Math.cos(pitchRad) * roofSurfaceOffset + .010, z),
+      new THREE.Vector3(halfW, state.eaveHeight + Math.cos(pitchRad) * roofSurfaceOffset + .010, z),
       .09, .055, ridgeCapMat, `barge-flashing-right-${z}`, technicalEdges,
     ));
   }
@@ -978,51 +1040,82 @@ export function buildHallModel(state) {
   }
 
 
-  // Optional hall services are modeled as separate assemblies so they can be
-  // inspected without confusing the load-bearing steel structure.
+  // Optional hall services are split into named display layers so the Model
+  // display inspector can isolate them without rebuilding the hall.
   const services = setExplode(new THREE.Group(), 0, 1.4, 0);
   services.name = 'building-services';
   root.add(services);
 
+  const drainageServices = new THREE.Group();
+  drainageServices.name = 'service-drainage';
+  const skylightServices = new THREE.Group();
+  skylightServices.name = 'service-skylights';
+  const lightingServices = new THREE.Group();
+  lightingServices.name = 'service-lighting';
+  const fireServices = new THREE.Group();
+  fireServices.name = 'service-fire';
+  const climateServices = new THREE.Group();
+  climateServices.name = 'service-climate';
+  const coverageServices = new THREE.Group();
+  coverageServices.name = 'service-coverage';
+  coverageServices.visible = Boolean(state.serviceCoverage);
+  services.add(drainageServices, skylightServices, lightingServices, fireServices, climateServices, coverageServices);
+
+  const lightingPositions = [];
+  const sprinklerPositions = [];
+
   if (state.gutters) {
     const gutterMat = material('#5d6971', { metalness: .72, roughness: .32 });
-    const gutterY = state.eaveHeight + .01;
+    const gutterY = state.eaveHeight + Math.cos(pitchRad) * roofSurfaceOffset - .085;
     for (const side of [-1, 1]) {
       const x = side * (halfW + .17);
-      services.add(memberBetween(new THREE.Vector3(x, gutterY, -halfL - .12), new THREE.Vector3(x, gutterY, halfL + .12), .14, .12, gutterMat, `eave-gutter-${side}`, technicalEdges));
+      drainageServices.add(memberBetween(new THREE.Vector3(x, gutterY, -halfL - .12), new THREE.Vector3(x, gutterY, halfL + .12), .14, .12, gutterMat, `eave-gutter-${side}`, technicalEdges));
       for (const z of [-halfL + .14, halfL - .14]) {
-        services.add(cylinderBetween(new THREE.Vector3(x, gutterY - .02, z), new THREE.Vector3(x, .18, z), .038, gutterMat, `downpipe-${side}-${z}`, 14));
+        drainageServices.add(cylinderBetween(new THREE.Vector3(x, gutterY - .02, z), new THREE.Vector3(x, .18, z), .038, gutterMat, `downpipe-${side}-${z}`, 12));
       }
     }
   }
 
   if (state.roofSkylights) {
-    const skyMat = material('#b9e6f5', { transparent: true, opacity: .62, metalness: .03, roughness: .18 });
+    const skyMat = material('#b9e6f5', { transparent: true, opacity: .62, metalness: .03, roughness: .18, depthWrite: false });
     const modulesPerSide = Math.max(1, Math.floor(metrics.skylightCount / 2));
     for (const side of [-1, 1]) {
       for (let i = 0; i < modulesPerSide; i += 1) {
-        const z = modulesPerSide === 1 ? 0 : -halfL * .72 + i * (state.length * 1.44 / (modulesPerSide - 1));
+        const z = modulesPerSide === 1 ? 0 : -halfL * .72 + i * (halfL * 1.44 / (modulesPerSide - 1));
         const panel = createSkylight(Math.min(1.35, metrics.slopeLength * .25), 1.15, skyMat, `roof-skylight-${side}-${i}`, technicalEdges);
-        panel.position.set(side * halfW * .48, state.eaveHeight + metrics.ridgeRise * .52 + .135, z);
+        const roofT = .52;
+        const point = roofPoint(state, metrics, side, roofT, z);
+        point.addScaledVector(roofNormal(state, side), roofSurfaceOffset + .028);
+        panel.position.copy(point);
         panel.rotation.z = side < 0 ? pitchRad : -pitchRad;
-        services.add(panel);
+        skylightServices.add(panel);
       }
     }
   }
 
   if (state.highBayLighting) {
     const fixtureMat = material('#313d45', { metalness: .65, roughness: .32 });
-    const glowMat = new THREE.MeshStandardMaterial({ color: 0xf6fbff, emissive: 0xd6efff, emissiveIntensity: 1.35, roughness: .25 });
+    const glowMat = new THREE.MeshStandardMaterial({ color: 0xf6fbff, emissive: 0xd6efff, emissiveIntensity: .75, roughness: .25 });
     const columns = Math.max(1, Math.ceil(state.width / 9));
     const rows = Math.max(2, Math.ceil(metrics.highBayFixtureCount / columns));
     let created = 0;
     for (let r = 0; r < rows && created < metrics.highBayFixtureCount; r += 1) {
-      const z = rows === 1 ? 0 : -halfL * .72 + r * (state.length * 1.44 / (rows - 1));
+      const z = rows === 1 ? 0 : -halfL * .72 + r * (halfL * 1.44 / (rows - 1));
       for (let c = 0; c < columns && created < metrics.highBayFixtureCount; c += 1) {
-        const x = columns === 1 ? 0 : -halfW * .55 + c * (state.width * 1.10 / (columns - 1));
+        const x = columns === 1 ? 0 : -halfW * .55 + c * (halfW * 1.10 / (columns - 1));
+        const localRoofY = state.eaveHeight + metrics.ridgeRise * (1 - Math.min(1, Math.abs(x) / Math.max(halfW, .01)));
         const light = createHighBayLight(fixtureMat, glowMat);
-        light.position.set(x, Math.min(state.eaveHeight - .35, ridgeY - .8), z);
-        services.add(light);
+        // Mount the fixture below the rafter bottom and keep every fixture inside
+        // the hall footprint. Previous spacing used full width/length where a
+        // half-span was intended, which sent later fixtures outside the building.
+        const fixtureY = Math.max(2.35, localRoofY - preset.rafterDepth / 2 - .58);
+        light.position.set(
+          THREE.MathUtils.clamp(x, -halfW + .75, halfW - .75),
+          fixtureY,
+          THREE.MathUtils.clamp(z, -halfL + .75, halfL - .75),
+        );
+        lightingServices.add(light);
+        lightingPositions.push(new THREE.Vector3(x, 0, z));
         created += 1;
       }
     }
@@ -1030,20 +1123,21 @@ export function buildHallModel(state) {
 
   if (state.fireSprinklers) {
     const pipeMat = material('#b63d38', { metalness: .45, roughness: .38 });
-    const pipeY = Math.max(2.7, state.eaveHeight - .65);
-    services.add(cylinderBetween(new THREE.Vector3(0, pipeY, -halfL + .4), new THREE.Vector3(0, pipeY, halfL - .4), .032, pipeMat, 'sprinkler-main', 12));
+    const pipeY = Math.max(2.7, Math.min(state.eaveHeight - .55, ridgeY - .9));
+    fireServices.add(cylinderBetween(new THREE.Vector3(0, pipeY, -halfL + .4), new THREE.Vector3(0, pipeY, halfL - .4), .032, pipeMat, 'sprinkler-main', 10));
     const branchCount = Math.max(2, Math.ceil(state.length / 6));
     for (let i = 0; i < branchCount; i += 1) {
-      const z = branchCount === 1 ? 0 : -halfL * .78 + i * (state.length * 1.56 / (branchCount - 1));
-      services.add(cylinderBetween(new THREE.Vector3(-halfW + .6, pipeY, z), new THREE.Vector3(halfW - .6, pipeY, z), .022, pipeMat, `sprinkler-branch-${i}`, 10));
+      const z = branchCount === 1 ? 0 : -halfL * .78 + i * (halfL * 1.56 / (branchCount - 1));
+      fireServices.add(cylinderBetween(new THREE.Vector3(-halfW + .6, pipeY, z), new THREE.Vector3(halfW - .6, pipeY, z), .022, pipeMat, `sprinkler-branch-${i}`, 8));
       const headCount = Math.max(2, Math.ceil(state.width / 4));
       for (let h = 0; h < headCount; h += 1) {
-        const x = headCount === 1 ? 0 : -halfW * .7 + h * (state.width * 1.4 / (headCount - 1));
-        const stem = cylinderBetween(new THREE.Vector3(x, pipeY, z), new THREE.Vector3(x, pipeY - .16, z), .008, pipeMat, `sprinkler-drop-${i}-${h}`, 8);
-        services.add(stem);
-        const head = new THREE.Mesh(new THREE.CylinderGeometry(.035, .018, .025, 12), pipeMat);
+        const x = headCount === 1 ? 0 : -halfW * .7 + h * (halfW * 1.4 / (headCount - 1));
+        const stem = cylinderBetween(new THREE.Vector3(x, pipeY, z), new THREE.Vector3(x, pipeY - .16, z), .008, pipeMat, `sprinkler-drop-${i}-${h}`, 7);
+        fireServices.add(stem);
+        const head = new THREE.Mesh(new THREE.CylinderGeometry(.035, .018, .025, 10), pipeMat);
         head.position.set(x, pipeY - .18, z);
-        services.add(head);
+        fireServices.add(head);
+        sprinklerPositions.push(new THREE.Vector3(x, 0, z));
       }
     }
   }
@@ -1056,14 +1150,86 @@ export function buildHallModel(state) {
     for (let i = 0; i < unitCount; i += 1) {
       const z = unitCount === 1 ? 0 : -Math.min(halfL - 1.5, unitCount * 1.8) + i * (Math.min(state.length - 3, unitCount * 3.6) / Math.max(1, unitCount - 1));
       const unit = createCondenserUnit(unitWidth, 1.45, .72, casingMat, fanMat, technicalEdges);
-      unit.position.set(halfW + 1.35, .12, z);
+      unit.position.set(halfW + 1.45, .12, z);
       unit.rotation.y = -Math.PI / 2;
-      services.add(unit);
-      const pipeA = cylinderBetween(new THREE.Vector3(halfW + .05, 1.15, z - .10), new THREE.Vector3(halfW + 1.0, .95, z - .10), .018, fanMat, `climate-pipe-a-${i}`, 10);
-      const pipeB = cylinderBetween(new THREE.Vector3(halfW + .05, 1.02, z + .10), new THREE.Vector3(halfW + 1.0, .82, z + .10), .014, fanMat, `climate-pipe-b-${i}`, 10);
-      services.add(pipeA, pipeB);
+      climateServices.add(unit);
+      const pipeA = cylinderBetween(new THREE.Vector3(halfW - .02, 1.15, z - .10), new THREE.Vector3(halfW + 1.0, .95, z - .10), .018, fanMat, `climate-pipe-a-${i}`, 8);
+      const pipeB = cylinderBetween(new THREE.Vector3(halfW - .02, 1.02, z + .10), new THREE.Vector3(halfW + 1.0, .82, z + .10), .014, fanMat, `climate-pipe-b-${i}`, 8);
+      climateServices.add(pipeA, pipeB);
     }
   }
+
+  // Lightweight coverage overlays are created once and toggled by the display
+  // inspector. They do not participate in shadows and therefore stay inexpensive.
+  const coverageBlue = new THREE.MeshBasicMaterial({ color: 0x1a9fe6, transparent: true, opacity: .10, depthWrite: false, side: THREE.DoubleSide });
+  const coverageRed = new THREE.MeshBasicMaterial({ color: 0xd95a52, transparent: true, opacity: .08, depthWrite: false, side: THREE.DoubleSide });
+  const coverageCyan = new THREE.MeshBasicMaterial({ color: 0x62c7d9, transparent: true, opacity: .07, depthWrite: false, side: THREE.DoubleSide });
+  lightingPositions.forEach((pos, index) => {
+    const zone = new THREE.Mesh(new THREE.CircleGeometry(Math.min(3.4, Math.max(2.1, state.width / 4)), 24), coverageBlue);
+    zone.name = `lighting-coverage-${index}`;
+    zone.rotation.x = -Math.PI / 2;
+    zone.position.set(pos.x, .025, pos.z);
+    coverageServices.add(zone);
+  });
+  sprinklerPositions.forEach((pos, index) => {
+    const zone = new THREE.Mesh(new THREE.CircleGeometry(2.3, 20), coverageRed);
+    zone.name = `sprinkler-coverage-${index}`;
+    zone.rotation.x = -Math.PI / 2;
+    zone.position.set(pos.x, .03, pos.z);
+    coverageServices.add(zone);
+  });
+  if (state.climateSystem !== 'none') {
+    const zone = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(1, state.width - 1.6), Math.max(1, state.length - 1.6)), coverageCyan);
+    zone.name = 'climate-coverage';
+    zone.rotation.x = -Math.PI / 2;
+    zone.position.y = .035;
+    coverageServices.add(zone);
+  }
+
+  // Warehouse-planning overlays are hall-specific inspection aids rather than
+  // configuration geometry. They remain hidden until enabled in Model display.
+  const planning = new THREE.Group();
+  planning.name = 'warehouse-planning';
+  root.add(planning);
+  const racks = new THREE.Group();
+  racks.name = 'warehouse-racking';
+  const aisles = new THREE.Group();
+  aisles.name = 'forklift-clearance';
+  planning.add(racks, aisles);
+
+  const rackMat = material('#7b8d98', { metalness: .48, roughness: .48, transparent: true, opacity: .78 });
+  const palletMat = material('#c08a4e', { metalness: .02, roughness: .88, transparent: true, opacity: .72 });
+  const densityRows = state.rackDensity === 'dense' ? 4 : state.rackDensity === 'light' ? 2 : 3;
+  const usableWidth = Math.max(2.5, state.width - 3.0);
+  const usableLength = Math.max(4.0, state.length - 4.2);
+  const rackHeight = Math.min(4.2, Math.max(2.2, state.eaveHeight - 1.0));
+  const rackDepth = state.rackDensity === 'dense' ? 1.0 : 1.15;
+  const rowCount = Math.max(1, Math.min(densityRows, Math.floor(usableWidth / (rackDepth + 2.1))));
+  for (let i = 0; i < rowCount; i += 1) {
+    const x = rowCount === 1 ? 0 : -usableWidth / 2 + rackDepth / 2 + i * ((usableWidth - rackDepth) / (rowCount - 1));
+    const frame = boxMesh(new THREE.Vector3(rackDepth, rackHeight, usableLength), rackMat, `rack-row-${i}`, false);
+    frame.position.set(x, rackHeight / 2, .45);
+    frame.castShadow = false;
+    racks.add(frame);
+    for (const level of [.22, .48, .74]) {
+      const pallet = boxMesh(new THREE.Vector3(rackDepth + .08, .12, usableLength * .94), palletMat, `rack-shelf-${i}-${level}`, false);
+      pallet.position.set(x, rackHeight * level, .45);
+      pallet.castShadow = false;
+      racks.add(pallet);
+    }
+  }
+
+  const aisleMat = new THREE.MeshBasicMaterial({ color: 0x18a0d8, transparent: true, opacity: .11, depthWrite: false, side: THREE.DoubleSide });
+  const mainAisle = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(3.4, state.width * .35), Math.max(2, state.length - 2.0)), aisleMat);
+  mainAisle.name = 'main-forklift-aisle';
+  mainAisle.rotation.x = -Math.PI / 2;
+  mainAisle.position.set(0, .045, 0);
+  aisles.add(mainAisle);
+  const crossAisle = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(2, state.width - 1.6), Math.min(3.4, state.length * .22)), aisleMat);
+  crossAisle.name = 'forklift-turning-cross-aisle';
+  crossAisle.rotation.x = -Math.PI / 2;
+  crossAisle.position.set(0, .05, -halfL + Math.min(2.5, state.length * .16));
+  aisles.add(crossAisle);
 
   root.traverse((object) => {
     if (!object.userData.basePosition) object.userData.basePosition = object.position.clone();
@@ -1073,6 +1239,7 @@ export function buildHallModel(state) {
     root,
     metrics,
     counts,
+    detailGeometry,
     profileSchedule: {
       columns: preset.columnProfile,
       rafters: preset.rafterProfile,
@@ -1086,8 +1253,9 @@ export function buildHallModel(state) {
 
 export function applyExplodedView(root, amount) {
   const t = THREE.MathUtils.clamp(amount, 0, 1);
+  const detailVisible = Boolean(root.userData.showConnectionDetails) || t > .015;
   root.traverse((object) => {
-    if (object.userData.detailOnly) object.visible = t > .015;
+    if (object.userData.detailOnly) object.visible = detailVisible;
     const base = object.userData.basePosition;
     if (!base) return;
     const offset = object.userData.explodeOffset;
