@@ -1,6 +1,6 @@
-import { state, deriveHallMetrics } from './state.js?v=1';
-import { HallScene } from './scene.js?v=1';
-import { HallUI } from './ui.js?v=1';
+import { state, deriveHallMetrics } from './state.js?v=2';
+import { HallScene } from './scene.js?v=2';
+import { HallUI } from './ui.js?v=2';
 
 const scene = new HallScene(document.querySelector('#canvasHost'));
 let scheduled = 0;

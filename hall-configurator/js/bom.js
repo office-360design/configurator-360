@@ -1,21 +1,27 @@
 export function buildBom(state, build) {
-  const { metrics, counts } = build;
+  const { metrics, counts, profileSchedule } = build;
   const lines = [
-    { name: 'Portal-frame columns', unit: 'pcs', quantity: counts.primaryColumns, notes: `${build.metrics.frameCount} portal frames` },
-    { name: 'Portal-frame rafters', unit: 'pcs', quantity: counts.rafters, notes: 'Two sloped rafters per frame' },
-    { name: 'Concrete column footings', unit: 'pcs', quantity: counts.footings, notes: 'Visualization footings' },
-    { name: 'Longitudinal primary ties', unit: 'm', quantity: (state.length * 3).toFixed(1), notes: 'Two eave beams + ridge tie' },
+    { name: `Primary columns · ${profileSchedule.columns}`, unit: 'pcs', quantity: counts.primaryColumns, notes: `${metrics.frameCount} portal frames` },
+    { name: `Primary rafters · ${profileSchedule.rafters}`, unit: 'pcs', quantity: counts.rafters, notes: 'Two sloped rafters per frame' },
+    { name: 'Concrete column footings', unit: 'pcs', quantity: counts.footings, notes: 'One footing per primary column' },
+    { name: `RHS border / longitudinal members · ${profileSchedule.border}`, unit: 'pcs', quantity: counts.borderMembers, notes: 'Eave, ridge and gable border members' },
   ];
 
   if (state.secondaryStructure) {
     lines.push(
-      { name: 'Roof purlin lines', unit: 'm', quantity: (counts.roofPurlinLines * state.length).toFixed(1), notes: `${counts.roofPurlinLines} continuous lines` },
-      { name: 'Wall girt lines', unit: 'm', quantity: ((counts.wallGirtLines / 2) * (state.length + state.width)).toFixed(1), notes: `${counts.wallGirtLines} wall girt lines` },
-      { name: 'End-wall support posts', unit: 'pcs', quantity: counts.endPosts, notes: 'Secondary gable-wall posts' },
+      { name: `Roof purlin lines · ${profileSchedule.purlins}`, unit: 'm', quantity: (counts.roofPurlinLines * state.length).toFixed(1), notes: `${counts.roofPurlinLines} longitudinal Z-profile lines` },
+      { name: 'Wall girts', unit: 'm', quantity: ((counts.wallGirtLines / 4) * (2 * state.length + 2 * state.width)).toFixed(1), notes: `${counts.wallGirtLines} girt lines` },
+      { name: 'End-wall support posts · RHS150×50', unit: 'pcs', quantity: counts.endPosts, notes: 'Gable-wall secondary posts' },
+      { name: `Wind bracing · ${profileSchedule.braces}`, unit: 'pcs', quantity: counts.wallBraces + counts.roofBraces, notes: `${counts.wallBraces} wall + ${counts.roofBraces} roof braces` },
+      { name: 'Compression bars · RHS80×4', unit: 'pcs', quantity: counts.compressionBars, notes: 'Braced bay compression members' },
+      { name: `Purlin / frame stays · ${profileSchedule.stays}`, unit: 'pcs', quantity: counts.stays, notes: 'Representative angle stays' },
     );
   }
 
   lines.push(
+    { name: 'Connection / gusset / base plates', unit: 'pcs', quantity: counts.connectionPlates, notes: `${counts.purlinCleats} shown as purlin cleats` },
+    { name: 'Anchor rods', unit: 'pcs', quantity: counts.anchorRods, notes: 'M27-style detailed visualization' },
+    { name: 'Connection nuts / bolts', unit: 'pcs', quantity: counts.fasteners, notes: 'Detailed exploded-view fasteners' },
     { name: 'Roof cladding', unit: 'm²', quantity: metrics.roofArea.toFixed(1), notes: state.claddingProfile },
     { name: 'Wall cladding', unit: 'm²', quantity: metrics.netWallArea.toFixed(1), notes: 'Net of configured openings' },
   );
