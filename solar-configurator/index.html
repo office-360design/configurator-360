@@ -9,7 +9,12 @@
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
   <link rel="stylesheet" href="./styles.css?v=1" />
   <link rel="stylesheet" href="./shared-shell.css?v=1" />
-  <link rel="stylesheet" href="./solar.css?v=2" />
+  <link rel="stylesheet" href="./solar.css?v=9" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script>
+    window.SOLAR_PVGIS_PROXY_ENDPOINT =
+      'https://pvgis-proxy.netlify.app/.netlify/functions/pvgis';
+  </script>
   <script type="importmap">
     {
       "imports": {
@@ -133,7 +138,7 @@
           <label><span>Energy tariff (RON/kWh)</span><input id="energyTariffInput" type="number" min="0.05" step="0.01" value="1.3" /></label>
         </div>
 
-        <div class="solar-option-heading">Region</div>
+        <div class="solar-option-heading">Regional production fallback</div>
         <div class="region-grid">
           <button type="button" data-region="dobrogea" aria-pressed="false"><b>South / Dobrogea</b><small>Constanța</small></button>
           <button type="button" data-region="muntenia" aria-pressed="true"><b>Muntenia / Oltenia</b><small>Bucharest</small></button>
@@ -142,6 +147,7 @@
           <button type="button" data-region="northwest" aria-pressed="false"><b>North-West / Mountain</b><small>Oradea</small></button>
         </div>
         <div class="region-status-row"><span id="regionDetail">Bucharest reference</span><strong id="productionSourceBadge">PVGIS-calibrated model</strong></div>
+        <button type="button" class="solar-location-launch" id="exactLocationButton">Choose exact location</button>
 
         <div class="solar-option-heading">Daytime consumption profile</div>
         <div class="consumption-grid">
@@ -212,9 +218,10 @@
       <div class="viewer-stage" id="viewerStage">
         <div class="roof-tools-anchor" id="solarToolsAnchor" aria-label="Tools control"></div>
         <div id="canvasHost" aria-label="Interactive 3D solar roof model"></div>
-        <div class="stage-hint">Drag to orbit · Scroll to zoom · Tools for sun, compass & day simulation</div>
+        <div class="stage-hint">Drag to orbit · Scroll to zoom · Tools for location, seasons, real sun & shadows</div>
         <aside class="solar-live-card" aria-label="Live solar simulation">
           <div class="solar-live-card__head"><span>Simulation time</span><strong id="simulationTimeReadout">12:00</strong></div>
+          <div class="solar-live-card__sun" id="liveSunReadout">Sun position loading…</div>
           <div class="solar-live-card__grid">
             <div><span>PV output</span><strong id="instantProduction">—</strong></div>
             <div><span>House load</span><strong id="instantConsumption">—</strong></div>
@@ -225,7 +232,7 @@
 
       <section class="solar-simulation-panel" aria-label="Day energy simulation">
         <header>
-          <div><p class="eyebrow">24-hour energy flow</p><h3>Production vs. consumption</h3></div>
+          <div><p class="eyebrow" id="simulationDateReadout">24-hour energy flow</p><h3>Production vs. consumption</h3></div>
           <button id="simulationPlayButton" type="button">Run day simulation</button>
         </header>
         <div class="simulation-summary-grid">
@@ -251,27 +258,194 @@
     </section>
   </main>
 
-  <section class="roof-environment-panel" id="solarEnvironmentPanel" aria-labelledby="solarEnvironmentTitle" hidden>
+  <section class="roof-environment-panel solar-phase1-environment solar-phase2-environment" id="solarEnvironmentPanel" aria-labelledby="solarEnvironmentTitle" hidden>
     <header class="roof-environment-header">
-      <h2 id="solarEnvironmentTitle">Sun & roof orientation</h2>
-      <button type="button" id="solarEnvironmentClose" aria-label="Close sun and orientation menu">×</button>
+      <div><p class="eyebrow">Geographic solar context</p><h2 id="solarEnvironmentTitle">Location, environment & sun</h2></div>
+      <button type="button" id="solarEnvironmentClose" aria-label="Close location and sun menu">×</button>
     </header>
+
+    <section class="solar-env-block">
+      <div class="solar-env-block__head"><span>Location</span><strong id="environmentLocationMode">Regional reference</strong></div>
+      <div class="solar-env-location-card">
+        <div><b id="environmentLocationLabel">Bucharest reference</b><small id="environmentCoordinates">44.4268, 26.1025</small></div>
+        <button type="button" id="environmentChooseLocation">Choose on map</button>
+      </div>
+    </section>
+
+    <section class="solar-env-block solar-context-block">
+      <div class="solar-env-block__head"><span>3D geographic context</span><strong id="environmentContextStatus">Choose exact location</strong></div>
+      <label class="solar-context-master" for="environmentEnabledToggle">
+        <span><b>Render local environment</b><small>Terrain and mapped surroundings are aligned to true North.</small></span>
+        <input id="environmentEnabledToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+      <div class="solar-local-position" id="localPositionAdjuster">
+        <div class="solar-local-position__head"><span>House position in loaded context</span><strong id="localPositionReadout">Centered</strong></div>
+        <div class="solar-local-position__controls">
+          <div class="solar-local-position__pad" role="group" aria-label="Nudge configured house within the loaded environment">
+            <span aria-hidden="true"></span>
+            <button type="button" data-local-east="0" data-local-north="1" aria-label="Move house north">↑<small>N</small></button>
+            <span aria-hidden="true"></span>
+            <button type="button" data-local-east="-1" data-local-north="0" aria-label="Move house west">←<small>W</small></button>
+            <button type="button" id="localPositionResetButton" class="reset" aria-label="Reset local house position">⌾</button>
+            <button type="button" data-local-east="1" data-local-north="0" aria-label="Move house east">→<small>E</small></button>
+            <span aria-hidden="true"></span>
+            <button type="button" data-local-east="0" data-local-north="-1" aria-label="Move house south">↓<small>S</small></button>
+            <span aria-hidden="true"></span>
+          </div>
+          <label class="solar-local-position__step" for="localPositionStepControl"><span>Nudge step</span>
+            <select id="localPositionStepControl">
+              <option value="0.5">0.5 m</option>
+              <option value="1" selected>1 m</option>
+              <option value="2">2 m</option>
+              <option value="5">5 m</option>
+            </select>
+            <small>Moves the configured house instantly without reloading map data.</small>
+          </label>
+        </div>
+      </div>
+      <label class="solar-context-master solar-host-building-toggle" for="replaceHostBuildingToggle">
+        <span><b>Replace overlapping mapped building</b><small>Treat a building under the configured house as the same house. It becomes a blue reference outline and stops casting shadows.</small></span>
+        <input id="replaceHostBuildingToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+      <label class="solar-context-master solar-building-shading-toggle" for="localBuildingShadingToggle">
+        <span><b>Use nearby buildings for solar shading</b><small>Uses mapped footprints, terrain elevation and mapped/estimated building heights to reduce production when the real sun is obstructed.</small></span>
+        <input id="localBuildingShadingToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+      <div class="solar-local-shading-summary" aria-label="Nearby building shading estimate">
+        <div><span>Annual obstruction loss</span><strong id="localBuildingAnnualLossValue">—</strong></div>
+        <div><span>Shade contributors</span><strong id="localBuildingContributorValue">—</strong></div>
+      </div>
+      <p class="solar-context-message solar-local-shading-message" id="localBuildingShadingMessage">Load nearby buildings to estimate local obstruction shading.</p>
+      <p class="solar-context-attribution solar-local-shading-note">Warm-tinted buildings are currently capable of shading at least one fitted panel. This is an approximate obstruction model because OpenStreetMap building heights can be missing or inferred.</p>
+      <div class="solar-context-row">
+        <label for="environmentRadiusControl"><span>Context radius</span>
+          <select id="environmentRadiusControl">
+            <option value="120">120 m</option>
+            <option value="180" selected>180 m</option>
+            <option value="250">250 m</option>
+            <option value="350">350 m</option>
+          </select>
+        </label>
+        <label for="terrainExaggerationControl"><span>Terrain relief</span>
+          <select id="terrainExaggerationControl">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1× real</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+          </select>
+        </label>
+      </div>
+      <div class="solar-context-layer-grid" aria-label="Geographic environment layers">
+        <label><input id="terrainLayerToggle" type="checkbox" checked /><span>Terrain</span></label>
+        <label><input id="buildingsLayerToggle" type="checkbox" checked /><span>Buildings</span></label>
+        <label><input id="roadsLayerToggle" type="checkbox" checked /><span>Roads</span></label>
+        <label><input id="treesLayerToggle" type="checkbox" checked /><span>Mapped trees</span></label>
+      </div>
+      <div class="solar-context-actions">
+        <button type="button" class="primary" id="environmentRefreshButton">Load / refresh</button>
+        <button type="button" id="environmentFocusButton">View neighborhood</button>
+      </div>
+      <div class="solar-context-stats" aria-label="Loaded geographic context statistics">
+        <div><span>Altitude</span><strong id="environmentAltitudeValue">—</strong></div>
+        <div><span>Buildings</span><strong id="environmentBuildingsValue">—</strong></div>
+        <div><span>Roads</span><strong id="environmentRoadsValue">—</strong></div>
+        <div><span>Trees</span><strong id="environmentTreesValue">—</strong></div>
+        <div><span>Host match</span><strong id="environmentHostBuildingValue">—</strong></div>
+      </div>
+      <p class="solar-context-message" id="environmentContextMessage">Choose an exact location to load terrain and nearby mapped context.</p>
+      <p class="solar-context-attribution">Terrain: Mapzen Terrarium / AWS Open Data · Buildings, roads & trees: © OpenStreetMap contributors.</p>
+    </section>
+
+    <section class="solar-env-block solar-pvgis-block">
+      <div class="solar-env-block__head"><span>PVGIS exact-site model</span><strong id="pvgisStatusLabel">Proxy not configured</strong></div>
+      <div class="solar-pvgis-stats" aria-label="PVGIS site model statistics">
+        <div><span>Annual yield</span><strong id="pvgisAnnualValue">—</strong></div>
+        <div><span>Specific yield</span><strong id="pvgisSpecificYieldValue">—</strong></div>
+        <div><span>Terrain horizon</span><strong id="pvgisHorizonValue">—</strong></div>
+        <div><span>Roof sections</span><strong id="pvgisSectionsValue">—</strong></div>
+      </div>
+      <label class="solar-context-master" for="pvgisUseHorizonToggle">
+        <span><b>Use PVGIS terrain horizon</b><small>Includes high-horizon shading from surrounding terrain in the exact-site production estimate.</small></span>
+        <input id="pvgisUseHorizonToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+      <label class="solar-context-master" for="pvgisShowHorizonToggle">
+        <span><b>Show terrain horizon in 3D</b><small>Draws the PVGIS horizon profile around the real sun path and dims direct sunlight when terrain blocks the sun.</small></span>
+        <input id="pvgisShowHorizonToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+      <div class="solar-pvgis-source-row"><span>Dataset</span><strong id="pvgisDatabaseValue">—</strong></div>
+      <div class="solar-context-actions solar-pvgis-actions">
+        <button type="button" class="primary" id="pvgisRefreshButton">Refresh PVGIS</button>
+      </div>
+      <p class="solar-context-message" id="pvgisMessage">Choose an exact location and configure the small PVGIS proxy to enable live site-specific production.</p>
+      <details class="solar-pvgis-settings">
+        <summary>PVGIS proxy settings</summary>
+        <label for="pvgisProxyInput"><span>Proxy URL</span><input id="pvgisProxyInput" type="url" inputmode="url" placeholder="https://your-site.netlify.app/.netlify/functions/pvgis" autocomplete="off" /></label>
+        <button type="button" id="pvgisProxyApplyButton">Apply proxy URL</button>
+        <small class="solar-pvgis-proxy-feedback" id="pvgisProxyFeedback" aria-live="polite">Enter the public function URL and apply it.</small>
+        <small>The URL is stored only in this browser. A ready-to-deploy Netlify Function is included in <code>pvgis-proxy-netlify/</code>.</small>
+      </details>
+      <p class="solar-context-attribution">PV production & terrain horizon: European Commission JRC PVGIS 5.3 / SARAH3.</p>
+    </section>
+
+    <section class="solar-env-block">
+      <div class="solar-env-block__head"><span>Date & season</span><button type="button" class="solar-env-link" id="environmentTodayButton">Today</button></div>
+      <input class="solar-env-date" id="simulationDateControl" type="date" />
+      <div class="solar-season-grid" aria-label="Season presets">
+        <button type="button" data-season-preset="spring">Spring</button>
+        <button type="button" data-season-preset="summer">Summer</button>
+        <button type="button" data-season-preset="autumn">Autumn</button>
+        <button type="button" data-season-preset="winter">Winter</button>
+      </div>
+    </section>
+
     <div class="roof-environment-control">
-      <div class="roof-environment-control__heading"><label for="sunPositionControl">Sun position</label><output id="sunPositionValue" for="sunPositionControl">50%</output></div>
-      <input id="sunPositionControl" type="range" min="0" max="100" step="1" value="50" />
-      <div class="roof-environment-control__ends"><span>Sunrise</span><span>Sunset</span></div>
+      <div class="roof-environment-control__heading"><label for="simulationTimeControl">Time of day</label><output id="simulationTimeValue" for="simulationTimeControl">12:00</output></div>
+      <input id="simulationTimeControl" type="range" min="0" max="23.9833" step="0.05" value="12" />
+      <div class="roof-environment-control__ends"><span id="sunriseValue">Sunrise —</span><span id="sunsetValue">Sunset —</span></div>
     </div>
+
+    <div class="solar-sun-facts" aria-label="Current sun position">
+      <div><span>Elevation</span><strong id="sunElevationValue">—</strong></div>
+      <div><span>Azimuth</span><strong id="sunAzimuthValue">—</strong></div>
+      <div><span>Solar noon</span><strong id="solarNoonValue">—</strong></div>
+    </div>
+
     <div class="roof-environment-control">
-      <div class="roof-environment-control__heading"><label for="northDirectionControl">Roof front azimuth</label><output id="northDirectionValue" for="northDirectionControl">0°</output></div>
-      <input id="northDirectionControl" type="range" min="0" max="360" step="1" value="0" />
-      <div class="roof-environment-control__ends"><span>0° N</span><span>180° S</span></div>
+      <div class="roof-environment-control__heading"><label for="northDirectionControl">Roof front bearing</label><output id="northDirectionValue" for="northDirectionControl">0° N</output></div>
+      <input id="northDirectionControl" type="range" min="0" max="359" step="1" value="0" />
+      <div class="roof-environment-control__ends"><span>0° North</span><span>180° South</span></div>
     </div>
+
+    <label class="roof-night-preview" for="sunPathToggle">
+      <span class="roof-night-preview__icon solar-path-icon" aria-hidden="true">⌒</span>
+      <span class="roof-night-preview__copy"><strong>Show sun path</strong><small>Displays the real daily sun arc for the selected date.</small></span>
+      <input id="sunPathToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+    </label>
+
     <label class="roof-night-preview" for="nightPreviewToggle">
       <span class="roof-night-preview__icon" aria-hidden="true">◔</span>
-      <span class="roof-night-preview__copy"><strong>Night preview</strong><small>Darkens the scene and shows night-time conditions.</small></span>
+      <span class="roof-night-preview__copy"><strong>Force night preview</strong><small>Useful for checking the scene; real night is automatic when the sun is below the horizon.</small></span>
       <input id="nightPreviewToggle" type="checkbox" /><span class="roof-switch" aria-hidden="true"></span>
     </label>
   </section>
+
+  <dialog class="solar-location-dialog" id="locationPickerDialog" aria-labelledby="locationPickerTitle">
+    <header class="solar-location-dialog__header">
+      <div><p class="eyebrow">Romania · Geographic context</p><h2 id="locationPickerTitle">Choose exact location</h2></div>
+      <button type="button" id="locationPickerClose" aria-label="Close location picker">×</button>
+    </header>
+    <div class="solar-location-search-row">
+      <input id="locationSearchInput" type="search" placeholder="Search city, street or address" autocomplete="off" />
+      <button type="button" id="locationSearchButton">Search</button>
+      <button type="button" class="secondary-action" id="locationGeolocateButton">Use my location</button>
+    </div>
+    <div class="solar-location-search-results" id="locationSearchResults" hidden></div>
+    <div class="solar-location-map" id="locationMap" aria-label="Map for choosing the solar installation location"></div>
+    <footer class="solar-location-dialog__footer">
+      <div><strong id="locationSelectionLabel">Click the map to choose a point</strong><span id="locationSelectionCoordinates">—</span></div>
+      <div><button type="button" class="secondary-action" id="locationPickerCancel">Cancel</button><button type="button" class="primary-action" id="locationPickerUse" disabled>Use this location</button></div>
+    </footer>
+  </dialog>
 
   <dialog class="bom-panel" id="estimatePanel" aria-labelledby="estimateTitle">
     <header class="bom-header">
@@ -320,7 +494,8 @@
       panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
     })();
   </script>
-  <script type="module" src="./js/sharedShell.js?v=1"></script>
-  <script type="module" src="./js/app.js?v=3"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="./js/sharedShell.js?v=9"></script>
+  <script type="module" src="./js/app.js?v=12"></script>
 </body>
 </html>

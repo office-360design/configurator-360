@@ -1,3 +1,15 @@
+const initialSimulationDate = (() => {
+  try {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Bucharest',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date()).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+})();
+
 export const roofNames = {
   gable: 'Two-slope solar roof',
   hip: 'Four-slope solar roof',
@@ -95,6 +107,12 @@ export const state = {
   effectivePanelCount: 12,
 
   region: 'muntenia',
+  locationMode: 'region',
+  locationLat: null,
+  locationLon: null,
+  locationLabel: '',
+  locationTimeZone: 'Europe/Bucharest',
+  simulationDate: initialSimulationDate,
   monthlyBillRon: 400,
   energyTariffRon: 1.3,
   gridConnection: 'single',
@@ -115,11 +133,40 @@ export const state = {
   showDimensions: false,
   technicalEdges: false,
   showCompass: true,
+  showSunPath: true,
   sunPosition: 50,
   northDirection: 0,
   nightPreview: false,
   simulationHour: 12,
   simulationPlaying: false,
+
+  environmentEnabled: true,
+  environmentAutoLoad: true,
+  environmentRadiusM: 180,
+  terrainEnabled: true,
+  buildingsEnabled: true,
+  roadsEnabled: true,
+  treesEnabled: true,
+  terrainExaggeration: 1,
+  environmentStatus: 'inactive',
+  environmentMessage: 'Choose an exact location to load 3D context.',
+  environmentCenterElevationM: null,
+  environmentBuildingCount: 0,
+  environmentRoadCount: 0,
+  environmentTreeCount: 0,
+  environmentHasTerrain: false,
+  environmentLocalEastM: 0,
+  environmentLocalNorthM: 0,
+  environmentLocalStepM: 1,
+  replaceHostBuilding: true,
+  environmentHostBuildingCount: 0,
+  localBuildingShadingEnabled: true,
+  localBuildingShadingModel: null,
+  localBuildingShadingStatus: 'inactive',
+  localBuildingShadingMessage: 'Load nearby buildings to estimate local obstruction shading.',
+  localBuildingShadeContributorCount: 0,
+  localBuildingShadePanelCount: 0,
+  localBuildingAnnualLossPct: 0,
 
   units: 'metric',
   currency: 'RON',
@@ -130,5 +177,16 @@ export const state = {
 
   excludedEstimateItems: [],
   pvgisAnnualKWh: null,
+  pvgisMonthlyKWh: null,
+  pvgisHorizonProfile: null,
+  pvgisSurfaceResults: [],
   pvgisStatus: 'calibrated',
+  pvgisMessage: 'Regional PVGIS-calibrated fallback is active.',
+  pvgisDatabase: '',
+  pvgisUpdatedAt: null,
+  pvgisUseHorizon: true,
+  pvgisShowHorizon: true,
+  pvgisProxyEndpoint: '',
+  pvgisProxyHealthStatus: 'unconfigured',
+  pvgisProxyHealthMessage: 'No proxy URL configured.',
 };
