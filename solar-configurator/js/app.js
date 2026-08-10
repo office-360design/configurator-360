@@ -1,7 +1,8 @@
-import { state } from './state.js?v=2';
-import { RoofScene } from './scene.js?v=3';
+import { state } from './state.js?v=4';
+import { RoofScene } from './scene.js?v=6';
 import { SolarUI } from './ui.js?v=4';
 import { fetchPvgisAnnual } from './energyModel.js?v=2';
+import { loadGeographicEnvironment } from './environmentLoader.js?v=3';
 import {
   getSeasonPresetDate,
   getSolarContext,
@@ -34,8 +35,11 @@ let pvgisTimer = 0;
 let pvgisController = null;
 let simulationFrame = 0;
 let simulationStartedAt = 0;
+let environmentController = null;
+let environmentRequest = 0;
 const SIMULATION_DURATION_MS = 18000;
 const PVGIS_PROXY_ENDPOINT = String(window.SOLAR_PVGIS_PROXY_ENDPOINT || '').trim();
+const LOCAL_POSITION_LIMIT_M = 60;
 
 function syncViewButtons() {
   document.querySelectorAll('[data-view]').forEach((button) => {
@@ -74,6 +78,27 @@ function toolsSnapshot() {
     activeLocationLat: solar.location.lat,
     activeLocationLon: solar.location.lon,
     automaticNight: !solar.isDaylight,
+    environmentEnabled: state.environmentEnabled,
+    environmentAutoLoad: state.environmentAutoLoad,
+    environmentRadiusM: state.environmentRadiusM,
+    terrainEnabled: state.terrainEnabled,
+    buildingsEnabled: state.buildingsEnabled,
+    roadsEnabled: state.roadsEnabled,
+    treesEnabled: state.treesEnabled,
+    terrainExaggeration: state.terrainExaggeration,
+    environmentStatus: state.environmentStatus,
+    environmentMessage: state.environmentMessage,
+    environmentCenterElevationM: state.environmentCenterElevationM,
+    environmentBuildingCount: state.environmentBuildingCount,
+    environmentRoadCount: state.environmentRoadCount,
+    environmentTreeCount: state.environmentTreeCount,
+    environmentHasTerrain: state.environmentHasTerrain,
+    environmentLocalEastM: state.environmentLocalEastM,
+    environmentLocalNorthM: state.environmentLocalNorthM,
+    environmentLocalStepM: state.environmentLocalStepM,
+    replaceHostBuilding: state.replaceHostBuilding,
+    environmentHostBuildingCount: state.environmentHostBuildingCount,
+    environmentLoaded: scene.hasGeographicEnvironment(),
   };
 }
 
@@ -110,6 +135,7 @@ function applyShellPreferences(preferences = {}) {
   if (unitsChanged) ui?.syncDimensionControls();
   ui?.setPreferences();
   if (currencyChanged) refreshCurrencyRate(nextCurrency);
+  emitToolsState();
 }
 
 function schedulePvgis() {
@@ -143,7 +169,126 @@ function schedulePvgis() {
   }, 650);
 }
 
+function clearEnvironmentStats(message = 'Choose an exact location to load 3D context.') {
+  state.environmentCenterElevationM = null;
+  state.environmentBuildingCount = 0;
+  state.environmentRoadCount = 0;
+  state.environmentTreeCount = 0;
+  state.environmentHasTerrain = false;
+  state.environmentHostBuildingCount = 0;
+  state.environmentMessage = message;
+}
+
+function syncEnvironmentSceneMetrics(data = scene.geographicData) {
+  if (!data) {
+    state.environmentHostBuildingCount = 0;
+    return;
+  }
+  const metrics = scene.getGeographicMetrics(state);
+  state.environmentCenterElevationM = metrics.houseElevationM ?? data.terrain?.centerElevationM ?? null;
+  state.environmentBuildingCount = data.buildings?.length || 0;
+  state.environmentRoadCount = data.roads?.length || 0;
+  state.environmentTreeCount = data.trees?.length || 0;
+  state.environmentHasTerrain = Boolean(data.terrain);
+  state.environmentHostBuildingCount = metrics.hostBuildingCount || 0;
+}
+
+function syncEnvironmentForLocationMode() {
+  if (state.locationMode === 'exact') return;
+  environmentController?.abort();
+  environmentController = null;
+  environmentRequest += 1;
+  if (scene.hasGeographicEnvironment()) scene.clearGeographicEnvironment();
+  state.environmentStatus = 'inactive';
+  clearEnvironmentStats('Choose an exact location to load terrain and nearby OpenStreetMap context.');
+}
+
+async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
+  if (state.locationMode !== 'exact') {
+    syncEnvironmentForLocationMode();
+    emitToolsState();
+    return null;
+  }
+  if (!state.environmentEnabled) {
+    state.environmentStatus = 'hidden';
+    state.environmentMessage = '3D geographic context is turned off.';
+    scene.syncGeographicLayerVisibility(state);
+    emitToolsState();
+    return scene.geographicData;
+  }
+
+  const latitude = Number(state.locationLat);
+  const longitude = Number(state.locationLon);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+  const hadExistingEnvironment = scene.hasGeographicEnvironment();
+  environmentController?.abort();
+  const requestId = ++environmentRequest;
+  const controller = new AbortController();
+  environmentController = controller;
+  state.environmentStatus = 'loading';
+  state.environmentMessage = forceRefresh
+    ? 'Refreshing elevation and mapped surroundings…'
+    : 'Loading elevation, buildings, roads and mapped trees…';
+  emitToolsState();
+
+  const applyProgress = (data) => {
+    if (controller.signal.aborted || requestId !== environmentRequest || !data) return;
+    scene.setGeographicEnvironment(data, state);
+    syncEnvironmentSceneMetrics(data);
+    state.environmentStatus = 'loading';
+    if (data.progressStage === 'terrain') {
+      state.environmentMessage = 'Terrain is ready; loading nearby buildings, roads and mapped trees…';
+    } else if (data.progressStage === 'osm') {
+      state.environmentMessage = data.terrain
+        ? 'Mapped surroundings are ready; finishing terrain…'
+        : 'Mapped surroundings are ready; loading terrain elevation…';
+    }
+    emitToolsState();
+  };
+
+  try {
+    const data = await loadGeographicEnvironment({
+      lat: latitude,
+      lon: longitude,
+      radiusM: state.environmentRadiusM,
+      terrainSegments: state.environmentRadiusM >= 300 ? 72 : 64,
+      signal: controller.signal,
+      forceRefresh,
+      onProgress: applyProgress,
+    });
+    if (requestId !== environmentRequest || controller.signal.aborted) return null;
+    scene.setGeographicEnvironment(data, state);
+    syncEnvironmentSceneMetrics(data);
+    if (data.errors?.length) {
+      state.environmentStatus = 'partial';
+      state.environmentMessage = `Context loaded with limited data: ${data.errors.join(' · ')}`;
+    } else {
+      state.environmentStatus = 'ready';
+      state.environmentMessage = 'Real terrain and nearby mapped context loaded.';
+    }
+    emitToolsState();
+    return data;
+  } catch (error) {
+    if (error?.name === 'AbortError' || requestId !== environmentRequest) return null;
+    console.info('[Solar configurator] Geographic environment unavailable.', error);
+    if (hadExistingEnvironment && scene.hasGeographicEnvironment()) {
+      state.environmentStatus = 'partial';
+      state.environmentMessage = 'Refresh failed; keeping the previously loaded local environment.';
+    } else {
+      scene.clearGeographicEnvironment();
+      state.environmentStatus = 'error';
+      clearEnvironmentStats('Could not load geographic context. The solar configurator remains usable with the flat reference ground.');
+    }
+    emitToolsState();
+    return null;
+  } finally {
+    if (environmentController === controller) environmentController = null;
+  }
+}
+
 function rebuild({ fitCamera = false, scene: rebuildScene = true, pvgis = false } = {}) {
+  if (state.locationMode !== 'exact') syncEnvironmentForLocationMode();
   if (rebuildScene || !lastMetrics) {
     lastMetrics = scene.rebuild(state, fitCamera);
   }
@@ -283,7 +428,30 @@ const configuratorApi = {
     if (state.simulationPlaying) stopSimulation({ keepHour: true });
     const number = Number(value) || 0;
     state.northDirection = ((number % 360) + 360) % 360;
-    rebuild({ fitCamera: false, pvgis: true });
+
+    // Bearing changes do not alter the roof geometry, but they DO change the
+    // true azimuth of every panel-bearing roof plane. Rebuild only the solar
+    // array so its surface metadata (and Auto best face selection) is refreshed
+    // without rebuilding the whole roof model.
+    const solarMetrics = scene.rebuildSolarArray(state);
+    lastMetrics = {
+      ...lastMetrics,
+      ...solarMetrics,
+      solarMetrics,
+    };
+
+    // The geographic context is drawn in true-North coordinates while the
+    // configurable house stays fixed in viewer space, so refresh it as well.
+    // This also updates the mapped host-building overlap after a bearing change.
+    if (scene.hasGeographicEnvironment()) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+
+    scene.setEnvironment(state);
+    ui?.updateMetrics(lastMetrics);
+    emitToolsState();
+    schedulePvgis();
     return state.northDirection;
   },
 
@@ -308,12 +476,19 @@ const configuratorApi = {
     const longitude = Number(lon);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
     if (state.simulationPlaying) stopSimulation({ keepHour: true });
+    environmentController?.abort();
+    environmentRequest += 1;
+    scene.clearGeographicEnvironment();
+    clearEnvironmentStats();
     state.locationMode = 'exact';
     state.locationLat = latitude;
     state.locationLon = longitude;
     state.locationLabel = String(label || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+    state.environmentLocalEastM = 0;
+    state.environmentLocalNorthM = 0;
     state.region = nearestRegionKey(latitude, longitude);
     rebuild({ fitCamera: false, scene: false, pvgis: true });
+    if (state.environmentEnabled && state.environmentAutoLoad) refreshGeographicEnvironment();
     return { lat: latitude, lon: longitude, label: state.locationLabel };
   },
 
@@ -323,6 +498,104 @@ const configuratorApi = {
     state.locationMode = 'region';
     rebuild({ fitCamera: false, scene: false, pvgis: true });
     return state.region;
+  },
+
+  refreshEnvironment() {
+    return refreshGeographicEnvironment({ forceRefresh: true });
+  },
+
+  setEnvironmentEnabled(enabled) {
+    state.environmentEnabled = Boolean(enabled);
+    if (!state.environmentEnabled) {
+      state.environmentStatus = scene.hasGeographicEnvironment() ? 'hidden' : 'inactive';
+      state.environmentMessage = '3D geographic context is turned off.';
+      scene.syncGeographicLayerVisibility(state);
+      emitToolsState();
+    } else if (scene.hasGeographicEnvironment()) {
+      state.environmentStatus = 'ready';
+      state.environmentMessage = 'Real terrain and nearby mapped context loaded.';
+      scene.syncGeographicLayerVisibility(state);
+      scene.rebuildGeographicEnvironment(state);
+      emitToolsState();
+    } else if (state.locationMode === 'exact') refreshGeographicEnvironment();
+    return state.environmentEnabled;
+  },
+
+  setEnvironmentRadius(radiusM) {
+    state.environmentRadiusM = Math.min(400, Math.max(80, Number(radiusM) || 180));
+    if (state.locationMode === 'exact' && state.environmentEnabled) refreshGeographicEnvironment();
+    else emitToolsState();
+    return state.environmentRadiusM;
+  },
+
+  setEnvironmentLayer(layer, enabled) {
+    const keyMap = { terrain: 'terrainEnabled', buildings: 'buildingsEnabled', roads: 'roadsEnabled', trees: 'treesEnabled' };
+    const key = keyMap[layer];
+    if (!key) return null;
+    state[key] = Boolean(enabled);
+    if (layer === 'terrain' && scene.hasGeographicEnvironment()) scene.rebuildGeographicEnvironment(state);
+    else scene.syncGeographicLayerVisibility(state);
+    emitToolsState();
+    return state[key];
+  },
+
+  setTerrainExaggeration(value) {
+    state.terrainExaggeration = Math.min(3, Math.max(0.25, Number(value) || 1));
+    if (scene.hasGeographicEnvironment()) scene.rebuildGeographicEnvironment(state);
+    emitToolsState();
+    return state.terrainExaggeration;
+  },
+
+  setLocalPositionOffset({ eastM = state.environmentLocalEastM, northM = state.environmentLocalNorthM } = {}) {
+    const east = Math.min(LOCAL_POSITION_LIMIT_M, Math.max(-LOCAL_POSITION_LIMIT_M, Number(eastM) || 0));
+    const north = Math.min(LOCAL_POSITION_LIMIT_M, Math.max(-LOCAL_POSITION_LIMIT_M, Number(northM) || 0));
+    state.environmentLocalEastM = Math.round(east * 10) / 10;
+    state.environmentLocalNorthM = Math.round(north * 10) / 10;
+    if (scene.hasGeographicEnvironment()) {
+      scene.rebuildGeographicEnvironment(state);
+      scene.setEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return { eastM: state.environmentLocalEastM, northM: state.environmentLocalNorthM };
+  },
+
+  adjustLocalPosition(eastDeltaM = 0, northDeltaM = 0) {
+    return this.setLocalPositionOffset({
+      eastM: state.environmentLocalEastM + (Number(eastDeltaM) || 0),
+      northM: state.environmentLocalNorthM + (Number(northDeltaM) || 0),
+    });
+  },
+
+  resetLocalPosition() {
+    return this.setLocalPositionOffset({ eastM: 0, northM: 0 });
+  },
+
+  setLocalPositionStep(value) {
+    state.environmentLocalStepM = Math.min(10, Math.max(0.25, Number(value) || 1));
+    emitToolsState();
+    return state.environmentLocalStepM;
+  },
+
+  setReplaceHostBuilding(enabled) {
+    state.replaceHostBuilding = Boolean(enabled);
+    if (scene.hasGeographicEnvironment()) {
+      scene.rebuildGeographicEnvironment(state);
+      scene.setEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.replaceHostBuilding;
+  },
+
+  focusEnvironment() {
+    const focused = scene.fitEnvironment(state);
+    if (focused) {
+      currentView = 'perspective';
+      syncViewButtons();
+      emitToolsState();
+    }
+    return focused;
   },
 
   setNightPreview(enabled) {

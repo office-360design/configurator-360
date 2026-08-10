@@ -58,7 +58,7 @@ The static app uses a fast local model so all controls react immediately:
 4. Household load is distributed using the selected consumption profile.
 5. The battery simulation is warmed up over repeated average days before reporting the final 24-hour result, avoiding arbitrary “free” starting battery energy.
 
-This is an estimator, not an engineering yield guarantee. Phase 1 models astronomical seasonality but does not yet model nearby-object shading, local terrain, monthly weather/cloud statistics, snow cover, temperature hour-by-hour, inverter clipping, or string topology.
+This is an estimator, not an engineering yield guarantee. Phase 2 now renders local terrain and mapped nearby objects for visual context/shadows, but those local visual shadows are not yet converted into kWh losses. The production calculation still does not model monthly weather/cloud statistics, snow cover, temperature hour-by-hour, inverter clipping, string topology, or exact local obstruction losses.
 
 ## PVGIS integration note
 
@@ -88,4 +88,38 @@ The configurator now supports an exact Romanian installation location, real cale
 - **Date / seasons:** Any date can be selected. Spring, summer, autumn and winter presets use the equinox/solstice reference dates in the selected year.
 - **Daily energy curve:** Hourly panel incidence uses the real solar position for the selected coordinates/date and each selected roof plane. A geometry-based seasonal factor redistributes the annual regional yield across the selected day.
 - **Shadows:** The visible Three.js sun and directional light follow the calculated sun vector. Real night is automatic when the sun is below the horizon; `Force night preview` remains available as a visual override.
-- **Current limitation:** Phase 1 does not yet load real terrain, surrounding buildings, trees or DSM shading. Those belong to the environment/shading phases. Annual yield is still calibrated from the nearest regional reference unless a PVGIS proxy is configured.
+- **Current production limitation:** Annual yield is still calibrated from the nearest regional reference unless a PVGIS proxy is configured. The Phase 2 scene context is visual/interactive and does not yet subtract local obstacle shading from the kWh estimate.
+
+
+## Phase 2 geographic environment
+
+When an exact Romanian location is active, the Tools → Location & environment panel can now load an approximate 3D neighborhood around the configurable house.
+
+- **Terrain:** browser-loaded Terrarium elevation tiles from the Mapzen terrain dataset hosted in the AWS public dataset endpoint. The terrain is sampled into a Three.js mesh around the selected coordinate, aligned to true North, and normalized to the current local house position. A small graded pad is blended under the configured house so it does not float or clip into a sloped DEM cell.
+- **Local position adjuster:** once context is loaded, the configured house can be nudged North/South/East/West in 0.5/1/2/5 m steps without reopening the map or refetching geographic data. The altitude and terrain normalization follow the adjusted house position. These offsets are intentionally local scene corrections; the astronomical sun calculation continues to use the selected map coordinate because a few metres of displacement have no meaningful effect on solar position.
+- **Mapped buildings:** nearby OpenStreetMap `building=*` ways are loaded through Overpass. If an explicit `height` or `building:levels` tag exists it is used; otherwise the renderer applies a conservative approximate height by building type. A building that overlaps the configured house is detected dynamically, including after local position or roof-bearing changes. With **Replace overlapping mapped building** enabled (the default), that OSM building is reduced to a blue reference footprint and does not cast a shadow, avoiding duplicate geometry when it is probably the real house being configured. Turning the toggle off renders the mapped building normally for comparison.
+- **Roads and mapped trees:** common road classes and `natural=tree` nodes are loaded from the same local Overpass query and rendered as lightweight Three.js context geometry.
+- **Real visual shadows:** terrain, buildings and mapped trees participate in the existing real-date/real-time directional-light shadow simulation. Shadow-camera coverage expands automatically when local context is loaded.
+- **Context controls:** 120/180/250/350 m radius, terrain/building/road/tree visibility, terrain-relief scaling, local house-position nudging, host-building replacement, reload, and a neighborhood camera view.
+- **Graceful fallback:** terrain and OSM context are fetched independently. If one source fails, the other can still render. If both fail, the normal flat configurator continues to work.
+
+### Important accuracy boundaries
+
+The environment is deliberately **approximate**, not a cadastral or survey model. OpenStreetMap coverage varies, many buildings do not have measured heights, mapped trees are incomplete, and the terrain source is an elevation model rather than a high-resolution building/tree DSM. Phase 2 shadows are therefore useful for orientation and visual inspection, not yet for bankable shading-loss calculations.
+
+Phase 3 remains the place to connect exact-coordinate PVGIS/horizon data to the production model so distant terrain/horizon losses affect calculated kWh. A later optional DSM/shade-data integration can add higher-resolution local obstruction losses.
+
+### Optional endpoint overrides
+
+Static deployments can switch data providers without changing the renderer:
+
+```html
+<script>
+  window.SOLAR_TERRAIN_TILE_ENDPOINT = 'https://example.com/terrarium/{z}/{x}/{y}.png';
+  window.SOLAR_OVERPASS_ENDPOINTS = [
+    'https://example.com/overpass/interpreter'
+  ];
+</script>
+```
+
+Keep any replacement provider's licensing, attribution, caching and usage requirements in mind.

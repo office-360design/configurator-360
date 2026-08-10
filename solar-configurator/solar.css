@@ -597,3 +597,189 @@ body.shared-ui-dark-mode .solar-location-dialog__header > button { color: #eef3f
   .solar-location-dialog__footer { align-items: stretch; flex-direction: column; }
   .solar-location-dialog__footer > div:last-child { justify-content: flex-end; }
 }
+
+/* Phase 2: real terrain + approximate OpenStreetMap neighborhood context. */
+.solar-context-block { gap: 10px; }
+.solar-context-master {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--panel-soft);
+  cursor: pointer;
+}
+.solar-context-master > span:first-child { display: grid; gap: 3px; }
+.solar-context-master b { font-size: 9px; }
+.solar-context-master small { color: var(--muted); font-size: 7.5px; line-height: 1.35; }
+.solar-context-master > input { position: absolute; opacity: 0; pointer-events: none; }
+.solar-context-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.solar-context-row label { display: grid; gap: 5px; color: var(--muted); font-size: 7.5px; font-weight: 800; }
+.solar-context-row select {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--panel-soft);
+  font: inherit;
+  font-size: 8.5px;
+}
+.solar-context-layer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.solar-context-layer-grid label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 31px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  font-size: 8px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.solar-context-layer-grid input { accent-color: var(--accent); }
+.solar-local-position {
+  display: grid;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--panel-soft);
+}
+.solar-local-position__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 7.5px;
+  font-weight: 800;
+}
+.solar-local-position__head strong {
+  color: var(--ink);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.solar-local-position__controls {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+}
+.solar-local-position__pad {
+  display: grid;
+  grid-template-columns: repeat(3, 32px);
+  grid-template-rows: repeat(3, 32px);
+  gap: 4px;
+}
+.solar-local-position__pad button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.solar-local-position__pad button small { color: var(--muted); font-size: 6.5px; }
+.solar-local-position__pad button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.solar-local-position__pad button.reset { color: var(--accent); font-size: 15px; }
+.solar-local-position__pad button:disabled { opacity: .42; cursor: not-allowed; }
+.solar-local-position__step { display: grid; gap: 5px; color: var(--muted); font-size: 7.5px; font-weight: 800; }
+.solar-local-position__step select {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+  font-size: 8.5px;
+}
+.solar-local-position__step small { font-size: 7px; font-weight: 500; line-height: 1.35; }
+.solar-local-position.is-disabled { opacity: .58; }
+.solar-host-building-toggle { padding-top: 9px; padding-bottom: 9px; }
+.solar-context-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.solar-context-actions button {
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--panel-soft);
+  font-size: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.solar-context-actions button.primary { color: #fff; border-color: var(--accent); background: var(--accent); }
+.solar-context-actions button:disabled { opacity: .46; cursor: not-allowed; }
+.solar-context-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.solar-context-stats div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  text-align: center;
+}
+.solar-context-stats span { color: var(--muted); font-size: 6.5px; }
+.solar-context-stats strong { overflow: hidden; font-size: 8px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.solar-context-message,
+.solar-context-attribution { margin: 0; color: var(--muted); font-size: 7.2px; line-height: 1.45; }
+.solar-context-message { min-height: 21px; }
+.solar-context-attribution { opacity: .82; }
+.solar-context-block.is-loading .solar-context-actions .primary { opacity: .72; }
+.solar-context-block.is-error .solar-context-message { color: #b45309; }
+
+body.shared-ui-dark-mode .solar-context-master,
+body.shared-ui-dark-mode .solar-context-row select,
+body.shared-ui-dark-mode .solar-context-layer-grid label,
+body.shared-ui-dark-mode .solar-local-position,
+body.shared-ui-dark-mode .solar-local-position__pad button,
+body.shared-ui-dark-mode .solar-local-position__step select,
+body.shared-ui-dark-mode .solar-context-actions button,
+body.shared-ui-dark-mode .solar-context-stats div {
+  color: #eef3f6;
+  border-color: #394653;
+  background: #202a34;
+}
+body.shared-ui-dark-mode .solar-context-actions button.primary { border-color: var(--accent); background: var(--accent); }
+
+@media (max-width: 460px) {
+  .solar-context-row,
+  .solar-context-actions { grid-template-columns: 1fr; }
+  .solar-context-stats { grid-template-columns: 1fr 1fr; }
+  .solar-local-position__controls { grid-template-columns: 1fr; }
+}
+
+/* Phase 2 reliability fix: the local-environment master switch uses the same
+   visible checked/disabled treatment as the night/sun-path switches. */
+.solar-context-master input:checked + .roof-switch { background: #0878c9; }
+.solar-context-master input:checked + .roof-switch::after { transform: translateX(18px); }
+.solar-context-master input:focus-visible + .roof-switch { outline: 3px solid rgba(8, 120, 201, 0.2); outline-offset: 2px; }
+.solar-context-master input:disabled + .roof-switch { opacity: .48; }
+.solar-context-master:has(input:not(:checked)) { background: color-mix(in srgb, var(--panel-soft) 78%, transparent); }
+.solar-context-master:has(input:not(:checked)) small { opacity: .72; }

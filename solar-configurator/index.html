@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
   <link rel="stylesheet" href="./styles.css?v=1" />
   <link rel="stylesheet" href="./shared-shell.css?v=1" />
-  <link rel="stylesheet" href="./solar.css?v=3" />
+  <link rel="stylesheet" href="./solar.css?v=6" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script type="importmap">
     {
@@ -254,9 +254,9 @@
     </section>
   </main>
 
-  <section class="roof-environment-panel solar-phase1-environment" id="solarEnvironmentPanel" aria-labelledby="solarEnvironmentTitle" hidden>
+  <section class="roof-environment-panel solar-phase1-environment solar-phase2-environment" id="solarEnvironmentPanel" aria-labelledby="solarEnvironmentTitle" hidden>
     <header class="roof-environment-header">
-      <div><p class="eyebrow">Real solar geometry</p><h2 id="solarEnvironmentTitle">Location, sun & orientation</h2></div>
+      <div><p class="eyebrow">Geographic solar context</p><h2 id="solarEnvironmentTitle">Location, environment & sun</h2></div>
       <button type="button" id="solarEnvironmentClose" aria-label="Close location and sun menu">×</button>
     </header>
 
@@ -266,6 +266,80 @@
         <div><b id="environmentLocationLabel">Bucharest reference</b><small id="environmentCoordinates">44.4268, 26.1025</small></div>
         <button type="button" id="environmentChooseLocation">Choose on map</button>
       </div>
+    </section>
+
+    <section class="solar-env-block solar-context-block">
+      <div class="solar-env-block__head"><span>3D geographic context</span><strong id="environmentContextStatus">Choose exact location</strong></div>
+      <label class="solar-context-master" for="environmentEnabledToggle">
+        <span><b>Render local environment</b><small>Terrain and mapped surroundings are aligned to true North.</small></span>
+        <input id="environmentEnabledToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+      <div class="solar-local-position" id="localPositionAdjuster">
+        <div class="solar-local-position__head"><span>House position in loaded context</span><strong id="localPositionReadout">Centered</strong></div>
+        <div class="solar-local-position__controls">
+          <div class="solar-local-position__pad" role="group" aria-label="Nudge configured house within the loaded environment">
+            <span aria-hidden="true"></span>
+            <button type="button" data-local-east="0" data-local-north="1" aria-label="Move house north">↑<small>N</small></button>
+            <span aria-hidden="true"></span>
+            <button type="button" data-local-east="-1" data-local-north="0" aria-label="Move house west">←<small>W</small></button>
+            <button type="button" id="localPositionResetButton" class="reset" aria-label="Reset local house position">⌾</button>
+            <button type="button" data-local-east="1" data-local-north="0" aria-label="Move house east">→<small>E</small></button>
+            <span aria-hidden="true"></span>
+            <button type="button" data-local-east="0" data-local-north="-1" aria-label="Move house south">↓<small>S</small></button>
+            <span aria-hidden="true"></span>
+          </div>
+          <label class="solar-local-position__step" for="localPositionStepControl"><span>Nudge step</span>
+            <select id="localPositionStepControl">
+              <option value="0.5">0.5 m</option>
+              <option value="1" selected>1 m</option>
+              <option value="2">2 m</option>
+              <option value="5">5 m</option>
+            </select>
+            <small>Moves the configured house instantly without reloading map data.</small>
+          </label>
+        </div>
+      </div>
+      <label class="solar-context-master solar-host-building-toggle" for="replaceHostBuildingToggle">
+        <span><b>Replace overlapping mapped building</b><small>Treat a building under the configured house as the same house. It becomes a blue reference outline and stops casting shadows.</small></span>
+        <input id="replaceHostBuildingToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+      <div class="solar-context-row">
+        <label for="environmentRadiusControl"><span>Context radius</span>
+          <select id="environmentRadiusControl">
+            <option value="120">120 m</option>
+            <option value="180" selected>180 m</option>
+            <option value="250">250 m</option>
+            <option value="350">350 m</option>
+          </select>
+        </label>
+        <label for="terrainExaggerationControl"><span>Terrain relief</span>
+          <select id="terrainExaggerationControl">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1× real</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+          </select>
+        </label>
+      </div>
+      <div class="solar-context-layer-grid" aria-label="Geographic environment layers">
+        <label><input id="terrainLayerToggle" type="checkbox" checked /><span>Terrain</span></label>
+        <label><input id="buildingsLayerToggle" type="checkbox" checked /><span>Buildings</span></label>
+        <label><input id="roadsLayerToggle" type="checkbox" checked /><span>Roads</span></label>
+        <label><input id="treesLayerToggle" type="checkbox" checked /><span>Mapped trees</span></label>
+      </div>
+      <div class="solar-context-actions">
+        <button type="button" class="primary" id="environmentRefreshButton">Load / refresh</button>
+        <button type="button" id="environmentFocusButton">View neighborhood</button>
+      </div>
+      <div class="solar-context-stats" aria-label="Loaded geographic context statistics">
+        <div><span>Altitude</span><strong id="environmentAltitudeValue">—</strong></div>
+        <div><span>Buildings</span><strong id="environmentBuildingsValue">—</strong></div>
+        <div><span>Roads</span><strong id="environmentRoadsValue">—</strong></div>
+        <div><span>Trees</span><strong id="environmentTreesValue">—</strong></div>
+        <div><span>Host match</span><strong id="environmentHostBuildingValue">—</strong></div>
+      </div>
+      <p class="solar-context-message" id="environmentContextMessage">Choose an exact location to load terrain and nearby mapped context.</p>
+      <p class="solar-context-attribution">Terrain: Mapzen Terrarium / AWS Open Data · Buildings, roads & trees: © OpenStreetMap contributors.</p>
     </section>
 
     <section class="solar-env-block">
@@ -312,7 +386,7 @@
 
   <dialog class="solar-location-dialog" id="locationPickerDialog" aria-labelledby="locationPickerTitle">
     <header class="solar-location-dialog__header">
-      <div><p class="eyebrow">Romania · Phase 1</p><h2 id="locationPickerTitle">Choose exact location</h2></div>
+      <div><p class="eyebrow">Romania · Geographic context</p><h2 id="locationPickerTitle">Choose exact location</h2></div>
       <button type="button" id="locationPickerClose" aria-label="Close location picker">×</button>
     </header>
     <div class="solar-location-search-row">
@@ -376,7 +450,7 @@
     })();
   </script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="./js/sharedShell.js?v=2"></script>
-  <script type="module" src="./js/app.js?v=4"></script>
+  <script type="module" src="./js/sharedShell.js?v=5"></script>
+  <script type="module" src="./js/app.js?v=8"></script>
 </body>
 </html>

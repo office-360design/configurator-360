@@ -46,3 +46,11 @@ The default estimate is illustrative only. Roof complexity, cable routes, protec
 ## Important PVGIS browser limitation
 
 The JRC PVGIS API documentation states that access via AJAX is not allowed and requests from browser front ends are rejected by its CORS policy. For this reason the static configurator does not pretend to make a browser-direct PVGIS request. It uses the local model immediately and supports an optional server-side proxy hook for future exact calculations.
+
+
+## Phase 2 geographic context sources
+
+- **Terrain Tiles / AWS Open Data:** the Mapzen Terrain Tiles dataset is published as a global bare-earth elevation dataset on the AWS Registry of Open Data. The configurator uses the public Terrarium PNG representation and decodes elevation with the standard Terrarium formula.
+- **OpenStreetMap / Overpass:** nearby `building=*` ways, common road classes and mapped `natural=tree` nodes are queried through Overpass. The public Overpass HTTP interface supports CORS for browser clients.
+- **Approximation boundary:** OSM building heights are used when `height` or `building:levels` is present; otherwise the renderer estimates a simple height by building type. Mapped trees are incomplete and default heights are approximate.
+- **No imagery scraping:** the 3D scene does not download OpenStreetMap raster tiles as a ground texture. OSM standard tiles remain limited to the interactive Leaflet location picker, with visible attribution, while the 3D context uses vector features from Overpass.

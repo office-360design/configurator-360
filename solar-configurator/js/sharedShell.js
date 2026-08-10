@@ -12,7 +12,7 @@ const tools = [
   ...resolveSharedTools([
     {
       id: 'environment',
-      label: 'Location & sun',
+      label: 'Location & environment',
       icon: icon('<circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.2v2.1M12 19.7v2.1M2.2 12h2.1M19.7 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"></path>'),
     },
     {
@@ -111,6 +111,29 @@ const environmentChooseLocation = document.querySelector('#environmentChooseLoca
 const environmentLocationMode = document.querySelector('#environmentLocationMode');
 const environmentLocationLabel = document.querySelector('#environmentLocationLabel');
 const environmentCoordinates = document.querySelector('#environmentCoordinates');
+const environmentContextBlock = document.querySelector('.solar-context-block');
+const environmentContextStatus = document.querySelector('#environmentContextStatus');
+const environmentEnabledToggle = document.querySelector('#environmentEnabledToggle');
+const environmentRadiusControl = document.querySelector('#environmentRadiusControl');
+const terrainExaggerationControl = document.querySelector('#terrainExaggerationControl');
+const terrainLayerToggle = document.querySelector('#terrainLayerToggle');
+const buildingsLayerToggle = document.querySelector('#buildingsLayerToggle');
+const roadsLayerToggle = document.querySelector('#roadsLayerToggle');
+const treesLayerToggle = document.querySelector('#treesLayerToggle');
+const localPositionAdjuster = document.querySelector('#localPositionAdjuster');
+const localPositionReadout = document.querySelector('#localPositionReadout');
+const localPositionStepControl = document.querySelector('#localPositionStepControl');
+const localPositionResetButton = document.querySelector('#localPositionResetButton');
+const localPositionNudgeButtons = [...document.querySelectorAll('[data-local-east][data-local-north]')];
+const replaceHostBuildingToggle = document.querySelector('#replaceHostBuildingToggle');
+const environmentRefreshButton = document.querySelector('#environmentRefreshButton');
+const environmentFocusButton = document.querySelector('#environmentFocusButton');
+const environmentAltitudeValue = document.querySelector('#environmentAltitudeValue');
+const environmentBuildingsValue = document.querySelector('#environmentBuildingsValue');
+const environmentRoadsValue = document.querySelector('#environmentRoadsValue');
+const environmentTreesValue = document.querySelector('#environmentTreesValue');
+const environmentHostBuildingValue = document.querySelector('#environmentHostBuildingValue');
+const environmentContextMessage = document.querySelector('#environmentContextMessage');
 const sunriseValue = document.querySelector('#sunriseValue');
 const sunsetValue = document.querySelector('#sunsetValue');
 const sunElevationValue = document.querySelector('#sunElevationValue');
@@ -126,6 +149,37 @@ const getToolButton = (toolId) => shell.host.querySelector(`[data-tool-id="${too
 function formatHour(decimalHour) {
   const totalMinutes = Math.min(1439, Math.max(0, Math.round((Number(decimalHour) || 0) * 60)));
   return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+}
+
+function formatAltitude(meters, units = 'metric') {
+  const value = Number(meters);
+  if (!Number.isFinite(value)) return '—';
+  if (units === 'imperial') return `${Math.round(value * 3.28084)} ft`;
+  return `${Math.round(value)} m`;
+}
+
+function formatLocalDistance(meters, units = 'metric', digits = 1) {
+  const value = Number(meters) || 0;
+  if (units === 'imperial') return `${(value * 3.28084).toFixed(digits)} ft`;
+  return `${value.toFixed(digits)} m`;
+}
+
+function formatLocalPosition(eastM, northM, units = 'metric') {
+  const east = Number(eastM) || 0;
+  const north = Number(northM) || 0;
+  if (Math.abs(east) < 0.05 && Math.abs(north) < 0.05) return 'Centered';
+  const sign = (value) => (value >= 0 ? '+' : '−');
+  return `E ${sign(east)}${formatLocalDistance(Math.abs(east), units)} · N ${sign(north)}${formatLocalDistance(Math.abs(north), units)}`;
+}
+
+function syncLocalStepLabels(units = 'metric') {
+  if (!localPositionStepControl) return;
+  [...localPositionStepControl.options].forEach((option) => {
+    const meters = Number(option.value) || 1;
+    option.textContent = units === 'imperial'
+      ? formatLocalDistance(meters, 'imperial')
+      : `${meters % 1 ? meters.toFixed(1) : meters.toFixed(0)} m`;
+  });
 }
 
 function setToolState(toolId, { active = false, disabled = false, title = null } = {}) {
@@ -183,7 +237,7 @@ function setEnvironmentPanelOpen(open) {
   const isOpen = Boolean(open);
   environmentPanel.hidden = !isOpen;
   environmentPanel.classList.toggle('is-open', isOpen);
-  setToolState('environment', { active: isOpen, title: 'Location, sun and roof orientation' });
+  setToolState('environment', { active: isOpen, title: 'Location, 3D environment, sun and roof orientation' });
   scheduleToolsPosition();
 }
 
@@ -217,6 +271,70 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   if (environmentLocationMode) environmentLocationMode.textContent = detail.locationMode === 'exact' ? 'Exact location' : 'Regional reference';
   if (environmentLocationLabel) environmentLocationLabel.textContent = detail.activeLocationLabel || 'Bucharest reference';
   if (environmentCoordinates) environmentCoordinates.textContent = `${Number(detail.activeLocationLat || 0).toFixed(5)}, ${Number(detail.activeLocationLon || 0).toFixed(5)}`;
+  if (localPositionReadout) localPositionReadout.textContent = formatLocalPosition(detail.environmentLocalEastM, detail.environmentLocalNorthM, detail.units);
+  if (localPositionStepControl) localPositionStepControl.value = String(detail.environmentLocalStepM ?? 1);
+  syncLocalStepLabels(detail.units);
+
+  const exactLocation = detail.locationMode === 'exact';
+  const contextEnabled = Boolean(detail.environmentEnabled);
+  const contextLoading = detail.environmentStatus === 'loading';
+  const statusLabels = {
+    inactive: 'Choose exact location',
+    loading: 'Loading…',
+    ready: 'Loaded',
+    partial: 'Partially loaded',
+    error: 'Unavailable',
+    hidden: 'Hidden',
+  };
+  if (environmentContextStatus) environmentContextStatus.textContent = statusLabels[detail.environmentStatus] || 'Ready';
+  if (environmentEnabledToggle) {
+    environmentEnabledToggle.checked = contextEnabled;
+    environmentEnabledToggle.disabled = !exactLocation;
+  }
+  if (environmentRadiusControl) {
+    environmentRadiusControl.value = String(detail.environmentRadiusM ?? 180);
+    environmentRadiusControl.disabled = !exactLocation || !contextEnabled || contextLoading;
+  }
+  if (terrainExaggerationControl) {
+    terrainExaggerationControl.value = String(detail.terrainExaggeration ?? 1);
+    terrainExaggerationControl.disabled = !exactLocation || !contextEnabled || contextLoading;
+  }
+  const layerControls = [
+    [terrainLayerToggle, detail.terrainEnabled],
+    [buildingsLayerToggle, detail.buildingsEnabled],
+    [roadsLayerToggle, detail.roadsEnabled],
+    [treesLayerToggle, detail.treesEnabled],
+  ];
+  layerControls.forEach(([control, checked]) => {
+    if (!control) return;
+    control.checked = Boolean(checked);
+    control.disabled = !exactLocation || !contextEnabled || contextLoading;
+  });
+  const localAdjustEnabled = exactLocation && contextEnabled && Boolean(detail.environmentLoaded) && !contextLoading;
+  localPositionAdjuster?.classList.toggle('is-disabled', !localAdjustEnabled);
+  if (localPositionStepControl) localPositionStepControl.disabled = !localAdjustEnabled;
+  if (localPositionResetButton) localPositionResetButton.disabled = !localAdjustEnabled;
+  localPositionNudgeButtons.forEach((button) => { button.disabled = !localAdjustEnabled; });
+  if (replaceHostBuildingToggle) {
+    replaceHostBuildingToggle.checked = detail.replaceHostBuilding !== false;
+    replaceHostBuildingToggle.disabled = !exactLocation || !contextEnabled || !detail.environmentLoaded || contextLoading;
+  }
+  if (environmentRefreshButton) {
+    environmentRefreshButton.disabled = !exactLocation || !contextEnabled || contextLoading;
+    environmentRefreshButton.textContent = contextLoading ? 'Loading…' : 'Load / refresh';
+  }
+  if (environmentFocusButton) environmentFocusButton.disabled = !Boolean(detail.environmentLoaded) || !contextEnabled;
+  if (environmentAltitudeValue) environmentAltitudeValue.textContent = formatAltitude(detail.environmentCenterElevationM, detail.units);
+  if (environmentBuildingsValue) environmentBuildingsValue.textContent = detail.environmentLoaded ? String(detail.environmentBuildingCount ?? 0) : '—';
+  if (environmentRoadsValue) environmentRoadsValue.textContent = detail.environmentLoaded ? String(detail.environmentRoadCount ?? 0) : '—';
+  if (environmentTreesValue) environmentTreesValue.textContent = detail.environmentLoaded ? String(detail.environmentTreeCount ?? 0) : '—';
+  if (environmentHostBuildingValue) {
+    const count = Number(detail.environmentHostBuildingCount) || 0;
+    environmentHostBuildingValue.textContent = detail.environmentLoaded ? (count ? `${count} detected` : 'None') : '—';
+  }
+  if (environmentContextMessage) environmentContextMessage.textContent = detail.environmentMessage || 'Choose an exact location to load geographic context.';
+  environmentContextBlock?.classList.toggle('is-loading', contextLoading);
+  environmentContextBlock?.classList.toggle('is-error', detail.environmentStatus === 'error');
 
   const season = getSeasonForDate(detail.simulationDate);
   document.querySelectorAll('[data-season-preset]').forEach((button) => {
@@ -263,8 +381,30 @@ northDirectionControl?.addEventListener('input', () => {
 });
 nightPreviewToggle?.addEventListener('change', () => getApi()?.setNightPreview(nightPreviewToggle.checked));
 sunPathToggle?.addEventListener('change', () => getApi()?.setSunPathVisible(sunPathToggle.checked));
+environmentEnabledToggle?.addEventListener('change', () => { getApi()?.setEnvironmentEnabled(environmentEnabledToggle.checked); shell.markDirty(); });
+environmentRadiusControl?.addEventListener('change', () => { getApi()?.setEnvironmentRadius(environmentRadiusControl.value); shell.markDirty(); });
+terrainExaggerationControl?.addEventListener('change', () => { getApi()?.setTerrainExaggeration(terrainExaggerationControl.value); shell.markDirty(); });
+terrainLayerToggle?.addEventListener('change', () => { getApi()?.setEnvironmentLayer('terrain', terrainLayerToggle.checked); shell.markDirty(); });
+buildingsLayerToggle?.addEventListener('change', () => { getApi()?.setEnvironmentLayer('buildings', buildingsLayerToggle.checked); shell.markDirty(); });
+roadsLayerToggle?.addEventListener('change', () => { getApi()?.setEnvironmentLayer('roads', roadsLayerToggle.checked); shell.markDirty(); });
+treesLayerToggle?.addEventListener('change', () => { getApi()?.setEnvironmentLayer('trees', treesLayerToggle.checked); shell.markDirty(); });
+localPositionStepControl?.addEventListener('change', () => { getApi()?.setLocalPositionStep(localPositionStepControl.value); shell.markDirty(); });
+localPositionNudgeButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const step = Number(localPositionStepControl?.value || lastToolsState?.environmentLocalStepM || 1);
+    getApi()?.adjustLocalPosition(
+      (Number(button.dataset.localEast) || 0) * step,
+      (Number(button.dataset.localNorth) || 0) * step,
+    );
+    shell.markDirty();
+  });
+});
+localPositionResetButton?.addEventListener('click', () => { getApi()?.resetLocalPosition(); shell.markDirty(); });
+replaceHostBuildingToggle?.addEventListener('change', () => { getApi()?.setReplaceHostBuilding(replaceHostBuildingToggle.checked); shell.markDirty(); });
+environmentRefreshButton?.addEventListener('click', () => getApi()?.refreshEnvironment());
+environmentFocusButton?.addEventListener('click', () => getApi()?.focusEnvironment());
 
-// Exact-location picker. Phase 1 deliberately keeps the picker within Romania,
+// Exact-location picker remains intentionally bounded to Romania for now,
 // matching the existing production model and Europe/Bucharest time zone.
 const locationDialog = document.querySelector('#locationPickerDialog');
 const locationMapElement = document.querySelector('#locationMap');
@@ -298,7 +438,7 @@ function setPendingLocation(lat, lon, label = 'Selected map point', { moveMap = 
   const longitude = Number(lon);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
   if (!inRomaniaBounds(latitude, longitude)) {
-    if (locationSelectionLabel) locationSelectionLabel.textContent = 'Phase 1 location selection is limited to Romania.';
+    if (locationSelectionLabel) locationSelectionLabel.textContent = 'Location selection is currently limited to Romania.';
     if (locationSelectionCoordinates) locationSelectionCoordinates.textContent = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
     if (locationPickerUse) locationPickerUse.disabled = true;
     return false;
