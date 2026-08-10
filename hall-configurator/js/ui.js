@@ -1,5 +1,4 @@
-import { deriveHallMetrics } from './state.js?v=1';
-import { buildBom, bomToCsv } from './bom.js?v=1';
+import { buildBom, bomToCsv } from './bom.js?v=4';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
@@ -25,6 +24,7 @@ export class HallUI {
     this.bindBom();
     this.applyStateToControls();
   }
+
 
   bindRanges() {
     document.querySelectorAll('[data-control]').forEach((control) => {
@@ -224,10 +224,8 @@ export class HallUI {
     const { metrics } = build;
     document.querySelector('#frameCountInfo').textContent = String(metrics.frameCount);
     document.querySelector('#actualSpacingInfo').textContent = `${metrics.bayCount} bays · ${metrics.actualBaySpacing.toFixed(2)} m actual spacing`;
-    document.querySelector('#metricFootprint').textContent = `${metrics.footprint.toFixed(0)} m²`;
-    document.querySelector('#metricFrames').textContent = String(metrics.frameCount);
-    document.querySelector('#metricSpacing').textContent = `${metrics.actualBaySpacing.toFixed(2)} m`;
-    document.querySelector('#metricRidge').textContent = `${metrics.ridgeElevation.toFixed(2)} m`;
+    const profileInfo = document.querySelector('#profileInfo');
+    if (profileInfo && build.profileSchedule) profileInfo.textContent = `${build.profileSchedule.columns} columns · ${build.profileSchedule.rafters} rafters · ${build.profileSchedule.purlins} purlins`;
 
     const lines = buildBom(this.state, build);
     document.querySelector('#headerBomSummary').textContent = `${lines.length} lines`;

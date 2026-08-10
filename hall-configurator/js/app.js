@@ -1,6 +1,6 @@
-import { state, deriveHallMetrics } from './state.js?v=1';
-import { HallScene } from './scene.js?v=1';
-import { HallUI } from './ui.js?v=1';
+import { state, deriveHallMetrics } from './state.js?v=4';
+import { HallScene } from './scene.js?v=4';
+import { HallUI } from './ui.js?v=4';
 
 const scene = new HallScene(document.querySelector('#canvasHost'));
 let scheduled = 0;
@@ -31,13 +31,23 @@ const ui = new HallUI(state, {
 const initialBuild = scene.rebuild(state, { fitCamera: true });
 ui.update(initialBuild);
 
+function applyHallDarkMode(enabled) {
+  const dark = Boolean(enabled);
+  document.querySelector('.app-shell')?.classList.toggle('is-dark-mode', dark);
+  scene.setDarkMode(dark);
+}
+
 window.HALL_CONFIGURATOR_API = {
   captureState: () => ui.captureState(),
   restoreState: (snapshot) => ui.restoreState(snapshot),
   getState: () => structuredClone(state),
-  setDarkMode: (enabled) => scene.setDarkMode(Boolean(enabled)),
+  setDarkMode: applyHallDarkMode,
+  resetView: () => scene.fitCamera(state, deriveHallMetrics(state)),
   rebuild: () => {
     const build = scene.rebuild(state, { fitCamera: false });
     ui.update(build);
   },
 };
+
+// sharedShell mounts before this module, so explicitly inherit its initial theme.
+applyHallDarkMode(Boolean(window.HALL_CONFIGURATOR_SHARED_SHELL?.state?.darkMode));
