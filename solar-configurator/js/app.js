@@ -1,7 +1,7 @@
-import { state } from './state.js?v=5';
-import { RoofScene } from './scene.js?v=7';
-import { SolarUI } from './ui.js?v=5';
-import { fetchPvgisSiteEstimate } from './energyModel.js?v=3';
+import { state } from './state.js?v=6';
+import { RoofScene } from './scene.js?v=8';
+import { SolarUI } from './ui.js?v=6';
+import { fetchPvgisSiteEstimate } from './energyModel.js?v=4';
 import { loadGeographicEnvironment } from './environmentLoader.js?v=3';
 import {
   getSeasonPresetDate,
@@ -121,6 +121,12 @@ function toolsSnapshot() {
     environmentLocalStepM: state.environmentLocalStepM,
     replaceHostBuilding: state.replaceHostBuilding,
     environmentHostBuildingCount: state.environmentHostBuildingCount,
+    localBuildingShadingEnabled: state.localBuildingShadingEnabled,
+    localBuildingShadingStatus: state.localBuildingShadingStatus,
+    localBuildingShadingMessage: state.localBuildingShadingMessage,
+    localBuildingShadeContributorCount: state.localBuildingShadeContributorCount,
+    localBuildingShadePanelCount: state.localBuildingShadePanelCount,
+    localBuildingAnnualLossPct: state.localBuildingAnnualLossPct,
     environmentLoaded: scene.hasGeographicEnvironment(),
     pvgisStatus: state.pvgisStatus,
     pvgisMessage: state.pvgisMessage,
@@ -332,12 +338,51 @@ function clearEnvironmentStats(message = 'Choose an exact location to load 3D co
   state.environmentTreeCount = 0;
   state.environmentHasTerrain = false;
   state.environmentHostBuildingCount = 0;
+  state.localBuildingShadingModel = null;
+  state.localBuildingShadingStatus = 'inactive';
+  state.localBuildingShadingMessage = 'Load nearby buildings to estimate local obstruction shading.';
+  state.localBuildingShadeContributorCount = 0;
+  state.localBuildingShadePanelCount = 0;
+  state.localBuildingAnnualLossPct = 0;
   state.environmentMessage = message;
+}
+
+function syncLocalBuildingShadingModel() {
+  if (!scene.hasGeographicEnvironment()) {
+    state.localBuildingShadingModel = null;
+    state.localBuildingShadingStatus = 'inactive';
+    state.localBuildingShadingMessage = 'Load nearby buildings to estimate local obstruction shading.';
+    state.localBuildingShadeContributorCount = 0;
+    state.localBuildingShadePanelCount = 0;
+    state.localBuildingAnnualLossPct = 0;
+    return null;
+  }
+
+  const model = scene.computeLocalBuildingShadingModel(state);
+  state.localBuildingShadingModel = model;
+  state.localBuildingShadeContributorCount = model?.contributorIds?.length || 0;
+  state.localBuildingShadePanelCount = model?.panelCount || 0;
+  if (!model?.panelCount) {
+    state.localBuildingShadingStatus = 'inactive';
+    state.localBuildingShadingMessage = 'No fitted solar panels are available for local shading analysis.';
+  } else if (!model?.buildingCount) {
+    state.localBuildingShadingStatus = 'ready';
+    state.localBuildingShadingMessage = 'No nearby mapped buildings can obstruct the current array.';
+  } else if (!model?.contributorIds?.length) {
+    state.localBuildingShadingStatus = 'ready';
+    state.localBuildingShadingMessage = 'Nearby buildings loaded; none rise above the panel horizon from the current house position.';
+  } else {
+    state.localBuildingShadingStatus = 'ready';
+    state.localBuildingShadingMessage = `${model.contributorIds.length} nearby building${model.contributorIds.length === 1 ? '' : 's'} can shade the current solar array.`;
+  }
+  scene.syncBuildingShadingVisuals(state);
+  return model;
 }
 
 function syncEnvironmentSceneMetrics(data = scene.geographicData) {
   if (!data) {
     state.environmentHostBuildingCount = 0;
+    syncLocalBuildingShadingModel();
     return;
   }
   const metrics = scene.getGeographicMetrics(state);
@@ -347,6 +392,7 @@ function syncEnvironmentSceneMetrics(data = scene.geographicData) {
   state.environmentTreeCount = data.trees?.length || 0;
   state.environmentHasTerrain = Boolean(data.terrain);
   state.environmentHostBuildingCount = metrics.hostBuildingCount || 0;
+  syncLocalBuildingShadingModel();
 }
 
 function syncEnvironmentForLocationMode() {
@@ -400,6 +446,7 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
         ? 'Mapped surroundings are ready; finishing terrain…'
         : 'Mapped surroundings are ready; loading terrain elevation…';
     }
+    if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
   };
 
@@ -423,6 +470,7 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
       state.environmentStatus = 'ready';
       state.environmentMessage = 'Real terrain and nearby mapped context loaded.';
     }
+    if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
     return data;
   } catch (error) {
@@ -447,6 +495,7 @@ function rebuild({ fitCamera = false, scene: rebuildScene = true, pvgis = false 
   if (state.locationMode !== 'exact') syncEnvironmentForLocationMode();
   if (rebuildScene || !lastMetrics) {
     lastMetrics = scene.rebuild(state, fitCamera);
+    if (scene.hasGeographicEnvironment()) syncLocalBuildingShadingModel();
   }
   scene.setEnvironment(state);
   scene.setCompassVisible(state.showCompass);
@@ -513,6 +562,7 @@ ui = new SolarUI(state, rebuild);
 lastMetrics = scene.rebuild(state, true);
 scene.setEnvironment(state);
 scene.setCompassVisible(state.showCompass);
+if (scene.hasGeographicEnvironment()) syncLocalBuildingShadingModel();
 ui.updateMetrics(lastMetrics);
 ui.setPreferences();
 syncViewButtons();
@@ -721,6 +771,8 @@ const configuratorApi = {
       state.environmentMessage = 'Real terrain and nearby mapped context loaded.';
       scene.syncGeographicLayerVisibility(state);
       scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+      if (lastMetrics) ui?.updateMetrics(lastMetrics);
       emitToolsState();
     } else if (state.locationMode === 'exact') refreshGeographicEnvironment();
     return state.environmentEnabled;
@@ -760,6 +812,7 @@ const configuratorApi = {
       scene.rebuildGeographicEnvironment(state);
       scene.setEnvironment(state);
       syncEnvironmentSceneMetrics();
+      if (lastMetrics) ui?.updateMetrics(lastMetrics);
     }
     // The local offset represents the actual configured house position inside the
     // loaded map context, so refresh the exact-site model at that adjusted point.
@@ -791,9 +844,19 @@ const configuratorApi = {
       scene.rebuildGeographicEnvironment(state);
       scene.setEnvironment(state);
       syncEnvironmentSceneMetrics();
+      if (lastMetrics) ui?.updateMetrics(lastMetrics);
     }
     emitToolsState();
     return state.replaceHostBuilding;
+  },
+
+  setLocalBuildingShadingEnabled(enabled) {
+    state.localBuildingShadingEnabled = Boolean(enabled);
+    if (scene.hasGeographicEnvironment() && !state.localBuildingShadingModel) syncLocalBuildingShadingModel();
+    scene.syncBuildingShadingVisuals(state);
+    if (lastMetrics) ui?.updateMetrics(lastMetrics);
+    emitToolsState();
+    return state.localBuildingShadingEnabled;
   },
 
   focusEnvironment() {

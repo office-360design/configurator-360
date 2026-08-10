@@ -5,10 +5,42 @@ import { buildRoofModel } from './roofFactory.js?v=1';
 import { buildSolarArray } from './solarFactory.js?v=2';
 import { createDimensions } from './dimensions.js?v=1';
 import { getSolarContext, getSunPathSamples } from './solarPosition.js?v=2';
-import { horizonElevationAtAzimuth } from './energyModel.js?v=3';
+import { horizonElevationAtAzimuth } from './energyModel.js?v=4';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const DEG = Math.PI / 180;
+const BUILDING_SHADE_AZIMUTH_STEP_DEG = 2;
+const BUILDING_BASE_COLOR = 0xaeb7bf;
+const BUILDING_SHADE_COLOR = 0xb58b5f;
+
+function cross2(ax, az, bx, bz) {
+  return ax * bz - az * bx;
+}
+
+function raySegmentDistance(originX, originZ, dirX, dirZ, a, b) {
+  const sx = Number(b.x) - Number(a.x);
+  const sz = Number(b.z) - Number(a.z);
+  const denominator = cross2(dirX, dirZ, sx, sz);
+  if (Math.abs(denominator) < 1e-9) return null;
+  const qx = Number(a.x) - originX;
+  const qz = Number(a.z) - originZ;
+  const t = cross2(qx, qz, sx, sz) / denominator;
+  const u = cross2(qx, qz, dirX, dirZ) / denominator;
+  if (t < 0 || u < -1e-9 || u > 1 + 1e-9) return null;
+  return t;
+}
+
+function rayPolygonDistance(originX, originZ, dirX, dirZ, points) {
+  let nearest = Infinity;
+  for (let index = 0; index < points.length; index += 1) {
+    const distance = raySegmentDistance(
+      originX, originZ, dirX, dirZ,
+      points[index], points[(index + 1) % points.length],
+    );
+    if (distance !== null && distance < nearest) nearest = distance;
+  }
+  return Number.isFinite(nearest) ? nearest : null;
+}
 
 function createCompassLabel(text, className = '') {
   const element = document.createElement('div');
@@ -55,6 +87,8 @@ export class RoofScene {
       environmentLocalEastM: 0,
       environmentLocalNorthM: 0,
       replaceHostBuilding: true,
+      localBuildingShadingEnabled: true,
+      localBuildingShadingModel: null,
       pvgisUseHorizon: true,
       pvgisShowHorizon: true,
       pvgisHorizonProfile: null,
@@ -64,6 +98,7 @@ export class RoofScene {
     this.shadowContextRadius = 0;
     this.sunPathKey = '';
     this.pvgisHorizonKey = '';
+    this.localBuildingShadingRevision = 0;
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 300);
     this.camera.position.set(-13, 10, -15);
@@ -344,7 +379,8 @@ export class RoofScene {
       'locationLabel', 'locationTimeZone', 'region', 'showSunPath',
       'environmentEnabled', 'environmentRadiusM', 'terrainEnabled', 'buildingsEnabled',
       'roadsEnabled', 'treesEnabled', 'terrainExaggeration', 'environmentLocalEastM',
-      'environmentLocalNorthM', 'replaceHostBuilding', 'pvgisUseHorizon', 'pvgisShowHorizon', 'pvgisHorizonProfile',
+      'environmentLocalNorthM', 'replaceHostBuilding', 'localBuildingShadingEnabled', 'localBuildingShadingModel',
+      'pvgisUseHorizon', 'pvgisShowHorizon', 'pvgisHorizonProfile',
     ];
     copyKeys.forEach((key) => {
       if (settings[key] !== undefined) this.environmentState[key] = settings[key];
@@ -479,6 +515,15 @@ export class RoofScene {
     return relative * smooth;
   }
 
+  terrainPhysicalRelativeHeight(x, z, state = this.environmentState) {
+    const terrain = this.geographicData?.terrain;
+    if (!terrain) return 0;
+    const houseMap = this.getHouseMapPosition(state);
+    const originElevation = this.terrainAbsoluteElevation(houseMap.x, houseMap.z) ?? terrain.centerElevationM;
+    const absoluteElevation = this.terrainAbsoluteElevation(x, z) ?? originElevation;
+    return absoluteElevation - originElevation;
+  }
+
   terrainAbsoluteElevation(x, z) {
     const terrain = this.geographicData?.terrain;
     if (!terrain) return null;
@@ -505,6 +550,20 @@ export class RoofScene {
     return {
       x: Number(state.environmentLocalEastM) || 0,
       z: -(Number(state.environmentLocalNorthM) || 0),
+    };
+  }
+
+  houseLocalToMapPoint(point, state = this.environmentState) {
+    const houseMap = this.getHouseMapPosition(state);
+    const angle = THREE.MathUtils.degToRad(Number(state.northDirection) || 0);
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const x = Number(point.x) || 0;
+    const z = Number(point.z) || 0;
+    return {
+      x: houseMap.x + cos * x - sin * z,
+      z: houseMap.z + sin * x + cos * z,
+      y: Number(point.y) || 0,
     };
   }
 
@@ -624,7 +683,7 @@ export class RoofScene {
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
     const material = new THREE.MeshStandardMaterial({
-      color: 0xaeb7bf,
+      color: BUILDING_BASE_COLOR,
       roughness: 0.92,
       side: THREE.DoubleSide,
     });
@@ -633,6 +692,7 @@ export class RoofScene {
     mesh.receiveShadow = true;
     mesh.userData.environmentLayer = 'buildings';
     mesh.userData.osmId = building.id;
+    mesh.userData.defaultBuildingColor = BUILDING_BASE_COLOR;
     return mesh;
   }
 
@@ -735,6 +795,107 @@ export class RoofScene {
     return [trunks, crowns];
   }
 
+  getSolarPanelObservationPoints(state = this.environmentState) {
+    const points = [];
+    this.solarRoot.updateMatrixWorld(true);
+    const worldPosition = new THREE.Vector3();
+    this.solarRoot.traverse((object) => {
+      const surfaceId = object.userData?.surfaceId;
+      if (!surfaceId) return;
+      object.getWorldPosition(worldPosition);
+      const mapPoint = this.houseLocalToMapPoint(worldPosition, state);
+      points.push({
+        surfaceId: String(surfaceId),
+        x: mapPoint.x,
+        z: mapPoint.z,
+        y: worldPosition.y,
+      });
+    });
+    return points;
+  }
+
+  computeLocalBuildingShadingModel(state = this.environmentState) {
+    const data = this.geographicData;
+    const panels = this.getSolarPanelObservationPoints(state);
+    const buildings = (data?.buildings || []).filter((building) => (
+      !(state.replaceHostBuilding !== false && this.isHostBuilding(building, state))
+    ));
+    if (!data || !panels.length || !buildings.length) {
+      return {
+        revision: ++this.localBuildingShadingRevision,
+        stepDeg: BUILDING_SHADE_AZIMUTH_STEP_DEG,
+        panelCount: panels.length,
+        buildingCount: buildings.length,
+        profiles: [],
+        contributorIds: [],
+      };
+    }
+
+    const physicalBuildings = buildings.map((building) => ({
+      id: building.id,
+      points: building.points || [],
+      topY: -0.19 + this.terrainPhysicalRelativeHeight(building.centroid.x, building.centroid.z, state)
+        + clamp(Number(building.heightM) || 6.4, 2.2, 80),
+    })).filter((building) => building.points.length >= 3);
+
+    const contributorIds = new Set();
+    const sampleCount = Math.round(360 / BUILDING_SHADE_AZIMUTH_STEP_DEG);
+    const profiles = panels.map((panel, panelIndex) => {
+      const samples = new Array(sampleCount).fill(-90);
+      const contributors = new Array(sampleCount).fill(null);
+      for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+        const azimuthDeg = sampleIndex * BUILDING_SHADE_AZIMUTH_STEP_DEG;
+        const azimuth = azimuthDeg * DEG;
+        const dirX = Math.sin(azimuth);
+        const dirZ = -Math.cos(azimuth);
+        let highestElevation = -90;
+        let highestBuildingId = null;
+        for (const building of physicalBuildings) {
+          if (building.topY <= panel.y - 0.05) continue;
+          const distance = rayPolygonDistance(panel.x, panel.z, dirX, dirZ, building.points);
+          if (!(distance !== null && distance <= Number(data.radiusM || 400) * 1.15)) continue;
+          const elevationDeg = Math.atan2(building.topY - panel.y, Math.max(0.2, distance)) / DEG;
+          if (elevationDeg > highestElevation) {
+            highestElevation = elevationDeg;
+            highestBuildingId = building.id;
+          }
+        }
+        samples[sampleIndex] = clamp(highestElevation, -90, 89);
+        contributors[sampleIndex] = highestBuildingId;
+        if (highestBuildingId !== null && highestElevation > -0.833) contributorIds.add(String(highestBuildingId));
+      }
+      return {
+        panelIndex,
+        surfaceId: panel.surfaceId,
+        samples,
+        contributors,
+      };
+    });
+
+    return {
+      revision: ++this.localBuildingShadingRevision,
+      stepDeg: BUILDING_SHADE_AZIMUTH_STEP_DEG,
+      panelCount: panels.length,
+      buildingCount: physicalBuildings.length,
+      profiles,
+      contributorIds: [...contributorIds],
+    };
+  }
+
+  syncBuildingShadingVisuals(state = this.environmentState) {
+    const enabled = state.localBuildingShadingEnabled !== false;
+    const contributors = new Set((state.localBuildingShadingModel?.contributorIds || []).map(String));
+    this.geographicRoot.traverse((object) => {
+      if (object.userData?.environmentLayer !== 'buildings' || object.userData?.hostBuildingReference) return;
+      const isContributor = enabled && contributors.has(String(object.userData?.osmId));
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.filter(Boolean).forEach((material) => {
+        if (material.color) material.color.setHex(isContributor ? BUILDING_SHADE_COLOR : BUILDING_BASE_COLOR);
+      });
+      object.userData.localShadeContributor = isContributor;
+    });
+  }
+
   configureEnvironmentShadow(radiusM) {
     const requestedRadius = Math.max(0, Number(radiusM) || 0);
     const radius = clamp(requestedRadius, 0, 240);
@@ -789,6 +950,7 @@ export class RoofScene {
     this.createTrees(data.trees || [], state).forEach((mesh) => this.geographicRoot.add(mesh));
     this.applyGeographicTransform(state);
     this.syncGeographicLayerVisibility(state);
+    this.syncBuildingShadingVisuals(state);
     this.configureEnvironmentShadow(data.radiusM);
     this.updateLighting();
   }

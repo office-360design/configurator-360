@@ -1,10 +1,12 @@
-import { regionPresets } from './state.js?v=2';
+import { regionPresets } from './state.js?v=6';
 import { getActiveLocation, getSolarContext, getSunTimes } from './solarPosition.js?v=2';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const normalizeDeg = (value) => ((value % 360) + 360) % 360;
 const signedAngle = (value) => ((normalizeDeg(value) + 180) % 360) - 180;
 const seasonalPotentialCache = new Map();
+const localBuildingFactorCache = new Map();
+const LOCAL_BUILDING_DIFFUSE_RETAINED = 0.18;
 
 function normalizedHorizonProfile(profile) {
   return (Array.isArray(profile) ? profile : [])
@@ -39,6 +41,52 @@ export function sunClearsPvgisHorizon(state, sun) {
   if (!state?.pvgisUseHorizon || !Array.isArray(state?.pvgisHorizonProfile) || !state.pvgisHorizonProfile.length) return true;
   if (!sun || !Number.isFinite(Number(sun.azimuthDeg)) || !Number.isFinite(Number(sun.elevationDeg))) return true;
   return Number(sun.elevationDeg) > horizonElevationAtAzimuth(state.pvgisHorizonProfile, sun.azimuthDeg);
+}
+
+function localBuildingHorizonAtAzimuth(profile, model, azimuthDeg) {
+  const samples = Array.isArray(profile?.samples) ? profile.samples : [];
+  const stepDeg = Math.max(0.1, Number(model?.stepDeg) || 2);
+  if (!samples.length) return -90;
+  const azimuth = normalizeDeg(Number(azimuthDeg) || 0);
+  const indexFloat = azimuth / stepDeg;
+  const lowerIndex = Math.floor(indexFloat) % samples.length;
+  const upperIndex = (lowerIndex + 1) % samples.length;
+  const fraction = indexFloat - Math.floor(indexFloat);
+  const lower = Number(samples[lowerIndex]);
+  const upper = Number(samples[upperIndex]);
+  if (!Number.isFinite(lower)) return Number.isFinite(upper) ? upper : -90;
+  if (!Number.isFinite(upper)) return lower;
+  return lower + (upper - lower) * fraction;
+}
+
+function localProfilesForSurface(model, surfaceId = null) {
+  const profiles = Array.isArray(model?.profiles) ? model.profiles : [];
+  if (!surfaceId) return profiles;
+  const matches = profiles.filter((profile) => String(profile?.surfaceId) === String(surfaceId));
+  return matches.length ? matches : profiles;
+}
+
+export function localBuildingShadeAtSun(state, sun, surfaceId = null) {
+  const model = state?.localBuildingShadingModel;
+  const enabled = state?.localBuildingShadingEnabled !== false && Array.isArray(model?.profiles) && model.profiles.length > 0;
+  const profiles = enabled ? localProfilesForSurface(model, surfaceId) : [];
+  if (!enabled || !sun || Number(sun.elevationDeg) <= -0.833 || !profiles.length) {
+    return { active: enabled, blockedPanels: 0, totalPanels: profiles.length, blockedFraction: 0, transmission: 1 };
+  }
+  let blockedPanels = 0;
+  profiles.forEach((profile) => {
+    const horizon = localBuildingHorizonAtAzimuth(profile, model, sun.azimuthDeg);
+    if (Number(sun.elevationDeg) <= horizon) blockedPanels += 1;
+  });
+  const blockedFraction = blockedPanels / profiles.length;
+  const transmission = 1 - blockedFraction * (1 - LOCAL_BUILDING_DIFFUSE_RETAINED);
+  return {
+    active: true,
+    blockedPanels,
+    totalPanels: profiles.length,
+    blockedFraction,
+    transmission: clamp(transmission, LOCAL_BUILDING_DIFFUSE_RETAINED, 1),
+  };
 }
 
 const PROFILE_WEIGHTS = {
@@ -94,11 +142,12 @@ function surfaceDescriptors(solarMetrics) {
   const surfaces = (solarMetrics?.selectedSurfaces || [])
     .filter((surface) => Number(surface.placed) > 0)
     .map((surface) => ({
+      id: String(surface.id || 'surface'),
       azimuth: normalizeDeg(Number(surface.azimuth) || 0),
       weight: Math.max(0, Number(surface.placed) || 0),
     }));
   if (surfaces.length) return surfaces;
-  return [{ azimuth: normalizeDeg(Number(solarMetrics?.arrayAzimuth) || 180), weight: 1 }];
+  return [{ id: 'array', azimuth: normalizeDeg(Number(solarMetrics?.arrayAzimuth) || 180), weight: 1 }];
 }
 
 function weightedOrientationFactor(solarMetrics) {
@@ -115,17 +164,29 @@ export function estimateAnnualProduction(state, solarMetrics) {
   const localAnnual = systemKwp * localSpecificYield;
   const pvgisAnnual = Number(state.pvgisAnnualKWh);
   const usePvgis = Number.isFinite(pvgisAnnual) && pvgisAnnual > 0;
-  const annualKWh = usePvgis ? pvgisAnnual : localAnnual;
+  const baseAnnualKWh = usePvgis ? pvgisAnnual : localAnnual;
+  const localBuildingFactor = annualLocalBuildingShadingFactor(state, solarMetrics);
+  const annualKWh = baseAnnualKWh * localBuildingFactor;
   const location = getActiveLocation(state);
+  const buildingText = state.localBuildingShadingEnabled !== false
+    && Array.isArray(state.localBuildingShadingModel?.profiles)
+    && state.localBuildingShadingModel.profiles.length
+    ? ' + nearby buildings'
+    : '';
   return {
     annualKWh,
+    baseAnnualKWh,
     dailyAverageKWh: annualKWh / 365,
     specificYield: systemKwp > 0 ? annualKWh / systemKwp : 0,
-    source: usePvgis
+    source: (usePvgis
       ? `${state.pvgisDatabase || 'PVGIS-SARAH3'} · exact site${state.pvgisUseHorizon ? ' + terrain horizon' : ''}`
-      : (location.mode === 'exact' ? 'Regional yield · exact sun geometry' : 'PVGIS-calibrated regional model'),
+      : (location.mode === 'exact' ? 'Regional yield · exact sun geometry' : 'PVGIS-calibrated regional model')) + buildingText,
     orientationFactor: orientation,
     tiltFactor: tiltFactor(state.pitch),
+    localBuildingFactor,
+    localBuildingLossPct: (1 - localBuildingFactor) * 100,
+    localBuildingContributorCount: Number(state.localBuildingShadingModel?.contributorIds?.length) || 0,
+    localBuildingPanelCount: Number(state.localBuildingShadingModel?.panelCount) || 0,
     region,
     location,
     azimuth: Number.isFinite(solarMetrics.arrayAzimuth) ? solarMetrics.arrayAzimuth : 180,
@@ -142,13 +203,16 @@ function incidenceFactor(panelAzimuth, pitch, sun) {
   return Math.max(0, cosine);
 }
 
-function aggregateSolarPotential(sun, pitch, surfaces, horizonProfile = null) {
+function aggregateSolarPotential(sun, pitch, surfaces, horizonProfile = null, state = null, includeLocalBuildings = false) {
   if (!sun || sun.elevationDeg <= -0.833) return 0;
   if (horizonProfile?.length && sun.elevationDeg <= horizonElevationAtAzimuth(horizonProfile, sun.azimuthDeg)) return 0;
   const totalWeight = surfaces.reduce((sum, surface) => sum + surface.weight, 0) || 1;
-  const incidence = surfaces.reduce((sum, surface) => (
-    sum + Math.pow(incidenceFactor(surface.azimuth, pitch, sun), 1.08) * surface.weight
-  ), 0) / totalWeight;
+  const incidence = surfaces.reduce((sum, surface) => {
+    const buildingTransmission = includeLocalBuildings && state
+      ? localBuildingShadeAtSun(state, sun, surface.id).transmission
+      : 1;
+    return sum + Math.pow(incidenceFactor(surface.azimuth, pitch, sun), 1.08) * surface.weight * buildingTransmission;
+  }, 0) / totalWeight;
   const clearSkyEnvelope = Math.pow(Math.max(0, Math.sin(sun.elevationDeg * Math.PI / 180)), 0.72);
   return incidence * clearSkyEnvelope;
 }
@@ -158,21 +222,63 @@ function productionWeights(state, solarMetrics) {
   const values = [];
   for (let hour = 0; hour < 24; hour += 1) {
     const sun = getSolarContext(state, hour + 0.5);
-    values.push(aggregateSolarPotential(sun, state.pitch, surfaces, state.pvgisUseHorizon ? state.pvgisHorizonProfile : null));
+    values.push(aggregateSolarPotential(sun, state.pitch, surfaces, state.pvgisUseHorizon ? state.pvgisHorizonProfile : null, state, true));
   }
   const total = values.reduce((sum, value) => sum + value, 0) || 1;
   return values.map((value) => value / total);
 }
 
-function dayPotential(state, solarMetrics, dateString) {
+function dayPotential(state, solarMetrics, dateString, includeLocalBuildings = false) {
   const surfaces = surfaceDescriptors(solarMetrics);
   let total = 0;
   for (let halfHour = 0; halfHour < 48; halfHour += 1) {
     const hour = halfHour / 2 + 0.25;
     const sun = getSolarContext({ ...state, simulationDate: dateString }, hour);
-    total += aggregateSolarPotential(sun, state.pitch, surfaces, state.pvgisUseHorizon ? state.pvgisHorizonProfile : null) * 0.5;
+    total += aggregateSolarPotential(
+      sun,
+      state.pitch,
+      surfaces,
+      state.pvgisUseHorizon ? state.pvgisHorizonProfile : null,
+      state,
+      includeLocalBuildings,
+    ) * 0.5;
   }
   return total;
+}
+
+function annualLocalBuildingShadingFactor(state, solarMetrics) {
+  const model = state?.localBuildingShadingModel;
+  if (state?.localBuildingShadingEnabled === false || !Array.isArray(model?.profiles) || !model.profiles.length) return 1;
+  const location = getActiveLocation(state);
+  const year = String(state.simulationDate || new Date().toISOString().slice(0, 10)).slice(0, 4);
+  const surfaceKey = surfaceDescriptors(solarMetrics).map((surface) => `${surface.id}:${surface.azimuth.toFixed(1)}:${surface.weight}`).join(',');
+  const horizonKey = state.pvgisUseHorizon && Array.isArray(state.pvgisHorizonProfile)
+    ? `${state.pvgisHorizonProfile.length}:${state.pvgisHorizonProfile.map((point) => Number(point.elevationDeg) || 0).reduce((sum, value) => sum + value, 0).toFixed(1)}`
+    : 'off';
+  const cacheKey = `${model.revision}|${location.lat.toFixed(4)}|${location.lon.toFixed(4)}|${state.pitch}|${surfaceKey}|${horizonKey}|${year}`;
+  if (localBuildingFactorCache.has(cacheKey)) return localBuildingFactorCache.get(cacheKey);
+
+  let clearTotal = 0;
+  let shadedTotal = 0;
+  for (let month = 1; month <= 12; month += 1) {
+    const days = new Date(Number(year), month, 0).getDate();
+    const date = monthMidDate(year, month);
+    clearTotal += dayPotential(state, solarMetrics, date, false) * days;
+    shadedTotal += dayPotential(state, solarMetrics, date, true) * days;
+  }
+  const factor = clearTotal > 0 ? clamp(shadedTotal / clearTotal, 0.12, 1) : 1;
+  localBuildingFactorCache.set(cacheKey, factor);
+  if (localBuildingFactorCache.size > 80) localBuildingFactorCache.delete(localBuildingFactorCache.keys().next().value);
+  return factor;
+}
+
+function selectedDayBuildingFactor(state, solarMetrics) {
+  const model = state?.localBuildingShadingModel;
+  if (state?.localBuildingShadingEnabled === false || !Array.isArray(model?.profiles) || !model.profiles.length) return 1;
+  const clear = dayPotential(state, solarMetrics, state.simulationDate, false);
+  if (!(clear > 0)) return 1;
+  const shaded = dayPotential(state, solarMetrics, state.simulationDate, true);
+  return clamp(shaded / clear, 0.12, 1);
 }
 
 function monthMidDate(year, month) {
@@ -184,7 +290,10 @@ function annualMeanPotential(state, solarMetrics) {
   const surfaces = surfaceDescriptors(solarMetrics);
   const surfaceKey = surfaces.map((surface) => `${surface.azimuth.toFixed(1)}:${surface.weight}`).join(',');
   const year = String(state.simulationDate || new Date().toISOString().slice(0, 10)).slice(0, 4);
-  const cacheKey = `${location.lat.toFixed(3)}|${location.lon.toFixed(3)}|${state.pitch}|${surfaceKey}|${year}`;
+  const horizonKey = state.pvgisUseHorizon && Array.isArray(state.pvgisHorizonProfile)
+    ? `${state.pvgisHorizonProfile.length}:${state.pvgisHorizonProfile.map((point) => Number(point.elevationDeg) || 0).reduce((sum, value) => sum + value, 0).toFixed(1)}`
+    : 'off';
+  const cacheKey = `${location.lat.toFixed(3)}|${location.lon.toFixed(3)}|${state.pitch}|${surfaceKey}|${horizonKey}|${year}`;
   if (seasonalPotentialCache.has(cacheKey)) return seasonalPotentialCache.get(cacheKey);
 
   let weightedTotal = 0;
@@ -204,6 +313,8 @@ export function seasonalDayFactor(state, solarMetrics) {
   const monthly = Array.isArray(state.pvgisMonthlyKWh) ? state.pvgisMonthlyKWh.map(Number) : null;
   const annual = Number(state.pvgisAnnualKWh);
   const dateMatch = String(state.simulationDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  let baseFactor = 1;
+
   if (monthly?.length === 12 && monthly.every(Number.isFinite) && annual > 0 && dateMatch) {
     const year = Number(dateMatch[1]);
     const month = Number(dateMatch[2]);
@@ -211,16 +322,22 @@ export function seasonalDayFactor(state, solarMetrics) {
     const monthlyDaily = Math.max(0, monthly[month - 1]) / Math.max(1, days);
     const annualDaily = annual / 365.2425;
     const midDate = monthMidDate(year, month);
-    const selectedGeometry = dayPotential(state, solarMetrics, state.simulationDate);
-    const midGeometry = dayPotential(state, solarMetrics, midDate);
+    const selectedGeometry = dayPotential(state, solarMetrics, state.simulationDate, false);
+    const midGeometry = dayPotential(state, solarMetrics, midDate, false);
     const intraMonth = midGeometry > 0 ? clamp(selectedGeometry / midGeometry, 0.82, 1.18) : 1;
-    return clamp((monthlyDaily / Math.max(0.001, annualDaily)) * intraMonth, 0.08, 2.6);
+    baseFactor = clamp((monthlyDaily / Math.max(0.001, annualDaily)) * intraMonth, 0.08, 2.6);
+  } else {
+    const selected = dayPotential(state, solarMetrics, state.simulationDate, false);
+    const mean = annualMeanPotential(state, solarMetrics);
+    baseFactor = mean > 0 ? clamp(selected / mean, 0.12, 2.2) : 1;
   }
 
-  const selected = dayPotential(state, solarMetrics, state.simulationDate);
-  const mean = annualMeanPotential(state, solarMetrics);
-  if (!(mean > 0)) return 1;
-  return clamp(selected / mean, 0.12, 2.2);
+  const annualBuildingFactor = annualLocalBuildingShadingFactor(state, solarMetrics);
+  const selectedBuildingFactor = selectedDayBuildingFactor(state, solarMetrics);
+  const relativeBuildingFactor = annualBuildingFactor > 0
+    ? clamp(selectedBuildingFactor / annualBuildingFactor, 0.25, 2.5)
+    : 1;
+  return clamp(baseFactor * relativeBuildingFactor, 0.04, 3.2);
 }
 
 export function autoBatteryCapacity(dailyConsumptionKWh, systemKwp) {

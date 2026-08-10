@@ -720,6 +720,25 @@ body.shared-ui-dark-mode .solar-location-dialog__header > button { color: #eef3f
 .solar-local-position__step small { font-size: 7px; font-weight: 500; line-height: 1.35; }
 .solar-local-position.is-disabled { opacity: .58; }
 .solar-host-building-toggle { padding-top: 9px; padding-bottom: 9px; }
+.solar-local-shading-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.solar-local-shading-summary div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+.solar-local-shading-summary span { color: var(--muted); font-size: 6.7px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.solar-local-shading-summary strong { overflow: hidden; font-size: 8.5px; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.solar-local-shading-message { margin-top: -2px; }
+.solar-local-shading-note { margin-top: -5px; }
+
 .solar-context-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .solar-context-actions button {
   min-height: 32px;
@@ -761,7 +780,8 @@ body.shared-ui-dark-mode .solar-local-position,
 body.shared-ui-dark-mode .solar-local-position__pad button,
 body.shared-ui-dark-mode .solar-local-position__step select,
 body.shared-ui-dark-mode .solar-context-actions button,
-body.shared-ui-dark-mode .solar-context-stats div {
+body.shared-ui-dark-mode .solar-context-stats div,
+body.shared-ui-dark-mode .solar-local-shading-summary div {
   color: #eef3f6;
   border-color: #394653;
   background: #202a34;
@@ -771,6 +791,7 @@ body.shared-ui-dark-mode .solar-context-actions button.primary { border-color: v
 @media (max-width: 460px) {
   .solar-context-row,
   .solar-context-actions { grid-template-columns: 1fr; }
+  .solar-local-shading-summary { grid-template-columns: 1fr; }
   .solar-context-stats { grid-template-columns: 1fr 1fr; }
   .solar-local-position__controls { grid-template-columns: 1fr; }
 }

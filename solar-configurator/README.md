@@ -58,7 +58,7 @@ The static app uses a fast local model so all controls react immediately:
 4. Household load is distributed using the selected consumption profile.
 5. The battery simulation is warmed up over repeated average days before reporting the final 24-hour result, avoiding arbitrary “free” starting battery energy.
 
-This is an estimator, not an engineering yield guarantee. With Phase 3 configured, PVGIS supplies exact-coordinate annual/monthly yield and high-horizon terrain losses, while the selected-day curve still uses the configurator's real sun geometry to distribute the monthly energy through that day. Phase 2 nearby buildings and mapped trees remain visual obstructions only; their shadows are not yet converted into kWh losses. The simulation also does not model snow cover, inverter clipping/string topology, or hour-specific historical cloud events.
+This is an estimator, not an engineering yield guarantee. With Phase 3 configured, PVGIS supplies exact-coordinate annual/monthly yield and high-horizon terrain losses, while the selected-day curve still uses the configurator's real sun geometry to distribute the monthly energy through that day. Nearby mapped buildings can now also be included as an approximate local obstruction model: panel-center horizon profiles are derived from the loaded OSM footprints, real DEM elevation differences and mapped/estimated building heights, then used to reduce annual and selected-day production when the astronomical sun is blocked. Mapped trees remain visual-only. The simulation also does not model snow cover, inverter clipping/string topology, partial-string electrical mismatch, or hour-specific historical cloud events.
 
 ## PVGIS integration note
 
@@ -90,7 +90,7 @@ The configurator now supports an exact Romanian installation location, real cale
 - **Date / seasons:** Any date can be selected. Spring, summer, autumn and winter presets use the equinox/solstice reference dates in the selected year.
 - **Daily energy curve:** Hourly panel incidence uses the real solar position for the selected coordinates/date and each selected roof plane. A geometry-based seasonal factor redistributes the annual regional yield across the selected day.
 - **Shadows:** The visible Three.js sun and directional light follow the calculated sun vector. Real night is automatic when the sun is below the horizon; `Force night preview` remains available as a visual override.
-- **Current production limitation:** Annual yield is still calibrated from the nearest regional reference unless a PVGIS proxy is configured. The Phase 2 scene context is visual/interactive and does not yet subtract local obstacle shading from the kWh estimate.
+- **Current production limitation:** Annual yield is still calibrated from the nearest regional reference unless a PVGIS proxy is configured. When mapped buildings are loaded, the optional nearby-building shading model can subtract approximate local obstruction losses from either the regional fallback or the live PVGIS baseline.
 
 
 ## Phase 2 geographic environment
@@ -102,14 +102,15 @@ When an exact Romanian location is active, the Tools → Location & environment 
 - **Mapped buildings:** nearby OpenStreetMap `building=*` ways are loaded through Overpass. If an explicit `height` or `building:levels` tag exists it is used; otherwise the renderer applies a conservative approximate height by building type. A building that overlaps the configured house is detected dynamically, including after local position or roof-bearing changes. With **Replace overlapping mapped building** enabled (the default), that OSM building is reduced to a blue reference footprint and does not cast a shadow, avoiding duplicate geometry when it is probably the real house being configured. Turning the toggle off renders the mapped building normally for comparison.
 - **Roads and mapped trees:** common road classes and `natural=tree` nodes are loaded from the same local Overpass query and rendered as lightweight Three.js context geometry.
 - **Real visual shadows:** terrain, buildings and mapped trees participate in the existing real-date/real-time directional-light shadow simulation. Shadow-camera coverage expands automatically when local context is loaded.
+- **Nearby-building production shading:** when enabled, the configurator samples a 360° obstruction horizon from every fitted panel center using OSM building footprints, the true local DEM height difference and mapped/estimated building height. Buildings that can obstruct at least one fitted panel are warm-tinted in 3D. The annual PVGIS/regional baseline is reduced by a representative-year obstruction factor, while the chosen day and hourly production curve use the same sun/building geometry. The replaced host building is excluded from this shading calculation.
 - **Context controls:** 120/180/250/350 m radius, terrain/building/road/tree visibility, terrain-relief scaling, local house-position nudging, host-building replacement, reload, and a neighborhood camera view.
 - **Graceful fallback:** terrain and OSM context are fetched independently. If one source fails, the other can still render. If both fail, the normal flat configurator continues to work.
 
 ### Important accuracy boundaries
 
-The environment is deliberately **approximate**, not a cadastral or survey model. OpenStreetMap coverage varies, many buildings do not have measured heights, mapped trees are incomplete, and the terrain source is an elevation model rather than a high-resolution building/tree DSM. Phase 2 shadows are therefore useful for orientation and visual inspection, not yet for bankable shading-loss calculations.
+The environment is deliberately **approximate**, not a cadastral or survey model. OpenStreetMap coverage varies, many buildings do not have measured heights, mapped trees are incomplete, and the terrain source is an elevation model rather than a high-resolution building/tree DSM. The nearby-building kWh adjustment should therefore be treated as an early obstruction estimate rather than a bankable shade study. It uses panel-center horizons and a retained diffuse-light allowance instead of full module-cell/string electrical modelling.
 
-Phase 3 remains the place to connect exact-coordinate PVGIS/horizon data to the production model so distant terrain/horizon losses affect calculated kWh. A later optional DSM/shade-data integration can add higher-resolution local obstruction losses.
+Phase 3 still provides the exact-coordinate PVGIS baseline and distant terrain horizon. A later optional DSM/LiDAR or dedicated shade-data integration can replace the inferred local geometry with higher-resolution obstruction information.
 
 ### Optional endpoint overrides
 
@@ -159,4 +160,4 @@ The URL is stored in the current browser. You can alternatively set `window.SOLA
 
 The proxy is read-only, whitelists only `PVcalc` and `printhorizon`, validates coordinates, caches successful PVGIS responses at Netlify's CDN, and briefly retries rate-limit/overload responses. The old Cloudflare implementation remains in `pvgis-proxy/` as an optional alternative.
 
-Important limitation: the PVGIS high-horizon model represents terrain/topographic obstruction. Nearby OSM buildings and trees rendered in Phase 2 still cast accurate visual Three.js shadows, but their shadow losses are not yet fed into the engineering kWh estimate.
+The PVGIS high-horizon model represents terrain/topographic obstruction. Nearby OSM buildings are now handled separately in the browser as an approximate local-obstruction correction on top of the PVGIS baseline. This keeps distant terrain and local structures from being conflated. Mapped trees remain visual-only because OSM tree coverage and crown geometry are too incomplete for a defensible energy correction.

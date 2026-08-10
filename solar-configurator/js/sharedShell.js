@@ -126,6 +126,10 @@ const localPositionStepControl = document.querySelector('#localPositionStepContr
 const localPositionResetButton = document.querySelector('#localPositionResetButton');
 const localPositionNudgeButtons = [...document.querySelectorAll('[data-local-east][data-local-north]')];
 const replaceHostBuildingToggle = document.querySelector('#replaceHostBuildingToggle');
+const localBuildingShadingToggle = document.querySelector('#localBuildingShadingToggle');
+const localBuildingAnnualLossValue = document.querySelector('#localBuildingAnnualLossValue');
+const localBuildingContributorValue = document.querySelector('#localBuildingContributorValue');
+const localBuildingShadingMessage = document.querySelector('#localBuildingShadingMessage');
 const environmentRefreshButton = document.querySelector('#environmentRefreshButton');
 const environmentFocusButton = document.querySelector('#environmentFocusButton');
 const environmentAltitudeValue = document.querySelector('#environmentAltitudeValue');
@@ -333,6 +337,25 @@ function syncToolsState(detail = getApi()?.getState?.()) {
     replaceHostBuildingToggle.checked = detail.replaceHostBuilding !== false;
     replaceHostBuildingToggle.disabled = !exactLocation || !contextEnabled || !detail.environmentLoaded || contextLoading;
   }
+  if (localBuildingShadingToggle) {
+    localBuildingShadingToggle.checked = detail.localBuildingShadingEnabled !== false;
+    localBuildingShadingToggle.disabled = !exactLocation || !detail.environmentLoaded || contextLoading;
+  }
+  if (localBuildingAnnualLossValue) {
+    localBuildingAnnualLossValue.textContent = detail.localBuildingShadingEnabled === false
+      ? 'Off'
+      : (detail.environmentLoaded ? `${Number(detail.localBuildingAnnualLossPct || 0).toFixed(1)}%` : '—');
+  }
+  if (localBuildingContributorValue) {
+    localBuildingContributorValue.textContent = detail.environmentLoaded
+      ? `${Number(detail.localBuildingShadeContributorCount || 0)} building${Number(detail.localBuildingShadeContributorCount || 0) === 1 ? '' : 's'}`
+      : '—';
+  }
+  if (localBuildingShadingMessage) {
+    localBuildingShadingMessage.textContent = detail.localBuildingShadingEnabled === false
+      ? 'Nearby-building production shading is disabled. The buildings can still remain visible in 3D.'
+      : (detail.localBuildingShadingMessage || 'Load nearby buildings to estimate local obstruction shading.');
+  }
   if (environmentRefreshButton) {
     environmentRefreshButton.disabled = !exactLocation || !contextEnabled || contextLoading;
     environmentRefreshButton.textContent = contextLoading ? 'Loading…' : 'Load / refresh';
@@ -464,6 +487,7 @@ localPositionNudgeButtons.forEach((button) => {
 });
 localPositionResetButton?.addEventListener('click', () => { getApi()?.resetLocalPosition(); shell.markDirty(); });
 replaceHostBuildingToggle?.addEventListener('change', () => { getApi()?.setReplaceHostBuilding(replaceHostBuildingToggle.checked); shell.markDirty(); });
+localBuildingShadingToggle?.addEventListener('change', () => { getApi()?.setLocalBuildingShadingEnabled(localBuildingShadingToggle.checked); shell.markDirty(); });
 environmentRefreshButton?.addEventListener('click', () => getApi()?.refreshEnvironment());
 environmentFocusButton?.addEventListener('click', () => getApi()?.focusEnvironment());
 pvgisUseHorizonToggle?.addEventListener('change', () => { getApi()?.setPvgisUseHorizon(pvgisUseHorizonToggle.checked); shell.markDirty(); });

@@ -160,6 +160,13 @@ export const state = {
   environmentLocalStepM: 1,
   replaceHostBuilding: true,
   environmentHostBuildingCount: 0,
+  localBuildingShadingEnabled: true,
+  localBuildingShadingModel: null,
+  localBuildingShadingStatus: 'inactive',
+  localBuildingShadingMessage: 'Load nearby buildings to estimate local obstruction shading.',
+  localBuildingShadeContributorCount: 0,
+  localBuildingShadePanelCount: 0,
+  localBuildingAnnualLossPct: 0,
 
   units: 'metric',
   currency: 'RON',

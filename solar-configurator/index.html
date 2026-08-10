@@ -9,8 +9,12 @@
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
   <link rel="stylesheet" href="./styles.css?v=1" />
   <link rel="stylesheet" href="./shared-shell.css?v=1" />
-  <link rel="stylesheet" href="./solar.css?v=8" />
+  <link rel="stylesheet" href="./solar.css?v=9" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script>
+    window.SOLAR_PVGIS_PROXY_ENDPOINT =
+      'https://pvgis-proxy.netlify.app/.netlify/functions/pvgis';
+  </script>
   <script type="importmap">
     {
       "imports": {
@@ -303,6 +307,16 @@
         <span><b>Replace overlapping mapped building</b><small>Treat a building under the configured house as the same house. It becomes a blue reference outline and stops casting shadows.</small></span>
         <input id="replaceHostBuildingToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
       </label>
+      <label class="solar-context-master solar-building-shading-toggle" for="localBuildingShadingToggle">
+        <span><b>Use nearby buildings for solar shading</b><small>Uses mapped footprints, terrain elevation and mapped/estimated building heights to reduce production when the real sun is obstructed.</small></span>
+        <input id="localBuildingShadingToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+      <div class="solar-local-shading-summary" aria-label="Nearby building shading estimate">
+        <div><span>Annual obstruction loss</span><strong id="localBuildingAnnualLossValue">—</strong></div>
+        <div><span>Shade contributors</span><strong id="localBuildingContributorValue">—</strong></div>
+      </div>
+      <p class="solar-context-message solar-local-shading-message" id="localBuildingShadingMessage">Load nearby buildings to estimate local obstruction shading.</p>
+      <p class="solar-context-attribution solar-local-shading-note">Warm-tinted buildings are currently capable of shading at least one fitted panel. This is an approximate obstruction model because OpenStreetMap building heights can be missing or inferred.</p>
       <div class="solar-context-row">
         <label for="environmentRadiusControl"><span>Context radius</span>
           <select id="environmentRadiusControl">
@@ -481,7 +495,7 @@
     })();
   </script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="./js/sharedShell.js?v=8"></script>
-  <script type="module" src="./js/app.js?v=11"></script>
+  <script type="module" src="./js/sharedShell.js?v=9"></script>
+  <script type="module" src="./js/app.js?v=12"></script>
 </body>
 </html>
