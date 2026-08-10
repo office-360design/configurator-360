@@ -61,9 +61,9 @@ jobs:
             cp -R roof-configurator/. dist/site/roof-configurator/
           fi
 
-          if [ -d solar-panel-configurator ]; then
-            mkdir -p dist/site/solar-panel-configurator
-            cp -R solar-panel-configurator/. dist/site/solar-panel-configurator/
+          if [ -d solar-configurator ]; then
+            mkdir -p dist/site/solar-configurator
+            cp -R solar-configurator/. dist/site/solar-configurator/
           fi
 
           mkdir -p dist/site/hall-configurator
