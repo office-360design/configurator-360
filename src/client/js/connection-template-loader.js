@@ -1,5 +1,6 @@
 const CONNECTION_TEMPLATE_URLS = Object.freeze({
     'frame-fixed': 'cad-connections/frame-fixed/connection.meta.json',
+    'frame-sash': 'cad-connections/frame-sash/connection.meta.json',
     'mullion-fixed-sash': 'cad-connections/mullion-fixed-sash/connection.meta.json',
     'mullion-fixed-fixed': 'cad-connections/mullion-fixed-fixed/connection.meta.json',
     'mullion-sash-sash': 'cad-connections/mullion-sash-sash/connection.meta.json',

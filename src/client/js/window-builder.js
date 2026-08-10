@@ -1657,6 +1657,13 @@ export function createWindowBuilder({
                 const usesFullOuterBoundary = group === 'frame';
                 if (!usesFullOuterBoundary && !openingCells.length) return;
 
+                // A join-authored outer-frame accessory is rendered below from
+                // its exact frame-sash CAD transform. Do not also render the
+                // legacy B2-aligned copy around the whole perimeter.
+                if (usesFullOuterBoundary && profile.frameAccessoryCadTransform) {
+                    return;
+                }
+
                 sides.forEach(side => {
                     if (!shouldPlaceProfileOnSide(profile, side)) return;
 
@@ -1713,6 +1720,59 @@ export function createWindowBuilder({
                             const targetSashGroup = sashGroupsByCell.get(placement.windowCell);
                             targetSashGroup?.add(mesh);
                         }
+                    });
+                });
+            });
+
+        // Exact accessory INSERTs from frame-sash-window.dwg are components of
+        // the outer frame. They use the same perimeter segmentation and the
+        // same divider-end miter cuts as the aluminium frame, while their
+        // cross-sectional seat comes only from CAD. On divided layouts the
+        // accessory is emitted only on frame segments bordering an opening sash.
+        activeProfiles
+            .filter(profile =>
+                profile.section !== 'bottom'
+                && Boolean(profile.frameAccessoryCadTransform)
+            )
+            .forEach(profile => {
+                sides.forEach(side => {
+                    if (!shouldPlaceProfileOnSide(profile, side)) return;
+
+                    const placedProfile = {
+                        ...profile,
+                        cadCoordinateTransform: profile.frameAccessoryCadTransform,
+                        cadAlignmentShiftXMm: 0,
+                        cadAlignmentShiftYMm: 0,
+                    };
+                    getOuterFramePlacements(side).forEach(placement => {
+                        if (getFrameBoundaryCellType(side, placement) !== 'opening-sash') {
+                            return;
+                        }
+
+                        const mesh = createMiteredSide(
+                            placedProfile,
+                            placement.width,
+                            placement.height,
+                            side,
+                            profile.explodeOffset,
+                            placement.originX,
+                            placement.originY,
+                            placement.jointEnd === 'divider'
+                                ? {
+                                    localJointEnd: placement.localJointEnd,
+                                    localJointEnds: placement.localJointEnds,
+                                    faceSpan: dividerFaceSpan,
+                                    frameInwardSpan: frameJointInwardSpan,
+                                }
+                                : null
+                        );
+                        mesh.userData.windowCell = placement.windowCell;
+                        mesh.userData.frameSegment = placement.id;
+                        mesh.userData.frameAccessory = true;
+                        mesh.userData.connectionBoundary = 'frame-opening-sash';
+                        mesh.userData.connectionProfileId = profile.frameAccessoryProfileId;
+                        mesh.userData.accessoryHostProfileId = profile.frameAccessoryHostProfileId;
+                        frameGroup.add(mesh);
                     });
                 });
             });
@@ -1950,6 +2010,88 @@ export function createWindowBuilder({
                             placeTDividerMesh(mesh, 'lower-mullion', cellSide);
                         });
                 });
+
+            // Optional join-authored accessories (currently 200988) are true
+            // components of the T divider assembly. The horizontal copies use
+            // the same two transom segments/socket cuts as the aluminium and
+            // gaskets; the lower vertical copies use the same V-headed segment
+            // as the mullion. No accessory-specific length is hardcoded.
+            activeProfiles
+                .filter(profile =>
+                    profile.section !== 'bottom'
+                    && (
+                        Object.keys(profile.mullionAccessoryCadTransforms || {}).length
+                        || Object.keys(
+                            profile.tLayoutVerticalMullionAccessoryCadTransforms || {}
+                        ).length
+                    )
+                )
+                .forEach(profile => {
+                    Object.entries(profile.mullionAccessoryCadTransforms || {})
+                        .forEach(([cellSide, cadTransform]) => {
+                            const placedProfile = {
+                                ...profile,
+                                cadCoordinateTransform: cadTransform,
+                                cadAlignmentShiftXMm: 0,
+                                cadAlignmentShiftYMm: 0,
+                                dividerSectionRotationDeg:
+                                    Number(currentMetadata.dividerConnection?.sectionRotationDeg) || 180,
+                            };
+                            tTransomSegments.forEach(segment => {
+                                if (segment.length <= 1e-6) return;
+                                const mesh = createDividerSegment(
+                                    placedProfile,
+                                    segment.length,
+                                    'horizontal',
+                                    dividerBounds,
+                                    dividerDepthOffset,
+                                    frameJointInwardSpan,
+                                    tLayoutGeometry.transomCenterY,
+                                    segment.centerX,
+                                    tTransomConnectionFaceDirection,
+                                    segment.joint
+                                );
+                                mesh.userData.mullionAccessory = true;
+                                mesh.userData.connectionProfileId =
+                                    profile.mullionAccessoryProfileId;
+                                mesh.userData.accessoryHostProfileId =
+                                    profile.mullionAccessoryHostProfileId;
+                                mesh.userData.tLayoutAccessorySegment = segment.id;
+                                placeTDividerMesh(mesh, 'transom', cellSide);
+                            });
+                        });
+
+                    Object.entries(
+                        profile.tLayoutVerticalMullionAccessoryCadTransforms || {}
+                    ).forEach(([cellSide, cadTransform]) => {
+                        const placedProfile = {
+                            ...profile,
+                            cadCoordinateTransform: cadTransform,
+                            cadAlignmentShiftXMm: 0,
+                            cadAlignmentShiftYMm: 0,
+                            dividerSectionRotationDeg:
+                                Number(verticalDividerConnection.sectionRotationDeg) || 180,
+                        };
+                        const mesh = createDividerSegment(
+                            placedProfile,
+                            tLowerMullionSegment.length,
+                            'vertical',
+                            dividerBounds,
+                            verticalDividerDepthOffset,
+                            frameJointInwardSpan,
+                            tLayoutGeometry.verticalMullionCenterX,
+                            tLowerMullionSegment.centerY,
+                            1,
+                            tLowerMullionSegment.joint
+                        );
+                        mesh.userData.mullionAccessory = true;
+                        mesh.userData.connectionProfileId =
+                            profile.tLayoutVerticalMullionAccessoryProfileId;
+                        mesh.userData.accessoryHostProfileId =
+                            profile.mullionAccessoryHostProfileId;
+                        placeTDividerMesh(mesh, 'lower-mullion', cellSide);
+                    });
+                });
         } else if (dividerOrientation && dividerBounds) {
             const dividerLength = dividerOrientation === 'vertical' ? B : A;
             const activeDividerPositions = dividerPositions.length ? dividerPositions : [0];
@@ -2030,6 +2172,53 @@ export function createWindowBuilder({
                         });
                     });
             }
+        }
+
+
+        // Optional accessory INSERTs authored in the active mullion join use
+        // the same longitudinal divider extrusion/joint as the structural
+        // profile. Their cross-sectional location comes only from CAD.
+        if (dividerOrientation && dividerBounds && !isTopFixedBottomSashSash) {
+            const dividerLength = dividerOrientation === 'vertical' ? B : A;
+            const activeDividerPositions = dividerPositions.length ? dividerPositions : [0];
+            activeProfiles
+                .filter(profile =>
+                    profile.section !== 'bottom'
+                    && Object.keys(profile.mullionAccessoryCadTransforms || {}).length
+                )
+                .forEach(profile => {
+                    Object.entries(profile.mullionAccessoryCadTransforms || {})
+                        .forEach(([cellSide, cadTransform]) => {
+                            const placedProfile = {
+                                ...profile,
+                                cadCoordinateTransform: cadTransform,
+                                cadAlignmentShiftXMm: 0,
+                                cadAlignmentShiftYMm: 0,
+                                dividerSectionRotationDeg:
+                                    Number(currentMetadata.dividerConnection?.sectionRotationDeg) || 180,
+                            };
+                            activeDividerPositions.forEach((dividerPosition, dividerIndex) => {
+                                const mesh = createDividerSegment(
+                                    placedProfile,
+                                    dividerLength,
+                                    dividerOrientation,
+                                    dividerBounds,
+                                    dividerDepthOffset,
+                                    frameJointInwardSpan,
+                                    dividerPosition
+                                );
+                                mesh.userData.dividerIndex = dividerIndex;
+                                mesh.userData.dividerPosition = dividerPosition;
+                                mesh.userData.mullionAccessory = true;
+                                mesh.userData.connectionBoundary = `mullion-${cellSide}`;
+                                mesh.userData.connectionProfileId =
+                                    profile.mullionAccessoryProfileId;
+                                mesh.userData.accessoryHostProfileId =
+                                    profile.mullionAccessoryHostProfileId;
+                                dividerGroup.add(mesh);
+                            });
+                        });
+                });
         }
 
         // In the mixed fixed | mullion | sash connection, the mullion carries

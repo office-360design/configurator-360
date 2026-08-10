@@ -203,6 +203,13 @@ const directAccessoryMatches = fitAllProfiles({
         hierarchy: ['247472_s'],
         bbox: { minX: 250, minY: 35, maxX: 258, maxY: 42 },
         sourceTransform: { a: 1, b: 0, c: 0, d: 1, tx: 250, ty: 35 },
+    }, {
+        id: 'join-224068',
+        blockName: '224068_s_1',
+        rootBlock: '224068_s_1',
+        hierarchy: ['224068_s_1'],
+        bbox: { minX: 270, minY: 35, maxX: 293, maxY: 49 },
+        sourceTransform: { a: 1, b: 0, c: 0, d: 1, tx: 270, ty: 35 },
     }],
 }, {
     plans: [],
@@ -239,6 +246,20 @@ assert.equal(
 assert.deepEqual(
     directAccessoryMatches['247472'][0].directBlockNames,
     ['247472_s']
+);
+assert.equal(
+    directAccessoryMatches['224068']?.length,
+    1,
+    'The join converter must preserve a directly named 224068 mullion-accessory INSERT.'
+);
+assert.equal(
+    directAccessoryMatches['224068'][0].role,
+    'accessory',
+    '224068 must use the generic mullion-accessory role rather than the structural gasket path.'
+);
+assert.deepEqual(
+    directAccessoryMatches['224068'][0].directBlockNames,
+    ['224068_s_1']
 );
 
 const template = {

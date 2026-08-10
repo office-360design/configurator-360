@@ -9,7 +9,7 @@
   "orientation": "left-right-section",
   "source": {
     "path": "cad/source/join/window-sash-mullion-sash-window.dwg",
-    "sha256": "53659a3f282423a16a4242442a6da97ffd60ecdc11a2968150e769bddba0cfce"
+    "sha256": "d7dbd42143676fddef099403c30643e535462e9a127b5b14cde370ab07ae21fe"
   },
   "extraction": {
     "method": "exact-insert-transform-matching",
@@ -975,6 +975,72 @@
     "maxY": 168.2574072773923
   },
   "profileOccurrences": {
+    "200988": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "200988",
+        "role": "accessory",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 111.3123206767145,
+          "ty": 123.866123489704
+        },
+        "bbox": {
+          "minX": 111.31275926166508,
+          "minY": 112.616123489704,
+          "maxX": 128.0280339258381,
+          "maxY": 129.216123489704
+        },
+        "center": {
+          "x": 119.67039659375158,
+          "y": 120.91612348970399
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "200988_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": true
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "200988",
+        "role": "accessory",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 83.31232067671633,
+          "ty": 123.866123489704
+        },
+        "bbox": {
+          "minX": 66.59660742759273,
+          "minY": 112.616123489704,
+          "maxX": 83.31188209176575,
+          "maxY": 129.216123489704
+        },
+        "center": {
+          "x": 74.95424475967924,
+          "y": 120.91612348970399
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "200988_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      }
+    ],
     "224063": [
       {
         "occurrenceIndex": 0,
@@ -1036,6 +1102,72 @@
         "coordinateSpace": "block-local-to-join",
         "directBlockNames": [
           "224063_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      }
+    ],
+    "224068": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "224068",
+        "role": "accessory",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 80.01232467670661,
+          "ty": 116.0072559871796
+        },
+        "bbox": {
+          "minX": 60.149242265437636,
+          "minY": 104.41752342989395,
+          "maxX": 83.03220709151226,
+          "maxY": 118.50728731164628
+        },
+        "center": {
+          "x": 71.59072467847494,
+          "y": 111.46240537077011
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224068_s_1"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": true
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "224068",
+        "role": "accessory",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 114.6123166767224,
+          "ty": 116.0072559871796
+        },
+        "bbox": {
+          "minX": 111.59243426191675,
+          "minY": 104.41752342989395,
+          "maxX": 134.47539908799138,
+          "maxY": 118.50728731164628
+        },
+        "center": {
+          "x": 123.03391667495407,
+          "y": 111.46240537077011
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224068_s_1"
         ],
         "maxBboxErrorMm": 0,
         "mirrored": false
@@ -1665,6 +1797,132 @@
     ]
   },
   "roleOccurrences": {
+    "accessory": [
+      {
+        "profileId": "200988",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 111.3123206767145,
+          "ty": 123.866123489704
+        },
+        "bbox": {
+          "minX": 111.31275926166508,
+          "minY": 112.616123489704,
+          "maxX": 128.0280339258381,
+          "maxY": 129.216123489704
+        },
+        "center": {
+          "x": 119.67039659375158,
+          "y": 120.91612348970399
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "200988_s"
+        ]
+      },
+      {
+        "profileId": "200988",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 83.31232067671633,
+          "ty": 123.866123489704
+        },
+        "bbox": {
+          "minX": 66.59660742759273,
+          "minY": 112.616123489704,
+          "maxX": 83.31188209176575,
+          "maxY": 129.216123489704
+        },
+        "center": {
+          "x": 74.95424475967924,
+          "y": 120.91612348970399
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "200988_s"
+        ]
+      },
+      {
+        "profileId": "224068",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 80.01232467670661,
+          "ty": 116.0072559871796
+        },
+        "bbox": {
+          "minX": 60.149242265437636,
+          "minY": 104.41752342989395,
+          "maxX": 83.03220709151226,
+          "maxY": 118.50728731164628
+        },
+        "center": {
+          "x": 71.59072467847494,
+          "y": 111.46240537077011
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224068_s_1"
+        ]
+      },
+      {
+        "profileId": "224068",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 114.6123166767224,
+          "ty": 116.0072559871796
+        },
+        "bbox": {
+          "minX": 111.59243426191675,
+          "minY": 104.41752342989395,
+          "maxX": 134.47539908799138,
+          "maxY": 118.50728731164628
+        },
+        "center": {
+          "x": 123.03391667495407,
+          "y": 111.46240537077011
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224068_s_1"
+        ]
+      }
+    ],
     "gasket": [
       {
         "profileId": "224063",
@@ -2212,5 +2470,5 @@
       }
     ]
   },
-  "generatedAt": "2026-08-10T09:29:26.143Z"
+  "generatedAt": "2026-08-10T10:13:31.506Z"
 }

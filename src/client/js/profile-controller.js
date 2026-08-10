@@ -11,6 +11,8 @@ import {
     shouldCheckComponentProfile,
 } from './component-group-visibility.js';
 import {
+    applyDividerAccessoryConnectionPlacements,
+    applyFrameAccessoryConnectionPlacements,
     applyOpeningSashDividerConnectionPlacements,
     composeRegisteredProfileDefinitions,
     composeSupplementalAccessoryProfiles,
@@ -698,6 +700,12 @@ export function createProfileController({
                 : null;
             const hasFixedGlazingCell = normalizedSelection.leftCell === 'fixed-glazing'
                 || normalizedSelection.rightCell === 'fixed-glazing';
+            const hasOpeningSashCell = normalizedSelection.leftCell === 'opening-sash'
+                || normalizedSelection.rightCell === 'opening-sash'
+                || normalizedSelection.cells?.includes?.('opening-sash');
+            const openingSashFrameTemplate = hasOpeningSashCell
+                ? await loadConnectionTemplate('frame-sash')
+                : null;
             const [
                 fixedGlazingFrameTemplate,
                 standaloneBeadDefinition,
@@ -732,6 +740,7 @@ export function createProfileController({
                 ? connectionTemplate
                 : null;
 
+            let tLayoutVerticalConnectionTemplate = null;
             let registeredDefinition = composeRegisteredProfileDefinitions({
                 selection: normalizedSelection,
                 definitionsByProfileSetId,
@@ -754,6 +763,7 @@ export function createProfileController({
                 // primary definition. This avoids mirroring the mixed join or
                 // guessing a second 245472 placement.
                 const sashSashTemplate = await loadConnectionTemplate('mullion-sash-sash');
+                tLayoutVerticalConnectionTemplate = sashSashTemplate;
                 const sashSashDefinition = composeRegisteredProfileDefinitions({
                     selection: {
                         ...normalizedSelection,
@@ -821,10 +831,66 @@ export function createProfileController({
                 };
             }
 
-            const definition = composeSupplementalAccessoryProfiles({
+            let definition = composeSupplementalAccessoryProfiles({
                 definition: registeredDefinition,
                 definitionsByProfileSetId,
             });
+
+            // Outer-frame accessories use the same CAD-driven placement model
+            // as mullion accessories. 200988 geometry still comes from its
+            // reusable accessory source, while its exact frame-side seat comes
+            // from frame-sash-window.dwg.
+            definition = applyFrameAccessoryConnectionPlacements({
+                definition,
+                frameConnectionTemplate: openingSashFrameTemplate,
+            });
+
+            // Optional mullion/transom accessories are sourced from the exact
+            // INSERTs in the active join CAD. This happens after supplemental
+            // legacy geometry is loaded so a join can provide placement while
+            // the existing B2 source still provides the reusable 2D section.
+            definition = applyDividerAccessoryConnectionPlacements({
+                definition,
+                dividerConnectionTemplate: connectionTemplate,
+            });
+
+            if (tLayoutVerticalConnectionTemplate) {
+                const verticalAccessoryDefinition =
+                    applyDividerAccessoryConnectionPlacements({
+                        definition,
+                        dividerConnectionTemplate: tLayoutVerticalConnectionTemplate,
+                    });
+                const verticalAccessoryMetadata =
+                    verticalAccessoryDefinition.metadata?.dividerMountedAccessories || null;
+
+                definition = {
+                    ...definition,
+                    metadata: {
+                        ...definition.metadata,
+                        tLayoutVerticalDividerMountedAccessories:
+                            verticalAccessoryMetadata,
+                    },
+                    profiles: definition.profiles.map((profile, index) => {
+                        const verticalProfile =
+                            verticalAccessoryDefinition.profiles[index] || null;
+                        const verticalTransforms =
+                            verticalProfile?.mullionAccessoryCadTransforms || {};
+                        if (!Object.keys(verticalTransforms).length) return profile;
+                        return {
+                            ...profile,
+                            tLayoutVerticalMullionAccessoryCadTransforms:
+                                verticalTransforms,
+                            tLayoutVerticalMullionAccessoryProfileId:
+                                verticalProfile.mullionAccessoryProfileId || null,
+                            tLayoutVerticalMullionAccessoryOccurrenceIndexes:
+                                verticalProfile.mullionAccessoryOccurrenceIndexes || {},
+                            tLayoutVerticalMullionAccessoryPlacementMethods:
+                                verticalProfile.mullionAccessoryPlacementMethods || {},
+                        };
+                    }),
+                };
+            }
+
             currentMetadata = definition.metadata;
             profilesData = definition.profiles.map((profile, index) => ({
                 ...profile,

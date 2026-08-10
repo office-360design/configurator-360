@@ -33,6 +33,17 @@ const DIRECT_JOIN_ACCESSORIES = Object.freeze({
     // Runtime must not silently alias it to 245472 because the project does
     // not currently contain verified 247472 geometry.
     '247472': 'gasket',
+    // Centre gasket 224068 is an accessory in the configurator, but when it
+    // is authored in a mullion join its exact INSERT is also the placement
+    // source for the mullion-mounted copy. Keep it in the generic accessory
+    // role so it does not collide with the structural 224063/245472 gasket
+    // placement path.
+    '224068': 'accessory',
+    // Optional insulation/accessory profile mounted directly in a mullion or
+    // transom rebate. Keep its exact INSERT transform so runtime placement can
+    // be derived from the selected mullion occurrence instead of the legacy
+    // B2 assembly.
+    '200988': 'accessory',
 });
 
 function parseArgs(argv) {

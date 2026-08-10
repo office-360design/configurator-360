@@ -504,7 +504,13 @@ export const PROFILE_CATALOG = freeze({
             top: ['svg/{profileFolder}/224068_s_1/224068_s_1.svg'],
             bottom: ['svg/{profileFolder}/224068_s_1/224068_s_1_inst1.svg'],
         },
-        attachment: freeze({ permittedSides: ALL_WINDOW_SIDES }),
+        attachment: freeze({
+            permittedSides: ALL_WINDOW_SIDES,
+            // When 224068 is authored in a mullion join, it belongs only on
+            // sides that connect the mullion to an opening sash. The exact
+            // cross-sectional location still comes from that join CAD.
+            connectionCellTypes: freeze(['opening-sash']),
+        }),
         aliases: ['224068_s', '224068_s_1'],
     }),
     '224069': profileAccessory({
@@ -526,7 +532,12 @@ export const PROFILE_CATALOG = freeze({
             top: ['svg/{profileFolder}/200988_s/200988_s.svg'],
             bottom: ['svg/{profileFolder}/200988_s/200988_s_inst1.svg'],
         },
-        attachment: freeze({ permittedSides: ALL_WINDOW_SIDES }),
+        attachment: freeze({
+            hostProfileClasses: freeze(['outer-frame', 'mullion-transom']),
+            hostProfileIds: freeze(['575770', '575810']),
+            permittedSides: ALL_WINDOW_SIDES,
+            connectionCellTypes: freeze(['opening-sash']),
+        }),
         compatibility: freeze({ optional: true, defaultEnabled: false }),
         legacyProfileSets: ['2_6_Oeffnungselemnt_Vertikal'],
         aliases: ['200988_s'],

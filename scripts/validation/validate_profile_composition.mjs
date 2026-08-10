@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+    applyDividerAccessoryConnectionPlacements,
+    applyFrameAccessoryConnectionPlacements,
     applyOpeningSashDividerConnectionPlacements,
     composeLegacyProfileDefinitions,
     composeRegisteredProfileDefinitions,
@@ -155,6 +157,330 @@ assert(
 assert(
     supplemented.profiles.every((profile, index) => profile.index === index),
     'Supplemented profile indexes must remain unique and sequential.'
+);
+
+
+const directMullionAccessoryDefinition = {
+    metadata: {
+        dividerProfileId: '575810',
+        dividerSourceBounds: { minX: 0, minY: 0, maxX: 88, maxY: 100 },
+    },
+    profiles: [
+        {
+            index: 0,
+            role: 'divider',
+            geometrySource: 'standalone-divider-profile',
+            bbox: { minX: 0, minY: 0, maxX: 88, maxY: 100 },
+            cadCoordinateTransform: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 },
+        },
+        {
+            index: 1,
+            role: 'frame',
+            section: 'top',
+            blockName: '200988_s',
+            profileId: '200988',
+            catalogProfileId: '200988',
+            bbox: { minX: 0, minY: 0, maxX: 10, maxY: 10 },
+            sourceTransform: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 },
+        },
+        {
+            index: 2,
+            role: 'frame',
+            section: 'top',
+            blockName: '224068_s_1',
+            profileId: '224068',
+            catalogProfileId: '224068',
+            bbox: { minX: 0, minY: 0, maxX: 23, maxY: 14 },
+            sourceTransform: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 },
+        },
+    ],
+};
+const directMullionAccessoryTemplate = {
+    id: 'mullion-fixed-sash',
+    leftCell: 'fixed-glazing',
+    rightCell: 'opening-sash',
+    profileOccurrences: {
+        '575810': [{
+            occurrenceIndex: 0,
+            profileId: '575810',
+            transform: { a: 1, b: 0, c: 0, d: 1, tx: 100, ty: 100 },
+            bbox: { minX: 100, minY: 100, maxX: 188, maxY: 200 },
+        }],
+        '200988': [{
+            occurrenceIndex: 0,
+            profileId: '200988',
+            role: 'accessory',
+            transform: { a: 1, b: 0, c: 0, d: 1, tx: 190, ty: 130 },
+            bbox: { minX: 190, minY: 130, maxX: 200, maxY: 140 },
+            center: { x: 195, y: 135 },
+            matchStrategy: 'direct-named-join-component',
+            directBlockNames: ['200988_s'],
+        }],
+        '224068': [{
+            occurrenceIndex: 0,
+            profileId: '224068',
+            role: 'accessory',
+            transform: { a: 1, b: 0, c: 0, d: 1, tx: 181, ty: 115 },
+            bbox: { minX: 181, minY: 115, maxX: 204, maxY: 129 },
+            center: { x: 192.5, y: 122 },
+            matchStrategy: 'direct-named-join-component',
+            directBlockNames: ['224068_s_1'],
+        }],
+    },
+    roleOccurrences: {
+        'mullion-transom': [{
+            occurrenceIndex: 0,
+            profileId: '575810',
+            transform: { a: 1, b: 0, c: 0, d: 1, tx: 100, ty: 100 },
+            bbox: { minX: 100, minY: 100, maxX: 188, maxY: 200 },
+        }],
+        accessory: [{
+            occurrenceIndex: 0,
+            profileId: '200988',
+            role: 'accessory',
+            transform: { a: 1, b: 0, c: 0, d: 1, tx: 190, ty: 130 },
+            bbox: { minX: 190, minY: 130, maxX: 200, maxY: 140 },
+            center: { x: 195, y: 135 },
+            matchStrategy: 'direct-named-join-component',
+            directBlockNames: ['200988_s'],
+        }, {
+            occurrenceIndex: 0,
+            profileId: '224068',
+            role: 'accessory',
+            transform: { a: 1, b: 0, c: 0, d: 1, tx: 181, ty: 115 },
+            bbox: { minX: 181, minY: 115, maxX: 204, maxY: 129 },
+            center: { x: 192.5, y: 122 },
+            matchStrategy: 'direct-named-join-component',
+            directBlockNames: ['224068_s_1'],
+        }],
+    },
+};
+const directMullionAccessoryPlaced = applyDividerAccessoryConnectionPlacements({
+    definition: directMullionAccessoryDefinition,
+    dividerConnectionTemplate: directMullionAccessoryTemplate,
+});
+const placed200988 = directMullionAccessoryPlaced.profiles.find(
+    profile => profile.catalogProfileId === '200988'
+);
+assert(
+    Boolean(placed200988?.mullionAccessoryCadTransforms?.right),
+    '200988 should use its exact right-side join INSERT when the selected mullion is 575810.'
+);
+assert(
+    placed200988?.mullionAccessoryHostProfileId === '575810',
+    'Mullion accessory placement must retain the exact selected 575810 host.'
+);
+assert(
+    directMullionAccessoryPlaced.metadata?.dividerMountedAccessories?.['200988']
+        ?.occurrenceIndexes?.right === 0,
+    'Mullion accessory metadata must retain the direct 200988 occurrence index.'
+);
+const placed224068 = directMullionAccessoryPlaced.profiles.find(
+    profile => profile.catalogProfileId === '224068'
+);
+assert(
+    Boolean(placed224068?.mullionAccessoryCadTransforms?.right),
+    '224068 should use its exact sash-side INSERT from the mixed mullion join.'
+);
+assert(
+    !placed224068?.mullionAccessoryCadTransforms?.left,
+    '224068 must not be copied onto the fixed-glazing side of a mixed mullion join.'
+);
+assert(
+    directMullionAccessoryPlaced.metadata?.dividerMountedAccessories?.['224068']
+        ?.occurrenceIndexes?.right === 0,
+    'Mullion accessory metadata must retain the direct 224068 occurrence index.'
+);
+
+const directFrameAccessoryDefinition = {
+    sources: {
+        outerFrameProfileId: '575770',
+    },
+    metadata: {
+        globalMinX: 0,
+        globalMaxX: 80,
+        globalMinY: 0,
+        globalMaxY: 100,
+    },
+    profiles: [
+        {
+            index: 0,
+            role: 'frame',
+            geometrySource: 'standalone-profile',
+            bbox: { minX: 0, minY: 0, maxX: 80, maxY: 100 },
+            cadCoordinateTransform: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 },
+        },
+        {
+            index: 1,
+            role: 'frame',
+            section: 'top',
+            blockName: '200988_s',
+            profileId: '200988',
+            catalogProfileId: '200988',
+            bbox: { minX: 0, minY: 0, maxX: 10, maxY: 10 },
+            sourceTransform: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 },
+        },
+    ],
+};
+const directFrameAccessoryTemplate = {
+    id: 'frame-sash',
+    leftCell: 'outside',
+    rightCell: 'opening-sash',
+    profileOccurrences: {
+        '575770': [{
+            occurrenceIndex: 0,
+            profileId: '575770',
+            transform: { a: 1, b: 0, c: 0, d: 1, tx: 100, ty: 100 },
+            bbox: { minX: 100, minY: 100, maxX: 180, maxY: 200 },
+        }],
+        '200988': [{
+            occurrenceIndex: 0,
+            profileId: '200988',
+            role: 'accessory',
+            transform: { a: 1, b: 0, c: 0, d: 1, tx: 181, ty: 130 },
+            bbox: { minX: 181, minY: 130, maxX: 191, maxY: 140 },
+            center: { x: 186, y: 135 },
+            matchStrategy: 'direct-named-join-component',
+            directBlockNames: ['200988_s'],
+        }],
+    },
+    roleOccurrences: {
+        'outer-frame': [{
+            occurrenceIndex: 0,
+            profileId: '575770',
+            transform: { a: 1, b: 0, c: 0, d: 1, tx: 100, ty: 100 },
+            bbox: { minX: 100, minY: 100, maxX: 180, maxY: 200 },
+        }],
+        accessory: [{
+            occurrenceIndex: 0,
+            profileId: '200988',
+            role: 'accessory',
+            transform: { a: 1, b: 0, c: 0, d: 1, tx: 181, ty: 130 },
+            bbox: { minX: 181, minY: 130, maxX: 191, maxY: 140 },
+            center: { x: 186, y: 135 },
+            matchStrategy: 'direct-named-join-component',
+            directBlockNames: ['200988_s'],
+        }],
+    },
+};
+const directFrameAccessoryPlaced = applyFrameAccessoryConnectionPlacements({
+    definition: directFrameAccessoryDefinition,
+    frameConnectionTemplate: directFrameAccessoryTemplate,
+});
+const placedFrame200988 = directFrameAccessoryPlaced.profiles.find(
+    profile => profile.catalogProfileId === '200988'
+);
+assert(
+    Boolean(placedFrame200988?.frameAccessoryCadTransform),
+    '200988 should use its exact frame-sash INSERT when the selected outer frame is 575770.'
+);
+assert(
+    placedFrame200988?.frameAccessoryHostProfileId === '575770',
+    'Frame accessory placement must retain the exact selected 575770 host.'
+);
+assert(
+    directFrameAccessoryPlaced.metadata?.frameMountedAccessories?.['200988']
+        ?.occurrenceIndex === 0,
+    'Frame accessory metadata must retain the direct 200988 occurrence index.'
+);
+const wrongFrameHostAccessoryPlaced = applyFrameAccessoryConnectionPlacements({
+    definition: {
+        ...directFrameAccessoryDefinition,
+        sources: { outerFrameProfileId: '575760' },
+    },
+    frameConnectionTemplate: directFrameAccessoryTemplate,
+});
+assert(
+    !wrongFrameHostAccessoryPlaced.profiles.find(
+        profile => profile.catalogProfileId === '200988'
+    )?.frameAccessoryCadTransform,
+    'A 200988 INSERT authored around 575770 must not be reused on 575760 through role fallback.'
+);
+
+const directFrameAccessory575760Template = structuredClone(directFrameAccessoryTemplate);
+directFrameAccessory575760Template.profileOccurrences['575760'] = [{
+    occurrenceIndex: 0,
+    profileId: '575760',
+    transform: { a: 1, b: 0, c: 0, d: 1, tx: 100, ty: 100 },
+    bbox: { minX: 100, minY: 100, maxX: 180, maxY: 200 },
+}];
+delete directFrameAccessory575760Template.profileOccurrences['575770'];
+directFrameAccessory575760Template.roleOccurrences['outer-frame'] = [{
+    occurrenceIndex: 0,
+    profileId: '575760',
+    transform: { a: 1, b: 0, c: 0, d: 1, tx: 100, ty: 100 },
+    bbox: { minX: 100, minY: 100, maxX: 180, maxY: 200 },
+}];
+const directFrameAccessory575760Placed = applyFrameAccessoryConnectionPlacements({
+    definition: {
+        ...directFrameAccessoryDefinition,
+        sources: { outerFrameProfileId: '575760' },
+    },
+    frameConnectionTemplate: directFrameAccessory575760Template,
+});
+assert(
+    Boolean(directFrameAccessory575760Placed.profiles.find(
+        profile => profile.catalogProfileId === '200988'
+    )?.frameAccessoryCadTransform),
+    'An exact 200988 INSERT authored around 575760 in frame-sash must be accepted even if the legacy static host list predates that CAD combination.'
+);
+
+const twoSash224068Template = structuredClone(directMullionAccessoryTemplate);
+twoSash224068Template.id = 'mullion-sash-sash';
+twoSash224068Template.leftCell = 'opening-sash';
+twoSash224068Template.rightCell = 'opening-sash';
+twoSash224068Template.profileOccurrences['224068'] = [{
+    occurrenceIndex: 0,
+    profileId: '224068',
+    role: 'accessory',
+    transform: { a: -1, b: 0, c: 0, d: 1, tx: 95, ty: 115 },
+    bbox: { minX: 72, minY: 115, maxX: 95, maxY: 129 },
+    center: { x: 83.5, y: 122 },
+    matchStrategy: 'direct-named-join-component',
+    directBlockNames: ['224068_s_1'],
+}, {
+    occurrenceIndex: 1,
+    profileId: '224068',
+    role: 'accessory',
+    transform: { a: 1, b: 0, c: 0, d: 1, tx: 193, ty: 115 },
+    bbox: { minX: 193, minY: 115, maxX: 216, maxY: 129 },
+    center: { x: 204.5, y: 122 },
+    matchStrategy: 'direct-named-join-component',
+    directBlockNames: ['224068_s_1'],
+}];
+twoSash224068Template.roleOccurrences.accessory =
+    twoSash224068Template.roleOccurrences.accessory
+        .filter(occurrence => occurrence.profileId !== '224068')
+        .concat(twoSash224068Template.profileOccurrences['224068']);
+const twoSash224068Placed = applyDividerAccessoryConnectionPlacements({
+    definition: directMullionAccessoryDefinition,
+    dividerConnectionTemplate: twoSash224068Template,
+});
+const placedTwoSash224068 = twoSash224068Placed.profiles.find(
+    profile => profile.catalogProfileId === '224068'
+);
+assert(
+    Boolean(placedTwoSash224068?.mullionAccessoryCadTransforms?.left)
+        && Boolean(placedTwoSash224068?.mullionAccessoryCadTransforms?.right),
+    'A sash/sash mullion join must place one CAD-authored 224068 on each opening-sash side.'
+);
+
+const wrongHostAccessoryPlaced = applyDividerAccessoryConnectionPlacements({
+    definition: {
+        ...directMullionAccessoryDefinition,
+        metadata: {
+            ...directMullionAccessoryDefinition.metadata,
+            dividerProfileId: '575800',
+        },
+    },
+    dividerConnectionTemplate: directMullionAccessoryTemplate,
+});
+const wrongHost200988 = wrongHostAccessoryPlaced.profiles.find(
+    profile => profile.catalogProfileId === '200988'
+);
+assert(
+    !wrongHost200988?.mullionAccessoryCadTransforms,
+    'A 200988 INSERT authored around 575810 must not be reused on 575800 through role fallback.'
 );
 
 const registeredMetadata = {

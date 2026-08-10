@@ -407,6 +407,21 @@ export function createAccessoryController({
         if (!isProfileEnabled(profile)) return false;
 
         const accessory = getProfileCatalogEntry(profile);
+        const permittedSides = accessory?.attachment?.permittedSides || [];
+
+        // Exact frame-sash CAD placement takes precedence over the legacy
+        // catalog hostProfileIds compatibility list. Composition only attaches
+        // frameAccessoryCadTransform when the active outer frame itself is an
+        // exact occurrence in frame-sash-window.dwg, so this remains strictly
+        // profile-specific while allowing newly CAD-authored frame accessories.
+        if (profile?.frameAccessoryCadTransform) {
+            const authoredHostId = String(profile.frameAccessoryHostProfileId || '');
+            const activeOuterFrameId = String(getOuterFrameProfileId() || '');
+            if (authoredHostId && authoredHostId === activeOuterFrameId) {
+                return !side || !permittedSides.length || permittedSides.includes(side);
+            }
+        }
+
         const hostClasses = accessory?.attachment?.hostProfileClasses || [];
         const hostProfileId = hostClasses.includes('sash')
             ? getSashProfileId()

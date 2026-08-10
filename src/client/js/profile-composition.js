@@ -1041,33 +1041,45 @@ function getConnectionOccurrenceDistanceToDividerFaceMm(occurrence, dividerOccur
     return Math.abs(finiteNumber(occurrenceCenter.x) - dividerFaceX);
 }
 
-function createMullionMountedGasketTargets({
+function getExactConnectionProfileOccurrence(template, profileId) {
+    return template?.profileOccurrences?.[String(profileId)]?.[0] || null;
+}
+
+function createMullionMountedConnectionTargets({
     definition,
     dividerConnectionTemplate,
     profile,
     profileId,
-    cellType,
+    role,
+    targetCellTypes = [],
+    requireExactDividerProfile = false,
 }) {
     if (
         !dividerConnectionTemplate
-        || !definition.metadata?.dividerOrientation
         || !profile?.bbox
         || !hasCadAffineTransform(profile.sourceTransform)
     ) {
         return new Map();
     }
 
+    const allowedCellTypes = new Set(
+        (Array.isArray(targetCellTypes) ? targetCellTypes : [targetCellTypes])
+            .filter(Boolean)
+    );
     const targetSides = ['left', 'right'].filter(side =>
-        dividerConnectionTemplate?.[`${side}Cell`] === cellType
+        !allowedCellTypes.size
+        || allowedCellTypes.has(dividerConnectionTemplate?.[`${side}Cell`])
     );
     if (!targetSides.length) return new Map();
 
     const dividerProfileId = definition.metadata?.dividerProfileId;
-    const dividerOccurrence = resolveConnectionOccurrence(
-        dividerConnectionTemplate,
-        dividerProfileId,
-        'mullion-transom'
-    );
+    const dividerOccurrence = requireExactDividerProfile
+        ? getExactConnectionProfileOccurrence(dividerConnectionTemplate, dividerProfileId)
+        : resolveConnectionOccurrence(
+            dividerConnectionTemplate,
+            dividerProfileId,
+            'mullion-transom'
+        );
     const dividerProfiles = definition.profiles.filter(candidate =>
         candidate.role === 'divider'
         && candidate.geometrySource === 'standalone-divider-profile'
@@ -1092,7 +1104,7 @@ function createMullionMountedGasketTargets({
     const allOccurrences = resolveConnectionOccurrences(
         dividerConnectionTemplate,
         profileId,
-        'gasket'
+        role
     ).filter(occurrence =>
         occurrence?.bbox
         && hasCadAffineTransform(occurrence.transform)
@@ -1113,12 +1125,11 @@ function createMullionMountedGasketTargets({
         tx: 2 * dividerCenterX,
         ty: 0,
     });
-    // Direct gasket INSERTs are authored in the connection template's join
-    // coordinate system. The T layout composes its horizontal divider from the
-    // mixed fixed/sash join, while the lower vertical mullion's two rebate
-    // gaskets come from the sash/sash join. Retarget through the common
-    // standalone divider source before applying the accepted 180-degree face
-    // correction so both direct INSERTs land on the active divider faces.
+    // Direct INSERTs are authored in join coordinates. Retarget them through
+    // the exact selected mullion occurrence, then apply the same accepted 180°
+    // face correction as the structural divider. This makes an accessory a
+    // true component of the mullion/transom section rather than a B2-relative
+    // perimeter piece.
     const joinToWorkingDivider = composeCadTransforms(
         workingDividerCoordinateTransform,
         invertCadTransform(joinDividerTransform)
@@ -1158,12 +1169,33 @@ function createMullionMountedGasketTargets({
                 faceCompensation,
                 rawSvgToWorkingDivider
             ),
-            placementMethod:
-                'exact-direct-join-gasket-retargeted-through-divider-source-with-180-face-compensation',
+            placementMethod: role === 'gasket'
+                ? 'exact-direct-join-gasket-retargeted-through-divider-source-with-180-face-compensation'
+                : `exact-direct-join-${role}-retargeted-through-selected-divider-with-180-face-compensation`,
         }));
     }
 
     return targets;
+}
+
+function createMullionMountedGasketTargets({
+    definition,
+    dividerConnectionTemplate,
+    profile,
+    profileId,
+    cellType,
+}) {
+    return createMullionMountedConnectionTargets({
+        definition,
+        dividerConnectionTemplate,
+        profile,
+        profileId,
+        role: 'gasket',
+        targetCellTypes: [cellType],
+        // Preserve the existing gasket fallback behavior because older joins
+        // can legitimately reference a sibling mullion role occurrence.
+        requireExactDividerProfile: false,
+    });
 }
 
 function createMixedMullionMountedGasketTarget(args) {
@@ -2317,6 +2349,189 @@ export function applyOpeningSashDividerConnectionPlacements({
                     ? 'direct-join-gaskets-mounted-on-mullion-per-opening-side'
                     : null,
             },
+        },
+    };
+}
+
+
+export function applyDividerAccessoryConnectionPlacements({
+    definition,
+    dividerConnectionTemplate,
+    profileIds = ['200988', '224068'],
+}) {
+    if (
+        !dividerConnectionTemplate
+        || !definition?.metadata?.dividerProfileId
+        || !Array.isArray(definition?.profiles)
+    ) {
+        return definition;
+    }
+
+    const requestedProfileIds = new Set((profileIds || []).map(String));
+    const accessoryMetadata = {};
+    const profiles = definition.profiles.map(profile => {
+        const profileId = String(profile.catalogProfileId || profile.profileId || '');
+        if (!requestedProfileIds.has(profileId)) return profile;
+
+        const catalogEntry = getProfileCatalogEntry(profileId);
+        if (catalogEntry?.type !== 'profile-accessory') return profile;
+
+        const targetCellTypes = catalogEntry.attachment?.connectionCellTypes || [];
+        const targets = createMullionMountedConnectionTargets({
+            definition,
+            dividerConnectionTemplate,
+            profile,
+            profileId,
+            role: 'accessory',
+            targetCellTypes,
+            // Accessories are profile-specific. A join authored around 575810
+            // must not place its optional accessory on 575800 through the
+            // generic mullion role fallback.
+            requireExactDividerProfile: true,
+        });
+        if (!targets.size) return profile;
+
+        const cadTransforms = {};
+        const occurrenceIndexes = {};
+        const placementMethods = {};
+        for (const [cellSide, target] of targets) {
+            cadTransforms[cellSide] = target.cadTransform;
+            occurrenceIndexes[cellSide] = target.occurrence?.occurrenceIndex ?? null;
+            placementMethods[cellSide] = target.placementMethod;
+        }
+
+        accessoryMetadata[profileId] = {
+            templateId: dividerConnectionTemplate.id,
+            hostProfileId: definition.metadata.dividerProfileId,
+            sides: Object.freeze(Object.keys(cadTransforms)),
+            occurrenceIndexes: Object.freeze({ ...occurrenceIndexes }),
+            placementMethod: 'exact-direct-join-accessory-mounted-on-selected-divider',
+        };
+
+        return {
+            ...profile,
+            mullionAccessoryCadTransforms: Object.freeze(cadTransforms),
+            mullionAccessoryOccurrenceIndexes: Object.freeze(occurrenceIndexes),
+            mullionAccessoryPlacementMethods: Object.freeze(placementMethods),
+            mullionAccessoryProfileId: profileId,
+            mullionAccessoryHostProfileId: definition.metadata.dividerProfileId,
+        };
+    });
+
+    if (!Object.keys(accessoryMetadata).length) return definition;
+
+    return {
+        ...definition,
+        profiles,
+        metadata: {
+            ...definition.metadata,
+            dividerMountedAccessories: Object.freeze(accessoryMetadata),
+        },
+    };
+}
+
+export function applyFrameAccessoryConnectionPlacements({
+    definition,
+    frameConnectionTemplate,
+    profileIds = ['200988'],
+}) {
+    if (
+        !frameConnectionTemplate
+        || !definition?.sources?.outerFrameProfileId
+        || !Array.isArray(definition?.profiles)
+    ) {
+        return definition;
+    }
+
+    const hostProfileId = String(definition.sources.outerFrameProfileId || '');
+    const hostOccurrence = resolveConnectionOccurrence(
+        frameConnectionTemplate,
+        hostProfileId,
+        'outer-frame'
+    );
+    // Frame accessories are authored against a concrete frame section. Do not
+    // transfer a 575770-authored INSERT onto 575760 through the generic
+    // outer-frame role fallback.
+    if (
+        !hostOccurrence
+        || hostOccurrence.transformSource !== 'exact-profile-occurrence'
+        || String(hostOccurrence.profileId || '') !== hostProfileId
+    ) {
+        return definition;
+    }
+
+    const requestedProfileIds = new Set((profileIds || []).map(String));
+    const accessoryMetadata = {};
+    const profiles = definition.profiles.map(profile => {
+        const profileId = String(profile.catalogProfileId || profile.profileId || '');
+        if (!requestedProfileIds.has(profileId)) return profile;
+
+        const catalogEntry = getProfileCatalogEntry(profileId);
+        if (catalogEntry?.type !== 'profile-accessory') return profile;
+        const allowedHostClasses = catalogEntry.attachment?.hostProfileClasses || [];
+        // A direct accessory INSERT in frame-sash-window.dwg is the strongest
+        // compatibility signal for the exact outer-frame profile authored in
+        // that join. Do not reject that CAD-authored placement merely because
+        // an older static hostProfileIds list has not yet been widened to that
+        // frame. The exact-profile check above still prevents cross-profile
+        // reuse between 575760 and 575770.
+        if (
+            allowedHostClasses.length
+            && !allowedHostClasses.includes('outer-frame')
+        ) {
+            return profile;
+        }
+        const targetCellTypes = catalogEntry.attachment?.connectionCellTypes || [];
+        if (
+            targetCellTypes.length
+            && !targetCellTypes.includes('opening-sash')
+        ) {
+            return profile;
+        }
+
+        const target = createFrameFixedDirectAccessoryTarget({
+            definition,
+            frameFixedTemplate: frameConnectionTemplate,
+            profileId,
+            role: 'accessory',
+        });
+        if (!target) return profile;
+
+        const section = profile.section === 'bottom' ? 'bottom' : 'top';
+        const cadTransform = createDirectAccessoryProfileTransform({
+            definition,
+            profile,
+            localToCanonicalTransform: target.localToWorkingTransform,
+            section,
+        });
+        if (!cadTransform) return profile;
+
+        accessoryMetadata[profileId] = {
+            templateId: frameConnectionTemplate.id,
+            hostProfileId,
+            occurrenceIndex: target.occurrence?.occurrenceIndex ?? null,
+            placementMethod: 'exact-direct-join-accessory-mounted-on-selected-frame',
+        };
+
+        return {
+            ...profile,
+            frameAccessoryCadTransform: cadTransform,
+            frameAccessoryProfileId: profileId,
+            frameAccessoryHostProfileId: hostProfileId,
+            frameAccessoryOccurrenceIndex: target.occurrence?.occurrenceIndex ?? null,
+            frameAccessoryPlacementMethod:
+                'exact-direct-join-accessory-mounted-on-selected-frame',
+        };
+    });
+
+    if (!Object.keys(accessoryMetadata).length) return definition;
+
+    return {
+        ...definition,
+        profiles,
+        metadata: {
+            ...definition.metadata,
+            frameMountedAccessories: Object.freeze(accessoryMetadata),
         },
     };
 }

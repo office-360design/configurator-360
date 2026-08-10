@@ -9,7 +9,7 @@
   "orientation": "left-right-section",
   "source": {
     "path": "cad/source/join/window-mullion-sash-window.dwg",
-    "sha256": "b23d27fe71d5a2b34200db39763c5d962b064054663db95107afd6b369e7eb28"
+    "sha256": "0e16a424e8d0a6776c6090a72868b8ff9932e077bd04834e492d1bf6f7952e3c"
   },
   "extraction": {
     "method": "exact-insert-transform-matching",
@@ -655,6 +655,40 @@
     "maxY": 174.06257860994026
   },
   "profileOccurrences": {
+    "200988": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "200988",
+        "role": "accessory",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 86.71821964034552,
+          "ty": 129.6627329006645
+        },
+        "bbox": {
+          "minX": 86.7186582252961,
+          "minY": 118.41273290066451,
+          "maxX": 103.43393288946912,
+          "maxY": 135.0127329006645
+        },
+        "center": {
+          "x": 95.07629555738261,
+          "y": 126.7127329006645
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "200988_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": true
+      }
+    ],
     "224063": [
       {
         "occurrenceIndex": 0,
@@ -716,6 +750,40 @@
         "coordinateSpace": "block-local-to-join",
         "directBlockNames": [
           "224063_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      }
+    ],
+    "224068": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "224068",
+        "role": "accessory",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 90.01821564035254,
+          "ty": 121.8124273197257
+        },
+        "bbox": {
+          "minX": 86.99833322554689,
+          "minY": 110.22269476244004,
+          "maxX": 109.88129805162151,
+          "maxY": 124.31245864419238
+        },
+        "center": {
+          "x": 98.43981563858421,
+          "y": 117.26757670331621
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224068_s_1"
         ],
         "maxBboxErrorMm": 0,
         "mirrored": false
@@ -1121,6 +1189,70 @@
     ]
   },
   "roleOccurrences": {
+    "accessory": [
+      {
+        "profileId": "200988",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 86.71821964034552,
+          "ty": 129.6627329006645
+        },
+        "bbox": {
+          "minX": 86.7186582252961,
+          "minY": 118.41273290066451,
+          "maxX": 103.43393288946912,
+          "maxY": 135.0127329006645
+        },
+        "center": {
+          "x": 95.07629555738261,
+          "y": 126.7127329006645
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "200988_s"
+        ]
+      },
+      {
+        "profileId": "224068",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 90.01821564035254,
+          "ty": 121.8124273197257
+        },
+        "bbox": {
+          "minX": 86.99833322554689,
+          "minY": 110.22269476244004,
+          "maxX": 109.88129805162151,
+          "maxY": 124.31245864419238
+        },
+        "center": {
+          "x": 98.43981563858421,
+          "y": 117.26757670331621
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224068_s_1"
+        ]
+      }
+    ],
     "gasket": [
       {
         "profileId": "224063",
@@ -1488,5 +1620,5 @@
       }
     ]
   },
-  "generatedAt": "2026-08-10T09:34:32.799Z"
+  "generatedAt": "2026-08-10T10:13:27.757Z"
 }
