@@ -1,6 +1,6 @@
 import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=3';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
-import { formatAzimuth, getSeasonForDate } from './solarPosition.js?v=1';
+import { formatAzimuth, getSeasonForDate } from './solarPosition.js?v=2';
 
 const icon = (body) => `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -139,6 +139,20 @@ const sunsetValue = document.querySelector('#sunsetValue');
 const sunElevationValue = document.querySelector('#sunElevationValue');
 const sunAzimuthValue = document.querySelector('#sunAzimuthValue');
 const solarNoonValue = document.querySelector('#solarNoonValue');
+const pvgisBlock = document.querySelector('.solar-pvgis-block');
+const pvgisStatusLabel = document.querySelector('#pvgisStatusLabel');
+const pvgisAnnualValue = document.querySelector('#pvgisAnnualValue');
+const pvgisSpecificYieldValue = document.querySelector('#pvgisSpecificYieldValue');
+const pvgisHorizonValue = document.querySelector('#pvgisHorizonValue');
+const pvgisSectionsValue = document.querySelector('#pvgisSectionsValue');
+const pvgisDatabaseValue = document.querySelector('#pvgisDatabaseValue');
+const pvgisUseHorizonToggle = document.querySelector('#pvgisUseHorizonToggle');
+const pvgisShowHorizonToggle = document.querySelector('#pvgisShowHorizonToggle');
+const pvgisRefreshButton = document.querySelector('#pvgisRefreshButton');
+const pvgisMessage = document.querySelector('#pvgisMessage');
+const pvgisProxyInput = document.querySelector('#pvgisProxyInput');
+const pvgisProxyApplyButton = document.querySelector('#pvgisProxyApplyButton');
+const pvgisProxyFeedback = document.querySelector('#pvgisProxyFeedback');
 let relocatedToolsToolbar = null;
 let toolsPositionFrame = 0;
 let lastToolsState = null;
@@ -336,6 +350,55 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   environmentContextBlock?.classList.toggle('is-loading', contextLoading);
   environmentContextBlock?.classList.toggle('is-error', detail.environmentStatus === 'error');
 
+  const pvgisLabels = {
+    calibrated: 'Regional fallback',
+    unconfigured: 'Proxy not configured',
+    loading: 'Loading PVGIS…',
+    ready: 'Exact site ready',
+    fallback: 'PVGIS unavailable',
+  };
+  if (pvgisStatusLabel) {
+    pvgisStatusLabel.textContent = pvgisLabels[detail.pvgisStatus] || 'PVGIS';
+    pvgisStatusLabel.dataset.status = detail.pvgisStatus || '';
+  }
+  if (pvgisAnnualValue) pvgisAnnualValue.textContent = Number(detail.pvgisAnnualKWh) > 0 ? `${Math.round(detail.pvgisAnnualKWh).toLocaleString('en-US')} kWh/y` : '—';
+  if (pvgisSpecificYieldValue) pvgisSpecificYieldValue.textContent = Number(detail.pvgisSpecificYield) > 0 ? `${Math.round(detail.pvgisSpecificYield)} kWh/kWp` : '—';
+  if (pvgisHorizonValue) pvgisHorizonValue.textContent = Number(detail.pvgisHorizonSamples) > 0 ? `${detail.pvgisHorizonSamples} pts · max ${Number(detail.pvgisHorizonMaxDeg || 0).toFixed(1)}°` : '—';
+  if (pvgisSectionsValue) pvgisSectionsValue.textContent = Number(detail.pvgisSurfaceCount) > 0 ? String(detail.pvgisSurfaceCount) : '—';
+  if (pvgisDatabaseValue) pvgisDatabaseValue.textContent = detail.pvgisDatabase || '—';
+  if (pvgisUseHorizonToggle) {
+    pvgisUseHorizonToggle.checked = detail.pvgisUseHorizon !== false;
+    pvgisUseHorizonToggle.disabled = detail.locationMode !== 'exact' || !detail.pvgisProxyConfigured || detail.pvgisStatus === 'loading';
+  }
+  if (pvgisShowHorizonToggle) {
+    pvgisShowHorizonToggle.checked = detail.pvgisShowHorizon !== false;
+    pvgisShowHorizonToggle.disabled = !Number(detail.pvgisHorizonSamples);
+  }
+  if (pvgisRefreshButton) {
+    pvgisRefreshButton.disabled = detail.locationMode !== 'exact' || !detail.pvgisProxyConfigured || detail.pvgisStatus === 'loading';
+    pvgisRefreshButton.textContent = detail.pvgisStatus === 'loading' ? 'Loading PVGIS…' : 'Refresh PVGIS';
+  }
+  if (pvgisMessage) pvgisMessage.textContent = detail.pvgisMessage || '';
+  if (pvgisProxyInput && document.activeElement !== pvgisProxyInput) pvgisProxyInput.value = detail.pvgisProxyEndpoint || '';
+  if (pvgisProxyApplyButton) {
+    const health = detail.pvgisProxyHealthStatus || (detail.pvgisProxyConfigured ? 'unknown' : 'unconfigured');
+    pvgisProxyApplyButton.disabled = health === 'testing';
+    pvgisProxyApplyButton.textContent = health === 'testing'
+      ? 'Testing connection…'
+      : health === 'ready'
+        ? 'Connected ✓'
+        : health === 'error'
+          ? 'Retry proxy'
+          : 'Apply proxy URL';
+    pvgisProxyApplyButton.dataset.status = health;
+  }
+  if (pvgisProxyFeedback) {
+    pvgisProxyFeedback.textContent = detail.pvgisProxyHealthMessage || '';
+    pvgisProxyFeedback.dataset.status = detail.pvgisProxyHealthStatus || '';
+  }
+  pvgisBlock?.classList.toggle('is-loading', detail.pvgisStatus === 'loading');
+  pvgisBlock?.classList.toggle('is-error', detail.pvgisStatus === 'fallback' || detail.pvgisStatus === 'unconfigured');
+
   const season = getSeasonForDate(detail.simulationDate);
   document.querySelectorAll('[data-season-preset]').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.seasonPreset === season));
@@ -403,6 +466,23 @@ localPositionResetButton?.addEventListener('click', () => { getApi()?.resetLocal
 replaceHostBuildingToggle?.addEventListener('change', () => { getApi()?.setReplaceHostBuilding(replaceHostBuildingToggle.checked); shell.markDirty(); });
 environmentRefreshButton?.addEventListener('click', () => getApi()?.refreshEnvironment());
 environmentFocusButton?.addEventListener('click', () => getApi()?.focusEnvironment());
+pvgisUseHorizonToggle?.addEventListener('change', () => { getApi()?.setPvgisUseHorizon(pvgisUseHorizonToggle.checked); shell.markDirty(); });
+pvgisShowHorizonToggle?.addEventListener('change', () => { getApi()?.setPvgisHorizonVisible(pvgisShowHorizonToggle.checked); shell.markDirty(); });
+pvgisRefreshButton?.addEventListener('click', () => getApi()?.refreshPvgis());
+const applyPvgisProxy = async () => {
+  const api = getApi();
+  if (!api) {
+    if (pvgisProxyFeedback) {
+      pvgisProxyFeedback.textContent = 'Configurator is still loading. Try again in a moment.';
+      pvgisProxyFeedback.dataset.status = 'error';
+    }
+    return;
+  }
+  await api.setPvgisProxyEndpoint(pvgisProxyInput?.value || '');
+  shell.markDirty();
+};
+pvgisProxyApplyButton?.addEventListener('click', applyPvgisProxy);
+pvgisProxyInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); applyPvgisProxy(); } });
 
 // Exact-location picker remains intentionally bounded to Romania for now,
 // matching the existing production model and Europe/Bucharest time zone.

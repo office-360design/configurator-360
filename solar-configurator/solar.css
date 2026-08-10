@@ -783,3 +783,68 @@ body.shared-ui-dark-mode .solar-context-actions button.primary { border-color: v
 .solar-context-master input:disabled + .roof-switch { opacity: .48; }
 .solar-context-master:has(input:not(:checked)) { background: color-mix(in srgb, var(--panel-soft) 78%, transparent); }
 .solar-context-master:has(input:not(:checked)) small { opacity: .72; }
+
+/* Phase 3: exact-site PVGIS model */
+.solar-pvgis-block { gap: 9px; }
+.solar-pvgis-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.solar-pvgis-stats div,
+.solar-pvgis-source-row {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-soft);
+}
+.solar-pvgis-stats span,
+.solar-pvgis-source-row span { color: var(--muted); font-size: 6.8px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.solar-pvgis-stats strong,
+.solar-pvgis-source-row strong { overflow: hidden; font-size: 8.5px; text-overflow: ellipsis; white-space: nowrap; }
+.solar-pvgis-source-row { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+.solar-pvgis-source-row strong { text-align: right; }
+.solar-pvgis-actions { grid-template-columns: 1fr; }
+.solar-pvgis-settings {
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--panel-soft) 80%, transparent);
+  padding: 7px 8px;
+}
+.solar-pvgis-settings summary { cursor: pointer; color: var(--muted); font-size: 7.5px; font-weight: 800; }
+.solar-pvgis-settings[open] { display: grid; gap: 7px; }
+.solar-pvgis-settings label { display: grid; gap: 4px; margin-top: 7px; color: var(--muted); font-size: 7px; font-weight: 800; }
+.solar-pvgis-settings input {
+  width: 100%; min-width: 0; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+  padding: 7px 8px; font: inherit; font-size: 8px;
+}
+.solar-pvgis-settings button {
+  border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+  padding: 7px 9px; font: inherit; font-size: 7.5px; font-weight: 800; cursor: pointer;
+}
+.solar-pvgis-settings small { color: var(--muted); font-size: 6.8px; line-height: 1.4; }
+.solar-pvgis-proxy-feedback[data-status="ready"] { color: #15803d; font-weight: 800; }
+.solar-pvgis-proxy-feedback[data-status="error"] { color: #b45309; font-weight: 800; }
+.solar-pvgis-proxy-feedback[data-status="testing"] { color: var(--accent); font-weight: 800; }
+.solar-pvgis-settings button[data-status="ready"] { border-color: #15803d; }
+.solar-pvgis-settings code { font-size: inherit; }
+.solar-pvgis-block.is-loading #pvgisRefreshButton { opacity: .7; }
+.solar-pvgis-block.is-error #pvgisMessage { color: #b45309; }
+#pvgisStatusLabel[data-status="ready"] { color: #15803d; }
+#pvgisStatusLabel[data-status="loading"] { color: var(--accent); }
+#pvgisStatusLabel[data-status="fallback"],
+#pvgisStatusLabel[data-status="unconfigured"] { color: #b45309; }
+body.shared-ui-dark-mode .solar-pvgis-stats div,
+body.shared-ui-dark-mode .solar-pvgis-source-row,
+body.shared-ui-dark-mode .solar-pvgis-settings { border-color: #394653; background: #26313a; }
+body.shared-ui-dark-mode .solar-pvgis-settings input,
+body.shared-ui-dark-mode .solar-pvgis-settings button { border-color: #465460; background: #1f2932; color: #eef3f6; }
+.region-status-row strong[data-status="ready"] { background: #e9f8ef; color: #177245; }
+.region-status-row strong[data-status="unconfigured"] { background: #fff5e8; color: #8b5a18; }
+body.shared-ui-dark-mode .region-status-row strong[data-status="ready"] { background: #17372a; color: #8dd5ae; }
+body.shared-ui-dark-mode .region-status-row strong[data-status="unconfigured"],
+body.shared-ui-dark-mode .region-status-row strong[data-status="fallback"] { background: #3a2c18; color: #e8bd7a; }

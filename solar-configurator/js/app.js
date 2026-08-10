@@ -1,7 +1,7 @@
-import { state } from './state.js?v=4';
-import { RoofScene } from './scene.js?v=6';
-import { SolarUI } from './ui.js?v=4';
-import { fetchPvgisAnnual } from './energyModel.js?v=2';
+import { state } from './state.js?v=5';
+import { RoofScene } from './scene.js?v=7';
+import { SolarUI } from './ui.js?v=5';
+import { fetchPvgisSiteEstimate } from './energyModel.js?v=3';
 import { loadGeographicEnvironment } from './environmentLoader.js?v=3';
 import {
   getSeasonPresetDate,
@@ -9,7 +9,7 @@ import {
   getSunTimes,
   getTodayInTimeZone,
   nearestRegionKey,
-} from './solarPosition.js?v=1';
+} from './solarPosition.js?v=2';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
@@ -33,12 +33,33 @@ let ui = null;
 let preferenceRequest = 0;
 let pvgisTimer = 0;
 let pvgisController = null;
+let pvgisHealthController = null;
 let simulationFrame = 0;
 let simulationStartedAt = 0;
 let environmentController = null;
 let environmentRequest = 0;
 const SIMULATION_DURATION_MS = 18000;
-const PVGIS_PROXY_ENDPOINT = String(window.SOLAR_PVGIS_PROXY_ENDPOINT || '').trim();
+const PVGIS_PROXY_STORAGE_KEY = '360-configurator:solar:pvgis-proxy-endpoint';
+
+function readStoredPvgisEndpoint() {
+  try { return String(window.localStorage?.getItem(PVGIS_PROXY_STORAGE_KEY) || '').trim(); } catch { return ''; }
+}
+
+function normalizePvgisEndpoint(value) {
+  const candidate = String(value || '').trim();
+  if (!candidate) return '';
+  try {
+    const url = new URL(candidate, window.location.href);
+    if (!/^https?:$/.test(url.protocol)) return '';
+    return url.toString().replace(/\?$/, '');
+  } catch {
+    return '';
+  }
+}
+
+state.pvgisProxyEndpoint = normalizePvgisEndpoint(window.SOLAR_PVGIS_PROXY_ENDPOINT || readStoredPvgisEndpoint());
+state.pvgisProxyHealthStatus = state.pvgisProxyEndpoint ? 'unknown' : 'unconfigured';
+state.pvgisProxyHealthMessage = state.pvgisProxyEndpoint ? 'Proxy URL saved; connection not tested yet.' : 'No proxy URL configured.';
 const LOCAL_POSITION_LIMIT_M = 60;
 
 function syncViewButtons() {
@@ -78,6 +99,8 @@ function toolsSnapshot() {
     activeLocationLat: solar.location.lat,
     activeLocationLon: solar.location.lon,
     automaticNight: !solar.isDaylight,
+    pvgisTerrainBlocked: Boolean(solar.terrainBlocked),
+    pvgisTerrainHorizonElevationDeg: Number.isFinite(Number(solar.terrainHorizonElevationDeg)) ? Number(solar.terrainHorizonElevationDeg) : null,
     environmentEnabled: state.environmentEnabled,
     environmentAutoLoad: state.environmentAutoLoad,
     environmentRadiusM: state.environmentRadiusM,
@@ -99,6 +122,25 @@ function toolsSnapshot() {
     replaceHostBuilding: state.replaceHostBuilding,
     environmentHostBuildingCount: state.environmentHostBuildingCount,
     environmentLoaded: scene.hasGeographicEnvironment(),
+    pvgisStatus: state.pvgisStatus,
+    pvgisMessage: state.pvgisMessage,
+    pvgisAnnualKWh: state.pvgisAnnualKWh,
+    pvgisSpecificYield: Number(state.pvgisAnnualKWh) > 0 && Number(lastMetrics?.systemKwp) > 0 ? Number(state.pvgisAnnualKWh) / Number(lastMetrics.systemKwp) : null,
+    pvgisMonthlyKWh: state.pvgisMonthlyKWh,
+    pvgisDatabase: state.pvgisDatabase,
+    pvgisUpdatedAt: state.pvgisUpdatedAt,
+    pvgisUseHorizon: state.pvgisUseHorizon,
+    pvgisShowHorizon: state.pvgisShowHorizon,
+    pvgisHorizonProfile: state.pvgisHorizonProfile,
+    pvgisHorizonSamples: Array.isArray(state.pvgisHorizonProfile) ? state.pvgisHorizonProfile.length : 0,
+    pvgisHorizonMaxDeg: Array.isArray(state.pvgisHorizonProfile) && state.pvgisHorizonProfile.length
+      ? Math.max(...state.pvgisHorizonProfile.map((point) => Number(point.elevationDeg) || 0))
+      : null,
+    pvgisSurfaceCount: Array.isArray(state.pvgisSurfaceResults) ? state.pvgisSurfaceResults.length : 0,
+    pvgisProxyEndpoint: state.pvgisProxyEndpoint,
+    pvgisProxyConfigured: Boolean(state.pvgisProxyEndpoint),
+    pvgisProxyHealthStatus: state.pvgisProxyHealthStatus,
+    pvgisProxyHealthMessage: state.pvgisProxyHealthMessage,
   };
 }
 
@@ -138,35 +180,149 @@ function applyShellPreferences(preferences = {}) {
   emitToolsState();
 }
 
-function schedulePvgis() {
+function clearPvgisData() {
+  state.pvgisAnnualKWh = null;
+  state.pvgisMonthlyKWh = null;
+  state.pvgisHorizonProfile = null;
+  state.pvgisSurfaceResults = [];
+  state.pvgisDatabase = '';
+  state.pvgisUpdatedAt = null;
+}
+
+
+async function testPvgisProxyEndpoint(endpoint = state.pvgisProxyEndpoint) {
+  const normalized = normalizePvgisEndpoint(endpoint);
+  pvgisHealthController?.abort();
+  pvgisHealthController = null;
+
+  if (!normalized) {
+    state.pvgisProxyHealthStatus = 'unconfigured';
+    state.pvgisProxyHealthMessage = 'Enter the public Netlify Function URL, then apply it.';
+    emitToolsState();
+    return { ok: false, status: 'unconfigured' };
+  }
+
+  state.pvgisProxyHealthStatus = 'testing';
+  state.pvgisProxyHealthMessage = 'Testing proxy connection…';
+  emitToolsState();
+
+  const controller = new AbortController();
+  pvgisHealthController = controller;
+  const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const healthUrl = new URL(normalized);
+    healthUrl.searchParams.set('tool', 'health');
+    const response = await fetch(healthUrl.toString(), {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+
+    let payload = null;
+    try { payload = await response.json(); } catch { /* handled below */ }
+
+    if (!response.ok) {
+      const error = new Error(payload?.error || payload?.message || `HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    if (!payload?.ok) throw new Error('Health endpoint did not return the expected { ok: true } response.');
+
+    if (normalized !== state.pvgisProxyEndpoint) return { ok: false, status: 'stale' };
+    state.pvgisProxyHealthStatus = 'ready';
+    state.pvgisProxyHealthMessage = `Connected · ${payload.platform || 'proxy'} · ${payload.upstream || 'PVGIS'}`;
+    emitToolsState();
+    schedulePvgis({ immediate: true });
+    return { ok: true, payload };
+  } catch (error) {
+    if (normalized !== state.pvgisProxyEndpoint) return { ok: false, status: 'stale' };
+    state.pvgisProxyHealthStatus = 'error';
+    if (error?.name === 'AbortError') {
+      state.pvgisProxyHealthMessage = 'Connection timed out. Check that the Netlify project is public and reachable.';
+    } else if (Number(error?.status) === 401 || Number(error?.status) === 403) {
+      state.pvgisProxyHealthMessage = `Proxy returned HTTP ${error.status}. The Netlify project is private/protected; make the production deploy public.`;
+    } else if (Number(error?.status)) {
+      state.pvgisProxyHealthMessage = `Proxy test failed with HTTP ${error.status}: ${error.message}`;
+    } else {
+      state.pvgisProxyHealthMessage = `Could not reach the proxy from this page. Check public access and CORS. ${error?.message || ''}`.trim();
+    }
+    if (state.locationMode === 'exact') {
+      state.pvgisStatus = 'fallback';
+      state.pvgisMessage = `${state.pvgisProxyHealthMessage} Regional production fallback remains active.`;
+    }
+    emitToolsState();
+    return { ok: false, error };
+  } finally {
+    window.clearTimeout(timeoutId);
+    if (pvgisHealthController === controller) pvgisHealthController = null;
+  }
+}
+
+function schedulePvgis({ immediate = false } = {}) {
   window.clearTimeout(pvgisTimer);
   pvgisController?.abort();
-  state.pvgisAnnualKWh = null;
+  pvgisController = null;
+  clearPvgisData();
 
-  if (!PVGIS_PROXY_ENDPOINT) {
+  if (state.locationMode !== 'exact') {
     state.pvgisStatus = 'calibrated';
+    state.pvgisMessage = 'Regional PVGIS-calibrated fallback is active. Choose an exact location for live site data.';
+    scene.setEnvironment(state);
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
+    emitToolsState();
+    return;
+  }
+
+  const endpoint = normalizePvgisEndpoint(state.pvgisProxyEndpoint);
+  if (!endpoint) {
+    state.pvgisStatus = 'unconfigured';
+    state.pvgisMessage = 'Exact sun geometry is active, but the PVGIS proxy is not configured. Annual yield is using the regional fallback.';
+    scene.setEnvironment(state);
+    if (lastMetrics) ui?.updateMetrics(lastMetrics);
+    emitToolsState();
     return;
   }
 
   state.pvgisStatus = 'loading';
+  state.pvgisMessage = state.pvgisUseHorizon
+    ? 'Loading exact-location PVGIS yield and terrain horizon…'
+    : 'Loading exact-location PVGIS yield without terrain-horizon losses…';
   if (lastMetrics) ui?.updateMetrics(lastMetrics);
-  pvgisTimer = window.setTimeout(async () => {
+  emitToolsState();
+
+  const run = async () => {
     if (!lastMetrics?.systemKwp) return;
     pvgisController = new AbortController();
     try {
-      const result = await fetchPvgisAnnual(state, lastMetrics, pvgisController.signal, PVGIS_PROXY_ENDPOINT);
+      const result = await fetchPvgisSiteEstimate(state, lastMetrics, pvgisController.signal, endpoint);
       state.pvgisAnnualKWh = result.annualKWh;
+      state.pvgisMonthlyKWh = result.monthlyKWh;
+      state.pvgisHorizonProfile = result.horizonProfile;
+      state.pvgisSurfaceResults = result.surfaceResults;
+      state.pvgisDatabase = result.database || 'PVGIS-SARAH3';
+      state.pvgisUpdatedAt = new Date().toISOString();
       state.pvgisStatus = 'ready';
+      const horizonText = state.pvgisUseHorizon
+        ? (result.horizonProfile?.length ? `terrain horizon loaded (${result.horizonProfile.length} samples)` : 'PVGIS terrain horizon applied to yield')
+        : 'terrain-horizon losses disabled';
+      state.pvgisMessage = `${state.pvgisDatabase || 'PVGIS'} exact-site model ready · ${result.surfaceResults.length} roof section${result.surfaceResults.length === 1 ? '' : 's'} · ${horizonText}.`;
     } catch (error) {
       if (error?.name === 'AbortError') return;
       console.info('[Solar configurator] PVGIS proxy unavailable; using calibrated regional model.', error);
-      state.pvgisAnnualKWh = null;
+      clearPvgisData();
       state.pvgisStatus = 'fallback';
+      state.pvgisMessage = `PVGIS unavailable (${error?.message || 'request failed'}). Regional calibrated yield remains active.`;
     }
+    scene.setEnvironment(state);
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
-  }, 650);
+  };
+
+  if (immediate) run();
+  else pvgisTimer = window.setTimeout(run, 650);
 }
 
 function clearEnvironmentStats(message = 'Choose an exact location to load 3D context.') {
@@ -362,6 +518,7 @@ ui.setPreferences();
 syncViewButtons();
 refreshCurrencyRate(state.currency);
 schedulePvgis();
+if (state.pvgisProxyEndpoint) testPvgisProxyEndpoint(state.pvgisProxyEndpoint);
 
 document.querySelectorAll('[data-view]').forEach((button) => {
   button.addEventListener('click', () => {
@@ -500,6 +657,54 @@ const configuratorApi = {
     return state.region;
   },
 
+  async setPvgisProxyEndpoint(value) {
+    const endpoint = normalizePvgisEndpoint(value);
+    state.pvgisProxyEndpoint = endpoint;
+    try {
+      if (endpoint) window.localStorage?.setItem(PVGIS_PROXY_STORAGE_KEY, endpoint);
+      else window.localStorage?.removeItem(PVGIS_PROXY_STORAGE_KEY);
+    } catch {
+      // Storage can be disabled by the browser; the current session still works.
+    }
+
+    clearPvgisData();
+    if (!endpoint) {
+      state.pvgisProxyHealthStatus = 'unconfigured';
+      state.pvgisProxyHealthMessage = 'No proxy URL configured.';
+      schedulePvgis({ immediate: true });
+      emitToolsState();
+      return { endpoint: '', ok: false };
+    }
+
+    state.pvgisProxyHealthStatus = 'unknown';
+    state.pvgisProxyHealthMessage = 'Proxy URL saved; testing connection…';
+    emitToolsState();
+    const result = await testPvgisProxyEndpoint(endpoint);
+    return { endpoint: state.pvgisProxyEndpoint, ...result };
+  },
+
+  testPvgisProxy() {
+    return testPvgisProxyEndpoint(state.pvgisProxyEndpoint);
+  },
+
+  setPvgisUseHorizon(enabled) {
+    state.pvgisUseHorizon = Boolean(enabled);
+    schedulePvgis({ immediate: true });
+    return state.pvgisUseHorizon;
+  },
+
+  setPvgisHorizonVisible(visible) {
+    state.pvgisShowHorizon = Boolean(visible);
+    scene.setEnvironment(state);
+    emitToolsState();
+    return state.pvgisShowHorizon;
+  },
+
+  refreshPvgis() {
+    schedulePvgis({ immediate: true });
+    return true;
+  },
+
   refreshEnvironment() {
     return refreshGeographicEnvironment({ forceRefresh: true });
   },
@@ -556,6 +761,9 @@ const configuratorApi = {
       scene.setEnvironment(state);
       syncEnvironmentSceneMetrics();
     }
+    // The local offset represents the actual configured house position inside the
+    // loaded map context, so refresh the exact-site model at that adjusted point.
+    if (state.locationMode === 'exact') schedulePvgis();
     emitToolsState();
     return { eastM: state.environmentLocalEastM, northM: state.environmentLocalNorthM };
   },

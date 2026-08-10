@@ -1,0 +1,11 @@
+{
+  "name": "solar-pvgis-proxy-netlify",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "netlify dev",
+    "deploy:draft": "netlify deploy",
+    "deploy": "netlify deploy --prod"
+  }
+}

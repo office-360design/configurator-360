@@ -170,5 +170,16 @@ export const state = {
 
   excludedEstimateItems: [],
   pvgisAnnualKWh: null,
+  pvgisMonthlyKWh: null,
+  pvgisHorizonProfile: null,
+  pvgisSurfaceResults: [],
   pvgisStatus: 'calibrated',
+  pvgisMessage: 'Regional PVGIS-calibrated fallback is active.',
+  pvgisDatabase: '',
+  pvgisUpdatedAt: null,
+  pvgisUseHorizon: true,
+  pvgisShowHorizon: true,
+  pvgisProxyEndpoint: '',
+  pvgisProxyHealthStatus: 'unconfigured',
+  pvgisProxyHealthMessage: 'No proxy URL configured.',
 };

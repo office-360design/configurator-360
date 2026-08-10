@@ -122,12 +122,25 @@ export function getActiveLocation(state) {
   if (state?.locationMode === 'exact'
     && Number.isFinite(Number(state.locationLat))
     && Number.isFinite(Number(state.locationLon))) {
+    const baseLat = Number(state.locationLat);
+    const baseLon = Number(state.locationLon);
+    const northM = Number(state.environmentLocalNorthM) || 0;
+    const eastM = Number(state.environmentLocalEastM) || 0;
+    // Keep the small Phase 2 local-position adjustment geodetically meaningful.
+    // This means the same adjusted house point is used for real sun geometry and
+    // the Phase 3 PVGIS lookup without having to move the map pin itself.
+    const metersPerDegreeLat = 111320;
+    const latitude = baseLat + northM / metersPerDegreeLat;
+    const lonScale = Math.max(0.01, Math.cos(latitude * Math.PI / 180));
+    const longitude = baseLon + eastM / (metersPerDegreeLat * lonScale);
     return {
       mode: 'exact',
-      lat: Number(state.locationLat),
-      lon: Number(state.locationLon),
-      label: state.locationLabel || `${Number(state.locationLat).toFixed(4)}, ${Number(state.locationLon).toFixed(4)}`,
+      lat: latitude,
+      lon: longitude,
+      label: state.locationLabel || `${baseLat.toFixed(4)}, ${baseLon.toFixed(4)}`,
       timeZone: state.locationTimeZone || DEFAULT_TIME_ZONE,
+      localEastM: eastM,
+      localNorthM: northM,
     };
   }
   const region = regionPresets[state?.region] || regionPresets.muntenia;

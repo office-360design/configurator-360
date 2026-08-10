@@ -4,7 +4,8 @@ import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer
 import { buildRoofModel } from './roofFactory.js?v=1';
 import { buildSolarArray } from './solarFactory.js?v=2';
 import { createDimensions } from './dimensions.js?v=1';
-import { getSolarContext, getSunPathSamples } from './solarPosition.js?v=1';
+import { getSolarContext, getSunPathSamples } from './solarPosition.js?v=2';
+import { horizonElevationAtAzimuth } from './energyModel.js?v=3';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const DEG = Math.PI / 180;
@@ -54,11 +55,15 @@ export class RoofScene {
       environmentLocalEastM: 0,
       environmentLocalNorthM: 0,
       replaceHostBuilding: true,
+      pvgisUseHorizon: true,
+      pvgisShowHorizon: true,
+      pvgisHorizonProfile: null,
     };
     this.lastSolarContext = null;
     this.geographicData = null;
     this.shadowContextRadius = 0;
     this.sunPathKey = '';
+    this.pvgisHorizonKey = '';
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 300);
     this.camera.position.set(-13, 10, -15);
@@ -176,6 +181,23 @@ export class RoofScene {
     );
     this.sunDisc.renderOrder = 21;
     this.sunPathRoot.add(this.sunDisc);
+
+    this.pvgisHorizonRoot = new THREE.Group();
+    this.pvgisHorizonRoot.name = 'pvgis-terrain-horizon';
+    this.scene.add(this.pvgisHorizonRoot);
+    this.pvgisHorizonLine = new THREE.LineLoop(
+      new THREE.BufferGeometry(),
+      new THREE.LineDashedMaterial({
+        color: 0x49697d,
+        transparent: true,
+        opacity: 0.78,
+        dashSize: 0.38,
+        gapSize: 0.22,
+        depthTest: false,
+      }),
+    );
+    this.pvgisHorizonLine.renderOrder = 19;
+    this.pvgisHorizonRoot.add(this.pvgisHorizonLine);
   }
 
   createCompass() {
@@ -289,13 +311,40 @@ export class RoofScene {
     this.sunPathLine.geometry = new THREE.BufferGeometry().setFromPoints(points);
   }
 
+  updatePvgisHorizon() {
+    const state = this.environmentState;
+    const profile = Array.isArray(state.pvgisHorizonProfile) ? state.pvgisHorizonProfile : [];
+    const key = [
+      Number(state.northDirection || 0).toFixed(1),
+      profile.length,
+      ...profile.slice(0, 64).flatMap((point) => [
+        Number(point.azimuthDeg || 0).toFixed(1),
+        Number(point.elevationDeg || 0).toFixed(1),
+      ]),
+    ].join('|');
+    this.pvgisHorizonRoot.visible = Boolean(state.pvgisShowHorizon) && profile.length > 1;
+    if (!this.pvgisHorizonRoot.visible || key === this.pvgisHorizonKey) return;
+    this.pvgisHorizonKey = key;
+    const points = profile
+      .filter((point) => Number.isFinite(Number(point.azimuthDeg)) && Number.isFinite(Number(point.elevationDeg)))
+      .map((point) => sunVector(
+        clamp(Number(point.elevationDeg), -4, 55),
+        Number(point.azimuthDeg),
+        state.northDirection,
+        20.5,
+      ));
+    this.pvgisHorizonLine.geometry.dispose();
+    this.pvgisHorizonLine.geometry = new THREE.BufferGeometry().setFromPoints(points);
+    this.pvgisHorizonLine.computeLineDistances();
+  }
+
   setEnvironment(settings = {}) {
     const copyKeys = [
       'simulationHour', 'simulationDate', 'locationMode', 'locationLat', 'locationLon',
       'locationLabel', 'locationTimeZone', 'region', 'showSunPath',
       'environmentEnabled', 'environmentRadiusM', 'terrainEnabled', 'buildingsEnabled',
       'roadsEnabled', 'treesEnabled', 'terrainExaggeration', 'environmentLocalEastM',
-      'environmentLocalNorthM', 'replaceHostBuilding',
+      'environmentLocalNorthM', 'replaceHostBuilding', 'pvgisUseHorizon', 'pvgisShowHorizon', 'pvgisHorizonProfile',
     ];
     copyKeys.forEach((key) => {
       if (settings[key] !== undefined) this.environmentState[key] = settings[key];
@@ -310,12 +359,21 @@ export class RoofScene {
     this.applyGeographicTransform(this.environmentState);
     this.syncGeographicLayerVisibility(this.environmentState);
     this.updateSunPath();
+    this.updatePvgisHorizon();
     return this.updateLighting();
   }
 
   updateLighting() {
     const solar = getSolarContext(this.environmentState, this.environmentState.simulationHour);
-    this.lastSolarContext = solar;
+    const horizonProfile = Array.isArray(this.environmentState.pvgisHorizonProfile) ? this.environmentState.pvgisHorizonProfile : [];
+    const terrainHorizonElevationDeg = horizonProfile.length
+      ? horizonElevationAtAzimuth(horizonProfile, solar.azimuthDeg)
+      : 0;
+    const terrainBlocked = Boolean(this.environmentState.pvgisUseHorizon)
+      && horizonProfile.length > 1
+      && solar.elevationDeg > -0.833
+      && solar.elevationDeg <= terrainHorizonElevationDeg;
+    this.lastSolarContext = { ...solar, terrainHorizonElevationDeg, terrainBlocked };
     const lightRadius = this.shadowContextRadius > 0 ? Math.max(45, this.shadowContextRadius * 1.85) : 28;
     const position = sunVector(solar.elevationDeg, solar.azimuthDeg, this.environmentState.northDirection, lightRadius);
     this.keyLight.position.copy(position);
@@ -338,11 +396,11 @@ export class RoofScene {
     } else {
       const warm = clamp(1 - solar.elevationDeg / 18, 0, 1);
       this.keyLight.color.setRGB(1, 0.90 + 0.10 * (1 - warm), 0.76 + 0.24 * (1 - warm));
-      this.keyLight.intensity = 1.2 + daylightStrength * 4.1;
+      this.keyLight.intensity = terrainBlocked ? 0.08 : 1.2 + daylightStrength * 4.1;
       this.hemisphereLight.intensity = 0.85 + daylightStrength * 0.75;
       this.hemisphereLight.color.setHex(0xffffff);
       this.hemisphereLight.groundColor.setHex(0x72777d);
-      this.fillLight.intensity = 0.65 + daylightStrength * 0.55;
+      this.fillLight.intensity = terrainBlocked ? 0.42 : 0.65 + daylightStrength * 0.55;
       this.renderer.toneMappingExposure = 0.88 + daylightStrength * 0.22;
       this.groundMaterial.color.setHex(0xd9dddf);
       this.grid.material.opacity = 0.25;

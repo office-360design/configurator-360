@@ -1,10 +1,45 @@
 import { regionPresets } from './state.js?v=2';
-import { getActiveLocation, getSolarContext, getSunTimes } from './solarPosition.js?v=1';
+import { getActiveLocation, getSolarContext, getSunTimes } from './solarPosition.js?v=2';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const normalizeDeg = (value) => ((value % 360) + 360) % 360;
 const signedAngle = (value) => ((normalizeDeg(value) + 180) % 360) - 180;
 const seasonalPotentialCache = new Map();
+
+function normalizedHorizonProfile(profile) {
+  return (Array.isArray(profile) ? profile : [])
+    .map((point) => ({
+      azimuthDeg: normalizeDeg(Number(point?.azimuthDeg)),
+      elevationDeg: Number(point?.elevationDeg),
+    }))
+    .filter((point) => Number.isFinite(point.azimuthDeg) && Number.isFinite(point.elevationDeg))
+    .sort((a, b) => a.azimuthDeg - b.azimuthDeg);
+}
+
+export function horizonElevationAtAzimuth(profile, azimuthDeg) {
+  const points = normalizedHorizonProfile(profile);
+  if (!points.length) return 0;
+  if (points.length === 1) return points[0].elevationDeg;
+  const azimuth = normalizeDeg(Number(azimuthDeg) || 0);
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index];
+    const next = points[(index + 1) % points.length];
+    const start = current.azimuthDeg;
+    const end = index === points.length - 1 ? next.azimuthDeg + 360 : next.azimuthDeg;
+    const target = index === points.length - 1 && azimuth < start ? azimuth + 360 : azimuth;
+    if (target < start - 1e-9 || target > end + 1e-9) continue;
+    const span = Math.max(1e-9, end - start);
+    const t = clamp((target - start) / span, 0, 1);
+    return current.elevationDeg + (next.elevationDeg - current.elevationDeg) * t;
+  }
+  return points[0].elevationDeg;
+}
+
+export function sunClearsPvgisHorizon(state, sun) {
+  if (!state?.pvgisUseHorizon || !Array.isArray(state?.pvgisHorizonProfile) || !state.pvgisHorizonProfile.length) return true;
+  if (!sun || !Number.isFinite(Number(sun.azimuthDeg)) || !Number.isFinite(Number(sun.elevationDeg))) return true;
+  return Number(sun.elevationDeg) > horizonElevationAtAzimuth(state.pvgisHorizonProfile, sun.azimuthDeg);
+}
 
 const PROFILE_WEIGHTS = {
   away: [
@@ -87,7 +122,7 @@ export function estimateAnnualProduction(state, solarMetrics) {
     dailyAverageKWh: annualKWh / 365,
     specificYield: systemKwp > 0 ? annualKWh / systemKwp : 0,
     source: usePvgis
-      ? 'PVGIS 5.3 · server proxy'
+      ? `${state.pvgisDatabase || 'PVGIS-SARAH3'} · exact site${state.pvgisUseHorizon ? ' + terrain horizon' : ''}`
       : (location.mode === 'exact' ? 'Regional yield · exact sun geometry' : 'PVGIS-calibrated regional model'),
     orientationFactor: orientation,
     tiltFactor: tiltFactor(state.pitch),
@@ -107,8 +142,9 @@ function incidenceFactor(panelAzimuth, pitch, sun) {
   return Math.max(0, cosine);
 }
 
-function aggregateSolarPotential(sun, pitch, surfaces) {
+function aggregateSolarPotential(sun, pitch, surfaces, horizonProfile = null) {
   if (!sun || sun.elevationDeg <= -0.833) return 0;
+  if (horizonProfile?.length && sun.elevationDeg <= horizonElevationAtAzimuth(horizonProfile, sun.azimuthDeg)) return 0;
   const totalWeight = surfaces.reduce((sum, surface) => sum + surface.weight, 0) || 1;
   const incidence = surfaces.reduce((sum, surface) => (
     sum + Math.pow(incidenceFactor(surface.azimuth, pitch, sun), 1.08) * surface.weight
@@ -122,7 +158,7 @@ function productionWeights(state, solarMetrics) {
   const values = [];
   for (let hour = 0; hour < 24; hour += 1) {
     const sun = getSolarContext(state, hour + 0.5);
-    values.push(aggregateSolarPotential(sun, state.pitch, surfaces));
+    values.push(aggregateSolarPotential(sun, state.pitch, surfaces, state.pvgisUseHorizon ? state.pvgisHorizonProfile : null));
   }
   const total = values.reduce((sum, value) => sum + value, 0) || 1;
   return values.map((value) => value / total);
@@ -134,7 +170,7 @@ function dayPotential(state, solarMetrics, dateString) {
   for (let halfHour = 0; halfHour < 48; halfHour += 1) {
     const hour = halfHour / 2 + 0.25;
     const sun = getSolarContext({ ...state, simulationDate: dateString }, hour);
-    total += aggregateSolarPotential(sun, state.pitch, surfaces) * 0.5;
+    total += aggregateSolarPotential(sun, state.pitch, surfaces, state.pvgisUseHorizon ? state.pvgisHorizonProfile : null) * 0.5;
   }
   return total;
 }
@@ -165,6 +201,22 @@ function annualMeanPotential(state, solarMetrics) {
 }
 
 export function seasonalDayFactor(state, solarMetrics) {
+  const monthly = Array.isArray(state.pvgisMonthlyKWh) ? state.pvgisMonthlyKWh.map(Number) : null;
+  const annual = Number(state.pvgisAnnualKWh);
+  const dateMatch = String(state.simulationDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (monthly?.length === 12 && monthly.every(Number.isFinite) && annual > 0 && dateMatch) {
+    const year = Number(dateMatch[1]);
+    const month = Number(dateMatch[2]);
+    const days = new Date(year, month, 0).getDate();
+    const monthlyDaily = Math.max(0, monthly[month - 1]) / Math.max(1, days);
+    const annualDaily = annual / 365.2425;
+    const midDate = monthMidDate(year, month);
+    const selectedGeometry = dayPotential(state, solarMetrics, state.simulationDate);
+    const midGeometry = dayPotential(state, solarMetrics, midDate);
+    const intraMonth = midGeometry > 0 ? clamp(selectedGeometry / midGeometry, 0.82, 1.18) : 1;
+    return clamp((monthlyDaily / Math.max(0.001, annualDaily)) * intraMonth, 0.08, 2.6);
+  }
+
   const selected = dayPotential(state, solarMetrics, state.simulationDate);
   const mean = annualMeanPotential(state, solarMetrics);
   if (!(mean > 0)) return 1;
@@ -309,31 +361,168 @@ export function instantaneousPowerAtHour(simulation, hour) {
   return simulation.hours[index];
 }
 
-export async function fetchPvgisAnnual(state, solarMetrics, signal, endpoint) {
-  if (!endpoint) throw new Error('No PVGIS server proxy configured');
-  const location = getActiveLocation(state);
-  const peakpower = Math.max(0.1, solarMetrics.systemKwp || 0.1);
-  const compassAzimuth = Number.isFinite(solarMetrics.arrayAzimuth) ? solarMetrics.arrayAzimuth : 180;
-  const aspect = clamp(signedAngle(compassAzimuth - 180), -180, 180);
-  const params = new URLSearchParams({
-    lat: String(location.lat),
-    lon: String(location.lon),
-    peakpower: peakpower.toFixed(3),
-    pvtechchoice: 'crystSi2025',
-    mountingplace: 'building',
-    loss: '14',
-    angle: String(Math.round(Number(state.pitch) || 30)),
-    aspect: aspect.toFixed(1),
-    outputformat: 'json',
+function pvgisEndpointUrl(endpoint, tool, params) {
+  const url = new URL(endpoint, globalThis.location?.href || 'http://localhost/');
+  url.searchParams.set('tool', tool);
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    url.searchParams.set(key, String(value));
   });
-  const separator = endpoint.includes('?') ? '&' : '?';
-  const response = await fetch(`${endpoint}${separator}${params.toString()}`, {
+  return url.toString();
+}
+
+async function fetchPvgisJson(endpoint, tool, params, signal) {
+  if (!endpoint) throw new Error('No PVGIS server proxy configured');
+  const response = await fetch(pvgisEndpointUrl(endpoint, tool, params), {
     signal,
     headers: { Accept: 'application/json' },
   });
-  if (!response.ok) throw new Error(`PVGIS proxy HTTP ${response.status}`);
-  const data = await response.json();
-  const annual = Number(data?.annualKWh ?? data?.outputs?.totals?.fixed?.E_y);
-  if (!Number.isFinite(annual) || annual <= 0) throw new Error('PVGIS proxy returned no annual yield');
-  return { annualKWh: annual, raw: data };
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const errorBody = await response.json();
+      detail = errorBody?.message || errorBody?.error || '';
+    } catch {
+      detail = '';
+    }
+    throw new Error(`PVGIS proxy HTTP ${response.status}${detail ? ` · ${detail}` : ''}`);
+  }
+  return response.json();
+}
+
+function extractDatabaseName(data) {
+  const candidates = [
+    data?.inputs?.meteo_data?.radiation_db,
+    data?.inputs?.meteo_data?.radiation_database,
+    data?.meta?.inputs?.raddatabase,
+    data?.meta?.radiation_database,
+  ];
+  const value = candidates.find((candidate) => candidate !== undefined && candidate !== null && candidate !== '');
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object') return String(value.value || value.name || value.description || '');
+  return '';
+}
+
+function extractMonthlyProduction(data) {
+  const rows = data?.outputs?.monthly?.fixed;
+  const values = Array(12).fill(0);
+  if (!Array.isArray(rows)) return values;
+  rows.forEach((row, index) => {
+    const month = Math.max(1, Math.min(12, Number(row?.month) || index + 1));
+    const energy = Number(row?.E_m);
+    if (Number.isFinite(energy)) values[month - 1] = energy;
+  });
+  return values;
+}
+
+function parseHorizonProfile(data) {
+  const rows = data?.outputs?.horizon_profile;
+  if (!Array.isArray(rows)) return [];
+  const result = rows.map((row) => {
+    const rawAzimuth = Number(row?.A ?? row?.azimuth ?? row?.horizon_azimuth);
+    const elevation = Number(row?.H_hor ?? row?.elevation ?? row?.horizon_elevation);
+    if (!Number.isFinite(rawAzimuth) || !Number.isFinite(elevation)) return null;
+    // PVGIS printhorizon uses 0°=South, -90°=East and +90°=West.
+    // Convert to the configurator's compass convention: 0°=North, clockwise positive.
+    const azimuthDeg = row?.A !== undefined ? normalizeDeg(rawAzimuth + 180) : normalizeDeg(rawAzimuth);
+    return { azimuthDeg, elevationDeg: elevation };
+  }).filter(Boolean);
+  const deduped = new Map();
+  result.forEach((point) => deduped.set(point.azimuthDeg.toFixed(3), point));
+  return [...deduped.values()].sort((a, b) => a.azimuthDeg - b.azimuthDeg);
+}
+
+function pvgisSurfaceDescriptors(solarMetrics) {
+  const modulePowerKw = Math.max(0, Number(solarMetrics?.modulePowerW) || 0) / 1000;
+  const surfaces = (solarMetrics?.selectedSurfaces || [])
+    .filter((surface) => Number(surface?.placed) > 0)
+    .map((surface) => ({
+      id: String(surface.id || 'surface'),
+      label: String(surface.label || 'Roof plane'),
+      azimuth: normalizeDeg(Number(surface.azimuth) || 0),
+      placed: Math.max(0, Number(surface.placed) || 0),
+      peakpower: Math.max(0.001, (Number(surface.placed) || 0) * modulePowerKw),
+    }));
+  if (surfaces.length) return surfaces;
+  return [{
+    id: 'array',
+    label: 'Solar array',
+    azimuth: normalizeDeg(Number(solarMetrics?.arrayAzimuth) || 180),
+    placed: Number(solarMetrics?.placedPanels) || 0,
+    peakpower: Math.max(0.001, Number(solarMetrics?.systemKwp) || 0.001),
+  }];
+}
+
+export async function fetchPvgisSiteEstimate(state, solarMetrics, signal, endpoint) {
+  if (!endpoint) throw new Error('No PVGIS server proxy configured');
+  const location = getActiveLocation(state);
+  if (location.mode !== 'exact') throw new Error('Exact location required for live PVGIS data');
+  const surfaces = pvgisSurfaceDescriptors(solarMetrics);
+  const common = {
+    lat: Number(location.lat).toFixed(6),
+    lon: Number(location.lon).toFixed(6),
+    pvtechchoice: 'crystSi2025',
+    mountingplace: 'free',
+    loss: '14',
+    angle: String(Math.round(clamp(Number(state.pitch) || 30, 0, 90))),
+    usehorizon: state.pvgisUseHorizon ? '1' : '0',
+    raddatabase: 'PVGIS-SARAH3',
+    outputformat: 'json',
+  };
+
+  const surfacePromises = surfaces.map(async (surface) => {
+    const aspect = clamp(signedAngle(surface.azimuth - 180), -180, 180);
+    const data = await fetchPvgisJson(endpoint, 'PVcalc', {
+      ...common,
+      peakpower: surface.peakpower.toFixed(4),
+      aspect: aspect.toFixed(2),
+    }, signal);
+    const annualKWh = Number(data?.annualKWh ?? data?.outputs?.totals?.fixed?.E_y);
+    if (!Number.isFinite(annualKWh) || annualKWh <= 0) {
+      throw new Error(`PVGIS returned no annual yield for ${surface.label}`);
+    }
+    return {
+      ...surface,
+      aspect,
+      annualKWh,
+      monthlyKWh: extractMonthlyProduction(data),
+      database: extractDatabaseName(data),
+    };
+  });
+
+  const horizonPromise = fetchPvgisJson(endpoint, 'printhorizon', {
+    lat: common.lat,
+    lon: common.lon,
+    outputformat: 'json',
+  }, signal).then(parseHorizonProfile).catch((error) => {
+    if (error?.name === 'AbortError') throw error;
+    console.info('[Solar configurator] PVGIS horizon profile unavailable.', error);
+    return [];
+  });
+
+  const [surfaceResults, horizonProfile] = await Promise.all([
+    Promise.all(surfacePromises),
+    horizonPromise,
+  ]);
+  const monthlyKWh = Array(12).fill(0);
+  surfaceResults.forEach((surface) => surface.monthlyKWh.forEach((value, index) => {
+    monthlyKWh[index] += Number(value) || 0;
+  }));
+  const annualKWh = surfaceResults.reduce((sum, surface) => sum + surface.annualKWh, 0);
+  const database = surfaceResults.map((surface) => surface.database).find(Boolean) || 'PVGIS-SARAH3';
+  return {
+    annualKWh,
+    monthlyKWh,
+    horizonProfile,
+    surfaceResults,
+    database,
+    useHorizon: Boolean(state.pvgisUseHorizon),
+    location,
+  };
+}
+
+// Backwards-compatible helper retained for any existing integration code.
+export async function fetchPvgisAnnual(state, solarMetrics, signal, endpoint) {
+  const result = await fetchPvgisSiteEstimate(state, solarMetrics, signal, endpoint);
+  return { annualKWh: result.annualKWh, raw: result };
 }

@@ -58,15 +58,17 @@ The static app uses a fast local model so all controls react immediately:
 4. Household load is distributed using the selected consumption profile.
 5. The battery simulation is warmed up over repeated average days before reporting the final 24-hour result, avoiding arbitrary “free” starting battery energy.
 
-This is an estimator, not an engineering yield guarantee. Phase 2 now renders local terrain and mapped nearby objects for visual context/shadows, but those local visual shadows are not yet converted into kWh losses. The production calculation still does not model monthly weather/cloud statistics, snow cover, temperature hour-by-hour, inverter clipping, string topology, or exact local obstruction losses.
+This is an estimator, not an engineering yield guarantee. With Phase 3 configured, PVGIS supplies exact-coordinate annual/monthly yield and high-horizon terrain losses, while the selected-day curve still uses the configurator's real sun geometry to distribute the monthly energy through that day. Phase 2 nearby buildings and mapped trees remain visual obstructions only; their shadows are not yet converted into kWh losses. The simulation also does not model snow cover, inverter clipping/string topology, or hour-specific historical cloud events.
 
 ## PVGIS integration note
 
-The European Commission PVGIS API is excellent for production calculations, but its official documentation explicitly states that AJAX/browser access is not allowed. Because this project follows the static roof-configurator deployment model, direct browser PVGIS calls would be rejected by CORS.
+Phase 3 adds live exact-site PVGIS 5.3 calculations for an exact map location. Each active roof plane is queried separately with its own installed kWp, pitch and geographic azimuth; Front / Back / Both therefore keep their actual orientations. The twelve monthly PVGIS production values replace the regional seasonal approximation, while `printhorizon` supplies the high terrain-horizon profile used by both the selected-day energy curve and the 3D sun preview.
 
-The app therefore ships with the local PVGIS-calibrated regional model by default. It is also ready for a server-side proxy: set `window.SOLAR_PVGIS_PROXY_ENDPOINT` before `js/app.js` loads. The endpoint should accept the PVGIS query parameters and return either the normal PVGIS JSON response or `{ "annualKWh": 6243 }`.
+The European Commission PVGIS API does not permit browser AJAX access, so a static GitHub Pages page cannot call it directly. A small ready-to-deploy Netlify Function project is included under `pvgis-proxy-netlify/`. The previous Cloudflare Worker is kept under `pvgis-proxy/` only as an optional alternative. Until a proxy URL is configured, the app automatically keeps using the regional PVGIS-calibrated fallback.
 
-A GitHub Pages-only deployment will use the local model. Exact live PVGIS lookup requires a backend/serverless proxy.
+Deploy the Netlify proxy, then paste its function URL into **Tools → Location & environment → PVGIS exact-site model → PVGIS proxy settings**. The URL is stored locally in the browser; it can also be supplied through `window.SOLAR_PVGIS_PROXY_ENDPOINT`.
+
+The current PVGIS request assumes modern crystalline-silicon modules, 14% general system losses, and a ventilated/free-standing mounting model. That mounting choice matches the configurator's roof-mounted panels with an air gap better than PVGIS's fully building-integrated/no-airflow case.
 
 ## Main files
 
@@ -123,3 +125,38 @@ Static deployments can switch data providers without changing the renderer:
 ```
 
 Keep any replacement provider's licensing, attribution, caching and usage requirements in mind.
+
+## Phase 3 exact-site PVGIS model
+
+Phase 3 replaces the broad regional annual-yield approximation with live JRC PVGIS data when an exact location and proxy are available.
+
+- Each active roof plane is sent to PVGIS separately with its own azimuth and installed kWp, then the results are summed. This keeps Front / Back / Both / Auto best physically meaningful instead of reducing a two-face roof to one averaged azimuth.
+- `PVcalc` supplies the 12 monthly production values and annual energy for the actual coordinates, roof pitch, roof-plane azimuth, installed power, crystalline-silicon technology and system losses.
+- `usehorizon=1` is enabled by default so PVGIS includes shading from the high terrain horizon. It can be turned off in the Tools panel for comparison.
+- `printhorizon` supplies the terrain horizon profile. The configurator draws it around the real sun path, suppresses direct sunlight in the 3D preview while the astronomical sun is behind that horizon, and uses the same horizon to shape the hourly production curve.
+- The selected month's PVGIS production now determines the seasonal daily-energy level; the real date/sun geometry still distributes that production across the hours of the selected day.
+- If the proxy is missing or PVGIS is temporarily unavailable, the application falls back automatically to the existing regional model.
+
+### Deploying the required proxy
+
+PVGIS does not allow direct browser AJAX access, so GitHub Pages still needs a tiny server-side relay. The recommended implementation is now a Netlify Function project in `pvgis-proxy-netlify/`.
+
+```bash
+npm install -g netlify-cli
+cd solar-configurator/pvgis-proxy-netlify
+netlify login
+netlify deploy            # first run: choose an existing site or create a new one
+netlify deploy --prod
+```
+
+The endpoint to paste into **Tools → Location & environment → PVGIS exact-site model → PVGIS proxy settings** is:
+
+```text
+https://YOUR-SITE.netlify.app/.netlify/functions/pvgis
+```
+
+The URL is stored in the current browser. You can alternatively set `window.SOLAR_PVGIS_PROXY_ENDPOINT` before `js/app.js` loads. For local testing, run `netlify dev` in `pvgis-proxy-netlify/` and use `http://localhost:8888/.netlify/functions/pvgis`.
+
+The proxy is read-only, whitelists only `PVcalc` and `printhorizon`, validates coordinates, caches successful PVGIS responses at Netlify's CDN, and briefly retries rate-limit/overload responses. The old Cloudflare implementation remains in `pvgis-proxy/` as an optional alternative.
+
+Important limitation: the PVGIS high-horizon model represents terrain/topographic obstruction. Nearby OSM buildings and trees rendered in Phase 2 still cast accurate visual Three.js shadows, but their shadow losses are not yet fed into the engineering kWh estimate.

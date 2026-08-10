@@ -4,9 +4,10 @@ import {
   estimateDailyConsumption,
   instantaneousPowerAtHour,
   simulateDay,
-} from './energyModel.js?v=2';
+  sunClearsPvgisHorizon,
+} from './energyModel.js?v=3';
 import { calculateSolarEstimate, estimateToCsv } from './estimate.js?v=1';
-import { formatAzimuth, getActiveLocation, getSeasonForDate, getSolarContext } from './solarPosition.js?v=1';
+import { formatAzimuth, getActiveLocation, getSeasonForDate, getSolarContext } from './solarPosition.js?v=2';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -74,7 +75,7 @@ export class SolarUI {
         this.state[key] = value;
         range.value = String(value);
         this.syncDimensionControls();
-        this.onChange({ fitCamera: false, pvgis: key === 'pitch' });
+        this.onChange({ fitCamera: false, pvgis: true });
       };
 
       range.addEventListener('input', () => updateState(Number(range.value)));
@@ -166,7 +167,7 @@ export class SolarUI {
     this.bindPairedNumber('panelColumns', 'panelColumnsRange', 'panelColumnsInput', (value) => {
       this.state.panelColumns = Math.round(value);
       this.syncLayoutPresets();
-      this.onChange({ fitCamera: false, pvgis: false });
+      this.onChange({ fitCamera: false, pvgis: true });
     });
 
     document.querySelectorAll('[data-layout-preset]').forEach((button) => {
@@ -184,7 +185,7 @@ export class SolarUI {
       button.addEventListener('click', () => {
         this.state.moduleOrientation = button.dataset.moduleOrientation;
         this.syncPressed('[data-module-orientation]', button);
-        this.onChange({ fitCamera: false, pvgis: false });
+        this.onChange({ fitCamera: false, pvgis: true });
       });
     });
 
@@ -476,9 +477,13 @@ export class SolarUI {
     });
     const regionDetail = document.querySelector('#regionDetail');
     if (regionDetail) {
-      regionDetail.textContent = activeLocation.mode === 'exact'
-        ? `${activeLocation.label} · exact sun geometry · annual yield calibrated to ${region.city}`
-        : `${region.city} reference · ${Math.round(this.currentProduction.specificYield)} kWh/kWp/year`;
+      if (activeLocation.mode === 'exact' && this.state.pvgisStatus === 'ready') {
+        regionDetail.textContent = `${activeLocation.label} · ${Math.round(this.currentProduction.specificYield)} kWh/kWp/year · ${this.state.pvgisUseHorizon ? 'terrain horizon on' : 'terrain horizon off'}`;
+      } else {
+        regionDetail.textContent = activeLocation.mode === 'exact'
+          ? `${activeLocation.label} · exact sun geometry · annual yield calibrated to ${region.city}`
+          : `${region.city} reference · ${Math.round(this.currentProduction.specificYield)} kWh/kWp/year`;
+      }
     }
     const exactLocationButton = document.querySelector('#exactLocationButton');
     if (exactLocationButton) exactLocationButton.textContent = activeLocation.mode === 'exact' ? 'Change exact location' : 'Choose exact location';
@@ -505,9 +510,16 @@ export class SolarUI {
     document.querySelector('#instantBattery').textContent = this.state.batteryEnabled ? `${point.socPct.toFixed(0)}%` : '—';
     const solar = getSolarContext(this.state, this.state.simulationHour);
     const sunReadout = document.querySelector('#liveSunReadout');
-    if (sunReadout) sunReadout.textContent = solar.isDaylight
-      ? `Sun ${solar.elevationDeg.toFixed(1)}° high · ${formatAzimuth(solar.azimuthDeg)}`
-      : `Sun below horizon · ${formatAzimuth(solar.azimuthDeg)}`;
+    const clearsTerrain = sunClearsPvgisHorizon(this.state, solar);
+    if (sunReadout) {
+      if (solar.isDaylight && !clearsTerrain) {
+        sunReadout.textContent = `Sun behind terrain horizon · ${solar.elevationDeg.toFixed(1)}° · ${formatAzimuth(solar.azimuthDeg)}`;
+      } else if (solar.isDaylight) {
+        sunReadout.textContent = `Sun ${solar.elevationDeg.toFixed(1)}° high · ${formatAzimuth(solar.azimuthDeg)}`;
+      } else {
+        sunReadout.textContent = `Sun below horizon · ${formatAzimuth(solar.azimuthDeg)}`;
+      }
+    }
     const play = document.querySelector('#simulationPlayButton');
     if (play) play.textContent = this.state.simulationPlaying ? 'Pause day simulation' : 'Run day simulation';
     this.renderChart();

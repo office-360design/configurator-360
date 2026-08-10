@@ -45,7 +45,7 @@ The default estimate is illustrative only. Roof complexity, cable routes, protec
 
 ## Important PVGIS browser limitation
 
-The JRC PVGIS API documentation states that access via AJAX is not allowed and requests from browser front ends are rejected by its CORS policy. For this reason the static configurator does not pretend to make a browser-direct PVGIS request. It uses the local model immediately and supports an optional server-side proxy hook for future exact calculations.
+The JRC PVGIS API documentation states that access via AJAX is not allowed and requests from browser front ends are rejected by its CORS policy. For this reason the static configurator does not pretend to make a browser-direct PVGIS request. It uses the local model immediately and uses a small server-side proxy for exact calculations; the recommended deployment is a Netlify Function so the main configurator can remain on GitHub Pages.
 
 
 ## Phase 2 geographic context sources
@@ -54,3 +54,17 @@ The JRC PVGIS API documentation states that access via AJAX is not allowed and r
 - **OpenStreetMap / Overpass:** nearby `building=*` ways, common road classes and mapped `natural=tree` nodes are queried through Overpass. The public Overpass HTTP interface supports CORS for browser clients.
 - **Approximation boundary:** OSM building heights are used when `height` or `building:levels` is present; otherwise the renderer estimates a simple height by building type. Mapped trees are incomplete and default heights are approximate.
 - **No imagery scraping:** the 3D scene does not download OpenStreetMap raster tiles as a ground texture. OSM standard tiles remain limited to the interactive Leaflet location picker, with visible attribution, while the 3D context uses vector features from Overpass.
+
+## Phase 3 — live PVGIS site calculations
+
+Current implementation uses the stable PVGIS 5.3 API rather than the PVGIS 6 testing/beta service.
+
+Official JRC documentation used for the integration:
+- PVGIS 5.3 API entry point, inputs, CORS restriction and rate limits: https://joint-research-centre.ec.europa.eu/photovoltaic-geographical-information-system-pvgis/using-pvgis-5/api-non-interactive-service_en
+- Grid-connected PV output definitions: https://joint-research-centre.ec.europa.eu/photovoltaic-geographical-information-system-pvgis/using-pvgis-5/pvgis-5-tools/grid-connected-pv_en
+- Horizon profile tool: https://joint-research-centre.ec.europa.eu/photovoltaic-geographical-information-system-pvgis/using-pvgis-5/pvgis-5-tools/horizon-profile_en
+- PVGIS 6 status / testing service: https://joint-research-centre.ec.europa.eu/photovoltaic-geographical-information-system-pvgis_en
+
+PVGIS fixed-system aspect uses 0°=South, -90°=East and +90°=West. The configurator internally uses compass bearings 0°=North, 90°=East, 180°=South, 270°=West and converts between those conventions before each surface request.
+
+PVGIS offers `free` and `building` mounting positions. The configurator currently uses `free`: the rendered residential modules sit above the roof plane with an air gap, which is closer to the documented ventilated rack case than to fully building-integrated modules with no airflow. The general system-loss input remains the PVGIS default reference value of 14%.
