@@ -75,7 +75,7 @@ export const configurators: Configurator[] = [
     statement: "See the engineering inside the product.",
     description:
       "A high-fidelity technical configuration environment for architectural profile systems, bicolor finishes, opening behavior and exploded assembly analysis.",
-    launchUrl: "https://aks.360configurator.com/",
+    launchUrl: "https://aks.360configurator.com/window-configurator/",
     accent: "#0761AA",
     controls: ["Assembled", "Bicolor", "Exploded"],
     features: [

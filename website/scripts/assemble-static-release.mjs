@@ -31,7 +31,7 @@ const manifest = {
   romanianRedirect: "https://360configurator.ro -> https://360configurator.com/ro",
   websiteRoutes: pageRoutes,
   externalConfigurators: {
-    window: "https://aks.360configurator.com/",
+    window: "https://aks.360configurator.com/window-configurator/",
     pergola: "https://aks.360configurator.com/pergola-configurator/",
     roof: "https://aks.360configurator.com/roof-configurator/",
     solar: "https://aks.360configurator.com/solar-configurator/",
