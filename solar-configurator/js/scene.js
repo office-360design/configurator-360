@@ -5,7 +5,7 @@ import { buildRoofModel } from './roofFactory.js?v=1';
 import { buildSolarArray } from './solarFactory.js?v=2';
 import { createDimensions } from './dimensions.js?v=1';
 import { getSolarContext, getSunPathSamples } from './solarPosition.js?v=2';
-import { horizonElevationAtAzimuth } from './energyModel.js?v=4';
+import { horizonElevationAtAzimuth } from './energyModel.js?v=5';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const DEG = Math.PI / 180;

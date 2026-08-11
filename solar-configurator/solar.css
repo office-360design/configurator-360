@@ -869,3 +869,67 @@ body.shared-ui-dark-mode .solar-pvgis-settings button { border-color: #465460; b
 body.shared-ui-dark-mode .region-status-row strong[data-status="ready"] { background: #17372a; color: #8dd5ae; }
 body.shared-ui-dark-mode .region-status-row strong[data-status="unconfigured"],
 body.shared-ui-dark-mode .region-status-row strong[data-status="fallback"] { background: #3a2c18; color: #e8bd7a; }
+
+/* Google Solar showcase layer */
+.solar-google-block { gap: 9px; }
+.solar-google-intro { margin-top: -2px; }
+.solar-google-access,
+.solar-google-security,
+.solar-google-cache-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+.solar-google-access { display: grid; gap: 7px; padding: 9px; }
+.solar-google-access label { display: grid; gap: 4px; color: var(--muted); font-size: 7px; font-weight: 800; }
+.solar-google-access input {
+  width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel); color: var(--text); padding: 7px 8px; font-size: 8px; outline: none;
+}
+.solar-google-access input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent); }
+.solar-google-access__actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.solar-google-access__actions button,
+.solar-google-actions button {
+  min-height: 30px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text);
+  padding: 6px 9px; font-size: 7.5px; font-weight: 850; cursor: pointer;
+}
+.solar-google-access__actions button.primary,
+.solar-google-actions button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+.solar-google-access__actions button:disabled,
+.solar-google-actions button:disabled { opacity: .52; cursor: default; }
+.solar-google-access small { color: var(--muted); font-size: 6.8px; line-height: 1.4; }
+#googleSolarAccessFeedback[data-status="unlocked"] { color: #15803d; font-weight: 800; }
+#googleSolarAccessFeedback[data-status="error"] { color: #b45309; font-weight: 800; }
+#googleSolarAccessFeedback[data-status="unlocking"] { color: var(--accent); font-weight: 800; }
+.solar-google-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.solar-google-stats div {
+  min-width: 0; display: grid; gap: 2px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-soft);
+}
+.solar-google-stats span,
+.solar-google-cache-row span { color: var(--muted); font-size: 6.8px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.solar-google-stats strong { overflow: hidden; font-size: 8.5px; text-overflow: ellipsis; white-space: nowrap; }
+.solar-google-actions { grid-template-columns: minmax(0, 1fr) minmax(0, .82fr); }
+.solar-google-cache-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 7px 8px; }
+.solar-google-cache-row strong { overflow: hidden; text-align: right; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.solar-google-security { padding: 8px 9px; color: var(--muted); }
+.solar-google-security summary { cursor: pointer; font-size: 7.5px; font-weight: 850; }
+.solar-google-security p { margin: 7px 0 0; font-size: 6.8px; line-height: 1.45; }
+#googleSolarStatusLabel[data-status="ready"],
+#googleSolarStatusLabel[data-status="cached"] { color: #15803d; }
+#googleSolarStatusLabel[data-status="loading"],
+#googleSolarStatusLabel[data-status="unlocking"] { color: var(--accent); }
+#googleSolarStatusLabel[data-status="locked"],
+#googleSolarStatusLabel[data-status="error"],
+#googleSolarStatusLabel[data-status="stale"],
+#googleSolarStatusLabel[data-status="setup"] { color: #b45309; }
+.solar-google-block.is-loading #googleSolarAnalyzeButton,
+.solar-google-block.is-loading #googleSolarRefreshButton { opacity: .68; }
+body.shared-ui-dark-mode .solar-google-access,
+body.shared-ui-dark-mode .solar-google-security,
+body.shared-ui-dark-mode .solar-google-cache-row,
+body.shared-ui-dark-mode .solar-google-stats div { border-color: #394653; background: #26313a; }
+body.shared-ui-dark-mode .solar-google-access input,
+body.shared-ui-dark-mode .solar-google-access__actions button,
+body.shared-ui-dark-mode .solar-google-actions button { border-color: #465460; background: #1f2932; color: #eef3f6; }
+body.shared-ui-dark-mode .solar-google-access__actions button.primary,
+body.shared-ui-dark-mode .solar-google-actions button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
