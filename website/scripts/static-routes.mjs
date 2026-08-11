@@ -14,7 +14,6 @@ export const pageRoutes = locales.flatMap((locale) => {
 export const metadataRoutes = [
   "/robots.txt",
   "/sitemap.xml",
-  "/manifest.webmanifest",
 ];
 
 export function routeOutputPath(route) {

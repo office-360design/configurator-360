@@ -21,6 +21,10 @@ for (const route of metadataRoutes) await requireFile(routeOutputPath(route), `m
 await requireFile("404.html");
 await requireFile(".nojekyll");
 await requireFile("release-manifest.json");
+await requireFile("favicon-32x32.png");
+await requireFile("favicon-192x192.png");
+await requireFile("favicon-512x512.png");
+await requireFile("apple-touch-icon.png");
 
 const htmlFiles = [];
 async function collectHtml(directory) {

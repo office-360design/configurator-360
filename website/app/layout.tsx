@@ -29,9 +29,15 @@ export const metadata: Metadata = {
   creator: "360Configurator",
   publisher: "360Configurator",
   category: "Industrial product configuration software",
-  manifest: "/manifest.webmanifest",
   alternates: { canonical: "/", languages: { en: "/", ro: "/ro", de: "/de", "x-default": "/" } },
-  icons: { icon: [{ url: "/favicon.svg", type: "image/svg+xml" }] },
+  icons: {
+    icon: [
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: "/favicon-32x32.png",
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   formatDetection: { telephone: false, address: false, email: false },
   robots: {
     index: true,

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { buildPergola } from "../lib/scenes/pergola-builder.js";
 import { DEFAULT_STATE } from "../lib/scenes/pergola-state.js";
+import { buildPoleGrid } from "../lib/scenes/pergola-layout.js";
 import { buildRoofModel } from "../lib/scenes/roof-factory.js";
 import { calculatePrice as calculatePergolaPrice } from "../lib/scenes/pergola-pricing.js";
 import { calculateBom } from "../lib/scenes/roof-bom.js";
@@ -118,7 +119,17 @@ function createPergolaState(night = false) {
   // Theme/night changes the environment, never the specified metal finish.
   state.roof.louverColor = "#64727b";
   state.roof.louverTilt = night ? 34 : 0;
-  state.sides.front.type = "glass";
+  state.sideSegments = {};
+  buildPoleGrid(state.dimensions).segments.forEach((segment: { id: string; boundary: string | null }) => {
+    state.sideSegments[segment.id] = {
+      type: segment.boundary === "front" ? "glass" : "none",
+      screenSettings: {
+        screen: { openness: 50, color: "#67757d" },
+        "motorized-screen": { openness: 50, color: "#34444c" },
+      },
+      privacyColor: "#26343c",
+    };
+  });
   state.accessories.perimeterLed = { enabled: night, color: "#fff1b4" };
   state.accessories.spotlights = night ? 4 : 0;
   state.accessories.heaters = { front: false, back: false, left: !night, right: true };
@@ -481,7 +492,7 @@ export function WebGLStage() {
       gridUniforms.uPointer.value.set(targetPointerX, -targetPointerY);
     }
     function onControl(event: Event) {
-      const detail = (event as CustomEvent<{ scene: ConfiguratorSlug; control: string; value: string | number | boolean }>).detail;
+      const detail = (event as CustomEvent<{ scene: ConfiguratorSlug; control: string; value: string | number | boolean | Record<string, string> }>).detail;
       if (detail.scene === "pergola") {
         if (detail.control === "requestPrice") {
           emitPrice("pergola", calculatePergolaPrice(pergolaState).total, "USD");
@@ -490,7 +501,25 @@ export function WebGLStage() {
         if (detail.control === "tilt") pergolaState.roof.louverTilt = Number(detail.value);
         if (detail.control === "width") pergolaState.dimensions.width = Number(detail.value) * 1000;
         if (detail.control === "depth") pergolaState.dimensions.depth = Number(detail.value) * 1000;
-        if (detail.control === "front") pergolaState.sides.front.type = String(detail.value);
+        if (detail.control === "sideClosings") {
+          const incoming = detail.value as Record<string, string>;
+          const next: Record<string, {
+            type: string;
+            screenSettings: Record<string, { openness: number; color: string }>;
+            privacyColor: string;
+          }> = {};
+          buildPoleGrid(pergolaState.dimensions).segments.forEach((segment: { id: string }) => {
+            next[segment.id] = {
+              type: incoming[segment.id] ?? "none",
+              screenSettings: pergolaState.sideSegments?.[segment.id]?.screenSettings ?? {
+                screen: { openness: 50, color: "#67757d" },
+                "motorized-screen": { openness: 50, color: "#34444c" },
+              },
+              privacyColor: pergolaState.sideSegments?.[segment.id]?.privacyColor ?? "#26343c",
+            };
+          });
+          pergolaState.sideSegments = next;
+        }
         if (detail.control === "led") pergolaState.accessories.perimeterLed.enabled = Boolean(detail.value);
         if (detail.control === "ledColor") pergolaState.accessories.perimeterLed.color = String(detail.value);
         if (detail.control === "spotlights") pergolaState.accessories.spotlights = Number(detail.value);
@@ -615,6 +644,8 @@ export function WebGLStage() {
     window.addEventListener("scroll", markSceneSelectionDirty, { passive: true });
     window.addEventListener("configurator-control", onControl);
     window.addEventListener("scene-orbit", onOrbit);
+    document.documentElement.dataset.webglStageReady = "true";
+    window.dispatchEvent(new CustomEvent("webgl-stage-ready"));
 
     let disposed = false;
     function animate() {
@@ -734,6 +765,7 @@ export function WebGLStage() {
       window.removeEventListener("scroll", markSceneSelectionDirty);
       window.removeEventListener("configurator-control", onControl);
       window.removeEventListener("scene-orbit", onOrbit);
+      delete document.documentElement.dataset.webglStageReady;
       window.clearTimeout(pergolaRebuildTimer);
       window.clearTimeout(roofRebuildTimer);
       window.clearTimeout(hallRebuildTimer);
