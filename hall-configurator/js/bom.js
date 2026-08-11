@@ -1,4 +1,4 @@
-import { normalizeOpenings, openingType, wallLabel } from './openings.js?v=11';
+import { normalizeOpenings, openingType, wallLabel } from './openings.js?v=12';
 
 export function buildBom(state, build) {
   const { metrics, counts, profileSchedule } = build;

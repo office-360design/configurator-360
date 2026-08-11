@@ -1,1 +1,1 @@
-Thicken hall cladding to eliminate wall-beam flicker
+Remove scenery house and add read-only HEA profile reference

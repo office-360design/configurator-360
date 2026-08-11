@@ -1,5 +1,5 @@
-import { deriveHallMetrics } from './state.js?v=11';
-import { normalizeOpenings } from './openings.js?v=11';
+import { deriveHallMetrics } from './state.js?v=12';
+import { normalizeOpenings } from './openings.js?v=12';
 
 const structureRates = { light: 72, standard: 88, heavy: 108 };
 const claddingRates = { trapezoidal: 34, sandwich: 59, 'standing-seam': 66 };

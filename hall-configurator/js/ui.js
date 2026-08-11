@@ -1,6 +1,7 @@
-import { buildBom, bomToCsv } from './bom.js?v=11';
-import { estimateHallPrice, formatPrice } from './pricing.js?v=11';
-import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, wallLabel } from './openings.js?v=11';
+import { buildBom, bomToCsv } from './bom.js?v=12';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=12';
+import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, wallLabel } from './openings.js?v=12';
+import { getHeaProfile } from './heaProfiles.js?v=12';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
@@ -446,6 +447,30 @@ export class HallUI {
     this.updateClimateNote();
   }
 
+  updateHeaReference() {
+    const profileName = this.state.selectedHeaProfile || 'HEA 220';
+    const profile = getHeaProfile(profileName);
+    const nameCell = document.querySelector('#selectedHeaName');
+    if (nameCell) nameCell.textContent = profileName;
+    const cells = {
+      selectedHeaTheoreticalWeight: profile.theoreticalWeight,
+      selectedHeaCommercialWeight: profile.commercialWeight,
+      selectedHeaH1: profile.h1,
+      selectedHeaB: profile.b,
+      selectedHeaS: profile.s,
+      selectedHeaT: profile.t,
+      selectedHeaH2: profile.h2,
+      selectedHeaH3: profile.h3,
+      selectedHeaF: profile.F,
+      selectedHeaWx: profile.Wx,
+      selectedHeaWy: profile.Wy,
+    };
+    Object.entries(cells).forEach(([id, value]) => {
+      const cell = document.querySelector(`#${id}`);
+      if (cell) cell.textContent = value;
+    });
+  }
+
   update(build) {
     this.currentBuild = build;
     const { metrics } = build;
@@ -453,6 +478,8 @@ export class HallUI {
     document.querySelector('#actualSpacingInfo').textContent = `${metrics.bayCount} bays · ${metrics.actualBaySpacing.toFixed(2)} m actual spacing`;
     const profileInfo = document.querySelector('#profileInfo');
     if (profileInfo && build.profileSchedule) profileInfo.textContent = `${build.profileSchedule.columns} columns · ${build.profileSchedule.rafters} rafters · ${build.profileSchedule.purlins} purlins`;
+
+    this.updateHeaReference();
 
     const openingValidation = validateOpenings(this.state);
     const lines = openingValidation.valid ? buildBom(this.state, build) : [];

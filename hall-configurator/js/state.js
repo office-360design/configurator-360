@@ -1,4 +1,4 @@
-import { defaultOpenings, openingArea } from './openings.js?v=11';
+import { defaultOpenings, openingArea } from './openings.js?v=12';
 
 export const structurePresets = {
   light: {
@@ -25,6 +25,8 @@ export const state = {
   pitch: 12,
   targetBaySpacing: 6,
   structurePreset: 'standard',
+  // Read-only HEA reference selection. This is informational only and must not alter the 3D hall.
+  selectedHeaProfile: 'HEA 220',
   claddingProfile: 'sandwich',
   wallColor: '#d6d9dc',
   roofColor: '#36424b',

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets } from './state.js?v=11';
-import { normalizeOpenings, validateOpenings } from './openings.js?v=11';
+import { deriveHallMetrics, structurePresets } from './state.js?v=12';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=12';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
