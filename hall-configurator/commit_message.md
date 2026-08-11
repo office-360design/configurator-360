@@ -1,1 +1,1 @@
-Fix hall envelope corners and add draggable wall openings
+Restore Hall shared UI assets and fix opening selection/orientation
