@@ -126,6 +126,11 @@ export class StandaloneConfiguratorShell {
       if (event.key === 'Escape') {
         this.accountOpen = false;
         this.languageOpen = false;
+        if (this.toolsOpen) {
+          this.toolsOpen = false;
+          this.syncTools();
+          this.options.callbacks.onToolsOpenChange?.(false);
+        }
         this.syncMenus();
       }
     };
@@ -189,6 +194,7 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'toggle-tools') {
       this.toolsOpen = !this.toolsOpen;
       this.syncTools();
+      this.options.callbacks.onToolsOpenChange?.(this.toolsOpen);
     } else if (action === 'toggle-account-settings') {
       this.accountSettingsOpen = !this.accountSettingsOpen;
       this.syncAccountSettings();

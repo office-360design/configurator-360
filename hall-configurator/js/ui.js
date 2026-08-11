@@ -1,5 +1,5 @@
-import { buildBom, bomToCsv } from './bom.js?v=7';
-import { estimateHallPrice, formatPrice } from './pricing.js?v=7';
+import { buildBom, bomToCsv } from './bom.js?v=8';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=8';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,

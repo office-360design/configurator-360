@@ -1,6 +1,6 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=6';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=7';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
-import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
+import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
 
 const history = new SharedUndoManager({
   capture: () => window.HALL_CONFIGURATOR_API?.captureState?.(),
@@ -34,7 +34,7 @@ const shell = mountStandaloneConfiguratorShell({
     items: toolItems,
     // Expand horizontally from the Tools launcher, matching the common
     // configurator interaction instead of pinning a vertical button strip.
-    placement: { side: 'left', direction: 'inward', offsetX: 12, offsetY: 12 },
+    placement: { side: 'left', direction: 'down', offsetX: 12, offsetY: 12 },
   },
   settingsPanel: {
     panelSelector: '.sidebar',
@@ -48,6 +48,9 @@ const shell = mountStandaloneConfiguratorShell({
     getShareUrl() { return window.location.href; },
     onPreferenceChange(path, value) {
       if (path === 'darkMode') window.HALL_CONFIGURATOR_API?.setDarkMode?.(Boolean(value));
+    },
+    onToolsOpenChange(open) {
+      if (!open) window.HALL_CONFIGURATOR_API?.closeToolPanels?.();
     },
   },
 });

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets } from './state.js?v=7';
+import { deriveHallMetrics, structurePresets } from './state.js?v=8';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -559,7 +559,7 @@ export function buildHallModel(state) {
   root.add(foundation);
   if (state.slab) {
     const slab = boxMesh(new THREE.Vector3(state.width + .35, .16, state.length + .35), slabMat, 'concrete-slab', technicalEdges);
-    slab.position.y = -.09;
+    slab.position.y = .055;
     foundation.add(slab);
   }
 
@@ -598,11 +598,12 @@ export function buildHallModel(state) {
   };
 
   for (const [frameIndex, z] of framePositions.entries()) {
-    const leftBottom = new THREE.Vector3(-halfW, 0, z);
+    const steelBaseY = .083;
+    const leftBottom = new THREE.Vector3(-halfW, steelBaseY, z);
     const leftTop = new THREE.Vector3(-halfW, state.eaveHeight, z);
     const ridge = new THREE.Vector3(0, ridgeY, z);
     const rightTop = new THREE.Vector3(halfW, state.eaveHeight, z);
-    const rightBottom = new THREE.Vector3(halfW, 0, z);
+    const rightBottom = new THREE.Vector3(halfW, steelBaseY, z);
 
     // Trim the rafter ends slightly around the knee and ridge joints. Connection
     // plates/haunches bridge those gaps, avoiding the old visual interpenetration
@@ -650,16 +651,16 @@ export function buildHallModel(state) {
       footingsGroup.add(footing);
       counts.footings += 1;
       const pedestal = boxMesh(new THREE.Vector3(.68, .78, .68), footingMat, `frame-${frameIndex}-foundation-pedestal-${side}`, technicalEdges);
-      pedestal.position.set(x, -.25, z);
+      pedestal.position.set(x, -.38, z);
       footingsGroup.add(pedestal);
       counts.foundationPiers += 1;
 
       const grout = boxMesh(new THREE.Vector3(.62, .055, .62), slabMat, `frame-${frameIndex}-grout-bed-${side}`, technicalEdges);
-      grout.position.set(x, .015, z);
+      grout.position.set(x, .030, z);
       footingsGroup.add(grout);
 
       const basePlate = boxMesh(new THREE.Vector3(.57, .025, .57), plateMat, `frame-${frameIndex}-base-plate-BL25x570-${side}`, technicalEdges);
-      basePlate.position.set(x, .055, z);
+      basePlate.position.set(x, .070, z);
       basePlate.userData.explodeOffset = new THREE.Vector3(side * .26, .18, 0);
       plates.add(basePlate);
       counts.connectionPlates += 1;
@@ -828,8 +829,8 @@ export function buildHallModel(state) {
     const y = (state.eaveHeight * i) / girtLevels;
     sideSecondaryLeft.add(zMemberBetween(new THREE.Vector3(-halfW + .08, y, -halfL), new THREE.Vector3(-halfW + .08, y, halfL), .15, .055, .01, secondaryMat, `left-wall-girt-${i}`, technicalEdges));
     sideSecondaryRight.add(zMemberBetween(new THREE.Vector3(halfW - .08, y, -halfL), new THREE.Vector3(halfW - .08, y, halfL), .15, .055, .01, secondaryMat, `right-wall-girt-${i}`, technicalEdges));
-    frontSecondary.add(memberBetween(new THREE.Vector3(-halfW, y, -halfL - .04), new THREE.Vector3(halfW, y, -halfL - .04), .10, .06, secondaryMat, `front-wall-girt-${i}`, technicalEdges));
-    backSecondary.add(memberBetween(new THREE.Vector3(-halfW, y, halfL + .04), new THREE.Vector3(halfW, y, halfL + .04), .10, .06, secondaryMat, `back-wall-girt-${i}`, technicalEdges));
+    frontSecondary.add(memberBetween(new THREE.Vector3(-halfW + .10, y, -halfL + .10), new THREE.Vector3(halfW - .10, y, -halfL + .10), .10, .06, secondaryMat, `front-wall-girt-${i}`, technicalEdges));
+    backSecondary.add(memberBetween(new THREE.Vector3(-halfW + .10, y, halfL - .10), new THREE.Vector3(halfW - .10, y, halfL - .10), .10, .06, secondaryMat, `back-wall-girt-${i}`, technicalEdges));
     counts.wallGirtLines += 4;
   }
 
@@ -838,14 +839,14 @@ export function buildHallModel(state) {
     const x = -halfW + (state.width * i) / endPostIntervals;
     const localRise = metrics.ridgeRise * (1 - Math.abs(x) / halfW);
     const topY = state.eaveHeight + localRise;
-    frontSecondary.add(memberBetween(new THREE.Vector3(x, 0, -halfL), new THREE.Vector3(x, topY, -halfL), .15, .05, secondaryMat, `front-montant-${i}-RHS150x50`, technicalEdges));
-    backSecondary.add(memberBetween(new THREE.Vector3(x, 0, halfL), new THREE.Vector3(x, topY, halfL), .15, .05, secondaryMat, `back-montant-${i}-RHS150x50`, technicalEdges));
+    frontSecondary.add(memberBetween(new THREE.Vector3(x, .02, -halfL + .085), new THREE.Vector3(x, topY - .06, -halfL + .085), .15, .05, secondaryMat, `front-montant-${i}-RHS150x50`, technicalEdges));
+    backSecondary.add(memberBetween(new THREE.Vector3(x, .02, halfL - .085), new THREE.Vector3(x, topY - .06, halfL - .085), .15, .05, secondaryMat, `back-montant-${i}-RHS150x50`, technicalEdges));
     counts.endPosts += 2;
   }
 
   // Gable border members (Bordaj RHS150x50 from the IFC model).
   for (const z of [-halfL, halfL]) {
-    const zOffset = z + Math.sign(z || 1) * .055;
+    const zOffset = z - Math.sign(z || 1) * .095;
     const gableGroup = z < 0 ? frontSecondary : backSecondary;
     gableGroup.add(memberBetween(new THREE.Vector3(-halfW, 0, zOffset), new THREE.Vector3(-halfW, state.eaveHeight, zOffset), .15, .05, secondaryMat, `gable-border-left-${z}`, technicalEdges));
     gableGroup.add(memberBetween(new THREE.Vector3(halfW, 0, zOffset), new THREE.Vector3(halfW, state.eaveHeight, zOffset), .15, .05, secondaryMat, `gable-border-right-${z}`, technicalEdges));
@@ -911,43 +912,45 @@ export function buildHallModel(state) {
 
   const wallThickness = .065;
   const envelopeOffset = .075;
-  const leftPanel = boxMesh(new THREE.Vector3(wallThickness, state.eaveHeight, state.length), wallMat, 'left-wall-cladding', technicalEdges);
-  leftPanel.position.set(-halfW - wallThickness / 2 - envelopeOffset, state.eaveHeight / 2, 0);
+  const roofThickness = .052;
+  const purlinDepth = .20;
+  const roofSurfaceOffset = preset.rafterDepth / 2 + purlinDepth + roofThickness / 2 - .004;
+  const roofSkinLift = Math.cos(pitchRad) * roofSurfaceOffset;
+  const wallCladdingHeight = state.eaveHeight + roofSkinLift + .025;
+  const leftPanel = boxMesh(new THREE.Vector3(wallThickness, wallCladdingHeight, state.length), wallMat, 'left-wall-cladding', technicalEdges);
+  leftPanel.position.set(-halfW - wallThickness / 2 - envelopeOffset, wallCladdingHeight / 2, 0);
   leftWall.add(leftPanel);
-  addWallSeams(leftWall, 'side', state.length, state.eaveHeight, new THREE.Vector3(-halfW - wallThickness - envelopeOffset - .004, 0, 0));
+  addWallSeams(leftWall, 'side', state.length, wallCladdingHeight, new THREE.Vector3(-halfW - wallThickness - envelopeOffset - .004, 0, 0));
 
-  const rightPanel = boxMesh(new THREE.Vector3(wallThickness, state.eaveHeight, state.length), wallMat, 'right-wall-cladding', technicalEdges);
-  rightPanel.position.set(halfW + wallThickness / 2 + envelopeOffset, state.eaveHeight / 2, 0);
+  const rightPanel = boxMesh(new THREE.Vector3(wallThickness, wallCladdingHeight, state.length), wallMat, 'right-wall-cladding', technicalEdges);
+  rightPanel.position.set(halfW + wallThickness / 2 + envelopeOffset, wallCladdingHeight / 2, 0);
   rightWall.add(rightPanel);
-  addWallSeams(rightWall, 'side', state.length, state.eaveHeight, new THREE.Vector3(halfW + wallThickness + envelopeOffset + .004, 0, 0));
+  addWallSeams(rightWall, 'side', state.length, wallCladdingHeight, new THREE.Vector3(halfW + wallThickness + envelopeOffset + .004, 0, 0));
 
   const frontZ = -halfL - wallThickness / 2 - envelopeOffset;
-  const frontRect = boxMesh(new THREE.Vector3(state.width, state.eaveHeight, wallThickness), wallMat, 'front-wall-cladding', technicalEdges);
-  frontRect.position.set(0, state.eaveHeight / 2, frontZ);
+  const frontRect = boxMesh(new THREE.Vector3(state.width, wallCladdingHeight, wallThickness), wallMat, 'front-wall-cladding', technicalEdges);
+  frontRect.position.set(0, wallCladdingHeight / 2, frontZ);
   frontWall.add(frontRect);
-  addWallSeams(frontWall, 'front', state.width, state.eaveHeight, new THREE.Vector3(0, 0, frontZ - wallThickness / 2 - .004));
+  addWallSeams(frontWall, 'front', state.width, wallCladdingHeight, new THREE.Vector3(0, 0, frontZ - wallThickness / 2 - .004));
   const frontTriangle = createTriangleWall(state.width, metrics.ridgeRise, wallMat, 'front-gable-cladding', technicalEdges, false);
-  frontTriangle.position.set(0, state.eaveHeight, frontZ - wallThickness / 2);
+  frontTriangle.position.set(0, wallCladdingHeight, frontZ - wallThickness / 2);
   frontWall.add(frontTriangle);
 
   const backZ = halfL + wallThickness / 2 + envelopeOffset;
-  const backRect = boxMesh(new THREE.Vector3(state.width, state.eaveHeight, wallThickness), wallMat, 'back-wall-cladding', technicalEdges);
-  backRect.position.set(0, state.eaveHeight / 2, backZ);
+  const backRect = boxMesh(new THREE.Vector3(state.width, wallCladdingHeight, wallThickness), wallMat, 'back-wall-cladding', technicalEdges);
+  backRect.position.set(0, wallCladdingHeight / 2, backZ);
   backWall.add(backRect);
-  addWallSeams(backWall, 'back', state.width, state.eaveHeight, new THREE.Vector3(0, 0, backZ + wallThickness / 2 + .004));
+  addWallSeams(backWall, 'back', state.width, wallCladdingHeight, new THREE.Vector3(0, 0, backZ + wallThickness / 2 + .004));
   const backTriangle = createTriangleWall(state.width, metrics.ridgeRise, wallMat, 'back-gable-cladding', technicalEdges, true);
-  backTriangle.position.set(0, state.eaveHeight, backZ + wallThickness / 2);
+  backTriangle.position.set(0, wallCladdingHeight, backZ + wallThickness / 2);
   backTriangle.rotation.y = Math.PI;
   backWall.add(backTriangle);
 
   // Thin sandwich/trapezoidal roof sheets are aligned directly to the roof plane.
   // A dedicated ridge cap and eave/barge flashings cover the panel ends so the roof
   // does not show the old open/stacked strip artefact at the ridge and gable edges.
-  const roofThickness = .052;
-  const purlinDepth = .20;
   // Seat the roof directly on the purlin top. Using a global Y-only clearance made
   // the sheets visibly float and gave the left/right slopes different apparent gaps.
-  const roofSurfaceOffset = preset.rafterDepth / 2 + purlinDepth + roofThickness / 2 + .012;
   const roofLength = state.length + .22;
   const leftRoofCenter = roofPoint(state, metrics, -1, .5, 0).addScaledVector(roofNormal(state, -1), roofSurfaceOffset);
   const leftRoofPanel = boxMesh(new THREE.Vector3(metrics.slopeLength + .06, roofThickness, roofLength), roofMat, 'left-roof-cladding', technicalEdges);
@@ -1095,23 +1098,38 @@ export function buildHallModel(state) {
 
   if (state.highBayLighting) {
     const fixtureMat = material('#313d45', { metalness: .65, roughness: .32 });
+    const supportMat = material('#536570', { metalness: .72, roughness: .30 });
     const glowMat = new THREE.MeshStandardMaterial({ color: 0xf6fbff, emissive: 0xd6efff, emissiveIntensity: .75, roughness: .25 });
     const columns = Math.max(1, Math.ceil(state.width / 9));
     const rows = Math.max(2, Math.ceil(metrics.highBayFixtureCount / columns));
+    const railXs = Array.from({ length: columns }, (_, c) => columns === 1 ? 0 : -halfW * .55 + c * (halfW * 1.10 / (columns - 1)));
+
+    // High-bay fixtures hang from dedicated longitudinal service rails, rather
+    // than appearing to float independently below the roof structure.
+    const railInfo = railXs.map((x, index) => {
+      const localRoofY = state.eaveHeight + metrics.ridgeRise * (1 - Math.min(1, Math.abs(x) / Math.max(halfW, .01)));
+      const railY = Math.max(2.75, localRoofY - preset.rafterDepth / 2 - .28);
+      lightingServices.add(memberBetween(
+        new THREE.Vector3(x, railY, -halfL + .45),
+        new THREE.Vector3(x, railY, halfL - .45),
+        .065,
+        .065,
+        supportMat,
+        `lighting-support-rail-${index}`,
+        technicalEdges,
+      ));
+      return { x, railY };
+    });
+
     let created = 0;
     for (let r = 0; r < rows && created < metrics.highBayFixtureCount; r += 1) {
       const z = rows === 1 ? 0 : -halfL * .72 + r * (halfL * 1.44 / (rows - 1));
-      for (let c = 0; c < columns && created < metrics.highBayFixtureCount; c += 1) {
-        const x = columns === 1 ? 0 : -halfW * .55 + c * (halfW * 1.10 / (columns - 1));
-        const localRoofY = state.eaveHeight + metrics.ridgeRise * (1 - Math.min(1, Math.abs(x) / Math.max(halfW, .01)));
+      for (let c = 0; c < railInfo.length && created < metrics.highBayFixtureCount; c += 1) {
+        const { x, railY } = railInfo[c];
         const light = createHighBayLight(fixtureMat, glowMat);
-        // Mount the fixture below the rafter bottom and keep every fixture inside
-        // the hall footprint. Previous spacing used full width/length where a
-        // half-span was intended, which sent later fixtures outside the building.
-        const fixtureY = Math.max(2.35, localRoofY - preset.rafterDepth / 2 - .58);
         light.position.set(
           THREE.MathUtils.clamp(x, -halfW + .75, halfW - .75),
-          fixtureY,
+          railY - .41,
           THREE.MathUtils.clamp(z, -halfL + .75, halfL - .75),
         );
         lightingServices.add(light);
