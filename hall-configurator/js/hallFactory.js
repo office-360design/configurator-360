@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets } from './state.js?v=9';
-import { normalizeOpenings, validateOpenings } from './openings.js?v=9';
+import { deriveHallMetrics, structurePresets } from './state.js?v=10';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=10';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -1093,11 +1093,11 @@ export function buildHallModel(state) {
       explode = [0, 0, 3.15];
     } else if (opening.side === 'left') {
       group.position.set(-halfW - surfaceOffset, opening.bottom, opening.offset);
-      group.rotation.y = -Math.PI / 2;
+      group.rotation.y = Math.PI / 2;
       explode = [-3.1, 0, 0];
     } else {
       group.position.set(halfW + surfaceOffset, opening.bottom, opening.offset);
-      group.rotation.y = Math.PI / 2;
+      group.rotation.y = -Math.PI / 2;
       explode = [3.1, 0, 0];
     }
     group.userData.basePosition = group.position.clone();

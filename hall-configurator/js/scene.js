@@ -2,12 +2,16 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=9';
-import { deriveHallMetrics } from './state.js?v=9';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=9';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=10';
+import { deriveHallMetrics } from './state.js?v=10';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=10';
 
 function disposeObject(object) {
   object.traverse((child) => {
+    // CSS2DObjects can be nested several levels below the object that is removed.
+    // Three's `removed` event only fires on the directly removed object, so nested
+    // label DOM nodes would otherwise remain in CSS2DRenderer's overlay forever.
+    if (child.element instanceof HTMLElement) child.element.remove();
     child.geometry?.dispose?.();
     if (Array.isArray(child.material)) child.material.forEach((item) => item?.dispose?.());
     else child.material?.dispose?.();
@@ -477,8 +481,8 @@ export class HallScene {
     group.rotation.set(0, 0, 0);
     if (opening.side === 'front') basePosition.set(opening.offset, opening.bottom, -halfL - surface);
     else if (opening.side === 'back') { basePosition.set(opening.offset, opening.bottom, halfL + surface); group.rotation.y = Math.PI; }
-    else if (opening.side === 'left') { basePosition.set(-halfW - surface, opening.bottom, opening.offset); group.rotation.y = -Math.PI / 2; }
-    else { basePosition.set(halfW + surface, opening.bottom, opening.offset); group.rotation.y = Math.PI / 2; }
+    else if (opening.side === 'left') { basePosition.set(-halfW - surface, opening.bottom, opening.offset); group.rotation.y = Math.PI / 2; }
+    else { basePosition.set(halfW + surface, opening.bottom, opening.offset); group.rotation.y = -Math.PI / 2; }
     const explodeOffset = openingExplodeOffset(opening.side);
     group.userData.basePosition = basePosition.clone();
     group.userData.explodeOffset = explodeOffset.clone();
@@ -629,7 +633,7 @@ export class HallScene {
       let bottom = start.bottom;
       let top = start.bottom + start.height;
       const handle = this.openingResize.handle;
-      const horizontalReversed = opening.side === 'back' || opening.side === 'right';
+      const horizontalReversed = opening.side === 'back' || opening.side === 'left';
       if (handle.includes('left')) {
         if (horizontalReversed) right = hit.u;
         else left = hit.u;
@@ -802,6 +806,7 @@ export class HallScene {
   }
 
   updateDimensions(state, metrics) {
+    disposeObject(this.dimensionRoot);
     this.dimensionRoot.clear();
     if (!state.showDimensions) return;
     const hw = state.width / 2;
