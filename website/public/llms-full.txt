@@ -16,35 +16,35 @@
 The pergola system supports parametric dimensions, louver-angle control, four independently configurable sides, screens, privacy walls, sliding glass, daylight and night environments, perimeter LEDs, selectable light color, integrated spotlights, automation, sensors, accessories and live project pricing.
 
 Canonical page: https://360configurator.com/configurators/pergola
-Live system: https://aks.360configurator.com/pergola-configurator/
+Live system: https://www.360configurator.com/pergola-configurator/
 
 ## Architectural roof and structure configurator
 
 The roof system supports two-slope, four-slope, single-slope, L-shaped and dormer forms. Length, depth, wall height, roof pitch and eaves overhang are parametric. Material selection remains connected to geometry and measured output, including roof areas, ridges, valleys, gutters, component-level pricing, BOM and CSV export.
 
 Canonical page: https://360configurator.com/configurators/roof
-Live system: https://aks.360configurator.com/roof-configurator/
+Live system: https://www.360configurator.com/roof-configurator/
 
 ## Window and architectural profile configurator
 
 The profile system presents the Schüco Window System AW CT 65 B2-6 using its component relationships. It supports width and height changes, glazing thickness, compatible gasket and glazing-bead selection, side-hung and tilt opening behavior, opening angle, uniform or bicolor finishes, exploded assembly mode, technical debug colors and isolated profile-section inspection.
 
 Canonical page: https://360configurator.com/configurators/window
-Live system: https://aks.360configurator.com/
+Live system: https://www.360configurator.com/window-configurator/
 
 ## Industrial hall and warehouse configurator
 
 The hall system supports parametric building length, span, eaves height and roof pitch; target portal-frame spacing; light, standard and heavy structural presets; industrial door dimensions; independent cladding and secondary-steel visibility; and exploded assembly inspection.
 
 Canonical page: https://360configurator.com/configurators/hall
-Live system: https://aks.360configurator.com/hall-configurator/
+Live system: https://www.360configurator.com/hall-configurator/
 
 ## Solar roof and photovoltaic energy configurator
 
 The solar system connects Romanian address context, date, season, real time of day and roof-front bearing with roof typology, dimensions, physical panel fit, household consumption profiles, LiFePO4 storage and production-versus-consumption analytics.
 
 Canonical page: https://360configurator.com/configurators/solar
-Live system: https://aks.360configurator.com/solar-configurator/
+Live system: https://www.360configurator.com/solar-configurator/
 
 ## Intended audiences
 
