@@ -1,1 +1,1 @@
-Restore Hall shared UI assets and fix opening selection/orientation
+Remove scenery house and add read-only HEA profile reference

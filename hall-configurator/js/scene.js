@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=10';
-import { deriveHallMetrics } from './state.js?v=10';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=10';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=12';
+import { deriveHallMetrics } from './state.js?v=12';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=12';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -38,6 +38,12 @@ function openingExplodeOffset(side) {
   if (side === 'back') return new THREE.Vector3(0, 0, 3.15);
   if (side === 'left') return new THREE.Vector3(-3.1, 0, 0);
   return new THREE.Vector3(3.1, 0, 0);
+}
+
+function claddingSurfaceOffset() {
+  const wallThickness = .10;
+  const envelopeOffset = .075;
+  return wallThickness + envelopeOffset + .086;
 }
 
 function fitAssetToBox(object, target, alignY = 'bottom') {
@@ -225,7 +231,7 @@ export class HallScene {
     this.currentState = null;
     this.currentBuild = null;
     this.darkMode = false;
-    this.environmentAssets = { house: null, tree: null };
+    this.environmentAssets = { tree: null };
     this.environmentKey = '';
     this.selectedOpeningId = null;
     this.placement = null;
@@ -302,7 +308,7 @@ export class HallScene {
     this.openingInteractionRoot.clear();
     const halfW = state.width / 2;
     const halfL = state.length / 2;
-    const surface = .235;
+    const surface = claddingSurfaceOffset() + .009;
     const explodeT = THREE.MathUtils.clamp((Number(state.explode) || 0) / 100, 0, 1);
     const makeTarget = (side, span, position, rotationY = 0) => {
       const material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
@@ -476,7 +482,7 @@ export class HallScene {
     const state = this.currentState;
     const halfW = state.width / 2;
     const halfL = state.length / 2;
-    const surface = .226;
+    const surface = claddingSurfaceOffset();
     const basePosition = new THREE.Vector3();
     group.rotation.set(0, 0, 0);
     if (opening.side === 'front') basePosition.set(opening.offset, opening.bottom, -halfL - surface);
@@ -714,9 +720,7 @@ export class HallScene {
   async loadEnvironmentAssets() {
     const loader = new GLTFLoader();
     const load = (url) => new Promise((resolve) => loader.load(url, (gltf) => resolve(gltf.scene), undefined, () => resolve(null)));
-    // Trees intentionally keep using the same shared pergola asset. The house is
-    // procedural so its roof can remain watertight at every scale and browser.
-    this.environmentAssets.house = null;
+    // Trees intentionally keep using the same shared pergola environment asset.
     this.environmentAssets.tree = await load('./assets/models/environment/tree.glb');
     if (this.currentState) this.updateEnvironment(this.currentState, { force: true });
   }
@@ -728,7 +732,7 @@ export class HallScene {
 
   updateEnvironment(state, { force = false } = {}) {
     this.currentState = state;
-    const key = `${state.width}|${state.length}|${state.showScenery}|${Boolean(this.environmentAssets.house)}|${Boolean(this.environmentAssets.tree)}`;
+    const key = `${state.width}|${state.length}|${state.showScenery}|${Boolean(this.environmentAssets.tree)}`;
     if (!force && key === this.environmentKey) return;
     this.environmentKey = key;
     this.groundRoot.clear();
@@ -761,17 +765,8 @@ export class HallScene {
     const halfW = state.width / 2;
     const halfL = state.length / 2;
 
-    const houseX = -halfW - 10.5;
-    const houseZ = -halfL - 8.5;
-    const house = fitAssetToBox(makeHouseFallback(), new THREE.Vector3(9.8, 6.15, 4.9));
-    house.position.add(new THREE.Vector3(houseX, .008, houseZ));
-    house.rotation.y = THREE.MathUtils.degToRad(28);
-    house.name = 'scale-reference-house';
-    house.traverse((child) => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
-    this.sceneryRoot.add(house);
-
-    // Trees are intentionally arranged outside the hall footprint and away from the
-    // house bounding area, so resizing the hall cannot swallow either reference.
+    // Trees remain outside the hall footprint; the former scale-reference house
+    // has intentionally been removed from the scenery.
     const treeSpecs = [
       [-halfW - 5.0, -halfL + state.length * .20, .85, 0],
       [-halfW - 7.0, state.length * .08, 1.15, 34],
@@ -785,7 +780,7 @@ export class HallScene {
       [-state.width * .12, -halfL - 7.0, .78, 318],
       [halfW + 8.5, -state.length * .18, .72, 346],
       [-halfW - 8.5, halfL * .55, .74, 22],
-    ].filter(([x, z]) => Math.hypot(x - houseX, z - houseZ) > 10.5);
+    ];
 
     treeSpecs.forEach(([x, z, scale, rotation]) => {
       const tree = fitAssetToBox(this.cloneAsset('tree') ?? makeTreeFallback(), new THREE.Vector3(2.7 * scale, 4.7 * scale, 2.7 * scale));

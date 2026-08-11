@@ -109,6 +109,20 @@ select { width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--hal
 .info-card strong { grid-row: 1 / span 2; grid-column: 2; align-self: center; color: var(--hall-blue-dark); font-size: 23px; }
 .info-card small { color: #70828c; font-size: 10px; }
 .profile-card small:last-child { grid-column: 1 / -1; margin-top: 4px; padding-top: 7px; border-top: 1px solid rgba(59,112,142,.14); }
+.hea-reference-card { margin-top: 12px; padding: 12px; border: 1px solid #d7e5ed; border-radius: 12px; background: #f8fbfd; }
+.hea-reference-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+.hea-reference-heading > div { display: grid; gap: 2px; }
+.hea-reference-heading b { color: #263741; font-size: 12px; }
+.hea-reference-heading small, .hea-reference-source { color: #748690; font-size: 9px; line-height: 1.35; }
+.hea-reference-heading > span { flex: none; padding: 3px 7px; border-radius: 999px; color: #0a74b2; background: #e7f4fb; font-size: 8px; font-weight: 850; text-transform: uppercase; letter-spacing: .05em; }
+.hea-reference-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; border: 1px solid #e1e9ed; border-radius: 9px; background: #fff; scrollbar-width: thin; }
+.hea-reference-table { width: max-content; min-width: 690px; border-collapse: collapse; color: #405560; font-size: 9px; line-height: 1.25; user-select: text; }
+.hea-reference-table th, .hea-reference-table td { min-width: 46px; padding: 6px 7px; border-right: 1px solid #edf1f3; border-bottom: 1px solid #edf1f3; text-align: center; white-space: nowrap; }
+.hea-reference-table th { color: #506876; background: #f3f7f9; font-weight: 850; }
+.hea-reference-table tbody th { color: #18384a; background: #eaf2f6; }
+.hea-reference-table tr:last-child > * { border-bottom: 0; }
+.hea-reference-table tr > *:last-child { border-right: 0; }
+.hea-reference-source { display: block; margin-top: 7px; }
 .toggle-stack { display: grid; gap: 10px; margin-top: 16px; }
 .toggle-row { position: relative; display: grid; grid-template-columns: minmax(0,1fr) 44px; align-items: center; min-height: 62px; gap: 12px; padding: 11px 13px; border: 1px solid var(--hall-border); border-radius: 12px; background: #fff; cursor: pointer; }
 .toggle-row span { display: grid; gap: 3px; }
@@ -205,6 +219,28 @@ body.shared-ui-dark-mode .info-card small { color: #a9bac7; }
 body.shared-ui-dark-mode .info-card strong { color: #79ccff; }
 .app-shell.is-dark-mode .profile-card small:last-child,
 body.shared-ui-dark-mode .profile-card small:last-child { border-color: rgba(151,199,229,.14); }
+.app-shell.is-dark-mode .hea-reference-card,
+body.shared-ui-dark-mode .hea-reference-card { border-color: #36526a; background: #182e42; }
+.app-shell.is-dark-mode .hea-reference-heading b,
+body.shared-ui-dark-mode .hea-reference-heading b { color: #d7e3eb; }
+.app-shell.is-dark-mode .hea-reference-heading small,
+.app-shell.is-dark-mode .hea-reference-source,
+body.shared-ui-dark-mode .hea-reference-heading small,
+body.shared-ui-dark-mode .hea-reference-source { color: #99adbb; }
+.app-shell.is-dark-mode .hea-reference-heading > span,
+body.shared-ui-dark-mode .hea-reference-heading > span { color: #85d2ff; background: #244861; }
+.app-shell.is-dark-mode .hea-reference-table-wrap,
+body.shared-ui-dark-mode .hea-reference-table-wrap { border-color: #35536a; background: #14283a; }
+.app-shell.is-dark-mode .hea-reference-table,
+body.shared-ui-dark-mode .hea-reference-table { color: #b9c8d2; }
+.app-shell.is-dark-mode .hea-reference-table th,
+body.shared-ui-dark-mode .hea-reference-table th { color: #b9cedb; background: #1d3a50; }
+.app-shell.is-dark-mode .hea-reference-table tbody th,
+body.shared-ui-dark-mode .hea-reference-table tbody th { color: #8bd2fb; background: #21455f; }
+.app-shell.is-dark-mode .hea-reference-table th,
+.app-shell.is-dark-mode .hea-reference-table td,
+body.shared-ui-dark-mode .hea-reference-table th,
+body.shared-ui-dark-mode .hea-reference-table td { border-color: #2b465a; }
 .app-shell.is-dark-mode .swatch,
 body.shared-ui-dark-mode .swatch { border-color: #172235; box-shadow: 0 0 0 1px #435268; }
 .app-shell.is-dark-mode .explode-control,

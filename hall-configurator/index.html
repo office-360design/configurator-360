@@ -7,7 +7,7 @@
   <title>360 Configurator - Hall</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=8" />
-  <link rel="stylesheet" href="./styles.css?v=10" />
+  <link rel="stylesheet" href="./styles.css?v=12" />
   <script type="importmap">
     {
       "imports": {
@@ -51,6 +51,19 @@
           <select id="structurePreset"><option value="light">Light duty</option><option value="standard" selected>Standard warehouse</option><option value="heavy">Heavy duty</option></select>
           <label class="range-control top-gap" data-control="targetBaySpacing"><span class="control-label"><b>Target frame spacing</b><output>6.0 m</output></span><span class="range-row"><input type="range" min="3" max="8" step="0.25" value="6" /><input class="number-input" type="number" min="3" max="8" step="0.25" value="6" /></span></label>
           <div class="info-card profile-card"><span>Generated portal frames</span><strong id="frameCountInfo">5</strong><small id="actualSpacingInfo">4 bays · 6.00 m actual spacing</small><small id="profileInfo">HEB280 columns · IPE400 rafters · ZZ200 purlins</small></div>
+          <section class="hea-reference-card" aria-label="Automatically selected HEA profile reference">
+            <div class="hea-reference-heading"><div><b>Automatically selected HEA profile</b><small>Read-only reference · placeholder selection for now</small></div><span>Preview</span></div>
+            <div class="hea-reference-table-wrap" tabindex="-1">
+              <table class="hea-reference-table" aria-readonly="true">
+                <thead>
+                  <tr><th rowspan="2">Profile</th><th colspan="2">Weight (kg/m)</th><th colspan="6">Dimensions (mm)</th><th>Section</th><th colspan="2">Section modulus</th></tr>
+                  <tr><th>Theor.</th><th>Comm.</th><th>h1</th><th>b</th><th>s</th><th>t</th><th>h2</th><th>h3</th><th>F (cm²)</th><th>Wx (cm³)</th><th>Wy (cm³)</th></tr>
+                </thead>
+                <tbody><tr><th id="selectedHeaName">HEA 220</th><td id="selectedHeaTheoreticalWeight">50.5</td><td id="selectedHeaCommercialWeight">52.0</td><td id="selectedHeaH1">210</td><td id="selectedHeaB">220</td><td id="selectedHeaS">7.0</td><td id="selectedHeaT">11.0</td><td id="selectedHeaH2">188</td><td id="selectedHeaH3">152</td><td id="selectedHeaF">64.34</td><td id="selectedHeaWx">515.2</td><td id="selectedHeaWy">177.7</td></tr></tbody>
+              </table>
+            </div>
+            <small class="hea-reference-source">Reference dimensions: H-Metal HEA profile table. This display does not modify the hall geometry.</small>
+          </section>
           <div class="toggle-stack"><label class="toggle-row"><span><b>Secondary beams</b><small>Purlins, girts, stays, compression members and wind bracing</small></span><input id="secondaryStructureToggle" type="checkbox" checked /><i></i></label><label class="toggle-row"><span><b>Concrete slab</b><small>Warehouse floor slab and column foundations</small></span><input id="slabToggle" type="checkbox" checked /><i></i></label></div>
         </div>
       </section>
@@ -181,7 +194,7 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=10"></script>
-  <script type="module" src="./js/app.js?v=10"></script>
+  <script type="module" src="./js/sharedShell.js?v=12"></script>
+  <script type="module" src="./js/app.js?v=12"></script>
 </body>
 </html>
