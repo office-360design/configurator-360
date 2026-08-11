@@ -1,8 +1,26 @@
-import { state, deriveHallMetrics } from './state.js?v=8';
-import { HallScene } from './scene.js?v=8';
-import { HallUI } from './ui.js?v=8';
+import { state, deriveHallMetrics } from './state.js?v=9';
+import { HallScene } from './scene.js?v=9';
+import { HallUI } from './ui.js?v=9';
 
-const scene = new HallScene(document.querySelector('#canvasHost'));
+let ui = null;
+const scene = new HallScene(document.querySelector('#canvasHost'), {
+  onOpeningSelectionChange(id) {
+    ui?.setSelectedOpening(id);
+  },
+  onOpeningPlacementChange(type) {
+    ui?.setPlacementMode(type);
+  },
+  onOpeningPreview(id) {
+    if (id) ui?.setSelectedOpening(id);
+    ui?.updateSummaryValidation();
+  },
+  onOpeningEditorPosition(position) {
+    ui?.positionOpeningEditor(position.x ?? 0, position.y ?? 0, Boolean(position.visible));
+  },
+  onOpeningChange(options = {}) {
+    scheduleRebuild({ fitCamera: false, immediate: options.immediate !== false });
+  },
+});
 let rebuildTimer = 0;
 let lastFitCamera = false;
 let environmentPanelOpen = false;
@@ -22,7 +40,8 @@ function rebuildNow({ fitCamera = false } = {}) {
   rebuildTimer = 0;
   currentBuild = scene.rebuild(state, { fitCamera: fitCamera || lastFitCamera });
   lastFitCamera = false;
-  ui.update(currentBuild);
+  ui?.update(currentBuild);
+  ui?.setSelectedOpening(scene.selectedOpeningId);
   scene.applyDisplayState(state);
   scene.applyEnvironment(state);
   syncToolButtons();
@@ -40,7 +59,7 @@ function scheduleRebuild({ fitCamera = false, immediate = false } = {}) {
   rebuildTimer = window.setTimeout(() => rebuildNow({ fitCamera: lastFitCamera }), 110);
 }
 
-const ui = new HallUI(state, {
+ui = new HallUI(state, {
   onModelChange(options = {}) { scheduleRebuild(options); },
   onDisplayChange() {
     scene.applyDisplayState(state);
@@ -84,10 +103,27 @@ const ui = new HallUI(state, {
     if (view === 'reset') scene.fitCamera(state, deriveHallMetrics(state));
     else scene.setView(view, state, deriveHallMetrics(state));
   },
+  onOpeningAdd(type) {
+    scene.startOpeningPlacement(type, state);
+  },
+  onOpeningPlacementCancel() {
+    scene.cancelOpeningPlacement(state);
+  },
+  onOpeningEdit(id) {
+    scene.selectedOpeningId = id;
+    scheduleRebuild({ fitCamera: false, immediate: true });
+  },
+  onOpeningMoveToSide(id, side) {
+    scene.moveOpeningToSide(id, side, state);
+  },
+  onOpeningDelete(id) {
+    scene.deleteOpening(id, state);
+  },
 });
 
 currentBuild = scene.rebuild(state, { fitCamera: true });
 ui.update(currentBuild);
+ui.setSelectedOpening(scene.selectedOpeningId);
 scene.applyDisplayState(state);
 scene.applyEnvironment(state);
 

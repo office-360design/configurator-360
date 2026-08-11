@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=8';
-import { deriveHallMetrics } from './state.js?v=8';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=9';
+import { deriveHallMetrics } from './state.js?v=9';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=9';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -26,6 +27,13 @@ function labelObject(text, position, className = 'dimension-label') {
   const label = new CSS2DObject(element);
   label.position.copy(position);
   return label;
+}
+
+function openingExplodeOffset(side) {
+  if (side === 'front') return new THREE.Vector3(0, 0, -3.15);
+  if (side === 'back') return new THREE.Vector3(0, 0, 3.15);
+  if (side === 'left') return new THREE.Vector3(-3.1, 0, 0);
+  return new THREE.Vector3(3.1, 0, 0);
 }
 
 function fitAssetToBox(object, target, alignY = 'bottom') {
@@ -204,8 +212,9 @@ function createCompass() {
 }
 
 export class HallScene {
-  constructor(host) {
+  constructor(host, callbacks = {}) {
     this.host = host;
+    this.callbacks = callbacks;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xdce8eb);
     this.scene.fog = new THREE.Fog(0xe7eff1, 42, 92);
@@ -214,6 +223,12 @@ export class HallScene {
     this.darkMode = false;
     this.environmentAssets = { house: null, tree: null };
     this.environmentKey = '';
+    this.selectedOpeningId = null;
+    this.placement = null;
+    this.openingDrag = null;
+    this.openingResize = null;
+    this.raycaster = new THREE.Raycaster();
+    this.pointer = new THREE.Vector2();
 
     this.camera = new THREE.PerspectiveCamera(42, 1, .1, 500);
     this.camera.position.set(19, 14, 25);
@@ -245,7 +260,9 @@ export class HallScene {
     this.groundRoot = new THREE.Group();
     this.sceneryRoot = new THREE.Group();
     this.compassRoot = createCompass();
-    this.scene.add(this.groundRoot, this.sceneryRoot, this.modelRoot, this.dimensionRoot, this.compassRoot);
+    this.openingInteractionRoot = new THREE.Group();
+    this.openingInteractionRoot.name = 'opening-interaction-targets';
+    this.scene.add(this.groundRoot, this.sceneryRoot, this.modelRoot, this.dimensionRoot, this.compassRoot, this.openingInteractionRoot);
 
     this.sectionPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     this.addLighting();
@@ -253,7 +270,422 @@ export class HallScene {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(host);
     this.resize();
+    this.bindOpeningInteraction();
     this.animate();
+  }
+
+  bindOpeningInteraction() {
+    const canvas = this.renderer.domElement;
+    canvas.addEventListener('pointerdown', (event) => this.onOpeningPointerDown(event));
+    canvas.addEventListener('pointermove', (event) => this.onOpeningPointerMove(event));
+    window.addEventListener('pointerup', (event) => this.onOpeningPointerUp(event));
+    window.addEventListener('contextmenu', (event) => {
+      if (!this.placement || !this.currentState) return;
+      event.preventDefault();
+      this.cancelOpeningPlacement(this.currentState);
+    });
+  }
+
+  setRayFromEvent(event) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.pointer.x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
+    this.pointer.y = -((event.clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+  }
+
+  rebuildOpeningInteractionWalls(state) {
+    disposeObject(this.openingInteractionRoot);
+    this.openingInteractionRoot.clear();
+    const halfW = state.width / 2;
+    const halfL = state.length / 2;
+    const surface = .235;
+    const explodeT = THREE.MathUtils.clamp((Number(state.explode) || 0) / 100, 0, 1);
+    const makeTarget = (side, span, position, rotationY = 0) => {
+      const material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(span, state.eaveHeight), material);
+      mesh.name = `opening-wall-target-${side}`;
+      mesh.userData.wallSide = side;
+      mesh.position.copy(position).addScaledVector(openingExplodeOffset(side), explodeT);
+      mesh.position.y = state.eaveHeight / 2;
+      mesh.rotation.y = rotationY;
+      this.openingInteractionRoot.add(mesh);
+    };
+    makeTarget('front', state.width, new THREE.Vector3(0, 0, -halfL - surface), 0);
+    makeTarget('back', state.width, new THREE.Vector3(0, 0, halfL + surface), Math.PI);
+    makeTarget('left', state.length, new THREE.Vector3(-halfW - surface, 0, 0), -Math.PI / 2);
+    makeTarget('right', state.length, new THREE.Vector3(halfW + surface, 0, 0), Math.PI / 2);
+  }
+
+  wallHitFromEvent(event, requiredSide = null) {
+    this.setRayFromEvent(event);
+    const targets = requiredSide
+      ? this.openingInteractionRoot.children.filter((target) => target.userData.wallSide === requiredSide)
+      : this.openingInteractionRoot.children;
+    const hit = this.raycaster.intersectObjects(targets, false)[0];
+    if (!hit) return null;
+    const side = hit.object.userData.wallSide;
+    const u = side === 'front' || side === 'back' ? hit.point.x : hit.point.z;
+    const explodeT = THREE.MathUtils.clamp((Number(this.currentState?.explode) || 0) / 100, 0, 1);
+    const basePoint = hit.point.clone().addScaledVector(openingExplodeOffset(side), -explodeT);
+    const baseU = side === 'front' || side === 'back' ? basePoint.x : basePoint.z;
+    return { side, u: baseU, v: basePoint.y, point: basePoint };
+  }
+
+  openingGroup(id) {
+    if (!id || !this.currentBuild?.root) return null;
+    let found = null;
+    this.currentBuild.root.traverse((object) => {
+      if (!found && object.userData?.isOpeningRoot && object.userData.openingId === id) found = object;
+    });
+    return found;
+  }
+
+  openingMeshes() {
+    const meshes = [];
+    const group = this.currentBuild?.root?.getObjectByName('openings');
+    group?.traverse((object) => {
+      if (object.isMesh && object.userData?.openingId && !object.userData.resizeHandle) meshes.push(object);
+    });
+    return meshes;
+  }
+
+  resizeHandleMeshes() {
+    const handles = [];
+    const group = this.openingGroup(this.selectedOpeningId);
+    group?.traverse((object) => {
+      if (object.isMesh && object.userData?.resizeHandle) handles.push(object);
+    });
+    return handles;
+  }
+
+  openingById(id, state = this.currentState) {
+    if (!state) return null;
+    return normalizeOpenings(state).find((opening) => opening.id === id) ?? null;
+  }
+
+  selectOpening(id, state = this.currentState) {
+    this.selectedOpeningId = id ?? null;
+    this.refreshOpeningSelection(state);
+    this.callbacks.onOpeningSelectionChange?.(this.selectedOpeningId);
+  }
+
+  refreshOpeningSelection(state = this.currentState) {
+    if (!this.currentBuild?.root || !state) return;
+    this.currentBuild.root.traverse((object) => {
+      if (!object.userData?.isOpeningRoot) return;
+      const old = object.getObjectByName('opening-runtime-selection');
+      if (old) {
+        disposeObject(old);
+        old.removeFromParent();
+      }
+    });
+    const opening = this.openingById(this.selectedOpeningId, state);
+    const group = this.openingGroup(this.selectedOpeningId);
+    if (!opening || !group) return;
+
+    const helper = new THREE.Group();
+    helper.name = 'opening-runtime-selection';
+    const invalid = validateOpenings(state).invalidIds.has(opening.id);
+    const line = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(opening.width + .08, opening.height + .08, .16)),
+      new THREE.LineBasicMaterial({ color: invalid ? 0xff2727 : 0x087fbd, depthTest: false, transparent: true, opacity: .98 }),
+    );
+    line.position.y = opening.height / 2;
+    line.renderOrder = 45;
+    helper.add(line);
+
+    const handleMaterial = new THREE.MeshBasicMaterial({ color: invalid ? 0xff4242 : 0x0c8bce, depthTest: false });
+    const edgeHitMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, depthTest: false });
+    const edgeHitThickness = Math.max(.10, Math.min(.16, Math.min(opening.width, opening.height) * .08));
+    [
+      ['left', edgeHitThickness, opening.height + edgeHitThickness, -opening.width / 2, opening.height / 2],
+      ['right', edgeHitThickness, opening.height + edgeHitThickness, opening.width / 2, opening.height / 2],
+      ['top', opening.width + edgeHitThickness, edgeHitThickness, 0, opening.height],
+      ['bottom', opening.width + edgeHitThickness, edgeHitThickness, 0, 0],
+    ].forEach(([key, width, height, x, y]) => {
+      const hitArea = new THREE.Mesh(new THREE.BoxGeometry(width, height, .18), edgeHitMaterial.clone());
+      hitArea.position.set(x, y, -.13);
+      hitArea.userData.resizeHandle = key;
+      hitArea.userData.openingId = opening.id;
+      helper.add(hitArea);
+    });
+
+    const handleSize = Math.max(.10, Math.min(.16, Math.min(opening.width, opening.height) * .09));
+    [
+      ['left', -opening.width / 2, opening.height / 2],
+      ['right', opening.width / 2, opening.height / 2],
+      ['top', 0, opening.height],
+      ['bottom', 0, 0],
+      ['top-left', -opening.width / 2, opening.height],
+      ['top-right', opening.width / 2, opening.height],
+      ['bottom-left', -opening.width / 2, 0],
+      ['bottom-right', opening.width / 2, 0],
+    ].forEach(([key, x, y]) => {
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(handleSize, handleSize, handleSize), handleMaterial.clone());
+      handle.position.set(x, y, -.13);
+      handle.renderOrder = 46;
+      handle.userData.resizeHandle = key;
+      handle.userData.openingId = opening.id;
+      helper.add(handle);
+    });
+
+    const widthLabel = labelObject(`${opening.width.toFixed(2)} m`, new THREE.Vector3(0, opening.height + .22, 0), 'opening-dimension-label');
+    widthLabel.userData.dimensionKey = 'width';
+    const heightLabel = labelObject(`${opening.height.toFixed(2)} m`, new THREE.Vector3(opening.width / 2 + .26, opening.height / 2, 0), 'opening-dimension-label');
+    heightLabel.userData.dimensionKey = 'height';
+    helper.add(widthLabel, heightLabel);
+    group.add(helper);
+  }
+
+  refreshOpeningValidation(state = this.currentState) {
+    if (!state || !this.currentBuild?.root) return null;
+    const validation = validateOpenings(state);
+    normalizeOpenings(state).forEach((opening) => {
+      const group = this.openingGroup(opening.id);
+      if (!group) return;
+      const invalid = validation.invalidIds.has(opening.id);
+      let runtime = group.getObjectByName('opening-runtime-invalid');
+      const built = group.getObjectByName(`opening-invalid-outline-${opening.id}`);
+      if (built) built.visible = invalid;
+      if (invalid && !built && !runtime) {
+        const baseWidth = group.userData.openingWidth || opening.width;
+        const baseHeight = group.userData.openingHeight || opening.height;
+        runtime = new THREE.LineSegments(
+          new THREE.EdgesGeometry(new THREE.BoxGeometry(baseWidth + .10, baseHeight + .10, .17)),
+          new THREE.LineBasicMaterial({ color: 0xff2424, depthTest: false, transparent: true, opacity: .98 }),
+        );
+        runtime.name = 'opening-runtime-invalid';
+        runtime.position.y = baseHeight / 2;
+        runtime.renderOrder = 44;
+        group.add(runtime);
+      } else if (runtime) {
+        runtime.visible = invalid;
+      }
+    });
+    this.callbacks.onOpeningPreview?.(this.selectedOpeningId, validation);
+    return validation;
+  }
+
+  applyOpeningPosePreview(opening) {
+    const group = this.openingGroup(opening.id);
+    if (!group || !this.currentState) return;
+    const state = this.currentState;
+    const halfW = state.width / 2;
+    const halfL = state.length / 2;
+    const surface = .226;
+    const basePosition = new THREE.Vector3();
+    group.rotation.set(0, 0, 0);
+    if (opening.side === 'front') basePosition.set(opening.offset, opening.bottom, -halfL - surface);
+    else if (opening.side === 'back') { basePosition.set(opening.offset, opening.bottom, halfL + surface); group.rotation.y = Math.PI; }
+    else if (opening.side === 'left') { basePosition.set(-halfW - surface, opening.bottom, opening.offset); group.rotation.y = -Math.PI / 2; }
+    else { basePosition.set(halfW + surface, opening.bottom, opening.offset); group.rotation.y = Math.PI / 2; }
+    const explodeOffset = openingExplodeOffset(opening.side);
+    group.userData.basePosition = basePosition.clone();
+    group.userData.explodeOffset = explodeOffset.clone();
+    group.userData.openingSide = opening.side;
+    group.position.copy(basePosition).addScaledVector(explodeOffset, THREE.MathUtils.clamp((Number(state.explode) || 0) / 100, 0, 1));
+
+    const renderWidth = group.userData.openingWidth || opening.width;
+    const renderHeight = group.userData.openingHeight || opening.height;
+    group.scale.set(opening.width / Math.max(.001, renderWidth), opening.height / Math.max(.001, renderHeight), 1);
+    const helper = group.getObjectByName('opening-runtime-selection');
+    helper?.traverse((object) => {
+      if (object.userData.dimensionKey === 'width' && object.element) object.element.textContent = `${opening.width.toFixed(2)} m`;
+      if (object.userData.dimensionKey === 'height' && object.element) object.element.textContent = `${opening.height.toFixed(2)} m`;
+    });
+    this.refreshOpeningValidation(state);
+  }
+
+  closestWallToCamera() {
+    const direction = this.camera.position.clone().sub(this.controls.target);
+    if (Math.abs(direction.z) >= Math.abs(direction.x)) return direction.z < 0 ? 'front' : 'back';
+    return direction.x < 0 ? 'left' : 'right';
+  }
+
+  startOpeningPlacement(type, state = this.currentState) {
+    if (!state) return;
+    if (this.placement) this.cancelOpeningPlacement(state);
+    const side = this.closestWallToCamera();
+    const opening = makeOpening(type, side, 0);
+    normalizeOpening(opening, state);
+    normalizeOpenings(state).push(opening);
+    this.placement = { id: opening.id, type };
+    this.selectedOpeningId = opening.id;
+    this.controls.enabled = false;
+    this.callbacks.onOpeningPlacementChange?.(type);
+    this.callbacks.onOpeningSelectionChange?.(opening.id);
+    this.callbacks.onOpeningChange?.({ immediate: true });
+  }
+
+  confirmOpeningPlacement(state = this.currentState) {
+    if (!this.placement || !state) return;
+    this.placement = null;
+    this.controls.enabled = true;
+    this.callbacks.onOpeningPlacementChange?.(null);
+    this.callbacks.onOpeningChange?.({ immediate: true });
+  }
+
+  cancelOpeningPlacement(state = this.currentState) {
+    if (!this.placement || !state) return;
+    const id = this.placement.id;
+    state.openings = normalizeOpenings(state).filter((opening) => opening.id !== id);
+    this.placement = null;
+    if (this.selectedOpeningId === id) this.selectedOpeningId = null;
+    this.controls.enabled = true;
+    this.callbacks.onOpeningPlacementChange?.(null);
+    this.callbacks.onOpeningSelectionChange?.(this.selectedOpeningId);
+    this.callbacks.onOpeningChange?.({ immediate: true });
+  }
+
+  deleteOpening(id, state = this.currentState) {
+    if (!state || !id) return;
+    if (this.placement?.id === id) this.placement = null;
+    state.openings = normalizeOpenings(state).filter((opening) => opening.id !== id);
+    if (this.selectedOpeningId === id) this.selectedOpeningId = null;
+    this.controls.enabled = true;
+    this.callbacks.onOpeningPlacementChange?.(null);
+    this.callbacks.onOpeningSelectionChange?.(this.selectedOpeningId);
+    this.callbacks.onOpeningChange?.({ immediate: true });
+  }
+
+  moveOpeningToSide(id, side, state = this.currentState) {
+    const opening = this.openingById(id, state);
+    if (!opening || !['front', 'back', 'left', 'right'].includes(side)) return;
+    opening.side = side;
+    opening.offset = 0;
+    normalizeOpening(opening, state);
+    this.selectedOpeningId = opening.id;
+    this.callbacks.onOpeningChange?.({ immediate: true });
+  }
+
+  onOpeningPointerDown(event) {
+    if (!this.currentState || event.button !== 0) return;
+    if (this.placement) {
+      event.preventDefault();
+      this.confirmOpeningPlacement(this.currentState);
+      return;
+    }
+    this.setRayFromEvent(event);
+    const handleHit = this.raycaster.intersectObjects(this.resizeHandleMeshes(), false)[0];
+    if (handleHit) {
+      const opening = this.openingById(handleHit.object.userData.openingId);
+      if (!opening) return;
+      event.preventDefault();
+      this.controls.enabled = false;
+      this.openingResize = { id: opening.id, handle: handleHit.object.userData.resizeHandle, start: { ...opening } };
+      this.renderer.domElement.setPointerCapture?.(event.pointerId);
+      return;
+    }
+
+    const openingHit = this.raycaster.intersectObjects(this.openingMeshes(), true)[0];
+    if (openingHit) {
+      const id = openingHit.object.userData.openingId;
+      const opening = this.openingById(id);
+      if (!opening) return;
+      event.preventDefault();
+      this.selectOpening(id, this.currentState);
+      this.controls.enabled = false;
+      this.openingDrag = { id, start: { ...opening } };
+      this.renderer.domElement.setPointerCapture?.(event.pointerId);
+      return;
+    }
+    this.selectOpening(null, this.currentState);
+  }
+
+  onOpeningPointerMove(event) {
+    if (!this.currentState) return;
+    if (this.placement) {
+      const opening = this.openingById(this.placement.id);
+      const hit = this.wallHitFromEvent(event);
+      if (!opening || !hit) return;
+      opening.side = hit.side;
+      opening.offset = hit.u;
+      opening.bottom = hit.v - opening.height / 2;
+      normalizeOpening(opening, this.currentState);
+      this.applyOpeningPosePreview(opening);
+      this.callbacks.onOpeningSelectionChange?.(opening.id);
+      return;
+    }
+    if (this.openingDrag) {
+      const opening = this.openingById(this.openingDrag.id);
+      const hit = this.wallHitFromEvent(event);
+      if (!opening || !hit) return;
+      opening.side = hit.side;
+      opening.offset = hit.u;
+      opening.bottom = hit.v - opening.height / 2;
+      normalizeOpening(opening, this.currentState);
+      this.applyOpeningPosePreview(opening);
+      this.callbacks.onOpeningSelectionChange?.(opening.id);
+      return;
+    }
+    if (this.openingResize) {
+      const opening = this.openingById(this.openingResize.id);
+      if (!opening) return;
+      const hit = this.wallHitFromEvent(event, opening.side);
+      if (!hit) return;
+      const start = this.openingResize.start;
+      let left = start.offset - start.width / 2;
+      let right = start.offset + start.width / 2;
+      let bottom = start.bottom;
+      let top = start.bottom + start.height;
+      const handle = this.openingResize.handle;
+      const horizontalReversed = opening.side === 'back' || opening.side === 'right';
+      if (handle.includes('left')) {
+        if (horizontalReversed) right = hit.u;
+        else left = hit.u;
+      }
+      if (handle.includes('right')) {
+        if (horizontalReversed) left = hit.u;
+        else right = hit.u;
+      }
+      if (handle === 'top' || handle.startsWith('top-')) top = hit.v;
+      if (handle === 'bottom' || handle.startsWith('bottom-')) bottom = hit.v;
+      if (right < left) [left, right] = [right, left];
+      if (top < bottom) [bottom, top] = [top, bottom];
+      opening.width = Math.max(.05, right - left);
+      opening.height = Math.max(.05, top - bottom);
+      opening.offset = (left + right) / 2;
+      opening.bottom = bottom;
+      normalizeOpening(opening, this.currentState);
+      this.applyOpeningPosePreview(opening);
+      this.callbacks.onOpeningSelectionChange?.(opening.id);
+    }
+  }
+
+  onOpeningPointerUp(event) {
+    if (!this.currentState || (!this.openingDrag && !this.openingResize)) return;
+    try { this.renderer.domElement.releasePointerCapture?.(event.pointerId); } catch { /* capture already released */ }
+    this.openingDrag = null;
+    this.openingResize = null;
+    this.controls.enabled = true;
+    this.callbacks.onOpeningChange?.({ immediate: true });
+  }
+
+  projectOpeningEditor() {
+    if (!this.selectedOpeningId) {
+      this.callbacks.onOpeningEditorPosition?.({ visible: false });
+      return;
+    }
+    const group = this.openingGroup(this.selectedOpeningId);
+    if (!group || !group.visible) {
+      this.callbacks.onOpeningEditorPosition?.({ visible: false });
+      return;
+    }
+    const box = new THREE.Box3().setFromObject(group);
+    if (box.isEmpty()) {
+      this.callbacks.onOpeningEditorPosition?.({ visible: false });
+      return;
+    }
+    const point = box.getCenter(new THREE.Vector3());
+    point.y = box.max.y + .18;
+    point.project(this.camera);
+    const rect = this.host.getBoundingClientRect();
+    const visible = point.z > -1 && point.z < 1 && point.x > -1.2 && point.x < 1.2 && point.y > -1.2 && point.y < 1.2;
+    this.callbacks.onOpeningEditorPosition?.({
+      visible,
+      x: rect.left + (point.x * .5 + .5) * rect.width,
+      y: rect.top + (-point.y * .5 + .5) * rect.height,
+    });
   }
 
   addLighting() {
@@ -395,6 +827,8 @@ export class HallScene {
   }
 
   rebuild(state, { fitCamera = false } = {}) {
+    this.currentState = state;
+    normalizeOpenings(state);
     disposeObject(this.modelRoot);
     this.modelRoot.clear();
     const built = buildHallModel(state);
@@ -402,10 +836,13 @@ export class HallScene {
     this.modelRoot.add(built.root);
     built.root.userData.showConnectionDetails = Boolean(state.connectionDetails || state.inspectionMode === 'connections' || state.inspectionMode === 'foundations');
     applyExplodedView(built.root, state.explode / 100);
+    this.rebuildOpeningInteractionWalls(state);
     this.updateEnvironment(state);
     this.updateDimensions(state, built.metrics);
     this.applyDisplayState(state);
     this.applyEnvironment(state);
+    this.refreshOpeningSelection(state);
+    this.refreshOpeningValidation(state);
     if (fitCamera) this.fitCamera(state, built.metrics);
     return built;
   }
@@ -414,6 +851,7 @@ export class HallScene {
     if (!this.currentBuild?.root) return;
     this.currentBuild.root.userData.showConnectionDetails = Boolean(state?.connectionDetails || state?.inspectionMode === 'connections' || state?.inspectionMode === 'foundations');
     applyExplodedView(this.currentBuild.root, amount / 100);
+    if (state) this.rebuildOpeningInteractionWalls(state);
   }
 
   applyDisplayState(state) {
@@ -557,6 +995,7 @@ export class HallScene {
   animate() {
     requestAnimationFrame(() => this.animate());
     this.controls.update();
+    this.projectOpeningEditor();
     this.renderer.render(this.scene, this.camera);
     this.labelRenderer.render(this.scene, this.camera);
   }

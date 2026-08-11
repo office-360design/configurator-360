@@ -1,3 +1,5 @@
+import { defaultOpenings, openingArea } from './openings.js?v=9';
+
 export const structurePresets = {
   light: {
     label: 'Light duty', columnProfile: 'HEA220', rafterProfile: 'IPE180', purlinProfile: 'ZZ200-2.5', borderProfile: 'RHS150×50×3', braceProfile: 'RHS80×4 / D20', stayProfile: 'L60×6',
@@ -28,11 +30,7 @@ export const state = {
   roofColor: '#36424b',
   secondaryStructure: true,
   slab: true,
-  rollerDoor: true,
-  rollerDoorWidth: 4,
-  rollerDoorHeight: 4,
-  personnelDoor: true,
-  windows: true,
+  openings: defaultOpenings(),
   buildingUse: 'general',
   climateSystem: 'none',
   highBayLighting: true,
@@ -74,10 +72,8 @@ export function deriveHallMetrics(input = state) {
   const gableRectangleArea = 2 * input.width * input.eaveHeight;
   const gableTriangleArea = 2 * (input.width * ridgeRise * 0.5);
   const grossWallArea = sideWallArea + gableRectangleArea + gableTriangleArea;
-  const openingArea = (input.rollerDoor ? input.rollerDoorWidth * input.rollerDoorHeight : 0)
-    + (input.personnelDoor ? 1.0 * 2.1 : 0)
-    + (input.windows ? 4 * 1.8 * 1.25 : 0);
-  const netWallArea = Math.max(0, grossWallArea - openingArea);
+  const configuredOpeningArea = openingArea(input);
+  const netWallArea = Math.max(0, grossWallArea - configuredOpeningArea);
   const footprint = input.length * input.width;
   const highBayFixtureCount = input.highBayLighting ? Math.max(2, Math.ceil(footprint / 55)) : 0;
   const refrigerationUnitCount = input.climateSystem === 'chilled' || input.climateSystem === 'frozen'
@@ -97,7 +93,7 @@ export function deriveHallMetrics(input = state) {
     roofArea,
     grossWallArea,
     netWallArea,
-    openingArea,
+    openingArea: configuredOpeningArea,
     highBayFixtureCount,
     refrigerationUnitCount,
     sprinklerHeadCount,

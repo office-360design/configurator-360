@@ -7,7 +7,7 @@
   <title>360 Configurator - Hall</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=8" />
-  <link rel="stylesheet" href="./styles.css?v=8" />
+  <link rel="stylesheet" href="./styles.css?v=9" />
   <script type="importmap">
     {
       "imports": {
@@ -69,11 +69,13 @@
       <section class="accordion-section" data-accordion="openings">
         <button class="accordion-toggle" type="button" aria-expanded="false"><span>Openings</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
         <div class="accordion-panel" hidden>
-          <div class="toggle-stack"><label class="toggle-row"><span><b>Front roller door</b><small>Framed industrial roller shutter on the front gable</small></span><input id="rollerDoorToggle" type="checkbox" checked /><i></i></label><label class="toggle-row"><span><b>Personnel door</b><small>Framed steel access door with handle and hinges</small></span><input id="personnelDoorToggle" type="checkbox" checked /><i></i></label><label class="toggle-row"><span><b>Side windows</b><small>Two framed windows per long side</small></span><input id="windowsToggle" type="checkbox" checked /><i></i></label></div>
-          <div class="door-controls" id="rollerDoorControls">
-            <label class="range-control compact-control" data-control="rollerDoorWidth"><span class="control-label"><b>Door width</b><output>4.0 m</output></span><span class="range-row"><input type="range" min="2.5" max="8" step="0.25" value="4" /><input class="number-input" type="number" min="2.5" max="8" step="0.25" value="4" /></span></label>
-            <label class="range-control compact-control" data-control="rollerDoorHeight"><span class="control-label"><b>Door height</b><output>4.0 m</output></span><span class="range-row"><input type="range" min="2.5" max="6" step="0.25" value="4" /><input class="number-input" type="number" min="2.5" max="6" step="0.25" value="4" /></span></label>
+          <p class="opening-help">Add an opening, move the pointer over any wall and click to place it. After placement, drag openings between all four walls or resize them from their borders and selection handles.</p>
+          <div class="opening-add-grid">
+            <button type="button" class="opening-add-button" data-add-opening="personnel"><span>＋</span><b>Add human door</b></button>
+            <button type="button" class="opening-add-button" data-add-opening="garage"><span>＋</span><b>Add garage door</b></button>
+            <button type="button" class="opening-add-button" data-add-opening="window"><span>＋</span><b>Add window</b></button>
           </div>
+          <div class="opening-status" id="openingStatusText">Select an opening in the model to edit it.</div>
         </div>
       </section>
 
@@ -141,11 +143,14 @@
       <section class="accordion-section summary-section" data-accordion="summary">
         <button class="accordion-toggle" type="button" aria-expanded="false"><span>Summary & pricing</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
         <div class="accordion-panel" hidden>
-          <div class="summary-total-card"><span>Indicative configured total</span><strong id="summaryTotal">—</strong><small>Demo estimate before taxes. Final engineering and quotation required.</small></div>
-          <div class="summary-price-breakdown" id="summaryPriceBreakdown"></div>
-          <div class="summary-metrics" id="summaryMetrics"></div>
-          <div class="summary-bom-preview"><div class="summary-subheading"><b>Bill of materials</b><span id="headerBomSummary">—</span></div><div id="summaryBomList" class="summary-bom-list"></div></div>
-          <div class="summary-actions"><button type="button" class="secondary-action" id="bomExportInlineButton">Export BOM CSV</button><button type="button" class="primary-action" id="bomOpenButton" aria-controls="bomPanel" aria-haspopup="dialog">Full bill of materials</button></div>
+          <div class="summary-validation-error" id="summaryValidationError" hidden></div>
+          <div class="summary-content" id="summaryContent">
+            <div class="summary-total-card"><span>Indicative configured total</span><strong id="summaryTotal">—</strong><small>Demo estimate before taxes. Final engineering and quotation required.</small></div>
+            <div class="summary-price-breakdown" id="summaryPriceBreakdown"></div>
+            <div class="summary-metrics" id="summaryMetrics"></div>
+            <div class="summary-bom-preview"><div class="summary-subheading"><b>Bill of materials</b><span id="headerBomSummary">—</span></div><div id="summaryBomList" class="summary-bom-list"></div></div>
+            <div class="summary-actions"><button type="button" class="secondary-action" id="bomExportInlineButton">Export BOM CSV</button><button type="button" class="primary-action" id="bomOpenButton" aria-controls="bomPanel" aria-haspopup="dialog">Full bill of materials</button></div>
+          </div>
         </div>
       </section>
     </aside>
@@ -153,6 +158,14 @@
     <button id="hallSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide hall settings" aria-expanded="true" title="Hide hall settings"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
   </main>
 
+
+  <section class="opening-editor" id="openingEditor" hidden aria-label="Selected opening editor">
+    <div class="opening-editor__header"><div><small id="openingEditorSide">Front wall</small><strong id="openingEditorTitle">Window</strong></div><button type="button" id="openingDeleteButton" class="opening-delete-button" aria-label="Delete selected opening" title="Delete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button></div>
+    <label class="opening-editor__side"><span>Wall</span><select id="openingSideSelect"><option value="front">Front</option><option value="right">Right</option><option value="back">Back</option><option value="left">Left</option></select></label>
+    <div class="opening-editor__dimensions"><label><span>Width</span><div><input id="openingWidthInput" type="number" min="0.5" step="0.05" /><em>m</em></div></label><label><span>Height</span><div><input id="openingHeightInput" type="number" min="0.5" step="0.05" /><em>m</em></div></label></div>
+    <label class="opening-editor__color"><span>Colour</span><input id="openingColorInput" type="color" /></label>
+    <div class="opening-editor__warning" id="openingEditorWarning" hidden></div>
+  </section>
 
   <section class="environment-panel" id="hallEnvironmentPanel" aria-label="Light and orientation" aria-hidden="true">
     <div class="environment-panel__header"><strong>Light &amp; orientation</strong><button type="button" id="environmentCloseButton" aria-label="Close">×</button></div>
@@ -168,7 +181,7 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=8"></script>
-  <script type="module" src="./js/app.js?v=8"></script>
+  <script type="module" src="./js/sharedShell.js?v=9"></script>
+  <script type="module" src="./js/app.js?v=9"></script>
 </body>
 </html>

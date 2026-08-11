@@ -1,4 +1,5 @@
-import { deriveHallMetrics } from './state.js?v=8';
+import { deriveHallMetrics } from './state.js?v=9';
+import { normalizeOpenings } from './openings.js?v=9';
 
 const structureRates = { light: 72, standard: 88, heavy: 108 };
 const claddingRates = { trapezoidal: 34, sandwich: 59, 'standing-seam': 66 };
@@ -16,9 +17,10 @@ export function estimateHallPrice(state, build) {
   if (state.secondaryStructure) add('Secondary structure', metrics.footprint * 24, 'Purlins, girts, bracing and connection steel');
   add('Wall and roof envelope', (metrics.netWallArea + metrics.roofArea) * (claddingRates[state.claddingProfile] ?? 49), state.claddingProfile);
   add('Foundations and floor', state.slab ? metrics.footprint * 67 : metrics.frameCount * 2 * 920, state.slab ? 'Slab, pads and pedestals' : 'Pads and pedestals');
-  if (state.rollerDoor) add('Industrial roller shutter', state.rollerDoorWidth * state.rollerDoorHeight * 690, 'Framed motor-ready shutter');
-  if (state.personnelDoor) add('Personnel door', 980);
-  if (state.windows) add('Framed side windows', 4 * 520);
+  const openings = normalizeOpenings(state);
+  openings.filter((opening) => opening.type === 'garage').forEach((opening, index) => add(`Garage door${openings.filter((item) => item.type === 'garage').length > 1 ? ` ${index + 1}` : ''}`, opening.width * opening.height * 690, `${opening.width.toFixed(2)} × ${opening.height.toFixed(2)} m`));
+  openings.filter((opening) => opening.type === 'personnel').forEach((opening, index) => add(`Human door${openings.filter((item) => item.type === 'personnel').length > 1 ? ` ${index + 1}` : ''}`, 980 * Math.max(.75, (opening.width * opening.height) / 2.1), `${opening.width.toFixed(2)} × ${opening.height.toFixed(2)} m`));
+  openings.filter((opening) => opening.type === 'window').forEach((opening, index) => add(`Window${openings.filter((item) => item.type === 'window').length > 1 ? ` ${index + 1}` : ''}`, 520 * Math.max(.45, (opening.width * opening.height) / (1.8 * 1.25)), `${opening.width.toFixed(2)} × ${opening.height.toFixed(2)} m`));
   add('Climate / refrigeration system', metrics.footprint * (climateRates[state.climateSystem] ?? 0), state.climateSystem);
   if (state.highBayLighting) add('High-bay LED lighting', metrics.highBayFixtureCount * 310, `${metrics.highBayFixtureCount} fixtures`);
   if (state.fireSprinklers) add('Fire sprinkler visual package', metrics.footprint * 24, `${metrics.sprinklerHeadCount} heads`);

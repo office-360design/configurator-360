@@ -13,7 +13,9 @@ Use `start_local_site.cmd`. The launcher uses `serve_local.py`, which serves the
 - Parametric portal-frame structure with detailed IFC-inspired profiles/connections
 - Model-display inspection controls for structure, section cuts, warehouse planning and building services
 - Exploded structural view with detailed connection geometry loaded only when required
-- Envelope, openings, skylights and rainwater goods
+- Closed wall/roof envelope with overlap-sealed corners, skylights and rainwater goods
+- Interactive human doors, garage doors and windows on all four walls with drag/drop, direct resize handles, size/colour editing and deletion
+- Opening collision validation with red outlines and blocked Summary/BOM generation until conflicts are resolved
 - Optional HVAC/refrigeration, high-bay lighting and sprinkler visualization
 - Pallet-racking and forklift-clearance planning previews
 - House and tree scenery for scale reference
