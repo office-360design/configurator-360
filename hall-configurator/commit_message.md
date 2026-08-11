@@ -1,1 +1,1 @@
-Restore Hall shared UI assets and fix opening selection/orientation
+Thicken hall cladding to eliminate wall-beam flicker

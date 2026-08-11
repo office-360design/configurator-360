@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets } from './state.js?v=10';
-import { normalizeOpenings, validateOpenings } from './openings.js?v=10';
+import { deriveHallMetrics, structurePresets } from './state.js?v=11';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=11';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -944,7 +944,10 @@ export function buildHallModel(state) {
   const rightRoof = setExplode(new THREE.Group(), 2.0, 3.25, 0);
   envelope.add(leftWall, rightWall, frontWall, backWall, leftRoof, rightRoof);
 
-  const wallThickness = .065;
+  // Give the wall panels a slightly thicker build-up so their exterior face sits
+  // just outside the primary steel instead of sharing the exact same plane with it.
+  // This removes the persistent wall/column z-fighting visible at corners and bay lines.
+  const wallThickness = .10;
   const envelopeOffset = .075;
   const roofThickness = .052;
   const purlinDepth = .20;

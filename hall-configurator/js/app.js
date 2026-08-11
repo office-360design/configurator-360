@@ -1,6 +1,6 @@
-import { state, deriveHallMetrics } from './state.js?v=10';
-import { HallScene } from './scene.js?v=10';
-import { HallUI } from './ui.js?v=10';
+import { state, deriveHallMetrics } from './state.js?v=11';
+import { HallScene } from './scene.js?v=11';
+import { HallUI } from './ui.js?v=11';
 
 let ui = null;
 const scene = new HallScene(document.querySelector('#canvasHost'), {

@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=10';
-import { deriveHallMetrics } from './state.js?v=10';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=10';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=11';
+import { deriveHallMetrics } from './state.js?v=11';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=11';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -38,6 +38,12 @@ function openingExplodeOffset(side) {
   if (side === 'back') return new THREE.Vector3(0, 0, 3.15);
   if (side === 'left') return new THREE.Vector3(-3.1, 0, 0);
   return new THREE.Vector3(3.1, 0, 0);
+}
+
+function claddingSurfaceOffset() {
+  const wallThickness = .10;
+  const envelopeOffset = .075;
+  return wallThickness + envelopeOffset + .086;
 }
 
 function fitAssetToBox(object, target, alignY = 'bottom') {
@@ -302,7 +308,7 @@ export class HallScene {
     this.openingInteractionRoot.clear();
     const halfW = state.width / 2;
     const halfL = state.length / 2;
-    const surface = .235;
+    const surface = claddingSurfaceOffset() + .009;
     const explodeT = THREE.MathUtils.clamp((Number(state.explode) || 0) / 100, 0, 1);
     const makeTarget = (side, span, position, rotationY = 0) => {
       const material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
@@ -476,7 +482,7 @@ export class HallScene {
     const state = this.currentState;
     const halfW = state.width / 2;
     const halfL = state.length / 2;
-    const surface = .226;
+    const surface = claddingSurfaceOffset();
     const basePosition = new THREE.Vector3();
     group.rotation.set(0, 0, 0);
     if (opening.side === 'front') basePosition.set(opening.offset, opening.bottom, -halfL - surface);

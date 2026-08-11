@@ -1,6 +1,6 @@
-import { buildBom, bomToCsv } from './bom.js?v=10';
-import { estimateHallPrice, formatPrice } from './pricing.js?v=10';
-import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, wallLabel } from './openings.js?v=10';
+import { buildBom, bomToCsv } from './bom.js?v=11';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=11';
+import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, wallLabel } from './openings.js?v=11';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,

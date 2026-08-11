@@ -1,4 +1,4 @@
-import { defaultOpenings, openingArea } from './openings.js?v=10';
+import { defaultOpenings, openingArea } from './openings.js?v=11';
 
 export const structurePresets = {
   light: {
