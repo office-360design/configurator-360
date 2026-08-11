@@ -1,1 +1,1 @@
-Refine hall structure, services and shared tools menu
+Refine hall grounding, shared tools and environment rendering

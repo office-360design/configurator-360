@@ -1,4 +1,4 @@
-import { deriveHallMetrics } from './state.js?v=7';
+import { deriveHallMetrics } from './state.js?v=8';
 
 const structureRates = { light: 72, standard: 88, heavy: 108 };
 const claddingRates = { trapezoidal: 34, sandwich: 59, 'standing-seam': 66 };

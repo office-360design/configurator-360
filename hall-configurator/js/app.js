@@ -1,6 +1,6 @@
-import { state, deriveHallMetrics } from './state.js?v=7';
-import { HallScene } from './scene.js?v=7';
-import { HallUI } from './ui.js?v=7';
+import { state, deriveHallMetrics } from './state.js?v=8';
+import { HallScene } from './scene.js?v=8';
+import { HallUI } from './ui.js?v=8';
 
 const scene = new HallScene(document.querySelector('#canvasHost'));
 let rebuildTimer = 0;
@@ -103,6 +103,13 @@ function toggleEnvironmentPanel() {
   syncToolButtons();
 }
 
+function closeToolPanels() {
+  if (!environmentPanelOpen) return;
+  environmentPanelOpen = false;
+  ui.setEnvironmentPanelOpen(false);
+  syncToolButtons();
+}
+
 function toggleDimensions() {
   state.showDimensions = !state.showDimensions;
   scene.updateDimensions(state, currentBuild?.metrics ?? deriveHallMetrics(state));
@@ -139,6 +146,7 @@ window.HALL_CONFIGURATOR_API = {
   resetView: () => scene.fitCamera(state, deriveHallMetrics(state)),
   rebuild: () => rebuildNow(),
   toggleEnvironmentPanel,
+  closeToolPanels,
   toggleDimensions,
   toggleCompass,
   cycleCamera,

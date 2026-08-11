@@ -37,7 +37,7 @@ export function renderToolsMenu(open, { items = DEFAULT_TOOL_ITEMS, placement = 
             data-action="${escapeHtml(item.action)}"
             data-tool-id="${escapeHtml(item.id ?? item.action)}"
             aria-label="${escapeHtml(item.label)}"
-            title="${escapeHtml(item.label)}"
+            ${item.tooltip === false ? '' : `title="${escapeHtml(item.label)}"`}
             ${item.disabled ? 'disabled aria-disabled="true"' : ''}
           ><span aria-hidden="true">${item.icon ?? ''}</span></button>
         `).join('')}

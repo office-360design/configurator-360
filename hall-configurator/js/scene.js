@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=7';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=8';
+import { deriveHallMetrics } from './state.js?v=8';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -57,38 +58,62 @@ function makeHouseFallback() {
   const depth = 4.6;
   const eave = 3.35;
   const rise = 1.35;
+  const halfDepth = depth / 2;
   const body = new THREE.Mesh(new THREE.BoxGeometry(width, eave, depth), wallMat);
   body.position.y = eave / 2;
   body.castShadow = true;
   body.receiveShadow = true;
   group.add(body);
 
-  // Two roof sheets share the same ridge line and sit directly on the wall eaves.
-  // This replaces the old GLB roof whose detached slab and cap were visibly floating.
-  const halfDepth = depth / 2;
+  // Close both gable ends above the rectangular wall body. The previous house
+  // stopped at the eave and therefore exposed a triangular hole below the roof.
+  for (const side of [-1, 1]) {
+    const x = side * width / 2;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute([
+      x, eave, -halfDepth,
+      x, eave, halfDepth,
+      x, eave + rise, 0,
+    ], 3));
+    geometry.setIndex(side < 0 ? [0, 2, 1] : [0, 1, 2]);
+    geometry.computeVertexNormals();
+    const gable = new THREE.Mesh(geometry, wallMat);
+    gable.castShadow = true;
+    gable.receiveShadow = true;
+    group.add(gable);
+  }
+
+  // Build each roof slope from an explicit orthonormal basis. Each sheet ends
+  // just short of the ridge and extends only at the eave, so the two solids do
+  // not penetrate each other. The ridge cap covers the intentional small gap.
   const slope = Math.hypot(halfDepth, rise);
-  const pitch = Math.atan2(rise, halfDepth);
-  const overhang = .34;
-  const roofWidth = width + overhang * 2;
-  const roofSlope = slope + overhang * 1.25;
-  const roofThickness = .14;
-  const centerY = eave + rise / 2 + .02;
-  const centerZ = halfDepth / 2;
+  const overhang = .42;
+  const ridgeGap = .035;
+  const roofThickness = .13;
+  const roofWidth = width + .72;
+  for (const side of [-1, 1]) {
+    const eavePoint = new THREE.Vector3(0, eave, side * halfDepth);
+    const ridgePoint = new THREE.Vector3(0, eave + rise, 0);
+    const outwardNormal = new THREE.Vector3(0, halfDepth / slope, side * rise / slope).normalize();
+    const xAxis = new THREE.Vector3(side < 0 ? 1 : -1, 0, 0);
+    const zAxis = new THREE.Vector3().crossVectors(xAxis, outwardNormal).normalize();
+    // zAxis runs from the eave toward the ridge for both slopes.
+    const extendedEave = eavePoint.clone().addScaledVector(zAxis, -overhang);
+    const insetRidge = ridgePoint.clone().addScaledVector(zAxis, -ridgeGap);
+    const center = extendedEave.clone().add(insetRidge).multiplyScalar(.5);
+    const panelLength = extendedEave.distanceTo(insetRidge);
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(roofWidth, roofThickness, panelLength), roofMat);
+    const basis = new THREE.Matrix4().makeBasis(xAxis, outwardNormal, zAxis);
+    panel.quaternion.setFromRotationMatrix(basis);
+    panel.position.copy(center).addScaledVector(outwardNormal, roofThickness / 2 - .01);
+    panel.castShadow = true;
+    panel.receiveShadow = true;
+    group.add(panel);
+  }
 
-  const frontRoof = new THREE.Mesh(new THREE.BoxGeometry(roofWidth, roofThickness, roofSlope), roofMat);
-  frontRoof.position.set(0, centerY, -centerZ);
-  frontRoof.rotation.x = -pitch;
-  frontRoof.castShadow = true;
-  frontRoof.receiveShadow = true;
-  group.add(frontRoof);
-
-  const backRoof = frontRoof.clone();
-  backRoof.position.z = centerZ;
-  backRoof.rotation.x = pitch;
-  group.add(backRoof);
-
-  const ridge = new THREE.Mesh(new THREE.BoxGeometry(roofWidth + .08, .12, .16), roofMat);
-  ridge.position.set(0, eave + rise + .04, 0);
+  const ridge = new THREE.Mesh(new THREE.BoxGeometry(roofWidth + .08, .11, .22), roofMat);
+  ridge.position.set(0, eave + rise + .075, 0);
+  ridge.castShadow = true;
   group.add(ridge);
 
   // Front façade details provide a recognisable residential scale reference.
@@ -117,19 +142,64 @@ function makeTreeFallback() {
   return group;
 }
 
+function createCompassTexture(size = 1024) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2;
+  const cy = size / 2;
+  ctx.clearRect(0, 0, size, size);
+
+  const drawTriangle = (points, fill) => {
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i][0], points[i][1]);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+  };
+
+  drawTriangle([[cx, cy - size * .25], [cx - size * .04, cy], [cx, cy + size * .038], [cx + size * .04, cy]], '#e34f53');
+  drawTriangle([[cx + size * .25, cy], [cx, cy - size * .04], [cx - size * .038, cy], [cx, cy + size * .04]], '#0b6aa5');
+  drawTriangle([[cx, cy + size * .25], [cx - size * .04, cy], [cx, cy - size * .038], [cx + size * .04, cy]], '#0b5d97');
+  drawTriangle([[cx - size * .25, cy], [cx, cy - size * .04], [cx + size * .038, cy], [cx, cy + size * .04]], '#084d7e');
+  drawTriangle([[cx, cy - size * .07], [cx + size * .07, cy], [cx, cy + size * .07], [cx - size * .07, cy]], '#0661a8');
+
+  [
+    ['N', 0, -size * .34, '#b31d2c'],
+    ['E', size * .34, 0, '#0b6aa5'],
+    ['S', 0, size * .34, '#0b6aa5'],
+    ['W', -size * .34, 0, '#0b6aa5'],
+  ].forEach(([label, dx, dy, fill]) => {
+    ctx.fillStyle = fill;
+    ctx.font = `bold ${Math.round(size * .1)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx + dx, cy + dy);
+  });
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function createCompass() {
   const group = new THREE.Group();
   group.name = 'hall-compass';
-  const long = 1.0;
-  const short = .58;
-  group.add(makeLine([new THREE.Vector3(0, .005, -long), new THREE.Vector3(0, .005, long)], 0x173e58, .9));
-  group.add(makeLine([new THREE.Vector3(-long, .005, 0), new THREE.Vector3(long, .005, 0)], 0x173e58, .9));
-  group.add(makeLine([new THREE.Vector3(0, .008, -long), new THREE.Vector3(-.16, .008, -.72), new THREE.Vector3(.16, .008, -.72), new THREE.Vector3(0, .008, -long)], 0x0b86d1, 1));
-  group.add(labelObject('N', new THREE.Vector3(0, .04, -long - .18), 'compass-label'));
-  group.add(labelObject('S', new THREE.Vector3(0, .04, long + .16), 'compass-label'));
-  group.add(labelObject('W', new THREE.Vector3(-long - .18, .04, 0), 'compass-label'));
-  group.add(labelObject('E', new THREE.Vector3(long + .18, .04, 0), 'compass-label'));
-  group.scale.setScalar(short / .58);
+  const plane = new THREE.Mesh(
+    new THREE.CircleGeometry(.95, 80),
+    new THREE.MeshBasicMaterial({
+      map: createCompassTexture(),
+      transparent: true,
+      alphaTest: .02,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  plane.rotation.x = -Math.PI / 2;
+  plane.renderOrder = 12;
+  group.add(plane);
   return group;
 }
 
@@ -138,6 +208,7 @@ export class HallScene {
     this.host = host;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xdce8eb);
+    this.scene.fog = new THREE.Fog(0xe7eff1, 42, 92);
     this.currentState = null;
     this.currentBuild = null;
     this.darkMode = false;
@@ -227,16 +298,22 @@ export class HallScene {
     this.groundRoot.clear();
     this.sceneryRoot.clear();
 
-    const size = Math.max(state.length + 40, state.width + 40, 58);
+    const sceneSpan = Math.max(state.length, state.width);
+    const fogNear = Math.max(32, sceneSpan * 1.18);
+    const fogFar = Math.max(72, sceneSpan * 2.55 + 18);
+    this.scene.fog.near = fogNear;
+    this.scene.fog.far = fogFar;
+    const size = Math.max(420, fogFar * 2.4);
     this.groundMaterial = new THREE.MeshStandardMaterial({ color: 0xcfd9d3, roughness: .95, metalness: 0 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), this.groundMaterial);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -.31;
+    ground.position.y = 0;
     ground.receiveShadow = true;
     this.groundRoot.add(ground);
 
-    const grid = new THREE.GridHelper(size, Math.max(18, Math.round(size / 2)), 0x9cadb1, 0xb9c5c4);
-    grid.position.y = -.218;
+    const gridSize = Math.max(80, fogFar * 1.65);
+    const grid = new THREE.GridHelper(gridSize, Math.max(24, Math.round(gridSize / 2.4)), 0x9cadb1, 0xb9c5c4);
+    grid.position.y = .006;
     grid.material.transparent = true;
     grid.material.opacity = .20;
     this.groundRoot.add(grid);
@@ -251,7 +328,7 @@ export class HallScene {
     const houseX = -halfW - 10.5;
     const houseZ = -halfL - 8.5;
     const house = fitAssetToBox(makeHouseFallback(), new THREE.Vector3(9.8, 6.15, 4.9));
-    house.position.set(houseX, 0, houseZ);
+    house.position.add(new THREE.Vector3(houseX, .008, houseZ));
     house.rotation.y = THREE.MathUtils.degToRad(28);
     house.name = 'scale-reference-house';
     house.traverse((child) => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
@@ -276,7 +353,7 @@ export class HallScene {
 
     treeSpecs.forEach(([x, z, scale, rotation]) => {
       const tree = fitAssetToBox(this.cloneAsset('tree') ?? makeTreeFallback(), new THREE.Vector3(2.7 * scale, 4.7 * scale, 2.7 * scale));
-      tree.position.set(x, 0, z);
+      tree.position.add(new THREE.Vector3(x, .008, z));
       tree.rotation.y = THREE.MathUtils.degToRad(rotation);
       tree.name = 'environment-tree';
       tree.traverse((child) => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
@@ -286,10 +363,9 @@ export class HallScene {
   }
 
   updateCompass(state) {
-    const halfW = state.width / 2;
-    const halfL = state.length / 2;
+    const metrics = deriveHallMetrics(state);
     this.compassRoot.visible = Boolean(state.compassVisible);
-    this.compassRoot.position.set(halfW + 2.8, -.205, -halfL - 2.8);
+    this.compassRoot.position.set(0, metrics.ridgeElevation + 1.15, 0);
     this.compassRoot.rotation.y = THREE.MathUtils.degToRad(-state.northDirection);
   }
 
@@ -424,6 +500,7 @@ export class HallScene {
     };
     const palette = palettes[season] ?? palettes.winter;
     this.scene.background = new THREE.Color(dark ? 0x111b2a : palette.bg);
+    this.scene.fog.color.setHex(dark ? 0x172536 : palette.bg);
     if (this.groundMaterial) this.groundMaterial.color.setHex(dark ? 0x26313a : palette.ground);
     this.hemiLight.intensity = night ? .38 : (this.darkMode ? 1.1 : 2.15);
     this.sunLight.intensity = night ? .15 : (this.darkMode ? 1.25 : 2.25);
