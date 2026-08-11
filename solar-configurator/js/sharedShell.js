@@ -157,6 +157,26 @@ const pvgisMessage = document.querySelector('#pvgisMessage');
 const pvgisProxyInput = document.querySelector('#pvgisProxyInput');
 const pvgisProxyApplyButton = document.querySelector('#pvgisProxyApplyButton');
 const pvgisProxyFeedback = document.querySelector('#pvgisProxyFeedback');
+const googleSolarBlock = document.querySelector('#googleSolarBlock');
+const googleSolarStatusLabel = document.querySelector('#googleSolarStatusLabel');
+const googleSolarAccessCode = document.querySelector('#googleSolarAccessCode');
+const googleSolarUnlockButton = document.querySelector('#googleSolarUnlockButton');
+const googleSolarLockButton = document.querySelector('#googleSolarLockButton');
+const googleSolarAccessFeedback = document.querySelector('#googleSolarAccessFeedback');
+const googleSolarAnalyzeButton = document.querySelector('#googleSolarAnalyzeButton');
+const googleSolarRefreshButton = document.querySelector('#googleSolarRefreshButton');
+const googleSolarShadingToggle = document.querySelector('#googleSolarShadingToggle');
+const googleSolarImageryValue = document.querySelector('#googleSolarImageryValue');
+const googleSolarRoofAreaValue = document.querySelector('#googleSolarRoofAreaValue');
+const googleSolarMaxPanelsValue = document.querySelector('#googleSolarMaxPanelsValue');
+const googleSolarSunshineValue = document.querySelector('#googleSolarSunshineValue');
+const googleSolarSegmentsValue = document.querySelector('#googleSolarSegmentsValue');
+const googleSolarLayoutValue = document.querySelector('#googleSolarLayoutValue');
+const googleSolarShadePanelsValue = document.querySelector('#googleSolarShadePanelsValue');
+const googleSolarLossValue = document.querySelector('#googleSolarLossValue');
+const googleSolarMessage = document.querySelector('#googleSolarMessage');
+const googleSolarCacheValue = document.querySelector('#googleSolarCacheValue');
+const googleSolarProxyMessage = document.querySelector('#googleSolarProxyMessage');
 let relocatedToolsToolbar = null;
 let toolsPositionFrame = 0;
 let lastToolsState = null;
@@ -180,6 +200,17 @@ function formatLocalDistance(meters, units = 'metric', digits = 1) {
   const value = Number(meters) || 0;
   if (units === 'imperial') return `${(value * 3.28084).toFixed(digits)} ft`;
   return `${value.toFixed(digits)} m`;
+}
+
+function formatGoogleDate(date) {
+  if (!date || !Number(date.year)) return '—';
+  return `${String(date.year).padStart(4, '0')}-${String(date.month || 1).padStart(2, '0')}-${String(date.day || 1).padStart(2, '0')}`;
+}
+
+function formatGoogleArea(areaM2, units = 'metric') {
+  const value = Number(areaM2);
+  if (!Number.isFinite(value) || value <= 0) return '—';
+  return units === 'imperial' ? `${Math.round(value * 10.7639)} ft²` : `${Math.round(value)} m²`;
 }
 
 function formatLocalPosition(eastM, northM, units = 'metric') {
@@ -422,6 +453,99 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   pvgisBlock?.classList.toggle('is-loading', detail.pvgisStatus === 'loading');
   pvgisBlock?.classList.toggle('is-error', detail.pvgisStatus === 'fallback' || detail.pvgisStatus === 'unconfigured');
 
+  const googleUnlocked = detail.googleSolarAccessStatus === 'unlocked';
+  const googleLoading = detail.googleSolarStatus === 'loading';
+  const googleProxyReady = detail.googleSolarProxyStatus === 'ready';
+  const googleStatus = !googleProxyReady
+    ? (detail.googleSolarProxyStatus === 'testing' ? 'loading' : detail.googleSolarProxyStatus === 'setup' ? 'setup' : detail.googleSolarProxyStatus === 'error' ? 'error' : 'locked')
+    : detail.googleSolarAccessStatus === 'unlocking'
+      ? 'unlocking'
+      : !googleUnlocked
+        ? 'locked'
+        : detail.googleSolarStatus || 'inactive';
+  const googleLabels = {
+    locked: 'Locked',
+    unlocking: 'Unlocking…',
+    setup: 'Netlify setup needed',
+    loading: 'Analyzing…',
+    ready: 'Detailed site ready',
+    stale: 'Analysis stale',
+    error: 'Analysis unavailable',
+    inactive: 'Ready to analyze',
+    unavailable: 'Exact location needed',
+  };
+  if (googleSolarStatusLabel) {
+    googleSolarStatusLabel.textContent = googleLabels[googleStatus] || 'Google Solar';
+    googleSolarStatusLabel.dataset.status = googleStatus;
+  }
+  if (googleSolarAccessCode) {
+    googleSolarAccessCode.disabled = googleUnlocked || detail.googleSolarAccessStatus === 'unlocking' || !googleProxyReady;
+    if (googleUnlocked && document.activeElement !== googleSolarAccessCode) googleSolarAccessCode.value = '';
+  }
+  if (googleSolarUnlockButton) {
+    googleSolarUnlockButton.disabled = googleUnlocked || detail.googleSolarAccessStatus === 'unlocking' || !googleProxyReady;
+    googleSolarUnlockButton.textContent = detail.googleSolarAccessStatus === 'unlocking'
+      ? 'Unlocking…'
+      : googleUnlocked
+        ? 'Unlocked ✓'
+        : 'Unlock Google Solar';
+  }
+  if (googleSolarLockButton) googleSolarLockButton.hidden = !googleUnlocked;
+  if (googleSolarAccessFeedback) {
+    googleSolarAccessFeedback.textContent = detail.googleSolarAccessMessage || '';
+    googleSolarAccessFeedback.dataset.status = detail.googleSolarAccessStatus === 'unlocked'
+      ? 'unlocked'
+      : detail.googleSolarAccessStatus === 'unlocking'
+        ? 'unlocking'
+        : (String(detail.googleSolarAccessMessage || '').toLowerCase().includes('incorrect') ? 'error' : 'locked');
+  }
+  if (googleSolarAnalyzeButton) {
+    googleSolarAnalyzeButton.disabled = !googleUnlocked || !googleProxyReady || !exactLocation || googleLoading;
+    googleSolarAnalyzeButton.textContent = googleLoading ? 'Analyzing site…' : 'Analyze selected property';
+  }
+  if (googleSolarRefreshButton) {
+    googleSolarRefreshButton.disabled = !googleUnlocked || !googleProxyReady || !exactLocation || googleLoading;
+    googleSolarRefreshButton.textContent = googleLoading ? 'Please wait…' : 'Re-check cached data';
+  }
+  if (googleSolarShadingToggle) {
+    googleSolarShadingToggle.checked = detail.googleSolarShadingEnabled !== false;
+    googleSolarShadingToggle.disabled = !Number(detail.googleSolarShadePanelCount) || googleLoading;
+  }
+  if (googleSolarImageryValue) {
+    const quality = detail.googleSolarImageryQuality || '—';
+    const imageryDate = formatGoogleDate(detail.googleSolarImageryDate);
+    googleSolarImageryValue.textContent = quality === '—' ? '—' : `${quality} · ${imageryDate}`;
+  }
+  if (googleSolarRoofAreaValue) googleSolarRoofAreaValue.textContent = formatGoogleArea(detail.googleSolarRoofAreaM2, detail.units);
+  if (googleSolarMaxPanelsValue) googleSolarMaxPanelsValue.textContent = Number(detail.googleSolarMaxPanels) > 0 ? String(detail.googleSolarMaxPanels) : '—';
+  if (googleSolarSunshineValue) googleSolarSunshineValue.textContent = Number(detail.googleSolarMaxSunshineHours) > 0 ? `${Math.round(detail.googleSolarMaxSunshineHours)} h/y` : '—';
+  if (googleSolarSegmentsValue) googleSolarSegmentsValue.textContent = Number(detail.googleSolarRoofSegmentCount) > 0 ? String(detail.googleSolarRoofSegmentCount) : '—';
+  if (googleSolarLayoutValue) {
+    googleSolarLayoutValue.textContent = Number(detail.googleSolarClosestConfigPanels) > 0
+      ? `${detail.googleSolarClosestConfigPanels} panels · ${Math.round(Number(detail.googleSolarClosestConfigKWh) || 0).toLocaleString('en-US')} kWh DC/y`
+      : '—';
+  }
+  if (googleSolarShadePanelsValue) googleSolarShadePanelsValue.textContent = Number(detail.googleSolarShadePanelCount) > 0 ? String(detail.googleSolarShadePanelCount) : '—';
+  if (googleSolarLossValue) {
+    googleSolarLossValue.textContent = Number(detail.googleSolarShadePanelCount) > 0 && detail.googleSolarShadingEnabled !== false
+      ? `${Number(detail.googleSolarAnnualLossPct || 0).toFixed(1)}%`
+      : '—';
+  }
+  if (googleSolarMessage) googleSolarMessage.textContent = detail.googleSolarMessage || '';
+  if (googleSolarProxyMessage) googleSolarProxyMessage.textContent = detail.googleSolarProxyMessage || '';
+  if (googleSolarCacheValue) {
+    const cache = detail.googleSolarCacheInfo || {};
+    if (cache.browserCached) googleSolarCacheValue.textContent = 'Browser cache · no proxy work';
+    else if (Number(detail.googleSolarShadePanelCount) > 0) {
+      const googleCalls = Number(cache.upstreamBillableRequests || 0);
+      const tiffs = Number(cache.hourlyShadeTiffsCached || 0);
+      googleSolarCacheValue.textContent = googleCalls
+        ? `${googleCalls} Google request${googleCalls === 1 ? '' : 's'} · ${tiffs}/12 shade TIFFs reused`
+        : `Netlify cache · ${tiffs || 12}/12 shade TIFFs reused`;
+    } else googleSolarCacheValue.textContent = '—';
+  }
+  googleSolarBlock?.classList.toggle('is-loading', googleLoading);
+
   const season = getSeasonForDate(detail.simulationDate);
   document.querySelectorAll('[data-season-preset]').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.seasonPreset === season));
@@ -507,6 +631,29 @@ const applyPvgisProxy = async () => {
 };
 pvgisProxyApplyButton?.addEventListener('click', applyPvgisProxy);
 pvgisProxyInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); applyPvgisProxy(); } });
+
+const unlockGoogleSolarAccess = async () => {
+  const code = String(googleSolarAccessCode?.value || '');
+  if (!code) {
+    if (googleSolarAccessFeedback) {
+      googleSolarAccessFeedback.textContent = 'Enter the demo access code first.';
+      googleSolarAccessFeedback.dataset.status = 'error';
+    }
+    return;
+  }
+  await getApi()?.unlockGoogleSolar?.(code);
+};
+googleSolarUnlockButton?.addEventListener('click', unlockGoogleSolarAccess);
+googleSolarAccessCode?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') { event.preventDefault(); unlockGoogleSolarAccess(); }
+});
+googleSolarLockButton?.addEventListener('click', () => getApi()?.lockGoogleSolar?.());
+googleSolarAnalyzeButton?.addEventListener('click', () => getApi()?.refreshGoogleSolar?.(false));
+googleSolarRefreshButton?.addEventListener('click', () => getApi()?.refreshGoogleSolar?.(true));
+googleSolarShadingToggle?.addEventListener('change', () => {
+  getApi()?.setGoogleSolarShadingEnabled?.(googleSolarShadingToggle.checked);
+  shell.markDirty();
+});
 
 // Exact-location picker remains intentionally bounded to Romania for now,
 // matching the existing production model and Europe/Bucharest time zone.
