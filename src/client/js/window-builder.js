@@ -18,7 +18,9 @@ import {
     getFrameDividerSocketInset,
     getFrameSidePlacements,
     getLinearDividerLayout,
+    getEditableWindowTopologyGeometry,
 } from './window-layout-geometry.js';
+import { getDividerConnectionVariantKey } from './window-layout-state.js';
 
 const S = 0.001;
 
@@ -67,6 +69,7 @@ export function createWindowBuilder({
     let isExploded = (isARMode && pageParams.get('explode') === '1') || document.getElementById('cExplode').checked;
     let explodeProgress = 0;
     let explodableObjects = [];
+    let editableTopologyGeometry = null;
 
     function registerExplode(obj, dx, dy, dz) {
         obj.userData.basePos = obj.position.clone();
@@ -1342,10 +1345,24 @@ export function createWindowBuilder({
         });
         const activeDividerProfiles = activeProfiles.filter(profile => profile.role === 'divider');
         const layoutState = getWindowLayoutState();
-        const isTopFixedBottomSashSash = layoutState.layoutId === 'top-fixed-bottom-sash-sash'
-            || layoutState.layoutKind === 't-grid';
+        const isEditableTopology = layoutState.isDynamicWindowState === true;
+        editableTopologyGeometry = isEditableTopology
+            ? getEditableWindowTopologyGeometry({
+                width: A,
+                height: B,
+                topology: layoutState.topology,
+            })
+            : null;
+        const isTopFixedBottomSashSash = !isEditableTopology && (
+            layoutState.layoutId === 'top-fixed-bottom-sash-sash'
+            || layoutState.layoutKind === 't-grid'
+        );
         const dividerOrientation = activeDividerProfiles.length
-            ? layoutState.dividerOrientation
+            ? (
+                isEditableTopology
+                    ? (editableTopologyGeometry?.dividerSegments?.length ? 'grid' : null)
+                    : layoutState.dividerOrientation
+            )
             : null;
         const dividerBounds = getDividerSourceBounds(activeDividerProfiles);
         const dividerFaceSpan = Math.min(
@@ -1404,7 +1421,19 @@ export function createWindowBuilder({
         let dividerSeats = [];
         let tLayoutGeometry = null;
 
-        if (isTopFixedBottomSashSash && dividerOrientation) {
+        if (isEditableTopology) {
+            const editableCells = (editableTopologyGeometry?.cells || []).map((cell, index) => ({
+                ...cell,
+                cellIndex: index,
+                fixedAccessoryWidth: cell.width,
+                fixedAccessoryHeight: cell.height,
+                fixedAccessoryCenterX: cell.centerX,
+                fixedAccessoryCenterY: cell.centerY,
+            }));
+            openingCells = editableCells.filter(cell => cell.cellType === 'opening-sash');
+            fixedCells.push(...editableCells.filter(cell => cell.cellType === 'fixed-glazing'));
+            openingCell = openingCells[0] || null;
+        } else if (isTopFixedBottomSashSash && dividerOrientation) {
             const halfDividerFace = dividerFaceSpan / 2;
             const fixedBoundaryMm = currentMetadata.fixedGlazingConnections
                 ?.dividerCellBoundariesMm || {};
@@ -1685,6 +1714,10 @@ export function createWindowBuilder({
         }
 
         function getOuterFramePlacements(side) {
+            if (isEditableTopology) {
+                return (editableTopologyGeometry?.framePlacements || [])
+                    .filter(placement => placement.side === side);
+            }
             if (!isTopFixedBottomSashSash || !tLayoutGeometry) {
                 return dividerOrientation
                     ? getFrameSidePlacements({
@@ -1784,7 +1817,7 @@ export function createWindowBuilder({
                             profile.explodeOffset,
                             placement.originX,
                             placement.originY,
-                            placement.jointEnd === 'divider'
+                            (placement.jointEnd === 'divider' && group === 'frame')
                                 ? {
                                     localJointEnd: placement.localJointEnd,
                                     localJointEnds: placement.localJointEnds,
@@ -1870,7 +1903,211 @@ export function createWindowBuilder({
                 });
             });
 
-        if (isTopFixedBottomSashSash && dividerBounds && tLayoutGeometry) {
+        function getEditableDividerVariantKey(segment) {
+            return getDividerConnectionVariantKey({
+                orientation: segment.orientation,
+                templateId: segment.templateId,
+                reversed: segment.reversed,
+            });
+        }
+
+        function getEditableDividerVariantMetadata(segment) {
+            return currentMetadata.dividerConnectionVariants?.[
+                getEditableDividerVariantKey(segment)
+            ] || null;
+        }
+
+        function getEditableProfileVariant(profile, segment) {
+            const variant = profile.dividerConnectionVariants?.[
+                getEditableDividerVariantKey(segment)
+            ];
+            return variant ? { ...profile, ...variant } : profile;
+        }
+
+        function getEditableJunctionForEndpoint(segment, atStart) {
+            return (editableTopologyGeometry?.junctions || []).find(junction =>
+                junction.endpoints.some(endpoint =>
+                    endpoint.dividerId === segment.id && endpoint.atStart === atStart
+                )
+            ) || null;
+        }
+
+        function getEditableDividerSegmentPlacement(segment) {
+            let length = Math.max(0, Number(segment.length) || 0);
+            let longitudinalOffset = Number(segment.longitudinalOffset) || 0;
+            const joint = {
+                negativeEndMode: 'arrow',
+                positiveEndMode: 'arrow',
+                negativeFrameInwardSpan: frameJointInwardSpan,
+                positiveFrameInwardSpan: frameJointInwardSpan,
+            };
+            const halfFace = Math.max(0, dividerFaceSpan) / 2;
+
+            [true, false].forEach(atStart => {
+                const junction = getEditableJunctionForEndpoint(segment, atStart);
+                if (!junction) return;
+                const endModeKey = atStart ? 'negativeEndMode' : 'positiveEndMode';
+                const frameSpanKey = atStart
+                    ? 'negativeFrameInwardSpan'
+                    : 'positiveFrameInwardSpan';
+
+                if (segment.orientation === junction.hostOrientation) {
+                    // The two collinear host pieces meet each other on one half
+                    // of the section and open a 90-degree socket on the other,
+                    // matching the previously verified top-T joint.
+                    joint[endModeKey] = 'socket';
+                    joint[frameSpanKey] = dividerFaceSpan;
+                    joint.socketInwardSign = 1;
+                    joint.socketInwardOffset = halfFace;
+                    return;
+                }
+
+                // A branch divider needs a nominal extra half-face beyond the
+                // host centre plane so the arrow deformation lands its apex on
+                // the host centre and its shoulders on the socket faces.
+                joint[endModeKey] = 'arrow';
+                joint[frameSpanKey] = dividerFaceSpan;
+                length += halfFace;
+                longitudinalOffset += atStart ? -halfFace / 2 : halfFace / 2;
+            });
+
+            return {
+                length,
+                longitudinalOffset,
+                joint,
+            };
+        }
+
+        if (isEditableTopology && dividerBounds) {
+            const editableSegments = editableTopologyGeometry?.dividerSegments || [];
+            const placeEditableDividerMesh = (mesh, segment, kind) => {
+                mesh.userData.dynamicDivider = true;
+                mesh.userData.dynamicDividerKind = kind;
+                mesh.userData.dividerSegmentId = segment.id;
+                mesh.userData.dividerConnectionTemplateId = segment.templateId;
+                mesh.userData.dividerConnectionReversed = Boolean(segment.reversed);
+                dividerGroup.add(mesh);
+            };
+
+            editableSegments.forEach(segment => {
+                const variantMetadata = getEditableDividerVariantMetadata(segment);
+                const connectionMetadata = variantMetadata?.dividerConnection || {};
+                const depthOffset = (
+                    Number(connectionMetadata.depthCenterFromAssemblyCenterMm) || 0
+                ) * S;
+                const faceDirection = segment.orientation === 'horizontal' ? -1 : 1;
+                const segmentPlacement = getEditableDividerSegmentPlacement(segment);
+
+                activeDividerProfiles.forEach(profile => {
+                    const placedProfile = {
+                        ...getEditableProfileVariant(profile, segment),
+                        dividerSectionRotationDeg:
+                            Number(connectionMetadata.sectionRotationDeg)
+                            || Number(getEditableProfileVariant(profile, segment).dividerSectionRotationDeg)
+                            || 180,
+                    };
+                    if (segmentPlacement.length <= 1e-6) return;
+                    placeEditableDividerMesh(
+                        createDividerSegment(
+                            placedProfile,
+                            segmentPlacement.length,
+                            segment.orientation,
+                            dividerBounds,
+                            depthOffset,
+                            frameJointInwardSpan,
+                            segment.perpendicularOffset,
+                            segmentPlacement.longitudinalOffset,
+                            faceDirection,
+                            segmentPlacement.joint
+                        ),
+                        segment,
+                        'structural'
+                    );
+                });
+
+                activeProfiles
+                    .forEach(profile => {
+                        const variantProfile = getEditableProfileVariant(profile, segment);
+                        const connectionTransforms = Object.entries(
+                            variantProfile.mullionConnectionCadTransforms || {}
+                        );
+                        if (
+                            !connectionTransforms.length
+                            && variantProfile.mullionConnectionCadTransform
+                        ) {
+                            connectionTransforms.push([
+                                variantProfile.mullionConnectionCellSide || 'unknown',
+                                variantProfile.mullionConnectionCadTransform,
+                            ]);
+                        }
+
+                        connectionTransforms.forEach(([cellSide, cadTransform]) => {
+                            if (!cadTransform) return;
+                            const placedProfile = {
+                                ...variantProfile,
+                                cadCoordinateTransform: cadTransform,
+                                cadAlignmentShiftXMm: 0,
+                                cadAlignmentShiftYMm: 0,
+                                dividerSectionRotationDeg:
+                                    Number(connectionMetadata.sectionRotationDeg)
+                                    || Number(variantProfile.dividerSectionRotationDeg)
+                                    || 180,
+                            };
+                            const mesh = createDividerSegment(
+                                placedProfile,
+                                segmentPlacement.length,
+                                segment.orientation,
+                                dividerBounds,
+                                depthOffset,
+                                frameJointInwardSpan,
+                                segment.perpendicularOffset,
+                                segmentPlacement.longitudinalOffset,
+                                faceDirection,
+                                segmentPlacement.joint
+                            );
+                            mesh.userData.mullionConnectionGasket = true;
+                            mesh.userData.connectionBoundary = `mullion-${cellSide}`;
+                            mesh.userData.connectionProfileId =
+                                variantProfile.mullionConnectionProfileId || null;
+                            placeEditableDividerMesh(mesh, segment, 'connection-gasket');
+                        });
+
+                        Object.entries(variantProfile.mullionAccessoryCadTransforms || {})
+                            .forEach(([cellSide, cadTransform]) => {
+                                if (!cadTransform) return;
+                                const placedProfile = {
+                                    ...variantProfile,
+                                    cadCoordinateTransform: cadTransform,
+                                    cadAlignmentShiftXMm: 0,
+                                    cadAlignmentShiftYMm: 0,
+                                    dividerSectionRotationDeg:
+                                        Number(connectionMetadata.sectionRotationDeg)
+                                        || Number(variantProfile.dividerSectionRotationDeg)
+                                        || 180,
+                                };
+                                const mesh = createDividerSegment(
+                                    placedProfile,
+                                    segmentPlacement.length,
+                                    segment.orientation,
+                                    dividerBounds,
+                                    depthOffset,
+                                    frameJointInwardSpan,
+                                    segment.perpendicularOffset,
+                                    segmentPlacement.longitudinalOffset,
+                                    faceDirection,
+                                    segmentPlacement.joint
+                                );
+                                mesh.userData.mullionAccessory = true;
+                                mesh.userData.connectionBoundary = `mullion-${cellSide}`;
+                                mesh.userData.connectionProfileId =
+                                    variantProfile.mullionAccessoryProfileId || null;
+                                mesh.userData.accessoryHostProfileId =
+                                    variantProfile.mullionAccessoryHostProfileId || null;
+                                placeEditableDividerMesh(mesh, segment, 'accessory');
+                            });
+                    });
+            });
+        } else if (isTopFixedBottomSashSash && dividerBounds && tLayoutGeometry) {
             const verticalDividerConnection = currentMetadata.tLayoutVerticalDividerConnection || {};
             const verticalDividerDepthOffset = (
                 Number(verticalDividerConnection.depthCenterFromAssemblyCenterMm) || 0
@@ -1993,8 +2230,7 @@ export function createWindowBuilder({
 
             activeProfiles
                 .filter(profile =>
-                    profile.section !== 'bottom'
-                    && (isFixedGlassAnchorGasket(profile) || isFrameToSashRebateGasket(profile))
+                    (isFixedGlassAnchorGasket(profile) || isFrameToSashRebateGasket(profile))
                 )
                 .forEach(profile => {
                     // Mixed fixed/transom/sash direct INSERTs for the horizontal run.
@@ -2231,8 +2467,7 @@ export function createWindowBuilder({
             if (dividerOrientation) {
                 activeProfiles
                     .filter(profile =>
-                        profile.section !== 'bottom'
-                        && (
+                        (
                             profile.mullionConnectionCadTransform
                             || Object.keys(profile.mullionConnectionCadTransforms || {}).length
                         )
@@ -2286,13 +2521,12 @@ export function createWindowBuilder({
         // Optional accessory INSERTs authored in the active mullion join use
         // the same longitudinal divider extrusion/joint as the structural
         // profile. Their cross-sectional location comes only from CAD.
-        if (dividerOrientation && dividerBounds && !isTopFixedBottomSashSash) {
+        if (!isEditableTopology && dividerOrientation && dividerBounds && !isTopFixedBottomSashSash) {
             const dividerLength = dividerOrientation === 'vertical' ? B : A;
             const activeDividerPositions = dividerPositions.length ? dividerPositions : [0];
             activeProfiles
                 .filter(profile =>
-                    profile.section !== 'bottom'
-                    && Object.keys(profile.mullionAccessoryCadTransforms || {}).length
+                    Object.keys(profile.mullionAccessoryCadTransforms || {}).length
                 )
                 .forEach(profile => {
                     Object.entries(profile.mullionAccessoryCadTransforms || {})
@@ -2338,7 +2572,7 @@ export function createWindowBuilder({
         // Place the frame-role 245472_s_5 from the exact INSERT in
         // window-mullion-sash-window.dwg, using the opening cell boundary as
         // the local side on which createMiteredSide() operates.
-        if (dividerOrientation && openingCell && !isTopFixedBottomSashSash) {
+        if (!isEditableTopology && dividerOrientation && openingCell && !isTopFixedBottomSashSash) {
             activeProfiles
                 .filter(profile =>
                     isFrameToSashRebateGasket(profile)
@@ -2460,6 +2694,128 @@ export function createWindowBuilder({
             };
         }
 
+        function getEditableFixedBoundarySegments(fixedCell, side) {
+            const matching = (editableTopologyGeometry?.dividerSegments || []).filter(segment => {
+                if (side === 'left') {
+                    return segment.orientation === 'vertical'
+                        && segment.positiveCellId === fixedCell.id;
+                }
+                if (side === 'right') {
+                    return segment.orientation === 'vertical'
+                        && segment.negativeCellId === fixedCell.id;
+                }
+                if (side === 'bottom') {
+                    return segment.orientation === 'horizontal'
+                        && segment.positiveCellId === fixedCell.id;
+                }
+                return segment.orientation === 'horizontal'
+                    && segment.negativeCellId === fixedCell.id;
+            });
+            return matching;
+        }
+
+        function renderEditableFixedGlazingAccessory(profile, fixedCell, side) {
+            const halfDivider = dividerFaceSpan / 2;
+            let sx = fixedCell.width;
+            let sy = fixedCell.height;
+            let cx = fixedCell.centerX;
+            let cy = fixedCell.centerY;
+
+            if (fixedCell.topologyEdges?.bottom) {
+                sy -= halfDivider;
+                cy += halfDivider / 2;
+            }
+            if (fixedCell.topologyEdges?.top) {
+                sy -= halfDivider;
+                cy -= halfDivider / 2;
+            }
+            if (fixedCell.topologyEdges?.left) {
+                sx -= halfDivider;
+                cx += halfDivider / 2;
+            }
+            if (fixedCell.topologyEdges?.right) {
+                sx -= halfDivider;
+                cx -= halfDivider / 2;
+            }
+
+            const dividerSegmentsForSide = getEditableFixedBoundarySegments(fixedCell, side);
+            if (!dividerSegmentsForSide.length) {
+                let transform = applyFixedGlazingFollowerThicknessShift(
+                    profile,
+                    profile.fixedGlazingFrameCadTransform || null
+                );
+                if (!transform && isFixedGlassAnchorGasket(profile)) return;
+                const placedProfile = transform
+                    ? {
+                        ...profile,
+                        cadCoordinateTransform: transform,
+                        cadAlignmentShiftXMm: 0,
+                        cadAlignmentShiftYMm: 0,
+                    }
+                    : profile;
+                const mesh = createMiteredSide(
+                    placedProfile,
+                    sx,
+                    sy,
+                    side,
+                    profile.explodeOffset,
+                    cx,
+                    cy
+                );
+                mesh.userData.windowCell = fixedCell.id;
+                mesh.userData.fixedGlazingAccessory = true;
+                mesh.userData.fixedGlazingBead = getProfileGroup(profile) === 'bead';
+                mesh.userData.fixedGlazingConnectionBoundary = 'outer-frame';
+                frameGroup.add(mesh);
+                return;
+            }
+
+            dividerSegmentsForSide.forEach(segment => {
+                const variantProfile = getEditableProfileVariant(profile, segment);
+                const dividerSide = segment.negativeCellId === fixedCell.id ? 'left' : 'right';
+                const mountedTransforms = variantProfile.mullionConnectionCadTransforms || {};
+                if (
+                    mountedTransforms[dividerSide]
+                    || (
+                        variantProfile.mullionConnectionCadTransform
+                        && variantProfile.mullionConnectionCellSide === dividerSide
+                    )
+                ) {
+                    // The direct 224063/245472 join INSERT has already been
+                    // emitted with the divider segment; do not duplicate it as
+                    // a perimeter component.
+                    return;
+                }
+
+                let transform = variantProfile.fixedGlazingDividerCadTransforms?.[dividerSide] || null;
+                transform = applyFixedGlazingFollowerThicknessShift(variantProfile, transform);
+                if (!transform && isFixedGlassAnchorGasket(profile)) return;
+                const placedProfile = transform
+                    ? {
+                        ...variantProfile,
+                        cadCoordinateTransform: transform,
+                        cadAlignmentShiftXMm: 0,
+                        cadAlignmentShiftYMm: 0,
+                    }
+                    : variantProfile;
+                const mesh = createMiteredSide(
+                    placedProfile,
+                    sx,
+                    sy,
+                    side,
+                    profile.explodeOffset,
+                    cx,
+                    cy
+                );
+                mesh.userData.windowCell = fixedCell.id;
+                mesh.userData.fixedGlazingAccessory = true;
+                mesh.userData.fixedGlazingBead = getProfileGroup(profile) === 'bead';
+                mesh.userData.fixedGlazingConnectionBoundary =
+                    `divider-${segment.id}-${dividerSide}`;
+                frameGroup.add(mesh);
+            });
+        }
+
         if (fixedCells.length) {
             activeProfiles
                 .filter(profile => {
@@ -2470,6 +2826,10 @@ export function createWindowBuilder({
                     fixedCells.forEach(fixedCell => {
                         sides.forEach(side => {
                             if (!shouldPlaceProfileOnSide(profile, side)) return;
+                            if (isEditableTopology) {
+                                renderEditableFixedGlazingAccessory(profile, fixedCell, side);
+                                return;
+                            }
 
                             const placement = getFixedGlazingAccessoryPlacement(
                                 profile,
@@ -2878,5 +3238,6 @@ export function createWindowBuilder({
         setProfileData,
         setExploded,
         getIsExploded,
+        getEditableTopologyGeometry: () => editableTopologyGeometry,
     };
 }

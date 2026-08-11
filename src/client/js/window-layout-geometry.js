@@ -495,3 +495,185 @@ export function getTopFixedBottomSashSashLayout({
         openingCells: Object.freeze([leftOpening, rightOpening]),
     });
 }
+
+function gridToWorldX(col, minCol, totalWidth, cellWidth) {
+    return -totalWidth / 2 + (finiteNumber(col) - minCol) * finiteNumber(cellWidth);
+}
+
+function gridToWorldY(row, minRow, totalHeight, cellHeight) {
+    return -totalHeight / 2 + (finiteNumber(row) - minRow) * finiteNumber(cellHeight);
+}
+
+function localJointEndForFrameSide(side, worldEnd) {
+    if (side === 'top' || side === 'left') {
+        return worldEnd === 'negative' ? 'negative' : 'positive';
+    }
+    return worldEnd === 'negative' ? 'positive' : 'negative';
+}
+
+export function getEditableWindowTopologyGeometry({
+    width,
+    height,
+    topology,
+} = {}) {
+    const normalizedWidth = Math.max(0, finiteNumber(width));
+    const normalizedHeight = Math.max(0, finiteNumber(height));
+    const windows = Array.isArray(topology?.windows) ? topology.windows : [];
+    const dividers = Array.isArray(topology?.dividers) ? topology.dividers : [];
+    const frameEdges = Array.isArray(topology?.frameEdges) ? topology.frameEdges : [];
+
+    const minCol = windows.length ? Math.min(...windows.map(c => c.rect.x0)) : 0;
+    const maxCol = windows.length ? Math.max(...windows.map(c => c.rect.x1)) : 1;
+    const minRow = windows.length ? Math.min(...windows.map(c => c.rect.y0)) : 0;
+    const maxRow = windows.length ? Math.max(...windows.map(c => c.rect.y1)) : 1;
+    const totalWidth = (maxCol - minCol) * normalizedWidth;
+    const totalHeight = (maxRow - minRow) * normalizedHeight;
+
+    const cells = windows.map(cell => {
+        const x0 = gridToWorldX(cell.rect.x0, minCol, totalWidth, normalizedWidth);
+        const x1 = gridToWorldX(cell.rect.x1, minCol, totalWidth, normalizedWidth);
+        const y0 = gridToWorldY(cell.rect.y0, minRow, totalHeight, normalizedHeight);
+        const y1 = gridToWorldY(cell.rect.y1, minRow, totalHeight, normalizedHeight);
+        return Object.freeze({
+            id: cell.id,
+            cellType: cell.type,
+            handleSide: cell.handleSide || null,
+            x0,
+            x1,
+            y0,
+            y1,
+            width: Math.max(0, x1 - x0),
+            height: Math.max(0, y1 - y0),
+            centerX: (x0 + x1) / 2,
+            centerY: (y0 + y1) / 2,
+            dividerJoinSideByBoundary: {},
+        });
+    });
+    const cellById = new Map(cells.map(cell => [cell.id, cell]));
+
+    const dividerSegments = dividers.map(divider => {
+        if (divider.orientation === 'vertical') {
+            const x = gridToWorldX(divider.coordinate, minCol, totalWidth, normalizedWidth);
+            const y0 = gridToWorldY(divider.start, minRow, totalHeight, normalizedHeight);
+            const y1 = gridToWorldY(divider.end, minRow, totalHeight, normalizedHeight);
+            return {
+                ...divider,
+                perpendicularOffset: x,
+                longitudinalOffset: (y0 + y1) / 2,
+                length: Math.max(0, y1 - y0),
+                worldStart: y0,
+                worldEnd: y1,
+            };
+        }
+        const y = gridToWorldY(divider.coordinate, minRow, totalHeight, normalizedHeight);
+        const x0 = gridToWorldX(divider.start, minCol, totalWidth, normalizedWidth);
+        const x1 = gridToWorldX(divider.end, minCol, totalWidth, normalizedWidth);
+        return {
+            ...divider,
+            perpendicularOffset: y,
+            longitudinalOffset: (x0 + x1) / 2,
+            length: Math.max(0, x1 - x0),
+            worldStart: x0,
+            worldEnd: x1,
+        };
+    });
+
+    // Record which local boundary of each cell meets each divider segment.
+    dividerSegments.forEach(divider => {
+        const negativeCell = cellById.get(divider.negativeCellId);
+        const positiveCell = cellById.get(divider.positiveCellId);
+        if (divider.orientation === 'vertical') {
+            if (negativeCell) negativeCell.dividerJoinSideByBoundary.right = 'negative';
+            if (positiveCell) positiveCell.dividerJoinSideByBoundary.left = 'positive';
+        } else {
+            if (negativeCell) negativeCell.dividerJoinSideByBoundary.top = 'negative';
+            if (positiveCell) positiveCell.dividerJoinSideByBoundary.bottom = 'positive';
+        }
+    });
+
+    const framePlacements = frameEdges.map(edge => {
+        const hasNegativeJoint = edge.side === 'top' || edge.side === 'bottom' ? edge.start > minCol : edge.start > minRow;
+        const hasPositiveJoint = edge.side === 'top' || edge.side === 'bottom' ? edge.end < maxCol : edge.end < maxRow;
+        
+        const localJointEnds = [];
+        if (hasNegativeJoint) localJointEnds.push(localJointEndForFrameSide(edge.side, 'negative'));
+        if (hasPositiveJoint) localJointEnds.push(localJointEndForFrameSide(edge.side, 'positive'));
+
+        const cell = cells.find(c => c.id === edge.cellId);
+
+        if (edge.side === 'top' || edge.side === 'bottom') {
+            const x0 = gridToWorldX(edge.start, minCol, totalWidth, normalizedWidth);
+            const x1 = gridToWorldX(edge.end, minCol, totalWidth, normalizedWidth);
+            return Object.freeze({
+                id: edge.id,
+                side: edge.side,
+                width: Math.max(0, x1 - x0),
+                height: normalizedHeight,
+                originX: (x0 + x1) / 2,
+                originY: cell.centerY,
+                windowCell: edge.cellId,
+                cellType: edge.cellType,
+                jointEnd: localJointEnds.length ? 'divider' : null,
+                localJointEnd: localJointEnds.length === 1 ? localJointEnds[0] : null,
+                localJointEnds: Object.freeze(localJointEnds),
+                addCandidate: true,
+            });
+        }
+        const y0 = gridToWorldY(edge.start, minRow, totalHeight, normalizedHeight);
+        const y1 = gridToWorldY(edge.end, minRow, totalHeight, normalizedHeight);
+        return Object.freeze({
+            id: edge.id,
+            side: edge.side,
+            width: normalizedWidth,
+            height: Math.max(0, y1 - y0),
+            originX: cell.centerX,
+            originY: (y0 + y1) / 2,
+            windowCell: edge.cellId,
+            cellType: edge.cellType,
+            jointEnd: localJointEnds.length ? 'divider' : null,
+            localJointEnd: localJointEnds.length === 1 ? localJointEnds[0] : null,
+            localJointEnds: Object.freeze(localJointEnds),
+            addCandidate: true,
+        });
+    });
+
+    const junctionMap = new Map();
+    function registerEndpoint(divider, atStart) {
+        const point = divider.orientation === 'vertical'
+            ? { x: divider.perpendicularOffset, y: atStart ? divider.worldStart : divider.worldEnd }
+            : { x: atStart ? divider.worldStart : divider.worldEnd, y: divider.perpendicularOffset };
+        const key = `${point.x.toFixed(8)}|${point.y.toFixed(8)}`;
+        const entry = junctionMap.get(key) || { key, x: point.x, y: point.y, endpoints: [] };
+        entry.endpoints.push({ dividerId: divider.id, orientation: divider.orientation, atStart });
+        junctionMap.set(key, entry);
+    }
+    dividerSegments.forEach(divider => {
+        registerEndpoint(divider, true);
+        registerEndpoint(divider, false);
+    });
+
+    const junctions = [...junctionMap.values()]
+        .filter(entry => entry.endpoints.length >= 3)
+        .map(entry => {
+            const vertical = entry.endpoints.filter(endpoint => endpoint.orientation === 'vertical');
+            const horizontal = entry.endpoints.filter(endpoint => endpoint.orientation === 'horizontal');
+            const hostOrientation = vertical.length >= 2 ? 'vertical' : 'horizontal';
+            return Object.freeze({
+                ...entry,
+                type: 'T',
+                hostOrientation,
+                branchOrientation: hostOrientation === 'vertical' ? 'horizontal' : 'vertical',
+                endpoints: Object.freeze(entry.endpoints.map(endpoint => Object.freeze(endpoint))),
+            });
+        });
+
+    return Object.freeze({
+        cells: Object.freeze(cells.map(cell => Object.freeze({
+            ...cell,
+            dividerJoinSideByBoundary: Object.freeze({ ...cell.dividerJoinSideByBoundary }),
+        }))),
+        framePlacements: Object.freeze(framePlacements),
+        dividerSegments: Object.freeze(dividerSegments.map(divider => Object.freeze(divider))),
+        junctions: Object.freeze(junctions),
+    });
+}

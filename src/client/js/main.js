@@ -20,6 +20,7 @@ import {
 } from './window-layout-controller.js';
 import { resolveLegacyProfileSelection } from './profile-compatibility.js';
 import { createProfileSelectionSignature } from './profile-composition.js';
+import { createWindowLayoutOverlay } from './window-layout-overlay.js';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -40,6 +41,7 @@ const requestedProfileSelection = {
 const requestedProfile = requestedProfileSelection.profileSetId;
 const requestedWindowLayoutSelection = getWindowLayoutRequest({
     window_layout: pageParams.get('window_layout') || pageParams.get('layout'),
+    window_state: pageParams.get('window_state') || pageParams.get('layout_state'),
     divider_profile: pageParams.get('divider_profile') || pageParams.get('mullion_profile'),
 });
 const requestedActiveParts = pageParams.has('parts')
@@ -199,6 +201,7 @@ let windowBuilder = null;
 let profileController = null;
 let profileSelectionController = null;
 let windowLayoutController = null;
+let windowLayoutOverlay = null;
 let arController = null;
 
 const componentSelection = createComponentSelection({
@@ -318,8 +321,16 @@ windowLayoutController = createWindowLayoutController({
     layoutInput: windowLayoutInput,
     dividerProfileInput,
     initialSelection: requestedWindowLayoutSelection,
-    onLayoutChange: async layoutSelection => {
+    onLayoutChange: async (layoutSelection, { reloadDivider = false, topologyOnly = false } = {}) => {
         profileSelectionController?.markCustomCadAssembly();
+        if (
+            topologyOnly
+            && !reloadDivider
+            && profileController.getCurrentMetadata()?.dividerConnectionCatalogReady
+        ) {
+            windowBuilder?.buildWindow();
+            return;
+        }
         await profileController.loadProfileSelection({
             ...profileSelectionController.getConfigurationSnapshot(),
             ...layoutSelection,
@@ -388,6 +399,22 @@ const {
     buildWindow,
     applyCurrentPoseInstantly,
 } = windowBuilder;
+
+windowLayoutOverlay = createWindowLayoutOverlay({
+    container: document.getElementById('canvas-container'),
+    camera,
+    mainGroup,
+    getWindowLayoutState: () => windowLayoutController?.getConfigurationSnapshot(),
+    getWidth: () => Number(widthInput?.value) || 1,
+    getHeight: () => Number(heightInput?.value) || 1,
+    getSelectedHandleSide: () => selectedHandleSide,
+    onAddWindow: (cellId, direction, type, handleSide) =>
+        windowLayoutController.addWindow(cellId, direction, type, { handleSide }),
+    onMergeWindows: (cellAId, cellBId, type, handleSide) =>
+        windowLayoutController.mergeWindows(cellAId, cellBId, type, { handleSide }),
+    enabled: !isARMode && !captureMode,
+    getEditableTopologyGeometry: () => windowBuilder?.getEditableTopologyGeometry?.(),
+});
 
 arController = createARController({
     appBuild: APP_BUILD,
@@ -502,6 +529,7 @@ function renderFrame(_time, xrFrame) {
         arController.updateARPlacement(xrFrame);
     } else if (!captureMode) {
         controls.update();
+        windowLayoutOverlay?.update();
     }
     renderer.render(scene, camera);
 }

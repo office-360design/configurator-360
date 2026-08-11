@@ -8,6 +8,7 @@ import {
     getFrameSidePlacements,
     getLinearDividerLayout,
     getTopFixedBottomSashSashLayout,
+    getEditableWindowTopologyGeometry,
 } from '../../src/client/js/window-layout-geometry.js';
 
 const errors = [];
@@ -577,6 +578,31 @@ assert(
     'Giving the T mullion a transom-specific top span must not change its accepted bottom-frame V joint.'
 );
 
+
+const editableGeometry = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'w1', type: 'fixed-glazing', rect: { x0: 0, y0: 0.5, x1: 1, y1: 1 } },
+            { id: 'w2', type: 'opening-sash', rect: { x0: 0, y0: 0, x1: 0.5, y1: 0.5 } },
+            { id: 'w3', type: 'opening-sash', rect: { x0: 0.5, y0: 0, x1: 1, y1: 0.5 } },
+        ],
+        frameEdges: [
+            { id: 'w1-top', cellId: 'w1', side: 'top', start: 0, end: 1, cellType: 'fixed-glazing' },
+            { id: 'w2-bottom', cellId: 'w2', side: 'bottom', start: 0, end: 0.5, cellType: 'opening-sash' },
+            { id: 'w3-bottom', cellId: 'w3', side: 'bottom', start: 0.5, end: 1, cellType: 'opening-sash' },
+        ],
+        dividers: [
+            { id: 'h1', orientation: 'horizontal', coordinate: 0.5, start: 0, end: 0.5, negativeCellId: 'w2', positiveCellId: 'w1' },
+            { id: 'h2', orientation: 'horizontal', coordinate: 0.5, start: 0.5, end: 1, negativeCellId: 'w3', positiveCellId: 'w1' },
+            { id: 'v1', orientation: 'vertical', coordinate: 0.5, start: 0, end: 0.5, negativeCellId: 'w2', positiveCellId: 'w3' },
+        ],
+    },
+});
+assert(editableGeometry.cells.length === 3, 'Editable topology must create one runtime rectangle per window cell.');
+assert(editableGeometry.dividerSegments.length === 3, 'Editable T topology must preserve the two host segments plus the branch divider.');
+assert(editableGeometry.junctions.length === 1 && editableGeometry.junctions[0].hostOrientation === 'horizontal', 'Editable T topology must detect the host transom and branch mullion junction.');
 if (errors.length) {
     console.error('Window layout geometry validation failed:');
     errors.forEach(error => console.error(`- ${error}`));

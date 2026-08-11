@@ -27,29 +27,16 @@ function finiteNumber(value, fallback = 0) {
 }
 
 export function createProfileSelectionSignature(selection = {}) {
-    const parts = [
+    // Profile/CAD loading is independent of the editable window topology.
+    // All fixed/fixed, fixed/sash and sash/sash divider connections are cached
+    // together for the selected mullion/transom profile, so adding, merging or
+    // changing a window type must not force a profile reload.
+    return [
         selection.profileSetId || selection.profile || '',
         selection.outerFrameProfileId || '',
         selection.sashProfileId || '',
-    ];
-    if (selection.dividerProfileId || selection.dividerOrientation) {
-        parts.push(
-            selection.dividerProfileId || '',
-            selection.dividerOrientation || ''
-        );
-    }
-    if (selection.leftCell || selection.rightCell) {
-        parts.push(
-            selection.leftCell || '',
-            selection.rightCell || ''
-        );
-    }
-    // Layout IDs distinguish repeated-divider variants that intentionally use
-    // the same profile, orientation and endpoint cell semantics.
-    if (selection.layoutId || selection.windowLayout) {
-        parts.push(`layout:${selection.layoutId || selection.windowLayout}`);
-    }
-    return parts.join('|');
+        selection.dividerProfileId || '',
+    ].join('|').replace(/\|+$/, '');
 }
 
 export function resolveLegacyProfileSources(selection = {}) {

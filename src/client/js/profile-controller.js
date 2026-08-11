@@ -25,6 +25,7 @@ import {
     isStandaloneProfileGeometryRegistered,
 } from './profile-catalog.js';
 import { transformCadPoint } from './profile-coordinate-transform.js';
+import { getDividerConnectionVariantKey } from './window-layout-state.js';
 
 export function createProfileController({
     isARMode,
@@ -635,6 +636,195 @@ export function createProfileController({
         }
     }
 
+    function getDividerVariantProfileKey(profile = {}) {
+        return [
+            profile.catalogProfileId || profile.profileId || '',
+            profile.role || '',
+            profile.componentType || '',
+            profile.section || '',
+            profile.blockName || '',
+            profile.parentBlock || '',
+            profile.sourceProfileSetId || '',
+            profile.legacyIndex ?? profile.index ?? '',
+        ].join('|');
+    }
+
+    function extractDividerVariantProfileFields(profile = {}) {
+        const fields = {};
+        Object.entries(profile).forEach(([key, value]) => {
+            if (
+                key.startsWith('mullion')
+                || key.startsWith('fixedGlazing')
+                || key === 'dividerSectionRotationDeg'
+            ) {
+                fields[key] = value;
+            }
+        });
+        return Object.freeze(fields);
+    }
+
+    async function buildDividerConnectionCatalog({
+        definition,
+        normalizedSelection,
+        definitionsByProfileSetId,
+        standaloneDefinitionsByProfileId,
+        fixedGlazingFrameTemplate,
+        standaloneBeadDefinition,
+        openingSashFrameTemplate,
+    }) {
+        const dividerProfileId = normalizedSelection.dividerProfileId;
+        if (!dividerProfileId) return definition;
+
+        const fixedFixedTemplate = await loadConnectionTemplate('mullion-fixed-fixed');
+        const mixedTemplate = await loadConnectionTemplate('mullion-fixed-sash');
+        const sashSashTemplate = await loadConnectionTemplate('mullion-sash-sash');
+        const templates = new Map([
+            ['mullion-fixed-fixed', fixedFixedTemplate],
+            ['mullion-fixed-sash', mixedTemplate],
+            ['mullion-sash-sash', sashSashTemplate],
+        ]);
+        const variantSpecs = [];
+        ['vertical', 'horizontal'].forEach(orientation => {
+            variantSpecs.push(
+                {
+                    orientation,
+                    templateId: 'mullion-fixed-fixed',
+                    leftCell: 'fixed-glazing',
+                    rightCell: 'fixed-glazing',
+                    reversed: false,
+                },
+                {
+                    orientation,
+                    templateId: 'mullion-fixed-sash',
+                    leftCell: 'fixed-glazing',
+                    rightCell: 'opening-sash',
+                    reversed: false,
+                },
+                {
+                    orientation,
+                    templateId: 'mullion-fixed-sash',
+                    leftCell: 'opening-sash',
+                    rightCell: 'fixed-glazing',
+                    reversed: true,
+                },
+                {
+                    orientation,
+                    templateId: 'mullion-sash-sash',
+                    leftCell: 'opening-sash',
+                    rightCell: 'opening-sash',
+                    reversed: false,
+                }
+            );
+        });
+
+        let output = {
+            ...definition,
+            profiles: [...definition.profiles],
+            metadata: { ...definition.metadata },
+        };
+        const profileIndexByKey = new Map(
+            output.profiles.map((profile, index) => [getDividerVariantProfileKey(profile), index])
+        );
+        const metadataVariants = {};
+
+        for (const spec of variantSpecs) {
+            const connectionTemplate = templates.get(spec.templateId);
+            const placementConnectionTemplate = spec.templateId === 'mullion-fixed-fixed'
+                ? mixedTemplate
+                : connectionTemplate;
+            const variantSelection = {
+                ...normalizedSelection,
+                layoutId: 'dynamic',
+                windowLayout: 'dynamic',
+                dividerOrientation: spec.orientation,
+                primaryDividerOrientation: spec.orientation,
+                leftCell: spec.leftCell,
+                rightCell: spec.rightCell,
+                cells: [spec.leftCell, spec.rightCell],
+            };
+
+            let variantDefinition = composeRegisteredProfileDefinitions({
+                selection: variantSelection,
+                definitionsByProfileSetId,
+                standaloneDefinitionsByProfileId,
+                connectionTemplate,
+                placementConnectionTemplate,
+                fixedGlazingFrameTemplate,
+                fixedGlazingDividerTemplate: connectionTemplate,
+                fixedGlazingDividerGasketTemplate: connectionTemplate,
+                standaloneBeadDefinition,
+            });
+            variantDefinition = composeSupplementalAccessoryProfiles({
+                definition: variantDefinition,
+                definitionsByProfileSetId,
+            });
+            variantDefinition = applyFrameAccessoryConnectionPlacements({
+                definition: variantDefinition,
+                frameConnectionTemplate: openingSashFrameTemplate,
+            });
+            variantDefinition = applyDividerAccessoryConnectionPlacements({
+                definition: variantDefinition,
+                dividerConnectionTemplate: connectionTemplate,
+            });
+
+            const variantKey = getDividerConnectionVariantKey(spec);
+            metadataVariants[variantKey] = Object.freeze({
+                key: variantKey,
+                orientation: spec.orientation,
+                templateId: spec.templateId,
+                reversed: spec.reversed,
+                leftCell: spec.leftCell,
+                rightCell: spec.rightCell,
+                dividerConnection: variantDefinition.metadata?.dividerConnection || null,
+                fixedGlazingConnections: variantDefinition.metadata?.fixedGlazingConnections || null,
+                dividerOpeningSashConnections:
+                    variantDefinition.metadata?.dividerOpeningSashConnections || null,
+                dividerMountedAccessories:
+                    variantDefinition.metadata?.dividerMountedAccessories || null,
+            });
+
+            variantDefinition.profiles.forEach(variantProfile => {
+                const profileKey = getDividerVariantProfileKey(variantProfile);
+                let targetIndex = profileIndexByKey.get(profileKey);
+                if (targetIndex === undefined) {
+                    // A single-window composition does not normally append the
+                    // selected mullion profile. Keep it cached in the profile
+                    // set so the first + action can rebuild without a second
+                    // profile/CAD load.
+                    if (variantProfile.role !== 'divider') return;
+                    targetIndex = output.profiles.length;
+                    profileIndexByKey.set(profileKey, targetIndex);
+                    output.profiles.push({ ...variantProfile });
+                }
+
+                const current = output.profiles[targetIndex];
+                const variants = {
+                    ...(current.dividerConnectionVariants || {}),
+                    [variantKey]: extractDividerVariantProfileFields(variantProfile),
+                };
+                output.profiles[targetIndex] = {
+                    ...current,
+                    // Frame-fixed placement is independent of the divider
+                    // variant. Preserve it globally as soon as any catalog
+                    // variant supplies it so a sash-only starting state can
+                    // later add a fixed cell without reloading profiles.
+                    fixedGlazingFrameCadTransform:
+                        current.fixedGlazingFrameCadTransform
+                        || variantProfile.fixedGlazingFrameCadTransform
+                        || null,
+                    dividerConnectionVariants: Object.freeze(variants),
+                };
+            });
+        }
+
+        output.metadata = {
+            ...output.metadata,
+            dividerConnectionVariants: Object.freeze(metadataVariants),
+            dividerConnectionCatalogReady: true,
+        };
+        return output;
+    }
+
     async function loadProfileSelection(selection) {
         window.CONFIGURATOR_READY = false;
         if (loadingElement) {
@@ -674,9 +864,7 @@ export function createProfileController({
             const selectedBaseProfileIds = [
                 sources.outerFrameProfileId,
                 sources.sashProfileId,
-                normalizedSelection.dividerOrientation
-                    ? normalizedSelection.dividerProfileId
-                    : null,
+                normalizedSelection.dividerProfileId || null,
             ].filter(profileId =>
                 isStandaloneProfileGeometryRegistered(
                     getProfileCatalogEntry(profileId)
@@ -704,14 +892,15 @@ export function createProfileController({
             const hasOpeningSashCell = normalizedSelection.leftCell === 'opening-sash'
                 || normalizedSelection.rightCell === 'opening-sash'
                 || normalizedSelection.cells?.includes?.('opening-sash');
-            const openingSashFrameTemplate = hasOpeningSashCell
+            const needsEditableDividerCatalog = Boolean(normalizedSelection.dividerProfileId);
+            const openingSashFrameTemplate = hasOpeningSashCell || needsEditableDividerCatalog
                 ? await loadConnectionTemplate('frame-sash')
                 : null;
             const [
                 fixedGlazingFrameTemplate,
                 standaloneBeadDefinition,
                 fixedGlazingDividerTemplate,
-            ] = hasFixedGlazingCell
+            ] = hasFixedGlazingCell || needsEditableDividerCatalog
                 ? await Promise.all([
                     loadConnectionTemplate('frame-fixed'),
                     getStandaloneProfileDefinition('573940'),
@@ -893,6 +1082,16 @@ export function createProfileController({
                     }),
                 };
             }
+
+            definition = await buildDividerConnectionCatalog({
+                definition,
+                normalizedSelection,
+                definitionsByProfileSetId,
+                standaloneDefinitionsByProfileId,
+                fixedGlazingFrameTemplate,
+                standaloneBeadDefinition,
+                openingSashFrameTemplate,
+            });
 
             currentMetadata = definition.metadata;
             profilesData = definition.profiles.map((profile, index) => ({

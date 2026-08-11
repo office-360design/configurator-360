@@ -38,8 +38,8 @@ assert(
         ...selection,
         dividerProfileId: '575800',
         dividerOrientation: 'vertical',
-    }) === '2_6_Oeffnungselemnt_Vertikal|575760|575790|575800|vertical',
-    'Divider profile and orientation must participate in the profile selection signature.'
+    }) === '2_6_Oeffnungselemnt_Vertikal|575760|575790|575800',
+    'The selected divider profile must participate in the profile selection signature.'
 );
 assert(
     createProfileSelectionSignature({
@@ -48,19 +48,15 @@ assert(
         dividerOrientation: 'vertical',
         leftCell: 'fixed-glazing',
         rightCell: 'fixed-glazing',
-    }) === '2_6_Oeffnungselemnt_Vertikal|575760|575790|575800|vertical|fixed-glazing|fixed-glazing',
-    'Divider cell types must participate in the profile selection signature.'
-);
-assert(
-    createProfileSelectionSignature({
+    }) === createProfileSelectionSignature({
         ...selection,
         dividerProfileId: '575800',
-        dividerOrientation: 'vertical',
-        leftCell: 'fixed-glazing',
+        dividerOrientation: 'horizontal',
+        leftCell: 'opening-sash',
         rightCell: 'fixed-glazing',
-        layoutId: 'vertical-fixed-fixed-fixed',
-    }).endsWith('|layout:vertical-fixed-fixed-fixed'),
-    'Repeated-divider layout IDs must participate in the profile selection signature.'
+        layoutId: 'dynamic',
+    }),
+    'Window topology and cell types must not force a profile/CAD reload once the divider connection catalog is cached.'
 );
 
 const frameMetadata = {
