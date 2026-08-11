@@ -1,1 +1,1 @@
-Refine hall grounding, shared tools and environment rendering
+Fix hall envelope corners and add draggable wall openings

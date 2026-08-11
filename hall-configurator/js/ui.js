@@ -1,5 +1,6 @@
-import { buildBom, bomToCsv } from './bom.js?v=8';
-import { estimateHallPrice, formatPrice } from './pricing.js?v=8';
+import { buildBom, bomToCsv } from './bom.js?v=9';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=9';
+import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, wallLabel } from './openings.js?v=9';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
@@ -7,8 +8,6 @@ const formatters = {
   eaveHeight: (v) => `${v.toFixed(2).replace(/\.00$/, '.0')} m`,
   pitch: (v) => `${Math.round(v)}°`,
   targetBaySpacing: (v) => `${v.toFixed(2).replace(/0$/, '')} m`,
-  rollerDoorWidth: (v) => `${v.toFixed(2).replace(/0$/, '')} m`,
-  rollerDoorHeight: (v) => `${v.toFixed(2).replace(/0$/, '')} m`,
   sectionCutPosition: (v) => `${Math.round(v)}%`,
 };
 
@@ -26,6 +25,8 @@ export class HallUI {
     this.state = state;
     this.callbacks = callbacks;
     this.currentBuild = null;
+    this.selectedOpeningId = null;
+    this.placementType = null;
     this.bindAccordions();
     this.bindRanges();
     this.bindSelects();
@@ -34,6 +35,7 @@ export class HallUI {
     this.bindExplode();
     this.bindEnvironmentPanel();
     this.bindBom();
+    this.bindOpeningControls();
     this.applyStateToControls();
   }
 
@@ -63,8 +65,6 @@ export class HallUI {
         if (!Number.isFinite(parsed)) return;
         const min = Number(source?.min ?? range?.min ?? number?.min ?? -Infinity);
         let max = Number(source?.max ?? range?.max ?? number?.max ?? Infinity);
-        if (key === 'rollerDoorWidth') max = Math.min(max, Math.max(2.5, this.state.width - 1.2));
-        if (key === 'rollerDoorHeight') max = Math.min(max, Math.max(2.5, this.state.eaveHeight - .2));
         const value = Math.min(max, Math.max(min, parsed));
         this.state[key] = value;
         if (range) { range.max = String(max); range.value = String(value); }
@@ -88,20 +88,7 @@ export class HallUI {
   }
 
   ensureOpeningLimits() {
-    const widthControl = document.querySelector('[data-control="rollerDoorWidth"]');
-    const heightControl = document.querySelector('[data-control="rollerDoorHeight"]');
-    const maxWidth = Math.min(8, Math.max(2.5, this.state.width - 1.2));
-    const maxHeight = Math.min(6, Math.max(2.5, this.state.eaveHeight - .2));
-    this.state.rollerDoorWidth = Math.min(this.state.rollerDoorWidth, maxWidth);
-    this.state.rollerDoorHeight = Math.min(this.state.rollerDoorHeight, maxHeight);
-    if (widthControl) {
-      widthControl.querySelectorAll('input').forEach((input) => { input.max = String(maxWidth); input.value = String(this.state.rollerDoorWidth); });
-      const out = widthControl.querySelector('output'); if (out) out.value = formatters.rollerDoorWidth(this.state.rollerDoorWidth);
-    }
-    if (heightControl) {
-      heightControl.querySelectorAll('input').forEach((input) => { input.max = String(maxHeight); input.value = String(this.state.rollerDoorHeight); });
-      const out = heightControl.querySelector('output'); if (out) out.value = formatters.rollerDoorHeight(this.state.rollerDoorHeight);
-    }
+    normalizeOpenings(this.state);
   }
 
   bindSelects() {
@@ -140,9 +127,6 @@ export class HallUI {
     const modelToggles = {
       secondaryStructureToggle: 'secondaryStructure',
       slabToggle: 'slab',
-      rollerDoorToggle: 'rollerDoor',
-      personnelDoorToggle: 'personnelDoor',
-      windowsToggle: 'windows',
       roofSkylightsToggle: 'roofSkylights',
       guttersToggle: 'gutters',
       highBayLightingToggle: 'highBayLighting',
@@ -151,7 +135,6 @@ export class HallUI {
     Object.entries(modelToggles).forEach(([id, key]) => {
       document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
         this.state[key] = event.target.checked;
-        if (key === 'rollerDoor') this.updateDoorControls();
         this.callbacks.onModelChange?.({ fitCamera: false, immediate: true });
       });
     });
@@ -252,6 +235,7 @@ export class HallUI {
       else dialog?.removeAttribute('open');
     };
     document.querySelector('#bomOpenButton')?.addEventListener('click', () => {
+      if (!validateOpenings(this.state).valid) { this.updateSummaryValidation(); return; }
       if (!dialog) return;
       if (dialog.showModal) dialog.showModal();
       else dialog.setAttribute('open', '');
@@ -264,6 +248,7 @@ export class HallUI {
 
   exportBom() {
     if (!this.currentBuild) return;
+    if (!validateOpenings(this.state).valid) { this.updateSummaryValidation(); return; }
     const lines = buildBom(this.state, this.currentBuild);
     const blob = new Blob([`\ufeff${bomToCsv(lines)}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -276,8 +261,136 @@ export class HallUI {
     URL.revokeObjectURL(url);
   }
 
-  updateDoorControls() {
-    document.querySelector('#rollerDoorControls')?.classList.toggle('is-disabled', !this.state.rollerDoor);
+  bindOpeningControls() {
+    document.querySelectorAll('[data-add-opening]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const type = button.dataset.addOpening;
+        if (button.classList.contains('is-placement-active')) this.callbacks.onOpeningPlacementCancel?.();
+        else this.callbacks.onOpeningAdd?.(type);
+      });
+    });
+
+    const widthInput = document.querySelector('#openingWidthInput');
+    const heightInput = document.querySelector('#openingHeightInput');
+    const colorInput = document.querySelector('#openingColorInput');
+    const sideSelect = document.querySelector('#openingSideSelect');
+    const applyDimension = (key, input) => {
+      const opening = this.getSelectedOpening();
+      if (!opening) return;
+      const value = Number(input.value);
+      if (!Number.isFinite(value)) return;
+      opening[key] = value;
+      normalizeOpening(opening, this.state);
+      input.value = opening[key].toFixed(2);
+      this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
+    };
+    widthInput?.addEventListener('change', () => applyDimension('width', widthInput));
+    heightInput?.addEventListener('change', () => applyDimension('height', heightInput));
+    colorInput?.addEventListener('input', () => {
+      const opening = this.getSelectedOpening();
+      if (!opening) return;
+      opening.color = colorInput.value;
+      this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
+    });
+    sideSelect?.addEventListener('change', () => {
+      const opening = this.getSelectedOpening();
+      if (!opening) return;
+      this.callbacks.onOpeningMoveToSide?.(opening.id, sideSelect.value);
+    });
+    document.querySelector('#openingDeleteButton')?.addEventListener('click', () => {
+      if (this.selectedOpeningId) this.callbacks.onOpeningDelete?.(this.selectedOpeningId);
+    });
+    document.querySelector('#openingEditor')?.addEventListener('pointerdown', (event) => event.stopPropagation());
+  }
+
+  getSelectedOpening() {
+    return normalizeOpenings(this.state).find((opening) => opening.id === this.selectedOpeningId) ?? null;
+  }
+
+  setPlacementMode(type = null) {
+    this.placementType = type;
+    document.querySelectorAll('[data-add-opening]').forEach((button) => {
+      const active = Boolean(type) && button.dataset.addOpening === type;
+      button.classList.toggle('is-placement-active', active);
+      button.disabled = Boolean(type) && !active;
+      const label = button.querySelector('b');
+      const icon = button.querySelector('span');
+      if (label) label.textContent = active ? 'Cancel placement' : `Add ${openingType(button.dataset.addOpening).label.toLowerCase()}`;
+      if (icon) icon.textContent = active ? '×' : '＋';
+    });
+    const status = document.querySelector('#openingStatusText');
+    if (status && type) {
+      status.textContent = `Placing ${openingType(type).label.toLowerCase()}: move over any wall and click to confirm. Right-click or use Cancel placement to cancel.`;
+      status.classList.remove('is-error');
+    } else if (status && !this.selectedOpeningId) {
+      status.textContent = 'Select an opening in the model to edit it.';
+    }
+  }
+
+  setSelectedOpening(id) {
+    this.selectedOpeningId = id ?? null;
+    const editor = document.querySelector('#openingEditor');
+    const opening = this.getSelectedOpening();
+    if (!editor || !opening) {
+      if (editor) editor.hidden = true;
+      const status = document.querySelector('#openingStatusText');
+      if (status && !this.placementType) status.textContent = 'Select an opening in the model to edit it.';
+      return;
+    }
+    editor.hidden = false;
+    document.querySelector('#openingEditorTitle').textContent = openingType(opening.type).label;
+    document.querySelector('#openingEditorSide').textContent = wallLabel(opening.side);
+    const sideSelect = document.querySelector('#openingSideSelect');
+    if (sideSelect) sideSelect.value = opening.side;
+    const spec = openingType(opening.type);
+    const widthInput = document.querySelector('#openingWidthInput');
+    const heightInput = document.querySelector('#openingHeightInput');
+    if (widthInput) {
+      widthInput.min = String(spec.minWidth);
+      widthInput.max = String(Math.min(spec.maxWidth, Math.max(spec.minWidth, (opening.side === 'front' || opening.side === 'back' ? this.state.width : this.state.length) - .24)));
+      widthInput.value = opening.width.toFixed(2);
+    }
+    if (heightInput) {
+      heightInput.min = String(spec.minHeight);
+      heightInput.max = String(Math.min(spec.maxHeight, Math.max(spec.minHeight, this.state.eaveHeight - .12)));
+      heightInput.value = opening.height.toFixed(2);
+    }
+    const colorInput = document.querySelector('#openingColorInput');
+    if (colorInput) colorInput.value = opening.color;
+    this.updateOpeningValidation();
+    const status = document.querySelector('#openingStatusText');
+    if (status && !this.placementType) status.textContent = `${openingType(opening.type).label} selected · drag to move, use its borders or square handles to resize.`;
+  }
+
+  positionOpeningEditor(x, y, visible = true) {
+    const editor = document.querySelector('#openingEditor');
+    if (!editor || editor.hidden) return;
+    editor.style.visibility = visible ? 'visible' : 'hidden';
+    if (!visible) return;
+    const safeX = Math.max(130, Math.min(window.innerWidth - 130, x));
+    const safeY = Math.max(180, Math.min(window.innerHeight - 20, y));
+    editor.style.left = `${safeX}px`;
+    editor.style.top = `${safeY}px`;
+  }
+
+  updateOpeningValidation() {
+    const validation = validateOpenings(this.state);
+    const selected = this.getSelectedOpening();
+    const warning = document.querySelector('#openingEditorWarning');
+    if (warning) {
+      const related = selected ? validation.overlaps.filter(({ a, b }) => a.id === selected.id || b.id === selected.id) : [];
+      warning.hidden = related.length === 0;
+      warning.textContent = related.length ? 'This opening overlaps another opening. Move or resize it before generating the summary.' : '';
+    }
+    const status = document.querySelector('#openingStatusText');
+    if (status && !validation.valid && !this.placementType) {
+      status.classList.add('is-error');
+      status.textContent = `${validation.errors.length} opening collision${validation.errors.length === 1 ? '' : 's'} must be resolved.`;
+    } else if (status) {
+      status.classList.remove('is-error');
+      if (!this.placementType && !selected) status.textContent = 'Select an opening in the model to edit it.';
+    }
+    return validation;
   }
 
   updateSectionCutControl() {
@@ -306,9 +419,6 @@ export class HallUI {
     const checkboxMap = {
       secondaryStructureToggle: this.state.secondaryStructure,
       slabToggle: this.state.slab,
-      rollerDoorToggle: this.state.rollerDoor,
-      personnelDoorToggle: this.state.personnelDoor,
-      windowsToggle: this.state.windows,
       roofSkylightsToggle: this.state.roofSkylights,
       guttersToggle: this.state.gutters,
       highBayLightingToggle: this.state.highBayLighting,
@@ -332,7 +442,6 @@ export class HallUI {
     document.querySelectorAll('[data-scene]').forEach((button) => button.classList.toggle('is-selected', button.dataset.scene === this.state.season));
     this.setExplodeValue(this.state.explode, { notify: false });
     this.ensureOpeningLimits();
-    this.updateDoorControls();
     this.updateSectionCutControl();
     this.updateClimateNote();
   }
@@ -345,8 +454,9 @@ export class HallUI {
     const profileInfo = document.querySelector('#profileInfo');
     if (profileInfo && build.profileSchedule) profileInfo.textContent = `${build.profileSchedule.columns} columns · ${build.profileSchedule.rafters} rafters · ${build.profileSchedule.purlins} purlins`;
 
-    const lines = buildBom(this.state, build);
-    document.querySelector('#headerBomSummary').textContent = `${lines.length} lines`;
+    const openingValidation = validateOpenings(this.state);
+    const lines = openingValidation.valid ? buildBom(this.state, build) : [];
+    document.querySelector('#headerBomSummary').textContent = openingValidation.valid ? `${lines.length} lines` : 'Unavailable';
     const tbody = document.querySelector('#bomTableBody');
     tbody.replaceChildren(...lines.map((line, index) => {
       const tr = document.createElement('tr');
@@ -373,6 +483,7 @@ export class HallUI {
   }
 
   updateSummary(lines, metrics) {
+    if (!this.updateSummaryValidation()) return;
     const estimate = estimateHallPrice(this.state, this.currentBuild);
     document.querySelector('#summaryTotal').textContent = formatPrice(estimate.total, estimate.currency);
     const breakdown = document.querySelector('#summaryPriceBreakdown');
@@ -402,10 +513,31 @@ export class HallUI {
     }
   }
 
+  updateSummaryValidation() {
+    const validation = validateOpenings(this.state);
+    const error = document.querySelector('#summaryValidationError');
+    const content = document.querySelector('#summaryContent');
+    const exportInline = document.querySelector('#bomExportInlineButton');
+    const bomOpen = document.querySelector('#bomOpenButton');
+    if (error) {
+      error.hidden = validation.valid;
+      error.innerHTML = validation.valid ? '' : `<strong>Summary unavailable</strong>${validation.errors.join('<br>')} Resolve all overlapping wall openings before pricing or BOM generation.`;
+    }
+    content?.classList.toggle('is-blocked', !validation.valid);
+    if (exportInline) exportInline.disabled = !validation.valid;
+    if (bomOpen) bomOpen.disabled = !validation.valid;
+    this.updateOpeningValidation();
+    return validation.valid;
+  }
+
   captureState() { return structuredClone(this.state); }
 
   restoreState(snapshot) {
+    if (!Array.isArray(snapshot?.openings)) this.state.openings = undefined;
     Object.assign(this.state, snapshot);
+    normalizeOpenings(this.state);
+    this.selectedOpeningId = null;
+    this.setPlacementMode(null);
     this.applyStateToControls();
     this.callbacks.onModelChange?.({ fitCamera: true, immediate: true });
   }
