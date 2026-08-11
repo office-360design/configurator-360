@@ -27,7 +27,7 @@ export const configurators: Configurator[] = [
     statement: "Engineer daylight. Configure atmosphere.",
     description:
       "A spatial sales and engineering system for configurable outdoor structures—combining geometry, louver behavior, environmental simulation, accessories and live commercial logic.",
-    launchUrl: "https://aks.360configurator.com/pergola-configurator/",
+    launchUrl: "https://www.360configurator.com/pergola-configurator/",
     accent: "#58c8ff",
     controls: ["Louver 0°", "Louver 48°", "Night + LED"],
     features: [
@@ -51,7 +51,7 @@ export const configurators: Configurator[] = [
     statement: "Complex geometry. Buildable answers.",
     description:
       "A rule-driven architectural configurator that turns roof shape, dimensions and material systems into measurable geometry and production-ready outputs.",
-    launchUrl: "https://aks.360configurator.com/roof-configurator/",
+    launchUrl: "https://www.360configurator.com/roof-configurator/",
     accent: "#7da6ff",
     controls: ["Gable", "Metal", "L-shape"],
     features: [
@@ -75,7 +75,7 @@ export const configurators: Configurator[] = [
     statement: "See the engineering inside the product.",
     description:
       "A high-fidelity technical configuration environment for architectural profile systems, bicolor finishes, opening behavior and exploded assembly analysis.",
-    launchUrl: "https://aks.360configurator.com/window-configurator/",
+    launchUrl: "https://www.360configurator.com/window-configurator/",
     accent: "#0761AA",
     controls: ["Assembled", "Bicolor", "Exploded"],
     features: [
@@ -98,7 +98,7 @@ export const configurators: Configurator[] = [
     shortTitle: "Hall systems",
     statement: "Configure the envelope. Resolve the structure.",
     description: "A parametric industrial-building system that coordinates portal frames, secondary steel, cladding and access geometry in one responsive spatial model.",
-    launchUrl: "https://aks.360configurator.com/hall-configurator/",
+    launchUrl: "https://www.360configurator.com/hall-configurator/",
     accent: "#359CE7",
     controls: ["Frame spacing", "Envelope", "Exploded"],
     features: [
@@ -121,7 +121,7 @@ export const configurators: Configurator[] = [
     shortTitle: "Solar systems",
     statement: "Model the roof. Simulate the energy day.",
     description: "A location-aware photovoltaic configurator connecting roof geometry, panel fit, real solar position, household demand and battery storage in one visual energy model.",
-    launchUrl: "https://aks.360configurator.com/solar-configurator/",
+    launchUrl: "https://www.360configurator.com/solar-configurator/",
     accent: "#359CE7",
     controls: ["Location", "Solar time", "Energy model"],
     features: [
