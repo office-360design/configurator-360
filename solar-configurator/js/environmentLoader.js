@@ -1,7 +1,11 @@
 const EARTH_METERS_PER_DEG = 111320;
 const TERRAIN_ZOOM = 15;
 const DEFAULT_TERRAIN_TEMPLATE = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
-const DEFAULT_OVERPASS_ENDPOINTS = [
+const SAME_ORIGIN_OVERPASS_ENDPOINTS = [
+  '/api/solar/overpass-primary',
+  '/api/solar/overpass-secondary',
+];
+const DIRECT_OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
 ];
@@ -20,7 +24,11 @@ function configuredOverpassEndpoints() {
   const configured = window.SOLAR_OVERPASS_ENDPOINTS;
   if (Array.isArray(configured) && configured.length) return configured.map(String).filter(Boolean);
   if (typeof configured === 'string' && configured.trim()) return configured.split(',').map((item) => item.trim()).filter(Boolean);
-  return DEFAULT_OVERPASS_ENDPOINTS;
+
+  // Cloud Run/nginx exposes the first two endpoints on the same origin. Keep
+  // the direct public endpoints as a compatibility fallback for local/static
+  // deployments that do not have the reverse proxy configured yet.
+  return [...SAME_ORIGIN_OVERPASS_ENDPOINTS, ...DIRECT_OVERPASS_ENDPOINTS];
 }
 
 function terrainUrl(z, x, y) {
@@ -264,17 +272,27 @@ function createLinkedTimeoutSignal(parentSignal, timeoutMs = OVERPASS_TIMEOUT_MS
 
 async function queryOverpass(endpoint, query, signal) {
   const request = createLinkedTimeoutSignal(signal);
-  const url = `${endpoint}?data=${encodeURIComponent(query)}`;
+  const body = new URLSearchParams({ data: query });
+  const isSameOriginProxy = String(endpoint).startsWith('/');
   try {
-    const response = await fetch(url, {
-      method: 'GET',
+    const response = await fetch(endpoint, {
+      method: 'POST',
       signal: request.signal,
-      mode: 'cors',
+      mode: isSameOriginProxy ? 'same-origin' : 'cors',
       credentials: 'omit',
       cache: 'no-store',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      },
+      body,
     });
     if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
+
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('json')) {
+      throw new Error(`Overpass returned ${contentType || 'an unexpected response'} instead of JSON.`);
+    }
     return await response.json();
   } catch (error) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
