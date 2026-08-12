@@ -252,9 +252,14 @@ export function WebGLStage() {
     const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 120);
     camera.position.set(0, 1.2, 15);
     const compactViewport = window.matchMedia("(max-width: 900px)").matches;
-    const constrainedDevice = compactViewport || (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
-    const renderer = new THREE.WebGLRenderer({ antialias: !constrainedDevice, alpha: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, constrainedDevice ? 1 : 1.35));
+    const lowCoreDevice = navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4;
+    const constrainedDevice = compactViewport || lowCoreDevice;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    // Mobile screens commonly run at 3x DPR. A sub-2x cap makes thin profiles,
+    // louvres and panel edges visibly stair-step, so retain substantially more
+    // native resolution while keeping a lower ceiling for genuinely small CPUs.
+    const mobilePixelRatio = lowCoreDevice ? 2 : 2.75;
+    renderer.setPixelRatio(Math.min(devicePixelRatio, compactViewport ? mobilePixelRatio : 1.5));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.18;
@@ -329,7 +334,7 @@ export function WebGLStage() {
     scene.add(hemisphere);
     const key = new THREE.DirectionalLight(0xfff1dc, 3.15);
     key.position.set(4.5, 6.5, 7); key.castShadow = true;
-    const shadowMapSize = constrainedDevice ? 1024 : 1536;
+    const shadowMapSize = lowCoreDevice ? 1024 : 1536;
     key.shadow.mapSize.set(shadowMapSize, shadowMapSize);
     key.shadow.bias = -0.00025; key.shadow.normalBias = 0.022; key.shadow.radius = 2; scene.add(key);
     const rim = new THREE.DirectionalLight(0x6fc4ff, 1.85); rim.position.set(4, 4.5, -6); scene.add(rim);
