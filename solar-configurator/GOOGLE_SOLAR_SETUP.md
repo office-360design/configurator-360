@@ -114,3 +114,14 @@ The proxy now retries transient network/429/5xx failures and reports the exact s
 - `Google hourly-shade GeoTIFF month 4`
 
 It also reports the underlying Node network cause code/message when one exists. Check **Netlify → Logs & Metrics → Functions → google-solar** for the same detailed message.
+
+## Step A — DSM + building mask
+
+The Google Solar analysis now also consumes two additional GeoTIFF URLs returned by the same Data Layers request:
+
+- `dsmUrl` — Google Digital Surface Model, used as a detailed local surface mesh.
+- `maskUrl` — Google's rooftop/building mask, used to distinguish roof pixels and identify the mapped building that the configurable house is replacing.
+
+These GeoTIFF downloads do not create additional Data Layers billable requests. The Netlify function caches both raw TIFFs and the processed browser-friendly surface grid for up to 30 days.
+
+In the configurator, **Use Google DSM for local environment** adds the Google surface inside the analyzed radius. OSM buildings/trees that overlap the Google-covered surface are suppressed to avoid duplicate geometry. **Highlight Google rooftop mask** colors detected rooftop cells and outlines the host roof. If **Replace overlapping mapped building** is enabled, the detected host roof is flattened so the configurable Three.js house can occupy that footprint cleanly.

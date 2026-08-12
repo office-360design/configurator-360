@@ -1,5 +1,5 @@
 const TOKEN_STORAGE_KEY = '360-configurator:solar:google-solar-session';
-const ANALYSIS_CACHE_KEY = '360-configurator:solar:google-solar-analysis-v1';
+const ANALYSIS_CACHE_KEY = '360-configurator:solar:google-solar-analysis-v4';
 const ANALYSIS_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_ENDPOINT = 'https://pvgis-proxy.netlify.app/.netlify/functions/google-solar';
 

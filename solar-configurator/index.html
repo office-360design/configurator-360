@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
   <link rel="stylesheet" href="./styles.css?v=1" />
   <link rel="stylesheet" href="./shared-shell.css?v=1" />
-  <link rel="stylesheet" href="./solar.css?v=9" />
+  <link rel="stylesheet" href="./solar.css?v=11" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script type="importmap">
     {
@@ -405,11 +405,35 @@
         <div><span>Closest Google layout</span><strong id="googleSolarLayoutValue">—</strong></div>
         <div><span>Shade panels</span><strong id="googleSolarShadePanelsValue">—</strong></div>
         <div><span>Annual local loss</span><strong id="googleSolarLossValue">—</strong></div>
+        <div><span>DSM hybrid</span><strong id="googleSolarDsmValue">—</strong></div>
+        <div><span>Building mask</span><strong id="googleSolarMaskValue">—</strong></div>
+        <div><span>Reference match</span><strong id="googleSolarReferenceValue">—</strong></div>
+        <div><span>Main Google roof</span><strong id="googleSolarMainRoofValue">—</strong></div>
       </div>
 
       <label class="solar-context-master" for="googleSolarShadingToggle">
         <span><b>Use Google hourly shade for production</b><small>When detailed data is current, Google hourly shade replaces the approximate OSM obstruction model. PVGIS terrain horizon remains separate.</small></span>
         <input id="googleSolarShadingToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="solar-context-master" for="googleSolarDsmToggle">
+        <span><b>Use Google DSM to refine local environment</b><small>Keeps the smooth Mapzen ground, uses Google DSM to correct building heights, adds Google-only roof volumes, and converts raised non-roof surfaces into simplified canopy/obstruction volumes.</small></span>
+        <input id="googleSolarDsmToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="solar-context-master" for="googleSolarMaskToggle">
+        <span><b>Highlight Google rooftop mask</b><small>Shows clean rooftop footprint outlines instead of coloring the raw DSM. The detected host roof is highlighted in blue and remains a reference when the configured house replaces it.</small></span>
+        <input id="googleSolarMaskToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="solar-context-master" for="googleSolarReferenceToggle">
+        <span><b>Show Google reference building</b><small>Displays the detected host rooftop as a translucent DSM reference and marks Building Insights roof-segment directions. This is a comparison overlay only and does not change the configured roof.</small></span>
+        <input id="googleSolarReferenceToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="solar-context-master solar-debug-toggle" for="googleSolarRawDsmToggle">
+        <span><b>Show raw Google DSM (debug)</b><small>Optional diagnostic overlay only. The raw triangulated surface is intentionally hidden during normal use because roofs, trees and ground are better rendered through the hybrid environment.</small></span>
+        <input id="googleSolarRawDsmToggle" type="checkbox" /><span class="roof-switch" aria-hidden="true"></span>
       </label>
 
       <div class="solar-context-actions solar-google-actions">
@@ -422,7 +446,7 @@
         <summary>Demo security & caching</summary>
         <p id="googleSolarProxyMessage">Google Solar proxy not tested yet.</p>
         <p>Paid requests run only through the Netlify Function. The API key is never shipped to GitHub Pages. The proxy requires the demo access code, issues a 2-hour signed session, applies per-IP/global daily limits, and caches Google results in Netlify Blobs.</p>
-        <p>Building Insights is cached for 7 days. Data Layers metadata is reused while its URLs are valid. Downloaded GeoTIFF shade layers are cached for up to 30 days, matching Google's documented retention window.</p>
+        <p>Building Insights is cached for 7 days. Data Layers metadata is reused while its URLs are valid. Downloaded hourly-shade, DSM and building-mask GeoTIFFs are cached for up to 30 days, matching Google's documented retention window.</p>
       </details>
       <p class="solar-context-attribution">Optional detailed roof & shade data: Google Maps Platform Solar API. Hourly shade uses standard time (no DST); the configurator converts Romania summer time before sampling it.</p>
     </section>
@@ -540,7 +564,7 @@
     window.SOLAR_GOOGLE_SOLAR_ENDPOINT = window.SOLAR_GOOGLE_SOLAR_ENDPOINT || 'https://pvgis-proxy.netlify.app/.netlify/functions/google-solar';
   </script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="./js/sharedShell.js?v=10"></script>
-  <script type="module" src="./js/app.js?v=13"></script>
+  <script type="module" src="./js/sharedShell.js?v=13"></script>
+  <script type="module" src="./js/app.js?v=18"></script>
 </body>
 </html>

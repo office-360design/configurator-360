@@ -1,5 +1,5 @@
-import { state } from './state.js?v=7';
-import { RoofScene } from './scene.js?v=9';
+import { state } from './state.js?v=10';
+import { RoofScene } from './scene.js?v=14';
 import { SolarUI } from './ui.js?v=7';
 import { fetchPvgisSiteEstimate } from './energyModel.js?v=5';
 import { loadGeographicEnvironment } from './environmentLoader.js?v=3';
@@ -11,7 +11,7 @@ import {
   resolveGoogleSolarEndpoint,
   testGoogleSolarProxy,
   unlockGoogleSolar,
-} from './googleSolar.js?v=1';
+} from './googleSolar.js?v=4';
 import {
   getSeasonPresetDate,
   getSolarContext,
@@ -123,6 +123,14 @@ function clearGoogleSolarAnalysis(message = 'Unlock Google Solar, then analyze a
   state.googleSolarShadeModel = null;
   state.googleSolarBuildingInsights = null;
   state.googleSolarDataLayers = null;
+  state.googleSolarSurfaceModel = null;
+  state.googleSolarReferenceMatchScore = 0;
+  state.googleSolarReferenceMatchLabel = '—';
+  state.googleSolarReferenceDistanceM = null;
+  state.googleSolarReferenceMainPitchDeg = null;
+  state.googleSolarReferenceMainAzimuthDeg = null;
+  scene?.setGoogleBuildingInsights?.(null, state);
+  scene?.setGoogleSurfaceModel?.(null, state);
   state.googleSolarCacheInfo = null;
   state.googleSolarAnalyzedSignature = '';
   state.googleSolarAnnualLossPct = 0;
@@ -221,6 +229,10 @@ async function runGoogleSolarAnalysis({ force = false } = {}) {
     state.googleSolarShadeModel = result.shadeModel || null;
     state.googleSolarBuildingInsights = result.buildingInsights || null;
     state.googleSolarDataLayers = result.dataLayers || null;
+    state.googleSolarSurfaceModel = result.surfaceModel || null;
+    scene.setGoogleBuildingInsights(state.googleSolarBuildingInsights, state);
+    scene.setGoogleSurfaceModel(state.googleSolarSurfaceModel, state);
+    syncEnvironmentSceneMetrics();
     state.googleSolarCacheInfo = { ...(result.cache || {}), browserCached: Boolean(result.browserCached) };
     state.googleSolarAnalyzedSignature = makeGoogleAnalysisSignature(body);
     state.googleSolarStatus = 'ready';
@@ -355,6 +367,27 @@ function toolsSnapshot() {
     googleSolarRoofSegmentCount: Array.isArray(state.googleSolarBuildingInsights?.roofSegments) ? state.googleSolarBuildingInsights.roofSegments.length : 0,
     googleSolarClosestConfigPanels: Number(state.googleSolarBuildingInsights?.closestPanelConfig?.panelsCount) || null,
     googleSolarClosestConfigKWh: Number(state.googleSolarBuildingInsights?.closestPanelConfig?.yearlyEnergyDcKwh) || null,
+    googleSolarDsmEnabled: state.googleSolarDsmEnabled !== false,
+    googleSolarBuildingMaskVisible: state.googleSolarBuildingMaskVisible !== false,
+    googleSolarRawDsmVisible: state.googleSolarRawDsmVisible === true,
+    googleSolarReferenceBuildingVisible: state.googleSolarReferenceBuildingVisible !== false,
+    googleSolarReferenceMatchScore: Number(state.googleSolarReferenceMatchScore) || 0,
+    googleSolarReferenceMatchLabel: state.googleSolarReferenceMatchLabel || '—',
+    googleSolarReferenceDistanceM: state.googleSolarReferenceDistanceM !== null && Number.isFinite(Number(state.googleSolarReferenceDistanceM)) ? Number(state.googleSolarReferenceDistanceM) : null,
+    googleSolarReferenceMainPitchDeg: state.googleSolarReferenceMainPitchDeg !== null && Number.isFinite(Number(state.googleSolarReferenceMainPitchDeg)) ? Number(state.googleSolarReferenceMainPitchDeg) : null,
+    googleSolarReferenceMainAzimuthDeg: state.googleSolarReferenceMainAzimuthDeg !== null && Number.isFinite(Number(state.googleSolarReferenceMainAzimuthDeg)) ? Number(state.googleSolarReferenceMainAzimuthDeg) : null,
+    googleSolarRefinedBuildingCount: Number(state.googleSolarRefinedBuildingCount) || 0,
+    googleSolarGoogleOnlyBuildingCount: Number(state.googleSolarGoogleOnlyBuildingCount) || 0,
+    googleSolarCanopyCount: Number(state.googleSolarCanopyCount) || 0,
+    googleSolarSurfaceAvailable: Boolean(state.googleSolarSurfaceModel),
+    googleSolarSurfaceGridSize: Number(state.googleSolarSurfaceModel?.size) || 0,
+    googleSolarSurfaceCellSizeM: Number(state.googleSolarSurfaceModel?.cellSizeM) || null,
+    googleSolarSurfaceRadiusM: Number(state.googleSolarSurfaceModel?.radiusM) || null,
+    googleSolarSurfaceRooftopCoveragePct: Number(state.googleSolarSurfaceModel?.rooftopCoveragePct) || 0,
+    googleSolarSurfaceHeightRangeM: state.googleSolarSurfaceModel
+      ? Math.max(0, Number(state.googleSolarSurfaceModel.maxRelativeM) - Number(state.googleSolarSurfaceModel.minRelativeM))
+      : null,
+    googleSolarHostDetected: Boolean(scene.googleSurfaceModel && scene.googleHostComponent?.size),
     googleSolarCacheInfo: state.googleSolarCacheInfo,
   };
 }
@@ -591,6 +624,14 @@ function syncLocalBuildingShadingModel() {
 function syncEnvironmentSceneMetrics(data = scene.geographicData) {
   if (!data) {
     state.environmentHostBuildingCount = 0;
+    state.googleSolarRefinedBuildingCount = 0;
+    state.googleSolarGoogleOnlyBuildingCount = 0;
+    state.googleSolarCanopyCount = 0;
+    state.googleSolarReferenceMatchScore = 0;
+    state.googleSolarReferenceMatchLabel = '—';
+    state.googleSolarReferenceDistanceM = null;
+    state.googleSolarReferenceMainPitchDeg = null;
+    state.googleSolarReferenceMainAzimuthDeg = null;
     syncLocalBuildingShadingModel();
     return;
   }
@@ -601,6 +642,14 @@ function syncEnvironmentSceneMetrics(data = scene.geographicData) {
   state.environmentTreeCount = data.trees?.length || 0;
   state.environmentHasTerrain = Boolean(data.terrain);
   state.environmentHostBuildingCount = metrics.hostBuildingCount || 0;
+  state.googleSolarRefinedBuildingCount = Number(metrics.googleRefinedBuildingCount) || 0;
+  state.googleSolarGoogleOnlyBuildingCount = Number(metrics.googleOnlyBuildingCount) || 0;
+  state.googleSolarCanopyCount = Number(metrics.googleCanopyCount) || 0;
+  state.googleSolarReferenceMatchScore = Number(metrics.googleReferenceMatchScore) || 0;
+  state.googleSolarReferenceMatchLabel = metrics.googleReferenceMatchLabel || '—';
+  state.googleSolarReferenceDistanceM = Number.isFinite(metrics.googleReferenceDistanceM) ? metrics.googleReferenceDistanceM : null;
+  state.googleSolarReferenceMainPitchDeg = Number.isFinite(metrics.googleReferenceMainPitchDeg) ? metrics.googleReferenceMainPitchDeg : null;
+  state.googleSolarReferenceMainAzimuthDeg = Number.isFinite(metrics.googleReferenceMainAzimuthDeg) ? metrics.googleReferenceMainAzimuthDeg : null;
   syncLocalBuildingShadingModel();
 }
 
@@ -1000,6 +1049,48 @@ const configuratorApi = {
       : 0;
     emitToolsState();
     return state.googleSolarShadingEnabled;
+  },
+
+  setGoogleSolarDsmEnabled(enabled) {
+    state.googleSolarDsmEnabled = Boolean(enabled);
+    scene.setEnvironment(state);
+    if (scene.hasGeographicEnvironment()) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.googleSolarDsmEnabled;
+  },
+
+  setGoogleSolarBuildingMaskVisible(enabled) {
+    state.googleSolarBuildingMaskVisible = Boolean(enabled);
+    if (scene.hasGeographicEnvironment() && state.googleSolarSurfaceModel) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.googleSolarBuildingMaskVisible;
+  },
+
+  setGoogleSolarRawDsmVisible(enabled) {
+    state.googleSolarRawDsmVisible = Boolean(enabled);
+    scene.setEnvironment(state);
+    if (scene.hasGeographicEnvironment() && state.googleSolarSurfaceModel) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.googleSolarRawDsmVisible;
+  },
+
+  setGoogleSolarReferenceBuildingVisible(enabled) {
+    state.googleSolarReferenceBuildingVisible = Boolean(enabled);
+    if (scene.hasGeographicEnvironment() && state.googleSolarSurfaceModel && state.googleSolarBuildingInsights) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.googleSolarReferenceBuildingVisible;
   },
 
   refreshEnvironment() {

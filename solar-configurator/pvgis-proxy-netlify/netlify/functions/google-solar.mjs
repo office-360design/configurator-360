@@ -11,6 +11,7 @@ const BUILDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DATA_LAYERS_TTL_MS = 45 * 60 * 1000;
 const GEOTIFF_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LAYER_INFO_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SURFACE_MODEL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SESSION_TTL_SECONDS = 2 * 60 * 60;
 const MAX_PANELS = 80;
 const DEFAULT_RADIUS_M = 75;
@@ -348,6 +349,18 @@ function hourlyShadeLayerKey(layerBaseKey, monthIndex) {
   return `${layerBaseKey}:hourly:${monthIndex + 1}`;
 }
 
+function dsmLayerKey(layerBaseKey) {
+  return `${layerBaseKey}:dsm`;
+}
+
+function maskLayerKey(layerBaseKey) {
+  return `${layerBaseKey}:mask`;
+}
+
+function surfaceModelKey(layerBaseKey) {
+  return `${layerBaseKey}:surface-model-v1`;
+}
+
 function layerInfoKey(layerBaseKey) {
   return `${layerBaseKey}:info`;
 }
@@ -403,12 +416,12 @@ function authenticatedGeoTiffUrl(rawUrl) {
   return url;
 }
 
-async function getGeoTiffBuffer(layerCacheKey, rawUrl, monthIndex = null) {
+async function getGeoTiffBuffer(layerCacheKey, rawUrl, monthIndex = null, explicitLabel = '') {
   const cached = await readBlob(layerCacheKey, 'arrayBuffer');
   if (cached?.data) return { value: cached.data, cached: true };
-  const label = monthIndex === null
-    ? 'Google hourly-shade GeoTIFF'
-    : `Google hourly-shade GeoTIFF month ${monthIndex + 1}`;
+  const label = explicitLabel || (monthIndex === null
+    ? 'Google Solar GeoTIFF'
+    : `Google hourly-shade GeoTIFF month ${monthIndex + 1}`);
   const response = await fetchWithDiagnostics(authenticatedGeoTiffUrl(rawUrl).toString(), {}, {
     label,
     attempts: 3,
@@ -467,6 +480,114 @@ function sampleIndex(tiff, latitude, longitude) {
   const x = Math.min(width - 1, Math.max(0, Math.floor(((longitude - bounds.west) / Math.max(1e-12, bounds.east - bounds.west)) * width)));
   const y = Math.min(height - 1, Math.max(0, Math.floor(((bounds.north - latitude) / Math.max(1e-12, bounds.north - bounds.south)) * height)));
   return y * width + x;
+}
+
+function sampleSingleBand(tiff, latitude, longitude) {
+  const index = sampleIndex(tiff, latitude, longitude);
+  if (index < 0) return null;
+  const value = Number(tiff.rasters?.[0]?.[index]);
+  if (!Number.isFinite(value) || value === -9999) return null;
+  return value;
+}
+
+function median(values) {
+  const filtered = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!filtered.length) return null;
+  const middle = Math.floor(filtered.length / 2);
+  return filtered.length % 2 ? filtered[middle] : (filtered[middle - 1] + filtered[middle]) / 2;
+}
+
+function buildGoogleSurfaceModel(dsmTiff, maskTiff, siteLat, siteLon, radiusM) {
+  const metersPerDeg = 111320;
+  const lonScale = Math.max(1, metersPerDeg * Math.cos(Number(siteLat) * Math.PI / 180));
+  const targetSpacingM = radiusM <= 50 ? 1 : radiusM <= 75 ? 1.25 : 1.5;
+  const size = Math.max(65, Math.min(141, Math.round((radiusM * 2) / targetSpacingM) + 1));
+  const actualSpacingM = (radiusM * 2) / Math.max(1, size - 1);
+  const sampledDsm = new Array(size * size).fill(null);
+  const sampledMask = new Array(size * size).fill(0);
+  const groundCandidates = [];
+
+  for (let row = 0; row < size; row += 1) {
+    const z = -radiusM + (row / (size - 1)) * radiusM * 2;
+    const northM = -z;
+    const latitude = Number(siteLat) + northM / metersPerDeg;
+    for (let column = 0; column < size; column += 1) {
+      const x = -radiusM + (column / (size - 1)) * radiusM * 2;
+      const longitude = Number(siteLon) + x / lonScale;
+      const index = row * size + column;
+      const dsm = sampleSingleBand(dsmTiff, latitude, longitude);
+      const mask = sampleSingleBand(maskTiff, latitude, longitude);
+      sampledDsm[index] = dsm;
+      sampledMask[index] = Number(mask) > 0 ? 1 : 0;
+      if (Number.isFinite(dsm) && sampledMask[index] === 0 && Math.hypot(x, z) <= Math.min(radiusM * 0.55, 35)) {
+        groundCandidates.push(dsm);
+      }
+    }
+  }
+
+  let referenceElevationM = median(groundCandidates);
+  if (!Number.isFinite(referenceElevationM)) {
+    const allValid = sampledDsm.filter(Number.isFinite).sort((a, b) => a - b);
+    if (allValid.length) referenceElevationM = allValid[Math.max(0, Math.floor(allValid.length * 0.12))];
+  }
+  if (!Number.isFinite(referenceElevationM)) referenceElevationM = 0;
+
+  let rooftopCells = 0;
+  let validCells = 0;
+  let minRelativeM = Infinity;
+  let maxRelativeM = -Infinity;
+  const heightsCm = sampledDsm.map((value, index) => {
+    if (!Number.isFinite(value)) return null;
+    validCells += 1;
+    if (sampledMask[index]) rooftopCells += 1;
+    const relative = Math.max(-30, Math.min(80, value - referenceElevationM));
+    minRelativeM = Math.min(minRelativeM, relative);
+    maxRelativeM = Math.max(maxRelativeM, relative);
+    return Math.round(relative * 100);
+  });
+
+  return {
+    provider: 'Google Solar API DSM + building mask',
+    revision: Date.now(),
+    radiusM,
+    size,
+    cellSizeM: actualSpacingM,
+    minX: -radiusM,
+    maxX: radiusM,
+    minZ: -radiusM,
+    maxZ: radiusM,
+    referenceElevationM,
+    heightsCm,
+    buildingMask: sampledMask,
+    rooftopCoveragePct: validCells ? rooftopCells / validCells * 100 : 0,
+    minRelativeM: Number.isFinite(minRelativeM) ? minRelativeM : 0,
+    maxRelativeM: Number.isFinite(maxRelativeM) ? maxRelativeM : 0,
+    imageryBounds: dsmTiff.bounds,
+  };
+}
+
+async function getGoogleSurfaceModel(layerBaseKey, layersValue, siteLat, siteLon, radiusM) {
+  const cached = await readBlob(surfaceModelKey(layerBaseKey), 'json');
+  if (cached?.data) {
+    return { value: cached.data, cached: true, dsmCached: true, maskCached: true, downloads: 0 };
+  }
+  if (!layersValue?.dsmUrl || !layersValue?.maskUrl) {
+    throw new Error('Google Data Layers did not return DSM and building-mask URLs for this site.');
+  }
+  const [dsmBinary, maskBinary] = await Promise.all([
+    getGeoTiffBuffer(dsmLayerKey(layerBaseKey), layersValue.dsmUrl, null, 'Google DSM GeoTIFF'),
+    getGeoTiffBuffer(maskLayerKey(layerBaseKey), layersValue.maskUrl, null, 'Google building-mask GeoTIFF'),
+  ]);
+  const [dsmTiff, maskTiff] = await Promise.all([decodeGeoTiff(dsmBinary.value), decodeGeoTiff(maskBinary.value)]);
+  const value = buildGoogleSurfaceModel(dsmTiff, maskTiff, siteLat, siteLon, radiusM);
+  await writeBlob(surfaceModelKey(layerBaseKey), value, SURFACE_MODEL_TTL_MS, { json: true });
+  return {
+    value,
+    cached: false,
+    dsmCached: dsmBinary.cached,
+    maskCached: maskBinary.cached,
+    downloads: Number(!dsmBinary.cached) + Number(!maskBinary.cached),
+  };
 }
 
 function sampleShadeMonth(tiff, panelPoints) {
@@ -528,6 +649,7 @@ function compactBuildingInsights(raw, requestedPanelCount = 0) {
       groundAreaMeters2: Number(segment.stats?.groundAreaMeters2) || 0,
       sunshineQuantiles: Array.isArray(segment.stats?.sunshineQuantiles) ? segment.stats.sunshineQuantiles.map(Number) : [],
       center: segment.center || null,
+      boundingBox: segment.boundingBox || null,
       planeHeightAtCenterMeters: Number(segment.planeHeightAtCenterMeters) || 0,
     })),
     suggestedPanels: (Array.isArray(solar.solarPanels) ? solar.solarPanels : []).slice(0, 120).map((panel) => ({
@@ -574,10 +696,11 @@ async function analyzeGoogleSolar(body) {
   const requestedPanelCount = Math.max(0, Number(body?.requestedPanelCount) || panelPoints.length);
 
   const layerBaseKey = dataLayersCacheKey(siteLat, siteLon, radiusM);
-  const [buildingResult, preCachedShadeBuffers, preCachedLayerInfo] = await Promise.all([
+  const [buildingResult, preCachedShadeBuffers, preCachedLayerInfo, preCachedSurfaceModel] = await Promise.all([
     getBuildingInsights(houseLat, houseLon),
     readCachedHourlyShadeBuffers(layerBaseKey),
     readCachedLayerInfo(layerBaseKey),
+    readBlob(surfaceModelKey(layerBaseKey), 'json'),
   ]);
 
   let layersResult = null;
@@ -586,36 +709,56 @@ async function analyzeGoogleSolar(body) {
   let geoTiffDownloads = 0;
   let dataLayersUpstreamRequests = 0;
   let shadeBuffers = preCachedShadeBuffers;
+  let surfaceResult = preCachedSurfaceModel?.data
+    ? { value: preCachedSurfaceModel.data, cached: true, dsmCached: true, maskCached: true, downloads: 0 }
+    : null;
 
-  if (shadeBuffers) {
+  if (shadeBuffers && surfaceResult) {
     geoTiffCacheHits = 12;
   } else {
     layersResult = await getDataLayers(siteLat, siteLon, radiusM);
     dataLayersUpstreamRequests += layersResult.upstreamRequests;
     layerInfo = compactLayerInfo(layersResult.value, radiusM);
-    const shadeUrls = Array.isArray(layersResult.value?.hourlyShadeUrls) ? layersResult.value.hourlyShadeUrls : [];
-    if (shadeUrls.length !== 12) throw new Error('Google Data Layers did not return all 12 hourly-shade layers for this site.');
 
-    const loadMonthBuffer = async (rawUrl, monthIndex, retry = true) => {
-      const layerKey = hourlyShadeLayerKey(layerBaseKey, monthIndex);
-      try {
-        const binary = await getGeoTiffBuffer(layerKey, rawUrl, monthIndex);
-        if (binary.cached) geoTiffCacheHits += 1;
-        else geoTiffDownloads += 1;
-        return binary.value;
-      } catch (error) {
-        if (retry && [400, 401, 403, 404].includes(Number(error?.status))) {
-          layersResult = await getDataLayers(siteLat, siteLon, radiusM, { force: true });
-          dataLayersUpstreamRequests += layersResult.upstreamRequests;
-          layerInfo = compactLayerInfo(layersResult.value, radiusM);
-          const refreshedUrl = layersResult.value?.hourlyShadeUrls?.[monthIndex];
-          if (refreshedUrl) return loadMonthBuffer(refreshedUrl, monthIndex, false);
+    if (!surfaceResult) {
+      surfaceResult = await getGoogleSurfaceModel(layerBaseKey, layersResult.value, siteLat, siteLon, radiusM);
+    }
+
+    if (shadeBuffers) {
+      geoTiffCacheHits = 12;
+    } else {
+      const shadeUrls = Array.isArray(layersResult.value?.hourlyShadeUrls) ? layersResult.value.hourlyShadeUrls : [];
+      if (shadeUrls.length !== 12) throw new Error('Google Data Layers did not return all 12 hourly-shade layers for this site.');
+
+      const loadMonthBuffer = async (rawUrl, monthIndex, retry = true) => {
+        const layerKey = hourlyShadeLayerKey(layerBaseKey, monthIndex);
+        try {
+          const binary = await getGeoTiffBuffer(layerKey, rawUrl, monthIndex);
+          if (binary.cached) geoTiffCacheHits += 1;
+          else geoTiffDownloads += 1;
+          return binary.value;
+        } catch (error) {
+          if (retry && [400, 401, 403, 404].includes(Number(error?.status))) {
+            layersResult = await getDataLayers(siteLat, siteLon, radiusM, { force: true });
+            dataLayersUpstreamRequests += layersResult.upstreamRequests;
+            layerInfo = compactLayerInfo(layersResult.value, radiusM);
+            const refreshedUrl = layersResult.value?.hourlyShadeUrls?.[monthIndex];
+            if (refreshedUrl) return loadMonthBuffer(refreshedUrl, monthIndex, false);
+          }
+          throw error;
         }
-        throw error;
-      }
-    };
+      };
 
-    shadeBuffers = await mapLimit(shadeUrls, 2, (url, monthIndex) => loadMonthBuffer(url, monthIndex));
+      shadeBuffers = await mapLimit(shadeUrls, 2, (url, monthIndex) => loadMonthBuffer(url, monthIndex));
+    }
+  }
+
+  if (!surfaceResult) {
+    // This path is only expected when older shade caches exist without the new Step A surface cache.
+    layersResult = layersResult || await getDataLayers(siteLat, siteLon, radiusM);
+    dataLayersUpstreamRequests += layersResult.upstreamRequests;
+    layerInfo = compactLayerInfo(layersResult.value, radiusM);
+    surfaceResult = await getGoogleSurfaceModel(layerBaseKey, layersResult.value, siteLat, siteLon, radiusM);
   }
 
   const months = await mapLimit(shadeBuffers, 3, async (arrayBuffer) => {
@@ -648,11 +791,16 @@ async function analyzeGoogleSolar(body) {
       panelCount: profiles.length,
       profiles,
     },
+    surfaceModel: surfaceResult?.value || null,
     cache: {
       buildingInsights: buildingResult.cached,
       dataLayers: dataLayersUpstreamRequests === 0,
       hourlyShadeTiffsCached: geoTiffCacheHits,
       hourlyShadeTiffsDownloaded: geoTiffDownloads,
+      googleSurfaceModel: Boolean(surfaceResult?.cached),
+      dsmGeoTiffCached: Boolean(surfaceResult?.dsmCached),
+      buildingMaskGeoTiffCached: Boolean(surfaceResult?.maskCached),
+      surfaceGeoTiffsDownloaded: Number(surfaceResult?.downloads || 0),
       upstreamBillableRequests: buildingResult.upstreamRequests + dataLayersUpstreamRequests,
     },
   };

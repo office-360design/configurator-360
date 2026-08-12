@@ -166,6 +166,10 @@ const googleSolarAccessFeedback = document.querySelector('#googleSolarAccessFeed
 const googleSolarAnalyzeButton = document.querySelector('#googleSolarAnalyzeButton');
 const googleSolarRefreshButton = document.querySelector('#googleSolarRefreshButton');
 const googleSolarShadingToggle = document.querySelector('#googleSolarShadingToggle');
+const googleSolarDsmToggle = document.querySelector('#googleSolarDsmToggle');
+const googleSolarMaskToggle = document.querySelector('#googleSolarMaskToggle');
+const googleSolarRawDsmToggle = document.querySelector('#googleSolarRawDsmToggle');
+const googleSolarReferenceToggle = document.querySelector('#googleSolarReferenceToggle');
 const googleSolarImageryValue = document.querySelector('#googleSolarImageryValue');
 const googleSolarRoofAreaValue = document.querySelector('#googleSolarRoofAreaValue');
 const googleSolarMaxPanelsValue = document.querySelector('#googleSolarMaxPanelsValue');
@@ -174,6 +178,10 @@ const googleSolarSegmentsValue = document.querySelector('#googleSolarSegmentsVal
 const googleSolarLayoutValue = document.querySelector('#googleSolarLayoutValue');
 const googleSolarShadePanelsValue = document.querySelector('#googleSolarShadePanelsValue');
 const googleSolarLossValue = document.querySelector('#googleSolarLossValue');
+const googleSolarDsmValue = document.querySelector('#googleSolarDsmValue');
+const googleSolarMaskValue = document.querySelector('#googleSolarMaskValue');
+const googleSolarReferenceValue = document.querySelector('#googleSolarReferenceValue');
+const googleSolarMainRoofValue = document.querySelector('#googleSolarMainRoofValue');
 const googleSolarMessage = document.querySelector('#googleSolarMessage');
 const googleSolarCacheValue = document.querySelector('#googleSolarCacheValue');
 const googleSolarProxyMessage = document.querySelector('#googleSolarProxyMessage');
@@ -511,6 +519,22 @@ function syncToolsState(detail = getApi()?.getState?.()) {
     googleSolarShadingToggle.checked = detail.googleSolarShadingEnabled !== false;
     googleSolarShadingToggle.disabled = !Number(detail.googleSolarShadePanelCount) || googleLoading;
   }
+  if (googleSolarDsmToggle) {
+    googleSolarDsmToggle.checked = detail.googleSolarDsmEnabled !== false;
+    googleSolarDsmToggle.disabled = !detail.googleSolarSurfaceAvailable || googleLoading || !detail.environmentLoaded;
+  }
+  if (googleSolarMaskToggle) {
+    googleSolarMaskToggle.checked = detail.googleSolarBuildingMaskVisible !== false;
+    googleSolarMaskToggle.disabled = !detail.googleSolarSurfaceAvailable || googleLoading || detail.googleSolarDsmEnabled === false;
+  }
+  if (googleSolarRawDsmToggle) {
+    googleSolarRawDsmToggle.checked = detail.googleSolarRawDsmVisible === true;
+    googleSolarRawDsmToggle.disabled = !detail.googleSolarSurfaceAvailable || googleLoading || detail.googleSolarDsmEnabled === false || !detail.environmentLoaded;
+  }
+  if (googleSolarReferenceToggle) {
+    googleSolarReferenceToggle.checked = detail.googleSolarReferenceBuildingVisible !== false;
+    googleSolarReferenceToggle.disabled = !detail.googleSolarSurfaceAvailable || !detail.googleSolarHostDetected || googleLoading || detail.googleSolarDsmEnabled === false || !detail.environmentLoaded;
+  }
   if (googleSolarImageryValue) {
     const quality = detail.googleSolarImageryQuality || '—';
     const imageryDate = formatGoogleDate(detail.googleSolarImageryDate);
@@ -531,6 +555,34 @@ function syncToolsState(detail = getApi()?.getState?.()) {
       ? `${Number(detail.googleSolarAnnualLossPct || 0).toFixed(1)}%`
       : '—';
   }
+  if (googleSolarDsmValue) {
+    if (!detail.googleSolarSurfaceAvailable) googleSolarDsmValue.textContent = '—';
+    else if (detail.googleSolarDsmEnabled === false) googleSolarDsmValue.textContent = 'Available · refinement off';
+    else {
+      const buildings = Number(detail.googleSolarRefinedBuildingCount || 0) + Number(detail.googleSolarGoogleOnlyBuildingCount || 0);
+      const extra = Number(detail.googleSolarGoogleOnlyBuildingCount || 0) > 0 ? ` · ${detail.googleSolarGoogleOnlyBuildingCount} Google-only` : '';
+      googleSolarDsmValue.textContent = `Hybrid · ${buildings} buildings${extra} · ${Number(detail.googleSolarCanopyCount || 0)} canopy`;
+    }
+  }
+  if (googleSolarMaskValue) {
+    googleSolarMaskValue.textContent = detail.googleSolarSurfaceAvailable
+      ? `${detail.googleSolarHostDetected ? 'Host detected' : 'No host match'} · ${Number(detail.googleSolarSurfaceRooftopCoveragePct || 0).toFixed(0)}% roof pixels`
+      : '—';
+  }
+  if (googleSolarReferenceValue) {
+    const score = Number(detail.googleSolarReferenceMatchScore || 0);
+    const label = detail.googleSolarReferenceMatchLabel || '—';
+    const distance = Number(detail.googleSolarReferenceDistanceM);
+    const distanceText = Number.isFinite(distance) ? ` · ${formatLocalDistance(distance, detail.units, 1)} offset` : '';
+    googleSolarReferenceValue.textContent = detail.googleSolarHostDetected ? `${label} · ${score}%${distanceText}` : '—';
+  }
+  if (googleSolarMainRoofValue) {
+    const pitch = Number(detail.googleSolarReferenceMainPitchDeg);
+    const azimuth = Number(detail.googleSolarReferenceMainAzimuthDeg);
+    googleSolarMainRoofValue.textContent = Number.isFinite(pitch) && Number.isFinite(azimuth)
+      ? `${pitch.toFixed(1)}° pitch · ${formatAzimuth(azimuth)}`
+      : '—';
+  }
   if (googleSolarMessage) googleSolarMessage.textContent = detail.googleSolarMessage || '';
   if (googleSolarProxyMessage) googleSolarProxyMessage.textContent = detail.googleSolarProxyMessage || '';
   if (googleSolarCacheValue) {
@@ -539,9 +591,14 @@ function syncToolsState(detail = getApi()?.getState?.()) {
     else if (Number(detail.googleSolarShadePanelCount) > 0) {
       const googleCalls = Number(cache.upstreamBillableRequests || 0);
       const tiffs = Number(cache.hourlyShadeTiffsCached || 0);
+      const surfaceText = cache.googleSurfaceModel
+        ? 'DSM/mask reused'
+        : Number(cache.surfaceGeoTiffsDownloaded || 0)
+          ? `${cache.surfaceGeoTiffsDownloaded} DSM/mask TIFF${Number(cache.surfaceGeoTiffsDownloaded) === 1 ? '' : 's'} downloaded`
+          : 'DSM/mask ready';
       googleSolarCacheValue.textContent = googleCalls
-        ? `${googleCalls} Google request${googleCalls === 1 ? '' : 's'} · ${tiffs}/12 shade TIFFs reused`
-        : `Netlify cache · ${tiffs || 12}/12 shade TIFFs reused`;
+        ? `${googleCalls} Google request${googleCalls === 1 ? '' : 's'} · ${tiffs}/12 shade TIFFs reused · ${surfaceText}`
+        : `Netlify cache · ${tiffs || 12}/12 shade TIFFs reused · ${surfaceText}`;
     } else googleSolarCacheValue.textContent = '—';
   }
   googleSolarBlock?.classList.toggle('is-loading', googleLoading);
@@ -652,6 +709,22 @@ googleSolarAnalyzeButton?.addEventListener('click', () => getApi()?.refreshGoogl
 googleSolarRefreshButton?.addEventListener('click', () => getApi()?.refreshGoogleSolar?.(true));
 googleSolarShadingToggle?.addEventListener('change', () => {
   getApi()?.setGoogleSolarShadingEnabled?.(googleSolarShadingToggle.checked);
+  shell.markDirty();
+});
+googleSolarDsmToggle?.addEventListener('change', () => {
+  getApi()?.setGoogleSolarDsmEnabled?.(googleSolarDsmToggle.checked);
+  shell.markDirty();
+});
+googleSolarMaskToggle?.addEventListener('change', () => {
+  getApi()?.setGoogleSolarBuildingMaskVisible?.(googleSolarMaskToggle.checked);
+  shell.markDirty();
+});
+googleSolarRawDsmToggle?.addEventListener('change', () => {
+  getApi()?.setGoogleSolarRawDsmVisible?.(googleSolarRawDsmToggle.checked);
+  shell.markDirty();
+});
+googleSolarReferenceToggle?.addEventListener('change', () => {
+  getApi()?.setGoogleSolarReferenceBuildingVisible?.(googleSolarReferenceToggle.checked);
   shell.markDirty();
 });
 

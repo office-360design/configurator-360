@@ -108,9 +108,9 @@ When an exact Romanian location is active, the Tools → Location & environment 
 
 ### Important accuracy boundaries
 
-The environment is deliberately **approximate**, not a cadastral or survey model. OpenStreetMap coverage varies, many buildings do not have measured heights, mapped trees are incomplete, and the terrain source is an elevation model rather than a high-resolution building/tree DSM. The nearby-building kWh adjustment should therefore be treated as an early obstruction estimate rather than a bankable shade study. It uses panel-center horizons and a retained diffuse-light allowance instead of full module-cell/string electrical modelling.
+The environment is deliberately **approximate**, not a cadastral or survey model. OpenStreetMap coverage varies, but when Google Solar detailed data is available the visible context now uses a hybrid model: Mapzen remains the smooth ground terrain, Google DSM corrects OSM building heights, Google building-mask components fill missing structures, and raised non-roof DSM residuals become simplified canopy/obstruction volumes. The free OSM/DEM path remains the fallback when Google analysis is not available.
 
-Phase 3 still provides the exact-coordinate PVGIS baseline and distant terrain horizon. A later optional DSM/LiDAR or dedicated shade-data integration can replace the inferred local geometry with higher-resolution obstruction information.
+Phase 3 still provides the exact-coordinate PVGIS baseline and distant terrain horizon. Google hourly shade remains the preferred detailed local-shading correction when unlocked; the hybrid 3D context is primarily a better geometric/visual interpretation of the same remotely sensed site data.
 
 ### Optional endpoint overrides
 
@@ -224,3 +224,30 @@ https://pvgis-proxy.netlify.app/.netlify/functions/google-solar
 ```
 
 No Google credential is exposed by that URL.
+
+### Google Solar DSM / building-mask hybrid environment
+
+After a successful Google Solar detailed analysis, the same cached Data Layers acquisition supplies a processed DSM + rooftop-mask grid. The raw DSM is **not** used as the normal visible terrain because triangulating roofs, tree canopies and ground into one surface produces jagged/melted geometry. Instead the configurator uses a hybrid interpretation:
+
+- Mapzen Terrarium remains the smooth base ground and wider-area terrain.
+- OSM building footprints stay clean, while Google DSM residual heights refine their visible height where Google rooftop coverage overlaps them.
+- Google rooftop-mask components with no matching OSM footprint are rendered as simplified Google-only building volumes.
+- Raised non-rooftop DSM residuals are clustered into simplified canopy/obstruction volumes instead of being rendered as terrain spikes.
+- Google rooftop-mask outlines can be shown as a clean overlay; the host rooftop is blue and continues to support the configured-house replacement flow.
+- A **Show raw Google DSM (debug)** toggle is available for diagnostics, but is off by default.
+
+The DSM and mask TIFFs remain cached server-side for up to 30 days; this rendering change creates no additional Google Data Layers acquisition.
+
+## Google Solar Step B — reference building
+
+When Google Solar detailed analysis is available, the configurator now keeps the detected Google building as a visual reference instead of using the rooftop mask only for host replacement. The selected rooftop component is matched using the configured-house footprint plus the Building Insights building center. A translucent DSM roof/wall ghost can be shown over the configurable house, and small direction arrows mark the Building Insights roof-segment azimuths.
+
+The Google Solar panel also reports a heuristic reference-match score, center offset, and the pitch/bearing of the largest Google roof segment. These values are comparison aids only; this step does not automatically change the configured roof. The next step can use the same Building Insights data to offer explicit “apply Google orientation/pitch” actions.
+
+### Google host-roof isolation
+
+When the Google rooftop mask connects the selected house to an attached garage or neighboring roof, the frontend now isolates a tighter host footprint using Building Insights bounds, roof-segment centers, reported roof ground area, configured-house overlap, and center proximity. The full connected mask remains visible as a faint context outline while only the selected host footprint is highlighted in blue. Adjacent leftover mask regions remain eligible for Google-derived building geometry instead of being discarded with the host. When this tighter Google host is available it also becomes the authoritative host reference, so an oversized overlapping OSM polygon is no longer drawn as a second blue house outline.
+
+
+### Google host-footprint matching
+The Data Layers mask is a rooftop/not-rooftop raster for the requested region, not a per-building polygon. Host matching now uses Building Insights building and roof-segment bounds plus segment/panel centers to isolate the target building. The displayed blue host outline follows the selected raster boundary instead of a convex hull, so concavities and irregular roof edges are preserved rather than spanning yards or attached neighboring roofs.

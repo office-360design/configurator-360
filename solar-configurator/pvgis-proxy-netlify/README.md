@@ -119,3 +119,7 @@ Set the environment variables in your Netlify development environment before tes
 ## Cloudflare alternative
 
 The older PVGIS Cloudflare Worker remains in `../pvgis-proxy/` as an optional PVGIS relay. The Google Solar demo integration is implemented in the Netlify project because it also uses persistent Netlify Blobs caching.
+
+## Google DSM + building mask
+
+The `google-solar` function now also downloads and caches `dsmUrl` and `maskUrl` from the existing Google Solar Data Layers response. The raw TIFFs and a compact processed surface grid are retained for up to 30 days. These downloads reuse the already-acquired Data Layers response and do not require an additional Data Layers API request.

@@ -910,7 +910,7 @@ body.shared-ui-dark-mode .region-status-row strong[data-status="fallback"] { bac
 .solar-google-stats strong { overflow: hidden; font-size: 8.5px; text-overflow: ellipsis; white-space: nowrap; }
 .solar-google-actions { grid-template-columns: minmax(0, 1fr) minmax(0, .82fr); }
 .solar-google-cache-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 7px 8px; }
-.solar-google-cache-row strong { overflow: hidden; text-align: right; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.solar-google-cache-row strong { overflow-wrap: anywhere; text-align: right; font-size: 8px; line-height: 1.35; }
 .solar-google-security { padding: 8px 9px; color: var(--muted); }
 .solar-google-security summary { cursor: pointer; font-size: 7.5px; font-weight: 850; }
 .solar-google-security p { margin: 7px 0 0; font-size: 6.8px; line-height: 1.45; }
@@ -933,3 +933,10 @@ body.shared-ui-dark-mode .solar-google-access__actions button,
 body.shared-ui-dark-mode .solar-google-actions button { border-color: #465460; background: #1f2932; color: #eef3f6; }
 body.shared-ui-dark-mode .solar-google-access__actions button.primary,
 body.shared-ui-dark-mode .solar-google-actions button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+/* Google DSM is analysis data first; keep the raw raster surface as an explicit debug-only overlay. */
+.solar-debug-toggle {
+  border-style: dashed;
+  opacity: .84;
+}
+.solar-debug-toggle:has(input:checked) { opacity: 1; }
