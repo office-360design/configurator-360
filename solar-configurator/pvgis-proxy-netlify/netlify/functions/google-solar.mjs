@@ -12,6 +12,7 @@ const DATA_LAYERS_TTL_MS = 45 * 60 * 1000;
 const GEOTIFF_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LAYER_INFO_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SURFACE_MODEL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const FLUX_MODEL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SESSION_TTL_SECONDS = 2 * 60 * 60;
 const MAX_PANELS = 80;
 const DEFAULT_RADIUS_M = 75;
@@ -361,6 +362,18 @@ function surfaceModelKey(layerBaseKey) {
   return `${layerBaseKey}:surface-model-v1`;
 }
 
+function annualFluxLayerKey(layerBaseKey) {
+  return `${layerBaseKey}:annual-flux`;
+}
+
+function monthlyFluxLayerKey(layerBaseKey) {
+  return `${layerBaseKey}:monthly-flux`;
+}
+
+function fluxModelKey(layerBaseKey) {
+  return `${layerBaseKey}:flux-model-v1`;
+}
+
 function layerInfoKey(layerBaseKey) {
   return `${layerBaseKey}:info`;
 }
@@ -497,6 +510,44 @@ function median(values) {
   return filtered.length % 2 ? filtered[middle] : (filtered[middle - 1] + filtered[middle]) / 2;
 }
 
+function quantile(values, q) {
+  const filtered = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!filtered.length) return null;
+  const position = Math.max(0, Math.min(filtered.length - 1, (filtered.length - 1) * q));
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return filtered[lower];
+  const t = position - lower;
+  return filtered[lower] * (1 - t) + filtered[upper] * t;
+}
+
+function fluxStats(values) {
+  const valid = values.filter(Number.isFinite);
+  if (!valid.length) return { min: null, p10: null, median: null, p90: null, max: null, mean: null, count: 0 };
+  return {
+    min: Math.min(...valid),
+    p10: quantile(valid, 0.10),
+    median: quantile(valid, 0.50),
+    p90: quantile(valid, 0.90),
+    max: Math.max(...valid),
+    mean: valid.reduce((sum, value) => sum + value, 0) / valid.length,
+    count: valid.length,
+  };
+}
+
+function encodeFluxValues(values, scale = 10) {
+  const invalidValue = 65535;
+  const encoded = Buffer.allocUnsafe(values.length * 2);
+  for (let index = 0; index < values.length; index += 1) {
+    const value = Number(values[index]);
+    const raw = Number.isFinite(value) && value >= 0
+      ? Math.max(0, Math.min(invalidValue - 1, Math.round(value * scale)))
+      : invalidValue;
+    encoded.writeUInt16LE(raw, index * 2);
+  }
+  return encoded.toString('base64');
+}
+
 function buildGoogleSurfaceModel(dsmTiff, maskTiff, siteLat, siteLon, radiusM) {
   const metersPerDeg = 111320;
   const lonScale = Math.max(1, metersPerDeg * Math.cos(Number(siteLat) * Math.PI / 180));
@@ -590,6 +641,87 @@ async function getGoogleSurfaceModel(layerBaseKey, layersValue, siteLat, siteLon
   };
 }
 
+function buildGoogleFluxModel(annualTiff, monthlyTiff, surfaceModel, siteLat, siteLon, radiusM) {
+  const metersPerDeg = 111320;
+  const lonScale = Math.max(1, metersPerDeg * Math.cos(Number(siteLat) * Math.PI / 180));
+  const size = Math.max(2, Number(surfaceModel?.size) || 0);
+  const cellSizeM = Number(surfaceModel?.cellSizeM) || (radiusM * 2) / Math.max(1, size - 1);
+  const annualValues = new Array(size * size).fill(null);
+  const monthlyValues = Array.from({ length: 12 }, () => new Array(size * size).fill(null));
+  const annualRoofValues = [];
+  const monthlyRoofValues = Array.from({ length: 12 }, () => []);
+
+  for (let row = 0; row < size; row += 1) {
+    const z = -radiusM + row * cellSizeM;
+    const latitude = Number(siteLat) - z / metersPerDeg;
+    for (let column = 0; column < size; column += 1) {
+      const x = -radiusM + column * cellSizeM;
+      const longitude = Number(siteLon) + x / lonScale;
+      const outputIndex = row * size + column;
+      const annualIndex = sampleIndex(annualTiff, latitude, longitude);
+      const monthlyIndex = sampleIndex(monthlyTiff, latitude, longitude);
+      const annual = annualIndex >= 0 ? Number(annualTiff.rasters?.[0]?.[annualIndex]) : NaN;
+      const annualValid = Number.isFinite(annual) && annual !== -9999 && annual >= 0;
+      annualValues[outputIndex] = annualValid ? annual : null;
+      const rooftop = Number(surfaceModel?.buildingMask?.[outputIndex]) > 0;
+      if (annualValid && rooftop) annualRoofValues.push(annual);
+
+      for (let month = 0; month < 12; month += 1) {
+        const value = monthlyIndex >= 0 ? Number(monthlyTiff.rasters?.[month]?.[monthlyIndex]) : NaN;
+        const valid = Number.isFinite(value) && value !== -9999 && value >= 0;
+        monthlyValues[month][outputIndex] = valid ? value : null;
+        if (valid && rooftop) monthlyRoofValues[month].push(value);
+      }
+    }
+  }
+
+  const fallbackAnnual = annualValues.filter(Number.isFinite);
+  return {
+    provider: 'Google Solar API annual/monthly flux',
+    revision: Date.now(),
+    radiusM,
+    size,
+    cellSizeM,
+    minX: -radiusM,
+    maxX: radiusM,
+    minZ: -radiusM,
+    maxZ: radiusM,
+    scale: 10,
+    invalidValue: 65535,
+    units: 'kWh/kW/year',
+    annualFluxU16B64: encodeFluxValues(annualValues, 10),
+    monthlyFluxU16B64: monthlyValues.map((values) => encodeFluxValues(values, 10)),
+    stats: {
+      annual: fluxStats(annualRoofValues.length ? annualRoofValues : fallbackAnnual),
+      monthly: monthlyRoofValues.map((values) => fluxStats(values)),
+    },
+  };
+}
+
+async function getGoogleFluxModel(layerBaseKey, layersValue, surfaceModel, siteLat, siteLon, radiusM) {
+  const cached = await readBlob(fluxModelKey(layerBaseKey), 'json');
+  if (cached?.data) {
+    return { value: cached.data, cached: true, annualCached: true, monthlyCached: true, downloads: 0 };
+  }
+  if (!layersValue?.annualFluxUrl || !layersValue?.monthlyFluxUrl) {
+    throw new Error('Google Data Layers did not return annual and monthly flux URLs for this site.');
+  }
+  const [annualBinary, monthlyBinary] = await Promise.all([
+    getGeoTiffBuffer(annualFluxLayerKey(layerBaseKey), layersValue.annualFluxUrl, null, 'Google annual-flux GeoTIFF'),
+    getGeoTiffBuffer(monthlyFluxLayerKey(layerBaseKey), layersValue.monthlyFluxUrl, null, 'Google monthly-flux GeoTIFF'),
+  ]);
+  const [annualTiff, monthlyTiff] = await Promise.all([decodeGeoTiff(annualBinary.value), decodeGeoTiff(monthlyBinary.value)]);
+  const value = buildGoogleFluxModel(annualTiff, monthlyTiff, surfaceModel, siteLat, siteLon, radiusM);
+  await writeBlob(fluxModelKey(layerBaseKey), value, FLUX_MODEL_TTL_MS, { json: true });
+  return {
+    value,
+    cached: false,
+    annualCached: annualBinary.cached,
+    monthlyCached: monthlyBinary.cached,
+    downloads: Number(!annualBinary.cached) + Number(!monthlyBinary.cached),
+  };
+}
+
 function sampleShadeMonth(tiff, panelPoints) {
   return panelPoints.map((panel) => {
     const index = sampleIndex(tiff, panel.latitude, panel.longitude);
@@ -658,6 +790,17 @@ function compactBuildingInsights(raw, requestedPanelCount = 0) {
       segmentIndex: Number(panel.segmentIndex) || 0,
       yearlyEnergyDcKwh: Number(panel.yearlyEnergyDcKwh) || 0,
     })),
+    panelConfigs: configs.map((config) => ({
+      panelsCount: Number(config.panelsCount) || 0,
+      yearlyEnergyDcKwh: Number(config.yearlyEnergyDcKwh) || 0,
+      roofSegmentSummaries: (config.roofSegmentSummaries || []).map((item) => ({
+        segmentIndex: Number(item.segmentIndex) || 0,
+        panelsCount: Number(item.panelsCount) || 0,
+        yearlyEnergyDcKwh: Number(item.yearlyEnergyDcKwh) || 0,
+        pitchDegrees: Number(item.pitchDegrees) || 0,
+        azimuthDegrees: Number(item.azimuthDegrees) || 0,
+      })),
+    })),
     closestPanelConfig: closestConfig ? {
       panelsCount: Number(closestConfig.panelsCount) || 0,
       yearlyEnergyDcKwh: Number(closestConfig.yearlyEnergyDcKwh) || 0,
@@ -696,11 +839,12 @@ async function analyzeGoogleSolar(body) {
   const requestedPanelCount = Math.max(0, Number(body?.requestedPanelCount) || panelPoints.length);
 
   const layerBaseKey = dataLayersCacheKey(siteLat, siteLon, radiusM);
-  const [buildingResult, preCachedShadeBuffers, preCachedLayerInfo, preCachedSurfaceModel] = await Promise.all([
+  const [buildingResult, preCachedShadeBuffers, preCachedLayerInfo, preCachedSurfaceModel, preCachedFluxModel] = await Promise.all([
     getBuildingInsights(houseLat, houseLon),
     readCachedHourlyShadeBuffers(layerBaseKey),
     readCachedLayerInfo(layerBaseKey),
     readBlob(surfaceModelKey(layerBaseKey), 'json'),
+    readBlob(fluxModelKey(layerBaseKey), 'json'),
   ]);
 
   let layersResult = null;
@@ -712,8 +856,11 @@ async function analyzeGoogleSolar(body) {
   let surfaceResult = preCachedSurfaceModel?.data
     ? { value: preCachedSurfaceModel.data, cached: true, dsmCached: true, maskCached: true, downloads: 0 }
     : null;
+  let fluxResult = preCachedFluxModel?.data
+    ? { value: preCachedFluxModel.data, cached: true, annualCached: true, monthlyCached: true, downloads: 0 }
+    : null;
 
-  if (shadeBuffers && surfaceResult) {
+  if (shadeBuffers && surfaceResult && fluxResult) {
     geoTiffCacheHits = 12;
   } else {
     layersResult = await getDataLayers(siteLat, siteLon, radiusM);
@@ -722,6 +869,9 @@ async function analyzeGoogleSolar(body) {
 
     if (!surfaceResult) {
       surfaceResult = await getGoogleSurfaceModel(layerBaseKey, layersResult.value, siteLat, siteLon, radiusM);
+    }
+    if (!fluxResult) {
+      fluxResult = await getGoogleFluxModel(layerBaseKey, layersResult.value, surfaceResult.value, siteLat, siteLon, radiusM);
     }
 
     if (shadeBuffers) {
@@ -760,6 +910,15 @@ async function analyzeGoogleSolar(body) {
     layerInfo = compactLayerInfo(layersResult.value, radiusM);
     surfaceResult = await getGoogleSurfaceModel(layerBaseKey, layersResult.value, siteLat, siteLon, radiusM);
   }
+  if (!fluxResult) {
+    // Existing DSM/shade caches created before the heatmap feature may need one
+    // fresh Data Layers request to obtain non-expired flux download URLs. New
+    // site analyses reuse the same Data Layers response used by shade/DSM.
+    layersResult = layersResult || await getDataLayers(siteLat, siteLon, radiusM);
+    dataLayersUpstreamRequests += layersResult.upstreamRequests;
+    layerInfo = compactLayerInfo(layersResult.value, radiusM);
+    fluxResult = await getGoogleFluxModel(layerBaseKey, layersResult.value, surfaceResult.value, siteLat, siteLon, radiusM);
+  }
 
   const months = await mapLimit(shadeBuffers, 3, async (arrayBuffer) => {
     const tiff = await decodeGeoTiff(arrayBuffer);
@@ -792,6 +951,7 @@ async function analyzeGoogleSolar(body) {
       profiles,
     },
     surfaceModel: surfaceResult?.value || null,
+    fluxModel: fluxResult?.value || null,
     cache: {
       buildingInsights: buildingResult.cached,
       dataLayers: dataLayersUpstreamRequests === 0,
@@ -801,6 +961,10 @@ async function analyzeGoogleSolar(body) {
       dsmGeoTiffCached: Boolean(surfaceResult?.dsmCached),
       buildingMaskGeoTiffCached: Boolean(surfaceResult?.maskCached),
       surfaceGeoTiffsDownloaded: Number(surfaceResult?.downloads || 0),
+      googleFluxModel: Boolean(fluxResult?.cached),
+      annualFluxGeoTiffCached: Boolean(fluxResult?.annualCached),
+      monthlyFluxGeoTiffCached: Boolean(fluxResult?.monthlyCached),
+      fluxGeoTiffsDownloaded: Number(fluxResult?.downloads || 0),
       upstreamBillableRequests: buildingResult.upstreamRequests + dataLayersUpstreamRequests,
     },
   };

@@ -251,3 +251,39 @@ When the Google rooftop mask connects the selected house to an attached garage o
 
 ### Google host-footprint matching
 The Data Layers mask is a rooftop/not-rooftop raster for the requested region, not a per-building polygon. Host matching now uses Building Insights building and roof-segment bounds plus segment/panel centers to isolate the target building. The displayed blue host outline follows the selected raster boundary instead of a convex hull, so concavities and irregular roof edges are preserved rather than spanning yards or attached neighboring roofs.
+
+## Google roof reference matching
+
+After a successful Google Solar analysis, the Location & environment panel exposes explicit reference-matching actions. Building Insights supplies the dominant roof pitch/bearing while the isolated Google rooftop mask is projected into that bearing to estimate the configured roof length/depth. The user can apply bearing, pitch, approximate footprint size, or center position independently, or apply all reference values together. These actions never happen automatically. Any geometry/position change marks precise Google hourly-shade sampling stale, so the user can re-run the cached analysis afterward to resample the updated panel coordinates.
+
+## Google Solar Step C — recommended layout overlay
+
+Building Insights' `solarPanelConfigs` and ranked `solarPanels` are now exposed to the browser as a comparison layer. The Google configuration selector defaults to the configuration closest to the currently fitted configurator panel count, while still allowing any returned Google panel-count configuration to be selected explicitly.
+
+The selected Google layout is rendered in the geographic 3D scene as translucent cyan reference panels using Google's panel centers, portrait/landscape orientation, panel dimensions, and the pitch/azimuth of the corresponding Google roof segment. These panels are reference-only and never replace or move the configurator's solid dark panels.
+
+The comparison panel shows our fitted panel count / PVGIS-based annual estimate beside Google's Building Insights DC estimate. Where Google's reference panel wattage differs from the configured module wattage, the displayed comparison also provides a simple wattage-normalized Google reference; this is intentionally labeled as a comparison rather than a replacement for the PVGIS production model.
+
+Changing the Google reference configuration or hiding/showing the overlay is entirely local and does not trigger another Google API acquisition. The Netlify proxy now returns the full compact `solarPanelConfigs` list from the already-cached Building Insights response.
+
+
+### Google layout overlay height handling
+Building Insights panel positions use the elevation of the real building seen by Google. The configurable demo house can intentionally use a different wall/roof height. Reference panels now preserve Google's geographic X/Z placement and orientation, but are vertically projected just above the configured roof wherever the two footprints overlap. This prevents most of a Google layout from disappearing inside a taller configured roof while still making footprint disagreements visible.
+
+
+### Google solar suitability heatmap
+
+The detailed Google Solar demo now also consumes the annual and monthly flux GeoTIFF URLs returned by the same Data Layers response used for DSM, building mask and hourly shade. The proxy downloads and caches the annual/monthly flux TIFFs for 30 days, samples them onto the existing Google surface grid and sends a compact quantized heatmap model to the browser. The Three.js heatmap is rendered only over Google rooftop-mask cells and can switch between annual and individual-month layers without another Google request. PVGIS remains the primary production/weather model; the Google flux layer is used as a spatial suitability/reference visualization.
+
+
+### Google flux heatmap presentation
+
+The Google solar-flux heatmap now defaults to the detected host roof only. A separate **Show nearby roof suitability** toggle enables surrounding rooftops at reduced opacity for neighborhood comparison. The host roof defines the heatmap's 10th–90th percentile color scale so nearby outliers do not flatten the house-level visualization.
+
+
+## UI cleanup update
+
+- The right-hand settings drawer can be hidden/shown with the edge chevron and animates off-canvas.
+- The Location & Sun tools are grouped into **Site & environment**, **Solar analysis**, and **Sun, season & orientation** accordions to keep the long Google/PVGIS controls manageable.
+- The 24-hour simulation tray is more compact and can be collapsed with its chevron while keeping the current-day controls one click away.
+- Google solar-flux heatmap visibility state is now propagated into the Three.js geographic layer, so the host heatmap toggle actually hides/shows the rendered heatmap.

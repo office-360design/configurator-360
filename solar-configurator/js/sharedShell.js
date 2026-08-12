@@ -87,6 +87,18 @@ function setSidebarCollapsed(collapsed) {
 }
 sidebarToggle?.addEventListener('click', () => setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed')));
 
+const simulationPanel = document.querySelector('.solar-simulation-panel');
+const simulationPanelToggle = document.querySelector('#simulationPanelToggle');
+const setSimulationPanelCollapsed = (collapsed) => {
+  simulationPanel?.classList.toggle('is-collapsed', collapsed);
+  simulationPanelToggle?.setAttribute('aria-expanded', String(!collapsed));
+  simulationPanelToggle?.setAttribute('aria-label', collapsed ? 'Show energy graph' : 'Hide energy graph');
+  simulationPanelToggle?.setAttribute('title', collapsed ? 'Show energy graph' : 'Hide energy graph');
+};
+simulationPanelToggle?.addEventListener('click', () => {
+  setSimulationPanelCollapsed(!simulationPanel?.classList.contains('is-collapsed'));
+});
+
 if (sidebar) {
   const markDirty = (event) => {
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
@@ -176,12 +188,41 @@ const googleSolarMaxPanelsValue = document.querySelector('#googleSolarMaxPanelsV
 const googleSolarSunshineValue = document.querySelector('#googleSolarSunshineValue');
 const googleSolarSegmentsValue = document.querySelector('#googleSolarSegmentsValue');
 const googleSolarLayoutValue = document.querySelector('#googleSolarLayoutValue');
+const googleSolarLayoutPanel = document.querySelector('#googleSolarLayoutPanel');
+const googleSolarRecommendedStatus = document.querySelector('#googleSolarRecommendedStatus');
+const googleSolarLayoutSelect = document.querySelector('#googleSolarLayoutSelect');
+const googleSolarRecommendedToggle = document.querySelector('#googleSolarRecommendedToggle');
+const googleSolarOurLayoutValue = document.querySelector('#googleSolarOurLayoutValue');
+const googleSolarRecommendedValue = document.querySelector('#googleSolarRecommendedValue');
+const googleSolarProductionCompareValue = document.querySelector('#googleSolarProductionCompareValue');
+const googleSolarLayoutNote = document.querySelector('#googleSolarLayoutNote');
+const googleSolarFluxPanel = document.querySelector('#googleSolarFluxPanel');
+const googleSolarFluxStatus = document.querySelector('#googleSolarFluxStatus');
+const googleSolarFluxToggle = document.querySelector('#googleSolarFluxToggle');
+const googleSolarFluxNearbyToggle = document.querySelector('#googleSolarFluxNearbyToggle');
+const googleSolarFluxPeriod = document.querySelector('#googleSolarFluxPeriod');
+const googleSolarFluxLowValue = document.querySelector('#googleSolarFluxLowValue');
+const googleSolarFluxMedianValue = document.querySelector('#googleSolarFluxMedianValue');
+const googleSolarFluxHighValue = document.querySelector('#googleSolarFluxHighValue');
+const googleSolarFluxNote = document.querySelector('#googleSolarFluxNote');
 const googleSolarShadePanelsValue = document.querySelector('#googleSolarShadePanelsValue');
 const googleSolarLossValue = document.querySelector('#googleSolarLossValue');
 const googleSolarDsmValue = document.querySelector('#googleSolarDsmValue');
 const googleSolarMaskValue = document.querySelector('#googleSolarMaskValue');
 const googleSolarReferenceValue = document.querySelector('#googleSolarReferenceValue');
 const googleSolarMainRoofValue = document.querySelector('#googleSolarMainRoofValue');
+const googleSolarMatchPanel = document.querySelector('#googleSolarMatchPanel');
+const googleSolarMatchStatus = document.querySelector('#googleSolarMatchStatus');
+const googleSolarBearingCompare = document.querySelector('#googleSolarBearingCompare');
+const googleSolarPitchCompare = document.querySelector('#googleSolarPitchCompare');
+const googleSolarSizeCompare = document.querySelector('#googleSolarSizeCompare');
+const googleSolarPositionCompare = document.querySelector('#googleSolarPositionCompare');
+const googleSolarApplyBearingButton = document.querySelector('#googleSolarApplyBearingButton');
+const googleSolarApplyPitchButton = document.querySelector('#googleSolarApplyPitchButton');
+const googleSolarApplySizeButton = document.querySelector('#googleSolarApplySizeButton');
+const googleSolarApplyPositionButton = document.querySelector('#googleSolarApplyPositionButton');
+const googleSolarApplyAllButton = document.querySelector('#googleSolarApplyAllButton');
+const googleSolarMatchNote = document.querySelector('#googleSolarMatchNote');
 const googleSolarMessage = document.querySelector('#googleSolarMessage');
 const googleSolarCacheValue = document.querySelector('#googleSolarCacheValue');
 const googleSolarProxyMessage = document.querySelector('#googleSolarProxyMessage');
@@ -227,6 +268,25 @@ function formatLocalPosition(eastM, northM, units = 'metric') {
   if (Math.abs(east) < 0.05 && Math.abs(north) < 0.05) return 'Centered';
   const sign = (value) => (value >= 0 ? '+' : '−');
   return `E ${sign(east)}${formatLocalDistance(Math.abs(east), units)} · N ${sign(north)}${formatLocalDistance(Math.abs(north), units)}`;
+}
+
+function signedAngleDelta(target, current) {
+  return ((Number(target) - Number(current) + 540) % 360) - 180;
+}
+
+function formatSignedDelta(value, suffix = '°', digits = 1) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '—';
+  const rounded = Math.abs(number) < 0.05 ? 0 : number;
+  const sign = rounded > 0 ? '+' : rounded < 0 ? '−' : '';
+  return `${sign}${Math.abs(rounded).toFixed(digits)}${suffix}`;
+}
+
+function formatReferenceSize(lengthM, depthM, units = 'metric') {
+  const length = Number(lengthM);
+  const depth = Number(depthM);
+  if (!Number.isFinite(length) || !Number.isFinite(depth)) return '—';
+  return `${formatLocalDistance(length, units, 1)} × ${formatLocalDistance(depth, units, 1)}`;
 }
 
 function syncLocalStepLabels(units = 'metric') {
@@ -549,6 +609,116 @@ function syncToolsState(detail = getApi()?.getState?.()) {
       ? `${detail.googleSolarClosestConfigPanels} panels · ${Math.round(Number(detail.googleSolarClosestConfigKWh) || 0).toLocaleString('en-US')} kWh DC/y`
       : '—';
   }
+  const recommendedConfigs = Array.isArray(detail.googleSolarPanelConfigs)
+    ? detail.googleSolarPanelConfigs.filter((config) => Number(config?.panelsCount) > 0)
+    : [];
+  const recommendedPanelCount = Number(detail.googleSolarRecommendedPanelCount) || 0;
+  const recommendedKWh = Number(detail.googleSolarRecommendedConfigKWh) || 0;
+  const recommendedAvailable = recommendedPanelCount > 0 && recommendedConfigs.length > 0;
+  if (googleSolarLayoutPanel) googleSolarLayoutPanel.dataset.available = String(recommendedAvailable);
+  if (googleSolarRecommendedStatus) {
+    googleSolarRecommendedStatus.textContent = !recommendedAvailable
+      ? 'Analyze site first'
+      : detail.googleSolarRecommendedLayoutVisible === false
+        ? 'Overlay hidden'
+        : `${recommendedPanelCount} panels shown`;
+    googleSolarRecommendedStatus.dataset.status = recommendedAvailable ? 'ready' : 'unavailable';
+  }
+  if (googleSolarLayoutSelect) {
+    const explicitCount = Math.max(0, Math.round(Number(detail.googleSolarRecommendedConfigPanels) || 0));
+    const autoLabel = recommendedPanelCount > 0 ? `Closest to current (${recommendedPanelCount} panels)` : 'Closest to current array';
+    const optionMarkup = [`<option value="0">${autoLabel}</option>`]
+      .concat(recommendedConfigs.map((config) => `<option value="${Math.round(Number(config.panelsCount) || 0)}">${Math.round(Number(config.panelsCount) || 0)} panels · ${Math.round(Number(config.yearlyEnergyDcKwh) || 0).toLocaleString('en-US')} kWh DC/y</option>`))
+      .join('');
+    if (googleSolarLayoutSelect.dataset.options !== optionMarkup) {
+      googleSolarLayoutSelect.innerHTML = optionMarkup;
+      googleSolarLayoutSelect.dataset.options = optionMarkup;
+    }
+    const explicitExists = explicitCount > 0 && recommendedConfigs.some((config) => Math.round(Number(config.panelsCount) || 0) === explicitCount);
+    googleSolarLayoutSelect.value = explicitExists ? String(explicitCount) : '0';
+    googleSolarLayoutSelect.disabled = !recommendedAvailable || googleLoading;
+  }
+  if (googleSolarRecommendedToggle) {
+    googleSolarRecommendedToggle.checked = detail.googleSolarRecommendedLayoutVisible !== false;
+    googleSolarRecommendedToggle.disabled = !recommendedAvailable || googleLoading || !detail.environmentLoaded;
+  }
+  const ourPanelCount = Number(detail.googleSolarOurPanelCount) || 0;
+  const ourAnnualKWh = Number(detail.googleSolarOurAnnualKWh) || 0;
+  if (googleSolarOurLayoutValue) {
+    googleSolarOurLayoutValue.textContent = ourPanelCount > 0
+      ? `${ourPanelCount} panels · ${Math.round(ourAnnualKWh).toLocaleString('en-US')} kWh/y`
+      : '—';
+  }
+  if (googleSolarRecommendedValue) {
+    googleSolarRecommendedValue.textContent = recommendedAvailable
+      ? `${recommendedPanelCount} panels · ${Math.round(recommendedKWh).toLocaleString('en-US')} kWh DC/y`
+      : '—';
+  }
+  if (googleSolarProductionCompareValue) {
+    const googlePanelWatts = Number(detail.googleSolarGooglePanelCapacityWatts) || 0;
+    const ourPanelWatts = Number(detail.googleSolarOurPanelCapacityWatts) || 0;
+    const normalizedGoogle = recommendedKWh > 0 && googlePanelWatts > 0 && ourPanelWatts > 0
+      ? recommendedKWh * (ourPanelWatts / googlePanelWatts)
+      : recommendedKWh;
+    const differencePct = normalizedGoogle > 0 && ourAnnualKWh > 0
+      ? ((ourAnnualKWh - normalizedGoogle) / normalizedGoogle) * 100
+      : null;
+    googleSolarProductionCompareValue.textContent = recommendedAvailable && ourAnnualKWh > 0 && normalizedGoogle > 0
+      ? `PVGIS ${Math.round(ourAnnualKWh).toLocaleString('en-US')} vs Google ≈${Math.round(normalizedGoogle).toLocaleString('en-US')} kWh/y · Δ ${differencePct >= 0 ? '+' : ''}${differencePct.toFixed(1)}%`
+      : '—';
+  }
+  if (googleSolarLayoutNote) {
+    const googlePanelWatts = Number(detail.googleSolarGooglePanelCapacityWatts) || 0;
+    const ourPanelWatts = Number(detail.googleSolarOurPanelCapacityWatts) || 0;
+    const powerNote = googlePanelWatts > 0 && ourPanelWatts > 0 && Math.abs(googlePanelWatts - ourPanelWatts) > 0.5
+      ? ` Google uses ${Math.round(googlePanelWatts)} W reference panels; comparison is normalized to the configured ${Math.round(ourPanelWatts)} W module by wattage only.`
+      : '';
+    googleSolarLayoutNote.textContent = `Google's selected configuration uses the first ${recommendedPanelCount || 'N'} ranked Building Insights panel positions. The overlay is reference-only and does not move your configured array.${powerNote}`;
+  }
+
+  const fluxAvailable = Boolean(detail.googleSolarFluxAvailable);
+  const fluxPeriod = String(detail.googleSolarFluxPeriod ?? 'annual');
+  const fluxStats = detail.googleSolarFluxStats || {};
+  const fluxPeriodName = fluxPeriod === 'annual'
+    ? 'Annual'
+    : ['January','February','March','April','May','June','July','August','September','October','November','December'][Math.max(0, Math.min(11, Number(fluxPeriod) || 0))];
+  if (googleSolarFluxPanel) googleSolarFluxPanel.dataset.available = String(fluxAvailable);
+  if (googleSolarFluxStatus) {
+    const hostCells = Number(detail.googleSolarFluxHostCells) || 0;
+    const nearbyCells = Number(detail.googleSolarFluxNearbyCells) || 0;
+    googleSolarFluxStatus.textContent = !fluxAvailable
+      ? 'Analyze site first'
+      : detail.googleSolarFluxHeatmapVisible === false
+        ? 'Heatmap hidden'
+        : detail.googleSolarFluxNearbyRoofsVisible === true && nearbyCells > 0
+          ? `${fluxPeriodName} · ${hostCells} host + ${nearbyCells} nearby`
+          : hostCells > 0
+            ? `${fluxPeriodName} · ${hostCells} host roof cells`
+            : 'Host roof not matched';
+    googleSolarFluxStatus.dataset.status = fluxAvailable ? 'ready' : 'unavailable';
+  }
+  if (googleSolarFluxToggle) {
+    googleSolarFluxToggle.checked = detail.googleSolarFluxHeatmapVisible !== false;
+    googleSolarFluxToggle.disabled = !fluxAvailable || googleLoading || !detail.environmentLoaded || detail.googleSolarDsmEnabled === false;
+  }
+  if (googleSolarFluxNearbyToggle) {
+    googleSolarFluxNearbyToggle.checked = detail.googleSolarFluxNearbyRoofsVisible === true;
+    googleSolarFluxNearbyToggle.disabled = !fluxAvailable || googleLoading || !detail.environmentLoaded || detail.googleSolarDsmEnabled === false || detail.googleSolarFluxHeatmapVisible === false;
+  }
+  if (googleSolarFluxPeriod) {
+    googleSolarFluxPeriod.value = fluxPeriod;
+    googleSolarFluxPeriod.disabled = !fluxAvailable || googleLoading;
+  }
+  const formatFlux = (value) => Number.isFinite(Number(value)) ? `${Math.round(Number(value)).toLocaleString('en-US')} kWh/kW/y` : '—';
+  if (googleSolarFluxLowValue) googleSolarFluxLowValue.textContent = formatFlux(fluxStats.p10 ?? fluxStats.min);
+  if (googleSolarFluxMedianValue) googleSolarFluxMedianValue.textContent = formatFlux(fluxStats.median ?? fluxStats.mean);
+  if (googleSolarFluxHighValue) googleSolarFluxHighValue.textContent = formatFlux(fluxStats.p90 ?? fluxStats.max);
+  if (googleSolarFluxNote) {
+    googleSolarFluxNote.textContent = fluxAvailable
+      ? `${fluxPeriodName} heatmap is scaled from the detected host roof's 10th–90th percentile so the house remains readable and meaningful. Nearby roof suitability is optional and rendered much more subtly. Google flux is a spatial suitability reference; PVGIS remains the main production/weather estimate.`
+      : 'Heatmap unavailable until Google Data Layers have been analyzed for this property.';
+  }
+
   if (googleSolarShadePanelsValue) googleSolarShadePanelsValue.textContent = Number(detail.googleSolarShadePanelCount) > 0 ? String(detail.googleSolarShadePanelCount) : '—';
   if (googleSolarLossValue) {
     googleSolarLossValue.textContent = Number(detail.googleSolarShadePanelCount) > 0 && detail.googleSolarShadingEnabled !== false
@@ -583,6 +753,73 @@ function syncToolsState(detail = getApi()?.getState?.()) {
       ? `${pitch.toFixed(1)}° pitch · ${formatAzimuth(azimuth)}`
       : '—';
   }
+
+  const referenceAvailable = Boolean(detail.googleSolarReferenceSuggestionAvailable);
+  const targetBearing = Number(detail.googleSolarReferenceSuggestedBearingDeg);
+  const targetPitch = Number(detail.googleSolarReferenceSuggestedPitchDeg);
+  const targetLength = Number(detail.googleSolarReferenceSuggestedLengthM);
+  const targetDepth = Number(detail.googleSolarReferenceSuggestedDepthM);
+  const currentBearing = Number(detail.northDirection);
+  const currentPitch = Number(detail.roofPitchDeg);
+  const currentLength = Number(detail.roofLengthM);
+  const currentDepth = Number(detail.roofDepthM);
+  const bearingDelta = referenceAvailable && Number.isFinite(targetBearing) && Number.isFinite(currentBearing)
+    ? signedAngleDelta(targetBearing, currentBearing)
+    : null;
+  const pitchDelta = referenceAvailable && Number.isFinite(targetPitch) && Number.isFinite(currentPitch)
+    ? targetPitch - currentPitch
+    : null;
+  const lengthDelta = referenceAvailable && Number.isFinite(targetLength) && Number.isFinite(currentLength)
+    ? targetLength - currentLength
+    : null;
+  const depthDelta = referenceAvailable && Number.isFinite(targetDepth) && Number.isFinite(currentDepth)
+    ? targetDepth - currentDepth
+    : null;
+  const positionDelta = Number(detail.googleSolarReferenceSuggestedPositionDistanceM);
+  const bearingAligned = Number.isFinite(bearingDelta) && Math.abs(bearingDelta) < 0.6;
+  const pitchAligned = Number.isFinite(pitchDelta) && Math.abs(pitchDelta) < 0.6;
+  const sizeAligned = Number.isFinite(lengthDelta) && Number.isFinite(depthDelta) && Math.abs(lengthDelta) < 0.15 && Math.abs(depthDelta) < 0.15;
+  const positionAligned = Number.isFinite(positionDelta) && positionDelta < 0.15;
+  const referenceAligned = referenceAvailable && bearingAligned && pitchAligned && (!Number.isFinite(targetLength) || sizeAligned) && (!Number.isFinite(positionDelta) || positionAligned);
+
+  if (googleSolarMatchPanel) googleSolarMatchPanel.dataset.available = String(referenceAvailable);
+  if (googleSolarMatchStatus) {
+    googleSolarMatchStatus.textContent = referenceAvailable ? (referenceAligned ? 'Aligned ✓' : 'Google reference ready') : 'Analyze site first';
+    googleSolarMatchStatus.dataset.status = referenceAligned ? 'aligned' : referenceAvailable ? 'ready' : 'unavailable';
+  }
+  if (googleSolarBearingCompare) {
+    googleSolarBearingCompare.textContent = referenceAvailable && Number.isFinite(targetBearing)
+      ? `${formatAzimuth(currentBearing)} → ${formatAzimuth(targetBearing)} · Δ ${Math.abs(Number(bearingDelta) || 0).toFixed(1)}°`
+      : '—';
+  }
+  if (googleSolarPitchCompare) {
+    googleSolarPitchCompare.textContent = referenceAvailable && Number.isFinite(targetPitch)
+      ? `${currentPitch.toFixed(1)}° → ${targetPitch.toFixed(1)}° · Δ ${formatSignedDelta(pitchDelta)}`
+      : '—';
+  }
+  if (googleSolarSizeCompare) {
+    googleSolarSizeCompare.textContent = referenceAvailable && Number.isFinite(targetLength) && Number.isFinite(targetDepth)
+      ? `${formatReferenceSize(currentLength, currentDepth, detail.units)} → ${formatReferenceSize(targetLength, targetDepth, detail.units)}`
+      : 'No reliable footprint size';
+  }
+  if (googleSolarPositionCompare) {
+    googleSolarPositionCompare.textContent = referenceAvailable && Number.isFinite(positionDelta)
+      ? `${formatLocalDistance(positionDelta, detail.units, 1)} center offset → aligned`
+      : '—';
+  }
+  if (googleSolarMatchNote) {
+    const source = detail.googleSolarReferenceDimensionSource ? ` Size source: ${detail.googleSolarReferenceDimensionSource}.` : '';
+    googleSolarMatchNote.textContent = `Google values are applied only when you choose an action. Footprint dimensions are approximate because the rooftop mask describes the visible roof, not the wall line.${source}`;
+  }
+
+  const referenceButtons = [googleSolarApplyBearingButton, googleSolarApplyPitchButton, googleSolarApplySizeButton, googleSolarApplyPositionButton, googleSolarApplyAllButton];
+  referenceButtons.forEach((button) => { if (button) button.disabled = !referenceAvailable || googleLoading; });
+  if (googleSolarApplyBearingButton && referenceAvailable) googleSolarApplyBearingButton.disabled = googleLoading || bearingAligned || !Number.isFinite(targetBearing);
+  if (googleSolarApplyPitchButton && referenceAvailable) googleSolarApplyPitchButton.disabled = googleLoading || pitchAligned || !Number.isFinite(targetPitch);
+  if (googleSolarApplySizeButton && referenceAvailable) googleSolarApplySizeButton.disabled = googleLoading || sizeAligned || !Number.isFinite(targetLength) || !Number.isFinite(targetDepth);
+  if (googleSolarApplyPositionButton && referenceAvailable) googleSolarApplyPositionButton.disabled = googleLoading || positionAligned || !Number.isFinite(positionDelta);
+  if (googleSolarApplyAllButton && referenceAvailable) googleSolarApplyAllButton.disabled = googleLoading || referenceAligned;
+
   if (googleSolarMessage) googleSolarMessage.textContent = detail.googleSolarMessage || '';
   if (googleSolarProxyMessage) googleSolarProxyMessage.textContent = detail.googleSolarProxyMessage || '';
   if (googleSolarCacheValue) {
@@ -596,9 +833,14 @@ function syncToolsState(detail = getApi()?.getState?.()) {
         : Number(cache.surfaceGeoTiffsDownloaded || 0)
           ? `${cache.surfaceGeoTiffsDownloaded} DSM/mask TIFF${Number(cache.surfaceGeoTiffsDownloaded) === 1 ? '' : 's'} downloaded`
           : 'DSM/mask ready';
+      const fluxText = cache.googleFluxModel
+        ? 'flux reused'
+        : Number(cache.fluxGeoTiffsDownloaded || 0)
+          ? `${cache.fluxGeoTiffsDownloaded} flux TIFF${Number(cache.fluxGeoTiffsDownloaded) === 1 ? '' : 's'} downloaded`
+          : 'flux ready';
       googleSolarCacheValue.textContent = googleCalls
-        ? `${googleCalls} Google request${googleCalls === 1 ? '' : 's'} · ${tiffs}/12 shade TIFFs reused · ${surfaceText}`
-        : `Netlify cache · ${tiffs || 12}/12 shade TIFFs reused · ${surfaceText}`;
+        ? `${googleCalls} Google request${googleCalls === 1 ? '' : 's'} · ${tiffs}/12 shade TIFFs reused · ${surfaceText} · ${fluxText}`
+        : `Netlify cache · ${tiffs || 12}/12 shade TIFFs reused · ${surfaceText} · ${fluxText}`;
     } else googleSolarCacheValue.textContent = '—';
   }
   googleSolarBlock?.classList.toggle('is-loading', googleLoading);
@@ -707,6 +949,21 @@ googleSolarAccessCode?.addEventListener('keydown', (event) => {
 googleSolarLockButton?.addEventListener('click', () => getApi()?.lockGoogleSolar?.());
 googleSolarAnalyzeButton?.addEventListener('click', () => getApi()?.refreshGoogleSolar?.(false));
 googleSolarRefreshButton?.addEventListener('click', () => getApi()?.refreshGoogleSolar?.(true));
+googleSolarRecommendedToggle?.addEventListener('change', () => {
+  getApi()?.setGoogleSolarRecommendedLayoutVisible?.(googleSolarRecommendedToggle.checked);
+});
+googleSolarLayoutSelect?.addEventListener('change', () => {
+  getApi()?.setGoogleSolarRecommendedConfigPanels?.(Number(googleSolarLayoutSelect.value) || 0);
+});
+googleSolarFluxToggle?.addEventListener('change', () => {
+  getApi()?.setGoogleSolarFluxHeatmapVisible?.(googleSolarFluxToggle.checked);
+});
+googleSolarFluxNearbyToggle?.addEventListener('change', () => {
+  getApi()?.setGoogleSolarFluxNearbyRoofsVisible?.(googleSolarFluxNearbyToggle.checked);
+});
+googleSolarFluxPeriod?.addEventListener('change', () => {
+  getApi()?.setGoogleSolarFluxPeriod?.(googleSolarFluxPeriod.value);
+});
 googleSolarShadingToggle?.addEventListener('change', () => {
   getApi()?.setGoogleSolarShadingEnabled?.(googleSolarShadingToggle.checked);
   shell.markDirty();
@@ -727,6 +984,16 @@ googleSolarReferenceToggle?.addEventListener('change', () => {
   getApi()?.setGoogleSolarReferenceBuildingVisible?.(googleSolarReferenceToggle.checked);
   shell.markDirty();
 });
+
+const applyGoogleReference = (mode) => {
+  const result = getApi()?.applyGoogleReference?.(mode);
+  if (result?.ok !== false) shell.markDirty();
+};
+googleSolarApplyBearingButton?.addEventListener('click', () => applyGoogleReference('bearing'));
+googleSolarApplyPitchButton?.addEventListener('click', () => applyGoogleReference('pitch'));
+googleSolarApplySizeButton?.addEventListener('click', () => applyGoogleReference('size'));
+googleSolarApplyPositionButton?.addEventListener('click', () => applyGoogleReference('position'));
+googleSolarApplyAllButton?.addEventListener('click', () => applyGoogleReference('all'));
 
 // Exact-location picker remains intentionally bounded to Romania for now,
 // matching the existing production model and Europe/Bucharest time zone.

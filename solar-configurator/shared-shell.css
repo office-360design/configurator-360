@@ -51,7 +51,7 @@ body.shared-ui-mounted .sidebar {
 body.shared-ui-mounted .sidebar.is-collapsed { transform: translateX(calc(100% + var(--shared-settings-gap))); }
 body.shared-ui-mounted .brand-row { display: none; }
 
-#roofSidebarToggle {
+#solarSidebarToggle {
   position: absolute;
   top: calc(var(--shared-settings-gap) + 14px);
   right: calc(var(--shared-settings-width) + var(--shared-settings-gap));
@@ -71,10 +71,10 @@ body.shared-ui-mounted .brand-row { display: none; }
   cursor: pointer;
   transition: right 0.32s cubic-bezier(0.22, 1, 0.36, 1), background 0.15s ease, color 0.15s ease;
 }
-#roofSidebarToggle:hover { color: #005a9f; background: #f4f7f8; }
-#roofSidebarToggle svg { transform: rotate(180deg); transition: transform .32s cubic-bezier(.22,1,.36,1); }
-body.roof-sidebar-collapsed #roofSidebarToggle { right: 0; }
-body.roof-sidebar-collapsed #roofSidebarToggle svg { transform: rotate(0deg); }
+#solarSidebarToggle:hover { color: #005a9f; background: #f4f7f8; }
+#solarSidebarToggle svg { transform: rotate(180deg); transition: transform .32s cubic-bezier(.22,1,.36,1); }
+body.roof-sidebar-collapsed #solarSidebarToggle { right: 0; }
+body.roof-sidebar-collapsed #solarSidebarToggle svg { transform: rotate(0deg); }
 body.shared-ui-mounted .panel-section:first-of-type { padding-top: 24px; }
 
 /* Shared dark-mode preference without changing any roof calculations. */
@@ -90,13 +90,13 @@ body.shared-ui-dark-mode .panel-section { border-color: rgba(255,255,255,.1); }
 body.shared-ui-dark-mode .roof-card,
 body.shared-ui-dark-mode .number-input,
 body.shared-ui-dark-mode select { color: #e7eef3; background: #243248; border-color: rgba(255,255,255,.12); }
-body.shared-ui-dark-mode #roofSidebarToggle { color: #e7eef3; background: rgba(20,31,45,.98); border-color: rgba(255,255,255,.1); }
+body.shared-ui-dark-mode #solarSidebarToggle { color: #e7eef3; background: rgba(20,31,45,.98); border-color: rgba(255,255,255,.1); }
 
 @media (max-width: 760px) {
   :root { --shared-settings-gap: 12px; --shared-settings-width: min(340px, calc(100vw - 56px)); }
   body.shared-ui-mounted .sidebar { top: 12px; right: 12px; bottom: 12px; width: min(340px, calc(100vw - 56px)); max-height: calc(100% - 24px); }
-  #roofSidebarToggle { top: 26px; right: min(352px, calc(100vw - 44px)); }
-  body.roof-sidebar-collapsed #roofSidebarToggle { right: 0; }
+  #solarSidebarToggle { top: 26px; right: min(352px, calc(100vw - 44px)); }
+  body.roof-sidebar-collapsed #solarSidebarToggle { right: 0; }
   body.shared-ui-mounted .viewer-header { padding-right: 18px; }
 }
 

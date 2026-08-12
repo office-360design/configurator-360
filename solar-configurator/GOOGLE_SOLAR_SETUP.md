@@ -125,3 +125,10 @@ The Google Solar analysis now also consumes two additional GeoTIFF URLs returned
 These GeoTIFF downloads do not create additional Data Layers billable requests. The Netlify function caches both raw TIFFs and the processed browser-friendly surface grid for up to 30 days.
 
 In the configurator, **Use Google DSM for local environment** adds the Google surface inside the analyzed radius. OSM buildings/trees that overlap the Google-covered surface are suppressed to avoid duplicate geometry. **Highlight Google rooftop mask** colors detected rooftop cells and outlines the host roof. If **Replace overlapping mapped building** is enabled, the detected host roof is flattened so the configurable Three.js house can occupy that footprint cleanly.
+
+
+## Annual/monthly flux heatmap
+
+The Google Solar proxy now also downloads the `annualFluxUrl` and `monthlyFluxUrl` GeoTIFFs returned by the existing `dataLayers` response. They are cached in Netlify Blobs for the same 30-day window as the other Google GeoTIFFs, then sampled onto the compact DSM grid sent to the browser. Changing the heatmap between annual and monthly views is client-side and does not make another Google request.
+
+For sites analyzed before this feature was deployed, the first re-analysis may need one fresh Data Layers request if the old temporary Data Layers download URLs have already expired. New site analyses obtain DSM, mask, hourly shade and flux URLs from the same Data Layers request.

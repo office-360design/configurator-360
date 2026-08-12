@@ -21,6 +21,10 @@ const GOOGLE_CANOPY_COLOR = 0x78936f;
 const GOOGLE_MASK_COLOR = 0x6f8ca0;
 const GOOGLE_REFERENCE_COLOR = 0x2f93c7;
 const GOOGLE_REFERENCE_SEGMENT_COLOR = 0xe0a42f;
+const GOOGLE_RECOMMENDED_PANEL_COLOR = 0x35c6e8;
+const GOOGLE_FLUX_LOW_COLOR = 0x4967d8;
+const GOOGLE_FLUX_MID_COLOR = 0x20b7b0;
+const GOOGLE_FLUX_HIGH_COLOR = 0xffd34f;
 
 function cross2(ax, az, bx, bz) {
   return ax * bz - az * bx;
@@ -238,6 +242,11 @@ export class RoofScene {
       googleSolarBuildingMaskVisible: true,
       googleSolarRawDsmVisible: false,
       googleSolarReferenceBuildingVisible: true,
+      googleSolarRecommendedLayoutVisible: true,
+      googleSolarRecommendedConfigPanels: 0,
+      googleSolarFluxHeatmapVisible: true,
+      googleSolarFluxNearbyRoofsVisible: false,
+      googleSolarFluxPeriod: 'annual',
       pvgisUseHorizon: true,
       pvgisShowHorizon: true,
       pvgisHorizonProfile: null,
@@ -246,6 +255,9 @@ export class RoofScene {
     this.geographicData = null;
     this.googleSurfaceModel = null;
     this.googleBuildingInsights = null;
+    this.googleFluxModel = null;
+    this.googleFluxDecoded = null;
+    this.googleFluxHeatmapStats = { renderedCells: 0, hostCells: 0, nearbyCells: 0, period: 'annual', stats: null };
     this.googleHostComponent = null;
     this.googleMaskComponentsCache = null;
     this.googleDatumOffsetCache = null;
@@ -538,6 +550,8 @@ export class RoofScene {
       'roadsEnabled', 'treesEnabled', 'terrainExaggeration', 'environmentLocalEastM',
       'environmentLocalNorthM', 'replaceHostBuilding', 'localBuildingShadingEnabled', 'localBuildingShadingModel',
       'googleSolarDsmEnabled', 'googleSolarBuildingMaskVisible', 'googleSolarRawDsmVisible', 'googleSolarReferenceBuildingVisible',
+      'googleSolarRecommendedLayoutVisible', 'googleSolarRecommendedConfigPanels',
+      'googleSolarFluxHeatmapVisible', 'googleSolarFluxNearbyRoofsVisible', 'googleSolarFluxPeriod',
       'pvgisUseHorizon', 'pvgisShowHorizon', 'pvgisHorizonProfile',
     ];
     copyKeys.forEach((key) => {
@@ -661,6 +675,68 @@ export class RoofScene {
     return this.googleBuildingInsights;
   }
 
+  setGoogleFluxModel(model, state = this.environmentState) {
+    this.googleFluxModel = model || null;
+    this.googleFluxDecoded = null;
+    this.googleFluxHeatmapStats = { renderedCells: 0, hostCells: 0, nearbyCells: 0, period: String(state.googleSolarFluxPeriod || 'annual'), stats: null };
+    if (this.geographicData) this.rebuildGeographicEnvironment(state);
+    return this.googleFluxModel;
+  }
+
+  decodeGoogleFluxBase64(encoded) {
+    if (!encoded) return null;
+    try {
+      const binary = window.atob(String(encoded));
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      const view = new DataView(bytes.buffer);
+      const count = Math.floor(bytes.byteLength / 2);
+      const values = new Float32Array(count);
+      const scale = Math.max(0.0001, Number(this.googleFluxModel?.scale) || 10);
+      const invalid = Number(this.googleFluxModel?.invalidValue) || 65535;
+      for (let index = 0; index < count; index += 1) {
+        const raw = view.getUint16(index * 2, true);
+        values[index] = raw === invalid ? Number.NaN : raw / scale;
+      }
+      return values;
+    } catch {
+      return null;
+    }
+  }
+
+  ensureGoogleFluxDecoded() {
+    const model = this.googleFluxModel;
+    if (!model) return null;
+    if (this.googleFluxDecoded?.revision === model.revision) return this.googleFluxDecoded;
+    const annual = this.decodeGoogleFluxBase64(model.annualFluxU16B64);
+    const monthly = (Array.isArray(model.monthlyFluxU16B64) ? model.monthlyFluxU16B64 : []).map((encoded) => this.decodeGoogleFluxBase64(encoded));
+    this.googleFluxDecoded = { revision: model.revision, annual, monthly };
+    return this.googleFluxDecoded;
+  }
+
+  getGoogleFluxHeatmapInfo(state = this.environmentState) {
+    const model = this.googleFluxModel;
+    const decoded = this.ensureGoogleFluxDecoded();
+    const rawPeriod = String(state.googleSolarFluxPeriod ?? 'annual');
+    const monthIndex = rawPeriod === 'annual' ? -1 : clamp(Math.round(Number(rawPeriod) || 0), 0, 11);
+    const values = monthIndex < 0 ? decoded?.annual : decoded?.monthly?.[monthIndex];
+    const modelStats = monthIndex < 0 ? model?.stats?.annual : model?.stats?.monthly?.[monthIndex];
+    const renderedStats = this.googleFluxHeatmapStats?.period === (monthIndex < 0 ? 'annual' : String(monthIndex))
+      ? this.googleFluxHeatmapStats?.stats
+      : null;
+    return {
+      available: Boolean(model && values?.length),
+      period: monthIndex < 0 ? 'annual' : String(monthIndex),
+      monthIndex,
+      values: values || null,
+      stats: renderedStats || modelStats || null,
+      units: model?.units || 'kWh/kW/year',
+      renderedCells: Number(this.googleFluxHeatmapStats?.renderedCells) || 0,
+      hostCells: Number(this.googleFluxHeatmapStats?.hostCells) || 0,
+      nearbyCells: Number(this.googleFluxHeatmapStats?.nearbyCells) || 0,
+    };
+  }
+
   clearGeographicEnvironment() {
     this.geographicData = null;
     this.googleHostComponent = null;
@@ -768,6 +844,54 @@ export class RoofScene {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
     return { x: cos * x + sin * z, z: -sin * x + cos * z };
+  }
+
+  configuredRoofHeightAtHouseLocal(x, z, state = this.environmentState) {
+    const length = Math.max(0.1, Number(state.length) || 10);
+    const depth = Math.max(0.1, Number(state.depth) || 7);
+    const overhang = Math.max(0, Number(state.overhang) || 0);
+    const wallHeight = Math.max(0.1, Number(state.wallHeight) || 3);
+    const pitch = clamp(Number(state.pitch) || 0, 0, 89) * DEG;
+    const slope = Math.tan(pitch);
+    const halfX = length / 2 + overhang;
+    const halfZ = depth / 2 + overhang;
+    let localX = Number(x) || 0;
+    let localZ = Number(z) || 0;
+
+    if (Math.abs(localX) > halfX + 1e-6 || Math.abs(localZ) > halfZ + 1e-6) return null;
+
+    if (state.roofType === 'shed') {
+      return wallHeight + slope * (localZ + depth / 2);
+    }
+
+    if (state.roofType === 'hip') {
+      // The hip implementation rotates its local roof 90° whenever depth is
+      // greater than length. Mirror that transform before evaluating the
+      // distance to the ridge/hip lines.
+      let roofLength = length;
+      let roofDepth = depth;
+      if (depth > length) {
+        [roofLength, roofDepth] = [roofDepth, roofLength];
+        const rotatedX = localZ;
+        const rotatedZ = -localX;
+        localX = rotatedX;
+        localZ = rotatedZ;
+      }
+      const hx = roofLength / 2 + overhang;
+      const hz = roofDepth / 2 + overhang;
+      const riseDistance = Math.max(0, Math.min(hz - Math.abs(localZ), hx - Math.abs(localX)));
+      return wallHeight + slope * riseDistance;
+    }
+
+    // Gable roof. The configured roof ridge stays at z=0 and the overhang
+    // continues along the same roof plane beyond the wall line.
+    const ridgeY = wallHeight + 0.05 + slope * (depth / 2);
+    return ridgeY - slope * Math.abs(localZ);
+  }
+
+  configuredRoofHeightAtMapPoint(point, state = this.environmentState) {
+    const local = this.mapPointToHouseLocal(point, state);
+    return this.configuredRoofHeightAtHouseLocal(local.x, local.z, state);
   }
 
   pointInPolygon(x, z, points) {
@@ -1420,6 +1544,103 @@ export class RoofScene {
     };
   }
 
+  getGoogleRoofMatchSuggestion(state = this.environmentState) {
+    const insights = this.googleBuildingInsights;
+    if (!insights) return { available: false };
+
+    const segments = Array.isArray(insights.roofSegments) ? insights.roofSegments : [];
+    const mainRoof = segments.reduce((best, segment) => (
+      !best || Number(segment.areaMeters2) > Number(best.areaMeters2) ? segment : best
+    ), null);
+    const rawPitch = Number(mainRoof?.pitchDegrees);
+    const rawBearing = Number(mainRoof?.azimuthDegrees);
+    if (!Number.isFinite(rawPitch) || !Number.isFinite(rawBearing)) return { available: false };
+
+    const normalizeBearing = (value) => ((Number(value) % 360) + 360) % 360;
+    const bearingDeg = normalizeBearing(rawBearing);
+    const pitchDeg = clamp(rawPitch, 5, 55);
+    const googleCenter = this.geoToMapPoint(insights.center);
+    const component = this.getGoogleHostComponentRecord(state);
+    const componentCenter = component?.centroid || null;
+    const targetCenter = googleCenter || componentCenter;
+    const houseMap = this.getHouseMapPosition(state);
+    const suggestedEastM = targetCenter ? Number(targetCenter.x) : null;
+    const suggestedNorthM = targetCenter ? -Number(targetCenter.z) : null;
+    const positionDistanceM = targetCenter
+      ? Math.hypot(Number(targetCenter.x) - houseMap.x, Number(targetCenter.z) - houseMap.z)
+      : null;
+
+    let footprint = component?.outline?.length >= 3
+      ? component.outline
+      : component?.hull?.length >= 3
+        ? component.hull
+        : null;
+    let dimensionSource = footprint ? 'Google rooftop mask' : '';
+
+    if (!footprint) {
+      const bounds = this.googleBuildingInsightBoundsMap();
+      if (bounds) {
+        footprint = [
+          { x: bounds.minX, z: bounds.minZ },
+          { x: bounds.maxX, z: bounds.minZ },
+          { x: bounds.maxX, z: bounds.maxZ },
+          { x: bounds.minX, z: bounds.maxZ },
+        ];
+        dimensionSource = 'Building Insights bounds';
+      }
+    }
+
+    let suggestedLengthM = null;
+    let suggestedDepthM = null;
+    let roofOuterLengthM = null;
+    let roofOuterDepthM = null;
+    if (footprint?.length >= 3 && targetCenter) {
+      const angle = bearingDeg * DEG;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minZ = Infinity;
+      let maxZ = -Infinity;
+      for (const point of footprint) {
+        const dx = Number(point.x) - Number(targetCenter.x);
+        const dz = Number(point.z) - Number(targetCenter.z);
+        const localX = cos * dx + sin * dz;
+        const localZ = -sin * dx + cos * dz;
+        minX = Math.min(minX, localX);
+        maxX = Math.max(maxX, localX);
+        minZ = Math.min(minZ, localZ);
+        maxZ = Math.max(maxZ, localZ);
+      }
+      if ([minX, maxX, minZ, maxZ].every(Number.isFinite)) {
+        roofOuterLengthM = Math.max(0, maxX - minX);
+        roofOuterDepthM = Math.max(0, maxZ - minZ);
+        const overhang = Math.max(0, Number(state.overhang) || 0);
+        // The Google mask follows the visible rooftop. Our length/depth controls
+        // describe the building below the roof, so remove the configured overhang
+        // on both sides before mapping the detected roof span back to those inputs.
+        suggestedLengthM = clamp(roofOuterLengthM - overhang * 2, 5, 20);
+        suggestedDepthM = clamp(roofOuterDepthM - overhang * 2, 4, 14);
+      }
+    }
+
+    return {
+      available: true,
+      bearingDeg,
+      pitchDeg,
+      suggestedLengthM: Number.isFinite(suggestedLengthM) ? suggestedLengthM : null,
+      suggestedDepthM: Number.isFinite(suggestedDepthM) ? suggestedDepthM : null,
+      suggestedEastM: Number.isFinite(suggestedEastM) ? suggestedEastM : null,
+      suggestedNorthM: Number.isFinite(suggestedNorthM) ? suggestedNorthM : null,
+      positionDistanceM: Number.isFinite(positionDistanceM) ? positionDistanceM : null,
+      roofOuterLengthM: Number.isFinite(roofOuterLengthM) ? roofOuterLengthM : null,
+      roofOuterDepthM: Number.isFinite(roofOuterDepthM) ? roofOuterDepthM : null,
+      dimensionSource,
+      mainSegmentIndex: Number(mainRoof?.index) || 0,
+      mainSegmentAreaM2: Number(mainRoof?.areaMeters2) || 0,
+    };
+  }
+
   createGoogleReferenceBuilding(state = this.environmentState) {
     if (!this.googleSurfaceModel || !this.googleBuildingInsights || state.googleSolarReferenceBuildingVisible === false) return [];
     const host = this.findGoogleHostComponent(state);
@@ -1537,6 +1758,318 @@ export class RoofScene {
       results.push(arrow);
     }
     return results;
+  }
+
+  getGoogleRecommendedPanelConfig(state = this.environmentState) {
+    const insights = this.googleBuildingInsights;
+    const configs = Array.isArray(insights?.panelConfigs) ? insights.panelConfigs.filter((config) => Number(config?.panelsCount) > 0) : [];
+    if (!configs.length) return insights?.closestPanelConfig || null;
+    const explicit = Math.max(0, Math.round(Number(state.googleSolarRecommendedConfigPanels) || 0));
+    const target = explicit || Math.max(1, Math.round(Number(state.panelCount ?? state.effectivePanelCount) || 1));
+    return configs.reduce((best, config) => {
+      if (!best) return config;
+      const delta = Math.abs(Number(config.panelsCount) - target);
+      const bestDelta = Math.abs(Number(best.panelsCount) - target);
+      return delta < bestDelta || (delta === bestDelta && Number(config.panelsCount) < Number(best.panelsCount)) ? config : best;
+    }, null);
+  }
+
+  getGoogleRecommendedLayoutInfo(state = this.environmentState) {
+    const insights = this.googleBuildingInsights;
+    const config = this.getGoogleRecommendedPanelConfig(state);
+    const panelCount = Math.max(0, Math.round(Number(config?.panelsCount) || 0));
+    const availablePanels = Array.isArray(insights?.suggestedPanels) ? insights.suggestedPanels.length : 0;
+    return {
+      available: Boolean(config && panelCount > 0 && availablePanels >= panelCount),
+      panelCount,
+      yearlyEnergyDcKwh: Number(config?.yearlyEnergyDcKwh) || 0,
+      panelCapacityWatts: Number(insights?.panelCapacityWatts) || 0,
+      panelHeightMeters: Number(insights?.panelHeightMeters) || 0,
+      panelWidthMeters: Number(insights?.panelWidthMeters) || 0,
+      autoSelected: !(Number(state.googleSolarRecommendedConfigPanels) > 0),
+      availablePanels,
+    };
+  }
+
+  createGoogleRecommendedLayout(state = this.environmentState) {
+    const insights = this.googleBuildingInsights;
+    const info = this.getGoogleRecommendedLayoutInfo(state);
+    if (!insights || !info.available || !this.geographicData) return [];
+
+    const panels = (insights.suggestedPanels || []).slice(0, info.panelCount);
+    const segments = Array.isArray(insights.roofSegments) ? insights.roofSegments : [];
+    const panelHeight = Math.max(0.25, Number(insights.panelHeightMeters) || 1.879);
+    const panelWidth = Math.max(0.25, Number(insights.panelWidthMeters) || 1.045);
+    const root = new THREE.Group();
+    root.name = 'google-recommended-layout';
+    root.userData.environmentLayer = 'google-layout';
+    root.userData.googleRecommendedLayout = true;
+    root.userData.googlePanelCount = info.panelCount;
+    root.userData.googleYearlyEnergyDcKwh = info.yearlyEnergyDcKwh;
+
+    const panelMaterial = new THREE.MeshBasicMaterial({
+      color: GOOGLE_RECOMMENDED_PANEL_COLOR,
+      transparent: true,
+      opacity: 0.18,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    const edgeMaterial = new THREE.LineBasicMaterial({
+      color: GOOGLE_RECOMMENDED_PANEL_COLOR,
+      transparent: true,
+      opacity: 0.98,
+      depthTest: true,
+      toneMapped: false,
+    });
+
+    for (let index = 0; index < panels.length; index += 1) {
+      const panel = panels[index];
+      const center = this.geoToMapPoint(panel?.center);
+      if (!center) continue;
+      const segment = segments.find((item) => Number(item?.index) === Number(panel?.segmentIndex)) || segments[Number(panel?.segmentIndex)] || null;
+      if (!segment) continue;
+
+      const azimuth = (Number(segment.azimuthDegrees) || 0) * DEG;
+      const pitch = clamp(Number(segment.pitchDegrees) || 0, 0, 89) * DEG;
+      const landscape = String(panel?.orientation || '').toUpperCase().includes('LANDSCAPE');
+      const acrossM = landscape ? panelHeight : panelWidth;
+      const slopeM = landscape ? panelWidth : panelHeight;
+
+      const xAxis = new THREE.Vector3(Math.cos(azimuth), 0, Math.sin(azimuth)).normalize();
+      const yAxis = new THREE.Vector3(
+        Math.sin(azimuth) * Math.cos(pitch),
+        -Math.sin(pitch),
+        -Math.cos(azimuth) * Math.cos(pitch),
+      ).normalize();
+      let zAxis = new THREE.Vector3().crossVectors(xAxis, yAxis).normalize();
+      if (zAxis.y < 0) zAxis.multiplyScalar(-1);
+      const basis = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
+      const quaternion = new THREE.Quaternion().setFromRotationMatrix(basis);
+
+      const residual = this.googleSurfaceHeightAboveTerrain(center.x, center.z);
+      let referenceY;
+      if (Number.isFinite(residual)) {
+        referenceY = -0.12 + this.terrainRelativeHeight(center.x, center.z, state) + clamp(residual, 0.15, 45);
+      } else {
+        const segmentHeight = Number(segment.planeHeightAtCenterMeters);
+        referenceY = -0.12 + this.terrainRelativeHeight(center.x, center.z, state) + (Number.isFinite(segmentHeight) && segmentHeight > 0 ? segmentHeight : 3.5);
+      }
+
+      // Building Insights panel centers belong to Google's real roof elevation.
+      // Our configurable house intentionally has its own wall height and may be
+      // taller than that reference building. In that case most reference panels
+      // would sit *inside* the configured roof and only panels outside the house
+      // would remain visible. For the comparison overlay, preserve Google's X/Z
+      // placement and orientation but lift panels just enough to clear the current
+      // configured roof wherever the two footprints overlap.
+      let y = referenceY;
+      const halfAcross = acrossM / 2;
+      const halfSlope = slopeM / 2;
+      let requiredCenterY = -Infinity;
+      let configuredRoofSamples = 0;
+      for (const acrossSign of [-1, 1]) {
+        for (const slopeSign of [-1, 1]) {
+          const corner = {
+            x: center.x + xAxis.x * halfAcross * acrossSign + yAxis.x * halfSlope * slopeSign,
+            z: center.z + xAxis.z * halfAcross * acrossSign + yAxis.z * halfSlope * slopeSign,
+          };
+          const configuredY = this.configuredRoofHeightAtMapPoint(corner, state);
+          if (!Number.isFinite(configuredY)) continue;
+          configuredRoofSamples += 1;
+          const cornerRelativeY = yAxis.y * halfSlope * slopeSign;
+          requiredCenterY = Math.max(requiredCenterY, configuredY + 0.16 - cornerRelativeY);
+        }
+      }
+      const configuredCenterY = this.configuredRoofHeightAtMapPoint(center, state);
+      if (Number.isFinite(configuredCenterY)) {
+        configuredRoofSamples += 1;
+        requiredCenterY = Math.max(requiredCenterY, configuredCenterY + 0.16);
+      }
+      if (configuredRoofSamples > 0 && Number.isFinite(requiredCenterY)) {
+        // Once the Google panel overlaps the configurable roof, render it on
+        // that roof rather than at the real building's absolute elevation.
+        // The translucent Google reference building still preserves the real
+        // DSM elevation for users who want to inspect the height difference.
+        y = requiredCenterY;
+      }
+
+      const geometry = new THREE.BoxGeometry(acrossM, slopeM, 0.025);
+      const mesh = new THREE.Mesh(geometry, panelMaterial);
+      mesh.position.set(center.x, y, center.z).addScaledVector(zAxis, 0.11);
+      mesh.userData.googleReferenceElevationY = referenceY;
+      mesh.userData.googleProjectedToConfiguredRoof = y > referenceY + 0.02;
+      mesh.quaternion.copy(quaternion);
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      mesh.renderOrder = 18;
+      mesh.userData.environmentLayer = 'google-layout';
+      mesh.userData.googleRecommendedPanel = true;
+      mesh.userData.googlePanelIndex = index;
+      mesh.userData.googleSegmentIndex = Number(panel.segmentIndex) || 0;
+      root.add(mesh);
+
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMaterial);
+      edges.position.copy(mesh.position);
+      edges.quaternion.copy(mesh.quaternion);
+      edges.renderOrder = 19;
+      edges.userData.environmentLayer = 'google-layout';
+      edges.userData.googleRecommendedPanel = true;
+      root.add(edges);
+    }
+
+    return root.children.length ? [root] : [];
+  }
+
+  googleFluxColor(value, low, high) {
+    const denominator = Math.max(1e-6, high - low);
+    const t = clamp((value - low) / denominator, 0, 1);
+    const lowColor = new THREE.Color(GOOGLE_FLUX_LOW_COLOR);
+    const midColor = new THREE.Color(GOOGLE_FLUX_MID_COLOR);
+    const highColor = new THREE.Color(GOOGLE_FLUX_HIGH_COLOR);
+    return t <= 0.5 ? lowColor.lerp(midColor, t * 2) : midColor.lerp(highColor, (t - 0.5) * 2);
+  }
+
+  googleFluxVertexHeight(x, z, state = this.environmentState) {
+    const configuredY = this.configuredRoofHeightAtMapPoint({ x, z }, state);
+    if (Number.isFinite(configuredY)) return configuredY + 0.11;
+    const residual = this.googleSurfaceHeightAboveTerrain(x, z);
+    if (Number.isFinite(residual)) return -0.10 + this.terrainRelativeHeight(x, z, state) + clamp(residual, 0.02, 55) + 0.09;
+    return -0.03 + this.terrainRelativeHeight(x, z, state);
+  }
+
+  createGoogleFluxHeatmap(state = this.environmentState) {
+    const surface = this.googleSurfaceModel;
+    const info = this.getGoogleFluxHeatmapInfo(state);
+    const values = info.values;
+    const size = Number(surface?.size) || 0;
+    if (!surface || !info.available || !values || size < 2 || values.length < size * size) {
+      this.googleFluxHeatmapStats = { renderedCells: 0, hostCells: 0, nearbyCells: 0, period: info.period, stats: null };
+      return [];
+    }
+
+    const mask = surface.buildingMask || [];
+    const host = this.findGoogleHostComponent(state);
+    const showNearby = state.googleSolarFluxNearbyRoofsVisible === true;
+    const spacingX = (Number(surface.maxX) - Number(surface.minX)) / Math.max(1, size - 1);
+    const spacingZ = (Number(surface.maxZ) - Number(surface.minZ)) / Math.max(1, size - 1);
+
+    const hostCellRecords = [];
+    const nearbyCellRecords = [];
+    const hostFluxSamples = [];
+
+    for (let row = 0; row < size - 1; row += 1) {
+      for (let column = 0; column < size - 1; column += 1) {
+        const i00 = row * size + column;
+        const i10 = row * size + column + 1;
+        const i01 = (row + 1) * size + column;
+        const i11 = (row + 1) * size + column + 1;
+        const indices = [i00, i10, i01, i11];
+        const rooftopVotes = indices.reduce((sum, index) => sum + (Number(mask[index]) > 0 ? 1 : 0), 0);
+        if (rooftopVotes < 2) continue;
+
+        const cellFlux = indices.map((index) => values[index]).filter(Number.isFinite);
+        if (!cellFlux.length) continue;
+        const value = cellFlux.reduce((sum, item) => sum + item, 0) / cellFlux.length;
+        const hostVotes = host.size ? indices.reduce((sum, index) => sum + (host.has(index) ? 1 : 0), 0) : 0;
+        const record = { row, column, value };
+        if (hostVotes >= 2) {
+          hostCellRecords.push(record);
+          hostFluxSamples.push(value);
+        } else if (showNearby) {
+          nearbyCellRecords.push(record);
+        }
+      }
+    }
+
+    const sorted = hostFluxSamples.filter(Number.isFinite).sort((a, b) => a - b);
+    const percentile = (q) => {
+      if (!sorted.length) return null;
+      const position = clamp(q, 0, 1) * (sorted.length - 1);
+      const lower = Math.floor(position);
+      const upper = Math.ceil(position);
+      if (lower === upper) return sorted[lower];
+      const fraction = position - lower;
+      return sorted[lower] * (1 - fraction) + sorted[upper] * fraction;
+    };
+    const sourceStats = info.stats || {};
+    const low = Number(percentile(0.10) ?? sourceStats.p10 ?? sourceStats.min);
+    const high = Number(percentile(0.90) ?? sourceStats.p90 ?? sourceStats.max);
+    const hostStats = sorted.length ? {
+      min: sorted[0],
+      max: sorted[sorted.length - 1],
+      p10: percentile(0.10),
+      median: percentile(0.50),
+      p90: percentile(0.90),
+      mean: sorted.reduce((sum, value) => sum + value, 0) / sorted.length,
+    } : (info.stats || null);
+
+    if (!Number.isFinite(low) || !Number.isFinite(high) || high <= low) {
+      this.googleFluxHeatmapStats = { renderedCells: 0, hostCells: 0, nearbyCells: 0, period: info.period, stats: hostStats };
+      return [];
+    }
+
+    const buildMesh = (records, opacity, name, renderOrder) => {
+      if (!records.length) return null;
+      const positions = [];
+      const colors = [];
+      const pushVertex = (x, z, color) => {
+        positions.push(x, this.googleFluxVertexHeight(x, z, state), z);
+        colors.push(color.r, color.g, color.b);
+      };
+      for (const record of records) {
+        const color = this.googleFluxColor(record.value, low, high);
+        const x0 = Number(surface.minX) + record.column * spacingX;
+        const x1 = x0 + spacingX;
+        const z0 = Number(surface.minZ) + record.row * spacingZ;
+        const z1 = z0 + spacingZ;
+        pushVertex(x0, z0, color); pushVertex(x1, z0, color); pushVertex(x1, z1, color);
+        pushVertex(x0, z0, color); pushVertex(x1, z1, color); pushVertex(x0, z1, color);
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      geometry.computeVertexNormals();
+      const material = new THREE.MeshBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
+      });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.name = name;
+      mesh.renderOrder = renderOrder;
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      mesh.userData.environmentLayer = 'google-flux';
+      mesh.userData.googleFluxHeatmap = true;
+      mesh.userData.googleFluxPeriod = info.period;
+      mesh.userData.googleFluxCells = records.length;
+      return mesh;
+    };
+
+    const objects = [];
+    const hostMesh = buildMesh(hostCellRecords, 0.64, 'google-solar-flux-host', 16);
+    if (hostMesh) objects.push(hostMesh);
+    const nearbyMesh = buildMesh(nearbyCellRecords, 0.24, 'google-solar-flux-nearby', 15);
+    if (nearbyMesh) objects.push(nearbyMesh);
+
+    this.googleFluxHeatmapStats = {
+      renderedCells: hostCellRecords.length + nearbyCellRecords.length,
+      hostCells: hostCellRecords.length,
+      nearbyCells: nearbyCellRecords.length,
+      period: info.period,
+      stats: hostStats,
+    };
+    return objects;
   }
 
   googleSurfaceCoversBuilding(building) {
@@ -2082,6 +2615,16 @@ export class RoofScene {
       }
     }
 
+    if (this.googleFluxModel && googleRefinementActive) {
+      this.createGoogleFluxHeatmap(state).forEach((object) => this.geographicRoot.add(object));
+    } else {
+      this.googleFluxHeatmapStats = { renderedCells: 0, hostCells: 0, nearbyCells: 0, period: String(state.googleSolarFluxPeriod || 'annual'), stats: null };
+    }
+
+    if (this.googleBuildingInsights) {
+      this.createGoogleRecommendedLayout(state).forEach((object) => this.geographicRoot.add(object));
+    }
+
     const roads = this.createRoadMesh(data.roads || [], state);
     if (roads) this.geographicRoot.add(roads);
 
@@ -2113,6 +2656,8 @@ export class RoofScene {
       'google-dsm-debug': googleRefinementActive && state.googleSolarRawDsmVisible === true,
       'google-mask': googleRefinementActive && state.googleSolarBuildingMaskVisible !== false,
       'google-reference': googleRefinementActive && state.googleSolarReferenceBuildingVisible !== false && Boolean(this.googleBuildingInsights),
+      'google-layout': enabled && state.googleSolarRecommendedLayoutVisible !== false && Boolean(this.googleBuildingInsights),
+      'google-flux': googleRefinementActive && state.googleSolarFluxHeatmapVisible !== false && Boolean(this.googleFluxModel),
       buildings: enabled && state.buildingsEnabled !== false,
       roads: enabled && state.roadsEnabled !== false,
       trees: enabled && state.treesEnabled !== false,
@@ -2162,6 +2707,7 @@ export class RoofScene {
       googleReferenceDistanceM: Number.isFinite(googleReference.centerDistanceM) ? googleReference.centerDistanceM : null,
       googleReferenceMainPitchDeg: Number.isFinite(googleReference.mainPitchDeg) ? googleReference.mainPitchDeg : null,
       googleReferenceMainAzimuthDeg: Number.isFinite(googleReference.mainAzimuthDeg) ? googleReference.mainAzimuthDeg : null,
+      googleRecommendedLayout: this.getGoogleRecommendedLayoutInfo(state),
       googleSurfaceActive: Boolean(this.googleSurfaceModel) && state.googleSolarDsmEnabled !== false,
       googleRefinedBuildingCount: Number(this.googleHybridStats?.refinedBuildingCount) || 0,
       googleOnlyBuildingCount: Number(this.googleHybridStats?.googleOnlyBuildingCount) || 0,

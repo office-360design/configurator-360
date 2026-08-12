@@ -1,5 +1,5 @@
-import { state } from './state.js?v=10';
-import { RoofScene } from './scene.js?v=14';
+import { state } from './state.js?v=13';
+import { RoofScene } from './scene.js?v=18';
 import { SolarUI } from './ui.js?v=7';
 import { fetchPvgisSiteEstimate } from './energyModel.js?v=5';
 import { loadGeographicEnvironment } from './environmentLoader.js?v=3';
@@ -11,7 +11,7 @@ import {
   resolveGoogleSolarEndpoint,
   testGoogleSolarProxy,
   unlockGoogleSolar,
-} from './googleSolar.js?v=4';
+} from './googleSolar.js?v=6';
 import {
   getSeasonPresetDate,
   getSolarContext,
@@ -124,13 +124,25 @@ function clearGoogleSolarAnalysis(message = 'Unlock Google Solar, then analyze a
   state.googleSolarBuildingInsights = null;
   state.googleSolarDataLayers = null;
   state.googleSolarSurfaceModel = null;
+  state.googleSolarFluxModel = null;
   state.googleSolarReferenceMatchScore = 0;
   state.googleSolarReferenceMatchLabel = '—';
   state.googleSolarReferenceDistanceM = null;
   state.googleSolarReferenceMainPitchDeg = null;
   state.googleSolarReferenceMainAzimuthDeg = null;
+  state.googleSolarReferenceSuggestionAvailable = false;
+  state.googleSolarReferenceSuggestedBearingDeg = null;
+  state.googleSolarReferenceSuggestedPitchDeg = null;
+  state.googleSolarReferenceSuggestedLengthM = null;
+  state.googleSolarReferenceSuggestedDepthM = null;
+  state.googleSolarReferenceSuggestedEastM = null;
+  state.googleSolarReferenceSuggestedNorthM = null;
+  state.googleSolarReferenceSuggestedPositionDistanceM = null;
+  state.googleSolarReferenceDimensionSource = '';
+  state.googleSolarRecommendedConfigPanels = 0;
   scene?.setGoogleBuildingInsights?.(null, state);
   scene?.setGoogleSurfaceModel?.(null, state);
+  scene?.setGoogleFluxModel?.(null, state);
   state.googleSolarCacheInfo = null;
   state.googleSolarAnalyzedSignature = '';
   state.googleSolarAnnualLossPct = 0;
@@ -230,8 +242,10 @@ async function runGoogleSolarAnalysis({ force = false } = {}) {
     state.googleSolarBuildingInsights = result.buildingInsights || null;
     state.googleSolarDataLayers = result.dataLayers || null;
     state.googleSolarSurfaceModel = result.surfaceModel || null;
+    state.googleSolarFluxModel = result.fluxModel || null;
     scene.setGoogleBuildingInsights(state.googleSolarBuildingInsights, state);
     scene.setGoogleSurfaceModel(state.googleSolarSurfaceModel, state);
+    scene.setGoogleFluxModel(state.googleSolarFluxModel, state);
     syncEnvironmentSceneMetrics();
     state.googleSolarCacheInfo = { ...(result.cache || {}), browserCached: Boolean(result.browserCached) };
     state.googleSolarAnalyzedSignature = makeGoogleAnalysisSignature(body);
@@ -241,7 +255,7 @@ async function runGoogleSolarAnalysis({ force = false } = {}) {
       : Number(result.cache?.upstreamBillableRequests || 0) === 0
         ? 'Netlify cache'
         : `${Number(result.cache?.upstreamBillableRequests || 0)} Google API request${Number(result.cache?.upstreamBillableRequests || 0) === 1 ? '' : 's'}`;
-    state.googleSolarMessage = `Detailed site analysis ready · ${result.shadeModel?.panelCount || 0} panels · 12 months of hourly shade · ${cacheText}.`;
+    state.googleSolarMessage = `Detailed site analysis ready · ${result.shadeModel?.panelCount || 0} panels · hourly shade + solar flux heatmap · ${cacheText}.`;
     if (result.security?.sessionExpiresAt) state.googleSolarSessionExpiresAt = result.security.sessionExpiresAt;
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
     state.googleSolarAnnualLossPct = state.googleSolarShadingEnabled !== false ? Number(state.localBuildingAnnualLossPct) || 0 : 0;
@@ -367,6 +381,28 @@ function toolsSnapshot() {
     googleSolarRoofSegmentCount: Array.isArray(state.googleSolarBuildingInsights?.roofSegments) ? state.googleSolarBuildingInsights.roofSegments.length : 0,
     googleSolarClosestConfigPanels: Number(state.googleSolarBuildingInsights?.closestPanelConfig?.panelsCount) || null,
     googleSolarClosestConfigKWh: Number(state.googleSolarBuildingInsights?.closestPanelConfig?.yearlyEnergyDcKwh) || null,
+    googleSolarPanelConfigs: (Array.isArray(state.googleSolarBuildingInsights?.panelConfigs) ? state.googleSolarBuildingInsights.panelConfigs : []).map((config) => ({
+      panelsCount: Number(config?.panelsCount) || 0,
+      yearlyEnergyDcKwh: Number(config?.yearlyEnergyDcKwh) || 0,
+    })),
+    googleSolarRecommendedLayoutVisible: state.googleSolarRecommendedLayoutVisible !== false,
+    googleSolarRecommendedConfigPanels: Math.max(0, Math.round(Number(state.googleSolarRecommendedConfigPanels) || 0)),
+    googleSolarFluxHeatmapVisible: state.googleSolarFluxHeatmapVisible !== false,
+    googleSolarFluxNearbyRoofsVisible: state.googleSolarFluxNearbyRoofsVisible === true,
+    googleSolarFluxPeriod: String(state.googleSolarFluxPeriod ?? 'annual'),
+    googleSolarFluxAvailable: Boolean(state.googleSolarFluxModel),
+    googleSolarFluxUnits: state.googleSolarFluxModel?.units || 'kWh/kW/year',
+    googleSolarFluxStats: scene.getGoogleFluxHeatmapInfo?.(state)?.stats || null,
+    googleSolarFluxRenderedCells: Number(scene.getGoogleFluxHeatmapInfo?.(state)?.renderedCells) || 0,
+    googleSolarFluxHostCells: Number(scene.getGoogleFluxHeatmapInfo?.(state)?.hostCells) || 0,
+    googleSolarFluxNearbyCells: Number(scene.getGoogleFluxHeatmapInfo?.(state)?.nearbyCells) || 0,
+    googleSolarRecommendedPanelCount: Number(scene.getGoogleRecommendedLayoutInfo?.(state)?.panelCount) || 0,
+    googleSolarRecommendedConfigKWh: Number(scene.getGoogleRecommendedLayoutInfo?.(state)?.yearlyEnergyDcKwh) || 0,
+    googleSolarRecommendedAutoSelected: Boolean(scene.getGoogleRecommendedLayoutInfo?.(state)?.autoSelected),
+    googleSolarOurPanelCount: Number(lastMetrics?.placedPanels) || 0,
+    googleSolarOurAnnualKWh: Number(ui?.currentProduction?.annualKWh) || 0,
+    googleSolarOurPanelCapacityWatts: Number(lastMetrics?.modulePowerW) || 0,
+    googleSolarGooglePanelCapacityWatts: Number(state.googleSolarBuildingInsights?.panelCapacityWatts) || 0,
     googleSolarDsmEnabled: state.googleSolarDsmEnabled !== false,
     googleSolarBuildingMaskVisible: state.googleSolarBuildingMaskVisible !== false,
     googleSolarRawDsmVisible: state.googleSolarRawDsmVisible === true,
@@ -376,6 +412,18 @@ function toolsSnapshot() {
     googleSolarReferenceDistanceM: state.googleSolarReferenceDistanceM !== null && Number.isFinite(Number(state.googleSolarReferenceDistanceM)) ? Number(state.googleSolarReferenceDistanceM) : null,
     googleSolarReferenceMainPitchDeg: state.googleSolarReferenceMainPitchDeg !== null && Number.isFinite(Number(state.googleSolarReferenceMainPitchDeg)) ? Number(state.googleSolarReferenceMainPitchDeg) : null,
     googleSolarReferenceMainAzimuthDeg: state.googleSolarReferenceMainAzimuthDeg !== null && Number.isFinite(Number(state.googleSolarReferenceMainAzimuthDeg)) ? Number(state.googleSolarReferenceMainAzimuthDeg) : null,
+    googleSolarReferenceSuggestionAvailable: Boolean(state.googleSolarReferenceSuggestionAvailable),
+    googleSolarReferenceSuggestedBearingDeg: state.googleSolarReferenceSuggestedBearingDeg !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedBearingDeg)) ? Number(state.googleSolarReferenceSuggestedBearingDeg) : null,
+    googleSolarReferenceSuggestedPitchDeg: state.googleSolarReferenceSuggestedPitchDeg !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedPitchDeg)) ? Number(state.googleSolarReferenceSuggestedPitchDeg) : null,
+    googleSolarReferenceSuggestedLengthM: state.googleSolarReferenceSuggestedLengthM !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedLengthM)) ? Number(state.googleSolarReferenceSuggestedLengthM) : null,
+    googleSolarReferenceSuggestedDepthM: state.googleSolarReferenceSuggestedDepthM !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedDepthM)) ? Number(state.googleSolarReferenceSuggestedDepthM) : null,
+    googleSolarReferenceSuggestedEastM: state.googleSolarReferenceSuggestedEastM !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedEastM)) ? Number(state.googleSolarReferenceSuggestedEastM) : null,
+    googleSolarReferenceSuggestedNorthM: state.googleSolarReferenceSuggestedNorthM !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedNorthM)) ? Number(state.googleSolarReferenceSuggestedNorthM) : null,
+    googleSolarReferenceSuggestedPositionDistanceM: state.googleSolarReferenceSuggestedPositionDistanceM !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedPositionDistanceM)) ? Number(state.googleSolarReferenceSuggestedPositionDistanceM) : null,
+    googleSolarReferenceDimensionSource: state.googleSolarReferenceDimensionSource || '',
+    roofLengthM: Number(state.length) || 0,
+    roofDepthM: Number(state.depth) || 0,
+    roofPitchDeg: Number(state.pitch) || 0,
     googleSolarRefinedBuildingCount: Number(state.googleSolarRefinedBuildingCount) || 0,
     googleSolarGoogleOnlyBuildingCount: Number(state.googleSolarGoogleOnlyBuildingCount) || 0,
     googleSolarCanopyCount: Number(state.googleSolarCanopyCount) || 0,
@@ -632,6 +680,15 @@ function syncEnvironmentSceneMetrics(data = scene.geographicData) {
     state.googleSolarReferenceDistanceM = null;
     state.googleSolarReferenceMainPitchDeg = null;
     state.googleSolarReferenceMainAzimuthDeg = null;
+    state.googleSolarReferenceSuggestionAvailable = false;
+    state.googleSolarReferenceSuggestedBearingDeg = null;
+    state.googleSolarReferenceSuggestedPitchDeg = null;
+    state.googleSolarReferenceSuggestedLengthM = null;
+    state.googleSolarReferenceSuggestedDepthM = null;
+    state.googleSolarReferenceSuggestedEastM = null;
+    state.googleSolarReferenceSuggestedNorthM = null;
+    state.googleSolarReferenceSuggestedPositionDistanceM = null;
+    state.googleSolarReferenceDimensionSource = '';
     syncLocalBuildingShadingModel();
     return;
   }
@@ -650,6 +707,16 @@ function syncEnvironmentSceneMetrics(data = scene.geographicData) {
   state.googleSolarReferenceDistanceM = Number.isFinite(metrics.googleReferenceDistanceM) ? metrics.googleReferenceDistanceM : null;
   state.googleSolarReferenceMainPitchDeg = Number.isFinite(metrics.googleReferenceMainPitchDeg) ? metrics.googleReferenceMainPitchDeg : null;
   state.googleSolarReferenceMainAzimuthDeg = Number.isFinite(metrics.googleReferenceMainAzimuthDeg) ? metrics.googleReferenceMainAzimuthDeg : null;
+  const suggestion = scene.getGoogleRoofMatchSuggestion?.(state) || { available: false };
+  state.googleSolarReferenceSuggestionAvailable = Boolean(suggestion.available);
+  state.googleSolarReferenceSuggestedBearingDeg = Number.isFinite(suggestion.bearingDeg) ? suggestion.bearingDeg : null;
+  state.googleSolarReferenceSuggestedPitchDeg = Number.isFinite(suggestion.pitchDeg) ? suggestion.pitchDeg : null;
+  state.googleSolarReferenceSuggestedLengthM = Number.isFinite(suggestion.suggestedLengthM) ? suggestion.suggestedLengthM : null;
+  state.googleSolarReferenceSuggestedDepthM = Number.isFinite(suggestion.suggestedDepthM) ? suggestion.suggestedDepthM : null;
+  state.googleSolarReferenceSuggestedEastM = Number.isFinite(suggestion.suggestedEastM) ? suggestion.suggestedEastM : null;
+  state.googleSolarReferenceSuggestedNorthM = Number.isFinite(suggestion.suggestedNorthM) ? suggestion.suggestedNorthM : null;
+  state.googleSolarReferenceSuggestedPositionDistanceM = Number.isFinite(suggestion.positionDistanceM) ? suggestion.positionDistanceM : null;
+  state.googleSolarReferenceDimensionSource = suggestion.dimensionSource || '';
   syncLocalBuildingShadingModel();
 }
 
@@ -1051,6 +1118,54 @@ const configuratorApi = {
     return state.googleSolarShadingEnabled;
   },
 
+  setGoogleSolarRecommendedLayoutVisible(enabled) {
+    state.googleSolarRecommendedLayoutVisible = Boolean(enabled);
+    scene.setEnvironment(state);
+    emitToolsState();
+    return state.googleSolarRecommendedLayoutVisible;
+  },
+
+  setGoogleSolarRecommendedConfigPanels(value) {
+    const requested = Math.max(0, Math.round(Number(value) || 0));
+    state.googleSolarRecommendedConfigPanels = requested;
+    if (scene.hasGeographicEnvironment() && state.googleSolarBuildingInsights) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    scene.setEnvironment(state);
+    emitToolsState();
+    return scene.getGoogleRecommendedLayoutInfo?.(state) || null;
+  },
+
+  setGoogleSolarFluxHeatmapVisible(enabled) {
+    state.googleSolarFluxHeatmapVisible = Boolean(enabled);
+    scene.setEnvironment(state);
+    emitToolsState();
+    return state.googleSolarFluxHeatmapVisible;
+  },
+
+  setGoogleSolarFluxNearbyRoofsVisible(enabled) {
+    state.googleSolarFluxNearbyRoofsVisible = Boolean(enabled);
+    if (scene.hasGeographicEnvironment() && state.googleSolarFluxModel) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.googleSolarFluxNearbyRoofsVisible;
+  },
+
+  setGoogleSolarFluxPeriod(value) {
+    const raw = String(value ?? 'annual');
+    const period = raw === 'annual' ? 'annual' : String(Math.max(0, Math.min(11, Math.round(Number(raw) || 0))));
+    state.googleSolarFluxPeriod = period;
+    if (scene.hasGeographicEnvironment() && state.googleSolarFluxModel) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return scene.getGoogleFluxHeatmapInfo?.(state) || null;
+  },
+
   setGoogleSolarDsmEnabled(enabled) {
     state.googleSolarDsmEnabled = Boolean(enabled);
     scene.setEnvironment(state);
@@ -1091,6 +1206,63 @@ const configuratorApi = {
     }
     emitToolsState();
     return state.googleSolarReferenceBuildingVisible;
+  },
+
+  applyGoogleReference(mode = 'all') {
+    const suggestion = scene.getGoogleRoofMatchSuggestion?.(state) || { available: false };
+    if (!suggestion.available) return { ok: false, reason: 'No Google roof reference is available.' };
+    if (state.simulationPlaying) stopSimulation({ keepHour: true });
+
+    const applyAll = mode === 'all';
+    let roofChanged = false;
+    let positionChanged = false;
+
+    if ((applyAll || mode === 'bearing') && Number.isFinite(suggestion.bearingDeg)) {
+      state.northDirection = ((Number(suggestion.bearingDeg) % 360) + 360) % 360;
+      roofChanged = true;
+    }
+    if ((applyAll || mode === 'pitch') && Number.isFinite(suggestion.pitchDeg)) {
+      state.pitch = Math.min(55, Math.max(5, Math.round(Number(suggestion.pitchDeg))));
+      roofChanged = true;
+    }
+    if ((applyAll || mode === 'size') && Number.isFinite(suggestion.suggestedLengthM) && Number.isFinite(suggestion.suggestedDepthM)) {
+      state.length = Math.round(Math.min(20, Math.max(5, Number(suggestion.suggestedLengthM))) * 10) / 10;
+      state.depth = Math.round(Math.min(14, Math.max(4, Number(suggestion.suggestedDepthM))) * 10) / 10;
+      roofChanged = true;
+    }
+    if ((applyAll || mode === 'position') && Number.isFinite(suggestion.suggestedEastM) && Number.isFinite(suggestion.suggestedNorthM)) {
+      state.environmentLocalEastM = Math.round(Math.min(LOCAL_POSITION_LIMIT_M, Math.max(-LOCAL_POSITION_LIMIT_M, Number(suggestion.suggestedEastM))) * 10) / 10;
+      state.environmentLocalNorthM = Math.round(Math.min(LOCAL_POSITION_LIMIT_M, Math.max(-LOCAL_POSITION_LIMIT_M, Number(suggestion.suggestedNorthM))) * 10) / 10;
+      positionChanged = true;
+    }
+
+    if (roofChanged) {
+      lastMetrics = scene.rebuild(state, false);
+      ui?.syncDimensionControls?.();
+    }
+    if (scene.hasGeographicEnvironment() && (roofChanged || positionChanged)) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    } else if (positionChanged) {
+      syncEnvironmentSceneMetrics();
+    }
+
+    scene.setEnvironment(state);
+    scene.setCompassVisible(state.showCompass);
+    syncGoogleSolarStaleness();
+    if (lastMetrics) ui?.updateMetrics(lastMetrics);
+    emitToolsState();
+    schedulePvgis();
+    return {
+      ok: true,
+      mode,
+      bearingDeg: state.northDirection,
+      pitchDeg: state.pitch,
+      lengthM: state.length,
+      depthM: state.depth,
+      eastM: state.environmentLocalEastM,
+      northM: state.environmentLocalNorthM,
+    };
   },
 
   refreshEnvironment() {
