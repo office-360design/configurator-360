@@ -13,7 +13,7 @@ const DIRECT_OVERPASS_ENDPOINTS = [
 const completedTerrainTiles = new Map();
 const completedOsmContexts = new Map();
 const OSM_CACHE_TTL_MS = 15 * 60 * 1000;
-const OVERPASS_TIMEOUT_MS = 10000;
+const OVERPASS_TIMEOUT_MS = 25000;
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
 function configuredTerrainTemplate() {
@@ -25,10 +25,22 @@ function configuredOverpassEndpoints() {
   if (Array.isArray(configured) && configured.length) return configured.map(String).filter(Boolean);
   if (typeof configured === 'string' && configured.trim()) return configured.split(',').map((item) => item.trim()).filter(Boolean);
 
-  // Cloud Run/nginx exposes the first two endpoints on the same origin. Keep
-  // the direct public endpoints as a compatibility fallback for local/static
-  // deployments that do not have the reverse proxy configured yet.
-  return [...SAME_ORIGIN_OVERPASS_ENDPOINTS, ...DIRECT_OVERPASS_ENDPOINTS];
+  // Production deployments must stay same-origin. Falling back from Cloud Run
+  // to the public Overpass URLs would re-introduce browser CORS failures.
+  const hostname = String(window.location?.hostname || '').toLowerCase();
+  const isLocalDevelopment = (
+    window.location?.protocol === 'file:'
+    || hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '0.0.0.0'
+    || hostname === '::1'
+  );
+
+  // Local/static development can still try the public endpoints when no local
+  // reverse proxy exists. Cloud Run / production uses only the nginx proxies.
+  return isLocalDevelopment
+    ? [...SAME_ORIGIN_OVERPASS_ENDPOINTS, ...DIRECT_OVERPASS_ENDPOINTS]
+    : [...SAME_ORIGIN_OVERPASS_ENDPOINTS];
 }
 
 function terrainUrl(z, x, y) {
@@ -330,6 +342,7 @@ async function loadOsmContext({ lat, lon, radiusM, signal, forceRefresh = false 
     } catch (error) {
       if (error?.name === 'AbortError') throw error;
       lastError = error;
+      console.warn(`[Solar configurator] Overpass endpoint failed: ${endpoint}`, error);
     }
   }
 
