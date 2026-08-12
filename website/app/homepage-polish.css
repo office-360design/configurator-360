@@ -2700,6 +2700,148 @@
 .energy-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border: 1px solid var(--line); }
 .showcase-hall .showcase-story,.detail-hall .detail-action,.showcase-solar .showcase-story,.detail-solar .detail-action { background: linear-gradient(135deg,rgba(255,255,255,.09),transparent 42%),rgba(var(--canvas-rgb),.5); }
 
+/* Pergola segment configurator — the plan follows the real 5 m pole grid. */
+.pergola-closing-toolbar {
+  display: grid;
+  grid-template-columns: minmax(170px,.75fr) minmax(180px,1fr) minmax(130px,.55fr);
+  align-items: stretch;
+  margin-top: 5px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.pergola-closing-toolbar > button {
+  min-height: 38px;
+  padding: 6px 14px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  background: transparent;
+  font: 600 11px/1.1 var(--mono);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pergola-closing-toolbar > button:first-child { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pergola-closing-toolbar > button:first-child span {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 10px;
+}
+.pergola-closing-toolbar > button:last-child { border-right: 0; }
+.pergola-closing-toolbar > button.active {
+  color: white;
+  background: linear-gradient(110deg,#0761aa,#359ce7);
+}
+.pergola-closing-toolbar > span {
+  display: flex;
+  align-items: center;
+  padding: 6px 14px;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  color: var(--ink-soft);
+  font: 600 10px/1.2 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pergola-closing-editor {
+  display: grid;
+  grid-template-columns: minmax(148px,.72fr) minmax(0,1.28fr);
+  gap: 12px;
+  padding: 11px 0 2px;
+  border-bottom: 1px solid var(--line);
+}
+.pergola-segment-plan {
+  display: grid;
+  place-items: center;
+  min-height: 98px;
+  padding: 17px 20px;
+  border: 1px solid var(--line-strong);
+  background: linear-gradient(135deg,color-mix(in srgb,var(--brand) 7%,transparent),color-mix(in srgb,var(--canvas) 32%,transparent));
+}
+.pergola-segment-plan > div {
+  position: relative;
+  width: min(100%,calc(72px * var(--plan-aspect)));
+  height: min(68px,calc(100% / var(--plan-aspect)));
+  min-height: 50px;
+}
+.pergola-segment-plan button {
+  position: absolute;
+  z-index: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.pergola-segment-plan button::after {
+  position: absolute;
+  content: "";
+  border-radius: 999px;
+  background: color-mix(in srgb,var(--muted) 62%,transparent);
+  transition: background .18s ease,box-shadow .18s ease,transform .18s ease;
+}
+.pergola-segment-plan button.horizontal { height: 18px; transform: translateY(-50%); }
+.pergola-segment-plan button.horizontal::after { left: 3px; right: 3px; top: 7px; height: 4px; }
+.pergola-segment-plan button.vertical { width: 18px; transform: translateX(-50%); }
+.pergola-segment-plan button.vertical::after { top: 3px; bottom: 3px; left: 7px; width: 4px; }
+.pergola-segment-plan button.configured::after { background: var(--brand); }
+.pergola-segment-plan button.selected::after {
+  background: var(--hud);
+  box-shadow: 0 0 0 3px color-mix(in srgb,var(--hud) 20%,transparent),0 0 15px color-mix(in srgb,var(--hud) 48%,transparent);
+  transform: scale(1.08);
+}
+.pergola-segment-plan i {
+  position: absolute;
+  z-index: 2;
+  width: 11px;
+  height: 11px;
+  transform: translate(-50%,-50%);
+  border: 2px solid color-mix(in srgb,var(--canvas) 75%,transparent);
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  pointer-events: none;
+}
+.pergola-closing-types { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+.pergola-closing-types header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 29px;
+  padding: 0 2px 7px;
+  color: var(--muted);
+  font: 600 10px/1 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.pergola-closing-types header b { color: var(--ink); font-size: 11px; }
+.pergola-closing-types > div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
+.pergola-closing-types button {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-right: 0;
+  color: var(--muted);
+  background: color-mix(in srgb,var(--canvas) 24%,transparent);
+  font: 600 10px/1.15 var(--mono);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pergola-closing-types button:nth-child(3n),.pergola-closing-types button:last-child { border-right: 1px solid var(--line); }
+.pergola-closing-types button:nth-child(n+4) { border-top: 0; }
+.pergola-closing-types button.active {
+  color: white;
+  border-color: var(--brand);
+  background: linear-gradient(110deg,#0761aa,#359ce7);
+}
+
 /* High-contrast instrument typography for every configurator in dark mode. */
 :root[data-theme="dark"] .spatial-showcase,
 :root[data-theme="dark"] .detail-hero,
@@ -2772,4 +2914,10 @@
   .energy-summary { grid-template-columns: 1fr; }
   .energy-summary span { border-right: 0; border-bottom: 1px solid var(--line); }
   .energy-summary span:last-child { border-bottom: 0; }
+  .pergola-closing-toolbar { grid-template-columns: 1fr minmax(112px,.62fr); }
+  .pergola-closing-toolbar > span { display: none; }
+  .pergola-closing-toolbar > button { min-height: 42px; font-size: 10px; }
+  .pergola-closing-editor { grid-template-columns: 1fr; gap: 8px; }
+  .pergola-segment-plan { min-height: 108px; }
+  .pergola-closing-types button { min-height: 42px; font-size: 10px; }
 }

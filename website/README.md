@@ -18,6 +18,16 @@ npm install
 npm run dev
 ```
 
+## Production preview on a phone
+
+Build and serve the exact static release artifact on every active local network interface:
+
+```bash
+npm run preview:lan
+```
+
+The command prints the Mac's LAN URLs. Open one from a phone connected to the same Wi-Fi network. Keep the terminal process running while testing and press `Ctrl+C` when finished. Local HTTPS is intentionally omitted until a browser feature requires a secure context.
+
 ## Current implementation
 
 - Persistent procedural WebGL stage shared by the hero and all five configurator previews.
@@ -26,7 +36,7 @@ npm run dev
 - Independently authored dark and light environments.
 - Responsive homepage and dedicated search-indexable pages for every active configurator.
 - English, Romanian and German localized routes with reciprocal `hreflang` signals.
-- Sitemap, crawler rules, canonical URLs, JSON-LD, social sharing metadata and a web app manifest.
+- Sitemap, crawler rules, canonical URLs, JSON-LD and social sharing metadata.
 - Machine-readable `/llms.txt` and `/llms-full.txt` product context for AI discovery.
 
 ## Routes

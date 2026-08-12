@@ -12,6 +12,7 @@
     "assemble:release": "node scripts/assemble-static-release.mjs",
     "validate:release": "node scripts/validate-static-release.mjs",
     "release:static": "npm run build && npm run export:static && npm run assemble:release && npm run validate:release",
+    "preview:lan": "npm run release:static && node scripts/preview-lan.mjs",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",

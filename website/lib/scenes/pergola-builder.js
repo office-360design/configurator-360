@@ -7,6 +7,7 @@ import {
   resolvePoleMountFace,
   resolveSpeakerFace,
 } from './pergola-state.js';
+import { buildPoleGrid } from './pergola-layout.js';
 
 const METERS_PER_MM = 0.001;
 const SCREEN_TYPES = ['screen', 'motorized-screen'];
@@ -202,6 +203,40 @@ function sideTransform(side, width, depth, height) {
   };
 }
 
+function segmentPoleCoordinates(state, width, depth, postSize) {
+  const grid = buildPoleGrid(state.dimensions);
+  const xLeft = -width / 2 + postSize / 2;
+  const xRight = width / 2 - postSize / 2;
+  const zFront = depth / 2 - postSize / 2;
+  const zBack = -depth / 2 + postSize / 2;
+  const coordinates = {};
+  grid.poles.forEach((pole) => {
+    coordinates[pole.id] = new THREE.Vector3(
+      THREE.MathUtils.lerp(xLeft, xRight, pole.xRatio),
+      0,
+      THREE.MathUtils.lerp(zFront, zBack, pole.zRatio),
+    );
+  });
+  return coordinates;
+}
+
+function segmentTransform(state, segment, width, depth, height, postSize) {
+  const coordinates = segmentPoleCoordinates(state, width, depth, postSize);
+  const first = coordinates[segment.a];
+  const second = coordinates[segment.b];
+  if (!first || !second) return null;
+  const top = height - 0.24;
+  const bottom = 0.12;
+  const usableHeight = top - bottom;
+  const midpoint = first.clone().add(second).multiplyScalar(0.5);
+  return {
+    span: Math.max(0.18, first.distanceTo(second) - postSize - 0.04),
+    position: new THREE.Vector3(midpoint.x, bottom + usableHeight / 2, midpoint.z),
+    rotationY: segment.axis === 'horizontal' ? 0 : Math.PI / 2,
+    usableHeight,
+  };
+}
+
 function screenSettings(config) {
   return config.screenSettings?.[config.type] ?? {
     openness: 50,
@@ -303,7 +338,23 @@ function addGlass(container, transform, frameMaterial) {
   container.add(bottomRail);
 }
 
-function addSideClosings(group, state, width, depth, height, frameMaterial, assets) {
+function addSideClosings(group, state, width, depth, height, postSize, frameMaterial, assets) {
+  if (state.sideSegments) {
+    buildPoleGrid(state.dimensions).segments.forEach((segment) => {
+      const config = state.sideSegments[segment.id];
+      if (!config || config.type === 'none') return;
+      const transform = segmentTransform(state, segment, width, depth, height, postSize);
+      if (!transform) return;
+      const container = new THREE.Group();
+      container.position.copy(transform.position);
+      container.rotation.y = transform.rotationY;
+      if (SCREEN_TYPES.includes(config.type)) addScreen(container, transform, config, config.type === 'motorized-screen', assets);
+      else if (config.type === 'privacy-wall') addPrivacyWall(container, transform, config.privacyColor ?? state.roof.frameColor);
+      else if (config.type === 'glass') addGlass(container, transform, frameMaterial);
+      group.add(container);
+    });
+    return;
+  }
   Object.entries(state.sides).forEach(([side, config]) => {
     if (!config || config.type === 'none') return;
     if (state.installation === 'wall-mounted' && side === state.mountedSide) return;
@@ -804,7 +855,7 @@ export function buildPergola(state, assets = null) {
 
   addLouvers(group, state, width, depth, height - beamHeight - 0.015, louverMaterial);
   addDrainage(group, state, width, depth, height);
-  addSideClosings(group, state, width, depth, height, frameMaterial, assets);
+  addSideClosings(group, state, width, depth, height, postSize, frameMaterial, assets);
   addAutomation(group, state, width, depth, height, postSize, assets);
 
   const isNight = Boolean(state.environment?.night);

@@ -884,6 +884,21 @@ export function SolarControls({ locale }: { locale: Locale }) {
     };
   });
   useEffect(() => {
+    let defaultLocationRequested = false;
+    const requestDefaultLocation = () => {
+      if (defaultLocationRequested) return;
+      defaultLocationRequested = true;
+      dispatch("solar", "bearing", 325);
+      dispatch(
+        "solar",
+        "location",
+        JSON.stringify({
+          lat: 45.63317,
+          lon: 25.60906,
+          label: "45.63317, 25.60906",
+        }),
+      );
+    };
     const sync = () => {
       const night = document.documentElement.dataset.theme !== "light";
       setS((x) => ({ ...x, night }));
@@ -909,15 +924,18 @@ export function SolarControls({ locale }: { locale: Locale }) {
     const frame = requestAnimationFrame(() => {
       if (matchMedia("(max-width: 720px)").matches) setCollapsed(true);
       sync();
-      dispatch("solar", "bearing", 325);
-      dispatch("solar", "location", JSON.stringify({ lat: 45.63317, lon: 25.60906, label: "45.63317, 25.60906" }));
+      if (document.documentElement.dataset.webglStageReady === "true") {
+        requestDefaultLocation();
+      }
     });
     window.addEventListener("themechange", sync);
+    window.addEventListener("webgl-stage-ready", requestDefaultLocation);
     window.addEventListener("solar-environment-status", status);
     window.addEventListener("solar-metrics", metrics);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("themechange", sync);
+      window.removeEventListener("webgl-stage-ready", requestDefaultLocation);
       window.removeEventListener("solar-environment-status", status);
       window.removeEventListener("solar-metrics", metrics);
     };

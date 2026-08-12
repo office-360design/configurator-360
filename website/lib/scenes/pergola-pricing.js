@@ -1,3 +1,5 @@
+import { buildPoleGrid } from './pergola-layout.js';
+
 const CURRENCY_PROFILES = Object.freeze({
   USD: {
     locale: 'en-US',
@@ -101,17 +103,20 @@ export function calculatePrice(state) {
     },
   ];
 
-  Object.entries(state.sides).forEach(([side, config]) => {
-    const rate = sideRates[config.type] ?? 0;
-    const value = rate * sideLengthMeters(side, state.dimensions);
-    if (value > 0) {
-      lines.push({
-        key: `side-${side}`,
-        label: `${capitalize(side)}: ${sideLabel(config.type)}`,
-        value,
-      });
-    }
-  });
+  if (state.sideSegments) {
+    buildPoleGrid(state.dimensions).segments.forEach((segment) => {
+      const config = state.sideSegments[segment.id];
+      const rate = sideRates[config?.type] ?? 0;
+      const value = rate * (segment.lengthMm / 1000);
+      if (value > 0) lines.push({ key: `segment-${segment.id}`, label: sideLabel(config.type), value });
+    });
+  } else {
+    Object.entries(state.sides).forEach(([side, config]) => {
+      const rate = sideRates[config.type] ?? 0;
+      const value = rate * sideLengthMeters(side, state.dimensions);
+      if (value > 0) lines.push({ key: `side-${side}`, label: `${capitalize(side)}: ${sideLabel(config.type)}`, value });
+    });
+  }
 
   const heaterCount = countSelected(state.accessories.heaters);
   const speakerCount = countSelected(state.accessories.speakers);
