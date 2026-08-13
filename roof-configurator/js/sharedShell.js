@@ -1,5 +1,6 @@
 import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=3';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=1';
 
 const icon = (body) => `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -7,25 +8,33 @@ const icon = (body) => `
   </svg>
 `;
 
-const tools = resolveSharedTools([
+const tools = [
+  ...resolveSharedTools([
+    {
+      id: 'environment',
+      icon: icon('<circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.2v2.1M12 19.7v2.1M2.2 12h2.1M19.7 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"></path>'),
+    },
+    {
+      id: 'dimensions',
+      active: true,
+      icon: icon('<path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"></path>'),
+    },
+    {
+      id: 'compass',
+      icon: icon('<circle cx="12" cy="12" r="8.5"></circle><path d="m15.4 8.6-2.1 4.7-4.7 2.1 2.1-4.7z"></path><path d="M12 1.7v2M12 20.3v2M1.7 12h2M20.3 12h2"></path>'),
+    },
+    {
+      id: 'camera',
+      icon: icon('<circle cx="12" cy="12" r="4.2"></circle><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"></path>'),
+    },
+  ]),
   {
-    id: 'environment',
-    icon: icon('<circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.2v2.1M12 19.7v2.1M2.2 12h2.1M19.7 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"></path>'),
+    id: 'components',
+    action: 'toggle-components',
+    label: 'Rainwater components',
+    icon: icon('<path d="M4 7h11v4H7.5a3.5 3.5 0 0 0 0 7H11"></path><path d="M15 7v4M11 15v6M8.5 21h5"></path>'),
   },
-  {
-    id: 'dimensions',
-    active: true,
-    icon: icon('<path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"></path>'),
-  },
-  {
-    id: 'compass',
-    icon: icon('<circle cx="12" cy="12" r="8.5"></circle><path d="m15.4 8.6-2.1 4.7-4.7 2.1 2.1-4.7z"></path><path d="M12 1.7v2M12 20.3v2M1.7 12h2M20.3 12h2"></path>'),
-  },
-  {
-    id: 'camera',
-    icon: icon('<circle cx="12" cy="12" r="4.2"></circle><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"></path>'),
-  },
-]);
+];
 
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Roof',
@@ -53,10 +62,25 @@ const shell = mountStandaloneConfiguratorShell({
       document.querySelector('[data-view="reset"]')?.click();
     },
     getShareUrl() {
-      return window.location.href;
+      const snapshot = window.ROOF_CONFIGURATOR_API?.captureState?.();
+      return snapshot
+        ? createShareUrl({ productType: 'roof', state: snapshot })
+        : window.location.href;
+    },
+    onPreferenceChange(name, value, preferences) {
+      const snapshot = { ...preferences };
+      window.ROOF_SHELL_PREFERENCES = snapshot;
+      window.dispatchEvent(new CustomEvent('roof-preference-change', {
+        detail: { name, value, preferences: snapshot },
+      }));
     },
   },
 });
+
+window.ROOF_SHELL_PREFERENCES = { ...shell.state };
+window.dispatchEvent(new CustomEvent('roof-preference-change', {
+  detail: { name: 'initial', value: null, preferences: { ...shell.state } },
+}));
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#roofSidebarToggle');
@@ -90,6 +114,12 @@ const sunPositionValue = document.querySelector('#sunPositionValue');
 const northDirectionControl = document.querySelector('#northDirectionControl');
 const northDirectionValue = document.querySelector('#northDirectionValue');
 const nightPreviewToggle = document.querySelector('#nightPreviewToggle');
+const componentsDrawer = document.querySelector('#roofComponentsDrawer');
+const componentsBackdrop = document.querySelector('#roofComponentsBackdrop');
+const componentsClose = document.querySelector('#roofComponentsClose');
+const componentsSearch = document.querySelector('#roofComponentsSearch');
+const componentsEmpty = document.querySelector('#roofComponentsEmpty');
+const componentCards = [...document.querySelectorAll('[data-component-card]')];
 let relocatedToolsToolbar = null;
 let toolsPositionFrame = 0;
 
@@ -155,10 +185,38 @@ function relocateToolsToolbar() {
 function setEnvironmentPanelOpen(open) {
   if (!environmentPanel) return;
   const isOpen = Boolean(open);
+  if (isOpen) setComponentsPanelOpen(false);
   environmentPanel.hidden = !isOpen;
   environmentPanel.classList.toggle('is-open', isOpen);
   setToolState('environment', { active: isOpen, title: 'Sun and orientation' });
   scheduleToolsPosition();
+}
+
+function setComponentsPanelOpen(open) {
+  if (!componentsDrawer || !componentsBackdrop) return;
+  const isOpen = Boolean(open);
+  if (isOpen) setEnvironmentPanelOpen(false);
+  componentsDrawer.classList.toggle('is-open', isOpen);
+  componentsDrawer.setAttribute('aria-hidden', String(!isOpen));
+  componentsBackdrop.classList.toggle('is-open', isOpen);
+  componentsBackdrop.setAttribute('aria-hidden', String(!isOpen));
+  document.body.classList.toggle('roof-components-open', isOpen);
+  setToolState('components', {
+    active: isOpen,
+    title: isOpen ? 'Close rainwater components' : 'Open rainwater components',
+  });
+  if (isOpen) window.setTimeout(() => componentsSearch?.focus(), 180);
+}
+
+function filterComponents(query = '') {
+  const normalized = String(query).trim().toLocaleLowerCase('ro');
+  let visibleCount = 0;
+  componentCards.forEach((card) => {
+    const visible = !normalized || card.dataset.search.includes(normalized);
+    card.hidden = !visible;
+    if (visible) visibleCount += 1;
+  });
+  if (componentsEmpty) componentsEmpty.hidden = visibleCount !== 0;
 }
 
 function syncToolsState(detail = getApi()?.getState?.()) {
@@ -172,6 +230,12 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   setToolState('compass', {
     active: Boolean(detail.showCompass),
     title: detail.showCompass ? 'Hide compass' : 'Show compass',
+  });
+  setToolState('components', {
+    active: Boolean(componentsDrawer?.classList.contains('is-open')),
+    title: componentsDrawer?.classList.contains('is-open')
+      ? 'Close rainwater components'
+      : 'Open rainwater components',
   });
 
   const viewNames = { perspective: '3D', front: 'Front', top: 'Top' };
@@ -193,17 +257,26 @@ function syncToolsState(detail = getApi()?.getState?.()) {
 shell.host.addEventListener('click', (event) => {
   const actionTarget = event.target.closest('[data-action]');
   if (actionTarget?.dataset.action === 'toggle-tools') {
-    if (!shell.toolsOpen) setEnvironmentPanelOpen(false);
+    if (!shell.toolsOpen) {
+      setEnvironmentPanelOpen(false);
+      setComponentsPanelOpen(false);
+    }
     scheduleToolsPosition();
     return;
   }
 
   const button = event.target.closest('[data-tool-id]');
   if (!button || button.disabled) return;
+  const toolId = button.dataset.toolId;
+
+  if (toolId === 'components') {
+    setComponentsPanelOpen(!componentsDrawer?.classList.contains('is-open'));
+    return;
+  }
+
   const api = getApi();
   if (!api) return;
 
-  const toolId = button.dataset.toolId;
   if (toolId === 'environment') {
     setEnvironmentPanelOpen(environmentPanel?.hidden ?? true);
   } else if (toolId === 'dimensions') {
@@ -214,11 +287,15 @@ shell.host.addEventListener('click', (event) => {
     api.toggleCompass();
   } else if (toolId === 'camera') {
     setEnvironmentPanelOpen(false);
+    setComponentsPanelOpen(false);
     api.cycleOrientation();
   }
 });
 
 environmentClose?.addEventListener('click', () => setEnvironmentPanelOpen(false));
+componentsClose?.addEventListener('click', () => setComponentsPanelOpen(false));
+componentsBackdrop?.addEventListener('click', () => setComponentsPanelOpen(false));
+componentsSearch?.addEventListener('input', () => filterComponents(componentsSearch.value));
 
 sunPositionControl?.addEventListener('input', () => {
   const value = Number(sunPositionControl.value);
@@ -237,7 +314,9 @@ nightPreviewToggle?.addEventListener('change', () => {
 });
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && !environmentPanel?.hidden) setEnvironmentPanelOpen(false);
+  if (event.key !== 'Escape') return;
+  if (!environmentPanel?.hidden) setEnvironmentPanelOpen(false);
+  if (componentsDrawer?.classList.contains('is-open')) setComponentsPanelOpen(false);
 });
 
 window.addEventListener('roof-configurator-ready', (event) => syncToolsState(event.detail));

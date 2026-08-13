@@ -6,8 +6,8 @@
   <meta name="description" content="360 Configurator industrial hall and warehouse configurator" />
   <title>360 Configurator - Hall</title>
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=1" />
-  <link rel="stylesheet" href="./styles.css?v=1" />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=8" />
+  <link rel="stylesheet" href="./styles.css?v=12" />
   <script type="importmap">
     {
       "imports": {
@@ -19,191 +19,182 @@
 </head>
 <body>
   <main class="app-shell">
-    <aside class="sidebar shared-settings-panel shared-settings-panel--light" aria-label="Hall configuration controls">
+    <section class="viewer-panel" aria-label="Hall 3D viewer">
+      <div class="viewer-stage" id="viewerStage">
+        <div id="canvasHost" aria-label="Interactive 3D hall model"></div>
+      </div>
+    </section>
+
+    <aside class="sidebar shared-settings-panel shared-settings-panel--light" aria-label="Hall settings">
       <section class="panel-section intro-section">
         <p class="eyebrow">Industrial building</p>
-        <h1>Hall configuration</h1>
-        <p class="section-copy">Configure a steel portal-frame warehouse with real primary and secondary support members. The structure can be separated in exploded view.</p>
+        <h1>Hall settings</h1>
+        <p class="section-copy">Configure the building, structure, envelope, openings and technical systems from one panel.</p>
       </section>
 
-      <section class="panel-section">
-        <div class="section-heading">
-          <div><p class="eyebrow">Step 1</p><h2>Dimensions</h2></div>
-          <span class="section-number">01</span>
-        </div>
-        <div class="control-list">
-          <label class="range-control" data-control="length">
-            <span class="control-label"><b>Length</b><output>24.0 m</output></span>
-            <span class="range-row"><input type="range" min="12" max="60" step="0.5" value="24" /><input class="number-input" type="number" min="12" max="60" step="0.5" value="24" /></span>
-          </label>
-          <label class="range-control" data-control="width">
-            <span class="control-label"><b>Width</b><output>12.0 m</output></span>
-            <span class="range-row"><input type="range" min="6" max="30" step="0.5" value="12" /><input class="number-input" type="number" min="6" max="30" step="0.5" value="12" /></span>
-          </label>
-          <label class="range-control" data-control="eaveHeight">
-            <span class="control-label"><b>Eave height</b><output>5.0 m</output></span>
-            <span class="range-row"><input type="range" min="3" max="12" step="0.25" value="5" /><input class="number-input" type="number" min="3" max="12" step="0.25" value="5" /></span>
-          </label>
-          <label class="range-control" data-control="pitch">
-            <span class="control-label"><b>Roof pitch</b><output>12°</output></span>
-            <span class="range-row"><input type="range" min="5" max="25" step="1" value="12" /><input class="number-input" type="number" min="5" max="25" step="1" value="12" /></span>
-          </label>
+      <section class="accordion-section is-open" data-accordion="dimensions">
+        <button class="accordion-toggle" type="button" aria-expanded="true"><span>Dimensions</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel">
+          <div class="control-list">
+            <label class="range-control" data-control="length"><span class="control-label"><b>Length</b><output>24.0 m</output></span><span class="range-row"><input type="range" min="12" max="60" step="0.5" value="24" /><input class="number-input" type="number" min="12" max="60" step="0.5" value="24" /></span></label>
+            <label class="range-control" data-control="width"><span class="control-label"><b>Width</b><output>12.0 m</output></span><span class="range-row"><input type="range" min="6" max="30" step="0.5" value="12" /><input class="number-input" type="number" min="6" max="30" step="0.5" value="12" /></span></label>
+            <label class="range-control" data-control="eaveHeight"><span class="control-label"><b>Eave height</b><output>5.0 m</output></span><span class="range-row"><input type="range" min="3" max="12" step="0.25" value="5" /><input class="number-input" type="number" min="3" max="12" step="0.25" value="5" /></span></label>
+            <label class="range-control" data-control="pitch"><span class="control-label"><b>Roof pitch</b><output>12°</output></span><span class="range-row"><input type="range" min="5" max="25" step="1" value="12" /><input class="number-input" type="number" min="5" max="25" step="1" value="12" /></span></label>
+          </div>
         </div>
       </section>
 
-      <section class="panel-section">
-        <div class="section-heading">
-          <div><p class="eyebrow">Step 2</p><h2>Steel structure</h2></div>
-          <span class="section-number">02</span>
-        </div>
-        <label class="select-label" for="structurePreset">Structure preset</label>
-        <select id="structurePreset">
-          <option value="light">Light duty</option>
-          <option value="standard" selected>Standard warehouse</option>
-          <option value="heavy">Heavy duty</option>
-        </select>
-
-        <label class="range-control top-gap" data-control="targetBaySpacing">
-          <span class="control-label"><b>Target frame spacing</b><output>6.0 m</output></span>
-          <span class="range-row"><input type="range" min="3" max="8" step="0.25" value="6" /><input class="number-input" type="number" min="3" max="8" step="0.25" value="6" /></span>
-        </label>
-        <div class="info-card">
-          <span>Generated portal frames</span><strong id="frameCountInfo">5</strong>
-          <small id="actualSpacingInfo">4 bays · 6.00 m actual spacing</small>
-        </div>
-
-        <div class="toggle-stack">
-          <label class="toggle-row"><span><b>Secondary beams</b><small>Roof purlins and wall girts</small></span><input id="secondaryStructureToggle" type="checkbox" checked /><i></i></label>
-          <label class="toggle-row"><span><b>Concrete slab</b><small>Warehouse floor slab</small></span><input id="slabToggle" type="checkbox" checked /><i></i></label>
+      <section class="accordion-section" data-accordion="structure">
+        <button class="accordion-toggle" type="button" aria-expanded="false"><span>Steel structure</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" hidden>
+          <label class="select-label" for="structurePreset">Structure preset</label>
+          <select id="structurePreset"><option value="light">Light duty</option><option value="standard" selected>Standard warehouse</option><option value="heavy">Heavy duty</option></select>
+          <label class="range-control top-gap" data-control="targetBaySpacing"><span class="control-label"><b>Target frame spacing</b><output>6.0 m</output></span><span class="range-row"><input type="range" min="3" max="8" step="0.25" value="6" /><input class="number-input" type="number" min="3" max="8" step="0.25" value="6" /></span></label>
+          <div class="info-card profile-card"><span>Generated portal frames</span><strong id="frameCountInfo">5</strong><small id="actualSpacingInfo">4 bays · 6.00 m actual spacing</small><small id="profileInfo">HEB280 columns · IPE400 rafters · ZZ200 purlins</small></div>
+          <section class="hea-reference-card" aria-label="Automatically selected HEA profile reference">
+            <div class="hea-reference-heading"><div><b>Automatically selected HEA profile</b><small>Read-only reference · placeholder selection for now</small></div><span>Preview</span></div>
+            <div class="hea-reference-table-wrap" tabindex="-1">
+              <table class="hea-reference-table" aria-readonly="true">
+                <thead>
+                  <tr><th rowspan="2">Profile</th><th colspan="2">Weight (kg/m)</th><th colspan="6">Dimensions (mm)</th><th>Section</th><th colspan="2">Section modulus</th></tr>
+                  <tr><th>Theor.</th><th>Comm.</th><th>h1</th><th>b</th><th>s</th><th>t</th><th>h2</th><th>h3</th><th>F (cm²)</th><th>Wx (cm³)</th><th>Wy (cm³)</th></tr>
+                </thead>
+                <tbody><tr><th id="selectedHeaName">HEA 220</th><td id="selectedHeaTheoreticalWeight">50.5</td><td id="selectedHeaCommercialWeight">52.0</td><td id="selectedHeaH1">210</td><td id="selectedHeaB">220</td><td id="selectedHeaS">7.0</td><td id="selectedHeaT">11.0</td><td id="selectedHeaH2">188</td><td id="selectedHeaH3">152</td><td id="selectedHeaF">64.34</td><td id="selectedHeaWx">515.2</td><td id="selectedHeaWy">177.7</td></tr></tbody>
+              </table>
+            </div>
+            <small class="hea-reference-source">Reference dimensions: H-Metal HEA profile table. This display does not modify the hall geometry.</small>
+          </section>
+          <div class="toggle-stack"><label class="toggle-row"><span><b>Secondary beams</b><small>Purlins, girts, stays, compression members and wind bracing</small></span><input id="secondaryStructureToggle" type="checkbox" checked /><i></i></label><label class="toggle-row"><span><b>Concrete slab</b><small>Warehouse floor slab and column foundations</small></span><input id="slabToggle" type="checkbox" checked /><i></i></label></div>
         </div>
       </section>
 
-      <section class="panel-section">
-        <div class="section-heading">
-          <div><p class="eyebrow">Step 3</p><h2>Envelope</h2></div>
-          <span class="section-number">03</span>
-        </div>
-        <label class="select-label" for="claddingProfile">Cladding profile</label>
-        <select id="claddingProfile">
-          <option value="trapezoidal">Trapezoidal steel sheet</option>
-          <option value="sandwich" selected>Sandwich panel</option>
-          <option value="standing-seam">Standing seam roof</option>
-        </select>
-
-        <div class="color-heading">Wall colour</div>
-        <div class="swatch-row" id="wallSwatches">
-          <button type="button" class="swatch selected" data-color="#d6d9dc" style="--swatch:#d6d9dc" aria-label="Light grey"></button>
-          <button type="button" class="swatch" data-color="#f2f3f4" style="--swatch:#f2f3f4" aria-label="White"></button>
-          <button type="button" class="swatch" data-color="#66727c" style="--swatch:#66727c" aria-label="Slate grey"></button>
-          <button type="button" class="swatch" data-color="#315968" style="--swatch:#315968" aria-label="Blue grey"></button>
-        </div>
-
-        <div class="color-heading">Roof colour</div>
-        <div class="swatch-row" id="roofSwatches">
-          <button type="button" class="swatch selected" data-color="#36424b" style="--swatch:#36424b" aria-label="Graphite"></button>
-          <button type="button" class="swatch" data-color="#7d858a" style="--swatch:#7d858a" aria-label="Grey"></button>
-          <button type="button" class="swatch" data-color="#7a3028" style="--swatch:#7a3028" aria-label="Red brown"></button>
-          <button type="button" class="swatch" data-color="#38594a" style="--swatch:#38594a" aria-label="Green"></button>
+      <section class="accordion-section" data-accordion="envelope">
+        <button class="accordion-toggle" type="button" aria-expanded="false"><span>Envelope</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" hidden>
+          <label class="select-label" for="claddingProfile">Cladding profile</label>
+          <select id="claddingProfile"><option value="trapezoidal">Trapezoidal steel sheet</option><option value="sandwich" selected>Sandwich panel</option><option value="standing-seam">Standing seam roof</option></select>
+          <div class="color-heading">Wall colour</div><div class="swatch-row" id="wallSwatches"><button type="button" class="swatch selected" data-color="#d6d9dc" style="--swatch:#d6d9dc" aria-label="Light grey"></button><button type="button" class="swatch" data-color="#f2f3f4" style="--swatch:#f2f3f4" aria-label="White"></button><button type="button" class="swatch" data-color="#66727c" style="--swatch:#66727c" aria-label="Slate grey"></button><button type="button" class="swatch" data-color="#315968" style="--swatch:#315968" aria-label="Blue grey"></button></div>
+          <div class="color-heading">Roof colour</div><div class="swatch-row" id="roofSwatches"><button type="button" class="swatch selected" data-color="#36424b" style="--swatch:#36424b" aria-label="Graphite"></button><button type="button" class="swatch" data-color="#7d858a" style="--swatch:#7d858a" aria-label="Grey"></button><button type="button" class="swatch" data-color="#7a3028" style="--swatch:#7a3028" aria-label="Red brown"></button><button type="button" class="swatch" data-color="#38594a" style="--swatch:#38594a" aria-label="Green"></button></div>
+          <div class="toggle-stack"><label class="toggle-row"><span><b>Roof skylights</b><small>Translucent daylight modules distributed along both roof slopes</small></span><input id="roofSkylightsToggle" type="checkbox" /><i></i></label><label class="toggle-row"><span><b>Gutters & downpipes</b><small>Continuous eave gutters with four downpipes</small></span><input id="guttersToggle" type="checkbox" checked /><i></i></label></div>
         </div>
       </section>
 
-      <section class="panel-section">
-        <div class="section-heading">
-          <div><p class="eyebrow">Step 4</p><h2>Openings</h2></div>
-          <span class="section-number">04</span>
+      <section class="accordion-section" data-accordion="openings">
+        <button class="accordion-toggle" type="button" aria-expanded="false"><span>Openings</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" hidden>
+          <p class="opening-help">Add an opening, move the pointer over any wall and click to place it. After placement, drag openings between all four walls or resize them from their borders and selection handles.</p>
+          <div class="opening-add-grid">
+            <button type="button" class="opening-add-button" data-add-opening="personnel"><span>＋</span><b>Add human door</b></button>
+            <button type="button" class="opening-add-button" data-add-opening="garage"><span>＋</span><b>Add garage door</b></button>
+            <button type="button" class="opening-add-button" data-add-opening="window"><span>＋</span><b>Add window</b></button>
+          </div>
+          <div class="opening-status" id="openingStatusText">Select an opening in the model to edit it.</div>
         </div>
-        <div class="toggle-stack">
-          <label class="toggle-row"><span><b>Front roller door</b><small>Centered on the front gable wall</small></span><input id="rollerDoorToggle" type="checkbox" checked /><i></i></label>
-          <label class="toggle-row"><span><b>Personnel door</b><small>Front wall, right side</small></span><input id="personnelDoorToggle" type="checkbox" checked /><i></i></label>
-          <label class="toggle-row"><span><b>Side windows</b><small>Two windows per long side</small></span><input id="windowsToggle" type="checkbox" checked /><i></i></label>
+      </section>
+
+      <section class="accordion-section" data-accordion="services">
+        <button class="accordion-toggle" type="button" aria-expanded="false"><span>Building services</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" hidden>
+          <label class="select-label" for="buildingUse">Hall use</label>
+          <select id="buildingUse"><option value="general">General warehouse</option><option value="workshop">Workshop / production</option><option value="food">Food storage</option><option value="cold">Cold storage</option></select>
+          <label class="select-label top-label" for="climateSystem">Climate system</label>
+          <select id="climateSystem"><option value="none">No active climate system</option><option value="comfort">Comfort heating / cooling</option><option value="chilled">Chilled storage · +2 to +8 °C</option><option value="frozen">Frozen storage · around -20 °C</option></select>
+          <div class="service-note" id="climateNote">General warehouse envelope with no active refrigeration package.</div>
+          <div class="toggle-stack"><label class="toggle-row"><span><b>High-bay LED lighting</b><small>Suspended industrial luminaires inside the hall</small></span><input id="highBayLightingToggle" type="checkbox" checked /><i></i></label><label class="toggle-row"><span><b>Fire sprinkler network</b><small>Indicative ceiling pipe grid and sprinkler heads</small></span><input id="fireSprinklersToggle" type="checkbox" /><i></i></label></div>
         </div>
-        <div class="door-controls" id="rollerDoorControls">
-          <label class="range-control compact-control" data-control="rollerDoorWidth">
-            <span class="control-label"><b>Door width</b><output>4.0 m</output></span>
-            <span class="range-row"><input type="range" min="2.5" max="8" step="0.25" value="4" /><input class="number-input" type="number" min="2.5" max="8" step="0.25" value="4" /></span>
-          </label>
-          <label class="range-control compact-control" data-control="rollerDoorHeight">
-            <span class="control-label"><b>Door height</b><output>4.0 m</output></span>
-            <span class="range-row"><input type="range" min="2.5" max="6" step="0.25" value="4" /><input class="number-input" type="number" min="2.5" max="6" step="0.25" value="4" /></span>
-          </label>
+      </section>
+
+      <section class="accordion-section" data-accordion="display">
+        <button class="accordion-toggle" type="button" aria-expanded="false"><span>Model display</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" hidden>
+          <div class="toggle-stack">
+            <label class="toggle-row"><span><b>Cladding</b><small>Show wall and roof envelope</small></span><input type="checkbox" id="claddingToggle" checked /><i></i></label>
+            <label class="toggle-row"><span><b>Scenery</b><small>House and trees for real-world scale reference</small></span><input type="checkbox" id="sceneryToggle" checked /><i></i></label>
+          </div>
+
+          <div class="display-tool-group">
+            <div class="display-tool-heading"><b>Structural inspection</b><small>Inspect structural layers and connections without changing the configured hall.</small></div>
+            <label class="select-label" for="inspectionMode">Visible assembly</label>
+            <select id="inspectionMode">
+              <option value="all">Complete hall</option>
+              <option value="primary">Primary steel</option>
+              <option value="secondary">Secondary steel & bracing</option>
+              <option value="connections">Connections & fasteners</option>
+              <option value="foundations">Foundations & anchors</option>
+              <option value="envelope">Envelope & openings</option>
+              <option value="services">Building services</option>
+            </select>
+            <div class="toggle-stack compact-toggle-stack">
+              <label class="toggle-row"><span><b>Connection detail</b><small>Show bolts, washers, nuts and anchor cages in the assembled model</small></span><input type="checkbox" id="connectionDetailsToggle" /><i></i></label>
+              <label class="toggle-row"><span><b>Section cut</b><small>Clip the building along its length for interior inspection</small></span><input type="checkbox" id="sectionCutToggle" /><i></i></label>
+            </div>
+            <label class="range-control compact-control display-slider is-disabled" id="sectionCutControl" data-control="sectionCutPosition"><span class="control-label"><b>Section position</b><output>50%</output></span><span class="range-row range-row--single"><input type="range" min="5" max="95" step="1" value="50" /></span></label>
+            <div class="explode-control" aria-label="Exploded view control"><div class="explode-heading"><span>Exploded view</span><strong id="explodeValue">0%</strong></div><p class="explode-copy">Separate cladding, purlins, braces, steel sections, connection plates, anchor cages and fasteners for close inspection.</p><div class="explode-row"><input id="explodeRange" type="range" min="0" max="100" step="1" value="0" /><button type="button" id="explodeToggleButton">Explode</button></div></div>
+          </div>
+
+          <div class="display-tool-group">
+            <div class="display-tool-heading"><b>Warehouse planning</b><small>Preview usable storage and vehicle circulation inside the hall.</small></div>
+            <label class="select-label" for="rackDensity">Rack layout</label>
+            <select id="rackDensity"><option value="light">Wide aisles</option><option value="standard" selected>Standard pallet aisles</option><option value="dense">High-density storage</option></select>
+            <div class="toggle-stack compact-toggle-stack">
+              <label class="toggle-row"><span><b>Pallet racking preview</b><small>Show indicative rack rows within the usable floor area</small></span><input type="checkbox" id="warehouseRackingToggle" /><i></i></label>
+              <label class="toggle-row"><span><b>Forklift clearance</b><small>Show main circulation aisles and turning-clearance zones</small></span><input type="checkbox" id="forkliftClearanceToggle" /><i></i></label>
+            </div>
+          </div>
+
+          <div class="display-tool-group">
+            <div class="display-tool-heading"><b>Building-services inspection</b><small>Isolate installed systems or show indicative service coverage.</small></div>
+            <label class="select-label" for="serviceVisibility">Visible services</label>
+            <select id="serviceVisibility"><option value="all">All installed services</option><option value="lighting">Lighting only</option><option value="fire">Fire protection only</option><option value="climate">Climate / refrigeration only</option><option value="drainage">Roof drainage only</option><option value="none">Hide all services</option></select>
+            <div class="toggle-stack compact-toggle-stack">
+              <label class="toggle-row"><span><b>Coverage zones</b><small>Show indicative lighting, sprinkler and climate service areas</small></span><input type="checkbox" id="serviceCoverageToggle" /><i></i></label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="accordion-section summary-section" data-accordion="summary">
+        <button class="accordion-toggle" type="button" aria-expanded="false"><span>Summary & pricing</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" hidden>
+          <div class="summary-validation-error" id="summaryValidationError" hidden></div>
+          <div class="summary-content" id="summaryContent">
+            <div class="summary-total-card"><span>Indicative configured total</span><strong id="summaryTotal">—</strong><small>Demo estimate before taxes. Final engineering and quotation required.</small></div>
+            <div class="summary-price-breakdown" id="summaryPriceBreakdown"></div>
+            <div class="summary-metrics" id="summaryMetrics"></div>
+            <div class="summary-bom-preview"><div class="summary-subheading"><b>Bill of materials</b><span id="headerBomSummary">—</span></div><div id="summaryBomList" class="summary-bom-list"></div></div>
+            <div class="summary-actions"><button type="button" class="secondary-action" id="bomExportInlineButton">Export BOM CSV</button><button type="button" class="primary-action" id="bomOpenButton" aria-controls="bomPanel" aria-haspopup="dialog">Full bill of materials</button></div>
+          </div>
         </div>
       </section>
     </aside>
 
-    <button id="hallSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide hall settings" aria-expanded="true" title="Hide hall settings">
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-    </button>
-
-    <section class="viewer-panel">
-      <header class="viewer-header">
-        <div class="viewer-actions-wrap">
-          <button type="button" class="estimate-button" id="bomOpenButton"><span>Bill of materials</span><strong id="headerBomSummary">—</strong></button>
-          <div class="view-actions" aria-label="Camera controls">
-            <button type="button" data-view="perspective" class="active">3D</button>
-            <button type="button" data-view="front">Front</button>
-            <button type="button" data-view="side">Side</button>
-            <button type="button" data-view="top">Top</button>
-            <button type="button" data-view="reset">Reset</button>
-          </div>
-          <div class="model-options">
-            <label><input type="checkbox" id="dimensionsToggle" checked /> Dimensions</label>
-            <label><input type="checkbox" id="edgesToggle" /> Technical edges</label>
-            <label><input type="checkbox" id="claddingToggle" checked /> Cladding</label>
-          </div>
-        </div>
-
-        <div class="viewer-title-block">
-          <p class="eyebrow">Real-time model</p>
-          <h2>Steel warehouse hall</h2>
-        </div>
-
-        <div class="explode-control" aria-label="Exploded view control">
-          <div class="explode-heading"><span>Exploded view</span><strong id="explodeValue">0%</strong></div>
-          <div class="explode-row">
-            <input id="explodeRange" type="range" min="0" max="100" step="1" value="0" />
-            <button type="button" id="explodeToggleButton">Explode</button>
-          </div>
-        </div>
-      </header>
-
-      <div class="viewer-stage" id="viewerStage">
-        <div id="canvasHost" aria-label="Interactive 3D hall model"></div>
-        <div class="stage-hint">Drag to orbit · Scroll to zoom · Explode to inspect the support structure</div>
-        <div class="structure-legend">
-          <span><i class="legend-primary"></i>Primary frame</span>
-          <span><i class="legend-secondary"></i>Secondary support</span>
-          <span><i class="legend-envelope"></i>Envelope</span>
-        </div>
-      </div>
-
-      <footer class="metrics-bar">
-        <article><span>Footprint</span><strong id="metricFootprint">288 m²</strong></article>
-        <article><span>Portal frames</span><strong id="metricFrames">5</strong></article>
-        <article><span>Actual bay spacing</span><strong id="metricSpacing">6.00 m</strong></article>
-        <article><span>Ridge elevation</span><strong id="metricRidge">6.28 m</strong></article>
-      </footer>
-    </section>
+    <button id="hallSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide hall settings" aria-expanded="true" title="Hide hall settings"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
   </main>
 
+
+  <section class="opening-editor" id="openingEditor" hidden aria-label="Selected opening editor">
+    <div class="opening-editor__header"><div><small id="openingEditorSide">Front wall</small><strong id="openingEditorTitle">Window</strong></div><button type="button" id="openingDeleteButton" class="opening-delete-button" aria-label="Delete selected opening" title="Delete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button></div>
+    <label class="opening-editor__side"><span>Wall</span><select id="openingSideSelect"><option value="front">Front</option><option value="right">Right</option><option value="back">Back</option><option value="left">Left</option></select></label>
+    <div class="opening-editor__dimensions"><label><span>Width</span><div><input id="openingWidthInput" type="number" min="0.5" step="0.05" /><em>m</em></div></label><label><span>Height</span><div><input id="openingHeightInput" type="number" min="0.5" step="0.05" /><em>m</em></div></label></div>
+    <label class="opening-editor__color"><span>Colour</span><input id="openingColorInput" type="color" /></label>
+    <div class="opening-editor__warning" id="openingEditorWarning" hidden></div>
+  </section>
+
+  <section class="environment-panel" id="hallEnvironmentPanel" aria-label="Light and orientation" aria-hidden="true">
+    <div class="environment-panel__header"><strong>Light &amp; orientation</strong><button type="button" id="environmentCloseButton" aria-label="Close">×</button></div>
+    <label class="environment-control"><span><strong>Sun position</strong><output id="sunPositionOutput">47%</output></span><input id="sunPositionRange" type="range" min="0" max="1" step="0.01" value="0.47" /><small><span>Morning</span><span>Evening</span></small></label>
+    <label class="environment-control"><span><strong>North direction</strong><output id="northDirectionOutput">0°</output></span><input id="northDirectionRange" type="range" min="0" max="360" step="1" value="0" /><small><span>0°</span><span>360°</span></small></label>
+    <div class="environment-control"><span><strong>Scene</strong></span><div class="scene-segmented" id="sceneSegmented"><button type="button" data-scene="winter" class="is-selected">Winter</button><button type="button" data-scene="summer">Summer</button><button type="button" data-scene="studio">Studio</button></div></div>
+    <label class="night-preview-row"><span class="night-preview-icon">☾</span><span><strong>Night preview</strong><small>Preview the configured lighting.</small></span><input id="nightPreviewToggle" type="checkbox" /><i></i></label>
+  </section>
+
   <dialog class="bom-panel" id="bomPanel" aria-labelledby="bomTitle">
-    <header class="bom-header">
-      <div><p class="eyebrow">Generated from model</p><h2 id="bomTitle">Bill of materials</h2></div>
-      <button type="button" class="bom-close" id="bomCloseButton" aria-label="Close BOM">×</button>
-    </header>
-    <div class="bom-scroll-region">
-      <div class="bom-disclaimer">Indicative geometric quantities only. Member sizes are visualization presets and must not be used as structural engineering calculations.</div>
-      <div class="bom-table-wrap">
-        <table class="bom-table">
-          <thead><tr><th>Nr.</th><th>Component</th><th>Unit</th><th>Quantity</th><th>Notes</th></tr></thead>
-          <tbody id="bomTableBody"></tbody>
-        </table>
-      </div>
-      <section class="bom-assumptions"><h3>Model basis</h3><div class="assumption-grid" id="bomAssumptions"></div></section>
-    </div>
+    <header class="bom-header"><div><p class="eyebrow">Generated from model</p><h2 id="bomTitle">Bill of materials</h2></div><button type="button" class="bom-close" id="bomCloseButton" aria-label="Close BOM">×</button></header>
+    <div class="bom-scroll-region"><div class="bom-disclaimer">Indicative geometric quantities only. Profile families mirror the supplied IFC reference, but this configurator is not a structural calculation or fabrication model.</div><div class="bom-table-wrap"><table class="bom-table"><thead><tr><th>Nr.</th><th>Component</th><th>Unit</th><th>Quantity</th><th>Notes</th></tr></thead><tbody id="bomTableBody"></tbody></table></div><section class="bom-assumptions"><h3>Model basis</h3><div class="assumption-grid" id="bomAssumptions"></div></section></div>
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/app.js?v=1"></script>
-  <script type="module" src="./js/sharedShell.js?v=1"></script>
+  <script type="module" src="./js/sharedShell.js?v=13"></script>
+  <script type="module" src="./js/app.js?v=13"></script>
 </body>
 </html>

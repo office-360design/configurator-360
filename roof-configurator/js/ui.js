@@ -1,13 +1,16 @@
-import { pitchRules, roofNames } from './state.js?v=13';
-import { bomToCsv, calculateBom, formatLei } from './bom.js?v=12';
+import { pitchRules, roofNames } from './state.js?v=15';
+import { bomToCsv, calculateBom } from './bom.js?v=14';
+import {
+  displayLengthInputConfig,
+  formatArea,
+  formatCurrency,
+  formatLength,
+  fromDisplayLength,
+  normalizeUnits,
+  toDisplayLength,
+} from './preferences.js?v=1';
 
-const formatters = {
-  length: (value) => `${value.toFixed(1)} m`,
-  depth: (value) => `${value.toFixed(1)} m`,
-  wallHeight: (value) => `${value.toFixed(1)} m`,
-  pitch: (value) => `${Math.round(value)}°`,
-  overhang: (value) => `${value.toFixed(2)} m`,
-};
+const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
 export class RoofUI {
   constructor(state, onChange) {
@@ -17,6 +20,8 @@ export class RoofUI {
     this.pitchRuleNote = document.querySelector('#pitchRuleNote');
     this.bomPanel = document.querySelector('#bomPanel');
     this.currentBom = null;
+    this.lastMetrics = null;
+    this.dimensionBindings = [];
     this.bindRoofTypes();
     this.bindRanges();
     this.bindCovering();
@@ -45,24 +50,99 @@ export class RoofUI {
       const range = control.querySelector('input[type="range"]');
       const number = control.querySelector('input[type="number"]');
       const output = control.querySelector('output');
+      const isLength = LENGTH_CONTROL_KEYS.has(key);
+      const baseMin = Number(range.min);
+      const baseMax = Number(range.max);
+      const baseStep = Number(range.step) || 0.1;
 
-      const update = (raw, source) => {
-        const min = Number(source.min);
-        const max = Number(source.max);
-        const parsed = Number(raw);
-        if (!Number.isFinite(parsed)) return;
-        const value = Math.min(max, Math.max(min, parsed));
+      const updateState = (metersOrValue) => {
+        const minimum = Number(range.min);
+        const maximum = Number(range.max);
+        if (!Number.isFinite(metersOrValue)) return;
+        const value = Math.min(maximum, Math.max(minimum, metersOrValue));
         this.state[key] = value;
         range.value = String(value);
-        number.value = String(value);
-        output.value = formatters[key](value);
+        this.syncDimensionControls();
         this.onChange({ fitCamera: false });
       };
 
-      range.addEventListener('input', () => update(range.value, range));
-      number.addEventListener('input', () => update(number.value, number));
-      number.addEventListener('blur', () => update(number.value, number));
+      range.addEventListener('input', () => updateState(Number(range.value)));
+
+      const updateFromNumber = () => {
+        if (number.value === '') return;
+        const value = isLength
+          ? fromDisplayLength(number.value, this.state.units)
+          : Number(number.value);
+        updateState(value);
+      };
+
+      number.addEventListener('change', updateFromNumber);
+      number.addEventListener('blur', updateFromNumber);
+
+      this.dimensionBindings.push({
+        key, range, number, output, isLength, baseMin, baseMax, baseStep,
+      });
     });
+
+    this.syncDimensionControls();
+  }
+
+  syncDimensionControls() {
+    const units = normalizeUnits(this.state.units);
+    this.dimensionBindings.forEach((binding) => {
+      const { key, range, number, output, isLength, baseMin, baseMax, baseStep } = binding;
+      const value = Number(this.state[key]);
+      range.value = String(value);
+
+      if (!isLength) {
+        number.value = String(Math.round(value));
+        output.value = `${Math.round(value)}°`;
+        return;
+      }
+
+      const config = displayLengthInputConfig(baseMin, baseMax, baseStep, units);
+      const displayValue = toDisplayLength(value, units);
+      number.min = String(config.min);
+      number.max = String(config.max);
+      number.step = String(config.step);
+      number.value = config.decimals > 0
+        ? displayValue.toFixed(config.decimals)
+        : String(Math.round(displayValue));
+      number.setAttribute('aria-label', `${key.replace(/([A-Z])/g, ' $1').toLowerCase()} in ${config.ariaUnit}`);
+      output.value = formatLength(value, units, { inchDecimals: key === 'overhang' ? 1 : 1 });
+    });
+  }
+
+  applyStateToControls() {
+    document.querySelectorAll('[data-roof-type]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.roofType === this.state.roofType));
+    });
+    if (this.viewerTitle) this.viewerTitle.textContent = roofNames[this.state.roofType] ?? roofNames.gable;
+
+    const coveringSelect = document.querySelector('#coveringSelect');
+    if (coveringSelect) coveringSelect.value = this.state.covering;
+    const rule = pitchRules[this.state.covering] ?? pitchRules.generic;
+    const pitchControl = document.querySelector('[data-control="pitch"]');
+    const pitchRange = pitchControl?.querySelector('input[type="range"]');
+    const pitchNumber = pitchControl?.querySelector('input[type="number"]');
+    if (pitchRange) pitchRange.min = String(rule.minimum);
+    if (pitchNumber) pitchNumber.min = String(rule.minimum);
+    if (this.pitchRuleNote) this.pitchRuleNote.textContent = rule.note;
+
+    document.querySelectorAll('.swatch').forEach((swatch) => {
+      swatch.classList.toggle('selected', swatch.dataset.color === this.state.roofColor);
+    });
+    const wireframeToggle = document.querySelector('#wireframeToggle');
+    if (wireframeToggle) wireframeToggle.checked = Boolean(this.state.technicalEdges);
+
+    this.syncDimensionControls();
+    this.updateCustomMode();
+    this.renderCustomPlanFile();
+  }
+
+  setPreferences() {
+    this.syncDimensionControls();
+    if (this.lastMetrics) this.updateMetrics(this.lastMetrics);
   }
 
   bindCovering() {
@@ -83,6 +163,7 @@ export class RoofUI {
         number.value = String(rule.minimum);
         output.value = `${rule.minimum}°`;
       }
+      this.syncDimensionControls();
       this.onChange({ fitCamera: false });
     });
   }
@@ -181,6 +262,48 @@ export class RoofUI {
 
   bindBom() {
     document.querySelector('#bomExportButton')?.addEventListener('click', () => this.exportBom());
+
+    document.querySelector('#bomTableBody')?.addEventListener('change', (event) => {
+      const checkbox = event.target.closest('[data-bom-line-toggle]');
+      if (!checkbox) return;
+      this.setBomLineIncluded(checkbox.dataset.bomLineToggle, checkbox.checked);
+    });
+
+    document.querySelector('#bomToggleAll')?.addEventListener('change', (event) => {
+      this.setAllBomLinesIncluded(event.target.checked);
+    });
+
+    document.querySelector('#bomIncludeAll')?.addEventListener('click', () => {
+      this.setAllBomLinesIncluded(true);
+    });
+
+    document.querySelector('#bomExcludeAll')?.addEventListener('click', () => {
+      this.setAllBomLinesIncluded(false);
+    });
+  }
+
+  getExcludedBomItems() {
+    return new Set(Array.isArray(this.state.excludedBomItems) ? this.state.excludedBomItems : []);
+  }
+
+  setBomLineIncluded(key, included) {
+    if (!key) return;
+    const excluded = this.getExcludedBomItems();
+    if (included) excluded.delete(key);
+    else excluded.add(key);
+    this.state.excludedBomItems = [...excluded];
+    if (this.lastMetrics) this.updateBom(this.lastMetrics);
+  }
+
+  setAllBomLinesIncluded(included) {
+    if (!this.currentBom) return;
+    const excluded = this.getExcludedBomItems();
+    this.currentBom.lines.forEach((line) => {
+      if (included) excluded.delete(line.key);
+      else excluded.add(line.key);
+    });
+    this.state.excludedBomItems = [...excluded];
+    if (this.lastMetrics) this.updateBom(this.lastMetrics);
   }
 
   exportBom() {
@@ -190,7 +313,10 @@ export class RoofUI {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `roof-bom-${this.state.roofType}-${this.state.length.toFixed(1)}x${this.state.depth.toFixed(1)}m.csv`;
+    const sizeLabel = normalizeUnits(this.state.units) === 'imperial'
+      ? `${toDisplayLength(this.state.length, 'imperial').toFixed(2)}x${toDisplayLength(this.state.depth, 'imperial').toFixed(2)}ft`
+      : `${Math.round(this.state.length * 1000)}x${Math.round(this.state.depth * 1000)}mm`;
+    link.download = `roof-bom-${this.state.roofType}-${sizeLabel}-${this.state.currency}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -210,46 +336,70 @@ export class RoofUI {
       const body = document.querySelector('#bomTableBody');
       const row = document.createElement('tr');
       row.className = 'bom-empty-row';
-      row.innerHTML = '<td colspan="6"><strong>No BOM generated</strong><small>Custom plan parsing is not implemented in this proof of concept.</small></td>';
+      row.innerHTML = '<td colspan="7"><strong>No BOM generated</strong><small>Custom plan parsing is not implemented in this proof of concept.</small></td>';
       body.replaceChildren(row);
+      this.updateBomSelectionControls(bom);
 
       const assumptionGrid = document.querySelector('#bomAssumptions');
       const status = document.createElement('div');
       status.innerHTML = `<span>Plan status</span><strong>${this.state.customPlan ? 'File selected' : 'Awaiting upload'}</strong>`;
       assumptionGrid.replaceChildren(status);
+      const currencyNote = document.querySelector('#bomCurrencyNote');
+      if (currencyNote) currencyNote.textContent = ' Currency conversion will be applied after a custom plan can generate a BOM.';
       document.querySelector('#bomExportButton').disabled = true;
       return;
     }
 
     document.querySelector('#bomExportButton').disabled = false;
-    document.querySelector('#headerEstimateTotal').textContent = `${formatLei(bom.total)} lei`;
-    document.querySelector('#bomSubtotal').textContent = `${formatLei(bom.subtotal)} lei`;
-    document.querySelector('#bomVat').textContent = `${formatLei(bom.vat)} lei`;
-    document.querySelector('#bomTotal').textContent = `${formatLei(bom.total)} lei`;
+    document.querySelector('#headerEstimateTotal').textContent = formatCurrency(bom.total, bom.currency);
+    document.querySelector('#bomSubtotal').textContent = formatCurrency(bom.subtotal, bom.currency);
+    document.querySelector('#bomVat').textContent = formatCurrency(bom.vat, bom.currency);
+    document.querySelector('#bomTotal').textContent = formatCurrency(bom.total, bom.currency);
 
     const body = document.querySelector('#bomTableBody');
     body.replaceChildren(...bom.lines.map((line, index) => {
       const row = document.createElement('tr');
+      row.classList.toggle('is-excluded', line.included === false);
       row.innerHTML = `
+        <td class="bom-check-cell">
+          <input
+            type="checkbox"
+            data-bom-line-toggle="${line.key}"
+            aria-label="Include ${line.name} in BOM"
+            ${line.included === false ? '' : 'checked'}
+          />
+        </td>
         <td>${index + 1}</td>
         <td><strong>${line.name}</strong>${line.note ? `<small>${line.note}</small>` : ''}</td>
         <td>${line.unit}</td>
         <td>${line.quantity}</td>
-        <td>${formatLei(line.unitPrice)}</td>
-        <td>${formatLei(line.value)}</td>
+        <td>${formatCurrency(line.unitPrice, bom.currency)}</td>
+        <td>${formatCurrency(line.value, bom.currency)}</td>
       `;
       return row;
     }));
+    this.updateBomSelectionControls(bom);
 
     const assumptions = [
-      ['Roof area', `${bom.assumptions.roofArea.toFixed(1)} m²`],
-      ['Ridge / hip lines', `${bom.assumptions.ridgeLength.toFixed(1)} m`],
-      ['Eaves / gutters', `${bom.assumptions.eavesLength.toFixed(1)} m`],
-      ['Gable edges', `${bom.assumptions.gableLength.toFixed(1)} m`],
-      ['Valleys', `${bom.assumptions.valleyLength.toFixed(1)} m`],
-      ['Panel coverage', `${bom.assumptions.panelEffectiveArea.toFixed(2)} m²`],
+      ['Roof area', formatArea(bom.assumptions.roofArea, this.state.units)],
+      ['Ridge / hip lines', formatLength(bom.assumptions.ridgeLength, this.state.units)],
+      ['Eaves / gutters', formatLength(bom.assumptions.eavesLength, this.state.units)],
+      ['Gable edges', formatLength(bom.assumptions.gableLength, this.state.units)],
+      ['Valleys', formatLength(bom.assumptions.valleyLength, this.state.units)],
+      ['Panel coverage', formatArea(bom.assumptions.panelEffectiveArea, this.state.units, 2)],
       ['Tile waste', `${bom.assumptions.wastePercent.toFixed(0)}%`],
     ];
+    const currencyNote = document.querySelector('#bomCurrencyNote');
+    if (currencyNote) {
+      if (bom.currency === 'RON') {
+        currencyNote.textContent = ' Prices are shown in RON, the original currency of the reference offer.';
+      } else {
+        const dateLabel = bom.exchangeRateDate ? ` for ${bom.exchangeRateDate}` : '';
+        const fallbackLabel = bom.exchangeRateIsFallback ? ' (temporary offline fallback)' : '';
+        currencyNote.textContent = ` Converted at 1 RON = ${bom.exchangeRate.toFixed(4)} ${bom.currency}${dateLabel}, using ${bom.exchangeRateSource}${fallbackLabel}.`;
+      }
+    }
+
     const assumptionGrid = document.querySelector('#bomAssumptions');
     assumptionGrid.replaceChildren(...assumptions.map(([label, value]) => {
       const item = document.createElement('div');
@@ -258,11 +408,31 @@ export class RoofUI {
     }));
   }
 
+  updateBomSelectionControls(bom) {
+    const lines = bom?.lines ?? [];
+    const includedCount = lines.filter((line) => line.included !== false).length;
+    const totalCount = lines.length;
+    const toggleAll = document.querySelector('#bomToggleAll');
+    const includeAll = document.querySelector('#bomIncludeAll');
+    const excludeAll = document.querySelector('#bomExcludeAll');
+    const status = document.querySelector('#bomSelectionStatus');
+
+    if (toggleAll) {
+      toggleAll.disabled = totalCount === 0;
+      toggleAll.checked = totalCount > 0 && includedCount === totalCount;
+      toggleAll.indeterminate = includedCount > 0 && includedCount < totalCount;
+    }
+    if (includeAll) includeAll.disabled = totalCount === 0 || includedCount === totalCount;
+    if (excludeAll) excludeAll.disabled = totalCount === 0 || includedCount === 0;
+    if (status) status.textContent = `${includedCount} of ${totalCount} items included`;
+  }
+
   updateMetrics(metrics) {
+    this.lastMetrics = metrics;
     const prefix = metrics.approximate ? '~' : '';
-    document.querySelector('#metricFootprint').textContent = `${prefix}${metrics.footprint.toFixed(1)} m²`;
-    document.querySelector('#metricRoofArea').textContent = `${prefix}${metrics.roofArea.toFixed(1)} m²`;
-    document.querySelector('#metricRidge').textContent = `${metrics.ridgeElevation.toFixed(2)} m`;
+    document.querySelector('#metricFootprint').textContent = `${prefix}${formatArea(metrics.footprint, this.state.units)}`;
+    document.querySelector('#metricRoofArea').textContent = `${prefix}${formatArea(metrics.roofArea, this.state.units)}`;
+    document.querySelector('#metricRidge').textContent = formatLength(metrics.ridgeElevation, this.state.units);
     document.querySelector('#metricPitch').textContent = `${Math.round(this.state.pitch)}°`;
     this.updateBom(metrics);
   }
