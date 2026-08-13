@@ -2921,3 +2921,617 @@
   .pergola-segment-plan { min-height: 108px; }
   .pergola-closing-types button { min-height: 42px; font-size: 10px; }
 }
+
+/*
+ * Mobile spatial workbench
+ * The scene and the control deck are separate visual regions on touch devices.
+ * This block intentionally comes last: it replaces the earlier compact-desktop
+ * treatment without changing the desktop composition.
+ */
+@media (max-width: 720px) and (orientation: portrait) {
+  :root {
+    --mobile-scene-height: clamp(350px, 48svh, 510px);
+    --mobile-deck-peek: 66px;
+    --mobile-deck-open: min(48svh, 440px);
+  }
+
+  body { overscroll-behavior-y: none; }
+
+  .spatial-hero { height: 205svh; }
+  .hero-sticky h1 {
+    max-width: 11ch;
+    font-size: clamp(45px, 13.2vw, 58px);
+    line-height: .91;
+    text-wrap: balance;
+  }
+  .hero-chapter h2,
+  .sequence-intro h2 {
+    max-width: 12ch;
+    font-size: clamp(41px, 11.5vw, 52px);
+    line-height: .94;
+    text-wrap: balance;
+  }
+
+  .spatial-showcase,
+  .detail-hero {
+    height: auto;
+    min-height: 0;
+    padding-block: 84px 72px;
+    overflow: clip;
+  }
+  .showcase-sticky,
+  .detail-hero-inner {
+    position: relative;
+    top: auto;
+    height: auto;
+    min-height: 0;
+    padding-top: 0;
+    justify-content: flex-start;
+    gap: 18px;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    pointer-events: auto !important;
+  }
+
+  /* The technical cube remains available in the capability sections. Here the
+     product view gets the scarce first screen of space. */
+  .spatial-showcase .showcase-features { display: none; }
+
+  .showcase-viewport,
+  .detail-viewport {
+    order: 1;
+    flex: none;
+    width: 100%;
+    height: var(--mobile-scene-height);
+    min-height: 0;
+    max-height: none;
+    margin: 0 0 var(--mobile-deck-peek);
+    overflow: visible;
+    isolation: isolate;
+    transition: margin-bottom .36s cubic-bezier(.22,.74,.2,1);
+  }
+  .showcase-viewport:has(.instrument-console:not(.is-collapsed)),
+  .showcase-viewport:has(.window-instrument:not(.is-collapsed)),
+  .detail-viewport:has(.instrument-console:not(.is-collapsed)),
+  .detail-viewport:has(.window-instrument:not(.is-collapsed)) {
+    margin-bottom: calc(var(--mobile-deck-open) + 12px);
+  }
+
+  .showcase-story,
+  .detail-action {
+    order: 2;
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+  }
+  .showcase-story {
+    padding: 22px 18px;
+    background: linear-gradient(135deg,rgba(255,255,255,.08),transparent 42%),rgba(var(--canvas-rgb),.6);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(16px) saturate(1.18);
+    -webkit-backdrop-filter: blur(16px) saturate(1.18);
+  }
+  .showcase-story h3 { font-size: clamp(38px, 10.5vw, 48px); }
+  .showcase-story > p,
+  .detail-action > p { font-size: 14px; line-height: 1.58; }
+
+  .detail-title {
+    order: 2;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+  .detail-title h1 {
+    max-width: 12ch;
+    margin: 12px 0 0;
+    font-size: clamp(43px, 12vw, 55px);
+    line-height: .9;
+    text-wrap: balance;
+  }
+  .detail-action { order: 3; }
+
+  .viewport-status {
+    top: 18px;
+    left: 18px;
+    z-index: 8;
+    max-width: calc(100% - 150px);
+    font-size: 11px !important;
+    letter-spacing: .11em;
+  }
+  .interaction-hint { display: none; }
+  .interaction-toggle,
+  .runtime-interaction-toggle {
+    top: auto;
+    right: 14px;
+    bottom: 14px;
+    z-index: 14;
+    min-width: 112px;
+    min-height: 44px;
+    padding: 9px 12px;
+    color: var(--ink);
+    font-size: 11px !important;
+    letter-spacing: .08em;
+  }
+  .scene-interactor.is-interacting .interaction-toggle,
+  .window-runtime-shell.is-interacting .runtime-interaction-toggle {
+    color: white;
+    border-color: var(--hud);
+    background: linear-gradient(110deg,#0761aa,#359ce7);
+    box-shadow: 0 0 0 4px rgba(53,156,231,.1),0 14px 34px rgba(0,0,0,.22);
+  }
+
+  /* The compact deck is anchored immediately below the scene, never over it. */
+  .scene-controls.scene-controls-panel,
+  .window-instrument,
+  .instrument-console.is-collapsed,
+  .window-instrument.is-collapsed {
+    top: calc(100% + 8px);
+    bottom: auto;
+    left: 0;
+    right: 0;
+    z-index: 22;
+    width: 100%;
+    min-height: var(--mobile-deck-peek);
+    max-height: var(--mobile-deck-open);
+    padding: 10px 12px;
+    overflow: hidden;
+    background:
+      linear-gradient(135deg,rgba(255,255,255,.11),transparent 38%),
+      rgba(var(--canvas-rgb),.72);
+    border: 1px solid color-mix(in srgb,var(--ink) 20%,transparent);
+    box-shadow: inset 0 1px rgba(255,255,255,.16),0 18px 48px rgba(0,0,0,.15);
+    backdrop-filter: blur(18px) saturate(1.24);
+    -webkit-backdrop-filter: blur(18px) saturate(1.24);
+    transition: max-height .36s cubic-bezier(.22,.74,.2,1),background-color .25s ease;
+  }
+  .scene-controls.scene-controls-panel::before,
+  .window-instrument::before {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    width: 38px;
+    height: 3px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: color-mix(in srgb,var(--ink) 32%,transparent);
+    pointer-events: none;
+  }
+  .instrument-console:not(.is-collapsed),
+  .window-instrument:not(.is-collapsed) {
+    top: calc(100% + 8px);
+    bottom: auto;
+    max-height: var(--mobile-deck-open);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    padding-bottom: max(12px,env(safe-area-inset-bottom));
+  }
+  .window-runtime-shell { overflow: visible; }
+
+  .console-header,
+  .instrument-identity {
+    min-height: 44px;
+    grid-template-columns: minmax(0,1fr) auto auto;
+    gap: 8px;
+    font-size: 11px !important;
+  }
+  .console-header > span,
+  .instrument-identity > strong { display: none; }
+  .console-header > b,
+  .instrument-identity > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .console-header > span,
+  .instrument-identity > span { font-size: 11px !important; }
+  .console-header .live-price,
+  .instrument-identity .live-price {
+    padding: 8px 9px;
+    font-size: 13px !important;
+    font-weight: 750;
+  }
+  .console-collapse {
+    min-width: 92px;
+    min-height: 38px !important;
+    padding: 8px 9px !important;
+    font-size: 11px !important;
+  }
+  .console-body { padding-top: 12px; }
+  .instrument-console:not(.is-collapsed) .console-header,
+  .window-instrument:not(.is-collapsed) .instrument-identity {
+    position: sticky;
+    top: -10px;
+    z-index: 5;
+    margin: -10px -12px 0;
+    padding: 10px 12px 8px;
+    background: rgba(var(--canvas-rgb),.82);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(18px) saturate(1.22);
+    -webkit-backdrop-filter: blur(18px) saturate(1.22);
+  }
+
+  .scene-control-grid,
+  .roof-controls .scene-control-grid,
+  .pergola-controls .scene-control-grid,
+  .instrument-grid,
+  .hall-controls .scene-control-grid,
+  .solar-controls .scene-control-grid {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 12px 16px;
+  }
+  .scene-range > span,
+  .instrument-range span,
+  .control-section-label,
+  .console-tabs button,
+  .scene-preset-row button,
+  .instrument-actions button,
+  .pergola-closing-types button { font-size: 11px !important; }
+  .scene-range > span,
+  .instrument-range span { line-height: 1.35; }
+  .scene-range b,
+  .instrument-range b {
+    min-width: 48px;
+    padding: 3px 7px;
+    color: var(--ink);
+    background: color-mix(in srgb,var(--canvas) 68%,transparent);
+    border: 1px solid var(--line);
+    font-size: 12px !important;
+    text-align: center;
+  }
+
+  /* Horizontal technical rails replace dense desktop matrices. */
+  .console-tabs,
+  .scene-preset-row,
+  .roof-controls .shape-row,
+  .roof-controls .material-row,
+  .hall-layer-row,
+  .solar-season-row,
+  .solar-side-row,
+  .consumption-row,
+  .instrument-actions,
+  .pergola-closing-types > div {
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .console-tabs::-webkit-scrollbar,
+  .scene-preset-row::-webkit-scrollbar,
+  .instrument-actions::-webkit-scrollbar { display: none; }
+  .console-tabs button,
+  .scene-preset-row button,
+  .roof-controls .shape-row button,
+  .roof-controls .material-row button,
+  .hall-layer-row button,
+  .solar-season-row button,
+  .solar-side-row button,
+  .consumption-row button,
+  .instrument-actions button,
+  .pergola-closing-types button {
+    flex: 0 0 auto;
+    min-width: 112px;
+    min-height: 44px;
+    scroll-snap-align: start;
+  }
+  .instrument-actions button { min-width: 118px; }
+
+  .scene-controls:has(input:active),
+  .window-instrument:has(input:active) {
+    background: rgba(var(--canvas-rgb),.58);
+  }
+
+  .lighting-console { grid-template-columns: 1fr; }
+  .led-switch { min-height: 52px; }
+  .led-colors { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .spotlight-stepper { grid-column: auto; }
+
+  .analytics-bubble {
+    position: fixed;
+    left: 12px;
+    right: auto;
+    top: auto;
+    bottom: 18px;
+    width: 68px;
+    height: 68px;
+    z-index: 60;
+  }
+  .energy-modal-panel {
+    width: 100%;
+    max-height: calc(100svh - 20px);
+  }
+
+  .text-link,
+  .launch-link { font-size: 11px !important; }
+  .showcase-links { grid-template-columns: 1fr; }
+  .launch-link { width: 100%; }
+  .spatial-showcase .showcase-links .launch-link { display: none; }
+  .spatial-showcase .showcase-links .text-link {
+    display: flex;
+    width: 100%;
+    min-height: 52px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    border: 1px solid var(--line-strong);
+  }
+
+  .instrument-console,
+  .window-instrument,
+  .showcase-story,
+  .detail-action { scroll-margin-top: 78px; }
+
+  .site-footer { padding-bottom: max(52px,env(safe-area-inset-bottom)); }
+
+  .capability-core,
+  .capability-field,
+  .process-section,
+  .detail-intro,
+  .detail-features,
+  .detail-outputs { padding-block: 76px; }
+}
+
+@media (max-width: 720px) and (orientation: landscape) {
+  .spatial-showcase,
+  .detail-hero { height: auto; min-height: 100svh; padding-block: 72px 30px; }
+  .showcase-sticky,
+  .detail-hero-inner { position: relative; top: auto; height: auto; opacity: 1 !important; visibility: visible !important; transform: none !important; }
+  .showcase-viewport,
+  .detail-viewport { height: 72svh; margin-bottom: 70px; overflow: visible; }
+  .scene-controls.scene-controls-panel,
+  .window-instrument { top: calc(100% + 6px); bottom: auto; }
+}
+
+/* Mobile spatial controls: compact, legible and subordinate to the product. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (max-width: 1050px) {
+  .mobile-scene-actions {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    pointer-events: auto !important;
+    isolation: isolate;
+  }
+  .mobile-scene-actions .interaction-toggle,
+  .scene-fullscreen-toggle {
+    position: static;
+    min-width: 0;
+    min-height: 36px;
+    height: 36px;
+    margin: 0;
+    padding: 0 10px;
+    border: 1px solid color-mix(in srgb,var(--hud) 58%,var(--line));
+    color: var(--ink);
+    background: color-mix(in srgb,var(--canvas) 76%,transparent);
+    box-shadow: 0 8px 24px rgba(0,0,0,.13);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+    font: 650 10px/1 var(--mono) !important;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    pointer-events: auto !important;
+    touch-action: manipulation;
+  }
+  .mobile-scene-actions .interaction-toggle { min-width: 86px; }
+  .scene-fullscreen-toggle {
+    width: 36px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+  }
+  .scene-fullscreen-toggle svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+  }
+  .scene-interactor.is-interacting .mobile-scene-actions .interaction-toggle,
+  .window-runtime-shell.is-interacting .mobile-scene-actions .interaction-toggle,
+  .scene-fullscreen-toggle[aria-pressed="true"] {
+    color: white;
+    border-color: var(--hud);
+    background: linear-gradient(110deg,#0761aa,#359ce7);
+  }
+
+  .scene-controls.scene-controls-panel,
+  .window-instrument,
+  .instrument-console.is-collapsed,
+  .window-instrument.is-collapsed {
+    padding: 6px 8px;
+  }
+  .console-header,
+  .instrument-identity {
+    min-height: 36px;
+    gap: 5px;
+    font-size: 10px !important;
+  }
+  .console-header .live-price,
+  .instrument-identity .live-price {
+    padding: 5px 6px;
+    font-size: 12px !important;
+  }
+  .console-collapse {
+    min-width: 76px;
+    min-height: 30px !important;
+    padding: 5px 6px !important;
+    font-size: 10px !important;
+  }
+  .console-body { padding-top: 7px; }
+
+  .scene-control-grid,
+  .roof-controls .scene-control-grid,
+  .pergola-controls .scene-control-grid,
+  .instrument-grid,
+  .hall-controls .scene-control-grid,
+  .solar-controls .scene-control-grid {
+    gap: 6px 8px;
+  }
+  .scene-range,
+  .instrument-range { min-height: 36px; }
+  .scene-range > span,
+  .instrument-range span {
+    gap: 4px;
+    font-size: 9.5px !important;
+    letter-spacing: .055em;
+  }
+  .scene-range b,
+  .instrument-range b {
+    min-width: 42px;
+    padding: 2px 5px;
+    font-size: 10.5px !important;
+  }
+  .scene-range input,
+  .instrument-range input {
+    display: block;
+    height: 18px;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  .scene-range input::-webkit-slider-runnable-track,
+  .instrument-range input::-webkit-slider-runnable-track {
+    height: 2px;
+    border: 0;
+    background: linear-gradient(90deg,var(--brand),var(--line-strong));
+  }
+  .scene-range input::-moz-range-track,
+  .instrument-range input::-moz-range-track {
+    height: 2px;
+    border: 0;
+    background: var(--line-strong);
+  }
+  .scene-range input::-moz-range-progress,
+  .instrument-range input::-moz-range-progress {
+    height: 2px;
+    background: var(--brand);
+  }
+  .scene-range input::-webkit-slider-thumb,
+  .instrument-range input::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+    margin-top: -6px;
+    border: 1px solid var(--canvas);
+    border-radius: 50%;
+    background: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb,var(--brand) 15%,transparent);
+  }
+  .scene-range input::-moz-range-thumb,
+  .instrument-range input::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--canvas);
+    border-radius: 50%;
+    background: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb,var(--brand) 15%,transparent);
+  }
+
+  .console-tabs,
+  .scene-preset-row,
+  .instrument-actions { margin-top: 6px; }
+  .console-tabs button,
+  .scene-preset-row button,
+  .roof-controls .shape-row button,
+  .roof-controls .material-row button,
+  .hall-layer-row button,
+  .solar-season-row button,
+  .solar-side-row button,
+  .consumption-row button,
+  .instrument-actions button,
+  .pergola-closing-types button {
+    min-width: 86px;
+    min-height: 34px;
+    padding: 5px 8px;
+    font-size: 9.5px !important;
+    line-height: 1.15;
+    letter-spacing: .055em;
+  }
+  .instrument-actions button { min-width: 92px; }
+
+  .address-control-wrap,
+  .address-control,
+  .date-control { margin-bottom: 6px; }
+  .address-control { gap: 5px; }
+  .address-control input,
+  .address-control button,
+  .date-control label,
+  .date-control button {
+    min-height: 34px;
+    height: 34px;
+  }
+  .address-control input { padding-inline: 8px; font-size: 11px; }
+  .address-control button { padding-inline: 9px; font-size: 9px; }
+  .date-control { gap: 5px; }
+  .date-control label { padding: 3px 6px 0; font-size: 9px; }
+  .date-control input { height: 28px; font-size: 10px; }
+  .date-control button { min-width: 62px; font-size: 9px; }
+  .control-section-label { margin-top: 6px; font-size: 9.5px !important; }
+  .solar-module-select {
+    gap: 5px;
+    margin-bottom: 6px;
+    font-size: 9.5px;
+  }
+  .solar-module-select select { height: 34px; padding-inline: 8px; font-size: 10.5px; }
+  .solar-module-select small,
+  .solar-fit-warning {
+    padding: 6px 7px;
+    font-size: 10px;
+    line-height: 1.3;
+  }
+  .energy-input-row,
+  .solar-storage-switches { gap: 5px; margin-block: 6px; }
+  .energy-input-row label { min-height: 38px; padding: 4px 6px 0; font-size: 9px; }
+  .energy-input-row input { height: 27px; font-size: 10px; }
+  .solar-storage-switches button { min-height: 36px; padding: 5px 7px; font-size: 9.5px; }
+
+  .pergola-closing-toolbar { min-height: 35px; }
+  .pergola-closing-toolbar > button,
+  .pergola-closing-toolbar > span { min-height: 34px; padding: 5px 7px; font-size: 9.5px; }
+  .pergola-closing-editor { gap: 6px; }
+  .pergola-segment-plan { min-height: 90px; padding: 10px 14px; }
+  .pergola-closing-types header { min-height: 30px; padding: 5px 7px; font-size: 9px; }
+  .pergola-closing-types header b { font-size: 10px; }
+
+  .lighting-console { gap: 0; }
+  .led-switch { min-height: 36px; font-size: 9.5px !important; }
+  .led-colors button { min-height: 34px; padding: 4px; }
+  .led-colors button span { font-size: 9px !important; }
+  .spotlight-stepper { min-height: 36px; font-size: 9.5px !important; }
+
+  /* This action belongs to the solar viewport and must never follow the page. */
+  .solar-controls { position: absolute; }
+  .showcase-solar .analytics-bubble {
+    position: absolute;
+    left: 8px;
+    right: auto;
+    top: auto;
+    bottom: 8px;
+    width: 48px;
+    height: 48px;
+    z-index: 26;
+    padding: 6px;
+  }
+  .showcase-solar .analytics-bubble span { display: none; }
+  .showcase-solar .analytics-bubble b { margin: 0; font-size: 7.5px; line-height: 1.05; }
+  .showcase-solar .analytics-bubble i { right: 6px; bottom: 4px; font-size: 9px; }
+}

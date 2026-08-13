@@ -86,3 +86,6 @@ update_from_latest_zip_git.ps1
 # Local commit-message handoff for pergola update automation
 pergola-configurator/commit_message.md
 commit_message.md
+
+# Temporary Google GitHub Actions credentials
+gha-creds-*.json

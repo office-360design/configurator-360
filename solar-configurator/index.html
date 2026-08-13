@@ -8,13 +8,9 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
   <link rel="stylesheet" href="./styles.css?v=1" />
-  <link rel="stylesheet" href="./shared-shell.css?v=1" />
-  <link rel="stylesheet" href="./solar.css?v=9" />
+  <link rel="stylesheet" href="./shared-shell.css?v=2" />
+  <link rel="stylesheet" href="./solar.css?v=16" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script>
-    window.SOLAR_PVGIS_PROXY_ENDPOINT =
-      'https://pvgis-proxy.netlify.app/.netlify/functions/pvgis';
-  </script>
   <script type="importmap">
     {
       "imports": {
@@ -233,8 +229,14 @@
       <section class="solar-simulation-panel" aria-label="Day energy simulation">
         <header>
           <div><p class="eyebrow" id="simulationDateReadout">24-hour energy flow</p><h3>Production vs. consumption</h3></div>
-          <button id="simulationPlayButton" type="button">Run day simulation</button>
+          <div class="solar-simulation-panel__actions">
+            <button id="simulationPlayButton" type="button">Run day simulation</button>
+            <button id="simulationPanelToggle" class="solar-simulation-panel__toggle" type="button" aria-expanded="true" aria-controls="simulationPanelBody" aria-label="Hide energy graph" title="Hide energy graph">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+          </div>
         </header>
+        <div class="solar-simulation-panel__body" id="simulationPanelBody">
         <div class="simulation-summary-grid">
           <article><span>PV generation</span><strong id="energyProductionReadout">—</strong></article>
           <article><span>Home consumption</span><strong id="energyConsumptionReadout">—</strong></article>
@@ -246,6 +248,7 @@
         <div class="simulation-chart-wrap">
           <svg id="simulationChart" viewBox="0 0 720 230" role="img" aria-label="Hourly solar production, household consumption, and battery state of charge"></svg>
           <div class="chart-legend"><span class="legend-production">PV production</span><span class="legend-consumption">Consumption</span><span class="legend-battery">Battery SOC</span></div>
+        </div>
         </div>
       </section>
 
@@ -264,6 +267,9 @@
       <button type="button" id="solarEnvironmentClose" aria-label="Close location and sun menu">×</button>
     </header>
 
+    <details class="solar-tool-group" open>
+      <summary><span>Site & environment</span><small>Location, local context and house alignment</small></summary>
+      <div class="solar-tool-group__body">
     <section class="solar-env-block">
       <div class="solar-env-block__head"><span>Location</span><strong id="environmentLocationMode">Regional reference</strong></div>
       <div class="solar-env-location-card">
@@ -356,6 +362,12 @@
       <p class="solar-context-attribution">Terrain: Mapzen Terrarium / AWS Open Data · Buildings, roads & trees: © OpenStreetMap contributors.</p>
     </section>
 
+      </div>
+    </details>
+
+    <details class="solar-tool-group solar-tool-group--analysis">
+      <summary><span>Solar analysis</span><small>PVGIS exact-site model and Google Solar</small></summary>
+      <div class="solar-tool-group__body">
     <section class="solar-env-block solar-pvgis-block">
       <div class="solar-env-block__head"><span>PVGIS exact-site model</span><strong id="pvgisStatusLabel">Proxy not configured</strong></div>
       <div class="solar-pvgis-stats" aria-label="PVGIS site model statistics">
@@ -387,6 +399,151 @@
       <p class="solar-context-attribution">PV production & terrain horizon: European Commission JRC PVGIS 5.3 / SARAH3.</p>
     </section>
 
+    <section class="solar-env-block solar-google-block" id="googleSolarBlock">
+      <div class="solar-env-block__head"><span>Google Solar detailed site analysis</span><strong id="googleSolarStatusLabel">Locked</strong></div>
+      <p class="solar-context-message solar-google-intro">Optional showcase layer: Google Building Insights validates the detected roof while Data Layers supplies DSM, rooftop mask, annual/monthly solar flux and 12 months of hourly shade. PVGIS remains the main production/weather model.</p>
+
+      <div class="solar-google-access" id="googleSolarAccessPanel">
+        <label for="googleSolarAccessCode"><span>Demo access code</span><input id="googleSolarAccessCode" type="password" autocomplete="current-password" placeholder="Required for paid Google calls" /></label>
+        <div class="solar-google-access__actions">
+          <button type="button" class="primary" id="googleSolarUnlockButton">Unlock Google Solar</button>
+          <button type="button" id="googleSolarLockButton" hidden>Lock</button>
+        </div>
+        <small id="googleSolarAccessFeedback" aria-live="polite">The Google API key stays only on Netlify; the browser receives a short-lived signed demo session.</small>
+      </div>
+
+      <div class="solar-google-stats" aria-label="Google Solar building and imagery statistics">
+        <div><span>Imagery</span><strong id="googleSolarImageryValue">—</strong></div>
+        <div><span>Roof area</span><strong id="googleSolarRoofAreaValue">—</strong></div>
+        <div><span>Google max panels</span><strong id="googleSolarMaxPanelsValue">—</strong></div>
+        <div><span>Sunshine</span><strong id="googleSolarSunshineValue">—</strong></div>
+        <div><span>Roof segments</span><strong id="googleSolarSegmentsValue">—</strong></div>
+        <div><span>Closest Google layout</span><strong id="googleSolarLayoutValue">—</strong></div>
+        <div><span>Shade panels</span><strong id="googleSolarShadePanelsValue">—</strong></div>
+        <div><span>Annual local loss</span><strong id="googleSolarLossValue">—</strong></div>
+        <div><span>DSM hybrid</span><strong id="googleSolarDsmValue">—</strong></div>
+        <div><span>Building mask</span><strong id="googleSolarMaskValue">—</strong></div>
+        <div><span>Reference match</span><strong id="googleSolarReferenceValue">—</strong></div>
+        <div><span>Main Google roof</span><strong id="googleSolarMainRoofValue">—</strong></div>
+      </div>
+
+      <div class="solar-google-match" id="googleSolarMatchPanel">
+        <div class="solar-google-match__head"><span>Match configured roof to Google</span><strong id="googleSolarMatchStatus">Reference only</strong></div>
+        <div class="solar-google-match__grid">
+          <div class="solar-google-match__row">
+            <span><b>Bearing</b><small id="googleSolarBearingCompare">—</small></span>
+            <button type="button" id="googleSolarApplyBearingButton">Apply bearing</button>
+          </div>
+          <div class="solar-google-match__row">
+            <span><b>Pitch</b><small id="googleSolarPitchCompare">—</small></span>
+            <button type="button" id="googleSolarApplyPitchButton">Apply pitch</button>
+          </div>
+          <div class="solar-google-match__row">
+            <span><b>Approx. footprint</b><small id="googleSolarSizeCompare">—</small></span>
+            <button type="button" id="googleSolarApplySizeButton">Apply size</button>
+          </div>
+          <div class="solar-google-match__row">
+            <span><b>Local position</b><small id="googleSolarPositionCompare">—</small></span>
+            <button type="button" id="googleSolarApplyPositionButton">Center house</button>
+          </div>
+        </div>
+        <button type="button" class="primary solar-google-match__all" id="googleSolarApplyAllButton">Apply all Google reference values</button>
+        <small class="solar-google-match__note" id="googleSolarMatchNote">Google values are applied only when you choose an action. Footprint dimensions are approximate because the rooftop mask describes the visible roof, not the wall line.</small>
+      </div>
+
+      <div class="solar-google-layout" id="googleSolarLayoutPanel">
+        <div class="solar-google-layout__head"><span>Google recommended layout overlay</span><strong id="googleSolarRecommendedStatus">Analyze site first</strong></div>
+        <div class="solar-google-layout__controls">
+          <label for="googleSolarLayoutSelect"><span>Google configuration</span><select id="googleSolarLayoutSelect"><option value="0">Closest to current array</option></select></label>
+          <label class="solar-google-layout__toggle" for="googleSolarRecommendedToggle">
+            <span><b>Show Google layout in 3D</b><small>Outlined cyan panels keep Google's geographic positions and are lifted onto the configured roof when needed so the comparison is not hidden inside a differently sized real roof.</small></span>
+            <input id="googleSolarRecommendedToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="solar-google-layout__stats">
+          <div><span>Our array</span><strong id="googleSolarOurLayoutValue">—</strong></div>
+          <div><span>Google reference</span><strong id="googleSolarRecommendedValue">—</strong></div>
+          <div class="solar-google-layout__comparison"><span>Production comparison</span><strong id="googleSolarProductionCompareValue">—</strong></div>
+        </div>
+        <div class="solar-google-layout__legend"><span><i class="is-configured"></i>Configured panels</span><span><i class="is-google"></i>Google reference</span></div>
+        <small class="solar-google-layout__note" id="googleSolarLayoutNote">Google configurations use Google's panel dimensions and DC production model. For visibility, reference panels that overlap the configured house are vertically projected above the configured roof while preserving their geographic X/Z position and Google orientation. The production comparison remains a reference rather than a replacement for the PVGIS estimate.</small>
+      </div>
+
+
+      <div class="solar-google-flux" id="googleSolarFluxPanel">
+        <div class="solar-google-flux__head"><span>Google solar suitability heatmap</span><strong id="googleSolarFluxStatus">Analyze site first</strong></div>
+        <label class="solar-google-layout__toggle" for="googleSolarFluxToggle">
+          <span><b>Show host roof solar heatmap</b><small>Colors the detected host rooftop by annual or monthly Google solar flux. Nearby roofs stay clean by default.</small></span>
+          <input id="googleSolarFluxToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+        </label>
+        <label class="solar-google-layout__toggle solar-google-flux__nearby-toggle" for="googleSolarFluxNearbyToggle">
+          <span><b>Show nearby roof suitability</b><small>Optionally overlays the surrounding Google-detected rooftops at reduced opacity for neighborhood comparison.</small></span>
+          <input id="googleSolarFluxNearbyToggle" type="checkbox" /><span class="roof-switch" aria-hidden="true"></span>
+        </label>
+        <label class="solar-google-flux__period" for="googleSolarFluxPeriod">
+          <span>Heatmap period</span>
+          <select id="googleSolarFluxPeriod">
+            <option value="annual">Annual</option>
+            <option value="0">January</option><option value="1">February</option><option value="2">March</option><option value="3">April</option>
+            <option value="4">May</option><option value="5">June</option><option value="6">July</option><option value="7">August</option>
+            <option value="8">September</option><option value="9">October</option><option value="10">November</option><option value="11">December</option>
+          </select>
+        </label>
+        <div class="solar-google-flux__stats">
+          <div><span>Low</span><strong id="googleSolarFluxLowValue">—</strong></div>
+          <div><span>Typical</span><strong id="googleSolarFluxMedianValue">—</strong></div>
+          <div><span>High</span><strong id="googleSolarFluxHighValue">—</strong></div>
+        </div>
+        <div class="solar-google-flux__legend" aria-label="Solar suitability legend"><span>Lower</span><i></i><span>Higher</span></div>
+        <small class="solar-google-flux__note" id="googleSolarFluxNote">Heatmap unavailable until Google Data Layers have been analyzed for this property.</small>
+      </div>
+
+      <label class="solar-context-master" for="googleSolarShadingToggle">
+        <span><b>Use Google hourly shade for production</b><small>When detailed data is current, Google hourly shade replaces the approximate OSM obstruction model. PVGIS terrain horizon remains separate.</small></span>
+        <input id="googleSolarShadingToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="solar-context-master" for="googleSolarDsmToggle">
+        <span><b>Use Google DSM to refine local environment</b><small>Keeps the smooth Mapzen ground, uses Google DSM to correct building heights, adds Google-only roof volumes, and converts raised non-roof surfaces into simplified canopy/obstruction volumes.</small></span>
+        <input id="googleSolarDsmToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="solar-context-master" for="googleSolarMaskToggle">
+        <span><b>Highlight Google rooftop mask</b><small>Shows clean rooftop footprint outlines instead of coloring the raw DSM. The detected host roof is highlighted in blue and remains a reference when the configured house replaces it.</small></span>
+        <input id="googleSolarMaskToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="solar-context-master" for="googleSolarReferenceToggle">
+        <span><b>Show Google reference building</b><small>Displays the detected host rooftop as a translucent DSM reference and marks Building Insights roof-segment directions. This is a comparison overlay only and does not change the configured roof.</small></span>
+        <input id="googleSolarReferenceToggle" type="checkbox" checked /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+
+      <label class="solar-context-master solar-debug-toggle" for="googleSolarRawDsmToggle">
+        <span><b>Show raw Google DSM (debug)</b><small>Optional diagnostic overlay only. The raw triangulated surface is intentionally hidden during normal use because roofs, trees and ground are better rendered through the hybrid environment.</small></span>
+        <input id="googleSolarRawDsmToggle" type="checkbox" /><span class="roof-switch" aria-hidden="true"></span>
+      </label>
+
+      <div class="solar-context-actions solar-google-actions">
+        <button type="button" class="primary" id="googleSolarAnalyzeButton">Analyze selected property</button>
+        <button type="button" id="googleSolarRefreshButton">Re-check cached data</button>
+      </div>
+      <p class="solar-context-message" id="googleSolarMessage">Unlock Google Solar, then analyze an exact location.</p>
+      <div class="solar-google-cache-row"><span>Cache</span><strong id="googleSolarCacheValue">—</strong></div>
+      <details class="solar-google-security">
+        <summary>Demo security & caching</summary>
+        <p id="googleSolarProxyMessage">Google Solar proxy not tested yet.</p>
+        <p>Paid requests run only through the Netlify Function. The API key is never shipped to GitHub Pages. The proxy requires the demo access code, issues a 2-hour signed session, applies per-IP/global daily limits, and caches Google results in Netlify Blobs.</p>
+        <p>Building Insights is cached for 7 days. Data Layers metadata is reused while its URLs are valid. Downloaded hourly-shade, DSM and building-mask GeoTIFFs are cached for up to 30 days, matching Google's documented retention window.</p>
+      </details>
+      <p class="solar-context-attribution">Optional detailed roof & shade data: Google Maps Platform Solar API. Hourly shade uses standard time (no DST); the configurator converts Romania summer time before sampling it.</p>
+    </section>
+
+      </div>
+    </details>
+
+    <details class="solar-tool-group" open>
+      <summary><span>Sun, season & orientation</span><small>Date, time, bearing and preview controls</small></summary>
+      <div class="solar-tool-group__body">
     <section class="solar-env-block">
       <div class="solar-env-block__head"><span>Date & season</span><button type="button" class="solar-env-link" id="environmentTodayButton">Today</button></div>
       <input class="solar-env-date" id="simulationDateControl" type="date" />
@@ -427,6 +584,8 @@
       <span class="roof-night-preview__copy"><strong>Force night preview</strong><small>Useful for checking the scene; real night is automatic when the sun is below the horizon.</small></span>
       <input id="nightPreviewToggle" type="checkbox" /><span class="roof-switch" aria-hidden="true"></span>
     </label>
+      </div>
+    </details>
   </section>
 
   <dialog class="solar-location-dialog" id="locationPickerDialog" aria-labelledby="locationPickerTitle">
@@ -494,8 +653,13 @@
       panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
     })();
   </script>
+  <script>
+    // Public frontend endpoints only. API keys and paid-service secrets stay in Netlify environment variables.
+    window.SOLAR_PVGIS_PROXY_ENDPOINT = window.SOLAR_PVGIS_PROXY_ENDPOINT || 'https://pvgis-proxy.netlify.app/.netlify/functions/pvgis';
+    window.SOLAR_GOOGLE_SOLAR_ENDPOINT = window.SOLAR_GOOGLE_SOLAR_ENDPOINT || 'https://pvgis-proxy.netlify.app/.netlify/functions/google-solar';
+  </script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="./js/sharedShell.js?v=9"></script>
-  <script type="module" src="./js/app.js?v=12"></script>
+  <script type="module" src="./js/sharedShell.js?v=18"></script>
+  <script type="module" src="./js/app.js?v=26"></script>
 </body>
 </html>
