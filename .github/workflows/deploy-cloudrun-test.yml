@@ -1,7 +1,14 @@
 name: Deploy test site to Google Cloud Run
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
+
+concurrency:
+  group: cloud-run-production
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -181,42 +188,35 @@ jobs:
             --service-account="configurator-runtime@configurator-360.iam.gserviceaccount.com" \
             --port=8080 \
             --allow-unauthenticated \
-            --ingress=all \
+            --ingress=internal-and-cloud-load-balancing \
+            --no-default-url \
             --quiet
 
       # ------------------------------------------------------------
       # Display and test the Cloud Run URL
       # ------------------------------------------------------------
-
-      - name: Get Cloud Run URL
+      - name: Set production URL
         shell: bash
         run: |
-          SERVICE_URL="$(gcloud run services describe "${CLOUD_RUN_SERVICE}" \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --format='value(status.url)')"
-
-          echo "SERVICE_URL=${SERVICE_URL}" >> "$GITHUB_ENV"
-
-          echo "## Google Cloud Run test deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "SERVICE_URL=https://www.360configurator.com" >> "$GITHUB_ENV"
+      
+          echo "## Google Cloud Run deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "${SERVICE_URL}" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://www.360configurator.com" >> "$GITHUB_STEP_SUMMARY"
 
-          echo "Cloud Run URL: ${SERVICE_URL}"
-
-      - name: Smoke test routes
+      - name: Smoke test production routes
         shell: bash
         run: |
           set -euo pipefail
-
+      
           echo "Testing ${SERVICE_URL}"
-
-          curl -fsSL --retry 10 --retry-delay 2 "${SERVICE_URL}/" > /dev/null
-          curl -fsSL "${SERVICE_URL}/window-configurator/" > /dev/null
-          curl -fsSL "${SERVICE_URL}/pergola-configurator/" > /dev/null
-          curl -fsSL "${SERVICE_URL}/roof-configurator/" > /dev/null
-          curl -fsSL "${SERVICE_URL}/solar-configurator/" > /dev/null
-          curl -fsSL "${SERVICE_URL}/hall-configurator/" > /dev/null
-
-          echo "All routes responded successfully."
+      
+          curl -fsSL --retry 10 --retry-delay 3 "${SERVICE_URL}/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/window-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/pergola-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/roof-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/solar-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/hall-configurator/" > /dev/null
+      
+          echo "All production routes responded successfully."
 
