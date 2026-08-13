@@ -1635,14 +1635,14 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
     <script src="./ar-upload-config.js"></script>
-    <script type="module" src="./shared-shell.js?v=5"></script>
+    <script type="module" src="./shared-shell.js?v=7"></script>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
         import { createWindowARAsset, downloadARAsset, uploadARAsset, uploadARAssetToSupabase, formatExportStats, sha256Hex } from './ar-export.js';
-        import { readShareState } from './shared-ui/src/shareState.js?v=2';
+        import { readShareState } from './shared-ui/src/shareState.js?v=3';
 
         const pageParams = new URLSearchParams(window.location.search);
         const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -3554,6 +3554,8 @@
             });
         }
 
+        let defaultWindowConfigurationState = null;
+
         window.WINDOW_CONFIGURATOR_API = {
             captureState() {
                 return {
@@ -3600,6 +3602,13 @@
                 updateColorFilterToggles();
                 buildWindow();
                 await forceSceneRender();
+                return true;
+            },
+
+            async resetConfiguration() {
+                if (!defaultWindowConfigurationState) return false;
+                await this.restoreState(structuredClone(defaultWindowConfigurationState));
+                window.history.replaceState({}, '', window.location.pathname);
                 return true;
             },
         };
@@ -5913,6 +5922,10 @@
         });
 
         initializeAluminiumFinishControls();
+        // Capture the genuine clean-page configuration before a shared link is restored.
+        // Reset therefore always returns to the product's base state, not to the state
+        // that happened to arrive through #s/#c/?config.
+        defaultWindowConfigurationState = structuredClone(window.WINDOW_CONFIGURATOR_API.captureState());
 
         // Restore a shared configurator link after the normal UI and API have been created.
         // The shared state includes the selected CAD profile, dimensions, finishes,

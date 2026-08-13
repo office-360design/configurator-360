@@ -7,9 +7,10 @@ import {
   normalizeUnits,
   resolveCurrencyRate,
 } from './preferences.js?v=1';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=2';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=3';
 
 const VIEW_ORDER = ['perspective', 'front', 'top'];
+const DEFAULT_ROOF_STATE = structuredClone(state);
 const ROOF_SHARE_NUMBERS = ['length', 'depth', 'wallHeight', 'pitch', 'overhang', 'sunPosition', 'northDirection'];
 const ROOF_SHARE_BOOLEANS = ['showDimensions', 'technicalEdges', 'showCompass', 'nightPreview'];
 
@@ -163,6 +164,25 @@ document.querySelectorAll('[data-view]').forEach((button) => {
   });
 });
 
+function resetConfiguration() {
+  const shellPreferences = {
+    units: state.units,
+    currency: state.currency,
+    currencyRate: state.currencyRate,
+    currencyRateDate: state.currencyRateDate,
+    currencyRateSource: state.currencyRateSource,
+    currencyRateIsFallback: state.currencyRateIsFallback,
+  };
+  Object.assign(state, structuredClone(DEFAULT_ROOF_STATE), shellPreferences);
+  currentView = 'perspective';
+  ui?.applyStateToControls();
+  rebuild({ fitCamera: true });
+  ui?.setPreferences();
+  window.history.replaceState({}, '', window.location.pathname);
+  emitToolsState();
+  return true;
+}
+
 const configuratorApi = {
   getState() {
     return {
@@ -211,6 +231,8 @@ const configuratorApi = {
     emitToolsState();
     return true;
   },
+
+  resetConfiguration,
 
   setDimensionsVisible(visible) {
     if (state.roofType === 'custom') return state.showDimensions;
