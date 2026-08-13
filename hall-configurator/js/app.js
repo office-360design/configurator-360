@@ -1,6 +1,17 @@
 import { state, deriveHallMetrics } from './state.js?v=12';
 import { HallScene } from './scene.js?v=12';
 import { HallUI } from './ui.js?v=12';
+import { normalizeOpenings } from './openings.js?v=12';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=1';
+
+const sharedHallState = readShareState({ productType: 'hall' });
+if (sharedHallState) {
+  Object.keys(state).forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(sharedHallState, key)) return;
+    state[key] = structuredClone(sharedHallState[key]);
+  });
+  normalizeOpenings(state);
+}
 
 let ui = null;
 const scene = new HallScene(document.querySelector('#canvasHost'), {

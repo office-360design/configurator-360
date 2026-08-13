@@ -1,12 +1,46 @@
-import { state } from './state.js?v=15';
+import { state, pitchRules, roofNames } from './state.js?v=15';
 import { RoofScene } from './scene.js?v=16';
-import { RoofUI } from './ui.js?v=15';
+import { RoofUI } from './ui.js?v=16';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
 } from './preferences.js?v=1';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=1';
+
+const VIEW_ORDER = ['perspective', 'front', 'top'];
+const ROOF_SHARE_NUMBERS = ['length', 'depth', 'wallHeight', 'pitch', 'overhang', 'sunPosition', 'northDirection'];
+const ROOF_SHARE_BOOLEANS = ['showDimensions', 'technicalEdges', 'showCompass', 'nightPreview'];
+
+function applySharedRoofState(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return;
+
+  if (Object.prototype.hasOwnProperty.call(roofNames, snapshot.roofType)) state.roofType = snapshot.roofType;
+  if (Object.prototype.hasOwnProperty.call(pitchRules, snapshot.covering)) state.covering = snapshot.covering;
+  if (typeof snapshot.roofColor === 'string' && /^#[0-9a-f]{6}$/i.test(snapshot.roofColor)) state.roofColor = snapshot.roofColor;
+
+  ROOF_SHARE_NUMBERS.forEach((key) => {
+    const value = Number(snapshot[key]);
+    if (Number.isFinite(value)) state[key] = value;
+  });
+  ROOF_SHARE_BOOLEANS.forEach((key) => {
+    if (typeof snapshot[key] === 'boolean') state[key] = snapshot[key];
+  });
+
+  if (snapshot.customPlan === null || (snapshot.customPlan && typeof snapshot.customPlan === 'object')) {
+    state.customPlan = snapshot.customPlan ? structuredClone(snapshot.customPlan) : null;
+  }
+  if (Array.isArray(snapshot.excludedBomItems)) {
+    state.excludedBomItems = snapshot.excludedBomItems.filter((item) => typeof item === 'string');
+  }
+
+  const rule = pitchRules[state.covering] ?? pitchRules.generic;
+  state.pitch = Math.max(rule.minimum, state.pitch);
+}
+
+const sharedRoofState = readShareState({ productType: 'roof' });
+applySharedRoofState(sharedRoofState);
 
 const initialPreferences = window.ROOF_SHELL_PREFERENCES || {};
 state.units = normalizeUnits(initialPreferences.units ?? state.units);
@@ -17,8 +51,7 @@ state.currencyRateIsFallback = state.currency !== 'RON';
 
 const host = document.querySelector('#canvasHost');
 const scene = new RoofScene(host);
-const VIEW_ORDER = ['perspective', 'front', 'top'];
-let currentView = 'perspective';
+let currentView = VIEW_ORDER.includes(sharedRoofState?.currentView) ? sharedRoofState.currentView : 'perspective';
 let lastMetrics = null;
 let ui = null;
 let preferenceRequest = 0;
@@ -106,11 +139,13 @@ function applyView(view) {
 }
 
 ui = new RoofUI(state, rebuild);
+ui.applyStateToControls();
 lastMetrics = scene.rebuild(state, true);
 scene.setEnvironment(state);
 scene.setCompassVisible(state.showCompass);
 ui.updateMetrics(lastMetrics);
 ui.setPreferences();
+if (currentView !== 'perspective') scene.setView(currentView, state, lastMetrics.ridgeElevation);
 syncViewButtons();
 refreshCurrencyRate(state.currency);
 
@@ -142,6 +177,39 @@ const configuratorApi = {
       units: state.units,
       currency: state.currency,
     };
+  },
+
+  captureState() {
+    return {
+      roofType: state.roofType,
+      length: state.length,
+      depth: state.depth,
+      wallHeight: state.wallHeight,
+      pitch: state.pitch,
+      overhang: state.overhang,
+      covering: state.covering,
+      roofColor: state.roofColor,
+      showDimensions: state.showDimensions,
+      technicalEdges: state.technicalEdges,
+      showCompass: state.showCompass,
+      sunPosition: state.sunPosition,
+      northDirection: state.northDirection,
+      nightPreview: state.nightPreview,
+      customPlan: state.customPlan ? structuredClone(state.customPlan) : null,
+      excludedBomItems: [...state.excludedBomItems],
+      currentView,
+    };
+  },
+
+  restoreState(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    applySharedRoofState(snapshot);
+    const restoredView = VIEW_ORDER.includes(snapshot.currentView) ? snapshot.currentView : 'perspective';
+    ui?.applyStateToControls();
+    rebuild({ fitCamera: true });
+    if (restoredView !== 'perspective') applyView(restoredView);
+    emitToolsState();
+    return true;
   },
 
   setDimensionsVisible(visible) {

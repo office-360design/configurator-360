@@ -1,5 +1,6 @@
 import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=3';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
+import { createShareUrl } from './shared-ui/src/shareState.js?v=1';
 
 const history = new SharedUndoManager({
   capture: () => window.WINDOW_CONFIGURATOR_API?.captureState?.(),
@@ -43,7 +44,10 @@ const shell = mountStandaloneConfiguratorShell({
       }
     },
     getShareUrl() {
-      return window.location.href;
+      const snapshot = window.WINDOW_CONFIGURATOR_API?.captureState?.();
+      return snapshot
+        ? createShareUrl({ productType: 'window', state: snapshot })
+        : window.location.href;
     },
   },
 });

@@ -1,3 +1,4 @@
+import { createShareUrl, readShareState as readEncodedShareState } from '../../shared-ui/src/shareState.js';
 import {
   DIMENSION_LIMITS,
   POLE_FACES as LAYOUT_POLE_FACES,
@@ -794,16 +795,7 @@ function normalizeState(state, incoming = {}, options = {}) {
 }
 
 function readSharedState() {
-  const params = new URLSearchParams(window.location.search);
-  const encoded = params.get('config');
-  if (!encoded) return null;
-  try {
-    const json = decodeURIComponent(escape(window.atob(encoded)));
-    return JSON.parse(json);
-  } catch (error) {
-    console.warn('The shared configuration could not be decoded.', error);
-    return null;
-  }
+  return readEncodedShareState({ productType: 'pergola' });
 }
 
 function readStoredState() {
@@ -1039,10 +1031,6 @@ export class ConfiguratorStore {
   getShareUrl() {
     const shareState = clone(this.state);
     shareState.step = 0;
-    const encoded = window.btoa(unescape(encodeURIComponent(JSON.stringify(shareState))));
-    const url = new URL(window.location.href);
-    url.search = '';
-    url.searchParams.set('config', encoded);
-    return url.toString();
+    return createShareUrl({ productType: 'pergola', state: shareState });
   }
 }

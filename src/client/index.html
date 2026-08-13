@@ -1635,13 +1635,14 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
     <script src="./ar-upload-config.js"></script>
-    <script type="module" src="./shared-shell.js?v=3"></script>
+    <script type="module" src="./shared-shell.js?v=4"></script>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
         import { createWindowARAsset, downloadARAsset, uploadARAsset, uploadARAssetToSupabase, formatExportStats, sha256Hex } from './ar-export.js';
+        import { readShareState } from './shared-ui/src/shareState.js?v=1';
 
         const pageParams = new URLSearchParams(window.location.search);
         const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -5913,8 +5914,21 @@
 
         initializeAluminiumFinishControls();
 
-        // Load the selected profile. In QR AR mode the selection comes from URL parameters.
-        loadProfiles(isARMode ? requestedProfile : '2_4_Oeffnungselemnt_Vertikal');
+        // Restore a shared configurator link after the normal UI and API have been created.
+        // The shared state includes the selected CAD profile, dimensions, finishes,
+        // glazing options and every other captured control value.
+        const sharedWindowState = !isARMode ? readShareState({ productType: 'window' }) : null;
+        const sharedProfile = sharedWindowState?.controls?.find((entry) => entry.id === 'cadProfile')?.value;
+        const sharedProfileExists = sharedProfile
+            && [...profileInput.options].some((option) => option.value === sharedProfile);
+        const initialProfile = isARMode
+            ? requestedProfile
+            : (sharedProfileExists ? sharedProfile : '2_4_Oeffnungselemnt_Vertikal');
+
+        await loadProfiles(initialProfile);
+        if (sharedWindowState) {
+            await window.WINDOW_CONFIGURATOR_API.restoreState(sharedWindowState);
+        }
         renderer.setAnimationLoop(renderFrame);
     </script>
 </body>

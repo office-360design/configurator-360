@@ -113,6 +113,33 @@ export class RoofUI {
     });
   }
 
+  applyStateToControls() {
+    document.querySelectorAll('[data-roof-type]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.roofType === this.state.roofType));
+    });
+    if (this.viewerTitle) this.viewerTitle.textContent = roofNames[this.state.roofType] ?? roofNames.gable;
+
+    const coveringSelect = document.querySelector('#coveringSelect');
+    if (coveringSelect) coveringSelect.value = this.state.covering;
+    const rule = pitchRules[this.state.covering] ?? pitchRules.generic;
+    const pitchControl = document.querySelector('[data-control="pitch"]');
+    const pitchRange = pitchControl?.querySelector('input[type="range"]');
+    const pitchNumber = pitchControl?.querySelector('input[type="number"]');
+    if (pitchRange) pitchRange.min = String(rule.minimum);
+    if (pitchNumber) pitchNumber.min = String(rule.minimum);
+    if (this.pitchRuleNote) this.pitchRuleNote.textContent = rule.note;
+
+    document.querySelectorAll('.swatch').forEach((swatch) => {
+      swatch.classList.toggle('selected', swatch.dataset.color === this.state.roofColor);
+    });
+    const wireframeToggle = document.querySelector('#wireframeToggle');
+    if (wireframeToggle) wireframeToggle.checked = Boolean(this.state.technicalEdges);
+
+    this.syncDimensionControls();
+    this.updateCustomMode();
+    this.renderCustomPlanFile();
+  }
+
   setPreferences() {
     this.syncDimensionControls();
     if (this.lastMetrics) this.updateMetrics(this.lastMetrics);
