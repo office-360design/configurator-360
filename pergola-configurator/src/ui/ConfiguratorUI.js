@@ -258,7 +258,17 @@ export class ConfiguratorUI {
 
   onStateChange(state, meta = {}) {
     this.state = state;
-    if (meta.dimensionsReset) {
+    if (meta.reset) {
+      this.activePole = null;
+      this.activePoleFace = 'front';
+      this.activeSideSegment = null;
+      this.environmentOpen = false;
+      this.toolsOpen = false;
+      this.sidebarHidden = false;
+      this.expandedStep = null;
+      this.pendingDimensionChange = null;
+      if (this.modalRoot) this.modalRoot.innerHTML = '';
+    } else if (meta.dimensionsReset) {
       this.activePole = null;
       this.activePoleFace = 'front';
       this.activeSideSegment = null;
@@ -774,7 +784,15 @@ export class ConfiguratorUI {
   }
 
   async copyShareLink(button) {
-    const url = await this.store.getShareUrl();
+    let url;
+    try {
+      url = await this.store.getShareUrl();
+    } catch (error) {
+      console.error('Share link could not be created.', error);
+      this.showToast('Share service unavailable. Please try again.');
+      return;
+    }
+
     let copied = false;
     try {
       await navigator.clipboard.writeText(url);

@@ -269,7 +269,15 @@ export class StandaloneConfiguratorShell {
   }
 
   async share(button) {
-    const url = await Promise.resolve(this.options.callbacks.getShareUrl?.() || window.location.href);
+    let url;
+    try {
+      url = await Promise.resolve(this.options.callbacks.getShareUrl?.() || window.location.href);
+    } catch (error) {
+      console.error('Share link could not be created.', error);
+      this.showFeedback('Share unavailable');
+      return;
+    }
+
     let copied = false;
     try {
       await navigator.clipboard.writeText(url);

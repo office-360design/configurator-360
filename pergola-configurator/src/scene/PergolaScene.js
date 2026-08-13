@@ -191,7 +191,11 @@ export class PergolaScene {
       { alignY: 'bottom' },
     );
     this.houseGroup.name = 'environment-house';
+    this.houseWindowObjects = [];
     this.houseGroup.traverse((child) => {
+      if (child.userData?.environmentHouseWindows || /^window(?:_|$)/i.test(child.name || '')) {
+        this.houseWindowObjects.push(child);
+      }
       if (!child.isMesh) return;
       const materials = Array.isArray(child.material) ? child.material : [child.material];
       materials.forEach((mat) => {
@@ -275,6 +279,8 @@ export class PergolaScene {
     group.add(eave);
 
     const windowSet = new THREE.Group();
+    windowSet.name = 'environment-house-windows';
+    windowSet.userData.environmentHouseWindows = true;
     const spacing = 1.85;
     [-2.75, -0.95, 1.0, 2.8].forEach((x) => {
       const frame = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.65, 0.08), trimMaterial);
@@ -489,6 +495,8 @@ export class PergolaScene {
     this.updateHousePlacement();
     this.updateTreePlacement();
     if (this.houseGroup) this.houseGroup.visible = season !== 'studio';
+    const showHouseWindows = this.state.installation !== 'wall-mounted';
+    this.houseWindowObjects?.forEach((object) => { object.visible = showHouseWindows; });
     this.treeGroups.forEach((tree) => {
       tree.visible = season !== 'studio';
       tree.traverse((child) => {

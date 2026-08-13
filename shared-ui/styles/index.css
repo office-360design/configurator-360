@@ -1224,6 +1224,27 @@ body,
   border-color: rgba(255, 255, 255, 0.1);
 }
 
+/* Shared Tools icons used by embedded configurators such as Pergola.
+   Standalone configurators already receive equivalent rules from standalone.css. */
+.round-tool > span {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  pointer-events: none;
+}
+
+.round-tool svg {
+  display: block;
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .app-shell.is-dark-mode .tool-launcher,
 .app-shell.is-dark-mode .round-tool {
   color: #e7eef3;
