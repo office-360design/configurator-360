@@ -4,7 +4,12 @@ import { useEffect } from "react";
 
 export function SmoothScroll() {
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Native scrolling is substantially more predictable on touch screens and avoids
+    // the desktop showcase pinning choreography fighting the mobile control deck.
+    if (
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      window.matchMedia("(max-width: 720px), (pointer: coarse)").matches
+    ) return;
     let cancelled = false;
     let cleanup = () => {};
     Promise.all([import("lenis"), import("gsap"), import("gsap/ScrollTrigger")]).then(([lenisModule, gsapModule, triggerModule]) => {

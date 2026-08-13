@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { ConfiguratorSlug } from "../lib/configurators";
 import type { Locale } from "../lib/i18n";
+import { useMobileDeckSwipe } from "./use-mobile-deck-swipe";
 import { modulePresets } from "../lib/scenes/solar-state.js";
 
 type SolarMetrics = {
@@ -76,8 +77,8 @@ function Range({
 
 const copy = {
   en: {
-    controls: "Controls +",
-    hide: "Hide −",
+    controls: "Customize",
+    hide: "View model",
     dimensions: "Structure",
     assembly: "Layers",
     length: "Length",
@@ -164,8 +165,8 @@ const copy = {
     average: "Average production/day",
   },
   ro: {
-    controls: "Comenzi +",
-    hide: "Ascunde −",
+    controls: "Personalizează",
+    hide: "Vezi modelul",
     dimensions: "Structură",
     assembly: "Straturi",
     length: "Lungime",
@@ -252,8 +253,8 @@ const copy = {
     average: "Producție medie/zi",
   },
   de: {
-    controls: "Steuerung +",
-    hide: "Ausblenden −",
+    controls: "Konfigurieren",
+    hide: "Modell ansehen",
     dimensions: "Tragwerk",
     assembly: "Ebenen",
     length: "Länge",
@@ -344,6 +345,7 @@ const copy = {
 export function HallControls({ locale }: { locale: Locale }) {
   const t = copy[locale];
   const [collapsed, setCollapsed] = useState(false);
+  const deckSwipe = useMobileDeckSwipe(setCollapsed);
   const [tab, setTab] = useState<"dimensions" | "assembly">("dimensions");
   const [state, setState] = useState({
     length: 24,
@@ -360,7 +362,7 @@ export function HallControls({ locale }: { locale: Locale }) {
   });
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      if (matchMedia("(max-width: 720px)").matches) setCollapsed(true);
+      if (matchMedia("(max-width: 720px), ((max-width: 1050px) and (pointer: coarse))").matches) setCollapsed(true);
     });
     return () => cancelAnimationFrame(frame);
   }, []);
@@ -376,7 +378,7 @@ export function HallControls({ locale }: { locale: Locale }) {
     <div
       className={`scene-controls scene-controls-panel instrument-console hall-controls ${collapsed ? "is-collapsed" : ""}`}
     >
-      <div className="console-header">
+      <div className="console-header" {...deckSwipe}>
         <span>STRUCTURE / LIVE</span>
         <b>INDUSTRIAL HALL</b>
         <strong className="console-metric">
@@ -389,7 +391,7 @@ export function HallControls({ locale }: { locale: Locale }) {
           {collapsed ? t.controls : t.hide}
         </button>
       </div>
-      <div className="console-body">
+      <div className="console-body" aria-hidden={collapsed} inert={collapsed || undefined}>
         <div className="console-tabs">
           <button
             className={tab === "dimensions" ? "active" : ""}
@@ -813,6 +815,7 @@ function EnergyModal({
 export function SolarControls({ locale }: { locale: Locale }) {
   const t = copy[locale];
   const [collapsed, setCollapsed] = useState(false);
+  const deckSwipe = useMobileDeckSwipe(setCollapsed);
   const [tab, setTab] = useState<"site" | "roof" | "energy">("site");
   const [modal, setModal] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
@@ -922,7 +925,7 @@ export function SolarControls({ locale }: { locale: Locale }) {
       });
     };
     const frame = requestAnimationFrame(() => {
-      if (matchMedia("(max-width: 720px)").matches) setCollapsed(true);
+      if (matchMedia("(max-width: 720px), ((max-width: 1050px) and (pointer: coarse))").matches) setCollapsed(true);
       sync();
       if (document.documentElement.dataset.webglStageReady === "true") {
         requestDefaultLocation();
@@ -1064,7 +1067,7 @@ export function SolarControls({ locale }: { locale: Locale }) {
       <div
         className={`scene-controls scene-controls-panel instrument-console solar-controls ${collapsed ? "is-collapsed" : ""}`}
       >
-        <div className="console-header">
+      <div className="console-header" {...deckSwipe}>
           <span>SOLAR / LIVE</span>
           <b>{location}</b>
           <strong className="live-price">
@@ -1081,7 +1084,7 @@ export function SolarControls({ locale }: { locale: Locale }) {
             {collapsed ? t.controls : t.hide}
           </button>
         </div>
-        <div className="console-body">
+        <div className="console-body" aria-hidden={collapsed} inert={collapsed || undefined}>
           <div className="console-tabs solar-tabs">
             {(["site", "roof", "energy"] as const).map((name) => (
               <button

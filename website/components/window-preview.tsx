@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import Image from "next/image";
 import type { Locale } from "../lib/i18n";
+import { MobileSceneActions } from "./mobile-scene-actions";
+import { useMobileDeckSwipe } from "./use-mobile-deck-swipe";
 
 type WindowCommand = {
   requestToken?: string;
@@ -185,13 +187,13 @@ const DETAIL_CAMERA_MOBILE = { position: [0.6, 0.38, 2.18], target: [0.02, -0.1,
 
 export function WindowConfiguratorPreview({ locale = "en", placement = "showcase" }: { locale?: Locale; placement?: "showcase" | "detail" }) {
   const text = locale === "ro" ? {
-    explore: "Explorează 3D", release: "Revino la derulare", loading: "Se încarcă sistemul nativ B2-6", controls: "Comenzi +", hide: "Ascunde −",
+    loading: "Se încarcă sistemul nativ B2-6", controls: "Personalizează", hide: "Vezi modelul",
     width: "Lățime", height: "Înălțime", glass: "Sticlă", opening: "Deschidere", gasket: "Garnitură", bead: "Baghetă", side: "Batant", tilt: "Oscilo", explode: "Explodat", debug: "Diagnostic", section: "Secțiune",
   } : locale === "de" ? {
-    explore: "3D erkunden", release: "Scrollen freigeben", loading: "Natives B2-6-System wird geladen", controls: "Steuerung +", hide: "Ausblenden −",
+    loading: "Natives B2-6-System wird geladen", controls: "Konfigurieren", hide: "Modell ansehen",
     width: "Breite", height: "Höhe", glass: "Glas", opening: "Öffnung", gasket: "Dichtung", bead: "Glasleiste", side: "Dreh", tilt: "Kipp", explode: "Explodieren", debug: "Diagnose", section: "Querschnitt",
   } : {
-    explore: "Explore 3D", release: "Release scroll", loading: "Loading native B2-6 system", controls: "Controls +", hide: "Hide −",
+    loading: "Loading native B2-6 system", controls: "Customize", hide: "View model",
     width: "Width", height: "Height", glass: "Glass", opening: "Opening", gasket: "Gasket", bead: "Bead", side: "Side hung", tilt: "Tilt", explode: "Explode", debug: "Debug", section: "Section",
   };
   const frame = useRef<HTMLIFrameElement>(null);
@@ -203,6 +205,7 @@ export function WindowConfiguratorPreview({ locale = "en", placement = "showcase
   const [state, setState] = useState(initialState);
   const [visible, setVisible] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const deckSwipe = useMobileDeckSwipe(setCollapsed);
   const drag = useRef<{ x: number; y: number; pointer: number; pan: boolean } | null>(null);
   const initialCamera = placement === "detail" ? DETAIL_CAMERA : SHOWCASE_CAMERA;
 
@@ -232,7 +235,7 @@ export function WindowConfiguratorPreview({ locale = "en", placement = "showcase
     let pingTimer = 0;
     const ping = () => frame.current?.contentWindow?.postMessage({ type: "window-preview-ping" }, window.location.origin);
     const media = matchMedia("(pointer: coarse)");
-    const mobileViewport = matchMedia("(max-width: 720px)");
+    const mobileViewport = matchMedia("(max-width: 720px), ((max-width: 1050px) and (pointer: coarse))");
     const camera = mobileViewport.matches
       ? (placement === "detail" ? DETAIL_CAMERA_MOBILE : SHOWCASE_CAMERA_MOBILE)
       : initialCamera;
@@ -285,11 +288,11 @@ export function WindowConfiguratorPreview({ locale = "en", placement = "showcase
   return (
     <div
       ref={shell}
-      className={`window-runtime-shell ${interaction ? "interaction-enabled" : ""}`}
+      className={`window-runtime-shell ${interaction ? "interaction-enabled is-interacting" : ""}`}
       style={{ touchAction: interaction ? "none" : "pan-y" }}
       onContextMenu={(event) => event.preventDefault()}
       onPointerDown={(event) => {
-        if (!interaction || (event.target as HTMLElement).closest(".window-instrument,.runtime-interaction-toggle")) return;
+        if (!interaction || (event.target as HTMLElement).closest(".window-instrument,.mobile-scene-actions")) return;
         event.currentTarget.setPointerCapture(event.pointerId);
         drag.current = { x: event.clientX, y: event.clientY, pointer: event.pointerId, pan: event.shiftKey || event.button === 2 };
       }}
@@ -316,18 +319,16 @@ export function WindowConfiguratorPreview({ locale = "en", placement = "showcase
         loading="lazy"
         onLoad={() => frame.current?.contentWindow?.postMessage({ type: "window-preview-ping" }, window.location.origin)}
       />
-      {coarse && <button className="runtime-interaction-toggle" type="button" onClick={() => setInteraction((value) => !value)}>
-        {interaction ? text.release : text.explore}
-      </button>}
+      {coarse && <MobileSceneActions active={interaction} onToggle={() => setInteraction((value) => !value)} locale={locale} />}
       <div className={`runtime-loading mono-label ${ready ? "ready" : ""}`}>{text.loading}</div>
       <div className={`window-instrument ${collapsed ? "is-collapsed" : ""}`} aria-label="Window profile controls">
-        <div className="instrument-identity">
+        <div className="instrument-identity" {...deckSwipe}>
           <span>AW CT 65</span>
           <strong>B2-6</strong>
           <b className="live-price">EST. €{Math.round(estimate).toLocaleString("en-US")}</b>
           <button className="console-collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed}>{collapsed ? text.controls : text.hide}</button>
         </div>
-        <div className="console-body">
+        <div className="console-body" aria-hidden={collapsed} inert={collapsed || undefined}>
         <div className="instrument-grid">
           <InstrumentRange label={text.width} value={state.width} min={0.45} max={1} step={0.05} unit=" m" onChange={(width) => command({ width })} />
           <InstrumentRange label={text.height} value={state.height} min={0.45} max={2.2} step={0.05} unit=" m" onChange={(height) => command({ height })} />

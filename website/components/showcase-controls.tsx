@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { ConfiguratorSlug } from "../lib/configurators";
 import type { Locale } from "../lib/i18n";
+import { useMobileDeckSwipe } from "./use-mobile-deck-swipe";
 import { buildPoleGrid } from "../lib/scenes/pergola-layout.js";
 import { HallControls, SolarControls } from "./extended-showcase-controls";
 
@@ -50,22 +51,23 @@ function RangeControl({ label, value, min, max, step, unit, onChange }: {
 
 function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorSlug; controls?: string[]; locale?: Locale }) {
   const text = locale === "ro" ? {
-    resolving: "Se calculează…", structure: "STRUCTURĂ / LIVE", roof: "ACOPERIȘ PARAMETRIC", environment: "MEDIU / LIVE", controls: "Comenzi +", hide: "Ascunde −",
+    resolving: "Se calculează…", structure: "STRUCTURĂ / LIVE", roof: "ACOPERIȘ PARAMETRIC", environment: "MEDIU / LIVE", controls: "Personalizează", hide: "Vezi modelul",
     length: "Lungime", depth: "Adâncime", wall: "Înălțime pereți", pitch: "Pantă", eaves: "Streașină", graphite: "Grafit", slate: "Ardezie", oxide: "Oxid",
     slopes2: "2 ape", slopes4: "4 ape", slope1: "1 apă", lshape: "Formă L", dormer: "Lucarnă", louver: "Unghi lamele", width: "Lățime",
     open: "Deschis", screen: "Screen", motorized: "Screen motorizat", privacy: "Intimitate", glass: "Sticlă", day: "Mod zi", night: "Mod noapte", perimeter: "LED perimetral", spots: "Spoturi integrate", cool: "Rece", ice: "Albastru glaciar", sunset: "Apus", closings: "Închideri laterale", chooseSegment: "Alege segmentul", segment: "Segment",
   } : locale === "de" ? {
-    resolving: "Wird berechnet…", structure: "STRUKTUR / LIVE", roof: "PARAMETRISCHES DACH", environment: "UMGEBUNG / LIVE", controls: "Steuerung +", hide: "Ausblenden −",
+    resolving: "Wird berechnet…", structure: "STRUKTUR / LIVE", roof: "PARAMETRISCHES DACH", environment: "UMGEBUNG / LIVE", controls: "Konfigurieren", hide: "Modell ansehen",
     length: "Länge", depth: "Tiefe", wall: "Wandhöhe", pitch: "Dachneigung", eaves: "Traufe", graphite: "Graphit", slate: "Schiefer", oxide: "Oxid",
     slopes2: "2 Flächen", slopes4: "4 Flächen", slope1: "1 Fläche", lshape: "L-Form", dormer: "Gaube", louver: "Lamellenwinkel", width: "Breite",
     open: "Offen", screen: "Screen", motorized: "Motor-Screen", privacy: "Sichtschutz", glass: "Glas", day: "Tagmodus", night: "Nachtmodus", perimeter: "Umlaufende LED", spots: "Integrierte Spots", cool: "Kaltweiß", ice: "Eisblau", sunset: "Sonnenuntergang", closings: "Seitenabschlüsse", chooseSegment: "Segment wählen", segment: "Segment",
   } : {
-    resolving: "Resolving…", structure: "STRUCTURE / LIVE", roof: "PARAMETRIC ROOF", environment: "ENVIRONMENT / LIVE", controls: "Controls +", hide: "Hide −",
+    resolving: "Resolving…", structure: "STRUCTURE / LIVE", roof: "PARAMETRIC ROOF", environment: "ENVIRONMENT / LIVE", controls: "Customize", hide: "View model",
     length: "Length", depth: "Depth", wall: "Wall height", pitch: "Roof pitch", eaves: "Eaves", graphite: "Graphite", slate: "Slate", oxide: "Oxide",
     slopes2: "2 slope", slopes4: "4 slope", slope1: "1 slope", lshape: "L shape", dormer: "Dormer", louver: "Louver tilt", width: "Width",
     open: "Open", screen: "Pull-down", motorized: "Motorized", privacy: "Privacy", glass: "Glass", day: "Day mode", night: "Night mode", perimeter: "Perimeter LED", spots: "Integrated spots", cool: "Cool", ice: "Ice blue", sunset: "Sunset", closings: "Side closings", chooseSegment: "Choose segment", segment: "Segment",
   };
   const [collapsed, setCollapsed] = useState(false);
+  const deckSwipe = useMobileDeckSwipe(setCollapsed);
   const [tilt, setTilt] = useState(0);
   const [width, setWidth] = useState(6);
   const [depth, setDepth] = useState(4);
@@ -86,7 +88,7 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
   const [price, setPrice] = useState<{ total: number; currency: string } | null>(null);
 
   useEffect(() => {
-    const mobile = window.matchMedia("(max-width: 720px)");
+    const mobile = window.matchMedia("(max-width: 720px), ((max-width: 1050px) and (pointer: coarse))");
     const frame = window.requestAnimationFrame(() => setCollapsed(mobile.matches));
     return () => window.cancelAnimationFrame(frame);
   }, []);
@@ -144,8 +146,8 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
     const shapes = [["gable", text.slopes2], ["hip", text.slopes4], ["shed", text.slope1], ["lshape", text.lshape], ["dormer", text.dormer]];
     return (
       <div className={`scene-controls scene-controls-panel instrument-console roof-controls ${collapsed ? "is-collapsed" : ""}`} aria-label="Roof preview controls">
-        <div className="console-header"><span>{text.structure}</span><b>{text.roof}</b><strong className="live-price">LIVE {formattedPrice}</strong><button className="console-collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed}>{collapsed ? text.controls : text.hide}</button></div>
-        <div className="console-body">
+        <div className="console-header" {...deckSwipe}><span>{text.structure}</span><b>{text.roof}</b><strong className="live-price">LIVE {formattedPrice}</strong><button className="console-collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed}>{collapsed ? text.controls : text.hide}</button></div>
+        <div className="console-body" aria-hidden={collapsed} inert={collapsed || undefined}>
         <div className="scene-control-grid">
           <RangeControl label={text.length} value={roofLength} min={7} max={14} step={0.5} unit=" m" onChange={(value) => { setRoofLength(value); emit(scene, "length", value); }} />
           <RangeControl label={text.depth} value={roofDepth} min={5} max={10} step={0.5} unit=" m" onChange={(value) => { setRoofDepth(value); emit(scene, "depth", value); }} />
@@ -177,8 +179,8 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
   ];
   return (
     <div className={`scene-controls scene-controls-panel instrument-console pergola-controls ${collapsed ? "is-collapsed" : ""}`} aria-label="Pergola preview controls">
-      <div className="console-header"><span>{text.environment}</span><b>PERGOLA 6 × 4 M</b><strong className="live-price">LIVE {formattedPrice}</strong><button className="console-collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed}>{collapsed ? text.controls : text.hide}</button></div>
-      <div className="console-body">
+      <div className="console-header" {...deckSwipe}><span>{text.environment}</span><b>PERGOLA 6 × 4 M</b><strong className="live-price">LIVE {formattedPrice}</strong><button className="console-collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed}>{collapsed ? text.controls : text.hide}</button></div>
+      <div className="console-body" aria-hidden={collapsed} inert={collapsed || undefined}>
       <div className="scene-control-grid">
         <RangeControl label={text.louver} value={tilt} min={0} max={80} step={1} unit="°" onChange={(value) => { setTilt(value); emit(scene, "tilt", value); }} />
         <RangeControl label={text.width} value={width} min={4} max={10} step={0.25} unit=" m" onChange={(value) => updatePergolaSize("width", value)} />
