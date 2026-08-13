@@ -1,4 +1,4 @@
-import { createShareUrl, readShareState as readEncodedShareState } from '../../shared-ui/src/shareState.js';
+import { createShareUrl } from '../../shared-ui/src/shareState.js';
 import {
   DIMENSION_LIMITS,
   POLE_FACES as LAYOUT_POLE_FACES,
@@ -794,10 +794,6 @@ function normalizeState(state, incoming = {}, options = {}) {
   return state;
 }
 
-function readSharedState() {
-  return readEncodedShareState({ productType: 'pergola' });
-}
-
 function readStoredState() {
   try {
     const keys = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS];
@@ -835,8 +831,8 @@ function mountPathParts(path) {
 }
 
 export class ConfiguratorStore {
-  constructor() {
-    const incoming = readSharedState() ?? readStoredState() ?? {};
+  constructor(sharedState = null) {
+    const incoming = sharedState ?? readStoredState() ?? {};
     this.state = normalizeState(deepMerge(clone(DEFAULT_STATE), incoming), incoming, { migrateLegacy: true });
     this.listeners = new Set();
     this.lastError = '';
@@ -1028,9 +1024,12 @@ export class ConfiguratorStore {
     return true;
   }
 
-  getShareUrl() {
+  async getShareUrl() {
     const shareState = clone(this.state);
     shareState.step = 0;
+    // Quote/contact details are deliberately browser-local and are not embedded
+    // into a configuration link. The model/options still round-trip completely.
+    delete shareState.customer;
     return createShareUrl({ productType: 'pergola', state: shareState });
   }
 }
