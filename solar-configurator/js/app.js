@@ -2,7 +2,7 @@ import { state } from './state.js?v=13';
 import { RoofScene } from './scene.js?v=18';
 import { SolarUI } from './ui.js?v=7';
 import { fetchPvgisSiteEstimate } from './energyModel.js?v=5';
-import { loadGeographicEnvironment } from './environmentLoader.js?v=5';
+import { loadGeographicEnvironment } from './environmentLoader.js?v=6';
 import {
   analyzeGoogleSolar,
   clearGoogleSolarSession,

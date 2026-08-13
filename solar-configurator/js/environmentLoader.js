@@ -299,7 +299,15 @@ async function queryOverpass(endpoint, query, signal) {
       },
       body,
     });
-    if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
+    if (!response.ok) {
+      const responseText = await response.text().catch(() => '');
+      const detail = responseText
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 240);
+      throw new Error(`Overpass HTTP ${response.status}${detail ? ` · ${detail}` : ''}`);
+    }
 
     const contentType = String(response.headers.get('content-type') || '').toLowerCase();
     if (!contentType.includes('json')) {
