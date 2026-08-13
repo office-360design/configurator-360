@@ -7,7 +7,7 @@ import {
   normalizeUnits,
   resolveCurrencyRate,
 } from './preferences.js?v=1';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=1';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=2';
 
 const VIEW_ORDER = ['perspective', 'front', 'top'];
 const ROOF_SHARE_NUMBERS = ['length', 'depth', 'wallHeight', 'pitch', 'overhang', 'sunPosition', 'northDirection'];
@@ -39,7 +39,7 @@ function applySharedRoofState(snapshot) {
   state.pitch = Math.max(rule.minimum, state.pitch);
 }
 
-const sharedRoofState = readShareState({ productType: 'roof' });
+const sharedRoofState = await readShareState({ productType: 'roof' });
 applySharedRoofState(sharedRoofState);
 
 const initialPreferences = window.ROOF_SHELL_PREFERENCES || {};

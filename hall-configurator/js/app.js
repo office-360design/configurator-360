@@ -2,9 +2,9 @@ import { state, deriveHallMetrics } from './state.js?v=12';
 import { HallScene } from './scene.js?v=12';
 import { HallUI } from './ui.js?v=12';
 import { normalizeOpenings } from './openings.js?v=12';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=1';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=2';
 
-const sharedHallState = readShareState({ productType: 'hall' });
+const sharedHallState = await readShareState({ productType: 'hall' });
 if (sharedHallState) {
   Object.keys(state).forEach((key) => {
     if (!Object.prototype.hasOwnProperty.call(sharedHallState, key)) return;

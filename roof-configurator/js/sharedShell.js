@@ -1,6 +1,6 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=3';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=4';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=1';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=2';
 
 const icon = (body) => `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
