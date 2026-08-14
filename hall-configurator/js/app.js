@@ -2,7 +2,7 @@ import { state, deriveHallMetrics } from './state.js?v=12';
 import { HallScene } from './scene.js?v=12';
 import { HallUI } from './ui.js?v=12';
 import { normalizeOpenings } from './openings.js?v=12';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=3';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
 
 const DEFAULT_HALL_STATE = structuredClone(state);
 const sharedHallState = await readShareState({ productType: 'hall' });

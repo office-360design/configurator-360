@@ -1,4 +1,4 @@
-import { regionPresets } from './state.js?v=7';
+import { regionPresets } from './state.js?v=6';
 import { getActiveLocation, getSolarContext, getSunTimes } from './solarPosition.js?v=2';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -89,87 +89,6 @@ export function localBuildingShadeAtSun(state, sun, surfaceId = null) {
   };
 }
 
-function lastSundayOfMonth(year, month) {
-  const date = new Date(Date.UTC(year, month, 0));
-  return date.getUTCDate() - date.getUTCDay();
-}
-
-function romanianDstActive(dateString) {
-  const match = String(dateString || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return false;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (month < 3 || month > 10) return false;
-  if (month > 3 && month < 10) return true;
-  if (month === 3) return day >= lastSundayOfMonth(year, 3);
-  return day < lastSundayOfMonth(year, 10);
-}
-
-function googleProfilesForSurface(model, surfaceId = null) {
-  const profiles = Array.isArray(model?.profiles) ? model.profiles : [];
-  if (!surfaceId) return profiles;
-  const matches = profiles.filter((profile) => String(profile?.surfaceId) === String(surfaceId));
-  return matches.length ? matches : profiles;
-}
-
-export function googleSolarShadeAtSun(state, sun, surfaceId = null) {
-  const model = state?.googleSolarShadeModel;
-  const enabled = state?.googleSolarShadingEnabled !== false && Array.isArray(model?.profiles) && model.profiles.length > 0;
-  const profiles = enabled ? googleProfilesForSurface(model, surfaceId) : [];
-  if (!enabled || !sun || Number(sun.elevationDeg) <= -0.833 || !profiles.length) {
-    return { active: enabled, provider: 'google', blockedPanels: 0, totalPanels: profiles.length, blockedFraction: 0, transmission: 1 };
-  }
-
-  const match = String(sun.dateString || state?.simulationDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return { active: false, provider: 'google', blockedPanels: 0, totalPanels: profiles.length, blockedFraction: 0, transmission: 1 };
-  const month = clamp(Number(match[2]), 1, 12);
-  const maxGoogleDay = month === 2 ? 28 : new Date(Number(match[1]), month, 0).getDate();
-  const day = clamp(Number(match[3]), 1, maxGoogleDay);
-  const dstAdjustment = romanianDstActive(sun.dateString || state?.simulationDate) ? 1 : 0;
-  const standardHour = ((Math.floor(Number(sun.hour) || 0) - dstAdjustment) % 24 + 24) % 24;
-
-  let blockedPanels = 0;
-  let validPanels = 0;
-  profiles.forEach((profile) => {
-    const mask = profile?.masksByMonth?.[month - 1]?.[standardHour];
-    if (!Number.isFinite(Number(mask))) return;
-    validPanels += 1;
-    const bit = 1 << (day - 1);
-    const sunny = ((Number(mask) >>> 0) & bit) !== 0;
-    if (!sunny) blockedPanels += 1;
-  });
-  if (!validPanels) {
-    return { active: false, provider: 'google', blockedPanels: 0, totalPanels: profiles.length, blockedFraction: 0, transmission: 1 };
-  }
-  const blockedFraction = blockedPanels / validPanels;
-  const transmission = 1 - blockedFraction * (1 - LOCAL_BUILDING_DIFFUSE_RETAINED);
-  return {
-    active: true,
-    provider: 'google',
-    blockedPanels,
-    totalPanels: validPanels,
-    blockedFraction,
-    transmission: clamp(transmission, LOCAL_BUILDING_DIFFUSE_RETAINED, 1),
-  };
-}
-
-export function localObstructionShadeAtSun(state, sun, surfaceId = null) {
-  const google = googleSolarShadeAtSun(state, sun, surfaceId);
-  if (google.active) return google;
-  return { ...localBuildingShadeAtSun(state, sun, surfaceId), provider: 'osm' };
-}
-
-function activeLocalShadeModel(state) {
-  if (state?.googleSolarShadingEnabled !== false && Array.isArray(state?.googleSolarShadeModel?.profiles) && state.googleSolarShadeModel.profiles.length) {
-    return { model: state.googleSolarShadeModel, provider: 'google' };
-  }
-  if (state?.localBuildingShadingEnabled !== false && Array.isArray(state?.localBuildingShadingModel?.profiles) && state.localBuildingShadingModel.profiles.length) {
-    return { model: state.localBuildingShadingModel, provider: 'osm' };
-  }
-  return { model: null, provider: 'none' };
-}
-
 const PROFILE_WEIGHTS = {
   away: [
     0.030, 0.025, 0.022, 0.021, 0.024, 0.035, 0.070, 0.080,
@@ -249,12 +168,11 @@ export function estimateAnnualProduction(state, solarMetrics) {
   const localBuildingFactor = annualLocalBuildingShadingFactor(state, solarMetrics);
   const annualKWh = baseAnnualKWh * localBuildingFactor;
   const location = getActiveLocation(state);
-  const activeShade = activeLocalShadeModel(state);
-  const buildingText = activeShade.provider === 'google'
-    ? ' + Google hourly shade'
-    : activeShade.provider === 'osm'
-      ? ' + nearby buildings'
-      : '';
+  const buildingText = state.localBuildingShadingEnabled !== false
+    && Array.isArray(state.localBuildingShadingModel?.profiles)
+    && state.localBuildingShadingModel.profiles.length
+    ? ' + nearby buildings'
+    : '';
   return {
     annualKWh,
     baseAnnualKWh,
@@ -268,8 +186,7 @@ export function estimateAnnualProduction(state, solarMetrics) {
     localBuildingFactor,
     localBuildingLossPct: (1 - localBuildingFactor) * 100,
     localBuildingContributorCount: Number(state.localBuildingShadingModel?.contributorIds?.length) || 0,
-    localBuildingPanelCount: Number(activeShade.model?.panelCount) || 0,
-    localShadingSource: activeShade.provider,
+    localBuildingPanelCount: Number(state.localBuildingShadingModel?.panelCount) || 0,
     region,
     location,
     azimuth: Number.isFinite(solarMetrics.arrayAzimuth) ? solarMetrics.arrayAzimuth : 180,
@@ -292,7 +209,7 @@ function aggregateSolarPotential(sun, pitch, surfaces, horizonProfile = null, st
   const totalWeight = surfaces.reduce((sum, surface) => sum + surface.weight, 0) || 1;
   const incidence = surfaces.reduce((sum, surface) => {
     const buildingTransmission = includeLocalBuildings && state
-      ? localObstructionShadeAtSun(state, sun, surface.id).transmission
+      ? localBuildingShadeAtSun(state, sun, surface.id).transmission
       : 1;
     return sum + Math.pow(incidenceFactor(surface.azimuth, pitch, sun), 1.08) * surface.weight * buildingTransmission;
   }, 0) / totalWeight;
@@ -330,16 +247,15 @@ function dayPotential(state, solarMetrics, dateString, includeLocalBuildings = f
 }
 
 function annualLocalBuildingShadingFactor(state, solarMetrics) {
-  const activeShade = activeLocalShadeModel(state);
-  const model = activeShade.model;
-  if (!model || !Array.isArray(model?.profiles) || !model.profiles.length) return 1;
+  const model = state?.localBuildingShadingModel;
+  if (state?.localBuildingShadingEnabled === false || !Array.isArray(model?.profiles) || !model.profiles.length) return 1;
   const location = getActiveLocation(state);
   const year = String(state.simulationDate || new Date().toISOString().slice(0, 10)).slice(0, 4);
   const surfaceKey = surfaceDescriptors(solarMetrics).map((surface) => `${surface.id}:${surface.azimuth.toFixed(1)}:${surface.weight}`).join(',');
   const horizonKey = state.pvgisUseHorizon && Array.isArray(state.pvgisHorizonProfile)
     ? `${state.pvgisHorizonProfile.length}:${state.pvgisHorizonProfile.map((point) => Number(point.elevationDeg) || 0).reduce((sum, value) => sum + value, 0).toFixed(1)}`
     : 'off';
-  const cacheKey = `${activeShade.provider}|${model.revision}|${location.lat.toFixed(4)}|${location.lon.toFixed(4)}|${state.pitch}|${surfaceKey}|${horizonKey}|${year}`;
+  const cacheKey = `${model.revision}|${location.lat.toFixed(4)}|${location.lon.toFixed(4)}|${state.pitch}|${surfaceKey}|${horizonKey}|${year}`;
   if (localBuildingFactorCache.has(cacheKey)) return localBuildingFactorCache.get(cacheKey);
 
   let clearTotal = 0;
@@ -357,8 +273,8 @@ function annualLocalBuildingShadingFactor(state, solarMetrics) {
 }
 
 function selectedDayBuildingFactor(state, solarMetrics) {
-  const { model } = activeLocalShadeModel(state);
-  if (!model || !Array.isArray(model?.profiles) || !model.profiles.length) return 1;
+  const model = state?.localBuildingShadingModel;
+  if (state?.localBuildingShadingEnabled === false || !Array.isArray(model?.profiles) || !model.profiles.length) return 1;
   const clear = dayPotential(state, solarMetrics, state.simulationDate, false);
   if (!(clear > 0)) return 1;
   const shaded = dayPotential(state, solarMetrics, state.simulationDate, true);

@@ -1,11 +1,7 @@
 const EARTH_METERS_PER_DEG = 111320;
 const TERRAIN_ZOOM = 15;
 const DEFAULT_TERRAIN_TEMPLATE = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
-const SAME_ORIGIN_OVERPASS_ENDPOINTS = [
-  '/api/solar/overpass-primary',
-  '/api/solar/overpass-secondary',
-];
-const DIRECT_OVERPASS_ENDPOINTS = [
+const DEFAULT_OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
 ];
@@ -13,7 +9,7 @@ const DIRECT_OVERPASS_ENDPOINTS = [
 const completedTerrainTiles = new Map();
 const completedOsmContexts = new Map();
 const OSM_CACHE_TTL_MS = 15 * 60 * 1000;
-const OVERPASS_TIMEOUT_MS = 25000;
+const OVERPASS_TIMEOUT_MS = 10000;
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
 function configuredTerrainTemplate() {
@@ -24,23 +20,7 @@ function configuredOverpassEndpoints() {
   const configured = window.SOLAR_OVERPASS_ENDPOINTS;
   if (Array.isArray(configured) && configured.length) return configured.map(String).filter(Boolean);
   if (typeof configured === 'string' && configured.trim()) return configured.split(',').map((item) => item.trim()).filter(Boolean);
-
-  // Production deployments must stay same-origin. Falling back from Cloud Run
-  // to the public Overpass URLs would re-introduce browser CORS failures.
-  const hostname = String(window.location?.hostname || '').toLowerCase();
-  const isLocalDevelopment = (
-    window.location?.protocol === 'file:'
-    || hostname === 'localhost'
-    || hostname === '127.0.0.1'
-    || hostname === '0.0.0.0'
-    || hostname === '::1'
-  );
-
-  // Local/static development can still try the public endpoints when no local
-  // reverse proxy exists. Cloud Run / production uses only the nginx proxies.
-  return isLocalDevelopment
-    ? [...SAME_ORIGIN_OVERPASS_ENDPOINTS, ...DIRECT_OVERPASS_ENDPOINTS]
-    : [...SAME_ORIGIN_OVERPASS_ENDPOINTS];
+  return DEFAULT_OVERPASS_ENDPOINTS;
 }
 
 function terrainUrl(z, x, y) {
@@ -284,35 +264,17 @@ function createLinkedTimeoutSignal(parentSignal, timeoutMs = OVERPASS_TIMEOUT_MS
 
 async function queryOverpass(endpoint, query, signal) {
   const request = createLinkedTimeoutSignal(signal);
-  const body = new URLSearchParams({ data: query });
-  const isSameOriginProxy = String(endpoint).startsWith('/');
+  const url = `${endpoint}?data=${encodeURIComponent(query)}`;
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
+    const response = await fetch(url, {
+      method: 'GET',
       signal: request.signal,
-      mode: isSameOriginProxy ? 'same-origin' : 'cors',
+      mode: 'cors',
       credentials: 'omit',
       cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      },
-      body,
+      headers: { Accept: 'application/json' },
     });
-    if (!response.ok) {
-      const responseText = await response.text().catch(() => '');
-      const detail = responseText
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 240);
-      throw new Error(`Overpass HTTP ${response.status}${detail ? ` · ${detail}` : ''}`);
-    }
-
-    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-    if (!contentType.includes('json')) {
-      throw new Error(`Overpass returned ${contentType || 'an unexpected response'} instead of JSON.`);
-    }
+    if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
     return await response.json();
   } catch (error) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -350,7 +312,6 @@ async function loadOsmContext({ lat, lon, radiusM, signal, forceRefresh = false 
     } catch (error) {
       if (error?.name === 'AbortError') throw error;
       lastError = error;
-      console.warn(`[Solar configurator] Overpass endpoint failed: ${endpoint}`, error);
     }
   }
 

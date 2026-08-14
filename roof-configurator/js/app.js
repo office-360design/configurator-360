@@ -7,7 +7,7 @@ import {
   normalizeUnits,
   resolveCurrencyRate,
 } from './preferences.js?v=1';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=3';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
 
 const VIEW_ORDER = ['perspective', 'front', 'top'];
 const DEFAULT_ROOF_STATE = structuredClone(state);
