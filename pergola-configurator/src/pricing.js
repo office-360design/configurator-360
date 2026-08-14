@@ -1,4 +1,5 @@
 import { buildPoleGrid } from './layout.js';
+import { countHeaters, getTotalSpotlights } from './state.js';
 
 const CURRENCY_PROFILES = Object.freeze({
   USD: {
@@ -124,15 +125,16 @@ export function calculatePrice(state) {
     }
   });
 
-  const heaterCount = countSelected(state.accessories.heaters);
+  const heaterCount = countHeaters(state);
   const speakerCount = countPoleMounts(state.poleMounts, 'speaker');
   const outletCount = countPoleMounts(state.poleMounts, 'outlet');
   const rainEnabled = state.accessories.sensors.rain.enabled;
   const windEnabled = state.accessories.sensors.wind.enabled;
+  const spotlightCount = getTotalSpotlights(state);
 
   const accessoryLines = [
     ['perimeterLed', 'Perimeter LED strip', state.accessories.perimeterLed.enabled ? 590 : 0],
-    ['spotlights', `${state.accessories.spotlights} integrated spotlights`, state.accessories.spotlights * 85],
+    ['spotlights', `${spotlightCount} integrated spotlight${spotlightCount === 1 ? '' : 's'}`, spotlightCount * 85],
     ['heaters', `${heaterCount} infrared heater${heaterCount === 1 ? '' : 's'}`, heaterCount * 620],
     ['rainSensor', 'Rain sensor', rainEnabled ? 260 : 0],
     ['windSensor', 'Wind sensor', windEnabled ? 230 : 0],
