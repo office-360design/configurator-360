@@ -3,11 +3,10 @@
 import { useEffect } from "react";
 import { ThemeToggle } from "../app/theme-toggle";
 import { getLocalizedConfigurators } from "../lib/configurators-localized";
-import { localizedPath, type Locale, uiCopy } from "../lib/i18n";
+import { localizedPath, localizedUrl, type Locale, uiCopy } from "../lib/i18n";
 
 function languagePath(locale: Locale, currentPath: string) {
-  const unprefixed = currentPath.replace(/^\/(ro|de)(?=\/|$)/, "") || "/";
-  return localizedPath(locale, unprefixed);
+  return localizedUrl(locale, currentPath || "/");
 }
 
 export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Locale; currentPath?: string }) {

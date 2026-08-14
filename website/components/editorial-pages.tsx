@@ -3,7 +3,7 @@ import { SiteFooter } from "./site-footer";
 import { SmoothScroll } from "./smooth-scroll";
 import { ContactForm } from "./contact-form";
 import { contactEmail, localizedPath, type Locale } from "../lib/i18n";
-import { absoluteUrl, breadcrumbSchema, graphSchema, organizationSchema, SITE_URL, websiteSchema } from "../lib/seo";
+import { absoluteUrl, breadcrumbSchema, graphSchema, organizationSchema, siteUrl, SITE_URL, websiteSchema } from "../lib/seo";
 
 const aboutCopy = {
   en: {
@@ -34,7 +34,7 @@ const contactCopy = {
 
 export function AboutPage({ locale }: { locale: Locale }) {
   const copy = aboutCopy[locale]; const path = localizedPath(locale, "/about");
-  const schema = graphSchema([organizationSchema(locale, copy.intro), websiteSchema(locale, copy.intro), { "@type": "AboutPage", "@id": `${absoluteUrl(locale,"/about")}#webpage`, url: absoluteUrl(locale,"/about"), name: copy.index, description: copy.intro, inLanguage: locale, isPartOf: { "@id": `${SITE_URL}/#website` }, breadcrumb: { "@id": `${absoluteUrl(locale,"/about")}#breadcrumb` } }, breadcrumbSchema(locale,[{name:"360Configurator",path:"/"},{name:copy.index.replace(/^01 \/ /,""),path:"/about"}])]);
+  const schema = graphSchema([organizationSchema(locale, copy.intro), websiteSchema(locale, copy.intro), { "@type": "AboutPage", "@id": `${absoluteUrl(locale,"/about")}#webpage`, url: absoluteUrl(locale,"/about"), name: copy.index, description: copy.intro, inLanguage: locale, isPartOf: { "@id": `${siteUrl(locale)}/#website` }, breadcrumb: { "@id": `${absoluteUrl(locale,"/about")}#breadcrumb` } }, breadcrumbSchema(locale,[{name:"360Configurator",path:"/"},{name:copy.index.replace(/^01 \/ /,""),path:"/about"}])]);
   return <main className="site-shell editorial-page about-page"><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(schema)}}/><SmoothScroll/><SiteHeader locale={locale} currentPath={path}/>
     <section className="editorial-hero page-frame"><div className="editorial-orbit" aria-hidden="true"><i/><i/><i/></div><span className="mono-label">{copy.index}</span><p className="editorial-eyebrow">{copy.eyebrow}</p><h1>{copy.titleA}<br/><em>{copy.titleB}</em></h1><p className="editorial-intro">{copy.intro}</p></section>
     <section className="editorial-origin"><div className="page-frame"><span className="mono-label">{copy.origin}</span><h2>{copy.originTitle}</h2><p>{copy.originBody}</p></div></section>
@@ -45,7 +45,7 @@ export function AboutPage({ locale }: { locale: Locale }) {
 
 export function ContactPage({ locale }: { locale: Locale }) {
   const copy = contactCopy[locale]; const path = localizedPath(locale, "/contact"); const email = contactEmail(locale);
-  const schema = graphSchema([organizationSchema(locale, copy.intro), websiteSchema(locale, copy.intro), { "@type": "ContactPage", "@id": `${absoluteUrl(locale,"/contact")}#webpage`, url: absoluteUrl(locale,"/contact"), name: copy.index, description: copy.intro, inLanguage: locale, isPartOf: { "@id": `${SITE_URL}/#website` }, breadcrumb: { "@id": `${absoluteUrl(locale,"/contact")}#breadcrumb` }, mainEntity: { "@type": "ContactPoint", contactType: "sales", email, availableLanguage: ["English","Romanian","German"] } }, breadcrumbSchema(locale,[{name:"360Configurator",path:"/"},{name:copy.index.replace(/^01 \/ /,""),path:"/contact"}])]);
+  const schema = graphSchema([organizationSchema(locale, copy.intro), websiteSchema(locale, copy.intro), { "@type": "ContactPage", "@id": `${absoluteUrl(locale,"/contact")}#webpage`, url: absoluteUrl(locale,"/contact"), name: copy.index, description: copy.intro, inLanguage: locale, isPartOf: { "@id": `${siteUrl(locale)}/#website` }, breadcrumb: { "@id": `${absoluteUrl(locale,"/contact")}#breadcrumb` }, mainEntity: { "@type": "ContactPoint", contactType: "sales", email, availableLanguage: ["English","Romanian","German"] } }, breadcrumbSchema(locale,[{name:"360Configurator",path:"/"},{name:copy.index.replace(/^01 \/ /,""),path:"/contact"}])]);
   return <main className="site-shell editorial-page contact-page"><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(schema)}}/><SmoothScroll/><SiteHeader locale={locale} currentPath={path}/>
     <section className="contact-hero page-frame"><div className="contact-hero-copy"><span className="mono-label">{copy.index}</span><h1>{copy.titleA}<br/><em>{copy.titleB}</em></h1><p>{copy.intro}</p></div><div className="contact-signal"><span>{copy.signal}</span><b>360°</b><i/></div></section>
     <section className="contact-workspace"><div className="page-frame contact-layout"><aside><span className="mono-label">{copy.email}</span><a href={`mailto:${email}`}>{email}</a><h2>{copy.brief}</h2><ol>{copy.items.map((item,index)=><li key={item}><span>0{index+1}</span>{item}</li>)}</ol><p>{copy.response}</p></aside><ContactForm locale={locale}/></div></section>

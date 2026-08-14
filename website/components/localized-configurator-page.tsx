@@ -9,7 +9,7 @@ import { CapabilityCube } from "./capability-cube";
 import { WindowConfiguratorPreview } from "./window-preview";
 import { getLocalizedConfigurator, getLocalizedConfigurators } from "../lib/configurators-localized";
 import { detailCopy, localizedPath, type Locale, uiCopy } from "../lib/i18n";
-import { absoluteUrl, breadcrumbSchema, graphSchema, organizationSchema, SITE_URL, websiteSchema } from "../lib/seo";
+import { absoluteUrl, breadcrumbSchema, graphSchema, organizationSchema, siteUrl, SITE_URL, websiteSchema } from "../lib/seo";
 
 export function LocalizedConfiguratorPage({ locale, slug }: { locale: Locale; slug: string }) {
   const item = getLocalizedConfigurator(locale, slug);
@@ -28,7 +28,7 @@ export function LocalizedConfiguratorPage({ locale, slug }: { locale: Locale; sl
       name: item.seoTitle,
       description: item.seoDescription,
       inLanguage: locale,
-      isPartOf: { "@id": `${SITE_URL}/#website` },
+      isPartOf: { "@id": `${siteUrl(locale)}/#website` },
       breadcrumb: { "@id": `${absoluteUrl(locale, `/configurators/${item.slug}`)}#breadcrumb` },
       mainEntity: { "@id": `${absoluteUrl(locale, `/configurators/${item.slug}`)}#application` },
     },

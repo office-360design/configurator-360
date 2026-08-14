@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { localizedPath, type Locale } from "./i18n";
+import { localeOrigins, localizedUrl, type Locale } from "./i18n";
 
-export const SITE_URL = "https://360configurator.com";
+export const SITE_URL = localeOrigins.en;
 export const SITE_NAME = "360Configurator";
 export const OG_IMAGE = "/og-360configurator.png";
 export const SOCIAL_PROFILES = [
@@ -16,12 +16,16 @@ const openGraphLocales: Record<Locale, string> = {
   de: "de_DE",
 };
 
+export function siteUrl(locale: Locale) {
+  return localeOrigins[locale];
+}
+
 export function languageAlternates(path = "/") {
   return {
-    en: localizedPath("en", path),
-    ro: localizedPath("ro", path),
-    de: localizedPath("de", path),
-    "x-default": localizedPath("en", path),
+    en: localizedUrl("en", path),
+    "ro-RO": localizedUrl("ro", path),
+    "de-DE": localizedUrl("de", path),
+    "x-default": localizedUrl("en", path),
   };
 }
 
@@ -31,7 +35,7 @@ export function pageMetadata({ locale, path = "/", title, description }: {
   title: string;
   description: string;
 }): Metadata {
-  const canonical = localizedPath(locale, path);
+  const canonical = localizedUrl(locale, path);
   return {
     title,
     description,
@@ -67,7 +71,7 @@ export function pageMetadata({ locale, path = "/", title, description }: {
 }
 
 export function absoluteUrl(locale: Locale, path = "/") {
-  return `${SITE_URL}${localizedPath(locale, path)}`;
+  return localizedUrl(locale, path);
 }
 
 export function breadcrumbSchema(locale: Locale, items: { name: string; path: string }[]) {
@@ -98,10 +102,11 @@ export function organizationSchema(locale: Locale, description: string) {
 }
 
 export function websiteSchema(locale: Locale, description: string) {
+  const origin = siteUrl(locale);
   return {
     "@type": "WebSite",
-    "@id": `${SITE_URL}/#website`,
-    url: SITE_URL,
+    "@id": `${origin}/#website`,
+    url: origin,
     name: SITE_NAME,
     description,
     inLanguage: locale,

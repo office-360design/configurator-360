@@ -12,6 +12,12 @@ const CURRENCY_PROFILES = Object.freeze({
     rateFromUsd: 4.6,
     maximumFractionDigits: 0,
   },
+  EUR: {
+    locale: 'de-DE',
+    // Demo conversion rate. Replace with a backend or live-rate service later.
+    rateFromUsd: 0.92,
+    maximumFractionDigits: 0,
+  },
 });
 
 const modelBase = {

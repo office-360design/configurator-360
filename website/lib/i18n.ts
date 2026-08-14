@@ -5,13 +5,62 @@ export function isLocale(value: string): value is Locale {
   return locales.includes(value as Locale);
 }
 
-export function localePrefix(locale: Locale) {
-  return locale === "en" ? "" : `/${locale}`;
+export const localeOrigins: Record<Locale, string> = {
+  en: "https://www.360configurator.com",
+  ro: "https://www.360configurator.ro",
+  de: "https://www.360configurator.de",
+};
+
+export const configuratorPublicPaths = {
+  en: {
+    pergola: "/pergola-configurator/",
+    roof: "/roof-configurator/",
+    window: "/window-configurator/",
+    hall: "/hall-configurator/",
+    solar: "/solar-configurator/",
+  },
+  ro: {
+    pergola: "/configurator-pergola/",
+    roof: "/configurator-acoperis/",
+    window: "/configurator-ferestre/",
+    hall: "/configurator-hala/",
+    solar: "/configurator-solar/",
+  },
+  de: {
+    pergola: "/pergola-konfigurator/",
+    roof: "/dach-konfigurator/",
+    window: "/fenster-konfigurator/",
+    hall: "/hallen-konfigurator/",
+    solar: "/solar-konfigurator/",
+  },
+} as const;
+
+export type ConfiguratorRouteSlug = keyof typeof configuratorPublicPaths.en;
+
+// Localized pages are stored below /ro and /de by the static build, but the
+// public URL space is domain-based. Links therefore never expose /ro or /de.
+export function localizedPath(_locale: Locale, path = "/") {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return normalized || "/";
 }
 
-export function localizedPath(locale: Locale, path = "/") {
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${localePrefix(locale)}${normalized === "/" ? "" : normalized}` || "/";
+export function localizedUrl(locale: Locale, path = "/") {
+  return `${localeOrigins[locale]}${localizedPath(locale, path)}`;
+}
+
+export function configuratorPath(locale: Locale, slug: ConfiguratorRouteSlug) {
+  return configuratorPublicPaths[locale][slug];
+}
+
+export function configuratorUrl(locale: Locale, slug: ConfiguratorRouteSlug) {
+  return `${localeOrigins[locale]}${configuratorPath(locale, slug)}`;
+}
+
+export function localeFromHostname(hostname: string): Locale {
+  const normalized = hostname.toLowerCase().replace(/\.$/, "");
+  if (normalized === "360configurator.ro" || normalized === "www.360configurator.ro") return "ro";
+  if (normalized === "360configurator.de" || normalized === "www.360configurator.de") return "de";
+  return "en";
 }
 
 export function contactEmail(locale: Locale) {

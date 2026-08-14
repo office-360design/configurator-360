@@ -1,4 +1,4 @@
-import { LANGUAGE_PROFILES, getLanguageProfile } from './config.js';
+import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
 import { renderActionFeedback } from './components/feedback.js';
 import { renderTopBar } from './components/topBar.js';
 import { renderToolsMenu } from './components/toolsMenu.js';
@@ -41,14 +41,19 @@ export class StandaloneConfiguratorShell {
     this.savedProjectsKey = `${this.storagePrefix}:saved-projects`;
 
     const preferences = safeJsonParse(window.localStorage.getItem(this.preferencesKey), {});
+    const domainLocale = getLocaleForHostname(window.location.hostname);
+    const domainProfile = getLanguageProfile(domainLocale);
     this.state = {
-      locale: 'en-US',
-      units: 'imperial',
-      currency: 'USD',
+      locale: domainLocale,
+      units: domainProfile.units,
+      currency: domainProfile.currency,
       quality: 'balanced',
       defaultArPlatform: 'android',
       darkMode: false,
       ...preferences,
+      // Country domains are authoritative for language. Unit/currency overrides
+      // remain user-configurable and persist independently per origin.
+      locale: domainLocale,
     };
 
     const meta = safeJsonParse(window.localStorage.getItem(this.projectMetaKey), {}) || {};
@@ -204,9 +209,15 @@ export class StandaloneConfiguratorShell {
       this.options.callbacks.onPreferenceChange?.('darkMode', this.state.darkMode, this.state);
       this.sync();
     } else if (action === 'select-language') {
-      const profile = LANGUAGE_PROFILES[actionTarget.dataset.locale];
+      const nextLocale = actionTarget.dataset.locale;
+      const profile = LANGUAGE_PROFILES[nextLocale];
       if (profile) {
-        this.state.locale = actionTarget.dataset.locale;
+        const targetUrl = getLocalizedConfiguratorUrl(nextLocale, this.options.productType, window.location);
+        if (targetUrl && nextLocale !== this.state.locale) {
+          window.location.assign(targetUrl);
+          return;
+        }
+        this.state.locale = nextLocale;
         this.state.units = profile.units;
         this.state.currency = profile.currency;
         this.persistPreferences();
