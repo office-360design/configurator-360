@@ -1,12 +1,12 @@
-import { modulePresets, regionPresets, roofNames } from './state.js?v=7';
+import { modulePresets, regionPresets, roofNames } from './state.js?v=6';
 import {
   estimateAnnualProduction,
   estimateDailyConsumption,
   instantaneousPowerAtHour,
-  localObstructionShadeAtSun,
+  localBuildingShadeAtSun,
   simulateDay,
   sunClearsPvgisHorizon,
-} from './energyModel.js?v=5';
+} from './energyModel.js?v=4';
 import { calculateSolarEstimate, estimateToCsv } from './estimate.js?v=1';
 import { formatAzimuth, getActiveLocation, getSeasonForDate, getSolarContext } from './solarPosition.js?v=2';
 import {
@@ -435,9 +435,6 @@ export class SolarUI {
     this.state.effectivePanelCount = metrics.placedPanels;
     this.currentProduction = estimateAnnualProduction(this.state, metrics);
     this.state.localBuildingAnnualLossPct = this.currentProduction.localBuildingLossPct || 0;
-    this.state.googleSolarAnnualLossPct = this.currentProduction.localShadingSource === 'google'
-      ? (this.currentProduction.localBuildingLossPct || 0)
-      : 0;
     this.currentSimulation = simulateDay(this.state, metrics, this.currentProduction);
     this.currentEstimate = calculateSolarEstimate(this.state, metrics, this.currentSimulation);
 
@@ -483,9 +480,8 @@ export class SolarUI {
     const regionDetail = document.querySelector('#regionDetail');
     if (regionDetail) {
       if (activeLocation.mode === 'exact' && this.state.pvgisStatus === 'ready') {
-        const shadeLabel = this.currentProduction.localShadingSource === 'google' ? 'Google shade' : 'nearby buildings';
         const localShadeText = this.currentProduction.localBuildingLossPct > 0.05
-          ? ` · ${shadeLabel} −${this.currentProduction.localBuildingLossPct.toFixed(1)}%`
+          ? ` · nearby buildings −${this.currentProduction.localBuildingLossPct.toFixed(1)}%`
           : '';
         regionDetail.textContent = `${activeLocation.label} · ${Math.round(this.currentProduction.specificYield)} kWh/kWp/year · ${this.state.pvgisUseHorizon ? 'terrain horizon on' : 'terrain horizon off'}${localShadeText}`;
       } else {
@@ -520,13 +516,12 @@ export class SolarUI {
     const solar = getSolarContext(this.state, this.state.simulationHour);
     const sunReadout = document.querySelector('#liveSunReadout');
     const clearsTerrain = sunClearsPvgisHorizon(this.state, solar);
-    const buildingShade = localObstructionShadeAtSun(this.state, solar);
+    const buildingShade = localBuildingShadeAtSun(this.state, solar);
     if (sunReadout) {
       if (solar.isDaylight && !clearsTerrain) {
         sunReadout.textContent = `Sun behind terrain horizon · ${solar.elevationDeg.toFixed(1)}° · ${formatAzimuth(solar.azimuthDeg)}`;
       } else if (solar.isDaylight && buildingShade.blockedFraction > 0.005) {
-        const shadeName = buildingShade.provider === 'google' ? 'Google local shade' : 'buildings';
-        sunReadout.textContent = `Sun ${solar.elevationDeg.toFixed(1)}° high · ${formatAzimuth(solar.azimuthDeg)} · ${shadeName} blocks ${Math.round(buildingShade.blockedFraction * 100)}% of panels`;
+        sunReadout.textContent = `Sun ${solar.elevationDeg.toFixed(1)}° high · ${formatAzimuth(solar.azimuthDeg)} · buildings shade ${Math.round(buildingShade.blockedFraction * 100)}% of panels`;
       } else if (solar.isDaylight) {
         sunReadout.textContent = `Sun ${solar.elevationDeg.toFixed(1)}° high · ${formatAzimuth(solar.azimuthDeg)}`;
       } else {

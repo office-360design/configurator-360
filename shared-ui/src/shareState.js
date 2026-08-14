@@ -1,12 +1,25 @@
 const LEGACY_SHARE_PARAM = 'config';
 const COMPACT_SHARE_PARAM = 'c';
 const SHORT_SHARE_PARAM = 's';
-const SHARE_FORMAT_VERSION = 3;
+const SHARE_FORMAT_VERSION = 4;
+const FIRESTORE_RECORD_VERSION = 1;
 const GZIP_PREFIX = 'g2.';
 const JSON_PREFIX = 'j2.';
-const DEFAULT_SHARE_API_PATH = '/api/configurations';
-const SHORT_ID_PATTERN = /^[a-f0-9]{64}$/;
+const LEGACY_SHARE_API_PATH = '/api/configurations';
+const LEGACY_SHORT_ID_PATTERN = /^[a-f0-9]{64}$/;
+const FIRESTORE_SHORT_ID_PATTERN = /^[A-Za-z0-9_-]{16}$/;
 const MAX_GENERATED_URL_LENGTH = 150;
+const MAX_FIRESTORE_STATE_BYTES = 850000;
+const FIRESTORE_COLLECTION = 'sharedConfigurations';
+
+// This is the Firebase web app already registered for configurator-360 and linked
+// to the project's Firebase Hosting site. Firebase web config/API keys identify
+// the project; access is enforced by Firestore Security Rules, not by hiding them.
+const DEFAULT_FIREBASE_SHARE_CONFIG = Object.freeze({
+  apiKey: 'AIzaSyBgS4VLxQYZnqW-YZJPKvuuocf5w_0kRwY',
+  projectId: 'configurator-360',
+  databaseId: '(default)',
+});
 
 function normalizeProductType(value) {
   return String(value ?? '').trim().toLowerCase();
@@ -64,62 +77,142 @@ function unwrapPayload(parsed, expectedProduct = '') {
   return parsed;
 }
 
-function configuredShareEndpoint(pageUrl = window.location.href) {
-  const explicit = String(globalThis.SHARE_STATE_API_ENDPOINT ?? '').trim();
-  const meta = typeof document !== 'undefined'
-    ? String(document.querySelector('meta[name="share-state-endpoint"]')?.content ?? '').trim()
-    : '';
-  const endpoint = explicit || meta || DEFAULT_SHARE_API_PATH;
-  return new URL(endpoint, new URL(pageUrl, window.location.href).origin).toString().replace(/\/$/, '');
-}
-
 function readHashValue(target, param) {
   const raw = target.hash.startsWith('#') ? target.hash.slice(1) : target.hash;
   if (!raw) return '';
   return new URLSearchParams(raw).get(param) || '';
 }
 
-async function storeShareState(productType, state, pageUrl) {
-  const endpoint = configuredShareEndpoint(pageUrl);
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      v: SHARE_FORMAT_VERSION,
-      p: normalizeProductType(productType),
-      s: state,
-    }),
-  });
-
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(payload?.error || `Share storage returned HTTP ${response.status}.`);
-  }
-
-  const id = String(payload?.id || '');
-  if (!SHORT_ID_PATTERN.test(id)) throw new Error('Share storage returned an invalid configuration id.');
-  return id;
+function firebaseShareConfig() {
+  const override = globalThis.FIREBASE_SHARE_CONFIG && typeof globalThis.FIREBASE_SHARE_CONFIG === 'object'
+    ? globalThis.FIREBASE_SHARE_CONFIG
+    : {};
+  return {
+    apiKey: String(override.apiKey || DEFAULT_FIREBASE_SHARE_CONFIG.apiKey),
+    projectId: String(override.projectId || DEFAULT_FIREBASE_SHARE_CONFIG.projectId),
+    databaseId: String(override.databaseId || DEFAULT_FIREBASE_SHARE_CONFIG.databaseId),
+  };
 }
 
-async function fetchStoredShareState(id, { productType = '', pageUrl = window.location.href } = {}) {
-  if (!SHORT_ID_PATTERN.test(String(id))) return null;
-  const endpoint = configuredShareEndpoint(pageUrl);
+function firestoreDocumentsBaseUrl() {
+  const { apiKey, projectId, databaseId } = firebaseShareConfig();
+  const database = encodeURIComponent(databaseId);
+  const root = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${database}/documents`;
+  return { root, apiKey };
+}
+
+function firestoreUrl(path = '', query = {}) {
+  const { root, apiKey } = firestoreDocumentsBaseUrl();
+  const suffix = path ? `/${path.replace(/^\/+/, '')}` : '';
+  const url = new URL(`${root}${suffix}`);
+  if (apiKey) url.searchParams.set('key', apiKey);
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+  });
+  return url.toString();
+}
+
+function generateShortShareId() {
+  const bytes = new Uint8Array(12); // 96 random bits -> exactly 16 Base64URL chars.
+  globalThis.crypto.getRandomValues(bytes);
+  return bytesToBase64Url(bytes);
+}
+
+async function readJsonResponse(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function firestoreErrorMessage(payload, fallback) {
+  return String(payload?.error?.message || payload?.error || fallback || 'Firestore request failed.');
+}
+
+async function storeShareStateInFirestore(productType, state) {
+  const product = normalizeProductType(productType);
+  const stateJson = JSON.stringify(state);
+  const stateBytes = new TextEncoder().encode(stateJson).length;
+  if (stateBytes > MAX_FIRESTORE_STATE_BYTES) {
+    throw new Error(`This configuration is too large to share (${stateBytes} bytes).`);
+  }
+
+  const document = {
+    fields: {
+      v: { integerValue: String(FIRESTORE_RECORD_VERSION) },
+      p: { stringValue: product },
+      s: { stringValue: stateJson },
+    },
+  };
+
+  // Collision is already astronomically unlikely with 96 random bits. Retrying
+  // lets us retain create-only Firestore rules without ever overwriting a share.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const id = generateShortShareId();
+    const response = await fetch(firestoreUrl(FIRESTORE_COLLECTION, { documentId: id }), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(document),
+    });
+    const payload = await readJsonResponse(response);
+    if (response.ok) return id;
+
+    const status = String(payload?.error?.status || '');
+    if (response.status === 409 || status === 'ALREADY_EXISTS') continue;
+    throw new Error(firestoreErrorMessage(payload, `Firestore share storage returned HTTP ${response.status}.`));
+  }
+
+  throw new Error('Could not allocate a unique share id. Please try again.');
+}
+
+async function fetchShareStateFromFirestore(id, productType = '') {
+  if (!FIRESTORE_SHORT_ID_PATTERN.test(String(id))) return null;
+  const response = await fetch(firestoreUrl(`${FIRESTORE_COLLECTION}/${encodeURIComponent(id)}`), {
+    headers: { Accept: 'application/json' },
+  });
+  if (response.status === 404) return null;
+  const payload = await readJsonResponse(response);
+  if (!response.ok) {
+    throw new Error(firestoreErrorMessage(payload, `Firestore share storage returned HTTP ${response.status}.`));
+  }
+
+  const fields = payload?.fields || {};
+  const recordVersion = Number(fields.v?.integerValue || 0);
+  const storedProduct = normalizeProductType(fields.p?.stringValue);
+  const expectedProduct = normalizeProductType(productType);
+  const stateJson = fields.s?.stringValue;
+  if (recordVersion !== FIRESTORE_RECORD_VERSION || typeof stateJson !== 'string') return null;
+  if (expectedProduct && storedProduct && expectedProduct !== storedProduct) return null;
+  const parsed = JSON.parse(stateJson);
+  return parsed && typeof parsed === 'object' ? parsed : null;
+}
+
+// Compatibility only: v3 used a Cloudflare/R2 content-addressed endpoint. The
+// new implementation does not require this endpoint, but already-created links
+// can still resolve if that backend happens to be deployed later.
+function configuredLegacyShareEndpoint(pageUrl = window.location.href) {
+  const explicit = String(globalThis.SHARE_STATE_API_ENDPOINT ?? '').trim();
+  const meta = typeof document !== 'undefined'
+    ? String(document.querySelector('meta[name="share-state-endpoint"]')?.content ?? '').trim()
+    : '';
+  const endpoint = explicit || meta || LEGACY_SHARE_API_PATH;
+  return new URL(endpoint, new URL(pageUrl, window.location.href).origin).toString().replace(/\/$/, '');
+}
+
+async function fetchLegacyStoredShareState(id, { productType = '', pageUrl = window.location.href } = {}) {
+  if (!LEGACY_SHORT_ID_PATTERN.test(String(id))) return null;
+  const endpoint = configuredLegacyShareEndpoint(pageUrl);
   const response = await fetch(`${endpoint}/${encodeURIComponent(id)}`, {
     headers: { Accept: 'application/json' },
   });
   if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`Share storage returned HTTP ${response.status}.`);
+  if (!response.ok) throw new Error(`Legacy share storage returned HTTP ${response.status}.`);
   return unwrapPayload(await response.json(), productType);
 }
 
-// Retained exclusively so links produced by the previous implementation keep
-// working. New links never place the configuration itself in the URL.
+// Retained exclusively so links produced by the earlier self-contained
+// implementation keep working. New links never place the full state in the URL.
 export async function encodeShareState(productType, state) {
   const payload = {
     v: 2,
@@ -161,13 +254,17 @@ export async function readShareState({
 } = {}) {
   try {
     const target = new URL(url, window.location.href);
-
-    // v3 short links contain only a fixed-length content id. The actual state is
-    // fetched before each configurator creates its initial model/store.
     const shortId = readHashValue(target, SHORT_SHARE_PARAM)
       || target.searchParams.get(SHORT_SHARE_PARAM);
+
     if (shortId) {
-      return await fetchStoredShareState(shortId, { productType, pageUrl: target.toString() });
+      if (FIRESTORE_SHORT_ID_PATTERN.test(shortId)) {
+        return await fetchShareStateFromFirestore(shortId, productType);
+      }
+      if (LEGACY_SHORT_ID_PATTERN.test(shortId)) {
+        return await fetchLegacyStoredShareState(shortId, { productType, pageUrl: target.toString() });
+      }
+      return null;
     }
 
     // v2/v1 compatibility: continue reading the older self-contained links.
@@ -187,10 +284,10 @@ export async function createShareUrl({
   url = window.location.href,
 } = {}) {
   const target = new URL(url, window.location.href);
-  const id = await storeShareState(productType, state, target.toString());
+  const id = await storeShareStateInFirestore(productType, state);
 
-  // A content-addressed server entry makes URL size independent of configuration
-  // complexity. Clear all old query/fragment state and retain only the 64-char id.
+  // The link is now just a bearer-style Firestore document id. Configuration
+  // complexity no longer affects URL length.
   target.search = '';
   target.hash = `${SHORT_SHARE_PARAM}=${id}`;
 
@@ -200,3 +297,10 @@ export async function createShareUrl({
   }
   return result;
 }
+
+export const SHARE_STATE_FIREBASE_INFO = Object.freeze({
+  projectId: DEFAULT_FIREBASE_SHARE_CONFIG.projectId,
+  collection: FIRESTORE_COLLECTION,
+  idLength: 16,
+  maxUrlLength: MAX_GENERATED_URL_LENGTH,
+});

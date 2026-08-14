@@ -1,125 +1,90 @@
-# Solar data proxy — Netlify Functions
+# PVGIS proxy — Netlify Functions
 
-This small Netlify site hosts the server-side functions required by the public GitHub Pages solar configurator:
+The solar configurator is hosted as a static site, while JRC PVGIS 5.3 rejects browser-direct AJAX/CORS requests. This folder is a tiny, independent Netlify site whose only job is to relay the two read-only PVGIS calls used by the configurator.
 
-- `/.netlify/functions/pvgis` — read-only JRC PVGIS relay.
-- `/.netlify/functions/google-solar` — protected Google Solar showcase endpoint.
+No database and no runtime npm dependencies are required.
 
-The Google endpoint intentionally keeps the Google Maps Platform API key on Netlify instead of exposing it in the static GitHub Pages application.
+## Endpoint
 
-## Install and deploy
-
-```bash
-cd solar-configurator/pvgis-proxy-netlify
-npm install
-netlify deploy --prod
-```
-
-The project now has runtime dependencies because the Google Solar function uses Netlify Blobs plus Google's documented GeoTIFF parsing stack (`geotiff`, `geotiff-geokeys-to-proj4`, and `proj4`).
-
-## PVGIS endpoint
+After deployment the configurator should use:
 
 ```text
 https://YOUR-SITE.netlify.app/.netlify/functions/pvgis
 ```
 
-Health test:
+The function supports only:
 
-```text
-https://YOUR-SITE.netlify.app/.netlify/functions/pvgis?tool=health
-```
+- `tool=PVcalc` — exact-location fixed-system monthly/annual PV yield.
+- `tool=printhorizon` — terrain horizon profile.
+- `tool=health` — simple proxy health check.
 
-`pvgis` supports only `PVcalc`, `printhorizon`, and `health`. Successful responses use Netlify CDN caching and temporary PVGIS overload/rate-limit responses are retried briefly.
+Unknown PVGIS parameters are discarded, latitude/longitude are validated, and only GET/OPTIONS requests are accepted.
 
-Set the existing `ALLOWED_ORIGIN` variable to the public configurator origin if you want to restrict browser CORS access.
+## Deploy from the CLI
 
-## Google Solar endpoint
-
-```text
-https://YOUR-SITE.netlify.app/.netlify/functions/google-solar
-```
-
-Health test:
-
-```text
-https://YOUR-SITE.netlify.app/.netlify/functions/google-solar?action=health
-```
-
-The endpoint exposes only three actions:
-
-- `GET action=health` — configuration status only; no paid Google request.
-- `POST action=login` — validates the private showcase access code and returns a two-hour HMAC-signed demo session.
-- `POST action=analyze` — protected Building Insights + Data Layers/hourly-shade analysis.
-
-### Required Google environment variables
+Netlify's current CLI requires Node.js 18.14 or newer.
 
 ```bash
-netlify env:set GOOGLE_SOLAR_API_KEY 'YOUR_RESTRICTED_SOLAR_API_KEY'
-netlify env:set GOOGLE_SOLAR_DEMO_ACCESS_CODE 'YOUR_PRIVATE_SHOWCASE_CODE'
-netlify env:set GOOGLE_SOLAR_SESSION_SECRET 'YOUR_LONG_RANDOM_SECRET'
-netlify env:set GOOGLE_SOLAR_ALLOWED_ORIGIN 'https://aks.360configurator.com'
+npm install -g netlify-cli
+cd solar-configurator/pvgis-proxy-netlify
+netlify login
+netlify deploy
 ```
 
-Loopback development origins (`localhost`, `127.0.0.1`, `0.0.0.0`, and IPv6 loopback) are accepted automatically on any port. They do not need to be added to `GOOGLE_SOLAR_ALLOWED_ORIGIN`. For a development server opened through a LAN IP/hostname, add that exact origin to the environment variable as a comma-separated value.
-
-A signing secret can be generated locally, for example:
+On the first `netlify deploy`, the CLI prompts you to select an existing Netlify site or create a new one and links this folder to it. That first command creates a draft deploy. Once it looks correct, publish production:
 
 ```bash
-openssl rand -hex 32
+netlify deploy --prod
 ```
 
-Optional demo limits:
+If you already created the proxy site in the Netlify dashboard, `netlify link` can be used before the deploy instead.
+
+### Remote SSH / WSL authentication
+
+`netlify login` normally opens a browser. If the CLI is running inside WSL on a remote machine over SSH, it is usually easier to create a Netlify personal access token in **User settings → Applications → Personal access tokens** and export it in that shell:
 
 ```bash
-netlify env:set GOOGLE_SOLAR_MAX_LOGIN_ATTEMPTS_HOUR '12'
-netlify env:set GOOGLE_SOLAR_MAX_ANALYSES_PER_IP_DAY '20'
-netlify env:set GOOGLE_SOLAR_MAX_ANALYSES_DAY '100'
+export NETLIFY_AUTH_TOKEN='YOUR_TOKEN'
+netlify deploy
 ```
 
-After changing Netlify environment variables, publish a new production deploy so the function runs with the intended configuration.
+Do not commit the token to this project.
 
-### Google Cloud setup
+You can also deploy the folder by connecting it as a Netlify project in the dashboard. Netlify's default Functions directory is `netlify/functions/`; the included `netlify.toml` makes this explicit.
 
-Use a dedicated Google Cloud API key for this server-side function and restrict that key to the **Solar API**. Do not put the key into `index.html`, GitHub Actions variables used to generate frontend JavaScript, query strings in the public site, or browser storage.
-
-For a public showcase, also configure low daily Building Insights and Data Layers quotas in Google Cloud. The proxy's Blob counters are defense-in-depth/best-effort controls; the Google Cloud quota is the final cost ceiling.
-
-### Demo authentication
-
-The access code is not embedded in the public site. A successful login creates a two-hour signed token, stored by the browser only in `sessionStorage`. The token is bound to the login origin and client IP before an `analyze` request is accepted.
-
-This is intentionally a lightweight demo gate. If the configurator becomes a real customer-facing product, replace the shared access code with a proper user identity system.
-
-### Persistent caching
-
-The Google function uses site-wide Netlify Blobs so cache data survives new deploys:
-
-- Building Insights: 7 days.
-- Data Layers URL metadata: 45 minutes, safely below the temporary GeoTIFF URL lifetime.
-- Downloaded monthly hourly-shade GeoTIFFs: 30 days.
-
-The expensive Data Layers acquisition is keyed by geographic center + radius. Once the twelve shade TIFFs are present, the proxy can sample new panel layouts from those same cached files without another Data Layers call. The returned browser payload contains compact shade masks rather than the TIFF binaries.
-
-## Local development
+## Test locally
 
 ```bash
 cd solar-configurator/pvgis-proxy-netlify
 netlify dev
 ```
 
-Typical local endpoints are:
+Then open:
 
 ```text
 http://localhost:8888/.netlify/functions/pvgis?tool=health
-http://localhost:8888/.netlify/functions/google-solar?action=health
 ```
 
-Set the environment variables in your Netlify development environment before testing paid Google Solar analysis.
+For local testing of the solar configurator, paste this function URL into its PVGIS proxy settings:
+
+```text
+http://localhost:8888/.netlify/functions/pvgis
+```
+
+## Restrict CORS in production
+
+The function accepts any browser origin by default. Once the GitHub Pages URL is final, set the Netlify environment variable `ALLOWED_ORIGIN` to that exact origin, for example:
+
+```bash
+netlify env:set ALLOWED_ORIGIN https://YOUR-ACCOUNT.github.io
+```
+
+Multiple origins can be supplied as a comma-separated list if needed.
+
+## Caching and retries
+
+Successful `PVcalc` responses are cached at Netlify's CDN for one day and `printhorizon` responses for seven days. Browser caching is intentionally kept short. PVGIS HTTP 429/529 responses are retried briefly before an error is returned.
 
 ## Cloudflare alternative
 
-The older PVGIS Cloudflare Worker remains in `../pvgis-proxy/` as an optional PVGIS relay. The Google Solar demo integration is implemented in the Netlify project because it also uses persistent Netlify Blobs caching.
-
-## Google DSM + building mask
-
-The `google-solar` function now also downloads and caches `dsmUrl` and `maskUrl` from the existing Google Solar Data Layers response. The raw TIFFs and a compact processed surface grid are retained for up to 30 days. These downloads reuse the already-acquired Data Layers response and do not require an additional Data Layers API request.
+The previous Cloudflare Worker implementation is still kept in `../pvgis-proxy/` as an optional alternative. It is no longer the recommended setup for this project.
