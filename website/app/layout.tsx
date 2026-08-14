@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./homepage-polish.css";
-import { SITE_URL } from "../lib/seo";
+import { languageAlternates, SITE_URL } from "../lib/seo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   creator: "360Configurator",
   publisher: "360Configurator",
   category: "Industrial product configuration software",
-  alternates: { canonical: "/", languages: { en: "/", ro: "/ro", de: "/de", "x-default": "/" } },
+  alternates: { canonical: SITE_URL, languages: languageAlternates("/") },
   icons: {
     icon: [
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },

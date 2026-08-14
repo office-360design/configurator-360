@@ -1,5 +1,5 @@
 import { configurators, type Configurator, type ConfiguratorSlug } from "./configurators";
-import type { Locale } from "./i18n";
+import { configuratorUrl, type Locale } from "./i18n";
 
 type Translation = Pick<Configurator, "category" | "title" | "shortTitle" | "statement" | "description" | "controls" | "features" | "outputs" | "seoTitle" | "seoDescription">;
 
@@ -170,9 +170,12 @@ const de: Record<ConfiguratorSlug, Translation> = {
 };
 
 export function getLocalizedConfigurators(locale: Locale): Configurator[] {
-  if (locale === "en") return configurators;
-  const translations = locale === "ro" ? ro : de;
-  return configurators.map((item) => ({ ...item, ...translations[item.slug] }));
+  const translations = locale === "ro" ? ro : locale === "de" ? de : null;
+  return configurators.map((item) => ({
+    ...item,
+    ...(translations ? translations[item.slug] : {}),
+    launchUrl: configuratorUrl(locale, item.slug),
+  }));
 }
 
 export function getLocalizedConfigurator(locale: Locale, slug: string) {

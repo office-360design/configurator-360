@@ -8,7 +8,7 @@ import { WindowConfiguratorPreview, WindowHeroRuntime } from "./window-preview";
 import { CapabilityCube, ProductFeatureCube } from "./capability-cube";
 import { getLocalizedConfigurators } from "../lib/configurators-localized";
 import { homeCopy, localizedPath, type Locale, uiCopy } from "../lib/i18n";
-import { absoluteUrl, graphSchema, organizationSchema, SITE_URL, websiteSchema } from "../lib/seo";
+import { absoluteUrl, graphSchema, organizationSchema, siteUrl, SITE_URL, websiteSchema } from "../lib/seo";
 
 export function LocalizedHome({ locale }: { locale: Locale }) {
   const copy = homeCopy[locale];
@@ -25,7 +25,7 @@ export function LocalizedHome({ locale }: { locale: Locale }) {
       name: copy.heroA,
       description: schemaDescription,
       inLanguage: locale,
-      isPartOf: { "@id": `${SITE_URL}/#website` },
+      isPartOf: { "@id": `${siteUrl(locale)}/#website` },
       about: { "@id": `${SITE_URL}/#organization` },
     },
     {

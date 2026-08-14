@@ -75,13 +75,39 @@ function languageForRoute(route) {
   return "en";
 }
 
+function normalizeLocalizedPublicUrls(html) {
+  return html
+    .replaceAll(
+      "https://www.360configurator.com/ro",
+      "https://www.360configurator.ro",
+    )
+    .replaceAll(
+      "https://360configurator.com/ro",
+      "https://www.360configurator.ro",
+    )
+    .replaceAll(
+      "https://www.360configurator.com/de",
+      "https://www.360konfigurator.de",
+    )
+    .replaceAll(
+      "https://360configurator.com/de",
+      "https://www.360konfigurator.de",
+    );
+}
+
 for (const route of [...pageRoutes, ...metadataRoutes]) {
   const { body } = await renderRoute(route);
   const destination = path.join(exportRoot, routeOutputPath(route));
   await mkdir(path.dirname(destination), { recursive: true });
-  const localizedBody = pageRoutes.includes(route)
-    ? body.replace(/<html lang=["'][^"']*["']/, `<html lang="${languageForRoute(route)}"`)
+  let localizedBody = pageRoutes.includes(route)
+    ? body.replace(
+        /<html lang=["'][^"']*["']/,
+        `<html lang="${languageForRoute(route)}"`,
+      )
     : body;
+
+  localizedBody = normalizeLocalizedPublicUrls(localizedBody);
+
   await writeFile(destination, localizedBody);
 }
 

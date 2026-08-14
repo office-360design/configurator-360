@@ -2,9 +2,10 @@ import { state, deriveHallMetrics } from './state.js?v=12';
 import { HallScene } from './scene.js?v=12';
 import { HallUI } from './ui.js?v=12';
 import { normalizeOpenings } from './openings.js?v=12';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=1';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
 
-const sharedHallState = readShareState({ productType: 'hall' });
+const DEFAULT_HALL_STATE = structuredClone(state);
+const sharedHallState = await readShareState({ productType: 'hall' });
 if (sharedHallState) {
   Object.keys(state).forEach((key) => {
     if (!Object.prototype.hasOwnProperty.call(sharedHallState, key)) return;
@@ -185,12 +186,22 @@ function toggleExplode() {
   ui.setExplodeValue(state.explode > 0 ? 0 : 100);
 }
 
+function resetConfiguration() {
+  environmentPanelOpen = false;
+  ui.setEnvironmentPanelOpen(false);
+  ui.restoreState(structuredClone(DEFAULT_HALL_STATE));
+  window.history.replaceState({}, '', window.location.pathname);
+  syncToolButtons();
+  return true;
+}
+
 window.HALL_CONFIGURATOR_API = {
   captureState: () => ui.captureState(),
   restoreState: (snapshot) => ui.restoreState(snapshot),
   getState: () => structuredClone(state),
   setDarkMode: applyHallDarkMode,
   resetView: () => scene.fitCamera(state, deriveHallMetrics(state)),
+  resetConfiguration,
   rebuild: () => rebuildNow(),
   toggleEnvironmentPanel,
   closeToolPanels,

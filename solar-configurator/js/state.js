@@ -189,48 +189,55 @@ export const state = {
   pvgisProxyEndpoint: '',
   pvgisProxyHealthStatus: 'unconfigured',
   pvgisProxyHealthMessage: 'No proxy URL configured.',
-
-  googleSolarEndpoint: '',
-  googleSolarProxyStatus: 'unknown',
-  googleSolarProxyMessage: 'Google Solar proxy not tested yet.',
-  googleSolarAccessStatus: 'locked',
-  googleSolarAccessMessage: 'Enter the demo access code to enable paid Google Solar requests.',
-  googleSolarSessionExpiresAt: null,
-  googleSolarStatus: 'inactive',
-  googleSolarMessage: 'Unlock Google Solar, then analyze an exact location.',
-  googleSolarShadingEnabled: true,
-  googleSolarShadeModel: null,
-  googleSolarBuildingInsights: null,
-  googleSolarDataLayers: null,
-  googleSolarSurfaceModel: null,
-  googleSolarDsmEnabled: true,
-  googleSolarBuildingMaskVisible: true,
-  googleSolarRawDsmVisible: false,
-  googleSolarReferenceBuildingVisible: true,
-  googleSolarRecommendedLayoutVisible: true,
-  googleSolarRecommendedConfigPanels: 0,
-  googleSolarFluxModel: null,
-  googleSolarFluxHeatmapVisible: true,
-  googleSolarFluxNearbyRoofsVisible: false,
-  googleSolarFluxPeriod: 'annual',
-  googleSolarReferenceMatchScore: 0,
-  googleSolarReferenceMatchLabel: '—',
-  googleSolarReferenceDistanceM: null,
-  googleSolarReferenceMainPitchDeg: null,
-  googleSolarReferenceMainAzimuthDeg: null,
-  googleSolarReferenceSuggestionAvailable: false,
-  googleSolarReferenceSuggestedBearingDeg: null,
-  googleSolarReferenceSuggestedPitchDeg: null,
-  googleSolarReferenceSuggestedLengthM: null,
-  googleSolarReferenceSuggestedDepthM: null,
-  googleSolarReferenceSuggestedEastM: null,
-  googleSolarReferenceSuggestedNorthM: null,
-  googleSolarReferenceSuggestedPositionDistanceM: null,
-  googleSolarReferenceDimensionSource: '',
-  googleSolarRefinedBuildingCount: 0,
-  googleSolarGoogleOnlyBuildingCount: 0,
-  googleSolarCanopyCount: 0,
-  googleSolarCacheInfo: null,
-  googleSolarAnalyzedSignature: '',
-  googleSolarAnnualLossPct: 0,
 };
+
+const SOLAR_SHARE_KEYS = Object.freeze([
+  'roofType', 'length', 'depth', 'wallHeight', 'pitch', 'overhang', 'roofColor', 'covering',
+  'modulePreset', 'panelCount', 'panelColumns', 'moduleOrientation', 'roofSide', 'panelGap', 'panelMargin',
+  'region', 'locationMode', 'locationLat', 'locationLon', 'locationLabel', 'locationTimeZone', 'simulationDate',
+  'monthlyBillRon', 'energyTariffRon', 'gridConnection', 'consumptionProfile',
+  'batteryEnabled', 'batteryAutoSize', 'batteryCapacityKWh', 'batteryReservePct', 'batteryRoundTripEfficiency',
+  'installationPricePerKwpRon', 'mountingPricePerPanelRon', 'paperworkPriceRon', 'batteryPricePerKWhRon', 'vatRate',
+  'showDimensions', 'technicalEdges', 'showCompass', 'showSunPath', 'sunPosition', 'northDirection', 'nightPreview', 'simulationHour',
+  'environmentEnabled', 'environmentAutoLoad', 'environmentRadiusM', 'terrainEnabled', 'buildingsEnabled', 'roadsEnabled', 'treesEnabled',
+  'terrainExaggeration', 'environmentLocalEastM', 'environmentLocalNorthM', 'environmentLocalStepM', 'replaceHostBuilding',
+  'localBuildingShadingEnabled', 'excludedEstimateItems', 'pvgisUseHorizon', 'pvgisShowHorizon',
+]);
+
+function cloneShareValue(value) {
+  if (Array.isArray(value)) return value.map((item) => cloneShareValue(item));
+  if (value && typeof value === 'object') return structuredClone(value);
+  return value;
+}
+
+function acceptsSharedValue(currentValue, incomingValue) {
+  if (currentValue === null) return incomingValue === null || typeof incomingValue === 'number' || typeof incomingValue === 'string';
+  if (Array.isArray(currentValue)) return Array.isArray(incomingValue);
+  if (typeof currentValue === 'number') return typeof incomingValue === 'number' && Number.isFinite(incomingValue);
+  if (typeof currentValue === 'boolean') return typeof incomingValue === 'boolean';
+  if (typeof currentValue === 'string') return typeof incomingValue === 'string';
+  return false;
+}
+
+export function captureSolarShareState(input = state) {
+  const snapshot = {};
+  SOLAR_SHARE_KEYS.forEach((key) => {
+    snapshot[key] = cloneShareValue(input[key]);
+  });
+  // A running animation is a transient UI state; a shared link opens at the
+  // exact saved simulation hour but never starts animating by itself.
+  snapshot.simulationPlaying = false;
+  return snapshot;
+}
+
+export function applySolarShareState(snapshot, target = state) {
+  if (!snapshot || typeof snapshot !== 'object') return false;
+  SOLAR_SHARE_KEYS.forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(snapshot, key)) return;
+    const incoming = snapshot[key];
+    if (!acceptsSharedValue(target[key], incoming)) return;
+    target[key] = cloneShareValue(incoming);
+  });
+  target.simulationPlaying = false;
+  return true;
+}

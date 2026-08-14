@@ -63,8 +63,13 @@ for (const htmlFile of htmlFiles) {
 for (const route of pageRoutes) {
   const html = await readFile(path.join(releaseRoot, routeOutputPath(route)), "utf8");
   const expectedLanguage = route === "/ro" || route.startsWith("/ro/") ? "ro" : route === "/de" || route.startsWith("/de/") ? "de" : "en";
-  if (!html.includes("https://360configurator.com")) failures.push(`${route} lacks the canonical .com origin`);
-  if (html.includes("https://360configurator.ro/#")) failures.push(`${route} contains legacy .ro schema identifiers`);
+  const expectedOrigin = expectedLanguage === "ro"
+    ? "https://www.360configurator.ro"
+    : expectedLanguage === "de"
+      ? "https://www.360konfigurator.de"
+      : "https://www.360configurator.com";
+  if (!html.includes(expectedOrigin)) failures.push(`${route} lacks its localized canonical origin ${expectedOrigin}`);
+  if (html.includes("https://www.360configurator.com/ro") || html.includes("https://www.360configurator.com/de")) failures.push(`${route} contains a legacy locale-prefixed .com URL`);
   if (!html.includes(`<html lang="${expectedLanguage}"`)) failures.push(`${route} has an incorrect document language; expected ${expectedLanguage}`);
 }
 
