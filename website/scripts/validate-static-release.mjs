@@ -66,7 +66,7 @@ for (const route of pageRoutes) {
   const expectedOrigin = expectedLanguage === "ro"
     ? "https://www.360configurator.ro"
     : expectedLanguage === "de"
-      ? "https://www.360configurator.de"
+      ? "https://www.360konfigurator.de"
       : "https://www.360configurator.com";
   if (!html.includes(expectedOrigin)) failures.push(`${route} lacks its localized canonical origin ${expectedOrigin}`);
   if (html.includes("https://www.360configurator.com/ro") || html.includes("https://www.360configurator.com/de")) failures.push(`${route} contains a legacy locale-prefixed .com URL`);

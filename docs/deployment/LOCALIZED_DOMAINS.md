@@ -4,7 +4,7 @@ The production image contains one static website and one set of configurator bui
 
 - `www.360configurator.com` → English
 - `www.360configurator.ro` → Romanian
-- `www.360configurator.de` → German
+- `www.360konfigurator.de` → German
 
 The apex variants (`360configurator.*`) redirect permanently to `www`.
 
@@ -16,7 +16,7 @@ Examples:
 
 - `https://www.360configurator.ro/` internally serves `/ro/index.html`
 - `https://www.360configurator.ro/about/` internally serves `/ro/about/index.html`
-- `https://www.360configurator.de/configurators/pergola/` internally serves `/de/configurators/pergola/index.html`
+- `https://www.360konfigurator.de/configurators/pergola/` internally serves `/de/configurators/pergola/index.html`
 
 Legacy `.com/ro/...` and `.com/de/...` URLs permanently redirect to their country domains.
 
@@ -63,7 +63,7 @@ Do not reintroduce `/ro` or `/de` as public `.com` URLs. Those paths are interna
 
 Before exposing the new domains publicly:
 
-1. Add `360configurator.ro`, `www.360configurator.ro`, `360configurator.de`, and `www.360configurator.de` to Certificate Manager / the existing certificate map.
+1. Add `360configurator.ro`, `www.360configurator.ro`, `360konfigurator.de`, and `www.360konfigurator.de` to Certificate Manager / the existing certificate map.
 2. Point the apex and `www` DNS records for `.ro` and `.de` to the existing global load-balancer IP.
 3. Keep the certificate DNS-authorization CNAMEs and required CAA records.
 4. Add the `.ro` and `.de` origins to any external API/proxy origin allowlists (notably Google Solar-related proxies) before testing Solar there.

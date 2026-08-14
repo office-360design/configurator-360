@@ -87,11 +87,11 @@ function normalizeLocalizedPublicUrls(html) {
     )
     .replaceAll(
       "https://www.360configurator.com/de",
-      "https://www.360configurator.de",
+      "https://www.360konfigurator.de",
     )
     .replaceAll(
       "https://360configurator.com/de",
-      "https://www.360configurator.de",
+      "https://www.360konfigurator.de",
     );
 }
 
