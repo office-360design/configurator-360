@@ -167,7 +167,7 @@ export const ACCESSORY_OPTIONS = [
   {
     key: 'heaters',
     label: 'Infrared heaters',
-    description: 'Suspended radiant heater assigned to an exterior pole-to-pole segment.',
+    description: 'Suspended radiant heater assigned to any pole-to-pole beam span.',
     model: './assets/models/accessories/heater.glb',
     icon: './assets/icons/accessory-heater.svg',
   },

@@ -89,6 +89,9 @@ function renderPergolaGrid(state, options = {}) {
   const grid = getPoleGrid(state);
   const mode = options.mode === 'segments' ? 'segments' : 'poles';
   const conflicts = options.conflicts ?? {};
+  const segmentAction = options.segmentAction ?? 'select-side-segment';
+  const configuredSegments = options.configuredSegments ?? null;
+  const configuredClass = options.configuredClass ?? 'has-closing';
   const aspect = Math.min(3.2, Math.max(0.7, grid.width / grid.depth));
   const xPercent = (column) => grid.columns <= 1 ? 50 : (column / (grid.columns - 1)) * 100;
   // Front is the viewer-facing edge, so it belongs at the bottom of the plan view.
@@ -96,7 +99,9 @@ function renderPergolaGrid(state, options = {}) {
 
   const segmentMarkup = grid.segments.map((segment) => {
     const available = segmentIsAvailable(state, segment.id);
-    const configured = getSideSegmentConfig(state, segment.id).type !== 'none';
+    const configured = configuredSegments
+      ? configuredSegments.has(segment.id)
+      : getSideSegmentConfig(state, segment.id).type !== 'none';
     const blocked = segmentHasMountedItems(state, segment.id);
     const selected = options.selectedSegment === segment.id;
     let style = '';
@@ -113,13 +118,13 @@ function renderPergolaGrid(state, options = {}) {
     const classes = [
       'pergola-grid__segment',
       `is-${segment.axis}`,
-      configured ? 'has-closing' : '',
+      configured ? configuredClass : '',
       blocked ? 'is-blocked' : '',
       selected ? 'is-selected' : '',
       available ? '' : 'is-unavailable',
     ].filter(Boolean).join(' ');
     if (mode === 'segments') {
-      return `<button type="button" class="${classes}" style="${style}" data-action="select-side-segment" data-segment="${segment.id}" aria-pressed="${selected}" title="${escapeHtml(segmentDisplayLabel(state, segment))}" ${available ? '' : 'disabled aria-disabled="true"'}><span></span></button>`;
+      return `<button type="button" class="${classes}" style="${style}" data-action="${segmentAction}" data-segment="${segment.id}" aria-pressed="${selected}" title="${escapeHtml(segmentDisplayLabel(state, segment))}" ${available ? '' : 'disabled aria-disabled="true"'}><span></span></button>`;
     }
     return `<span class="${classes}" style="${style}" aria-hidden="true"><span></span></span>`;
   }).join('');
@@ -195,30 +200,30 @@ function heaterSegmentLabel(state, segment) {
   return segmentDisplayLabel(state, segment);
 }
 
-function heaterPositionLabels(segment) {
-  if (!segment) return { first: 'First end', second: 'Opposite end' };
+function heaterDirectionLabels(segment) {
+  if (!segment) return { first: 'First side', second: 'Second side' };
   return segment.axis === 'horizontal'
-    ? { first: 'Left', second: 'Right' }
-    : { first: 'Front', second: 'Back' };
+    ? { first: 'Front-facing', second: 'Back-facing' }
+    : { first: 'Left-facing', second: 'Right-facing' };
 }
 
 function renderHeaterSideSelector(state, selectedSegment) {
-  const segments = getBoundaryHeaterSegments(state);
+  const configuredSegments = new Set(
+    getBoundaryHeaterSegments(state)
+      .filter((segment) => Boolean(getHeaterConfig(state, segment.id)))
+      .map((segment) => segment.id),
+  );
   return `
-    <div class="heater-segment-selector">
-      ${segments.map((segment) => {
-        const heater = getHeaterConfig(state, segment.id);
-        const selected = segment.id === selectedSegment;
-        const positions = heaterPositionLabels(segment);
-        const position = heater ? (heater.flipped ? positions.second : positions.first) : 'No heater';
-        return `
-          <button type="button" class="heater-segment-button ${selected ? 'is-selected' : ''} ${heater ? 'has-heater' : ''}"
-            data-action="select-heater-segment" data-segment="${segment.id}" aria-pressed="${selected}">
-            <span>${escapeHtml(heaterSegmentLabel(state, segment))}</span>
-            <small>${heater ? `Heater · ${position}` : 'Available'}</small>
-          </button>
-        `;
-      }).join('')}
+    ${renderPergolaGrid(state, {
+      mode: 'segments',
+      selectedSegment,
+      segmentAction: 'select-heater-segment',
+      configuredSegments,
+      configuredClass: 'has-heater',
+    })}
+    <div class="pergola-grid__legend heater-grid-legend">
+      <span><i class="legend-line"></i> Click a beam span</span>
+      <span><i class="legend-line has-heater"></i> Heater configured</span>
     </div>
   `;
 }
@@ -558,7 +563,7 @@ export const pergolaRenderers = {
     if (this.activeHeaterSegment && !heaterSegments.some((segment) => segment.id === this.activeHeaterSegment)) this.activeHeaterSegment = null;
     const selectedHeaterSegment = heaterSegments.find((segment) => segment.id === this.activeHeaterSegment) ?? null;
     const selectedHeater = selectedHeaterSegment ? getHeaterConfig(this.state, selectedHeaterSegment.id) : null;
-    const selectedHeaterPositions = heaterPositionLabels(selectedHeaterSegment);
+    const selectedHeaterDirections = heaterDirectionLabels(selectedHeaterSegment);
     const heaterCount = countHeaters(this.state);
 
     return `
@@ -604,23 +609,35 @@ export const pergolaRenderers = {
       <section class="form-section">
         <div class="section-heading">
           <h2>Infrared heaters</h2>
-          <p>Choose an exterior pole-to-pole side segment. Each segment can carry one inward-facing heater, positioned toward either end.</p>
+          <p>Select any pole-to-pole beam span, including interior spans. Every span can carry up to two centrally mounted heaters facing opposite directions.</p>
         </div>
         <div class="accessory-summary-line">
           ${this.accessoryModelMark('heaters')}
-          <span><strong>${heaterCount} selected</strong><small>One heater per exterior segment</small></span>
+          <span><strong>${heaterCount} selected</strong><small>Up to two heaters per beam span</small></span>
         </div>
         ${renderHeaterSideSelector(this.state, this.activeHeaterSegment)}
         ${selectedHeaterSegment ? `
           <div class="heater-segment-editor">
-            <div class="detail-heading"><strong>${escapeHtml(heaterSegmentLabel(this.state, selectedHeaterSegment))}</strong><small>${selectedHeater ? `Position: ${selectedHeater.flipped ? selectedHeaterPositions.second : selectedHeaterPositions.first}` : 'No heater on this segment'}</small></div>
-            <div class="heater-actions">
-              <button type="button" class="${selectedHeater ? 'danger-lite-action' : 'secondary-action'}" data-action="toggle-heater-segment" data-segment="${selectedHeaterSegment.id}">${selectedHeater ? 'Remove heater' : 'Add heater'}</button>
-              <button type="button" class="secondary-action" data-action="flip-heater-position" data-segment="${selectedHeaterSegment.id}" ${selectedHeater ? '' : 'disabled'}>Flip heater position</button>
+            <div class="detail-heading">
+              <strong>${escapeHtml(heaterSegmentLabel(this.state, selectedHeaterSegment))}</strong>
+              <small>${selectedHeaterSegment.axis === 'horizontal' ? 'Choose Front, Back, or both' : 'Choose Left, Right, or both'}</small>
             </div>
-            ${selectedHeater ? `<small class="heater-position-hint">Flip switches the heater between the ${selectedHeaterPositions.first.toLowerCase()} and ${selectedHeaterPositions.second.toLowerCase()} ends of this side.</small>` : ''}
+            <div class="heater-direction-grid">
+              ${['first', 'second'].map((direction) => {
+                const selected = Boolean(selectedHeater?.[direction]);
+                return `
+                  <button type="button" class="heater-direction-card ${selected ? 'is-selected' : ''}"
+                    data-action="toggle-heater-direction" data-segment="${selectedHeaterSegment.id}" data-direction="${direction}" aria-pressed="${selected}">
+                    ${this.accessoryModelMark('heaters')}
+                    <span><strong>${escapeHtml(selectedHeaterDirections[direction])}</strong><small>${selected ? 'Heater added' : 'Add heater'}</small></span>
+                    <span class="toggle-indicator" aria-hidden="true"></span>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+            <small class="heater-position-hint">Both heaters stay centered on this span; only their facing direction differs.</small>
           </div>
-        ` : '<div class="info-banner pole-mount-empty-note"><strong>Select a side segment.</strong><span>Choose one of the exterior spans above before adding a heater.</span></div>'}
+        ` : '<div class="info-banner pole-mount-empty-note"><strong>Select a beam span.</strong><span>Click any horizontal or vertical line in the plan above.</span></div>'}
       </section>
 
       ${this.renderPoleCustomization()}

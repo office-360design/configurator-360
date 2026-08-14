@@ -624,3 +624,151 @@
   cursor: not-allowed;
   opacity: 0.42;
 }
+
+/* v8 heater + spotlight layout fixes */
+.configurator-sidebar .spotlight-rectangle-editor,
+.configurator-sidebar .roof-rectangle-grid,
+.configurator-sidebar .roof-rectangle-grid__canvas,
+.configurator-sidebar .spotlight-selection-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.configurator-sidebar .spotlight-rectangle-editor {
+  width: 100%;
+  overflow: hidden;
+}
+
+.configurator-sidebar .spotlight-rectangle-editor .accessory-helper-copy,
+.configurator-sidebar .spotlight-selection-card strong,
+.configurator-sidebar .spotlight-selection-card small {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.configurator-sidebar .roof-rectangle-grid {
+  width: 100%;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.configurator-sidebar .roof-rectangle-grid__canvas {
+  width: 100%;
+  max-width: 100%;
+  min-height: 120px;
+  max-height: 250px;
+  overflow: hidden;
+}
+
+.configurator-sidebar .spotlight-selection-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+}
+
+.configurator-sidebar .spotlight-selection-card .counter-control {
+  width: 100%;
+  max-width: 220px;
+  justify-self: start;
+}
+
+/* Heater plan uses the same segment-selection interaction as wall closings. */
+.configurator-sidebar .pergola-grid__segment.has-heater {
+  color: #0878c9;
+}
+
+.configurator-sidebar .pergola-grid__segment.has-heater > span {
+  background: #0878c9;
+  box-shadow: 0 0 0 3px rgba(8, 120, 201, 0.18);
+}
+
+.configurator-sidebar .heater-grid-legend .legend-line.has-heater {
+  background: #0878c9;
+  box-shadow: 0 0 0 2px rgba(8, 120, 201, 0.16);
+}
+
+.configurator-sidebar .heater-direction-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.configurator-sidebar .heater-direction-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 9px;
+  border: 1px solid #dbe3e8;
+  border-radius: 11px;
+  color: #172027;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.configurator-sidebar .heater-direction-card .accessory-model-mark {
+  width: 40px;
+  height: 40px;
+  flex-basis: 40px;
+}
+
+.configurator-sidebar .heater-direction-card .accessory-model-mark > img {
+  width: 28px;
+  height: 28px;
+}
+
+.configurator-sidebar .heater-direction-card strong,
+.configurator-sidebar .heater-direction-card small {
+  display: block;
+}
+
+.configurator-sidebar .heater-direction-card strong {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.configurator-sidebar .heater-direction-card small {
+  margin-top: 3px;
+  font-size: 7px;
+  line-height: 1.35;
+  color: #7c8991;
+}
+
+.configurator-sidebar .heater-direction-card.is-selected {
+  border: 2px solid #0878c9;
+  color: #004f88;
+  background: #e7f4fd;
+  box-shadow: 0 0 0 3px rgba(8, 120, 201, 0.22);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .heater-direction-card {
+  color: #e2e8f0;
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .heater-direction-card small {
+  color: #94a3b8;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .heater-direction-card.is-selected {
+  border-color: #69b9f1;
+  color: #eff8ff;
+  background: #163f64;
+  box-shadow: 0 0 0 3px rgba(105, 185, 241, 0.28);
+}
+
+@media (max-width: 520px) {
+  .configurator-sidebar .heater-direction-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .configurator-sidebar .roof-rectangle-grid {
+    padding: 11px;
+  }
+}
