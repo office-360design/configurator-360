@@ -227,7 +227,6 @@ function normalizePreferences(state, incoming = {}, options = {}) {
   const profiles = {
     'en-US': { units: 'imperial', currency: 'USD' },
     'ro-RO': { units: 'metric', currency: 'RON' },
-    'de-DE': { units: 'metric', currency: 'EUR' },
   };
 
   const incomingLocale = typeof incoming.locale === 'string' && profiles[incoming.locale]
@@ -250,7 +249,7 @@ function normalizePreferences(state, incoming = {}, options = {}) {
   state.units = ['metric', 'imperial'].includes(state.units)
     ? state.units
     : defaults.units;
-  state.currency = ['USD', 'RON', 'EUR'].includes(state.currency)
+  state.currency = ['USD', 'RON'].includes(state.currency)
     ? state.currency
     : defaults.currency;
   state.quality = ['low', 'balanced', 'high'].includes(state.quality)
