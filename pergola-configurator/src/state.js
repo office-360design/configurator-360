@@ -3,10 +3,12 @@ import {
   DIMENSION_LIMITS,
   POLE_FACES as LAYOUT_POLE_FACES,
   buildPoleGrid,
+  buildRoofCells,
   clampDimensionValue,
   connectedFaceForSegment,
   getConnectedSegment,
   getPole,
+  getRoofCell,
   getSegment,
   legacyCornerMap,
   normalizeDimensions,
@@ -27,6 +29,8 @@ const LEGACY_STORAGE_KEYS = [
 ];
 
 export const SCREEN_TYPES = ['screen', 'motorized-screen'];
+// Legacy roof-position names are kept only so older saved configurations can be migrated
+// to the new pole-mounted weather-sensor model.
 export const SENSOR_POSITIONS = [
   'front-left',
   'front-center',
@@ -37,6 +41,11 @@ export const SENSOR_POSITIONS = [
   'back-center',
   'back-right',
 ];
+
+const SPOTLIGHT_EDGE_CLEARANCE_MM = 420;
+const SPOTLIGHT_MIN_SPACING_MM = 900;
+const SPOTLIGHT_MAX_COLUMNS = 4;
+const SPOTLIGHT_MAX_ROWS = 3;
 const LEGACY_SUPPORT_POLES = ['frontLeft', 'frontRight', 'backLeft', 'backRight'];
 export const POLE_FACES = LAYOUT_POLE_FACES;
 export const POLE_MOUNT_TYPES = ['speaker', 'outlet', 'hand-crank', 'switch'];
@@ -172,11 +181,17 @@ export const DEFAULT_STATE = Object.freeze({
   },
   accessories: {
     perimeterLed: { enabled: false, color: '#fff1b4' },
-    spotlights: 0,
-    heaters: { front: false, back: false, left: false, right: false },
+    // Spotlights are stored per roof rectangle. Each value is the number of lights
+    // inside the rectangle between four neighbouring poles.
+    spotlights: {},
+    // Heaters are stored per exterior pole-to-pole segment. `flipped` swaps the
+    // heater toward the opposite end of that segment.
+    heaters: {},
+    // Weather sensors are mounted on top of poles. One rain and one wind sensor can
+    // exist globally, but the two types cannot share the same pole.
     sensors: {
-      rain: { enabled: false, position: 'front-left' },
-      wind: { enabled: false, position: 'back-right' },
+      rain: { enabled: false, pole: null },
+      wind: { enabled: false, pole: null },
     },
   },
   sideSegments: createSideSegments({ width: 5000, depth: 3500, height: 2700 }),
@@ -284,6 +299,183 @@ function normalizeScreenSides(state, incoming = {}) {
   });
 }
 
+export function getRoofRectangles(state) {
+  return buildRoofCells(state?.dimensions ?? state ?? DEFAULT_STATE.dimensions);
+}
+
+export function getRoofRectangle(state, rectangleId) {
+  return getRoofCell(state?.dimensions ?? state ?? DEFAULT_STATE.dimensions, rectangleId);
+}
+
+function spotlightAxisSlots(lengthMm, maximum) {
+  const usable = Math.max(0, Number(lengthMm) - SPOTLIGHT_EDGE_CLEARANCE_MM * 2);
+  return Math.max(1, Math.min(maximum, Math.floor(usable / SPOTLIGHT_MIN_SPACING_MM) + 1));
+}
+
+export function getSpotlightRectangleCapacity(state, rectangleId) {
+  const rectangle = getRoofRectangle(state, rectangleId);
+  if (!rectangle) return { columns: 0, rows: 0, max: 0 };
+  const columns = spotlightAxisSlots(rectangle.widthMm, SPOTLIGHT_MAX_COLUMNS);
+  const rows = spotlightAxisSlots(rectangle.depthMm, SPOTLIGHT_MAX_ROWS);
+  return { columns, rows, max: Math.min(12, columns * rows) };
+}
+
+export function getSpotlightRectangleCount(state, rectangleId) {
+  const capacity = getSpotlightRectangleCapacity(state, rectangleId).max;
+  const value = Number(state?.accessories?.spotlights?.[rectangleId]);
+  return Math.min(capacity, Math.max(0, Number.isFinite(value) ? Math.round(value) : 0));
+}
+
+export function getTotalSpotlights(state) {
+  return getRoofRectangles(state).reduce((sum, rectangle) => sum + getSpotlightRectangleCount(state, rectangle.id), 0);
+}
+
+export function getSpotlightRectangleLayout(state, rectangleId, requestedCount = null) {
+  const capacity = getSpotlightRectangleCapacity(state, rectangleId);
+  const count = requestedCount === null
+    ? getSpotlightRectangleCount(state, rectangleId)
+    : Math.min(capacity.max, Math.max(0, Math.round(Number(requestedCount) || 0)));
+  if (!count || !capacity.max) return { ...capacity, count: 0, usedColumns: 0, usedRows: 0 };
+
+  // Prefer a balanced grid, but never exceed the physical row/column capacity of
+  // the selected roof rectangle.
+  let usedRows = Math.min(capacity.rows, Math.max(1, Math.ceil(count / capacity.columns)));
+  let usedColumns = Math.min(capacity.columns, Math.max(1, Math.ceil(count / usedRows)));
+  while (usedColumns * usedRows < count && usedRows < capacity.rows) usedRows += 1;
+  while (usedColumns * usedRows < count && usedColumns < capacity.columns) usedColumns += 1;
+  return { ...capacity, count, usedColumns, usedRows };
+}
+
+export function getBoundaryHeaterSegments(state) {
+  return getPoleGrid(state).segments.filter((segment) => segment.boundary && segmentIsAvailable(state, segment.id));
+}
+
+export function getHeaterConfig(state, segmentId) {
+  const value = state?.accessories?.heaters?.[segmentId];
+  if (!value) return null;
+  if (value === true) return { enabled: true, flipped: false };
+  if (typeof value !== 'object' || value.enabled === false) return null;
+  return { enabled: true, flipped: Boolean(value.flipped) };
+}
+
+export function countHeaters(state) {
+  return getBoundaryHeaterSegments(state).reduce((count, segment) => count + (getHeaterConfig(state, segment.id) ? 1 : 0), 0);
+}
+
+export function getPoleSensor(state, pole) {
+  const sensors = state?.accessories?.sensors ?? {};
+  if (sensors.rain?.enabled && sensors.rain.pole === pole) return 'rain';
+  if (sensors.wind?.enabled && sensors.wind.pole === pole) return 'wind';
+  return null;
+}
+
+function nearestLegacySensorPole(state, position) {
+  const grid = getPoleGrid(state);
+  const middleRow = Math.round((grid.rows - 1) / 2);
+  const middleColumn = Math.round((grid.columns - 1) / 2);
+  const targets = {
+    'front-left': { row: 0, column: 0 },
+    'front-center': { row: 0, column: middleColumn },
+    'front-right': { row: 0, column: grid.columns - 1 },
+    'left-center': { row: middleRow, column: 0 },
+    'right-center': { row: middleRow, column: grid.columns - 1 },
+    'back-left': { row: grid.rows - 1, column: 0 },
+    'back-center': { row: grid.rows - 1, column: middleColumn },
+    'back-right': { row: grid.rows - 1, column: grid.columns - 1 },
+  };
+  const target = targets[position] ?? targets['front-left'];
+  const preferred = grid.poles.find((pole) => pole.row === target.row && pole.column === target.column)?.id;
+  if (preferred && poleIsAvailable(state, preferred)) return preferred;
+  return grid.poles.find((pole) => poleIsAvailable(state, pole.id))?.id ?? null;
+}
+
+function normalizeSpotlights(state, current, legacy) {
+  const normalized = {};
+  const rectangles = getRoofRectangles(state);
+  const source = current.spotlights;
+
+  if (typeof source === 'number' || typeof legacy.spotlights === 'number') {
+    const count = Number(typeof source === 'number' ? source : legacy.spotlights) || 0;
+    const first = rectangles[0];
+    if (first && count > 0) normalized[first.id] = Math.min(getSpotlightRectangleCapacity(state, first.id).max, Math.round(count));
+  } else if (source && typeof source === 'object') {
+    rectangles.forEach((rectangle) => {
+      const value = Number(source[rectangle.id]);
+      if (!Number.isFinite(value) || value <= 0) return;
+      normalized[rectangle.id] = Math.min(getSpotlightRectangleCapacity(state, rectangle.id).max, Math.round(value));
+    });
+  }
+
+  current.spotlights = normalized;
+}
+
+function normalizeHeaters(state, current, legacy) {
+  const normalized = {};
+  const segments = getBoundaryHeaterSegments(state);
+  const source = current.heaters;
+
+  // Older versions stored one boolean per whole side (or a total count). Migrate
+  // those to the first available exterior pole-to-pole segment on each side.
+  if (typeof legacy.heaters === 'number' || typeof source === 'number') {
+    const count = Math.min(4, Math.max(0, Number(typeof source === 'number' ? source : legacy.heaters) || 0));
+    ['front', 'back', 'left', 'right'].slice(0, count).forEach((side) => {
+      const segment = segments.find((item) => item.boundary === side);
+      if (segment) normalized[segment.id] = { enabled: true, flipped: false };
+    });
+  } else if (source && typeof source === 'object') {
+    const hasLegacySideKeys = ['front', 'back', 'left', 'right'].some((side) => typeof source[side] === 'boolean');
+    if (hasLegacySideKeys) {
+      ['front', 'back', 'left', 'right'].forEach((side) => {
+        if (!source[side]) return;
+        const segment = segments.find((item) => item.boundary === side);
+        if (segment) normalized[segment.id] = { enabled: true, flipped: false };
+      });
+    } else {
+      segments.forEach((segment) => {
+        const value = source[segment.id];
+        if (!value) return;
+        normalized[segment.id] = {
+          enabled: value === true ? true : value.enabled !== false,
+          flipped: value === true ? false : Boolean(value.flipped),
+        };
+      });
+    }
+  }
+
+  current.heaters = normalized;
+}
+
+function normalizeSensors(state, current, legacy, defaults) {
+  const sensors = deepMerge(defaults.sensors, current.sensors ?? {});
+
+  if (typeof legacy.rainSensor === 'boolean' || typeof legacy.windSensor === 'boolean') {
+    sensors.rain.enabled = Boolean(legacy.rainSensor);
+    sensors.wind.enabled = Boolean(legacy.windSensor);
+  }
+
+  ['rain', 'wind'].forEach((type) => {
+    const sensor = sensors[type] ?? { enabled: false, pole: null };
+    if (sensor.enabled && (!sensor.pole || !poleIsAvailable(state, sensor.pole))) {
+      sensor.pole = nearestLegacySensorPole(state, sensor.position ?? (type === 'rain' ? 'front-left' : 'back-right'));
+    }
+    sensor.enabled = Boolean(sensor.enabled && sensor.pole && poleIsAvailable(state, sensor.pole));
+    if (!sensor.enabled) sensor.pole = null;
+    delete sensor.position;
+    sensors[type] = sensor;
+  });
+
+  if (sensors.rain.enabled && sensors.wind.enabled && sensors.rain.pole === sensors.wind.pole) {
+    const alternative = getSupportPoleIds(state).find((pole) => poleIsAvailable(state, pole) && pole !== sensors.rain.pole);
+    if (alternative) sensors.wind.pole = alternative;
+    else {
+      sensors.wind.enabled = false;
+      sensors.wind.pole = null;
+    }
+  }
+
+  current.sensors = sensors;
+}
+
 function normalizeAccessories(state, incoming = {}) {
   const defaults = clone(DEFAULT_STATE.accessories);
   const legacy = incoming.accessories ?? {};
@@ -295,41 +487,14 @@ function normalizeAccessories(state, incoming = {}) {
     current.perimeterLed = deepMerge(defaults.perimeterLed, current.perimeterLed ?? {});
   }
 
-  current.spotlights = Math.min(12, Math.max(0, Number(current.spotlights) || 0));
-
-  if (typeof legacy.heaters === 'number') {
-    const order = ['front', 'back', 'left', 'right'];
-    current.heaters = { ...defaults.heaters };
-    order.slice(0, Math.min(4, Math.max(0, legacy.heaters))).forEach((side) => { current.heaters[side] = true; });
-  } else {
-    current.heaters = deepMerge(defaults.heaters, current.heaters ?? {});
-  }
-
-  if (typeof legacy.rainSensor === 'boolean' || typeof legacy.windSensor === 'boolean') {
-    current.sensors = deepMerge(defaults.sensors, current.sensors ?? {});
-    current.sensors.rain.enabled = Boolean(legacy.rainSensor);
-    current.sensors.wind.enabled = Boolean(legacy.windSensor);
-  } else {
-    current.sensors = deepMerge(defaults.sensors, current.sensors ?? {});
-  }
+  normalizeSpotlights(state, current, legacy);
+  normalizeHeaters(state, current, legacy);
+  normalizeSensors(state, current, legacy, defaults);
 
   state.accessories = current;
   delete state.accessories.rainSensor;
   delete state.accessories.windSensor;
   delete state.accessories.outletType;
-}
-
-function findFreeSensorPosition(unavailable) {
-  return SENSOR_POSITIONS.find((position) => position !== unavailable) ?? SENSOR_POSITIONS[0];
-}
-
-function ensureSensorPositions(state) {
-  const sensors = state.accessories.sensors;
-  if (!SENSOR_POSITIONS.includes(sensors.rain.position)) sensors.rain.position = DEFAULT_STATE.accessories.sensors.rain.position;
-  if (!SENSOR_POSITIONS.includes(sensors.wind.position)) sensors.wind.position = DEFAULT_STATE.accessories.sensors.wind.position;
-  if (sensors.rain.enabled && sensors.wind.enabled && sensors.rain.position === sensors.wind.position) {
-    sensors.wind.position = findFreeSensorPosition(sensors.rain.position);
-  }
 }
 
 export function poleIsAvailable(state, pole) {
@@ -750,7 +915,12 @@ export function hasPoleMountedItems(state) {
 }
 
 export function hasLayoutCustomizations(state) {
-  return hasPoleMountedItems(state) || hasConfiguredSideSegments(state);
+  const hasSensors = Boolean(state.accessories?.sensors?.rain?.enabled || state.accessories?.sensors?.wind?.enabled);
+  return hasPoleMountedItems(state)
+    || hasConfiguredSideSegments(state)
+    || getTotalSpotlights(state) > 0
+    || countHeaters(state) > 0
+    || hasSensors;
 }
 
 function normalizeSideConfig(config = {}) {
@@ -788,7 +958,6 @@ function normalizeState(state, incoming = {}, options = {}) {
   normalizeDimensionState(state);
   normalizeScreenSides(state, incoming);
   normalizeAccessories(state, incoming);
-  ensureSensorPositions(state);
   normalizeSideSegments(state, incoming, options);
   normalizePoleMounts(state, incoming, options);
   return state;
@@ -895,16 +1064,6 @@ export class ConfiguratorStore {
     const dimensionMatch = path.match(/^dimensions\.(width|depth|height)$/);
     if (dimensionMatch) return this.setDimensions({ [dimensionMatch[1]]: value }, meta);
 
-    const sensorMatch = path.match(/^accessories\.sensors\.(rain|wind)\.position$/);
-    if (sensorMatch) {
-      const sensor = sensorMatch[1];
-      const other = sensor === 'rain' ? 'wind' : 'rain';
-      if (this.state.accessories.sensors[other].enabled && this.state.accessories.sensors[other].position === value) {
-        this.lastError = 'That roof position is already occupied by the other sensor.';
-        return false;
-      }
-    }
-
     const segmentMatch = path.match(/^sideSegments\.([^.]+)\.type$/);
     if (segmentMatch && value !== 'none') {
       if (!segmentIsAvailable(this.state, segmentMatch[1])) {
@@ -983,8 +1142,42 @@ export class ConfiguratorStore {
     candidate.sides = {
       front: createSide(), back: createSide(), left: createSide(), right: createSide(),
     };
+    candidate.accessories.spotlights = {};
+    candidate.accessories.heaters = {};
+    candidate.accessories.sensors = clone(DEFAULT_STATE.accessories.sensors);
     this.state = normalizeState(candidate, candidate);
     this.notify({ path: meta.path ?? 'dimensions', dimensionsReset: true, ...meta });
+    return true;
+  }
+
+  toggleSensorOnPole(type, pole, meta = {}) {
+    if (!['rain', 'wind'].includes(type) || !poleIsAvailable(this.state, pole)) {
+      this.lastError = 'That weather sensor cannot be placed on this pole.';
+      return false;
+    }
+
+    const other = type === 'rain' ? 'wind' : 'rain';
+    const candidate = clone(this.state);
+    const current = candidate.accessories.sensors[type];
+    const turningOff = Boolean(current.enabled && current.pole === pole);
+
+    if (turningOff) {
+      current.enabled = false;
+      current.pole = null;
+    } else {
+      current.enabled = true;
+      current.pole = pole;
+      // The top cap only accepts one weather sensor. Selecting one type on a pole
+      // therefore removes the other type from that same pole automatically.
+      if (candidate.accessories.sensors[other].enabled && candidate.accessories.sensors[other].pole === pole) {
+        candidate.accessories.sensors[other].enabled = false;
+        candidate.accessories.sensors[other].pole = null;
+      }
+    }
+
+    this.recordHistory(`accessories.sensors.${type}`, meta);
+    this.state = normalizeState(candidate, candidate);
+    this.notify({ path: `accessories.sensors.${type}`, ...meta });
     return true;
   }
 

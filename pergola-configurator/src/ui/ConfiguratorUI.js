@@ -5,6 +5,11 @@ import {
   findPoleMount,
   getPoleGrid,
   getPoleMountConflictMap,
+  getBoundaryHeaterSegments,
+  getHeaterConfig,
+  getRoofRectangles,
+  getSpotlightRectangleCapacity,
+  getSpotlightRectangleCount,
   getSideSegmentConfig,
   hasLayoutCustomizations,
   hasPoleMountConflicts,
@@ -40,6 +45,8 @@ export class ConfiguratorUI {
     this.activeSideSegment = null;
     this.activePole = null;
     this.activePoleFace = 'front';
+    this.activeRoofRectangle = null;
+    this.activeHeaterSegment = null;
     this.environmentOpen = false;
     this.toolsOpen = false;
     this.sidebarHidden = false;
@@ -262,6 +269,8 @@ export class ConfiguratorUI {
       this.activePole = null;
       this.activePoleFace = 'front';
       this.activeSideSegment = null;
+      this.activeRoofRectangle = null;
+      this.activeHeaterSegment = null;
       this.environmentOpen = false;
       this.toolsOpen = false;
       this.sidebarHidden = false;
@@ -272,10 +281,14 @@ export class ConfiguratorUI {
       this.activePole = null;
       this.activePoleFace = 'front';
       this.activeSideSegment = null;
+      this.activeRoofRectangle = null;
+      this.activeHeaterSegment = null;
     }
     const grid = getPoleGrid(state);
     if (this.activePole && !grid.poles.some((pole) => pole.id === this.activePole)) this.activePole = null;
     if (this.activeSideSegment && !grid.segments.some((segment) => segment.id === this.activeSideSegment)) this.activeSideSegment = null;
+    if (this.activeRoofRectangle && !getRoofRectangles(state).some((rectangle) => rectangle.id === this.activeRoofRectangle)) this.activeRoofRectangle = null;
+    if (this.activeHeaterSegment && !getBoundaryHeaterSegments(state).some((segment) => segment.id === this.activeHeaterSegment)) this.activeHeaterSegment = null;
     this.projectDirty = this.computeProjectDirty();
     if (meta.continuous) {
       this.syncContinuousValues();
@@ -375,20 +388,43 @@ export class ConfiguratorUI {
         this.activeSideSegment = this.activeSideSegment === segmentId ? null : segmentId;
         this.render();
       }
-    } else if (action === 'counter') {
-      const key = actionTarget.dataset.key;
-      const delta = Number(actionTarget.dataset.delta);
-      const current = Number(this.state.accessories[key]) || 0;
-      const next = Math.min(12, Math.max(0, current + delta));
-      this.store.update(`accessories.${key}`, next);
+    } else if (action === 'select-roof-rectangle') {
+      const rectangle = actionTarget.dataset.rectangle;
+      if (getRoofRectangles(this.state).some((item) => item.id === rectangle)) {
+        this.activeRoofRectangle = this.activeRoofRectangle === rectangle ? null : rectangle;
+        this.render();
+      }
+    } else if (action === 'spotlight-counter') {
+      const rectangle = actionTarget.dataset.rectangle || this.activeRoofRectangle;
+      if (!rectangle) return;
+      const delta = Number(actionTarget.dataset.delta) || 0;
+      const capacity = getSpotlightRectangleCapacity(this.state, rectangle).max;
+      const current = getSpotlightRectangleCount(this.state, rectangle);
+      const next = Math.min(capacity, Math.max(0, current + delta));
+      this.store.update(`accessories.spotlights.${rectangle}`, next);
     } else if (action === 'toggle-led') {
       this.store.update('accessories.perimeterLed.enabled', !this.state.accessories.perimeterLed.enabled);
-    } else if (action === 'toggle-heater-side') {
-      const side = actionTarget.dataset.side;
-      this.store.update(`accessories.heaters.${side}`, !this.state.accessories.heaters[side]);
-    } else if (action === 'toggle-sensor') {
+    } else if (action === 'select-heater-segment') {
+      const segment = actionTarget.dataset.segment;
+      if (getBoundaryHeaterSegments(this.state).some((item) => item.id === segment)) {
+        this.activeHeaterSegment = this.activeHeaterSegment === segment ? null : segment;
+        this.render();
+      }
+    } else if (action === 'toggle-heater-segment') {
+      const segment = actionTarget.dataset.segment || this.activeHeaterSegment;
+      if (!segment) return;
+      const current = getHeaterConfig(this.state, segment);
+      this.store.update(`accessories.heaters.${segment}`, current ? null : { enabled: true, flipped: false });
+    } else if (action === 'flip-heater-position') {
+      const segment = actionTarget.dataset.segment || this.activeHeaterSegment;
+      if (!segment) return;
+      const current = getHeaterConfig(this.state, segment);
+      if (current) this.store.update(`accessories.heaters.${segment}.flipped`, !current.flipped);
+    } else if (action === 'toggle-pole-sensor') {
       const sensor = actionTarget.dataset.sensor;
-      this.store.update(`accessories.sensors.${sensor}.enabled`, !this.state.accessories.sensors[sensor].enabled);
+      if (!this.activePole) return;
+      const updated = this.store.toggleSensorOnPole(sensor, this.activePole);
+      if (updated === false) this.showToast(this.store.getLastError?.() || 'That sensor cannot be placed there.');
     } else if (action === 'open-pole-customization') {
       const automationMount = this.state.automation === 'manual'
         ? findPoleMount(this.state, 'hand-crank')
@@ -592,8 +628,8 @@ export class ConfiguratorUI {
         <section class="modal dimension-warning-modal" role="dialog" aria-modal="true" aria-labelledby="dimension-warning-title">
           <header><h2 id="dimension-warning-title">Change pergola size?</h2><button type="button" data-action="cancel-dimension-change" aria-label="Cancel">×</button></header>
           <div class="modal__body">
-            <p><strong>All pole accessories will be removed and all side closings will disappear.</strong></p>
-            <p>This prevents accessories or walls from being left attached to poles that no longer exist.</p>
+            <p><strong>All pole accessories, weather sensors, heaters, spotlights and side closings will be removed.</strong></p>
+            <p>This prevents components from being left attached to poles, roof rectangles or side segments that no longer exist after resizing.</p>
           </div>
           <footer class="dimension-warning-modal__actions">
             <button class="secondary-button" type="button" data-action="cancel-dimension-change">Cancel</button>

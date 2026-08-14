@@ -3,7 +3,6 @@ import {
   AUTOMATION_OPTIONS,
   DIMENSION_PRESETS,
   FRAME_COLORS,
-  HEATER_SIDES,
   LED_COLORS,
   LOUVER_COLORS,
   MODEL_OPTIONS,
@@ -11,7 +10,6 @@ import {
   POLE_FACES,
   PRIVACY_WALL_COLORS,
   SCREEN_COLORS,
-  SENSOR_POSITIONS,
   SERVICE_OPTIONS,
   SIDE_NAMES,
   SIDE_OPTIONS,
@@ -28,11 +26,19 @@ import {
   countPoleMounts,
   findPoleMount,
   findAvailablePoleMountHeight,
+  getBoundaryHeaterSegments,
   getConnectedSegmentForPoleFace,
+  getHeaterConfig,
   getPoleFaceMounts,
   getPoleGrid,
   getPoleLabel,
+  getPoleSensor,
   getPergolaConfigurationIssues,
+  getRoofRectangles,
+  getSpotlightRectangleCapacity,
+  getSpotlightRectangleCount,
+  getTotalSpotlights,
+  countHeaters,
   getPoleMountConflictMap,
   getPoleMountHeightLimits,
   getSideSegment,
@@ -141,6 +147,78 @@ function renderPergolaGrid(state, options = {}) {
         ${segmentMarkup}
         ${poleMarkup}
       </div>
+    </div>
+  `;
+}
+
+function renderRoofRectangleGrid(state, selectedRectangle = null) {
+  const grid = getPoleGrid(state);
+  const rectangles = getRoofRectangles(state);
+  const aspect = Math.min(3.2, Math.max(0.7, grid.width / grid.depth));
+  const xPercent = (column) => grid.columns <= 1 ? 50 : (column / (grid.columns - 1)) * 100;
+  const yPercent = (row) => grid.rows <= 1 ? 50 : 100 - (row / (grid.rows - 1)) * 100;
+
+  const cells = rectangles.map((rectangle) => {
+    const left = xPercent(rectangle.column);
+    const right = xPercent(rectangle.column + 1);
+    const first = yPercent(rectangle.row);
+    const second = yPercent(rectangle.row + 1);
+    const top = Math.min(first, second);
+    const bottom = Math.max(first, second);
+    const count = getSpotlightRectangleCount(state, rectangle.id);
+    const selected = rectangle.id === selectedRectangle;
+    return `
+      <button type="button" class="roof-rectangle ${selected ? 'is-selected' : ''} ${count ? 'has-lights' : ''}"
+        style="left:${left}%;top:${top}%;width:${right - left}%;height:${bottom - top}%;"
+        data-action="select-roof-rectangle" data-rectangle="${rectangle.id}" aria-pressed="${selected}"
+        title="${escapeHtml(rectangle.label)}">
+        <span>${count || ''}</span>
+      </button>
+    `;
+  }).join('');
+
+  const poles = grid.poles.map((pole) => `
+    <span class="roof-rectangle-grid__pole" style="left:${xPercent(pole.column)}%;top:${yPercent(pole.row)}%;" aria-hidden="true"></span>
+  `).join('');
+
+  return `
+    <div class="roof-rectangle-grid" style="--pergola-grid-aspect:${aspect};">
+      <div class="roof-rectangle-grid__canvas">
+        ${cells}
+        ${poles}
+      </div>
+    </div>
+  `;
+}
+
+function heaterSegmentLabel(state, segment) {
+  return segmentDisplayLabel(state, segment);
+}
+
+function heaterPositionLabels(segment) {
+  if (!segment) return { first: 'First end', second: 'Opposite end' };
+  return segment.axis === 'horizontal'
+    ? { first: 'Left', second: 'Right' }
+    : { first: 'Front', second: 'Back' };
+}
+
+function renderHeaterSideSelector(state, selectedSegment) {
+  const segments = getBoundaryHeaterSegments(state);
+  return `
+    <div class="heater-segment-selector">
+      ${segments.map((segment) => {
+        const heater = getHeaterConfig(state, segment.id);
+        const selected = segment.id === selectedSegment;
+        const positions = heaterPositionLabels(segment);
+        const position = heater ? (heater.flipped ? positions.second : positions.first) : 'No heater';
+        return `
+          <button type="button" class="heater-segment-button ${selected ? 'is-selected' : ''} ${heater ? 'has-heater' : ''}"
+            data-action="select-heater-segment" data-segment="${segment.id}" aria-pressed="${selected}">
+            <span>${escapeHtml(heaterSegmentLabel(state, segment))}</span>
+            <small>${heater ? `Heater · ${position}` : 'Available'}</small>
+          </button>
+        `;
+      }).join('')}
     </div>
   `;
 }
@@ -467,7 +545,21 @@ export const pergolaRenderers = {
 
   renderAccessoriesStep() {
     const accessories = this.state.accessories;
-    const heaterCount = Object.values(accessories.heaters).filter(Boolean).length;
+    const rectangles = getRoofRectangles(this.state);
+    if (this.activeRoofRectangle && !rectangles.some((rectangle) => rectangle.id === this.activeRoofRectangle)) this.activeRoofRectangle = null;
+    if (!this.activeRoofRectangle && rectangles.length === 1) this.activeRoofRectangle = rectangles[0].id;
+
+    const selectedRectangle = rectangles.find((rectangle) => rectangle.id === this.activeRoofRectangle) ?? null;
+    const selectedSpotlightCount = selectedRectangle ? getSpotlightRectangleCount(this.state, selectedRectangle.id) : 0;
+    const selectedCapacity = selectedRectangle ? getSpotlightRectangleCapacity(this.state, selectedRectangle.id) : { columns: 0, rows: 0, max: 0 };
+    const totalSpotlights = getTotalSpotlights(this.state);
+
+    const heaterSegments = getBoundaryHeaterSegments(this.state);
+    if (this.activeHeaterSegment && !heaterSegments.some((segment) => segment.id === this.activeHeaterSegment)) this.activeHeaterSegment = null;
+    const selectedHeaterSegment = heaterSegments.find((segment) => segment.id === this.activeHeaterSegment) ?? null;
+    const selectedHeater = selectedHeaterSegment ? getHeaterConfig(this.state, selectedHeaterSegment.id) : null;
+    const selectedHeaterPositions = heaterPositionLabels(selectedHeaterSegment);
+    const heaterCount = countHeaters(this.state);
 
     return `
       <section class="form-section">
@@ -489,46 +581,46 @@ export const pergolaRenderers = {
           </div>
         ` : ''}
 
-        <article class="accessory-card accessory-card--config ${accessories.spotlights > 0 ? 'is-selected' : ''}">
-          ${this.accessoryModelMark('spotlights')}
-          <div><strong>Integrated spotlights</strong><small>Downlights mounted below dedicated support rails.</small></div>
-          <div class="counter-control">
-            <button type="button" data-action="counter" data-key="spotlights" data-delta="-2" aria-label="Decrease spotlights">−</button>
-            <output>${accessories.spotlights}</output>
-            <button type="button" data-action="counter" data-key="spotlights" data-delta="2" aria-label="Increase spotlights">+</button>
-          </div>
-        </article>
+        <div class="accessory-detail-panel spotlight-rectangle-editor">
+          <div class="detail-heading"><strong>Integrated spotlights</strong><small>${totalSpotlights} configured across the roof</small></div>
+          <p class="accessory-helper-copy">Select one roof rectangle. Each rectangle supports at most 12 spotlights, with a lower limit automatically applied when its dimensions would make the lights too crowded.</p>
+          ${renderRoofRectangleGrid(this.state, this.activeRoofRectangle)}
+          ${selectedRectangle ? `
+            <div class="spotlight-selection-card">
+              <div>
+                <strong>${escapeHtml(selectedRectangle.label)}</strong>
+                <small>${(selectedRectangle.widthMm / 1000).toFixed(2)} × ${(selectedRectangle.depthMm / 1000).toFixed(2)} m · maximum ${selectedCapacity.max} (${selectedCapacity.columns} × ${selectedCapacity.rows})</small>
+              </div>
+              <div class="counter-control">
+                <button type="button" data-action="spotlight-counter" data-rectangle="${selectedRectangle.id}" data-delta="-1" aria-label="Decrease spotlights" ${selectedSpotlightCount <= 0 ? 'disabled' : ''}>−</button>
+                <output>${selectedSpotlightCount}</output>
+                <button type="button" data-action="spotlight-counter" data-rectangle="${selectedRectangle.id}" data-delta="1" aria-label="Increase spotlights" ${selectedSpotlightCount >= selectedCapacity.max ? 'disabled' : ''}>+</button>
+              </div>
+            </div>
+          ` : '<div class="info-banner pole-mount-empty-note"><strong>Select a roof rectangle.</strong><span>The spotlight counter will appear for the selected rectangle.</span></div>'}
+        </div>
       </section>
 
       <section class="form-section">
         <div class="section-heading">
           <h2>Infrared heaters</h2>
-          <p>Select up to one inward-facing suspended heater per side. Metal rails keep heaters clear of side closings.</p>
+          <p>Choose an exterior pole-to-pole side segment. Each segment can carry one inward-facing heater, positioned toward either end.</p>
         </div>
         <div class="accessory-summary-line">
           ${this.accessoryModelMark('heaters')}
-          <span><strong>${heaterCount} selected</strong><small>Maximum four</small></span>
+          <span><strong>${heaterCount} selected</strong><small>One heater per exterior segment</small></span>
         </div>
-        <div class="position-grid position-grid--four">
-          ${HEATER_SIDES.map(({ value, label }) => `
-            <button
-              type="button"
-              class="position-button ${accessories.heaters[value] ? 'is-selected' : ''}"
-              data-action="toggle-heater-side"
-              data-side="${value}"
-              aria-pressed="${accessories.heaters[value]}"
-            ><span>${label}</span><small>Suspended rail</small></button>
-          `).join('')}
-        </div>
-      </section>
-
-      <section class="form-section">
-        <div class="section-heading">
-          <h2>Weather sensors</h2>
-          <p>Both sensors use fixed mounting plates and cannot occupy the same roof position.</p>
-        </div>
-        ${this.renderSensorControl('rain', 'Rain sensor')}
-        ${this.renderSensorControl('wind', 'Wind sensor')}
+        ${renderHeaterSideSelector(this.state, this.activeHeaterSegment)}
+        ${selectedHeaterSegment ? `
+          <div class="heater-segment-editor">
+            <div class="detail-heading"><strong>${escapeHtml(heaterSegmentLabel(this.state, selectedHeaterSegment))}</strong><small>${selectedHeater ? `Position: ${selectedHeater.flipped ? selectedHeaterPositions.second : selectedHeaterPositions.first}` : 'No heater on this segment'}</small></div>
+            <div class="heater-actions">
+              <button type="button" class="${selectedHeater ? 'danger-lite-action' : 'secondary-action'}" data-action="toggle-heater-segment" data-segment="${selectedHeaterSegment.id}">${selectedHeater ? 'Remove heater' : 'Add heater'}</button>
+              <button type="button" class="secondary-action" data-action="flip-heater-position" data-segment="${selectedHeaterSegment.id}" ${selectedHeater ? '' : 'disabled'}>Flip heater position</button>
+            </div>
+            ${selectedHeater ? `<small class="heater-position-hint">Flip switches the heater between the ${selectedHeaterPositions.first.toLowerCase()} and ${selectedHeaterPositions.second.toLowerCase()} ends of this side.</small>` : ''}
+          </div>
+        ` : '<div class="info-banner pole-mount-empty-note"><strong>Select a side segment.</strong><span>Choose one of the exterior spans above before adding a heater.</span></div>'}
       </section>
 
       ${this.renderPoleCustomization()}
@@ -560,49 +652,11 @@ export const pergolaRenderers = {
     `;
   },
 
-  renderSensorControl(type, label) {
-    const sensors = this.state.accessories.sensors;
-    const sensor = sensors[type];
-    const otherType = type === 'rain' ? 'wind' : 'rain';
-    const other = sensors[otherType];
-    const markKey = type === 'rain' ? 'rainSensor' : 'windSensor';
-    return `
-      <div class="sensor-config ${sensor.enabled ? 'is-enabled' : ''}">
-        <button
-          type="button"
-          class="accessory-card ${sensor.enabled ? 'is-selected' : ''}"
-          data-action="toggle-sensor"
-          data-sensor="${type}"
-          aria-pressed="${sensor.enabled}"
-        >
-          ${this.accessoryModelMark(markKey)}
-          <span><strong>${label}</strong><small>${type === 'rain' ? 'Detects precipitation and closes the louvers.' : 'Protects the roof during high winds.'}</small></span>
-          <span class="toggle-indicator" aria-hidden="true"></span>
-        </button>
-        ${sensor.enabled ? `
-          <div class="sensor-position-grid">
-            ${SENSOR_POSITIONS.map((position) => {
-              const occupied = other.enabled && other.position === position.value;
-              return `
-                <button
-                  type="button"
-                  class="sensor-position ${sensor.position === position.value ? 'is-selected' : ''} ${occupied ? 'is-occupied' : ''}"
-                  data-option-path="accessories.sensors.${type}.position"
-                  data-option-value="${position.value}"
-                  aria-pressed="${sensor.position === position.value}"
-                  ${occupied ? 'disabled aria-disabled="true" title="Occupied by the other sensor"' : ''}
-                ><span>${position.label}</span>${occupied ? '<small>Occupied</small>' : ''}</button>
-              `;
-            }).join('')}
-          </div>
-        ` : ''}
-      </div>
-    `;
-  },
 
   renderPoleCustomization() {
     const conflicts = getPoleMountConflictMap(this.state);
     const totalMounts = countPoleMounts(this.state);
+    const sensorCount = Number(Boolean(this.state.accessories.sensors.rain.enabled)) + Number(Boolean(this.state.accessories.sensors.wind.enabled));
     const pole = this.activePole && poleIsAvailable(this.state, this.activePole) ? this.activePole : null;
     if (this.activePole && !pole) this.activePole = null;
 
@@ -621,10 +675,38 @@ export const pergolaRenderers = {
       const poleLabel = getPoleLabel(this.state, pole);
       const faceConflict = conflicts[pole]?.[face] ?? null;
       const conflictingTypes = new Set(faceConflict?.types ?? []);
+      const poleSensor = getPoleSensor(this.state, pole);
+      const rainSensor = this.state.accessories.sensors.rain;
+      const windSensor = this.state.accessories.sensors.wind;
 
       selectedDetails = `
+        <div class="pole-customizer__group pole-top-sensor-group">
+          <div class="detail-heading"><strong>2. Weather sensor on top</strong><small>${escapeHtml(poleLabel)} · one sensor maximum</small></div>
+          <div class="pole-top-sensor-grid">
+            ${[
+              { type: 'rain', label: 'Rain sensor', config: rainSensor, icon: './assets/icons/accessory-rain.svg' },
+              { type: 'wind', label: 'Wind sensor', config: windSensor, icon: './assets/icons/accessory-wind.svg' },
+            ].map((sensor) => {
+              const selected = sensor.config.enabled && sensor.config.pole === pole;
+              const elsewhere = sensor.config.enabled && sensor.config.pole && sensor.config.pole !== pole;
+              const note = selected
+                ? 'Mounted on this pole'
+                : elsewhere
+                  ? `Move from ${getPoleLabel(this.state, sensor.config.pole)}`
+                  : 'Mount on this pole';
+              return `
+                <button type="button" class="pole-top-sensor ${selected ? 'is-selected' : ''}" data-action="toggle-pole-sensor" data-sensor="${sensor.type}" aria-pressed="${selected}">
+                  <span class="pole-mount-type__icon"><img src="${sensor.icon}" alt="" /></span>
+                  <span><strong>${sensor.label}</strong><small>${note}</small></span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+          <small class="pole-top-sensor-note">${poleSensor ? `${capitalize(poleSensor)} sensor occupies the top of this pole. Selecting the other sensor replaces it automatically.` : 'The pole top is free. Rain and wind sensors cannot occupy the same pole.'}</small>
+        </div>
+
         <div class="pole-customizer__group">
-          <div class="detail-heading"><strong>2. Select a face</strong><small>${escapeHtml(poleLabel)} · ${capitalize(face)} face</small></div>
+          <div class="detail-heading"><strong>3. Select a face</strong><small>${escapeHtml(poleLabel)} · ${capitalize(face)} face</small></div>
           <div class="pole-face-selector">
             ${POLE_FACES.map(({ value, label }) => {
               const faceMounts = getPoleFaceMounts(this.state, pole, value);
@@ -649,7 +731,7 @@ export const pergolaRenderers = {
         </div>
 
         <div class="pole-customizer__group pole-mount-editor ${faceAvailable ? '' : 'is-blocked'} ${faceConflict ? 'is-invalid' : ''}">
-          <div class="detail-heading"><strong>3. Choose components</strong><small>${faceAvailable ? `${escapeHtml(poleLabel)} · ${capitalize(face)} face` : 'This face is reserved by a side closing'}</small></div>
+          <div class="detail-heading"><strong>4. Choose components</strong><small>${faceAvailable ? `${escapeHtml(poleLabel)} · ${capitalize(face)} face` : 'This face is reserved by a side closing'}</small></div>
           ${faceAvailable ? `
             <div class="pole-mount-type-grid">
               ${POLE_MOUNT_OPTIONS.map((option) => {
@@ -696,7 +778,7 @@ export const pergolaRenderers = {
         </div>
         <div class="accessory-summary-line ${hasPoleMountConflicts(this.state) ? 'is-invalid' : ''}">
           <span class="pole-customizer__summary-icon" aria-hidden="true"><img src="./assets/icons/pole-components.svg" alt="" /></span>
-          <span><strong>${totalMounts} pole component${totalMounts === 1 ? '' : 's'}</strong><small>Red pole outlines identify poles containing overlapping items</small></span>
+          <span><strong>${totalMounts} face component${totalMounts === 1 ? '' : 's'} · ${sensorCount} top sensor${sensorCount === 1 ? '' : 's'}</strong><small>Blue outlines show the active selection; red pole outlines identify overlapping face components</small></span>
         </div>
 
         <div class="pole-customizer__group">

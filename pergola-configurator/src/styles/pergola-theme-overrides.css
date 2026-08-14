@@ -337,3 +337,290 @@
 .invalid-configuration-message strong + strong {
   margin-top: 8px;
 }
+
+/* Stronger selection treatment for pole customization and the new accessory editors. */
+.configurator-sidebar .pole-face-selector__button.is-selected,
+.configurator-sidebar .pole-mount-type.is-selected,
+.configurator-sidebar .pole-top-sensor.is-selected,
+.configurator-sidebar .heater-segment-button.is-selected {
+  border: 2px solid #0878c9 !important;
+  box-shadow: 0 0 0 3px rgba(8, 120, 201, 0.24), inset 0 0 0 1px rgba(255, 255, 255, 0.38) !important;
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-face-selector__button.is-selected,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-mount-type.is-selected,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-top-sensor.is-selected,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .heater-segment-button.is-selected {
+  color: #004f88 !important;
+  background: #e7f4fd !important;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pole-face-selector__button.is-selected,
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-type.is-selected,
+.app-shell.is-dark-mode .configurator-sidebar .pole-top-sensor.is-selected,
+.app-shell.is-dark-mode .configurator-sidebar .heater-segment-button.is-selected {
+  border-color: #69b9f1 !important;
+  color: #eff8ff !important;
+  background: #163f64 !important;
+  box-shadow: 0 0 0 3px rgba(105, 185, 241, 0.34), inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.configurator-sidebar .pergola-grid__pole.is-selected {
+  border-color: #eaf7ff !important;
+  box-shadow: 0 0 0 4px #0878c9, 0 0 0 8px rgba(8, 120, 201, 0.22), 0 4px 12px rgba(24, 36, 43, 0.24) !important;
+  transform: translate(-50%, -50%) scale(1.12);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__pole.is-selected {
+  box-shadow: 0 0 0 4px #69b9f1, 0 0 0 8px rgba(105, 185, 241, 0.24), 0 4px 12px rgba(0, 0, 0, 0.34) !important;
+}
+
+/* Roof-rectangle spotlight selector. */
+.roof-rectangle-grid {
+  width: 100%;
+  margin-top: 10px;
+  padding: 18px 20px;
+  border: 1px solid #dfe4e6;
+  border-radius: 16px;
+  background: #f7f9f9;
+}
+
+.roof-rectangle-grid__canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--pergola-grid-aspect, 1.4);
+  min-height: 150px;
+  max-height: 300px;
+}
+
+.roof-rectangle {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  border: 2px solid #9ca9b0;
+  background: rgba(255, 255, 255, 0.46);
+  color: #52636e;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.roof-rectangle:hover {
+  border-color: #0878c9;
+  background: rgba(8, 120, 201, 0.07);
+}
+
+.roof-rectangle.has-lights {
+  background: rgba(8, 120, 201, 0.10);
+  border-color: #79b6db;
+}
+
+.roof-rectangle.is-selected {
+  z-index: 2;
+  border: 3px solid #0878c9;
+  background: rgba(8, 120, 201, 0.16);
+  box-shadow: 0 0 0 4px rgba(8, 120, 201, 0.18);
+}
+
+.roof-rectangle > span {
+  display: grid;
+  min-width: 25px;
+  min-height: 25px;
+  padding: 4px;
+  place-items: center;
+  border-radius: 999px;
+  color: #075e99;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.roof-rectangle-grid__pole {
+  position: absolute;
+  z-index: 3;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #26343c;
+  box-shadow: 0 0 0 1px #77858d;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.spotlight-selection-card,
+.heater-segment-editor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 11px;
+  border: 1px solid #dfe7ec;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.spotlight-selection-card > div:first-child,
+.heater-segment-editor .detail-heading {
+  min-width: 0;
+}
+
+.spotlight-selection-card strong,
+.spotlight-selection-card small {
+  display: block;
+}
+
+.spotlight-selection-card small,
+.accessory-helper-copy,
+.heater-position-hint,
+.pole-top-sensor-note {
+  color: #77858d;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.heater-segment-selector,
+.pole-top-sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.heater-segment-button,
+.pole-top-sensor {
+  min-width: 0;
+  border: 1px solid #dbe3e8;
+  border-radius: 10px;
+  color: #172027;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.heater-segment-button {
+  min-height: 58px;
+  padding: 10px;
+}
+
+.heater-segment-button span,
+.heater-segment-button small,
+.pole-top-sensor strong,
+.pole-top-sensor small {
+  display: block;
+}
+
+.heater-segment-button span,
+.pole-top-sensor strong {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.heater-segment-button small,
+.pole-top-sensor small {
+  margin-top: 4px;
+  color: #7c8991;
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.heater-segment-button.has-heater:not(.is-selected) {
+  border-color: #9cc9e4;
+  background: #f1f9fe;
+}
+
+.heater-segment-editor {
+  display: grid;
+}
+
+.heater-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.heater-actions button {
+  width: 100%;
+}
+
+.danger-lite-action {
+  border: 1px solid #e5a2a2;
+  border-radius: 8px;
+  color: #8f1f1f;
+  background: #fff0f0;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.pole-top-sensor {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  min-height: 60px;
+  gap: 8px;
+  padding: 8px;
+}
+
+.pole-top-sensor-note {
+  display: block;
+  margin-top: 9px;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .roof-rectangle-grid,
+.app-shell.is-dark-mode .configurator-sidebar .spotlight-selection-card,
+.app-shell.is-dark-mode .configurator-sidebar .heater-segment-editor,
+.app-shell.is-dark-mode .configurator-sidebar .heater-segment-button,
+.app-shell.is-dark-mode .configurator-sidebar .pole-top-sensor {
+  color: #e2e8f0;
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .roof-rectangle {
+  border-color: #64748b;
+  background: rgba(30, 41, 59, 0.42);
+  color: #cbd5e1;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .roof-rectangle.has-lights {
+  border-color: #4f9ed0;
+  background: rgba(39, 112, 158, 0.18);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .roof-rectangle.is-selected {
+  border-color: #69b9f1;
+  background: rgba(105, 185, 241, 0.18);
+  box-shadow: 0 0 0 4px rgba(105, 185, 241, 0.22);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .heater-segment-button small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-top-sensor small,
+.app-shell.is-dark-mode .configurator-sidebar .spotlight-selection-card small,
+.app-shell.is-dark-mode .configurator-sidebar .accessory-helper-copy,
+.app-shell.is-dark-mode .configurator-sidebar .heater-position-hint,
+.app-shell.is-dark-mode .configurator-sidebar .pole-top-sensor-note {
+  color: #94a3b8;
+}
+
+@media (max-width: 420px) {
+  .heater-segment-selector,
+  .pole-top-sensor-grid,
+  .heater-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.heater-actions .secondary-action,
+.heater-actions .danger-lite-action {
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.heater-actions button:disabled,
+.spotlight-selection-card .counter-control button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
