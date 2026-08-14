@@ -1,4 +1,4 @@
-name: Deploy test site to Google Cloud Run
+name: Deploy site to Google Cloud Run
 
 on:
   push:
@@ -176,7 +176,7 @@ jobs:
           docker push "${IMAGE}"
 
       # ------------------------------------------------------------
-      # Deploy test Cloud Run service
+      # Deploy Cloud Run service
       # ------------------------------------------------------------
 
       - name: Deploy to Cloud Run
