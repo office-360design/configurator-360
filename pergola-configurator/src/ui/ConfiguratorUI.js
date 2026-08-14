@@ -16,6 +16,7 @@ import {
   LANGUAGE_PROFILES,
   escapeHtml,
   getLanguageProfile,
+  getLocalizedConfiguratorUrl,
   renderActionFeedback,
   renderToolsMenu,
   renderTopBar,
@@ -347,6 +348,11 @@ export class ConfiguratorUI {
       const locale = actionTarget.dataset.locale;
       const profile = LANGUAGE_PROFILES[locale];
       if (profile) {
+        const targetUrl = getLocalizedConfiguratorUrl(locale, 'pergola', window.location);
+        if (targetUrl && locale !== this.state.locale) {
+          window.location.assign(targetUrl);
+          return;
+        }
         this.store.patch({
           locale,
           units: profile.units,
