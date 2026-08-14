@@ -469,8 +469,19 @@ function addHeaterBrackets(group, segment, heaterPosition, height, beamHeight, f
 }
 
 function addHeaters(group, state, coordinates, height, beamHeight, frameMaterial, assets) {
-  const inwardInset = 0.31;
+  const faceOffset = 0.18;
   const heaterY = height - beamHeight - 0.235;
+
+  const directionPose = (segment, direction) => {
+    if (segment.axis === 'horizontal') {
+      return direction === 'first'
+        ? { offset: new THREE.Vector3(0, 0, faceOffset), rotationY: 0 }
+        : { offset: new THREE.Vector3(0, 0, -faceOffset), rotationY: Math.PI };
+    }
+    return direction === 'first'
+      ? { offset: new THREE.Vector3(-faceOffset, 0, 0), rotationY: -Math.PI / 2 }
+      : { offset: new THREE.Vector3(faceOffset, 0, 0), rotationY: Math.PI / 2 };
+  };
 
   getBoundaryHeaterSegments(state).forEach((segment) => {
     const config = getHeaterConfig(state, segment.id);
@@ -479,24 +490,23 @@ function addHeaters(group, state, coordinates, height, beamHeight, frameMaterial
     const b = coordinates[segment.b];
     if (!a || !b) return;
 
-    // A heater is deliberately biased toward one of the connected poles rather
-    // than always centered. The flip button swaps it to the opposite end.
-    const t = config.flipped ? 0.70 : 0.30;
-    const position = a.clone().lerp(b, t);
-    if (segment.boundary === 'front') position.z -= inwardInset;
-    else if (segment.boundary === 'back') position.z += inwardInset;
-    else if (segment.boundary === 'left') position.x += inwardInset;
-    else if (segment.boundary === 'right') position.x -= inwardInset;
-    position.y = heaterY;
+    // Every heater is centered between its two poles. A segment may carry one
+    // heater on either beam face or a pair facing opposite directions.
+    const center = a.clone().lerp(b, 0.5);
+    center.y = heaterY;
 
-    const heater = cloneFittedAsset(assets, 'heater', new THREE.Vector3(0.92, 0.18, 0.17));
-    if (!heater) return;
-    styleHeater(heater);
-    heater.position.copy(position);
-    if (segment.axis === 'vertical') heater.rotation.y = Math.PI / 2;
-    if (segment.boundary === 'front' || segment.boundary === 'right') heater.rotation.y += Math.PI;
-    group.add(heater);
-    addHeaterBrackets(group, segment, position, height, beamHeight, frameMaterial);
+    ['first', 'second'].forEach((direction) => {
+      if (!config[direction]) return;
+      const pose = directionPose(segment, direction);
+      const position = center.clone().add(pose.offset);
+      const heater = cloneFittedAsset(assets, 'heater', new THREE.Vector3(0.92, 0.18, 0.17));
+      if (!heater) return;
+      styleHeater(heater);
+      heater.position.copy(position);
+      heater.rotation.y = pose.rotationY;
+      group.add(heater);
+      addHeaterBrackets(group, segment, position, height, beamHeight, frameMaterial);
+    });
   });
 }
 

@@ -184,8 +184,10 @@ export const DEFAULT_STATE = Object.freeze({
     // Spotlights are stored per roof rectangle. Each value is the number of lights
     // inside the rectangle between four neighbouring poles.
     spotlights: {},
-    // Heaters are stored per exterior pole-to-pole segment. `flipped` swaps the
-    // heater toward the opposite end of that segment.
+    // Heaters are stored per pole-to-pole segment. Each segment can carry two
+    // centrally mounted heaters, one facing each side of the supporting beam.
+    // `first` means Front on horizontal segments / Left on vertical segments;
+    // `second` means Back on horizontal segments / Right on vertical segments.
     heaters: {},
     // Weather sensors are mounted on top of poles. One rain and one wind sensor can
     // exist globally, but the two types cannot share the same pole.
@@ -347,19 +349,39 @@ export function getSpotlightRectangleLayout(state, rectangleId, requestedCount =
 }
 
 export function getBoundaryHeaterSegments(state) {
-  return getPoleGrid(state).segments.filter((segment) => segment.boundary && segmentIsAvailable(state, segment.id));
+  // Kept under its original export name for compatibility with older modules and
+  // saved bundles. Heaters may now use every valid grid segment, including interior
+  // spans, not only the four outer boundaries.
+  return getPoleGrid(state).segments.filter((segment) => segmentIsAvailable(state, segment.id));
 }
 
 export function getHeaterConfig(state, segmentId) {
   const value = state?.accessories?.heaters?.[segmentId];
   if (!value) return null;
-  if (value === true) return { enabled: true, flipped: false };
-  if (typeof value !== 'object' || value.enabled === false) return null;
-  return { enabled: true, flipped: Boolean(value.flipped) };
+  if (value === true) return { first: true, second: false };
+  if (typeof value !== 'object') return null;
+
+  // Current representation: up to two independently selectable directions.
+  if ('first' in value || 'second' in value) {
+    const config = { first: Boolean(value.first), second: Boolean(value.second) };
+    return config.first || config.second ? config : null;
+  }
+
+  // Compatibility with v7's single heater `{ enabled, flipped }` representation.
+  if (value.enabled === false) return null;
+  if ('enabled' in value || 'flipped' in value) {
+    return value.flipped
+      ? { first: false, second: true }
+      : { first: true, second: false };
+  }
+  return null;
 }
 
 export function countHeaters(state) {
-  return getBoundaryHeaterSegments(state).reduce((count, segment) => count + (getHeaterConfig(state, segment.id) ? 1 : 0), 0);
+  return getBoundaryHeaterSegments(state).reduce((count, segment) => {
+    const config = getHeaterConfig(state, segment.id);
+    return count + Number(Boolean(config?.first)) + Number(Boolean(config?.second));
+  }, 0);
 }
 
 export function getPoleSensor(state, pole) {
@@ -414,30 +436,50 @@ function normalizeHeaters(state, current, legacy) {
   const segments = getBoundaryHeaterSegments(state);
   const source = current.heaters;
 
-  // Older versions stored one boolean per whole side (or a total count). Migrate
-  // those to the first available exterior pole-to-pole segment on each side.
+  const assignLegacyInward = (segment) => {
+    if (!segment) return;
+    // Preserve the old exterior-heater intention: a single heater faces inward.
+    // Horizontal first/second = Front/Back. Vertical first/second = Left/Right.
+    let first = true;
+    let second = false;
+    if (segment.boundary === 'front') { first = false; second = true; }
+    else if (segment.boundary === 'back') { first = true; second = false; }
+    else if (segment.boundary === 'left') { first = false; second = true; }
+    else if (segment.boundary === 'right') { first = true; second = false; }
+    normalized[segment.id] = { first, second };
+  };
+
+  // Very old versions stored a total count or one boolean per whole outer side.
   if (typeof legacy.heaters === 'number' || typeof source === 'number') {
     const count = Math.min(4, Math.max(0, Number(typeof source === 'number' ? source : legacy.heaters) || 0));
     ['front', 'back', 'left', 'right'].slice(0, count).forEach((side) => {
-      const segment = segments.find((item) => item.boundary === side);
-      if (segment) normalized[segment.id] = { enabled: true, flipped: false };
+      assignLegacyInward(segments.find((item) => item.boundary === side));
     });
   } else if (source && typeof source === 'object') {
     const hasLegacySideKeys = ['front', 'back', 'left', 'right'].some((side) => typeof source[side] === 'boolean');
     if (hasLegacySideKeys) {
       ['front', 'back', 'left', 'right'].forEach((side) => {
-        if (!source[side]) return;
-        const segment = segments.find((item) => item.boundary === side);
-        if (segment) normalized[segment.id] = { enabled: true, flipped: false };
+        if (source[side]) assignLegacyInward(segments.find((item) => item.boundary === side));
       });
     } else {
       segments.forEach((segment) => {
         const value = source[segment.id];
         if (!value) return;
-        normalized[segment.id] = {
-          enabled: value === true ? true : value.enabled !== false,
-          flipped: value === true ? false : Boolean(value.flipped),
-        };
+        if (value === true) {
+          normalized[segment.id] = { first: true, second: false };
+          return;
+        }
+        if (typeof value !== 'object') return;
+        if ('first' in value || 'second' in value) {
+          const first = Boolean(value.first);
+          const second = Boolean(value.second);
+          if (first || second) normalized[segment.id] = { first, second };
+          return;
+        }
+        // v7 used `flipped` to move one heater to the opposite END of a span. That
+        // concept no longer exists, so migrate the old single heater to the inward
+        // facing direction for exterior segments (or the first direction inside).
+        if (value.enabled !== false) assignLegacyInward(segment);
       });
     }
   }

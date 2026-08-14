@@ -410,16 +410,13 @@ export class ConfiguratorUI {
         this.activeHeaterSegment = this.activeHeaterSegment === segment ? null : segment;
         this.render();
       }
-    } else if (action === 'toggle-heater-segment') {
+    } else if (action === 'toggle-heater-direction') {
       const segment = actionTarget.dataset.segment || this.activeHeaterSegment;
-      if (!segment) return;
-      const current = getHeaterConfig(this.state, segment);
-      this.store.update(`accessories.heaters.${segment}`, current ? null : { enabled: true, flipped: false });
-    } else if (action === 'flip-heater-position') {
-      const segment = actionTarget.dataset.segment || this.activeHeaterSegment;
-      if (!segment) return;
-      const current = getHeaterConfig(this.state, segment);
-      if (current) this.store.update(`accessories.heaters.${segment}.flipped`, !current.flipped);
+      const direction = actionTarget.dataset.direction;
+      if (!segment || !['first', 'second'].includes(direction)) return;
+      const current = getHeaterConfig(this.state, segment) ?? { first: false, second: false };
+      const next = { ...current, [direction]: !current[direction] };
+      this.store.update(`accessories.heaters.${segment}`, next.first || next.second ? next : null);
     } else if (action === 'toggle-pole-sensor') {
       const sensor = actionTarget.dataset.sensor;
       if (!this.activePole) return;
