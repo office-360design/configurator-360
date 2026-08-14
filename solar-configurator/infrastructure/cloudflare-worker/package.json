@@ -1,0 +1,14 @@
+{
+  "name": "window-ar-model-storage",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "create-bucket": "wrangler r2 bucket create window-ar-models"
+  },
+  "devDependencies": {
+    "wrangler": "^4.27.0"
+  }
+}

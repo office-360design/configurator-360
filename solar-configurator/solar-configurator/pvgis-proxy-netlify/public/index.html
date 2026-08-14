@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>360 Solar data proxy</title>
+  <style>
+    body{font-family:system-ui,sans-serif;max-width:760px;margin:64px auto;padding:0 24px;line-height:1.55;color:#172033}
+    code{background:#eef2f7;border-radius:5px;padding:2px 5px}
+    li{margin:.55rem 0}
+  </style>
+</head>
+<body>
+  <h1>360 Solar data proxy</h1>
+  <p>This Netlify site provides the server-side data relays used by the public solar configurator. Paid Google Solar analysis is protected and API credentials are not exposed here.</p>
+  <ul>
+    <li>PVGIS: <code>/.netlify/functions/pvgis</code> · <a href="/.netlify/functions/pvgis?tool=health">health</a></li>
+    <li>Google Solar: <code>/.netlify/functions/google-solar</code> · <a href="/.netlify/functions/google-solar?action=health">health</a></li>
+  </ul>
+</body>
+</html>

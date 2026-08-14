@@ -1,0 +1,17 @@
+[build]
+  command = "npm run prepare:static"
+  publish = "dist/site"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/ar-upload-config.js"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0"
+
+[[headers]]
+  for = "/ar-viewer.html"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0"

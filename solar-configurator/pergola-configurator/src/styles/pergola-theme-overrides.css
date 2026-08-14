@@ -1,0 +1,339 @@
+/* Pergola-specific theme corrections loaded after the shared UI stylesheet. */
+.app-shell {
+  --pergola-text-primary: #172027;
+  --pergola-text-secondary: #778087;
+  --pergola-text-disabled: #8a959d;
+  --pergola-text-action: #0878c9;
+  --pergola-surface-primary: #ffffff;
+  --pergola-surface-secondary: #f5f7f7;
+  --pergola-surface-selected: #eaf5fc;
+  --pergola-border: #dfe4e6;
+  --pergola-border-selected: #2f93d3;
+}
+
+.app-shell.is-dark-mode {
+  --pergola-text-primary: #e8eef5;
+  --pergola-text-secondary: #b6c3d1;
+  --pergola-text-disabled: #93a2b3;
+  --pergola-text-action: #69b9f1;
+  --pergola-surface-primary: #1e293b;
+  --pergola-surface-secondary: #263548;
+  --pergola-surface-selected: #244a78;
+  --pergola-border: rgba(255, 255, 255, 0.13);
+  --pergola-border-selected: #60a5fa;
+}
+
+/* Range captions and values use the same secondary-text pair everywhere. */
+.app-shell.is-dark-mode .environment-panel .environment-control output,
+.app-shell.is-dark-mode .environment-panel .environment-control small,
+.app-shell.is-dark-mode .environment-panel .range-labels,
+.app-shell.is-dark-mode .configurator-sidebar .range-labels,
+.app-shell.is-dark-mode .configurator-sidebar .mount-height-control small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-height-hint {
+  color: var(--pergola-text-secondary) !important;
+}
+
+.app-shell.is-dark-mode .environment-panel .environment-control strong,
+.app-shell.is-dark-mode .environment-panel .environment-panel__header strong {
+  color: var(--pergola-text-primary);
+}
+
+/* Dimension presets. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .preset-button {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .preset-button.is-selected {
+  color: #075f9f;
+  background: #f4faff;
+  border-color: var(--pergola-border-selected);
+  box-shadow: inset 0 0 0 1px rgba(47, 147, 211, 0.14);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .preset-button {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .preset-button:hover {
+  color: #f3f8fc;
+  background: #2a3a50;
+  border-color: rgba(105, 185, 241, 0.55);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .preset-button.is-selected {
+  color: #eef8ff;
+  background: var(--pergola-surface-selected);
+  border-color: var(--pergola-border-selected);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.22);
+}
+
+/* Side tabs and side-position controls. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .side-tab,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .position-button,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-button {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .side-tab small,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .position-button small,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-button small {
+  color: var(--pergola-text-secondary);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .side-tab.is-selected,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .position-button.is-selected,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-button.is-selected {
+  color: #075f9f;
+  background: var(--pergola-surface-selected);
+  border-color: var(--pergola-border-selected);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .side-tab,
+.app-shell.is-dark-mode .configurator-sidebar .position-button,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .side-tab small,
+.app-shell.is-dark-mode .configurator-sidebar .position-button small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button small {
+  color: var(--pergola-text-secondary);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .side-tab.is-selected,
+.app-shell.is-dark-mode .configurator-sidebar .position-button.is-selected,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button.is-selected {
+  color: #eef8ff;
+  background: var(--pergola-surface-selected);
+  border-color: var(--pergola-border-selected);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.2);
+}
+
+/* Accessory summary cards and their model marks. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .accessory-summary-line {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .accessory-summary-line strong {
+  color: var(--pergola-text-primary);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .accessory-summary-line small {
+  color: var(--pergola-text-secondary);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .accessory-summary-line {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .accessory-summary-line strong {
+  color: var(--pergola-text-primary);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .accessory-summary-line small {
+  color: var(--pergola-text-secondary);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .accessory-model-mark,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-customizer__summary-icon {
+  color: #0878c9;
+  background: linear-gradient(145deg, #ffffff, #eef7fd);
+  border-color: #cfe2ef;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .accessory-model-mark,
+.app-shell.is-dark-mode .configurator-sidebar .pole-customizer__summary-icon {
+  color: #79c6fa;
+  background: #162338;
+  border-color: rgba(105, 185, 241, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.configurator-sidebar .pole-customizer__summary-icon img {
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
+
+/* Keep accessory cards and icon wells coherent in dark mode. */
+.app-shell.is-dark-mode .configurator-sidebar .option-card__icon,
+.app-shell.is-dark-mode .configurator-sidebar .accessory-card > img {
+  background: #172438;
+}
+
+/* Spotlight counter: blue controls like the window configurator. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .counter-control {
+  background: #ffffff;
+  border-color: var(--pergola-border);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .counter-control button {
+  color: #0878c9;
+  background: #f3f8fc;
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .counter-control output {
+  color: var(--pergola-text-primary);
+  background: #ffffff;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .counter-control {
+  background: #152238;
+  border-color: var(--pergola-border);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .counter-control button {
+  color: #69b9f1;
+  background: #1c2b41;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .counter-control button:hover {
+  color: #dff3ff;
+  background: #27405e;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .counter-control output {
+  color: var(--pergola-text-primary);
+  background: #152238;
+}
+
+/* Disabled controls stay obviously unavailable without becoming unreadable. */
+.app-shell .configurator-sidebar .option-card:disabled,
+.app-shell .configurator-sidebar .option-card.is-disabled,
+.app-shell .configurator-sidebar .position-button:disabled,
+.app-shell .configurator-sidebar .pole-button:disabled,
+.app-shell .configurator-sidebar .pole-selector__button:disabled,
+.app-shell .configurator-sidebar .pole-mount-type:disabled,
+.app-shell .configurator-sidebar .segmented-control__item:disabled {
+  opacity: 0.7;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .option-card:disabled,
+.app-shell.is-dark-mode .configurator-sidebar .option-card.is-disabled,
+.app-shell.is-dark-mode .configurator-sidebar .position-button:disabled,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button:disabled,
+.app-shell.is-dark-mode .configurator-sidebar .pole-selector__button:disabled,
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-type:disabled {
+  color: var(--pergola-text-disabled);
+  background: #1b2637;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .option-card:disabled strong,
+.app-shell.is-dark-mode .configurator-sidebar .option-card.is-disabled strong,
+.app-shell.is-dark-mode .configurator-sidebar .position-button:disabled span,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button:disabled span,
+.app-shell.is-dark-mode .configurator-sidebar .pole-selector__button:disabled span,
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-type:disabled strong {
+  color: var(--pergola-text-disabled);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .option-card:disabled small,
+.app-shell.is-dark-mode .configurator-sidebar .option-card.is-disabled small,
+.app-shell.is-dark-mode .configurator-sidebar .position-button:disabled small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button:disabled small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-selector__button:disabled small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-type:disabled small {
+  color: #7f8fa2;
+}
+
+/* The warning exists only when the current face contains a real overlap pair. */
+.pole-overlap-warning[hidden] {
+  display: none !important;
+}
+
+/* Dynamic grid theme pairings. */
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid {
+  background: #182437;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__segment {
+  color: #66768a;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar button.pergola-grid__segment:hover,
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__segment.has-closing,
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__segment.is-selected {
+  color: #69b9f1;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__segment.is-blocked:not(.has-closing) {
+  color: #ddb45f;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__segment.is-unavailable {
+  color: #3a485b;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__pole {
+  border-color: #172235;
+  background: #c2ccd6;
+  box-shadow: 0 0 0 2px #718196, 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar button.pergola-grid__pole:hover,
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__pole.is-selected {
+  background: #69b9f1;
+  box-shadow: 0 0 0 4px rgba(105, 185, 241, 0.22), 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__pole.is-invalid {
+  box-shadow: 0 0 0 3px #ff6b6b, 0 0 0 7px rgba(255, 107, 107, 0.17), 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__pole.is-unavailable {
+  background: #445267;
+  box-shadow: 0 0 0 2px #55657a;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__legend {
+  color: var(--pergola-text-secondary);
+}
+
+.app-shell.is-dark-mode .dimension-warning-modal .modal__body strong {
+  color: #ff9b9b;
+}
+
+
+/* Pole component removal stays legible in both themes and remains available for automation controls. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-mount-remove {
+  color: #8f1f1f;
+  background: #fff0f0;
+  border-color: #e5a2a2;
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-mount-remove:hover {
+  color: #721515;
+  background: #ffe2e2;
+  border-color: #d97878;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-remove {
+  color: #ffd1d1;
+  background: rgba(153, 27, 27, 0.38);
+  border-color: rgba(248, 113, 113, 0.62);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-remove:hover {
+  color: #fff1f1;
+  background: rgba(185, 28, 28, 0.52);
+  border-color: rgba(252, 165, 165, 0.8);
+}
+
+.invalid-configuration-message strong + strong {
+  margin-top: 8px;
+}

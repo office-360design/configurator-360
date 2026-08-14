@@ -1,0 +1,142 @@
+name: Deploy configurators and website to GitHub Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Build the existing window configurator first. Its current Pages output is
+      # captured before the public root is replaced by the new website.
+      - name: Configure Node.js for configurators
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            pergola-configurator/package-lock.json
+
+      - name: Install window configurator dependencies
+        run: npm ci
+
+      - name: Build window configurator
+        run: npm run prepare:static
+
+      - name: Preserve window configurator build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist/window-configurator-build
+          mkdir -p dist/window-configurator-build
+          cp -R dist/site/. dist/window-configurator-build/
+
+      # Pergola configurator
+      - name: Install pergola configurator dependencies
+        run: npm ci --prefix pergola-configurator
+
+      - name: Build pergola configurator
+        run: npm run build --prefix pergola-configurator
+
+      # The website requires Node >=22.13 and produces a static release that can
+      # be hosted directly at https://aks.360configurator.com/.
+      - name: Configure Node.js for website
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install website dependencies
+        run: npm ci --prefix website
+
+      - name: Build static website
+        run: npm run release:static --prefix website
+
+      # Compose one Pages artifact:
+      #   /                     -> website
+      #   /window-configurator/ -> former root window configurator
+      #   /pergola-configurator/
+      #   /roof-configurator/
+      #   /solar-configurator/
+      #   /hall-configurator/
+      # Standalone configurators continue to resolve ../shared-ui from /shared-ui/.
+      - name: Assemble GitHub Pages output
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf dist/site
+          mkdir -p dist/site
+          cp -R website/outputs/release-site/. dist/site/
+
+          mkdir -p dist/site/window-configurator
+          cp -R dist/window-configurator-build/. dist/site/window-configurator/
+
+          # Keep the shared UI at the domain root for standalone configurators
+          # whose ../shared-ui imports resolve to /shared-ui/.
+          mkdir -p dist/site/shared-ui
+          cp -R shared-ui/. dist/site/shared-ui/
+
+          mkdir -p dist/site/pergola-configurator
+          cp -R pergola-configurator/dist/. dist/site/pergola-configurator/
+
+          if [ -d roof-configurator ]; then
+            mkdir -p dist/site/roof-configurator
+            cp -R roof-configurator/. dist/site/roof-configurator/
+          fi
+
+          if [ -d solar-configurator ]; then
+            mkdir -p dist/site/solar-configurator
+            cp -R solar-configurator/. dist/site/solar-configurator/
+          fi
+
+          mkdir -p dist/site/hall-configurator
+          cp -R hall-configurator/. dist/site/hall-configurator/
+
+          touch dist/site/.nojekyll
+
+      - name: Verify Pages routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f dist/site/index.html
+          test -f dist/site/window-configurator/index.html
+          test -f dist/site/pergola-configurator/index.html
+          test -f dist/site/hall-configurator/index.html
+          test -d dist/site/shared-ui
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

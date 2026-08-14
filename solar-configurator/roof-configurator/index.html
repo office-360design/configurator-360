@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Real-time parametric roof configurator" />
+  <title>RoofLab - 3D Roof Configurator</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
+  <link rel="stylesheet" href="./styles.css?v=19" />
+  <link rel="stylesheet" href="./shared-shell.css?v=3" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="sidebar shared-settings-panel shared-settings-panel--light" aria-label="Roof configuration controls">
+      <header class="brand-row">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+        <div>
+          <div class="brand-name">RoofLab</div>
+          <div class="brand-subtitle">Parametric roof studio</div>
+        </div>
+        <div class="live-pill"><i></i> Live</div>
+      </header>
+
+      <section class="panel-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Step 1</p>
+            <h1>Roof type</h1>
+          </div>
+          <span class="section-number">01</span>
+        </div>
+
+        <div class="roof-type-grid" id="roofTypeGrid">
+          <button class="roof-card" type="button" data-roof-type="gable" aria-pressed="true">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M8 38 40 12l32 26"/><path d="M15 36v10h50V36"/><path class="accent" d="M8 38 40 12l32 26"/></svg>
+            <span>2 slopes</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="hip" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M8 37 26 14h28l18 23"/><path d="m8 37 32-9 32 9"/><path d="M18 36v10h44V36"/><path class="accent" d="M8 37 26 14h28l18 23"/></svg>
+            <span>4 slopes</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="shed" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M10 33 68 14"/><path d="M16 31v15h48V16"/><path class="accent" d="M10 33 68 14"/></svg>
+            <span>1 slope</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="lshape" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="m8 35 22-20 18 12 13-10 12 16"/><path d="M15 34v12h49V33"/><path class="accent" d="m8 35 22-20 18 12 13-10 12 16"/></svg>
+            <span>L-shaped</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="dormer" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M7 38 40 12l33 26"/><path d="m31 31 10-10 10 10"/><path d="M15 37v9h50v-9"/><path class="accent" d="M7 38 40 12l33 26M31 31l10-10 10 10"/></svg>
+            <span>Dormer</span>
+          </button>
+          <button class="roof-card" type="button" data-roof-type="custom" aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true">
+              <path d="M17 7h31l15 15v23H17z"/>
+              <path d="M48 7v15h15M28 35l12-12 12 12M40 23v18"/>
+              <path class="accent" d="M17 7h31l15 15v23H17zM28 35l12-12 12 12M40 23v18"/>
+            </svg>
+            <span>Custom</span>
+          </button>
+        </div>
+
+        <div class="custom-plan-panel" id="customPlanPanel" hidden>
+          <div class="custom-plan-copy">
+            <strong>Upload custom roof planning</strong>
+            <span>Proof of concept only — the file will be stored in this browser session but is not processed yet.</span>
+          </div>
+          <label class="custom-plan-dropzone" id="customPlanDropzone" for="customPlanInput">
+            <input id="customPlanInput" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.dwg,.dxf" />
+            <span class="custom-plan-icon" aria-hidden="true">↑</span>
+            <span class="custom-plan-main">Choose a plan or drop it here</span>
+            <span class="custom-plan-types">PDF, image, DWG or DXF</span>
+          </label>
+          <div class="custom-plan-file" id="customPlanFile" hidden>
+            <span class="custom-plan-file-icon" aria-hidden="true">▧</span>
+            <span class="custom-plan-file-details">
+              <strong id="customPlanFileName">No file selected</strong>
+              <small id="customPlanFileMeta"></small>
+            </span>
+            <button type="button" id="customPlanRemove" aria-label="Remove uploaded plan">×</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-section parameters-section">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Step 2</p>
+            <h2>Dimensions</h2>
+          </div>
+          <span class="section-number">02</span>
+        </div>
+
+        <div class="control-list">
+          <label class="range-control" data-control="length">
+            <span class="control-label"><b>Length</b><output>10.0 m</output></span>
+            <span class="range-row">
+              <input type="range" min="4" max="20" step="0.1" value="10" />
+              <input class="number-input" type="number" min="4" max="20" step="0.1" value="10" aria-label="Length in meters" />
+            </span>
+          </label>
+
+          <label class="range-control" data-control="depth">
+            <span class="control-label"><b>Depth</b><output>7.0 m</output></span>
+            <span class="range-row">
+              <input type="range" min="3" max="14" step="0.1" value="7" />
+              <input class="number-input" type="number" min="3" max="14" step="0.1" value="7" aria-label="Depth in meters" />
+            </span>
+          </label>
+
+          <label class="range-control" data-control="wallHeight">
+            <span class="control-label"><b>Wall height</b><output>3.0 m</output></span>
+            <span class="range-row">
+              <input type="range" min="2.2" max="5" step="0.1" value="3" />
+              <input class="number-input" type="number" min="2.2" max="5" step="0.1" value="3" aria-label="Wall height in meters" />
+            </span>
+          </label>
+
+          <label class="range-control" data-control="pitch">
+            <span class="control-label"><b>Roof pitch</b><output>30°</output></span>
+            <span class="range-row">
+              <input type="range" min="5" max="60" step="1" value="30" />
+              <input class="number-input" type="number" min="5" max="60" step="1" value="30" aria-label="Roof pitch in degrees" />
+            </span>
+          </label>
+
+          <label class="range-control" data-control="overhang">
+            <span class="control-label"><b>Eaves overhang</b><output>0.45 m</output></span>
+            <span class="range-row">
+              <input type="range" min="0" max="1.2" step="0.05" value="0.45" />
+              <input class="number-input" type="number" min="0" max="1.2" step="0.05" value="0.45" aria-label="Eaves overhang in meters" />
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel-section finish-section">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Step 3</p>
+            <h2>Covering</h2>
+          </div>
+          <span class="section-number">03</span>
+        </div>
+
+        <label class="select-label" for="coveringSelect">Material preset</label>
+        <select id="coveringSelect">
+          <option value="generic">Generic metal tile</option>
+          <option value="roca">Mineral-granule metal tile</option>
+          <option value="teclado">Slate-style mineral tile</option>
+        </select>
+        <p class="rule-note" id="pitchRuleNote">Visualization preset - pitch is freely adjustable.</p>
+
+        <div class="color-heading">Roof colour</div>
+        <div class="swatch-row" id="swatchRow" aria-label="Roof colour">
+          <button type="button" class="swatch selected" data-color="#7f1d2d" style="--swatch:#7f1d2d" aria-label="Burgundy"></button>
+          <button type="button" class="swatch" data-color="#293544" style="--swatch:#293544" aria-label="Graphite"></button>
+          <button type="button" class="swatch" data-color="#684230" style="--swatch:#684230" aria-label="Brown"></button>
+          <button type="button" class="swatch" data-color="#8a3428" style="--swatch:#8a3428" aria-label="Terracotta"></button>
+          <button type="button" class="swatch" data-color="#315449" style="--swatch:#315449" aria-label="Forest green"></button>
+        </div>
+      </section>
+    </aside>
+
+    <button id="roofSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide roof settings" aria-expanded="true" title="Hide roof settings">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+
+    <section class="viewer-panel">
+      <header class="viewer-header">
+        <div class="viewer-actions-wrap">
+          <button type="button" class="estimate-button" id="bomOpenButton" aria-controls="bomPanel" aria-haspopup="dialog">
+            <span>BOM &amp; price</span>
+            <strong id="headerEstimateTotal">—</strong>
+          </button>
+          <div class="view-actions" aria-label="Camera controls">
+            <button type="button" data-view="perspective" class="active">3D</button>
+            <button type="button" data-view="front">Front</button>
+            <button type="button" data-view="top">Top</button>
+            <button type="button" data-view="reset" title="Reset view">Reset</button>
+          </div>
+          <div class="model-options" aria-label="Model display options">
+            <label><input type="checkbox" id="wireframeToggle" /> Technical edges</label>
+          </div>
+        </div>
+
+        <div class="viewer-title-block">
+          <p class="eyebrow">Real-time model</p>
+          <h2 id="viewerTitle">Two-slope roof</h2>
+        </div>
+
+        <div class="viewer-header-spacer" aria-hidden="true"></div>
+      </header>
+
+      <div class="viewer-stage" id="viewerStage">
+        <div class="roof-tools-anchor" id="roofToolsAnchor" aria-label="Tools control"></div>
+        <div id="canvasHost" aria-label="Interactive 3D roof model"></div>
+        <div class="stage-hint">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
+        <div class="custom-viewer-notice" id="customViewerNotice" hidden>
+          <span class="custom-viewer-notice-icon" aria-hidden="true">⌁</span>
+          <strong>Custom plan mode</strong>
+          <p>Upload is available as a proof of concept. Automatic geometry generation is not implemented yet.</p>
+        </div>
+      </div>
+
+      <footer class="metrics-bar">
+        <article>
+          <span>Footprint</span>
+          <strong id="metricFootprint">70.0 m²</strong>
+        </article>
+        <article>
+          <span>Approx. roof area</span>
+          <strong id="metricRoofArea">91.5 m²</strong>
+        </article>
+        <article>
+          <span>Ridge elevation</span>
+          <strong id="metricRidge">5.0 m</strong>
+        </article>
+        <article>
+          <span>Pitch</span>
+          <strong id="metricPitch">30°</strong>
+        </article>
+      </footer>
+    </section>
+  </main>
+
+
+  <section class="roof-environment-panel" id="roofEnvironmentPanel" aria-labelledby="roofEnvironmentTitle" hidden>
+    <header class="roof-environment-header">
+      <h2 id="roofEnvironmentTitle">Light &amp; orientation</h2>
+      <button type="button" id="roofEnvironmentClose" aria-label="Close light and orientation menu">×</button>
+    </header>
+
+    <div class="roof-environment-control">
+      <div class="roof-environment-control__heading">
+        <label for="sunPositionControl">Sun position</label>
+        <output id="sunPositionValue" for="sunPositionControl">42%</output>
+      </div>
+      <input id="sunPositionControl" type="range" min="0" max="100" step="1" value="42" />
+      <div class="roof-environment-control__ends"><span>Morning</span><span>Evening</span></div>
+    </div>
+
+    <div class="roof-environment-control">
+      <div class="roof-environment-control__heading">
+        <label for="northDirectionControl">North direction</label>
+        <output id="northDirectionValue" for="northDirectionControl">108°</output>
+      </div>
+      <input id="northDirectionControl" type="range" min="0" max="360" step="1" value="108" />
+      <div class="roof-environment-control__ends"><span>0°</span><span>360°</span></div>
+    </div>
+
+    <label class="roof-night-preview" for="nightPreviewToggle">
+      <span class="roof-night-preview__icon" aria-hidden="true">◔</span>
+      <span class="roof-night-preview__copy">
+        <strong>Night preview</strong>
+        <small>Preview the configured lighting.</small>
+      </span>
+      <input id="nightPreviewToggle" type="checkbox" />
+      <span class="roof-switch" aria-hidden="true"></span>
+    </label>
+  </section>
+
+
+  <div class="roof-components-backdrop" id="roofComponentsBackdrop" aria-hidden="true"></div>
+  <aside class="roof-components-drawer" id="roofComponentsDrawer" aria-labelledby="roofComponentsTitle" aria-hidden="true">
+    <header class="roof-components-header">
+      <div>
+        <p class="eyebrow">Reference library</p>
+        <h2 id="roofComponentsTitle">Rainwater system</h2>
+      </div>
+      <button type="button" id="roofComponentsClose" aria-label="Close rainwater components">×</button>
+    </header>
+
+    <div class="roof-components-toolbar">
+      <label for="roofComponentsSearch">Search components</label>
+      <div class="roof-components-search-row">
+        <span aria-hidden="true">⌕</span>
+        <input id="roofComponentsSearch" type="search" placeholder="Gutter, bracket, downpipe…" autocomplete="off" />
+        <small>21 parts</small>
+      </div>
+    </div>
+
+    <div class="roof-components-content">
+      <figure class="roof-system-overview">
+        <div class="roof-system-overview-image">
+          <img src="./assets/rainwater/system-overview.jpg" alt="Exploded reference view of the rainwater system components" />
+        </div>
+        <figcaption>
+          <strong>System overview</strong>
+          <span>The numbered view matches the cards. This catalog is visual reference only and is not yet connected to the 3D model or BOM.</span>
+        </figcaption>
+      </figure>
+
+      <section class="roof-component-results" aria-label="Rainwater components">
+        <div class="roof-component-grid" id="roofComponentGrid">
+          <article class="roof-component-card" data-component-card data-search="jgheab colectează apa de pe versanți. disponibil în lungimi de 3 m și 4 m pentru montaj facil.">
+            <span class="roof-component-number">1</span>
+            <img src="./assets/rainwater/01.jpg" alt="Jgheab" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Jgheab</h3>
+              <p>Colectează apa de pe versanți. Disponibil în lungimi de 3 m și 4 m pentru montaj facil.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="burlan tub vertical ø 90 mm sau ø 100 mm care coboară apa spre sol.">
+            <span class="roof-component-number">2</span>
+            <img src="./assets/rainwater/02.jpg" alt="Burlan" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Burlan</h3>
+              <p>Tub vertical Ø 90 mm sau Ø 100 mm care coboară apa spre sol.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="colțar interior schimbă direcția jgheabului la 90° spre interiorul clădirii.">
+            <span class="roof-component-number">3</span>
+            <img src="./assets/rainwater/03.jpg" alt="Colțar interior" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Colțar interior</h3>
+              <p>Schimbă direcția jgheabului la 90° spre interiorul clădirii.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="colțar exterior schimbă direcția jgheabului la 90° spre exteriorul clădirii.">
+            <span class="roof-component-number">4</span>
+            <img src="./assets/rainwater/04.jpg" alt="Colțar exterior" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Colțar exterior</h3>
+              <p>Schimbă direcția jgheabului la 90° spre exteriorul clădirii.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="element îmbinare jgheab unește două tronsoane de jgheab etanș, cu garnitură de cauciuc integrată.">
+            <span class="roof-component-number">5</span>
+            <img src="./assets/rainwater/05.jpg" alt="Element îmbinare jgheab" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Element îmbinare jgheab</h3>
+              <p>Unește două tronsoane de jgheab etanș, cu garnitură de cauciuc integrată.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="capac jgheab închide capetele jgheabului. garnitura pre-montată elimină siliconul suplimentar.">
+            <span class="roof-component-number">6</span>
+            <img src="./assets/rainwater/06.jpg" alt="Capac jgheab" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Capac jgheab</h3>
+              <p>Închide capetele jgheabului. Garnitura pre-montată elimină siliconul suplimentar.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cârlig jgheab 210 cârlig lung pentru montaj pe căpriori înainte de astereală.">
+            <span class="roof-component-number">7</span>
+            <img src="./assets/rainwater/07.jpg" alt="Cârlig jgheab 210" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cârlig jgheab 210</h3>
+              <p>Cârlig lung pentru montaj pe căpriori înainte de astereală.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cârlig răsucit variantă pentru pantă mare sau fruntar înclinat.">
+            <span class="roof-component-number">8</span>
+            <img src="./assets/rainwater/08.jpg" alt="Cârlig răsucit" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cârlig răsucit</h3>
+              <p>Variantă pentru pantă mare sau fruntar înclinat.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cârlig jgheab 160 cârlig scurt pentru montaj pe fruntar sau scândura de margine.">
+            <span class="roof-component-number">9</span>
+            <img src="./assets/rainwater/09.jpg" alt="Cârlig jgheab 160" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cârlig jgheab 160</h3>
+              <p>Cârlig scurt pentru montaj pe fruntar sau scândura de margine.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cârlig combi cârlig versatil care se poate monta atât pe căprior, cât și pe fruntar.">
+            <span class="roof-component-number">10</span>
+            <img src="./assets/rainwater/10.jpg" alt="Cârlig combi" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cârlig combi</h3>
+              <p>Cârlig versatil care se poate monta atât pe căprior, cât și pe fruntar.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cârlig reglabil permite ajustarea pantei jgheabului după montaj.">
+            <span class="roof-component-number">11</span>
+            <img src="./assets/rainwater/11.jpg" alt="Cârlig reglabil" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cârlig reglabil</h3>
+              <p>Permite ajustarea pantei jgheabului după montaj.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="bridă jgheab asigură suplimentar jgheabul în zonele cu vânt puternic sau zăpadă mare.">
+            <span class="roof-component-number">12</span>
+            <img src="./assets/rainwater/12.jpg" alt="Bridă jgheab" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Bridă jgheab</h3>
+              <p>Asigură suplimentar jgheabul în zonele cu vânt puternic sau zăpadă mare.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="racord jgheab-burlan leagă jgheabul de burlan prin clemele laterale și conduce apa către burlan.">
+            <span class="roof-component-number">13</span>
+            <img src="./assets/rainwater/13.jpg" alt="Racord jgheab-burlan" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Racord jgheab-burlan</h3>
+              <p>Leagă jgheabul de burlan prin clemele laterale și conduce apa către burlan.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cot 60° leagă racordul de burlan sau ocolește elementele fațadei.">
+            <span class="roof-component-number">14</span>
+            <img src="./assets/rainwater/14.jpg" alt="Cot 60°" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cot 60°</h3>
+              <p>Leagă racordul de burlan sau ocolește elementele fațadei.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="prelungitor intermediar ajustează distanța dintre două coturi atunci când fațada are ieșiri.">
+            <span class="roof-component-number">15</span>
+            <img src="./assets/rainwater/15.jpg" alt="Prelungitor intermediar" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Prelungitor intermediar</h3>
+              <p>Ajustează distanța dintre două coturi atunci când fațada are ieșiri.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="colier burlan fixează burlanul de zid. distanța maximă recomandată între prinderi este de 2 m.">
+            <span class="roof-component-number">16</span>
+            <img src="./assets/rainwater/16.jpg" alt="Colier burlan" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Colier burlan</h3>
+              <p>Fixează burlanul de zid. Distanța maximă recomandată între prinderi este de 2 m.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="brățară burlan colier cu distanțier din cauciuc, care ține burlanul departe de zid și reduce zgomotul.">
+            <span class="roof-component-number">17</span>
+            <img src="./assets/rainwater/17.jpg" alt="Brățară burlan" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Brățară burlan</h3>
+              <p>Colier cu distanțier din cauciuc, care ține burlanul departe de zid și reduce zgomotul.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="pâlnie colectează apa din jgheab către burlan, cu ieșire mărită pentru debite mari.">
+            <span class="roof-component-number">18</span>
+            <img src="./assets/rainwater/18.jpg" alt="Pâlnie" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Pâlnie</h3>
+              <p>Colectează apa din jgheab către burlan, cu ieșire mărită pentru debite mari.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="ramificație burlan permite unirea a două burlane într-unul singur, utilă pentru acoperișuri complexe.">
+            <span class="roof-component-number">19</span>
+            <img src="./assets/rainwater/19.jpg" alt="Ramificație burlan" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Ramificație burlan</h3>
+              <p>Permite unirea a două burlane într-unul singur, utilă pentru acoperișuri complexe.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="derivație evacuare deviază apa spre grilă, canal sau rezervor de colectare.">
+            <span class="roof-component-number">20</span>
+            <img src="./assets/rainwater/20.jpg" alt="Derivație evacuare" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Derivație evacuare</h3>
+              <p>Deviază apa spre grilă, canal sau rezervor de colectare.</p>
+            </div>
+          </article>
+          <article class="roof-component-card" data-component-card data-search="cot de evacuare direcționează apa la baza burlanului, departe de fațadă.">
+            <span class="roof-component-number">21</span>
+            <img src="./assets/rainwater/21.jpg" alt="Cot de evacuare" loading="lazy" />
+            <div class="roof-component-copy">
+              <h3>Cot de evacuare</h3>
+              <p>Direcționează apa la baza burlanului, departe de fațadă.</p>
+            </div>
+          </article>
+        </div>
+        <p class="roof-components-empty" id="roofComponentsEmpty" hidden>No components match this search.</p>
+      </section>
+    </div>
+  </aside>
+
+  <dialog class="bom-panel" id="bomPanel" aria-labelledby="bomTitle">
+    <header class="bom-header">
+      <div>
+        <p class="eyebrow">Proof-of-concept estimate</p>
+        <h2 id="bomTitle">Bill of materials</h2>
+      </div>
+      <button type="button" class="bom-close" id="bomCloseButton" aria-label="Close BOM">×</button>
+    </header>
+
+    <div class="bom-scroll-region">
+    <section class="bom-summary" aria-label="Price summary">
+      <article>
+        <span>Without VAT</span>
+        <strong id="bomSubtotal">—</strong>
+      </article>
+      <article>
+        <span>VAT 19%</span>
+        <strong id="bomVat">—</strong>
+      </article>
+      <article class="bom-total-card">
+        <span>Estimated total</span>
+        <strong id="bomTotal">—</strong>
+      </article>
+    </section>
+
+    <div class="bom-disclaimer">
+      Quantities are generated from the current roof geometry. Unit prices are copied from the supplied reference offer dated 30/10/2024 and are reused for every covering preset. This is not a construction quotation.<span id="bomCurrencyNote"></span>
+    </div>
+
+    <div class="bom-selection-toolbar" aria-label="BOM inclusion controls">
+      <span id="bomSelectionStatus">0 of 0 items included</span>
+      <div>
+        <button type="button" id="bomIncludeAll">Include all</button>
+        <button type="button" id="bomExcludeAll">Exclude all</button>
+      </div>
+    </div>
+
+    <div class="bom-table-wrap">
+      <table class="bom-table">
+        <thead>
+          <tr>
+            <th class="bom-check-cell">
+              <input id="bomToggleAll" type="checkbox" aria-label="Include or exclude all BOM items" />
+            </th>
+            <th>Nr.</th>
+            <th>Product</th>
+            <th>U.M.</th>
+            <th>Qty.</th>
+            <th>Unit price</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody id="bomTableBody"></tbody>
+      </table>
+    </div>
+
+    <section class="bom-assumptions">
+      <h3>Calculation basis</h3>
+      <div class="assumption-grid" id="bomAssumptions"></div>
+      <p>Roof-window items and the advance-payment row from the reference offer are excluded because the configurator does not currently expose those parameters.</p>
+    </section>
+    </div>
+
+    <footer class="bom-footer">
+      <button type="button" class="secondary-action" id="bomExportButton">Export CSV</button>
+      <button type="button" class="primary-action" id="bomDoneButton">Done</button>
+    </footer>
+  </dialog>
+
+
+  <script>
+    (() => {
+      const panel = document.getElementById('bomPanel');
+      const openButton = document.getElementById('bomOpenButton');
+      const closeButton = document.getElementById('bomCloseButton');
+      const doneButton = document.getElementById('bomDoneButton');
+
+      const openPanel = () => {
+        if (!panel || panel.open) return;
+        if (typeof panel.showModal === 'function') panel.showModal();
+        else panel.setAttribute('open', '');
+        document.body.classList.add('bom-is-open');
+      };
+
+      const closePanel = () => {
+        if (!panel) return;
+        if (typeof panel.close === 'function' && panel.open) panel.close();
+        else panel.removeAttribute('open');
+        document.body.classList.remove('bom-is-open');
+      };
+
+      openButton?.addEventListener('click', openPanel);
+      closeButton?.addEventListener('click', closePanel);
+      doneButton?.addEventListener('click', closePanel);
+      panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
+    })();
+  </script>
+  <script type="module" src="./js/sharedShell.js?v=11"></script>
+  <script type="module" src="./js/app.js?v=20"></script>
+</body>
+</html>

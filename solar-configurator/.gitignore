@@ -1,0 +1,91 @@
+ErrorReports/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Generated renders / screenshots
+preview.png
+renders/
+screenshots/
+tmp/
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+
+# Coverage
+coverage/
+
+# Build output, if you later add Vite/esbuild
+dist/
+
+*:Zone.Identifier
+*.Zone.Identifier
+
+node_modules/
+generated/*.glb
+
+.gemini/
+scratch/
+
+# Cloudflare Worker local state
+cloudflare-worker/node_modules/
+cloudflare-worker/.wrangler/
+
+# Content-addressed local AR models
+generated/**/*.glb
+
+# Netlify CLI local state
+.netlify/
+
+# Generated website
+dist/
+
+# Runtime-generated local AR models
+runtime/generated/*
+!runtime/generated/.gitkeep
+
+# Temporary build preservation directory
+.dist-models-preserved/
+
+# Local Netlify state and old updater backups
+.netlify/
+.ar-upload-key-removal-backup/
+
+# CAD conversion temporary files
+cad/intermediate/temp_*/
+cad/intermediate/temp_export.scr
+
+# automation of workflow scripts
+run_update_git.bat
+update_from_latest_zip_git.ps1
+# Local commit-message handoff for pergola update automation
+pergola-configurator/commit_message.md
+commit_message.md
+
+# Temporary Google GitHub Actions credentials
+gha-creds-*.json
