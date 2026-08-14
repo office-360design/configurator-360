@@ -28,14 +28,14 @@ await writeFile(path.join(releaseRoot, ".nojekyll"), "");
 const manifest = {
   generatedAt: new Date().toISOString(),
   canonicalOrigin: "https://www.360configurator.com",
-  localizedOrigins: { en: "https://www.360configurator.com", ro: "https://www.360configurator.ro", de: "https://www.360configurator.de" },
+  localizedOrigins: { en: "https://www.360configurator.com", ro: "https://www.360configurator.ro", de: "https://www.360konfigurator.de" },
   websiteRoutes: pageRoutes,
   externalConfigurators: {
-    window: { en: "https://www.360configurator.com/window-configurator/", ro: "https://www.360configurator.ro/configurator-ferestre/", de: "https://www.360configurator.de/fenster-konfigurator/" },
-    pergola: { en: "https://www.360configurator.com/pergola-configurator/", ro: "https://www.360configurator.ro/configurator-pergola/", de: "https://www.360configurator.de/pergola-konfigurator/" },
-    roof: { en: "https://www.360configurator.com/roof-configurator/", ro: "https://www.360configurator.ro/configurator-acoperis/", de: "https://www.360configurator.de/dach-konfigurator/" },
-    solar: { en: "https://www.360configurator.com/solar-configurator/", ro: "https://www.360configurator.ro/configurator-solar/", de: "https://www.360configurator.de/solar-konfigurator/" },
-    hall: { en: "https://www.360configurator.com/hall-configurator/", ro: "https://www.360configurator.ro/configurator-hala/", de: "https://www.360configurator.de/hallen-konfigurator/" },
+    window: { en: "https://www.360configurator.com/window-configurator/", ro: "https://www.360configurator.ro/configurator-ferestre/", de: "https://www.360konfigurator.de/fenster-konfigurator/" },
+    pergola: { en: "https://www.360configurator.com/pergola-configurator/", ro: "https://www.360configurator.ro/configurator-pergola/", de: "https://www.360konfigurator.de/pergola-konfigurator/" },
+    roof: { en: "https://www.360configurator.com/roof-configurator/", ro: "https://www.360configurator.ro/configurator-acoperis/", de: "https://www.360konfigurator.de/dach-konfigurator/" },
+    solar: { en: "https://www.360configurator.com/solar-configurator/", ro: "https://www.360configurator.ro/configurator-solar/", de: "https://www.360konfigurator.de/solar-konfigurator/" },
+    hall: { en: "https://www.360configurator.com/hall-configurator/", ro: "https://www.360configurator.ro/configurator-hala/", de: "https://www.360konfigurator.de/hallen-konfigurator/" },
   },
 };
 await writeFile(path.join(releaseRoot, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);

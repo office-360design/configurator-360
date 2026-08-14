@@ -8,7 +8,7 @@ export function isLocale(value: string): value is Locale {
 export const localeOrigins: Record<Locale, string> = {
   en: "https://www.360configurator.com",
   ro: "https://www.360configurator.ro",
-  de: "https://www.360configurator.de",
+  de: "https://www.360konfigurator.de",
 };
 
 export const configuratorPublicPaths = {
@@ -59,7 +59,7 @@ export function configuratorUrl(locale: Locale, slug: ConfiguratorRouteSlug) {
 export function localeFromHostname(hostname: string): Locale {
   const normalized = hostname.toLowerCase().replace(/\.$/, "");
   if (normalized === "360configurator.ro" || normalized === "www.360configurator.ro") return "ro";
-  if (normalized === "360configurator.de" || normalized === "www.360configurator.de") return "de";
+  if (normalized === "360konfigurator.de" || normalized === "www.360konfigurator.de") return "de";
   return "en";
 }
 

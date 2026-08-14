@@ -28,7 +28,7 @@ export const LANGUAGE_PROFILES = Object.freeze({
 export const LOCALE_HOSTS = Object.freeze({
   'en-US': 'www.360configurator.com',
   'ro-RO': 'www.360configurator.ro',
-  'de-DE': 'www.360configurator.de',
+  'de-DE': 'www.360konfigurator.de',
 });
 
 export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
@@ -84,7 +84,7 @@ export function getLanguageProfile(locale) {
 export function getLocaleForHostname(hostname = '') {
   const normalized = String(hostname).toLowerCase().replace(/\.$/, '');
   if (normalized === '360configurator.ro' || normalized === 'www.360configurator.ro') return 'ro-RO';
-  if (normalized === '360configurator.de' || normalized === 'www.360configurator.de') return 'de-DE';
+  if (normalized === '360konfigurator.de' || normalized === 'www.360konfigurator.de') return 'de-DE';
   return 'en-US';
 }
 
