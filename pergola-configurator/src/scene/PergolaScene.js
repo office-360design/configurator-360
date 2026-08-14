@@ -192,6 +192,10 @@ export class PergolaScene {
     );
     this.houseGroup.name = 'environment-house';
     this.houseLocalBox = new THREE.Box3().setFromObject(this.houseGroup);
+    const houseBody = this.houseGroup.getObjectByName('house_body');
+    this.houseBodyLocalBox = houseBody
+      ? new THREE.Box3().setFromObject(houseBody)
+      : this.houseLocalBox.clone();
     this.houseWindowObjects = [];
     this.houseGroup.traverse((child) => {
       const name = child.name || '';
@@ -323,7 +327,7 @@ export class PergolaScene {
 
 
   createHouseSideDoor() {
-    const bounds = this.houseLocalBox;
+    const bounds = this.houseBodyLocalBox ?? this.houseLocalBox;
     if (!bounds) return null;
     const group = new THREE.Group();
     group.name = 'environment-house-side-door';
@@ -331,16 +335,26 @@ export class PergolaScene {
     const doorMaterial = makeMaterial('#1b2024', { roughness: 0.55, metalness: 0.18 });
     const handleMaterial = makeMaterial('#8d9498', { roughness: 0.32, metalness: 0.72 });
 
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.35, 1.08), trimMaterial);
-    frame.position.set(bounds.min.x - 0.015, 1.63, -0.2);
+    // Use the actual wall face rather than the roof/eave bounding box. The roof
+    // overhang is wider than the house body, which previously left this door
+    // visibly floating away from the side wall.
+    const wallX = bounds.min.x;
+    const frameThickness = 0.08;
+    const doorThickness = 0.045;
+    const frameHeight = 2.35;
+    const doorHeight = 2.16;
+    const bottomClearance = 0.015;
+
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(frameThickness, frameHeight, 1.08), trimMaterial);
+    frame.position.set(wallX - frameThickness / 2 - 0.004, bottomClearance + frameHeight / 2, -0.2);
     group.add(frame);
 
-    const door = new THREE.Mesh(new THREE.BoxGeometry(0.045, 2.16, 0.9), doorMaterial);
-    door.position.set(bounds.min.x - 0.055, 1.63, -0.2);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(doorThickness, doorHeight, 0.9), doorMaterial);
+    door.position.set(wallX - frameThickness - doorThickness / 2 - 0.006, bottomClearance + 0.045 + doorHeight / 2, -0.2);
     group.add(door);
 
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.16, 0.05), handleMaterial);
-    handle.position.set(bounds.min.x - 0.09, 1.63, 0.05);
+    handle.position.set(wallX - frameThickness - doorThickness - 0.025, 1.05, 0.05);
     group.add(handle);
 
     return group;
@@ -473,7 +487,9 @@ export class PergolaScene {
     if (signature === this.platformSizeSignature) return;
 
     this.deckPlatform.scale.set(platformWidth, 1, platformDepth);
-    this.deckPlatform.position.set(platformOffsetX, -0.01, platformOffsetZ);
+    // The deck top is the pergola's zero level. Keeping the top at y=0 makes the
+    // posts/feet sit on it instead of making the complete pergola appear raised.
+    this.deckPlatform.position.set(platformOffsetX, -0.06, platformOffsetZ);
     this.deckPlankGroup.position.set(platformOffsetX, 0, platformOffsetZ);
 
     this.deckPlankGroup.children.forEach((child) => child.geometry?.dispose?.());
@@ -485,7 +501,7 @@ export class PergolaScene {
     const plankWidth = Math.max(0.1, platformWidth - inset * 2);
     for (let index = 0; index < plankCount; index += 1) {
       const plank = new THREE.Mesh(new THREE.BoxGeometry(plankWidth, 0.008, 0.008), this.deckPlankMaterial);
-      plank.position.set(0, 0.055, -usableDepth / 2 + index * spacing);
+      plank.position.set(0, 0.004, -usableDepth / 2 + index * spacing);
       this.deckPlankGroup.add(plank);
     }
 
@@ -555,8 +571,10 @@ export class PergolaScene {
     const depth = this.state.dimensions.depth / 1000;
     const attached = this.state.installation === 'wall-mounted';
     const side = attached ? this.state.mountedSide : 'back';
-    const clearance = attached ? 0.0 : 2.0;
-    const frontExtent = this.houseLocalBox?.max?.z ?? 2.45;
+    const clearance = attached ? -0.012 : 2.0;
+    // Mount against the actual wall plane, not the roof bounding box. The roof
+    // overhang extends ~30 cm past the wall and was the source of the visible gap.
+    const frontExtent = this.houseBodyLocalBox?.max?.z ?? this.houseLocalBox?.max?.z ?? 2.1;
 
     this.houseGroup.rotation.y = 0;
     if (side === 'back') {
