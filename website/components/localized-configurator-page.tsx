@@ -55,7 +55,7 @@ export function LocalizedConfiguratorPage({ locale, slug }: { locale: Locale; sl
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
     <SmoothScroll /><DeferredWebGLStage /><SiteHeader locale={locale} currentPath={path} />
     <section className="detail-hero" data-scene={item.slug}><div className="detail-hero-inner page-frame">
-      <div className="detail-title"><span className="mono-label">{item.index} / {item.category}</span><h1>{item.title}</h1><p>{item.statement}</p></div>
+      <div className="detail-title"><span className="mono-label">{item.index} / {item.category}</span><h1>{item.seoH1}</h1><p>{item.statement}</p></div>
       <div className="detail-viewport">
         {item.slug === "window" ? <WindowConfiguratorPreview locale={locale} placement="detail" /> : <SceneInteractor scene={item.slug} locale={locale} />}
         <div className="viewport-brackets"><i/><i/><i/><i/></div><span className="viewport-status mono-label"><i/> {ui.preview}</span>

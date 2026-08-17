@@ -63,3 +63,7 @@ The light environment uses mineral white, warm silver, ink typography, hard dayl
 ## Change policy
 
 Before any review, run a root repository diff and verify that every changed path begins with `website/`. Nothing is staged, committed or pushed without explicit approval.
+
+## Localized configurator marketing SEO
+
+The `/configurators/{product}` detail pages are the primary high-content SEO surfaces. Each localized version uses a search-intent H1, localized title and meta description, self-canonical URL, and reciprocal `hreflang` metadata. The standalone configurator applications remain independently indexable with lighter product-focused SEO metadata.
