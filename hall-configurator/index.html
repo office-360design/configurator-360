@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="360 Configurator industrial hall and warehouse configurator" />
-  <title>360 Configurator - Hall</title>
+  <meta name="description" content="Configure an industrial hall or warehouse online in 3D. Adjust dimensions, structure, cladding, openings and building options interactively." />
+  <meta name="robots" content="index, follow" />
+  <title>3D Industrial Hall Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=8" />
   <link rel="stylesheet" href="./styles.css?v=12" />
@@ -15,6 +16,10 @@
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
       }
     }
+  </script>
+  <script type="module">
+    import { applyConfiguratorSeo } from '../shared-ui/src/configuratorSeo.js';
+    applyConfiguratorSeo('hall');
   </script>
 </head>
 <body>
