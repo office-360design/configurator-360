@@ -37,3 +37,9 @@ Pergola continues to use the existing four tools through the shared defaults.
 `SharedUndoManager` provides the common history stack and event grouping. Each
 configurator must provide `captureState()` and `restoreState()` adapters because
 product state and rebuild logic are configurator-specific.
+
+## Configurator SEO helper
+
+`src/configuratorSeo.js` supplies lightweight, domain-aware SEO metadata for the five standalone configurator applications. It derives the locale from the hostname and sets the document language, localized title and description, `index, follow`, self-canonical URL, Open Graph basics, and reciprocal EN/RO/DE `hreflang` links.
+
+The marketing website remains the richer SEO surface. The standalone configurators stay indexable, but use this helper for a smaller, product-focused SEO identity.

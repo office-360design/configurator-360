@@ -4,13 +4,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Configure windows online in 3D. Adjust dimensions, layout, profiles and opening types in an interactive window configurator.">
+    <meta name="robots" content="index, follow">
     <meta name="app-build" content="unprepared-main-ar-merge">
     <script>
         if (new URLSearchParams(window.location.search).get('ar') === '1') {
             document.documentElement.classList.add('ar-mode');
         }
     </script>
-    <title>Schüco Window System AW CT 65</title>
+    <title>3D Window Configurator | 360Configurator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -1258,6 +1260,10 @@
             transition: opacity 0.2s ease;
         }
     </style>
+    <script type="module">
+        import { applyConfiguratorSeo } from '../shared-ui/src/configuratorSeo.js';
+        applyConfiguratorSeo('window');
+    </script>
 </head>
 
 <body>
