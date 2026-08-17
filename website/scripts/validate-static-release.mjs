@@ -21,6 +21,9 @@ for (const route of metadataRoutes) await requireFile(routeOutputPath(route), `m
 await requireFile("404.html");
 await requireFile(".nojekyll");
 await requireFile("release-manifest.json");
+await requireFile("sitemap-en.xml");
+await requireFile("sitemap-ro.xml");
+await requireFile("sitemap-de.xml");
 await requireFile("favicon-32x32.png");
 await requireFile("favicon-192x192.png");
 await requireFile("favicon-512x512.png");
@@ -72,6 +75,48 @@ for (const route of pageRoutes) {
   if (html.includes("https://www.360configurator.com/ro") || html.includes("https://www.360configurator.com/de")) failures.push(`${route} contains a legacy locale-prefixed .com URL`);
   if (!html.includes(`<html lang="${expectedLanguage}"`)) failures.push(`${route} has an incorrect document language; expected ${expectedLanguage}`);
 }
+
+const sitemapExpectations = {
+  en: {
+    origin: "https://www.360configurator.com",
+    apps: ["/pergola-configurator/", "/roof-configurator/", "/window-configurator/", "/hall-configurator/", "/solar-configurator/"],
+  },
+  ro: {
+    origin: "https://www.360configurator.ro",
+    apps: ["/configurator-pergola/", "/configurator-acoperis/", "/configurator-ferestre/", "/configurator-hala/", "/configurator-solar/"],
+  },
+  de: {
+    origin: "https://www.360konfigurator.de",
+    apps: ["/pergola-konfigurator/", "/dach-konfigurator/", "/fenster-konfigurator/", "/hallen-konfigurator/", "/solar-konfigurator/"],
+  },
+};
+const marketingSlugs = ["pergola", "roof", "window", "hall", "solar"];
+const allOrigins = Object.values(sitemapExpectations).map(({ origin }) => origin);
+
+for (const [locale, { origin, apps }] of Object.entries(sitemapExpectations)) {
+  const xml = await readFile(path.join(releaseRoot, `sitemap-${locale}.xml`), "utf8");
+  const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+  const expected = [
+    `${origin}/`,
+    `${origin}/about`,
+    `${origin}/contact`,
+    ...marketingSlugs.map((slug) => `${origin}/configurators/${slug}`),
+    ...apps.map((appPath) => `${origin}${appPath}`),
+  ];
+
+  if (urls.length !== expected.length) failures.push(`sitemap-${locale}.xml has ${urls.length} URLs; expected ${expected.length}`);
+  for (const url of expected) if (!urls.includes(url)) failures.push(`sitemap-${locale}.xml is missing ${url}`);
+  for (const url of urls) {
+    if (!url.startsWith(`${origin}/`)) failures.push(`sitemap-${locale}.xml contains a foreign-domain URL: ${url}`);
+  }
+  for (const foreignOrigin of allOrigins.filter((candidate) => candidate !== origin)) {
+    if (xml.includes(foreignOrigin)) failures.push(`sitemap-${locale}.xml contains foreign origin ${foreignOrigin}`);
+  }
+}
+
+const defaultSitemap = await readFile(path.join(releaseRoot, "sitemap.xml"), "utf8");
+const englishSitemap = await readFile(path.join(releaseRoot, "sitemap-en.xml"), "utf8");
+if (defaultSitemap !== englishSitemap) failures.push("default sitemap.xml does not match sitemap-en.xml");
 
 if (failures.length) {
   console.error("Static release validation failed:");

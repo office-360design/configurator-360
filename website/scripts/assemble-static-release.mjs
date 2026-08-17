@@ -9,6 +9,65 @@ const clientRoot = path.join(websiteRoot, "dist", "client");
 const exportedPagesRoot = path.join(websiteRoot, "outputs", "exported-pages");
 const releaseRoot = path.join(websiteRoot, "outputs", "release-site");
 
+const localizedOrigins = {
+  en: "https://www.360configurator.com",
+  ro: "https://www.360configurator.ro",
+  de: "https://www.360konfigurator.de",
+};
+
+const configuratorSlugs = ["pergola", "roof", "window", "hall", "solar"];
+
+const externalConfiguratorPaths = {
+  en: {
+    window: "/window-configurator/",
+    pergola: "/pergola-configurator/",
+    roof: "/roof-configurator/",
+    solar: "/solar-configurator/",
+    hall: "/hall-configurator/",
+  },
+  ro: {
+    window: "/configurator-ferestre/",
+    pergola: "/configurator-pergola/",
+    roof: "/configurator-acoperis/",
+    solar: "/configurator-solar/",
+    hall: "/configurator-hala/",
+  },
+  de: {
+    window: "/fenster-konfigurator/",
+    pergola: "/pergola-konfigurator/",
+    roof: "/dach-konfigurator/",
+    solar: "/solar-konfigurator/",
+    hall: "/hallen-konfigurator/",
+  },
+};
+
+function xmlEscape(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function sitemapUrls(locale) {
+  const origin = localizedOrigins[locale];
+  return [
+    `${origin}/`,
+    `${origin}/about`,
+    `${origin}/contact`,
+    ...configuratorSlugs.map((slug) => `${origin}/configurators/${slug}`),
+    ...configuratorSlugs.map((slug) => `${origin}${externalConfiguratorPaths[locale][slug]}`),
+  ];
+}
+
+function sitemapXml(locale) {
+  const urls = sitemapUrls(locale);
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
+    .map((url) => `  <url>\n    <loc>${xmlEscape(url)}</loc>\n  </url>`)
+    .join("\n")}\n</urlset>\n`;
+}
+
 async function requireDirectory(directory, label) {
   const info = await stat(directory).catch(() => null);
   if (!info?.isDirectory()) throw new Error(`Missing ${label}: ${directory}`);
@@ -25,18 +84,22 @@ await cp(clientRoot, releaseRoot, { recursive: true });
 await cp(exportedPagesRoot, releaseRoot, { recursive: true, force: true });
 await writeFile(path.join(releaseRoot, ".nojekyll"), "");
 
+for (const locale of Object.keys(localizedOrigins)) {
+  await writeFile(path.join(releaseRoot, `sitemap-${locale}.xml`), sitemapXml(locale));
+}
+// Keep the static/default sitemap coherent for direct previews and non-Nginx hosting.
+await writeFile(path.join(releaseRoot, "sitemap.xml"), sitemapXml("en"));
+
 const manifest = {
   generatedAt: new Date().toISOString(),
   canonicalOrigin: "https://www.360configurator.com",
-  localizedOrigins: { en: "https://www.360configurator.com", ro: "https://www.360configurator.ro", de: "https://www.360konfigurator.de" },
+  localizedOrigins,
   websiteRoutes: pageRoutes,
-  externalConfigurators: {
-    window: { en: "https://www.360configurator.com/window-configurator/", ro: "https://www.360configurator.ro/configurator-ferestre/", de: "https://www.360konfigurator.de/fenster-konfigurator/" },
-    pergola: { en: "https://www.360configurator.com/pergola-configurator/", ro: "https://www.360configurator.ro/configurator-pergola/", de: "https://www.360konfigurator.de/pergola-konfigurator/" },
-    roof: { en: "https://www.360configurator.com/roof-configurator/", ro: "https://www.360configurator.ro/configurator-acoperis/", de: "https://www.360konfigurator.de/dach-konfigurator/" },
-    solar: { en: "https://www.360configurator.com/solar-configurator/", ro: "https://www.360configurator.ro/configurator-solar/", de: "https://www.360konfigurator.de/solar-konfigurator/" },
-    hall: { en: "https://www.360configurator.com/hall-configurator/", ro: "https://www.360configurator.ro/configurator-hala/", de: "https://www.360konfigurator.de/hallen-konfigurator/" },
-  },
+  sitemaps: Object.fromEntries(Object.entries(localizedOrigins).map(([locale, origin]) => [locale, `${origin}/sitemap.xml`])),
+  externalConfigurators: Object.fromEntries(configuratorSlugs.map((slug) => [
+    slug,
+    Object.fromEntries(Object.entries(localizedOrigins).map(([locale, origin]) => [locale, `${origin}${externalConfiguratorPaths[locale][slug]}`])),
+  ])),
 };
 await writeFile(path.join(releaseRoot, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
