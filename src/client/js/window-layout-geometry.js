@@ -322,6 +322,18 @@ export function getFrameDividerSocketInset({
     return Math.min(diagonalInwardDistance, halfDividerFace);
 }
 
+export function getFrameReentrantMiterInset({
+    inwardDistance,
+    frameInwardSpan,
+} = {}) {
+    const normalizedFrameSpan = Math.max(0, finiteNumber(frameInwardSpan));
+    const normalizedInwardDistance = Math.min(
+        normalizedFrameSpan,
+        Math.max(0, finiteNumber(inwardDistance))
+    );
+    return normalizedFrameSpan - normalizedInwardDistance;
+}
+
 export function getDividerSegmentAlongCoordinate({
     extrusionT,
     length,
@@ -511,10 +523,218 @@ function localJointEndForFrameSide(side, worldEnd) {
     return worldEnd === 'negative' ? 'positive' : 'negative';
 }
 
+function getEditableDividerVariantKey(divider = {}) {
+    return `${divider.orientation || 'vertical'}:${divider.templateId || 'mullion-fixed-sash'}:${divider.reversed ? 'reversed' : 'normal'}`;
+}
+
+export function getEditableFixedGlazingDividerCadTransform({
+    profile,
+    divider,
+    runtimeDividerSide,
+} = {}) {
+    const currentVariant = profile?.dividerConnectionVariants?.[
+        getEditableDividerVariantKey(divider)
+    ] || profile || {};
+
+    // Divider variants already carry the fixed-side placement transform from
+    // the fixed/fixed join. Use the runtime side directly. In particular, do
+    // not reuse the authored mixed fixed-left transform for a reversed join:
+    // the catalog now has an actual fixed-right seat from window-mullion-window.
+    return currentVariant.fixedGlazingDividerCadTransforms?.[
+        runtimeDividerSide
+    ] || null;
+}
+
+function getEditableDividerCellBoundaryOffset({
+    divider,
+    cellType,
+    cellSide,
+    dividerConnectionVariants,
+    connectionScale,
+}) {
+    const variant = dividerConnectionVariants?.[getEditableDividerVariantKey(divider)] || null;
+    if (!variant) return null;
+
+    const sourceBoundaries = cellType === 'opening-sash'
+        ? variant.dividerConnection?.openingSashDividerBoundariesMm
+        : variant.fixedGlazingConnections?.dividerCellBoundariesMm;
+    if (!sourceBoundaries) return null;
+
+    const direct = Number(sourceBoundaries[cellSide]);
+    if (Number.isFinite(direct)) return direct * connectionScale;
+
+    // The mixed fixed/sash CAD join is authored fixed-left / sash-right.  A
+    // dynamically added sash-left / fixed-right window reuses that same join
+    // mirrored around the mullion centre.  Some composition metadata remains
+    // keyed to the authored CAD side, so reflect the opposite-side seat when
+    // the requested reversed-side key is not present instead of falling back
+    // to the visible mullion half-width / structural centreline.
+    if (divider?.reversed) {
+        const oppositeSide = cellSide === 'left' ? 'right' : 'left';
+        const mirrored = Number(sourceBoundaries[oppositeSide]);
+        if (Number.isFinite(mirrored)) return -mirrored * connectionScale;
+    }
+
+    return null;
+}
+
+
+export function getEditableDividerSegmentPlacement({
+    segment,
+    junctions = [],
+    dividerFaceSpan = 0,
+    frameJointInwardSpan = 0,
+} = {}) {
+    let length = Math.max(0, finiteNumber(segment?.length));
+    let longitudinalOffset = finiteNumber(segment?.longitudinalOffset);
+    const normalizedDividerFaceSpan = Math.max(0, finiteNumber(dividerFaceSpan));
+    const normalizedFrameJointInwardSpan = Math.max(0, finiteNumber(frameJointInwardSpan));
+    const halfFace = normalizedDividerFaceSpan / 2;
+    const joint = {
+        negativeEndMode: 'arrow',
+        positiveEndMode: 'arrow',
+        negativeFrameInwardSpan: normalizedFrameJointInwardSpan,
+        positiveFrameInwardSpan: normalizedFrameJointInwardSpan,
+    };
+
+    const getJunctionForEndpoint = atStart => junctions.find(junction =>
+        junction.endpoints?.some(endpoint =>
+            endpoint.dividerId === segment?.id && endpoint.atStart === atStart
+        )
+    ) || null;
+
+    [true, false].forEach(atStart => {
+        const junction = getJunctionForEndpoint(atStart);
+        if (!junction) return;
+        const endModeKey = atStart ? 'negativeEndMode' : 'positiveEndMode';
+        const frameSpanKey = atStart
+            ? 'negativeFrameInwardSpan'
+            : 'positiveFrameInwardSpan';
+
+        if (junction.type === 'L') {
+            // At a concave L-shaped corner there is no second perimeter-frame
+            // half on the missing-cell quadrant to complete the normal
+            // frame/divider socket. Both perpendicular mullions therefore need
+            // their full V ends to reach the shared centre point. Extending each
+            // segment by half the divider face makes the two 45-degree heads
+            // meet exactly, rather than leaving the normal frame-joint setback
+            // as a visible square hole.
+            joint[endModeKey] = 'arrow';
+            joint[frameSpanKey] = normalizedDividerFaceSpan;
+            length += halfFace;
+            longitudinalOffset += atStart ? -halfFace / 2 : halfFace / 2;
+            return;
+        }
+
+        if (segment?.orientation === junction.hostOrientation) {
+            // The two collinear host pieces meet each other on one half of the
+            // section and open a 90-degree socket on the other, matching the
+            // verified T joint.
+            joint[endModeKey] = 'socket';
+            joint[frameSpanKey] = normalizedDividerFaceSpan;
+            joint.socketInwardSign = 1;
+            joint.socketInwardOffset = halfFace;
+            return;
+        }
+
+        // A T branch divider needs a nominal extra half-face beyond the host
+        // centre plane so the arrow deformation lands its apex on the host
+        // centre and its shoulders on the socket faces.
+        joint[endModeKey] = 'arrow';
+        joint[frameSpanKey] = normalizedDividerFaceSpan;
+        length += halfFace;
+        longitudinalOffset += atStart ? -halfFace / 2 : halfFace / 2;
+    });
+
+    return Object.freeze({
+        length,
+        longitudinalOffset,
+        joint: Object.freeze({ ...joint }),
+    });
+}
+
+export function getEditableReentrantFramePlacement({
+    placement,
+    perimeterJunctions = [],
+    frameInwardSpan = 0,
+    dividerFaceSpan = 0,
+} = {}) {
+    if (!placement) return null;
+
+    const normalizedFrameSpan = Math.max(0, finiteNumber(frameInwardSpan));
+    const normalizedDividerFaceSpan = Math.max(0, finiteNumber(dividerFaceSpan));
+    const halfDividerFace = normalizedDividerFaceSpan / 2;
+    const straightContactSpan = Math.max(
+        0,
+        normalizedFrameSpan - halfDividerFace
+    );
+
+    const hostEndpoints = perimeterJunctions
+        .filter(junction => junction?.type === 'perimeter-T')
+        .map(junction => junction.hostFrameEndpoint)
+        .filter(endpoint => endpoint?.frameId === placement.id);
+
+    if (!hostEndpoints.length || normalizedFrameSpan <= 0) {
+        return Object.freeze({
+            ...placement,
+            frameJointModes: Object.freeze({}),
+            reentrantHost: false,
+        });
+    }
+
+    let width = Math.max(0, finiteNumber(placement.width));
+    let height = Math.max(0, finiteNumber(placement.height));
+    let originX = finiteNumber(placement.originX);
+    let originY = finiteNumber(placement.originY);
+    const frameJointModes = {};
+
+    // A perimeter segment reconstructed after a merge is not an ordinary
+    // convex outer-frame corner at the point where it continues a mullion.
+    // The frame's opening-side edge must land on the mullion face, while its
+    // end cut runs back across the full 75 mm frame span.  That is the same
+    // re-entrant T geometry shown by the accepted frame/divider joint: the
+    // normal 45-degree miter points the wrong way and leaves a triangular gap.
+    //
+    // Move the whole host segment outward only by the straight contact region
+    // (frame span - half mullion face), so its inner/opening edge lines up with
+    // the mullion shoulder.  Extend its longitudinal stock by one full frame
+    // span at each T end; createMiteredSide() then uses a reverse miter there.
+    if (placement.side === 'bottom') originY -= straightContactSpan;
+    if (placement.side === 'top') originY += straightContactSpan;
+    if (placement.side === 'left') originX -= straightContactSpan;
+    if (placement.side === 'right') originX += straightContactSpan;
+
+    hostEndpoints.forEach(endpoint => {
+        const atStart = Boolean(endpoint.atStart);
+        frameJointModes[endpoint.localEnd] = 'reverse-miter';
+
+        if (placement.orientation === 'horizontal') {
+            width += normalizedFrameSpan;
+            originX += atStart ? -normalizedFrameSpan / 2 : normalizedFrameSpan / 2;
+        } else {
+            height += normalizedFrameSpan;
+            originY += atStart ? -normalizedFrameSpan / 2 : normalizedFrameSpan / 2;
+        }
+    });
+
+    return Object.freeze({
+        ...placement,
+        width,
+        height,
+        originX,
+        originY,
+        frameJointModes: Object.freeze(frameJointModes),
+        reentrantHost: true,
+        reentrantStraightContactSpan: straightContactSpan,
+    });
+}
+
 export function getEditableWindowTopologyGeometry({
     width,
     height,
     topology,
+    dividerConnectionVariants = null,
+    connectionScale = MM_TO_M,
 } = {}) {
     const normalizedWidth = Math.max(0, finiteNumber(width));
     const normalizedHeight = Math.max(0, finiteNumber(height));
@@ -534,7 +754,7 @@ export function getEditableWindowTopologyGeometry({
         const x1 = gridToWorldX(cell.rect.x1, minCol, totalWidth, normalizedWidth);
         const y0 = gridToWorldY(cell.rect.y0, minRow, totalHeight, normalizedHeight);
         const y1 = gridToWorldY(cell.rect.y1, minRow, totalHeight, normalizedHeight);
-        return Object.freeze({
+        return {
             id: cell.id,
             cellType: cell.type,
             handleSide: cell.handleSide || null,
@@ -542,14 +762,40 @@ export function getEditableWindowTopologyGeometry({
             x1,
             y0,
             y1,
+            structuralX0: x0,
+            structuralX1: x1,
+            structuralY0: y0,
+            structuralY1: y1,
+            // Keep the logical one-window rectangle independent from CAD join
+            // seats. A cell at the inside corner of an L can touch two
+            // mullions; writing both join offsets back into x0/x1/y0/y1 makes
+            // that cell physically larger/smaller than its one-window
+            // neighbours. Connection coordinates are tracked separately and
+            // are only used by geometry that actually has to meet the join.
+            connectionX0: x0,
+            connectionX1: x1,
+            connectionY0: y0,
+            connectionY1: y1,
             width: Math.max(0, x1 - x0),
             height: Math.max(0, y1 - y0),
             centerX: (x0 + x1) / 2,
             centerY: (y0 + y1) / 2,
             dividerJoinSideByBoundary: {},
-        });
+        };
     });
     const cellById = new Map(cells.map(cell => [cell.id, cell]));
+    const structuralCellById = new Map(cells.map(cell => [cell.id, Object.freeze({
+        id: cell.id,
+        cellType: cell.cellType,
+        x0: cell.structuralX0,
+        x1: cell.structuralX1,
+        y0: cell.structuralY0,
+        y1: cell.structuralY1,
+        width: Math.max(0, cell.structuralX1 - cell.structuralX0),
+        height: Math.max(0, cell.structuralY1 - cell.structuralY0),
+        centerX: (cell.structuralX0 + cell.structuralX1) / 2,
+        centerY: (cell.structuralY0 + cell.structuralY1) / 2,
+    })]));
 
     const dividerSegments = dividers.map(divider => {
         if (divider.orientation === 'vertical') {
@@ -578,6 +824,41 @@ export function getEditableWindowTopologyGeometry({
         };
     });
 
+    // An unmerged L has two perpendicular divider endpoints meeting at the
+    // missing quadrant. In that topology the inside-corner cell touches two
+    // mullions, so applying both CAD seat offsets directly to the logical cell
+    // rectangle makes that one window larger/smaller in two axes. Keep those
+    // seat coordinates separately while preserving the one-window grid size.
+    const dividerEndpointStats = new Map();
+    dividerSegments.forEach(divider => {
+        const endpoints = divider.orientation === 'vertical'
+            ? [
+                [divider.perpendicularOffset, divider.worldStart],
+                [divider.perpendicularOffset, divider.worldEnd],
+            ]
+            : [
+                [divider.worldStart, divider.perpendicularOffset],
+                [divider.worldEnd, divider.perpendicularOffset],
+            ];
+        endpoints.forEach(([x, y]) => {
+            const key = `${x.toFixed(8)}|${y.toFixed(8)}`;
+            const stats = dividerEndpointStats.get(key) || {
+                total: 0,
+                vertical: 0,
+                horizontal: 0,
+            };
+            stats.total += 1;
+            stats[divider.orientation] += 1;
+            dividerEndpointStats.set(key, stats);
+        });
+    });
+    const preserveStructuralCellSize = [...dividerEndpointStats.values()]
+        .some(stats => (
+            stats.total === 2
+            && stats.vertical === 1
+            && stats.horizontal === 1
+        ));
+
     // Record which local boundary of each cell meets each divider segment.
     dividerSegments.forEach(divider => {
         const negativeCell = cellById.get(divider.negativeCellId);
@@ -589,7 +870,183 @@ export function getEditableWindowTopologyGeometry({
             if (negativeCell) negativeCell.dividerJoinSideByBoundary.top = 'negative';
             if (positiveCell) positiveCell.dividerJoinSideByBoundary.bottom = 'positive';
         }
+
+        const negativeBoundaryOffset = negativeCell
+            ? getEditableDividerCellBoundaryOffset({
+                divider,
+                cellType: negativeCell.cellType,
+                cellSide: 'left',
+                dividerConnectionVariants,
+                connectionScale: finiteNumber(connectionScale, MM_TO_M),
+            })
+            : null;
+        const positiveBoundaryOffset = positiveCell
+            ? getEditableDividerCellBoundaryOffset({
+                divider,
+                cellType: positiveCell.cellType,
+                cellSide: 'right',
+                dividerConnectionVariants,
+                connectionScale: finiteNumber(connectionScale, MM_TO_M),
+            })
+            : null;
+
+        if (divider.orientation === 'vertical') {
+            if (negativeCell && Number.isFinite(negativeBoundaryOffset)) {
+                const boundary = divider.perpendicularOffset + negativeBoundaryOffset;
+                negativeCell.connectionX1 = boundary;
+                if (!preserveStructuralCellSize) negativeCell.x1 = boundary;
+            }
+            if (positiveCell && Number.isFinite(positiveBoundaryOffset)) {
+                const boundary = divider.perpendicularOffset + positiveBoundaryOffset;
+                positiveCell.connectionX0 = boundary;
+                if (!preserveStructuralCellSize) positiveCell.x0 = boundary;
+            }
+        } else {
+            if (negativeCell && Number.isFinite(negativeBoundaryOffset)) {
+                const boundary = divider.perpendicularOffset + negativeBoundaryOffset;
+                negativeCell.connectionY1 = boundary;
+                if (!preserveStructuralCellSize) negativeCell.y1 = boundary;
+            }
+            if (positiveCell && Number.isFinite(positiveBoundaryOffset)) {
+                const boundary = divider.perpendicularOffset + positiveBoundaryOffset;
+                positiveCell.connectionY0 = boundary;
+                if (!preserveStructuralCellSize) positiveCell.y0 = boundary;
+            }
+        }
     });
+
+    if (preserveStructuralCellSize) {
+        // An L corner is the one case where using each divider seat directly as
+        // a cell edge makes the corner sash accumulate two independent CAD
+        // offsets and become larger than the other 1x1 windows.  Keeping the
+        // structural rectangle fixed, however, leaves a visible gap because the
+        // sash no longer reaches the exact mullion seat.
+        //
+        // Resolve those two requirements by translating complete grid columns
+        // and rows instead of resizing their cells.  A column is translated so
+        // the mullion-facing X boundary of any cell in that column lands on its
+        // CAD-derived connection boundary; every cell in the same column gets
+        // the same translation.  Rows use the same rule on Y.  This keeps every
+        // unmerged window exactly one slider width/height, keeps common outer
+        // frame lines aligned, and still puts every mullion-facing sash/fixed
+        // boundary on the join-profile CAD seat.
+        const columnCandidates = new Map();
+        const rowCandidates = new Map();
+        const columnKey = cell => `${cell.structuralX0.toFixed(8)}|${cell.structuralX1.toFixed(8)}`;
+        const rowKey = cell => `${cell.structuralY0.toFixed(8)}|${cell.structuralY1.toFixed(8)}`;
+        const addCandidate = (map, key, value) => {
+            if (!Number.isFinite(value)) return;
+            const values = map.get(key) || [];
+            values.push(value);
+            map.set(key, values);
+        };
+
+        cells.forEach(cell => {
+            const joins = cell.dividerJoinSideByBoundary || {};
+            if (joins.left) {
+                addCandidate(
+                    columnCandidates,
+                    columnKey(cell),
+                    cell.connectionX0 - cell.structuralX0
+                );
+            }
+            if (joins.right) {
+                addCandidate(
+                    columnCandidates,
+                    columnKey(cell),
+                    cell.connectionX1 - cell.structuralX1
+                );
+            }
+            if (joins.bottom) {
+                addCandidate(
+                    rowCandidates,
+                    rowKey(cell),
+                    cell.connectionY0 - cell.structuralY0
+                );
+            }
+            if (joins.top) {
+                addCandidate(
+                    rowCandidates,
+                    rowKey(cell),
+                    cell.connectionY1 - cell.structuralY1
+                );
+            }
+        });
+
+        const averageCandidate = values => {
+            if (!values?.length) return 0;
+            return values.reduce((sum, value) => sum + value, 0) / values.length;
+        };
+        const columnShiftByKey = new Map(
+            [...columnCandidates].map(([key, values]) => [key, averageCandidate(values)])
+        );
+        const rowShiftByKey = new Map(
+            [...rowCandidates].map(([key, values]) => [key, averageCandidate(values)])
+        );
+
+        cells.forEach(cell => {
+            const shiftX = finiteNumber(columnShiftByKey.get(columnKey(cell)));
+            const shiftY = finiteNumber(rowShiftByKey.get(rowKey(cell)));
+            cell.layoutShiftX = shiftX;
+            cell.layoutShiftY = shiftY;
+            cell.x0 = cell.structuralX0 + shiftX;
+            cell.x1 = cell.structuralX1 + shiftX;
+            cell.y0 = cell.structuralY0 + shiftY;
+            cell.y1 = cell.structuralY1 + shiftY;
+        });
+    }
+
+    cells.forEach(cell => {
+        cell.width = Math.max(0, cell.x1 - cell.x0);
+        cell.height = Math.max(0, cell.y1 - cell.y0);
+        cell.centerX = (cell.x0 + cell.x1) / 2;
+        cell.centerY = (cell.y0 + cell.y1) / 2;
+        cell.connectionWidth = Math.max(0, cell.connectionX1 - cell.connectionX0);
+        cell.connectionHeight = Math.max(0, cell.connectionY1 - cell.connectionY0);
+        cell.connectionCenterX = (cell.connectionX0 + cell.connectionX1) / 2;
+        cell.connectionCenterY = (cell.connectionY0 + cell.connectionY1) / 2;
+    });
+
+    if (preserveStructuralCellSize) {
+        const structuralJunctionKeys = new Set(
+            [...dividerEndpointStats]
+                .filter(([, stats]) => stats.total > 1)
+                .map(([key]) => key)
+        );
+        const meanCellShift = (divider, axis) => {
+            const shifts = [divider.negativeCellId, divider.positiveCellId]
+                .map(cellId => cellById.get(cellId)?.[axis])
+                .map(value => Number(value))
+                .filter(Number.isFinite);
+            if (!shifts.length) return 0;
+            return shifts.reduce((sum, value) => sum + value, 0) / shifts.length;
+        };
+
+        dividerSegments.forEach(divider => {
+            const isVertical = divider.orientation === 'vertical';
+            const startPoint = isVertical
+                ? [divider.perpendicularOffset, divider.worldStart]
+                : [divider.worldStart, divider.perpendicularOffset];
+            const endPoint = isVertical
+                ? [divider.perpendicularOffset, divider.worldEnd]
+                : [divider.worldEnd, divider.perpendicularOffset];
+            const startKey = `${startPoint[0].toFixed(8)}|${startPoint[1].toFixed(8)}`;
+            const endKey = `${endPoint[0].toFixed(8)}|${endPoint[1].toFixed(8)}`;
+            const axisShift = meanCellShift(
+                divider,
+                isVertical ? 'layoutShiftY' : 'layoutShiftX'
+            );
+
+            if (!structuralJunctionKeys.has(startKey)) {
+                divider.worldStart += axisShift;
+            }
+            if (!structuralJunctionKeys.has(endKey)) {
+                divider.worldEnd += axisShift;
+            }
+            divider.length = Math.max(0, divider.worldEnd - divider.worldStart);
+            divider.longitudinalOffset = (divider.worldStart + divider.worldEnd) / 2;
+        });
+    }
 
     const framePlacements = frameEdges.map(edge => {
         const hasNegativeJoint = edge.side === 'top' || edge.side === 'bottom' ? edge.start > minCol : edge.start > minRow;
@@ -599,18 +1056,42 @@ export function getEditableWindowTopologyGeometry({
         if (hasNegativeJoint) localJointEnds.push(localJointEndForFrameSide(edge.side, 'negative'));
         if (hasPositiveJoint) localJointEnds.push(localJointEndForFrameSide(edge.side, 'positive'));
 
-        const cell = cells.find(c => c.id === edge.cellId);
+        const cell = structuralCellById.get(edge.cellId);
+        const renderedCell = cellById.get(edge.cellId) || cell;
+        const layoutShiftX = preserveStructuralCellSize
+            ? finiteNumber(renderedCell?.layoutShiftX)
+            : 0;
+        const layoutShiftY = preserveStructuralCellSize
+            ? finiteNumber(renderedCell?.layoutShiftY)
+            : 0;
 
         if (edge.side === 'top' || edge.side === 'bottom') {
-            const x0 = gridToWorldX(edge.start, minCol, totalWidth, normalizedWidth);
-            const x1 = gridToWorldX(edge.end, minCol, totalWidth, normalizedWidth);
+            let x0 = gridToWorldX(edge.start, minCol, totalWidth, normalizedWidth);
+            let x1 = gridToWorldX(edge.end, minCol, totalWidth, normalizedWidth);
+            // Keep divider-joint endpoints on the structural mullion centreline,
+            // but move exposed outer endpoints with the translated cell column.
+            if (preserveStructuralCellSize && !hasNegativeJoint) x0 += layoutShiftX;
+            if (preserveStructuralCellSize && !hasPositiveJoint) x1 += layoutShiftX;
             return Object.freeze({
                 id: edge.id,
                 side: edge.side,
+                orientation: 'horizontal',
+                perpendicularOffset:
+                    gridToWorldY(edge.coordinate, minRow, totalHeight, normalizedHeight)
+                    + layoutShiftY,
+                worldStart: x0,
+                worldEnd: x1,
+                partial: Boolean(edge.partial),
                 width: Math.max(0, x1 - x0),
-                height: normalizedHeight,
+                // A merged window can span more than one structural row. The
+                // side extruder uses height to locate top/bottom relative to
+                // originY, so retaining the one-window slider height here
+                // pulls both perimeter frames toward the merged cell centre.
+                // Keep the edge length segmented, but use the full structural
+                // cell height for its perpendicular placement.
+                height: renderedCell.height,
                 originX: (x0 + x1) / 2,
-                originY: cell.centerY,
+                originY: renderedCell.centerY,
                 windowCell: edge.cellId,
                 cellType: edge.cellType,
                 jointEnd: localJointEnds.length ? 'divider' : null,
@@ -619,14 +1100,27 @@ export function getEditableWindowTopologyGeometry({
                 addCandidate: true,
             });
         }
-        const y0 = gridToWorldY(edge.start, minRow, totalHeight, normalizedHeight);
-        const y1 = gridToWorldY(edge.end, minRow, totalHeight, normalizedHeight);
+        let y0 = gridToWorldY(edge.start, minRow, totalHeight, normalizedHeight);
+        let y1 = gridToWorldY(edge.end, minRow, totalHeight, normalizedHeight);
+        if (preserveStructuralCellSize && !hasNegativeJoint) y0 += layoutShiftY;
+        if (preserveStructuralCellSize && !hasPositiveJoint) y1 += layoutShiftY;
         return Object.freeze({
             id: edge.id,
             side: edge.side,
-            width: normalizedWidth,
+            orientation: 'vertical',
+            perpendicularOffset:
+                gridToWorldX(edge.coordinate, minCol, totalWidth, normalizedWidth)
+                + layoutShiftX,
+            worldStart: y0,
+            worldEnd: y1,
+            partial: Boolean(edge.partial),
+            // Same rule for a horizontally merged cell: createMiteredSide()
+            // positions left/right at +/- width/2 around originX. The full
+            // merged structural width is therefore the placement reference,
+            // while this frame segment keeps its own Y length below.
+            width: renderedCell.width,
             height: Math.max(0, y1 - y0),
-            originX: cell.centerX,
+            originX: renderedCell.centerX,
             originY: (y0 + y1) / 2,
             windowCell: edge.cellId,
             cellType: edge.cellType,
@@ -653,10 +1147,27 @@ export function getEditableWindowTopologyGeometry({
     });
 
     const junctions = [...junctionMap.values()]
-        .filter(entry => entry.endpoints.length >= 3)
         .map(entry => {
             const vertical = entry.endpoints.filter(endpoint => endpoint.orientation === 'vertical');
             const horizontal = entry.endpoints.filter(endpoint => endpoint.orientation === 'horizontal');
+            const isPerpendicularPair = entry.endpoints.length === 2
+                && vertical.length === 1
+                && horizontal.length === 1;
+            const isMultiDividerJunction = entry.endpoints.length >= 3
+                && vertical.length > 0
+                && horizontal.length > 0;
+            if (!isPerpendicularPair && !isMultiDividerJunction) return null;
+
+            if (isPerpendicularPair) {
+                return Object.freeze({
+                    ...entry,
+                    type: 'L',
+                    hostOrientation: null,
+                    branchOrientation: null,
+                    endpoints: Object.freeze(entry.endpoints.map(endpoint => Object.freeze(endpoint))),
+                });
+            }
+
             const hostOrientation = vertical.length >= 2 ? 'vertical' : 'horizontal';
             return Object.freeze({
                 ...entry,
@@ -665,7 +1176,66 @@ export function getEditableWindowTopologyGeometry({
                 branchOrientation: hostOrientation === 'vertical' ? 'horizontal' : 'vertical',
                 endpoints: Object.freeze(entry.endpoints.map(endpoint => Object.freeze(endpoint))),
             });
+        })
+        .filter(Boolean);
+
+    const frameEndpointMap = new Map();
+    function registerFrameEndpoint(frame, atStart) {
+        const point = frame.orientation === 'vertical'
+            ? { x: frame.perpendicularOffset, y: atStart ? frame.worldStart : frame.worldEnd }
+            : { x: atStart ? frame.worldStart : frame.worldEnd, y: frame.perpendicularOffset };
+        const key = `${point.x.toFixed(8)}|${point.y.toFixed(8)}`;
+        const entry = frameEndpointMap.get(key) || { key, x: point.x, y: point.y, endpoints: [] };
+        entry.endpoints.push({
+            frameId: frame.id,
+            orientation: frame.orientation,
+            atStart,
+            localEnd: localJointEndForFrameSide(
+                frame.side,
+                atStart ? 'negative' : 'positive'
+            ),
+            partial: Boolean(frame.partial),
+            side: frame.side,
         });
+        frameEndpointMap.set(key, entry);
+    }
+    framePlacements.forEach(frame => {
+        registerFrameEndpoint(frame, true);
+        registerFrameEndpoint(frame, false);
+    });
+
+    const perimeterJunctions = [...junctionMap.values()]
+        .map(dividerEntry => {
+            // The merged-L re-entrant point has exactly one surviving divider,
+            // one newly reconstructed frame continuing that divider, and one
+            // perpendicular perimeter frame around the missing quadrant.
+            if (dividerEntry.endpoints.length !== 1) return null;
+            const frameEntry = frameEndpointMap.get(dividerEntry.key);
+            if (!frameEntry || frameEntry.endpoints.length !== 2) return null;
+
+            const dividerEndpoint = dividerEntry.endpoints[0];
+            const hostCandidates = frameEntry.endpoints.filter(endpoint =>
+                endpoint.orientation === dividerEndpoint.orientation
+                && endpoint.partial
+            );
+            const branchCandidates = frameEntry.endpoints.filter(endpoint =>
+                endpoint.orientation !== dividerEndpoint.orientation
+            );
+            if (hostCandidates.length !== 1 || branchCandidates.length !== 1) return null;
+
+            return Object.freeze({
+                key: dividerEntry.key,
+                x: dividerEntry.x,
+                y: dividerEntry.y,
+                type: 'perimeter-T',
+                hostOrientation: dividerEndpoint.orientation,
+                branchOrientation: branchCandidates[0].orientation,
+                dividerEndpoint: Object.freeze({ ...dividerEndpoint }),
+                hostFrameEndpoint: Object.freeze({ ...hostCandidates[0] }),
+                branchFrameEndpoint: Object.freeze({ ...branchCandidates[0] }),
+            });
+        })
+        .filter(Boolean);
 
     return Object.freeze({
         cells: Object.freeze(cells.map(cell => Object.freeze({
@@ -675,5 +1245,6 @@ export function getEditableWindowTopologyGeometry({
         framePlacements: Object.freeze(framePlacements),
         dividerSegments: Object.freeze(dividerSegments.map(divider => Object.freeze(divider))),
         junctions: Object.freeze(junctions),
+        perimeterJunctions: Object.freeze(perimeterJunctions),
     });
 }

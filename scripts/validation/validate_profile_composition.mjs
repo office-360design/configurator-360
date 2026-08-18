@@ -1662,6 +1662,86 @@ const actualSashSashConnectionTemplate = JSON.parse(fs.readFileSync(
     ),
     'utf8'
 ));
+
+// Dynamic mixed joins must use the fixed/fixed CAD as the fixed-glazing bead
+// seat source. The mixed join's lone 573940 occurrence belongs to the sash
+// side; using it as a fixed-light anchor creates the visible gap at the
+// mullion. Direct fixed-side gaskets still come from the active mixed join.
+const actualDynamicMixedFixedPlacement = composeRegisteredProfileDefinitions({
+    selection: {
+        profileSetId: '2_4_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575760',
+        sashProfileId: '575780',
+        dividerProfileId: '575800',
+        dividerOrientation: 'vertical',
+        leftCell: 'fixed-glazing',
+        rightCell: 'opening-sash',
+        cells: ['fixed-glazing', 'opening-sash'],
+    },
+    definitionsByProfileSetId: actualLegacyDefinitions,
+    standaloneDefinitionsByProfileId: actualStandaloneDefinitions,
+    connectionTemplate: actualMixedConnectionTemplate,
+    placementConnectionTemplate: actualMixedConnectionTemplate,
+    fixedGlazingFrameTemplate: actualFrameFixedConnectionTemplate,
+    fixedGlazingDividerTemplate: actualFixedFixedConnectionTemplate,
+    fixedGlazingDividerGasketTemplate: actualMixedConnectionTemplate,
+    standaloneBeadDefinition: actualStandaloneBeadDefinition,
+});
+const actualDynamicMixedFixedBoundary = Number(
+    actualDynamicMixedFixedPlacement.metadata.fixedGlazingConnections
+        ?.dividerCellBoundariesMm?.left
+);
+const actualDynamicMixedFixedBead = actualDynamicMixedFixedPlacement.profiles.find(profile =>
+    String(profile.blockName || '').includes('573940')
+    && profile.section === 'top'
+);
+assert(
+    actualDynamicMixedFixedPlacement.metadata.fixedGlazingConnections?.dividerTemplateId
+        === 'mullion-fixed-fixed'
+        && actualDynamicMixedFixedPlacement.metadata.fixedGlazingConnections?.dividerGasketTemplateId
+        === 'mullion-fixed-sash'
+        && Number.isFinite(actualDynamicMixedFixedBoundary)
+        && actualDynamicMixedFixedBoundary > 0
+        && actualDynamicMixedFixedBead?.fixedGlazingDividerCadTransforms?.left,
+    'A dynamic fixed/sash join must source the fixed-side bead seat from window-mullion-window while keeping its direct gasket source on window-mullion-sash-window.'
+);
+
+const actualDynamicReversedMixedFixedPlacement = composeRegisteredProfileDefinitions({
+    selection: {
+        profileSetId: '2_4_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575760',
+        sashProfileId: '575780',
+        dividerProfileId: '575800',
+        dividerOrientation: 'vertical',
+        leftCell: 'opening-sash',
+        rightCell: 'fixed-glazing',
+        cells: ['opening-sash', 'fixed-glazing'],
+    },
+    definitionsByProfileSetId: actualLegacyDefinitions,
+    standaloneDefinitionsByProfileId: actualStandaloneDefinitions,
+    connectionTemplate: actualMixedConnectionTemplate,
+    placementConnectionTemplate: actualMixedConnectionTemplate,
+    fixedGlazingFrameTemplate: actualFrameFixedConnectionTemplate,
+    fixedGlazingDividerTemplate: actualFixedFixedConnectionTemplate,
+    fixedGlazingDividerGasketTemplate: actualMixedConnectionTemplate,
+    standaloneBeadDefinition: actualStandaloneBeadDefinition,
+});
+const actualDynamicReversedFixedBoundary = Number(
+    actualDynamicReversedMixedFixedPlacement.metadata.fixedGlazingConnections
+        ?.dividerCellBoundariesMm?.right
+);
+const actualDynamicReversedFixedBead = actualDynamicReversedMixedFixedPlacement.profiles.find(profile =>
+    String(profile.blockName || '').includes('573940')
+    && profile.section === 'top'
+);
+assert(
+    Number.isFinite(actualDynamicReversedFixedBoundary)
+        && actualDynamicReversedFixedBoundary < 0
+        && actualDynamicReversedFixedBead?.fixedGlazingDividerCadTransforms?.right
+        && actualDynamicReversedFixedBead.fixedGlazingDividerCadTransforms.right.a > 0
+        && actualDynamicReversedFixedBead.fixedGlazingDividerCadTransforms.right.d > 0,
+    'A reversed dynamic sash/fixed join must use the fixed-right seat from window-mullion-window without reflecting the bead depth transform.'
+);
 const actualMixedAffineGasketComposition = composeRegisteredProfileDefinitions({
     selection: {
         profileSetId: '2_4_Oeffnungselemnt_Vertikal',
@@ -1750,6 +1830,55 @@ assert(
     'The mixed vertical layout must derive the sash-side virtual boundary from the left/right join instead of stopping the sash at the visible mullion face.'
 );
 
+
+
+const actualReversedMixedComposition = composeRegisteredProfileDefinitions({
+    selection: {
+        profileSetId: '2_4_Oeffnungselemnt_Vertikal',
+        outerFrameProfileId: '575760',
+        sashProfileId: '575780',
+        dividerProfileId: '575800',
+        dividerOrientation: 'vertical',
+        leftCell: 'opening-sash',
+        rightCell: 'fixed-glazing',
+        cells: ['opening-sash', 'fixed-glazing'],
+    },
+    definitionsByProfileSetId: actualLegacyDefinitions,
+    standaloneDefinitionsByProfileId: actualStandaloneDefinitions,
+    connectionTemplate: actualMixedConnectionTemplate,
+    placementConnectionTemplate: actualMixedConnectionTemplate,
+    fixedGlazingFrameTemplate: actualFrameFixedConnectionTemplate,
+    fixedGlazingDividerTemplate: actualMixedConnectionTemplate,
+    fixedGlazingDividerGasketTemplate: actualMixedConnectionTemplate,
+    standaloneBeadDefinition: actualStandaloneBeadDefinition,
+});
+const actualReversedFixedBoundary = Number(
+    actualReversedMixedComposition.metadata.fixedGlazingConnections
+        ?.dividerCellBoundariesMm?.right
+);
+const actualReversedOpeningBoundary = Number(
+    actualReversedMixedComposition.metadata.dividerConnection
+        ?.openingSashDividerBoundariesMm?.left
+);
+const actualReversedFixedBead = actualReversedMixedComposition.profiles.find(profile =>
+    String(profile.blockName || '').includes('573940')
+    && profile.section === 'top'
+);
+const actualReversedRebate = actualReversedMixedComposition.profiles.find(profile =>
+    profile.role === 'frame'
+    && String(profile.blockName || '').includes('245472_s_5')
+    && profile.section === 'top'
+);
+assert(
+    Number.isFinite(actualReversedFixedBoundary)
+        && Number.isFinite(actualReversedOpeningBoundary)
+        && actualReversedFixedBead?.fixedGlazingDividerCadTransforms?.right
+        && (
+            actualReversedRebate?.mullionConnectionCadTransforms?.right
+            || actualReversedRebate?.mullionConnectionCellSide === 'right'
+        ),
+    'The reversed dynamic mixed join must preserve the authored fixed-left/sash-right CAD occurrences, mirror the fixed bead seat to runtime right, and retain the exact sash-side 245472 INSERT for runtime mirroring.'
+);
 
 // Sash/sash uses the same connection-driven divider bridge, but both sides
 // must retain their own sash boundary and direct mullion rebate gasket.
