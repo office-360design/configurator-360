@@ -660,6 +660,20 @@ export function createProfileController({
                 fields[key] = value;
             }
         });
+
+        if (profile.role === 'divider') {
+            // Each CAD connection drawing has its own join-space origin.  The
+            // same standalone mullion therefore receives a different working
+            // transform/bounds in fixed/fixed, fixed/sash and sash/sash joins.
+            // Direct mullion gaskets/accessories are retargeted into that exact
+            // working basis, so caching only their transforms while keeping the
+            // structural divider in the first catalog variant's basis makes the
+            // entire accessory set slide across the mullion.  Preserve the
+            // structural basis together with every divider connection variant.
+            fields.cadCoordinateTransform = profile.cadCoordinateTransform || null;
+            fields.dividerSourceBounds = profile.dividerSourceBounds || null;
+        }
+
         return Object.freeze(fields);
     }
 

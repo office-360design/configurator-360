@@ -1961,13 +1961,18 @@ export function createWindowBuilder({
                     dividerFaceSpan,
                     frameJointInwardSpan,
                 });
+                const segmentDividerProfiles = activeDividerProfiles.map(profile =>
+                    getEditableProfileVariant(profile, segment)
+                );
+                const segmentDividerBounds = getDividerSourceBounds(segmentDividerProfiles)
+                    || dividerBounds;
 
-                activeDividerProfiles.forEach(profile => {
+                segmentDividerProfiles.forEach(variantProfile => {
                     const placedProfile = {
-                        ...getEditableProfileVariant(profile, segment),
+                        ...variantProfile,
                         dividerSectionRotationDeg:
                             Number(connectionMetadata.sectionRotationDeg)
-                            || Number(getEditableProfileVariant(profile, segment).dividerSectionRotationDeg)
+                            || Number(variantProfile.dividerSectionRotationDeg)
                             || 180,
                     };
                     if (segmentPlacement.length <= 1e-6) return;
@@ -1976,7 +1981,7 @@ export function createWindowBuilder({
                             placedProfile,
                             segmentPlacement.length,
                             segment.orientation,
-                            dividerBounds,
+                            segmentDividerBounds,
                             depthOffset,
                             frameJointInwardSpan,
                             segment.perpendicularOffset,
@@ -2024,7 +2029,7 @@ export function createWindowBuilder({
                                 placedProfile,
                                 segmentPlacement.length,
                                 segment.orientation,
-                                dividerBounds,
+                                segmentDividerBounds,
                                 depthOffset,
                                 frameJointInwardSpan,
                                 segment.perpendicularOffset,
@@ -2059,7 +2064,7 @@ export function createWindowBuilder({
                                     placedProfile,
                                     segmentPlacement.length,
                                     segment.orientation,
-                                    dividerBounds,
+                                    segmentDividerBounds,
                                     depthOffset,
                                     frameJointInwardSpan,
                                     segment.perpendicularOffset,
