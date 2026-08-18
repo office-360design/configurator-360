@@ -1,0 +1,381 @@
+{
+  "schemaVersion": 2,
+  "id": "frame-fixed",
+  "kind": "cad-connection-template",
+  "boundary": "outer-frame",
+  "leftCell": "outside",
+  "rightCell": "fixed-glazing",
+  "mirrorAllowed": false,
+  "orientation": "left-right-section",
+  "source": {
+    "path": "cad/source/join/frame-window.dwg",
+    "sha256": "599ca987b8df25ac5bea56865b7cd027ae9155a99837c4f95a4af74632aaed41"
+  },
+  "extraction": {
+    "method": "exact-insert-transform-matching",
+    "converter": "cad/tools/test_convert.js",
+    "modelSpacePolicy": "prefer-inserts",
+    "geometrySource": {
+      "modelSpacePolicy": "prefer-inserts",
+      "topLevelInsertCount": 4,
+      "directModelSpaceEntityCount": 37,
+      "directModelSpacePathCount": 21,
+      "filteredPathCount": 0,
+      "usedInsertGeometry": true,
+      "usedDirectModelSpaceGeometry": false,
+      "ignoredDirectModelSpaceGeometry": true,
+      "componentCount": 8
+    },
+    "note": "Rotation/mirroring is derived from CAD INSERT transforms. Bounding boxes are used only to validate a transform match, never to choose the rotation."
+  },
+  "bounds": {
+    "minX": 6.018689901525334,
+    "minY": 113.4882123519963,
+    "maxX": 67.23570572234988,
+    "maxY": 178.4882123519963
+  },
+  "profileOccurrences": {
+    "224063": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "224063",
+        "role": "gasket",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 60.71868990152973,
+          "ty": 117.4882123519982
+        },
+        "bbox": {
+          "minX": 53.77124090153404,
+          "minY": 115.48808135200002,
+          "maxX": 67.23570572234988,
+          "maxY": 122.28803914186118
+        },
+        "center": {
+          "x": 60.50347331194196,
+          "y": 118.88806024693059
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224063_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      }
+    ],
+    "224378": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "224378",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 158.56042462679696,
+          "ty": 39.1080625792205
+        },
+        "determinant": -1,
+        "mirrored": true,
+        "bbox": {
+          "minX": 48.582269080614324,
+          "minY": 148.79754615743266,
+          "maxX": 62.564010111192616,
+          "maxY": 158.15791056469675
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 7.105427357601002e-15,
+        "matches": [
+          {
+            "sourceComponentId": "224378_s_8-0",
+            "targetComponentId": "224378_s_8-0",
+            "bboxErrorMm": 7.105427357601002e-15
+          }
+        ]
+      }
+    ],
+    "573940": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "573940",
+        "transform": {
+          "a": 0,
+          "b": 1,
+          "c": 1,
+          "d": 0,
+          "tx": -64.67935301381559,
+          "ty": 43.26220366402693
+        },
+        "determinant": -1,
+        "mirrored": true,
+        "bbox": {
+          "minX": 35.668693856219775,
+          "minY": 165.9882123519963,
+          "maxX": 38.16868594683088,
+          "maxY": 168.03821235199632
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 0,
+        "matches": [
+          {
+            "sourceComponentId": "244511_s_2-1",
+            "targetComponentId": "244511_s_2-7",
+            "bboxErrorMm": 0
+          }
+        ]
+      }
+    ],
+    "575760": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "575760",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -56.90019718798641,
+          "ty": -3.4730364810143044
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 6.018689901525334,
+          "minY": 113.4882123519963,
+          "maxX": 63.01868990152536,
+          "maxY": 178.4882123519963
+        },
+        "matchedComponentCount": 4,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.9585290785784033e-14,
+        "matches": [
+          {
+            "sourceComponentId": "581910_s-0",
+            "targetComponentId": "581910_s-2",
+            "bboxErrorMm": 4.440892098500626e-16
+          },
+          {
+            "sourceComponentId": "587270_s-1",
+            "targetComponentId": "587270_s-3",
+            "bboxErrorMm": 1.4217791915866692e-14
+          },
+          {
+            "sourceComponentId": "30065150_s-2",
+            "targetComponentId": "30065150_s-4",
+            "bboxErrorMm": 1.9585290785784033e-14
+          },
+          {
+            "sourceComponentId": "30065126_s-3",
+            "targetComponentId": "30065126_s-5",
+            "bboxErrorMm": 1.464821375527116e-14
+          }
+        ]
+      }
+    ],
+    "575770": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "575770",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -40.70742197674787,
+          "ty": 23.173547176460602
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 6.018689901525334,
+          "minY": 113.4882123519963,
+          "maxX": 63.01868990152536,
+          "maxY": 178.4882123519963
+        },
+        "matchedComponentCount": 2,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 4.440892098500626e-16,
+        "matches": [
+          {
+            "sourceComponentId": "581910_s-0",
+            "targetComponentId": "581910_s-2",
+            "bboxErrorMm": 4.440892098500626e-16
+          },
+          {
+            "sourceComponentId": "587270_s-1",
+            "targetComponentId": "587270_s-3",
+            "bboxErrorMm": 4.440892098500626e-16
+          }
+        ]
+      }
+    ]
+  },
+  "roleOccurrences": {
+    "gasket": [
+      {
+        "profileId": "224063",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 60.71868990152973,
+          "ty": 117.4882123519982
+        },
+        "bbox": {
+          "minX": 53.77124090153404,
+          "minY": 115.48808135200002,
+          "maxX": 67.23570572234988,
+          "maxY": 122.28803914186118
+        },
+        "center": {
+          "x": 60.50347331194196,
+          "y": 118.88806024693059
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224063_s"
+        ]
+      },
+      {
+        "profileId": "224378",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 158.56042462679696,
+          "ty": 39.1080625792205
+        },
+        "bbox": {
+          "minX": 48.582269080614324,
+          "minY": 148.79754615743266,
+          "maxX": 62.564010111192616,
+          "maxY": 158.15791056469675
+        },
+        "center": {
+          "x": 55.57313959590347,
+          "y": 153.4777283610647
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 7.105427357601002e-15,
+        "mirrored": true,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      }
+    ],
+    "glazing-bead": [
+      {
+        "profileId": "573940",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 0,
+          "b": 1,
+          "c": 1,
+          "d": 0,
+          "tx": -64.67935301381559,
+          "ty": 43.26220366402693
+        },
+        "bbox": {
+          "minX": 35.668693856219775,
+          "minY": 165.9882123519963,
+          "maxX": 38.16868594683088,
+          "maxY": 168.03821235199632
+        },
+        "center": {
+          "x": 36.918689901525326,
+          "y": 167.01321235199632
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      }
+    ],
+    "outer-frame": [
+      {
+        "profileId": "575760",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -56.90019718798641,
+          "ty": -3.4730364810143044
+        },
+        "bbox": {
+          "minX": 6.018689901525334,
+          "minY": 113.4882123519963,
+          "maxX": 63.01868990152536,
+          "maxY": 178.4882123519963
+        },
+        "center": {
+          "x": 34.51868990152535,
+          "y": 145.9882123519963
+        },
+        "matchedComponentCount": 4,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.9585290785784033e-14,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "575770",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -40.70742197674787,
+          "ty": 23.173547176460602
+        },
+        "bbox": {
+          "minX": 6.018689901525334,
+          "minY": 113.4882123519963,
+          "maxX": 63.01868990152536,
+          "maxY": 178.4882123519963
+        },
+        "center": {
+          "x": 34.51868990152535,
+          "y": 145.9882123519963
+        },
+        "matchedComponentCount": 2,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 4.440892098500626e-16,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      }
+    ]
+  },
+  "generatedAt": "2026-08-07T12:26:38.905Z"
+}

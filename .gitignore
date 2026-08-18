@@ -89,3 +89,6 @@ commit_message.md
 
 # Temporary Google GitHub Actions credentials
 gha-creds-*.json
+
+# vv trolla si punea zipuri pe git
+project.zip

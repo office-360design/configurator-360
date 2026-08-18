@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 2,
+  "id": "573930",
+  "type": "accessory",
+  "role": "glazing-bead",
+  "label": "Glazing bead 573930",
+  "description": "",
+  "accessoryType": "glazing-bead",
+  "source": {
+    "path": "cad/source/bead/573930.dxf",
+    "format": "dxf",
+    "sha256": "49a1b31fac1267024365e6c4f4d056f77cc328a06e95f9f8c8fc6f09cc061993",
+    "originalPreserved": true
+  },
+  "geometry": {
+    "mode": "component-assembly",
+    "svg": "profile.svg",
+    "units": "mm",
+    "viewBox": [
+      103.226,
+      -129.698,
+      37,
+      36.6998
+    ],
+    "filledPathCount": 2,
+    "openPathCount": 0,
+    "canonicalOrientation": {
+      "side": "top",
+      "exteriorDirection": "unspecified",
+      "cavityDirection": "unspecified"
+    },
+    "allowedTransforms": {
+      "rotations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "mirrorX": false,
+      "mirrorY": false
+    },
+    "sourcePolicy": {
+      "modelSpacePolicy": "prefer-inserts"
+    },
+    "sourceDiagnostics": {
+      "modelSpacePolicy": "prefer-inserts",
+      "topLevelInsertCount": 1,
+      "directModelSpaceEntityCount": 0,
+      "directModelSpacePathCount": 0,
+      "filteredPathCount": 0,
+      "usedInsertGeometry": true,
+      "usedDirectModelSpaceGeometry": false,
+      "ignoredDirectModelSpaceGeometry": false,
+      "componentCount": 2
+    },
+    "components": [
+      {
+        "id": "573940_s-0",
+        "svg": "parts/000-573940_s.svg",
+        "blockName": "573940_s",
+        "parentBlock": null,
+        "rootBlock": "573940_s",
+        "hierarchy": [
+          "573940_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "sourceTransform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 135.2260086879694,
+          "ty": 102.6980429153409
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 108.2260086879694,
+          "minY": 97.99827472324684,
+          "maxX": 135.2260086879694,
+          "maxY": 124.69804291534092
+        },
+        "closedContours": 2,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "244511_s_2-1",
+        "svg": "parts/001-244511_s_2.svg",
+        "blockName": "244511_s_2",
+        "parentBlock": "573940_s",
+        "rootBlock": "573940_s",
+        "hierarchy": [
+          "573940_s",
+          "244511_s_2"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "sourceTransform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 123.5260086879694,
+          "ty": 101.59804291534091
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 122.7260086879694,
+          "minY": 100.34804687003536,
+          "maxX": 124.7760086879694,
+          "maxY": 102.84803896064646
+        },
+        "closedContours": 1,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      }
+    ],
+    "excludedComponents": []
+  },
+  "componentSelection": {
+    "mode": "all",
+    "maxGapMm": 25,
+    "anchorBlockNames": [],
+    "keepExcludedForReview": true,
+    "includedCount": 2,
+    "excludedCount": 0
+  },
+  "placement": {
+    "allowedSides": [
+      "top",
+      "right",
+      "bottom",
+      "left"
+    ]
+  },
+  "conversion": {
+    "mode": "standalone-profile-components",
+    "converter": "cad/tools/test_convert.js",
+    "modelSpacePolicy": "prefer-inserts",
+    "insertTransform": "ocs-to-world",
+    "generatedAt": "2026-08-07T08:39:08.023Z"
+  },
+  "catalogRegistration": {
+    "status": "not-registered",
+    "note": "Review profile.svg, parts/, excluded/, and metadata before adding this profile to src/client/js/profile-catalog.js."
+  },
+  "notes": null
+}
