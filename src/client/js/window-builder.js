@@ -1454,6 +1454,12 @@ export function createWindowBuilder({
             const editableCells = (editableTopologyGeometry?.cells || []).map((cell, index) => ({
                 ...cell,
                 cellIndex: index,
+                // Every unmerged grid cell is exactly one slider-sized window.
+                // Do not let a cell at an L corner accumulate two mullion-seat
+                // offsets and become larger than its neighbours. Mullion-facing
+                // bead/gasket cross-sections are already placed from their exact
+                // join-profile CAD transforms; the rectangle itself stays on the
+                // structural one-window bay.
                 fixedAccessoryWidth: cell.width,
                 fixedAccessoryHeight: cell.height,
                 fixedAccessoryCenterX: cell.centerX,

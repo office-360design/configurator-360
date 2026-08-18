@@ -656,8 +656,10 @@ const editableMixedFixed = editableMixedSeats.cells.find(cell => cell.id === 'fi
 const editableMixedSash = editableMixedSeats.cells.find(cell => cell.id === 'sash-right');
 assert(
     Math.abs(editableMixedFixed.x1 - (-0.031)) < 1e-9
-        && Math.abs(editableMixedSash.x0 - (-0.013)) < 1e-9,
-    'Dynamic mixed joins must use both fixed-light and sash boundaries supplied by their resolved CAD placement variants.'
+        && Math.abs(editableMixedSash.x0 - (-0.013)) < 1e-9
+        && Math.abs(editableMixedFixed.connectionX1 - (-0.031)) < 1e-9
+        && Math.abs(editableMixedSash.connectionX0 - (-0.013)) < 1e-9,
+    'Ordinary dynamic mixed joins must keep using the CAD-derived cell boundaries that were already validated.'
 );
 
 const editableReversedMixedSeats = getEditableWindowTopologyGeometry({
@@ -700,8 +702,10 @@ const editableReversedSash = editableReversedMixedSeats.cells.find(cell => cell.
 const editableReversedFixed = editableReversedMixedSeats.cells.find(cell => cell.id === 'fixed-right');
 assert(
     Math.abs(editableReversedSash.x1 - 0.013) < 1e-9
-        && Math.abs(editableReversedFixed.x0 - 0.009058930398579662) < 1e-9,
-    'A reversed dynamic mixed join must use the fixed-light and sash seats supplied by the reversed CAD placement variant.'
+        && Math.abs(editableReversedFixed.x0 - 0.009058930398579662) < 1e-9
+        && Math.abs(editableReversedSash.connectionX1 - 0.013) < 1e-9
+        && Math.abs(editableReversedFixed.connectionX0 - 0.009058930398579662) < 1e-9,
+    'A reversed ordinary mixed join must keep its previously validated CAD-derived cell boundaries.'
 );
 
 const authoredMixedBeadTransform = Object.freeze({ a: 1, d: 1, tx: 10, ty: 44 });
@@ -766,8 +770,143 @@ const editableFixedA = editableFixedFixedSeats.cells.find(cell => cell.id === 'f
 const editableFixedB = editableFixedFixedSeats.cells.find(cell => cell.id === 'fixed-b');
 assert(
     Math.abs(editableFixedA.x1 - (-0.031)) < 1e-9
-        && Math.abs(editableFixedB.x0 - 0.031) < 1e-9,
-    'Dynamic fixed/fixed joins must continue using their CAD-derived fixed-light connection rectangle.'
+        && Math.abs(editableFixedB.x0 - 0.031) < 1e-9
+        && Math.abs(editableFixedA.connectionX1 - (-0.031)) < 1e-9
+        && Math.abs(editableFixedB.connectionX0 - 0.031) < 1e-9,
+    'Ordinary dynamic fixed/fixed joins must continue using their CAD-derived fixed-light connection rectangle.'
+);
+
+
+// In an unmerged L, the inside-corner cell can touch two mullions. Both CAD
+// seats may extend past their structural centre-lines, but they must not be
+// accumulated into the logical cell dimensions: every 1x1 window still uses
+// exactly one slider width and one slider height.
+const editableEqualSizeL = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'corner-fixed', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+            { id: 'right-sash', type: 'opening-sash', rect: { x0: 1, y0: 0, x1: 2, y1: 1 } },
+            { id: 'top-sash', type: 'opening-sash', rect: { x0: 0, y0: 1, x1: 1, y1: 2 } },
+        ],
+        frameEdges: [
+            {
+                id: 'corner-bottom',
+                cellId: 'corner-fixed',
+                side: 'bottom',
+                coordinate: 0,
+                start: 0,
+                end: 1,
+                cellType: 'fixed-glazing',
+            },
+            {
+                id: 'right-bottom',
+                cellId: 'right-sash',
+                side: 'bottom',
+                coordinate: 0,
+                start: 1,
+                end: 2,
+                cellType: 'opening-sash',
+            },
+        ],
+        dividers: [
+            {
+                id: 'equal-l-vertical',
+                orientation: 'vertical',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'corner-fixed',
+                positiveCellId: 'right-sash',
+                negativeCellType: 'fixed-glazing',
+                positiveCellType: 'opening-sash',
+                templateId: 'mullion-fixed-sash',
+                reversed: false,
+            },
+            {
+                id: 'equal-l-horizontal',
+                orientation: 'horizontal',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'corner-fixed',
+                positiveCellId: 'top-sash',
+                negativeCellType: 'fixed-glazing',
+                positiveCellType: 'opening-sash',
+                templateId: 'mullion-fixed-sash',
+                reversed: false,
+            },
+        ],
+    },
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-sash:normal': {
+            dividerConnection: {
+                openingSashDividerBoundariesMm: { right: -13 },
+            },
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: 31 },
+            },
+        },
+        'horizontal:mullion-fixed-sash:normal': {
+            dividerConnection: {
+                openingSashDividerBoundariesMm: { right: -13 },
+            },
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: 31 },
+            },
+        },
+    },
+});
+const equalLCorner = editableEqualSizeL.cells.find(cell => cell.id === 'corner-fixed');
+const equalLRight = editableEqualSizeL.cells.find(cell => cell.id === 'right-sash');
+const equalLTop = editableEqualSizeL.cells.find(cell => cell.id === 'top-sash');
+assert(
+    [equalLCorner, equalLRight, equalLTop].every(cell =>
+        Math.abs(cell.width - 1.2) < 1e-9
+        && Math.abs(cell.height - 1.5) < 1e-9
+    ),
+    'Every unmerged 1x1 cell in an L layout must remain exactly one slider width and one slider height, including the two-divider corner cell.'
+);
+assert(
+    Math.abs(equalLCorner.x1 - equalLCorner.connectionX1) < 1e-9
+        && Math.abs(equalLCorner.y1 - equalLCorner.connectionY1) < 1e-9
+        && Math.abs(equalLRight.x0 - equalLRight.connectionX0) < 1e-9
+        && Math.abs(equalLTop.y0 - equalLTop.connectionY0) < 1e-9,
+    'Equal-size L cells must translate to the exact CAD-derived mullion boundaries instead of reverting to the structural centreline and leaving a sash/mullion gap.'
+);
+assert(
+    Math.abs(equalLCorner.layoutShiftX - equalLTop.layoutShiftX) < 1e-9
+        && Math.abs(equalLCorner.layoutShiftY - equalLRight.layoutShiftY) < 1e-9,
+    'L compensation must propagate by complete columns/rows so neighbouring outer frames remain aligned while the corner cell keeps both CAD seats.'
+);
+assert(
+    Math.abs(equalLCorner.connectionWidth - 1.231) < 1e-9
+        && Math.abs(equalLCorner.connectionHeight - 1.531) < 1e-9,
+    'The L-corner must still retain both CAD mullion connection seats separately from its structural window size.'
+);
+const equalLCornerBottomFrame = editableEqualSizeL.framePlacements.find(
+    placement => placement.id === 'corner-bottom'
+);
+const equalLRightBottomFrame = editableEqualSizeL.framePlacements.find(
+    placement => placement.id === 'right-bottom'
+);
+assert(
+    equalLCornerBottomFrame.width < 1.2
+        && equalLRightBottomFrame.width < 1.2
+        && Math.abs(
+            equalLCornerBottomFrame.perpendicularOffset
+            - equalLRightBottomFrame.perpendicularOffset
+        ) < 1e-9,
+    'The L fix must compensate by shortening the exposed perimeter-frame pieces while keeping the shared row on one aligned outer-frame line.'
+);
+const equalLVerticalDivider = editableEqualSizeL.dividerSegments.find(
+    segment => segment.id === 'equal-l-vertical'
+);
+assert(
+    Math.abs(equalLVerticalDivider.worldStart - equalLCornerBottomFrame.perpendicularOffset) < 1e-9
+        && Math.abs(equalLVerticalDivider.worldEnd) < 1e-9,
+    'The exterior end of an L mullion must follow the compensated frame line while its inside-corner junction remains on the structural L centre.'
 );
 
 const horizontallyMergedGeometry = getEditableWindowTopologyGeometry({
