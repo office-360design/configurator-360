@@ -1,0 +1,774 @@
+/* Pergola-specific theme corrections loaded after the shared UI stylesheet. */
+.app-shell {
+  --pergola-text-primary: #172027;
+  --pergola-text-secondary: #778087;
+  --pergola-text-disabled: #8a959d;
+  --pergola-text-action: #0878c9;
+  --pergola-surface-primary: #ffffff;
+  --pergola-surface-secondary: #f5f7f7;
+  --pergola-surface-selected: #eaf5fc;
+  --pergola-border: #dfe4e6;
+  --pergola-border-selected: #2f93d3;
+}
+
+.app-shell.is-dark-mode {
+  --pergola-text-primary: #e8eef5;
+  --pergola-text-secondary: #b6c3d1;
+  --pergola-text-disabled: #93a2b3;
+  --pergola-text-action: #69b9f1;
+  --pergola-surface-primary: #1e293b;
+  --pergola-surface-secondary: #263548;
+  --pergola-surface-selected: #244a78;
+  --pergola-border: rgba(255, 255, 255, 0.13);
+  --pergola-border-selected: #60a5fa;
+}
+
+/* Range captions and values use the same secondary-text pair everywhere. */
+.app-shell.is-dark-mode .environment-panel .environment-control output,
+.app-shell.is-dark-mode .environment-panel .environment-control small,
+.app-shell.is-dark-mode .environment-panel .range-labels,
+.app-shell.is-dark-mode .configurator-sidebar .range-labels,
+.app-shell.is-dark-mode .configurator-sidebar .mount-height-control small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-height-hint {
+  color: var(--pergola-text-secondary) !important;
+}
+
+.app-shell.is-dark-mode .environment-panel .environment-control strong,
+.app-shell.is-dark-mode .environment-panel .environment-panel__header strong {
+  color: var(--pergola-text-primary);
+}
+
+/* Dimension presets. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .preset-button {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .preset-button.is-selected {
+  color: #075f9f;
+  background: #f4faff;
+  border-color: var(--pergola-border-selected);
+  box-shadow: inset 0 0 0 1px rgba(47, 147, 211, 0.14);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .preset-button {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .preset-button:hover {
+  color: #f3f8fc;
+  background: #2a3a50;
+  border-color: rgba(105, 185, 241, 0.55);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .preset-button.is-selected {
+  color: #eef8ff;
+  background: var(--pergola-surface-selected);
+  border-color: var(--pergola-border-selected);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.22);
+}
+
+/* Side tabs and side-position controls. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .side-tab,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .position-button,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-button {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .side-tab small,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .position-button small,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-button small {
+  color: var(--pergola-text-secondary);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .side-tab.is-selected,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .position-button.is-selected,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-button.is-selected {
+  color: #075f9f;
+  background: var(--pergola-surface-selected);
+  border-color: var(--pergola-border-selected);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .side-tab,
+.app-shell.is-dark-mode .configurator-sidebar .position-button,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .side-tab small,
+.app-shell.is-dark-mode .configurator-sidebar .position-button small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button small {
+  color: var(--pergola-text-secondary);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .side-tab.is-selected,
+.app-shell.is-dark-mode .configurator-sidebar .position-button.is-selected,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button.is-selected {
+  color: #eef8ff;
+  background: var(--pergola-surface-selected);
+  border-color: var(--pergola-border-selected);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.2);
+}
+
+/* Accessory summary cards and their model marks. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .accessory-summary-line {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .accessory-summary-line strong {
+  color: var(--pergola-text-primary);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .accessory-summary-line small {
+  color: var(--pergola-text-secondary);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .accessory-summary-line {
+  color: var(--pergola-text-primary);
+  background: var(--pergola-surface-primary);
+  border-color: var(--pergola-border);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .accessory-summary-line strong {
+  color: var(--pergola-text-primary);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .accessory-summary-line small {
+  color: var(--pergola-text-secondary);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .accessory-model-mark,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-customizer__summary-icon {
+  color: #0878c9;
+  background: linear-gradient(145deg, #ffffff, #eef7fd);
+  border-color: #cfe2ef;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .accessory-model-mark,
+.app-shell.is-dark-mode .configurator-sidebar .pole-customizer__summary-icon {
+  color: #79c6fa;
+  background: #162338;
+  border-color: rgba(105, 185, 241, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.configurator-sidebar .pole-customizer__summary-icon img {
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
+
+/* Keep accessory cards and icon wells coherent in dark mode. */
+.app-shell.is-dark-mode .configurator-sidebar .option-card__icon,
+.app-shell.is-dark-mode .configurator-sidebar .accessory-card > img {
+  background: #172438;
+}
+
+/* Spotlight counter: blue controls like the window configurator. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .counter-control {
+  background: #ffffff;
+  border-color: var(--pergola-border);
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .counter-control button {
+  color: #0878c9;
+  background: #f3f8fc;
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .counter-control output {
+  color: var(--pergola-text-primary);
+  background: #ffffff;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .counter-control {
+  background: #152238;
+  border-color: var(--pergola-border);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .counter-control button {
+  color: #69b9f1;
+  background: #1c2b41;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .counter-control button:hover {
+  color: #dff3ff;
+  background: #27405e;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .counter-control output {
+  color: var(--pergola-text-primary);
+  background: #152238;
+}
+
+/* Disabled controls stay obviously unavailable without becoming unreadable. */
+.app-shell .configurator-sidebar .option-card:disabled,
+.app-shell .configurator-sidebar .option-card.is-disabled,
+.app-shell .configurator-sidebar .position-button:disabled,
+.app-shell .configurator-sidebar .pole-button:disabled,
+.app-shell .configurator-sidebar .pole-selector__button:disabled,
+.app-shell .configurator-sidebar .pole-mount-type:disabled,
+.app-shell .configurator-sidebar .segmented-control__item:disabled {
+  opacity: 0.7;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .option-card:disabled,
+.app-shell.is-dark-mode .configurator-sidebar .option-card.is-disabled,
+.app-shell.is-dark-mode .configurator-sidebar .position-button:disabled,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button:disabled,
+.app-shell.is-dark-mode .configurator-sidebar .pole-selector__button:disabled,
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-type:disabled {
+  color: var(--pergola-text-disabled);
+  background: #1b2637;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .option-card:disabled strong,
+.app-shell.is-dark-mode .configurator-sidebar .option-card.is-disabled strong,
+.app-shell.is-dark-mode .configurator-sidebar .position-button:disabled span,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button:disabled span,
+.app-shell.is-dark-mode .configurator-sidebar .pole-selector__button:disabled span,
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-type:disabled strong {
+  color: var(--pergola-text-disabled);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .option-card:disabled small,
+.app-shell.is-dark-mode .configurator-sidebar .option-card.is-disabled small,
+.app-shell.is-dark-mode .configurator-sidebar .position-button:disabled small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-button:disabled small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-selector__button:disabled small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-type:disabled small {
+  color: #7f8fa2;
+}
+
+/* The warning exists only when the current face contains a real overlap pair. */
+.pole-overlap-warning[hidden] {
+  display: none !important;
+}
+
+/* Dynamic grid theme pairings. */
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid {
+  background: #182437;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__segment {
+  color: #66768a;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar button.pergola-grid__segment:hover,
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__segment.has-closing,
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__segment.is-selected {
+  color: #69b9f1;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__segment.is-blocked:not(.has-closing) {
+  color: #ddb45f;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__segment.is-unavailable {
+  color: #3a485b;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__pole {
+  border-color: #172235;
+  background: #c2ccd6;
+  box-shadow: 0 0 0 2px #718196, 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar button.pergola-grid__pole:hover,
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__pole.is-selected {
+  background: #69b9f1;
+  box-shadow: 0 0 0 4px rgba(105, 185, 241, 0.22), 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__pole.is-invalid {
+  box-shadow: 0 0 0 3px #ff6b6b, 0 0 0 7px rgba(255, 107, 107, 0.17), 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__pole.is-unavailable {
+  background: #445267;
+  box-shadow: 0 0 0 2px #55657a;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__legend {
+  color: var(--pergola-text-secondary);
+}
+
+.app-shell.is-dark-mode .dimension-warning-modal .modal__body strong {
+  color: #ff9b9b;
+}
+
+
+/* Pole component removal stays legible in both themes and remains available for automation controls. */
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-mount-remove {
+  color: #8f1f1f;
+  background: #fff0f0;
+  border-color: #e5a2a2;
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-mount-remove:hover {
+  color: #721515;
+  background: #ffe2e2;
+  border-color: #d97878;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-remove {
+  color: #ffd1d1;
+  background: rgba(153, 27, 27, 0.38);
+  border-color: rgba(248, 113, 113, 0.62);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-remove:hover {
+  color: #fff1f1;
+  background: rgba(185, 28, 28, 0.52);
+  border-color: rgba(252, 165, 165, 0.8);
+}
+
+.invalid-configuration-message strong + strong {
+  margin-top: 8px;
+}
+
+/* Stronger selection treatment for pole customization and the new accessory editors. */
+.configurator-sidebar .pole-face-selector__button.is-selected,
+.configurator-sidebar .pole-mount-type.is-selected,
+.configurator-sidebar .pole-top-sensor.is-selected,
+.configurator-sidebar .heater-segment-button.is-selected {
+  border: 2px solid #0878c9 !important;
+  box-shadow: 0 0 0 3px rgba(8, 120, 201, 0.24), inset 0 0 0 1px rgba(255, 255, 255, 0.38) !important;
+}
+
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-face-selector__button.is-selected,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-mount-type.is-selected,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .pole-top-sensor.is-selected,
+.app-shell:not(.is-dark-mode) .configurator-sidebar .heater-segment-button.is-selected {
+  color: #004f88 !important;
+  background: #e7f4fd !important;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pole-face-selector__button.is-selected,
+.app-shell.is-dark-mode .configurator-sidebar .pole-mount-type.is-selected,
+.app-shell.is-dark-mode .configurator-sidebar .pole-top-sensor.is-selected,
+.app-shell.is-dark-mode .configurator-sidebar .heater-segment-button.is-selected {
+  border-color: #69b9f1 !important;
+  color: #eff8ff !important;
+  background: #163f64 !important;
+  box-shadow: 0 0 0 3px rgba(105, 185, 241, 0.34), inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.configurator-sidebar .pergola-grid__pole.is-selected {
+  border-color: #eaf7ff !important;
+  box-shadow: 0 0 0 4px #0878c9, 0 0 0 8px rgba(8, 120, 201, 0.22), 0 4px 12px rgba(24, 36, 43, 0.24) !important;
+  transform: translate(-50%, -50%) scale(1.12);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .pergola-grid__pole.is-selected {
+  box-shadow: 0 0 0 4px #69b9f1, 0 0 0 8px rgba(105, 185, 241, 0.24), 0 4px 12px rgba(0, 0, 0, 0.34) !important;
+}
+
+/* Roof-rectangle spotlight selector. */
+.roof-rectangle-grid {
+  width: 100%;
+  margin-top: 10px;
+  padding: 18px 20px;
+  border: 1px solid #dfe4e6;
+  border-radius: 16px;
+  background: #f7f9f9;
+}
+
+.roof-rectangle-grid__canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--pergola-grid-aspect, 1.4);
+  min-height: 150px;
+  max-height: 300px;
+}
+
+.roof-rectangle {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  border: 2px solid #9ca9b0;
+  background: rgba(255, 255, 255, 0.46);
+  color: #52636e;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.roof-rectangle:hover {
+  border-color: #0878c9;
+  background: rgba(8, 120, 201, 0.07);
+}
+
+.roof-rectangle.has-lights {
+  background: rgba(8, 120, 201, 0.10);
+  border-color: #79b6db;
+}
+
+.roof-rectangle.is-selected {
+  z-index: 2;
+  border: 3px solid #0878c9;
+  background: rgba(8, 120, 201, 0.16);
+  box-shadow: 0 0 0 4px rgba(8, 120, 201, 0.18);
+}
+
+.roof-rectangle > span {
+  display: grid;
+  min-width: 25px;
+  min-height: 25px;
+  padding: 4px;
+  place-items: center;
+  border-radius: 999px;
+  color: #075e99;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.roof-rectangle-grid__pole {
+  position: absolute;
+  z-index: 3;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #26343c;
+  box-shadow: 0 0 0 1px #77858d;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.spotlight-selection-card,
+.heater-segment-editor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 11px;
+  border: 1px solid #dfe7ec;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.spotlight-selection-card > div:first-child,
+.heater-segment-editor .detail-heading {
+  min-width: 0;
+}
+
+.spotlight-selection-card strong,
+.spotlight-selection-card small {
+  display: block;
+}
+
+.spotlight-selection-card small,
+.accessory-helper-copy,
+.heater-position-hint,
+.pole-top-sensor-note {
+  color: #77858d;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.heater-segment-selector,
+.pole-top-sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.heater-segment-button,
+.pole-top-sensor {
+  min-width: 0;
+  border: 1px solid #dbe3e8;
+  border-radius: 10px;
+  color: #172027;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.heater-segment-button {
+  min-height: 58px;
+  padding: 10px;
+}
+
+.heater-segment-button span,
+.heater-segment-button small,
+.pole-top-sensor strong,
+.pole-top-sensor small {
+  display: block;
+}
+
+.heater-segment-button span,
+.pole-top-sensor strong {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.heater-segment-button small,
+.pole-top-sensor small {
+  margin-top: 4px;
+  color: #7c8991;
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.heater-segment-button.has-heater:not(.is-selected) {
+  border-color: #9cc9e4;
+  background: #f1f9fe;
+}
+
+.heater-segment-editor {
+  display: grid;
+}
+
+.heater-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.heater-actions button {
+  width: 100%;
+}
+
+.danger-lite-action {
+  border: 1px solid #e5a2a2;
+  border-radius: 8px;
+  color: #8f1f1f;
+  background: #fff0f0;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.pole-top-sensor {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  min-height: 60px;
+  gap: 8px;
+  padding: 8px;
+}
+
+.pole-top-sensor-note {
+  display: block;
+  margin-top: 9px;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .roof-rectangle-grid,
+.app-shell.is-dark-mode .configurator-sidebar .spotlight-selection-card,
+.app-shell.is-dark-mode .configurator-sidebar .heater-segment-editor,
+.app-shell.is-dark-mode .configurator-sidebar .heater-segment-button,
+.app-shell.is-dark-mode .configurator-sidebar .pole-top-sensor {
+  color: #e2e8f0;
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .roof-rectangle {
+  border-color: #64748b;
+  background: rgba(30, 41, 59, 0.42);
+  color: #cbd5e1;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .roof-rectangle.has-lights {
+  border-color: #4f9ed0;
+  background: rgba(39, 112, 158, 0.18);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .roof-rectangle.is-selected {
+  border-color: #69b9f1;
+  background: rgba(105, 185, 241, 0.18);
+  box-shadow: 0 0 0 4px rgba(105, 185, 241, 0.22);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .heater-segment-button small,
+.app-shell.is-dark-mode .configurator-sidebar .pole-top-sensor small,
+.app-shell.is-dark-mode .configurator-sidebar .spotlight-selection-card small,
+.app-shell.is-dark-mode .configurator-sidebar .accessory-helper-copy,
+.app-shell.is-dark-mode .configurator-sidebar .heater-position-hint,
+.app-shell.is-dark-mode .configurator-sidebar .pole-top-sensor-note {
+  color: #94a3b8;
+}
+
+@media (max-width: 420px) {
+  .heater-segment-selector,
+  .pole-top-sensor-grid,
+  .heater-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.heater-actions .secondary-action,
+.heater-actions .danger-lite-action {
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.heater-actions button:disabled,
+.spotlight-selection-card .counter-control button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+/* v8 heater + spotlight layout fixes */
+.configurator-sidebar .spotlight-rectangle-editor,
+.configurator-sidebar .roof-rectangle-grid,
+.configurator-sidebar .roof-rectangle-grid__canvas,
+.configurator-sidebar .spotlight-selection-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.configurator-sidebar .spotlight-rectangle-editor {
+  width: 100%;
+  overflow: hidden;
+}
+
+.configurator-sidebar .spotlight-rectangle-editor .accessory-helper-copy,
+.configurator-sidebar .spotlight-selection-card strong,
+.configurator-sidebar .spotlight-selection-card small {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.configurator-sidebar .roof-rectangle-grid {
+  width: 100%;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.configurator-sidebar .roof-rectangle-grid__canvas {
+  width: 100%;
+  max-width: 100%;
+  min-height: 120px;
+  max-height: 250px;
+  overflow: hidden;
+}
+
+.configurator-sidebar .spotlight-selection-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+}
+
+.configurator-sidebar .spotlight-selection-card .counter-control {
+  width: 100%;
+  max-width: 220px;
+  justify-self: start;
+}
+
+/* Heater plan uses the same segment-selection interaction as wall closings. */
+.configurator-sidebar .pergola-grid__segment.has-heater {
+  color: #0878c9;
+}
+
+.configurator-sidebar .pergola-grid__segment.has-heater > span {
+  background: #0878c9;
+  box-shadow: 0 0 0 3px rgba(8, 120, 201, 0.18);
+}
+
+.configurator-sidebar .heater-grid-legend .legend-line.has-heater {
+  background: #0878c9;
+  box-shadow: 0 0 0 2px rgba(8, 120, 201, 0.16);
+}
+
+.configurator-sidebar .heater-direction-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.configurator-sidebar .heater-direction-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 9px;
+  border: 1px solid #dbe3e8;
+  border-radius: 11px;
+  color: #172027;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.configurator-sidebar .heater-direction-card .accessory-model-mark {
+  width: 40px;
+  height: 40px;
+  flex-basis: 40px;
+}
+
+.configurator-sidebar .heater-direction-card .accessory-model-mark > img {
+  width: 28px;
+  height: 28px;
+}
+
+.configurator-sidebar .heater-direction-card strong,
+.configurator-sidebar .heater-direction-card small {
+  display: block;
+}
+
+.configurator-sidebar .heater-direction-card strong {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.configurator-sidebar .heater-direction-card small {
+  margin-top: 3px;
+  font-size: 7px;
+  line-height: 1.35;
+  color: #7c8991;
+}
+
+.configurator-sidebar .heater-direction-card.is-selected {
+  border: 2px solid #0878c9;
+  color: #004f88;
+  background: #e7f4fd;
+  box-shadow: 0 0 0 3px rgba(8, 120, 201, 0.22);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .heater-direction-card {
+  color: #e2e8f0;
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .heater-direction-card small {
+  color: #94a3b8;
+}
+
+.app-shell.is-dark-mode .configurator-sidebar .heater-direction-card.is-selected {
+  border-color: #69b9f1;
+  color: #eff8ff;
+  background: #163f64;
+  box-shadow: 0 0 0 3px rgba(105, 185, 241, 0.28);
+}
+
+@media (max-width: 520px) {
+  .configurator-sidebar .heater-direction-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .configurator-sidebar .roof-rectangle-grid {
+    padding: 11px;
+  }
+}

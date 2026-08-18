@@ -54,3 +54,4 @@ iOS selected     -> optimized USDZ -> Supabase -> AR Quick Look
 Only the selected representation is generated and uploaded for each QR publication. Existing publications remain valid when another platform is selected.
 
 Setup details are in [`docs/deployment/SUPABASE_NETLIFY_SETUP.md`](docs/deployment/SUPABASE_NETLIFY_SETUP.md).
+.

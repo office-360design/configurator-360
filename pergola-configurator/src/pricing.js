@@ -1,7 +1,18 @@
-const money = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
+import { buildPoleGrid } from './layout.js';
+import { countHeaters, getTotalSpotlights } from './state.js';
+
+const CURRENCY_PROFILES = Object.freeze({
+  USD: {
+    locale: 'en-US',
+    rateFromUsd: 1,
+    maximumFractionDigits: 0,
+  },
+  RON: {
+    locale: 'ro-RO',
+    // Demo conversion rate. Replace with a backend or live-rate service later.
+    rateFromUsd: 4.6,
+    maximumFractionDigits: 0,
+  },
 });
 
 const modelBase = {
@@ -30,23 +41,26 @@ const servicePrices = {
   warranty: 450,
 };
 
-export function formatMoney(value) {
-  return money.format(Math.round(value));
-}
-
-function sideLengthMeters(side, dimensions) {
-  return (side === 'front' || side === 'back')
-    ? dimensions.width / 1000
-    : dimensions.depth / 1000;
+export function formatMoney(value, currency = 'USD', locale = null) {
+  const profile = CURRENCY_PROFILES[currency] ?? CURRENCY_PROFILES.USD;
+  const converted = Number(value) * profile.rateFromUsd;
+  return new Intl.NumberFormat(locale || profile.locale, {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: profile.maximumFractionDigits,
+  }).format(Math.round(converted));
 }
 
 function countSelected(record = {}) {
   return Object.values(record).filter(Boolean).length;
 }
 
-function countOutlets(outlets = {}) {
-  return Object.values(outlets).reduce(
-    (total, pole) => total + Object.values(pole ?? {}).filter(Boolean).length,
+function countPoleMounts(poleMounts = {}, type) {
+  return Object.values(poleMounts).reduce(
+    (poleTotal, pole) => poleTotal + Object.values(pole ?? {}).reduce(
+      (faceTotal, face) => faceTotal + (face?.[type] ? 1 : 0),
+      0,
+    ),
     0,
   );
 }
@@ -87,27 +101,34 @@ export function calculatePrice(state) {
     },
   ];
 
-  Object.entries(state.sides).forEach(([side, config]) => {
+  const grid = buildPoleGrid(state.dimensions);
+  grid.segments.forEach((segment) => {
+    const config = state.sideSegments?.[segment.id];
+    if (!config) return;
     const rate = sideRates[config.type] ?? 0;
-    const value = rate * sideLengthMeters(side, state.dimensions);
+    const value = rate * (segment.lengthMm / 1000);
     if (value > 0) {
+      const position = segment.boundary
+        ? `${capitalize(segment.boundary)} segment`
+        : segment.axis === 'horizontal' ? 'Interior horizontal segment' : 'Interior vertical segment';
       lines.push({
-        key: `side-${side}`,
-        label: `${capitalize(side)}: ${sideLabel(config.type)}`,
+        key: `side-${segment.id}`,
+        label: `${position}: ${sideLabel(config.type)}`,
         value,
       });
     }
   });
 
-  const heaterCount = countSelected(state.accessories.heaters);
-  const speakerCount = countSelected(state.accessories.speakers);
-  const outletCount = countOutlets(state.accessories.outlets);
+  const heaterCount = countHeaters(state);
+  const speakerCount = countPoleMounts(state.poleMounts, 'speaker');
+  const outletCount = countPoleMounts(state.poleMounts, 'outlet');
   const rainEnabled = state.accessories.sensors.rain.enabled;
   const windEnabled = state.accessories.sensors.wind.enabled;
+  const spotlightCount = getTotalSpotlights(state);
 
   const accessoryLines = [
     ['perimeterLed', 'Perimeter LED strip', state.accessories.perimeterLed.enabled ? 590 : 0],
-    ['spotlights', `${state.accessories.spotlights} integrated spotlights`, state.accessories.spotlights * 85],
+    ['spotlights', `${spotlightCount} integrated spotlight${spotlightCount === 1 ? '' : 's'}`, spotlightCount * 85],
     ['heaters', `${heaterCount} infrared heater${heaterCount === 1 ? '' : 's'}`, heaterCount * 620],
     ['rainSensor', 'Rain sensor', rainEnabled ? 260 : 0],
     ['windSensor', 'Wind sensor', windEnabled ? 230 : 0],
@@ -132,7 +153,7 @@ export function calculatePrice(state) {
   const tax = subtotal * 0.095;
   const total = subtotal + tax;
 
-  return { lines, subtotal, tax, total, area };
+  return { lines, subtotal, tax, total, area, baseCurrency: 'USD' };
 }
 
 export function automationLabel(value) {

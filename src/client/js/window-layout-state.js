@@ -1,5 +1,5 @@
 export const WINDOW_STATE_VERSION = 3;
-export const MAX_WINDOW_CELLS = 100;
+export const MAX_WINDOW_CELLS = 3;
 export const FIXED_WINDOW_TYPE = 'fixed-glazing';
 export const SASH_WINDOW_TYPE = 'opening-sash';
 

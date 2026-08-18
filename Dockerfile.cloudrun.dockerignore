@@ -1,0 +1,11 @@
+**
+
+!dist/
+!dist/site/
+!dist/site/**
+
+!cloudrun/
+!cloudrun/nginx.conf
+
+!Dockerfile.cloudrun
+
