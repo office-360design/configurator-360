@@ -10,6 +10,7 @@ import {
     getLinearDividerLayout,
     getTopFixedBottomSashSashLayout,
     getEditableWindowTopologyGeometry,
+    getEditableCellInteriorPlacement,
     getEditableDividerSegmentPlacement,
     getEditableReentrantFramePlacement,
     getEditableFixedGlazingDividerCadTransform,
@@ -655,11 +656,11 @@ const editableMixedSeats = getEditableWindowTopologyGeometry({
 const editableMixedFixed = editableMixedSeats.cells.find(cell => cell.id === 'fixed-left');
 const editableMixedSash = editableMixedSeats.cells.find(cell => cell.id === 'sash-right');
 assert(
-    Math.abs(editableMixedFixed.x1 - (-0.031)) < 1e-9
-        && Math.abs(editableMixedSash.x0 - (-0.013)) < 1e-9
+    Math.abs(editableMixedFixed.x1) < 1e-9
+        && Math.abs(editableMixedSash.x0) < 1e-9
         && Math.abs(editableMixedFixed.connectionX1 - (-0.031)) < 1e-9
         && Math.abs(editableMixedSash.connectionX0 - (-0.013)) < 1e-9,
-    'Ordinary dynamic mixed joins must keep using the CAD-derived cell boundaries that were already validated.'
+    'Ordinary dynamic mixed joins must keep the physical grid boundary fixed while preserving the validated CAD sash/fixed-light connection seats separately.'
 );
 
 const editableReversedMixedSeats = getEditableWindowTopologyGeometry({
@@ -701,11 +702,11 @@ const editableReversedMixedSeats = getEditableWindowTopologyGeometry({
 const editableReversedSash = editableReversedMixedSeats.cells.find(cell => cell.id === 'sash-left');
 const editableReversedFixed = editableReversedMixedSeats.cells.find(cell => cell.id === 'fixed-right');
 assert(
-    Math.abs(editableReversedSash.x1 - 0.013) < 1e-9
-        && Math.abs(editableReversedFixed.x0 - 0.009058930398579662) < 1e-9
+    Math.abs(editableReversedSash.x1) < 1e-9
+        && Math.abs(editableReversedFixed.x0) < 1e-9
         && Math.abs(editableReversedSash.connectionX1 - 0.013) < 1e-9
         && Math.abs(editableReversedFixed.connectionX0 - 0.009058930398579662) < 1e-9,
-    'A reversed ordinary mixed join must keep its previously validated CAD-derived cell boundaries.'
+    'A reversed ordinary mixed join must keep the physical grid boundary fixed while preserving its validated CAD connection seats separately.'
 );
 
 const authoredMixedBeadTransform = Object.freeze({ a: 1, d: 1, tx: 10, ty: 44 });
@@ -769,11 +770,11 @@ const editableFixedFixedSeats = getEditableWindowTopologyGeometry({
 const editableFixedA = editableFixedFixedSeats.cells.find(cell => cell.id === 'fixed-a');
 const editableFixedB = editableFixedFixedSeats.cells.find(cell => cell.id === 'fixed-b');
 assert(
-    Math.abs(editableFixedA.x1 - (-0.031)) < 1e-9
-        && Math.abs(editableFixedB.x0 - 0.031) < 1e-9
+    Math.abs(editableFixedA.x1) < 1e-9
+        && Math.abs(editableFixedB.x0) < 1e-9
         && Math.abs(editableFixedA.connectionX1 - (-0.031)) < 1e-9
         && Math.abs(editableFixedB.connectionX0 - 0.031) < 1e-9,
-    'Ordinary dynamic fixed/fixed joins must continue using their CAD-derived fixed-light connection rectangle.'
+    'Ordinary dynamic fixed/fixed joins must keep one-window structural widths while their fixed-light connection rectangle still follows the exact CAD seats.'
 );
 
 
@@ -869,21 +870,39 @@ assert(
     'Every unmerged 1x1 cell in an L layout must remain exactly one slider width and one slider height, including the two-divider corner cell.'
 );
 assert(
-    Math.abs(equalLCorner.x1 - equalLCorner.connectionX1) < 1e-9
-        && Math.abs(equalLCorner.y1 - equalLCorner.connectionY1) < 1e-9
-        && Math.abs(equalLRight.x0 - equalLRight.connectionX0) < 1e-9
-        && Math.abs(equalLTop.y0 - equalLTop.connectionY0) < 1e-9,
-    'Equal-size L cells must translate to the exact CAD-derived mullion boundaries instead of reverting to the structural centreline and leaving a sash/mullion gap.'
+    Math.abs(equalLCorner.x1) < 1e-9
+        && Math.abs(equalLCorner.y1) < 1e-9
+        && Math.abs(equalLRight.x0) < 1e-9
+        && Math.abs(equalLTop.y0) < 1e-9
+        && Math.abs(equalLCorner.connectionX1 - 0.031) < 1e-9
+        && Math.abs(equalLCorner.connectionY1 - 0.031) < 1e-9
+        && Math.abs(equalLRight.connectionX0 - (-0.013)) < 1e-9
+        && Math.abs(equalLTop.connectionY0 - (-0.013)) < 1e-9,
+    'An unmerged three-window L must keep all frame/mullion centre-lines on the structural + grid while sash/fixed-light geometry uses the exact CAD seats independently.'
 );
 assert(
-    Math.abs(equalLCorner.layoutShiftX - equalLTop.layoutShiftX) < 1e-9
-        && Math.abs(equalLCorner.layoutShiftY - equalLRight.layoutShiftY) < 1e-9,
-    'L compensation must propagate by complete columns/rows so neighbouring outer frames remain aligned while the corner cell keeps both CAD seats.'
+    equalLCorner.layoutShiftX === undefined
+        && equalLCorner.layoutShiftY === undefined
+        && equalLRight.layoutShiftX === undefined
+        && equalLTop.layoutShiftY === undefined,
+    'An unmerged L must not translate individual rows or columns; that translation changes the apparent corner-window size.'
+);
+const equalLCornerInterior = getEditableCellInteriorPlacement(equalLCorner);
+const equalLRightInterior = getEditableCellInteriorPlacement(equalLRight);
+const equalLTopInterior = getEditableCellInteriorPlacement(equalLTop);
+assert(
+    Math.abs(equalLCornerInterior.x1 - equalLCorner.connectionX1) < 1e-9
+        && Math.abs(equalLCornerInterior.y1 - equalLCorner.connectionY1) < 1e-9
+        && Math.abs(equalLRightInterior.x0 - equalLRight.connectionX0) < 1e-9
+        && Math.abs(equalLTopInterior.y0 - equalLTop.connectionY0) < 1e-9,
+    'L sash/fixed-light interiors must still follow the exact CAD mullion seats independently from the structural bay rectangle.'
 );
 assert(
     Math.abs(equalLCorner.connectionWidth - 1.231) < 1e-9
-        && Math.abs(equalLCorner.connectionHeight - 1.531) < 1e-9,
-    'The L-corner must still retain both CAD mullion connection seats separately from its structural window size.'
+        && Math.abs(equalLCorner.connectionHeight - 1.531) < 1e-9
+        && Math.abs(equalLCornerInterior.width - equalLCorner.connectionWidth) < 1e-9
+        && Math.abs(equalLCornerInterior.height - equalLCorner.connectionHeight) < 1e-9,
+    'The L-corner CAD connection rectangle may extend into the mullion seats, but that must not change the one-window structural frame rectangle.'
 );
 const equalLCornerBottomFrame = editableEqualSizeL.framePlacements.find(
     placement => placement.id === 'corner-bottom'
@@ -892,13 +911,15 @@ const equalLRightBottomFrame = editableEqualSizeL.framePlacements.find(
     placement => placement.id === 'right-bottom'
 );
 assert(
-    equalLCornerBottomFrame.width < 1.2
-        && equalLRightBottomFrame.width < 1.2
+    Math.abs(equalLCornerBottomFrame.width - 1.2) < 1e-9
+        && Math.abs(equalLRightBottomFrame.width - 1.2) < 1e-9
+        && Math.abs(equalLCornerBottomFrame.worldEnd) < 1e-9
+        && Math.abs(equalLRightBottomFrame.worldStart) < 1e-9
         && Math.abs(
             equalLCornerBottomFrame.perpendicularOffset
             - equalLRightBottomFrame.perpendicularOffset
         ) < 1e-9,
-    'The L fix must compensate by shortening the exposed perimeter-frame pieces while keeping the shared row on one aligned outer-frame line.'
+    'An unmerged L must keep exposed frame pieces at exact one-window length and make them meet on the structural grid instead of shortening them through row/column translation.'
 );
 const equalLVerticalDivider = editableEqualSizeL.dividerSegments.find(
     segment => segment.id === 'equal-l-vertical'
@@ -906,7 +927,62 @@ const equalLVerticalDivider = editableEqualSizeL.dividerSegments.find(
 assert(
     Math.abs(equalLVerticalDivider.worldStart - equalLCornerBottomFrame.perpendicularOffset) < 1e-9
         && Math.abs(equalLVerticalDivider.worldEnd) < 1e-9,
-    'The exterior end of an L mullion must follow the compensated frame line while its inside-corner junction remains on the structural L centre.'
+    'The exterior end of an L mullion must meet the structural outer-frame line while its inside-corner junction remains on the structural L centre.'
+);
+
+// Regression for a five-window staircase. The previous L compensation moved
+// complete rows/columns by the average of their CAD seat requests. Starting at
+// the fourth/fifth window, one structural column can contain a cell that needs
+// the left mullion seat and another that needs the right mullion seat; averaging
+// those opposite requests leaves visible gaps next to both mullions.
+const staircaseState = normalizeWindowState({
+    windows: [
+        { id: 's1', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+        { id: 's2', type: 'fixed-glazing', rect: { x0: 0, y0: 1, x1: 1, y1: 2 } },
+        { id: 's3', type: 'fixed-glazing', rect: { x0: 1, y0: 1, x1: 2, y1: 2 } },
+        { id: 's4', type: 'fixed-glazing', rect: { x0: 1, y0: 2, x1: 2, y1: 3 } },
+        { id: 's5', type: 'fixed-glazing', rect: { x0: 2, y0: 2, x1: 3, y1: 3 } },
+    ],
+});
+const staircaseGeometry = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: deriveWindowTopology(staircaseState),
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-fixed:normal': {
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: -31, right: 31 },
+            },
+        },
+        'horizontal:mullion-fixed-fixed:normal': {
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: -31, right: 31 },
+            },
+        },
+    },
+});
+assert(
+    staircaseGeometry.cells.every(cell =>
+        Math.abs(cell.width - 1.2) < 1e-9
+        && Math.abs(cell.height - 1.5) < 1e-9
+    ),
+    'Every staircase window must remain exactly one slider-sized structural bay regardless of how many L turns have already been added.'
+);
+const staircaseS3 = staircaseGeometry.cells.find(cell => cell.id === 's3');
+const staircaseS4 = staircaseGeometry.cells.find(cell => cell.id === 's4');
+const staircaseS3Interior = getEditableCellInteriorPlacement(staircaseS3);
+const staircaseS4Interior = getEditableCellInteriorPlacement(staircaseS4);
+assert(
+    Math.abs(staircaseS3.x0 - staircaseS4.x0) < 1e-9
+        && Math.abs(staircaseS3.x1 - staircaseS4.x1) < 1e-9,
+    'Cells sharing one staircase column must keep aligned structural frame lines instead of being translated toward different mullions.'
+);
+assert(
+    Math.abs(staircaseS3Interior.x0 - staircaseS3.connectionX0) < 1e-9
+        && Math.abs(staircaseS4Interior.x1 - staircaseS4.connectionX1) < 1e-9
+        && Math.abs(staircaseS3Interior.x0 - staircaseS3.x0) > 1e-3
+        && Math.abs(staircaseS4Interior.x1 - staircaseS4.x1) > 1e-3,
+    'Opposite CAD seat requests inside one staircase column must be kept per-cell so neither mullion develops a gap after the fourth window.'
 );
 
 const horizontallyMergedGeometry = getEditableWindowTopologyGeometry({
@@ -1033,6 +1109,282 @@ editableLGeometry.dividerSegments.forEach(segment => {
     );
 });
 
+// Regression: in a real derived unmerged L, the two mullions and the two
+// exposed frame arms around the missing quadrant must meet on exactly one
+// structural point. CAD glazing/sash seats are allowed to differ from that
+// centre-line, but they must never move the frame/mullion + itself.
+{
+    const makeFixed = (id, x0, y0, x1, y1) => ({
+        id,
+        type: 'fixed-glazing',
+        handleSide: null,
+        rect: { x0, y0, x1, y1 },
+    });
+    const state = normalizeWindowState({
+        windows: [
+            makeFixed('plus-bl', 0, 0, 1, 1),
+            { ...makeFixed('plus-br', 1, 0, 2, 1), type: 'opening-sash' },
+            makeFixed('plus-tl', 0, 1, 1, 2),
+        ],
+    });
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(state),
+        dividerConnectionVariants: {
+            'vertical:mullion-fixed-sash:normal': {
+                dividerConnection: { openingSashDividerBoundariesMm: { right: -13 } },
+                fixedGlazingConnections: { dividerCellBoundariesMm: { left: 31 } },
+            },
+            'horizontal:mullion-fixed-fixed:normal': {
+                fixedGlazingConnections: { dividerCellBoundariesMm: { left: 31, right: -31 } },
+            },
+        },
+    });
+    const verticalDivider = geometry.dividerSegments.find(segment => segment.orientation === 'vertical');
+    const horizontalDivider = geometry.dividerSegments.find(segment => segment.orientation === 'horizontal');
+    const topLeftRightFrame = geometry.framePlacements.find(placement =>
+        placement.windowCell === 'plus-tl' && placement.side === 'right'
+    );
+    const bottomRightTopFrame = geometry.framePlacements.find(placement =>
+        placement.windowCell === 'plus-br' && placement.side === 'top'
+    );
+    assert(
+        verticalDivider
+            && horizontalDivider
+            && topLeftRightFrame
+            && bottomRightTopFrame
+            && Math.abs(verticalDivider.worldEnd) < 1e-9
+            && Math.abs(horizontalDivider.worldEnd) < 1e-9
+            && Math.abs(topLeftRightFrame.worldStart) < 1e-9
+            && Math.abs(bottomRightTopFrame.worldStart) < 1e-9
+            && Math.abs(verticalDivider.perpendicularOffset) < 1e-9
+            && Math.abs(topLeftRightFrame.perpendicularOffset) < 1e-9
+            && Math.abs(horizontalDivider.perpendicularOffset) < 1e-9
+            && Math.abs(bottomRightTopFrame.perpendicularOffset) < 1e-9,
+        'An unmerged L must form an exact structural + at the inside corner; no frame or mullion arm may be lengthened/translated by a CAD seat.'
+    );
+    assert(
+        geometry.cells.every(cell =>
+            Math.abs(cell.width - 1.2) < 1e-9
+            && Math.abs(cell.height - 1.5) < 1e-9
+        ),
+        'Every physical cell in an unmerged L must remain exactly one slider width and height.'
+    );
+}
+
+// Re-entrant L mesh rule: the visible inside corner is a real +. Each
+// divider continues into the collinear exposed frame on the opposite side of
+// the same structural point. The divider therefore keeps its ordinary
+// frame-facing arrow while the frame uses the matching reverse miter and one
+// frame-span of extra stock. Treating the two dividers as an L-to-L miter is
+// what produced the recurring centre hole in the rendered mesh.
+{
+    const makeFixed = (id, x0, y0, x1, y1) => ({
+        id,
+        type: 'fixed-glazing',
+        handleSide: null,
+        rect: { x0, y0, x1, y1 },
+    });
+    const frameSpan = 0.075;
+    const faceSpan = 0.098;
+    const state = normalizeWindowState({
+        windows: [
+            makeFixed('mesh-plus-bl', 0, 0, 1, 1),
+            makeFixed('mesh-plus-tl', 0, 1, 1, 2),
+            makeFixed('mesh-plus-tr', 1, 1, 2, 2),
+        ],
+    });
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(state),
+        frameReplacementSpan: frameSpan,
+    });
+    const plus = geometry.perimeterJunctions.find(
+        junction => junction.type === 'perimeter-plus'
+    );
+    const structuralPlus = geometry.junctions.find(
+        junction => junction.type === 'plus'
+    );
+    assert(
+        plus
+            && structuralPlus
+            && plus.continuations?.length === 2,
+        'A real unmerged three-window L must classify its inside corner as two divider/frame continuation pairs forming a perimeter +.'
+    );
+
+    (plus?.continuations || []).forEach(continuation => {
+        const divider = geometry.dividerSegments.find(
+            segment => segment.id === continuation.dividerEndpoint.dividerId
+        );
+        const frame = geometry.framePlacements.find(
+            placement => placement.id === continuation.frameEndpoint.frameId
+        );
+        const dividerPlacement = getEditableDividerSegmentPlacement({
+            segment: divider,
+            junctions: geometry.junctions,
+            dividerFaceSpan: faceSpan,
+            frameJointInwardSpan: frameSpan,
+        });
+        const framePlacement = getEditableReentrantFramePlacement({
+            placement: frame,
+            perimeterJunctions: geometry.perimeterJunctions,
+            frameInwardSpan: frameSpan,
+            dividerFaceSpan: faceSpan,
+        });
+        const dividerSpanKey = continuation.dividerEndpoint.atStart
+            ? 'negativeFrameInwardSpan'
+            : 'positiveFrameInwardSpan';
+
+        assert(
+            divider
+                && frame
+                && Math.abs(dividerPlacement.length - divider.length) < 1e-9
+                && Math.abs(dividerPlacement.joint[dividerSpanKey] - frameSpan) < 1e-9,
+            `Perimeter + ${continuation.orientation} divider must keep the ordinary frame-facing arrow instead of being lengthened into the perpendicular divider.`
+        );
+        assert(
+            framePlacement?.frameJointModes?.[continuation.frameEndpoint.localEnd] === 'reverse-miter'
+                && Math.abs(framePlacement.reentrantFrameBoundaryOffset) < 1e-9,
+            `Perimeter + ${continuation.orientation} frame must continue its collinear divider with a zero-offset reverse miter.`
+        );
+
+        // Check the two matching cut faces at the divider centre and shoulder.
+        // This catches coordinate-only fixes where all four centre-lines meet
+        // but the actual extruded meshes still leave a visible hole.
+        const halfFace = faceSpan / 2;
+        [
+            { inwardDistance: 0, faceOffset: 0 },
+            { inwardDistance: halfFace, faceOffset: halfFace },
+        ].forEach(({ inwardDistance, faceOffset }) => {
+            const dividerAlong = getDividerSegmentAlongCoordinate({
+                extrusionT: continuation.dividerEndpoint.atStart ? 0 : 1,
+                length: dividerPlacement.length,
+                faceOffset,
+                faceSpan,
+                frameInwardSpan: frameSpan,
+                negativeFrameInwardSpan: dividerPlacement.joint.negativeFrameInwardSpan,
+                positiveFrameInwardSpan: dividerPlacement.joint.positiveFrameInwardSpan,
+                negativeEndMode: dividerPlacement.joint.negativeEndMode,
+                positiveEndMode: dividerPlacement.joint.positiveEndMode,
+            });
+            const dividerNominalEnd = continuation.dividerEndpoint.atStart
+                ? -dividerPlacement.length / 2
+                : dividerPlacement.length / 2;
+            const dividerRelative = dividerAlong - dividerNominalEnd;
+            const frameInset = getFrameReentrantMiterInset({
+                inwardDistance,
+                frameInwardSpan: frameSpan,
+                dividerFaceSpan: faceSpan,
+                frameBoundaryOffset: 0,
+            });
+            const frameRelative = continuation.frameEndpoint.atStart
+                ? -frameSpan + frameInset
+                : frameSpan - frameInset;
+            assert(
+                Math.abs(dividerRelative - frameRelative) < 1e-9,
+                `Perimeter + ${continuation.orientation} divider/frame cuts must coincide at the centre and mullion shoulder; centre-line alignment alone is insufficient.`
+            );
+        });
+    });
+
+    // The same local + must survive a merge elsewhere. Here the top-right
+    // window is merged with another bay to its right; the re-entrant corner is
+    // still exactly the same divider/frame continuation junction.
+    let mergedElsewhereState = normalizeWindowState({
+        windows: [
+            makeFixed('merge-plus-bl', 0, 0, 1, 1),
+            makeFixed('merge-plus-tl', 0, 1, 1, 2),
+            makeFixed('merge-plus-tr', 1, 1, 2, 2),
+            makeFixed('merge-plus-far-right', 2, 1, 3, 2),
+        ],
+    });
+    mergedElsewhereState = mergeWindowsInState(mergedElsewhereState, {
+        cellAId: 'merge-plus-tr',
+        cellBId: 'merge-plus-far-right',
+        type: 'fixed-glazing',
+    });
+    const mergedElsewhereGeometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(mergedElsewhereState),
+        frameReplacementSpan: frameSpan,
+    });
+    assert(
+        mergedElsewhereGeometry.junctions.some(junction => junction.type === 'plus')
+            && mergedElsewhereGeometry.perimeterJunctions.some(
+                junction => junction.type === 'perimeter-plus'
+            ),
+        'Merging another bay must not degrade an existing re-entrant + back into the old divider-only L joint.'
+    );
+}
+
+// Regression: merging two adjacent windows removes only the internal divider.
+// The outside frame envelope must be bit-for-bit identical to the union of the
+// two unmerged cells, so merge cannot make the construction wider.
+{
+    const makeFixed = (id, x0, y0, x1, y1) => ({
+        id,
+        type: 'fixed-glazing',
+        handleSide: null,
+        rect: { x0, y0, x1, y1 },
+    });
+    const initialState = normalizeWindowState({
+        windows: [
+            makeFixed('merge-size-left', 0, 0, 1, 1),
+            makeFixed('merge-size-right', 1, 0, 2, 1),
+        ],
+    });
+    const variants = {
+        'vertical:mullion-fixed-fixed:normal': {
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: -31, right: 31 },
+            },
+        },
+    };
+    const before = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(initialState),
+        dividerConnectionVariants: variants,
+    });
+    const beforeLeft = before.cells.find(cell => cell.id === 'merge-size-left');
+    const beforeRight = before.cells.find(cell => cell.id === 'merge-size-right');
+    const mergedState = mergeWindowsInState(initialState, {
+        cellAId: 'merge-size-left',
+        cellBId: 'merge-size-right',
+        type: 'fixed-glazing',
+    });
+    const after = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(mergedState),
+        dividerConnectionVariants: variants,
+    });
+    const merged = after.cells.find(cell => cell.id === 'merge-size-left');
+    assert(
+        beforeLeft
+            && beforeRight
+            && merged
+            && Math.abs(merged.x0 - beforeLeft.x0) < 1e-9
+            && Math.abs(merged.x1 - beforeRight.x1) < 1e-9
+            && Math.abs(merged.y0 - beforeLeft.y0) < 1e-9
+            && Math.abs(merged.y1 - beforeLeft.y1) < 1e-9
+            && Math.abs(merged.width - (beforeLeft.width + beforeRight.width)) < 1e-9,
+        'Merging two side-by-side windows must preserve their exact outside envelope and equal the sum of their two structural widths.'
+    );
+    const afterLeftFrame = after.framePlacements.find(placement => placement.side === 'left');
+    const afterRightFrame = after.framePlacements.find(placement => placement.side === 'right');
+    assert(
+        afterLeftFrame
+            && afterRightFrame
+            && Math.abs(afterLeftFrame.perpendicularOffset - beforeLeft.x0) < 1e-9
+            && Math.abs(afterRightFrame.perpendicularOffset - beforeRight.x1) < 1e-9,
+        'Merge must not move either surviving outside frame sideways.'
+    );
+}
+
 
 function assertPartialMergedPerimeter({ windows, mergeA, mergeB, side, start, end, label }) {
     let state = normalizeWindowState({ windows });
@@ -1105,14 +1457,15 @@ function assertPartialMergedPerimeter({ windows, mergeA, mergeB, side, start, en
             `${label} must reverse the miter at the mullion-continuation end so the ordinary 45-degree cut cannot leave a triangular hole.`
         );
 
-        const expectedPerpendicularShift = basePlacement.side === 'bottom' || basePlacement.side === 'left'
-            ? -expectedStraightContact
-            : expectedStraightContact;
         const basePerpendicularOrigin = isHorizontal ? basePlacement.originY : basePlacement.originX;
         const adjustedPerpendicularOrigin = isHorizontal ? reentrantPlacement.originY : reentrantPlacement.originX;
         assert(
-            Math.abs(adjustedPerpendicularOrigin - (basePerpendicularOrigin + expectedPerpendicularShift)) < 1e-9,
-            `${label} must move the reconstructed frame outward so its opening-side edge aligns with the surviving mullion face.`
+            Math.abs(adjustedPerpendicularOrigin - basePerpendicularOrigin) < 1e-9,
+            `${label} must keep the reconstructed frame on the merged cell boundary so it stays in contact with the sash/fixed-light instead of shifting outward.`
+        );
+        assert(
+            Math.abs(reentrantPlacement.reentrantFrameBoundaryOffset) < 1e-9,
+            `${label} with a structural-centre boundary must report zero signed frame-boundary offset for its reverse miter.`
         );
     }
 
@@ -1137,20 +1490,20 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
     rect: { x0, y0, x1, y1 },
 });
 
-// At a re-entrant T, the reconstructed host frame must exactly continue the
-// opening-side half of the mullion V.  With a 75 mm frame and 98 mm mullion,
-// the straight-contact offset is 26 mm.  The reversed frame miter then lands
-// on the same 45-degree line as the mullion arrow from its apex to shoulder.
+// At a re-entrant T, the reconstructed host frame stays on its cell boundary
+// and the reverse-miter cut absorbs the frame/mullion offset. With a centred
+// boundary, the first half mullion-face of the frame follows the surviving V
+// exactly from apex to shoulder; no perpendicular frame translation is needed.
 {
     const frameSpan = 0.075;
     const mullionFaceSpan = 0.098;
     const halfMullion = mullionFaceSpan / 2;
-    const straight = frameSpan - halfMullion;
     [0, halfMullion].forEach(mullionSideDistance => {
-        const frameInward = straight + mullionSideDistance;
         const frameRelativeEnd = -frameSpan + getFrameReentrantMiterInset({
-            inwardDistance: frameInward,
+            inwardDistance: mullionSideDistance,
             frameInwardSpan: frameSpan,
+            dividerFaceSpan: mullionFaceSpan,
+            frameBoundaryOffset: 0,
         });
         const dividerLength = 1.0;
         const dividerRelativeEnd = getDividerSegmentAlongCoordinate({
@@ -1162,7 +1515,7 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
         }) - dividerLength / 2;
         assert(
             Math.abs(frameRelativeEnd - dividerRelativeEnd) < 1e-9,
-            'The reconstructed frame reverse miter must coincide with the surviving mullion V from apex to shoulder.'
+            'The reconstructed frame reverse miter must coincide with the surviving mullion V from apex to shoulder without moving the complete frame.'
         );
     });
 }
@@ -1209,6 +1562,519 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
         mergeA: 'br', mergeB: 'tr', side: 'left', start: 0, end: 1,
     },
 ].forEach(assertPartialMergedPerimeter);
+
+// Regression: merge the two top windows of an L (elbow at top-left), then add
+// another ordinary window to the right of that merged window. The merged cell
+// still occupies exactly one structural row, so a non-zero CAD seat on the
+// surviving divider must translate that whole row rather than changing only
+// the merged cell's y0. Otherwise the merged window becomes 13 mm taller than
+// the newly added one and their top/bottom frame lines no longer match.
+{
+    let state = normalizeWindowState({
+        windows: [
+            fixedCell('bl-size', 0, 0, 1, 1),
+            { ...fixedCell('tl-size', 0, 1, 1, 2), type: 'opening-sash' },
+            { ...fixedCell('tr-size', 1, 1, 2, 2), type: 'opening-sash' },
+        ],
+    });
+    state = mergeWindowsInState(state, {
+        cellAId: 'tl-size',
+        cellBId: 'tr-size',
+        type: 'opening-sash',
+    });
+    state = addWindowToState(state, {
+        cellId: 'tl-size',
+        direction: 'right',
+        type: 'opening-sash',
+    });
+
+    const topology = deriveWindowTopology(state);
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology,
+        dividerConnectionVariants: {
+            'horizontal:mullion-fixed-sash:normal': {
+                dividerConnection: {
+                    openingSashDividerBoundariesMm: { right: -13 },
+                },
+                fixedGlazingConnections: {
+                    dividerCellBoundariesMm: { left: 31 },
+                },
+            },
+            'vertical:mullion-sash-sash:normal': {
+                dividerConnection: {
+                    openingSashDividerBoundariesMm: { left: 13, right: -13 },
+                },
+            },
+        },
+    });
+
+    const merged = geometry.cells.find(cell => cell.id === 'tl-size');
+    const added = geometry.cells.find(cell => cell.id !== 'bl-size' && cell.id !== 'tl-size');
+    assert(
+        merged
+            && added
+            && Math.abs(merged.height - 1.5) < 1e-9
+            && Math.abs(added.height - 1.5) < 1e-9
+            && Math.abs(merged.y0 - added.y0) < 1e-9
+            && Math.abs(merged.y1 - added.y1) < 1e-9,
+        'A merged corner window and an ordinary window added beside it must stay exactly one slider row tall and share identical top/bottom boundaries.'
+    );
+    assert(
+        Math.abs(merged.width - 2.4) < 1e-9
+            && Math.abs(added.width - 1.2) < 1e-9,
+        'Preserving merged-L row height must not change the merged two-column width or the newly added one-column width.'
+    );
+
+    const mergedBottom = geometry.framePlacements.find(placement =>
+        placement.windowCell === 'tl-size' && placement.side === 'bottom' && placement.partial
+    );
+    const addedBottom = geometry.framePlacements.find(placement =>
+        placement.windowCell === added?.id && placement.side === 'bottom'
+    );
+    const mergedTop = geometry.framePlacements.find(placement =>
+        placement.windowCell === 'tl-size' && placement.side === 'top'
+    );
+    const addedTop = geometry.framePlacements.find(placement =>
+        placement.windowCell === added?.id && placement.side === 'top'
+    );
+    assert(
+        mergedBottom
+            && addedBottom
+            && mergedTop
+            && addedTop
+            && Math.abs(mergedTop.perpendicularOffset - addedTop.perpendicularOffset) < 1e-9
+            && Math.abs(mergedBottom.structuralPerpendicularOffset - addedBottom.perpendicularOffset) < 1e-9
+            && Math.abs(mergedBottom.perpendicularOffset - merged.connectionY0) < 1e-9,
+        'A merged corner row must keep the same structural top/bottom grid as an ordinary neighbour; only the reconstructed partial frame may follow the surviving divider CAD seat.'
+    );
+}
+
+// Regression: T layout with three windows across the top and one below the
+// middle bay. If the top-left and top-middle windows are merged, the merged
+// cell spans two structural columns. A CAD divider seat at the right edge of
+// that merged cell must remain an interior connection offset; it must not be
+// converted into a whole-column translation. Otherwise the merge changes the
+// visible sash/glazing-bead envelope and leaves the neighbouring mullion join
+// using the wrong boundary.
+{
+    const variants = {
+        'vertical:mullion-fixed-fixed:normal': {
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: -31, right: 31 },
+            },
+        },
+        'horizontal:mullion-fixed-fixed:normal': {
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: -31, right: 31 },
+            },
+        },
+    };
+    const initialState = normalizeWindowState({
+        windows: [
+            fixedCell('bottom-middle', 1, 0, 2, 1),
+            fixedCell('top-left', 0, 1, 1, 2),
+            fixedCell('top-middle', 1, 1, 2, 2),
+            fixedCell('top-right', 2, 1, 3, 2),
+        ],
+    });
+    const beforeMerge = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(initialState),
+        dividerConnectionVariants: variants,
+    });
+    const beforeTopLeft = beforeMerge.cells.find(cell => cell.id === 'top-left');
+    const beforeTopMiddle = beforeMerge.cells.find(cell => cell.id === 'top-middle');
+    const beforeMergedEnvelopeX0 = getEditableCellInteriorPlacement(beforeTopLeft).x0;
+    const beforeMergedEnvelopeX1 = getEditableCellInteriorPlacement(beforeTopMiddle).x1;
+
+    const mergedState = mergeWindowsInState(initialState, {
+        cellAId: 'top-left',
+        cellBId: 'top-middle',
+        type: 'fixed-glazing',
+    });
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(mergedState),
+        dividerConnectionVariants: variants,
+    });
+
+    const mergedTop = geometry.cells.find(cell => cell.id === 'top-left');
+    const topRight = geometry.cells.find(cell => cell.id === 'top-right');
+    const mergedInterior = getEditableCellInteriorPlacement(mergedTop);
+    const topRightInterior = getEditableCellInteriorPlacement(topRight);
+    assert(
+        mergedTop
+            && topRight
+            && Math.abs(mergedTop.x0 - (-1.8)) < 1e-9
+            && Math.abs(mergedTop.x1 - 0.6) < 1e-9
+            && Math.abs(topRight.x0 - 0.6) < 1e-9
+            && Math.abs(topRight.x1 - 1.8) < 1e-9
+            && Math.abs(mergedTop.width - 2.4) < 1e-9
+            && Math.abs(topRight.width - 1.2) < 1e-9,
+        'Merging the first two top cells of the T must keep exactly two structural slider widths beside one ordinary slider-width cell.'
+    );
+    assert(
+        Math.abs(mergedInterior.x0 - beforeMergedEnvelopeX0) < 1e-9
+            && Math.abs(mergedInterior.x1 - beforeMergedEnvelopeX1) < 1e-9,
+        'Merging two adjacent top cells must preserve the exact pre-merge sash/glazing-bead envelope; the merged window must not become wider.'
+    );
+    assert(
+        Math.abs(mergedInterior.x1 - 0.569) < 1e-9
+            && Math.abs(topRightInterior.x0 - 0.631) < 1e-9,
+        'The merged-cell and ordinary-cell interiors must retain the fixed/fixed CAD seats on opposite sides of the vertical mullion instead of being reset to the mullion centre.'
+    );
+
+    const partialBottomUnderLeft = geometry.framePlacements.find(placement =>
+        placement.windowCell === 'top-left'
+        && placement.side === 'bottom'
+        && placement.partial
+    );
+    const horizontalMullion = geometry.dividerSegments.find(segment =>
+        segment.orientation === 'horizontal'
+        && segment.negativeCellId === 'bottom-middle'
+        && segment.positiveCellId === 'top-left'
+    );
+    const verticalMullion = geometry.dividerSegments.find(segment =>
+        segment.orientation === 'vertical'
+        && segment.negativeCellId === 'top-left'
+        && segment.positiveCellId === 'top-right'
+    );
+    assert(
+        partialBottomUnderLeft
+            && horizontalMullion
+            && verticalMullion
+            && Math.abs(partialBottomUnderLeft.worldEnd - horizontalMullion.worldStart) < 1e-9
+            && Math.abs(horizontalMullion.worldEnd - verticalMullion.perpendicularOffset) < 1e-9,
+        'Merged T layout must keep the partial frame, lower mullion and right-hand mullion on the same structural junctions.'
+    );
+}
+
+// Same merged-T rule for sash/sash: the sash CAD seat may extend across the
+// mullion centre, but merging must preserve exactly the same outer sash
+// envelope that the two unmerged sash cells had before the merge.
+{
+    const sashCell = (id, x0, y0, x1, y1) => ({
+        ...fixedCell(id, x0, y0, x1, y1),
+        type: 'opening-sash',
+    });
+    const variants = {
+        'vertical:mullion-sash-sash:normal': {
+            dividerConnection: {
+                openingSashDividerBoundariesMm: { left: 13, right: -13 },
+            },
+        },
+        'horizontal:mullion-sash-sash:normal': {
+            dividerConnection: {
+                openingSashDividerBoundariesMm: { left: 13, right: -13 },
+            },
+        },
+    };
+    const initialState = normalizeWindowState({
+        windows: [
+            sashCell('s-bottom-middle', 1, 0, 2, 1),
+            sashCell('s-top-left', 0, 1, 1, 2),
+            sashCell('s-top-middle', 1, 1, 2, 2),
+            sashCell('s-top-right', 2, 1, 3, 2),
+        ],
+    });
+    const beforeMerge = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(initialState),
+        dividerConnectionVariants: variants,
+    });
+    const beforeLeft = getEditableCellInteriorPlacement(
+        beforeMerge.cells.find(cell => cell.id === 's-top-left')
+    );
+    const beforeMiddle = getEditableCellInteriorPlacement(
+        beforeMerge.cells.find(cell => cell.id === 's-top-middle')
+    );
+    const mergedState = mergeWindowsInState(initialState, {
+        cellAId: 's-top-left',
+        cellBId: 's-top-middle',
+        type: 'opening-sash',
+    });
+    const afterMerge = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(mergedState),
+        dividerConnectionVariants: variants,
+    });
+    const mergedSash = getEditableCellInteriorPlacement(
+        afterMerge.cells.find(cell => cell.id === 's-top-left')
+    );
+    const rightSash = getEditableCellInteriorPlacement(
+        afterMerge.cells.find(cell => cell.id === 's-top-right')
+    );
+    assert(
+        Math.abs(mergedSash.x0 - beforeLeft.x0) < 1e-9
+            && Math.abs(mergedSash.x1 - beforeMiddle.x1) < 1e-9
+            && Math.abs(mergedSash.x1 - 0.613) < 1e-9
+            && Math.abs(rightSash.x0 - 0.587) < 1e-9,
+        'Merged sash T layout must retain the pre-merge sash envelope and the exact sash/sash CAD seats on both sides of the surviving mullion.'
+    );
+}
+
+// Regression: L with bottom-left fixed and the two top opening sashes merged.
+// The fixed/sash CAD join seats the merged sash bottom edge 13 mm below the
+// mullion centre. The reconstructed bottom frame under the former top-right bay
+// must use that same -13 mm boundary; translating it another 26 mm outward is
+// the visible "frame too low" bug. Its reverse miter must compensate in the cut
+// itself so the frame still follows the surviving horizontal mullion V.
+{
+    let state = normalizeWindowState({
+        windows: [
+            fixedCell('bl-fixed', 0, 0, 1, 1),
+            { ...fixedCell('tl-sash', 0, 1, 1, 2), type: 'opening-sash' },
+            { ...fixedCell('tr-sash', 1, 1, 2, 2), type: 'opening-sash' },
+        ],
+    });
+    state = mergeWindowsInState(state, {
+        cellAId: 'tl-sash',
+        cellBId: 'tr-sash',
+        type: 'opening-sash',
+    });
+    const topology = deriveWindowTopology(state);
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology,
+        dividerConnectionVariants: {
+            'horizontal:mullion-fixed-sash:normal': {
+                dividerConnection: {
+                    openingSashDividerBoundariesMm: { right: -13 },
+                },
+                fixedGlazingConnections: {
+                    dividerCellBoundariesMm: { left: 31 },
+                },
+            },
+        },
+    });
+    const mergedCell = geometry.cells.find(cell => cell.id === 'tl-sash');
+    const interior = getEditableCellInteriorPlacement(mergedCell);
+    const partialFrame = geometry.framePlacements.find(placement =>
+        placement.windowCell === 'tl-sash'
+        && placement.side === 'bottom'
+        && placement.partial
+    );
+    const placedFrame = getEditableReentrantFramePlacement({
+        placement: partialFrame,
+        perimeterJunctions: geometry.perimeterJunctions,
+        frameInwardSpan: 0.075,
+        dividerFaceSpan: 0.098,
+    });
+    const frameBottom = placedFrame.originY - placedFrame.height / 2;
+    assert(
+        Math.abs(interior.y0 - (-0.013)) < 1e-9
+            && Math.abs(frameBottom - interior.y0) < 1e-9,
+        'Merged top-sash L must place the reconstructed bottom frame on the sash CAD boundary, not 26 mm below it.'
+    );
+    assert(
+        Math.abs(placedFrame.reentrantFrameBoundaryOffset - (-0.013)) < 1e-9,
+        'Merged top-sash L must carry the -13 mm sash/frame boundary offset into the re-entrant miter calculation.'
+    );
+
+    const frameSpan = 0.075;
+    const faceSpan = 0.098;
+    const halfFace = faceSpan / 2;
+    const boundaryOffset = placedFrame.reentrantFrameBoundaryOffset;
+    const localAtDividerCentre = -boundaryOffset;
+    const localAtHostShoulder = halfFace - boundaryOffset;
+    [
+        { localInward: localAtDividerCentre, faceOffset: 0 },
+        { localInward: localAtHostShoulder, faceOffset: halfFace },
+    ].forEach(({ localInward, faceOffset }) => {
+        const frameRelativeEnd = -frameSpan + getFrameReentrantMiterInset({
+            inwardDistance: localInward,
+            frameInwardSpan: frameSpan,
+            dividerFaceSpan: faceSpan,
+            frameBoundaryOffset: boundaryOffset,
+        });
+        const dividerLength = 1;
+        const dividerRelativeEnd = getDividerSegmentAlongCoordinate({
+            extrusionT: 1,
+            length: dividerLength,
+            faceOffset,
+            faceSpan,
+            frameInwardSpan: frameSpan,
+        }) - dividerLength / 2;
+        assert(
+            Math.abs(frameRelativeEnd - dividerRelativeEnd) < 1e-9,
+            'Offset merged-sash frame reverse miter must still coincide with the surviving mullion V at its centre and host-side shoulder.'
+        );
+    });
+}
+
+
+// Dynamic slider semantics: width/height are the complete dimensions of one
+// standalone framed window. A shared edge replaces one frame with a mullion, so
+// the topology grid pitch must be smaller by the constant frame face span. The
+// half-span is restored only on the global outer perimeter.
+{
+    const sliderWidth = 1.2;
+    const sliderHeight = 1.5;
+    const frameSpan = 0.075;
+    const expectedCellWidth = sliderWidth - frameSpan;
+    const expectedCellHeight = sliderHeight - frameSpan;
+    const fixedFixedVariants = {
+        'vertical:mullion-fixed-fixed:normal': {
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: 31, right: -31 },
+            },
+        },
+        'horizontal:mullion-fixed-fixed:normal': {
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: 31, right: -31 },
+            },
+        },
+    };
+    const geometryFor = state => getEditableWindowTopologyGeometry({
+        width: sliderWidth,
+        height: sliderHeight,
+        topology: deriveWindowTopology(state),
+        dividerConnectionVariants: fixedFixedVariants,
+        frameReplacementSpan: frameSpan,
+    });
+    const outerEnvelope = geometry => {
+        const frames = geometry.framePlacements || [];
+        const xs = [];
+        const ys = [];
+        frames.forEach(frame => {
+            if (frame.orientation === 'vertical') {
+                xs.push(frame.perpendicularOffset);
+                ys.push(frame.worldStart, frame.worldEnd);
+            } else {
+                ys.push(frame.perpendicularOffset);
+                xs.push(frame.worldStart, frame.worldEnd);
+            }
+        });
+        return {
+            minX: Math.min(...xs),
+            maxX: Math.max(...xs),
+            minY: Math.min(...ys),
+            maxY: Math.max(...ys),
+        };
+    };
+
+    const standaloneState = normalizeWindowState({
+        windows: [fixedCell('standalone', 0, 0, 1, 1)],
+    });
+    const standaloneGeometry = geometryFor(standaloneState);
+    const standaloneCell = standaloneGeometry.cells[0];
+    const standaloneEnvelope = outerEnvelope(standaloneGeometry);
+    assert(
+        Math.abs(standaloneCell.width - expectedCellWidth) < 1e-9
+            && Math.abs(standaloneCell.height - expectedCellHeight) < 1e-9,
+        'Editable topology cell pitch must be one slider dimension minus the constant frame replacement span.'
+    );
+    assert(
+        Math.abs((standaloneEnvelope.maxX - standaloneEnvelope.minX) - sliderWidth) < 1e-9
+            && Math.abs((standaloneEnvelope.maxY - standaloneEnvelope.minY) - sliderHeight) < 1e-9,
+        'Reducing the topology cell pitch must not change the outside size of one standalone window shown by the sliders.'
+    );
+
+    const adjacentState = normalizeWindowState({
+        windows: [
+            fixedCell('left-module', 0, 0, 1, 1),
+            fixedCell('right-module', 1, 0, 2, 1),
+        ],
+    });
+    const adjacentGeometry = geometryFor(adjacentState);
+    const adjacentEnvelope = outerEnvelope(adjacentGeometry);
+    assert(
+        adjacentGeometry.cells.every(cell => Math.abs(cell.width - expectedCellWidth) < 1e-9)
+            && Math.abs(
+                (adjacentEnvelope.maxX - adjacentEnvelope.minX)
+                - (sliderWidth * 2 - frameSpan)
+            ) < 1e-9,
+        'Two adjacent windows must count the replaced shared frame only once instead of occupying two complete standalone slider widths.'
+    );
+
+    const mergedState = mergeWindowsInState(adjacentState, {
+        cellAId: 'left-module',
+        cellBId: 'right-module',
+        type: 'fixed-glazing',
+    });
+    const mergedGeometry = geometryFor(mergedState);
+    const mergedEnvelope = outerEnvelope(mergedGeometry);
+    assert(
+        mergedGeometry.cells.length === 1
+            && Math.abs(mergedGeometry.cells[0].width - expectedCellWidth * 2) < 1e-9
+            && Math.abs(mergedEnvelope.minX - adjacentEnvelope.minX) < 1e-9
+            && Math.abs(mergedEnvelope.maxX - adjacentEnvelope.maxX) < 1e-9,
+        'Merging two side-by-side windows must preserve their exact pre-merge outside envelope; removing the mullion must not make the merged window wider.'
+    );
+
+    const lState = normalizeWindowState({
+        windows: [
+            fixedCell('l-bottom-left', 0, 0, 1, 1),
+            fixedCell('l-top-left', 0, 1, 1, 2),
+            fixedCell('l-top-right', 1, 1, 2, 2),
+        ],
+    });
+    const lGeometry = geometryFor(lState);
+    assert(
+        lGeometry.cells.every(cell => (
+            Math.abs(cell.width - expectedCellWidth) < 1e-9
+            && Math.abs(cell.height - expectedCellHeight) < 1e-9
+        )),
+        'Every unmerged L cell, including the two-mullion corner cell, must use the same reduced one-window pitch.'
+    );
+    const lHorizontal = lGeometry.dividerSegments.find(divider => divider.orientation === 'horizontal');
+    const lVertical = lGeometry.dividerSegments.find(divider => divider.orientation === 'vertical');
+    const lRightFrame = lGeometry.framePlacements.find(frame => frame.id === 'l-bottom-left-right');
+    const lBottomFrame = lGeometry.framePlacements.find(frame => frame.id === 'l-top-right-bottom');
+    assert(
+        lHorizontal
+            && lVertical
+            && lRightFrame
+            && lBottomFrame
+            && Math.abs(lHorizontal.worldEnd - lVertical.perpendicularOffset) < 1e-9
+            && Math.abs(lVertical.worldStart - lHorizontal.perpendicularOffset) < 1e-9
+            && Math.abs(lRightFrame.perpendicularOffset - lVertical.perpendicularOffset) < 1e-9
+            && Math.abs(lRightFrame.worldEnd - lHorizontal.perpendicularOffset) < 1e-9
+            && Math.abs(lBottomFrame.worldStart - lVertical.perpendicularOffset) < 1e-9
+            && Math.abs(lBottomFrame.perpendicularOffset - lHorizontal.perpendicularOffset) < 1e-9,
+        'Unmerged L frame and mullion arms must terminate on one common structural + point instead of making the corner module larger.'
+    );
+
+    // Preserve the previous no-gap fix: after merging the first two windows in
+    // the top row of the four-window T, the surviving mullion must still feed
+    // its exact CAD seat to both the merged cell and the ordinary top-right cell.
+    let tState = normalizeWindowState({
+        windows: [
+            fixedCell('t-bottom-middle', 1, 0, 2, 1),
+            fixedCell('t-top-left', 0, 1, 1, 2),
+            fixedCell('t-top-middle', 1, 1, 2, 2),
+            fixedCell('t-top-right', 2, 1, 3, 2),
+        ],
+    });
+    tState = mergeWindowsInState(tState, {
+        cellAId: 't-top-left',
+        cellBId: 't-top-middle',
+        type: 'fixed-glazing',
+    });
+    const tGeometry = geometryFor(tState);
+    const tMerged = tGeometry.cells.find(cell => cell.id === 't-top-left');
+    const tRight = tGeometry.cells.find(cell => cell.id === 't-top-right');
+    const tVertical = tGeometry.dividerSegments.find(divider => (
+        divider.orientation === 'vertical'
+        && divider.negativeCellId === 't-top-left'
+        && divider.positiveCellId === 't-top-right'
+    ));
+    assert(
+        tMerged
+            && tRight
+            && tVertical
+            && Math.abs(tMerged.connectionX1 - (tVertical.perpendicularOffset + 0.031)) < 1e-9
+            && Math.abs(tRight.connectionX0 - (tVertical.perpendicularOffset - 0.031)) < 1e-9,
+        'Reduced cell pitch must not remove the exact mullion CAD seats that keep sash/glazing-bead geometry touching the surviving top T mullion.'
+    );
+}
 
 if (errors.length) {
     console.error('Window layout geometry validation failed:');

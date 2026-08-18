@@ -20,6 +20,7 @@ import {
     getFrameSidePlacements,
     getLinearDividerLayout,
     getEditableWindowTopologyGeometry,
+    getEditableCellInteriorPlacement,
     getEditableDividerSegmentPlacement,
     getEditableReentrantFramePlacement,
     getEditableFixedGlazingDividerCadTransform,
@@ -521,6 +522,8 @@ export function createWindowBuilder({
                     return getFrameReentrantMiterInset({
                         inwardDistance: inw,
                         frameInwardSpan: dividerJoint.frameInwardSpan,
+                        dividerFaceSpan: dividerJoint.faceSpan,
+                        frameBoundaryOffset: dividerJoint.reentrantFrameBoundaryOffset,
                     });
                 }
                 if (mode === 'socket') {
@@ -1363,6 +1366,16 @@ export function createWindowBuilder({
         const activeDividerProfiles = activeProfiles.filter(profile => profile.role === 'divider');
         const layoutState = getWindowLayoutState();
         const isEditableTopology = layoutState.isDynamicWindowState === true;
+
+        // The sliders are the outside dimensions of one complete standalone
+        // window. Dynamic topology uses a smaller grid pitch because every
+        // shared side replaces an outer frame with a mullion. Compute that
+        // constant from the active frame profile before resolving topology and
+        // keep using it even after a merge removes the last divider; otherwise
+        // the merged window jumps wider as soon as the mullion disappears.
+        const editableFrameReplacementSpan = isEditableTopology
+            ? getFrameJointInwardSpanM(activeProfiles)
+            : 0;
         editableTopologyGeometry = isEditableTopology
             ? getEditableWindowTopologyGeometry({
                 width: A,
@@ -1370,6 +1383,7 @@ export function createWindowBuilder({
                 topology: layoutState.topology,
                 dividerConnectionVariants: currentMetadata.dividerConnectionVariants,
                 connectionScale: S,
+                frameReplacementSpan: editableFrameReplacementSpan,
             })
             : null;
         const isTopFixedBottomSashSash = !isEditableTopology && (
@@ -1391,7 +1405,7 @@ export function createWindowBuilder({
             getDividerFaceSpanM(activeDividerProfiles)
         );
         const frameJointInwardSpan = dividerOrientation
-            ? getFrameJointInwardSpanM(activeProfiles)
+            ? editableFrameReplacementSpan || getFrameJointInwardSpanM(activeProfiles)
             : 0;
         const editableFramePlacements = isEditableTopology
             ? (editableTopologyGeometry?.framePlacements || []).map(placement =>
@@ -1451,21 +1465,39 @@ export function createWindowBuilder({
         let tLayoutGeometry = null;
 
         if (isEditableTopology) {
-            const editableCells = (editableTopologyGeometry?.cells || []).map((cell, index) => ({
-                ...cell,
-                cellIndex: index,
-                // Every unmerged grid cell is exactly one slider-sized window.
-                // Do not let a cell at an L corner accumulate two mullion-seat
-                // offsets and become larger than its neighbours. Mullion-facing
-                // bead/gasket cross-sections are already placed from their exact
-                // join-profile CAD transforms; the rectangle itself stays on the
-                // structural one-window bay.
-                fixedAccessoryWidth: cell.width,
-                fixedAccessoryHeight: cell.height,
-                fixedAccessoryCenterX: cell.centerX,
-                fixedAccessoryCenterY: cell.centerY,
-            }));
-            openingCells = editableCells.filter(cell => cell.cellType === 'opening-sash');
+            const editableCells = (editableTopologyGeometry?.cells || []).map((cell, index) => {
+                const interior = getEditableCellInteriorPlacement(cell);
+                return {
+                    ...cell,
+                    cellIndex: index,
+                    // The structural cell remains one exact slider-sized bay.
+                    // Its sash/fixed-light assembly follows the independent CAD
+                    // connection rectangle so every mullion seat can be met even
+                    // when a staircase puts opposite seat requirements in the
+                    // same structural row/column.
+                    interiorWidth: interior.width,
+                    interiorHeight: interior.height,
+                    interiorCenterX: interior.centerX,
+                    interiorCenterY: interior.centerY,
+                    fixedAccessoryWidth: interior.width,
+                    fixedAccessoryHeight: interior.height,
+                    fixedAccessoryCenterX: interior.centerX,
+                    fixedAccessoryCenterY: interior.centerY,
+                };
+            });
+            openingCells = editableCells
+                .filter(cell => cell.cellType === 'opening-sash')
+                .map(cell => ({
+                    ...cell,
+                    structuralWidth: cell.width,
+                    structuralHeight: cell.height,
+                    structuralCenterX: cell.centerX,
+                    structuralCenterY: cell.centerY,
+                    width: cell.interiorWidth,
+                    height: cell.interiorHeight,
+                    centerX: cell.interiorCenterX,
+                    centerY: cell.interiorCenterY,
+                }));
             fixedCells.push(...editableCells.filter(cell => cell.cellType === 'fixed-glazing'));
             openingCell = openingCells[0] || null;
         } else if (isTopFixedBottomSashSash && dividerOrientation) {
@@ -1859,6 +1891,7 @@ export function createWindowBuilder({
                                     faceSpan: dividerFaceSpan,
                                     frameInwardSpan: frameJointInwardSpan,
                                     endModes: placement.frameJointModes,
+                                    reentrantFrameBoundaryOffset: placement.reentrantFrameBoundaryOffset,
                                 }
                                 : null
                         );
@@ -1926,6 +1959,7 @@ export function createWindowBuilder({
                                     faceSpan: dividerFaceSpan,
                                     frameInwardSpan: frameJointInwardSpan,
                                     endModes: placement.frameJointModes,
+                                    reentrantFrameBoundaryOffset: placement.reentrantFrameBoundaryOffset,
                                 }
                                 : null
                         );
@@ -2724,10 +2758,10 @@ export function createWindowBuilder({
 
         function renderEditableFixedGlazingAccessory(profile, fixedCell, side) {
             const halfDivider = dividerFaceSpan / 2;
-            let sx = fixedCell.width;
-            let sy = fixedCell.height;
-            let cx = fixedCell.centerX;
-            let cy = fixedCell.centerY;
+            let sx = fixedCell.fixedAccessoryWidth ?? fixedCell.width;
+            let sy = fixedCell.fixedAccessoryHeight ?? fixedCell.height;
+            let cx = fixedCell.fixedAccessoryCenterX ?? fixedCell.centerX;
+            let cy = fixedCell.fixedAccessoryCenterY ?? fixedCell.centerY;
 
             if (fixedCell.topologyEdges?.bottom) {
                 sy -= halfDivider;
