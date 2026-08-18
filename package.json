@@ -30,7 +30,7 @@
     "cad:connections:convert": "node cad/tools/convert_connection_assemblies.js --manifest cad/manifests/connection-assemblies.json",
     "check:connection-transforms": "node --no-warnings scripts/validation/validate_connection_transforms.mjs",
     "check:joint-mesh": "node --no-warnings scripts/validation/validate_mesh_joint_geometry.mjs",
-    "check:layout-state": "node --no-warnings scripts/validation/validate_window_layout_state.mjs"
+    "check:layout-state": "node --no-warnings scripts/validation/validate_window_layout_state.mjs",
     "audit:seo": "node scripts/seo/audit-production.mjs"
   },
   "keywords": [],
