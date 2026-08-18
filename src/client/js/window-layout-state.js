@@ -1,5 +1,5 @@
 export const WINDOW_STATE_VERSION = 3;
-export const MAX_WINDOW_CELLS = 100;
+export const MAX_WINDOW_CELLS = 3;
 export const FIXED_WINDOW_TYPE = 'fixed-glazing';
 export const SASH_WINDOW_TYPE = 'opening-sash';
 
@@ -253,14 +253,28 @@ export function addWindowToState(stateValue, {
     const newId = nextCellId(windows);
     let newRect;
 
-    if (direction === 'right') {
-        newRect = { x0: targetCopy.rect.x1, x1: targetCopy.rect.x1 + 1, y0: targetCopy.rect.y0, y1: targetCopy.rect.y1 };
-    } else if (direction === 'left') {
-        newRect = { x0: targetCopy.rect.x0 - 1, x1: targetCopy.rect.x0, y0: targetCopy.rect.y0, y1: targetCopy.rect.y1 };
-    } else if (direction === 'top') {
-        newRect = { x0: targetCopy.rect.x0, x1: targetCopy.rect.x1, y0: targetCopy.rect.y1, y1: targetCopy.rect.y1 + 1 };
+    // Adding a window subdivides the selected exposed cell instead of expanding
+    // the overall assembly. This keeps the outer frame rectangular and lets a
+    // third window form a proper T/L partition with continuous neighbouring
+    // boundaries.
+    if (direction === 'right' || direction === 'left') {
+        const midX = (targetCopy.rect.x0 + targetCopy.rect.x1) / 2;
+        if (direction === 'right') {
+            newRect = { x0: midX, x1: targetCopy.rect.x1, y0: targetCopy.rect.y0, y1: targetCopy.rect.y1 };
+            targetCopy.rect.x1 = midX;
+        } else {
+            newRect = { x0: targetCopy.rect.x0, x1: midX, y0: targetCopy.rect.y0, y1: targetCopy.rect.y1 };
+            targetCopy.rect.x0 = midX;
+        }
     } else {
-        newRect = { x0: targetCopy.rect.x0, x1: targetCopy.rect.x1, y0: targetCopy.rect.y0 - 1, y1: targetCopy.rect.y0 };
+        const midY = (targetCopy.rect.y0 + targetCopy.rect.y1) / 2;
+        if (direction === 'top') {
+            newRect = { x0: targetCopy.rect.x0, x1: targetCopy.rect.x1, y0: midY, y1: targetCopy.rect.y1 };
+            targetCopy.rect.y1 = midY;
+        } else {
+            newRect = { x0: targetCopy.rect.x0, x1: targetCopy.rect.x1, y0: targetCopy.rect.y0, y1: midY };
+            targetCopy.rect.y0 = midY;
+        }
     }
 
     windows.push(makeCell(newId, type, newRect, handleSide));
