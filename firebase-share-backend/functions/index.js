@@ -1,12 +1,18 @@
 'use strict';
 
+const { onInit } = require('firebase-functions/v2/core');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { AggregateField, Timestamp, getFirestore } = require('firebase-admin/firestore');
 
-initializeApp();
-
-const db = getFirestore();
+// Firebase CLI loads this module during deployment to discover exported functions.
+// Defer Admin/Firestore initialization until the deployed runtime starts so function
+// discovery does not need to initialize Firebase services on the developer machine.
+let db;
+onInit(() => {
+  initializeApp();
+  db = getFirestore();
+});
 
 const SHARES_COLLECTION = 'sharedConfigurations';
 const MAX_TOTAL_BYTES = 200 * 1024 * 1024;       // 200 MiB
@@ -130,7 +136,7 @@ exports.enforceSharedConfigurationQuota = onDocumentCreated(
     }
 
     // When the quota is crossed, free at least 1 MiB. If the amount over quota is
-    // larger than 1 MiB, free enough to get under the 200 MiB ceiling as well.
+    // larger than 1 MiB, free enough data to return below the 200 MiB ceiling.
     const overflowBytes = totalBytes - MAX_TOTAL_BYTES;
     const bytesToFree = Math.max(CLEANUP_CHUNK_BYTES, overflowBytes);
 
@@ -154,9 +160,6 @@ exports.enforceSharedConfigurationQuota = onDocumentCreated(
     }));
 
     if (remainingBytes > MAX_TOTAL_BYTES) {
-      // This should not occur with normal documents because a new share is capped
-      // below 1 MiB and the collection had to contain enough older data to cross
-      // 200 MiB. Throwing makes the problem visible in Cloud Functions logs.
       throw new Error(
         `Shared configuration quota cleanup incomplete: ${remainingBytes} bytes remain ` +
         `above the ${MAX_TOTAL_BYTES}-byte limit.`

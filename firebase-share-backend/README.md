@@ -37,7 +37,7 @@ From this `firebase-share-backend` directory:
 npm install -g firebase-tools
 firebase login
 cd functions
-npm install
+npm install firebase-functions@latest firebase-admin@latest --save
 cd ..
 firebase deploy --only functions:enforceSharedConfigurationQuota
 ```
@@ -81,3 +81,21 @@ This is an application-level quota over the UTF-8 byte size of the saved `s`
 payloads. Firestore's billable physical storage also contains document names,
 field names, metadata, and index entries, so the Firebase console's physical
 storage figure will not equal this 200 MiB counter exactly.
+
+
+## Function discovery timeout
+
+The Admin SDK is initialized with Firebase Functions `onInit()` rather than in
+global module scope. This prevents Firebase CLI deployment discovery from trying
+to initialize Firestore while it is only inspecting the exports.
+
+If a local Firebase CLI installation still needs more than the default discovery
+time after updating the SDK and CLI, PowerShell can temporarily use:
+
+```powershell
+$env:FUNCTIONS_DISCOVERY_TIMEOUT=30
+firebase deploy --only functions:enforceSharedConfigurationQuota
+```
+
+The environment variable only affects the local CLI discovery timeout; it does
+not change the deployed function runtime timeout.
