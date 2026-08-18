@@ -1,0 +1,71 @@
+name: Deploy Firebase share backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'firebase-share-backend/**'
+      - '.github/workflows/deploy-firebase-share.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: firebase-share-backend-production
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: configurator-360
+  FUNCTIONS_DISCOVERY_TIMEOUT: '30'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Configure Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Firebase function dependencies
+        working-directory: firebase-share-backend/functions
+        run: npm install --ignore-scripts
+
+      - name: Validate Firebase function source
+        working-directory: firebase-share-backend/functions
+        run: node --check index.js
+
+      - name: Deploy share function, Firestore rules, TTL and index exemptions
+        working-directory: firebase-share-backend
+        run: >-
+          npx --yes firebase-tools@latest deploy
+          --project "${GCP_PROJECT_ID}"
+          --only functions:enforceSharedConfigurationQuota,firestore:rules,firestore:indexes
+          --non-interactive
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "## Firebase share backend deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Function: enforceSharedConfigurationQuota" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Share payload quota: 200 MiB" >> "$GITHUB_STEP_SUMMARY"
+          echo "- FIFO cleanup chunk: 1 MiB minimum" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Share lifetime: 90 days" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Firestore TTL: sharedConfigurations.expiresAt" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Unindexed fields: sharedConfigurations.s, sharedConfigurations.expiresAt" >> "$GITHUB_STEP_SUMMARY"
