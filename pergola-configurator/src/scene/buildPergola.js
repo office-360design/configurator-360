@@ -1,10 +1,15 @@
 import * as THREE from 'three';
 import { fitAssetToBox } from './AssetLibrary.js';
 import {
+  getBoundaryHeaterSegments,
+  getHeaterConfig,
+  getPoleGrid,
+  getRoofRectangles,
+  getSpotlightRectangleLayout,
+  getSideSegmentConfig,
   poleFaceIsAvailable,
   poleIsAvailable,
-  resolvePoleMountFace,
-  resolveSpeakerFace,
+  segmentIsAvailable,
 } from '../state.js';
 
 const METERS_PER_MM = 0.001;
@@ -133,39 +138,21 @@ function addDrainage(group, state, width, depth, height) {
   }
 }
 
-function sideTransform(side, width, depth, height) {
+function segmentTransform(state, segment, width, depth, height, postSize) {
+  const coordinates = poleCoordinates(state, width, depth, postSize);
+  const first = coordinates[segment.a];
+  const second = coordinates[segment.b];
+  if (!first || !second) return null;
+
   const top = height - 0.24;
   const bottom = 0.12;
   const usableHeight = top - bottom;
-
-  if (side === 'front') {
-    return {
-      span: width - 0.26,
-      position: new THREE.Vector3(0, bottom + usableHeight / 2, depth / 2 - 0.075),
-      rotationY: 0,
-      usableHeight,
-    };
-  }
-  if (side === 'back') {
-    return {
-      span: width - 0.26,
-      position: new THREE.Vector3(0, bottom + usableHeight / 2, -depth / 2 + 0.075),
-      rotationY: Math.PI,
-      usableHeight,
-    };
-  }
-  if (side === 'left') {
-    return {
-      span: depth - 0.26,
-      position: new THREE.Vector3(-width / 2 + 0.075, bottom + usableHeight / 2, 0),
-      rotationY: Math.PI / 2,
-      usableHeight,
-    };
-  }
+  const midpoint = first.clone().add(second).multiplyScalar(0.5);
+  const distance = first.distanceTo(second);
   return {
-    span: depth - 0.26,
-    position: new THREE.Vector3(width / 2 - 0.075, bottom + usableHeight / 2, 0),
-    rotationY: -Math.PI / 2,
+    span: Math.max(0.18, distance - postSize - 0.04),
+    position: new THREE.Vector3(midpoint.x, bottom + usableHeight / 2, midpoint.z),
+    rotationY: segment.axis === 'horizontal' ? 0 : Math.PI / 2,
     usableHeight,
   };
 }
@@ -271,12 +258,14 @@ function addGlass(container, transform, frameMaterial) {
   container.add(bottomRail);
 }
 
-function addSideClosings(group, state, width, depth, height, frameMaterial, assets) {
-  Object.entries(state.sides).forEach(([side, config]) => {
-    if (!config || config.type === 'none') return;
-    if (state.installation === 'wall-mounted' && side === state.mountedSide) return;
+function addSideClosings(group, state, width, depth, height, postSize, frameMaterial, assets) {
+  const grid = getPoleGrid(state);
+  grid.segments.forEach((segment) => {
+    const config = getSideSegmentConfig(state, segment.id);
+    if (!config || config.type === 'none' || !segmentIsAvailable(state, segment.id)) return;
 
-    const transform = sideTransform(side, width, depth, height);
+    const transform = segmentTransform(state, segment, width, depth, height, postSize);
+    if (!transform) return;
     const container = new THREE.Group();
     container.position.copy(transform.position);
     container.rotation.y = transform.rotationY;
@@ -315,7 +304,7 @@ function styleLedAsset(object, color) {
   });
 }
 
-function addPerimeterLed(group, width, depth, height, ledConfig, assets) {
+function addPerimeterLed(group, width, depth, height, ledConfig, assets, night = false) {
   const y = height - 0.225;
   const offset = 0.105;
   const specifications = [
@@ -332,19 +321,23 @@ function addPerimeterLed(group, width, depth, height, ledConfig, assets) {
       strip.position.copy(position);
       strip.rotation.y = rotationY;
       group.add(strip);
-      return;
+    } else {
+      const fallbackMaterial = material(ledConfig.color, {
+        roughness: 0.15,
+        metalness: 0,
+        emissive: ledConfig.color,
+        emissiveIntensity: 4,
+      });
+      const fallback = box(size.x, size.y, size.z, fallbackMaterial, { castShadow: false });
+      fallback.position.copy(position);
+      fallback.rotation.y = rotationY;
+      group.add(fallback);
     }
 
-    const fallbackMaterial = material(ledConfig.color, {
-      roughness: 0.15,
-      metalness: 0,
-      emissive: ledConfig.color,
-      emissiveIntensity: 4,
-    });
-    const fallback = box(size.x, size.y, size.z, fallbackMaterial, { castShadow: false });
-    fallback.position.copy(position);
-    fallback.rotation.y = rotationY;
-    group.add(fallback);
+    const ledLight = new THREE.PointLight(ledConfig.color, night ? 1.8 : 0.12, 4.6, 2);
+    ledLight.position.copy(position);
+    ledLight.position.y -= 0.08;
+    group.add(ledLight);
   });
 }
 
@@ -364,50 +357,77 @@ function styleSpotlight(object) {
   });
 }
 
-function addSpotlights(group, count, width, depth, height, beamHeight, frameMaterial, assets) {
-  if (count <= 0) return;
-
-  const columns = Math.min(4, Math.max(1, Math.ceil(Math.sqrt(count))));
-  const rows = Math.ceil(count / columns);
-  const railY = height - beamHeight - 0.045;
-  const lightY = railY - 0.032;
+function addSpotlights(group, state, coordinates, height, beamHeight, frameMaterial, assets, night = false) {
+  const railY = height - beamHeight - 0.022;
+  const lightY = railY - 0.016;
   const railMaterial = frameMaterial.clone();
   railMaterial.color.offsetHSL(0, -0.02, 0.04);
 
-  const rowPositions = rows === 1
-    ? [0]
-    : Array.from({ length: rows }, (_, index) => THREE.MathUtils.lerp(
-      -depth * 0.28,
-      depth * 0.28,
-      index / (rows - 1),
-    ));
+  getRoofRectangles(state).forEach((rectangle) => {
+    const layout = getSpotlightRectangleLayout(state, rectangle.id);
+    if (!layout.count) return;
 
-  rowPositions.forEach((z) => {
-    const rail = box(width - 0.42, 0.035, 0.045, railMaterial);
-    rail.position.set(0, railY, z);
-    group.add(rail);
-  });
+    const frontLeft = coordinates[rectangle.frontLeft];
+    const frontRight = coordinates[rectangle.frontRight];
+    const backLeft = coordinates[rectangle.backLeft];
+    if (!frontLeft || !frontRight || !backLeft) return;
 
-  let created = 0;
-  for (let row = 0; row < rows; row += 1) {
-    const lightsInRow = Math.min(columns, count - created);
-    for (let column = 0; column < lightsInRow; column += 1) {
-      const x = lightsInRow === 1
-        ? 0
-        : THREE.MathUtils.lerp(-width * 0.32, width * 0.32, column / (lightsInRow - 1));
-      const model = cloneFittedAsset(assets, 'spotlight', new THREE.Vector3(0.14, 0.065, 0.14));
-      if (model) {
-        styleSpotlight(model);
-        model.position.set(x, lightY, rowPositions[row]);
-        group.add(model);
-      } else {
-        const body = cylinder(0.055, 0.035, material('#111719'), 20);
-        body.position.set(x, lightY, rowPositions[row]);
-        group.add(body);
-      }
-      created += 1;
+    const minX = Math.min(frontLeft.x, frontRight.x) + 0.34;
+    const maxX = Math.max(frontLeft.x, frontRight.x) - 0.34;
+    const minZ = Math.min(frontLeft.z, backLeft.z) + 0.34;
+    const maxZ = Math.max(frontLeft.z, backLeft.z) - 0.34;
+    const safeMinX = minX < maxX ? minX : (frontLeft.x + frontRight.x) / 2;
+    const safeMaxX = minX < maxX ? maxX : safeMinX;
+    const safeMinZ = minZ < maxZ ? minZ : (frontLeft.z + backLeft.z) / 2;
+    const safeMaxZ = minZ < maxZ ? maxZ : safeMinZ;
+
+    const rowPositions = layout.usedRows <= 1
+      ? [(safeMinZ + safeMaxZ) / 2]
+      : Array.from({ length: layout.usedRows }, (_, index) => THREE.MathUtils.lerp(
+        safeMinZ,
+        safeMaxZ,
+        index / (layout.usedRows - 1),
+      ));
+
+    rowPositions.forEach((z) => {
+      const rail = box(Math.max(0.18, safeMaxX - safeMinX + 0.18), 0.035, 0.045, railMaterial);
+      rail.position.set((safeMinX + safeMaxX) / 2, railY, z);
+      group.add(rail);
+    });
+
+    let created = 0;
+    for (let row = 0; row < layout.usedRows && created < layout.count; row += 1) {
+      const remaining = layout.count - created;
+      const lightsInRow = Math.min(layout.usedColumns, remaining);
+      const xPositions = lightsInRow <= 1
+        ? [(safeMinX + safeMaxX) / 2]
+        : Array.from({ length: lightsInRow }, (_, index) => THREE.MathUtils.lerp(
+          safeMinX,
+          safeMaxX,
+          index / (lightsInRow - 1),
+        ));
+
+      xPositions.forEach((x) => {
+        const z = rowPositions[row];
+        const model = cloneFittedAsset(assets, 'spotlight', new THREE.Vector3(0.14, 0.065, 0.14));
+        if (model) {
+          styleSpotlight(model);
+          model.position.set(x, lightY, z);
+          group.add(model);
+        } else {
+          const body = cylinder(0.055, 0.035, material('#111719'), 20);
+          body.position.set(x, lightY, z);
+          group.add(body);
+        }
+        const downlight = new THREE.SpotLight(0xffefc2, night ? 4.2 : 0.08, 3.6, Math.PI / 5, 0.48, 1.6);
+        downlight.position.set(x, lightY - 0.005, z);
+        downlight.target.position.set(x, 0, z);
+        group.add(downlight);
+        group.add(downlight.target);
+        created += 1;
+      });
     }
-  }
+  });
 }
 
 
@@ -427,100 +447,67 @@ function styleHeater(object) {
   });
 }
 
-function addHeaterBrackets(group, side, width, depth, height, beamHeight, heaterY, frameMaterial) {
-  const beamBottom = height - beamHeight + 0.01;
-  const heaterTop = heaterY + 0.11;
-  const inset = 0.31;
-  const anchorInset = 0.14;
+function addHeaterBrackets(group, segment, heaterPosition, height, beamHeight, frameMaterial) {
+  const beamBottom = height - beamHeight + 0.012;
+  const heaterTop = heaterPosition.y + 0.095;
   const rodThickness = 0.022;
   const hangerMaterial = frameMaterial.clone();
   hangerMaterial.color.offsetHSL(0, -0.03, 0.03);
 
-  const makeRod = (start, end) => {
-    const direction = new THREE.Vector3().subVectors(end, start);
-    const length = direction.length();
-    const rod = box(rodThickness, length, rodThickness, hangerMaterial);
-    rod.position.copy(start).add(end).multiplyScalar(0.5);
-    rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+  const alongX = segment.axis === 'horizontal';
+  const rail = box(alongX ? 0.76 : 0.045, rodThickness, alongX ? 0.045 : 0.76, hangerMaterial);
+  rail.position.set(heaterPosition.x, heaterTop + 0.004, heaterPosition.z);
+  group.add(rail);
+
+  [-0.29, 0.29].forEach((offset) => {
+    const x = heaterPosition.x + (alongX ? offset : 0);
+    const z = heaterPosition.z + (alongX ? 0 : offset);
+    const rod = box(rodThickness, Math.max(0.03, beamBottom - heaterTop), rodThickness, hangerMaterial);
+    rod.position.set(x, (heaterTop + beamBottom) / 2, z);
     group.add(rod);
-  };
-
-  if (side === 'front' || side === 'back') {
-    const z = side === 'front' ? depth / 2 - inset : -depth / 2 + inset;
-    const anchorZ = side === 'front' ? depth / 2 - anchorInset : -depth / 2 + anchorInset;
-    const rail = box(0.76, rodThickness, 0.045, hangerMaterial);
-    rail.position.set(0, heaterTop + 0.015, z);
-    group.add(rail);
-    [-0.31, 0.31].forEach((xOffset) => {
-      makeRod(
-        new THREE.Vector3(xOffset, heaterTop + 0.03, z),
-        new THREE.Vector3(xOffset * 0.65, beamBottom, anchorZ),
-      );
-    });
-  } else {
-    const x = side === 'right' ? width / 2 - inset : -width / 2 + inset;
-    const anchorX = side === 'right' ? width / 2 - anchorInset : -width / 2 + anchorInset;
-    const rail = box(0.045, rodThickness, 0.76, hangerMaterial);
-    rail.position.set(x, heaterTop + 0.015, 0);
-    group.add(rail);
-    [-0.31, 0.31].forEach((zOffset) => {
-      makeRod(
-        new THREE.Vector3(x, heaterTop + 0.03, zOffset),
-        new THREE.Vector3(anchorX, beamBottom, zOffset * 0.65),
-      );
-    });
-  }
-}
-
-
-function addHeaters(group, selectedSides, width, depth, height, beamHeight, frameMaterial, assets) {
-  const inset = 0.31;
-  Object.entries(selectedSides).forEach(([side, selected]) => {
-    if (!selected) return;
-
-    const heaterY = height - beamHeight - 0.29;
-    const heater = cloneFittedAsset(assets, 'heater', new THREE.Vector3(0.92, 0.18, 0.17));
-    if (!heater) return;
-    styleHeater(heater);
-
-    if (side === 'front') {
-      heater.position.set(0, heaterY, depth / 2 - inset);
-      heater.rotation.y = Math.PI;
-    } else if (side === 'back') {
-      heater.position.set(0, heaterY, -depth / 2 + inset);
-      heater.rotation.y = 0;
-    } else if (side === 'left') {
-      heater.position.set(-width / 2 + inset, heaterY, 0);
-      heater.rotation.y = Math.PI / 2;
-    } else {
-      heater.position.set(width / 2 - inset, heaterY, 0);
-      heater.rotation.y = -Math.PI / 2;
-    }
-
-    group.add(heater);
-    addHeaterBrackets(group, side, width, depth, height, beamHeight, heaterY, frameMaterial);
   });
 }
 
+function addHeaters(group, state, coordinates, height, beamHeight, frameMaterial, assets) {
+  const faceOffset = 0.18;
+  const heaterY = height - beamHeight - 0.235;
 
-function sensorPosition(position, width, depth, height) {
-  const inset = 0.18;
-  const xPositions = {
-    left: -width / 2 + inset,
-    center: 0,
-    right: width / 2 - inset,
-  };
-  const zPositions = {
-    front: depth / 2 - inset,
-    center: 0,
-    back: -depth / 2 + inset,
+  const directionPose = (segment, direction) => {
+    if (segment.axis === 'horizontal') {
+      return direction === 'first'
+        ? { offset: new THREE.Vector3(0, 0, faceOffset), rotationY: 0 }
+        : { offset: new THREE.Vector3(0, 0, -faceOffset), rotationY: Math.PI };
+    }
+    return direction === 'first'
+      ? { offset: new THREE.Vector3(-faceOffset, 0, 0), rotationY: -Math.PI / 2 }
+      : { offset: new THREE.Vector3(faceOffset, 0, 0), rotationY: Math.PI / 2 };
   };
 
-  const [first, second] = position.split('-');
-  const vector = first === 'front' || first === 'back'
-    ? new THREE.Vector3(xPositions[second], height + 0.05, zPositions[first])
-    : new THREE.Vector3(xPositions[first], height + 0.05, zPositions.center);
-  return vector;
+  getBoundaryHeaterSegments(state).forEach((segment) => {
+    const config = getHeaterConfig(state, segment.id);
+    if (!config) return;
+    const a = coordinates[segment.a];
+    const b = coordinates[segment.b];
+    if (!a || !b) return;
+
+    // Every heater is centered between its two poles. A segment may carry one
+    // heater on either beam face or a pair facing opposite directions.
+    const center = a.clone().lerp(b, 0.5);
+    center.y = heaterY;
+
+    ['first', 'second'].forEach((direction) => {
+      if (!config[direction]) return;
+      const pose = directionPose(segment, direction);
+      const position = center.clone().add(pose.offset);
+      const heater = cloneFittedAsset(assets, 'heater', new THREE.Vector3(0.92, 0.18, 0.17));
+      if (!heater) return;
+      styleHeater(heater);
+      heater.position.copy(position);
+      heater.rotation.y = pose.rotationY;
+      group.add(heater);
+      addHeaterBrackets(group, segment, position, height, beamHeight, frameMaterial);
+    });
+  });
 }
 
 
@@ -533,21 +520,23 @@ function styleWeatherSensor(model, type) {
   });
 }
 
-function addSensors(group, sensors, width, depth, height, assets) {
+function addSensors(group, state, coordinates, height, postSize, assets) {
+  const sensors = state.accessories.sensors;
   const mountMaterial = material('#2b353a', { roughness: 0.38, metalness: 0.68 });
 
   const addSensor = (type, key, size) => {
     const config = sensors[type];
-    if (!config.enabled) return;
-    const position = sensorPosition(config.position, width, depth, height);
-    const plate = box(0.18, 0.025, 0.18, mountMaterial);
-    plate.position.set(position.x, height + 0.014, position.z);
+    if (!config?.enabled || !config.pole || !coordinates[config.pole]) return;
+    const pole = coordinates[config.pole];
+    const plateSize = Math.max(0.16, postSize * 1.04);
+    const plate = box(plateSize, 0.025, plateSize, mountMaterial);
+    plate.position.set(pole.x, height + 0.012, pole.z);
     group.add(plate);
 
     const sensor = cloneFittedAsset(assets, key, size, 'bottom');
     if (!sensor) return;
     styleWeatherSensor(sensor, type);
-    sensor.position.copy(position);
+    sensor.position.set(pole.x, height + 0.035, pole.z);
     group.add(sensor);
   };
 
@@ -556,15 +545,19 @@ function addSensors(group, sensors, width, depth, height, assets) {
 }
 
 
-function poleCoordinates(width, depth, postSize) {
-  const x = width / 2 - postSize / 2;
-  const z = depth / 2 - postSize / 2;
-  return {
-    frontLeft: new THREE.Vector3(-x, 0, z),
-    frontRight: new THREE.Vector3(x, 0, z),
-    backLeft: new THREE.Vector3(-x, 0, -z),
-    backRight: new THREE.Vector3(x, 0, -z),
-  };
+function poleCoordinates(state, width, depth, postSize) {
+  const grid = getPoleGrid(state);
+  const xLeft = -width / 2 + postSize / 2;
+  const xRight = width / 2 - postSize / 2;
+  const zFront = depth / 2 - postSize / 2;
+  const zBack = -depth / 2 + postSize / 2;
+  const coordinates = {};
+  grid.poles.forEach((pole) => {
+    const x = THREE.MathUtils.lerp(xLeft, xRight, pole.xRatio);
+    const z = THREE.MathUtils.lerp(zFront, zBack, pole.zRatio);
+    coordinates[pole.id] = new THREE.Vector3(x, 0, z);
+  });
+  return coordinates;
 }
 
 function faceVector(face) {
@@ -592,53 +585,66 @@ function placeOnPole(model, base, face, height, postSize, depthOffset = 0.018) {
   model.rotation.y = faceRotation(face);
 }
 
-function addSpeakers(group, state, width, depth, height, postSize, assets) {
-  const coordinates = poleCoordinates(width, depth, postSize);
-  Object.entries(state.accessories.speakers).forEach(([pole, selected]) => {
-    if (!selected || !poleIsAvailable(state, pole)) return;
-    const face = resolveSpeakerFace(state, pole);
-    if (!face) return;
-    const model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
-    if (!model) return;
-
-    model.traverse((child) => {
-      if (!child.isMesh) return;
-      child.material = material(/grille|driver/i.test(child.name) ? '#3b454a' : '#171d20', {
-        roughness: 0.44,
-        metalness: 0.45,
-      });
-    });
-
-    placeOnPole(model, coordinates[pole], face, height * 0.78, postSize, 0.09);
-    group.add(model);
-  });
-}
-
-
-function addOutlets(group, state, width, depth, height, postSize, assets) {
-  const coordinates = poleCoordinates(width, depth, postSize);
-
-  Object.entries(state.accessories.outlets).forEach(([pole, faces]) => {
-    if (!poleIsAvailable(state, pole)) return;
-    Object.entries(faces).forEach(([face, mount]) => {
-      if (mount === null || !poleFaceIsAvailable(state, pole, face)) return;
-      const assetKey = mount.type === 'us' ? 'outletUs' : 'outletEu';
-      const model = cloneFittedAsset(assets, assetKey, new THREE.Vector3(0.11, 0.15, 0.045));
-      if (!model) return;
-      model.traverse((child) => {
-        if (!child.isMesh) return;
-        child.material = material(/hole|slot|ground/i.test(child.name) ? '#1e2529' : '#e7e9e6', {
-          roughness: 0.6,
-          metalness: 0.12,
-        });
-      });
-
-      placeOnPole(model, coordinates[pole], face, height * (Number(mount.height) / 100), postSize, 0.024);
-      group.add(model);
+function styleSpeakerModel(model) {
+  model.traverse((child) => {
+    if (!child.isMesh) return;
+    child.material = material(/grille|driver/i.test(child.name) ? '#3b454a' : '#171d20', {
+      roughness: 0.44,
+      metalness: 0.45,
     });
   });
 }
 
+
+function buildOutletModel(type) {
+  const outlet = new THREE.Group();
+  const plateMaterial = material('#f0f1ed', { roughness: 0.64, metalness: 0.06 });
+  const insertMaterial = material('#f7f7f4', { roughness: 0.58, metalness: 0.04 });
+  const holeMaterial = material('#1e2529', { roughness: 0.88, metalness: 0.02 });
+
+  const basePlate = box(0.108, 0.148, 0.012, plateMaterial, { castShadow: false });
+  outlet.add(basePlate);
+  const innerPlate = box(0.082, 0.122, 0.006, insertMaterial, { castShadow: false });
+  innerPlate.position.z = 0.009;
+  outlet.add(innerPlate);
+
+  const addHoleCylinder = (radius, x, y) => {
+    const hole = cylinder(radius, 0.004, holeMaterial, 20);
+    hole.rotation.z = Math.PI / 2;
+    hole.position.set(x, y, 0.0135);
+    outlet.add(hole);
+  };
+
+  const addHoleSlot = (w, h, x, y, rotation = 0) => {
+    const slot = box(w, h, 0.004, holeMaterial, { castShadow: false });
+    slot.position.set(x, y, 0.0135);
+    slot.rotation.z = rotation;
+    outlet.add(slot);
+  };
+
+  if (type === 'us') {
+    const socketYs = [0.031, -0.031];
+    socketYs.forEach((centerY) => {
+      const bezel = box(0.047, 0.043, 0.0035, material('#ebece8', { roughness: 0.55, metalness: 0.03 }), { castShadow: false });
+      bezel.position.set(0, centerY, 0.0122);
+      outlet.add(bezel);
+      addHoleSlot(0.007, 0.018, -0.011, centerY + 0.002, 0);
+      addHoleSlot(0.007, 0.018, 0.011, centerY + 0.002, 0);
+      addHoleCylinder(0.0045, 0, centerY - 0.010);
+    });
+  } else {
+    const bezel = box(0.055, 0.055, 0.0035, material('#ebece8', { roughness: 0.55, metalness: 0.03 }), { castShadow: false });
+    bezel.position.set(0, 0.006, 0.0122);
+    outlet.add(bezel);
+    addHoleCylinder(0.0068, -0.015, 0.006);
+    addHoleCylinder(0.0068, 0.015, 0.006);
+    addHoleSlot(0.009, 0.018, 0, -0.012, 0);
+    const earthLip = box(0.038, 0.006, 0.003, material('#c8cbc7', { roughness: 0.6 }), { castShadow: false });
+    earthLip.position.set(0, 0.032, 0.012);
+    outlet.add(earthLip);
+  }
+  return outlet;
+}
 
 function styleAutomationAsset(model) {
   model.traverse((child) => {
@@ -650,35 +656,49 @@ function styleAutomationAsset(model) {
   });
 }
 
-function addAutomation(group, state, width, depth, height, postSize, assets) {
-  const coordinates = poleCoordinates(width, depth, postSize);
-  if (state.automation === 'manual') {
-    const { pole, height: percent } = state.automationSettings.manual;
-    const face = resolvePoleMountFace(state, 'manual', pole, percent);
-    if (!face || !coordinates[pole]) return;
-    const crank = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
-    if (!crank) return;
-    styleAutomationAsset(crank);
-    placeOnPole(crank, coordinates[pole], face, height * (Number(percent) / 100), postSize, 0.07);
-    group.add(crank);
-    return;
-  }
-
+function addMotorizedAutomation(group, state, width, depth, height) {
+  if (state.automation === 'manual') return;
   const motorMaterial = material('#111719', { roughness: 0.35, metalness: 0.75 });
   const motor = box(0.34, 0.13, 0.13, motorMaterial);
   motor.position.set(width / 2 - 0.32, height - 0.11, -depth / 2 + 0.13);
   group.add(motor);
+}
 
-  if (state.automation !== 'wall-switch') return;
-  Object.entries(state.automationSettings.wallSwitches).forEach(([pole, percent]) => {
-    if (percent === null || !coordinates[pole]) return;
-    const face = resolvePoleMountFace(state, 'switch', pole, percent);
-    if (!face) return;
-    const switchModel = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
-    if (!switchModel) return;
-    styleAutomationAsset(switchModel);
-    placeOnPole(switchModel, coordinates[pole], face, height * (Number(percent) / 100), postSize, 0.025);
-    group.add(switchModel);
+function addPoleMounts(group, state, width, depth, height, postSize, assets) {
+  const coordinates = poleCoordinates(state, width, depth, postSize);
+
+  Object.entries(state.poleMounts ?? {}).forEach(([pole, faces]) => {
+    if (!poleIsAvailable(state, pole) || !coordinates[pole]) return;
+    Object.entries(faces ?? {}).forEach(([face, mounts]) => {
+      if (!poleFaceIsAvailable(state, pole, face)) return;
+      Object.values(mounts ?? {}).forEach((mount) => {
+        if (!mount) return;
+        const mountHeight = height * (Number(mount.height) / 100);
+        let model = null;
+        let depthOffset = 0.02;
+
+        if (mount.type === 'speaker') {
+          model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
+          if (model) styleSpeakerModel(model);
+          depthOffset = 0.045;
+        } else if (mount.type === 'outlet') {
+          model = buildOutletModel(mount.outletType === 'us' ? 'us' : 'eu');
+          depthOffset = 0.006;
+        } else if (mount.type === 'hand-crank') {
+          model = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
+          if (model) styleAutomationAsset(model);
+          depthOffset = 0.07;
+        } else if (mount.type === 'switch') {
+          model = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
+          if (model) styleAutomationAsset(model);
+          depthOffset = 0.025;
+        }
+
+        if (!model) return;
+        placeOnPole(model, coordinates[pole], face, mountHeight, postSize, depthOffset);
+        group.add(model);
+      });
+    });
   });
 }
 
@@ -704,48 +724,38 @@ export function buildPergola(state, assets = null) {
     metalness: 0.72,
   });
 
-  const coordinates = poleCoordinates(width, depth, postSize);
+  const grid = getPoleGrid(state);
+  const coordinates = poleCoordinates(state, width, depth, postSize);
   Object.entries(coordinates).forEach(([key, position]) => {
     if (!poleIsAvailable(state, key)) return;
     addPost(group, position.x, position.z, height, postSize, frameMaterial, isPremium);
   });
 
   const beamY = height - beamHeight / 2;
-  addBeam(group, new THREE.Vector3(0, beamY, depth / 2 - beamDepth / 2), new THREE.Vector3(width, beamHeight, beamDepth), frameMaterial, isPremium);
-  addBeam(group, new THREE.Vector3(0, beamY, -depth / 2 + beamDepth / 2), new THREE.Vector3(width, beamHeight, beamDepth), frameMaterial, isPremium);
-  addBeam(group, new THREE.Vector3(width / 2 - beamDepth / 2, beamY, 0), new THREE.Vector3(beamDepth, beamHeight, depth), frameMaterial, isPremium);
-  addBeam(group, new THREE.Vector3(-width / 2 + beamDepth / 2, beamY, 0), new THREE.Vector3(beamDepth, beamHeight, depth), frameMaterial, isPremium);
-
-  if (state.model !== 'lite' && Math.max(width, depth) > 5.5) {
-    const centerBeam = state.roof.orientation === 'width'
-      ? box(beamDepth, beamHeight * 0.72, depth - beamDepth * 2, frameMaterial)
-      : box(width - beamDepth * 2, beamHeight * 0.72, beamDepth, frameMaterial);
-    centerBeam.position.set(0, height - beamHeight * 0.56, 0);
-    group.add(centerBeam);
+  for (let row = 0; row < grid.rows; row += 1) {
+    const rowPole = grid.poles.find((item) => item.row === row && item.column === 0);
+    const z = coordinates[rowPole?.id]?.z ?? 0;
+    addBeam(group, new THREE.Vector3(0, beamY, z), new THREE.Vector3(width, beamHeight, beamDepth), frameMaterial, isPremium);
+  }
+  for (let column = 0; column < grid.columns; column += 1) {
+    const columnPole = grid.poles.find((item) => item.row === 0 && item.column === column);
+    const x = coordinates[columnPole?.id]?.x ?? 0;
+    addBeam(group, new THREE.Vector3(x, beamY, 0), new THREE.Vector3(beamDepth, beamHeight, depth), frameMaterial, isPremium);
   }
 
   addLouvers(group, state, width, depth, height - beamHeight - 0.015, louverMaterial);
   addDrainage(group, state, width, depth, height);
-  addSideClosings(group, state, width, depth, height, frameMaterial, assets);
-  addAutomation(group, state, width, depth, height, postSize, assets);
+  addSideClosings(group, state, width, depth, height, postSize, frameMaterial, assets);
+  addMotorizedAutomation(group, state, width, depth, height);
 
+  const isNight = Boolean(state.environment?.night);
   if (state.accessories.perimeterLed.enabled) {
-    addPerimeterLed(group, width, depth, height, state.accessories.perimeterLed, assets);
+    addPerimeterLed(group, width, depth, height, state.accessories.perimeterLed, assets, isNight);
   }
-  addSpotlights(group, state.accessories.spotlights, width, depth, height, beamHeight, frameMaterial, assets);
-  addHeaters(
-    group,
-    state.accessories.heaters,
-    width,
-    depth,
-    height,
-    beamHeight,
-    frameMaterial,
-    assets,
-  );
-  addSensors(group, state.accessories.sensors, width, depth, height, assets);
-  addSpeakers(group, state, width, depth, height, postSize, assets);
-  addOutlets(group, state, width, depth, height, postSize, assets);
+  addSpotlights(group, state, coordinates, height, beamHeight, frameMaterial, assets, isNight);
+  addHeaters(group, state, coordinates, height, beamHeight, frameMaterial, assets);
+  addSensors(group, state, coordinates, height, postSize, assets);
+  addPoleMounts(group, state, width, depth, height, postSize, assets);
 
   group.userData.dimensions = { width, depth, height };
   group.userData.postSize = postSize;

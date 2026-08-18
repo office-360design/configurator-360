@@ -25,6 +25,51 @@ function makeMaterial(color, options = {}) {
   });
 }
 
+
+function createCompassTexture(size = 1024) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2;
+  const cy = size / 2;
+
+  ctx.clearRect(0, 0, size, size);
+
+  const drawTriangle = (points, fill) => {
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i][0], points[i][1]);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+  };
+
+  drawTriangle([[cx, cy - size * 0.25], [cx - size * 0.04, cy], [cx, cy + size * 0.038], [cx + size * 0.04, cy]], '#e34f53');
+  drawTriangle([[cx + size * 0.25, cy], [cx, cy - size * 0.04], [cx - size * 0.038, cy], [cx, cy + size * 0.04]], '#0b6aa5');
+  drawTriangle([[cx, cy + size * 0.25], [cx - size * 0.04, cy], [cx, cy - size * 0.038], [cx + size * 0.04, cy]], '#0b5d97');
+  drawTriangle([[cx - size * 0.25, cy], [cx, cy - size * 0.04], [cx + size * 0.038, cy], [cx, cy + size * 0.04]], '#084d7e');
+  drawTriangle([[cx, cy - size * 0.07], [cx + size * 0.07, cy], [cx, cy + size * 0.07], [cx - size * 0.07, cy]], '#0661a8');
+
+  const cardinal = [
+    ['N', 0, -size * 0.34, '#b31d2c'],
+    ['E', size * 0.34, 0, '#0b6aa5'],
+    ['S', 0, size * 0.34, '#0b6aa5'],
+    ['W', -size * 0.34, 0, '#0b6aa5'],
+  ];
+  cardinal.forEach(([label, dx, dy, fill]) => {
+    ctx.fillStyle = fill;
+    ctx.font = `bold ${Math.round(size * 0.1)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx + dx, cy + dy);
+  });
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 export class PergolaScene {
   constructor(container, store) {
     this.container = container;
@@ -47,9 +92,8 @@ export class PergolaScene {
       preserveDrawingBuffer: true,
       powerPreference: 'high-performance',
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.lastQuality = null;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
@@ -85,6 +129,7 @@ export class PergolaScene {
     this.sun.shadow.bias = -0.00035;
     this.scene.add(this.sun);
     this.scene.add(this.sun.target);
+    this.applyQuality(this.state.quality);
 
     this.environmentGroup = new THREE.Group();
     this.scene.add(this.environmentGroup);
@@ -126,18 +171,19 @@ export class PergolaScene {
     this.environmentGroup.add(ground);
 
     const deckMaterial = makeMaterial('#aa9477', { roughness: 0.82 });
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.12, 7.4), deckMaterial);
-    deck.position.set(0, -0.01, 0);
-    deck.receiveShadow = true;
-    deck.castShadow = true;
-    this.environmentGroup.add(deck);
+    this.deckPlatform = new THREE.Mesh(new THREE.BoxGeometry(1, 0.12, 1), deckMaterial);
+    this.deckPlatform.position.set(0, -0.01, 0);
+    this.deckPlatform.receiveShadow = true;
+    this.deckPlatform.castShadow = true;
+    this.deckPlatform.name = 'environment-platform';
+    this.environmentGroup.add(this.deckPlatform);
 
-    const plankMaterial = makeMaterial('#c1ad90', { roughness: 0.88 });
-    for (let index = 0; index < 24; index += 1) {
-      const plank = new THREE.Mesh(new THREE.BoxGeometry(9.25, 0.008, 0.008), plankMaterial);
-      plank.position.set(0, 0.055, -3.55 + index * 0.305);
-      this.environmentGroup.add(plank);
-    }
+    this.deckPlankMaterial = makeMaterial('#c1ad90', { roughness: 0.88 });
+    this.deckPlankGroup = new THREE.Group();
+    this.deckPlankGroup.name = 'environment-platform-planks';
+    this.environmentGroup.add(this.deckPlankGroup);
+    this.platformSizeSignature = '';
+    this.updatePlatformSize();
 
     this.houseGroup = fitAssetToBox(
       this.assets.clone('house') ?? this.makeHouseFallback(),
@@ -145,48 +191,59 @@ export class PergolaScene {
       { alignY: 'bottom' },
     );
     this.houseGroup.name = 'environment-house';
+    this.houseLocalBox = new THREE.Box3().setFromObject(this.houseGroup);
+    const houseBody = this.houseGroup.getObjectByName('house_body');
+    this.houseBodyLocalBox = houseBody
+      ? new THREE.Box3().setFromObject(houseBody)
+      : this.houseLocalBox.clone();
+    this.houseWindowObjects = [];
+    this.houseGroup.traverse((child) => {
+      const name = child.name || '';
+      if (child.userData?.environmentHouseWindows || /^window(?:_|$)/i.test(name) || /door|handle/i.test(name)) {
+        this.houseWindowObjects.push(child);
+      }
+      if (!child.isMesh) return;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((mat) => {
+        if (!mat) return;
+        mat.side = THREE.DoubleSide;
+        mat.needsUpdate = true;
+      });
+    });
+    this.houseSideDoorGroup = this.createHouseSideDoor();
+    if (this.houseSideDoorGroup) this.houseGroup.add(this.houseSideDoorGroup);
     this.environmentGroup.add(this.houseGroup);
 
     this.treeGroups = [];
     [
-      [-6.5, -3.6, 0.9],
-      [7.2, -4.2, 1.2],
-      [-7.8, 3.8, 0.7],
-    ].forEach(([x, z, scale]) => {
+      [-7.9, -1.35, 0.9, 36],
+      [8.0, -1.55, 1.1, 82],
+      [-8.9, -3.75, 0.74, -14],
+    ].forEach(([houseX, houseZ, scale, rotationDeg]) => {
       const tree = fitAssetToBox(
         this.assets.clone('tree') ?? this.makeTreeFallback(),
         new THREE.Vector3(2.7 * scale, 4.7 * scale, 2.7 * scale),
         { alignY: 'bottom' },
       );
-      tree.position.set(x, 0, z);
       tree.userData.environmentTree = true;
+      tree.userData.houseOffset = new THREE.Vector3(houseX, 0, houseZ);
+      tree.userData.houseRotationOffset = THREE.MathUtils.degToRad(rotationDeg);
       this.environmentGroup.add(tree);
       this.treeGroups.push(tree);
     });
 
     const compass = new THREE.Group();
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.55, 0.02, 10, 48),
-      makeMaterial('#1976d2', { roughness: 0.4, metalness: 0.55 }),
+    const compassPlane = new THREE.Mesh(
+      new THREE.CircleGeometry(0.95, 80),
+      new THREE.MeshBasicMaterial({
+        map: createCompassTexture(),
+        transparent: true,
+        alphaTest: 0.02,
+        side: THREE.DoubleSide,
+      }),
     );
-    ring.rotation.x = Math.PI / 2;
-    compass.add(ring);
-    const northArrow = new THREE.Mesh(
-      new THREE.ConeGeometry(0.12, 0.28, 4),
-      makeMaterial('#e24e45', { roughness: 0.45 }),
-    );
-    northArrow.rotation.x = -Math.PI / 2;
-    northArrow.position.z = -0.55;
-    compass.add(northArrow);
-    ['N', 'E', 'S', 'W'].forEach((label, index) => {
-      const el = document.createElement('span');
-      el.className = 'dimension-label';
-      el.textContent = label;
-      const obj = new CSS2DObject(el);
-      const angle = index * Math.PI / 2;
-      obj.position.set(Math.sin(angle) * 0.72, 0.02, -Math.cos(angle) * 0.72);
-      compass.add(obj);
-    });
+    compassPlane.rotation.x = -Math.PI / 2;
+    compass.add(compassPlane);
     compass.name = 'north-compass';
     this.environmentGroup.add(compass);
     this.northCompass = compass;
@@ -222,7 +279,7 @@ export class PergolaScene {
       0, 1, 2,  0, 2, 5,  0, 5, 3,
     ]);
     roofGeometry.computeVertexNormals();
-    const roof = new THREE.Mesh(roofGeometry, makeMaterial('#c8c7bc', { roughness: 0.92 }));
+    const roof = new THREE.Mesh(roofGeometry, makeMaterial('#c8c7bc', { roughness: 0.92, side: THREE.DoubleSide }));
     group.add(roof);
 
     const eave = new THREE.Mesh(new THREE.BoxGeometry(10.0, 0.08, 2.7), trimMaterial);
@@ -230,6 +287,8 @@ export class PergolaScene {
     group.add(eave);
 
     const windowSet = new THREE.Group();
+    windowSet.name = 'environment-house-windows';
+    windowSet.userData.environmentHouseWindows = true;
     const spacing = 1.85;
     [-2.75, -0.95, 1.0, 2.8].forEach((x) => {
       const frame = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.65, 0.08), trimMaterial);
@@ -266,6 +325,41 @@ export class PergolaScene {
     return tree;
   }
 
+
+  createHouseSideDoor() {
+    const bounds = this.houseBodyLocalBox ?? this.houseLocalBox;
+    if (!bounds) return null;
+    const group = new THREE.Group();
+    group.name = 'environment-house-side-door';
+    const trimMaterial = makeMaterial('#3a434b', { roughness: 0.58, metalness: 0.3 });
+    const doorMaterial = makeMaterial('#1b2024', { roughness: 0.55, metalness: 0.18 });
+    const handleMaterial = makeMaterial('#8d9498', { roughness: 0.32, metalness: 0.72 });
+
+    // Use the actual wall face rather than the roof/eave bounding box. The roof
+    // overhang is wider than the house body, which previously left this door
+    // visibly floating away from the side wall.
+    const wallX = bounds.min.x;
+    const frameThickness = 0.08;
+    const doorThickness = 0.045;
+    const frameHeight = 2.35;
+    const doorHeight = 2.16;
+    const bottomClearance = 0.015;
+
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(frameThickness, frameHeight, 1.08), trimMaterial);
+    frame.position.set(wallX - frameThickness / 2 - 0.004, bottomClearance + frameHeight / 2, -0.2);
+    group.add(frame);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(doorThickness, doorHeight, 0.9), doorMaterial);
+    door.position.set(wallX - frameThickness - doorThickness / 2 - 0.006, bottomClearance + 0.045 + doorHeight / 2, -0.2);
+    group.add(door);
+
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.16, 0.05), handleMaterial);
+    handle.position.set(wallX - frameThickness - doorThickness - 0.025, 1.05, 0.05);
+    group.add(handle);
+
+    return group;
+  }
+
   structuralSignature(state) {
     return JSON.stringify({
       model: state.model,
@@ -274,8 +368,8 @@ export class PergolaScene {
       dimensions: state.dimensions,
       roof: state.roof,
       automation: state.automation,
-      automationSettings: state.automationSettings,
-      sides: state.sides,
+      poleMounts: state.poleMounts,
+      sideSegments: state.sideSegments,
       accessories: state.accessories,
       units: state.units,
     });
@@ -283,6 +377,7 @@ export class PergolaScene {
 
   update(state, meta = {}) {
     this.state = state;
+    this.applyQuality(state.quality);
     const signature = this.structuralSignature(state);
     if (signature !== this.lastStructuralSignature) {
       this.rebuildPergola();
@@ -375,7 +470,46 @@ export class PergolaScene {
     return `${Math.round(mm)} mm`;
   }
 
+  updatePlatformSize() {
+    if (!this.deckPlatform || !this.deckPlankGroup) return;
+    const width = this.state.dimensions.width / 1000;
+    const depth = this.state.dimensions.depth / 1000;
+    const attached = this.state.installation === 'wall-mounted';
+    const mountedSide = this.state.mountedSide;
+    const margins = { left: 1, right: 1, front: 1, back: 1 };
+    if (attached) margins[mountedSide] = 0.02;
+
+    const platformWidth = width + margins.left + margins.right;
+    const platformDepth = depth + margins.front + margins.back;
+    const platformOffsetX = (margins.right - margins.left) / 2;
+    const platformOffsetZ = (margins.front - margins.back) / 2;
+    const signature = `${platformWidth.toFixed(3)}x${platformDepth.toFixed(3)}@${platformOffsetX.toFixed(3)},${platformOffsetZ.toFixed(3)}`;
+    if (signature === this.platformSizeSignature) return;
+
+    this.deckPlatform.scale.set(platformWidth, 1, platformDepth);
+    // The deck top is the pergola's zero level. Keeping the top at y=0 makes the
+    // posts/feet sit on it instead of making the complete pergola appear raised.
+    this.deckPlatform.position.set(platformOffsetX, -0.06, platformOffsetZ);
+    this.deckPlankGroup.position.set(platformOffsetX, 0, platformOffsetZ);
+
+    this.deckPlankGroup.children.forEach((child) => child.geometry?.dispose?.());
+    this.deckPlankGroup.clear();
+    const inset = 0.14;
+    const usableDepth = Math.max(0.1, platformDepth - inset * 2);
+    const plankCount = Math.max(2, Math.ceil(usableDepth / 0.305) + 1);
+    const spacing = usableDepth / Math.max(1, plankCount - 1);
+    const plankWidth = Math.max(0.1, platformWidth - inset * 2);
+    for (let index = 0; index < plankCount; index += 1) {
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(plankWidth, 0.008, 0.008), this.deckPlankMaterial);
+      plank.position.set(0, 0.004, -usableDepth / 2 + index * spacing);
+      this.deckPlankGroup.add(plank);
+    }
+
+    this.platformSizeSignature = signature;
+  }
+
   updateEnvironment() {
+    this.updatePlatformSize();
     const { sunPosition, northDirection, night, season } = this.state.environment;
     const progress = THREE.MathUtils.clamp(sunPosition, 0, 1);
     const azimuth = THREE.MathUtils.degToRad(-110 + progress * 220 + northDirection);
@@ -388,9 +522,9 @@ export class PergolaScene {
       Math.sin(azimuth) * Math.cos(elevation) * radius,
     );
     this.sun.target.position.set(0, 0.7, 0);
-    this.sun.intensity = night ? 0.15 : 3.4 + Math.sin(progress * Math.PI) * 2.1;
-    this.ambient.intensity = night ? 0.42 : 1.65;
-    this.ambient.color.set(night ? '#61728f' : '#f5fbff');
+    this.sun.intensity = night ? 0.18 : 3.4 + Math.sin(progress * Math.PI) * 2.1;
+    this.ambient.intensity = night ? 0.5 : 1.65;
+    this.ambient.color.set(night ? '#7082a0' : '#f5fbff');
     this.ambient.groundColor.set(night ? '#10151a' : '#75806f');
 
     const palette = {
@@ -404,17 +538,22 @@ export class PergolaScene {
     this.scene.fog.color.set(fogColor);
     const ground = this.environmentGroup.getObjectByName('environment-ground');
     ground?.material?.color.set(night ? '#273039' : palette.ground);
-    this.renderer.toneMappingExposure = night ? 0.7 : 1.08;
+    this.renderer.toneMappingExposure = night ? 0.92 : 1.08;
 
     const pergolaHeight = this.state.dimensions.height / 1000;
     if (this.northCompass) {
-      this.northCompass.visible = Boolean(this.state.view.compassVisible);
+      const compassVisible = Boolean(this.state.view.compassVisible);
+      this.northCompass.visible = compassVisible;
       this.northCompass.rotation.y = THREE.MathUtils.degToRad(-northDirection);
       this.northCompass.position.set(0, pergolaHeight + 0.5, 0);
     }
 
     this.updateHousePlacement();
+    this.updateTreePlacement();
     if (this.houseGroup) this.houseGroup.visible = season !== 'studio';
+    const showHouseOpenings = this.state.installation !== 'wall-mounted';
+    this.houseWindowObjects?.forEach((object) => { object.visible = showHouseOpenings; });
+    if (this.houseSideDoorGroup) this.houseSideDoorGroup.visible = this.state.installation === 'wall-mounted';
     this.treeGroups.forEach((tree) => {
       tree.visible = season !== 'studio';
       tree.traverse((child) => {
@@ -432,22 +571,47 @@ export class PergolaScene {
     const depth = this.state.dimensions.depth / 1000;
     const attached = this.state.installation === 'wall-mounted';
     const side = attached ? this.state.mountedSide : 'back';
-    const gap = attached ? 0.05 : 2.0;
-    const houseHalfDepth = 2.45;
+    const clearance = attached ? -0.012 : 2.0;
+    // Mount against the actual wall plane, not the roof bounding box. The roof
+    // overhang extends ~30 cm past the wall and was the source of the visible gap.
+    const frontExtent = this.houseBodyLocalBox?.max?.z ?? this.houseLocalBox?.max?.z ?? 2.1;
 
     this.houseGroup.rotation.y = 0;
     if (side === 'back') {
-      this.houseGroup.position.set(0, 0, -depth / 2 - houseHalfDepth - gap);
+      this.houseGroup.position.set(0, 0, -depth / 2 - frontExtent - clearance);
     } else if (side === 'front') {
       this.houseGroup.rotation.y = Math.PI;
-      this.houseGroup.position.set(0, 0, depth / 2 + houseHalfDepth + gap);
+      this.houseGroup.position.set(0, 0, depth / 2 + frontExtent + clearance);
     } else if (side === 'left') {
       this.houseGroup.rotation.y = Math.PI / 2;
-      this.houseGroup.position.set(-width / 2 - houseHalfDepth - gap, 0, 0);
+      this.houseGroup.position.set(-width / 2 - frontExtent - clearance, 0, 0);
     } else {
       this.houseGroup.rotation.y = -Math.PI / 2;
-      this.houseGroup.position.set(width / 2 + houseHalfDepth + gap, 0, 0);
+      this.houseGroup.position.set(width / 2 + frontExtent + clearance, 0, 0);
     }
+  }
+
+
+  updateTreePlacement() {
+    if (!this.houseGroup || !this.treeGroups?.length) return;
+
+    const houseRotation = this.houseGroup.rotation.y;
+    const cos = Math.cos(houseRotation);
+    const sin = Math.sin(houseRotation);
+
+    this.treeGroups.forEach((tree) => {
+      const offset = tree.userData.houseOffset;
+      if (!offset) return;
+
+      const rotatedX = offset.x * cos + offset.z * sin;
+      const rotatedZ = -offset.x * sin + offset.z * cos;
+      tree.position.set(
+        this.houseGroup.position.x + rotatedX,
+        0,
+        this.houseGroup.position.z + rotatedZ,
+      );
+      tree.rotation.y = houseRotation + (tree.userData.houseRotationOffset ?? 0);
+    });
   }
 
   setCameraPreset(preset) {
@@ -469,6 +633,23 @@ export class PergolaScene {
   capturePNG() {
     this.renderer.render(this.scene, this.camera);
     return this.renderer.domElement.toDataURL('image/png');
+  }
+
+  applyQuality(quality = 'balanced') {
+    if (this.lastQuality === quality) return;
+    const profile = {
+      low: { pixelRatio: 1, shadows: false, shadowSize: 512 },
+      balanced: { pixelRatio: Math.min(window.devicePixelRatio, 1.5), shadows: true, shadowSize: 1024 },
+      high: { pixelRatio: Math.min(window.devicePixelRatio, 2), shadows: true, shadowSize: 2048 },
+    }[quality] ?? { pixelRatio: Math.min(window.devicePixelRatio, 1.5), shadows: true, shadowSize: 1024 };
+
+    this.renderer.setPixelRatio(profile.pixelRatio);
+    this.renderer.shadowMap.enabled = profile.shadows;
+    this.sun.castShadow = profile.shadows;
+    this.sun.shadow.mapSize.set(profile.shadowSize, profile.shadowSize);
+    this.sun.shadow.map?.dispose?.();
+    this.lastQuality = quality;
+    if (this.container?.clientWidth && this.container?.clientHeight) this.resize();
   }
 
   resize() {
