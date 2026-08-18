@@ -20,6 +20,8 @@ const CLEANUP_CHUNK_BYTES = 1 * 1024 * 1024;     // 1 MiB
 const MAX_SINGLE_SHARE_BYTES = 850_000;           // keep headroom below Firestore's document limit
 const SHARE_LIFETIME_MS = 90 * 24 * 60 * 60 * 1000;
 const CLEANUP_QUERY_BATCH = 400;                  // below Firestore's 500-write batch limit
+const FUNCTION_REGION = 'europe-west1';
+const RUNTIME_SERVICE_ACCOUNT = 'configurator-runtime@configurator-360.iam.gserviceaccount.com';
 
 function utf8ByteLength(value) {
   return Buffer.byteLength(String(value ?? ''), 'utf8');
@@ -77,6 +79,8 @@ async function deleteOldestUntilFreed(collection, bytesToFree, protectedShareId)
 exports.enforceSharedConfigurationQuota = onDocumentCreated(
   {
     document: `${SHARES_COLLECTION}/{shareId}`,
+    region: FUNCTION_REGION,
+    serviceAccount: RUNTIME_SERVICE_ACCOUNT,
     // Serial execution avoids two simultaneous creates independently deciding
     // to evict the same FIFO range and unnecessarily deleting extra links.
     maxInstances: 1,

@@ -1,101 +1,59 @@
-# Shared-configuration quota backend
+# Shared configuration Firebase backend
 
-This Firebase Cloud Function enforces the application-level storage policy for
-`sharedConfigurations` without changing the configurator clients.
+This backend enforces temporary share-link storage for `sharedConfigurations`.
 
-## Policy implemented
+## Policy
 
-- Maximum logical payload storage: **200 MiB** (`209,715,200` bytes).
-- When a new share crosses the limit, delete the **oldest shares first** until at
-  least **1 MiB** (`1,048,576` bytes) has been freed. If the actual overflow is
-  larger than 1 MiB, enough data is removed to get back under 200 MiB.
-- Maximum individual serialized state (`s`): **850,000 UTF-8 bytes**.
-- Every new document receives trusted server metadata:
-  - `sizeBytes`
-  - `createdAt`
-  - `expiresAt` (= creation + 90 days)
-  - `quotaVersion`
+- Maximum logical serialized configuration payload storage: **200 MiB**.
+- If a new share pushes usage over the limit, delete the **oldest** shares until at least **1 MiB** has been freed (or more when required to return below 200 MiB).
+- Maximum one saved state: **850,000 UTF-8 bytes**.
+- Every new share receives trusted server metadata: `sizeBytes`, `createdAt`, `expiresAt`, and `quotaVersion`.
+- `expiresAt` is exactly 90 days after the Firestore document creation time.
+- Firestore Security Rules refuse reads after `expiresAt`.
+- Firestore TTL physically removes expired documents automatically. TTL deletion is asynchronous, so the Security Rule is what makes the public link stop working at the 90-day boundary.
 
-The `expiresAt` field is prepared for the later 90-day TTL implementation, but
-this package does **not** yet enable Firestore TTL or reject expired reads.
+## Index policy
 
-## Why no configurator files are changed
+`firestore.indexes.json` configures:
 
-The existing Share button can keep creating documents with only `v`, `p`, and
-`s`, exactly as it does now. `onDocumentCreated` runs on Firebase after the write,
-adds server metadata, calculates current usage, and performs FIFO cleanup if
-necessary.
+- `sharedConfigurations.s`: no automatic single-field index. The large state string is retrieved by document ID and is never queried.
+- `sharedConfigurations.expiresAt`: TTL enabled and ordinary indexing disabled.
+- `createdAt`: left indexed because FIFO cleanup orders by it.
+- `sizeBytes`: left indexed because the quota code uses a Firestore SUM aggregation.
 
-The Admin SDK used by Cloud Functions is privileged and does not depend on the
-browser Firestore rules for its metadata update/deletes.
+## GitHub Actions deployment
 
-## Deploy
+`.github/workflows/deploy-firebase-share.yml` automatically deploys when `firebase-share-backend/**` changes on `main`, and can also be launched manually with `workflow_dispatch`.
 
-From this `firebase-share-backend` directory:
+It reuses the repository's existing Google Cloud Workload Identity Federation variables:
 
-```bash
-npm install -g firebase-tools
-firebase login
-cd functions
-npm install firebase-functions@latest firebase-admin@latest --save
-cd ..
-firebase deploy --only functions:enforceSharedConfigurationQuota
-```
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_SERVICE_ACCOUNT`
 
-The `.firebaserc` in this folder points to the Firebase project:
+No long-lived Google service-account JSON key is added to GitHub.
 
-```text
-configurator-360
-```
+The workflow deploys:
 
-If `firebase login` and Firebase CLI are already configured, only the `npm
-install` and `firebase deploy` portions are needed.
+- `functions:enforceSharedConfigurationQuota`
+- `firestore:rules`
+- `firestore:indexes` (including TTL and index exemptions)
 
-## Existing Firestore rules
+## Required IAM for the existing GitHub deployer
 
-No rule change is required for this quota-only step. Keep the current
-`sharedConfigurations` rule block for now.
+The existing deployer is expected to be:
 
-Later, when creation/read are moved behind callable functions and App Check, the
-client rules can be tightened to `allow read, write: if false;` for this
-collection.
+`github-deployer@configurator-360.iam.gserviceaccount.com`
 
-## Verify after deployment
+The function explicitly runs as:
 
-Create one share from a configurator and inspect its Firestore document. Within a
-short time it should have these additional fields:
+`configurator-runtime@configurator-360.iam.gserviceaccount.com`
 
-```text
-createdAt
-expiresAt
-quotaVersion = 1
-sizeBytes
-```
+Before the first GitHub deployment, make sure the deployer can deploy Cloud Functions and Firestore index configuration, and the runtime identity can read/write Firestore. See the accompanying ChatGPT instructions for the one-time IAM commands.
 
-Cloud Functions logs for `enforceSharedConfigurationQuota` show current logical
-usage. Actual cleanup only happens when total `sizeBytes` exceeds 200 MiB.
+## First-time Google service-agent propagation
 
-## What the 200 MiB number means
+The first local attempt enabled Eventarc and related APIs and then failed while Google's Eventarc service-agent permissions were still propagating. That is a project-side first-use condition, not a requirement for the frontend website to be deployed first. Retrying after propagation is normal.
 
-This is an application-level quota over the UTF-8 byte size of the saved `s`
-payloads. Firestore's billable physical storage also contains document names,
-field names, metadata, and index entries, so the Firebase console's physical
-storage figure will not equal this 200 MiB counter exactly.
+### One-time IAM bootstrap
 
-
-## Function discovery timeout
-
-The Admin SDK is initialized with Firebase Functions `onInit()` rather than in
-global module scope. This prevents Firebase CLI deployment discovery from trying
-to initialize Firestore while it is only inspecting the exports.
-
-If a local Firebase CLI installation still needs more than the default discovery
-time after updating the SDK and CLI, PowerShell can temporarily use:
-
-```powershell
-$env:FUNCTIONS_DISCOVERY_TIMEOUT=30
-firebase deploy --only functions:enforceSharedConfigurationQuota
-```
-
-The environment variable only affects the local CLI discovery timeout; it does
-not change the deployed function runtime timeout.
+Run `iam/setup-github-deployer.sh` once from Google Cloud Shell while signed in as a project administrator. It augments the existing GitHub deployer rather than introducing a new credential. IAM changes can take several minutes to propagate before the first workflow succeeds.

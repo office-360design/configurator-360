@@ -1,0 +1,180 @@
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function loggedIn() {
+      return request.auth.uid != null;
+    }
+
+    // carts
+    match /carts/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // adaos
+    match /adaos/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // categories
+    match /categories/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // companies
+    match /companies/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // colorsProducts
+    match /colorsProducts/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // favorites
+    match /favorites/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // glass
+    match /glass/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // panels
+    match /panels/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // wainscot
+    match /wainscot/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // matrix (preserved exactly from the existing rules)
+    match /glass/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // manufacturers
+    match /manufacturers/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // orders
+    match /orders/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // products
+    match /products/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // providers
+    match /providers/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // pvc
+    match /pvc/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // pvcColorsGroups
+    match /pvcColorsGroups/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // pvcColorsPatterns
+    match /pvcColorsPatterns/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // shapes
+    match /shapes/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // toc
+    match /toc/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+    // matrices
+    match /matrices/{item} {
+      allow read, create;
+      allow update, delete: if loggedIn();
+    }
+
+    // users
+    match /users/{item} {
+      allow read, create;
+      allow update, delete: if loggedIn();
+    }
+
+    // generatedOffers
+    match /generatedOffers/{item} {
+      allow read, create;
+      allow update, delete: if loggedIn();
+    }
+
+    // accessories - shapes
+    match /accshapes/{item} {
+      allow read, create;
+      allow update, delete: if loggedIn();
+    }
+
+    // accessories - types
+    match /acctypes/{item} {
+      allow read, create;
+      allow update, delete: if loggedIn();
+    }
+
+    // accessories - matrices
+    match /accmatrices/{item} {
+      allow read, create;
+      allow update, delete: if loggedIn();
+    }
+    // statistics
+    match /statistics/{item} {
+      allow read, create;
+      allow update, delete: if loggedIn();
+    }
+    // producers
+    match /producers/{item} {
+      allow read;
+      allow create, update, delete: if loggedIn();
+    }
+
+    // shared configurator links
+    match /sharedConfigurations/{shareId} {
+      // An exact share ID can retrieve one configuration. Listing/searching the
+      // collection stays forbidden. Once server metadata exists, reads stop
+      // exactly at expiresAt even though TTL's physical delete may happen later.
+      // The temporary no-expiresAt fallback avoids a race during the few moments
+      // between the client create and the Firestore trigger enriching the document.
+      allow get: if shareId.matches('[A-Za-z0-9_-]{16}')
+          && resource.data.v == 1
+          && resource.data.p in ['window', 'roof', 'pergola', 'hall', 'solar']
+          && resource.data.s is string
+          && (
+            !('expiresAt' in resource.data)
+            || (resource.data.expiresAt is timestamp && resource.data.expiresAt > request.time)
+          );
+
+      allow list: if false;
+
+      // Existing browser share creation remains unchanged for now. The Cloud
+      // Function adds trusted size/timestamp metadata immediately afterwards.
+      allow create: if shareId.matches('[A-Za-z0-9_-]{16}')
+          && request.resource.data.keys().hasAll(['v', 'p', 's'])
+          && request.resource.data.keys().hasOnly(['v', 'p', 's'])
+          && request.resource.data.v == 1
+          && request.resource.data.p in ['window', 'roof', 'pergola', 'hall', 'solar']
+          && request.resource.data.s is string
+          && request.resource.data.s.size() > 0
+          && request.resource.data.s.size() <= 850000;
+
+      allow update, delete: if false;
+    }
+  }
+}
