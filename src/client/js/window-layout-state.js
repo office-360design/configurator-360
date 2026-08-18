@@ -1,5 +1,5 @@
 export const WINDOW_STATE_VERSION = 3;
-export const MAX_WINDOW_CELLS = 3;
+export const MAX_WINDOW_CELLS = 100;
 export const FIXED_WINDOW_TYPE = 'fixed-glazing';
 export const SASH_WINDOW_TYPE = 'opening-sash';
 
@@ -335,7 +335,7 @@ export function addWindowToState(stateValue, {
 } = {}) {
     const state = normalizeWindowState(stateValue);
     if (!canAddWindow(state, cellId, direction, { start, end })) {
-        throw new Error('A new window can only be added from an exposed outer-frame side, with a maximum of three windows.');
+        throw new Error('A new window can only be added from an exposed outer-frame side.');
     }
 
     const target = getCell(state, cellId);
@@ -565,24 +565,58 @@ export function setWindowStateDividerProfile(stateValue, dividerProfileId) {
 export function classifyWindowState(stateValue) {
     const state = normalizeWindowState(stateValue);
     const cells = [...state.windows];
+    const bounds = stateBounds(cells);
     const byX = [...cells].sort((a, b) => a.rect.x0 - b.rect.x0 || a.rect.y0 - b.rect.y0);
     const byY = [...cells].sort((a, b) => a.rect.y0 - b.rect.y0 || a.rect.x0 - b.rect.x0);
 
     if (cells.length === 1) return Object.freeze({ kind: 'single', cells: Object.freeze(cells) });
-    const allFullHeight = cells.every(cell => nearlyEqual(cell.rect.y0, 0) && nearlyEqual(cell.rect.y1, 1));
+    const allFullHeight = cells.every(cell =>
+        nearlyEqual(cell.rect.y0, bounds.y0) && nearlyEqual(cell.rect.y1, bounds.y1)
+    );
     if (allFullHeight) return Object.freeze({ kind: 'linear', orientation: 'vertical', cells: Object.freeze(byX) });
-    const allFullWidth = cells.every(cell => nearlyEqual(cell.rect.x0, 0) && nearlyEqual(cell.rect.x1, 1));
+    const allFullWidth = cells.every(cell =>
+        nearlyEqual(cell.rect.x0, bounds.x0) && nearlyEqual(cell.rect.x1, bounds.x1)
+    );
     if (allFullWidth) return Object.freeze({ kind: 'linear', orientation: 'horizontal', cells: Object.freeze(byY) });
 
     if (cells.length === 3) {
-        const top = cells.find(cell => nearlyEqual(cell.rect.x0, 0) && nearlyEqual(cell.rect.x1, 1) && nearlyEqual(cell.rect.y1, 1));
-        if (top) return Object.freeze({ kind: 't-grid', spanningSide: 'top', spanningCellId: top.id, cells: Object.freeze(cells) });
-        const bottom = cells.find(cell => nearlyEqual(cell.rect.x0, 0) && nearlyEqual(cell.rect.x1, 1) && nearlyEqual(cell.rect.y0, 0));
-        if (bottom) return Object.freeze({ kind: 't-grid', spanningSide: 'bottom', spanningCellId: bottom.id, cells: Object.freeze(cells) });
-        const left = cells.find(cell => nearlyEqual(cell.rect.y0, 0) && nearlyEqual(cell.rect.y1, 1) && nearlyEqual(cell.rect.x0, 0));
-        if (left) return Object.freeze({ kind: 't-grid', spanningSide: 'left', spanningCellId: left.id, cells: Object.freeze(cells) });
-        const right = cells.find(cell => nearlyEqual(cell.rect.y0, 0) && nearlyEqual(cell.rect.y1, 1) && nearlyEqual(cell.rect.x1, 1));
-        if (right) return Object.freeze({ kind: 't-grid', spanningSide: 'right', spanningCellId: right.id, cells: Object.freeze(cells) });
+        // Legacy T layouts fill one complete rectangular assembly. An editable
+        // L layout leaves one quadrant empty, so it must not inherit T-specific
+        // profile behavior just because one of its unit cells happens to end at 1.
+        const boundsArea = rectArea(bounds);
+        const cellsArea = cells.reduce((sum, cell) => sum + rectArea(cell.rect), 0);
+        const fillsBounds = Math.abs(boundsArea - cellsArea) <= 1e-6;
+
+        if (fillsBounds) {
+            const top = cells.find(cell =>
+                nearlyEqual(cell.rect.x0, bounds.x0)
+                && nearlyEqual(cell.rect.x1, bounds.x1)
+                && nearlyEqual(cell.rect.y1, bounds.y1)
+                && cell.rect.y0 > bounds.y0 + EPSILON
+            );
+            if (top) return Object.freeze({ kind: 't-grid', spanningSide: 'top', spanningCellId: top.id, cells: Object.freeze(cells) });
+            const bottom = cells.find(cell =>
+                nearlyEqual(cell.rect.x0, bounds.x0)
+                && nearlyEqual(cell.rect.x1, bounds.x1)
+                && nearlyEqual(cell.rect.y0, bounds.y0)
+                && cell.rect.y1 < bounds.y1 - EPSILON
+            );
+            if (bottom) return Object.freeze({ kind: 't-grid', spanningSide: 'bottom', spanningCellId: bottom.id, cells: Object.freeze(cells) });
+            const left = cells.find(cell =>
+                nearlyEqual(cell.rect.y0, bounds.y0)
+                && nearlyEqual(cell.rect.y1, bounds.y1)
+                && nearlyEqual(cell.rect.x0, bounds.x0)
+                && cell.rect.x1 < bounds.x1 - EPSILON
+            );
+            if (left) return Object.freeze({ kind: 't-grid', spanningSide: 'left', spanningCellId: left.id, cells: Object.freeze(cells) });
+            const right = cells.find(cell =>
+                nearlyEqual(cell.rect.y0, bounds.y0)
+                && nearlyEqual(cell.rect.y1, bounds.y1)
+                && nearlyEqual(cell.rect.x1, bounds.x1)
+                && cell.rect.x0 > bounds.x0 + EPSILON
+            );
+            if (right) return Object.freeze({ kind: 't-grid', spanningSide: 'right', spanningCellId: right.id, cells: Object.freeze(cells) });
+        }
     }
 
     return Object.freeze({ kind: 'grid', cells: Object.freeze(cells) });
