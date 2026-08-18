@@ -511,10 +511,142 @@ function localJointEndForFrameSide(side, worldEnd) {
     return worldEnd === 'negative' ? 'positive' : 'negative';
 }
 
+function getEditableDividerVariantKey(divider = {}) {
+    return `${divider.orientation || 'vertical'}:${divider.templateId || 'mullion-fixed-sash'}:${divider.reversed ? 'reversed' : 'normal'}`;
+}
+
+export function getEditableFixedGlazingDividerCadTransform({
+    profile,
+    divider,
+    runtimeDividerSide,
+} = {}) {
+    const currentVariant = profile?.dividerConnectionVariants?.[
+        getEditableDividerVariantKey(divider)
+    ] || profile || {};
+
+    // Divider variants already carry the fixed-side placement transform from
+    // the fixed/fixed join. Use the runtime side directly. In particular, do
+    // not reuse the authored mixed fixed-left transform for a reversed join:
+    // the catalog now has an actual fixed-right seat from window-mullion-window.
+    return currentVariant.fixedGlazingDividerCadTransforms?.[
+        runtimeDividerSide
+    ] || null;
+}
+
+function getEditableDividerCellBoundaryOffset({
+    divider,
+    cellType,
+    cellSide,
+    dividerConnectionVariants,
+    connectionScale,
+}) {
+    const variant = dividerConnectionVariants?.[getEditableDividerVariantKey(divider)] || null;
+    if (!variant) return null;
+
+    const sourceBoundaries = cellType === 'opening-sash'
+        ? variant.dividerConnection?.openingSashDividerBoundariesMm
+        : variant.fixedGlazingConnections?.dividerCellBoundariesMm;
+    if (!sourceBoundaries) return null;
+
+    const direct = Number(sourceBoundaries[cellSide]);
+    if (Number.isFinite(direct)) return direct * connectionScale;
+
+    // The mixed fixed/sash CAD join is authored fixed-left / sash-right.  A
+    // dynamically added sash-left / fixed-right window reuses that same join
+    // mirrored around the mullion centre.  Some composition metadata remains
+    // keyed to the authored CAD side, so reflect the opposite-side seat when
+    // the requested reversed-side key is not present instead of falling back
+    // to the visible mullion half-width / structural centreline.
+    if (divider?.reversed) {
+        const oppositeSide = cellSide === 'left' ? 'right' : 'left';
+        const mirrored = Number(sourceBoundaries[oppositeSide]);
+        if (Number.isFinite(mirrored)) return -mirrored * connectionScale;
+    }
+
+    return null;
+}
+
+
+export function getEditableDividerSegmentPlacement({
+    segment,
+    junctions = [],
+    dividerFaceSpan = 0,
+    frameJointInwardSpan = 0,
+} = {}) {
+    let length = Math.max(0, finiteNumber(segment?.length));
+    let longitudinalOffset = finiteNumber(segment?.longitudinalOffset);
+    const normalizedDividerFaceSpan = Math.max(0, finiteNumber(dividerFaceSpan));
+    const normalizedFrameJointInwardSpan = Math.max(0, finiteNumber(frameJointInwardSpan));
+    const halfFace = normalizedDividerFaceSpan / 2;
+    const joint = {
+        negativeEndMode: 'arrow',
+        positiveEndMode: 'arrow',
+        negativeFrameInwardSpan: normalizedFrameJointInwardSpan,
+        positiveFrameInwardSpan: normalizedFrameJointInwardSpan,
+    };
+
+    const getJunctionForEndpoint = atStart => junctions.find(junction =>
+        junction.endpoints?.some(endpoint =>
+            endpoint.dividerId === segment?.id && endpoint.atStart === atStart
+        )
+    ) || null;
+
+    [true, false].forEach(atStart => {
+        const junction = getJunctionForEndpoint(atStart);
+        if (!junction) return;
+        const endModeKey = atStart ? 'negativeEndMode' : 'positiveEndMode';
+        const frameSpanKey = atStart
+            ? 'negativeFrameInwardSpan'
+            : 'positiveFrameInwardSpan';
+
+        if (junction.type === 'L') {
+            // At a concave L-shaped corner there is no second perimeter-frame
+            // half on the missing-cell quadrant to complete the normal
+            // frame/divider socket. Both perpendicular mullions therefore need
+            // their full V ends to reach the shared centre point. Extending each
+            // segment by half the divider face makes the two 45-degree heads
+            // meet exactly, rather than leaving the normal frame-joint setback
+            // as a visible square hole.
+            joint[endModeKey] = 'arrow';
+            joint[frameSpanKey] = normalizedDividerFaceSpan;
+            length += halfFace;
+            longitudinalOffset += atStart ? -halfFace / 2 : halfFace / 2;
+            return;
+        }
+
+        if (segment?.orientation === junction.hostOrientation) {
+            // The two collinear host pieces meet each other on one half of the
+            // section and open a 90-degree socket on the other, matching the
+            // verified T joint.
+            joint[endModeKey] = 'socket';
+            joint[frameSpanKey] = normalizedDividerFaceSpan;
+            joint.socketInwardSign = 1;
+            joint.socketInwardOffset = halfFace;
+            return;
+        }
+
+        // A T branch divider needs a nominal extra half-face beyond the host
+        // centre plane so the arrow deformation lands its apex on the host
+        // centre and its shoulders on the socket faces.
+        joint[endModeKey] = 'arrow';
+        joint[frameSpanKey] = normalizedDividerFaceSpan;
+        length += halfFace;
+        longitudinalOffset += atStart ? -halfFace / 2 : halfFace / 2;
+    });
+
+    return Object.freeze({
+        length,
+        longitudinalOffset,
+        joint: Object.freeze({ ...joint }),
+    });
+}
+
 export function getEditableWindowTopologyGeometry({
     width,
     height,
     topology,
+    dividerConnectionVariants = null,
+    connectionScale = MM_TO_M,
 } = {}) {
     const normalizedWidth = Math.max(0, finiteNumber(width));
     const normalizedHeight = Math.max(0, finiteNumber(height));
@@ -534,7 +666,7 @@ export function getEditableWindowTopologyGeometry({
         const x1 = gridToWorldX(cell.rect.x1, minCol, totalWidth, normalizedWidth);
         const y0 = gridToWorldY(cell.rect.y0, minRow, totalHeight, normalizedHeight);
         const y1 = gridToWorldY(cell.rect.y1, minRow, totalHeight, normalizedHeight);
-        return Object.freeze({
+        return {
             id: cell.id,
             cellType: cell.type,
             handleSide: cell.handleSide || null,
@@ -542,14 +674,24 @@ export function getEditableWindowTopologyGeometry({
             x1,
             y0,
             y1,
+            structuralX0: x0,
+            structuralX1: x1,
+            structuralY0: y0,
+            structuralY1: y1,
             width: Math.max(0, x1 - x0),
             height: Math.max(0, y1 - y0),
             centerX: (x0 + x1) / 2,
             centerY: (y0 + y1) / 2,
             dividerJoinSideByBoundary: {},
-        });
+        };
     });
     const cellById = new Map(cells.map(cell => [cell.id, cell]));
+    const structuralCellById = new Map(cells.map(cell => [cell.id, Object.freeze({
+        id: cell.id,
+        cellType: cell.cellType,
+        centerX: cell.centerX,
+        centerY: cell.centerY,
+    })]));
 
     const dividerSegments = dividers.map(divider => {
         if (divider.orientation === 'vertical') {
@@ -589,6 +731,48 @@ export function getEditableWindowTopologyGeometry({
             if (negativeCell) negativeCell.dividerJoinSideByBoundary.top = 'negative';
             if (positiveCell) positiveCell.dividerJoinSideByBoundary.bottom = 'positive';
         }
+
+        const negativeBoundaryOffset = negativeCell
+            ? getEditableDividerCellBoundaryOffset({
+                divider,
+                cellType: negativeCell.cellType,
+                cellSide: 'left',
+                dividerConnectionVariants,
+                connectionScale: finiteNumber(connectionScale, MM_TO_M),
+            })
+            : null;
+        const positiveBoundaryOffset = positiveCell
+            ? getEditableDividerCellBoundaryOffset({
+                divider,
+                cellType: positiveCell.cellType,
+                cellSide: 'right',
+                dividerConnectionVariants,
+                connectionScale: finiteNumber(connectionScale, MM_TO_M),
+            })
+            : null;
+
+        if (divider.orientation === 'vertical') {
+            if (negativeCell && Number.isFinite(negativeBoundaryOffset)) {
+                negativeCell.x1 = divider.perpendicularOffset + negativeBoundaryOffset;
+            }
+            if (positiveCell && Number.isFinite(positiveBoundaryOffset)) {
+                positiveCell.x0 = divider.perpendicularOffset + positiveBoundaryOffset;
+            }
+        } else {
+            if (negativeCell && Number.isFinite(negativeBoundaryOffset)) {
+                negativeCell.y1 = divider.perpendicularOffset + negativeBoundaryOffset;
+            }
+            if (positiveCell && Number.isFinite(positiveBoundaryOffset)) {
+                positiveCell.y0 = divider.perpendicularOffset + positiveBoundaryOffset;
+            }
+        }
+    });
+
+    cells.forEach(cell => {
+        cell.width = Math.max(0, cell.x1 - cell.x0);
+        cell.height = Math.max(0, cell.y1 - cell.y0);
+        cell.centerX = (cell.x0 + cell.x1) / 2;
+        cell.centerY = (cell.y0 + cell.y1) / 2;
     });
 
     const framePlacements = frameEdges.map(edge => {
@@ -599,7 +783,7 @@ export function getEditableWindowTopologyGeometry({
         if (hasNegativeJoint) localJointEnds.push(localJointEndForFrameSide(edge.side, 'negative'));
         if (hasPositiveJoint) localJointEnds.push(localJointEndForFrameSide(edge.side, 'positive'));
 
-        const cell = cells.find(c => c.id === edge.cellId);
+        const cell = structuralCellById.get(edge.cellId);
 
         if (edge.side === 'top' || edge.side === 'bottom') {
             const x0 = gridToWorldX(edge.start, minCol, totalWidth, normalizedWidth);
@@ -653,10 +837,27 @@ export function getEditableWindowTopologyGeometry({
     });
 
     const junctions = [...junctionMap.values()]
-        .filter(entry => entry.endpoints.length >= 3)
         .map(entry => {
             const vertical = entry.endpoints.filter(endpoint => endpoint.orientation === 'vertical');
             const horizontal = entry.endpoints.filter(endpoint => endpoint.orientation === 'horizontal');
+            const isPerpendicularPair = entry.endpoints.length === 2
+                && vertical.length === 1
+                && horizontal.length === 1;
+            const isMultiDividerJunction = entry.endpoints.length >= 3
+                && vertical.length > 0
+                && horizontal.length > 0;
+            if (!isPerpendicularPair && !isMultiDividerJunction) return null;
+
+            if (isPerpendicularPair) {
+                return Object.freeze({
+                    ...entry,
+                    type: 'L',
+                    hostOrientation: null,
+                    branchOrientation: null,
+                    endpoints: Object.freeze(entry.endpoints.map(endpoint => Object.freeze(endpoint))),
+                });
+            }
+
             const hostOrientation = vertical.length >= 2 ? 'vertical' : 'horizontal';
             return Object.freeze({
                 ...entry,
@@ -665,7 +866,8 @@ export function getEditableWindowTopologyGeometry({
                 branchOrientation: hostOrientation === 'vertical' ? 'horizontal' : 'vertical',
                 endpoints: Object.freeze(entry.endpoints.map(endpoint => Object.freeze(endpoint))),
             });
-        });
+        })
+        .filter(Boolean);
 
     return Object.freeze({
         cells: Object.freeze(cells.map(cell => Object.freeze({

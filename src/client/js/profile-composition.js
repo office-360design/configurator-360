@@ -2642,6 +2642,11 @@ export function composeRegisteredProfileDefinitions({
     fixedGlazingDividerGasketTemplate = fixedGlazingDividerTemplate,
     standaloneBeadDefinition = null,
 }) {
+    // Keep the authored mixed-join semantics available even when the runtime
+    // topology reverses the two cells.  The CAD file itself is fixed-left /
+    // sash-right; geometry occurrence selection must stay in that authored
+    // basis and only the runtime-facing boundary metadata is mirrored.
+    const authoredConnectionTemplate = connectionTemplate;
     if (
         connectionTemplate &&
         connectionTemplate.id === 'mullion-fixed-sash' &&
@@ -2662,30 +2667,6 @@ export function composeRegisteredProfileDefinitions({
     ) {
         placementConnectionTemplate = {
             ...placementConnectionTemplate,
-            leftCell: 'opening-sash',
-            rightCell: 'fixed-glazing',
-        };
-    }
-    if (
-        fixedGlazingDividerTemplate &&
-        fixedGlazingDividerTemplate.id === 'mullion-fixed-sash' &&
-        selection.leftCell === 'opening-sash' &&
-        selection.rightCell === 'fixed-glazing'
-    ) {
-        fixedGlazingDividerTemplate = {
-            ...fixedGlazingDividerTemplate,
-            leftCell: 'opening-sash',
-            rightCell: 'fixed-glazing',
-        };
-    }
-    if (
-        fixedGlazingDividerGasketTemplate &&
-        fixedGlazingDividerGasketTemplate.id === 'mullion-fixed-sash' &&
-        selection.leftCell === 'opening-sash' &&
-        selection.rightCell === 'fixed-glazing'
-    ) {
-        fixedGlazingDividerGasketTemplate = {
-            ...fixedGlazingDividerGasketTemplate,
             leftCell: 'opening-sash',
             rightCell: 'fixed-glazing',
         };
@@ -2774,7 +2755,11 @@ export function composeRegisteredProfileDefinitions({
     ) {
         definition = applyOpeningSashDividerConnectionPlacements({
             definition,
-            dividerConnectionTemplate: connectionTemplate,
+            // Direct INSERT occurrence selection must remain in the authored
+            // CAD basis. Dynamic reversed joins are mirrored later by the
+            // divider renderer; using the relabelled template here makes the
+            // exact 245472 sash-side INSERT disappear.
+            dividerConnectionTemplate: authoredConnectionTemplate || connectionTemplate,
             selection,
         });
     }

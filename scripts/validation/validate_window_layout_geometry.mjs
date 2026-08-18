@@ -9,6 +9,8 @@ import {
     getLinearDividerLayout,
     getTopFixedBottomSashSashLayout,
     getEditableWindowTopologyGeometry,
+    getEditableDividerSegmentPlacement,
+    getEditableFixedGlazingDividerCadTransform,
 } from '../../src/client/js/window-layout-geometry.js';
 
 const errors = [];
@@ -603,6 +605,228 @@ const editableGeometry = getEditableWindowTopologyGeometry({
 assert(editableGeometry.cells.length === 3, 'Editable topology must create one runtime rectangle per window cell.');
 assert(editableGeometry.dividerSegments.length === 3, 'Editable T topology must preserve the two host segments plus the branch divider.');
 assert(editableGeometry.junctions.length === 1 && editableGeometry.junctions[0].hostOrientation === 'horizontal', 'Editable T topology must detect the host transom and branch mullion junction.');
+
+
+const editableMixedSeats = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'fixed-left', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+            { id: 'sash-right', type: 'opening-sash', rect: { x0: 1, y0: 0, x1: 2, y1: 1 } },
+        ],
+        frameEdges: [],
+        dividers: [
+            {
+                id: 'mixed-normal',
+                orientation: 'vertical',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'fixed-left',
+                positiveCellId: 'sash-right',
+                negativeCellType: 'fixed-glazing',
+                positiveCellType: 'opening-sash',
+                templateId: 'mullion-fixed-sash',
+                reversed: false,
+            },
+        ],
+    },
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-sash:normal': {
+            dividerConnection: {
+                openingSashDividerBoundariesMm: { right: -13 },
+            },
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: -31 },
+            },
+        },
+    },
+});
+const editableMixedFixed = editableMixedSeats.cells.find(cell => cell.id === 'fixed-left');
+const editableMixedSash = editableMixedSeats.cells.find(cell => cell.id === 'sash-right');
+assert(
+    Math.abs(editableMixedFixed.x1 - (-0.031)) < 1e-9
+        && Math.abs(editableMixedSash.x0 - (-0.013)) < 1e-9,
+    'Dynamic mixed joins must use both fixed-light and sash boundaries supplied by their resolved CAD placement variants.'
+);
+
+const editableReversedMixedSeats = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'sash-left', type: 'opening-sash', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+            { id: 'fixed-right', type: 'fixed-glazing', rect: { x0: 1, y0: 0, x1: 2, y1: 1 } },
+        ],
+        frameEdges: [],
+        dividers: [
+            {
+                id: 'mixed-reversed',
+                orientation: 'vertical',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'sash-left',
+                positiveCellId: 'fixed-right',
+                negativeCellType: 'opening-sash',
+                positiveCellType: 'fixed-glazing',
+                templateId: 'mullion-fixed-sash',
+                reversed: true,
+            },
+        ],
+    },
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-sash:reversed': {
+            dividerConnection: {
+                openingSashDividerBoundariesMm: { left: 13 },
+            },
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { right: 9.058930398579662 },
+            },
+        },
+    },
+});
+const editableReversedSash = editableReversedMixedSeats.cells.find(cell => cell.id === 'sash-left');
+const editableReversedFixed = editableReversedMixedSeats.cells.find(cell => cell.id === 'fixed-right');
+assert(
+    Math.abs(editableReversedSash.x1 - 0.013) < 1e-9
+        && Math.abs(editableReversedFixed.x0 - 0.009058930398579662) < 1e-9,
+    'A reversed dynamic mixed join must use the fixed-light and sash seats supplied by the reversed CAD placement variant.'
+);
+
+const authoredMixedBeadTransform = Object.freeze({ a: 1, d: 1, tx: 10, ty: 44 });
+const resolvedFixedRightBeadTransform = Object.freeze({ a: 1, d: 1, tx: -10, ty: 44 });
+const reversedMixedBeadProfile = {
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-sash:normal': {
+            fixedGlazingDividerCadTransforms: { left: authoredMixedBeadTransform },
+        },
+        'vertical:mullion-fixed-sash:reversed': {
+            fixedGlazingDividerCadTransforms: { right: resolvedFixedRightBeadTransform },
+        },
+    },
+};
+assert(
+    getEditableFixedGlazingDividerCadTransform({
+        profile: reversedMixedBeadProfile,
+        divider: {
+            orientation: 'vertical',
+            templateId: 'mullion-fixed-sash',
+            reversed: true,
+        },
+        runtimeDividerSide: 'right',
+    }) === resolvedFixedRightBeadTransform,
+    'A reversed dynamic mixed join must use its resolved fixed-right glazing-bead transform instead of reusing the normal fixed-left variant.'
+);
+
+const editableFixedFixedSeats = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'fixed-a', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+            { id: 'fixed-b', type: 'fixed-glazing', rect: { x0: 1, y0: 0, x1: 2, y1: 1 } },
+        ],
+        frameEdges: [],
+        dividers: [
+            {
+                id: 'fixed-fixed',
+                orientation: 'vertical',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'fixed-a',
+                positiveCellId: 'fixed-b',
+                negativeCellType: 'fixed-glazing',
+                positiveCellType: 'fixed-glazing',
+                templateId: 'mullion-fixed-fixed',
+                reversed: false,
+            },
+        ],
+    },
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-fixed:normal': {
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: -31, right: 31 },
+            },
+        },
+    },
+});
+const editableFixedA = editableFixedFixedSeats.cells.find(cell => cell.id === 'fixed-a');
+const editableFixedB = editableFixedFixedSeats.cells.find(cell => cell.id === 'fixed-b');
+assert(
+    Math.abs(editableFixedA.x1 - (-0.031)) < 1e-9
+        && Math.abs(editableFixedB.x0 - 0.031) < 1e-9,
+    'Dynamic fixed/fixed joins must continue using their CAD-derived fixed-light connection rectangle.'
+);
+
+
+const editableLGeometry = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'bottom-left', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+            { id: 'bottom-right', type: 'opening-sash', rect: { x0: 1, y0: 0, x1: 2, y1: 1 } },
+            { id: 'top-left', type: 'fixed-glazing', rect: { x0: 0, y0: 1, x1: 1, y1: 2 } },
+        ],
+        frameEdges: [],
+        dividers: [
+            {
+                id: 'l-vertical',
+                orientation: 'vertical',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'bottom-left',
+                positiveCellId: 'bottom-right',
+                templateId: 'mullion-fixed-sash',
+                reversed: false,
+            },
+            {
+                id: 'l-horizontal',
+                orientation: 'horizontal',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'bottom-left',
+                positiveCellId: 'top-left',
+                templateId: 'mullion-fixed-fixed',
+                reversed: false,
+            },
+        ],
+    },
+});
+assert(
+    editableLGeometry.junctions.length === 1
+        && editableLGeometry.junctions[0].type === 'L'
+        && editableLGeometry.junctions[0].endpoints.length === 2,
+    'An L-shaped three-window layout must detect the two perpendicular mullion endpoints as an inside-corner L junction.'
+);
+const lFaceSpan = 0.088;
+const lHalfFace = lFaceSpan / 2;
+editableLGeometry.dividerSegments.forEach(segment => {
+    const placement = getEditableDividerSegmentPlacement({
+        segment,
+        junctions: editableLGeometry.junctions,
+        dividerFaceSpan: lFaceSpan,
+        frameJointInwardSpan: 0.075,
+    });
+    assert(
+        Math.abs(placement.length - (segment.length + lHalfFace)) < 1e-9,
+        `L-junction divider ${segment.id} must extend by half the mullion face so its V tip reaches the shared inside-corner centre.`
+    );
+    assert(
+        placement.joint.positiveFrameInwardSpan === lFaceSpan,
+        `L-junction divider ${segment.id} must use the full mullion face at the connecting end instead of the shorter perimeter-frame joint span.`
+    );
+    assert(
+        Math.abs(placement.longitudinalOffset - (segment.longitudinalOffset + lHalfFace / 2)) < 1e-9,
+        `L-junction divider ${segment.id} must extend only toward the shared corner, without moving its opposite frame connection.`
+    );
+});
+
 if (errors.length) {
     console.error('Window layout geometry validation failed:');
     errors.forEach(error => console.error(`- ${error}`));

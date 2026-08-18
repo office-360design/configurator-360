@@ -743,6 +743,21 @@ export function createProfileController({
                 cells: [spec.leftCell, spec.rightCell],
             };
 
+            // Fixed glazing on a mullion always uses the fixed/fixed join as
+            // the bead-seat source. The mixed join contains the sash-side
+            // 573940 occurrence, so using it for a fixed cell moves the fixed
+            // glazing bead and its perimeter followers toward the cell centre.
+            // Keep the active connection template for sash placement and for
+            // direct mullion gaskets/accessories, but resolve the fixed-side
+            // bead rectangle from window-mullion-window exactly like the main
+            // (non-editable) composition path already does.
+            const fixedGlazingPlacementTemplate = (
+                spec.leftCell === 'fixed-glazing'
+                || spec.rightCell === 'fixed-glazing'
+            )
+                ? fixedFixedTemplate
+                : connectionTemplate;
+
             let variantDefinition = composeRegisteredProfileDefinitions({
                 selection: variantSelection,
                 definitionsByProfileSetId,
@@ -750,7 +765,7 @@ export function createProfileController({
                 connectionTemplate,
                 placementConnectionTemplate,
                 fixedGlazingFrameTemplate,
-                fixedGlazingDividerTemplate: connectionTemplate,
+                fixedGlazingDividerTemplate: fixedGlazingPlacementTemplate,
                 fixedGlazingDividerGasketTemplate: connectionTemplate,
                 standaloneBeadDefinition,
             });
