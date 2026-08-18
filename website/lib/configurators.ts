@@ -27,7 +27,7 @@ export const configurators: Configurator[] = [
     shortTitle: "Pergola",
     statement: "Engineer daylight. Configure atmosphere.",
     description:
-      "A spatial sales and engineering system for configurable outdoor structures—combining geometry, louver behavior, environmental simulation, accessories and live commercial logic.",
+      "A browser-based 3D pergola configurator for freestanding and wall-mounted systems, combining parametric dimensions, louver control, side enclosures, environmental preview, accessories and live estimated pricing.",
     launchUrl: "https://www.360configurator.com/pergola-configurator/",
     accent: "#58c8ff",
     controls: ["Louver 0°", "Louver 48°", "Night + LED"],

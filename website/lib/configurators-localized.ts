@@ -7,7 +7,7 @@ const ro: Record<ConfiguratorSlug, Translation> = {
   pergola: {
     category: "Arhitectură exterioară", title: "Pergole & Arhitectură Exterioară", shortTitle: "Pergole",
     statement: "Proiectează lumina. Configurează atmosfera.",
-    description: "Un sistem spațial de vânzare și proiectare pentru structuri exterioare configurabile—geometrie, lamele, simulare de mediu, accesorii și logică comercială live într-o singură experiență.",
+    description: "Un configurator de pergole 3D care rulează direct în browser și combină dimensiuni parametrice, montaj independent sau la perete, controlul lamelelor, închideri laterale, simulare de mediu, accesorii și preț estimativ live.",
     controls: ["Lamele 0°", "Lamele 48°", "Noapte + LED"],
     features: [
       { title: "Structură parametrică", short: "Structură", body: "Definește amprenta, înălțimea și tipul de montaj, iar stâlpii, grinzile, deschiderile și drenajul ascuns se reconstruiesc ca un ansamblu coordonat. Dimensiunile rămân conectate la produsul fabricabil, nu la o simplă reprezentare decorativă." },
@@ -100,7 +100,7 @@ const de: Record<ConfiguratorSlug, Translation> = {
   pergola: {
     category: "Outdoor-Architektur", title: "Pergola & Outdoor-Architektur", shortTitle: "Pergola",
     statement: "Tageslicht planen. Atmosphäre konfigurieren.",
-    description: "Ein räumliches Vertriebs- und Planungssystem für konfigurierbare Außenstrukturen—Geometrie, Lamellensteuerung, Umgebungssimulation, Zubehör und Live-Kalkulation in einer Oberfläche.",
+    description: "Ein browserbasierter 3D Pergola-Konfigurator für freistehende und wandmontierte Systeme mit parametrischen Maßen, Lamellensteuerung, Seitenabschlüssen, Umgebungsvorschau, Zubehör und live geschätzter Preisberechnung.",
     controls: ["Lamellen 0°", "Lamellen 48°", "Nacht + LED"],
     features: [
       { title: "Parametrische Struktur", short: "Struktur", body: "Definieren Sie Grundfläche, Gesamthöhe und Montageart; Pfosten, Träger, Spannweiten und verdeckte Entwässerung werden als koordiniertes System neu aufgebaut. Maßänderungen bleiben mit dem realen Aufbau verbunden, statt nur ein dekoratives Modell zu skalieren." },
