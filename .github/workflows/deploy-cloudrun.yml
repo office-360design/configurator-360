@@ -1,4 +1,4 @@
-name: Deploy test site to Google Cloud Run
+name: Deploy site to Google Cloud Run
 
 on:
   push:
@@ -28,6 +28,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ------------------------------------------------------------
+      # Build window configurator
+      # ------------------------------------------------------------
+
       - name: Configure Node.js for configurators
         uses: actions/setup-node@v4
         with:
@@ -47,15 +51,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           rm -rf dist/window-configurator-build
           mkdir -p dist/window-configurator-build
           cp -R dist/site/. dist/window-configurator-build/
+
+      # ------------------------------------------------------------
+      # Build pergola configurator
+      # ------------------------------------------------------------
 
       - name: Install pergola configurator dependencies
         run: npm ci --prefix pergola-configurator
 
       - name: Build pergola configurator
         run: npm run build --prefix pergola-configurator
+
+      # ------------------------------------------------------------
+      # Build main website
+      # ------------------------------------------------------------
 
       - name: Configure Node.js for website
         uses: actions/setup-node@v4
@@ -70,27 +83,39 @@ jobs:
       - name: Build static website
         run: npm run release:static --prefix website
 
+      # ------------------------------------------------------------
+      # Assemble exactly the same site currently sent to GitHub Pages
+      # ------------------------------------------------------------
+
       - name: Assemble static site
         shell: bash
         run: |
           set -euo pipefail
+
           rm -rf dist/site
           mkdir -p dist/site
+
           cp -R website/outputs/release-site/. dist/site/
+
           mkdir -p dist/site/window-configurator
           cp -R dist/window-configurator-build/. dist/site/window-configurator/
+
           mkdir -p dist/site/shared-ui
           cp -R shared-ui/. dist/site/shared-ui/
+
           mkdir -p dist/site/pergola-configurator
           cp -R pergola-configurator/dist/. dist/site/pergola-configurator/
+
           if [ -d roof-configurator ]; then
             mkdir -p dist/site/roof-configurator
             cp -R roof-configurator/. dist/site/roof-configurator/
           fi
+
           if [ -d solar-configurator ]; then
             mkdir -p dist/site/solar-configurator
             cp -R solar-configurator/. dist/site/solar-configurator/
           fi
+
           mkdir -p dist/site/hall-configurator
           cp -R hall-configurator/. dist/site/hall-configurator/
 
@@ -98,6 +123,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           test -f dist/site/index.html
           test -f dist/site/window-configurator/index.html
           test -f dist/site/pergola-configurator/index.html
@@ -105,6 +131,10 @@ jobs:
           test -f dist/site/solar-configurator/index.html
           test -f dist/site/hall-configurator/index.html
           test -d dist/site/shared-ui
+
+      # ------------------------------------------------------------
+      # Authenticate to Google
+      # ------------------------------------------------------------
 
       - name: Authenticate to Google Cloud
         id: auth
@@ -116,6 +146,10 @@ jobs:
       - name: Set up Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v3
 
+      # ------------------------------------------------------------
+      # Push Docker image to Artifact Registry
+      # ------------------------------------------------------------
+
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker \
@@ -126,6 +160,7 @@ jobs:
         shell: bash
         run: |
           IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/web-test:${GITHUB_SHA}"
+
           echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
           echo "Docker image: ${IMAGE}"
 
@@ -137,7 +172,12 @@ jobs:
             .
 
       - name: Push Docker image
-        run: docker push "${IMAGE}"
+        run: |
+          docker push "${IMAGE}"
+
+      # ------------------------------------------------------------
+      # Deploy Cloud Run service
+      # ------------------------------------------------------------
 
       - name: Deploy to Cloud Run
         run: |
@@ -152,10 +192,14 @@ jobs:
             --no-default-url \
             --quiet
 
+      # ------------------------------------------------------------
+      # Display and test the Cloud Run URL
+      # ------------------------------------------------------------
       - name: Set production URL
         shell: bash
         run: |
           echo "SERVICE_URL=https://www.360configurator.com" >> "$GITHUB_ENV"
+      
           echo "## Google Cloud Run deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "https://www.360configurator.com" >> "$GITHUB_STEP_SUMMARY"
@@ -164,11 +208,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+      
           echo "Testing ${SERVICE_URL}"
+      
           curl -fsSL --retry 10 --retry-delay 3 "${SERVICE_URL}/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/window-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/pergola-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/roof-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/solar-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/hall-configurator/" > /dev/null
+      
           echo "All production routes responded successfully."
+
