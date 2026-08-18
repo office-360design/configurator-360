@@ -20,6 +20,15 @@
     <link rel="stylesheet" href="./shared-shell.css?v=3">
     <link rel="stylesheet" href="./css/styles.css">
 
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "./lib/three.module.js",
+            "three/addons/": "./lib/"
+        }
+    }
+    </script>
+
     <script type="module">
         import { applyConfiguratorSeo } from './shared-ui/src/configuratorSeo.js';
         applyConfiguratorSeo('window');
@@ -424,17 +433,7 @@
             <div id="ar-status">Loading the selected profile…</div>
         </div>
     </div>
-
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "./lib/three.module.js",
-            "three/addons/": "./lib/"
-        }
-    }
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
     <script src="./ar-upload-config.js"></script>
     <script type="module" src="./js/main.js"></script>
