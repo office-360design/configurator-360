@@ -689,8 +689,14 @@ export function getEditableWindowTopologyGeometry({
     const structuralCellById = new Map(cells.map(cell => [cell.id, Object.freeze({
         id: cell.id,
         cellType: cell.cellType,
-        centerX: cell.centerX,
-        centerY: cell.centerY,
+        x0: cell.structuralX0,
+        x1: cell.structuralX1,
+        y0: cell.structuralY0,
+        y1: cell.structuralY1,
+        width: Math.max(0, cell.structuralX1 - cell.structuralX0),
+        height: Math.max(0, cell.structuralY1 - cell.structuralY0),
+        centerX: (cell.structuralX0 + cell.structuralX1) / 2,
+        centerY: (cell.structuralY0 + cell.structuralY1) / 2,
     })]));
 
     const dividerSegments = dividers.map(divider => {
@@ -792,7 +798,13 @@ export function getEditableWindowTopologyGeometry({
                 id: edge.id,
                 side: edge.side,
                 width: Math.max(0, x1 - x0),
-                height: normalizedHeight,
+                // A merged window can span more than one structural row. The
+                // side extruder uses height to locate top/bottom relative to
+                // originY, so retaining the one-window slider height here
+                // pulls both perimeter frames toward the merged cell centre.
+                // Keep the edge length segmented, but use the full structural
+                // cell height for its perpendicular placement.
+                height: cell.height,
                 originX: (x0 + x1) / 2,
                 originY: cell.centerY,
                 windowCell: edge.cellId,
@@ -808,7 +820,11 @@ export function getEditableWindowTopologyGeometry({
         return Object.freeze({
             id: edge.id,
             side: edge.side,
-            width: normalizedWidth,
+            // Same rule for a horizontally merged cell: createMiteredSide()
+            // positions left/right at +/- width/2 around originX. The full
+            // merged structural width is therefore the placement reference,
+            // while this frame segment keeps its own Y length below.
+            width: cell.width,
             height: Math.max(0, y1 - y0),
             originX: cell.centerX,
             originY: (y0 + y1) / 2,

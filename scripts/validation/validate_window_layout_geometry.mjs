@@ -761,6 +761,64 @@ assert(
     'Dynamic fixed/fixed joins must continue using their CAD-derived fixed-light connection rectangle.'
 );
 
+const horizontallyMergedGeometry = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'merged-horizontal', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 2, y1: 1 } },
+        ],
+        frameEdges: [
+            { id: 'merged-horizontal-left', cellId: 'merged-horizontal', side: 'left', start: 0, end: 1, cellType: 'fixed-glazing' },
+            { id: 'merged-horizontal-right', cellId: 'merged-horizontal', side: 'right', start: 0, end: 1, cellType: 'fixed-glazing' },
+            { id: 'merged-horizontal-bottom', cellId: 'merged-horizontal', side: 'bottom', start: 0, end: 2, cellType: 'fixed-glazing' },
+            { id: 'merged-horizontal-top', cellId: 'merged-horizontal', side: 'top', start: 0, end: 2, cellType: 'fixed-glazing' },
+        ],
+        dividers: [],
+    },
+});
+const mergedHorizontalLeft = horizontallyMergedGeometry.framePlacements.find(placement => placement.side === 'left');
+const mergedHorizontalRight = horizontallyMergedGeometry.framePlacements.find(placement => placement.side === 'right');
+assert(
+    Math.abs(mergedHorizontalLeft.width - 2.4) < 1e-9
+        && Math.abs(mergedHorizontalRight.width - 2.4) < 1e-9,
+    'After merging left/right windows, both surviving side frames must use the full merged structural width instead of one-window width.'
+);
+assert(
+    Math.abs(mergedHorizontalLeft.originX) < 1e-9
+        && Math.abs(mergedHorizontalRight.originX) < 1e-9,
+    'Merged left/right frame placement must stay centred on the merged structural cell so +/- width/2 lands on the true outer edges.'
+);
+
+const verticallyMergedGeometry = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'merged-vertical', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 2 } },
+        ],
+        frameEdges: [
+            { id: 'merged-vertical-left', cellId: 'merged-vertical', side: 'left', start: 0, end: 2, cellType: 'fixed-glazing' },
+            { id: 'merged-vertical-right', cellId: 'merged-vertical', side: 'right', start: 0, end: 2, cellType: 'fixed-glazing' },
+            { id: 'merged-vertical-bottom', cellId: 'merged-vertical', side: 'bottom', start: 0, end: 1, cellType: 'fixed-glazing' },
+            { id: 'merged-vertical-top', cellId: 'merged-vertical', side: 'top', start: 0, end: 1, cellType: 'fixed-glazing' },
+        ],
+        dividers: [],
+    },
+});
+const mergedVerticalBottom = verticallyMergedGeometry.framePlacements.find(placement => placement.side === 'bottom');
+const mergedVerticalTop = verticallyMergedGeometry.framePlacements.find(placement => placement.side === 'top');
+assert(
+    Math.abs(mergedVerticalBottom.height - 3.0) < 1e-9
+        && Math.abs(mergedVerticalTop.height - 3.0) < 1e-9,
+    'After merging bottom/top windows, both surviving horizontal frames must use the full merged structural height instead of one-window height.'
+);
+assert(
+    Math.abs(mergedVerticalBottom.originY) < 1e-9
+        && Math.abs(mergedVerticalTop.originY) < 1e-9,
+    'Merged bottom/top frame placement must stay centred on the merged structural cell so +/- height/2 lands on the true outer edges.'
+);
+
 
 const editableLGeometry = getEditableWindowTopologyGeometry({
     width: 1.2,
