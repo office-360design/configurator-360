@@ -211,29 +211,118 @@ function getCell(state, cellId) {
     return state.windows.find(cell => cell.id === String(cellId)) || null;
 }
 
-function isOuterSide(state, cell, direction) {
-    let checkRect;
-    if (direction === 'left') checkRect = { x0: cell.rect.x0 - 1, y0: cell.rect.y0, x1: cell.rect.x0, y1: cell.rect.y1 };
-    else if (direction === 'right') checkRect = { x0: cell.rect.x1, y0: cell.rect.y0, x1: cell.rect.x1 + 1, y1: cell.rect.y1 };
-    else if (direction === 'bottom') checkRect = { x0: cell.rect.x0, y0: cell.rect.y0 - 1, x1: cell.rect.x1, y1: cell.rect.y0 };
-    else if (direction === 'top') checkRect = { x0: cell.rect.x0, y0: cell.rect.y1, x1: cell.rect.x1, y1: cell.rect.y1 + 1 };
-
-    const hasNeighbor = state.windows.some(other => 
-        intervalOverlap(checkRect.x0, checkRect.x1, other.rect.x0, other.rect.x1) > EPSILON
-        && intervalOverlap(checkRect.y0, checkRect.y1, other.rect.y0, other.rect.y1) > EPSILON
-    );
-    return !hasNeighbor;
+function getCellSideInterval(cell, direction) {
+    if (direction === 'left' || direction === 'right') {
+        return { start: cell.rect.y0, end: cell.rect.y1 };
+    }
+    return { start: cell.rect.x0, end: cell.rect.x1 };
 }
 
-export function canAddWindow(stateValue, cellId, direction) {
+function getCellSideCoverageIntervals(state, cell, direction) {
+    const side = getCellSideInterval(cell, direction);
+    const intervals = [];
+
+    state.windows.forEach(other => {
+        if (other.id === cell.id) return;
+
+        let touches = false;
+        let overlapStart = 0;
+        let overlapEnd = 0;
+        if (direction === 'left') {
+            touches = nearlyEqual(other.rect.x1, cell.rect.x0);
+            overlapStart = Math.max(side.start, other.rect.y0);
+            overlapEnd = Math.min(side.end, other.rect.y1);
+        } else if (direction === 'right') {
+            touches = nearlyEqual(other.rect.x0, cell.rect.x1);
+            overlapStart = Math.max(side.start, other.rect.y0);
+            overlapEnd = Math.min(side.end, other.rect.y1);
+        } else if (direction === 'bottom') {
+            touches = nearlyEqual(other.rect.y1, cell.rect.y0);
+            overlapStart = Math.max(side.start, other.rect.x0);
+            overlapEnd = Math.min(side.end, other.rect.x1);
+        } else if (direction === 'top') {
+            touches = nearlyEqual(other.rect.y0, cell.rect.y1);
+            overlapStart = Math.max(side.start, other.rect.x0);
+            overlapEnd = Math.min(side.end, other.rect.x1);
+        }
+
+        if (touches && overlapEnd > overlapStart + EPSILON) {
+            intervals.push({ start: overlapStart, end: overlapEnd });
+        }
+    });
+
+    return intervals;
+}
+
+function subtractCoveredIntervals(start, end, coverageIntervals) {
+    const clipped = coverageIntervals
+        .map(interval => ({
+            start: Math.max(start, finite(interval.start)),
+            end: Math.min(end, finite(interval.end)),
+        }))
+        .filter(interval => interval.end > interval.start + EPSILON)
+        .sort((a, b) => a.start - b.start || a.end - b.end);
+
+    const merged = [];
+    clipped.forEach(interval => {
+        const previous = merged.at(-1);
+        if (!previous || interval.start > previous.end + EPSILON) {
+            merged.push({ ...interval });
+            return;
+        }
+        previous.end = Math.max(previous.end, interval.end);
+    });
+
+    const exposed = [];
+    let cursor = start;
+    merged.forEach(interval => {
+        if (interval.start > cursor + EPSILON) {
+            exposed.push({ start: cursor, end: interval.start });
+        }
+        cursor = Math.max(cursor, interval.end);
+    });
+    if (end > cursor + EPSILON) {
+        exposed.push({ start: cursor, end });
+    }
+    return exposed;
+}
+
+function getExposedCellSideIntervals(state, cell, direction) {
+    const side = getCellSideInterval(cell, direction);
+    return subtractCoveredIntervals(
+        side.start,
+        side.end,
+        getCellSideCoverageIntervals(state, cell, direction)
+    );
+}
+
+function intervalIsExposed(state, cell, direction, start, end) {
+    return getExposedCellSideIntervals(state, cell, direction).some(interval =>
+        start >= interval.start - EPSILON
+        && end <= interval.end + EPSILON
+        && end > start + EPSILON
+    );
+}
+
+export function canAddWindow(stateValue, cellId, direction, { start = null, end = null } = {}) {
     const state = normalizeWindowState(stateValue);
     const cell = getCell(state, cellId);
-    return Boolean(
-        cell
-        && state.windows.length < MAX_WINDOW_CELLS
-        && ['left', 'right', 'top', 'bottom'].includes(direction)
-        && isOuterSide(state, cell, direction)
-    );
+    if (
+        !cell
+        || state.windows.length >= MAX_WINDOW_CELLS
+        || !['left', 'right', 'top', 'bottom'].includes(direction)
+    ) {
+        return false;
+    }
+
+    const side = getCellSideInterval(cell, direction);
+    const requestedStart = start !== null && start !== undefined && Number.isFinite(Number(start))
+        ? Number(start)
+        : side.start;
+    const requestedEnd = end !== null && end !== undefined && Number.isFinite(Number(end))
+        ? Number(end)
+        : side.end;
+    return intervalIsExposed(state, cell, direction, requestedStart, requestedEnd);
 }
 
 export function addWindowToState(stateValue, {
@@ -241,9 +330,11 @@ export function addWindowToState(stateValue, {
     direction,
     type = FIXED_WINDOW_TYPE,
     handleSide = null,
+    start = null,
+    end = null,
 } = {}) {
     const state = normalizeWindowState(stateValue);
-    if (!canAddWindow(state, cellId, direction)) {
+    if (!canAddWindow(state, cellId, direction, { start, end })) {
         throw new Error('A new window can only be added from an exposed outer-frame side, with a maximum of three windows.');
     }
 
@@ -252,15 +343,22 @@ export function addWindowToState(stateValue, {
     const targetCopy = windows.find(cell => cell.id === target.id);
     const newId = nextCellId(windows);
     let newRect;
+    const side = getCellSideInterval(targetCopy, direction);
+    const exposedStart = start !== null && start !== undefined && Number.isFinite(Number(start))
+        ? Number(start)
+        : side.start;
+    const exposedEnd = end !== null && end !== undefined && Number.isFinite(Number(end))
+        ? Number(end)
+        : side.end;
 
     if (direction === 'right') {
-        newRect = { x0: targetCopy.rect.x1, x1: targetCopy.rect.x1 + 1, y0: targetCopy.rect.y0, y1: targetCopy.rect.y1 };
+        newRect = { x0: targetCopy.rect.x1, x1: targetCopy.rect.x1 + 1, y0: exposedStart, y1: exposedEnd };
     } else if (direction === 'left') {
-        newRect = { x0: targetCopy.rect.x0 - 1, x1: targetCopy.rect.x0, y0: targetCopy.rect.y0, y1: targetCopy.rect.y1 };
+        newRect = { x0: targetCopy.rect.x0 - 1, x1: targetCopy.rect.x0, y0: exposedStart, y1: exposedEnd };
     } else if (direction === 'top') {
-        newRect = { x0: targetCopy.rect.x0, x1: targetCopy.rect.x1, y0: targetCopy.rect.y1, y1: targetCopy.rect.y1 + 1 };
+        newRect = { x0: exposedStart, x1: exposedEnd, y0: targetCopy.rect.y1, y1: targetCopy.rect.y1 + 1 };
     } else {
-        newRect = { x0: targetCopy.rect.x0, x1: targetCopy.rect.x1, y0: targetCopy.rect.y0 - 1, y1: targetCopy.rect.y0 };
+        newRect = { x0: exposedStart, x1: exposedEnd, y0: targetCopy.rect.y0 - 1, y1: targetCopy.rect.y0 };
     }
 
     windows.push(makeCell(newId, type, newRect, handleSide));
@@ -356,23 +454,41 @@ export function deriveWindowTopology(stateValue) {
 
     const frameEdges = [];
     state.windows.forEach(cell => {
-        const hasLeft = state.windows.some(other => nearlyEqual(other.rect.x1, cell.rect.x0) && intervalOverlap(cell.rect.y0, cell.rect.y1, other.rect.y0, other.rect.y1) > EPSILON);
-        if (!hasLeft) frameEdges.push(Object.freeze({ id: `${cell.id}-left`, cellId: cell.id, side: 'left', coordinate: cell.rect.x0, start: cell.rect.y0, end: cell.rect.y1, cellType: cell.type }));
-
-        const hasRight = state.windows.some(other => nearlyEqual(other.rect.x0, cell.rect.x1) && intervalOverlap(cell.rect.y0, cell.rect.y1, other.rect.y0, other.rect.y1) > EPSILON);
-        if (!hasRight) frameEdges.push(Object.freeze({ id: `${cell.id}-right`, cellId: cell.id, side: 'right', coordinate: cell.rect.x1, start: cell.rect.y0, end: cell.rect.y1, cellType: cell.type }));
-
-        const hasBottom = state.windows.some(other => nearlyEqual(other.rect.y1, cell.rect.y0) && intervalOverlap(cell.rect.x0, cell.rect.x1, other.rect.x0, other.rect.x1) > EPSILON);
-        if (!hasBottom) frameEdges.push(Object.freeze({ id: `${cell.id}-bottom`, cellId: cell.id, side: 'bottom', coordinate: cell.rect.y0, start: cell.rect.x0, end: cell.rect.x1, cellType: cell.type }));
-
-        const hasTop = state.windows.some(other => nearlyEqual(other.rect.y0, cell.rect.y1) && intervalOverlap(cell.rect.x0, cell.rect.x1, other.rect.x0, other.rect.x1) > EPSILON);
-        if (!hasTop) frameEdges.push(Object.freeze({ id: `${cell.id}-top`, cellId: cell.id, side: 'top', coordinate: cell.rect.y1, start: cell.rect.x0, end: cell.rect.x1, cellType: cell.type }));
+        ['left', 'right', 'bottom', 'top'].forEach(side => {
+            const exposedIntervals = getExposedCellSideIntervals(state, cell, side);
+            const fullSide = getCellSideInterval(cell, side);
+            exposedIntervals.forEach((interval, index) => {
+                const isWholeSide = exposedIntervals.length === 1
+                    && nearlyEqual(interval.start, fullSide.start)
+                    && nearlyEqual(interval.end, fullSide.end);
+                const coordinate = side === 'left'
+                    ? cell.rect.x0
+                    : side === 'right'
+                        ? cell.rect.x1
+                        : side === 'bottom'
+                            ? cell.rect.y0
+                            : cell.rect.y1;
+                frameEdges.push(Object.freeze({
+                    id: isWholeSide
+                        ? `${cell.id}-${side}`
+                        : `${cell.id}-${side}-segment-${index + 1}`,
+                    cellId: cell.id,
+                    side,
+                    coordinate,
+                    start: interval.start,
+                    end: interval.end,
+                    cellType: cell.type,
+                    partial: !isWholeSide,
+                }));
+            });
+        });
     });
 
     const addCandidates = state.windows.length >= MAX_WINDOW_CELLS
         ? []
         : frameEdges.map(edge => Object.freeze({
-            id: `add-${edge.cellId}-${edge.side}`,
+            id: `add-${edge.id}`,
+            frameEdgeId: edge.id,
             cellId: edge.cellId,
             direction: edge.side,
             side: edge.side,

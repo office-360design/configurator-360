@@ -5,13 +5,22 @@ import {
     getFixedGlassPanePlacement,
     getHorizontalConnectionFaceDirection,
     getFrameDividerSocketInset,
+    getFrameReentrantMiterInset,
     getFrameSidePlacements,
     getLinearDividerLayout,
     getTopFixedBottomSashSashLayout,
     getEditableWindowTopologyGeometry,
     getEditableDividerSegmentPlacement,
+    getEditableReentrantFramePlacement,
     getEditableFixedGlazingDividerCadTransform,
 } from '../../src/client/js/window-layout-geometry.js';
+
+import {
+    addWindowToState,
+    deriveWindowTopology,
+    mergeWindowsInState,
+    normalizeWindowState,
+} from '../../src/client/js/window-layout-state.js';
 
 const errors = [];
 const assert = (condition, message) => {
@@ -884,6 +893,183 @@ editableLGeometry.dividerSegments.forEach(segment => {
         `L-junction divider ${segment.id} must extend only toward the shared corner, without moving its opposite frame connection.`
     );
 });
+
+
+function assertPartialMergedPerimeter({ windows, mergeA, mergeB, side, start, end, label }) {
+    let state = normalizeWindowState({ windows });
+    state = mergeWindowsInState(state, {
+        cellAId: mergeA,
+        cellBId: mergeB,
+        type: 'fixed-glazing',
+    });
+    const topology = deriveWindowTopology(state);
+    const mergedCell = state.windows.find(cell => cell.id === mergeA);
+    const edge = topology.frameEdges.find(candidate =>
+        candidate.cellId === mergedCell?.id
+        && candidate.side === side
+        && Math.abs(candidate.start - start) < 1e-9
+        && Math.abs(candidate.end - end) < 1e-9
+    );
+    assert(
+        Boolean(edge),
+        `${label} must rebuild the uncovered ${side} portion of the merged window as an exterior frame segment.`
+    );
+    const addCandidate = topology.addCandidates.find(candidate => candidate.frameEdgeId === edge?.id);
+    assert(
+        Boolean(addCandidate),
+        `${label} must keep the newly reconstructed partial frame usable as an add-window edge.`
+    );
+
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology,
+    });
+    const perimeterJunction = geometry.perimeterJunctions.find(junction =>
+        junction.hostFrameEndpoint?.frameId === edge?.id
+    );
+    assert(
+        Boolean(perimeterJunction),
+        `${label} must classify the partial frame + surviving mullion + perpendicular frame as a re-entrant perimeter T.`
+    );
+
+    const basePlacement = geometry.framePlacements.find(placement => placement.id === edge?.id);
+    const frameSpan = 0.075;
+    const mullionFaceSpan = 0.098;
+    const expectedStraightContact = frameSpan - mullionFaceSpan / 2;
+    const reentrantPlacement = getEditableReentrantFramePlacement({
+        placement: basePlacement,
+        perimeterJunctions: geometry.perimeterJunctions,
+        frameInwardSpan: frameSpan,
+        dividerFaceSpan: mullionFaceSpan,
+    });
+    assert(
+        reentrantPlacement?.reentrantHost === true
+            && Math.abs(reentrantPlacement.reentrantStraightContactSpan - expectedStraightContact) < 1e-9,
+        `${label} must use the frame-to-mullion straight-contact offset instead of leaving the partial frame on the ordinary outer-edge plane.`
+    );
+    if (basePlacement && reentrantPlacement && perimeterJunction) {
+        const hostEndpoint = perimeterJunction.hostFrameEndpoint;
+        const isHorizontal = basePlacement.orientation === 'horizontal';
+        const baseLength = isHorizontal ? basePlacement.width : basePlacement.height;
+        const adjustedLength = isHorizontal ? reentrantPlacement.width : reentrantPlacement.height;
+        const baseLongitudinalOrigin = isHorizontal ? basePlacement.originX : basePlacement.originY;
+        const adjustedLongitudinalOrigin = isHorizontal ? reentrantPlacement.originX : reentrantPlacement.originY;
+        const expectedLongitudinalShift = hostEndpoint.atStart ? -frameSpan / 2 : frameSpan / 2;
+        assert(
+            Math.abs(adjustedLength - (baseLength + frameSpan)) < 1e-9
+                && Math.abs(adjustedLongitudinalOrigin - (baseLongitudinalOrigin + expectedLongitudinalShift)) < 1e-9,
+            `${label} must extend the reconstructed frame one full frame span into the T joint without moving its free outer end.`
+        );
+        assert(
+            reentrantPlacement.frameJointModes?.[hostEndpoint.localEnd] === 'reverse-miter',
+            `${label} must reverse the miter at the mullion-continuation end so the ordinary 45-degree cut cannot leave a triangular hole.`
+        );
+
+        const expectedPerpendicularShift = basePlacement.side === 'bottom' || basePlacement.side === 'left'
+            ? -expectedStraightContact
+            : expectedStraightContact;
+        const basePerpendicularOrigin = isHorizontal ? basePlacement.originY : basePlacement.originX;
+        const adjustedPerpendicularOrigin = isHorizontal ? reentrantPlacement.originY : reentrantPlacement.originX;
+        assert(
+            Math.abs(adjustedPerpendicularOrigin - (basePerpendicularOrigin + expectedPerpendicularShift)) < 1e-9,
+            `${label} must move the reconstructed frame outward so its opening-side edge aligns with the surviving mullion face.`
+        );
+    }
+
+    if (addCandidate) {
+        const completed = addWindowToState(state, {
+            cellId: addCandidate.cellId,
+            direction: addCandidate.direction,
+            type: 'fixed-glazing',
+            start: addCandidate.start,
+            end: addCandidate.end,
+        });
+        assert(
+            completed.windows.length === 3,
+            `${label} partial-frame add action must fill only the exposed segment without overlapping the existing third window.`
+        );
+    }
+}
+
+const fixedCell = (id, x0, y0, x1, y1) => ({
+    id,
+    type: 'fixed-glazing',
+    rect: { x0, y0, x1, y1 },
+});
+
+// At a re-entrant T, the reconstructed host frame must exactly continue the
+// opening-side half of the mullion V.  With a 75 mm frame and 98 mm mullion,
+// the straight-contact offset is 26 mm.  The reversed frame miter then lands
+// on the same 45-degree line as the mullion arrow from its apex to shoulder.
+{
+    const frameSpan = 0.075;
+    const mullionFaceSpan = 0.098;
+    const halfMullion = mullionFaceSpan / 2;
+    const straight = frameSpan - halfMullion;
+    [0, halfMullion].forEach(mullionSideDistance => {
+        const frameInward = straight + mullionSideDistance;
+        const frameRelativeEnd = -frameSpan + getFrameReentrantMiterInset({
+            inwardDistance: frameInward,
+            frameInwardSpan: frameSpan,
+        });
+        const dividerLength = 1.0;
+        const dividerRelativeEnd = getDividerSegmentAlongCoordinate({
+            extrusionT: 1,
+            length: dividerLength,
+            faceOffset: mullionSideDistance,
+            faceSpan: mullionFaceSpan,
+            frameInwardSpan: frameSpan,
+        }) - dividerLength / 2;
+        assert(
+            Math.abs(frameRelativeEnd - dividerRelativeEnd) < 1e-9,
+            'The reconstructed frame reverse miter must coincide with the surviving mullion V from apex to shoulder.'
+        );
+    });
+}
+
+[
+    {
+        label: 'L missing bottom-right after merging the top row',
+        windows: [fixedCell('bl', 0, 0, 1, 1), fixedCell('tl', 0, 1, 1, 2), fixedCell('tr', 1, 1, 2, 2)],
+        mergeA: 'tl', mergeB: 'tr', side: 'bottom', start: 1, end: 2,
+    },
+    {
+        label: 'L missing bottom-left after merging the top row',
+        windows: [fixedCell('br', 1, 0, 2, 1), fixedCell('tl', 0, 1, 1, 2), fixedCell('tr', 1, 1, 2, 2)],
+        mergeA: 'tl', mergeB: 'tr', side: 'bottom', start: 0, end: 1,
+    },
+    {
+        label: 'L missing top-right after merging the bottom row',
+        windows: [fixedCell('bl', 0, 0, 1, 1), fixedCell('br', 1, 0, 2, 1), fixedCell('tl', 0, 1, 1, 2)],
+        mergeA: 'bl', mergeB: 'br', side: 'top', start: 1, end: 2,
+    },
+    {
+        label: 'L missing top-left after merging the bottom row',
+        windows: [fixedCell('bl', 0, 0, 1, 1), fixedCell('br', 1, 0, 2, 1), fixedCell('tr', 1, 1, 2, 2)],
+        mergeA: 'bl', mergeB: 'br', side: 'top', start: 0, end: 1,
+    },
+    {
+        label: 'L missing top-right after merging the left column',
+        windows: [fixedCell('bl', 0, 0, 1, 1), fixedCell('tl', 0, 1, 1, 2), fixedCell('br', 1, 0, 2, 1)],
+        mergeA: 'bl', mergeB: 'tl', side: 'right', start: 1, end: 2,
+    },
+    {
+        label: 'L missing bottom-right after merging the left column',
+        windows: [fixedCell('bl', 0, 0, 1, 1), fixedCell('tl', 0, 1, 1, 2), fixedCell('tr', 1, 1, 2, 2)],
+        mergeA: 'bl', mergeB: 'tl', side: 'right', start: 0, end: 1,
+    },
+    {
+        label: 'L missing top-left after merging the right column',
+        windows: [fixedCell('br', 1, 0, 2, 1), fixedCell('tr', 1, 1, 2, 2), fixedCell('bl', 0, 0, 1, 1)],
+        mergeA: 'br', mergeB: 'tr', side: 'left', start: 1, end: 2,
+    },
+    {
+        label: 'L missing bottom-left after merging the right column',
+        windows: [fixedCell('br', 1, 0, 2, 1), fixedCell('tr', 1, 1, 2, 2), fixedCell('tl', 0, 1, 1, 2)],
+        mergeA: 'br', mergeB: 'tr', side: 'left', start: 0, end: 1,
+    },
+].forEach(assertPartialMergedPerimeter);
 
 if (errors.length) {
     console.error('Window layout geometry validation failed:');

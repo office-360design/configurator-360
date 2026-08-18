@@ -16,10 +16,12 @@ import {
     getHorizontalConnectionFaceDirection,
     getTopFixedBottomSashSashLayout,
     getFrameDividerSocketInset,
+    getFrameReentrantMiterInset,
     getFrameSidePlacements,
     getLinearDividerLayout,
     getEditableWindowTopologyGeometry,
     getEditableDividerSegmentPlacement,
+    getEditableReentrantFramePlacement,
     getEditableFixedGlazingDividerCadTransform,
 } from './window-layout-geometry.js';
 import { getDividerConnectionVariantKey } from './window-layout-state.js';
@@ -437,7 +439,16 @@ export function createWindowBuilder({
                 ? dividerJoint.localJointEnds
                 : (dividerJoint?.localJointEnd ? [dividerJoint.localJointEnd] : [])
         );
-        if (dividerJointEnds.size && Number(dividerJoint.faceSpan) > 0) {
+        const frameJointEndModes = dividerJoint?.endModes || {};
+        const getFrameJointEndMode = localEnd => {
+            const explicitMode = frameJointEndModes?.[localEnd];
+            if (explicitMode) return explicitMode;
+            return dividerJointEnds.has(localEnd) ? 'socket' : 'miter';
+        };
+        const hasSocketJoint = [...dividerJointEnds].some(
+            localEnd => getFrameJointEndMode(localEnd) === 'socket'
+        );
+        if (hasSocketJoint && Number(dividerJoint.faceSpan) > 0) {
             const halfDividerFace = Number(dividerJoint.faceSpan) / 2;
             const frameInwardSpan = Math.max(
                 0,
@@ -503,22 +514,26 @@ export function createWindowBuilder({
             // divider joint, the outer part of the split frame stays vertical
             // on the centre plane so the left/right pieces still touch each
             // other. Only the inner part opens at 45° to receive the mullion V.
-            let positiveEndInset = inw;
-            let negativeEndInset = inw;
-            if (dividerJointEnds.has('positive')) {
-                positiveEndInset = getFrameDividerSocketInset({
-                    inwardDistance: inw,
-                    dividerFaceSpan: dividerJoint.faceSpan,
-                    frameInwardSpan: dividerJoint.frameInwardSpan,
-                });
-            }
-            if (dividerJointEnds.has('negative')) {
-                negativeEndInset = getFrameDividerSocketInset({
-                    inwardDistance: inw,
-                    dividerFaceSpan: dividerJoint.faceSpan,
-                    frameInwardSpan: dividerJoint.frameInwardSpan,
-                });
-            }
+            const resolveFrameEndInset = localEnd => {
+                const mode = getFrameJointEndMode(localEnd);
+                if (mode === 'square') return 0;
+                if (mode === 'reverse-miter') {
+                    return getFrameReentrantMiterInset({
+                        inwardDistance: inw,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                    });
+                }
+                if (mode === 'socket') {
+                    return getFrameDividerSocketInset({
+                        inwardDistance: inw,
+                        dividerFaceSpan: dividerJoint.faceSpan,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                    });
+                }
+                return inw;
+            };
+            const positiveEndInset = resolveFrameEndInset('positive');
+            const negativeEndInset = resolveFrameEndInset('negative');
             let z_cut = zRaw > 0
                 ? zRaw - positiveEndInset
                 : zRaw + negativeEndInset;
@@ -1378,6 +1393,16 @@ export function createWindowBuilder({
         const frameJointInwardSpan = dividerOrientation
             ? getFrameJointInwardSpanM(activeProfiles)
             : 0;
+        const editableFramePlacements = isEditableTopology
+            ? (editableTopologyGeometry?.framePlacements || []).map(placement =>
+                getEditableReentrantFramePlacement({
+                    placement,
+                    perimeterJunctions: editableTopologyGeometry?.perimeterJunctions || [],
+                    frameInwardSpan: frameJointInwardSpan,
+                    dividerFaceSpan,
+                })
+            )
+            : null;
 
         let sashA = A;
         let sashB = B;
@@ -1719,7 +1744,7 @@ export function createWindowBuilder({
 
         function getOuterFramePlacements(side) {
             if (isEditableTopology) {
-                return (editableTopologyGeometry?.framePlacements || [])
+                return (editableFramePlacements || [])
                     .filter(placement => placement.side === side);
             }
             if (!isTopFixedBottomSashSash || !tLayoutGeometry) {
@@ -1827,6 +1852,7 @@ export function createWindowBuilder({
                                     localJointEnds: placement.localJointEnds,
                                     faceSpan: dividerFaceSpan,
                                     frameInwardSpan: frameJointInwardSpan,
+                                    endModes: placement.frameJointModes,
                                 }
                                 : null
                         );
@@ -1893,6 +1919,7 @@ export function createWindowBuilder({
                                     localJointEnds: placement.localJointEnds,
                                     faceSpan: dividerFaceSpan,
                                     frameInwardSpan: frameJointInwardSpan,
+                                    endModes: placement.frameJointModes,
                                 }
                                 : null
                         );

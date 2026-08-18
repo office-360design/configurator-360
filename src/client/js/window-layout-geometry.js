@@ -322,6 +322,18 @@ export function getFrameDividerSocketInset({
     return Math.min(diagonalInwardDistance, halfDividerFace);
 }
 
+export function getFrameReentrantMiterInset({
+    inwardDistance,
+    frameInwardSpan,
+} = {}) {
+    const normalizedFrameSpan = Math.max(0, finiteNumber(frameInwardSpan));
+    const normalizedInwardDistance = Math.min(
+        normalizedFrameSpan,
+        Math.max(0, finiteNumber(inwardDistance))
+    );
+    return normalizedFrameSpan - normalizedInwardDistance;
+}
+
 export function getDividerSegmentAlongCoordinate({
     extrusionT,
     length,
@@ -641,6 +653,82 @@ export function getEditableDividerSegmentPlacement({
     });
 }
 
+export function getEditableReentrantFramePlacement({
+    placement,
+    perimeterJunctions = [],
+    frameInwardSpan = 0,
+    dividerFaceSpan = 0,
+} = {}) {
+    if (!placement) return null;
+
+    const normalizedFrameSpan = Math.max(0, finiteNumber(frameInwardSpan));
+    const normalizedDividerFaceSpan = Math.max(0, finiteNumber(dividerFaceSpan));
+    const halfDividerFace = normalizedDividerFaceSpan / 2;
+    const straightContactSpan = Math.max(
+        0,
+        normalizedFrameSpan - halfDividerFace
+    );
+
+    const hostEndpoints = perimeterJunctions
+        .filter(junction => junction?.type === 'perimeter-T')
+        .map(junction => junction.hostFrameEndpoint)
+        .filter(endpoint => endpoint?.frameId === placement.id);
+
+    if (!hostEndpoints.length || normalizedFrameSpan <= 0) {
+        return Object.freeze({
+            ...placement,
+            frameJointModes: Object.freeze({}),
+            reentrantHost: false,
+        });
+    }
+
+    let width = Math.max(0, finiteNumber(placement.width));
+    let height = Math.max(0, finiteNumber(placement.height));
+    let originX = finiteNumber(placement.originX);
+    let originY = finiteNumber(placement.originY);
+    const frameJointModes = {};
+
+    // A perimeter segment reconstructed after a merge is not an ordinary
+    // convex outer-frame corner at the point where it continues a mullion.
+    // The frame's opening-side edge must land on the mullion face, while its
+    // end cut runs back across the full 75 mm frame span.  That is the same
+    // re-entrant T geometry shown by the accepted frame/divider joint: the
+    // normal 45-degree miter points the wrong way and leaves a triangular gap.
+    //
+    // Move the whole host segment outward only by the straight contact region
+    // (frame span - half mullion face), so its inner/opening edge lines up with
+    // the mullion shoulder.  Extend its longitudinal stock by one full frame
+    // span at each T end; createMiteredSide() then uses a reverse miter there.
+    if (placement.side === 'bottom') originY -= straightContactSpan;
+    if (placement.side === 'top') originY += straightContactSpan;
+    if (placement.side === 'left') originX -= straightContactSpan;
+    if (placement.side === 'right') originX += straightContactSpan;
+
+    hostEndpoints.forEach(endpoint => {
+        const atStart = Boolean(endpoint.atStart);
+        frameJointModes[endpoint.localEnd] = 'reverse-miter';
+
+        if (placement.orientation === 'horizontal') {
+            width += normalizedFrameSpan;
+            originX += atStart ? -normalizedFrameSpan / 2 : normalizedFrameSpan / 2;
+        } else {
+            height += normalizedFrameSpan;
+            originY += atStart ? -normalizedFrameSpan / 2 : normalizedFrameSpan / 2;
+        }
+    });
+
+    return Object.freeze({
+        ...placement,
+        width,
+        height,
+        originX,
+        originY,
+        frameJointModes: Object.freeze(frameJointModes),
+        reentrantHost: true,
+        reentrantStraightContactSpan: straightContactSpan,
+    });
+}
+
 export function getEditableWindowTopologyGeometry({
     width,
     height,
@@ -797,6 +885,11 @@ export function getEditableWindowTopologyGeometry({
             return Object.freeze({
                 id: edge.id,
                 side: edge.side,
+                orientation: 'horizontal',
+                perpendicularOffset: gridToWorldY(edge.coordinate, minRow, totalHeight, normalizedHeight),
+                worldStart: x0,
+                worldEnd: x1,
+                partial: Boolean(edge.partial),
                 width: Math.max(0, x1 - x0),
                 // A merged window can span more than one structural row. The
                 // side extruder uses height to locate top/bottom relative to
@@ -820,6 +913,11 @@ export function getEditableWindowTopologyGeometry({
         return Object.freeze({
             id: edge.id,
             side: edge.side,
+            orientation: 'vertical',
+            perpendicularOffset: gridToWorldX(edge.coordinate, minCol, totalWidth, normalizedWidth),
+            worldStart: y0,
+            worldEnd: y1,
+            partial: Boolean(edge.partial),
             // Same rule for a horizontally merged cell: createMiteredSide()
             // positions left/right at +/- width/2 around originX. The full
             // merged structural width is therefore the placement reference,
@@ -885,6 +983,64 @@ export function getEditableWindowTopologyGeometry({
         })
         .filter(Boolean);
 
+    const frameEndpointMap = new Map();
+    function registerFrameEndpoint(frame, atStart) {
+        const point = frame.orientation === 'vertical'
+            ? { x: frame.perpendicularOffset, y: atStart ? frame.worldStart : frame.worldEnd }
+            : { x: atStart ? frame.worldStart : frame.worldEnd, y: frame.perpendicularOffset };
+        const key = `${point.x.toFixed(8)}|${point.y.toFixed(8)}`;
+        const entry = frameEndpointMap.get(key) || { key, x: point.x, y: point.y, endpoints: [] };
+        entry.endpoints.push({
+            frameId: frame.id,
+            orientation: frame.orientation,
+            atStart,
+            localEnd: localJointEndForFrameSide(
+                frame.side,
+                atStart ? 'negative' : 'positive'
+            ),
+            partial: Boolean(frame.partial),
+            side: frame.side,
+        });
+        frameEndpointMap.set(key, entry);
+    }
+    framePlacements.forEach(frame => {
+        registerFrameEndpoint(frame, true);
+        registerFrameEndpoint(frame, false);
+    });
+
+    const perimeterJunctions = [...junctionMap.values()]
+        .map(dividerEntry => {
+            // The merged-L re-entrant point has exactly one surviving divider,
+            // one newly reconstructed frame continuing that divider, and one
+            // perpendicular perimeter frame around the missing quadrant.
+            if (dividerEntry.endpoints.length !== 1) return null;
+            const frameEntry = frameEndpointMap.get(dividerEntry.key);
+            if (!frameEntry || frameEntry.endpoints.length !== 2) return null;
+
+            const dividerEndpoint = dividerEntry.endpoints[0];
+            const hostCandidates = frameEntry.endpoints.filter(endpoint =>
+                endpoint.orientation === dividerEndpoint.orientation
+                && endpoint.partial
+            );
+            const branchCandidates = frameEntry.endpoints.filter(endpoint =>
+                endpoint.orientation !== dividerEndpoint.orientation
+            );
+            if (hostCandidates.length !== 1 || branchCandidates.length !== 1) return null;
+
+            return Object.freeze({
+                key: dividerEntry.key,
+                x: dividerEntry.x,
+                y: dividerEntry.y,
+                type: 'perimeter-T',
+                hostOrientation: dividerEndpoint.orientation,
+                branchOrientation: branchCandidates[0].orientation,
+                dividerEndpoint: Object.freeze({ ...dividerEndpoint }),
+                hostFrameEndpoint: Object.freeze({ ...hostCandidates[0] }),
+                branchFrameEndpoint: Object.freeze({ ...branchCandidates[0] }),
+            });
+        })
+        .filter(Boolean);
+
     return Object.freeze({
         cells: Object.freeze(cells.map(cell => Object.freeze({
             ...cell,
@@ -893,5 +1049,6 @@ export function getEditableWindowTopologyGeometry({
         framePlacements: Object.freeze(framePlacements),
         dividerSegments: Object.freeze(dividerSegments.map(divider => Object.freeze(divider))),
         junctions: Object.freeze(junctions),
+        perimeterJunctions: Object.freeze(perimeterJunctions),
     });
 }
