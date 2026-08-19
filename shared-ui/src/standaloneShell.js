@@ -1,4 +1,5 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
+import { sharedT } from './i18n.js';
 import { renderActionFeedback } from './components/feedback.js';
 import { renderTopBar } from './components/topBar.js';
 import { renderToolsMenu } from './components/toolsMenu.js';
@@ -98,8 +99,8 @@ export class StandaloneConfiguratorShell {
         state: this.state,
         capabilities: this.options.capabilities,
       })}
-      ${renderActionFeedback()}
-      ${renderToolsMenu(this.toolsOpen, this.options.tools)}
+      ${renderActionFeedback(this.state.locale)}
+      ${renderToolsMenu(this.toolsOpen, { ...this.options.tools, locale: this.state.locale })}
     `;
 
     this.projectInput = this.host.querySelector('[data-project-name]');
@@ -165,8 +166,9 @@ export class StandaloneConfiguratorShell {
       document.body.classList.toggle(config.bodyCollapsedClass, this.settingsPanelCollapsed);
     }
     this.settingsToggle.setAttribute('aria-expanded', String(!this.settingsPanelCollapsed));
-    this.settingsToggle.setAttribute('aria-label', this.settingsPanelCollapsed ? 'Show configurator settings' : 'Hide configurator settings');
-    this.settingsToggle.setAttribute('title', this.settingsPanelCollapsed ? 'Show configurator settings' : 'Hide configurator settings');
+    const settingsToggleLabel = sharedT(this.state.locale, this.settingsPanelCollapsed ? 'settingsPanel.show' : 'settingsPanel.hide');
+    this.settingsToggle.setAttribute('aria-label', settingsToggleLabel);
+    this.settingsToggle.setAttribute('title', settingsToggleLabel);
     if (!silent) this.options.callbacks.onSettingsPanelToggle?.(this.settingsPanelCollapsed);
   }
 
@@ -274,7 +276,7 @@ export class StandaloneConfiguratorShell {
     this.persistMeta();
     this.persistSavedProject();
     this.options.callbacks.onSave?.({ projectName: this.projectName, preferences: { ...this.state } });
-    this.showFeedback('Saved');
+    this.showFeedback(sharedT(this.state.locale, 'feedback.saved'));
     this.sync();
     window.setTimeout(() => button.classList.remove('is-success'), 1050);
   }
@@ -285,7 +287,7 @@ export class StandaloneConfiguratorShell {
       url = await Promise.resolve(this.options.callbacks.getShareUrl?.() || window.location.href);
     } catch (error) {
       console.error('Share link could not be created.', error);
-      this.showFeedback('Share unavailable');
+      this.showFeedback(sharedT(this.state.locale, 'feedback.shareUnavailable'));
       return;
     }
 
@@ -305,7 +307,7 @@ export class StandaloneConfiguratorShell {
     }
     if (!copied) return;
     button.classList.add('is-success');
-    this.showFeedback('Link copied!');
+    this.showFeedback(sharedT(this.state.locale, 'feedback.linkCopied'));
     window.setTimeout(() => button.classList.remove('is-success'), 1050);
   }
 
