@@ -86,6 +86,37 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const address = server.address();
 const origin = `http://127.0.0.1:${address.port}`;
 
+
+function htmlPayloadDiagnostics(html) {
+  const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]
+    .map((match) => match[1] || "");
+  const flightScripts = inlineScripts.filter((body) =>
+    /__next_f|flight|react\.server|rsc/i.test(body)
+  );
+
+  return {
+    htmlBytes: Buffer.byteLength(html, "utf8"),
+    inlineScriptCount: inlineScripts.length,
+    inlineScriptBytes: inlineScripts.reduce(
+      (sum, body) => sum + Buffer.byteLength(body, "utf8"),
+      0,
+    ),
+    flightScriptCount: flightScripts.length,
+    flightScriptBytes: flightScripts.reduce(
+      (sum, body) => sum + Buffer.byteLength(body, "utf8"),
+      0,
+    ),
+    largestInlineScriptBytes: inlineScripts.reduce(
+      (largest, body) => Math.max(largest, Buffer.byteLength(body, "utf8")),
+      0,
+    ),
+  };
+}
+
+function formatKiB(bytes) {
+  return `${(bytes / 1024).toFixed(1)} KiB`;
+}
+
 const browser = await chromium.launch({ headless: true });
 const failures = [];
 
@@ -100,6 +131,10 @@ try {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
     page.on("pageerror", (error) => pageErrors.push(error.message));
+
+    const rawResponse = await fetch(`${origin}${route}`);
+    const rawHtml = await rawResponse.text();
+    const payload = htmlPayloadDiagnostics(rawHtml);
 
     const response = await page.goto(`${origin}${route}`, {
       waitUntil: "domcontentloaded",
@@ -128,9 +163,19 @@ try {
     if (/this page couldn.?t load/i.test(state.bodyText)) failures.push(`${route}: body contains framework error UI`);
     for (const error of connectionErrors) failures.push(`${route}: ${error}`);
 
+    const routeFailed = failures.some((failure) => failure.startsWith(`${route}:`));
     console.log(
-      `[website-hydration] ${failures.some((failure) => failure.startsWith(`${route}:`)) ? "FAIL" : "OK"} ${route}`
+      `[website-hydration] ${routeFailed ? "FAIL" : "OK"} ${route} ` +
+      `(html=${formatKiB(payload.htmlBytes)}, inline=${formatKiB(payload.inlineScriptBytes)}, ` +
+      `flight=${formatKiB(payload.flightScriptBytes)}, flightScripts=${payload.flightScriptCount})`
     );
+
+    if (routeFailed) {
+      console.error(
+        `[website-hydration] diagnostics ${route}: ` +
+        JSON.stringify(payload)
+      );
+    }
 
     await context.close();
   }
