@@ -17,6 +17,7 @@ import {
     getTopFixedBottomSashSashLayout,
     getFrameDividerSocketInset,
     getFrameDividerMiterContactStart,
+    getFrameGridMiterInset,
     getFrameMixedPlusMiterInset,
     getFrameShiftedDividerSocketInset,
     getFrameReentrantMiterInset,
@@ -756,6 +757,13 @@ export function createWindowBuilder({
                 }
                 if (mode === 'socket') {
                     return getFrameDividerSocketInset({
+                        inwardDistance: inw,
+                        dividerFaceSpan: dividerJoint.faceSpan,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                    });
+                }
+                if (mode === 'grid-miter') {
+                    return getFrameGridMiterInset({
                         inwardDistance: inw,
                         dividerFaceSpan: dividerJoint.faceSpan,
                         frameInwardSpan: dividerJoint.frameInwardSpan,
@@ -2139,7 +2147,7 @@ export function createWindowBuilder({
                             profile.explodeOffset,
                             placement.originX,
                             placement.originY,
-                            (placement.jointEnd === 'divider' && group === 'frame')
+                            (placement.localJointEnds?.length && group === 'frame')
                                 ? {
                                     localJointEnd: placement.localJointEnd,
                                     localJointEnds: placement.localJointEnds,
@@ -2281,7 +2289,9 @@ export function createWindowBuilder({
                     : authoredFaceDirection;
                 const segmentPlacement = getEditableDividerSegmentPlacement({
                     segment,
-                    junctions: editableTopologyGeometry?.junctions || [],
+                    junctions: editableTopologyGeometry?.physicalIntersections
+                        || editableTopologyGeometry?.junctions
+                        || [],
                     dividerFaceSpan,
                     frameJointInwardSpan,
                 });
