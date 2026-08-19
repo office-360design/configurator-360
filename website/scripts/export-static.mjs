@@ -136,24 +136,17 @@ function languageForRoute(route) {
   return "en";
 }
 
-function normalizeLocalizedPublicUrls(html) {
-  return html
-    .replaceAll(
-      "https://www.360configurator.com/ro",
-      "https://www.360configurator.ro",
-    )
-    .replaceAll(
-      "https://360configurator.com/ro",
-      "https://www.360configurator.ro",
-    )
-    .replaceAll(
-      "https://www.360configurator.com/de",
-      "https://www.360konfigurator.de",
-    )
-    .replaceAll(
-      "https://360configurator.com/de",
-      "https://www.360konfigurator.de",
+const legacyLocalePrefixedUrlPattern =
+  /https:\/\/(?:www\.)?360configurator\.com\/(?:ro|de)(?![A-Za-z0-9_-])/;
+
+function assertNoLegacyLocalePrefixedUrls(html, route) {
+  const match = html.match(legacyLocalePrefixedUrlPattern);
+  if (match) {
+    throw new Error(
+      `Static render for ${route} contains a legacy locale-prefixed absolute URL: ${match[0]}. ` +
+      "Fix that URL at the source instead of rewriting already-serialized HTML/RSC data.",
     );
+  }
 }
 
 for (const route of [...pageRoutes, ...metadataRoutes]) {
@@ -167,7 +160,7 @@ for (const route of [...pageRoutes, ...metadataRoutes]) {
       )
     : body;
 
-  localizedBody = normalizeLocalizedPublicUrls(localizedBody);
+  assertNoLegacyLocalePrefixedUrls(localizedBody, route);
 
   await writeFile(destination, localizedBody);
 }
