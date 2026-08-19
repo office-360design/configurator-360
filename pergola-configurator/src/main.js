@@ -7,6 +7,7 @@ import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js';
 import { getLanguageProfile, getLocaleForHostname } from '../../shared-ui/src/config.js';
 import { PergolaScene } from './scene/PergolaScene.js';
 import { ConfiguratorUI } from './ui/ConfiguratorUI.js';
+import { pergolaT } from './i18n.js';
 
 applyConfiguratorSeo('pergola');
 
@@ -43,8 +44,8 @@ try {
   console.error('The 3D scene could not be initialized.', error);
   viewport.innerHTML = `
     <div class="webgl-error">
-      <strong>3D preview unavailable</strong>
-      <p>Your browser or graphics driver could not initialize WebGL.</p>
+      <strong>${pergolaT(domainLocale, 'app.webglTitle')}</strong>
+      <p>${pergolaT(domainLocale, 'app.webglBody')}</p>
     </div>
   `;
 }

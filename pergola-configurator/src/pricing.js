@@ -1,4 +1,5 @@
 import { buildPoleGrid } from './layout.js';
+import { pergolaPlural, pergolaT, pergolaValueLabel } from './i18n.js';
 import { countHeaters, getTotalSpotlights } from './state.js';
 
 const CURRENCY_PROFILES = Object.freeze({
@@ -11,6 +12,12 @@ const CURRENCY_PROFILES = Object.freeze({
     locale: 'ro-RO',
     // Demo conversion rate. Replace with a backend or live-rate service later.
     rateFromUsd: 4.6,
+    maximumFractionDigits: 0,
+  },
+  EUR: {
+    locale: 'de-DE',
+    // Demo conversion rate. Replace with a backend or live-rate service later.
+    rateFromUsd: 0.92,
     maximumFractionDigits: 0,
   },
 });
@@ -51,10 +58,6 @@ export function formatMoney(value, currency = 'USD', locale = null) {
   }).format(Math.round(converted));
 }
 
-function countSelected(record = {}) {
-  return Object.values(record).filter(Boolean).length;
-}
-
 function countPoleMounts(poleMounts = {}, type) {
   return Object.values(poleMounts).reduce(
     (poleTotal, pole) => poleTotal + Object.values(pole ?? {}).reduce(
@@ -66,6 +69,7 @@ function countPoleMounts(poleMounts = {}, type) {
 }
 
 export function calculatePrice(state) {
+  const locale = state.locale ?? 'en-US';
   const area = (state.dimensions.width * state.dimensions.depth) / 1_000_000;
   const baseArea = 12;
   const areaSurcharge = Math.max(0, area - baseArea) * 420;
@@ -76,27 +80,27 @@ export function calculatePrice(state) {
   const lines = [
     {
       key: 'base',
-      label: `${capitalize(state.model)} pergola structure`,
+      label: pergolaT(locale, 'pricing.baseStructure', { model: pergolaValueLabel(locale, 'model', state.model) }),
       value: modelBase[state.model] + areaSurcharge,
     },
     {
       key: 'height',
-      label: 'Custom height allowance',
+      label: pergolaT(locale, 'pricing.customHeight'),
       value: heightSurcharge,
     },
     {
       key: 'installation',
-      label: state.installation === 'wall-mounted' ? 'Wall-mounted preparation' : 'Freestanding preparation',
+      label: pergolaT(locale, state.installation === 'wall-mounted' ? 'pricing.wallPreparation' : 'pricing.freestandingPreparation'),
       value: installationSurcharge,
     },
     {
       key: 'automation',
-      label: automationLabel(state.automation),
+      label: automationLabel(state.automation, locale),
       value: automationPrices[state.automation],
     },
     {
       key: 'drainage',
-      label: state.roof.drainage === 'integrated' ? 'Integrated drainage' : 'Standard drainage',
+      label: pergolaT(locale, state.roof.drainage === 'integrated' ? 'pricing.integratedDrainage' : 'pricing.standardDrainage'),
       value: drainagePrice,
     },
   ];
@@ -109,11 +113,11 @@ export function calculatePrice(state) {
     const value = rate * (segment.lengthMm / 1000);
     if (value > 0) {
       const position = segment.boundary
-        ? `${capitalize(segment.boundary)} segment`
-        : segment.axis === 'horizontal' ? 'Interior horizontal segment' : 'Interior vertical segment';
+        ? pergolaT(locale, 'pricing.boundarySegment', { side: pergolaValueLabel(locale, 'side', segment.boundary) })
+        : pergolaT(locale, segment.axis === 'horizontal' ? 'pricing.interiorHorizontal' : 'pricing.interiorVertical');
       lines.push({
         key: `side-${segment.id}`,
-        label: `${position}: ${sideLabel(config.type)}`,
+        label: pergolaT(locale, 'pricing.sideLine', { position, side: sideLabel(config.type, locale) }),
         value,
       });
     }
@@ -127,13 +131,13 @@ export function calculatePrice(state) {
   const spotlightCount = getTotalSpotlights(state);
 
   const accessoryLines = [
-    ['perimeterLed', 'Perimeter LED strip', state.accessories.perimeterLed.enabled ? 590 : 0],
-    ['spotlights', `${spotlightCount} integrated spotlight${spotlightCount === 1 ? '' : 's'}`, spotlightCount * 85],
-    ['heaters', `${heaterCount} infrared heater${heaterCount === 1 ? '' : 's'}`, heaterCount * 620],
-    ['rainSensor', 'Rain sensor', rainEnabled ? 260 : 0],
-    ['windSensor', 'Wind sensor', windEnabled ? 230 : 0],
-    ['speakers', `${speakerCount} outdoor speaker${speakerCount === 1 ? '' : 's'}`, speakerCount * 240],
-    ['outlets', `${outletCount} electrical outlet${outletCount === 1 ? '' : 's'}`, outletCount * 145],
+    ['perimeterLed', pergolaT(locale, 'pricing.perimeterLed'), state.accessories.perimeterLed.enabled ? 590 : 0],
+    ['spotlights', pergolaPlural(locale, 'pricing.spotlights', spotlightCount), spotlightCount * 85],
+    ['heaters', pergolaPlural(locale, 'pricing.heaters', heaterCount), heaterCount * 620],
+    ['rainSensor', pergolaT(locale, 'pricing.rainSensor'), rainEnabled ? 260 : 0],
+    ['windSensor', pergolaT(locale, 'pricing.windSensor'), windEnabled ? 230 : 0],
+    ['speakers', pergolaPlural(locale, 'pricing.speakers', speakerCount), speakerCount * 240],
+    ['outlets', pergolaPlural(locale, 'pricing.outlets', outletCount), outletCount * 145],
   ];
 
   accessoryLines.forEach(([key, label, value]) => {
@@ -144,7 +148,7 @@ export function calculatePrice(state) {
     if (!selected) return;
     lines.push({
       key: `service-${key}`,
-      label: serviceLabel(key),
+      label: serviceLabel(key, locale),
       value: servicePrices[key] ?? 0,
     });
   });
@@ -156,32 +160,14 @@ export function calculatePrice(state) {
   return { lines, subtotal, tax, total, area, baseCurrency: 'USD' };
 }
 
-export function automationLabel(value) {
-  return {
-    manual: 'Manual hand-crank control',
-    remote: 'Motorized remote control',
-    'wall-switch': 'Motorized wall-switch control',
-  }[value] ?? value;
+export function automationLabel(value, locale = 'en-US') {
+  return pergolaT(locale, `pricing.automation.${value}`);
 }
 
-export function sideLabel(value) {
-  return {
-    none: 'Open side',
-    screen: 'Pull-down screen',
-    'motorized-screen': 'Motorized screen',
-    'privacy-wall': 'Privacy wall',
-    glass: 'Glass sliding doors',
-  }[value] ?? value;
+export function sideLabel(value, locale = 'en-US') {
+  return pergolaT(locale, `pricing.side.${value}`);
 }
 
-export function serviceLabel(value) {
-  return {
-    transportation: 'Transportation',
-    assembly: 'Assembly',
-    warranty: '5 Year Warranty',
-  }[value] ?? value;
-}
-
-function capitalize(value) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+export function serviceLabel(value, locale = 'en-US') {
+  return pergolaT(locale, `pricing.service.${value}`);
 }

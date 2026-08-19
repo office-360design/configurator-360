@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildPergola } from './buildPergola.js';
 import { AssetLibrary, fitAssetToBox } from './AssetLibrary.js';
+import { pergolaT } from '../i18n.js';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -26,7 +27,7 @@ function makeMaterial(color, options = {}) {
 }
 
 
-function createCompassTexture(size = 1024) {
+function createCompassTexture(locale, size = 1024) {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -52,10 +53,10 @@ function createCompassTexture(size = 1024) {
   drawTriangle([[cx, cy - size * 0.07], [cx + size * 0.07, cy], [cx, cy + size * 0.07], [cx - size * 0.07, cy]], '#0661a8');
 
   const cardinal = [
-    ['N', 0, -size * 0.34, '#b31d2c'],
-    ['E', size * 0.34, 0, '#0b6aa5'],
-    ['S', 0, size * 0.34, '#0b6aa5'],
-    ['W', -size * 0.34, 0, '#0b6aa5'],
+    [pergolaT(locale, 'compass.north'), 0, -size * 0.34, '#b31d2c'],
+    [pergolaT(locale, 'compass.east'), size * 0.34, 0, '#0b6aa5'],
+    [pergolaT(locale, 'compass.south'), 0, size * 0.34, '#0b6aa5'],
+    [pergolaT(locale, 'compass.west'), -size * 0.34, 0, '#0b6aa5'],
   ];
   cardinal.forEach(([label, dx, dy, fill]) => {
     ctx.fillStyle = fill;
@@ -236,7 +237,7 @@ export class PergolaScene {
     const compassPlane = new THREE.Mesh(
       new THREE.CircleGeometry(0.95, 80),
       new THREE.MeshBasicMaterial({
-        map: createCompassTexture(),
+        map: createCompassTexture(this.state.locale),
         transparent: true,
         alphaTest: 0.02,
         side: THREE.DoubleSide,

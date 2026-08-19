@@ -21,20 +21,20 @@ import {
   LANGUAGE_PROFILES,
   escapeHtml,
   getLanguageProfile,
+  getLocalizedConfiguratorUrl,
+  sharedT,
   renderActionFeedback,
   renderToolsMenu,
   renderTopBar,
 } from '../../../shared-ui/src/index.js';
 import { pergolaRenderers } from './pergolaRenderers.js';
+import { pergolaT, translatePergolaRuntimeMessage } from '../i18n.js';
 
 const CAMERA_PRESETS = ['perspective', 'front', 'left', 'right', 'top'];
 const PROJECT_META_KEY = 'pergola-configurator:project-meta';
 const PROJECT_COUNTER_KEY = 'pergola-configurator:next-project-number';
 const SAVED_PROJECTS_KEY = 'pergola-configurator:saved-projects';
 const MAX_PROJECT_NUMBER = 1000;
-function capitalize(value) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
 
 export class ConfiguratorUI {
   constructor(root, store) {
@@ -175,7 +175,7 @@ export class ConfiguratorUI {
     void button.offsetWidth;
     button.classList.add('is-success');
     this.saveProjectLocallyForPreview();
-    this.showActionFeedback('Saved');
+    this.showActionFeedback(this.t('feedback.saved'));
 
     window.setTimeout(() => {
       button.classList.remove('is-success');
@@ -186,7 +186,7 @@ export class ConfiguratorUI {
     button.classList.remove('is-success');
     void button.offsetWidth;
     button.classList.add('is-success');
-    this.showActionFeedback('Link copied!');
+    this.showActionFeedback(this.t('feedback.linkCopied'));
     window.setTimeout(() => button.classList.remove('is-success'), 1050);
   }
 
@@ -229,6 +229,16 @@ export class ConfiguratorUI {
     return getLanguageProfile(this.state.locale);
   }
 
+  t(key, variables = {}) {
+    return pergolaT(this.state.locale, key, variables);
+  }
+
+  runtimeMessage(message, fallbackKey = null) {
+    const translated = translatePergolaRuntimeMessage(this.state.locale, message);
+    if (translated && translated !== message) return translated;
+    return fallbackKey ? this.t(fallbackKey) : translated;
+  }
+
   shellTemplate() {
     return `
       <div class="app-shell">
@@ -240,14 +250,14 @@ export class ConfiguratorUI {
         })}
 
         <main class="configurator-layout">
-          <section class="viewport" data-viewport aria-label="3D pergola preview">
-            ${renderToolsMenu(this.toolsOpen)}
-            <section class="environment-panel" data-environment-panel aria-label="Lighting and orientation controls"></section>
+          <section class="viewport" data-viewport aria-label="${escapeHtml(this.t('app.previewAria'))}">
+            ${renderToolsMenu(this.toolsOpen, { locale: this.state.locale })}
+            <section class="environment-panel" data-environment-panel aria-label="${escapeHtml(this.t('app.environmentAria'))}"></section>
             <div class="toast" data-toast role="status"></div>
           </section>
 
-          <aside class="configurator-sidebar" aria-label="Pergola options">
-            <button class="sidebar-collapse-handle" type="button" data-action="toggle-sidebar" aria-label="Hide or show menu" aria-expanded="${!this.sidebarHidden}" title="${this.sidebarHidden ? 'Show configurator options' : 'Hide configurator options'}">
+          <aside class="configurator-sidebar" aria-label="${escapeHtml(this.t('app.sidebarAria'))}">
+            <button class="sidebar-collapse-handle" type="button" data-action="toggle-sidebar" aria-label="${escapeHtml(this.t('app.sidebarToggleAria'))}" aria-expanded="${!this.sidebarHidden}" title="${escapeHtml(this.t(this.sidebarHidden ? 'app.sidebarShow' : 'app.sidebarHide'))}">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
             <div class="sidebar-header sidebar-header--compact sidebar-header--minimal">
@@ -257,7 +267,7 @@ export class ConfiguratorUI {
             <footer class="sidebar-footer" data-sidebar-footer></footer>
           </aside>
         </main>
-        ${renderActionFeedback()}
+        ${renderActionFeedback(this.state.locale)}
         <div data-modal-root></div>
       </div>
     `;
@@ -317,11 +327,11 @@ export class ConfiguratorUI {
     this.syncLanguageMenu();
   }
 
-  handleClick(event) {
+  async handleClick(event) {
     const option = event.target.closest('[data-option-path]');
     if (option) {
       const updated = this.store.update(option.dataset.optionPath, option.dataset.optionValue);
-      if (updated === false) this.showToast(this.store.getLastError?.() || 'That option cannot be placed there.');
+      if (updated === false) this.showToast(this.runtimeMessage(this.store.getLastError?.(), 'feedback.optionUnavailable'));
       return;
     }
 
@@ -332,7 +342,7 @@ export class ConfiguratorUI {
     if (action === 'save-success-demo') {
       this.runSavePreview(actionTarget);
     } else if (action === 'undo') {
-      if (!this.store.undo?.()) this.showToast('Nothing to undo.');
+      if (!this.store.undo?.()) this.showToast(this.t('feedback.nothingToUndo'));
     } else if (action === 'account') {
       this.toggleAccountMenu();
     } else if (action === 'language') {
@@ -342,30 +352,46 @@ export class ConfiguratorUI {
       this.syncAccountMenu();
     } else if (action === 'account-profile') {
       this.closeHeaderMenus();
-      this.showModal('My profile', '<p>The profile page will be connected when authentication is implemented.</p>');
+      this.showModal(this.t('modal.profileTitle'), `<p>${escapeHtml(this.t('modal.profileBody'))}</p>`);
     } else if (action === 'account-saved') {
       this.closeHeaderMenus();
       this.showSavedConfigurations();
     } else if (action === 'account-help') {
       this.closeHeaderMenus();
-      this.showModal('Help', '<p>Help articles, tutorials and support contact options will be available here.</p>');
+      this.showModal(this.t('modal.helpTitle'), `<p>${escapeHtml(this.t('modal.helpBody'))}</p>`);
     } else if (action === 'toggle-dark-mode') {
       this.store.update('darkMode', !this.state.darkMode);
     } else if (action === 'cookies-placeholder') {
-      this.showToast('Cookie preferences are not connected yet.');
+      this.showToast(this.t('feedback.cookiesUnavailable'));
     } else if (action === 'account-signout') {
       this.closeHeaderMenus();
-      this.showToast('Sign out will be connected with authentication.');
+      this.showToast(this.t('feedback.signoutPlaceholder'));
     } else if (action === 'select-language') {
       const locale = actionTarget.dataset.locale;
       const profile = LANGUAGE_PROFILES[locale];
-      if (profile) {
-        this.store.patch({
-          locale,
-          units: profile.units,
-          currency: profile.currency,
-        }, { path: 'locale' });
-        this.showToast(`${profile.nativeName}: ${profile.units === 'imperial' ? 'Imperial' : 'Metric'} · ${profile.currency}`);
+      if (profile && locale !== this.state.locale) {
+        const hostname = window.location.hostname.toLowerCase();
+        const localPreview = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+        if (localPreview) {
+          this.store.patch({
+            locale,
+            units: profile.units,
+            currency: profile.currency,
+          }, { path: 'locale' });
+          this.closeHeaderMenus();
+          return;
+        }
+        try {
+          const shareUrl = await this.store.getShareUrl();
+          const targetUrl = getLocalizedConfiguratorUrl(locale, 'pergola', new URL(shareUrl));
+          if (targetUrl) {
+            window.location.assign(targetUrl);
+            return;
+          }
+        } catch (error) {
+          console.error('The configuration could not be preserved during the language switch.', error);
+          this.showToast(this.t('feedback.languageSwitchUnavailable'));
+        }
       }
       this.closeHeaderMenus();
     } else if (action === 'next-step') {
@@ -421,7 +447,7 @@ export class ConfiguratorUI {
       const sensor = actionTarget.dataset.sensor;
       if (!this.activePole) return;
       const updated = this.store.toggleSensorOnPole(sensor, this.activePole);
-      if (updated === false) this.showToast(this.store.getLastError?.() || 'That sensor cannot be placed there.');
+      if (updated === false) this.showToast(this.runtimeMessage(this.store.getLastError?.(), 'feedback.sensorFallback'));
     } else if (action === 'open-pole-customization') {
       const automationMount = this.state.automation === 'manual'
         ? findPoleMount(this.state, 'hand-crank')
@@ -461,15 +487,16 @@ export class ConfiguratorUI {
 
       const updated = this.store.update(path, value);
       if (updated === false) {
-        this.showToast(this.store.getLastError?.() || (current
-          ? 'That component cannot be removed.'
-          : 'That component cannot be placed there.'));
+        this.showToast(this.runtimeMessage(
+          this.store.getLastError?.(),
+          current ? 'feedback.componentRemove' : 'feedback.componentPlace',
+        ));
       }
     } else if (action === 'remove-pole-mount') {
       const type = actionTarget.dataset.mountType;
       const path = `poleMounts.${this.activePole}.${this.activePoleFace}.${type}`;
       const updated = this.store.update(path, null);
-      if (updated === false) this.showToast(this.store.getLastError?.() || 'That component cannot be removed.');
+      if (updated === false) this.showToast(this.runtimeMessage(this.store.getLastError?.(), 'feedback.componentRemove'));
     } else if (action === 'toggle-step-section') {
       const stepId = actionTarget.dataset.stepId;
       this.expandedStep = this.expandedStep === stepId ? null : stepId;
@@ -491,23 +518,23 @@ export class ConfiguratorUI {
       const index = CAMERA_PRESETS.indexOf(this.state.view.cameraPreset);
       const next = CAMERA_PRESETS[(index + 1) % CAMERA_PRESETS.length];
       this.store.update('view.cameraPreset', next);
-      this.showToast(`Camera: ${capitalize(next)}`);
+      this.showToast(this.t('feedback.camera', { camera: pergolaT(this.state.locale, `camera.${next}`) }));
     } else if (action === 'toggle-night') {
       this.store.update('environment.night', !this.state.environment.night);
     } else if (action === 'save') {
       this.store.notify({ save: true });
-      this.showToast('Configuration saved in this browser.');
+      this.showToast(this.t('feedback.savedBrowser'));
     } else if (action === 'share') {
       this.copyShareLink(actionTarget);
     } else if (action === 'reset') {
-      if (window.confirm('Reset all pergola options?')) this.store.reset();
+      if (window.confirm(this.t('feedback.resetConfirm'))) this.store.reset();
     } else if (action === 'snapshot') {
       this.downloadSnapshot();
     } else if (action === 'view-ar') {
       const platform = this.state.defaultArPlatform === 'ios' ? 'iOS' : 'Android';
-      this.showModal('AR integration', `
-        <p>The preferred AR platform is currently <strong>${platform}</strong>.</p>
-        <p>This standalone pergola demo does not publish a GLB or USDZ yet.</p>
+      this.showModal(this.t('modal.arTitle'), `
+        <p>${escapeHtml(this.t('modal.arPlatform', { platform }))}</p>
+        <p>${escapeHtml(this.t('modal.arUnavailable'))}</p>
       `);
     } else if (action === 'download-json') {
       this.downloadJSON();
@@ -526,7 +553,7 @@ export class ConfiguratorUI {
       this.modalRoot.innerHTML = '';
       if (wasPendingDimensionChange) this.render();
     } else if (action === 'login') {
-      this.showModal('Demo login', '<p>Authentication is not connected in this frontend-only implementation.</p>');
+      this.showModal(this.t('modal.loginTitle'), `<p>${escapeHtml(this.t('modal.loginBody'))}</p>`);
     }
   }
 
@@ -596,7 +623,7 @@ export class ConfiguratorUI {
     const updated = this.store.update(input.dataset.path, value, { continuous });
     if (updated === false) {
       input.value = this.valueAtPath(input.dataset.path) ?? input.value;
-      this.showToast(this.store.getLastError?.() || 'That position overlaps another component.');
+      this.showToast(this.runtimeMessage(this.store.getLastError?.(), 'feedback.overlapFallback'));
     }
   }
 
@@ -623,14 +650,14 @@ export class ConfiguratorUI {
     this.modalRoot.innerHTML = `
       <div class="modal-backdrop" role="presentation">
         <section class="modal dimension-warning-modal" role="dialog" aria-modal="true" aria-labelledby="dimension-warning-title">
-          <header><h2 id="dimension-warning-title">Change pergola size?</h2><button type="button" data-action="cancel-dimension-change" aria-label="Cancel">×</button></header>
+          <header><h2 id="dimension-warning-title">${escapeHtml(this.t('modal.dimensionTitle'))}</h2><button type="button" data-action="cancel-dimension-change" aria-label="${escapeHtml(this.t('modal.cancel'))}">×</button></header>
           <div class="modal__body">
-            <p><strong>All pole accessories, weather sensors, heaters, spotlights and side closings will be removed.</strong></p>
-            <p>This prevents components from being left attached to poles, roof rectangles or side segments that no longer exist after resizing.</p>
+            <p><strong>${escapeHtml(this.t('modal.dimensionWarningStrong'))}</strong></p>
+            <p>${escapeHtml(this.t('modal.dimensionWarningBody'))}</p>
           </div>
           <footer class="dimension-warning-modal__actions">
-            <button class="secondary-button" type="button" data-action="cancel-dimension-change">Cancel</button>
-            <button class="primary-button" type="button" data-action="confirm-dimension-change">Change size</button>
+            <button class="secondary-button" type="button" data-action="cancel-dimension-change">${escapeHtml(this.t('modal.cancel'))}</button>
+            <button class="primary-button" type="button" data-action="confirm-dimension-change">${escapeHtml(this.t('modal.changeSize'))}</button>
           </footer>
         </section>
       </div>
@@ -653,10 +680,11 @@ export class ConfiguratorUI {
       price,
     };
     window.localStorage.setItem('pergola-configurator:last-inquiry', JSON.stringify(inquiry));
-    this.showModal('Inquiry prepared', `
-      <p><strong>${escapeHtml(inquiry.id)}</strong> has been stored locally as a demo inquiry.</p>
-      <p>Estimated total: <strong>${formatMoney(price.total, this.state.currency, this.state.locale)}</strong></p>
-      <p>Connect the submit handler to the project backend, CRM or email workflow when the API is available.</p>
+    const total = formatMoney(price.total, this.state.currency, this.state.locale);
+    this.showModal(this.t('modal.inquiryTitle'), `
+      <p>${escapeHtml(this.t('modal.inquiryStored', { id: inquiry.id }))}</p>
+      <p>${escapeHtml(this.t('modal.inquiryTotal', { total }))}</p>
+      <p>${escapeHtml(this.t('modal.inquiryBackend'))}</p>
     `);
   }
 
@@ -671,7 +699,7 @@ export class ConfiguratorUI {
     if (screen && this.activeSideSegment) {
       const config = getSideSegmentConfig(this.state, this.activeSideSegment);
       const openness = config.screenSettings?.[config.type]?.openness ?? 50;
-      screen.textContent = `${Math.round(openness)}% open`;
+      screen.textContent = this.t('sides.percentOpen', { value: Math.round(openness) });
     }
     this.stepContent.querySelectorAll('[data-pole-mount-height-output]').forEach((output) => {
       const [pole, face, type] = output.dataset.poleMountHeightOutput.split('.');
@@ -761,7 +789,7 @@ export class ConfiguratorUI {
     if (arPlatformSelect) arPlatformSelect.value = this.state.defaultArPlatform;
     darkModeButton?.setAttribute('aria-pressed', String(Boolean(this.state.darkMode)));
     darkModeSwitch?.classList.toggle('is-on', Boolean(this.state.darkMode));
-    if (darkModeLabel) darkModeLabel.textContent = this.state.darkMode ? 'On' : 'Off';
+    if (darkModeLabel) darkModeLabel.textContent = sharedT(this.state.locale, this.state.darkMode ? 'account.on' : 'account.off');
   }
 
   syncLanguageMenu() {
@@ -796,7 +824,7 @@ export class ConfiguratorUI {
   }
 
   filterLanguages(query) {
-    const normalized = String(query).trim().toLocaleLowerCase('ro');
+    const normalized = String(query).trim().toLocaleLowerCase(this.state.locale);
     this.root.querySelectorAll('[data-language-name]').forEach((button) => {
       button.hidden = normalized && !button.dataset.languageName.includes(normalized);
     });
@@ -812,8 +840,8 @@ export class ConfiguratorUI {
     savedProjects.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
     const content = savedProjects.length
       ? `<div class="saved-project-list">${savedProjects.map((project) => `<article><strong>${escapeHtml(project.name)}</strong><small>${new Date(project.savedAt).toLocaleString()}</small></article>`).join('')}</div>`
-      : '<p>No configurations have been saved in this browser yet.</p>';
-    this.showModal('Saved configurations', content);
+      : `<p>${escapeHtml(this.t('modal.savedEmpty'))}</p>`;
+    this.showModal(this.t('modal.savedTitle'), content);
   }
 
   async copyShareLink(button) {
@@ -822,7 +850,7 @@ export class ConfiguratorUI {
       url = await this.store.getShareUrl();
     } catch (error) {
       console.error('Share link could not be created.', error);
-      this.showToast('Share service unavailable. Please try again.');
+      this.showToast(this.t('feedback.shareUnavailable'));
       return;
     }
 
@@ -842,7 +870,7 @@ export class ConfiguratorUI {
       textarea.remove();
     }
     if (copied) this.runSharePreview(button);
-    else window.prompt('Copy this link:', url);
+    else window.prompt(this.t('modal.copyLink'), url);
   }
 
   downloadSnapshot() {
@@ -851,7 +879,7 @@ export class ConfiguratorUI {
     anchor.href = this.scene.capturePNG();
     anchor.download = `pergola-${Date.now()}.png`;
     anchor.click();
-    this.showToast('Preview image downloaded.');
+    this.showToast(this.t('feedback.snapshotDownloaded'));
   }
 
   downloadJSON() {
@@ -880,9 +908,9 @@ export class ConfiguratorUI {
     this.modalRoot.innerHTML = `
       <div class="modal-backdrop" role="presentation">
         <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <header><h2 id="modal-title">${escapeHtml(title)}</h2><button type="button" data-action="close-modal" aria-label="Close">×</button></header>
+          <header><h2 id="modal-title">${escapeHtml(title)}</h2><button type="button" data-action="close-modal" aria-label="${escapeHtml(this.t('modal.close'))}">×</button></header>
           <div class="modal__body">${body}</div>
-          <footer><button class="primary-button" type="button" data-action="close-modal">Close</button></footer>
+          <footer><button class="primary-button" type="button" data-action="close-modal">${escapeHtml(this.t('modal.close'))}</button></footer>
         </section>
       </div>
     `;
