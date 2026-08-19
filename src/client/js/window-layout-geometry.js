@@ -1620,6 +1620,45 @@ export function getEditableWindowTopologyGeometry({
         });
     });
 
+    // The sash/fixed-light connection rectangle must follow whichever physical
+    // member actually owns each complete cell side. Global perimeter frames
+    // already did this through worldPhysicalFrameX/Y, but a re-entrant/exposed
+    // frame can live on an internal grid coordinate. In the grid-member model
+    // that frame is intentionally offset 21 mm from the reference line; leaving
+    // the cell connection boundary on the reference line makes the sash/glazing
+    // bead visibly smaller than the frame by exactly that offset.
+    //
+    // Only frame-only sides are updated here. A merged cell can have a long side
+    // made from both frame and mullion pieces; those mixed sides must keep the
+    // divider CAD seat resolved below because one rectangular sash/glazing
+    // assembly cannot follow two different outer-member boundaries along one
+    // side.
+    const dividerOwnedCellSides = new Set();
+    dividerSegments.forEach(segment => {
+        if (segment.orientation === 'vertical') {
+            if (segment.negativeCellId) dividerOwnedCellSides.add(`${segment.negativeCellId}:right`);
+            if (segment.positiveCellId) dividerOwnedCellSides.add(`${segment.positiveCellId}:left`);
+        } else {
+            if (segment.negativeCellId) dividerOwnedCellSides.add(`${segment.negativeCellId}:top`);
+            if (segment.positiveCellId) dividerOwnedCellSides.add(`${segment.positiveCellId}:bottom`);
+        }
+    });
+
+    baseFramePlacements.forEach(frame => {
+        const cell = cellById.get(frame.cellId || frame.windowCell);
+        if (!cell || dividerOwnedCellSides.has(`${cell.id}:${frame.side}`)) return;
+
+        if (frame.side === 'left') {
+            cell.connectionX0 = finiteNumber(frame.perpendicularOffset, cell.connectionX0);
+        } else if (frame.side === 'right') {
+            cell.connectionX1 = finiteNumber(frame.perpendicularOffset, cell.connectionX1);
+        } else if (frame.side === 'bottom') {
+            cell.connectionY0 = finiteNumber(frame.perpendicularOffset, cell.connectionY0);
+        } else if (frame.side === 'top') {
+            cell.connectionY1 = finiteNumber(frame.perpendicularOffset, cell.connectionY1);
+        }
+    });
+
     // Build one structural intersection model for frames and dividers. Each
     // point owns at most four physical arms: north/east/south/west. Joint
     // behavior is derived from those arms, never from the global bounding box

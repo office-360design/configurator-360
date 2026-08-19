@@ -1997,6 +1997,89 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
     );
 }
 
+// Regression: in a three-window L, an exposed frame can sit on an internal
+// grid coordinate even though that same coordinate is a mullion in the next
+// segment. The frame is physically offset by 21 mm from the graph line, so the
+// sash/glazing-bead connection rectangle must follow that frame boundary too.
+// Otherwise the inside assembly is visibly 21 mm smaller than its frame.
+{
+    const frameSpan = 0.065;
+    const faceSpan = 0.088;
+    const contactStart = frameSpan - faceSpan / 2;
+    const state = normalizeWindowState({
+        windows: [
+            {
+                ...fixedCell('inside-size-bottom-left', 0, 0, 1, 1),
+                type: 'opening-sash',
+            },
+            {
+                ...fixedCell('inside-size-bottom-right', 1, 0, 2, 1),
+                type: 'opening-sash',
+            },
+            {
+                ...fixedCell('inside-size-top-right', 1, 1, 2, 2),
+                type: 'opening-sash',
+            },
+        ],
+    });
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 0.6,
+        height: 0.9,
+        topology: deriveWindowTopology(state),
+        frameReplacementSpan: frameSpan,
+        dividerFaceSpan: faceSpan,
+    });
+
+    const bottomLeft = geometry.cells.find(cell => cell.id === 'inside-size-bottom-left');
+    const bottomRight = geometry.cells.find(cell => cell.id === 'inside-size-bottom-right');
+    const topRight = geometry.cells.find(cell => cell.id === 'inside-size-top-right');
+    const bottomLeftTopFrame = geometry.framePlacements.find(frame => (
+        frame.windowCell === bottomLeft?.id && frame.side === 'top'
+    ));
+    const topRightLeftFrame = geometry.framePlacements.find(frame => (
+        frame.windowCell === topRight?.id && frame.side === 'left'
+    ));
+    const verticalDivider = geometry.dividerSegments.find(segment => (
+        segment.orientation === 'vertical'
+        && segment.negativeCellId === bottomLeft?.id
+        && segment.positiveCellId === bottomRight?.id
+    ));
+    const horizontalDivider = geometry.dividerSegments.find(segment => (
+        segment.orientation === 'horizontal'
+        && segment.negativeCellId === bottomRight?.id
+        && segment.positiveCellId === topRight?.id
+    ));
+
+    assert(
+        bottomLeft
+            && bottomLeftTopFrame
+            && Math.abs(bottomLeft.connectionY1 - bottomLeftTopFrame.perpendicularOffset) < 1e-9
+            && Math.abs(
+                bottomLeft.connectionY1
+                    - (bottomLeftTopFrame.structuralPerpendicularOffset + contactStart)
+            ) < 1e-9,
+        'An exposed top frame on an internal grid line must expand the sash/glazing connection rectangle to the frame\'s +21 mm physical boundary.'
+    );
+    assert(
+        topRight
+            && topRightLeftFrame
+            && Math.abs(topRight.connectionX0 - topRightLeftFrame.perpendicularOffset) < 1e-9
+            && Math.abs(
+                topRight.connectionX0
+                    - (topRightLeftFrame.structuralPerpendicularOffset - contactStart)
+            ) < 1e-9,
+        'An exposed left frame on an internal grid line must expand the sash/glazing connection rectangle to the frame\'s -21 mm physical boundary.'
+    );
+    assert(
+        bottomRight
+            && verticalDivider
+            && horizontalDivider
+            && Math.abs(bottomRight.connectionX0 - verticalDivider.perpendicularOffset) < 1e-9
+            && Math.abs(bottomRight.connectionY1 - horizontalDivider.perpendicularOffset) < 1e-9,
+        'Divider-owned sides must keep their mullion CAD seat; the exposed-frame correction must not move neighbouring divider-facing sash/glazing boundaries.'
+    );
+}
+
 // Regression: two merged windows can be staggered by one column. The single
 // mullion between them has a re-entrant junction at both ends. Under the grid
 // model this is no longer a conflicting +21/-21 body-placement problem: one
