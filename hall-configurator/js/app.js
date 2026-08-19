@@ -1,9 +1,11 @@
 import { state, deriveHallMetrics } from './state.js?v=12';
-import { HallScene } from './scene.js?v=12';
-import { HallUI } from './ui.js?v=12';
-import { normalizeOpenings } from './openings.js?v=12';
+import { HallScene } from './scene.js?v=13';
+import { HallUI } from './ui.js?v=13';
+import { normalizeOpenings } from './openings.js?v=13';
+import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=1';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
 
+const initialLocale = applyHallTranslations(resolveHallLocale());
 const DEFAULT_HALL_STATE = structuredClone(state);
 const sharedHallState = await readShareState({ productType: 'hall' });
 if (sharedHallState) {
@@ -131,7 +133,7 @@ ui = new HallUI(state, {
   onOpeningDelete(id) {
     scene.deleteOpening(id, state);
   },
-});
+}, initialLocale);
 
 currentBuild = scene.rebuild(state, { fitCamera: true });
 ui.update(currentBuild);
@@ -194,6 +196,16 @@ function resetConfiguration() {
   syncToolButtons();
   return true;
 }
+
+window.addEventListener('hall-preference-change', (event) => {
+  const preferences = event.detail?.preferences;
+  if (event.detail?.name === 'locale' && preferences?.locale) {
+    applyHallTranslations(preferences.locale);
+    ui?.setLocale(preferences.locale);
+    scene.setLocale(preferences.locale);
+    syncToolButtons();
+  }
+});
 
 window.HALL_CONFIGURATOR_API = {
   captureState: () => ui.captureState(),
