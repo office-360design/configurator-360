@@ -215,10 +215,12 @@ export class StandaloneConfiguratorShell {
       const profile = LANGUAGE_PROFILES[nextLocale];
       if (profile) {
         const targetUrl = getLocalizedConfiguratorUrl(nextLocale, this.options.productType, window.location);
-        if (targetUrl && nextLocale !== this.state.locale) {
+        const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+        if (targetUrl && nextLocale !== this.state.locale && !isLocalDevelopmentHost) {
           window.location.assign(targetUrl);
           return;
         }
+        const localeChanged = nextLocale !== this.state.locale;
         this.state.locale = nextLocale;
         this.state.units = profile.units;
         this.state.currency = profile.currency;
@@ -226,6 +228,7 @@ export class StandaloneConfiguratorShell {
         this.options.callbacks.onPreferenceChange?.('locale', this.state.locale, this.state);
         this.options.callbacks.onPreferenceChange?.('units', this.state.units, this.state);
         this.options.callbacks.onPreferenceChange?.('currency', this.state.currency, this.state);
+        if (localeChanged) this.renderHost();
       }
       this.languageOpen = false;
       this.sync();
@@ -402,7 +405,7 @@ export class StandaloneConfiguratorShell {
     darkButton?.setAttribute('aria-pressed', String(this.state.darkMode));
     darkButton?.querySelector('.settings-switch')?.classList.toggle('is-on', this.state.darkMode);
     const label = darkButton?.querySelector('[data-dark-mode-label]');
-    if (label) label.textContent = this.state.darkMode ? 'On' : 'Off';
+    if (label) label.textContent = sharedT(this.state.locale, this.state.darkMode ? 'account.on' : 'account.off');
   }
 
 

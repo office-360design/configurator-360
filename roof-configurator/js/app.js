@@ -1,13 +1,14 @@
-import { state, pitchRules, roofNames } from './state.js?v=15';
-import { RoofScene } from './scene.js?v=16';
-import { RoofUI } from './ui.js?v=16';
+import { state, pitchRules, roofNames } from './state.js?v=16';
+import { RoofScene } from './scene.js?v=17';
+import { RoofUI } from './ui.js?v=17';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
-} from './preferences.js?v=1';
+} from './preferences.js?v=2';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
+import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=1';
 
 const VIEW_ORDER = ['perspective', 'front', 'top'];
 const DEFAULT_ROOF_STATE = structuredClone(state);
@@ -46,12 +47,15 @@ applySharedRoofState(sharedRoofState);
 const initialPreferences = window.ROOF_SHELL_PREFERENCES || {};
 state.units = normalizeUnits(initialPreferences.units ?? state.units);
 state.currency = normalizeCurrency(initialPreferences.currency ?? state.currency);
+state.locale = resolveRoofLocale(initialPreferences.locale ?? state.locale);
+applyRoofTranslations(state.locale);
 state.currencyRate = getFallbackCurrencyRate(state.currency);
-state.currencyRateSource = state.currency === 'RON' ? 'reference currency' : 'temporary fallback estimate';
+state.currencyRateSource = state.currency === 'RON' ? 'reference' : 'temporary-fallback';
 state.currencyRateIsFallback = state.currency !== 'RON';
 
 const host = document.querySelector('#canvasHost');
 const scene = new RoofScene(host);
+scene.setLocale(state.locale);
 let currentView = VIEW_ORDER.includes(sharedRoofState?.currentView) ? sharedRoofState.currentView : 'perspective';
 let lastMetrics = null;
 let ui = null;
@@ -94,16 +98,24 @@ async function refreshCurrencyRate(currency) {
 function applyShellPreferences(preferences = {}) {
   const nextUnits = normalizeUnits(preferences.units ?? state.units);
   const nextCurrency = normalizeCurrency(preferences.currency ?? state.currency);
+  const nextLocale = resolveRoofLocale(preferences.locale ?? state.locale);
   const unitsChanged = nextUnits !== state.units;
   const currencyChanged = nextCurrency !== state.currency;
+  const localeChanged = nextLocale !== state.locale;
 
   state.units = nextUnits;
   state.currency = nextCurrency;
+  state.locale = nextLocale;
+
+  if (localeChanged) {
+    applyRoofTranslations(state.locale);
+    scene.setLocale(state.locale);
+  }
 
   if (currencyChanged) {
     state.currencyRate = getFallbackCurrencyRate(nextCurrency);
     state.currencyRateDate = null;
-    state.currencyRateSource = nextCurrency === 'RON' ? 'reference currency' : 'temporary fallback estimate';
+    state.currencyRateSource = nextCurrency === 'RON' ? 'reference' : 'temporary-fallback';
     state.currencyRateIsFallback = nextCurrency !== 'RON';
   }
 
@@ -114,6 +126,7 @@ function applyShellPreferences(preferences = {}) {
     ui?.setPreferences();
   }
 
+  if (localeChanged) emitToolsState();
   if (currencyChanged) refreshCurrencyRate(nextCurrency);
 }
 
@@ -168,6 +181,7 @@ function resetConfiguration() {
   const shellPreferences = {
     units: state.units,
     currency: state.currency,
+    locale: state.locale,
     currencyRate: state.currencyRate,
     currencyRateDate: state.currencyRateDate,
     currencyRateSource: state.currencyRateSource,
@@ -196,6 +210,7 @@ const configuratorApi = {
       currentView,
       units: state.units,
       currency: state.currency,
+      locale: state.locale,
     };
   },
 
