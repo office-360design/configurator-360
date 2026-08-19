@@ -1,3 +1,4 @@
+import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=1';
 export const OPENING_TYPES = {
   personnel: {
     label: 'Human door',
@@ -44,9 +45,10 @@ export function wallSpan(state, side) {
   return side === 'front' || side === 'back' ? state.width : state.length;
 }
 
-export function wallLabel(side) {
-  return ({ front: 'Front wall', back: 'Back wall', left: 'Left wall', right: 'Right wall' })[side] ?? side;
+export function wallLabel(side, locale = resolveHallLocale()) {
+  return hallWallLabel(side, { locale });
 }
+
 
 export function makeOpening(type, side = 'front', offset = 0, overrides = {}) {
   const spec = openingType(type);
@@ -121,7 +123,7 @@ export function openingArea(state) {
   return normalizeOpenings(state).reduce((sum, opening) => sum + opening.width * opening.height, 0);
 }
 
-export function validateOpenings(state) {
+export function validateOpenings(state, locale = resolveHallLocale()) {
   const openings = normalizeOpenings(state);
   const invalidIds = new Set();
   const overlaps = [];
@@ -141,7 +143,11 @@ export function validateOpenings(state) {
       }
     }
   }
-  const errors = overlaps.map(({ a, b, side }) => `${openingType(a.type).label} and ${openingType(b.type).label} overlap on the ${wallLabel(side).toLowerCase()}.`);
+  const errors = overlaps.map(({ a, b, side }) => hallT(locale, 'openings.overlapError', {
+    a: hallOpeningLabel(a.type, locale),
+    b: hallOpeningLabel(b.type, locale),
+    wall: hallWallLabel(side, { locale }).toLocaleLowerCase(locale),
+  }));
   return { valid: invalidIds.size === 0, invalidIds, overlaps, errors };
 }
 
