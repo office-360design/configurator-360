@@ -63,8 +63,23 @@ for (const htmlFile of htmlFiles) {
   }
 }
 
+const brokenRenderMarkers = [
+  "This page couldn’t load",
+  "This page couldn't load",
+  "Connection closed.",
+];
+
 for (const route of pageRoutes) {
   const html = await readFile(path.join(releaseRoot, routeOutputPath(route)), "utf8");
+
+  for (const marker of brokenRenderMarkers) {
+    if (html.includes(marker)) failures.push(`${route} contains a broken RSC/static-render marker: ${marker}`);
+  }
+
+  if (!html.includes("site-shell")) failures.push(`${route} is missing the expected site shell`);
+  if (route.includes("/configurators/") && !html.includes("detail-page")) {
+    failures.push(`${route} is missing the configurator detail-page shell`);
+  }
   const expectedLanguage = route === "/ro" || route.startsWith("/ro/") ? "ro" : route === "/de" || route.startsWith("/de/") ? "de" : "en";
   const expectedOrigin = expectedLanguage === "ro"
     ? "https://www.360configurator.ro"
