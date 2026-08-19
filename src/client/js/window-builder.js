@@ -16,6 +16,8 @@ import {
     getHorizontalConnectionFaceDirection,
     getTopFixedBottomSashSashLayout,
     getFrameDividerSocketInset,
+    getFrameDividerMiterContactStart,
+    getFrameGridMiterInset,
     getFrameMixedPlusMiterInset,
     getFrameShiftedDividerSocketInset,
     getFrameReentrantMiterInset,
@@ -410,10 +412,63 @@ export function createWindowBuilder({
             ));
             previousGeom.dispose();
         });
+
+        // A divider socket is also piecewise-linear across the mullion face:
+        // one half stays square while the branch-facing half opens on a 45°
+        // plane. When the two ends of the same mullion use opposite socket
+        // directions (a b / c b / c d), the upper and lower end can otherwise
+        // deform the same unsplit source triangle in opposite ways. That is the
+        // source of the twisted/bridged geometry at the top of the middle
+        // mullion. Insert vertices on every socket transition plane before the
+        // longitudinal deformation, just like we already do for arrow V apices.
+        const dividerMetrics = getDividerCrossSectionMetrics(bounds);
+        const socketOffset = Number(longitudinalJoint?.socketInwardOffset) || 0;
+        const sharedSocketSign = Number(longitudinalJoint?.socketInwardSign) || 0;
+        const getEndSocketSign = key => (
+            Number(longitudinalJoint?.[key]) || sharedSocketSign
+        );
+        const getEndFrameSpan = key => {
+            const value = Number(longitudinalJoint?.[key]);
+            return Number.isFinite(value) ? Math.max(0, value) : Math.max(0, frameInwardSpan);
+        };
+        const socketBreakFaces = [];
+        const collectSocketBreakFaces = (mode, sign, endFrameSpan) => {
+            if (mode !== 'socket') return;
+            const straightContactSpan = getFrameDividerMiterContactStart({
+                dividerFaceSpan: dividerMetrics.faceSpanM,
+                frameInwardSpan: endFrameSpan,
+            });
+            if (sign) {
+                socketBreakFaces.push((straightContactSpan - socketOffset) / sign);
+            } else {
+                // Legacy symmetric socket based on abs(face): both shoulders
+                // are kinks and therefore both need explicit vertices.
+                socketBreakFaces.push(straightContactSpan, -straightContactSpan);
+            }
+        };
+        collectSocketBreakFaces(
+            negativeMode,
+            getEndSocketSign('negativeSocketInwardSign'),
+            getEndFrameSpan('negativeFrameInwardSpan')
+        );
+        collectSocketBreakFaces(
+            positiveMode,
+            getEndSocketSign('positiveSocketInwardSign'),
+            getEndFrameSpan('positiveFrameInwardSpan')
+        );
+        [...new Set(socketBreakFaces.map(value => Number(value).toFixed(9)))]
+            .map(Number)
+            .forEach(faceBreak => {
+                const previousGeom = geom;
+                geom = splitBufferGeometryAtScalarZero(previousGeom, rawPoint => (
+                    resolveRenderedFace(rawPoint) - faceBreak
+                ));
+                previousGeom.dispose();
+            });
         const position = geom.attributes.position;
         const point = new THREE.Vector3();
         const centerY = Number(bounds?.centerY) || 0;
-        const metrics = getDividerCrossSectionMetrics(bounds);
+        const metrics = dividerMetrics;
 
         for (let index = 0; index < position.count; index += 1) {
             point.fromBufferAttribute(position, index);
@@ -433,9 +488,21 @@ export function createWindowBuilder({
             // make the section appear slightly displaced from the joined frame.
             const depth = sectionDepth + depthOffset;
             const socketInwardSign = Number(longitudinalJoint?.socketInwardSign) || 0;
+            const negativeSocketInwardSign = Number(
+                longitudinalJoint?.negativeSocketInwardSign
+            ) || socketInwardSign;
+            const positiveSocketInwardSign = Number(
+                longitudinalJoint?.positiveSocketInwardSign
+            ) || socketInwardSign;
             const socketInwardOffset = Number(longitudinalJoint?.socketInwardOffset) || 0;
             const socketInwardDistance = socketInwardSign
                 ? face * socketInwardSign + socketInwardOffset
+                : Math.abs(face);
+            const negativeSocketInwardDistance = negativeSocketInwardSign
+                ? face * negativeSocketInwardSign + socketInwardOffset
+                : Math.abs(face);
+            const positiveSocketInwardDistance = positiveSocketInwardSign
+                ? face * positiveSocketInwardSign + socketInwardOffset
                 : Math.abs(face);
             const along = getDividerSegmentAlongCoordinate({
                 extrusionT: point.z,
@@ -450,6 +517,8 @@ export function createWindowBuilder({
                 negativeArrowFaceBias: longitudinalJoint?.negativeArrowFaceBias,
                 positiveArrowFaceBias: longitudinalJoint?.positiveArrowFaceBias,
                 socketInwardDistance,
+                negativeSocketInwardDistance,
+                positiveSocketInwardDistance,
             });
 
             if (orientation === 'horizontal') {
@@ -688,6 +757,13 @@ export function createWindowBuilder({
                 }
                 if (mode === 'socket') {
                     return getFrameDividerSocketInset({
+                        inwardDistance: inw,
+                        dividerFaceSpan: dividerJoint.faceSpan,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                    });
+                }
+                if (mode === 'grid-miter') {
+                    return getFrameGridMiterInset({
                         inwardDistance: inw,
                         dividerFaceSpan: dividerJoint.faceSpan,
                         frameInwardSpan: dividerJoint.frameInwardSpan,
@@ -2071,7 +2147,7 @@ export function createWindowBuilder({
                             profile.explodeOffset,
                             placement.originX,
                             placement.originY,
-                            (placement.jointEnd === 'divider' && group === 'frame')
+                            (placement.localJointEnds?.length && group === 'frame')
                                 ? {
                                     localJointEnd: placement.localJointEnd,
                                     localJointEnds: placement.localJointEnds,
@@ -2213,7 +2289,9 @@ export function createWindowBuilder({
                     : authoredFaceDirection;
                 const segmentPlacement = getEditableDividerSegmentPlacement({
                     segment,
-                    junctions: editableTopologyGeometry?.junctions || [],
+                    junctions: editableTopologyGeometry?.physicalIntersections
+                        || editableTopologyGeometry?.junctions
+                        || [],
                     dividerFaceSpan,
                     frameJointInwardSpan,
                 });

@@ -413,9 +413,146 @@ function canUnionRectangles(a, b) {
     return Math.abs((x1 - x0) * (y1 - y0) - (rectArea(a.rect) + rectArea(b.rect))) <= 1e-6;
 }
 
+function topologyCoordinateKey(value) {
+    return finite(value).toFixed(8);
+}
+
+function linePieceId({ orientation, coordinate, start, end }) {
+    const axis = orientation === 'vertical' ? 'v' : 'h';
+    return `line-${axis}-${topologyCoordinateKey(coordinate)}-${topologyCoordinateKey(start)}-${topologyCoordinateKey(end)}`;
+}
+
+function boundaryCellAt(state, { orientation, coordinate, position, side }) {
+    const epsilon = EPSILON * 10;
+    return state.windows.find(cell => {
+        if (orientation === 'horizontal') {
+            const spans = position > cell.rect.x0 + epsilon && position < cell.rect.x1 - epsilon;
+            if (!spans) return false;
+            return side === 'negative'
+                ? nearlyEqual(cell.rect.y1, coordinate)
+                : nearlyEqual(cell.rect.y0, coordinate);
+        }
+        const spans = position > cell.rect.y0 + epsilon && position < cell.rect.y1 - epsilon;
+        if (!spans) return false;
+        return side === 'negative'
+            ? nearlyEqual(cell.rect.x1, coordinate)
+            : nearlyEqual(cell.rect.x0, coordinate);
+    }) || null;
+}
+
+function getBoundaryBreaks(state, orientation, coordinate) {
+    const values = [];
+    state.windows.forEach(cell => {
+        if (orientation === 'horizontal') {
+            if (nearlyEqual(cell.rect.y0, coordinate) || nearlyEqual(cell.rect.y1, coordinate)) {
+                values.push(cell.rect.x0, cell.rect.x1);
+            }
+        } else if (nearlyEqual(cell.rect.x0, coordinate) || nearlyEqual(cell.rect.x1, coordinate)) {
+            values.push(cell.rect.y0, cell.rect.y1);
+        }
+    });
+    return [...new Set(values.map(value => topologyCoordinateKey(value)))]
+        .map(Number)
+        .sort((a, b) => a - b);
+}
+
+function deriveGridLinePieces(state) {
+    const pieces = [];
+    const horizontalCoordinates = [...new Set(state.windows.flatMap(cell => [
+        topologyCoordinateKey(cell.rect.y0),
+        topologyCoordinateKey(cell.rect.y1),
+    ]))].map(Number).sort((a, b) => a - b);
+    const verticalCoordinates = [...new Set(state.windows.flatMap(cell => [
+        topologyCoordinateKey(cell.rect.x0),
+        topologyCoordinateKey(cell.rect.x1),
+    ]))].map(Number).sort((a, b) => a - b);
+
+    const addLine = (orientation, coordinate, start, end) => {
+        if (!(end > start + EPSILON)) return;
+        const midpoint = (start + end) / 2;
+        const negativeCell = boundaryCellAt(state, {
+            orientation,
+            coordinate,
+            position: midpoint,
+            side: 'negative',
+        });
+        const positiveCell = boundaryCellAt(state, {
+            orientation,
+            coordinate,
+            position: midpoint,
+            side: 'positive',
+        });
+        if (!negativeCell && !positiveCell) return;
+
+        if (negativeCell && positiveCell) {
+            const connection = resolveDividerConnection(negativeCell.type, positiveCell.type);
+            pieces.push(Object.freeze({
+                id: linePieceId({ orientation, coordinate, start, end }),
+                pieceType: 'mullion',
+                orientation,
+                coordinate,
+                start,
+                end,
+                negativeCellId: negativeCell.id,
+                positiveCellId: positiveCell.id,
+                negativeCellType: negativeCell.type,
+                positiveCellType: positiveCell.type,
+                templateId: connection.templateId,
+                reversed: connection.reversed,
+            }));
+            return;
+        }
+
+        const cell = negativeCell || positiveCell;
+        let side;
+        if (orientation === 'horizontal') {
+            side = negativeCell ? 'top' : 'bottom';
+        } else {
+            side = negativeCell ? 'right' : 'left';
+        }
+        const fullSide = getCellSideInterval(cell, side);
+        pieces.push(Object.freeze({
+            id: linePieceId({ orientation, coordinate, start, end }),
+            pieceType: 'frame',
+            orientation,
+            coordinate,
+            start,
+            end,
+            cellId: cell.id,
+            cellType: cell.type,
+            side,
+            partial: !(
+                nearlyEqual(start, fullSide.start)
+                && nearlyEqual(end, fullSide.end)
+            ),
+        }));
+    };
+
+    horizontalCoordinates.forEach(coordinate => {
+        const breaks = getBoundaryBreaks(state, 'horizontal', coordinate);
+        for (let index = 0; index + 1 < breaks.length; index += 1) {
+            addLine('horizontal', coordinate, breaks[index], breaks[index + 1]);
+        }
+    });
+    verticalCoordinates.forEach(coordinate => {
+        const breaks = getBoundaryBreaks(state, 'vertical', coordinate);
+        for (let index = 0; index + 1 < breaks.length; index += 1) {
+            addLine('vertical', coordinate, breaks[index], breaks[index + 1]);
+        }
+    });
+
+    return Object.freeze(pieces);
+}
+
 export function deriveWindowTopology(stateValue) {
     const state = normalizeWindowState(stateValue);
-    const dividers = [];
+    const linePieces = deriveGridLinePieces(state);
+    const dividers = linePieces
+        .filter(piece => piece.pieceType === 'mullion')
+        .map(piece => Object.freeze({ ...piece }));
+    const frameEdges = linePieces
+        .filter(piece => piece.pieceType === 'frame')
+        .map(piece => Object.freeze({ ...piece }));
     const mergeCandidates = [];
 
     for (let i = 0; i < state.windows.length; i += 1) {
@@ -423,66 +560,20 @@ export function deriveWindowTopology(stateValue) {
             const a = state.windows[i];
             const b = state.windows[j];
             const boundary = sharedBoundary(a, b);
-            if (!boundary) continue;
-            const negativeCell = getCell(state, boundary.negativeCellId);
-            const positiveCell = getCell(state, boundary.positiveCellId);
-            const connection = resolveDividerConnection(negativeCell.type, positiveCell.type);
-            const divider = Object.freeze({
-                id: `d-${negativeCell.id}-${positiveCell.id}-${boundary.orientation}`,
-                ...boundary,
-                negativeCellType: negativeCell.type,
-                positiveCellType: positiveCell.type,
-                templateId: connection.templateId,
-                reversed: connection.reversed,
-            });
-            dividers.push(divider);
-            if (canUnionRectangles(a, b)) {
-                mergeCandidates.push(Object.freeze({
-                    id: `merge-${a.id}-${b.id}`,
-                    cellAId: a.id,
-                    cellBId: b.id,
-                    orientation: boundary.orientation,
-                    coordinate: boundary.coordinate,
-                    start: boundary.start,
-                    end: boundary.end,
-                    sameType: a.type === b.type,
-                    defaultType: a.type === b.type ? a.type : null,
-                }));
-            }
+            if (!boundary || !canUnionRectangles(a, b)) continue;
+            mergeCandidates.push(Object.freeze({
+                id: `merge-${a.id}-${b.id}`,
+                cellAId: a.id,
+                cellBId: b.id,
+                orientation: boundary.orientation,
+                coordinate: boundary.coordinate,
+                start: boundary.start,
+                end: boundary.end,
+                sameType: a.type === b.type,
+                defaultType: a.type === b.type ? a.type : null,
+            }));
         }
     }
-
-    const frameEdges = [];
-    state.windows.forEach(cell => {
-        ['left', 'right', 'bottom', 'top'].forEach(side => {
-            const exposedIntervals = getExposedCellSideIntervals(state, cell, side);
-            const fullSide = getCellSideInterval(cell, side);
-            exposedIntervals.forEach((interval, index) => {
-                const isWholeSide = exposedIntervals.length === 1
-                    && nearlyEqual(interval.start, fullSide.start)
-                    && nearlyEqual(interval.end, fullSide.end);
-                const coordinate = side === 'left'
-                    ? cell.rect.x0
-                    : side === 'right'
-                        ? cell.rect.x1
-                        : side === 'bottom'
-                            ? cell.rect.y0
-                            : cell.rect.y1;
-                frameEdges.push(Object.freeze({
-                    id: isWholeSide
-                        ? `${cell.id}-${side}`
-                        : `${cell.id}-${side}-segment-${index + 1}`,
-                    cellId: cell.id,
-                    side,
-                    coordinate,
-                    start: interval.start,
-                    end: interval.end,
-                    cellType: cell.type,
-                    partial: !isWholeSide,
-                }));
-            });
-        });
-    });
 
     const addCandidates = state.windows.length >= MAX_WINDOW_CELLS
         ? []
@@ -500,6 +591,10 @@ export function deriveWindowTopology(stateValue) {
     return Object.freeze({
         version: WINDOW_STATE_VERSION,
         windows: state.windows,
+        // Every structural member is now one atomic grid line between two
+        // intersections.  The renderer chooses only from frame, mullion and
+        // the local half-mullion junction filler derived later from this graph.
+        linePieces,
         frameEdges: Object.freeze(frameEdges),
         dividers: Object.freeze(dividers),
         addCandidates: Object.freeze(addCandidates),
