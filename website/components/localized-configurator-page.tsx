@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import { SiteHeader } from "./site-header";
 import { SiteFooter } from "./site-footer";
 import { SmoothScroll } from "./smooth-scroll";
@@ -8,13 +7,12 @@ import { SceneInteractor } from "./scene-interactor";
 import { CapabilityCube } from "./capability-cube";
 import { WindowConfiguratorPreview } from "./window-preview";
 import { ConfiguratorSeoSections } from "./configurator-seo-sections";
-import { getLocalizedConfigurator, getLocalizedConfigurators } from "../lib/configurators-localized";
+import { getLocalizedConfigurators, requireLocalizedConfigurator } from "../lib/configurators-localized";
 import { detailCopy, localizedPath, type Locale, uiCopy } from "../lib/i18n";
 import { absoluteUrl, breadcrumbSchema, graphSchema, organizationSchema, siteUrl, SITE_URL, websiteSchema } from "../lib/seo";
 
 export function LocalizedConfiguratorPage({ locale, slug }: { locale: Locale; slug: string }) {
-  const item = getLocalizedConfigurator(locale, slug);
-  if (!item) notFound();
+  const item = requireLocalizedConfigurator(locale, slug);
   const all = getLocalizedConfigurators(locale);
   const copy = detailCopy[locale];
   const ui = uiCopy[locale];
