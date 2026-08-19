@@ -32,6 +32,88 @@ function getPhysicalArm(junction, direction) {
     return junction?.arms?.[direction] || null;
 }
 
+function armDirectionVector(direction) {
+    if (direction === 'north') return Object.freeze({ x: 0, y: 1 });
+    if (direction === 'south') return Object.freeze({ x: 0, y: -1 });
+    if (direction === 'east') return Object.freeze({ x: 1, y: 0 });
+    if (direction === 'west') return Object.freeze({ x: -1, y: 0 });
+    return Object.freeze({ x: 0, y: 0 });
+}
+
+function hasWindowAcrossMissingReentrantDirection({ junction, cells, direction }) {
+    const epsilon = 1e-9;
+    const x = finiteNumber(junction?.x);
+    const y = finiteNumber(junction?.y);
+    const candidates = Array.isArray(cells) ? cells : [];
+
+    // The filler is only valid when the missing physical arm is not actually
+    // empty exterior space, but lies inside one merged window that spans across
+    // the old divider line. This is exactly the topology created when one side
+    // of an L is merged. Keeping this check explicit prevents a small mullion
+    // cap from being emitted at an ordinary exposed perimeter T.
+    if (direction === 'north') {
+        return candidates.some(cell => (
+            Math.abs(finiteNumber(cell.structuralY0) - y) <= epsilon
+            && finiteNumber(cell.structuralX0) < x - epsilon
+            && finiteNumber(cell.structuralX1) > x + epsilon
+        ));
+    }
+    if (direction === 'south') {
+        return candidates.some(cell => (
+            Math.abs(finiteNumber(cell.structuralY1) - y) <= epsilon
+            && finiteNumber(cell.structuralX0) < x - epsilon
+            && finiteNumber(cell.structuralX1) > x + epsilon
+        ));
+    }
+    if (direction === 'east') {
+        return candidates.some(cell => (
+            Math.abs(finiteNumber(cell.structuralX0) - x) <= epsilon
+            && finiteNumber(cell.structuralY0) < y - epsilon
+            && finiteNumber(cell.structuralY1) > y + epsilon
+        ));
+    }
+    if (direction === 'west') {
+        return candidates.some(cell => (
+            Math.abs(finiteNumber(cell.structuralX1) - x) <= epsilon
+            && finiteNumber(cell.structuralY0) < y - epsilon
+            && finiteNumber(cell.structuralY1) > y + epsilon
+        ));
+    }
+    return false;
+}
+
+function getMixedReentrantTDividerArm(junction) {
+    if (
+        junction?.type !== 'T'
+        || junction?.dividerCount !== 1
+        || junction?.frameCount !== 2
+    ) {
+        return null;
+    }
+
+    const dividerArm = junction.activeDirections
+        .map(direction => junction.arms?.[direction])
+        .find(arm => arm?.kind === 'divider') || null;
+    if (!dividerArm) return null;
+
+    const missingDirection = PHYSICAL_ARM_DIRECTIONS.find(
+        direction => !junction.arms?.[direction]
+    ) || null;
+
+    // A normal divider terminating at the outside perimeter also has one
+    // divider + two frames, but its missing arm is collinear with the divider.
+    // The special re-entrant case created by merging an L has the missing arm
+    // perpendicular to the divider: e.g. west frame + south frame + east
+    // mullion, with north missing. Only that concave three-arm corner needs the
+    // CAD 21 mm offset.
+    const missingIsPerpendicular = dividerArm.orientation === 'horizontal'
+        ? missingDirection === 'north' || missingDirection === 'south'
+        : missingDirection === 'east' || missingDirection === 'west';
+    if (!missingIsPerpendicular) return null;
+
+    return Object.freeze({ dividerArm, missingDirection });
+}
+
 function classifyPhysicalJunction(entry) {
     const arms = entry.arms;
     const activeDirections = PHYSICAL_ARM_DIRECTIONS.filter(direction => Boolean(arms[direction]));
@@ -1473,42 +1555,65 @@ export function getEditableWindowTopologyGeometry({
         physicalIntersections.map(junction => [junction.key, junction])
     );
 
-    // A mixed four-arm + is not centred like a four-mullion cross. The CAD
-    // outer-frame depth and mullion face are different: for 575760/575800 the
-    // frame reaches 65 mm inward while half the mullion face is 44 mm. The
-    // resulting 21 mm difference places each mullion/transom toward the quadrant
-    // shared by the two divider arms. The structural grid remains untouched;
-    // this is a CAD/render offset only.
+    // Mixed re-entrant joints are not centred like ordinary mullion/frame
+    // terminations. The CAD outer-frame depth and mullion face are different:
+    // for 575760/575800 the frame reaches 65 mm inward while half the mullion
+    // face is 44 mm. The resulting 21 mm difference is a render/CAD offset only;
+    // it must never change the structural window grid.
     const mixedPlusPerpendicularShift = getFrameDividerMiterContactStart({
         dividerFaceSpan: normalizedDividerFaceSpan,
         frameInwardSpan: requestedFrameReplacementSpan,
     });
     const dividerShiftRequests = new Map();
     physicalIntersections.forEach(junction => {
-        if (junction.type !== 'plus' || mixedPlusPerpendicularShift <= 0) return;
+        if (mixedPlusPerpendicularShift <= 0) return;
         const dividerArms = junction.activeDirections
             .map(direction => junction.arms[direction])
             .filter(arm => arm?.kind === 'divider');
-        if (dividerArms.length !== 2) return;
 
-        dividerArms.forEach(arm => {
-            const other = dividerArms.find(candidate => candidate.segmentId !== arm.segmentId);
-            if (!other || other.orientation === arm.orientation) return;
+        if (junction.type === 'plus' && dividerArms.length === 2) {
+            dividerArms.forEach(arm => {
+                const other = dividerArms.find(candidate => candidate.segmentId !== arm.segmentId);
+                if (!other || other.orientation === arm.orientation) return;
 
-            let sign = 0;
-            if (arm.orientation === 'vertical') {
-                if (other.direction === 'east') sign = 1;
-                else if (other.direction === 'west') sign = -1;
-            } else {
-                if (other.direction === 'north') sign = 1;
-                else if (other.direction === 'south') sign = -1;
-            }
-            if (!sign) return;
+                let sign = 0;
+                if (arm.orientation === 'vertical') {
+                    if (other.direction === 'east') sign = 1;
+                    else if (other.direction === 'west') sign = -1;
+                } else {
+                    if (other.direction === 'north') sign = 1;
+                    else if (other.direction === 'south') sign = -1;
+                }
+                if (!sign) return;
 
-            const requests = dividerShiftRequests.get(arm.segmentId) || [];
-            requests.push(sign * mixedPlusPerpendicularShift);
-            dividerShiftRequests.set(arm.segmentId, requests);
-        });
+                const requests = dividerShiftRequests.get(arm.segmentId) || [];
+                requests.push(sign * mixedPlusPerpendicularShift);
+                dividerShiftRequests.set(arm.segmentId, requests);
+            });
+            return;
+        }
+
+        // Merging one side of an L removes one of the two mullion arms from the
+        // old four-arm +, leaving one mullion and two perimeter frames. Keep the
+        // surviving mullion in the same CAD seat instead of snapping it back to
+        // the structural grid. The direction of the missing perpendicular arm
+        // tells us which side of the grid the mullion must occupy.
+        const mixedT = getMixedReentrantTDividerArm(junction);
+        if (!mixedT) return;
+
+        let sign = 0;
+        if (mixedT.dividerArm.orientation === 'horizontal') {
+            if (mixedT.missingDirection === 'north') sign = 1;
+            else if (mixedT.missingDirection === 'south') sign = -1;
+        } else {
+            if (mixedT.missingDirection === 'east') sign = 1;
+            else if (mixedT.missingDirection === 'west') sign = -1;
+        }
+        if (!sign) return;
+
+        const requests = dividerShiftRequests.get(mixedT.dividerArm.segmentId) || [];
+        requests.push(sign * mixedPlusPerpendicularShift);
+        dividerShiftRequests.set(mixedT.dividerArm.segmentId, requests);
     });
 
     dividerSegments.forEach(segment => {
@@ -1560,6 +1665,7 @@ export function getEditableWindowTopologyGeometry({
                 frame.side,
                 atStart ? 'negative' : 'positive'
             );
+            const mixedReentrantT = getMixedReentrantTDividerArm(junction);
 
             let mode = null;
             if (junction.type === 'plus') {
@@ -1569,6 +1675,16 @@ export function getEditableWindowTopologyGeometry({
                 // mullion body correctly. Express that as a dedicated endpoint
                 // cut mode rather than by changing the structural frame length.
                 mode = 'mixed-plus';
+            } else if (mixedReentrantT) {
+                // After an L-side merge, one mullion arm disappears and the old
+                // + becomes a three-arm concave corner: two frames plus one
+                // surviving mullion. Both frame ends must aim at the same CAD
+                // apex as that shifted mullion. Using the same asymmetric miter
+                // law as the mixed + gives one common point 21 mm along and
+                // 21 mm perpendicular to the structural corner, matching the
+                // frame/frame/mullion geometry instead of treating one frame as
+                // a host and the other as a socket.
+                mode = 'mixed-reentrant';
             } else if (oppositeArm?.kind === 'divider') {
                 // Collinear frame <-> mullion continuation at a non-plus
                 // re-entrant T/partial perimeter junction.
@@ -1692,6 +1808,98 @@ export function getEditableWindowTopologyGeometry({
         })
         .filter(Boolean);
 
+    // A merged side of an L removes one physical divider arm from the old
+    // mixed +. The remaining three-arm junction is geometrically correct after
+    // the mixed-reentrant cuts above, but the removed arm leaves one exposed
+    // half of the surviving mullion V.
+    //
+    // Do NOT fill that opening with a short divider pointing in the missing
+    // direction. That creates exactly the wrong visual result: for a missing
+    // north arm it looks like a little vertical mullion growing upward from the
+    // junction. The required CAD piece is the opposite: keep the extrusion
+    // parallel to the surviving mullion and retain only the half of its section
+    // that faces the merged-window side. In the top-right-L/top-row-merge case
+    // this is therefore a horizontal, north-half V wedge extending west from
+    // the common apex. Rotating the same rule covers every equivalent merge.
+    const reentrantFillers = physicalIntersections
+        .map(junction => {
+            const mixedT = getMixedReentrantTDividerArm(junction);
+            if (!mixedT || mixedPlusPerpendicularShift <= 0) return null;
+            if (!hasWindowAcrossMissingReentrantDirection({
+                junction,
+                cells,
+                direction: mixedT.missingDirection,
+            })) {
+                return null;
+            }
+
+            const sourceDivider = dividerSegments.find(
+                segment => segment.id === mixedT.dividerArm.segmentId
+            );
+            if (!sourceDivider) return null;
+
+            const dividerDirection = armDirectionVector(mixedT.dividerArm.direction);
+            const missingDirection = armDirectionVector(mixedT.missingDirection);
+            const apexX = finiteNumber(junction.x)
+                + (dividerDirection.x + missingDirection.x) * mixedPlusPerpendicularShift;
+            const apexY = finiteNumber(junction.y)
+                + (dividerDirection.y + missingDirection.y) * mixedPlusPerpendicularShift;
+
+            // The wedge is a clipped continuation of the surviving divider,
+            // not a new divider in the missing direction.
+            const orientation = sourceDivider.orientation;
+            const fillerDirection = OPPOSITE_ARM_DIRECTION[mixedT.dividerArm.direction];
+            const arrowAtStart = endpointArmDirection(orientation, true) === fillerDirection;
+
+            // createDividerSegment() maps divider face to world coordinates as:
+            //   horizontal: worldY = -face
+            //   vertical:   worldX =  face
+            // Keep only the section half that points into the merged window.
+            let faceHalfSign = 0;
+            if (orientation === 'horizontal') {
+                if (mixedT.missingDirection === 'north') faceHalfSign = -1;
+                else if (mixedT.missingDirection === 'south') faceHalfSign = 1;
+            } else {
+                if (mixedT.missingDirection === 'east') faceHalfSign = 1;
+                else if (mixedT.missingDirection === 'west') faceHalfSign = -1;
+            }
+            if (!faceHalfSign) return null;
+
+            const length = requestedFrameReplacementSpan;
+            const tipLocalCoordinate = arrowAtStart
+                ? (-length / 2 + mixedPlusPerpendicularShift)
+                : (length / 2 - mixedPlusPerpendicularShift);
+            const apexAlong = orientation === 'vertical' ? apexY : apexX;
+            const longitudinalOffset = apexAlong - tipLocalCoordinate;
+            const perpendicularOffset = orientation === 'vertical' ? apexX : apexY;
+
+            return Object.freeze({
+                id: `reentrant-filler-${junction.key}`,
+                sourceDividerId: sourceDivider.id,
+                sourceTemplateId: sourceDivider.templateId || null,
+                sourceReversed: Boolean(sourceDivider.reversed),
+                direction: mixedT.missingDirection,
+                extrusionDirection: fillerDirection,
+                orientation,
+                faceHalfSign,
+                length,
+                perpendicularOffset,
+                longitudinalOffset,
+                apexX,
+                apexY,
+                joint: Object.freeze({
+                    negativeEndMode: arrowAtStart ? 'arrow' : 'square',
+                    positiveEndMode: arrowAtStart ? 'square' : 'arrow',
+                    negativeFrameInwardSpan: requestedFrameReplacementSpan,
+                    positiveFrameInwardSpan: requestedFrameReplacementSpan,
+                    negativeArrowFaceBias: 0,
+                    positiveArrowFaceBias: 0,
+                    faceHalfSign,
+                }),
+            });
+        })
+        .filter(Boolean);
+
     // junctions remains the divider-facing renderer API. It now contains every
     // physical point that has at least one divider, with its frame arms attached.
     const junctions = physicalIntersections.filter(junction => junction.dividerCount >= 2);
@@ -1706,5 +1914,6 @@ export function getEditableWindowTopologyGeometry({
         junctions: Object.freeze(junctions),
         physicalIntersections: Object.freeze(physicalIntersections),
         perimeterJunctions: Object.freeze(perimeterJunctions),
+        reentrantFillers: Object.freeze(reentrantFillers),
     });
 }

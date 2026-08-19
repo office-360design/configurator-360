@@ -276,6 +276,72 @@ export function createWindowBuilder({
         return result;
     }
 
+    function clipBufferGeometryToScalarHalfspace(geometry, scalarResolver) {
+        const source = geometry.index ? geometry.toNonIndexed() : geometry;
+        const positions = source.attributes.position;
+        const output = [];
+        const EPSILON = 1e-10;
+
+        const interpolate = (a, b) => {
+            const denominator = a.scalar - b.scalar;
+            const t = Math.abs(denominator) <= EPSILON
+                ? 0
+                : a.scalar / denominator;
+            return {
+                x: a.x + (b.x - a.x) * t,
+                y: a.y + (b.y - a.y) * t,
+                z: a.z + (b.z - a.z) * t,
+                scalar: 0,
+            };
+        };
+
+        for (let base = 0; base + 2 < positions.count; base += 3) {
+            let polygon = [];
+            for (let offset = 0; offset < 3; offset += 1) {
+                const index = base + offset;
+                const point = {
+                    x: positions.getX(index),
+                    y: positions.getY(index),
+                    z: positions.getZ(index),
+                };
+                polygon.push({
+                    ...point,
+                    scalar: Number(scalarResolver(point, index)) || 0,
+                });
+            }
+
+            const clipped = [];
+            for (let index = 0; index < polygon.length; index += 1) {
+                const current = polygon[index];
+                const previous = polygon[(index + polygon.length - 1) % polygon.length];
+                const currentInside = current.scalar >= -EPSILON;
+                const previousInside = previous.scalar >= -EPSILON;
+
+                if (currentInside) {
+                    if (!previousInside) clipped.push(interpolate(previous, current));
+                    clipped.push(current);
+                } else if (previousInside) {
+                    clipped.push(interpolate(previous, current));
+                }
+            }
+
+            if (clipped.length < 3) continue;
+            for (let index = 1; index + 1 < clipped.length; index += 1) {
+                [clipped[0], clipped[index], clipped[index + 1]].forEach(point => {
+                    output.push(point.x, point.y, point.z);
+                });
+            }
+        }
+
+        const result = new THREE.BufferGeometry();
+        result.setAttribute('position', new THREE.Float32BufferAttribute(output, 3));
+        result.computeBoundingBox();
+        result.computeBoundingSphere();
+
+        if (source !== geometry) source.dispose();
+        return result;
+    }
+
     function createDividerSegment(
         profile,
         length,
@@ -306,6 +372,21 @@ export function createWindowBuilder({
             return renderedFace;
         };
 
+        // Re-entrant merged-L filler pieces are not short dividers in the
+        // missing direction. They are one half of the surviving mullion section
+        // extruded parallel to that mullion. Clip the source section at its
+        // centre plane before applying the V deformation so the filler occupies
+        // only the merged-window side of the profile.
+        const faceHalfSign = Math.sign(Number(longitudinalJoint?.faceHalfSign) || 0);
+        let geom = sourceGeom;
+        if (faceHalfSign) {
+            const previousGeom = geom;
+            geom = clipBufferGeometryToScalarHalfspace(previousGeom, rawPoint => (
+                resolveRenderedFace(rawPoint) * faceHalfSign
+            ));
+            previousGeom.dispose();
+        }
+
         // Arrow deformation has a kink at its V apex. A normal mullion uses the
         // face centre (bias 0); a mixed perimeter + can bias the apex across the
         // face by the CAD 21 mm correction. Insert vertices on every active apex
@@ -321,7 +402,6 @@ export function createWindowBuilder({
             arrowBiases.push(Number(longitudinalJoint?.positiveArrowFaceBias) || 0);
         }
         const uniqueArrowBiases = [...new Set(arrowBiases.map(value => value.toFixed(9)))].map(Number);
-        let geom = sourceGeom;
         uniqueArrowBiases.forEach(bias => {
             const previousGeom = geom;
             geom = splitBufferGeometryAtScalarZero(previousGeom, rawPoint => (
@@ -479,7 +559,8 @@ export function createWindowBuilder({
             const mode = getFrameJointEndMode(localEnd);
             return mode === 'socket'
                 || mode === 'shifted-socket'
-                || mode === 'mixed-plus';
+                || mode === 'mixed-plus'
+                || mode === 'mixed-reentrant';
         });
         if (hasFrameProfileBreakJoint && Number(dividerJoint.faceSpan) > 0) {
             const halfDividerFace = Number(dividerJoint.faceSpan) / 2;
@@ -576,7 +657,7 @@ export function createWindowBuilder({
                         localEnd,
                     });
                 }
-                if (mode === 'mixed-plus') {
+                if (mode === 'mixed-plus' || mode === 'mixed-reentrant') {
                     return getFrameMixedPlusMiterInset({
                         inwardDistance: inw,
                         dividerFaceSpan: dividerJoint.faceSpan,
@@ -2209,6 +2290,64 @@ export function createWindowBuilder({
                                 placeEditableDividerMesh(mesh, segment, 'accessory');
                             });
                     });
+            });
+
+            // A merged L can leave one V-shaped opening where the removed
+            // divider used to continue through the now-merged window. Geometry
+            // exposes a tiny one-ended half-mullion cap only for that topology.
+            // Render it from the same standalone divider section as the
+            // surviving mullion, but do not attach normal mullion accessories:
+            // this is a local cut piece, not another real divider boundary.
+            (editableTopologyGeometry?.reentrantFillers || []).forEach(filler => {
+                const sourceSegment = editableSegments.find(
+                    segment => segment.id === filler.sourceDividerId
+                );
+                if (!sourceSegment || filler.length <= 1e-6) return;
+
+                const variantMetadata = getEditableDividerVariantMetadata(sourceSegment);
+                const connectionMetadata = variantMetadata?.dividerConnection || {};
+                const depthOffset = (
+                    Number(connectionMetadata.depthCenterFromAssemblyCenterMm) || 0
+                ) * S;
+                const fillerFaceDirection = filler.orientation === 'horizontal' ? -1 : 1;
+                const faceDirection = sourceSegment.reversed
+                    ? -fillerFaceDirection
+                    : fillerFaceDirection;
+                const fillerProfiles = activeDividerProfiles.map(profile =>
+                    getEditableProfileVariant(profile, sourceSegment)
+                );
+                const fillerBounds = getDividerSourceBounds(fillerProfiles) || dividerBounds;
+                const fillerSegment = {
+                    ...sourceSegment,
+                    id: filler.id,
+                    orientation: filler.orientation,
+                };
+
+                fillerProfiles.forEach(variantProfile => {
+                    const placedProfile = {
+                        ...variantProfile,
+                        dividerSectionRotationDeg:
+                            Number(connectionMetadata.sectionRotationDeg)
+                            || Number(variantProfile.dividerSectionRotationDeg)
+                            || 180,
+                    };
+                    const mesh = createDividerSegment(
+                        placedProfile,
+                        filler.length,
+                        filler.orientation,
+                        fillerBounds,
+                        depthOffset,
+                        frameJointInwardSpan,
+                        filler.perpendicularOffset,
+                        filler.longitudinalOffset,
+                        faceDirection,
+                        filler.joint
+                    );
+                    mesh.userData.reentrantFiller = true;
+                    mesh.userData.reentrantFillerDirection = filler.direction;
+                    mesh.userData.reentrantFillerSourceDividerId = filler.sourceDividerId;
+                    placeEditableDividerMesh(mesh, fillerSegment, 'reentrant-filler');
+                });
             });
         } else if (isTopFixedBottomSashSash && dividerBounds && tLayoutGeometry) {
             const verticalDividerConnection = currentMetadata.tLayoutVerticalDividerConnection || {};
