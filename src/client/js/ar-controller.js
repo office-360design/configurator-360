@@ -4,9 +4,79 @@ import {
     downloadARAsset,
     uploadARAsset,
     uploadARAssetToSupabase,
-    formatExportStats,
     sha256Hex,
 } from '../ar-export.js';
+import { getWindowLocale, windowT } from './i18n.js';
+
+
+function formatLocalizedExportStats(stats) {
+    const locale = getWindowLocale();
+    const size = stats.dimensionsMeters;
+    const reduction = stats.originalTriangleCount > 0
+        ? 100 * (1 - stats.triangleCount / stats.originalTriangleCount)
+        : 0;
+    const attempts = Array.isArray(stats.optimizationAttempts) ? stats.optimizationAttempts : [];
+    const number = value => Number(value ?? 0).toLocaleString(locale);
+    const lines = [
+        `${String(stats.format || 'glb').toUpperCase()}: ${(stats.fileBytes / 1048576).toFixed(2)} MB`,
+        windowT(locale, 'ar.stats.meshes', {
+            source: stats.sourceMeshCount ?? stats.meshCount,
+            merged: stats.meshCount,
+        }),
+        windowT(locale, 'ar.stats.materials', { count: stats.materialCount }),
+        windowT(locale, 'ar.stats.triangles', {
+            source: number(stats.originalTriangleCount),
+            result: number(stats.triangleCount),
+            reduction: reduction.toFixed(1),
+        }),
+        windowT(locale, 'ar.stats.vertices', {
+            source: number(stats.sourceVertexCount),
+            result: number(stats.vertexCount),
+        }),
+        windowT(locale, 'ar.stats.dimensions', {
+            x: size.x.toFixed(3),
+            y: size.y.toFixed(3),
+            z: size.z.toFixed(3),
+        }),
+    ];
+
+    if (attempts.length > 1) {
+        lines.push(windowT(locale, 'ar.stats.adaptive', {
+            passes: attempts
+                .map(item => `${number(item.resultingTriangles)} tris / ${(item.fileBytes / 1048576).toFixed(2)} MB`)
+                .join(' → '),
+        }));
+    }
+
+    if (String(stats.format || 'glb').toLowerCase() === 'glb') {
+        lines.push(
+            windowT(locale, 'ar.stats.roundTrip', {
+                meshes: stats.roundTrip.meshCount,
+                triangles: number(stats.roundTrip.triangleCount),
+            }),
+            windowT(locale, 'ar.stats.gltf', {
+                nodes: stats.structure.nodeCount,
+                accessors: stats.structure.accessorCount,
+            }),
+            windowT(locale, stats.fileBytes > 10 * 1024 * 1024
+                ? 'ar.stats.sceneSizeWarning'
+                : 'ar.stats.sceneSizePassed'),
+            windowT(locale, stats.triangleCount > 50000
+                ? 'ar.stats.triangleWarning'
+                : 'ar.stats.trianglePassed'),
+        );
+    } else {
+        lines.push(
+            windowT(locale, 'ar.stats.usdzArchive', {
+                entries: stats.structure.entryCount,
+                root: stats.structure.firstEntry,
+            }),
+            windowT(locale, 'ar.stats.quickLook'),
+        );
+    }
+
+    return lines.join('\n');
+}
 
 export function createARController({
     appBuild,
@@ -76,7 +146,7 @@ export function createARController({
         const qrContainer = document.getElementById('qr-code');
         const errorContainer = document.getElementById('qr-error');
         if (typeof window.qrcode !== 'function') {
-            throw new Error('The QR library could not be loaded. Reload the page and try again.');
+            throw new Error(windowT(getWindowLocale(), 'ar.qrLibraryMissing'));
         }
         const qr = window.qrcode(0, 'M');
         qr.addData(url);
@@ -154,7 +224,7 @@ export function createARController({
     async function generateCurrentWindowARAsset(platform) {
         const config = window.AR_UPLOAD_CONFIG || {};
         const platformInfo = AR_PLATFORM_FORMATS[platform];
-        if (!platformInfo) throw new Error(`Unsupported AR platform: ${platform}.`);
+        if (!platformInfo) throw new Error(windowT(getWindowLocale(), 'ar.unsupportedPlatform', { platform }));
 
         const modelName = makeExportName();
         const maxBytes = platformInfo.format === 'usdz'
@@ -213,7 +283,7 @@ export function createARController({
         }
 
         if (!response.ok && response.status !== 206) {
-            throw new Error(`The model is not published yet (HTTP ${response.status}).`);
+            throw new Error(windowT(getWindowLocale(), 'ar.modelNotPublished', { status: response.status }));
         }
 
         const contentType = response.headers.get('content-type') || '';
@@ -224,7 +294,7 @@ export function createARController({
         if (rangeMatch) publicBytes = Number.parseInt(rangeMatch[1], 10);
 
         if (Number.isFinite(publicBytes) && expectedBytes && publicBytes !== expectedBytes) {
-            throw new Error(`A file exists at that URL, but its size is ${publicBytes} bytes instead of ${expectedBytes}. Republish the new AR model.`);
+            throw new Error(windowT(getWindowLocale(), 'ar.fileSizeMismatch', { publicBytes, expectedBytes }));
         }
 
         const expectedType = format === 'usdz'
@@ -245,23 +315,24 @@ export function createARController({
         launchLink.href = launcherUrl;
         launchLink.style.display = 'inline-block';
         document.getElementById('qr-publish-help').style.display = 'none';
-        setQRStatus(
-            `The public ${format.toUpperCase()} was verified. Scan this ${platformInfo.label} QR, ` +
-            `then press “View in AR” on the phone.`
-        );
+        setQRStatus(windowT(getWindowLocale(), 'ar.verifiedQr', {
+            format: format.toUpperCase(),
+            platform: platformInfo.label,
+        }));
     }
 
     function showStaticPublishInstructions(filename, modelUrl, platform, format) {
         const platformInfo = AR_PLATFORM_FORMATS[platform];
         const help = document.getElementById('qr-publish-help');
+        const locale = getWindowLocale();
         help.innerHTML = [
-            `<strong>The optimized ${format.toUpperCase()} is ready but is not yet present on Netlify.</strong>`,
-            `1. Download <code>${filename}</code>.`,
-            `2. Place it in <code>dist/site/models/</code>.`,
-            '3. Redeploy the existing Netlify site.',
-            '4. Return here and press “Check published model and create QR”.',
-            `<br>Platform: <code>${platformInfo.label}</code>`,
-            `<br>Expected public URL:<br><code>${modelUrl}</code>`
+            `<strong>${windowT(locale, 'ar.publishReady', { format: format.toUpperCase() })}</strong>`,
+            `${windowT(locale, 'ar.publishDownload')} <code>${filename}</code>.`,
+            `${windowT(locale, 'ar.publishPlace')} <code>dist/site/models/</code>.`,
+            windowT(locale, 'ar.publishRedeploy'),
+            windowT(locale, 'ar.publishReturn'),
+            `<br>${windowT(locale, 'ar.publishPlatform')} <code>${platformInfo.label}</code>`,
+            `<br>${windowT(locale, 'ar.publishExpectedUrl')}<br><code>${modelUrl}</code>`
         ].join('<br>');
         help.style.display = 'block';
         const checkButton = document.getElementById('qr-check-published');
@@ -279,7 +350,7 @@ export function createARController({
                 await new Promise(resolve => setTimeout(resolve, 900 + attempt * 250));
             }
         }
-        throw lastError || new Error('The uploaded Supabase model did not become publicly reachable.');
+        throw lastError || new Error(windowT(getWindowLocale(), 'ar.supabasePublicUnavailable'));
     }
 
     async function publishWithSupabase(exported) {
@@ -297,17 +368,17 @@ export function createARController({
                 const percentage = bytesTotal > 0
                     ? Math.min(100, 100 * bytesUploaded / bytesTotal)
                     : 0;
-                setQRStatus(`2/3 Uploading the optimized ${formatLabel} directly to Supabase… ${percentage.toFixed(1)}%`);
+                setQRStatus(windowT(getWindowLocale(), 'ar.supabaseUploading', { format: formatLabel, percentage: percentage.toFixed(1) }));
             }
         });
 
         if (!uploadResult?.publicUrl) {
-            throw new Error(`Supabase did not return a public ${formatLabel} URL.`);
+            throw new Error(windowT(getWindowLocale(), 'ar.supabaseNoUrl', { format: formatLabel }));
         }
 
         setQRStatus(uploadResult.exists
-            ? `2/3 This exact ${formatLabel} already exists in Supabase. Verifying its public URL…`
-            : '3/3 Upload completed. Waiting for the public Supabase URL…');
+            ? windowT(getWindowLocale(), 'ar.supabaseExists', { format: formatLabel })
+            : windowT(getWindowLocale(), 'ar.supabaseUploaded'));
         await waitForPublishedModel(
             uploadResult.publicUrl,
             exported.arrayBuffer.byteLength,
@@ -325,7 +396,7 @@ export function createARController({
         if (!latestStaticModelUrl) return;
         const checkButton = document.getElementById('qr-check-published');
         checkButton.disabled = true;
-        setQRStatus(`Checking the published Netlify ${latestExportFormat.toUpperCase()}…`);
+        setQRStatus(windowT(getWindowLocale(), 'ar.checkingPublished', { format: latestExportFormat.toUpperCase() }));
         try {
             await probePublishedModel(latestStaticModelUrl, latestExpectedBytes, latestExportFormat);
             completePublishedQR(
@@ -356,7 +427,7 @@ export function createARController({
         const formatLabel = platformInfo.format.toUpperCase();
 
         modal.classList.add('open');
-        description.textContent = `${platformInfo.label} selected: the browser will generate a ${formatLabel} for ${platformInfo.viewer}.`;
+        description.textContent = windowT(getWindowLocale(), 'ar.descriptionSelected', { platform: platformInfo.label, format: formatLabel, viewer: platformInfo.viewer });
         qrContainer.innerHTML = '';
         qrContainer.style.display = 'none';
         errorContainer.style.display = 'none';
@@ -374,29 +445,29 @@ export function createARController({
         latestExpectedBytes = 0;
         latestPublishedPlatform = publicationPlatform;
         downloadButton.disabled = true;
-        downloadButton.textContent = `Download optimized ${formatLabel}`;
+        downloadButton.textContent = windowT(getWindowLocale(), 'ar.downloadOptimized', { format: formatLabel });
 
         if (!getProfilesReady()) {
-            showQRError('The window profile is still loading. Close this dialog and try again in a moment.');
+            showQRError(windowT(getWindowLocale(), 'ar.profileStillLoading'));
             setQRStatus('');
             return;
         }
 
         try {
-            setQRStatus(`1/3 Building and simplifying the current production window for ${platformInfo.viewer}…`);
+            setQRStatus(windowT(getWindowLocale(), 'ar.stepBuild', { viewer: platformInfo.viewer }));
             const exported = await generateCurrentWindowARAsset(publicationPlatform);
-            statsContainer.textContent = formatExportStats(exported.stats);
+            statsContainer.textContent = formatLocalizedExportStats(exported.stats);
             statsContainer.style.display = 'block';
             downloadButton.disabled = false;
 
             const config = window.AR_UPLOAD_CONFIG || {};
             if (config.mode === 'supabase') {
-                setQRStatus(`2/3 The optimized ${formatLabel} passed browser validation. Requesting a secure Supabase upload ticket…`);
+                setQRStatus(windowT(getWindowLocale(), 'ar.stepSupabaseTicket', { format: formatLabel }));
                 await publishWithSupabase(exported);
                 return;
             }
             if (config.mode === 'api' && config.endpoint) {
-                setQRStatus(`2/3 The optimized ${formatLabel} passed browser validation. Uploading to the configured server…`);
+                setQRStatus(windowT(getWindowLocale(), 'ar.stepServerUpload', { format: formatLabel }));
                 const uploaded = await uploadARAsset({
                     endpoint: config.endpoint,
                     arrayBuffer: exported.arrayBuffer,
@@ -414,7 +485,7 @@ export function createARController({
             }
 
             latestStaticModelUrl = buildStaticModelUrl(exported.filename);
-            setQRStatus(`2/3 The optimized ${formatLabel} passed browser validation. Checking whether this exact file is already published…`);
+            setQRStatus(windowT(getWindowLocale(), 'ar.stepPublishedCheck', { format: formatLabel }));
             try {
                 await probePublishedModel(latestStaticModelUrl, latestExpectedBytes, exported.format);
                 completePublishedQR(
@@ -424,7 +495,7 @@ export function createARController({
                     exported.format
                 );
             } catch (_notPublished) {
-                setQRStatus(`3/3 Download and publish the optimized ${formatLabel}, then verify it here. No paid storage service is involved.`);
+                setQRStatus(windowT(getWindowLocale(), 'ar.stepManualPublish', { format: formatLabel }));
                 showStaticPublishInstructions(
                     exported.filename,
                     latestStaticModelUrl,
@@ -435,9 +506,9 @@ export function createARController({
         } catch (error) {
             console.error('AR export/publish preparation failed:', error);
             setQRStatus(latestExportedAsset
-                ? `The ${formatLabel} was generated locally, but the publication or QR step failed.`
-                : `The ${formatLabel} export or optimization failed before publication.`);
-            showQRError(error.message || 'The configured window could not be prepared for AR.');
+                ? windowT(getWindowLocale(), 'ar.generatedPublishFailed', { format: formatLabel })
+                : windowT(getWindowLocale(), 'ar.exportFailed', { format: formatLabel }));
+            showQRError(error.message || windowT(getWindowLocale(), 'ar.prepareFailed'));
         }
     }
 
@@ -453,27 +524,27 @@ export function createARController({
 
         if (!window.isSecureContext) {
             button.disabled = true;
-            button.textContent = 'HTTPS required';
-            setARStatus('AR can only start from a secure HTTPS page.', true);
+            button.textContent = windowT(getWindowLocale(), 'ar.httpsRequired');
+            setARStatus(windowT(getWindowLocale(), 'ar.httpsRequiredHelp'), true);
             return;
         }
         if (!navigator.xr) {
             button.disabled = true;
-            button.textContent = 'AR not supported';
-            setARStatus('This browser does not provide WebXR. Use Google Chrome on an ARCore-compatible Android phone.', true);
+            button.textContent = windowT(getWindowLocale(), 'ar.notSupported');
+            setARStatus(windowT(getWindowLocale(), 'ar.webxrMissing'), true);
             return;
         }
 
         try {
             const supported = await navigator.xr.isSessionSupported('immersive-ar');
             button.disabled = !supported;
-            button.textContent = supported ? 'View in AR' : 'AR not supported';
+            button.textContent = supported ? windowT(getWindowLocale(), 'ar.view') : windowT(getWindowLocale(), 'ar.notSupported');
             setARStatus(supported
-                ? 'Tap once to open the camera. The model will be placed automatically when a surface is detected.'
-                : 'Immersive AR is unavailable on this device or browser.', !supported);
+                ? windowT(getWindowLocale(), 'ar.tapToOpen')
+                : windowT(getWindowLocale(), 'ar.immersiveUnavailable'), !supported);
         } catch (error) {
             button.disabled = true;
-            button.textContent = 'AR unavailable';
+            button.textContent = windowT(getWindowLocale(), 'ar.unavailable');
             setARStatus(`${error.name}: ${error.message}`, true);
         }
     }
@@ -482,8 +553,8 @@ export function createARController({
         if (arSession) return;
         const button = document.getElementById('ar-start-button');
         button.disabled = true;
-        button.textContent = 'Opening camera…';
-        setARStatus('Waiting for camera and spatial-tracking permission…');
+        button.textContent = windowT(getWindowLocale(), 'ar.openingCamera');
+        setARStatus(windowT(getWindowLocale(), 'ar.waitPermission'));
 
         try {
             arSession = await navigator.xr.requestSession('immersive-ar', {
@@ -516,14 +587,14 @@ export function createARController({
                 placementRoot.visible = false;
                 document.getElementById('ar-launch').style.display = 'flex';
                 button.disabled = false;
-                button.textContent = 'View in AR';
-                setARStatus('AR closed. Tap to open it again.');
+                button.textContent = windowT(getWindowLocale(), 'ar.view');
+                setARStatus(windowT(getWindowLocale(), 'ar.closed'));
             }, { once: true });
         } catch (error) {
             console.error('AR session failed:', error);
             arSession = null;
             button.disabled = false;
-            button.textContent = 'Try AR again';
+            button.textContent = windowT(getWindowLocale(), 'ar.tryAgain');
             setARStatus(`${error.name}: ${error.message}`, true);
         }
     }
@@ -577,6 +648,30 @@ export function createARController({
             placeWindowInFrontOfCamera();
         }
     }
+
+    function handleLocaleChange() {
+        if (isARMode) void updateARAvailability();
+        const modal = document.getElementById('qr-modal');
+        if (modal?.classList.contains('open')) {
+            const platformInfo = selectedARInfo();
+            const description = document.getElementById('qr-description');
+            const downloadButton = document.getElementById('qr-download-model');
+            if (description) {
+                description.textContent = windowT(getWindowLocale(), 'ar.descriptionSelected', {
+                    platform: platformInfo.label,
+                    format: platformInfo.format.toUpperCase(),
+                    viewer: platformInfo.viewer,
+                });
+            }
+            if (downloadButton) {
+                downloadButton.textContent = windowT(getWindowLocale(), 'ar.downloadOptimized', {
+                    format: latestExportFormat.toUpperCase(),
+                });
+            }
+        }
+    }
+
+    globalThis.window?.addEventListener('window-locale-applied', handleLocaleChange);
 
     function downloadLatestARAsset() {
         if (!latestExportedAsset) return;
