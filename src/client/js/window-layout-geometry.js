@@ -40,6 +40,64 @@ function armDirectionVector(direction) {
     return Object.freeze({ x: 0, y: 0 });
 }
 
+export function getReentrantFillerTriangle({
+    filler,
+    dividerFaceSpan = 0,
+} = {}) {
+    if (!filler) return Object.freeze([]);
+    const halfFace = Math.max(0, finiteNumber(dividerFaceSpan)) / 2;
+    if (halfFace <= 0) return Object.freeze([]);
+
+    const extrusion = armDirectionVector(filler.extrusionDirection);
+    const missing = armDirectionVector(filler.direction);
+    if (
+        (!extrusion.x && !extrusion.y)
+        || (!missing.x && !missing.y)
+    ) {
+        return Object.freeze([]);
+    }
+
+    // This is the literal front-view opening left by the missing half of the
+    // mullion at a merged-L re-entrant junction. It is NOT a short mullion in
+    // the missing direction, and it must not overlap either neighbouring frame.
+    //
+    // The two existing 45-degree cuts already define the sides of the hole:
+    // one side comes from the frame and the other from the surviving mullion.
+    // Therefore the filler is the triangle BETWEEN those two cuts. Starting at
+    // the common V apex, move half a mullion face toward the merged window,
+    // then half a face in both directions parallel to the surviving mullion.
+    // Those two shoulders lie exactly on the existing cut edges.
+    //
+    // Top-row merge example (missing north, surviving mullion to the east):
+    //
+    //        left shoulder -------- right shoulder
+    //             \                    /
+    //              \                  /
+    //               \                /
+    //                       apex
+    //
+    // For the 88 mm mullion this is an 88 mm-wide mouth, 44 mm above the
+    // apex. Crucially, there is no extra triangle on the frame side.
+    const apex = Object.freeze({
+        x: finiteNumber(filler.apexX),
+        y: finiteNumber(filler.apexY),
+    });
+    const mouthCenter = Object.freeze({
+        x: apex.x + missing.x * halfFace,
+        y: apex.y + missing.y * halfFace,
+    });
+    const firstShoulder = Object.freeze({
+        x: mouthCenter.x + extrusion.x * halfFace,
+        y: mouthCenter.y + extrusion.y * halfFace,
+    });
+    const secondShoulder = Object.freeze({
+        x: mouthCenter.x - extrusion.x * halfFace,
+        y: mouthCenter.y - extrusion.y * halfFace,
+    });
+
+    return Object.freeze([apex, firstShoulder, secondShoulder]);
+}
+
 function hasWindowAcrossMissingReentrantDirection({ junction, cells, direction }) {
     const epsilon = 1e-9;
     const x = finiteNumber(junction?.x);

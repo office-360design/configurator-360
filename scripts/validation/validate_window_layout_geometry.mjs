@@ -17,6 +17,7 @@ import {
     getEditableDividerSegmentPlacement,
     getEditableReentrantFramePlacement,
     getEditableFixedGlazingDividerCadTransform,
+    getReentrantFillerTriangle,
 } from '../../src/client/js/window-layout-geometry.js';
 
 import {
@@ -2010,6 +2011,21 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
                 && Math.abs(arrowAtNorthShoulder - (filler.apexX - faceSpan / 2)) < 1e-9
                 && Math.abs((filler.perpendicularOffset + faceSpan / 2) - (filler.apexY + faceSpan / 2)) < 1e-9,
             'The re-entrant filler must be the horizontal north-half V wedge: centre-face tip at the common apex, with the retained north shoulder closing 44 mm to the west instead of creating a vertical cap.'
+        );
+
+        const wedgeTriangle = getReentrantFillerTriangle({
+            filler,
+            dividerFaceSpan: faceSpan,
+        });
+        assert(
+            wedgeTriangle.length === 3
+                && Math.abs(wedgeTriangle[0].x - filler.apexX) < 1e-9
+                && Math.abs(wedgeTriangle[0].y - filler.apexY) < 1e-9
+                && Math.abs(wedgeTriangle[1].x - (filler.apexX - faceSpan / 2)) < 1e-9
+                && Math.abs(wedgeTriangle[1].y - (filler.apexY + faceSpan / 2)) < 1e-9
+                && Math.abs(wedgeTriangle[2].x - (filler.apexX + faceSpan / 2)) < 1e-9
+                && Math.abs(wedgeTriangle[2].y - (filler.apexY + faceSpan / 2)) < 1e-9,
+            'The rendered merged-L filler must occupy only the open V: apex plus the two north shoulders 44 mm left/right, without placing any triangle over the left frame.'
         );
     }
 

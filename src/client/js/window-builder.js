@@ -26,6 +26,7 @@ import {
     getEditableDividerSegmentPlacement,
     getEditableReentrantFramePlacement,
     getEditableFixedGlazingDividerCadTransform,
+    getReentrantFillerTriangle,
 } from './window-layout-geometry.js';
 import { getDividerConnectionVariantKey } from './window-layout-state.js';
 
@@ -496,6 +497,52 @@ export function createWindowBuilder({
             EXPLODE_Z_OFFSETS.divider
         );
         return mesh;
+    }
+
+    function clipDividerMeshToReentrantFillerTriangle(mesh, filler, dividerFaceSpan) {
+        const triangle = getReentrantFillerTriangle({
+            filler,
+            dividerFaceSpan,
+        });
+        if (!mesh?.geometry || triangle.length !== 3) return false;
+
+        const [a, b, c] = triangle;
+        const area2 = (b.x - a.x) * (c.y - a.y)
+            - (b.y - a.y) * (c.x - a.x);
+        if (Math.abs(area2) <= 1e-12) return false;
+        const windingSign = area2 > 0 ? 1 : -1;
+
+        // Keep the real mullion geometry/materials, but trim every component
+        // to the exact triangular opening in layout XY. This is intentionally
+        // different from the previous solid-colour wedge: the visible filler
+        // is now literally a horizontally/vertically extruded slice of the
+        // selected mullion assembly, including its real profile islands and
+        // materials. The triangle only acts as a clipping mask.
+        [[a, b], [b, c], [c, a]].forEach(([p0, p1]) => {
+            const previousGeometry = mesh.geometry;
+            const clippedGeometry = clipBufferGeometryToScalarHalfspace(
+                previousGeometry,
+                rawPoint => {
+                    const worldX = rawPoint.x + (Number(mesh.position.x) || 0);
+                    const worldY = rawPoint.y + (Number(mesh.position.y) || 0);
+                    const edgeX = p1.x - p0.x;
+                    const edgeY = p1.y - p0.y;
+                    const pointX = worldX - p0.x;
+                    const pointY = worldY - p0.y;
+                    return windingSign * (edgeX * pointY - edgeY * pointX);
+                }
+            );
+            if (clippedGeometry !== previousGeometry) previousGeometry.dispose();
+            mesh.geometry = clippedGeometry;
+        });
+
+        const positions = mesh.geometry?.attributes?.position;
+        if (!positions || positions.count < 3) return false;
+        mesh.geometry.deleteAttribute('normal');
+        mesh.geometry.computeVertexNormals();
+        mesh.geometry.computeBoundingBox();
+        mesh.geometry.computeBoundingSphere();
+        return true;
     }
 
     const templateGeometryCache = new Map();
@@ -2293,34 +2340,83 @@ export function createWindowBuilder({
             });
 
             // A merged L can leave one V-shaped opening where the removed
-            // divider used to continue through the now-merged window. Geometry
-            // exposes a tiny one-ended half-mullion cap only for that topology.
-            // Render it from the same standalone divider section as the
-            // surviving mullion, but do not attach normal mullion accessories:
-            // this is a local cut piece, not another real divider boundary.
+            // divider used to continue through the now-merged window. Fill it
+            // with the actual selected mullion assembly, extruded parallel to
+            // the surviving mullion, and clip that assembly to the exact V
+            // opening. This keeps the real aluminium/gasket/profile appearance
+            // instead of drawing a generic solid-colour triangle.
             (editableTopologyGeometry?.reentrantFillers || []).forEach(filler => {
                 const sourceSegment = editableSegments.find(
                     segment => segment.id === filler.sourceDividerId
                 );
-                if (!sourceSegment || filler.length <= 1e-6) return;
+                if (!sourceSegment) return;
 
                 const variantMetadata = getEditableDividerVariantMetadata(sourceSegment);
                 const connectionMetadata = variantMetadata?.dividerConnection || {};
                 const depthOffset = (
                     Number(connectionMetadata.depthCenterFromAssemblyCenterMm) || 0
                 ) * S;
-                const fillerFaceDirection = filler.orientation === 'horizontal' ? -1 : 1;
-                const faceDirection = sourceSegment.reversed
-                    ? -fillerFaceDirection
-                    : fillerFaceDirection;
                 const fillerProfiles = activeDividerProfiles.map(profile =>
                     getEditableProfileVariant(profile, sourceSegment)
                 );
                 const fillerBounds = getDividerSourceBounds(fillerProfiles) || dividerBounds;
+                const fillerMetrics = getDividerCrossSectionMetrics(fillerBounds);
+                const fillerFaceSpan = fillerMetrics.faceSpanM || dividerFaceSpan;
+                if (fillerFaceSpan <= 1e-6) return;
+
+                // The V mouth is one full mullion face wide. Build enough real
+                // mullion stock to cover it, centred on the V apex, then clip
+                // the result to the triangular opening. For a missing top arm
+                // this creates a HORIZONTAL extrusion, not a vertical stub.
+                const renderLength = fillerFaceSpan;
+                const longitudinalOffset = filler.orientation === 'horizontal'
+                    ? filler.apexX
+                    : filler.apexY;
+                const perpendicularOffset = filler.orientation === 'horizontal'
+                    ? filler.apexY
+                    : filler.apexX;
+                const authoredFaceDirection = filler.orientation === 'horizontal' ? -1 : 1;
+                const faceDirection = sourceSegment.reversed
+                    ? -authoredFaceDirection
+                    : authoredFaceDirection;
+                const squareJoint = {
+                    negativeEndMode: 'square',
+                    positiveEndMode: 'square',
+                    negativeFrameInwardSpan: frameJointInwardSpan,
+                    positiveFrameInwardSpan: frameJointInwardSpan,
+                };
                 const fillerSegment = {
                     ...sourceSegment,
                     id: filler.id,
                     orientation: filler.orientation,
+                    perpendicularOffset,
+                };
+
+                const createClippedFillerMesh = placedProfile => {
+                    const mesh = createDividerSegment(
+                        placedProfile,
+                        renderLength,
+                        filler.orientation,
+                        fillerBounds,
+                        depthOffset,
+                        frameJointInwardSpan,
+                        perpendicularOffset,
+                        longitudinalOffset,
+                        faceDirection,
+                        squareJoint
+                    );
+                    if (!clipDividerMeshToReentrantFillerTriangle(
+                        mesh,
+                        filler,
+                        fillerFaceSpan
+                    )) {
+                        mesh.geometry?.dispose();
+                        return null;
+                    }
+                    mesh.userData.reentrantFiller = true;
+                    mesh.userData.reentrantFillerDirection = filler.direction;
+                    mesh.userData.reentrantFillerSourceDividerId = filler.sourceDividerId;
+                    return mesh;
                 };
 
                 fillerProfiles.forEach(variantProfile => {
@@ -2331,22 +2427,101 @@ export function createWindowBuilder({
                             || Number(variantProfile.dividerSectionRotationDeg)
                             || 180,
                     };
-                    const mesh = createDividerSegment(
-                        placedProfile,
-                        filler.length,
-                        filler.orientation,
-                        fillerBounds,
-                        depthOffset,
-                        frameJointInwardSpan,
-                        filler.perpendicularOffset,
-                        filler.longitudinalOffset,
-                        faceDirection,
-                        filler.joint
-                    );
-                    mesh.userData.reentrantFiller = true;
-                    mesh.userData.reentrantFillerDirection = filler.direction;
-                    mesh.userData.reentrantFillerSourceDividerId = filler.sourceDividerId;
+                    const mesh = createClippedFillerMesh(placedProfile);
+                    if (!mesh) return;
+                    mesh.userData.reentrantFillerProfileSection = true;
                     placeEditableDividerMesh(mesh, fillerSegment, 'reentrant-filler');
+                });
+
+                // The filler is a literal slice of the surviving mullion, so
+                // it must carry the same join-authored components as that
+                // mullion. The structural profile above comes from the
+                // standalone divider assembly; 224063/245472 connection
+                // gaskets and optional mullion accessories such as 200988 /
+                // 224068 are separate active profiles whose exact cross-section
+                // seats come from the connection DWG. Recreate those same
+                // transformed profiles on the filler, then clip them with the
+                // identical V mask. This keeps the accessory seated on the
+                // horizontally extruded mullion section instead of adding a
+                // detached or differently-oriented accessory copy.
+                activeProfiles.forEach(profile => {
+                    const variantProfile = getEditableProfileVariant(profile, sourceSegment);
+                    const sectionRotationDeg =
+                        Number(connectionMetadata.sectionRotationDeg)
+                        || Number(variantProfile.dividerSectionRotationDeg)
+                        || 180;
+
+                    const connectionTransforms = Object.entries(
+                        variantProfile.mullionConnectionCadTransforms || {}
+                    );
+                    if (
+                        !connectionTransforms.length
+                        && variantProfile.mullionConnectionCadTransform
+                    ) {
+                        connectionTransforms.push([
+                            variantProfile.mullionConnectionCellSide || 'unknown',
+                            variantProfile.mullionConnectionCadTransform,
+                        ]);
+                    }
+
+                    connectionTransforms.forEach(([cellSide, cadTransform]) => {
+                        if (!cadTransform) return;
+                        const runtimeCellSide = sourceSegment.reversed
+                            ? (cellSide === 'left'
+                                ? 'right'
+                                : (cellSide === 'right' ? 'left' : cellSide))
+                            : cellSide;
+                        const placedProfile = {
+                            ...variantProfile,
+                            cadCoordinateTransform: cadTransform,
+                            cadAlignmentShiftXMm: 0,
+                            cadAlignmentShiftYMm: 0,
+                            dividerSectionRotationDeg: sectionRotationDeg,
+                        };
+                        const mesh = createClippedFillerMesh(placedProfile);
+                        if (!mesh) return;
+                        mesh.userData.reentrantFillerConnectionGasket = true;
+                        mesh.userData.mullionConnectionGasket = true;
+                        mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
+                        mesh.userData.connectionProfileId =
+                            variantProfile.mullionConnectionProfileId || null;
+                        placeEditableDividerMesh(
+                            mesh,
+                            fillerSegment,
+                            'reentrant-filler-connection-gasket'
+                        );
+                    });
+
+                    Object.entries(variantProfile.mullionAccessoryCadTransforms || {})
+                        .forEach(([cellSide, cadTransform]) => {
+                            if (!cadTransform) return;
+                            const runtimeCellSide = sourceSegment.reversed
+                                ? (cellSide === 'left'
+                                    ? 'right'
+                                    : (cellSide === 'right' ? 'left' : cellSide))
+                                : cellSide;
+                            const placedProfile = {
+                                ...variantProfile,
+                                cadCoordinateTransform: cadTransform,
+                                cadAlignmentShiftXMm: 0,
+                                cadAlignmentShiftYMm: 0,
+                                dividerSectionRotationDeg: sectionRotationDeg,
+                            };
+                            const mesh = createClippedFillerMesh(placedProfile);
+                            if (!mesh) return;
+                            mesh.userData.reentrantFillerAccessory = true;
+                            mesh.userData.mullionAccessory = true;
+                            mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
+                            mesh.userData.connectionProfileId =
+                                variantProfile.mullionAccessoryProfileId || null;
+                            mesh.userData.accessoryHostProfileId =
+                                variantProfile.mullionAccessoryHostProfileId || null;
+                            placeEditableDividerMesh(
+                                mesh,
+                                fillerSegment,
+                                'reentrant-filler-accessory'
+                            );
+                        });
                 });
             });
         } else if (isTopFixedBottomSashSash && dividerBounds && tLayoutGeometry) {
