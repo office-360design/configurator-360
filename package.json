@@ -35,7 +35,8 @@
     "check:window-importmap": "node scripts/validation/validate_window_importmap_order.mjs",
     "check:website-hydration": "node scripts/validation/validate_website_release_hydration.mjs",
     "check:website-route-isolation": "node scripts/validation/validate_website_route_isolation.mjs",
-    "check:configurator-notfound": "node scripts/validation/validate_configurator_no_notfound.mjs"
+    "check:configurator-notfound": "node scripts/validation/validate_configurator_no_notfound.mjs",
+    "diagnose:website-flight": "node scripts/diagnostics/diagnose_website_flight_payload.mjs"
   },
   "keywords": [],
   "author": "",
