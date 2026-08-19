@@ -1,6 +1,6 @@
 import type { Locale } from "./i18n";
 
-type PergolaSeoContent = {
+export type ConfiguratorSeoContent = {
   intro: {
     label: string;
     heading: string;
@@ -40,7 +40,7 @@ type PergolaSeoContent = {
   };
 };
 
-export const pergolaSeoContent: Record<Locale, PergolaSeoContent> = {
+export const pergolaSeoContent: Record<Locale, ConfiguratorSeoContent> = {
   en: {
     intro: {
       label: "3D pergola planning",
