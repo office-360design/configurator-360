@@ -1,3 +1,9 @@
+"use client";
+
+// Keep the large localized SEO section behind a Client Component boundary.
+// Next/Vinext still prerenders Client Components to HTML on the initial load,
+// but the RSC payload now carries only this component reference + small props
+// instead of serializing the entire long SEO element tree.
 import type { ConfiguratorSlug } from "../lib/configurators";
 import { configuratorSeoContent } from "../lib/configurator-seo-content";
 import { localizedPath, type Locale } from "../lib/i18n";

@@ -32,7 +32,8 @@
     "check:joint-mesh": "node --no-warnings scripts/validation/validate_mesh_joint_geometry.mjs",
     "check:layout-state": "node --no-warnings scripts/validation/validate_window_layout_state.mjs",
     "audit:seo": "node scripts/seo/audit-production.mjs",
-    "check:window-importmap": "node scripts/validation/validate_window_importmap_order.mjs"
+    "check:window-importmap": "node scripts/validation/validate_window_importmap_order.mjs",
+    "check:website-hydration": "node scripts/validation/validate_website_release_hydration.mjs"
   },
   "keywords": [],
   "author": "",
