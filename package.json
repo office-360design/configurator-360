@@ -33,7 +33,8 @@
     "check:layout-state": "node --no-warnings scripts/validation/validate_window_layout_state.mjs",
     "audit:seo": "node scripts/seo/audit-production.mjs",
     "check:window-importmap": "node scripts/validation/validate_window_importmap_order.mjs",
-    "check:website-hydration": "node scripts/validation/validate_website_release_hydration.mjs"
+    "check:website-hydration": "node scripts/validation/validate_website_release_hydration.mjs",
+    "check:website-route-isolation": "node scripts/validation/validate_website_route_isolation.mjs"
   },
   "keywords": [],
   "author": "",
