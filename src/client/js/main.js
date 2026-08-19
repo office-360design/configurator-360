@@ -408,8 +408,12 @@ windowLayoutOverlay = createWindowLayoutOverlay({
     getWidth: () => Number(widthInput?.value) || 1,
     getHeight: () => Number(heightInput?.value) || 1,
     getSelectedHandleSide: () => selectedHandleSide,
-    onAddWindow: (cellId, direction, type, handleSide) =>
-        windowLayoutController.addWindow(cellId, direction, type, { handleSide }),
+    onAddWindow: (cellId, direction, type, handleSide, edge = {}) =>
+        windowLayoutController.addWindow(cellId, direction, type, {
+            handleSide,
+            start: edge.start,
+            end: edge.end,
+        }),
     onMergeWindows: (cellAId, cellBId, type, handleSide) =>
         windowLayoutController.mergeWindows(cellAId, cellBId, type, { handleSide }),
     enabled: !isARMode && !captureMode,

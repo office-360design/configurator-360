@@ -120,7 +120,8 @@ export function createWindowLayoutOverlay({
                     definition.cellId,
                     definition.direction,
                     type,
-                    type === SASH_WINDOW_TYPE ? getSelectedHandleSide() : null
+                    type === SASH_WINDOW_TYPE ? getSelectedHandleSide() : null,
+                    { start: definition.start, end: definition.end }
                 ));
                 return;
             }
@@ -166,8 +167,10 @@ export function createWindowLayoutOverlay({
 
     function localPointForControl(definition) {
         if (definition.kind === 'add') {
-            const placement = getEditableTopologyGeometry()?.framePlacements?.find(p => 
-                p.windowCell === definition.cellId && p.side === definition.direction
+            const placement = getEditableTopologyGeometry()?.framePlacements?.find(p =>
+                definition.frameEdgeId
+                    ? p.id === definition.frameEdgeId
+                    : (p.windowCell === definition.cellId && p.side === definition.direction)
             );
             if (placement) {
                 let x = placement.originX;

@@ -5,11 +5,22 @@ import {
     getFixedGlassPanePlacement,
     getHorizontalConnectionFaceDirection,
     getFrameDividerSocketInset,
+    getFrameReentrantMiterInset,
     getFrameSidePlacements,
     getLinearDividerLayout,
     getTopFixedBottomSashSashLayout,
     getEditableWindowTopologyGeometry,
+    getEditableDividerSegmentPlacement,
+    getEditableReentrantFramePlacement,
+    getEditableFixedGlazingDividerCadTransform,
 } from '../../src/client/js/window-layout-geometry.js';
+
+import {
+    addWindowToState,
+    deriveWindowTopology,
+    mergeWindowsInState,
+    normalizeWindowState,
+} from '../../src/client/js/window-layout-state.js';
 
 const errors = [];
 const assert = (condition, message) => {
@@ -603,6 +614,602 @@ const editableGeometry = getEditableWindowTopologyGeometry({
 assert(editableGeometry.cells.length === 3, 'Editable topology must create one runtime rectangle per window cell.');
 assert(editableGeometry.dividerSegments.length === 3, 'Editable T topology must preserve the two host segments plus the branch divider.');
 assert(editableGeometry.junctions.length === 1 && editableGeometry.junctions[0].hostOrientation === 'horizontal', 'Editable T topology must detect the host transom and branch mullion junction.');
+
+
+const editableMixedSeats = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'fixed-left', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+            { id: 'sash-right', type: 'opening-sash', rect: { x0: 1, y0: 0, x1: 2, y1: 1 } },
+        ],
+        frameEdges: [],
+        dividers: [
+            {
+                id: 'mixed-normal',
+                orientation: 'vertical',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'fixed-left',
+                positiveCellId: 'sash-right',
+                negativeCellType: 'fixed-glazing',
+                positiveCellType: 'opening-sash',
+                templateId: 'mullion-fixed-sash',
+                reversed: false,
+            },
+        ],
+    },
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-sash:normal': {
+            dividerConnection: {
+                openingSashDividerBoundariesMm: { right: -13 },
+            },
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: -31 },
+            },
+        },
+    },
+});
+const editableMixedFixed = editableMixedSeats.cells.find(cell => cell.id === 'fixed-left');
+const editableMixedSash = editableMixedSeats.cells.find(cell => cell.id === 'sash-right');
+assert(
+    Math.abs(editableMixedFixed.x1 - (-0.031)) < 1e-9
+        && Math.abs(editableMixedSash.x0 - (-0.013)) < 1e-9
+        && Math.abs(editableMixedFixed.connectionX1 - (-0.031)) < 1e-9
+        && Math.abs(editableMixedSash.connectionX0 - (-0.013)) < 1e-9,
+    'Ordinary dynamic mixed joins must keep using the CAD-derived cell boundaries that were already validated.'
+);
+
+const editableReversedMixedSeats = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'sash-left', type: 'opening-sash', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+            { id: 'fixed-right', type: 'fixed-glazing', rect: { x0: 1, y0: 0, x1: 2, y1: 1 } },
+        ],
+        frameEdges: [],
+        dividers: [
+            {
+                id: 'mixed-reversed',
+                orientation: 'vertical',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'sash-left',
+                positiveCellId: 'fixed-right',
+                negativeCellType: 'opening-sash',
+                positiveCellType: 'fixed-glazing',
+                templateId: 'mullion-fixed-sash',
+                reversed: true,
+            },
+        ],
+    },
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-sash:reversed': {
+            dividerConnection: {
+                openingSashDividerBoundariesMm: { left: 13 },
+            },
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { right: 9.058930398579662 },
+            },
+        },
+    },
+});
+const editableReversedSash = editableReversedMixedSeats.cells.find(cell => cell.id === 'sash-left');
+const editableReversedFixed = editableReversedMixedSeats.cells.find(cell => cell.id === 'fixed-right');
+assert(
+    Math.abs(editableReversedSash.x1 - 0.013) < 1e-9
+        && Math.abs(editableReversedFixed.x0 - 0.009058930398579662) < 1e-9
+        && Math.abs(editableReversedSash.connectionX1 - 0.013) < 1e-9
+        && Math.abs(editableReversedFixed.connectionX0 - 0.009058930398579662) < 1e-9,
+    'A reversed ordinary mixed join must keep its previously validated CAD-derived cell boundaries.'
+);
+
+const authoredMixedBeadTransform = Object.freeze({ a: 1, d: 1, tx: 10, ty: 44 });
+const resolvedFixedRightBeadTransform = Object.freeze({ a: 1, d: 1, tx: -10, ty: 44 });
+const reversedMixedBeadProfile = {
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-sash:normal': {
+            fixedGlazingDividerCadTransforms: { left: authoredMixedBeadTransform },
+        },
+        'vertical:mullion-fixed-sash:reversed': {
+            fixedGlazingDividerCadTransforms: { right: resolvedFixedRightBeadTransform },
+        },
+    },
+};
+assert(
+    getEditableFixedGlazingDividerCadTransform({
+        profile: reversedMixedBeadProfile,
+        divider: {
+            orientation: 'vertical',
+            templateId: 'mullion-fixed-sash',
+            reversed: true,
+        },
+        runtimeDividerSide: 'right',
+    }) === resolvedFixedRightBeadTransform,
+    'A reversed dynamic mixed join must use its resolved fixed-right glazing-bead transform instead of reusing the normal fixed-left variant.'
+);
+
+const editableFixedFixedSeats = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'fixed-a', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+            { id: 'fixed-b', type: 'fixed-glazing', rect: { x0: 1, y0: 0, x1: 2, y1: 1 } },
+        ],
+        frameEdges: [],
+        dividers: [
+            {
+                id: 'fixed-fixed',
+                orientation: 'vertical',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'fixed-a',
+                positiveCellId: 'fixed-b',
+                negativeCellType: 'fixed-glazing',
+                positiveCellType: 'fixed-glazing',
+                templateId: 'mullion-fixed-fixed',
+                reversed: false,
+            },
+        ],
+    },
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-fixed:normal': {
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: -31, right: 31 },
+            },
+        },
+    },
+});
+const editableFixedA = editableFixedFixedSeats.cells.find(cell => cell.id === 'fixed-a');
+const editableFixedB = editableFixedFixedSeats.cells.find(cell => cell.id === 'fixed-b');
+assert(
+    Math.abs(editableFixedA.x1 - (-0.031)) < 1e-9
+        && Math.abs(editableFixedB.x0 - 0.031) < 1e-9
+        && Math.abs(editableFixedA.connectionX1 - (-0.031)) < 1e-9
+        && Math.abs(editableFixedB.connectionX0 - 0.031) < 1e-9,
+    'Ordinary dynamic fixed/fixed joins must continue using their CAD-derived fixed-light connection rectangle.'
+);
+
+
+// In an unmerged L, the inside-corner cell can touch two mullions. Both CAD
+// seats may extend past their structural centre-lines, but they must not be
+// accumulated into the logical cell dimensions: every 1x1 window still uses
+// exactly one slider width and one slider height.
+const editableEqualSizeL = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'corner-fixed', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+            { id: 'right-sash', type: 'opening-sash', rect: { x0: 1, y0: 0, x1: 2, y1: 1 } },
+            { id: 'top-sash', type: 'opening-sash', rect: { x0: 0, y0: 1, x1: 1, y1: 2 } },
+        ],
+        frameEdges: [
+            {
+                id: 'corner-bottom',
+                cellId: 'corner-fixed',
+                side: 'bottom',
+                coordinate: 0,
+                start: 0,
+                end: 1,
+                cellType: 'fixed-glazing',
+            },
+            {
+                id: 'right-bottom',
+                cellId: 'right-sash',
+                side: 'bottom',
+                coordinate: 0,
+                start: 1,
+                end: 2,
+                cellType: 'opening-sash',
+            },
+        ],
+        dividers: [
+            {
+                id: 'equal-l-vertical',
+                orientation: 'vertical',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'corner-fixed',
+                positiveCellId: 'right-sash',
+                negativeCellType: 'fixed-glazing',
+                positiveCellType: 'opening-sash',
+                templateId: 'mullion-fixed-sash',
+                reversed: false,
+            },
+            {
+                id: 'equal-l-horizontal',
+                orientation: 'horizontal',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'corner-fixed',
+                positiveCellId: 'top-sash',
+                negativeCellType: 'fixed-glazing',
+                positiveCellType: 'opening-sash',
+                templateId: 'mullion-fixed-sash',
+                reversed: false,
+            },
+        ],
+    },
+    dividerConnectionVariants: {
+        'vertical:mullion-fixed-sash:normal': {
+            dividerConnection: {
+                openingSashDividerBoundariesMm: { right: -13 },
+            },
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: 31 },
+            },
+        },
+        'horizontal:mullion-fixed-sash:normal': {
+            dividerConnection: {
+                openingSashDividerBoundariesMm: { right: -13 },
+            },
+            fixedGlazingConnections: {
+                dividerCellBoundariesMm: { left: 31 },
+            },
+        },
+    },
+});
+const equalLCorner = editableEqualSizeL.cells.find(cell => cell.id === 'corner-fixed');
+const equalLRight = editableEqualSizeL.cells.find(cell => cell.id === 'right-sash');
+const equalLTop = editableEqualSizeL.cells.find(cell => cell.id === 'top-sash');
+assert(
+    [equalLCorner, equalLRight, equalLTop].every(cell =>
+        Math.abs(cell.width - 1.2) < 1e-9
+        && Math.abs(cell.height - 1.5) < 1e-9
+    ),
+    'Every unmerged 1x1 cell in an L layout must remain exactly one slider width and one slider height, including the two-divider corner cell.'
+);
+assert(
+    Math.abs(equalLCorner.x1 - equalLCorner.connectionX1) < 1e-9
+        && Math.abs(equalLCorner.y1 - equalLCorner.connectionY1) < 1e-9
+        && Math.abs(equalLRight.x0 - equalLRight.connectionX0) < 1e-9
+        && Math.abs(equalLTop.y0 - equalLTop.connectionY0) < 1e-9,
+    'Equal-size L cells must translate to the exact CAD-derived mullion boundaries instead of reverting to the structural centreline and leaving a sash/mullion gap.'
+);
+assert(
+    Math.abs(equalLCorner.layoutShiftX - equalLTop.layoutShiftX) < 1e-9
+        && Math.abs(equalLCorner.layoutShiftY - equalLRight.layoutShiftY) < 1e-9,
+    'L compensation must propagate by complete columns/rows so neighbouring outer frames remain aligned while the corner cell keeps both CAD seats.'
+);
+assert(
+    Math.abs(equalLCorner.connectionWidth - 1.231) < 1e-9
+        && Math.abs(equalLCorner.connectionHeight - 1.531) < 1e-9,
+    'The L-corner must still retain both CAD mullion connection seats separately from its structural window size.'
+);
+const equalLCornerBottomFrame = editableEqualSizeL.framePlacements.find(
+    placement => placement.id === 'corner-bottom'
+);
+const equalLRightBottomFrame = editableEqualSizeL.framePlacements.find(
+    placement => placement.id === 'right-bottom'
+);
+assert(
+    equalLCornerBottomFrame.width < 1.2
+        && equalLRightBottomFrame.width < 1.2
+        && Math.abs(
+            equalLCornerBottomFrame.perpendicularOffset
+            - equalLRightBottomFrame.perpendicularOffset
+        ) < 1e-9,
+    'The L fix must compensate by shortening the exposed perimeter-frame pieces while keeping the shared row on one aligned outer-frame line.'
+);
+const equalLVerticalDivider = editableEqualSizeL.dividerSegments.find(
+    segment => segment.id === 'equal-l-vertical'
+);
+assert(
+    Math.abs(equalLVerticalDivider.worldStart - equalLCornerBottomFrame.perpendicularOffset) < 1e-9
+        && Math.abs(equalLVerticalDivider.worldEnd) < 1e-9,
+    'The exterior end of an L mullion must follow the compensated frame line while its inside-corner junction remains on the structural L centre.'
+);
+
+const horizontallyMergedGeometry = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'merged-horizontal', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 2, y1: 1 } },
+        ],
+        frameEdges: [
+            { id: 'merged-horizontal-left', cellId: 'merged-horizontal', side: 'left', start: 0, end: 1, cellType: 'fixed-glazing' },
+            { id: 'merged-horizontal-right', cellId: 'merged-horizontal', side: 'right', start: 0, end: 1, cellType: 'fixed-glazing' },
+            { id: 'merged-horizontal-bottom', cellId: 'merged-horizontal', side: 'bottom', start: 0, end: 2, cellType: 'fixed-glazing' },
+            { id: 'merged-horizontal-top', cellId: 'merged-horizontal', side: 'top', start: 0, end: 2, cellType: 'fixed-glazing' },
+        ],
+        dividers: [],
+    },
+});
+const mergedHorizontalLeft = horizontallyMergedGeometry.framePlacements.find(placement => placement.side === 'left');
+const mergedHorizontalRight = horizontallyMergedGeometry.framePlacements.find(placement => placement.side === 'right');
+assert(
+    Math.abs(mergedHorizontalLeft.width - 2.4) < 1e-9
+        && Math.abs(mergedHorizontalRight.width - 2.4) < 1e-9,
+    'After merging left/right windows, both surviving side frames must use the full merged structural width instead of one-window width.'
+);
+assert(
+    Math.abs(mergedHorizontalLeft.originX) < 1e-9
+        && Math.abs(mergedHorizontalRight.originX) < 1e-9,
+    'Merged left/right frame placement must stay centred on the merged structural cell so +/- width/2 lands on the true outer edges.'
+);
+
+const verticallyMergedGeometry = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'merged-vertical', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 2 } },
+        ],
+        frameEdges: [
+            { id: 'merged-vertical-left', cellId: 'merged-vertical', side: 'left', start: 0, end: 2, cellType: 'fixed-glazing' },
+            { id: 'merged-vertical-right', cellId: 'merged-vertical', side: 'right', start: 0, end: 2, cellType: 'fixed-glazing' },
+            { id: 'merged-vertical-bottom', cellId: 'merged-vertical', side: 'bottom', start: 0, end: 1, cellType: 'fixed-glazing' },
+            { id: 'merged-vertical-top', cellId: 'merged-vertical', side: 'top', start: 0, end: 1, cellType: 'fixed-glazing' },
+        ],
+        dividers: [],
+    },
+});
+const mergedVerticalBottom = verticallyMergedGeometry.framePlacements.find(placement => placement.side === 'bottom');
+const mergedVerticalTop = verticallyMergedGeometry.framePlacements.find(placement => placement.side === 'top');
+assert(
+    Math.abs(mergedVerticalBottom.height - 3.0) < 1e-9
+        && Math.abs(mergedVerticalTop.height - 3.0) < 1e-9,
+    'After merging bottom/top windows, both surviving horizontal frames must use the full merged structural height instead of one-window height.'
+);
+assert(
+    Math.abs(mergedVerticalBottom.originY) < 1e-9
+        && Math.abs(mergedVerticalTop.originY) < 1e-9,
+    'Merged bottom/top frame placement must stay centred on the merged structural cell so +/- height/2 lands on the true outer edges.'
+);
+
+
+const editableLGeometry = getEditableWindowTopologyGeometry({
+    width: 1.2,
+    height: 1.5,
+    topology: {
+        windows: [
+            { id: 'bottom-left', type: 'fixed-glazing', rect: { x0: 0, y0: 0, x1: 1, y1: 1 } },
+            { id: 'bottom-right', type: 'opening-sash', rect: { x0: 1, y0: 0, x1: 2, y1: 1 } },
+            { id: 'top-left', type: 'fixed-glazing', rect: { x0: 0, y0: 1, x1: 1, y1: 2 } },
+        ],
+        frameEdges: [],
+        dividers: [
+            {
+                id: 'l-vertical',
+                orientation: 'vertical',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'bottom-left',
+                positiveCellId: 'bottom-right',
+                templateId: 'mullion-fixed-sash',
+                reversed: false,
+            },
+            {
+                id: 'l-horizontal',
+                orientation: 'horizontal',
+                coordinate: 1,
+                start: 0,
+                end: 1,
+                negativeCellId: 'bottom-left',
+                positiveCellId: 'top-left',
+                templateId: 'mullion-fixed-fixed',
+                reversed: false,
+            },
+        ],
+    },
+});
+assert(
+    editableLGeometry.junctions.length === 1
+        && editableLGeometry.junctions[0].type === 'L'
+        && editableLGeometry.junctions[0].endpoints.length === 2,
+    'An L-shaped three-window layout must detect the two perpendicular mullion endpoints as an inside-corner L junction.'
+);
+const lFaceSpan = 0.088;
+const lHalfFace = lFaceSpan / 2;
+editableLGeometry.dividerSegments.forEach(segment => {
+    const placement = getEditableDividerSegmentPlacement({
+        segment,
+        junctions: editableLGeometry.junctions,
+        dividerFaceSpan: lFaceSpan,
+        frameJointInwardSpan: 0.075,
+    });
+    assert(
+        Math.abs(placement.length - (segment.length + lHalfFace)) < 1e-9,
+        `L-junction divider ${segment.id} must extend by half the mullion face so its V tip reaches the shared inside-corner centre.`
+    );
+    assert(
+        placement.joint.positiveFrameInwardSpan === lFaceSpan,
+        `L-junction divider ${segment.id} must use the full mullion face at the connecting end instead of the shorter perimeter-frame joint span.`
+    );
+    assert(
+        Math.abs(placement.longitudinalOffset - (segment.longitudinalOffset + lHalfFace / 2)) < 1e-9,
+        `L-junction divider ${segment.id} must extend only toward the shared corner, without moving its opposite frame connection.`
+    );
+});
+
+
+function assertPartialMergedPerimeter({ windows, mergeA, mergeB, side, start, end, label }) {
+    let state = normalizeWindowState({ windows });
+    state = mergeWindowsInState(state, {
+        cellAId: mergeA,
+        cellBId: mergeB,
+        type: 'fixed-glazing',
+    });
+    const topology = deriveWindowTopology(state);
+    const mergedCell = state.windows.find(cell => cell.id === mergeA);
+    const edge = topology.frameEdges.find(candidate =>
+        candidate.cellId === mergedCell?.id
+        && candidate.side === side
+        && Math.abs(candidate.start - start) < 1e-9
+        && Math.abs(candidate.end - end) < 1e-9
+    );
+    assert(
+        Boolean(edge),
+        `${label} must rebuild the uncovered ${side} portion of the merged window as an exterior frame segment.`
+    );
+    const addCandidate = topology.addCandidates.find(candidate => candidate.frameEdgeId === edge?.id);
+    assert(
+        Boolean(addCandidate),
+        `${label} must keep the newly reconstructed partial frame usable as an add-window edge.`
+    );
+
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology,
+    });
+    const perimeterJunction = geometry.perimeterJunctions.find(junction =>
+        junction.hostFrameEndpoint?.frameId === edge?.id
+    );
+    assert(
+        Boolean(perimeterJunction),
+        `${label} must classify the partial frame + surviving mullion + perpendicular frame as a re-entrant perimeter T.`
+    );
+
+    const basePlacement = geometry.framePlacements.find(placement => placement.id === edge?.id);
+    const frameSpan = 0.075;
+    const mullionFaceSpan = 0.098;
+    const expectedStraightContact = frameSpan - mullionFaceSpan / 2;
+    const reentrantPlacement = getEditableReentrantFramePlacement({
+        placement: basePlacement,
+        perimeterJunctions: geometry.perimeterJunctions,
+        frameInwardSpan: frameSpan,
+        dividerFaceSpan: mullionFaceSpan,
+    });
+    assert(
+        reentrantPlacement?.reentrantHost === true
+            && Math.abs(reentrantPlacement.reentrantStraightContactSpan - expectedStraightContact) < 1e-9,
+        `${label} must use the frame-to-mullion straight-contact offset instead of leaving the partial frame on the ordinary outer-edge plane.`
+    );
+    if (basePlacement && reentrantPlacement && perimeterJunction) {
+        const hostEndpoint = perimeterJunction.hostFrameEndpoint;
+        const isHorizontal = basePlacement.orientation === 'horizontal';
+        const baseLength = isHorizontal ? basePlacement.width : basePlacement.height;
+        const adjustedLength = isHorizontal ? reentrantPlacement.width : reentrantPlacement.height;
+        const baseLongitudinalOrigin = isHorizontal ? basePlacement.originX : basePlacement.originY;
+        const adjustedLongitudinalOrigin = isHorizontal ? reentrantPlacement.originX : reentrantPlacement.originY;
+        const expectedLongitudinalShift = hostEndpoint.atStart ? -frameSpan / 2 : frameSpan / 2;
+        assert(
+            Math.abs(adjustedLength - (baseLength + frameSpan)) < 1e-9
+                && Math.abs(adjustedLongitudinalOrigin - (baseLongitudinalOrigin + expectedLongitudinalShift)) < 1e-9,
+            `${label} must extend the reconstructed frame one full frame span into the T joint without moving its free outer end.`
+        );
+        assert(
+            reentrantPlacement.frameJointModes?.[hostEndpoint.localEnd] === 'reverse-miter',
+            `${label} must reverse the miter at the mullion-continuation end so the ordinary 45-degree cut cannot leave a triangular hole.`
+        );
+
+        const expectedPerpendicularShift = basePlacement.side === 'bottom' || basePlacement.side === 'left'
+            ? -expectedStraightContact
+            : expectedStraightContact;
+        const basePerpendicularOrigin = isHorizontal ? basePlacement.originY : basePlacement.originX;
+        const adjustedPerpendicularOrigin = isHorizontal ? reentrantPlacement.originY : reentrantPlacement.originX;
+        assert(
+            Math.abs(adjustedPerpendicularOrigin - (basePerpendicularOrigin + expectedPerpendicularShift)) < 1e-9,
+            `${label} must move the reconstructed frame outward so its opening-side edge aligns with the surviving mullion face.`
+        );
+    }
+
+    if (addCandidate) {
+        const completed = addWindowToState(state, {
+            cellId: addCandidate.cellId,
+            direction: addCandidate.direction,
+            type: 'fixed-glazing',
+            start: addCandidate.start,
+            end: addCandidate.end,
+        });
+        assert(
+            completed.windows.length === 3,
+            `${label} partial-frame add action must fill only the exposed segment without overlapping the existing third window.`
+        );
+    }
+}
+
+const fixedCell = (id, x0, y0, x1, y1) => ({
+    id,
+    type: 'fixed-glazing',
+    rect: { x0, y0, x1, y1 },
+});
+
+// At a re-entrant T, the reconstructed host frame must exactly continue the
+// opening-side half of the mullion V.  With a 75 mm frame and 98 mm mullion,
+// the straight-contact offset is 26 mm.  The reversed frame miter then lands
+// on the same 45-degree line as the mullion arrow from its apex to shoulder.
+{
+    const frameSpan = 0.075;
+    const mullionFaceSpan = 0.098;
+    const halfMullion = mullionFaceSpan / 2;
+    const straight = frameSpan - halfMullion;
+    [0, halfMullion].forEach(mullionSideDistance => {
+        const frameInward = straight + mullionSideDistance;
+        const frameRelativeEnd = -frameSpan + getFrameReentrantMiterInset({
+            inwardDistance: frameInward,
+            frameInwardSpan: frameSpan,
+        });
+        const dividerLength = 1.0;
+        const dividerRelativeEnd = getDividerSegmentAlongCoordinate({
+            extrusionT: 1,
+            length: dividerLength,
+            faceOffset: mullionSideDistance,
+            faceSpan: mullionFaceSpan,
+            frameInwardSpan: frameSpan,
+        }) - dividerLength / 2;
+        assert(
+            Math.abs(frameRelativeEnd - dividerRelativeEnd) < 1e-9,
+            'The reconstructed frame reverse miter must coincide with the surviving mullion V from apex to shoulder.'
+        );
+    });
+}
+
+[
+    {
+        label: 'L missing bottom-right after merging the top row',
+        windows: [fixedCell('bl', 0, 0, 1, 1), fixedCell('tl', 0, 1, 1, 2), fixedCell('tr', 1, 1, 2, 2)],
+        mergeA: 'tl', mergeB: 'tr', side: 'bottom', start: 1, end: 2,
+    },
+    {
+        label: 'L missing bottom-left after merging the top row',
+        windows: [fixedCell('br', 1, 0, 2, 1), fixedCell('tl', 0, 1, 1, 2), fixedCell('tr', 1, 1, 2, 2)],
+        mergeA: 'tl', mergeB: 'tr', side: 'bottom', start: 0, end: 1,
+    },
+    {
+        label: 'L missing top-right after merging the bottom row',
+        windows: [fixedCell('bl', 0, 0, 1, 1), fixedCell('br', 1, 0, 2, 1), fixedCell('tl', 0, 1, 1, 2)],
+        mergeA: 'bl', mergeB: 'br', side: 'top', start: 1, end: 2,
+    },
+    {
+        label: 'L missing top-left after merging the bottom row',
+        windows: [fixedCell('bl', 0, 0, 1, 1), fixedCell('br', 1, 0, 2, 1), fixedCell('tr', 1, 1, 2, 2)],
+        mergeA: 'bl', mergeB: 'br', side: 'top', start: 0, end: 1,
+    },
+    {
+        label: 'L missing top-right after merging the left column',
+        windows: [fixedCell('bl', 0, 0, 1, 1), fixedCell('tl', 0, 1, 1, 2), fixedCell('br', 1, 0, 2, 1)],
+        mergeA: 'bl', mergeB: 'tl', side: 'right', start: 1, end: 2,
+    },
+    {
+        label: 'L missing bottom-right after merging the left column',
+        windows: [fixedCell('bl', 0, 0, 1, 1), fixedCell('tl', 0, 1, 1, 2), fixedCell('tr', 1, 1, 2, 2)],
+        mergeA: 'bl', mergeB: 'tl', side: 'right', start: 0, end: 1,
+    },
+    {
+        label: 'L missing top-left after merging the right column',
+        windows: [fixedCell('br', 1, 0, 2, 1), fixedCell('tr', 1, 1, 2, 2), fixedCell('bl', 0, 0, 1, 1)],
+        mergeA: 'br', mergeB: 'tr', side: 'left', start: 1, end: 2,
+    },
+    {
+        label: 'L missing bottom-left after merging the right column',
+        windows: [fixedCell('br', 1, 0, 2, 1), fixedCell('tr', 1, 1, 2, 2), fixedCell('tl', 0, 1, 1, 2)],
+        mergeA: 'br', mergeB: 'tr', side: 'left', start: 0, end: 1,
+    },
+].forEach(assertPartialMergedPerimeter);
+
 if (errors.length) {
     console.error('Window layout geometry validation failed:');
     errors.forEach(error => console.error(`- ${error}`));

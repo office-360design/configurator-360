@@ -379,9 +379,9 @@ export function createWindowLayoutController({
         return getConfigurationSnapshot();
     }
 
-    async function addWindow(cellId, direction, type, { handleSide = null, notify = true } = {}) {
+    async function addWindow(cellId, direction, type, { handleSide = null, start = null, end = null, notify = true } = {}) {
         const previous = getConfigurationSnapshot();
-        windowState = addWindowToState(windowState, { cellId, direction, type, handleSide });
+        windowState = addWindowToState(windowState, { cellId, direction, type, handleSide, start, end });
         layoutId = 'dynamic';
         if (notify) return notifyChange(previous, { topologyOnly: true });
         syncControls();

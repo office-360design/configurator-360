@@ -16,9 +16,13 @@ import {
     getHorizontalConnectionFaceDirection,
     getTopFixedBottomSashSashLayout,
     getFrameDividerSocketInset,
+    getFrameReentrantMiterInset,
     getFrameSidePlacements,
     getLinearDividerLayout,
     getEditableWindowTopologyGeometry,
+    getEditableDividerSegmentPlacement,
+    getEditableReentrantFramePlacement,
+    getEditableFixedGlazingDividerCadTransform,
 } from './window-layout-geometry.js';
 import { getDividerConnectionVariantKey } from './window-layout-state.js';
 
@@ -435,7 +439,16 @@ export function createWindowBuilder({
                 ? dividerJoint.localJointEnds
                 : (dividerJoint?.localJointEnd ? [dividerJoint.localJointEnd] : [])
         );
-        if (dividerJointEnds.size && Number(dividerJoint.faceSpan) > 0) {
+        const frameJointEndModes = dividerJoint?.endModes || {};
+        const getFrameJointEndMode = localEnd => {
+            const explicitMode = frameJointEndModes?.[localEnd];
+            if (explicitMode) return explicitMode;
+            return dividerJointEnds.has(localEnd) ? 'socket' : 'miter';
+        };
+        const hasSocketJoint = [...dividerJointEnds].some(
+            localEnd => getFrameJointEndMode(localEnd) === 'socket'
+        );
+        if (hasSocketJoint && Number(dividerJoint.faceSpan) > 0) {
             const halfDividerFace = Number(dividerJoint.faceSpan) / 2;
             const frameInwardSpan = Math.max(
                 0,
@@ -501,22 +514,26 @@ export function createWindowBuilder({
             // divider joint, the outer part of the split frame stays vertical
             // on the centre plane so the left/right pieces still touch each
             // other. Only the inner part opens at 45° to receive the mullion V.
-            let positiveEndInset = inw;
-            let negativeEndInset = inw;
-            if (dividerJointEnds.has('positive')) {
-                positiveEndInset = getFrameDividerSocketInset({
-                    inwardDistance: inw,
-                    dividerFaceSpan: dividerJoint.faceSpan,
-                    frameInwardSpan: dividerJoint.frameInwardSpan,
-                });
-            }
-            if (dividerJointEnds.has('negative')) {
-                negativeEndInset = getFrameDividerSocketInset({
-                    inwardDistance: inw,
-                    dividerFaceSpan: dividerJoint.faceSpan,
-                    frameInwardSpan: dividerJoint.frameInwardSpan,
-                });
-            }
+            const resolveFrameEndInset = localEnd => {
+                const mode = getFrameJointEndMode(localEnd);
+                if (mode === 'square') return 0;
+                if (mode === 'reverse-miter') {
+                    return getFrameReentrantMiterInset({
+                        inwardDistance: inw,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                    });
+                }
+                if (mode === 'socket') {
+                    return getFrameDividerSocketInset({
+                        inwardDistance: inw,
+                        dividerFaceSpan: dividerJoint.faceSpan,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                    });
+                }
+                return inw;
+            };
+            const positiveEndInset = resolveFrameEndInset('positive');
+            const negativeEndInset = resolveFrameEndInset('negative');
             let z_cut = zRaw > 0
                 ? zRaw - positiveEndInset
                 : zRaw + negativeEndInset;
@@ -1351,6 +1368,8 @@ export function createWindowBuilder({
                 width: A,
                 height: B,
                 topology: layoutState.topology,
+                dividerConnectionVariants: currentMetadata.dividerConnectionVariants,
+                connectionScale: S,
             })
             : null;
         const isTopFixedBottomSashSash = !isEditableTopology && (
@@ -1374,6 +1393,16 @@ export function createWindowBuilder({
         const frameJointInwardSpan = dividerOrientation
             ? getFrameJointInwardSpanM(activeProfiles)
             : 0;
+        const editableFramePlacements = isEditableTopology
+            ? (editableTopologyGeometry?.framePlacements || []).map(placement =>
+                getEditableReentrantFramePlacement({
+                    placement,
+                    perimeterJunctions: editableTopologyGeometry?.perimeterJunctions || [],
+                    frameInwardSpan: frameJointInwardSpan,
+                    dividerFaceSpan,
+                })
+            )
+            : null;
 
         let sashA = A;
         let sashB = B;
@@ -1425,6 +1454,12 @@ export function createWindowBuilder({
             const editableCells = (editableTopologyGeometry?.cells || []).map((cell, index) => ({
                 ...cell,
                 cellIndex: index,
+                // Every unmerged grid cell is exactly one slider-sized window.
+                // Do not let a cell at an L corner accumulate two mullion-seat
+                // offsets and become larger than its neighbours. Mullion-facing
+                // bead/gasket cross-sections are already placed from their exact
+                // join-profile CAD transforms; the rectangle itself stays on the
+                // structural one-window bay.
                 fixedAccessoryWidth: cell.width,
                 fixedAccessoryHeight: cell.height,
                 fixedAccessoryCenterX: cell.centerX,
@@ -1715,7 +1750,7 @@ export function createWindowBuilder({
 
         function getOuterFramePlacements(side) {
             if (isEditableTopology) {
-                return (editableTopologyGeometry?.framePlacements || [])
+                return (editableFramePlacements || [])
                     .filter(placement => placement.side === side);
             }
             if (!isTopFixedBottomSashSash || !tLayoutGeometry) {
@@ -1823,6 +1858,7 @@ export function createWindowBuilder({
                                     localJointEnds: placement.localJointEnds,
                                     faceSpan: dividerFaceSpan,
                                     frameInwardSpan: frameJointInwardSpan,
+                                    endModes: placement.frameJointModes,
                                 }
                                 : null
                         );
@@ -1889,6 +1925,7 @@ export function createWindowBuilder({
                                     localJointEnds: placement.localJointEnds,
                                     faceSpan: dividerFaceSpan,
                                     frameInwardSpan: frameJointInwardSpan,
+                                    endModes: placement.frameJointModes,
                                 }
                                 : null
                         );
@@ -1924,59 +1961,6 @@ export function createWindowBuilder({
             return variant ? { ...profile, ...variant } : profile;
         }
 
-        function getEditableJunctionForEndpoint(segment, atStart) {
-            return (editableTopologyGeometry?.junctions || []).find(junction =>
-                junction.endpoints.some(endpoint =>
-                    endpoint.dividerId === segment.id && endpoint.atStart === atStart
-                )
-            ) || null;
-        }
-
-        function getEditableDividerSegmentPlacement(segment) {
-            let length = Math.max(0, Number(segment.length) || 0);
-            let longitudinalOffset = Number(segment.longitudinalOffset) || 0;
-            const joint = {
-                negativeEndMode: 'arrow',
-                positiveEndMode: 'arrow',
-                negativeFrameInwardSpan: frameJointInwardSpan,
-                positiveFrameInwardSpan: frameJointInwardSpan,
-            };
-            const halfFace = Math.max(0, dividerFaceSpan) / 2;
-
-            [true, false].forEach(atStart => {
-                const junction = getEditableJunctionForEndpoint(segment, atStart);
-                if (!junction) return;
-                const endModeKey = atStart ? 'negativeEndMode' : 'positiveEndMode';
-                const frameSpanKey = atStart
-                    ? 'negativeFrameInwardSpan'
-                    : 'positiveFrameInwardSpan';
-
-                if (segment.orientation === junction.hostOrientation) {
-                    // The two collinear host pieces meet each other on one half
-                    // of the section and open a 90-degree socket on the other,
-                    // matching the previously verified top-T joint.
-                    joint[endModeKey] = 'socket';
-                    joint[frameSpanKey] = dividerFaceSpan;
-                    joint.socketInwardSign = 1;
-                    joint.socketInwardOffset = halfFace;
-                    return;
-                }
-
-                // A branch divider needs a nominal extra half-face beyond the
-                // host centre plane so the arrow deformation lands its apex on
-                // the host centre and its shoulders on the socket faces.
-                joint[endModeKey] = 'arrow';
-                joint[frameSpanKey] = dividerFaceSpan;
-                length += halfFace;
-                longitudinalOffset += atStart ? -halfFace / 2 : halfFace / 2;
-            });
-
-            return {
-                length,
-                longitudinalOffset,
-                joint,
-            };
-        }
 
         if (isEditableTopology && dividerBounds) {
             const editableSegments = editableTopologyGeometry?.dividerSegments || [];
@@ -1995,15 +1979,33 @@ export function createWindowBuilder({
                 const depthOffset = (
                     Number(connectionMetadata.depthCenterFromAssemblyCenterMm) || 0
                 ) * S;
-                const faceDirection = segment.orientation === 'horizontal' ? -1 : 1;
-                const segmentPlacement = getEditableDividerSegmentPlacement(segment);
+                const authoredFaceDirection = segment.orientation === 'horizontal' ? -1 : 1;
+                // The mixed CAD connection is authored fixed-left / sash-right.
+                // A dynamic sash-left / fixed-right adjacency is the same
+                // physical join mirrored through the mullion centreline, so
+                // divider-mounted INSERTs (224063, 245472, accessories) must be
+                // mirrored together with the structural section.
+                const faceDirection = segment.reversed
+                    ? -authoredFaceDirection
+                    : authoredFaceDirection;
+                const segmentPlacement = getEditableDividerSegmentPlacement({
+                    segment,
+                    junctions: editableTopologyGeometry?.junctions || [],
+                    dividerFaceSpan,
+                    frameJointInwardSpan,
+                });
+                const segmentDividerProfiles = activeDividerProfiles.map(profile =>
+                    getEditableProfileVariant(profile, segment)
+                );
+                const segmentDividerBounds = getDividerSourceBounds(segmentDividerProfiles)
+                    || dividerBounds;
 
-                activeDividerProfiles.forEach(profile => {
+                segmentDividerProfiles.forEach(variantProfile => {
                     const placedProfile = {
-                        ...getEditableProfileVariant(profile, segment),
+                        ...variantProfile,
                         dividerSectionRotationDeg:
                             Number(connectionMetadata.sectionRotationDeg)
-                            || Number(getEditableProfileVariant(profile, segment).dividerSectionRotationDeg)
+                            || Number(variantProfile.dividerSectionRotationDeg)
                             || 180,
                     };
                     if (segmentPlacement.length <= 1e-6) return;
@@ -2012,7 +2014,7 @@ export function createWindowBuilder({
                             placedProfile,
                             segmentPlacement.length,
                             segment.orientation,
-                            dividerBounds,
+                            segmentDividerBounds,
                             depthOffset,
                             frameJointInwardSpan,
                             segment.perpendicularOffset,
@@ -2043,6 +2045,9 @@ export function createWindowBuilder({
 
                         connectionTransforms.forEach(([cellSide, cadTransform]) => {
                             if (!cadTransform) return;
+                            const runtimeCellSide = segment.reversed
+                                ? (cellSide === 'left' ? 'right' : (cellSide === 'right' ? 'left' : cellSide))
+                                : cellSide;
                             const placedProfile = {
                                 ...variantProfile,
                                 cadCoordinateTransform: cadTransform,
@@ -2057,7 +2062,7 @@ export function createWindowBuilder({
                                 placedProfile,
                                 segmentPlacement.length,
                                 segment.orientation,
-                                dividerBounds,
+                                segmentDividerBounds,
                                 depthOffset,
                                 frameJointInwardSpan,
                                 segment.perpendicularOffset,
@@ -2066,7 +2071,7 @@ export function createWindowBuilder({
                                 segmentPlacement.joint
                             );
                             mesh.userData.mullionConnectionGasket = true;
-                            mesh.userData.connectionBoundary = `mullion-${cellSide}`;
+                            mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
                             mesh.userData.connectionProfileId =
                                 variantProfile.mullionConnectionProfileId || null;
                             placeEditableDividerMesh(mesh, segment, 'connection-gasket');
@@ -2075,6 +2080,9 @@ export function createWindowBuilder({
                         Object.entries(variantProfile.mullionAccessoryCadTransforms || {})
                             .forEach(([cellSide, cadTransform]) => {
                                 if (!cadTransform) return;
+                                const runtimeCellSide = segment.reversed
+                                    ? (cellSide === 'left' ? 'right' : (cellSide === 'right' ? 'left' : cellSide))
+                                    : cellSide;
                                 const placedProfile = {
                                     ...variantProfile,
                                     cadCoordinateTransform: cadTransform,
@@ -2089,7 +2097,7 @@ export function createWindowBuilder({
                                     placedProfile,
                                     segmentPlacement.length,
                                     segment.orientation,
-                                    dividerBounds,
+                                    segmentDividerBounds,
                                     depthOffset,
                                     frameJointInwardSpan,
                                     segment.perpendicularOffset,
@@ -2098,7 +2106,7 @@ export function createWindowBuilder({
                                     segmentPlacement.joint
                                 );
                                 mesh.userData.mullionAccessory = true;
-                                mesh.userData.connectionBoundary = `mullion-${cellSide}`;
+                                mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
                                 mesh.userData.connectionProfileId =
                                     variantProfile.mullionAccessoryProfileId || null;
                                 mesh.userData.accessoryHostProfileId =
@@ -2773,12 +2781,15 @@ export function createWindowBuilder({
             dividerSegmentsForSide.forEach(segment => {
                 const variantProfile = getEditableProfileVariant(profile, segment);
                 const dividerSide = segment.negativeCellId === fixedCell.id ? 'left' : 'right';
+                const authoredDividerSide = segment.reversed
+                    ? (dividerSide === 'left' ? 'right' : 'left')
+                    : dividerSide;
                 const mountedTransforms = variantProfile.mullionConnectionCadTransforms || {};
                 if (
-                    mountedTransforms[dividerSide]
+                    mountedTransforms[authoredDividerSide]
                     || (
                         variantProfile.mullionConnectionCadTransform
-                        && variantProfile.mullionConnectionCellSide === dividerSide
+                        && variantProfile.mullionConnectionCellSide === authoredDividerSide
                     )
                 ) {
                     // The direct 224063/245472 join INSERT has already been
@@ -2787,7 +2798,11 @@ export function createWindowBuilder({
                     return;
                 }
 
-                let transform = variantProfile.fixedGlazingDividerCadTransforms?.[dividerSide] || null;
+                let transform = getEditableFixedGlazingDividerCadTransform({
+                    profile,
+                    divider: segment,
+                    runtimeDividerSide: dividerSide,
+                });
                 transform = applyFixedGlazingFollowerThicknessShift(variantProfile, transform);
                 if (!transform && isFixedGlassAnchorGasket(profile)) return;
                 const placedProfile = transform

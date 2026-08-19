@@ -660,6 +660,20 @@ export function createProfileController({
                 fields[key] = value;
             }
         });
+
+        if (profile.role === 'divider') {
+            // Each CAD connection drawing has its own join-space origin.  The
+            // same standalone mullion therefore receives a different working
+            // transform/bounds in fixed/fixed, fixed/sash and sash/sash joins.
+            // Direct mullion gaskets/accessories are retargeted into that exact
+            // working basis, so caching only their transforms while keeping the
+            // structural divider in the first catalog variant's basis makes the
+            // entire accessory set slide across the mullion.  Preserve the
+            // structural basis together with every divider connection variant.
+            fields.cadCoordinateTransform = profile.cadCoordinateTransform || null;
+            fields.dividerSourceBounds = profile.dividerSourceBounds || null;
+        }
+
         return Object.freeze(fields);
     }
 
@@ -743,6 +757,21 @@ export function createProfileController({
                 cells: [spec.leftCell, spec.rightCell],
             };
 
+            // Fixed glazing on a mullion always uses the fixed/fixed join as
+            // the bead-seat source. The mixed join contains the sash-side
+            // 573940 occurrence, so using it for a fixed cell moves the fixed
+            // glazing bead and its perimeter followers toward the cell centre.
+            // Keep the active connection template for sash placement and for
+            // direct mullion gaskets/accessories, but resolve the fixed-side
+            // bead rectangle from window-mullion-window exactly like the main
+            // (non-editable) composition path already does.
+            const fixedGlazingPlacementTemplate = (
+                spec.leftCell === 'fixed-glazing'
+                || spec.rightCell === 'fixed-glazing'
+            )
+                ? fixedFixedTemplate
+                : connectionTemplate;
+
             let variantDefinition = composeRegisteredProfileDefinitions({
                 selection: variantSelection,
                 definitionsByProfileSetId,
@@ -750,7 +779,7 @@ export function createProfileController({
                 connectionTemplate,
                 placementConnectionTemplate,
                 fixedGlazingFrameTemplate,
-                fixedGlazingDividerTemplate: connectionTemplate,
+                fixedGlazingDividerTemplate: fixedGlazingPlacementTemplate,
                 fixedGlazingDividerGasketTemplate: connectionTemplate,
                 standaloneBeadDefinition,
             });
