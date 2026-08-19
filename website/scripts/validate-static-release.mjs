@@ -87,7 +87,17 @@ for (const route of pageRoutes) {
       ? "https://www.360konfigurator.de"
       : "https://www.360configurator.com";
   if (!html.includes(expectedOrigin)) failures.push(`${route} lacks its localized canonical origin ${expectedOrigin}`);
-  if (html.includes("https://www.360configurator.com/ro") || html.includes("https://www.360configurator.com/de")) failures.push(`${route} contains a legacy locale-prefixed .com URL`);
+  const legacyLocalePrefixedUrlPattern = /https:\/\/(?:www\.)?360configurator\.com\/(?:ro|de)(?![A-Za-z0-9_-])/;
+  if (legacyLocalePrefixedUrlPattern.test(html)) failures.push(`${route} contains a legacy locale-prefixed .com URL`);
+  if (html.includes("https://www.360configurator.roof-configurator/")) {
+    failures.push(`${route} contains the corrupted English roof configurator URL`);
+  }
+  if (
+    route === "/configurators/roof" &&
+    !html.includes("https://www.360configurator.com/roof-configurator/")
+  ) {
+    failures.push(`${route} is missing the correct English roof configurator URL`);
+  }
   if (!html.includes(`<html lang="${expectedLanguage}"`)) failures.push(`${route} has an incorrect document language; expected ${expectedLanguage}`);
 }
 

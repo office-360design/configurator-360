@@ -5,8 +5,10 @@ import { pageMetadata } from "../../../lib/seo";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
+export const dynamicParams = false;
+
 export function generateStaticParams() {
-  return configurators.map((item) => ({ slug: item.slug }));
+  return configurators.filter((item) => item.slug !== "roof").map((item) => ({ slug: item.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
