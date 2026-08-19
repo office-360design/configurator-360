@@ -9,6 +9,7 @@ import {
     getProfileCatalogEntry,
 } from './profile-catalog.js';
 import { resolveAccessoryPlacement } from './profile-compatibility.js';
+import { getWindowLocale, localizeAccessoryGroup, localizeAccessoryPreset, windowPlural, windowT } from './i18n.js';
 
 const FALSE_VALUES = new Set(['0', 'false', 'off', 'no', 'disabled']);
 const TRUE_VALUES = new Set(['1', 'true', 'on', 'yes', 'enabled']);
@@ -170,10 +171,10 @@ export function createAccessoryController({
     function updatePresetDescription() {
         if (!presetDescription) return;
         if (currentPresetId === CUSTOM_PRESET_ID) {
-            presetDescription.textContent = 'Custom accessory selection.';
+            presetDescription.textContent = windowT(getWindowLocale(), 'accessory.customSelection');
             return;
         }
-        presetDescription.textContent = getAccessoryPreset(currentPresetId)?.description || '';
+        presetDescription.textContent = localizeAccessoryPreset(getWindowLocale(), getAccessoryPreset(currentPresetId))?.description || '';
     }
 
     function syncDedicatedControl(groupId) {
@@ -219,30 +220,30 @@ export function createAccessoryController({
 
         if (profileLabel) {
             if (group.selectionMode === 'glass-thickness' && available) {
-                profileLabel.textContent = `Active: ${displayedProfileId}`;
+                profileLabel.textContent = windowT(getWindowLocale(), 'accessory.active', { id: displayedProfileId });
             } else if (loadedIds.length) {
                 profileLabel.textContent = loadedIds.join(' / ');
             } else if (availableCatalogIds.length) {
-                profileLabel.textContent = `${availableCatalogIds.join(' / ')} — not in current CAD assembly`;
+                profileLabel.textContent = windowT(getWindowLocale(), 'accessory.notInAssembly', { ids: availableCatalogIds.join(' / ') });
             } else {
-                profileLabel.textContent = `${group.profileIds.join(' / ')} — geometry missing`;
+                profileLabel.textContent = windowT(getWindowLocale(), 'accessory.geometryMissing', { ids: group.profileIds.join(' / ') });
             }
         }
 
         if (statusLabel) {
             if (!available && availableCatalogIds.length) {
-                statusLabel.textContent = 'Unavailable in current CAD assembly';
+                statusLabel.textContent = windowT(getWindowLocale(), 'accessory.unavailableAssembly');
             } else if (!available) {
-                statusLabel.textContent = 'Source geometry required';
+                statusLabel.textContent = windowT(getWindowLocale(), 'accessory.sourceRequired');
             } else if (missingIds.length) {
-                statusLabel.textContent = `Missing variant${missingIds.length > 1 ? 's' : ''}: ${missingIds.join(', ')}`;
+                statusLabel.textContent = windowPlural(getWindowLocale(), 'accessory.missingVariant', missingIds.length, { ids: missingIds.join(', ') });
             } else {
                 statusLabel.textContent = '';
             }
         }
 
         if (description) {
-            description.textContent = group.description || '';
+            description.textContent = localizeAccessoryGroup(getWindowLocale(), group)?.description || '';
         }
     }
 
@@ -449,7 +450,7 @@ export function createAccessoryController({
 
         const customOption = document.createElement('option');
         customOption.value = CUSTOM_PRESET_ID;
-        customOption.textContent = 'Custom';
+        customOption.textContent = windowT(getWindowLocale(), 'accessory.custom');
         presetInput.appendChild(customOption);
         setPresetInputValue();
     }
@@ -469,7 +470,7 @@ export function createAccessoryController({
         const input = createElement('input');
         const slider = createElement('span', 'switch-slider');
 
-        label.textContent = group.label;
+        label.textContent = localizeAccessoryGroup(getWindowLocale(), group)?.label || group.label;
         header.append(label, profile);
         text.append(header, description, status);
         input.type = 'checkbox';
@@ -627,6 +628,12 @@ export function createAccessoryController({
             url.searchParams.set(group.urlParameter, state?.enabled ? '1' : '0');
         });
     }
+
+    globalThis.window?.addEventListener('window-locale-applied', () => {
+        populatePresetOptions();
+        renderAccessoryOptions();
+        syncControls();
+    });
 
     return {
         initializeControls,

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getWindowLocale, windowT } from './i18n.js';
 
 const POINTER_DRAG_THRESHOLD_PX = 5;
 const HIGHLIGHT_COLOUR = new THREE.Color(0x3b82f6);
@@ -31,9 +32,10 @@ function disposeHighlightedMaterial(material) {
 }
 
 function getComponentSourceLabel(source) {
-    if (source === 'frame') return 'Frame';
-    if (source === 'bead') return 'Glazing bead';
-    return 'Sash / Vent';
+    const locale = getWindowLocale();
+    if (source === 'frame') return windowT(locale, 'selection.source.frame');
+    if (source === 'bead') return windowT(locale, 'selection.source.bead');
+    return windowT(locale, 'selection.source.sash');
 }
 
 export function createComponentSelection({
@@ -52,6 +54,7 @@ export function createComponentSelection({
     let selectableMeshes = [];
     let selectedMesh = null;
     let selectedOriginalMaterial = null;
+    let selectedComponent = null;
     let pointerStart = null;
 
     function clear() {
@@ -63,6 +66,7 @@ export function createComponentSelection({
 
         selectedMesh = null;
         selectedOriginalMaterial = null;
+        selectedComponent = null;
         if (popup) popup.hidden = true;
     }
 
@@ -73,6 +77,7 @@ export function createComponentSelection({
         clear();
         selectedMesh = mesh;
         selectedOriginalMaterial = mesh.material;
+        selectedComponent = component;
         mesh.material = cloneHighlightedMaterial(mesh.material);
 
         if (name) name.textContent = component.name;
@@ -129,14 +134,23 @@ export function createComponentSelection({
         if (mesh?.isMesh) selectableMeshes.push(mesh);
     }
 
+    function handleLocaleChange() {
+        if (selectedComponent && source) {
+            source.textContent = getComponentSourceLabel(selectedComponent.source);
+        }
+    }
+
     function destroy() {
         clear();
+        globalThis.window?.removeEventListener('window-locale-applied', handleLocaleChange);
         if (!enabled) return;
         renderer.domElement.removeEventListener('pointerdown', handlePointerDown);
         renderer.domElement.removeEventListener('pointerup', handlePointerUp);
         renderer.domElement.removeEventListener('pointercancel', handlePointerCancel);
         closeButton?.removeEventListener('click', clear);
     }
+
+    globalThis.window?.addEventListener('window-locale-applied', handleLocaleChange);
 
     if (enabled) {
         renderer.domElement.addEventListener('pointerdown', handlePointerDown);

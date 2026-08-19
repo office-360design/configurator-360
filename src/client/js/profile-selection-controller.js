@@ -7,6 +7,7 @@ import {
 } from './profile-catalog.js';
 import { resolveLegacyProfileSelection } from './profile-compatibility.js';
 import { createProfileSelectionSignature } from './profile-composition.js';
+import { getWindowLocale, windowT } from './i18n.js';
 
 export const CUSTOM_CAD_ASSEMBLY_ID = 'custom';
 
@@ -126,7 +127,7 @@ export function createProfileSelectionController({
             })),
             {
                 value: CUSTOM_CAD_ASSEMBLY_ID,
-                label: 'Custom',
+                label: windowT(getWindowLocale(), 'profile.custom'),
             },
         ];
     }
@@ -339,6 +340,10 @@ export function createProfileSelectionController({
             url.searchParams.set('sash_profile', snapshot.sashProfileId);
         }
     }
+
+    globalThis.window?.addEventListener('window-locale-applied', () => {
+        syncInputs();
+    });
 
     return {
         initializeControls,

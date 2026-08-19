@@ -9,6 +9,7 @@ import {
     createRalFinishSelectionFromColour,
 } from './config.js';
 import { isDrainageCapProfile } from './profile-catalog.js';
+import { getWindowLocale, localizeFinishSelection, windowT } from './i18n.js';
 
 export function createMaterialManager({
     captureMode,
@@ -272,8 +273,12 @@ export function createMaterialManager({
             button.type = 'button';
             button.className = `finish-swatch${selection.presetId === preset.id ? ' active' : ''}`;
             button.style.setProperty('--swatch-color', preset.color);
-            button.title = preset.name;
-            button.setAttribute('aria-label', preset.name);
+            const presetLabel = windowT(
+                getWindowLocale(),
+                `finish.preset.${selection.type}.${preset.id}`
+            );
+            button.title = presetLabel;
+            button.setAttribute('aria-label', presetLabel);
             button.setAttribute('aria-pressed', selection.presetId === preset.id ? 'true' : 'false');
             button.addEventListener('click', () => {
                 setFinishSelection(side, createFinishSelection(selection.type, preset.id));
@@ -284,7 +289,7 @@ export function createMaterialManager({
         });
 
         if (ui.selectedName) {
-            ui.selectedName.textContent = selection.name;
+            ui.selectedName.textContent = localizeFinishSelection(getWindowLocale(), selection);
         }
     }
 
@@ -303,9 +308,10 @@ export function createMaterialManager({
         }
         if (insideCard) insideCard.hidden = aluminiumFinishMode === 'same';
         if (outsideTitle) {
-            outsideTitle.textContent = aluminiumFinishMode === 'same'
-                ? 'Inside and outside'
-                : 'Outside';
+            outsideTitle.textContent = windowT(
+                getWindowLocale(),
+                aluminiumFinishMode === 'same' ? 'finish.insideOutside' : 'finish.outside'
+            );
         }
 
         renderFinishSideControls('outside');
@@ -476,6 +482,10 @@ export function createMaterialManager({
         url.searchParams.set('inside_colour', insideFinishSelection.color);
         url.searchParams.set('debug_colors', debugColoursEnabled ? '1' : '0');
     }
+
+    globalThis.window?.addEventListener('window-locale-applied', () => {
+        syncFinishControls();
+    });
 
     return {
         glassMat,
