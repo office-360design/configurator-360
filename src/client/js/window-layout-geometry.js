@@ -68,7 +68,7 @@ export function getReentrantFillerTriangle({
     // then half a face in both directions parallel to the surviving mullion.
     // Those two shoulders lie exactly on the existing cut edges.
     //
-    // Top-row merge example (missing north, surviving mullion to the east):
+    // Top-row merge example (missing north):
     //
     //        left shoulder -------- right shoulder
     //             \                    /
@@ -710,6 +710,8 @@ export function getDividerSegmentAlongCoordinate({
     negativeArrowFaceBias = 0,
     positiveArrowFaceBias = 0,
     socketInwardDistance = 0,
+    negativeSocketInwardDistance = null,
+    positiveSocketInwardDistance = null,
 }) {
     const normalizedLength = Math.max(0, finiteNumber(length));
     const normalizedFaceSpan = Math.max(0, finiteNumber(faceSpan));
@@ -737,11 +739,28 @@ export function getDividerSegmentAlongCoordinate({
         0,
         finiteNumber(socketInwardDistance)
     );
+    const normalizeEndSocketInwardDistance = value => {
+        if (value === null || value === undefined || value === '') {
+            return normalizedSocketInwardDistance;
+        }
+        return Math.max(0, finiteNumber(value));
+    };
+    const normalizedNegativeSocketInwardDistance = normalizeEndSocketInwardDistance(
+        negativeSocketInwardDistance
+    );
+    const normalizedPositiveSocketInwardDistance = normalizeEndSocketInwardDistance(
+        positiveSocketInwardDistance
+    );
 
-    const getEndInset = (mode, endFrameInwardSpan, arrowFaceBias) => {
+    const getEndInset = (
+        mode,
+        endFrameInwardSpan,
+        arrowFaceBias,
+        endSocketInwardDistance
+    ) => {
         if (mode === 'socket') {
             return getFrameDividerSocketInset({
-                inwardDistance: normalizedSocketInwardDistance,
+                inwardDistance: endSocketInwardDistance,
                 dividerFaceSpan: normalizedFaceSpan,
                 frameInwardSpan: endFrameInwardSpan,
             });
@@ -764,12 +783,14 @@ export function getDividerSegmentAlongCoordinate({
     const lowerEnd = -normalizedLength / 2 + getEndInset(
         negativeEndMode,
         negativeEndFrameInwardSpan,
-        normalizedNegativeArrowFaceBias
+        normalizedNegativeArrowFaceBias,
+        normalizedNegativeSocketInwardDistance
     );
     const upperEnd = normalizedLength / 2 - getEndInset(
         positiveEndMode,
         positiveEndFrameInwardSpan,
-        normalizedPositiveArrowFaceBias
+        normalizedPositiveArrowFaceBias,
+        normalizedPositiveSocketInwardDistance
     );
 
     // Triangle splitting can insert vertices on a side-wall edge whose source
@@ -1059,7 +1080,32 @@ export function getEditableDividerSegmentPlacement({
         ) {
             joint[endModeKey] = 'socket';
             joint[frameSpanKey] = normalizedDividerFaceSpan;
-            joint.socketInwardSign = 1;
+            // At a three-divider T the socket must be cut on the SAME visible
+            // half of the host mullion as the perpendicular branch. The old
+            // hard-coded +1 always cut the same CAD half, so a mirrored T
+            // (for example a branch arriving from the west) carved the host on
+            // the opposite side and left a large triangular hole.
+            //
+            // createDividerSegment() maps vertical host face directly to world
+            // X, while horizontal host face maps to -world Y. Convert the
+            // branch direction to that rendered face sign so every rotated T
+            // uses the same physical socket geometry.
+            if (junction.type === 'T') {
+                const branchArm = perpendicularArms.find(arm => arm.kind === 'divider');
+                const socketSignKey = atStart
+                    ? 'negativeSocketInwardSign'
+                    : 'positiveSocketInwardSign';
+                if (segment?.orientation === 'vertical') {
+                    joint[socketSignKey] = branchArm?.direction === 'west' ? -1 : 1;
+                } else {
+                    joint[socketSignKey] = branchArm?.direction === 'north' ? -1 : 1;
+                }
+            } else {
+                // Preserve the established full-cross treatment. A cross has
+                // perpendicular branches on both sides and is not the mirrored
+                // three-arm case handled above.
+                joint.socketInwardSign = 1;
+            }
             joint.socketInwardOffset = halfFace;
             return;
         }

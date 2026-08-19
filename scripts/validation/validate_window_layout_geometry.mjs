@@ -685,6 +685,90 @@ assert(editableGeometry.cells.length === 3, 'Editable topology must create one r
 assert(editableGeometry.dividerSegments.length === 3, 'Editable T topology must preserve the two host segments plus the branch divider.');
 assert(editableGeometry.junctions.length === 1 && editableGeometry.junctions[0].hostOrientation === 'horizontal', 'Editable T topology must detect the host transom and branch mullion junction.');
 
+// Regression: a b / c b / c d, where b and c are vertically merged. Adding
+// `a` creates two three-divider T junctions on the same central mullion. The
+// upper branch arrives from the west while the lower branch arrives from the
+// east, so the middle host segment needs opposite socket halves at its two
+// ends. A single shared socket sign makes one end carve the wrong side and is
+// the source of the large triangular hole seen after adding `a`.
+{
+    const mergedTCell = (id, x0, y0, x1, y1) => ({
+        id,
+        type: 'opening-sash',
+        handleSide: 'right',
+        rect: { x0, y0, x1, y1 },
+    });
+    const state = normalizeWindowState({
+        windows: [
+            mergedTCell('a', 0, 2, 1, 3),
+            mergedTCell('b', 1, 1, 2, 3),
+            mergedTCell('c', 0, 0, 1, 2),
+            mergedTCell('d', 1, 0, 2, 1),
+        ],
+    });
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 0.9,
+        topology: deriveWindowTopology(state),
+        frameReplacementSpan: 0.065,
+        dividerFaceSpan: 0.088,
+    });
+    const middleHost = geometry.dividerSegments.find(segment =>
+        segment.orientation === 'vertical'
+        && segment.negativeCellId === 'c'
+        && segment.positiveCellId === 'b'
+    );
+    const middlePlacement = getEditableDividerSegmentPlacement({
+        segment: middleHost,
+        junctions: geometry.junctions,
+        dividerFaceSpan: 0.088,
+        frameJointInwardSpan: 0.065,
+    });
+    assert(
+        middlePlacement?.joint?.negativeEndMode === 'socket'
+            && middlePlacement?.joint?.positiveEndMode === 'socket'
+            && middlePlacement?.joint?.negativeSocketInwardSign === 1
+            && middlePlacement?.joint?.positiveSocketInwardSign === -1,
+        'The central mullion in a b / c b / c d must cut its lower T socket toward the east branch and its upper T socket toward the west branch independently.'
+    );
+
+    // The same topology transposed by 90 degrees must mirror the rule for a
+    // horizontal host: south branch uses +1 rendered-face sign, north uses -1.
+    const rotatedState = normalizeWindowState({
+        windows: [
+            mergedTCell('a-r', 2, 0, 3, 1),
+            mergedTCell('b-r', 1, 1, 3, 2),
+            mergedTCell('c-r', 0, 0, 2, 1),
+            mergedTCell('d-r', 0, 1, 1, 2),
+        ],
+    });
+    const rotatedGeometry = getEditableWindowTopologyGeometry({
+        width: 0.9,
+        height: 1.2,
+        topology: deriveWindowTopology(rotatedState),
+        frameReplacementSpan: 0.065,
+        dividerFaceSpan: 0.088,
+    });
+    const rotatedMiddleHost = rotatedGeometry.dividerSegments.find(segment =>
+        segment.orientation === 'horizontal'
+        && segment.negativeCellId === 'c-r'
+        && segment.positiveCellId === 'b-r'
+    );
+    const rotatedPlacement = getEditableDividerSegmentPlacement({
+        segment: rotatedMiddleHost,
+        junctions: rotatedGeometry.junctions,
+        dividerFaceSpan: 0.088,
+        frameJointInwardSpan: 0.065,
+    });
+    assert(
+        rotatedPlacement?.joint?.negativeEndMode === 'socket'
+            && rotatedPlacement?.joint?.positiveEndMode === 'socket'
+            && rotatedPlacement?.joint?.negativeSocketInwardSign === -1
+            && rotatedPlacement?.joint?.positiveSocketInwardSign === 1,
+        'Rotated merged T layouts must independently mirror the socket half at both ends of a horizontal host mullion.'
+    );
+}
+
 
 const editableMixedSeats = getEditableWindowTopologyGeometry({
     width: 1.2,
@@ -2066,6 +2150,102 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
             ),
         'The two right outside-frame pieces must remain equal after the merge and receive the shifted mullion only through their socket cuts.'
     );
+}
+
+// Regression: every rotated merged-L equivalent must retain exactly one real
+// mullion filler in the missing direction. A previous follow-up for opposite
+// T sockets accidentally restored an older filler-triangle formula, which made
+// the top filler disappear again and broke several other merged-L rotations.
+{
+    const quadrants = {
+        bl: { x0: 0, y0: 0, x1: 1, y1: 1 },
+        br: { x0: 1, y0: 0, x1: 2, y1: 1 },
+        tl: { x0: 0, y0: 1, x1: 1, y1: 2 },
+        tr: { x0: 1, y0: 1, x1: 2, y1: 2 },
+    };
+    const mergedLCases = [
+        { occupied: ['br', 'tl', 'tr'], merge: ['tl', 'tr'], direction: 'north', orientation: 'horizontal' },
+        { occupied: ['br', 'tl', 'tr'], merge: ['br', 'tr'], direction: 'east', orientation: 'vertical' },
+        { occupied: ['bl', 'tl', 'tr'], merge: ['tl', 'tr'], direction: 'north', orientation: 'horizontal' },
+        { occupied: ['bl', 'tl', 'tr'], merge: ['bl', 'tl'], direction: 'west', orientation: 'vertical' },
+        { occupied: ['bl', 'br', 'tr'], merge: ['bl', 'br'], direction: 'south', orientation: 'horizontal' },
+        { occupied: ['bl', 'br', 'tr'], merge: ['br', 'tr'], direction: 'east', orientation: 'vertical' },
+        { occupied: ['bl', 'br', 'tl'], merge: ['bl', 'br'], direction: 'south', orientation: 'horizontal' },
+        { occupied: ['bl', 'br', 'tl'], merge: ['bl', 'tl'], direction: 'west', orientation: 'vertical' },
+    ];
+    const directionVector = direction => ({
+        north: { x: 0, y: 1 },
+        south: { x: 0, y: -1 },
+        east: { x: 1, y: 0 },
+        west: { x: -1, y: 0 },
+    }[direction]);
+    const faceSpan = 0.088;
+    const halfFace = faceSpan / 2;
+
+    mergedLCases.forEach((testCase, index) => {
+        let state = normalizeWindowState({
+            windows: testCase.occupied.map(id => ({
+                id: `merged-l-${index}-${id}`,
+                type: 'fixed-glazing',
+                handleSide: null,
+                rect: quadrants[id],
+            })),
+        });
+        state = mergeWindowsInState(state, {
+            cellAId: `merged-l-${index}-${testCase.merge[0]}`,
+            cellBId: `merged-l-${index}-${testCase.merge[1]}`,
+            type: 'fixed-glazing',
+        });
+        const geometry = getEditableWindowTopologyGeometry({
+            width: 1.2,
+            height: 1.5,
+            topology: deriveWindowTopology(state),
+            frameReplacementSpan: 0.065,
+            dividerFaceSpan: faceSpan,
+        });
+        const fillers = geometry.reentrantFillers || [];
+        const filler = fillers[0];
+        assert(
+            fillers.length === 1
+                && filler?.direction === testCase.direction
+                && filler?.orientation === testCase.orientation,
+            `Merged-L rotation ${index + 1} must retain exactly one ${testCase.direction}-facing mullion filler after unrelated T-junction fixes.`
+        );
+        if (!filler) return;
+
+        const triangle = getReentrantFillerTriangle({
+            filler,
+            dividerFaceSpan: faceSpan,
+        });
+        const missing = directionVector(filler.direction);
+        const extrusion = directionVector(filler.extrusionDirection);
+        const mouthCenter = {
+            x: filler.apexX + missing.x * halfFace,
+            y: filler.apexY + missing.y * halfFace,
+        };
+        const expectedA = {
+            x: mouthCenter.x + extrusion.x * halfFace,
+            y: mouthCenter.y + extrusion.y * halfFace,
+        };
+        const expectedB = {
+            x: mouthCenter.x - extrusion.x * halfFace,
+            y: mouthCenter.y - extrusion.y * halfFace,
+        };
+        const shoulderMatches = (point, expected) => (
+            Math.abs(point.x - expected.x) < 1e-9
+            && Math.abs(point.y - expected.y) < 1e-9
+        );
+        assert(
+            triangle.length === 3
+                && Math.abs(triangle[0].x - filler.apexX) < 1e-9
+                && Math.abs(triangle[0].y - filler.apexY) < 1e-9
+                && (
+                    (shoulderMatches(triangle[1], expectedA) && shoulderMatches(triangle[2], expectedB))
+                    || (shoulderMatches(triangle[1], expectedB) && shoulderMatches(triangle[2], expectedA))
+                ),
+            `Merged-L rotation ${index + 1} filler must occupy the V opening between both 45-degree shoulders, never the neighbouring frame side.`
+        );
+    });
 }
 
 // Regression: merge the two top windows of an L (elbow at top-left), then add
