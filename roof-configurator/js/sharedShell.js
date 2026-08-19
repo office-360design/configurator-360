@@ -1,6 +1,13 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=5';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=6';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
+import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
+import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=1';
+
+
+const initialLocale = resolveRoofLocale();
+applyRoofTranslations(initialLocale);
+const t = (key, variables = {}, locale = null) => roofT(locale ?? window.ROOF_CONFIGURATOR_SHARED_SHELL?.state?.locale ?? initialLocale, key, variables);
 
 const icon = (body) => `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -31,7 +38,7 @@ const tools = [
   {
     id: 'components',
     action: 'toggle-components',
-    label: 'Rainwater components',
+    label: roofT(initialLocale, 'tools.components'),
     icon: icon('<path d="M4 7h11v4H7.5a3.5 3.5 0 0 0 0 7H11"></path><path d="M15 7v4M11 15v6M8.5 21h5"></path>'),
   },
 ];
@@ -59,7 +66,7 @@ const shell = mountStandaloneConfiguratorShell({
   },
   callbacks: {
     onReset() {
-      if (window.confirm('Reset the roof to its starting configuration?')) {
+      if (window.confirm(t('reset.confirm'))) {
         window.ROOF_CONFIGURATOR_API?.resetConfiguration?.();
       }
     },
@@ -72,6 +79,7 @@ const shell = mountStandaloneConfiguratorShell({
     onPreferenceChange(name, value, preferences) {
       const snapshot = { ...preferences };
       window.ROOF_SHELL_PREFERENCES = snapshot;
+      if (name === 'locale') applyRoofTranslations(snapshot.locale);
       window.dispatchEvent(new CustomEvent('roof-preference-change', {
         detail: { name, value, preferences: snapshot },
       }));
@@ -84,6 +92,37 @@ window.dispatchEvent(new CustomEvent('roof-preference-change', {
   detail: { name: 'initial', value: null, preferences: { ...shell.state } },
 }));
 
+const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+
+shell.host.addEventListener('click', (event) => {
+  const languageButton = event.target.closest('[data-action="select-language"]');
+  if (!languageButton || isLocalDevelopmentHost) return;
+
+  const nextLocale = languageButton.dataset.locale;
+  if (!nextLocale || nextLocale === shell.state.locale) return;
+  const fallbackTarget = getLocalizedConfiguratorUrl(nextLocale, 'roof', window.location);
+  if (!fallbackTarget) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  void (async () => {
+    try {
+      const snapshot = window.ROOF_CONFIGURATOR_API?.captureState?.();
+      if (!snapshot) {
+        window.location.assign(fallbackTarget);
+        return;
+      }
+      const shareUrl = await createShareUrl({ productType: 'roof', state: snapshot });
+      const targetUrl = getLocalizedConfiguratorUrl(nextLocale, 'roof', new URL(shareUrl));
+      window.location.assign(targetUrl || fallbackTarget);
+    } catch (error) {
+      console.error('Roof language switch could not preserve the current configuration.', error);
+      shell.showFeedback?.(t('feedback.languageSwitchUnavailable'));
+    }
+  })();
+}, true);
+
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#roofSidebarToggle');
 
@@ -91,12 +130,18 @@ function setSidebarCollapsed(collapsed) {
   sidebar?.classList.toggle('is-collapsed', collapsed);
   document.body.classList.toggle('roof-sidebar-collapsed', collapsed);
   sidebarToggle?.setAttribute('aria-expanded', String(!collapsed));
-  sidebarToggle?.setAttribute('aria-label', collapsed ? 'Show roof settings' : 'Hide roof settings');
-  sidebarToggle?.setAttribute('title', collapsed ? 'Show roof settings' : 'Hide roof settings');
+  const label = t(collapsed ? 'sidebar.show' : 'sidebar.hide');
+  sidebarToggle?.setAttribute('aria-label', label);
+  sidebarToggle?.setAttribute('title', label);
 }
 
 sidebarToggle?.addEventListener('click', () => {
   setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed'));
+});
+setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
+window.addEventListener('roof-locale-applied', () => {
+  setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
+  syncToolsState();
 });
 
 if (sidebar) {
@@ -190,7 +235,7 @@ function setEnvironmentPanelOpen(open) {
   if (isOpen) setComponentsPanelOpen(false);
   environmentPanel.hidden = !isOpen;
   environmentPanel.classList.toggle('is-open', isOpen);
-  setToolState('environment', { active: isOpen, title: 'Sun and orientation' });
+  setToolState('environment', { active: isOpen, title: t('tools.environmentTitle') });
   scheduleToolsPosition();
 }
 
@@ -205,13 +250,13 @@ function setComponentsPanelOpen(open) {
   document.body.classList.toggle('roof-components-open', isOpen);
   setToolState('components', {
     active: isOpen,
-    title: isOpen ? 'Close rainwater components' : 'Open rainwater components',
+    title: t(isOpen ? 'tools.closeComponents' : 'tools.openComponents'),
   });
   if (isOpen) window.setTimeout(() => componentsSearch?.focus(), 180);
 }
 
 function filterComponents(query = '') {
-  const normalized = String(query).trim().toLocaleLowerCase('ro');
+  const normalized = String(query).trim().toLocaleLowerCase(resolveRoofLocale(shell.state.locale));
   let visibleCount = 0;
   componentCards.forEach((card) => {
     const visible = !normalized || card.dataset.search.includes(normalized);
@@ -227,26 +272,26 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   setToolState('dimensions', {
     active: Boolean(detail.showDimensions) && Boolean(detail.dimensionsAvailable),
     disabled: !detail.dimensionsAvailable,
-    title: detail.dimensionsAvailable ? 'Toggle dimensions' : 'Dimensions unavailable for custom plans',
+    title: t(detail.dimensionsAvailable ? 'tools.dimensions' : 'tools.dimensionsUnavailable'),
   });
   setToolState('compass', {
     active: Boolean(detail.showCompass),
-    title: detail.showCompass ? 'Hide compass' : 'Show compass',
+    title: t(detail.showCompass ? 'tools.hideCompass' : 'tools.showCompass'),
   });
   setToolState('components', {
     active: Boolean(componentsDrawer?.classList.contains('is-open')),
     title: componentsDrawer?.classList.contains('is-open')
-      ? 'Close rainwater components'
-      : 'Open rainwater components',
+      ? t('tools.closeComponents')
+      : t('tools.openComponents'),
   });
 
-  const viewNames = { perspective: '3D', front: 'Front', top: 'Top' };
+  const viewNames = { perspective: '3D', front: t('viewer.front'), top: t('viewer.top') };
   const order = ['perspective', 'front', 'top'];
   const index = Math.max(0, order.indexOf(detail.currentView));
   const nextView = order[(index + 1) % order.length];
   setToolState('camera', {
     active: false,
-    title: `Change orientation: ${viewNames[nextView]}`,
+    title: t('tools.changeOrientation', { view: viewNames[nextView] }),
   });
 
   if (sunPositionControl) sunPositionControl.value = String(detail.sunPosition ?? 42);
