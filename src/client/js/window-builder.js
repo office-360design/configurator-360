@@ -16,6 +16,8 @@ import {
     getHorizontalConnectionFaceDirection,
     getTopFixedBottomSashSashLayout,
     getFrameDividerSocketInset,
+    getFrameMixedPlusMiterInset,
+    getFrameShiftedDividerSocketInset,
     getFrameReentrantMiterInset,
     getFrameSidePlacements,
     getLinearDividerLayout,
@@ -294,15 +296,39 @@ export function createWindowBuilder({
             steps: 1,
         });
         const centerX = Number(bounds?.centerX) || 0;
-        // The arrow deformation uses abs(faceOffset), which has a kink at the
-        // mullion centerline. Split triangles there first so an SVG edge that
-        // crosses the center receives a real center vertex and can form a full
-        // 90-degree point instead of a flat/trapezoidal end.
-        const geom = splitBufferGeometryAtScalarZero(sourceGeom, rawPoint => {
+        const resolveRenderedFace = rawPoint => {
             const cadPoint = getProfileCadPointMm(profile, rawPoint.x, rawPoint.y);
-            return cadPoint.x - centerX;
+            let renderedFace = (cadPoint.x - centerX) * S;
+            if (Number(profile?.dividerSectionRotationDeg) === 180) {
+                renderedFace = -renderedFace;
+            }
+            renderedFace *= Number(faceDirection) < 0 ? -1 : 1;
+            return renderedFace;
+        };
+
+        // Arrow deformation has a kink at its V apex. A normal mullion uses the
+        // face centre (bias 0); a mixed perimeter + can bias the apex across the
+        // face by the CAD 21 mm correction. Insert vertices on every active apex
+        // plane before deformation so the asymmetric V remains a real 90-degree
+        // cut instead of a bridged/trapezoidal polygon.
+        const arrowBiases = [];
+        const negativeMode = longitudinalJoint?.negativeEndMode || 'arrow';
+        const positiveMode = longitudinalJoint?.positiveEndMode || 'arrow';
+        if (negativeMode === 'arrow') {
+            arrowBiases.push(Number(longitudinalJoint?.negativeArrowFaceBias) || 0);
+        }
+        if (positiveMode === 'arrow') {
+            arrowBiases.push(Number(longitudinalJoint?.positiveArrowFaceBias) || 0);
+        }
+        const uniqueArrowBiases = [...new Set(arrowBiases.map(value => value.toFixed(9)))].map(Number);
+        let geom = sourceGeom;
+        uniqueArrowBiases.forEach(bias => {
+            const previousGeom = geom;
+            geom = splitBufferGeometryAtScalarZero(previousGeom, rawPoint => (
+                resolveRenderedFace(rawPoint) - bias
+            ));
+            previousGeom.dispose();
         });
-        sourceGeom.dispose();
         const position = geom.attributes.position;
         const point = new THREE.Vector3();
         const centerY = Number(bounds?.centerY) || 0;
@@ -340,6 +366,8 @@ export function createWindowBuilder({
                 positiveFrameInwardSpan: longitudinalJoint?.positiveFrameInwardSpan,
                 negativeEndMode: longitudinalJoint?.negativeEndMode || 'arrow',
                 positiveEndMode: longitudinalJoint?.positiveEndMode || 'arrow',
+                negativeArrowFaceBias: longitudinalJoint?.negativeArrowFaceBias,
+                positiveArrowFaceBias: longitudinalJoint?.positiveArrowFaceBias,
                 socketInwardDistance,
             });
 
@@ -441,15 +469,19 @@ export function createWindowBuilder({
                 : (dividerJoint?.localJointEnd ? [dividerJoint.localJointEnd] : [])
         );
         const frameJointEndModes = dividerJoint?.endModes || {};
+        const frameJointCenterShifts = dividerJoint?.centerShifts || {};
         const getFrameJointEndMode = localEnd => {
             const explicitMode = frameJointEndModes?.[localEnd];
             if (explicitMode) return explicitMode;
             return dividerJointEnds.has(localEnd) ? 'socket' : 'miter';
         };
-        const hasSocketJoint = [...dividerJointEnds].some(
-            localEnd => getFrameJointEndMode(localEnd) === 'socket'
-        );
-        if (hasSocketJoint && Number(dividerJoint.faceSpan) > 0) {
+        const hasFrameProfileBreakJoint = [...dividerJointEnds].some(localEnd => {
+            const mode = getFrameJointEndMode(localEnd);
+            return mode === 'socket'
+                || mode === 'shifted-socket'
+                || mode === 'mixed-plus';
+        });
+        if (hasFrameProfileBreakJoint && Number(dividerJoint.faceSpan) > 0) {
             const halfDividerFace = Number(dividerJoint.faceSpan) / 2;
             const frameInwardSpan = Math.max(
                 0,
@@ -528,6 +560,24 @@ export function createWindowBuilder({
                 }
                 if (mode === 'socket') {
                     return getFrameDividerSocketInset({
+                        inwardDistance: inw,
+                        dividerFaceSpan: dividerJoint.faceSpan,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                    });
+                }
+                if (mode === 'shifted-socket') {
+                    const worldCenterShift = Number(frameJointCenterShifts?.[localEnd]) || 0;
+                    const localAxisSign = side === 'bottom' || side === 'right' ? -1 : 1;
+                    return getFrameShiftedDividerSocketInset({
+                        inwardDistance: inw,
+                        dividerFaceSpan: dividerJoint.faceSpan,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                        centerShift: worldCenterShift * localAxisSign,
+                        localEnd,
+                    });
+                }
+                if (mode === 'mixed-plus') {
+                    return getFrameMixedPlusMiterInset({
                         inwardDistance: inw,
                         dividerFaceSpan: dividerJoint.faceSpan,
                         frameInwardSpan: dividerJoint.frameInwardSpan,
@@ -1376,6 +1426,12 @@ export function createWindowBuilder({
         const editableFrameReplacementSpan = isEditableTopology
             ? getFrameJointInwardSpanM(activeProfiles)
             : 0;
+        const editableDividerFaceSpan = isEditableTopology && activeDividerProfiles.length
+            ? Math.min(
+                Math.min(A, B) * 0.3,
+                getDividerFaceSpanM(activeDividerProfiles)
+            )
+            : 0;
         editableTopologyGeometry = isEditableTopology
             ? getEditableWindowTopologyGeometry({
                 width: A,
@@ -1384,6 +1440,7 @@ export function createWindowBuilder({
                 dividerConnectionVariants: currentMetadata.dividerConnectionVariants,
                 connectionScale: S,
                 frameReplacementSpan: editableFrameReplacementSpan,
+                dividerFaceSpan: editableDividerFaceSpan,
             })
             : null;
         const isTopFixedBottomSashSash = !isEditableTopology && (
@@ -1398,12 +1455,14 @@ export function createWindowBuilder({
             )
             : null;
         const dividerBounds = getDividerSourceBounds(activeDividerProfiles);
-        const dividerFaceSpan = Math.min(
-            dividerOrientation === 'vertical'
-                ? A * 0.3
-                : (dividerOrientation === 'horizontal' ? B * 0.3 : Math.min(A, B) * 0.3),
-            getDividerFaceSpanM(activeDividerProfiles)
-        );
+        const dividerFaceSpan = isEditableTopology
+            ? editableDividerFaceSpan
+            : Math.min(
+                dividerOrientation === 'vertical'
+                    ? A * 0.3
+                    : (dividerOrientation === 'horizontal' ? B * 0.3 : Math.min(A, B) * 0.3),
+                getDividerFaceSpanM(activeDividerProfiles)
+            );
         const frameJointInwardSpan = dividerOrientation
             ? editableFrameReplacementSpan || getFrameJointInwardSpanM(activeProfiles)
             : 0;
@@ -1891,6 +1950,7 @@ export function createWindowBuilder({
                                     faceSpan: dividerFaceSpan,
                                     frameInwardSpan: frameJointInwardSpan,
                                     endModes: placement.frameJointModes,
+                                    centerShifts: placement.frameJointCenterShifts,
                                     reentrantFrameBoundaryOffset: placement.reentrantFrameBoundaryOffset,
                                 }
                                 : null
@@ -1959,6 +2019,7 @@ export function createWindowBuilder({
                                     faceSpan: dividerFaceSpan,
                                     frameInwardSpan: frameJointInwardSpan,
                                     endModes: placement.frameJointModes,
+                                    centerShifts: placement.frameJointCenterShifts,
                                     reentrantFrameBoundaryOffset: placement.reentrantFrameBoundaryOffset,
                                 }
                                 : null
