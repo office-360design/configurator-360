@@ -1,9 +1,9 @@
-import { modulePresets, regionPresets } from './state.js?v=8';
+import { modulePresets, regionPresets } from './state.js?v=14';
 import {
   estimateAnnualProduction,
   estimateDailyConsumption,
   instantaneousPowerAtHour,
-  localBuildingShadeAtSun,
+  localObstructionShadeAtSun,
   simulateDay,
   sunClearsPvgisHorizon,
 } from './energyModel.js?v=5';
@@ -442,6 +442,9 @@ export class SolarUI {
     this.state.effectivePanelCount = metrics.placedPanels;
     this.currentProduction = estimateAnnualProduction(this.state, metrics);
     this.state.localBuildingAnnualLossPct = this.currentProduction.localBuildingLossPct || 0;
+    this.state.googleSolarAnnualLossPct = this.currentProduction.localShadingSource === 'google'
+      ? (this.currentProduction.localBuildingLossPct || 0)
+      : 0;
     this.currentSimulation = simulateDay(this.state, metrics, this.currentProduction);
     this.currentEstimate = calculateSolarEstimate(this.state, metrics, this.currentSimulation, this.locale);
 
@@ -488,8 +491,12 @@ export class SolarUI {
     const regionDetail = document.querySelector('#regionDetail');
     if (regionDetail) {
       if (activeLocation.mode === 'exact' && this.state.pvgisStatus === 'ready') {
+        const shadeLabel = this.currentProduction.localShadingSource === 'google' ? 'Google shade' : 'nearby buildings';
         const localShadeText = this.currentProduction.localBuildingLossPct > 0.05
-          ? ` · ${this.t('production.nearbyLoss', { loss: this.currentProduction.localBuildingLossPct.toFixed(1) })}`
+          ? ` · ${this.t(
+            this.currentProduction.localShadingSource === 'google' ? 'production.googleShadeLoss' : 'production.nearbyLoss',
+            { loss: this.currentProduction.localBuildingLossPct.toFixed(1) },
+          )}`
           : '';
         regionDetail.textContent = this.t('production.exact', { location: activeLocation.label, yield: Math.round(this.currentProduction.specificYield), horizon: this.t(this.state.pvgisUseHorizon ? 'production.horizonOn' : 'production.horizonOff'), shade: localShadeText });
       } else {
@@ -524,12 +531,19 @@ export class SolarUI {
     const solar = getSolarContext(this.state, this.state.simulationHour);
     const sunReadout = document.querySelector('#liveSunReadout');
     const clearsTerrain = sunClearsPvgisHorizon(this.state, solar);
-    const buildingShade = localBuildingShadeAtSun(this.state, solar);
+    const buildingShade = localObstructionShadeAtSun(this.state, solar);
     if (sunReadout) {
       if (solar.isDaylight && !clearsTerrain) {
         sunReadout.textContent = this.t('sun.behindTerrain', { elevation: solar.elevationDeg.toFixed(1), azimuth: solarFormatAzimuth(solar.azimuthDeg, this.locale) });
       } else if (solar.isDaylight && buildingShade.blockedFraction > 0.005) {
-        sunReadout.textContent = this.t('sun.shadedBuildings', { elevation: solar.elevationDeg.toFixed(1), azimuth: solarFormatAzimuth(solar.azimuthDeg, this.locale), percent: Math.round(buildingShade.blockedFraction * 100) });
+        sunReadout.textContent = this.t(
+          buildingShade.provider === 'google' ? 'sun.shadedGoogle' : 'sun.shadedBuildings',
+          {
+            elevation: solar.elevationDeg.toFixed(1),
+            azimuth: solarFormatAzimuth(solar.azimuthDeg, this.locale),
+            percent: Math.round(buildingShade.blockedFraction * 100),
+          },
+        );
       } else if (solar.isDaylight) {
         sunReadout.textContent = this.t('sun.above', { elevation: solar.elevationDeg.toFixed(1), azimuth: solarFormatAzimuth(solar.azimuthDeg, this.locale) });
       } else {

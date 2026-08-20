@@ -68,3 +68,16 @@ Official JRC documentation used for the integration:
 PVGIS fixed-system aspect uses 0°=South, -90°=East and +90°=West. The configurator internally uses compass bearings 0°=North, 90°=East, 180°=South, 270°=West and converts between those conventions before each surface request.
 
 PVGIS offers `free` and `building` mounting positions. The configurator currently uses `free`: the rendered residential modules sit above the roof plane with an air gap, which is closer to the documented ventilated rack case than to fully building-integrated modules with no airflow. The general system-loss input remains the PVGIS default reference value of 14%.
+
+## Google Solar detailed-site layer
+
+The optional showcase layer uses two Google Maps Platform Solar API surfaces:
+
+- **Building Insights** to obtain Google's interpreted closest-building solar potential, including roof-segment geometry/sunniness and candidate panel/configuration information.
+- **Data Layers** to obtain high-resolution spatial layers. The current implementation specifically consumes all twelve monthly hourly-shade GeoTIFFs and samples the fitted configurator panel centres.
+
+Google's hourly-shade TIFF format contains 24 hourly bands per month and uses one bit per day. It uses the requested location's regional timezone but deliberately ignores daylight-saving time and leap days, so the configurator converts Romania DST to standard time before reading a band.
+
+The downloaded GeoTIFFs are cached server-side for no more than 30 days. The short-lived Data Layers response URLs are not exposed to the browser; the Netlify function authenticates and downloads them server-side, then returns only compact per-panel masks.
+
+PVGIS remains the baseline yield/weather model. Google hourly shade is treated as a local visibility/obstruction correction and therefore does not replace the PVGIS high terrain horizon.
