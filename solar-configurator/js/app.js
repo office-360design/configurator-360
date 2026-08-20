@@ -12,7 +12,7 @@ import {
   resolveGoogleSolarEndpoint,
   testGoogleSolarProxy,
   unlockGoogleSolar,
-} from './googleSolar.js?v=6';
+} from './googleSolar.js?v=7';
 import {
   getSeasonPresetDate,
   getSolarContext,
@@ -26,7 +26,7 @@ import {
   normalizeUnits,
   resolveCurrencyRate,
 } from './preferences.js?v=2';
-import { solarT, resolveSolarLocale } from './i18n.js?v=1';
+import { solarT, resolveSolarLocale } from './i18n.js?v=2';
 
 const t = (key, variables = {}) => solarT(resolveSolarLocale(window.SOLAR_SHELL_PREFERENCES?.locale), key, variables);
 
@@ -184,7 +184,7 @@ async function refreshGoogleSolarProxyHealth() {
     state.googleSolarProxyStatus = health.googleSolarConfigured && health.accessCodeConfigured ? 'ready' : 'setup';
     state.googleSolarProxyMessage = health.googleSolarConfigured && health.accessCodeConfigured
       ? 'Secure Google Solar proxy is ready.'
-      : 'Netlify function is live, but Google API key and/or demo access secrets still need to be configured.';
+      : t('google.proxyMissingSecrets');
     const session = readGoogleSolarSession();
     state.googleSolarAccessStatus = session ? 'unlocked' : 'locked';
     state.googleSolarSessionExpiresAt = session?.expiresAt || null;
@@ -265,7 +265,7 @@ async function runGoogleSolarAnalysis({ force = false } = {}) {
     const cacheText = result.browserCached
       ? 'browser cache'
       : Number(result.cache?.upstreamBillableRequests || 0) === 0
-        ? 'Netlify cache'
+        ? t('google.cache.server')
         : `${Number(result.cache?.upstreamBillableRequests || 0)} Google API request${Number(result.cache?.upstreamBillableRequests || 0) === 1 ? '' : 's'}`;
     state.googleSolarMessage = `Detailed site analysis ready · ${result.shadeModel?.panelCount || 0} panels · hourly shade + solar flux heatmap · ${cacheText}.`;
     if (result.security?.sessionExpiresAt) state.googleSolarSessionExpiresAt = result.security.sessionExpiresAt;

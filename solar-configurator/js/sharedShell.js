@@ -3,7 +3,7 @@ import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { getSeasonForDate } from './solarPosition.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
 import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
-import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=1';
+import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=2';
 
 const initialLocale = resolveSolarLocale();
 applySolarTranslations(initialLocale);
@@ -572,7 +572,7 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   const googleLabels = {
     locked: 'Locked',
     unlocking: 'Unlocking…',
-    setup: 'Netlify setup needed',
+    setup: t('google.status.setup'),
     loading: 'Analyzing…',
     ready: 'Detailed site ready',
     stale: 'Analysis stale',
@@ -878,7 +878,7 @@ function syncToolsState(detail = getApi()?.getState?.()) {
           : 'flux ready';
       googleSolarCacheValue.textContent = googleCalls
         ? `${googleCalls} Google request${googleCalls === 1 ? '' : 's'} · ${tiffs}/12 shade TIFFs reused · ${surfaceText} · ${fluxText}`
-        : `Netlify cache · ${tiffs || 12}/12 shade TIFFs reused · ${surfaceText} · ${fluxText}`;
+        : `Cloud Storage cache · ${tiffs || 12}/12 shade TIFFs reused · ${surfaceText} · ${fluxText}`;
     } else googleSolarCacheValue.textContent = '—';
   }
   googleSolarBlock?.classList.toggle('is-loading', googleLoading);
