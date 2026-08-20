@@ -6,6 +6,7 @@ import {
     getHorizontalConnectionFaceDirection,
     getFrameDividerSocketInset,
     getFrameDividerMiterContactStart,
+    getFrameGridMiterInset,
     getFrameMixedPlusMiterInset,
     getFrameShiftedDividerSocketInset,
     getFrameReentrantMiterInset,
@@ -685,6 +686,90 @@ assert(editableGeometry.cells.length === 3, 'Editable topology must create one r
 assert(editableGeometry.dividerSegments.length === 3, 'Editable T topology must preserve the two host segments plus the branch divider.');
 assert(editableGeometry.junctions.length === 1 && editableGeometry.junctions[0].hostOrientation === 'horizontal', 'Editable T topology must detect the host transom and branch mullion junction.');
 
+// Regression: a b / c b / c d, where b and c are vertically merged. Adding
+// `a` creates two three-divider T junctions on the same central mullion. The
+// upper branch arrives from the west while the lower branch arrives from the
+// east, so the middle host segment needs opposite socket halves at its two
+// ends. A single shared socket sign makes one end carve the wrong side and is
+// the source of the large triangular hole seen after adding `a`.
+{
+    const mergedTCell = (id, x0, y0, x1, y1) => ({
+        id,
+        type: 'opening-sash',
+        handleSide: 'right',
+        rect: { x0, y0, x1, y1 },
+    });
+    const state = normalizeWindowState({
+        windows: [
+            mergedTCell('a', 0, 2, 1, 3),
+            mergedTCell('b', 1, 1, 2, 3),
+            mergedTCell('c', 0, 0, 1, 2),
+            mergedTCell('d', 1, 0, 2, 1),
+        ],
+    });
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 0.9,
+        topology: deriveWindowTopology(state),
+        frameReplacementSpan: 0.065,
+        dividerFaceSpan: 0.088,
+    });
+    const middleHost = geometry.dividerSegments.find(segment =>
+        segment.orientation === 'vertical'
+        && segment.negativeCellId === 'c'
+        && segment.positiveCellId === 'b'
+    );
+    const middlePlacement = getEditableDividerSegmentPlacement({
+        segment: middleHost,
+        junctions: geometry.junctions,
+        dividerFaceSpan: 0.088,
+        frameJointInwardSpan: 0.065,
+    });
+    assert(
+        middlePlacement?.joint?.negativeEndMode === 'socket'
+            && middlePlacement?.joint?.positiveEndMode === 'socket'
+            && middlePlacement?.joint?.negativeSocketInwardSign === 1
+            && middlePlacement?.joint?.positiveSocketInwardSign === -1,
+        'The central mullion in a b / c b / c d must cut its lower T socket toward the east branch and its upper T socket toward the west branch independently.'
+    );
+
+    // The same topology transposed by 90 degrees must mirror the rule for a
+    // horizontal host: south branch uses +1 rendered-face sign, north uses -1.
+    const rotatedState = normalizeWindowState({
+        windows: [
+            mergedTCell('a-r', 2, 0, 3, 1),
+            mergedTCell('b-r', 1, 1, 3, 2),
+            mergedTCell('c-r', 0, 0, 2, 1),
+            mergedTCell('d-r', 0, 1, 1, 2),
+        ],
+    });
+    const rotatedGeometry = getEditableWindowTopologyGeometry({
+        width: 0.9,
+        height: 1.2,
+        topology: deriveWindowTopology(rotatedState),
+        frameReplacementSpan: 0.065,
+        dividerFaceSpan: 0.088,
+    });
+    const rotatedMiddleHost = rotatedGeometry.dividerSegments.find(segment =>
+        segment.orientation === 'horizontal'
+        && segment.negativeCellId === 'c-r'
+        && segment.positiveCellId === 'b-r'
+    );
+    const rotatedPlacement = getEditableDividerSegmentPlacement({
+        segment: rotatedMiddleHost,
+        junctions: rotatedGeometry.junctions,
+        dividerFaceSpan: 0.088,
+        frameJointInwardSpan: 0.065,
+    });
+    assert(
+        rotatedPlacement?.joint?.negativeEndMode === 'socket'
+            && rotatedPlacement?.joint?.positiveEndMode === 'socket'
+            && rotatedPlacement?.joint?.negativeSocketInwardSign === -1
+            && rotatedPlacement?.joint?.positiveSocketInwardSign === 1,
+        'Rotated merged T layouts must independently mirror the socket half at both ends of a horizontal host mullion.'
+    );
+}
+
 
 const editableMixedSeats = getEditableWindowTopologyGeometry({
     width: 1.2,
@@ -1242,252 +1327,11 @@ editableLGeometry.dividerSegments.forEach(segment => {
     );
 }
 
-// Re-entrant L mesh rule: the visible inside corner is one real four-arm +.
-// The CAD sections are symmetric: each mullion arm must use the same arrow
-// against the ordinary 45-degree miter of its collinear frame. Do not choose a
-// host axis. For the active 575760 outer frame and 575800 mullion reference,
-// the CAD spans are 65 mm inward and 88 mm across the mullion face, so the
-// mullion V begins 65 - 88/2 = 21 mm into the frame miter.
-{
-    const makeFixed = (id, x0, y0, x1, y1) => ({
-        id,
-        type: 'fixed-glazing',
-        handleSide: null,
-        rect: { x0, y0, x1, y1 },
-    });
-    const cadFrameSpan = 0.065;
-    const cadFaceSpan = 0.088;
-    const expectedCadContactStart = 0.021;
-    assert(
-        Math.abs(getFrameDividerMiterContactStart({
-            dividerFaceSpan: cadFaceSpan,
-            frameInwardSpan: cadFrameSpan,
-        }) - expectedCadContactStart) < 1e-9,
-        '575760/575800 CAD geometry must place the frame/mullion miter transition 21 mm from the outer-frame edge.'
-    );
-
-    const state = normalizeWindowState({
-        windows: [
-            makeFixed('mesh-plus-bl', 0, 0, 1, 1),
-            makeFixed('mesh-plus-tl', 0, 1, 1, 2),
-            makeFixed('mesh-plus-tr', 1, 1, 2, 2),
-        ],
-    });
-    const geometry = getEditableWindowTopologyGeometry({
-        width: 1.2,
-        height: 1.5,
-        topology: deriveWindowTopology(state),
-        frameReplacementSpan: cadFrameSpan,
-        dividerFaceSpan: cadFaceSpan,
-    });
-    const plus = geometry.perimeterJunctions.find(
-        junction => junction.type === 'perimeter-plus'
-    );
-    const structuralPlus = geometry.junctions.find(
-        junction => junction.type === 'plus'
-    );
-    assert(
-        plus
-            && structuralPlus
-            && plus.continuations?.length === 2
-            && structuralPlus.hostOrientation === null
-            && structuralPlus.branchOrientation === null,
-        'A real unmerged three-window L must classify its inside corner as one symmetric four-arm +, without an arbitrary host/branch axis.'
-    );
-
-    const allArms = ['north', 'east', 'south', 'west']
-        .map(direction => structuralPlus?.arms?.[direction])
-        .filter(Boolean);
-    assert(
-        allArms.length === 4
-            && allArms.filter(arm => arm.kind === 'divider').length === 2
-            && allArms.filter(arm => arm.kind === 'frame').length === 2,
-        'A mixed perimeter + must contain exactly two frame arms and two mullion/transom arms.'
-    );
-
-    const dividerArms = allArms.filter(arm => arm.kind === 'divider');
-    const frameArms = allArms.filter(arm => arm.kind === 'frame');
-    frameArms.forEach(frameArm => {
-        const placement = geometry.framePlacements.find(frame => frame.id === frameArm.segmentId);
-        const localEnd = frameArm.localEnd;
-        assert(
-            placement
-                && localEnd
-                && placement.frameJointModes?.[localEnd] === 'mixed-plus',
-            'Each frame arm that enters the mixed + must use the dedicated mixed-plus cut mode so the shifted mullion does not make the neighbouring bay visually wider.'
-        );
-    });
-    const expectedPerpendicularShift = arm => {
-        const otherDivider = dividerArms.find(candidate => candidate.segmentId !== arm.segmentId);
-        if (!otherDivider) return 0;
-        if (arm.orientation === 'vertical') {
-            return otherDivider.direction === 'east'
-                ? expectedCadContactStart
-                : -expectedCadContactStart;
-        }
-        return otherDivider.direction === 'north'
-            ? expectedCadContactStart
-            : -expectedCadContactStart;
-    };
-
-    allArms.forEach(arm => {
-        if (arm.kind === 'divider') {
-            const divider = geometry.dividerSegments.find(segment => segment.id === arm.segmentId);
-            const expectedShift = expectedPerpendicularShift(arm);
-            assert(
-                divider
-                    && Math.abs(divider.mixedPlusPerpendicularShift - expectedShift) < 1e-9
-                    && Math.abs(
-                        divider.perpendicularOffset
-                            - (divider.structuralPerpendicularOffset + expectedShift)
-                    ) < 1e-9,
-                'Each mixed-+ mullion body must move by the CAD 21 mm difference toward the quadrant shared by the two mullions.'
-            );
-
-            const placed = getEditableDividerSegmentPlacement({
-                segment: divider,
-                junctions: geometry.junctions,
-                dividerFaceSpan: cadFaceSpan,
-                frameJointInwardSpan: cadFrameSpan,
-            });
-            const mode = arm.atStart
-                ? placed.joint.negativeEndMode
-                : placed.joint.positiveEndMode;
-            const endFrameSpan = arm.atStart
-                ? placed.joint.negativeFrameInwardSpan
-                : placed.joint.positiveFrameInwardSpan;
-            const arrowFaceBias = arm.atStart
-                ? placed.joint.negativeArrowFaceBias
-                : placed.joint.positiveArrowFaceBias;
-            const expectedArrowFaceBias = arm.orientation === 'vertical'
-                ? -expectedShift
-                : expectedShift;
-            const expectedOffsetDelta = arm.atStart
-                ? -expectedCadContactStart / 2
-                : expectedCadContactStart / 2;
-            assert(
-                mode === 'arrow'
-                    && Math.abs(endFrameSpan - cadFrameSpan) < 1e-9
-                    && Math.abs(arrowFaceBias - expectedArrowFaceBias) < 1e-9
-                    && Math.abs(placed.length - (divider.length + expectedCadContactStart)) < 1e-9
-                    && Math.abs(
-                        placed.longitudinalOffset
-                            - (divider.longitudinalOffset + expectedOffsetDelta)
-                    ) < 1e-9,
-                'A mixed-+ mullion must use 21 mm perpendicular body offset plus the opposite V-apex bias, while preserving the structural window envelope.'
-            );
-
-            // The shifted body and biased V must still meet at the original
-            // structural +. For a vertical mullion world-perpendicular =
-            // segmentOffset + face; for a horizontal transom it is
-            // segmentOffset - face.
-            const apexAlongLocal = getDividerSegmentAlongCoordinate({
-                extrusionT: arm.atStart ? 0 : 1,
-                length: placed.length,
-                faceOffset: arrowFaceBias,
-                faceSpan: cadFaceSpan,
-                frameInwardSpan: cadFrameSpan,
-                negativeFrameInwardSpan: placed.joint.negativeFrameInwardSpan,
-                positiveFrameInwardSpan: placed.joint.positiveFrameInwardSpan,
-                negativeEndMode: placed.joint.negativeEndMode,
-                positiveEndMode: placed.joint.positiveEndMode,
-                negativeArrowFaceBias: placed.joint.negativeArrowFaceBias,
-                positiveArrowFaceBias: placed.joint.positiveArrowFaceBias,
-            });
-            const apexLongWorld = placed.longitudinalOffset + apexAlongLocal;
-            const apexPerpendicularWorld = divider.perpendicularOffset + (
-                arm.orientation === 'vertical' ? arrowFaceBias : -arrowFaceBias
-            );
-            const structuralLong = arm.orientation === 'vertical'
-                ? structuralPlus.y
-                : structuralPlus.x;
-            const structuralPerpendicular = arm.orientation === 'vertical'
-                ? structuralPlus.x
-                : structuralPlus.y;
-            assert(
-                Math.abs(apexLongWorld - structuralLong) < 1e-9
-                    && Math.abs(apexPerpendicularWorld - structuralPerpendicular) < 1e-9,
-                'The biased mixed-+ mullion V apex must stay exactly on the structural frame/frame corner even though the mullion body is shifted by 21 mm.'
-            );
-
-            // Both visible V faces must remain true 45-degree lines from that
-            // structural apex. This is the X/pinwheel connection drawn by the
-            // user, not a centreline-to-frame-edge alignment.
-            const halfFace = cadFaceSpan / 2;
-            [-halfFace, halfFace].forEach(faceOffset => {
-                const alongLocal = getDividerSegmentAlongCoordinate({
-                    extrusionT: arm.atStart ? 0 : 1,
-                    length: placed.length,
-                    faceOffset,
-                    faceSpan: cadFaceSpan,
-                    frameInwardSpan: cadFrameSpan,
-                    negativeFrameInwardSpan: placed.joint.negativeFrameInwardSpan,
-                    positiveFrameInwardSpan: placed.joint.positiveFrameInwardSpan,
-                    negativeEndMode: placed.joint.negativeEndMode,
-                    positiveEndMode: placed.joint.positiveEndMode,
-                    negativeArrowFaceBias: placed.joint.negativeArrowFaceBias,
-                    positiveArrowFaceBias: placed.joint.positiveArrowFaceBias,
-                });
-                const longWorld = placed.longitudinalOffset + alongLocal;
-                const perpendicularWorld = divider.perpendicularOffset + (
-                    arm.orientation === 'vertical' ? faceOffset : -faceOffset
-                );
-                assert(
-                    Math.abs(
-                        Math.abs(longWorld - structuralLong)
-                            - Math.abs(perpendicularWorld - structuralPerpendicular)
-                    ) < 1e-9,
-                    'Each side of a mixed-+ divider V must lie on a 45-degree plane through the structural junction.'
-                );
-            });
-        } else {
-            const frame = geometry.framePlacements.find(placement => placement.id === arm.segmentId);
-            assert(
-                frame
-                    && arm.localEnd
-                    && frame.frameJointModes?.[arm.localEnd] === 'mixed-plus',
-                'Each frame arm of a mixed + must use the asymmetric mixed-plus cut so the shifted mullion meets the frame 21 mm inside the frame edge.'
-            );
-        }
-    });
-
-    // The same local + must survive a merge elsewhere. The joint remains
-    // symmetric regardless of the merged bay and therefore cannot rotate into
-    // a different host/branch solution.
-    let mergedElsewhereState = normalizeWindowState({
-        windows: [
-            makeFixed('merge-plus-bl', 0, 0, 1, 1),
-            makeFixed('merge-plus-tl', 0, 1, 1, 2),
-            makeFixed('merge-plus-tr', 1, 1, 2, 2),
-            makeFixed('merge-plus-far-right', 2, 1, 3, 2),
-        ],
-    });
-    mergedElsewhereState = mergeWindowsInState(mergedElsewhereState, {
-        cellAId: 'merge-plus-tr',
-        cellBId: 'merge-plus-far-right',
-        type: 'fixed-glazing',
-    });
-    const mergedElsewhereGeometry = getEditableWindowTopologyGeometry({
-        width: 1.2,
-        height: 1.5,
-        topology: deriveWindowTopology(mergedElsewhereState),
-        frameReplacementSpan: cadFrameSpan,
-        dividerFaceSpan: cadFaceSpan,
-    });
-    const mergedPlus = mergedElsewhereGeometry.junctions.find(junction => junction.type === 'plus');
-    assert(
-        mergedPlus?.hostOrientation === null
-            && mergedPlus?.branchOrientation === null
-            && mergedElsewhereGeometry.perimeterJunctions.some(
-                junction => junction.type === 'perimeter-plus'
-            ),
-        'Merging another bay must preserve the same symmetric mixed + junction without selecting a host axis.'
-    );
-}
-
-// Rotation regression for the mixed +. The same CAD stock/cut relation must
-// hold for all four possible L-corner rotations, including the user's
-// top-right-corner case. This catches sign errors in atStart/atEnd handling.
+// Grid-member model: every physical member lives on one atomic line between
+// intersections. Mullions are symmetric and stay centred on that line. Frames
+// are asymmetric, so their physical outer boundary is offset from the line by
+// frameSpan - halfMullionFace (21 mm for 575760/575800). The miter itself is a
+// 45-degree line through the grid vertex.
 {
     const cadFrameSpan = 0.065;
     const cadFaceSpan = 0.088;
@@ -1495,6 +1339,26 @@ editableLGeometry.dividerSegments.forEach(segment => {
         dividerFaceSpan: cadFaceSpan,
         frameInwardSpan: cadFrameSpan,
     });
+    assert(
+        Math.abs(contactStart - 0.021) < 1e-9
+            && Math.abs(getFrameGridMiterInset({
+                inwardDistance: 0,
+                dividerFaceSpan: cadFaceSpan,
+                frameInwardSpan: cadFrameSpan,
+            }) + contactStart) < 1e-9
+            && Math.abs(getFrameGridMiterInset({
+                inwardDistance: contactStart,
+                dividerFaceSpan: cadFaceSpan,
+                frameInwardSpan: cadFrameSpan,
+            })) < 1e-9
+            && Math.abs(getFrameGridMiterInset({
+                inwardDistance: cadFrameSpan,
+                dividerFaceSpan: cadFaceSpan,
+                frameInwardSpan: cadFrameSpan,
+            }) - cadFaceSpan / 2) < 1e-9,
+        'The grid-frame miter must run through the graph vertex: -21 mm at the outer edge, 0 at the reference line and +44 mm at the inner edge.'
+    );
+
     const quadrants = {
         bl: { x0: 0, y0: 0, x1: 1, y1: 1 },
         br: { x0: 1, y0: 0, x1: 2, y1: 1 },
@@ -1503,7 +1367,7 @@ editableLGeometry.dividerSegments.forEach(segment => {
     };
     const rotations = [
         ['bl', 'tl', 'tr'],
-        ['br', 'tl', 'tr'], // corner window at top-right; missing bottom-left
+        ['br', 'tl', 'tr'],
         ['bl', 'br', 'tl'],
         ['bl', 'br', 'tr'],
     ];
@@ -1511,82 +1375,91 @@ editableLGeometry.dividerSegments.forEach(segment => {
     rotations.forEach((occupied, rotationIndex) => {
         const state = normalizeWindowState({
             windows: occupied.map((name, index) => ({
-                id: `rot-plus-${rotationIndex}-${index}`,
+                id: `grid-l-${rotationIndex}-${index}`,
                 type: 'fixed-glazing',
                 handleSide: null,
                 rect: quadrants[name],
             })),
         });
+        const topology = deriveWindowTopology(state);
         const geometry = getEditableWindowTopologyGeometry({
             width: 1.2,
             height: 1.5,
-            topology: deriveWindowTopology(state),
+            topology,
             frameReplacementSpan: cadFrameSpan,
             dividerFaceSpan: cadFaceSpan,
         });
-        const plus = geometry.junctions.find(junction => junction.type === 'plus');
+        const plus = geometry.physicalIntersections.find(junction => (
+            junction.type === 'plus'
+            && junction.dividerCount === 2
+            && junction.frameCount === 2
+        ));
         assert(
-            plus && plus.dividerCount === 2 && plus.frameCount === 2,
-            `L rotation ${rotationIndex + 1} must produce exactly one two-frame/two-mullion +.`
+            plus && ['north', 'east', 'south', 'west'].every(direction => plus.arms?.[direction]),
+            `Grid L rotation ${rotationIndex + 1} must form one explicit four-arm intersection.`
         );
-        const rotationDividerArms = plus?.activeDirections
+
+        const dividerArms = plus?.activeDirections
             ?.map(direction => plus.arms[direction])
             .filter(arm => arm?.kind === 'divider') || [];
-        plus?.endpoints?.forEach(endpoint => {
-            const divider = geometry.dividerSegments.find(
-                segment => segment.id === endpoint.dividerId
-            );
-            const arm = rotationDividerArms.find(candidate => candidate.segmentId === endpoint.dividerId);
-            const otherArm = rotationDividerArms.find(candidate => candidate.segmentId !== endpoint.dividerId);
-            let expectedShift = 0;
-            if (arm?.orientation === 'vertical') {
-                expectedShift = otherArm?.direction === 'east' ? contactStart : -contactStart;
-            } else if (arm?.orientation === 'horizontal') {
-                expectedShift = otherArm?.direction === 'north' ? contactStart : -contactStart;
-            }
+        dividerArms.forEach(arm => {
+            const divider = geometry.dividerSegments.find(segment => segment.id === arm.segmentId);
             const placed = getEditableDividerSegmentPlacement({
                 segment: divider,
-                junctions: geometry.junctions,
+                junctions: geometry.physicalIntersections,
                 dividerFaceSpan: cadFaceSpan,
                 frameJointInwardSpan: cadFrameSpan,
             });
+            const apexAlong = getDividerSegmentAlongCoordinate({
+                extrusionT: arm.atStart ? 0 : 1,
+                length: placed.length,
+                faceOffset: 0,
+                faceSpan: cadFaceSpan,
+                frameInwardSpan: cadFrameSpan,
+                ...placed.joint,
+            });
+            const apexLongWorld = placed.longitudinalOffset + apexAlong;
+            const apexX = divider.orientation === 'vertical'
+                ? divider.perpendicularOffset
+                : apexLongWorld;
+            const apexY = divider.orientation === 'vertical'
+                ? apexLongWorld
+                : divider.perpendicularOffset;
             assert(
-                Math.abs(divider.mixedPlusPerpendicularShift - expectedShift) < 1e-9
-                    && Math.abs(placed.length - (divider.length + contactStart)) < 1e-9,
-                `L rotation ${rotationIndex + 1} must use the same 21 mm CAD body shift and cut stock in the correct quadrant.`
+                divider
+                    && Math.abs(divider.perpendicularOffset - divider.structuralPerpendicularOffset) < 1e-9
+                    && Math.abs(divider.mixedPlusPerpendicularShift) < 1e-12
+                    && Math.abs(apexX - plus.x) < 1e-9
+                    && Math.abs(apexY - plus.y) < 1e-9
+                    && Math.abs(placed.joint.negativeArrowFaceBias || 0) < 1e-12
+                    && Math.abs(placed.joint.positiveArrowFaceBias || 0) < 1e-12,
+                `Grid L rotation ${rotationIndex + 1} must keep every mullion centred and put only its symmetric V apex on the grid vertex.`
             );
         });
 
-        if (rotationIndex === 1) {
-            const vertical = geometry.dividerSegments.find(segment => segment.orientation === 'vertical');
-            const horizontal = geometry.dividerSegments.find(segment => segment.orientation === 'horizontal');
-            const topFrames = geometry.framePlacements.filter(frame => frame.side === 'top');
-            const rightFrames = geometry.framePlacements.filter(frame => frame.side === 'right');
+        const frameArms = plus?.activeDirections
+            ?.map(direction => plus.arms[direction])
+            .filter(arm => arm?.kind === 'frame') || [];
+        frameArms.forEach(arm => {
+            const frame = geometry.framePlacements.find(piece => piece.id === arm.segmentId);
+            const expectedSign = frame?.side === 'bottom' || frame?.side === 'left' ? -1 : 1;
             assert(
-                Math.abs(vertical?.mixedPlusPerpendicularShift - contactStart) < 1e-9
-                    && Math.abs(horizontal?.mixedPlusPerpendicularShift - contactStart) < 1e-9,
-                'In the user top-right-corner L, the vertical mullion must move 21 mm right and the horizontal mullion 21 mm up.'
+                frame
+                    && frame.frameJointModes?.[arm.localEnd] === 'grid-miter'
+                    && Math.abs(
+                        frame.perpendicularOffset
+                            - (frame.structuralPerpendicularOffset + expectedSign * contactStart)
+                    ) < 1e-9,
+                `Grid L rotation ${rotationIndex + 1} must put the 21 mm asymmetry on the frame line, not on a mullion.`
             );
-            assert(
-                topFrames.length === 2
-                    && rightFrames.length === 2
-                    && Math.abs(topFrames[0].width - topFrames[1].width) < 1e-9
-                    && Math.abs(rightFrames[0].height - rightFrames[1].height) < 1e-9,
-                'The two top windows and the two right-side windows in the top-right L must use identical outer-frame stock lengths.'
-            );
-            [...topFrames, ...rightFrames].forEach(frame => {
-                const shiftedEnd = Object.entries(frame.frameJointModes || {})
-                    .find(([, mode]) => mode === 'shifted-socket');
-                assert(
-                    shiftedEnd
-                        && Math.abs(
-                            Number(frame.frameJointCenterShifts?.[shiftedEnd[0]])
-                                - contactStart
-                        ) < 1e-9,
-                    'The outside T at the shifted mullion must bend only the socket cut by 21 mm; the frame length and structural window boundary must remain unchanged.'
-                );
-            });
-        }
+        });
+
+        assert(
+            topology.linePieces.every(piece => piece.pieceType === 'frame' || piece.pieceType === 'mullion')
+                && geometry.gridLinePieces.some(piece => piece.pieceType === 'frame')
+                && geometry.gridLinePieces.some(piece => piece.pieceType === 'mullion'),
+            `Grid L rotation ${rotationIndex + 1} must expose atomic frame/mullion line pieces for the renderer.`
+        );
     });
 }
 
@@ -1672,18 +1545,18 @@ function assertPartialMergedPerimeter({ windows, mergeA, mergeB, side, start, en
         && Math.abs(candidate.end - end) < 1e-9
     );
     assert(
-        Boolean(edge),
-        `${label} must rebuild the uncovered ${side} portion of the merged window as an exterior frame segment.`
+        Boolean(edge) && edge.pieceType === 'frame',
+        `${label} must rebuild the uncovered ${side} portion as one atomic frame line.`
     );
     const addCandidate = topology.addCandidates.find(candidate => candidate.frameEdgeId === edge?.id);
     assert(
         Boolean(addCandidate),
-        `${label} must keep the newly reconstructed partial frame usable as an add-window edge.`
+        `${label} must keep the reconstructed frame line usable as an add-window edge.`
     );
 
     const frameSpan = 0.075;
     const mullionFaceSpan = 0.098;
-    const expectedStraightContact = frameSpan - mullionFaceSpan / 2;
+    const contactStart = frameSpan - mullionFaceSpan / 2;
     const geometry = getEditableWindowTopologyGeometry({
         width: 1.2,
         height: 1.5,
@@ -1693,31 +1566,25 @@ function assertPartialMergedPerimeter({ windows, mergeA, mergeB, side, start, en
     });
     const perimeterJunction = geometry.perimeterJunctions.find(junction =>
         junction.hostFrameEndpoint?.frameId === edge?.id
+        || junction.branchFrameEndpoint?.frameId === edge?.id
     );
     assert(
         Boolean(perimeterJunction),
-        `${label} must classify the partial frame + surviving mullion + perpendicular frame as a re-entrant perimeter T.`
+        `${label} must classify the partial frame + surviving mullion + perpendicular frame as one re-entrant grid junction.`
     );
 
     const basePlacement = geometry.framePlacements.find(placement => placement.id === edge?.id);
-    const reentrantPlacement = getEditableReentrantFramePlacement({
-        placement: basePlacement,
-        perimeterJunctions: geometry.perimeterJunctions,
-        frameInwardSpan: frameSpan,
-        dividerFaceSpan: mullionFaceSpan,
-    });
     const survivingDivider = geometry.dividerSegments.find(
         divider => divider.id === perimeterJunction?.dividerEndpoint?.dividerId
     );
-    const branchFrame = geometry.framePlacements.find(
-        placement => placement.id === perimeterJunction?.branchFrameEndpoint?.frameId
-    );
     assert(
         survivingDivider
-            && Math.abs(Math.abs(survivingDivider.mixedPlusPerpendicularShift) - expectedStraightContact) < 1e-9
-            && !survivingDivider.mixedPlusShiftConflict,
-        `${label} must keep the surviving mullion in the CAD re-entrant seat instead of snapping it back to the structural grid after the merge.`
+            && survivingDivider.pieceType === 'mullion'
+            && Math.abs(survivingDivider.perpendicularOffset - survivingDivider.structuralPerpendicularOffset) < 1e-9
+            && Math.abs(survivingDivider.mixedPlusPerpendicularShift) < 1e-12,
+        `${label} must keep the surviving mullion centred on its grid line.`
     );
+
     const expectedFillerDirectionByMergedSide = {
         bottom: 'north',
         top: 'south',
@@ -1727,79 +1594,79 @@ function assertPartialMergedPerimeter({ windows, mergeA, mergeB, side, start, en
     const filler = geometry.reentrantFillers?.find(
         candidate => candidate.sourceDividerId === survivingDivider?.id
     );
-    const expectedFaceHalfSign = filler?.orientation === 'horizontal'
-        ? (filler?.direction === 'north' ? -1 : 1)
-        : (filler?.direction === 'west' ? -1 : 1);
     assert(
         filler
+            && filler.pieceType === 'half-mullion'
             && filler.direction === expectedFillerDirectionByMergedSide[side]
             && filler.orientation === survivingDivider?.orientation
-            && filler.faceHalfSign === expectedFaceHalfSign
-            && Math.abs(filler.length - frameSpan) < 1e-9,
-        `${label} must close the missing merged-window direction with one clipped half-mullion wedge extruded parallel to the surviving divider, without restoring a divider through the merged cell.`
+            && Math.abs(filler.length - frameSpan) < 1e-9
+            && Math.abs(filler.apexX - perimeterJunction.x) < 1e-9
+            && Math.abs(filler.apexY - perimeterJunction.y) < 1e-9,
+        `${label} must close the missing arm with one half-mullion wedge whose apex is the same grid intersection.`
     );
-    if (basePlacement && reentrantPlacement && perimeterJunction) {
-        const isHorizontal = basePlacement.orientation === 'horizontal';
-        const baseLength = isHorizontal ? basePlacement.width : basePlacement.height;
-        const adjustedLength = isHorizontal ? reentrantPlacement.width : reentrantPlacement.height;
-        const baseLongitudinalOrigin = isHorizontal ? basePlacement.originX : basePlacement.originY;
-        const adjustedLongitudinalOrigin = isHorizontal ? reentrantPlacement.originX : reentrantPlacement.originY;
-        assert(
-            Math.abs(adjustedLength - baseLength) < 1e-9
-                && Math.abs(adjustedLongitudinalOrigin - baseLongitudinalOrigin) < 1e-9,
-            `${label} must solve the re-entrant T in the endpoint cut only; the structural frame length/origin may not change.`
-        );
-        assert(
-            reentrantPlacement.frameJointModes?.[perimeterJunction.hostFrameEndpoint.localEnd] === 'mixed-reentrant'
-                && branchFrame?.frameJointModes?.[perimeterJunction.branchFrameEndpoint.localEnd] === 'mixed-reentrant',
-            `${label} must cut both frame arms toward one shared mixed-reentrant apex instead of treating one as a reverse miter and the other as a socket.`
-        );
 
-        const basePerpendicularOrigin = isHorizontal ? basePlacement.originY : basePlacement.originX;
-        const adjustedPerpendicularOrigin = isHorizontal ? reentrantPlacement.originY : reentrantPlacement.originX;
+    const frameEndpoints = [
+        perimeterJunction?.hostFrameEndpoint,
+        perimeterJunction?.branchFrameEndpoint,
+    ].filter(Boolean);
+    frameEndpoints.forEach(endpoint => {
+        const frame = geometry.framePlacements.find(piece => piece.id === endpoint.frameId);
+        const expectedSign = frame?.side === 'bottom' || frame?.side === 'left' ? -1 : 1;
         assert(
-            Math.abs(adjustedPerpendicularOrigin - basePerpendicularOrigin) < 1e-9,
-            `${label} must keep the reconstructed frame on the merged cell boundary so it stays in contact with the sash/fixed-light instead of shifting outward.`
+            frame
+                && frame.frameJointModes?.[endpoint.localEnd] === 'grid-miter'
+                && Math.abs(
+                    frame.perpendicularOffset
+                        - (frame.structuralPerpendicularOffset + expectedSign * contactStart)
+                ) < 1e-9,
+            `${label} must keep the 26 mm frame/mullion reference difference on each asymmetric frame arm.`
         );
-        assert(
-            reentrantPlacement.reentrantHost === false,
-            `${label} must not invoke the legacy reverse-miter host translation for the new three-arm mixed junction.`
-        );
+    });
 
-        if (survivingDivider) {
-            const placedDivider = getEditableDividerSegmentPlacement({
-                segment: survivingDivider,
-                junctions: geometry.junctions,
-                dividerFaceSpan: mullionFaceSpan,
-                frameJointInwardSpan: frameSpan,
-            });
-            const dividerAtStart = perimeterJunction.dividerEndpoint.atStart;
-            const apexAlongLocal = getDividerSegmentAlongCoordinate({
-                extrusionT: dividerAtStart ? 0 : 1,
-                length: placedDivider.length,
-                faceOffset: 0,
-                faceSpan: mullionFaceSpan,
-                frameInwardSpan: frameSpan,
-                negativeFrameInwardSpan: placedDivider.joint.negativeFrameInwardSpan,
-                positiveFrameInwardSpan: placedDivider.joint.positiveFrameInwardSpan,
-                negativeEndMode: placedDivider.joint.negativeEndMode,
-                positiveEndMode: placedDivider.joint.positiveEndMode,
-                negativeArrowFaceBias: placedDivider.joint.negativeArrowFaceBias,
-                positiveArrowFaceBias: placedDivider.joint.positiveArrowFaceBias,
-            });
-            const apexLongWorld = placedDivider.longitudinalOffset + apexAlongLocal;
-            const apexX = survivingDivider.orientation === 'horizontal'
-                ? apexLongWorld
-                : survivingDivider.perpendicularOffset;
-            const apexY = survivingDivider.orientation === 'vertical'
-                ? apexLongWorld
-                : survivingDivider.perpendicularOffset;
-            assert(
-                Math.abs(Math.abs(apexX - perimeterJunction.x) - expectedStraightContact) < 1e-9
-                    && Math.abs(Math.abs(apexY - perimeterJunction.y) - expectedStraightContact) < 1e-9,
-                `${label} must place the common frame/frame/mullion apex one CAD contact distance along both axes from the structural corner.`
-            );
-        }
+    if (survivingDivider && perimeterJunction) {
+        const placedDivider = getEditableDividerSegmentPlacement({
+            segment: survivingDivider,
+            junctions: geometry.physicalIntersections,
+            dividerFaceSpan: mullionFaceSpan,
+            frameJointInwardSpan: frameSpan,
+        });
+        const atStart = perimeterJunction.dividerEndpoint?.atStart;
+        const apexAlongLocal = getDividerSegmentAlongCoordinate({
+            extrusionT: atStart ? 0 : 1,
+            length: placedDivider.length,
+            faceOffset: 0,
+            faceSpan: mullionFaceSpan,
+            frameInwardSpan: frameSpan,
+            ...placedDivider.joint,
+        });
+        const apexLongWorld = placedDivider.longitudinalOffset + apexAlongLocal;
+        const apexX = survivingDivider.orientation === 'horizontal'
+            ? apexLongWorld
+            : survivingDivider.perpendicularOffset;
+        const apexY = survivingDivider.orientation === 'vertical'
+            ? apexLongWorld
+            : survivingDivider.perpendicularOffset;
+        assert(
+            Math.abs(apexX - perimeterJunction.x) < 1e-9
+                && Math.abs(apexY - perimeterJunction.y) < 1e-9,
+            `${label} must put the surviving mullion V tip exactly on the grid vertex, with no diagonal 21 mm apex translation.`
+        );
+    }
+
+    if (basePlacement) {
+        const placed = getEditableReentrantFramePlacement({
+            placement: basePlacement,
+            perimeterJunctions: geometry.perimeterJunctions,
+            frameInwardSpan: frameSpan,
+            dividerFaceSpan: mullionFaceSpan,
+        });
+        assert(
+            Math.abs(placed.width - basePlacement.width) < 1e-9
+                && Math.abs(placed.height - basePlacement.height) < 1e-9
+                && Math.abs(placed.originX - basePlacement.originX) < 1e-9
+                && Math.abs(placed.originY - basePlacement.originY) < 1e-9,
+            `${label} must change only the endpoint cut/type; grid-member length and origin cannot be resized by a neighbouring mullion.`
+        );
     }
 
     if (addCandidate) {
@@ -1822,36 +1689,6 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
     type: 'fixed-glazing',
     rect: { x0, y0, x1, y1 },
 });
-
-// At a re-entrant T, the reconstructed host frame stays on its cell boundary
-// and the reverse-miter cut absorbs the frame/mullion offset. With a centred
-// boundary, the first half mullion-face of the frame follows the surviving V
-// exactly from apex to shoulder; no perpendicular frame translation is needed.
-{
-    const frameSpan = 0.075;
-    const mullionFaceSpan = 0.098;
-    const halfMullion = mullionFaceSpan / 2;
-    [0, halfMullion].forEach(mullionSideDistance => {
-        const frameRelativeEnd = -frameSpan + getFrameReentrantMiterInset({
-            inwardDistance: mullionSideDistance,
-            frameInwardSpan: frameSpan,
-            dividerFaceSpan: mullionFaceSpan,
-            frameBoundaryOffset: 0,
-        });
-        const dividerLength = 1.0;
-        const dividerRelativeEnd = getDividerSegmentAlongCoordinate({
-            extrusionT: 1,
-            length: dividerLength,
-            faceOffset: mullionSideDistance,
-            faceSpan: mullionFaceSpan,
-            frameInwardSpan: frameSpan,
-        }) - dividerLength / 2;
-        assert(
-            Math.abs(frameRelativeEnd - dividerRelativeEnd) < 1e-9,
-            'The reconstructed frame reverse miter must coincide with the surviving mullion V from apex to shoulder without moving the complete frame.'
-        );
-    });
-}
 
 [
     {
@@ -1897,20 +1734,18 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
 ].forEach(assertPartialMergedPerimeter);
 
 // Exact user regression: top-right L (top-left + top-right + bottom-right),
-// then merge the two top windows. The former four-arm + becomes west frame +
-// south frame + east mullion. The mullion must stay 21 mm upward, and its
-// centred V must meet the two mixed-reentrant frame cuts at (+21, +21) from the
-// structural corner. Its right-hand outside-frame termination must keep the
-// equal-window boundary and absorb the same shift only in the socket cuts.
+// then merge the top row. The surviving horizontal mullion remains centred on
+// the row grid line; the frame pieces sit on opposite sides of that line and
+// the missing north arm becomes a half-mullion wedge at the same vertex.
 {
     const frameSpan = 0.065;
     const faceSpan = 0.088;
     const contactStart = frameSpan - faceSpan / 2;
     let state = normalizeWindowState({
         windows: [
+            fixedCell('user-tr-br', 1, 0, 2, 1),
             fixedCell('user-tr-tl', 0, 1, 1, 2),
             fixedCell('user-tr-tr', 1, 1, 2, 2),
-            fixedCell('user-tr-br', 1, 0, 2, 1),
         ],
     });
     state = mergeWindowsInState(state, {
@@ -1925,146 +1760,430 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
         frameReplacementSpan: frameSpan,
         dividerFaceSpan: faceSpan,
     });
-    const reentrant = geometry.physicalIntersections.find(junction =>
+    const reentrant = geometry.physicalIntersections.find(junction => (
         junction.type === 'T'
         && junction.dividerCount === 1
         && junction.frameCount === 2
-        && junction.activeDirections.includes('east')
-        && junction.activeDirections.includes('south')
-        && junction.activeDirections.includes('west')
-    );
-    const divider = geometry.dividerSegments.find(segment =>
-        segment.id === reentrant?.endpoints?.[0]?.dividerId
-    );
+    ));
+    const dividerArm = reentrant?.activeDirections
+        ?.map(direction => reentrant.arms[direction])
+        .find(arm => arm?.kind === 'divider');
+    const divider = geometry.dividerSegments.find(piece => piece.id === dividerArm?.segmentId);
     assert(
         reentrant
-            && divider?.orientation === 'horizontal'
-            && Math.abs(divider.mixedPlusPerpendicularShift - contactStart) < 1e-9
-            && Math.abs(divider.perpendicularOffset - (reentrant.y + contactStart)) < 1e-9,
-        'After merging the top row of the top-right L, the surviving right-hand mullion must stay 21 mm above the structural row instead of dropping back down.'
+            && divider
+            && Math.abs(divider.perpendicularOffset - divider.structuralPerpendicularOffset) < 1e-9
+            && Math.abs(divider.mixedPlusPerpendicularShift) < 1e-12,
+        'Merged top-right L must keep its surviving mullion exactly on the grid line.'
     );
 
-    const reentrantFrames = reentrant?.frameEndpoints
-        ?.map(endpoint => geometry.framePlacements.find(frame => frame.id === endpoint.frameId))
-        .filter(Boolean) || [];
-    assert(
-        reentrantFrames.length === 2
-            && reentrantFrames.every((frame, index) => {
-                const endpoint = reentrant.frameEndpoints[index];
-                return frame.frameJointModes?.[endpoint.localEnd] === 'mixed-reentrant';
-            }),
-        'The left and bottom frame arms of the merged top-right L must both use the same mixed-reentrant cut toward the surviving mullion.'
-    );
+    reentrant?.frameEndpoints?.forEach(endpoint => {
+        const frame = geometry.framePlacements.find(piece => piece.id === endpoint.frameId);
+        const expectedSign = frame?.side === 'bottom' || frame?.side === 'left' ? -1 : 1;
+        assert(
+            frame
+                && frame.frameJointModes?.[endpoint.localEnd] === 'grid-miter'
+                && Math.abs(
+                    frame.perpendicularOffset
+                        - (frame.structuralPerpendicularOffset + expectedSign * contactStart)
+                ) < 1e-9,
+            'Merged top-right L frame arms must use the same 21 mm frame offset and grid-miter law.'
+        );
+    });
 
-    const filler = geometry.reentrantFillers?.find(
-        candidate => candidate.sourceDividerId === divider?.id
-    );
+    const filler = geometry.reentrantFillers.find(piece => piece.sourceDividerId === divider?.id);
     assert(
         filler
+            && filler.pieceType === 'half-mullion'
             && filler.direction === 'north'
             && filler.orientation === 'horizontal'
-            && filler.extrusionDirection === 'west'
-            && filler.faceHalfSign === -1
-            && Math.abs(filler.apexX - (reentrant.x + contactStart)) < 1e-9
-            && Math.abs(filler.apexY - (reentrant.y + contactStart)) < 1e-9
-            && filler.joint.negativeEndMode === 'square'
-            && filler.joint.positiveEndMode === 'arrow',
-        'The top-right merged L must add a north-half mullion wedge extruded horizontally to the west, with its V tip at the shared (+21 mm, +21 mm) re-entrant apex.'
+            && Math.abs(filler.apexX - reentrant.x) < 1e-9
+            && Math.abs(filler.apexY - reentrant.y) < 1e-9,
+        'Merged top-right L must add one north half-mullion wedge at the same grid vertex as the surviving mullion.'
     );
     if (filler) {
-        const squareAtCenter = filler.longitudinalOffset + getDividerSegmentAlongCoordinate({
-            extrusionT: 0,
-            length: filler.length,
-            faceOffset: 0,
-            faceSpan,
-            frameInwardSpan: frameSpan,
-            ...filler.joint,
-        });
-        const tipAtCenter = filler.longitudinalOffset + getDividerSegmentAlongCoordinate({
-            extrusionT: 1,
-            length: filler.length,
-            faceOffset: 0,
-            faceSpan,
-            frameInwardSpan: frameSpan,
-            ...filler.joint,
-        });
-        const squareAtNorthShoulder = filler.longitudinalOffset + getDividerSegmentAlongCoordinate({
-            extrusionT: 0,
-            length: filler.length,
-            faceOffset: -faceSpan / 2,
-            faceSpan,
-            frameInwardSpan: frameSpan,
-            ...filler.joint,
-        });
-        const arrowAtNorthShoulder = filler.longitudinalOffset + getDividerSegmentAlongCoordinate({
-            extrusionT: 1,
-            length: filler.length,
-            faceOffset: -faceSpan / 2,
-            faceSpan,
-            frameInwardSpan: frameSpan,
-            ...filler.joint,
-        });
+        const triangle = getReentrantFillerTriangle({ filler, dividerFaceSpan: faceSpan });
         assert(
-            Math.abs(tipAtCenter - filler.apexX) < 1e-9
-                && Math.abs(squareAtCenter - (filler.apexX - faceSpan / 2)) < 1e-9
-                && Math.abs(squareAtNorthShoulder - (filler.apexX - faceSpan / 2)) < 1e-9
-                && Math.abs(arrowAtNorthShoulder - (filler.apexX - faceSpan / 2)) < 1e-9
-                && Math.abs((filler.perpendicularOffset + faceSpan / 2) - (filler.apexY + faceSpan / 2)) < 1e-9,
-            'The re-entrant filler must be the horizontal north-half V wedge: centre-face tip at the common apex, with the retained north shoulder closing 44 mm to the west instead of creating a vertical cap.'
-        );
-
-        const wedgeTriangle = getReentrantFillerTriangle({
-            filler,
-            dividerFaceSpan: faceSpan,
-        });
-        assert(
-            wedgeTriangle.length === 3
-                && Math.abs(wedgeTriangle[0].x - filler.apexX) < 1e-9
-                && Math.abs(wedgeTriangle[0].y - filler.apexY) < 1e-9
-                && Math.abs(wedgeTriangle[1].x - (filler.apexX - faceSpan / 2)) < 1e-9
-                && Math.abs(wedgeTriangle[1].y - (filler.apexY + faceSpan / 2)) < 1e-9
-                && Math.abs(wedgeTriangle[2].x - (filler.apexX + faceSpan / 2)) < 1e-9
-                && Math.abs(wedgeTriangle[2].y - (filler.apexY + faceSpan / 2)) < 1e-9,
-            'The rendered merged-L filler must occupy only the open V: apex plus the two north shoulders 44 mm left/right, without placing any triangle over the left frame.'
+            triangle.length === 3
+                && Math.abs(triangle[0].x - filler.apexX) < 1e-9
+                && Math.abs(triangle[0].y - filler.apexY) < 1e-9
+                && triangle.slice(1).every(point => Math.abs(point.y - (filler.apexY + faceSpan / 2)) < 1e-9),
+            'The north half-mullion must remain a triangle bounded by the two 45-degree shoulders, not a diagonal full member.'
         );
     }
 
     if (divider && reentrant) {
         const placed = getEditableDividerSegmentPlacement({
             segment: divider,
-            junctions: geometry.junctions,
+            junctions: geometry.physicalIntersections,
             dividerFaceSpan: faceSpan,
             frameJointInwardSpan: frameSpan,
         });
-        const atStart = reentrant.endpoints[0].atStart;
+        const atStart = dividerArm.atStart;
         const apexAlong = getDividerSegmentAlongCoordinate({
             extrusionT: atStart ? 0 : 1,
             length: placed.length,
             faceOffset: 0,
             faceSpan,
             frameInwardSpan: frameSpan,
-            negativeFrameInwardSpan: placed.joint.negativeFrameInwardSpan,
-            positiveFrameInwardSpan: placed.joint.positiveFrameInwardSpan,
-            negativeEndMode: placed.joint.negativeEndMode,
-            positiveEndMode: placed.joint.positiveEndMode,
-            negativeArrowFaceBias: placed.joint.negativeArrowFaceBias,
-            positiveArrowFaceBias: placed.joint.positiveArrowFaceBias,
+            ...placed.joint,
         });
+        const apexLongWorld = placed.longitudinalOffset + apexAlong;
         assert(
-            Math.abs((placed.longitudinalOffset + apexAlong) - (reentrant.x + contactStart)) < 1e-9
-                && Math.abs(divider.perpendicularOffset - (reentrant.y + contactStart)) < 1e-9,
-            'The merged top-right L common apex must be 21 mm right and 21 mm above the structural frame/frame corner.'
+            Math.abs(apexLongWorld - reentrant.x) < 1e-9
+                && Math.abs(divider.perpendicularOffset - reentrant.y) < 1e-9,
+            'Merged top-right L mullion V apex must be exactly the graph intersection, not (+21,+21) from it.'
+        );
+    }
+}
+
+// Regression: every rotated merged-L equivalent must retain exactly one real
+// mullion filler in the missing direction. A previous follow-up for opposite
+// T sockets accidentally restored an older filler-triangle formula, which made
+// the top filler disappear again and broke several other merged-L rotations.
+{
+    const quadrants = {
+        bl: { x0: 0, y0: 0, x1: 1, y1: 1 },
+        br: { x0: 1, y0: 0, x1: 2, y1: 1 },
+        tl: { x0: 0, y0: 1, x1: 1, y1: 2 },
+        tr: { x0: 1, y0: 1, x1: 2, y1: 2 },
+    };
+    const mergedLCases = [
+        { occupied: ['br', 'tl', 'tr'], merge: ['tl', 'tr'], direction: 'north', orientation: 'horizontal' },
+        { occupied: ['br', 'tl', 'tr'], merge: ['br', 'tr'], direction: 'east', orientation: 'vertical' },
+        { occupied: ['bl', 'tl', 'tr'], merge: ['tl', 'tr'], direction: 'north', orientation: 'horizontal' },
+        { occupied: ['bl', 'tl', 'tr'], merge: ['bl', 'tl'], direction: 'west', orientation: 'vertical' },
+        { occupied: ['bl', 'br', 'tr'], merge: ['bl', 'br'], direction: 'south', orientation: 'horizontal' },
+        { occupied: ['bl', 'br', 'tr'], merge: ['br', 'tr'], direction: 'east', orientation: 'vertical' },
+        { occupied: ['bl', 'br', 'tl'], merge: ['bl', 'br'], direction: 'south', orientation: 'horizontal' },
+        { occupied: ['bl', 'br', 'tl'], merge: ['bl', 'tl'], direction: 'west', orientation: 'vertical' },
+    ];
+    const directionVector = direction => ({
+        north: { x: 0, y: 1 },
+        south: { x: 0, y: -1 },
+        east: { x: 1, y: 0 },
+        west: { x: -1, y: 0 },
+    }[direction]);
+    const faceSpan = 0.088;
+    const halfFace = faceSpan / 2;
+
+    mergedLCases.forEach((testCase, index) => {
+        let state = normalizeWindowState({
+            windows: testCase.occupied.map(id => ({
+                id: `merged-l-${index}-${id}`,
+                type: 'fixed-glazing',
+                handleSide: null,
+                rect: quadrants[id],
+            })),
+        });
+        state = mergeWindowsInState(state, {
+            cellAId: `merged-l-${index}-${testCase.merge[0]}`,
+            cellBId: `merged-l-${index}-${testCase.merge[1]}`,
+            type: 'fixed-glazing',
+        });
+        const geometry = getEditableWindowTopologyGeometry({
+            width: 1.2,
+            height: 1.5,
+            topology: deriveWindowTopology(state),
+            frameReplacementSpan: 0.065,
+            dividerFaceSpan: faceSpan,
+        });
+        const fillers = geometry.reentrantFillers || [];
+        const filler = fillers[0];
+        assert(
+            fillers.length === 1
+                && filler?.direction === testCase.direction
+                && filler?.orientation === testCase.orientation,
+            `Merged-L rotation ${index + 1} must retain exactly one ${testCase.direction}-facing mullion filler after unrelated T-junction fixes.`
+        );
+        if (!filler) return;
+
+        const triangle = getReentrantFillerTriangle({
+            filler,
+            dividerFaceSpan: faceSpan,
+        });
+        const missing = directionVector(filler.direction);
+        const extrusion = directionVector(filler.extrusionDirection);
+        const mouthCenter = {
+            x: filler.apexX + missing.x * halfFace,
+            y: filler.apexY + missing.y * halfFace,
+        };
+        const expectedA = {
+            x: mouthCenter.x + extrusion.x * halfFace,
+            y: mouthCenter.y + extrusion.y * halfFace,
+        };
+        const expectedB = {
+            x: mouthCenter.x - extrusion.x * halfFace,
+            y: mouthCenter.y - extrusion.y * halfFace,
+        };
+        const shoulderMatches = (point, expected) => (
+            Math.abs(point.x - expected.x) < 1e-9
+            && Math.abs(point.y - expected.y) < 1e-9
+        );
+        assert(
+            triangle.length === 3
+                && Math.abs(triangle[0].x - filler.apexX) < 1e-9
+                && Math.abs(triangle[0].y - filler.apexY) < 1e-9
+                && (
+                    (shoulderMatches(triangle[1], expectedA) && shoulderMatches(triangle[2], expectedB))
+                    || (shoulderMatches(triangle[1], expectedB) && shoulderMatches(triangle[2], expectedA))
+                ),
+            `Merged-L rotation ${index + 1} filler must occupy the V opening between both 45-degree shoulders, never the neighbouring frame side.`
+        );
+    });
+}
+
+// Regression: the same staggered staircase is already a grid problem before
+// either pair is merged. The middle horizontal line must be one reference line:
+// its mullion is centred on it, while the bottom frame on the left and top frame
+// on the right carry the frame's opposite +/- CAD offsets. Nothing may move or
+// shear the mullion to satisfy either endpoint.
+{
+    const frameSpan = 0.065;
+    const faceSpan = 0.088;
+    const contactStart = frameSpan - faceSpan / 2;
+    const state = normalizeWindowState({
+        windows: [
+            fixedCell('grid-stagger-upper-left', 0, 1, 1, 2),
+            fixedCell('grid-stagger-upper-right', 1, 1, 2, 2),
+            fixedCell('grid-stagger-lower-left', 1, 0, 2, 1),
+            fixedCell('grid-stagger-lower-right', 2, 0, 3, 1),
+        ],
+    });
+    const topology = deriveWindowTopology(state);
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology,
+        frameReplacementSpan: frameSpan,
+        dividerFaceSpan: faceSpan,
+    });
+    const middleMullion = geometry.dividerSegments.find(segment => (
+        segment.orientation === 'horizontal'
+        && segment.start === 1
+        && segment.end === 2
+    ));
+    const leftBottomFrame = geometry.framePlacements.find(frame => (
+        frame.orientation === 'horizontal'
+        && frame.side === 'bottom'
+        && frame.start === 0
+        && frame.end === 1
+        && Math.abs(frame.structuralPerpendicularOffset - middleMullion?.structuralPerpendicularOffset) < 1e-9
+    ));
+    const rightTopFrame = geometry.framePlacements.find(frame => (
+        frame.orientation === 'horizontal'
+        && frame.side === 'top'
+        && frame.start === 2
+        && frame.end === 3
+        && Math.abs(frame.structuralPerpendicularOffset - middleMullion?.structuralPerpendicularOffset) < 1e-9
+    ));
+
+    assert(
+        middleMullion
+            && leftBottomFrame
+            && rightTopFrame
+            && Math.abs(middleMullion.perpendicularOffset - middleMullion.structuralPerpendicularOffset) < 1e-9
+            && Math.abs(leftBottomFrame.structuralPerpendicularOffset - middleMullion.structuralPerpendicularOffset) < 1e-9
+            && Math.abs(rightTopFrame.structuralPerpendicularOffset - middleMullion.structuralPerpendicularOffset) < 1e-9
+            && Math.abs(leftBottomFrame.perpendicularOffset - (middleMullion.structuralPerpendicularOffset - contactStart)) < 1e-9
+            && Math.abs(rightTopFrame.perpendicularOffset - (middleMullion.structuralPerpendicularOffset + contactStart)) < 1e-9,
+        'An unmerged staggered grid must use one horizontal reference level: the mullion stays centred and the two asymmetric frames carry opposite 21 mm offsets.'
+    );
+    assert(
+        geometry.dividerSegments.every(segment => (
+            Math.abs(segment.perpendicularOffset - segment.structuralPerpendicularOffset) < 1e-9
+        )),
+        'No mullion in an unmerged staggered grid may be translated or sheared away from its grid line by neighbouring frame geometry.'
+    );
+}
+
+// Regression: in a three-window L, an exposed frame can sit on an internal
+// grid coordinate even though that same coordinate is a mullion in the next
+// segment. The frame is physically offset by 21 mm from the graph line, so the
+// sash/glazing-bead connection rectangle must follow that frame boundary too.
+// Otherwise the inside assembly is visibly 21 mm smaller than its frame.
+{
+    const frameSpan = 0.065;
+    const faceSpan = 0.088;
+    const contactStart = frameSpan - faceSpan / 2;
+    const state = normalizeWindowState({
+        windows: [
+            {
+                ...fixedCell('inside-size-bottom-left', 0, 0, 1, 1),
+                type: 'opening-sash',
+            },
+            {
+                ...fixedCell('inside-size-bottom-right', 1, 0, 2, 1),
+                type: 'opening-sash',
+            },
+            {
+                ...fixedCell('inside-size-top-right', 1, 1, 2, 2),
+                type: 'opening-sash',
+            },
+        ],
+    });
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 0.6,
+        height: 0.9,
+        topology: deriveWindowTopology(state),
+        frameReplacementSpan: frameSpan,
+        dividerFaceSpan: faceSpan,
+    });
+
+    const bottomLeft = geometry.cells.find(cell => cell.id === 'inside-size-bottom-left');
+    const bottomRight = geometry.cells.find(cell => cell.id === 'inside-size-bottom-right');
+    const topRight = geometry.cells.find(cell => cell.id === 'inside-size-top-right');
+    const bottomLeftTopFrame = geometry.framePlacements.find(frame => (
+        frame.windowCell === bottomLeft?.id && frame.side === 'top'
+    ));
+    const topRightLeftFrame = geometry.framePlacements.find(frame => (
+        frame.windowCell === topRight?.id && frame.side === 'left'
+    ));
+    const verticalDivider = geometry.dividerSegments.find(segment => (
+        segment.orientation === 'vertical'
+        && segment.negativeCellId === bottomLeft?.id
+        && segment.positiveCellId === bottomRight?.id
+    ));
+    const horizontalDivider = geometry.dividerSegments.find(segment => (
+        segment.orientation === 'horizontal'
+        && segment.negativeCellId === bottomRight?.id
+        && segment.positiveCellId === topRight?.id
+    ));
+
+    assert(
+        bottomLeft
+            && bottomLeftTopFrame
+            && Math.abs(bottomLeft.connectionY1 - bottomLeftTopFrame.perpendicularOffset) < 1e-9
+            && Math.abs(
+                bottomLeft.connectionY1
+                    - (bottomLeftTopFrame.structuralPerpendicularOffset + contactStart)
+            ) < 1e-9,
+        'An exposed top frame on an internal grid line must expand the sash/glazing connection rectangle to the frame\'s +21 mm physical boundary.'
+    );
+    assert(
+        topRight
+            && topRightLeftFrame
+            && Math.abs(topRight.connectionX0 - topRightLeftFrame.perpendicularOffset) < 1e-9
+            && Math.abs(
+                topRight.connectionX0
+                    - (topRightLeftFrame.structuralPerpendicularOffset - contactStart)
+            ) < 1e-9,
+        'An exposed left frame on an internal grid line must expand the sash/glazing connection rectangle to the frame\'s -21 mm physical boundary.'
+    );
+    assert(
+        bottomRight
+            && verticalDivider
+            && horizontalDivider
+            && Math.abs(bottomRight.connectionX0 - verticalDivider.perpendicularOffset) < 1e-9
+            && Math.abs(bottomRight.connectionY1 - horizontalDivider.perpendicularOffset) < 1e-9,
+        'Divider-owned sides must keep their mullion CAD seat; the exposed-frame correction must not move neighbouring divider-facing sash/glazing boundaries.'
+    );
+}
+
+// Regression: two merged windows can be staggered by one column. The single
+// mullion between them has a re-entrant junction at both ends. Under the grid
+// model this is no longer a conflicting +21/-21 body-placement problem: one
+// straight mullion stays on one centre line, while each adjacent frame is
+// offset to its own side and each missing arm receives a local half-mullion.
+{
+    const frameSpan = 0.065;
+    const faceSpan = 0.088;
+    const contactStart = frameSpan - faceSpan / 2;
+    let state = normalizeWindowState({
+        windows: [
+            { ...fixedCell('stagger-upper-left', 0, 1, 1, 2), type: 'opening-sash' },
+            { ...fixedCell('stagger-upper-right', 1, 1, 2, 2), type: 'opening-sash' },
+            fixedCell('stagger-lower-left', 1, 0, 2, 1),
+            fixedCell('stagger-lower-right', 2, 0, 3, 1),
+        ],
+    });
+    state = mergeWindowsInState(state, {
+        cellAId: 'stagger-upper-left',
+        cellBId: 'stagger-upper-right',
+        type: 'opening-sash',
+    });
+    state = mergeWindowsInState(state, {
+        cellAId: 'stagger-lower-left',
+        cellBId: 'stagger-lower-right',
+        type: 'fixed-glazing',
+    });
+    const topology = deriveWindowTopology(state);
+    const geometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology,
+        frameReplacementSpan: frameSpan,
+        dividerFaceSpan: faceSpan,
+    });
+    const divider = geometry.dividerSegments.find(segment => segment.orientation === 'horizontal');
+    const reentrantEnds = geometry.physicalIntersections.filter(junction => (
+        junction.type === 'T'
+        && junction.dividerCount === 1
+        && junction.frameCount === 2
+        && junction.activeDirections.some(direction => junction.arms[direction]?.segmentId === divider?.id)
+    ));
+    assert(
+        divider
+            && reentrantEnds.length === 2
+            && Math.abs(divider.perpendicularOffset - divider.structuralPerpendicularOffset) < 1e-9
+            && Math.abs(divider.mixedPlusNegativePerpendicularShift) < 1e-12
+            && Math.abs(divider.mixedPlusPositivePerpendicularShift) < 1e-12
+            && !divider.mixedPlusShiftConflict,
+        'A staggered double-merge must keep one straight mullion exactly on its grid line with no endpoint body shifts.'
+    );
+
+    if (divider) {
+        const placed = getEditableDividerSegmentPlacement({
+            segment: divider,
+            junctions: geometry.physicalIntersections,
+            dividerFaceSpan: faceSpan,
+            frameJointInwardSpan: frameSpan,
+        });
+        const endpointApex = atStart => {
+            const along = getDividerSegmentAlongCoordinate({
+                extrusionT: atStart ? 0 : 1,
+                length: placed.length,
+                faceOffset: 0,
+                faceSpan,
+                frameInwardSpan: frameSpan,
+                ...placed.joint,
+            });
+            return placed.longitudinalOffset + along;
+        };
+        const west = reentrantEnds.find(junction => Math.abs(junction.x - divider.structuralWorldStart) < 1e-9);
+        const east = reentrantEnds.find(junction => Math.abs(junction.x - divider.structuralWorldEnd) < 1e-9);
+        assert(
+            west
+                && east
+                && Math.abs(endpointApex(true) - west.x) < 1e-9
+                && Math.abs(endpointApex(false) - east.x) < 1e-9
+                && Math.abs(placed.joint.negativeArrowFaceBias || 0) < 1e-12
+                && Math.abs(placed.joint.positiveArrowFaceBias || 0) < 1e-12,
+            'Both V tips of the staggered mullion must terminate on their own grid intersections without shearing or face bias.'
         );
     }
 
-    const rightFrames = geometry.framePlacements.filter(frame => frame.side === 'right');
+    const fillers = geometry.reentrantFillers.filter(piece => piece.sourceDividerId === divider?.id);
     assert(
-        rightFrames.length === 2
-            && Math.abs(rightFrames[0].height - rightFrames[1].height) < 1e-9
-            && rightFrames.every(frame =>
-                Object.values(frame.frameJointModes || {}).includes('shifted-socket')
-            ),
-        'The two right outside-frame pieces must remain equal after the merge and receive the shifted mullion only through their socket cuts.'
+        fillers.length === 2
+            && fillers.every(piece => piece.pieceType === 'half-mullion')
+            && reentrantEnds.every(junction => fillers.some(piece => (
+                Math.abs(piece.apexX - junction.x) < 1e-9
+                && Math.abs(piece.apexY - junction.y) < 1e-9
+            ))),
+        'Both staggered re-entrant ends must receive local half-mullion wedges attached to the same grid vertices.'
+    );
+
+    const framesOnDividerLine = geometry.framePlacements.filter(frame => (
+        frame.orientation === 'horizontal'
+        && Math.abs(frame.structuralPerpendicularOffset - divider?.structuralPerpendicularOffset) < 1e-9
+    ));
+    assert(
+        framesOnDividerLine.some(frame => frame.side === 'bottom'
+            && Math.abs(frame.perpendicularOffset - (divider.structuralPerpendicularOffset - contactStart)) < 1e-9)
+            && framesOnDividerLine.some(frame => frame.side === 'top'
+                && Math.abs(frame.perpendicularOffset - (divider.structuralPerpendicularOffset + contactStart)) < 1e-9),
+        'Frames on opposite sides of the staggered row must share one grid level and carry the +/-21 mm frame offsets themselves.'
     );
 }
 
@@ -2385,16 +2504,17 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
     const frameBottom = placedFrame.originY - placedFrame.height / 2;
     assert(
         survivingDivider
-            && Math.abs(survivingDivider.mixedPlusPerpendicularShift - contactStart) < 1e-9
+            && Math.abs(survivingDivider.perpendicularOffset - survivingDivider.structuralPerpendicularOffset) < 1e-9
+            && Math.abs(survivingDivider.mixedPlusPerpendicularShift) < 1e-12
             && Math.abs(interior.y0 - (survivingDivider.perpendicularOffset - 0.013)) < 1e-9
-            && Math.abs(frameBottom - partialFrame.structuralPerpendicularOffset) < 1e-9
+            && Math.abs(frameBottom - (partialFrame.structuralPerpendicularOffset - contactStart)) < 1e-9
             && Math.abs(frameBottom - interior.y0) > 1e-6,
-        'Merged top-sash L must keep the aluminium frame on the structural boundary while the sash seat follows the surviving mullion 21 mm into its re-entrant CAD position.'
+        'Merged top-sash L must keep the mullion centred, put the 21 mm reference offset on the bottom frame, and preserve the exact sash CAD seat.'
     );
     assert(
         placedFrame.reentrantHost === false
-            && placedFrame.frameJointModes?.[perimeterJunction?.hostFrameEndpoint?.localEnd] === 'mixed-reentrant',
-        'Merged top-sash L must use the three-arm mixed-reentrant frame cut instead of the old reverse-miter host treatment.'
+            && placedFrame.frameJointModes?.[perimeterJunction?.hostFrameEndpoint?.localEnd] === 'grid-miter',
+        'Merged top-sash L must use the shared grid-miter cut at the three-arm re-entrant junction.'
     );
 }
 
@@ -2474,19 +2594,25 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
         frameReplacementSpan: 0.075,
     });
     const rightFrame = geometry.framePlacements.find(frame =>
-        frame.id === 'corner-top-right-right'
+        frame.windowCell === 'corner-top-right' && frame.side === 'right'
+    );
+    const bottomFrame = geometry.framePlacements.find(frame =>
+        frame.windowCell === 'corner-top-right' && frame.side === 'bottom'
     );
     const bottomRightCorner = geometry.physicalIntersections.find(junction =>
-        junction.frameEndpoints?.some(endpoint => endpoint.frameId === 'corner-top-right-right' && endpoint.atStart)
-        && junction.frameEndpoints?.some(endpoint => endpoint.frameId === 'corner-top-right-bottom' && endpoint.atStart === false)
+        junction.frameEndpoints?.some(endpoint => endpoint.frameId === rightFrame?.id)
+        && junction.frameEndpoints?.some(endpoint => endpoint.frameId === bottomFrame?.id)
     );
     assert(
         rightFrame
-            && rightFrame.jointEnd === null
-            && Object.keys(rightFrame.frameJointModes || {}).length === 0
+            && bottomFrame
             && bottomRightCorner?.type === 'corner'
-            && bottomRightCorner.dividerCount === 0,
-        'The top-right outer corner in n n / n must stay a normal frame/frame 45-degree miter; global bounds must not misclassify it as a divider socket.'
+            && bottomRightCorner.dividerCount === 0
+            && bottomRightCorner.frameEndpoints.every(endpoint => {
+                const frame = geometry.framePlacements.find(piece => piece.id === endpoint.frameId);
+                return frame?.frameJointModes?.[endpoint.localEnd] === 'grid-miter';
+            }),
+        'The top-right outer corner in n n / n must stay a plain frame/frame grid-miter and must not be classified as a divider socket.'
     );
 }
 
@@ -2607,8 +2733,12 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
     );
     const lHorizontal = lGeometry.dividerSegments.find(divider => divider.orientation === 'horizontal');
     const lVertical = lGeometry.dividerSegments.find(divider => divider.orientation === 'vertical');
-    const lRightFrame = lGeometry.framePlacements.find(frame => frame.id === 'l-bottom-left-right');
-    const lBottomFrame = lGeometry.framePlacements.find(frame => frame.id === 'l-top-right-bottom');
+    const lRightFrame = lGeometry.framePlacements.find(frame =>
+        frame.windowCell === 'l-bottom-left' && frame.side === 'right'
+    );
+    const lBottomFrame = lGeometry.framePlacements.find(frame =>
+        frame.windowCell === 'l-top-right' && frame.side === 'bottom'
+    );
     assert(
         lHorizontal
             && lVertical
@@ -2622,11 +2752,13 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
             && Math.abs(lBottomFrame.structuralPerpendicularOffset - lHorizontal.structuralPerpendicularOffset) < 1e-9,
         'Unmerged L frame and mullion arms must still share one structural + point; CAD mullion offsets must not resize the corner module.'
     );
-    const lExpectedMixedPlusShift = frameSpan - 0.088 / 2;
+    const lExpectedFrameOffset = frameSpan - 0.088 / 2;
     assert(
-        Math.abs(lVertical.mixedPlusPerpendicularShift + lExpectedMixedPlusShift) < 1e-9
-            && Math.abs(lHorizontal.mixedPlusPerpendicularShift - lExpectedMixedPlusShift) < 1e-9,
-        'For this L rotation each mullion must move by frameSpan - halfDividerFace toward the quadrant shared by the two mullions.'
+        Math.abs(lVertical.mixedPlusPerpendicularShift) < 1e-12
+            && Math.abs(lHorizontal.mixedPlusPerpendicularShift) < 1e-12
+            && Math.abs(lRightFrame.perpendicularOffset - (lRightFrame.structuralPerpendicularOffset + lExpectedFrameOffset)) < 1e-9
+            && Math.abs(lBottomFrame.perpendicularOffset - (lBottomFrame.structuralPerpendicularOffset - lExpectedFrameOffset)) < 1e-9,
+        'For this L rotation the mullions must stay centred while the asymmetric right/bottom frames carry the +/- frameSpan-halfFace offset.'
     );
 
     // Preserve the previous no-gap fix: after merging the first two windows in

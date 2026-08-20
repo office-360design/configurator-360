@@ -68,7 +68,7 @@ export function getReentrantFillerTriangle({
     // then half a face in both directions parallel to the surviving mullion.
     // Those two shoulders lie exactly on the existing cut edges.
     //
-    // Top-row merge example (missing north, surviving mullion to the east):
+    // Top-row merge example (missing north):
     //
     //        left shoulder -------- right shoulder
     //             \                    /
@@ -566,6 +566,25 @@ export function getFrameDividerMiterContactStart({
     return Math.max(0, normalizedFrameInwardSpan - halfDividerFace);
 }
 
+export function getFrameGridMiterInset({
+    inwardDistance,
+    dividerFaceSpan,
+    frameInwardSpan = 0,
+} = {}) {
+    const normalizedInwardDistance = Math.max(0, finiteNumber(inwardDistance));
+    const contactStart = getFrameDividerMiterContactStart({
+        dividerFaceSpan,
+        frameInwardSpan,
+    });
+
+    // The frame's physical boundary is offset normal to the grid line by
+    // `contactStart`. A 45-degree cut through the grid vertex therefore has the
+    // same signed tangential offset: outer edge extends by contactStart, the
+    // reference point is zero, and the inner edge retracts by half the mullion
+    // face. For 65/88 mm this is -21, 0, +44 mm at 0/21/65 mm inward.
+    return normalizedInwardDistance - contactStart;
+}
+
 export function getFrameMixedPlusMiterInset({
     inwardDistance,
     dividerFaceSpan,
@@ -710,6 +729,8 @@ export function getDividerSegmentAlongCoordinate({
     negativeArrowFaceBias = 0,
     positiveArrowFaceBias = 0,
     socketInwardDistance = 0,
+    negativeSocketInwardDistance = null,
+    positiveSocketInwardDistance = null,
 }) {
     const normalizedLength = Math.max(0, finiteNumber(length));
     const normalizedFaceSpan = Math.max(0, finiteNumber(faceSpan));
@@ -737,11 +758,28 @@ export function getDividerSegmentAlongCoordinate({
         0,
         finiteNumber(socketInwardDistance)
     );
+    const normalizeEndSocketInwardDistance = value => {
+        if (value === null || value === undefined || value === '') {
+            return normalizedSocketInwardDistance;
+        }
+        return Math.max(0, finiteNumber(value));
+    };
+    const normalizedNegativeSocketInwardDistance = normalizeEndSocketInwardDistance(
+        negativeSocketInwardDistance
+    );
+    const normalizedPositiveSocketInwardDistance = normalizeEndSocketInwardDistance(
+        positiveSocketInwardDistance
+    );
 
-    const getEndInset = (mode, endFrameInwardSpan, arrowFaceBias) => {
+    const getEndInset = (
+        mode,
+        endFrameInwardSpan,
+        arrowFaceBias,
+        endSocketInwardDistance
+    ) => {
         if (mode === 'socket') {
             return getFrameDividerSocketInset({
-                inwardDistance: normalizedSocketInwardDistance,
+                inwardDistance: endSocketInwardDistance,
                 dividerFaceSpan: normalizedFaceSpan,
                 frameInwardSpan: endFrameInwardSpan,
             });
@@ -764,12 +802,14 @@ export function getDividerSegmentAlongCoordinate({
     const lowerEnd = -normalizedLength / 2 + getEndInset(
         negativeEndMode,
         negativeEndFrameInwardSpan,
-        normalizedNegativeArrowFaceBias
+        normalizedNegativeArrowFaceBias,
+        normalizedNegativeSocketInwardDistance
     );
     const upperEnd = normalizedLength / 2 - getEndInset(
         positiveEndMode,
         positiveEndFrameInwardSpan,
-        normalizedPositiveArrowFaceBias
+        normalizedPositiveArrowFaceBias,
+        normalizedPositiveSocketInwardDistance
     );
 
     // Triangle splitting can insert vertices on a side-wall edge whose source
@@ -988,6 +1028,15 @@ export function getEditableDividerSegmentPlacement({
         const perpendicularArms = perpendicularArmDirections(direction)
             .map(perpendicularDirection => getPhysicalArm(junction, perpendicularDirection))
             .filter(Boolean);
+        const extendArrowTipToFrameGrid = () => {
+            const contactStart = getFrameDividerMiterContactStart({
+                dividerFaceSpan: normalizedDividerFaceSpan,
+                frameInwardSpan: normalizedFrameJointInwardSpan,
+            });
+            if (contactStart <= 0) return;
+            length += contactStart;
+            longitudinalOffset += atStart ? -contactStart / 2 : contactStart / 2;
+        };
 
         // Compatibility for divider-only L topology. A real derived L now has
         // four physical arms and is handled as one mixed + below.
@@ -999,51 +1048,45 @@ export function getEditableDividerSegmentPlacement({
             return;
         }
 
-        // A mixed four-arm + is not centred like a normal cross. The physical
-        // mullion/transom body is shifted perpendicular to the structural grid
-        // by frameDepth - halfMullionFace, toward the quadrant shared by the two
-        // divider arms. Its V apex is biased back across the profile by the same
-        // amount, and the usual cut-stock extension keeps that apex on the
-        // original structural frame/frame corner.
-        //
-        // For 575760 + 575800:
-        //   frame inward span = 65 mm
-        //   divider half face = 88 / 2 = 44 mm
-        //   perpendicular body shift = 65 - 44 = 21 mm
-        //
-        // This produces the user's pinwheel/X joint: the two frame miters meet
-        // on one diagonal, the two shifted mullion faces meet on the other, and
-        // the logical window envelope remains unchanged.
+        // Frames and mullions share one grid vertex, but only the frame is
+        // asymmetric. The divider body therefore stays centred on its graph
+        // line. At every endpoint that meets frame stock, extend the raw divider
+        // by the 21 mm frame-reference distance so the symmetric V tip lands on
+        // the grid vertex after createDividerSegment() applies its arrow inset.
         if (junction.type === 'plus') {
             joint[endModeKey] = 'arrow';
             joint[frameSpanKey] = normalizedFrameJointInwardSpan;
-            const contactStart = getFrameDividerMiterContactStart({
-                dividerFaceSpan: normalizedDividerFaceSpan,
-                frameInwardSpan: normalizedFrameJointInwardSpan,
-            });
-            const perpendicularShift = finiteNumber(segment?.mixedPlusPerpendicularShift);
-            const arrowFaceBias = segment?.orientation === 'vertical'
-                ? -perpendicularShift
-                : perpendicularShift;
-            const biasKey = atStart ? 'negativeArrowFaceBias' : 'positiveArrowFaceBias';
-            joint[biasKey] = arrowFaceBias;
-            if (contactStart > 0) {
-                // The body is shifted perpendicular to the structural grid by
-                // contactStart. Add the same amount of longitudinal cut stock so
-                // the biased V apex can still land on the original structural +
-                // point rather than moving the window envelope.
-                length += contactStart;
-                longitudinalOffset += atStart ? -contactStart / 2 : contactStart / 2;
-            }
+            extendArrowTipToFrameGrid();
             return;
         }
 
-        // Outside a four-arm +, a divider that continues directly into a
-        // collinear perimeter frame keeps the ordinary frame-facing V. The
-        // matching frame treatment is resolved independently below.
+        const mixedReentrantT = getMixedReentrantTDividerArm(junction);
+        if (mixedReentrantT?.dividerArm?.segmentId === segment?.id) {
+            joint[endModeKey] = 'arrow';
+            joint[frameSpanKey] = normalizedFrameJointInwardSpan;
+            extendArrowTipToFrameGrid();
+            return;
+        }
+
+        // A frame and mullion that continue collinearly also meet at the same
+        // grid vertex. No body shift or endpoint face bias is allowed.
         if (oppositeArm?.kind === 'frame') {
             joint[endModeKey] = 'arrow';
             joint[frameSpanKey] = normalizedFrameJointInwardSpan;
+            extendArrowTipToFrameGrid();
+            return;
+        }
+
+        // Perimeter T: a divider branch terminates in two collinear frame
+        // pieces. The frames form the socket while the branch V tip ends on the
+        // graph vertex.
+        if (
+            !oppositeArm
+            && perpendicularArms.some(arm => arm.kind === 'frame')
+        ) {
+            joint[endModeKey] = 'arrow';
+            joint[frameSpanKey] = normalizedFrameJointInwardSpan;
+            extendArrowTipToFrameGrid();
             return;
         }
 
@@ -1059,7 +1102,32 @@ export function getEditableDividerSegmentPlacement({
         ) {
             joint[endModeKey] = 'socket';
             joint[frameSpanKey] = normalizedDividerFaceSpan;
-            joint.socketInwardSign = 1;
+            // At a three-divider T the socket must be cut on the SAME visible
+            // half of the host mullion as the perpendicular branch. The old
+            // hard-coded +1 always cut the same CAD half, so a mirrored T
+            // (for example a branch arriving from the west) carved the host on
+            // the opposite side and left a large triangular hole.
+            //
+            // createDividerSegment() maps vertical host face directly to world
+            // X, while horizontal host face maps to -world Y. Convert the
+            // branch direction to that rendered face sign so every rotated T
+            // uses the same physical socket geometry.
+            if (junction.type === 'T') {
+                const branchArm = perpendicularArms.find(arm => arm.kind === 'divider');
+                const socketSignKey = atStart
+                    ? 'negativeSocketInwardSign'
+                    : 'positiveSocketInwardSign';
+                if (segment?.orientation === 'vertical') {
+                    joint[socketSignKey] = branchArm?.direction === 'west' ? -1 : 1;
+                } else {
+                    joint[socketSignKey] = branchArm?.direction === 'north' ? -1 : 1;
+                }
+            } else {
+                // Preserve the established full-cross treatment. A cross has
+                // perpendicular branches on both sides and is not the mirrored
+                // three-arm case handled above.
+                joint.socketInwardSign = 1;
+            }
             joint.socketInwardOffset = halfFace;
             return;
         }
@@ -1235,23 +1303,54 @@ export function getEditableWindowTopologyGeometry({
     );
     const cellPitchX = Math.max(0.05, normalizedWidth - replacementSpanX);
     const cellPitchY = Math.max(0.05, normalizedHeight - replacementSpanY);
-    const outerPadX = replacementSpanX / 2;
-    const outerPadY = replacementSpanY / 2;
+
+    // The topology is a graph of reference lines. A mullion is symmetric, so
+    // its centre plane sits directly on the graph line. The outer frame is not
+    // symmetric: for the active 575760/575800 pair its physical outer edge is
+    // 21 mm away from the common frame/mullion miter apex. Keep that difference
+    // on the FRAME, never on the mullion. This is the key invariant that lets a
+    // single grid line host frame -> mullion -> frame without changing levels.
+    const frameReferenceOffsetX = getFrameDividerMiterContactStart({
+        dividerFaceSpan: normalizedDividerFaceSpan,
+        frameInwardSpan: replacementSpanX,
+    });
+    const frameReferenceOffsetY = getFrameDividerMiterContactStart({
+        dividerFaceSpan: normalizedDividerFaceSpan,
+        frameInwardSpan: replacementSpanY,
+    });
+    const outerPhysicalPadX = replacementSpanX / 2;
+    const outerPhysicalPadY = replacementSpanY / 2;
+    const outerReferencePadX = Math.max(0, outerPhysicalPadX - frameReferenceOffsetX);
+    const outerReferencePadY = Math.max(0, outerPhysicalPadY - frameReferenceOffsetY);
     const totalWidth = (maxCol - minCol) * cellPitchX;
     const totalHeight = (maxRow - minRow) * cellPitchY;
 
     const worldGridX = col => gridToWorldX(col, minCol, totalWidth, cellPitchX);
     const worldGridY = row => gridToWorldY(row, minRow, totalHeight, cellPitchY);
-    const worldFrameX = col => {
+    const worldReferenceX = col => {
         const base = worldGridX(col);
-        if (Math.abs(finiteNumber(col) - minCol) <= 1e-9) return base - outerPadX;
-        if (Math.abs(finiteNumber(col) - maxCol) <= 1e-9) return base + outerPadX;
+        if (Math.abs(finiteNumber(col) - minCol) <= 1e-9) return base - outerReferencePadX;
+        if (Math.abs(finiteNumber(col) - maxCol) <= 1e-9) return base + outerReferencePadX;
         return base;
     };
-    const worldFrameY = row => {
+    const worldReferenceY = row => {
         const base = worldGridY(row);
-        if (Math.abs(finiteNumber(row) - minRow) <= 1e-9) return base - outerPadY;
-        if (Math.abs(finiteNumber(row) - maxRow) <= 1e-9) return base + outerPadY;
+        if (Math.abs(finiteNumber(row) - minRow) <= 1e-9) return base - outerReferencePadY;
+        if (Math.abs(finiteNumber(row) - maxRow) <= 1e-9) return base + outerReferencePadY;
+        return base;
+    };
+    // These are the actual outer aluminium boundaries used by the sash/glass
+    // connection envelope. They stay bit-for-bit at the old slider extents.
+    const worldPhysicalFrameX = col => {
+        const base = worldGridX(col);
+        if (Math.abs(finiteNumber(col) - minCol) <= 1e-9) return base - outerPhysicalPadX;
+        if (Math.abs(finiteNumber(col) - maxCol) <= 1e-9) return base + outerPhysicalPadX;
+        return base;
+    };
+    const worldPhysicalFrameY = row => {
+        const base = worldGridY(row);
+        if (Math.abs(finiteNumber(row) - minRow) <= 1e-9) return base - outerPhysicalPadY;
+        if (Math.abs(finiteNumber(row) - maxRow) <= 1e-9) return base + outerPhysicalPadY;
         return base;
     };
 
@@ -1261,16 +1360,16 @@ export function getEditableWindowTopologyGeometry({
         const y0 = worldGridY(cell.rect.y0);
         const y1 = worldGridY(cell.rect.y1);
         const connectionX0 = Math.abs(cell.rect.x0 - minCol) <= 1e-9
-            ? worldFrameX(cell.rect.x0)
+            ? worldPhysicalFrameX(cell.rect.x0)
             : x0;
         const connectionX1 = Math.abs(cell.rect.x1 - maxCol) <= 1e-9
-            ? worldFrameX(cell.rect.x1)
+            ? worldPhysicalFrameX(cell.rect.x1)
             : x1;
         const connectionY0 = Math.abs(cell.rect.y0 - minRow) <= 1e-9
-            ? worldFrameY(cell.rect.y0)
+            ? worldPhysicalFrameY(cell.rect.y0)
             : y0;
         const connectionY1 = Math.abs(cell.rect.y1 - maxRow) <= 1e-9
-            ? worldFrameY(cell.rect.y1)
+            ? worldPhysicalFrameY(cell.rect.y1)
             : y1;
         return {
             id: cell.id,
@@ -1321,8 +1420,8 @@ export function getEditableWindowTopologyGeometry({
             // real outer-frame boundary, not merely the reduced topology line.
             // Internal divider/divider or divider/re-entrant-frame junctions stay
             // on the logical grid so all arms share one exact intersection.
-            const y0 = worldFrameY(divider.start);
-            const y1 = worldFrameY(divider.end);
+            const y0 = worldReferenceY(divider.start);
+            const y1 = worldReferenceY(divider.end);
             return {
                 ...divider,
                 perpendicularOffset: x,
@@ -1331,13 +1430,13 @@ export function getEditableWindowTopologyGeometry({
                 length: Math.max(0, y1 - y0),
                 worldStart: y0,
                 worldEnd: y1,
-                structuralWorldStart: worldGridY(divider.start),
-                structuralWorldEnd: worldGridY(divider.end),
+                structuralWorldStart: worldReferenceY(divider.start),
+                structuralWorldEnd: worldReferenceY(divider.end),
             };
         }
         const y = worldGridY(divider.coordinate);
-        const x0 = worldFrameX(divider.start);
-        const x1 = worldFrameX(divider.end);
+        const x0 = worldReferenceX(divider.start);
+        const x1 = worldReferenceX(divider.end);
         return {
             ...divider,
             perpendicularOffset: y,
@@ -1346,8 +1445,8 @@ export function getEditableWindowTopologyGeometry({
             length: Math.max(0, x1 - x0),
             worldStart: x0,
             worldEnd: x1,
-            structuralWorldStart: worldGridX(divider.start),
-            structuralWorldEnd: worldGridX(divider.end),
+            structuralWorldStart: worldReferenceX(divider.start),
+            structuralWorldEnd: worldReferenceX(divider.end),
         };
     });
 
@@ -1431,49 +1530,43 @@ export function getEditableWindowTopologyGeometry({
 
     const baseFramePlacements = frameEdges.map(edge => {
         const structuralCell = structuralCellById.get(edge.cellId);
-        const renderedCell = cellById.get(edge.cellId) || structuralCell;
         const isPartial = Boolean(edge.partial);
 
         if (edge.side === 'top' || edge.side === 'bottom') {
             const structuralPerpendicularOffset = Number.isFinite(Number(edge.coordinate))
-                ? worldGridY(edge.coordinate)
+                ? worldReferenceY(edge.coordinate)
                 : (edge.side === 'bottom'
                     ? finiteNumber(structuralCell?.y0)
                     : finiteNumber(structuralCell?.y1));
-            const structuralWorldStart = worldGridX(edge.start);
-            const structuralWorldEnd = worldGridX(edge.end);
-            const renderedWorldStart = worldFrameX(edge.start);
-            const renderedWorldEnd = worldFrameX(edge.end);
+            const structuralWorldStart = worldReferenceX(edge.start);
+            const structuralWorldEnd = worldReferenceX(edge.end);
             const cellHeight = Math.max(0, finiteNumber(structuralCell?.height));
-
-            // Global outer-frame sides receive half of the removed-frame span;
-            // internal/re-entrant sides stay on the reduced topology line so a
-            // frame and perpendicular mullions share the same exact junction.
-            let frameBoundary = Number.isFinite(Number(edge.coordinate))
-                ? worldFrameY(edge.coordinate)
-                : structuralPerpendicularOffset;
-
-            // Partial perimeter frames remain on the structural grid. CAD join
-            // seats belong to the sash/bead/glass connection rectangle only;
-            // moving the aluminium frame to a CAD seat breaks the +/T centre.
+            const outwardSign = edge.side === 'bottom' ? -1 : 1;
+            const frameBoundary = structuralPerpendicularOffset
+                + outwardSign * frameReferenceOffsetY;
             const originY = edge.side === 'bottom'
                 ? frameBoundary + cellHeight / 2
                 : frameBoundary - cellHeight / 2;
 
             return Object.freeze({
-                id: edge.id,
+                ...edge,
+                pieceType: 'frame',
                 side: edge.side,
                 orientation: 'horizontal',
+                // `structuralPerpendicularOffset` is the grid/reference line.
+                // `perpendicularOffset` is the asymmetric frame's physical
+                // outer edge. Their difference is the CAD 21 mm relation.
                 perpendicularOffset: frameBoundary,
-                worldStart: renderedWorldStart,
-                worldEnd: renderedWorldEnd,
                 structuralPerpendicularOffset,
+                frameReferenceOffset: frameReferenceOffsetY,
+                worldStart: structuralWorldStart,
+                worldEnd: structuralWorldEnd,
                 structuralWorldStart,
                 structuralWorldEnd,
                 partial: isPartial,
-                width: Math.max(0, renderedWorldEnd - renderedWorldStart),
+                width: Math.max(0, structuralWorldEnd - structuralWorldStart),
                 height: cellHeight,
-                originX: (renderedWorldStart + renderedWorldEnd) / 2,
+                originX: (structuralWorldStart + structuralWorldEnd) / 2,
                 originY,
                 windowCell: edge.cellId,
                 cellType: edge.cellType,
@@ -1486,39 +1579,37 @@ export function getEditableWindowTopologyGeometry({
         }
 
         const structuralPerpendicularOffset = Number.isFinite(Number(edge.coordinate))
-            ? worldGridX(edge.coordinate)
+            ? worldReferenceX(edge.coordinate)
             : (edge.side === 'left'
                 ? finiteNumber(structuralCell?.x0)
                 : finiteNumber(structuralCell?.x1));
-        const structuralWorldStart = worldGridY(edge.start);
-        const structuralWorldEnd = worldGridY(edge.end);
-        const renderedWorldStart = worldFrameY(edge.start);
-        const renderedWorldEnd = worldFrameY(edge.end);
+        const structuralWorldStart = worldReferenceY(edge.start);
+        const structuralWorldEnd = worldReferenceY(edge.end);
         const cellWidth = Math.max(0, finiteNumber(structuralCell?.width));
-        let frameBoundary = Number.isFinite(Number(edge.coordinate))
-            ? worldFrameX(edge.coordinate)
-            : structuralPerpendicularOffset;
-        // As above, never translate a partial structural frame onto a CAD
-        // sash/glazing connection seat.
+        const outwardSign = edge.side === 'left' ? -1 : 1;
+        const frameBoundary = structuralPerpendicularOffset
+            + outwardSign * frameReferenceOffsetX;
         const originX = edge.side === 'left'
             ? frameBoundary + cellWidth / 2
             : frameBoundary - cellWidth / 2;
 
         return Object.freeze({
-            id: edge.id,
+            ...edge,
+            pieceType: 'frame',
             side: edge.side,
             orientation: 'vertical',
             perpendicularOffset: frameBoundary,
-            worldStart: renderedWorldStart,
-            worldEnd: renderedWorldEnd,
             structuralPerpendicularOffset,
+            frameReferenceOffset: frameReferenceOffsetX,
+            worldStart: structuralWorldStart,
+            worldEnd: structuralWorldEnd,
             structuralWorldStart,
             structuralWorldEnd,
             partial: isPartial,
             width: cellWidth,
-            height: Math.max(0, renderedWorldEnd - renderedWorldStart),
+            height: Math.max(0, structuralWorldEnd - structuralWorldStart),
             originX,
-            originY: (renderedWorldStart + renderedWorldEnd) / 2,
+            originY: (structuralWorldStart + structuralWorldEnd) / 2,
             windowCell: edge.cellId,
             cellType: edge.cellType,
             jointEnd: null,
@@ -1527,6 +1618,45 @@ export function getEditableWindowTopologyGeometry({
             frameJointModes: Object.freeze({}),
             addCandidate: true,
         });
+    });
+
+    // The sash/fixed-light connection rectangle must follow whichever physical
+    // member actually owns each complete cell side. Global perimeter frames
+    // already did this through worldPhysicalFrameX/Y, but a re-entrant/exposed
+    // frame can live on an internal grid coordinate. In the grid-member model
+    // that frame is intentionally offset 21 mm from the reference line; leaving
+    // the cell connection boundary on the reference line makes the sash/glazing
+    // bead visibly smaller than the frame by exactly that offset.
+    //
+    // Only frame-only sides are updated here. A merged cell can have a long side
+    // made from both frame and mullion pieces; those mixed sides must keep the
+    // divider CAD seat resolved below because one rectangular sash/glazing
+    // assembly cannot follow two different outer-member boundaries along one
+    // side.
+    const dividerOwnedCellSides = new Set();
+    dividerSegments.forEach(segment => {
+        if (segment.orientation === 'vertical') {
+            if (segment.negativeCellId) dividerOwnedCellSides.add(`${segment.negativeCellId}:right`);
+            if (segment.positiveCellId) dividerOwnedCellSides.add(`${segment.positiveCellId}:left`);
+        } else {
+            if (segment.negativeCellId) dividerOwnedCellSides.add(`${segment.negativeCellId}:top`);
+            if (segment.positiveCellId) dividerOwnedCellSides.add(`${segment.positiveCellId}:bottom`);
+        }
+    });
+
+    baseFramePlacements.forEach(frame => {
+        const cell = cellById.get(frame.cellId || frame.windowCell);
+        if (!cell || dividerOwnedCellSides.has(`${cell.id}:${frame.side}`)) return;
+
+        if (frame.side === 'left') {
+            cell.connectionX0 = finiteNumber(frame.perpendicularOffset, cell.connectionX0);
+        } else if (frame.side === 'right') {
+            cell.connectionX1 = finiteNumber(frame.perpendicularOffset, cell.connectionX1);
+        } else if (frame.side === 'bottom') {
+            cell.connectionY0 = finiteNumber(frame.perpendicularOffset, cell.connectionY0);
+        } else if (frame.side === 'top') {
+            cell.connectionY1 = finiteNumber(frame.perpendicularOffset, cell.connectionY1);
+        }
     });
 
     // Build one structural intersection model for frames and dividers. Each
@@ -1613,83 +1743,27 @@ export function getEditableWindowTopologyGeometry({
         physicalIntersections.map(junction => [junction.key, junction])
     );
 
-    // Mixed re-entrant joints are not centred like ordinary mullion/frame
-    // terminations. The CAD outer-frame depth and mullion face are different:
-    // for 575760/575800 the frame reaches 65 mm inward while half the mullion
-    // face is 44 mm. The resulting 21 mm difference is a render/CAD offset only;
-    // it must never change the structural window grid.
+    // One grid line has one physical reference position. Mullions/transoms are
+    // symmetric, so every divider body stays centred on that line regardless of
+    // which frame pieces meet it. The frame asymmetry is handled by the frame's
+    // own normal offset and endpoint cut; never move a divider to satisfy one
+    // local corner because that changes the level seen by another intersection.
     const mixedPlusPerpendicularShift = getFrameDividerMiterContactStart({
         dividerFaceSpan: normalizedDividerFaceSpan,
         frameInwardSpan: requestedFrameReplacementSpan,
     });
-    const dividerShiftRequests = new Map();
-    physicalIntersections.forEach(junction => {
-        if (mixedPlusPerpendicularShift <= 0) return;
-        const dividerArms = junction.activeDirections
-            .map(direction => junction.arms[direction])
-            .filter(arm => arm?.kind === 'divider');
-
-        if (junction.type === 'plus' && dividerArms.length === 2) {
-            dividerArms.forEach(arm => {
-                const other = dividerArms.find(candidate => candidate.segmentId !== arm.segmentId);
-                if (!other || other.orientation === arm.orientation) return;
-
-                let sign = 0;
-                if (arm.orientation === 'vertical') {
-                    if (other.direction === 'east') sign = 1;
-                    else if (other.direction === 'west') sign = -1;
-                } else {
-                    if (other.direction === 'north') sign = 1;
-                    else if (other.direction === 'south') sign = -1;
-                }
-                if (!sign) return;
-
-                const requests = dividerShiftRequests.get(arm.segmentId) || [];
-                requests.push(sign * mixedPlusPerpendicularShift);
-                dividerShiftRequests.set(arm.segmentId, requests);
-            });
-            return;
-        }
-
-        // Merging one side of an L removes one of the two mullion arms from the
-        // old four-arm +, leaving one mullion and two perimeter frames. Keep the
-        // surviving mullion in the same CAD seat instead of snapping it back to
-        // the structural grid. The direction of the missing perpendicular arm
-        // tells us which side of the grid the mullion must occupy.
-        const mixedT = getMixedReentrantTDividerArm(junction);
-        if (!mixedT) return;
-
-        let sign = 0;
-        if (mixedT.dividerArm.orientation === 'horizontal') {
-            if (mixedT.missingDirection === 'north') sign = 1;
-            else if (mixedT.missingDirection === 'south') sign = -1;
-        } else {
-            if (mixedT.missingDirection === 'east') sign = 1;
-            else if (mixedT.missingDirection === 'west') sign = -1;
-        }
-        if (!sign) return;
-
-        const requests = dividerShiftRequests.get(mixedT.dividerArm.segmentId) || [];
-        requests.push(sign * mixedPlusPerpendicularShift);
-        dividerShiftRequests.set(mixedT.dividerArm.segmentId, requests);
-    });
-
     dividerSegments.forEach(segment => {
-        const requests = dividerShiftRequests.get(segment.id) || [];
-        if (!requests.length) {
-            segment.mixedPlusPerpendicularShift = 0;
-            return;
-        }
-        const first = requests[0];
-        const conflicting = requests.some(value => Math.abs(value - first) > 1e-9);
-        const shift = conflicting ? 0 : first;
-        segment.mixedPlusPerpendicularShift = shift;
-        segment.mixedPlusShiftConflict = conflicting;
-        segment.perpendicularOffset = finiteNumber(segment.structuralPerpendicularOffset) + shift;
+        segment.pieceType = 'mullion';
+        segment.mixedPlusPerpendicularShift = 0;
+        segment.mixedPlusNegativePerpendicularShift = 0;
+        segment.mixedPlusPositivePerpendicularShift = 0;
+        segment.mixedPlusShiftConflict = false;
+        segment.perpendicularOffset = finiteNumber(segment.structuralPerpendicularOffset);
     });
 
-    // Sash/bead/glass seats must follow the actual rendered mullion position,
-    // while the structural cell rectangles continue to use the unshifted grid.
+    // Sash/bead/glass seats follow the centred mullion. Structural cell
+    // rectangles remain independent from both the frame's 21 mm reference
+    // offset and the CAD sash/glazing seats.
     applyDividerConnectionGeometry();
 
     function getFrameEndpointJunction(frame, atStart) {
@@ -1710,7 +1784,6 @@ export function getEditableWindowTopologyGeometry({
     const framePlacements = baseFramePlacements.map(frame => {
         const jointEnds = [];
         const frameJointModes = {};
-        const frameJointCenterShifts = {};
         [true, false].forEach(atStart => {
             const junction = getFrameEndpointJunction(frame, atStart);
             if (!junction) return;
@@ -1723,53 +1796,34 @@ export function getEditableWindowTopologyGeometry({
                 frame.side,
                 atStart ? 'negative' : 'positive'
             );
-            const mixedReentrantT = getMixedReentrantTDividerArm(junction);
 
             let mode = null;
-            if (junction.type === 'plus') {
-                // A mixed perimeter + keeps the ordinary outside frame/frame
-                // corner at the structural endpoint, but the common V apex is
-                // shifted 21 mm into the frame section so it meets the shifted
-                // mullion body correctly. Express that as a dedicated endpoint
-                // cut mode rather than by changing the structural frame length.
-                mode = 'mixed-plus';
-            } else if (mixedReentrantT) {
-                // After an L-side merge, one mullion arm disappears and the old
-                // + becomes a three-arm concave corner: two frames plus one
-                // surviving mullion. Both frame ends must aim at the same CAD
-                // apex as that shifted mullion. Using the same asymmetric miter
-                // law as the mixed + gives one common point 21 mm along and
-                // 21 mm perpendicular to the structural corner, matching the
-                // frame/frame/mullion geometry instead of treating one frame as
-                // a host and the other as a socket.
-                mode = 'mixed-reentrant';
-            } else if (oppositeArm?.kind === 'divider') {
-                // Collinear frame <-> mullion continuation at a non-plus
-                // re-entrant T/partial perimeter junction.
-                mode = 'reverse-miter';
-            } else if (perpendicularArms.some(arm => arm.kind === 'divider')) {
-                // Ordinary perimeter frame receiving a perpendicular divider.
-                // If that divider was shifted by a mixed re-entrant + at its
-                // other end, keep the frame stock/envelope unchanged and move
-                // only the socket cut progressively toward the shifted mullion.
-                // This is what keeps the two top windows (and the two right
-                // windows) exactly the same size in an L layout.
-                const shiftedDividerArm = perpendicularArms.find(arm => {
-                    if (arm.kind !== 'divider') return false;
-                    const divider = dividerSegments.find(segment => segment.id === arm.segmentId);
-                    return Math.abs(finiteNumber(divider?.mixedPlusPerpendicularShift)) > 1e-12;
-                });
-                if (shiftedDividerArm) {
-                    const shiftedDivider = dividerSegments.find(
-                        segment => segment.id === shiftedDividerArm.segmentId
-                    );
-                    mode = 'shifted-socket';
-                    frameJointCenterShifts[localEnd] = finiteNumber(
-                        shiftedDivider?.mixedPlusPerpendicularShift
-                    );
-                } else {
-                    mode = 'socket';
-                }
+            const hasPerpendicularDivider = perpendicularArms.some(arm => arm.kind === 'divider');
+            const hasPerpendicularFrame = perpendicularArms.some(arm => arm.kind === 'frame');
+
+            if (
+                junction.type === 'T'
+                && oppositeArm?.kind === 'frame'
+                && hasPerpendicularDivider
+            ) {
+                // A divider terminating in a continuous frame line uses a V
+                // socket. The two collinear frame pieces stay flush on their
+                // outer half and open only after the 21 mm reference point.
+                mode = 'socket';
+            } else if (
+                oppositeArm?.kind === 'divider'
+                || hasPerpendicularDivider
+                || hasPerpendicularFrame
+                || junction.type === 'corner'
+                || junction.type === 'plus'
+                || getMixedReentrantTDividerArm(junction)
+            ) {
+                // Every other real grid intersection is a plain 45-degree line
+                // through the graph vertex. Because the frame itself is offset
+                // normal to the graph line by 21 mm, this one cut law covers:
+                // frame/frame corners, frame/mullion continuations, mixed + and
+                // merged-L re-entrant joints without moving or shearing members.
+                mode = 'grid-miter';
             }
 
             if (mode) {
@@ -1780,11 +1834,11 @@ export function getEditableWindowTopologyGeometry({
 
         return Object.freeze({
             ...frame,
-            jointEnd: jointEnds.length ? 'divider' : null,
+            jointEnd: jointEnds.length ? 'grid' : null,
             localJointEnd: jointEnds.length === 1 ? jointEnds[0] : null,
             localJointEnds: Object.freeze(jointEnds),
             frameJointModes: Object.freeze(frameJointModes),
-            frameJointCenterShifts: Object.freeze(frameJointCenterShifts),
+            frameJointCenterShifts: Object.freeze({}),
         });
     });
 
@@ -1896,12 +1950,12 @@ export function getEditableWindowTopologyGeometry({
             );
             if (!sourceDivider) return null;
 
-            const dividerDirection = armDirectionVector(mixedT.dividerArm.direction);
-            const missingDirection = armDirectionVector(mixedT.missingDirection);
-            const apexX = finiteNumber(junction.x)
-                + (dividerDirection.x + missingDirection.x) * mixedPlusPerpendicularShift;
-            const apexY = finiteNumber(junction.y)
-                + (dividerDirection.y + missingDirection.y) * mixedPlusPerpendicularShift;
+            // The half-mullion is a junction piece on the SAME grid vertex as
+            // the surviving centred mullion. The old implementation moved this
+            // apex diagonally by 21 mm because it had moved the whole mullion;
+            // that is exactly the diagonal/level drift the grid model removes.
+            const apexX = finiteNumber(junction.x);
+            const apexY = finiteNumber(junction.y);
 
             // The wedge is a clipped continuation of the surviving divider,
             // not a new divider in the missing direction.
@@ -1933,6 +1987,7 @@ export function getEditableWindowTopologyGeometry({
 
             return Object.freeze({
                 id: `reentrant-filler-${junction.key}`,
+                pieceType: 'half-mullion',
                 sourceDividerId: sourceDivider.id,
                 sourceTemplateId: sourceDivider.templateId || null,
                 sourceReversed: Boolean(sourceDivider.reversed),
@@ -1973,5 +2028,37 @@ export function getEditableWindowTopologyGeometry({
         physicalIntersections: Object.freeze(physicalIntersections),
         perimeterJunctions: Object.freeze(perimeterJunctions),
         reentrantFillers: Object.freeze(reentrantFillers),
+        gridLinePieces: Object.freeze([
+            ...framePlacements.map(piece => Object.freeze({
+                id: piece.id,
+                pieceType: 'frame',
+                orientation: piece.orientation,
+                coordinate: piece.structuralPerpendicularOffset,
+                start: piece.structuralWorldStart,
+                end: piece.structuralWorldEnd,
+                renderPerpendicularOffset: piece.perpendicularOffset,
+                source: piece,
+            })),
+            ...dividerSegments.map(piece => Object.freeze({
+                id: piece.id,
+                pieceType: 'mullion',
+                orientation: piece.orientation,
+                coordinate: piece.structuralPerpendicularOffset,
+                start: piece.structuralWorldStart,
+                end: piece.structuralWorldEnd,
+                renderPerpendicularOffset: piece.perpendicularOffset,
+                source: piece,
+            })),
+            ...reentrantFillers.map(piece => Object.freeze({
+                id: piece.id,
+                pieceType: 'half-mullion',
+                orientation: piece.orientation,
+                coordinate: piece.perpendicularOffset,
+                start: piece.longitudinalOffset - piece.length / 2,
+                end: piece.longitudinalOffset + piece.length / 2,
+                renderPerpendicularOffset: piece.perpendicularOffset,
+                source: piece,
+            })),
+        ]),
     });
 }
