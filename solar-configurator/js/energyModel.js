@@ -1,5 +1,6 @@
-import { regionPresets } from './state.js?v=6';
+import { regionPresets } from './state.js?v=8';
 import { getActiveLocation, getSolarContext, getSunTimes } from './solarPosition.js?v=2';
+import { solarT, resolveSolarLocale } from './i18n.js?v=1';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const normalizeDeg = (value) => ((value % 360) + 360) % 360;
@@ -168,10 +169,12 @@ export function estimateAnnualProduction(state, solarMetrics) {
   const localBuildingFactor = annualLocalBuildingShadingFactor(state, solarMetrics);
   const annualKWh = baseAnnualKWh * localBuildingFactor;
   const location = getActiveLocation(state);
+  const locale = resolveSolarLocale();
+  const t = (key, variables = {}) => solarT(locale, key, variables);
   const buildingText = state.localBuildingShadingEnabled !== false
     && Array.isArray(state.localBuildingShadingModel?.profiles)
     && state.localBuildingShadingModel.profiles.length
-    ? ' + nearby buildings'
+    ? t('energy.source.buildingSuffix')
     : '';
   return {
     annualKWh,
@@ -179,8 +182,8 @@ export function estimateAnnualProduction(state, solarMetrics) {
     dailyAverageKWh: annualKWh / 365,
     specificYield: systemKwp > 0 ? annualKWh / systemKwp : 0,
     source: (usePvgis
-      ? `${state.pvgisDatabase || 'PVGIS-SARAH3'} · exact site${state.pvgisUseHorizon ? ' + terrain horizon' : ''}`
-      : (location.mode === 'exact' ? 'Regional yield · exact sun geometry' : 'PVGIS-calibrated regional model')) + buildingText,
+      ? t('energy.source.exact', { database: state.pvgisDatabase || 'PVGIS-SARAH3', terrain: state.pvgisUseHorizon ? t('energy.source.terrainSuffix') : '' })
+      : (location.mode === 'exact' ? t('energy.source.regionalExactSun') : t('energy.source.regional'))) + buildingText,
     orientationFactor: orientation,
     tiltFactor: tiltFactor(state.pitch),
     localBuildingFactor,
@@ -489,7 +492,7 @@ function pvgisEndpointUrl(endpoint, tool, params) {
 }
 
 async function fetchPvgisJson(endpoint, tool, params, signal) {
-  if (!endpoint) throw new Error('No PVGIS server proxy configured');
+  if (!endpoint) throw new Error(solarT(resolveSolarLocale(), 'pvgis.error.noProxy'));
   const response = await fetch(pvgisEndpointUrl(endpoint, tool, params), {
     signal,
     headers: { Accept: 'application/json' },
@@ -555,7 +558,7 @@ function pvgisSurfaceDescriptors(solarMetrics) {
     .filter((surface) => Number(surface?.placed) > 0)
     .map((surface) => ({
       id: String(surface.id || 'surface'),
-      label: String(surface.label || 'Roof plane'),
+      label: String(surface.label || solarT(resolveSolarLocale(), 'pvgis.surface.roofPlane')),
       azimuth: normalizeDeg(Number(surface.azimuth) || 0),
       placed: Math.max(0, Number(surface.placed) || 0),
       peakpower: Math.max(0.001, (Number(surface.placed) || 0) * modulePowerKw),
@@ -563,7 +566,7 @@ function pvgisSurfaceDescriptors(solarMetrics) {
   if (surfaces.length) return surfaces;
   return [{
     id: 'array',
-    label: 'Solar array',
+    label: solarT(resolveSolarLocale(), 'pvgis.surface.solarArray'),
     azimuth: normalizeDeg(Number(solarMetrics?.arrayAzimuth) || 180),
     placed: Number(solarMetrics?.placedPanels) || 0,
     peakpower: Math.max(0.001, Number(solarMetrics?.systemKwp) || 0.001),
@@ -571,9 +574,9 @@ function pvgisSurfaceDescriptors(solarMetrics) {
 }
 
 export async function fetchPvgisSiteEstimate(state, solarMetrics, signal, endpoint) {
-  if (!endpoint) throw new Error('No PVGIS server proxy configured');
+  if (!endpoint) throw new Error(solarT(resolveSolarLocale(), 'pvgis.error.noProxy'));
   const location = getActiveLocation(state);
-  if (location.mode !== 'exact') throw new Error('Exact location required for live PVGIS data');
+  if (location.mode !== 'exact') throw new Error(solarT(resolveSolarLocale(), 'pvgis.error.exactRequired'));
   const surfaces = pvgisSurfaceDescriptors(solarMetrics);
   const common = {
     lat: Number(location.lat).toFixed(6),
@@ -596,7 +599,7 @@ export async function fetchPvgisSiteEstimate(state, solarMetrics, signal, endpoi
     }, signal);
     const annualKWh = Number(data?.annualKWh ?? data?.outputs?.totals?.fixed?.E_y);
     if (!Number.isFinite(annualKWh) || annualKWh <= 0) {
-      throw new Error(`PVGIS returned no annual yield for ${surface.label}`);
+      throw new Error(solarT(resolveSolarLocale(), 'pvgis.error.noAnnual', { surface: surface.label }));
     }
     return {
       ...surface,

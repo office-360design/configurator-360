@@ -1,3 +1,6 @@
+import { solarT, resolveSolarLocale } from './i18n.js?v=1';
+
+const t = (key, variables = {}) => solarT(resolveSolarLocale(), key, variables);
 const EARTH_METERS_PER_DEG = 111320;
 const TERRAIN_ZOOM = 15;
 const DEFAULT_TERRAIN_TEMPLATE = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
@@ -50,7 +53,7 @@ async function blobToImageData(blob) {
       source = await new Promise((resolve, reject) => {
         const image = new Image();
         image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error('Could not decode terrain tile image.'));
+        image.onerror = () => reject(new Error(t('environment.error.decodeTerrain')));
         image.src = objectUrl;
       });
     }
@@ -60,7 +63,7 @@ async function blobToImageData(blob) {
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d', { willReadFrequently: true });
-    if (!context) throw new Error('Canvas 2D context is not available.');
+    if (!context) throw new Error(t('environment.error.canvas'));
     context.drawImage(source, 0, 0, width, height);
     return context.getImageData(0, 0, width, height);
   } finally {
@@ -85,7 +88,7 @@ async function fetchTerrainTile(z, x, y, signal) {
         credentials: 'omit',
         cache: 'force-cache',
       });
-      if (!response.ok) throw new Error(`Terrain tile HTTP ${response.status}`);
+      if (!response.ok) throw new Error(t('environment.error.terrainHttp', { status: response.status }));
       const imageData = await blobToImageData(await response.blob());
       const tile = { imageData, width: imageData.width, height: imageData.height };
       completedTerrainTiles.set(key, tile);
@@ -97,7 +100,7 @@ async function fetchTerrainTile(z, x, y, signal) {
       if (attempt === 0) await new Promise((resolve) => window.setTimeout(resolve, 180));
     }
   }
-  throw lastError || new Error('Terrain tile unavailable.');
+  throw lastError || new Error(t('environment.error.terrainUnavailable'));
 }
 
 function decodeTerrariumPixel(tile, px, py) {
@@ -140,7 +143,7 @@ async function loadTerrain({ lat, lon, radiusM, segments, signal }) {
   };
 
   const centerElevationM = sampleAt(lat, lon);
-  if (!Number.isFinite(centerElevationM)) throw new Error('Terrain elevation could not be decoded.');
+  if (!Number.isFinite(centerElevationM)) throw new Error(t('environment.error.terrainDecode'));
 
   const size = Math.max(17, Math.min(97, Math.round(segments) + 1));
   const heights = new Float32Array(size * size);
@@ -250,7 +253,7 @@ function createLinkedTimeoutSignal(parentSignal, timeoutMs = OVERPASS_TIMEOUT_MS
   else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
   const timer = window.setTimeout(() => {
     timedOut = true;
-    controller.abort(new DOMException('Overpass request timed out.', 'TimeoutError'));
+    controller.abort(new DOMException(t('environment.error.overpassTimeout'), 'TimeoutError'));
   }, timeoutMs);
   return {
     signal: controller.signal,
@@ -274,11 +277,11 @@ async function queryOverpass(endpoint, query, signal) {
       cache: 'no-store',
       headers: { Accept: 'application/json' },
     });
-    if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
+    if (!response.ok) throw new Error(t('environment.error.overpassHttp', { status: response.status }));
     return await response.json();
   } catch (error) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    if (request.timedOut()) throw new Error('Overpass request timed out.');
+    if (request.timedOut()) throw new Error(t('environment.error.overpassTimeout'));
     throw error;
   } finally {
     request.cleanup();
@@ -320,10 +323,10 @@ async function loadOsmContext({ lat, lon, radiusM, signal, forceRefresh = false 
       return {
         ...cached.data,
         cacheStatus: 'stale',
-        cacheWarning: `Live OpenStreetMap refresh failed; reused cached context (${lastError?.message || 'Overpass unavailable'}).`,
+        cacheWarning: t('environment.error.osmCache', { message: lastError?.message || 'Overpass unavailable' }),
       };
     }
-    throw lastError || new Error('No Overpass endpoint returned data.');
+    throw lastError || new Error(t('environment.error.overpassUnavailable'));
   }
 
   const buildings = [];
@@ -379,7 +382,7 @@ export async function loadGeographicEnvironment({
   const latitude = Number(lat);
   const longitude = Number(lon);
   const radius = clamp(Number(radiusM) || 180, 80, 400);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw new Error('Exact coordinates are required.');
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw new Error(t('environment.error.coordinates'));
 
   let progressiveTerrain = null;
   let progressiveOsm = null;
@@ -423,11 +426,11 @@ export async function loadGeographicEnvironment({
   const errors = [];
   const terrain = terrainResult.status === 'fulfilled' ? terrainResult.value : null;
   const osm = osmResult.status === 'fulfilled' ? osmResult.value : { buildings: [], roads: [], trees: [] };
-  if (terrainResult.status === 'rejected') errors.push(`Terrain: ${terrainResult.reason?.message || 'unavailable'}`);
-  if (osmResult.status === 'rejected') errors.push(`OSM context: ${osmResult.reason?.message || 'unavailable'}`);
+  if (terrainResult.status === 'rejected') errors.push(t('environment.error.terrainPrefix', { message: terrainResult.reason?.message || 'unavailable' }));
+  if (osmResult.status === 'rejected') errors.push(t('environment.error.osmPrefix', { message: osmResult.reason?.message || 'unavailable' }));
   if (osm.cacheWarning) errors.push(osm.cacheWarning);
   if (!terrain && osmResult.status === 'rejected') {
-    const error = new Error(errors.join(' · ') || 'Geographic context unavailable.');
+    const error = new Error(errors.join(' · ') || t('environment.error.unavailable'));
     error.cause = { terrain: terrainResult.reason, osm: osmResult.reason };
     throw error;
   }
