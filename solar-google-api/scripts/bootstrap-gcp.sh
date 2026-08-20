@@ -4,8 +4,7 @@ set -euo pipefail
 PROJECT_ID="${GCP_PROJECT_ID:-configurator-360}"
 REGION="${GCP_REGION:-europe-central2}"
 RUNTIME_SA="${GOOGLE_SOLAR_RUNTIME_SA:-configurator-runtime@${PROJECT_ID}.iam.gserviceaccount.com}"
-PROJECT_NUMBER="${GCP_PROJECT_NUMBER:-$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")}"
-CACHE_BUCKET="${GOOGLE_SOLAR_CACHE_BUCKET:-${PROJECT_ID}-google-solar-cache-${PROJECT_NUMBER}}"
+CACHE_BUCKET="${GOOGLE_SOLAR_CACHE_BUCKET:-cfg360-solar-cache-89ccb07249b1}"
 SECURITY_COLLECTION="${GOOGLE_SOLAR_SECURITY_COLLECTION:-googleSolarSecurityV1}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIFECYCLE_FILE="${SCRIPT_DIR}/../infrastructure-storage-lifecycle.json"
@@ -18,6 +17,12 @@ echo "Project: ${PROJECT_ID}"
 echo "Region:  ${REGION}"
 echo "Runtime: ${RUNTIME_SA}"
 echo "Bucket:  gs://${CACHE_BUCKET}"
+
+if [[ "${CACHE_BUCKET}" == goog* || "${CACHE_BUCKET}" == *google* ]]; then
+  echo "ERROR: Cloud Storage bucket names cannot begin with 'goog' or contain 'google'." >&2
+  echo "Choose a different GOOGLE_SOLAR_CACHE_BUCKET value." >&2
+  exit 2
+fi
 
 gcloud config set project "${PROJECT_ID}" >/dev/null
 

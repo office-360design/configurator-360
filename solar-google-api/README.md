@@ -59,7 +59,7 @@ entry point.
 Non-secret values:
 
 ```text
-GOOGLE_SOLAR_CACHE_BUCKET=configurator-360-google-solar-cache-719238533149
+GOOGLE_SOLAR_CACHE_BUCKET=cfg360-solar-cache-89ccb07249b1
 GOOGLE_SOLAR_SECURITY_COLLECTION=googleSolarSecurityV1
 GOOGLE_SOLAR_ALLOWED_ORIGIN=https://www.360configurator.com,https://www.360configurator.ro,https://www.360konfigurator.de,https://aks.360configurator.com
 GOOGLE_SOLAR_MAX_LOGIN_ATTEMPTS_HOUR=12
@@ -83,7 +83,7 @@ Firestore locally:
 ```bash
 gcloud auth application-default login
 export GOOGLE_CLOUD_PROJECT=configurator-360
-export GOOGLE_SOLAR_CACHE_BUCKET=configurator-360-google-solar-cache-719238533149
+export GOOGLE_SOLAR_CACHE_BUCKET=cfg360-solar-cache-89ccb07249b1
 export GOOGLE_SOLAR_API_KEY='...'
 export GOOGLE_SOLAR_DEMO_ACCESS_CODE='...'
 export GOOGLE_SOLAR_SESSION_SECRET='...'
