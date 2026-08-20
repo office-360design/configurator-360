@@ -1,3 +1,4 @@
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function loggedIn() {
@@ -145,13 +146,44 @@ service cloud.firestore {
       allow create, update, delete: if loggedIn();
     }
 
+    // Internal share-system state. Clients cannot read or modify it directly;
+    // Security Rules may still consult it when deciding whether the temporary
+    // reCAPTCHA-free fallback is currently authorized by the backend.
+    match /sharedConfigurationSystem/{item} {
+      allow read, write: if false;
+    }
+
+    function shareUsageControlPath() {
+      return /databases/$(database)/documents/sharedConfigurationSystem/appCheckUsage;
+    }
+
+    function existingShareControlAllowsLegacyCreate() {
+      let control = get(shareUsageControlPath()).data;
+      return !('secureModeActive' in control)
+          || control.secureModeActive != true
+          || (
+            ('legacyFallbackEnabled' in control)
+            && control.legacyFallbackEnabled == true
+            && ('fallbackUntil' in control)
+            && control.fallbackUntil is timestamp
+            && control.fallbackUntil > request.time
+          );
+    }
+
+    function legacyShareCreateAllowed() {
+      // Before the first successful App Check-protected share, keep the existing
+      // implementation available so rollout/configuration cannot break Share.
+      // Once secureModeActive becomes true, direct writes are allowed only while
+      // the server-authorized fallback window is still open.
+      return !exists(shareUsageControlPath())
+          || existingShareControlAllowsLegacyCreate();
+    }
+
     // shared configurator links
     match /sharedConfigurations/{shareId} {
-      // An exact share ID can retrieve one configuration. Listing/searching the
-      // collection stays forbidden. Once server metadata exists, reads stop
-      // exactly at expiresAt even though TTL's physical delete may happen later.
-      // The temporary no-expiresAt fallback avoids a race during the few moments
-      // between the client create and the Firestore trigger enriching the document.
+      // Opening an exact bearer-style share link remains reCAPTCHA-free. Listing
+      // or searching the collection is forbidden, and expired documents stop
+      // reading exactly at expiresAt even if TTL deletion has not run yet.
       allow get: if shareId.matches('[A-Za-z0-9_-]{16}')
           && resource.data.v == 1
           && resource.data.p in ['window', 'roof', 'pergola', 'hall', 'solar']
@@ -163,9 +195,12 @@ service cloud.firestore {
 
       allow list: if false;
 
-      // Existing browser share creation remains unchanged for now. The Cloud
-      // Function adds trusted size/timestamp metadata immediately afterwards.
-      allow create: if shareId.matches('[A-Za-z0-9_-]{16}')
+      // Direct browser creation is the no-reCAPTCHA compatibility/fallback path.
+      // It is open before the first successful App Check rollout, then gated by
+      // the private backend control document. At 9,500 monthly assessments the
+      // backend reopens it until the first instant of the next UTC month.
+      allow create: if legacyShareCreateAllowed()
+          && shareId.matches('[A-Za-z0-9_-]{16}')
           && request.resource.data.keys().hasAll(['v', 'p', 's'])
           && request.resource.data.keys().hasOnly(['v', 'p', 's'])
           && request.resource.data.v == 1
