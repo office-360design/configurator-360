@@ -9,7 +9,7 @@
     "check:configurator-notfound": "node scripts/validation/validate_configurator_no_notfound.mjs",
     "diagnose:website-inline-rsc": "node scripts/diagnostics/diagnose_website_inline_rsc.mjs",
     "diagnose:website-flight-payload": "node scripts/diagnostics/diagnose_website_flight_payload.mjs",
-    "audit:seo": "node scripts/seo/audit-production.mjs"
+    "audit:seo": "node scripts/seo/audit-production.mjs",
     "check:window-i18n": "node scripts/validation/validate_window_i18n.mjs",
     "check:google-solar-cloudrun": "node scripts/validation/validate_google_solar_cloudrun.mjs"
   },

@@ -283,6 +283,20 @@ export function WindowConfiguratorPreview({ locale = "en", placement = "showcase
     return () => window.removeEventListener("active-scene-change", onScene);
   }, []);
 
+  useEffect(() => {
+    const element = shell.current;
+    if (!element) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (!interaction) return;
+      event.preventDefault();
+      post(frame.current, { orbit: { zoom: event.deltaY } });
+    };
+    element.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      element.removeEventListener("wheel", handleWheel);
+    };
+  }, [interaction]);
+
   const estimate = 1380 + state.width * state.height * 920 + state.glassThickness * 18 + (state.mode === "oscilo" ? 240 : 140);
 
   return (
@@ -305,11 +319,6 @@ export function WindowConfiguratorPreview({ locale = "en", placement = "showcase
         post(frame.current, { orbit: { dx, dy, pan: drag.current.pan || event.shiftKey } });
       }}
       onPointerUp={() => { drag.current = null; }}
-      onWheel={(event) => {
-        if (!interaction) return;
-        event.preventDefault();
-        post(frame.current, { orbit: { zoom: event.deltaY } });
-      }}
     >
       <iframe
         ref={frame}
