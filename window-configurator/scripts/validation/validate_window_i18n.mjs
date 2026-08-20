@@ -4,9 +4,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
+const workspaceRoot = path.resolve(root, "..");
 
 const i18nModule = await import(pathToFileURL(path.join(root, "src/client/js/i18n.js")).href);
-const sharedConfig = await import(pathToFileURL(path.join(root, "shared-ui/src/config.js")).href);
+const sharedConfig = await import(pathToFileURL(path.join(workspaceRoot, "shared-ui/src/config.js")).href);
 
 const locales = ["en-US", "ro-RO", "de-DE"];
 const messages = Object.fromEntries(

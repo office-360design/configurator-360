@@ -3,10 +3,11 @@ const path = require('path');
 const childProcess = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '..', '..');
+const workspaceRoot = path.resolve(projectRoot, '..');
 const sourceRoot = path.join(projectRoot, 'src', 'client');
 const distRoot = path.join(projectRoot, 'dist', 'site');
-const headersSource = path.join(projectRoot, 'netlify', '_headers');
-const sharedUiSource = path.join(projectRoot, 'shared-ui');
+const headersSource = path.join(workspaceRoot, 'netlify', '_headers');
+const sharedUiSource = path.join(workspaceRoot, 'shared-ui');
 
 function gitShortHash() {
     try {
