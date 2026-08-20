@@ -1642,6 +1642,9 @@ export function createWindowBuilder({
         });
         const activeDividerProfiles = activeProfiles.filter(profile => profile.role === 'divider');
         const activeTransProfiles = activeProfiles.filter(profile => profile.role === 'trans');
+        const activeTransGasketProfiles = activeProfiles.filter(
+            profile => profile.role === 'trans-gasket'
+        );
         const layoutState = getWindowLayoutState();
         const isEditableTopology = layoutState.isDynamicWindowState === true;
 
@@ -2129,7 +2132,11 @@ export function createWindowBuilder({
         }
 
         activeProfiles
-            .filter(profile => profile.role !== 'divider' && profile.role !== 'trans')
+            .filter(profile =>
+                profile.role !== 'divider'
+                && profile.role !== 'trans'
+                && profile.role !== 'trans-gasket'
+            )
             .forEach(profile => {
                 const group = getProfileGroup(profile);
                 const usesFullOuterBoundary = group === 'frame';
@@ -2251,6 +2258,53 @@ export function createWindowBuilder({
                     mesh.userData.transSegmentId = segment.id;
                     mesh.userData.transOwnerCellId = ownerCell.id;
                     mesh.userData.windowCell = ownerCell.id;
+                    targetSashGroup.add(mesh);
+                });
+
+                // The floating trans carries its own 245472 rebate gasket from
+                // the exact sash-trans-sash CAD join. Render it with the same
+                // length, square ends, depth bridge and sash parent as the
+                // aluminium trans so opening the owner sash moves both pieces
+                // as one physical assembly.
+                activeTransGasketProfiles.forEach(profile => {
+                    if (!profile.transConnectionCadTransform) return;
+                    const placedProfile = {
+                        ...profile,
+                        cadCoordinateTransform: profile.transConnectionCadTransform,
+                        cadAlignmentShiftXMm: 0,
+                        cadAlignmentShiftYMm: 0,
+                        dividerSectionRotationDeg:
+                            Number(transConnection.sectionRotationDeg)
+                            || Number(profile.transSectionRotationDeg)
+                            || 180,
+                    };
+                    const mesh = createDividerSegment(
+                        placedProfile,
+                        ownerCell.height,
+                        'vertical',
+                        transBounds,
+                        transDepthOffset,
+                        0,
+                        segment.perpendicularOffset,
+                        ownerCell.centerY,
+                        1,
+                        {
+                            negativeEndMode: 'square',
+                            positiveEndMode: 'square',
+                            negativeFrameInwardSpan: 0,
+                            positiveFrameInwardSpan: 0,
+                        }
+                    );
+                    mesh.userData.trans = true;
+                    mesh.userData.transGasket = true;
+                    mesh.userData.connectionProfileId =
+                        profile.transConnectionProfileId || null;
+                    mesh.userData.transSegmentId = segment.id;
+                    mesh.userData.transOwnerCellId = ownerCell.id;
+                    mesh.userData.windowCell = ownerCell.id;
+                    if (mesh.userData.componentSelection) {
+                        mesh.userData.componentSelection.source = 'trans';
+                    }
                     targetSashGroup.add(mesh);
                 });
             });

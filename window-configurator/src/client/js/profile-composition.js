@@ -256,6 +256,28 @@ function bboxCenter(bbox) {
     };
 }
 
+function bboxGapDistance(bboxA, bboxB) {
+    if (!bboxA || !bboxB) return Infinity;
+    const dx = Math.max(
+        0,
+        finiteNumber(bboxA.minX) - finiteNumber(bboxB.maxX),
+        finiteNumber(bboxB.minX) - finiteNumber(bboxA.maxX)
+    );
+    const dy = Math.max(
+        0,
+        finiteNumber(bboxA.minY) - finiteNumber(bboxB.maxY),
+        finiteNumber(bboxB.minY) - finiteNumber(bboxA.maxY)
+    );
+    return Math.hypot(dx, dy);
+}
+
+function bboxCenterDistance(bboxA, bboxB) {
+    if (!bboxA || !bboxB) return Infinity;
+    const centerA = bboxCenter(bboxA);
+    const centerB = bboxCenter(bboxB);
+    return Math.hypot(centerA.x - centerB.x, centerA.y - centerB.y);
+}
+
 function translateTransformToBbox(sourceBbox, targetBbox, baseTransform) {
     if (!sourceBbox || !targetBbox || !baseTransform) return baseTransform;
 
@@ -876,6 +898,98 @@ function appendStandaloneTransProfiles({
         ? openingSashTransBoundariesMm[openingSashCellSide]
         : null;
 
+    // 245472 is also used as the closing/rebate gasket on the floating trans.
+    // Do not reuse its normal sash/frame placement: the trans gasket must keep
+    // the exact INSERT authored in window-sash-trans-sash-window.dwg and then
+    // move together with the trans owner sash.  The frame-role 245472 profile
+    // already supplies the verified gasket geometry, so retarget that geometry
+    // directly into the trans join coordinate system.
+    let transGasketProfile = null;
+    let transGasketOccurrence = null;
+    if (connectionTemplate && connectionTransOccurrence?.bbox) {
+        const rebateGasketProfileId = resolveMixedJoinRebateGasketProfileId(
+            connectionTemplate
+        );
+        if (rebateGasketProfileId === '245472') {
+            const sourceGasketProfiles = definition.profiles.filter(profile =>
+                isFrameToSashRebateGasket(profile)
+                && profile?.bbox
+                && hasCadAffineTransform(profile.sourceTransform)
+            );
+            const exactOccurrences = resolveConnectionOccurrences(
+                connectionTemplate,
+                rebateGasketProfileId,
+                'gasket'
+            ).filter(occurrence =>
+                occurrence?.bbox
+                && hasCadAffineTransform(occurrence.transform)
+                && occurrence.matchStrategy === 'direct-named-join-component'
+                && String(occurrence.profileId || '') === rebateGasketProfileId
+            );
+
+            const candidates = [];
+            sourceGasketProfiles.forEach(sourceProfile => {
+                const sourceBlockName = normalizeBlockName(sourceProfile.blockName);
+                exactOccurrences.forEach(occurrence => {
+                    const directBlockNames = (occurrence.directBlockNames || [])
+                        .map(normalizeBlockName);
+                    if (
+                        sourceBlockName
+                        && directBlockNames.length
+                        && !directBlockNames.includes(sourceBlockName)
+                    ) {
+                        return;
+                    }
+                    candidates.push({
+                        sourceProfile,
+                        occurrence,
+                        gapDistance: bboxGapDistance(
+                            occurrence.bbox,
+                            connectionTransOccurrence.bbox
+                        ),
+                        centerDistance: bboxCenterDistance(
+                            occurrence.bbox,
+                            connectionTransOccurrence.bbox
+                        ),
+                    });
+                });
+            });
+            candidates.sort((left, right) =>
+                left.gapDistance - right.gapDistance
+                || left.centerDistance - right.centerDistance
+                || finiteNumber(left.occurrence.occurrenceIndex)
+                    - finiteNumber(right.occurrence.occurrenceIndex)
+            );
+
+            const selected = candidates[0] || null;
+            if (selected) {
+                transGasketOccurrence = selected.occurrence;
+                const cadCoordinateTransform = composeCadTransforms(
+                    selected.occurrence.transform,
+                    invertCadTransform(selected.sourceProfile.sourceTransform)
+                );
+                transGasketProfile = {
+                    ...selected.sourceProfile,
+                    role: 'trans-gasket',
+                    componentRole: 'trans-gasket',
+                    section: 'top',
+                    placementSection: 'trans',
+                    geometrySource: 'trans-connection-gasket',
+                    transProfileId: profileId,
+                    transConnectionProfileId: rebateGasketProfileId,
+                    transConnectionOccurrenceIndex:
+                        selected.occurrence.occurrenceIndex ?? null,
+                    transConnectionPlacementMethod:
+                        'exact-direct-join-gasket-nearest-selected-trans',
+                    transConnectionCadTransform: cadCoordinateTransform,
+                    cadCoordinateTransform,
+                    cadAlignmentShiftXMm: 0,
+                    cadAlignmentShiftYMm: 0,
+                };
+            }
+        }
+    }
+
     const transProfiles = standaloneProfiles.map(profile => {
         const centerY = profile.bbox
             ? (finiteNumber(profile.bbox.minY) + finiteNumber(profile.bbox.maxY)) / 2
@@ -961,12 +1075,22 @@ function appendStandaloneTransProfiles({
                     openingSashBoundaryMethod: openingSashBoundarySides.length
                         ? 'per-side-left-right-join-reference-minus-working-sash-inward-offset'
                         : null,
+                    gasketProfileId: transGasketProfile?.transConnectionProfileId || null,
+                    gasketOccurrenceIndex:
+                        transGasketOccurrence?.occurrenceIndex ?? null,
+                    gasketPlacementMethod:
+                        transGasketProfile?.transConnectionPlacementMethod || null,
                 }
                 : null,
             usesCadConnectionTemplate: Boolean(connectionTemplate),
             usesStandaloneTransProfile: true,
+            usesTransConnectionGasket: Boolean(transGasketProfile),
         },
-        profiles: [...definition.profiles, ...transProfiles],
+        profiles: [
+            ...definition.profiles,
+            ...transProfiles,
+            ...(transGasketProfile ? [transGasketProfile] : []),
+        ],
     };
 }
 
@@ -1104,7 +1228,9 @@ function resolveMixedJoinRebateGasketProfileId(dividerConnectionTemplate) {
     // converter/CAD matching error and should be surfaced instead of silently
     // falling back to the old B2 sash position.
     if (
-        ['mullion-fixed-sash', 'mullion-sash-sash'].includes(dividerConnectionTemplate.id)
+        ['mullion-fixed-sash', 'mullion-sash-sash', 'trans-sash-sash'].includes(
+            dividerConnectionTemplate.id
+        )
         && Array.isArray(dividerConnectionTemplate.extraction?.namedInsertInventory)
     ) {
         throw new Error(

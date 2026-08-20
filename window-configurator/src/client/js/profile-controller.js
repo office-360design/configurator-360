@@ -91,7 +91,7 @@ export function createProfileController({
         if (profile.role === 'divider') {
             return 'divider';
         }
-        if (profile.role === 'trans') {
+        if (profile.role === 'trans' || profile.role === 'trans-gasket') {
             return 'trans';
         }
 
