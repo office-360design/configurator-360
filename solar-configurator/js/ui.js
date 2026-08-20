@@ -1,14 +1,14 @@
-import { modulePresets, regionPresets, roofNames } from './state.js?v=6';
+import { modulePresets, regionPresets } from './state.js?v=14';
 import {
   estimateAnnualProduction,
   estimateDailyConsumption,
   instantaneousPowerAtHour,
-  localBuildingShadeAtSun,
+  localObstructionShadeAtSun,
   simulateDay,
   sunClearsPvgisHorizon,
-} from './energyModel.js?v=4';
-import { calculateSolarEstimate, estimateToCsv } from './estimate.js?v=1';
-import { formatAzimuth, getActiveLocation, getSeasonForDate, getSolarContext } from './solarPosition.js?v=2';
+} from './energyModel.js?v=5';
+import { calculateSolarEstimate, estimateToCsv } from './estimate.js?v=2';
+import { getActiveLocation, getSeasonForDate, getSolarContext } from './solarPosition.js?v=2';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -17,7 +17,8 @@ import {
   fromDisplayLength,
   normalizeUnits,
   toDisplayLength,
-} from './preferences.js?v=1';
+} from './preferences.js?v=2';
+import { applySolarTranslations, solarFormatAzimuth, solarModuleLabel, solarModuleNote, solarRateSourceLabel, solarRegionCity, solarRoofName, solarSeasonLabel, solarT, resolveSolarLocale } from './i18n.js?v=1';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth']);
 const numeric = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -31,6 +32,7 @@ export class SolarUI {
     this.currentSimulation = null;
     this.currentProduction = null;
     this.dimensionBindings = [];
+    this.locale = resolveSolarLocale();
 
     this.bindRoofTypes();
     this.bindRanges();
@@ -43,6 +45,8 @@ export class SolarUI {
     this.syncAllControls();
   }
 
+  t(key, variables = {}) { return solarT(this.locale, key, variables); }
+
   bindRoofTypes() {
     document.querySelectorAll('[data-roof-type]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -52,7 +56,7 @@ export class SolarUI {
         this.syncRoofSideAvailability();
         if (activePreset) this.applyLayoutPreset(activePreset.columns, activePreset.rows);
         else this.syncLayoutPresets();
-        document.querySelector('#viewerTitle').textContent = roofNames[this.state.roofType] || 'Solar roof';
+        document.querySelector('#viewerTitle').textContent = solarRoofName(this.state.roofType, this.locale) || this.t('roof.fallback');
         this.onChange({ fitCamera: true, pvgis: true });
       });
     });
@@ -213,7 +217,7 @@ export class SolarUI {
       const unavailable = singleSlope && (button.dataset.roofSide === 'back' || button.dataset.roofSide === 'both');
       button.disabled = unavailable;
       button.setAttribute('aria-disabled', String(unavailable));
-      button.title = unavailable ? 'Not available for a one-slope roof' : '';
+      button.title = unavailable ? this.t('roofSide.unavailableShed') : '';
       button.setAttribute('aria-pressed', String(button.dataset.roofSide === this.state.roofSide));
     });
   }
@@ -389,7 +393,7 @@ export class SolarUI {
     const tariff = document.querySelector('#energyTariffInput');
     if (bill) bill.value = String(this.state.monthlyBillRon);
     if (tariff) tariff.value = String(this.state.energyTariffRon);
-    document.querySelector('#viewerTitle').textContent = roofNames[this.state.roofType] || 'Solar roof';
+    document.querySelector('#viewerTitle').textContent = solarRoofName(this.state.roofType, this.locale) || this.t('roof.fallback');
     this.renderModuleReference();
     this.syncBatteryControls();
 
@@ -422,10 +426,13 @@ export class SolarUI {
     const module = modulePresets[this.state.modulePreset] || modulePresets.standard475;
     const element = document.querySelector('#moduleReference');
     if (!element) return;
-    element.innerHTML = `<strong>${module.powerW} W · ${(module.efficiency * 100).toFixed(1)}%</strong><span>${module.lengthM.toFixed(3)} × ${module.widthM.toFixed(3)} m · ${module.note}</span>`;
+    element.innerHTML = `<strong>${module.powerW} W · ${(module.efficiency * 100).toFixed(1)}%</strong><span>${module.lengthM.toFixed(3)} × ${module.widthM.toFixed(3)} m · ${solarModuleNote(this.state.modulePreset, this.locale)}</span>`;
   }
 
   setPreferences() {
+    this.locale = resolveSolarLocale(window.SOLAR_SHELL_PREFERENCES?.locale);
+    applySolarTranslations(this.locale);
+    this.syncAllControls();
     this.syncDimensionControls();
     if (this.lastMetrics) this.updateMetrics(this.lastMetrics);
   }
@@ -435,13 +442,16 @@ export class SolarUI {
     this.state.effectivePanelCount = metrics.placedPanels;
     this.currentProduction = estimateAnnualProduction(this.state, metrics);
     this.state.localBuildingAnnualLossPct = this.currentProduction.localBuildingLossPct || 0;
+    this.state.googleSolarAnnualLossPct = this.currentProduction.localShadingSource === 'google'
+      ? (this.currentProduction.localBuildingLossPct || 0)
+      : 0;
     this.currentSimulation = simulateDay(this.state, metrics, this.currentProduction);
-    this.currentEstimate = calculateSolarEstimate(this.state, metrics, this.currentSimulation);
+    this.currentEstimate = calculateSolarEstimate(this.state, metrics, this.currentSimulation, this.locale);
 
     document.querySelector('#metricSystemSize').textContent = `${metrics.systemKwp.toFixed(2)} kWp`;
-    document.querySelector('#metricPanels').textContent = `${metrics.placedPanels} panels`;
+    document.querySelector('#metricPanels').textContent = this.t('panels.count', { count: metrics.placedPanels });
     document.querySelector('#metricDaily').textContent = `${this.currentProduction.dailyAverageKWh.toFixed(1)} kWh`;
-    document.querySelector('#metricAnnual').textContent = `${Math.round(this.currentProduction.annualKWh).toLocaleString('en-US')} kWh`;
+    document.querySelector('#metricAnnual').textContent = `${Math.round(this.currentProduction.annualKWh).toLocaleString(this.locale)} kWh`;
 
     const layout = document.querySelector('#layoutReadout');
     if (layout) {
@@ -449,13 +459,13 @@ export class SolarUI {
       const panelsPerSurface = Math.ceil(Math.max(1, this.state.panelCount) / surfaceCount);
       const rowsPerSurface = Math.ceil(panelsPerSurface / Math.max(1, this.state.panelColumns));
       layout.textContent = surfaceCount > 1
-        ? `${this.state.panelColumns} × ${rowsPerSurface} per side · ${this.state.panelCount} total`
-        : `${this.state.panelColumns} × ${rowsPerSurface} target grid · ${this.state.moduleOrientation}`;
+        ? this.t('layout.perSide', { columns: this.state.panelColumns, rows: rowsPerSurface, total: this.state.panelCount })
+        : this.t('layout.target', { columns: this.state.panelColumns, rows: rowsPerSurface, orientation: this.t(`orientation.${this.state.moduleOrientation}`) });
     }
     const fitWarning = document.querySelector('#panelFitWarning');
     if (fitWarning) {
       fitWarning.hidden = !metrics.fitWarning;
-      fitWarning.textContent = metrics.fitWarning || '';
+      fitWarning.textContent = metrics.fitWarning ? this.t('panels.fitWarning', { placed: metrics.placedPanels, requested: this.state.panelCount }) : '';
     }
 
     const consumption = estimateDailyConsumption(this.state);
@@ -464,15 +474,16 @@ export class SolarUI {
     document.querySelector('#selfSufficiencyReadout').textContent = `${this.currentSimulation.selfSufficiency.toFixed(0)}%`;
     document.querySelector('#gridImportReadout').textContent = `${this.currentSimulation.gridImport.toFixed(1)} kWh`;
     document.querySelector('#gridExportReadout').textContent = `${this.currentSimulation.gridExport.toFixed(1)} kWh`;
-    document.querySelector('#batteryCapacityReadout').textContent = this.state.batteryEnabled ? `${this.currentSimulation.batteryCapacity.toFixed(0)} kWh` : 'No battery';
+    document.querySelector('#batteryCapacityReadout').textContent = this.state.batteryEnabled ? `${this.currentSimulation.batteryCapacity.toFixed(0)} kWh` : this.t('battery.none');
 
     const sourceBadge = document.querySelector('#productionSourceBadge');
     if (sourceBadge) {
-      const status = this.state.pvgisStatus === 'loading' ? 'Updating PVGIS…' : this.currentProduction.source;
+      const status = this.state.pvgisStatus === 'loading' ? this.t('production.updating') : this.currentProduction.source;
       sourceBadge.textContent = status;
       sourceBadge.dataset.status = this.state.pvgisStatus;
     }
     const region = regionPresets[this.state.region] || regionPresets.muntenia;
+    const localizedRegionCity = solarRegionCity(this.state.region || 'muntenia', this.locale);
     const activeLocation = getActiveLocation(this.state);
     document.querySelectorAll('[data-region]').forEach((button) => {
       button.setAttribute('aria-pressed', String(this.state.locationMode !== 'exact' && button.dataset.region === this.state.region));
@@ -480,22 +491,26 @@ export class SolarUI {
     const regionDetail = document.querySelector('#regionDetail');
     if (regionDetail) {
       if (activeLocation.mode === 'exact' && this.state.pvgisStatus === 'ready') {
+        const shadeLabel = this.currentProduction.localShadingSource === 'google' ? 'Google shade' : 'nearby buildings';
         const localShadeText = this.currentProduction.localBuildingLossPct > 0.05
-          ? ` · nearby buildings −${this.currentProduction.localBuildingLossPct.toFixed(1)}%`
+          ? ` · ${this.t(
+            this.currentProduction.localShadingSource === 'google' ? 'production.googleShadeLoss' : 'production.nearbyLoss',
+            { loss: this.currentProduction.localBuildingLossPct.toFixed(1) },
+          )}`
           : '';
-        regionDetail.textContent = `${activeLocation.label} · ${Math.round(this.currentProduction.specificYield)} kWh/kWp/year · ${this.state.pvgisUseHorizon ? 'terrain horizon on' : 'terrain horizon off'}${localShadeText}`;
+        regionDetail.textContent = this.t('production.exact', { location: activeLocation.label, yield: Math.round(this.currentProduction.specificYield), horizon: this.t(this.state.pvgisUseHorizon ? 'production.horizonOn' : 'production.horizonOff'), shade: localShadeText });
       } else {
         regionDetail.textContent = activeLocation.mode === 'exact'
-          ? `${activeLocation.label} · exact sun geometry · annual yield calibrated to ${region.city}`
-          : `${region.city} reference · ${Math.round(this.currentProduction.specificYield)} kWh/kWp/year`;
+          ? this.t('production.exactFallback', { location: activeLocation.label, city: localizedRegionCity })
+          : this.t('production.region', { city: localizedRegionCity, yield: Math.round(this.currentProduction.specificYield) });
       }
     }
     const exactLocationButton = document.querySelector('#exactLocationButton');
-    if (exactLocationButton) exactLocationButton.textContent = activeLocation.mode === 'exact' ? 'Change exact location' : 'Choose exact location';
+    if (exactLocationButton) exactLocationButton.textContent = activeLocation.mode === 'exact' ? this.t('location.changeExact') : this.t('location.chooseExact');
     const dateReadout = document.querySelector('#simulationDateReadout');
     if (dateReadout) {
       const season = getSeasonForDate(this.state.simulationDate);
-      dateReadout.textContent = `${this.state.simulationDate} · ${season} · sunrise ${this.currentSimulation.sunriseLabel} / sunset ${this.currentSimulation.sunsetLabel}`;
+      dateReadout.textContent = this.t('simulation.date', { date: this.state.simulationDate, season: solarSeasonLabel(season, this.locale), sunrise: this.currentSimulation.sunriseLabel, sunset: this.currentSimulation.sunsetLabel });
     }
 
     this.renderChart();
@@ -516,20 +531,27 @@ export class SolarUI {
     const solar = getSolarContext(this.state, this.state.simulationHour);
     const sunReadout = document.querySelector('#liveSunReadout');
     const clearsTerrain = sunClearsPvgisHorizon(this.state, solar);
-    const buildingShade = localBuildingShadeAtSun(this.state, solar);
+    const buildingShade = localObstructionShadeAtSun(this.state, solar);
     if (sunReadout) {
       if (solar.isDaylight && !clearsTerrain) {
-        sunReadout.textContent = `Sun behind terrain horizon · ${solar.elevationDeg.toFixed(1)}° · ${formatAzimuth(solar.azimuthDeg)}`;
+        sunReadout.textContent = this.t('sun.behindTerrain', { elevation: solar.elevationDeg.toFixed(1), azimuth: solarFormatAzimuth(solar.azimuthDeg, this.locale) });
       } else if (solar.isDaylight && buildingShade.blockedFraction > 0.005) {
-        sunReadout.textContent = `Sun ${solar.elevationDeg.toFixed(1)}° high · ${formatAzimuth(solar.azimuthDeg)} · buildings shade ${Math.round(buildingShade.blockedFraction * 100)}% of panels`;
+        sunReadout.textContent = this.t(
+          buildingShade.provider === 'google' ? 'sun.shadedGoogle' : 'sun.shadedBuildings',
+          {
+            elevation: solar.elevationDeg.toFixed(1),
+            azimuth: solarFormatAzimuth(solar.azimuthDeg, this.locale),
+            percent: Math.round(buildingShade.blockedFraction * 100),
+          },
+        );
       } else if (solar.isDaylight) {
-        sunReadout.textContent = `Sun ${solar.elevationDeg.toFixed(1)}° high · ${formatAzimuth(solar.azimuthDeg)}`;
+        sunReadout.textContent = this.t('sun.above', { elevation: solar.elevationDeg.toFixed(1), azimuth: solarFormatAzimuth(solar.azimuthDeg, this.locale) });
       } else {
-        sunReadout.textContent = `Sun below horizon · ${formatAzimuth(solar.azimuthDeg)}`;
+        sunReadout.textContent = this.t('sun.below', { azimuth: solarFormatAzimuth(solar.azimuthDeg, this.locale) });
       }
     }
     const play = document.querySelector('#simulationPlayButton');
-    if (play) play.textContent = this.state.simulationPlaying ? 'Pause day simulation' : 'Run day simulation';
+    if (play) play.textContent = this.state.simulationPlaying ? this.t('simulation.pause') : this.t('simulation.run');
     this.renderChart();
   }
 
@@ -589,7 +611,7 @@ export class SolarUI {
       const row = document.createElement('tr');
       row.classList.toggle('is-excluded', line.included === false);
       row.innerHTML = `
-        <td class="bom-check-cell"><input type="checkbox" data-estimate-line-toggle="${line.key}" ${line.included === false ? '' : 'checked'} aria-label="Include ${line.name}"></td>
+        <td class="bom-check-cell"><input type="checkbox" data-estimate-line-toggle="${line.key}" ${line.included === false ? '' : 'checked'} aria-label="${this.t('estimate.include', { name: line.name })}"></td>
         <td>${index + 1}</td>
         <td><strong>${line.name}</strong>${line.note ? `<small>${line.note}</small>` : ''}</td>
         <td>${line.unit}</td>
@@ -601,12 +623,12 @@ export class SolarUI {
     }) || []);
 
     const assumptions = [
-      ['Installed PV', `${estimate.assumptions.systemKwp.toFixed(2)} kWp`],
-      ['Panels', `${estimate.assumptions.panels}`],
-      ['Array area', formatArea(estimate.assumptions.installedAreaM2, this.state.units, 1)],
-      ['Battery', this.state.batteryEnabled ? `${estimate.assumptions.batteryCapacity.toFixed(0)} kWh` : 'No storage'],
-      ['Grid', estimate.assumptions.gridConnection === 'three' ? 'Three-phase' : 'Single-phase'],
-      ['VAT', `${Math.round(estimate.vatRate * 100)}% included`],
+      [this.t('estimate.assumption.installedPv'), `${estimate.assumptions.systemKwp.toFixed(2)} kWp`],
+      [this.t('estimate.assumption.panels'), `${estimate.assumptions.panels}`],
+      [this.t('estimate.assumption.arrayArea'), formatArea(estimate.assumptions.installedAreaM2, this.state.units, 1)],
+      [this.t('estimate.assumption.storage'), this.state.batteryEnabled ? `${estimate.assumptions.batteryCapacity.toFixed(0)} kWh` : this.t('storage.none')],
+      [this.locale === 'ro-RO' ? 'Rețea' : this.locale === 'de-DE' ? 'Netz' : 'Grid', estimate.assumptions.gridConnection === 'three' ? (this.locale === 'ro-RO' ? 'Trifazat' : this.locale === 'de-DE' ? 'Dreiphasig' : 'Three-phase') : (this.locale === 'ro-RO' ? 'Monofazat' : this.locale === 'de-DE' ? 'Einphasig' : 'Single-phase')],
+      [this.t('estimate.assumption.vat'), this.t('estimate.vatIncluded', { rate: Math.round(estimate.vatRate * 100) })],
     ];
     const grid = document.querySelector('#estimateAssumptions');
     grid?.replaceChildren(...assumptions.map(([label, value]) => {
@@ -618,14 +640,14 @@ export class SolarUI {
     const currencyNote = document.querySelector('#estimateCurrencyNote');
     if (currencyNote) {
       currencyNote.textContent = estimate.currency === 'RON'
-        ? ' Prices are shown in RON.'
-        : ` Converted from RON using ${estimate.exchangeRateSource}${estimate.exchangeRateDate ? ` (${estimate.exchangeRateDate})` : ''}${estimate.exchangeRateIsFallback ? ' — fallback rate' : ''}.`;
+        ? this.t('estimate.currency.ron')
+        : this.t('estimate.currency.converted', { source: solarRateSourceLabel(estimate.exchangeRateSource, this.locale), date: estimate.exchangeRateDate ? this.t('estimate.currency.date', { date: estimate.exchangeRateDate }) : '', fallback: estimate.exchangeRateIsFallback ? this.t('estimate.currency.fallback') : '' });
     }
   }
 
   exportEstimate() {
     if (!this.currentEstimate) return;
-    const blob = new Blob([`\ufeff${estimateToCsv(this.currentEstimate)}`], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([`\ufeff${estimateToCsv(this.currentEstimate, this.locale)}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

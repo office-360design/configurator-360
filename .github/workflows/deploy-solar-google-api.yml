@@ -1,0 +1,97 @@
+name: Deploy Google Solar API to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'solar-google-api/**'
+      - '.github/workflows/deploy-solar-google-api.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: cloud-run-google-solar-api
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: configurator-360
+  GCP_REGION: europe-central2
+  GAR_REPOSITORY: configurators
+  CLOUD_RUN_SERVICE: solar-google-api
+  GOOGLE_SOLAR_CACHE_BUCKET: cfg360-solar-cache-89ccb07249b1
+  GOOGLE_SOLAR_SECURITY_COLLECTION: googleSolarSecurityV1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Google Solar service source
+        run: npm run check --prefix solar-google-api
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker \
+            "${GCP_REGION}-docker.pkg.dev" \
+            --quiet
+
+      - name: Define Docker image
+        shell: bash
+        run: |
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/solar-google-api:${GITHUB_SHA}"
+          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+
+      - name: Build Docker image
+        run: docker build -f solar-google-api/Dockerfile -t "${IMAGE}" solar-google-api
+
+      - name: Push Docker image
+        run: docker push "${IMAGE}"
+
+      - name: Deploy Cloud Run service
+        run: |
+          gcloud run deploy "${CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --image="${IMAGE}" \
+            --service-account="configurator-runtime@configurator-360.iam.gserviceaccount.com" \
+            --port=8080 \
+            --cpu=2 \
+            --memory=2Gi \
+            --timeout=300 \
+            --concurrency=4 \
+            --min=0 \
+            --max=3 \
+            --allow-unauthenticated \
+            --ingress=internal-and-cloud-load-balancing \
+            --no-default-url \
+            --set-env-vars="GOOGLE_SOLAR_CACHE_BUCKET=${GOOGLE_SOLAR_CACHE_BUCKET},GOOGLE_SOLAR_SECURITY_COLLECTION=${GOOGLE_SOLAR_SECURITY_COLLECTION},GOOGLE_SOLAR_MAX_LOGIN_ATTEMPTS_HOUR=12,GOOGLE_SOLAR_MAX_ANALYSES_PER_IP_DAY=20,GOOGLE_SOLAR_MAX_ANALYSES_DAY=100" \
+            --set-secrets="GOOGLE_SOLAR_API_KEY=google-solar-api-key:latest,GOOGLE_SOLAR_DEMO_ACCESS_CODE=google-solar-demo-access-code:latest,GOOGLE_SOLAR_SESSION_SECRET=google-solar-session-secret:latest" \
+            --quiet
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          echo '## Google Solar Cloud Run deployment' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo "Service: ${CLOUD_RUN_SERVICE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Region: ${GCP_REGION}" >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Public route after the serverless NEG/backend is attached to the existing URL map:' >> "$GITHUB_STEP_SUMMARY"
+          echo 'https://www.360configurator.com/api/solar/google-solar?action=health' >> "$GITHUB_STEP_SUMMARY"
