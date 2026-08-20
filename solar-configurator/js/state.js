@@ -1,3 +1,8 @@
+import { solarT, resolveSolarLocale } from './i18n.js?v=1';
+
+const initialLocale = resolveSolarLocale();
+const t = (key, variables = {}) => solarT(initialLocale, key, variables);
+
 const initialSimulationDate = (() => {
   try {
     const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
@@ -149,7 +154,7 @@ export const state = {
   treesEnabled: true,
   terrainExaggeration: 1,
   environmentStatus: 'inactive',
-  environmentMessage: 'Choose an exact location to load 3D context.',
+  environmentMessage: t('environment.chooseExact3d'),
   environmentCenterElevationM: null,
   environmentBuildingCount: 0,
   environmentRoadCount: 0,
@@ -163,7 +168,7 @@ export const state = {
   localBuildingShadingEnabled: true,
   localBuildingShadingModel: null,
   localBuildingShadingStatus: 'inactive',
-  localBuildingShadingMessage: 'Load nearby buildings to estimate local obstruction shading.',
+  localBuildingShadingMessage: t('environment.loadBuildingsShade'),
   localBuildingShadeContributorCount: 0,
   localBuildingShadePanelCount: 0,
   localBuildingAnnualLossPct: 0,
@@ -172,7 +177,7 @@ export const state = {
   currency: 'RON',
   currencyRate: 1,
   currencyRateDate: null,
-  currencyRateSource: 'reference currency',
+  currencyRateSource: 'reference',
   currencyRateIsFallback: false,
 
   excludedEstimateItems: [],
@@ -181,14 +186,14 @@ export const state = {
   pvgisHorizonProfile: null,
   pvgisSurfaceResults: [],
   pvgisStatus: 'calibrated',
-  pvgisMessage: 'Regional PVGIS-calibrated fallback is active.',
+  pvgisMessage: t('pvgis.regionFallbackExactNeeded'),
   pvgisDatabase: '',
   pvgisUpdatedAt: null,
   pvgisUseHorizon: true,
   pvgisShowHorizon: true,
   pvgisProxyEndpoint: '',
   pvgisProxyHealthStatus: 'unconfigured',
-  pvgisProxyHealthMessage: 'No proxy URL configured.',
+  pvgisProxyHealthMessage: t('proxy.none'),
 };
 
 const SOLAR_SHARE_KEYS = Object.freeze([

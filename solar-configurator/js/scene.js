@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildRoofModel } from './roofFactory.js?v=1';
-import { buildSolarArray } from './solarFactory.js?v=2';
-import { createDimensions } from './dimensions.js?v=1';
+import { buildSolarArray } from './solarFactory.js?v=3';
+import { createDimensions } from './dimensions.js?v=2';
 import { getSolarContext, getSunPathSamples } from './solarPosition.js?v=2';
-import { horizonElevationAtAzimuth } from './energyModel.js?v=4';
+import { horizonElevationAtAzimuth } from './energyModel.js?v=5';
+import { solarCompassLabels, resolveSolarLocale } from './i18n.js?v=1';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const DEG = Math.PI / 180;
@@ -140,6 +141,7 @@ export class RoofScene {
     this.dimensionsRoot = new THREE.Group();
     this.scene.add(this.dimensionsRoot);
     this.compassRoot = this.createCompass();
+    window.addEventListener('solar-locale-applied', () => this.updateCompassLabels());
     this.compassRoot.visible = false;
     this.scene.add(this.compassRoot);
     this.createSunVisuals();
@@ -294,20 +296,31 @@ export class RoofScene {
     center.renderOrder = 15;
     group.add(center);
 
-    const north = createCompassLabel('N', 'compass-label--north');
+    const labels = solarCompassLabels(resolveSolarLocale());
+    const north = createCompassLabel(labels.north, 'compass-label--north');
     north.position.set(0, 0.13, -1.08);
     group.add(north);
-    const east = createCompassLabel('E');
+    const east = createCompassLabel(labels.east);
     east.position.set(1.08, 0.13, 0);
     group.add(east);
-    const south = createCompassLabel('S');
+    const south = createCompassLabel(labels.south);
     south.position.set(0, 0.13, 1.08);
     group.add(south);
-    const west = createCompassLabel('W');
+    const west = createCompassLabel(labels.west);
     west.position.set(-1.08, 0.13, 0);
     group.add(west);
+    this.compassLabelObjects = { north, east, south, west };
 
     return group;
+  }
+
+  updateCompassLabels() {
+    if (!this.compassLabelObjects) return;
+    const labels = solarCompassLabels(resolveSolarLocale());
+    Object.entries(labels).forEach(([key, value]) => {
+      const object = this.compassLabelObjects[key];
+      if (object?.element) object.element.textContent = value;
+    });
   }
 
   updateCompassPlacement(state) {

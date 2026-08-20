@@ -1,7 +1,13 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=3';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=6';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
-import { formatAzimuth, getSeasonForDate } from './solarPosition.js?v=2';
+import { getSeasonForDate } from './solarPosition.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
+import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
+import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=1';
+
+const initialLocale = resolveSolarLocale();
+applySolarTranslations(initialLocale);
+const t = (key, variables = {}, locale = null) => solarT(locale ?? window.SOLAR_CONFIGURATOR_SHARED_SHELL?.state?.locale ?? initialLocale, key, variables);
 
 const icon = (body) => `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -13,30 +19,30 @@ const tools = [
   ...resolveSharedTools([
     {
       id: 'environment',
-      label: 'Location & environment',
+      label: t('tools.environment'),
       icon: icon('<circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.2v2.1M12 19.7v2.1M2.2 12h2.1M19.7 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"></path>'),
     },
     {
       id: 'dimensions',
-      label: 'Dimensions',
+      label: t('tools.dimensions'),
       icon: icon('<path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"></path>'),
     },
     {
       id: 'compass',
-      label: 'Compass',
+      label: t('tools.compass.show'),
       active: true,
       icon: icon('<circle cx="12" cy="12" r="8.5"></circle><path d="m15.4 8.6-2.1 4.7-4.7 2.1 2.1-4.7z"></path><path d="M12 1.7v2M12 20.3v2M1.7 12h2M20.3 12h2"></path>'),
     },
     {
       id: 'camera',
-      label: 'Change orientation',
+      label: t('tools.camera'),
       icon: icon('<circle cx="12" cy="12" r="4.2"></circle><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"></path>'),
     },
   ]),
   {
     id: 'simulation',
     action: 'toggle-simulation',
-    label: 'Run day simulation',
+    label: t('tools.simulation.run'),
     icon: icon('<path d="M8 5v14l11-7z"></path>'),
   },
 ];
@@ -70,6 +76,7 @@ const shell = mountStandaloneConfiguratorShell({
     onPreferenceChange(name, value, preferences) {
       const snapshot = { ...preferences };
       window.SOLAR_SHELL_PREFERENCES = snapshot;
+      if (name === 'locale') applySolarTranslations(snapshot.locale);
       window.dispatchEvent(new CustomEvent('solar-preference-change', {
         detail: { name, value, preferences: snapshot },
       }));
@@ -82,14 +89,39 @@ window.dispatchEvent(new CustomEvent('solar-preference-change', {
   detail: { name: 'initial', value: null, preferences: { ...shell.state } },
 }));
 
+const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+
+shell.host.addEventListener('click', (event) => {
+  const languageButton = event.target.closest('[data-action="select-language"]');
+  if (!languageButton || isLocalDevelopmentHost) return;
+  const nextLocale = languageButton.dataset.locale;
+  if (!nextLocale || nextLocale === shell.state.locale) return;
+  const fallbackTarget = getLocalizedConfiguratorUrl(nextLocale, 'solar', window.location);
+  if (!fallbackTarget) return;
+  event.preventDefault();
+  event.stopPropagation();
+  void (async () => {
+    try {
+      const snapshot = window.SOLAR_CONFIGURATOR_API?.captureState?.();
+      if (!snapshot) { window.location.assign(fallbackTarget); return; }
+      const shareUrl = await createShareUrl({ productType: 'solar', state: snapshot });
+      const targetUrl = getLocalizedConfiguratorUrl(nextLocale, 'solar', new URL(shareUrl));
+      window.location.assign(targetUrl || fallbackTarget);
+    } catch (error) {
+      console.error('Solar language switch could not preserve the current configuration.', error);
+      shell.showFeedback?.(t('feedback.languageSwitchUnavailable'));
+    }
+  })();
+}, true);
+
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#solarSidebarToggle');
 function setSidebarCollapsed(collapsed) {
   sidebar?.classList.toggle('is-collapsed', collapsed);
   document.body.classList.toggle('roof-sidebar-collapsed', collapsed);
   sidebarToggle?.setAttribute('aria-expanded', String(!collapsed));
-  sidebarToggle?.setAttribute('aria-label', collapsed ? 'Show solar settings' : 'Hide solar settings');
-  sidebarToggle?.setAttribute('title', collapsed ? 'Show solar settings' : 'Hide solar settings');
+  sidebarToggle?.setAttribute('aria-label', t(collapsed ? 'sidebar.show' : 'sidebar.hide'));
+  sidebarToggle?.setAttribute('title', t(collapsed ? 'sidebar.show' : 'sidebar.hide'));
 }
 sidebarToggle?.addEventListener('click', () => setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed')));
 
@@ -191,9 +223,9 @@ function formatLocalDistance(meters, units = 'metric', digits = 1) {
 function formatLocalPosition(eastM, northM, units = 'metric') {
   const east = Number(eastM) || 0;
   const north = Number(northM) || 0;
-  if (Math.abs(east) < 0.05 && Math.abs(north) < 0.05) return 'Centered';
+  if (Math.abs(east) < 0.05 && Math.abs(north) < 0.05) return t('environment.centered');
   const sign = (value) => (value >= 0 ? '+' : '−');
-  return `E ${sign(east)}${formatLocalDistance(Math.abs(east), units)} · N ${sign(north)}${formatLocalDistance(Math.abs(north), units)}`;
+  return t('environment.position', { eastSign: sign(east), east: formatLocalDistance(Math.abs(east), units), northSign: sign(north), north: formatLocalDistance(Math.abs(north), units) });
 }
 
 function syncLocalStepLabels(units = 'metric') {
@@ -261,39 +293,39 @@ function setEnvironmentPanelOpen(open) {
   const isOpen = Boolean(open);
   environmentPanel.hidden = !isOpen;
   environmentPanel.classList.toggle('is-open', isOpen);
-  setToolState('environment', { active: isOpen, title: 'Location, 3D environment, sun and roof orientation' });
+  setToolState('environment', { active: isOpen, title: t('tools.environmentTitle') });
   scheduleToolsPosition();
 }
 
 function syncToolsState(detail = getApi()?.getState?.()) {
   if (!detail) return;
   lastToolsState = detail;
-  setToolState('dimensions', { active: Boolean(detail.showDimensions), title: 'Toggle dimensions' });
-  setToolState('compass', { active: Boolean(detail.showCompass), title: detail.showCompass ? 'Hide compass' : 'Show compass' });
+  setToolState('dimensions', { active: Boolean(detail.showDimensions), title: t('tools.dimensions') });
+  setToolState('compass', { active: Boolean(detail.showCompass), title: t(detail.showCompass ? 'tools.compass.hide' : 'tools.compass.show') });
   setToolState('simulation', {
     active: Boolean(detail.simulationPlaying),
-    title: detail.simulationPlaying ? 'Pause day simulation' : 'Run day simulation',
+    title: t(detail.simulationPlaying ? 'tools.simulation.pause' : 'tools.simulation.run'),
   });
   const order = ['perspective', 'front', 'top'];
-  const names = { perspective: '3D', front: 'Front', top: 'Top' };
+  const names = { perspective: '3D', front: shell.state.locale === 'ro-RO' ? 'Față' : shell.state.locale === 'de-DE' ? 'Vorne' : 'Front', top: shell.state.locale === 'ro-RO' ? 'Sus' : shell.state.locale === 'de-DE' ? 'Oben' : 'Top' };
   const index = Math.max(0, order.indexOf(detail.currentView));
   const nextView = order[(index + 1) % order.length];
-  setToolState('camera', { title: `Change orientation: ${names[nextView]}` });
+  setToolState('camera', { title: t('tools.cameraNext', { view: names[nextView] }) });
 
   if (simulationTimeControl) simulationTimeControl.value = String(detail.simulationHour ?? 12);
   if (simulationTimeValue) simulationTimeValue.textContent = formatHour(detail.simulationHour ?? 12);
   if (simulationDateControl) simulationDateControl.value = detail.simulationDate || '';
   if (northDirectionControl) northDirectionControl.value = String(detail.northDirection ?? 0);
-  if (northDirectionValue) northDirectionValue.textContent = formatAzimuth(detail.northDirection ?? 0);
+  if (northDirectionValue) northDirectionValue.textContent = solarFormatAzimuth(detail.northDirection ?? 0, shell.state.locale);
   if (nightPreviewToggle) nightPreviewToggle.checked = Boolean(detail.nightPreview);
   if (sunPathToggle) sunPathToggle.checked = Boolean(detail.showSunPath);
   if (sunriseValue) sunriseValue.textContent = `Sunrise ${detail.sunriseLabel || '—'}`;
   if (sunsetValue) sunsetValue.textContent = `Sunset ${detail.sunsetLabel || '—'}`;
   if (sunElevationValue) sunElevationValue.textContent = `${Number(detail.solarElevationDeg || 0).toFixed(1)}°`;
-  if (sunAzimuthValue) sunAzimuthValue.textContent = formatAzimuth(detail.solarAzimuthDeg || 0);
+  if (sunAzimuthValue) sunAzimuthValue.textContent = solarFormatAzimuth(detail.solarAzimuthDeg || 0, shell.state.locale);
   if (solarNoonValue) solarNoonValue.textContent = detail.solarNoonLabel || '—';
-  if (environmentLocationMode) environmentLocationMode.textContent = detail.locationMode === 'exact' ? 'Exact location' : 'Regional reference';
-  if (environmentLocationLabel) environmentLocationLabel.textContent = detail.activeLocationLabel || 'Bucharest reference';
+  if (environmentLocationMode) environmentLocationMode.textContent = t(detail.locationMode === 'exact' ? 'environment.exactLocation' : 'environment.regionalReference');
+  if (environmentLocationLabel) environmentLocationLabel.textContent = detail.locationMode === 'exact' ? (detail.activeLocationLabel || t('environment.locationDefault')) : t('region.reference', { city: solarRegionCity(detail.region || 'muntenia', shell.state.locale) });
   if (environmentCoordinates) environmentCoordinates.textContent = `${Number(detail.activeLocationLat || 0).toFixed(5)}, ${Number(detail.activeLocationLon || 0).toFixed(5)}`;
   if (localPositionReadout) localPositionReadout.textContent = formatLocalPosition(detail.environmentLocalEastM, detail.environmentLocalNorthM, detail.units);
   if (localPositionStepControl) localPositionStepControl.value = String(detail.environmentLocalStepM ?? 1);
@@ -303,14 +335,14 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   const contextEnabled = Boolean(detail.environmentEnabled);
   const contextLoading = detail.environmentStatus === 'loading';
   const statusLabels = {
-    inactive: 'Choose exact location',
-    loading: 'Loading…',
-    ready: 'Loaded',
-    partial: 'Partially loaded',
-    error: 'Unavailable',
-    hidden: 'Hidden',
+    inactive: t('environment.status.inactive'),
+    loading: t('environment.status.loading'),
+    ready: t('environment.status.ready'),
+    partial: t('environment.status.partial'),
+    error: t('environment.status.error'),
+    hidden: t('environment.status.hidden'),
   };
-  if (environmentContextStatus) environmentContextStatus.textContent = statusLabels[detail.environmentStatus] || 'Ready';
+  if (environmentContextStatus) environmentContextStatus.textContent = statusLabels[detail.environmentStatus] || t('environment.status.default');
   if (environmentEnabledToggle) {
     environmentEnabledToggle.checked = contextEnabled;
     environmentEnabledToggle.disabled = !exactLocation;
@@ -349,22 +381,22 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   }
   if (localBuildingAnnualLossValue) {
     localBuildingAnnualLossValue.textContent = detail.localBuildingShadingEnabled === false
-      ? 'Off'
+      ? t('environment.off')
       : (detail.environmentLoaded ? `${Number(detail.localBuildingAnnualLossPct || 0).toFixed(1)}%` : '—');
   }
   if (localBuildingContributorValue) {
     localBuildingContributorValue.textContent = detail.environmentLoaded
-      ? `${Number(detail.localBuildingShadeContributorCount || 0)} building${Number(detail.localBuildingShadeContributorCount || 0) === 1 ? '' : 's'}`
+      ? t(Number(detail.localBuildingShadeContributorCount || 0) === 1 ? 'environment.building' : 'environment.buildings', { count: Number(detail.localBuildingShadeContributorCount || 0) })
       : '—';
   }
   if (localBuildingShadingMessage) {
     localBuildingShadingMessage.textContent = detail.localBuildingShadingEnabled === false
-      ? 'Nearby-building production shading is disabled. The buildings can still remain visible in 3D.'
-      : (detail.localBuildingShadingMessage || 'Load nearby buildings to estimate local obstruction shading.');
+      ? t('environment.shadingDisabled')
+      : (detail.localBuildingShadingMessage || t('environment.loadBuildingsShade'));
   }
   if (environmentRefreshButton) {
     environmentRefreshButton.disabled = !exactLocation || !contextEnabled || contextLoading;
-    environmentRefreshButton.textContent = contextLoading ? 'Loading…' : 'Load / refresh';
+    environmentRefreshButton.textContent = contextLoading ? t('environment.loading') : t('environment.refresh');
   }
   if (environmentFocusButton) environmentFocusButton.disabled = !Boolean(detail.environmentLoaded) || !contextEnabled;
   if (environmentAltitudeValue) environmentAltitudeValue.textContent = formatAltitude(detail.environmentCenterElevationM, detail.units);
@@ -373,18 +405,18 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   if (environmentTreesValue) environmentTreesValue.textContent = detail.environmentLoaded ? String(detail.environmentTreeCount ?? 0) : '—';
   if (environmentHostBuildingValue) {
     const count = Number(detail.environmentHostBuildingCount) || 0;
-    environmentHostBuildingValue.textContent = detail.environmentLoaded ? (count ? `${count} detected` : 'None') : '—';
+    environmentHostBuildingValue.textContent = detail.environmentLoaded ? (count ? t('environment.detected', { count }) : t('environment.none')) : '—';
   }
-  if (environmentContextMessage) environmentContextMessage.textContent = detail.environmentMessage || 'Choose an exact location to load geographic context.';
+  if (environmentContextMessage) environmentContextMessage.textContent = detail.environmentMessage || t('environment.contextFallback');
   environmentContextBlock?.classList.toggle('is-loading', contextLoading);
   environmentContextBlock?.classList.toggle('is-error', detail.environmentStatus === 'error');
 
   const pvgisLabels = {
-    calibrated: 'Regional fallback',
-    unconfigured: 'Proxy not configured',
-    loading: 'Loading PVGIS…',
-    ready: 'Exact site ready',
-    fallback: 'PVGIS unavailable',
+    calibrated: t('pvgis.status.calibrated'),
+    unconfigured: t('pvgis.status.unconfigured'),
+    loading: t('pvgis.status.loading'),
+    ready: t('pvgis.status.ready'),
+    fallback: t('pvgis.status.fallback'),
   };
   if (pvgisStatusLabel) {
     pvgisStatusLabel.textContent = pvgisLabels[detail.pvgisStatus] || 'PVGIS';
@@ -392,7 +424,7 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   }
   if (pvgisAnnualValue) pvgisAnnualValue.textContent = Number(detail.pvgisAnnualKWh) > 0 ? `${Math.round(detail.pvgisAnnualKWh).toLocaleString('en-US')} kWh/y` : '—';
   if (pvgisSpecificYieldValue) pvgisSpecificYieldValue.textContent = Number(detail.pvgisSpecificYield) > 0 ? `${Math.round(detail.pvgisSpecificYield)} kWh/kWp` : '—';
-  if (pvgisHorizonValue) pvgisHorizonValue.textContent = Number(detail.pvgisHorizonSamples) > 0 ? `${detail.pvgisHorizonSamples} pts · max ${Number(detail.pvgisHorizonMaxDeg || 0).toFixed(1)}°` : '—';
+  if (pvgisHorizonValue) pvgisHorizonValue.textContent = Number(detail.pvgisHorizonSamples) > 0 ? t('pvgis.horizonPoints', { count: detail.pvgisHorizonSamples, max: Number(detail.pvgisHorizonMaxDeg || 0).toFixed(1) }) : '—';
   if (pvgisSectionsValue) pvgisSectionsValue.textContent = Number(detail.pvgisSurfaceCount) > 0 ? String(detail.pvgisSurfaceCount) : '—';
   if (pvgisDatabaseValue) pvgisDatabaseValue.textContent = detail.pvgisDatabase || '—';
   if (pvgisUseHorizonToggle) {
@@ -405,7 +437,7 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   }
   if (pvgisRefreshButton) {
     pvgisRefreshButton.disabled = detail.locationMode !== 'exact' || !detail.pvgisProxyConfigured || detail.pvgisStatus === 'loading';
-    pvgisRefreshButton.textContent = detail.pvgisStatus === 'loading' ? 'Loading PVGIS…' : 'Refresh PVGIS';
+    pvgisRefreshButton.textContent = detail.pvgisStatus === 'loading' ? t('pvgis.status.loading') : t('pvgis.refresh');
   }
   if (pvgisMessage) pvgisMessage.textContent = detail.pvgisMessage || '';
   if (pvgisProxyInput && document.activeElement !== pvgisProxyInput) pvgisProxyInput.value = detail.pvgisProxyEndpoint || '';
@@ -413,12 +445,12 @@ function syncToolsState(detail = getApi()?.getState?.()) {
     const health = detail.pvgisProxyHealthStatus || (detail.pvgisProxyConfigured ? 'unknown' : 'unconfigured');
     pvgisProxyApplyButton.disabled = health === 'testing';
     pvgisProxyApplyButton.textContent = health === 'testing'
-      ? 'Testing connection…'
+      ? t('pvgis.proxy.testing')
       : health === 'ready'
-        ? 'Connected ✓'
+        ? t('pvgis.proxy.connected')
         : health === 'error'
-          ? 'Retry proxy'
-          : 'Apply proxy URL';
+          ? t('pvgis.proxy.retry')
+          : t('pvgis.proxy.apply');
     pvgisProxyApplyButton.dataset.status = health;
   }
   if (pvgisProxyFeedback) {
@@ -468,7 +500,7 @@ document.querySelectorAll('[data-season-preset]').forEach((button) => {
 });
 northDirectionControl?.addEventListener('input', () => {
   const value = Number(northDirectionControl.value);
-  if (northDirectionValue) northDirectionValue.textContent = formatAzimuth(value);
+  if (northDirectionValue) northDirectionValue.textContent = solarFormatAzimuth(value, shell.state.locale);
   getApi()?.setNorthDirection(value);
 });
 nightPreviewToggle?.addEventListener('change', () => getApi()?.setNightPreview(nightPreviewToggle.checked));
@@ -503,7 +535,7 @@ const applyPvgisProxy = async () => {
   const api = getApi();
   if (!api) {
     if (pvgisProxyFeedback) {
-      pvgisProxyFeedback.textContent = 'Configurator is still loading. Try again in a moment.';
+      pvgisProxyFeedback.textContent = t('pvgis.loadingConfigurator');
       pvgisProxyFeedback.dataset.status = 'error';
     }
     return;
@@ -543,12 +575,12 @@ function inRomaniaBounds(lat, lon) {
     && lon >= ROMANIA_BOUNDS.west && lon <= ROMANIA_BOUNDS.east;
 }
 
-function setPendingLocation(lat, lon, label = 'Selected map point', { moveMap = true } = {}) {
+function setPendingLocation(lat, lon, label = t('location.selectedPoint'), { moveMap = true } = {}) {
   const latitude = Number(lat);
   const longitude = Number(lon);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
   if (!inRomaniaBounds(latitude, longitude)) {
-    if (locationSelectionLabel) locationSelectionLabel.textContent = 'Location selection is currently limited to Romania.';
+    if (locationSelectionLabel) locationSelectionLabel.textContent = t('location.romaniaOnly');
     if (locationSelectionCoordinates) locationSelectionCoordinates.textContent = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
     if (locationPickerUse) locationPickerUse.disabled = true;
     return false;
@@ -568,7 +600,7 @@ function setPendingLocation(lat, lon, label = 'Selected map point', { moveMap = 
 function ensureLocationMap() {
   if (locationMap || !locationMapElement) return;
   if (!window.L) {
-    locationMapElement.textContent = 'Map library could not be loaded. Check the network connection and reopen the picker.';
+    locationMapElement.textContent = t('location.mapUnavailable');
     return;
   }
   const detail = lastToolsState || getApi()?.getState?.() || {};
@@ -584,7 +616,7 @@ function ensureLocationMap() {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors',
   }).addTo(locationMap);
-  locationMap.on('click', (event) => setPendingLocation(event.latlng.lat, event.latlng.lng, 'Selected map point', { moveMap: false }));
+  locationMap.on('click', (event) => setPendingLocation(event.latlng.lat, event.latlng.lng, t('location.selectedPoint'), { moveMap: false }));
 }
 
 function openLocationPicker() {
@@ -593,7 +625,7 @@ function openLocationPicker() {
   const detail = lastToolsState || getApi()?.getState?.() || {};
   const lat = Number(detail.activeLocationLat) || 44.4268;
   const lon = Number(detail.activeLocationLon) || 26.1025;
-  setPendingLocation(lat, lon, detail.activeLocationLabel || 'Current location', { moveMap: false });
+  setPendingLocation(lat, lon, detail.activeLocationLabel || t('location.current'), { moveMap: false });
   if (typeof locationDialog.showModal === 'function' && !locationDialog.open) locationDialog.showModal();
   else locationDialog.setAttribute('open', '');
   requestAnimationFrame(() => {
@@ -614,7 +646,7 @@ function renderSearchResults(items) {
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'solar-location-search-empty';
-    empty.textContent = 'No Romanian locations found. You can still click directly on the map.';
+    empty.textContent = t('location.noResults');
     locationSearchResults.appendChild(empty);
     locationSearchResults.hidden = false;
     return;
@@ -624,12 +656,12 @@ function renderSearchResults(items) {
     button.type = 'button';
     button.className = 'solar-location-result';
     const title = document.createElement('strong');
-    title.textContent = item.display_name || 'Search result';
+    title.textContent = item.display_name || t('location.searchResult');
     const coords = document.createElement('small');
     coords.textContent = `${Number(item.lat).toFixed(5)}, ${Number(item.lon).toFixed(5)}`;
     button.append(title, coords);
     button.addEventListener('click', () => {
-      setPendingLocation(item.lat, item.lon, item.display_name || 'Search result');
+      setPendingLocation(item.lat, item.lon, item.display_name || t('location.searchResult'));
       locationSearchResults.hidden = true;
     });
     locationSearchResults.appendChild(button);
@@ -641,7 +673,7 @@ async function searchLocation() {
   const query = String(locationSearchInput?.value || '').trim();
   if (!query) return;
   if (locationSearchButton) locationSearchButton.disabled = true;
-  if (locationSelectionLabel) locationSelectionLabel.textContent = 'Searching…';
+  if (locationSelectionLabel) locationSelectionLabel.textContent = t('location.searching');
   try {
     const params = new URLSearchParams({
       q: query,
@@ -655,11 +687,11 @@ async function searchLocation() {
     });
     if (!response.ok) throw new Error(`Search HTTP ${response.status}`);
     renderSearchResults(await response.json());
-    if (locationSelectionLabel) locationSelectionLabel.textContent = pendingLocation?.label || 'Choose one of the search results';
+    if (locationSelectionLabel) locationSelectionLabel.textContent = pendingLocation?.label || t('location.chooseResult');
   } catch (error) {
     console.info('[Solar configurator] Location search unavailable.', error);
     renderSearchResults([]);
-    if (locationSelectionLabel) locationSelectionLabel.textContent = 'Search unavailable — click directly on the map.';
+    if (locationSelectionLabel) locationSelectionLabel.textContent = t('location.searchUnavailable');
   } finally {
     if (locationSearchButton) locationSearchButton.disabled = false;
   }
@@ -684,13 +716,13 @@ locationSearchInput?.addEventListener('keydown', (event) => {
 });
 locationGeolocateButton?.addEventListener('click', () => {
   if (!navigator.geolocation) {
-    if (locationSelectionLabel) locationSelectionLabel.textContent = 'Browser geolocation is not available.';
+    if (locationSelectionLabel) locationSelectionLabel.textContent = t('location.geolocationUnavailable');
     return;
   }
-  if (locationSelectionLabel) locationSelectionLabel.textContent = 'Requesting browser location…';
+  if (locationSelectionLabel) locationSelectionLabel.textContent = t('location.geolocationRequest');
   navigator.geolocation.getCurrentPosition(
-    (position) => setPendingLocation(position.coords.latitude, position.coords.longitude, 'My current location'),
-    () => { if (locationSelectionLabel) locationSelectionLabel.textContent = 'Could not access your location. Choose a point on the map instead.'; },
+    (position) => setPendingLocation(position.coords.latitude, position.coords.longitude, t('location.myCurrent')),
+    () => { if (locationSelectionLabel) locationSelectionLabel.textContent = t('location.geolocationFailed'); },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
   );
 });
@@ -698,6 +730,7 @@ locationGeolocateButton?.addEventListener('click', () => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !environmentPanel?.hidden && !locationDialog?.open) setEnvironmentPanelOpen(false);
 });
+window.addEventListener('solar-locale-applied', () => { setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed'))); syncToolsState(); });
 window.addEventListener('solar-configurator-ready', (event) => syncToolsState(event.detail));
 window.addEventListener('solar-tools-state-change', (event) => syncToolsState(event.detail));
 window.addEventListener('resize', scheduleToolsPosition);

@@ -1,9 +1,9 @@
-import { applySolarShareState, captureSolarShareState, state } from './state.js?v=7';
+import { applySolarShareState, captureSolarShareState, state } from './state.js?v=8';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
-import { RoofScene } from './scene.js?v=8';
-import { SolarUI } from './ui.js?v=6';
-import { fetchPvgisSiteEstimate } from './energyModel.js?v=4';
-import { loadGeographicEnvironment } from './environmentLoader.js?v=3';
+import { RoofScene } from './scene.js?v=9';
+import { SolarUI } from './ui.js?v=7';
+import { fetchPvgisSiteEstimate } from './energyModel.js?v=5';
+import { loadGeographicEnvironment } from './environmentLoader.js?v=4';
 import {
   getSeasonPresetDate,
   getSolarContext,
@@ -16,7 +16,10 @@ import {
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
-} from './preferences.js?v=1';
+} from './preferences.js?v=2';
+import { solarT, resolveSolarLocale } from './i18n.js?v=1';
+
+const t = (key, variables = {}) => solarT(resolveSolarLocale(window.SOLAR_SHELL_PREFERENCES?.locale), key, variables);
 
 // Resolve a shared configuration before constructing the scene/UI so the first
 // rendered frame already represents the shared solar system rather than briefly
@@ -28,7 +31,7 @@ const initialPreferences = window.SOLAR_SHELL_PREFERENCES || {};
 state.units = normalizeUnits(initialPreferences.units ?? state.units);
 state.currency = normalizeCurrency(initialPreferences.currency ?? state.currency);
 state.currencyRate = getFallbackCurrencyRate(state.currency);
-state.currencyRateSource = state.currency === 'RON' ? 'reference currency' : 'temporary fallback estimate';
+state.currencyRateSource = state.currency === 'RON' ? 'reference' : 'temporary-fallback';
 state.currencyRateIsFallback = state.currency !== 'RON';
 
 const host = document.querySelector('#canvasHost');
@@ -66,7 +69,7 @@ function normalizePvgisEndpoint(value) {
 
 state.pvgisProxyEndpoint = normalizePvgisEndpoint(window.SOLAR_PVGIS_PROXY_ENDPOINT || readStoredPvgisEndpoint());
 state.pvgisProxyHealthStatus = state.pvgisProxyEndpoint ? 'unknown' : 'unconfigured';
-state.pvgisProxyHealthMessage = state.pvgisProxyEndpoint ? 'Proxy URL saved; connection not tested yet.' : 'No proxy URL configured.';
+state.pvgisProxyHealthMessage = state.pvgisProxyEndpoint ? t('proxy.savedUntested') : t('proxy.none');
 const LOCAL_POSITION_LIMIT_M = 60;
 
 function syncViewButtons() {
@@ -183,7 +186,7 @@ function applyShellPreferences(preferences = {}) {
   if (currencyChanged) {
     state.currencyRate = getFallbackCurrencyRate(nextCurrency);
     state.currencyRateDate = null;
-    state.currencyRateSource = nextCurrency === 'RON' ? 'reference currency' : 'temporary fallback estimate';
+    state.currencyRateSource = nextCurrency === 'RON' ? 'reference' : 'temporary-fallback';
     state.currencyRateIsFallback = nextCurrency !== 'RON';
   }
 
@@ -210,13 +213,13 @@ async function testPvgisProxyEndpoint(endpoint = state.pvgisProxyEndpoint) {
 
   if (!normalized) {
     state.pvgisProxyHealthStatus = 'unconfigured';
-    state.pvgisProxyHealthMessage = 'Enter the public Netlify Function URL, then apply it.';
+    state.pvgisProxyHealthMessage = t('proxy.enter');
     emitToolsState();
     return { ok: false, status: 'unconfigured' };
   }
 
   state.pvgisProxyHealthStatus = 'testing';
-  state.pvgisProxyHealthMessage = 'Testing proxy connection…';
+  state.pvgisProxyHealthMessage = t('proxy.testing');
   emitToolsState();
 
   const controller = new AbortController();
@@ -242,11 +245,11 @@ async function testPvgisProxyEndpoint(endpoint = state.pvgisProxyEndpoint) {
       error.status = response.status;
       throw error;
     }
-    if (!payload?.ok) throw new Error('Health endpoint did not return the expected { ok: true } response.');
+    if (!payload?.ok) throw new Error(t('proxy.healthUnexpected'));
 
     if (normalized !== state.pvgisProxyEndpoint) return { ok: false, status: 'stale' };
     state.pvgisProxyHealthStatus = 'ready';
-    state.pvgisProxyHealthMessage = `Connected · ${payload.platform || 'proxy'} · ${payload.upstream || 'PVGIS'}`;
+    state.pvgisProxyHealthMessage = t('proxy.connected', { platform: payload.platform || 'proxy', upstream: payload.upstream || 'PVGIS' });
     emitToolsState();
     schedulePvgis({ immediate: true });
     return { ok: true, payload };
@@ -254,17 +257,17 @@ async function testPvgisProxyEndpoint(endpoint = state.pvgisProxyEndpoint) {
     if (normalized !== state.pvgisProxyEndpoint) return { ok: false, status: 'stale' };
     state.pvgisProxyHealthStatus = 'error';
     if (error?.name === 'AbortError') {
-      state.pvgisProxyHealthMessage = 'Connection timed out. Check that the Netlify project is public and reachable.';
+      state.pvgisProxyHealthMessage = t('proxy.timeout');
     } else if (Number(error?.status) === 401 || Number(error?.status) === 403) {
-      state.pvgisProxyHealthMessage = `Proxy returned HTTP ${error.status}. The Netlify project is private/protected; make the production deploy public.`;
+      state.pvgisProxyHealthMessage = t('proxy.private', { status: error.status });
     } else if (Number(error?.status)) {
-      state.pvgisProxyHealthMessage = `Proxy test failed with HTTP ${error.status}: ${error.message}`;
+      state.pvgisProxyHealthMessage = t('proxy.httpFailed', { status: error.status, message: error.message });
     } else {
-      state.pvgisProxyHealthMessage = `Could not reach the proxy from this page. Check public access and CORS. ${error?.message || ''}`.trim();
+      state.pvgisProxyHealthMessage = t('proxy.unreachable', { message: error?.message || '' }).trim();
     }
     if (state.locationMode === 'exact') {
       state.pvgisStatus = 'fallback';
-      state.pvgisMessage = `${state.pvgisProxyHealthMessage} Regional production fallback remains active.`;
+      state.pvgisMessage = t('pvgis.proxyFallback', { message: state.pvgisProxyHealthMessage });
     }
     emitToolsState();
     return { ok: false, error };
@@ -282,7 +285,7 @@ function schedulePvgis({ immediate = false } = {}) {
 
   if (state.locationMode !== 'exact') {
     state.pvgisStatus = 'calibrated';
-    state.pvgisMessage = 'Regional PVGIS-calibrated fallback is active. Choose an exact location for live site data.';
+    state.pvgisMessage = t('pvgis.regionFallbackExactNeeded');
     scene.setEnvironment(state);
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
@@ -292,7 +295,7 @@ function schedulePvgis({ immediate = false } = {}) {
   const endpoint = normalizePvgisEndpoint(state.pvgisProxyEndpoint);
   if (!endpoint) {
     state.pvgisStatus = 'unconfigured';
-    state.pvgisMessage = 'Exact sun geometry is active, but the PVGIS proxy is not configured. Annual yield is using the regional fallback.';
+    state.pvgisMessage = t('pvgis.exactNoProxy');
     scene.setEnvironment(state);
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
@@ -301,8 +304,8 @@ function schedulePvgis({ immediate = false } = {}) {
 
   state.pvgisStatus = 'loading';
   state.pvgisMessage = state.pvgisUseHorizon
-    ? 'Loading exact-location PVGIS yield and terrain horizon…'
-    : 'Loading exact-location PVGIS yield without terrain-horizon losses…';
+    ? t('pvgis.loadingWithHorizon')
+    : t('pvgis.loadingNoHorizon');
   if (lastMetrics) ui?.updateMetrics(lastMetrics);
   emitToolsState();
 
@@ -319,15 +322,15 @@ function schedulePvgis({ immediate = false } = {}) {
       state.pvgisUpdatedAt = new Date().toISOString();
       state.pvgisStatus = 'ready';
       const horizonText = state.pvgisUseHorizon
-        ? (result.horizonProfile?.length ? `terrain horizon loaded (${result.horizonProfile.length} samples)` : 'PVGIS terrain horizon applied to yield')
-        : 'terrain-horizon losses disabled';
-      state.pvgisMessage = `${state.pvgisDatabase || 'PVGIS'} exact-site model ready · ${result.surfaceResults.length} roof section${result.surfaceResults.length === 1 ? '' : 's'} · ${horizonText}.`;
+        ? (result.horizonProfile?.length ? t('pvgis.horizonLoaded', { count: result.horizonProfile.length }) : t('pvgis.horizonApplied'))
+        : t('pvgis.horizonDisabled');
+      state.pvgisMessage = t('pvgis.ready', { database: state.pvgisDatabase || 'PVGIS', count: result.surfaceResults.length, sections: t(result.surfaceResults.length === 1 ? 'pvgis.section.one' : 'pvgis.section.many'), horizon: horizonText });
     } catch (error) {
       if (error?.name === 'AbortError') return;
       console.info('[Solar configurator] PVGIS proxy unavailable; using calibrated regional model.', error);
       clearPvgisData();
       state.pvgisStatus = 'fallback';
-      state.pvgisMessage = `PVGIS unavailable (${error?.message || 'request failed'}). Regional calibrated yield remains active.`;
+      state.pvgisMessage = t('pvgis.unavailable', { message: error?.message || t('error.requestFailed') });
     }
     scene.setEnvironment(state);
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
@@ -338,7 +341,7 @@ function schedulePvgis({ immediate = false } = {}) {
   else pvgisTimer = window.setTimeout(run, 650);
 }
 
-function clearEnvironmentStats(message = 'Choose an exact location to load 3D context.') {
+function clearEnvironmentStats(message = t('environment.chooseExact3d')) {
   state.environmentCenterElevationM = null;
   state.environmentBuildingCount = 0;
   state.environmentRoadCount = 0;
@@ -347,7 +350,7 @@ function clearEnvironmentStats(message = 'Choose an exact location to load 3D co
   state.environmentHostBuildingCount = 0;
   state.localBuildingShadingModel = null;
   state.localBuildingShadingStatus = 'inactive';
-  state.localBuildingShadingMessage = 'Load nearby buildings to estimate local obstruction shading.';
+  state.localBuildingShadingMessage = t('environment.loadBuildingsShade');
   state.localBuildingShadeContributorCount = 0;
   state.localBuildingShadePanelCount = 0;
   state.localBuildingAnnualLossPct = 0;
@@ -358,7 +361,7 @@ function syncLocalBuildingShadingModel() {
   if (!scene.hasGeographicEnvironment()) {
     state.localBuildingShadingModel = null;
     state.localBuildingShadingStatus = 'inactive';
-    state.localBuildingShadingMessage = 'Load nearby buildings to estimate local obstruction shading.';
+    state.localBuildingShadingMessage = t('environment.loadBuildingsShade');
     state.localBuildingShadeContributorCount = 0;
     state.localBuildingShadePanelCount = 0;
     state.localBuildingAnnualLossPct = 0;
@@ -371,16 +374,16 @@ function syncLocalBuildingShadingModel() {
   state.localBuildingShadePanelCount = model?.panelCount || 0;
   if (!model?.panelCount) {
     state.localBuildingShadingStatus = 'inactive';
-    state.localBuildingShadingMessage = 'No fitted solar panels are available for local shading analysis.';
+    state.localBuildingShadingMessage = t('environment.noPanels');
   } else if (!model?.buildingCount) {
     state.localBuildingShadingStatus = 'ready';
-    state.localBuildingShadingMessage = 'No nearby mapped buildings can obstruct the current array.';
+    state.localBuildingShadingMessage = t('environment.noObstructors');
   } else if (!model?.contributorIds?.length) {
     state.localBuildingShadingStatus = 'ready';
-    state.localBuildingShadingMessage = 'Nearby buildings loaded; none rise above the panel horizon from the current house position.';
+    state.localBuildingShadingMessage = t('environment.noHorizonRise');
   } else {
     state.localBuildingShadingStatus = 'ready';
-    state.localBuildingShadingMessage = `${model.contributorIds.length} nearby building${model.contributorIds.length === 1 ? '' : 's'} can shade the current solar array.`;
+    state.localBuildingShadingMessage = t(model.contributorIds.length === 1 ? 'environment.canShade.one' : 'environment.canShade.many', { count: model.contributorIds.length });
   }
   scene.syncBuildingShadingVisuals(state);
   return model;
@@ -409,7 +412,7 @@ function syncEnvironmentForLocationMode() {
   environmentRequest += 1;
   if (scene.hasGeographicEnvironment()) scene.clearGeographicEnvironment();
   state.environmentStatus = 'inactive';
-  clearEnvironmentStats('Choose an exact location to load terrain and nearby OpenStreetMap context.');
+  clearEnvironmentStats(t('environment.chooseExactContext'));
 }
 
 async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
@@ -420,7 +423,7 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
   }
   if (!state.environmentEnabled) {
     state.environmentStatus = 'hidden';
-    state.environmentMessage = '3D geographic context is turned off.';
+    state.environmentMessage = t('environment.disabled');
     scene.syncGeographicLayerVisibility(state);
     emitToolsState();
     return scene.geographicData;
@@ -437,8 +440,8 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
   environmentController = controller;
   state.environmentStatus = 'loading';
   state.environmentMessage = forceRefresh
-    ? 'Refreshing elevation and mapped surroundings…'
-    : 'Loading elevation, buildings, roads and mapped trees…';
+    ? t('environment.refreshing')
+    : t('environment.loadingAll');
   emitToolsState();
 
   const applyProgress = (data) => {
@@ -447,11 +450,11 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
     syncEnvironmentSceneMetrics(data);
     state.environmentStatus = 'loading';
     if (data.progressStage === 'terrain') {
-      state.environmentMessage = 'Terrain is ready; loading nearby buildings, roads and mapped trees…';
+      state.environmentMessage = t('environment.terrainReady');
     } else if (data.progressStage === 'osm') {
       state.environmentMessage = data.terrain
-        ? 'Mapped surroundings are ready; finishing terrain…'
-        : 'Mapped surroundings are ready; loading terrain elevation…';
+        ? t('environment.osmReadyTerrain')
+        : t('environment.osmReadyLoadingTerrain');
     }
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
@@ -472,10 +475,10 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
     syncEnvironmentSceneMetrics(data);
     if (data.errors?.length) {
       state.environmentStatus = 'partial';
-      state.environmentMessage = `Context loaded with limited data: ${data.errors.join(' · ')}`;
+      state.environmentMessage = t('environment.limited', { errors: data.errors.join(' · ') });
     } else {
       state.environmentStatus = 'ready';
-      state.environmentMessage = 'Real terrain and nearby mapped context loaded.';
+      state.environmentMessage = t('environment.ready');
     }
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
@@ -485,11 +488,11 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
     console.info('[Solar configurator] Geographic environment unavailable.', error);
     if (hadExistingEnvironment && scene.hasGeographicEnvironment()) {
       state.environmentStatus = 'partial';
-      state.environmentMessage = 'Refresh failed; keeping the previously loaded local environment.';
+      state.environmentMessage = t('environment.refreshFailed');
     } else {
       scene.clearGeographicEnvironment();
       state.environmentStatus = 'error';
-      clearEnvironmentStats('Could not load geographic context. The solar configurator remains usable with the flat reference ground.');
+      clearEnvironmentStats(t('environment.failed'));
     }
     emitToolsState();
     return null;
@@ -734,14 +737,14 @@ const configuratorApi = {
     clearPvgisData();
     if (!endpoint) {
       state.pvgisProxyHealthStatus = 'unconfigured';
-      state.pvgisProxyHealthMessage = 'No proxy URL configured.';
+      state.pvgisProxyHealthMessage = t('proxy.none');
       schedulePvgis({ immediate: true });
       emitToolsState();
       return { endpoint: '', ok: false };
     }
 
     state.pvgisProxyHealthStatus = 'unknown';
-    state.pvgisProxyHealthMessage = 'Proxy URL saved; testing connection…';
+    state.pvgisProxyHealthMessage = t('proxy.testing');
     emitToolsState();
     const result = await testPvgisProxyEndpoint(endpoint);
     return { endpoint: state.pvgisProxyEndpoint, ...result };
@@ -777,12 +780,12 @@ const configuratorApi = {
     state.environmentEnabled = Boolean(enabled);
     if (!state.environmentEnabled) {
       state.environmentStatus = scene.hasGeographicEnvironment() ? 'hidden' : 'inactive';
-      state.environmentMessage = '3D geographic context is turned off.';
+      state.environmentMessage = t('environment.disabled');
       scene.syncGeographicLayerVisibility(state);
       emitToolsState();
     } else if (scene.hasGeographicEnvironment()) {
       state.environmentStatus = 'ready';
-      state.environmentMessage = 'Real terrain and nearby mapped context loaded.';
+      state.environmentMessage = t('environment.ready');
       scene.syncGeographicLayerVisibility(state);
       scene.rebuildGeographicEnvironment(state);
       syncEnvironmentSceneMetrics();
