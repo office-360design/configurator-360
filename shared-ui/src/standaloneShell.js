@@ -2,6 +2,8 @@ import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocaliz
 import { sharedT } from './i18n.js';
 import { renderActionFeedback } from './components/feedback.js';
 import { renderTopBar } from './components/topBar.js';
+import { syncAccountIdentity } from './components/accountMenu.js';
+import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js';
 import { renderToolsMenu } from './components/toolsMenu.js';
 
 const MAX_PROJECT_NUMBER = 1000;
@@ -63,6 +65,9 @@ export class StandaloneConfiguratorShell {
     this.dirty = meta.dirty ?? true;
     this.accountOpen = false;
     this.accountSettingsOpen = false;
+    this.authUser = null;
+    this.authBusy = false;
+    this.authUnsubscribe = null;
     this.languageOpen = false;
     this.toolsOpen = false;
     this.feedbackTimer = 0;
@@ -80,6 +85,7 @@ export class StandaloneConfiguratorShell {
     this.bindEvents();
     this.bindSettingsPanel();
     this.sync();
+    this.initializeAuthentication();
   }
 
   getNextDefaultProjectName() {
@@ -96,7 +102,7 @@ export class StandaloneConfiguratorShell {
         brandSrc: this.options.brandSrc,
         brandAlt: this.options.brandAlt,
         projectName: this.projectName,
-        state: this.state,
+        state: { ...this.state, authUser: this.authUser },
         capabilities: this.options.capabilities,
       })}
       ${renderActionFeedback(this.state.locale)}
@@ -172,6 +178,57 @@ export class StandaloneConfiguratorShell {
     if (!silent) this.options.callbacks.onSettingsPanelToggle?.(this.settingsPanelCollapsed);
   }
 
+  async initializeAuthentication() {
+    try {
+      this.authUnsubscribe = await observeGoogleAuth((user, error) => {
+        if (error) return;
+        this.authUser = user;
+        this.authBusy = false;
+        syncAccountIdentity(this.host, this.state.locale, this.authUser);
+        this.options.callbacks.onAuthChange?.(this.authUser);
+      });
+    } catch (error) {
+      console.error('Google authentication could not be initialized.', error);
+      syncAccountIdentity(this.host, this.state.locale, null);
+    }
+  }
+
+  async loginWithGoogle() {
+    if (this.authBusy) return;
+    this.authBusy = true;
+    syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: true });
+    try {
+      const user = await signInWithGoogle();
+      this.authUser = user;
+      this.accountOpen = true;
+      this.options.callbacks.onAccountAction?.('login', user);
+    } catch (error) {
+      if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
+        console.error('Google login failed.', error);
+        this.showFeedback(sharedT(this.state.locale, 'feedback.loginUnavailable'));
+      }
+    } finally {
+      this.authBusy = false;
+      syncAccountIdentity(this.host, this.state.locale, this.authUser);
+      this.syncMenus();
+    }
+  }
+
+  async logoutFromGoogle() {
+    try {
+      await signOutGoogle();
+      this.authUser = null;
+      this.accountOpen = true;
+      this.options.callbacks.onAccountAction?.('signout');
+      this.showFeedback(sharedT(this.state.locale, 'feedback.loggedOut'));
+    } catch (error) {
+      console.error('Google sign-out failed.', error);
+    } finally {
+      syncAccountIdentity(this.host, this.state.locale, this.authUser);
+      this.syncMenus();
+    }
+  }
+
   handleClick(event) {
     const actionTarget = event.target.closest('[data-action]');
     if (!actionTarget) return;
@@ -232,6 +289,8 @@ export class StandaloneConfiguratorShell {
       }
       this.languageOpen = false;
       this.sync();
+    } else if (action === 'account-login') {
+      this.loginWithGoogle();
     } else if (action === 'account-profile') {
       this.options.callbacks.onAccountAction?.('profile');
     } else if (action === 'account-saved') {
@@ -241,7 +300,7 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'cookies-placeholder') {
       this.options.callbacks.onAccountAction?.('cookies');
     } else if (action === 'account-signout') {
-      this.options.callbacks.onAccountAction?.('signout');
+      this.logoutFromGoogle();
     }
   }
 
@@ -366,6 +425,7 @@ export class StandaloneConfiguratorShell {
     this.syncProjectNameWidth();
     this.syncMenus();
     this.syncAccountSettings();
+    syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: this.authBusy });
     this.syncLanguage();
     this.syncTools();
     document.body.classList.toggle('shared-ui-dark-mode', Boolean(this.state.darkMode));
@@ -406,6 +466,7 @@ export class StandaloneConfiguratorShell {
     darkButton?.querySelector('.settings-switch')?.classList.toggle('is-on', this.state.darkMode);
     const label = darkButton?.querySelector('[data-dark-mode-label]');
     if (label) label.textContent = sharedT(this.state.locale, this.state.darkMode ? 'account.on' : 'account.off');
+    syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: this.authBusy });
   }
 
 
@@ -438,6 +499,7 @@ export class StandaloneConfiguratorShell {
   }
 
   destroy() {
+    this.authUnsubscribe?.();
     document.removeEventListener('click', this.onDocumentClick);
     document.removeEventListener('keydown', this.onKeyDown);
     if (this.settingsToggle && this.onSettingsToggle) {

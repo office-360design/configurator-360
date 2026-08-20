@@ -30,6 +30,20 @@ export function SceneInteractor({ scene, locale = "en" }: { scene: ConfiguratorS
     };
   }, []);
 
+  useEffect(() => {
+    const element = surface.current;
+    if (!element) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (!enabled) return;
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent("scene-orbit", { detail: { scene, zoom: event.deltaY } }));
+    };
+    element.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      element.removeEventListener("wheel", handleWheel);
+    };
+  }, [enabled, scene]);
+
   function orbit(dx: number, dy: number, pan = false) {
     window.dispatchEvent(new CustomEvent("scene-orbit", { detail: { scene, dx, dy, pan } }));
   }
@@ -54,11 +68,6 @@ export function SceneInteractor({ scene, locale = "en" }: { scene: ConfiguratorS
           orbit(dx, dy, drag.current.pan || event.shiftKey);
         }}
         onPointerUp={() => { drag.current = null; }}
-        onWheel={(event) => {
-          if (!enabled) return;
-          event.preventDefault();
-          window.dispatchEvent(new CustomEvent("scene-orbit", { detail: { scene, zoom: event.deltaY } }));
-        }}
         aria-label={`${scene}: ${text.surface}`}
       >
         <span className="interaction-hint">Drag / orbit · Shift / pan · Wheel / zoom</span>

@@ -1,0 +1,2646 @@
+{
+  "summary": {
+    "generatedAt": "2026-08-20T08:52:13.110Z",
+    "strict": false,
+    "counts": {
+      "pages": 39,
+      "pass": 39,
+      "warn": 0,
+      "fail": 0,
+      "potentialSoft404s": 0
+    }
+  },
+  "pages": [
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "marketing",
+        "product": null,
+        "url": "https://www.360configurator.com/",
+        "expectedCanonical": "https://www.360configurator.com/",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/",
+          "ro-RO": "https://www.360configurator.ro/",
+          "de-DE": "https://www.360konfigurator.de/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Industrial 3D Product Configuration — 360Configurator",
+        "description": "Industrial 3D visual and spatial product configuration for complex products, real-time pricing and production-ready outputs.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/"
+          }
+        ],
+        "h1": [
+          "Complex products.Made self-evident."
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "marketing",
+        "product": null,
+        "url": "https://www.360configurator.com/about",
+        "expectedCanonical": "https://www.360configurator.com/about",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/about",
+          "ro-RO": "https://www.360configurator.ro/about",
+          "de-DE": "https://www.360konfigurator.de/about"
+        },
+        "expectedXDefault": "https://www.360configurator.com/about",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/about",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/about",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "About us — 360Configurator",
+        "description": "The product thinking, engineering principles and research behind 360Configurator.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/about",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/about"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/about"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/about"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/about"
+          }
+        ],
+        "h1": [
+          "We make industrial logicvisible, usable, valuable."
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "marketing",
+        "product": null,
+        "url": "https://www.360configurator.com/contact",
+        "expectedCanonical": "https://www.360configurator.com/contact",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/contact",
+          "ro-RO": "https://www.360configurator.ro/contact",
+          "de-DE": "https://www.360konfigurator.de/contact"
+        },
+        "expectedXDefault": "https://www.360configurator.com/contact",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/contact",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/contact",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Contact us — 360Configurator",
+        "description": "Discuss a custom spatial 3D product configurator with 360Configurator.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/contact",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/contact"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/contact"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/contact"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/contact"
+          }
+        ],
+        "h1": [
+          "Bring us the productthat resists simplification."
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "marketing-product",
+        "product": "window",
+        "url": "https://www.360configurator.com/configurators/window",
+        "expectedCanonical": "https://www.360configurator.com/configurators/window",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/window",
+          "ro-RO": "https://www.360configurator.ro/configurators/window",
+          "de-DE": "https://www.360konfigurator.de/configurators/window"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/window",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/configurators/window",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/configurators/window",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Window Configurator Online | Window & Profile Systems — 360Configurator",
+        "description": "Configure windows online in 3D with parametric dimensions, profile systems, glazing, bicolor finishes, opening simulation and exploded technical views.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/configurators/window",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/window"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/window"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/window"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/window"
+          }
+        ],
+        "h1": [
+          "3D Window Configurator Online"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "marketing-product",
+        "product": "pergola",
+        "url": "https://www.360configurator.com/configurators/pergola",
+        "expectedCanonical": "https://www.360configurator.com/configurators/pergola",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/pergola",
+          "ro-RO": "https://www.360configurator.ro/configurators/pergola",
+          "de-DE": "https://www.360konfigurator.de/configurators/pergola"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/pergola",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/configurators/pergola",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/configurators/pergola",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Pergola Configurator Online | Design Pergolas — 360Configurator",
+        "description": "Design and configure a pergola online in 3D. Adjust dimensions, louvers, side enclosures, lighting, automation, accessories and live pricing.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/configurators/pergola",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/pergola"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/pergola"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/pergola"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/pergola"
+          }
+        ],
+        "h1": [
+          "3D Pergola Configurator Online"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "marketing-product",
+        "product": "roof",
+        "url": "https://www.360configurator.com/configurators/roof",
+        "expectedCanonical": "https://www.360configurator.com/configurators/roof",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/roof",
+          "ro-RO": "https://www.360configurator.ro/configurators/roof",
+          "de-DE": "https://www.360konfigurator.de/configurators/roof"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/roof",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/configurators/roof",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/configurators/roof",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Roof Configurator Online | Roof Design & BOM — 360Configurator",
+        "description": "Configure roof geometry online in 3D. Set dimensions, pitch, roof type and materials, then calculate quantities, BOM data and CSV quote outputs.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/configurators/roof",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/roof"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/roof"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/roof"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/roof"
+          }
+        ],
+        "h1": [
+          "3D Roof Configurator Online"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "marketing-product",
+        "product": "hall",
+        "url": "https://www.360configurator.com/configurators/hall",
+        "expectedCanonical": "https://www.360configurator.com/configurators/hall",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/hall",
+          "ro-RO": "https://www.360configurator.ro/configurators/hall",
+          "de-DE": "https://www.360konfigurator.de/configurators/hall"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/hall",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/configurators/hall",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/configurators/hall",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Industrial Hall Configurator | Warehouse Design — 360Configurator",
+        "description": "Configure an industrial hall or warehouse in 3D. Adjust dimensions, portal frames, structural spacing, cladding, access openings and building layers.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/configurators/hall",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/hall"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/hall"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/hall"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/hall"
+          }
+        ],
+        "h1": [
+          "3D Industrial Hall Configurator"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "marketing-product",
+        "product": "solar",
+        "url": "https://www.360configurator.com/configurators/solar",
+        "expectedCanonical": "https://www.360configurator.com/configurators/solar",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/solar",
+          "ro-RO": "https://www.360configurator.ro/configurators/solar",
+          "de-DE": "https://www.360konfigurator.de/configurators/solar"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/solar",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/configurators/solar",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/configurators/solar",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Solar Configurator | PV System & Roof Design — 360Configurator",
+        "description": "Configure a residential solar system in 3D with roof geometry, panel layout, sun position, household consumption, battery storage and energy analysis.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/configurators/solar",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/solar"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/solar"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/solar"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/solar"
+          }
+        ],
+        "h1": [
+          "3D Solar System Configurator"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "app",
+        "product": "window",
+        "url": "https://www.360configurator.com/window-configurator/",
+        "expectedCanonical": "https://www.360configurator.com/window-configurator/",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/window-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-ferestre/",
+          "de-DE": "https://www.360konfigurator.de/fenster-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/window-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/window-configurator/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/window-configurator/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Window Configurator | 360Configurator",
+        "description": "Configure windows online in 3D. Adjust dimensions, layout, profiles and opening types in an interactive window configurator.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/window-configurator/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/window-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-ferestre/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/fenster-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/window-configurator/"
+          }
+        ],
+        "h1": [
+          "Schüco Window System AW CT 65",
+          "Window AR view"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "app",
+        "product": "pergola",
+        "url": "https://www.360configurator.com/pergola-configurator/",
+        "expectedCanonical": "https://www.360configurator.com/pergola-configurator/",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/pergola-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-pergola/",
+          "de-DE": "https://www.360konfigurator.de/pergola-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/pergola-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/pergola-configurator/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/pergola-configurator/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Pergola Configurator | 360Configurator",
+        "description": "Configure a pergola online in 3D. Adjust dimensions, louvers, side closures, lighting and accessories in real time.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/pergola-configurator/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/pergola-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-pergola/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/pergola-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/pergola-configurator/"
+          }
+        ],
+        "h1": [],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [
+        {
+          "severity": "INFO",
+          "code": "APP_H1_MISSING",
+          "message": "App has no H1. This is acceptable for the lightweight app SEO layer, but worth reviewing."
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "app",
+        "product": "roof",
+        "url": "https://www.360configurator.com/roof-configurator/",
+        "expectedCanonical": "https://www.360configurator.com/roof-configurator/",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/roof-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-acoperis/",
+          "de-DE": "https://www.360konfigurator.de/dach-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/roof-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/roof-configurator/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/roof-configurator/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Roof Configurator | 360Configurator",
+        "description": "Configure a roof online in 3D. Compare roof types, dimensions and construction options with real-time parametric visualization.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/roof-configurator/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/roof-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-acoperis/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/dach-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/roof-configurator/"
+          }
+        ],
+        "h1": [
+          "Roof type"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "app",
+        "product": "hall",
+        "url": "https://www.360configurator.com/hall-configurator/",
+        "expectedCanonical": "https://www.360configurator.com/hall-configurator/",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/hall-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-hala/",
+          "de-DE": "https://www.360konfigurator.de/hallen-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/hall-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/hall-configurator/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/hall-configurator/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Industrial Hall Configurator | 360Configurator",
+        "description": "Configure an industrial hall or warehouse online in 3D. Adjust dimensions, structure, cladding, openings and building options interactively.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/hall-configurator/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/hall-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-hala/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/hallen-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/hall-configurator/"
+          }
+        ],
+        "h1": [
+          "Hall settings"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "en",
+        "kind": "app",
+        "product": "solar",
+        "url": "https://www.360configurator.com/solar-configurator/",
+        "expectedCanonical": "https://www.360configurator.com/solar-configurator/",
+        "expectedLang": "en",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/solar-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-solar/",
+          "de-DE": "https://www.360konfigurator.de/solar-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/solar-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.com/solar-configurator/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.com/solar-configurator/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Solar Configurator | 360Configurator",
+        "description": "Configure a residential solar system online in 3D. Explore roof geometry, panel layouts and energy simulation in real time.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.com/solar-configurator/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "en",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/solar-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-solar/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/solar-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/solar-configurator/"
+          }
+        ],
+        "h1": [
+          "Roof"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "marketing",
+        "product": null,
+        "url": "https://www.360configurator.ro/",
+        "expectedCanonical": "https://www.360configurator.ro/",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/",
+          "ro-RO": "https://www.360configurator.ro/",
+          "de-DE": "https://www.360konfigurator.de/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurare 3D pentru produse industriale — 360Configurator",
+        "description": "Configuratoare 3D spațiale cu prețuri dinamice, BOM și randare în timp real.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/"
+          }
+        ],
+        "h1": [
+          "Produse complexe.Claritate imediată."
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "marketing",
+        "product": null,
+        "url": "https://www.360configurator.ro/about",
+        "expectedCanonical": "https://www.360configurator.ro/about",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/about",
+          "ro-RO": "https://www.360configurator.ro/about",
+          "de-DE": "https://www.360konfigurator.de/about"
+        },
+        "expectedXDefault": "https://www.360configurator.com/about",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/about",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/about",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Despre noi — 360Configurator",
+        "description": "Principiile de produs, inginerie și cercetare din spatele 360Configurator.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/about",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/about"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/about"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/about"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/about"
+          }
+        ],
+        "h1": [
+          "Facem logica industrialăvizibilă, utilizabilă, valoroasă."
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "marketing",
+        "product": null,
+        "url": "https://www.360configurator.ro/contact",
+        "expectedCanonical": "https://www.360configurator.ro/contact",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/contact",
+          "ro-RO": "https://www.360configurator.ro/contact",
+          "de-DE": "https://www.360konfigurator.de/contact"
+        },
+        "expectedXDefault": "https://www.360configurator.com/contact",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/contact",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/contact",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Contact — 360Configurator",
+        "description": "Discută cu 360Configurator despre un configurator spațial 3D personalizat.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/contact",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/contact"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/contact"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/contact"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/contact"
+          }
+        ],
+        "h1": [
+          "Adu-ne produsulcare refuză simplificarea."
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "marketing-product",
+        "product": "window",
+        "url": "https://www.360configurator.ro/configurators/window",
+        "expectedCanonical": "https://www.360configurator.ro/configurators/window",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/window",
+          "ro-RO": "https://www.360configurator.ro/configurators/window",
+          "de-DE": "https://www.360konfigurator.de/configurators/window"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/window",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/configurators/window",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/configurators/window",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurator Ferestre 3D Online | Profile & Vitraj — 360Configurator",
+        "description": "Configurează ferestre online în 3D cu dimensiuni parametrice, profile, vitraj, finisaje bicolore, simularea deschiderii și vedere explodată.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/configurators/window",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/window"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/window"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/window"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/window"
+          }
+        ],
+        "h1": [
+          "Configurator ferestre 3D online"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "marketing-product",
+        "product": "pergola",
+        "url": "https://www.360configurator.ro/configurators/pergola",
+        "expectedCanonical": "https://www.360configurator.ro/configurators/pergola",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/pergola",
+          "ro-RO": "https://www.360configurator.ro/configurators/pergola",
+          "de-DE": "https://www.360konfigurator.de/configurators/pergola"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/pergola",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/configurators/pergola",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/configurators/pergola",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurator Pergolă 3D Online | Proiectare Pergole — 360Configurator",
+        "description": "Configurează o pergolă online în 3D. Alege dimensiunile, lamelele, închiderile laterale, iluminatul, automatizarea, accesoriile și prețul live.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/configurators/pergola",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/pergola"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/pergola"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/pergola"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/pergola"
+          }
+        ],
+        "h1": [
+          "Configurator pergolă 3D online"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "marketing-product",
+        "product": "roof",
+        "url": "https://www.360configurator.ro/configurators/roof",
+        "expectedCanonical": "https://www.360configurator.ro/configurators/roof",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/roof",
+          "ro-RO": "https://www.360configurator.ro/configurators/roof",
+          "de-DE": "https://www.360konfigurator.de/configurators/roof"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/roof",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/configurators/roof",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/configurators/roof",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurator Acoperiș 3D Online | Proiectare & BOM — 360Configurator",
+        "description": "Configurează un acoperiș online în 3D. Alege forma, dimensiunile, panta și materialele și obține cantități, BOM și ofertă CSV.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/configurators/roof",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/roof"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/roof"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/roof"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/roof"
+          }
+        ],
+        "h1": [
+          "Configurator acoperiș 3D online"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "marketing-product",
+        "product": "hall",
+        "url": "https://www.360configurator.ro/configurators/hall",
+        "expectedCanonical": "https://www.360configurator.ro/configurators/hall",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/hall",
+          "ro-RO": "https://www.360configurator.ro/configurators/hall",
+          "de-DE": "https://www.360konfigurator.de/configurators/hall"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/hall",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/configurators/hall",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/configurators/hall",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurator Hală Industrială 3D | Hale & Depozite — 360Configurator",
+        "description": "Configurează o hală industrială sau un depozit în 3D. Modifică dimensiunile, cadrele portal, traveile, închiderile și golurile de acces.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/configurators/hall",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/hall"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/hall"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/hall"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/hall"
+          }
+        ],
+        "h1": [
+          "Configurator hală industrială 3D"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "marketing-product",
+        "product": "solar",
+        "url": "https://www.360configurator.ro/configurators/solar",
+        "expectedCanonical": "https://www.360configurator.ro/configurators/solar",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/solar",
+          "ro-RO": "https://www.360configurator.ro/configurators/solar",
+          "de-DE": "https://www.360konfigurator.de/configurators/solar"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/solar",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/configurators/solar",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/configurators/solar",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurator Panouri Solare 3D | Sistem Fotovoltaic — 360Configurator",
+        "description": "Configurează un sistem fotovoltaic rezidențial în 3D cu geometria acoperișului, panouri, poziția soarelui, consum, baterie și analiză energetică.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/configurators/solar",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/solar"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/solar"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/solar"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/solar"
+          }
+        ],
+        "h1": [
+          "Configurator sistem fotovoltaic 3D"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "app",
+        "product": "window",
+        "url": "https://www.360configurator.ro/configurator-ferestre/",
+        "expectedCanonical": "https://www.360configurator.ro/configurator-ferestre/",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/window-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-ferestre/",
+          "de-DE": "https://www.360konfigurator.de/fenster-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/window-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/configurator-ferestre/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/configurator-ferestre/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurator Ferestre 3D | 360Configurator",
+        "description": "Configurează ferestre online în 3D. Modifică dimensiunile, compartimentarea, profilele și tipurile de deschidere în timp real.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/configurator-ferestre/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/window-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-ferestre/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/fenster-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/window-configurator/"
+          }
+        ],
+        "h1": [
+          "Schüco Window System AW CT 65",
+          "Vizualizare AR fereastră"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "app",
+        "product": "pergola",
+        "url": "https://www.360configurator.ro/configurator-pergola/",
+        "expectedCanonical": "https://www.360configurator.ro/configurator-pergola/",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/pergola-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-pergola/",
+          "de-DE": "https://www.360konfigurator.de/pergola-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/pergola-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/configurator-pergola/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/configurator-pergola/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurator Pergolă 3D | 360Configurator",
+        "description": "Configurează o pergolă online în 3D. Modifică dimensiunile, lamelele, închiderile laterale, iluminatul și accesoriile în timp real.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/configurator-pergola/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/pergola-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-pergola/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/pergola-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/pergola-configurator/"
+          }
+        ],
+        "h1": [],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [
+        {
+          "severity": "INFO",
+          "code": "APP_H1_MISSING",
+          "message": "App has no H1. This is acceptable for the lightweight app SEO layer, but worth reviewing."
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "app",
+        "product": "roof",
+        "url": "https://www.360configurator.ro/configurator-acoperis/",
+        "expectedCanonical": "https://www.360configurator.ro/configurator-acoperis/",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/roof-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-acoperis/",
+          "de-DE": "https://www.360konfigurator.de/dach-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/roof-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/configurator-acoperis/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/configurator-acoperis/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurator Acoperiș 3D | 360Configurator",
+        "description": "Configurează un acoperiș online în 3D. Alege tipul, dimensiunile și opțiunile constructive cu vizualizare parametrică în timp real.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/configurator-acoperis/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/roof-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-acoperis/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/dach-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/roof-configurator/"
+          }
+        ],
+        "h1": [
+          "Tip acoperiș"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "app",
+        "product": "hall",
+        "url": "https://www.360configurator.ro/configurator-hala/",
+        "expectedCanonical": "https://www.360configurator.ro/configurator-hala/",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/hall-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-hala/",
+          "de-DE": "https://www.360konfigurator.de/hallen-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/hall-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/configurator-hala/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/configurator-hala/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurator Hală Industrială 3D | 360Configurator",
+        "description": "Configurează o hală industrială sau un depozit online în 3D. Modifică dimensiunile, structura, închiderile și golurile în timp real.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/configurator-hala/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/hall-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-hala/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/hallen-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/hall-configurator/"
+          }
+        ],
+        "h1": [
+          "Setări hală"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "ro",
+        "kind": "app",
+        "product": "solar",
+        "url": "https://www.360configurator.ro/configurator-solar/",
+        "expectedCanonical": "https://www.360configurator.ro/configurator-solar/",
+        "expectedLang": "ro",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/solar-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-solar/",
+          "de-DE": "https://www.360konfigurator.de/solar-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/solar-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360configurator.ro/configurator-solar/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360configurator.ro/configurator-solar/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Configurator Solar 3D | 360Configurator",
+        "description": "Configurează un sistem fotovoltaic rezidențial online în 3D. Explorează geometria acoperișului, amplasarea panourilor și simularea energiei.",
+        "robots": "index, follow",
+        "canonical": "https://www.360configurator.ro/configurator-solar/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "ro",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/solar-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-solar/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/solar-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/solar-configurator/"
+          }
+        ],
+        "h1": [
+          "Acoperiș"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "marketing",
+        "product": null,
+        "url": "https://www.360konfigurator.de/",
+        "expectedCanonical": "https://www.360konfigurator.de/",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/",
+          "ro-RO": "https://www.360configurator.ro/",
+          "de-DE": "https://www.360konfigurator.de/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D-Konfiguration für Industrieprodukte — 360Configurator",
+        "description": "Räumliche 3D-Konfiguratoren mit dynamischer Preisbildung, Stücklisten und Echtzeit-Rendering.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/"
+          }
+        ],
+        "h1": [
+          "Komplexe Produkte.Unmittelbar verständlich."
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "marketing",
+        "product": null,
+        "url": "https://www.360konfigurator.de/about",
+        "expectedCanonical": "https://www.360konfigurator.de/about",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/about",
+          "ro-RO": "https://www.360configurator.ro/about",
+          "de-DE": "https://www.360konfigurator.de/about"
+        },
+        "expectedXDefault": "https://www.360configurator.com/about",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/about",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/about",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Über uns — 360Configurator",
+        "description": "Produktdenken, technische Prinzipien und Forschung hinter 360Configurator.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/about",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/about"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/about"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/about"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/about"
+          }
+        ],
+        "h1": [
+          "Wir machen industrielle Logiksichtbar, nutzbar, wertvoll."
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "marketing",
+        "product": null,
+        "url": "https://www.360konfigurator.de/contact",
+        "expectedCanonical": "https://www.360konfigurator.de/contact",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/contact",
+          "ro-RO": "https://www.360configurator.ro/contact",
+          "de-DE": "https://www.360konfigurator.de/contact"
+        },
+        "expectedXDefault": "https://www.360configurator.com/contact",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/contact",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/contact",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "Kontakt — 360Configurator",
+        "description": "Sprechen Sie mit 360Configurator über einen individuellen räumlichen 3D-Konfigurator.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/contact",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/contact"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/contact"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/contact"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/contact"
+          }
+        ],
+        "h1": [
+          "Bringen Sie uns das Produkt,das sich nicht vereinfachen lässt."
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "marketing-product",
+        "product": "window",
+        "url": "https://www.360konfigurator.de/configurators/window",
+        "expectedCanonical": "https://www.360konfigurator.de/configurators/window",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/window",
+          "ro-RO": "https://www.360configurator.ro/configurators/window",
+          "de-DE": "https://www.360konfigurator.de/configurators/window"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/window",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/configurators/window",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/configurators/window",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Fenster-Konfigurator Online | Profile & Verglasung — 360Configurator",
+        "description": "Konfigurieren Sie Fenster online in 3D mit parametrischen Maßen, Profilsystemen, Verglasung, Bicolor-Oberflächen, Öffnung und Explosionsansicht.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/configurators/window",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/window"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/window"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/window"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/window"
+          }
+        ],
+        "h1": [
+          "3D Fenster-Konfigurator online"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "marketing-product",
+        "product": "pergola",
+        "url": "https://www.360konfigurator.de/configurators/pergola",
+        "expectedCanonical": "https://www.360konfigurator.de/configurators/pergola",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/pergola",
+          "ro-RO": "https://www.360configurator.ro/configurators/pergola",
+          "de-DE": "https://www.360konfigurator.de/configurators/pergola"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/pergola",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/configurators/pergola",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/configurators/pergola",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Pergola-Konfigurator Online | Pergola planen — 360Configurator",
+        "description": "Planen und konfigurieren Sie Ihre Pergola online in 3D. Passen Sie Maße, Lamellen, Seitenabschlüsse, Beleuchtung, Automatisierung und Zubehör an.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/configurators/pergola",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/pergola"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/pergola"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/pergola"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/pergola"
+          }
+        ],
+        "h1": [
+          "3D Pergola-Konfigurator online"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "marketing-product",
+        "product": "roof",
+        "url": "https://www.360konfigurator.de/configurators/roof",
+        "expectedCanonical": "https://www.360konfigurator.de/configurators/roof",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/roof",
+          "ro-RO": "https://www.360configurator.ro/configurators/roof",
+          "de-DE": "https://www.360konfigurator.de/configurators/roof"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/roof",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/configurators/roof",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/configurators/roof",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Dach-Konfigurator Online | Dach planen & Stückliste — 360Configurator",
+        "description": "Konfigurieren Sie Ihr Dach online in 3D. Wählen Sie Dachform, Maße, Neigung und Material und ermitteln Sie Mengen, Stückliste und CSV-Angebot.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/configurators/roof",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/roof"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/roof"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/roof"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/roof"
+          }
+        ],
+        "h1": [
+          "3D Dach-Konfigurator online"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "marketing-product",
+        "product": "hall",
+        "url": "https://www.360konfigurator.de/configurators/hall",
+        "expectedCanonical": "https://www.360konfigurator.de/configurators/hall",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/hall",
+          "ro-RO": "https://www.360configurator.ro/configurators/hall",
+          "de-DE": "https://www.360konfigurator.de/configurators/hall"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/hall",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/configurators/hall",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/configurators/hall",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Hallen-Konfigurator | Industriehalle & Lagerhalle — 360Configurator",
+        "description": "Konfigurieren Sie Industriehallen und Lagerhallen in 3D. Passen Sie Maße, Portalrahmen, Raster, Gebäudehülle und Zugangsöffnungen interaktiv an.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/configurators/hall",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/hall"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/hall"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/hall"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/hall"
+          }
+        ],
+        "h1": [
+          "3D Hallen-Konfigurator"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "marketing-product",
+        "product": "solar",
+        "url": "https://www.360konfigurator.de/configurators/solar",
+        "expectedCanonical": "https://www.360konfigurator.de/configurators/solar",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/configurators/solar",
+          "ro-RO": "https://www.360configurator.ro/configurators/solar",
+          "de-DE": "https://www.360konfigurator.de/configurators/solar"
+        },
+        "expectedXDefault": "https://www.360configurator.com/configurators/solar",
+        "requireH1": true
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/configurators/solar",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/configurators/solar",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Solar-Konfigurator | Photovoltaik-Anlage planen — 360Configurator",
+        "description": "Konfigurieren Sie eine Photovoltaik-Anlage in 3D mit Dachgeometrie, Modulbelegung, Sonnenstand, Verbrauch, Batteriespeicher und Energieanalyse.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/configurators/solar",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/configurators/solar"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurators/solar"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/configurators/solar"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/configurators/solar"
+          }
+        ],
+        "h1": [
+          "3D Photovoltaik-Konfigurator"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "app",
+        "product": "window",
+        "url": "https://www.360konfigurator.de/fenster-konfigurator/",
+        "expectedCanonical": "https://www.360konfigurator.de/fenster-konfigurator/",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/window-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-ferestre/",
+          "de-DE": "https://www.360konfigurator.de/fenster-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/window-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/fenster-konfigurator/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/fenster-konfigurator/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Fenster-Konfigurator | 360Configurator",
+        "description": "Konfigurieren Sie Fenster online in 3D. Passen Sie Maße, Aufteilung, Profile und Öffnungsarten interaktiv an.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/fenster-konfigurator/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/window-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-ferestre/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/fenster-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/window-configurator/"
+          }
+        ],
+        "h1": [
+          "Schüco Window System AW CT 65",
+          "Fenster-AR-Ansicht"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "app",
+        "product": "pergola",
+        "url": "https://www.360konfigurator.de/pergola-konfigurator/",
+        "expectedCanonical": "https://www.360konfigurator.de/pergola-konfigurator/",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/pergola-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-pergola/",
+          "de-DE": "https://www.360konfigurator.de/pergola-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/pergola-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/pergola-konfigurator/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/pergola-konfigurator/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Pergola-Konfigurator | 360Configurator",
+        "description": "Konfigurieren Sie Ihre Pergola online in 3D. Passen Sie Maße, Lamellen, Seitenabschlüsse, Beleuchtung und Zubehör in Echtzeit an.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/pergola-konfigurator/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/pergola-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-pergola/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/pergola-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/pergola-configurator/"
+          }
+        ],
+        "h1": [],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [
+        {
+          "severity": "INFO",
+          "code": "APP_H1_MISSING",
+          "message": "App has no H1. This is acceptable for the lightweight app SEO layer, but worth reviewing."
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "app",
+        "product": "roof",
+        "url": "https://www.360konfigurator.de/dach-konfigurator/",
+        "expectedCanonical": "https://www.360konfigurator.de/dach-konfigurator/",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/roof-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-acoperis/",
+          "de-DE": "https://www.360konfigurator.de/dach-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/roof-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/dach-konfigurator/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/dach-konfigurator/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Dach-Konfigurator | 360Configurator",
+        "description": "Konfigurieren Sie ein Dach online in 3D. Wählen Sie Dachform, Maße und Konstruktionsoptionen mit parametrischer Echtzeitansicht.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/dach-konfigurator/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/roof-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-acoperis/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/dach-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/roof-configurator/"
+          }
+        ],
+        "h1": [
+          "Dachform"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "app",
+        "product": "hall",
+        "url": "https://www.360konfigurator.de/hallen-konfigurator/",
+        "expectedCanonical": "https://www.360konfigurator.de/hallen-konfigurator/",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/hall-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-hala/",
+          "de-DE": "https://www.360konfigurator.de/hallen-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/hall-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/hallen-konfigurator/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/hallen-konfigurator/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Hallen-Konfigurator | 360Configurator",
+        "description": "Konfigurieren Sie eine Industriehalle oder Lagerhalle online in 3D. Passen Sie Maße, Tragwerk, Verkleidung und Öffnungen interaktiv an.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/hallen-konfigurator/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/hall-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-hala/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/hallen-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/hall-configurator/"
+          }
+        ],
+        "h1": [
+          "Halleneinstellungen"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    },
+    {
+      "spec": {
+        "locale": "de",
+        "kind": "app",
+        "product": "solar",
+        "url": "https://www.360konfigurator.de/solar-konfigurator/",
+        "expectedCanonical": "https://www.360konfigurator.de/solar-konfigurator/",
+        "expectedLang": "de",
+        "expectedAlternates": {
+          "en": "https://www.360configurator.com/solar-configurator/",
+          "ro-RO": "https://www.360configurator.ro/configurator-solar/",
+          "de-DE": "https://www.360konfigurator.de/solar-konfigurator/"
+        },
+        "expectedXDefault": "https://www.360configurator.com/solar-configurator/",
+        "requireH1": false
+      },
+      "trace": {
+        "hops": [
+          {
+            "url": "https://www.360konfigurator.de/solar-konfigurator/",
+            "status": 200,
+            "location": null
+          }
+        ],
+        "finalUrl": "https://www.360konfigurator.de/solar-konfigurator/",
+        "finalStatus": 200
+      },
+      "metadata": {
+        "title": "3D Solar-Konfigurator | 360Configurator",
+        "description": "Konfigurieren Sie eine Photovoltaikanlage online in 3D. Prüfen Sie Dachgeometrie, Modulbelegung und Energiesimulation in Echtzeit.",
+        "robots": "index, follow",
+        "canonical": "https://www.360konfigurator.de/solar-konfigurator/",
+        "canonicalCount": 1,
+        "descriptionCount": 1,
+        "lang": "de",
+        "alternates": [
+          {
+            "hreflang": "en",
+            "href": "https://www.360configurator.com/solar-configurator/"
+          },
+          {
+            "hreflang": "ro-RO",
+            "href": "https://www.360configurator.ro/configurator-solar/"
+          },
+          {
+            "hreflang": "de-DE",
+            "href": "https://www.360konfigurator.de/solar-konfigurator/"
+          },
+          {
+            "hreflang": "x-default",
+            "href": "https://www.360configurator.com/solar-configurator/"
+          }
+        ],
+        "h1": [
+          "Dach"
+        ],
+        "consoleErrors": [],
+        "pageErrors": []
+      },
+      "issues": [],
+      "status": "PASS"
+    }
+  ],
+  "technical": [
+    {
+      "locale": "en",
+      "origin": "https://www.360configurator.com",
+      "robots": {
+        "url": "https://www.360configurator.com/robots.txt",
+        "status": 200,
+        "issues": [],
+        "body": "User-agent: *\nAllow: /\nSitemap: https://www.360configurator.com/sitemap.xml\n"
+      },
+      "sitemap": {
+        "url": "https://www.360configurator.com/sitemap.xml",
+        "status": 200,
+        "urlCount": 13,
+        "urls": [
+          "https://www.360configurator.com/",
+          "https://www.360configurator.com/about",
+          "https://www.360configurator.com/contact",
+          "https://www.360configurator.com/configurators/pergola",
+          "https://www.360configurator.com/configurators/roof",
+          "https://www.360configurator.com/configurators/window",
+          "https://www.360configurator.com/configurators/hall",
+          "https://www.360configurator.com/configurators/solar",
+          "https://www.360configurator.com/pergola-configurator/",
+          "https://www.360configurator.com/roof-configurator/",
+          "https://www.360configurator.com/window-configurator/",
+          "https://www.360configurator.com/hall-configurator/",
+          "https://www.360configurator.com/solar-configurator/"
+        ],
+        "issues": []
+      }
+    },
+    {
+      "locale": "ro",
+      "origin": "https://www.360configurator.ro",
+      "robots": {
+        "url": "https://www.360configurator.ro/robots.txt",
+        "status": 200,
+        "issues": [],
+        "body": "User-agent: *\nAllow: /\nSitemap: https://www.360configurator.ro/sitemap.xml\n"
+      },
+      "sitemap": {
+        "url": "https://www.360configurator.ro/sitemap.xml",
+        "status": 200,
+        "urlCount": 13,
+        "urls": [
+          "https://www.360configurator.ro/",
+          "https://www.360configurator.ro/about",
+          "https://www.360configurator.ro/contact",
+          "https://www.360configurator.ro/configurators/pergola",
+          "https://www.360configurator.ro/configurators/roof",
+          "https://www.360configurator.ro/configurators/window",
+          "https://www.360configurator.ro/configurators/hall",
+          "https://www.360configurator.ro/configurators/solar",
+          "https://www.360configurator.ro/configurator-pergola/",
+          "https://www.360configurator.ro/configurator-acoperis/",
+          "https://www.360configurator.ro/configurator-ferestre/",
+          "https://www.360configurator.ro/configurator-hala/",
+          "https://www.360configurator.ro/configurator-solar/"
+        ],
+        "issues": []
+      }
+    },
+    {
+      "locale": "de",
+      "origin": "https://www.360konfigurator.de",
+      "robots": {
+        "url": "https://www.360konfigurator.de/robots.txt",
+        "status": 200,
+        "issues": [],
+        "body": "User-agent: *\nAllow: /\nSitemap: https://www.360konfigurator.de/sitemap.xml\n"
+      },
+      "sitemap": {
+        "url": "https://www.360konfigurator.de/sitemap.xml",
+        "status": 200,
+        "urlCount": 13,
+        "urls": [
+          "https://www.360konfigurator.de/",
+          "https://www.360konfigurator.de/about",
+          "https://www.360konfigurator.de/contact",
+          "https://www.360konfigurator.de/configurators/pergola",
+          "https://www.360konfigurator.de/configurators/roof",
+          "https://www.360konfigurator.de/configurators/window",
+          "https://www.360konfigurator.de/configurators/hall",
+          "https://www.360konfigurator.de/configurators/solar",
+          "https://www.360konfigurator.de/pergola-konfigurator/",
+          "https://www.360konfigurator.de/dach-konfigurator/",
+          "https://www.360konfigurator.de/fenster-konfigurator/",
+          "https://www.360konfigurator.de/hallen-konfigurator/",
+          "https://www.360konfigurator.de/solar-konfigurator/"
+        ],
+        "issues": []
+      }
+    }
+  ],
+  "routing": [
+    {
+      "url": "https://www.360configurator.com/ro",
+      "expectedStatus": 301,
+      "expectedLocation": "https://www.360configurator.ro/",
+      "actualStatus": 301,
+      "actualLocation": "https://www.360configurator.ro/",
+      "issues": []
+    },
+    {
+      "url": "https://www.360configurator.com/ro/configurators/pergola",
+      "expectedStatus": 301,
+      "expectedLocation": "https://www.360configurator.ro/configurators/pergola",
+      "actualStatus": 301,
+      "actualLocation": "https://www.360configurator.ro/configurators/pergola",
+      "issues": []
+    },
+    {
+      "url": "https://www.360configurator.com/de",
+      "expectedStatus": 301,
+      "expectedLocation": "https://www.360konfigurator.de/",
+      "actualStatus": 301,
+      "actualLocation": "https://www.360konfigurator.de/",
+      "issues": []
+    },
+    {
+      "url": "https://www.360configurator.com/de/configurators/pergola",
+      "expectedStatus": 301,
+      "expectedLocation": "https://www.360konfigurator.de/configurators/pergola",
+      "actualStatus": 301,
+      "actualLocation": "https://www.360konfigurator.de/configurators/pergola",
+      "issues": []
+    },
+    {
+      "url": "https://www.360configurator.ro/pergola-configurator/",
+      "expectedStatus": 301,
+      "expectedLocation": "https://www.360configurator.ro/configurator-pergola/",
+      "actualStatus": 301,
+      "actualLocation": "https://www.360configurator.ro/configurator-pergola/",
+      "issues": []
+    },
+    {
+      "url": "https://www.360konfigurator.de/pergola-configurator/",
+      "expectedStatus": 301,
+      "expectedLocation": "https://www.360konfigurator.de/pergola-konfigurator/",
+      "actualStatus": 301,
+      "actualLocation": "https://www.360konfigurator.de/pergola-konfigurator/",
+      "issues": []
+    }
+  ],
+  "soft404": [
+    {
+      "url": "https://www.360configurator.com/__seo-audit-definitely-not-a-real-page-9f4d72c1",
+      "status": 404,
+      "finalUrl": "https://www.360configurator.com/__seo-audit-definitely-not-a-real-page-9f4d72c1",
+      "potentialSoft404": false
+    },
+    {
+      "url": "https://www.360configurator.ro/__seo-audit-definitely-not-a-real-page-9f4d72c1",
+      "status": 404,
+      "finalUrl": "https://www.360configurator.ro/__seo-audit-definitely-not-a-real-page-9f4d72c1",
+      "potentialSoft404": false
+    },
+    {
+      "url": "https://www.360konfigurator.de/__seo-audit-definitely-not-a-real-page-9f4d72c1",
+      "status": 404,
+      "finalUrl": "https://www.360konfigurator.de/__seo-audit-definitely-not-a-real-page-9f4d72c1",
+      "potentialSoft404": false
+    }
+  ],
+  "legacy": [
+    {
+      "url": "https://www.360configurator.com/our-work/",
+      "status": 404,
+      "finalUrl": "https://www.360configurator.com/our-work/",
+      "redirects": 0
+    },
+    {
+      "url": "https://www.360configurator.com/kitchen-configurator/",
+      "status": 404,
+      "finalUrl": "https://www.360configurator.com/kitchen-configurator/",
+      "redirects": 0
+    },
+    {
+      "url": "https://www.360configurator.com/kitchen-island-configurator/",
+      "status": 404,
+      "finalUrl": "https://www.360configurator.com/kitchen-island-configurator/",
+      "redirects": 0
+    },
+    {
+      "url": "https://www.360configurator.com/paving-configurator/",
+      "status": 404,
+      "finalUrl": "https://www.360configurator.com/paving-configurator/",
+      "redirects": 0
+    },
+    {
+      "url": "https://www.360configurator.com/catalin-botezatu-exclusive-demo/",
+      "status": 404,
+      "finalUrl": "https://www.360configurator.com/catalin-botezatu-exclusive-demo/",
+      "redirects": 0
+    }
+  ],
+  "duplicateTitles": []
+}

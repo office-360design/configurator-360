@@ -38,14 +38,14 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: |
-            package-lock.json
+            window-configurator/package-lock.json
             pergola-configurator/package-lock.json
 
       - name: Install window configurator dependencies
-        run: npm ci
+        run: npm ci --prefix window-configurator
 
       - name: Build window configurator
-        run: npm run prepare:static
+        run: npm run prepare:static --prefix window-configurator
 
       - name: Preserve window configurator build
         shell: bash
@@ -54,7 +54,7 @@ jobs:
 
           rm -rf dist/window-configurator-build
           mkdir -p dist/window-configurator-build
-          cp -R dist/site/. dist/window-configurator-build/
+          cp -R window-configurator/dist/site/. dist/window-configurator-build/
 
       # ------------------------------------------------------------
       # Build pergola configurator

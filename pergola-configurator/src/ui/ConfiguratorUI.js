@@ -26,6 +26,10 @@ import {
   renderActionFeedback,
   renderToolsMenu,
   renderTopBar,
+  syncAccountIdentity,
+  observeGoogleAuth,
+  signInWithGoogle,
+  signOutGoogle,
 } from '../../../shared-ui/src/index.js';
 import { pergolaRenderers } from './pergolaRenderers.js';
 import { pergolaT, translatePergolaRuntimeMessage } from '../i18n.js';
@@ -55,6 +59,9 @@ export class ConfiguratorUI {
     this.saveFeedbackTimer = null;
     this.accountMenuOpen = false;
     this.accountSettingsOpen = false;
+    this.authUser = null;
+    this.authBusy = false;
+    this.authUnsubscribe = null;
     this.languageMenuOpen = false;
     this.pendingDimensionChange = null;
 
@@ -92,6 +99,7 @@ export class ConfiguratorUI {
     this.root.addEventListener('keydown', (event) => this.handleKeyDown(event));
 
     this.unsubscribe = this.store.subscribe((state, meta) => this.onStateChange(state, meta));
+    this.initializeAuthentication();
   }
 
   attachScene(scene) {
@@ -246,7 +254,7 @@ export class ConfiguratorUI {
           brandSrc: './assets/360CONFIGURATOR.png',
           brandAlt: '360 Configurator',
           projectName: this.projectName,
-          state: this.state,
+          state: { ...this.state, authUser: this.authUser },
         })}
 
         <main class="configurator-layout">
@@ -327,6 +335,53 @@ export class ConfiguratorUI {
     this.syncLanguageMenu();
   }
 
+  async initializeAuthentication() {
+    try {
+      this.authUnsubscribe = await observeGoogleAuth((user, error) => {
+        if (error) return;
+        this.authUser = user;
+        this.authBusy = false;
+        syncAccountIdentity(this.root, this.state.locale, this.authUser);
+      });
+    } catch (error) {
+      console.error('Google authentication could not be initialized.', error);
+      syncAccountIdentity(this.root, this.state.locale, null);
+    }
+  }
+
+  async loginWithGoogle() {
+    if (this.authBusy) return;
+    this.authBusy = true;
+    syncAccountIdentity(this.root, this.state.locale, this.authUser, { busy: true });
+    try {
+      this.authUser = await signInWithGoogle();
+      this.accountMenuOpen = true;
+    } catch (error) {
+      if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
+        console.error('Google login failed.', error);
+        this.showToast(sharedT(this.state.locale, 'feedback.loginUnavailable'));
+      }
+    } finally {
+      this.authBusy = false;
+      syncAccountIdentity(this.root, this.state.locale, this.authUser);
+      this.syncAccountMenu();
+    }
+  }
+
+  async logoutFromGoogle() {
+    try {
+      await signOutGoogle();
+      this.authUser = null;
+      this.accountMenuOpen = true;
+      this.showToast(sharedT(this.state.locale, 'feedback.loggedOut'));
+    } catch (error) {
+      console.error('Google sign-out failed.', error);
+    } finally {
+      syncAccountIdentity(this.root, this.state.locale, this.authUser);
+      this.syncAccountMenu();
+    }
+  }
+
   async handleClick(event) {
     const option = event.target.closest('[data-option-path]');
     if (option) {
@@ -350,6 +405,8 @@ export class ConfiguratorUI {
     } else if (action === 'toggle-account-settings') {
       this.accountSettingsOpen = !this.accountSettingsOpen;
       this.syncAccountMenu();
+    } else if (action === 'account-login') {
+      await this.loginWithGoogle();
     } else if (action === 'account-profile') {
       this.closeHeaderMenus();
       this.showModal(this.t('modal.profileTitle'), `<p>${escapeHtml(this.t('modal.profileBody'))}</p>`);
@@ -364,8 +421,7 @@ export class ConfiguratorUI {
     } else if (action === 'cookies-placeholder') {
       this.showToast(this.t('feedback.cookiesUnavailable'));
     } else if (action === 'account-signout') {
-      this.closeHeaderMenus();
-      this.showToast(this.t('feedback.signoutPlaceholder'));
+      await this.logoutFromGoogle();
     } else if (action === 'select-language') {
       const locale = actionTarget.dataset.locale;
       const profile = LANGUAGE_PROFILES[locale];
@@ -790,6 +846,7 @@ export class ConfiguratorUI {
     darkModeButton?.setAttribute('aria-pressed', String(Boolean(this.state.darkMode)));
     darkModeSwitch?.classList.toggle('is-on', Boolean(this.state.darkMode));
     if (darkModeLabel) darkModeLabel.textContent = sharedT(this.state.locale, this.state.darkMode ? 'account.on' : 'account.off');
+    syncAccountIdentity(this.root, this.state.locale, this.authUser, { busy: this.authBusy });
   }
 
   syncLanguageMenu() {
@@ -917,6 +974,7 @@ export class ConfiguratorUI {
   }
 
   destroy() {
+    this.authUnsubscribe?.();
     this.unsubscribe?.();
     document.removeEventListener('click', this.handleDocumentClickBound);
   }

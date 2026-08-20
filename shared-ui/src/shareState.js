@@ -1,3 +1,9 @@
+import {
+  callFirebaseProtectedShareFunction,
+  getFirebaseShareProtectionStatus,
+  isFirebaseAppCheckConfigured,
+} from './firebaseAppCheck.js';
+
 const LEGACY_SHARE_PARAM = 'config';
 const COMPACT_SHARE_PARAM = 'c';
 const SHORT_SHARE_PARAM = 's';
@@ -17,7 +23,9 @@ const FIRESTORE_COLLECTION = 'sharedConfigurations';
 // the project; access is enforced by Firestore Security Rules, not by hiding them.
 const DEFAULT_FIREBASE_SHARE_CONFIG = Object.freeze({
   apiKey: 'AIzaSyBgS4VLxQYZnqW-YZJPKvuuocf5w_0kRwY',
+  authDomain: 'configurator-360.firebaseapp.com',
   projectId: 'configurator-360',
+  appId: '1:719238533149:web:9e0b8a97375731b8eaf6f4',
   databaseId: '(default)',
 });
 
@@ -89,7 +97,9 @@ function firebaseShareConfig() {
     : {};
   return {
     apiKey: String(override.apiKey || DEFAULT_FIREBASE_SHARE_CONFIG.apiKey),
+    authDomain: String(override.authDomain || DEFAULT_FIREBASE_SHARE_CONFIG.authDomain),
     projectId: String(override.projectId || DEFAULT_FIREBASE_SHARE_CONFIG.projectId),
+    appId: String(override.appId || DEFAULT_FIREBASE_SHARE_CONFIG.appId),
     databaseId: String(override.databaseId || DEFAULT_FIREBASE_SHARE_CONFIG.databaseId),
   };
 }
@@ -138,6 +148,36 @@ async function storeShareStateInFirestore(productType, state) {
     throw new Error(`This configuration is too large to share (${stateBytes} bytes).`);
   }
 
+  // App Check is intentionally lazy. Nothing reCAPTCHA-related is initialized
+  // merely by opening or using a configurator. Only a Share action reaches this
+  // branch. First ask the unprotected status endpoint whether this month's
+  // reCAPTCHA budget still permits App Check. That status request itself does not
+  // obtain an App Check token and therefore does not consume an assessment.
+  if (await isFirebaseAppCheckConfigured()) {
+    const status = await getFirebaseShareProtectionStatus(firebaseShareConfig());
+
+    if (status.mode === 'app-check') {
+      const result = await callFirebaseProtectedShareFunction(
+        'createSharedConfiguration',
+        { productType: product, stateJson },
+        firebaseShareConfig(),
+      );
+      const id = String(result?.id || '');
+      if (!FIRESTORE_SHORT_ID_PATTERN.test(id)) {
+        throw new Error('The secure share service returned an invalid share id.');
+      }
+      return id;
+    }
+
+    // At the 9,500-assessment safety threshold (or during a temporary monitoring
+    // safety fallback), sharing remains available through the existing direct
+    // Firestore transport. The backend status document opens this path in the
+    // Firestore rules only for the allowed fallback window.
+    console.info(
+      `Share protection is using the reCAPTCHA-free fallback${status.reason ? ` (${status.reason})` : ''}.`
+    );
+  }
+
   const document = {
     fields: {
       v: { integerValue: String(FIRESTORE_RECORD_VERSION) },
@@ -168,6 +208,7 @@ async function storeShareStateInFirestore(productType, state) {
 
 async function fetchShareStateFromFirestore(id, productType = '') {
   if (!FIRESTORE_SHORT_ID_PATTERN.test(String(id))) return null;
+
   const response = await fetch(firestoreUrl(`${FIRESTORE_COLLECTION}/${encodeURIComponent(id)}`), {
     headers: { Accept: 'application/json' },
   });
@@ -300,7 +341,9 @@ export async function createShareUrl({
 
 export const SHARE_STATE_FIREBASE_INFO = Object.freeze({
   projectId: DEFAULT_FIREBASE_SHARE_CONFIG.projectId,
+  appId: DEFAULT_FIREBASE_SHARE_CONFIG.appId,
   collection: FIRESTORE_COLLECTION,
+  appCheckProvider: 'recaptcha-enterprise',
   idLength: 16,
   maxUrlLength: MAX_GENERATED_URL_LENGTH,
 });
