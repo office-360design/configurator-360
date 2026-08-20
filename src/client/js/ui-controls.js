@@ -1,3 +1,4 @@
+import { getWindowLocale, windowT } from './i18n.js';
 import { WINDOW_WIDTH_MAX_M } from './config.js';
 
 const SIZE_REBUILD_INTERVAL_MS = 70;
@@ -10,8 +11,10 @@ function setSidebarCollapsed(collapsed) {
     controlsPanel.classList.toggle('sidebar-collapsed', collapsed);
     document.body.classList.toggle('sidebar-is-collapsed', collapsed);
     toggleButton.setAttribute('aria-expanded', String(!collapsed));
-    toggleButton.setAttribute('aria-label', collapsed ? 'Show sidebar' : 'Hide sidebar');
-    toggleButton.title = collapsed ? 'Show sidebar' : 'Hide sidebar';
+    const locale = getWindowLocale();
+    const sidebarLabel = windowT(locale, collapsed ? 'sidebar.show' : 'sidebar.hide');
+    toggleButton.setAttribute('aria-label', sidebarLabel);
+    toggleButton.title = sidebarLabel;
 }
 
 function changeInputValue(input, delta) {

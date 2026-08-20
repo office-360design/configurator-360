@@ -3,6 +3,7 @@ import {
     FIXED_WINDOW_TYPE,
     SASH_WINDOW_TYPE,
 } from './window-layout-state.js';
+import { getWindowLocale, windowT } from './i18n.js';
 
 const OUTER_OFFSET_M = 0.075;
 const FRONT_OFFSET_M = 0.16;
@@ -51,7 +52,7 @@ export function createWindowLayoutOverlay({
 
     const root = document.createElement('div');
     root.className = 'window-layout-overlay';
-    root.setAttribute('aria-label', 'Window layout editing controls');
+    root.setAttribute('aria-label', windowT(getWindowLocale(), 'layout.overlayAria'));
     container.appendChild(root);
 
     let renderedSignature = null;
@@ -73,16 +74,17 @@ export function createWindowLayoutOverlay({
         menu.className = 'window-type-wheel';
         menu.style.left = `${anchor.x}px`;
         menu.style.top = `${anchor.y}px`;
+        const locale = getWindowLocale();
         menu.innerHTML = `
-            <button type="button" class="window-type-wheel-option is-fixed" data-window-type="${FIXED_WINDOW_TYPE}" title="Fixed window">
+            <button type="button" class="window-type-wheel-option is-fixed" data-window-type="${FIXED_WINDOW_TYPE}" title="${windowT(locale, 'layout.fixedTitle')}">
                 <span class="window-type-wheel-icon">F</span>
-                <span>Fixed</span>
+                <span>${windowT(locale, 'layout.fixed')}</span>
             </button>
-            <button type="button" class="window-type-wheel-option is-sash" data-window-type="${SASH_WINDOW_TYPE}" title="Sash window">
+            <button type="button" class="window-type-wheel-option is-sash" data-window-type="${SASH_WINDOW_TYPE}" title="${windowT(locale, 'layout.sashTitle')}">
                 <span class="window-type-wheel-icon window-type-wheel-sash-icon"></span>
-                <span>Sash</span>
+                <span>${windowT(locale, 'layout.sash')}</span>
             </button>
-            <button type="button" class="window-type-wheel-close" aria-label="Close">×</button>
+            <button type="button" class="window-type-wheel-close" aria-label="${windowT(locale, 'layout.close')}">×</button>
         `;
         stopPointerPropagation(menu);
         menu.querySelectorAll('[data-window-type]').forEach(button => {
@@ -102,9 +104,12 @@ export function createWindowLayoutOverlay({
         button.type = 'button';
         button.className = `window-layout-node window-layout-node-${definition.kind}`;
         button.dataset.controlId = definition.id;
+        const locale = getWindowLocale();
         button.title = definition.kind === 'add'
-            ? `Add window ${definition.direction}`
-            : 'Merge windows';
+            ? windowT(locale, 'layout.add', {
+                direction: windowT(locale, `layout.direction.${definition.direction}`),
+            })
+            : windowT(locale, 'layout.merge');
         button.setAttribute('aria-label', button.title);
         button.textContent = definition.kind === 'add' ? '+' : '↔';
         stopPointerPropagation(button);
@@ -227,7 +232,17 @@ export function createWindowLayoutOverlay({
         });
     }
 
+    function handleLocaleChange() {
+        root.setAttribute('aria-label', windowT(getWindowLocale(), 'layout.overlayAria'));
+        closeWheel();
+        const state = getWindowLayoutState?.();
+        if (state?.topology) rebuildControls(state);
+    }
+
+    globalThis.window?.addEventListener('window-locale-applied', handleLocaleChange);
+
     function destroy() {
+        globalThis.window?.removeEventListener('window-locale-applied', handleLocaleChange);
         closeWheel();
         root.remove();
         controls = [];

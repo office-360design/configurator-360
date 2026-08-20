@@ -25,9 +25,10 @@ export const state = {
   customPlan: null,
   units: 'metric',
   currency: 'RON',
+  locale: 'en-US',
   currencyRate: 1,
   currencyRateDate: null,
-  currencyRateSource: 'reference currency',
+  currencyRateSource: 'reference',
   currencyRateIsFallback: false,
   excludedBomItems: [],
 };
@@ -35,14 +36,14 @@ export const state = {
 export const pitchRules = {
   generic: {
     minimum: 5,
-    note: 'Visualization preset - pitch is freely adjustable.',
+    noteKey: 'covering.rule.generic',
   },
   roca: {
     minimum: 14,
-    note: 'Mineral-granule roof preset: minimum visual pitch is set to 14°.',
+    noteKey: 'covering.rule.roca',
   },
   teclado: {
     minimum: 18,
-    note: 'Slate-style mineral tile preset: minimum visual pitch is set to 18°.',
+    noteKey: 'covering.rule.teclado',
   },
 };

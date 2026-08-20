@@ -26,6 +26,7 @@ import {
 } from './profile-catalog.js';
 import { transformCadPoint } from './profile-coordinate-transform.js';
 import { getDividerConnectionVariantKey } from './window-layout-state.js';
+import { getWindowLocale, windowT } from './i18n.js';
 
 export function createProfileController({
     isARMode,
@@ -361,10 +362,10 @@ export function createProfileController({
         }
 
         if (gasketLabel) {
-            gasketLabel.textContent = `Gasket: ${gasketCode}`;
+            gasketLabel.textContent = `${windowT(getWindowLocale(), 'component.gasket')}: ${gasketCode}`;
         }
         if (beadLabel) {
-            beadLabel.textContent = `Bead: ${beadCode}`;
+            beadLabel.textContent = `${windowT(getWindowLocale(), 'component.glazingBead')}: ${beadCode}`;
         }
     }
 
@@ -373,11 +374,12 @@ export function createProfileController({
         if (!togglesContainer) return;
         togglesContainer.innerHTML = '';
 
+        const locale = getWindowLocale();
         const groups = {
-            frame: { title: 'Frame Components', items: [] },
-            sash: { title: 'Sash / Vent Components', items: [] },
-            bead: { title: 'Glazing Bead Components', items: [] },
-            divider: { title: 'Mullion / Transom Components', items: [] },
+            frame: { title: windowT(locale, 'profile.group.frame'), items: [] },
+            sash: { title: windowT(locale, 'profile.group.sash'), items: [] },
+            bead: { title: windowT(locale, 'profile.group.bead'), items: [] },
+            divider: { title: windowT(locale, 'profile.group.divider'), items: [] },
         };
 
         profilesData.forEach(profile => {
@@ -405,7 +407,7 @@ export function createProfileController({
                     <span class="caret">▼</span>
                     <span>${groupData.title} (${groupData.items.length})</span>
                 </span>
-                <button class="btn-toggle-all-group" type="button">Toggle All</button>
+                <button class="btn-toggle-all-group" type="button">${windowT(locale, 'profile.toggleAll')}</button>
             `;
             details.appendChild(summary);
 
@@ -518,32 +520,32 @@ export function createProfileController({
 
         const filterDefinitions = [
             {
-                name: 'Frame',
+                name: windowT(getWindowLocale(), 'profile.filter.frame'),
                 match: profile => profile.materialKey === 'alu' && getProfileGroup(profile) === 'frame',
             },
             {
-                name: 'Sash',
+                name: windowT(getWindowLocale(), 'profile.filter.sash'),
                 match: profile => profile.materialKey === 'alu'
                     && ['sash', 'bead'].includes(getProfileGroup(profile)),
             },
             {
-                name: 'Gaskets and seals',
+                name: windowT(getWindowLocale(), 'profile.filter.gaskets'),
                 match: profile => profile.materialKey === 'epdm',
             },
             {
-                name: 'Drainage cover cap',
+                name: windowT(getWindowLocale(), 'profile.filter.drainage'),
                 match: profile => isDrainageCoverCap(profile),
             },
             {
-                name: 'Insulating foam',
+                name: windowT(getWindowLocale(), 'profile.filter.foam'),
                 match: profile => profile.materialKey === 'foam',
             },
             {
-                name: 'Insulating bar',
+                name: windowT(getWindowLocale(), 'profile.filter.bar'),
                 match: profile => profile.materialKey === 'iso',
             },
             {
-                name: 'Locking bars',
+                name: windowT(getWindowLocale(), 'profile.filter.locking'),
                 match: profile => profile.materialKey === 'centralSeal',
             },
         ];
@@ -1147,7 +1149,7 @@ export function createProfileController({
             console.error('Error loading the selected frame and sash profiles:', error);
             if (isARMode) {
                 getARController()?.setARStatus(
-                    `The configured profiles could not be loaded: ${error.message}`,
+                    windowT(getWindowLocale(), 'ar.profileLoadFailed', { message: error.message }),
                     true
                 );
             }
@@ -1176,6 +1178,14 @@ export function createProfileController({
         buildWindow();
         await forceSceneRender();
     }
+
+    globalThis.window?.addEventListener('window-locale-applied', () => {
+        updateComponentPictures();
+        if (profilesData.length) {
+            renderPartToggles();
+            renderGroupFilters();
+        }
+    });
 
     return {
         isGlazingBeadProfile,

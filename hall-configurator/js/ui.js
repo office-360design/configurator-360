@@ -1,7 +1,8 @@
-import { buildBom, bomToCsv } from './bom.js?v=12';
-import { estimateHallPrice, formatPrice } from './pricing.js?v=12';
-import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, wallLabel } from './openings.js?v=12';
+import { buildBom, bomToCsv } from './bom.js?v=13';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=13';
+import { normalizeOpening, normalizeOpenings, openingType, validateOpenings } from './openings.js?v=13';
 import { getHeaProfile } from './heaProfiles.js?v=12';
+import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=1';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
@@ -12,19 +13,15 @@ const formatters = {
   sectionCutPosition: (v) => `${Math.round(v)}%`,
 };
 
-const climateNotes = {
-  none: 'General warehouse envelope with no active refrigeration package.',
-  comfort: 'Comfort HVAC package with external condenser units and indoor air handling.',
-  chilled: 'Chilled-storage package intended for approximately +2 to +8 °C operation.',
-  frozen: 'Frozen-storage package intended for approximately -20 °C operation with additional refrigeration capacity.',
-};
+
 
 const modelSelects = new Set(['structurePreset', 'claddingProfile', 'buildingUse', 'climateSystem', 'rackDensity']);
 
 export class HallUI {
-  constructor(state, callbacks) {
+  constructor(state, callbacks, locale = resolveHallLocale()) {
     this.state = state;
     this.callbacks = callbacks;
+    this.locale = locale;
     this.currentBuild = null;
     this.selectedOpeningId = null;
     this.placementType = null;
@@ -38,6 +35,18 @@ export class HallUI {
     this.bindBom();
     this.bindOpeningControls();
     this.applyStateToControls();
+  }
+
+  t(key, variables = {}) { return hallT(this.locale, key, variables); }
+
+  setLocale(locale = resolveHallLocale()) {
+    this.locale = locale;
+    applyHallTranslations(locale);
+    this.updateClimateNote();
+    this.setExplodeValue(this.state.explode, { notify: false });
+    this.setPlacementMode(this.placementType);
+    this.setSelectedOpening(this.selectedOpeningId);
+    if (this.currentBuild) this.update(this.currentBuild);
   }
 
   bindAccordions() {
@@ -184,7 +193,7 @@ export class HallUI {
     const button = document.querySelector('#explodeToggleButton');
     if (range) range.value = String(this.state.explode);
     if (output) output.textContent = `${Math.round(this.state.explode)}%`;
-    if (button) button.textContent = this.state.explode > 0 ? 'Assemble' : 'Explode';
+    if (button) button.textContent = this.t(this.state.explode > 0 ? 'display.assemble' : 'display.explode');
     if (notify) this.callbacks.onExplode?.(this.state.explode);
   }
 
@@ -236,7 +245,7 @@ export class HallUI {
       else dialog?.removeAttribute('open');
     };
     document.querySelector('#bomOpenButton')?.addEventListener('click', () => {
-      if (!validateOpenings(this.state).valid) { this.updateSummaryValidation(); return; }
+      if (!validateOpenings(this.state, this.locale).valid) { this.updateSummaryValidation(); return; }
       if (!dialog) return;
       if (dialog.showModal) dialog.showModal();
       else dialog.setAttribute('open', '');
@@ -249,9 +258,9 @@ export class HallUI {
 
   exportBom() {
     if (!this.currentBuild) return;
-    if (!validateOpenings(this.state).valid) { this.updateSummaryValidation(); return; }
-    const lines = buildBom(this.state, this.currentBuild);
-    const blob = new Blob([`\ufeff${bomToCsv(lines)}`], { type: 'text/csv;charset=utf-8' });
+    if (!validateOpenings(this.state, this.locale).valid) { this.updateSummaryValidation(); return; }
+    const lines = buildBom(this.state, this.currentBuild, this.locale);
+    const blob = new Blob([`\ufeff${bomToCsv(lines, this.locale)}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -316,15 +325,15 @@ export class HallUI {
       button.disabled = Boolean(type) && !active;
       const label = button.querySelector('b');
       const icon = button.querySelector('span');
-      if (label) label.textContent = active ? 'Cancel placement' : `Add ${openingType(button.dataset.addOpening).label.toLowerCase()}`;
+      if (label) label.textContent = active ? this.t('openings.cancelPlacement') : this.t(`openings.add.${button.dataset.addOpening}`);
       if (icon) icon.textContent = active ? '×' : '＋';
     });
     const status = document.querySelector('#openingStatusText');
     if (status && type) {
-      status.textContent = `Placing ${openingType(type).label.toLowerCase()}: move over any wall and click to confirm. Right-click or use Cancel placement to cancel.`;
+      status.textContent = this.t('openings.placing', { type: hallOpeningLabel(type, this.locale).toLocaleLowerCase(this.locale) });
       status.classList.remove('is-error');
     } else if (status && !this.selectedOpeningId) {
-      status.textContent = 'Select an opening in the model to edit it.';
+      status.textContent = this.t('openings.selectPrompt');
     }
   }
 
@@ -335,12 +344,12 @@ export class HallUI {
     if (!editor || !opening) {
       if (editor) editor.hidden = true;
       const status = document.querySelector('#openingStatusText');
-      if (status && !this.placementType) status.textContent = 'Select an opening in the model to edit it.';
+      if (status && !this.placementType) status.textContent = this.t('openings.selectPrompt');
       return;
     }
     editor.hidden = false;
-    document.querySelector('#openingEditorTitle').textContent = openingType(opening.type).label;
-    document.querySelector('#openingEditorSide').textContent = wallLabel(opening.side);
+    document.querySelector('#openingEditorTitle').textContent = hallOpeningLabel(opening.type, this.locale);
+    document.querySelector('#openingEditorSide').textContent = hallWallLabel(opening.side, { locale: this.locale });
     const sideSelect = document.querySelector('#openingSideSelect');
     if (sideSelect) sideSelect.value = opening.side;
     const spec = openingType(opening.type);
@@ -360,7 +369,7 @@ export class HallUI {
     if (colorInput) colorInput.value = opening.color;
     this.updateOpeningValidation();
     const status = document.querySelector('#openingStatusText');
-    if (status && !this.placementType) status.textContent = `${openingType(opening.type).label} selected · drag to move, use its borders or square handles to resize.`;
+    if (status && !this.placementType) status.textContent = this.t('openings.selected', { type: hallOpeningLabel(opening.type, this.locale) });
   }
 
   positionOpeningEditor(x, y, visible = true) {
@@ -375,21 +384,21 @@ export class HallUI {
   }
 
   updateOpeningValidation() {
-    const validation = validateOpenings(this.state);
+    const validation = validateOpenings(this.state, this.locale);
     const selected = this.getSelectedOpening();
     const warning = document.querySelector('#openingEditorWarning');
     if (warning) {
       const related = selected ? validation.overlaps.filter(({ a, b }) => a.id === selected.id || b.id === selected.id) : [];
       warning.hidden = related.length === 0;
-      warning.textContent = related.length ? 'This opening overlaps another opening. Move or resize it before generating the summary.' : '';
+      warning.textContent = related.length ? this.t('openings.overlapWarning') : '';
     }
     const status = document.querySelector('#openingStatusText');
     if (status && !validation.valid && !this.placementType) {
       status.classList.add('is-error');
-      status.textContent = `${validation.errors.length} opening collision${validation.errors.length === 1 ? '' : 's'} must be resolved.`;
+      status.textContent = this.t('openings.collisionCount', { count: validation.errors.length, suffix: this.locale === 'en-US' && validation.errors.length !== 1 ? 's' : '' });
     } else if (status) {
       status.classList.remove('is-error');
-      if (!this.placementType && !selected) status.textContent = 'Select an opening in the model to edit it.';
+      if (!this.placementType && !selected) status.textContent = this.t('openings.selectPrompt');
     }
     return validation;
   }
@@ -400,7 +409,7 @@ export class HallUI {
 
   updateClimateNote() {
     const note = document.querySelector('#climateNote');
-    if (note) note.textContent = climateNotes[this.state.climateSystem] ?? climateNotes.none;
+    if (note) note.textContent = this.t(`climate.note.${this.state.climateSystem}`);
   }
 
   applyStateToControls() {
@@ -475,15 +484,15 @@ export class HallUI {
     this.currentBuild = build;
     const { metrics } = build;
     document.querySelector('#frameCountInfo').textContent = String(metrics.frameCount);
-    document.querySelector('#actualSpacingInfo').textContent = `${metrics.bayCount} bays · ${metrics.actualBaySpacing.toFixed(2)} m actual spacing`;
+    document.querySelector('#actualSpacingInfo').textContent = this.t('structure.spacingInfo', { bays: metrics.bayCount, spacing: metrics.actualBaySpacing.toFixed(2) });
     const profileInfo = document.querySelector('#profileInfo');
-    if (profileInfo && build.profileSchedule) profileInfo.textContent = `${build.profileSchedule.columns} columns · ${build.profileSchedule.rafters} rafters · ${build.profileSchedule.purlins} purlins`;
+    if (profileInfo && build.profileSchedule) profileInfo.textContent = this.t('structure.profileInfo', build.profileSchedule);
 
     this.updateHeaReference();
 
-    const openingValidation = validateOpenings(this.state);
-    const lines = openingValidation.valid ? buildBom(this.state, build) : [];
-    document.querySelector('#headerBomSummary').textContent = openingValidation.valid ? `${lines.length} lines` : 'Unavailable';
+    const openingValidation = validateOpenings(this.state, this.locale);
+    const lines = openingValidation.valid ? buildBom(this.state, build, this.locale) : [];
+    document.querySelector('#headerBomSummary').textContent = openingValidation.valid ? this.t('summary.lines', { count: lines.length }) : this.t('summary.unavailableShort');
     const tbody = document.querySelector('#bomTableBody');
     tbody.replaceChildren(...lines.map((line, index) => {
       const tr = document.createElement('tr');
@@ -492,12 +501,12 @@ export class HallUI {
     }));
 
     const assumptions = [
-      ['Footprint', `${metrics.footprint.toFixed(1)} m²`],
-      ['Roof area', `${metrics.roofArea.toFixed(1)} m²`],
-      ['Net wall area', `${metrics.netWallArea.toFixed(1)} m²`],
-      ['Portal frames', `${metrics.frameCount}`],
-      ['Bays', `${metrics.bayCount}`],
-      ['Actual spacing', `${metrics.actualBaySpacing.toFixed(2)} m`],
+      [this.t('summary.metric.footprint'), `${metrics.footprint.toFixed(1)} m²`],
+      [this.t('summary.metric.roofArea'), `${metrics.roofArea.toFixed(1)} m²`],
+      [this.t('summary.metric.netWallArea'), `${metrics.netWallArea.toFixed(1)} m²`],
+      [this.t('summary.metric.frames'), `${metrics.frameCount}`],
+      [this.t('summary.metric.bays'), `${metrics.bayCount}`],
+      [this.t('summary.metric.spacing'), `${metrics.actualBaySpacing.toFixed(2)} m`],
     ];
     const grid = document.querySelector('#bomAssumptions');
     grid.replaceChildren(...assumptions.map(([label, value]) => {
@@ -511,12 +520,12 @@ export class HallUI {
 
   updateSummary(lines, metrics) {
     if (!this.updateSummaryValidation()) return;
-    const estimate = estimateHallPrice(this.state, this.currentBuild);
-    document.querySelector('#summaryTotal').textContent = formatPrice(estimate.total, estimate.currency);
+    const estimate = estimateHallPrice(this.state, this.currentBuild, this.locale);
+    document.querySelector('#summaryTotal').textContent = formatPrice(estimate.total, estimate.currency, this.locale);
     const breakdown = document.querySelector('#summaryPriceBreakdown');
     breakdown.replaceChildren(...[
-      ...estimate.items.map((item) => [item.label, formatPrice(item.amount, estimate.currency)]),
-      ['Engineering & installation allowance', formatPrice(estimate.engineeringAndInstall, estimate.currency)],
+      ...estimate.items.map((item) => [item.label, formatPrice(item.amount, estimate.currency, this.locale)]),
+      [this.t('pricing.engineering'), formatPrice(estimate.engineeringAndInstall, estimate.currency, this.locale)],
     ].map(([label, value]) => {
       const row = document.createElement('div');
       row.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
@@ -524,7 +533,7 @@ export class HallUI {
     }));
 
     const metricsBox = document.querySelector('#summaryMetrics');
-    metricsBox.innerHTML = `<div><span>Footprint</span><strong>${metrics.footprint.toFixed(1)} m²</strong></div><div><span>Portal frames</span><strong>${metrics.frameCount}</strong></div><div><span>Use</span><strong>${this.state.buildingUse.replace('-', ' ')}</strong></div><div><span>Climate</span><strong>${this.state.climateSystem}</strong></div>`;
+    metricsBox.innerHTML = `<div><span>${this.t('summary.metric.footprint')}</span><strong>${metrics.footprint.toFixed(1)} m²</strong></div><div><span>${this.t('summary.metric.frames')}</span><strong>${metrics.frameCount}</strong></div><div><span>${this.t('summary.metric.use')}</span><strong>${hallValueLabel('buildingUse', this.state.buildingUse, this.locale)}</strong></div><div><span>${this.t('summary.metric.climate')}</span><strong>${hallValueLabel('climateSystem', this.state.climateSystem, this.locale)}</strong></div>`;
 
     const preview = document.querySelector('#summaryBomList');
     preview.replaceChildren(...lines.slice(0, 8).map((line) => {
@@ -535,20 +544,20 @@ export class HallUI {
     if (lines.length > 8) {
       const more = document.createElement('div');
       more.className = 'summary-bom-more';
-      more.textContent = `+ ${lines.length - 8} additional BOM lines`;
+      more.textContent = this.t('summary.moreBom', { count: lines.length - 8 });
       preview.append(more);
     }
   }
 
   updateSummaryValidation() {
-    const validation = validateOpenings(this.state);
+    const validation = validateOpenings(this.state, this.locale);
     const error = document.querySelector('#summaryValidationError');
     const content = document.querySelector('#summaryContent');
     const exportInline = document.querySelector('#bomExportInlineButton');
     const bomOpen = document.querySelector('#bomOpenButton');
     if (error) {
       error.hidden = validation.valid;
-      error.innerHTML = validation.valid ? '' : `<strong>Summary unavailable</strong>${validation.errors.join('<br>')} Resolve all overlapping wall openings before pricing or BOM generation.`;
+      error.innerHTML = validation.valid ? '' : `<strong>${this.t('summary.unavailable')}</strong>${validation.errors.join('<br>')} ${this.t('summary.resolveOverlaps')}`;
     }
     content?.classList.toggle('is-blocked', !validation.valid);
     if (exportInline) exportInline.disabled = !validation.valid;

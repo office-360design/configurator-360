@@ -1,3 +1,5 @@
+import { getWindowLocale, windowT } from './i18n.js';
+
 export function createCadReferenceController({
     captureMode,
     isARMode,
@@ -64,7 +66,7 @@ export function createCadReferenceController({
         if (!mainImage || !thumbnails) return;
 
         mainImage.src = image.url;
-        mainImage.alt = `CAD section reference: ${readableScreenshotName(image.filename)}`;
+        mainImage.alt = windowT(getWindowLocale(), 'cad.imageAlt', { name: readableScreenshotName(image.filename) });
 
         thumbnails
             .querySelectorAll('.cad-reference-thumb')
@@ -107,17 +109,17 @@ export function createCadReferenceController({
 
         const profileName = getProfileSetId();
         button.disabled = true;
-        button.title = 'Checking CAD references…';
+        button.title = windowT(getWindowLocale(), 'cad.checking');
 
         try {
             const images = await fetchImages(profileName);
             button.disabled = images.length === 0;
             button.title = images.length
-                ? `CAD Section Reference (${images.length})`
-                : 'No CAD references';
+                ? windowT(getWindowLocale(), 'cad.referenceCount', { count: images.length })
+                : windowT(getWindowLocale(), 'cad.noReferences');
         } catch (error) {
             button.disabled = true;
-            button.title = 'CAD references unavailable';
+            button.title = windowT(getWindowLocale(), 'cad.unavailable');
             console.warn('Could not load CAD reference screenshots:', error);
         }
     }
@@ -133,14 +135,14 @@ export function createCadReferenceController({
         }
 
         status.style.display = 'block';
-        status.textContent = 'Loading reference screenshots…';
+        status.textContent = windowT(getWindowLocale(), 'cad.loading');
         content.style.display = 'none';
 
         try {
             const images = await fetchImages(profileName);
 
             if (!images.length) {
-                status.textContent = 'No screenshots were found for this CAD profile.';
+                status.textContent = windowT(getWindowLocale(), 'cad.noneFound');
                 return;
             }
 
@@ -148,7 +150,7 @@ export function createCadReferenceController({
             status.style.display = 'none';
             content.style.display = 'grid';
         } catch (error) {
-            status.textContent = `Reference screenshots could not be loaded: ${error.message}`;
+            status.textContent = windowT(getWindowLocale(), 'cad.loadFailed', { message: error.message });
         }
     }
 
@@ -156,9 +158,23 @@ export function createCadReferenceController({
         modal?.classList.remove('open');
     }
 
+    function handleLocaleChange() {
+        if (modal?.classList.contains('open') && status?.style.display !== 'none') {
+            status.textContent = windowT(getWindowLocale(), 'cad.loading');
+        }
+        void refreshAvailability();
+    }
+
+    globalThis.window?.addEventListener('window-locale-applied', handleLocaleChange);
+
+    function destroy() {
+        globalThis.window?.removeEventListener('window-locale-applied', handleLocaleChange);
+    }
+
     return {
         refreshAvailability,
         openModal,
         closeModal,
+        destroy,
     };
 }

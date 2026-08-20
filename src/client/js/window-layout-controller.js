@@ -16,6 +16,7 @@ import {
     setWindowStateDividerProfile,
     setWindowTypeInState,
 } from './window-layout-state.js';
+import { getWindowLocale, localizeLayoutLabel } from './i18n.js';
 
 export const DEFAULT_WINDOW_LAYOUT_ID = 'single';
 export const DEFAULT_DIVIDER_PROFILE_ID = '575800';
@@ -334,7 +335,10 @@ export function createWindowLayoutController({
         if (layoutInput) {
             replaceSelectOptions(
                 layoutInput,
-                Object.values(WINDOW_LAYOUTS).map(layout => ({ value: layout.id, label: layout.label })),
+                Object.values(WINDOW_LAYOUTS).map(layout => ({
+                    value: layout.id,
+                    label: localizeLayoutLabel(getWindowLocale(), layout.id, layout.label),
+                })),
                 layoutId === 'dynamic' ? DEFAULT_WINDOW_LAYOUT_ID : layoutId
             );
         }
@@ -434,6 +438,7 @@ export function createWindowLayoutController({
         syncControls();
         layoutInput?.addEventListener('change', () => setLayout(layoutInput.value));
         dividerProfileInput?.addEventListener('change', () => setDividerProfile(dividerProfileInput.value));
+        globalThis.window?.addEventListener('window-locale-applied', syncControls);
     }
 
     function appendUrlParams(target) {

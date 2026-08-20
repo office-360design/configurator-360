@@ -201,3 +201,12 @@ export function getLocalizedConfigurators(locale: Locale): Configurator[] {
 export function getLocalizedConfigurator(locale: Locale, slug: string) {
   return getLocalizedConfigurators(locale).find((item) => item.slug === slug);
 }
+
+
+export function requireLocalizedConfigurator(locale: Locale, slug: string): Configurator {
+  const item = getLocalizedConfigurator(locale, slug);
+  if (!item) {
+    throw new Error(`Unknown configurator slug "${slug}" for locale "${locale}".`);
+  }
+  return item;
+}
