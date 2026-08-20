@@ -12,44 +12,73 @@ This backend owns temporary configurator share links stored in `sharedConfigurat
 - `sharedConfigurations.s` is not indexed because it is only read by document ID.
 - `sharedConfigurations.expiresAt` has TTL enabled and ordinary indexing disabled.
 
-## App Check share transport
+## Lazy App Check / reCAPTCHA Enterprise policy
 
-The secure production transport uses two callable Functions:
+App Check protects **share creation only**. Opening an existing share by its 16-character bearer ID stays reCAPTCHA-free.
 
-- `createSharedConfiguration`
-- `getSharedConfiguration`
+The browser does not initialize reCAPTCHA/App Check on page load. The flow is:
 
-Both set `enforceAppCheck: true`. No Firebase Authentication account is required; App Check attests the web application, not the end user.
+1. The user presses **Share**.
+2. The browser calls the public `getShareProtectionStatus` function by raw HTTP. This request does not initialize App Check and does not create an assessment.
+3. If the current month is below the safety threshold, the browser lazily initializes App Check and calls `createSharedConfiguration`, which has `enforceAppCheck: true`.
+4. App Check token auto-refresh is disabled. A cached token is reused while valid; a new assessment occurs only when a later Share action needs a new token.
+5. If the monthly safety threshold is active, the browser uses the existing direct-Firestore share path instead. The Firestore-created trigger still applies the same 200 MiB/90-day policy.
 
-The browser initializes App Check with the reCAPTCHA Enterprise provider from `shared-ui/src/firebaseAppCheck.js`. The public site key lives in `shared-ui/firebase-app-check.json`.
+### Monthly assessment safety threshold
 
-During rollout, an empty `siteKey` keeps the previous direct-Firestore share path active. This is deliberate: deploy the backend first, register the web app in Firebase App Check, configure the site key, deploy the frontend, and verify App Check metrics before removing the legacy Firestore access rules.
+- Hard safety threshold: **9,500 assessments per UTC calendar month**.
+- Internal warning thresholds: **8,000**, **9,000**, and **9,400**.
+- At 9,500 or more, `getShareProtectionStatus` records `legacyFallbackEnabled = true` until the first instant of the next UTC month.
+- Firestore rules then temporarily reopen direct share creation even after secure App Check mode has already been activated.
+- At the next month boundary, `fallbackUntil` expires automatically. The next Share interaction reads the new month's count and returns to App Check without manual intervention.
+- If Cloud Monitoring cannot be read, Share temporarily falls back to the reCAPTCHA-free path for 10 minutes, preserving availability while avoiding unmetered assessments.
 
-Do **not** enable project-wide Cloud Firestore App Check enforcement solely for the configurator share feature unless every other web/mobile app using this Firebase project's Firestore has also been registered with App Check. This Firebase project contains other collections and clients. The callable Functions provide per-feature enforcement without disrupting them.
+Cloud Monitoring metric used:
+
+`recaptchaenterprise.googleapis.com/assessment_count`
+
+The status function caches the metric for 60 seconds. Google's metric itself is sampled every 60 seconds and may appear with additional delay, so the 500-assessment gap between 9,500 and the 10,000 no-cost allowance is intentional safety headroom.
+
+### Internal warning / mode-change logs
+
+Search Cloud Logging for these structured event values:
+
+- `recaptcha-assessment-usage-warning`
+- `recaptcha-hard-cap-fallback-activated`
+- `recaptcha-protection-auto-restored`
+- `recaptcha-monitoring-unavailable-fallback`
+
+The current internal state is also stored in:
+
+`sharedConfigurationSystem/appCheckUsage`
+
+Clients cannot read or write that document. It records the current month, latest assessment count, warning level, emitted warning thresholds, fallback window, and whether secure mode has been activated successfully at least once.
+
+## Rollout and direct-Firestore fallback security
+
+Before the first successful App Check-protected Share, direct Firestore create remains available so deploying the code before the reCAPTCHA site key cannot break Share.
+
+The first successful `createSharedConfiguration` call sets `secureModeActive = true` in the private control document. From then on, Firestore Security Rules reject direct share creation unless the backend has explicitly opened a valid fallback window because the 9,500 threshold was reached or Monitoring temporarily failed.
+
+This means an external client cannot simply bypass App Check by choosing the direct Firestore endpoint after secure mode has been activated.
 
 ## reCAPTCHA Enterprise / App Check setup
 
-1. In Google Cloud Console, open **reCAPTCHA Enterprise** and create a **Website** score-based key. Do not enable a checkbox challenge.
-2. Add every production hostname that serves a configurator, for example:
-   - `aks.360configurator.com`
-   - `360configurator.com`
-   - `www.360configurator.com`
-   - `360configurator.ro`
-   - `www.360configurator.ro`
-   - `360konfigurator.de`
-   - `www.360konfigurator.de`
-3. In Firebase Console, open **Security → App Check**, select the second `360configurator` web app (App ID `1:719238533149:web:9e0b8a97375731b8ea6f4`) and register the reCAPTCHA Enterprise provider with that site key.
-4. Keep the default 1-hour App Check token TTL initially and the default risk threshold unless monitoring shows a reason to change them.
-5. Paste the public site key into `shared-ui/firebase-app-check.json` and deploy.
-6. Create and open several share links from production. Check **Firebase → App Check → Metrics** and confirm the callable Functions receive valid App Check traffic.
-7. After verification, remove the legacy direct Firestore share path/rules in a follow-up hardening change.
+1. In Google Cloud Console, enable **reCAPTCHA Enterprise API** if required.
+2. Create a **Website** score-based key. Do not enable a checkbox challenge.
+3. Add every production hostname that serves a configurator.
+4. In Firebase Console, open **Security → App Check**, select the second `360configurator` web app (App ID `1:719238533149:web:9e0b8a97375731b8ea6f4`) and register **reCAPTCHA Enterprise** using that site key.
+5. Keep the default **1-hour token TTL** initially and the default/recommended risk threshold unless metrics justify changing it.
+6. Put the public site key in `shared-ui/firebase-app-check.json`.
+7. Ensure the runtime service account has `roles/monitoring.viewer` and the Cloud Monitoring API is enabled.
+8. Deploy and press Share once. Confirm the protected callable succeeds and `sharedConfigurationSystem/appCheckUsage.secureModeActive` becomes `true`.
 
-For localhost development, `debugOnLocalhost` enables the App Check debug provider automatically. The browser console prints a debug token the first time; register that token under Firebase App Check debug tokens before local secure-share calls will succeed.
+Do **not** enable project-wide Cloud Firestore App Check enforcement just for this feature, because this Firebase project contains unrelated collections and may have other clients. Per-function `enforceAppCheck: true` protects secure share creation without affecting those applications.
+
+For localhost development, `debugOnLocalhost` uses the Firebase App Check debug provider. Register the printed debug token in Firebase App Check before testing secure Share locally.
 
 ## Deployment
 
-`.github/workflows/deploy-firebase-share.yml` deploys automatically when `firebase-share-backend/**` changes on `main`, and can also be run manually.
+`.github/workflows/deploy-firebase-share.yml` deploys automatically when `firebase-share-backend/**` changes on `main` and can also be run manually.
 
-The workflow deploys Functions first, then Firestore rules/indexes only after Functions succeed. This prevents a failed Functions deployment from changing client-access policy halfway through a release.
-
-The one-time IAM bootstrap is `iam/setup-github-deployer.sh`.
+The one-time IAM helper is `iam/setup-github-deployer.sh`. It now also grants `roles/monitoring.viewer` to `configurator-runtime`.

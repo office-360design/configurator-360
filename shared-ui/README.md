@@ -44,10 +44,8 @@ product state and rebuild logic are configurator-specific.
 
 The marketing website remains the richer SEO surface. The standalone configurators stay indexable, but use this helper for a smaller, product-focused SEO identity.
 
-## Firebase App Check for share links
+## Share App Check behaviour
 
-`src/firebaseAppCheck.js` provides the common browser App Check client for Window, Roof, Pergola and Hall share links. It uses Firebase JS SDK 12.17.1 from Google's official CDN and the reCAPTCHA Enterprise provider.
+`src/firebaseAppCheck.js` implements lazy reCAPTCHA Enterprise/App Check for share creation. It does not initialize App Check on page load and disables background token auto-refresh. `shareState.js` first asks the Firebase backend whether the current month's reCAPTCHA safety budget permits App Check. Below 9,500 assessments it uses the App Check-protected callable create function; at/above the threshold it transparently uses the existing reCAPTCHA-free Firestore share path. Opening an existing shared link stays reCAPTCHA-free.
 
-The runtime configuration is `firebase-app-check.json`. Leave `siteKey` empty while preparing the backend; an empty key keeps the legacy Firestore transport active. Once the second `360configurator` Firebase web app is registered for App Check, paste its public reCAPTCHA Enterprise site key there. From that point on, `shareState.js` uses the App Check-enforced callable Functions instead of direct Firestore requests.
-
-Localhost uses Firebase's App Check debug mode when `debugOnLocalhost` is true. Register the debug token printed in the browser console in Firebase App Check before testing secure shares locally.
+The public reCAPTCHA Enterprise site key is configured in `firebase-app-check.json`.

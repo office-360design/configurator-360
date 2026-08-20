@@ -44,22 +44,20 @@ jobs:
 
       - name: Install Firebase function dependencies
         working-directory: firebase-share-backend/functions
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
 
       - name: Validate Firebase function source
         working-directory: firebase-share-backend/functions
         run: node --check index.js
 
-      - name: Deploy App Check share functions
+      - name: Deploy share functions
         working-directory: firebase-share-backend
         run: >-
           npx --yes firebase-tools@latest deploy
           --project "${GCP_PROJECT_ID}"
-          --only functions:enforceSharedConfigurationQuota,functions:createSharedConfiguration,functions:getSharedConfiguration
+          --only functions:enforceSharedConfigurationQuota,functions:createSharedConfiguration,functions:getShareProtectionStatus
           --non-interactive
 
-      # Deploy Firestore policy only after all Functions are healthy. This avoids
-      # changing client-access rules if a Functions deployment ever fails midway.
       - name: Deploy Firestore rules, TTL and index exemptions
         working-directory: firebase-share-backend
         run: >-
@@ -73,10 +71,13 @@ jobs:
         run: |
           echo "## Firebase share backend deployed" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Functions: enforceSharedConfigurationQuota, createSharedConfiguration, getSharedConfiguration" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Functions: enforceSharedConfigurationQuota, createSharedConfiguration, getShareProtectionStatus" >> "$GITHUB_STEP_SUMMARY"
+          echo "- App Check: lazy, Share-action only; background token refresh disabled" >> "$GITHUB_STEP_SUMMARY"
+          echo "- reCAPTCHA monthly safety threshold: 9,500 assessments" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Automatic fallback: reCAPTCHA-free direct Firestore Share until next UTC month" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Internal warnings: 8,000 / 9,000 / 9,400 assessments" >> "$GITHUB_STEP_SUMMARY"
           echo "- Share payload quota: 200 MiB" >> "$GITHUB_STEP_SUMMARY"
           echo "- FIFO cleanup chunk: 1 MiB minimum" >> "$GITHUB_STEP_SUMMARY"
           echo "- Share lifetime: 90 days" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Secure share transport: App Check + reCAPTCHA Enterprise callable Functions" >> "$GITHUB_STEP_SUMMARY"
           echo "- Firestore TTL: sharedConfigurations.expiresAt" >> "$GITHUB_STEP_SUMMARY"
           echo "- Unindexed fields: sharedConfigurations.s, sharedConfigurations.expiresAt" >> "$GITHUB_STEP_SUMMARY"

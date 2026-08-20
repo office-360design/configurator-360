@@ -1,4 +1,8 @@
-import { callFirebaseShareFunction, isFirebaseAppCheckConfigured } from './firebaseAppCheck.js';
+import {
+  callFirebaseProtectedShareFunction,
+  getFirebaseShareProtectionStatus,
+  isFirebaseAppCheckConfigured,
+} from './firebaseAppCheck.js';
 
 const LEGACY_SHARE_PARAM = 'config';
 const COMPACT_SHARE_PARAM = 'c';
@@ -142,21 +146,34 @@ async function storeShareStateInFirestore(productType, state) {
     throw new Error(`This configuration is too large to share (${stateBytes} bytes).`);
   }
 
-  // Once a reCAPTCHA Enterprise site key is configured, all new shares go
-  // through an App Check-enforced callable function. During the rollout phase,
-  // an empty site key keeps the legacy direct-Firestore path alive so enabling
-  // App Check cannot unexpectedly break production sharing.
+  // App Check is intentionally lazy. Nothing reCAPTCHA-related is initialized
+  // merely by opening or using a configurator. Only a Share action reaches this
+  // branch. First ask the unprotected status endpoint whether this month's
+  // reCAPTCHA budget still permits App Check. That status request itself does not
+  // obtain an App Check token and therefore does not consume an assessment.
   if (await isFirebaseAppCheckConfigured()) {
-    const result = await callFirebaseShareFunction(
-      'createSharedConfiguration',
-      { productType: product, stateJson },
-      firebaseShareConfig(),
-    );
-    const id = String(result?.id || '');
-    if (!FIRESTORE_SHORT_ID_PATTERN.test(id)) {
-      throw new Error('The secure share service returned an invalid share id.');
+    const status = await getFirebaseShareProtectionStatus(firebaseShareConfig());
+
+    if (status.mode === 'app-check') {
+      const result = await callFirebaseProtectedShareFunction(
+        'createSharedConfiguration',
+        { productType: product, stateJson },
+        firebaseShareConfig(),
+      );
+      const id = String(result?.id || '');
+      if (!FIRESTORE_SHORT_ID_PATTERN.test(id)) {
+        throw new Error('The secure share service returned an invalid share id.');
+      }
+      return id;
     }
-    return id;
+
+    // At the 9,500-assessment safety threshold (or during a temporary monitoring
+    // safety fallback), sharing remains available through the existing direct
+    // Firestore transport. The backend status document opens this path in the
+    // Firestore rules only for the allowed fallback window.
+    console.info(
+      `Share protection is using the reCAPTCHA-free fallback${status.reason ? ` (${status.reason})` : ''}.`
+    );
   }
 
   const document = {
@@ -189,24 +206,6 @@ async function storeShareStateInFirestore(productType, state) {
 
 async function fetchShareStateFromFirestore(id, productType = '') {
   if (!FIRESTORE_SHORT_ID_PATTERN.test(String(id))) return null;
-
-  if (await isFirebaseAppCheckConfigured()) {
-    try {
-      const result = await callFirebaseShareFunction(
-        'getSharedConfiguration',
-        { shareId: String(id), productType: normalizeProductType(productType) },
-        firebaseShareConfig(),
-      );
-      const stateJson = result?.stateJson;
-      if (typeof stateJson !== 'string') return null;
-      const parsed = JSON.parse(stateJson);
-      return parsed && typeof parsed === 'object' ? parsed : null;
-    } catch (error) {
-      const code = String(error?.code || '');
-      if (code.endsWith('/not-found') || code.endsWith('/failed-precondition')) return null;
-      throw error;
-    }
-  }
 
   const response = await fetch(firestoreUrl(`${FIRESTORE_COLLECTION}/${encodeURIComponent(id)}`), {
     headers: { Accept: 'application/json' },

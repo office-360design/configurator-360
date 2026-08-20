@@ -3,35 +3,49 @@
 const { onInit } = require('firebase-functions/v2/core');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
+const logger = require('firebase-functions/logger');
 const { randomBytes } = require('node:crypto');
+const { GoogleAuth } = require('google-auth-library');
 const { initializeApp } = require('firebase-admin/app');
-const { AggregateField, Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { AggregateField, FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestore');
 
 // Firebase CLI loads this module during deployment to discover exported functions.
-// Defer Admin/Firestore initialization until the deployed runtime starts so function
-// discovery does not need to initialize Firebase services on the developer machine.
+// Defer Admin/Monitoring initialization until the deployed runtime starts so
+// discovery does not initialize Google services on the developer machine.
 let db;
+let monitoringAuth;
 onInit(() => {
   initializeApp();
   db = getFirestore();
+  monitoringAuth = new GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/monitoring.read'],
+  });
 });
 
+const PROJECT_ID = 'configurator-360';
 const SHARES_COLLECTION = 'sharedConfigurations';
+const SYSTEM_COLLECTION = 'sharedConfigurationSystem';
+const APP_CHECK_USAGE_DOCUMENT = 'appCheckUsage';
 const FIRESTORE_RECORD_VERSION = 1;
-const SHARE_ID_PATTERN = /^[A-Za-z0-9_-]{16}$/;
 const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar']);
 const MAX_TOTAL_BYTES = 200 * 1024 * 1024;       // 200 MiB
 const CLEANUP_CHUNK_BYTES = 1 * 1024 * 1024;     // 1 MiB
-const MAX_SINGLE_SHARE_BYTES = 850_000;           // keep headroom below Firestore's document limit
+const MAX_SINGLE_SHARE_BYTES = 850_000;           // headroom below Firestore's document limit
 const SHARE_LIFETIME_MS = 90 * 24 * 60 * 60 * 1000;
-const CLEANUP_QUERY_BATCH = 400;                  // below Firestore's 500-write batch limit
+const CLEANUP_QUERY_BATCH = 400;
 const FUNCTION_REGION = 'europe-west1';
 const RUNTIME_SERVICE_ACCOUNT = 'configurator-runtime@configurator-360.iam.gserviceaccount.com';
+
+// reCAPTCHA Enterprise / App Check budget policy.
+const RECAPTCHA_ASSESSMENT_METRIC = 'recaptchaenterprise.googleapis.com/assessment_count';
+const RECAPTCHA_MONTHLY_HARD_CAP = 9_500;
+const RECAPTCHA_WARNING_THRESHOLDS = Object.freeze([8_000, 9_000, 9_400]);
+const USAGE_STATUS_CACHE_MS = 60 * 1000;
+const MONITORING_FAILURE_FALLBACK_MS = 10 * 60 * 1000;
 
 function utf8ByteLength(value) {
   return Buffer.byteLength(String(value ?? ''), 'utf8');
 }
-
 
 function normalizeProductType(value) {
   return String(value ?? '').trim().toLowerCase();
@@ -68,11 +82,30 @@ function validateSharePayload(productType, stateJson) {
   return { product, sizeBytes };
 }
 
+function utcMonthWindow(nowMs = Date.now()) {
+  const now = new Date(nowMs);
+  const year = now.getUTCFullYear();
+  const monthIndex = now.getUTCMonth();
+  const month = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+  return {
+    month,
+    startMs: Date.UTC(year, monthIndex, 1, 0, 0, 0, 0),
+    nextMonthMs: Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0),
+  };
+}
+
+function timestampMillis(value) {
+  return value?.toMillis ? value.toMillis() : 0;
+}
+
+function usageDocumentRef() {
+  return db.collection(SYSTEM_COLLECTION).doc(APP_CHECK_USAGE_DOCUMENT);
+}
+
 async function currentStoredBytes(collection) {
   const snapshot = await collection.aggregate({
     totalBytes: AggregateField.sum('sizeBytes'),
   }).get();
-
   return Number(snapshot.data().totalBytes || 0);
 }
 
@@ -92,9 +125,6 @@ async function deleteOldestUntilFreed(collection, bytesToFree, protectedShareId)
     let batchDeleteCount = 0;
 
     for (const doc of oldest.docs) {
-      // The newly created share should normally be the newest document anyway,
-      // but explicitly protecting it guarantees that the share just returned to
-      // the user is not selected for FIFO cleanup.
       if (doc.id === protectedShareId) continue;
 
       const data = doc.data();
@@ -117,6 +147,218 @@ async function deleteOldestUntilFreed(collection, bytesToFree, protectedShareId)
   return { freedBytes, deletedCount };
 }
 
+async function readMonthlyRecaptchaAssessments(startMs, endMs) {
+  // Use the Monitoring REST API through google-auth-library. This avoids another
+  // large runtime dependency while still using the function's service-account
+  // credentials and the monitoring.read OAuth scope.
+  const authClient = await monitoringAuth.getClient();
+  const baseUrl = `https://monitoring.googleapis.com/v3/projects/${PROJECT_ID}/timeSeries`;
+  let pageToken = '';
+  let total = 0;
+
+  do {
+    const params = {
+      filter: `metric.type="${RECAPTCHA_ASSESSMENT_METRIC}"`,
+      'interval.startTime': new Date(startMs).toISOString(),
+      'interval.endTime': new Date(endMs).toISOString(),
+      // assessment_count is a DELTA metric with separate series per key/status.
+      // Sum into hourly buckets and reduce across every matching series so the
+      // threshold covers all reCAPTCHA Enterprise assessments in this project.
+      'aggregation.alignmentPeriod': '3600s',
+      'aggregation.perSeriesAligner': 'ALIGN_SUM',
+      'aggregation.crossSeriesReducer': 'REDUCE_SUM',
+      view: 'FULL',
+      pageSize: 1000,
+    };
+    if (pageToken) params.pageToken = pageToken;
+
+    const response = await authClient.request({
+      url: baseUrl,
+      method: 'GET',
+      params,
+    });
+
+    const series = response.data?.timeSeries || [];
+    for (const timeSeries of series) {
+      for (const point of timeSeries.points || []) {
+        const raw = point.value?.int64Value ?? point.value?.doubleValue ?? 0;
+        const value = Number(raw);
+        if (Number.isFinite(value)) total += value;
+      }
+    }
+
+    pageToken = String(response.data?.nextPageToken || '');
+  } while (pageToken);
+
+  return Math.max(0, Math.round(total));
+}
+
+function internalWarningLevel(count) {
+  if (count >= RECAPTCHA_MONTHLY_HARD_CAP) return 'hard-cap';
+  if (count >= 9_400) return 'critical';
+  if (count >= 9_000) return 'high';
+  if (count >= 8_000) return 'warning';
+  return 'normal';
+}
+
+function publicProtectionStatus(data, reasonOverride = '') {
+  const fallback = Boolean(data.legacyFallbackEnabled)
+    && timestampMillis(data.fallbackUntil) > Date.now();
+  return {
+    mode: fallback ? 'legacy' : 'app-check',
+    reason: reasonOverride || String(data.modeReason || (fallback ? 'monthly-safety-fallback' : 'within-monthly-budget')),
+    month: String(data.month || utcMonthWindow().month),
+    hardCap: RECAPTCHA_MONTHLY_HARD_CAP,
+    fallbackUntilMs: fallback ? timestampMillis(data.fallbackUntil) : null,
+  };
+}
+
+async function refreshRecaptchaUsageStatus({ force = false } = {}) {
+  const ref = usageDocumentRef();
+  const nowMs = Date.now();
+  const window = utcMonthWindow(nowMs);
+  const snapshot = await ref.get();
+  const previous = snapshot.exists ? snapshot.data() || {} : {};
+  const sameMonth = previous.month === window.month;
+  const previousCheckedMs = timestampMillis(previous.lastCheckedAt);
+  const previousFallbackUntilMs = timestampMillis(previous.fallbackUntil);
+
+  // If the 9,500 hard cap was already confirmed for this month, never call the
+  // reCAPTCHA/App Check path again before the next UTC month begins.
+  if (
+    sameMonth
+    && previous.legacyFallbackEnabled === true
+    && previous.modeReason === 'monthly-hard-cap'
+    && previousFallbackUntilMs > nowMs
+  ) {
+    return publicProtectionStatus(previous);
+  }
+
+  if (
+    !force
+    && sameMonth
+    && Number.isFinite(Number(previous.assessmentCount))
+    && previousCheckedMs > nowMs - USAGE_STATUS_CACHE_MS
+  ) {
+    return publicProtectionStatus(previous);
+  }
+
+  if (!sameMonth && previous.month) {
+    logger.info('reCAPTCHA App Check monthly protection automatically reopened.', {
+      event: 'recaptcha-protection-auto-restored',
+      previousMonth: previous.month,
+      newMonth: window.month,
+      previousAssessmentCount: Number(previous.assessmentCount || 0),
+      previousFallbackWasActive: Boolean(previous.legacyFallbackEnabled),
+    });
+  }
+
+  try {
+    const assessmentCount = await readMonthlyRecaptchaAssessments(window.startMs, nowMs);
+    const priorWarnings = sameMonth && Array.isArray(previous.warningThresholdsSent)
+      ? previous.warningThresholdsSent.map(Number).filter(Number.isFinite)
+      : [];
+    const warningsSent = new Set(priorWarnings);
+
+    for (const threshold of RECAPTCHA_WARNING_THRESHOLDS) {
+      if (assessmentCount >= threshold && !warningsSent.has(threshold)) {
+        logger.warn('reCAPTCHA Enterprise monthly assessment usage warning.', {
+          event: 'recaptcha-assessment-usage-warning',
+          month: window.month,
+          assessmentCount,
+          warningThreshold: threshold,
+          hardCap: RECAPTCHA_MONTHLY_HARD_CAP,
+        });
+        warningsSent.add(threshold);
+      }
+    }
+
+    const hardCapReached = assessmentCount >= RECAPTCHA_MONTHLY_HARD_CAP;
+    const wasHardCapFallback = sameMonth
+      && previous.legacyFallbackEnabled === true
+      && previous.modeReason === 'monthly-hard-cap';
+
+    if (hardCapReached && !wasHardCapFallback) {
+      logger.warn('reCAPTCHA monthly hard cap reached; Share switched to the reCAPTCHA-free fallback until next month.', {
+        event: 'recaptcha-hard-cap-fallback-activated',
+        month: window.month,
+        assessmentCount,
+        hardCap: RECAPTCHA_MONTHLY_HARD_CAP,
+        fallbackUntilMs: window.nextMonthMs,
+      });
+    }
+
+    const nextState = {
+      month: window.month,
+      assessmentCount,
+      hardCap: RECAPTCHA_MONTHLY_HARD_CAP,
+      warningLevel: internalWarningLevel(assessmentCount),
+      warningThresholdsSent: [...warningsSent].sort((a, b) => a - b),
+      legacyFallbackEnabled: hardCapReached,
+      fallbackUntil: Timestamp.fromMillis(window.nextMonthMs),
+      modeReason: hardCapReached ? 'monthly-hard-cap' : 'within-monthly-budget',
+      lastCheckedAt: Timestamp.now(),
+      // Never reset this flag here. The first successfully App Check-protected
+      // share sets it to true; thereafter direct Firestore creates are allowed
+      // only during an explicit fallback window.
+      secureModeActive: previous.secureModeActive === true,
+    };
+
+    if (!sameMonth) {
+      nextState.monthStartedAt = Timestamp.fromMillis(window.startMs);
+      nextState.lastModeChangedAt = Timestamp.now();
+      nextState.lastAutoRestoredAt = Timestamp.now();
+    } else if (Boolean(previous.legacyFallbackEnabled) !== hardCapReached) {
+      nextState.lastModeChangedAt = Timestamp.now();
+    }
+    if (hardCapReached && !wasHardCapFallback) {
+      nextState.hardCapActivatedAt = Timestamp.now();
+    }
+
+    await ref.set(nextState, { merge: true });
+    return publicProtectionStatus(nextState);
+  } catch (error) {
+    // Availability wins if Monitoring is temporarily unavailable, but safety wins
+    // on cost: use the existing reCAPTCHA-free path for ten minutes and retry
+    // later rather than creating unmetered assessments while blind to usage.
+    const fallbackUntilMs = Math.min(window.nextMonthMs, nowMs + MONITORING_FAILURE_FALLBACK_MS);
+    const failureState = {
+      month: window.month,
+      hardCap: RECAPTCHA_MONTHLY_HARD_CAP,
+      warningLevel: 'monitoring-unavailable',
+      legacyFallbackEnabled: true,
+      fallbackUntil: Timestamp.fromMillis(fallbackUntilMs),
+      modeReason: 'monitoring-unavailable',
+      lastCheckedAt: Timestamp.now(),
+      lastMonitoringErrorAt: Timestamp.now(),
+      secureModeActive: previous.secureModeActive === true,
+    };
+    await ref.set(failureState, { merge: true });
+
+    logger.warn('Could not read reCAPTCHA assessment usage; Share temporarily switched to the reCAPTCHA-free fallback.', {
+      event: 'recaptcha-monitoring-unavailable-fallback',
+      month: window.month,
+      fallbackUntilMs,
+      error: String(error?.message || error),
+    });
+
+    return publicProtectionStatus(failureState);
+  }
+}
+
+// Public on purpose. The browser must ask this BEFORE App Check is initialized;
+// protecting this endpoint with App Check would consume the assessment that this
+// endpoint exists to decide whether we are still allowed to spend.
+exports.getShareProtectionStatus = onCall(
+  {
+    region: FUNCTION_REGION,
+    serviceAccount: RUNTIME_SERVICE_ACCOUNT,
+    enforceAppCheck: false,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async () => refreshRecaptchaUsageStatus(),
+);
 
 exports.createSharedConfiguration = onCall(
   {
@@ -133,8 +375,6 @@ exports.createSharedConfiguration = onCall(
     const { product, sizeBytes } = validateSharePayload(request.data?.productType, stateJson);
     const collection = db.collection(SHARES_COLLECTION);
 
-    // This callable is serialized so the quota decision and the subsequent write
-    // cannot race another App Check-protected share creation.
     const currentBytes = await currentStoredBytes(collection);
     const projectedBytes = currentBytes + sizeBytes;
 
@@ -151,7 +391,7 @@ exports.createSharedConfiguration = onCall(
         );
       }
 
-      console.log(JSON.stringify({
+      logger.info('Shared configuration FIFO cleanup completed before secure write.', {
         event: 'shared-configuration-prewrite-quota-cleanup',
         requestedBytesToFree: bytesToFree,
         freedBytes: cleanup.freedBytes,
@@ -159,8 +399,16 @@ exports.createSharedConfiguration = onCall(
         totalBytesAfterCleanup: afterCleanupBytes,
         incomingShareBytes: sizeBytes,
         limitBytes: MAX_TOTAL_BYTES,
-      }));
+      });
     }
+
+    // Reaching this point already proves a valid App Check token. Mark the rollout
+    // active before writing the share so direct Firestore creation is closed from
+    // this moment onward except during a server-authorized fallback window.
+    await usageDocumentRef().set({
+      secureModeActive: true,
+      secureModeActivatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
 
     const createdAt = Timestamp.now();
     const expiresAt = Timestamp.fromMillis(createdAt.toMillis() + SHARE_LIFETIME_MS);
@@ -178,6 +426,7 @@ exports.createSharedConfiguration = onCall(
       const shareId = generateShareId();
       try {
         await collection.doc(shareId).create(documentData);
+
         return {
           id: shareId,
           expiresAtMs: expiresAt.toMillis(),
@@ -185,7 +434,7 @@ exports.createSharedConfiguration = onCall(
         };
       } catch (error) {
         if (Number(error?.code) === 6 || String(error?.code) === 'already-exists') continue;
-        console.error('Secure share creation failed.', error);
+        logger.error('Secure share creation failed.', error);
         throw new HttpsError('internal', 'The shared configuration could not be stored.');
       }
     }
@@ -194,65 +443,15 @@ exports.createSharedConfiguration = onCall(
   },
 );
 
-exports.getSharedConfiguration = onCall(
-  {
-    region: FUNCTION_REGION,
-    serviceAccount: RUNTIME_SERVICE_ACCOUNT,
-    enforceAppCheck: true,
-    timeoutSeconds: 30,
-    memory: '256MiB',
-  },
-  async (request) => {
-    const shareId = String(request.data?.shareId || '');
-    const expectedProduct = normalizeProductType(request.data?.productType);
-
-    if (!SHARE_ID_PATTERN.test(shareId)) {
-      throw new HttpsError('not-found', 'Shared configuration not found.');
-    }
-    if (expectedProduct && !ALLOWED_PRODUCTS.has(expectedProduct)) {
-      throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
-    }
-
-    const snapshot = await db.collection(SHARES_COLLECTION).doc(shareId).get();
-    if (!snapshot.exists) {
-      throw new HttpsError('not-found', 'Shared configuration not found.');
-    }
-
-    const data = snapshot.data() || {};
-    const storedProduct = normalizeProductType(data.p);
-    const expiresAt = data.expiresAt;
-
-    if (
-      data.v !== FIRESTORE_RECORD_VERSION
-      || !ALLOWED_PRODUCTS.has(storedProduct)
-      || typeof data.s !== 'string'
-      || (expectedProduct && expectedProduct !== storedProduct)
-    ) {
-      throw new HttpsError('not-found', 'Shared configuration not found.');
-    }
-
-    if (expiresAt?.toMillis && expiresAt.toMillis() <= Date.now()) {
-      throw new HttpsError('not-found', 'Shared configuration not found.');
-    }
-
-    return {
-      productType: storedProduct,
-      stateJson: data.s,
-      expiresAtMs: expiresAt?.toMillis ? expiresAt.toMillis() : null,
-    };
-  },
-);
-
-// Legacy direct-Firestore shares are still accepted during the staged App Check
-// rollout. Once the App Check callable path has been verified in production, the
-// Firestore rules can deny all direct client access and this trigger can be removed.
+// Direct-Firestore shares remain the explicit no-reCAPTCHA fallback. The rules
+// permit them before App Check is activated for the first time and, afterwards,
+// only while the server-controlled fallback window is active. This trigger keeps
+// that path under the same 200 MiB FIFO quota and 90-day lifetime policy.
 exports.enforceSharedConfigurationQuota = onDocumentCreated(
   {
     document: `${SHARES_COLLECTION}/{shareId}`,
     region: FUNCTION_REGION,
     serviceAccount: RUNTIME_SERVICE_ACCOUNT,
-    // Serial execution avoids two simultaneous creates independently deciding
-    // to evict the same FIFO range and unnecessarily deleting extra links.
     maxInstances: 1,
     concurrency: 1,
     timeoutSeconds: 180,
@@ -265,8 +464,7 @@ exports.enforceSharedConfigurationQuota = onDocumentCreated(
     const shareId = event.params.shareId;
     const data = snapshot.data();
 
-    // App Check-protected callable writes already contain trusted quota/lifetime
-    // metadata and were quota-checked before creation. Avoid doing the work twice.
+    // Protected callable writes are already quota/lifetime annotated.
     if (
       Number(data.quotaVersion) >= 2
       && Number.isFinite(Number(data.sizeBytes))
@@ -277,32 +475,26 @@ exports.enforceSharedConfigurationQuota = onDocumentCreated(
     }
 
     const serializedState = data.s;
-
     if (typeof serializedState !== 'string' || serializedState.length === 0) {
-      console.warn(`Deleting invalid shared configuration ${shareId}: missing state string.`);
+      logger.warn(`Deleting invalid shared configuration ${shareId}: missing state string.`);
       await snapshot.ref.delete();
       return;
     }
 
     const sizeBytes = utf8ByteLength(serializedState);
-
-    // The browser rules already restrict the string length, but the server checks
-    // actual UTF-8 bytes as well. This catches multibyte payloads and keeps the
-    // quota unit consistent.
     if (sizeBytes > MAX_SINGLE_SHARE_BYTES) {
-      console.warn(
-        `Deleting shared configuration ${shareId}: ${sizeBytes} bytes exceeds ` +
-        `${MAX_SINGLE_SHARE_BYTES} bytes.`
-      );
+      logger.warn(`Deleting oversized shared configuration ${shareId}.`, {
+        event: 'shared-configuration-oversize-delete',
+        shareId,
+        sizeBytes,
+        maxBytes: MAX_SINGLE_SHARE_BYTES,
+      });
       await snapshot.ref.delete();
       return;
     }
 
     const createdAt = snapshot.createTime || Timestamp.now();
     const expiresAt = Timestamp.fromMillis(createdAt.toMillis() + SHARE_LIFETIME_MS);
-
-    // These fields are trusted server metadata. Existing client create rules may
-    // continue accepting only v/p/s; Admin SDK writes bypass client Security Rules.
     await snapshot.ref.update({
       sizeBytes,
       createdAt,
@@ -314,27 +506,22 @@ exports.enforceSharedConfigurationQuota = onDocumentCreated(
     const totalBytes = await currentStoredBytes(collection);
 
     if (totalBytes <= MAX_TOTAL_BYTES) {
-      console.log(
-        `Share ${shareId} stored (${sizeBytes} bytes). ` +
-        `Quota usage: ${totalBytes}/${MAX_TOTAL_BYTES} bytes.`
-      );
+      logger.info('Legacy/fallback share stored within quota.', {
+        event: 'shared-configuration-fallback-stored',
+        shareId,
+        sizeBytes,
+        totalBytes,
+        limitBytes: MAX_TOTAL_BYTES,
+      });
       return;
     }
 
-    // When the quota is crossed, free at least 1 MiB. If the amount over quota is
-    // larger than 1 MiB, free enough data to return below the 200 MiB ceiling.
     const overflowBytes = totalBytes - MAX_TOTAL_BYTES;
     const bytesToFree = Math.max(CLEANUP_CHUNK_BYTES, overflowBytes);
-
-    const cleanup = await deleteOldestUntilFreed(
-      collection,
-      bytesToFree,
-      shareId,
-    );
-
+    const cleanup = await deleteOldestUntilFreed(collection, bytesToFree, shareId);
     const remainingBytes = await currentStoredBytes(collection);
 
-    console.log(JSON.stringify({
+    logger.info('Shared configuration FIFO quota cleanup completed.', {
       event: 'shared-configuration-quota-cleanup',
       shareId,
       totalBytesBeforeCleanup: totalBytes,
@@ -343,13 +530,13 @@ exports.enforceSharedConfigurationQuota = onDocumentCreated(
       deletedCount: cleanup.deletedCount,
       totalBytesAfterCleanup: remainingBytes,
       limitBytes: MAX_TOTAL_BYTES,
-    }));
+    });
 
     if (remainingBytes > MAX_TOTAL_BYTES) {
       throw new Error(
         `Shared configuration quota cleanup incomplete: ${remainingBytes} bytes remain ` +
-        `above the ${MAX_TOTAL_BYTES}-byte limit.`
+        `above the ${MAX_TOTAL_BYTES}-byte limit.`,
       );
     }
-  }
+  },
 );

@@ -13,4 +13,3 @@ export * from './standaloneShell.js';
 export * from './tools/registry.js';
 export * from './history/undoManager.js';
 export * from './shareState.js';
-export * from './firebaseAppCheck.js';

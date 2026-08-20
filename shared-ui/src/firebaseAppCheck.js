@@ -6,7 +6,7 @@ const APP_NAME = '360-configurator-share-app';
 const CONFIG_URL = new URL('../firebase-app-check.json', import.meta.url);
 
 let runtimeConfigPromise = null;
-let firebaseContextPromise = null;
+let protectedFirebaseContextPromise = null;
 let missingSiteKeyWarned = false;
 
 function normalizeRuntimeConfig(value = {}) {
@@ -35,9 +35,7 @@ async function loadRuntimeConfig() {
 
     try {
       const response = await fetch(CONFIG_URL, { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return normalizeRuntimeConfig(await response.json());
     } catch (error) {
       console.warn('Firebase App Check configuration could not be loaded; legacy share transport remains active.', error);
@@ -62,10 +60,32 @@ function normalizeFirebaseConfig(firebaseConfig = {}) {
   return config;
 }
 
-async function initializeFirebaseContext(firebaseConfig) {
-  if (firebaseContextPromise) return firebaseContextPromise;
+function callableEndpoint(projectId, region, functionName) {
+  return `https://${encodeURIComponent(region)}-${encodeURIComponent(projectId)}.cloudfunctions.net/${encodeURIComponent(functionName)}`;
+}
 
-  firebaseContextPromise = (async () => {
+async function readCallableResponse(response) {
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    // handled below
+  }
+
+  if (!response.ok || payload?.error) {
+    const message = String(payload?.error?.message || `Callable function returned HTTP ${response.status}.`);
+    const error = new Error(message);
+    error.code = String(payload?.error?.status || response.status || 'unknown');
+    throw error;
+  }
+
+  return payload?.result ?? payload?.data ?? null;
+}
+
+async function initializeProtectedFirebaseContext(firebaseConfig) {
+  if (protectedFirebaseContextPromise) return protectedFirebaseContextPromise;
+
+  protectedFirebaseContextPromise = (async () => {
     const runtimeConfig = await loadRuntimeConfig();
     if (!runtimeConfig.siteKey) return null;
     if (runtimeConfig.provider !== 'recaptcha-enterprise') {
@@ -74,9 +94,8 @@ async function initializeFirebaseContext(firebaseConfig) {
 
     const config = normalizeFirebaseConfig(firebaseConfig);
 
-    // The web App Check debug provider is useful for localhost development. It is
-    // explicitly limited to localhost/loopback so production browsers can never
-    // opt themselves into debug attestation through this code path.
+    // The debug provider is strictly localhost-only. Production browsers can never
+    // opt into debug attestation through this code path.
     if (
       runtimeConfig.debugOnLocalhost
       && isLocalDevelopmentHost()
@@ -85,6 +104,9 @@ async function initializeFirebaseContext(firebaseConfig) {
       globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
     }
 
+    // These modules are intentionally imported only after the user presses Share
+    // AND the backend says App Check is active. Merely loading a configurator does
+    // not initialize reCAPTCHA or consume an assessment.
     const [appModule, appCheckModule, functionsModule] = await Promise.all([
       import(FIREBASE_APP_MODULE_URL),
       import(FIREBASE_APP_CHECK_MODULE_URL),
@@ -96,22 +118,23 @@ async function initializeFirebaseContext(firebaseConfig) {
 
     const appCheck = appCheckModule.initializeAppCheck(app, {
       provider: new appCheckModule.ReCaptchaEnterpriseProvider(runtimeConfig.siteKey),
-      isTokenAutoRefreshEnabled: true,
+      // Critical quota optimisation: do not refresh App Check tokens in the
+      // background. A new assessment is requested only when another Share action
+      // needs a token and the cached token is no longer usable.
+      isTokenAutoRefreshEnabled: false,
     });
 
     const functions = functionsModule.getFunctions(app, runtimeConfig.functionsRegion);
 
     return {
-      app,
       appCheck,
       functions,
       httpsCallable: functionsModule.httpsCallable,
       getToken: appCheckModule.getToken,
-      runtimeConfig,
     };
   })();
 
-  return firebaseContextPromise;
+  return protectedFirebaseContextPromise;
 }
 
 export async function isFirebaseAppCheckConfigured() {
@@ -119,31 +142,42 @@ export async function isFirebaseAppCheckConfigured() {
   return Boolean(config.siteKey);
 }
 
-export async function getFirebaseAppCheckStatus(firebaseConfig = null) {
+// This status check deliberately uses raw fetch instead of the Firebase Functions
+// SDK. Once App Check has been initialized, the Functions SDK may try to obtain an
+// App Check token for a callable request. That would consume an assessment BEFORE
+// we know whether the 9,500 monthly safety threshold has already been reached.
+export async function getFirebaseShareProtectionStatus(firebaseConfig) {
   const runtimeConfig = await loadRuntimeConfig();
-  const status = {
-    configured: Boolean(runtimeConfig.siteKey),
-    provider: runtimeConfig.provider,
-    functionsRegion: runtimeConfig.functionsRegion,
-    localDebugMode: Boolean(runtimeConfig.debugOnLocalhost && isLocalDevelopmentHost()),
-    tokenAvailable: false,
-  };
-
-  if (!firebaseConfig || !runtimeConfig.siteKey) return status;
-
-  try {
-    const context = await initializeFirebaseContext(firebaseConfig);
-    if (!context) return status;
-    const token = await context.getToken(context.appCheck, false);
-    status.tokenAvailable = Boolean(token?.token);
-  } catch (error) {
-    status.error = String(error?.message || error);
+  if (!runtimeConfig.siteKey) {
+    return {
+      mode: 'legacy',
+      reason: 'app-check-not-configured',
+      configured: false,
+    };
   }
 
-  return status;
+  const config = normalizeFirebaseConfig(firebaseConfig);
+  const response = await fetch(
+    callableEndpoint(config.projectId, runtimeConfig.functionsRegion, 'getShareProtectionStatus'),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: {} }),
+    },
+  );
+
+  const result = await readCallableResponse(response);
+  return {
+    configured: true,
+    mode: result?.mode === 'app-check' ? 'app-check' : 'legacy',
+    reason: String(result?.reason || ''),
+    month: String(result?.month || ''),
+    hardCap: Number(result?.hardCap || 9500),
+    fallbackUntilMs: Number(result?.fallbackUntilMs || 0) || null,
+  };
 }
 
-export async function callFirebaseShareFunction(functionName, data, firebaseConfig) {
+export async function callFirebaseProtectedShareFunction(functionName, data, firebaseConfig) {
   const runtimeConfig = await loadRuntimeConfig();
   if (!runtimeConfig.siteKey) {
     if (!missingSiteKeyWarned) {
@@ -155,12 +189,12 @@ export async function callFirebaseShareFunction(functionName, data, firebaseConf
     return null;
   }
 
-  const context = await initializeFirebaseContext(firebaseConfig);
+  const context = await initializeProtectedFirebaseContext(firebaseConfig);
   if (!context) return null;
 
-  // Force token acquisition before the callable request. The Functions SDK also
-  // attaches App Check automatically, but doing this first produces an immediate,
-  // readable client error if attestation itself is not working.
+  // No forced refresh: reuse the cached token while it is valid. If it has
+  // expired, this Share interaction obtains a new token and causes one new
+  // reCAPTCHA Enterprise assessment.
   await context.getToken(context.appCheck, false);
 
   const callable = context.httpsCallable(context.functions, functionName);

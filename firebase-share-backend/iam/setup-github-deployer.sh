@@ -6,10 +6,11 @@ PROJECT_NUMBER="719238533149"
 DEPLOYER="github-deployer@configurator-360.iam.gserviceaccount.com"
 RUNTIME="configurator-runtime@configurator-360.iam.gserviceaccount.com"
 APP_ENGINE_DEFAULT="configurator-360@appspot.gserviceaccount.com"
+COMPUTE_DEFAULT="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 EVENTARC_AGENT="service-${PROJECT_NUMBER}@gcp-sa-eventarc.iam.gserviceaccount.com"
 CLOUD_BUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
 
-# Project-level permissions used by Firebase CLI for this backend deployment.
+# Project-level permissions used by Firebase CLI for backend deployment.
 for ROLE in \
   roles/cloudfunctions.developer \
   roles/datastore.indexAdmin \
@@ -25,12 +26,14 @@ do
     --quiet
 done
 
-# The dedicated runtime identity reads/writes the share collection and is also
-# the Eventarc identity for the legacy Firestore-created backstop trigger.
+# Runtime access: Firestore share storage, Eventarc delivery for the fallback
+# trigger, Cloud Run invocation, and read-only Cloud Monitoring access so the
+# status function can count this month's reCAPTCHA Enterprise assessments.
 for ROLE in \
   roles/datastore.user \
   roles/eventarc.eventReceiver \
-  roles/run.invoker
+  roles/run.invoker \
+  roles/monitoring.viewer
 do
   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:${RUNTIME}" \
@@ -45,15 +48,22 @@ gcloud iam service-accounts add-iam-policy-binding "$RUNTIME" \
   --role="roles/iam.serviceAccountUser" \
   --quiet
 
-# Firebase CLI also inspects the project's default Firebase/App Engine execution
-# identity during deployment, even though the share functions use RUNTIME.
+# Firebase CLI inspects the default App Engine execution identity during deploy.
 gcloud iam service-accounts add-iam-policy-binding "$APP_ENGINE_DEFAULT" \
   --project="$PROJECT_ID" \
   --member="serviceAccount:${DEPLOYER}" \
   --role="roles/iam.serviceAccountUser" \
   --quiet
 
-# Cloud Functions source deployment may need to act as the Cloud Build service account.
+# Keep the default 2nd-gen execution identity prepared for Eventarc as well. This
+# mirrors the one-time roles that were required during the first deployment.
+for ROLE in roles/eventarc.eventReceiver roles/run.invoker; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:${COMPUTE_DEFAULT}" \
+    --role="$ROLE" \
+    --quiet
+done
+
 if gcloud iam service-accounts describe "$CLOUD_BUILD_SA" --project="$PROJECT_ID" >/dev/null 2>&1; then
   gcloud iam service-accounts add-iam-policy-binding "$CLOUD_BUILD_SA" \
     --project="$PROJECT_ID" \
@@ -62,7 +72,7 @@ if gcloud iam service-accounts describe "$CLOUD_BUILD_SA" --project="$PROJECT_ID
     --quiet
 fi
 
-# Keep the Google-managed Eventarc service agent on its required service-agent role.
+# Preserve the Google-managed Eventarc service agent on its required role.
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${EVENTARC_AGENT}" \
   --role="roles/eventarc.serviceAgent" \
