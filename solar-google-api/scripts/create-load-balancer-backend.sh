@@ -29,8 +29,22 @@ if ! gcloud compute backend-services describe "${BACKEND}" \
     --project="${PROJECT_ID}" \
     --global \
     --load-balancing-scheme="${SCHEME}" \
-    --protocol=HTTP \
-    --timeout=300s
+    --protocol=HTTP
+fi
+
+# A backend service created by an older version of this script may have
+# timeoutSec=300. Serverless NEGs reject that value when attached. Reset the
+# backend service to the platform default before adding the serverless NEG.
+CURRENT_TIMEOUT="$(gcloud compute backend-services describe "${BACKEND}" \
+  --project="${PROJECT_ID}" --global \
+  --format='value(timeoutSec)')"
+
+if [[ -n "${CURRENT_TIMEOUT}" && "${CURRENT_TIMEOUT}" != "30" ]]; then
+  echo "Resetting backend-service timeout from ${CURRENT_TIMEOUT}s to the serverless default (30s)..."
+  gcloud compute backend-services update "${BACKEND}" \
+    --project="${PROJECT_ID}" \
+    --global \
+    --timeout=30s
 fi
 
 if ! gcloud compute backend-services describe "${BACKEND}" \
