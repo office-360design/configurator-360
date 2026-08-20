@@ -49,6 +49,7 @@ async function loadRuntimeConfig() {
 function normalizeFirebaseConfig(firebaseConfig = {}) {
   const config = {
     apiKey: String(firebaseConfig.apiKey || '').trim(),
+    authDomain: String(firebaseConfig.authDomain || '').trim(),
     projectId: String(firebaseConfig.projectId || '').trim(),
     appId: String(firebaseConfig.appId || '').trim(),
   };
