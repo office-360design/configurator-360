@@ -1,7 +1,8 @@
-export const WINDOW_STATE_VERSION = 3;
+export const WINDOW_STATE_VERSION = 4;
 export const MAX_WINDOW_CELLS = 100;
 export const FIXED_WINDOW_TYPE = 'fixed-glazing';
 export const SASH_WINDOW_TYPE = 'opening-sash';
+export const DEFAULT_TRANS_PROFILE_ID = '575820';
 
 const EPSILON = 1e-8;
 
@@ -92,17 +93,20 @@ export function createSingleWindowState({
     type = SASH_WINDOW_TYPE,
     handleSide = 'right',
     dividerProfileId = '575800',
+    transProfileId = DEFAULT_TRANS_PROFILE_ID,
 } = {}) {
     return Object.freeze({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: String(dividerProfileId || '575800'),
+        transProfileId: String(transProfileId || DEFAULT_TRANS_PROFILE_ID),
+        transConnections: Object.freeze([]),
         windows: Object.freeze([
             Object.freeze(makeCell('w1', type, { x0: 0, y0: 0, x1: 1, y1: 1 }, handleSide)),
         ]),
     });
 }
 
-export function normalizeWindowState(value, { dividerProfileId = '575800' } = {}) {
+export function normalizeWindowState(value, { dividerProfileId = '575800', transProfileId = DEFAULT_TRANS_PROFILE_ID } = {}) {
     const source = value && typeof value === 'object' ? value : {};
     const rawWindows = Array.isArray(source.windows) ? source.windows : [];
     const windows = rawWindows.slice(0, MAX_WINDOW_CELLS).map((cell, index) => {
@@ -118,7 +122,10 @@ export function normalizeWindowState(value, { dividerProfileId = '575800' } = {}
         );
     });
     if (!windows.length) {
-        return createSingleWindowState({ dividerProfileId: source.dividerProfileId || dividerProfileId });
+        return createSingleWindowState({
+            dividerProfileId: source.dividerProfileId || dividerProfileId,
+            transProfileId: source.transProfileId || transProfileId,
+        });
     }
 
     const normalized = normalizeRectangles(windows);
@@ -141,9 +148,13 @@ export function normalizeWindowState(value, { dividerProfileId = '575800' } = {}
         }
     }
 
+    const transConnections = normalizeTransConnections(source.transConnections, normalized);
+
     return Object.freeze({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: String(source.dividerProfileId || dividerProfileId || '575800'),
+        transProfileId: String(source.transProfileId || transProfileId || DEFAULT_TRANS_PROFILE_ID),
+        transConnections: Object.freeze(transConnections.map(connection => Object.freeze({ ...connection }))),
         windows: Object.freeze(normalized.map(cell => Object.freeze({
             ...cell,
             rect: Object.freeze({ ...cell.rect }),
@@ -155,7 +166,7 @@ function legacyCell(type, handleSide, rect, index) {
     return makeCell(`w${index + 1}`, type, rect, handleSide);
 }
 
-export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfileId = '575800') {
+export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfileId = '575800', transProfileId = DEFAULT_TRANS_PROFILE_ID) {
     const cells = Array.isArray(layout.cells) && layout.cells.length
         ? [...layout.cells]
         : [layout.leftCell, layout.rightCell].filter(Boolean);
@@ -168,6 +179,7 @@ export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfil
         const lowerRightType = cells[2] || SASH_WINDOW_TYPE;
         return normalizeWindowState({
             dividerProfileId,
+            transProfileId,
             windows: [
                 legacyCell(topType, handles[0], { x0: 0, y0: 1 - fraction, x1: 1, y1: 1 }, 0),
                 legacyCell(lowerLeftType, handles[1], { x0: 0, y0: 0, x1: 0.5, y1: 1 - fraction }, 1),
@@ -179,6 +191,7 @@ export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfil
     if (layout.dividerOrientation === 'vertical' && cells.length > 1) {
         return normalizeWindowState({
             dividerProfileId,
+            transProfileId,
             windows: cells.map((type, index) => legacyCell(type, handles[index], {
                 x0: index / cells.length,
                 y0: 0,
@@ -191,6 +204,7 @@ export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfil
     if (layout.dividerOrientation === 'horizontal' && cells.length > 1) {
         return normalizeWindowState({
             dividerProfileId,
+            transProfileId,
             windows: cells.map((type, index) => legacyCell(type, handles[index], {
                 x0: 0,
                 y0: index / cells.length,
@@ -204,6 +218,7 @@ export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfil
         type: cells[0] || layout.rightCell || SASH_WINDOW_TYPE,
         handleSide: handles[0] || null,
         dividerProfileId,
+        transProfileId,
     });
 }
 
@@ -365,6 +380,8 @@ export function addWindowToState(stateValue, {
     return normalizeWindowState({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
+        transProfileId: state.transProfileId,
+        transConnections: state.transConnections,
         windows,
     });
 }
@@ -411,6 +428,122 @@ function canUnionRectangles(a, b) {
     const x1 = Math.max(a.rect.x1, b.rect.x1);
     const y1 = Math.max(a.rect.y1, b.rect.y1);
     return Math.abs((x1 - x0) * (y1 - y0) - (rectArea(a.rect) + rectArea(b.rect))) <= 1e-6;
+}
+
+function transPairKey(cellAId, cellBId) {
+    return [String(cellAId), String(cellBId)].sort().join('|');
+}
+
+function isValidTransPair(a, b) {
+    if (!a || !b || a.type !== SASH_WINDOW_TYPE || b.type !== SASH_WINDOW_TYPE) return false;
+    const boundary = sharedBoundary(a, b);
+    return Boolean(boundary && boundary.orientation === 'vertical' && canUnionRectangles(a, b));
+}
+
+function normalizeTransConnections(value, windows) {
+    const raw = Array.isArray(value) ? value : [];
+    const byId = new Map(windows.map(cell => [cell.id, cell]));
+    const usedCells = new Set();
+    const usedPairs = new Set();
+    const normalized = [];
+
+    raw.forEach((connection, index) => {
+        const cellAId = String(connection?.cellAId || connection?.negativeCellId || '');
+        const cellBId = String(connection?.cellBId || connection?.positiveCellId || '');
+        const a = byId.get(cellAId);
+        const b = byId.get(cellBId);
+        if (!isValidTransPair(a, b)) return;
+
+        const boundary = sharedBoundary(a, b);
+        const pairKey = transPairKey(a.id, b.id);
+        if (usedPairs.has(pairKey) || usedCells.has(a.id) || usedCells.has(b.id)) return;
+
+        const ownerCandidate = String(connection?.ownerCellId || '');
+        const ownerCellId = ownerCandidate === a.id || ownerCandidate === b.id
+            ? ownerCandidate
+            : boundary.positiveCellId;
+        const negativeCellId = boundary.negativeCellId;
+        const positiveCellId = boundary.positiveCellId;
+
+        normalized.push({
+            id: String(connection?.id || `trans-${negativeCellId}-${positiveCellId}-${index + 1}`),
+            cellAId: negativeCellId,
+            cellBId: positiveCellId,
+            ownerCellId,
+        });
+        usedPairs.add(pairKey);
+        usedCells.add(a.id);
+        usedCells.add(b.id);
+    });
+
+    return normalized;
+}
+
+function getTransConnectionForPair(state, cellAId, cellBId) {
+    const key = transPairKey(cellAId, cellBId);
+    return state.transConnections.find(connection => (
+        transPairKey(connection.cellAId, connection.cellBId) === key
+    )) || null;
+}
+
+export function canUseTransBetweenWindows(stateValue, cellAId, cellBId) {
+    const state = normalizeWindowState(stateValue);
+    const a = getCell(state, cellAId);
+    const b = getCell(state, cellBId);
+    if (!isValidTransPair(a, b)) return false;
+    const existingForA = state.transConnections.find(connection => (
+        connection.cellAId === a.id || connection.cellBId === a.id
+    ));
+    const existingForB = state.transConnections.find(connection => (
+        connection.cellAId === b.id || connection.cellBId === b.id
+    ));
+    const active = getTransConnectionForPair(state, a.id, b.id);
+    return Boolean(active || (!existingForA && !existingForB));
+}
+
+export function setTransBetweenWindowsInState(stateValue, {
+    cellAId,
+    cellBId,
+    enabled = true,
+    ownerCellId = null,
+} = {}) {
+    const state = normalizeWindowState(stateValue);
+    const a = getCell(state, cellAId);
+    const b = getCell(state, cellBId);
+    const active = getTransConnectionForPair(state, cellAId, cellBId);
+
+    if (!enabled) {
+        if (!active) return state;
+        return normalizeWindowState({
+            ...state,
+            transConnections: state.transConnections.filter(connection => connection.id !== active.id),
+        });
+    }
+
+    if (!isValidTransPair(a, b)) {
+        throw new Error('A trans can only be used between two side-by-side opening sashes that share a full vertical side.');
+    }
+    if (!canUseTransBetweenWindows(state, a.id, b.id)) {
+        throw new Error('Each sash can belong to only one trans pair.');
+    }
+    if (active) return state;
+
+    const boundary = sharedBoundary(a, b);
+    const requestedOwner = String(ownerCellId || '');
+    const resolvedOwner = requestedOwner === a.id || requestedOwner === b.id
+        ? requestedOwner
+        : boundary.positiveCellId;
+    const connection = {
+        id: `trans-${boundary.negativeCellId}-${boundary.positiveCellId}`,
+        cellAId: boundary.negativeCellId,
+        cellBId: boundary.positiveCellId,
+        ownerCellId: resolvedOwner,
+    };
+
+    return normalizeWindowState({
+        ...state,
+        transConnections: [...state.transConnections, connection],
+    });
 }
 
 function topologyCoordinateKey(value) {
@@ -485,6 +618,29 @@ function deriveGridLinePieces(state) {
         if (!negativeCell && !positiveCell) return;
 
         if (negativeCell && positiveCell) {
+            const transConnection = orientation === 'vertical'
+                ? getTransConnectionForPair(state, negativeCell.id, positiveCell.id)
+                : null;
+            if (transConnection) {
+                pieces.push(Object.freeze({
+                    id: linePieceId({ orientation, coordinate, start, end }),
+                    pieceType: 'trans',
+                    orientation,
+                    coordinate,
+                    start,
+                    end,
+                    negativeCellId: negativeCell.id,
+                    positiveCellId: positiveCell.id,
+                    negativeCellType: negativeCell.type,
+                    positiveCellType: positiveCell.type,
+                    templateId: 'trans-sash-sash',
+                    reversed: false,
+                    ownerCellId: transConnection.ownerCellId,
+                    transConnectionId: transConnection.id,
+                }));
+                return;
+            }
+
             const connection = resolveDividerConnection(negativeCell.type, positiveCell.type);
             pieces.push(Object.freeze({
                 id: linePieceId({ orientation, coordinate, start, end }),
@@ -553,7 +709,11 @@ export function deriveWindowTopology(stateValue) {
     const frameEdges = linePieces
         .filter(piece => piece.pieceType === 'frame')
         .map(piece => Object.freeze({ ...piece }));
+    const transSegments = linePieces
+        .filter(piece => piece.pieceType === 'trans')
+        .map(piece => Object.freeze({ ...piece }));
     const mergeCandidates = [];
+    const transCandidates = [];
 
     for (let i = 0; i < state.windows.length; i += 1) {
         for (let j = i + 1; j < state.windows.length; j += 1) {
@@ -572,6 +732,24 @@ export function deriveWindowTopology(stateValue) {
                 sameType: a.type === b.type,
                 defaultType: a.type === b.type ? a.type : null,
             }));
+
+            if (boundary.orientation === 'vertical' && a.type === SASH_WINDOW_TYPE && b.type === SASH_WINDOW_TYPE) {
+                const activeConnection = getTransConnectionForPair(state, a.id, b.id);
+                const canActivate = canUseTransBetweenWindows(state, a.id, b.id);
+                if (activeConnection || canActivate) {
+                    transCandidates.push(Object.freeze({
+                        id: `trans-toggle-${a.id}-${b.id}`,
+                        cellAId: a.id,
+                        cellBId: b.id,
+                        orientation: boundary.orientation,
+                        coordinate: boundary.coordinate,
+                        start: boundary.start,
+                        end: boundary.end,
+                        active: Boolean(activeConnection),
+                        ownerCellId: activeConnection?.ownerCellId || boundary.positiveCellId,
+                    }));
+                }
+            }
         }
     }
 
@@ -591,14 +769,16 @@ export function deriveWindowTopology(stateValue) {
     return Object.freeze({
         version: WINDOW_STATE_VERSION,
         windows: state.windows,
-        // Every structural member is now one atomic grid line between two
-        // intersections.  The renderer chooses only from frame, mullion and
-        // the local half-mullion junction filler derived later from this graph.
+        // Every line is one atomic grid edge. Trans is intentionally not a
+        // structural arm: it is a floating profile owned by one sash, so the
+        // fixed frame/mullion members crossing its endpoints stay continuous.
         linePieces,
         frameEdges: Object.freeze(frameEdges),
         dividers: Object.freeze(dividers),
+        transSegments: Object.freeze(transSegments),
         addCandidates: Object.freeze(addCandidates),
         mergeCandidates: Object.freeze(mergeCandidates),
+        transCandidates: Object.freeze(transCandidates),
     });
 }
 
@@ -629,6 +809,13 @@ export function mergeWindowsInState(stateValue, {
     return normalizeWindowState({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
+        transProfileId: state.transProfileId,
+        transConnections: state.transConnections.filter(connection => (
+            connection.cellAId !== a.id
+            && connection.cellBId !== a.id
+            && connection.cellAId !== b.id
+            && connection.cellBId !== b.id
+        )),
         windows,
     });
 }
@@ -639,6 +826,8 @@ export function setWindowTypeInState(stateValue, cellId, type, handleSide = null
     return normalizeWindowState({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
+        transProfileId: state.transProfileId,
+        transConnections: state.transConnections,
         windows: state.windows.map(cell => ({
             ...cell,
             type: cell.id === String(cellId) ? normalizeType(type) : cell.type,
@@ -654,6 +843,15 @@ export function setWindowStateDividerProfile(stateValue, dividerProfileId) {
     return normalizeWindowState({
         ...state,
         dividerProfileId: String(dividerProfileId || state.dividerProfileId),
+    });
+}
+
+
+export function setWindowStateTransProfile(stateValue, transProfileId) {
+    const state = normalizeWindowState(stateValue);
+    return normalizeWindowState({
+        ...state,
+        transProfileId: String(transProfileId || state.transProfileId || DEFAULT_TRANS_PROFILE_ID),
     });
 }
 
@@ -722,6 +920,13 @@ export function serializeWindowState(stateValue) {
     return JSON.stringify({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
+        transProfileId: state.transProfileId,
+        transConnections: state.transConnections.map(connection => ({
+            id: connection.id,
+            cellAId: connection.cellAId,
+            cellBId: connection.cellBId,
+            ownerCellId: connection.ownerCellId,
+        })),
         windows: state.windows.map(cell => ({
             id: cell.id,
             type: cell.type,

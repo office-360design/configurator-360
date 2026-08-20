@@ -2,9 +2,7 @@
   "schemaVersion": 1,
   "description": "Left/right connection-reference DWGs from cad/source/join. These drawings define profile relationships and accessory placement. They are not separate top/bottom drawings and must not be flattened into one runtime component.",
   "referenceOrientation": "left-right-section",
-  "ignoredSourceFolders": [
-    "double_vent_profile"
-  ],
+  "ignoredSourceFolders": [],
   "assemblies": [
     {
       "id": "frame-fixed",
@@ -74,6 +72,22 @@
       "rightCell": "opening-sash",
       "roles": [
         "mullion-transom",
+        "opening-sash",
+        "glass",
+        "glazing-bead",
+        "gasket",
+        "accessory"
+      ],
+      "mirrorAllowed": false
+    },
+    {
+      "id": "trans-sash-sash",
+      "source": "join/window-sash-trans-sash-window.dwg",
+      "boundary": "trans",
+      "leftCell": "opening-sash",
+      "rightCell": "opening-sash",
+      "roles": [
+        "trans",
         "opening-sash",
         "glass",
         "glazing-bead",

@@ -1023,6 +1023,15 @@ export function getEditableDividerSegmentPlacement({
         const frameSpanKey = atStart
             ? 'negativeFrameInwardSpan'
             : 'positiveFrameInwardSpan';
+
+        // A trans endpoint is not a structural T. When the only fixed members
+        // at that point are the two collinear halves of the same mullion, keep
+        // both ends square so they read as one flat/continuous member.
+        if (junction.isTransPassThrough) {
+            joint[endModeKey] = 'square';
+            joint[frameSpanKey] = 0;
+            return;
+        }
         const direction = endpointArmDirection(segment?.orientation, atStart);
         const oppositeArm = getPhysicalArm(junction, OPPOSITE_ARM_DIRECTION[direction]);
         const perpendicularArms = perpendicularArmDirections(direction)
@@ -1265,6 +1274,7 @@ export function getEditableWindowTopologyGeometry({
     height,
     topology,
     dividerConnectionVariants = null,
+    transConnection = null,
     connectionScale = MM_TO_M,
     frameReplacementSpan = 0,
     dividerFaceSpan = 0,
@@ -1275,6 +1285,7 @@ export function getEditableWindowTopologyGeometry({
     const normalizedDividerFaceSpan = Math.max(0, finiteNumber(dividerFaceSpan));
     const windows = Array.isArray(topology?.windows) ? topology.windows : [];
     const dividers = Array.isArray(topology?.dividers) ? topology.dividers : [];
+    const transEdges = Array.isArray(topology?.transSegments) ? topology.transSegments : [];
     const frameEdges = Array.isArray(topology?.frameEdges) ? topology.frameEdges : [];
 
     const minCol = windows.length ? Math.min(...windows.map(c => c.rect.x0)) : 0;
@@ -1397,6 +1408,7 @@ export function getEditableWindowTopologyGeometry({
             centerX: (x0 + x1) / 2,
             centerY: (y0 + y1) / 2,
             dividerJoinSideByBoundary: {},
+            transJoinSideByBoundary: {},
         };
     });
     const cellById = new Map(cells.map(cell => [cell.id, cell]));
@@ -1449,6 +1461,52 @@ export function getEditableWindowTopologyGeometry({
             structuralWorldEnd: worldReferenceX(divider.end),
         };
     });
+
+    const transSegments = transEdges.map(trans => {
+        if (trans.orientation !== 'vertical') return null;
+        const x = worldGridX(trans.coordinate);
+        // The floating trans does not create a structural arm, but its
+        // endpoints still need to line up with the structural reference graph
+        // so the collinear frame/mullion pieces above and below can be marked
+        // as one continuous member. Outer frame references intentionally use
+        // worldReferenceY() rather than the reduced cell grid.
+        const y0 = worldReferenceY(trans.start);
+        const y1 = worldReferenceY(trans.end);
+        return {
+            ...trans,
+            perpendicularOffset: x,
+            structuralPerpendicularOffset: x,
+            longitudinalOffset: (y0 + y1) / 2,
+            length: Math.max(0, y1 - y0),
+            worldStart: y0,
+            worldEnd: y1,
+            structuralWorldStart: y0,
+            structuralWorldEnd: y1,
+        };
+    }).filter(Boolean);
+
+    // A trans is a floating sash component, not a structural grid arm. Its CAD
+    // join still defines the exact left/right sash seats, but it must never
+    // participate in the frame/mullion junction solver below.
+    const applyTransConnectionGeometry = () => {
+        const boundaries = transConnection?.openingSashTransBoundariesMm || {};
+        const scale = finiteNumber(connectionScale, MM_TO_M);
+        transSegments.forEach(trans => {
+            const negativeCell = cellById.get(trans.negativeCellId);
+            const positiveCell = cellById.get(trans.positiveCellId);
+            if (negativeCell) negativeCell.transJoinSideByBoundary.right = 'left';
+            if (positiveCell) positiveCell.transJoinSideByBoundary.left = 'right';
+
+            const leftBoundary = Number(boundaries.left);
+            const rightBoundary = Number(boundaries.right);
+            if (negativeCell && Number.isFinite(leftBoundary)) {
+                negativeCell.connectionX1 = trans.perpendicularOffset + leftBoundary * scale;
+            }
+            if (positiveCell && Number.isFinite(rightBoundary)) {
+                positiveCell.connectionX0 = trans.perpendicularOffset + rightBoundary * scale;
+            }
+        });
+    };
 
     // The topology grid is the source of truth for physical window size.
     // CAD join seats describe only where the sash/fixed-light assembly meets a
@@ -1633,20 +1691,25 @@ export function getEditableWindowTopologyGeometry({
     // divider CAD seat resolved below because one rectangular sash/glazing
     // assembly cannot follow two different outer-member boundaries along one
     // side.
-    const dividerOwnedCellSides = new Set();
+    const connectionOwnedCellSides = new Set();
     dividerSegments.forEach(segment => {
         if (segment.orientation === 'vertical') {
-            if (segment.negativeCellId) dividerOwnedCellSides.add(`${segment.negativeCellId}:right`);
-            if (segment.positiveCellId) dividerOwnedCellSides.add(`${segment.positiveCellId}:left`);
+            if (segment.negativeCellId) connectionOwnedCellSides.add(`${segment.negativeCellId}:right`);
+            if (segment.positiveCellId) connectionOwnedCellSides.add(`${segment.positiveCellId}:left`);
         } else {
-            if (segment.negativeCellId) dividerOwnedCellSides.add(`${segment.negativeCellId}:top`);
-            if (segment.positiveCellId) dividerOwnedCellSides.add(`${segment.positiveCellId}:bottom`);
+            if (segment.negativeCellId) connectionOwnedCellSides.add(`${segment.negativeCellId}:top`);
+            if (segment.positiveCellId) connectionOwnedCellSides.add(`${segment.positiveCellId}:bottom`);
         }
+    });
+
+    transSegments.forEach(segment => {
+        if (segment.negativeCellId) connectionOwnedCellSides.add(`${segment.negativeCellId}:right`);
+        if (segment.positiveCellId) connectionOwnedCellSides.add(`${segment.positiveCellId}:left`);
     });
 
     baseFramePlacements.forEach(frame => {
         const cell = cellById.get(frame.cellId || frame.windowCell);
-        if (!cell || dividerOwnedCellSides.has(`${cell.id}:${frame.side}`)) return;
+        if (!cell || connectionOwnedCellSides.has(`${cell.id}:${frame.side}`)) return;
 
         if (frame.side === 'left') {
             cell.connectionX0 = finiteNumber(frame.perpendicularOffset, cell.connectionX0);
@@ -1737,8 +1800,35 @@ export function getEditableWindowTopologyGeometry({
         });
     });
 
+    // A flying/trans mullion ends against the sash pair, not against the
+    // fixed structural member above/below it. At those endpoint coordinates a
+    // pair of collinear frame/mullion pieces must therefore remain flat, just
+    // like the same structural line beside a merged opening. Mark that special
+    // continuation explicitly without registering the trans as a physical arm.
+    const transEndpointKeys = new Set();
+    transSegments.forEach(segment => {
+        const perpendicular = finiteNumber(
+            segment.structuralPerpendicularOffset,
+            segment.perpendicularOffset
+        );
+        const start = finiteNumber(segment.structuralWorldStart, segment.worldStart);
+        const end = finiteNumber(segment.structuralWorldEnd, segment.worldEnd);
+        if (segment.orientation === 'vertical') {
+            transEndpointKeys.add(physicalJunctionKey(perpendicular, start));
+            transEndpointKeys.add(physicalJunctionKey(perpendicular, end));
+        } else {
+            transEndpointKeys.add(physicalJunctionKey(start, perpendicular));
+            transEndpointKeys.add(physicalJunctionKey(end, perpendicular));
+        }
+    });
+
     const physicalIntersections = [...physicalIntersectionMap.values()]
-        .map(classifyPhysicalJunction);
+        .map(classifyPhysicalJunction)
+        .map(junction => (
+            transEndpointKeys.has(junction.key) && junction.type === 'continuation'
+                ? Object.freeze({ ...junction, isTransPassThrough: true })
+                : junction
+        ));
     const physicalIntersectionByKey = new Map(
         physicalIntersections.map(junction => [junction.key, junction])
     );
@@ -1765,6 +1855,13 @@ export function getEditableWindowTopologyGeometry({
     // rectangles remain independent from both the frame's 21 mm reference
     // offset and the CAD sash/glazing seats.
     applyDividerConnectionGeometry();
+    applyTransConnectionGeometry();
+    cells.forEach(cell => {
+        cell.connectionWidth = Math.max(0, cell.connectionX1 - cell.connectionX0);
+        cell.connectionHeight = Math.max(0, cell.connectionY1 - cell.connectionY0);
+        cell.connectionCenterX = (cell.connectionX0 + cell.connectionX1) / 2;
+        cell.connectionCenterY = (cell.connectionY0 + cell.connectionY1) / 2;
+    });
 
     function getFrameEndpointJunction(frame, atStart) {
         const perpendicular = Number.isFinite(Number(frame.structuralPerpendicularOffset))
@@ -1798,6 +1895,12 @@ export function getEditableWindowTopologyGeometry({
             );
 
             let mode = null;
+            // The trans itself is carried by a sash. It must not force a V or
+            // miter into the fixed frame/mullion line at either end. Leaving
+            // mode null gives the two collinear pieces square, flush ends.
+            if (junction.isTransPassThrough) {
+                return;
+            }
             const hasPerpendicularDivider = perpendicularArms.some(arm => arm.kind === 'divider');
             const hasPerpendicularFrame = perpendicularArms.some(arm => arm.kind === 'frame');
 
@@ -2021,9 +2124,11 @@ export function getEditableWindowTopologyGeometry({
         cells: Object.freeze(cells.map(cell => Object.freeze({
             ...cell,
             dividerJoinSideByBoundary: Object.freeze({ ...cell.dividerJoinSideByBoundary }),
+            transJoinSideByBoundary: Object.freeze({ ...cell.transJoinSideByBoundary }),
         }))),
         framePlacements: Object.freeze(framePlacements),
         dividerSegments: Object.freeze(dividerSegments.map(divider => Object.freeze(divider))),
+        transSegments: Object.freeze(transSegments.map(trans => Object.freeze(trans))),
         junctions: Object.freeze(junctions),
         physicalIntersections: Object.freeze(physicalIntersections),
         perimeterJunctions: Object.freeze(perimeterJunctions),
@@ -2042,6 +2147,16 @@ export function getEditableWindowTopologyGeometry({
             ...dividerSegments.map(piece => Object.freeze({
                 id: piece.id,
                 pieceType: 'mullion',
+                orientation: piece.orientation,
+                coordinate: piece.structuralPerpendicularOffset,
+                start: piece.structuralWorldStart,
+                end: piece.structuralWorldEnd,
+                renderPerpendicularOffset: piece.perpendicularOffset,
+                source: piece,
+            })),
+            ...transSegments.map(piece => Object.freeze({
+                id: piece.id,
+                pieceType: 'trans',
                 orientation: piece.orientation,
                 coordinate: piece.structuralPerpendicularOffset,
                 start: piece.structuralWorldStart,

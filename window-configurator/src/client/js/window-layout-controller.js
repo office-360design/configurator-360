@@ -3,6 +3,7 @@ import {
     isProfileGeometryAvailable,
 } from './profile-catalog.js';
 import {
+    DEFAULT_TRANS_PROFILE_ID,
     FIXED_WINDOW_TYPE,
     SASH_WINDOW_TYPE,
     addWindowToState,
@@ -13,13 +14,16 @@ import {
     normalizeWindowState,
     parseWindowState,
     serializeWindowState,
+    setTransBetweenWindowsInState,
     setWindowStateDividerProfile,
+    setWindowStateTransProfile,
     setWindowTypeInState,
 } from './window-layout-state.js';
 import { getWindowLocale, localizeLayoutLabel } from './i18n.js';
 
 export const DEFAULT_WINDOW_LAYOUT_ID = 'single';
 export const DEFAULT_DIVIDER_PROFILE_ID = '575800';
+export const DEFAULT_TRANS_PROFILE_ID_UI = DEFAULT_TRANS_PROFILE_ID;
 
 const CELL_TYPES = Object.freeze({
     fixed: FIXED_WINDOW_TYPE,
@@ -211,12 +215,16 @@ export function getWindowLayoutRequest(configuration = {}) {
         configuration.mullionProfileId,
         configuration.mullion_profile
     ) || DEFAULT_DIVIDER_PROFILE_ID);
+    const transProfileId = String(firstDefined(
+        configuration.transProfileId,
+        configuration.trans_profile
+    ) || DEFAULT_TRANS_PROFILE_ID);
     const windowState = parseWindowState(firstDefined(
         configuration.windowState,
         configuration.window_state,
         configuration.layoutState,
         configuration.layout_state
-    ), { dividerProfileId });
+    ), { dividerProfileId, transProfileId });
     return {
         layoutId: normalizeWindowLayoutId(firstDefined(
             configuration.layoutId,
@@ -225,6 +233,7 @@ export function getWindowLayoutRequest(configuration = {}) {
             configuration.layout
         )),
         dividerProfileId,
+        transProfileId,
         windowState,
     };
 }
@@ -232,9 +241,9 @@ export function getWindowLayoutRequest(configuration = {}) {
 export function createWindowLayoutSignature(configuration = {}) {
     const request = getWindowLayoutRequest(configuration);
     if (request.windowState) {
-        return `state:${serializeWindowState(request.windowState)}|${request.dividerProfileId}`;
+        return `state:${serializeWindowState(request.windowState)}|${request.dividerProfileId}|${request.transProfileId}`;
     }
-    return `${request.layoutId}|${request.dividerProfileId}`;
+    return `${request.layoutId}|${request.dividerProfileId}|${request.transProfileId}`;
 }
 
 function replaceSelectOptions(select, options, selectedValue) {
@@ -251,7 +260,7 @@ function replaceSelectOptions(select, options, selectedValue) {
         : (options[0]?.value || '');
 }
 
-function compatibilitySnapshot(windowState, layoutId, dividerProfileId) {
+function compatibilitySnapshot(windowState, layoutId, dividerProfileId, transProfileId) {
     const classification = classifyWindowState(windowState);
     const topology = deriveWindowTopology(windowState);
     let orderedCells = [...windowState.windows];
@@ -286,6 +295,7 @@ function compatibilitySnapshot(windowState, layoutId, dividerProfileId) {
         layoutId,
         windowLayout: layoutId,
         dividerProfileId,
+        transProfileId,
         dividerOrientation,
         primaryDividerOrientation,
         layoutKind,
@@ -296,7 +306,7 @@ function compatibilitySnapshot(windowState, layoutId, dividerProfileId) {
         cells,
         cellHandleSides: handles,
         dividerCount: classification.kind === 't-grid' ? 2 : topology.dividers.length,
-        layoutSignature: `state:${serializeWindowState(windowState)}|${dividerProfileId}`,
+        layoutSignature: `state:${serializeWindowState(windowState)}|${dividerProfileId}|${transProfileId}`,
         windowState,
         topology,
         windowStateVersion: windowState.version,
@@ -307,17 +317,23 @@ function compatibilitySnapshot(windowState, layoutId, dividerProfileId) {
 export function createWindowLayoutController({
     layoutInput,
     dividerProfileInput,
+    transProfileInput,
     initialSelection = {},
     onLayoutChange = async () => {},
 } = {}) {
     const initialRequest = getWindowLayoutRequest(initialSelection);
     let layoutId = initialRequest.windowState ? 'dynamic' : initialRequest.layoutId;
     let dividerProfileId = initialRequest.dividerProfileId;
+    let transProfileId = initialRequest.transProfileId;
     let windowState = initialRequest.windowState
-        ? setWindowStateDividerProfile(initialRequest.windowState, dividerProfileId)
+        ? setWindowStateTransProfile(
+            setWindowStateDividerProfile(initialRequest.windowState, dividerProfileId),
+            transProfileId
+        )
         : createWindowStateFromLayoutDefinition(
             getWindowLayoutDefinition(layoutId),
-            dividerProfileId
+            dividerProfileId,
+            transProfileId
         );
     let controlsInitialized = false;
 
@@ -327,8 +343,15 @@ export function createWindowLayoutController({
             .map(profile => ({ value: profile.id, label: profile.id }));
     }
 
+
+    function getTransOptions() {
+        return getBaseAluminiumProfiles('trans')
+            .filter(isProfileGeometryAvailable)
+            .map(profile => ({ value: profile.id, label: profile.id }));
+    }
+
     function getConfigurationSnapshot() {
-        return compatibilitySnapshot(windowState, layoutId, dividerProfileId);
+        return compatibilitySnapshot(windowState, layoutId, dividerProfileId, transProfileId);
     }
 
     function syncControls() {
@@ -348,13 +371,19 @@ export function createWindowLayoutController({
             dividerProfileInput.disabled = !hasDivider;
             dividerProfileInput.closest?.('.divider-profile-field')?.classList.toggle('is-disabled', !hasDivider);
         }
+        if (transProfileInput) {
+            replaceSelectOptions(transProfileInput, getTransOptions(), transProfileId);
+            const hasTransCandidate = deriveWindowTopology(windowState).transCandidates.length > 0;
+            transProfileInput.disabled = !hasTransCandidate;
+            transProfileInput.closest?.('.trans-profile-field')?.classList.toggle('is-disabled', !hasTransCandidate);
+        }
     }
 
-    async function notifyChange(previous, { reloadDivider = false, topologyOnly = false } = {}) {
+    async function notifyChange(previous, { reloadDivider = false, reloadTrans = false, topologyOnly = false } = {}) {
         const next = getConfigurationSnapshot();
         syncControls();
-        if (next.layoutSignature !== previous.layoutSignature || reloadDivider) {
-            await onLayoutChange(next, { reloadDivider, topologyOnly });
+        if (next.layoutSignature !== previous.layoutSignature || reloadDivider || reloadTrans) {
+            await onLayoutChange(next, { reloadDivider, reloadTrans, topologyOnly });
         }
         return next;
     }
@@ -364,7 +393,8 @@ export function createWindowLayoutController({
         layoutId = normalizeWindowLayoutId(nextLayoutId);
         windowState = createWindowStateFromLayoutDefinition(
             getWindowLayoutDefinition(layoutId),
-            dividerProfileId
+            dividerProfileId,
+            transProfileId
         );
         syncControls();
         if (notify) return notifyChange(previous, { topologyOnly: false });
@@ -380,6 +410,19 @@ export function createWindowLayoutController({
         windowState = setWindowStateDividerProfile(windowState, dividerProfileId);
         syncControls();
         if (notify) return notifyChange(previous, { reloadDivider: true });
+        return getConfigurationSnapshot();
+    }
+
+
+    async function setTransProfile(nextProfileId, { notify = true } = {}) {
+        const previous = getConfigurationSnapshot();
+        const availableIds = getTransOptions().map(option => option.value);
+        transProfileId = availableIds.includes(String(nextProfileId))
+            ? String(nextProfileId)
+            : (availableIds[0] || DEFAULT_TRANS_PROFILE_ID);
+        windowState = setWindowStateTransProfile(windowState, transProfileId);
+        syncControls();
+        if (notify) return notifyChange(previous, { reloadTrans: true });
         return getConfigurationSnapshot();
     }
 
@@ -401,6 +444,25 @@ export function createWindowLayoutController({
         return getConfigurationSnapshot();
     }
 
+
+    async function setTransBetweenWindows(cellAId, cellBId, {
+        enabled = true,
+        ownerCellId = null,
+        notify = true,
+    } = {}) {
+        const previous = getConfigurationSnapshot();
+        windowState = setTransBetweenWindowsInState(windowState, {
+            cellAId,
+            cellBId,
+            enabled,
+            ownerCellId,
+        });
+        layoutId = 'dynamic';
+        if (notify) return notifyChange(previous, { topologyOnly: !enabled });
+        syncControls();
+        return getConfigurationSnapshot();
+    }
+
     async function setWindowType(cellId, type, { handleSide = null, notify = true } = {}) {
         const previous = getConfigurationSnapshot();
         windowState = setWindowTypeInState(windowState, cellId, type, handleSide);
@@ -414,20 +476,26 @@ export function createWindowLayoutController({
         const previous = getConfigurationSnapshot();
         const request = getWindowLayoutRequest(configuration);
         dividerProfileId = request.dividerProfileId;
+        transProfileId = request.transProfileId;
         if (request.windowState) {
             layoutId = 'dynamic';
-            windowState = setWindowStateDividerProfile(request.windowState, dividerProfileId);
+            windowState = setWindowStateTransProfile(
+                setWindowStateDividerProfile(request.windowState, dividerProfileId),
+                transProfileId
+            );
         } else {
             layoutId = request.layoutId;
             windowState = createWindowStateFromLayoutDefinition(
                 getWindowLayoutDefinition(layoutId),
-                dividerProfileId
+                dividerProfileId,
+                transProfileId
             );
         }
         syncControls();
         if (notify) return notifyChange(previous, {
             reloadDivider: dividerProfileId !== previous.dividerProfileId,
-            topologyOnly: dividerProfileId === previous.dividerProfileId,
+            reloadTrans: transProfileId !== previous.transProfileId,
+            topologyOnly: dividerProfileId === previous.dividerProfileId && transProfileId === previous.transProfileId,
         });
         return getConfigurationSnapshot();
     }
@@ -438,6 +506,7 @@ export function createWindowLayoutController({
         syncControls();
         layoutInput?.addEventListener('change', () => setLayout(layoutInput.value));
         dividerProfileInput?.addEventListener('change', () => setDividerProfile(dividerProfileInput.value));
+        transProfileInput?.addEventListener('change', () => setTransProfile(transProfileInput.value));
         globalThis.window?.addEventListener('window-locale-applied', syncControls);
     }
 
@@ -446,6 +515,7 @@ export function createWindowLayoutController({
         if (!params?.set) return target;
         params.set('window_state', serializeWindowState(windowState));
         params.set('divider_profile', dividerProfileId);
+        params.set('trans_profile', transProfileId);
         if (layoutId !== 'dynamic') params.set('window_layout', layoutId);
         else params.delete?.('window_layout');
         return target;
@@ -456,8 +526,10 @@ export function createWindowLayoutController({
         syncControls,
         setLayout,
         setDividerProfile,
+        setTransProfile,
         addWindow,
         mergeWindows,
+        setTransBetweenWindows,
         setWindowType,
         applyConfiguration,
         appendUrlParams,
@@ -465,6 +537,7 @@ export function createWindowLayoutController({
         getWindowState: () => windowState,
         getLayoutId: () => layoutId,
         getDividerProfileId: () => dividerProfileId,
+        getTransProfileId: () => transProfileId,
         getDividerOrientation: () => getConfigurationSnapshot().dividerOrientation,
     };
 }

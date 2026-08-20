@@ -34,9 +34,9 @@ const ROLE_DEFINITIONS = Object.freeze({
             keepExcludedForReview: true
         }
     },
-    'double-vent-sash': {
+    'trans': {
         kind: 'base-profile',
-        outputFolder: 'profiles/double-vent-sashes',
+        outputFolder: 'profiles/trans',
         defaultAllowedSides: ['left', 'right']
     },
     'glazing-bead': {
@@ -74,9 +74,9 @@ const ROLE_DEFINITIONS = Object.freeze({
         outputFolder: 'accessories/joint-sealing-pieces',
         defaultAllowedSides: ['top', 'right', 'bottom', 'left']
     },
-    'double-vent-end-cap': {
+    'trans-end-cap': {
         kind: 'accessory',
-        outputFolder: 'accessories/double-vent-end-caps',
+        outputFolder: 'accessories/trans-end-caps',
         defaultAllowedSides: ['top', 'bottom']
     },
     'drainage-cap': {

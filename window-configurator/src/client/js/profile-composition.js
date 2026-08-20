@@ -36,6 +36,7 @@ export function createProfileSelectionSignature(selection = {}) {
         selection.outerFrameProfileId || '',
         selection.sashProfileId || '',
         selection.dividerProfileId || '',
+        selection.transProfileId || '',
     ].join('|').replace(/\|+$/, '');
 }
 
@@ -703,6 +704,269 @@ function appendStandaloneDividerProfiles({
             usesStandaloneDividerProfile: true,
         },
         profiles: [...definition.profiles, ...dividerProfiles],
+    };
+}
+
+
+function appendStandaloneTransProfiles({
+    definition,
+    standaloneDefinition,
+    profileId,
+    orientation,
+    connectionTemplate = null,
+    placementConnectionTemplate = connectionTemplate,
+}) {
+    const standaloneProfiles = standaloneDefinition?.profiles || [];
+    if (!standaloneProfiles.length) {
+        throw new Error(`Registered trans profile ${profileId} has no loaded components.`);
+    }
+
+    const sourceMetadata = standaloneDefinition.metadata || {};
+    const sourceBounds = {
+        minX: finiteNumber(sourceMetadata.globalMinX),
+        maxX: finiteNumber(sourceMetadata.globalMaxX),
+        minY: finiteNumber(sourceMetadata.globalMinY),
+        maxY: finiteNumber(sourceMetadata.globalMaxY),
+    };
+    const sourceCenterX = (sourceBounds.minX + sourceBounds.maxX) / 2;
+    const sourceCenterY = (sourceBounds.minY + sourceBounds.maxY) / 2;
+
+    const connectionTransOccurrence = connectionTemplate
+        ? resolveConnectionOccurrence(connectionTemplate, profileId, 'trans')
+        : null;
+    const transOccurrence = placementConnectionTemplate
+        ? resolveConnectionOccurrence(placementConnectionTemplate, profileId, 'trans')
+        : null;
+    const sashOccurrences = placementConnectionTemplate
+        ? resolveConnectionOccurrences(
+            placementConnectionTemplate,
+            definition.sources?.sashProfileId,
+            'opening-sash'
+        )
+        : [];
+    const sashOccurrence = sashOccurrences[0] || null;
+
+    // Frame and sash standalone profiles are already fitted to the legacy B2
+    // assembly coordinate system. The connection DWG lives in a different
+    // coordinate system, so do not add a raw join-space centre delta to the
+    // B2-aligned sash centre. Instead use the sash as the coordinate bridge:
+    //   trans source -> join -> sash source -> working B2 assembly.
+    const workingSashProfiles = definition.profiles.filter(profile =>
+        profile.role === 'sash'
+        && profile.geometrySource === 'standalone-profile'
+        && profile.cadCoordinateTransform
+    );
+    const workingSashTransform = workingSashProfiles[0]?.cadCoordinateTransform || null;
+    const sashSourceBounds = unionProfileSourceBounds(workingSashProfiles);
+    const joinSashTransform = sashOccurrence
+        ? retargetRoleReferenceTransform(sashSourceBounds, sashOccurrence)
+        : null;
+    const coordinateTransform = transOccurrence
+        ? retargetRoleReferenceTransform(sourceBounds, transOccurrence)
+        : null;
+
+    const transSourceBounds = coordinateTransform
+        ? transformCadBbox(sourceBounds, coordinateTransform)
+        : sourceBounds;
+    const transCenter = coordinateTransform
+        ? transformCadPoint(coordinateTransform, sourceCenterX, sourceCenterY)
+        : bboxCenter(transOccurrence?.bbox || transSourceBounds);
+    const sashCenter = bboxCenter(sashOccurrence?.bbox);
+    const connectionRuntimeBasis = placementConnectionTemplate
+        ? resolveConnectionRuntimeBasis(placementConnectionTemplate)
+        : null;
+    const connectionCenterDelta = sashCenter && transCenter
+        ? projectConnectionDelta(
+            connectionRuntimeBasis,
+            transCenter.x - sashCenter.x,
+            transCenter.y - sashCenter.y
+        )
+        : { depth: 0, face: 0 };
+
+    const transAssemblyCenter = placementConnectionTemplate
+        ? mapJoinPointIntoWorkingAssembly({
+            joinPoint: transCenter,
+            joinSashTransform,
+            workingSashTransform,
+        })
+        : null;
+    const transDepthCenterFromAssemblyCenterMm = transAssemblyCenter
+        ? transAssemblyCenter.x - finiteNumber(definition.metadata.globalCenterX)
+        : 0;
+
+    // The sash used by the legacy B2 assembly is positioned from a virtual
+    // outer-boundary rectangle.  Reusing the mullion's visible half-width as
+    // that rectangle boundary makes the sash much too small because its own
+    // cross-section already has a substantial inward offset.  Derive the
+    // trans-side virtual boundary from the left/right join itself instead:
+    // keep the sash source reference at the CAD join distance from the mullion,
+    // then subtract the same reference's inward offset in the working B2 frame.
+    const sashSourceCenter = sashSourceBounds ? bboxCenter(sashSourceBounds) : null;
+    const joinSashReference = sashSourceCenter && joinSashTransform
+        ? transformCadPoint(
+            joinSashTransform,
+            sashSourceCenter.x,
+            sashSourceCenter.y
+        )
+        : null;
+    const workingSashReference = sashSourceCenter && workingSashTransform
+        ? transformCadPoint(
+            workingSashTransform,
+            sashSourceCenter.x,
+            sashSourceCenter.y
+        )
+        : null;
+    const workingSashInwardReferenceMm = workingSashReference
+        ? finiteNumber(definition.metadata.globalMaxY) - workingSashReference.y
+        : null;
+    const openingSashTransBoundariesMm = {};
+    const semanticOpeningSashSides = ['left', 'right'].filter(side =>
+        placementConnectionTemplate?.[`${side}Cell`] === 'opening-sash'
+    );
+    const semanticSingleOpeningSashSide = semanticOpeningSashSides.length === 1
+        ? semanticOpeningSashSides[0]
+        : null;
+    if (
+        sashSourceCenter
+        && transCenter
+        && Number.isFinite(workingSashInwardReferenceMm)
+    ) {
+        const candidatesBySide = new Map();
+        for (const occurrence of sashOccurrences) {
+            const occurrenceTransform = retargetRoleReferenceTransform(
+                sashSourceBounds,
+                occurrence
+            );
+            const occurrenceReference = occurrenceTransform
+                ? transformCadPoint(
+                    occurrenceTransform,
+                    sashSourceCenter.x,
+                    sashSourceCenter.y
+                )
+                : null;
+            if (!occurrenceReference) continue;
+
+            const geometricSide = occurrenceReference.x < transCenter.x ? 'left' : 'right';
+            const side = semanticSingleOpeningSashSide || geometricSide;
+            if (placementConnectionTemplate?.[`${side}Cell`] !== 'opening-sash') continue;
+            const sideSign = side === 'left' ? -1 : 1;
+            const joinFaceDistanceMm = Math.abs(occurrenceReference.x - transCenter.x);
+            const boundaryMm = sideSign * (
+                joinFaceDistanceMm - workingSashInwardReferenceMm
+            );
+            if (!Number.isFinite(boundaryMm)) continue;
+            if (!candidatesBySide.has(side)) candidatesBySide.set(side, []);
+            candidatesBySide.get(side).push({
+                boundaryMm,
+                joinFaceDistanceMm,
+            });
+        }
+        for (const [side, candidates] of candidatesBySide) {
+            candidates.sort((left, right) =>
+                left.joinFaceDistanceMm - right.joinFaceDistanceMm
+            );
+            openingSashTransBoundariesMm[side] = candidates[0].boundaryMm;
+        }
+    }
+    const openingSashBoundarySides = Object.keys(openingSashTransBoundariesMm);
+    const openingSashCellSide = openingSashBoundarySides.length === 1
+        ? openingSashBoundarySides[0]
+        : null;
+    const openingSashTransBoundaryFromCenterMm = openingSashCellSide
+        ? openingSashTransBoundariesMm[openingSashCellSide]
+        : null;
+
+    const transProfiles = standaloneProfiles.map(profile => {
+        const centerY = profile.bbox
+            ? (finiteNumber(profile.bbox.minY) + finiteNumber(profile.bbox.maxY)) / 2
+            : sourceCenterY;
+        const cadLayerStyle = getStandaloneCadLayerStyle(profile);
+
+        return {
+            ...profile,
+            role: 'trans',
+            componentRole: 'trans',
+            section: 'top',
+            placementSection: 'trans',
+            sourceProfileSetId: `standalone:${profileId}`,
+            geometrySource: 'standalone-trans-profile',
+            transProfileId: profileId,
+            transOrientation: orientation,
+            // Keep the visually verified standalone section plane. Only the
+            // front/back correction is applied; join transforms provide the
+            // placement reference rather than another section rotation.
+            transSectionRotationDeg: connectionTemplate ? 180 : 0,
+            transSourceBounds: {
+                ...transSourceBounds,
+                centerX: (transSourceBounds.minX + transSourceBounds.maxX) / 2,
+                centerY: (transSourceBounds.minY + transSourceBounds.maxY) / 2,
+            },
+            cadCoordinateTransform: coordinateTransform,
+            connectionTemplateId: connectionTemplate?.id || null,
+            connectionTransformSource: connectionTransOccurrence?.transformSource
+                || transOccurrence?.transformSource
+                || null,
+            placementConnectionTemplateId: placementConnectionTemplate?.id || null,
+            cadAlignmentShiftXMm: 0,
+            cadAlignmentShiftYMm: 0,
+            baseCadColor: cadLayerStyle.materialKey !== 'default'
+                ? cadLayerStyle.baseCadColor
+                : (profile.baseCadColor || cadLayerStyle.baseCadColor),
+            materialKey: cadLayerStyle.materialKey !== 'default'
+                ? cadLayerStyle.materialKey
+                : (profile.materialKey || cadLayerStyle.materialKey),
+            isAlu: cadLayerStyle.materialKey !== 'default'
+                ? cadLayerStyle.isAlu
+                : (profile.isAlu === true),
+            aluminiumSide: cadLayerStyle.materialKey === 'alu'
+                ? (centerY < sourceCenterY ? 'outside' : 'inside')
+                : null,
+            legacyIndex: null,
+            legacyIndexes: [],
+        };
+    });
+
+    return {
+        ...definition,
+        metadata: {
+            ...definition.metadata,
+            transProfileId: profileId,
+            transOrientation: orientation,
+            transSourceBounds: transProfiles[0]?.transSourceBounds || null,
+            transConnection: connectionTemplate
+                ? {
+                    templateId: connectionTemplate.id,
+                    leftCell: connectionTemplate.leftCell || null,
+                    rightCell: connectionTemplate.rightCell || null,
+                    transProfileId: profileId,
+                    sashProfileId: definition.sources?.sashProfileId || null,
+                    transTransformSource: connectionTransOccurrence?.transformSource
+                        || transOccurrence?.transformSource
+                        || null,
+                    sashTransformSource: sashOccurrence?.transformSource || null,
+                    placementTemplateId: placementConnectionTemplate?.id || null,
+                    sectionRotationDeg: 180,
+                    orientationMode: 'standalone-canonical-with-front-back-correction',
+                    depthCenterFromAssemblyCenterMm: transDepthCenterFromAssemblyCenterMm,
+                    depthOffsetMethod: placementConnectionTemplate?.id === connectionTemplate.id
+                        ? 'join-to-b2-sash-coordinate-bridge'
+                        : `shared-mullion-placement-bridge:${placementConnectionTemplate?.id || 'none'}`,
+                    joinCenterDeltaDepthMm: connectionCenterDelta.depth,
+                    joinCenterDeltaFaceMm: connectionCenterDelta.face,
+                    openingSashCellSide,
+                    openingSashTransBoundaryFromCenterMm,
+                    openingSashTransBoundariesMm: Object.freeze({
+                        ...openingSashTransBoundariesMm,
+                    }),
+                    openingSashBoundaryMethod: openingSashBoundarySides.length
+                        ? 'per-side-left-right-join-reference-minus-working-sash-inward-offset'
+                        : null,
+                }
+                : null,
+            usesCadConnectionTemplate: Boolean(connectionTemplate),
+            usesStandaloneTransProfile: true,
+        },
+        profiles: [...definition.profiles, ...transProfiles],
     };
 }
 
@@ -2641,6 +2905,7 @@ export function composeRegisteredProfileDefinitions({
     fixedGlazingDividerTemplate = connectionTemplate,
     fixedGlazingDividerGasketTemplate = fixedGlazingDividerTemplate,
     standaloneBeadDefinition = null,
+    transConnectionTemplate = null,
 }) {
     // Keep the authored mixed-join semantics available even when the runtime
     // topology reverses the two cells.  The CAD file itself is fixed-left /
@@ -2732,6 +2997,37 @@ export function composeRegisteredProfileDefinitions({
             connectionTemplate,
             placementConnectionTemplate,
         });
+    }
+
+    const hasTransSegment = Boolean(selection.topology?.transSegments?.length);
+    const transProfileId = selection.transProfileId || null;
+    if (hasTransSegment && transProfileId && transConnectionTemplate) {
+        const entry = getProfileCatalogEntry(transProfileId);
+        if (!entry || entry.profileClass !== 'trans') {
+            throw new Error(`Profile ${transProfileId} is not a trans profile.`);
+        }
+        if (!isStandaloneProfileGeometryRegistered(entry)) {
+            throw new Error(`Trans ${transProfileId} has no registered runtime geometry.`);
+        }
+        const standaloneDefinition = standaloneDefinitionsByProfileId?.get(entry.id);
+        if (!standaloneDefinition) {
+            throw new Error(`Registered trans ${entry.id} was not loaded.`);
+        }
+        definition = appendStandaloneTransProfiles({
+            definition,
+            standaloneDefinition,
+            profileId: entry.id,
+            orientation: 'vertical',
+            connectionTemplate: transConnectionTemplate,
+            placementConnectionTemplate: transConnectionTemplate,
+        });
+        definition = {
+            ...definition,
+            metadata: {
+                ...definition.metadata,
+                transConnectionReady: true,
+            },
+        };
     }
 
     if (

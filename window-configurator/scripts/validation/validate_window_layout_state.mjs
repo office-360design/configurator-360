@@ -10,6 +10,8 @@ import {
     mergeWindowsInState,
     normalizeWindowState,
     resolveDividerConnection,
+    setTransBetweenWindowsInState,
+    setWindowTypeInState,
 } from '../../src/client/js/window-layout-state.js';
 
 const errors = [];
@@ -99,6 +101,27 @@ mergeState = mergeWindowsInState(mergeState, {
 });
 assert(mergeState.windows.length === 1, 'Merging must remove the mullion and replace two cells with one window.');
 
+let transState = createSingleWindowState({ type: SASH_WINDOW_TYPE, transProfileId: '575830' });
+transState = addWindowToState(transState, { cellId: 'w1', direction: 'right', type: SASH_WINDOW_TYPE });
+let transTopology = deriveWindowTopology(transState);
+assert(transTopology.transCandidates.length === 1, 'Two side-by-side sashes must expose one trans button.');
+assert(transTopology.dividers.length === 1, 'Before trans is enabled the sash pair must still use a structural mullion.');
+const transCandidate = transTopology.transCandidates[0];
+transState = setTransBetweenWindowsInState(transState, {
+    cellAId: transCandidate.cellAId,
+    cellBId: transCandidate.cellBId,
+    enabled: true,
+});
+transTopology = deriveWindowTopology(transState);
+assert(transState.transProfileId === '575830', 'The selected trans profile must be kept in window state.');
+assert(transState.transConnections.length === 1, 'Enabling trans must create one sash-pair relationship.');
+assert(transTopology.dividers.length === 0, 'A trans must replace the structural mullion on the shared sash boundary.');
+assert(transTopology.transSegments.length === 1, 'The shared sash boundary must become one trans line piece.');
+assert(transTopology.transSegments[0].ownerCellId === transTopology.transSegments[0].positiveCellId, 'The right/positive sash must own the trans by default.');
+assert(transTopology.transSegments[0].templateId === 'trans-sash-sash', 'The trans edge must use the dedicated sash/trans/sash join.');
+transState = setWindowTypeInState(transState, transCandidate.cellBId, FIXED_WINDOW_TYPE);
+assert(transState.transConnections.length === 0, 'Changing either trans sash to fixed glazing must automatically remove the trans relationship.');
+
 assert(resolveDividerConnection(FIXED_WINDOW_TYPE, FIXED_WINDOW_TYPE).templateId === 'mullion-fixed-fixed', 'Fixed/fixed connection mapping failed.');
 assert(resolveDividerConnection(SASH_WINDOW_TYPE, SASH_WINDOW_TYPE).templateId === 'mullion-sash-sash', 'Sash/sash connection mapping failed.');
 assert(resolveDividerConnection(SASH_WINDOW_TYPE, FIXED_WINDOW_TYPE).reversed === true, 'Sash/fixed must reverse the authored fixed/sash join.');
@@ -108,5 +131,5 @@ if (errors.length) {
     errors.forEach(error => console.error(`- ${error}`));
     process.exitCode = 1;
 } else {
-    console.log('Window layout state valid: outward add, arbitrary cell count, L/T classification, frame-to-divider replacement, per-divider join mapping, and merge passed.');
+    console.log('Window layout state valid: outward add, arbitrary cell count, L/T classification, frame-to-divider replacement, per-divider join mapping, merge, and floating-trans topology passed.');
 }

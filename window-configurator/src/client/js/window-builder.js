@@ -181,6 +181,26 @@ export function createWindowBuilder({
         return getDividerCrossSectionMetrics(bounds).faceSpanM;
     }
 
+
+    function getTransSourceBounds(transProfiles) {
+        const declared = transProfiles.find(profile => profile.transSourceBounds)?.transSourceBounds;
+        if (declared) return declared;
+        const boxes = transProfiles.map(profile => profile.bbox).filter(Boolean);
+        if (!boxes.length) return null;
+        const minX = Math.min(...boxes.map(bbox => Number(bbox.minX)));
+        const maxX = Math.max(...boxes.map(bbox => Number(bbox.maxX)));
+        const minY = Math.min(...boxes.map(bbox => Number(bbox.minY)));
+        const maxY = Math.max(...boxes.map(bbox => Number(bbox.maxY)));
+        return {
+            minX,
+            maxX,
+            minY,
+            maxY,
+            centerX: (minX + maxX) / 2,
+            centerY: (minY + maxY) / 2,
+        };
+    }
+
     function getFrameJointInwardSpanM(profiles) {
         let maxInwardMm = 0;
 
@@ -1618,6 +1638,7 @@ export function createWindowBuilder({
             return componentEnabled && isProfileEnabled(profile);
         });
         const activeDividerProfiles = activeProfiles.filter(profile => profile.role === 'divider');
+        const activeTransProfiles = activeProfiles.filter(profile => profile.role === 'trans');
         const layoutState = getWindowLayoutState();
         const isEditableTopology = layoutState.isDynamicWindowState === true;
 
@@ -1642,6 +1663,7 @@ export function createWindowBuilder({
                 height: B,
                 topology: layoutState.topology,
                 dividerConnectionVariants: currentMetadata.dividerConnectionVariants,
+                transConnection: currentMetadata.transConnection,
                 connectionScale: S,
                 frameReplacementSpan: editableFrameReplacementSpan,
                 dividerFaceSpan: editableDividerFaceSpan,
@@ -2099,7 +2121,7 @@ export function createWindowBuilder({
         }
 
         activeProfiles
-            .filter(profile => profile.role !== 'divider')
+            .filter(profile => profile.role !== 'divider' && profile.role !== 'trans')
             .forEach(profile => {
                 const group = getProfileGroup(profile);
                 const usesFullOuterBoundary = group === 'frame';
@@ -2174,6 +2196,57 @@ export function createWindowBuilder({
                     });
                 });
             });
+
+        // Trans is a floating sash-to-sash profile. It occupies the shared grid
+        // edge but is not a structural divider, so it is parented directly to
+        // one sash group and automatically follows that sash's opening pivot.
+        if (isEditableTopology && activeTransProfiles.length) {
+            const transBounds = getTransSourceBounds(activeTransProfiles);
+            const transConnection = currentMetadata.transConnection || {};
+            const transDepthOffset = (Number(transConnection.depthCenterFromAssemblyCenterMm) || 0) * S;
+            (editableTopologyGeometry?.transSegments || []).forEach(segment => {
+                const ownerCell = openingCells.find(cell => cell.id === segment.ownerCellId)
+                    || openingCells.find(cell => cell.id === segment.positiveCellId)
+                    || null;
+                const targetSashGroup = ownerCell ? sashGroupsByCell.get(ownerCell.id) : null;
+                if (!ownerCell || !targetSashGroup || !transBounds) return;
+
+                activeTransProfiles.forEach(profile => {
+                    const placedProfile = {
+                        ...profile,
+                        dividerSectionRotationDeg:
+                            Number(transConnection.sectionRotationDeg)
+                            || Number(profile.transSectionRotationDeg)
+                            || 180,
+                    };
+                    const mesh = createDividerSegment(
+                        placedProfile,
+                        ownerCell.height,
+                        'vertical',
+                        transBounds,
+                        transDepthOffset,
+                        0,
+                        segment.perpendicularOffset,
+                        ownerCell.centerY,
+                        1,
+                        {
+                            negativeEndMode: 'square',
+                            positiveEndMode: 'square',
+                            negativeFrameInwardSpan: 0,
+                            positiveFrameInwardSpan: 0,
+                        }
+                    );
+                    mesh.userData.trans = true;
+                    if (mesh.userData.componentSelection) {
+                        mesh.userData.componentSelection.source = 'trans';
+                    }
+                    mesh.userData.transSegmentId = segment.id;
+                    mesh.userData.transOwnerCellId = ownerCell.id;
+                    mesh.userData.windowCell = ownerCell.id;
+                    targetSashGroup.add(mesh);
+                });
+            });
+        }
 
         // Exact accessory INSERTs from frame-sash-window.dwg are components of
         // the outer frame. They use the same perimeter segmentation and the

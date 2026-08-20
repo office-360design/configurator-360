@@ -26,6 +26,7 @@ import {
     deriveWindowTopology,
     mergeWindowsInState,
     normalizeWindowState,
+    setTransBetweenWindowsInState,
 } from '../../src/client/js/window-layout-state.js';
 
 const errors = [];
@@ -2440,6 +2441,121 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
             && Math.abs(mergedSash.x1 - 0.613) < 1e-9
             && Math.abs(rightSash.x0 - 0.587) < 1e-9,
         'Merged sash T layout must retain the pre-merge sash envelope and the exact sash/sash CAD seats on both sides of the surviving mullion.'
+    );
+}
+
+// A trans is a floating sash member, not a structural divider. The shared
+// edge remains two sash cells, but the fixed member above and below it must
+// remain a flat continuation exactly as it would beside a merged opening.
+{
+    const sashCell = (id, x0, y0, x1, y1) => ({
+        ...fixedCell(id, x0, y0, x1, y1),
+        type: 'opening-sash',
+    });
+    let transState = normalizeWindowState({
+        transProfileId: '575820',
+        windows: [
+            sashCell('trans-left', 0, 0, 1, 1),
+            sashCell('trans-right', 1, 0, 2, 1),
+        ],
+    });
+    transState = setTransBetweenWindowsInState(transState, {
+        cellAId: 'trans-left',
+        cellBId: 'trans-right',
+        enabled: true,
+        ownerCellId: 'trans-right',
+    });
+    const transGeometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(transState),
+        frameReplacementSpan: 0.075,
+        dividerFaceSpan: 0.088,
+        transConnection: {
+            openingSashTransBoundariesMm: { left: -12, right: 12 },
+        },
+    });
+    const transSegment = transGeometry.transSegments[0];
+    const leftCell = transGeometry.cells.find(cell => cell.id === 'trans-left');
+    const rightCell = transGeometry.cells.find(cell => cell.id === 'trans-right');
+    const passThroughs = transGeometry.physicalIntersections.filter(
+        junction => junction.isTransPassThrough
+    );
+    assert(
+        transGeometry.dividerSegments.length === 0
+            && transGeometry.transSegments.length === 1
+            && transSegment?.ownerCellId === 'trans-right',
+        'A trans sash pair must replace the shared structural mullion with one floating trans edge owned by one sash.'
+    );
+    assert(
+        leftCell
+            && rightCell
+            && Math.abs(leftCell.connectionX1 - (transSegment.perpendicularOffset - 0.012)) < 1e-9
+            && Math.abs(rightCell.connectionX0 - (transSegment.perpendicularOffset + 0.012)) < 1e-9,
+        'The sash/trans/sash CAD join must control the exact sash seats on both sides of the floating trans.'
+    );
+    assert(
+        passThroughs.length === 2
+            && passThroughs.every(junction => junction.frameCount === 2 && junction.dividerCount === 0),
+        'Both ends of a full-height trans must resolve as non-structural pass-throughs in the top/bottom frame lines.'
+    );
+    assert(
+        passThroughs.every(junction => junction.frameEndpoints.every(endpoint => {
+            const frame = transGeometry.framePlacements.find(piece => piece.id === endpoint.frameId);
+            return frame && !frame.frameJointModes?.[endpoint.localEnd];
+        })),
+        'A trans endpoint must not cut a V/miter/socket into the continuous frame above or below it.'
+    );
+
+    let transUnderMullionState = normalizeWindowState({
+        windows: [
+            fixedCell('trans-top-fixed', 0, 1, 2, 2),
+            sashCell('trans-bottom-left', 0, 0, 1, 1),
+            sashCell('trans-bottom-right', 1, 0, 2, 1),
+        ],
+    });
+    transUnderMullionState = setTransBetweenWindowsInState(transUnderMullionState, {
+        cellAId: 'trans-bottom-left',
+        cellBId: 'trans-bottom-right',
+        enabled: true,
+    });
+    const transUnderMullionGeometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(transUnderMullionState),
+        frameReplacementSpan: 0.075,
+        dividerFaceSpan: 0.088,
+        transConnection: {
+            openingSashTransBoundariesMm: { left: -12, right: 12 },
+        },
+    });
+    const dividerPassThrough = transUnderMullionGeometry.physicalIntersections.find(
+        junction => junction.isTransPassThrough && junction.dividerCount === 2
+    );
+    const dividerEndsStaySquare = dividerPassThrough?.endpoints?.every(endpoint => {
+        const segment = transUnderMullionGeometry.dividerSegments.find(
+            divider => divider.id === endpoint.dividerId
+        );
+        if (!segment) return false;
+        const placement = getEditableDividerSegmentPlacement({
+            segment,
+            junctions: transUnderMullionGeometry.physicalIntersections,
+            dividerFaceSpan: 0.088,
+            frameJointInwardSpan: 0.065,
+        });
+        const mode = endpoint.atStart
+            ? placement.joint.negativeEndMode
+            : placement.joint.positiveEndMode;
+        const frameSpanAtEnd = endpoint.atStart
+            ? placement.joint.negativeFrameInwardSpan
+            : placement.joint.positiveFrameInwardSpan;
+        return mode === 'square' && frameSpanAtEnd === 0;
+    });
+    assert(
+        dividerPassThrough
+            && dividerPassThrough.type === 'continuation'
+            && dividerEndsStaySquare,
+        'A horizontal fixed mullion/transom above a trans pair must remain one flat continuation across the trans endpoint.'
     );
 }
 

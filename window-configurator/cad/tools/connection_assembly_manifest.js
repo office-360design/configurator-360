@@ -6,7 +6,7 @@ const CAD_DIR = path.join(PROJECT_ROOT, 'cad');
 const SOURCE_DIR = path.join(CAD_DIR, 'source');
 const DEFAULT_MANIFEST = path.join(CAD_DIR, 'manifests', 'connection-assemblies.json');
 const CELL_TYPES = new Set(['outside', 'fixed-glazing', 'opening-sash']);
-const BOUNDARY_TYPES = new Set(['outer-frame', 'mullion-transom']);
+const BOUNDARY_TYPES = new Set(['outer-frame', 'mullion-transom', 'trans']);
 
 function parseArgs(argv) {
     const options = {};
@@ -70,10 +70,6 @@ function createPlan(entry) {
     if (!relativeSource.startsWith('cad/source/join/')) {
         throw new Error(`Connection ${id} must use cad/source/join: ${relativeSource}`);
     }
-    if (relativeSource.includes('double_vent_profile')) {
-        throw new Error(`Connection ${id} must not use a double-vent source.`);
-    }
-
     return Object.freeze({
         id,
         sourcePath,

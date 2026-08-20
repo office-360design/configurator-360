@@ -1688,6 +1688,17 @@ body.capture-mode #component-selection-popup,
     background: rgba(30, 41, 59, 0.94);
 }
 
+.window-layout-node-trans {
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
+    background: rgba(30, 41, 59, 0.94);
+}
+
+.window-layout-node-trans.is-active {
+    background: #2563eb;
+}
+
 .window-type-wheel {
     position: absolute;
     width: 154px;

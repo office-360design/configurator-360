@@ -25,6 +25,8 @@ const expectedRoles = new Map([
     ['575790', 'opening-sash'],
     ['575800', 'mullion-transom'],
     ['575810', 'mullion-transom'],
+    ['575820', 'trans'],
+    ['575830', 'trans'],
     ['573940', 'glazing-bead'],
     ['573930', 'glazing-bead'],
     ['573920', 'glazing-bead'],
@@ -37,6 +39,7 @@ const expectedSourceFolders = new Map([
     ['575760', 'frame'], ['575770', 'frame'],
     ['575780', 'sash'], ['575790', 'sash'],
     ['575800', 'mullion'], ['575810', 'mullion'],
+    ['575820', 'trans'], ['575830', 'trans'],
     ['573940', 'bead'], ['573930', 'bead'], ['573920', 'bead'],
     ['224350', 'gasket'], ['224378', 'gasket'], ['224379', 'gasket'],
 ]);
@@ -44,9 +47,9 @@ const expectedSourceFolders = new Map([
 const { manifest } = converter.loadManifest(converter.DEFAULT_MANIFEST);
 const plans = converter.createPlansFromManifest(manifest, {});
 
-assert.equal(plans.length, expectedRoles.size, 'The standalone manifest must contain six structural profiles and six glazing accessories.');
+assert.equal(plans.length, expectedRoles.size, 'The standalone manifest must contain eight structural/trans profiles and six glazing accessories.');
 assert.equal(new Set(plans.map(plan => plan.profileId)).size, plans.length, 'Profile IDs must be unique.');
-assert.equal(plans.some(plan => plan.role === 'double-vent-sash'), false, 'Double-vent profiles must remain excluded from the active standalone manifest.');
+assert.equal(plans.filter(plan => plan.role === 'trans').length, 2, 'Both trans profiles must be active standalone entries.');
 
 for (const plan of plans) {
     assert.equal(plan.role, expectedRoles.get(plan.profileId), `Unexpected role for ${plan.profileId}.`);
@@ -60,11 +63,11 @@ for (const plan of plans) {
     assert.ok(!plan.outputDir.includes(`${path.sep}L${path.sep}`), 'Output folders must not encode L profile terminology.');
     assert.ok(!plan.outputDir.includes(`${path.sep}Z${path.sep}`), 'Output folders must not encode Z profile terminology.');
 
-    if (plan.role === 'mullion-transom') {
+    if (plan.role === 'mullion-transom' || plan.role === 'trans') {
         assert.equal(plan.componentSelection.mode, 'main-cluster');
         assert.equal(plan.componentSelection.maxGapMm, 25);
         assert.deepEqual(plan.componentSelection.anchorBlockNames, [plan.profileId]);
-        assert.equal(plan.geometrySource.modelSpacePolicy, 'inserts-only', 'Mullions must use the same block-INSERT-only source policy as the complete converter.');
+        assert.equal(plan.geometrySource.modelSpacePolicy, 'inserts-only', 'Mullions and trans profiles must use block-INSERT-only source geometry.');
     } else {
         assert.equal(plan.componentSelection.mode, 'all');
         assert.equal(plan.geometrySource.modelSpacePolicy, 'prefer-inserts');
@@ -73,10 +76,10 @@ for (const plan of plans) {
 
 const selectedPlans = converter.createPlansFromManifest(manifest, { only: '575760,575800' });
 assert.deepEqual(selectedPlans.map(plan => plan.profileId), ['575760', '575800']);
-assert.throws(
-    () => converter.createPlansFromManifest(manifest, { only: '575820' }),
-    /Profiles not found in manifest/,
-    'Ignored double-vent profiles must not be selectable from the current manifest.'
+assert.deepEqual(
+    converter.createPlansFromManifest(manifest, { only: '575820,575830' }).map(plan => plan.profileId),
+    ['575820', '575830'],
+    'Both trans profiles must be selectable from the active manifest.'
 );
 
 const syntheticComponents = [

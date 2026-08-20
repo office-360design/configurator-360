@@ -26,7 +26,8 @@ const GASKET_CODES = getSelectableGasketProfileIds().filter(
 
 function getProfileRole(profileClass) {
     if (profileClass === 'outer-frame') return 'frame';
-    if (profileClass === 'sash' || profileClass === 'double-vent-sash') return 'sash';
+    if (profileClass === 'sash') return 'sash';
+    if (profileClass === 'trans') return 'trans';
     if (profileClass === 'mullion-transom') return 'divider';
     return 'frame';
 }

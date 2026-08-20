@@ -4,6 +4,7 @@ const CONNECTION_TEMPLATE_URLS = Object.freeze({
     'mullion-fixed-sash': 'cad-connections/mullion-fixed-sash/connection.meta.json',
     'mullion-fixed-fixed': 'cad-connections/mullion-fixed-fixed/connection.meta.json',
     'mullion-sash-sash': 'cad-connections/mullion-sash-sash/connection.meta.json',
+    'trans-sash-sash': 'cad-connections/trans-sash-sash/connection.meta.json',
 });
 
 function validateTransform(transform, label) {
@@ -22,7 +23,7 @@ function validateConnectionTemplate(template, id) {
     }
     const boundaryRole = template.boundary === 'outer-frame'
         ? 'outer-frame'
-        : 'mullion-transom';
+        : (template.boundary === 'trans' ? 'trans' : 'mullion-transom');
     const boundaryOccurrences = template.roleOccurrences?.[boundaryRole] || [];
     const sashOccurrences = template.roleOccurrences?.['opening-sash'] || [];
     if (!boundaryOccurrences.length) {

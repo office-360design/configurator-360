@@ -239,7 +239,7 @@ const ACCESSORY_FIELDS = Object.freeze([
     ['innerGlazingGasket', 'inner_glazing_gasket', 'inner-glazing-gasket', true],
     ['glazingBridge', 'glazing_bridge', 'glazing-bridge', true],
     ['jointSealingPiece', 'joint_sealing_piece', 'joint-sealing-piece', false],
-    ['doubleVentEndCap', 'double_vent_end_cap', 'double-vent-end-cap', false],
+    ['transEndCap', 'trans_end_cap', 'trans-end-cap', false],
     ['drainageCap', 'drainage_cap', 'drainage-cap', true],
 ]);
 

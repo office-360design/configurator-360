@@ -17,9 +17,10 @@ const expected = new Map([
     ['mullion-fixed-sash', 'join/window-mullion-sash-window.dwg'],
     ['mullion-fixed-fixed', 'join/window-mullion-window.dwg'],
     ['mullion-sash-sash', 'join/window-sash-mullion-sash-window.dwg'],
+    ['trans-sash-sash', 'join/window-sash-trans-sash-window.dwg'],
 ]);
 
-assert.equal(plans.length, expected.size, 'All five supplied join DWGs must be cataloged.');
+assert.equal(plans.length, expected.size, 'All six supplied join DWGs must be cataloged.');
 assert.equal(new Set(plans.map(plan => plan.id)).size, plans.length, 'Connection IDs must be unique.');
 for (const plan of plans) {
     assert.ok(fs.existsSync(plan.sourcePath), `Missing join source for ${plan.id}.`);
@@ -29,7 +30,6 @@ for (const plan of plans) {
         `Unexpected source mapping for ${plan.id}.`
     );
     assert.equal(plan.orientation, 'left-right-section');
-    assert.equal(plan.source.includes('double_vent_profile'), false);
 }
 
 assert.equal(
@@ -42,10 +42,15 @@ assert.deepEqual(
         .map(plan => plan.id),
     ['frame-fixed', 'mullion-fixed-fixed']
 );
-assert.throws(
-    () => catalog.createPlansFromManifest(manifest, { only: 'double-vent' }),
-    /Connections not found/,
-    'Double-vent connections must remain outside the active manifest.'
+assert.deepEqual(
+    catalog.createPlansFromManifest(manifest, { only: 'trans-sash-sash' }).map(plan => plan.id),
+    ['trans-sash-sash'],
+    'The sash/trans/sash join must be selectable from the active manifest.'
+);
+assert.equal(
+    plans.find(plan => plan.id === 'trans-sash-sash')?.boundary,
+    'trans',
+    'The trans join must use the dedicated trans boundary type.'
 );
 
-console.log(`Connection assembly manifest valid: ${plans.length} left/right join references, double-vent excluded.`);
+console.log(`Connection assembly manifest valid: ${plans.length} left/right join references including trans.`);

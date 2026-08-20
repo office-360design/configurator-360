@@ -69,6 +69,7 @@ export function createProfileController({
         ['sash', true],
         ['bead', true],
         ['divider', true],
+        ['trans', true],
     ]);
 
     function buildWindow() {
@@ -89,6 +90,9 @@ export function createProfileController({
         }
         if (profile.role === 'divider') {
             return 'divider';
+        }
+        if (profile.role === 'trans') {
+            return 'trans';
         }
 
         const blockName = String(profile.blockName || '').toLowerCase();
@@ -380,6 +384,7 @@ export function createProfileController({
             sash: { title: windowT(locale, 'profile.group.sash'), items: [] },
             bead: { title: windowT(locale, 'profile.group.bead'), items: [] },
             divider: { title: windowT(locale, 'profile.group.divider'), items: [] },
+            trans: { title: windowT(locale, 'profile.group.trans'), items: [] },
         };
 
         profilesData.forEach(profile => {
@@ -892,10 +897,12 @@ export function createProfileController({
                 );
             }));
 
+            const hasTransSegment = Boolean(normalizedSelection.topology?.transSegments?.length);
             const selectedBaseProfileIds = [
                 sources.outerFrameProfileId,
                 sources.sashProfileId,
                 normalizedSelection.dividerProfileId || null,
+                hasTransSegment ? (normalizedSelection.transProfileId || null) : null,
             ].filter(profileId =>
                 isStandaloneProfileGeometryRegistered(
                     getProfileCatalogEntry(profileId)
@@ -916,6 +923,9 @@ export function createProfileController({
             });
             const connectionTemplate = connectionTemplateId
                 ? await loadConnectionTemplate(connectionTemplateId)
+                : null;
+            const transConnectionTemplate = hasTransSegment
+                ? await loadConnectionTemplate('trans-sash-sash')
                 : null;
             const hasFixedGlazingCell = normalizedSelection.leftCell === 'fixed-glazing'
                 || normalizedSelection.rightCell === 'fixed-glazing'
@@ -972,6 +982,7 @@ export function createProfileController({
                 fixedGlazingDividerTemplate,
                 fixedGlazingDividerGasketTemplate,
                 standaloneBeadDefinition,
+                transConnectionTemplate,
             });
 
             const isTLayout = (normalizedSelection.layoutId || normalizedSelection.windowLayout) === 'top-fixed-bottom-sash-sash'

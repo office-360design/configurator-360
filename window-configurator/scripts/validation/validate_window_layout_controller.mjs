@@ -104,12 +104,14 @@ assert(
 const request = getWindowLayoutRequest({
     window_layout: 'vertical-divider',
     divider_profile: '575810',
+    trans_profile: '575830',
 });
 assert(request.layoutId === 'vertical-divider', 'URL-style layout input was not parsed.');
 assert(request.dividerProfileId === '575810', 'URL-style divider profile input was not parsed.');
+assert(request.transProfileId === '575830', 'URL-style trans profile input was not parsed.');
 assert(
-    createWindowLayoutSignature(request) === 'vertical-divider|575810',
-    'The layout signature must include orientation and divider profile.'
+    createWindowLayoutSignature(request) === 'vertical-divider|575810|575830',
+    'The layout signature must include layout, divider profile, and trans profile.'
 );
 
 const controller = createWindowLayoutController({
@@ -173,6 +175,10 @@ assert(
 assert(
     url.searchParams.get('divider_profile') === '575810',
     'The selected divider profile must be preserved in AR/configuration URLs.'
+);
+assert(
+    url.searchParams.get('trans_profile') === controller.getTransProfileId(),
+    'The selected trans profile must be preserved in AR/configuration URLs.'
 );
 
 if (errors.length) {

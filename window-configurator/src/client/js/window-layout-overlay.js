@@ -43,6 +43,7 @@ export function createWindowLayoutOverlay({
     getSelectedHandleSide = () => 'right',
     onAddWindow = async () => {},
     onMergeWindows = async () => {},
+    onSetTransWindows = async () => {},
     enabled = true,
     getEditableTopologyGeometry = () => null,
 } = {}) {
@@ -109,9 +110,12 @@ export function createWindowLayoutOverlay({
             ? windowT(locale, 'layout.add', {
                 direction: windowT(locale, `layout.direction.${definition.direction}`),
             })
-            : windowT(locale, 'layout.merge');
+            : definition.kind === 'trans'
+                ? windowT(locale, definition.active ? 'layout.transRemove' : 'layout.transAdd')
+                : windowT(locale, 'layout.merge');
         button.setAttribute('aria-label', button.title);
-        button.textContent = definition.kind === 'add' ? '+' : '↔';
+        button.textContent = definition.kind === 'add' ? '+' : (definition.kind === 'trans' ? 'T' : '↔');
+        button.classList.toggle('is-active', definition.kind === 'trans' && definition.active);
         stopPointerPropagation(button);
         button.addEventListener('click', async event => {
             const rect = root.getBoundingClientRect();
@@ -120,6 +124,16 @@ export function createWindowLayoutOverlay({
                 y: event.clientY - rect.top,
             };
             const state = getWindowLayoutState?.();
+            if (definition.kind === 'trans') {
+                closeWheel();
+                await onSetTransWindows(
+                    definition.cellAId,
+                    definition.cellBId,
+                    !definition.active,
+                    definition.ownerCellId || null
+                );
+                return;
+            }
             if (definition.kind === 'add') {
                 openTypeWheel(anchor, type => onAddWindow(
                     definition.cellId,
@@ -168,6 +182,10 @@ export function createWindowLayoutOverlay({
             kind: 'merge',
             ...candidate,
         }));
+        (topology.transCandidates || []).forEach(candidate => createControl({
+            kind: 'trans',
+            ...candidate,
+        }));
     }
 
     function localPointForControl(definition) {
@@ -186,8 +204,13 @@ export function createWindowLayoutOverlay({
                 if (definition.direction === 'bottom') y -= placement.height / 2 + OUTER_OFFSET_M;
                 return new THREE.Vector3(x, y, FRONT_OFFSET_M);
             }
-        } else if (definition.kind === 'merge') {
-            const segment = getEditableTopologyGeometry()?.dividerSegments?.find(s => 
+        } else if (definition.kind === 'merge' || definition.kind === 'trans') {
+            const geometry = getEditableTopologyGeometry();
+            const segments = [
+                ...(geometry?.dividerSegments || []),
+                ...(geometry?.transSegments || []),
+            ];
+            const segment = segments.find(s => 
                 s.coordinate === definition.coordinate 
                 && s.start === definition.start 
                 && s.end === definition.end
@@ -227,7 +250,8 @@ export function createWindowLayoutOverlay({
                 return;
             }
             button.hidden = false;
-            button.style.left = `${screen.x}px`;
+            const pairOffset = definition.kind === 'merge' ? -18 : (definition.kind === 'trans' ? 18 : 0);
+            button.style.left = `${screen.x + pairOffset}px`;
             button.style.top = `${screen.y}px`;
         });
     }

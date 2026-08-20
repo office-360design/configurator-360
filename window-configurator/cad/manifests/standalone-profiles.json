@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Standalone structural profiles and reusable glazing accessories from the reorganized cad/source folders. Join drawings are cataloged separately in cad/manifests/connection-assemblies.json. Double-vent profiles are intentionally excluded for now.",
+  "description": "Standalone structural profiles, trans profiles, and reusable glazing accessories from the reorganized cad/source folders. Join drawings are cataloged separately in cad/manifests/connection-assemblies.json.",
   "profiles": [
     {
       "id": "575760",
@@ -242,6 +242,92 @@
         "registeredAt": "2026-08-07",
         "runtimeMode": "single-divider-layout",
         "note": "Standalone mullion/transom geometry is registered for the verified single-divider layout path."
+      }
+    },
+    {
+      "id": "575820",
+      "label": "Trans 575820",
+      "role": "trans",
+      "source": "trans/575820_d1.dwg",
+      "canonicalOrientation": {
+        "side": "top",
+        "exteriorDirection": "unspecified",
+        "cavityDirection": "unspecified"
+      },
+      "allowedSides": [
+        "left",
+        "right"
+      ],
+      "allowedTransforms": {
+        "rotations": [
+          0,
+          90,
+          180,
+          270
+        ],
+        "mirrorX": false,
+        "mirrorY": false
+      },
+      "componentSelection": {
+        "mode": "main-cluster",
+        "maxGapMm": 25,
+        "anchorBlockNames": [
+          "575820"
+        ],
+        "keepExcludedForReview": true
+      },
+      "notes": "Floating trans profile used only between two side-by-side opening sashes. It is attached to one sash and does not create a structural frame/mullion junction at its endpoints.",
+      "geometrySource": {
+        "modelSpacePolicy": "inserts-only"
+      },
+      "catalogRegistration": {
+        "status": "registered",
+        "registeredAt": "2026-08-20",
+        "runtimeMode": "floating-trans-sash-pair",
+        "note": "Standalone trans geometry is positioned from window-sash-trans-sash-window.dwg and moves with its owner sash."
+      }
+    },
+    {
+      "id": "575830",
+      "label": "Trans 575830",
+      "role": "trans",
+      "source": "trans/575830_d1.dwg",
+      "canonicalOrientation": {
+        "side": "top",
+        "exteriorDirection": "unspecified",
+        "cavityDirection": "unspecified"
+      },
+      "allowedSides": [
+        "left",
+        "right"
+      ],
+      "allowedTransforms": {
+        "rotations": [
+          0,
+          90,
+          180,
+          270
+        ],
+        "mirrorX": false,
+        "mirrorY": false
+      },
+      "componentSelection": {
+        "mode": "main-cluster",
+        "maxGapMm": 25,
+        "anchorBlockNames": [
+          "575830"
+        ],
+        "keepExcludedForReview": true
+      },
+      "notes": "Floating trans profile used only between two side-by-side opening sashes. It is attached to one sash and does not create a structural frame/mullion junction at its endpoints.",
+      "geometrySource": {
+        "modelSpacePolicy": "inserts-only"
+      },
+      "catalogRegistration": {
+        "status": "registered",
+        "registeredAt": "2026-08-20",
+        "runtimeMode": "floating-trans-sash-pair",
+        "note": "Standalone trans geometry is positioned from window-sash-trans-sash-window.dwg and moves with its owner sash."
       }
     },
     {

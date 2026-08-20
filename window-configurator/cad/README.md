@@ -7,10 +7,10 @@ cad/source/
 ├─ frame/                 # 575760, 575770
 ├─ sash/                  # 575780, 575790
 ├─ mullion/               # 575800, 575810
-├─ join/                  # five left/right connection-reference assemblies
+├─ join/                  # six left/right connection-reference assemblies
 ├─ bead/                  # 573920, 573930, 573940
 ├─ gasket/                # 224350, 224378, 224379
-├─ double_vent_profile/   # deferred; not in the active manifests
+├─ trans/                 # 575820, 575830 floating trans profiles
 └─ 2_4, 2_5, 2_6 DWGs    # complete B2 reference assemblies
 ```
 
@@ -31,10 +31,11 @@ It contains:
 - Outer frames: `575760`, `575770`
 - Opening sashes: `575780`, `575790`
 - Mullion/transom profiles: `575800`, `575810`
+- Trans profiles: `575820`, `575830`
 - Glazing beads: `573920`, `573930`, `573940`
 - Glazing-bead gaskets: `224350`, `224378`, `224379`
 
-Double-vent profiles `575820` and `575830` are intentionally excluded.
+The trans profiles are used only by the `trans-sash-sash` connection and are parented to one opening sash at runtime.
 
 Check the complete source/output plan without requiring AutoCAD or ODA:
 

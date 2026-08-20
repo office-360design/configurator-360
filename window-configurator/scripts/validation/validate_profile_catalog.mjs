@@ -67,8 +67,8 @@ const expectedProfileRoles = new Map([
     ['575790', { profileClass: 'sash', roles: ['opening-sash-boundary'] }],
     ['575800', { profileClass: 'mullion-transom', roles: ['mullion', 'transom'] }],
     ['575810', { profileClass: 'mullion-transom', roles: ['mullion', 'transom'] }],
-    ['575820', { profileClass: 'double-vent-sash', roles: ['secondary-sash'] }],
-    ['575830', { profileClass: 'double-vent-sash', roles: ['secondary-sash'] }],
+    ['575820', { profileClass: 'trans', roles: ['trans', 'floating-sash-adapter'] }],
+    ['575830', { profileClass: 'trans', roles: ['trans', 'floating-sash-adapter'] }],
 ]);
 
 for (const [profileId, expected] of expectedProfileRoles) {
@@ -159,6 +159,42 @@ for (const profileId of ['575800', '575810']) {
         profile?.geometry?.generatedSvg
             && existsFromClient(profile.geometry.generatedSvg),
         `Converted mullion SVG is missing for ${profileId}.`
+    );
+}
+
+for (const profileId of ['575820', '575830']) {
+    const profile = PROFILE_CATALOG[profileId];
+    assert(
+        isStandaloneProfileGeometryRegistered(profile),
+        `${profileId} should be registered for floating trans sash-pair geometry.`
+    );
+    assert(
+        registeredStandaloneIds.includes(profileId),
+        `${profileId} is missing from the registered standalone profile list.`
+    );
+    const metadataUrl = getStandaloneProfileMetadataUrl(profileId);
+    assert(Boolean(metadataUrl), `${profileId} is missing its standalone metadata URL.`);
+    assert(
+        metadataUrl && existsFromClient(metadataUrl),
+        `Missing standalone metadata for ${profileId}: src/client/${metadataUrl}`
+    );
+    if (metadataUrl && existsFromClient(metadataUrl)) {
+        const standaloneMetadata = JSON.parse(
+            fs.readFileSync(path.join(clientRoot, metadataUrl), 'utf8')
+        );
+        assert(
+            standaloneMetadata.catalogRegistration?.status === 'registered',
+            `${profileId} standalone metadata must be marked as registered.`
+        );
+        assert(
+            standaloneMetadata.catalogRegistration?.runtimeMode === 'floating-trans-sash-pair',
+            `${profileId} standalone metadata has the wrong runtime registration mode.`
+        );
+    }
+    assert(
+        profile?.geometry?.generatedSvg
+            && existsFromClient(profile.geometry.generatedSvg),
+        `Converted trans SVG is missing for ${profileId}.`
     );
 }
 

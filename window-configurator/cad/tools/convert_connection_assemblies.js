@@ -22,7 +22,7 @@ const {
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const CONVERTER = path.join(__dirname, 'test_convert.js');
 const DEFAULT_OUTPUT_ROOT = path.join(PROJECT_ROOT, 'src', 'client', 'cad-connections');
-const STRUCTURAL_ROLES = new Set(['outer-frame', 'opening-sash', 'mullion-transom']);
+const STRUCTURAL_ROLES = new Set(['outer-frame', 'opening-sash', 'mullion-transom', 'trans']);
 const DIRECT_JOIN_ACCESSORIES = Object.freeze({
     '224063': 'gasket',
     // Rebate gasket mounted on a frame/mullion when the opposite side is an
@@ -195,7 +195,7 @@ function createRoleOccurrences(profileOccurrences, standalonePlanById) {
 function assertRequiredStructuralOccurrence(connectionPlan, roleOccurrences) {
     const requiredRole = connectionPlan.boundary === 'outer-frame'
         ? 'outer-frame'
-        : 'mullion-transom';
+        : (connectionPlan.boundary === 'trans' ? 'trans' : 'mullion-transom');
     if (!(roleOccurrences[requiredRole] || []).length) {
         throw new Error(
             `${connectionPlan.id} did not contain a transform-matched ${requiredRole} profile. `

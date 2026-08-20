@@ -43,6 +43,7 @@ const requestedWindowLayoutSelection = getWindowLayoutRequest({
     window_layout: pageParams.get('window_layout') || pageParams.get('layout'),
     window_state: pageParams.get('window_state') || pageParams.get('layout_state'),
     divider_profile: pageParams.get('divider_profile') || pageParams.get('mullion_profile'),
+    trans_profile: pageParams.get('trans_profile'),
 });
 const requestedActiveParts = pageParams.has('parts')
     ? new Set(pageParams.get('parts').split(',').filter(Boolean))
@@ -114,6 +115,7 @@ const outerFrameInput = document.getElementById('outerFrameProfile');
 const sashInput = document.getElementById('sashProfile');
 const windowLayoutInput = document.getElementById('windowLayout');
 const dividerProfileInput = document.getElementById('dividerProfile');
+const transProfileInput = document.getElementById('transProfile');
 const glassThicknessInput = document.getElementById('glassThickness');
 const glassThicknessLabel = document.getElementById('valGlassThickness');
 const cadReferenceButton = document.getElementById('cad-reference-button');
@@ -320,13 +322,22 @@ profileSelectionController = createProfileSelectionController({
 windowLayoutController = createWindowLayoutController({
     layoutInput: windowLayoutInput,
     dividerProfileInput,
+    transProfileInput,
     initialSelection: requestedWindowLayoutSelection,
-    onLayoutChange: async (layoutSelection, { reloadDivider = false, topologyOnly = false } = {}) => {
+    onLayoutChange: async (layoutSelection, { reloadDivider = false, reloadTrans = false, topologyOnly = false } = {}) => {
         profileSelectionController?.markCustomCadAssembly();
         if (
             topologyOnly
             && !reloadDivider
+            && !reloadTrans
             && profileController.getCurrentMetadata()?.dividerConnectionCatalogReady
+            && (
+                !(layoutSelection.topology?.transSegments?.length)
+                || (
+                    profileController.getCurrentMetadata()?.transConnectionReady
+                    && profileController.getCurrentMetadata()?.transProfileId === layoutSelection.transProfileId
+                )
+            )
         ) {
             windowBuilder?.buildWindow();
             return;
@@ -416,6 +427,8 @@ windowLayoutOverlay = createWindowLayoutOverlay({
         }),
     onMergeWindows: (cellAId, cellBId, type, handleSide) =>
         windowLayoutController.mergeWindows(cellAId, cellBId, type, { handleSide }),
+    onSetTransWindows: (cellAId, cellBId, enabled, ownerCellId) =>
+        windowLayoutController.setTransBetweenWindows(cellAId, cellBId, { enabled, ownerCellId }),
     enabled: !isARMode && !captureMode,
     getEditableTopologyGeometry: () => windowBuilder?.getEditableTopologyGeometry?.(),
 });
