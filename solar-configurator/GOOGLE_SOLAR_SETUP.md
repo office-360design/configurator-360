@@ -1,134 +1,213 @@
-# Google Solar showcase setup
+# Google Solar API setup — Google Cloud Run
 
-The public GitHub Pages configurator talks only to the Netlify function. The Google API key must remain a Netlify environment variable.
-
-## 1. Google Cloud
-
-1. Enable billing for the Google Cloud project.
-2. Enable **Solar API**.
-3. Create a dedicated API key for the Netlify server-side Solar API calls.
-4. Restrict the key to **Solar API** only.
-5. Configure conservative daily quotas for both Building Insights and Data Layers so Google Cloud is the final billing hard-stop for the demo.
-
-## 2. Netlify environment variables
-
-On the existing `pvgis-proxy` Netlify project set:
-
-```bash
-netlify env:set GOOGLE_SOLAR_API_KEY 'YOUR_SOLAR_API_KEY'
-netlify env:set GOOGLE_SOLAR_DEMO_ACCESS_CODE 'YOUR_PRIVATE_DEMO_CODE'
-netlify env:set GOOGLE_SOLAR_SESSION_SECRET "$(openssl rand -hex 32)"
-netlify env:set GOOGLE_SOLAR_ALLOWED_ORIGIN 'https://aks.360configurator.com'
-```
-
-The Google Solar proxy also permits loopback development origins automatically, on any port:
-
-- `http://localhost:<port>`
-- `http://127.0.0.1:<port>`
-- `http://0.0.0.0:<port>`
-- IPv6 loopback (`::1`)
-
-You do not need to add these to `GOOGLE_SOLAR_ALLOWED_ORIGIN`. The production origin remains restricted by the environment variable. If you develop through a LAN hostname/IP rather than a loopback URL, add that exact origin to the comma-separated environment variable instead.
-
-Optional limits:
-
-```bash
-netlify env:set GOOGLE_SOLAR_MAX_LOGIN_ATTEMPTS_HOUR '12'
-netlify env:set GOOGLE_SOLAR_MAX_ANALYSES_PER_IP_DAY '20'
-netlify env:set GOOGLE_SOLAR_MAX_ANALYSES_DAY '100'
-```
-
-The access code and signing secret must not be committed to GitHub.
-
-## 3. Deploy the Netlify proxy
-
-The Google function adds npm runtime dependencies, so install them before deployment:
-
-```bash
-cd solar-configurator/pvgis-proxy-netlify
-npm install
-netlify deploy --prod
-```
-
-Health check:
+The Solar configurator now sends paid Google Solar requests to the same-origin
+Google Cloud endpoint:
 
 ```text
-https://pvgis-proxy.netlify.app/.netlify/functions/google-solar?action=health
+/api/solar/google-solar
 ```
 
-Expected response includes:
+The browser never receives the Google Solar API key. The backend runs as the
+separate Cloud Run service `solar-google-api` and is intended to be reachable
+only through the existing external Application Load Balancer.
+
+The old Netlify Google Solar function remains in `pvgis-proxy-netlify/` only as
+an emergency rollback path. PVGIS itself is unchanged by this migration.
+
+## 1. Enable Google Solar API and create backend resources
+
+From the repository root in Cloud Shell:
+
+```bash
+solar-google-api/scripts/bootstrap-gcp.sh
+```
+
+The script enables the required APIs and creates/configures:
+
+- `gs://configurator-360-google-solar-cache`
+- a 31-day Cloud Storage lifecycle cleanup rule
+- Secret Manager secret containers
+- Storage/Firestore/Secret Manager IAM for
+  `configurator-runtime@configurator-360.iam.gserviceaccount.com`
+- Firestore TTL on the `expireAt` field in `googleSolarSecurityV1`
+
+## 2. Add secret values
+
+Use the restricted Google Maps Platform Solar API key you already used on
+Netlify:
+
+```bash
+printf '%s' 'YOUR_RESTRICTED_SOLAR_API_KEY' | \
+  gcloud secrets versions add google-solar-api-key \
+  --project=configurator-360 --data-file=-
+
+printf '%s' 'YOUR_PRIVATE_DEMO_CODE' | \
+  gcloud secrets versions add google-solar-demo-access-code \
+  --project=configurator-360 --data-file=-
+
+openssl rand -hex 32 | \
+  gcloud secrets versions add google-solar-session-secret \
+  --project=configurator-360 --data-file=-
+```
+
+Keep the Google API key restricted to the Solar API. Google Cloud API quotas
+remain the final billing hard-stop.
+
+## 3. Deploy the Cloud Run service
+
+Run the GitHub Actions workflow:
+
+```text
+Deploy Google Solar API to Cloud Run
+```
+
+or push changes under `solar-google-api/` to `main`.
+
+The workflow deploys:
+
+```text
+service: solar-google-api
+region: europe-central2
+runtime SA: configurator-runtime@configurator-360.iam.gserviceaccount.com
+ingress: internal-and-cloud-load-balancing
+public run.app URL: disabled
+CPU: 2
+memory: 2 GiB
+request timeout: 300 s
+concurrency: 4
+max instances: 3
+```
+
+The three secrets are mounted as environment variables from Secret Manager.
+
+## 4. Attach the service to the existing Application Load Balancer
+
+After the Cloud Run service exists:
+
+```bash
+solar-google-api/scripts/create-load-balancer-backend.sh
+```
+
+This creates:
+
+```text
+solar-google-api-neg
+solar-google-api-backend
+```
+
+The script then prints the remaining URL-map edit. Add these two paths to the
+path matcher already serving the 360Configurator production hosts:
+
+```text
+/api/solar/google-solar
+/api/solar/google-solar/*
+```
+
+Both must route to the global backend service `solar-google-api-backend`.
+Do not replace the existing website path matcher or host rules.
+
+Google Cloud Application Load Balancers route paths to backend services through
+the URL map, and serverless NEGs are the backend bridge to Cloud Run.
+
+## 5. Health check
+
+After the URL-map change propagates:
+
+```bash
+curl -sS 'https://www.360configurator.com/api/solar/google-solar?action=health'
+```
+
+Expected shape:
 
 ```json
 {
   "ok": true,
+  "service": "google-solar-demo-proxy",
+  "platform": "google-cloud-run",
   "googleSolarConfigured": true,
   "accessCodeConfigured": true
 }
 ```
 
-## 4. Deploy GitHub Pages
+Repeat on `.ro` and `.de` if desired; all three domains use the same backend.
 
-Commit the updated `solar-configurator/` folder and push to `main`. The existing Pages workflow already publishes that folder to:
+## 6. Security model
+
+The existing browser contract is preserved:
+
+1. user submits the private demo access code;
+2. the Cloud Run service checks a Firestore transactional login counter;
+3. the service returns a 2-hour HMAC-signed session token;
+4. the token remains bound to the requesting IP and origin;
+5. paid analysis requests use per-IP and global daily Firestore counters;
+6. the restricted Google Solar API key is read only from Secret Manager;
+7. Google Solar API quota remains the final billing cap.
+
+Default application limits:
 
 ```text
-https://aks.360configurator.com/solar-configurator/
+GOOGLE_SOLAR_MAX_LOGIN_ATTEMPTS_HOUR=12
+GOOGLE_SOLAR_MAX_ANALYSES_PER_IP_DAY=20
+GOOGLE_SOLAR_MAX_ANALYSES_DAY=100
 ```
 
-The frontend already defaults to:
+## 7. Cache model
+
+The data and response contract are unchanged from the previous implementation.
+Only the storage provider changes.
 
 ```text
-https://pvgis-proxy.netlify.app/.netlify/functions/google-solar
+Building Insights             7 days
+Data Layers URL metadata      45 minutes
+Hourly shade GeoTIFFs         30 days
+DSM / building mask GeoTIFFs  30 days
+Processed surface model       30 days
+Annual/monthly flux GeoTIFFs  30 days
+Processed flux model          30 days
 ```
 
-No Google API key is present in the GitHub Pages source.
+Cloud Storage stores the shared cache. Each object carries its logical expiry in
+metadata, and the service rejects expired objects on read. Bucket lifecycle
+management deletes old objects after 31 days as a cleanup guard.
 
-## 5. Use the showcase feature
+Rate-limit counters are stored transactionally in Firestore and carry an
+`expireAt` TTL timestamp.
 
-1. Open **Tools → Location & environment**.
-2. Select an exact property and load the local context.
-3. Under **Google Solar detailed site analysis**, enter the private demo access code.
-4. Select **Unlock Google Solar**.
-5. Select **Analyze selected property**.
+## 8. Local development
 
-The first uncached property can issue one Building Insights and one Data Layers request. After the hourly shade GeoTIFFs are cached, panel-layout changes reuse those server-side raster files rather than making another Data Layers acquisition for the same site/radius.
+The production frontend defaults to the same-origin GCP path. To run the backend
+locally, override it before the configurator loads:
 
-## Security scope
+```js
+window.SOLAR_GOOGLE_SOLAR_ENDPOINT =
+  'http://localhost:8080/api/solar/google-solar';
+```
 
-This is a showcase gate, not full account authentication. The practical billing protections are layered:
+Then:
 
-- Google API key stays server-side.
-- The browser needs the private access code to receive a signed two-hour session.
-- The token is bound to origin and client IP.
-- Netlify applies best-effort per-IP/global demo limits.
-- Google Cloud daily quotas are the final hard cost ceiling.
+```bash
+gcloud auth application-default login
+export GOOGLE_CLOUD_PROJECT=configurator-360
+export GOOGLE_SOLAR_CACHE_BUCKET=configurator-360-google-solar-cache
+export GOOGLE_SOLAR_API_KEY='...'
+export GOOGLE_SOLAR_DEMO_ACCESS_CODE='...'
+export GOOGLE_SOLAR_SESSION_SECRET='...'
+npm install --prefix solar-google-api
+npm start --prefix solar-google-api
+```
 
+Loopback browser origins are accepted automatically.
 
-## Diagnosing `fetch failed`
+## 9. Rollback
 
-If the UI unlocks successfully but analysis reports `fetch failed`, the browser-to-Netlify path is already working. The failure is an outbound request made by the Netlify Function to Google Solar or to one of the Google GeoTIFF URLs.
+The old Netlify implementation has intentionally not been deleted yet. If the
+Cloud Run migration needs to be rolled back temporarily, set:
 
-The proxy now retries transient network/429/5xx failures and reports the exact stage, for example:
+```js
+window.SOLAR_GOOGLE_SOLAR_ENDPOINT =
+  'https://pvgis-proxy.netlify.app/.netlify/functions/google-solar';
+```
 
-- `Building Insights request`
-- `Data Layers request`
-- `Google hourly-shade GeoTIFF month 4`
-
-It also reports the underlying Node network cause code/message when one exists. Check **Netlify → Logs & Metrics → Functions → google-solar** for the same detailed message.
-
-## Step A — DSM + building mask
-
-The Google Solar analysis now also consumes two additional GeoTIFF URLs returned by the same Data Layers request:
-
-- `dsmUrl` — Google Digital Surface Model, used as a detailed local surface mesh.
-- `maskUrl` — Google's rooftop/building mask, used to distinguish roof pixels and identify the mapped building that the configurable house is replacing.
-
-These GeoTIFF downloads do not create additional Data Layers billable requests. The Netlify function caches both raw TIFFs and the processed browser-friendly surface grid for up to 30 days.
-
-In the configurator, **Use Google DSM for local environment** adds the Google surface inside the analyzed radius. OSM buildings/trees that overlap the Google-covered surface are suppressed to avoid duplicate geometry. **Highlight Google rooftop mask** colors detected rooftop cells and outlines the host roof. If **Replace overlapping mapped building** is enabled, the detected host roof is flattened so the configurable Three.js house can occupy that footprint cleanly.
-
-
-## Annual/monthly flux heatmap
-
-The Google Solar proxy now also downloads the `annualFluxUrl` and `monthlyFluxUrl` GeoTIFFs returned by the existing `dataLayers` response. They are cached in Netlify Blobs for the same 30-day window as the other Google GeoTIFFs, then sampled onto the compact DSM grid sent to the browser. Changing the heatmap between annual and monthly views is client-side and does not make another Google request.
-
-For sites analyzed before this feature was deployed, the first re-analysis may need one fresh Data Layers request if the old temporary Data Layers download URLs have already expired. New site analyses obtain DSM, mask, hourly shade and flux URLs from the same Data Layers request.
+Once the Cloud Run path has been stable in production, the legacy Google Solar
+Netlify function and its Blob cache can be retired separately. Do not remove the
+PVGIS Netlify function as part of this migration.

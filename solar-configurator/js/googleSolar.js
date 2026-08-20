@@ -1,25 +1,12 @@
 const TOKEN_STORAGE_KEY = '360-configurator:solar:google-solar-session';
 const ANALYSIS_CACHE_KEY = '360-configurator:solar:google-solar-analysis-v6';
 const ANALYSIS_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const DEFAULT_ENDPOINT = 'https://pvgis-proxy.netlify.app/.netlify/functions/google-solar';
+const DEFAULT_PATH = '/api/solar/google-solar';
 
-export function resolveGoogleSolarEndpoint(pvgisEndpoint = '') {
+export function resolveGoogleSolarEndpoint(_pvgisEndpoint = '') {
   const explicit = String(window.SOLAR_GOOGLE_SOLAR_ENDPOINT || '').trim();
-  if (explicit) return explicit.replace(/\?$/, '');
-  const pvgis = String(pvgisEndpoint || '').trim();
-  if (pvgis) {
-    try {
-      const url = new URL(pvgis, window.location.href);
-      if (/\/pvgis\/?$/.test(url.pathname)) {
-        url.pathname = url.pathname.replace(/\/pvgis\/?$/, '/google-solar');
-        url.search = '';
-        return url.toString().replace(/\/$/, '');
-      }
-    } catch {
-      // Fall through to the showcase default.
-    }
-  }
-  return DEFAULT_ENDPOINT;
+  if (explicit) return new URL(explicit, window.location.href).toString().replace(/\?$/, '').replace(/\/$/, '');
+  return new URL(DEFAULT_PATH, window.location.href).toString().replace(/\/$/, '');
 }
 
 export function readGoogleSolarSession() {
@@ -120,7 +107,7 @@ export function cacheGoogleAnalysis(signature, analysis) {
   try {
     window.localStorage?.setItem(ANALYSIS_CACHE_KEY, JSON.stringify({ signature, savedAt: Date.now(), analysis }));
   } catch {
-    // Browser cache is only an optimization. Netlify Blobs remains the shared cache.
+    // Browser cache is only an optimization. Cloud Storage remains the shared server-side cache.
   }
 }
 

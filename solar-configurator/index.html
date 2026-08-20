@@ -418,7 +418,7 @@
           <button type="button" class="primary" id="googleSolarUnlockButton">Unlock Google Solar</button>
           <button type="button" id="googleSolarLockButton" hidden>Lock</button>
         </div>
-        <small id="googleSolarAccessFeedback" aria-live="polite">The Google API key stays only on Netlify; the browser receives a short-lived signed demo session.</small>
+        <small id="googleSolarAccessFeedback" aria-live="polite">The Google API key stays only in Google Secret Manager; the browser receives a short-lived signed demo session.</small>
       </div>
 
       <div class="solar-google-stats" aria-label="Google Solar building and imagery statistics">
@@ -541,7 +541,7 @@
       <details class="solar-google-security">
         <summary>Demo security & caching</summary>
         <p id="googleSolarProxyMessage">Google Solar proxy not tested yet.</p>
-        <p>Paid requests run only through the Netlify Function. The API key is never shipped to GitHub Pages. The proxy requires the demo access code, issues a 2-hour signed session, applies per-IP/global daily limits, and caches Google results in Netlify Blobs.</p>
+        <p>Paid requests run only through the Google Cloud Run service. The API key is never shipped to the browser. The service requires the demo access code, issues a 2-hour signed session, applies transactional per-IP/global daily limits in Firestore, and caches Google results in Cloud Storage.</p>
         <p>Building Insights is cached for 7 days. Data Layers metadata is reused while its URLs are valid. Downloaded hourly-shade, DSM and building-mask GeoTIFFs are cached for up to 30 days, matching Google's documented retention window.</p>
       </details>
       <p class="solar-context-attribution">Optional detailed roof & shade data: Google Maps Platform Solar API. Hourly shade uses standard time (no DST); the configurator converts Romania summer time before sampling it.</p>
@@ -663,12 +663,12 @@
     })();
   </script>
   <script>
-    // Public frontend endpoints only. API keys and paid-service secrets stay in Netlify environment variables.
+    // Public frontend endpoints only. Google Solar secrets stay in Google Secret Manager; PVGIS remains on its existing proxy.
     window.SOLAR_PVGIS_PROXY_ENDPOINT = window.SOLAR_PVGIS_PROXY_ENDPOINT || 'https://pvgis-proxy.netlify.app/.netlify/functions/pvgis';
-    window.SOLAR_GOOGLE_SOLAR_ENDPOINT = window.SOLAR_GOOGLE_SOLAR_ENDPOINT || 'https://pvgis-proxy.netlify.app/.netlify/functions/google-solar';
+    window.SOLAR_GOOGLE_SOLAR_ENDPOINT = window.SOLAR_GOOGLE_SOLAR_ENDPOINT || new URL('/api/solar/google-solar', window.location.href).toString();
   </script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="./js/sharedShell.js?v=20"></script>
-  <script type="module" src="./js/app.js?v=24"></script>
+  <script type="module" src="./js/sharedShell.js?v=21"></script>
+  <script type="module" src="./js/app.js?v=25"></script>
 </body>
 </html>

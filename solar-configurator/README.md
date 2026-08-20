@@ -167,20 +167,30 @@ The PVGIS high-horizon model represents terrain/topographic obstruction. Nearby 
 The configurator can optionally add Google Maps Platform Solar API data on top of the PVGIS production baseline. This is deliberately a showcase/detailed-site mode rather than the default free path.
 
 - **Building Insights:** validates the closest Google-recognized building and exposes imagery quality/date, roof area, roof-segment pitch/azimuth/sunshine statistics, Google panel capacity assumptions, suggested panel positions, and the closest Google panel-count configuration to the current configurator layout.
-- **Data Layers hourly shade:** the Netlify proxy requests the full Data Layers context once for a geographic site/radius, downloads the twelve monthly hourly-shade GeoTIFFs, samples the actual fitted configurator panel centres, and returns only compact per-panel shade masks to the browser. PVGIS remains responsible for the long-term meteorological/yield baseline and terrain horizon.
+- **Data Layers hourly shade:** the dedicated Google Cloud Run service requests the full Data Layers context once for a geographic site/radius, downloads the twelve monthly hourly-shade GeoTIFFs, samples the actual fitted configurator panel centres, and returns only compact per-panel shade masks to the browser. PVGIS remains responsible for the long-term meteorological/yield baseline and terrain horizon.
 - **Production integration:** when enabled and current, Google hourly shade replaces the inferred OSM-building obstruction correction. It does not replace PVGIS terrain-horizon shading, so local surface obstructions and distant terrain remain separate layers.
 - **Civil time:** Google's hourly shade rasters use standard time without daylight-saving time. The browser converts Romanian summer time to standard time before selecting the Google hourly band.
 
+### Google Cloud backend
+
+Paid Google Solar traffic now uses the same-origin endpoint:
+
+```text
+/api/solar/google-solar
+```
+
+That path is routed by the existing external Application Load Balancer to the separate `solar-google-api` Cloud Run service. The browser never receives the Google Solar API key.
+
+The legacy Netlify Google Solar function remains in `pvgis-proxy-netlify/` only as a temporary rollback path. The PVGIS relay remains unchanged and can continue using Netlify independently.
+
 ### Public-demo security model
 
-The Google API key is never included in GitHub Pages. All paid calls go through `pvgis-proxy-netlify/netlify/functions/google-solar.mjs`.
+The Cloud Run endpoint preserves the previous demo contract:
 
-The demo endpoint uses several independent controls:
-
-1. an access code stored only as a Netlify environment variable;
+1. an access code stored only in Google Secret Manager;
 2. a two-hour HMAC-signed browser session stored in `sessionStorage` and bound to the requesting origin/IP;
-3. an origin allow-list for the public configurator domain;
-4. best-effort per-IP and global daily request counters in Netlify Blobs;
+3. an origin allow-list for the `.com`, `.ro`, `.de` production domains plus the existing `aks` host;
+4. transactional per-IP and global daily request counters in Firestore;
 5. a Google API key restricted to the Solar API only;
 6. Google Cloud daily quotas as the final billing hard-stop.
 
@@ -190,40 +200,16 @@ The access code is intentionally a lightweight showcase gate, not a replacement 
 
 Caching is designed so changing roof bearing, panel count, layout, or a small local house offset does not automatically create another paid Data Layers request.
 
-- Building Insights JSON: 7 days in Netlify Blobs.
+- Building Insights JSON: 7 days in Cloud Storage.
 - Data Layers temporary URL response: 45 minutes.
-- Downloaded hourly-shade GeoTIFFs: up to 30 days in Netlify Blobs.
+- Downloaded hourly-shade GeoTIFFs: up to 30 days in Cloud Storage.
+- DSM, building-mask, annual flux and monthly flux GeoTIFFs plus their processed compact models: up to 30 days in Cloud Storage.
 - Once all twelve shade GeoTIFFs for a site/radius are cached, later panel layouts are re-sampled from those cached rasters without calling the paid Data Layers endpoint again.
 - The browser also keeps the most recent exact panel analysis for up to 30 days as a local optimization.
 
-The GeoTIFF cache is location/radius based rather than panel-layout based, which is important for a configurator: one site acquisition can be reused for many different panel arrangements.
+The GeoTIFF cache is location/radius based rather than panel-layout based, which is important for a configurator: one site acquisition can be reused for many different panel arrangements. Cloud Storage lifecycle management removes old cache objects after 31 days as a final cleanup guard.
 
-### Required Netlify environment variables
-
-Set these on the same Netlify project that already hosts the PVGIS function:
-
-```text
-GOOGLE_SOLAR_API_KEY=<restricted Google Maps Platform Solar API key>
-GOOGLE_SOLAR_DEMO_ACCESS_CODE=<private showcase access code>
-GOOGLE_SOLAR_SESSION_SECRET=<long random signing secret>
-GOOGLE_SOLAR_ALLOWED_ORIGIN=https://aks.360configurator.com
-```
-
-Optional demo limits:
-
-```text
-GOOGLE_SOLAR_MAX_LOGIN_ATTEMPTS_HOUR=12
-GOOGLE_SOLAR_MAX_ANALYSES_PER_IP_DAY=20
-GOOGLE_SOLAR_MAX_ANALYSES_DAY=100
-```
-
-The public function URL is already configured in `index.html` as:
-
-```text
-https://pvgis-proxy.netlify.app/.netlify/functions/google-solar
-```
-
-No Google credential is exposed by that URL.
+Setup and migration instructions are in `GOOGLE_SOLAR_SETUP.md` and `../solar-google-api/README.md`.
 
 ### Google Solar DSM / building-mask hybrid environment
 
@@ -264,7 +250,7 @@ The selected Google layout is rendered in the geographic 3D scene as translucent
 
 The comparison panel shows our fitted panel count / PVGIS-based annual estimate beside Google's Building Insights DC estimate. Where Google's reference panel wattage differs from the configured module wattage, the displayed comparison also provides a simple wattage-normalized Google reference; this is intentionally labeled as a comparison rather than a replacement for the PVGIS production model.
 
-Changing the Google reference configuration or hiding/showing the overlay is entirely local and does not trigger another Google API acquisition. The Netlify proxy now returns the full compact `solarPanelConfigs` list from the already-cached Building Insights response.
+Changing the Google reference configuration or hiding/showing the overlay is entirely local and does not trigger another Google API acquisition. The Cloud Run Google Solar service returns the full compact `solarPanelConfigs` list from the already-cached Building Insights response.
 
 
 ### Google layout overlay height handling
