@@ -38,7 +38,17 @@
     <script type="module" src="./shared-shell.js?v=9"></script>
 </head>
 
-<body>
+<body class="shared-ui-mounted">
+    <script>
+        // Apply the persisted shared-UI theme before the legacy controls are parsed,
+        // so the first paint already matches the mounted shared shell.
+        try {
+            const preferences = JSON.parse(localStorage.getItem('360-configurator:window:preferences') || '{}');
+            document.body.classList.toggle('shared-ui-dark-mode', Boolean(preferences.darkMode));
+        } catch {
+            // Invalid/blocked storage falls back to the shared UI's light default.
+        }
+    </script>
 
     <div id="loading">
         <div class="spinner"></div>
