@@ -1,59 +1,84 @@
 # Shared configuration Firebase backend
 
-This backend enforces temporary share-link storage for `sharedConfigurations`.
+This backend owns temporary configurator share links stored in `sharedConfigurations`.
 
-## Policy
+## Active storage policy
 
-- Maximum logical serialized configuration payload storage: **200 MiB**.
-- If a new share pushes usage over the limit, delete the **oldest** shares until at least **1 MiB** has been freed (or more when required to return below 200 MiB).
-- Maximum one saved state: **850,000 UTF-8 bytes**.
-- Every new share receives trusted server metadata: `sizeBytes`, `createdAt`, `expiresAt`, and `quotaVersion`.
-- `expiresAt` is exactly 90 days after the Firestore document creation time.
-- Firestore Security Rules refuse reads after `expiresAt`.
-- Firestore TTL physically removes expired documents automatically. TTL deletion is asynchronous, so the Security Rule is what makes the public link stop working at the 90-day boundary.
+- Maximum logical share payload storage: **200 MiB**.
+- When a new share would cross the limit, the oldest shares are deleted until at least **1 MiB** is freed (or more if required to return below the limit).
+- Maximum one share payload: **850,000 UTF-8 bytes**.
+- Share lifetime: **90 days**.
+- Firestore TTL is enabled on `sharedConfigurations.expiresAt`.
+- `sharedConfigurations.s` is not indexed because it is only read by document ID.
+- `sharedConfigurations.expiresAt` has TTL enabled and ordinary indexing disabled.
 
-## Index policy
+## Lazy App Check / reCAPTCHA Enterprise policy
 
-`firestore.indexes.json` configures:
+App Check protects **share creation only**. Opening an existing share by its 16-character bearer ID stays reCAPTCHA-free.
 
-- `sharedConfigurations.s`: no automatic single-field index. The large state string is retrieved by document ID and is never queried.
-- `sharedConfigurations.expiresAt`: TTL enabled and ordinary indexing disabled.
-- `createdAt`: left indexed because FIFO cleanup orders by it.
-- `sizeBytes`: left indexed because the quota code uses a Firestore SUM aggregation.
+The browser does not initialize reCAPTCHA/App Check on page load. The flow is:
 
-## GitHub Actions deployment
+1. The user presses **Share**.
+2. The browser calls the public `getShareProtectionStatus` function by raw HTTP. This request does not initialize App Check and does not create an assessment.
+3. If the current month is below the safety threshold, the browser lazily initializes App Check and calls `createSharedConfiguration`, which has `enforceAppCheck: true`.
+4. App Check token auto-refresh is disabled. A cached token is reused while valid; a new assessment occurs only when a later Share action needs a new token.
+5. If the monthly safety threshold is active, the browser uses the existing direct-Firestore share path instead. The Firestore-created trigger still applies the same 200 MiB/90-day policy.
 
-`.github/workflows/deploy-firebase-share.yml` automatically deploys when `firebase-share-backend/**` changes on `main`, and can also be launched manually with `workflow_dispatch`.
+### Monthly assessment safety threshold
 
-It reuses the repository's existing Google Cloud Workload Identity Federation variables:
+- Hard safety threshold: **9,500 assessments per UTC calendar month**.
+- Internal warning thresholds: **8,000**, **9,000**, and **9,400**.
+- At 9,500 or more, `getShareProtectionStatus` records `legacyFallbackEnabled = true` until the first instant of the next UTC month.
+- Firestore rules then temporarily reopen direct share creation even after secure App Check mode has already been activated.
+- At the next month boundary, `fallbackUntil` expires automatically. The next Share interaction reads the new month's count and returns to App Check without manual intervention.
+- If Cloud Monitoring cannot be read, Share temporarily falls back to the reCAPTCHA-free path for 10 minutes, preserving availability while avoiding unmetered assessments.
 
-- `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- `GCP_SERVICE_ACCOUNT`
+Cloud Monitoring metric used:
 
-No long-lived Google service-account JSON key is added to GitHub.
+`recaptchaenterprise.googleapis.com/assessment_count`
 
-The workflow deploys:
+The status function caches the metric for 60 seconds. Google's metric itself is sampled every 60 seconds and may appear with additional delay, so the 500-assessment gap between 9,500 and the 10,000 no-cost allowance is intentional safety headroom.
 
-- `functions:enforceSharedConfigurationQuota`
-- `firestore:rules`
-- `firestore:indexes` (including TTL and index exemptions)
+### Internal warning / mode-change logs
 
-## Required IAM for the existing GitHub deployer
+Search Cloud Logging for these structured event values:
 
-The existing deployer is expected to be:
+- `recaptcha-assessment-usage-warning`
+- `recaptcha-hard-cap-fallback-activated`
+- `recaptcha-protection-auto-restored`
+- `recaptcha-monitoring-unavailable-fallback`
 
-`github-deployer@configurator-360.iam.gserviceaccount.com`
+The current internal state is also stored in:
 
-The function explicitly runs as:
+`sharedConfigurationSystem/appCheckUsage`
 
-`configurator-runtime@configurator-360.iam.gserviceaccount.com`
+Clients cannot read or write that document. It records the current month, latest assessment count, warning level, emitted warning thresholds, fallback window, and whether secure mode has been activated successfully at least once.
 
-Before the first GitHub deployment, make sure the deployer can deploy Cloud Functions and Firestore index configuration, and the runtime identity can read/write Firestore. See the accompanying ChatGPT instructions for the one-time IAM commands.
+## Rollout and direct-Firestore fallback security
 
-## First-time Google service-agent propagation
+Before the first successful App Check-protected Share, direct Firestore create remains available so deploying the code before the reCAPTCHA site key cannot break Share.
 
-The first local attempt enabled Eventarc and related APIs and then failed while Google's Eventarc service-agent permissions were still propagating. That is a project-side first-use condition, not a requirement for the frontend website to be deployed first. Retrying after propagation is normal.
+The first successful `createSharedConfiguration` call sets `secureModeActive = true` in the private control document. From then on, Firestore Security Rules reject direct share creation unless the backend has explicitly opened a valid fallback window because the 9,500 threshold was reached or Monitoring temporarily failed.
 
-### One-time IAM bootstrap
+This means an external client cannot simply bypass App Check by choosing the direct Firestore endpoint after secure mode has been activated.
 
-Run `iam/setup-github-deployer.sh` once from Google Cloud Shell while signed in as a project administrator. It augments the existing GitHub deployer rather than introducing a new credential. IAM changes can take several minutes to propagate before the first workflow succeeds.
+## reCAPTCHA Enterprise / App Check setup
+
+1. In Google Cloud Console, enable **reCAPTCHA Enterprise API** if required.
+2. Create a **Website** score-based key. Do not enable a checkbox challenge.
+3. Add every production hostname that serves a configurator.
+4. In Firebase Console, open **Security → App Check**, select the second `360configurator` web app (App ID `1:719238533149:web:9e0b8a97375731b8ea6f4`) and register **reCAPTCHA Enterprise** using that site key.
+5. Keep the default **1-hour token TTL** initially and the default/recommended risk threshold unless metrics justify changing it.
+6. Put the public site key in `shared-ui/firebase-app-check.json`.
+7. Ensure the runtime service account has `roles/monitoring.viewer` and the Cloud Monitoring API is enabled.
+8. Deploy and press Share once. Confirm the protected callable succeeds and `sharedConfigurationSystem/appCheckUsage.secureModeActive` becomes `true`.
+
+Do **not** enable project-wide Cloud Firestore App Check enforcement just for this feature, because this Firebase project contains unrelated collections and may have other clients. Per-function `enforceAppCheck: true` protects secure share creation without affecting those applications.
+
+For localhost development, `debugOnLocalhost` uses the Firebase App Check debug provider. Register the printed debug token in Firebase App Check before testing secure Share locally.
+
+## Deployment
+
+`.github/workflows/deploy-firebase-share.yml` deploys automatically when `firebase-share-backend/**` changes on `main` and can also be run manually.
+
+The one-time IAM helper is `iam/setup-github-deployer.sh`. It now also grants `roles/monitoring.viewer` to `configurator-runtime`.
