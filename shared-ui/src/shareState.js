@@ -1,3 +1,5 @@
+import { callFirebaseShareFunction, isFirebaseAppCheckConfigured } from './firebaseAppCheck.js';
+
 const LEGACY_SHARE_PARAM = 'config';
 const COMPACT_SHARE_PARAM = 'c';
 const SHORT_SHARE_PARAM = 's';
@@ -18,6 +20,7 @@ const FIRESTORE_COLLECTION = 'sharedConfigurations';
 const DEFAULT_FIREBASE_SHARE_CONFIG = Object.freeze({
   apiKey: 'AIzaSyBgS4VLxQYZnqW-YZJPKvuuocf5w_0kRwY',
   projectId: 'configurator-360',
+  appId: '1:719238533149:web:9e0b8a97375731b8ea6f4',
   databaseId: '(default)',
 });
 
@@ -90,6 +93,7 @@ function firebaseShareConfig() {
   return {
     apiKey: String(override.apiKey || DEFAULT_FIREBASE_SHARE_CONFIG.apiKey),
     projectId: String(override.projectId || DEFAULT_FIREBASE_SHARE_CONFIG.projectId),
+    appId: String(override.appId || DEFAULT_FIREBASE_SHARE_CONFIG.appId),
     databaseId: String(override.databaseId || DEFAULT_FIREBASE_SHARE_CONFIG.databaseId),
   };
 }
@@ -138,6 +142,23 @@ async function storeShareStateInFirestore(productType, state) {
     throw new Error(`This configuration is too large to share (${stateBytes} bytes).`);
   }
 
+  // Once a reCAPTCHA Enterprise site key is configured, all new shares go
+  // through an App Check-enforced callable function. During the rollout phase,
+  // an empty site key keeps the legacy direct-Firestore path alive so enabling
+  // App Check cannot unexpectedly break production sharing.
+  if (await isFirebaseAppCheckConfigured()) {
+    const result = await callFirebaseShareFunction(
+      'createSharedConfiguration',
+      { productType: product, stateJson },
+      firebaseShareConfig(),
+    );
+    const id = String(result?.id || '');
+    if (!FIRESTORE_SHORT_ID_PATTERN.test(id)) {
+      throw new Error('The secure share service returned an invalid share id.');
+    }
+    return id;
+  }
+
   const document = {
     fields: {
       v: { integerValue: String(FIRESTORE_RECORD_VERSION) },
@@ -168,6 +189,25 @@ async function storeShareStateInFirestore(productType, state) {
 
 async function fetchShareStateFromFirestore(id, productType = '') {
   if (!FIRESTORE_SHORT_ID_PATTERN.test(String(id))) return null;
+
+  if (await isFirebaseAppCheckConfigured()) {
+    try {
+      const result = await callFirebaseShareFunction(
+        'getSharedConfiguration',
+        { shareId: String(id), productType: normalizeProductType(productType) },
+        firebaseShareConfig(),
+      );
+      const stateJson = result?.stateJson;
+      if (typeof stateJson !== 'string') return null;
+      const parsed = JSON.parse(stateJson);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (error) {
+      const code = String(error?.code || '');
+      if (code.endsWith('/not-found') || code.endsWith('/failed-precondition')) return null;
+      throw error;
+    }
+  }
+
   const response = await fetch(firestoreUrl(`${FIRESTORE_COLLECTION}/${encodeURIComponent(id)}`), {
     headers: { Accept: 'application/json' },
   });
@@ -300,7 +340,9 @@ export async function createShareUrl({
 
 export const SHARE_STATE_FIREBASE_INFO = Object.freeze({
   projectId: DEFAULT_FIREBASE_SHARE_CONFIG.projectId,
+  appId: DEFAULT_FIREBASE_SHARE_CONFIG.appId,
   collection: FIRESTORE_COLLECTION,
+  appCheckProvider: 'recaptcha-enterprise',
   idLength: 16,
   maxUrlLength: MAX_GENERATED_URL_LENGTH,
 });

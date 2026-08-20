@@ -1,0 +1,6 @@
+{
+  "provider": "recaptcha-enterprise",
+  "siteKey": "",
+  "functionsRegion": "europe-west1",
+  "debugOnLocalhost": true
+}
