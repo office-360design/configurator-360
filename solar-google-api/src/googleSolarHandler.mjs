@@ -2,7 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { Storage } from '@google-cloud/storage';
 import { Firestore } from '@google-cloud/firestore';
 import * as geotiff from 'geotiff';
-import * as geokeysToProj4 from 'geotiff-geokeys-to-proj4';
+import geokeysToProj4 from 'geotiff-geokeys-to-proj4';
 import proj4 from 'proj4';
 
 const SOLAR_BASE = 'https://solar.googleapis.com/v1/';
