@@ -788,7 +788,7 @@ function syncToolsState(detail = getApi()?.getState?.()) {
     const pitch = Number(detail.googleSolarReferenceMainPitchDeg);
     const azimuth = Number(detail.googleSolarReferenceMainAzimuthDeg);
     googleSolarMainRoofValue.textContent = Number.isFinite(pitch) && Number.isFinite(azimuth)
-      ? `${pitch.toFixed(1)}° pitch · ${formatAzimuth(azimuth)}`
+      ? `${pitch.toFixed(1)}° pitch · ${solarFormatAzimuth(azimuth, shell.state.locale)}`
       : '—';
   }
 
@@ -827,7 +827,7 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   }
   if (googleSolarBearingCompare) {
     googleSolarBearingCompare.textContent = referenceAvailable && Number.isFinite(targetBearing)
-      ? `${formatAzimuth(currentBearing)} → ${formatAzimuth(targetBearing)} · Δ ${Math.abs(Number(bearingDelta) || 0).toFixed(1)}°`
+      ? `${solarFormatAzimuth(currentBearing, shell.state.locale)} → ${solarFormatAzimuth(targetBearing, shell.state.locale)} · Δ ${Math.abs(Number(bearingDelta) || 0).toFixed(1)}°`
       : '—';
   }
   if (googleSolarPitchCompare) {
