@@ -22,7 +22,7 @@ env:
   GCP_REGION: europe-central2
   GAR_REPOSITORY: configurators
   CLOUD_RUN_SERVICE: solar-google-api
-  GOOGLE_SOLAR_CACHE_BUCKET: configurator-360-google-solar-cache
+  GOOGLE_SOLAR_CACHE_BUCKET: configurator-360-google-solar-cache-719238533149
   GOOGLE_SOLAR_SECURITY_COLLECTION: googleSolarSecurityV1
 
 jobs:
