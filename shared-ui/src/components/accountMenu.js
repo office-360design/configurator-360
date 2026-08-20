@@ -35,13 +35,52 @@ function renderSettingsSelect(locale, labelKey, path, value, options) {
   `;
 }
 
+function accountDisplayName(user) {
+  const displayName = String(user?.displayName || '').trim();
+  if (displayName) return displayName;
+  const email = String(user?.email || '').trim();
+  if (email) return email;
+  return sharedT('en-US', 'account.userFallback');
+}
+
+export function syncAccountIdentity(root, locale, user, { busy = false } = {}) {
+  if (!root) return;
+  const authenticated = Boolean(user?.uid);
+  const greeting = root.querySelector('[data-account-greeting]');
+  const loginButton = root.querySelector('[data-action="account-login"]');
+  const signOutButton = root.querySelector('[data-action="account-signout"]');
+
+  if (greeting) {
+    greeting.textContent = authenticated
+      ? sharedT(locale, 'account.greetingUser', { name: accountDisplayName(user) })
+      : sharedT(locale, 'account.greetingGuest');
+  }
+
+  if (loginButton) {
+    loginButton.hidden = authenticated;
+    loginButton.disabled = busy;
+    loginButton.setAttribute('aria-busy', String(Boolean(busy)));
+    const label = loginButton.querySelector('[data-account-login-label]');
+    if (label) label.textContent = sharedT(locale, busy ? 'account.signingIn' : 'account.loginGoogle');
+  }
+  if (signOutButton) signOutButton.hidden = !authenticated;
+}
+
 export function renderAccountMenu(state) {
   const locale = state.locale;
+  const authenticated = Boolean(state.authUser?.uid);
+  const greeting = authenticated
+    ? sharedT(locale, 'account.greetingUser', { name: accountDisplayName(state.authUser) })
+    : sharedT(locale, 'account.greetingGuest');
   return `
     <section class="account-menu" data-account-menu aria-label="${escapeHtml(sharedT(locale, 'account.menu'))}">
       <div class="account-menu__profile">
         <span class="account-menu__avatar">${sharedIcon('account')}</span>
-        <strong>${escapeHtml(sharedT(locale, 'account.greeting'))}</strong>
+        <strong data-account-greeting>${escapeHtml(greeting)}</strong>
+        <button class="account-menu__login" type="button" data-action="account-login" ${authenticated ? 'hidden' : ''}>
+          <span>${sharedIcon('account')}</span>
+          <strong data-account-login-label>${escapeHtml(sharedT(locale, 'account.loginGoogle'))}</strong>
+        </button>
       </div>
       <nav class="account-menu__items">
         <button type="button" data-action="account-profile"><span>${sharedIcon('account')}</span><strong>${escapeHtml(sharedT(locale, 'account.profile'))}</strong></button>
@@ -61,7 +100,7 @@ export function renderAccountMenu(state) {
             <span>${escapeHtml(sharedT(locale, 'account.cookies'))}</span><strong>${escapeHtml(sharedT(locale, 'account.manage'))}</strong>
           </button>
         </div>
-        <button type="button" data-action="account-signout"><span>${sharedIcon('signout')}</span><strong>${escapeHtml(sharedT(locale, 'account.signOut'))}</strong></button>
+        <button type="button" data-action="account-signout" ${authenticated ? '' : 'hidden'}><span>${sharedIcon('signout')}</span><strong>${escapeHtml(sharedT(locale, 'account.signOut'))}</strong></button>
       </nav>
     </section>
   `;

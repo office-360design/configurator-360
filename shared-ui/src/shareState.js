@@ -23,6 +23,7 @@ const FIRESTORE_COLLECTION = 'sharedConfigurations';
 // the project; access is enforced by Firestore Security Rules, not by hiding them.
 const DEFAULT_FIREBASE_SHARE_CONFIG = Object.freeze({
   apiKey: 'AIzaSyBgS4VLxQYZnqW-YZJPKvuuocf5w_0kRwY',
+  authDomain: 'configurator-360.firebaseapp.com',
   projectId: 'configurator-360',
   appId: '1:719238533149:web:9e0b8a97375731b8eaf6f4',
   databaseId: '(default)',
@@ -96,6 +97,7 @@ function firebaseShareConfig() {
     : {};
   return {
     apiKey: String(override.apiKey || DEFAULT_FIREBASE_SHARE_CONFIG.apiKey),
+    authDomain: String(override.authDomain || DEFAULT_FIREBASE_SHARE_CONFIG.authDomain),
     projectId: String(override.projectId || DEFAULT_FIREBASE_SHARE_CONFIG.projectId),
     appId: String(override.appId || DEFAULT_FIREBASE_SHARE_CONFIG.appId),
     databaseId: String(override.databaseId || DEFAULT_FIREBASE_SHARE_CONFIG.databaseId),

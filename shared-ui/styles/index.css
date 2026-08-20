@@ -745,6 +745,29 @@ body,
   font-weight: 750;
 }
 
+.account-menu__login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  margin-top: 2px;
+  padding: 8px 13px;
+  border: 1px solid #d7dde1;
+  border-radius: 9px;
+  color: #172027;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.account-menu__login:hover { background: #f0f3f5; }
+.account-menu__login:disabled { opacity: .58; cursor: wait; }
+.account-menu__login svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.account-menu__login strong { font-size: 12px; font-weight: 750; }
+.account-menu__login[hidden],
+[data-action="account-signout"][hidden] { display: none !important; }
+
 .account-menu__items {
   display: grid;
   gap: 4px;
@@ -1417,3 +1440,6 @@ body.roof-sidebar-collapsed .shared-settings-toggle {
     right: 0 !important;
   }
 }
+
+.app-shell.is-dark-mode .account-menu__login { color: #e7eef3; background: rgba(30,41,59,.9); border-color: rgba(255,255,255,.1); }
+.app-shell.is-dark-mode .account-menu__login:hover { background: rgba(51,65,85,.95); }

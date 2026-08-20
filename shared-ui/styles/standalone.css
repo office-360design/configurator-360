@@ -210,6 +210,27 @@
   text-align: left;
   cursor: pointer;
 }
+.shared-ui-host .account-menu__login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  margin-top: 2px;
+  padding: 8px 13px;
+  border: 1px solid #d7dde1;
+  border-radius: 9px;
+  color: #172027;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.shared-ui-host .account-menu__login:hover { background: #f0f3f5; }
+.shared-ui-host .account-menu__login:disabled { opacity: .58; cursor: wait; }
+.shared-ui-host .account-menu__login svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.shared-ui-host .account-menu__login strong { font-size: 12px; font-weight: 750; }
+.shared-ui-host .account-menu__login[hidden],
+.shared-ui-host [data-action="account-signout"][hidden] { display: none !important; }
 .shared-ui-host .account-menu__items > button:hover,
 .shared-ui-host .account-settings button:hover,
 .shared-ui-host .language-list button:hover { background: #f0f3f5; }
@@ -419,3 +440,6 @@ body.shared-ui-dark-mode { background: #0f172a !important; }
   border-color: rgba(255,255,255,.11);
 }
 .shared-ui-host.is-dark-mode .round-tool.is-active { color: #fff; background: var(--blue-700); border-color: var(--blue-700); }
+
+.shared-ui-host.is-dark-mode .account-menu__login { color: #e7eef3; background: rgba(30,41,59,.9); border-color: rgba(255,255,255,.1); }
+.shared-ui-host.is-dark-mode .account-menu__login:hover { background: rgba(51,65,85,.95); }
