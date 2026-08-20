@@ -89,6 +89,7 @@ state.googleSolarAccessMessage = initialGoogleSession
   : t('google.enterAccessCode');
 state.googleSolarSessionExpiresAt = initialGoogleSession?.expiresAt || null;
 const LOCAL_POSITION_LIMIT_M = 60;
+const GOOGLE_SOLAR_LAYER_RADIUS_M = 100;
 const METERS_PER_DEGREE_LAT = 111320;
 
 function mapMetersToGeo(x, z) {
@@ -113,14 +114,16 @@ function googleSolarRequestBody() {
 
   const houseGeo = mapMetersToGeo(Number(state.environmentLocalEastM) || 0, -(Number(state.environmentLocalNorthM) || 0));
   if (!houseGeo) return null;
-  const maxDistance = observations.reduce((maximum, panel) => Math.max(maximum, Math.hypot(Number(panel.x) || 0, Number(panel.z) || 0)), 0);
-  const radiusM = maxDistance <= 35 ? 50 : maxDistance <= 60 ? 75 : 100;
   return {
     siteLat: Number(state.locationLat),
     siteLon: Number(state.locationLon),
     houseLat: houseGeo.latitude,
     houseLon: houseGeo.longitude,
-    radiusM,
+    // Keep one stable 100 m Google Data Layers footprint around the selected
+    // map pin. Local house nudges can then be re-sampled from the same cached
+    // GeoTIFFs instead of crossing 50/75/100 m cache buckets. Google documents
+    // 100 m as an always-supported radius for FULL_LAYERS requests.
+    radiusM: GOOGLE_SOLAR_LAYER_RADIUS_M,
     requestedPanelCount: Number(lastMetrics?.placedPanels) || panelPoints.length,
     panelPoints,
   };
