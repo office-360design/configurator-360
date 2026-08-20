@@ -866,6 +866,14 @@ function syncToolsState(detail = getApi()?.getState?.()) {
     else if (Number(detail.googleSolarShadePanelCount) > 0) {
       const googleCalls = Number(cache.upstreamBillableRequests || 0);
       const tiffs = Number(cache.hourlyShadeTiffsCached || 0);
+      const buildingText = cache.buildingInsightsSource === 'building-bounds'
+        ? 'building footprint reused'
+        : cache.buildingInsights
+          ? 'building cache reused'
+          : 'building refreshed';
+      const layersText = cache.dataLayers
+        ? `${Number(cache.dataLayersRadiusM || 100)} m layers reused`
+        : `${Number(cache.dataLayersRadiusM || 100)} m layers refreshed`;
       const surfaceText = cache.googleSurfaceModel
         ? 'DSM/mask reused'
         : Number(cache.surfaceGeoTiffsDownloaded || 0)
@@ -877,8 +885,8 @@ function syncToolsState(detail = getApi()?.getState?.()) {
           ? `${cache.fluxGeoTiffsDownloaded} flux TIFF${Number(cache.fluxGeoTiffsDownloaded) === 1 ? '' : 's'} downloaded`
           : 'flux ready';
       googleSolarCacheValue.textContent = googleCalls
-        ? `${googleCalls} Google request${googleCalls === 1 ? '' : 's'} · ${tiffs}/12 shade TIFFs reused · ${surfaceText} · ${fluxText}`
-        : `Cloud Storage cache · ${tiffs || 12}/12 shade TIFFs reused · ${surfaceText} · ${fluxText}`;
+        ? `${googleCalls} Google request${googleCalls === 1 ? '' : 's'} · ${buildingText} · ${layersText} · ${tiffs}/12 shade TIFFs reused · ${surfaceText} · ${fluxText}`
+        : `Cloud Storage cache · ${buildingText} · ${layersText} · ${tiffs || 12}/12 shade TIFFs reused · ${surfaceText} · ${fluxText}`;
     } else googleSolarCacheValue.textContent = '—';
   }
   googleSolarBlock?.classList.toggle('is-loading', googleLoading);

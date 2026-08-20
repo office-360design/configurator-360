@@ -170,6 +170,17 @@ Cloud Storage stores the shared cache. Each object carries its logical expiry in
 metadata, and the service rejects expired objects on read. Bucket lifecycle
 management deletes old objects after 31 days as a cleanup guard.
 
+For local house movement, the configurator keeps the Data Layers request anchored
+at the original exact-location pin and uses a stable 100 m `FULL_LAYERS` radius.
+This lets nearby panel positions be re-sampled from the same 30-day GeoTIFF cache
+instead of changing cache keys at 50/75/100 m thresholds. Building Insights are
+indexed per cached area by Google's building resource name and bounding box, so a
+new coordinate inside an already-resolved building can reuse that 7-day result. A
+move onto a different building still causes one Building Insights lookup. The
+browser also retains up to the three most recent exact analysis signatures when
+localStorage capacity allows, so returning to a previous position/layout can avoid
+the proxy request completely.
+
 Rate-limit counters are stored transactionally in Firestore and carry an
 `expireAt` TTL timestamp.
 

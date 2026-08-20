@@ -11,6 +11,8 @@ const SECURITY_COLLECTION = String(process.env.GOOGLE_SOLAR_SECURITY_COLLECTION 
 const storage = new Storage();
 const firestore = new Firestore();
 const BUILDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const BUILDING_AREA_INDEX_MAX_ENTRIES = 24;
+const DATA_LAYERS_COVERAGE_RADIUS_M = 100;
 const DATA_LAYERS_TTL_MS = 45 * 60 * 1000;
 const GEOTIFF_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LAYER_INFO_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -18,8 +20,9 @@ const SURFACE_MODEL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const FLUX_MODEL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SESSION_TTL_SECONDS = 2 * 60 * 60;
 const MAX_PANELS = 80;
-const DEFAULT_RADIUS_M = 75;
+const DEFAULT_RADIUS_M = DATA_LAYERS_COVERAGE_RADIUS_M;
 const memoryCache = new Map();
+const inflightLoads = new Map();
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -227,6 +230,18 @@ function hashKey(value) {
   return createHash('sha256').update(String(value)).digest('hex').slice(0, 32);
 }
 
+async function withInflight(key, loader) {
+  const existing = inflightLoads.get(key);
+  if (existing) return existing;
+  const promise = Promise.resolve().then(loader);
+  inflightLoads.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    if (inflightLoads.get(key) === promise) inflightLoads.delete(key);
+  }
+}
+
 function clientIp(request) {
   return String(
     request.headers.get('x-forwarded-for')?.split(',')[0]
@@ -377,19 +392,125 @@ async function fetchGoogleJson(url, label = 'Google Solar API request') {
   return payload;
 }
 
-async function getBuildingInsights(lat, lon) {
-  const cacheKey = `building:${rounded(lat, 5)}:${rounded(lon, 5)}`;
-  const cached = await readBlob(cacheKey, 'json');
-  if (cached) return { value: cached.data, cached: true, upstreamRequests: 0 };
+function buildingCoordinateCacheKey(lat, lon) {
+  return `building:${rounded(lat, 5)}:${rounded(lon, 5)}`;
+}
 
-  const url = new URL(`${SOLAR_BASE}buildingInsights:findClosest`);
-  url.searchParams.set('location.latitude', Number(lat).toFixed(5));
-  url.searchParams.set('location.longitude', Number(lon).toFixed(5));
-  url.searchParams.set('requiredQuality', 'BASE');
-  url.searchParams.set('key', String(process.env.GOOGLE_SOLAR_API_KEY));
-  const value = await fetchGoogleJson(url, 'Building Insights request');
-  await writeBlob(cacheKey, value, BUILDING_TTL_MS, { json: true });
-  return { value, cached: false, upstreamRequests: 1 };
+function buildingCanonicalCacheKey(name) {
+  return `building-id:${hashKey(String(name || 'unknown'))}`;
+}
+
+function buildingAreaIndexKey(layerBaseKey) {
+  return `${layerBaseKey}:building-index-v1`;
+}
+
+function pointInsideLatLngBox(lat, lon, boundingBox) {
+  const south = Number(boundingBox?.sw?.latitude);
+  const west = Number(boundingBox?.sw?.longitude);
+  const north = Number(boundingBox?.ne?.latitude);
+  const east = Number(boundingBox?.ne?.longitude);
+  if (![south, west, north, east].every(Number.isFinite)) return false;
+  return lat >= Math.min(south, north)
+    && lat <= Math.max(south, north)
+    && lon >= Math.min(west, east)
+    && lon <= Math.max(west, east);
+}
+
+function coordinateDistanceMeters(latA, lonA, latB, lonB) {
+  if (![latA, lonA, latB, lonB].every(Number.isFinite)) return Infinity;
+  const metersPerDegree = 111320;
+  const meanLat = ((latA + latB) / 2) * Math.PI / 180;
+  const northM = (latB - latA) * metersPerDegree;
+  const eastM = (lonB - lonA) * metersPerDegree * Math.max(0.2, Math.cos(meanLat));
+  return Math.hypot(eastM, northM);
+}
+
+async function indexBuildingForArea(layerBaseKey, value) {
+  if (!layerBaseKey || !value?.name || !value?.boundingBox) return;
+  const indexKey = buildingAreaIndexKey(layerBaseKey);
+  const cachedIndex = await readBlob(indexKey, 'json');
+  const existing = Array.isArray(cachedIndex?.data?.entries) ? cachedIndex.data.entries : [];
+  if (existing.some((entry) => entry?.name === value.name)) return;
+
+  const canonicalKey = buildingCanonicalCacheKey(value.name);
+  await writeBlob(canonicalKey, value, BUILDING_TTL_MS, { json: true });
+  const entry = {
+    name: value.name,
+    canonicalKey,
+    center: value.center || null,
+    boundingBox: value.boundingBox || null,
+    savedAt: Date.now(),
+  };
+  const entries = [entry, ...existing]
+    .filter((item, index, all) => item?.name && all.findIndex((candidate) => candidate?.name === item.name) === index)
+    .slice(0, BUILDING_AREA_INDEX_MAX_ENTRIES);
+  await writeBlob(indexKey, { entries }, BUILDING_TTL_MS, { json: true });
+}
+
+async function readBuildingFromAreaIndex(layerBaseKey, lat, lon) {
+  if (!layerBaseKey) return null;
+  const cachedIndex = await readBlob(buildingAreaIndexKey(layerBaseKey), 'json');
+  const entries = Array.isArray(cachedIndex?.data?.entries) ? cachedIndex.data.entries : [];
+  const candidates = entries
+    .filter((entry) => pointInsideLatLngBox(lat, lon, entry?.boundingBox))
+    .sort((a, b) => coordinateDistanceMeters(
+      lat,
+      lon,
+      Number(a?.center?.latitude),
+      Number(a?.center?.longitude),
+    ) - coordinateDistanceMeters(
+      lat,
+      lon,
+      Number(b?.center?.latitude),
+      Number(b?.center?.longitude),
+    ));
+
+  for (const candidate of candidates) {
+    const canonicalKey = String(candidate?.canonicalKey || buildingCanonicalCacheKey(candidate?.name));
+    const cached = await readBlob(canonicalKey, 'json');
+    if (cached?.data) return cached.data;
+  }
+  return null;
+}
+
+async function getBuildingInsights(lat, lon, { layerBaseKey = '' } = {}) {
+  const cacheKey = buildingCoordinateCacheKey(lat, lon);
+  const cached = await readBlob(cacheKey, 'json');
+  if (cached) {
+    await indexBuildingForArea(layerBaseKey, cached.data);
+    return { value: cached.data, cached: true, cacheSource: 'exact-coordinate', upstreamRequests: 0 };
+  }
+
+  const areaCached = await readBuildingFromAreaIndex(layerBaseKey, lat, lon);
+  if (areaCached) {
+    await writeBlob(cacheKey, areaCached, BUILDING_TTL_MS, { json: true });
+    return { value: areaCached, cached: true, cacheSource: 'building-bounds', upstreamRequests: 0 };
+  }
+
+  const inflightKey = `building-resolve:${layerBaseKey || cacheKey}`;
+  return withInflight(inflightKey, async () => {
+    // Another concurrent request may have filled either cache while we waited.
+    const retryExact = await readBlob(cacheKey, 'json');
+    if (retryExact) {
+      await indexBuildingForArea(layerBaseKey, retryExact.data);
+      return { value: retryExact.data, cached: true, cacheSource: 'exact-coordinate', upstreamRequests: 0 };
+    }
+    const retryArea = await readBuildingFromAreaIndex(layerBaseKey, lat, lon);
+    if (retryArea) {
+      await writeBlob(cacheKey, retryArea, BUILDING_TTL_MS, { json: true });
+      return { value: retryArea, cached: true, cacheSource: 'building-bounds', upstreamRequests: 0 };
+    }
+
+    const url = new URL(`${SOLAR_BASE}buildingInsights:findClosest`);
+    url.searchParams.set('location.latitude', Number(lat).toFixed(5));
+    url.searchParams.set('location.longitude', Number(lon).toFixed(5));
+    url.searchParams.set('requiredQuality', 'BASE');
+    url.searchParams.set('key', String(process.env.GOOGLE_SOLAR_API_KEY));
+    const value = await fetchGoogleJson(url, 'Building Insights request');
+    await writeBlob(cacheKey, value, BUILDING_TTL_MS, { json: true });
+    await indexBuildingForArea(layerBaseKey, value);
+    return { value, cached: false, cacheSource: 'google-api', upstreamRequests: 1 };
+  });
 }
 
 function dataLayersCacheKey(lat, lon, radiusM) {
@@ -459,18 +580,25 @@ async function getDataLayers(lat, lon, radiusM, { force = false } = {}) {
     if (cached) return { value: cached.data, cached: true, upstreamRequests: 0, cacheKey };
   }
 
-  const url = new URL(`${SOLAR_BASE}dataLayers:get`);
-  url.searchParams.set('location.latitude', Number(lat).toFixed(5));
-  url.searchParams.set('location.longitude', Number(lon).toFixed(5));
-  url.searchParams.set('radiusMeters', String(Math.round(radiusM)));
-  url.searchParams.set('requiredQuality', 'BASE');
-  url.searchParams.set('view', 'FULL_LAYERS');
-  url.searchParams.set('pixelSizeMeters', '1');
-  url.searchParams.set('key', String(process.env.GOOGLE_SOLAR_API_KEY));
-  const value = await fetchGoogleJson(url, 'Data Layers request');
-  await writeBlob(cacheKey, value, DATA_LAYERS_TTL_MS, { json: true });
-  await writeBlob(layerInfoKey(cacheKey), compactLayerInfo(value, radiusM), LAYER_INFO_TTL_MS, { json: true });
-  return { value, cached: false, upstreamRequests: 1, cacheKey };
+  return withInflight(`data-layers:${force ? 'refresh' : 'load'}:${cacheKey}`, async () => {
+    if (!force) {
+      const retryCached = await readBlob(cacheKey, 'json');
+      if (retryCached) return { value: retryCached.data, cached: true, upstreamRequests: 0, cacheKey };
+    }
+
+    const url = new URL(`${SOLAR_BASE}dataLayers:get`);
+    url.searchParams.set('location.latitude', Number(lat).toFixed(5));
+    url.searchParams.set('location.longitude', Number(lon).toFixed(5));
+    url.searchParams.set('radiusMeters', String(Math.round(radiusM)));
+    url.searchParams.set('requiredQuality', 'BASE');
+    url.searchParams.set('view', 'FULL_LAYERS');
+    url.searchParams.set('pixelSizeMeters', '1');
+    url.searchParams.set('key', String(process.env.GOOGLE_SOLAR_API_KEY));
+    const value = await fetchGoogleJson(url, 'Data Layers request');
+    await writeBlob(cacheKey, value, DATA_LAYERS_TTL_MS, { json: true });
+    await writeBlob(layerInfoKey(cacheKey), compactLayerInfo(value, radiusM), LAYER_INFO_TTL_MS, { json: true });
+    return { value, cached: false, upstreamRequests: 1, cacheKey };
+  });
 }
 
 function authenticatedGeoTiffUrl(rawUrl) {
@@ -887,12 +1015,16 @@ async function analyzeGoogleSolar(body) {
   });
   if (!panelPoints.length) throw new Error('At least one fitted panel is required for Google shade analysis.');
 
-  const radiusM = Math.min(100, Math.max(20, Number(body?.radiusM) || DEFAULT_RADIUS_M));
+  const requestedRadiusM = Math.min(100, Math.max(20, Number(body?.radiusM) || DEFAULT_RADIUS_M));
+  // FULL_LAYERS supports 100 m unconditionally. Using one stable coverage
+  // footprint avoids throwing away cached DSM/shade/flux data when the house
+  // is nudged across the old 50 m / 75 m radius thresholds.
+  const radiusM = Math.max(DATA_LAYERS_COVERAGE_RADIUS_M, requestedRadiusM);
   const requestedPanelCount = Math.max(0, Number(body?.requestedPanelCount) || panelPoints.length);
 
   const layerBaseKey = dataLayersCacheKey(siteLat, siteLon, radiusM);
   const [buildingResult, preCachedShadeBuffers, preCachedLayerInfo, preCachedSurfaceModel, preCachedFluxModel] = await Promise.all([
-    getBuildingInsights(houseLat, houseLon),
+    getBuildingInsights(houseLat, houseLon, { layerBaseKey }),
     readCachedHourlyShadeBuffers(layerBaseKey),
     readCachedLayerInfo(layerBaseKey),
     readBlob(surfaceModelKey(layerBaseKey), 'json'),
@@ -1006,7 +1138,9 @@ async function analyzeGoogleSolar(body) {
     fluxModel: fluxResult?.value || null,
     cache: {
       buildingInsights: buildingResult.cached,
+      buildingInsightsSource: buildingResult.cacheSource || (buildingResult.cached ? 'cache' : 'google-api'),
       dataLayers: dataLayersUpstreamRequests === 0,
+      dataLayersRadiusM: radiusM,
       hourlyShadeTiffsCached: geoTiffCacheHits,
       hourlyShadeTiffsDownloaded: geoTiffDownloads,
       googleSurfaceModel: Boolean(surfaceResult?.cached),

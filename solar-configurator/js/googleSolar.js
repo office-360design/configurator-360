@@ -1,6 +1,7 @@
 const TOKEN_STORAGE_KEY = '360-configurator:solar:google-solar-session';
 const ANALYSIS_CACHE_KEY = '360-configurator:solar:google-solar-analysis-v6';
 const ANALYSIS_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const ANALYSIS_CACHE_MAX_ENTRIES = 3;
 const DEFAULT_PATH = '/api/solar/google-solar';
 
 export function resolveGoogleSolarEndpoint(_pvgisEndpoint = '') {
@@ -91,23 +92,50 @@ export function makeGoogleAnalysisSignature({ siteLat, siteLon, houseLat, houseL
   ].join('::');
 }
 
+function normalizeAnalysisCache(payload) {
+  const entries = Array.isArray(payload?.entries)
+    ? payload.entries
+    : payload?.signature
+      ? [payload]
+      : [];
+  const now = Date.now();
+  return entries.filter((entry) => (
+    entry?.signature
+    && entry?.analysis
+    && Number(entry?.savedAt) > 0
+    && now - Number(entry.savedAt) <= ANALYSIS_CACHE_TTL_MS
+  ));
+}
+
 export function readCachedGoogleAnalysis(signature) {
   try {
     const raw = window.localStorage?.getItem(ANALYSIS_CACHE_KEY);
     if (!raw) return null;
-    const cached = JSON.parse(raw);
-    if (cached?.signature !== signature || !cached?.savedAt || Date.now() - Number(cached.savedAt) > ANALYSIS_CACHE_TTL_MS) return null;
-    return cached.analysis || null;
+    const entries = normalizeAnalysisCache(JSON.parse(raw));
+    const cached = entries.find((entry) => entry.signature === signature);
+    return cached?.analysis || null;
   } catch {
     return null;
   }
 }
 
 export function cacheGoogleAnalysis(signature, analysis) {
+  const entry = { signature, savedAt: Date.now(), analysis };
   try {
-    window.localStorage?.setItem(ANALYSIS_CACHE_KEY, JSON.stringify({ signature, savedAt: Date.now(), analysis }));
+    const raw = window.localStorage?.getItem(ANALYSIS_CACHE_KEY);
+    const existing = raw ? normalizeAnalysisCache(JSON.parse(raw)) : [];
+    const entries = [
+      entry,
+      ...existing.filter((cached) => cached.signature !== signature),
+    ].slice(0, ANALYSIS_CACHE_MAX_ENTRIES);
+    window.localStorage?.setItem(ANALYSIS_CACHE_KEY, JSON.stringify({ version: 2, entries }));
   } catch {
-    // Browser cache is only an optimization. Cloud Storage remains the shared server-side cache.
+    // Large surface/flux models can hit localStorage quotas. Preserve at least
+    // the newest exact analysis when possible; Cloud Storage is still the
+    // authoritative shared cache.
+    try {
+      window.localStorage?.setItem(ANALYSIS_CACHE_KEY, JSON.stringify({ version: 2, entries: [entry] }));
+    } catch { /* browser cache unavailable */ }
   }
 }
 

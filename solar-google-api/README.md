@@ -25,6 +25,16 @@ has a 31-day lifecycle deletion rule as a final cleanup guard. Cloud Storage
 lifecycle deletion is asynchronous, so request-time metadata remains the source
 of truth for whether a cached object is still valid.
 
+Local-position reuse is deliberately area-based. The frontend requests one stable
+100 m `FULL_LAYERS` footprint around the selected map pin, so moving the
+configurable house within that area re-samples the existing shade/DSM/flux
+GeoTIFFs instead of creating 50 m, 75 m and 100 m cache variants. Building
+Insights are additionally indexed by returned building resource and bounding box:
+if a moved house point is still inside a building already resolved for that area,
+the cached building is reused; moving onto a different building still performs a
+new `buildingInsights:findClosest` request for correctness. Concurrent misses for
+the same area are coalesced within a Cloud Run instance.
+
 ## First-time setup
 
 From the repository root, authenticated to project `configurator-360`:
