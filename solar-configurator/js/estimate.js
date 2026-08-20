@@ -1,5 +1,6 @@
-import { modulePresets } from './state.js?v=2';
-import { normalizeCurrency } from './preferences.js?v=1';
+import { modulePresets } from './state.js?v=8';
+import { normalizeCurrency } from './preferences.js?v=2';
+import { solarModuleLabel, solarT, resolveSolarLocale } from './i18n.js?v=1';
 
 export const VAT_RATE = 0.21;
 
@@ -22,19 +23,21 @@ function addLine(lines, key, name, unit, quantity, unitPriceRon, note = '') {
   });
 }
 
-export function calculateSolarEstimate(state, solarMetrics, simulation) {
+export function calculateSolarEstimate(state, solarMetrics, simulation, locale = null) {
+  const resolvedLocale = resolveSolarLocale(locale);
+  const t = (key, variables = {}) => solarT(resolvedLocale, key, variables);
   const module = modulePresets[state.modulePreset] || modulePresets.standard475;
   const panels = Math.max(0, Math.round(solarMetrics.placedPanels || 0));
   const systemKwp = Math.max(0, Number(solarMetrics.systemKwp) || 0);
   const batteryCapacity = state.batteryEnabled ? Math.max(0, Number(simulation?.batteryCapacity) || 0) : 0;
 
   const lines = [];
-  addLine(lines, 'panels', `${module.label} solar module`, 'pcs', panels, module.panelPriceRon, `${module.powerW} W · ${module.lengthM.toFixed(3)} × ${module.widthM.toFixed(3)} m`);
-  addLine(lines, 'mounting', 'Roof mounting structure & clamps', 'panel', panels, Math.max(0, Number(state.mountingPricePerPanelRon) || 0), 'Indicative mounting allowance');
-  addLine(lines, 'inverter', `Hybrid-ready ${state.gridConnection === 'three' ? 'three-phase' : 'single-phase'} inverter ~${Math.max(3, Math.ceil(systemKwp))} kW`, 'pcs', systemKwp > 0 ? 1 : 0, inverterPriceRon(systemKwp, state.gridConnection), 'Indicative inverter allowance');
-  addLine(lines, 'installation', 'DC/AC electrical works, cabling & installation', 'kWp', Number(systemKwp.toFixed(2)), Math.max(0, Number(state.installationPricePerKwpRon) || 0), 'Scales with installed peak power');
-  addLine(lines, 'paperwork', 'Design, commissioning & prosumer documentation allowance', 'lot', systemKwp > 0 ? 1 : 0, Math.max(0, Number(state.paperworkPriceRon) || 0));
-  addLine(lines, 'battery', `LiFePO₄ storage · ${batteryCapacity.toFixed(0)} kWh`, 'kWh', batteryCapacity, Math.max(0, Number(state.batteryPricePerKWhRon) || 0), 'Shown only when storage is enabled');
+  addLine(lines, 'panels', t('estimate.line.panels', { module: solarModuleLabel(state.modulePreset, resolvedLocale) }), t('unit.pcs'), panels, module.panelPriceRon, `${module.powerW} W · ${module.lengthM.toFixed(3)} × ${module.widthM.toFixed(3)} m`);
+  addLine(lines, 'mounting', t('estimate.line.mounting'), t('unit.panel'), panels, Math.max(0, Number(state.mountingPricePerPanelRon) || 0), t('estimate.note.mounting'));
+  addLine(lines, 'inverter', t('estimate.line.inverter', { phase: t(state.gridConnection === 'three' ? 'estimate.phase.three' : 'estimate.phase.single'), power: Math.max(3, Math.ceil(systemKwp)) }), t('unit.pcs'), systemKwp > 0 ? 1 : 0, inverterPriceRon(systemKwp, state.gridConnection), t('estimate.note.inverter'));
+  addLine(lines, 'installation', t('estimate.line.installation'), 'kWp', Number(systemKwp.toFixed(2)), Math.max(0, Number(state.installationPricePerKwpRon) || 0), t('estimate.note.installation'));
+  addLine(lines, 'paperwork', t('estimate.line.paperwork'), t('unit.lot'), systemKwp > 0 ? 1 : 0, Math.max(0, Number(state.paperworkPriceRon) || 0));
+  addLine(lines, 'battery', t('estimate.line.battery', { capacity: batteryCapacity.toFixed(0) }), 'kWh', batteryCapacity, Math.max(0, Number(state.batteryPricePerKWhRon) || 0), t('estimate.note.battery'));
 
   const excluded = new Set(Array.isArray(state.excludedEstimateItems) ? state.excludedEstimateItems : []);
   const currency = normalizeCurrency(state.currency);
@@ -60,7 +63,7 @@ export function calculateSolarEstimate(state, solarMetrics, simulation) {
     currency,
     exchangeRate: rate,
     exchangeRateDate: state.currencyRateDate || null,
-    exchangeRateSource: state.currencyRateSource || 'reference currency',
+    exchangeRateSource: state.currencyRateSource || 'reference',
     exchangeRateIsFallback: Boolean(state.currencyRateIsFallback),
     assumptions: {
       panels,
@@ -73,10 +76,12 @@ export function calculateSolarEstimate(state, solarMetrics, simulation) {
   };
 }
 
-export function estimateToCsv(estimate) {
+export function estimateToCsv(estimate, locale = null) {
+  const resolvedLocale = resolveSolarLocale(locale);
+  const t = (key, variables = {}) => solarT(resolvedLocale, key, variables);
   const currency = estimate.currency || 'RON';
   const rows = [
-    ['Nr.', 'Item', 'Unit', 'Qty.', `Unit price incl. VAT (${currency})`, `Value incl. VAT (${currency})`],
+    [t('csv.number'), t('csv.item'), t('csv.unit'), t('csv.quantity'), t('csv.unitPriceVat', { currency }), t('csv.valueVat', { currency })],
     ...estimate.lines.filter((line) => line.included !== false).map((line, index) => [
       index + 1,
       line.name,
@@ -86,9 +91,9 @@ export function estimateToCsv(estimate) {
       line.value.toFixed(2),
     ]),
     [],
-    ['', 'Subtotal before VAT', '', '', '', estimate.subtotal.toFixed(2)],
-    ['', `VAT ${Math.round(estimate.vatRate * 100)}%`, '', '', '', estimate.vat.toFixed(2)],
-    ['', 'Estimated total incl. VAT', '', '', '', estimate.total.toFixed(2)],
+    ['', t('csv.subtotal'), '', '', '', estimate.subtotal.toFixed(2)],
+    ['', t('csv.vat', { rate: Math.round(estimate.vatRate * 100) }), '', '', '', estimate.vat.toFixed(2)],
+    ['', t('csv.total'), '', '', '', estimate.total.toFixed(2)],
   ];
 
   return rows.map((row) => row.map((cell) => {

@@ -1,9 +1,18 @@
-import { applySolarShareState, captureSolarShareState, state } from './state.js?v=7';
+import { applySolarShareState, captureSolarShareState, state } from './state.js?v=14';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
-import { RoofScene } from './scene.js?v=8';
-import { SolarUI } from './ui.js?v=6';
-import { fetchPvgisSiteEstimate } from './energyModel.js?v=4';
-import { loadGeographicEnvironment } from './environmentLoader.js?v=3';
+import { RoofScene } from './scene.js?v=19';
+import { SolarUI } from './ui.js?v=8';
+import { fetchPvgisSiteEstimate } from './energyModel.js?v=6';
+import { loadGeographicEnvironment } from './environmentLoader.js?v=5';
+import {
+  analyzeGoogleSolar,
+  clearGoogleSolarSession,
+  makeGoogleAnalysisSignature,
+  readGoogleSolarSession,
+  resolveGoogleSolarEndpoint,
+  testGoogleSolarProxy,
+  unlockGoogleSolar,
+} from './googleSolar.js?v=7';
 import {
   getSeasonPresetDate,
   getSolarContext,
@@ -16,7 +25,10 @@ import {
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
-} from './preferences.js?v=1';
+} from './preferences.js?v=2';
+import { solarT, resolveSolarLocale } from './i18n.js?v=2';
+
+const t = (key, variables = {}) => solarT(resolveSolarLocale(window.SOLAR_SHELL_PREFERENCES?.locale), key, variables);
 
 // Resolve a shared configuration before constructing the scene/UI so the first
 // rendered frame already represents the shared solar system rather than briefly
@@ -28,7 +40,7 @@ const initialPreferences = window.SOLAR_SHELL_PREFERENCES || {};
 state.units = normalizeUnits(initialPreferences.units ?? state.units);
 state.currency = normalizeCurrency(initialPreferences.currency ?? state.currency);
 state.currencyRate = getFallbackCurrencyRate(state.currency);
-state.currencyRateSource = state.currency === 'RON' ? 'reference currency' : 'temporary fallback estimate';
+state.currencyRateSource = state.currency === 'RON' ? 'reference' : 'temporary-fallback';
 state.currencyRateIsFallback = state.currency !== 'RON';
 
 const host = document.querySelector('#canvasHost');
@@ -66,8 +78,216 @@ function normalizePvgisEndpoint(value) {
 
 state.pvgisProxyEndpoint = normalizePvgisEndpoint(window.SOLAR_PVGIS_PROXY_ENDPOINT || readStoredPvgisEndpoint());
 state.pvgisProxyHealthStatus = state.pvgisProxyEndpoint ? 'unknown' : 'unconfigured';
-state.pvgisProxyHealthMessage = state.pvgisProxyEndpoint ? 'Proxy URL saved; connection not tested yet.' : 'No proxy URL configured.';
+state.pvgisProxyHealthMessage = state.pvgisProxyEndpoint ? t('proxy.savedUntested') : t('proxy.none');
+state.googleSolarEndpoint = resolveGoogleSolarEndpoint(state.pvgisProxyEndpoint);
+const initialGoogleSession = readGoogleSolarSession();
+state.googleSolarAccessStatus = initialGoogleSession ? 'unlocked' : 'locked';
+state.googleSolarAccessMessage = initialGoogleSession
+  ? t('google.sessionUnlockedUntil', {
+      time: new Date(initialGoogleSession.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    })
+  : t('google.enterAccessCode');
+state.googleSolarSessionExpiresAt = initialGoogleSession?.expiresAt || null;
 const LOCAL_POSITION_LIMIT_M = 60;
+const METERS_PER_DEGREE_LAT = 111320;
+
+function mapMetersToGeo(x, z) {
+  const baseLat = Number(state.locationLat);
+  const baseLon = Number(state.locationLon);
+  if (!Number.isFinite(baseLat) || !Number.isFinite(baseLon)) return null;
+  const latitude = baseLat - (Number(z) || 0) / METERS_PER_DEGREE_LAT;
+  const longitudeScale = METERS_PER_DEGREE_LAT * Math.max(0.2, Math.cos(baseLat * Math.PI / 180));
+  const longitude = baseLon + (Number(x) || 0) / longitudeScale;
+  return { latitude, longitude };
+}
+
+function googleSolarRequestBody() {
+  if (state.locationMode !== 'exact') return null;
+  const observations = scene.getSolarPanelObservationPoints(state);
+  if (!observations.length) return null;
+  const panelPoints = observations.map((panel) => {
+    const geo = mapMetersToGeo(panel.x, panel.z);
+    return geo ? { surfaceId: panel.surfaceId, latitude: geo.latitude, longitude: geo.longitude } : null;
+  }).filter(Boolean);
+  if (!panelPoints.length) return null;
+
+  const houseGeo = mapMetersToGeo(Number(state.environmentLocalEastM) || 0, -(Number(state.environmentLocalNorthM) || 0));
+  if (!houseGeo) return null;
+  const maxDistance = observations.reduce((maximum, panel) => Math.max(maximum, Math.hypot(Number(panel.x) || 0, Number(panel.z) || 0)), 0);
+  const radiusM = maxDistance <= 35 ? 50 : maxDistance <= 60 ? 75 : 100;
+  return {
+    siteLat: Number(state.locationLat),
+    siteLon: Number(state.locationLon),
+    houseLat: houseGeo.latitude,
+    houseLon: houseGeo.longitude,
+    radiusM,
+    requestedPanelCount: Number(lastMetrics?.placedPanels) || panelPoints.length,
+    panelPoints,
+  };
+}
+
+function currentGoogleSolarSignature() {
+  const body = googleSolarRequestBody();
+  return body ? makeGoogleAnalysisSignature(body) : '';
+}
+
+function clearGoogleSolarAnalysis(message = 'Unlock Google Solar, then analyze an exact location.') {
+  state.googleSolarShadeModel = null;
+  state.googleSolarBuildingInsights = null;
+  state.googleSolarDataLayers = null;
+  state.googleSolarSurfaceModel = null;
+  state.googleSolarFluxModel = null;
+  state.googleSolarReferenceMatchScore = 0;
+  state.googleSolarReferenceMatchLabel = '—';
+  state.googleSolarReferenceDistanceM = null;
+  state.googleSolarReferenceMainPitchDeg = null;
+  state.googleSolarReferenceMainAzimuthDeg = null;
+  state.googleSolarReferenceSuggestionAvailable = false;
+  state.googleSolarReferenceSuggestedBearingDeg = null;
+  state.googleSolarReferenceSuggestedPitchDeg = null;
+  state.googleSolarReferenceSuggestedLengthM = null;
+  state.googleSolarReferenceSuggestedDepthM = null;
+  state.googleSolarReferenceSuggestedEastM = null;
+  state.googleSolarReferenceSuggestedNorthM = null;
+  state.googleSolarReferenceSuggestedPositionDistanceM = null;
+  state.googleSolarReferenceDimensionSource = '';
+  state.googleSolarRecommendedConfigPanels = 0;
+  scene?.setGoogleBuildingInsights?.(null, state);
+  scene?.setGoogleSurfaceModel?.(null, state);
+  scene?.setGoogleFluxModel?.(null, state);
+  state.googleSolarCacheInfo = null;
+  state.googleSolarAnalyzedSignature = '';
+  state.googleSolarAnnualLossPct = 0;
+  state.googleSolarStatus = state.locationMode === 'exact' ? 'inactive' : 'unavailable';
+  state.googleSolarMessage = message;
+}
+
+function syncGoogleSolarStaleness() {
+  if (!state.googleSolarAnalyzedSignature) return false;
+  const signature = currentGoogleSolarSignature();
+  if (signature && signature === state.googleSolarAnalyzedSignature) return false;
+  state.googleSolarShadeModel = null;
+  state.googleSolarStatus = 'stale';
+  state.googleSolarMessage = 'Roof, panel placement or local house position changed. Re-run Google Solar analysis to refresh precise hourly shade.';
+  state.googleSolarAnnualLossPct = 0;
+  return true;
+}
+
+async function refreshGoogleSolarProxyHealth() {
+  state.googleSolarEndpoint = resolveGoogleSolarEndpoint(state.pvgisProxyEndpoint);
+  state.googleSolarProxyStatus = 'testing';
+  state.googleSolarProxyMessage = 'Testing Google Solar proxy…';
+  emitToolsState();
+  try {
+    const health = await testGoogleSolarProxy(state.googleSolarEndpoint);
+    if (!health?.ok) throw new Error('Unexpected health response.');
+    state.googleSolarProxyStatus = health.googleSolarConfigured && health.accessCodeConfigured ? 'ready' : 'setup';
+    state.googleSolarProxyMessage = health.googleSolarConfigured && health.accessCodeConfigured
+      ? 'Secure Google Solar proxy is ready.'
+      : t('google.proxyMissingSecrets');
+    const session = readGoogleSolarSession();
+    state.googleSolarAccessStatus = session ? 'unlocked' : 'locked';
+    state.googleSolarSessionExpiresAt = session?.expiresAt || null;
+    if (session) state.googleSolarAccessMessage = `Demo session unlocked until ${new Date(session.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`;
+    emitToolsState();
+    return health;
+  } catch (error) {
+    state.googleSolarProxyStatus = 'error';
+    state.googleSolarProxyMessage = `Google Solar proxy unavailable: ${error?.message || 'request failed'}`;
+    emitToolsState();
+    return null;
+  }
+}
+
+async function unlockGoogleSolarDemo(code) {
+  state.googleSolarAccessStatus = 'unlocking';
+  state.googleSolarAccessMessage = 'Checking demo access code…';
+  emitToolsState();
+  try {
+    const session = await unlockGoogleSolar(state.googleSolarEndpoint, code);
+    state.googleSolarAccessStatus = 'unlocked';
+    state.googleSolarSessionExpiresAt = session.expiresAt;
+    state.googleSolarAccessMessage = `Demo session unlocked until ${new Date(session.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`;
+    emitToolsState();
+    return { ok: true, session };
+  } catch (error) {
+    state.googleSolarAccessStatus = 'locked';
+    state.googleSolarSessionExpiresAt = null;
+    state.googleSolarAccessMessage = error?.status === 401 ? 'Incorrect demo access code.' : `Could not unlock Google Solar: ${error?.message || 'request failed'}`;
+    emitToolsState();
+    return { ok: false, error };
+  }
+}
+
+async function runGoogleSolarAnalysis({ force = false } = {}) {
+  if (state.locationMode !== 'exact') {
+    state.googleSolarStatus = 'unavailable';
+    state.googleSolarMessage = 'Choose an exact location before running Google Solar analysis.';
+    emitToolsState();
+    return null;
+  }
+  const session = readGoogleSolarSession();
+  if (!session) {
+    clearGoogleSolarSession();
+    state.googleSolarAccessStatus = 'locked';
+    state.googleSolarSessionExpiresAt = null;
+    state.googleSolarAccessMessage = 'Demo session is locked or expired. Enter the access code again.';
+    emitToolsState();
+    return null;
+  }
+  const body = googleSolarRequestBody();
+  if (!body) {
+    state.googleSolarStatus = 'error';
+    state.googleSolarMessage = 'No fitted panel positions are available for Google Solar analysis.';
+    emitToolsState();
+    return null;
+  }
+
+  state.googleSolarStatus = 'loading';
+  state.googleSolarMessage = force
+    ? 'Refreshing Google Building Insights and full-year hourly shade…'
+    : 'Loading Google Building Insights and full-year hourly shade…';
+  emitToolsState();
+  try {
+    const result = await analyzeGoogleSolar(state.googleSolarEndpoint, body, { force });
+    state.googleSolarShadeModel = result.shadeModel || null;
+    state.googleSolarBuildingInsights = result.buildingInsights || null;
+    state.googleSolarDataLayers = result.dataLayers || null;
+    state.googleSolarSurfaceModel = result.surfaceModel || null;
+    state.googleSolarFluxModel = result.fluxModel || null;
+    scene.setGoogleBuildingInsights(state.googleSolarBuildingInsights, state);
+    scene.setGoogleSurfaceModel(state.googleSolarSurfaceModel, state);
+    scene.setGoogleFluxModel(state.googleSolarFluxModel, state);
+    syncEnvironmentSceneMetrics();
+    state.googleSolarCacheInfo = { ...(result.cache || {}), browserCached: Boolean(result.browserCached) };
+    state.googleSolarAnalyzedSignature = makeGoogleAnalysisSignature(body);
+    state.googleSolarStatus = 'ready';
+    const cacheText = result.browserCached
+      ? 'browser cache'
+      : Number(result.cache?.upstreamBillableRequests || 0) === 0
+        ? t('google.cache.server')
+        : `${Number(result.cache?.upstreamBillableRequests || 0)} Google API request${Number(result.cache?.upstreamBillableRequests || 0) === 1 ? '' : 's'}`;
+    state.googleSolarMessage = `Detailed site analysis ready · ${result.shadeModel?.panelCount || 0} panels · hourly shade + solar flux heatmap · ${cacheText}.`;
+    if (result.security?.sessionExpiresAt) state.googleSolarSessionExpiresAt = result.security.sessionExpiresAt;
+    if (lastMetrics) ui?.updateMetrics(lastMetrics);
+    state.googleSolarAnnualLossPct = state.googleSolarShadingEnabled !== false ? Number(state.localBuildingAnnualLossPct) || 0 : 0;
+    emitToolsState();
+    return result;
+  } catch (error) {
+    if (Number(error?.status) === 401) {
+      clearGoogleSolarSession();
+      state.googleSolarAccessStatus = 'locked';
+      state.googleSolarSessionExpiresAt = null;
+      state.googleSolarAccessMessage = 'Demo session expired. Enter the access code again.';
+    }
+    state.googleSolarShadeModel = null;
+    state.googleSolarStatus = 'error';
+    state.googleSolarMessage = `Google Solar analysis failed: ${error?.message || 'request failed'}`;
+    if (lastMetrics) ui?.updateMetrics(lastMetrics);
+    emitToolsState();
+    return null;
+  }
+}
 
 function syncViewButtons() {
   document.querySelectorAll('[data-view]').forEach((button) => {
@@ -154,6 +374,81 @@ function toolsSnapshot() {
     pvgisProxyConfigured: Boolean(state.pvgisProxyEndpoint),
     pvgisProxyHealthStatus: state.pvgisProxyHealthStatus,
     pvgisProxyHealthMessage: state.pvgisProxyHealthMessage,
+    googleSolarEndpoint: state.googleSolarEndpoint,
+    googleSolarProxyStatus: state.googleSolarProxyStatus,
+    googleSolarProxyMessage: state.googleSolarProxyMessage,
+    googleSolarAccessStatus: state.googleSolarAccessStatus,
+    googleSolarAccessMessage: state.googleSolarAccessMessage,
+    googleSolarSessionExpiresAt: state.googleSolarSessionExpiresAt,
+    googleSolarStatus: state.googleSolarStatus,
+    googleSolarMessage: state.googleSolarMessage,
+    googleSolarShadingEnabled: state.googleSolarShadingEnabled,
+    googleSolarShadePanelCount: Number(state.googleSolarShadeModel?.panelCount) || 0,
+    googleSolarAnnualLossPct: state.googleSolarShadeModel && state.googleSolarShadingEnabled !== false ? Number(state.localBuildingAnnualLossPct) || 0 : 0,
+    googleSolarImageryQuality: state.googleSolarDataLayers?.imageryQuality || state.googleSolarBuildingInsights?.imageryQuality || '',
+    googleSolarImageryDate: state.googleSolarDataLayers?.imageryDate || state.googleSolarBuildingInsights?.imageryDate || null,
+    googleSolarRoofAreaM2: Number(state.googleSolarBuildingInsights?.roofAreaMeters2) || null,
+    googleSolarMaxPanels: Number(state.googleSolarBuildingInsights?.maxArrayPanelsCount) || null,
+    googleSolarMaxSunshineHours: Number(state.googleSolarBuildingInsights?.maxSunshineHoursPerYear) || null,
+    googleSolarRoofSegmentCount: Array.isArray(state.googleSolarBuildingInsights?.roofSegments) ? state.googleSolarBuildingInsights.roofSegments.length : 0,
+    googleSolarClosestConfigPanels: Number(state.googleSolarBuildingInsights?.closestPanelConfig?.panelsCount) || null,
+    googleSolarClosestConfigKWh: Number(state.googleSolarBuildingInsights?.closestPanelConfig?.yearlyEnergyDcKwh) || null,
+    googleSolarPanelConfigs: (Array.isArray(state.googleSolarBuildingInsights?.panelConfigs) ? state.googleSolarBuildingInsights.panelConfigs : []).map((config) => ({
+      panelsCount: Number(config?.panelsCount) || 0,
+      yearlyEnergyDcKwh: Number(config?.yearlyEnergyDcKwh) || 0,
+    })),
+    googleSolarRecommendedLayoutVisible: state.googleSolarRecommendedLayoutVisible !== false,
+    googleSolarRecommendedConfigPanels: Math.max(0, Math.round(Number(state.googleSolarRecommendedConfigPanels) || 0)),
+    googleSolarFluxHeatmapVisible: state.googleSolarFluxHeatmapVisible !== false,
+    googleSolarFluxNearbyRoofsVisible: state.googleSolarFluxNearbyRoofsVisible === true,
+    googleSolarFluxPeriod: String(state.googleSolarFluxPeriod ?? 'annual'),
+    googleSolarFluxAvailable: Boolean(state.googleSolarFluxModel),
+    googleSolarFluxUnits: state.googleSolarFluxModel?.units || 'kWh/kW/year',
+    googleSolarFluxStats: scene.getGoogleFluxHeatmapInfo?.(state)?.stats || null,
+    googleSolarFluxRenderedCells: Number(scene.getGoogleFluxHeatmapInfo?.(state)?.renderedCells) || 0,
+    googleSolarFluxHostCells: Number(scene.getGoogleFluxHeatmapInfo?.(state)?.hostCells) || 0,
+    googleSolarFluxNearbyCells: Number(scene.getGoogleFluxHeatmapInfo?.(state)?.nearbyCells) || 0,
+    googleSolarRecommendedPanelCount: Number(scene.getGoogleRecommendedLayoutInfo?.(state)?.panelCount) || 0,
+    googleSolarRecommendedConfigKWh: Number(scene.getGoogleRecommendedLayoutInfo?.(state)?.yearlyEnergyDcKwh) || 0,
+    googleSolarRecommendedAutoSelected: Boolean(scene.getGoogleRecommendedLayoutInfo?.(state)?.autoSelected),
+    googleSolarOurPanelCount: Number(lastMetrics?.placedPanels) || 0,
+    googleSolarOurAnnualKWh: Number(ui?.currentProduction?.annualKWh) || 0,
+    googleSolarOurPanelCapacityWatts: Number(lastMetrics?.modulePowerW) || 0,
+    googleSolarGooglePanelCapacityWatts: Number(state.googleSolarBuildingInsights?.panelCapacityWatts) || 0,
+    googleSolarDsmEnabled: state.googleSolarDsmEnabled !== false,
+    googleSolarBuildingMaskVisible: state.googleSolarBuildingMaskVisible !== false,
+    googleSolarRawDsmVisible: state.googleSolarRawDsmVisible === true,
+    googleSolarReferenceBuildingVisible: state.googleSolarReferenceBuildingVisible !== false,
+    googleSolarReferenceMatchScore: Number(state.googleSolarReferenceMatchScore) || 0,
+    googleSolarReferenceMatchLabel: state.googleSolarReferenceMatchLabel || '—',
+    googleSolarReferenceDistanceM: state.googleSolarReferenceDistanceM !== null && Number.isFinite(Number(state.googleSolarReferenceDistanceM)) ? Number(state.googleSolarReferenceDistanceM) : null,
+    googleSolarReferenceMainPitchDeg: state.googleSolarReferenceMainPitchDeg !== null && Number.isFinite(Number(state.googleSolarReferenceMainPitchDeg)) ? Number(state.googleSolarReferenceMainPitchDeg) : null,
+    googleSolarReferenceMainAzimuthDeg: state.googleSolarReferenceMainAzimuthDeg !== null && Number.isFinite(Number(state.googleSolarReferenceMainAzimuthDeg)) ? Number(state.googleSolarReferenceMainAzimuthDeg) : null,
+    googleSolarReferenceSuggestionAvailable: Boolean(state.googleSolarReferenceSuggestionAvailable),
+    googleSolarReferenceSuggestedBearingDeg: state.googleSolarReferenceSuggestedBearingDeg !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedBearingDeg)) ? Number(state.googleSolarReferenceSuggestedBearingDeg) : null,
+    googleSolarReferenceSuggestedPitchDeg: state.googleSolarReferenceSuggestedPitchDeg !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedPitchDeg)) ? Number(state.googleSolarReferenceSuggestedPitchDeg) : null,
+    googleSolarReferenceSuggestedLengthM: state.googleSolarReferenceSuggestedLengthM !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedLengthM)) ? Number(state.googleSolarReferenceSuggestedLengthM) : null,
+    googleSolarReferenceSuggestedDepthM: state.googleSolarReferenceSuggestedDepthM !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedDepthM)) ? Number(state.googleSolarReferenceSuggestedDepthM) : null,
+    googleSolarReferenceSuggestedEastM: state.googleSolarReferenceSuggestedEastM !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedEastM)) ? Number(state.googleSolarReferenceSuggestedEastM) : null,
+    googleSolarReferenceSuggestedNorthM: state.googleSolarReferenceSuggestedNorthM !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedNorthM)) ? Number(state.googleSolarReferenceSuggestedNorthM) : null,
+    googleSolarReferenceSuggestedPositionDistanceM: state.googleSolarReferenceSuggestedPositionDistanceM !== null && Number.isFinite(Number(state.googleSolarReferenceSuggestedPositionDistanceM)) ? Number(state.googleSolarReferenceSuggestedPositionDistanceM) : null,
+    googleSolarReferenceDimensionSource: state.googleSolarReferenceDimensionSource || '',
+    roofLengthM: Number(state.length) || 0,
+    roofDepthM: Number(state.depth) || 0,
+    roofPitchDeg: Number(state.pitch) || 0,
+    googleSolarRefinedBuildingCount: Number(state.googleSolarRefinedBuildingCount) || 0,
+    googleSolarGoogleOnlyBuildingCount: Number(state.googleSolarGoogleOnlyBuildingCount) || 0,
+    googleSolarCanopyCount: Number(state.googleSolarCanopyCount) || 0,
+    googleSolarSurfaceAvailable: Boolean(state.googleSolarSurfaceModel),
+    googleSolarSurfaceGridSize: Number(state.googleSolarSurfaceModel?.size) || 0,
+    googleSolarSurfaceCellSizeM: Number(state.googleSolarSurfaceModel?.cellSizeM) || null,
+    googleSolarSurfaceRadiusM: Number(state.googleSolarSurfaceModel?.radiusM) || null,
+    googleSolarSurfaceRooftopCoveragePct: Number(state.googleSolarSurfaceModel?.rooftopCoveragePct) || 0,
+    googleSolarSurfaceHeightRangeM: state.googleSolarSurfaceModel
+      ? Math.max(0, Number(state.googleSolarSurfaceModel.maxRelativeM) - Number(state.googleSolarSurfaceModel.minRelativeM))
+      : null,
+    googleSolarHostDetected: Boolean(scene.googleSurfaceModel && scene.googleHostComponent?.size),
+    googleSolarCacheInfo: state.googleSolarCacheInfo,
   };
 }
 
@@ -183,7 +478,7 @@ function applyShellPreferences(preferences = {}) {
   if (currencyChanged) {
     state.currencyRate = getFallbackCurrencyRate(nextCurrency);
     state.currencyRateDate = null;
-    state.currencyRateSource = nextCurrency === 'RON' ? 'reference currency' : 'temporary fallback estimate';
+    state.currencyRateSource = nextCurrency === 'RON' ? 'reference' : 'temporary-fallback';
     state.currencyRateIsFallback = nextCurrency !== 'RON';
   }
 
@@ -210,13 +505,13 @@ async function testPvgisProxyEndpoint(endpoint = state.pvgisProxyEndpoint) {
 
   if (!normalized) {
     state.pvgisProxyHealthStatus = 'unconfigured';
-    state.pvgisProxyHealthMessage = 'Enter the public Netlify Function URL, then apply it.';
+    state.pvgisProxyHealthMessage = t('proxy.enter');
     emitToolsState();
     return { ok: false, status: 'unconfigured' };
   }
 
   state.pvgisProxyHealthStatus = 'testing';
-  state.pvgisProxyHealthMessage = 'Testing proxy connection…';
+  state.pvgisProxyHealthMessage = t('proxy.testing');
   emitToolsState();
 
   const controller = new AbortController();
@@ -242,11 +537,11 @@ async function testPvgisProxyEndpoint(endpoint = state.pvgisProxyEndpoint) {
       error.status = response.status;
       throw error;
     }
-    if (!payload?.ok) throw new Error('Health endpoint did not return the expected { ok: true } response.');
+    if (!payload?.ok) throw new Error(t('proxy.healthUnexpected'));
 
     if (normalized !== state.pvgisProxyEndpoint) return { ok: false, status: 'stale' };
     state.pvgisProxyHealthStatus = 'ready';
-    state.pvgisProxyHealthMessage = `Connected · ${payload.platform || 'proxy'} · ${payload.upstream || 'PVGIS'}`;
+    state.pvgisProxyHealthMessage = t('proxy.connected', { platform: payload.platform || 'proxy', upstream: payload.upstream || 'PVGIS' });
     emitToolsState();
     schedulePvgis({ immediate: true });
     return { ok: true, payload };
@@ -254,17 +549,17 @@ async function testPvgisProxyEndpoint(endpoint = state.pvgisProxyEndpoint) {
     if (normalized !== state.pvgisProxyEndpoint) return { ok: false, status: 'stale' };
     state.pvgisProxyHealthStatus = 'error';
     if (error?.name === 'AbortError') {
-      state.pvgisProxyHealthMessage = 'Connection timed out. Check that the Netlify project is public and reachable.';
+      state.pvgisProxyHealthMessage = t('proxy.timeout');
     } else if (Number(error?.status) === 401 || Number(error?.status) === 403) {
-      state.pvgisProxyHealthMessage = `Proxy returned HTTP ${error.status}. The Netlify project is private/protected; make the production deploy public.`;
+      state.pvgisProxyHealthMessage = t('proxy.private', { status: error.status });
     } else if (Number(error?.status)) {
-      state.pvgisProxyHealthMessage = `Proxy test failed with HTTP ${error.status}: ${error.message}`;
+      state.pvgisProxyHealthMessage = t('proxy.httpFailed', { status: error.status, message: error.message });
     } else {
-      state.pvgisProxyHealthMessage = `Could not reach the proxy from this page. Check public access and CORS. ${error?.message || ''}`.trim();
+      state.pvgisProxyHealthMessage = t('proxy.unreachable', { message: error?.message || '' }).trim();
     }
     if (state.locationMode === 'exact') {
       state.pvgisStatus = 'fallback';
-      state.pvgisMessage = `${state.pvgisProxyHealthMessage} Regional production fallback remains active.`;
+      state.pvgisMessage = t('pvgis.proxyFallback', { message: state.pvgisProxyHealthMessage });
     }
     emitToolsState();
     return { ok: false, error };
@@ -282,7 +577,7 @@ function schedulePvgis({ immediate = false } = {}) {
 
   if (state.locationMode !== 'exact') {
     state.pvgisStatus = 'calibrated';
-    state.pvgisMessage = 'Regional PVGIS-calibrated fallback is active. Choose an exact location for live site data.';
+    state.pvgisMessage = t('pvgis.regionFallbackExactNeeded');
     scene.setEnvironment(state);
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
@@ -292,7 +587,7 @@ function schedulePvgis({ immediate = false } = {}) {
   const endpoint = normalizePvgisEndpoint(state.pvgisProxyEndpoint);
   if (!endpoint) {
     state.pvgisStatus = 'unconfigured';
-    state.pvgisMessage = 'Exact sun geometry is active, but the PVGIS proxy is not configured. Annual yield is using the regional fallback.';
+    state.pvgisMessage = t('pvgis.exactNoProxy');
     scene.setEnvironment(state);
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
@@ -301,8 +596,8 @@ function schedulePvgis({ immediate = false } = {}) {
 
   state.pvgisStatus = 'loading';
   state.pvgisMessage = state.pvgisUseHorizon
-    ? 'Loading exact-location PVGIS yield and terrain horizon…'
-    : 'Loading exact-location PVGIS yield without terrain-horizon losses…';
+    ? t('pvgis.loadingWithHorizon')
+    : t('pvgis.loadingNoHorizon');
   if (lastMetrics) ui?.updateMetrics(lastMetrics);
   emitToolsState();
 
@@ -319,15 +614,15 @@ function schedulePvgis({ immediate = false } = {}) {
       state.pvgisUpdatedAt = new Date().toISOString();
       state.pvgisStatus = 'ready';
       const horizonText = state.pvgisUseHorizon
-        ? (result.horizonProfile?.length ? `terrain horizon loaded (${result.horizonProfile.length} samples)` : 'PVGIS terrain horizon applied to yield')
-        : 'terrain-horizon losses disabled';
-      state.pvgisMessage = `${state.pvgisDatabase || 'PVGIS'} exact-site model ready · ${result.surfaceResults.length} roof section${result.surfaceResults.length === 1 ? '' : 's'} · ${horizonText}.`;
+        ? (result.horizonProfile?.length ? t('pvgis.horizonLoaded', { count: result.horizonProfile.length }) : t('pvgis.horizonApplied'))
+        : t('pvgis.horizonDisabled');
+      state.pvgisMessage = t('pvgis.ready', { database: state.pvgisDatabase || 'PVGIS', count: result.surfaceResults.length, sections: t(result.surfaceResults.length === 1 ? 'pvgis.section.one' : 'pvgis.section.many'), horizon: horizonText });
     } catch (error) {
       if (error?.name === 'AbortError') return;
       console.info('[Solar configurator] PVGIS proxy unavailable; using calibrated regional model.', error);
       clearPvgisData();
       state.pvgisStatus = 'fallback';
-      state.pvgisMessage = `PVGIS unavailable (${error?.message || 'request failed'}). Regional calibrated yield remains active.`;
+      state.pvgisMessage = t('pvgis.unavailable', { message: error?.message || t('error.requestFailed') });
     }
     scene.setEnvironment(state);
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
@@ -338,7 +633,7 @@ function schedulePvgis({ immediate = false } = {}) {
   else pvgisTimer = window.setTimeout(run, 650);
 }
 
-function clearEnvironmentStats(message = 'Choose an exact location to load 3D context.') {
+function clearEnvironmentStats(message = t('environment.chooseExact3d')) {
   state.environmentCenterElevationM = null;
   state.environmentBuildingCount = 0;
   state.environmentRoadCount = 0;
@@ -347,7 +642,7 @@ function clearEnvironmentStats(message = 'Choose an exact location to load 3D co
   state.environmentHostBuildingCount = 0;
   state.localBuildingShadingModel = null;
   state.localBuildingShadingStatus = 'inactive';
-  state.localBuildingShadingMessage = 'Load nearby buildings to estimate local obstruction shading.';
+  state.localBuildingShadingMessage = t('environment.loadBuildingsShade');
   state.localBuildingShadeContributorCount = 0;
   state.localBuildingShadePanelCount = 0;
   state.localBuildingAnnualLossPct = 0;
@@ -358,7 +653,7 @@ function syncLocalBuildingShadingModel() {
   if (!scene.hasGeographicEnvironment()) {
     state.localBuildingShadingModel = null;
     state.localBuildingShadingStatus = 'inactive';
-    state.localBuildingShadingMessage = 'Load nearby buildings to estimate local obstruction shading.';
+    state.localBuildingShadingMessage = t('environment.loadBuildingsShade');
     state.localBuildingShadeContributorCount = 0;
     state.localBuildingShadePanelCount = 0;
     state.localBuildingAnnualLossPct = 0;
@@ -371,16 +666,16 @@ function syncLocalBuildingShadingModel() {
   state.localBuildingShadePanelCount = model?.panelCount || 0;
   if (!model?.panelCount) {
     state.localBuildingShadingStatus = 'inactive';
-    state.localBuildingShadingMessage = 'No fitted solar panels are available for local shading analysis.';
+    state.localBuildingShadingMessage = t('environment.noPanels');
   } else if (!model?.buildingCount) {
     state.localBuildingShadingStatus = 'ready';
-    state.localBuildingShadingMessage = 'No nearby mapped buildings can obstruct the current array.';
+    state.localBuildingShadingMessage = t('environment.noObstructors');
   } else if (!model?.contributorIds?.length) {
     state.localBuildingShadingStatus = 'ready';
-    state.localBuildingShadingMessage = 'Nearby buildings loaded; none rise above the panel horizon from the current house position.';
+    state.localBuildingShadingMessage = t('environment.noHorizonRise');
   } else {
     state.localBuildingShadingStatus = 'ready';
-    state.localBuildingShadingMessage = `${model.contributorIds.length} nearby building${model.contributorIds.length === 1 ? '' : 's'} can shade the current solar array.`;
+    state.localBuildingShadingMessage = t(model.contributorIds.length === 1 ? 'environment.canShade.one' : 'environment.canShade.many', { count: model.contributorIds.length });
   }
   scene.syncBuildingShadingVisuals(state);
   return model;
@@ -389,6 +684,23 @@ function syncLocalBuildingShadingModel() {
 function syncEnvironmentSceneMetrics(data = scene.geographicData) {
   if (!data) {
     state.environmentHostBuildingCount = 0;
+    state.googleSolarRefinedBuildingCount = 0;
+    state.googleSolarGoogleOnlyBuildingCount = 0;
+    state.googleSolarCanopyCount = 0;
+    state.googleSolarReferenceMatchScore = 0;
+    state.googleSolarReferenceMatchLabel = '—';
+    state.googleSolarReferenceDistanceM = null;
+    state.googleSolarReferenceMainPitchDeg = null;
+    state.googleSolarReferenceMainAzimuthDeg = null;
+    state.googleSolarReferenceSuggestionAvailable = false;
+    state.googleSolarReferenceSuggestedBearingDeg = null;
+    state.googleSolarReferenceSuggestedPitchDeg = null;
+    state.googleSolarReferenceSuggestedLengthM = null;
+    state.googleSolarReferenceSuggestedDepthM = null;
+    state.googleSolarReferenceSuggestedEastM = null;
+    state.googleSolarReferenceSuggestedNorthM = null;
+    state.googleSolarReferenceSuggestedPositionDistanceM = null;
+    state.googleSolarReferenceDimensionSource = '';
     syncLocalBuildingShadingModel();
     return;
   }
@@ -399,6 +711,24 @@ function syncEnvironmentSceneMetrics(data = scene.geographicData) {
   state.environmentTreeCount = data.trees?.length || 0;
   state.environmentHasTerrain = Boolean(data.terrain);
   state.environmentHostBuildingCount = metrics.hostBuildingCount || 0;
+  state.googleSolarRefinedBuildingCount = Number(metrics.googleRefinedBuildingCount) || 0;
+  state.googleSolarGoogleOnlyBuildingCount = Number(metrics.googleOnlyBuildingCount) || 0;
+  state.googleSolarCanopyCount = Number(metrics.googleCanopyCount) || 0;
+  state.googleSolarReferenceMatchScore = Number(metrics.googleReferenceMatchScore) || 0;
+  state.googleSolarReferenceMatchLabel = metrics.googleReferenceMatchLabel || '—';
+  state.googleSolarReferenceDistanceM = Number.isFinite(metrics.googleReferenceDistanceM) ? metrics.googleReferenceDistanceM : null;
+  state.googleSolarReferenceMainPitchDeg = Number.isFinite(metrics.googleReferenceMainPitchDeg) ? metrics.googleReferenceMainPitchDeg : null;
+  state.googleSolarReferenceMainAzimuthDeg = Number.isFinite(metrics.googleReferenceMainAzimuthDeg) ? metrics.googleReferenceMainAzimuthDeg : null;
+  const suggestion = scene.getGoogleRoofMatchSuggestion?.(state) || { available: false };
+  state.googleSolarReferenceSuggestionAvailable = Boolean(suggestion.available);
+  state.googleSolarReferenceSuggestedBearingDeg = Number.isFinite(suggestion.bearingDeg) ? suggestion.bearingDeg : null;
+  state.googleSolarReferenceSuggestedPitchDeg = Number.isFinite(suggestion.pitchDeg) ? suggestion.pitchDeg : null;
+  state.googleSolarReferenceSuggestedLengthM = Number.isFinite(suggestion.suggestedLengthM) ? suggestion.suggestedLengthM : null;
+  state.googleSolarReferenceSuggestedDepthM = Number.isFinite(suggestion.suggestedDepthM) ? suggestion.suggestedDepthM : null;
+  state.googleSolarReferenceSuggestedEastM = Number.isFinite(suggestion.suggestedEastM) ? suggestion.suggestedEastM : null;
+  state.googleSolarReferenceSuggestedNorthM = Number.isFinite(suggestion.suggestedNorthM) ? suggestion.suggestedNorthM : null;
+  state.googleSolarReferenceSuggestedPositionDistanceM = Number.isFinite(suggestion.positionDistanceM) ? suggestion.positionDistanceM : null;
+  state.googleSolarReferenceDimensionSource = suggestion.dimensionSource || '';
   syncLocalBuildingShadingModel();
 }
 
@@ -409,7 +739,7 @@ function syncEnvironmentForLocationMode() {
   environmentRequest += 1;
   if (scene.hasGeographicEnvironment()) scene.clearGeographicEnvironment();
   state.environmentStatus = 'inactive';
-  clearEnvironmentStats('Choose an exact location to load terrain and nearby OpenStreetMap context.');
+  clearEnvironmentStats(t('environment.chooseExactContext'));
 }
 
 async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
@@ -420,7 +750,7 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
   }
   if (!state.environmentEnabled) {
     state.environmentStatus = 'hidden';
-    state.environmentMessage = '3D geographic context is turned off.';
+    state.environmentMessage = t('environment.disabled');
     scene.syncGeographicLayerVisibility(state);
     emitToolsState();
     return scene.geographicData;
@@ -437,8 +767,8 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
   environmentController = controller;
   state.environmentStatus = 'loading';
   state.environmentMessage = forceRefresh
-    ? 'Refreshing elevation and mapped surroundings…'
-    : 'Loading elevation, buildings, roads and mapped trees…';
+    ? t('environment.refreshing')
+    : t('environment.loadingAll');
   emitToolsState();
 
   const applyProgress = (data) => {
@@ -447,11 +777,11 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
     syncEnvironmentSceneMetrics(data);
     state.environmentStatus = 'loading';
     if (data.progressStage === 'terrain') {
-      state.environmentMessage = 'Terrain is ready; loading nearby buildings, roads and mapped trees…';
+      state.environmentMessage = t('environment.terrainReady');
     } else if (data.progressStage === 'osm') {
       state.environmentMessage = data.terrain
-        ? 'Mapped surroundings are ready; finishing terrain…'
-        : 'Mapped surroundings are ready; loading terrain elevation…';
+        ? t('environment.osmReadyTerrain')
+        : t('environment.osmReadyLoadingTerrain');
     }
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
@@ -472,10 +802,10 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
     syncEnvironmentSceneMetrics(data);
     if (data.errors?.length) {
       state.environmentStatus = 'partial';
-      state.environmentMessage = `Context loaded with limited data: ${data.errors.join(' · ')}`;
+      state.environmentMessage = t('environment.limited', { errors: data.errors.join(' · ') });
     } else {
       state.environmentStatus = 'ready';
-      state.environmentMessage = 'Real terrain and nearby mapped context loaded.';
+      state.environmentMessage = t('environment.ready');
     }
     if (lastMetrics) ui?.updateMetrics(lastMetrics);
     emitToolsState();
@@ -485,11 +815,11 @@ async function refreshGeographicEnvironment({ forceRefresh = false } = {}) {
     console.info('[Solar configurator] Geographic environment unavailable.', error);
     if (hadExistingEnvironment && scene.hasGeographicEnvironment()) {
       state.environmentStatus = 'partial';
-      state.environmentMessage = 'Refresh failed; keeping the previously loaded local environment.';
+      state.environmentMessage = t('environment.refreshFailed');
     } else {
       scene.clearGeographicEnvironment();
       state.environmentStatus = 'error';
-      clearEnvironmentStats('Could not load geographic context. The solar configurator remains usable with the flat reference ground.');
+      clearEnvironmentStats(t('environment.failed'));
     }
     emitToolsState();
     return null;
@@ -503,6 +833,7 @@ function rebuild({ fitCamera = false, scene: rebuildScene = true, pvgis = false 
   if (rebuildScene || !lastMetrics) {
     lastMetrics = scene.rebuild(state, fitCamera);
     if (scene.hasGeographicEnvironment()) syncLocalBuildingShadingModel();
+    syncGoogleSolarStaleness();
   }
   scene.setEnvironment(state);
   scene.setCompassVisible(state.showCompass);
@@ -576,6 +907,7 @@ syncViewButtons();
 refreshCurrencyRate(state.currency);
 schedulePvgis();
 if (state.pvgisProxyEndpoint) testPvgisProxyEndpoint(state.pvgisProxyEndpoint);
+refreshGoogleSolarProxyHealth();
 if (state.locationMode === 'exact' && state.environmentEnabled && state.environmentAutoLoad) {
   refreshGeographicEnvironment();
 }
@@ -660,6 +992,7 @@ const configuratorApi = {
       ...solarMetrics,
       solarMetrics,
     };
+    syncGoogleSolarStaleness();
 
     // The geographic context is drawn in true-North coordinates while the
     // configurable house stays fixed in viewer space, so refresh it as well.
@@ -707,6 +1040,7 @@ const configuratorApi = {
     state.locationLabel = String(label || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
     state.environmentLocalEastM = 0;
     state.environmentLocalNorthM = 0;
+    clearGoogleSolarAnalysis('Exact location changed. Run Google Solar analysis for the new property.');
     state.region = nearestRegionKey(latitude, longitude);
     rebuild({ fitCamera: false, scene: false, pvgis: true });
     if (state.environmentEnabled && state.environmentAutoLoad) refreshGeographicEnvironment();
@@ -717,6 +1051,7 @@ const configuratorApi = {
     if (state.simulationPlaying) stopSimulation({ keepHour: true });
     if (regionKey) state.region = regionKey;
     state.locationMode = 'region';
+    clearGoogleSolarAnalysis('Google Solar detailed analysis requires an exact location.');
     rebuild({ fitCamera: false, scene: false, pvgis: true });
     return state.region;
   },
@@ -724,6 +1059,8 @@ const configuratorApi = {
   async setPvgisProxyEndpoint(value) {
     const endpoint = normalizePvgisEndpoint(value);
     state.pvgisProxyEndpoint = endpoint;
+    state.googleSolarEndpoint = resolveGoogleSolarEndpoint(endpoint);
+    refreshGoogleSolarProxyHealth();
     try {
       if (endpoint) window.localStorage?.setItem(PVGIS_PROXY_STORAGE_KEY, endpoint);
       else window.localStorage?.removeItem(PVGIS_PROXY_STORAGE_KEY);
@@ -734,14 +1071,14 @@ const configuratorApi = {
     clearPvgisData();
     if (!endpoint) {
       state.pvgisProxyHealthStatus = 'unconfigured';
-      state.pvgisProxyHealthMessage = 'No proxy URL configured.';
+      state.pvgisProxyHealthMessage = t('proxy.none');
       schedulePvgis({ immediate: true });
       emitToolsState();
       return { endpoint: '', ok: false };
     }
 
     state.pvgisProxyHealthStatus = 'unknown';
-    state.pvgisProxyHealthMessage = 'Proxy URL saved; testing connection…';
+    state.pvgisProxyHealthMessage = t('proxy.testing');
     emitToolsState();
     const result = await testPvgisProxyEndpoint(endpoint);
     return { endpoint: state.pvgisProxyEndpoint, ...result };
@@ -769,6 +1106,184 @@ const configuratorApi = {
     return true;
   },
 
+  testGoogleSolarProxy() {
+    return refreshGoogleSolarProxyHealth();
+  },
+
+  unlockGoogleSolar(code) {
+    return unlockGoogleSolarDemo(code);
+  },
+
+  lockGoogleSolar() {
+    clearGoogleSolarSession();
+    state.googleSolarAccessStatus = 'locked';
+    state.googleSolarSessionExpiresAt = null;
+    state.googleSolarAccessMessage = 'Demo session locked. Enter the access code to use Google Solar again.';
+    emitToolsState();
+    return true;
+  },
+
+  refreshGoogleSolar(force = false) {
+    return runGoogleSolarAnalysis({ force: Boolean(force) });
+  },
+
+  setGoogleSolarShadingEnabled(enabled) {
+    state.googleSolarShadingEnabled = Boolean(enabled);
+    if (lastMetrics) ui?.updateMetrics(lastMetrics);
+    state.googleSolarAnnualLossPct = state.googleSolarShadeModel && state.googleSolarShadingEnabled !== false
+      ? Number(state.localBuildingAnnualLossPct) || 0
+      : 0;
+    emitToolsState();
+    return state.googleSolarShadingEnabled;
+  },
+
+  setGoogleSolarRecommendedLayoutVisible(enabled) {
+    state.googleSolarRecommendedLayoutVisible = Boolean(enabled);
+    scene.setEnvironment(state);
+    emitToolsState();
+    return state.googleSolarRecommendedLayoutVisible;
+  },
+
+  setGoogleSolarRecommendedConfigPanels(value) {
+    const requested = Math.max(0, Math.round(Number(value) || 0));
+    state.googleSolarRecommendedConfigPanels = requested;
+    if (scene.hasGeographicEnvironment() && state.googleSolarBuildingInsights) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    scene.setEnvironment(state);
+    emitToolsState();
+    return scene.getGoogleRecommendedLayoutInfo?.(state) || null;
+  },
+
+  setGoogleSolarFluxHeatmapVisible(enabled) {
+    state.googleSolarFluxHeatmapVisible = Boolean(enabled);
+    scene.setEnvironment(state);
+    emitToolsState();
+    return state.googleSolarFluxHeatmapVisible;
+  },
+
+  setGoogleSolarFluxNearbyRoofsVisible(enabled) {
+    state.googleSolarFluxNearbyRoofsVisible = Boolean(enabled);
+    if (scene.hasGeographicEnvironment() && state.googleSolarFluxModel) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.googleSolarFluxNearbyRoofsVisible;
+  },
+
+  setGoogleSolarFluxPeriod(value) {
+    const raw = String(value ?? 'annual');
+    const period = raw === 'annual' ? 'annual' : String(Math.max(0, Math.min(11, Math.round(Number(raw) || 0))));
+    state.googleSolarFluxPeriod = period;
+    if (scene.hasGeographicEnvironment() && state.googleSolarFluxModel) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return scene.getGoogleFluxHeatmapInfo?.(state) || null;
+  },
+
+  setGoogleSolarDsmEnabled(enabled) {
+    state.googleSolarDsmEnabled = Boolean(enabled);
+    scene.setEnvironment(state);
+    if (scene.hasGeographicEnvironment()) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.googleSolarDsmEnabled;
+  },
+
+  setGoogleSolarBuildingMaskVisible(enabled) {
+    state.googleSolarBuildingMaskVisible = Boolean(enabled);
+    if (scene.hasGeographicEnvironment() && state.googleSolarSurfaceModel) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.googleSolarBuildingMaskVisible;
+  },
+
+  setGoogleSolarRawDsmVisible(enabled) {
+    state.googleSolarRawDsmVisible = Boolean(enabled);
+    scene.setEnvironment(state);
+    if (scene.hasGeographicEnvironment() && state.googleSolarSurfaceModel) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.googleSolarRawDsmVisible;
+  },
+
+  setGoogleSolarReferenceBuildingVisible(enabled) {
+    state.googleSolarReferenceBuildingVisible = Boolean(enabled);
+    if (scene.hasGeographicEnvironment() && state.googleSolarSurfaceModel && state.googleSolarBuildingInsights) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    }
+    emitToolsState();
+    return state.googleSolarReferenceBuildingVisible;
+  },
+
+  applyGoogleReference(mode = 'all') {
+    const suggestion = scene.getGoogleRoofMatchSuggestion?.(state) || { available: false };
+    if (!suggestion.available) return { ok: false, reason: 'No Google roof reference is available.' };
+    if (state.simulationPlaying) stopSimulation({ keepHour: true });
+
+    const applyAll = mode === 'all';
+    let roofChanged = false;
+    let positionChanged = false;
+
+    if ((applyAll || mode === 'bearing') && Number.isFinite(suggestion.bearingDeg)) {
+      state.northDirection = ((Number(suggestion.bearingDeg) % 360) + 360) % 360;
+      roofChanged = true;
+    }
+    if ((applyAll || mode === 'pitch') && Number.isFinite(suggestion.pitchDeg)) {
+      state.pitch = Math.min(55, Math.max(5, Math.round(Number(suggestion.pitchDeg))));
+      roofChanged = true;
+    }
+    if ((applyAll || mode === 'size') && Number.isFinite(suggestion.suggestedLengthM) && Number.isFinite(suggestion.suggestedDepthM)) {
+      state.length = Math.round(Math.min(20, Math.max(5, Number(suggestion.suggestedLengthM))) * 10) / 10;
+      state.depth = Math.round(Math.min(14, Math.max(4, Number(suggestion.suggestedDepthM))) * 10) / 10;
+      roofChanged = true;
+    }
+    if ((applyAll || mode === 'position') && Number.isFinite(suggestion.suggestedEastM) && Number.isFinite(suggestion.suggestedNorthM)) {
+      state.environmentLocalEastM = Math.round(Math.min(LOCAL_POSITION_LIMIT_M, Math.max(-LOCAL_POSITION_LIMIT_M, Number(suggestion.suggestedEastM))) * 10) / 10;
+      state.environmentLocalNorthM = Math.round(Math.min(LOCAL_POSITION_LIMIT_M, Math.max(-LOCAL_POSITION_LIMIT_M, Number(suggestion.suggestedNorthM))) * 10) / 10;
+      positionChanged = true;
+    }
+
+    if (roofChanged) {
+      lastMetrics = scene.rebuild(state, false);
+      ui?.syncDimensionControls?.();
+    }
+    if (scene.hasGeographicEnvironment() && (roofChanged || positionChanged)) {
+      scene.rebuildGeographicEnvironment(state);
+      syncEnvironmentSceneMetrics();
+    } else if (positionChanged) {
+      syncEnvironmentSceneMetrics();
+    }
+
+    scene.setEnvironment(state);
+    scene.setCompassVisible(state.showCompass);
+    syncGoogleSolarStaleness();
+    if (lastMetrics) ui?.updateMetrics(lastMetrics);
+    emitToolsState();
+    schedulePvgis();
+    return {
+      ok: true,
+      mode,
+      bearingDeg: state.northDirection,
+      pitchDeg: state.pitch,
+      lengthM: state.length,
+      depthM: state.depth,
+      eastM: state.environmentLocalEastM,
+      northM: state.environmentLocalNorthM,
+    };
+  },
+
   refreshEnvironment() {
     return refreshGeographicEnvironment({ forceRefresh: true });
   },
@@ -777,12 +1292,12 @@ const configuratorApi = {
     state.environmentEnabled = Boolean(enabled);
     if (!state.environmentEnabled) {
       state.environmentStatus = scene.hasGeographicEnvironment() ? 'hidden' : 'inactive';
-      state.environmentMessage = '3D geographic context is turned off.';
+      state.environmentMessage = t('environment.disabled');
       scene.syncGeographicLayerVisibility(state);
       emitToolsState();
     } else if (scene.hasGeographicEnvironment()) {
       state.environmentStatus = 'ready';
-      state.environmentMessage = 'Real terrain and nearby mapped context loaded.';
+      state.environmentMessage = t('environment.ready');
       scene.syncGeographicLayerVisibility(state);
       scene.rebuildGeographicEnvironment(state);
       syncEnvironmentSceneMetrics();
@@ -828,6 +1343,8 @@ const configuratorApi = {
       syncEnvironmentSceneMetrics();
       if (lastMetrics) ui?.updateMetrics(lastMetrics);
     }
+    // The local offset changes the real geographic panel coordinates.
+    syncGoogleSolarStaleness();
     // The local offset represents the actual configured house position inside the
     // loaded map context, so refresh the exact-site model at that adjusted point.
     if (state.locationMode === 'exact') schedulePvgis();

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { modulePresets } from './state.js?v=2';
+import { modulePresets } from './state.js?v=8';
+import { solarT, resolveSolarLocale } from './i18n.js?v=1';
 
 const ROOF_OFFSET_Y = 0.05;
 const DEG = Math.PI / 180;
@@ -60,7 +61,7 @@ export function getSolarSurfaces(state) {
     const height = (state.depth + 2 * state.overhang) / Math.cos(pitchRad);
     return [surface({
       id: 'front',
-      label: 'Single roof plane',
+      label: solarT(resolveSolarLocale(), 'solar.surface.single'),
       origin: new THREE.Vector3(-x, lowEaveY, -z),
       u: new THREE.Vector3(1, 0, 0),
       v: new THREE.Vector3(0, Math.sin(pitchRad), Math.cos(pitchRad)),
@@ -99,7 +100,7 @@ export function getSolarSurfaces(state) {
 
     return [
       surface({
-        id: 'front', label: 'Front hip plane',
+        id: 'front', label: solarT(resolveSolarLocale(), 'solar.surface.frontHip'),
         origin: rotatePoint(originFront),
         u: rotateVector(new THREE.Vector3(1, 0, 0)),
         v: rotateVector(new THREE.Vector3(0, Math.sin(pitchRad), Math.cos(pitchRad))),
@@ -107,7 +108,7 @@ export function getSolarSurfaces(state) {
         azimuth: north + azOffset,
       }),
       surface({
-        id: 'back', label: 'Back hip plane',
+        id: 'back', label: solarT(resolveSolarLocale(), 'solar.surface.backHip'),
         origin: rotatePoint(originBack),
         u: rotateVector(new THREE.Vector3(1, 0, 0)),
         v: rotateVector(new THREE.Vector3(0, Math.sin(pitchRad), -Math.cos(pitchRad))),
@@ -122,7 +123,7 @@ export function getSolarSurfaces(state) {
   const faceHeight = z / Math.cos(pitchRad);
   return [
     surface({
-      id: 'front', label: 'Front roof plane',
+      id: 'front', label: solarT(resolveSolarLocale(), 'solar.surface.front'),
       origin: new THREE.Vector3(-x, eaveY, -z),
       u: new THREE.Vector3(1, 0, 0),
       v: new THREE.Vector3(0, Math.sin(pitchRad), Math.cos(pitchRad)),
@@ -130,7 +131,7 @@ export function getSolarSurfaces(state) {
       azimuth: north,
     }),
     surface({
-      id: 'back', label: 'Back roof plane',
+      id: 'back', label: solarT(resolveSolarLocale(), 'solar.surface.back'),
       origin: new THREE.Vector3(-x, eaveY, z),
       u: new THREE.Vector3(1, 0, 0),
       v: new THREE.Vector3(0, Math.sin(pitchRad), -Math.cos(pitchRad)),
@@ -308,9 +309,9 @@ export function buildSolarArray(state) {
         azimuth: layout.surface.azimuth,
         placed: layout.placed,
       })),
-      layoutDescription: `${Math.max(1, Math.round(Number(state.panelColumns) || 1))} columns · ${state.moduleOrientation}`,
+      layoutDescription: solarT(resolveSolarLocale(), 'solar.arrayLayout', { columns: Math.max(1, Math.round(Number(state.panelColumns) || 1)), orientation: solarT(resolveSolarLocale(), `orientation.${state.moduleOrientation}`) }),
       fitWarning: placed < requested
-        ? `Only ${placed} of ${requested} requested panels fit with the current roof, margin and grid settings.`
+        ? solarT(resolveSolarLocale(), 'panels.fitWarning', { placed, requested })
         : '',
     },
   };

@@ -1,6 +1,12 @@
 import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=5';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=4';
+import { getLocalizedConfiguratorUrl } from './shared-ui/src/config.js';
+import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=1';
+
+const initialLocale = resolveWindowLocale();
+applyWindowTranslations(initialLocale);
+const t = (key, variables = {}, locale = null) => windowT(locale ?? window.WINDOW_CONFIGURATOR_SHARED_SHELL?.state?.locale ?? initialLocale, key, variables);
 
 const history = new SharedUndoManager({
   capture: () => window.WINDOW_CONFIGURATOR_API?.captureState?.(),
@@ -8,7 +14,7 @@ const history = new SharedUndoManager({
 });
 
 const shell = mountStandaloneConfiguratorShell({
-  productType: 'Window',
+  productType: t('project.type'),
   storagePrefix: '360-configurator:window',
   brandSrc: './shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: '360 Configurator',
@@ -39,14 +45,20 @@ const shell = mountStandaloneConfiguratorShell({
       history.undo();
     },
     onReset() {
-      if (window.confirm('Reset the window to its starting configuration?')) {
+      if (window.confirm(t('reset.confirm'))) {
         window.WINDOW_CONFIGURATOR_API?.resetConfiguration?.();
       }
     },
-    onPreferenceChange(path, value) {
+    onPreferenceChange(path, value, preferences) {
+      if (path === 'locale') {
+        applyWindowTranslations(value);
+      }
       if (path === 'defaultArPlatform') {
         document.querySelector(`.ar-platform-option[data-platform="${value}"]`)?.click();
       }
+      window.dispatchEvent(new CustomEvent('window-preference-change', {
+        detail: { name: path, value, preferences: { ...preferences } },
+      }));
     },
     getShareUrl() {
       const snapshot = window.WINDOW_CONFIGURATOR_API?.captureState?.();
@@ -56,6 +68,40 @@ const shell = mountStandaloneConfiguratorShell({
     },
   },
 });
+
+
+const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+
+shell.host.addEventListener('click', (event) => {
+  const languageButton = event.target.closest('[data-action="select-language"]');
+  if (!languageButton || isLocalDevelopmentHost) return;
+
+  const nextLocale = languageButton.dataset.locale;
+  if (!nextLocale || nextLocale === shell.state.locale) return;
+
+  const fallbackTarget = getLocalizedConfiguratorUrl(nextLocale, 'window', window.location);
+  if (!fallbackTarget) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  void (async () => {
+    try {
+      const snapshot = window.WINDOW_CONFIGURATOR_API?.captureState?.();
+      if (!snapshot) {
+        window.location.assign(fallbackTarget);
+        return;
+      }
+
+      const shareUrl = await createShareUrl({ productType: 'window', state: snapshot });
+      const targetUrl = getLocalizedConfiguratorUrl(nextLocale, 'window', new URL(shareUrl));
+      window.location.assign(targetUrl || fallbackTarget);
+    } catch (error) {
+      console.error('Window language switch could not preserve the current configuration.', error);
+      shell.showFeedback?.(t('feedback.languageSwitchUnavailable'));
+    }
+  })();
+}, true);
 
 const controls = document.querySelector('#controls');
 history.bindSource(controls);

@@ -1,9 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const DxfParser = require('dxf-parser');
+const { createInsertTransform: createTransform } = require('./insert_transform');
+const {
+    DEFAULT_ISLAND_GAP_MM,
+    bboxGapDistance,
+    getPathsBBox,
+    splitPathsIntoGeometryIslands
+} = require('./geometry_islands');
 
+const CAD_COORD_LIMIT = 500;
+const MAX_LOCAL_GEOMETRY_SIZE = 500;
 const PATH_JOIN_TOLERANCE = 0.1;
+const MODEL_SPACE_POLICIES = new Set(['all', 'prefer-inserts', 'inserts-only', 'direct-only']);
 const CURVE_STEP_RADIANS = Math.PI / 36; // 5 degrees per segment
 const SPLINE_SAMPLES_PER_CONTROL_POINT = 10;
 const CAD_ROOT = path.resolve(__dirname, '..');
@@ -467,6 +476,49 @@ function entityToPaths(entity) {
     return one ? [one] : [];
 }
 
+function pathBBox(pathObject) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const point of pathObject.points || []) {
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+    }
+
+    return { minX, minY, maxX, maxY };
+}
+
+// Keep the same geometry guard used by the complete-assembly converter.
+// Some DWG-to-DXF exports contain proxy/boundary geometry that is not visible
+// in AutoCAD but otherwise becomes a displaced SVG profile fragment.
+function isPathWithinExportBounds(pathObject, transform) {
+    const local = pathBBox(pathObject);
+    if ((local.maxX - local.minX) > MAX_LOCAL_GEOMETRY_SIZE ||
+        (local.maxY - local.minY) > MAX_LOCAL_GEOMETRY_SIZE) {
+        return false;
+    }
+
+    for (const point of pathObject.points || []) {
+        const transformed = transform(point);
+        if (Math.abs(transformed.x) > CAD_COORD_LIMIT || Math.abs(transformed.y) > CAD_COORD_LIMIT) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function normalizeModelSpacePolicy(value = 'prefer-inserts') {
+    const normalized = String(value || 'prefer-inserts').trim().toLowerCase();
+    if (!MODEL_SPACE_POLICIES.has(normalized)) {
+        throw new Error(`Invalid model-space policy "${value}". Use all, prefer-inserts, inserts-only, or direct-only.`);
+    }
+    return normalized;
+}
+
 function reversePath(pathObject) {
     return {
         points: [...pathObject.points].reverse(),
@@ -551,41 +603,6 @@ function stitchOpenPaths(inputPaths, tolerance = PATH_JOIN_TOLERANCE) {
     return result;
 }
 
-function createTransform(ins, parentTransform = null, blockBasePoint = null) {
-    const pos = ins.position || { x: 0, y: 0, z: 0 };
-    const base = blockBasePoint || { x: 0, y: 0, z: 0 };
-    let scaleX = ins.xScale !== undefined ? ins.xScale : 1;
-    let scaleY = ins.yScale !== undefined ? ins.yScale : 1;
-
-    if (ins.extrusionDirection && ins.extrusionDirection.z < 0) {
-        scaleX = -scaleX;
-    }
-
-    const rotation = ins.rotation !== undefined ? ins.rotation : 0;
-    const rad = rotation * Math.PI / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-
-    return function transformPoint(p) {
-        if (!p) return { x: 0, y: 0 };
-
-        const localX = (p.x !== undefined ? p.x : 0) - (base.x || 0);
-        const localY = (p.y !== undefined ? p.y : 0) - (base.y || 0);
-
-        const sx = localX * scaleX;
-        const sy = localY * scaleY;
-
-        const rx = sx * cos - sy * sin;
-        const ry = sx * sin + sy * cos;
-
-        const localP = {
-            x: rx + (pos.x || 0),
-            y: ry + (pos.y || 0)
-        };
-
-        return parentTransform ? parentTransform(localP) : localP;
-    };
-}
 
 function processEntities(dxf, entities, transform, localPaths) {
     for (const entity of entities) {
@@ -624,14 +641,297 @@ function pathsToSvgD(paths) {
     return d.trim();
 }
 
+function sanitizeComponentName(value) {
+    const sanitized = String(value || 'component')
+        .replace(/[^A-Za-z0-9_-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    return sanitized || 'component';
+}
+
+function createSvgContent(paths, viewBox, rootAttributes = '') {
+    const closedPaths = (paths || []).filter(pathObject => pathObject.closed);
+    const openPaths = (paths || []).filter(pathObject => !pathObject.closed);
+    const closedD = pathsToSvgD(closedPaths);
+    const openD = pathsToSvgD(openPaths);
+    const elements = [];
+
+    if (closedD) {
+        elements.push(`  <path d="${closedD}" fill="#888888" stroke="#000000" stroke-width="0.5" fill-rule="evenodd" stroke-linejoin="round" />`);
+    }
+    if (openD) {
+        elements.push(`  <path d="${openD}" fill="none" stroke="#000000" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round" />`);
+    }
+
+    const attrs = rootAttributes ? ` ${rootAttributes.trim()}` : '';
+    return `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n` +
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox.x.toFixed(4)} ${viewBox.y.toFixed(4)} ${viewBox.width.toFixed(4)} ${viewBox.height.toFixed(4)}" width="100%" height="100%"${attrs}>\n` +
+        elements.join('\n') + '\n</svg>\n';
+}
+
+function affine2dFromTransform(transform) {
+    const origin = transform({ x: 0, y: 0, z: 0 });
+    const axisX = transform({ x: 1, y: 0, z: 0 });
+    const axisY = transform({ x: 0, y: 1, z: 0 });
+
+    return {
+        a: axisX.x - origin.x,
+        b: axisY.x - origin.x,
+        c: axisX.y - origin.y,
+        d: axisY.y - origin.y,
+        tx: origin.x,
+        ty: origin.y
+    };
+}
+
+function collectSplitComponentBundle(dxf, modelSpaceEntities, options = {}) {
+    const modelSpacePolicy = normalizeModelSpacePolicy(options.modelSpacePolicy);
+    const components = [];
+    const instanceCounts = new Map();
+    const diagnostics = {
+        modelSpacePolicy,
+        topLevelInsertCount: 0,
+        directModelSpaceEntityCount: 0,
+        directModelSpacePathCount: 0,
+        filteredPathCount: 0,
+        usedInsertGeometry: false,
+        usedDirectModelSpaceGeometry: false,
+        ignoredDirectModelSpaceGeometry: false
+    };
+
+    function nextInstanceId(key) {
+        const count = instanceCounts.get(key) || 0;
+        instanceCounts.set(key, count + 1);
+        return count;
+    }
+
+    function addComponent({ blockName, parentBlock, rootBlock, hierarchy, layer, sourceTransform = null }, rawPaths) {
+        const stitchedPaths = stitchOpenPaths(rawPaths || []);
+        if (stitchedPaths.length === 0) return;
+
+        const geometryIslands = splitPathsIntoGeometryIslands(stitchedPaths);
+        if (geometryIslands.length === 0) return;
+
+        const instanceKey = `${hierarchy.join('/')}:${blockName}`;
+        const instanceId = nextInstanceId(instanceKey);
+        const instanceSuffix = instanceId === 0 ? '' : `-inst${instanceId}`;
+
+        geometryIslands.forEach((islandPaths, geometryIslandIndex) => {
+            const bbox = getPathsBBox(islandPaths);
+            if (!bbox) return;
+
+            const islandSuffix = geometryIslands.length === 1
+                ? ''
+                : `-island${geometryIslandIndex + 1}`;
+            const componentName = sanitizeComponentName(`${blockName}${instanceSuffix}${islandSuffix}`);
+            const index = components.length;
+            const filename = `${String(index).padStart(3, '0')}-${componentName}.svg`;
+
+            components.push({
+                index,
+                id: `${componentName}-${index}`,
+                filename,
+                blockName,
+                parentBlock,
+                rootBlock,
+                hierarchy,
+                layer: layer || '0',
+                sourceTransform,
+                geometryIslandIndex,
+                geometryIslandCount: geometryIslands.length,
+                paths: islandPaths,
+                bbox,
+                area: Math.max(0, bbox.maxX - bbox.minX) * Math.max(0, bbox.maxY - bbox.minY),
+                closedContours: islandPaths.filter(pathObject => pathObject.closed).length,
+                openContours: islandPaths.filter(pathObject => !pathObject.closed).length
+            });
+        });
+    }
+
+    function collectBlockInsert(insert, parentTransform, parentBlock = null, hierarchy = [], rootBlock = null) {
+        const blockName = insert.name;
+        const block = dxf.blocks?.[blockName];
+        if (!block) return;
+
+        const transform = createTransform(insert, parentTransform, block.position);
+        const sourceTransform = affine2dFromTransform(transform);
+        const currentRoot = rootBlock || blockName;
+        const currentHierarchy = [...hierarchy, blockName];
+        const directPaths = [];
+        let layer = insert.layer || '0';
+        const nestedInserts = [];
+
+        for (const entity of block.entities || []) {
+            if (entity.type === 'INSERT') {
+                nestedInserts.push(entity);
+                continue;
+            }
+            if (entity.layer && entity.layer !== '0' && entity.layer !== 'Defpoints') {
+                layer = entity.layer;
+            }
+            for (const geometryPath of entityToPaths(entity)) {
+                if (!isPathWithinExportBounds(geometryPath, transform)) {
+                    diagnostics.filteredPathCount += 1;
+                    continue;
+                }
+                directPaths.push({
+                    points: geometryPath.points.map(transform),
+                    closed: geometryPath.closed,
+                    sourceTypes: geometryPath.sourceTypes
+                });
+            }
+        }
+
+        addComponent({
+            blockName,
+            parentBlock,
+            rootBlock: currentRoot,
+            hierarchy: currentHierarchy,
+            layer,
+            sourceTransform
+        }, directPaths);
+
+        for (const nestedInsert of nestedInserts) {
+            collectBlockInsert(nestedInsert, transform, blockName, currentHierarchy, currentRoot);
+        }
+    }
+
+    const directByLayer = new Map();
+    const topLevelInserts = [];
+    for (const entity of modelSpaceEntities || []) {
+        if (entity.type === 'INSERT') {
+            topLevelInserts.push(entity);
+            continue;
+        }
+
+        diagnostics.directModelSpaceEntityCount += 1;
+        const layer = entity.layer || '0';
+        if (!directByLayer.has(layer)) directByLayer.set(layer, []);
+        for (const geometryPath of entityToPaths(entity)) {
+            diagnostics.directModelSpacePathCount += 1;
+            if (!isPathWithinExportBounds(geometryPath, point => point)) {
+                diagnostics.filteredPathCount += 1;
+                continue;
+            }
+            directByLayer.get(layer).push({
+                points: geometryPath.points.map(clonePoint),
+                closed: geometryPath.closed,
+                sourceTypes: geometryPath.sourceTypes
+            });
+        }
+    }
+
+    diagnostics.topLevelInsertCount = topLevelInserts.length;
+    const includeInserts = modelSpacePolicy !== 'direct-only';
+    if (includeInserts) {
+        for (const entity of topLevelInserts) {
+            collectBlockInsert(entity, point => point, null, [], null);
+        }
+    }
+
+    const hasInsertGeometry = components.length > 0;
+    const includeDirect = modelSpacePolicy === 'all'
+        || modelSpacePolicy === 'direct-only'
+        || (modelSpacePolicy === 'prefer-inserts' && !hasInsertGeometry);
+
+    if (includeDirect) {
+        for (const [layer, paths] of directByLayer.entries()) {
+            addComponent({
+                blockName: `model-space-${layer}`,
+                parentBlock: null,
+                rootBlock: 'model-space',
+                hierarchy: ['model-space', layer],
+                layer,
+                sourceTransform: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 }
+            }, paths);
+        }
+    }
+
+    diagnostics.usedInsertGeometry = includeInserts && hasInsertGeometry;
+    diagnostics.usedDirectModelSpaceGeometry = includeDirect && directByLayer.size > 0;
+    diagnostics.ignoredDirectModelSpaceGeometry = !includeDirect && diagnostics.directModelSpacePathCount > 0;
+    diagnostics.componentCount = components.length;
+
+    return { components, diagnostics };
+}
+
+function collectSplitComponents(dxf, modelSpaceEntities, options = {}) {
+    return collectSplitComponentBundle(dxf, modelSpaceEntities, options).components;
+}
+
+function writeSplitComponents(components, viewBox, componentsDir, componentsJsonPath, geometrySource = null) {
+    if (!componentsDir && !componentsJsonPath) return;
+    if (!componentsDir) {
+        throw new Error('--components-dir is required when exporting split component metadata.');
+    }
+
+    fs.mkdirSync(componentsDir, { recursive: true });
+    for (const component of components) {
+        const componentSvg = createSvgContent(
+            component.paths,
+            viewBox,
+            `data-component-id="${component.id}" data-block-name="${String(component.blockName).replace(/"/g, '&quot;')}"`
+        );
+        fs.writeFileSync(path.join(componentsDir, component.filename), componentSvg, 'utf-8');
+    }
+
+    const metadata = {
+        schemaVersion: 1,
+        viewBox: [viewBox.x, viewBox.y, viewBox.width, viewBox.height],
+        geometrySource,
+        components: components.map(component => ({
+            index: component.index,
+            id: component.id,
+            filename: component.filename,
+            blockName: component.blockName,
+            parentBlock: component.parentBlock,
+            rootBlock: component.rootBlock,
+            hierarchy: component.hierarchy,
+            layer: component.layer,
+            sourceTransform: component.sourceTransform,
+            geometryIslandIndex: component.geometryIslandIndex,
+            geometryIslandCount: component.geometryIslandCount,
+            bbox: component.bbox,
+            area: component.area,
+            closedContours: component.closedContours,
+            openContours: component.openContours
+        }))
+    };
+
+    const metadataPath = componentsJsonPath || path.join(componentsDir, 'components.json');
+    fs.mkdirSync(path.dirname(metadataPath), { recursive: true });
+    fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf-8');
+    console.log(`Saved ${components.length} split component SVG(s) to: ${componentsDir}`);
+    console.log(`Saved split component metadata: ${metadataPath}`);
+}
+
+function parseCliArguments(args) {
+    const positional = [];
+    const options = {};
+    for (let index = 0; index < args.length; index += 1) {
+        const token = args[index];
+        if (!token.startsWith('--')) {
+            positional.push(token);
+            continue;
+        }
+        const key = token.slice(2);
+        const value = args[index + 1];
+        if (value === undefined || value.startsWith('--')) {
+            throw new Error(`Missing value for --${key}`);
+        }
+        options[key] = value;
+        index += 1;
+    }
+    return { positional, options };
+}
+
 function main() {
-    const args = process.argv.slice(2);
-    if (args.length === 0) {
-        console.log("Usage: node test_convert.js <input.dxf|input.dwg> [output.svg]");
+    const { positional, options } = parseCliArguments(process.argv.slice(2));
+    if (positional.length === 0) {
+        console.log("Usage: node test_convert.js <input.dxf|input.dwg> [output.svg] [--components-dir <directory>] [--components-json <file>] [--model-space-policy <all|prefer-inserts|inserts-only|direct-only>]");
         process.exit(1);
     }
 
-    const inputFile = path.resolve(args[0]);
+    const inputFile = path.resolve(positional[0]);
     const inputExt = path.extname(inputFile).toLowerCase();
 
     if (inputExt !== '.dxf' && inputExt !== '.dwg') {
@@ -641,8 +941,8 @@ function main() {
 
     const outputExt = inputExt;
     const defaultOutputName = path.basename(inputFile, outputExt) + '.svg';
-    const outputFile = args[1]
-        ? path.resolve(args[1])
+    const outputFile = positional[1]
+        ? path.resolve(positional[1])
         : path.join(path.dirname(inputFile), defaultOutputName);
 
     console.log(`Input File: ${inputFile}`);
@@ -673,6 +973,7 @@ function main() {
         }
     }
 
+    const DxfParser = require('dxf-parser');
     const fileContent = fs.readFileSync(dxfFileToParse, 'utf-8');
     const parser = new DxfParser();
     let dxf;
@@ -695,13 +996,22 @@ function main() {
 
     console.log(`Found ${modelSpaceEntities.length} direct model space entities.`);
 
-    const localPaths = [];
-    processEntities(dxf, modelSpaceEntities, p => p, localPaths);
+    const modelSpacePolicy = normalizeModelSpacePolicy(options['model-space-policy'] || 'prefer-inserts');
+    const componentBundle = collectSplitComponentBundle(dxf, modelSpaceEntities, { modelSpacePolicy });
+    const splitComponents = componentBundle.components;
+    if (splitComponents.length === 0) {
+        throw new Error(`No usable geometry remained with model-space policy "${modelSpacePolicy}".`);
+    }
 
-    console.log(`Converted to ${localPaths.length} raw geometry paths.`);
-
-    const stitchedPaths = stitchOpenPaths(localPaths);
-    console.log(`Stitched into ${stitchedPaths.length} continuous paths.`);
+    const stitchedPaths = splitComponents.flatMap(component => component.paths || []);
+    console.log(`Model-space policy: ${modelSpacePolicy}`);
+    console.log(`Collected ${splitComponents.length} block/model-space component(s).`);
+    if (componentBundle.diagnostics.ignoredDirectModelSpaceGeometry) {
+        console.log(`Ignored ${componentBundle.diagnostics.directModelSpacePathCount} direct model-space path(s) because block INSERT geometry is authoritative.`);
+    }
+    if (componentBundle.diagnostics.filteredPathCount > 0) {
+        console.log(`Filtered ${componentBundle.diagnostics.filteredPathCount} out-of-range/proxy geometry path(s) using the complete-converter bounds rules.`);
+    }
 
     // Calculate bounding box in SVG space (where Y is negated)
     let minX = Infinity;
@@ -746,24 +1056,41 @@ function main() {
 
     console.log(`Closed contours: ${closedPaths.length}, Open contours: ${openPaths.length}`);
 
-    const closedD = pathsToSvgD(closedPaths);
-    const openD = pathsToSvgD(openPaths);
-
-    const elements = [];
-    if (closedD) {
-        elements.push(`  <path d="${closedD}" fill="#888888" stroke="#000000" stroke-width="0.5" fill-rule="evenodd" stroke-linejoin="round" />`);
-    }
-    if (openD) {
-        elements.push(`  <path d="${openD}" fill="none" stroke="#000000" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round" />`);
-    }
-
-    const svgContent = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n` +
-        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBoxX.toFixed(4)} ${viewBoxY.toFixed(4)} ${viewBoxW.toFixed(4)} ${viewBoxH.toFixed(4)}" width="100%" height="100%">\n` +
-        elements.join('\n') + '\n</svg>\n';
+    const viewBox = {
+        x: viewBoxX,
+        y: viewBoxY,
+        width: viewBoxW,
+        height: viewBoxH
+    };
+    const svgContent = createSvgContent(stitchedPaths, viewBox);
 
     fs.mkdirSync(path.dirname(outputFile), { recursive: true });
     fs.writeFileSync(outputFile, svgContent, 'utf-8');
     console.log(`Saved: ${outputFile}`);
+
+    if (options['components-dir'] || options['components-json']) {
+        const componentsDir = options['components-dir']
+            ? path.resolve(options['components-dir'])
+            : null;
+        const componentsJsonPath = options['components-json']
+            ? path.resolve(options['components-json'])
+            : null;
+        writeSplitComponents(splitComponents, viewBox, componentsDir, componentsJsonPath, componentBundle.diagnostics);
+    }
 }
 
-main();
+if (require.main === module) {
+    main();
+}
+
+module.exports = {
+    DEFAULT_ISLAND_GAP_MM,
+    bboxGapDistance,
+    affine2dFromTransform,
+    collectSplitComponentBundle,
+    collectSplitComponents,
+    getPathsBBox,
+    isPathWithinExportBounds,
+    normalizeModelSpacePolicy,
+    splitPathsIntoGeometryIslands
+};

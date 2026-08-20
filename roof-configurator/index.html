@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Real-time parametric roof configurator" />
-  <title>RoofLab - 3D Roof Configurator</title>
+  <meta name="description" content="Configure a roof online in 3D. Compare roof types, dimensions and construction options with real-time parametric visualization." />
+  <meta name="robots" content="index, follow" />
+  <title>3D Roof Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=2" />
   <link rel="stylesheet" href="./styles.css?v=19" />
@@ -16,6 +17,10 @@
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
       }
     }
+  </script>
+  <script type="module">
+    import { applyConfiguratorSeo } from '../shared-ui/src/configuratorSeo.js';
+    applyConfiguratorSeo('roof');
   </script>
 </head>
 <body>
@@ -576,7 +581,7 @@
       panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
     })();
   </script>
-  <script type="module" src="./js/sharedShell.js?v=12"></script>
-  <script type="module" src="./js/app.js?v=21"></script>
+  <script type="module" src="./js/sharedShell.js?v=13"></script>
+  <script type="module" src="./js/app.js?v=22"></script>
 </body>
 </html>

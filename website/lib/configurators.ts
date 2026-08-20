@@ -13,6 +13,7 @@ export type Configurator = {
   controls: string[];
   features: { title: string; short: string; body: string }[];
   outputs: string[];
+  seoH1: string;
   seoTitle: string;
   seoDescription: string;
 };
@@ -26,7 +27,7 @@ export const configurators: Configurator[] = [
     shortTitle: "Pergola",
     statement: "Engineer daylight. Configure atmosphere.",
     description:
-      "A spatial sales and engineering system for configurable outdoor structures—combining geometry, louver behavior, environmental simulation, accessories and live commercial logic.",
+      "A browser-based 3D pergola configurator for freestanding and wall-mounted systems, combining parametric dimensions, louver control, side enclosures, environmental preview, accessories and live estimated pricing.",
     launchUrl: "https://www.360configurator.com/pergola-configurator/",
     accent: "#58c8ff",
     controls: ["Louver 0°", "Louver 48°", "Night + LED"],
@@ -39,8 +40,9 @@ export const configurators: Configurator[] = [
       { title: "Commercial resolution", short: "Live price", body: "Dimensions, enclosure lengths, automation choices, lighting and every selected accessory feed the commercial model continuously. Each valid decision recalculates the project total immediately, keeping the visual product and the sales conversation synchronized without a separate spreadsheet pass." },
     ],
     outputs: ["Live quote", "Configured geometry", "Accessory schedule", "Customer snapshot"],
-    seoTitle: "Pergola 3D Configurator",
-    seoDescription: "Interactive pergola configuration with real-time louver control, daylight simulation, accessories, materials and dynamic project pricing.",
+    seoH1: "3D Pergola Configurator Online",
+    seoTitle: "3D Pergola Configurator Online | Design Pergolas",
+    seoDescription: "Design and configure a pergola online in 3D. Adjust dimensions, louvers, side enclosures, lighting, automation, accessories and live pricing.",
   },
   {
     slug: "roof",
@@ -63,8 +65,9 @@ export const configurators: Configurator[] = [
       { title: "BOM and CSV handoff", short: "BOM export", body: "Inspect the current roof as priced, component-level line items and export the bill of materials as structured CSV data. The same configuration can move from visual exploration into estimating, procurement or production workflows without being reconstructed manually." },
     ],
     outputs: ["Bill of materials", "CSV quote", "Dimension schedule", "Roof geometry"],
-    seoTitle: "Parametric Roof Configurator",
-    seoDescription: "Configure roof geometry, pitch and materials with live dimensions, bill of materials calculation and CSV quote export.",
+    seoH1: "3D Roof Configurator Online",
+    seoTitle: "3D Roof Configurator Online | Roof Design & BOM",
+    seoDescription: "Configure roof geometry online in 3D. Set dimensions, pitch, roof type and materials, then calculate quantities, BOM data and CSV quote outputs.",
   },
   {
     slug: "window",
@@ -87,8 +90,9 @@ export const configurators: Configurator[] = [
       { title: "Assembly diagnostics", short: "Diagnostics", body: "Explode the complete window, reveal color-coded material families in debug mode or isolate a precise profile section for close inspection. These technical views expose extrusion, seal, glazing and thermal relationships without forcing the user to leave the configured product." },
     ],
     outputs: ["Configured assembly", "Component breakdown", "Finish specification", "Technical snapshot"],
-    seoTitle: "Window & Profile System Configurator",
-    seoDescription: "High-precision window and architectural profile configuration with bicolor finishes, dimensions, opening simulation and exploded assembly views.",
+    seoH1: "3D Window Configurator Online",
+    seoTitle: "3D Window Configurator Online | Window & Profile Systems",
+    seoDescription: "Configure windows online in 3D with parametric dimensions, profile systems, glazing, bicolor finishes, opening simulation and exploded technical views.",
   },
   {
     slug: "hall",
@@ -110,8 +114,9 @@ export const configurators: Configurator[] = [
       { title: "Exploded assembly", short: "Explode", body: "Separate envelope, secondary steel and primary portal frames into a legible construction sequence, then return to the coordinated assembled building in one interaction." },
     ],
     outputs: ["Configured geometry", "Frame schedule", "Envelope quantities", "Access specification"],
-    seoTitle: "Industrial Hall & Warehouse 3D Configurator",
-    seoDescription: "Configure industrial hall dimensions, portal-frame spacing, structure duty, cladding, secondary steel and access openings in real time.",
+    seoH1: "3D Industrial Hall Configurator",
+    seoTitle: "3D Industrial Hall Configurator | Warehouse Design",
+    seoDescription: "Configure an industrial hall or warehouse in 3D. Adjust dimensions, portal frames, structural spacing, cladding, access openings and building layers.",
   },
   {
     slug: "solar",
@@ -133,8 +138,9 @@ export const configurators: Configurator[] = [
       { title: "Energy analytics", short: "Analytics", body: "Open a focused production-versus-consumption workspace with daily generation, household demand, self-sufficiency, grid import and export presented as one decision-ready view." },
     ],
     outputs: ["System estimate", "Installed kWp", "Daily energy profile", "Storage scenario"],
-    seoTitle: "Solar Roof & Photovoltaic Energy Configurator",
-    seoDescription: "Configure roof-mounted solar panels with address-aware sun simulation, panel fit, household consumption, battery storage and interactive energy analytics.",
+    seoH1: "3D Solar System Configurator",
+    seoTitle: "3D Solar Configurator | PV System & Roof Design",
+    seoDescription: "Configure a residential solar system in 3D with roof geometry, panel layout, sun position, household consumption, battery storage and energy analysis.",
   },
 ];
 

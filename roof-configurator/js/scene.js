@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildRoofModel } from './roofFactory.js?v=13';
 import { createDimensions } from './dimensions.js?v=13';
+import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=1';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
@@ -57,6 +58,8 @@ export class RoofScene {
     this.scene.add(this.modelRoot);
     this.dimensionsRoot = new THREE.Group();
     this.scene.add(this.dimensionsRoot);
+    this.locale = 'en-US';
+    this.compassLabelObjects = {};
     this.compassRoot = this.createCompass();
     this.compassRoot.visible = false;
     this.scene.add(this.compassRoot);
@@ -165,20 +168,32 @@ export class RoofScene {
     center.renderOrder = 15;
     group.add(center);
 
-    const north = createCompassLabel('N', 'compass-label--north');
+    const labels = getRoofCompassLabels(this.locale);
+    const north = createCompassLabel(labels.north, 'compass-label--north');
     north.position.set(0, 0.13, -1.08);
     group.add(north);
-    const east = createCompassLabel('E');
+    const east = createCompassLabel(labels.east);
     east.position.set(1.08, 0.13, 0);
     group.add(east);
-    const south = createCompassLabel('S');
+    const south = createCompassLabel(labels.south);
     south.position.set(0, 0.13, 1.08);
     group.add(south);
-    const west = createCompassLabel('W');
+    const west = createCompassLabel(labels.west);
     west.position.set(-1.08, 0.13, 0);
     group.add(west);
+    this.compassLabelObjects = { north, east, south, west };
 
     return group;
+  }
+
+
+  setLocale(locale) {
+    this.locale = resolveRoofLocale(locale);
+    const labels = getRoofCompassLabels(this.locale);
+    Object.entries(labels).forEach(([direction, text]) => {
+      const object = this.compassLabelObjects?.[direction];
+      if (object?.element) object.element.textContent = text;
+    });
   }
 
   updateCompassPlacement(state) {

@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildPergola } from './buildPergola.js';
 import { AssetLibrary, fitAssetToBox } from './AssetLibrary.js';
+import { pergolaT } from '../i18n.js';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -26,7 +27,7 @@ function makeMaterial(color, options = {}) {
 }
 
 
-function createCompassTexture(size = 1024) {
+function createCompassTexture(locale, size = 1024) {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -52,10 +53,10 @@ function createCompassTexture(size = 1024) {
   drawTriangle([[cx, cy - size * 0.07], [cx + size * 0.07, cy], [cx, cy + size * 0.07], [cx - size * 0.07, cy]], '#0661a8');
 
   const cardinal = [
-    ['N', 0, -size * 0.34, '#b31d2c'],
-    ['E', size * 0.34, 0, '#0b6aa5'],
-    ['S', 0, size * 0.34, '#0b6aa5'],
-    ['W', -size * 0.34, 0, '#0b6aa5'],
+    [pergolaT(locale, 'compass.north'), 0, -size * 0.34, '#b31d2c'],
+    [pergolaT(locale, 'compass.east'), size * 0.34, 0, '#0b6aa5'],
+    [pergolaT(locale, 'compass.south'), 0, size * 0.34, '#0b6aa5'],
+    [pergolaT(locale, 'compass.west'), -size * 0.34, 0, '#0b6aa5'],
   ];
   cardinal.forEach(([label, dx, dy, fill]) => {
     ctx.fillStyle = fill;
@@ -191,9 +192,15 @@ export class PergolaScene {
       { alignY: 'bottom' },
     );
     this.houseGroup.name = 'environment-house';
+    this.houseLocalBox = new THREE.Box3().setFromObject(this.houseGroup);
+    const houseBody = this.houseGroup.getObjectByName('house_body');
+    this.houseBodyLocalBox = houseBody
+      ? new THREE.Box3().setFromObject(houseBody)
+      : this.houseLocalBox.clone();
     this.houseWindowObjects = [];
     this.houseGroup.traverse((child) => {
-      if (child.userData?.environmentHouseWindows || /^window(?:_|$)/i.test(child.name || '')) {
+      const name = child.name || '';
+      if (child.userData?.environmentHouseWindows || /^window(?:_|$)/i.test(name) || /door|handle/i.test(name)) {
         this.houseWindowObjects.push(child);
       }
       if (!child.isMesh) return;
@@ -204,13 +211,15 @@ export class PergolaScene {
         mat.needsUpdate = true;
       });
     });
+    this.houseSideDoorGroup = this.createHouseSideDoor();
+    if (this.houseSideDoorGroup) this.houseGroup.add(this.houseSideDoorGroup);
     this.environmentGroup.add(this.houseGroup);
 
     this.treeGroups = [];
     [
-      [-6.3, -0.9, 0.9, 40],
-      [6.5, -1.3, 1.2, 80],
-      [-4.8, -4.1, 0.7, 0],
+      [-7.9, -1.35, 0.9, 36],
+      [8.0, -1.55, 1.1, 82],
+      [-8.9, -3.75, 0.74, -14],
     ].forEach(([houseX, houseZ, scale, rotationDeg]) => {
       const tree = fitAssetToBox(
         this.assets.clone('tree') ?? this.makeTreeFallback(),
@@ -228,7 +237,7 @@ export class PergolaScene {
     const compassPlane = new THREE.Mesh(
       new THREE.CircleGeometry(0.95, 80),
       new THREE.MeshBasicMaterial({
-        map: createCompassTexture(),
+        map: createCompassTexture(this.state.locale),
         transparent: true,
         alphaTest: 0.02,
         side: THREE.DoubleSide,
@@ -315,6 +324,41 @@ export class PergolaScene {
     crown.name = 'foliage-fallback';
     tree.add(crown);
     return tree;
+  }
+
+
+  createHouseSideDoor() {
+    const bounds = this.houseBodyLocalBox ?? this.houseLocalBox;
+    if (!bounds) return null;
+    const group = new THREE.Group();
+    group.name = 'environment-house-side-door';
+    const trimMaterial = makeMaterial('#3a434b', { roughness: 0.58, metalness: 0.3 });
+    const doorMaterial = makeMaterial('#1b2024', { roughness: 0.55, metalness: 0.18 });
+    const handleMaterial = makeMaterial('#8d9498', { roughness: 0.32, metalness: 0.72 });
+
+    // Use the actual wall face rather than the roof/eave bounding box. The roof
+    // overhang is wider than the house body, which previously left this door
+    // visibly floating away from the side wall.
+    const wallX = bounds.min.x;
+    const frameThickness = 0.08;
+    const doorThickness = 0.045;
+    const frameHeight = 2.35;
+    const doorHeight = 2.16;
+    const bottomClearance = 0.015;
+
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(frameThickness, frameHeight, 1.08), trimMaterial);
+    frame.position.set(wallX - frameThickness / 2 - 0.004, bottomClearance + frameHeight / 2, -0.2);
+    group.add(frame);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(doorThickness, doorHeight, 0.9), doorMaterial);
+    door.position.set(wallX - frameThickness - doorThickness / 2 - 0.006, bottomClearance + 0.045 + doorHeight / 2, -0.2);
+    group.add(door);
+
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.16, 0.05), handleMaterial);
+    handle.position.set(wallX - frameThickness - doorThickness - 0.025, 1.05, 0.05);
+    group.add(handle);
+
+    return group;
   }
 
   structuralSignature(state) {
@@ -429,23 +473,36 @@ export class PergolaScene {
 
   updatePlatformSize() {
     if (!this.deckPlatform || !this.deckPlankGroup) return;
-    const platformWidth = this.state.dimensions.width / 1000 + 2;
-    const platformDepth = this.state.dimensions.depth / 1000 + 2;
-    const signature = `${platformWidth.toFixed(3)}x${platformDepth.toFixed(3)}`;
+    const width = this.state.dimensions.width / 1000;
+    const depth = this.state.dimensions.depth / 1000;
+    const attached = this.state.installation === 'wall-mounted';
+    const mountedSide = this.state.mountedSide;
+    const margins = { left: 1, right: 1, front: 1, back: 1 };
+    if (attached) margins[mountedSide] = 0.02;
+
+    const platformWidth = width + margins.left + margins.right;
+    const platformDepth = depth + margins.front + margins.back;
+    const platformOffsetX = (margins.right - margins.left) / 2;
+    const platformOffsetZ = (margins.front - margins.back) / 2;
+    const signature = `${platformWidth.toFixed(3)}x${platformDepth.toFixed(3)}@${platformOffsetX.toFixed(3)},${platformOffsetZ.toFixed(3)}`;
     if (signature === this.platformSizeSignature) return;
 
     this.deckPlatform.scale.set(platformWidth, 1, platformDepth);
+    // The deck top is the pergola's zero level. Keeping the top at y=0 makes the
+    // posts/feet sit on it instead of making the complete pergola appear raised.
+    this.deckPlatform.position.set(platformOffsetX, -0.06, platformOffsetZ);
+    this.deckPlankGroup.position.set(platformOffsetX, 0, platformOffsetZ);
 
     this.deckPlankGroup.children.forEach((child) => child.geometry?.dispose?.());
     this.deckPlankGroup.clear();
     const inset = 0.14;
     const usableDepth = Math.max(0.1, platformDepth - inset * 2);
     const plankCount = Math.max(2, Math.ceil(usableDepth / 0.305) + 1);
-    const spacing = usableDepth / (plankCount - 1);
+    const spacing = usableDepth / Math.max(1, plankCount - 1);
     const plankWidth = Math.max(0.1, platformWidth - inset * 2);
     for (let index = 0; index < plankCount; index += 1) {
       const plank = new THREE.Mesh(new THREE.BoxGeometry(plankWidth, 0.008, 0.008), this.deckPlankMaterial);
-      plank.position.set(0, 0.055, -usableDepth / 2 + index * spacing);
+      plank.position.set(0, 0.004, -usableDepth / 2 + index * spacing);
       this.deckPlankGroup.add(plank);
     }
 
@@ -495,8 +552,9 @@ export class PergolaScene {
     this.updateHousePlacement();
     this.updateTreePlacement();
     if (this.houseGroup) this.houseGroup.visible = season !== 'studio';
-    const showHouseWindows = this.state.installation !== 'wall-mounted';
-    this.houseWindowObjects?.forEach((object) => { object.visible = showHouseWindows; });
+    const showHouseOpenings = this.state.installation !== 'wall-mounted';
+    this.houseWindowObjects?.forEach((object) => { object.visible = showHouseOpenings; });
+    if (this.houseSideDoorGroup) this.houseSideDoorGroup.visible = this.state.installation === 'wall-mounted';
     this.treeGroups.forEach((tree) => {
       tree.visible = season !== 'studio';
       tree.traverse((child) => {
@@ -514,21 +572,23 @@ export class PergolaScene {
     const depth = this.state.dimensions.depth / 1000;
     const attached = this.state.installation === 'wall-mounted';
     const side = attached ? this.state.mountedSide : 'back';
-    const gap = attached ? 0.05 : 2.0;
-    const houseHalfDepth = 2.45;
+    const clearance = attached ? -0.012 : 2.0;
+    // Mount against the actual wall plane, not the roof bounding box. The roof
+    // overhang extends ~30 cm past the wall and was the source of the visible gap.
+    const frontExtent = this.houseBodyLocalBox?.max?.z ?? this.houseLocalBox?.max?.z ?? 2.1;
 
     this.houseGroup.rotation.y = 0;
     if (side === 'back') {
-      this.houseGroup.position.set(0, 0, -depth / 2 - houseHalfDepth - gap);
+      this.houseGroup.position.set(0, 0, -depth / 2 - frontExtent - clearance);
     } else if (side === 'front') {
       this.houseGroup.rotation.y = Math.PI;
-      this.houseGroup.position.set(0, 0, depth / 2 + houseHalfDepth + gap);
+      this.houseGroup.position.set(0, 0, depth / 2 + frontExtent + clearance);
     } else if (side === 'left') {
       this.houseGroup.rotation.y = Math.PI / 2;
-      this.houseGroup.position.set(-width / 2 - houseHalfDepth - gap, 0, 0);
+      this.houseGroup.position.set(-width / 2 - frontExtent - clearance, 0, 0);
     } else {
       this.houseGroup.rotation.y = -Math.PI / 2;
-      this.houseGroup.position.set(width / 2 + houseHalfDepth + gap, 0, 0);
+      this.houseGroup.position.set(width / 2 + frontExtent + clearance, 0, 0);
     }
   }
 

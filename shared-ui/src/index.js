@@ -1,4 +1,5 @@
 export * from './config.js';
+export * from './i18n.js';
 export * from './icons.js';
 export * from './utils.js';
 export * from './components/accountMenu.js';

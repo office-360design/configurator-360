@@ -1,25 +1,26 @@
 import type { MetadataRoute } from "next";
 import { configurators } from "../lib/configurators";
-import { languageAlternates, SITE_URL } from "../lib/seo";
+import { configuratorUrl, localeOrigins } from "../lib/i18n";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const updated = new Date("2026-08-11T00:00:00+03:00");
+  const origin = localeOrigins.en;
   const staticPaths = ["/", "/about", "/contact"];
-  const locales = ["en", "ro", "de"] as const;
+
   return [
-    ...locales.flatMap((locale) => staticPaths.map((path) => ({
-      url: `${SITE_URL}${locale === "en" ? "" : `/${locale}`}${path === "/" ? "" : path}`,
-      lastModified: updated,
+    ...staticPaths.map((path) => ({
+      url: `${origin}${path}`,
       changeFrequency: "monthly" as const,
       priority: path === "/" ? 1 : .78,
-      alternates: { languages: Object.fromEntries(Object.entries(languageAlternates(path)).map(([language, url]) => [language, `${SITE_URL}${url}`])) },
-    }))),
-    ...locales.flatMap((locale) => configurators.map((item) => ({
-      url: `${SITE_URL}${locale === "en" ? "" : `/${locale}`}/configurators/${item.slug}`,
-      lastModified: updated,
+    })),
+    ...configurators.map((item) => ({
+      url: `${origin}/configurators/${item.slug}`,
       changeFrequency: "monthly" as const,
-      priority: .85,
-      alternates: { languages: Object.fromEntries(Object.entries(languageAlternates(`/configurators/${item.slug}`)).map(([language, url]) => [language, `${SITE_URL}${url}`])) },
-    }))),
+      priority: .9,
+    })),
+    ...configurators.map((item) => ({
+      url: configuratorUrl("en", item.slug),
+      changeFrequency: "monthly" as const,
+      priority: .72,
+    })),
   ];
 }

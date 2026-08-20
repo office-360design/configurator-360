@@ -1,4 +1,5 @@
-import { normalizeCurrency } from './preferences.js?v=1';
+import { normalizeCurrency } from './preferences.js?v=2';
+import { roofRateSource, roofT } from './i18n.js?v=1';
 
 const VAT_RATE = 0.19;
 const PANEL_EFFECTIVE_AREA = 0.47;
@@ -29,12 +30,6 @@ const unitPrices = {
   downpipe: 85.17,
   downpipeBracket: 6.42,
   dischargeElbow: 25.12,
-};
-
-const productNames = {
-  generic: 'Țiglă metalică – preset generic',
-  roca: 'Țiglă metalică granulată Lindab Roca Rustica',
-  teclado: 'Țiglă metalică granulată Lindab Roca Teclado',
 };
 
 const clampQuantity = (value) => Math.max(0, Math.ceil(value - 1e-9));
@@ -126,22 +121,24 @@ function roofLengths(state) {
   };
 }
 
-function addLine(lines, key, name, unit, quantity, unitPrice, note = '') {
+function addLine(lines, state, key, nameKey, unitKey, quantity, unitPrice, noteKey = '') {
   if (quantity <= 0) return;
   const value = quantity * unitPrice;
+  const locale = state.locale || 'en-US';
   lines.push({
     key,
-    name,
-    unit,
+    name: roofT(locale, nameKey),
+    unit: roofT(locale, unitKey),
     quantity,
     unitPrice,
     value,
     vat: value * VAT_RATE,
-    note,
+    note: noteKey ? roofT(locale, noteKey) : '',
   });
 }
 
 export function calculateBom(state, metrics) {
+  const locale = state.locale || 'en-US';
   if (state.roofType === 'custom') {
     return {
       lines: [],
@@ -161,8 +158,9 @@ export function calculateBom(state, metrics) {
       currency: normalizeCurrency(state.currency),
       exchangeRate: Number(state.currencyRate) || 1,
       exchangeRateDate: state.currencyRateDate || null,
-      exchangeRateSource: state.currencyRateSource || 'reference currency',
+      exchangeRateSource: state.currencyRateSource || 'reference',
       exchangeRateIsFallback: Boolean(state.currencyRateIsFallback),
+      locale,
     };
   }
 
@@ -184,26 +182,27 @@ export function calculateBom(state, metrics) {
   const downpipePieces = downspouts * Math.max(1, clampQuantity(state.wallHeight / 3));
   const downpipeBrackets = downspouts * Math.max(1, clampQuantity(state.wallHeight / 1.8));
 
+  const tileNameKey = `bom.line.tile.${state.covering}`;
   const lines = [];
-  addLine(lines, 'tile', productNames[state.covering] ?? productNames.roca, 'buc.', tileQuantity, unitPrices.tile, 'Preț de referință POC; 5% pierderi incluse');
-  addLine(lines, 'screws', 'Șurub autofiletant Lindab pt. lemn', 'cut.', screwBoxes, unitPrices.screws);
-  addLine(lines, 'membrane', 'Folie anticondens LAF75', 'rolă', membraneRolls, unitPrices.membrane, '20% suprapuneri incluse');
-  addLine(lines, 'ridge', state.roofType === 'shed' ? 'Coamă / închidere superioară' : 'Coamă rotundă', 'buc.', ridgePieces, unitPrices.ridge);
-  addLine(lines, 'ridge-cap', 'Capac coamă rotundă', 'buc.', lengths.ridgeCaps, unitPrices.ridgeCap);
-  addLine(lines, 'gable-trim', 'Fronton rectangular', 'buc.', gableTrimPieces, unitPrices.gableTrim);
-  addLine(lines, 'side-flashing', 'Racord lateral / dolie', 'buc.', sideFlashingPieces, unitPrices.sideFlashing);
-  addLine(lines, 'eaves-apron', 'Șorț streașină Lindab Roca', 'buc.', eavesApronPieces, unitPrices.eavesApron);
-  addLine(lines, 'flat-sheet', 'Tablă plană granulată', 'buc.', flatSheetPieces, unitPrices.flatSheet);
-  addLine(lines, 'gutter', 'Jgheab', 'buc.', gutterPieces, unitPrices.gutter);
-  addLine(lines, 'gutter-joint', 'Element îmbinare jgheab', 'buc.', gutterJoints, unitPrices.gutterJoint);
-  addLine(lines, 'gutter-cap', 'Capac jgheab', 'buc.', gutterCaps, unitPrices.gutterCap);
-  addLine(lines, 'hanger', 'Cârlig', 'buc.', hangers, unitPrices.hanger);
-  addLine(lines, 'gutter-outlet', 'Racord jgheab-burlan', 'buc.', downspouts, unitPrices.gutterOutlet);
-  addLine(lines, 'downpipe-elbow', 'Cot burlan', 'buc.', downspouts * 2, unitPrices.downpipeElbow);
-  addLine(lines, 'downpipe-extension', 'Prelungire burlan 1 m', 'buc.', downspouts, unitPrices.downpipeExtension);
-  addLine(lines, 'downpipe', 'Burlan', 'buc.', downpipePieces, unitPrices.downpipe);
-  addLine(lines, 'downpipe-bracket', 'Brățară burlan', 'buc.', downpipeBrackets, unitPrices.downpipeBracket);
-  addLine(lines, 'discharge-elbow', 'Cot de evacuare', 'buc.', downspouts, unitPrices.dischargeElbow);
+  addLine(lines, state, 'tile', tileNameKey, 'unit.piece', tileQuantity, unitPrices.tile, 'bom.note.tile');
+  addLine(lines, state, 'screws', 'bom.line.screws', 'unit.box', screwBoxes, unitPrices.screws);
+  addLine(lines, state, 'membrane', 'bom.line.membrane', 'unit.roll', membraneRolls, unitPrices.membrane, 'bom.note.membrane');
+  addLine(lines, state, 'ridge', state.roofType === 'shed' ? 'bom.line.ridgeShed' : 'bom.line.ridge', 'unit.piece', ridgePieces, unitPrices.ridge);
+  addLine(lines, state, 'ridge-cap', 'bom.line.ridgeCap', 'unit.piece', lengths.ridgeCaps, unitPrices.ridgeCap);
+  addLine(lines, state, 'gable-trim', 'bom.line.gableTrim', 'unit.piece', gableTrimPieces, unitPrices.gableTrim);
+  addLine(lines, state, 'side-flashing', 'bom.line.sideFlashing', 'unit.piece', sideFlashingPieces, unitPrices.sideFlashing);
+  addLine(lines, state, 'eaves-apron', 'bom.line.eavesApron', 'unit.piece', eavesApronPieces, unitPrices.eavesApron);
+  addLine(lines, state, 'flat-sheet', 'bom.line.flatSheet', 'unit.piece', flatSheetPieces, unitPrices.flatSheet);
+  addLine(lines, state, 'gutter', 'bom.line.gutter', 'unit.piece', gutterPieces, unitPrices.gutter);
+  addLine(lines, state, 'gutter-joint', 'bom.line.gutterJoint', 'unit.piece', gutterJoints, unitPrices.gutterJoint);
+  addLine(lines, state, 'gutter-cap', 'bom.line.gutterCap', 'unit.piece', gutterCaps, unitPrices.gutterCap);
+  addLine(lines, state, 'hanger', 'bom.line.hanger', 'unit.piece', hangers, unitPrices.hanger);
+  addLine(lines, state, 'gutter-outlet', 'bom.line.gutterOutlet', 'unit.piece', downspouts, unitPrices.gutterOutlet);
+  addLine(lines, state, 'downpipe-elbow', 'bom.line.downpipeElbow', 'unit.piece', downspouts * 2, unitPrices.downpipeElbow);
+  addLine(lines, state, 'downpipe-extension', 'bom.line.downpipeExtension', 'unit.piece', downspouts, unitPrices.downpipeExtension);
+  addLine(lines, state, 'downpipe', 'bom.line.downpipe', 'unit.piece', downpipePieces, unitPrices.downpipe);
+  addLine(lines, state, 'downpipe-bracket', 'bom.line.downpipeBracket', 'unit.piece', downpipeBrackets, unitPrices.downpipeBracket);
+  addLine(lines, state, 'discharge-elbow', 'bom.line.dischargeElbow', 'unit.piece', downspouts, unitPrices.dischargeElbow);
 
   const currency = normalizeCurrency(state.currency);
   const exchangeRate = currency === 'RON' ? 1 : Math.max(0, Number(state.currencyRate) || 1);
@@ -229,8 +228,9 @@ export function calculateBom(state, metrics) {
     currency,
     exchangeRate,
     exchangeRateDate: state.currencyRateDate || null,
-    exchangeRateSource: state.currencyRateSource || 'reference currency',
+    exchangeRateSource: state.currencyRateSource || 'reference',
     exchangeRateIsFallback: Boolean(state.currencyRateIsFallback),
+    locale,
     assumptions: {
       roofArea,
       ridgeLength: lengths.ridge,
@@ -243,10 +243,18 @@ export function calculateBom(state, metrics) {
   };
 }
 
-export function bomToCsv(bom) {
+export function bomToCsv(bom, locale = bom?.locale || 'en-US') {
   const currency = bom.currency || 'RON';
   const rows = [
-    ['Nr.', 'Denumire', 'U.M.', 'Cant.', `Preț unitar fără TVA (${currency})`, `Valoare fără TVA (${currency})`, `TVA (${currency})`],
+    [
+      roofT(locale, 'csv.number'),
+      roofT(locale, 'csv.name'),
+      roofT(locale, 'csv.unit'),
+      roofT(locale, 'csv.quantity'),
+      roofT(locale, 'csv.unitPrice', { currency }),
+      roofT(locale, 'csv.value', { currency }),
+      roofT(locale, 'csv.vat', { currency }),
+    ],
     ...bom.lines.filter((line) => line.included !== false).map((line, index) => [
       index + 1,
       line.name,
@@ -257,17 +265,17 @@ export function bomToCsv(bom) {
       line.vat.toFixed(2),
     ]),
     [],
-    ['', 'Total fără TVA', '', '', '', bom.subtotal.toFixed(2), ''],
-    ['', `TVA ${Math.round(bom.vatRate * 100)}%`, '', '', '', '', bom.vat.toFixed(2)],
-    ['', 'Total plată', '', '', '', '', bom.total.toFixed(2)],
+    ['', roofT(locale, 'csv.subtotal'), '', '', '', bom.subtotal.toFixed(2), ''],
+    ['', roofT(locale, 'csv.vatRate', { rate: Math.round(bom.vatRate * 100) }), '', '', '', '', bom.vat.toFixed(2)],
+    ['', roofT(locale, 'csv.total'), '', '', '', '', bom.total.toFixed(2)],
     [],
-    ['', 'Monedă afișată', '', '', currency, '', ''],
-    ['', 'Rată față de RON', '', '', bom.exchangeRate.toFixed(6), '', ''],
-    ['', 'Sursă rată', '', '', bom.exchangeRateSource || '', bom.exchangeRateDate || '', ''],
+    ['', roofT(locale, 'csv.displayCurrency'), '', '', currency, '', ''],
+    ['', roofT(locale, 'csv.rateAgainstRon'), '', '', bom.exchangeRate.toFixed(6), '', ''],
+    ['', roofT(locale, 'csv.rateSource'), '', '', roofRateSource(locale, bom.exchangeRateSource), bom.exchangeRateDate || '', ''],
   ];
 
   return rows.map((row) => row.map((cell) => {
     const value = String(cell ?? '');
-    return `"${value.replaceAll('\"', '\"\"')}"`;
+    return `"${value.replaceAll('"', '""')}"`;
   }).join(',')).join('\n');
 }

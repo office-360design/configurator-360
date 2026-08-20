@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const DxfParser = require('dxf-parser');
+const { createInsertTransform: createTransform } = require('./insert_transform');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const WORKSPACE_DIR = path.resolve(__dirname, '..');
@@ -93,6 +94,21 @@ const CURVE_STEP_RADIANS = Math.PI / 36; // 5 degrees per segment
 const SPLINE_SAMPLES_PER_CONTROL_POINT = 10;
 const DEBUG_BLOCK_NAME = 'problema';
 
+function affine2dFromTransform(transform) {
+    const origin = transform({ x: 0, y: 0, z: 0 });
+    const axisX = transform({ x: 1, y: 0, z: 0 });
+    const axisY = transform({ x: 0, y: 1, z: 0 });
+
+    return {
+        a: axisX.x - origin.x,
+        b: axisY.x - origin.x,
+        c: axisX.y - origin.y,
+        d: axisY.y - origin.y,
+        tx: origin.x,
+        ty: origin.y,
+    };
+}
+
 function isFinitePoint(p) {
     return p && Number.isFinite(p.x) && Number.isFinite(p.y);
 }
@@ -122,49 +138,6 @@ function removeConsecutiveDuplicatePoints(points, tolerance = 1e-9) {
     return result;
 }
 
-// Correct INSERT transform:
-// 1. subtract the BLOCK base point
-// 2. apply INSERT scale
-// 3. apply INSERT rotation
-// 4. add INSERT position
-// 5. apply parent INSERT transforms
-function createTransform(ins, parentTransform = null, blockBasePoint = null) {
-    const pos = ins.position || { x: 0, y: 0, z: 0 };
-    const base = blockBasePoint || { x: 0, y: 0, z: 0 };
-    let scaleX = ins.xScale !== undefined ? ins.xScale : 1;
-    let scaleY = ins.yScale !== undefined ? ins.yScale : 1;
-
-    // AutoCAD Arbitrary Axis Algorithm: if Z extrusion direction is negative, the local X-axis is mirrored.
-    if (ins.extrusionDirection && ins.extrusionDirection.z < 0) {
-        scaleX = -scaleX;
-    }
-
-    const rotation = ins.rotation !== undefined ? ins.rotation : 0;
-    const rad = rotation * Math.PI / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-
-    return function transformPoint(p) {
-        if (!p) return { x: 0, y: 0 };
-
-        // BLOCK geometry is stored relative to the BLOCK base point.
-        const localX = (p.x !== undefined ? p.x : 0) - (base.x || 0);
-        const localY = (p.y !== undefined ? p.y : 0) - (base.y || 0);
-
-        const sx = localX * scaleX;
-        const sy = localY * scaleY;
-
-        const rx = sx * cos - sy * sin;
-        const ry = sx * sin + sy * cos;
-
-        const localP = {
-            x: rx + (pos.x || 0),
-            y: ry + (pos.y || 0)
-        };
-
-        return parentTransform ? parentTransform(localP) : localP;
-    };
-}
 
 function normalizePath(points, closed, sourceType) {
     const cleaned = removeConsecutiveDuplicatePoints(points);
@@ -657,7 +630,9 @@ function sanitizeFilename(filename) {
 
 function run() {
     const args = process.argv.slice(2);
-    let dwgName = args[0] || '2_6_Oeffnungselement_Vertikal.dwg';
+    const cleanOutput = args.includes('--clean-output');
+    const positionalArgs = args.filter(arg => !arg.startsWith('--'));
+    let dwgName = positionalArgs[0] || '2_6_Oeffnungselement_Vertikal.dwg';
 
     function tryExport(name) {
         const isDxf = name.toLowerCase().endsWith('.dxf');
@@ -932,8 +907,17 @@ _N
 
     console.log('\n--- Step 4: Exporting Blocks to SVG Folders ---');
 
-    if (fs.existsSync(TARGET_SVG_DIR)) fs.rmSync(TARGET_SVG_DIR, { recursive: true, force: true });
+    // Legacy B2 output folders also act as an asset library for alternate
+    // glazing beads/gaskets that may not be INSERTed in the current DWG.
+    // Do not wipe those accumulated candidates during a normal conversion.
+    // Use --clean-output only when a deliberately clean rebuild is required.
+    if (cleanOutput && fs.existsSync(TARGET_SVG_DIR)) {
+        fs.rmSync(TARGET_SVG_DIR, { recursive: true, force: true });
+    }
     fs.mkdirSync(TARGET_SVG_DIR, { recursive: true });
+    console.log(cleanOutput
+        ? 'Output mode: clean rebuild (--clean-output).'
+        : 'Output mode: preserve existing legacy SVG assets.');
 
     const svgPartsMetadata = [];
     const insertCounts = {};
@@ -1062,6 +1046,7 @@ _N
                     layer: resolvedLayer,
                     color: partColor,
                     bbox,
+                    sourceTransform: affine2dFromTransform(currentTransform),
                     area: (bbox.maxX - bbox.minX) * (bbox.maxY - bbox.minY),
                     closedContours: closedPaths.length,
                     openContours: openPaths.length
@@ -1265,6 +1250,7 @@ _N
             section: p.section,
             color: p.color,
             bbox: p.bbox,
+            sourceTransform: p.sourceTransform,
             closedContours: p.closedContours,
             openContours: p.openContours
         }))

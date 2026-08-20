@@ -1,13 +1,13 @@
 import { configurators, type Configurator, type ConfiguratorSlug } from "./configurators";
-import type { Locale } from "./i18n";
+import { configuratorUrl, type Locale } from "./i18n";
 
-type Translation = Pick<Configurator, "category" | "title" | "shortTitle" | "statement" | "description" | "controls" | "features" | "outputs" | "seoTitle" | "seoDescription">;
+type Translation = Pick<Configurator, "category" | "title" | "shortTitle" | "statement" | "description" | "controls" | "features" | "outputs" | "seoH1" | "seoTitle" | "seoDescription">;
 
 const ro: Record<ConfiguratorSlug, Translation> = {
   pergola: {
     category: "Arhitectură exterioară", title: "Pergole & Arhitectură Exterioară", shortTitle: "Pergole",
     statement: "Proiectează lumina. Configurează atmosfera.",
-    description: "Un sistem spațial de vânzare și proiectare pentru structuri exterioare configurabile—geometrie, lamele, simulare de mediu, accesorii și logică comercială live într-o singură experiență.",
+    description: "Un configurator de pergole 3D care rulează direct în browser și combină dimensiuni parametrice, montaj independent sau la perete, controlul lamelelor, închideri laterale, simulare de mediu, accesorii și preț estimativ live.",
     controls: ["Lamele 0°", "Lamele 48°", "Noapte + LED"],
     features: [
       { title: "Structură parametrică", short: "Structură", body: "Definește amprenta, înălțimea și tipul de montaj, iar stâlpii, grinzile, deschiderile și drenajul ascuns se reconstruiesc ca un ansamblu coordonat. Dimensiunile rămân conectate la produsul fabricabil, nu la o simplă reprezentare decorativă." },
@@ -18,7 +18,9 @@ const ro: Record<ConfiguratorSlug, Translation> = {
       { title: "Rezoluție comercială", short: "Preț live", body: "Dimensiunile, lungimile închiderilor, automatizarea, iluminatul și accesoriile actualizează continuu modelul comercial. Fiecare alegere validă recalculează imediat totalul și păstrează produsul vizual sincronizat cu discuția de vânzare." },
     ],
     outputs: ["Ofertă live", "Geometrie configurată", "Listă de accesorii", "Rezumat pentru client"],
-    seoTitle: "Configurator 3D pentru pergole", seoDescription: "Configurare interactivă pentru pergole, cu controlul lamelelor, simularea luminii, accesorii, materiale și preț dinamic.",
+    seoH1: "Configurator pergolă 3D online",
+    seoTitle: "Configurator Pergolă 3D Online | Proiectare Pergole",
+    seoDescription: "Configurează o pergolă online în 3D. Alege dimensiunile, lamelele, închiderile laterale, iluminatul, automatizarea, accesoriile și prețul live.",
   },
   roof: {
     category: "Construcții parametrice", title: "Acoperișuri & Structuri Arhitecturale", shortTitle: "Acoperișuri",
@@ -34,7 +36,9 @@ const ro: Record<ConfiguratorSlug, Translation> = {
       { title: "BOM și export CSV", short: "Export BOM", body: "Inspectează acoperișul ca poziții tarifate la nivel de componentă și exportă lista de materiale în CSV. Configurația trece din explorare vizuală în estimare, achiziție sau producție fără reconstrucție manuală." },
     ],
     outputs: ["Listă de materiale", "Ofertă CSV", "Tabel dimensional", "Geometria acoperișului"],
-    seoTitle: "Configurator parametric pentru acoperișuri", seoDescription: "Configurează geometria, panta și materialele acoperișului cu dimensiuni live, BOM și export de ofertă CSV.",
+    seoH1: "Configurator acoperiș 3D online",
+    seoTitle: "Configurator Acoperiș 3D Online | Proiectare & BOM",
+    seoDescription: "Configurează un acoperiș online în 3D. Alege forma, dimensiunile, panta și materialele și obține cantități, BOM și ofertă CSV.",
   },
   window: {
     category: "Sisteme de înaltă precizie", title: "Ferestre & Profile Arhitecturale", shortTitle: "Sisteme de profile",
@@ -50,7 +54,9 @@ const ro: Record<ConfiguratorSlug, Translation> = {
       { title: "Diagnostic de ansamblu", short: "Diagnostic", body: "Explodează fereastra completă, afișează familiile de materiale în culori tehnice sau izolează o secțiune de profil. Aceste moduri fac lizibile extruziile, etanșările, vitrajul și relațiile termice fără a părăsi produsul configurat." },
     ],
     outputs: ["Ansamblu configurat", "Structură de componente", "Specificație de finisaje", "Rezumat tehnic"],
-    seoTitle: "Configurator pentru ferestre și profile", seoDescription: "Configurare de precizie pentru ferestre și profile, cu finisaje bicolore, dimensiuni, simularea deschiderii și vedere explodată.",
+    seoH1: "Configurator ferestre 3D online",
+    seoTitle: "Configurator Ferestre 3D Online | Profile & Vitraj",
+    seoDescription: "Configurează ferestre online în 3D cu dimensiuni parametrice, profile, vitraj, finisaje bicolore, simularea deschiderii și vedere explodată.",
   },
   hall: {
     category: "Structuri industriale", title: "Hală Industrială & Depozit", shortTitle: "Hale industriale",
@@ -66,7 +72,9 @@ const ro: Record<ConfiguratorSlug, Translation> = {
       { title: "Ansamblu explodat", short: "Explodat", body: "Separă anvelopa, elementele secundare și cadrele principale într-o secvență constructivă lizibilă, apoi reasamblează clădirea printr-o singură acțiune." },
     ],
     outputs: ["Geometrie configurată", "Plan de cadre", "Cantități anvelopă", "Specificație acces"],
-    seoTitle: "Configurator 3D pentru hale industriale și depozite", seoDescription: "Configurează dimensiunile halei, distanța dintre cadre, structura, închiderile, elementele secundare și golurile de acces în timp real.",
+    seoH1: "Configurator hală industrială 3D",
+    seoTitle: "Configurator Hală Industrială 3D | Hale & Depozite",
+    seoDescription: "Configurează o hală industrială sau un depozit în 3D. Modifică dimensiunile, cadrele portal, traveile, închiderile și golurile de acces.",
   },
   solar: {
     category: "Sisteme energetice", title: "Acoperiș Solar & Sistem Energetic", shortTitle: "Sisteme solare",
@@ -82,7 +90,9 @@ const ro: Record<ConfiguratorSlug, Translation> = {
       { title: "Analiză energetică", short: "Analiză", body: "Deschide un spațiu dedicat producției versus consum, cu generare zilnică, consum casnic, autonomie, import și export prezentate într-o singură vedere decizională." },
     ],
     outputs: ["Estimare sistem", "Putere instalată", "Profil energetic zilnic", "Scenariu de stocare"],
-    seoTitle: "Configurator pentru acoperișuri solare și sisteme fotovoltaice", seoDescription: "Configurează panouri solare cu simulare după adresă, amplasare fizică, consum casnic, baterie și analiză energetică interactivă.",
+    seoH1: "Configurator sistem fotovoltaic 3D",
+    seoTitle: "Configurator Panouri Solare 3D | Sistem Fotovoltaic",
+    seoDescription: "Configurează un sistem fotovoltaic rezidențial în 3D cu geometria acoperișului, panouri, poziția soarelui, consum, baterie și analiză energetică.",
   },
 };
 
@@ -90,7 +100,7 @@ const de: Record<ConfiguratorSlug, Translation> = {
   pergola: {
     category: "Outdoor-Architektur", title: "Pergola & Outdoor-Architektur", shortTitle: "Pergola",
     statement: "Tageslicht planen. Atmosphäre konfigurieren.",
-    description: "Ein räumliches Vertriebs- und Planungssystem für konfigurierbare Außenstrukturen—Geometrie, Lamellensteuerung, Umgebungssimulation, Zubehör und Live-Kalkulation in einer Oberfläche.",
+    description: "Ein browserbasierter 3D Pergola-Konfigurator für freistehende und wandmontierte Systeme mit parametrischen Maßen, Lamellensteuerung, Seitenabschlüssen, Umgebungsvorschau, Zubehör und live geschätzter Preisberechnung.",
     controls: ["Lamellen 0°", "Lamellen 48°", "Nacht + LED"],
     features: [
       { title: "Parametrische Struktur", short: "Struktur", body: "Definieren Sie Grundfläche, Gesamthöhe und Montageart; Pfosten, Träger, Spannweiten und verdeckte Entwässerung werden als koordiniertes System neu aufgebaut. Maßänderungen bleiben mit dem realen Aufbau verbunden, statt nur ein dekoratives Modell zu skalieren." },
@@ -101,7 +111,9 @@ const de: Record<ConfiguratorSlug, Translation> = {
       { title: "Kaufmännische Auflösung", short: "Live-Preis", body: "Abmessungen, Seitenabschlüsse, Automation, Beleuchtung und Zubehör speisen das Preismodell kontinuierlich. Jede gültige Entscheidung aktualisiert den Gesamtpreis und hält Produktdarstellung und Verkaufsgespräch ohne Tabellenbruch synchron." },
     ],
     outputs: ["Live-Angebot", "Konfigurierte Geometrie", "Zubehörliste", "Kundenübersicht"],
-    seoTitle: "3D-Pergola-Konfigurator", seoDescription: "Interaktive Pergola-Konfiguration mit Lamellensteuerung, Tageslichtsimulation, Zubehör, Materialien und dynamischer Projektkalkulation.",
+    seoH1: "3D Pergola-Konfigurator online",
+    seoTitle: "3D Pergola-Konfigurator Online | Pergola planen",
+    seoDescription: "Planen und konfigurieren Sie Ihre Pergola online in 3D. Passen Sie Maße, Lamellen, Seitenabschlüsse, Beleuchtung, Automatisierung und Zubehör an.",
   },
   roof: {
     category: "Parametrisches Bauen", title: "Architekturdach & Tragwerk", shortTitle: "Dachsysteme",
@@ -117,7 +129,9 @@ const de: Record<ConfiguratorSlug, Translation> = {
       { title: "Stückliste und CSV-Übergabe", short: "BOM-Export", body: "Prüfen Sie das Dach als bepreiste Positionen auf Komponentenebene und exportieren Sie die Stückliste als CSV. Die Konfiguration gelangt ohne manuelle Neuerfassung von der visuellen Exploration in Kalkulation, Einkauf oder Produktion." },
     ],
     outputs: ["Stückliste", "CSV-Angebot", "Maßübersicht", "Dachgeometrie"],
-    seoTitle: "Parametrischer Dachkonfigurator", seoDescription: "Dachgeometrie, Neigung und Materialien mit Live-Maßen, Stückliste und CSV-Angebot konfigurieren.",
+    seoH1: "3D Dach-Konfigurator online",
+    seoTitle: "3D Dach-Konfigurator Online | Dach planen & Stückliste",
+    seoDescription: "Konfigurieren Sie Ihr Dach online in 3D. Wählen Sie Dachform, Maße, Neigung und Material und ermitteln Sie Mengen, Stückliste und CSV-Angebot.",
   },
   window: {
     category: "Hochpräzise Systeme", title: "Fenster & Architekturprofile", shortTitle: "Profilsysteme",
@@ -133,7 +147,9 @@ const de: Record<ConfiguratorSlug, Translation> = {
       { title: "Baugruppendiagnose", short: "Diagnose", body: "Explodieren Sie das komplette Fenster, zeigen Sie Materialfamilien in technischen Farben oder isolieren Sie einen Profilquerschnitt. Extrusionen, Dichtungen, Verglasung und thermische Beziehungen werden sichtbar, ohne das konfigurierte Produkt zu verlassen." },
     ],
     outputs: ["Konfigurierte Baugruppe", "Komponentenstruktur", "Oberflächenspezifikation", "Technische Übersicht"],
-    seoTitle: "Konfigurator für Fenster und Profilsysteme", seoDescription: "Hochpräzise Fenster- und Profilkonfiguration mit Bicolor-Oberflächen, Abmessungen, Öffnungssimulation und Explosionsansicht.",
+    seoH1: "3D Fenster-Konfigurator online",
+    seoTitle: "3D Fenster-Konfigurator Online | Profile & Verglasung",
+    seoDescription: "Konfigurieren Sie Fenster online in 3D mit parametrischen Maßen, Profilsystemen, Verglasung, Bicolor-Oberflächen, Öffnung und Explosionsansicht.",
   },
   hall: {
     category: "Industriebau", title: "Industriehalle & Lagergebäude", shortTitle: "Hallensysteme",
@@ -149,7 +165,9 @@ const de: Record<ConfiguratorSlug, Translation> = {
       { title: "Explodierte Baugruppe", short: "Explosion", body: "Trennen Sie Hülle, Sekundärstahl und primäre Portalrahmen zu einer verständlichen Montagesequenz und führen Sie alles mit einer Aktion wieder zusammen." },
     ],
     outputs: ["Konfigurierte Geometrie", "Rahmenplan", "Hüllenmengen", "Zugangsspezifikation"],
-    seoTitle: "3D-Konfigurator für Industriehallen und Lagergebäude", seoDescription: "Hallenmaße, Portalrahmenabstand, Tragwerksklasse, Hülle, Sekundärstahl und Zugangsöffnungen in Echtzeit konfigurieren.",
+    seoH1: "3D Hallen-Konfigurator",
+    seoTitle: "3D Hallen-Konfigurator | Industriehalle & Lagerhalle",
+    seoDescription: "Konfigurieren Sie Industriehallen und Lagerhallen in 3D. Passen Sie Maße, Portalrahmen, Raster, Gebäudehülle und Zugangsöffnungen interaktiv an.",
   },
   solar: {
     category: "Energiesysteme", title: "Solardach & Energiesystem", shortTitle: "Solarsysteme",
@@ -165,16 +183,30 @@ const de: Record<ConfiguratorSlug, Translation> = {
       { title: "Energieanalyse", short: "Analyse", body: "Öffnen Sie einen fokussierten Arbeitsbereich für Erzeugung und Verbrauch mit Tagesertrag, Haushaltsbedarf, Autarkie, Netzbezug und Einspeisung in einer Ansicht." },
     ],
     outputs: ["Systemschätzung", "Installierte kWp", "Tagesenergieprofil", "Speicherszenario"],
-    seoTitle: "Konfigurator für Solardächer und Photovoltaiksysteme", seoDescription: "Solarmodule mit adressbezogener Sonnensimulation, physischer Belegung, Haushaltsverbrauch, Speicher und interaktiver Energieanalyse konfigurieren.",
+    seoH1: "3D Photovoltaik-Konfigurator",
+    seoTitle: "3D Solar-Konfigurator | Photovoltaik-Anlage planen",
+    seoDescription: "Konfigurieren Sie eine Photovoltaik-Anlage in 3D mit Dachgeometrie, Modulbelegung, Sonnenstand, Verbrauch, Batteriespeicher und Energieanalyse.",
   },
 };
 
 export function getLocalizedConfigurators(locale: Locale): Configurator[] {
-  if (locale === "en") return configurators;
-  const translations = locale === "ro" ? ro : de;
-  return configurators.map((item) => ({ ...item, ...translations[item.slug] }));
+  const translations = locale === "ro" ? ro : locale === "de" ? de : null;
+  return configurators.map((item) => ({
+    ...item,
+    ...(translations ? translations[item.slug] : {}),
+    launchUrl: configuratorUrl(locale, item.slug),
+  }));
 }
 
 export function getLocalizedConfigurator(locale: Locale, slug: string) {
   return getLocalizedConfigurators(locale).find((item) => item.slug === slug);
+}
+
+
+export function requireLocalizedConfigurator(locale: Locale, slug: string): Configurator {
+  const item = getLocalizedConfigurator(locale, slug);
+  if (!item) {
+    throw new Error(`Unknown configurator slug "${slug}" for locale "${locale}".`);
+  }
+  return item;
 }

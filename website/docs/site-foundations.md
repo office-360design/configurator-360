@@ -63,3 +63,11 @@ The light environment uses mineral white, warm silver, ink typography, hard dayl
 ## Change policy
 
 Before any review, run a root repository diff and verify that every changed path begins with `website/`. Nothing is staged, committed or pushed without explicit approval.
+
+## Localized configurator marketing SEO
+
+The `/configurators/{product}` detail pages are the primary high-content SEO surfaces. Each localized version uses a search-intent H1, localized title and meta description, self-canonical URL, and reciprocal `hreflang` metadata. The standalone configurator applications remain independently indexable with lighter product-focused SEO metadata.
+
+## Domain-specific sitemaps and robots
+
+Production serves `/robots.txt` and `/sitemap.xml` according to the request hostname. Each sitemap contains only canonical URLs for that country domain: the home/about/contact pages, the five high-content `/configurators/{product}` marketing pages, and the five independently indexable standalone configurator applications. `hreflang` remains in the HTML metadata rather than being duplicated in the sitemap.
