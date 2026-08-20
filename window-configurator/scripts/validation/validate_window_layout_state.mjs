@@ -7,6 +7,7 @@ import {
     createSingleWindowState,
     createWindowStateFromLayoutDefinition,
     deriveWindowTopology,
+    getTransOwnerHandleSide,
     mergeWindowsInState,
     normalizeWindowState,
     resolveDividerConnection,
@@ -118,6 +119,17 @@ assert(transState.transConnections.length === 1, 'Enabling trans must create one
 assert(transTopology.dividers.length === 0, 'A trans must replace the structural mullion on the shared sash boundary.');
 assert(transTopology.transSegments.length === 1, 'The shared sash boundary must become one trans line piece.');
 assert(transTopology.transSegments[0].ownerCellId === transTopology.transSegments[0].positiveCellId, 'The right/positive sash must own the trans by default.');
+assert(
+    getTransOwnerHandleSide(transTopology.transSegments[0]) === 'left',
+    'A right/positive trans-owner sash must put its handle on the trans side so it hinges on the outer right frame and opens left-to-right.'
+);
+assert(
+    getTransOwnerHandleSide({
+        ...transTopology.transSegments[0],
+        ownerCellId: transTopology.transSegments[0].negativeCellId,
+    }) === 'right',
+    'A left/negative trans-owner sash must mirror the rule and hinge on the outer left frame.'
+);
 assert(transTopology.transSegments[0].templateId === 'trans-sash-sash', 'The trans edge must use the dedicated sash/trans/sash join.');
 transState = setWindowTypeInState(transState, transCandidate.cellBId, FIXED_WINDOW_TYPE);
 assert(transState.transConnections.length === 0, 'Changing either trans sash to fixed glazing must automatically remove the trans relationship.');

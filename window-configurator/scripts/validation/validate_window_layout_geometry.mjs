@@ -2502,9 +2502,11 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
     assert(
         passThroughs.every(junction => junction.frameEndpoints.every(endpoint => {
             const frame = transGeometry.framePlacements.find(piece => piece.id === endpoint.frameId);
-            return frame && !frame.frameJointModes?.[endpoint.localEnd];
+            return frame
+                && frame.frameJointModes?.[endpoint.localEnd] === 'square'
+                && frame.localJointEnds?.includes(endpoint.localEnd);
         })),
-        'A trans endpoint must not cut a V/miter/socket into the continuous frame above or below it.'
+        'A trans endpoint must explicitly keep both continuous frame halves square; an omitted mode would fall back to a 45-degree miter in the mesh extruder.'
     );
 
     let transUnderMullionState = normalizeWindowState({

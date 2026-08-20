@@ -440,6 +440,17 @@ function isValidTransPair(a, b) {
     return Boolean(boundary && boundary.orientation === 'vertical' && canUnionRectangles(a, b));
 }
 
+export function getTransOwnerHandleSide({
+    negativeCellId,
+    positiveCellId,
+    ownerCellId,
+} = {}) {
+    const owner = String(ownerCellId || '');
+    if (owner && owner === String(negativeCellId || '')) return 'right';
+    if (owner && owner === String(positiveCellId || '')) return 'left';
+    return null;
+}
+
 function normalizeTransConnections(value, windows) {
     const raw = Array.isArray(value) ? value : [];
     const byId = new Map(windows.map(cell => [cell.id, cell]));

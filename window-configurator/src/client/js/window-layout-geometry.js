@@ -1896,9 +1896,13 @@ export function getEditableWindowTopologyGeometry({
 
             let mode = null;
             // The trans itself is carried by a sash. It must not force a V or
-            // miter into the fixed frame/mullion line at either end. Leaving
-            // mode null gives the two collinear pieces square, flush ends.
+            // miter into the fixed frame/mullion line at either end. Mark the
+            // endpoint explicitly as square: the mesh extruder otherwise treats
+            // an unlisted end as an ordinary 45-degree frame miter, which makes
+            // the two frame halves retract when trans is enabled.
             if (junction.isTransPassThrough) {
+                jointEnds.push(localEnd);
+                frameJointModes[localEnd] = 'square';
                 return;
             }
             const hasPerpendicularDivider = perpendicularArms.some(arm => arm.kind === 'divider');

@@ -30,7 +30,10 @@ import {
     getEditableFixedGlazingDividerCadTransform,
     getReentrantFillerTriangle,
 } from './window-layout-geometry.js';
-import { getDividerConnectionVariantKey } from './window-layout-state.js';
+import {
+    getDividerConnectionVariantKey,
+    getTransOwnerHandleSide,
+} from './window-layout-state.js';
 
 const S = 0.001;
 
@@ -1689,9 +1692,14 @@ export function createWindowBuilder({
                     : (dividerOrientation === 'horizontal' ? B * 0.3 : Math.min(A, B) * 0.3),
                 getDividerFaceSpanM(activeDividerProfiles)
             );
-        const frameJointInwardSpan = dividerOrientation
-            ? editableFrameReplacementSpan || getFrameJointInwardSpanM(activeProfiles)
-            : 0;
+        // Editable topology always uses the same frame/grid reference relation,
+        // even when the last fixed mullion is replaced by a floating trans. If
+        // this drops to zero after enabling trans, the top/bottom outer-frame
+        // miters lose the CAD-derived reference extension and the whole outside
+        // frame visibly shrinks.
+        const frameJointInwardSpan = isEditableTopology
+            ? (editableFrameReplacementSpan || getFrameJointInwardSpanM(activeProfiles))
+            : (dividerOrientation ? getFrameJointInwardSpanM(activeProfiles) : 0);
         const editableFramePlacements = isEditableTopology
             ? (editableTopologyGeometry?.framePlacements || []).map(placement =>
                 getEditableReentrantFramePlacement({
@@ -3519,7 +3527,21 @@ export function createWindowBuilder({
                 // In a sash/sash mullion layout both handles sit toward the
                 // mullion and both hinges sit on the outer frame. Other layouts
                 // keep the user's existing global handle-side selection.
-                const cellHandleSide = cell.handleSide
+                const ownedTransSegment = isEditableTopology
+                    ? (editableTopologyGeometry?.transSegments || []).find(segment => (
+                        segment.ownerCellId === cell.id
+                    ))
+                    : null;
+                const transOwnerHandleSide = ownedTransSegment
+                    ? getTransOwnerHandleSide(ownedTransSegment)
+                    : null;
+                // A flying trans is fixed to the meeting edge of its owner sash.
+                // That sash must therefore hinge on the outside frame: for the
+                // default right-hand owner, the handle is on the left and the
+                // sash opens left-to-right. Removing trans restores the normal
+                // per-cell/global handle selection.
+                const cellHandleSide = transOwnerHandleSide
+                    || cell.handleSide
                     || (isMultiOpening && dividerOrientation === 'vertical'
                         ? (cell.joinCellSide === 'left' ? 'right' : 'left')
                         : selectedHandleSide);
