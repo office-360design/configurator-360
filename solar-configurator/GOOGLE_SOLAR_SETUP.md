@@ -24,7 +24,7 @@ solar-google-api/scripts/bootstrap-gcp.sh
 
 The script enables the required APIs and creates/configures:
 
-- `gs://configurator-360-google-solar-cache`
+- `gs://configurator-360-google-solar-cache-719238533149`
 - a 31-day Cloud Storage lifecycle cleanup rule
 - Secret Manager secret containers
 - Storage/Firestore/Secret Manager IAM for
@@ -188,7 +188,7 @@ Then:
 ```bash
 gcloud auth application-default login
 export GOOGLE_CLOUD_PROJECT=configurator-360
-export GOOGLE_SOLAR_CACHE_BUCKET=configurator-360-google-solar-cache
+export GOOGLE_SOLAR_CACHE_BUCKET=configurator-360-google-solar-cache-719238533149
 export GOOGLE_SOLAR_API_KEY='...'
 export GOOGLE_SOLAR_DEMO_ACCESS_CODE='...'
 export GOOGLE_SOLAR_SESSION_SECRET='...'
