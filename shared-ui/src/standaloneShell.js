@@ -1,12 +1,12 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
 import { sharedT } from './i18n.js';
-import { renderActionFeedback } from './components/feedback.js?v=12';
-import { renderTopBar } from './components/topBar.js?v=13';
-import { syncAccountIdentity } from './components/accountMenu.js?v=13';
-import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=13';
-import { renderToolsMenu } from './components/toolsMenu.js?v=12';
-import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=13';
-import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=13';
+import { renderActionFeedback } from './components/feedback.js?v=14';
+import { renderTopBar } from './components/topBar.js?v=14';
+import { syncAccountIdentity } from './components/accountMenu.js?v=14';
+import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=14';
+import { renderToolsMenu } from './components/toolsMenu.js?v=14';
+import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=14';
+import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=14';
 
 const MAX_PROJECT_NUMBER = 1000;
 
@@ -267,6 +267,8 @@ export class StandaloneConfiguratorShell {
 
     if (action === 'save') {
       void this.save(actionTarget);
+    } else if (action === 'new-configuration') {
+      void this.createNewConfiguration();
     } else if (action === 'undo') {
       this.options.callbacks.onUndo?.();
     } else if (action === 'reset') {
@@ -432,6 +434,28 @@ export class StandaloneConfiguratorShell {
     } finally {
       this.saveBusy = false;
       button.disabled = false;
+    }
+  }
+
+
+  async createNewConfiguration() {
+    try {
+      const handled = await Promise.resolve(this.options.callbacks.createNewConfiguration?.());
+      if (handled === false) return;
+      if (handled === undefined && this.options.callbacks.onReset) {
+        await Promise.resolve(this.options.callbacks.onReset());
+      }
+      this.currentSavedConfigurationId = '';
+      this.currentSavedOwnerUid = this.authUser?.uid || '';
+      this.projectName = this.getNextDefaultProjectName();
+      this.lastSavedProjectName = '';
+      this.dirty = true;
+      this.savedDialog.open = false;
+      this.persistMeta();
+      this.renderHost();
+      this.sync();
+    } catch (error) {
+      console.error('A new configuration could not be started.', error);
     }
   }
 

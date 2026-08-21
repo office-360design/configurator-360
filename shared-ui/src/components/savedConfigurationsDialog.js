@@ -15,6 +15,20 @@ function formatSavedDate(locale, value) {
   }
 }
 
+function renderTrashIcon() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" class="trash-hover-icon">
+      <g class="trash-hover-icon__lid">
+        <path d="M8.6 6.7V5.5a1.5 1.5 0 0 1 1.5-1.5h3.8a1.5 1.5 0 0 1 1.5 1.5v1.2" />
+        <path d="M5.8 7.2h12.4" />
+      </g>
+      <path d="M7.6 8.2 8.4 19a1.7 1.7 0 0 0 1.7 1.6h3.8a1.7 1.7 0 0 0 1.7-1.6l.8-10.8" />
+      <path d="M10.1 11.1v5.7" />
+      <path d="M13.9 11.1v5.7" />
+    </svg>
+  `;
+}
+
 function itemMarkup(locale, item) {
   const name = escapeHtml(item.name || sharedT(locale, 'saved.unnamed'));
   const date = escapeHtml(formatSavedDate(locale, item.updatedAtMs));
@@ -27,7 +41,7 @@ function itemMarkup(locale, item) {
       </div>
       <div class="saved-configurations__item-actions">
         <button type="button" class="saved-configurations__open" data-action="saved-open" data-saved-id="${escapeHtml(item.id)}">${escapeHtml(sharedT(locale, 'saved.open'))}</button>
-        <button type="button" class="saved-configurations__delete" data-action="saved-delete" data-saved-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(sharedT(locale, 'saved.delete'))}" title="${escapeHtml(sharedT(locale, 'saved.delete'))}">${sharedIcon('trash')}</button>
+        <button type="button" class="saved-configurations__delete" data-action="saved-delete" data-saved-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(sharedT(locale, 'saved.delete'))}" title="${escapeHtml(sharedT(locale, 'saved.delete'))}">${renderTrashIcon()}</button>
       </div>
     </article>
   `;
@@ -55,11 +69,13 @@ export function renderSavedConfigurationsDialog(locale, state = {}) {
       <button class="saved-configurations__backdrop" type="button" data-action="saved-close" aria-label="${escapeHtml(sharedT(locale, 'saved.close'))}"></button>
       <section class="saved-configurations__dialog" role="dialog" aria-modal="true" aria-labelledby="saved-configurations-title">
         <div class="saved-configurations__header">
-          <div>
-            <span class="saved-configurations__eyebrow">${escapeHtml(sharedT(locale, 'account.saved'))}</span>
+          <div class="saved-configurations__header-copy">
             <h2 id="saved-configurations-title">${escapeHtml(sharedT(locale, 'saved.title'))}</h2>
           </div>
-          <button class="saved-configurations__close" type="button" data-action="saved-close" aria-label="${escapeHtml(sharedT(locale, 'saved.close'))}">×</button>
+          <div class="saved-configurations__header-actions">
+            <button class="saved-configurations__new" type="button" data-action="new-configuration">${sharedIcon('newConfiguration')}<span>${escapeHtml(sharedT(locale, 'saved.newConfiguration'))}</span></button>
+            <button class="saved-configurations__close" type="button" data-action="saved-close" aria-label="${escapeHtml(sharedT(locale, 'saved.close'))}">×</button>
+          </div>
         </div>
         ${content}
       </section>
