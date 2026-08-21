@@ -80,7 +80,7 @@ if (!files.shell.includes("getLocalizedConfiguratorUrl(nextLocale, 'roof'")) {
 }
 if (!files.app.includes('state.locale = resolveRoofLocale')) failures.push('app.js does not initialize locale from the shared shell/domain');
 if (!files.scene.includes('scene.setLocale') && !files.app.includes('scene.setLocale')) failures.push('Roof scene compass locale is not synchronized');
-if (!files.index.includes('./js/sharedShell.js?v=13') || !files.index.includes('./js/app.js?v=22')) {
+if (!files.index.includes('./js/sharedShell.js?v=23') || !files.index.includes('./js/app.js?v=22')) {
   failures.push('Roof entrypoint cache-busting versions were not updated for the i18n release');
 }
 

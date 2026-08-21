@@ -7,6 +7,7 @@ import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js';
 import { getLanguageProfile, getLocaleForHostname } from '../../shared-ui/src/config.js';
 import { PergolaScene } from './scene/PergolaScene.js';
 import { ConfiguratorUI } from './ui/ConfiguratorUI.js';
+import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js';
 import { pergolaT } from './i18n.js';
 
 applyConfiguratorSeo('pergola');
@@ -29,6 +30,7 @@ if (store.get().locale !== domainLocale) {
   }, { path: 'domain-locale', skipHistory: true });
 }
 const ui = new ConfiguratorUI(root, store);
+const sharedShell = mountPergolaSharedShell({ store, ui });
 const viewport = root.querySelector('[data-viewport]');
 
 if (!viewport) {
@@ -52,5 +54,6 @@ try {
 
 window.addEventListener('beforeunload', () => {
   scene?.destroy();
+  sharedShell?.destroy();
   ui.destroy();
 });
