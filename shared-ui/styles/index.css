@@ -1649,3 +1649,58 @@ body.roof-sidebar-collapsed .shared-settings-toggle {
   .saved-configurations__item { grid-template-columns: 38px minmax(0, 1fr); }
   .saved-configurations__item-actions { grid-column: 2; justify-content: flex-start; }
 }
+
+/* Shared top bar responsiveness for phone-sized standalone configurators. */
+@media (max-width: 760px) {
+  .shared-ui-host .topbar-icon-button:disabled {
+    display: none;
+  }
+
+  .shared-ui-host .site-header__actions {
+    min-width: 0;
+    gap: 1px;
+  }
+
+  .shared-ui-host .topbar-icon-button {
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 480px) {
+  .shared-ui-host .site-header {
+    grid-template-columns: minmax(72px, 1fr) auto;
+    column-gap: 4px;
+    padding: 0 6px;
+  }
+
+  .shared-ui-host .project-name-shell {
+    display: none;
+  }
+
+  .shared-ui-host .brand img {
+    width: 78px;
+  }
+
+  .shared-ui-host .topbar-icon-button {
+    width: 29px;
+    height: 29px;
+  }
+}
+
+@media (max-width: 360px) {
+  .shared-ui-host .brand img {
+    width: 68px;
+  }
+
+  .shared-ui-host .topbar-icon-button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .shared-ui-host .topbar-icon-button > svg,
+  .shared-ui-host .topbar-icon-button .save-icon svg,
+  .shared-ui-host .topbar-icon-button .share-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+}
