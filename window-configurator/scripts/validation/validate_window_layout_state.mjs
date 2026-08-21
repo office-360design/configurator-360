@@ -8,9 +8,13 @@ import {
     createWindowStateFromLayoutDefinition,
     deriveWindowTopology,
     getTransOwnerHandleSide,
+    getWindowUnmergeGuide,
     mergeWindowsInState,
+    unmergeWindowInState,
     normalizeWindowState,
+    parseWindowState,
     resolveDividerConnection,
+    serializeWindowState,
     setTransBetweenWindowsInState,
     setWindowTypeInState,
 } from '../../src/client/js/window-layout-state.js';
@@ -18,6 +22,16 @@ import {
 const errors = [];
 const assert = (condition, message) => { if (!condition) errors.push(message); };
 const cell = (state, id) => state.windows.find(windowCell => windowCell.id === id);
+
+const singleState = createSingleWindowState({ type: SASH_WINDOW_TYPE });
+const singleTopology = deriveWindowTopology(singleState);
+assert(singleTopology.addCandidates.length === 4, 'A single starting window must expose four add buttons.');
+assert(
+    ['bottom', 'left', 'right', 'top'].every(direction =>
+        singleTopology.addCandidates.some(candidate => candidate.direction === direction)
+    ),
+    'The starting window must be addable from left, right, top, and bottom.'
+);
 
 let leftState = createSingleWindowState({ type: SASH_WINDOW_TYPE });
 leftState = addWindowToState(leftState, { cellId: 'w1', direction: 'left', type: FIXED_WINDOW_TYPE });
@@ -36,6 +50,30 @@ let topology = deriveWindowTopology(state);
 assert(topology.dividers.length === 1, 'Two adjacent windows must create one mullion.');
 assert(topology.dividers[0].templateId === 'mullion-fixed-sash', 'Fixed/sash adjacency must use the mixed CAD join.');
 assert(topology.addCandidates.every(candidate => !(candidate.cellId === 'w1' && candidate.direction === 'right')), 'The replaced frame side must no longer expose an add button.');
+
+let pairedSashState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+pairedSashState = addWindowToState(pairedSashState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+pairedSashState = setWindowTypeInState(pairedSashState, 'w1', SASH_WINDOW_TYPE, 'left');
+pairedSashState = setWindowTypeInState(pairedSashState, 'w2', SASH_WINDOW_TYPE, 'left');
+assert(
+    cell(pairedSashState, 'w1')?.handleSide === 'left' && cell(pairedSashState, 'w2')?.handleSide === 'left',
+    'Ordinary side-by-side sashes must keep the opening sides selected by the user until trans is enabled.'
+);
+
+let addedSashPair = createSingleWindowState({ type: SASH_WINDOW_TYPE, handleSide: 'left' });
+addedSashPair = addWindowToState(addedSashPair, { cellId: 'w1', direction: 'right', type: SASH_WINDOW_TYPE, handleSide: 'right' });
+assert(
+    cell(addedSashPair, 'w1')?.handleSide === 'left' && cell(addedSashPair, 'w2')?.handleSide === 'right',
+    'Adding a sash beside another sash must not silently change either handle side.'
+);
+
+let addedLeftSashPair = createSingleWindowState({ type: SASH_WINDOW_TYPE, handleSide: 'right' });
+addedLeftSashPair = addWindowToState(addedLeftSashPair, { cellId: 'w1', direction: 'left', type: SASH_WINDOW_TYPE, handleSide: 'left' });
+const leftAddedCell = addedLeftSashPair.windows.find(windowCell => windowCell.id !== 'w1');
+assert(
+    leftAddedCell?.handleSide === 'left' && cell(addedLeftSashPair, 'w1')?.handleSide === 'right',
+    'Adding the second sash on the left must also preserve the explicitly selected handle sides.'
+);
 
 const beforeLNeighbour = { ...cell(state, 'w2').rect };
 state = addWindowToState(state, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
@@ -101,9 +139,67 @@ mergeState = mergeWindowsInState(mergeState, {
     type: SASH_WINDOW_TYPE,
 });
 assert(mergeState.windows.length === 1, 'Merging must remove the mullion and replace two cells with one window.');
+assert(
+    getWindowUnmergeGuide(mergeState, 'w1')?.orientation === 'vertical',
+    'A merged window must expose its last restorable merge boundary.'
+);
+const restoredMergeState = unmergeWindowInState(mergeState, { cellId: 'w1' });
+assert(restoredMergeState.windows.length === 2, 'Unmerge must restore the merged window to two cells.');
+assert(deriveWindowTopology(restoredMergeState).dividers.length === 1, 'Unmerge must restore the mullion between the two cells.');
+assert(
+    restoredMergeState.windows.map(windowCell => windowCell.type).sort().join(',')
+        === [FIXED_WINDOW_TYPE, SASH_WINDOW_TYPE].sort().join(','),
+    'Unmerge must restore the original per-cell fixed/sash types from before the merge.'
+);
+assert(
+    !getWindowUnmergeGuide(restoredMergeState, 'w1'),
+    'The merge guide used for unmerge must be consumed after the split.'
+);
+const serializedMergeState = parseWindowState(serializeWindowState(mergeState));
+const restoredSerializedMergeState = unmergeWindowInState(serializedMergeState, { cellId: 'w1' });
+assert(
+    restoredSerializedMergeState.windows.map(windowCell => windowCell.type).sort().join(',')
+        === [FIXED_WINDOW_TYPE, SASH_WINDOW_TYPE].sort().join(','),
+    'Serialized merged states must preserve the original per-cell types needed by unmerge.'
+);
 
-let transState = createSingleWindowState({ type: SASH_WINDOW_TYPE, transProfileId: '575830' });
-transState = addWindowToState(transState, { cellId: 'w1', direction: 'right', type: SASH_WINDOW_TYPE });
+const mergedTopology = deriveWindowTopology(mergeState);
+const mergedTopAdds = mergedTopology.addCandidates
+    .filter(candidate => candidate.cellId === 'w1' && candidate.direction === 'top')
+    .sort((a, b) => a.start - b.start);
+const mergedBottomAdds = mergedTopology.addCandidates
+    .filter(candidate => candidate.cellId === 'w1' && candidate.direction === 'bottom')
+    .sort((a, b) => a.start - b.start);
+assert(
+    mergedTopAdds.length === 2
+        && mergedTopAdds[0].start === 0 && mergedTopAdds[0].end === 1
+        && mergedTopAdds[1].start === 1 && mergedTopAdds[1].end === 2,
+    'Merging two side-by-side windows must keep two separate add positions along the merged top edge.'
+);
+assert(
+    mergedBottomAdds.length === 2
+        && mergedBottomAdds[0].start === 0 && mergedBottomAdds[0].end === 1
+        && mergedBottomAdds[1].start === 1 && mergedBottomAdds[1].end === 2,
+    'Merging two side-by-side windows must keep two separate add positions along the merged bottom edge.'
+);
+const mergedWithNeighbour = addWindowToState(mergeState, {
+    cellId: 'w1',
+    direction: 'top',
+    type: FIXED_WINDOW_TYPE,
+    start: mergedTopAdds[1].start,
+    end: mergedTopAdds[1].end,
+});
+const mergedNeighbour = mergedWithNeighbour.windows.find(windowCell => windowCell.id !== 'w1');
+assert(
+    mergedNeighbour?.rect.x0 === 1
+        && mergedNeighbour?.rect.x1 === 2
+        && mergedNeighbour?.rect.y0 === 1
+        && mergedNeighbour?.rect.y1 === 2,
+    'Adding next to one half of a merged window must create one normal bay, not another merged-width window.'
+);
+
+let transState = createSingleWindowState({ type: SASH_WINDOW_TYPE, handleSide: 'left', transProfileId: '575830' });
+transState = addWindowToState(transState, { cellId: 'w1', direction: 'right', type: SASH_WINDOW_TYPE, handleSide: 'left' });
 let transTopology = deriveWindowTopology(transState);
 assert(transTopology.transCandidates.length === 1, 'Two side-by-side sashes must expose one trans button.');
 assert(transTopology.dividers.length === 1, 'Before trans is enabled the sash pair must still use a structural mullion.');
@@ -116,6 +212,11 @@ transState = setTransBetweenWindowsInState(transState, {
 transTopology = deriveWindowTopology(transState);
 assert(transState.transProfileId === '575830', 'The selected trans profile must be kept in window state.');
 assert(transState.transConnections.length === 1, 'Enabling trans must create one sash-pair relationship.');
+assert(
+    cell(transState, transCandidate.cellAId)?.handleSide === 'right'
+        && cell(transState, transCandidate.cellBId)?.handleSide === 'left',
+    'Pressing T on two side-by-side sashes must move the left sash handle to the right and keep/move the right sash handle to the left.'
+);
 assert(transTopology.dividers.length === 0, 'A trans must replace the structural mullion on the shared sash boundary.');
 assert(transTopology.transSegments.length === 1, 'The shared sash boundary must become one trans line piece.');
 assert(transTopology.transSegments[0].ownerCellId === transTopology.transSegments[0].positiveCellId, 'The right/positive sash must own the trans by default.');

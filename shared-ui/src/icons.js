@@ -5,6 +5,7 @@ export function sharedIcon(type) {
     failure: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.7v5.5"/><path d="M12 16.6h.01"/></svg>`,
     undo: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-4 4 4 4"/><path d="M5 12h7.2a6.3 6.3 0 0 1 6.3 6.3"/></svg>`,
     reset: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 8.2A7.5 7.5 0 0 1 19.3 12"/><path d="M17.9 15.8A7.5 7.5 0 0 1 4.7 12"/></svg>`,
+    newConfiguration: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>`,
     account: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.7 19a6.3 6.3 0 0 1 12.6 0"/><circle cx="12" cy="12" r="9"/></svg>`,
     share: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.2"/><circle cx="6" cy="12" r="2.2"/><circle cx="18" cy="19" r="2.2"/><path d="m8 11 7.9-4.7"/><path d="m8 13 7.9 4.7"/></svg>`,
     ar: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.4 7.7 7.6 4.2 7.6-4.2"/><path d="M12 12v9"/></svg>`,

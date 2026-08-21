@@ -140,6 +140,43 @@ function hasWindowAcrossMissingReentrantDirection({ junction, cells, direction }
     return false;
 }
 
+function hasFloatingTransAlongMissingDirection({ junction, transSegments, direction }) {
+    const epsilon = 1e-9;
+    const x = finiteNumber(junction?.x);
+    const y = finiteNumber(junction?.y);
+    const candidates = Array.isArray(transSegments) ? transSegments : [];
+
+    return candidates.some(segment => {
+        const orientation = segment?.orientation;
+        const perpendicular = finiteNumber(
+            segment?.structuralPerpendicularOffset,
+            segment?.perpendicularOffset
+        );
+        const start = finiteNumber(segment?.structuralWorldStart, segment?.worldStart);
+        const end = finiteNumber(segment?.structuralWorldEnd, segment?.worldEnd);
+
+        if (orientation === 'vertical' && Math.abs(perpendicular - x) <= epsilon) {
+            if (direction === 'north') {
+                return Math.abs(start - y) <= epsilon && end > y + epsilon;
+            }
+            if (direction === 'south') {
+                return Math.abs(end - y) <= epsilon && start < y - epsilon;
+            }
+        }
+
+        if (orientation === 'horizontal' && Math.abs(perpendicular - y) <= epsilon) {
+            if (direction === 'east') {
+                return Math.abs(start - x) <= epsilon && end > x + epsilon;
+            }
+            if (direction === 'west') {
+                return Math.abs(end - x) <= epsilon && start < x - epsilon;
+            }
+        }
+
+        return false;
+    });
+}
+
 function getMixedReentrantTDividerArm(junction) {
     if (
         junction?.type !== 'T'
@@ -1824,11 +1861,24 @@ export function getEditableWindowTopologyGeometry({
 
     const physicalIntersections = [...physicalIntersectionMap.values()]
         .map(classifyPhysicalJunction)
-        .map(junction => (
-            transEndpointKeys.has(junction.key) && junction.type === 'continuation'
+        .map(junction => {
+            const homogeneousContinuation = junction.type === 'continuation'
+                && (
+                    (junction.frameCount === 2 && junction.dividerCount === 0)
+                    || (junction.dividerCount === 2 && junction.frameCount === 0)
+                );
+
+            // A floating trans may pass through a continuous structural line
+            // only when both collinear halves are the SAME member family.
+            // Frame+frame and mullion+mullion continuations stay flat, matching
+            // the geometry beside a merged opening. A frame+mullion change at
+            // the trans endpoint is still a real CAD frame/mullion joint and
+            // must keep its normal V/miter connection. Marking that mixed pair
+            // as pass-through squares both pieces and deletes the connection.
+            return transEndpointKeys.has(junction.key) && homogeneousContinuation
                 ? Object.freeze({ ...junction, isTransPassThrough: true })
-                : junction
-        ));
+                : junction;
+        });
     const physicalIntersectionByKey = new Map(
         physicalIntersections.map(junction => [junction.key, junction])
     );
@@ -2044,13 +2094,28 @@ export function getEditableWindowTopologyGeometry({
         .map(junction => {
             const mixedT = getMixedReentrantTDividerArm(junction);
             if (!mixedT || mixedPlusPerpendicularShift <= 0) return null;
-            if (!hasWindowAcrossMissingReentrantDirection({
+            const spansMergedWindow = hasWindowAcrossMissingReentrantDirection({
                 junction,
                 cells,
                 direction: mixedT.missingDirection,
-            })) {
-                return null;
-            }
+            });
+            const endsAtFloatingTrans = hasFloatingTransAlongMissingDirection({
+                junction,
+                transSegments,
+                direction: mixedT.missingDirection,
+            });
+
+            // The same fixed half-mullion connection is needed in two cases:
+            // 1. the missing arm disappeared because that side was merged; or
+            // 2. the missing structural arm was replaced by a floating trans.
+            //
+            // A trans is intentionally excluded from the structural-arm graph
+            // so the fixed member line remains flat. At a mixed frame/mullion
+            // endpoint, however, excluding it makes the junction look exactly
+            // like a merged-L re-entrant T and leaves the same exposed half-V.
+            // Reuse the fixed half-mullion filler there; the trans itself stays
+            // square-ended and continues to move with its owner sash.
+            if (!spansMergedWindow && !endsAtFloatingTrans) return null;
 
             const sourceDivider = dividerSegments.find(
                 segment => segment.id === mixedT.dividerArm.segmentId

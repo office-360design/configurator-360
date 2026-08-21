@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=13';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=14';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { getSeasonForDate } from './solarPosition.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
@@ -67,6 +67,10 @@ const shell = mountStandaloneConfiguratorShell({
   callbacks: {
     onReset() {
       document.querySelector('[data-view="reset"]')?.click();
+    },
+    createNewConfiguration() {
+      document.querySelector('[data-view="reset"]')?.click();
+      return true;
     },
     captureState() {
       return window.SOLAR_CONFIGURATOR_API?.captureState?.();

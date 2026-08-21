@@ -39,6 +39,12 @@ body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle svg { transform: rot
 /* The shared top-bar AR action replaces this old floating publisher control. */
 body.shared-ui-mounted #ar-publish-controls { display: none !important; }
 
+/* Window keeps its viewport tools in the 3D editor itself; hide the shared
+   Tools launcher only in this configurator. */
+body.shared-ui-mounted .shared-ui-host [data-shared-tools] {
+  display: none !important;
+}
+
 body.capture-mode .shared-ui-host,
 .ar-mode .shared-ui-host { display: none !important; }
 body.capture-mode #canvas-container,

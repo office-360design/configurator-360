@@ -40,6 +40,7 @@ const S = 0.001;
 export function createWindowBuilder({
     scene,
     camera,
+    renderer = null,
     ground,
     gridHelper,
     isARMode,
@@ -67,6 +68,7 @@ export function createWindowBuilder({
     updateComponentPictures,
     getFinishState,
     getSelectedHandleSide,
+    onGlassClick = () => {},
     isProfileEnabled = () => true,
     canPlaceProfileOnSide = () => true,
     getWindowLayoutState = () => ({
@@ -896,8 +898,138 @@ export function createWindowBuilder({
     const pivotBatant = new THREE.Group();
     let handleLeverGroup = new THREE.Group();
     let sashPoseAssemblies = [];
+    let handleHitMeshes = [];
+    let glassHitMeshes = [];
     let lastBuiltHandleSide = null;
     let handleHoldUntil = 0;
+    let currentPoseAngle = Number.parseFloat(document.getElementById('openAngle')?.value) || 0;
+    let handleAngleAnimation = null;
+
+    const HANDLE_CLICK_DRAG_THRESHOLD_PX = 5;
+    const HANDLE_CLOSED_EPSILON_DEG = 0.5;
+    const handleRaycaster = new THREE.Raycaster();
+    const handlePointer = new THREE.Vector2();
+    let handlePointerStart = null;
+
+    function getOpeningAngleLimit() {
+        const input = document.getElementById('openAngle');
+        const fallback = document.getElementById('mBatant')?.checked ? 80 : 15;
+        const max = Number.parseFloat(input?.max);
+        return Number.isFinite(max) ? max : fallback;
+    }
+
+    function easeHandleMotion(t) {
+        const clamped = Math.min(1, Math.max(0, t));
+        // Smootherstep gives the sash zero velocity at both ends, especially
+        // avoiding the abrupt stop that a linear/ordinary lerp produces.
+        return clamped * clamped * clamped * (
+            clamped * (clamped * 6 - 15) + 10
+        );
+    }
+
+    function startHandleAngleToggle() {
+        const input = document.getElementById('openAngle');
+        if (!input || !sashPoseAssemblies.length) return false;
+
+        const maxAngle = getOpeningAngleLimit();
+        const sliderAngle = Math.min(
+            maxAngle,
+            Math.max(0, Number.parseFloat(input.value) || 0)
+        );
+        const from = handleAngleAnimation ? currentPoseAngle : sliderAngle;
+        // A second handle click during motion always means "close". When
+        // stationary, anything above the closed position also closes; only a
+        // genuinely closed sash opens fully.
+        const to = handleAngleAnimation
+            ? 0
+            : (from > HANDLE_CLOSED_EPSILON_DEG ? 0 : maxAngle);
+        const travelRatio = maxAngle > 0 ? Math.abs(to - from) / maxAngle : 1;
+
+        currentPoseAngle = from;
+        handleAngleAnimation = {
+            from,
+            to,
+            maxAngle,
+            startedAt: performance.now(),
+            durationMs: 300 + 400 * travelRatio,
+        };
+        return true;
+    }
+
+    function cancelHandleAngleAnimation() {
+        handleAngleAnimation = null;
+    }
+
+    function raycastMeshes(clientX, clientY, meshes) {
+        const domElement = renderer?.domElement;
+        if (!domElement || !meshes.length) return null;
+        const rect = domElement.getBoundingClientRect();
+        if (!rect.width || !rect.height) return null;
+
+        handlePointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        handlePointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+        handleRaycaster.setFromCamera(handlePointer, camera);
+        scene.updateMatrixWorld(true);
+        return handleRaycaster.intersectObjects(meshes, false)[0] || null;
+    }
+
+    function raycastHandle(clientX, clientY) {
+        return raycastMeshes(clientX, clientY, handleHitMeshes)?.object || null;
+    }
+
+    function raycastGlass(clientX, clientY) {
+        return raycastMeshes(clientX, clientY, glassHitMeshes);
+    }
+
+    function handleCanvasPointerDown(event) {
+        if (event.button !== 0) {
+            handlePointerStart = null;
+            return;
+        }
+        handlePointerStart = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+        };
+    }
+
+    function handleCanvasPointerUp(event) {
+        const start = handlePointerStart;
+        handlePointerStart = null;
+        if (!start || start.pointerId !== event.pointerId) return;
+        if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > HANDLE_CLICK_DRAG_THRESHOLD_PX) {
+            return;
+        }
+        if (raycastHandle(event.clientX, event.clientY)) {
+            if (startHandleAngleToggle()) {
+                event.preventDefault();
+            }
+            return;
+        }
+
+        const glassHit = raycastGlass(event.clientX, event.clientY);
+        const cellId = glassHit?.object?.userData?.windowGlassCellId;
+        if (cellId) {
+            onGlassClick({
+                cellId,
+                point: glassHit.point?.clone?.() || null,
+                object: glassHit.object,
+            });
+            event.preventDefault();
+        }
+    }
+
+    function handleCanvasPointerCancel() {
+        handlePointerStart = null;
+    }
+
+    if (!isARMode && !captureMode && renderer?.domElement) {
+        renderer.domElement.addEventListener('pointerdown', handleCanvasPointerDown);
+        renderer.domElement.addEventListener('pointerup', handleCanvasPointerUp);
+        renderer.domElement.addEventListener('pointercancel', handleCanvasPointerCancel);
+        document.getElementById('openAngle')?.addEventListener('input', cancelHandleAngleAnimation);
+    }
+
     placementRoot.add(mainGroup);
     placementRoot.visible = !isARMode;
     scene.add(placementRoot);
@@ -1371,7 +1503,7 @@ export function createWindowBuilder({
         return sprite;
     }
 
-    function buildDimensionLines(A, B) {
+    function buildDimensionLines(A, B, activeProfiles = []) {
         const dimensionsGroup = new THREE.Group();
         mainGroup.add(dimensionsGroup);
 
@@ -1385,133 +1517,186 @@ export function createWindowBuilder({
             dimensionsGroup.add(line);
         }
 
-        // 1. TOP DIMENSION (Width)
-        // const topY = B / 2 + offset;
-        // addLineSegment(new THREE.Vector3(-A / 2, topY, zPos), new THREE.Vector3(A / 2, topY, zPos));
-        // addLineSegment(new THREE.Vector3(-A / 2, topY - tickSize, zPos), new THREE.Vector3(-A / 2, topY + tickSize, zPos));
-        // addLineSegment(new THREE.Vector3(A / 2, topY - tickSize, zPos), new THREE.Vector3(A / 2, topY + tickSize, zPos));
+        // A/B are one bay's slider dimensions. For an editable multi-window
+        // layout the dimension guides must span the complete construction, not
+        // just that one bay. Frame placement perpendicular offsets are the
+        // actual outside aluminium boundaries (including the asymmetric frame
+        // reference offset), so they are the most direct source of truth.
+        let minX = -A / 2;
+        let maxX = A / 2;
+        let minY = -B / 2;
+        let maxY = B / 2;
 
-        // const topLabel = createLabelSprite(`${Math.round(A * 1000)} mm`);
-        // topLabel.position.set(0, topY, zPos);
+        if (editableTopologyGeometry) {
+            const framePlacements = editableTopologyGeometry.framePlacements || [];
+            const verticalFrameEdges = framePlacements
+                .filter(frame => frame.orientation === 'vertical')
+                .map(frame => Number(frame.perpendicularOffset))
+                .filter(Number.isFinite);
+            const horizontalFrameEdges = framePlacements
+                .filter(frame => frame.orientation === 'horizontal')
+                .map(frame => Number(frame.perpendicularOffset))
+                .filter(Number.isFinite);
+
+            if (verticalFrameEdges.length >= 2) {
+                minX = Math.min(...verticalFrameEdges);
+                maxX = Math.max(...verticalFrameEdges);
+            }
+            if (horizontalFrameEdges.length >= 2) {
+                minY = Math.min(...horizontalFrameEdges);
+                maxY = Math.max(...horizontalFrameEdges);
+            }
+        }
+
+        const constructionWidth = Math.max(0, maxX - minX);
+        const constructionHeight = Math.max(0, maxY - minY);
+        const constructionCenterX = (minX + maxX) / 2;
+        const constructionCenterY = (minY + maxY) / 2;
+
+        // 1. TOP DIMENSION (Width)
+        // const topY = maxY + offset;
+        // addLineSegment(new THREE.Vector3(minX, topY, zPos), new THREE.Vector3(maxX, topY, zPos));
+        // addLineSegment(new THREE.Vector3(minX, topY - tickSize, zPos), new THREE.Vector3(minX, topY + tickSize, zPos));
+        // addLineSegment(new THREE.Vector3(maxX, topY - tickSize, zPos), new THREE.Vector3(maxX, topY + tickSize, zPos));
+
+        // const topLabel = createLabelSprite(`${Math.round(constructionWidth * 1000)} mm`);
+        // topLabel.position.set(constructionCenterX, topY, zPos);
         // dimensionsGroup.add(topLabel);
 
         // 2. BOTTOM DIMENSION (Width)
-        const bottomY = -B / 2 - offset;
-        addLineSegment(new THREE.Vector3(-A / 2, bottomY, zPos), new THREE.Vector3(A / 2, bottomY, zPos));
-        addLineSegment(new THREE.Vector3(-A / 2, bottomY - tickSize, zPos), new THREE.Vector3(-A / 2, bottomY + tickSize, zPos));
-        addLineSegment(new THREE.Vector3(A / 2, bottomY - tickSize, zPos), new THREE.Vector3(A / 2, bottomY + tickSize, zPos));
+        const bottomY = minY - offset;
+        addLineSegment(new THREE.Vector3(minX, bottomY, zPos), new THREE.Vector3(maxX, bottomY, zPos));
+        addLineSegment(new THREE.Vector3(minX, bottomY - tickSize, zPos), new THREE.Vector3(minX, bottomY + tickSize, zPos));
+        addLineSegment(new THREE.Vector3(maxX, bottomY - tickSize, zPos), new THREE.Vector3(maxX, bottomY + tickSize, zPos));
 
-        const bottomLabel = createLabelSprite(`${Math.round(A * 1000)} mm`);
-        bottomLabel.position.set(0, bottomY, zPos);
+        const bottomLabel = createLabelSprite(`${Math.round(constructionWidth * 1000)} mm`);
+        bottomLabel.position.set(constructionCenterX, bottomY, zPos);
         dimensionsGroup.add(bottomLabel);
 
         // 3. LEFT DIMENSION (Height)
-        const leftX = -A / 2 - offset;
-        addLineSegment(new THREE.Vector3(leftX, -B / 2, zPos), new THREE.Vector3(leftX, B / 2, zPos));
-        addLineSegment(new THREE.Vector3(leftX - tickSize, -B / 2, zPos), new THREE.Vector3(leftX + tickSize, -B / 2, zPos));
-        addLineSegment(new THREE.Vector3(leftX - tickSize, B / 2, zPos), new THREE.Vector3(leftX + tickSize, B / 2, zPos));
+        const leftX = minX - offset;
+        addLineSegment(new THREE.Vector3(leftX, minY, zPos), new THREE.Vector3(leftX, maxY, zPos));
+        addLineSegment(new THREE.Vector3(leftX - tickSize, minY, zPos), new THREE.Vector3(leftX + tickSize, minY, zPos));
+        addLineSegment(new THREE.Vector3(leftX - tickSize, maxY, zPos), new THREE.Vector3(leftX + tickSize, maxY, zPos));
 
-        const leftLabel = createLabelSprite(`${Math.round(B * 1000)} mm`);
-        leftLabel.position.set(leftX, 0, zPos);
+        const leftLabel = createLabelSprite(`${Math.round(constructionHeight * 1000)} mm`);
+        leftLabel.position.set(leftX, constructionCenterY, zPos);
         dimensionsGroup.add(leftLabel);
 
         // 4. RIGHT DIMENSION (Height)
-        const rightX = A / 2 + offset;
-        // addLineSegment(new THREE.Vector3(rightX, -B / 2, zPos), new THREE.Vector3(rightX, B / 2, zPos));
-        // addLineSegment(new THREE.Vector3(rightX - tickSize, -B / 2, zPos), new THREE.Vector3(rightX + tickSize, -B / 2, zPos));
-        // addLineSegment(new THREE.Vector3(rightX - tickSize, B / 2, zPos), new THREE.Vector3(rightX + tickSize, B / 2, zPos));
+        const rightX = maxX + offset;
+        // addLineSegment(new THREE.Vector3(rightX, minY, zPos), new THREE.Vector3(rightX, maxY, zPos));
+        // addLineSegment(new THREE.Vector3(rightX - tickSize, minY, zPos), new THREE.Vector3(rightX + tickSize, minY, zPos));
+        // addLineSegment(new THREE.Vector3(rightX - tickSize, maxY, zPos), new THREE.Vector3(rightX + tickSize, maxY, zPos));
 
-        // const rightLabel = createLabelSprite(`${Math.round(B * 1000)} mm`);
-        // rightLabel.position.set(rightX, 0, zPos);
+        // const rightLabel = createLabelSprite(`${Math.round(constructionHeight * 1000)} mm`);
+        // rightLabel.position.set(rightX, constructionCenterY, zPos);
         // dimensionsGroup.add(rightLabel);
 
         // 5. SECTION WIDTH / DEPTH DIMENSION (Z axis)
-        const depthX = -A / 2 - offset;
-        const depthY = -B / 2 - offset;
+        const depthX = minX - offset;
+        const depthY = minY - offset;
 
         const isDrainageCoverCap = profile =>
             isDrainageCapProfile(profile)
-            || String(profile.baseCadColor || '').toLowerCase() === '#cc9966';
+            || String(profile?.baseCadColor || '').toLowerCase() === '#cc9966';
 
-        function calculateSectionBounds(sectionProfiles) {
-            let minX = Infinity;
-            let maxX = -Infinity;
+        // Read depth from the profile meshes that were actually instantiated in
+        // this configuration. This is more accurate than looking at one CAD
+        // section: divider/trans profiles use a different section axis and can
+        // have their own depth placement. Handles and glass have no profile
+        // selection metadata, so they are intentionally not part of the window
+        // system depth. The drainage cap is explicitly excluded as requested.
+        const profileByIndex = new Map(
+            profilesData.map(profile => [String(profile.index), profile])
+        );
+        const mainGroupWorldInverse = new THREE.Matrix4();
+        const relativeMatrix = new THREE.Matrix4();
+        const localBox = new THREE.Box3();
+        let sectionZMin = Infinity;
+        let sectionZMax = -Infinity;
 
-            sectionProfiles.forEach(profile => {
-                const bbox = getEffectiveProfileBbox(profile);
-                if (!bbox) return;
+        mainGroup.updateWorldMatrix(true, true);
+        mainGroupWorldInverse.copy(mainGroup.matrixWorld).invert();
 
-                minX = Math.min(minX, bbox.minX);
-                maxX = Math.max(maxX, bbox.maxX);
-            });
+        mainGroup.traverse(object => {
+            if (!object.isMesh || !object.geometry) return;
 
-            return { minX, maxX };
-        }
+            const selection = object.userData?.componentSelection;
+            if (!selection) return;
 
-        // Use the top section because the drainage cover cap belongs to the
-        // bottom section and should not affect the displayed section depth.
-        let dimensionProfiles = profilesData.filter(profile => {
-            const toggle = document.getElementById(`toggle_${profile.index}`);
-            const isVisible = toggle ? toggle.checked : true;
+            const sourceProfile = profileByIndex.get(String(selection.profileIndex));
+            if (
+                selection.componentType === 'drainage-cap'
+                || isDrainageCoverCap(sourceProfile)
+            ) {
+                return;
+            }
 
-            return (
-                isVisible &&
-                profile.section === 'top' &&
-                !isDrainageCoverCap(profile)
+            if (!object.geometry.boundingBox) {
+                object.geometry.computeBoundingBox();
+            }
+            if (!object.geometry.boundingBox) return;
+
+            relativeMatrix.multiplyMatrices(
+                mainGroupWorldInverse,
+                object.matrixWorld
             );
+            localBox.copy(object.geometry.boundingBox).applyMatrix4(relativeMatrix);
+            sectionZMin = Math.min(sectionZMin, localBox.min.z);
+            sectionZMax = Math.max(sectionZMax, localBox.max.z);
         });
 
-        let sectionBounds = calculateSectionBounds(dimensionProfiles);
+        // Fallback for incomplete/custom meshes. Use only active profiles and
+        // still exclude the drainage cap; this preserves a useful dimension if
+        // a custom profile could not produce selectable mesh metadata.
+        if (!Number.isFinite(sectionZMin) || !Number.isFinite(sectionZMax)) {
+            let fallbackMinX = Infinity;
+            let fallbackMaxX = -Infinity;
+            activeProfiles
+                .filter(profile => !isDrainageCoverCap(profile))
+                .forEach(profile => {
+                    const bbox = getEffectiveProfileBbox(profile);
+                    if (!bbox) return;
+                    fallbackMinX = Math.min(fallbackMinX, bbox.minX);
+                    fallbackMaxX = Math.max(fallbackMaxX, bbox.maxX);
+                });
 
-        // Fallback for CAD profiles that do not have top/bottom section metadata.
-        if (
-            !Number.isFinite(sectionBounds.minX) ||
-            !Number.isFinite(sectionBounds.maxX)
-        ) {
-            dimensionProfiles = profilesData.filter(profile => {
-                const toggle = document.getElementById(`toggle_${profile.index}`);
-                const isVisible = toggle ? toggle.checked : true;
-
-                return isVisible && !isDrainageCoverCap(profile);
-            });
-
-            sectionBounds = calculateSectionBounds(dimensionProfiles);
+            if (Number.isFinite(fallbackMinX) && Number.isFinite(fallbackMaxX)) {
+                sectionZMin = (fallbackMinX - currentMetadata.globalCenterX) * S;
+                sectionZMax = (fallbackMaxX - currentMetadata.globalCenterX) * S;
+            }
         }
 
-        const sectionZMin =
-            (sectionBounds.minX - currentMetadata.globalCenterX) * S;
+        if (Number.isFinite(sectionZMin) && Number.isFinite(sectionZMax)) {
+            const sectionDepthMm = Math.round((sectionZMax - sectionZMin) / S);
 
-        const sectionZMax =
-            (sectionBounds.maxX - currentMetadata.globalCenterX) * S;
+            // main depth line
+            addLineSegment(
+                new THREE.Vector3(depthX, depthY, sectionZMin),
+                new THREE.Vector3(depthX, depthY, sectionZMax)
+            );
 
-        const sectionDepthMm = Math.round(
-            sectionBounds.maxX - sectionBounds.minX
-        );
+            // end ticks
+            addLineSegment(
+                new THREE.Vector3(depthX - tickSize, depthY, sectionZMin),
+                new THREE.Vector3(depthX + tickSize, depthY, sectionZMin)
+            );
+            addLineSegment(
+                new THREE.Vector3(depthX - tickSize, depthY, sectionZMax),
+                new THREE.Vector3(depthX + tickSize, depthY, sectionZMax)
+            );
 
-        // main depth line
-        addLineSegment(
-            new THREE.Vector3(depthX, depthY, sectionZMin),
-            new THREE.Vector3(depthX, depthY, sectionZMax)
-        );
+            // label
+            const depthLabel = createLabelSprite(`${sectionDepthMm} mm`);
+            depthLabel.position.set(
+                depthX,
+                depthY - 0.05,
+                (sectionZMin + sectionZMax) / 2
+            );
+            dimensionsGroup.add(depthLabel);
+        }
 
-        // end ticks
-        addLineSegment(
-            new THREE.Vector3(depthX - tickSize, depthY, sectionZMin),
-            new THREE.Vector3(depthX + tickSize, depthY, sectionZMin)
-        );
-        addLineSegment(
-            new THREE.Vector3(depthX - tickSize, depthY, sectionZMax),
-            new THREE.Vector3(depthX + tickSize, depthY, sectionZMax)
-        );
-
-        // label
-        const depthLabel = createLabelSprite(`${sectionDepthMm} mm`);
-        depthLabel.position.set(
-            depthX,
-            depthY - 0.05,
-            (sectionZMin + sectionZMax) / 2
-        );
-        dimensionsGroup.add(depthLabel);
     }
 
     let lastSectionSampleSignature = '';
@@ -1619,6 +1804,8 @@ export function createWindowBuilder({
         pivotBatant.position.set(0, 0, 0);
         pivotBatant.rotation.set(0, 0, 0);
         sashPoseAssemblies = [];
+        handleHitMeshes = [];
+        glassHitMeshes = [];
         explodableObjects = [];
         const t_clear = performance.now();
 
@@ -1959,25 +2146,29 @@ export function createWindowBuilder({
             fixedCells.push(...axisCells.filter(cell => cell.cellType === 'fixed-glazing'));
             openingCell = openingCells[0] || null;
         } else {
-            // Single window (no divider)
+            // Single window (no divider). Keep the render-cell id identical to
+            // the logical window-state id so glass clicks work even before the
+            // first topology edit turns the layout into a dynamic state.
+            const logicalSingleCell = layoutState.windowState?.windows?.[0] || null;
+            const singleCellId = logicalSingleCell?.id || 'w1';
             const cellType = layoutCellTypes[0] || 'opening-sash';
             if (cellType === 'opening-sash') {
                 openingCells = [{
-                    id: 'opening-0',
+                    id: singleCellId,
                     cellIndex: 0,
                     cellType: 'opening-sash',
                     width: A,
                     height: B,
                     centerX: 0,
                     centerY: 0,
-                    handleSide: layoutState.cellHandleSides?.[0] || null,
+                    handleSide: logicalSingleCell?.handleSide || layoutState.cellHandleSides?.[0] || null,
                 }];
                 fixedCells = [];
                 openingCell = openingCells[0];
             } else {
                 openingCells = [];
                 fixedCells = [{
-                    id: 'fixed-0',
+                    id: singleCellId,
                     cellIndex: 0,
                     cellType: 'fixed-glazing',
                     width: A,
@@ -3528,6 +3719,8 @@ export function createWindowBuilder({
             pane.receiveShadow = !captureMode;
             pane.userData.glazingCavity = glazingCavity;
             pane.userData.windowCell = cellId || (isFixed ? 'fixed' : 'opening');
+            pane.userData.windowGlassCellId = cellId || null;
+            if (cellId) glassHitMeshes.push(pane);
             registerExplode(pane, 0, 0, isFixed ? 0.35 : 0.5);
             return pane;
         }
@@ -3625,6 +3818,8 @@ export function createWindowBuilder({
                 const plate = new THREE.Mesh(plateGeo, handleMat);
                 plate.castShadow = !captureMode;
                 plate.receiveShadow = !captureMode;
+                plate.userData.windowHandleCellId = cell.id;
+                handleHitMeshes.push(plate);
                 handleBase.add(plate);
 
                 const neckShape = new THREE.Shape();
@@ -3651,6 +3846,8 @@ export function createWindowBuilder({
                 neck.position.set(0, 0, 0.006);
                 neck.castShadow = !captureMode;
                 neck.receiveShadow = !captureMode;
+                neck.userData.windowHandleCellId = cell.id;
+                handleHitMeshes.push(neck);
                 handleBase.add(neck);
 
                 const leverShape = new THREE.Shape();
@@ -3679,6 +3876,8 @@ export function createWindowBuilder({
                 const lever = new THREE.Mesh(leverGeo, handleMat);
                 lever.castShadow = !captureMode;
                 lever.receiveShadow = !captureMode;
+                lever.userData.windowHandleCellId = cell.id;
+                handleHitMeshes.push(lever);
                 leverGroup.add(lever);
                 handleBase.add(leverGroup);
 
@@ -3759,7 +3958,7 @@ export function createWindowBuilder({
 
         const t_dims_start = performance.now();
         // Build Dimension Lines
-        buildDimensionLines(A, B);
+        buildDimensionLines(A, B, activeProfiles);
         const t_dims_end = performance.now();
 
         const t_end = performance.now();
@@ -3776,6 +3975,8 @@ export function createWindowBuilder({
 
     function applyCurrentPoseInstantly() {
         const value = Number.parseFloat(document.getElementById('openAngle').value) || 0;
+        currentPoseAngle = value;
+        handleAngleAnimation = null;
         const isBatant = document.getElementById('mBatant').checked;
 
         sashPoseAssemblies.forEach(assembly => {
@@ -3811,8 +4012,49 @@ export function createWindowBuilder({
     }
 
     function updatePoseAnimation() {
-        const value = Number.parseFloat(document.getElementById('openAngle').value) || 0;
+        const openAngleInput = document.getElementById('openAngle');
         const isBatant = document.getElementById('mBatant').checked;
+        const maxAngle = getOpeningAngleLimit();
+        let value = Math.min(
+            maxAngle,
+            Math.max(0, Number.parseFloat(openAngleInput?.value) || 0)
+        );
+
+        if (handleAngleAnimation) {
+            // Changing opening mode changes the legal range (80° turn / 15°
+            // tilt). In that case the mode control's clamped slider value wins.
+            if (Math.abs(handleAngleAnimation.maxAngle - maxAngle) > 0.001) {
+                handleAngleAnimation = null;
+                currentPoseAngle = value;
+            } else {
+                const elapsed = performance.now() - handleAngleAnimation.startedAt;
+                const progress = Math.min(1, elapsed / handleAngleAnimation.durationMs);
+                const eased = easeHandleMotion(progress);
+                value = THREE.MathUtils.lerp(
+                    handleAngleAnimation.from,
+                    handleAngleAnimation.to,
+                    eased
+                );
+                currentPoseAngle = value;
+
+                // Keep the existing range control in sync with the animation.
+                // The sash uses the continuous value while the UI only needs
+                // degree precision, so the visible slider remains stable.
+                if (openAngleInput) {
+                    openAngleInput.value = String(Math.round(value));
+                }
+
+                if (progress >= 1) {
+                    value = handleAngleAnimation.to;
+                    currentPoseAngle = value;
+                    if (openAngleInput) openAngleInput.value = String(value);
+                    handleAngleAnimation = null;
+                }
+            }
+        } else {
+            currentPoseAngle = value;
+        }
+
         const valAngleEl = document.getElementById('valAngle');
         if (valAngleEl) {
             valAngleEl.innerText = `${Math.round(value)}°`;

@@ -2,8 +2,25 @@ import { getLanguageProfile } from '../config.js';
 import { sharedT } from '../i18n.js';
 import { sharedIcon } from '../icons.js';
 import { escapeHtml } from '../utils.js';
-import { renderAccountMenu } from './accountMenu.js?v=13';
+import { renderAccountMenu } from './accountMenu.js?v=14';
 import { renderLanguageMenu } from './languageMenu.js';
+
+function iconButton({ action, label, icon, disabled = false, extraClass = '' }) {
+  return `
+    <button class="topbar-icon-button ${extraClass}" type="button" data-action="${escapeHtml(action)}" data-tooltip="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${disabled ? 'disabled aria-disabled="true"' : ''}>
+      ${icon}
+    </button>
+  `;
+}
+
+function newConfigurationButton(locale, disabled = false) {
+  return iconButton({
+    action: 'new-configuration',
+    label: sharedT(locale, 'topbar.newConfiguration'),
+    icon: sharedIcon('newConfiguration'),
+    disabled,
+  });
+}
 
 function saveButton(locale, disabled = false) {
   const label = sharedT(locale, 'topbar.save');
@@ -56,12 +73,13 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
       </div>
 
       <div class="site-header__actions">
-        <button class="topbar-icon-button" type="button" data-action="view-ar" data-tooltip="${escapeHtml(labels.viewAr)}" aria-label="${escapeHtml(labels.viewAr)}" ${canViewAR ? '' : 'disabled aria-disabled="true"'}>${sharedIcon('ar')}</button>
+        ${newConfigurationButton(locale, !canSave)}
         ${saveButton(locale, !canSave)}
-        <button class="topbar-icon-button" type="button" data-action="undo" data-tooltip="${escapeHtml(labels.undo)}" aria-label="${escapeHtml(labels.undo)}" ${canUndo ? '' : 'disabled aria-disabled="true"'}>${sharedIcon('undo')}</button>
-        <button class="topbar-icon-button" type="button" data-action="reset" data-tooltip="${escapeHtml(labels.reset)}" aria-label="${escapeHtml(labels.reset)}" ${canReset ? '' : 'disabled aria-disabled="true"'}>${sharedIcon('reset')}</button>
+        ${iconButton({ action: 'view-ar', label: labels.viewAr, icon: sharedIcon('ar'), disabled: !canViewAR })}
+        ${iconButton({ action: 'undo', label: labels.undo, icon: sharedIcon('undo'), disabled: !canUndo })}
+        ${iconButton({ action: 'reset', label: labels.reset, icon: sharedIcon('reset'), disabled: !canReset })}
         ${shareButton(locale, !canShare)}
-        <button class="topbar-icon-button" type="button" data-action="account" data-tooltip="${escapeHtml(labels.account)}" aria-label="${escapeHtml(labels.account)}" aria-expanded="false">${sharedIcon('account')}</button>
+        ${iconButton({ action: 'account', label: labels.account, icon: sharedIcon('account') })}
         <button class="topbar-icon-button language-button" type="button" data-action="language" data-tooltip="${escapeHtml(language.nativeName)}" aria-label="${escapeHtml(language.nativeName)}" aria-expanded="false">
           <span class="language-flag" data-language-button-flag aria-hidden="true">${language.flag}</span>
         </button>

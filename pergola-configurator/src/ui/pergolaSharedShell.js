@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=13';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=14';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=12';
 import { getLocalizedConfiguratorUrl } from '../../../shared-ui/src/config.js';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
@@ -35,6 +35,10 @@ export function mountPergolaSharedShell({ store, ui }) {
       },
       onReset() {
         if (window.confirm(t('feedback.resetConfirm'))) store.reset();
+      },
+      createNewConfiguration() {
+        store.reset();
+        return true;
       },
       onViewAR() {
         const state = store.get();
