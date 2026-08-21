@@ -26,6 +26,7 @@ const tools = [
       active: true,
       icon: icon('<path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"></path>'),
     },
+    'technicalEdges',
     {
       id: 'compass',
       icon: icon('<circle cx="12" cy="12" r="8.5"></circle><path d="m15.4 8.6-2.1 4.7-4.7 2.1 2.1-4.7z"></path><path d="M12 1.7v2M12 20.3v2M1.7 12h2M20.3 12h2"></path>'),
@@ -136,9 +137,16 @@ shell.host.addEventListener('click', (event) => {
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#roofSidebarToggle');
+const appShell = document.querySelector('.app-shell');
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
+let sidebarUserOverride = false;
 
 function setSidebarCollapsed(collapsed) {
   sidebar?.classList.toggle('is-collapsed', collapsed);
+  if (sidebar) {
+    sidebar.inert = Boolean(collapsed);
+    sidebar.setAttribute('aria-hidden', String(Boolean(collapsed)));
+  }
   document.body.classList.toggle('roof-sidebar-collapsed', collapsed);
   sidebarToggle?.setAttribute('aria-expanded', String(!collapsed));
   const label = t(collapsed ? 'sidebar.show' : 'sidebar.hide');
@@ -147,9 +155,24 @@ function setSidebarCollapsed(collapsed) {
 }
 
 sidebarToggle?.addEventListener('click', () => {
+  sidebarUserOverride = true;
   setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed'));
 });
-setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
+
+setSidebarCollapsed(mobileLayoutQuery.matches || Boolean(sidebar?.classList.contains('is-collapsed')));
+document.body.classList.add('roof-sidebar-ready');
+
+mobileLayoutQuery.addEventListener?.('change', (event) => {
+  if (!sidebarUserOverride) setSidebarCollapsed(event.matches);
+  scheduleToolsPosition();
+});
+
+appShell?.addEventListener('click', (event) => {
+  if (!mobileLayoutQuery.matches || sidebar?.classList.contains('is-collapsed')) return;
+  if (event.target.closest('.sidebar, #roofSidebarToggle')) return;
+  setSidebarCollapsed(true);
+});
+
 window.addEventListener('roof-locale-applied', () => {
   setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
   syncToolsState();
@@ -285,6 +308,10 @@ function syncToolsState(detail = getApi()?.getState?.()) {
     disabled: !detail.dimensionsAvailable,
     title: t(detail.dimensionsAvailable ? 'tools.dimensions' : 'tools.dimensionsUnavailable'),
   });
+  setToolState('technical-edges', {
+    active: Boolean(detail.technicalEdges),
+    title: t('viewer.technicalEdges'),
+  });
   setToolState('compass', {
     active: Boolean(detail.showCompass),
     title: t(detail.showCompass ? 'tools.hideCompass' : 'tools.showCompass'),
@@ -315,6 +342,7 @@ function syncToolsState(detail = getApi()?.getState?.()) {
 shell.host.addEventListener('click', (event) => {
   const actionTarget = event.target.closest('[data-action]');
   if (actionTarget?.dataset.action === 'toggle-tools') {
+    if (mobileLayoutQuery.matches) setSidebarCollapsed(true);
     if (!shell.toolsOpen) {
       setEnvironmentPanelOpen(false);
       setComponentsPanelOpen(false);
@@ -328,7 +356,12 @@ shell.host.addEventListener('click', (event) => {
   const toolId = button.dataset.toolId;
 
   if (toolId === 'components') {
+    if (mobileLayoutQuery.matches) setSidebarCollapsed(true);
     setComponentsPanelOpen(!componentsDrawer?.classList.contains('is-open'));
+    if (mobileLayoutQuery.matches && shell.toolsOpen) {
+      shell.toolsOpen = false;
+      shell.syncTools();
+    }
     return;
   }
 
@@ -336,10 +369,14 @@ shell.host.addEventListener('click', (event) => {
   if (!api) return;
 
   if (toolId === 'environment') {
+    if (mobileLayoutQuery.matches) setSidebarCollapsed(true);
     setEnvironmentPanelOpen(environmentPanel?.hidden ?? true);
   } else if (toolId === 'dimensions') {
     setEnvironmentPanelOpen(false);
     api.toggleDimensions();
+  } else if (toolId === 'technical-edges') {
+    setEnvironmentPanelOpen(false);
+    api.toggleTechnicalEdges();
   } else if (toolId === 'compass') {
     setEnvironmentPanelOpen(false);
     api.toggleCompass();
@@ -347,6 +384,11 @@ shell.host.addEventListener('click', (event) => {
     setEnvironmentPanelOpen(false);
     setComponentsPanelOpen(false);
     api.cycleOrientation();
+  }
+
+  if (mobileLayoutQuery.matches && shell.toolsOpen) {
+    shell.toolsOpen = false;
+    shell.syncTools();
   }
 });
 

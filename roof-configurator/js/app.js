@@ -1,5 +1,5 @@
 import { state, pitchRules, roofNames } from './state.js?v=16';
-import { RoofScene } from './scene.js?v=17';
+import { RoofScene } from './scene.js?v=18';
 import { RoofUI } from './ui.js?v=17';
 import {
   getFallbackCurrencyRate,
@@ -78,6 +78,7 @@ function emitToolsState() {
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
+      technicalEdges: state.technicalEdges,
       currentView,
     },
   }));
@@ -207,6 +208,7 @@ const configuratorApi = {
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
+      technicalEdges: state.technicalEdges,
       currentView,
       units: state.units,
       currency: state.currency,
@@ -258,6 +260,18 @@ const configuratorApi = {
 
   toggleDimensions() {
     return this.setDimensionsVisible(!state.showDimensions);
+  },
+
+  setTechnicalEdges(visible) {
+    state.technicalEdges = Boolean(visible);
+    const wireframeToggle = document.querySelector('#wireframeToggle');
+    if (wireframeToggle) wireframeToggle.checked = state.technicalEdges;
+    rebuild({ fitCamera: false });
+    return state.technicalEdges;
+  },
+
+  toggleTechnicalEdges() {
+    return this.setTechnicalEdges(!state.technicalEdges);
   },
 
   setCompassVisible(visible) {
