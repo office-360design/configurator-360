@@ -59,22 +59,22 @@ export function createWindowLayoutOverlay({
     let renderedSignature = null;
     let controls = [];
     let wheel = null;
+    let wheelAnchorDefinition = null;
 
     function closeWheel() {
         wheel?.remove();
         wheel = null;
+        wheelAnchorDefinition = null;
     }
 
     function getCell(state, id) {
         return state?.windowState?.windows?.find(cell => cell.id === id) || null;
     }
 
-    function openTypeWheel(anchor, onSelect) {
+    function openTypeWheel(anchorDefinition, onSelect) {
         closeWheel();
         const menu = document.createElement('div');
         menu.className = 'window-type-wheel';
-        menu.style.left = `${anchor.x}px`;
-        menu.style.top = `${anchor.y}px`;
         const locale = getWindowLocale();
         menu.innerHTML = `
             <button type="button" class="window-type-wheel-option is-fixed" data-window-type="${FIXED_WINDOW_TYPE}" title="${windowT(locale, 'layout.fixedTitle')}">
@@ -98,6 +98,8 @@ export function createWindowLayoutOverlay({
         menu.querySelector('.window-type-wheel-close')?.addEventListener('click', closeWheel);
         root.appendChild(menu);
         wheel = menu;
+        wheelAnchorDefinition = anchorDefinition;
+        updateWheelPosition();
     }
 
     function createControl(definition) {
@@ -117,12 +119,7 @@ export function createWindowLayoutOverlay({
         button.textContent = definition.kind === 'add' ? '+' : (definition.kind === 'trans' ? 'T' : '↔');
         button.classList.toggle('is-active', definition.kind === 'trans' && definition.active);
         stopPointerPropagation(button);
-        button.addEventListener('click', async event => {
-            const rect = root.getBoundingClientRect();
-            const anchor = {
-                x: event.clientX - rect.left,
-                y: event.clientY - rect.top,
-            };
+        button.addEventListener('click', async () => {
             const state = getWindowLayoutState?.();
             if (definition.kind === 'trans') {
                 closeWheel();
@@ -135,7 +132,7 @@ export function createWindowLayoutOverlay({
                 return;
             }
             if (definition.kind === 'add') {
-                openTypeWheel(anchor, type => onAddWindow(
+                openTypeWheel(definition, type => onAddWindow(
                     definition.cellId,
                     definition.direction,
                     type,
@@ -157,7 +154,7 @@ export function createWindowLayoutOverlay({
                 );
                 return;
             }
-            openTypeWheel(anchor, type => onMergeWindows(
+            openTypeWheel(definition, type => onMergeWindows(
                 definition.cellAId,
                 definition.cellBId,
                 type,
@@ -277,6 +274,30 @@ export function createWindowLayoutOverlay({
         return new THREE.Vector3(0, 0, FRONT_OFFSET_M);
     }
 
+    function screenPointForControl(definition) {
+        if (!definition) return null;
+        const point = localPointForControl(definition);
+        const screen = projectLocalPoint({ point, camera, mainGroup, container });
+        if (!screen) return null;
+        const pairOffset = definition.kind === 'merge' ? -18 : (definition.kind === 'trans' ? 18 : 0);
+        return {
+            x: screen.x + pairOffset,
+            y: screen.y,
+        };
+    }
+
+    function updateWheelPosition() {
+        if (!wheel || !wheelAnchorDefinition) return;
+        const screen = screenPointForControl(wheelAnchorDefinition);
+        if (!screen) {
+            wheel.hidden = true;
+            return;
+        }
+        wheel.hidden = false;
+        wheel.style.left = `${screen.x}px`;
+        wheel.style.top = `${screen.y}px`;
+    }
+
     function update() {
         if (!enabled) {
             root.hidden = true;
@@ -294,17 +315,16 @@ export function createWindowLayoutOverlay({
         }
 
         controls.forEach(({ definition, button }) => {
-            const point = localPointForControl(definition);
-            const screen = projectLocalPoint({ point, camera, mainGroup, container });
+            const screen = screenPointForControl(definition);
             if (!screen) {
                 button.hidden = true;
                 return;
             }
             button.hidden = false;
-            const pairOffset = definition.kind === 'merge' ? -18 : (definition.kind === 'trans' ? 18 : 0);
-            button.style.left = `${screen.x + pairOffset}px`;
+            button.style.left = `${screen.x}px`;
             button.style.top = `${screen.y}px`;
         });
+        updateWheelPosition();
     }
 
     function handleLocaleChange() {

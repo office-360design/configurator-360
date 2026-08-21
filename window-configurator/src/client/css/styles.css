@@ -135,7 +135,7 @@ h1 {
 }
 
 h2 {
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 1.5px;
     color: #94a3b8;
@@ -660,7 +660,7 @@ body.capture-mode #canvas-container {
 #qr-ar-button {
     width: 100%;
     border: 1px solid rgba(96, 165, 250, 0.55);
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 12px 18px;
     background: rgba(15, 23, 42, 0.9);
     color: #eff6ff;
@@ -1507,6 +1507,7 @@ body.capture-mode #component-selection-popup,
     user-select: text;
     -webkit-user-select: text;
 }
+
 /* Catalog-driven frame, sash, mullion and trans profile selection */
 .profile-selection-group {
     padding-bottom: 14px;
@@ -1559,7 +1560,7 @@ body.capture-mode #component-selection-popup,
 }
 
 /* Accessory selection */
-.accessory-selection-group > select {
+.accessory-selection-group>select {
     width: 100%;
     margin-top: 6px;
 }
@@ -1662,6 +1663,8 @@ body.capture-mode #component-selection-popup,
 .window-layout-node {
     position: absolute;
     transform: translate(-50%, -50%);
+    -webkit-user-select: none;
+    user-select: none;
     width: 34px;
     height: 34px;
     border-radius: 999px;
@@ -1713,6 +1716,15 @@ body.capture-mode #component-selection-popup,
     backdrop-filter: blur(12px);
     box-shadow: 0 16px 42px rgba(15, 23, 42, 0.45);
     pointer-events: auto;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.window-type-wheel *,
+.window-type-wheel *::before,
+.window-type-wheel *::after {
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .window-type-wheel::before {
@@ -1727,19 +1739,19 @@ body.capture-mode #component-selection-popup,
 .window-type-wheel-option {
     position: absolute;
     top: 50%;
-    width: 64px;
-    min-height: 58px;
+    width: 46px;
+    min-height: 46px;
     transform: translateY(-50%);
     border: 0;
-    border-radius: 14px;
+    border-radius: 12px;
     background: rgba(51, 65, 85, 0.96);
     color: #fff;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    font: 500 12px/1 'Outfit', sans-serif;
+    gap: 3px;
+    font: 500 10px/1 'Outfit', sans-serif;
     cursor: pointer;
 }
 
@@ -1747,12 +1759,17 @@ body.capture-mode #component-selection-popup,
     background: #2563eb;
 }
 
-.window-type-wheel-option.is-fixed { left: 7px; }
-.window-type-wheel-option.is-sash { right: 7px; }
+.window-type-wheel-option.is-fixed {
+    left: 4px;
+}
+
+.window-type-wheel-option.is-sash {
+    right: 4px;
+}
 
 .window-type-wheel-icon {
-    width: 24px;
-    height: 28px;
+    width: 20px;
+    height: 23px;
     border: 1.5px solid currentColor;
     display: grid;
     place-items: center;
@@ -1775,11 +1792,17 @@ body.capture-mode #component-selection-popup,
     transform-origin: center;
 }
 
-.window-type-wheel-sash-icon::before { transform: rotate(37deg); }
-.window-type-wheel-sash-icon::after { transform: rotate(-37deg); }
+.window-type-wheel-sash-icon::before {
+    transform: rotate(37deg);
+}
+
+.window-type-wheel-sash-icon::after {
+    transform: rotate(-37deg);
+}
 
 .window-type-wheel-close {
     position: absolute;
+    z-index: 2;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
