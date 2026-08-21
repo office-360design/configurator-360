@@ -862,8 +862,9 @@
   }
 
   .sidebar-collapse-handle {
-    top: 12px;
+    top: auto;
     right: 100%;
+    bottom: 80px;
     left: auto;
     width: 40px;
     height: 48px;

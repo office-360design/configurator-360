@@ -581,8 +581,9 @@ body.shared-ui-dark-mode .summary-validation-error { color: #ffc0c0; background:
   .sidebar.is-collapsed { transform: translateX(calc(100% + 8px)) !important; }
 
   .shared-settings-toggle {
-    top: calc(var(--shared-topbar-height, 47px) + 10px) !important;
+    top: auto !important;
     right: calc(var(--hall-sidebar-width) + 8px) !important;
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
     width: 42px !important;
     height: 48px !important;
     border-radius: 12px 0 0 12px !important;

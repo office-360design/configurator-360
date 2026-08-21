@@ -484,8 +484,9 @@ body.shared-ui-dark-mode .bom-table tbody tr.is-excluded td {
   }
 
   #roofSidebarToggle {
-    top: 18px;
+    top: auto;
     right: calc(var(--shared-settings-width) + 8px);
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
     width: 40px;
     height: 48px;
     border-radius: 12px 0 0 12px;
