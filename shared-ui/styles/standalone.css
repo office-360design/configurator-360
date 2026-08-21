@@ -288,6 +288,8 @@
 .shared-ui-host .save-feedback__icon { position: absolute; left: 14px; display: none; width: 26px; height: 26px; }
 .shared-ui-host .save-feedback__icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2.1; }
 .shared-ui-host .save-feedback.is-success .save-feedback__icon--success { display: block; color: var(--success); }
+.shared-ui-host .save-feedback.is-error { border-color: #d9363e; }
+.shared-ui-host .save-feedback.is-error .save-feedback__icon--failure { display: block; color: #d9363e; }
 @keyframes shared-save-feedback-cycle {
   0% { opacity: 0; transform: translate(-50%,calc(100% + 28px)); }
   20%,70% { opacity: 1; transform: translate(-50%,-18px); }

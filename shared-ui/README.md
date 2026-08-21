@@ -12,10 +12,10 @@ from the repository root; see the pergola configurator's `vite.config.js`.
 
 ## Standalone/static configurators
 
-`mountStandaloneConfiguratorShell()` mounts the same shared navigation bar on static
-configurators that do not use the pergola Vite application shell. The window and roof
-configurators use this adapter, while their product controls and Three.js logic remain
-unchanged.
+`mountStandaloneConfiguratorShell()` mounts the same shared navigation, account, language,
+feedback and tools shell for every configurator. Window, Roof, Hall, Solar and Pergola all
+use this shell; only product-specific callbacks and scene/control logic remain inside each
+configurator folder.
 
 Product settings panels use the shared `shared-settings-panel` and
 `shared-settings-toggle` classes so all configurators place their controls at the same
@@ -53,6 +53,14 @@ The public reCAPTCHA Enterprise site key is configured in `firebase-app-check.js
 
 ## Google account login
 
-The shared account menu uses Firebase Authentication with the Google provider. Guests are shown as `Hello, guest`; successful Google sign-in replaces the greeting with the Google account display name. Authentication is shared across Window, Roof, Hall and Pergola through the same Firebase Web App used by App Check.
+The shared account menu uses Firebase Authentication with the Google provider. Guests are shown as `Hello, guest`; successful Google sign-in replaces the greeting with the Google account display name. Authentication is owned entirely by the shared shell and is therefore identical across Window, Roof, Hall, Solar and Pergola through the same Firebase Web App used by App Check. Configurators do not implement their own account/login state.
 
 Firebase Console setup required: enable **Authentication → Sign-in method → Google** and add every production hostname to **Authentication → Settings → Authorized domains**.
+
+
+## Shared shell adapters
+
+Configurator-local shell files are adapters only. They may provide product-specific callbacks
+such as `captureState()`, reset/undo behavior, tool actions or language-state preservation, but
+they must not render or own the common top bar, account menu, Google authentication, language
+menu, feedback UI or shared tool interaction lifecycle. Those remain in `shared-ui`.

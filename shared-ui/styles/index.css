@@ -303,6 +303,17 @@
   color: var(--success);
 }
 
+.shared-ui-host .save-feedback.is-error,
+.save-feedback.is-error {
+  border-color: #d9363e;
+}
+
+.shared-ui-host .save-feedback.is-error .save-feedback__icon--failure,
+.save-feedback.is-error .save-feedback__icon--failure {
+  display: block;
+  color: #d9363e;
+}
+
 @keyframes shared-save-feedback-cycle {
   0% { opacity: 0; transform: translate(-50%, calc(100% + 28px)); }
   20%, 70% { opacity: 1; transform: translate(-50%, -18px); }
