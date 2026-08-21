@@ -1,7 +1,7 @@
 import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=13';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
+import { createShareUrl, encodeShareState } from '../../shared-ui/src/shareState.js?v=4';
 import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
 import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js';
 
@@ -55,8 +55,23 @@ const shell = mountStandaloneConfiguratorShell({
     async getLocalizedUrl(nextLocale, fallbackTarget) {
       const snapshot = window.FENCE_CONFIGURATOR_API?.captureState?.();
       if (!snapshot) return fallbackTarget;
-      const shareUrl = await createShareUrl({ productType: 'fence', state: snapshot });
-      return getLocalizedConfiguratorUrl(nextLocale, 'fence', new URL(shareUrl)) || fallbackTarget;
+
+      // Language changes cross origins (.com / .ro / .de), so localStorage cannot
+      // carry the live configuration with the navigation. Use the compact legacy
+      // share payload only as a temporary cross-domain state handoff. Unlike the
+      // normal Share action, this does not create a Firestore document.
+      const encodedState = await encodeShareState('fence', snapshot);
+      const localized = getLocalizedConfiguratorUrl(nextLocale, 'fence', window.location) || fallbackTarget;
+      const target = new URL(localized, window.location.href);
+
+      // A previous shared link may already contain a state id. Remove all state
+      // transports before adding the current snapshot so the destination cannot
+      // accidentally restore an older configuration instead.
+      target.searchParams.delete('s');
+      target.searchParams.delete('c');
+      target.searchParams.delete('config');
+      target.hash = `c=${encodedState}`;
+      return target.href;
     },
     onPreferenceChange(name, value, preferences) {
       window.dispatchEvent(new CustomEvent('fence-preference-change', { detail: { name, value, preferences: { ...preferences } } }));
