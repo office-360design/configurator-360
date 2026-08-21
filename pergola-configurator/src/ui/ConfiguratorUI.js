@@ -22,7 +22,6 @@ import { pergolaRenderers } from './pergolaRenderers.js';
 import { pergolaT, translatePergolaRuntimeMessage } from '../i18n.js';
 
 const CAMERA_PRESETS = ['perspective', 'front', 'left', 'right', 'top'];
-const SAVED_PROJECTS_KEY = 'pergola-configurator:saved-projects';
 
 export class ConfiguratorUI {
   constructor(root, store) {
@@ -106,6 +105,7 @@ export class ConfiguratorUI {
 
   onStateChange(state, meta = {}) {
     this.state = state;
+    if (this.sharedShell && !meta.skipHistory) this.sharedShell.markDirty();
     if (meta.reset) {
       this.activePole = null;
       this.activePoleFace = 'front';
@@ -471,20 +471,6 @@ export class ConfiguratorUI {
     const next = CAMERA_PRESETS[(index + 1) % CAMERA_PRESETS.length];
     this.store.update('view.cameraPreset', next);
     this.showToast(this.t('feedback.camera', { camera: pergolaT(this.state.locale, `camera.${next}`) }));
-  }
-
-  showSavedConfigurations() {
-    let savedProjects = [];
-    try {
-      savedProjects = Object.values(JSON.parse(window.localStorage.getItem(SAVED_PROJECTS_KEY) || '{}'));
-    } catch {
-      savedProjects = [];
-    }
-    savedProjects.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
-    const content = savedProjects.length
-      ? `<div class="saved-project-list">${savedProjects.map((project) => `<article><strong>${escapeHtml(project.name)}</strong><small>${new Date(project.savedAt).toLocaleString()}</small></article>`).join('')}</div>`
-      : `<p>${escapeHtml(this.t('modal.savedEmpty'))}</p>`;
-    this.showModal(this.t('modal.savedTitle'), content);
   }
 
   downloadSnapshot() {

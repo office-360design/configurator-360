@@ -67,7 +67,7 @@ This means an external client cannot simply bypass App Check by choosing the dir
 1. In Google Cloud Console, enable **reCAPTCHA Enterprise API** if required.
 2. Create a **Website** score-based key. Do not enable a checkbox challenge.
 3. Add every production hostname that serves a configurator.
-4. In Firebase Console, open **Security → App Check**, select the second `360configurator` web app (App ID `1:719238533149:web:9e0b8a97375731b8ea6f4`) and register **reCAPTCHA Enterprise** using that site key.
+4. In Firebase Console, open **Security → App Check**, select the second `360configurator` web app (App ID `1:719238533149:web:9e0b8a97375731b8eaf6f4`) and register **reCAPTCHA Enterprise** using that site key.
 5. Keep the default **1-hour token TTL** initially and the default/recommended risk threshold unless metrics justify changing it.
 6. Put the public site key in `shared-ui/firebase-app-check.json`.
 7. Ensure the runtime service account has `roles/monitoring.viewer` and the Cloud Monitoring API is enabled.
@@ -76,6 +76,20 @@ This means an external client cannot simply bypass App Check by choosing the dir
 Do **not** enable project-wide Cloud Firestore App Check enforcement just for this feature, because this Firebase project contains unrelated collections and may have other clients. Per-function `enforceAppCheck: true` protects secure share creation without affecting those applications.
 
 For localhost development, `debugOnLocalhost` uses the Firebase App Check debug provider. Register the printed debug token in Firebase App Check before testing secure Share locally.
+
+
+## Private saved configurations
+
+The top-bar **Save** action now stores the active configurator state in the signed-in Google user's private Firebase area. These records are persistent account data and are separate from the 90-day public `sharedConfigurations` links.
+
+- Storage path: `users/{uid}/savedConfigurations/{product}/items/{configurationId}`.
+- Saved configuration operations require Firebase Authentication and use `request.auth.uid` server-side.
+- Browser Firestore access to the saved-configuration path is explicitly denied; only the authenticated callable functions use the Admin SDK.
+- The saved-configuration functions intentionally do **not** enforce App Check. Their client calls are made with the Firebase Auth ID token directly so saving/opening account data never causes a reCAPTCHA assessment. reCAPTCHA remains exclusive to **Share**.
+- Each product currently lists the user's 100 most recently updated saves for that configurator.
+- Maximum serialized state per saved configuration: **850,000 UTF-8 bytes**.
+
+Functions: `saveUserConfiguration`, `listUserConfigurations`, `getUserConfiguration`, and `deleteUserConfiguration`.
 
 ## Deployment
 

@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=12';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=13';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
@@ -27,6 +27,7 @@ const toolItems = resolveSharedTools([
 
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Hall',
+  productId: 'hall',
   storagePrefix: '360-configurator:hall',
   brandSrc: '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: '360 Configurator',
@@ -55,6 +56,12 @@ const shell = mountStandaloneConfiguratorShell({
       if (window.confirm(t('reset.confirm'))) {
         window.HALL_CONFIGURATOR_API?.resetConfiguration?.();
       }
+    },
+    captureState() {
+      return window.HALL_CONFIGURATOR_API?.captureState?.();
+    },
+    restoreState(snapshot) {
+      return window.HALL_CONFIGURATOR_API?.restoreState?.(snapshot);
     },
     getShareUrl() {
       const snapshot = window.HALL_CONFIGURATOR_API?.captureState?.();

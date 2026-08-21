@@ -938,6 +938,16 @@ const configuratorApi = {
     return captureSolarShareState(state);
   },
 
+  restoreState(snapshot) {
+    if (!applySolarShareState(snapshot, state)) return false;
+    ui?.syncAllControls?.();
+    rebuild({ fitCamera: true, pvgis: true });
+    scene.setCompassVisible(state.showCompass);
+    scene.setEnvironment(state);
+    emitToolsState();
+    return true;
+  },
+
   setDimensionsVisible(visible) {
     state.showDimensions = Boolean(visible);
     rebuild({ fitCamera: false, pvgis: false });

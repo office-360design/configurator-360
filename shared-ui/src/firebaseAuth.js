@@ -50,7 +50,7 @@ async function getAuthContext() {
     const auth = authModule.getAuth(app);
     const provider = new authModule.GoogleAuthProvider();
 
-    return { auth, authModule, provider };
+    return { app, auth, authModule, provider };
   })();
 
   return authContextPromise;
@@ -77,4 +77,11 @@ export async function signInWithGoogle() {
 export async function signOutGoogle() {
   const { auth, authModule } = await getAuthContext();
   await authModule.signOut(auth);
+}
+
+export async function getFirebaseIdToken() {
+  const { auth } = await getAuthContext();
+  const user = auth.currentUser;
+  if (!user) return '';
+  return user.getIdToken();
 }

@@ -2,13 +2,13 @@ import { getLanguageProfile } from '../config.js';
 import { sharedT } from '../i18n.js';
 import { sharedIcon } from '../icons.js';
 import { escapeHtml } from '../utils.js';
-import { renderAccountMenu } from './accountMenu.js?v=12';
+import { renderAccountMenu } from './accountMenu.js?v=13';
 import { renderLanguageMenu } from './languageMenu.js';
 
 function saveButton(locale, disabled = false) {
   const label = sharedT(locale, 'topbar.save');
   return `
-    <button class="topbar-icon-button save-preview-button" type="button" data-action="save-success-demo" data-tooltip="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${disabled ? 'disabled aria-disabled="true"' : ''}>
+    <button class="topbar-icon-button save-preview-button" type="button" data-action="save" data-tooltip="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${disabled ? 'disabled aria-disabled="true"' : ''}>
       <span class="save-icon save-icon--cloud">${sharedIcon('cloud')}</span>
       <span class="save-icon save-icon--success">${sharedIcon('success')}</span>
     </button>
