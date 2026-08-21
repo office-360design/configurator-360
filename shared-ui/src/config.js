@@ -38,6 +38,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     window: '/window-configurator/',
     hall: '/hall-configurator/',
     solar: '/solar-configurator/',
+    fence: '/fence-configurator/',
   }),
   'ro-RO': Object.freeze({
     pergola: '/configurator-pergola/',
@@ -45,6 +46,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     window: '/configurator-ferestre/',
     hall: '/configurator-hala/',
     solar: '/configurator-solar/',
+    fence: '/configurator-garduri/',
   }),
   'de-DE': Object.freeze({
     pergola: '/pergola-konfigurator/',
@@ -52,6 +54,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     window: '/fenster-konfigurator/',
     hall: '/hallen-konfigurator/',
     solar: '/solar-konfigurator/',
+    fence: '/zaun-konfigurator/',
   }),
 });
 
@@ -95,6 +98,7 @@ function normalizeProductType(productType = '') {
   if (value.includes('window')) return 'window';
   if (value.includes('hall')) return 'hall';
   if (value.includes('solar')) return 'solar';
+  if (value.includes('fence') || value.includes('gard') || value.includes('zaun')) return 'fence';
   return null;
 }
 

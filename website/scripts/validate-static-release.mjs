@@ -104,15 +104,15 @@ for (const route of pageRoutes) {
 const sitemapExpectations = {
   en: {
     origin: "https://www.360configurator.com",
-    apps: ["/pergola-configurator/", "/roof-configurator/", "/window-configurator/", "/hall-configurator/", "/solar-configurator/"],
+    apps: ["/pergola-configurator/", "/roof-configurator/", "/window-configurator/", "/hall-configurator/", "/solar-configurator/", "/fence-configurator/"],
   },
   ro: {
     origin: "https://www.360configurator.ro",
-    apps: ["/configurator-pergola/", "/configurator-acoperis/", "/configurator-ferestre/", "/configurator-hala/", "/configurator-solar/"],
+    apps: ["/configurator-pergola/", "/configurator-acoperis/", "/configurator-ferestre/", "/configurator-hala/", "/configurator-solar/", "/configurator-garduri/"],
   },
   de: {
     origin: "https://www.360konfigurator.de",
-    apps: ["/pergola-konfigurator/", "/dach-konfigurator/", "/fenster-konfigurator/", "/hallen-konfigurator/", "/solar-konfigurator/"],
+    apps: ["/pergola-konfigurator/", "/dach-konfigurator/", "/fenster-konfigurator/", "/hallen-konfigurator/", "/solar-konfigurator/", "/zaun-konfigurator/"],
   },
 };
 const marketingSlugs = ["pergola", "roof", "window", "hall", "solar"];

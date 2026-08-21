@@ -81,6 +81,20 @@ const CONFIGURATOR_SEO_COPY = Object.freeze({
       description: 'Konfigurieren Sie eine Photovoltaikanlage online in 3D. Prüfen Sie Dachgeometrie, Modulbelegung und Energiesimulation in Echtzeit.',
     }),
   }),
+  fence: Object.freeze({
+    'en-US': Object.freeze({
+      title: '3D Fence Configurator | 360Configurator',
+      description: 'Configure a modular fence online in 3D. Adjust layout, dimensions, panels, finishes, gates and installation options in real time.',
+    }),
+    'ro-RO': Object.freeze({
+      title: 'Configurator Gard 3D | 360Configurator',
+      description: 'Configurează un gard modular online în 3D. Modifică forma, dimensiunile, panourile, finisajele, porțile și opțiunile de montaj în timp real.',
+    }),
+    'de-DE': Object.freeze({
+      title: '3D Zaun-Konfigurator | 360Configurator',
+      description: 'Konfigurieren Sie einen modularen Zaun online in 3D. Passen Sie Verlauf, Maße, Felder, Oberflächen, Tore und Montageoptionen in Echtzeit an.',
+    }),
+  }),
 });
 
 const PRODUCT_ALIASES = Object.freeze({
@@ -93,6 +107,10 @@ const PRODUCT_ALIASES = Object.freeze({
   warehouse: 'hall',
   solar: 'solar',
   pv: 'solar',
+  fence: 'fence',
+  fencing: 'fence',
+  gard: 'fence',
+  zaun: 'fence',
 });
 
 function normalizeProduct(product) {
