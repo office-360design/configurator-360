@@ -208,9 +208,6 @@ export function createAccessoryController({
         const available = isGroupAvailable(group.id);
         const availableCatalogIds = getAvailableAccessoryProfileIds(group);
         const loadedIds = [...getLoadedProfileIds(group.id)];
-        const missingIds = group.profileIds.filter(
-            profileId => !availableCatalogIds.includes(profileId)
-        );
         const displayedProfileId = resolveDisplayedProfileId(group);
 
         row.classList.toggle('accessory-option-unavailable', !available);
@@ -235,8 +232,6 @@ export function createAccessoryController({
                 statusLabel.textContent = windowT(getWindowLocale(), 'accessory.unavailableAssembly');
             } else if (!available) {
                 statusLabel.textContent = windowT(getWindowLocale(), 'accessory.sourceRequired');
-            } else if (missingIds.length) {
-                statusLabel.textContent = windowPlural(getWindowLocale(), 'accessory.missingVariant', missingIds.length, { ids: missingIds.join(', ') });
             } else {
                 statusLabel.textContent = '';
             }
@@ -493,6 +488,9 @@ export function createAccessoryController({
         rowByGroupId.clear();
 
         groups.forEach(group => {
+            if (!isGroupAvailable(group.id)) {
+                return;
+            }
             const row = createAccessoryRow(group);
             if (row) optionsContainer.appendChild(row);
         });
