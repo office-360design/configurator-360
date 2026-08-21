@@ -225,10 +225,12 @@ function positionToolsUi() {
   if (!toolsAnchor || !relocatedToolsToolbar?.isConnected) return;
 
   const anchorRect = toolsAnchor.getBoundingClientRect();
-  const toolbarLeft = Math.round(anchorRect.left);
-  const toolbarTop = Math.round(anchorRect.top);
-  relocatedToolsToolbar.style.setProperty('--roof-tools-left', `${toolbarLeft}px`);
-  relocatedToolsToolbar.style.setProperty('--roof-tools-top', `${toolbarTop}px`);
+  relocatedToolsToolbar.style.setProperty('--roof-tools-left', `${Math.round(anchorRect.left)}px`);
+  relocatedToolsToolbar.style.setProperty('--roof-tools-top', `${Math.round(anchorRect.top)}px`);
+
+  const toolbarRect = relocatedToolsToolbar.getBoundingClientRect();
+  const toolbarLeft = Math.round(toolbarRect.left);
+  const toolbarTop = Math.round(toolbarRect.top);
 
   if (!environmentPanel) return;
   const panelWidth = Math.min(390, Math.max(296, window.innerWidth - 24));
