@@ -443,3 +443,65 @@ body.shared-ui-dark-mode .bom-selection-toolbar button:focus-visible:not(:disabl
 body.shared-ui-dark-mode .bom-table tbody tr.is-excluded td {
   background: rgba(255, 255, 255, 0.025);
 }
+
+/* Mobile configurator shell -------------------------------------------------
+   Keep the 3D model as the primary surface. Settings become an off-canvas
+   drawer instead of stacking above the viewer. */
+@media (max-width: 760px) {
+  :root {
+    --shared-settings-gap: 8px;
+    --shared-settings-width: min(360px, calc(100vw - 56px));
+  }
+
+  body.shared-ui-mounted .app-shell {
+    overflow: hidden;
+  }
+
+  body.shared-ui-mounted .sidebar {
+    top: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    width: var(--shared-settings-width);
+    max-height: none;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 16px;
+  }
+
+  /* Prevent a brief open-drawer flash while the mobile default is applied. */
+  body.shared-ui-mounted:not(.roof-sidebar-ready) .sidebar,
+  body.shared-ui-mounted .sidebar.is-collapsed {
+    transform: translateX(calc(100% + 10px));
+  }
+
+  body.shared-ui-mounted.roof-sidebar-ready:not(.roof-sidebar-collapsed) .app-shell::before {
+    position: absolute;
+    inset: 0;
+    z-index: 24;
+    background: rgba(17, 29, 35, 0.22);
+    backdrop-filter: blur(1.5px);
+    content: '';
+  }
+
+  #roofSidebarToggle {
+    top: 18px;
+    right: calc(var(--shared-settings-width) + 8px);
+    width: 40px;
+    height: 48px;
+    border-radius: 12px 0 0 12px;
+    touch-action: manipulation;
+  }
+
+  body.shared-ui-mounted:not(.roof-sidebar-ready) #roofSidebarToggle,
+  body.roof-sidebar-collapsed #roofSidebarToggle {
+    right: 8px;
+    border-right: 1px solid #dfe4e6;
+    border-radius: 12px;
+  }
+
+  body.shared-ui-mounted .panel-section:first-of-type { padding-top: 18px; }
+}
+
+@media (max-width: 420px) {
+  :root { --shared-settings-width: calc(100vw - 52px); }
+}

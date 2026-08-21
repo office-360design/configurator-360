@@ -790,3 +790,32 @@ body.shared-ui-dark-mode { background: #0f172a !important; }
     flex-wrap: wrap;
   }
 }
+
+/* Shared top bar responsiveness -------------------------------------------
+   Disabled capabilities should not consume scarce phone width. On narrow
+   phones the project name yields to the action controls rather than forcing
+   the header to overflow horizontally. */
+@media (max-width: 760px) {
+  .shared-ui-host .topbar-icon-button:disabled { display: none; }
+  .shared-ui-host .topbar-icon-button { touch-action: manipulation; }
+  .shared-ui-host .site-header__actions { min-width: 0; gap: 1px; }
+}
+
+@media (max-width: 480px) {
+  .shared-ui-host .site-header {
+    grid-template-columns: minmax(72px, 1fr) auto;
+    column-gap: 4px;
+    padding: 0 6px;
+  }
+  .shared-ui-host .project-name-shell { display: none; }
+  .shared-ui-host .brand img { width: 78px; }
+  .shared-ui-host .topbar-icon-button { width: 29px; height: 29px; }
+}
+
+@media (max-width: 360px) {
+  .shared-ui-host .brand img { width: 68px; }
+  .shared-ui-host .topbar-icon-button { width: 28px; height: 28px; }
+  .shared-ui-host .topbar-icon-button > svg,
+  .shared-ui-host .topbar-icon-button .save-icon svg,
+  .shared-ui-host .topbar-icon-button .share-icon svg { width: 18px; height: 18px; }
+}
