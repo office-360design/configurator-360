@@ -1,10 +1,10 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
 import { sharedT } from './i18n.js';
-import { renderActionFeedback } from './components/feedback.js';
-import { renderTopBar } from './components/topBar.js';
-import { syncAccountIdentity } from './components/accountMenu.js';
-import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js';
-import { renderToolsMenu } from './components/toolsMenu.js';
+import { renderActionFeedback } from './components/feedback.js?v=12';
+import { renderTopBar } from './components/topBar.js?v=12';
+import { syncAccountIdentity } from './components/accountMenu.js?v=12';
+import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=12';
+import { renderToolsMenu } from './components/toolsMenu.js?v=12';
 
 const MAX_PROJECT_NUMBER = 1000;
 
@@ -429,9 +429,11 @@ export class StandaloneConfiguratorShell {
 
   persistSavedProject() {
     const projects = safeJsonParse(window.localStorage.getItem(this.savedProjectsKey), {});
+    const configuration = this.options.callbacks.captureState?.();
     projects[this.projectName] = {
       name: this.projectName,
       savedAt: new Date().toISOString(),
+      ...(configuration === undefined ? {} : { configuration }),
     };
     window.localStorage.setItem(this.savedProjectsKey, JSON.stringify(projects));
   }

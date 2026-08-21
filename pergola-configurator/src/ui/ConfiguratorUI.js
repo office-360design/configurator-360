@@ -17,28 +17,12 @@ import {
   poleIsAvailable,
   segmentIsAvailable,
 } from '../state.js';
-import {
-  LANGUAGE_PROFILES,
-  escapeHtml,
-  getLanguageProfile,
-  getLocalizedConfiguratorUrl,
-  sharedT,
-  renderActionFeedback,
-  renderToolsMenu,
-  renderTopBar,
-  syncAccountIdentity,
-  observeGoogleAuth,
-  signInWithGoogle,
-  signOutGoogle,
-} from '../../../shared-ui/src/index.js';
+import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
 import { pergolaRenderers } from './pergolaRenderers.js';
 import { pergolaT, translatePergolaRuntimeMessage } from '../i18n.js';
 
 const CAMERA_PRESETS = ['perspective', 'front', 'left', 'right', 'top'];
-const PROJECT_META_KEY = 'pergola-configurator:project-meta';
-const PROJECT_COUNTER_KEY = 'pergola-configurator:next-project-number';
 const SAVED_PROJECTS_KEY = 'pergola-configurator:saved-projects';
-const MAX_PROJECT_NUMBER = 1000;
 
 export class ConfiguratorUI {
   constructor(root, store) {
@@ -52,24 +36,11 @@ export class ConfiguratorUI {
     this.activeRoofRectangle = null;
     this.activeHeaterSegment = null;
     this.environmentOpen = false;
-    this.toolsOpen = false;
     this.sidebarHidden = false;
     this.expandedStep = null;
     this.toastTimer = null;
     this.saveFeedbackTimer = null;
-    this.accountMenuOpen = false;
-    this.accountSettingsOpen = false;
-    this.authUser = null;
-    this.authBusy = false;
-    this.authUnsubscribe = null;
-    this.languageMenuOpen = false;
     this.pendingDimensionChange = null;
-
-    const projectMeta = this.readProjectMeta();
-    this.projectName = projectMeta.name || this.getNextDefaultProjectName();
-    this.lastSavedProjectName = projectMeta.savedName || '';
-    this.lastSavedState = projectMeta.savedState || '';
-    this.projectDirty = this.computeProjectDirty();
 
     this.root.innerHTML = this.shellTemplate();
     this.stepContent = this.root.querySelector('[data-step-content]');
@@ -80,161 +51,22 @@ export class ConfiguratorUI {
     this.environmentPanel = this.root.querySelector('[data-environment-panel]');
     this.toast = this.root.querySelector('[data-toast]');
     this.modalRoot = this.root.querySelector('[data-modal-root]');
-    this.projectNameInput = this.root.querySelector('[data-project-name]');
-    this.projectNameMeasure = this.root.querySelector('[data-project-name-measure]');
-    this.projectDirtyIndicator = this.root.querySelector('[data-project-dirty]');
-    this.saveFeedback = this.root.querySelector('[data-save-feedback]');
-    this.saveFeedbackText = this.root.querySelector('[data-save-feedback-text]');
-    this.accountMenu = this.root.querySelector('[data-account-menu]');
-    this.languageMenu = this.root.querySelector('[data-language-menu]');
-    this.languageSearch = this.root.querySelector('[data-language-search]');
-
-    this.handleDocumentClickBound = (event) => this.handleDocumentClick(event);
-    document.addEventListener('click', this.handleDocumentClickBound);
 
     this.root.addEventListener('click', (event) => this.handleClick(event));
     this.root.addEventListener('change', (event) => this.handleChange(event));
     this.root.addEventListener('input', (event) => this.handleInput(event));
     this.root.addEventListener('submit', (event) => this.handleSubmit(event));
-    this.root.addEventListener('keydown', (event) => this.handleKeyDown(event));
 
     this.unsubscribe = this.store.subscribe((state, meta) => this.onStateChange(state, meta));
-    this.initializeAuthentication();
   }
 
   attachScene(scene) {
     this.scene = scene;
   }
 
-  readProjectMeta() {
-    try {
-      return JSON.parse(window.localStorage.getItem(PROJECT_META_KEY) || '{}');
-    } catch {
-      return {};
-    }
-  }
-
-  getNextDefaultProjectName() {
-    const stored = Number(window.localStorage.getItem(PROJECT_COUNTER_KEY));
-    const number = Number.isFinite(stored) && stored >= 1
-      ? Math.min(MAX_PROJECT_NUMBER, Math.floor(stored))
-      : 1;
-    return `Pergola#${number}`;
-  }
-
-  serializeCurrentState() {
-    return JSON.stringify(this.state);
-  }
-
-  computeProjectDirty() {
-    return this.projectName !== this.lastSavedProjectName
-      || this.serializeCurrentState() !== this.lastSavedState;
-  }
-
-  persistProjectMeta() {
-    try {
-      window.localStorage.setItem(PROJECT_META_KEY, JSON.stringify({
-        name: this.projectName,
-        savedName: this.lastSavedProjectName,
-        savedState: this.lastSavedState,
-      }));
-    } catch {
-      // Project metadata persistence is a non-critical local preview feature.
-    }
-  }
-
-  reserveNextDefaultName() {
-    const match = /^Pergola#(\d{1,4})$/i.exec(this.projectName.trim());
-    if (!match) return;
-    const current = Math.min(MAX_PROJECT_NUMBER, Number(match[1]));
-    const stored = Number(window.localStorage.getItem(PROJECT_COUNTER_KEY)) || 1;
-    const next = Math.min(MAX_PROJECT_NUMBER, Math.max(stored, current + 1));
-    try {
-      window.localStorage.setItem(PROJECT_COUNTER_KEY, String(next));
-    } catch {
-      // Ignore local preview storage failures.
-    }
-  }
-
-  saveProjectLocallyForPreview() {
-    this.lastSavedProjectName = this.projectName;
-    this.lastSavedState = this.serializeCurrentState();
-    this.projectDirty = false;
-    this.reserveNextDefaultName();
-
-    try {
-      const savedProjects = JSON.parse(window.localStorage.getItem(SAVED_PROJECTS_KEY) || '{}');
-      savedProjects[this.projectName] = {
-        name: this.projectName,
-        savedAt: new Date().toISOString(),
-        configuration: this.state,
-      };
-      window.localStorage.setItem(SAVED_PROJECTS_KEY, JSON.stringify(savedProjects));
-    } catch {
-      // The visual success button intentionally remains a deterministic demo.
-    }
-
-    this.persistProjectMeta();
-    this.syncTopBar();
-  }
-
-  runSavePreview(button) {
-    button.classList.remove('is-success');
-    void button.offsetWidth;
-    button.classList.add('is-success');
-    this.saveProjectLocallyForPreview();
-    this.showActionFeedback(this.t('feedback.saved'));
-
-    window.setTimeout(() => {
-      button.classList.remove('is-success');
-    }, 1050);
-  }
-
-  runSharePreview(button) {
-    button.classList.remove('is-success');
-    void button.offsetWidth;
-    button.classList.add('is-success');
-    this.showActionFeedback(this.t('feedback.linkCopied'));
-    window.setTimeout(() => button.classList.remove('is-success'), 1050);
-  }
-
-  showActionFeedback(message) {
-    if (!this.saveFeedback) return;
-    window.clearTimeout(this.saveFeedbackTimer);
-    this.saveFeedback.classList.remove('is-success', 'is-failure', 'is-animating');
-    void this.saveFeedback.offsetWidth;
-    this.saveFeedback.classList.add('is-success', 'is-animating');
-    if (this.saveFeedbackText) this.saveFeedbackText.textContent = message;
-    this.saveFeedbackTimer = window.setTimeout(() => {
-      this.saveFeedback.classList.remove('is-animating');
-    }, 1050);
-  }
-
-  syncTopBar() {
-    if (this.projectNameInput && document.activeElement !== this.projectNameInput) {
-      this.projectNameInput.value = this.projectName;
-    }
-    this.projectDirtyIndicator?.classList.toggle('is-hidden', !this.projectDirty);
-    this.syncProjectNameWidth();
-    const undoButton = this.root.querySelector('[data-action="undo"]');
-    if (undoButton) {
-      undoButton.disabled = !this.store.canUndo?.();
-      undoButton.setAttribute('aria-disabled', String(undoButton.disabled));
-    }
-  }
-
-  syncProjectNameWidth() {
-    if (!this.projectNameInput || !this.projectNameMeasure) return;
-    const displayValue = this.projectName || ' ';
-    this.projectNameMeasure.textContent = displayValue;
-    const measuredWidth = Math.ceil(this.projectNameMeasure.getBoundingClientRect().width);
-    const minWidth = 96;
-    const maxWidth = Math.min(520, Math.max(180, window.innerWidth * 0.44));
-    this.projectNameInput.style.width = `${Math.min(maxWidth, Math.max(minWidth, measuredWidth + 20))}px`;
-  }
-
-  getCurrentLanguageProfile() {
-    return getLanguageProfile(this.state.locale);
+  attachSharedShell(shell) {
+    this.sharedShell = shell;
+    this.syncSharedShell();
   }
 
   t(key, variables = {}) {
@@ -250,16 +82,8 @@ export class ConfiguratorUI {
   shellTemplate() {
     return `
       <div class="app-shell">
-        ${renderTopBar({
-          brandSrc: './assets/360CONFIGURATOR.png',
-          brandAlt: '360 Configurator',
-          projectName: this.projectName,
-          state: { ...this.state, authUser: this.authUser },
-        })}
-
         <main class="configurator-layout">
           <section class="viewport" data-viewport aria-label="${escapeHtml(this.t('app.previewAria'))}">
-            ${renderToolsMenu(this.toolsOpen, { locale: this.state.locale })}
             <section class="environment-panel" data-environment-panel aria-label="${escapeHtml(this.t('app.environmentAria'))}"></section>
             <div class="toast" data-toast role="status"></div>
           </section>
@@ -275,7 +99,6 @@ export class ConfiguratorUI {
             <footer class="sidebar-footer" data-sidebar-footer></footer>
           </aside>
         </main>
-        ${renderActionFeedback(this.state.locale)}
         <div data-modal-root></div>
       </div>
     `;
@@ -290,7 +113,6 @@ export class ConfiguratorUI {
       this.activeRoofRectangle = null;
       this.activeHeaterSegment = null;
       this.environmentOpen = false;
-      this.toolsOpen = false;
       this.sidebarHidden = false;
       this.expandedStep = null;
       this.pendingDimensionChange = null;
@@ -307,11 +129,10 @@ export class ConfiguratorUI {
     if (this.activeSideSegment && !grid.segments.some((segment) => segment.id === this.activeSideSegment)) this.activeSideSegment = null;
     if (this.activeRoofRectangle && !getRoofRectangles(state).some((rectangle) => rectangle.id === this.activeRoofRectangle)) this.activeRoofRectangle = null;
     if (this.activeHeaterSegment && !getBoundaryHeaterSegments(state).some((segment) => segment.id === this.activeHeaterSegment)) this.activeHeaterSegment = null;
-    this.projectDirty = this.computeProjectDirty();
     if (meta.continuous) {
       this.syncContinuousValues();
       this.syncPoleConflictState();
-      this.syncTopBar();
+      this.syncSharedShell();
       return;
     }
     this.render();
@@ -330,56 +151,7 @@ export class ConfiguratorUI {
     this.environmentPanel.innerHTML = this.renderEnvironmentPanel();
     this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
     this.syncToolbar();
-    this.syncTopBar();
-    this.syncAccountMenu();
-    this.syncLanguageMenu();
-  }
-
-  async initializeAuthentication() {
-    try {
-      this.authUnsubscribe = await observeGoogleAuth((user, error) => {
-        if (error) return;
-        this.authUser = user;
-        this.authBusy = false;
-        syncAccountIdentity(this.root, this.state.locale, this.authUser);
-      });
-    } catch (error) {
-      console.error('Google authentication could not be initialized.', error);
-      syncAccountIdentity(this.root, this.state.locale, null);
-    }
-  }
-
-  async loginWithGoogle() {
-    if (this.authBusy) return;
-    this.authBusy = true;
-    syncAccountIdentity(this.root, this.state.locale, this.authUser, { busy: true });
-    try {
-      this.authUser = await signInWithGoogle();
-      this.accountMenuOpen = true;
-    } catch (error) {
-      if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
-        console.error('Google login failed.', error);
-        this.showToast(sharedT(this.state.locale, 'feedback.loginUnavailable'));
-      }
-    } finally {
-      this.authBusy = false;
-      syncAccountIdentity(this.root, this.state.locale, this.authUser);
-      this.syncAccountMenu();
-    }
-  }
-
-  async logoutFromGoogle() {
-    try {
-      await signOutGoogle();
-      this.authUser = null;
-      this.accountMenuOpen = true;
-      this.showToast(sharedT(this.state.locale, 'feedback.loggedOut'));
-    } catch (error) {
-      console.error('Google sign-out failed.', error);
-    } finally {
-      syncAccountIdentity(this.root, this.state.locale, this.authUser);
-      this.syncAccountMenu();
-    }
+    this.syncSharedShell();
   }
 
   async handleClick(event) {
@@ -394,63 +166,7 @@ export class ConfiguratorUI {
     if (!actionTarget) return;
     const { action } = actionTarget.dataset;
 
-    if (action === 'save-success-demo') {
-      this.runSavePreview(actionTarget);
-    } else if (action === 'undo') {
-      if (!this.store.undo?.()) this.showToast(this.t('feedback.nothingToUndo'));
-    } else if (action === 'account') {
-      this.toggleAccountMenu();
-    } else if (action === 'language') {
-      this.toggleLanguageMenu();
-    } else if (action === 'toggle-account-settings') {
-      this.accountSettingsOpen = !this.accountSettingsOpen;
-      this.syncAccountMenu();
-    } else if (action === 'account-login') {
-      await this.loginWithGoogle();
-    } else if (action === 'account-profile') {
-      this.closeHeaderMenus();
-      this.showModal(this.t('modal.profileTitle'), `<p>${escapeHtml(this.t('modal.profileBody'))}</p>`);
-    } else if (action === 'account-saved') {
-      this.closeHeaderMenus();
-      this.showSavedConfigurations();
-    } else if (action === 'account-help') {
-      this.closeHeaderMenus();
-      this.showModal(this.t('modal.helpTitle'), `<p>${escapeHtml(this.t('modal.helpBody'))}</p>`);
-    } else if (action === 'toggle-dark-mode') {
-      this.store.update('darkMode', !this.state.darkMode);
-    } else if (action === 'cookies-placeholder') {
-      this.showToast(this.t('feedback.cookiesUnavailable'));
-    } else if (action === 'account-signout') {
-      await this.logoutFromGoogle();
-    } else if (action === 'select-language') {
-      const locale = actionTarget.dataset.locale;
-      const profile = LANGUAGE_PROFILES[locale];
-      if (profile && locale !== this.state.locale) {
-        const hostname = window.location.hostname.toLowerCase();
-        const localPreview = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-        if (localPreview) {
-          this.store.patch({
-            locale,
-            units: profile.units,
-            currency: profile.currency,
-          }, { path: 'locale' });
-          this.closeHeaderMenus();
-          return;
-        }
-        try {
-          const shareUrl = await this.store.getShareUrl();
-          const targetUrl = getLocalizedConfiguratorUrl(locale, 'pergola', new URL(shareUrl));
-          if (targetUrl) {
-            window.location.assign(targetUrl);
-            return;
-          }
-        } catch (error) {
-          console.error('The configuration could not be preserved during the language switch.', error);
-          this.showToast(this.t('feedback.languageSwitchUnavailable'));
-        }
-      }
-      this.closeHeaderMenus();
-    } else if (action === 'next-step') {
+    if (action === 'next-step') {
       this.store.nextStep(STEPS.length - 1);
     } else if (action === 'previous-step') {
       this.store.previousStep();
@@ -560,38 +276,16 @@ export class ConfiguratorUI {
     } else if (action === 'toggle-sidebar') {
       this.sidebarHidden = !this.sidebarHidden;
       this.render();
-    } else if (action === 'toggle-tools') {
-      this.toolsOpen = !this.toolsOpen;
-      this.render();
     } else if (action === 'toggle-environment') {
       this.environmentOpen = !this.environmentOpen;
       this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
-    } else if (action === 'toggle-dimensions') {
-      this.store.update('view.dimensionsVisible', !this.state.view.dimensionsVisible);
-    } else if (action === 'toggle-compass') {
-      this.store.update('view.compassVisible', !this.state.view.compassVisible);
-    } else if (action === 'cycle-camera') {
-      const index = CAMERA_PRESETS.indexOf(this.state.view.cameraPreset);
-      const next = CAMERA_PRESETS[(index + 1) % CAMERA_PRESETS.length];
-      this.store.update('view.cameraPreset', next);
-      this.showToast(this.t('feedback.camera', { camera: pergolaT(this.state.locale, `camera.${next}`) }));
     } else if (action === 'toggle-night') {
       this.store.update('environment.night', !this.state.environment.night);
     } else if (action === 'save') {
       this.store.notify({ save: true });
       this.showToast(this.t('feedback.savedBrowser'));
-    } else if (action === 'share') {
-      this.copyShareLink(actionTarget);
-    } else if (action === 'reset') {
-      if (window.confirm(this.t('feedback.resetConfirm'))) this.store.reset();
     } else if (action === 'snapshot') {
       this.downloadSnapshot();
-    } else if (action === 'view-ar') {
-      const platform = this.state.defaultArPlatform === 'ios' ? 'iOS' : 'Android';
-      this.showModal(this.t('modal.arTitle'), `
-        <p>${escapeHtml(this.t('modal.arPlatform', { platform }))}</p>
-        <p>${escapeHtml(this.t('modal.arUnavailable'))}</p>
-      `);
     } else if (action === 'download-json') {
       this.downloadJSON();
     } else if (action === 'print') {
@@ -614,11 +308,6 @@ export class ConfiguratorUI {
   }
 
   handleChange(event) {
-    const projectNameInput = event.target.closest('[data-project-name]');
-    if (projectNameInput) {
-      this.updateProjectName(projectNameInput.value);
-      return;
-    }
     const input = event.target.closest('[data-path]');
     if (!input || input.dataset.continuous === 'true') return;
     this.updateFromInput(input, false);
@@ -630,38 +319,9 @@ export class ConfiguratorUI {
       this.filterLanguages(languageSearch.value);
       return;
     }
-    const projectNameInput = event.target.closest('[data-project-name]');
-    if (projectNameInput) {
-      this.updateProjectName(projectNameInput.value);
-      return;
-    }
     const input = event.target.closest('[data-path][data-continuous="true"]');
     if (!input) return;
     this.updateFromInput(input, true);
-  }
-
-  updateProjectName(value) {
-    const cleaned = String(value).replace(/[\r\n\t]/g, ' ').slice(0, 80);
-    this.projectName = cleaned;
-    this.projectDirty = this.computeProjectDirty();
-    this.persistProjectMeta();
-    this.syncTopBar();
-  }
-
-  handleKeyDown(event) {
-    if (event.key === 'Escape') {
-      this.closeHeaderMenus();
-    }
-    const projectNameInput = event.target.closest('[data-project-name]');
-    if (!projectNameInput) return;
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      projectNameInput.blur();
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      projectNameInput.value = this.projectName;
-      projectNameInput.blur();
-    }
   }
 
   updateFromInput(input, continuous) {
@@ -790,101 +450,27 @@ export class ConfiguratorUI {
   }
 
   syncToolbar() {
-    const dimensionButton = this.root.querySelector('[data-action="toggle-dimensions"]');
-    const compassButton = this.root.querySelector('[data-action="toggle-compass"]');
-    const toolsPanel = this.root.querySelector('.tools-toolbar__panel');
-    const toolsLauncher = this.root.querySelector('[data-action="toggle-tools"]');
-    dimensionButton?.classList.toggle('is-active', this.state.view.dimensionsVisible);
-    compassButton?.classList.toggle('is-active', this.state.view.compassVisible);
-    toolsPanel?.classList.toggle('is-open', this.toolsOpen);
-    toolsLauncher?.classList.toggle('is-active', this.toolsOpen);
+    this.syncSharedShell();
     this.root.querySelector('.sidebar-collapse-handle')?.classList.toggle('is-hidden-state', this.sidebarHidden);
   }
 
-  toggleAccountMenu() {
-    this.accountMenuOpen = !this.accountMenuOpen;
-    this.languageMenuOpen = false;
-    this.pendingDimensionChange = null;
-    this.syncAccountMenu();
-    this.syncLanguageMenu();
+  syncSharedShell() {
+    if (!this.sharedShell) return;
+    this.sharedShell.setActionEnabled('undo', Boolean(this.store.canUndo?.()));
+    this.sharedShell.setToolActive('dimensions', Boolean(this.state.view.dimensionsVisible));
+    this.sharedShell.setToolActive('compass', Boolean(this.state.view.compassVisible));
   }
 
-  toggleLanguageMenu() {
-    this.languageMenuOpen = !this.languageMenuOpen;
-    this.accountMenuOpen = false;
-    this.syncLanguageMenu();
-    this.syncAccountMenu();
-    if (this.languageMenuOpen) window.setTimeout(() => this.languageSearch?.focus(), 0);
+  toggleEnvironmentPanel() {
+    this.environmentOpen = !this.environmentOpen;
+    this.environmentPanel?.classList.toggle('is-open', this.environmentOpen);
   }
 
-  closeHeaderMenus() {
-    this.accountMenuOpen = false;
-    this.languageMenuOpen = false;
-    this.pendingDimensionChange = null;
-    this.syncAccountMenu();
-    this.syncLanguageMenu();
-  }
-
-  syncAccountMenu() {
-    this.accountMenu?.classList.toggle('is-open', this.accountMenuOpen);
-    this.root.querySelector('[data-action="account"]')?.setAttribute('aria-expanded', String(this.accountMenuOpen));
-    const settings = this.root.querySelector('[data-account-settings]');
-    const settingsButton = this.root.querySelector('[data-action="toggle-account-settings"]');
-    settings?.classList.toggle('is-open', this.accountSettingsOpen);
-    settingsButton?.setAttribute('aria-expanded', String(this.accountSettingsOpen));
-    const unitsSelect = settings?.querySelector('[data-path="units"]');
-    const currencySelect = settings?.querySelector('[data-path="currency"]');
-    const qualitySelect = settings?.querySelector('[data-path="quality"]');
-    const arPlatformSelect = settings?.querySelector('[data-path="defaultArPlatform"]');
-    const darkModeButton = settings?.querySelector('[data-action="toggle-dark-mode"]');
-    const darkModeSwitch = darkModeButton?.querySelector('.settings-switch');
-    const darkModeLabel = darkModeButton?.querySelector('[data-dark-mode-label]');
-    if (unitsSelect) unitsSelect.value = this.state.units;
-    if (currencySelect) currencySelect.value = this.state.currency;
-    if (qualitySelect) qualitySelect.value = this.state.quality;
-    if (arPlatformSelect) arPlatformSelect.value = this.state.defaultArPlatform;
-    darkModeButton?.setAttribute('aria-pressed', String(Boolean(this.state.darkMode)));
-    darkModeSwitch?.classList.toggle('is-on', Boolean(this.state.darkMode));
-    if (darkModeLabel) darkModeLabel.textContent = sharedT(this.state.locale, this.state.darkMode ? 'account.on' : 'account.off');
-    syncAccountIdentity(this.root, this.state.locale, this.authUser, { busy: this.authBusy });
-  }
-
-  syncLanguageMenu() {
-    this.languageMenu?.classList.toggle('is-open', this.languageMenuOpen);
-    const profile = this.getCurrentLanguageProfile();
-    const button = this.root.querySelector('[data-action="language"]');
-    button?.setAttribute('aria-expanded', String(this.languageMenuOpen));
-    button?.setAttribute('aria-label', profile.nativeName);
-    button?.setAttribute('data-tooltip', profile.nativeName);
-    const buttonFlag = this.root.querySelector('[data-language-button-flag]');
-    const currentFlag = this.root.querySelector('[data-current-language-flag]');
-    const currentName = this.root.querySelector('[data-current-language-name]');
-    if (buttonFlag) buttonFlag.textContent = profile.flag;
-    if (currentFlag) currentFlag.textContent = profile.flag;
-    if (currentName) currentName.textContent = profile.nativeName;
-    this.root.querySelectorAll('[data-action="select-language"]').forEach((languageButton) => {
-      const selected = languageButton.dataset.locale === this.state.locale;
-      languageButton.classList.toggle('is-selected', selected);
-      languageButton.setAttribute('aria-current', selected ? 'true' : 'false');
-    });
-  }
-
-  handleDocumentClick(event) {
-    if (!event.target.closest('[data-account-menu], [data-action="account"]')) {
-      this.accountMenuOpen = false;
-      this.syncAccountMenu();
-    }
-    if (!event.target.closest('[data-language-menu], [data-action="language"]')) {
-      this.languageMenuOpen = false;
-      this.syncLanguageMenu();
-    }
-  }
-
-  filterLanguages(query) {
-    const normalized = String(query).trim().toLocaleLowerCase(this.state.locale);
-    this.root.querySelectorAll('[data-language-name]').forEach((button) => {
-      button.hidden = normalized && !button.dataset.languageName.includes(normalized);
-    });
+  cycleCameraPreset() {
+    const index = CAMERA_PRESETS.indexOf(this.state.view.cameraPreset);
+    const next = CAMERA_PRESETS[(index + 1) % CAMERA_PRESETS.length];
+    this.store.update('view.cameraPreset', next);
+    this.showToast(this.t('feedback.camera', { camera: pergolaT(this.state.locale, `camera.${next}`) }));
   }
 
   showSavedConfigurations() {
@@ -899,35 +485,6 @@ export class ConfiguratorUI {
       ? `<div class="saved-project-list">${savedProjects.map((project) => `<article><strong>${escapeHtml(project.name)}</strong><small>${new Date(project.savedAt).toLocaleString()}</small></article>`).join('')}</div>`
       : `<p>${escapeHtml(this.t('modal.savedEmpty'))}</p>`;
     this.showModal(this.t('modal.savedTitle'), content);
-  }
-
-  async copyShareLink(button) {
-    let url;
-    try {
-      url = await this.store.getShareUrl();
-    } catch (error) {
-      console.error('Share link could not be created.', error);
-      this.showToast(this.t('feedback.shareUnavailable'));
-      return;
-    }
-
-    let copied = false;
-    try {
-      await navigator.clipboard.writeText(url);
-      copied = true;
-    } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = url;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.append(textarea);
-      textarea.select();
-      copied = document.execCommand('copy');
-      textarea.remove();
-    }
-    if (copied) this.runSharePreview(button);
-    else window.prompt(this.t('modal.copyLink'), url);
   }
 
   downloadSnapshot() {
@@ -974,9 +531,7 @@ export class ConfiguratorUI {
   }
 
   destroy() {
-    this.authUnsubscribe?.();
     this.unsubscribe?.();
-    document.removeEventListener('click', this.handleDocumentClickBound);
   }
 }
 

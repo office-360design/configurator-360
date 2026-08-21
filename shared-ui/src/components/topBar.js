@@ -2,7 +2,7 @@ import { getLanguageProfile } from '../config.js';
 import { sharedT } from '../i18n.js';
 import { sharedIcon } from '../icons.js';
 import { escapeHtml } from '../utils.js';
-import { renderAccountMenu } from './accountMenu.js';
+import { renderAccountMenu } from './accountMenu.js?v=12';
 import { renderLanguageMenu } from './languageMenu.js';
 
 function saveButton(locale, disabled = false) {
