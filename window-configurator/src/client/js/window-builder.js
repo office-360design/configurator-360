@@ -40,6 +40,7 @@ const S = 0.001;
 export function createWindowBuilder({
     scene,
     camera,
+    renderer = null,
     ground,
     gridHelper,
     isARMode,
@@ -896,8 +897,117 @@ export function createWindowBuilder({
     const pivotBatant = new THREE.Group();
     let handleLeverGroup = new THREE.Group();
     let sashPoseAssemblies = [];
+    let handleHitMeshes = [];
     let lastBuiltHandleSide = null;
     let handleHoldUntil = 0;
+    let currentPoseAngle = Number.parseFloat(document.getElementById('openAngle')?.value) || 0;
+    let handleAngleAnimation = null;
+
+    const HANDLE_CLICK_DRAG_THRESHOLD_PX = 5;
+    const HANDLE_CLOSED_EPSILON_DEG = 0.5;
+    const handleRaycaster = new THREE.Raycaster();
+    const handlePointer = new THREE.Vector2();
+    let handlePointerStart = null;
+
+    function getOpeningAngleLimit() {
+        const input = document.getElementById('openAngle');
+        const fallback = document.getElementById('mBatant')?.checked ? 80 : 15;
+        const max = Number.parseFloat(input?.max);
+        return Number.isFinite(max) ? max : fallback;
+    }
+
+    function easeHandleMotion(t) {
+        const clamped = Math.min(1, Math.max(0, t));
+        // Smootherstep gives the sash zero velocity at both ends, especially
+        // avoiding the abrupt stop that a linear/ordinary lerp produces.
+        return clamped * clamped * clamped * (
+            clamped * (clamped * 6 - 15) + 10
+        );
+    }
+
+    function startHandleAngleToggle() {
+        const input = document.getElementById('openAngle');
+        if (!input || !sashPoseAssemblies.length) return false;
+
+        const maxAngle = getOpeningAngleLimit();
+        const sliderAngle = Math.min(
+            maxAngle,
+            Math.max(0, Number.parseFloat(input.value) || 0)
+        );
+        const from = handleAngleAnimation ? currentPoseAngle : sliderAngle;
+        // A second handle click during motion always means "close". When
+        // stationary, anything above the closed position also closes; only a
+        // genuinely closed sash opens fully.
+        const to = handleAngleAnimation
+            ? 0
+            : (from > HANDLE_CLOSED_EPSILON_DEG ? 0 : maxAngle);
+        const travelRatio = maxAngle > 0 ? Math.abs(to - from) / maxAngle : 1;
+
+        currentPoseAngle = from;
+        handleAngleAnimation = {
+            from,
+            to,
+            maxAngle,
+            startedAt: performance.now(),
+            durationMs: 300 + 400 * travelRatio,
+        };
+        return true;
+    }
+
+    function cancelHandleAngleAnimation() {
+        handleAngleAnimation = null;
+    }
+
+    function raycastHandle(clientX, clientY) {
+        const domElement = renderer?.domElement;
+        if (!domElement || !handleHitMeshes.length) return null;
+        const rect = domElement.getBoundingClientRect();
+        if (!rect.width || !rect.height) return null;
+
+        handlePointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        handlePointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+        handleRaycaster.setFromCamera(handlePointer, camera);
+        scene.updateMatrixWorld(true);
+        return handleRaycaster.intersectObjects(handleHitMeshes, false)[0]?.object || null;
+    }
+
+    function handleCanvasPointerDown(event) {
+        if (event.button !== 0) {
+            handlePointerStart = null;
+            return;
+        }
+        handlePointerStart = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+        };
+    }
+
+    function handleCanvasPointerUp(event) {
+        const start = handlePointerStart;
+        handlePointerStart = null;
+        if (!start || start.pointerId !== event.pointerId) return;
+        if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > HANDLE_CLICK_DRAG_THRESHOLD_PX) {
+            return;
+        }
+        if (!raycastHandle(event.clientX, event.clientY)) return;
+
+        if (startHandleAngleToggle()) {
+            event.preventDefault();
+        }
+    }
+
+    function handleCanvasPointerCancel() {
+        handlePointerStart = null;
+    }
+
+    if (!isARMode && !captureMode && renderer?.domElement) {
+        renderer.domElement.addEventListener('pointerdown', handleCanvasPointerDown);
+        renderer.domElement.addEventListener('pointerup', handleCanvasPointerUp);
+        renderer.domElement.addEventListener('pointercancel', handleCanvasPointerCancel);
+        document.getElementById('openAngle')?.addEventListener('input', cancelHandleAngleAnimation);
+    }
+
     placementRoot.add(mainGroup);
     placementRoot.visible = !isARMode;
     scene.add(placementRoot);
@@ -1619,6 +1729,7 @@ export function createWindowBuilder({
         pivotBatant.position.set(0, 0, 0);
         pivotBatant.rotation.set(0, 0, 0);
         sashPoseAssemblies = [];
+        handleHitMeshes = [];
         explodableObjects = [];
         const t_clear = performance.now();
 
@@ -3625,6 +3736,8 @@ export function createWindowBuilder({
                 const plate = new THREE.Mesh(plateGeo, handleMat);
                 plate.castShadow = !captureMode;
                 plate.receiveShadow = !captureMode;
+                plate.userData.windowHandleCellId = cell.id;
+                handleHitMeshes.push(plate);
                 handleBase.add(plate);
 
                 const neckShape = new THREE.Shape();
@@ -3651,6 +3764,8 @@ export function createWindowBuilder({
                 neck.position.set(0, 0, 0.006);
                 neck.castShadow = !captureMode;
                 neck.receiveShadow = !captureMode;
+                neck.userData.windowHandleCellId = cell.id;
+                handleHitMeshes.push(neck);
                 handleBase.add(neck);
 
                 const leverShape = new THREE.Shape();
@@ -3679,6 +3794,8 @@ export function createWindowBuilder({
                 const lever = new THREE.Mesh(leverGeo, handleMat);
                 lever.castShadow = !captureMode;
                 lever.receiveShadow = !captureMode;
+                lever.userData.windowHandleCellId = cell.id;
+                handleHitMeshes.push(lever);
                 leverGroup.add(lever);
                 handleBase.add(leverGroup);
 
@@ -3776,6 +3893,8 @@ export function createWindowBuilder({
 
     function applyCurrentPoseInstantly() {
         const value = Number.parseFloat(document.getElementById('openAngle').value) || 0;
+        currentPoseAngle = value;
+        handleAngleAnimation = null;
         const isBatant = document.getElementById('mBatant').checked;
 
         sashPoseAssemblies.forEach(assembly => {
@@ -3811,8 +3930,49 @@ export function createWindowBuilder({
     }
 
     function updatePoseAnimation() {
-        const value = Number.parseFloat(document.getElementById('openAngle').value) || 0;
+        const openAngleInput = document.getElementById('openAngle');
         const isBatant = document.getElementById('mBatant').checked;
+        const maxAngle = getOpeningAngleLimit();
+        let value = Math.min(
+            maxAngle,
+            Math.max(0, Number.parseFloat(openAngleInput?.value) || 0)
+        );
+
+        if (handleAngleAnimation) {
+            // Changing opening mode changes the legal range (80° turn / 15°
+            // tilt). In that case the mode control's clamped slider value wins.
+            if (Math.abs(handleAngleAnimation.maxAngle - maxAngle) > 0.001) {
+                handleAngleAnimation = null;
+                currentPoseAngle = value;
+            } else {
+                const elapsed = performance.now() - handleAngleAnimation.startedAt;
+                const progress = Math.min(1, elapsed / handleAngleAnimation.durationMs);
+                const eased = easeHandleMotion(progress);
+                value = THREE.MathUtils.lerp(
+                    handleAngleAnimation.from,
+                    handleAngleAnimation.to,
+                    eased
+                );
+                currentPoseAngle = value;
+
+                // Keep the existing range control in sync with the animation.
+                // The sash uses the continuous value while the UI only needs
+                // degree precision, so the visible slider remains stable.
+                if (openAngleInput) {
+                    openAngleInput.value = String(Math.round(value));
+                }
+
+                if (progress >= 1) {
+                    value = handleAngleAnimation.to;
+                    currentPoseAngle = value;
+                    if (openAngleInput) openAngleInput.value = String(value);
+                    handleAngleAnimation = null;
+                }
+            }
+        } else {
+            currentPoseAngle = value;
+        }
+
         const valAngleEl = document.getElementById('valAngle');
         if (valAngleEl) {
             valAngleEl.innerText = `${Math.round(value)}°`;

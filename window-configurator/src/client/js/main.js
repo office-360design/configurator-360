@@ -370,6 +370,7 @@ const {
 windowBuilder = createWindowBuilder({
     scene,
     camera,
+    renderer,
     ground,
     gridHelper,
     isARMode,
