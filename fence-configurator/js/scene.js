@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildFenceAssembly } from './fenceFactory.js';
+import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=2';
 
 export class FenceScene {
   constructor(host) {
@@ -212,7 +212,7 @@ export class FenceScene {
     const groundMaterial = new THREE.MeshStandardMaterial({ color: 0xd9ddd5, roughness: 0.98 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), groundMaterial);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.305;
+    ground.position.y = GRADE_Y;
     ground.receiveShadow = true;
     ground.name = 'ground';
     this.floorGroup.add(ground);
@@ -220,7 +220,7 @@ export class FenceScene {
     const pathMaterial = new THREE.MeshStandardMaterial({ color: 0xc8c3b9, roughness: 0.94 });
     const path = new THREE.Mesh(new THREE.PlaneGeometry(22, 2.2), pathMaterial);
     path.rotation.x = -Math.PI / 2;
-    path.position.set(5.5, -0.292, -1.7);
+    path.position.set(5.5, GRADE_Y + 0.006, -1.7);
     path.receiveShadow = true;
     path.name = 'path';
     this.floorGroup.add(path);
@@ -230,12 +230,12 @@ export class FenceScene {
     [[-2.5, 3.5], [11.5, 4.8], [4, 8]].forEach(([x, z], index) => {
       const shrub = new THREE.Group();
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.7, 10), trunkMaterial);
-      trunk.position.y = 0.04;
+      trunk.position.y = GRADE_Y + 0.35;
       trunk.castShadow = true;
       shrub.add(trunk);
       const crown = new THREE.Mesh(new THREE.SphereGeometry(0.62 + index * 0.08, 14, 10), leafMaterial);
       crown.scale.y = 1.2;
-      crown.position.y = 0.72;
+      crown.position.y = GRADE_Y + 0.82;
       crown.castShadow = true;
       shrub.add(crown);
       shrub.position.set(x, 0, z);
