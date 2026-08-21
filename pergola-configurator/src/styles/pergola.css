@@ -3325,3 +3325,18 @@ button.pergola-grid__pole:hover {
     height: 25px;
   }
 }
+
+/* The common top bar is mounted by shared-ui outside #app. Pergola previously
+   rendered its own header as the first grid row inside .app-shell. After moving
+   that header to shared-ui, the configurator layout was still auto-placed into
+   the old 52px header row, collapsing the 3D viewport and settings panel. Keep
+   a top-bar-sized spacer row for the fixed shared header and explicitly place
+   the actual configurator in the remaining row. */
+body.shared-ui-mounted #app .app-shell {
+  grid-template-rows: var(--shared-topbar-height, 47px) minmax(0, 1fr);
+}
+
+body.shared-ui-mounted #app .configurator-layout {
+  grid-row: 2;
+  min-height: 0;
+}
