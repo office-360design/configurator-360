@@ -6,6 +6,8 @@ const PANEL_THICKNESS = 0.045;
 const CLEARANCE = 0.07;
 export const GRADE_Y = 0;
 const BASE_PLATE_HEIGHT = 0.018;
+const CONCRETE_FOOTING_HEIGHT = 0.32;
+const CONCRETE_POST_EMBED_Y = 0.04;
 
 export function buildFenceAssembly(state) {
   const metrics = deriveFenceMetrics(state);
@@ -38,7 +40,7 @@ export function buildFenceAssembly(state) {
     const postTop = state.height + 0.04;
     const postBottom = state.foundation === 'baseplate'
       ? GRADE_Y + BASE_PLATE_HEIGHT
-      : GRADE_Y - 0.02;
+      : GRADE_Y + CONCRETE_POST_EMBED_Y;
     const postHeight = postTop - postBottom;
     const post = boxMesh(POST_SIZE, postHeight, POST_SIZE, finishMaterial, point.x, postBottom + postHeight / 2, point.z);
     post.name = 'post';
@@ -52,8 +54,11 @@ export function buildFenceAssembly(state) {
       fenceGroup.add(plate);
       addAnchorBolts(fenceGroup, point, darkMaterial);
     } else {
-      const footing = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.32, 18), footingMaterial);
-      footing.position.set(point.x, GRADE_Y - 0.14, point.z);
+      const footing = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, CONCRETE_FOOTING_HEIGHT, 18), footingMaterial);
+      // The scenery grade is now y=0. Keep the concrete pedestal fully above
+      // grade (as it appeared before the base-plate grounding change) instead
+      // of leaving most of it buried below the ground plane.
+      footing.position.set(point.x, GRADE_Y + CONCRETE_FOOTING_HEIGHT / 2, point.z);
       footing.name = 'concrete-footing';
       markFence(footing);
       fenceGroup.add(footing);

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=2';
+import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=3';
 
 export class FenceScene {
   constructor(host) {
