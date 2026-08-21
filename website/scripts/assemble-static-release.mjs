@@ -15,7 +15,8 @@ const localizedOrigins = {
   de: "https://www.360konfigurator.de",
 };
 
-const configuratorSlugs = ["pergola", "roof", "window", "hall", "solar"];
+const marketingConfiguratorSlugs = ["pergola", "roof", "window", "hall", "solar"];
+const externalConfiguratorSlugs = [...marketingConfiguratorSlugs, "fence"];
 
 const externalConfiguratorPaths = {
   en: {
@@ -24,6 +25,7 @@ const externalConfiguratorPaths = {
     roof: "/roof-configurator/",
     solar: "/solar-configurator/",
     hall: "/hall-configurator/",
+    fence: "/fence-configurator/",
   },
   ro: {
     window: "/configurator-ferestre/",
@@ -31,6 +33,7 @@ const externalConfiguratorPaths = {
     roof: "/configurator-acoperis/",
     solar: "/configurator-solar/",
     hall: "/configurator-hala/",
+    fence: "/configurator-garduri/",
   },
   de: {
     window: "/fenster-konfigurator/",
@@ -38,6 +41,7 @@ const externalConfiguratorPaths = {
     roof: "/dach-konfigurator/",
     solar: "/solar-konfigurator/",
     hall: "/hallen-konfigurator/",
+    fence: "/zaun-konfigurator/",
   },
 };
 
@@ -56,8 +60,8 @@ function sitemapUrls(locale) {
     `${origin}/`,
     `${origin}/about`,
     `${origin}/contact`,
-    ...configuratorSlugs.map((slug) => `${origin}/configurators/${slug}`),
-    ...configuratorSlugs.map((slug) => `${origin}${externalConfiguratorPaths[locale][slug]}`),
+    ...marketingConfiguratorSlugs.map((slug) => `${origin}/configurators/${slug}`),
+    ...externalConfiguratorSlugs.map((slug) => `${origin}${externalConfiguratorPaths[locale][slug]}`),
   ];
 }
 
@@ -96,7 +100,7 @@ const manifest = {
   localizedOrigins,
   websiteRoutes: pageRoutes,
   sitemaps: Object.fromEntries(Object.entries(localizedOrigins).map(([locale, origin]) => [locale, `${origin}/sitemap.xml`])),
-  externalConfigurators: Object.fromEntries(configuratorSlugs.map((slug) => [
+  externalConfigurators: Object.fromEntries(externalConfiguratorSlugs.map((slug) => [
     slug,
     Object.fromEntries(Object.entries(localizedOrigins).map(([locale, origin]) => [locale, `${origin}${externalConfiguratorPaths[locale][slug]}`])),
   ])),

@@ -2559,6 +2559,76 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
             && dividerEndsStaySquare,
         'A horizontal fixed mullion/transom above a trans pair must remain one flat continuation across the trans endpoint.'
     );
+
+    // Regression: when a trans endpoint lands exactly where the horizontal
+    // structural line changes from outer frame to mullion, that mixed pair is
+    // NOT a pass-through. It is a real frame/mullion CAD joint. Squaring it as
+    // a trans pass-through removes the V/miter connection and leaves the white
+    // triangular opening seen in an L/stair-style layout.
+    let transAtFrameMullionState = normalizeWindowState({
+        windows: [
+            sashCell('mixed-bottom-left', 0, 0, 1, 1),
+            sashCell('mixed-bottom-right', 1, 0, 2, 1),
+            sashCell('mixed-top-right', 1, 1, 2, 2),
+        ],
+    });
+    transAtFrameMullionState = setTransBetweenWindowsInState(transAtFrameMullionState, {
+        cellAId: 'mixed-bottom-left',
+        cellBId: 'mixed-bottom-right',
+        enabled: true,
+    });
+    const transAtFrameMullionGeometry = getEditableWindowTopologyGeometry({
+        width: 1.2,
+        height: 1.5,
+        topology: deriveWindowTopology(transAtFrameMullionState),
+        frameReplacementSpan: 0.075,
+        dividerFaceSpan: 0.088,
+        transConnection: {
+            openingSashTransBoundariesMm: { left: -12, right: 12 },
+        },
+    });
+    const mixedTrans = transAtFrameMullionGeometry.transSegments[0];
+    const mixedEndpoint = transAtFrameMullionGeometry.physicalIntersections.find(junction => (
+        Math.abs(junction.x - mixedTrans.perpendicularOffset) < 1e-9
+        && Math.abs(junction.y - mixedTrans.worldEnd) < 1e-9
+    ));
+    const mixedDividerEndpoint = mixedEndpoint?.endpoints?.[0] || null;
+    const mixedDivider = transAtFrameMullionGeometry.dividerSegments.find(
+        divider => divider.id === mixedDividerEndpoint?.dividerId
+    );
+    const mixedDividerPlacement = mixedDivider && getEditableDividerSegmentPlacement({
+        segment: mixedDivider,
+        junctions: transAtFrameMullionGeometry.physicalIntersections,
+        dividerFaceSpan: 0.088,
+        frameJointInwardSpan: 0.065,
+    });
+    const mixedDividerEndMode = mixedDividerEndpoint?.atStart
+        ? mixedDividerPlacement?.joint?.negativeEndMode
+        : mixedDividerPlacement?.joint?.positiveEndMode;
+    const mixedDividerFrameSpan = mixedDividerEndpoint?.atStart
+        ? mixedDividerPlacement?.joint?.negativeFrameInwardSpan
+        : mixedDividerPlacement?.joint?.positiveFrameInwardSpan;
+    const transEndpointFiller = transAtFrameMullionGeometry.reentrantFillers.find(filler => (
+        Math.abs(filler.apexX - mixedTrans.perpendicularOffset) < 1e-9
+        && Math.abs(filler.apexY - mixedTrans.worldEnd) < 1e-9
+    ));
+
+    assert(
+        mixedEndpoint
+            && mixedEndpoint.type === 'T'
+            && mixedEndpoint.frameCount === 2
+            && mixedEndpoint.dividerCount === 1
+            && !mixedEndpoint.isTransPassThrough,
+        'A trans endpoint on a frame/mullion type change must remain the real mixed T junction formed by the fixed members.'
+    );
+    assert(
+        mixedDividerEndMode === 'arrow'
+            && mixedDividerFrameSpan > 0
+            && transEndpointFiller
+            && transEndpointFiller.sourceDividerId === mixedDivider?.id
+            && transEndpointFiller.direction === 'south',
+        'A mixed frame/mullion junction above a floating trans must restore the fixed half-mullion V filler while leaving the trans itself non-structural.'
+    );
 }
 
 // Regression: L with bottom-left fixed and the two top opening sashes merged.

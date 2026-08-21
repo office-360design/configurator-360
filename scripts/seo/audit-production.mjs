@@ -16,6 +16,7 @@ const HOSTS = {
       roof: '/roof-configurator/',
       hall: '/hall-configurator/',
       solar: '/solar-configurator/',
+      fence: '/fence-configurator/',
     },
   },
   ro: {
@@ -28,6 +29,7 @@ const HOSTS = {
       roof: '/configurator-acoperis/',
       hall: '/configurator-hala/',
       solar: '/configurator-solar/',
+      fence: '/configurator-garduri/',
     },
   },
   de: {
@@ -40,12 +42,14 @@ const HOSTS = {
       roof: '/dach-konfigurator/',
       hall: '/hallen-konfigurator/',
       solar: '/solar-konfigurator/',
+      fence: '/zaun-konfigurator/',
     },
   },
 };
 
-const PRODUCTS = ['window', 'pergola', 'roof', 'hall', 'solar'];
-const MARKETING_PATHS = ['/', '/about', '/contact', ...PRODUCTS.map((product) => `/configurators/${product}`)];
+const MARKETING_PRODUCTS = ['window', 'pergola', 'roof', 'hall', 'solar'];
+const APP_PRODUCTS = [...MARKETING_PRODUCTS, 'fence'];
+const MARKETING_PATHS = ['/', '/about', '/contact', ...MARKETING_PRODUCTS.map((product) => `/configurators/${product}`)];
 
 const args = new Set(process.argv.slice(2));
 const HEADED = args.has('--headed');
@@ -84,7 +88,7 @@ function expectedPages() {
       });
     }
 
-    for (const product of PRODUCTS) {
+    for (const product of APP_PRODUCTS) {
       const pathname = host.appPaths[product];
       pages.push({
         locale,

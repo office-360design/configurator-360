@@ -29,7 +29,9 @@ export class RoofScene {
     this.camera.position.set(-13, 10, -15);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.compactViewport = window.innerWidth <= 760 || (window.innerWidth <= 900 && window.innerHeight <= 520);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.compactViewport ? 1.5 : 2));
+    this.renderer.domElement.style.touchAction = 'none';
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -81,7 +83,8 @@ export class RoofScene {
     this.keyLight = new THREE.DirectionalLight(0xffffff, 4.2);
     this.keyLight.position.set(-9, 14, 8);
     this.keyLight.castShadow = true;
-    this.keyLight.shadow.mapSize.set(2048, 2048);
+    const shadowMapSize = this.compactViewport ? 1024 : 2048;
+    this.keyLight.shadow.mapSize.set(shadowMapSize, shadowMapSize);
     this.keyLight.shadow.camera.left = -25;
     this.keyLight.shadow.camera.right = 25;
     this.keyLight.shadow.camera.top = 25;
@@ -325,6 +328,11 @@ export class RoofScene {
   resize() {
     const width = Math.max(1, this.host.clientWidth);
     const height = Math.max(1, this.host.clientHeight);
+    const compactViewport = window.innerWidth <= 760 || (window.innerWidth <= 900 && window.innerHeight <= 520);
+    const targetPixelRatio = Math.min(window.devicePixelRatio, compactViewport ? 1.5 : 2);
+    if (Math.abs(this.renderer.getPixelRatio() - targetPixelRatio) > 0.01) {
+      this.renderer.setPixelRatio(targetPixelRatio);
+    }
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);

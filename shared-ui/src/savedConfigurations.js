@@ -3,7 +3,7 @@ import { getFirebaseIdToken } from './firebaseAuth.js?v=13';
 const FUNCTIONS_REGION = 'europe-west1';
 const PROJECT_ID = 'configurator-360';
 const MAX_NAME_LENGTH = 80;
-const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar']);
+const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence']);
 
 function normalizeProductType(value) {
   const product = String(value || '').trim().toLowerCase();

@@ -791,13 +791,13 @@ body.shared-ui-dark-mode { background: #0f172a !important; }
   }
 }
 
-
 /* Account-scoped project state -------------------------------------------- */
 .shared-ui-host .project-name-shell.is-guest .project-name-input,
 .shared-ui-host .project-name-input[readonly] {
   color: #7f8a92;
   cursor: default;
 }
+
 .shared-ui-host .project-name-shell.is-guest .project-name-input:hover,
 .shared-ui-host .project-name-shell.is-guest .project-name-input:focus {
   border-color: transparent;
@@ -805,23 +805,96 @@ body.shared-ui-dark-mode { background: #0f172a !important; }
   box-shadow: none;
   outline: none;
 }
+
 .shared-ui-host.is-dark-mode .project-name-shell.is-guest .project-name-input,
-.shared-ui-host.is-dark-mode .project-name-input[readonly] { color: #8794a3; }
+.shared-ui-host.is-dark-mode .project-name-input[readonly] {
+  color: #8794a3;
+}
+
 
 /* Saved configurations: compact header + animated three-slot bin --------- */
-.saved-configurations__header-copy { padding-right: 44px; }
+.saved-configurations__header-copy {
+  padding-right: 44px;
+}
+
 .saved-configurations__header-actions,
-.saved-configurations__new { display: none !important; }
+.saved-configurations__new {
+  display: none !important;
+}
 
 .saved-configurations__delete {
   background: #fff;
 }
+
 .saved-configurations__delete .trash-hover-icon {
   width: 19px;
   height: 19px;
 }
+
 .saved-configurations__delete .trash-hover-icon > path:not(:first-of-type),
 .saved-configurations__delete .trash-hover-icon__lid path {
   fill: none;
 }
-.shared-ui-host.is-dark-mode .saved-configurations__delete { background: #242f3b; }
+
+.shared-ui-host.is-dark-mode .saved-configurations__delete {
+  background: #242f3b;
+}
+
+
+/* Shared top bar responsiveness -------------------------------------------
+   Disabled configurator-specific capabilities may be hidden on small screens,
+   but Save and New configuration stay visible when disabled for guest users. */
+@media (max-width: 760px) {
+  .shared-ui-host
+    .topbar-icon-button:disabled:not([data-action="save"]):not([data-action="new-configuration"]) {
+    display: none;
+  }
+
+  .shared-ui-host .topbar-icon-button {
+    touch-action: manipulation;
+  }
+
+  .shared-ui-host .site-header__actions {
+    min-width: 0;
+    gap: 1px;
+  }
+}
+
+@media (max-width: 480px) {
+  .shared-ui-host .site-header {
+    grid-template-columns: minmax(72px, 1fr) auto;
+    column-gap: 4px;
+    padding: 0 6px;
+  }
+
+  .shared-ui-host .project-name-shell {
+    display: none;
+  }
+
+  .shared-ui-host .brand img {
+    width: 78px;
+  }
+
+  .shared-ui-host .topbar-icon-button {
+    width: 29px;
+    height: 29px;
+  }
+}
+
+@media (max-width: 360px) {
+  .shared-ui-host .brand img {
+    width: 68px;
+  }
+
+  .shared-ui-host .topbar-icon-button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .shared-ui-host .topbar-icon-button > svg,
+  .shared-ui-host .topbar-icon-button .save-icon svg,
+  .shared-ui-host .topbar-icon-button .share-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+}

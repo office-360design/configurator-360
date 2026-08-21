@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Configure a modular fence online in 3D. Adjust layout, dimensions, panels, finishes, gates and installation options in real time." />
+  <meta name="robots" content="index, follow" />
+  <title>3D Fence Configurator | 360Configurator</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=13" />
+  <link rel="stylesheet" href="./styles.css?v=2" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import { applyConfiguratorSeo } from '../shared-ui/src/configuratorSeo.js';
+    applyConfiguratorSeo('fence');
+  </script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="viewer-panel" aria-label="Fence 3D viewer" data-fence-i18n-aria-label="viewer.aria">
+      <div class="viewer-stage">
+        <div id="canvasHost" aria-label="Interactive 3D fence model" data-fence-i18n-aria-label="viewer.canvasAria"></div>
+      </div>
+    </section>
+
+    <aside class="sidebar shared-settings-panel shared-settings-panel--light" aria-label="Fence settings" data-fence-i18n-aria-label="sidebar.aria">
+      <section class="panel-section intro-section">
+        <p class="eyebrow" data-fence-i18n="sidebar.eyebrow">Outdoor boundaries</p>
+        <h1 data-fence-i18n="sidebar.title">Fence settings</h1>
+        <p class="section-copy" data-fence-i18n="sidebar.copy">Configure the fence layout, bay system, infill, finish, gates and installation from one panel.</p>
+      </section>
+
+      <section class="accordion-section is-open" data-accordion="layout">
+        <button class="accordion-toggle" type="button" aria-expanded="true">
+          <span data-fence-i18n="section.layout">Layout & dimensions</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="accordion-panel">
+          <span class="field-label" data-fence-i18n="layout.type">Fence layout</span>
+          <div class="choice-grid layout-grid">
+            <button type="button" class="choice-card selected" data-layout="straight" aria-pressed="true">
+              <svg viewBox="0 0 76 42" aria-hidden="true"><path d="M8 29h60M10 13v22M66 13v22M38 13v22"/></svg>
+              <span data-fence-i18n="layout.straight">Straight run</span>
+            </button>
+            <button type="button" class="choice-card" data-layout="l" aria-pressed="false">
+              <svg viewBox="0 0 76 42" aria-hidden="true"><path d="M10 13v20h54M10 13v22M36 26v9M64 26v9"/></svg>
+              <span data-fence-i18n="layout.l">L-shaped</span>
+            </button>
+            <button type="button" class="choice-card" data-layout="u" aria-pressed="false">
+              <svg viewBox="0 0 76 42" aria-hidden="true"><path d="M10 9v25h54V9M10 34h54M37 26v8"/></svg>
+              <span data-fence-i18n="layout.u">U-shaped</span>
+            </button>
+          </div>
+
+          <div class="control-list top-gap">
+            <label class="range-control" data-control="runA">
+              <span class="control-label"><b data-fence-i18n="dimension.runA">Run A</b><output>8.0 m</output></span>
+              <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
+            </label>
+            <label class="range-control" id="runBControl" data-control="runB" hidden>
+              <span class="control-label"><b data-fence-i18n="dimension.runB">Run B</b><output>5.0 m</output></span>
+              <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
+            </label>
+            <label class="range-control" id="runCControl" data-control="runC" hidden>
+              <span class="control-label"><b data-fence-i18n="dimension.runC">Run C</b><output>5.0 m</output></span>
+              <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
+            </label>
+            <label class="range-control" data-control="height">
+              <span class="control-label"><b data-fence-i18n="dimension.height">Fence height</b><output>1.80 m</output></span>
+              <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
+            </label>
+            <label class="range-control" data-control="targetBayWidth">
+              <span class="control-label"><b data-fence-i18n="dimension.bayWidth">Target bay width</b><output>2.00 m</output></span>
+              <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
+            </label>
+          </div>
+          <div class="info-card"><span data-fence-i18n="dimension.baySystem">Bay system</span><strong id="bayInfo">4 bays · 2.0 m average bay</strong></div>
+        </div>
+      </section>
+
+      <section class="accordion-section" data-accordion="panels">
+        <button class="accordion-toggle" type="button" aria-expanded="false">
+          <span data-fence-i18n="section.panels">Panels & finish</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="accordion-panel" hidden>
+          <span class="field-label" data-fence-i18n="panel.style">Panel system</span>
+          <div class="choice-grid panel-grid">
+            <button type="button" class="choice-card selected" data-panel-style="vertical" aria-pressed="true"><span class="panel-preview preview-vertical"></span><span data-fence-i18n="panel.vertical">Vertical slats</span></button>
+            <button type="button" class="choice-card" data-panel-style="horizontal" aria-pressed="false"><span class="panel-preview preview-horizontal"></span><span data-fence-i18n="panel.horizontal">Horizontal slats</span></button>
+            <button type="button" class="choice-card" data-panel-style="privacy" aria-pressed="false"><span class="panel-preview preview-privacy"></span><span data-fence-i18n="panel.privacy">Solid privacy</span></button>
+            <button type="button" class="choice-card" data-panel-style="mesh" aria-pressed="false"><span class="panel-preview preview-mesh"></span><span data-fence-i18n="panel.mesh">Welded mesh</span></button>
+          </div>
+
+          <label class="range-control top-gap" id="gapControl" data-control="infillGap">
+            <span class="control-label"><b data-fence-i18n="panel.gap">Slat gap</b><output>35 mm</output></span>
+            <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
+          </label>
+
+          <span class="field-label top-gap" data-fence-i18n="finish.label">Finish</span>
+          <div class="finish-row">
+            <button class="finish-swatch selected" type="button" data-finish="anthracite" style="--swatch:#343a40"><i></i><span data-fence-i18n="finish.anthracite">Anthracite</span></button>
+            <button class="finish-swatch" type="button" data-finish="black" style="--swatch:#181b1e"><i></i><span data-fence-i18n="finish.black">Black</span></button>
+            <button class="finish-swatch" type="button" data-finish="white" style="--swatch:#e7e7e2"><i></i><span data-fence-i18n="finish.white">Traffic white</span></button>
+            <button class="finish-swatch" type="button" data-finish="bronze" style="--swatch:#5e5145"><i></i><span data-fence-i18n="finish.bronze">Bronze grey</span></button>
+            <button class="finish-swatch" type="button" data-finish="wood" style="--swatch:#9b6539"><i></i><span data-fence-i18n="finish.wood">Wood tone</span></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="accordion-section" data-accordion="access">
+        <button class="accordion-toggle" type="button" aria-expanded="false">
+          <span data-fence-i18n="section.access">Access & installation</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="accordion-panel" hidden>
+          <label class="field-label" for="gateType" data-fence-i18n="gate.type">Gate</label>
+          <select id="gateType">
+            <option value="none" data-fence-i18n="gate.none">No gate</option>
+            <option value="pedestrian" selected data-fence-i18n="gate.pedestrian">Pedestrian gate</option>
+            <option value="driveway" data-fence-i18n="gate.driveway">Double driveway gate</option>
+          </select>
+
+          <div id="gateOptions" class="gate-options">
+            <label class="field-label" for="gateRun" data-fence-i18n="gate.run">Gate run</label>
+            <select id="gateRun"><option value="a">A</option><option value="b">B</option><option value="c">C</option></select>
+            <label class="range-control compact-control">
+              <span class="control-label"><b data-fence-i18n="gate.position">Gate bay position</b><output id="gatePositionValue">Bay 2</output></span>
+              <span class="range-row range-row--single"><input id="gatePosition" type="range" min="0" max="3" step="1" value="1" /></span>
+            </label>
+            <div id="gateHandingWrap">
+              <label class="field-label" for="gateHanding" data-fence-i18n="gate.handing">Pedestrian gate handing</label>
+              <select id="gateHanding"><option value="left" data-fence-i18n="gate.left">Hinges left</option><option value="right" selected data-fence-i18n="gate.right">Hinges right</option></select>
+            </div>
+          </div>
+
+          <label class="field-label top-gap" for="foundationType" data-fence-i18n="foundation.label">Post foundation</label>
+          <select id="foundationType"><option value="concrete" selected data-fence-i18n="foundation.concrete">Concrete footings</option><option value="baseplate" data-fence-i18n="foundation.baseplate">Base plates & anchors</option></select>
+        </div>
+      </section>
+
+      <section class="accordion-section" data-accordion="display">
+        <button class="accordion-toggle" type="button" aria-expanded="false">
+          <span data-fence-i18n="section.display">Model display</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="accordion-panel" hidden>
+          <label class="toggle-row">
+            <span><b data-fence-i18n="display.scenery">Context scenery</b><small data-fence-i18n="display.sceneryHelp">Show ground, path and landscaping for scale</small></span>
+            <input id="sceneryToggle" type="checkbox" checked /><i></i>
+          </label>
+        </div>
+      </section>
+
+      <section class="accordion-section summary-section" data-accordion="summary">
+        <button class="accordion-toggle" type="button" aria-expanded="false">
+          <span data-fence-i18n="section.summary">Summary & pricing</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="accordion-panel" hidden>
+          <div class="summary-total-card"><span data-fence-i18n="summary.totalLabel">Indicative configured total</span><strong id="summaryTotal">—</strong><small data-fence-i18n="summary.totalHelp">Demo estimate before taxes. Final engineering, site survey and quotation required.</small></div>
+          <div class="summary-price-breakdown" id="summaryPriceBreakdown"></div>
+          <div class="summary-metrics" id="summaryMetrics"></div>
+          <div class="summary-bom-preview"><div class="summary-subheading"><b data-fence-i18n="summary.bom">Bill of materials</b><span id="headerBomSummary">—</span></div><div id="summaryBomList" class="summary-bom-list"></div></div>
+          <div class="summary-actions"><button type="button" class="secondary-action" id="bomExportInlineButton" data-fence-i18n="summary.export">Export BOM CSV</button><button type="button" class="primary-action" id="bomOpenButton" data-fence-i18n="summary.fullBom">Full bill of materials</button></div>
+        </div>
+      </section>
+    </aside>
+
+    <button id="fenceSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide fence settings" aria-expanded="true" title="Hide fence settings" data-fence-i18n-aria-label="sidebar.hide" data-fence-i18n-title="sidebar.hide">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+  </main>
+
+  <section class="environment-panel" id="environmentPanel" hidden aria-label="Light and orientation controls">
+    <div class="environment-panel__header"><strong data-fence-i18n="environment.title">Light & orientation</strong><button id="environmentClose" type="button" aria-label="Close" data-fence-i18n-aria-label="bom.close">×</button></div>
+    <label class="environment-control"><span><b data-fence-i18n="environment.sun">Sun position</b><output id="sunPositionValue">48%</output></span><input id="sunPositionControl" type="range" min="0" max="100" step="1" value="48" /></label>
+    <label class="environment-control"><span><b data-fence-i18n="environment.north">North direction</b><output id="northDirectionValue">0°</output></span><input id="northDirectionControl" type="range" min="0" max="359" step="1" value="0" /></label>
+    <label class="toggle-row environment-toggle"><span><b data-fence-i18n="environment.night">Night preview</b><small data-fence-i18n="environment.nightHelp">Switch to a low-light architectural preview</small></span><input id="nightPreviewToggle" type="checkbox" /><i></i></label>
+  </section>
+
+  <dialog class="bom-panel" id="bomPanel">
+    <header class="bom-header"><div><h2 data-fence-i18n="bom.title">Fence bill of materials</h2><p data-fence-i18n="bom.copy">Indicative quantities generated from the current fence geometry.</p></div><button class="bom-close" id="bomClose" type="button" aria-label="Close" data-fence-i18n-aria-label="bom.close">×</button></header>
+    <div class="bom-scroll-region">
+      <div class="bom-disclaimer" data-fence-i18n="bom.disclaimer">Commercial preview only. Foundations, wind loading, local regulations and site conditions require project-specific verification.</div>
+      <div class="bom-table-wrap"><table class="bom-table"><thead><tr><th data-fence-i18n="bom.item">Item</th><th data-fence-i18n="bom.quantity">Quantity</th><th data-fence-i18n="bom.unit">Unit</th><th data-fence-i18n="bom.unitPrice">Unit price</th><th data-fence-i18n="bom.total">Total</th></tr></thead><tbody id="bomTableBody"></tbody></table></div>
+      <div class="bom-total-row"><span data-fence-i18n="summary.totalLabel">Indicative configured total</span><strong id="bomDialogTotal">—</strong></div>
+    </div>
+    <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportDialogButton" data-fence-i18n="summary.export">Export BOM CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-fence-i18n="bom.done">Done</button></footer>
+  </dialog>
+
+  <script type="module" src="./js/sharedShell.js?v=2"></script>
+  <script type="module" src="./js/app.js?v=5"></script>
+</body>
+</html>
