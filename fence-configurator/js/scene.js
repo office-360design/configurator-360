@@ -284,13 +284,19 @@ function lineBetween(a, b, material) {
 
 function clearGroup(group) {
   while (group.children.length) {
-    const child = group.children.pop();
+    const child = group.children[group.children.length - 1];
+    // Use Object3D.remove() instead of mutating children directly. CSS2DObject
+    // listens for the `removed` event to detach its DOM node from CSS2DRenderer.
+    group.remove(child);
     disposeObject(child);
   }
 }
 
 function disposeObject(object) {
   object.traverse?.((child) => {
+    // Keep this explicit as well so stale dimension labels cannot survive a
+    // rebuild even if the CSS2DRenderer implementation changes.
+    if (child.isCSS2DObject) child.element?.remove?.();
     child.geometry?.dispose?.();
     if (Array.isArray(child.material)) child.material.forEach((material) => material?.dispose?.());
     else child.material?.dispose?.();
