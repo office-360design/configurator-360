@@ -718,7 +718,7 @@ select { padding: 0 11px; }
 /* Roof implementation of the opt-in shared viewport tools. */
 .shared-ui-host .roof-relocated-tools-toolbar {
   position: fixed !important;
-  top: var(--roof-tools-top, 0) !important;
+  top: max(var(--roof-tools-top, 0px), calc(var(--shared-topbar-height, 47px) + 12px)) !important;
   left: var(--roof-tools-left, 0) !important;
   right: auto !important;
   bottom: auto !important;
