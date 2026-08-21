@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=14';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=15';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=12';
 import { getLocalizedConfiguratorUrl } from '../../../shared-ui/src/config.js';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
