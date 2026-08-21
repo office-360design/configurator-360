@@ -773,6 +773,12 @@
   }
 }
 
+/* The shared top bar overlays the viewport. Keep the desktop Tools launcher
+   below it rather than inheriting pergola.css's old viewport-relative 16px top. */
+.shared-ui-host .tools-toolbar {
+  top: calc(var(--shared-topbar-height, 47px) + 16px);
+}
+
 /* Mobile pergola workspace --------------------------------------------------
    Keep the 3D scene as the primary surface. The settings panel stays in the
    unified floating-panel style, but starts off-canvas on phones and retains a
