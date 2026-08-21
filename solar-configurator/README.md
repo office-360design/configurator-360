@@ -64,9 +64,7 @@ This is an estimator, not an engineering yield guarantee. With Phase 3 configure
 
 Phase 3 adds live exact-site PVGIS 5.3 calculations for an exact map location. Each active roof plane is queried separately with its own installed kWp, pitch and geographic azimuth; Front / Back / Both therefore keep their actual orientations. The twelve monthly PVGIS production values replace the regional seasonal approximation, while `printhorizon` supplies the high terrain-horizon profile used by both the selected-day energy curve and the 3D sun preview.
 
-The European Commission PVGIS API does not permit browser AJAX access, so a static GitHub Pages page cannot call it directly. A small ready-to-deploy Netlify Function project is included under `pvgis-proxy-netlify/`. The previous Cloudflare Worker is kept under `pvgis-proxy/` only as an optional alternative. Until a proxy URL is configured, the app automatically keeps using the regional PVGIS-calibrated fallback.
-
-Deploy the Netlify proxy, then paste its function URL into **Tools → Location & environment → PVGIS exact-site model → PVGIS proxy settings**. The URL is stored locally in the browser; it can also be supplied through `window.SOLAR_PVGIS_PROXY_ENDPOINT`.
+The European Commission PVGIS API does not permit browser AJAX access, so the production configurator uses the same Google Cloud backend as the Google Solar integration. The default same-origin endpoint is `/api/solar/pvgis`, routed by the external Application Load Balancer to the `solar-google-api` Cloud Run service. The legacy Netlify and Cloudflare relays remain only as rollback alternatives. Until a working proxy is available, the app automatically keeps using the regional PVGIS-calibrated fallback.
 
 The current PVGIS request assumes modern crystalline-silicon modules, 14% general system losses, and a ventilated/free-standing mounting model. That mounting choice matches the configurator's roof-mounted panels with an air gap better than PVGIS's fully building-integrated/no-airflow case.
 
@@ -90,7 +88,7 @@ The configurator now supports an exact Romanian installation location, real cale
 - **Date / seasons:** Any date can be selected. Spring, summer, autumn and winter presets use the equinox/solstice reference dates in the selected year.
 - **Daily energy curve:** Hourly panel incidence uses the real solar position for the selected coordinates/date and each selected roof plane. A geometry-based seasonal factor redistributes the annual regional yield across the selected day.
 - **Shadows:** The visible Three.js sun and directional light follow the calculated sun vector. Real night is automatic when the sun is below the horizon; `Force night preview` remains available as a visual override.
-- **Current production limitation:** Annual yield is still calibrated from the nearest regional reference unless a PVGIS proxy is configured. When mapped buildings are loaded, the optional nearby-building shading model can subtract approximate local obstruction losses from either the regional fallback or the live PVGIS baseline.
+- **Current production behavior:** Exact locations use the same-origin Cloud Run PVGIS proxy by default. If that endpoint is unavailable, annual yield falls back to the nearest regional reference. When mapped buildings are loaded, the optional nearby-building shading model can subtract approximate local obstruction losses from either the regional fallback or the live PVGIS baseline.
 
 
 ## Phase 2 geographic environment
@@ -140,25 +138,15 @@ Phase 3 replaces the broad regional annual-yield approximation with live JRC PVG
 
 ### Deploying the required proxy
 
-PVGIS does not allow direct browser AJAX access, so GitHub Pages still needs a tiny server-side relay. The recommended implementation is now a Netlify Function project in `pvgis-proxy-netlify/`.
-
-```bash
-npm install -g netlify-cli
-cd solar-configurator/pvgis-proxy-netlify
-netlify login
-netlify deploy            # first run: choose an existing site or create a new one
-netlify deploy --prod
-```
-
-The endpoint to paste into **Tools → Location & environment → PVGIS exact-site model → PVGIS proxy settings** is:
+PVGIS requests use the Cloud Run backend at:
 
 ```text
-https://YOUR-SITE.netlify.app/.netlify/functions/pvgis
+/api/solar/pvgis
 ```
 
-The URL is stored in the current browser. You can alternatively set `window.SOLAR_PVGIS_PROXY_ENDPOINT` before `js/app.js` loads. For local testing, run `netlify dev` in `pvgis-proxy-netlify/` and use `http://localhost:8888/.netlify/functions/pvgis`.
+The handler is read-only, whitelists only `PVcalc` and `printhorizon`, validates coordinates, retries temporary PVGIS overload/rate-limit responses, and caches successful responses in Cloud Storage plus per-instance memory. `PVcalc` entries are retained for 1 day and horizon entries for 7 days. The existing cache bucket lifecycle remains the final cleanup guard.
 
-The proxy is read-only, whitelists only `PVcalc` and `printhorizon`, validates coordinates, caches successful PVGIS responses at Netlify's CDN, and briefly retries rate-limit/overload responses. The old Cloudflare implementation remains in `pvgis-proxy/` as an optional alternative.
+The load balancer must route `/api/solar/pvgis` (and optionally `/api/solar/pvgis/*`) to `solar-google-api-backend`. The legacy Netlify relay under `pvgis-proxy-netlify/` is kept only for rollback. You can still override `window.SOLAR_PVGIS_PROXY_ENDPOINT` before `js/app.js` loads for local testing or emergency rollback.
 
 The PVGIS high-horizon model represents terrain/topographic obstruction. Nearby OSM buildings are now handled separately in the browser as an approximate local-obstruction correction on top of the PVGIS baseline. This keeps distant terrain and local structures from being conflated. Mapped trees remain visual-only because OSM tree coverage and crown geometry are too incomplete for a defensible energy correction.
 
@@ -181,7 +169,7 @@ Paid Google Solar traffic now uses the same-origin endpoint:
 
 That path is routed by the existing external Application Load Balancer to the separate `solar-google-api` Cloud Run service. The browser never receives the Google Solar API key.
 
-The legacy Netlify Google Solar function remains in `pvgis-proxy-netlify/` only as a temporary rollback path. The PVGIS relay remains unchanged and can continue using Netlify independently.
+The legacy Netlify Google Solar and PVGIS functions remain in `pvgis-proxy-netlify/` only as temporary rollback paths. Production traffic for both APIs is intended to use the Cloud Run backend.
 
 ### Public-demo security model
 

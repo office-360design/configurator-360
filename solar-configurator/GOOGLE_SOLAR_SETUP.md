@@ -1,18 +1,18 @@
-# Google Solar API setup — Google Cloud Run
+# Solar API setup — Google Cloud Run
 
-The Solar configurator now sends paid Google Solar requests to the same-origin
-Google Cloud endpoint:
+The Solar configurator now sends Google Solar and PVGIS requests to same-origin
+Google Cloud endpoints:
 
 ```text
 /api/solar/google-solar
+/api/solar/pvgis
 ```
 
 The browser never receives the Google Solar API key. The backend runs as the
 separate Cloud Run service `solar-google-api` and is intended to be reachable
 only through the existing external Application Load Balancer.
 
-The old Netlify Google Solar function remains in `pvgis-proxy-netlify/` only as
-an emergency rollback path. PVGIS itself is unchanged by this migration.
+The old Netlify Google Solar and PVGIS functions remain in `pvgis-proxy-netlify/` only as emergency rollback paths.
 
 ## 1. Enable Google Solar API and create backend resources
 
@@ -101,9 +101,11 @@ path matcher already serving the 360Configurator production hosts:
 ```text
 /api/solar/google-solar
 /api/solar/google-solar/*
+/api/solar/pvgis
+/api/solar/pvgis/*
 ```
 
-Both must route to the global backend service `solar-google-api-backend`.
+All four path rules must route to the global backend service `solar-google-api-backend`.
 Do not replace the existing website path matcher or host rules.
 
 Google Cloud Application Load Balancers route paths to backend services through
@@ -115,6 +117,7 @@ After the URL-map change propagates:
 
 ```bash
 curl -sS 'https://www.360configurator.com/api/solar/google-solar?action=health'
+curl -sS 'https://www.360configurator.com/api/solar/pvgis?tool=health'
 ```
 
 Expected shape:
@@ -192,6 +195,8 @@ locally, override it before the configurator loads:
 ```js
 window.SOLAR_GOOGLE_SOLAR_ENDPOINT =
   'http://localhost:8080/api/solar/google-solar';
+window.SOLAR_PVGIS_PROXY_ENDPOINT =
+  'http://localhost:8080/api/solar/pvgis';
 ```
 
 Then:
@@ -217,8 +222,9 @@ Cloud Run migration needs to be rolled back temporarily, set:
 ```js
 window.SOLAR_GOOGLE_SOLAR_ENDPOINT =
   'https://pvgis-proxy.netlify.app/.netlify/functions/google-solar';
+window.SOLAR_PVGIS_PROXY_ENDPOINT =
+  'https://pvgis-proxy.netlify.app/.netlify/functions/pvgis';
 ```
 
-Once the Cloud Run path has been stable in production, the legacy Google Solar
-Netlify function and its Blob cache can be retired separately. Do not remove the
-PVGIS Netlify function as part of this migration.
+Once both Cloud Run paths have been stable in production, the legacy Google Solar
+and PVGIS Netlify functions can be retired.

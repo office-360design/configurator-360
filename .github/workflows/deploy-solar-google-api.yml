@@ -1,4 +1,4 @@
-name: Deploy Google Solar API to Cloud Run
+name: Deploy Solar API backend to Cloud Run
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate Google Solar service source
+      - name: Validate Solar API service source
         run: npm run check --prefix solar-google-api
 
       - name: Authenticate to Google Cloud
@@ -88,10 +88,11 @@ jobs:
       - name: Deployment summary
         shell: bash
         run: |
-          echo '## Google Solar Cloud Run deployment' >> "$GITHUB_STEP_SUMMARY"
+          echo '## Solar API Cloud Run deployment' >> "$GITHUB_STEP_SUMMARY"
           echo '' >> "$GITHUB_STEP_SUMMARY"
           echo "Service: ${CLOUD_RUN_SERVICE}" >> "$GITHUB_STEP_SUMMARY"
           echo "Region: ${GCP_REGION}" >> "$GITHUB_STEP_SUMMARY"
           echo '' >> "$GITHUB_STEP_SUMMARY"
           echo 'Public route after the serverless NEG/backend is attached to the existing URL map:' >> "$GITHUB_STEP_SUMMARY"
           echo 'https://www.360configurator.com/api/solar/google-solar?action=health' >> "$GITHUB_STEP_SUMMARY"
+          echo 'https://www.360configurator.com/api/solar/pvgis?tool=health' >> "$GITHUB_STEP_SUMMARY"
