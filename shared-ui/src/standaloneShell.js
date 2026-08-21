@@ -119,7 +119,7 @@ export class StandaloneConfiguratorShell {
   }
 
   bindEvents() {
-    this.host.addEventListener('click', (event) => this.handleClick(event));
+    this.host.addEventListener('click', (event) => { void this.handleClick(event); });
     this.host.addEventListener('input', (event) => this.handleInput(event));
     this.host.addEventListener('change', (event) => this.handleChange(event));
 
@@ -205,7 +205,7 @@ export class StandaloneConfiguratorShell {
     } catch (error) {
       if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
         console.error('Google login failed.', error);
-        this.showFeedback(sharedT(this.state.locale, 'feedback.loginUnavailable'));
+        this.showFeedback(sharedT(this.state.locale, 'feedback.loginUnavailable'), 'error');
       }
     } finally {
       this.authBusy = false;
@@ -229,7 +229,7 @@ export class StandaloneConfiguratorShell {
     }
   }
 
-  handleClick(event) {
+  async handleClick(event) {
     const actionTarget = event.target.closest('[data-action]');
     if (!actionTarget) return;
     const action = actionTarget.dataset.action;
@@ -274,7 +274,17 @@ export class StandaloneConfiguratorShell {
         const targetUrl = getLocalizedConfiguratorUrl(nextLocale, this.options.productType, window.location);
         const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
         if (targetUrl && nextLocale !== this.state.locale && !isLocalDevelopmentHost) {
-          window.location.assign(targetUrl);
+          let resolvedTarget = targetUrl;
+          if (this.options.callbacks.getLocalizedUrl) {
+            try {
+              resolvedTarget = await this.options.callbacks.getLocalizedUrl(nextLocale, targetUrl) || targetUrl;
+            } catch (error) {
+              console.error('Configuration could not be preserved during the language switch.', error);
+              this.showFeedback(sharedT(this.state.locale, 'feedback.languageSwitchUnavailable'), 'error');
+              return;
+            }
+          }
+          window.location.assign(resolvedTarget);
           return;
         }
         const localeChanged = nextLocale !== this.state.locale;
@@ -301,6 +311,12 @@ export class StandaloneConfiguratorShell {
       this.options.callbacks.onAccountAction?.('cookies');
     } else if (action === 'account-signout') {
       this.logoutFromGoogle();
+    } else if (actionTarget.dataset.toolId) {
+      this.options.callbacks.onToolAction?.({
+        action,
+        toolId: actionTarget.dataset.toolId,
+        target: actionTarget,
+      });
     }
   }
 
@@ -349,7 +365,7 @@ export class StandaloneConfiguratorShell {
       url = await Promise.resolve(this.options.callbacks.getShareUrl?.() || window.location.href);
     } catch (error) {
       console.error('Share link could not be created.', error);
-      this.showFeedback(sharedT(this.state.locale, 'feedback.shareUnavailable'));
+      this.showFeedback(sharedT(this.state.locale, 'feedback.shareUnavailable'), 'error');
       return;
     }
 
@@ -373,11 +389,12 @@ export class StandaloneConfiguratorShell {
     window.setTimeout(() => button.classList.remove('is-success'), 1050);
   }
 
-  showFeedback(message) {
+  showFeedback(message, type = 'success') {
     window.clearTimeout(this.feedbackTimer);
-    this.feedback.classList.remove('is-success', 'is-animating');
+    const feedbackType = type === 'error' ? 'is-error' : 'is-success';
+    this.feedback.classList.remove('is-success', 'is-error', 'is-animating');
     void this.feedback.offsetWidth;
-    this.feedback.classList.add('is-success', 'is-animating');
+    this.feedback.classList.add(feedbackType, 'is-animating');
     this.feedbackText.textContent = message;
     this.feedbackTimer = window.setTimeout(() => this.feedback.classList.remove('is-animating'), 1050);
   }
@@ -469,6 +486,46 @@ export class StandaloneConfiguratorShell {
     syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: this.authBusy });
   }
 
+
+  setPreference(name, value, { persist = false } = {}) {
+    if (!Object.prototype.hasOwnProperty.call(this.state, name)) return;
+    if (this.state[name] === value) return;
+    this.state[name] = value;
+    if (persist) this.persistPreferences();
+    this.sync();
+  }
+
+  setActionEnabled(action, enabled) {
+    const button = this.host.querySelector(`[data-action="${String(action)}"]`);
+    if (!button) return;
+    button.disabled = !enabled;
+    button.setAttribute('aria-disabled', String(!enabled));
+  }
+
+  setToolState(toolId, { active = null, disabled = null, title = null } = {}) {
+    const button = this.host.querySelector(`[data-tool-id="${String(toolId)}"]`);
+    if (!button) return;
+    if (active !== null) {
+      button.classList.toggle('is-active', Boolean(active));
+      button.setAttribute('aria-pressed', String(Boolean(active)));
+    }
+    if (disabled !== null) {
+      button.disabled = Boolean(disabled);
+      button.setAttribute('aria-disabled', String(Boolean(disabled)));
+    }
+    if (title) {
+      button.title = String(title);
+      button.setAttribute('aria-label', String(title));
+    }
+  }
+
+  setToolActive(toolId, active) {
+    this.setToolState(toolId, { active });
+  }
+
+  setToolDisabled(toolId, disabled) {
+    this.setToolState(toolId, { disabled });
+  }
 
   syncTools() {
     const toolbar = this.host.querySelector('.tools-toolbar');
