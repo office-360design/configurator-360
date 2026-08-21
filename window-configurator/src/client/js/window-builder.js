@@ -68,7 +68,7 @@ export function createWindowBuilder({
     updateComponentPictures,
     getFinishState,
     getSelectedHandleSide,
-    onGlassClick = () => {},
+    onGlassClick = () => { },
     isProfileEnabled = () => true,
     canPlaceProfileOnSide = () => true,
     getWindowLayoutState = () => ({
@@ -1101,7 +1101,7 @@ export function createWindowBuilder({
 
     function shouldRenderMullionAccessory(profile, cellSide, dividerOrientation, dividerIndex, layoutCellTypes, segmentId = null, isTLayout = false) {
         if (!dividerOrientation) return true;
-        
+
         let sideCellType = null;
         if (isTLayout) {
             if (dividerOrientation === 'vertical') {
@@ -2645,7 +2645,8 @@ export function createWindowBuilder({
                     };
                     const mesh = createDividerSegment(
                         placedProfile,
-                        ownerCell.height,
+                        // temporary fix to make the trans mullion smaller
+                        ownerCell.height - 0.08,
                         'vertical',
                         transBounds,
                         transDepthOffset,
