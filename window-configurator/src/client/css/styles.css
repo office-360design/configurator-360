@@ -1507,54 +1507,55 @@ body.capture-mode #component-selection-popup,
     user-select: text;
     -webkit-user-select: text;
 }
-/* Catalog-driven frame and sash profile selection */
+/* Catalog-driven frame, sash, mullion and trans profile selection */
 .profile-selection-group {
     padding-bottom: 14px;
 }
 
 .profile-selection-toolbar {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-}
-
-.profile-selection-toolbar > .square-toggle-btn {
-    flex: 0 0 auto;
-    margin-top: 20px;
-}
-
-.profile-selection-fields {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    min-width: 0;
+}
+
+/* Keep both square actions on the same baseline as the CAD assembly select.
+   The label lives only above the middle column. */
+.profile-selection-primary-row {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    align-items: end;
+    gap: 10px;
+    min-width: 0;
+}
+
+.profile-cad-field,
+.profile-selection-field {
+    display: grid;
     gap: 5px;
     min-width: 0;
-    flex: 1;
 }
 
+.profile-cad-field label,
 .profile-selection-fields label {
-    margin-top: 4px;
+    margin: 0;
     font-size: 11px;
     color: #64748b;
 }
 
+.profile-cad-field select,
 .profile-selection-fields select {
     width: 100%;
+    min-width: 0;
     margin: 0;
 }
 
-.profile-variant-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.profile-variant-row select {
-    flex: 1;
+/* The profile rows span the entire menu width underneath the two square
+   buttons: frame + sash on the first row, mullion + trans on the second. */
+.profile-selection-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
     min-width: 0;
-}
-
-.profile-variant-row #cad-reference-button {
-    flex: 0 0 auto;
 }
 
 /* Accessory selection */
@@ -1634,14 +1635,16 @@ body.capture-mode #component-selection-popup,
 }
 
 .divider-profile-field {
-    display: contents;
+    display: grid;
 }
 
-.divider-profile-field.is-disabled label {
+.divider-profile-field.is-disabled label,
+.trans-profile-field.is-disabled label {
     opacity: 0.45;
 }
 
-.divider-profile-field select:disabled {
+.divider-profile-field select:disabled,
+.trans-profile-field select:disabled {
     cursor: not-allowed;
     opacity: 0.5;
 }
