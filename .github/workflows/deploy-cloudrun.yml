@@ -119,6 +119,9 @@ jobs:
           mkdir -p dist/site/hall-configurator
           cp -R hall-configurator/. dist/site/hall-configurator/
 
+          mkdir -p dist/site/fence-configurator
+          cp -R fence-configurator/. dist/site/fence-configurator/
+
       - name: Verify static site
         shell: bash
         run: |
@@ -130,6 +133,7 @@ jobs:
           test -f dist/site/roof-configurator/index.html
           test -f dist/site/solar-configurator/index.html
           test -f dist/site/hall-configurator/index.html
+          test -f dist/site/fence-configurator/index.html
           test -d dist/site/shared-ui
 
       # ------------------------------------------------------------
@@ -217,6 +221,7 @@ jobs:
           curl -fsSL --retry 5 "${SERVICE_URL}/roof-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/solar-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/hall-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/fence-configurator/" > /dev/null
       
           echo "All production routes responded successfully."
 

@@ -13,7 +13,7 @@ from the repository root; see the pergola configurator's `vite.config.js`.
 ## Standalone/static configurators
 
 `mountStandaloneConfiguratorShell()` mounts the same shared navigation, account, language,
-feedback and tools shell for every configurator. Window, Roof, Hall, Solar and Pergola all
+feedback and tools shell for every configurator. Window, Roof, Hall, Solar, Pergola and Fence all
 use this shell; only product-specific callbacks and scene/control logic remain inside each
 configurator folder.
 
@@ -40,7 +40,7 @@ product state and rebuild logic are configurator-specific.
 
 ## Configurator SEO helper
 
-`src/configuratorSeo.js` supplies lightweight, domain-aware SEO metadata for the five standalone configurator applications. It derives the locale from the hostname and sets the document language, localized title and description, `index, follow`, self-canonical URL, Open Graph basics, and reciprocal EN/RO/DE `hreflang` links.
+`src/configuratorSeo.js` supplies lightweight, domain-aware SEO metadata for the standalone configurator applications. It derives the locale from the hostname and sets the document language, localized title and description, `index, follow`, self-canonical URL, Open Graph basics, and reciprocal EN/RO/DE `hreflang` links.
 
 The marketing website remains the richer SEO surface. The standalone configurators stay indexable, but use this helper for a smaller, product-focused SEO identity.
 
@@ -53,7 +53,7 @@ The public reCAPTCHA Enterprise site key is configured in `firebase-app-check.js
 
 ## Google account login
 
-The shared account menu uses Firebase Authentication with the Google provider. Guests are shown as `Hello, guest`; successful Google sign-in replaces the greeting with the Google account display name. Authentication is owned entirely by the shared shell and is therefore identical across Window, Roof, Hall, Solar and Pergola through the same Firebase Web App used by App Check. Configurators do not implement their own account/login state.
+The shared account menu uses Firebase Authentication with the Google provider. Guests are shown as `Hello, guest`; successful Google sign-in replaces the greeting with the Google account display name. Authentication is owned entirely by the shared shell and is therefore identical across Window, Roof, Hall, Solar, Pergola and Fence through the same Firebase Web App used by App Check. Configurators do not implement their own account/login state.
 
 Firebase Console setup required: enable **Authentication → Sign-in method → Google** and add every production hostname to **Authentication → Settings → Authorized domains**.
 
@@ -67,6 +67,6 @@ menu, feedback UI or shared tool interaction lifecycle. Those remain in `shared-
 
 ## Saved configurations
 
-The shared shell owns account-based configuration saving for every configurator. The top-bar **Save** button captures the product-specific state through the configurator adapter and stores it under the signed-in Firebase/Google user. **Saved configurations** in the account menu opens the same shared modal in Window, Roof, Hall, Solar and Pergola.
+The shared shell owns account-based configuration saving for every configurator. The top-bar **Save** button captures the product-specific state through the configurator adapter and stores it under the signed-in Firebase/Google user. **Saved configurations** in the account menu opens the same shared modal in Window, Roof, Hall, Solar, Pergola and Fence.
 
 Configurator adapters only provide `productId`, `captureState()` and `restoreState()`; they do not implement their own saved-project UI or storage. Saving account data uses Firebase Authentication but intentionally does not initialize or refresh App Check, so reCAPTCHA assessments remain exclusive to the **Share** action.
