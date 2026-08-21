@@ -7,7 +7,11 @@ const CLEARANCE = 0.07;
 export const GRADE_Y = 0;
 const BASE_PLATE_HEIGHT = 0.018;
 const CONCRETE_FOOTING_HEIGHT = 0.32;
-const CONCRETE_POST_EMBED_Y = 0.04;
+// Only a small pedestal remains above finished grade. The rest of the
+// concrete footing is buried so it cannot intersect the lower fence/gate
+// rails while still remaining visibly supported.
+const CONCRETE_EXPOSED_HEIGHT = 0.065;
+const CONCRETE_POST_EMBED_DEPTH = 0.16;
 
 export function buildFenceAssembly(state) {
   const metrics = deriveFenceMetrics(state);
@@ -40,7 +44,7 @@ export function buildFenceAssembly(state) {
     const postTop = state.height + 0.04;
     const postBottom = state.foundation === 'baseplate'
       ? GRADE_Y + BASE_PLATE_HEIGHT
-      : GRADE_Y + CONCRETE_POST_EMBED_Y;
+      : GRADE_Y - CONCRETE_POST_EMBED_DEPTH;
     const postHeight = postTop - postBottom;
     const post = boxMesh(POST_SIZE, postHeight, POST_SIZE, finishMaterial, point.x, postBottom + postHeight / 2, point.z);
     post.name = 'post';
@@ -55,10 +59,11 @@ export function buildFenceAssembly(state) {
       addAnchorBolts(fenceGroup, point, darkMaterial);
     } else {
       const footing = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, CONCRETE_FOOTING_HEIGHT, 18), footingMaterial);
-      // The scenery grade is now y=0. Keep the concrete pedestal fully above
-      // grade (as it appeared before the base-plate grounding change) instead
-      // of leaving most of it buried below the ground plane.
-      footing.position.set(point.x, GRADE_Y + CONCRETE_FOOTING_HEIGHT / 2, point.z);
+      // Keep only a short concrete pedestal above grade. The footing is still
+      // full-depth, but most of it is buried; this prevents the wide tapered
+      // concrete from intersecting the bottom rail, slats, or gate frame.
+      const footingCenterY = GRADE_Y + CONCRETE_EXPOSED_HEIGHT - CONCRETE_FOOTING_HEIGHT / 2;
+      footing.position.set(point.x, footingCenterY, point.z);
       footing.name = 'concrete-footing';
       markFence(footing);
       fenceGroup.add(footing);
