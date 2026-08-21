@@ -45,7 +45,7 @@ The default estimate is illustrative only. Roof complexity, cable routes, protec
 
 ## Important PVGIS browser limitation
 
-The JRC PVGIS API documentation states that access via AJAX is not allowed and requests from browser front ends are rejected by its CORS policy. For this reason the static configurator does not pretend to make a browser-direct PVGIS request. It uses the local model immediately and uses a small server-side proxy for exact calculations; the recommended deployment is a Netlify Function so the main configurator can remain on GitHub Pages.
+The JRC PVGIS API documentation states that access via AJAX is not allowed and requests from browser front ends are rejected by its CORS policy. For this reason the configurator does not make a browser-direct PVGIS request. It uses the local model immediately and sends exact calculations through the same-origin `/api/solar/pvgis` route on the Google Cloud Run Solar backend. The legacy Netlify function remains only as a rollback option.
 
 
 ## Phase 2 geographic context sources
