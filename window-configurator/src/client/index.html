@@ -71,7 +71,8 @@
                             </path>
                             <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                             <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                            <line x1="2" y1="12" x2="22" y2="12" stroke="#ef4444" stroke-dasharray="3,3" stroke-width="2.5">
+                            <line x1="2" y1="12" x2="22" y2="12" stroke="#ef4444" stroke-dasharray="3,3"
+                                stroke-width="2.5">
                             </line>
                         </svg>
                     </button>
@@ -86,9 +87,8 @@
 
                     <button id="cad-reference-button" type="button" aria-label="CAD Section Reference"
                         title="CAD Section Reference" disabled>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                            stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                             <circle cx="8.5" cy="8.5" r="1.5"></circle>
                             <polyline points="21 15 16 10 5 21"></polyline>
@@ -138,7 +138,7 @@
                     </div>
 
                     <div class="profile-selection-field trans-profile-field is-disabled">
-                        <label for="transProfile">Trans</label>
+                        <label for="transProfile">Double vent profile</label>
                         <select id="transProfile" disabled>
                             <option value="575820" selected>575820</option>
                             <option value="575830">575830</option>
@@ -247,9 +247,9 @@
             <select id="accessoryPreset" aria-label="Accessory preset"></select>
             <div id="accessoryPresetDescription" class="accessory-preset-description"></div>
             <div id="accessoryOptions" class="accessory-options"></div>
-            <div class="accessory-availability-note">
+            <!-- <div class="accessory-availability-note">
                 Disabled entries do not have usable geometry in the current CAD assembly.
-            </div>
+            </div> -->
         </div>
 
         <details class="clean-dropdown">
