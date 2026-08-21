@@ -4014,100 +4014,106 @@ export function createWindowBuilder({
                 const defaultRot = document.getElementById('mBatant').checked
                     ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
                     : (isLeftHandle ? Math.PI : -Math.PI);
-                const leverGroup = new THREE.Group();
-                leverGroup.rotation.z = (
-                    cellIndex === 0
-                    && !isMultiOpening
-                    && !selectedHandleSideChanged
-                    && Number.isFinite(previousPrimaryHandleRotationZ)
-                )
-                    ? previousPrimaryHandleRotationZ
-                    : (selectedHandleSideChanged ? 0 : defaultRot);
-                if (cellIndex === 0) handleLeverGroup = leverGroup;
+                let leverGroup = null;
 
-                const handleBase = new THREE.Group();
-                const plateShape = createRoundedRectShape(0.04, 0.1, 0.027);
-                const plateGeo = new THREE.ExtrudeGeometry(plateShape, {
-                    depth: 0.005,
-                    bevelEnabled: false,
-                    curveSegments: 20
-                });
-                plateGeo.translate(0, 0, -0.007);
-                const plate = new THREE.Mesh(plateGeo, handleMat);
-                plate.castShadow = !captureMode;
-                plate.receiveShadow = !captureMode;
-                plate.userData.windowHandleCellId = cell.id;
-                handleHitMeshes.push(plate);
-                handleBase.add(plate);
+                if (!ownedTransSegment) {
+                    leverGroup = new THREE.Group();
+                    leverGroup.rotation.z = (
+                        cellIndex === 0
+                        && !isMultiOpening
+                        && !selectedHandleSideChanged
+                        && Number.isFinite(previousPrimaryHandleRotationZ)
+                    )
+                        ? previousPrimaryHandleRotationZ
+                        : (selectedHandleSideChanged ? 0 : defaultRot);
+                    if (cellIndex === 0) handleLeverGroup = leverGroup;
 
-                const neckShape = new THREE.Shape();
-                neckShape.lineTo(0, 0.01);
-                let centerX = 0;
-                let centerY = 0;
-                let radius = 0.01;
-                let segments = 32;
-                for (let i = 1; i <= segments; i++) {
-                    const angle = (i / segments) * Math.PI * 2;
-                    neckShape.lineTo(
-                        centerX + Math.sin(angle) * radius,
-                        centerY + Math.cos(angle) * radius
-                    );
+                    const handleBase = new THREE.Group();
+                    const plateShape = createRoundedRectShape(0.04, 0.1, 0.027);
+                    const plateGeo = new THREE.ExtrudeGeometry(plateShape, {
+                        depth: 0.005,
+                        bevelEnabled: false,
+                        curveSegments: 20
+                    });
+                    plateGeo.translate(0, 0, -0.007);
+                    const plate = new THREE.Mesh(plateGeo, handleMat);
+                    plate.castShadow = !captureMode;
+                    plate.receiveShadow = !captureMode;
+                    plate.userData.windowHandleCellId = cell.id;
+                    handleHitMeshes.push(plate);
+                    handleBase.add(plate);
+
+                    const neckShape = new THREE.Shape();
+                    neckShape.lineTo(0, 0.01);
+                    let centerX = 0;
+                    let centerY = 0;
+                    let radius = 0.01;
+                    let segments = 32;
+                    for (let i = 1; i <= segments; i++) {
+                        const angle = (i / segments) * Math.PI * 2;
+                        neckShape.lineTo(
+                            centerX + Math.sin(angle) * radius,
+                            centerY + Math.cos(angle) * radius
+                        );
+                    }
+                    const neckGeo = new THREE.ExtrudeGeometry(neckShape, {
+                        depth: 0.014,
+                        bevelEnabled: false,
+                        curveSegments: 24
+                    });
+                    neckGeo.center();
+                    neckGeo.translate(0, 0, -0.001);
+                    const neck = new THREE.Mesh(neckGeo, handleMat);
+                    neck.position.set(0, 0, 0.006);
+                    neck.castShadow = !captureMode;
+                    neck.receiveShadow = !captureMode;
+                    neck.userData.windowHandleCellId = cell.id;
+                    handleHitMeshes.push(neck);
+                    handleBase.add(neck);
+
+                    const leverShape = new THREE.Shape();
+                    leverShape.moveTo(-0.01, 0.055);
+                    centerX = 0;
+                    centerY = 0.055;
+                    radius = 0.01;
+                    segments = 16;
+                    for (let i = 1; i <= segments; i++) {
+                        const angle = 3 * Math.PI / 2 + (i / segments) * Math.PI;
+                        leverShape.lineTo(
+                            centerX + Math.sin(angle) * radius,
+                            centerY + Math.cos(angle) * radius
+                        );
+                    }
+                    leverShape.lineTo(0.01, -0.055);
+                    leverShape.lineTo(-0.01, -0.055);
+                    leverShape.lineTo(-0.01, 0.055);
+                    const leverGeo = new THREE.ExtrudeGeometry(leverShape, {
+                        depth: 0.012,
+                        bevelEnabled: false,
+                        curveSegments: 24
+                    });
+                    leverGeo.center();
+                    leverGeo.translate(0, -0.050, 0.018);
+                    const lever = new THREE.Mesh(leverGeo, handleMat);
+                    lever.castShadow = !captureMode;
+                    lever.receiveShadow = !captureMode;
+                    lever.userData.windowHandleCellId = cell.id;
+                    handleHitMeshes.push(lever);
+                    leverGroup.add(lever);
+                    handleBase.add(leverGroup);
+
+                    const sashInteriorZ = (sashMaxX - currentMetadata.globalCenterX) * S;
+                    const handleInwardShift = 0.01;
+                    const handleLocalX = isLeftHandle
+                        ? -cell.width / 2 + leftInset - 0.04 + handleInwardShift
+                        : cell.width / 2 - rightInset + 0.04 - handleInwardShift;
+                    const handleX = cell.centerX + handleLocalX;
+                    handleBase.position.set(handleX, cell.centerY, sashInteriorZ + 0.0075);
+                    registerExplode(handleBase, isLeftHandle ? -0.26 : 0.26, 0, 0.9);
+                    targetSashGroup.add(handleBase);
+                } else {
+                    if (cellIndex === 0) handleLeverGroup = null;
                 }
-                const neckGeo = new THREE.ExtrudeGeometry(neckShape, {
-                    depth: 0.014,
-                    bevelEnabled: false,
-                    curveSegments: 24
-                });
-                neckGeo.center();
-                neckGeo.translate(0, 0, -0.001);
-                const neck = new THREE.Mesh(neckGeo, handleMat);
-                neck.position.set(0, 0, 0.006);
-                neck.castShadow = !captureMode;
-                neck.receiveShadow = !captureMode;
-                neck.userData.windowHandleCellId = cell.id;
-                handleHitMeshes.push(neck);
-                handleBase.add(neck);
-
-                const leverShape = new THREE.Shape();
-                leverShape.moveTo(-0.01, 0.055);
-                centerX = 0;
-                centerY = 0.055;
-                radius = 0.01;
-                segments = 16;
-                for (let i = 1; i <= segments; i++) {
-                    const angle = 3 * Math.PI / 2 + (i / segments) * Math.PI;
-                    leverShape.lineTo(
-                        centerX + Math.sin(angle) * radius,
-                        centerY + Math.cos(angle) * radius
-                    );
-                }
-                leverShape.lineTo(0.01, -0.055);
-                leverShape.lineTo(-0.01, -0.055);
-                leverShape.lineTo(-0.01, 0.055);
-                const leverGeo = new THREE.ExtrudeGeometry(leverShape, {
-                    depth: 0.012,
-                    bevelEnabled: false,
-                    curveSegments: 24
-                });
-                leverGeo.center();
-                leverGeo.translate(0, -0.050, 0.018);
-                const lever = new THREE.Mesh(leverGeo, handleMat);
-                lever.castShadow = !captureMode;
-                lever.receiveShadow = !captureMode;
-                lever.userData.windowHandleCellId = cell.id;
-                handleHitMeshes.push(lever);
-                leverGroup.add(lever);
-                handleBase.add(leverGroup);
-
-                const sashInteriorZ = (sashMaxX - currentMetadata.globalCenterX) * S;
-                const handleInwardShift = 0.01;
-                const handleLocalX = isLeftHandle
-                    ? -cell.width / 2 + leftInset - 0.04 + handleInwardShift
-                    : cell.width / 2 - rightInset + 0.04 - handleInwardShift;
-                const handleX = cell.centerX + handleLocalX;
-                handleBase.position.set(handleX, cell.centerY, sashInteriorZ + 0.0075);
-                registerExplode(handleBase, isLeftHandle ? -0.26 : 0.26, 0, 0.9);
-                targetSashGroup.add(handleBase);
 
                 const hingeX = cell.centerX + (
                     isLeftHandle ? (cell.width / 2 - 0.04) : (-cell.width / 2 + 0.04)
@@ -4127,13 +4133,16 @@ export function createWindowBuilder({
                 sashWrapper.position.set(-hingeX, 0, -hingeZ);
                 sashWrapper.add(targetSashGroup);
                 cellPivotBatant.add(sashWrapper);
-                sashPoseAssemblies.push({
-                    pivotOscilo: cellPivotOscilo,
-                    pivotBatant: cellPivotBatant,
-                    handleLeverGroup: leverGroup,
-                    isLeftHandle,
-                    cellId: cell.id,
-                });
+
+                if (!ownedTransSegment) {
+                    sashPoseAssemblies.push({
+                        pivotOscilo: cellPivotOscilo,
+                        pivotBatant: cellPivotBatant,
+                        handleLeverGroup: leverGroup,
+                        isLeftHandle,
+                        cellId: cell.id,
+                    });
+                }
             });
 
             lastBuiltHandleSide = isMultiOpening ? null : selectedHandleSide;
