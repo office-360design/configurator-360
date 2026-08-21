@@ -73,6 +73,65 @@ function normalizeRectangles(windows) {
     }));
 }
 
+function normalizeMergeGuides(value, bounds) {
+    const raw = Array.isArray(value) ? value : [];
+    const seen = new Set();
+    const normalized = [];
+
+    raw.forEach(guide => {
+        const orientation = guide?.orientation === 'vertical'
+            ? 'vertical'
+            : (guide?.orientation === 'horizontal' ? 'horizontal' : null);
+        if (!orientation) return;
+
+        const coordinate = finite(guide?.coordinate, NaN);
+        const start = finite(guide?.start, NaN);
+        const end = finite(guide?.end, NaN);
+        if (![coordinate, start, end].every(Number.isFinite) || end <= start + EPSILON) return;
+
+        const restoreCells = Array.isArray(guide?.restoreCells)
+            ? guide.restoreCells.slice(0, 2).map((cell, index) => {
+                const rect = cloneRect(cell?.rect);
+                return {
+                    id: String(cell?.id || `restore-${index + 1}`),
+                    type: normalizeType(cell?.type),
+                    handleSide: normalizeHandleSide(cell?.handleSide),
+                    rect: {
+                        x0: rect.x0 - bounds.x0,
+                        y0: rect.y0 - bounds.y0,
+                        x1: rect.x1 - bounds.x0,
+                        y1: rect.y1 - bounds.y0,
+                    },
+                };
+            }).filter(cell => (
+                cell.rect.x1 > cell.rect.x0 + EPSILON
+                && cell.rect.y1 > cell.rect.y0 + EPSILON
+            ))
+            : [];
+        const shifted = orientation === 'vertical'
+            ? {
+                orientation,
+                coordinate: coordinate - bounds.x0,
+                start: start - bounds.y0,
+                end: end - bounds.y0,
+                ...(restoreCells.length === 2 ? { restoreCells } : {}),
+            }
+            : {
+                orientation,
+                coordinate: coordinate - bounds.y0,
+                start: start - bounds.x0,
+                end: end - bounds.x0,
+                ...(restoreCells.length === 2 ? { restoreCells } : {}),
+            };
+        const key = `${orientation}:${topologyCoordinateKey(shifted.coordinate)}:${topologyCoordinateKey(shifted.start)}:${topologyCoordinateKey(shifted.end)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        normalized.push(shifted);
+    });
+
+    return normalized;
+}
+
 function makeCell(id, type, rect, handleSide = null) {
     return {
         id: String(id),
@@ -100,6 +159,7 @@ export function createSingleWindowState({
         dividerProfileId: String(dividerProfileId || '575800'),
         transProfileId: String(transProfileId || DEFAULT_TRANS_PROFILE_ID),
         transConnections: Object.freeze([]),
+        mergeGuides: Object.freeze([]),
         windows: Object.freeze([
             Object.freeze(makeCell('w1', type, { x0: 0, y0: 0, x1: 1, y1: 1 }, handleSide)),
         ]),
@@ -128,7 +188,9 @@ export function normalizeWindowState(value, { dividerProfileId = '575800', trans
         });
     }
 
+    const bounds = stateBounds(windows);
     const normalized = normalizeRectangles(windows);
+    const mergeGuides = normalizeMergeGuides(source.mergeGuides, bounds);
     const ids = new Set();
     normalized.forEach(cell => {
         if (ids.has(cell.id)) throw new Error(`Duplicate window id ${cell.id}.`);
@@ -155,6 +217,17 @@ export function normalizeWindowState(value, { dividerProfileId = '575800', trans
         dividerProfileId: String(source.dividerProfileId || dividerProfileId || '575800'),
         transProfileId: String(source.transProfileId || transProfileId || DEFAULT_TRANS_PROFILE_ID),
         transConnections: Object.freeze(transConnections.map(connection => Object.freeze({ ...connection }))),
+        mergeGuides: Object.freeze(mergeGuides.map(guide => Object.freeze({
+            ...guide,
+            ...(Array.isArray(guide.restoreCells)
+                ? {
+                    restoreCells: Object.freeze(guide.restoreCells.map(cell => Object.freeze({
+                        ...cell,
+                        rect: Object.freeze({ ...cell.rect }),
+                    }))),
+                }
+                : {}),
+        }))),
         windows: Object.freeze(normalized.map(cell => Object.freeze({
             ...cell,
             rect: Object.freeze({ ...cell.rect }),
@@ -382,6 +455,7 @@ export function addWindowToState(stateValue, {
         dividerProfileId: state.dividerProfileId,
         transProfileId: state.transProfileId,
         transConnections: state.transConnections,
+        mergeGuides: state.mergeGuides,
         windows,
     });
 }
@@ -404,6 +478,8 @@ function sharedBoundary(a, b) {
     }
     return null;
 }
+
+
 
 export function resolveDividerConnection(cellAType, cellBType) {
     const a = normalizeType(cellAType);
@@ -551,8 +627,22 @@ export function setTransBetweenWindowsInState(stateValue, {
         ownerCellId: resolvedOwner,
     };
 
+    // A trans pair is a double-sash arrangement: the handles face the shared
+    // trans mullion. Do this only when the T control is enabled; ordinary
+    // neighbouring sashes keep whatever opening side the user selected.
+    const windows = state.windows.map(cell => {
+        if (cell.id === boundary.negativeCellId) {
+            return { ...cell, handleSide: 'right' };
+        }
+        if (cell.id === boundary.positiveCellId) {
+            return { ...cell, handleSide: 'left' };
+        }
+        return cell;
+    });
+
     return normalizeWindowState({
         ...state,
+        windows,
         transConnections: [...state.transConnections, connection],
     });
 }
@@ -711,6 +801,41 @@ function deriveGridLinePieces(state) {
     return Object.freeze(pieces);
 }
 
+function splitFrameEdgeForAddCandidates(state, edge) {
+    const breaks = [edge.start, edge.end];
+
+    (state.mergeGuides || []).forEach(guide => {
+        if (edge.orientation === 'horizontal' && guide.orientation === 'vertical') {
+            const reachesEdge = nearlyEqual(guide.start, edge.coordinate)
+                || nearlyEqual(guide.end, edge.coordinate);
+            if (reachesEdge && guide.coordinate > edge.start + EPSILON && guide.coordinate < edge.end - EPSILON) {
+                breaks.push(guide.coordinate);
+            }
+            return;
+        }
+
+        if (edge.orientation === 'vertical' && guide.orientation === 'horizontal') {
+            const reachesEdge = nearlyEqual(guide.start, edge.coordinate)
+                || nearlyEqual(guide.end, edge.coordinate);
+            if (reachesEdge && guide.coordinate > edge.start + EPSILON && guide.coordinate < edge.end - EPSILON) {
+                breaks.push(guide.coordinate);
+            }
+        }
+    });
+
+    const sorted = [...new Set(breaks.map(value => topologyCoordinateKey(value)))]
+        .map(Number)
+        .sort((a, b) => a - b);
+    const pieces = [];
+    for (let index = 0; index + 1 < sorted.length; index += 1) {
+        const start = sorted[index];
+        const end = sorted[index + 1];
+        if (end <= start + EPSILON) continue;
+        pieces.push({ start, end });
+    }
+    return pieces;
+}
+
 export function deriveWindowTopology(stateValue) {
     const state = normalizeWindowState(stateValue);
     const linePieces = deriveGridLinePieces(state);
@@ -766,16 +891,17 @@ export function deriveWindowTopology(stateValue) {
 
     const addCandidates = state.windows.length >= MAX_WINDOW_CELLS
         ? []
-        : frameEdges.map(edge => Object.freeze({
-            id: `add-${edge.id}`,
+        : frameEdges.flatMap(edge => splitFrameEdgeForAddCandidates(state, edge).map((piece, index) => Object.freeze({
+            id: `add-${edge.id}-${topologyCoordinateKey(piece.start)}-${topologyCoordinateKey(piece.end)}`,
             frameEdgeId: edge.id,
             cellId: edge.cellId,
             direction: edge.side,
             side: edge.side,
             coordinate: edge.coordinate,
-            start: edge.start,
-            end: edge.end,
-        }));
+            start: piece.start,
+            end: piece.end,
+            segmentIndex: index,
+        })));
 
     return Object.freeze({
         version: WINDOW_STATE_VERSION,
@@ -787,10 +913,41 @@ export function deriveWindowTopology(stateValue) {
         frameEdges: Object.freeze(frameEdges),
         dividers: Object.freeze(dividers),
         transSegments: Object.freeze(transSegments),
+        mergeGuides: state.mergeGuides,
         addCandidates: Object.freeze(addCandidates),
         mergeCandidates: Object.freeze(mergeCandidates),
         transCandidates: Object.freeze(transCandidates),
     });
+}
+
+function mergeGuideSplitsCell(cell, guide) {
+    if (!cell || !guide) return false;
+    if (guide.orientation === 'vertical') {
+        return guide.coordinate > cell.rect.x0 + EPSILON
+            && guide.coordinate < cell.rect.x1 - EPSILON
+            && nearlyEqual(guide.start, cell.rect.y0)
+            && nearlyEqual(guide.end, cell.rect.y1);
+    }
+    if (guide.orientation === 'horizontal') {
+        return guide.coordinate > cell.rect.y0 + EPSILON
+            && guide.coordinate < cell.rect.y1 - EPSILON
+            && nearlyEqual(guide.start, cell.rect.x0)
+            && nearlyEqual(guide.end, cell.rect.x1);
+    }
+    return false;
+}
+
+export function getWindowUnmergeGuide(stateValue, cellId) {
+    const state = normalizeWindowState(stateValue);
+    const cell = getCell(state, cellId);
+    if (!cell) return null;
+    for (let index = state.mergeGuides.length - 1; index >= 0; index -= 1) {
+        const guide = state.mergeGuides[index];
+        if (mergeGuideSplitsCell(cell, guide)) {
+            return Object.freeze({ ...guide });
+        }
+    }
+    return null;
 }
 
 export function mergeWindowsInState(stateValue, {
@@ -805,6 +962,7 @@ export function mergeWindowsInState(stateValue, {
     if (!a || !b || !canUnionRectangles(a, b)) {
         throw new Error('Only adjacent windows whose union is one rectangle can be merged.');
     }
+    const boundary = sharedBoundary(a, b);
     const resultType = normalizeType(type || (a.type === b.type ? a.type : FIXED_WINDOW_TYPE));
     const merged = makeCell(a.id, resultType, {
         x0: Math.min(a.rect.x0, b.rect.x0),
@@ -827,25 +985,158 @@ export function mergeWindowsInState(stateValue, {
             && connection.cellAId !== b.id
             && connection.cellBId !== b.id
         )),
+        mergeGuides: [
+            ...(state.mergeGuides || []),
+            {
+                orientation: boundary.orientation,
+                coordinate: boundary.coordinate,
+                start: boundary.start,
+                end: boundary.end,
+                restoreCells: [
+                    { id: a.id, type: a.type, handleSide: a.handleSide, rect: { ...a.rect } },
+                    { id: b.id, type: b.type, handleSide: b.handleSide, rect: { ...b.rect } },
+                ],
+            },
+        ],
+        windows,
+    });
+}
+
+export function unmergeWindowInState(stateValue, { cellId } = {}) {
+    const state = normalizeWindowState(stateValue);
+    const cell = getCell(state, cellId);
+    if (!cell) throw new Error(`Unknown window ${cellId}.`);
+
+    const guide = getWindowUnmergeGuide(state, cell.id);
+    if (!guide) {
+        throw new Error('This window does not contain a merged boundary that can be restored.');
+    }
+
+    const windows = state.windows
+        .filter(windowCell => windowCell.id !== cell.id)
+        .map(windowCell => makeCell(
+            windowCell.id,
+            windowCell.type,
+            windowCell.rect,
+            windowCell.handleSide
+        ));
+    const usedIds = new Set(windows.map(windowCell => windowCell.id));
+    const restored = Array.isArray(guide.restoreCells) && guide.restoreCells.length === 2
+        ? guide.restoreCells.map((restoreCell, index) => {
+            let id = index === 0 ? cell.id : String(restoreCell.id || '');
+            if (!id || usedIds.has(id) || (index > 0 && id === cell.id)) {
+                id = nextCellId([
+                    ...windows,
+                    ...Array.from(usedIds, usedId => ({ id: usedId })),
+                    { id: cell.id },
+                ]);
+            }
+            usedIds.add(id);
+            return makeCell(
+                id,
+                restoreCell.type,
+                restoreCell.rect,
+                restoreCell.handleSide
+            );
+        })
+        : null;
+
+    if (restored && canUnionRectangles(restored[0], restored[1])) {
+        windows.push(...restored);
+    } else {
+        const newId = nextCellId([...windows, cell]);
+        let firstRect;
+        let secondRect;
+        if (guide.orientation === 'vertical') {
+            firstRect = {
+                x0: cell.rect.x0,
+                y0: cell.rect.y0,
+                x1: guide.coordinate,
+                y1: cell.rect.y1,
+            };
+            secondRect = {
+                x0: guide.coordinate,
+                y0: cell.rect.y0,
+                x1: cell.rect.x1,
+                y1: cell.rect.y1,
+            };
+        } else {
+            firstRect = {
+                x0: cell.rect.x0,
+                y0: cell.rect.y0,
+                x1: cell.rect.x1,
+                y1: guide.coordinate,
+            };
+            secondRect = {
+                x0: cell.rect.x0,
+                y0: guide.coordinate,
+                x1: cell.rect.x1,
+                y1: cell.rect.y1,
+            };
+        }
+
+        // Backward compatibility for older saved states that only contain the
+        // geometric guide: use the merged cell's current type/handing.
+        windows.push(makeCell(cell.id, cell.type, firstRect, cell.handleSide));
+        windows.push(makeCell(newId, cell.type, secondRect, cell.handleSide));
+    }
+
+    let removedGuide = false;
+    const mergeGuides = state.mergeGuides.filter(candidate => {
+        if (removedGuide || !mergeGuideSplitsCell(cell, candidate)) return true;
+        if (
+            candidate.orientation === guide.orientation
+            && nearlyEqual(candidate.coordinate, guide.coordinate)
+            && nearlyEqual(candidate.start, guide.start)
+            && nearlyEqual(candidate.end, guide.end)
+        ) {
+            removedGuide = true;
+            return false;
+        }
+        return true;
+    });
+
+    return normalizeWindowState({
+        version: WINDOW_STATE_VERSION,
+        dividerProfileId: state.dividerProfileId,
+        transProfileId: state.transProfileId,
+        transConnections: state.transConnections,
+        mergeGuides,
         windows,
     });
 }
 
 export function setWindowTypeInState(stateValue, cellId, type, handleSide = null) {
     const state = normalizeWindowState(stateValue);
-    if (!getCell(state, cellId)) throw new Error(`Unknown window ${cellId}.`);
+    const targetId = String(cellId);
+    const current = getCell(state, targetId);
+    if (!current) throw new Error(`Unknown window ${cellId}.`);
+
+    const nextType = normalizeType(type);
+    const nextHandleSide = nextType === SASH_WINDOW_TYPE
+        ? normalizeHandleSide(handleSide || current.handleSide)
+        : null;
+    const windowChanged = current.type !== nextType || current.handleSide !== nextHandleSide;
+    const updatedWindows = state.windows.map(cell => ({
+        ...cell,
+        type: cell.id === targetId ? nextType : cell.type,
+        handleSide: cell.id === targetId ? nextHandleSide : cell.handleSide,
+    }));
+
     return normalizeWindowState({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
         transProfileId: state.transProfileId,
-        transConnections: state.transConnections,
-        windows: state.windows.map(cell => ({
-            ...cell,
-            type: cell.id === String(cellId) ? normalizeType(type) : cell.type,
-            handleSide: cell.id === String(cellId)
-                ? (normalizeType(type) === SASH_WINDOW_TYPE ? normalizeHandleSide(handleSide || cell.handleSide) : null)
-                : cell.handleSide,
-        })),
+        // A trans is a coupled two-sash configuration. Once either sash is
+        // changed (type or left/right opening), the pair is no longer the same
+        // configuration, so remove the trans instead of silently keeping it.
+        transConnections: windowChanged
+            ? state.transConnections.filter(connection => (
+                connection.cellAId !== targetId && connection.cellBId !== targetId
+            ))
+            : state.transConnections,
+        mergeGuides: state.mergeGuides,
+        windows: updatedWindows,
     });
 }
 
@@ -937,6 +1228,22 @@ export function serializeWindowState(stateValue) {
             cellAId: connection.cellAId,
             cellBId: connection.cellBId,
             ownerCellId: connection.ownerCellId,
+        })),
+        mergeGuides: state.mergeGuides.map(guide => ({
+            orientation: guide.orientation,
+            coordinate: guide.coordinate,
+            start: guide.start,
+            end: guide.end,
+            ...(Array.isArray(guide.restoreCells) && guide.restoreCells.length === 2
+                ? {
+                    restoreCells: guide.restoreCells.map(cell => ({
+                        id: cell.id,
+                        type: cell.type,
+                        handleSide: cell.handleSide,
+                        rect: cell.rect,
+                    })),
+                }
+                : {}),
         })),
         windows: state.windows.map(cell => ({
             id: cell.id,
