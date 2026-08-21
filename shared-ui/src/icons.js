@@ -13,6 +13,7 @@ export function sharedIcon(type) {
     help: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .65-1.5 1.25-1.5 2.35"/><path d="M12 17h.01"/></svg>`,
     signout: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5.5A1.5 1.5 0 0 0 4 6.5v11A1.5 1.5 0 0 0 5.5 19H10"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg>`,
     cookies: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13.2A8 8 0 1 1 10.8 4a4.3 4.3 0 0 0 4.7 5.3A4 4 0 0 0 20 13.2Z"/><circle cx="9" cy="10" r=".8"/><circle cx="8" cy="15" r=".8"/><circle cx="13" cy="16" r=".8"/></svg>`,
+    trash: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m7 7 .7 13h8.6L17 7"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>`,
   };
   return icons[type] ?? '';
 }

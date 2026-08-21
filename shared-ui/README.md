@@ -64,3 +64,9 @@ Configurator-local shell files are adapters only. They may provide product-speci
 such as `captureState()`, reset/undo behavior, tool actions or language-state preservation, but
 they must not render or own the common top bar, account menu, Google authentication, language
 menu, feedback UI or shared tool interaction lifecycle. Those remain in `shared-ui`.
+
+## Saved configurations
+
+The shared shell owns account-based configuration saving for every configurator. The top-bar **Save** button captures the product-specific state through the configurator adapter and stores it under the signed-in Firebase/Google user. **Saved configurations** in the account menu opens the same shared modal in Window, Roof, Hall, Solar and Pergola.
+
+Configurator adapters only provide `productId`, `captureState()` and `restoreState()`; they do not implement their own saved-project UI or storage. Saving account data uses Firebase Authentication but intentionally does not initialize or refresh App Check, so reCAPTCHA assessments remain exclusive to the **Share** action.

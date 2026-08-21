@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=12';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=13';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
 import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
@@ -45,6 +45,7 @@ const tools = [
 
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Roof',
+  productId: 'roof',
   storagePrefix: '360-configurator:roof',
   brandSrc: '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: '360 Configurator',
@@ -69,6 +70,12 @@ const shell = mountStandaloneConfiguratorShell({
       if (window.confirm(t('reset.confirm'))) {
         window.ROOF_CONFIGURATOR_API?.resetConfiguration?.();
       }
+    },
+    captureState() {
+      return window.ROOF_CONFIGURATOR_API?.captureState?.();
+    },
+    restoreState(snapshot) {
+      return window.ROOF_CONFIGURATOR_API?.restoreState?.(snapshot);
     },
     getShareUrl() {
       const snapshot = window.ROOF_CONFIGURATOR_API?.captureState?.();

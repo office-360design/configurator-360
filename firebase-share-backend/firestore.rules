@@ -112,6 +112,13 @@ service cloud.firestore {
       allow update, delete: if loggedIn();
     }
 
+    // Private configurator saves are never exposed directly to browser Firestore.
+    // The authenticated callable functions use the Admin SDK and verify request.auth.uid,
+    // so one account can never list/read/write another account's configurations.
+    match /users/{userId}/savedConfigurations/{product}/items/{configurationId} {
+      allow read, write: if false;
+    }
+
     // generatedOffers
     match /generatedOffers/{item} {
       allow read, create;

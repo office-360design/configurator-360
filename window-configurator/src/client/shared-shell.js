@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=12';
+import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=13';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=4';
 import { getLocalizedConfiguratorUrl } from './shared-ui/src/config.js';
@@ -15,6 +15,7 @@ const history = new SharedUndoManager({
 
 const shell = mountStandaloneConfiguratorShell({
   productType: t('project.type'),
+  productId: 'window',
   storagePrefix: '360-configurator:window',
   brandSrc: './shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: '360 Configurator',
@@ -40,6 +41,12 @@ const shell = mountStandaloneConfiguratorShell({
   callbacks: {
     onViewAR() {
       document.querySelector('#qr-ar-button')?.click();
+    },
+    captureState() {
+      return window.WINDOW_CONFIGURATOR_API?.captureState?.();
+    },
+    restoreState(snapshot) {
+      return window.WINDOW_CONFIGURATOR_API?.restoreState?.(snapshot);
     },
     onUndo() {
       history.undo();

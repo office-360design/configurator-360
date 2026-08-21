@@ -472,6 +472,36 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
             Math.min(29, Math.max(16, configuration.glassThicknessMm))
         );
     }
+    if (configuration.openingMode === 'batant' || configuration.openingMode === 'oscilo') {
+        document.getElementById('mBatant').checked = configuration.openingMode === 'batant';
+        document.getElementById('mOscilo').checked = configuration.openingMode === 'oscilo';
+        syncModeButtons();
+    }
+    if (Number.isFinite(Number(configuration.openAngle))) {
+        const angleInput = document.getElementById('openAngle');
+        const max = document.getElementById('mBatant').checked ? 80 : 15;
+        angleInput.value = String(Math.min(max, Math.max(0, Number(configuration.openAngle))));
+    }
+    if (configuration.handleSide === 'left' || configuration.handleSide === 'right') {
+        selectedHandleSide = configuration.handleSide;
+    }
+    if (typeof configuration.exploded === 'boolean') {
+        document.getElementById('cExplode').checked = configuration.exploded;
+    }
+    if (typeof configuration.showHouse === 'boolean') {
+        document.getElementById('cShowHouse').checked = configuration.showHouse;
+    }
+    if (configuration.frameSides && typeof configuration.frameSides === 'object') {
+        ['top', 'bottom', 'left', 'right'].forEach((side) => {
+            if (typeof configuration.frameSides[side] === 'boolean') {
+                document.getElementById(`side_${side}`).checked = configuration.frameSides[side];
+            }
+        });
+    }
+    if (typeof configuration.sectionView === 'boolean') {
+        document.getElementById('toggleSectionViewBtn')?.classList.toggle('active', configuration.sectionView);
+        sectionGroup.visible = configuration.sectionView;
+    }
 
     materialManager.applyConfiguration(configuration);
 
@@ -531,11 +561,57 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
         glazingGasket224378ShiftMm: getGlazingBeadArmShiftMm('top'),
         glassAnchorGasket: '224063',
         movingGlassSideGasket: '224378',
+        openingMode: document.getElementById('mBatant').checked ? 'batant' : 'oscilo',
+        openAngle: Number(document.getElementById('openAngle').value) || 0,
+        handleSide: selectedHandleSide,
+        exploded: Boolean(document.getElementById('cExplode').checked),
+        showHouse: Boolean(document.getElementById('cShowHouse').checked),
+        frameSides: {
+            top: Boolean(document.getElementById('side_top').checked),
+            bottom: Boolean(document.getElementById('side_bottom').checked),
+            left: Boolean(document.getElementById('side_left').checked),
+            right: Boolean(document.getElementById('side_right').checked),
+        },
+        sectionView: Boolean(document.getElementById('toggleSectionViewBtn')?.classList.contains('active')),
     };
 
+    windowBuilder.setExploded(Boolean(applied.exploded));
     window.LAST_APPLIED_CONFIGURATION = applied;
     window.CONFIGURATOR_READY = true;
     return applied;
+};
+
+function captureWindowConfiguration() {
+    return {
+        widthM: Number(widthInput.value),
+        heightM: Number(heightInput.value),
+        ...materialManager.getConfigurationSnapshot(),
+        ...accessoryController.getConfigurationSnapshot(),
+        ...profileSelectionController.getConfigurationSnapshot(),
+        ...windowLayoutController.getConfigurationSnapshot(),
+        glassThicknessMm: Number(glassThicknessInput.value),
+        glazingBeadCode: getActiveGlazingBeadCode(),
+        glazingGasket224378ShiftMm: getGlazingBeadArmShiftMm('top'),
+        glassAnchorGasket: '224063',
+        movingGlassSideGasket: '224378',
+        openingMode: document.getElementById('mBatant').checked ? 'batant' : 'oscilo',
+        openAngle: Number(document.getElementById('openAngle').value) || 0,
+        handleSide: selectedHandleSide,
+        exploded: Boolean(document.getElementById('cExplode').checked),
+        showHouse: Boolean(document.getElementById('cShowHouse').checked),
+        frameSides: {
+            top: Boolean(document.getElementById('side_top').checked),
+            bottom: Boolean(document.getElementById('side_bottom').checked),
+            left: Boolean(document.getElementById('side_left').checked),
+            right: Boolean(document.getElementById('side_right').checked),
+        },
+        sectionView: Boolean(document.getElementById('toggleSectionViewBtn')?.classList.contains('active')),
+    };
+}
+
+window.WINDOW_CONFIGURATOR_API = {
+    captureState: captureWindowConfiguration,
+    restoreState: (snapshot) => window.applyConfiguration(snapshot),
 };
 
 // ANIMATION & LOOP

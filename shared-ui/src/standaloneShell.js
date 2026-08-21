@@ -1,12 +1,24 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
 import { sharedT } from './i18n.js';
 import { renderActionFeedback } from './components/feedback.js?v=12';
-import { renderTopBar } from './components/topBar.js?v=12';
-import { syncAccountIdentity } from './components/accountMenu.js?v=12';
-import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=12';
+import { renderTopBar } from './components/topBar.js?v=13';
+import { syncAccountIdentity } from './components/accountMenu.js?v=13';
+import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=13';
 import { renderToolsMenu } from './components/toolsMenu.js?v=12';
+import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=13';
+import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=13';
 
 const MAX_PROJECT_NUMBER = 1000;
+
+function normalizeProductId(value = '') {
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized.includes('window')) return 'window';
+  if (normalized.includes('pergola')) return 'pergola';
+  if (normalized.includes('roof')) return 'roof';
+  if (normalized.includes('hall')) return 'hall';
+  if (normalized.includes('solar')) return 'solar';
+  return normalized || 'configuration';
+}
 
 function safeJsonParse(value, fallback) {
   if (value === null || value === undefined || value === '') return fallback;
@@ -27,6 +39,7 @@ export class StandaloneConfiguratorShell {
   constructor(options = {}) {
     this.options = {
       productType: 'Configuration',
+      productId: '',
       brandSrc: './shared-ui/assets/360CONFIGURATOR.png',
       brandAlt: '360 Configurator',
       storagePrefix: '360-configurator:standalone',
@@ -38,10 +51,10 @@ export class StandaloneConfiguratorShell {
     };
 
     this.storagePrefix = this.options.storagePrefix;
+    this.productId = normalizeProductId(this.options.productId || this.options.productType);
     this.projectMetaKey = `${this.storagePrefix}:project-meta`;
     this.projectCounterKey = `${this.storagePrefix}:next-project-number`;
     this.preferencesKey = `${this.storagePrefix}:preferences`;
-    this.savedProjectsKey = `${this.storagePrefix}:saved-projects`;
 
     const preferences = safeJsonParse(window.localStorage.getItem(this.preferencesKey), {});
     const domainLocale = getLocaleForHostname(window.location.hostname);
@@ -62,6 +75,8 @@ export class StandaloneConfiguratorShell {
     const meta = safeJsonParse(window.localStorage.getItem(this.projectMetaKey), {}) || {};
     this.projectName = meta.name || this.getNextDefaultProjectName();
     this.lastSavedProjectName = meta.savedName || '';
+    this.currentSavedConfigurationId = String(meta.savedConfigurationId || '');
+    this.currentSavedOwnerUid = String(meta.savedOwnerUid || '');
     this.dirty = meta.dirty ?? true;
     this.accountOpen = false;
     this.accountSettingsOpen = false;
@@ -71,6 +86,8 @@ export class StandaloneConfiguratorShell {
     this.languageOpen = false;
     this.toolsOpen = false;
     this.feedbackTimer = 0;
+    this.saveBusy = false;
+    this.savedDialog = { open: false, loading: false, error: '', items: [] };
     this.settingsPanelCollapsed = false;
     this.settingsPanel = null;
     this.settingsToggle = null;
@@ -107,6 +124,7 @@ export class StandaloneConfiguratorShell {
       })}
       ${renderActionFeedback(this.state.locale)}
       ${renderToolsMenu(this.toolsOpen, { ...this.options.tools, locale: this.state.locale })}
+      ${renderSavedConfigurationsDialog(this.state.locale, this.savedDialog)}
     `;
 
     this.projectInput = this.host.querySelector('[data-project-name]');
@@ -136,14 +154,17 @@ export class StandaloneConfiguratorShell {
 
     this.onKeyDown = (event) => {
       if (event.key === 'Escape') {
+        const savedDialogWasOpen = this.savedDialog.open;
         this.accountOpen = false;
         this.languageOpen = false;
+        this.savedDialog.open = false;
         if (this.toolsOpen) {
           this.toolsOpen = false;
           this.syncTools();
           this.options.callbacks.onToolsOpenChange?.(false);
         }
-        this.syncMenus();
+        if (savedDialogWasOpen) this.renderHost();
+        this.sync();
       }
     };
     document.addEventListener('keydown', this.onKeyDown);
@@ -184,6 +205,11 @@ export class StandaloneConfiguratorShell {
         if (error) return;
         this.authUser = user;
         this.authBusy = false;
+        if (!user || (this.currentSavedOwnerUid && this.currentSavedOwnerUid !== user.uid)) {
+          this.currentSavedConfigurationId = '';
+          this.currentSavedOwnerUid = user?.uid || '';
+          this.persistMeta();
+        }
         syncAccountIdentity(this.host, this.state.locale, this.authUser);
         this.options.callbacks.onAuthChange?.(this.authUser);
       });
@@ -202,11 +228,13 @@ export class StandaloneConfiguratorShell {
       this.authUser = user;
       this.accountOpen = true;
       this.options.callbacks.onAccountAction?.('login', user);
+      return user;
     } catch (error) {
       if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
         console.error('Google login failed.', error);
         this.showFeedback(sharedT(this.state.locale, 'feedback.loginUnavailable'), 'error');
       }
+      return null;
     } finally {
       this.authBusy = false;
       syncAccountIdentity(this.host, this.state.locale, this.authUser);
@@ -218,6 +246,9 @@ export class StandaloneConfiguratorShell {
     try {
       await signOutGoogle();
       this.authUser = null;
+      this.currentSavedConfigurationId = '';
+      this.currentSavedOwnerUid = '';
+      this.persistMeta();
       this.accountOpen = true;
       this.options.callbacks.onAccountAction?.('signout');
       this.showFeedback(sharedT(this.state.locale, 'feedback.loggedOut'));
@@ -234,8 +265,8 @@ export class StandaloneConfiguratorShell {
     if (!actionTarget) return;
     const action = actionTarget.dataset.action;
 
-    if (action === 'save-success-demo') {
-      this.save(actionTarget);
+    if (action === 'save') {
+      void this.save(actionTarget);
     } else if (action === 'undo') {
       this.options.callbacks.onUndo?.();
     } else if (action === 'reset') {
@@ -304,7 +335,13 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'account-profile') {
       this.options.callbacks.onAccountAction?.('profile');
     } else if (action === 'account-saved') {
-      this.options.callbacks.onAccountAction?.('saved');
+      void this.openSavedConfigurations();
+    } else if (action === 'saved-close') {
+      this.closeSavedConfigurations();
+    } else if (action === 'saved-open') {
+      void this.openSavedConfiguration(actionTarget.dataset.savedId);
+    } else if (action === 'saved-delete') {
+      void this.deleteSavedConfiguration(actionTarget.dataset.savedId);
     } else if (action === 'account-help') {
       this.options.callbacks.onAccountAction?.('help');
     } else if (action === 'cookies-placeholder') {
@@ -344,19 +381,130 @@ export class StandaloneConfiguratorShell {
     this.options.callbacks.onPreferenceChange?.(field.dataset.path, field.value, this.state);
   }
 
-  save(button) {
-    button.classList.remove('is-success');
-    void button.offsetWidth;
-    button.classList.add('is-success');
-    this.dirty = false;
-    this.lastSavedProjectName = this.projectName;
-    this.reserveNextDefaultName();
-    this.persistMeta();
-    this.persistSavedProject();
-    this.options.callbacks.onSave?.({ projectName: this.projectName, preferences: { ...this.state } });
-    this.showFeedback(sharedT(this.state.locale, 'feedback.saved'));
+  async save(button) {
+    if (this.saveBusy) return;
+
+    let user = this.authUser;
+    if (!user) {
+      user = await this.loginWithGoogle();
+      if (!user) {
+        this.showFeedback(sharedT(this.state.locale, 'feedback.saveLoginRequired'), 'error');
+        return;
+      }
+    }
+
+    const configuration = this.options.callbacks.captureState?.();
+    if (configuration === undefined || configuration === null) {
+      this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
+      return;
+    }
+
+    this.saveBusy = true;
+    button.disabled = true;
+    try {
+      const result = await saveUserConfiguration({
+        id: this.currentSavedOwnerUid === user.uid ? this.currentSavedConfigurationId : '',
+        productType: this.productId,
+        name: this.projectName,
+        state: configuration,
+      });
+
+      this.currentSavedConfigurationId = String(result?.id || this.currentSavedConfigurationId || '');
+      this.currentSavedOwnerUid = user.uid;
+      button.classList.remove('is-success');
+      void button.offsetWidth;
+      button.classList.add('is-success');
+      this.dirty = false;
+      this.lastSavedProjectName = this.projectName;
+      this.reserveNextDefaultName();
+      this.persistMeta();
+      this.options.callbacks.onSave?.({
+        projectName: this.projectName,
+        preferences: { ...this.state },
+        savedConfigurationId: this.currentSavedConfigurationId,
+      });
+      this.showFeedback(sharedT(this.state.locale, 'feedback.saved'));
+      this.sync();
+      window.setTimeout(() => button.classList.remove('is-success'), 1050);
+    } catch (error) {
+      console.error('Configuration could not be saved to the user account.', error);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
+    } finally {
+      this.saveBusy = false;
+      button.disabled = false;
+    }
+  }
+
+  async openSavedConfigurations() {
+    if (!this.authUser) return;
+    this.accountOpen = false;
+    this.savedDialog = { open: true, loading: true, error: '', items: [] };
+    this.renderHost();
     this.sync();
-    window.setTimeout(() => button.classList.remove('is-success'), 1050);
+    try {
+      const items = await listUserConfigurations({ productType: this.productId });
+      this.savedDialog = { open: true, loading: false, error: '', items };
+    } catch (error) {
+      console.error('Saved configurations could not be loaded.', error);
+      this.savedDialog = {
+        open: true,
+        loading: false,
+        error: sharedT(this.state.locale, 'saved.loadUnavailable'),
+        items: [],
+      };
+    }
+    this.renderHost();
+    this.sync();
+  }
+
+  closeSavedConfigurations() {
+    if (!this.savedDialog.open) return;
+    this.savedDialog.open = false;
+    this.renderHost();
+    this.sync();
+  }
+
+  async openSavedConfiguration(id) {
+    const savedId = String(id || '');
+    if (!savedId || !this.authUser) return;
+    try {
+      const saved = await getUserConfiguration({ id: savedId, productType: this.productId });
+      const restored = await Promise.resolve(this.options.callbacks.restoreState?.(saved.state));
+      if (restored === false) throw new Error('Configurator rejected the saved state.');
+      this.projectName = String(saved.name || this.projectName).slice(0, 80);
+      this.lastSavedProjectName = this.projectName;
+      this.currentSavedConfigurationId = savedId;
+      this.currentSavedOwnerUid = this.authUser.uid;
+      this.dirty = false;
+      this.persistMeta();
+      this.savedDialog.open = false;
+      this.renderHost();
+      this.sync();
+      this.showFeedback(sharedT(this.state.locale, 'feedback.saved'));
+      this.options.callbacks.onSavedConfigurationOpen?.(saved);
+    } catch (error) {
+      console.error('Saved configuration could not be opened.', error);
+      this.showFeedback(sharedT(this.state.locale, 'saved.openUnavailable'), 'error');
+    }
+  }
+
+  async deleteSavedConfiguration(id) {
+    const savedId = String(id || '');
+    if (!savedId || !this.authUser) return;
+    if (!window.confirm(sharedT(this.state.locale, 'saved.deleteConfirm'))) return;
+    try {
+      await deleteUserConfiguration({ id: savedId, productType: this.productId });
+      if (this.currentSavedConfigurationId === savedId) {
+        this.currentSavedConfigurationId = '';
+        this.currentSavedOwnerUid = this.authUser.uid;
+        this.dirty = true;
+        this.persistMeta();
+      }
+      await this.openSavedConfigurations();
+    } catch (error) {
+      console.error('Saved configuration could not be deleted.', error);
+      this.showFeedback(sharedT(this.state.locale, 'saved.deleteUnavailable'), 'error');
+    }
   }
 
   async share(button) {
@@ -420,22 +568,13 @@ export class StandaloneConfiguratorShell {
       name: this.projectName,
       savedName: this.lastSavedProjectName,
       dirty: this.dirty,
+      savedConfigurationId: this.currentSavedConfigurationId,
+      savedOwnerUid: this.currentSavedOwnerUid,
     }));
   }
 
   persistPreferences() {
     window.localStorage.setItem(this.preferencesKey, JSON.stringify(this.state));
-  }
-
-  persistSavedProject() {
-    const projects = safeJsonParse(window.localStorage.getItem(this.savedProjectsKey), {});
-    const configuration = this.options.callbacks.captureState?.();
-    projects[this.projectName] = {
-      name: this.projectName,
-      savedAt: new Date().toISOString(),
-      ...(configuration === undefined ? {} : { configuration }),
-    };
-    window.localStorage.setItem(this.savedProjectsKey, JSON.stringify(projects));
   }
 
   sync() {

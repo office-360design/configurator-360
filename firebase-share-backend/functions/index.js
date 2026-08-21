@@ -443,6 +443,187 @@ exports.createSharedConfiguration = onCall(
   },
 );
 
+
+// ---------------------------------------------------------------------------
+// Private per-user saved configurations
+// ---------------------------------------------------------------------------
+const USER_SAVED_CONFIGURATION_VERSION = 1;
+const MAX_SAVED_CONFIGURATION_BYTES = 850_000;
+const MAX_SAVED_CONFIGURATION_NAME_LENGTH = 80;
+const SAVED_CONFIGURATION_LIST_LIMIT = 100;
+
+function requireAuthenticatedUid(request) {
+  const uid = String(request.auth?.uid || '');
+  if (!uid) throw new HttpsError('unauthenticated', 'Google login is required.');
+  return uid;
+}
+
+function validateSavedConfigurationId(value, { optional = false } = {}) {
+  const id = String(value || '').trim();
+  if (!id && optional) return '';
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) {
+    throw new HttpsError('invalid-argument', 'Invalid saved configuration id.');
+  }
+  return id;
+}
+
+function validateSavedConfigurationPayload(productType, name, stateJson) {
+  const product = normalizeProductType(productType);
+  if (!ALLOWED_PRODUCTS.has(product)) {
+    throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
+  }
+
+  const projectName = String(name || '').trim();
+  if (!projectName || projectName.length > MAX_SAVED_CONFIGURATION_NAME_LENGTH) {
+    throw new HttpsError('invalid-argument', 'The project name is invalid.');
+  }
+
+  if (typeof stateJson !== 'string' || !stateJson.length) {
+    throw new HttpsError('invalid-argument', 'The saved configuration is empty.');
+  }
+  const sizeBytes = utf8ByteLength(stateJson);
+  if (sizeBytes > MAX_SAVED_CONFIGURATION_BYTES) {
+    throw new HttpsError('resource-exhausted', 'This configuration is too large to save.');
+  }
+  try {
+    const parsed = JSON.parse(stateJson);
+    if (!parsed || typeof parsed !== 'object') throw new Error('not an object');
+  } catch {
+    throw new HttpsError('invalid-argument', 'The saved configuration is not valid JSON.');
+  }
+
+  return { product, projectName, sizeBytes };
+}
+
+function userSavedItemsCollection(uid, product) {
+  return db
+    .collection('users')
+    .doc(uid)
+    .collection('savedConfigurations')
+    .doc(product)
+    .collection('items');
+}
+
+const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
+  region: FUNCTION_REGION,
+  serviceAccount: RUNTIME_SERVICE_ACCOUNT,
+  // Saved configurations authenticate with the Google/Firebase ID token. App
+  // Check remains deliberately disabled here so reCAPTCHA assessments stay
+  // exclusive to the Share action, as required by the monthly assessment policy.
+  enforceAppCheck: false,
+  timeoutSeconds: 30,
+  memory: '256MiB',
+});
+
+exports.saveUserConfiguration = onCall(
+  USER_CONFIGURATION_CALLABLE_OPTIONS,
+  async (request) => {
+    const uid = requireAuthenticatedUid(request);
+    const stateJson = request.data?.stateJson;
+    const { product, projectName, sizeBytes } = validateSavedConfigurationPayload(
+      request.data?.productType,
+      request.data?.name,
+      stateJson,
+    );
+    const requestedId = validateSavedConfigurationId(request.data?.id, { optional: true });
+    const collection = userSavedItemsCollection(uid, product);
+    const ref = requestedId ? collection.doc(requestedId) : collection.doc();
+    const existing = await ref.get();
+    const now = Timestamp.now();
+    const createdAt = existing.exists && existing.data()?.createdAt
+      ? existing.data().createdAt
+      : now;
+
+    await ref.set({
+      v: USER_SAVED_CONFIGURATION_VERSION,
+      p: product,
+      n: projectName,
+      s: stateJson,
+      sizeBytes,
+      createdAt,
+      updatedAt: now,
+    });
+
+    return {
+      id: ref.id,
+      name: projectName,
+      productType: product,
+      sizeBytes,
+      createdAtMs: createdAt.toMillis(),
+      updatedAtMs: now.toMillis(),
+    };
+  },
+);
+
+exports.listUserConfigurations = onCall(
+  USER_CONFIGURATION_CALLABLE_OPTIONS,
+  async (request) => {
+    const uid = requireAuthenticatedUid(request);
+    const product = normalizeProductType(request.data?.productType);
+    if (!ALLOWED_PRODUCTS.has(product)) {
+      throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
+    }
+
+    const snapshot = await userSavedItemsCollection(uid, product)
+      .orderBy('updatedAt', 'desc')
+      .limit(SAVED_CONFIGURATION_LIST_LIMIT)
+      .select('n', 'createdAt', 'updatedAt', 'sizeBytes')
+      .get();
+
+    return {
+      items: snapshot.docs.map((doc) => {
+        const data = doc.data() || {};
+        return {
+          id: doc.id,
+          name: String(data.n || ''),
+          sizeBytes: Number(data.sizeBytes || 0),
+          createdAtMs: timestampMillis(data.createdAt),
+          updatedAtMs: timestampMillis(data.updatedAt),
+        };
+      }),
+    };
+  },
+);
+
+exports.getUserConfiguration = onCall(
+  USER_CONFIGURATION_CALLABLE_OPTIONS,
+  async (request) => {
+    const uid = requireAuthenticatedUid(request);
+    const product = normalizeProductType(request.data?.productType);
+    if (!ALLOWED_PRODUCTS.has(product)) {
+      throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
+    }
+    const id = validateSavedConfigurationId(request.data?.id);
+    const snapshot = await userSavedItemsCollection(uid, product).doc(id).get();
+    if (!snapshot.exists) throw new HttpsError('not-found', 'Saved configuration not found.');
+    const data = snapshot.data() || {};
+
+    return {
+      id: snapshot.id,
+      name: String(data.n || ''),
+      productType: product,
+      stateJson: String(data.s || ''),
+      sizeBytes: Number(data.sizeBytes || 0),
+      createdAtMs: timestampMillis(data.createdAt),
+      updatedAtMs: timestampMillis(data.updatedAt),
+    };
+  },
+);
+
+exports.deleteUserConfiguration = onCall(
+  USER_CONFIGURATION_CALLABLE_OPTIONS,
+  async (request) => {
+    const uid = requireAuthenticatedUid(request);
+    const product = normalizeProductType(request.data?.productType);
+    if (!ALLOWED_PRODUCTS.has(product)) {
+      throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
+    }
+    const id = validateSavedConfigurationId(request.data?.id);
+    await userSavedItemsCollection(uid, product).doc(id).delete();
+    return { id, deleted: true };
+  },
+);
+
 // Direct-Firestore shares remain the explicit no-reCAPTCHA fallback. The rules
 // permit them before App Check is activated for the first time and, afterwards,
 // only while the server-controlled fallback window is active. This trigger keeps

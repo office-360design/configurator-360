@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=12';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=13';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { getSeasonForDate } from './solarPosition.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
@@ -49,6 +49,7 @@ const tools = [
 
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Solar',
+  productId: 'solar',
   storagePrefix: '360-configurator:solar',
   brandSrc: '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: '360 Configurator',
@@ -66,6 +67,12 @@ const shell = mountStandaloneConfiguratorShell({
   callbacks: {
     onReset() {
       document.querySelector('[data-view="reset"]')?.click();
+    },
+    captureState() {
+      return window.SOLAR_CONFIGURATOR_API?.captureState?.();
+    },
+    restoreState(snapshot) {
+      return window.SOLAR_CONFIGURATOR_API?.restoreState?.(snapshot);
     },
     getShareUrl() {
       const snapshot = window.SOLAR_CONFIGURATOR_API?.captureState?.();

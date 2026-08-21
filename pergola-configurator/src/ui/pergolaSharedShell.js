@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=12';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=13';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=12';
 import { getLocalizedConfiguratorUrl } from '../../../shared-ui/src/config.js';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
@@ -15,6 +15,7 @@ export function mountPergolaSharedShell({ store, ui }) {
 
   const shell = mountStandaloneConfiguratorShell({
     productType: 'Pergola',
+    productId: 'pergola',
     storagePrefix: 'pergola-configurator',
     brandSrc: './assets/360CONFIGURATOR.png',
     brandAlt: '360 Configurator',
@@ -43,6 +44,11 @@ export function mountPergolaSharedShell({ store, ui }) {
       captureState() {
         return cloneState(store.get());
       },
+      restoreState(snapshot) {
+        if (!snapshot || typeof snapshot !== 'object') return false;
+        store.patch(cloneState(snapshot), { path: 'saved-configuration', skipHistory: true });
+        return true;
+      },
       getShareUrl() {
         return store.getShareUrl();
       },
@@ -55,7 +61,6 @@ export function mountPergolaSharedShell({ store, ui }) {
       },
       onAccountAction(action) {
         if (action === 'profile') ui.showModal(t('modal.profileTitle'), `<p>${escapeHtml(t('modal.profileBody'))}</p>`);
-        else if (action === 'saved') ui.showSavedConfigurations();
         else if (action === 'help') ui.showModal(t('modal.helpTitle'), `<p>${escapeHtml(t('modal.helpBody'))}</p>`);
         else if (action === 'cookies') ui.showToast(t('feedback.cookiesUnavailable'));
       },
