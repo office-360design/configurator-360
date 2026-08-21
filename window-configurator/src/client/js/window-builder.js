@@ -2646,7 +2646,7 @@ export function createWindowBuilder({
                     const mesh = createDividerSegment(
                         placedProfile,
                         // temporary fix to make the trans mullion smaller
-                        ownerCell.height - 0.08,
+                        ownerCell.height - 0.06,
                         'vertical',
                         transBounds,
                         transDepthOffset,
