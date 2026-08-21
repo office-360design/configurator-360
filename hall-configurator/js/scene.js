@@ -241,6 +241,7 @@ export class HallScene {
     this.openingResize = null;
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
+    this.coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
     this.camera = new THREE.PerspectiveCamera(42, 1, .1, 500);
     this.camera.position.set(19, 14, 25);
@@ -251,6 +252,7 @@ export class HallScene {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.localClippingEnabled = true;
+    this.renderer.domElement.style.touchAction = 'none';
     host.appendChild(this.renderer.domElement);
 
     this.labelRenderer = new CSS2DRenderer();
@@ -409,7 +411,9 @@ export class HallScene {
 
     const handleMaterial = new THREE.MeshBasicMaterial({ color: invalid ? 0xff4242 : 0x0c8bce, depthTest: false });
     const edgeHitMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, depthTest: false });
-    const edgeHitThickness = Math.max(.10, Math.min(.16, Math.min(opening.width, opening.height) * .08));
+    const edgeHitThickness = this.coarsePointer
+      ? Math.max(.22, Math.min(.34, Math.min(opening.width, opening.height) * .18))
+      : Math.max(.10, Math.min(.16, Math.min(opening.width, opening.height) * .08));
     [
       ['left', edgeHitThickness, opening.height + edgeHitThickness, -opening.width / 2, opening.height / 2],
       ['right', edgeHitThickness, opening.height + edgeHitThickness, opening.width / 2, opening.height / 2],
@@ -423,7 +427,9 @@ export class HallScene {
       helper.add(hitArea);
     });
 
-    const handleSize = Math.max(.10, Math.min(.16, Math.min(opening.width, opening.height) * .09));
+    const handleSize = this.coarsePointer
+      ? Math.max(.17, Math.min(.24, Math.min(opening.width, opening.height) * .14))
+      : Math.max(.10, Math.min(.16, Math.min(opening.width, opening.height) * .09));
     [
       ['left', -opening.width / 2, opening.height / 2],
       ['right', opening.width / 2, opening.height / 2],
@@ -575,6 +581,15 @@ export class HallScene {
     if (!this.currentState || event.button !== 0) return;
     if (this.placement) {
       event.preventDefault();
+      const opening = this.openingById(this.placement.id);
+      const hit = this.wallHitFromEvent(event);
+      if (!opening || !hit) return;
+      opening.side = hit.side;
+      opening.offset = hit.u;
+      opening.bottom = hit.v - opening.height / 2;
+      normalizeOpening(opening, this.currentState);
+      this.applyOpeningPosePreview(opening);
+      this.callbacks.onOpeningSelectionChange?.(opening.id);
       this.confirmOpeningPlacement(this.currentState);
       return;
     }

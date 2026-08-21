@@ -7,6 +7,7 @@ import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=1';
 
 const initialLocale = resolveHallLocale();
 applyHallTranslations(initialLocale);
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
 const t = (key, variables = {}, locale = null) => hallT(locale ?? window.HALL_CONFIGURATOR_SHARED_SHELL?.state?.locale ?? initialLocale, key, variables);
 
 const history = new SharedUndoManager({
@@ -25,7 +26,8 @@ const toolItems = resolveSharedTools([
   'explode',
 ]);
 
-const shell = mountStandaloneConfiguratorShell({
+let shell;
+shell = mountStandaloneConfiguratorShell({
   productType: 'Hall',
   productId: 'hall',
   storagePrefix: '360-configurator:hall',
@@ -49,6 +51,7 @@ const shell = mountStandaloneConfiguratorShell({
     toggleSelector: '#hallSidebarToggle',
     collapsedClass: 'is-collapsed',
     bodyCollapsedClass: 'hall-sidebar-collapsed',
+    initiallyCollapsed: mobileLayoutQuery.matches,
   },
   callbacks: {
     onUndo() { history.undo(); },
@@ -79,7 +82,20 @@ const shell = mountStandaloneConfiguratorShell({
       window.dispatchEvent(new CustomEvent('hall-preference-change', { detail: { name: path, value, preferences: { ...preferences } } }));
     },
     onToolsOpenChange(open) {
+      if (mobileLayoutQuery.matches && open) {
+        shell?.setSettingsPanelCollapsed?.(true);
+      }
       if (!open) window.HALL_CONFIGURATOR_API?.closeToolPanels?.();
+    },
+    onSettingsPanelToggle(collapsed) {
+      syncSidebarAccessibility(collapsed);
+      if (mobileLayoutQuery.matches && !collapsed) {
+        if (shell?.toolsOpen) {
+          shell.toolsOpen = false;
+          shell.syncTools();
+        }
+        window.HALL_CONFIGURATOR_API?.closeToolPanels?.();
+      }
     },
   },
 });
@@ -113,6 +129,34 @@ shell.host.addEventListener('click', (event) => {
 history.bindSource(document.querySelector('.sidebar'));
 
 const sidebar = document.querySelector('.sidebar');
+const appShell = document.querySelector('.app-shell');
+
+function syncSidebarAccessibility(collapsed = shell?.settingsPanelCollapsed) {
+  if (!sidebar) return;
+  const hidden = Boolean(collapsed);
+  sidebar.inert = hidden;
+  sidebar.setAttribute('aria-hidden', String(hidden));
+}
+
+function syncMobileLayout() {
+  document.body.classList.toggle('hall-mobile-layout', mobileLayoutQuery.matches);
+  if (mobileLayoutQuery.matches) shell?.setSettingsPanelCollapsed?.(true);
+  else shell?.setSettingsPanelCollapsed?.(false);
+  syncSidebarAccessibility(shell?.settingsPanelCollapsed);
+}
+
+syncSidebarAccessibility(shell?.settingsPanelCollapsed);
+document.body.classList.toggle('hall-mobile-layout', mobileLayoutQuery.matches);
+mobileLayoutQuery.addEventListener?.('change', syncMobileLayout);
+
+appShell?.addEventListener('pointerdown', (event) => {
+  if (!mobileLayoutQuery.matches || shell?.settingsPanelCollapsed) return;
+  if (event.target.closest('.sidebar, #hallSidebarToggle')) return;
+  shell.setSettingsPanelCollapsed(true);
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
+
 if (sidebar) {
   const markDirty = (event) => {
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
@@ -131,6 +175,15 @@ shell.host?.addEventListener('click', (event) => {
   else if (action === 'cycle-camera') window.HALL_CONFIGURATOR_API?.cycleCamera?.();
   else if (action === 'toggle-technical-edges') window.HALL_CONFIGURATOR_API?.toggleTechnicalEdges?.();
   else if (action === 'toggle-explode-tool') window.HALL_CONFIGURATOR_API?.toggleExplode?.();
+  else return;
+
+  if (mobileLayoutQuery.matches) {
+    shell?.setSettingsPanelCollapsed?.(true);
+    if (shell?.toolsOpen) {
+      shell.toolsOpen = false;
+      shell.syncTools();
+    }
+  }
 });
 
 window.HALL_CONFIGURATOR_SHARED_SHELL = shell;
