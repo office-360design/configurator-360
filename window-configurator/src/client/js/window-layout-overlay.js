@@ -190,18 +190,69 @@ export function createWindowLayoutOverlay({
 
     function localPointForControl(definition) {
         if (definition.kind === 'add') {
-            const placement = getEditableTopologyGeometry()?.framePlacements?.find(p =>
+            const geometry = getEditableTopologyGeometry();
+            const placement = geometry?.framePlacements?.find(p =>
                 definition.frameEdgeId
                     ? p.id === definition.frameEdgeId
                     : (p.windowCell === definition.cellId && p.side === definition.direction)
             );
             if (placement) {
-                let x = placement.originX;
-                let y = placement.originY;
-                if (definition.direction === 'left') x -= placement.width / 2 + OUTER_OFFSET_M;
-                if (definition.direction === 'right') x += placement.width / 2 + OUTER_OFFSET_M;
-                if (definition.direction === 'top') y += placement.height / 2 + OUTER_OFFSET_M;
-                if (definition.direction === 'bottom') y -= placement.height / 2 + OUTER_OFFSET_M;
+                const edgeStart = Number(placement.start);
+                const edgeEnd = Number(placement.end);
+                const candidateMid = (Number(definition.start) + Number(definition.end)) / 2;
+                const ratio = Number.isFinite(edgeStart)
+                    && Number.isFinite(edgeEnd)
+                    && edgeEnd > edgeStart
+                    && Number.isFinite(candidateMid)
+                    ? Math.max(0, Math.min(1, (candidateMid - edgeStart) / (edgeEnd - edgeStart)))
+                    : 0.5;
+                const worldStart = Number.isFinite(Number(placement.structuralWorldStart))
+                    ? Number(placement.structuralWorldStart)
+                    : Number(placement.worldStart);
+                const worldEnd = Number.isFinite(Number(placement.structuralWorldEnd))
+                    ? Number(placement.structuralWorldEnd)
+                    : Number(placement.worldEnd);
+                const along = Number.isFinite(worldStart) && Number.isFinite(worldEnd)
+                    ? worldStart + (worldEnd - worldStart) * ratio
+                    : (placement.orientation === 'horizontal' ? placement.originX : placement.originY);
+                const perpendicular = Number.isFinite(Number(placement.perpendicularOffset))
+                    ? Number(placement.perpendicularOffset)
+                    : (placement.orientation === 'horizontal' ? placement.originY : placement.originX);
+
+                if (placement.orientation === 'horizontal') {
+                    const y = perpendicular + (definition.direction === 'bottom' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
+                    return new THREE.Vector3(along, y, FRONT_OFFSET_M);
+                }
+                const x = perpendicular + (definition.direction === 'left' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
+                return new THREE.Vector3(x, along, FRONT_OFFSET_M);
+            }
+
+            // The initial single-window preset is not yet marked as dynamic, so
+            // the builder intentionally has no editable topology geometry for it.
+            // Position those controls directly from the logical window grid
+            // instead of allowing all four add buttons to stack at the origin.
+            const state = getWindowLayoutState?.();
+            const windows = state?.topology?.windows || [];
+            if (windows.length) {
+                const minX = Math.min(...windows.map(cell => Number(cell.rect.x0)));
+                const maxX = Math.max(...windows.map(cell => Number(cell.rect.x1)));
+                const minY = Math.min(...windows.map(cell => Number(cell.rect.y0)));
+                const maxY = Math.max(...windows.map(cell => Number(cell.rect.y1)));
+                const spanX = Math.max(1e-9, maxX - minX);
+                const spanY = Math.max(1e-9, maxY - minY);
+                const width = Math.max(0, Number(getWidth?.()) || 0);
+                const height = Math.max(0, Number(getHeight?.()) || 0);
+                const candidateMid = (Number(definition.start) + Number(definition.end)) / 2;
+
+                if (definition.direction === 'top' || definition.direction === 'bottom') {
+                    const x = ((candidateMid - minX) / spanX - 0.5) * width;
+                    const boundaryY = ((Number(definition.coordinate) - minY) / spanY - 0.5) * height;
+                    const y = boundaryY + (definition.direction === 'bottom' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
+                    return new THREE.Vector3(x, y, FRONT_OFFSET_M);
+                }
+                const boundaryX = ((Number(definition.coordinate) - minX) / spanX - 0.5) * width;
+                const y = ((candidateMid - minY) / spanY - 0.5) * height;
+                const x = boundaryX + (definition.direction === 'left' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
                 return new THREE.Vector3(x, y, FRONT_OFFSET_M);
             }
         } else if (definition.kind === 'merge' || definition.kind === 'trans') {

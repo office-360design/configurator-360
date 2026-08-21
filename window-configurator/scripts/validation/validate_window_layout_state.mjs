@@ -19,6 +19,16 @@ const errors = [];
 const assert = (condition, message) => { if (!condition) errors.push(message); };
 const cell = (state, id) => state.windows.find(windowCell => windowCell.id === id);
 
+const singleState = createSingleWindowState({ type: SASH_WINDOW_TYPE });
+const singleTopology = deriveWindowTopology(singleState);
+assert(singleTopology.addCandidates.length === 4, 'A single starting window must expose four add buttons.');
+assert(
+    ['bottom', 'left', 'right', 'top'].every(direction =>
+        singleTopology.addCandidates.some(candidate => candidate.direction === direction)
+    ),
+    'The starting window must be addable from left, right, top, and bottom.'
+);
+
 let leftState = createSingleWindowState({ type: SASH_WINDOW_TYPE });
 leftState = addWindowToState(leftState, { cellId: 'w1', direction: 'left', type: FIXED_WINDOW_TYPE });
 const leftTopology = deriveWindowTopology(leftState);
@@ -101,6 +111,40 @@ mergeState = mergeWindowsInState(mergeState, {
     type: SASH_WINDOW_TYPE,
 });
 assert(mergeState.windows.length === 1, 'Merging must remove the mullion and replace two cells with one window.');
+const mergedTopology = deriveWindowTopology(mergeState);
+const mergedTopAdds = mergedTopology.addCandidates
+    .filter(candidate => candidate.cellId === 'w1' && candidate.direction === 'top')
+    .sort((a, b) => a.start - b.start);
+const mergedBottomAdds = mergedTopology.addCandidates
+    .filter(candidate => candidate.cellId === 'w1' && candidate.direction === 'bottom')
+    .sort((a, b) => a.start - b.start);
+assert(
+    mergedTopAdds.length === 2
+        && mergedTopAdds[0].start === 0 && mergedTopAdds[0].end === 1
+        && mergedTopAdds[1].start === 1 && mergedTopAdds[1].end === 2,
+    'Merging two side-by-side windows must keep two separate add positions along the merged top edge.'
+);
+assert(
+    mergedBottomAdds.length === 2
+        && mergedBottomAdds[0].start === 0 && mergedBottomAdds[0].end === 1
+        && mergedBottomAdds[1].start === 1 && mergedBottomAdds[1].end === 2,
+    'Merging two side-by-side windows must keep two separate add positions along the merged bottom edge.'
+);
+const mergedWithNeighbour = addWindowToState(mergeState, {
+    cellId: 'w1',
+    direction: 'top',
+    type: FIXED_WINDOW_TYPE,
+    start: mergedTopAdds[1].start,
+    end: mergedTopAdds[1].end,
+});
+const mergedNeighbour = mergedWithNeighbour.windows.find(windowCell => windowCell.id !== 'w1');
+assert(
+    mergedNeighbour?.rect.x0 === 1
+        && mergedNeighbour?.rect.x1 === 2
+        && mergedNeighbour?.rect.y0 === 1
+        && mergedNeighbour?.rect.y1 === 2,
+    'Adding next to one half of a merged window must create one normal bay, not another merged-width window.'
+);
 
 let transState = createSingleWindowState({ type: SASH_WINDOW_TYPE, transProfileId: '575830' });
 transState = addWindowToState(transState, { cellId: 'w1', direction: 'right', type: SASH_WINDOW_TYPE });

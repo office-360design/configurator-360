@@ -73,6 +73,44 @@ function normalizeRectangles(windows) {
     }));
 }
 
+function normalizeMergeGuides(value, bounds) {
+    const raw = Array.isArray(value) ? value : [];
+    const seen = new Set();
+    const normalized = [];
+
+    raw.forEach(guide => {
+        const orientation = guide?.orientation === 'vertical'
+            ? 'vertical'
+            : (guide?.orientation === 'horizontal' ? 'horizontal' : null);
+        if (!orientation) return;
+
+        const coordinate = finite(guide?.coordinate, NaN);
+        const start = finite(guide?.start, NaN);
+        const end = finite(guide?.end, NaN);
+        if (![coordinate, start, end].every(Number.isFinite) || end <= start + EPSILON) return;
+
+        const shifted = orientation === 'vertical'
+            ? {
+                orientation,
+                coordinate: coordinate - bounds.x0,
+                start: start - bounds.y0,
+                end: end - bounds.y0,
+            }
+            : {
+                orientation,
+                coordinate: coordinate - bounds.y0,
+                start: start - bounds.x0,
+                end: end - bounds.x0,
+            };
+        const key = `${orientation}:${topologyCoordinateKey(shifted.coordinate)}:${topologyCoordinateKey(shifted.start)}:${topologyCoordinateKey(shifted.end)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        normalized.push(shifted);
+    });
+
+    return normalized;
+}
+
 function makeCell(id, type, rect, handleSide = null) {
     return {
         id: String(id),
@@ -100,6 +138,7 @@ export function createSingleWindowState({
         dividerProfileId: String(dividerProfileId || '575800'),
         transProfileId: String(transProfileId || DEFAULT_TRANS_PROFILE_ID),
         transConnections: Object.freeze([]),
+        mergeGuides: Object.freeze([]),
         windows: Object.freeze([
             Object.freeze(makeCell('w1', type, { x0: 0, y0: 0, x1: 1, y1: 1 }, handleSide)),
         ]),
@@ -128,7 +167,9 @@ export function normalizeWindowState(value, { dividerProfileId = '575800', trans
         });
     }
 
+    const bounds = stateBounds(windows);
     const normalized = normalizeRectangles(windows);
+    const mergeGuides = normalizeMergeGuides(source.mergeGuides, bounds);
     const ids = new Set();
     normalized.forEach(cell => {
         if (ids.has(cell.id)) throw new Error(`Duplicate window id ${cell.id}.`);
@@ -155,6 +196,7 @@ export function normalizeWindowState(value, { dividerProfileId = '575800', trans
         dividerProfileId: String(source.dividerProfileId || dividerProfileId || '575800'),
         transProfileId: String(source.transProfileId || transProfileId || DEFAULT_TRANS_PROFILE_ID),
         transConnections: Object.freeze(transConnections.map(connection => Object.freeze({ ...connection }))),
+        mergeGuides: Object.freeze(mergeGuides.map(guide => Object.freeze({ ...guide }))),
         windows: Object.freeze(normalized.map(cell => Object.freeze({
             ...cell,
             rect: Object.freeze({ ...cell.rect }),
@@ -382,6 +424,7 @@ export function addWindowToState(stateValue, {
         dividerProfileId: state.dividerProfileId,
         transProfileId: state.transProfileId,
         transConnections: state.transConnections,
+        mergeGuides: state.mergeGuides,
         windows,
     });
 }
@@ -711,6 +754,41 @@ function deriveGridLinePieces(state) {
     return Object.freeze(pieces);
 }
 
+function splitFrameEdgeForAddCandidates(state, edge) {
+    const breaks = [edge.start, edge.end];
+
+    (state.mergeGuides || []).forEach(guide => {
+        if (edge.orientation === 'horizontal' && guide.orientation === 'vertical') {
+            const reachesEdge = nearlyEqual(guide.start, edge.coordinate)
+                || nearlyEqual(guide.end, edge.coordinate);
+            if (reachesEdge && guide.coordinate > edge.start + EPSILON && guide.coordinate < edge.end - EPSILON) {
+                breaks.push(guide.coordinate);
+            }
+            return;
+        }
+
+        if (edge.orientation === 'vertical' && guide.orientation === 'horizontal') {
+            const reachesEdge = nearlyEqual(guide.start, edge.coordinate)
+                || nearlyEqual(guide.end, edge.coordinate);
+            if (reachesEdge && guide.coordinate > edge.start + EPSILON && guide.coordinate < edge.end - EPSILON) {
+                breaks.push(guide.coordinate);
+            }
+        }
+    });
+
+    const sorted = [...new Set(breaks.map(value => topologyCoordinateKey(value)))]
+        .map(Number)
+        .sort((a, b) => a - b);
+    const pieces = [];
+    for (let index = 0; index + 1 < sorted.length; index += 1) {
+        const start = sorted[index];
+        const end = sorted[index + 1];
+        if (end <= start + EPSILON) continue;
+        pieces.push({ start, end });
+    }
+    return pieces;
+}
+
 export function deriveWindowTopology(stateValue) {
     const state = normalizeWindowState(stateValue);
     const linePieces = deriveGridLinePieces(state);
@@ -766,16 +844,17 @@ export function deriveWindowTopology(stateValue) {
 
     const addCandidates = state.windows.length >= MAX_WINDOW_CELLS
         ? []
-        : frameEdges.map(edge => Object.freeze({
-            id: `add-${edge.id}`,
+        : frameEdges.flatMap(edge => splitFrameEdgeForAddCandidates(state, edge).map((piece, index) => Object.freeze({
+            id: `add-${edge.id}-${topologyCoordinateKey(piece.start)}-${topologyCoordinateKey(piece.end)}`,
             frameEdgeId: edge.id,
             cellId: edge.cellId,
             direction: edge.side,
             side: edge.side,
             coordinate: edge.coordinate,
-            start: edge.start,
-            end: edge.end,
-        }));
+            start: piece.start,
+            end: piece.end,
+            segmentIndex: index,
+        })));
 
     return Object.freeze({
         version: WINDOW_STATE_VERSION,
@@ -787,6 +866,7 @@ export function deriveWindowTopology(stateValue) {
         frameEdges: Object.freeze(frameEdges),
         dividers: Object.freeze(dividers),
         transSegments: Object.freeze(transSegments),
+        mergeGuides: state.mergeGuides,
         addCandidates: Object.freeze(addCandidates),
         mergeCandidates: Object.freeze(mergeCandidates),
         transCandidates: Object.freeze(transCandidates),
@@ -805,6 +885,7 @@ export function mergeWindowsInState(stateValue, {
     if (!a || !b || !canUnionRectangles(a, b)) {
         throw new Error('Only adjacent windows whose union is one rectangle can be merged.');
     }
+    const boundary = sharedBoundary(a, b);
     const resultType = normalizeType(type || (a.type === b.type ? a.type : FIXED_WINDOW_TYPE));
     const merged = makeCell(a.id, resultType, {
         x0: Math.min(a.rect.x0, b.rect.x0),
@@ -827,6 +908,15 @@ export function mergeWindowsInState(stateValue, {
             && connection.cellAId !== b.id
             && connection.cellBId !== b.id
         )),
+        mergeGuides: [
+            ...(state.mergeGuides || []),
+            {
+                orientation: boundary.orientation,
+                coordinate: boundary.coordinate,
+                start: boundary.start,
+                end: boundary.end,
+            },
+        ],
         windows,
     });
 }
@@ -839,6 +929,7 @@ export function setWindowTypeInState(stateValue, cellId, type, handleSide = null
         dividerProfileId: state.dividerProfileId,
         transProfileId: state.transProfileId,
         transConnections: state.transConnections,
+        mergeGuides: state.mergeGuides,
         windows: state.windows.map(cell => ({
             ...cell,
             type: cell.id === String(cellId) ? normalizeType(type) : cell.type,
@@ -937,6 +1028,12 @@ export function serializeWindowState(stateValue) {
             cellAId: connection.cellAId,
             cellBId: connection.cellBId,
             ownerCellId: connection.ownerCellId,
+        })),
+        mergeGuides: state.mergeGuides.map(guide => ({
+            orientation: guide.orientation,
+            coordinate: guide.coordinate,
+            start: guide.start,
+            end: guide.end,
         })),
         windows: state.windows.map(cell => ({
             id: cell.id,
