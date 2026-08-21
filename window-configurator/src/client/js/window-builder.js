@@ -79,6 +79,8 @@ export function createWindowBuilder({
 }) {
     let currentMetadata = null;
     let profilesData = [];
+    let sectionSampleMetadata = null;
+    let sectionSampleProfilesData = [];
 
     // EXPLOSION REGISTER
     let isExploded = (isARMode && pageParams.get('explode') === '1') || document.getElementById('cExplode').checked;
@@ -108,6 +110,7 @@ export function createWindowBuilder({
 
     // 3D SAMPLE EXTRUSION GENERATOR (10CM)
     function createSampleExtrusion(profile) {
+        const sampleMetadata = sectionSampleMetadata || currentMetadata;
         // Use the same thickness-aware template as the full window. Using
         // profile.shape here locked the section sample to the original 573940
         // glazing bead even after the glass thickness selected 573930/573920.
@@ -126,18 +129,18 @@ export function createWindowBuilder({
             const y_cad = cadPoint.y;
 
             // Center X coordinates around 0
-            let x_norm = x_cad - currentMetadata.globalCenterX;
+            let x_norm = x_cad - sampleMetadata.globalCenterX;
 
             // Normalize Y coordinate based on drawing type (Horizontal vs Vertical)
             let y_norm;
-            if (currentMetadata.isVertical) {
+            if (sampleMetadata.isVertical) {
                 if (profile.section === 'bottom') {
-                    y_norm = y_cad - currentMetadata.globalMinY;
+                    y_norm = y_cad - sampleMetadata.globalMinY;
                 } else {
-                    y_norm = currentMetadata.globalMaxY - y_cad;
+                    y_norm = sampleMetadata.globalMaxY - y_cad;
                 }
             } else {
-                y_norm = y_cad - currentMetadata.globalMinY;
+                y_norm = y_cad - sampleMetadata.globalMinY;
             }
 
             let u = x_norm * S;
@@ -247,10 +250,15 @@ export function createWindowBuilder({
             const cadY = cadPoint.y;
             let depth = (centerY - cadY) * S;
             let face = (cadX - centerX) * S;
-            if (Number(profile?.dividerSectionRotationDeg) === 180) {
+            const sectionRotationDeg = Number(
+                profile?.dividerSectionRotationDeg
+                ?? profile?.transSectionRotationDeg
+                ?? 0
+            );
+            if (sectionRotationDeg === 180) {
                 // Correct only the verified front/back reversal. Keep the
-                // standalone mullion section plane; do not rotate it from the
-                // join INSERT basis, which caused the 90-degree regression.
+                // standalone mullion/trans section plane; do not rotate it
+                // from the join INSERT basis.
                 depth = -depth;
                 face = -face;
             }
@@ -1701,6 +1709,163 @@ export function createWindowBuilder({
 
     let lastSectionSampleSignature = '';
 
+    function getSectionSamplePlacement(profile, preferredSection = 'top') {
+        const placements = Array.isArray(profile.sectionSamplePlacements)
+            ? profile.sectionSamplePlacements
+            : [];
+        if (placements.length) {
+            const placement = placements.find(item => item.section === preferredSection)
+                || placements[0];
+            return {
+                ...profile,
+                section: placement.section || preferredSection,
+                cadCoordinateTransform:
+                    placement.cadCoordinateTransform || profile.cadCoordinateTransform,
+            };
+        }
+
+        if (
+            (sectionSampleMetadata || currentMetadata)?.hasSplit
+            && profile.section
+            && profile.section !== preferredSection
+        ) {
+            return null;
+        }
+        return profile;
+    }
+
+    function createStandardSectionSampleGroup(profiles, preferredSection = 'top') {
+        const group = new THREE.Group();
+        profiles.forEach(profile => {
+            const placedProfile = getSectionSamplePlacement(profile, preferredSection);
+            if (!placedProfile) return;
+            group.add(createSampleExtrusion(placedProfile));
+        });
+        return group;
+    }
+
+    function getConnectionTransformVariants(profile, fieldNames) {
+        const variants = [];
+        const seen = new Set();
+        fieldNames.forEach(fieldName => {
+            Object.entries(profile?.[fieldName] || {}).forEach(([side, transform]) => {
+                if (!transform) return;
+                const signature = JSON.stringify(transform);
+                if (seen.has(signature)) return;
+                seen.add(signature);
+                variants.push({ side, transform });
+            });
+        });
+        return variants;
+    }
+
+    function createDividerSectionSampleGroup({
+        baseProfiles,
+        accessoryProfiles = [],
+        bounds,
+        sectionRotationDeg = 180,
+    }) {
+        const group = new THREE.Group();
+        if (!bounds) return group;
+
+        baseProfiles.forEach(profile => {
+            group.add(createDividerSampleExtrusion({
+                ...profile,
+                dividerSectionRotationDeg:
+                    Number(profile.dividerSectionRotationDeg)
+                    || Number(profile.transSectionRotationDeg)
+                    || sectionRotationDeg,
+            }, bounds));
+        });
+
+        accessoryProfiles.forEach(profile => {
+            if (
+                (sectionSampleMetadata || currentMetadata)?.hasSplit
+                && profile.section === 'bottom'
+            ) {
+                return;
+            }
+            const transformVariants = getConnectionTransformVariants(profile, [
+                'mullionConnectionCadTransforms',
+                'mullionAccessoryCadTransforms',
+            ]);
+            transformVariants.forEach(({ transform }) => {
+                group.add(createDividerSampleExtrusion({
+                    ...profile,
+                    cadCoordinateTransform: transform,
+                    cadAlignmentShiftXMm: 0,
+                    cadAlignmentShiftYMm: 0,
+                    dividerSectionRotationDeg: sectionRotationDeg,
+                }, bounds));
+            });
+        });
+
+        return group;
+    }
+
+    function centerSectionSampleGroup(group) {
+        group.updateMatrixWorld(true);
+        const bounds = new THREE.Box3().setFromObject(group);
+        if (bounds.isEmpty()) return null;
+        const center = bounds.getCenter(new THREE.Vector3());
+        group.children.forEach(child => {
+            child.position.x -= center.x;
+            child.position.y -= center.y;
+        });
+        group.updateMatrixWorld(true);
+        return new THREE.Box3().setFromObject(group);
+    }
+
+    function packSectionSampleGroups(groups) {
+        const packed = groups
+            .map(item => ({
+                ...item,
+                bounds: centerSectionSampleGroup(item.group),
+            }))
+            .filter(item => item.bounds && !item.bounds.isEmpty());
+        if (!packed.length) return;
+
+        const gap = 0.055;
+        const columns = Math.min(2, packed.length);
+        const rows = Math.ceil(packed.length / columns);
+        const columnWidths = new Array(columns).fill(0);
+        const rowHeights = new Array(rows).fill(0);
+
+        packed.forEach((item, index) => {
+            const column = index % columns;
+            const row = Math.floor(index / columns);
+            const size = item.bounds.getSize(new THREE.Vector3());
+            columnWidths[column] = Math.max(columnWidths[column], size.x);
+            rowHeights[row] = Math.max(rowHeights[row], size.y);
+        });
+
+        const totalWidth = columnWidths.reduce((sum, width) => sum + width, 0)
+            + gap * Math.max(0, columns - 1);
+        const totalHeight = rowHeights.reduce((sum, height) => sum + height, 0)
+            + gap * Math.max(0, rows - 1);
+
+        const columnCenters = [];
+        let cursorX = -totalWidth / 2;
+        columnWidths.forEach(width => {
+            columnCenters.push(cursorX + width / 2);
+            cursorX += width + gap;
+        });
+
+        const rowCenters = [];
+        let cursorY = totalHeight / 2;
+        rowHeights.forEach(height => {
+            rowCenters.push(cursorY - height / 2);
+            cursorY -= height + gap;
+        });
+
+        packed.forEach((item, index) => {
+            const column = index % columns;
+            const row = Math.floor(index / columns);
+            item.group.position.set(columnCenters[column], rowCenters[row], 0);
+            sectionGroup.add(item.group);
+        });
+    }
+
     function rebuildSectionSamplesIfNeeded(activeProfiles) {
         if (isARMode || captureMode) {
             return;
@@ -1712,6 +1877,17 @@ export function createWindowBuilder({
             insideFinishSelection,
         } = getFinishState();
 
+        const sectionProfiles = sectionSampleProfilesData.length
+            ? sectionSampleProfilesData.filter(profile => isProfileEnabled(profile))
+            : activeProfiles;
+
+        const mountedTransformSignature = sectionProfiles.map(profile => [
+            profile.index,
+            Object.keys(profile.mullionConnectionCadTransforms || {}).join(','),
+            Object.keys(profile.mullionAccessoryCadTransforms || {}).join(','),
+            profile.frameAccessoryCadTransform ? 'frame-mounted' : '',
+        ].join(':')).join(';');
+
         const signature = [
             profileInput.value,
             aluminiumFinishMode,
@@ -1722,7 +1898,8 @@ export function createWindowBuilder({
             getActiveGlazingBeadCode(),
             getActiveGasketCode(),
             getWindowLayoutState().layoutSignature || getWindowLayoutState().layoutId || 'single',
-            activeProfiles.map(profile => profile.index).join(','),
+            sectionProfiles.map(profile => profile.index).join(','),
+            mountedTransformSignature,
         ].join('|');
 
         if (signature === lastSectionSampleSignature) {
@@ -1732,48 +1909,89 @@ export function createWindowBuilder({
         clearGeneratedGroup(sectionGroup);
         lastSectionSampleSignature = signature;
 
-        const dividerProfiles = activeProfiles.filter(profile => profile.role === 'divider');
-        const standardProfiles = activeProfiles.filter(profile => profile.role !== 'divider');
+        const frameProfiles = [];
+        const sashProfiles = [];
+        const dividerProfiles = sectionProfiles.filter(profile => profile.role === 'divider');
+        const transProfiles = sectionProfiles.filter(profile => profile.role === 'trans');
+        const transGasketProfiles = sectionProfiles.filter(profile => profile.role === 'trans-gasket');
 
-        standardProfiles.forEach(profile => {
-            const sampleProfiles = Array.isArray(profile.sectionSamplePlacements)
-                && profile.sectionSamplePlacements.length
-                ? profile.sectionSamplePlacements.map(placement => ({
+        sectionProfiles.forEach(profile => {
+            const profileGroup = getProfileGroup(profile);
+
+            if (profile.frameAccessoryCadTransform) {
+                frameProfiles.push({
                     ...profile,
-                    section: placement.section,
-                    cadCoordinateTransform: placement.cadCoordinateTransform
-                        || profile.cadCoordinateTransform,
-                }))
-                : [profile];
+                    cadCoordinateTransform: profile.frameAccessoryCadTransform,
+                    cadAlignmentShiftXMm: 0,
+                    cadAlignmentShiftYMm: 0,
+                });
+            } else if (profileGroup === 'frame') {
+                frameProfiles.push(profile);
+            }
 
-            sampleProfiles.forEach(sampleProfile => {
-                const sampleMesh = createSampleExtrusion(sampleProfile);
-
-                if (currentMetadata.hasSplit) {
-                    if (sampleProfile.section === 'top') {
-                        sampleMesh.rotation.x = Math.PI;
-                        sampleMesh.position.y = 0.28;
-                    } else if (sampleProfile.section === 'bottom') {
-                        sampleMesh.position.y = 0;
-                    }
-                }
-
-                sectionGroup.add(sampleMesh);
-            });
+            if (profileGroup === 'sash' || profileGroup === 'bead') {
+                sashProfiles.push(profile);
+            }
         });
 
-        if (dividerProfiles.length) {
-            const dividerBounds = getDividerSourceBounds(dividerProfiles);
-            const dividerSampleGroup = new THREE.Group();
-            dividerProfiles.forEach(profile => {
-                dividerSampleGroup.add(
-                    createDividerSampleExtrusion(profile, dividerBounds)
-                );
+        const dividerAccessoryProfiles = sectionProfiles.filter(profile => (
+            Object.keys(profile.mullionConnectionCadTransforms || {}).length
+            || Object.keys(profile.mullionAccessoryCadTransforms || {}).length
+        ));
+
+        const sampleGroups = [];
+        if (frameProfiles.length) {
+            sampleGroups.push({
+                kind: 'frame',
+                group: createStandardSectionSampleGroup(frameProfiles),
             });
-            dividerSampleGroup.position.y = currentMetadata.hasSplit ? -0.24 : -0.16;
-            sectionGroup.add(dividerSampleGroup);
+        }
+        if (sashProfiles.length) {
+            sampleGroups.push({
+                kind: 'sash',
+                group: createStandardSectionSampleGroup(sashProfiles),
+            });
+        }
+        if (dividerProfiles.length) {
+            sampleGroups.push({
+                kind: 'divider',
+                group: createDividerSectionSampleGroup({
+                    baseProfiles: dividerProfiles,
+                    accessoryProfiles: dividerAccessoryProfiles,
+                    bounds: getDividerSourceBounds(dividerProfiles),
+                    sectionRotationDeg:
+                        Number((sectionSampleMetadata || currentMetadata).dividerConnection?.sectionRotationDeg) || 180,
+                }),
+            });
+        }
+        if (transProfiles.length) {
+            const transBounds = getTransSourceBounds(transProfiles);
+            const transSectionRotationDeg =
+                Number((sectionSampleMetadata || currentMetadata).transConnection?.sectionRotationDeg)
+                || Number(transProfiles[0]?.transSectionRotationDeg)
+                || 180;
+            const transSampleProfiles = [
+                ...transProfiles,
+                ...transGasketProfiles.map(profile => ({
+                    ...profile,
+                    cadCoordinateTransform:
+                        profile.transConnectionCadTransform
+                        || profile.cadCoordinateTransform,
+                    cadAlignmentShiftXMm: 0,
+                    cadAlignmentShiftYMm: 0,
+                })),
+            ];
+            sampleGroups.push({
+                kind: 'trans',
+                group: createDividerSectionSampleGroup({
+                    baseProfiles: transSampleProfiles,
+                    bounds: transBounds,
+                    sectionRotationDeg: transSectionRotationDeg,
+                }),
+            });
         }
 
+        packSectionSampleGroups(sampleGroups);
         sectionGroup.lookAt(camera.position);
     }
 
@@ -4102,9 +4320,19 @@ export function createWindowBuilder({
         applyExplodedWindowForwardOffset(explodeProgress);
     }
 
-    function setProfileData(metadata, profiles) {
+    function setProfileData(
+        metadata,
+        profiles,
+        nextSectionSampleMetadata = metadata,
+        nextSectionSampleProfiles = profiles
+    ) {
         currentMetadata = metadata;
         profilesData = profiles;
+        sectionSampleMetadata = nextSectionSampleMetadata;
+        sectionSampleProfilesData = Array.isArray(nextSectionSampleProfiles)
+            ? nextSectionSampleProfiles
+            : [];
+        invalidateSectionSamples();
     }
 
     function invalidateSectionSamples() {
