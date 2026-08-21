@@ -395,6 +395,7 @@ windowBuilder = createWindowBuilder({
     updateComponentPictures,
     getFinishState: materialManager.getFinishState,
     getSelectedHandleSide: () => selectedHandleSide,
+    onGlassClick: ({ cellId }) => windowLayoutOverlay?.openCellWheel(cellId),
     isProfileEnabled: accessoryController.isProfileEnabled,
     canPlaceProfileOnSide: accessoryController.canPlaceProfileOnSide,
     getWindowLayoutState: () => windowLayoutController?.getConfigurationSnapshot() || {
@@ -430,6 +431,9 @@ windowLayoutOverlay = createWindowLayoutOverlay({
         windowLayoutController.mergeWindows(cellAId, cellBId, type, { handleSide }),
     onSetTransWindows: (cellAId, cellBId, enabled, ownerCellId) =>
         windowLayoutController.setTransBetweenWindows(cellAId, cellBId, { enabled, ownerCellId }),
+    onSetWindowType: (cellId, type, handleSide) =>
+        windowLayoutController.setWindowType(cellId, type, { handleSide }),
+    onUnmergeWindow: cellId => windowLayoutController.unmergeWindow(cellId),
     enabled: !isARMode && !captureMode,
     getEditableTopologyGeometry: () => windowBuilder?.getEditableTopologyGeometry?.(),
 });

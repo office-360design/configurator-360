@@ -11,6 +11,7 @@ import {
     createWindowStateFromLayoutDefinition,
     deriveWindowTopology,
     mergeWindowsInState,
+    unmergeWindowInState,
     normalizeWindowState,
     parseWindowState,
     serializeWindowState,
@@ -472,6 +473,15 @@ export function createWindowLayoutController({
         return getConfigurationSnapshot();
     }
 
+    async function unmergeWindow(cellId, { notify = true } = {}) {
+        const previous = getConfigurationSnapshot();
+        windowState = unmergeWindowInState(windowState, { cellId });
+        layoutId = 'dynamic';
+        if (notify) return notifyChange(previous, { topologyOnly: true });
+        syncControls();
+        return getConfigurationSnapshot();
+    }
+
     async function applyConfiguration(configuration = {}, { notify = false } = {}) {
         const previous = getConfigurationSnapshot();
         const request = getWindowLayoutRequest(configuration);
@@ -531,6 +541,7 @@ export function createWindowLayoutController({
         mergeWindows,
         setTransBetweenWindows,
         setWindowType,
+        unmergeWindow,
         applyConfiguration,
         appendUrlParams,
         getConfigurationSnapshot,
