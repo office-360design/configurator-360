@@ -1,0 +1,313 @@
+:root {
+  --shared-topbar-height: 47px;
+  --shared-settings-gap: 20px;
+  --shared-settings-width: 360px;
+}
+
+body.shared-ui-mounted #canvas-container {
+  top: var(--shared-topbar-height);
+  height: calc(100vh - var(--shared-topbar-height));
+}
+
+body.shared-ui-mounted #controls {
+  top: calc(var(--shared-topbar-height) + var(--shared-settings-gap));
+  right: var(--shared-settings-gap);
+  left: auto;
+  width: var(--shared-settings-width);
+  max-height: calc(100vh - var(--shared-topbar-height) - (var(--shared-settings-gap) * 2));
+  border-radius: 18px;
+}
+
+body.shared-ui-mounted #controls.sidebar-collapsed {
+  transform: translateX(calc(100% + var(--shared-settings-gap)));
+}
+
+body.shared-ui-mounted #sidebar-toggle {
+  top: calc(var(--shared-topbar-height) + 34px);
+  right: calc(var(--shared-settings-width) + var(--shared-settings-gap));
+  left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  transition: right 0.32s cubic-bezier(0.22, 1, 0.36, 1), background 0.15s ease, color 0.15s ease;
+}
+
+body.shared-ui-mounted #sidebar-toggle svg { transform: rotate(180deg); }
+body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle { right: 0; left: auto; }
+body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle svg { transform: rotate(0deg); }
+
+/* The shared top-bar AR action replaces this old floating publisher control. */
+body.shared-ui-mounted #ar-publish-controls { display: none !important; }
+
+body.capture-mode .shared-ui-host,
+.ar-mode .shared-ui-host { display: none !important; }
+body.capture-mode #canvas-container,
+.ar-mode #canvas-container { top: 0 !important; height: 100vh !important; }
+
+@media (max-width: 760px) {
+  :root {
+    --shared-settings-gap: 12px;
+    --shared-settings-width: min(320px, calc(100vw - 56px));
+  }
+  body.shared-ui-mounted #controls {
+    top: calc(var(--shared-topbar-height) + 12px);
+    right: 12px;
+    width: min(320px, calc(100vw - 56px));
+    max-height: calc(100vh - var(--shared-topbar-height) - 24px);
+  }
+  body.shared-ui-mounted #sidebar-toggle {
+    top: calc(var(--shared-topbar-height) + 26px);
+    right: min(332px, calc(100vw - 44px));
+  }
+  body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle { right: 0; }
+}
+
+/* Complete light-mode skin for the legacy window controls. The original
+   embedded stylesheet remains the dark-mode skin. */
+body.shared-ui-mounted:not(.shared-ui-dark-mode) {
+  color: #172027;
+  background: #eef1f3;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls {
+  color: #172027;
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(20, 31, 39, 0.1);
+  box-shadow: 0 16px 42px rgba(24, 39, 47, 0.18);
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #sidebar-toggle {
+  color: #273746;
+  background: rgba(255, 255, 255, 0.98);
+  border-color: #dfe4e6;
+  box-shadow: -8px 0 22px rgba(24, 39, 47, 0.14);
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #sidebar-toggle:hover {
+  color: #005a9f;
+  background: #f4f7f8;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls h1 {
+  background: none;
+  color: #005a9f;
+  -webkit-text-fill-color: currentColor;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls h2,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-side-note,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-selected-name,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .part-toggle-item,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .clean-dropdown-header,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .group-dropdown-header .caret,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls [style*="color: #94a3b8"],
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls [style*="color:#94a3b8"] {
+  color: #66737d !important;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls label,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-side-header,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .group-dropdown-header,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .component-bubble-label,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls [style*="color: #cbd5e1"],
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls [style*="color:#cbd5e1"],
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls [style*="color: #e2e8f0"] {
+  color: #27343d !important;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls label span,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .action-box label {
+  color: #0878c9;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-mode-toggle,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-type-toggle,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .mode-select,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-side-card,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .group-dropdown,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .component-bubble-card,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls [style*="background: rgba(30, 41, 59"] {
+  color: #27343d !important;
+  background: #f4f7f8 !important;
+  border-color: #dce3e7 !important;
+  box-shadow: none;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-mode-btn,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-type-btn,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .handle-side-btn,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .square-toggle-btn {
+  color: #5e6b75;
+  background: transparent;
+  border-color: transparent;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-mode-btn:hover,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-type-btn:hover,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .handle-side-btn:hover:not(.active),
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .square-toggle-btn:hover {
+  color: #172027;
+  background: #e8eef2;
+  border-color: #cfd8dd;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-mode-btn.active,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-type-btn.active,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .handle-side-btn.active,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .square-toggle-btn.active {
+  color: #005a9f;
+  background: #e9f5fd;
+  border-color: #0878c9;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls select,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls input[type="number"] {
+  color: #172027;
+  background: #f5f7f8;
+  border-color: #d5dde2;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls input[type="range"] {
+  background: #dce4e9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls input[type="range"]::-webkit-slider-thumb {
+  background: #0878c9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls input[type="range"]::-moz-range-thumb {
+  background: #0878c9;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .action-box {
+  color: #005a9f;
+  background: #eef8fe;
+  border-color: #b9dff5;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .part-toggles,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .group-dropdown-content {
+  border-color: #e1e6e9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .group-dropdown-header {
+  background: #f1f5f7;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .group-dropdown-header:hover {
+  color: #172027;
+  background: #e8eef2;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .btn-toggle-all-group,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls #cad-reference-button {
+  color: #005a9f;
+  background: #e9f5fd;
+  border-color: #87c9ee;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-swatch {
+  border-color: #d8e0e4;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) .cad-reference-dialog,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #qr-dialog,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) .qr-dialog {
+  color: #172027;
+  background: #fff;
+  border-color: #dce3e7;
+  box-shadow: 0 24px 70px rgba(20, 27, 35, 0.2);
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #cad-reference-main,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) .cad-reference-thumb,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) .cad-reference-thumb img {
+  background: #f3f6f8;
+  border-color: #dce3e7;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) .cad-reference-thumb span,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #cad-reference-subtitle,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #cad-reference-status {
+  color: #64727c;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #cad-reference-close {
+  color: #27343d;
+  background: #eef2f4;
+}
+
+/* Explicit dark-mode ownership. */
+body.shared-ui-dark-mode #controls {
+  color: #f3f4f6;
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Window-specific surfaces that sit outside the main controls still need to
+   follow the shared shell theme. */
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #loading {
+  color: #172027;
+  background: rgba(255, 255, 255, 0.98);
+  border-color: #dce3e7;
+  box-shadow: 0 18px 50px rgba(24, 39, 47, 0.2);
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #loading .spinner {
+  border-color: #dce4e9;
+  border-left-color: #0878c9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #loading [style*="color: #64748b"] {
+  color: #66737d !important;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .accessory-option-row {
+  color: #27343d;
+  background: #f4f7f8;
+  border-color: #dce3e7;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .accessory-option-label {
+  color: #27343d;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .accessory-option-profile {
+  color: #0878c9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .accessory-option-description,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .accessory-availability-note {
+  color: #66737d;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .accessory-option-status {
+  color: #b56a00;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .switch-slider {
+  background: #dce4e9;
+  border-color: #cfd8dd;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .switch-slider::before {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(24, 39, 47, 0.25);
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .switch input:checked + .switch-slider {
+  background: #d9eefb;
+  border-color: #87c9ee;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .switch input:checked + .switch-slider::before {
+  background: #0878c9;
+}
+
+/* With the settings panel on the right, the exploded-view selection card can
+   live directly in the bottom-left corner instead of reserving left-sidebar space. */
+body.shared-ui-mounted #component-selection-popup,
+body.shared-ui-mounted.sidebar-is-collapsed #component-selection-popup {
+  left: 24px;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #component-selection-popup {
+  color: #172027;
+  background: rgba(255, 255, 255, 0.98);
+  border-color: #b9dff5;
+  box-shadow: 0 16px 42px rgba(24, 39, 47, 0.2);
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) .component-selection-kicker {
+  color: #66737d;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #component-selection-name {
+  color: #0878c9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) .component-selection-source {
+  color: #27343d;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #component-selection-close {
+  color: #66737d;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #component-selection-close:hover {
+  color: #172027;
+  background: #e8eef2;
+}
+
+@media (max-width: 760px) {
+  body.shared-ui-mounted #component-selection-popup,
+  body.shared-ui-mounted.sidebar-is-collapsed #component-selection-popup {
+    left: 12px;
+  }
+}
