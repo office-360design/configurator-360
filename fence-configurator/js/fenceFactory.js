@@ -4,6 +4,8 @@ import { FINISHES, deriveFenceMetrics } from './state.js';
 const POST_SIZE = 0.085;
 const PANEL_THICKNESS = 0.045;
 const CLEARANCE = 0.07;
+export const GRADE_Y = 0;
+const BASE_PLATE_HEIGHT = 0.018;
 
 export function buildFenceAssembly(state) {
   const metrics = deriveFenceMetrics(state);
@@ -33,20 +35,25 @@ export function buildFenceAssembly(state) {
   });
 
   postMap.forEach((point) => {
-    const post = boxMesh(POST_SIZE, state.height + 0.12, POST_SIZE, finishMaterial, point.x, (state.height + 0.12) / 2 - 0.02, point.z);
+    const postTop = state.height + 0.04;
+    const postBottom = state.foundation === 'baseplate'
+      ? GRADE_Y + BASE_PLATE_HEIGHT
+      : GRADE_Y - 0.02;
+    const postHeight = postTop - postBottom;
+    const post = boxMesh(POST_SIZE, postHeight, POST_SIZE, finishMaterial, point.x, postBottom + postHeight / 2, point.z);
     post.name = 'post';
     markFence(post);
     fenceGroup.add(post);
 
     if (state.foundation === 'baseplate') {
-      const plate = boxMesh(0.19, 0.018, 0.19, footingMaterial, point.x, 0.012, point.z);
+      const plate = boxMesh(0.19, BASE_PLATE_HEIGHT, 0.19, footingMaterial, point.x, GRADE_Y + BASE_PLATE_HEIGHT / 2, point.z);
       plate.name = 'base-plate';
       markFence(plate);
       fenceGroup.add(plate);
       addAnchorBolts(fenceGroup, point, darkMaterial);
     } else {
       const footing = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.32, 18), footingMaterial);
-      footing.position.set(point.x, -0.14, point.z);
+      footing.position.set(point.x, GRADE_Y - 0.14, point.z);
       footing.name = 'concrete-footing';
       markFence(footing);
       fenceGroup.add(footing);
@@ -246,9 +253,13 @@ function addPostCaps(group, postMap, height, material) {
 function addAnchorBolts(group, point, material) {
   const offsets = [-0.064, 0.064];
   offsets.forEach((x) => offsets.forEach((z) => {
-    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.034, 10), material);
-    bolt.position.set(point.x + x, 0.031, point.z + z);
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.052, 10), material);
+    bolt.position.set(point.x + x, GRADE_Y + 0.012, point.z + z);
     bolt.name = 'anchor-bolt'; markFence(bolt); group.add(bolt);
+
+    const nut = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.008, 6), material);
+    nut.position.set(point.x + x, GRADE_Y + BASE_PLATE_HEIGHT + 0.004, point.z + z);
+    nut.name = 'anchor-nut'; markFence(nut); group.add(nut);
   }));
 }
 
