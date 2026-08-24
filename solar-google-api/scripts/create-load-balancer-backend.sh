@@ -71,6 +71,8 @@ URL-map resource. Add these paths to the path matcher already used by the three
 
   /api/solar/google-solar
   /api/solar/google-solar/*
+  /api/solar/pvgis
+  /api/solar/pvgis/*
 
 and point them to:
 
@@ -89,7 +91,8 @@ Then edit it without replacing the existing website routes:
 After the URL map propagates, verify:
 
   curl -fsS 'https://www.360configurator.com/api/solar/google-solar?action=health' | jq .
+  curl -fsS 'https://www.360configurator.com/api/solar/pvgis?tool=health' | jq .
 
-Expected platform: google-cloud-run
+Expected platform for both endpoints: google-cloud-run
 
 MSG

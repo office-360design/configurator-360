@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=14';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=15';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=12';
 import { getLocalizedConfiguratorUrl } from '../../../shared-ui/src/config.js';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
@@ -12,8 +12,10 @@ function cloneState(state) {
 export function mountPergolaSharedShell({ store, ui }) {
   const initial = store.get();
   const t = (key, variables = {}, locale = null) => pergolaT(locale ?? store.get().locale, key, variables);
+  const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
 
-  const shell = mountStandaloneConfiguratorShell({
+  let shell;
+  shell = mountStandaloneConfiguratorShell({
     productType: 'Pergola',
     productId: 'pergola',
     storagePrefix: 'pergola-configurator',
@@ -68,12 +70,23 @@ export function mountPergolaSharedShell({ store, ui }) {
         else if (action === 'help') ui.showModal(t('modal.helpTitle'), `<p>${escapeHtml(t('modal.helpBody'))}</p>`);
         else if (action === 'cookies') ui.showToast(t('feedback.cookiesUnavailable'));
       },
+      onToolsOpenChange(open) {
+        if (!open || !mobileLayoutQuery.matches) return;
+        ui.closeSidebarForMobile();
+        ui.setEnvironmentPanelOpen(false);
+      },
       onToolAction({ toolId }) {
+        if (mobileLayoutQuery.matches) ui.closeSidebarForMobile();
         const state = store.get();
         if (toolId === 'environment') ui.toggleEnvironmentPanel();
         else if (toolId === 'dimensions') store.update('view.dimensionsVisible', !state.view.dimensionsVisible);
         else if (toolId === 'compass') store.update('view.compassVisible', !state.view.compassVisible);
         else if (toolId === 'camera') ui.cycleCameraPreset();
+
+        if (mobileLayoutQuery.matches && shell?.toolsOpen) {
+          shell.toolsOpen = false;
+          shell.syncTools();
+        }
       },
     },
   });

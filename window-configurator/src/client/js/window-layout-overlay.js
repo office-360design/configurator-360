@@ -160,7 +160,10 @@ export function createWindowLayoutOverlay({
         menu.className = 'window-cell-wheel';
         menu.setAttribute('aria-label', windowT(locale, 'layout.cellMenu'));
 
-        const openingButtons = isSash ? `
+        const isTransOwner = Boolean(
+            state?.windowState?.transConnections?.some(connection => connection.ownerCellId === cell.id)
+        );
+        const openingButtons = (isSash && !isTransOwner) ? `
             <button type="button" class="window-cell-wheel-action is-opening-left${currentHandleSide === 'left' ? ' is-active' : ''}" data-cell-action="opening-left" aria-label="${windowT(locale, 'layout.openLeft')}" title="${windowT(locale, 'layout.openLeft')}">
                 ${openingSideSvg('left')}
             </button>

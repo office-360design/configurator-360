@@ -413,6 +413,96 @@
 }
 
 /* Native B2-6 runtime layers. The full configurator remains isolated in /public/window-runtime. */
+.window-hero-poster {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.42s ease;
+}
+
+.window-hero-poster.is-hidden {
+  opacity: 0;
+}
+
+.window-hero-poster-object {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(220px, 29vw, 470px);
+  aspect-ratio: 0.68;
+  padding: clamp(18px, 2vw, 34px);
+  transform: translate(-50%, -45%) perspective(1300px) rotateY(-6deg);
+  background:
+    linear-gradient(105deg, rgba(255,255,255,.08), transparent 24%, rgba(255,255,255,.2) 47%, transparent 59%),
+    linear-gradient(135deg, #07090b 0%, #20262b 45%, #050607 100%);
+  border: 1px solid rgba(53, 156, 231, .28);
+  box-shadow: 0 36px 90px rgba(0, 0, 0, .32), inset 0 0 0 2px rgba(255,255,255,.025);
+}
+
+[data-theme="dark"] .window-hero-poster-object {
+  background:
+    linear-gradient(105deg, rgba(255,255,255,.14), transparent 24%, rgba(255,255,255,.62) 47%, transparent 59%),
+    linear-gradient(135deg, #d8d9d5 0%, #fafafa 46%, #bfc2c1 100%);
+  box-shadow: 0 36px 100px rgba(0, 0, 0, .5), inset 0 0 0 2px rgba(0,0,0,.04);
+}
+
+.window-hero-poster-glass {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, rgba(119, 173, 207, .76), rgba(7, 32, 59, .94));
+  border: 2px solid rgba(109, 177, 220, .5);
+  box-shadow: inset 18px 0 36px rgba(255,255,255,.12), inset -12px 0 26px rgba(0,0,0,.3);
+}
+
+.window-hero-poster-handle {
+  position: absolute;
+  right: -1.5%;
+  top: 52%;
+  width: 25%;
+  height: 2.7%;
+  border-radius: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, #f1cf76, #9c5e13 52%, #6d3d09);
+  box-shadow: 0 2px 8px rgba(0,0,0,.36);
+}
+
+.window-hero-poster-handle::after {
+  content: "";
+  position: absolute;
+  right: -5%;
+  top: 50%;
+  width: 22%;
+  aspect-ratio: .42;
+  border-radius: 45%;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, #81500d, #dba63f);
+}
+
+.window-hero-poster-dimension {
+  position: absolute;
+  color: #d5f5ff;
+  border: 1px solid rgba(65, 202, 255, .62);
+  border-radius: 999px;
+  background: rgba(24, 48, 75, .78);
+  padding: 7px 13px;
+  font: 700 11px var(--font-geist-mono);
+  box-shadow: 0 0 22px rgba(53, 156, 231, .18);
+}
+
+.window-hero-poster-dimension.dimension-height {
+  left: calc(50% - clamp(185px, 21vw, 345px));
+  top: 48%;
+}
+
+.window-hero-poster-dimension.dimension-width {
+  left: 50%;
+  top: calc(50% + clamp(180px, 27vw, 385px));
+  transform: translateX(-50%);
+}
+
 .window-hero-runtime {
   position: fixed;
   inset: 0;
@@ -748,6 +838,20 @@
 }
 
 @media (max-width: 720px) {
+  .window-hero-poster-object {
+    top: 48%;
+    width: min(58vw, 310px);
+  }
+
+  .window-hero-poster-dimension.dimension-height {
+    left: 12%;
+    top: 47%;
+  }
+
+  .window-hero-poster-dimension.dimension-width {
+    top: 72%;
+  }
+
   .window-hero-runtime {
     transform: scale(1.08);
   }

@@ -902,7 +902,7 @@ export function createProfileController({
                 sources.outerFrameProfileId,
                 sources.sashProfileId,
                 normalizedSelection.dividerProfileId || null,
-                hasTransSegment ? (normalizedSelection.transProfileId || null) : null,
+                normalizedSelection.transProfileId || null,
             ].filter(profileId =>
                 isStandaloneProfileGeometryRegistered(
                     getProfileCatalogEntry(profileId)
@@ -936,6 +936,18 @@ export function createProfileController({
             const needsEditableDividerCatalog = Boolean(normalizedSelection.dividerProfileId);
             const openingSashFrameTemplate = hasOpeningSashCell || needsEditableDividerCatalog
                 ? await loadConnectionTemplate('frame-sash')
+                : null;
+            // The detached 10 cm view is a product-system reference, not a
+            // copy of the current topology. Keep a sash/sash join available so
+            // frame, sash, mullion and trans samples can all be shown even when
+            // the current window does not happen to use every element.
+            const sectionFrameConnectionTemplate = openingSashFrameTemplate
+                || await loadConnectionTemplate('frame-sash');
+            const sectionDividerConnectionTemplate = normalizedSelection.dividerProfileId
+                ? await loadConnectionTemplate('mullion-sash-sash')
+                : null;
+            const sectionTransConnectionTemplate = normalizedSelection.transProfileId
+                ? await loadConnectionTemplate('trans-sash-sash')
                 : null;
             const [
                 fixedGlazingFrameTemplate,
@@ -1135,6 +1147,41 @@ export function createProfileController({
                 openingSashFrameTemplate,
             });
 
+            const sectionSelection = {
+                ...normalizedSelection,
+                dividerOrientation: normalizedSelection.dividerProfileId ? 'vertical' : null,
+                primaryDividerOrientation: normalizedSelection.dividerProfileId ? 'vertical' : null,
+                leftCell: 'opening-sash',
+                rightCell: 'opening-sash',
+                cells: ['opening-sash', 'opening-sash'],
+                topology: {
+                    ...(normalizedSelection.topology || {}),
+                    transSegments: normalizedSelection.transProfileId
+                        ? [{ id: 'section-sample-trans' }]
+                        : [],
+                },
+            };
+            let sectionDefinition = composeRegisteredProfileDefinitions({
+                selection: sectionSelection,
+                definitionsByProfileSetId,
+                standaloneDefinitionsByProfileId,
+                connectionTemplate: sectionDividerConnectionTemplate,
+                placementConnectionTemplate: sectionDividerConnectionTemplate,
+                transConnectionTemplate: sectionTransConnectionTemplate,
+            });
+            sectionDefinition = composeSupplementalAccessoryProfiles({
+                definition: sectionDefinition,
+                definitionsByProfileSetId,
+            });
+            sectionDefinition = applyFrameAccessoryConnectionPlacements({
+                definition: sectionDefinition,
+                frameConnectionTemplate: sectionFrameConnectionTemplate,
+            });
+            sectionDefinition = applyDividerAccessoryConnectionPlacements({
+                definition: sectionDefinition,
+                dividerConnectionTemplate: sectionDividerConnectionTemplate,
+            });
+
             currentMetadata = definition.metadata;
             profilesData = definition.profiles.map((profile, index) => ({
                 ...profile,
@@ -1142,9 +1189,20 @@ export function createProfileController({
                 legacyIndex: profile.legacyIndex ?? profile.index,
                 material: getMaterialForProfile(profile),
             }));
+            const sectionSampleProfilesData = sectionDefinition.profiles.map((profile, index) => ({
+                ...profile,
+                index,
+                legacyIndex: profile.legacyIndex ?? profile.index,
+                material: getMaterialForProfile(profile),
+            }));
             currentSelectionSignature = selectionSignature;
             initializeAccessoryProfiles(profilesData);
-            windowBuilder?.setProfileData(currentMetadata, profilesData);
+            windowBuilder?.setProfileData(
+                currentMetadata,
+                profilesData,
+                sectionDefinition.metadata,
+                sectionSampleProfilesData
+            );
             renderPartToggles();
             renderGroupFilters();
             buildWindow();

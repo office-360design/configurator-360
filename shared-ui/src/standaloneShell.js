@@ -1,14 +1,16 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
 import { sharedT } from './i18n.js';
-import { renderActionFeedback } from './components/feedback.js?v=14';
-import { renderTopBar } from './components/topBar.js?v=14';
-import { syncAccountIdentity } from './components/accountMenu.js?v=14';
-import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=14';
-import { renderToolsMenu } from './components/toolsMenu.js?v=14';
-import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=14';
-import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=14';
+import { renderActionFeedback } from './components/feedback.js?v=15';
+import { renderTopBar } from './components/topBar.js?v=15';
+import { syncAccountIdentity } from './components/accountMenu.js?v=15';
+import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=15';
+import { renderToolsMenu } from './components/toolsMenu.js?v=15';
+import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=15';
+import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=15';
 
 const MAX_PROJECT_NUMBER = 1000;
+const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
+const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall']);
 
 function normalizeProductId(value = '') {
   const normalized = String(value).trim().toLowerCase();
@@ -52,8 +54,11 @@ export class StandaloneConfiguratorShell {
 
     this.storagePrefix = this.options.storagePrefix;
     this.productId = normalizeProductId(this.options.productId || this.options.productType);
-    this.projectMetaKey = `${this.storagePrefix}:project-meta`;
-    this.projectCounterKey = `${this.storagePrefix}:next-project-number`;
+    // The old shell used one project-meta record for every authentication state.
+    // Keep its key only for one-time migration; active project pointers are now
+    // isolated by Firebase UID so one account can never leak into another/guest.
+    this.legacyProjectMetaKey = `${this.storagePrefix}:project-meta`;
+    this.projectCounterBaseKey = `${this.storagePrefix}:next-project-number`;
     this.preferencesKey = `${this.storagePrefix}:preferences`;
 
     const preferences = safeJsonParse(window.localStorage.getItem(this.preferencesKey), {});
@@ -72,12 +77,18 @@ export class StandaloneConfiguratorShell {
       locale: domainLocale,
     };
 
-    const meta = safeJsonParse(window.localStorage.getItem(this.projectMetaKey), {}) || {};
-    this.projectName = meta.name || this.getNextDefaultProjectName();
-    this.lastSavedProjectName = meta.savedName || '';
-    this.currentSavedConfigurationId = String(meta.savedConfigurationId || '');
-    this.currentSavedOwnerUid = String(meta.savedOwnerUid || '');
-    this.dirty = meta.dirty ?? true;
+    // Guests always start in their own unsaved book. Do not hydrate the previous
+    // account's project name/id before Firebase tells us which user is active.
+    this.projectName = this.getGuestProjectName();
+    this.lastSavedProjectName = '';
+    this.currentSavedConfigurationId = '';
+    this.currentSavedOwnerUid = '';
+    this.currentDraftStateJson = '';
+    this.dirty = false;
+    this.activeSessionUid = '';
+    this.authInitialized = false;
+    this.sessionSwitchToken = 0;
+    this.draftPersistTimer = 0;
     this.accountOpen = false;
     this.accountSettingsOpen = false;
     this.authUser = null;
@@ -105,12 +116,42 @@ export class StandaloneConfiguratorShell {
     this.initializeAuthentication();
   }
 
-  getNextDefaultProjectName() {
-    const stored = Number(window.localStorage.getItem(this.projectCounterKey));
+  getGuestProjectName() {
+    return `${this.options.productType}#1`;
+  }
+
+  getProjectMetaKey(uid) {
+    return `${this.storagePrefix}:project-meta:user:${encodeURIComponent(String(uid || ''))}`;
+  }
+
+  getProjectCounterKey(uid) {
+    return `${this.projectCounterBaseKey}:user:${encodeURIComponent(String(uid || ''))}`;
+  }
+
+  getNextDefaultProjectName(uid = this.authUser?.uid || this.activeSessionUid) {
+    if (!uid) return this.getGuestProjectName();
+    const stored = Number(window.localStorage.getItem(this.getProjectCounterKey(uid)));
     const number = Number.isFinite(stored) && stored >= 1
       ? Math.min(MAX_PROJECT_NUMBER, Math.floor(stored))
       : 1;
     return `${this.options.productType}#${number}`;
+  }
+
+  readUserMeta(uid) {
+    if (!uid) return {};
+    const key = this.getProjectMetaKey(uid);
+    let meta = safeJsonParse(window.localStorage.getItem(key), null);
+    if (meta) return meta;
+
+    // Migrate the pre-account-scoped pointer only when its owner matches the
+    // current Firebase account. A guest must never inherit this legacy record.
+    const legacy = safeJsonParse(window.localStorage.getItem(this.legacyProjectMetaKey), null);
+    if (legacy && String(legacy.savedOwnerUid || '') === String(uid)) {
+      meta = legacy;
+      window.localStorage.setItem(key, JSON.stringify(meta));
+      return meta;
+    }
+    return {};
   }
 
   renderHost() {
@@ -168,6 +209,13 @@ export class StandaloneConfiguratorShell {
       }
     };
     document.addEventListener('keydown', this.onKeyDown);
+
+    this.onBeforeUnload = () => {
+      if (!this.authUser?.uid || !this.dirty) return;
+      this.captureDraftState();
+      this.persistMeta();
+    };
+    window.addEventListener('beforeunload', this.onBeforeUnload);
   }
 
 
@@ -199,33 +247,193 @@ export class StandaloneConfiguratorShell {
     if (!silent) this.options.callbacks.onSettingsPanelToggle?.(this.settingsPanelCollapsed);
   }
 
+  captureDraftState() {
+    if (!this.authUser?.uid || !this.dirty || !DRAFT_PRODUCTS.has(this.productId)) return;
+    try {
+      const snapshot = this.options.callbacks.captureState?.();
+      if (snapshot === undefined || snapshot === null) return;
+      const json = JSON.stringify(snapshot);
+      if (json.length <= MAX_LOCAL_DRAFT_BYTES) this.currentDraftStateJson = json;
+    } catch (error) {
+      console.warn('The current account draft could not be cached locally.', error);
+    }
+  }
+
+  scheduleDraftPersistence() {
+    if (!this.authUser?.uid || !this.dirty || !DRAFT_PRODUCTS.has(this.productId)) return;
+    window.clearTimeout(this.draftPersistTimer);
+    this.draftPersistTimer = window.setTimeout(() => {
+      this.captureDraftState();
+      this.persistMeta();
+    }, 180);
+  }
+
+  flushDraftPersistence() {
+    window.clearTimeout(this.draftPersistTimer);
+    this.draftPersistTimer = 0;
+    if (!this.authUser?.uid || !this.dirty) return;
+    this.captureDraftState();
+    this.persistMeta();
+  }
+
   async initializeAuthentication() {
     try {
       this.authUnsubscribe = await observeGoogleAuth((user, error) => {
         if (error) return;
-        this.authUser = user;
         this.authBusy = false;
-        if (!user || (this.currentSavedOwnerUid && this.currentSavedOwnerUid !== user.uid)) {
-          this.currentSavedConfigurationId = '';
-          this.currentSavedOwnerUid = user?.uid || '';
-          this.persistMeta();
-        }
-        syncAccountIdentity(this.host, this.state.locale, this.authUser);
-        this.options.callbacks.onAuthChange?.(this.authUser);
+        void this.handleAuthStateChange(user, { initial: !this.authInitialized });
       });
     } catch (error) {
       console.error('Google authentication could not be initialized.', error);
-      syncAccountIdentity(this.host, this.state.locale, null);
+      this.authInitialized = true;
+      await this.enterGuestSession({ resetModel: false });
+    }
+  }
+
+  async handleAuthStateChange(user, { initial = false } = {}) {
+    const nextUid = String(user?.uid || '');
+    const previousUid = this.activeSessionUid;
+    this.authInitialized = true;
+
+    if (nextUid && nextUid === previousUid) {
+      this.authUser = user;
+      this.sync();
+      return;
+    }
+    if (previousUid && nextUid !== previousUid) this.flushDraftPersistence();
+    if (!nextUid && !previousUid) {
+      this.authUser = null;
+      await this.enterGuestSession({ resetModel: false });
+      this.options.callbacks.onAuthChange?.(null);
+      return;
+    }
+
+    if (nextUid) {
+      await this.enterUserSession(user);
+      this.options.callbacks.onAuthChange?.(user);
+      return;
+    }
+
+    // A transition from an authenticated account to guest is an explicit book
+    // switch: reset the configurator itself, not only the visible project name.
+    await this.enterGuestSession({ resetModel: !initial });
+    this.options.callbacks.onAuthChange?.(null);
+  }
+
+  async resetConfiguratorToDefault() {
+    const handled = await Promise.resolve(this.options.callbacks.createNewConfiguration?.());
+    return handled !== false;
+  }
+
+  async enterGuestSession({ resetModel = false } = {}) {
+    const token = ++this.sessionSwitchToken;
+    this.authUser = null;
+    this.activeSessionUid = '';
+    this.projectName = this.getGuestProjectName();
+    this.lastSavedProjectName = '';
+    this.currentSavedConfigurationId = '';
+    this.currentSavedOwnerUid = '';
+    this.dirty = false;
+    this.savedDialog = { open: false, loading: false, error: '', items: [] };
+
+    if (resetModel) await this.resetConfiguratorToDefault();
+    if (token !== this.sessionSwitchToken) return;
+    this.projectName = this.getGuestProjectName();
+    this.lastSavedProjectName = '';
+    this.currentSavedConfigurationId = '';
+    this.currentSavedOwnerUid = '';
+    this.currentDraftStateJson = '';
+    this.dirty = false;
+    this.renderHost();
+    this.sync();
+  }
+
+  async enterUserSession(user) {
+    const uid = String(user?.uid || '');
+    if (!uid) return this.enterGuestSession({ resetModel: false });
+    const token = ++this.sessionSwitchToken;
+    this.authUser = user;
+    this.activeSessionUid = uid;
+    this.savedDialog = { open: false, loading: false, error: '', items: [] };
+
+    const meta = this.readUserMeta(uid);
+    this.projectName = String(meta.name || this.getNextDefaultProjectName(uid)).slice(0, 80);
+    this.lastSavedProjectName = String(meta.savedName || '');
+    this.currentSavedConfigurationId = String(meta.savedConfigurationId || '');
+    this.currentSavedOwnerUid = uid;
+    this.currentDraftStateJson = String(meta.draftStateJson || '');
+    this.dirty = Boolean(meta.dirty);
+    this.renderHost();
+    this.sync();
+
+    if (this.dirty && this.currentDraftStateJson) {
+      try {
+        const draft = JSON.parse(this.currentDraftStateJson);
+        const restored = await Promise.resolve(this.options.callbacks.restoreState?.(draft));
+        if (restored === false) throw new Error('Configurator rejected the local account draft.');
+        if (token !== this.sessionSwitchToken) return;
+        this.persistMeta();
+        this.renderHost();
+        this.sync();
+        return;
+      } catch (error) {
+        console.warn('The last local account draft could not be restored; falling back to the saved configuration.', error);
+        this.currentDraftStateJson = '';
+      }
+    }
+
+    if (!this.currentSavedConfigurationId) {
+      await this.resetConfiguratorToDefault();
+      if (token !== this.sessionSwitchToken) return;
+      this.projectName = this.getNextDefaultProjectName(uid);
+      this.lastSavedProjectName = '';
+      this.dirty = true;
+      this.captureDraftState();
+      this.persistMeta();
+      this.renderHost();
+      this.sync();
+      return;
+    }
+
+    try {
+      const saved = await getUserConfiguration({
+        id: this.currentSavedConfigurationId,
+        productType: this.productId,
+      });
+      if (token !== this.sessionSwitchToken) return;
+      const restored = await Promise.resolve(this.options.callbacks.restoreState?.(saved.state));
+      if (restored === false) throw new Error('Configurator rejected the saved state.');
+      this.projectName = String(saved.name || this.projectName).slice(0, 80);
+      this.lastSavedProjectName = this.projectName;
+      this.currentSavedOwnerUid = uid;
+      this.currentDraftStateJson = '';
+      this.dirty = false;
+      this.persistMeta();
+      this.renderHost();
+      this.sync();
+    } catch (error) {
+      if (token !== this.sessionSwitchToken) return;
+      console.error('The last account configuration could not be restored.', error);
+      this.currentSavedConfigurationId = '';
+      this.currentSavedOwnerUid = uid;
+      this.currentDraftStateJson = '';
+      this.projectName = this.getNextDefaultProjectName(uid);
+      this.lastSavedProjectName = '';
+      this.dirty = true;
+      await this.resetConfiguratorToDefault();
+      this.persistMeta();
+      this.renderHost();
+      this.sync();
     }
   }
 
   async loginWithGoogle() {
-    if (this.authBusy) return;
+    if (this.authBusy) return null;
     this.authBusy = true;
     syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: true });
     try {
       const user = await signInWithGoogle();
-      this.authUser = user;
+      if (user) await this.handleAuthStateChange(user);
       this.accountOpen = true;
       this.options.callbacks.onAccountAction?.('login', user);
       return user;
@@ -237,26 +445,22 @@ export class StandaloneConfiguratorShell {
       return null;
     } finally {
       this.authBusy = false;
-      syncAccountIdentity(this.host, this.state.locale, this.authUser);
-      this.syncMenus();
+      this.sync();
     }
   }
 
   async logoutFromGoogle() {
     try {
+      this.flushDraftPersistence();
       await signOutGoogle();
-      this.authUser = null;
-      this.currentSavedConfigurationId = '';
-      this.currentSavedOwnerUid = '';
-      this.persistMeta();
+      await this.handleAuthStateChange(null);
       this.accountOpen = true;
       this.options.callbacks.onAccountAction?.('signout');
       this.showFeedback(sharedT(this.state.locale, 'feedback.loggedOut'));
     } catch (error) {
       console.error('Google sign-out failed.', error);
     } finally {
-      syncAccountIdentity(this.host, this.state.locale, this.authUser);
-      this.syncMenus();
+      this.sync();
     }
   }
 
@@ -361,8 +565,10 @@ export class StandaloneConfiguratorShell {
 
   handleInput(event) {
     if (event.target.matches('[data-project-name]')) {
+      if (!this.authUser?.uid) return;
       this.projectName = event.target.value;
       this.markDirty();
+      this.persistMeta();
       this.syncProjectNameWidth();
       return;
     }
@@ -386,13 +592,10 @@ export class StandaloneConfiguratorShell {
   async save(button) {
     if (this.saveBusy) return;
 
-    let user = this.authUser;
-    if (!user) {
-      user = await this.loginWithGoogle();
-      if (!user) {
-        this.showFeedback(sharedT(this.state.locale, 'feedback.saveLoginRequired'), 'error');
-        return;
-      }
+    const user = this.authUser;
+    if (!user?.uid) {
+      this.showFeedback(sharedT(this.state.locale, 'feedback.saveLoginRequired'), 'error');
+      return;
     }
 
     const configuration = this.options.callbacks.captureState?.();
@@ -413,6 +616,7 @@ export class StandaloneConfiguratorShell {
 
       this.currentSavedConfigurationId = String(result?.id || this.currentSavedConfigurationId || '');
       this.currentSavedOwnerUid = user.uid;
+      this.currentDraftStateJson = '';
       button.classList.remove('is-success');
       void button.offsetWidth;
       button.classList.add('is-success');
@@ -433,24 +637,24 @@ export class StandaloneConfiguratorShell {
       this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
     } finally {
       this.saveBusy = false;
-      button.disabled = false;
+      this.syncAuthenticationControls();
     }
   }
 
 
   async createNewConfiguration() {
+    if (!this.authUser?.uid) return;
     try {
-      const handled = await Promise.resolve(this.options.callbacks.createNewConfiguration?.());
-      if (handled === false) return;
-      if (handled === undefined && this.options.callbacks.onReset) {
-        await Promise.resolve(this.options.callbacks.onReset());
-      }
+      const handled = await this.resetConfiguratorToDefault();
+      if (!handled) return;
       this.currentSavedConfigurationId = '';
-      this.currentSavedOwnerUid = this.authUser?.uid || '';
-      this.projectName = this.getNextDefaultProjectName();
+      this.currentSavedOwnerUid = this.authUser.uid;
+      this.currentDraftStateJson = '';
+      this.projectName = this.getNextDefaultProjectName(this.authUser.uid);
       this.lastSavedProjectName = '';
       this.dirty = true;
       this.savedDialog.open = false;
+      this.captureDraftState();
       this.persistMeta();
       this.renderHost();
       this.sync();
@@ -499,12 +703,13 @@ export class StandaloneConfiguratorShell {
       this.lastSavedProjectName = this.projectName;
       this.currentSavedConfigurationId = savedId;
       this.currentSavedOwnerUid = this.authUser.uid;
+      this.currentDraftStateJson = '';
       this.dirty = false;
       this.persistMeta();
       this.savedDialog.open = false;
       this.renderHost();
       this.sync();
-      this.showFeedback(sharedT(this.state.locale, 'feedback.saved'));
+      this.showFeedback(sharedT(this.state.locale, 'feedback.opened'));
       this.options.callbacks.onSavedConfigurationOpen?.(saved);
     } catch (error) {
       console.error('Saved configuration could not be opened.', error);
@@ -522,6 +727,7 @@ export class StandaloneConfiguratorShell {
         this.currentSavedConfigurationId = '';
         this.currentSavedOwnerUid = this.authUser.uid;
         this.dirty = true;
+        this.captureDraftState();
         this.persistMeta();
       }
       await this.openSavedConfigurations();
@@ -572,28 +778,35 @@ export class StandaloneConfiguratorShell {
   }
 
   markDirty() {
-    if (this.dirty) return;
+    if (!this.authUser?.uid) return;
+    const wasDirty = this.dirty;
     this.dirty = true;
-    this.persistMeta();
-    this.syncDirty();
+    this.scheduleDraftPersistence();
+    if (!wasDirty) this.syncDirty();
   }
 
   reserveNextDefaultName() {
+    const uid = this.authUser?.uid || this.activeSessionUid;
+    if (!uid) return;
     const escapedType = this.options.productType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const match = new RegExp(`^${escapedType}#(\\d{1,4})$`, 'i').exec(this.projectName.trim());
     if (!match) return;
     const next = Math.min(MAX_PROJECT_NUMBER, Number(match[1]) + 1);
-    const stored = Number(window.localStorage.getItem(this.projectCounterKey)) || 1;
-    window.localStorage.setItem(this.projectCounterKey, String(Math.max(stored, next)));
+    const key = this.getProjectCounterKey(uid);
+    const stored = Number(window.localStorage.getItem(key)) || 1;
+    window.localStorage.setItem(key, String(Math.max(stored, next)));
   }
 
   persistMeta() {
-    window.localStorage.setItem(this.projectMetaKey, JSON.stringify({
+    const uid = this.authUser?.uid || this.activeSessionUid;
+    if (!uid) return;
+    window.localStorage.setItem(this.getProjectMetaKey(uid), JSON.stringify({
       name: this.projectName,
       savedName: this.lastSavedProjectName,
       dirty: this.dirty,
       savedConfigurationId: this.currentSavedConfigurationId,
-      savedOwnerUid: this.currentSavedOwnerUid,
+      savedOwnerUid: uid,
+      draftStateJson: this.currentDraftStateJson,
     }));
   }
 
@@ -607,6 +820,7 @@ export class StandaloneConfiguratorShell {
     this.syncProjectNameWidth();
     this.syncMenus();
     this.syncAccountSettings();
+    this.syncAuthenticationControls();
     syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: this.authBusy });
     this.syncLanguage();
     this.syncTools();
@@ -615,7 +829,7 @@ export class StandaloneConfiguratorShell {
   }
 
   syncDirty() {
-    this.dirtyIndicator?.classList.toggle('is-hidden', !this.dirty);
+    this.dirtyIndicator?.classList.toggle('is-hidden', !this.dirty || !this.authUser?.uid);
   }
 
   syncProjectNameWidth() {
@@ -632,6 +846,27 @@ export class StandaloneConfiguratorShell {
     this.languageMenu?.classList.toggle('is-open', this.languageOpen);
     this.host.querySelector('[data-action="account"]')?.setAttribute('aria-expanded', String(this.accountOpen));
     this.host.querySelector('[data-action="language"]')?.setAttribute('aria-expanded', String(this.languageOpen));
+  }
+
+  syncAuthenticationControls() {
+    const authenticated = Boolean(this.authUser?.uid);
+    const saveEnabled = authenticated && this.options.capabilities.save !== false && !this.saveBusy;
+    const newEnabled = authenticated && this.options.capabilities.save !== false;
+    const saveButton = this.host.querySelector('[data-action="save"]');
+    const newButton = this.host.querySelector('[data-action="new-configuration"]');
+    if (saveButton) {
+      saveButton.disabled = !saveEnabled;
+      saveButton.setAttribute('aria-disabled', String(!saveEnabled));
+    }
+    if (newButton) {
+      newButton.disabled = !newEnabled;
+      newButton.setAttribute('aria-disabled', String(!newEnabled));
+    }
+    if (this.projectInput) {
+      this.projectInput.readOnly = !authenticated;
+      this.projectInput.setAttribute('aria-readonly', String(!authenticated));
+      this.projectInput.closest('.project-name-shell')?.classList.toggle('is-guest', !authenticated);
+    }
   }
 
   syncAccountSettings() {
@@ -724,6 +959,8 @@ export class StandaloneConfiguratorShell {
     this.authUnsubscribe?.();
     document.removeEventListener('click', this.onDocumentClick);
     document.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
+    window.clearTimeout(this.draftPersistTimer);
     if (this.settingsToggle && this.onSettingsToggle) {
       this.settingsToggle.removeEventListener('click', this.onSettingsToggle);
     }

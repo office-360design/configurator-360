@@ -772,3 +772,392 @@
     padding: 11px;
   }
 }
+
+/* The shared top bar overlays the viewport. Keep the desktop Tools launcher
+   below it rather than inheriting pergola.css's old viewport-relative 16px top. */
+.shared-ui-host .tools-toolbar {
+  top: calc(var(--shared-topbar-height, 47px) + 16px);
+}
+
+/* Mobile pergola workspace --------------------------------------------------
+   Keep the 3D scene as the primary surface. The settings panel stays in the
+   unified floating-panel style, but starts off-canvas on phones and retains a
+   reachable edge handle. */
+@media (max-width: 760px) {
+  html,
+  body,
+  #app {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body {
+    overscroll-behavior: none;
+  }
+
+  body.shared-ui-mounted #app .app-shell {
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-rows: var(--shared-topbar-height, 47px) minmax(0, 1fr);
+  }
+
+  body.shared-ui-mounted #app .configurator-layout {
+    position: relative;
+    grid-row: 2;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .viewport {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .viewport > canvas {
+    touch-action: none;
+  }
+
+  /* Dim the model while settings are open, while leaving the viewport as the
+     actual click target so a tap outside the panel closes it. */
+  body.pergola-sidebar-ready.pergola-sidebar-open #app .configurator-layout::before {
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    pointer-events: none;
+    background: rgba(8, 15, 23, 0.24);
+    backdrop-filter: blur(1.5px);
+    content: '';
+  }
+
+  .configurator-sidebar {
+    top: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    left: auto;
+    z-index: 20;
+    width: min(360px, calc(100vw - 56px));
+    max-width: calc(100vw - 56px);
+    min-height: 0;
+    max-height: none;
+    border-radius: 16px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Translate by exactly the panel width: the left-side handle remains fully
+     visible at the right edge instead of being pushed off-screen. */
+  .configurator-sidebar.is-hidden {
+    transform: translateX(100%);
+  }
+
+  .sidebar-collapse-handle {
+    top: auto;
+    right: 100%;
+    bottom: 80px;
+    left: auto;
+    width: 40px;
+    height: 48px;
+    border-radius: 12px 0 0 12px;
+    touch-action: manipulation;
+  }
+
+  .sidebar-scroll {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    padding: 14px 14px 22px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar-footer {
+    position: static;
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: 0;
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .footer-price {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .footer-price strong {
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
+  .footer-actions {
+    display: grid;
+    grid-template-columns: 0.85fr 1.15fr;
+    gap: 8px;
+  }
+
+  .footer-actions .primary-button,
+  .footer-actions .secondary-button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding-inline: 10px;
+    touch-action: manipulation;
+  }
+
+  /* Comfortable touch targets and iOS-safe form font sizes. */
+  .configurator-sidebar .accordion-toggle {
+    min-height: 52px;
+    padding: 13px 14px;
+    touch-action: manipulation;
+  }
+
+  .configurator-sidebar .option-card,
+  .configurator-sidebar .accessory-card,
+  .configurator-sidebar .preset-button,
+  .configurator-sidebar .color-swatch,
+  .configurator-sidebar .side-tab,
+  .configurator-sidebar .position-button,
+  .configurator-sidebar .pole-button,
+  .configurator-sidebar .pole-selector__button,
+  .configurator-sidebar .pole-face-selector__button,
+  .configurator-sidebar .pole-mount-type,
+  .configurator-sidebar .pole-top-sensor,
+  .configurator-sidebar .heater-segment-button,
+  .configurator-sidebar .heater-direction-card {
+    touch-action: manipulation;
+  }
+
+  .configurator-sidebar .preset-button,
+  .configurator-sidebar .segmented-control__item,
+  .configurator-sidebar .mini-segmented button,
+  .configurator-sidebar .compact-toggle {
+    min-height: 42px;
+  }
+
+  .configurator-sidebar .form-field input,
+  .configurator-sidebar .form-field textarea,
+  .configurator-sidebar select,
+  .configurator-sidebar .number-input input {
+    font-size: 16px;
+  }
+
+  .configurator-sidebar .number-input {
+    min-height: 44px;
+  }
+
+  .configurator-sidebar input[type='range'],
+  .environment-panel input[type='range'] {
+    min-height: 32px;
+    touch-action: pan-x;
+  }
+
+  .pergola-grid {
+    padding: 15px 16px;
+  }
+
+  .pergola-grid__pole {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Shared Tools remain on the unobstructed left side and collapse after a
+     selection so the model is immediately usable again. */
+  .shared-ui-host .tools-toolbar {
+    top: calc(var(--shared-topbar-height, 47px) + 8px);
+    left: 8px;
+    gap: 8px;
+  }
+
+  .shared-ui-host .tool-launcher {
+    min-width: 66px;
+    min-height: 44px;
+    padding: 10px 14px;
+    border-radius: 13px;
+    touch-action: manipulation;
+  }
+
+  .shared-ui-host .tools-toolbar__panel {
+    gap: 8px;
+  }
+
+  .shared-ui-host .round-tool {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Light/orientation is a bottom sheet on phones instead of a floating panel
+     beside the vertical tool rail. */
+  .environment-panel {
+    top: auto;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    left: 10px;
+    z-index: 18;
+    width: auto;
+    max-width: none;
+    max-height: min(68dvh, 470px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px;
+    border-radius: 18px;
+    transform: translateY(12px) scale(0.985);
+    transform-origin: bottom center;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .environment-panel.is-open {
+    transform: translateY(0) scale(1);
+  }
+
+  .environment-panel__header {
+    margin-bottom: 16px;
+  }
+
+  .environment-panel__header button {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    touch-action: manipulation;
+  }
+
+  .environment-control {
+    margin-top: 14px;
+  }
+
+  .night-toggle {
+    min-height: 64px;
+    touch-action: manipulation;
+  }
+
+  .toast {
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100% - 28px);
+    text-align: center;
+  }
+
+  /* Product dialogs behave like mobile sheets and remain usable in landscape. */
+  .modal-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: calc(100dvh - var(--shared-topbar-height, 47px));
+    overflow: hidden;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .modal header {
+    min-height: 58px;
+    padding: 10px 12px 10px 16px;
+  }
+
+  .modal header button {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border-radius: 10px;
+  }
+
+  .modal__body {
+    max-height: min(58dvh, 460px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal footer {
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .modal footer .primary-button,
+  .modal footer .secondary-button {
+    min-height: 44px;
+  }
+
+  .dimension-warning-modal__actions > button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 420px) {
+  .configurator-sidebar {
+    width: calc(100vw - 52px);
+    max-width: calc(100vw - 52px);
+  }
+
+  .sidebar-scroll {
+    padding-inline: 12px;
+  }
+
+  .preset-grid {
+    gap: 6px;
+  }
+
+  .preset-button {
+    padding-inline: 4px;
+  }
+
+  .footer-actions {
+    grid-template-columns: 1fr 1.25fr;
+  }
+}
+
+/* Phone landscape: spend vertical space on the model, not chrome. */
+@media (max-width: 900px) and (max-height: 520px) {
+  .configurator-sidebar {
+    top: 6px;
+    bottom: 6px;
+  }
+
+  .sidebar-scroll {
+    padding-top: 10px;
+    padding-bottom: 14px;
+  }
+
+  .sidebar-footer {
+    grid-template-columns: minmax(110px, auto) minmax(0, 1fr);
+    align-items: center;
+    padding-block: 7px;
+  }
+
+  .footer-price {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1px;
+  }
+
+  .footer-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .footer-actions .primary-button,
+  .footer-actions .secondary-button {
+    min-height: 38px;
+  }
+
+  .environment-panel {
+    max-height: calc(100dvh - var(--shared-topbar-height, 47px) - 12px);
+  }
+
+  .modal__body {
+    max-height: 44dvh;
+  }
+}

@@ -2,7 +2,7 @@ import { getLanguageProfile } from '../config.js';
 import { sharedT } from '../i18n.js';
 import { sharedIcon } from '../icons.js';
 import { escapeHtml } from '../utils.js';
-import { renderAccountMenu } from './accountMenu.js?v=14';
+import { renderAccountMenu } from './accountMenu.js?v=15';
 import { renderLanguageMenu } from './languageMenu.js';
 
 function iconButton({ action, label, icon, disabled = false, extraClass = '' }) {
@@ -44,8 +44,10 @@ function shareButton(locale, disabled = false) {
 
 export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilities = {} }) {
   const locale = state.locale;
+  const authenticated = Boolean(state.authUser?.uid);
   const canViewAR = capabilities.viewAR !== false;
-  const canSave = capabilities.save !== false;
+  const canSave = capabilities.save !== false && authenticated;
+  const canNewConfiguration = capabilities.save !== false && authenticated;
   const canUndo = capabilities.undo !== false;
   const canReset = capabilities.reset !== false;
   const canShare = capabilities.share !== false;
@@ -66,14 +68,14 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
         <img src="${escapeHtml(brandSrc)}" alt="${escapeHtml(brandAlt)}" />
       </a>
 
-      <div class="project-name-shell">
+      <div class="project-name-shell ${authenticated ? '' : 'is-guest'}">
         <span class="project-name-measure" data-project-name-measure aria-hidden="true">${escapeHtml(projectName)}</span>
-        <input class="project-name-input" type="text" value="${escapeHtml(projectName)}" maxlength="80" data-project-name aria-label="${escapeHtml(labels.projectName)}" spellcheck="false" />
+        <input class="project-name-input" type="text" value="${escapeHtml(projectName)}" maxlength="80" data-project-name aria-label="${escapeHtml(labels.projectName)}" spellcheck="false" ${authenticated ? '' : 'readonly aria-readonly="true"'} />
         <span class="project-dirty-indicator" data-project-dirty aria-label="${escapeHtml(labels.unsaved)}">*</span>
       </div>
 
       <div class="site-header__actions">
-        ${newConfigurationButton(locale, !canSave)}
+        ${newConfigurationButton(locale, !canNewConfiguration)}
         ${saveButton(locale, !canSave)}
         ${iconButton({ action: 'view-ar', label: labels.viewAr, icon: sharedIcon('ar'), disabled: !canViewAR })}
         ${iconButton({ action: 'undo', label: labels.undo, icon: sharedIcon('undo'), disabled: !canUndo })}

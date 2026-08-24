@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=14';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=15';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
 import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
@@ -26,6 +26,7 @@ const tools = [
       active: true,
       icon: icon('<path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"></path>'),
     },
+    'technicalEdges',
     {
       id: 'compass',
       icon: icon('<circle cx="12" cy="12" r="8.5"></circle><path d="m15.4 8.6-2.1 4.7-4.7 2.1 2.1-4.7z"></path><path d="M12 1.7v2M12 20.3v2M1.7 12h2M20.3 12h2"></path>'),
@@ -136,9 +137,16 @@ shell.host.addEventListener('click', (event) => {
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#roofSidebarToggle');
+const appShell = document.querySelector('.app-shell');
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
+let sidebarUserOverride = false;
 
 function setSidebarCollapsed(collapsed) {
   sidebar?.classList.toggle('is-collapsed', collapsed);
+  if (sidebar) {
+    sidebar.inert = Boolean(collapsed);
+    sidebar.setAttribute('aria-hidden', String(Boolean(collapsed)));
+  }
   document.body.classList.toggle('roof-sidebar-collapsed', collapsed);
   sidebarToggle?.setAttribute('aria-expanded', String(!collapsed));
   const label = t(collapsed ? 'sidebar.show' : 'sidebar.hide');
@@ -147,9 +155,24 @@ function setSidebarCollapsed(collapsed) {
 }
 
 sidebarToggle?.addEventListener('click', () => {
+  sidebarUserOverride = true;
   setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed'));
 });
-setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
+
+setSidebarCollapsed(mobileLayoutQuery.matches || Boolean(sidebar?.classList.contains('is-collapsed')));
+document.body.classList.add('roof-sidebar-ready');
+
+mobileLayoutQuery.addEventListener?.('change', (event) => {
+  if (!sidebarUserOverride) setSidebarCollapsed(event.matches);
+  scheduleToolsPosition();
+});
+
+appShell?.addEventListener('click', (event) => {
+  if (!mobileLayoutQuery.matches || sidebar?.classList.contains('is-collapsed')) return;
+  if (event.target.closest('.sidebar, #roofSidebarToggle')) return;
+  setSidebarCollapsed(true);
+});
+
 window.addEventListener('roof-locale-applied', () => {
   setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
   syncToolsState();
@@ -165,6 +188,7 @@ if (sidebar) {
 }
 
 const toolsAnchor = document.querySelector('#roofToolsAnchor');
+const viewerStage = document.querySelector('#viewerStage');
 const environmentPanel = document.querySelector('#roofEnvironmentPanel');
 const environmentClose = document.querySelector('#roofEnvironmentClose');
 const sunPositionControl = document.querySelector('#sunPositionControl');
@@ -199,13 +223,26 @@ function setToolState(toolId, { active = false, disabled = false, title = null }
 
 function positionToolsUi() {
   toolsPositionFrame = 0;
-  if (!toolsAnchor || !relocatedToolsToolbar?.isConnected) return;
+  if (!relocatedToolsToolbar?.isConnected) return;
 
-  const anchorRect = toolsAnchor.getBoundingClientRect();
-  const toolbarLeft = Math.round(anchorRect.left);
-  const toolbarTop = Math.round(anchorRect.top);
+  // Pin the Roof tools to the 3D stage itself, not to the generic shared
+  // top-bar offset. The stage starts below the Roof viewer header/BOM row,
+  // so this remains correct on both desktop and mobile.
+  const stageRect = viewerStage?.getBoundingClientRect();
+  const anchorRect = toolsAnchor?.getBoundingClientRect();
+  const compact = mobileLayoutQuery.matches;
+  const toolbarLeft = Math.round((stageRect?.left ?? anchorRect?.left ?? 0) + (compact ? 10 : 18));
+  const toolbarTop = Math.round((stageRect?.top ?? anchorRect?.top ?? 0) + (compact ? 10 : 16));
+
   relocatedToolsToolbar.style.setProperty('--roof-tools-left', `${toolbarLeft}px`);
   relocatedToolsToolbar.style.setProperty('--roof-tools-top', `${toolbarTop}px`);
+  // Use inline !important values as the final authority. The shared toolbar
+  // has its own fixed positioning rule and can be re-rendered after mount.
+  relocatedToolsToolbar.style.setProperty('position', 'fixed', 'important');
+  relocatedToolsToolbar.style.setProperty('top', `${toolbarTop}px`, 'important');
+  relocatedToolsToolbar.style.setProperty('left', `${toolbarLeft}px`, 'important');
+  relocatedToolsToolbar.style.setProperty('right', 'auto', 'important');
+  relocatedToolsToolbar.style.setProperty('bottom', 'auto', 'important');
 
   if (!environmentPanel) return;
   const panelWidth = Math.min(390, Math.max(296, window.innerWidth - 24));
@@ -231,9 +268,11 @@ function scheduleToolsPosition() {
 }
 
 function relocateToolsToolbar() {
-  if (!toolsAnchor) return true;
   const toolbar = shell.host.querySelector('[data-shared-tools]');
   if (!toolbar) return false;
+
+  // Shared UI may replace this node when it re-renders. Always reacquire the
+  // current toolbar and reapply the Roof-specific class/positioning.
   relocatedToolsToolbar = toolbar;
   toolbar.classList.add('roof-relocated-tools-toolbar');
   scheduleToolsPosition();
@@ -285,6 +324,10 @@ function syncToolsState(detail = getApi()?.getState?.()) {
     disabled: !detail.dimensionsAvailable,
     title: t(detail.dimensionsAvailable ? 'tools.dimensions' : 'tools.dimensionsUnavailable'),
   });
+  setToolState('technical-edges', {
+    active: Boolean(detail.technicalEdges),
+    title: t('viewer.technicalEdges'),
+  });
   setToolState('compass', {
     active: Boolean(detail.showCompass),
     title: t(detail.showCompass ? 'tools.hideCompass' : 'tools.showCompass'),
@@ -315,6 +358,7 @@ function syncToolsState(detail = getApi()?.getState?.()) {
 shell.host.addEventListener('click', (event) => {
   const actionTarget = event.target.closest('[data-action]');
   if (actionTarget?.dataset.action === 'toggle-tools') {
+    if (mobileLayoutQuery.matches) setSidebarCollapsed(true);
     if (!shell.toolsOpen) {
       setEnvironmentPanelOpen(false);
       setComponentsPanelOpen(false);
@@ -328,7 +372,12 @@ shell.host.addEventListener('click', (event) => {
   const toolId = button.dataset.toolId;
 
   if (toolId === 'components') {
+    if (mobileLayoutQuery.matches) setSidebarCollapsed(true);
     setComponentsPanelOpen(!componentsDrawer?.classList.contains('is-open'));
+    if (mobileLayoutQuery.matches && shell.toolsOpen) {
+      shell.toolsOpen = false;
+      shell.syncTools();
+    }
     return;
   }
 
@@ -336,10 +385,14 @@ shell.host.addEventListener('click', (event) => {
   if (!api) return;
 
   if (toolId === 'environment') {
+    if (mobileLayoutQuery.matches) setSidebarCollapsed(true);
     setEnvironmentPanelOpen(environmentPanel?.hidden ?? true);
   } else if (toolId === 'dimensions') {
     setEnvironmentPanelOpen(false);
     api.toggleDimensions();
+  } else if (toolId === 'technical-edges') {
+    setEnvironmentPanelOpen(false);
+    api.toggleTechnicalEdges();
   } else if (toolId === 'compass') {
     setEnvironmentPanelOpen(false);
     api.toggleCompass();
@@ -347,6 +400,11 @@ shell.host.addEventListener('click', (event) => {
     setEnvironmentPanelOpen(false);
     setComponentsPanelOpen(false);
     api.cycleOrientation();
+  }
+
+  if (mobileLayoutQuery.matches && shell.toolsOpen) {
+    shell.toolsOpen = false;
+    shell.syncTools();
   }
 });
 
@@ -381,14 +439,21 @@ window.addEventListener('roof-configurator-ready', (event) => syncToolsState(eve
 window.addEventListener('roof-tools-state-change', (event) => syncToolsState(event.detail));
 window.addEventListener('resize', scheduleToolsPosition);
 
-if (!relocateToolsToolbar()) {
-  const toolsObserver = new MutationObserver(() => {
-    if (relocateToolsToolbar()) toolsObserver.disconnect();
-  });
-  toolsObserver.observe(document.body, { childList: true, subtree: true });
-}
+relocateToolsToolbar();
+
+// Keep watching the shared host: some shell updates replace the toolbar DOM
+// node. Disconnecting after the first match is what allowed the Tools button
+// to snap back to the generic shared position.
+const toolsObserver = new MutationObserver(() => {
+  const currentToolbar = shell.host.querySelector('[data-shared-tools]');
+  if (currentToolbar && currentToolbar !== relocatedToolsToolbar) {
+    relocateToolsToolbar();
+  }
+});
+toolsObserver.observe(shell.host, { childList: true, subtree: true });
 
 if (toolsAnchor) new ResizeObserver(scheduleToolsPosition).observe(toolsAnchor);
+if (viewerStage) new ResizeObserver(scheduleToolsPosition).observe(viewerStage);
 requestAnimationFrame(() => {
   scheduleToolsPosition();
   syncToolsState();

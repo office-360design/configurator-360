@@ -1,13 +1,13 @@
-# Solar data proxy — Netlify Functions
+# Legacy Solar data proxy — Netlify Functions
 
-This small Netlify site hosts the server-side functions required by the public GitHub Pages solar configurator:
+This project is retained as a rollback reference. Production Google Solar and PVGIS traffic has moved to the `solar-google-api` Google Cloud Run service at `/api/solar/google-solar` and `/api/solar/pvgis`.
+
+The legacy functions remain available here if an emergency rollback is needed:
 
 - `/.netlify/functions/pvgis` — read-only JRC PVGIS relay.
 - `/.netlify/functions/google-solar` — protected Google Solar showcase endpoint.
 
-The Google endpoint intentionally keeps the Google Maps Platform API key on Netlify instead of exposing it in the static GitHub Pages application.
-
-## Install and deploy
+## Rollback deployment
 
 ```bash
 cd solar-configurator/pvgis-proxy-netlify
@@ -118,7 +118,7 @@ Set the environment variables in your Netlify development environment before tes
 
 ## Cloudflare alternative
 
-The older PVGIS Cloudflare Worker remains in `../pvgis-proxy/` as an optional PVGIS relay. The Google Solar demo integration is implemented in the Netlify project because it also uses persistent Netlify Blobs caching.
+The older PVGIS Cloudflare Worker remains in `../pvgis-proxy/` as another rollback relay. Neither the Netlify nor Cloudflare PVGIS relay is the production default.
 
 ## Google DSM + building mask
 

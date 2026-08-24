@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { handleGoogleSolarRequest } from './googleSolarHandler.mjs';
+import { handlePvgisRequest } from './pvgisHandler.mjs';
 
 const PORT = Math.max(1, Number(process.env.PORT) || 8080);
 const MAX_BODY_BYTES = Math.max(1024, Number(process.env.MAX_REQUEST_BODY_BYTES) || 1_000_000);
@@ -58,16 +59,34 @@ async function sendWebResponse(res, response) {
   res.end(buffer);
 }
 
+function notFoundResponse() {
+  return new Response(JSON.stringify({ error: 'Not found.' }), {
+    status: 404,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     if (req.url === '/healthz') {
       req.url = '/api/solar/google-solar?action=health';
     }
     const request = await toWebRequest(req);
-    const response = await handleGoogleSolarRequest(request);
+    const pathname = new URL(request.url).pathname.replace(/\/+$/, '') || '/';
+    let response;
+    if (pathname === '/api/solar/google-solar') {
+      response = await handleGoogleSolarRequest(request);
+    } else if (pathname === '/api/solar/pvgis') {
+      response = await handlePvgisRequest(request);
+    } else {
+      response = notFoundResponse();
+    }
     await sendWebResponse(res, response);
   } catch (error) {
-    console.error('[Google Solar Cloud Run] Unhandled request failure.', error);
+    console.error('[Solar API Cloud Run] Unhandled request failure.', error);
     const status = Number(error?.status) || 500;
     res.writeHead(status, {
       'Content-Type': 'application/json; charset=utf-8',
@@ -78,5 +97,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Google Solar Cloud Run] Listening on 0.0.0.0:${PORT}`);
+  console.log(`[Solar API Cloud Run] Listening on 0.0.0.0:${PORT}`);
 });
