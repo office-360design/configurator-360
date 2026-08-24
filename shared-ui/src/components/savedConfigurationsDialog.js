@@ -23,9 +23,9 @@ function renderTrashIcon() {
         <path d="M5.8 7.2h12.4" />
       </g>
       <path d="M7.4 8.3 8.2 19a1.8 1.8 0 0 0 1.8 1.6h4a1.8 1.8 0 0 0 1.8-1.6l.8-10.7" />
-      <path d="M9.7 10.8v7.4" />
-      <path d="M12 10.8v7.4" />
-      <path d="M14.3 10.8v7.4" />
+      <path d="M9.5 10.6 9.8 18.2" />
+      <path d="M12 10.6v7.6" />
+      <path d="M14.5 10.6 14.2 18.2" />
     </svg>
   `;
 }
@@ -72,6 +72,7 @@ export function renderSavedConfigurationsDialog(locale, state = {}) {
         <div class="saved-configurations__header">
           <div class="saved-configurations__header-copy">
             <h2 id="saved-configurations-title">${escapeHtml(sharedT(locale, 'saved.title'))}</h2>
+            <button class="saved-configurations__new saved-configurations__new--under-title" type="button" data-action="new-configuration">${sharedIcon('newConfiguration')}<span>${escapeHtml(sharedT(locale, 'saved.newConfiguration'))}</span></button>
           </div>
           <button class="saved-configurations__close" type="button" data-action="saved-close" aria-label="${escapeHtml(sharedT(locale, 'saved.close'))}">×</button>
         </div>
