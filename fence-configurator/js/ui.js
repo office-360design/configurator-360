@@ -1,6 +1,6 @@
-import { FINISHES, PANEL_STYLES, activeRunIds, deriveFenceMetrics, normalizeFenceState } from './state.js?v=2';
-import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js?v=2';
-import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=2';
+import { FINISHES, PANEL_STYLES, activeRunIds, deriveFenceMetrics, normalizeFenceState } from './state.js?v=3';
+import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js?v=3';
+import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=3';
 
 const CONTROL_CONFIG = Object.freeze({
   runA: { kind: 'length', min: 2, max: 30, step: 0.25 },
@@ -58,14 +58,27 @@ export class FenceUI {
 
     document.querySelectorAll('[data-control]').forEach((control) => this.bindNumericControl(control));
 
-    bindSelect('#gateType', (value) => { this.state.gateType = value; this.commit(); });
-    bindSelect('#gateRun', (value) => { this.state.gateRun = value; this.state.gatePosition = 0; this.commit(); });
-    bindSelect('#gateHanding', (value) => { this.state.gateHanding = value; this.commit(); });
     bindSelect('#foundationType', (value) => { this.state.foundation = value; this.commit(); });
 
-    document.querySelector('#gatePosition')?.addEventListener('input', (event) => {
-      this.state.gatePosition = Number(event.target.value);
-      this.commit({ immediate: true });
+    document.querySelector('#addGateButton')?.addEventListener('click', () => this.addGate());
+    document.querySelector('#gateList')?.addEventListener('click', (event) => {
+      const remove = event.target.closest('[data-gate-remove]');
+      if (remove) this.removeGate(remove.dataset.gateRemove);
+    });
+    document.querySelector('#gateList')?.addEventListener('change', (event) => {
+      const control = event.target.closest('[data-gate-field]');
+      if (!control) return;
+      const value = control.dataset.gateField === 'position' ? Number(control.value) : control.value;
+      this.updateGate(control.dataset.gateId, { [control.dataset.gateField]: value });
+    });
+    document.querySelector('#gateList')?.addEventListener('input', (event) => {
+      const control = event.target.closest('[data-gate-field="position"]');
+      if (!control) return;
+      const gate = this.state.gates.find((item) => item.id === control.dataset.gateId);
+      const from = Number(control.value) + 1;
+      const to = gate?.type === 'driveway' ? `–${from + 1}` : '';
+      const output = control.closest('.range-control')?.querySelector('output');
+      if (output) output.textContent = fenceT(this.locale, 'gate.positionHint', { from, to });
     });
 
     document.querySelector('#sceneryToggle')?.addEventListener('change', (event) => {
@@ -132,9 +145,6 @@ export class FenceUI {
       const finish = FINISHES[button.dataset.finish];
       if (finish) button.style.setProperty('--swatch', finish.color);
     });
-    setValue('#gateType', this.state.gateType);
-    setValue('#gateRun', this.state.gateRun);
-    setValue('#gateHanding', this.state.gateHanding);
     setValue('#foundationType', this.state.foundation);
     const scenery = document.querySelector('#sceneryToggle');
     if (scenery) scenery.checked = this.state.scenery;
@@ -183,33 +193,104 @@ export class FenceUI {
   }
 
   syncGateControls(metrics) {
+    const list = document.querySelector('#gateList');
+    const empty = document.querySelector('#gateEmptyState');
+    const capacity = document.querySelector('#gateCapacityMessage');
+    const addButton = document.querySelector('#addGateButton');
+    if (!list) return;
+
     const active = new Set(activeRunIds(this.state));
     const closed = this.state.layout === 'closed';
-    const closedRunLabels = { a: 'AB', b: 'BC', c: 'CD', d: 'DA' };
-    document.querySelectorAll('#gateRun option').forEach((option) => {
-      option.hidden = !active.has(option.value);
-      option.disabled = !active.has(option.value);
-      option.textContent = closed ? closedRunLabels[option.value] ?? option.value.toUpperCase() : option.value.toUpperCase();
+    const runLabels = closed ? { a: 'AB', b: 'BC', c: 'CD', d: 'DA' } : { a: 'A', b: 'B', c: 'C', d: 'D' };
+    const usedBays = new Map(metrics.runs.map((run) => [run.id, new Set()]));
+    metrics.gates.forEach((gate) => {
+      for (let bay = gate.startBay; bay < gate.startBay + gate.span; bay += 1) usedBays.get(gate.runId)?.add(bay);
     });
-    const gateOptions = document.querySelector('#gateOptions');
-    gateOptions?.toggleAttribute('hidden', this.state.gateType === 'none');
-    document.querySelector('#gateHandingWrap')?.toggleAttribute('hidden', this.state.gateType !== 'pedestrian');
 
-    const gateRun = metrics.runs.find((run) => run.id === this.state.gateRun) ?? metrics.runs[0];
-    const span = this.state.gateType === 'driveway' ? Math.min(2, gateRun?.bayCount ?? 1) : 1;
-    const max = Math.max(0, (gateRun?.bayCount ?? 1) - span);
-    const slider = document.querySelector('#gatePosition');
-    if (slider) {
-      slider.max = String(max);
-      slider.value = String(Math.min(this.state.gatePosition, max));
-      slider.disabled = max === 0;
+    list.innerHTML = metrics.gates.map((gate, index) => {
+      const run = metrics.runs.find((item) => item.id === gate.runId) ?? metrics.runs[0];
+      const max = Math.max(0, (run?.bayCount ?? 1) - gate.span);
+      const from = gate.startBay + 1;
+      const to = gate.span > 1 ? `–${gate.startBay + gate.span}` : '';
+      const runOptions = metrics.runs.map((item) => `<option value="${item.id}"${item.id === gate.runId ? ' selected' : ''}>${escapeHtml(runLabels[item.id] ?? item.id.toUpperCase())}</option>`).join('');
+      return `
+        <div class="gate-card" data-gate-card="${escapeHtml(gate.id)}">
+          <div class="gate-card-head">
+            <strong>${escapeHtml(fenceT(this.locale, 'gate.itemTitle', { number: index + 1 }))}</strong>
+            <button class="gate-remove" type="button" data-gate-remove="${escapeHtml(gate.id)}" aria-label="${escapeHtml(fenceT(this.locale, 'gate.remove'))}" title="${escapeHtml(fenceT(this.locale, 'gate.remove'))}">×</button>
+          </div>
+          <label class="field-label">${escapeHtml(fenceT(this.locale, 'gate.type'))}</label>
+          <select data-gate-id="${escapeHtml(gate.id)}" data-gate-field="type">
+            <option value="pedestrian"${gate.type === 'pedestrian' ? ' selected' : ''}>${escapeHtml(fenceT(this.locale, 'gate.pedestrian'))}</option>
+            <option value="driveway"${gate.type === 'driveway' ? ' selected' : ''}>${escapeHtml(fenceT(this.locale, 'gate.driveway'))}</option>
+          </select>
+          <label class="field-label">${escapeHtml(fenceT(this.locale, 'gate.run'))}</label>
+          <select data-gate-id="${escapeHtml(gate.id)}" data-gate-field="runId">${runOptions}</select>
+          <label class="range-control compact-control">
+            <span class="control-label"><b>${escapeHtml(fenceT(this.locale, 'gate.position'))}</b><output>${escapeHtml(fenceT(this.locale, 'gate.positionHint', { from, to }))}</output></span>
+            <span class="range-row range-row--single"><input type="range" min="0" max="${max}" step="1" value="${Math.min(gate.startBay, max)}" data-gate-id="${escapeHtml(gate.id)}" data-gate-field="position" ${max === 0 ? 'disabled' : ''}/></span>
+          </label>
+          ${gate.type === 'pedestrian' ? `
+          <div>
+            <label class="field-label">${escapeHtml(fenceT(this.locale, 'gate.handing'))}</label>
+            <select data-gate-id="${escapeHtml(gate.id)}" data-gate-field="handing">
+              <option value="left"${gate.handing === 'left' ? ' selected' : ''}>${escapeHtml(fenceT(this.locale, 'gate.left'))}</option>
+              <option value="right"${gate.handing === 'right' ? ' selected' : ''}>${escapeHtml(fenceT(this.locale, 'gate.right'))}</option>
+            </select>
+          </div>` : ''}
+        </div>`;
+    }).join('');
+
+    const occupiedBayCount = metrics.gates.reduce((sum, gate) => sum + gate.span, 0);
+    const hasCapacity = occupiedBayCount < metrics.bayCount;
+    if (empty) empty.hidden = metrics.gates.length > 0;
+    if (capacity) capacity.hidden = hasCapacity;
+    if (addButton) addButton.disabled = !hasCapacity;
+
+    // Keep stale run values from old states out of the DOM/state after layout changes.
+    this.state.gates.forEach((gate) => {
+      if (!active.has(gate.runId)) gate.runId = metrics.runs[0]?.id ?? 'a';
+    });
+  }
+
+  addGate() {
+    const metrics = deriveFenceMetrics(this.state);
+    if (metrics.gateBayCount >= metrics.bayCount) return;
+    const occupied = new Map(metrics.runs.map((run) => [run.id, new Set()]));
+    metrics.gates.forEach((gate) => {
+      for (let bay = gate.startBay; bay < gate.startBay + gate.span; bay += 1) occupied.get(gate.runId)?.add(bay);
+    });
+    let placement = null;
+    for (const run of metrics.runs) {
+      for (let bay = 0; bay < run.bayCount; bay += 1) {
+        if (!occupied.get(run.id)?.has(bay)) { placement = { runId: run.id, position: bay }; break; }
+      }
+      if (placement) break;
     }
-    const label = document.querySelector('#gatePositionValue');
-    if (label) {
-      const from = Math.min(this.state.gatePosition, max) + 1;
-      const to = span > 1 ? `–${from + span - 1}` : '';
-      label.textContent = fenceT(this.locale, 'gate.positionHint', { from, to });
-    }
+    if (!placement) return;
+    const id = `gate-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    this.state.gates.push({ id, type: 'pedestrian', runId: placement.runId, position: placement.position, handing: 'right' });
+    this.commit();
+  }
+
+  updateGate(id, patch, options = {}) {
+    const index = this.state.gates.findIndex((gate) => gate.id === id);
+    if (index < 0) return;
+    const before = structuredClone(this.state.gates);
+    Object.assign(this.state.gates[index], patch);
+    normalizeFenceState(this.state);
+    // If the requested change cannot fit anywhere without overlapping another
+    // gate, keep the previous valid arrangement instead of deleting a gate.
+    if (!this.state.gates.some((gate) => gate.id === id)) this.state.gates = before;
+    this.callbacks.onModelChange?.(options);
+    this.update();
+  }
+
+  removeGate(id) {
+    const index = this.state.gates.findIndex((gate) => gate.id === id);
+    if (index < 0) return;
+    this.state.gates.splice(index, 1);
+    this.commit();
   }
 
   syncSummary(metrics) {
@@ -226,7 +307,7 @@ export class FenceUI {
       metricCard(fenceT(this.locale, 'summary.length'), this.formatLength(metrics.totalLength)),
       metricCard(fenceT(this.locale, 'summary.bays'), String(metrics.bayCount)),
       metricCard(fenceT(this.locale, 'summary.posts'), String(metrics.postCount)),
-      metricCard(fenceT(this.locale, 'summary.gate'), metrics.gate ? fenceT(this.locale, metrics.gate.type === 'driveway' ? 'gate.driveway' : 'gate.pedestrian') : fenceT(this.locale, 'summary.noGate')),
+      metricCard(fenceT(this.locale, 'summary.gates'), String(metrics.gates.length)),
     ].join('');
 
     const preview = document.querySelector('#summaryBomList');

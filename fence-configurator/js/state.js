@@ -25,10 +25,9 @@ export const DEFAULT_FENCE_STATE = Object.freeze({
   finish: 'anthracite',
   infillGap: 0.035,
   foundation: 'concrete',
-  gateType: 'pedestrian',
-  gateRun: 'a',
-  gatePosition: 1,
-  gateHanding: 'right',
+  gates: Object.freeze([
+    Object.freeze({ id: 'gate-1', type: 'pedestrian', runId: 'a', position: 1, handing: 'right' }),
+  ]),
   scenery: true,
   showDimensions: true,
   compassVisible: false,
@@ -40,7 +39,12 @@ export const DEFAULT_FENCE_STATE = Object.freeze({
 });
 
 export function createFenceState(source = {}) {
-  return normalizeFenceState({ ...structuredClone(DEFAULT_FENCE_STATE), ...structuredClone(source) });
+  const defaults = structuredClone(DEFAULT_FENCE_STATE);
+  const incoming = structuredClone(source);
+  // Old saved/share states used gateType/gateRun/gatePosition/gateHanding. Do
+  // not let the new default gates array mask those legacy fields during merge.
+  if (!Array.isArray(incoming.gates) && Object.prototype.hasOwnProperty.call(incoming, 'gateType')) delete defaults.gates;
+  return normalizeFenceState({ ...defaults, ...incoming });
 }
 
 export function activeRunIds(state) {
@@ -98,36 +102,73 @@ export function deriveFenceMetrics(state) {
   const closed = state.layout === 'closed';
   const cornerCount = closed ? runs.length : Math.max(0, runs.length - 1);
   const area = totalLength * state.height;
-  const gate = deriveGate(state, runs);
-  const removedGatePosts = gate ? Math.max(0, gate.span - 1) : 0;
+  const gates = deriveGates(state, runs);
+  const removedGatePosts = gates.reduce((sum, gate) => sum + Math.max(0, gate.span - 1), 0);
   // Open runs have one more post than bays. A closed perimeter reuses the
   // final corner post at A, so its post count equals the total bay count.
   const postCount = bayCount + (closed ? 0 : 1) - removedGatePosts;
-  return { runs, bayCount, totalLength, cornerCount, postCount, area, gate, closed };
-}
-
-export function deriveGate(state, runs = deriveFenceMetricsWithoutGate(state).runs) {
-  if (state.gateType === 'none') return null;
-  const active = new Set(runs.map((run) => run.id));
-  const runId = active.has(state.gateRun) ? state.gateRun : runs[0]?.id;
-  const run = runs.find((item) => item.id === runId);
-  if (!run) return null;
-  const span = state.gateType === 'driveway' ? Math.min(2, run.bayCount) : 1;
-  const maxStart = Math.max(0, run.bayCount - span);
-  const startBay = Math.min(maxStart, Math.max(0, Math.floor(Number(state.gatePosition) || 0)));
+  const gateBayCount = gates.reduce((sum, gate) => sum + gate.span, 0);
+  const gateWidth = gates.reduce((sum, gate) => sum + gate.width, 0);
   return {
-    type: state.gateType,
-    runId,
-    startBay,
-    span,
-    width: run.bayWidth * span,
-    handing: state.gateHanding,
+    runs,
+    bayCount,
+    totalLength,
+    cornerCount,
+    postCount,
+    area,
+    gates,
+    // Keep the first-gate alias for compatibility with older integrations.
+    gate: gates[0] ?? null,
+    gateBayCount,
+    gateWidth,
+    closed,
   };
 }
 
-function deriveFenceMetricsWithoutGate(state) {
-  const runs = activeRunIds(state).map((runId) => deriveRun(state, runId));
-  return { runs };
+/**
+ * Return all valid gate placements. Gates never share a fence bay. Driveway
+ * gates consume two adjacent bays and therefore remove the intermediate post.
+ */
+export function deriveGates(state, runs = deriveFenceMetricsWithoutGate(state).runs) {
+  const rawGates = Array.isArray(state.gates) ? state.gates : legacyGateArray(state);
+  const occupied = new Map(runs.map((run) => [run.id, new Set()]));
+  const ids = new Set();
+  const result = [];
+
+  rawGates.forEach((rawGate, index) => {
+    const type = ['pedestrian', 'driveway'].includes(rawGate?.type) ? rawGate.type : 'pedestrian';
+    const span = type === 'driveway' ? 2 : 1;
+    const requestedRunId = runs.some((run) => run.id === rawGate?.runId) ? rawGate.runId : runs[0]?.id;
+    const requestedPosition = Math.max(0, Math.floor(Number(rawGate?.position) || 0));
+    const placement = findGatePlacement(runs, occupied, requestedRunId, requestedPosition, span);
+    if (!placement) return;
+
+    const run = runs.find((item) => item.id === placement.runId);
+    if (!run) return;
+    for (let bay = placement.position; bay < placement.position + span; bay += 1) {
+      occupied.get(placement.runId)?.add(bay);
+    }
+
+    const id = uniqueGateId(rawGate?.id, index, ids);
+    ids.add(id);
+    result.push({
+      id,
+      type,
+      runId: placement.runId,
+      startBay: placement.position,
+      position: placement.position,
+      span,
+      width: run.bayWidth * span,
+      handing: rawGate?.handing === 'left' ? 'left' : 'right',
+    });
+  });
+
+  return result;
+}
+
+// Backward-compatible helper used by older callers; new code should use deriveGates.
+export function deriveGate(state, runs = deriveFenceMetricsWithoutGate(state).runs) {
+  return deriveGates(state, runs)[0] ?? null;
 }
 
 export function normalizeFenceState(state) {
@@ -143,10 +184,6 @@ export function normalizeFenceState(state) {
   if (!PANEL_STYLES[next.panelStyle]) next.panelStyle = 'vertical';
   if (!FINISHES[next.finish]) next.finish = 'anthracite';
   if (!['concrete', 'baseplate'].includes(next.foundation)) next.foundation = 'concrete';
-  if (!['none', 'pedestrian', 'driveway'].includes(next.gateType)) next.gateType = 'none';
-  if (!['a', 'b', 'c', 'd'].includes(next.gateRun)) next.gateRun = 'a';
-  if (!['left', 'right'].includes(next.gateHanding)) next.gateHanding = 'right';
-  next.gatePosition = Math.max(0, Math.floor(Number(next.gatePosition) || 0));
   next.scenery = Boolean(next.scenery);
   next.showDimensions = Boolean(next.showDimensions);
   next.compassVisible = Boolean(next.compassVisible);
@@ -156,15 +193,70 @@ export function normalizeFenceState(state) {
   next.northDirection = clampNumber(next.northDirection, 0, 359, 0);
   if (!['3d', 'front', 'top'].includes(next.cameraPreset)) next.cameraPreset = '3d';
 
-  const metrics = deriveFenceMetricsWithoutGate(next);
-  const runIds = metrics.runs.map((run) => run.id);
-  if (!runIds.includes(next.gateRun)) next.gateRun = runIds[0] || 'a';
-  const gateRun = metrics.runs.find((run) => run.id === next.gateRun);
-  if (gateRun) {
-    const span = next.gateType === 'driveway' ? Math.min(2, gateRun.bayCount) : 1;
-    next.gatePosition = Math.min(next.gatePosition, Math.max(0, gateRun.bayCount - span));
-  }
+  // Migrate states saved before multi-gate support. Keeping this migration here
+  // means old share URLs and account-saved configurations continue to restore.
+  const sourceGates = Array.isArray(next.gates) ? next.gates : legacyGateArray(next);
+  const runs = deriveFenceMetricsWithoutGate(next).runs;
+  next.gates = deriveGates({ ...next, gates: sourceGates }, runs).map((gate) => ({
+    id: gate.id,
+    type: gate.type,
+    runId: gate.runId,
+    position: gate.startBay,
+    handing: gate.handing,
+  }));
+
+  delete next.gateType;
+  delete next.gateRun;
+  delete next.gatePosition;
+  delete next.gateHanding;
   return next;
+}
+
+function deriveFenceMetricsWithoutGate(state) {
+  const runs = activeRunIds(state).map((runId) => deriveRun(state, runId));
+  return { runs };
+}
+
+function legacyGateArray(state) {
+  if (!state || state.gateType === 'none' || !['pedestrian', 'driveway'].includes(state.gateType)) return [];
+  return [{
+    id: 'gate-1',
+    type: state.gateType,
+    runId: ['a', 'b', 'c', 'd'].includes(state.gateRun) ? state.gateRun : 'a',
+    position: Math.max(0, Math.floor(Number(state.gatePosition) || 0)),
+    handing: state.gateHanding === 'left' ? 'left' : 'right',
+  }];
+}
+
+function findGatePlacement(runs, occupied, requestedRunId, requestedPosition, span) {
+  const orderedRuns = [
+    ...runs.filter((run) => run.id === requestedRunId),
+    ...runs.filter((run) => run.id !== requestedRunId),
+  ];
+
+  for (const run of orderedRuns) {
+    if (run.bayCount < span) continue;
+    const maxStart = run.bayCount - span;
+    const target = run.id === requestedRunId ? Math.min(requestedPosition, maxStart) : 0;
+    const starts = Array.from({ length: maxStart + 1 }, (_, index) => index)
+      .sort((a, b) => Math.abs(a - target) - Math.abs(b - target) || a - b);
+    for (const start of starts) {
+      let available = true;
+      for (let bay = start; bay < start + span; bay += 1) {
+        if (occupied.get(run.id)?.has(bay)) { available = false; break; }
+      }
+      if (available) return { runId: run.id, position: start };
+    }
+  }
+  return null;
+}
+
+function uniqueGateId(candidate, index, used) {
+  const base = typeof candidate === 'string' && candidate.trim() ? candidate.trim() : `gate-${index + 1}`;
+  if (!used.has(base)) return base;
+  let suffix = 2;
+  while (used.has(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
 }
 
 function clampNumber(value, min, max, fallback) {

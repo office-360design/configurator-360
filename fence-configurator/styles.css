@@ -72,6 +72,23 @@ select { width: 100%; height: 40px; padding: 0 11px; border: 1px solid var(--fen
 .finish-swatch.selected i { box-shadow: 0 0 0 2px var(--fence-blue); }
 .gate-options { display: grid; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #edf0f2; }
 .gate-options .field-label { margin-bottom: -4px; }
+
+.gate-manager-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.gate-manager-head > div { min-width: 0; }
+.gate-manager-head .field-label { margin-bottom: 3px; }
+.gate-manager-head small { display: block; max-width: 220px; color: #75858e; font-size: 9px; line-height: 1.4; }
+.gate-add-button { min-height: 34px; padding-inline: 11px; white-space: nowrap; }
+.gate-add-button:disabled { cursor: not-allowed; opacity: .48; }
+.gate-list { display: grid; gap: 10px; margin-top: 14px; }
+.gate-card { display: grid; gap: 10px; padding: 12px; border: 1px solid #dce4e8; border-radius: 12px; background: #f9fbfc; }
+.gate-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.gate-card-head strong { color: #263741; font-size: 11px; }
+.gate-card .field-label { margin: 0 0 -4px; }
+.gate-card .compact-control { margin-top: 1px; }
+.gate-remove { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid #d9e1e5; border-radius: 8px; color: #7a5555; background: #fff; font-size: 19px; line-height: 1; }
+.gate-remove:hover { color: #a33b3b; border-color: #e0b7b7; background: #fff7f7; }
+.gate-empty, .gate-capacity { margin: 12px 0 0; padding: 10px 11px; border-radius: 9px; color: #71828b; background: #f5f8f9; font-size: 9px; line-height: 1.4; }
+.gate-capacity { color: #7d6541; background: #fff7e8; }
 .toggle-row { position: relative; display: grid; grid-template-columns: minmax(0,1fr) 44px; align-items: center; min-height: 62px; gap: 12px; padding: 11px 13px; border: 1px solid var(--fence-border); border-radius: 12px; background: #fff; cursor: pointer; }
 .toggle-row span { display: grid; gap: 3px; }
 .toggle-row b { font-size: 11px; }
@@ -142,6 +159,15 @@ body.shared-ui-dark-mode .sidebar, body.shared-ui-dark-mode .accordion-toggle, b
 body.shared-ui-dark-mode .panel-section, body.shared-ui-dark-mode .accordion-section { border-color: #26374c; }
 body.shared-ui-dark-mode .section-copy, body.shared-ui-dark-mode .field-label, body.shared-ui-dark-mode .control-label, body.shared-ui-dark-mode .toggle-row small { color: #a9bac7; }
 body.shared-ui-dark-mode .choice-card, body.shared-ui-dark-mode .finish-swatch, body.shared-ui-dark-mode select, body.shared-ui-dark-mode .number-input, body.shared-ui-dark-mode .toggle-row { color: #dbe6ed; background: #1d2b41; border-color: #34455c; }
+
+body.shared-ui-dark-mode .gate-manager-head small { color: #a9bac7; }
+body.shared-ui-dark-mode .gate-card { background: #1b293d; border-color: #34455c; }
+body.shared-ui-dark-mode .gate-card-head strong { color: #edf4f7; }
+body.shared-ui-dark-mode .gate-remove { color: #e0b5b5; background: #24354b; border-color: #40516a; }
+body.shared-ui-dark-mode .gate-remove:hover { color: #ffd0d0; background: #3a2934; border-color: #6d4952; }
+body.shared-ui-dark-mode .gate-empty { color: #a9bac7; background: #1d2b41; }
+body.shared-ui-dark-mode .gate-capacity { color: #e2c996; background: #3a3222; }
+body.shared-ui-dark-mode .gate-add-button { color: #dbe6ed; background: #1d2b41; border-color: #34455c; }
 body.shared-ui-dark-mode .choice-card.selected, body.shared-ui-dark-mode .finish-swatch.selected { color: #7ccdf7; background: #1b3449; border-color: #3f7795; }
 body.shared-ui-dark-mode .info-card { background: #1d3448; border-color: #36526a; }
 body.shared-ui-dark-mode .info-card span { color: #a9bac7; }
