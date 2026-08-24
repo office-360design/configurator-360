@@ -274,7 +274,8 @@ export class RoofScene {
     this.camera.position.set(-13, 10, -15);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const compactRenderer = window.matchMedia('(max-width: 760px), (pointer: coarse)').matches;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, compactRenderer ? 1.5 : 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -331,7 +332,7 @@ export class RoofScene {
     this.keyLight = new THREE.DirectionalLight(0xffffff, 4.2);
     this.keyLight.position.set(-9, 14, 8);
     this.keyLight.castShadow = true;
-    this.keyLight.shadow.mapSize.set(2048, 2048);
+    this.keyLight.shadow.mapSize.set(compactRenderer ? 1024 : 2048, compactRenderer ? 1024 : 2048);
     this.keyLight.shadow.camera.left = -25;
     this.keyLight.shadow.camera.right = 25;
     this.keyLight.shadow.camera.top = 25;
