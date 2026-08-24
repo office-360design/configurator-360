@@ -15,6 +15,8 @@ const icon = (body) => `
   </svg>
 `;
 
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
+
 const tools = [
   ...resolveSharedTools([
     {
@@ -127,12 +129,29 @@ shell.host.addEventListener('click', (event) => {
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#solarSidebarToggle');
+const appShell = document.querySelector('.app-shell');
+
+function closeSharedToolsForMobile() {
+  if (!mobileLayoutQuery.matches || !shell?.toolsOpen) return;
+  shell.toolsOpen = false;
+  shell.syncTools?.();
+}
+
 function setSidebarCollapsed(collapsed) {
-  sidebar?.classList.toggle('is-collapsed', collapsed);
-  document.body.classList.toggle('roof-sidebar-collapsed', collapsed);
-  sidebarToggle?.setAttribute('aria-expanded', String(!collapsed));
-  sidebarToggle?.setAttribute('aria-label', t(collapsed ? 'sidebar.show' : 'sidebar.hide'));
-  sidebarToggle?.setAttribute('title', t(collapsed ? 'sidebar.show' : 'sidebar.hide'));
+  const isCollapsed = Boolean(collapsed);
+  sidebar?.classList.toggle('is-collapsed', isCollapsed);
+  document.body.classList.toggle('roof-sidebar-collapsed', isCollapsed);
+  sidebarToggle?.setAttribute('aria-expanded', String(!isCollapsed));
+  sidebarToggle?.setAttribute('aria-label', t(isCollapsed ? 'sidebar.show' : 'sidebar.hide'));
+  sidebarToggle?.setAttribute('title', t(isCollapsed ? 'sidebar.show' : 'sidebar.hide'));
+  if (sidebar) {
+    sidebar.inert = isCollapsed;
+    sidebar.setAttribute('aria-hidden', String(isCollapsed));
+  }
+  if (mobileLayoutQuery.matches && !isCollapsed) {
+    closeSharedToolsForMobile();
+    setEnvironmentPanelOpen?.(false);
+  }
 }
 sidebarToggle?.addEventListener('click', () => setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed')));
 
@@ -147,6 +166,23 @@ const setSimulationPanelCollapsed = (collapsed) => {
 simulationPanelToggle?.addEventListener('click', () => {
   setSimulationPanelCollapsed(!simulationPanel?.classList.contains('is-collapsed'));
 });
+
+function syncMobileLayout() {
+  document.body.classList.toggle('solar-mobile-layout', mobileLayoutQuery.matches);
+  setSidebarCollapsed(mobileLayoutQuery.matches);
+  setSimulationPanelCollapsed(mobileLayoutQuery.matches);
+}
+
+syncMobileLayout();
+mobileLayoutQuery.addEventListener?.('change', syncMobileLayout);
+
+appShell?.addEventListener('pointerdown', (event) => {
+  if (!mobileLayoutQuery.matches || sidebar?.classList.contains('is-collapsed')) return;
+  if (event.target.closest('.sidebar, #solarSidebarToggle')) return;
+  setSidebarCollapsed(true);
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
 
 if (sidebar) {
   const markDirty = (event) => {
@@ -912,6 +948,7 @@ shell.host.addEventListener('click', (event) => {
   const actionTarget = event.target.closest('[data-action]');
   if (actionTarget?.dataset.action === 'toggle-tools') {
     if (!shell.toolsOpen) setEnvironmentPanelOpen(false);
+    if (mobileLayoutQuery.matches && shell.toolsOpen) setSidebarCollapsed(true);
     scheduleToolsPosition();
     return;
   }
@@ -927,6 +964,11 @@ shell.host.addEventListener('click', (event) => {
   else if (toolId === 'compass') { setEnvironmentPanelOpen(false); api.toggleCompass(); }
   else if (toolId === 'camera') { setEnvironmentPanelOpen(false); api.cycleOrientation(); }
   else if (toolId === 'simulation') { setEnvironmentPanelOpen(false); api.toggleSimulation(); }
+
+  if (mobileLayoutQuery.matches) {
+    setSidebarCollapsed(true);
+    requestAnimationFrame(closeSharedToolsForMobile);
+  }
 });
 
 environmentClose?.addEventListener('click', () => setEnvironmentPanelOpen(false));
@@ -1127,6 +1169,11 @@ function ensureLocationMap() {
 
 function openLocationPicker() {
   if (!locationDialog) return;
+  if (mobileLayoutQuery.matches) {
+    setSidebarCollapsed(true);
+    setEnvironmentPanelOpen(false);
+    closeSharedToolsForMobile();
+  }
   ensureLocationMap();
   const detail = lastToolsState || getApi()?.getState?.() || {};
   const lat = Number(detail.activeLocationLat) || 44.4268;
@@ -1232,6 +1279,13 @@ locationGeolocateButton?.addEventListener('click', () => {
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
   );
 });
+
+document.querySelector('#estimateOpenButton')?.addEventListener('click', () => {
+  if (!mobileLayoutQuery.matches) return;
+  setSidebarCollapsed(true);
+  setEnvironmentPanelOpen(false);
+  closeSharedToolsForMobile();
+}, true);
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !environmentPanel?.hidden && !locationDialog?.open) setEnvironmentPanelOpen(false);

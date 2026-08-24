@@ -1276,3 +1276,366 @@ body.shared-ui-dark-mode #solarSidebarToggle { color:#e7eef3; background:rgba(20
   #solarSidebarToggle { top: 26px; right: min(352px, calc(100vw - 44px)); }
   body.roof-sidebar-collapsed #solarSidebarToggle { right: 0; }
 }
+
+/* Mobile-first Solar workspace -------------------------------------------- */
+#canvasHost,
+#canvasHost canvas { overscroll-behavior: contain; }
+#canvasHost canvas { touch-action: none; }
+
+@media (max-width: 760px) {
+  :root {
+    --shared-settings-gap: 8px;
+    --shared-settings-width: min(360px, calc(100vw - 18px));
+  }
+
+  body { overflow: hidden; }
+
+  body.shared-ui-mounted .viewer-panel {
+    grid-template-rows: 56px minmax(0, 1fr) auto 64px;
+  }
+
+  body.shared-ui-mounted .viewer-header {
+    display: flex;
+    min-height: 56px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 56px 7px 10px;
+  }
+
+  body.shared-ui-mounted .sidebar {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: min(360px, calc(100vw - 18px));
+    max-height: calc(100% - 16px);
+    border-radius: 16px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.shared-ui-mounted .sidebar.is-collapsed {
+    transform: translateX(calc(100% + 8px));
+  }
+
+  /* Keep the settings reveal arrow below the expanded unified Tools rail. */
+  #solarSidebarToggle {
+    top: auto !important;
+    right: min(368px, calc(100vw - 10px)) !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 118px) !important;
+    width: 40px !important;
+    height: 52px !important;
+    transform: none !important;
+    touch-action: manipulation;
+  }
+  body.roof-sidebar-collapsed #solarSidebarToggle { right: 0 !important; }
+
+  .viewer-actions-wrap {
+    order: 1;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .viewer-title-block {
+    order: 2;
+    min-width: 0;
+    margin-left: auto;
+    text-align: right;
+    white-space: normal;
+  }
+  .viewer-title-block .eyebrow { display: none; }
+  .viewer-title-block h2 {
+    max-width: 44vw;
+    overflow: hidden;
+    font-size: 15px;
+    line-height: 1.12;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .viewer-header .view-actions,
+  .viewer-header .model-options { display: none; }
+
+  .estimate-button {
+    min-height: 40px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    touch-action: manipulation;
+  }
+  .estimate-button span { font-size: 9px; }
+  .estimate-button strong { display: none; }
+
+  .viewer-stage { min-height: 0; }
+  .stage-hint { display: none; }
+  .roof-tools-anchor { top: 10px; left: 10px; }
+
+  /* Compact live information without covering a large part of the model. */
+  .solar-live-card {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    width: min(220px, calc(100% - 16px));
+    padding: 8px;
+    border-radius: 12px;
+  }
+  .solar-live-card__head { margin-bottom: 5px; }
+  .solar-live-card__head span { font-size: 7px; }
+  .solar-live-card__head strong { font-size: 12px; }
+  .solar-live-card__sun { display: none; }
+  .solar-live-card__grid { gap: 4px; }
+  .solar-live-card__grid div { padding: 5px 6px; }
+  .solar-live-card__grid span { font-size: 6px; }
+  .solar-live-card__grid strong { font-size: 9px; }
+
+  /* The simulation tray starts collapsed from JS; its closed form stays useful. */
+  .solar-simulation-panel {
+    padding: 7px 10px;
+    border-top: 1px solid var(--line);
+  }
+  .solar-simulation-panel > header {
+    min-height: 42px;
+    align-items: center;
+    flex-direction: row;
+    gap: 8px;
+    margin: 0;
+  }
+  .solar-simulation-panel > header > div:first-child { min-width: 0; }
+  .solar-simulation-panel > header .eyebrow { display: none; }
+  .solar-simulation-panel h3 {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .solar-simulation-panel__actions { flex: 0 0 auto; gap: 6px; }
+  .solar-simulation-panel__actions #simulationPlayButton {
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: 8px;
+    touch-action: manipulation;
+  }
+  .solar-simulation-panel__toggle {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    touch-action: manipulation;
+  }
+  .solar-simulation-panel__body {
+    max-height: min(38dvh, 280px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .simulation-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #simulationChart { min-width: 560px; height: 135px; }
+  .simulation-chart-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .solar-metrics-bar {
+    display: flex;
+    min-height: 64px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .solar-metrics-bar::-webkit-scrollbar { display: none; }
+  .solar-metrics-bar article {
+    min-width: 126px;
+    flex: 1 0 126px;
+    padding: 10px 12px;
+    border-right: 1px solid var(--line) !important;
+    border-bottom: 0 !important;
+    scroll-snap-align: start;
+  }
+  .solar-metrics-bar article:last-child { border-right: 0 !important; }
+  .solar-metrics-bar span { font-size: 8px; white-space: nowrap; }
+  .solar-metrics-bar strong { font-size: 13px; }
+
+  /* Touch-sized settings controls. */
+  .panel-section { padding: 18px; }
+  .section-heading { margin-bottom: 13px; }
+  .section-number { font-size: 22px; }
+  h1 { font-size: 21px; }
+  h2 { font-size: 18px; }
+  .solar-roof-type-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  .roof-card { min-height: 78px; padding: 7px 4px; touch-action: manipulation; }
+  .roof-card svg { width: 48px; height: 32px; }
+  .roof-card span { font-size: 9px; }
+  .control-list { gap: 16px; }
+  .range-row,
+  .solar-number-control > div { grid-template-columns: minmax(0, 1fr) 82px; gap: 10px; }
+  input[type="range"] { min-height: 30px; }
+  .number-input,
+  select,
+  .solar-input-grid input,
+  .solar-google-access input,
+  .solar-google-layout select,
+  .solar-google-flux select,
+  .solar-local-position__step select,
+  .solar-env-date { min-height: 44px; font-size: 16px; }
+
+  .segmented-options button,
+  .region-grid button,
+  .consumption-grid button,
+  .solar-location-launch,
+  .solar-context-actions button,
+  .solar-google-access__actions button,
+  .solar-google-actions button,
+  .solar-google-match button { min-height: 44px; touch-action: manipulation; }
+  .segmented-options button { padding: 9px 6px; }
+  .region-grid button,
+  .consumption-grid button { padding: 11px; }
+
+  .solar-switch-row,
+  .solar-context-master,
+  .solar-google-layout__toggle { min-height: 54px; }
+
+  .solar-local-position__pad { gap: 6px; }
+  .solar-local-position__pad button {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    min-height: 46px;
+    touch-action: manipulation;
+  }
+  .solar-local-position__controls { grid-template-columns: 1fr; }
+  .solar-context-actions,
+  .solar-google-actions { grid-template-columns: 1fr; }
+  .solar-google-access__actions { grid-template-columns: 1fr; }
+
+  /* Unified Tools stay tap-friendly and disappear after a selection via JS. */
+  .shared-ui-host .roof-relocated-tools-toolbar { gap: 8px; }
+  .shared-ui-host .roof-relocated-tools-toolbar .tool-launcher {
+    min-width: 68px;
+    height: 44px;
+    padding: 0 15px;
+    border-radius: 13px;
+    touch-action: manipulation;
+  }
+  .shared-ui-host .roof-relocated-tools-toolbar .tools-toolbar__panel { gap: 8px; }
+  .shared-ui-host .round-tool {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Location/environment becomes a bottom sheet with all advanced tools scrollable. */
+  .roof-environment-panel.solar-phase1-environment {
+    top: auto !important;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    left: 8px !important;
+    width: auto !important;
+    max-width: none;
+    max-height: min(76dvh, 620px);
+    padding: 14px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 18px;
+  }
+  .solar-phase1-environment .roof-environment-header {
+    position: sticky;
+    top: -14px;
+    z-index: 20;
+    margin: -14px -14px 12px;
+    padding: 14px;
+    background: inherit;
+    border-bottom: 1px solid var(--line);
+  }
+  .roof-environment-header button { width: 40px; height: 40px; flex: 0 0 40px; }
+  .solar-tool-group > summary { min-height: 50px; padding: 10px 12px; }
+  .solar-tool-group > summary span { font-size: 9px; }
+  .solar-tool-group__body { padding: 0 9px 10px; }
+  .roof-night-preview { min-height: 60px; }
+
+  /* Exact location picker is a true full-screen phone dialog. */
+  .solar-location-dialog[open] {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+  .solar-location-dialog {
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .solar-location-dialog__header { min-height: 58px; padding: 9px 12px 9px 14px; }
+  .solar-location-dialog__header h2 { font-size: 17px; }
+  .solar-location-dialog__header > button { width: 44px; height: 44px; }
+  .solar-location-search-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    padding: 9px 10px;
+  }
+  .solar-location-search-row input {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .solar-location-search-row button { min-height: 44px; padding: 0 8px; font-size: 9px; }
+  .solar-location-search-results {
+    top: 154px;
+    left: 10px;
+    width: calc(100% - 20px);
+    max-height: min(38dvh, 270px);
+  }
+  .solar-location-result { min-height: 48px; padding: 10px 11px; }
+  .solar-location-map { min-height: 0; height: 100%; }
+  .solar-location-dialog__footer {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+    padding: 9px 10px calc(9px + env(safe-area-inset-bottom, 0px));
+  }
+  .solar-location-dialog__footer > div:last-child { display: grid; grid-template-columns: 1fr 1fr; }
+  .solar-location-dialog__footer button { min-height: 44px; }
+
+  /* Estimate uses all available phone space. */
+  .bom-panel {
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  .bom-header { min-height: 58px; padding: 10px 12px 10px 15px; }
+  .bom-header h2 { font-size: 19px; }
+  .bom-close { width: 42px; height: 42px; }
+  .bom-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 10px 12px 8px; }
+  .bom-summary .bom-total-card { grid-column: 1 / -1; }
+  .bom-summary article { padding: 9px 10px; }
+  .bom-summary strong { font-size: 14px; }
+  .bom-disclaimer { margin: 0 12px 10px; }
+  .bom-table-wrap { margin: 0 12px; -webkit-overflow-scrolling: touch; }
+  .bom-table { min-width: 650px; }
+  .bom-assumptions { padding: 12px; }
+  .assumption-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bom-footer { padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .bom-footer button { min-height: 44px; }
+}
+
+@media (max-width: 390px) {
+  .solar-roof-type-grid { gap: 5px; }
+  .roof-card { min-height: 72px; }
+  .viewer-title-block h2 { max-width: 40vw; font-size: 14px; }
+  .solar-live-card { width: min(202px, calc(100% - 16px)); }
+  .solar-live-card__grid span { font-size: 5.5px; }
+  .panel-section { padding-left: 15px; padding-right: 15px; }
+}
+
+@media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
+  #solarSidebarToggle {
+    top: auto !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 74px) !important;
+    transform: none !important;
+  }
+  .solar-live-card { width: 200px; }
+  .roof-environment-panel.solar-phase1-environment { max-height: calc(100dvh - 16px); }
+  .solar-location-dialog__header .eyebrow { display: none; }
+}
