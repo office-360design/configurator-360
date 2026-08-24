@@ -2690,7 +2690,8 @@ export function createWindowBuilder({
                     };
                     const mesh = createDividerSegment(
                         placedProfile,
-                        ownerCell.height,
+                        // temporary fix to make the trans gasket smaller (matching the trans mullion)
+                        ownerCell.height - 0.11,
                         'vertical',
                         transBounds,
                         transDepthOffset,
