@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import "./homepage-polish.css";
+import "./critical-polish.css";
 import { languageAlternates, SITE_URL } from "../lib/seo";
 import { GoogleAnalytics } from "../components/google-analytics";
+import { DeferredPolishStyles } from "../components/deferred-polish-styles";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,6 +16,7 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -89,6 +91,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
+        <DeferredPolishStyles />
         <GoogleAnalytics />
       </body>
     </html>

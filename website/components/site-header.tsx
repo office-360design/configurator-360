@@ -45,7 +45,7 @@ export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Loca
         <a className="brand-lockup" href={localizedPath(locale)} aria-label="360Configurator home">
           {/* The supplied transparent wordmark is already optimized and must retain its exact proportions. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/360configurator.png" alt="360Configurator" />
+          <img src="/brand/360configurator.png" alt="360Configurator" width={380} height={190} />
         </a>
         <nav className="desktop-nav" aria-label="Primary navigation">
           {/* Native anchors intentionally bypass vinext's broken cross-route hash navigation. */}
