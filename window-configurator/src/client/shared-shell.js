@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=15';
+import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=17';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=4';
 import { getLocalizedConfiguratorUrl } from './shared-ui/src/config.js';
@@ -56,9 +56,10 @@ const shell = mountStandaloneConfiguratorShell({
         window.WINDOW_CONFIGURATOR_API?.resetConfiguration?.();
       }
     },
-    createNewConfiguration() {
-      window.WINDOW_CONFIGURATOR_API?.resetConfiguration?.();
-      return true;
+    async createNewConfiguration() {
+      const api = window.WINDOW_CONFIGURATOR_API;
+      if (!api?.resetConfiguration) return false;
+      return (await api.resetConfiguration()) !== false;
     },
     onPreferenceChange(path, value, preferences) {
       if (path === 'locale') {
