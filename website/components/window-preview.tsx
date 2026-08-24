@@ -134,14 +134,45 @@ export function WindowHeroRuntime() {
 
   useEffect(() => {
     if (mounted) return;
-    const activate = () => setMounted(true);
+    const mobile = window.matchMedia("(max-width: 720px), ((max-width: 1050px) and (pointer: coarse))").matches;
+    let cancelled = false;
+    let idleHandle = 0;
+    let queued = false;
+    const mountRuntime = () => {
+      if (!cancelled) setMounted(true);
+    };
+    const activate = () => {
+      if (!mobile) {
+        mountRuntime();
+        return;
+      }
+      if (queued) return;
+      queued = true;
+      const afterLoad = () => {
+        if (cancelled) return;
+        if ("requestIdleCallback" in window) {
+          idleHandle = window.requestIdleCallback(mountRuntime, { timeout: 1800 });
+        } else {
+          idleHandle = window.setTimeout(mountRuntime, 180);
+        }
+      };
+      if (document.readyState === "complete") afterLoad();
+      else window.addEventListener("load", afterLoad, { once: true });
+    };
     const options = { once: true, passive: true } as AddEventListenerOptions;
     window.addEventListener("wheel", activate, options);
-    window.addEventListener("touchstart", activate, options);
-    window.addEventListener("pointerdown", activate, options);
+    if (!mobile) {
+      window.addEventListener("touchstart", activate, options);
+      window.addEventListener("pointerdown", activate, options);
+    }
     window.addEventListener("keydown", activate, { once: true });
     window.addEventListener("scroll", activate, options);
     return () => {
+      cancelled = true;
+      if (idleHandle) {
+        if ("cancelIdleCallback" in window) window.cancelIdleCallback(idleHandle);
+        else window.clearTimeout(idleHandle);
+      }
       window.removeEventListener("wheel", activate);
       window.removeEventListener("touchstart", activate);
       window.removeEventListener("pointerdown", activate);
@@ -249,17 +280,55 @@ export function WindowConfiguratorPreview({ locale = "en", placement = "showcase
   useEffect(() => {
     const element = shell.current;
     if (!element || shouldLoad) return;
+    const mobile = window.matchMedia("(max-width: 720px), ((max-width: 1050px) and (pointer: coarse))").matches;
+    let cancelled = false;
+    let idleHandle = 0;
+    let queued = false;
+    const loadRuntime = () => {
+      if (queued) return;
+      queued = true;
+      if (!mobile) {
+        setShouldLoad(true);
+        return;
+      }
+      const afterLoad = () => {
+        if (cancelled) return;
+        const mount = () => {
+          if (!cancelled) setShouldLoad(true);
+        };
+        if ("requestIdleCallback" in window) {
+          idleHandle = window.requestIdleCallback(mount, { timeout: 1600 });
+        } else {
+          idleHandle = window.setTimeout(mount, 160);
+        }
+      };
+      if (document.readyState === "complete") afterLoad();
+      else window.addEventListener("load", afterLoad, { once: true });
+    };
     if (!("IntersectionObserver" in window)) {
-      const fallbackFrame = requestAnimationFrame(() => setShouldLoad(true));
-      return () => cancelAnimationFrame(fallbackFrame);
+      loadRuntime();
+      return () => {
+        cancelled = true;
+        if (idleHandle) {
+          if ("cancelIdleCallback" in window) window.cancelIdleCallback(idleHandle);
+          else window.clearTimeout(idleHandle);
+        }
+      };
     }
     const observer = new IntersectionObserver((entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return;
-      setShouldLoad(true);
+      loadRuntime();
       observer.disconnect();
-    }, { rootMargin: "320px 0px" });
+    }, { rootMargin: mobile ? "100px 0px" : "320px 0px" });
     observer.observe(element);
-    return () => observer.disconnect();
+    return () => {
+      cancelled = true;
+      if (idleHandle) {
+        if ("cancelIdleCallback" in window) window.cancelIdleCallback(idleHandle);
+        else window.clearTimeout(idleHandle);
+      }
+      observer.disconnect();
+    };
   }, [shouldLoad]);
 
   useEffect(() => {

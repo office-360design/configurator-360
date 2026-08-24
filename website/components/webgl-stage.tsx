@@ -658,6 +658,7 @@ export function WebGLStage() {
       camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
       sceneSelectionDirty = true;
+      scheduleFrame();
     }
     function adaptResolution(timestamp: number) {
       frameSampleCount += 1;
@@ -724,7 +725,9 @@ export function WebGLStage() {
         momentum *= 0.9;
         frameSampleStarted = timestamp;
         frameSampleCount = 0;
-        scheduleFrame(500);
+        // A coarse/mobile viewport wakes this loop via scroll or resize. Avoid
+        // spending even a low-frequency render budget while the canvas is offscreen.
+        if (!compact) scheduleFrame(500);
         return;
       }
       const handingOff = desiredActive !== active;
