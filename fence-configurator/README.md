@@ -9,7 +9,7 @@ Standalone 360Configurator application for modular residential and light-commerc
 - Bay-driven geometry: each run is divided into real fence bays from the requested target bay width.
 - Vertical slats, horizontal slats, solid privacy panels and welded mesh.
 - Five finish presets shared by posts, panels and gates.
-- Optional pedestrian gate or double-leaf driveway gate. Driveway gates span two bays and remove the intermediate post.
+- Multiple pedestrian and/or double-leaf driveway gates can be placed independently on any active fence side. Gates cannot overlap; driveway gates span two bays and remove the intermediate post.
 - Concrete footings or anchored base plates.
 - BOM and indicative pricing generated from the same derived geometry used by the 3D scene.
 

@@ -3,7 +3,7 @@ import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
 import { createShareUrl, encodeShareState } from '../../shared-ui/src/shareState.js?v=4';
 import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
-import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=2';
+import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=3';
 
 const initialLocale = resolveFenceLocale();
 const compactViewport = window.matchMedia('(max-width: 760px)');

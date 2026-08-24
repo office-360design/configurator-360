@@ -8,7 +8,7 @@
   <title>3D Fence Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=13" />
-  <link rel="stylesheet" href="./styles.css?v=4" />
+  <link rel="stylesheet" href="./styles.css?v=5" />
   <script type="importmap">
     {
       "imports": {
@@ -134,25 +134,16 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <div class="accordion-panel" hidden>
-          <label class="field-label" for="gateType" data-fence-i18n="gate.type">Gate</label>
-          <select id="gateType">
-            <option value="none" data-fence-i18n="gate.none">No gate</option>
-            <option value="pedestrian" selected data-fence-i18n="gate.pedestrian">Pedestrian gate</option>
-            <option value="driveway" data-fence-i18n="gate.driveway">Double driveway gate</option>
-          </select>
-
-          <div id="gateOptions" class="gate-options">
-            <label class="field-label" for="gateRun" data-fence-i18n="gate.run">Gate run</label>
-            <select id="gateRun"><option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option></select>
-            <label class="range-control compact-control">
-              <span class="control-label"><b data-fence-i18n="gate.position">Gate bay position</b><output id="gatePositionValue">Bay 2</output></span>
-              <span class="range-row range-row--single"><input id="gatePosition" type="range" min="0" max="3" step="1" value="1" /></span>
-            </label>
-            <div id="gateHandingWrap">
-              <label class="field-label" for="gateHanding" data-fence-i18n="gate.handing">Pedestrian gate handing</label>
-              <select id="gateHanding"><option value="left" data-fence-i18n="gate.left">Hinges left</option><option value="right" selected data-fence-i18n="gate.right">Hinges right</option></select>
+          <div class="gate-manager-head">
+            <div>
+              <span class="field-label" data-fence-i18n="gate.title">Gates</span>
+              <small data-fence-i18n="gate.help">Add pedestrian or driveway gates to any available fence bay.</small>
             </div>
+            <button id="addGateButton" class="secondary-action gate-add-button" type="button" data-fence-i18n="gate.add">Add gate</button>
           </div>
+          <div id="gateList" class="gate-list" aria-live="polite"></div>
+          <p id="gateEmptyState" class="gate-empty" data-fence-i18n="gate.empty">No gates added.</p>
+          <p id="gateCapacityMessage" class="gate-capacity" hidden data-fence-i18n="gate.capacity">All available bays are occupied by gates.</p>
 
           <label class="field-label top-gap" for="foundationType" data-fence-i18n="foundation.label">Post foundation</label>
           <select id="foundationType"><option value="concrete" selected data-fence-i18n="foundation.concrete">Concrete footings</option><option value="baseplate" data-fence-i18n="foundation.baseplate">Base plates & anchors</option></select>
@@ -209,7 +200,7 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportDialogButton" data-fence-i18n="summary.export">Export BOM CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-fence-i18n="bom.done">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=4"></script>
-  <script type="module" src="./js/app.js?v=7"></script>
+  <script type="module" src="./js/sharedShell.js?v=5"></script>
+  <script type="module" src="./js/app.js?v=8"></script>
 </body>
 </html>

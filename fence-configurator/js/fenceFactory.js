@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FINISHES, calculateClosedFenceGeometry, deriveFenceMetrics } from './state.js?v=2';
+import { FINISHES, calculateClosedFenceGeometry, deriveFenceMetrics } from './state.js?v=3';
 
 const POST_SIZE = 0.085;
 const PANEL_THICKNESS = 0.045;
@@ -31,11 +31,12 @@ export function buildFenceAssembly(state) {
   const postMap = new Map();
   runSegments.forEach((run) => {
     run.points.forEach((point, pointIndex) => {
-      const isInternalDrivewayPost = metrics.gate
-        && metrics.gate.runId === run.id
-        && metrics.gate.span > 1
-        && pointIndex > metrics.gate.startBay
-        && pointIndex < metrics.gate.startBay + metrics.gate.span;
+      const isInternalDrivewayPost = metrics.gates.some((gate) => (
+        gate.runId === run.id
+        && gate.span > 1
+        && pointIndex > gate.startBay
+        && pointIndex < gate.startBay + gate.span
+      ));
       if (!isInternalDrivewayPost) postMap.set(pointKey(point), point);
     });
   });
@@ -70,13 +71,13 @@ export function buildFenceAssembly(state) {
     }
   });
 
-  const gate = metrics.gate;
   runSegments.forEach((run) => {
+    const runGates = metrics.gates.filter((gate) => gate.runId === run.id);
     for (let bayIndex = 0; bayIndex < run.points.length - 1; bayIndex += 1) {
       const p0 = run.points[bayIndex];
       const p1 = run.points[bayIndex + 1];
-      const insideGate = gate && gate.runId === run.id && bayIndex >= gate.startBay && bayIndex < gate.startBay + gate.span;
-      if (insideGate) {
+      const gate = runGates.find((candidate) => bayIndex >= candidate.startBay && bayIndex < candidate.startBay + candidate.span);
+      if (gate) {
         if (bayIndex === gate.startBay) {
           const gateEnd = run.points[gate.startBay + gate.span];
           buildGate(fenceGroup, p0, gateEnd, state, gate, finishMaterial, darkMaterial);
