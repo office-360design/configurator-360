@@ -15,6 +15,8 @@ const icon = (body) => `
   </svg>
 `;
 
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
+
 const tools = [
   ...resolveSharedTools([
     {
@@ -127,12 +129,29 @@ shell.host.addEventListener('click', (event) => {
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#solarSidebarToggle');
+const appShell = document.querySelector('.app-shell');
+
+function closeSharedToolsForMobile() {
+  if (!mobileLayoutQuery.matches || !shell?.toolsOpen) return;
+  shell.toolsOpen = false;
+  shell.syncTools?.();
+}
+
 function setSidebarCollapsed(collapsed) {
-  sidebar?.classList.toggle('is-collapsed', collapsed);
-  document.body.classList.toggle('roof-sidebar-collapsed', collapsed);
-  sidebarToggle?.setAttribute('aria-expanded', String(!collapsed));
-  sidebarToggle?.setAttribute('aria-label', t(collapsed ? 'sidebar.show' : 'sidebar.hide'));
-  sidebarToggle?.setAttribute('title', t(collapsed ? 'sidebar.show' : 'sidebar.hide'));
+  const isCollapsed = Boolean(collapsed);
+  sidebar?.classList.toggle('is-collapsed', isCollapsed);
+  document.body.classList.toggle('roof-sidebar-collapsed', isCollapsed);
+  sidebarToggle?.setAttribute('aria-expanded', String(!isCollapsed));
+  sidebarToggle?.setAttribute('aria-label', t(isCollapsed ? 'sidebar.show' : 'sidebar.hide'));
+  sidebarToggle?.setAttribute('title', t(isCollapsed ? 'sidebar.show' : 'sidebar.hide'));
+  if (sidebar) {
+    sidebar.inert = isCollapsed;
+    sidebar.setAttribute('aria-hidden', String(isCollapsed));
+  }
+  if (mobileLayoutQuery.matches && !isCollapsed) {
+    closeSharedToolsForMobile();
+    setEnvironmentPanelOpen?.(false);
+  }
 }
 sidebarToggle?.addEventListener('click', () => setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed')));
 
@@ -148,6 +167,23 @@ simulationPanelToggle?.addEventListener('click', () => {
   setSimulationPanelCollapsed(!simulationPanel?.classList.contains('is-collapsed'));
 });
 
+function syncMobileLayout() {
+  document.body.classList.toggle('solar-mobile-layout', mobileLayoutQuery.matches);
+  setSidebarCollapsed(mobileLayoutQuery.matches);
+  setSimulationPanelCollapsed(mobileLayoutQuery.matches);
+}
+
+syncMobileLayout();
+mobileLayoutQuery.addEventListener?.('change', syncMobileLayout);
+
+appShell?.addEventListener('pointerdown', (event) => {
+  if (!mobileLayoutQuery.matches || sidebar?.classList.contains('is-collapsed')) return;
+  if (event.target.closest('.sidebar, #solarSidebarToggle')) return;
+  setSidebarCollapsed(true);
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
+
 if (sidebar) {
   const markDirty = (event) => {
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
@@ -158,6 +194,7 @@ if (sidebar) {
 }
 
 const toolsAnchor = document.querySelector('#solarToolsAnchor');
+const viewerStage = document.querySelector('#viewerStage');
 const environmentPanel = document.querySelector('#solarEnvironmentPanel');
 const environmentClose = document.querySelector('#solarEnvironmentClose');
 const simulationTimeControl = document.querySelector('#simulationTimeControl');
@@ -363,21 +400,44 @@ function setToolState(toolId, { active = false, disabled = false, title = null }
 
 function positionToolsUi() {
   toolsPositionFrame = 0;
-  if (!toolsAnchor || !relocatedToolsToolbar?.isConnected) return;
+  if (!toolsAnchor) return;
+
+  // The unified shell may replace the toolbar while applying account/theme/UI
+  // state. Re-acquire it before every positioning pass so Solar never falls
+  // back to the generic top-of-page Tools position.
+  const currentToolbar = shell.host.querySelector('[data-shared-tools]');
+  if (currentToolbar && currentToolbar !== relocatedToolsToolbar) {
+    relocatedToolsToolbar = currentToolbar;
+    relocatedToolsToolbar.classList.add('roof-relocated-tools-toolbar');
+  }
+  if (!relocatedToolsToolbar?.isConnected) return;
+
   const anchorRect = toolsAnchor.getBoundingClientRect();
+  const stageRect = viewerStage?.getBoundingClientRect();
+  const stageInset = mobileLayoutQuery.matches ? 10 : 16;
   const toolbarLeft = Math.round(anchorRect.left);
-  const toolbarTop = Math.round(anchorRect.top);
+  // Solar has its own viewer header below the shared top bar. Pin Tools to the
+  // actual 3D stage, rather than to either header, on desktop and mobile.
+  const toolbarTop = Math.round((stageRect?.top ?? anchorRect.top) + stageInset);
+
   relocatedToolsToolbar.style.setProperty('--roof-tools-left', `${toolbarLeft}px`);
   relocatedToolsToolbar.style.setProperty('--roof-tools-top', `${toolbarTop}px`);
+  // Inline !important prevents generic shared-shell positioning from winning
+  // during a later shared UI render/reflow.
+  relocatedToolsToolbar.style.setProperty('left', `${toolbarLeft}px`, 'important');
+  relocatedToolsToolbar.style.setProperty('top', `${toolbarTop}px`, 'important');
+
   if (!environmentPanel) return;
+  const toolbarRect = relocatedToolsToolbar.getBoundingClientRect();
   const panelWidth = Math.min(430, Math.max(310, window.innerWidth - 24));
-  const launcherWidth = relocatedToolsToolbar.querySelector('.tool-launcher')?.getBoundingClientRect().width || 74;
-  let panelLeft = toolbarLeft + launcherWidth + 14;
-  let panelTop = Math.max(12, Math.min(toolbarTop, 72));
+  let panelLeft = Math.round(toolbarRect.right + 14);
+  let panelTop = Math.round(toolbarRect.top);
   if (panelLeft + panelWidth > window.innerWidth - 12) {
     panelLeft = 12;
-    panelTop = Math.max(12, Math.min(toolbarTop + 58, 72));
+    panelTop = Math.round(toolbarRect.bottom + 10);
   }
+  const maximumTop = Math.max(12, window.innerHeight - 430);
+  panelTop = Math.max(12, Math.min(panelTop, maximumTop));
   environmentPanel.style.setProperty('--roof-environment-left', `${Math.round(panelLeft)}px`);
   environmentPanel.style.setProperty('--roof-environment-top', `${Math.round(panelTop)}px`);
   environmentPanel.style.setProperty('--roof-environment-width', `${Math.round(panelWidth)}px`);
@@ -912,6 +972,7 @@ shell.host.addEventListener('click', (event) => {
   const actionTarget = event.target.closest('[data-action]');
   if (actionTarget?.dataset.action === 'toggle-tools') {
     if (!shell.toolsOpen) setEnvironmentPanelOpen(false);
+    if (mobileLayoutQuery.matches && shell.toolsOpen) setSidebarCollapsed(true);
     scheduleToolsPosition();
     return;
   }
@@ -927,6 +988,11 @@ shell.host.addEventListener('click', (event) => {
   else if (toolId === 'compass') { setEnvironmentPanelOpen(false); api.toggleCompass(); }
   else if (toolId === 'camera') { setEnvironmentPanelOpen(false); api.cycleOrientation(); }
   else if (toolId === 'simulation') { setEnvironmentPanelOpen(false); api.toggleSimulation(); }
+
+  if (mobileLayoutQuery.matches) {
+    setSidebarCollapsed(true);
+    requestAnimationFrame(closeSharedToolsForMobile);
+  }
 });
 
 environmentClose?.addEventListener('click', () => setEnvironmentPanelOpen(false));
@@ -1127,6 +1193,11 @@ function ensureLocationMap() {
 
 function openLocationPicker() {
   if (!locationDialog) return;
+  if (mobileLayoutQuery.matches) {
+    setSidebarCollapsed(true);
+    setEnvironmentPanelOpen(false);
+    closeSharedToolsForMobile();
+  }
   ensureLocationMap();
   const detail = lastToolsState || getApi()?.getState?.() || {};
   const lat = Number(detail.activeLocationLat) || 44.4268;
@@ -1233,6 +1304,13 @@ locationGeolocateButton?.addEventListener('click', () => {
   );
 });
 
+document.querySelector('#estimateOpenButton')?.addEventListener('click', () => {
+  if (!mobileLayoutQuery.matches) return;
+  setSidebarCollapsed(true);
+  setEnvironmentPanelOpen(false);
+  closeSharedToolsForMobile();
+}, true);
+
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !environmentPanel?.hidden && !locationDialog?.open) setEnvironmentPanelOpen(false);
 });
@@ -1241,13 +1319,21 @@ window.addEventListener('solar-configurator-ready', (event) => syncToolsState(ev
 window.addEventListener('solar-tools-state-change', (event) => syncToolsState(event.detail));
 window.addEventListener('resize', scheduleToolsPosition);
 
-if (!relocateToolsToolbar()) {
-  const toolsObserver = new MutationObserver(() => {
-    if (relocateToolsToolbar()) toolsObserver.disconnect();
-  });
-  toolsObserver.observe(document.body, { childList: true, subtree: true });
-}
+// Keep watching after the first mount: the unified UI can replace its Tools
+// subtree later (for example while syncing account/theme state). That was the
+// source of the "correct, then snaps upward" behavior.
+relocateToolsToolbar();
+const toolsObserver = new MutationObserver(() => {
+  const currentToolbar = shell.host.querySelector('[data-shared-tools]');
+  if (currentToolbar !== relocatedToolsToolbar || !relocatedToolsToolbar?.isConnected) {
+    relocateToolsToolbar();
+  } else {
+    scheduleToolsPosition();
+  }
+});
+toolsObserver.observe(shell.host, { childList: true, subtree: true });
 if (toolsAnchor) new ResizeObserver(scheduleToolsPosition).observe(toolsAnchor);
+if (viewerStage) new ResizeObserver(scheduleToolsPosition).observe(viewerStage);
 requestAnimationFrame(() => {
   scheduleToolsPosition();
   syncToolsState();
