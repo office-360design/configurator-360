@@ -2,34 +2,33 @@
 
 import { useEffect, useState, type ComponentType } from "react";
 
-type IdleWindow = Window & {
-  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-  cancelIdleCallback?: (handle: number) => void;
-};
-
 export function DeferredWebGLStage() {
   const [Stage, setStage] = useState<ComponentType | null>(null);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    const idleWindow = window as IdleWindow;
     let cancelled = false;
-    let idleHandle = 0;
-    let timerHandle = 0;
+    let observer: IntersectionObserver | undefined;
     const loadStage = () => {
       void import("./webgl-stage").then(({ WebGLStage }) => {
         if (!cancelled) setStage(() => WebGLStage);
       });
     };
 
-    if (idleWindow.requestIdleCallback) idleHandle = idleWindow.requestIdleCallback(loadStage, { timeout: 650 });
-    else timerHandle = window.setTimeout(loadStage, 90);
+    const target = document.querySelector("#configurators, .configurator-sequence");
+    if (!target || !("IntersectionObserver" in window)) loadStage();
+    else {
+      observer = new IntersectionObserver((entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer?.disconnect();
+        loadStage();
+      }, { rootMargin: "350px 0px" });
+      observer.observe(target);
+    }
 
     return () => {
       cancelled = true;
-      if (idleHandle) idleWindow.cancelIdleCallback?.(idleHandle);
-      if (timerHandle) window.clearTimeout(timerHandle);
+      observer?.disconnect();
     };
   }, []);
 
