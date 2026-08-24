@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=4';
+import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=5';
 
 export class FenceScene {
   constructor(host) {
@@ -126,12 +126,16 @@ export class FenceScene {
     if (!state.showDimensions || !this.currentBuild) return;
     const lineMaterial = new THREE.LineBasicMaterial({ color: this.darkMode || state.nightPreview ? 0x83cfff : 0x247ca9, transparent: true, opacity: 0.78 });
 
-    this.currentBuild.runSegments.forEach((run, index) => {
+    const dimensionCenter = this.currentBuild.bounds.center.clone().setY(0);
+    this.currentBuild.runSegments.forEach((run) => {
       const start = run.points[0];
       const end = run.points[run.points.length - 1];
       const direction = end.clone().sub(start).normalize();
-      const side = new THREE.Vector3(-direction.z, 0, direction.x);
-      const outward = index === 2 ? side.multiplyScalar(-1) : side;
+      const midpoint = start.clone().lerp(end, 0.5);
+      const outward = new THREE.Vector3(-direction.z, 0, direction.x);
+      // Pick the normal that points away from the model. This works for the
+      // existing open layouts as well as arbitrary DA geometry in closed mode.
+      if (outward.dot(midpoint.clone().sub(dimensionCenter)) < 0) outward.negate();
       const offset = outward.clone().multiplyScalar(0.46);
       const a = start.clone().add(offset).setY(0.08);
       const b = end.clone().add(offset).setY(0.08);
@@ -145,6 +149,21 @@ export class FenceScene {
         this.dimensionGroup.add(lineBetween(tickA, tickB, lineMaterial));
       });
     });
+
+    if (state.layout === 'closed' && this.currentBuild.runSegments.length >= 2) {
+      const runAB = this.currentBuild.runSegments[0];
+      const runBC = this.currentBuild.runSegments[1];
+      const bPoint = runAB.points[runAB.points.length - 1].clone();
+      const towardA = runAB.points[0].clone().sub(bPoint).normalize();
+      const towardC = runBC.points[runBC.points.length - 1].clone().sub(bPoint).normalize();
+      const bisector = towardA.add(towardC);
+      if (bisector.lengthSq() < 0.001) bisector.set(0, 0, 1);
+      bisector.normalize();
+      const angleLabel = dimensionLabel(`${Math.round(Number(state.angleB) || 90)}°`);
+      angleLabel.element.classList.add('angle-dimension-label');
+      angleLabel.position.copy(bPoint.addScaledVector(bisector, 0.62).setY(0.14));
+      this.dimensionGroup.add(angleLabel);
+    }
 
     const origin = this.currentBuild.runSegments[0]?.points[0] ?? new THREE.Vector3();
     const h0 = origin.clone().add(new THREE.Vector3(-0.28, 0.04, -0.28));

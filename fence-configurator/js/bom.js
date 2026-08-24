@@ -1,5 +1,5 @@
-import { FINISHES, PANEL_STYLES, deriveFenceMetrics } from './state.js';
-import { fenceT } from './i18n.js';
+import { FINISHES, PANEL_STYLES, deriveFenceMetrics } from './state.js?v=2';
+import { fenceT } from './i18n.js?v=2';
 
 const FX = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 

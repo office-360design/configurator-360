@@ -36,7 +36,7 @@ h1 { margin-bottom: 9px; font-size: 25px; line-height: 1.12; letter-spacing: -.0
 .field-label { display: block; margin: 0 0 8px; color: #53636d; font-size: 10px; font-weight: 800; }
 .top-gap { margin-top: 18px !important; }
 .choice-grid { display: grid; gap: 8px; }
-.layout-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.layout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .panel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .choice-card { min-height: 82px; padding: 10px 8px; display: grid; place-items: center; gap: 5px; border: 1px solid #dbe3e7; border-radius: 11px; color: #566772; background: #fbfcfc; font-size: 9px; font-weight: 800; text-align: center; transition: .15s ease; }
 .choice-card:hover { border-color: #a8cfe3; background: #f3f9fc; }
@@ -62,6 +62,9 @@ select { width: 100%; height: 40px; padding: 0 11px; border: 1px solid var(--fen
 .info-card { display: grid; gap: 4px; margin-top: 15px; padding: 12px 13px; border: 1px solid #d7e5ed; border-radius: 11px; background: #f1f8fc; }
 .info-card span { color: #627681; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
 .info-card strong { color: #1d4559; font-size: 11px; }
+.calculated-side-card { margin-top: 0; }
+.calculated-side-card strong { font-size: 16px; letter-spacing: -.02em; }
+.calculated-side-card small { color: #70838d; font-size: 9px; line-height: 1.4; }
 .finish-row { display: grid; gap: 7px; }
 .finish-swatch { min-height: 42px; padding: 6px 9px; display: grid; grid-template-columns: 27px minmax(0,1fr); align-items: center; gap: 9px; border: 1px solid #dce3e6; border-radius: 9px; color: #455862; background: #fff; text-align: left; font-size: 10px; font-weight: 750; }
 .finish-swatch i { width: 27px; height: 27px; border: 3px solid #fff; border-radius: 7px; background: var(--swatch); box-shadow: 0 0 0 1px #d0d9dd; }
@@ -143,6 +146,7 @@ body.shared-ui-dark-mode .choice-card.selected, body.shared-ui-dark-mode .finish
 body.shared-ui-dark-mode .info-card { background: #1d3448; border-color: #36526a; }
 body.shared-ui-dark-mode .info-card span { color: #a9bac7; }
 body.shared-ui-dark-mode .info-card strong { color: #dcecf6; }
+body.shared-ui-dark-mode .calculated-side-card small { color: #a9bac7; }
 body.shared-ui-dark-mode .summary-total-card { background: linear-gradient(145deg,#1b3349,#1c2d42); border-color: #365b75; }
 body.shared-ui-dark-mode .summary-total-card span, body.shared-ui-dark-mode .summary-total-card small { color: #b0c0cb; }
 body.shared-ui-dark-mode .summary-total-card strong { color: #79ccff; }
@@ -172,7 +176,7 @@ body.shared-ui-dark-mode .bom-total-row { color: #b6c8d4; background: #1d3448; }
   :root { --fence-panel-width: min(365px, 92vw); }
   .app-shell { display: block; }
   .sidebar { position: fixed; top: 0; right: 0; bottom: 0; }
-  .layout-grid { grid-template-columns: repeat(3, minmax(84px,1fr)); }
+  .layout-grid { grid-template-columns: repeat(2, minmax(84px,1fr)); }
 }
 @media (max-width: 560px) {
   .panel-section, .accordion-panel { padding-left: 18px; padding-right: 18px; }
@@ -245,7 +249,7 @@ body.shared-ui-dark-mode .bom-total-row { color: #b6c8d4; background: #1d3448; }
   }
   .accordion-panel { padding: 7px 18px 21px; }
 
-  .layout-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .layout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .panel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .choice-card {
     min-width: 0;

@@ -1,11 +1,12 @@
-import { FINISHES, PANEL_STYLES, activeRunIds, deriveFenceMetrics, normalizeFenceState } from './state.js';
-import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js';
-import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js';
+import { FINISHES, PANEL_STYLES, activeRunIds, deriveFenceMetrics, normalizeFenceState } from './state.js?v=2';
+import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js?v=2';
+import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=2';
 
 const CONTROL_CONFIG = Object.freeze({
   runA: { kind: 'length', min: 2, max: 30, step: 0.25 },
   runB: { kind: 'length', min: 2, max: 20, step: 0.25 },
   runC: { kind: 'length', min: 2, max: 20, step: 0.25 },
+  angleB: { kind: 'angle', min: 30, max: 150, step: 1 },
   height: { kind: 'length', min: 0.8, max: 2.6, step: 0.05 },
   targetBayWidth: { kind: 'length', min: 1, max: 3, step: 0.05 },
   infillGap: { kind: 'small', min: 0.015, max: 0.12, step: 0.005 },
@@ -138,9 +139,16 @@ export class FenceUI {
     const scenery = document.querySelector('#sceneryToggle');
     if (scenery) scenery.checked = this.state.scenery;
 
+    const isClosed = this.state.layout === 'closed';
     document.querySelector('#runBControl')?.toggleAttribute('hidden', this.state.layout === 'straight');
-    document.querySelector('#runCControl')?.toggleAttribute('hidden', this.state.layout !== 'u');
+    document.querySelector('#runCControl')?.toggleAttribute('hidden', !['u', 'closed'].includes(this.state.layout));
+    document.querySelector('#angleBControl')?.toggleAttribute('hidden', !isClosed);
+    document.querySelector('#closingRunInfo')?.toggleAttribute('hidden', !isClosed);
     document.querySelector('#gapControl')?.toggleAttribute('hidden', !['vertical', 'horizontal'].includes(this.state.panelStyle));
+
+    setText('#runALabel', fenceT(this.locale, isClosed ? 'dimension.closedRunA' : 'dimension.runA'));
+    setText('#runBLabel', fenceT(this.locale, isClosed ? 'dimension.closedRunB' : 'dimension.runB'));
+    setText('#runCLabel', fenceT(this.locale, isClosed ? 'dimension.closedRunC' : 'dimension.runC'));
   }
 
   syncNumericControls() {
@@ -165,6 +173,8 @@ export class FenceUI {
     });
 
     const metrics = deriveFenceMetrics(this.state);
+    const closingRun = metrics.runs.find((run) => run.id === 'd');
+    if (closingRun) setText('#closingRunValue', this.formatLength(closingRun.length));
     const hint = document.querySelector('#bayInfo');
     if (hint) {
       const average = metrics.totalLength / metrics.bayCount;
@@ -174,9 +184,12 @@ export class FenceUI {
 
   syncGateControls(metrics) {
     const active = new Set(activeRunIds(this.state));
+    const closed = this.state.layout === 'closed';
+    const closedRunLabels = { a: 'AB', b: 'BC', c: 'CD', d: 'DA' };
     document.querySelectorAll('#gateRun option').forEach((option) => {
       option.hidden = !active.has(option.value);
       option.disabled = !active.has(option.value);
+      option.textContent = closed ? closedRunLabels[option.value] ?? option.value.toUpperCase() : option.value.toUpperCase();
     });
     const gateOptions = document.querySelector('#gateOptions');
     gateOptions?.toggleAttribute('hidden', this.state.gateType === 'none');
@@ -274,21 +287,25 @@ export class FenceUI {
   }
 
   fromMetric(value, kind) {
+    if (kind === 'angle') return value;
     if (kind === 'small') return this.units === 'imperial' ? value * 39.37007874 : value * 1000;
     return this.units === 'imperial' ? value * 3.280839895 : value;
   }
 
   toMetric(value, kind) {
+    if (kind === 'angle') return value;
     if (kind === 'small') return this.units === 'imperial' ? value / 39.37007874 : value / 1000;
     return this.units === 'imperial' ? value / 3.280839895 : value;
   }
 
   displayStep(metricStep, kind) {
+    if (kind === 'angle') return metricStep;
     if (kind === 'small') return this.units === 'imperial' ? 0.1 : Math.max(1, Math.round(metricStep * 1000));
     return this.units === 'imperial' ? 0.1 : metricStep;
   }
 
   formatControlValue(value, kind) {
+    if (kind === 'angle') return `${Math.round(value)}°`;
     if (kind === 'small') return this.units === 'imperial' ? `${(value * 39.37007874).toFixed(1)} in` : `${Math.round(value * 1000)} mm`;
     return this.formatLength(value);
   }
