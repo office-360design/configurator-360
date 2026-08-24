@@ -3,7 +3,7 @@ import { SiteFooter } from "./site-footer";
 import { SmoothScroll } from "./smooth-scroll";
 import { ContactForm } from "./contact-form";
 import { contactEmail, localizedPath, type Locale } from "../lib/i18n";
-import { absoluteUrl, breadcrumbSchema, graphSchema, organizationSchema, siteUrl, SITE_URL, websiteSchema } from "../lib/seo";
+import { absoluteUrl, breadcrumbSchema, graphSchema, organizationSchema, siteUrl, websiteSchema } from "../lib/seo";
 
 const aboutCopy = {
   en: {

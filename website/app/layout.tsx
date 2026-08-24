@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./homepage-polish.css";
 import { languageAlternates, SITE_URL } from "../lib/seo";
+import { GoogleAnalytics } from "../components/google-analytics";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -88,6 +89,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
+        <GoogleAnalytics />
       </body>
     </html>
   );

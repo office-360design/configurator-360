@@ -193,13 +193,6 @@ function buildPergolaInto(wrapper: THREE.Group, state: typeof DEFAULT_STATE) {
   wrapper.userData.model = assembly;
 }
 
-function makePergolaScene(state: typeof DEFAULT_STATE) {
-  const wrapper = new THREE.Group();
-  wrapper.name = "pergola";
-  buildPergolaInto(wrapper, state);
-  return wrapper;
-}
-
 function createRoofState() {
   return {
     roofType: "lshape", length: 10, depth: 7, wallHeight: 3, pitch: 30, overhang: 0.4,
@@ -217,13 +210,6 @@ function buildRoofInto(wrapper: THREE.Group, state: ReturnType<typeof createRoof
   wrapper.userData.model = model;
   wrapper.userData.metrics = result.metrics;
   return result.metrics;
-}
-
-function makeRoofScene(state: ReturnType<typeof createRoofState>) {
-  const wrapper = new THREE.Group();
-  wrapper.name = "roof";
-  buildRoofInto(wrapper, state);
-  return wrapper;
 }
 
 function emitPrice(scene: ConfiguratorSlug, total: number, currency: string) {
@@ -255,11 +241,12 @@ export function WebGLStage() {
     const lowCoreDevice = navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4;
     const constrainedDevice = compactViewport || lowCoreDevice;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-    // Mobile screens commonly run at 3x DPR. A sub-2x cap makes thin profiles,
-    // louvres and panel edges visibly stair-step, so retain substantially more
-    // native resolution while keeping a lower ceiling for genuinely small CPUs.
-    const mobilePixelRatio = lowCoreDevice ? 2 : 2.75;
-    renderer.setPixelRatio(Math.min(devicePixelRatio, compactViewport ? mobilePixelRatio : 1.5));
+    // Start sharp enough for thin profiles, then adapt from measured frame time.
+    // This avoids both permanently blurry mobile output and a fixed 3x GPU tax.
+    const minPixelRatio = compactViewport ? (lowCoreDevice ? 1.35 : 1.55) : 1;
+    const maxPixelRatio = Math.min(devicePixelRatio, compactViewport ? (lowCoreDevice ? 2 : 2.6) : 1.75);
+    let adaptivePixelRatio = Math.min(maxPixelRatio, compactViewport ? 2 : 1.5);
+    renderer.setPixelRatio(adaptivePixelRatio);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.18;
@@ -306,16 +293,20 @@ export function WebGLStage() {
     let solarEnvironment: SolarEnvironmentData | null = null;
     let solarEnvironmentRequest: AbortController | null = null;
     const groups: Record<ConfiguratorSlug, THREE.Group> = {
-      pergola: makePergolaScene(pergolaState),
-      roof: makeRoofScene(roofState),
+      pergola: new THREE.Group(),
+      roof: new THREE.Group(),
       window: makeWindowShell(),
       hall: new THREE.Group(),
       solar: new THREE.Group(),
     };
-    buildExtendedInto(groups.hall, buildHallPreview(hallState), 8.5);
-    buildExtendedInto(groups.solar, buildSolarPreview(solarState, solarEnvironment), 7.1);
+    groups.pergola.name = "pergola";
+    groups.roof.name = "roof";
+    groups.hall.name = "hall";
+    groups.solar.name = "solar";
+    const builtScenes = new Set<ConfiguratorSlug>(["window"]);
     Object.values(groups).forEach((group) => {
       group.scale.setScalar(0.001);
+      group.visible = false;
       scene.add(group);
     });
 
@@ -346,6 +337,9 @@ export function WebGLStage() {
     let handoffStartedAt = 0;
     let pointerX = 0, pointerY = 0, targetPointerX = 0, targetPointerY = 0;
     let lastScroll = window.scrollY, momentum = 0, clock = 0, raf = 0;
+    let frameSampleStarted = performance.now(), frameSampleCount = 0;
+    let idleTimer = 0;
+    let disposed = false;
     const cameraTarget = new THREE.Vector3();
     const orbitState: Record<ConfiguratorSlug, { yaw: number; pitch: number; zoom: number; panX: number; panY: number }> = {
       pergola: { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: 0 },
@@ -420,6 +414,24 @@ export function WebGLStage() {
       if (key === "hall") hallRebuildTimer = next; else solarRebuildTimer = next;
     }
 
+    function ensureSceneBuilt(sceneName: ConfiguratorSlug) {
+      if (builtScenes.has(sceneName)) return;
+      if (sceneName === "pergola") {
+        buildPergolaInto(groups.pergola, pergolaState);
+        emitPrice("pergola", calculatePergolaPrice(pergolaState).total, "USD");
+      } else if (sceneName === "roof") {
+        const metrics = buildRoofInto(groups.roof, roofState);
+        emitPrice("roof", calculateBom(roofState, metrics).total, "RON");
+      } else if (sceneName === "hall") {
+        buildExtendedInto(groups.hall, buildHallPreview(hallState), 8.5);
+      } else if (sceneName === "solar") {
+        buildExtendedInto(groups.solar, buildSolarPreview(solarState, solarEnvironment), 7.1);
+        window.dispatchEvent(new CustomEvent("solar-metrics", { detail: groups.solar.userData.metrics }));
+      }
+      applyGroundTheme(groups[sceneName], document.documentElement.dataset.theme === "light");
+      builtScenes.add(sceneName);
+    }
+
     async function loadSolarEnvironment(value: string | number | boolean) {
       let location: { lat: number; lon: number; label?: string };
       try { location = JSON.parse(String(value)); } catch { return; }
@@ -469,9 +481,12 @@ export function WebGLStage() {
       Object.values(groups).forEach((group) => applyGroundTheme(group, light));
       if (pergolaState.environment.night === light) {
         applyPergolaEnvironment(!light);
-        rebuildPergola();
+        if (builtScenes.has("pergola")) rebuildPergola();
       }
-      if (solarState.nightPreview === light) { solarState.nightPreview = !light; rebuildExtended("solar"); }
+      if (solarState.nightPreview === light) {
+        solarState.nightPreview = !light;
+        if (builtScenes.has("solar")) rebuildExtended("solar");
+      }
     }
 
     function syncSolarThemeFromSun() {
@@ -498,6 +513,7 @@ export function WebGLStage() {
     }
     function onControl(event: Event) {
       const detail = (event as CustomEvent<{ scene: ConfiguratorSlug; control: string; value: string | number | boolean | Record<string, string> }>).detail;
+      ensureSceneBuilt(detail.scene);
       if (detail.scene === "pergola") {
         if (detail.control === "requestPrice") {
           emitPrice("pergola", calculatePergolaPrice(pergolaState).total, "USD");
@@ -625,6 +641,7 @@ export function WebGLStage() {
       });
       if (!closest) return false;
       const next = closest.key;
+      if (next !== "engine") ensureSceneBuilt(next);
       if (next !== desiredActive) {
         desiredActive = next;
         handoffStartedAt = performance.now();
@@ -642,23 +659,57 @@ export function WebGLStage() {
       renderer.setSize(width, height, false);
       sceneSelectionDirty = true;
     }
+    function adaptResolution(timestamp: number) {
+      frameSampleCount += 1;
+      const elapsed = timestamp - frameSampleStarted;
+      if (elapsed < 1400) return;
+      const fps = frameSampleCount * 1000 / elapsed;
+      const previous = adaptivePixelRatio;
+      if (fps < 43 && adaptivePixelRatio > minPixelRatio) {
+        adaptivePixelRatio = Math.max(minPixelRatio, adaptivePixelRatio - 0.18);
+      } else if (fps > 56 && adaptivePixelRatio < maxPixelRatio) {
+        adaptivePixelRatio = Math.min(maxPixelRatio, adaptivePixelRatio + 0.1);
+      }
+      if (Math.abs(previous - adaptivePixelRatio) > 0.01) {
+        renderer.setPixelRatio(adaptivePixelRatio);
+        renderer.setSize(container.clientWidth, container.clientHeight, false);
+      }
+      frameSampleStarted = timestamp;
+      frameSampleCount = 0;
+    }
+    function scheduleFrame(delay = 0) {
+      if (disposed || document.hidden || raf || idleTimer) return;
+      if (delay > 0) {
+        idleTimer = window.setTimeout(() => {
+          idleTimer = 0;
+          raf = requestAnimationFrame(animate);
+        }, delay);
+      } else {
+        raf = requestAnimationFrame(animate);
+      }
+    }
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(container); resize();
     window.addEventListener("pointermove", onPointer, { passive: true });
-    const markSceneSelectionDirty = () => { sceneSelectionDirty = true; };
+    const markSceneSelectionDirty = () => {
+      sceneSelectionDirty = true;
+      if (idleTimer) {
+        window.clearTimeout(idleTimer);
+        idleTimer = 0;
+      }
+      scheduleFrame();
+    };
     window.addEventListener("scroll", markSceneSelectionDirty, { passive: true });
     window.addEventListener("configurator-control", onControl);
     window.addEventListener("scene-orbit", onOrbit);
     document.documentElement.dataset.webglStageReady = "true";
     window.dispatchEvent(new CustomEvent("webgl-stage-ready"));
 
-    let disposed = false;
-    function animate() {
+    function animate(timestamp: number) {
+      raf = 0;
       if (disposed || document.hidden) {
-        raf = 0;
         return;
       }
-      raf = requestAnimationFrame(animate);
       clock += 0.016;
       const scrollDelta = window.scrollY - lastScroll;
       momentum += (Math.min(Math.abs(scrollDelta) / 30, 1) - momentum) * 0.08;
@@ -671,6 +722,9 @@ export function WebGLStage() {
       }
       if (!hasSpatialSectionInView) {
         momentum *= 0.9;
+        frameSampleStarted = timestamp;
+        frameSampleCount = 0;
+        scheduleFrame(500);
         return;
       }
       const handingOff = desiredActive !== active;
@@ -749,21 +803,28 @@ export function WebGLStage() {
       gridUniforms.uTime.value = clock;
       gridUniforms.uMomentum.value = momentum;
       renderer.render(scene, camera);
+      adaptResolution(timestamp);
+      scheduleFrame();
     }
     function onVisibilityChange() {
       if (document.hidden) {
         cancelAnimationFrame(raf);
         raf = 0;
+        window.clearTimeout(idleTimer);
+        idleTimer = 0;
       } else if (!raf && !disposed) {
-        animate();
+        frameSampleStarted = performance.now();
+        frameSampleCount = 0;
+        scheduleFrame();
       }
     }
     document.addEventListener("visibilitychange", onVisibilityChange);
-    animate();
+    scheduleFrame();
 
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
+      window.clearTimeout(idleTimer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       resizeObserver.disconnect(); themeObserver.disconnect();
       window.removeEventListener("pointermove", onPointer);
