@@ -43,16 +43,16 @@ export function createWindowLayoutOverlay({
     getWidth,
     getHeight,
     getSelectedHandleSide = () => 'right',
-    onAddWindow = async () => {},
-    onMergeWindows = async () => {},
-    onSetTransWindows = async () => {},
-    onSetWindowType = async () => {},
-    onUnmergeWindow = async () => {},
+    onAddWindow = async () => { },
+    onMergeWindows = async () => { },
+    onSetTransWindows = async () => { },
+    onSetWindowType = async () => { },
+    onUnmergeWindow = async () => { },
     enabled = true,
     getEditableTopologyGeometry = () => null,
 } = {}) {
     if (!container || typeof document === 'undefined') {
-        return { update() {}, destroy() {}, closeWheel() {}, openCellWheel() {} };
+        return { update() { }, destroy() { }, closeWheel() { }, openCellWheel() { } };
     }
 
     const root = document.createElement('div');
@@ -236,7 +236,7 @@ export function createWindowLayoutOverlay({
                 ? windowT(locale, definition.active ? 'layout.transRemove' : 'layout.transAdd')
                 : windowT(locale, 'layout.merge');
         button.setAttribute('aria-label', button.title);
-        button.textContent = definition.kind === 'add' ? '+' : (definition.kind === 'trans' ? 'T' : '↔');
+        button.textContent = definition.kind === 'add' ? '+' : (definition.kind === 'trans' ? 'DV' : '↔');
         button.classList.toggle('is-active', definition.kind === 'trans' && definition.active);
         stopPointerPropagation(button);
         button.addEventListener('click', async () => {
@@ -378,9 +378,9 @@ export function createWindowLayoutOverlay({
                 ...(geometry?.dividerSegments || []),
                 ...(geometry?.transSegments || []),
             ];
-            const segment = segments.find(s => 
-                s.coordinate === definition.coordinate 
-                && s.start === definition.start 
+            const segment = segments.find(s =>
+                s.coordinate === definition.coordinate
+                && s.start === definition.start
                 && s.end === definition.end
                 && s.orientation === definition.orientation
             );
