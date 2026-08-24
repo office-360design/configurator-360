@@ -222,11 +222,11 @@ body.shared-ui-dark-mode .bom-total-row { color: #b6c8d4; background: #1d3448; }
     box-shadow: -14px 0 34px rgba(23, 43, 53, .16);
   }
 
-  /* Keep the reveal handle away from the top-bar/tools cluster. */
+  /* Keep the reveal handle well below the top-bar/tools cluster. */
   #fenceSidebarToggle {
-    top: 58% !important;
-    bottom: auto !important;
-    transform: translateY(-50%) !important;
+    top: auto !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 118px) !important;
+    transform: none !important;
     width: 40px !important;
     height: 52px !important;
     touch-action: manipulation;
@@ -391,7 +391,11 @@ body.shared-ui-dark-mode .bom-total-row { color: #b6c8d4; background: #1d3448; }
 
 @media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
   :root { --fence-panel-width: min(365px, 58vw); }
-  #fenceSidebarToggle { top: 64% !important; }
+  #fenceSidebarToggle {
+    top: auto !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 78px) !important;
+    transform: none !important;
+  }
   .intro-section { padding-top: 16px; padding-bottom: 14px; }
   .section-copy { display: none; }
   .environment-panel {
