@@ -17,7 +17,8 @@ export class FenceScene {
     this.camera.position.set(10, 7, 11);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    const compactRendering = window.matchMedia('(max-width: 900px), (pointer: coarse)').matches;
+    this.renderer.setPixelRatio(Math.min(compactRendering ? 1.5 : 2, window.devicePixelRatio || 1));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -42,7 +43,7 @@ export class FenceScene {
     this.scene.add(this.ambient);
     this.sun = new THREE.DirectionalLight(0xfff2d7, 3.2);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(compactRendering ? 1024 : 2048, compactRendering ? 1024 : 2048);
     this.sun.shadow.camera.left = -22;
     this.sun.shadow.camera.right = 22;
     this.sun.shadow.camera.top = 22;

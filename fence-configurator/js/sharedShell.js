@@ -6,6 +6,8 @@ import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
 import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js';
 
 const initialLocale = resolveFenceLocale();
+const compactViewport = window.matchMedia('(max-width: 760px)');
+const isCompactViewport = () => compactViewport.matches;
 applyFenceTranslations(initialLocale);
 const t = (key, variables = {}, locale = null) => fenceT(locale ?? window.FENCE_CONFIGURATOR_SHARED_SHELL?.state?.locale ?? initialLocale, key, variables);
 
@@ -36,6 +38,7 @@ const shell = mountStandaloneConfiguratorShell({
     toggleSelector: '#fenceSidebarToggle',
     collapsedClass: 'is-collapsed',
     bodyCollapsedClass: 'fence-sidebar-collapsed',
+    initiallyCollapsed: isCompactViewport(),
   },
   callbacks: {
     onUndo() { history.undo(); },
@@ -77,7 +80,23 @@ const shell = mountStandaloneConfiguratorShell({
       window.dispatchEvent(new CustomEvent('fence-preference-change', { detail: { name, value, preferences: { ...preferences } } }));
     },
     onToolsOpenChange(open) {
-      if (!open) window.FENCE_CONFIGURATOR_API?.closeToolPanels?.();
+      if (open && isCompactViewport()) {
+        shell.setSettingsPanelCollapsed?.(true);
+        window.FENCE_CONFIGURATOR_API?.closeToolPanels?.();
+      } else if (!open) {
+        window.FENCE_CONFIGURATOR_API?.closeToolPanels?.();
+      }
+    },
+    onSettingsPanelToggle(collapsed) {
+      const panel = document.querySelector('.sidebar');
+      if (panel) panel.inert = Boolean(collapsed && isCompactViewport());
+      if (!collapsed && isCompactViewport()) {
+        if (shell.toolsOpen) {
+          shell.toolsOpen = false;
+          shell.syncTools?.();
+        }
+        window.FENCE_CONFIGURATOR_API?.closeToolPanels?.();
+      }
     },
   },
 });
@@ -92,16 +111,46 @@ if (sidebar) {
   sidebar.addEventListener('click', markDirty, true);
   sidebar.addEventListener('input', markDirty, true);
   sidebar.addEventListener('change', markDirty, true);
+  sidebar.inert = Boolean(shell.settingsPanelCollapsed && isCompactViewport());
 }
 
+const closeMobileSettingsFromViewer = () => {
+  if (isCompactViewport() && !shell.settingsPanelCollapsed) shell.setSettingsPanelCollapsed(true);
+};
+document.querySelector('.viewer-stage')?.addEventListener('pointerdown', closeMobileSettingsFromViewer, { passive: true });
+
+document.querySelector('#bomOpenButton')?.addEventListener('click', () => {
+  if (!isCompactViewport()) return;
+  shell.setSettingsPanelCollapsed?.(true);
+  if (shell.toolsOpen) {
+    shell.toolsOpen = false;
+    shell.syncTools?.();
+  }
+  window.FENCE_CONFIGURATOR_API?.closeToolPanels?.();
+});
+
+compactViewport.addEventListener?.('change', (event) => {
+  shell.setSettingsPanelCollapsed?.(Boolean(event.matches));
+  if (sidebar) sidebar.inert = Boolean(event.matches && shell.settingsPanelCollapsed);
+  if (!event.matches && shell.toolsOpen) shell.syncTools?.();
+});
+
 shell.host.addEventListener('click', (event) => {
-  const action = event.target.closest('[data-action]')?.dataset.action;
+  const actionTarget = event.target.closest('[data-action]');
+  const action = actionTarget?.dataset.action;
   if (!action) return;
   if (action === 'toggle-environment') window.FENCE_CONFIGURATOR_API?.toggleEnvironmentPanel?.();
   else if (action === 'toggle-dimensions') window.FENCE_CONFIGURATOR_API?.toggleDimensions?.();
   else if (action === 'toggle-compass') window.FENCE_CONFIGURATOR_API?.toggleCompass?.();
   else if (action === 'cycle-camera') window.FENCE_CONFIGURATOR_API?.cycleCamera?.();
   else if (action === 'toggle-technical-edges') window.FENCE_CONFIGURATOR_API?.toggleTechnicalEdges?.();
+
+  if (isCompactViewport() && event.target.closest('[data-tool-id]')) {
+    // Keep the selected tool/panel active, but get the vertical tool rail out
+    // of the way of the model after a touch selection.
+    shell.toolsOpen = false;
+    shell.syncTools?.();
+  }
 });
 
 window.FENCE_CONFIGURATOR_SHARED_SHELL = shell;
