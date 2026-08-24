@@ -180,3 +180,229 @@ body.shared-ui-dark-mode .bom-total-row { color: #b6c8d4; background: #1d3448; }
   .summary-actions { grid-template-columns: 1fr; }
   .bom-header { align-items: flex-start; }
 }
+
+/* Mobile-first fence workspace ------------------------------------------- */
+#canvasHost,
+#canvasHost canvas {
+  overscroll-behavior: contain;
+}
+#canvasHost canvas { touch-action: none; }
+
+@media (max-width: 900px) {
+  :root { --fence-panel-width: min(390px, 94vw); }
+
+  .sidebar {
+    top: var(--shared-topbar-height, 47px);
+    bottom: 0;
+    height: auto;
+    z-index: 910;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #fenceSidebarToggle { z-index: 915 !important; }
+}
+
+@media (max-width: 760px) {
+  body { overflow: hidden; }
+
+  .app-shell {
+    inset: var(--shared-topbar-height, 47px) 0 0;
+    display: block;
+  }
+
+  .viewer-panel,
+  .viewer-stage,
+  #canvasHost { width: 100%; height: 100%; }
+
+  .sidebar {
+    width: var(--fence-panel-width);
+    max-width: calc(100vw - 18px);
+    border-left: 1px solid var(--fence-border);
+    box-shadow: -14px 0 34px rgba(23, 43, 53, .16);
+  }
+
+  /* Keep the reveal handle well below the top-bar/tools cluster. */
+  #fenceSidebarToggle {
+    top: auto !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 118px) !important;
+    transform: none !important;
+    width: 40px !important;
+    height: 52px !important;
+    touch-action: manipulation;
+  }
+
+  .panel-section { padding: 20px 18px 18px; }
+  .intro-section { padding-top: 22px; }
+  h1 { font-size: 22px; }
+  .section-copy { font-size: 11px; }
+
+  .accordion-toggle {
+    min-height: 52px;
+    padding: 0 18px;
+    font-size: 13px;
+    touch-action: manipulation;
+  }
+  .accordion-panel { padding: 7px 18px 21px; }
+
+  .layout-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .panel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .choice-card {
+    min-width: 0;
+    min-height: 86px;
+    padding: 9px 5px;
+    touch-action: manipulation;
+  }
+  .choice-card svg { width: min(54px, 70%); }
+  .panel-preview { width: min(68px, 84%); }
+
+  .control-list { gap: 18px; }
+  .range-control { gap: 9px; }
+  .range-row { grid-template-columns: minmax(0, 1fr) 82px; gap: 10px; }
+  input[type="range"] { min-height: 34px; }
+  .number-input,
+  select {
+    height: 44px;
+    font-size: 16px;
+  }
+  .number-input { width: 82px; }
+
+  .finish-row { gap: 8px; }
+  .finish-swatch {
+    min-height: 48px;
+    font-size: 11px;
+    touch-action: manipulation;
+  }
+
+  .toggle-row {
+    min-height: 66px;
+    padding: 11px 13px;
+    touch-action: manipulation;
+  }
+  .toggle-row b { font-size: 12px; }
+  .toggle-row small { font-size: 10px; }
+
+  .primary-action,
+  .secondary-action {
+    min-height: 44px;
+    font-size: 11px;
+    touch-action: manipulation;
+  }
+
+  .summary-total-card strong { font-size: 25px; }
+  .summary-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .summary-actions { grid-template-columns: 1fr; }
+
+  /* The unified tool rail stays compact and disappears after a tool tap. */
+  .shared-ui-host .tools-toolbar { gap: 8px; }
+  .shared-ui-host .tool-launcher {
+    min-width: 68px;
+    height: 44px;
+    padding: 0 15px;
+    border-radius: 13px;
+    touch-action: manipulation;
+  }
+  .shared-ui-host .tools-toolbar__panel { gap: 8px; }
+  .shared-ui-host .round-tool {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Light/orientation becomes a bottom sheet instead of covering the tools. */
+  .environment-panel {
+    top: auto;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    left: 10px;
+    z-index: 930;
+    width: auto;
+    max-height: min(68dvh, 440px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px;
+    border-radius: 18px;
+  }
+  .environment-panel__header { margin-bottom: 15px; }
+  .environment-panel__header strong { font-size: 18px; }
+  .environment-panel__header button {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 10px;
+    font-size: 27px;
+    touch-action: manipulation;
+  }
+  .environment-control { margin-top: 13px; }
+  .environment-control > span { font-size: 12px; }
+  .environment-control input[type="range"] { min-height: 36px; }
+
+  /* BOM uses the entire phone viewport and keeps actions reachable. */
+  .bom-panel[open] {
+    inset: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .bom-header {
+    align-items: center;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px 15px;
+  }
+  .bom-header h2 { font-size: 18px; }
+  .bom-header p { font-size: 9px; line-height: 1.35; }
+  .bom-close { width: 42px; height: 42px; flex: 0 0 42px; }
+  .bom-scroll-region {
+    min-height: 0;
+    max-height: none;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .bom-disclaimer { margin-bottom: 10px; padding: 10px 11px; }
+  .bom-table-wrap { -webkit-overflow-scrolling: touch; }
+  .bom-table { min-width: 620px; }
+  .bom-total-row { margin-top: 10px; }
+  .bom-footer {
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  .bom-footer .primary-action,
+  .bom-footer .secondary-action { flex: 1; }
+}
+
+@media (max-width: 380px) {
+  :root { --fence-panel-width: 95vw; }
+  .panel-section,
+  .accordion-panel { padding-left: 15px; padding-right: 15px; }
+  .accordion-toggle { padding-left: 15px; padding-right: 15px; }
+  .choice-grid { gap: 6px; }
+  .choice-card { min-height: 82px; font-size: 8.5px; }
+  .range-row { grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; }
+  .number-input { width: 76px; }
+}
+
+@media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
+  :root { --fence-panel-width: min(365px, 58vw); }
+  #fenceSidebarToggle {
+    top: auto !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 78px) !important;
+    transform: none !important;
+  }
+  .intro-section { padding-top: 16px; padding-bottom: 14px; }
+  .section-copy { display: none; }
+  .environment-panel {
+    right: 10px;
+    bottom: 8px;
+    left: 10px;
+    max-height: calc(100dvh - var(--shared-topbar-height, 47px) - 16px);
+    padding: 14px 16px;
+  }
+}
