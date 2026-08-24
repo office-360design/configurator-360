@@ -4,7 +4,8 @@ Standalone 360Configurator application for modular residential and light-commerc
 
 ## Product model
 
-- Straight, L-shaped and U-shaped fence runs.
+- Straight, L-shaped, U-shaped and closed four-sided fence runs.
+- Closed-perimeter mode takes AB, BC, CD and the angle at B; DA is calculated automatically so the fourth side closes exactly.
 - Bay-driven geometry: each run is divided into real fence bays from the requested target bay width.
 - Vertical slats, horizontal slats, solid privacy panels and welded mesh.
 - Five finish presets shared by posts, panels and gates.
@@ -30,4 +31,4 @@ Shared tools enabled by this configurator:
 - Romanian: `/configurator-garduri/`
 - German: `/zaun-konfigurator/`
 
-The localized language switch preserves the current fence configuration through the shared-link backend before changing domains.
+The localized language switch preserves the current fence configuration through a compact cross-domain state handoff without creating a public shared-configuration record.

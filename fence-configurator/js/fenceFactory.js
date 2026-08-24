@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FINISHES, deriveFenceMetrics } from './state.js';
+import { FINISHES, calculateClosedFenceGeometry, deriveFenceMetrics } from './state.js?v=2';
 
 const POST_SIZE = 0.085;
 const PANEL_THICKNESS = 0.045;
@@ -97,6 +97,8 @@ export function buildFenceAssembly(state) {
 }
 
 function buildRunSegments(state, runs) {
+  if (state.layout === 'closed') return buildClosedRunSegments(state, runs);
+
   const result = [];
   let start = new THREE.Vector3(0, 0, 0);
   let direction = new THREE.Vector3(1, 0, 0);
@@ -111,6 +113,25 @@ function buildRunSegments(state, runs) {
     start = points[points.length - 1].clone();
   });
   return result;
+}
+
+function buildClosedRunSegments(state, runs) {
+  const geometry = calculateClosedFenceGeometry(state);
+  const vertices = [geometry.A, geometry.B, geometry.C, geometry.D, geometry.A]
+    .map((point) => new THREE.Vector3(point.x, 0, point.z));
+
+  return runs.map((run, index) => {
+    const start = vertices[index].clone();
+    const end = vertices[index + 1].clone();
+    const direction = end.clone().sub(start).normalize();
+    const points = [];
+    for (let i = 0; i <= run.bayCount; i += 1) {
+      // Use interpolation against the exact end point rather than accumulating
+      // bay widths, so the final DA corner is guaranteed to land exactly on A.
+      points.push(start.clone().lerp(end, i / run.bayCount));
+    }
+    return { ...run, start, direction, points };
+  });
 }
 
 function buildPanel(group, p0, p1, state, finishMaterial, meshMaterial) {

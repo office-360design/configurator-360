@@ -18,6 +18,7 @@ export const DEFAULT_FENCE_STATE = Object.freeze({
   runA: 8,
   runB: 5,
   runC: 5,
+  angleB: 90,
   height: 1.8,
   targetBayWidth: 2,
   panelStyle: 'vertical',
@@ -45,10 +46,36 @@ export function createFenceState(source = {}) {
 export function activeRunIds(state) {
   if (state.layout === 'straight') return ['a'];
   if (state.layout === 'l') return ['a', 'b'];
+  if (state.layout === 'closed') return ['a', 'b', 'c', 'd'];
   return ['a', 'b', 'c'];
 }
 
+/**
+ * Closed-perimeter mode uses AB, BC and CD plus the interior angle at B.
+ * CD stays parallel to AB and runs back toward A. DA is then the exact
+ * closing segment from D to A, so it is never independently editable.
+ */
+export function calculateClosedFenceGeometry(state) {
+  const a = Number(state.runA) || DEFAULT_FENCE_STATE.runA;
+  const b = Number(state.runB) || DEFAULT_FENCE_STATE.runB;
+  const c = Number(state.runC) || DEFAULT_FENCE_STATE.runC;
+  const angleB = Number(state.angleB) || DEFAULT_FENCE_STATE.angleB;
+  const headingBC = Math.PI - (angleB * Math.PI) / 180;
+
+  const A = { x: 0, z: 0 };
+  const B = { x: a, z: 0 };
+  const C = {
+    x: B.x + Math.cos(headingBC) * b,
+    z: B.z + Math.sin(headingBC) * b,
+  };
+  const D = { x: C.x - c, z: C.z };
+  const d = Math.hypot(D.x - A.x, D.z - A.z);
+
+  return { A, B, C, D, runD: d, angleB, headingBC };
+}
+
 export function runLength(state, runId) {
+  if (runId === 'd' && state.layout === 'closed') return calculateClosedFenceGeometry(state).runD;
   return Number(state[`run${runId.toUpperCase()}`] ?? 0);
 }
 
@@ -68,12 +95,15 @@ export function deriveFenceMetrics(state) {
   const runs = activeRunIds(state).map((runId) => deriveRun(state, runId));
   const bayCount = runs.reduce((sum, run) => sum + run.bayCount, 0);
   const totalLength = runs.reduce((sum, run) => sum + run.length, 0);
-  const cornerCount = Math.max(0, runs.length - 1);
+  const closed = state.layout === 'closed';
+  const cornerCount = closed ? runs.length : Math.max(0, runs.length - 1);
   const area = totalLength * state.height;
   const gate = deriveGate(state, runs);
   const removedGatePosts = gate ? Math.max(0, gate.span - 1) : 0;
-  const postCount = bayCount + 1 - removedGatePosts;
-  return { runs, bayCount, totalLength, cornerCount, postCount, area, gate };
+  // Open runs have one more post than bays. A closed perimeter reuses the
+  // final corner post at A, so its post count equals the total bay count.
+  const postCount = bayCount + (closed ? 0 : 1) - removedGatePosts;
+  return { runs, bayCount, totalLength, cornerCount, postCount, area, gate, closed };
 }
 
 export function deriveGate(state, runs = deriveFenceMetricsWithoutGate(state).runs) {
@@ -102,10 +132,11 @@ function deriveFenceMetricsWithoutGate(state) {
 
 export function normalizeFenceState(state) {
   const next = state;
-  if (!['straight', 'l', 'u'].includes(next.layout)) next.layout = 'straight';
+  if (!['straight', 'l', 'u', 'closed'].includes(next.layout)) next.layout = 'straight';
   next.runA = clampNumber(next.runA, 2, 30, 8);
   next.runB = clampNumber(next.runB, 2, 20, 5);
   next.runC = clampNumber(next.runC, 2, 20, 5);
+  next.angleB = clampNumber(next.angleB, 30, 150, 90);
   next.height = clampNumber(next.height, 0.8, 2.6, 1.8);
   next.targetBayWidth = clampNumber(next.targetBayWidth, 1, 3, 2);
   next.infillGap = clampNumber(next.infillGap, 0.015, 0.12, 0.035);
@@ -113,7 +144,7 @@ export function normalizeFenceState(state) {
   if (!FINISHES[next.finish]) next.finish = 'anthracite';
   if (!['concrete', 'baseplate'].includes(next.foundation)) next.foundation = 'concrete';
   if (!['none', 'pedestrian', 'driveway'].includes(next.gateType)) next.gateType = 'none';
-  if (!['a', 'b', 'c'].includes(next.gateRun)) next.gateRun = 'a';
+  if (!['a', 'b', 'c', 'd'].includes(next.gateRun)) next.gateRun = 'a';
   if (!['left', 'right'].includes(next.gateHanding)) next.gateHanding = 'right';
   next.gatePosition = Math.max(0, Math.floor(Number(next.gatePosition) || 0));
   next.scenery = Boolean(next.scenery);
