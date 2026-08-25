@@ -11,6 +11,43 @@ const isCompactViewport = () => compactViewport.matches;
 applyFenceTranslations(initialLocale);
 const t = (key, variables = {}, locale = null) => fenceT(locale ?? window.FENCE_CONFIGURATOR_SHARED_SHELL?.state?.locale ?? initialLocale, key, variables);
 
+
+const LANGUAGE_LOADING_COPY = Object.freeze({
+  en: { title: 'Switching language…', detail: 'Keeping your fence configuration' },
+  ro: { title: 'Se schimbă limba…', detail: 'Păstrăm configurația gardului' },
+  de: { title: 'Sprache wird gewechselt…', detail: 'Zaunkonfiguration wird beibehalten' },
+});
+
+function showLanguageSwitchLoading() {
+  let overlay = document.querySelector('.fence-language-loading');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'fence-language-loading';
+    overlay.setAttribute('role', 'status');
+    overlay.setAttribute('aria-live', 'polite');
+    overlay.innerHTML = `
+      <div class="fence-language-loading__card">
+        <span class="fence-language-loading__spinner" aria-hidden="true"></span>
+        <div class="fence-language-loading__copy">
+          <strong></strong>
+          <span></span>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+
+  const copy = LANGUAGE_LOADING_COPY[initialLocale] ?? LANGUAGE_LOADING_COPY.en;
+  overlay.querySelector('strong').textContent = copy.title;
+  overlay.querySelector('.fence-language-loading__copy > span').textContent = copy.detail;
+  overlay.classList.add('is-visible');
+  return overlay;
+}
+
+function waitForLanguageLoadingPaint() {
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
 const history = new SharedUndoManager({
   capture: () => window.FENCE_CONFIGURATOR_API?.captureState?.(),
   restore: (snapshot) => window.FENCE_CONFIGURATOR_API?.restoreState?.(snapshot),
@@ -56,25 +93,38 @@ const shell = mountStandaloneConfiguratorShell({
       return snapshot ? createShareUrl({ productType: 'fence', state: snapshot }) : window.location.href;
     },
     async getLocalizedUrl(nextLocale, fallbackTarget) {
-      const snapshot = window.FENCE_CONFIGURATOR_API?.captureState?.();
-      if (!snapshot) return fallbackTarget;
+      // Give cross-domain language changes immediate visual feedback. Waiting for
+      // two animation frames guarantees the overlay is painted before state
+      // encoding/navigation begins, even when the redirect is otherwise instant.
+      showLanguageSwitchLoading();
+      await waitForLanguageLoadingPaint();
 
-      // Language changes cross origins (.com / .ro / .de), so localStorage cannot
-      // carry the live configuration with the navigation. Use the compact legacy
-      // share payload only as a temporary cross-domain state handoff. Unlike the
-      // normal Share action, this does not create a Firestore document.
-      const encodedState = await encodeShareState('fence', snapshot);
-      const localized = getLocalizedConfiguratorUrl(nextLocale, 'fence', window.location) || fallbackTarget;
-      const target = new URL(localized, window.location.href);
+      try {
+        const snapshot = window.FENCE_CONFIGURATOR_API?.captureState?.();
+        if (!snapshot) return fallbackTarget;
 
-      // A previous shared link may already contain a state id. Remove all state
-      // transports before adding the current snapshot so the destination cannot
-      // accidentally restore an older configuration instead.
-      target.searchParams.delete('s');
-      target.searchParams.delete('c');
-      target.searchParams.delete('config');
-      target.hash = `c=${encodedState}`;
-      return target.href;
+        // Language changes cross origins (.com / .ro / .de), so localStorage cannot
+        // carry the live configuration with the navigation. Use the compact legacy
+        // share payload only as a temporary cross-domain state handoff. Unlike the
+        // normal Share action, this does not create a Firestore document.
+        const encodedState = await encodeShareState('fence', snapshot);
+        const localized = getLocalizedConfiguratorUrl(nextLocale, 'fence', window.location) || fallbackTarget;
+        const target = new URL(localized, window.location.href);
+
+        // A previous shared link may already contain a state id. Remove all state
+        // transports before adding the current snapshot so the destination cannot
+        // accidentally restore an older configuration instead.
+        target.searchParams.delete('s');
+        target.searchParams.delete('c');
+        target.searchParams.delete('config');
+        target.hash = `c=${encodedState}`;
+        return target.href;
+      } catch (error) {
+        // The language change should still work if the state handoff fails. The
+        // overlay remains visible until the fallback destination takes over.
+        console.warn('Fence language state handoff failed; using localized fallback URL.', error);
+        return fallbackTarget;
+      }
     },
     onPreferenceChange(name, value, preferences) {
       window.dispatchEvent(new CustomEvent('fence-preference-change', { detail: { name, value, preferences: { ...preferences } } }));
