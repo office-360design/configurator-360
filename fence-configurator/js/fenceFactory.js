@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FINISHES, calculateClosedFenceGeometry, deriveFenceMetrics } from './state.js?v=3';
+import { FINISHES, calculateClosedFenceGeometry, calculateClosedFiveFenceGeometry, deriveFenceMetrics } from './state.js?v=4';
 
 const POST_SIZE = 0.085;
 const PANEL_THICKNESS = 0.045;
@@ -98,7 +98,7 @@ export function buildFenceAssembly(state) {
 }
 
 function buildRunSegments(state, runs) {
-  if (state.layout === 'closed') return buildClosedRunSegments(state, runs);
+  if (state.layout === 'closed' || state.layout === 'closed5') return buildClosedRunSegments(state, runs);
 
   const result = [];
   let start = new THREE.Vector3(0, 0, 0);
@@ -117,9 +117,13 @@ function buildRunSegments(state, runs) {
 }
 
 function buildClosedRunSegments(state, runs) {
-  const geometry = calculateClosedFenceGeometry(state);
-  const vertices = [geometry.A, geometry.B, geometry.C, geometry.D, geometry.A]
-    .map((point) => new THREE.Vector3(point.x, 0, point.z));
+  const geometry = state.layout === 'closed5'
+    ? calculateClosedFiveFenceGeometry(state)
+    : calculateClosedFenceGeometry(state);
+  const rawVertices = state.layout === 'closed5'
+    ? [geometry.A, geometry.B, geometry.C, geometry.D, geometry.E, geometry.A]
+    : [geometry.A, geometry.B, geometry.C, geometry.D, geometry.A];
+  const vertices = rawVertices.map((point) => new THREE.Vector3(point.x, 0, point.z));
 
   return runs.map((run, index) => {
     const start = vertices[index].clone();

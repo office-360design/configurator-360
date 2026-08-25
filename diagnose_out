@@ -1,0 +1,959 @@
+
+> incercam@1.0.0 diagnose:website-inline-rsc
+> node scripts/diagnostics/diagnose_website_inline_rsc.mjs
+
+
+=== /configurators/roof ===
+htmlBytes=73614 totalScripts=49 interestingScripts=44
+
+--- script #3 bytes=205 sha=a60468c8ef0f attrs="" ---
+Object.assign(((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{params:{},nav:{"pathname":"/configurators/roof","searchParams":[]}})
+
+--- script #6 bytes=175 sha=b1e09ebe9260 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("2:I[\"8c0f216c4604\",[],\"Children\",1]\n")
+
+--- script #7 bytes=196 sha=09dadff44464 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(":HL[\"/_next/static/css/index.CVHv9aJM.css\",\"style\"     ]\n")
+
+--- script #8 bytes=7654 sha=11f65f112305 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("0:{\"__route\":\"route:/configurators/roof\",\"__interceptionContext\":null,\"__layoutIds\":[\"layout:/\"],\"__rootLayout\":\"/\",\"__sourcePage\":\"/configurators/roof/page\",\"page:/configurators/roof\":\"$L1\",\"layout:/\":[[[[\"$\",\"link\",\"css:/_next/static/css/index.CVHv9aJM.css\",{\"rel\":\"stylesheet\",\"precedence\":\"vite-rsc/importer-resources\",\"href\":\"/_next/static/css/index.CVHv9aJM.css\",\"data-rsc-css-href\":\"/_next/static/css/index.CVHv9aJM.css\"}],\"$undefined\"],[\"$\",\"html\",null,{\"lang\":\"en\",\"suppressHydrationWarning\":true,\"ch
+
+--- script #9 bytes=186 sha=258ef4bc97a8 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("b:I[\"593f344dc510\",[],\"GlobalErrorBoundary\",1]\n")
+
+--- script #10 bytes=174 sha=cc8e13be9a15 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("c:I[\"0b874ad30386\",[],\"default\",1]\n")
+
+--- script #11 bytes=180 sha=d46f1876afd0 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("d:I[\"593f344dc510\",[],\"ErrorBoundary\",1]\n")
+
+--- script #12 bytes=188 sha=3118b0435386 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("e:I[\"15c18cfaeeff\",[],\"LayoutSegmentProvider\",1]\n")
+
+--- script #13 bytes=171 sha=62f7b3cfbebe attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("f:I[\"8c0f216c4604\",[],\"Slot\",1]\n")
+
+--- script #14 bytes=184 sha=4f04b3918ba4 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("10:I[\"593f344dc510\",[],\"NotFoundBoundary\",1]\n")
+
+--- script #15 bytes=189 sha=2c1d76ec9cba attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("11:I[\"9276801271d6\",[],\"AppRouterScrollTarget\",1]\n")
+
+--- script #16 bytes=184 sha=9d5f18176c29 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("12:I[\"593f344dc510\",[],\"RedirectBoundary\",1]\n")
+
+--- script #17 bytes=400 sha=e95c59fb59d6 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("3:[\"$\",\"link\",\"28\",{\"data-vinext-streamed-icon\":\"$undefined\",\"rel\":\"apple-touch-icon\",\"href\":\"/apple-touch-icon.png\",\"type\":\"image/png\",\"sizes\":\"180x180\",\"color\":\"$undefined\",\"media\":\"$undefined\",\"fetchPriority\":\"$undefined\"}]\n")
+
+--- script #18 bytes=249 sha=696a7ae743d9 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("4:[\"$\",\"link\",\"29\",{\"rel\":\"canonical\",\"href\":\"https://www.360configurator.com/configurators/roof\"}]\n")
+
+--- script #19 bytes=269 sha=0e9f56d910ea attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("5:[\"$\",\"link\",\"30\",{\"rel\":\"alternate\",\"hrefLang\":\"en\",\"href\":\"https://www.360configurator.com/configurators/roof\"}]\n")
+
+--- script #20 bytes=271 sha=bda17e09e699 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("6:[\"$\",\"link\",\"31\",{\"rel\":\"alternate\",\"hrefLang\":\"ro-RO\",\"href\":\"https://www.360configurator.ro/configurators/roof\"}]\n")
+
+--- script #21 bytes=271 sha=0fb1a67c6a34 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("7:[\"$\",\"link\",\"32\",{\"rel\":\"alternate\",\"hrefLang\":\"de-DE\",\"href\":\"https://www.360konfigurator.de/configurators/roof\"}]\n")
+
+--- script #22 bytes=276 sha=7f11274b2dea attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("8:[\"$\",\"link\",\"33\",{\"rel\":\"alternate\",\"hrefLang\":\"x-default\",\"href\":\"https://www.360configurator.com/configurators/roof\"}]\n")
+
+--- script #23 bytes=551 sha=02b69176ebe1 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("9:[[\"$\",\"meta\",\"0\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}],[\"$\",\"meta\",\"1\",{\"name\":\"theme-color\",\"content\":\"#f1f2ee\",\"media\":\"(prefers-color-scheme: light)\"}],[\"$\",\"meta\",\"2\",{\"name\":\"theme-color\",\"content\":\"#080a0d\",\"media\":\"(prefers-color-scheme: dark)\"}],[\"$\",\"meta\",\"3\",{\"name\":\"color-scheme\",\"content\":\"light dark\"}]]\n")
+
+--- script #24 bytes=2025 sha=5543520de9e5 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("a:[\"$\",\"$Lb\",null,{\"fallback\":\"$c\",\"children\":[\"$\",\"$Ld\",null,{\"fallback\":\"$c\",\"children\":[\"$\",\"$Le\",null,{\"providerId\":\"layout:/\",\"segmentMap\":{\"children\":[\"configurators\",\"roof\"]},\"children\":[\"$\",\"$Lf\",null,{\"id\":\"layout:/\",\"parallelSlots\":\"$undefined\",\"children\":[\"$\",\"$L10\",null,{\"resetKey\":\"configurators\",\"fallback\":[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-se
+
+--- script #25 bytes=180 sha=2b6d78620478 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("14:I[\"d10887734b25\",[],\"SmoothScroll\",1]\n")
+
+--- script #26 bytes=186 sha=452139a1d8c7 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("15:I[\"eed995f56c82\",[],\"DeferredWebGLStage\",1]\n")
+
+--- script #27 bytes=178 sha=271b020ff362 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("16:I[\"91ead71c14ab\",[],\"SiteHeader\",1]\n")
+
+--- script #28 bytes=142 sha=d7e57b6e1ba8 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("13:Tb1b,")
+
+--- script #29 bytes=3206 sha=9510b55e4e95 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Organization\",\"@id\":\"https://www.360configurator.com/#organization\",\"name\":\"360Configurator\",\"url\":\"https://www.360configurator.com\",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"https://www.360configurator.com/brand/360configurator.png\",\"width\":500,\"height\":250},\"email\":\"office@360configurator.com\",\"description\":\"Configure roof geometry online in 3D. Set dimensions, pitch, roof type and materials, then calculate quantities, BOM data and CSV quote outputs.\",\"areaServed\":\"W
+
+--- script #30 bytes=936 sha=74baa65deb03 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1:[\"$\",\"main\",null,{\"className\":\"site-shell detail-page detail-roof\",\"children\":[[\"$\",\"script\",null,{\"type\":\"application/ld+json\",\"dangerouslySetInnerHTML\":{\"__html\":\"$13\"}}],[\"$\",\"$L14\",null,{}],[\"$\",\"$L15\",null,{}],[\"$\",\"$L16\",null,{\"locale\":\"en\",\"currentPath\":\"/configurators/roof\"}],[\"$\",\"section\",null,{\"className\":\"detail-hero\",\"data-scene\":\"roof\",\"children\":[\"$\",\"div\",null,{\"className\":\"detail-hero-inner page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"detail-title\",\"children\
+
+--- script #31 bytes=183 sha=31a528badc1d attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("23:I[\"5b9d39199531\",[],\"SceneInteractor\",1]\n")
+
+--- script #32 bytes=184 sha=032cfbdf231b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("24:I[\"0c0d66eed679\",[],\"ShowcaseControls\",1]\n")
+
+--- script #33 bytes=182 sha=19db754f3c09 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("25:I[\"9628f6c0dda1\",[],\"CapabilityCube\",1]\n")
+
+--- script #34 bytes=191 sha=49ca70565c24 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("26:I[\"0f17c905b0c0\",[],\"ConfiguratorSeoSections\",1]\n")
+
+--- script #35 bytes=181 sha=6691aec4e393 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(":HL[\"/brand/360configurator.png\",\"image\"]\n")
+
+--- script #36 bytes=205 sha=0b27a136cfa7 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("17:[\"$\",\"h1\",null,{\"children\":\"3D Roof Configurator Online\"}]\n")
+
+--- script #37 bytes=213 sha=8c42caeb7c9d attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("18:[\"$\",\"p\",null,{\"children\":\"Complex geometry. Buildable answers.\"}]\n")
+
+--- script #38 bytes=678 sha=813b91b3a0b2 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("19:[\"$\",\"div\",null,{\"className\":\"detail-viewport\",\"children\":[[\"$\",\"$L23\",null,{\"scene\":\"roof\",\"locale\":\"en\"}],[\"$\",\"div\",null,{\"className\":\"viewport-brackets\",\"children\":[[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}]]}],[\"$\",\"span\",null,{\"className\":\"viewport-status mono-label\",\"children\":[[\"$\",\"i\",null,{}],\" \",\"Live spatial preview\"]}],[\"$\",\"$L24\",null,{\"scene\":\"roof\",\"controls\":[\"Gable\",\"Metal\",\"L-shape\"],\"locale\":\"en\"}]]}]\n")
+
+--- script #39 bytes=648 sha=1830e1feea94 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1a:[\"$\",\"div\",null,{\"className\":\"detail-action\",\"children\":[[\"$\",\"p\",null,{\"children\":\"A rule-driven architectural configurator that turns roof shape, dimensions and material systems into measurable geometry and production-ready outputs.\"}],[\"$\",\"a\",null,{\"className\":\"launch-link\",\"href\":\"https://www.360configurator.roof-configurator/\",\"target\":\"_blank\",\"rel\":\"noreferrer\",\"children\":[\"Launch full configurator\",\" \",[\"$\",\"span\",null,{\"children\":\"↗\"}]]}]]}]\n")
+
+--- script #40 bytes=196 sha=9cf1741363d5 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1b:[\"$\",\"$L25\",null,{\"detail\":true,\"locale\":\"en\"}]\n")
+
+--- script #41 bytes=680 sha=21cda9dca01f attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1c:[\"$\",\"section\",null,{\"className\":\"detail-intro solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame detail-intro-grid\",\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"System overview\"}],[\"$\",\"h2\",null,{\"children\":\"Complex geometry. Buildable answers.\"}],[\"$\",\"p\",null,{\"children\":\"A rule-driven architectural configurator that turns roof shape, dimensions and material systems into measurable geometry and production-ready outputs.\"}]]}]}]\n")
+
+--- script #42 bytes=3609 sha=5a20650343c9 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1d:[\"$\",\"section\",null,{\"className\":\"detail-features solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"detail-section-heading\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Capabilities / 06\"}],[\"$\",\"h2\",null,{\"children\":\"What the system resolves.\"}]]}],[\"$\",\"div\",null,{\"className\":\"detail-feature-grid\",\"children\":[[\"$\",\"article\",\"Five roof typologies\",{\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"childr
+
+--- script #43 bytes=1063 sha=2962f3c767e2 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1e:[\"$\",\"section\",null,{\"className\":\"detail-outputs solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame outputs-grid\",\"data-reveal\":true,\"children\":[[\"$\",\"div\",null,{\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Resolved state\"}],[\"$\",\"h2\",null,{\"children\":[\"From visual decision\",[\"$\",\"br\",null,{}],\"to usable output.\"]}]]}],[\"$\",\"ol\",null,{\"children\":[[\"$\",\"li\",\"Bill of materials\",{\"children\":[[\"$\",\"span\",null,{\"children\":[\"0\",1]}],\"Bill of materials\
+
+--- script #44 bytes=263 sha=a95ec06820a6 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1f:[\"$\",\"$L26\",null,{\"locale\":\"en\",\"slug\":\"roof\",\"launchUrl\":\"https://www.360configurator.roof-configurator/\"}]\n")
+
+--- script #45 bytes=802 sha=da8ff0fe84d2 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("20:[\"$\",\"section\",null,{\"className\":\"detail-proof solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame proof-frame\",\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Full deployment\"}],[\"$\",\"h2\",null,{\"children\":[\"Explore every rule.\",[\"$\",\"br\",null,{}],\"Configure the real system.\"]}],[\"$\",\"a\",null,{\"className\":\"project-link\",\"href\":\"https://www.360configurator.roof-configurator/\",\"target\":\"_blank\",\"rel\":\"noreferrer\",\"children\":[[\"$\",\"span\"
+
+--- script #46 bytes=1221 sha=06dc5b37972f attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("21:[\"$\",\"nav\",null,{\"className\":\"next-configurator solid-section\",\"aria-label\":\"Continue exploring\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Continue exploring\"}],[[\"$\",\"a\",\"pergola\",{\"href\":\"/configurators/pergola\",\"children\":[[\"$\",\"span\",null,{\"children\":\"01\"}],\"Pergola \u0026 Outdoor Architecture\",[\"$\",\"b\",null,{\"children\":\"↗\"}]]}],[\"$\",\"a\",\"window\",{\"href\":\"/configurators/window\",\"children\":[[\"$\",\"spa
+
+--- script #47 bytes=4362 sha=52c61c25cf42 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("22:[\"$\",\"footer\",null,{\"className\":\"site-footer\",\"children\":[[\"$\",\"div\",null,{\"className\":\"footer-main page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"footer-brand\",\"children\":[[\"$\",\"img\",null,{\"src\":\"/brand/360configurator.png\",\"alt\":\"360Configurator\"}],[\"$\",\"p\",null,{\"children\":\"Spatial product configuration for complex industrial products.\"}]]}],[\"$\",\"div\",null,{\"className\":\"footer-links\",\"children\":[[\"$\",\"span\",null,{\"children\":\"Configurators\"}],[[\"$\",\"a\",\"pergola\",{\"href\":\"/c
+
+--- script #48 bytes=298 sha=2d6dbaa0951c attrs="" ---
+Object.assign(((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{"initialCacheKind":"static"});((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).done=true
+
+=== /ro/configurators/roof ===
+htmlBytes=76422 totalScripts=51 interestingScripts=43
+
+--- script #3 bytes=235 sha=2d88c4fe059c attrs="" ---
+Object.assign(((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{params:{"locale":"ro","slug":"roof"},nav:{"pathname":"/ro/configurators/roof","searchParams":[]}})
+
+--- script #9 bytes=175 sha=8147aeac4ace attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("4:I[\"8c0f216c4604\",[],\"Children\",1]\n")
+
+--- script #10 bytes=186 sha=cced2fba4b8b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("5:I[\"593f344dc510\",[],\"GlobalErrorBoundary\",1]\n")
+
+--- script #11 bytes=174 sha=f821a8c7f061 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("6:I[\"0b874ad30386\",[],\"default\",1]\n")
+
+--- script #12 bytes=180 sha=7f48f96a93ec attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("7:I[\"593f344dc510\",[],\"ErrorBoundary\",1]\n")
+
+--- script #13 bytes=188 sha=418f837dd92f attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("8:I[\"15c18cfaeeff\",[],\"LayoutSegmentProvider\",1]\n")
+
+--- script #14 bytes=171 sha=64e12c2b70e4 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("9:I[\"8c0f216c4604\",[],\"Slot\",1]\n")
+
+--- script #15 bytes=183 sha=0ca7290c86c5 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("a:I[\"593f344dc510\",[],\"NotFoundBoundary\",1]\n")
+
+--- script #16 bytes=188 sha=7ad060223517 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("b:I[\"9276801271d6\",[],\"AppRouterScrollTarget\",1]\n")
+
+--- script #17 bytes=183 sha=e59b8b7f899b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("c:I[\"593f344dc510\",[],\"RedirectBoundary\",1]\n")
+
+--- script #18 bytes=158 sha=bc9606ce6cf8 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("d:\"$Sreact.suspense\"\n")
+
+--- script #19 bytes=196 sha=09dadff44464 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(":HL[\"/_next/static/css/index.CVHv9aJM.css\",\"style\"     ]\n")
+
+--- script #20 bytes=6928 sha=d68656cc05ca attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("0:{\"__route\":\"route:/ro/configurators/roof\",\"__interceptionContext\":null,\"__layoutIds\":[\"layout:/\"],\"__rootLayout\":\"/\",\"__sourcePage\":\"/[locale]/configurators/[slug]/page\",\"__staticSiblings\":[\"about\",\"configurators\",\"contact\"],\"__vinext_streaming_metadata_body:route:/ro/configurators/roof\":\"$L1\",\"__vinext_streaming_metadata_outlet:route:/ro/configurators/roof\":\"$L2\",\"page:/ro/configurators/roof\":\"$L3\",\"layout:/\":[[[[\"$\",\"link\",\"css:/_next/static/css/index.CVHv9aJM.css\",{\"rel\":\"stylesheet\",\"precedence\":\"vite-rs
+
+--- script #21 bytes=141 sha=7410f228226d attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("e:Td73,")
+
+--- script #22 bytes=4146 sha=713c6f27b2ee attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("\u003ctitle\u003eConfigurator Acoperiș 3D Online | Proiectare \u0026amp; BOM — 360Configurator\u003c/title\u003e\u003cmeta name=\"description\" content=\"Configurează un acoperiș online în 3D. Alege forma, dimensiunile, panta și materialele și obține cantități, BOM și ofertă CSV.\"\u003e\u003cmeta name=\"application-name\" content=\"360Configurator\"\u003e\u003cmeta name=\"author\" content=\"360Configurator\"\u003e\u003clink rel=\"author\" href=\"https://www.360configurator.com\"\u003e\u003cmeta name=\"creator\" content=\"360Configurator\"\u003e\u003cmeta name=\
+
+--- script #23 bytes=268 sha=f6b02c739ee9 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1:[[\"$\",\"div\",null,{\"hidden\":true,\"suppressHydrationWarning\":true,\"dangerouslySetInnerHTML\":{\"__html\":\"$e\"}}],\"$Lf\"]\n")
+
+--- script #24 bytes=142 sha=d27b1af05a24 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("2:null\n")
+
+--- script #25 bytes=190 sha=a2e32a0adcac attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("10:I[\"89c3cac48cb5\",[],\"StreamedIconsInsertion\",1]\n")
+
+--- script #26 bytes=212 sha=bbe45635cd70 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("f:[\"$\",\"$L10\",null,{\"metadataKey\":\"/ro/configurators/roof:19uz0nj\"}]\n")
+
+--- script #27 bytes=180 sha=86b49d904282 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("12:I[\"d10887734b25\",[],\"SmoothScroll\",1]\n")
+
+--- script #28 bytes=186 sha=668292956c21 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("13:I[\"eed995f56c82\",[],\"DeferredWebGLStage\",1]\n")
+
+--- script #29 bytes=178 sha=e81f22e62b06 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("14:I[\"91ead71c14ab\",[],\"SiteHeader\",1]\n")
+
+--- script #30 bytes=142 sha=871a36663ec2 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("11:Tb57,")
+
+--- script #31 bytes=3278 sha=cbff776a863a attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Organization\",\"@id\":\"https://www.360configurator.com/#organization\",\"name\":\"360Configurator\",\"url\":\"https://www.360configurator.com\",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"https://www.360configurator.com/brand/360configurator.png\",\"width\":500,\"height\":250},\"email\":\"office@360configurator.ro\",\"description\":\"Configurează un acoperiș online în 3D. Alege forma, dimensiunile, panta și materialele și obține cantități, BOM și ofertă CSV.\",\"areaServed\":\"Worldwide\",\"sameAs
+
+--- script #32 bytes=937 sha=5eeecfc835ef attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("3:[\"$\",\"main\",null,{\"className\":\"site-shell detail-page detail-roof\",\"children\":[[\"$\",\"script\",null,{\"type\":\"application/ld+json\",\"dangerouslySetInnerHTML\":{\"__html\":\"$11\"}}],[\"$\",\"$L12\",null,{}],[\"$\",\"$L13\",null,{}],[\"$\",\"$L14\",null,{\"locale\":\"ro\",\"currentPath\":\"/configurators/roof\"}],[\"$\",\"section\",null,{\"className\":\"detail-hero\",\"data-scene\":\"roof\",\"children\":[\"$\",\"div\",null,{\"className\":\"detail-hero-inner page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"detail-title\",\"children\
+
+--- script #33 bytes=183 sha=05c1fd05c662 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("21:I[\"5b9d39199531\",[],\"SceneInteractor\",1]\n")
+
+--- script #34 bytes=184 sha=6b9d95d99b7b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("22:I[\"0c0d66eed679\",[],\"ShowcaseControls\",1]\n")
+
+--- script #35 bytes=182 sha=f72f788690dd attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("23:I[\"9628f6c0dda1\",[],\"CapabilityCube\",1]\n")
+
+--- script #36 bytes=191 sha=40926fc6068c attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("24:I[\"0f17c905b0c0\",[],\"ConfiguratorSeoSections\",1]\n")
+
+--- script #37 bytes=181 sha=6691aec4e393 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(":HL[\"/brand/360configurator.png\",\"image\"]\n")
+
+--- script #38 bytes=210 sha=59fbbebeba1a attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("15:[\"$\",\"h1\",null,{\"children\":\"Configurator acoperiș 3D online\"}]\n")
+
+--- script #39 bytes=223 sha=c0abb7f88c78 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("16:[\"$\",\"p\",null,{\"children\":\"Geometrie complexă. Răspunsuri construibile.\"}]\n")
+
+--- script #40 bytes=693 sha=f393cb0db62d attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("17:[\"$\",\"div\",null,{\"className\":\"detail-viewport\",\"children\":[[\"$\",\"$L21\",null,{\"scene\":\"roof\",\"locale\":\"ro\"}],[\"$\",\"div\",null,{\"className\":\"viewport-brackets\",\"children\":[[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}]]}],[\"$\",\"span\",null,{\"className\":\"viewport-status mono-label\",\"children\":[[\"$\",\"i\",null,{}],\" \",\"Previzualizare spațială live\"]}],[\"$\",\"$L22\",null,{\"scene\":\"roof\",\"controls\":[\"Două ape\",\"Metal\",\"Formă L\"],\"locale\":\"ro\"}]]}]\n")
+
+--- script #41 bytes=695 sha=736263489545 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("18:[\"$\",\"div\",null,{\"className\":\"detail-action\",\"children\":[[\"$\",\"p\",null,{\"children\":\"Un configurator arhitectural bazat pe reguli, care transformă forma, dimensiunile și materialele acoperișului în geometrie măsurabilă și rezultate pregătite pentru producție.\"}],[\"$\",\"a\",null,{\"className\":\"launch-link\",\"href\":\"https://www.360configurator.ro/configurator-acoperis/\",\"target\":\"_blank\",\"rel\":\"noreferrer\",\"children\":[\"Deschide configuratorul complet\",\" \",[\"$\",\"span\",null,{\"children\":\"↗\"}]]}]]}]\n")
+
+--- script #42 bytes=196 sha=49126d11a377 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("19:[\"$\",\"$L23\",null,{\"detail\":true,\"locale\":\"ro\"}]\n")
+
+--- script #43 bytes=730 sha=80fe8e77027a attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1a:[\"$\",\"section\",null,{\"className\":\"detail-intro solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame detail-intro-grid\",\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Prezentarea sistemului\"}],[\"$\",\"h2\",null,{\"children\":\"Geometrie complexă. Răspunsuri construibile.\"}],[\"$\",\"p\",null,{\"children\":\"Un configurator arhitectural bazat pe reguli, care transformă forma, dimensiunile și materialele acoperișului în geometrie măsurabilă și rezultate pregătite pentru prod
+
+--- script #44 bytes=3432 sha=d3a4a48b60df attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1b:[\"$\",\"section\",null,{\"className\":\"detail-features solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"detail-section-heading\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Capabilități / 06\"}],[\"$\",\"h2\",null,{\"children\":\"Ce rezolvă sistemul.\"}]]}],[\"$\",\"div\",null,{\"className\":\"detail-feature-grid\",\"children\":[[\"$\",\"article\",\"Cinci tipologii de acoperiș\",{\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"chil
+
+--- script #45 bytes=1110 sha=ba66d6163f15 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1c:[\"$\",\"section\",null,{\"className\":\"detail-outputs solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame outputs-grid\",\"data-reveal\":true,\"children\":[[\"$\",\"div\",null,{\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Configurație rezolvată\"}],[\"$\",\"h2\",null,{\"children\":[\"De la decizia vizuală\",[\"$\",\"br\",null,{}],\"la un rezultat utilizabil.\"]}]]}],[\"$\",\"ol\",null,{\"children\":[[\"$\",\"li\",\"Listă de materiale\",{\"children\":[[\"$\",\"span\",null,{\"children\":[\"0\",1]}],\
+
+--- script #46 bytes=270 sha=ee8e7f7a7fce attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1d:[\"$\",\"$L24\",null,{\"locale\":\"ro\",\"slug\":\"roof\",\"launchUrl\":\"https://www.360configurator.ro/configurator-acoperis/\"}]\n")
+
+--- script #47 bytes=833 sha=be808578776c attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1e:[\"$\",\"section\",null,{\"className\":\"detail-proof solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame proof-frame\",\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Implementare completă\"}],[\"$\",\"h2\",null,{\"children\":[\"Explorează fiecare regulă.\",[\"$\",\"br\",null,{}],\"Configurează sistemul real.\"]}],[\"$\",\"a\",null,{\"className\":\"project-link\",\"href\":\"https://www.360configurator.ro/configurator-acoperis/\",\"target\":\"_blank\",\"rel\":\"noreferrer\",\"childr
+
+--- script #48 bytes=1240 sha=8a06af32c2ad attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1f:[\"$\",\"nav\",null,{\"className\":\"next-configurator solid-section\",\"aria-label\":\"Continuă explorarea\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Continuă explorarea\"}],[[\"$\",\"a\",\"pergola\",{\"href\":\"/configurators/pergola\",\"children\":[[\"$\",\"span\",null,{\"children\":\"01\"}],\"Pergole \u0026 Arhitectură Exterioară\",[\"$\",\"b\",null,{\"children\":\"↗\"}]]}],[\"$\",\"a\",\"window\",{\"href\":\"/configurators/window\",\"children\":[[\"$\",\
+
+--- script #49 bytes=4376 sha=d4e9a01a4b16 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("20:[\"$\",\"footer\",null,{\"className\":\"site-footer\",\"children\":[[\"$\",\"div\",null,{\"className\":\"footer-main page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"footer-brand\",\"children\":[[\"$\",\"img\",null,{\"src\":\"/brand/360configurator.png\",\"alt\":\"360Configurator\"}],[\"$\",\"p\",null,{\"children\":\"Configurare spațială pentru produse industriale complexe.\"}]]}],[\"$\",\"div\",null,{\"className\":\"footer-links\",\"children\":[[\"$\",\"span\",null,{\"children\":\"Configuratoare\"}],[[\"$\",\"a\",\"pergola\",{\"href\":\"/confi
+
+--- script #50 bytes=298 sha=2d6dbaa0951c attrs="" ---
+Object.assign(((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{"initialCacheKind":"static"});((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).done=true
+
+=== /de/configurators/roof ===
+htmlBytes=75565 totalScripts=51 interestingScripts=43
+
+--- script #3 bytes=235 sha=5a4551a89ce6 attrs="" ---
+Object.assign(((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{params:{"locale":"de","slug":"roof"},nav:{"pathname":"/de/configurators/roof","searchParams":[]}})
+
+--- script #9 bytes=175 sha=8147aeac4ace attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("4:I[\"8c0f216c4604\",[],\"Children\",1]\n")
+
+--- script #10 bytes=186 sha=cced2fba4b8b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("5:I[\"593f344dc510\",[],\"GlobalErrorBoundary\",1]\n")
+
+--- script #11 bytes=174 sha=f821a8c7f061 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("6:I[\"0b874ad30386\",[],\"default\",1]\n")
+
+--- script #12 bytes=180 sha=7f48f96a93ec attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("7:I[\"593f344dc510\",[],\"ErrorBoundary\",1]\n")
+
+--- script #13 bytes=188 sha=418f837dd92f attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("8:I[\"15c18cfaeeff\",[],\"LayoutSegmentProvider\",1]\n")
+
+--- script #14 bytes=171 sha=64e12c2b70e4 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("9:I[\"8c0f216c4604\",[],\"Slot\",1]\n")
+
+--- script #15 bytes=183 sha=0ca7290c86c5 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("a:I[\"593f344dc510\",[],\"NotFoundBoundary\",1]\n")
+
+--- script #16 bytes=188 sha=7ad060223517 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("b:I[\"9276801271d6\",[],\"AppRouterScrollTarget\",1]\n")
+
+--- script #17 bytes=183 sha=e59b8b7f899b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("c:I[\"593f344dc510\",[],\"RedirectBoundary\",1]\n")
+
+--- script #18 bytes=158 sha=bc9606ce6cf8 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("d:\"$Sreact.suspense\"\n")
+
+--- script #19 bytes=196 sha=09dadff44464 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(":HL[\"/_next/static/css/index.CVHv9aJM.css\",\"style\"     ]\n")
+
+--- script #20 bytes=6928 sha=ab3198ef8ebe attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("0:{\"__route\":\"route:/de/configurators/roof\",\"__interceptionContext\":null,\"__layoutIds\":[\"layout:/\"],\"__rootLayout\":\"/\",\"__sourcePage\":\"/[locale]/configurators/[slug]/page\",\"__staticSiblings\":[\"about\",\"configurators\",\"contact\"],\"__vinext_streaming_metadata_body:route:/de/configurators/roof\":\"$L1\",\"__vinext_streaming_metadata_outlet:route:/de/configurators/roof\":\"$L2\",\"page:/de/configurators/roof\":\"$L3\",\"layout:/\":[[[[\"$\",\"link\",\"css:/_next/static/css/index.CVHv9aJM.css\",{\"rel\":\"stylesheet\",\"precedence\":\"vite-rs
+
+--- script #21 bytes=141 sha=d2609f8eb402 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("e:Td96,")
+
+--- script #22 bytes=4181 sha=07969dc5cc4e attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("\u003ctitle\u003e3D Dach-Konfigurator Online | Dach planen \u0026amp; Stückliste — 360Configurator\u003c/title\u003e\u003cmeta name=\"description\" content=\"Konfigurieren Sie Ihr Dach online in 3D. Wählen Sie Dachform, Maße, Neigung und Material und ermitteln Sie Mengen, Stückliste und CSV-Angebot.\"\u003e\u003cmeta name=\"application-name\" content=\"360Configurator\"\u003e\u003cmeta name=\"author\" content=\"360Configurator\"\u003e\u003clink rel=\"author\" href=\"https://www.360configurator.com\"\u003e\u003cmeta name=\"creator\" content=\"360Configurator\"\u0
+
+--- script #23 bytes=268 sha=f6b02c739ee9 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1:[[\"$\",\"div\",null,{\"hidden\":true,\"suppressHydrationWarning\":true,\"dangerouslySetInnerHTML\":{\"__html\":\"$e\"}}],\"$Lf\"]\n")
+
+--- script #24 bytes=142 sha=d27b1af05a24 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("2:null\n")
+
+--- script #25 bytes=190 sha=a2e32a0adcac attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("10:I[\"89c3cac48cb5\",[],\"StreamedIconsInsertion\",1]\n")
+
+--- script #26 bytes=211 sha=e2f0564a0b98 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("f:[\"$\",\"$L10\",null,{\"metadataKey\":\"/de/configurators/roof:21ls8f\"}]\n")
+
+--- script #27 bytes=180 sha=86b49d904282 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("12:I[\"d10887734b25\",[],\"SmoothScroll\",1]\n")
+
+--- script #28 bytes=186 sha=668292956c21 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("13:I[\"eed995f56c82\",[],\"DeferredWebGLStage\",1]\n")
+
+--- script #29 bytes=178 sha=e81f22e62b06 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("14:I[\"91ead71c14ab\",[],\"SiteHeader\",1]\n")
+
+--- script #30 bytes=142 sha=87083103a2b5 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("11:Tb29,")
+
+--- script #31 bytes=3232 sha=04c96e569de7 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Organization\",\"@id\":\"https://www.360configurator.com/#organization\",\"name\":\"360Configurator\",\"url\":\"https://www.360configurator.com\",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"https://www.360configurator.com/brand/360configurator.png\",\"width\":500,\"height\":250},\"email\":\"office@360configurator.com\",\"description\":\"Konfigurieren Sie Ihr Dach online in 3D. Wählen Sie Dachform, Maße, Neigung und Material und ermitteln Sie Mengen, Stückliste und CSV-Angebot.\",\"areaServed\":\"Wor
+
+--- script #32 bytes=933 sha=3a69a6643612 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("3:[\"$\",\"main\",null,{\"className\":\"site-shell detail-page detail-roof\",\"children\":[[\"$\",\"script\",null,{\"type\":\"application/ld+json\",\"dangerouslySetInnerHTML\":{\"__html\":\"$11\"}}],[\"$\",\"$L12\",null,{}],[\"$\",\"$L13\",null,{}],[\"$\",\"$L14\",null,{\"locale\":\"de\",\"currentPath\":\"/configurators/roof\"}],[\"$\",\"section\",null,{\"className\":\"detail-hero\",\"data-scene\":\"roof\",\"children\":[\"$\",\"div\",null,{\"className\":\"detail-hero-inner page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"detail-title\",\"children\
+
+--- script #33 bytes=183 sha=05c1fd05c662 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("21:I[\"5b9d39199531\",[],\"SceneInteractor\",1]\n")
+
+--- script #34 bytes=184 sha=6b9d95d99b7b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("22:I[\"0c0d66eed679\",[],\"ShowcaseControls\",1]\n")
+
+--- script #35 bytes=182 sha=f72f788690dd attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("23:I[\"9628f6c0dda1\",[],\"CapabilityCube\",1]\n")
+
+--- script #36 bytes=191 sha=40926fc6068c attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("24:I[\"0f17c905b0c0\",[],\"ConfiguratorSeoSections\",1]\n")
+
+--- script #37 bytes=181 sha=6691aec4e393 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(":HL[\"/brand/360configurator.png\",\"image\"]\n")
+
+--- script #38 bytes=205 sha=9e0a626e1d7e attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("15:[\"$\",\"h1\",null,{\"children\":\"3D Dach-Konfigurator online\"}]\n")
+
+--- script #39 bytes=215 sha=88e88e20d2a9 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("16:[\"$\",\"p\",null,{\"children\":\"Komplexe Geometrie. Baubare Antworten.\"}]\n")
+
+--- script #40 bytes=687 sha=b19073745edd attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("17:[\"$\",\"div\",null,{\"className\":\"detail-viewport\",\"children\":[[\"$\",\"$L21\",null,{\"scene\":\"roof\",\"locale\":\"de\"}],[\"$\",\"div\",null,{\"className\":\"viewport-brackets\",\"children\":[[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}]]}],[\"$\",\"span\",null,{\"className\":\"viewport-status mono-label\",\"children\":[[\"$\",\"i\",null,{}],\" \",\"Räumliche Live-Vorschau\"]}],[\"$\",\"$L22\",null,{\"scene\":\"roof\",\"controls\":[\"Satteldach\",\"Metall\",\"L-Form\"],\"locale\":\"de\"}]]}]\n")
+
+--- script #41 bytes=663 sha=0ec809adbb59 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("18:[\"$\",\"div\",null,{\"className\":\"detail-action\",\"children\":[[\"$\",\"p\",null,{\"children\":\"Ein regelbasierter Architekturkonfigurator, der Dachform, Maße und Materialsysteme in messbare Geometrie und produktionsfähige Ergebnisse übersetzt.\"}],[\"$\",\"a\",null,{\"className\":\"launch-link\",\"href\":\"https://www.360konfigurator.de/dach-konfigurator/\",\"target\":\"_blank\",\"rel\":\"noreferrer\",\"children\":[\"Vollständigen Konfigurator öffnen\",\" \",[\"$\",\"span\",null,{\"children\":\"↗\"}]]}]]}]\n")
+
+--- script #42 bytes=196 sha=0606e82df154 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("19:[\"$\",\"$L23\",null,{\"detail\":true,\"locale\":\"de\"}]\n")
+
+--- script #43 bytes=684 sha=1fa0dad7948b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1a:[\"$\",\"section\",null,{\"className\":\"detail-intro solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame detail-intro-grid\",\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Systemüberblick\"}],[\"$\",\"h2\",null,{\"children\":\"Komplexe Geometrie. Baubare Antworten.\"}],[\"$\",\"p\",null,{\"children\":\"Ein regelbasierter Architekturkonfigurator, der Dachform, Maße und Materialsysteme in messbare Geometrie und produktionsfähige Ergebnisse übersetzt.\"}]]}]}]\n")
+
+--- script #44 bytes=3435 sha=764133720ff9 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1b:[\"$\",\"section\",null,{\"className\":\"detail-features solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"detail-section-heading\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Funktionen / 06\"}],[\"$\",\"h2\",null,{\"children\":\"Was das System auflöst.\"}]]}],[\"$\",\"div\",null,{\"className\":\"detail-feature-grid\",\"children\":[[\"$\",\"article\",\"Fünf Dachtypologien\",{\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"children\":
+
+--- script #45 bytes=1069 sha=0a7970bf0af3 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1c:[\"$\",\"section\",null,{\"className\":\"detail-outputs solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame outputs-grid\",\"data-reveal\":true,\"children\":[[\"$\",\"div\",null,{\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Aufgelöster Zustand\"}],[\"$\",\"h2\",null,{\"children\":[\"Von der visuellen Entscheidung\",[\"$\",\"br\",null,{}],\"zum nutzbaren Ergebnis.\"]}]]}],[\"$\",\"ol\",null,{\"children\":[[\"$\",\"li\",\"Stückliste\",{\"children\":[[\"$\",\"span\",null,{\"children\":[\"0\",1]}],\"Stüc
+
+--- script #46 bytes=266 sha=15ac787645a6 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1d:[\"$\",\"$L24\",null,{\"locale\":\"de\",\"slug\":\"roof\",\"launchUrl\":\"https://www.360konfigurator.de/dach-konfigurator/\"}]\n")
+
+--- script #47 bytes=829 sha=5a8d54e98834 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1e:[\"$\",\"section\",null,{\"className\":\"detail-proof solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame proof-frame\",\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Vollständige Implementierung\"}],[\"$\",\"h2\",null,{\"children\":[\"Jede Regel entdecken.\",[\"$\",\"br\",null,{}],\"Das reale System konfigurieren.\"]}],[\"$\",\"a\",null,{\"className\":\"project-link\",\"href\":\"https://www.360konfigurator.de/dach-konfigurator/\",\"target\":\"_blank\",\"rel\":\"noreferrer\",\"chil
+
+--- script #48 bytes=1216 sha=ddc3bb13e2c5 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1f:[\"$\",\"nav\",null,{\"className\":\"next-configurator solid-section\",\"aria-label\":\"Weiter entdecken\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Weiter entdecken\"}],[[\"$\",\"a\",\"pergola\",{\"href\":\"/configurators/pergola\",\"children\":[[\"$\",\"span\",null,{\"children\":\"01\"}],\"Pergola \u0026 Outdoor-Architektur\",[\"$\",\"b\",null,{\"children\":\"↗\"}]]}],[\"$\",\"a\",\"window\",{\"href\":\"/configurators/window\",\"children\":[[\"$\",\"span\",n
+
+--- script #49 bytes=4362 sha=f817c44edb73 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("20:[\"$\",\"footer\",null,{\"className\":\"site-footer\",\"children\":[[\"$\",\"div\",null,{\"className\":\"footer-main page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"footer-brand\",\"children\":[[\"$\",\"img\",null,{\"src\":\"/brand/360configurator.png\",\"alt\":\"360Configurator\"}],[\"$\",\"p\",null,{\"children\":\"Räumliche Produktkonfiguration für komplexe Industrieprodukte.\"}]]}],[\"$\",\"div\",null,{\"className\":\"footer-links\",\"children\":[[\"$\",\"span\",null,{\"children\":\"Konfiguratoren\"}],[[\"$\",\"a\",\"pergola\",{\"href\":\"/
+
+--- script #50 bytes=298 sha=2d6dbaa0951c attrs="" ---
+Object.assign(((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{"initialCacheKind":"static"});((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).done=true
+
+=== /configurators/pergola ===
+htmlBytes=75935 totalScripts=50 interestingScripts=42
+
+--- script #3 bytes=224 sha=3d1bde615b82 attrs="" ---
+Object.assign(((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{params:{"slug":"pergola"},nav:{"pathname":"/configurators/pergola","searchParams":[]}})
+
+--- script #9 bytes=175 sha=8147aeac4ace attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("4:I[\"8c0f216c4604\",[],\"Children\",1]\n")
+
+--- script #10 bytes=186 sha=cced2fba4b8b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("5:I[\"593f344dc510\",[],\"GlobalErrorBoundary\",1]\n")
+
+--- script #11 bytes=174 sha=f821a8c7f061 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("6:I[\"0b874ad30386\",[],\"default\",1]\n")
+
+--- script #12 bytes=180 sha=7f48f96a93ec attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("7:I[\"593f344dc510\",[],\"ErrorBoundary\",1]\n")
+
+--- script #13 bytes=188 sha=418f837dd92f attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("8:I[\"15c18cfaeeff\",[],\"LayoutSegmentProvider\",1]\n")
+
+--- script #14 bytes=171 sha=64e12c2b70e4 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("9:I[\"8c0f216c4604\",[],\"Slot\",1]\n")
+
+--- script #15 bytes=183 sha=0ca7290c86c5 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("a:I[\"593f344dc510\",[],\"NotFoundBoundary\",1]\n")
+
+--- script #16 bytes=188 sha=7ad060223517 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("b:I[\"9276801271d6\",[],\"AppRouterScrollTarget\",1]\n")
+
+--- script #17 bytes=183 sha=e59b8b7f899b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("c:I[\"593f344dc510\",[],\"RedirectBoundary\",1]\n")
+
+--- script #18 bytes=158 sha=bc9606ce6cf8 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("d:\"$Sreact.suspense\"\n")
+
+--- script #19 bytes=196 sha=09dadff44464 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(":HL[\"/_next/static/css/index.CVHv9aJM.css\",\"style\"     ]\n")
+
+--- script #20 bytes=6833 sha=51bb755c9c0b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("0:{\"__route\":\"route:/configurators/pergola\",\"__interceptionContext\":null,\"__layoutIds\":[\"layout:/\"],\"__rootLayout\":\"/\",\"__sourcePage\":\"/configurators/[slug]/page\",\"__staticSiblings\":[\"roof\"],\"__vinext_streaming_metadata_body:route:/configurators/pergola\":\"$L1\",\"__vinext_streaming_metadata_outlet:route:/configurators/pergola\":\"$L2\",\"page:/configurators/pergola\":\"$L3\",\"layout:/\":[[[[\"$\",\"link\",\"css:/_next/static/css/index.CVHv9aJM.css\",{\"rel\":\"stylesheet\",\"precedence\":\"vite-rsc/importer-resources\",\"href\":\"/_next
+
+--- script #21 bytes=141 sha=0a6380a60883 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("e:Td7d,")
+
+--- script #22 bytes=4141 sha=3fde65d07d08 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("\u003ctitle\u003e3D Pergola Configurator Online | Design Pergolas — 360Configurator\u003c/title\u003e\u003cmeta name=\"description\" content=\"Design and configure a pergola online in 3D. Adjust dimensions, louvers, side enclosures, lighting, automation, accessories and live pricing.\"\u003e\u003cmeta name=\"application-name\" content=\"360Configurator\"\u003e\u003cmeta name=\"author\" content=\"360Configurator\"\u003e\u003clink rel=\"author\" href=\"https://www.360configurator.com\"\u003e\u003cmeta name=\"creator\" content=\"360Configurator\"\u003e\u003cmeta na
+
+--- script #23 bytes=268 sha=f6b02c739ee9 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1:[[\"$\",\"div\",null,{\"hidden\":true,\"suppressHydrationWarning\":true,\"dangerouslySetInnerHTML\":{\"__html\":\"$e\"}}],\"$Lf\"]\n")
+
+--- script #24 bytes=142 sha=d27b1af05a24 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("2:null\n")
+
+--- script #25 bytes=190 sha=a2e32a0adcac attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("10:I[\"89c3cac48cb5\",[],\"StreamedIconsInsertion\",1]\n")
+
+--- script #26 bytes=211 sha=43960ae7db68 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("f:[\"$\",\"$L10\",null,{\"metadataKey\":\"/configurators/pergola:ocjxah\"}]\n")
+
+--- script #27 bytes=180 sha=86b49d904282 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("12:I[\"d10887734b25\",[],\"SmoothScroll\",1]\n")
+
+--- script #28 bytes=186 sha=668292956c21 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("13:I[\"eed995f56c82\",[],\"DeferredWebGLStage\",1]\n")
+
+--- script #29 bytes=178 sha=e81f22e62b06 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("14:I[\"91ead71c14ab\",[],\"SiteHeader\",1]\n")
+
+--- script #30 bytes=142 sha=458e55e46943 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("11:Tb6e,")
+
+--- script #31 bytes=3311 sha=9d9f8d5661f2 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Organization\",\"@id\":\"https://www.360configurator.com/#organization\",\"name\":\"360Configurator\",\"url\":\"https://www.360configurator.com\",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"https://www.360configurator.com/brand/360configurator.png\",\"width\":500,\"height\":250},\"email\":\"office@360configurator.com\",\"description\":\"Design and configure a pergola online in 3D. Adjust dimensions, louvers, side enclosures, lighting, automation, accessories and live pricing.\",\"areaServed\":\"Worl
+
+--- script #32 bytes=756 sha=451c8a069ff0 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("3:[\"$\",\"main\",null,{\"className\":\"site-shell detail-page detail-pergola\",\"children\":[[\"$\",\"script\",null,{\"type\":\"application/ld+json\",\"dangerouslySetInnerHTML\":{\"__html\":\"$11\"}}],[\"$\",\"$L12\",null,{}],[\"$\",\"$L13\",null,{}],[\"$\",\"$L14\",null,{\"locale\":\"en\",\"currentPath\":\"/configurators/pergola\"}],[\"$\",\"section\",null,{\"className\":\"detail-hero\",\"data-scene\":\"pergola\",\"children\":[\"$\",\"div\",null,{\"className\":\"detail-hero-inner page-frame\",\"children\":[\"$L15\",\"$L16\",\"$L17\"]}]}],\"$L18\",\"$L19\",\"$L
+
+--- script #33 bytes=183 sha=95cd0137cbfa attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("20:I[\"5b9d39199531\",[],\"SceneInteractor\",1]\n")
+
+--- script #34 bytes=184 sha=98a07956c922 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("21:I[\"0c0d66eed679\",[],\"ShowcaseControls\",1]\n")
+
+--- script #35 bytes=182 sha=5c5b9d01d718 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("22:I[\"9628f6c0dda1\",[],\"CapabilityCube\",1]\n")
+
+--- script #36 bytes=191 sha=6265e246a003 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("23:I[\"0f17c905b0c0\",[],\"ConfiguratorSeoSections\",1]\n")
+
+--- script #37 bytes=181 sha=6691aec4e393 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(":HL[\"/brand/360configurator.png\",\"image\"]\n")
+
+--- script #38 bytes=464 sha=8629dc9fbb27 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("15:[\"$\",\"div\",null,{\"className\":\"detail-title\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":[\"01\",\" / \",\"Outdoor architecture\"]}],[\"$\",\"h1\",null,{\"children\":\"3D Pergola Configurator Online\"}],[\"$\",\"p\",null,{\"children\":\"Engineer daylight. Configure atmosphere.\"}]]}]\n")
+
+--- script #39 bytes=699 sha=fac15c28055b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("16:[\"$\",\"div\",null,{\"className\":\"detail-viewport\",\"children\":[[\"$\",\"$L20\",null,{\"scene\":\"pergola\",\"locale\":\"en\"}],[\"$\",\"div\",null,{\"className\":\"viewport-brackets\",\"children\":[[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}]]}],[\"$\",\"span\",null,{\"className\":\"viewport-status mono-label\",\"children\":[[\"$\",\"i\",null,{}],\" \",\"Live spatial preview\"]}],[\"$\",\"$L21\",null,{\"scene\":\"pergola\",\"controls\":[\"Louver 0°\",\"Louver 48°\",\"Night + LED\"],\"locale\":\"en\"}]]}]\n")
+
+--- script #40 bytes=716 sha=7c7aa9c4ce98 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("17:[\"$\",\"div\",null,{\"className\":\"detail-action\",\"children\":[[\"$\",\"p\",null,{\"children\":\"A browser-based 3D pergola configurator for freestanding and wall-mounted systems, combining parametric dimensions, louver control, side enclosures, environmental preview, accessories and live estimated pricing.\"}],[\"$\",\"a\",null,{\"className\":\"launch-link\",\"href\":\"https://www.360configurator.com/pergola-configurator/\",\"target\":\"_blank\",\"rel\":\"noreferrer\",\"children\":[\"Launch full configurator\",\" \",[\"$\",\"span\",null,{\"children\":\"↗
+
+--- script #41 bytes=196 sha=fb9bb4c19db6 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("18:[\"$\",\"$L22\",null,{\"detail\":true,\"locale\":\"en\"}]\n")
+
+--- script #42 bytes=745 sha=7d6bd8c161c7 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("19:[\"$\",\"section\",null,{\"className\":\"detail-intro solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame detail-intro-grid\",\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"System overview\"}],[\"$\",\"h2\",null,{\"children\":\"Engineer daylight. Configure atmosphere.\"}],[\"$\",\"p\",null,{\"children\":\"A browser-based 3D pergola configurator for freestanding and wall-mounted systems, combining parametric dimensions, louver control, side enclosures, environmental preview, accesso
+
+--- script #43 bytes=3646 sha=fecb855038da attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1a:[\"$\",\"section\",null,{\"className\":\"detail-features solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"detail-section-heading\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Capabilities / 06\"}],[\"$\",\"h2\",null,{\"children\":\"What the system resolves.\"}]]}],[\"$\",\"div\",null,{\"className\":\"detail-feature-grid\",\"children\":[[\"$\",\"article\",\"Parametric structure\",{\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"childr
+
+--- script #44 bytes=1077 sha=41e938ed50bd attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1b:[\"$\",\"section\",null,{\"className\":\"detail-outputs solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame outputs-grid\",\"data-reveal\":true,\"children\":[[\"$\",\"div\",null,{\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Resolved state\"}],[\"$\",\"h2\",null,{\"children\":[\"From visual decision\",[\"$\",\"br\",null,{}],\"to usable output.\"]}]]}],[\"$\",\"ol\",null,{\"children\":[[\"$\",\"li\",\"Live quote\",{\"children\":[[\"$\",\"span\",null,{\"children\":[\"0\",1]}],\"Live quote\"]}],[\"$\",\"
+
+--- script #45 bytes=273 sha=4e5422a64733 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1c:[\"$\",\"$L23\",null,{\"locale\":\"en\",\"slug\":\"pergola\",\"launchUrl\":\"https://www.360configurator.com/pergola-configurator/\"}]\n")
+
+--- script #46 bytes=809 sha=5736ba444216 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1d:[\"$\",\"section\",null,{\"className\":\"detail-proof solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame proof-frame\",\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Full deployment\"}],[\"$\",\"h2\",null,{\"children\":[\"Explore every rule.\",[\"$\",\"br\",null,{}],\"Configure the real system.\"]}],[\"$\",\"a\",null,{\"className\":\"project-link\",\"href\":\"https://www.360configurator.com/pergola-configurator/\",\"target\":\"_blank\",\"rel\":\"noreferrer\",\"children\":[[\"$\",\
+
+--- script #47 bytes=1215 sha=2534e96bedb1 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1e:[\"$\",\"nav\",null,{\"className\":\"next-configurator solid-section\",\"aria-label\":\"Continue exploring\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Continue exploring\"}],[[\"$\",\"a\",\"roof\",{\"href\":\"/configurators/roof\",\"children\":[[\"$\",\"span\",null,{\"children\":\"02\"}],\"Architectural Roof \u0026 Structure\",[\"$\",\"b\",null,{\"children\":\"↗\"}]]}],[\"$\",\"a\",\"window\",{\"href\":\"/configurators/window\",\"children\":[[\"$\",\"span\",nu
+
+--- script #48 bytes=4362 sha=4ca80fa315f4 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1f:[\"$\",\"footer\",null,{\"className\":\"site-footer\",\"children\":[[\"$\",\"div\",null,{\"className\":\"footer-main page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"footer-brand\",\"children\":[[\"$\",\"img\",null,{\"src\":\"/brand/360configurator.png\",\"alt\":\"360Configurator\"}],[\"$\",\"p\",null,{\"children\":\"Spatial product configuration for complex industrial products.\"}]]}],[\"$\",\"div\",null,{\"className\":\"footer-links\",\"children\":[[\"$\",\"span\",null,{\"children\":\"Configurators\"}],[[\"$\",\"a\",\"pergola\",{\"href\":\"/c
+
+--- script #49 bytes=298 sha=2d6dbaa0951c attrs="" ---
+Object.assign(((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{"initialCacheKind":"static"});((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).done=true
+
+=== /configurators/window ===
+htmlBytes=75766 totalScripts=51 interestingScripts=43
+
+--- script #3 bytes=222 sha=656633c1d74f attrs="" ---
+Object.assign(((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{params:{"slug":"window"},nav:{"pathname":"/configurators/window","searchParams":[]}})
+
+--- script #9 bytes=175 sha=8147aeac4ace attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("4:I[\"8c0f216c4604\",[],\"Children\",1]\n")
+
+--- script #10 bytes=186 sha=cced2fba4b8b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("5:I[\"593f344dc510\",[],\"GlobalErrorBoundary\",1]\n")
+
+--- script #11 bytes=174 sha=f821a8c7f061 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("6:I[\"0b874ad30386\",[],\"default\",1]\n")
+
+--- script #12 bytes=180 sha=7f48f96a93ec attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("7:I[\"593f344dc510\",[],\"ErrorBoundary\",1]\n")
+
+--- script #13 bytes=188 sha=418f837dd92f attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("8:I[\"15c18cfaeeff\",[],\"LayoutSegmentProvider\",1]\n")
+
+--- script #14 bytes=171 sha=64e12c2b70e4 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("9:I[\"8c0f216c4604\",[],\"Slot\",1]\n")
+
+--- script #15 bytes=183 sha=0ca7290c86c5 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("a:I[\"593f344dc510\",[],\"NotFoundBoundary\",1]\n")
+
+--- script #16 bytes=188 sha=7ad060223517 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("b:I[\"9276801271d6\",[],\"AppRouterScrollTarget\",1]\n")
+
+--- script #17 bytes=183 sha=e59b8b7f899b attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("c:I[\"593f344dc510\",[],\"RedirectBoundary\",1]\n")
+
+--- script #18 bytes=158 sha=bc9606ce6cf8 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("d:\"$Sreact.suspense\"\n")
+
+--- script #19 bytes=196 sha=09dadff44464 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(":HL[\"/_next/static/css/index.CVHv9aJM.css\",\"style\"     ]\n")
+
+--- script #20 bytes=6819 sha=61056f2eee0d attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("0:{\"__route\":\"route:/configurators/window\",\"__interceptionContext\":null,\"__layoutIds\":[\"layout:/\"],\"__rootLayout\":\"/\",\"__sourcePage\":\"/configurators/[slug]/page\",\"__staticSiblings\":[\"roof\"],\"__vinext_streaming_metadata_body:route:/configurators/window\":\"$L1\",\"__vinext_streaming_metadata_outlet:route:/configurators/window\":\"$L2\",\"page:/configurators/window\":\"$L3\",\"layout:/\":[[[[\"$\",\"link\",\"css:/_next/static/css/index.CVHv9aJM.css\",{\"rel\":\"stylesheet\",\"precedence\":\"vite-rsc/importer-resources\",\"href\":\"/_next/sta
+
+--- script #21 bytes=141 sha=c8e3a0d6b2d6 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("e:Tdb5,")
+
+--- script #22 bytes=4212 sha=93c2a316ec1e attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("\u003ctitle\u003e3D Window Configurator Online | Window \u0026amp; Profile Systems — 360Configurator\u003c/title\u003e\u003cmeta name=\"description\" content=\"Configure windows online in 3D with parametric dimensions, profile systems, glazing, bicolor finishes, opening simulation and exploded technical views.\"\u003e\u003cmeta name=\"application-name\" content=\"360Configurator\"\u003e\u003cmeta name=\"author\" content=\"360Configurator\"\u003e\u003clink rel=\"author\" href=\"https://www.360configurator.com\"\u003e\u003cmeta name=\"creator\" content=\"360Config
+
+--- script #23 bytes=268 sha=f6b02c739ee9 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1:[[\"$\",\"div\",null,{\"hidden\":true,\"suppressHydrationWarning\":true,\"dangerouslySetInnerHTML\":{\"__html\":\"$e\"}}],\"$Lf\"]\n")
+
+--- script #24 bytes=142 sha=d27b1af05a24 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("2:null\n")
+
+--- script #25 bytes=190 sha=a2e32a0adcac attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("10:I[\"89c3cac48cb5\",[],\"StreamedIconsInsertion\",1]\n")
+
+--- script #26 bytes=210 sha=83a9ce53f3b3 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("f:[\"$\",\"$L10\",null,{\"metadataKey\":\"/configurators/window:ic86q4\"}]\n")
+
+--- script #27 bytes=180 sha=86b49d904282 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("12:I[\"d10887734b25\",[],\"SmoothScroll\",1]\n")
+
+--- script #28 bytes=186 sha=668292956c21 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("13:I[\"eed995f56c82\",[],\"DeferredWebGLStage\",1]\n")
+
+--- script #29 bytes=178 sha=e81f22e62b06 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("14:I[\"91ead71c14ab\",[],\"SiteHeader\",1]\n")
+
+--- script #30 bytes=142 sha=d411ce50bd3c attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("11:Tb4d,")
+
+--- script #31 bytes=3268 sha=724d4536c4b5 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"Organization\",\"@id\":\"https://www.360configurator.com/#organization\",\"name\":\"360Configurator\",\"url\":\"https://www.360configurator.com\",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"https://www.360configurator.com/brand/360configurator.png\",\"width\":500,\"height\":250},\"email\":\"office@360configurator.com\",\"description\":\"Configure windows online in 3D with parametric dimensions, profile systems, glazing, bicolor finishes, opening simulation and exploded technical views.\",\"areaServe
+
+--- script #32 bytes=840 sha=9e337c7d9e87 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("3:[\"$\",\"main\",null,{\"className\":\"site-shell detail-page detail-window\",\"children\":[[\"$\",\"script\",null,{\"type\":\"application/ld+json\",\"dangerouslySetInnerHTML\":{\"__html\":\"$11\"}}],[\"$\",\"$L12\",null,{}],[\"$\",\"$L13\",null,{}],[\"$\",\"$L14\",null,{\"locale\":\"en\",\"currentPath\":\"/configurators/window\"}],[\"$\",\"section\",null,{\"className\":\"detail-hero\",\"data-scene\":\"window\",\"children\":[\"$\",\"div\",null,{\"className\":\"detail-hero-inner page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"detail-title\",\"chi
+
+--- script #33 bytes=193 sha=65535d670e1f attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("22:I[\"3e50ba6485d6\",[],\"WindowConfiguratorPreview\",1]\n")
+
+--- script #34 bytes=182 sha=f72f788690dd attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("23:I[\"9628f6c0dda1\",[],\"CapabilityCube\",1]\n")
+
+--- script #35 bytes=191 sha=40926fc6068c attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("24:I[\"0f17c905b0c0\",[],\"ConfiguratorSeoSections\",1]\n")
+
+--- script #36 bytes=181 sha=6691aec4e393 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(":HL[\"/brand/360configurator.png\",\"image\"]\n")
+
+--- script #37 bytes=248 sha=5f328102576c attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("15:[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":[\"03\",\" / \",\"High-precision systems\"]}]\n")
+
+--- script #38 bytes=207 sha=9d0c22722cac attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("16:[\"$\",\"h1\",null,{\"children\":\"3D Window Configurator Online\"}]\n")
+
+--- script #39 bytes=216 sha=e64c7338ad80 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("17:[\"$\",\"p\",null,{\"children\":\"See the engineering inside the product.\"}]\n")
+
+--- script #40 bytes=582 sha=96ecca9eff38 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("18:[\"$\",\"div\",null,{\"className\":\"detail-viewport\",\"children\":[[\"$\",\"$L22\",null,{\"locale\":\"en\",\"placement\":\"detail\"}],[\"$\",\"div\",null,{\"className\":\"viewport-brackets\",\"children\":[[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}],[\"$\",\"i\",null,{}]]}],[\"$\",\"span\",null,{\"className\":\"viewport-status mono-label\",\"children\":[[\"$\",\"i\",null,{}],\" \",\"Live spatial preview\"]}],false]}]\n")
+
+--- script #41 bytes=657 sha=b333d7f927fb attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("19:[\"$\",\"div\",null,{\"className\":\"detail-action\",\"children\":[[\"$\",\"p\",null,{\"children\":\"A high-fidelity technical configuration environment for architectural profile systems, bicolor finishes, opening behavior and exploded assembly analysis.\"}],[\"$\",\"a\",null,{\"className\":\"launch-link\",\"href\":\"https://www.360configurator.com/window-configurator/\",\"target\":\"_blank\",\"rel\":\"noreferrer\",\"children\":[\"Launch full configurator\",\" \",[\"$\",\"span\",null,{\"children\":\"↗\"}]]}]]}]\n")
+
+--- script #42 bytes=196 sha=0dc33f49ba09 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1a:[\"$\",\"$L23\",null,{\"detail\":true,\"locale\":\"en\"}]\n")
+
+--- script #43 bytes=686 sha=114fbe1736cc attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1b:[\"$\",\"section\",null,{\"className\":\"detail-intro solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame detail-intro-grid\",\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"System overview\"}],[\"$\",\"h2\",null,{\"children\":\"See the engineering inside the product.\"}],[\"$\",\"p\",null,{\"children\":\"A high-fidelity technical configuration environment for architectural profile systems, bicolor finishes, opening behavior and exploded assembly analysis.\"}]]}]}]\n")
+
+--- script #44 bytes=3642 sha=e19ca843f103 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1c:[\"$\",\"section\",null,{\"className\":\"detail-features solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"detail-section-heading\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Capabilities / 06\"}],[\"$\",\"h2\",null,{\"children\":\"What the system resolves.\"}]]}],[\"$\",\"div\",null,{\"className\":\"detail-feature-grid\",\"children\":[[\"$\",\"article\",\"Exact system construction\",{\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"c
+
+--- script #45 bytes=1101 sha=a4855b81eebe attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1d:[\"$\",\"section\",null,{\"className\":\"detail-outputs solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame outputs-grid\",\"data-reveal\":true,\"children\":[[\"$\",\"div\",null,{\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Resolved state\"}],[\"$\",\"h2\",null,{\"children\":[\"From visual decision\",[\"$\",\"br\",null,{}],\"to usable output.\"]}]]}],[\"$\",\"ol\",null,{\"children\":[[\"$\",\"li\",\"Configured assembly\",{\"children\":[[\"$\",\"span\",null,{\"children\":[\"0\",1]}],\"Configured assem
+
+--- script #46 bytes=271 sha=ea7a487442ad attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1e:[\"$\",\"$L24\",null,{\"locale\":\"en\",\"slug\":\"window\",\"launchUrl\":\"https://www.360configurator.com/window-configurator/\"}]\n")
+
+--- script #47 bytes=808 sha=315eedc1caf4 attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("1f:[\"$\",\"section\",null,{\"className\":\"detail-proof solid-section\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame proof-frame\",\"data-reveal\":true,\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Full deployment\"}],[\"$\",\"h2\",null,{\"children\":[\"Explore every rule.\",[\"$\",\"br\",null,{}],\"Configure the real system.\"]}],[\"$\",\"a\",null,{\"className\":\"project-link\",\"href\":\"https://www.360configurator.com/window-configurator/\",\"target\":\"_blank\",\"rel\":\"noreferrer\",\"children\":[[\"$\",\"
+
+--- script #48 bytes=1217 sha=c5f9bab495fd attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("20:[\"$\",\"nav\",null,{\"className\":\"next-configurator solid-section\",\"aria-label\":\"Continue exploring\",\"children\":[\"$\",\"div\",null,{\"className\":\"page-frame\",\"children\":[[\"$\",\"span\",null,{\"className\":\"mono-label\",\"children\":\"Continue exploring\"}],[[\"$\",\"a\",\"pergola\",{\"href\":\"/configurators/pergola\",\"children\":[[\"$\",\"span\",null,{\"children\":\"01\"}],\"Pergola \u0026 Outdoor Architecture\",[\"$\",\"b\",null,{\"children\":\"↗\"}]]}],[\"$\",\"a\",\"roof\",{\"href\":\"/configurators/roof\",\"children\":[[\"$\",\"span\",
+
+--- script #49 bytes=4362 sha=e1a00c38a2ab attrs="" ---
+((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push("21:[\"$\",\"footer\",null,{\"className\":\"site-footer\",\"children\":[[\"$\",\"div\",null,{\"className\":\"footer-main page-frame\",\"children\":[[\"$\",\"div\",null,{\"className\":\"footer-brand\",\"children\":[[\"$\",\"img\",null,{\"src\":\"/brand/360configurator.png\",\"alt\":\"360Configurator\"}],[\"$\",\"p\",null,{\"children\":\"Spatial product configuration for complex industrial products.\"}]]}],[\"$\",\"div\",null,{\"className\":\"footer-links\",\"children\":[[\"$\",\"span\",null,{\"children\":\"Configurators\"}],[[\"$\",\"a\",\"pergola\",{\"href\":\"/c
+
+--- script #50 bytes=298 sha=2d6dbaa0951c attrs="" ---
+Object.assign(((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{"initialCacheKind":"static"});((self[Symbol.for("vinext.navigationRuntime")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).done=true
+
+=== EN roof vs RO roof script-by-script comparison ===
+#3: attrsSame=true leftBytes=205 rightBytes=235 leftSha=a60468c8ef0f rightSha=2d88c4fe059c firstBodyDiff=145
+  left around diff:  "Object.assign(((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{params:{},nav:{\"pathname\":\"/configurators/roof\",\"searchParams\":[]}})"
+  right around diff: "Object.assign(((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{params:{\"locale\":\"ro\",\"slug\":\"roof\"},nav:{\"pathname\":\"/ro/configurators/roof\",\"searchParams\":[]}})"
+#4: attrsSame=true leftBytes=2831 rightBytes=2903 leftSha=03702a0efd95 rightSha=c9d4173de752 firstBodyDiff=340
+  left around diff:  "/www.360configurator.com\",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"https://www.360configurator.com/brand/360configurator.png\",\"width\":500,\"height\":250},\"email\":\"office@360configurator.com\",\"description\":\"Configure roof geometry online in 3D. Set dimensions, pitch, roof type and materials, then calculate quantities, BOM data and CSV quote outputs.\",\"areaServed\":\"Worldwide\",\"sameAs\":[\"https://www.facebook.com/360configurator\",\"https://x.com/360configurator\",\"https://www.linkedin.com/company/360configu"
+  right around diff: "/www.360configurator.com\",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"https://www.360configurator.com/brand/360configurator.png\",\"width\":500,\"height\":250},\"email\":\"office@360configurator.ro\",\"description\":\"Configurează un acoperiș online în 3D. Alege forma, dimensiunile, panta și materialele și obține cantități, BOM și ofertă CSV.\",\"areaServed\":\"Worldwide\",\"sameAs\":[\"https://www.facebook.com/360configurator\",\"https://x.com/360configurator\",\"https://www.linkedin.com/company/360configurator/\"]},{\"@type\":"
+#5: attrsSame=false leftBytes=0 rightBytes=57 leftSha=e3b0c44298fc rightSha=ee6bb81f4e9f firstBodyDiff=0
+  left attrs:  type="module" src="/_next/static/chunks/index-BYdtzwEm.js" id="_R_" async=""
+  right attrs: 
+  left around diff:  ""
+  right around diff: "requestAnimationFrame(function(){$RT=performance.now()});"
+#6: attrsSame=false leftBytes=175 rightBytes=0 leftSha=b1e09ebe9260 rightSha=e3b0c44298fc firstBodyDiff=0
+  left attrs:  
+  right attrs: type="module" src="/_next/static/chunks/index-BYdtzwEm.js" id="_R_" async=""
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"2:I[\\\"8c0f216c4604\\\",[],\\\"Children\\\",1]\\n\")"
+  right around diff: ""
+#7: attrsSame=true leftBytes=196 rightBytes=362 leftSha=09dadff44464 rightSha=99f193ac6a0b firstBodyDiff=0
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\":HL[\\\"/_next/static/css/index.CVHv9aJM.css\\\",\\\"style\\\"     ]\\n\")"
+  right around diff: "document.querySelectorAll('body link[rel=\"icon\"], body link[rel=\"apple-touch-icon\"]').forEach(el => document.head.appendChild(el));const a='data-vinext-streamed-icon',o=el=>{const m=el.getAttribute(a),i=m.lastIndexOf(':');return Number(m.slice(i+1))};[...document.querySelectorAll('link['+a+']')].sort((l,r)=>o(l)-o(r)).forEach(el=>document.head.appendChild(el))"
+#8: attrsSame=true leftBytes=7654 rightBytes=845 leftSha=11f65f112305 rightSha=4009527b0690 firstBodyDiff=0
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"0:{\\\"__route\\\":\\\"route:/configurators/roof\\\",\\\"__interceptionContext\\\":null,\\\"__layoutIds\\\":[\\\"layout:/\\\"],\\\"__rootLayout\\\":\\\"/\\\",\\\"__sourcePage\\\":\\\"/configurators/roof/page\\\",\\\"page:/configurators/roof\\\":\\\"$L1\\\",\\\"layout:/\\\":[[[[\\\"$\\\",\\\"link\\\",\\\"css:/_next/static/css/index.CVHv9aJM.css\\\",{\\\"rel\\\":\\\"stylesheet\\\",\\\"precedence\\\":\\\"vite-rsc/importer-resources\\\",\\\"href\\"
+  right around diff: "$RB=[];$RV=function(a){$RT=performance.now();for(var b=0;b<a.length;b+=2){var c=a[b],e=a[b+1];null!==e.parentNode&&e.parentNode.removeChild(e);var f=c.parentNode;if(f){var g=c.previousSibling,h=0;do{if(c&&8===c.nodeType){var d=c.data;if(\"/$\"===d||\"/&\"===d)if(0===h)break;else h--;else\"$\"!==d&&\"$?\"!==d&&\"$~\"!==d&&\"$!\"!==d&&\"&\"!==d||h++}d=c.nextSibling;f.removeChild(c);c=d}while(c);for(;e.firstChild;)f.insertBefore(e.firstChild,c);g.data=\"$\";g._reactRetry&&requestAnimationFrame(g._reactRetry)}}a.le"
+#9: attrsSame=true leftBytes=186 rightBytes=175 leftSha=258ef4bc97a8 rightSha=8147aeac4ace firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"b:I[\\\"593f344dc510\\\",[],\\\"GlobalErrorBoundary\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"4:I[\\\"8c0f216c4604\\\",[],\\\"Children\\\",1]\\n\")"
+#10: attrsSame=true leftBytes=174 rightBytes=186 leftSha=cc8e13be9a15 rightSha=cced2fba4b8b firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"c:I[\\\"0b874ad30386\\\",[],\\\"default\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"5:I[\\\"593f344dc510\\\",[],\\\"GlobalErrorBoundary\\\",1]\\n\")"
+#11: attrsSame=true leftBytes=180 rightBytes=174 leftSha=d46f1876afd0 rightSha=f821a8c7f061 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"d:I[\\\"593f344dc510\\\",[],\\\"ErrorBoundary\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"6:I[\\\"0b874ad30386\\\",[],\\\"default\\\",1]\\n\")"
+#12: attrsSame=true leftBytes=188 rightBytes=180 leftSha=3118b0435386 rightSha=7f48f96a93ec firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"e:I[\\\"15c18cfaeeff\\\",[],\\\"LayoutSegmentProvider\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"7:I[\\\"593f344dc510\\\",[],\\\"ErrorBoundary\\\",1]\\n\")"
+#13: attrsSame=true leftBytes=171 rightBytes=188 leftSha=62f7b3cfbebe rightSha=418f837dd92f firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"f:I[\\\"8c0f216c4604\\\",[],\\\"Slot\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"8:I[\\\"15c18cfaeeff\\\",[],\\\"LayoutSegmentProvider\\\",1]\\n\")"
+#14: attrsSame=true leftBytes=184 rightBytes=171 leftSha=4f04b3918ba4 rightSha=64e12c2b70e4 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"10:I[\\\"593f344dc510\\\",[],\\\"NotFoundBoundary\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"9:I[\\\"8c0f216c4604\\\",[],\\\"Slot\\\",1]\\n\")"
+#15: attrsSame=true leftBytes=189 rightBytes=183 leftSha=2c1d76ec9cba rightSha=0ca7290c86c5 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"11:I[\\\"9276801271d6\\\",[],\\\"AppRouterScrollTarget\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"a:I[\\\"593f344dc510\\\",[],\\\"NotFoundBoundary\\\",1]\\n\")"
+#16: attrsSame=true leftBytes=184 rightBytes=188 leftSha=9d5f18176c29 rightSha=7ad060223517 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"12:I[\\\"593f344dc510\\\",[],\\\"RedirectBoundary\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"b:I[\\\"9276801271d6\\\",[],\\\"AppRouterScrollTarget\\\",1]\\n\")"
+#17: attrsSame=true leftBytes=400 rightBytes=183 leftSha=e95c59fb59d6 rightSha=e59b8b7f899b firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"3:[\\\"$\\\",\\\"link\\\",\\\"28\\\",{\\\"data-vinext-streamed-icon\\\":\\\"$undefined\\\",\\\"rel\\\":\\\"apple-touch-icon\\\",\\\"href\\\":\\\"/apple-touch-icon.png\\\",\\\"type\\\":\\\"image/png\\\",\\\"sizes\\\":\\\"180x180\\\",\\\"color\\\":\\\"$undefined\\\",\\\"media\\\":\\\"$undefined\\\",\\\"fetchPriority\\\":\\\"$undefined\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"c:I[\\\"593f344dc510\\\",[],\\\"RedirectBoundary\\\",1]\\n\")"
+#18: attrsSame=true leftBytes=249 rightBytes=158 leftSha=696a7ae743d9 rightSha=bc9606ce6cf8 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"4:[\\\"$\\\",\\\"link\\\",\\\"29\\\",{\\\"rel\\\":\\\"canonical\\\",\\\"href\\\":\\\"https://www.360configurator.com/configurators/roof\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"d:\\\"$Sreact.suspense\\\"\\n\")"
+#19: attrsSame=true leftBytes=269 rightBytes=196 leftSha=0e9f56d910ea rightSha=09dadff44464 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"5:[\\\"$\\\",\\\"link\\\",\\\"30\\\",{\\\"rel\\\":\\\"alternate\\\",\\\"hrefLang\\\":\\\"en\\\",\\\"href\\\":\\\"https://www.360configurator.com/configurators/roof\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\":HL[\\\"/_next/static/css/index.CVHv9aJM.css\\\",\\\"style\\\"     ]\\n\")"
+#20: attrsSame=true leftBytes=271 rightBytes=6928 leftSha=bda17e09e699 rightSha=d68656cc05ca firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"6:[\\\"$\\\",\\\"link\\\",\\\"31\\\",{\\\"rel\\\":\\\"alternate\\\",\\\"hrefLang\\\":\\\"ro-RO\\\",\\\"href\\\":\\\"https://www.360configurator.ro/configurators/roof\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"0:{\\\"__route\\\":\\\"route:/ro/configurators/roof\\\",\\\"__interceptionContext\\\":null,\\\"__layoutIds\\\":[\\\"layout:/\\\"],\\\"__rootLayout\\\":\\\"/\\\",\\\"__sourcePage\\\":\\\"/[locale]/configurators/[slug]/page\\\",\\\"__staticSiblings\\\":[\\\"about\\\",\\\"configurators\\\",\\\"contact\\\"],\\\"__vinext_streaming_metadata_body:route:/ro/configurators/roof\\\":\\\"$L1\\\",\\\"__vinext_streaming_metadata_outlet:rout"
+#21: attrsSame=true leftBytes=271 rightBytes=141 leftSha=0fb1a67c6a34 rightSha=7410f228226d firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"7:[\\\"$\\\",\\\"link\\\",\\\"32\\\",{\\\"rel\\\":\\\"alternate\\\",\\\"hrefLang\\\":\\\"de-DE\\\",\\\"href\\\":\\\"https://www.360konfigurator.de/configurators/roof\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"e:Td73,\")"
+#22: attrsSame=true leftBytes=276 rightBytes=4146 leftSha=7f11274b2dea rightSha=713c6f27b2ee firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"8:[\\\"$\\\",\\\"link\\\",\\\"33\\\",{\\\"rel\\\":\\\"alternate\\\",\\\"hrefLang\\\":\\\"x-default\\\",\\\"href\\\":\\\"https://www.360configurator.com/configurators/roof\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"\\u003ctitle\\u003eConfigurator Acoperiș 3D Online | Proiectare \\u0026amp; BOM — 360Configurator\\u003c/title\\u003e\\u003cmeta name=\\\"description\\\" content=\\\"Configurează un acoperiș online în 3D. Alege forma, dimensiunile, panta și materialele și obține cantități, BOM și ofertă CSV.\\\"\\u003e\\u003cmeta name=\\\"application-name\\\" content=\\\"360Configurator\\\"\\u003e\\u003cmeta"
+#23: attrsSame=true leftBytes=551 rightBytes=268 leftSha=02b69176ebe1 rightSha=f6b02c739ee9 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"9:[[\\\"$\\\",\\\"meta\\\",\\\"0\\\",{\\\"name\\\":\\\"viewport\\\",\\\"content\\\":\\\"width=device-width, initial-scale=1\\\"}],[\\\"$\\\",\\\"meta\\\",\\\"1\\\",{\\\"name\\\":\\\"theme-color\\\",\\\"content\\\":\\\"#f1f2ee\\\",\\\"media\\\":\\\"(prefers-color-scheme: light)\\\"}],[\\\"$\\\",\\\"meta\\\",\\\"2\\\",{\\\"name\\\":\\\"theme-color\\\",\\\"content\\\":\\\"#080a0d\\\",\\\"media\\\":\\\"(prefers-color-scheme: dark)\\\"}],[\\\"$\\\",\\\"meta\\\",\\\"3\\\",{\\\"name\\\""
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1:[[\\\"$\\\",\\\"div\\\",null,{\\\"hidden\\\":true,\\\"suppressHydrationWarning\\\":true,\\\"dangerouslySetInnerHTML\\\":{\\\"__html\\\":\\\"$e\\\"}}],\\\"$Lf\\\"]\\n\")"
+#24: attrsSame=true leftBytes=2025 rightBytes=142 leftSha=5543520de9e5 rightSha=d27b1af05a24 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"a:[\\\"$\\\",\\\"$Lb\\\",null,{\\\"fallback\\\":\\\"$c\\\",\\\"children\\\":[\\\"$\\\",\\\"$Ld\\\",null,{\\\"fallback\\\":\\\"$c\\\",\\\"children\\\":[\\\"$\\\",\\\"$Le\\\",null,{\\\"providerId\\\":\\\"layout:/\\\",\\\"segmentMap\\\":{\\\"children\\\":[\\\"configurators\\\",\\\"roof\\\"]},\\\"children\\\":[\\\"$\\\",\\\"$Lf\\\",null,{\\\"id\\\":\\\"layout:/\\\",\\\"parallelSlots\\\":\\\"$undefined\\\",\\\"children\\\":[\\\"$\\\",\\\"$L10\\\",null,{\\\"resetKey\\\":\\\"configurators"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"2:null\\n\")"
+#25: attrsSame=true leftBytes=180 rightBytes=190 leftSha=2b6d78620478 rightSha=a2e32a0adcac firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"14:I[\\\"d10887734b25\\\",[],\\\"SmoothScroll\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"10:I[\\\"89c3cac48cb5\\\",[],\\\"StreamedIconsInsertion\\\",1]\\n\")"
+#26: attrsSame=true leftBytes=186 rightBytes=212 leftSha=452139a1d8c7 rightSha=bbe45635cd70 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"15:I[\\\"eed995f56c82\\\",[],\\\"DeferredWebGLStage\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"f:[\\\"$\\\",\\\"$L10\\\",null,{\\\"metadataKey\\\":\\\"/ro/configurators/roof:19uz0nj\\\"}]\\n\")"
+#27: attrsSame=true leftBytes=178 rightBytes=180 leftSha=271b020ff362 rightSha=86b49d904282 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"16:I[\\\"91ead71c14ab\\\",[],\\\"SiteHeader\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"12:I[\\\"d10887734b25\\\",[],\\\"SmoothScroll\\\",1]\\n\")"
+#28: attrsSame=true leftBytes=142 rightBytes=186 leftSha=d7e57b6e1ba8 rightSha=668292956c21 firstBodyDiff=135
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"13:Tb1b,\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"13:I[\\\"eed995f56c82\\\",[],\\\"DeferredWebGLStage\\\",1]\\n\")"
+#29: attrsSame=true leftBytes=3206 rightBytes=178 leftSha=9510b55e4e95 rightSha=e81f22e62b06 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"{\\\"@context\\\":\\\"https://schema.org\\\",\\\"@graph\\\":[{\\\"@type\\\":\\\"Organization\\\",\\\"@id\\\":\\\"https://www.360configurator.com/#organization\\\",\\\"name\\\":\\\"360Configurator\\\",\\\"url\\\":\\\"https://www.360configurator.com\\\",\\\"logo\\\":{\\\"@type\\\":\\\"ImageObject\\\",\\\"url\\\":\\\"https://www.360configurator.com/brand/360configurator.png\\\",\\\"width\\\":500,\\\"height\\\":250},\\\"email\\\":\\\"office@360co"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"14:I[\\\"91ead71c14ab\\\",[],\\\"SiteHeader\\\",1]\\n\")"
+#30: attrsSame=true leftBytes=936 rightBytes=142 leftSha=74baa65deb03 rightSha=871a36663ec2 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1:[\\\"$\\\",\\\"main\\\",null,{\\\"className\\\":\\\"site-shell detail-page detail-roof\\\",\\\"children\\\":[[\\\"$\\\",\\\"script\\\",null,{\\\"type\\\":\\\"application/ld+json\\\",\\\"dangerouslySetInnerHTML\\\":{\\\"__html\\\":\\\"$13\\\"}}],[\\\"$\\\",\\\"$L14\\\",null,{}],[\\\"$\\\",\\\"$L15\\\",null,{}],[\\\"$\\\",\\\"$L16\\\",null,{\\\"locale\\\":\\\"en\\\",\\\"currentPath\\\":\\\"/configurators/roof\\\"}],[\\\"$\\\",\\\"section\\\",null,{\\\"className\\"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"11:Tb57,\")"
+#31: attrsSame=true leftBytes=183 rightBytes=3278 leftSha=31a528badc1d rightSha=cbff776a863a firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"23:I[\\\"5b9d39199531\\\",[],\\\"SceneInteractor\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"{\\\"@context\\\":\\\"https://schema.org\\\",\\\"@graph\\\":[{\\\"@type\\\":\\\"Organization\\\",\\\"@id\\\":\\\"https://www.360configurator.com/#organization\\\",\\\"name\\\":\\\"360Configurator\\\",\\\"url\\\":\\\"https://www.360configurator.com\\\",\\\"logo\\\":{\\\"@type\\\":\\\"ImageObject\\\",\\\"url\\\":\\\"https://www.360configurator.com/brand/360configurator.png\\\",\\\"width\\\":500,\\\"height\\\":250},\\\"email\\\":\\\"office@360co"
+#32: attrsSame=true leftBytes=184 rightBytes=937 leftSha=032cfbdf231b rightSha=5eeecfc835ef firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"24:I[\\\"0c0d66eed679\\\",[],\\\"ShowcaseControls\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"3:[\\\"$\\\",\\\"main\\\",null,{\\\"className\\\":\\\"site-shell detail-page detail-roof\\\",\\\"children\\\":[[\\\"$\\\",\\\"script\\\",null,{\\\"type\\\":\\\"application/ld+json\\\",\\\"dangerouslySetInnerHTML\\\":{\\\"__html\\\":\\\"$11\\\"}}],[\\\"$\\\",\\\"$L12\\\",null,{}],[\\\"$\\\",\\\"$L13\\\",null,{}],[\\\"$\\\",\\\"$L14\\\",null,{\\\"locale\\\":\\\"ro\\\",\\\"currentPath\\\":\\\"/configurators/roof\\\"}],[\\\"$\\\",\\\"section\\\",null,{\\\"className\\"
+#33: attrsSame=true leftBytes=182 rightBytes=183 leftSha=19db754f3c09 rightSha=05c1fd05c662 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"25:I[\\\"9628f6c0dda1\\\",[],\\\"CapabilityCube\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"21:I[\\\"5b9d39199531\\\",[],\\\"SceneInteractor\\\",1]\\n\")"
+#34: attrsSame=true leftBytes=191 rightBytes=184 leftSha=49ca70565c24 rightSha=6b9d95d99b7b firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"26:I[\\\"0f17c905b0c0\\\",[],\\\"ConfiguratorSeoSections\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"22:I[\\\"0c0d66eed679\\\",[],\\\"ShowcaseControls\\\",1]\\n\")"
+#35: attrsSame=true leftBytes=181 rightBytes=182 leftSha=6691aec4e393 rightSha=f72f788690dd firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\":HL[\\\"/brand/360configurator.png\\\",\\\"image\\\"]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"23:I[\\\"9628f6c0dda1\\\",[],\\\"CapabilityCube\\\",1]\\n\")"
+#36: attrsSame=true leftBytes=205 rightBytes=191 leftSha=0b27a136cfa7 rightSha=40926fc6068c firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"17:[\\\"$\\\",\\\"h1\\\",null,{\\\"children\\\":\\\"3D Roof Configurator Online\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"24:I[\\\"0f17c905b0c0\\\",[],\\\"ConfiguratorSeoSections\\\",1]\\n\")"
+#37: attrsSame=true leftBytes=213 rightBytes=181 leftSha=8c42caeb7c9d rightSha=6691aec4e393 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"18:[\\\"$\\\",\\\"p\\\",null,{\\\"children\\\":\\\"Complex geometry. Buildable answers.\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\":HL[\\\"/brand/360configurator.png\\\",\\\"image\\\"]\\n\")"
+#38: attrsSame=true leftBytes=678 rightBytes=210 leftSha=813b91b3a0b2 rightSha=59fbbebeba1a firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"19:[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-viewport\\\",\\\"children\\\":[[\\\"$\\\",\\\"$L23\\\",null,{\\\"scene\\\":\\\"roof\\\",\\\"locale\\\":\\\"en\\\"}],[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"viewport-brackets\\\",\\\"children\\\":[[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}]]}],[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"viewport-status mono-label\\\",\\\"chil"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"15:[\\\"$\\\",\\\"h1\\\",null,{\\\"children\\\":\\\"Configurator acoperiș 3D online\\\"}]\\n\")"
+#39: attrsSame=true leftBytes=648 rightBytes=223 leftSha=1830e1feea94 rightSha=c0abb7f88c78 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1a:[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-action\\\",\\\"children\\\":[[\\\"$\\\",\\\"p\\\",null,{\\\"children\\\":\\\"A rule-driven architectural configurator that turns roof shape, dimensions and material systems into measurable geometry and production-ready outputs.\\\"}],[\\\"$\\\",\\\"a\\\",null,{\\\"className\\\":\\\"launch-link\\\",\\\"href\\\":\\\"https://www.360configurator.roof-configurator/\\\","
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"16:[\\\"$\\\",\\\"p\\\",null,{\\\"children\\\":\\\"Geometrie complexă. Răspunsuri construibile.\\\"}]\\n\")"
+#40: attrsSame=true leftBytes=196 rightBytes=693 leftSha=9cf1741363d5 rightSha=f393cb0db62d firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1b:[\\\"$\\\",\\\"$L25\\\",null,{\\\"detail\\\":true,\\\"locale\\\":\\\"en\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"17:[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-viewport\\\",\\\"children\\\":[[\\\"$\\\",\\\"$L21\\\",null,{\\\"scene\\\":\\\"roof\\\",\\\"locale\\\":\\\"ro\\\"}],[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"viewport-brackets\\\",\\\"children\\\":[[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}]]}],[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"viewport-status mono-label\\\",\\\"chil"
+#41: attrsSame=true leftBytes=680 rightBytes=695 leftSha=21cda9dca01f rightSha=736263489545 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1c:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-intro solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame detail-intro-grid\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"System overview\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":\\\"Complex geometry. Buildable answers.\\\"}],[\\\"$\\\",\\\"p\\\",null"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"18:[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-action\\\",\\\"children\\\":[[\\\"$\\\",\\\"p\\\",null,{\\\"children\\\":\\\"Un configurator arhitectural bazat pe reguli, care transformă forma, dimensiunile și materialele acoperișului în geometrie măsurabilă și rezultate pregătite pentru producție.\\\"}],[\\\"$\\\",\\\"a\\\",null,{\\\"className\\\":\\\"launch-link\\\",\\\"href\\\":\\\"https://www.360configurat"
+#42: attrsSame=true leftBytes=3609 rightBytes=196 leftSha=5a20650343c9 rightSha=49126d11a377 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1d:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-features solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame\\\",\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-section-heading\\\",\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Capabilities / 06\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":\\\"What the system "
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"19:[\\\"$\\\",\\\"$L23\\\",null,{\\\"detail\\\":true,\\\"locale\\\":\\\"ro\\\"}]\\n\")"
+#43: attrsSame=true leftBytes=1063 rightBytes=730 leftSha=2962f3c767e2 rightSha=80fe8e77027a firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1e:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-outputs solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame outputs-grid\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Resolved state\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":[\\\"From visual decision\\\",[\\\""
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1a:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-intro solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame detail-intro-grid\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Prezentarea sistemului\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":\\\"Geometrie complexă. Răspunsuri construibile.\\\"}],[\\"
+#44: attrsSame=true leftBytes=263 rightBytes=3432 leftSha=a95ec06820a6 rightSha=d3a4a48b60df firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1f:[\\\"$\\\",\\\"$L26\\\",null,{\\\"locale\\\":\\\"en\\\",\\\"slug\\\":\\\"roof\\\",\\\"launchUrl\\\":\\\"https://www.360configurator.roof-configurator/\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1b:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-features solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame\\\",\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-section-heading\\\",\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Capabilități / 06\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":\\\"Ce rezolvă siste"
+#45: attrsSame=true leftBytes=802 rightBytes=1110 leftSha=da8ff0fe84d2 rightSha=ba66d6163f15 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"20:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-proof solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame proof-frame\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Full deployment\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":[\\\"Explore every rule.\\\",[\\\"$\\\",\\\"br\\\",null,{}],\\\"Configure the re"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1c:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-outputs solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame outputs-grid\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Configurație rezolvată\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":[\\\"De la decizia vizu"
+#46: attrsSame=true leftBytes=1221 rightBytes=270 leftSha=06dc5b37972f rightSha=ee8e7f7a7fce firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"21:[\\\"$\\\",\\\"nav\\\",null,{\\\"className\\\":\\\"next-configurator solid-section\\\",\\\"aria-label\\\":\\\"Continue exploring\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame\\\",\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Continue exploring\\\"}],[[\\\"$\\\",\\\"a\\\",\\\"pergola\\\",{\\\"href\\\":\\\"/configurators/pergola\\\",\\\"children\\\":[[\\\"$\\\",\\\"span"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1d:[\\\"$\\\",\\\"$L24\\\",null,{\\\"locale\\\":\\\"ro\\\",\\\"slug\\\":\\\"roof\\\",\\\"launchUrl\\\":\\\"https://www.360configurator.ro/configurator-acoperis/\\\"}]\\n\")"
+#47: attrsSame=true leftBytes=4362 rightBytes=833 leftSha=52c61c25cf42 rightSha=be808578776c firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"22:[\\\"$\\\",\\\"footer\\\",null,{\\\"className\\\":\\\"site-footer\\\",\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"footer-main page-frame\\\",\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"footer-brand\\\",\\\"children\\\":[[\\\"$\\\",\\\"img\\\",null,{\\\"src\\\":\\\"/brand/360configurator.png\\\",\\\"alt\\\":\\\"360Configurator\\\"}],[\\\"$\\\",\\\"p\\\",null,{\\\"children\\\":\\\"Spatial product configuration f"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1e:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-proof solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame proof-frame\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Implementare completă\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":[\\\"Explorează fiecare regulă.\\\",[\\\"$\\\",\\\"br\\\",null,{}],\\\"Con"
+#48: attrsSame=true leftBytes=298 rightBytes=1240 leftSha=2d6dbaa0951c rightSha=8a06af32c2ad firstBodyDiff=0
+  left around diff:  "Object.assign(((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{\"initialCacheKind\":\"static\"});((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).done=true"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1f:[\\\"$\\\",\\\"nav\\\",null,{\\\"className\\\":\\\"next-configurator solid-section\\\",\\\"aria-label\\\":\\\"Continuă explorarea\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame\\\",\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Continuă explorarea\\\"}],[[\\\"$\\\",\\\"a\\\",\\\"pergola\\\",{\\\"href\\\":\\\"/configurators/pergola\\\",\\\"children\\\":[[\\\"$\\\",\\\"sp"
+#49: missing on left
+#50: missing on left
+
+=== EN roof vs DE roof script-by-script comparison ===
+#3: attrsSame=true leftBytes=205 rightBytes=235 leftSha=a60468c8ef0f rightSha=5a4551a89ce6 firstBodyDiff=145
+  left around diff:  "Object.assign(((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{params:{},nav:{\"pathname\":\"/configurators/roof\",\"searchParams\":[]}})"
+  right around diff: "Object.assign(((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{params:{\"locale\":\"de\",\"slug\":\"roof\"},nav:{\"pathname\":\"/de/configurators/roof\",\"searchParams\":[]}})"
+#4: attrsSame=true leftBytes=2831 rightBytes=2857 leftSha=03702a0efd95 rightSha=364930e84485 firstBodyDiff=360
+  left around diff:  ".com\",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"https://www.360configurator.com/brand/360configurator.png\",\"width\":500,\"height\":250},\"email\":\"office@360configurator.com\",\"description\":\"Configure roof geometry online in 3D. Set dimensions, pitch, roof type and materials, then calculate quantities, BOM data and CSV quote outputs.\",\"areaServed\":\"Worldwide\",\"sameAs\":[\"https://www.facebook.com/360configurator\",\"https://x.com/360configurator\",\"https://www.linkedin.com/company/360configurator/\"]},{\"@type\":\""
+  right around diff: ".com\",\"logo\":{\"@type\":\"ImageObject\",\"url\":\"https://www.360configurator.com/brand/360configurator.png\",\"width\":500,\"height\":250},\"email\":\"office@360configurator.com\",\"description\":\"Konfigurieren Sie Ihr Dach online in 3D. Wählen Sie Dachform, Maße, Neigung und Material und ermitteln Sie Mengen, Stückliste und CSV-Angebot.\",\"areaServed\":\"Worldwide\",\"sameAs\":[\"https://www.facebook.com/360configurator\",\"https://x.com/360configurator\",\"https://www.linkedin.com/company/360configurator/\"]},{\"@type\":\"We"
+#5: attrsSame=false leftBytes=0 rightBytes=57 leftSha=e3b0c44298fc rightSha=ee6bb81f4e9f firstBodyDiff=0
+  left attrs:  type="module" src="/_next/static/chunks/index-BYdtzwEm.js" id="_R_" async=""
+  right attrs: 
+  left around diff:  ""
+  right around diff: "requestAnimationFrame(function(){$RT=performance.now()});"
+#6: attrsSame=false leftBytes=175 rightBytes=0 leftSha=b1e09ebe9260 rightSha=e3b0c44298fc firstBodyDiff=0
+  left attrs:  
+  right attrs: type="module" src="/_next/static/chunks/index-BYdtzwEm.js" id="_R_" async=""
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"2:I[\\\"8c0f216c4604\\\",[],\\\"Children\\\",1]\\n\")"
+  right around diff: ""
+#7: attrsSame=true leftBytes=196 rightBytes=362 leftSha=09dadff44464 rightSha=99f193ac6a0b firstBodyDiff=0
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\":HL[\\\"/_next/static/css/index.CVHv9aJM.css\\\",\\\"style\\\"     ]\\n\")"
+  right around diff: "document.querySelectorAll('body link[rel=\"icon\"], body link[rel=\"apple-touch-icon\"]').forEach(el => document.head.appendChild(el));const a='data-vinext-streamed-icon',o=el=>{const m=el.getAttribute(a),i=m.lastIndexOf(':');return Number(m.slice(i+1))};[...document.querySelectorAll('link['+a+']')].sort((l,r)=>o(l)-o(r)).forEach(el=>document.head.appendChild(el))"
+#8: attrsSame=true leftBytes=7654 rightBytes=845 leftSha=11f65f112305 rightSha=4009527b0690 firstBodyDiff=0
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"0:{\\\"__route\\\":\\\"route:/configurators/roof\\\",\\\"__interceptionContext\\\":null,\\\"__layoutIds\\\":[\\\"layout:/\\\"],\\\"__rootLayout\\\":\\\"/\\\",\\\"__sourcePage\\\":\\\"/configurators/roof/page\\\",\\\"page:/configurators/roof\\\":\\\"$L1\\\",\\\"layout:/\\\":[[[[\\\"$\\\",\\\"link\\\",\\\"css:/_next/static/css/index.CVHv9aJM.css\\\",{\\\"rel\\\":\\\"stylesheet\\\",\\\"precedence\\\":\\\"vite-rsc/importer-resources\\\",\\\"href\\"
+  right around diff: "$RB=[];$RV=function(a){$RT=performance.now();for(var b=0;b<a.length;b+=2){var c=a[b],e=a[b+1];null!==e.parentNode&&e.parentNode.removeChild(e);var f=c.parentNode;if(f){var g=c.previousSibling,h=0;do{if(c&&8===c.nodeType){var d=c.data;if(\"/$\"===d||\"/&\"===d)if(0===h)break;else h--;else\"$\"!==d&&\"$?\"!==d&&\"$~\"!==d&&\"$!\"!==d&&\"&\"!==d||h++}d=c.nextSibling;f.removeChild(c);c=d}while(c);for(;e.firstChild;)f.insertBefore(e.firstChild,c);g.data=\"$\";g._reactRetry&&requestAnimationFrame(g._reactRetry)}}a.le"
+#9: attrsSame=true leftBytes=186 rightBytes=175 leftSha=258ef4bc97a8 rightSha=8147aeac4ace firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"b:I[\\\"593f344dc510\\\",[],\\\"GlobalErrorBoundary\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"4:I[\\\"8c0f216c4604\\\",[],\\\"Children\\\",1]\\n\")"
+#10: attrsSame=true leftBytes=174 rightBytes=186 leftSha=cc8e13be9a15 rightSha=cced2fba4b8b firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"c:I[\\\"0b874ad30386\\\",[],\\\"default\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"5:I[\\\"593f344dc510\\\",[],\\\"GlobalErrorBoundary\\\",1]\\n\")"
+#11: attrsSame=true leftBytes=180 rightBytes=174 leftSha=d46f1876afd0 rightSha=f821a8c7f061 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"d:I[\\\"593f344dc510\\\",[],\\\"ErrorBoundary\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"6:I[\\\"0b874ad30386\\\",[],\\\"default\\\",1]\\n\")"
+#12: attrsSame=true leftBytes=188 rightBytes=180 leftSha=3118b0435386 rightSha=7f48f96a93ec firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"e:I[\\\"15c18cfaeeff\\\",[],\\\"LayoutSegmentProvider\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"7:I[\\\"593f344dc510\\\",[],\\\"ErrorBoundary\\\",1]\\n\")"
+#13: attrsSame=true leftBytes=171 rightBytes=188 leftSha=62f7b3cfbebe rightSha=418f837dd92f firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"f:I[\\\"8c0f216c4604\\\",[],\\\"Slot\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"8:I[\\\"15c18cfaeeff\\\",[],\\\"LayoutSegmentProvider\\\",1]\\n\")"
+#14: attrsSame=true leftBytes=184 rightBytes=171 leftSha=4f04b3918ba4 rightSha=64e12c2b70e4 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"10:I[\\\"593f344dc510\\\",[],\\\"NotFoundBoundary\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"9:I[\\\"8c0f216c4604\\\",[],\\\"Slot\\\",1]\\n\")"
+#15: attrsSame=true leftBytes=189 rightBytes=183 leftSha=2c1d76ec9cba rightSha=0ca7290c86c5 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"11:I[\\\"9276801271d6\\\",[],\\\"AppRouterScrollTarget\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"a:I[\\\"593f344dc510\\\",[],\\\"NotFoundBoundary\\\",1]\\n\")"
+#16: attrsSame=true leftBytes=184 rightBytes=188 leftSha=9d5f18176c29 rightSha=7ad060223517 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"12:I[\\\"593f344dc510\\\",[],\\\"RedirectBoundary\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"b:I[\\\"9276801271d6\\\",[],\\\"AppRouterScrollTarget\\\",1]\\n\")"
+#17: attrsSame=true leftBytes=400 rightBytes=183 leftSha=e95c59fb59d6 rightSha=e59b8b7f899b firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"3:[\\\"$\\\",\\\"link\\\",\\\"28\\\",{\\\"data-vinext-streamed-icon\\\":\\\"$undefined\\\",\\\"rel\\\":\\\"apple-touch-icon\\\",\\\"href\\\":\\\"/apple-touch-icon.png\\\",\\\"type\\\":\\\"image/png\\\",\\\"sizes\\\":\\\"180x180\\\",\\\"color\\\":\\\"$undefined\\\",\\\"media\\\":\\\"$undefined\\\",\\\"fetchPriority\\\":\\\"$undefined\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"c:I[\\\"593f344dc510\\\",[],\\\"RedirectBoundary\\\",1]\\n\")"
+#18: attrsSame=true leftBytes=249 rightBytes=158 leftSha=696a7ae743d9 rightSha=bc9606ce6cf8 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"4:[\\\"$\\\",\\\"link\\\",\\\"29\\\",{\\\"rel\\\":\\\"canonical\\\",\\\"href\\\":\\\"https://www.360configurator.com/configurators/roof\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"d:\\\"$Sreact.suspense\\\"\\n\")"
+#19: attrsSame=true leftBytes=269 rightBytes=196 leftSha=0e9f56d910ea rightSha=09dadff44464 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"5:[\\\"$\\\",\\\"link\\\",\\\"30\\\",{\\\"rel\\\":\\\"alternate\\\",\\\"hrefLang\\\":\\\"en\\\",\\\"href\\\":\\\"https://www.360configurator.com/configurators/roof\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\":HL[\\\"/_next/static/css/index.CVHv9aJM.css\\\",\\\"style\\\"     ]\\n\")"
+#20: attrsSame=true leftBytes=271 rightBytes=6928 leftSha=bda17e09e699 rightSha=ab3198ef8ebe firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"6:[\\\"$\\\",\\\"link\\\",\\\"31\\\",{\\\"rel\\\":\\\"alternate\\\",\\\"hrefLang\\\":\\\"ro-RO\\\",\\\"href\\\":\\\"https://www.360configurator.ro/configurators/roof\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"0:{\\\"__route\\\":\\\"route:/de/configurators/roof\\\",\\\"__interceptionContext\\\":null,\\\"__layoutIds\\\":[\\\"layout:/\\\"],\\\"__rootLayout\\\":\\\"/\\\",\\\"__sourcePage\\\":\\\"/[locale]/configurators/[slug]/page\\\",\\\"__staticSiblings\\\":[\\\"about\\\",\\\"configurators\\\",\\\"contact\\\"],\\\"__vinext_streaming_metadata_body:route:/de/configurators/roof\\\":\\\"$L1\\\",\\\"__vinext_streaming_metadata_outlet:rout"
+#21: attrsSame=true leftBytes=271 rightBytes=141 leftSha=0fb1a67c6a34 rightSha=d2609f8eb402 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"7:[\\\"$\\\",\\\"link\\\",\\\"32\\\",{\\\"rel\\\":\\\"alternate\\\",\\\"hrefLang\\\":\\\"de-DE\\\",\\\"href\\\":\\\"https://www.360konfigurator.de/configurators/roof\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"e:Td96,\")"
+#22: attrsSame=true leftBytes=276 rightBytes=4181 leftSha=7f11274b2dea rightSha=07969dc5cc4e firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"8:[\\\"$\\\",\\\"link\\\",\\\"33\\\",{\\\"rel\\\":\\\"alternate\\\",\\\"hrefLang\\\":\\\"x-default\\\",\\\"href\\\":\\\"https://www.360configurator.com/configurators/roof\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"\\u003ctitle\\u003e3D Dach-Konfigurator Online | Dach planen \\u0026amp; Stückliste — 360Configurator\\u003c/title\\u003e\\u003cmeta name=\\\"description\\\" content=\\\"Konfigurieren Sie Ihr Dach online in 3D. Wählen Sie Dachform, Maße, Neigung und Material und ermitteln Sie Mengen, Stückliste und CSV-Angebot.\\\"\\u003e\\u003cmeta name=\\\"application-name\\\" content=\\\"360Configurat"
+#23: attrsSame=true leftBytes=551 rightBytes=268 leftSha=02b69176ebe1 rightSha=f6b02c739ee9 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"9:[[\\\"$\\\",\\\"meta\\\",\\\"0\\\",{\\\"name\\\":\\\"viewport\\\",\\\"content\\\":\\\"width=device-width, initial-scale=1\\\"}],[\\\"$\\\",\\\"meta\\\",\\\"1\\\",{\\\"name\\\":\\\"theme-color\\\",\\\"content\\\":\\\"#f1f2ee\\\",\\\"media\\\":\\\"(prefers-color-scheme: light)\\\"}],[\\\"$\\\",\\\"meta\\\",\\\"2\\\",{\\\"name\\\":\\\"theme-color\\\",\\\"content\\\":\\\"#080a0d\\\",\\\"media\\\":\\\"(prefers-color-scheme: dark)\\\"}],[\\\"$\\\",\\\"meta\\\",\\\"3\\\",{\\\"name\\\""
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1:[[\\\"$\\\",\\\"div\\\",null,{\\\"hidden\\\":true,\\\"suppressHydrationWarning\\\":true,\\\"dangerouslySetInnerHTML\\\":{\\\"__html\\\":\\\"$e\\\"}}],\\\"$Lf\\\"]\\n\")"
+#24: attrsSame=true leftBytes=2025 rightBytes=142 leftSha=5543520de9e5 rightSha=d27b1af05a24 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"a:[\\\"$\\\",\\\"$Lb\\\",null,{\\\"fallback\\\":\\\"$c\\\",\\\"children\\\":[\\\"$\\\",\\\"$Ld\\\",null,{\\\"fallback\\\":\\\"$c\\\",\\\"children\\\":[\\\"$\\\",\\\"$Le\\\",null,{\\\"providerId\\\":\\\"layout:/\\\",\\\"segmentMap\\\":{\\\"children\\\":[\\\"configurators\\\",\\\"roof\\\"]},\\\"children\\\":[\\\"$\\\",\\\"$Lf\\\",null,{\\\"id\\\":\\\"layout:/\\\",\\\"parallelSlots\\\":\\\"$undefined\\\",\\\"children\\\":[\\\"$\\\",\\\"$L10\\\",null,{\\\"resetKey\\\":\\\"configurators"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"2:null\\n\")"
+#25: attrsSame=true leftBytes=180 rightBytes=190 leftSha=2b6d78620478 rightSha=a2e32a0adcac firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"14:I[\\\"d10887734b25\\\",[],\\\"SmoothScroll\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"10:I[\\\"89c3cac48cb5\\\",[],\\\"StreamedIconsInsertion\\\",1]\\n\")"
+#26: attrsSame=true leftBytes=186 rightBytes=211 leftSha=452139a1d8c7 rightSha=e2f0564a0b98 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"15:I[\\\"eed995f56c82\\\",[],\\\"DeferredWebGLStage\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"f:[\\\"$\\\",\\\"$L10\\\",null,{\\\"metadataKey\\\":\\\"/de/configurators/roof:21ls8f\\\"}]\\n\")"
+#27: attrsSame=true leftBytes=178 rightBytes=180 leftSha=271b020ff362 rightSha=86b49d904282 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"16:I[\\\"91ead71c14ab\\\",[],\\\"SiteHeader\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"12:I[\\\"d10887734b25\\\",[],\\\"SmoothScroll\\\",1]\\n\")"
+#28: attrsSame=true leftBytes=142 rightBytes=186 leftSha=d7e57b6e1ba8 rightSha=668292956c21 firstBodyDiff=135
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"13:Tb1b,\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"13:I[\\\"eed995f56c82\\\",[],\\\"DeferredWebGLStage\\\",1]\\n\")"
+#29: attrsSame=true leftBytes=3206 rightBytes=178 leftSha=9510b55e4e95 rightSha=e81f22e62b06 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"{\\\"@context\\\":\\\"https://schema.org\\\",\\\"@graph\\\":[{\\\"@type\\\":\\\"Organization\\\",\\\"@id\\\":\\\"https://www.360configurator.com/#organization\\\",\\\"name\\\":\\\"360Configurator\\\",\\\"url\\\":\\\"https://www.360configurator.com\\\",\\\"logo\\\":{\\\"@type\\\":\\\"ImageObject\\\",\\\"url\\\":\\\"https://www.360configurator.com/brand/360configurator.png\\\",\\\"width\\\":500,\\\"height\\\":250},\\\"email\\\":\\\"office@360co"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"14:I[\\\"91ead71c14ab\\\",[],\\\"SiteHeader\\\",1]\\n\")"
+#30: attrsSame=true leftBytes=936 rightBytes=142 leftSha=74baa65deb03 rightSha=87083103a2b5 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1:[\\\"$\\\",\\\"main\\\",null,{\\\"className\\\":\\\"site-shell detail-page detail-roof\\\",\\\"children\\\":[[\\\"$\\\",\\\"script\\\",null,{\\\"type\\\":\\\"application/ld+json\\\",\\\"dangerouslySetInnerHTML\\\":{\\\"__html\\\":\\\"$13\\\"}}],[\\\"$\\\",\\\"$L14\\\",null,{}],[\\\"$\\\",\\\"$L15\\\",null,{}],[\\\"$\\\",\\\"$L16\\\",null,{\\\"locale\\\":\\\"en\\\",\\\"currentPath\\\":\\\"/configurators/roof\\\"}],[\\\"$\\\",\\\"section\\\",null,{\\\"className\\"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"11:Tb29,\")"
+#31: attrsSame=true leftBytes=183 rightBytes=3232 leftSha=31a528badc1d rightSha=04c96e569de7 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"23:I[\\\"5b9d39199531\\\",[],\\\"SceneInteractor\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"{\\\"@context\\\":\\\"https://schema.org\\\",\\\"@graph\\\":[{\\\"@type\\\":\\\"Organization\\\",\\\"@id\\\":\\\"https://www.360configurator.com/#organization\\\",\\\"name\\\":\\\"360Configurator\\\",\\\"url\\\":\\\"https://www.360configurator.com\\\",\\\"logo\\\":{\\\"@type\\\":\\\"ImageObject\\\",\\\"url\\\":\\\"https://www.360configurator.com/brand/360configurator.png\\\",\\\"width\\\":500,\\\"height\\\":250},\\\"email\\\":\\\"office@360co"
+#32: attrsSame=true leftBytes=184 rightBytes=933 leftSha=032cfbdf231b rightSha=3a69a6643612 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"24:I[\\\"0c0d66eed679\\\",[],\\\"ShowcaseControls\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"3:[\\\"$\\\",\\\"main\\\",null,{\\\"className\\\":\\\"site-shell detail-page detail-roof\\\",\\\"children\\\":[[\\\"$\\\",\\\"script\\\",null,{\\\"type\\\":\\\"application/ld+json\\\",\\\"dangerouslySetInnerHTML\\\":{\\\"__html\\\":\\\"$11\\\"}}],[\\\"$\\\",\\\"$L12\\\",null,{}],[\\\"$\\\",\\\"$L13\\\",null,{}],[\\\"$\\\",\\\"$L14\\\",null,{\\\"locale\\\":\\\"de\\\",\\\"currentPath\\\":\\\"/configurators/roof\\\"}],[\\\"$\\\",\\\"section\\\",null,{\\\"className\\"
+#33: attrsSame=true leftBytes=182 rightBytes=183 leftSha=19db754f3c09 rightSha=05c1fd05c662 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"25:I[\\\"9628f6c0dda1\\\",[],\\\"CapabilityCube\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"21:I[\\\"5b9d39199531\\\",[],\\\"SceneInteractor\\\",1]\\n\")"
+#34: attrsSame=true leftBytes=191 rightBytes=184 leftSha=49ca70565c24 rightSha=6b9d95d99b7b firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"26:I[\\\"0f17c905b0c0\\\",[],\\\"ConfiguratorSeoSections\\\",1]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"22:I[\\\"0c0d66eed679\\\",[],\\\"ShowcaseControls\\\",1]\\n\")"
+#35: attrsSame=true leftBytes=181 rightBytes=182 leftSha=6691aec4e393 rightSha=f72f788690dd firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\":HL[\\\"/brand/360configurator.png\\\",\\\"image\\\"]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"23:I[\\\"9628f6c0dda1\\\",[],\\\"CapabilityCube\\\",1]\\n\")"
+#36: attrsSame=true leftBytes=205 rightBytes=191 leftSha=0b27a136cfa7 rightSha=40926fc6068c firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"17:[\\\"$\\\",\\\"h1\\\",null,{\\\"children\\\":\\\"3D Roof Configurator Online\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"24:I[\\\"0f17c905b0c0\\\",[],\\\"ConfiguratorSeoSections\\\",1]\\n\")"
+#37: attrsSame=true leftBytes=213 rightBytes=181 leftSha=8c42caeb7c9d rightSha=6691aec4e393 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"18:[\\\"$\\\",\\\"p\\\",null,{\\\"children\\\":\\\"Complex geometry. Buildable answers.\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\":HL[\\\"/brand/360configurator.png\\\",\\\"image\\\"]\\n\")"
+#38: attrsSame=true leftBytes=678 rightBytes=205 leftSha=813b91b3a0b2 rightSha=9e0a626e1d7e firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"19:[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-viewport\\\",\\\"children\\\":[[\\\"$\\\",\\\"$L23\\\",null,{\\\"scene\\\":\\\"roof\\\",\\\"locale\\\":\\\"en\\\"}],[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"viewport-brackets\\\",\\\"children\\\":[[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}]]}],[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"viewport-status mono-label\\\",\\\"chil"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"15:[\\\"$\\\",\\\"h1\\\",null,{\\\"children\\\":\\\"3D Dach-Konfigurator online\\\"}]\\n\")"
+#39: attrsSame=true leftBytes=648 rightBytes=215 leftSha=1830e1feea94 rightSha=88e88e20d2a9 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1a:[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-action\\\",\\\"children\\\":[[\\\"$\\\",\\\"p\\\",null,{\\\"children\\\":\\\"A rule-driven architectural configurator that turns roof shape, dimensions and material systems into measurable geometry and production-ready outputs.\\\"}],[\\\"$\\\",\\\"a\\\",null,{\\\"className\\\":\\\"launch-link\\\",\\\"href\\\":\\\"https://www.360configurator.roof-configurator/\\\","
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"16:[\\\"$\\\",\\\"p\\\",null,{\\\"children\\\":\\\"Komplexe Geometrie. Baubare Antworten.\\\"}]\\n\")"
+#40: attrsSame=true leftBytes=196 rightBytes=687 leftSha=9cf1741363d5 rightSha=b19073745edd firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1b:[\\\"$\\\",\\\"$L25\\\",null,{\\\"detail\\\":true,\\\"locale\\\":\\\"en\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"17:[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-viewport\\\",\\\"children\\\":[[\\\"$\\\",\\\"$L21\\\",null,{\\\"scene\\\":\\\"roof\\\",\\\"locale\\\":\\\"de\\\"}],[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"viewport-brackets\\\",\\\"children\\\":[[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}],[\\\"$\\\",\\\"i\\\",null,{}]]}],[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"viewport-status mono-label\\\",\\\"chil"
+#41: attrsSame=true leftBytes=680 rightBytes=663 leftSha=21cda9dca01f rightSha=0ec809adbb59 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1c:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-intro solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame detail-intro-grid\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"System overview\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":\\\"Complex geometry. Buildable answers.\\\"}],[\\\"$\\\",\\\"p\\\",null"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"18:[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-action\\\",\\\"children\\\":[[\\\"$\\\",\\\"p\\\",null,{\\\"children\\\":\\\"Ein regelbasierter Architekturkonfigurator, der Dachform, Maße und Materialsysteme in messbare Geometrie und produktionsfähige Ergebnisse übersetzt.\\\"}],[\\\"$\\\",\\\"a\\\",null,{\\\"className\\\":\\\"launch-link\\\",\\\"href\\\":\\\"https://www.360konfigurator.de/dach-konfigurator/\\\""
+#42: attrsSame=true leftBytes=3609 rightBytes=196 leftSha=5a20650343c9 rightSha=0606e82df154 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1d:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-features solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame\\\",\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-section-heading\\\",\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Capabilities / 06\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":\\\"What the system "
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"19:[\\\"$\\\",\\\"$L23\\\",null,{\\\"detail\\\":true,\\\"locale\\\":\\\"de\\\"}]\\n\")"
+#43: attrsSame=true leftBytes=1063 rightBytes=684 leftSha=2962f3c767e2 rightSha=1fa0dad7948b firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1e:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-outputs solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame outputs-grid\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Resolved state\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":[\\\"From visual decision\\\",[\\\""
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1a:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-intro solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame detail-intro-grid\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Systemüberblick\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":\\\"Komplexe Geometrie. Baubare Antworten.\\\"}],[\\\"$\\\",\\\"p\\\",nu"
+#44: attrsSame=true leftBytes=263 rightBytes=3435 leftSha=a95ec06820a6 rightSha=764133720ff9 firstBodyDiff=133
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1f:[\\\"$\\\",\\\"$L26\\\",null,{\\\"locale\\\":\\\"en\\\",\\\"slug\\\":\\\"roof\\\",\\\"launchUrl\\\":\\\"https://www.360configurator.roof-configurator/\\\"}]\\n\")"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1b:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-features solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame\\\",\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"detail-section-heading\\\",\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Funktionen / 06\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":\\\"Was das System auf"
+#45: attrsSame=true leftBytes=802 rightBytes=1069 leftSha=da8ff0fe84d2 rightSha=0a7970bf0af3 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"20:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-proof solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame proof-frame\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Full deployment\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":[\\\"Explore every rule.\\\",[\\\"$\\\",\\\"br\\\",null,{}],\\\"Configure the re"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1c:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-outputs solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame outputs-grid\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Aufgelöster Zustand\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":[\\\"Von der visuellen Ent"
+#46: attrsSame=true leftBytes=1221 rightBytes=266 leftSha=06dc5b37972f rightSha=15ac787645a6 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"21:[\\\"$\\\",\\\"nav\\\",null,{\\\"className\\\":\\\"next-configurator solid-section\\\",\\\"aria-label\\\":\\\"Continue exploring\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame\\\",\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Continue exploring\\\"}],[[\\\"$\\\",\\\"a\\\",\\\"pergola\\\",{\\\"href\\\":\\\"/configurators/pergola\\\",\\\"children\\\":[[\\\"$\\\",\\\"span"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1d:[\\\"$\\\",\\\"$L24\\\",null,{\\\"locale\\\":\\\"de\\\",\\\"slug\\\":\\\"roof\\\",\\\"launchUrl\\\":\\\"https://www.360konfigurator.de/dach-konfigurator/\\\"}]\\n\")"
+#47: attrsSame=true leftBytes=4362 rightBytes=829 leftSha=52c61c25cf42 rightSha=5a8d54e98834 firstBodyDiff=132
+  left around diff:  "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"22:[\\\"$\\\",\\\"footer\\\",null,{\\\"className\\\":\\\"site-footer\\\",\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"footer-main page-frame\\\",\\\"children\\\":[[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"footer-brand\\\",\\\"children\\\":[[\\\"$\\\",\\\"img\\\",null,{\\\"src\\\":\\\"/brand/360configurator.png\\\",\\\"alt\\\":\\\"360Configurator\\\"}],[\\\"$\\\",\\\"p\\\",null,{\\\"children\\\":\\\"Spatial product configuration f"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1e:[\\\"$\\\",\\\"section\\\",null,{\\\"className\\\":\\\"detail-proof solid-section\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame proof-frame\\\",\\\"data-reveal\\\":true,\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Vollständige Implementierung\\\"}],[\\\"$\\\",\\\"h2\\\",null,{\\\"children\\\":[\\\"Jede Regel entdecken.\\\",[\\\"$\\\",\\\"br\\\",null,{}],\\\"D"
+#48: attrsSame=true leftBytes=298 rightBytes=1216 leftSha=2d6dbaa0951c rightSha=ddc3bb13e2c5 firstBodyDiff=0
+  left around diff:  "Object.assign(((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}),{\"initialCacheKind\":\"static\"});((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).done=true"
+  right around diff: "((self[Symbol.for(\"vinext.navigationRuntime\")]??={bootstrap:{routeManifest:null},functions:{}}).bootstrap.rsc??={rsc:[]}).rsc.push(\"1f:[\\\"$\\\",\\\"nav\\\",null,{\\\"className\\\":\\\"next-configurator solid-section\\\",\\\"aria-label\\\":\\\"Weiter entdecken\\\",\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"page-frame\\\",\\\"children\\\":[[\\\"$\\\",\\\"span\\\",null,{\\\"className\\\":\\\"mono-label\\\",\\\"children\\\":\\\"Weiter entdecken\\\"}],[[\\\"$\\\",\\\"a\\\",\\\"pergola\\\",{\\\"href\\\":\\\"/configurators/pergola\\\",\\\"children\\\":[[\\\"$\\\",\\\"span\\\",n"
+#49: missing on left
+#50: missing on left
+
+=== EN roof globals/bootstrap tokens ===
+(none found)

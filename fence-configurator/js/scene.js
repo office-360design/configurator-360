@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=6';
+import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=7';
 
 export class FenceScene {
   constructor(host) {
@@ -150,7 +150,7 @@ export class FenceScene {
       });
     });
 
-    if (state.layout === 'closed' && this.currentBuild.runSegments.length >= 2) {
+    if (['closed', 'closed5'].includes(state.layout) && this.currentBuild.runSegments.length >= 2) {
       const runAB = this.currentBuild.runSegments[0];
       const runBC = this.currentBuild.runSegments[1];
       const bPoint = runAB.points[runAB.points.length - 1].clone();
