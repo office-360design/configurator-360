@@ -601,7 +601,12 @@ export function createWindowBuilder({
         return mesh;
     }
 
-    function clipDividerMeshToReentrantFillerTriangle(mesh, filler, dividerFaceSpan) {
+    function clipDividerMeshToReentrantFillerTriangle(
+        mesh,
+        filler,
+        dividerFaceSpan,
+        { includeFaceBoundary = true } = {}
+    ) {
         const triangle = getReentrantFillerTriangle({
             filler,
             dividerFaceSpan,
@@ -614,13 +619,17 @@ export function createWindowBuilder({
         if (Math.abs(area2) <= 1e-12) return false;
         const windingSign = area2 > 0 ? 1 : -1;
 
-        // Keep the real mullion geometry/materials, but trim every component
-        // to the exact triangular opening in layout XY. This is intentionally
-        // different from the previous solid-colour wedge: the visible filler
-        // is now literally a horizontally/vertically extruded slice of the
-        // selected mullion assembly, including its real profile islands and
-        // materials. The triangle only acts as a clipping mask.
-        [[a, b], [b, c], [c, a]].forEach(([p0, p1]) => {
+        // Structural mullion islands are clipped to the complete triangular
+        // half-face, including its base edge. A join gasket such as 224063 is
+        // seated just outside that aluminium face, however. Clipping the gasket
+        // against the triangle's base deletes exactly the part that must follow
+        // the fixed glazing. For those follower components keep the same two
+        // 45-degree V shoulders but leave the face-normal side open.
+        const clipEdges = includeFaceBoundary
+            ? [[a, b], [b, c], [c, a]]
+            : [[a, b], [c, a]];
+
+        clipEdges.forEach(([p0, p1]) => {
             const previousGeometry = mesh.geometry;
             const clippedGeometry = clipBufferGeometryToScalarHalfspace(
                 previousGeometry,
@@ -3063,10 +3072,28 @@ export function createWindowBuilder({
                     perpendicularOffset,
                 };
 
-                const createClippedFillerMesh = placedProfile => {
+                const createClippedFillerMesh = (
+                    placedProfile,
+                    { includeFaceBoundary = true } = {}
+                ) => {
+                    // Structural half-mullion stock ends exactly at the two
+                    // aluminium shoulders. 224063 is different: its section
+                    // sits outside that aluminium face, so after deliberately
+                    // leaving the triangle base open it must have enough stock
+                    // beyond both shoulders for the two 45-degree V planes to
+                    // make the final cut. If we keep the structural stock length
+                    // here, the source extrusion itself becomes the limiting
+                    // boundary and produces the square/cut-off gasket end.
+                    //
+                    // Doubling the temporary stock is intentionally harmless:
+                    // the two diagonal half-space clips still define the visible
+                    // gasket ends. Only the un-clipped source stock is longer.
+                    const fillerStockLength = includeFaceBoundary
+                        ? renderLength
+                        : renderLength + fillerFaceSpan;
                     const mesh = createDividerSegment(
                         placedProfile,
-                        renderLength,
+                        fillerStockLength,
                         filler.orientation,
                         fillerBounds,
                         depthOffset,
@@ -3079,7 +3106,8 @@ export function createWindowBuilder({
                     if (!clipDividerMeshToReentrantFillerTriangle(
                         mesh,
                         filler,
-                        fillerFaceSpan
+                        fillerFaceSpan,
+                        { includeFaceBoundary }
                     )) {
                         mesh.geometry?.dispose();
                         return null;
@@ -3115,6 +3143,21 @@ export function createWindowBuilder({
                 // identical V mask. This keeps the accessory seated on the
                 // horizontally extruded mullion section instead of adding a
                 // detached or differently-oriented accessory copy.
+                // The half-mullion retains only the face pointing into the
+                // missing arm. Runtime divider sides are always keyed as
+                // left=negative cell / right=positive cell, independent of the
+                // physical orientation of the member.
+                const fillerRuntimeCellSide = (() => {
+                    if (filler.orientation === 'horizontal') {
+                        if (filler.direction === 'south') return 'left';
+                        if (filler.direction === 'north') return 'right';
+                    } else if (filler.orientation === 'vertical') {
+                        if (filler.direction === 'west') return 'left';
+                        if (filler.direction === 'east') return 'right';
+                    }
+                    return null;
+                })();
+
                 activeProfiles.forEach(profile => {
                     const variantProfile = getEditableProfileVariant(profile, sourceSegment);
                     const sectionRotationDeg =
@@ -3135,6 +3178,7 @@ export function createWindowBuilder({
                         ]);
                     }
 
+                    const renderedConnectionSides = new Set();
                     connectionTransforms.forEach(([cellSide, cadTransform]) => {
                         if (!cadTransform) return;
                         const runtimeCellSide = sourceSegment.reversed
@@ -3149,8 +3193,16 @@ export function createWindowBuilder({
                             cadAlignmentShiftYMm: 0,
                             dividerSectionRotationDeg: sectionRotationDeg,
                         };
-                        const mesh = createClippedFillerMesh(placedProfile);
+                        // 224063 sits just outside the aluminium mullion
+                        // face. Clipping it to the half-mullion triangle's base
+                        // makes it visibly stop at the aluminium end. Preserve
+                        // the two diagonal V shoulders, but leave the fixed-glass
+                        // face open for this gasket.
+                        const mesh = createClippedFillerMesh(placedProfile, {
+                            includeFaceBoundary: !isFixedGlassAnchorGasket(variantProfile),
+                        });
                         if (!mesh) return;
+                        renderedConnectionSides.add(runtimeCellSide);
                         mesh.userData.reentrantFillerConnectionGasket = true;
                         mesh.userData.mullionConnectionGasket = true;
                         mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
@@ -3162,6 +3214,61 @@ export function createWindowBuilder({
                             'reentrant-filler-connection-gasket'
                         );
                     });
+
+                    // Fixed/fixed joins do not expose 224063 through the mixed
+                    // `mullionConnectionCadTransform` fields. Their two exact
+                    // gasket seats live in `fixedGlazingDividerCadTransforms`.
+                    // A merged-L half-mullion is a literal clipped continuation
+                    // of the surviving mullion, so copy the exact fixed-side
+                    // gasket for the retained face when the mixed path above did
+                    // not already provide it. This is what is required when the
+                    // upper L cell is fixed as well as the merged lower cell.
+                    if (
+                        isFixedGlassAnchorGasket(variantProfile)
+                        && fillerRuntimeCellSide
+                        && !renderedConnectionSides.has(fillerRuntimeCellSide)
+                        && getEditableDividerSideCellType(
+                            sourceSegment,
+                            fillerRuntimeCellSide
+                        ) === 'fixed-glazing'
+                    ) {
+                        // This mesh is a divider extrusion, so use the
+                        // divider-native direct 224063 INSERT rather than the
+                        // fixed-cell perimeter transform used by createMiteredSide().
+                        const fixedCadTransform =
+                            variantProfile.fixedGlazingMullionCadTransforms?.[
+                                fillerRuntimeCellSide
+                            ] || null;
+                        if (fixedCadTransform) {
+                            const placedProfile = {
+                                ...variantProfile,
+                                cadCoordinateTransform: fixedCadTransform,
+                                cadAlignmentShiftXMm: 0,
+                                cadAlignmentShiftYMm: 0,
+                                dividerSectionRotationDeg: sectionRotationDeg,
+                            };
+                            // 224063 sits outside the aluminium half-face.
+                            // Keep the filler's two V shoulders, but do not clip
+                            // it at the aluminium face boundary or the complete
+                            // gasket disappears when this join is fixed/fixed.
+                            const mesh = createClippedFillerMesh(placedProfile, {
+                                includeFaceBoundary: false,
+                            });
+                            if (mesh) {
+                                mesh.userData.reentrantFillerConnectionGasket = true;
+                                mesh.userData.mullionConnectionGasket = true;
+                                mesh.userData.fixedGlazingAccessory = true;
+                                mesh.userData.connectionBoundary =
+                                    `mullion-${fillerRuntimeCellSide}`;
+                                mesh.userData.connectionProfileId = '224063';
+                                placeEditableDividerMesh(
+                                    mesh,
+                                    fillerSegment,
+                                    'reentrant-filler-fixed-gasket'
+                                );
+                            }
+                        }
+                    }
 
                     Object.entries(variantProfile.mullionAccessoryCadTransforms || {})
                         .forEach(([cellSide, cadTransform]) => {
