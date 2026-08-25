@@ -1,6 +1,6 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
 import { DEFAULT_FENCE_STATE, createFenceState, deriveFenceMetrics, normalizeFenceState } from './state.js?v=4';
-import { FenceScene } from './scene.js?v=9';
+import { FenceScene } from './scene.js?v=10';
 import { FenceUI } from './ui.js?v=4';
 import { resolveFenceLocale } from './i18n.js?v=4';
 

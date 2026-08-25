@@ -99,6 +99,7 @@ select { width: 100%; height: 40px; padding: 0 11px; border: 1px solid var(--fen
 .toggle-row input:checked + i { background: var(--fence-blue); box-shadow: inset 0 0 0 1px var(--fence-blue); }
 .toggle-row input:checked + i::after { transform: translateX(18px); }
 .dimension-label { padding: 3px 6px; border: 1px solid rgba(25,45,57,.12); border-radius: 6px; color: #15252e; background: rgba(255,255,255,.94); box-shadow: 0 3px 10px rgba(27,45,53,.08); font-size: 9px; font-weight: 850; white-space: nowrap; }
+.corner-point-label { min-width: 18px; padding: 2px 6px; border-radius: 999px; text-align: center; font-size: 11px; font-weight: 900; color: #0c3f5b; background: rgba(233, 247, 255, 0.98); border-color: rgba(36,124,169,.32); box-shadow: 0 4px 12px rgba(21,42,58,.14); }
 .compass-label { color: #076ea7; font-size: 10px; }
 
 .summary-section .accordion-panel { padding-top: 7px; }
@@ -181,6 +182,7 @@ body.shared-ui-dark-mode .summary-price-breakdown > div, body.shared-ui-dark-mod
 body.shared-ui-dark-mode .summary-price-breakdown span, body.shared-ui-dark-mode .summary-bom-list span, body.shared-ui-dark-mode .summary-metrics span { color: #aec0cc; }
 body.shared-ui-dark-mode .summary-price-breakdown strong, body.shared-ui-dark-mode .summary-bom-list strong, body.shared-ui-dark-mode .summary-metrics strong, body.shared-ui-dark-mode .summary-subheading { color: #edf4f7; }
 body.shared-ui-dark-mode .dimension-label { color: #e9f5fb; background: rgba(22,34,51,.94); border-color: rgba(142,194,224,.25); }
+body.shared-ui-dark-mode .corner-point-label { color: #eaf8ff; background: rgba(16,39,60,.96); border-color: rgba(134,196,233,.34); }
 body.shared-ui-dark-mode .environment-panel { color: #edf5fa; background: rgba(21,34,48,.96); border-color: rgba(255,255,255,.12); box-shadow: 0 24px 65px rgba(10,20,28,.3); }
 body.shared-ui-dark-mode .environment-panel__header button { color: #fff; }
 body.shared-ui-dark-mode .environment-control output { color: #a9c4d5; }
