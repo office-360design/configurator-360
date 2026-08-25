@@ -2612,13 +2612,11 @@ export function createWindowBuilder({
                             return;
                         }
 
-                        // 224068 and 200988 are operable-sash connection
-                        // accessories even though their reusable legacy SVGs
-                        // are authored with role=frame. Keep them on outer-frame
-                        // segments that border an opening sash only. This is
-                        // evaluated per physical frame segment so merged fixed
-                        // cells do not inherit an accessory from another sash
-                        // elsewhere in the same topology.
+                        // 224068 and 200988 are sash-connection accessories,
+                        // even when their reusable source profile has role=frame.
+                        // Filter each physical frame segment by the cell that is
+                        // actually beside it so fixed and merged-fixed windows
+                        // can never inherit them from another sash in the layout.
                         if (
                             usesFullOuterBoundary
                             && accessoryRequiresOpeningSashConnection(profile)
@@ -3811,6 +3809,47 @@ export function createWindowBuilder({
             return matching;
         }
 
+        function getEditableFixedFramePlacements(fixedCell, side) {
+            return (editableFramePlacements || []).filter(placement => {
+                if (placement.side !== side) return false;
+                return placement.windowCell === fixedCell.id
+                    || placement.cellId === fixedCell.id;
+            });
+        }
+
+        function getEditableFixedSidePlacementRect({ side, spanLength, spanCenter, sx, sy, cx, cy }) {
+            if (side === 'top' || side === 'bottom') {
+                return {
+                    width: spanLength,
+                    height: sy,
+                    originX: spanCenter,
+                    originY: cy,
+                };
+            }
+            return {
+                width: sx,
+                height: spanLength,
+                originX: cx,
+                originY: spanCenter,
+            };
+        }
+
+        function getEditableFixedOuterPlacedProfile(profile) {
+            let transform = applyFixedGlazingFollowerThicknessShift(
+                profile,
+                profile.fixedGlazingFrameCadTransform || null
+            );
+            if (!transform && isFixedGlassAnchorGasket(profile)) return null;
+            return transform
+                ? {
+                    ...profile,
+                    cadCoordinateTransform: transform,
+                    cadAlignmentShiftXMm: 0,
+                    cadAlignmentShiftYMm: 0,
+                }
+                : profile;
+        }
+
         function renderEditableFixedGlazingAccessory(profile, fixedCell, side) {
             const halfDivider = dividerFaceSpan / 2;
             let sx = fixedCell.fixedAccessoryWidth ?? fixedCell.width;
@@ -3836,20 +3875,87 @@ export function createWindowBuilder({
             }
 
             const dividerSegmentsForSide = getEditableFixedBoundarySegments(fixedCell, side);
-            if (!dividerSegmentsForSide.length) {
-                let transform = applyFixedGlazingFollowerThicknessShift(
-                    profile,
-                    profile.fixedGlazingFrameCadTransform || null
-                );
-                if (!transform && isFixedGlassAnchorGasket(profile)) return;
-                const placedProfile = transform
-                    ? {
-                        ...profile,
-                        cadCoordinateTransform: transform,
-                        cadAlignmentShiftXMm: 0,
-                        cadAlignmentShiftYMm: 0,
+
+            // Glazing beads form the perimeter of the complete fixed-light
+            // opening. Their extrusion span must therefore remain the full
+            // fixed-cell width/height even when that side contains only a short
+            // frame or mullion grid segment. The partial-segment rendering below
+            // is only needed by the frame-mounted 224063 gasket.
+            if (getProfileGroup(profile) === 'bead') {
+                if (!dividerSegmentsForSide.length) {
+                    const placedProfile = getEditableFixedOuterPlacedProfile(profile);
+                    if (!placedProfile) return;
+                    const mesh = createMiteredSide(
+                        placedProfile,
+                        sx,
+                        sy,
+                        side,
+                        profile.explodeOffset,
+                        cx,
+                        cy
+                    );
+                    mesh.userData.windowCell = fixedCell.id;
+                    mesh.userData.fixedGlazingAccessory = true;
+                    mesh.userData.fixedGlazingBead = true;
+                    mesh.userData.fixedGlazingConnectionBoundary = 'outer-frame';
+                    frameGroup.add(mesh);
+                    return;
+                }
+
+                dividerSegmentsForSide.forEach(segment => {
+                    const variantProfile = getEditableProfileVariant(profile, segment);
+                    const dividerSide = segment.negativeCellId === fixedCell.id ? 'left' : 'right';
+                    const authoredDividerSide = segment.reversed
+                        ? (dividerSide === 'left' ? 'right' : 'left')
+                        : dividerSide;
+                    const mountedTransforms = variantProfile.mullionConnectionCadTransforms || {};
+                    if (
+                        mountedTransforms[authoredDividerSide]
+                        || (
+                            variantProfile.mullionConnectionCadTransform
+                            && variantProfile.mullionConnectionCellSide === authoredDividerSide
+                        )
+                    ) {
+                        return;
                     }
-                    : profile;
+
+                    let transform = getEditableFixedGlazingDividerCadTransform({
+                        profile,
+                        divider: segment,
+                        runtimeDividerSide: dividerSide,
+                    });
+                    transform = applyFixedGlazingFollowerThicknessShift(variantProfile, transform);
+                    const placedProfile = transform
+                        ? {
+                            ...variantProfile,
+                            cadCoordinateTransform: transform,
+                            cadAlignmentShiftXMm: 0,
+                            cadAlignmentShiftYMm: 0,
+                        }
+                        : variantProfile;
+                    const mesh = createMiteredSide(
+                        placedProfile,
+                        sx,
+                        sy,
+                        side,
+                        profile.explodeOffset,
+                        cx,
+                        cy
+                    );
+                    mesh.userData.windowCell = fixedCell.id;
+                    mesh.userData.fixedGlazingAccessory = true;
+                    mesh.userData.fixedGlazingBead = true;
+                    mesh.userData.fixedGlazingConnectionBoundary =
+                        `divider-${segment.id}-${dividerSide}`;
+                    frameGroup.add(mesh);
+                });
+                return;
+            }
+
+            const framePlacementsForSide = getEditableFixedFramePlacements(fixedCell, side);
+
+            const renderFullFixedSide = (placedProfile, connectionBoundary) => {
+                if (!placedProfile) return;
                 const mesh = createMiteredSide(
                     placedProfile,
                     sx,
@@ -3861,30 +3967,29 @@ export function createWindowBuilder({
                 );
                 mesh.userData.windowCell = fixedCell.id;
                 mesh.userData.fixedGlazingAccessory = true;
-                mesh.userData.fixedGlazingBead = getProfileGroup(profile) === 'bead';
-                mesh.userData.fixedGlazingConnectionBoundary = 'outer-frame';
+                mesh.userData.fixedGlazingBead = false;
+                mesh.userData.fixedGlazingConnectionBoundary = connectionBoundary;
                 frameGroup.add(mesh);
-                return;
-            }
+            };
 
-            dividerSegmentsForSide.forEach(segment => {
+            const getDividerPlacedProfile = segment => {
                 const variantProfile = getEditableProfileVariant(profile, segment);
                 const dividerSide = segment.negativeCellId === fixedCell.id ? 'left' : 'right';
                 const authoredDividerSide = segment.reversed
                     ? (dividerSide === 'left' ? 'right' : 'left')
                     : dividerSide;
                 const mountedTransforms = variantProfile.mullionConnectionCadTransforms || {};
-                if (
+                const isMountedDirectly = Boolean(
                     mountedTransforms[authoredDividerSide]
                     || (
                         variantProfile.mullionConnectionCadTransform
                         && variantProfile.mullionConnectionCellSide === authoredDividerSide
                     )
-                ) {
-                    // The direct 224063/245472 join INSERT has already been
-                    // emitted with the divider segment; do not duplicate it as
-                    // a perimeter component.
-                    return;
+                );
+                if (isMountedDirectly) {
+                    // The direct 224063 join INSERT is emitted with the divider
+                    // segment itself, so this fixed-light pass must not duplicate it.
+                    return { placedProfile: null, dividerSide, mountedDirectly: true };
                 }
 
                 let transform = getEditableFixedGlazingDividerCadTransform({
@@ -3893,31 +3998,162 @@ export function createWindowBuilder({
                     runtimeDividerSide: dividerSide,
                 });
                 transform = applyFixedGlazingFollowerThicknessShift(variantProfile, transform);
-                if (!transform && isFixedGlassAnchorGasket(profile)) return;
-                const placedProfile = transform
-                    ? {
-                        ...variantProfile,
-                        cadCoordinateTransform: transform,
-                        cadAlignmentShiftXMm: 0,
-                        cadAlignmentShiftYMm: 0,
-                    }
-                    : variantProfile;
-                const mesh = createMiteredSide(
-                    placedProfile,
+                if (!transform && isFixedGlassAnchorGasket(profile)) {
+                    return { placedProfile: null, dividerSide, mountedDirectly: false };
+                }
+                return {
+                    placedProfile: transform
+                        ? {
+                            ...variantProfile,
+                            cadCoordinateTransform: transform,
+                            cadAlignmentShiftXMm: 0,
+                            cadAlignmentShiftYMm: 0,
+                        }
+                        : variantProfile,
+                    dividerSide,
+                    mountedDirectly: false,
+                };
+            };
+
+            // Ordinary fixed-light frame sides must keep the complete fixed-cell
+            // span. Splitting 224063 by every frame placement made the gasket
+            // visibly short on otherwise normal fixed windows. Segmentation is
+            // only required when one logical side is physically shared by an
+            // outer-frame piece and a mullion piece (the merged/re-entrant case).
+            if (!dividerSegmentsForSide.length) {
+                renderFullFixedSide(
+                    getEditableFixedOuterPlacedProfile(profile),
+                    'outer-frame'
+                );
+                return;
+            }
+
+            const hasMixedFrameAndDividerBoundary = framePlacementsForSide.length > 0;
+            if (!hasMixedFrameAndDividerBoundary) {
+                // A single divider-owned side can still use the full fixed-cell
+                // perimeter dimensions when its 224063 is not already emitted
+                // as a direct mullion INSERT. Multi-segment divider boundaries
+                // remain segmented so each join keeps its own CAD seat.
+                if (dividerSegmentsForSide.length === 1) {
+                    const segment = dividerSegmentsForSide[0];
+                    const placement = getDividerPlacedProfile(segment);
+                    if (placement.mountedDirectly) return;
+                    renderFullFixedSide(
+                        placement.placedProfile,
+                        `divider-${segment.id}-${placement.dividerSide}`
+                    );
+                    return;
+                }
+
+                dividerSegmentsForSide.forEach(segment => {
+                    const placement = getDividerPlacedProfile(segment);
+                    if (!placement.placedProfile) return;
+                    const rect = getEditableFixedSidePlacementRect({
+                        side,
+                        spanLength: segment.length,
+                        spanCenter: segment.longitudinalOffset,
+                        sx,
+                        sy,
+                        cx,
+                        cy,
+                    });
+                    const mesh = createMiteredSide(
+                        placement.placedProfile,
+                        rect.width,
+                        rect.height,
+                        side,
+                        profile.explodeOffset,
+                        rect.originX,
+                        rect.originY
+                    );
+                    mesh.userData.windowCell = fixedCell.id;
+                    mesh.userData.fixedGlazingAccessory = true;
+                    mesh.userData.fixedGlazingBead = false;
+                    mesh.userData.fixedGlazingConnectionBoundary =
+                        `divider-${segment.id}-${placement.dividerSide}`;
+                    frameGroup.add(mesh);
+                });
+                return;
+            }
+
+            // Mixed merged/re-entrant side: render only the exposed outer-frame
+            // portions here. The divider-owned 224063 copies are either emitted
+            // directly from the join CAD or, when unavailable, rendered below
+            // with the exact divider-side transform. Together they cover the
+            // full logical fixed-light edge without stretching one CAD seat over
+            // two different host profiles.
+            framePlacementsForSide.forEach(placement => {
+                const placedProfile = getEditableFixedOuterPlacedProfile(profile);
+                if (!placedProfile) return;
+                const rect = getEditableFixedSidePlacementRect({
+                    side,
+                    spanLength: side === 'top' || side === 'bottom'
+                        ? placement.width
+                        : placement.height,
+                    spanCenter: side === 'top' || side === 'bottom'
+                        ? placement.originX
+                        : placement.originY,
                     sx,
                     sy,
+                    cx,
+                    cy,
+                });
+                const mesh = createMiteredSide(
+                    placedProfile,
+                    rect.width,
+                    rect.height,
                     side,
                     profile.explodeOffset,
-                    cx,
-                    cy
+                    rect.originX,
+                    rect.originY,
+                    placement.localJointEnds?.length
+                        ? {
+                            localJointEnd: placement.localJointEnd,
+                            localJointEnds: placement.localJointEnds,
+                            faceSpan: dividerFaceSpan,
+                            frameInwardSpan: frameJointInwardSpan,
+                            endModes: placement.frameJointModes,
+                            centerShifts: placement.frameJointCenterShifts,
+                            reentrantFrameBoundaryOffset: placement.reentrantFrameBoundaryOffset,
+                        }
+                        : null
                 );
                 mesh.userData.windowCell = fixedCell.id;
                 mesh.userData.fixedGlazingAccessory = true;
-                mesh.userData.fixedGlazingBead = getProfileGroup(profile) === 'bead';
-                mesh.userData.fixedGlazingConnectionBoundary =
-                    `divider-${segment.id}-${dividerSide}`;
+                mesh.userData.fixedGlazingBead = false;
+                mesh.userData.fixedGlazingConnectionBoundary = 'outer-frame';
                 frameGroup.add(mesh);
             });
+
+            dividerSegmentsForSide.forEach(segment => {
+                const placement = getDividerPlacedProfile(segment);
+                if (!placement.placedProfile) return;
+                const rect = getEditableFixedSidePlacementRect({
+                    side,
+                    spanLength: segment.length,
+                    spanCenter: segment.longitudinalOffset,
+                    sx,
+                    sy,
+                    cx,
+                    cy,
+                });
+                const mesh = createMiteredSide(
+                    placement.placedProfile,
+                    rect.width,
+                    rect.height,
+                    side,
+                    profile.explodeOffset,
+                    rect.originX,
+                    rect.originY
+                );
+                mesh.userData.windowCell = fixedCell.id;
+                mesh.userData.fixedGlazingAccessory = true;
+                mesh.userData.fixedGlazingBead = false;
+                mesh.userData.fixedGlazingConnectionBoundary =
+                    `divider-${segment.id}-${placement.dividerSide}`;
+                frameGroup.add(mesh);
+            });
+
         }
 
         if (fixedCells.length) {
