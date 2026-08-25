@@ -2939,6 +2939,7 @@ export function createWindowBuilder({
                             ]);
                         }
 
+                        const renderedConnectionSides = new Set();
                         connectionTransforms.forEach(([cellSide, cadTransform]) => {
                             if (!cadTransform) return;
                             const runtimeCellSide = segment.reversed
@@ -2966,12 +2967,76 @@ export function createWindowBuilder({
                                 faceDirection,
                                 segmentPlacement.joint
                             );
+                            renderedConnectionSides.add(runtimeCellSide);
                             mesh.userData.mullionConnectionGasket = true;
                             mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
                             mesh.userData.connectionProfileId =
                                 variantProfile.mullionConnectionProfileId || null;
                             placeEditableDividerMesh(mesh, segment, 'connection-gasket');
                         });
+
+                        // Fixed-facing 224063 must be a real divider-mounted
+                        // component too.  Rendering it as part of the fixed-cell
+                        // perimeter gives it the cell rectangle's generic miter
+                        // ends, so at a merged-L/re-entrant junction it stops
+                        // before the structural mullion.  Use the direct CAD
+                        // mullion transform and the exact same segmentPlacement
+                        // + joint geometry as the aluminium mullion (and as the
+                        // already-correct sash-facing connection gasket).
+                        if (isFixedGlassAnchorGasket(variantProfile)) {
+                            Object.entries(
+                                variantProfile.fixedGlazingMullionCadTransforms || {}
+                            ).forEach(([cellSide, cadTransform]) => {
+                                if (!cadTransform) return;
+                                const runtimeCellSide = segment.reversed
+                                    ? (cellSide === 'left'
+                                        ? 'right'
+                                        : (cellSide === 'right' ? 'left' : cellSide))
+                                    : cellSide;
+                                if (renderedConnectionSides.has(runtimeCellSide)) return;
+                                if (
+                                    getEditableDividerSideCellType(
+                                        segment,
+                                        runtimeCellSide
+                                    ) !== 'fixed-glazing'
+                                ) {
+                                    return;
+                                }
+
+                                const placedProfile = {
+                                    ...variantProfile,
+                                    cadCoordinateTransform: cadTransform,
+                                    cadAlignmentShiftXMm: 0,
+                                    cadAlignmentShiftYMm: 0,
+                                    dividerSectionRotationDeg:
+                                        Number(connectionMetadata.sectionRotationDeg)
+                                        || Number(variantProfile.dividerSectionRotationDeg)
+                                        || 180,
+                                };
+                                const mesh = createDividerSegment(
+                                    placedProfile,
+                                    segmentPlacement.length,
+                                    segment.orientation,
+                                    segmentDividerBounds,
+                                    depthOffset,
+                                    frameJointInwardSpan,
+                                    segment.perpendicularOffset,
+                                    segmentPlacement.longitudinalOffset,
+                                    faceDirection,
+                                    segmentPlacement.joint
+                                );
+                                renderedConnectionSides.add(runtimeCellSide);
+                                mesh.userData.mullionConnectionGasket = true;
+                                mesh.userData.fixedGlazingAccessory = true;
+                                mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
+                                mesh.userData.connectionProfileId = '224063';
+                                placeEditableDividerMesh(
+                                    mesh,
+                                    segment,
+                                    'fixed-connection-gasket'
+                                );
+                            });
+                        }
 
                         Object.entries(variantProfile.mullionAccessoryCadTransforms || {})
                             .forEach(([cellSide, cadTransform]) => {
@@ -4086,11 +4151,17 @@ export function createWindowBuilder({
                     ? (dividerSide === 'left' ? 'right' : 'left')
                     : dividerSide;
                 const mountedTransforms = variantProfile.mullionConnectionCadTransforms || {};
+                const fixedMountedTransforms =
+                    variantProfile.fixedGlazingMullionCadTransforms || {};
                 const isMountedDirectly = Boolean(
                     mountedTransforms[authoredDividerSide]
                     || (
                         variantProfile.mullionConnectionCadTransform
                         && variantProfile.mullionConnectionCellSide === authoredDividerSide
+                    )
+                    || (
+                        isFixedGlassAnchorGasket(variantProfile)
+                        && fixedMountedTransforms[authoredDividerSide]
                     )
                 );
                 if (isMountedDirectly) {
