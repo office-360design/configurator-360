@@ -151,6 +151,23 @@ export class FenceScene {
     });
 
     if (['closed', 'closed5'].includes(state.layout) && this.currentBuild.runSegments.length >= 2) {
+      const cornerPoints = [
+        this.currentBuild.runSegments[0].points[0].clone(),
+        ...this.currentBuild.runSegments.map((run) => run.points[run.points.length - 1].clone()),
+      ];
+      // The last point is the closing return to A; do not label it twice.
+      cornerPoints.pop();
+      const cornerNames = state.layout === 'closed5' ? ['A', 'B', 'C', 'D', 'E'] : ['A', 'B', 'C', 'D'];
+      cornerPoints.forEach((point, index) => {
+        const outward = point.clone().sub(dimensionCenter).setY(0);
+        if (outward.lengthSq() < 0.0001) outward.set(0, 0, 1);
+        outward.normalize();
+        const label = dimensionLabel(cornerNames[index] || String.fromCharCode(65 + index));
+        label.element.classList.add('corner-point-label');
+        label.position.copy(point.clone().addScaledVector(outward, 0.26).setY(0.24));
+        this.dimensionGroup.add(label);
+      });
+
       const runAB = this.currentBuild.runSegments[0];
       const runBC = this.currentBuild.runSegments[1];
       const bPoint = runAB.points[runAB.points.length - 1].clone();
