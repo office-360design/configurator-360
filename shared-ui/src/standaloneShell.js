@@ -11,7 +11,7 @@ import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, 
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
-const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence']);
+const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
 
 function normalizeProductId(value = '') {
   const normalized = String(value).trim().toLowerCase();
@@ -366,7 +366,12 @@ export class StandaloneConfiguratorShell {
     // created. A reset request during an auth transition must wait for that state
     // instead of silently accepting a false/undefined reset.
     for (let attempt = 0; attempt < 20; attempt += 1) {
-      const callback = this.options.callbacks.createNewConfiguration;
+      // New Configuration is a shared account/navigation lifecycle. Each
+      // configurator only supplies the smallest model-specific primitive: how to
+      // restore its own default geometry/state. The shared shell owns everything
+      // else (authentication guard, draft detachment, naming, dirty state and
+      // persistence).
+      const callback = this.options.callbacks.resetConfiguration;
       if (typeof callback === 'function') {
         const handled = await Promise.resolve(callback());
         if (handled !== false) return true;
@@ -565,7 +570,7 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'undo') {
       this.options.callbacks.onUndo?.();
     } else if (action === 'reset') {
-      this.options.callbacks.onReset?.();
+      void this.resetConfiguration();
     } else if (action === 'view-ar') {
       this.options.callbacks.onViewAR?.();
     } else if (action === 'share') {
@@ -737,6 +742,16 @@ export class StandaloneConfiguratorShell {
     } finally {
       this.saveBusy = false;
       this.syncAuthenticationControls();
+    }
+  }
+
+
+  async resetConfiguration() {
+    if (!window.confirm(sharedT(this.state.locale, 'reset.confirm'))) return;
+    try {
+      await this.resetConfiguratorToDefault();
+    } catch (error) {
+      console.error('The configuration could not be reset.', error);
     }
   }
 

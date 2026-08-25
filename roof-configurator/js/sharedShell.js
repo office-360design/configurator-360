@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=18';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=19';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
 import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
@@ -66,12 +66,7 @@ const shell = mountStandaloneConfiguratorShell({
     },
   },
   callbacks: {
-    onReset() {
-      if (window.confirm(t('reset.confirm'))) {
-        window.ROOF_CONFIGURATOR_API?.resetConfiguration?.();
-      }
-    },
-    async createNewConfiguration() {
+    async resetConfiguration() {
       const api = window.ROOF_CONFIGURATOR_API;
       if (!api?.resetConfiguration) return false;
       return (await api.resetConfiguration()) !== false;
@@ -137,9 +132,16 @@ shell.host.addEventListener('click', (event) => {
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#roofSidebarToggle');
+const appShell = document.querySelector('.app-shell');
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
+let sidebarUserOverride = false;
 
 function setSidebarCollapsed(collapsed) {
   sidebar?.classList.toggle('is-collapsed', collapsed);
+  if (sidebar) {
+    sidebar.inert = Boolean(collapsed);
+    sidebar.setAttribute('aria-hidden', String(Boolean(collapsed)));
+  }
   document.body.classList.toggle('roof-sidebar-collapsed', collapsed);
   sidebarToggle?.setAttribute('aria-expanded', String(!collapsed));
   const label = t(collapsed ? 'sidebar.show' : 'sidebar.hide');
@@ -148,9 +150,26 @@ function setSidebarCollapsed(collapsed) {
 }
 
 sidebarToggle?.addEventListener('click', () => {
+  sidebarUserOverride = true;
   setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed'));
 });
-setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
+
+// Mobile is 3D-first. Mark the sidebar ready only after the initial collapsed
+// state is applied; the CSS uses this class to prevent an open-drawer flash.
+setSidebarCollapsed(mobileLayoutQuery.matches || Boolean(sidebar?.classList.contains('is-collapsed')));
+document.body.classList.add('roof-sidebar-ready');
+
+mobileLayoutQuery.addEventListener?.('change', (event) => {
+  if (!sidebarUserOverride) setSidebarCollapsed(event.matches);
+  scheduleToolsPosition();
+});
+
+appShell?.addEventListener('click', (event) => {
+  if (!mobileLayoutQuery.matches || sidebar?.classList.contains('is-collapsed')) return;
+  if (event.target.closest('.sidebar, #roofSidebarToggle')) return;
+  setSidebarCollapsed(true);
+});
+
 window.addEventListener('roof-locale-applied', () => {
   setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
   syncToolsState();
