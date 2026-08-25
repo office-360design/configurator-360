@@ -812,6 +812,52 @@ function EnergyModal({
   );
 }
 
+export function FenceControls({ locale }: { locale: Locale }) {
+  const text = locale === "ro" ? {
+    title: "GARD / LIVE", controls: "Configurează", hide: "Vezi modelul", layout: "Traseu & dimensiuni", panels: "Panouri & finisaj", access: "Acces & montaj", straight: "Drept", l: "Formă L", u: "Formă U", closed: "Închis 4", closed5: "Închis 5", runA: "Latura A", runB: "Latura B", runC: "Latura C", runD: "Latura D", angle: "Unghi B", height: "Înălțime", bay: "Lățime travee", vertical: "Vertical", horizontal: "Orizontal", privacy: "Plin", mesh: "Plasă", gap: "Spațiu lamele", anthracite: "Antracit", black: "Negru", white: "Alb", bronze: "Bronz", wood: "Lemn", noGate: "Fără poartă", pedestrian: "Pietonală", driveway: "Auto", concrete: "Fundații beton", baseplate: "Plăci de bază",
+  } : locale === "de" ? {
+    title: "ZAUN / LIVE", controls: "Konfigurieren", hide: "Modell ansehen", layout: "Verlauf & Maße", panels: "Paneele & Oberfläche", access: "Zugang & Montage", straight: "Gerade", l: "L-Form", u: "U-Form", closed: "Geschlossen 4", closed5: "Geschlossen 5", runA: "Lauf A", runB: "Lauf B", runC: "Lauf C", runD: "Lauf D", angle: "Winkel B", height: "Höhe", bay: "Zielfeldbreite", vertical: "Vertikal", horizontal: "Horizontal", privacy: "Sichtschutz", mesh: "Gitter", gap: "Lamellenabstand", anthracite: "Anthrazit", black: "Schwarz", white: "Weiß", bronze: "Bronze", wood: "Holz", noGate: "Kein Tor", pedestrian: "Personentor", driveway: "Einfahrtstor", concrete: "Betonfundamente", baseplate: "Fußplatten",
+  } : {
+    title: "FENCE / LIVE", controls: "Customize", hide: "View model", layout: "Layout & dimensions", panels: "Panels & finish", access: "Access & installation", straight: "Straight", l: "L shape", u: "U shape", closed: "Closed 4", closed5: "Closed 5", runA: "Run A", runB: "Run B", runC: "Run C", runD: "Run D", angle: "Corner angle", height: "Height", bay: "Target bay width", vertical: "Vertical", horizontal: "Horizontal", privacy: "Privacy", mesh: "Mesh", gap: "Infill gap", anthracite: "Anthracite", black: "Black", white: "White", bronze: "Bronze", wood: "Wood", noGate: "No gate", pedestrian: "Pedestrian", driveway: "Driveway", concrete: "Concrete footings", baseplate: "Base plates",
+  };
+  const [collapsed, setCollapsed] = useState(false);
+  const deckSwipe = useMobileDeckSwipe(setCollapsed);
+  const [tab, setTab] = useState<"layout" | "panels" | "access">("layout");
+  const [state, setState] = useState({ layout: "l", runA: 8, runB: 5, runC: 5, runD: 5, angleB: 90, height: 1.8, targetBayWidth: 2, panelStyle: "vertical", finish: "anthracite", infillGap: 0.035, gateType: "pedestrian", foundation: "concrete" });
+  const update = (control: string, value: string | number) => { setState((current) => ({ ...current, [control]: value })); dispatch("fence", control, value); };
+  const visibleRuns = state.layout === "straight" ? 1 : state.layout === "l" ? 2 : state.layout === "closed5" ? 4 : 3;
+  const choices = (values: Array<[string, string]>, control: string, selected: string) => <div className="fence-choice-grid">{values.map(([value, label]) => <button type="button" key={value} className={selected === value ? "active" : ""} onClick={() => update(control, value)}>{label}</button>)}</div>;
+  return (
+    <div className={`scene-controls scene-controls-panel instrument-console fence-controls ${collapsed ? "is-collapsed" : ""}`} aria-label={text.title}>
+      <div className="console-header" {...deckSwipe}><span>PERIMETER / 06</span><b>{text.title}</b><button className="console-collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed}>{collapsed ? text.controls : text.hide}</button></div>
+      <div className="console-body" aria-hidden={collapsed} inert={collapsed || undefined}>
+        <div className="fence-control-tabs" role="tablist">
+          {(["layout", "panels", "access"] as const).map((value) => <button type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} key={value} onClick={() => setTab(value)}>{value === "layout" ? text.layout : value === "panels" ? text.panels : text.access}</button>)}
+        </div>
+        {tab === "layout" && <div className="fence-control-section">
+          {choices([["straight", text.straight], ["l", text.l], ["u", text.u], ["closed", text.closed], ["closed5", text.closed5]], "layout", state.layout)}
+          <Range label={text.runA} value={state.runA} min={2} max={20} step={.5} unit=" m" onChange={(value) => update("runA", value)} />
+          {visibleRuns >= 2 && <Range label={text.runB} value={state.runB} min={2} max={15} step={.5} unit=" m" onChange={(value) => update("runB", value)} />}
+          {visibleRuns >= 3 && <Range label={text.runC} value={state.runC} min={2} max={15} step={.5} unit=" m" onChange={(value) => update("runC", value)} />}
+          {visibleRuns >= 4 && <Range label={text.runD} value={state.runD} min={2} max={15} step={.5} unit=" m" onChange={(value) => update("runD", value)} />}
+          {visibleRuns >= 2 && <Range label={text.angle} value={state.angleB} min={45} max={135} step={5} unit="°" onChange={(value) => update("angleB", value)} />}
+          <Range label={text.height} value={state.height} min={1} max={2.6} step={.1} unit=" m" onChange={(value) => update("height", value)} />
+          <Range label={text.bay} value={state.targetBayWidth} min={1} max={3} step={.1} unit=" m" onChange={(value) => update("targetBayWidth", value)} />
+        </div>}
+        {tab === "panels" && <div className="fence-control-section">
+          {choices([["vertical", text.vertical], ["horizontal", text.horizontal], ["privacy", text.privacy], ["mesh", text.mesh]], "panelStyle", state.panelStyle)}
+          {state.panelStyle !== "privacy" && state.panelStyle !== "mesh" && <Range label={text.gap} value={state.infillGap} min={.015} max={.09} step={.005} unit=" m" onChange={(value) => update("infillGap", value)} />}
+          <div className="fence-finish-grid">{[["anthracite", "#343a40", text.anthracite], ["black", "#181b1e", text.black], ["white", "#e7e7e2", text.white], ["bronze", "#5e5145", text.bronze], ["wood", "#9b6539", text.wood]].map(([value, color, label]) => <button type="button" key={value} className={state.finish === value ? "active" : ""} onClick={() => update("finish", value)}><i style={{ background: color }} /><span>{label}</span></button>)}</div>
+        </div>}
+        {tab === "access" && <div className="fence-control-section">
+          {choices([["none", text.noGate], ["pedestrian", text.pedestrian], ["driveway", text.driveway]], "gateType", state.gateType)}
+          {choices([["concrete", text.concrete], ["baseplate", text.baseplate]], "foundation", state.foundation)}
+        </div>}
+      </div>
+    </div>
+  );
+}
+
 export function SolarControls({ locale }: { locale: Locale }) {
   const t = copy[locale];
   const [collapsed, setCollapsed] = useState(false);

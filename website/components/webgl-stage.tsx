@@ -10,7 +10,9 @@ import { calculatePrice as calculatePergolaPrice } from "../lib/scenes/pergola-p
 import { calculateBom } from "../lib/scenes/roof-bom.js";
 import {
   buildHallPreview,
+  buildFencePreview,
   buildSolarPreview,
+  createFencePreviewState,
   createHallPreviewState,
   createSolarPreviewState,
   type HallPreviewState,
@@ -216,6 +218,10 @@ function emitPrice(scene: ConfiguratorSlug, total: number, currency: string) {
   window.dispatchEvent(new CustomEvent("configurator-price", { detail: { scene, total, currency } }));
 }
 
+function emitRoofBom(state: ReturnType<typeof createRoofState>, metrics: unknown) {
+  window.dispatchEvent(new CustomEvent("roof-bom", { detail: calculateBom(state, metrics) }));
+}
+
 function makeWindowShell() {
   const wrapper = new THREE.Group();
   wrapper.name = "window";
@@ -290,6 +296,7 @@ export function WebGLStage() {
     const roofState = createRoofState();
     const hallState = createHallPreviewState();
     const solarState = createSolarPreviewState();
+    const fenceState = createFencePreviewState();
     let solarEnvironment: SolarEnvironmentData | null = null;
     let solarEnvironmentRequest: AbortController | null = null;
     const groups: Record<ConfiguratorSlug, THREE.Group> = {
@@ -298,11 +305,13 @@ export function WebGLStage() {
       window: makeWindowShell(),
       hall: new THREE.Group(),
       solar: new THREE.Group(),
+      fence: new THREE.Group(),
     };
     groups.pergola.name = "pergola";
     groups.roof.name = "roof";
     groups.hall.name = "hall";
     groups.solar.name = "solar";
+    groups.fence.name = "fence";
     const builtScenes = new Set<ConfiguratorSlug>(["window"]);
     Object.values(groups).forEach((group) => {
       group.scale.setScalar(0.001);
@@ -349,11 +358,13 @@ export function WebGLStage() {
       // Lift the configured house and its closest context above the compact
       // instrument console while retaining the wider geographic overview.
       solar: { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: -4.05 },
+      fence: { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: -0.35 },
     };
     let pergolaRebuildTimer = 0;
     let roofRebuildTimer = 0;
     let hallRebuildTimer = 0;
     let solarRebuildTimer = 0;
+    let fenceRebuildTimer = 0;
 
     function applyPergolaEnvironment(night: boolean) {
       pergolaState.roof.louverTilt = night ? 34 : 0;
@@ -382,7 +393,9 @@ export function WebGLStage() {
         if (oldModel) { groups.roof.remove(oldModel); disposeObject(oldModel); }
         const metrics = buildRoofInto(groups.roof, roofState);
         applyGroundTheme(groups.roof, document.documentElement.dataset.theme === "light");
-        emitPrice("roof", calculateBom(roofState, metrics).total, "RON");
+        const bom = calculateBom(roofState, metrics);
+        emitPrice("roof", bom.total, "RON");
+        window.dispatchEvent(new CustomEvent("roof-bom", { detail: bom }));
       }, 45);
     }
 
@@ -414,6 +427,17 @@ export function WebGLStage() {
       if (key === "hall") hallRebuildTimer = next; else solarRebuildTimer = next;
     }
 
+    function rebuildFence() {
+      window.clearTimeout(fenceRebuildTimer);
+      fenceRebuildTimer = window.setTimeout(() => {
+        const oldModel = groups.fence.userData.model as THREE.Object3D;
+        if (oldModel) { groups.fence.remove(oldModel); disposeObject(oldModel); }
+        buildExtendedInto(groups.fence, buildFencePreview(fenceState), 8.8);
+        applyGroundTheme(groups.fence, document.documentElement.dataset.theme === "light");
+        window.dispatchEvent(new CustomEvent("fence-metrics", { detail: groups.fence.userData.metrics }));
+      }, 42);
+    }
+
     function ensureSceneBuilt(sceneName: ConfiguratorSlug) {
       if (builtScenes.has(sceneName)) return;
       if (sceneName === "pergola") {
@@ -427,6 +451,9 @@ export function WebGLStage() {
       } else if (sceneName === "solar") {
         buildExtendedInto(groups.solar, buildSolarPreview(solarState, solarEnvironment), 7.1);
         window.dispatchEvent(new CustomEvent("solar-metrics", { detail: groups.solar.userData.metrics }));
+      } else if (sceneName === "fence") {
+        buildExtendedInto(groups.fence, buildFencePreview(fenceState), 8.8);
+        window.dispatchEvent(new CustomEvent("fence-metrics", { detail: groups.fence.userData.metrics }));
       }
       applyGroundTheme(groups[sceneName], document.documentElement.dataset.theme === "light");
       builtScenes.add(sceneName);
@@ -551,6 +578,10 @@ export function WebGLStage() {
         rebuildPergola();
       }
       if (detail.scene === "roof") {
+        if (detail.control === "requestBom") {
+          emitRoofBom(roofState, groups.roof.userData.metrics);
+          return;
+        }
         if (detail.control === "requestPrice") {
           const metrics = groups.roof.userData.metrics;
           emitPrice("roof", calculateBom(roofState, metrics).total, "RON");
@@ -612,6 +643,25 @@ export function WebGLStage() {
         if (detail.control === "nudgeEast") solarState.environmentLocalEastM = Number(detail.value);
         if (detail.control === "nudgeNorth") solarState.environmentLocalNorthM = Number(detail.value);
         rebuildExtended("solar");
+      }
+      if (detail.scene === "fence") {
+        if (detail.control === "layout") fenceState.layout = String(detail.value);
+        if (detail.control === "runA") fenceState.runA = Number(detail.value);
+        if (detail.control === "runB") fenceState.runB = Number(detail.value);
+        if (detail.control === "runC") fenceState.runC = Number(detail.value);
+        if (detail.control === "runD") fenceState.runD = Number(detail.value);
+        if (detail.control === "angleB") fenceState.angleB = Number(detail.value);
+        if (detail.control === "height") fenceState.height = Number(detail.value);
+        if (detail.control === "targetBayWidth") fenceState.targetBayWidth = Number(detail.value);
+        if (detail.control === "panelStyle") fenceState.panelStyle = String(detail.value);
+        if (detail.control === "finish") fenceState.finish = String(detail.value);
+        if (detail.control === "infillGap") fenceState.infillGap = Number(detail.value);
+        if (detail.control === "foundation") fenceState.foundation = String(detail.value);
+        if (detail.control === "gateType") {
+          const type = String(detail.value);
+          fenceState.gates = type === "none" ? [] : [{ id: "gate-1", type, runId: "a", position: 1, handing: "right" }];
+        }
+        rebuildFence();
       }
     }
     function onOrbit(event: Event) {
@@ -727,7 +777,7 @@ export function WebGLStage() {
         frameSampleCount = 0;
         // A coarse/mobile viewport wakes this loop via scroll or resize. Avoid
         // spending even a low-frequency render budget while the canvas is offscreen.
-        if (!compact) scheduleFrame(500);
+        if (!compactViewport) scheduleFrame(500);
         return;
       }
       const handingOff = desiredActive !== active;
@@ -777,6 +827,7 @@ export function WebGLStage() {
       }
       if (active === "hall") groups.hall.rotation.y += ((Math.PI - 0.38 + pointerX * .035) - groups.hall.rotation.y) * .045;
       if (active === "solar") groups.solar.rotation.y += ((-0.32 + pointerX * .035) - groups.solar.rotation.y) * .045;
+      if (active === "fence") groups.fence.rotation.y += ((-0.4 + pointerX * .035) - groups.fence.rotation.y) * .045;
 
       const desiredCamera = active === "pergola"
         ? new THREE.Vector3(9.8, 7.4, 14.8)
@@ -786,6 +837,8 @@ export function WebGLStage() {
             ? new THREE.Vector3(11.8, 7.2, 15.8)
           : active === "solar"
             ? new THREE.Vector3(11.8, 8.2, 16.6)
+          : active === "fence"
+            ? new THREE.Vector3(11.2, 7.4, 15.6)
           : active === "window"
             ? new THREE.Vector3(3.8, 2.6, 14.2)
             : new THREE.Vector3(4.6 - heroProgress * 1.4, 2.5 + heroProgress * 1.8, 14.8 - heroProgress * 4.5);
@@ -839,6 +892,7 @@ export function WebGLStage() {
       window.clearTimeout(roofRebuildTimer);
       window.clearTimeout(hallRebuildTimer);
       window.clearTimeout(solarRebuildTimer);
+      window.clearTimeout(fenceRebuildTimer);
       solarEnvironmentRequest?.abort();
       environmentTarget.dispose();
       renderer.dispose(); renderer.domElement.remove(); disposeScene(scene);

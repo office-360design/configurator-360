@@ -94,6 +94,24 @@ const ro: Record<ConfiguratorSlug, Translation> = {
     seoTitle: "Configurator Panouri Solare 3D | Sistem Fotovoltaic",
     seoDescription: "Configurează un sistem fotovoltaic rezidențial în 3D cu geometria acoperișului, panouri, poziția soarelui, consum, baterie și analiză energetică.",
   },
+  fence: {
+    category: "Sisteme perimetrale", title: "Garduri & Sisteme Perimetrale", shortTitle: "Sisteme de gard",
+    statement: "Definește limita. Rezolvă fiecare panou.",
+    description: "Un configurator parametric de garduri care coordonează traseul perimetrului, traveile, panourile, finisajele, porțile de acces și fundațiile într-un singur sistem 3D măsurabil.",
+    controls: ["Traseu", "Panouri", "Acces"],
+    features: [
+      { title: "Traseu perimetral parametric", short: "Traseu", body: "Construiește garduri drepte, în L, în U sau perimetre închise din lungimi și unghiuri măsurabile. Fiecare schimbare reconstruiește traseul complet și păstrează relația corectă dintre capete, colțuri și geometria de montaj." },
+      { title: "Sistem de travei rezolvat", short: "Travei", body: "Alege lățimea țintă, iar fiecare latură este împărțită în panouri egale și practice. Stâlpii, golurile și lățimile panourilor rămân coordonate când perimetrul se schimbă, fără panouri deformate la capăt." },
+      { title: "Construcția panourilor", short: "Panouri", body: "Compară lamele verticale, lamele orizontale, panouri pline și plasă sudată în aceeași structură. Distanțele și geometria umpluturii rămân vizibile, astfel încât alegerea exprimă construcția și gradul de intimitate." },
+      { title: "Specificația finisajului", short: "Finisaje", body: "Aplică finisaje vopsite și efect de lemn pe stâlpi, traverse, panouri și porți ca o singură selecție de sistem. Finisajul rămâne conectat la geometrie și la lista comercială de materiale." },
+      { title: "Acces și fundații", short: "Acces", body: "Poziționează porți pietonale sau auto în travei valide, stabilește sensul de deschidere și coordonează golul cu stâlpii adiacenți. Fundațiile din beton și plăcile de bază fac parte din configurație." },
+      { title: "Rezultat comercial măsurabil", short: "BOM", body: "Calculează lungimea totală, suprafața panourilor, numărul de travei și stâlpi, porțile și componentele de montaj din perimetrul activ. BOM-ul și prețul pornesc din aceeași geometrie prezentată clientului." },
+    ],
+    outputs: ["Listă de materiale", "Plan de travei", "Specificație porți", "Perimetru configurat"],
+    seoH1: "Configurator garduri 3D online",
+    seoTitle: "Configurator Garduri 3D | Panouri, Porți & Perimetru",
+    seoDescription: "Configurează un gard online în 3D. Alege traseul, dimensiunile, traveile, panourile, finisajele, porțile și fundațiile cu BOM și preț live.",
+  },
 };
 
 const de: Record<ConfiguratorSlug, Translation> = {
@@ -186,6 +204,24 @@ const de: Record<ConfiguratorSlug, Translation> = {
     seoH1: "3D Photovoltaik-Konfigurator",
     seoTitle: "3D Solar-Konfigurator | Photovoltaik-Anlage planen",
     seoDescription: "Konfigurieren Sie eine Photovoltaik-Anlage in 3D mit Dachgeometrie, Modulbelegung, Sonnenstand, Verbrauch, Batteriespeicher und Energieanalyse.",
+  },
+  fence: {
+    category: "Perimetersysteme", title: "Zaun & Perimetersystem", shortTitle: "Zaunsysteme",
+    statement: "Die Grenze definieren. Jedes Feld auflösen.",
+    description: "Ein parametrischer Zaun-Konfigurator, der Verlauf, Feldteilung, Paneelbauweise, Oberflächen, Tore und Fundamente in einem messbaren 3D-System koordiniert.",
+    controls: ["Verlauf", "Paneele", "Zugang"],
+    features: [
+      { title: "Parametrischer Perimeter", short: "Verlauf", body: "Bauen Sie gerade, L- und U-förmige oder geschlossene Zaunverläufe aus messbaren Längen und Winkeln. Jede Änderung erzeugt den gesamten Verlauf neu und hält Endpunkte, Ecken und Montagegeometrie konsistent." },
+      { title: "Aufgelöstes Feldraster", short: "Felder", body: "Definieren Sie eine Zielfeldbreite; jeder Lauf wird in praktische, gleichmäßige Paneele geteilt. Pfosten, lichte Öffnungen und Paneelbreiten bleiben bei Änderungen koordiniert, ohne verzerrte Restfelder am Ende." },
+      { title: "Paneelkonstruktion", short: "Paneele", body: "Vergleichen Sie vertikale und horizontale Lamellen, geschlossene Sichtschutzpaneele und Schweißgitter im selben Rahmen. Abstände und Füllgeometrie bleiben sichtbar und erklären Konstruktion und Privatsphäre statt nur Farbe." },
+      { title: "Oberflächenspezifikation", short: "Oberfläche", body: "Wenden Sie Pulverbeschichtungen und Holzoptik auf Pfosten, Riegel, Paneele und Tore als gemeinsame Systemauswahl an. Die Oberfläche bleibt mit Geometrie und kaufmännischer Materialliste verbunden." },
+      { title: "Zugang und Fundamente", short: "Zugang", body: "Positionieren Sie Personen- oder Einfahrtstore in gültigen Feldern, wählen Sie den Anschlag und koordinieren Sie die Öffnung mit benachbarten Pfosten. Betonfundamente und Fußplatten sind Teil des Produktzustands." },
+      { title: "Messbarer kaufmännischer Output", short: "BOM", body: "Ermitteln Sie Gesamtlänge, Paneelfläche, Felder, Pfosten, Tore und Montagekomponenten aus dem aktiven Verlauf. Stückliste und Preis werden aus derselben Geometrie aktualisiert, die der Kunde sieht." },
+    ],
+    outputs: ["Stückliste", "Feldplan", "Torspezifikation", "Konfigurierter Perimeter"],
+    seoH1: "3D Zaun-Konfigurator online",
+    seoTitle: "3D Zaun-Konfigurator | Paneele, Tore & Verlauf",
+    seoDescription: "Konfigurieren Sie einen Zaun online in 3D. Wählen Sie Verlauf, Maße, Feldbreite, Paneele, Oberflächen, Tore und Fundamente mit Stückliste und Preislogik.",
   },
 };
 

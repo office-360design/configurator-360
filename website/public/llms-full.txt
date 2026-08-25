@@ -11,6 +11,12 @@
 5. Dynamic day and night lighting: environmental lighting communicates material, shadow and integrated-light behavior.
 6. Unified interface: visual choices, technical dependencies and commercial results share a coherent interaction system.
 
+## Commercial deployment paths
+
+360Configurator uses three commercial paths. Existing System is a subscription for a proven system whose established geometry and rules fit the product. Adapted System combines one-time product-specific adaptation with an ongoing platform subscription. Custom System combines implementation of a new configuration engine with an ongoing subscription. Public euro prices are not presented because geometry, data readiness, rules, BOM and pricing complexity, workflows, integrations, markets and launch requirements determine implementation scope. A technical review establishes product fit, the boundary between standard setup and engineering, and the recommended commercial path.
+
+Canonical page: https://360configurator.com/pricing
+
 ## Pergola and outdoor architecture configurator
 
 The pergola system supports parametric dimensions, louver-angle control, four independently configurable sides, screens, privacy walls, sliding glass, daylight and night environments, perimeter LEDs, selectable light color, integrated spotlights, automation, sensors, accessories and live project pricing.
@@ -45,6 +51,13 @@ The solar system connects Romanian address context, date, season, real time of d
 
 Canonical page: https://360configurator.com/configurators/solar
 Live system: https://www.360configurator.com/solar-configurator/
+
+## Fence and perimeter system configurator
+
+The fence configurator resolves straight, L-shaped, U-shaped and closed perimeter layouts into measurable runs, equal bays, coordinated posts and configurable panels. It supports vertical and horizontal slats, privacy panels, welded mesh, multiple finishes, pedestrian and driveway gates, concrete or base-plate foundations, and geometry-driven BOM and pricing outputs.
+
+Canonical page: https://360configurator.com/configurators/fence
+Live system: https://www.360configurator.com/fence-configurator/
 
 ## Intended audiences
 

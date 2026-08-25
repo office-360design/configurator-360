@@ -29,7 +29,7 @@ export const DEFAULT_FENCE_STATE = Object.freeze({
   gates: Object.freeze([
     Object.freeze({ id: 'gate-1', type: 'pedestrian', runId: 'a', position: 1, handing: 'right' }),
   ]),
-  scenery: true,
+  scenery: false,
   showDimensions: true,
   compassVisible: false,
   technicalEdges: false,

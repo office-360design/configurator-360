@@ -82,6 +82,12 @@ export function LocalizedHome({ locale }: { locale: Locale }) {
         </article>)}
       </section>
 
+      <section className="custom-showcase" id="custom-system"><div className="page-frame custom-showcase-grid">
+        <div className="custom-feature-column"><ProductFeatureCube label={copy.customViewport} locale={locale} features={copy.customFeatures.map(([title, short, body]) => ({ title, short, body }))}/></div>
+        <div className="custom-blueprint" aria-label={copy.customViewport}><div className="viewport-brackets" aria-hidden="true"><i/><i/><i/><i/></div><span className="viewport-status mono-label"><i/> {copy.customViewport}</span><div className="blueprint-flow"><article><span>01 / INPUT</span><strong>CAD</strong><small>{copy.customStatus}</small></article><i>→</i><article><span>02 / LOGIC</span><strong>RULES</strong><small>{copy.customSignal}</small></article><i>→</i><article><span>03 / SYSTEM</span><strong>360°</strong><small>CONFIGURE / PRICE / OUTPUT</small></article></div><div className="blueprint-product"><i/><i/><i/><i/><div><span>PRODUCT</span><b>STATE</b></div></div></div>
+        <div className="custom-showcase-story"><span className="mono-label">{copy.customLabel.replace("06 /", "07 /")}</span><h2>{copy.customA}<br/><em>{copy.customB}</em></h2><p className="custom-statement">{copy.customStatement}</p><p>{copy.customCopy}</p><div className="custom-showcase-actions"><a className="launch-link" href={`${localizedPath(locale, "/contact")}?project=custom-system`}>{copy.customCta}<span>↗</span></a><a className="text-link" href={`${localizedPath(locale, "/pricing")}#deployment-paths`}>{copy.customPricing}<span>→</span></a></div></div>
+      </div></section>
+
       <section className="capability-field"><div className="page-frame"><div className="capability-heading" data-reveal><span className="mono-label">{copy.pipeline}</span><h2>{copy.pipelineA}<br/><em>{copy.pipelineB}</em></h2></div>
         <div className="capability-list">{copy.capabilities.map(([title, body], index) => <article key={title} data-reveal><span>0{index+1}</span><h3>{title}</h3><p>{body}</p><i>↗</i></article>)}</div>
       </div></section>

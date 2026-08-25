@@ -5,9 +5,12 @@ import { state as solarDefaults } from "./solar-state.js";
 import { buildRoofModel as buildSolarRoofModel } from "./solar-roof-factory.js";
 import { buildSolarArray } from "./solar-factory.js";
 import { solarDirection } from "./solar-position";
+import { buildFenceAssembly } from "../../../fence-configurator/js/fenceFactory.js";
+import { createFenceState } from "../../../fence-configurator/js/state.js";
 
 export type HallPreviewState = typeof hallDefaults;
 export type SolarPreviewState = typeof solarDefaults;
+export type FencePreviewState = ReturnType<typeof createFenceState>;
 export type SolarEnvironmentData = {
   center?: { lat: number; lon: number };
   radiusM?: number;
@@ -27,6 +30,20 @@ export function createHallPreviewState(): HallPreviewState {
 /** Exact Solar configurator state, including its production defaults and PV layout. */
 export function createSolarPreviewState(): SolarPreviewState {
   return clone(solarDefaults);
+}
+
+export function createFencePreviewState(): FencePreviewState {
+  return createFenceState({ scenery: false, showDimensions: false, technicalEdges: false, cameraPreset: "3d" });
+}
+
+export function buildFencePreview(state: FencePreviewState) {
+  const result = buildFenceAssembly(state);
+  const root = result.root as THREE.Group;
+  root.name = "fence-configurator-default-scene";
+  root.userData.metrics = result.metrics;
+  root.userData.preferredSize = 8.8;
+  markShadows(root);
+  return root;
 }
 
 function markShadows(root: THREE.Object3D) {

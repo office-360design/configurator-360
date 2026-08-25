@@ -5,6 +5,22 @@
   --control-surface: rgba(5, 8, 11, 0.5);
 }
 
+/* Fence preview: a compact right-side instrument panel using the real fence state. */
+.fence-controls{left:auto!important;right:14px!important;bottom:14px!important;width:min(350px,48%)!important;max-height:calc(100% - 28px);overflow:auto;background:color-mix(in srgb,var(--canvas) 89%,transparent)!important;backdrop-filter:blur(18px) saturate(125%)}
+.fence-controls .console-header{grid-template-columns:1fr auto;gap:5px 12px}.fence-controls .console-header>span{grid-column:1}.fence-controls .console-header>b{grid-column:1}.fence-controls .console-collapse{grid-column:2;grid-row:1/3}
+.fence-control-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--line-strong)}
+.fence-control-tabs button{min-height:42px;padding:7px;border:0;border-right:1px solid var(--line);background:transparent;color:var(--muted);font:700 8px/1.15 var(--mono);letter-spacing:.04em;text-transform:uppercase}.fence-control-tabs button:last-child{border-right:0}.fence-control-tabs button.active{background:var(--brand);color:#fff}
+.fence-control-section{display:grid;gap:12px;padding-top:13px}
+.fence-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--line)}.fence-choice-grid button{min-height:34px;padding:6px;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:transparent;color:var(--muted);font:700 8px var(--mono);text-transform:uppercase}.fence-choice-grid button.active{background:color-mix(in srgb,var(--brand) 16%,transparent);color:var(--brand)}
+.fence-controls .scene-range{padding:0}.fence-controls .scene-range span,.fence-controls .scene-range b{font-size:9px}
+.fence-finish-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}.fence-finish-grid button{min-width:0;padding:5px 2px;border:1px solid transparent;background:transparent;color:var(--muted);font:600 7px var(--mono);text-transform:uppercase}.fence-finish-grid button.active{border-color:var(--brand);color:var(--ink)}.fence-finish-grid i{display:block;width:22px;height:22px;margin:0 auto 5px;border:1px solid color-mix(in srgb,var(--ink) 20%,transparent);border-radius:50%}.fence-finish-grid span{display:block;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:720px),((max-width:1050px) and (pointer:coarse)){
+  .fence-controls{left:12px!important;right:12px!important;bottom:12px!important;width:auto!important;max-height:64%!important}
+  .fence-controls.is-collapsed{max-height:none!important}
+  .fence-control-tabs button{min-height:38px;font-size:7px}
+  .fence-control-section{gap:9px;padding-top:9px}
+}
+
 :root[data-theme="light"] {
   --spatial-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.34), rgba(235, 241, 242, 0.1));
   --spatial-glass-line: rgba(7, 97, 170, 0.2);
@@ -2784,6 +2800,18 @@
 .energy-modal-panel h2 { margin: 8px 0 22px; font-size: clamp(30px,3.1vw,50px); letter-spacing: -.055em; text-transform: uppercase; }
 .energy-date-line{margin:-17px 0 22px;color:var(--brand);font:600 11px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase}
 .energy-modal-panel header > button { min-height: 42px; padding: 0 14px; color: var(--ink); border: 1px solid var(--line-strong); background: transparent; font: 600 11px var(--mono); text-transform: uppercase; }
+.roof-bom-bubble{left:auto;right:-72px}
+.roof-bom-panel{width:min(760px,52vw)}
+.roof-bom-panel header p{margin:0;color:var(--muted);font-size:13px}
+.roof-bom-table{margin-top:22px;border-top:1px solid var(--line-strong)}
+.roof-bom-row{display:grid;grid-template-columns:minmax(220px,1fr) 62px 70px 120px;gap:12px;align-items:center;min-height:50px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}
+.roof-bom-row>span:last-child{text-align:right;font-family:var(--mono);font-size:10px}
+.roof-bom-row b{font:600 11px var(--mono)}
+.roof-bom-head{min-height:36px;color:var(--muted);font:600 9px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.roof-bom-summary{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:end;margin-top:22px}
+.roof-bom-summary>div{display:grid;grid-template-columns:1fr auto;gap:8px 24px;color:var(--muted);font-size:11px}
+.roof-bom-summary strong{padding-top:10px;color:var(--ink);border-top:1px solid var(--line-strong);font-size:15px}
+.roof-bom-summary>button{min-height:44px;padding:0 18px;border:1px solid var(--brand);background:var(--brand);color:#fff;font:700 10px var(--mono);letter-spacing:.08em;text-transform:uppercase}
 .energy-kpis { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); border: 1px solid var(--line); }
 .energy-kpis span,.energy-summary span { padding: 16px; border-right: 1px solid var(--line); }
 .energy-kpis span:last-child,.energy-summary span:last-child { border-right: 0; }
@@ -3006,6 +3034,10 @@
   .energy-modal-backdrop{background:rgba(3,5,8,.72);backdrop-filter:blur(18px) saturate(1.15);pointer-events:auto}
   .energy-modal-panel { position:relative;inset:auto;width:100%;max-height:94svh;padding:20px 14px; }
   .analytics-bubble{left:12px;right:auto;top:76px;width:76px;height:76px;padding:9px}.analytics-bubble b,.analytics-bubble span{font-size:10px}.analytics-bubble i{right:10px;bottom:8px}.nudge-pad{justify-self:center}
+  .roof-bom-bubble{left:auto;right:12px}
+  .roof-bom-panel{width:100%}
+  .roof-bom-row{grid-template-columns:minmax(120px,1fr) 38px 42px 86px;gap:7px;font-size:10px}
+  .roof-bom-summary{grid-template-columns:1fr}
   .energy-modal-panel header { align-items: start; }
   .energy-modal-panel h2 { font-size: 34px; }
   .energy-modal-panel header > button { max-width: 100px; }
@@ -3638,4 +3670,16 @@ html {
   .showcase-solar .analytics-bubble span { display: none; }
   .showcase-solar .analytics-bubble b { margin: 0; font-size: 7.5px; line-height: 1.05; }
   .showcase-solar .analytics-bubble i { right: 6px; bottom: 4px; font-size: 9px; }
+}
+
+/* Keep the fence instrument contained after the shared mobile console rules. */
+@media(max-width:720px),((max-width:1050px) and (pointer:coarse)){
+  .fence-controls:not(.is-collapsed){height:auto!important;max-height:none!important;overflow:visible!important}
+  .fence-controls:not(.is-collapsed) .console-body{position:relative!important;height:auto!important;max-height:none!important;overflow:visible!important}
+}
+@media(min-width:721px) and (max-width:1050px){
+  .fence-controls{width:min(240px,58%)!important}
+}
+@media(min-width:1051px){
+  .detail-fence .detail-hero-inner{grid-template-columns:.62fr 1.85fr .58fr;gap:28px}
 }

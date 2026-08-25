@@ -66,6 +66,7 @@ export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Loca
               <p>{copy.more}</p>
             </div>
           </div>
+          <a href={localizedPath(locale, "/pricing")}>{copy.pricing}</a>
           <a href={localizedPath(locale, "/about")}>{copy.about}</a>
         </nav>
         <div className="header-actions">
@@ -86,6 +87,7 @@ export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Loca
               <a href={localizedPath(locale)}>{copy.home}</a>
               <a href={`${localizedPath(locale)}#configurators`}>{copy.configurators}</a>
               {configurators.map((item) => <a key={item.slug} href={localizedPath(locale, `/configurators/${item.slug}`)}>{item.shortTitle}<span>→</span></a>)}
+              <a href={localizedPath(locale, "/pricing")}>{copy.pricing}<span>→</span></a>
               <a href={localizedPath(locale, "/about")}>{copy.about}</a>
               <a href={localizedPath(locale, "/contact")}>{copy.contact}</a>
             </div>
