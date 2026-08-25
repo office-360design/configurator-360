@@ -16,6 +16,7 @@ import {
     getHorizontalConnectionFaceDirection,
     getTopFixedBottomSashSashLayout,
     getFrameDividerSocketInset,
+    getFrameHalfFrameSocketInset,
     getFrameDividerMiterContactStart,
     getFrameGridMiterInset,
     getFrameMixedPlusMiterInset,
@@ -29,6 +30,7 @@ import {
     getEditableReentrantFramePlacement,
     getEditableFixedGlazingDividerCadTransform,
     getReentrantFillerTriangle,
+    getHalfFrameTriangle,
 } from './window-layout-geometry.js';
 import {
     getDividerConnectionVariantKey,
@@ -656,6 +658,46 @@ export function createWindowBuilder({
         return true;
     }
 
+    function clipFrameMeshToHalfFrameTriangle(mesh, filler) {
+        const triangle = getHalfFrameTriangle({
+            filler,
+            frameReferenceSpan: filler?.frameReferenceSpan,
+        });
+        if (!mesh?.geometry || triangle.length !== 3) return false;
+
+        const [a, b, c] = triangle;
+        const area2 = (b.x - a.x) * (c.y - a.y)
+            - (b.y - a.y) * (c.x - a.x);
+        if (Math.abs(area2) <= 1e-12) return false;
+        const windingSign = area2 > 0 ? 1 : -1;
+
+        [[a, b], [b, c], [c, a]].forEach(([p0, p1]) => {
+            const previousGeometry = mesh.geometry;
+            const clippedGeometry = clipBufferGeometryToScalarHalfspace(
+                previousGeometry,
+                rawPoint => {
+                    const worldX = rawPoint.x + (Number(mesh.position.x) || 0);
+                    const worldY = rawPoint.y + (Number(mesh.position.y) || 0);
+                    const edgeX = p1.x - p0.x;
+                    const edgeY = p1.y - p0.y;
+                    const pointX = worldX - p0.x;
+                    const pointY = worldY - p0.y;
+                    return windingSign * (edgeX * pointY - edgeY * pointX);
+                }
+            );
+            if (clippedGeometry !== previousGeometry) previousGeometry.dispose();
+            mesh.geometry = clippedGeometry;
+        });
+
+        const positions = mesh.geometry?.attributes?.position;
+        if (!positions || positions.count < 3) return false;
+        mesh.geometry.deleteAttribute('normal');
+        mesh.geometry.computeVertexNormals();
+        mesh.geometry.computeBoundingBox();
+        mesh.geometry.computeBoundingSphere();
+        return true;
+    }
+
     const templateGeometryCache = new Map();
 
     function getTemplateGeometry(profile) {
@@ -716,6 +758,7 @@ export function createWindowBuilder({
         const hasFrameProfileBreakJoint = [...dividerJointEnds].some(localEnd => {
             const mode = getFrameJointEndMode(localEnd);
             return mode === 'socket'
+                || mode === 'half-frame-socket'
                 || mode === 'shifted-socket'
                 || mode === 'mixed-plus'
                 || mode === 'mixed-reentrant';
@@ -799,6 +842,13 @@ export function createWindowBuilder({
                 }
                 if (mode === 'socket') {
                     return getFrameDividerSocketInset({
+                        inwardDistance: inw,
+                        dividerFaceSpan: dividerJoint.faceSpan,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                    });
+                }
+                if (mode === 'half-frame-socket') {
+                    return getFrameHalfFrameSocketInset({
                         inwardDistance: inw,
                         dividerFaceSpan: dividerJoint.faceSpan,
                         frameInwardSpan: dividerJoint.frameInwardSpan,
@@ -2669,6 +2719,74 @@ export function createWindowBuilder({
                     });
                 });
             });
+
+        // A normal perimeter T (for example the top/bottom end of the
+        // mullion between two side-by-side windows) contains one small outer
+        // frame triangle. The host frame ends use `half-frame-socket`, which
+        // removes that triangle from both complete frame runs. Render it once
+        // here from the real frame profile so the intersection has explicit
+        // ownership and no coincident/overlapping frame stock.
+        if (isEditableTopology) {
+            (editableTopologyGeometry?.halfFrameFillers || []).forEach(filler => {
+                const sourcePlacement = (editableFramePlacements || []).find(
+                    placement => placement.id === filler.sourceFrameId
+                );
+                if (!sourcePlacement) return;
+
+                const span = Math.max(0, Number(filler.frameReferenceSpan) || 0);
+                if (span <= 1e-9) return;
+
+                activeProfiles
+                    .filter(profile => (
+                        getProfileGroup(profile) === 'frame'
+                        && !profile.frameAccessoryCadTransform
+                    ))
+                    .forEach(profile => {
+                        if (!shouldPlaceProfileOnSide(profile, filler.side)) return;
+
+                        const stockLength = span * 2;
+                        const stockWidth = filler.orientation === 'horizontal'
+                            ? stockLength
+                            : sourcePlacement.width;
+                        const stockHeight = filler.orientation === 'vertical'
+                            ? stockLength
+                            : sourcePlacement.height;
+                        const originX = filler.orientation === 'horizontal'
+                            ? filler.apexX
+                            : sourcePlacement.originX;
+                        const originY = filler.orientation === 'vertical'
+                            ? filler.apexY
+                            : sourcePlacement.originY;
+                        const mesh = createMiteredSide(
+                            profile,
+                            stockWidth,
+                            stockHeight,
+                            filler.side,
+                            profile.explodeOffset,
+                            originX,
+                            originY,
+                            {
+                                localJointEnds: ['negative', 'positive'],
+                                faceSpan: dividerFaceSpan,
+                                frameInwardSpan: frameJointInwardSpan,
+                                endModes: {
+                                    negative: 'square',
+                                    positive: 'square',
+                                },
+                            }
+                        );
+                        if (!clipFrameMeshToHalfFrameTriangle(mesh, filler)) {
+                            mesh.geometry?.dispose();
+                            return;
+                        }
+                        mesh.userData.halfFrame = true;
+                        mesh.userData.halfFrameId = filler.id;
+                        mesh.userData.halfFrameSourceFrameId = filler.sourceFrameId;
+                        mesh.userData.frameSegment = filler.id;
+                        frameGroup.add(mesh);
+                    });
+            });
+        }
 
         // Trans is a floating sash-to-sash profile. It occupies the shared grid
         // edge but is not a structural divider, so it is parented directly to
