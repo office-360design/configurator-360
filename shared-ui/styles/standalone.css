@@ -880,3 +880,87 @@ body.shared-ui-dark-mode { background: #0f172a !important; }
   .shared-ui-host .topbar-icon-button .save-icon svg,
   .shared-ui-host .topbar-icon-button .share-icon svg { width: 18px; height: 18px; }
 }
+
+/* Unified language-switch loading state. The shell raises its own stacking
+   context while visible so this blocks configurator-specific dialogs too. */
+.shared-ui-host.is-language-switching { z-index: 6000; }
+.shared-ui-host .language-switch-loading {
+  position: fixed;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  color: #233a46;
+  background: rgba(237, 243, 246, .72);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  transition: opacity .12s ease, visibility .12s ease;
+}
+.shared-ui-host .language-switch-loading.is-visible {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+.shared-ui-host .language-switch-loading__card {
+  width: min(330px, calc(100vw - 48px));
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 17px 20px;
+  border: 1px solid rgba(32, 69, 88, .14);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .97);
+  box-shadow: 0 20px 60px rgba(30, 53, 65, .18);
+}
+.shared-ui-host .language-switch-loading__spinner {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: 3px solid rgba(22, 142, 212, .20);
+  border-top-color: var(--blue-700, #0878c9);
+  border-radius: 50%;
+  animation: shared-language-switch-spin .72s linear infinite;
+}
+.shared-ui-host .language-switch-loading__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.shared-ui-host .language-switch-loading__copy strong {
+  font-size: 13px;
+  line-height: 1.3;
+}
+.shared-ui-host .language-switch-loading__copy span {
+  color: #6c7e88;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.shared-ui-host.is-dark-mode .language-switch-loading {
+  color: #edf5fa;
+  background: rgba(10, 18, 29, .72);
+}
+.shared-ui-host.is-dark-mode .language-switch-loading__card {
+  background: rgba(22, 34, 51, .98);
+  border-color: rgba(142, 194, 224, .20);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+}
+.shared-ui-host.is-dark-mode .language-switch-loading__copy span { color: #a9bac7; }
+.shared-ui-host.is-dark-mode .language-switch-loading__spinner {
+  border-color: rgba(131, 207, 255, .20);
+  border-top-color: #83cfff;
+}
+@keyframes shared-language-switch-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 420px) {
+  .shared-ui-host .language-switch-loading { padding: 18px; }
+  .shared-ui-host .language-switch-loading__card {
+    width: min(330px, calc(100vw - 36px));
+    min-height: 78px;
+    padding: 15px 17px;
+  }
+}

@@ -1,6 +1,6 @@
 import { applySolarShareState, captureSolarShareState, state } from './state.js?v=14';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
-import { RoofScene } from './scene.js?v=19';
+import { RoofScene } from './scene.js?v=21';
 import { SolarUI } from './ui.js?v=8';
 import { fetchPvgisSiteEstimate } from './energyModel.js?v=6';
 import { loadGeographicEnvironment } from './environmentLoader.js?v=5';

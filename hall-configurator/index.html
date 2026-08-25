@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Configure an industrial hall or warehouse online in 3D. Adjust dimensions, structure, cladding, openings and building options interactively." />
   <meta name="robots" content="index, follow" />
   <title>3D Industrial Hall Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=13" />
-  <link rel="stylesheet" href="./styles.css?v=12" />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=15" />
+  <link rel="stylesheet" href="./styles.css?v=13" />
   <script type="importmap">
     {
       "imports": {
@@ -177,6 +177,8 @@
   </main>
 
 
+  <button type="button" class="opening-placement-cancel" id="openingPlacementCancelButton" hidden data-hall-i18n="openings.cancelPlacement">Cancel placement</button>
+
   <section class="opening-editor" id="openingEditor" hidden aria-label="Selected opening editor" data-hall-i18n-aria-label="editor.aria">
     <div class="opening-editor__header"><div><small id="openingEditorSide">Front wall</small><strong id="openingEditorTitle">Window</strong></div><button type="button" id="openingDeleteButton" class="opening-delete-button" aria-label="Delete selected opening" title="Delete" data-hall-i18n-aria-label="editor.deleteAria" data-hall-i18n-title="editor.delete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button></div>
     <label class="opening-editor__side"><span data-hall-i18n="editor.wall">Wall</span><select id="openingSideSelect"><option value="front" data-hall-i18n="wall.front">Front</option><option value="right" data-hall-i18n="wall.right">Right</option><option value="back" data-hall-i18n="wall.back">Back</option><option value="left" data-hall-i18n="wall.left">Left</option></select></label>
@@ -199,7 +201,7 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton" data-hall-i18n="bom.export">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-hall-i18n="bom.done">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=23"></script>
-  <script type="module" src="./js/app.js?v=18"></script>
+  <script type="module" src="./js/sharedShell.js?v=24"></script>
+  <script type="module" src="./js/app.js?v=19"></script>
 </body>
 </html>

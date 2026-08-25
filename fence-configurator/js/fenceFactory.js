@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FINISHES, deriveFenceMetrics } from './state.js';
+import { FINISHES, calculateClosedFenceGeometry, calculateClosedFiveFenceGeometry, deriveFenceMetrics } from './state.js?v=4';
 
 const POST_SIZE = 0.085;
 const PANEL_THICKNESS = 0.045;
@@ -31,11 +31,12 @@ export function buildFenceAssembly(state) {
   const postMap = new Map();
   runSegments.forEach((run) => {
     run.points.forEach((point, pointIndex) => {
-      const isInternalDrivewayPost = metrics.gate
-        && metrics.gate.runId === run.id
-        && metrics.gate.span > 1
-        && pointIndex > metrics.gate.startBay
-        && pointIndex < metrics.gate.startBay + metrics.gate.span;
+      const isInternalDrivewayPost = metrics.gates.some((gate) => (
+        gate.runId === run.id
+        && gate.span > 1
+        && pointIndex > gate.startBay
+        && pointIndex < gate.startBay + gate.span
+      ));
       if (!isInternalDrivewayPost) postMap.set(pointKey(point), point);
     });
   });
@@ -70,13 +71,13 @@ export function buildFenceAssembly(state) {
     }
   });
 
-  const gate = metrics.gate;
   runSegments.forEach((run) => {
+    const runGates = metrics.gates.filter((gate) => gate.runId === run.id);
     for (let bayIndex = 0; bayIndex < run.points.length - 1; bayIndex += 1) {
       const p0 = run.points[bayIndex];
       const p1 = run.points[bayIndex + 1];
-      const insideGate = gate && gate.runId === run.id && bayIndex >= gate.startBay && bayIndex < gate.startBay + gate.span;
-      if (insideGate) {
+      const gate = runGates.find((candidate) => bayIndex >= candidate.startBay && bayIndex < candidate.startBay + candidate.span);
+      if (gate) {
         if (bayIndex === gate.startBay) {
           const gateEnd = run.points[gate.startBay + gate.span];
           buildGate(fenceGroup, p0, gateEnd, state, gate, finishMaterial, darkMaterial);
@@ -97,6 +98,8 @@ export function buildFenceAssembly(state) {
 }
 
 function buildRunSegments(state, runs) {
+  if (state.layout === 'closed' || state.layout === 'closed5') return buildClosedRunSegments(state, runs);
+
   const result = [];
   let start = new THREE.Vector3(0, 0, 0);
   let direction = new THREE.Vector3(1, 0, 0);
@@ -111,6 +114,29 @@ function buildRunSegments(state, runs) {
     start = points[points.length - 1].clone();
   });
   return result;
+}
+
+function buildClosedRunSegments(state, runs) {
+  const geometry = state.layout === 'closed5'
+    ? calculateClosedFiveFenceGeometry(state)
+    : calculateClosedFenceGeometry(state);
+  const rawVertices = state.layout === 'closed5'
+    ? [geometry.A, geometry.B, geometry.C, geometry.D, geometry.E, geometry.A]
+    : [geometry.A, geometry.B, geometry.C, geometry.D, geometry.A];
+  const vertices = rawVertices.map((point) => new THREE.Vector3(point.x, 0, point.z));
+
+  return runs.map((run, index) => {
+    const start = vertices[index].clone();
+    const end = vertices[index + 1].clone();
+    const direction = end.clone().sub(start).normalize();
+    const points = [];
+    for (let i = 0; i <= run.bayCount; i += 1) {
+      // Use interpolation against the exact end point rather than accumulating
+      // bay widths, so the final DA corner is guaranteed to land exactly on A.
+      points.push(start.clone().lerp(end, i / run.bayCount));
+    }
+    return { ...run, start, direction, points };
+  });
 }
 
 function buildPanel(group, p0, p1, state, finishMaterial, meshMaterial) {

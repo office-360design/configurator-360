@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=17';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
 import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
@@ -166,6 +166,7 @@ if (sidebar) {
 }
 
 const toolsAnchor = document.querySelector('#roofToolsAnchor');
+const viewerStage = document.querySelector('#viewerStage');
 const environmentPanel = document.querySelector('#roofEnvironmentPanel');
 const environmentClose = document.querySelector('#roofEnvironmentClose');
 const sunPositionControl = document.querySelector('#sunPositionControl');
@@ -200,13 +201,26 @@ function setToolState(toolId, { active = false, disabled = false, title = null }
 
 function positionToolsUi() {
   toolsPositionFrame = 0;
-  if (!toolsAnchor || !relocatedToolsToolbar?.isConnected) return;
+  if (!relocatedToolsToolbar?.isConnected) return;
 
-  const anchorRect = toolsAnchor.getBoundingClientRect();
-  const toolbarLeft = Math.round(anchorRect.left);
-  const toolbarTop = Math.round(anchorRect.top);
+  // Pin the Roof tools to the 3D stage itself, not to the generic shared
+  // top-bar offset. The stage starts below the Roof viewer header/BOM row,
+  // so this remains correct on both desktop and mobile.
+  const stageRect = viewerStage?.getBoundingClientRect();
+  const anchorRect = toolsAnchor?.getBoundingClientRect();
+  const compact = mobileLayoutQuery.matches;
+  const toolbarLeft = Math.round((stageRect?.left ?? anchorRect?.left ?? 0) + (compact ? 10 : 18));
+  const toolbarTop = Math.round((stageRect?.top ?? anchorRect?.top ?? 0) + (compact ? 10 : 16));
+
   relocatedToolsToolbar.style.setProperty('--roof-tools-left', `${toolbarLeft}px`);
   relocatedToolsToolbar.style.setProperty('--roof-tools-top', `${toolbarTop}px`);
+  // Use inline !important values as the final authority. The shared toolbar
+  // has its own fixed positioning rule and can be re-rendered after mount.
+  relocatedToolsToolbar.style.setProperty('position', 'fixed', 'important');
+  relocatedToolsToolbar.style.setProperty('top', `${toolbarTop}px`, 'important');
+  relocatedToolsToolbar.style.setProperty('left', `${toolbarLeft}px`, 'important');
+  relocatedToolsToolbar.style.setProperty('right', 'auto', 'important');
+  relocatedToolsToolbar.style.setProperty('bottom', 'auto', 'important');
 
   if (!environmentPanel) return;
   const panelWidth = Math.min(390, Math.max(296, window.innerWidth - 24));
@@ -232,9 +246,11 @@ function scheduleToolsPosition() {
 }
 
 function relocateToolsToolbar() {
-  if (!toolsAnchor) return true;
   const toolbar = shell.host.querySelector('[data-shared-tools]');
   if (!toolbar) return false;
+
+  // Shared UI may replace this node when it re-renders. Always reacquire the
+  // current toolbar and reapply the Roof-specific class/positioning.
   relocatedToolsToolbar = toolbar;
   toolbar.classList.add('roof-relocated-tools-toolbar');
   scheduleToolsPosition();
@@ -382,14 +398,21 @@ window.addEventListener('roof-configurator-ready', (event) => syncToolsState(eve
 window.addEventListener('roof-tools-state-change', (event) => syncToolsState(event.detail));
 window.addEventListener('resize', scheduleToolsPosition);
 
-if (!relocateToolsToolbar()) {
-  const toolsObserver = new MutationObserver(() => {
-    if (relocateToolsToolbar()) toolsObserver.disconnect();
-  });
-  toolsObserver.observe(document.body, { childList: true, subtree: true });
-}
+relocateToolsToolbar();
+
+// Keep watching the shared host: some shell updates replace the toolbar DOM
+// node. Disconnecting after the first match is what allowed the Tools button
+// to snap back to the generic shared position.
+const toolsObserver = new MutationObserver(() => {
+  const currentToolbar = shell.host.querySelector('[data-shared-tools]');
+  if (currentToolbar && currentToolbar !== relocatedToolsToolbar) {
+    relocateToolsToolbar();
+  }
+});
+toolsObserver.observe(shell.host, { childList: true, subtree: true });
 
 if (toolsAnchor) new ResizeObserver(scheduleToolsPosition).observe(toolsAnchor);
+if (viewerStage) new ResizeObserver(scheduleToolsPosition).observe(viewerStage);
 requestAnimationFrame(() => {
   scheduleToolsPosition();
   syncToolsState();

@@ -2,34 +2,58 @@
 
 import { useEffect, useState, type ComponentType } from "react";
 
-type IdleWindow = Window & {
-  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-  cancelIdleCallback?: (handle: number) => void;
-};
-
 export function DeferredWebGLStage() {
   const [Stage, setStage] = useState<ComponentType | null>(null);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    const idleWindow = window as IdleWindow;
     let cancelled = false;
     let idleHandle = 0;
-    let timerHandle = 0;
-    const loadStage = () => {
+    let loadQueued = false;
+    let observer: IntersectionObserver | undefined;
+    const mobile = window.matchMedia("(max-width: 720px), ((max-width: 1050px) and (pointer: coarse))").matches;
+    const importStage = () => {
       void import("./webgl-stage").then(({ WebGLStage }) => {
         if (!cancelled) setStage(() => WebGLStage);
       });
     };
+    const loadStage = () => {
+      if (loadQueued) return;
+      loadQueued = true;
+      if (!mobile) {
+        importStage();
+        return;
+      }
+      const afterLoad = () => {
+        if (cancelled) return;
+        if ("requestIdleCallback" in window) {
+          idleHandle = window.requestIdleCallback(importStage, { timeout: 1800 });
+        } else {
+          idleHandle = window.setTimeout(importStage, 180);
+        }
+      };
+      if (document.readyState === "complete") afterLoad();
+      else window.addEventListener("load", afterLoad, { once: true });
+    };
 
-    if (idleWindow.requestIdleCallback) idleHandle = idleWindow.requestIdleCallback(loadStage, { timeout: 650 });
-    else timerHandle = window.setTimeout(loadStage, 90);
+    const target = document.querySelector("#configurators, .configurator-sequence, .detail-hero");
+    if (!target || !("IntersectionObserver" in window)) loadStage();
+    else {
+      observer = new IntersectionObserver((entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer?.disconnect();
+        loadStage();
+      }, { rootMargin: mobile ? "120px 0px" : "350px 0px" });
+      observer.observe(target);
+    }
 
     return () => {
       cancelled = true;
-      if (idleHandle) idleWindow.cancelIdleCallback?.(idleHandle);
-      if (timerHandle) window.clearTimeout(timerHandle);
+      if (idleHandle) {
+        if ("cancelIdleCallback" in window) window.cancelIdleCallback(idleHandle);
+        else window.clearTimeout(idleHandle);
+      }
+      observer?.disconnect();
     };
   }, []);
 

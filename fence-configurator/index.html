@@ -8,7 +8,7 @@
   <title>3D Fence Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=13" />
-  <link rel="stylesheet" href="./styles.css?v=2" />
+  <link rel="stylesheet" href="./styles.css?v=8" />
   <script type="importmap">
     {
       "imports": {
@@ -57,21 +57,42 @@
               <svg viewBox="0 0 76 42" aria-hidden="true"><path d="M10 9v25h54V9M10 34h54M37 26v8"/></svg>
               <span data-fence-i18n="layout.u">U-shaped</span>
             </button>
+            <button type="button" class="choice-card" data-layout="closed" aria-pressed="false">
+              <svg viewBox="0 0 76 42" aria-hidden="true"><path d="M12 31 9 12l50-3 8 23-55-1ZM59 9l8 23"/></svg>
+              <span data-fence-i18n="layout.closed">Closed perimeter · 4 sides</span>
+            </button>
+            <button type="button" class="choice-card" data-layout="closed5" aria-pressed="false">
+              <svg viewBox="0 0 76 42" aria-hidden="true"><path d="M11 30 9 14 36 7 67 17 56 34 11 30Z"/></svg>
+              <span data-fence-i18n="layout.closed5">Closed perimeter · 5 sides</span>
+            </button>
           </div>
 
           <div class="control-list top-gap">
             <label class="range-control" data-control="runA">
-              <span class="control-label"><b data-fence-i18n="dimension.runA">Run A</b><output>8.0 m</output></span>
+              <span class="control-label"><b id="runALabel" data-fence-i18n="dimension.runA">Run A</b><output>8.0 m</output></span>
               <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
             </label>
             <label class="range-control" id="runBControl" data-control="runB" hidden>
-              <span class="control-label"><b data-fence-i18n="dimension.runB">Run B</b><output>5.0 m</output></span>
+              <span class="control-label"><b id="runBLabel" data-fence-i18n="dimension.runB">Run B</b><output>5.0 m</output></span>
               <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
             </label>
             <label class="range-control" id="runCControl" data-control="runC" hidden>
-              <span class="control-label"><b data-fence-i18n="dimension.runC">Run C</b><output>5.0 m</output></span>
+              <span class="control-label"><b id="runCLabel" data-fence-i18n="dimension.runC">Run C</b><output>5.0 m</output></span>
               <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
             </label>
+            <label class="range-control" id="runDControl" data-control="runD" hidden>
+              <span class="control-label"><b id="runDLabel" data-fence-i18n="dimension.closed5RunD">Side DE</b><output>5.0 m</output></span>
+              <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
+            </label>
+            <label class="range-control" id="angleBControl" data-control="angleB" hidden>
+              <span class="control-label"><b data-fence-i18n="dimension.angleB">Angle at B</b><output>90°</output></span>
+              <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
+            </label>
+            <div class="info-card calculated-side-card" id="closingRunInfo" hidden>
+              <span id="closingRunLabel" data-fence-i18n="dimension.closedRunD">Side DA · calculated</span>
+              <strong id="closingRunValue">—</strong>
+              <small id="closingRunHelp" data-fence-i18n="dimension.closedHelp">DA updates automatically to close the perimeter.</small>
+            </div>
             <label class="range-control" data-control="height">
               <span class="control-label"><b data-fence-i18n="dimension.height">Fence height</b><output>1.80 m</output></span>
               <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
@@ -121,25 +142,16 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <div class="accordion-panel" hidden>
-          <label class="field-label" for="gateType" data-fence-i18n="gate.type">Gate</label>
-          <select id="gateType">
-            <option value="none" data-fence-i18n="gate.none">No gate</option>
-            <option value="pedestrian" selected data-fence-i18n="gate.pedestrian">Pedestrian gate</option>
-            <option value="driveway" data-fence-i18n="gate.driveway">Double driveway gate</option>
-          </select>
-
-          <div id="gateOptions" class="gate-options">
-            <label class="field-label" for="gateRun" data-fence-i18n="gate.run">Gate run</label>
-            <select id="gateRun"><option value="a">A</option><option value="b">B</option><option value="c">C</option></select>
-            <label class="range-control compact-control">
-              <span class="control-label"><b data-fence-i18n="gate.position">Gate bay position</b><output id="gatePositionValue">Bay 2</output></span>
-              <span class="range-row range-row--single"><input id="gatePosition" type="range" min="0" max="3" step="1" value="1" /></span>
-            </label>
-            <div id="gateHandingWrap">
-              <label class="field-label" for="gateHanding" data-fence-i18n="gate.handing">Pedestrian gate handing</label>
-              <select id="gateHanding"><option value="left" data-fence-i18n="gate.left">Hinges left</option><option value="right" selected data-fence-i18n="gate.right">Hinges right</option></select>
+          <div class="gate-manager-head">
+            <div>
+              <span class="field-label" data-fence-i18n="gate.title">Gates</span>
+              <small data-fence-i18n="gate.help">Add pedestrian or driveway gates to any available fence bay.</small>
             </div>
+            <button id="addGateButton" class="secondary-action gate-add-button" type="button" data-fence-i18n="gate.add">Add gate</button>
           </div>
+          <div id="gateList" class="gate-list" aria-live="polite"></div>
+          <p id="gateEmptyState" class="gate-empty" data-fence-i18n="gate.empty">No gates added.</p>
+          <p id="gateCapacityMessage" class="gate-capacity" hidden data-fence-i18n="gate.capacity">All available bays are occupied by gates.</p>
 
           <label class="field-label top-gap" for="foundationType" data-fence-i18n="foundation.label">Post foundation</label>
           <select id="foundationType"><option value="concrete" selected data-fence-i18n="foundation.concrete">Concrete footings</option><option value="baseplate" data-fence-i18n="foundation.baseplate">Base plates & anchors</option></select>
@@ -196,7 +208,7 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportDialogButton" data-fence-i18n="summary.export">Export BOM CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-fence-i18n="bom.done">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=2"></script>
-  <script type="module" src="./js/app.js?v=5"></script>
+  <script type="module" src="./js/sharedShell.js?v=7"></script>
+  <script type="module" src="./js/app.js?v=10"></script>
 </body>
 </html>

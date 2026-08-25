@@ -6,6 +6,7 @@ import { syncAccountIdentity } from './components/accountMenu.js?v=17';
 import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=17';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
+import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 
 const MAX_PROJECT_NUMBER = 1000;
@@ -168,6 +169,7 @@ export class StandaloneConfiguratorShell {
         capabilities: this.options.capabilities,
       })}
       ${renderActionFeedback(this.state.locale)}
+      ${renderLanguageSwitchLoading(this.state.locale)}
       ${renderToolsMenu(this.toolsOpen, { ...this.options.tools, locale: this.state.locale })}
       ${renderSavedConfigurationsDialog(this.state.locale, this.savedDialog)}
     `;
@@ -179,6 +181,7 @@ export class StandaloneConfiguratorShell {
     this.languageMenu = this.host.querySelector('[data-language-menu]');
     this.feedback = this.host.querySelector('[data-save-feedback]');
     this.feedbackText = this.host.querySelector('[data-save-feedback-text]');
+    this.languageSwitchLoading = this.host.querySelector('[data-language-switch-loading]');
   }
 
   bindEvents() {
@@ -522,6 +525,34 @@ export class StandaloneConfiguratorShell {
     }
   }
 
+  showLanguageSwitchLoading() {
+    const overlay = this.languageSwitchLoading || this.host.querySelector('[data-language-switch-loading]');
+    if (!overlay) return;
+
+    const title = overlay.querySelector('[data-language-switch-loading-title]');
+    const detail = overlay.querySelector('[data-language-switch-loading-detail]');
+    if (title) title.textContent = sharedT(this.state.locale, 'language.switching');
+    if (detail) detail.textContent = sharedT(this.state.locale, 'language.switchingDetail');
+
+    this.host.classList.add('is-language-switching');
+    overlay.classList.add('is-visible');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+
+  hideLanguageSwitchLoading() {
+    const overlay = this.languageSwitchLoading || this.host.querySelector('[data-language-switch-loading]');
+    if (!overlay) return;
+    this.host.classList.remove('is-language-switching');
+    overlay.classList.remove('is-visible');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  waitForLanguageSwitchPaint() {
+    return new Promise((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
+    });
+  }
+
   async handleClick(event) {
     const actionTarget = event.target.closest('[data-action]');
     if (!actionTarget) return;
@@ -569,11 +600,20 @@ export class StandaloneConfiguratorShell {
         const targetUrl = getLocalizedConfiguratorUrl(nextLocale, this.options.productType, window.location);
         const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
         if (targetUrl && nextLocale !== this.state.locale && !isLocalDevelopmentHost) {
+          // The unified shell owns language-switch feedback so every configurator
+          // paints the same loading state before any potentially expensive state
+          // handoff or cross-domain navigation begins.
+          this.languageOpen = false;
+          this.syncMenus();
+          this.showLanguageSwitchLoading();
+          await this.waitForLanguageSwitchPaint();
+
           let resolvedTarget = targetUrl;
           if (this.options.callbacks.getLocalizedUrl) {
             try {
               resolvedTarget = await this.options.callbacks.getLocalizedUrl(nextLocale, targetUrl) || targetUrl;
             } catch (error) {
+              this.hideLanguageSwitchLoading();
               console.error('Configuration could not be preserved during the language switch.', error);
               this.showFeedback(sharedT(this.state.locale, 'feedback.languageSwitchUnavailable'), 'error');
               return;
