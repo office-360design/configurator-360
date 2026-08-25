@@ -18,6 +18,7 @@ export const DEFAULT_FENCE_STATE = Object.freeze({
   runA: 8,
   runB: 5,
   runC: 5,
+  runD: 5,
   angleB: 90,
   height: 1.8,
   targetBayWidth: 2,
@@ -51,6 +52,7 @@ export function activeRunIds(state) {
   if (state.layout === 'straight') return ['a'];
   if (state.layout === 'l') return ['a', 'b'];
   if (state.layout === 'closed') return ['a', 'b', 'c', 'd'];
+  if (state.layout === 'closed5') return ['a', 'b', 'c', 'd', 'e'];
   return ['a', 'b', 'c'];
 }
 
@@ -78,8 +80,45 @@ export function calculateClosedFenceGeometry(state) {
   return { A, B, C, D, runD: d, angleB, headingBC };
 }
 
+/**
+ * Five-side closed-perimeter mode uses AB, BC, CD and DE plus the interior
+ * angle at B. After BC, the path uses the 72° exterior turn of a pentagon
+ * for the C and D corners; EA is the exact closing segment back to A. This
+ * keeps the mode fully determined from four lengths plus one angle.
+ */
+export function calculateClosedFiveFenceGeometry(state) {
+  const a = Number(state.runA) || DEFAULT_FENCE_STATE.runA;
+  const b = Number(state.runB) || DEFAULT_FENCE_STATE.runB;
+  const c = Number(state.runC) || DEFAULT_FENCE_STATE.runC;
+  const d = Number(state.runD) || DEFAULT_FENCE_STATE.runD;
+  const angleB = Number(state.angleB) || DEFAULT_FENCE_STATE.angleB;
+  const headingBC = Math.PI - (angleB * Math.PI) / 180;
+  const pentagonTurn = (72 * Math.PI) / 180;
+  const headingCD = headingBC + pentagonTurn;
+  const headingDE = headingCD + pentagonTurn;
+
+  const A = { x: 0, z: 0 };
+  const B = { x: a, z: 0 };
+  const C = {
+    x: B.x + Math.cos(headingBC) * b,
+    z: B.z + Math.sin(headingBC) * b,
+  };
+  const D = {
+    x: C.x + Math.cos(headingCD) * c,
+    z: C.z + Math.sin(headingCD) * c,
+  };
+  const E = {
+    x: D.x + Math.cos(headingDE) * d,
+    z: D.z + Math.sin(headingDE) * d,
+  };
+  const e = Math.hypot(E.x - A.x, E.z - A.z);
+
+  return { A, B, C, D, E, runE: e, angleB, headingBC, headingCD, headingDE };
+}
+
 export function runLength(state, runId) {
   if (runId === 'd' && state.layout === 'closed') return calculateClosedFenceGeometry(state).runD;
+  if (runId === 'e' && state.layout === 'closed5') return calculateClosedFiveFenceGeometry(state).runE;
   return Number(state[`run${runId.toUpperCase()}`] ?? 0);
 }
 
@@ -99,7 +138,7 @@ export function deriveFenceMetrics(state) {
   const runs = activeRunIds(state).map((runId) => deriveRun(state, runId));
   const bayCount = runs.reduce((sum, run) => sum + run.bayCount, 0);
   const totalLength = runs.reduce((sum, run) => sum + run.length, 0);
-  const closed = state.layout === 'closed';
+  const closed = ['closed', 'closed5'].includes(state.layout);
   const cornerCount = closed ? runs.length : Math.max(0, runs.length - 1);
   const area = totalLength * state.height;
   const gates = deriveGates(state, runs);
@@ -173,10 +212,11 @@ export function deriveGate(state, runs = deriveFenceMetricsWithoutGate(state).ru
 
 export function normalizeFenceState(state) {
   const next = state;
-  if (!['straight', 'l', 'u', 'closed'].includes(next.layout)) next.layout = 'straight';
+  if (!['straight', 'l', 'u', 'closed', 'closed5'].includes(next.layout)) next.layout = 'straight';
   next.runA = clampNumber(next.runA, 2, 30, 8);
   next.runB = clampNumber(next.runB, 2, 20, 5);
   next.runC = clampNumber(next.runC, 2, 20, 5);
+  next.runD = clampNumber(next.runD, 2, 20, 5);
   next.angleB = clampNumber(next.angleB, 30, 150, 90);
   next.height = clampNumber(next.height, 0.8, 2.6, 1.8);
   next.targetBayWidth = clampNumber(next.targetBayWidth, 1, 3, 2);
@@ -222,7 +262,7 @@ function legacyGateArray(state) {
   return [{
     id: 'gate-1',
     type: state.gateType,
-    runId: ['a', 'b', 'c', 'd'].includes(state.gateRun) ? state.gateRun : 'a',
+    runId: ['a', 'b', 'c', 'd', 'e'].includes(state.gateRun) ? state.gateRun : 'a',
     position: Math.max(0, Math.floor(Number(state.gatePosition) || 0)),
     handing: state.gateHanding === 'left' ? 'left' : 'right',
   }];

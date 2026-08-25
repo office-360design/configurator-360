@@ -436,3 +436,6 @@ body.shared-ui-dark-mode .bom-total-row { color: #b6c8d4; background: #1d3448; }
     padding: 14px 16px;
   }
 }
+
+/* Keep the fifth layout mode balanced in the existing two-column selector. */
+.layout-grid > .choice-card:last-child:nth-child(odd) { grid-column: 1 / -1; }

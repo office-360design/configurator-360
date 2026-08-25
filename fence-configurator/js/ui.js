@@ -1,11 +1,12 @@
-import { FINISHES, PANEL_STYLES, activeRunIds, deriveFenceMetrics, normalizeFenceState } from './state.js?v=3';
-import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js?v=3';
-import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=3';
+import { FINISHES, PANEL_STYLES, activeRunIds, deriveFenceMetrics, normalizeFenceState } from './state.js?v=4';
+import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js?v=4';
+import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=4';
 
 const CONTROL_CONFIG = Object.freeze({
   runA: { kind: 'length', min: 2, max: 30, step: 0.25 },
   runB: { kind: 'length', min: 2, max: 20, step: 0.25 },
   runC: { kind: 'length', min: 2, max: 20, step: 0.25 },
+  runD: { kind: 'length', min: 2, max: 20, step: 0.25 },
   angleB: { kind: 'angle', min: 30, max: 150, step: 1 },
   height: { kind: 'length', min: 0.8, max: 2.6, step: 0.05 },
   targetBayWidth: { kind: 'length', min: 1, max: 3, step: 0.05 },
@@ -149,9 +150,12 @@ export class FenceUI {
     const scenery = document.querySelector('#sceneryToggle');
     if (scenery) scenery.checked = this.state.scenery;
 
-    const isClosed = this.state.layout === 'closed';
+    const isClosed4 = this.state.layout === 'closed';
+    const isClosed5 = this.state.layout === 'closed5';
+    const isClosed = isClosed4 || isClosed5;
     document.querySelector('#runBControl')?.toggleAttribute('hidden', this.state.layout === 'straight');
-    document.querySelector('#runCControl')?.toggleAttribute('hidden', !['u', 'closed'].includes(this.state.layout));
+    document.querySelector('#runCControl')?.toggleAttribute('hidden', !['u', 'closed', 'closed5'].includes(this.state.layout));
+    document.querySelector('#runDControl')?.toggleAttribute('hidden', !isClosed5);
     document.querySelector('#angleBControl')?.toggleAttribute('hidden', !isClosed);
     document.querySelector('#closingRunInfo')?.toggleAttribute('hidden', !isClosed);
     document.querySelector('#gapControl')?.toggleAttribute('hidden', !['vertical', 'horizontal'].includes(this.state.panelStyle));
@@ -159,6 +163,9 @@ export class FenceUI {
     setText('#runALabel', fenceT(this.locale, isClosed ? 'dimension.closedRunA' : 'dimension.runA'));
     setText('#runBLabel', fenceT(this.locale, isClosed ? 'dimension.closedRunB' : 'dimension.runB'));
     setText('#runCLabel', fenceT(this.locale, isClosed ? 'dimension.closedRunC' : 'dimension.runC'));
+    setText('#runDLabel', fenceT(this.locale, 'dimension.closed5RunD'));
+    setText('#closingRunLabel', fenceT(this.locale, isClosed5 ? 'dimension.closed5RunE' : 'dimension.closedRunD'));
+    setText('#closingRunHelp', fenceT(this.locale, isClosed5 ? 'dimension.closed5Help' : 'dimension.closedHelp'));
   }
 
   syncNumericControls() {
@@ -183,7 +190,8 @@ export class FenceUI {
     });
 
     const metrics = deriveFenceMetrics(this.state);
-    const closingRun = metrics.runs.find((run) => run.id === 'd');
+    const closingRunId = this.state.layout === 'closed5' ? 'e' : 'd';
+    const closingRun = metrics.runs.find((run) => run.id === closingRunId);
     if (closingRun) setText('#closingRunValue', this.formatLength(closingRun.length));
     const hint = document.querySelector('#bayInfo');
     if (hint) {
@@ -200,8 +208,10 @@ export class FenceUI {
     if (!list) return;
 
     const active = new Set(activeRunIds(this.state));
-    const closed = this.state.layout === 'closed';
-    const runLabels = closed ? { a: 'AB', b: 'BC', c: 'CD', d: 'DA' } : { a: 'A', b: 'B', c: 'C', d: 'D' };
+    const closed = ['closed', 'closed5'].includes(this.state.layout);
+    const runLabels = this.state.layout === 'closed5'
+      ? { a: 'AB', b: 'BC', c: 'CD', d: 'DE', e: 'EA' }
+      : closed ? { a: 'AB', b: 'BC', c: 'CD', d: 'DA' } : { a: 'A', b: 'B', c: 'C', d: 'D' };
     const usedBays = new Map(metrics.runs.map((run) => [run.id, new Set()]));
     metrics.gates.forEach((gate) => {
       for (let bay = gate.startBay; bay < gate.startBay + gate.span; bay += 1) usedBays.get(gate.runId)?.add(bay);

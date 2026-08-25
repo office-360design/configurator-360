@@ -8,7 +8,7 @@
   <title>3D Fence Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=13" />
-  <link rel="stylesheet" href="./styles.css?v=5" />
+  <link rel="stylesheet" href="./styles.css?v=6" />
   <script type="importmap">
     {
       "imports": {
@@ -59,7 +59,11 @@
             </button>
             <button type="button" class="choice-card" data-layout="closed" aria-pressed="false">
               <svg viewBox="0 0 76 42" aria-hidden="true"><path d="M12 31 9 12l50-3 8 23-55-1ZM59 9l8 23"/></svg>
-              <span data-fence-i18n="layout.closed">Closed perimeter</span>
+              <span data-fence-i18n="layout.closed">Closed perimeter · 4 sides</span>
+            </button>
+            <button type="button" class="choice-card" data-layout="closed5" aria-pressed="false">
+              <svg viewBox="0 0 76 42" aria-hidden="true"><path d="M11 30 9 14 36 7 67 17 56 34 11 30Z"/></svg>
+              <span data-fence-i18n="layout.closed5">Closed perimeter · 5 sides</span>
             </button>
           </div>
 
@@ -76,14 +80,18 @@
               <span class="control-label"><b id="runCLabel" data-fence-i18n="dimension.runC">Run C</b><output>5.0 m</output></span>
               <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
             </label>
+            <label class="range-control" id="runDControl" data-control="runD" hidden>
+              <span class="control-label"><b id="runDLabel" data-fence-i18n="dimension.closed5RunD">Side DE</b><output>5.0 m</output></span>
+              <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
+            </label>
             <label class="range-control" id="angleBControl" data-control="angleB" hidden>
               <span class="control-label"><b data-fence-i18n="dimension.angleB">Angle at B</b><output>90°</output></span>
               <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
             </label>
             <div class="info-card calculated-side-card" id="closingRunInfo" hidden>
-              <span data-fence-i18n="dimension.closedRunD">Side DA · calculated</span>
+              <span id="closingRunLabel" data-fence-i18n="dimension.closedRunD">Side DA · calculated</span>
               <strong id="closingRunValue">—</strong>
-              <small data-fence-i18n="dimension.closedHelp">DA updates automatically to close the perimeter.</small>
+              <small id="closingRunHelp" data-fence-i18n="dimension.closedHelp">DA updates automatically to close the perimeter.</small>
             </div>
             <label class="range-control" data-control="height">
               <span class="control-label"><b data-fence-i18n="dimension.height">Fence height</b><output>1.80 m</output></span>
@@ -200,7 +208,7 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportDialogButton" data-fence-i18n="summary.export">Export BOM CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-fence-i18n="bom.done">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=5"></script>
-  <script type="module" src="./js/app.js?v=8"></script>
+  <script type="module" src="./js/sharedShell.js?v=6"></script>
+  <script type="module" src="./js/app.js?v=9"></script>
 </body>
 </html>
