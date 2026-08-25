@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=18';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=19';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
@@ -55,12 +55,7 @@ shell = mountStandaloneConfiguratorShell({
   },
   callbacks: {
     onUndo() { history.undo(); },
-    onReset() {
-      if (window.confirm(t('reset.confirm'))) {
-        window.HALL_CONFIGURATOR_API?.resetConfiguration?.();
-      }
-    },
-    async createNewConfiguration() {
+    async resetConfiguration() {
       const api = window.HALL_CONFIGURATOR_API;
       if (!api?.resetConfiguration) return false;
       return (await api.resetConfiguration()) !== false;
