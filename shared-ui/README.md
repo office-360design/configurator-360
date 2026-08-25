@@ -61,12 +61,27 @@ Firebase Console setup required: enable **Authentication → Sign-in method → 
 ## Shared shell adapters
 
 Configurator-local shell files are adapters only. They may provide product-specific callbacks
-such as `captureState()`, reset/undo behavior, tool actions or language-state preservation, but
-they must not render or own the common top bar, account menu, Google authentication, language
-menu, feedback UI or shared tool interaction lifecycle. Those remain in `shared-ui`.
+such as `captureState()`, `restoreState()`, reset/undo behavior or tool actions, but they must not
+render or own the common top bar, account menu, Google authentication, language menu, language
+state handoff, feedback UI or shared tool interaction lifecycle. Those remain in `shared-ui`.
 
 ## Saved configurations
 
 The shared shell owns account-based configuration saving for every configurator. The top-bar **Save** button captures the product-specific state through the configurator adapter and stores it under the signed-in Firebase/Google user. **Saved configurations** in the account menu opens the same shared modal in Window, Roof, Hall, Solar, Pergola and Fence.
 
 Configurator adapters only provide `productId`, `captureState()` and `restoreState()`; they do not implement their own saved-project UI or storage. Saving account data uses Firebase Authentication but intentionally does not initialize or refresh App Check, so reCAPTCHA assessments remain exclusive to the **Share** action.
+
+
+### Account save persistence and language switching
+
+Private account saves have no application TTL and are not part of the public Share FIFO quota.
+Only an explicit Saved configurations → Delete action calls `deleteUserConfiguration`; the
+90-day expiry and 200 MiB cleanup apply only to `sharedConfigurations`. Temporary load failures
+do not clear the local pointer to a private save.
+
+Cross-domain language switching is also owned by the shared shell. A signed-in user on an
+existing save navigates with that private save id instead of creating a public Share record. If
+that save has unsaved edits, the current draft is gzip/base64 encoded into the navigation URL so
+the destination can keep the same save association without touching the public Share collection.
+Guests and signed-in users on a brand-new unsaved project still use the normal Share transport,
+because no private saved record exists yet.

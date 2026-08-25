@@ -53,8 +53,9 @@ const scene = fs.readFileSync(path.join(root, 'hall-configurator', 'js', 'scene.
 if (!scene.includes('hallCompassLabels')) failures.push('scene compass is not localized');
 if (!scene.includes("'dimension.ridge'")) failures.push('ridge dimension label is not localized');
 const shell = fs.readFileSync(path.join(root, 'hall-configurator', 'js', 'sharedShell.js'), 'utf8');
-if (!shell.includes("getLocalizedConfiguratorUrl(nextLocale, 'hall'")) failures.push('cross-domain Hall language switching is missing');
-if (!shell.includes("createShareUrl({ productType: 'hall'")) failures.push('Hall language switching does not preserve configuration');
+const sharedShell = fs.readFileSync(path.join(root, 'shared-ui', 'src', 'standaloneShell.js'), 'utf8');
+if (!sharedShell.includes('getLanguageSwitchTarget(nextLocale, fallbackTarget)')) failures.push('shared cross-domain language switching is missing');
+if (shell.includes('getLocalizedConfiguratorUrl(nextLocale')) failures.push('Hall duplicates shared language switching');
 
 if (failures.length) {
   console.error('Hall i18n validation failed:');

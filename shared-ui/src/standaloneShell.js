@@ -8,10 +8,42 @@ import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
+import { decodeShareState, encodeShareState } from './shareState.js?v=17';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
 const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
+const SAVED_LANGUAGE_ID_PARAM = 'savedConfig';
+const SAVED_LANGUAGE_NAME_PARAM = 'savedName';
+const SAVED_LANGUAGE_OWNER_PARAM = 'savedOwner';
+const SAVED_LANGUAGE_DRAFT_PARAM = 'savedDraft';
+const SAVED_CONFIGURATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
+function readHashParams(target) {
+  const raw = target.hash.startsWith('#') ? target.hash.slice(1) : target.hash;
+  return new URLSearchParams(raw);
+}
+
+function writeHashParams(target, params) {
+  const value = params.toString();
+  target.hash = value ? `#${value}` : '';
+}
+
+function stripConfigurationTransport(target) {
+  ['s', 'c', 'config', SAVED_LANGUAGE_ID_PARAM, SAVED_LANGUAGE_NAME_PARAM, SAVED_LANGUAGE_OWNER_PARAM].forEach((key) => {
+    target.searchParams.delete(key);
+  });
+  const hash = readHashParams(target);
+  ['s', 'c', 'config', SAVED_LANGUAGE_ID_PARAM, SAVED_LANGUAGE_NAME_PARAM, SAVED_LANGUAGE_OWNER_PARAM, SAVED_LANGUAGE_DRAFT_PARAM].forEach((key) => hash.delete(key));
+  writeHashParams(target, hash);
+  return target;
+}
+
+function savedConfigurationMissing(error) {
+  const code = String(error?.code || '').toLowerCase().replace(/_/g, '-');
+  const message = String(error?.message || '').toLowerCase();
+  return code === 'not-found' || code === '404' || code === 'http-404' || message.includes('saved configuration not found');
+}
 
 function normalizeProductId(value = '') {
   const normalized = String(value).trim().toLowerCase();
@@ -102,6 +134,8 @@ export class StandaloneConfiguratorShell {
     this.toolsOpen = false;
     this.feedbackTimer = 0;
     this.saveBusy = false;
+    this.savedLoadBlocked = false;
+    this.pendingSavedLanguageHandoff = this.readSavedLanguageHandoff();
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
     this.settingsPanelCollapsed = false;
     this.settingsPanel = null;
@@ -157,6 +191,115 @@ export class StandaloneConfiguratorShell {
       return meta;
     }
     return {};
+  }
+
+
+  readSavedLanguageHandoff() {
+    try {
+      const target = new URL(window.location.href);
+      const hash = readHashParams(target);
+      const id = String(hash.get(SAVED_LANGUAGE_ID_PARAM) || target.searchParams.get(SAVED_LANGUAGE_ID_PARAM) || '').trim();
+      if (!SAVED_CONFIGURATION_ID_PATTERN.test(id)) return null;
+      const projectName = String(hash.get(SAVED_LANGUAGE_NAME_PARAM) || target.searchParams.get(SAVED_LANGUAGE_NAME_PARAM) || '').slice(0, 80);
+      const ownerUid = String(hash.get(SAVED_LANGUAGE_OWNER_PARAM) || target.searchParams.get(SAVED_LANGUAGE_OWNER_PARAM) || '').trim();
+      return {
+        id,
+        ownerUid,
+        projectName,
+        draft: String(hash.get(SAVED_LANGUAGE_DRAFT_PARAM) || ''),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  clearSavedLanguageHandoffUrl() {
+    try {
+      const target = new URL(window.location.href);
+      target.searchParams.delete(SAVED_LANGUAGE_ID_PARAM);
+      target.searchParams.delete(SAVED_LANGUAGE_NAME_PARAM);
+      target.searchParams.delete(SAVED_LANGUAGE_OWNER_PARAM);
+      const hash = readHashParams(target);
+      hash.delete(SAVED_LANGUAGE_ID_PARAM);
+      hash.delete(SAVED_LANGUAGE_NAME_PARAM);
+      hash.delete(SAVED_LANGUAGE_OWNER_PARAM);
+      hash.delete(SAVED_LANGUAGE_DRAFT_PARAM);
+      writeHashParams(target, hash);
+      window.history.replaceState(window.history.state, '', target.href);
+    } catch {
+      // Navigation already succeeded; URL cleanup is best-effort only.
+    }
+  }
+
+  async restoreSavedLanguageHandoff(user) {
+    const handoff = this.pendingSavedLanguageHandoff;
+    const uid = String(user?.uid || '');
+    if (!handoff?.id || !uid) return false;
+
+    if (handoff.ownerUid && handoff.ownerUid !== uid) {
+      // Authentication is origin-scoped. If another Google account is active on
+      // the destination domain, never interpret its empty saved list as deletion
+      // of the source account's configuration. Preserve the handoff until the
+      // correct account signs in or the user explicitly starts/opens another file.
+      this.savedLoadBlocked = true;
+      this.currentSavedConfigurationId = handoff.id;
+      this.currentSavedOwnerUid = handoff.ownerUid;
+      this.projectName = handoff.projectName || this.projectName;
+      this.renderHost();
+      this.sync();
+      this.showFeedback(sharedT(this.state.locale, 'saved.openUnavailable'), 'error');
+      return true;
+    }
+
+    try {
+      const saved = await getUserConfiguration({ id: handoff.id, productType: this.productId });
+      let state = saved.state;
+      if (handoff.draft) {
+        const draft = await decodeShareState(handoff.draft, { productType: this.productId });
+        if (!draft || typeof draft !== 'object') throw new Error('The language-switch draft is invalid.');
+        state = draft;
+      }
+
+      const restored = await this.restoreConfiguratorState(state);
+      if (!restored) throw new Error('Configurator rejected the language-switch state.');
+
+      const savedName = String(saved.name || this.getNextDefaultProjectName(uid)).slice(0, 80);
+      this.projectName = String(handoff.projectName || savedName).slice(0, 80);
+      this.lastSavedProjectName = savedName;
+      this.currentSavedConfigurationId = handoff.id;
+      this.currentSavedOwnerUid = uid;
+      this.savedLoadBlocked = false;
+      this.cleanStateJson = JSON.stringify(saved.state ?? {});
+      this.cleanProjectName = savedName;
+      this.dirty = Boolean(handoff.draft || this.projectName !== savedName);
+      this.currentDraftStateJson = this.dirty ? JSON.stringify(state ?? {}) : '';
+      this.pendingSavedLanguageHandoff = null;
+      this.clearSavedLanguageHandoffUrl();
+      this.persistMeta();
+      this.renderHost();
+      this.sync();
+      return true;
+    } catch (error) {
+      if (savedConfigurationMissing(error)) {
+        console.warn('The saved configuration referenced by the language switch no longer exists.', error);
+        this.pendingSavedLanguageHandoff = null;
+        this.clearSavedLanguageHandoffUrl();
+        return false;
+      }
+
+      // A temporary backend/network/auth problem must never detach the account
+      // from its save. Keep the handoff in the URL so a later login/reload can
+      // retry, and block Save to avoid overwriting the wrong state.
+      console.error('The saved configuration could not be restored after the language switch.', error);
+      this.savedLoadBlocked = true;
+      this.currentSavedConfigurationId = handoff.id;
+      this.currentSavedOwnerUid = uid;
+      this.projectName = handoff.projectName || this.projectName;
+      this.renderHost();
+      this.sync();
+      this.showFeedback(sharedT(this.state.locale, 'saved.openUnavailable'), 'error');
+      return true;
+    }
   }
 
   renderHost() {
@@ -361,6 +504,18 @@ export class StandaloneConfiguratorShell {
     this.options.callbacks.onAuthChange?.(null);
   }
 
+  async restoreConfiguratorState(snapshot) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const callback = this.options.callbacks.restoreState;
+      if (typeof callback === 'function') {
+        const handled = await Promise.resolve(callback(snapshot));
+        if (handled !== false && handled !== undefined && handled !== null) return true;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 75));
+    }
+    return false;
+  }
+
   async resetConfiguratorToDefault() {
     // Some configurators expose their default snapshot shortly after their API is
     // created. A reset request during an auth transition must wait for that state
@@ -385,6 +540,7 @@ export class StandaloneConfiguratorShell {
     const token = ++this.sessionSwitchToken;
     this.authUser = null;
     this.activeSessionUid = '';
+    this.savedLoadBlocked = false;
     this.projectName = this.getGuestProjectName();
     this.lastSavedProjectName = '';
     this.currentSavedConfigurationId = '';
@@ -414,7 +570,10 @@ export class StandaloneConfiguratorShell {
     const token = ++this.sessionSwitchToken;
     this.authUser = user;
     this.activeSessionUid = uid;
+    this.savedLoadBlocked = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
+
+    if (await this.restoreSavedLanguageHandoff(user)) return;
 
     const meta = this.readUserMeta(uid);
     this.projectName = String(meta.name || this.getNextDefaultProjectName(uid)).slice(0, 80);
@@ -431,8 +590,8 @@ export class StandaloneConfiguratorShell {
     if (this.dirty && this.currentDraftStateJson) {
       try {
         const draft = JSON.parse(this.currentDraftStateJson);
-        const restored = await Promise.resolve(this.options.callbacks.restoreState?.(draft));
-        if (restored === false) throw new Error('Configurator rejected the local account draft.');
+        const restored = await this.restoreConfiguratorState(draft);
+        if (!restored) throw new Error('Configurator rejected the local account draft.');
         if (token !== this.sessionSwitchToken) return;
         this.persistMeta();
         this.renderHost();
@@ -463,12 +622,13 @@ export class StandaloneConfiguratorShell {
         productType: this.productId,
       });
       if (token !== this.sessionSwitchToken) return;
-      const restored = await Promise.resolve(this.options.callbacks.restoreState?.(saved.state));
-      if (restored === false) throw new Error('Configurator rejected the saved state.');
+      const restored = await this.restoreConfiguratorState(saved.state);
+      if (!restored) throw new Error('Configurator rejected the saved state.');
       this.projectName = String(saved.name || this.projectName).slice(0, 80);
       this.lastSavedProjectName = this.projectName;
       this.currentSavedOwnerUid = uid;
       this.currentDraftStateJson = '';
+      this.savedLoadBlocked = false;
       this.dirty = false;
       this.captureCleanBaseline();
       this.persistMeta();
@@ -477,6 +637,23 @@ export class StandaloneConfiguratorShell {
     } catch (error) {
       if (token !== this.sessionSwitchToken) return;
       console.error('The last account configuration could not be restored.', error);
+
+      if (!savedConfigurationMissing(error)) {
+        // Do not convert a temporary load failure into a permanent local detach.
+        // The remote document is persistent and may be perfectly healthy; keep
+        // its id so refresh/re-login can retry, and disable Save until a valid
+        // account state has been restored.
+        this.savedLoadBlocked = true;
+        this.currentSavedOwnerUid = uid;
+        this.currentDraftStateJson = '';
+        this.dirty = false;
+        this.renderHost();
+        this.sync();
+        this.showFeedback(sharedT(this.state.locale, 'saved.openUnavailable'), 'error');
+        return;
+      }
+
+      this.savedLoadBlocked = false;
       this.currentSavedConfigurationId = '';
       this.currentSavedOwnerUid = uid;
       this.currentDraftStateJson = '';
@@ -558,6 +735,49 @@ export class StandaloneConfiguratorShell {
     });
   }
 
+  async getLanguageSwitchTarget(nextLocale, fallbackTarget) {
+    const baseTarget = stripConfigurationTransport(new URL(fallbackTarget, window.location.href));
+    const user = this.authUser;
+    const savedId = String(this.currentSavedConfigurationId || '');
+    const ownsSavedConfiguration = Boolean(
+      user?.uid
+      && SAVED_CONFIGURATION_ID_PATTERN.test(savedId)
+      && this.currentSavedOwnerUid === user.uid
+    );
+
+    if (ownsSavedConfiguration) {
+      const hash = readHashParams(baseTarget);
+      hash.set(SAVED_LANGUAGE_ID_PARAM, savedId);
+      hash.set(SAVED_LANGUAGE_OWNER_PARAM, user.uid);
+
+      if (this.dirty) {
+        const currentJson = this.captureCurrentStateJson();
+        const stateChanged = !this.cleanStateJson || currentJson !== this.cleanStateJson;
+        const nameChanged = this.projectName !== (this.cleanProjectName || this.lastSavedProjectName);
+
+        if (nameChanged) hash.set(SAVED_LANGUAGE_NAME_PARAM, this.projectName.slice(0, 80));
+        if (stateChanged) {
+          const snapshot = this.options.callbacks.captureState?.();
+          if (snapshot === undefined || snapshot === null) {
+            throw new Error('The current saved configuration could not be captured for the language switch.');
+          }
+          const encodedDraft = await encodeShareState(this.productId, snapshot);
+          hash.set(SAVED_LANGUAGE_DRAFT_PARAM, encodedDraft);
+        }
+      }
+
+      writeHashParams(baseTarget, hash);
+      return baseTarget.href;
+    }
+
+    // Guests and authenticated users working in a brand-new unsaved project do
+    // not have a private saved id that the destination domain can reopen. Use the
+    // normal Share transport only for those two cases.
+    const shareUrl = await Promise.resolve(this.options.callbacks.getShareUrl?.() || '');
+    if (!shareUrl) return baseTarget.href;
+    return getLocalizedConfiguratorUrl(nextLocale, this.productId, new URL(shareUrl, window.location.href)) || baseTarget.href;
+  }
+
   async handleClick(event) {
     const actionTarget = event.target.closest('[data-action]');
     if (!actionTarget) return;
@@ -602,7 +822,7 @@ export class StandaloneConfiguratorShell {
       const nextLocale = actionTarget.dataset.locale;
       const profile = LANGUAGE_PROFILES[nextLocale];
       if (profile) {
-        const targetUrl = getLocalizedConfiguratorUrl(nextLocale, this.options.productType, window.location);
+        const targetUrl = getLocalizedConfiguratorUrl(nextLocale, this.productId, window.location);
         const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
         if (targetUrl && nextLocale !== this.state.locale && !isLocalDevelopmentHost) {
           // The unified shell owns language-switch feedback so every configurator
@@ -613,18 +833,14 @@ export class StandaloneConfiguratorShell {
           this.showLanguageSwitchLoading();
           await this.waitForLanguageSwitchPaint();
 
-          let resolvedTarget = targetUrl;
-          if (this.options.callbacks.getLocalizedUrl) {
-            try {
-              resolvedTarget = await this.options.callbacks.getLocalizedUrl(nextLocale, targetUrl) || targetUrl;
-            } catch (error) {
-              this.hideLanguageSwitchLoading();
-              console.error('Configuration could not be preserved during the language switch.', error);
-              this.showFeedback(sharedT(this.state.locale, 'feedback.languageSwitchUnavailable'), 'error');
-              return;
-            }
+          try {
+            const resolvedTarget = await this.getLanguageSwitchTarget(nextLocale, targetUrl);
+            window.location.assign(resolvedTarget || targetUrl);
+          } catch (error) {
+            this.hideLanguageSwitchLoading();
+            console.error('Configuration could not be preserved during the language switch.', error);
+            this.showFeedback(sharedT(this.state.locale, 'feedback.languageSwitchUnavailable'), 'error');
           }
-          window.location.assign(resolvedTarget);
           return;
         }
         const localeChanged = nextLocale !== this.state.locale;
@@ -694,6 +910,10 @@ export class StandaloneConfiguratorShell {
 
   async save(button) {
     if (this.saveBusy) return;
+    if (this.savedLoadBlocked) {
+      this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
+      return;
+    }
 
     const user = this.authUser;
     if (!user?.uid) {
@@ -720,6 +940,7 @@ export class StandaloneConfiguratorShell {
       this.currentSavedConfigurationId = String(result?.id || this.currentSavedConfigurationId || '');
       this.currentSavedOwnerUid = user.uid;
       this.currentDraftStateJson = '';
+      this.savedLoadBlocked = false;
       button.classList.remove('is-success');
       void button.offsetWidth;
       button.classList.add('is-success');
@@ -763,6 +984,9 @@ export class StandaloneConfiguratorShell {
       if (!handled) return;
       this.currentSavedConfigurationId = '';
       this.currentSavedOwnerUid = this.authUser.uid;
+      this.savedLoadBlocked = false;
+      this.pendingSavedLanguageHandoff = null;
+      this.clearSavedLanguageHandoffUrl();
       this.currentDraftStateJson = '';
       this.cleanStateJson = '';
       this.cleanProjectName = '';
@@ -813,13 +1037,16 @@ export class StandaloneConfiguratorShell {
     if (!savedId || !this.authUser) return;
     try {
       const saved = await getUserConfiguration({ id: savedId, productType: this.productId });
-      const restored = await Promise.resolve(this.options.callbacks.restoreState?.(saved.state));
-      if (restored === false) throw new Error('Configurator rejected the saved state.');
+      const restored = await this.restoreConfiguratorState(saved.state);
+      if (!restored) throw new Error('Configurator rejected the saved state.');
       this.projectName = String(saved.name || this.projectName).slice(0, 80);
       this.lastSavedProjectName = this.projectName;
       this.currentSavedConfigurationId = savedId;
       this.currentSavedOwnerUid = this.authUser.uid;
       this.currentDraftStateJson = '';
+      this.savedLoadBlocked = false;
+      this.pendingSavedLanguageHandoff = null;
+      this.clearSavedLanguageHandoffUrl();
       this.dirty = false;
       this.captureCleanBaseline();
       this.persistMeta();
@@ -969,7 +1196,7 @@ export class StandaloneConfiguratorShell {
 
   syncAuthenticationControls() {
     const authenticated = Boolean(this.authUser?.uid);
-    const saveEnabled = authenticated && this.options.capabilities.save !== false && !this.saveBusy;
+    const saveEnabled = authenticated && this.options.capabilities.save !== false && !this.saveBusy && !this.savedLoadBlocked;
     const newEnabled = authenticated && this.options.capabilities.save !== false;
     const saveButton = this.host.querySelector('[data-action="save"]');
     const newButton = this.host.querySelector('[data-action="new-configuration"]');

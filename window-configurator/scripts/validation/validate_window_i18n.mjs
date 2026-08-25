@@ -73,9 +73,6 @@ const sourceChecks = [
     file: "src/client/shared-shell.js",
     required: [
       "applyWindowTranslations",
-      "getLocalizedConfiguratorUrl",
-      "createShareUrl({ productType: 'window'",
-      "feedback.languageSwitchUnavailable",
     ],
   },
   {
@@ -111,6 +108,11 @@ const sourceChecks = [
     ],
   },
 ];
+
+const sharedShellSource = fs.readFileSync(path.join(workspaceRoot, 'shared-ui/src/standaloneShell.js'), 'utf8');
+if (!sharedShellSource.includes('getLanguageSwitchTarget(nextLocale, fallbackTarget)')) failures.push('Shared UI does not own Window language switching.');
+const windowShellSource = fs.readFileSync(path.join(root, 'src/client/shared-shell.js'), 'utf8');
+if (windowShellSource.includes('getLocalizedConfiguratorUrl(nextLocale')) failures.push('Window adapter duplicates shared language switching.');
 
 for (const check of sourceChecks) {
   const absolute = path.join(root, check.file);

@@ -86,7 +86,6 @@ for (const locale of locales) {
 }
 
 const sourceGuards = [
-  ['solar-configurator/js/sharedShell.js', "getLocalizedConfiguratorUrl(nextLocale, 'solar'"],
   ['solar-configurator/js/sharedShell.js', 'applySolarTranslations(snapshot.locale)'],
   ['solar-configurator/js/ui.js', 'solarModuleNote(this.state.modulePreset, this.locale)'],
   ['solar-configurator/js/ui.js', "this.t('simulation.date'"],
@@ -94,6 +93,11 @@ const sourceGuards = [
   ['solar-configurator/js/scene.js', 'solarCompassLabels(resolveSolarLocale())'],
   ['solar-configurator/js/app.js', "t('pvgis.ready'"],
 ];
+const sharedShellSource = fs.readFileSync(path.join(root, 'shared-ui/src/standaloneShell.js'), 'utf8');
+if (!sharedShellSource.includes('getLanguageSwitchTarget(nextLocale, fallbackTarget)')) failures.push('Shared UI does not own Solar language switching.');
+const solarShellSource = fs.readFileSync(path.join(root, 'solar-configurator/js/sharedShell.js'), 'utf8');
+if (solarShellSource.includes('getLocalizedConfiguratorUrl(nextLocale')) failures.push('Solar duplicates shared language switching.');
+
 for (const [relative, needle] of sourceGuards) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
   if (!source.includes(needle)) failures.push(`${relative} is missing i18n guard: ${needle}`);
