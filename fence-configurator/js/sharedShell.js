@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=17';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=18';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
 import { createShareUrl, encodeShareState } from '../../shared-ui/src/shareState.js?v=4';
@@ -12,41 +12,6 @@ applyFenceTranslations(initialLocale);
 const t = (key, variables = {}, locale = null) => fenceT(locale ?? window.FENCE_CONFIGURATOR_SHARED_SHELL?.state?.locale ?? initialLocale, key, variables);
 
 
-const LANGUAGE_LOADING_COPY = Object.freeze({
-  en: { title: 'Switching language…', detail: 'Keeping your fence configuration' },
-  ro: { title: 'Se schimbă limba…', detail: 'Păstrăm configurația gardului' },
-  de: { title: 'Sprache wird gewechselt…', detail: 'Zaunkonfiguration wird beibehalten' },
-});
-
-function showLanguageSwitchLoading() {
-  let overlay = document.querySelector('.fence-language-loading');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.className = 'fence-language-loading';
-    overlay.setAttribute('role', 'status');
-    overlay.setAttribute('aria-live', 'polite');
-    overlay.innerHTML = `
-      <div class="fence-language-loading__card">
-        <span class="fence-language-loading__spinner" aria-hidden="true"></span>
-        <div class="fence-language-loading__copy">
-          <strong></strong>
-          <span></span>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-  }
-
-  const copy = LANGUAGE_LOADING_COPY[initialLocale] ?? LANGUAGE_LOADING_COPY.en;
-  overlay.querySelector('strong').textContent = copy.title;
-  overlay.querySelector('.fence-language-loading__copy > span').textContent = copy.detail;
-  overlay.classList.add('is-visible');
-  return overlay;
-}
-
-function waitForLanguageLoadingPaint() {
-  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-}
 
 const history = new SharedUndoManager({
   capture: () => window.FENCE_CONFIGURATOR_API?.captureState?.(),
@@ -98,12 +63,6 @@ const shell = mountStandaloneConfiguratorShell({
       return snapshot ? createShareUrl({ productType: 'fence', state: snapshot }) : window.location.href;
     },
     async getLocalizedUrl(nextLocale, fallbackTarget) {
-      // Give cross-domain language changes immediate visual feedback. Waiting for
-      // two animation frames guarantees the overlay is painted before state
-      // encoding/navigation begins, even when the redirect is otherwise instant.
-      showLanguageSwitchLoading();
-      await waitForLanguageLoadingPaint();
-
       try {
         const snapshot = window.FENCE_CONFIGURATOR_API?.captureState?.();
         if (!snapshot) return fallbackTarget;
