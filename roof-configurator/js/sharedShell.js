@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=17';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=19';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
 import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
@@ -66,12 +66,7 @@ const shell = mountStandaloneConfiguratorShell({
     },
   },
   callbacks: {
-    onReset() {
-      if (window.confirm(t('reset.confirm'))) {
-        window.ROOF_CONFIGURATOR_API?.resetConfiguration?.();
-      }
-    },
-    async createNewConfiguration() {
+    async resetConfiguration() {
       const api = window.ROOF_CONFIGURATOR_API;
       if (!api?.resetConfiguration) return false;
       return (await api.resetConfiguration()) !== false;
