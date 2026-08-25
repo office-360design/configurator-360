@@ -5,7 +5,7 @@ import {
     createRoundedRectShape,
 } from './geometry-utils.js';
 import { getHouseDimensions } from './house-config.js';
-import { isDrainageCapProfile } from './profile-catalog.js';
+import { getProfileCatalogEntry, isDrainageCapProfile } from './profile-catalog.js';
 import { translateCadTransformSource } from './profile-coordinate-transform.js';
 import { createHouseBuilder } from './house-builder.js';
 import { splitTriangleAtScalarZero } from './mesh-joint-geometry.js';
@@ -1099,6 +1099,27 @@ export function createWindowBuilder({
         return String(profile?.blockName || '').includes('224378') || profile.isGasketTemplate === true;
     }
 
+    function accessoryRequiresOpeningSashConnection(profile) {
+        const catalogEntry = getProfileCatalogEntry(profile);
+        const connectionCellTypes = catalogEntry?.attachment?.connectionCellTypes || [];
+        return catalogEntry?.type === 'profile-accessory'
+            && connectionCellTypes.includes('opening-sash')
+            && !connectionCellTypes.includes('fixed-glazing');
+    }
+
+    function getEditableDividerSideCellType(segment, runtimeCellSide) {
+        const cellId = runtimeCellSide === 'left'
+            ? segment?.negativeCellId
+            : (runtimeCellSide === 'right' ? segment?.positiveCellId : null);
+        if (!cellId) return null;
+        return editableTopologyGeometry?.cells?.find(cell => cell.id === cellId)?.cellType || null;
+    }
+
+    function shouldRenderEditableMullionAccessory(profile, segment, runtimeCellSide) {
+        if (!accessoryRequiresOpeningSashConnection(profile)) return true;
+        return getEditableDividerSideCellType(segment, runtimeCellSide) === 'opening-sash';
+    }
+
     function shouldRenderMullionAccessory(profile, cellSide, dividerOrientation, dividerIndex, layoutCellTypes, segmentId = null, isTLayout = false) {
         if (!dividerOrientation) return true;
 
@@ -1126,6 +1147,12 @@ export function createWindowBuilder({
         }
 
         if (isFrameToSashRebateGasket(profile) && sideCellType !== 'opening-sash') {
+            return false;
+        }
+        if (
+            accessoryRequiresOpeningSashConnection(profile)
+            && sideCellType !== 'opening-sash'
+        ) {
             return false;
         }
         if (isFixedGlassAnchorGasket(profile) && sideCellType !== 'fixed-glazing') {
@@ -2585,6 +2612,21 @@ export function createWindowBuilder({
                             return;
                         }
 
+                        // 224068 and 200988 are operable-sash connection
+                        // accessories even though their reusable legacy SVGs
+                        // are authored with role=frame. Keep them on outer-frame
+                        // segments that border an opening sash only. This is
+                        // evaluated per physical frame segment so merged fixed
+                        // cells do not inherit an accessory from another sash
+                        // elsewhere in the same topology.
+                        if (
+                            usesFullOuterBoundary
+                            && accessoryRequiresOpeningSashConnection(profile)
+                            && getFrameBoundaryCellType(side, placement) !== 'opening-sash'
+                        ) {
+                            return;
+                        }
+
                         const mesh = createMiteredSide(
                             profile,
                             placement.width,
@@ -2930,6 +2972,13 @@ export function createWindowBuilder({
                                 const runtimeCellSide = segment.reversed
                                     ? (cellSide === 'left' ? 'right' : (cellSide === 'right' ? 'left' : cellSide))
                                     : cellSide;
+                                if (!shouldRenderEditableMullionAccessory(
+                                    variantProfile,
+                                    segment,
+                                    runtimeCellSide
+                                )) {
+                                    return;
+                                }
                                 const placedProfile = {
                                     ...variantProfile,
                                     cadCoordinateTransform: cadTransform,
@@ -3124,6 +3173,13 @@ export function createWindowBuilder({
                                     ? 'right'
                                     : (cellSide === 'right' ? 'left' : cellSide))
                                 : cellSide;
+                            if (!shouldRenderEditableMullionAccessory(
+                                variantProfile,
+                                sourceSegment,
+                                runtimeCellSide
+                            )) {
+                                return;
+                            }
                             const placedProfile = {
                                 ...variantProfile,
                                 cadCoordinateTransform: cadTransform,
