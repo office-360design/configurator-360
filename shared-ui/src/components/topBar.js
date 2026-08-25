@@ -2,7 +2,7 @@ import { getLanguageProfile } from '../config.js';
 import { sharedT } from '../i18n.js';
 import { sharedIcon } from '../icons.js';
 import { escapeHtml } from '../utils.js';
-import { renderAccountMenu } from './accountMenu.js?v=15';
+import { renderAccountMenu } from './accountMenu.js?v=17';
 import { renderLanguageMenu } from './languageMenu.js';
 
 function iconButton({ action, label, icon, disabled = false, extraClass = '' }) {
@@ -70,7 +70,7 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
 
       <div class="project-name-shell ${authenticated ? '' : 'is-guest'}">
         <span class="project-name-measure" data-project-name-measure aria-hidden="true">${escapeHtml(projectName)}</span>
-        <input class="project-name-input" type="text" value="${escapeHtml(projectName)}" maxlength="80" data-project-name aria-label="${escapeHtml(labels.projectName)}" spellcheck="false" ${authenticated ? '' : 'readonly aria-readonly="true"'} />
+        <input class="project-name-input" type="text" value="${escapeHtml(projectName)}" maxlength="80" data-project-name aria-label="${escapeHtml(labels.projectName)}" spellcheck="false" ${authenticated ? '' : 'readonly disabled tabindex="-1" aria-readonly="true" aria-disabled="true"'} />
         <span class="project-dirty-indicator" data-project-dirty aria-label="${escapeHtml(labels.unsaved)}">*</span>
       </div>
 

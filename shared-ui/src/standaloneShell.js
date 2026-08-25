@@ -1,16 +1,16 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
 import { sharedT } from './i18n.js';
-import { renderActionFeedback } from './components/feedback.js?v=15';
-import { renderTopBar } from './components/topBar.js?v=15';
-import { syncAccountIdentity } from './components/accountMenu.js?v=15';
-import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=15';
-import { renderToolsMenu } from './components/toolsMenu.js?v=15';
-import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=15';
-import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=15';
+import { renderActionFeedback } from './components/feedback.js?v=17';
+import { renderTopBar } from './components/topBar.js?v=17';
+import { syncAccountIdentity } from './components/accountMenu.js?v=17';
+import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=17';
+import { renderToolsMenu } from './components/toolsMenu.js?v=17';
+import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
+import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
-const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall']);
+const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence']);
 
 function normalizeProductId(value = '') {
   const normalized = String(value).trim().toLowerCase();
@@ -18,6 +18,7 @@ function normalizeProductId(value = '') {
   if (normalized.includes('pergola')) return 'pergola';
   if (normalized.includes('roof')) return 'roof';
   if (normalized.includes('hall')) return 'hall';
+  if (normalized.includes('fence')) return 'fence';
   if (normalized.includes('solar')) return 'solar';
   return normalized || 'configuration';
 }
@@ -84,6 +85,8 @@ export class StandaloneConfiguratorShell {
     this.currentSavedConfigurationId = '';
     this.currentSavedOwnerUid = '';
     this.currentDraftStateJson = '';
+    this.cleanStateJson = '';
+    this.cleanProjectName = '';
     this.dirty = false;
     this.activeSessionUid = '';
     this.authInitialized = false;
@@ -114,6 +117,7 @@ export class StandaloneConfiguratorShell {
     this.bindSettingsPanel();
     this.sync();
     this.initializeAuthentication();
+    this.dirtyWatchTimer = window.setInterval(() => this.refreshDirtyFromCapturedState(), 300);
   }
 
   getGuestProjectName() {
@@ -247,6 +251,40 @@ export class StandaloneConfiguratorShell {
     if (!silent) this.options.callbacks.onSettingsPanelToggle?.(this.settingsPanelCollapsed);
   }
 
+  captureCurrentStateJson() {
+    try {
+      const snapshot = this.options.callbacks.captureState?.();
+      if (snapshot === undefined || snapshot === null) return '';
+      return JSON.stringify(snapshot);
+    } catch {
+      return '';
+    }
+  }
+
+  captureCleanBaseline() {
+    const json = this.captureCurrentStateJson();
+    if (!json) return;
+    this.cleanStateJson = json;
+    this.cleanProjectName = this.projectName;
+  }
+
+  refreshDirtyFromCapturedState() {
+    if (!this.authUser?.uid || !this.currentSavedConfigurationId || !this.cleanStateJson) return;
+    const currentJson = this.captureCurrentStateJson();
+    if (!currentJson) return;
+    const hasUnsavedChanges = currentJson !== this.cleanStateJson || this.projectName !== this.cleanProjectName;
+    if (hasUnsavedChanges === this.dirty) return;
+
+    this.dirty = hasUnsavedChanges;
+    if (hasUnsavedChanges) {
+      this.scheduleDraftPersistence();
+    } else {
+      this.currentDraftStateJson = '';
+      this.persistMeta();
+    }
+    this.syncDirty();
+  }
+
   captureDraftState() {
     if (!this.authUser?.uid || !this.dirty || !DRAFT_PRODUCTS.has(this.productId)) return;
     try {
@@ -321,8 +359,18 @@ export class StandaloneConfiguratorShell {
   }
 
   async resetConfiguratorToDefault() {
-    const handled = await Promise.resolve(this.options.callbacks.createNewConfiguration?.());
-    return handled !== false;
+    // Some configurators expose their default snapshot shortly after their API is
+    // created. A reset request during an auth transition must wait for that state
+    // instead of silently accepting a false/undefined reset.
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const callback = this.options.callbacks.createNewConfiguration;
+      if (typeof callback === 'function') {
+        const handled = await Promise.resolve(callback());
+        if (handled !== false) return true;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 75));
+    }
+    return false;
   }
 
   async enterGuestSession({ resetModel = false } = {}) {
@@ -333,6 +381,8 @@ export class StandaloneConfiguratorShell {
     this.lastSavedProjectName = '';
     this.currentSavedConfigurationId = '';
     this.currentSavedOwnerUid = '';
+    this.cleanStateJson = '';
+    this.cleanProjectName = '';
     this.dirty = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
 
@@ -343,6 +393,8 @@ export class StandaloneConfiguratorShell {
     this.currentSavedConfigurationId = '';
     this.currentSavedOwnerUid = '';
     this.currentDraftStateJson = '';
+    this.cleanStateJson = '';
+    this.cleanProjectName = '';
     this.dirty = false;
     this.renderHost();
     this.sync();
@@ -362,6 +414,8 @@ export class StandaloneConfiguratorShell {
     this.currentSavedConfigurationId = String(meta.savedConfigurationId || '');
     this.currentSavedOwnerUid = uid;
     this.currentDraftStateJson = String(meta.draftStateJson || '');
+    this.cleanStateJson = '';
+    this.cleanProjectName = '';
     this.dirty = Boolean(meta.dirty);
     this.renderHost();
     this.sync();
@@ -408,6 +462,7 @@ export class StandaloneConfiguratorShell {
       this.currentSavedOwnerUid = uid;
       this.currentDraftStateJson = '';
       this.dirty = false;
+      this.captureCleanBaseline();
       this.persistMeta();
       this.renderHost();
       this.sync();
@@ -452,8 +507,11 @@ export class StandaloneConfiguratorShell {
   async logoutFromGoogle() {
     try {
       this.flushDraftPersistence();
+      const previousUid = this.activeSessionUid;
       await signOutGoogle();
-      await this.handleAuthStateChange(null);
+      // The auth observer normally performs the switch. If it has not fired yet,
+      // perform it here exactly once so the model is always reset for the guest.
+      if (this.activeSessionUid === previousUid) await this.handleAuthStateChange(null);
       this.accountOpen = true;
       this.options.callbacks.onAccountAction?.('signout');
       this.showFeedback(sharedT(this.state.locale, 'feedback.loggedOut'));
@@ -622,6 +680,7 @@ export class StandaloneConfiguratorShell {
       button.classList.add('is-success');
       this.dirty = false;
       this.lastSavedProjectName = this.projectName;
+      this.captureCleanBaseline();
       this.reserveNextDefaultName();
       this.persistMeta();
       this.options.callbacks.onSave?.({
@@ -650,6 +709,8 @@ export class StandaloneConfiguratorShell {
       this.currentSavedConfigurationId = '';
       this.currentSavedOwnerUid = this.authUser.uid;
       this.currentDraftStateJson = '';
+      this.cleanStateJson = '';
+      this.cleanProjectName = '';
       this.projectName = this.getNextDefaultProjectName(this.authUser.uid);
       this.lastSavedProjectName = '';
       this.dirty = true;
@@ -705,6 +766,7 @@ export class StandaloneConfiguratorShell {
       this.currentSavedOwnerUid = this.authUser.uid;
       this.currentDraftStateJson = '';
       this.dirty = false;
+      this.captureCleanBaseline();
       this.persistMeta();
       this.savedDialog.open = false;
       this.renderHost();
@@ -726,6 +788,8 @@ export class StandaloneConfiguratorShell {
       if (this.currentSavedConfigurationId === savedId) {
         this.currentSavedConfigurationId = '';
         this.currentSavedOwnerUid = this.authUser.uid;
+        this.cleanStateJson = '';
+        this.cleanProjectName = '';
         this.dirty = true;
         this.captureDraftState();
         this.persistMeta();
@@ -864,7 +928,10 @@ export class StandaloneConfiguratorShell {
     }
     if (this.projectInput) {
       this.projectInput.readOnly = !authenticated;
+      this.projectInput.disabled = !authenticated;
+      this.projectInput.tabIndex = authenticated ? 0 : -1;
       this.projectInput.setAttribute('aria-readonly', String(!authenticated));
+      this.projectInput.setAttribute('aria-disabled', String(!authenticated));
       this.projectInput.closest('.project-name-shell')?.classList.toggle('is-guest', !authenticated);
     }
   }
@@ -961,6 +1028,7 @@ export class StandaloneConfiguratorShell {
     document.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('beforeunload', this.onBeforeUnload);
     window.clearTimeout(this.draftPersistTimer);
+    window.clearInterval(this.dirtyWatchTimer);
     if (this.settingsToggle && this.onSettingsToggle) {
       this.settingsToggle.removeEventListener('click', this.onSettingsToggle);
     }
