@@ -1,4 +1,4 @@
-import { applySolarShareState, captureSolarShareState, state } from './state.js?v=14';
+import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=15';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
 import { RoofScene } from './scene.js?v=21';
 import { SolarUI } from './ui.js?v=8';
@@ -929,6 +929,23 @@ document.querySelectorAll('[data-view]').forEach((button) => {
   });
 });
 
+function resetConfiguration() {
+  if (state.simulationPlaying) stopSimulation({ keepHour: false });
+  if (!applySolarShareState(DEFAULT_SOLAR_SHARE_STATE, state)) return false;
+  state.simulationPlaying = false;
+  syncEnvironmentForLocationMode();
+  clearGoogleSolarAnalysis(t('google.unlockThenAnalyze'));
+  ui?.syncAllControls?.();
+  rebuild({ fitCamera: true, pvgis: true });
+  scene.setCompassVisible(state.showCompass);
+  scene.setEnvironment(state);
+  currentView = 'perspective';
+  syncViewButtons();
+  emitToolsState();
+  window.history.replaceState({}, '', window.location.pathname);
+  return true;
+}
+
 const configuratorApi = {
   getState() {
     return toolsSnapshot();
@@ -947,6 +964,8 @@ const configuratorApi = {
     emitToolsState();
     return true;
   },
+
+  resetConfiguration,
 
   setDimensionsVisible(visible) {
     state.showDimensions = Boolean(visible);
