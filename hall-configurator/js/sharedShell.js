@@ -3,6 +3,9 @@ import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
 import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+
+const tenantContext = await requireTenantConfiguratorAccess('hall');
 
 const initialLocale = resolveHallLocale();
 applyHallTranslations(initialLocale);
@@ -30,8 +33,8 @@ shell = mountStandaloneConfiguratorShell({
   productType: 'Hall',
   productId: 'hall',
   storagePrefix: '360-configurator:hall',
-  brandSrc: '../shared-ui/assets/360CONFIGURATOR.png',
-  brandAlt: '360 Configurator',
+  brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
+  brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
     viewAR: false,
     save: true,

@@ -9,6 +9,9 @@ import {
 } from './preferences.js?v=2';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
 import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+
+await requireTenantConfiguratorAccess('roof');
 
 const VIEW_ORDER = ['perspective', 'front', 'top'];
 const DEFAULT_ROOF_STATE = structuredClone(state);

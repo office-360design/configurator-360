@@ -27,6 +27,9 @@ import {
   resolveCurrencyRate,
 } from './preferences.js?v=2';
 import { solarT, resolveSolarLocale } from './i18n.js?v=2';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+
+await requireTenantConfiguratorAccess('solar');
 
 const t = (key, variables = {}) => solarT(resolveSolarLocale(window.SOLAR_SHELL_PREFERENCES?.locale), key, variables);
 

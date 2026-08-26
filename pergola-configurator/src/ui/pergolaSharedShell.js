@@ -8,7 +8,7 @@ function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
 }
 
-export function mountPergolaSharedShell({ store, ui }) {
+export function mountPergolaSharedShell({ store, ui, tenantContext = null }) {
   const initial = store.get();
   const t = (key, variables = {}, locale = null) => pergolaT(locale ?? store.get().locale, key, variables);
 
@@ -16,8 +16,8 @@ export function mountPergolaSharedShell({ store, ui }) {
     productType: 'Pergola',
     productId: 'pergola',
     storagePrefix: 'pergola-configurator',
-    brandSrc: './assets/360CONFIGURATOR.png',
-    brandAlt: '360 Configurator',
+    brandSrc: tenantContext?.logoUrl || './assets/360CONFIGURATOR.png',
+    brandAlt: tenantContext?.companyName || '360 Configurator',
     capabilities: { viewAR: true, save: true, undo: true, reset: true, share: true },
     tools: {
       items: resolveSharedTools([
