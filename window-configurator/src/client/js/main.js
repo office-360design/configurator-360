@@ -21,6 +21,7 @@ import {
 import { resolveLegacyProfileSelection } from './profile-compatibility.js';
 import { createProfileSelectionSignature } from './profile-composition.js';
 import { createWindowLayoutOverlay } from './window-layout-overlay.js';
+import { createWindowSummaryController } from './window-summary.js';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -205,6 +206,7 @@ let profileSelectionController = null;
 let windowLayoutController = null;
 let windowLayoutOverlay = null;
 let arController = null;
+let windowSummaryController = null;
 
 const componentSelection = createComponentSelection({
     renderer,
@@ -396,6 +398,7 @@ windowBuilder = createWindowBuilder({
     getFinishState: materialManager.getFinishState,
     getSelectedHandleSide: () => selectedHandleSide,
     onGlassClick: ({ cellId }) => windowLayoutOverlay?.openCellWheel(cellId),
+    onFabricationSnapshot: snapshot => windowSummaryController?.update(snapshot),
     isProfileEnabled: accessoryController.isProfileEnabled,
     canPlaceProfileOnSide: accessoryController.canPlaceProfileOnSide,
     getWindowLayoutState: () => windowLayoutController?.getConfigurationSnapshot() || {
@@ -412,6 +415,12 @@ const {
     buildWindow,
     applyCurrentPoseInstantly,
 } = windowBuilder;
+
+windowSummaryController = createWindowSummaryController({
+    getProfileSelection: () => profileSelectionController?.getConfigurationSnapshot() || {},
+    getLayoutSelection: () => windowLayoutController?.getConfigurationSnapshot() || {},
+    getActiveGlazingBeadCode,
+});
 
 windowLayoutOverlay = createWindowLayoutOverlay({
     container: document.getElementById('canvas-container'),

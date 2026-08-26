@@ -71,6 +71,7 @@ export function createWindowBuilder({
     getFinishState,
     getSelectedHandleSide,
     onGlassClick = () => { },
+    onFabricationSnapshot = () => { },
     isProfileEnabled = () => true,
     canPlaceProfileOnSide = () => true,
     getWindowLayoutState = () => ({
@@ -89,6 +90,7 @@ export function createWindowBuilder({
     let explodeProgress = 0;
     let explodableObjects = [];
     let editableTopologyGeometry = null;
+    let lastFabricationSnapshot = null;
 
     function registerExplode(obj, dx, dy, dz) {
         obj.userData.basePos = obj.position.clone();
@@ -2115,6 +2117,7 @@ export function createWindowBuilder({
 
         const A = parseFloat(document.getElementById('widthA').value);
         const B = parseFloat(document.getElementById('heightB').value);
+        const fabricationGlassPieces = [];
 
         // UI text update
         const valWidthEl = document.getElementById('valWidth');
@@ -4514,14 +4517,24 @@ export function createWindowBuilder({
             cellId = null,
             glazingCavity = null,
         }) {
+            const paneWidth = Math.max(0.05, width);
+            const paneHeight = Math.max(0.05, height);
             const pane = new THREE.Mesh(
                 new THREE.BoxGeometry(
-                    Math.max(0.05, width),
-                    Math.max(0.05, height),
+                    paneWidth,
+                    paneHeight,
                     glassPlacement.thicknessMm * S
                 ),
                 glassMat
             );
+            fabricationGlassPieces.push(Object.freeze({
+                width: paneWidth,
+                height: paneHeight,
+                centerX,
+                centerY,
+                isFixed: Boolean(isFixed),
+                cellId,
+            }));
             pane.position.set(centerX, centerY, glassPlacement.centerZ);
             pane.castShadow = !captureMode;
             pane.receiveShadow = !captureMode;
@@ -4778,6 +4791,36 @@ export function createWindowBuilder({
         buildDimensionLines(A, B, activeProfiles);
         const t_dims_end = performance.now();
 
+        // Manufacturing data deliberately follows the logical window assembly,
+        // not the renderer's temporary socket/arrow meshes. The Summary BOM can
+        // therefore turn frame/divider topology into realistic workshop cuts
+        // (for example a continuous frame with a square-ended mullion attached).
+        lastFabricationSnapshot = Object.freeze({
+            width: A,
+            height: B,
+            layoutState,
+            openingCells: Object.freeze(openingCells.map(cell => Object.freeze({
+                id: cell.id,
+                width: Number(cell.width) || 0,
+                height: Number(cell.height) || 0,
+                centerX: Number(cell.centerX) || 0,
+                centerY: Number(cell.centerY) || 0,
+            }))),
+            fixedCells: Object.freeze(fixedCells.map(cell => Object.freeze({
+                id: cell.id,
+                width: Number(cell.width) || 0,
+                height: Number(cell.height) || 0,
+                centerX: Number(cell.centerX) || 0,
+                centerY: Number(cell.centerY) || 0,
+                fixedAccessoryWidth: Number(cell.fixedAccessoryWidth ?? cell.width) || 0,
+                fixedAccessoryHeight: Number(cell.fixedAccessoryHeight ?? cell.height) || 0,
+                fixedAccessoryCenterX: Number(cell.fixedAccessoryCenterX ?? cell.centerX) || 0,
+                fixedAccessoryCenterY: Number(cell.fixedAccessoryCenterY ?? cell.centerY) || 0,
+            }))),
+            glassPieces: Object.freeze([...fabricationGlassPieces]),
+        });
+        onFabricationSnapshot(lastFabricationSnapshot);
+
         const t_end = performance.now();
         console.log("PERF:", JSON.stringify({
             total: t_end - t_start,
@@ -4959,5 +5002,6 @@ export function createWindowBuilder({
         setExploded,
         getIsExploded,
         getEditableTopologyGeometry: () => editableTopologyGeometry,
+        getFabricationSnapshot: () => lastFabricationSnapshot,
     };
 }
