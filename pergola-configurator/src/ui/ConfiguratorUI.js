@@ -45,9 +45,6 @@ export class ConfiguratorUI {
 
     this.root.innerHTML = this.shellTemplate();
     this.stepContent = this.root.querySelector('[data-step-content]');
-    this.stepTitle = this.root.querySelector('[data-step-title]');
-    this.stepCounter = this.root.querySelector('[data-step-counter]');
-    this.progress = this.root.querySelector('[data-progress]');
     this.sidebarFooter = this.root.querySelector('[data-sidebar-footer]');
     this.environmentPanel = this.root.querySelector('[data-environment-panel]');
     this.toast = this.root.querySelector('[data-toast]');
@@ -151,10 +148,6 @@ export class ConfiguratorUI {
   }
 
   render() {
-    this.stepTitle.textContent = '';
-    this.stepCounter.textContent = '';
-    this.stepCounter.style.display = 'none';
-    if (this.progress) this.progress.innerHTML = '';
     this.root.querySelector('.app-shell')?.classList.toggle('is-dark-mode', Boolean(this.state.darkMode));
 
     this.stepContent.innerHTML = this.renderAccordionSections();
