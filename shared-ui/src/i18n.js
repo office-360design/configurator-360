@@ -81,6 +81,8 @@ const SHARED_MESSAGES = Object.freeze({
     'feedback.domainSwitchUnavailable': 'Domain change unavailable',
     'settingsPanel.show': 'Show configurator settings',
     'settingsPanel.hide': 'Hide configurator settings',
+    'panel.estimatedTotal': 'Estimated total',
+    'panel.addToCart': 'Add to cart',
   }),
   'ro-RO': Object.freeze({
     'topbar.home': 'Acasă configurator',
@@ -164,6 +166,8 @@ const SHARED_MESSAGES = Object.freeze({
     'feedback.domainSwitchUnavailable': 'Schimbarea domeniului nu este disponibilă',
     'settingsPanel.show': 'Arată setările configuratorului',
     'settingsPanel.hide': 'Ascunde setările configuratorului',
+    'panel.estimatedTotal': 'Total estimat',
+    'panel.addToCart': 'Adaugă în coș',
   }),
   'de-DE': Object.freeze({
     'topbar.home': 'Konfigurator-Startseite',
@@ -247,6 +251,8 @@ const SHARED_MESSAGES = Object.freeze({
     'feedback.domainSwitchUnavailable': 'Domainwechsel nicht verfügbar',
     'settingsPanel.show': 'Konfigurator-Einstellungen anzeigen',
     'settingsPanel.hide': 'Konfigurator-Einstellungen ausblenden',
+    'panel.estimatedTotal': 'Geschätzte Gesamtsumme',
+    'panel.addToCart': 'In den Warenkorb',
   }),
 });
 

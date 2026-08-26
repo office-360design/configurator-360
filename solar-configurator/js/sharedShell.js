@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=25';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=26';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { getSeasonForDate } from './solarPosition.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
@@ -67,6 +67,10 @@ const shell = mountStandaloneConfiguratorShell({
   tools: {
     items: tools,
     placement: { side: 'left', direction: 'down', offsetX: 0, offsetY: 0 },
+  },
+  configuratorPanel: {
+    panelSelector: '.sidebar',
+    priceSelector: '#headerEstimateTotal',
   },
   callbacks: {
     async resetConfiguration() {
@@ -162,6 +166,7 @@ appShell?.addEventListener('pointerdown', (event) => {
 
 if (sidebar) {
   const markDirty = (event) => {
+    if (event.target.closest('[data-shared-configurator-panel-footer]')) return;
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
   };
   sidebar.addEventListener('click', markDirty, true);
