@@ -160,6 +160,19 @@ label span {
     margin-bottom: 18px;
 }
 
+.window-size-control {
+    transition: opacity 0.15s ease;
+}
+
+.window-size-control.is-disabled {
+    opacity: 0.42;
+}
+
+.window-size-control.is-disabled input,
+.window-size-control.is-disabled button {
+    cursor: not-allowed !important;
+}
+
 .finish-mode-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 38px;

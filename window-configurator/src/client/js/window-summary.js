@@ -11,12 +11,14 @@ const PRICE_STORAGE_KEY = 'window-configurator-summary-rates-v1';
 // standalone CAD SVGs (density 2700 kg/m³). They are therefore configurator
 // estimates, not values copied from a Schüco price/weight list.
 export const WINDOW_PROFILE_MANUFACTURING_DATA = Object.freeze({
-    '575760': Object.freeze({ family: 'frame', faceWidthMm: 32, kgPerM: 1.105, nameKey: 'summary.profile.frame' }),
-    '575770': Object.freeze({ family: 'frame', faceWidthMm: 32, kgPerM: 1.105, nameKey: 'summary.profile.frame' }),
+    // 57 / 88 are the visible layout faces from the CAD/manual. The 32 mm
+    // frame seat and 65 mm profile depth are separate fabrication dimensions.
+    '575760': Object.freeze({ family: 'frame', faceWidthMm: 57, frameSeatMm: 32, profileDepthMm: 65, kgPerM: 1.105, nameKey: 'summary.profile.frame' }),
+    '575770': Object.freeze({ family: 'frame', faceWidthMm: 57, frameSeatMm: 32, profileDepthMm: 65, kgPerM: 1.105, nameKey: 'summary.profile.frame' }),
     '575780': Object.freeze({ family: 'sash', faceWidthMm: 49, kgPerM: 1.007, nameKey: 'summary.profile.sash' }),
     '575790': Object.freeze({ family: 'sash', faceWidthMm: 49, kgPerM: 1.007, nameKey: 'summary.profile.sash' }),
-    '575800': Object.freeze({ family: 'mullion', faceWidthMm: 38, kgPerM: 1.475, nameKey: 'summary.profile.mullion' }),
-    '575810': Object.freeze({ family: 'mullion', faceWidthMm: 38, kgPerM: 1.475, nameKey: 'summary.profile.mullion' }),
+    '575800': Object.freeze({ family: 'mullion', faceWidthMm: 88, profileDepthMm: 65, kgPerM: 1.475, nameKey: 'summary.profile.mullion' }),
+    '575810': Object.freeze({ family: 'mullion', faceWidthMm: 88, profileDepthMm: 65, kgPerM: 1.475, nameKey: 'summary.profile.mullion' }),
     '575820': Object.freeze({ family: 'trans', faceWidthMm: 31, kgPerM: 1.314, nameKey: 'summary.profile.trans' }),
     '575830': Object.freeze({ family: 'trans', faceWidthMm: 31, kgPerM: 1.314, nameKey: 'summary.profile.trans' }),
     '573920': Object.freeze({ family: 'bead', faceWidthMm: null, kgPerM: 0.334, nameKey: 'summary.profile.bead' }),
@@ -288,8 +290,10 @@ function buildManufacturingGeometry(snapshot, frameProfileId, dividerProfileId) 
         width: finite(snapshot.width),
         height: finite(snapshot.height),
         topology,
-        frameReplacementSpan: finite(frameTech.faceWidthMm, 32) * M_PER_MM,
-        dividerFaceSpan: finite(dividerTech.faceWidthMm, 38) * M_PER_MM,
+        frameReplacementSpan: finite(frameTech.profileDepthMm, 65) * M_PER_MM,
+        frameFaceSpan: finite(frameTech.faceWidthMm, 57) * M_PER_MM,
+        frameInwardSpan: finite(frameTech.profileDepthMm, 65) * M_PER_MM,
+        dividerFaceSpan: finite(dividerTech.faceWidthMm, 88) * M_PER_MM,
     });
 }
 
@@ -350,8 +354,8 @@ function dividerEndTrim({ geometry, piece, atStart, frameProfileId, dividerProfi
         || frame.id === Object.values(junction.arms || {}).find(arm => arm?.kind === 'frame')?.segmentId
     ));
     const frameReferenceMm = Math.abs(finite(framePlacement?.frameReferenceOffset)) * 1000;
-    const frameSeatTrimM = Math.max(0, finite(frameTech.faceWidthMm, 32) - frameReferenceMm) * M_PER_MM;
-    const dividerSeatTrimM = finite(dividerTech.faceWidthMm, 38) * 0.5 * M_PER_MM;
+    const frameSeatTrimM = Math.max(0, finite(frameTech.frameSeatMm, 32) - frameReferenceMm) * M_PER_MM;
+    const dividerSeatTrimM = finite(dividerTech.faceWidthMm, 88) * 0.5 * M_PER_MM;
 
     const kinds = armKinds(junction);
     const hasFrame = kinds.includes('frame');

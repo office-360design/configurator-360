@@ -4,6 +4,9 @@ import {
 } from './profile-catalog.js';
 import {
     DEFAULT_TRANS_PROFILE_ID,
+    DEFAULT_NEW_WINDOW_WIDTH_M,
+    DEFAULT_NEW_WINDOW_HEIGHT_M,
+    DEFAULT_WINDOW_EDGE_EXTENSION_M,
     FIXED_WINDOW_TYPE,
     SASH_WINDOW_TYPE,
     addWindowToState,
@@ -19,6 +22,7 @@ import {
     setWindowStateDividerProfile,
     setWindowStateTransProfile,
     setWindowTypeInState,
+    setWindowSizeInState,
 } from './window-layout-state.js';
 import { getWindowLocale, localizeLayoutLabel } from './i18n.js';
 
@@ -220,12 +224,24 @@ export function getWindowLayoutRequest(configuration = {}) {
         configuration.transProfileId,
         configuration.trans_profile
     ) || DEFAULT_TRANS_PROFILE_ID);
+    const defaultWidthM = Number.isFinite(Number(configuration.widthM))
+        ? Number(configuration.widthM)
+        : DEFAULT_NEW_WINDOW_WIDTH_M;
+    const defaultHeightM = Number.isFinite(Number(configuration.heightM))
+        ? Number(configuration.heightM)
+        : DEFAULT_NEW_WINDOW_HEIGHT_M;
     const windowState = parseWindowState(firstDefined(
         configuration.windowState,
         configuration.window_state,
         configuration.layoutState,
         configuration.layout_state
-    ), { dividerProfileId, transProfileId });
+    ), {
+        dividerProfileId,
+        transProfileId,
+        defaultWidthM,
+        defaultHeightM,
+        edgeExtensionM: DEFAULT_WINDOW_EDGE_EXTENSION_M,
+    });
     return {
         layoutId: normalizeWindowLayoutId(firstDefined(
             configuration.layoutId,
@@ -320,6 +336,9 @@ export function createWindowLayoutController({
     dividerProfileInput,
     transProfileInput,
     initialSelection = {},
+    initialWidthM = DEFAULT_NEW_WINDOW_WIDTH_M,
+    initialHeightM = DEFAULT_NEW_WINDOW_HEIGHT_M,
+    edgeExtensionM = DEFAULT_WINDOW_EDGE_EXTENSION_M,
     onLayoutChange = async () => {},
 } = {}) {
     const initialRequest = getWindowLayoutRequest(initialSelection);
@@ -334,7 +353,8 @@ export function createWindowLayoutController({
         : createWindowStateFromLayoutDefinition(
             getWindowLayoutDefinition(layoutId),
             dividerProfileId,
-            transProfileId
+            transProfileId,
+            { defaultWidthM: initialWidthM, defaultHeightM: initialHeightM, edgeExtensionM }
         );
     let controlsInitialized = false;
 
@@ -395,7 +415,8 @@ export function createWindowLayoutController({
         windowState = createWindowStateFromLayoutDefinition(
             getWindowLayoutDefinition(layoutId),
             dividerProfileId,
-            transProfileId
+            transProfileId,
+            { defaultWidthM: initialWidthM, defaultHeightM: initialHeightM, edgeExtensionM }
         );
         syncControls();
         if (notify) return notifyChange(previous, { topologyOnly: false });
@@ -429,7 +450,17 @@ export function createWindowLayoutController({
 
     async function addWindow(cellId, direction, type, { handleSide = null, start = null, end = null, notify = true } = {}) {
         const previous = getConfigurationSnapshot();
-        windowState = addWindowToState(windowState, { cellId, direction, type, handleSide, start, end });
+        windowState = addWindowToState(windowState, {
+            cellId,
+            direction,
+            type,
+            handleSide,
+            start,
+            end,
+            defaultWidthM: DEFAULT_NEW_WINDOW_WIDTH_M,
+            defaultHeightM: DEFAULT_NEW_WINDOW_HEIGHT_M,
+            edgeExtensionM,
+        });
         layoutId = 'dynamic';
         if (notify) return notifyChange(previous, { topologyOnly: true });
         syncControls();
@@ -473,6 +504,15 @@ export function createWindowLayoutController({
         return getConfigurationSnapshot();
     }
 
+    async function setWindowSize(cellId, { widthM = null, heightM = null, notify = true } = {}) {
+        const previous = getConfigurationSnapshot();
+        windowState = setWindowSizeInState(windowState, cellId, { widthM, heightM, edgeExtensionM });
+        layoutId = 'dynamic';
+        if (notify) return notifyChange(previous, { topologyOnly: true });
+        syncControls();
+        return getConfigurationSnapshot();
+    }
+
     async function unmergeWindow(cellId, { notify = true } = {}) {
         const previous = getConfigurationSnapshot();
         windowState = unmergeWindowInState(windowState, { cellId });
@@ -498,7 +538,12 @@ export function createWindowLayoutController({
             windowState = createWindowStateFromLayoutDefinition(
                 getWindowLayoutDefinition(layoutId),
                 dividerProfileId,
-                transProfileId
+                transProfileId,
+                {
+                    defaultWidthM: Number.isFinite(Number(configuration.widthM)) ? Number(configuration.widthM) : initialWidthM,
+                    defaultHeightM: Number.isFinite(Number(configuration.heightM)) ? Number(configuration.heightM) : initialHeightM,
+                    edgeExtensionM,
+                }
             );
         }
         syncControls();
@@ -541,6 +586,7 @@ export function createWindowLayoutController({
         mergeWindows,
         setTransBetweenWindows,
         setWindowType,
+        setWindowSize,
         unmergeWindow,
         applyConfiguration,
         appendUrlParams,

@@ -1,10 +1,17 @@
-export const WINDOW_STATE_VERSION = 4;
+export const WINDOW_STATE_VERSION = 5;
 export const MAX_WINDOW_CELLS = 100;
 export const FIXED_WINDOW_TYPE = 'fixed-glazing';
 export const SASH_WINDOW_TYPE = 'opening-sash';
 export const DEFAULT_TRANS_PROFILE_ID = '575820';
+export const DEFAULT_NEW_WINDOW_WIDTH_M = 0.6;
+export const DEFAULT_NEW_WINDOW_HEIGHT_M = 0.9;
+// AW CT 65 CAD face widths: outer frame 57 mm, mullion 88 mm. The grid
+// reference lies on the mullion centreline, so an exposed frame extends
+// 57 - (88 / 2) = 13 mm beyond that line.
+export const DEFAULT_WINDOW_EDGE_EXTENSION_M = 0.013;
 
 const EPSILON = 1e-8;
+const MIN_GRID_TRACK_M = 0.05;
 
 function finite(value, fallback = 0) {
     const number = Number(value);
@@ -23,6 +30,117 @@ function normalizeType(type) {
 
 function normalizeHandleSide(value) {
     return value === 'left' || value === 'right' ? value : null;
+}
+
+
+function coordinateKey(value) {
+    return finite(value).toFixed(8);
+}
+
+function cloneGridTrack(track, axis = 'x') {
+    const startKey = axis === 'x' ? 'x0' : 'y0';
+    const endKey = axis === 'x' ? 'x1' : 'y1';
+    const start = finite(track?.start ?? track?.[startKey], NaN);
+    const end = finite(track?.end ?? track?.[endKey], NaN);
+    const sizeM = finite(track?.sizeM ?? track?.size ?? track?.lengthM, NaN);
+    if (![start, end, sizeM].every(Number.isFinite) || end <= start + EPSILON || sizeM <= 0) {
+        return null;
+    }
+    return { start, end, sizeM: Math.max(MIN_GRID_TRACK_M, sizeM) };
+}
+
+function collectAxisCoordinates(windows, mergeGuides, axis) {
+    const values = [];
+    windows.forEach(cell => {
+        if (axis === 'x') values.push(cell.rect.x0, cell.rect.x1);
+        else values.push(cell.rect.y0, cell.rect.y1);
+    });
+    (mergeGuides || []).forEach(guide => {
+        if (axis === 'x' && guide.orientation === 'vertical') values.push(guide.coordinate);
+        if (axis === 'y' && guide.orientation === 'horizontal') values.push(guide.coordinate);
+    });
+    return [...new Set(values.map(coordinateKey))].map(Number).sort((a, b) => a - b);
+}
+
+function defaultTrackSize({ axis, start, end, coordinates, defaultWidthM, defaultHeightM, edgeExtensionM }) {
+    const min = coordinates[0] ?? start;
+    const max = coordinates.at(-1) ?? end;
+    const outerSideCount = (nearlyEqual(start, min) ? 1 : 0) + (nearlyEqual(end, max) ? 1 : 0);
+    const actualDefault = axis === 'x' ? defaultWidthM : defaultHeightM;
+    return Math.max(MIN_GRID_TRACK_M, actualDefault - outerSideCount * edgeExtensionM);
+}
+
+function normalizeAxisTracks(rawTracks, {
+    axis,
+    bounds,
+    windows,
+    mergeGuides,
+    defaultWidthM,
+    defaultHeightM,
+    edgeExtensionM,
+}) {
+    const coordinates = collectAxisCoordinates(windows, mergeGuides, axis);
+    if (coordinates.length < 2) return [];
+    const shift = axis === 'x' ? -finite(bounds.x0) : -finite(bounds.y0);
+    const raw = (Array.isArray(rawTracks) ? rawTracks : [])
+        .map(track => cloneGridTrack(track, axis))
+        .filter(Boolean)
+        .map(track => ({ ...track, start: track.start + shift, end: track.end + shift }));
+
+    const tracks = [];
+    for (let index = 0; index + 1 < coordinates.length; index += 1) {
+        const start = coordinates[index];
+        const end = coordinates[index + 1];
+        if (end <= start + EPSILON) continue;
+        const exact = raw.find(track => nearlyEqual(track.start, start) && nearlyEqual(track.end, end));
+        let sizeM = exact?.sizeM;
+        if (!Number.isFinite(sizeM)) {
+            const covering = raw.find(track => track.start <= start + EPSILON && track.end >= end - EPSILON);
+            if (covering) {
+                const ratio = (end - start) / Math.max(EPSILON, covering.end - covering.start);
+                sizeM = covering.sizeM * ratio;
+            }
+        }
+        if (!Number.isFinite(sizeM) || sizeM <= 0) {
+            sizeM = defaultTrackSize({
+                axis,
+                start,
+                end,
+                coordinates,
+                defaultWidthM,
+                defaultHeightM,
+                edgeExtensionM,
+            });
+        }
+        tracks.push({ start, end, sizeM: Math.max(MIN_GRID_TRACK_M, sizeM) });
+    }
+    return tracks;
+}
+
+function normalizeGridTracks(value, {
+    bounds,
+    windows,
+    mergeGuides,
+    defaultWidthM = DEFAULT_NEW_WINDOW_WIDTH_M,
+    defaultHeightM = DEFAULT_NEW_WINDOW_HEIGHT_M,
+    edgeExtensionM = DEFAULT_WINDOW_EDGE_EXTENSION_M,
+} = {}) {
+    const source = value && typeof value === 'object' ? value : {};
+    return {
+        x: normalizeAxisTracks(source.x || source.columns, {
+            axis: 'x', bounds, windows, mergeGuides, defaultWidthM, defaultHeightM, edgeExtensionM,
+        }),
+        y: normalizeAxisTracks(source.y || source.rows, {
+            axis: 'y', bounds, windows, mergeGuides, defaultWidthM, defaultHeightM, edgeExtensionM,
+        }),
+    };
+}
+
+function freezeGridTracks(gridTracks) {
+    return Object.freeze({
+        x: Object.freeze((gridTracks?.x || []).map(track => Object.freeze({ ...track }))),
+        y: Object.freeze((gridTracks?.y || []).map(track => Object.freeze({ ...track }))),
+    });
 }
 
 function cloneRect(rect) {
@@ -153,20 +271,34 @@ export function createSingleWindowState({
     handleSide = 'right',
     dividerProfileId = '575800',
     transProfileId = DEFAULT_TRANS_PROFILE_ID,
+    widthM = DEFAULT_NEW_WINDOW_WIDTH_M,
+    heightM = DEFAULT_NEW_WINDOW_HEIGHT_M,
+    edgeExtensionM = DEFAULT_WINDOW_EDGE_EXTENSION_M,
 } = {}) {
+    const extension = Math.max(0, finite(edgeExtensionM, DEFAULT_WINDOW_EDGE_EXTENSION_M));
     return Object.freeze({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: String(dividerProfileId || '575800'),
         transProfileId: String(transProfileId || DEFAULT_TRANS_PROFILE_ID),
         transConnections: Object.freeze([]),
         mergeGuides: Object.freeze([]),
+        gridTracks: freezeGridTracks({
+            x: [{ start: 0, end: 1, sizeM: Math.max(MIN_GRID_TRACK_M, finite(widthM, DEFAULT_NEW_WINDOW_WIDTH_M) - extension * 2) }],
+            y: [{ start: 0, end: 1, sizeM: Math.max(MIN_GRID_TRACK_M, finite(heightM, DEFAULT_NEW_WINDOW_HEIGHT_M) - extension * 2) }],
+        }),
         windows: Object.freeze([
             Object.freeze(makeCell('w1', type, { x0: 0, y0: 0, x1: 1, y1: 1 }, handleSide)),
         ]),
     });
 }
 
-export function normalizeWindowState(value, { dividerProfileId = '575800', transProfileId = DEFAULT_TRANS_PROFILE_ID } = {}) {
+export function normalizeWindowState(value, {
+    dividerProfileId = '575800',
+    transProfileId = DEFAULT_TRANS_PROFILE_ID,
+    defaultWidthM = DEFAULT_NEW_WINDOW_WIDTH_M,
+    defaultHeightM = DEFAULT_NEW_WINDOW_HEIGHT_M,
+    edgeExtensionM = DEFAULT_WINDOW_EDGE_EXTENSION_M,
+} = {}) {
     const source = value && typeof value === 'object' ? value : {};
     const rawWindows = Array.isArray(source.windows) ? source.windows : [];
     const windows = rawWindows.slice(0, MAX_WINDOW_CELLS).map((cell, index) => {
@@ -185,12 +317,23 @@ export function normalizeWindowState(value, { dividerProfileId = '575800', trans
         return createSingleWindowState({
             dividerProfileId: source.dividerProfileId || dividerProfileId,
             transProfileId: source.transProfileId || transProfileId,
+            widthM: defaultWidthM,
+            heightM: defaultHeightM,
+            edgeExtensionM,
         });
     }
 
     const bounds = stateBounds(windows);
     const normalized = normalizeRectangles(windows);
     const mergeGuides = normalizeMergeGuides(source.mergeGuides, bounds);
+    const gridTracks = normalizeGridTracks(source.gridTracks, {
+        bounds,
+        windows: normalized,
+        mergeGuides,
+        defaultWidthM,
+        defaultHeightM,
+        edgeExtensionM,
+    });
     const ids = new Set();
     normalized.forEach(cell => {
         if (ids.has(cell.id)) throw new Error(`Duplicate window id ${cell.id}.`);
@@ -217,6 +360,7 @@ export function normalizeWindowState(value, { dividerProfileId = '575800', trans
         dividerProfileId: String(source.dividerProfileId || dividerProfileId || '575800'),
         transProfileId: String(source.transProfileId || transProfileId || DEFAULT_TRANS_PROFILE_ID),
         transConnections: Object.freeze(transConnections.map(connection => Object.freeze({ ...connection }))),
+        gridTracks: freezeGridTracks(gridTracks),
         mergeGuides: Object.freeze(mergeGuides.map(guide => Object.freeze({
             ...guide,
             ...(Array.isArray(guide.restoreCells)
@@ -239,7 +383,16 @@ function legacyCell(type, handleSide, rect, index) {
     return makeCell(`w${index + 1}`, type, rect, handleSide);
 }
 
-export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfileId = '575800', transProfileId = DEFAULT_TRANS_PROFILE_ID) {
+export function createWindowStateFromLayoutDefinition(
+    layout = {},
+    dividerProfileId = '575800',
+    transProfileId = DEFAULT_TRANS_PROFILE_ID,
+    {
+        defaultWidthM = DEFAULT_NEW_WINDOW_WIDTH_M,
+        defaultHeightM = DEFAULT_NEW_WINDOW_HEIGHT_M,
+        edgeExtensionM = DEFAULT_WINDOW_EDGE_EXTENSION_M,
+    } = {}
+) {
     const cells = Array.isArray(layout.cells) && layout.cells.length
         ? [...layout.cells]
         : [layout.leftCell, layout.rightCell].filter(Boolean);
@@ -258,7 +411,7 @@ export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfil
                 legacyCell(lowerLeftType, handles[1], { x0: 0, y0: 0, x1: 0.5, y1: 1 - fraction }, 1),
                 legacyCell(lowerRightType, handles[2], { x0: 0.5, y0: 0, x1: 1, y1: 1 - fraction }, 2),
             ],
-        });
+        }, { defaultWidthM, defaultHeightM, edgeExtensionM });
     }
 
     if (layout.dividerOrientation === 'vertical' && cells.length > 1) {
@@ -271,7 +424,7 @@ export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfil
                 x1: (index + 1) / cells.length,
                 y1: 1,
             }, index)),
-        });
+        }, { defaultWidthM, defaultHeightM, edgeExtensionM });
     }
 
     if (layout.dividerOrientation === 'horizontal' && cells.length > 1) {
@@ -284,7 +437,7 @@ export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfil
                 x1: 1,
                 y1: (index + 1) / cells.length,
             }, index)),
-        });
+        }, { defaultWidthM, defaultHeightM, edgeExtensionM });
     }
 
     return createSingleWindowState({
@@ -292,6 +445,9 @@ export function createWindowStateFromLayoutDefinition(layout = {}, dividerProfil
         handleSide: handles[0] || null,
         dividerProfileId,
         transProfileId,
+        widthM: defaultWidthM,
+        heightM: defaultHeightM,
+        edgeExtensionM,
     });
 }
 
@@ -392,6 +548,106 @@ function intervalIsExposed(state, cell, direction, start, end) {
     );
 }
 
+function cellHasExposedSide(state, cell, direction) {
+    return getExposedCellSideIntervals(state, cell, direction).some(interval => interval.end > interval.start + EPSILON);
+}
+
+function tracksForCell(state, cell, axis) {
+    const start = axis === 'x' ? cell.rect.x0 : cell.rect.y0;
+    const end = axis === 'x' ? cell.rect.x1 : cell.rect.y1;
+    return (state.gridTracks?.[axis] || []).filter(track => (
+        track.start >= start - EPSILON
+        && track.end <= end + EPSILON
+        && track.end > track.start + EPSILON
+    ));
+}
+
+function trackSpanForCell(state, cell, axis) {
+    return tracksForCell(state, cell, axis).reduce((sum, track) => sum + Math.max(0, finite(track.sizeM)), 0);
+}
+
+export function getWindowActualSizeInState(
+    stateValue,
+    cellId,
+    { edgeExtensionM = DEFAULT_WINDOW_EDGE_EXTENSION_M } = {}
+) {
+    const state = normalizeWindowState(stateValue, { edgeExtensionM });
+    const cell = getCell(state, cellId);
+    if (!cell) return null;
+    const extension = Math.max(0, finite(edgeExtensionM, DEFAULT_WINDOW_EDGE_EXTENSION_M));
+    const horizontalOuterSides = (cellHasExposedSide(state, cell, 'left') ? 1 : 0)
+        + (cellHasExposedSide(state, cell, 'right') ? 1 : 0);
+    const verticalOuterSides = (cellHasExposedSide(state, cell, 'bottom') ? 1 : 0)
+        + (cellHasExposedSide(state, cell, 'top') ? 1 : 0);
+    return Object.freeze({
+        widthM: trackSpanForCell(state, cell, 'x') + horizontalOuterSides * extension,
+        heightM: trackSpanForCell(state, cell, 'y') + verticalOuterSides * extension,
+        structuralWidthM: trackSpanForCell(state, cell, 'x'),
+        structuralHeightM: trackSpanForCell(state, cell, 'y'),
+        horizontalOuterSides,
+        verticalOuterSides,
+    });
+}
+
+function resizeAxisTracksForCell(state, cell, axis, targetActualM, edgeExtensionM) {
+    if (targetActualM === null || targetActualM === undefined || !Number.isFinite(Number(targetActualM))) {
+        return state.gridTracks?.[axis] || [];
+    }
+    const sourceTracks = (state.gridTracks?.[axis] || []).map(track => ({ ...track }));
+    const selected = tracksForCell(state, cell, axis);
+    if (!selected.length) return sourceTracks;
+
+    const outerSides = axis === 'x'
+        ? (cellHasExposedSide(state, cell, 'left') ? 1 : 0) + (cellHasExposedSide(state, cell, 'right') ? 1 : 0)
+        : (cellHasExposedSide(state, cell, 'bottom') ? 1 : 0) + (cellHasExposedSide(state, cell, 'top') ? 1 : 0);
+    const targetStructural = Math.max(
+        MIN_GRID_TRACK_M * selected.length,
+        Number(targetActualM) - outerSides * edgeExtensionM
+    );
+    const currentStructural = selected.reduce((sum, track) => sum + Math.max(0, finite(track.sizeM)), 0);
+    const selectedKeys = new Set(selected.map(track => `${coordinateKey(track.start)}:${coordinateKey(track.end)}`));
+
+    if (currentStructural > EPSILON) {
+        const scale = targetStructural / currentStructural;
+        return sourceTracks.map(track => selectedKeys.has(`${coordinateKey(track.start)}:${coordinateKey(track.end)}`)
+            ? { ...track, sizeM: Math.max(MIN_GRID_TRACK_M, track.sizeM * scale) }
+            : track);
+    }
+
+    const equalSize = targetStructural / selected.length;
+    return sourceTracks.map(track => selectedKeys.has(`${coordinateKey(track.start)}:${coordinateKey(track.end)}`)
+        ? { ...track, sizeM: Math.max(MIN_GRID_TRACK_M, equalSize) }
+        : track);
+}
+
+export function setWindowSizeInState(
+    stateValue,
+    cellId,
+    {
+        widthM = null,
+        heightM = null,
+        edgeExtensionM = DEFAULT_WINDOW_EDGE_EXTENSION_M,
+    } = {}
+) {
+    const extension = Math.max(0, finite(edgeExtensionM, DEFAULT_WINDOW_EDGE_EXTENSION_M));
+    const state = normalizeWindowState(stateValue, { edgeExtensionM: extension });
+    const cell = getCell(state, cellId);
+    if (!cell) throw new Error(`Unknown window ${cellId}.`);
+
+    const nextX = resizeAxisTracksForCell(state, cell, 'x', widthM, extension);
+    const stateWithX = normalizeWindowState({
+        ...state,
+        gridTracks: { x: nextX, y: state.gridTracks?.y || [] },
+    }, { edgeExtensionM: extension });
+    const nextCell = getCell(stateWithX, cellId);
+    const nextY = resizeAxisTracksForCell(stateWithX, nextCell, 'y', heightM, extension);
+
+    return normalizeWindowState({
+        ...stateWithX,
+        gridTracks: { x: stateWithX.gridTracks?.x || [], y: nextY },
+    }, { edgeExtensionM: extension });
+}
+
 export function canAddWindow(stateValue, cellId, direction, { start = null, end = null } = {}) {
     const state = normalizeWindowState(stateValue);
     const cell = getCell(state, cellId);
@@ -420,13 +676,17 @@ export function addWindowToState(stateValue, {
     handleSide = null,
     start = null,
     end = null,
+    defaultWidthM = DEFAULT_NEW_WINDOW_WIDTH_M,
+    defaultHeightM = DEFAULT_NEW_WINDOW_HEIGHT_M,
+    edgeExtensionM = DEFAULT_WINDOW_EDGE_EXTENSION_M,
 } = {}) {
-    const state = normalizeWindowState(stateValue);
+    const state = normalizeWindowState(stateValue, { edgeExtensionM });
     if (!canAddWindow(state, cellId, direction, { start, end })) {
         throw new Error('A new window can only be added from an exposed outer-frame side.');
     }
 
     const target = getCell(state, cellId);
+    const targetSizeBeforeAdd = getWindowActualSizeInState(state, cellId, { edgeExtensionM });
     const windows = state.windows.map(cell => makeCell(cell.id, cell.type, cell.rect, cell.handleSide));
     const targetCopy = windows.find(cell => cell.id === target.id);
     const newId = nextCellId(windows);
@@ -450,14 +710,39 @@ export function addWindowToState(stateValue, {
     }
 
     windows.push(makeCell(newId, type, newRect, handleSide));
-    return normalizeWindowState({
+    const addedState = normalizeWindowState({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
         transProfileId: state.transProfileId,
         transConnections: state.transConnections,
+        gridTracks: state.gridTracks,
         mergeGuides: state.mergeGuides,
         windows,
+    }, { defaultWidthM, defaultHeightM, edgeExtensionM });
+
+    // New windows are deliberately reset to 600 x 900 mm. Because the layout
+    // is a shared grid, the dimension parallel to the shared edge also changes
+    // the row/column it joins. The perpendicular dimension has its own track,
+    // so preserve the neighbour's previous size on that independent axis.
+    let resizedState = setWindowSizeInState(addedState, newId, {
+        widthM: defaultWidthM,
+        heightM: defaultHeightM,
+        edgeExtensionM,
     });
+    if (targetSizeBeforeAdd) {
+        if (direction === 'left' || direction === 'right') {
+            resizedState = setWindowSizeInState(resizedState, target.id, {
+                widthM: targetSizeBeforeAdd.widthM,
+                edgeExtensionM,
+            });
+        } else {
+            resizedState = setWindowSizeInState(resizedState, target.id, {
+                heightM: targetSizeBeforeAdd.heightM,
+                edgeExtensionM,
+            });
+        }
+    }
+    return resizedState;
 }
 
 function sharedBoundary(a, b) {
@@ -648,7 +933,7 @@ export function setTransBetweenWindowsInState(stateValue, {
 }
 
 function topologyCoordinateKey(value) {
-    return finite(value).toFixed(8);
+    return coordinateKey(value);
 }
 
 function linePieceId({ orientation, coordinate, start, end }) {
@@ -906,6 +1191,7 @@ export function deriveWindowTopology(stateValue) {
     return Object.freeze({
         version: WINDOW_STATE_VERSION,
         windows: state.windows,
+        gridTracks: state.gridTracks,
         // Every line is one atomic grid edge. Trans is intentionally not a
         // structural arm: it is a floating profile owned by one sash, so the
         // fixed frame/mullion members crossing its endpoints stay continuous.
@@ -979,6 +1265,7 @@ export function mergeWindowsInState(stateValue, {
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
         transProfileId: state.transProfileId,
+        gridTracks: state.gridTracks,
         transConnections: state.transConnections.filter(connection => (
             connection.cellAId !== a.id
             && connection.cellBId !== a.id
@@ -1100,6 +1387,7 @@ export function unmergeWindowInState(stateValue, { cellId } = {}) {
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
         transProfileId: state.transProfileId,
+        gridTracks: state.gridTracks,
         transConnections: state.transConnections,
         mergeGuides,
         windows,
@@ -1127,6 +1415,7 @@ export function setWindowTypeInState(stateValue, cellId, type, handleSide = null
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
         transProfileId: state.transProfileId,
+        gridTracks: state.gridTracks,
         // A trans is a coupled two-sash configuration. Once either sash is
         // changed (type or left/right opening), the pair is no longer the same
         // configuration, so remove the trans instead of silently keeping it.
@@ -1229,6 +1518,10 @@ export function serializeWindowState(stateValue) {
             cellBId: connection.cellBId,
             ownerCellId: connection.ownerCellId,
         })),
+        gridTracks: {
+            x: state.gridTracks.x.map(track => ({ ...track })),
+            y: state.gridTracks.y.map(track => ({ ...track })),
+        },
         mergeGuides: state.mergeGuides.map(guide => ({
             orientation: guide.orientation,
             coordinate: guide.coordinate,

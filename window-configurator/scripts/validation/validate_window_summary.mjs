@@ -54,14 +54,14 @@ function build(snapshot, overrides = {}) {
     assert.equal(frames.length, 4, 'A mullion T must not split/notch the continuous outer frame in the cut list.');
     assert.deepEqual(
         frames.map(cut => Number(cut.lengthM.toFixed(3))).sort((a, b) => a - b),
-        [1.2, 1.2, 1.4, 1.4],
+        [0.9, 0.9, 1.2, 1.2],
         'Frame cut lengths should be the finished outer dimensions at normal welded corners.'
     );
     assert.ok(frames.every(cut => cut.startJoint === 'miter' && cut.endJoint === 'miter'));
 
     const mullions = result.cuts.filter(cut => cut.category === 'mullion');
     assert.equal(mullions.length, 1);
-    assert.equal(Number(mullions[0].lengthM.toFixed(3)), 1.336);
+    assert.equal(Number(mullions[0].lengthM.toFixed(3)), 0.836);
     assert.equal(mullions[0].startJoint, 'square-frame');
     assert.equal(mullions[0].endJoint, 'square-frame');
     assert.equal(Object.hasOwn(mullions[0], 'stockLengthM'), false, '6 m stock optimization is intentionally not part of this version.');

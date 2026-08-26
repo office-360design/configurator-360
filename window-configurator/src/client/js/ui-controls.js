@@ -17,12 +17,19 @@ function setSidebarCollapsed(collapsed) {
     toggleButton.title = sidebarLabel;
 }
 
+function stepDecimals(stepValue) {
+    const text = String(stepValue ?? '');
+    if (!text.includes('.')) return 0;
+    return text.split('.')[1].length;
+}
+
 function changeInputValue(input, delta) {
     const min = Number.parseFloat(input.min);
     const max = Number.parseFloat(input.max);
     const value = Number.parseFloat(input.value) || min;
     const nextValue = Math.min(max, Math.max(min, value + delta));
-    input.value = nextValue.toFixed(2);
+    const decimals = Math.max(3, stepDecimals(input.step));
+    input.value = nextValue.toFixed(decimals);
     input.dispatchEvent(new Event('input'));
 }
 
@@ -38,6 +45,7 @@ export function initializeUIControls({
     renderer,
     componentSelection,
     buildWindow,
+    onWindowSizeChange = null,
     syncModeButtons,
     setExploded,
     setSelectedHandleSide,
@@ -63,6 +71,7 @@ export function initializeUIControls({
 
     let pendingWindowRebuildTimer = null;
     let lastSizeRebuildAt = 0;
+    const pendingSizeAxes = new Set();
 
     function updateSizeLabelsOnly() {
         const width = Number.parseFloat(widthInput.value) || WINDOW_WIDTH_MAX_M;
@@ -71,17 +80,36 @@ export function initializeUIControls({
         document.getElementById('valHeight').innerText = `${Math.round(height * 1000)} mm`;
     }
 
-    function flushWindowSizeRebuild() {
+    function queueSizeAxis(axis) {
+        if (axis === 'width' || axis === 'height') pendingSizeAxes.add(axis);
+    }
+
+    function emitPendingWindowSizeChange() {
+        const payload = {};
+        if (pendingSizeAxes.has('width')) payload.widthM = Number.parseFloat(widthInput.value);
+        if (pendingSizeAxes.has('height')) payload.heightM = Number.parseFloat(heightInput.value);
+        pendingSizeAxes.clear();
+
+        if (typeof onWindowSizeChange === 'function') {
+            onWindowSizeChange(payload);
+        } else {
+            buildWindow();
+        }
+    }
+
+    function flushWindowSizeRebuild(axis = null) {
+        queueSizeAxis(axis);
         if (pendingWindowRebuildTimer !== null) {
             clearTimeout(pendingWindowRebuildTimer);
             pendingWindowRebuildTimer = null;
         }
 
         lastSizeRebuildAt = performance.now();
-        buildWindow();
+        emitPendingWindowSizeChange();
     }
 
-    function triggerWindowRebuild() {
+    function triggerWindowRebuild(axis) {
+        queueSizeAxis(axis);
         updateSizeLabelsOnly();
 
         const elapsed = performance.now() - lastSizeRebuildAt;
@@ -94,27 +122,27 @@ export function initializeUIControls({
             pendingWindowRebuildTimer = setTimeout(() => {
                 pendingWindowRebuildTimer = null;
                 lastSizeRebuildAt = performance.now();
-                buildWindow();
+                emitPendingWindowSizeChange();
             }, Math.max(0, SIZE_REBUILD_INTERVAL_MS - elapsed));
         }
     }
 
-    widthInput.addEventListener('input', triggerWindowRebuild);
-    heightInput.addEventListener('input', triggerWindowRebuild);
-    widthInput.addEventListener('change', flushWindowSizeRebuild);
-    heightInput.addEventListener('change', flushWindowSizeRebuild);
+    widthInput.addEventListener('input', () => triggerWindowRebuild('width'));
+    heightInput.addEventListener('input', () => triggerWindowRebuild('height'));
+    widthInput.addEventListener('change', () => flushWindowSizeRebuild('width'));
+    heightInput.addEventListener('change', () => flushWindowSizeRebuild('height'));
 
     document.getElementById('btnWidthDec').addEventListener('click', () => {
-        changeInputValue(widthInput, -0.05);
+        changeInputValue(widthInput, -0.001);
     });
     document.getElementById('btnWidthInc').addEventListener('click', () => {
-        changeInputValue(widthInput, 0.05);
+        changeInputValue(widthInput, 0.001);
     });
     document.getElementById('btnHeightDec').addEventListener('click', () => {
-        changeInputValue(heightInput, -0.05);
+        changeInputValue(heightInput, -0.001);
     });
     document.getElementById('btnHeightInc').addEventListener('click', () => {
-        changeInputValue(heightInput, 0.05);
+        changeInputValue(heightInput, 0.001);
     });
 
     const toggleSectionButton = document.getElementById('toggleSectionViewBtn');

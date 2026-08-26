@@ -8,6 +8,7 @@ import {
     createWindowStateFromLayoutDefinition,
     deriveWindowTopology,
     getTransOwnerHandleSide,
+    getWindowActualSizeInState,
     getWindowUnmergeGuide,
     mergeWindowsInState,
     unmergeWindowInState,
@@ -17,6 +18,7 @@ import {
     serializeWindowState,
     setTransBetweenWindowsInState,
     setWindowTypeInState,
+    setWindowSizeInState,
 } from '../../src/client/js/window-layout-state.js';
 
 const errors = [];
@@ -31,6 +33,33 @@ assert(
         singleTopology.addCandidates.some(candidate => candidate.direction === direction)
     ),
     'The starting window must be addable from left, right, top, and bottom.'
+);
+const singleSize = getWindowActualSizeInState(singleState, 'w1');
+assert(
+    Math.abs(singleSize.widthM - 0.6) < 1e-9
+        && Math.abs(singleSize.heightM - 0.9) < 1e-9
+        && Math.abs(singleSize.structuralWidthM - 0.574) < 1e-9
+        && Math.abs(singleSize.structuralHeightM - 0.874) < 1e-9,
+    'A new standalone window must default to 600 x 900 while storing a 13 mm structural inset on every exposed side.'
+);
+let sizedPair = addWindowToState(singleState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+assert(
+    sizedPair.windows.every(windowCell => {
+        const size = getWindowActualSizeInState(sizedPair, windowCell.id);
+        return Math.abs(size.widthM - 0.6) < 1e-9 && Math.abs(size.heightM - 0.9) < 1e-9;
+    }),
+    'Adding a neighbour must create a 600 x 900 window and preserve the independent width of the original column.'
+);
+sizedPair = setWindowSizeInState(sizedPair, 'w1', { widthM: 0.75 });
+assert(
+    Math.abs(getWindowActualSizeInState(sizedPair, 'w1').widthM - 0.75) < 1e-9
+        && Math.abs(getWindowActualSizeInState(sizedPair, 'w2').widthM - 0.6) < 1e-9,
+    'Changing one window width must resize its column without changing another column.'
+);
+assert(
+    Math.abs(getWindowActualSizeInState(sizedPair, 'w1').heightM - 0.9) < 1e-9
+        && Math.abs(getWindowActualSizeInState(sizedPair, 'w2').heightM - 0.9) < 1e-9,
+    'Changing width alone must never modify the row height.'
 );
 
 let leftState = createSingleWindowState({ type: SASH_WINDOW_TYPE });
@@ -244,5 +273,5 @@ if (errors.length) {
     errors.forEach(error => console.error(`- ${error}`));
     process.exitCode = 1;
 } else {
-    console.log('Window layout state valid: outward add, arbitrary cell count, L/T classification, frame-to-divider replacement, per-divider join mapping, merge, and floating-trans topology passed.');
+    console.log('Window layout state valid: per-window grid sizing, 600x900 defaults, outward add, arbitrary cell count, L/T classification, frame-to-divider replacement, merge, and floating-trans topology passed.');
 }

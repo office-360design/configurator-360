@@ -38,6 +38,7 @@ import {
 } from './window-layout-state.js';
 
 const S = 0.001;
+const NOMINAL_OUTER_FRAME_FACE_M = 0.057;
 
 export function createWindowBuilder({
     scene,
@@ -191,6 +192,14 @@ export function createWindowBuilder({
         const bounds = getDividerSourceBounds(dividerProfiles);
         if (!bounds) return 0;
         return getDividerCrossSectionMetrics(bounds).faceSpanM;
+    }
+
+    function getFrameFaceSpanM() {
+        // The converted CAD assembly bounding box includes small lips/flanges
+        // outside the nominal frame face, so using the complete bbox produced
+        // a 72 mm layout face and made a 600 x 900 cell render as 615 x 930.
+        // The AW CT 65 outer-frame sizing face is 57 mm (575760 / 575770).
+        return NOMINAL_OUTER_FRAME_FACE_M;
     }
 
 
@@ -1549,7 +1558,7 @@ export function createWindowBuilder({
         color: 0x38bdf8
     });
 
-    function createLabelSprite(text) {
+    function createLabelSprite(text, scale = 1) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = 256;
@@ -1595,7 +1604,8 @@ export function createWindowBuilder({
             depthWrite: false
         });
         const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(0.35, 0.175, 1);
+        const safeScale = Math.max(0.4, Number(scale) || 1);
+        sprite.scale.set(0.35 * safeScale, 0.175 * safeScale, 1);
         return sprite;
     }
 
@@ -1624,23 +1634,17 @@ export function createWindowBuilder({
         let maxY = B / 2;
 
         if (editableTopologyGeometry) {
-            const framePlacements = editableTopologyGeometry.framePlacements || [];
-            const verticalFrameEdges = framePlacements
-                .filter(frame => frame.orientation === 'vertical')
-                .map(frame => Number(frame.perpendicularOffset))
-                .filter(Number.isFinite);
-            const horizontalFrameEdges = framePlacements
-                .filter(frame => frame.orientation === 'horizontal')
-                .map(frame => Number(frame.perpendicularOffset))
-                .filter(Number.isFinite);
-
-            if (verticalFrameEdges.length >= 2) {
-                minX = Math.min(...verticalFrameEdges);
-                maxX = Math.max(...verticalFrameEdges);
+            const geometryMinX = Number(editableTopologyGeometry.overallMinX);
+            const geometryMaxX = Number(editableTopologyGeometry.overallMaxX);
+            const geometryMinY = Number(editableTopologyGeometry.overallMinY);
+            const geometryMaxY = Number(editableTopologyGeometry.overallMaxY);
+            if ([geometryMinX, geometryMaxX].every(Number.isFinite)) {
+                minX = geometryMinX;
+                maxX = geometryMaxX;
             }
-            if (horizontalFrameEdges.length >= 2) {
-                minY = Math.min(...horizontalFrameEdges);
-                maxY = Math.max(...horizontalFrameEdges);
+            if ([geometryMinY, geometryMaxY].every(Number.isFinite)) {
+                minY = geometryMinY;
+                maxY = geometryMaxY;
             }
         }
 
@@ -1678,6 +1682,77 @@ export function createWindowBuilder({
         const leftLabel = createLabelSprite(`${Math.round(constructionHeight * 1000)} mm`);
         leftLabel.position.set(leftX, constructionCenterY, zPos);
         dimensionsGroup.add(leftLabel);
+
+        // Individual window dimensions are projected to the OUTSIDE margins
+        // of the complete construction. This keeps the model readable: width
+        // bars live only above the layout and height bars only to its right,
+        // rather than drawing a pair of guides around every cell. Identical
+        // spans are deduplicated (for example two windows in the same column).
+        if (editableTopologyGeometry?.cells?.length) {
+            const localOffset = 0.075;
+            const localTick = 0.025;
+            const laneGap = 0.06;
+
+            const uniqueItems = (items) => {
+                const seen = new Set();
+                return items.filter(item => {
+                    const key = [item.start, item.end, item.value]
+                        .map(value => Number(value).toFixed(6))
+                        .join(':');
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+            };
+
+            const assignLanes = (items) => {
+                const laneEnds = [];
+                return [...items]
+                    .sort((a, b) => a.start - b.start || a.end - b.end)
+                    .map(item => {
+                        let lane = laneEnds.findIndex(end => item.start >= end - 1e-9);
+                        if (lane < 0) {
+                            lane = laneEnds.length;
+                            laneEnds.push(item.end);
+                        } else {
+                            laneEnds[lane] = item.end;
+                        }
+                        return { ...item, lane };
+                    });
+            };
+
+            const widthItems = uniqueItems(editableTopologyGeometry.cells.flatMap(cell => {
+                const start = Number(cell.actualX0);
+                const end = Number(cell.actualX1);
+                if (![start, end].every(Number.isFinite) || end <= start) return [];
+                return [{ start, end, value: Math.max(0, end - start) }];
+            }));
+            assignLanes(widthItems).forEach(item => {
+                const y = maxY + localOffset + item.lane * laneGap;
+                addLineSegment(new THREE.Vector3(item.start, y, zPos), new THREE.Vector3(item.end, y, zPos));
+                addLineSegment(new THREE.Vector3(item.start, y - localTick, zPos), new THREE.Vector3(item.start, y + localTick, zPos));
+                addLineSegment(new THREE.Vector3(item.end, y - localTick, zPos), new THREE.Vector3(item.end, y + localTick, zPos));
+                const label = createLabelSprite(`${Math.round(item.value * 1000)} mm`, 0.72);
+                label.position.set((item.start + item.end) / 2, y, zPos);
+                dimensionsGroup.add(label);
+            });
+
+            const heightItems = uniqueItems(editableTopologyGeometry.cells.flatMap(cell => {
+                const start = Number(cell.actualY0);
+                const end = Number(cell.actualY1);
+                if (![start, end].every(Number.isFinite) || end <= start) return [];
+                return [{ start, end, value: Math.max(0, end - start) }];
+            }));
+            assignLanes(heightItems).forEach(item => {
+                const x = maxX + localOffset + item.lane * laneGap;
+                addLineSegment(new THREE.Vector3(x, item.start, zPos), new THREE.Vector3(x, item.end, zPos));
+                addLineSegment(new THREE.Vector3(x - localTick, item.start, zPos), new THREE.Vector3(x + localTick, item.start, zPos));
+                addLineSegment(new THREE.Vector3(x - localTick, item.end, zPos), new THREE.Vector3(x + localTick, item.end, zPos));
+                const label = createLabelSprite(`${Math.round(item.value * 1000)} mm`, 0.72);
+                label.position.set(x, (item.start + item.end) / 2, zPos);
+                dimensionsGroup.add(label);
+            });
+        }
 
         // 4. RIGHT DIMENSION (Height)
         const rightX = maxX + offset;
@@ -2115,15 +2190,9 @@ export function createWindowBuilder({
         explodableObjects = [];
         const t_clear = performance.now();
 
-        const A = parseFloat(document.getElementById('widthA').value);
-        const B = parseFloat(document.getElementById('heightB').value);
+        let A = parseFloat(document.getElementById('widthA').value);
+        let B = parseFloat(document.getElementById('heightB').value);
         const fabricationGlassPieces = [];
-
-        // UI text update
-        const valWidthEl = document.getElementById('valWidth');
-        if (valWidthEl) valWidthEl.innerText = `${Math.round(A * 1000)} mm`;
-        const valHeightEl = document.getElementById('valHeight');
-        if (valHeightEl) valHeightEl.innerText = `${Math.round(B * 1000)} mm`;
 
         const frameGroup = new THREE.Group();
         const sashGroup = new THREE.Group();
@@ -2142,20 +2211,20 @@ export function createWindowBuilder({
         const layoutState = getWindowLayoutState();
         const isEditableTopology = layoutState.isDynamicWindowState === true;
 
-        // The sliders are the outside dimensions of one complete standalone
-        // window. Dynamic topology uses a smaller grid pitch because every
-        // shared side replaces an outer frame with a mullion. Compute that
-        // constant from the active frame profile before resolving topology and
-        // keep using it even after a merge removes the last divider; otherwise
-        // the merged window jumps wider as soon as the mullion disappears.
-        const editableFrameReplacementSpan = isEditableTopology
+        // Keep the profile dimensions used by the layout editor separate:
+        // - outer-frame visible face: 57 mm (CAD X span)
+        // - mullion visible face: 88 mm
+        // - outer-frame profile depth / machining span: 65 mm (CAD inward Y)
+        // The grid reference is the mullion centreline, therefore an exposed
+        // frame contributes 57 - 88/2 = 13 mm beyond a cell grid line.
+        const editableFrameFaceSpan = isEditableTopology
+            ? getFrameFaceSpanM(activeProfiles)
+            : 0;
+        const editableFrameInwardSpan = isEditableTopology
             ? getFrameJointInwardSpanM(activeProfiles)
             : 0;
-        const editableDividerFaceSpan = isEditableTopology && activeDividerProfiles.length
-            ? Math.min(
-                Math.min(A, B) * 0.3,
-                getDividerFaceSpanM(activeDividerProfiles)
-            )
+        const editableDividerFaceSpan = isEditableTopology
+            ? getDividerFaceSpanM(activeDividerProfiles)
             : 0;
         editableTopologyGeometry = isEditableTopology
             ? getEditableWindowTopologyGeometry({
@@ -2165,10 +2234,16 @@ export function createWindowBuilder({
                 dividerConnectionVariants: currentMetadata.dividerConnectionVariants,
                 transConnection: currentMetadata.transConnection,
                 connectionScale: S,
-                frameReplacementSpan: editableFrameReplacementSpan,
+                frameReplacementSpan: editableFrameInwardSpan,
+                frameFaceSpan: editableFrameFaceSpan,
+                frameInwardSpan: editableFrameInwardSpan,
                 dividerFaceSpan: editableDividerFaceSpan,
             })
             : null;
+        if (editableTopologyGeometry) {
+            A = Number(editableTopologyGeometry.overallWidth) || A;
+            B = Number(editableTopologyGeometry.overallHeight) || B;
+        }
         const isTopFixedBottomSashSash = !isEditableTopology && (
             layoutState.layoutId === 'top-fixed-bottom-sash-sash'
             || layoutState.layoutKind === 't-grid'
@@ -2195,7 +2270,7 @@ export function createWindowBuilder({
         // miters lose the CAD-derived reference extension and the whole outside
         // frame visibly shrinks.
         const frameJointInwardSpan = isEditableTopology
-            ? (editableFrameReplacementSpan || getFrameJointInwardSpanM(activeProfiles))
+            ? (editableFrameInwardSpan || getFrameJointInwardSpanM(activeProfiles))
             : (dividerOrientation ? getFrameJointInwardSpanM(activeProfiles) : 0);
         const editableFramePlacements = isEditableTopology
             ? (editableTopologyGeometry?.framePlacements || []).map(placement =>
