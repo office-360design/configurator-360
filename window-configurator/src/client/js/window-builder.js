@@ -5,7 +5,7 @@ import {
     createRoundedRectShape,
 } from './geometry-utils.js';
 import { getHouseDimensions } from './house-config.js';
-import { isDrainageCapProfile } from './profile-catalog.js';
+import { getProfileCatalogEntry, isDrainageCapProfile } from './profile-catalog.js';
 import { translateCadTransformSource } from './profile-coordinate-transform.js';
 import { createHouseBuilder } from './house-builder.js';
 import { splitTriangleAtScalarZero } from './mesh-joint-geometry.js';
@@ -16,6 +16,7 @@ import {
     getHorizontalConnectionFaceDirection,
     getTopFixedBottomSashSashLayout,
     getFrameDividerSocketInset,
+    getFrameHalfFrameSocketInset,
     getFrameDividerMiterContactStart,
     getFrameGridMiterInset,
     getFrameMixedPlusMiterInset,
@@ -29,6 +30,7 @@ import {
     getEditableReentrantFramePlacement,
     getEditableFixedGlazingDividerCadTransform,
     getReentrantFillerTriangle,
+    getHalfFrameTriangle,
 } from './window-layout-geometry.js';
 import {
     getDividerConnectionVariantKey,
@@ -601,7 +603,12 @@ export function createWindowBuilder({
         return mesh;
     }
 
-    function clipDividerMeshToReentrantFillerTriangle(mesh, filler, dividerFaceSpan) {
+    function clipDividerMeshToReentrantFillerTriangle(
+        mesh,
+        filler,
+        dividerFaceSpan,
+        { includeFaceBoundary = true } = {}
+    ) {
         const triangle = getReentrantFillerTriangle({
             filler,
             dividerFaceSpan,
@@ -614,12 +621,56 @@ export function createWindowBuilder({
         if (Math.abs(area2) <= 1e-12) return false;
         const windingSign = area2 > 0 ? 1 : -1;
 
-        // Keep the real mullion geometry/materials, but trim every component
-        // to the exact triangular opening in layout XY. This is intentionally
-        // different from the previous solid-colour wedge: the visible filler
-        // is now literally a horizontally/vertically extruded slice of the
-        // selected mullion assembly, including its real profile islands and
-        // materials. The triangle only acts as a clipping mask.
+        // Structural mullion islands are clipped to the complete triangular
+        // half-face, including its base edge. A join gasket such as 224063 is
+        // seated just outside that aluminium face, however. Clipping the gasket
+        // against the triangle's base deletes exactly the part that must follow
+        // the fixed glazing. For those follower components keep the same two
+        // 45-degree V shoulders but leave the face-normal side open.
+        const clipEdges = includeFaceBoundary
+            ? [[a, b], [b, c], [c, a]]
+            : [[a, b], [c, a]];
+
+        clipEdges.forEach(([p0, p1]) => {
+            const previousGeometry = mesh.geometry;
+            const clippedGeometry = clipBufferGeometryToScalarHalfspace(
+                previousGeometry,
+                rawPoint => {
+                    const worldX = rawPoint.x + (Number(mesh.position.x) || 0);
+                    const worldY = rawPoint.y + (Number(mesh.position.y) || 0);
+                    const edgeX = p1.x - p0.x;
+                    const edgeY = p1.y - p0.y;
+                    const pointX = worldX - p0.x;
+                    const pointY = worldY - p0.y;
+                    return windingSign * (edgeX * pointY - edgeY * pointX);
+                }
+            );
+            if (clippedGeometry !== previousGeometry) previousGeometry.dispose();
+            mesh.geometry = clippedGeometry;
+        });
+
+        const positions = mesh.geometry?.attributes?.position;
+        if (!positions || positions.count < 3) return false;
+        mesh.geometry.deleteAttribute('normal');
+        mesh.geometry.computeVertexNormals();
+        mesh.geometry.computeBoundingBox();
+        mesh.geometry.computeBoundingSphere();
+        return true;
+    }
+
+    function clipFrameMeshToHalfFrameTriangle(mesh, filler) {
+        const triangle = getHalfFrameTriangle({
+            filler,
+            frameReferenceSpan: filler?.frameReferenceSpan,
+        });
+        if (!mesh?.geometry || triangle.length !== 3) return false;
+
+        const [a, b, c] = triangle;
+        const area2 = (b.x - a.x) * (c.y - a.y)
+            - (b.y - a.y) * (c.x - a.x);
+        if (Math.abs(area2) <= 1e-12) return false;
+        const windingSign = area2 > 0 ? 1 : -1;
+
         [[a, b], [b, c], [c, a]].forEach(([p0, p1]) => {
             const previousGeometry = mesh.geometry;
             const clippedGeometry = clipBufferGeometryToScalarHalfspace(
@@ -707,6 +758,7 @@ export function createWindowBuilder({
         const hasFrameProfileBreakJoint = [...dividerJointEnds].some(localEnd => {
             const mode = getFrameJointEndMode(localEnd);
             return mode === 'socket'
+                || mode === 'half-frame-socket'
                 || mode === 'shifted-socket'
                 || mode === 'mixed-plus'
                 || mode === 'mixed-reentrant';
@@ -790,6 +842,13 @@ export function createWindowBuilder({
                 }
                 if (mode === 'socket') {
                     return getFrameDividerSocketInset({
+                        inwardDistance: inw,
+                        dividerFaceSpan: dividerJoint.faceSpan,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                    });
+                }
+                if (mode === 'half-frame-socket') {
+                    return getFrameHalfFrameSocketInset({
                         inwardDistance: inw,
                         dividerFaceSpan: dividerJoint.faceSpan,
                         frameInwardSpan: dividerJoint.frameInwardSpan,
@@ -1099,6 +1158,27 @@ export function createWindowBuilder({
         return String(profile?.blockName || '').includes('224378') || profile.isGasketTemplate === true;
     }
 
+    function accessoryRequiresOpeningSashConnection(profile) {
+        const catalogEntry = getProfileCatalogEntry(profile);
+        const connectionCellTypes = catalogEntry?.attachment?.connectionCellTypes || [];
+        return catalogEntry?.type === 'profile-accessory'
+            && connectionCellTypes.includes('opening-sash')
+            && !connectionCellTypes.includes('fixed-glazing');
+    }
+
+    function getEditableDividerSideCellType(segment, runtimeCellSide) {
+        const cellId = runtimeCellSide === 'left'
+            ? segment?.negativeCellId
+            : (runtimeCellSide === 'right' ? segment?.positiveCellId : null);
+        if (!cellId) return null;
+        return editableTopologyGeometry?.cells?.find(cell => cell.id === cellId)?.cellType || null;
+    }
+
+    function shouldRenderEditableMullionAccessory(profile, segment, runtimeCellSide) {
+        if (!accessoryRequiresOpeningSashConnection(profile)) return true;
+        return getEditableDividerSideCellType(segment, runtimeCellSide) === 'opening-sash';
+    }
+
     function shouldRenderMullionAccessory(profile, cellSide, dividerOrientation, dividerIndex, layoutCellTypes, segmentId = null, isTLayout = false) {
         if (!dividerOrientation) return true;
 
@@ -1126,6 +1206,12 @@ export function createWindowBuilder({
         }
 
         if (isFrameToSashRebateGasket(profile) && sideCellType !== 'opening-sash') {
+            return false;
+        }
+        if (
+            accessoryRequiresOpeningSashConnection(profile)
+            && sideCellType !== 'opening-sash'
+        ) {
             return false;
         }
         if (isFixedGlassAnchorGasket(profile) && sideCellType !== 'fixed-glazing') {
@@ -2585,6 +2671,19 @@ export function createWindowBuilder({
                             return;
                         }
 
+                        // 224068 and 200988 are sash-connection accessories,
+                        // even when their reusable source profile has role=frame.
+                        // Filter each physical frame segment by the cell that is
+                        // actually beside it so fixed and merged-fixed windows
+                        // can never inherit them from another sash in the layout.
+                        if (
+                            usesFullOuterBoundary
+                            && accessoryRequiresOpeningSashConnection(profile)
+                            && getFrameBoundaryCellType(side, placement) !== 'opening-sash'
+                        ) {
+                            return;
+                        }
+
                         const mesh = createMiteredSide(
                             profile,
                             placement.width,
@@ -2620,6 +2719,74 @@ export function createWindowBuilder({
                     });
                 });
             });
+
+        // A normal perimeter T (for example the top/bottom end of the
+        // mullion between two side-by-side windows) contains one small outer
+        // frame triangle. The host frame ends use `half-frame-socket`, which
+        // removes that triangle from both complete frame runs. Render it once
+        // here from the real frame profile so the intersection has explicit
+        // ownership and no coincident/overlapping frame stock.
+        if (isEditableTopology) {
+            (editableTopologyGeometry?.halfFrameFillers || []).forEach(filler => {
+                const sourcePlacement = (editableFramePlacements || []).find(
+                    placement => placement.id === filler.sourceFrameId
+                );
+                if (!sourcePlacement) return;
+
+                const span = Math.max(0, Number(filler.frameReferenceSpan) || 0);
+                if (span <= 1e-9) return;
+
+                activeProfiles
+                    .filter(profile => (
+                        getProfileGroup(profile) === 'frame'
+                        && !profile.frameAccessoryCadTransform
+                    ))
+                    .forEach(profile => {
+                        if (!shouldPlaceProfileOnSide(profile, filler.side)) return;
+
+                        const stockLength = span * 2;
+                        const stockWidth = filler.orientation === 'horizontal'
+                            ? stockLength
+                            : sourcePlacement.width;
+                        const stockHeight = filler.orientation === 'vertical'
+                            ? stockLength
+                            : sourcePlacement.height;
+                        const originX = filler.orientation === 'horizontal'
+                            ? filler.apexX
+                            : sourcePlacement.originX;
+                        const originY = filler.orientation === 'vertical'
+                            ? filler.apexY
+                            : sourcePlacement.originY;
+                        const mesh = createMiteredSide(
+                            profile,
+                            stockWidth,
+                            stockHeight,
+                            filler.side,
+                            profile.explodeOffset,
+                            originX,
+                            originY,
+                            {
+                                localJointEnds: ['negative', 'positive'],
+                                faceSpan: dividerFaceSpan,
+                                frameInwardSpan: frameJointInwardSpan,
+                                endModes: {
+                                    negative: 'square',
+                                    positive: 'square',
+                                },
+                            }
+                        );
+                        if (!clipFrameMeshToHalfFrameTriangle(mesh, filler)) {
+                            mesh.geometry?.dispose();
+                            return;
+                        }
+                        mesh.userData.halfFrame = true;
+                        mesh.userData.halfFrameId = filler.id;
+                        mesh.userData.halfFrameSourceFrameId = filler.sourceFrameId;
+                        mesh.userData.frameSegment = filler.id;
+                        frameGroup.add(mesh);
+                    });
+            });
+        }
 
         // Trans is a floating sash-to-sash profile. It occupies the shared grid
         // edge but is not a structural divider, so it is parented directly to
@@ -2890,6 +3057,7 @@ export function createWindowBuilder({
                             ]);
                         }
 
+                        const renderedConnectionSides = new Set();
                         connectionTransforms.forEach(([cellSide, cadTransform]) => {
                             if (!cadTransform) return;
                             const runtimeCellSide = segment.reversed
@@ -2917,6 +3085,7 @@ export function createWindowBuilder({
                                 faceDirection,
                                 segmentPlacement.joint
                             );
+                            renderedConnectionSides.add(runtimeCellSide);
                             mesh.userData.mullionConnectionGasket = true;
                             mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
                             mesh.userData.connectionProfileId =
@@ -2924,12 +3093,82 @@ export function createWindowBuilder({
                             placeEditableDividerMesh(mesh, segment, 'connection-gasket');
                         });
 
+                        // Fixed-facing 224063 must be a real divider-mounted
+                        // component too.  Rendering it as part of the fixed-cell
+                        // perimeter gives it the cell rectangle's generic miter
+                        // ends, so at a merged-L/re-entrant junction it stops
+                        // before the structural mullion.  Use the direct CAD
+                        // mullion transform and the exact same segmentPlacement
+                        // + joint geometry as the aluminium mullion (and as the
+                        // already-correct sash-facing connection gasket).
+                        if (isFixedGlassAnchorGasket(variantProfile)) {
+                            Object.entries(
+                                variantProfile.fixedGlazingMullionCadTransforms || {}
+                            ).forEach(([cellSide, cadTransform]) => {
+                                if (!cadTransform) return;
+                                const runtimeCellSide = segment.reversed
+                                    ? (cellSide === 'left'
+                                        ? 'right'
+                                        : (cellSide === 'right' ? 'left' : cellSide))
+                                    : cellSide;
+                                if (renderedConnectionSides.has(runtimeCellSide)) return;
+                                if (
+                                    getEditableDividerSideCellType(
+                                        segment,
+                                        runtimeCellSide
+                                    ) !== 'fixed-glazing'
+                                ) {
+                                    return;
+                                }
+
+                                const placedProfile = {
+                                    ...variantProfile,
+                                    cadCoordinateTransform: cadTransform,
+                                    cadAlignmentShiftXMm: 0,
+                                    cadAlignmentShiftYMm: 0,
+                                    dividerSectionRotationDeg:
+                                        Number(connectionMetadata.sectionRotationDeg)
+                                        || Number(variantProfile.dividerSectionRotationDeg)
+                                        || 180,
+                                };
+                                const mesh = createDividerSegment(
+                                    placedProfile,
+                                    segmentPlacement.length,
+                                    segment.orientation,
+                                    segmentDividerBounds,
+                                    depthOffset,
+                                    frameJointInwardSpan,
+                                    segment.perpendicularOffset,
+                                    segmentPlacement.longitudinalOffset,
+                                    faceDirection,
+                                    segmentPlacement.joint
+                                );
+                                renderedConnectionSides.add(runtimeCellSide);
+                                mesh.userData.mullionConnectionGasket = true;
+                                mesh.userData.fixedGlazingAccessory = true;
+                                mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
+                                mesh.userData.connectionProfileId = '224063';
+                                placeEditableDividerMesh(
+                                    mesh,
+                                    segment,
+                                    'fixed-connection-gasket'
+                                );
+                            });
+                        }
+
                         Object.entries(variantProfile.mullionAccessoryCadTransforms || {})
                             .forEach(([cellSide, cadTransform]) => {
                                 if (!cadTransform) return;
                                 const runtimeCellSide = segment.reversed
                                     ? (cellSide === 'left' ? 'right' : (cellSide === 'right' ? 'left' : cellSide))
                                     : cellSide;
+                                if (!shouldRenderEditableMullionAccessory(
+                                    variantProfile,
+                                    segment,
+                                    runtimeCellSide
+                                )) {
+                                    return;
+                                }
                                 const placedProfile = {
                                     ...variantProfile,
                                     cadCoordinateTransform: cadTransform,
@@ -3016,10 +3255,28 @@ export function createWindowBuilder({
                     perpendicularOffset,
                 };
 
-                const createClippedFillerMesh = placedProfile => {
+                const createClippedFillerMesh = (
+                    placedProfile,
+                    { includeFaceBoundary = true } = {}
+                ) => {
+                    // Structural half-mullion stock ends exactly at the two
+                    // aluminium shoulders. 224063 is different: its section
+                    // sits outside that aluminium face, so after deliberately
+                    // leaving the triangle base open it must have enough stock
+                    // beyond both shoulders for the two 45-degree V planes to
+                    // make the final cut. If we keep the structural stock length
+                    // here, the source extrusion itself becomes the limiting
+                    // boundary and produces the square/cut-off gasket end.
+                    //
+                    // Doubling the temporary stock is intentionally harmless:
+                    // the two diagonal half-space clips still define the visible
+                    // gasket ends. Only the un-clipped source stock is longer.
+                    const fillerStockLength = includeFaceBoundary
+                        ? renderLength
+                        : renderLength + fillerFaceSpan;
                     const mesh = createDividerSegment(
                         placedProfile,
-                        renderLength,
+                        fillerStockLength,
                         filler.orientation,
                         fillerBounds,
                         depthOffset,
@@ -3032,7 +3289,8 @@ export function createWindowBuilder({
                     if (!clipDividerMeshToReentrantFillerTriangle(
                         mesh,
                         filler,
-                        fillerFaceSpan
+                        fillerFaceSpan,
+                        { includeFaceBoundary }
                     )) {
                         mesh.geometry?.dispose();
                         return null;
@@ -3068,6 +3326,21 @@ export function createWindowBuilder({
                 // identical V mask. This keeps the accessory seated on the
                 // horizontally extruded mullion section instead of adding a
                 // detached or differently-oriented accessory copy.
+                // The half-mullion retains only the face pointing into the
+                // missing arm. Runtime divider sides are always keyed as
+                // left=negative cell / right=positive cell, independent of the
+                // physical orientation of the member.
+                const fillerRuntimeCellSide = (() => {
+                    if (filler.orientation === 'horizontal') {
+                        if (filler.direction === 'south') return 'left';
+                        if (filler.direction === 'north') return 'right';
+                    } else if (filler.orientation === 'vertical') {
+                        if (filler.direction === 'west') return 'left';
+                        if (filler.direction === 'east') return 'right';
+                    }
+                    return null;
+                })();
+
                 activeProfiles.forEach(profile => {
                     const variantProfile = getEditableProfileVariant(profile, sourceSegment);
                     const sectionRotationDeg =
@@ -3088,6 +3361,7 @@ export function createWindowBuilder({
                         ]);
                     }
 
+                    const renderedConnectionSides = new Set();
                     connectionTransforms.forEach(([cellSide, cadTransform]) => {
                         if (!cadTransform) return;
                         const runtimeCellSide = sourceSegment.reversed
@@ -3102,8 +3376,16 @@ export function createWindowBuilder({
                             cadAlignmentShiftYMm: 0,
                             dividerSectionRotationDeg: sectionRotationDeg,
                         };
-                        const mesh = createClippedFillerMesh(placedProfile);
+                        // 224063 sits just outside the aluminium mullion
+                        // face. Clipping it to the half-mullion triangle's base
+                        // makes it visibly stop at the aluminium end. Preserve
+                        // the two diagonal V shoulders, but leave the fixed-glass
+                        // face open for this gasket.
+                        const mesh = createClippedFillerMesh(placedProfile, {
+                            includeFaceBoundary: !isFixedGlassAnchorGasket(variantProfile),
+                        });
                         if (!mesh) return;
+                        renderedConnectionSides.add(runtimeCellSide);
                         mesh.userData.reentrantFillerConnectionGasket = true;
                         mesh.userData.mullionConnectionGasket = true;
                         mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
@@ -3116,6 +3398,61 @@ export function createWindowBuilder({
                         );
                     });
 
+                    // Fixed/fixed joins do not expose 224063 through the mixed
+                    // `mullionConnectionCadTransform` fields. Their two exact
+                    // gasket seats live in `fixedGlazingDividerCadTransforms`.
+                    // A merged-L half-mullion is a literal clipped continuation
+                    // of the surviving mullion, so copy the exact fixed-side
+                    // gasket for the retained face when the mixed path above did
+                    // not already provide it. This is what is required when the
+                    // upper L cell is fixed as well as the merged lower cell.
+                    if (
+                        isFixedGlassAnchorGasket(variantProfile)
+                        && fillerRuntimeCellSide
+                        && !renderedConnectionSides.has(fillerRuntimeCellSide)
+                        && getEditableDividerSideCellType(
+                            sourceSegment,
+                            fillerRuntimeCellSide
+                        ) === 'fixed-glazing'
+                    ) {
+                        // This mesh is a divider extrusion, so use the
+                        // divider-native direct 224063 INSERT rather than the
+                        // fixed-cell perimeter transform used by createMiteredSide().
+                        const fixedCadTransform =
+                            variantProfile.fixedGlazingMullionCadTransforms?.[
+                                fillerRuntimeCellSide
+                            ] || null;
+                        if (fixedCadTransform) {
+                            const placedProfile = {
+                                ...variantProfile,
+                                cadCoordinateTransform: fixedCadTransform,
+                                cadAlignmentShiftXMm: 0,
+                                cadAlignmentShiftYMm: 0,
+                                dividerSectionRotationDeg: sectionRotationDeg,
+                            };
+                            // 224063 sits outside the aluminium half-face.
+                            // Keep the filler's two V shoulders, but do not clip
+                            // it at the aluminium face boundary or the complete
+                            // gasket disappears when this join is fixed/fixed.
+                            const mesh = createClippedFillerMesh(placedProfile, {
+                                includeFaceBoundary: false,
+                            });
+                            if (mesh) {
+                                mesh.userData.reentrantFillerConnectionGasket = true;
+                                mesh.userData.mullionConnectionGasket = true;
+                                mesh.userData.fixedGlazingAccessory = true;
+                                mesh.userData.connectionBoundary =
+                                    `mullion-${fillerRuntimeCellSide}`;
+                                mesh.userData.connectionProfileId = '224063';
+                                placeEditableDividerMesh(
+                                    mesh,
+                                    fillerSegment,
+                                    'reentrant-filler-fixed-gasket'
+                                );
+                            }
+                        }
+                    }
+
                     Object.entries(variantProfile.mullionAccessoryCadTransforms || {})
                         .forEach(([cellSide, cadTransform]) => {
                             if (!cadTransform) return;
@@ -3124,6 +3461,13 @@ export function createWindowBuilder({
                                     ? 'right'
                                     : (cellSide === 'right' ? 'left' : cellSide))
                                 : cellSide;
+                            if (!shouldRenderEditableMullionAccessory(
+                                variantProfile,
+                                sourceSegment,
+                                runtimeCellSide
+                            )) {
+                                return;
+                            }
                             const placedProfile = {
                                 ...variantProfile,
                                 cadCoordinateTransform: cadTransform,
@@ -3755,6 +4099,47 @@ export function createWindowBuilder({
             return matching;
         }
 
+        function getEditableFixedFramePlacements(fixedCell, side) {
+            return (editableFramePlacements || []).filter(placement => {
+                if (placement.side !== side) return false;
+                return placement.windowCell === fixedCell.id
+                    || placement.cellId === fixedCell.id;
+            });
+        }
+
+        function getEditableFixedSidePlacementRect({ side, spanLength, spanCenter, sx, sy, cx, cy }) {
+            if (side === 'top' || side === 'bottom') {
+                return {
+                    width: spanLength,
+                    height: sy,
+                    originX: spanCenter,
+                    originY: cy,
+                };
+            }
+            return {
+                width: sx,
+                height: spanLength,
+                originX: cx,
+                originY: spanCenter,
+            };
+        }
+
+        function getEditableFixedOuterPlacedProfile(profile) {
+            let transform = applyFixedGlazingFollowerThicknessShift(
+                profile,
+                profile.fixedGlazingFrameCadTransform || null
+            );
+            if (!transform && isFixedGlassAnchorGasket(profile)) return null;
+            return transform
+                ? {
+                    ...profile,
+                    cadCoordinateTransform: transform,
+                    cadAlignmentShiftXMm: 0,
+                    cadAlignmentShiftYMm: 0,
+                }
+                : profile;
+        }
+
         function renderEditableFixedGlazingAccessory(profile, fixedCell, side) {
             const halfDivider = dividerFaceSpan / 2;
             let sx = fixedCell.fixedAccessoryWidth ?? fixedCell.width;
@@ -3780,20 +4165,87 @@ export function createWindowBuilder({
             }
 
             const dividerSegmentsForSide = getEditableFixedBoundarySegments(fixedCell, side);
-            if (!dividerSegmentsForSide.length) {
-                let transform = applyFixedGlazingFollowerThicknessShift(
-                    profile,
-                    profile.fixedGlazingFrameCadTransform || null
-                );
-                if (!transform && isFixedGlassAnchorGasket(profile)) return;
-                const placedProfile = transform
-                    ? {
-                        ...profile,
-                        cadCoordinateTransform: transform,
-                        cadAlignmentShiftXMm: 0,
-                        cadAlignmentShiftYMm: 0,
+
+            // Glazing beads form the perimeter of the complete fixed-light
+            // opening. Their extrusion span must therefore remain the full
+            // fixed-cell width/height even when that side contains only a short
+            // frame or mullion grid segment. The partial-segment rendering below
+            // is only needed by the frame-mounted 224063 gasket.
+            if (getProfileGroup(profile) === 'bead') {
+                if (!dividerSegmentsForSide.length) {
+                    const placedProfile = getEditableFixedOuterPlacedProfile(profile);
+                    if (!placedProfile) return;
+                    const mesh = createMiteredSide(
+                        placedProfile,
+                        sx,
+                        sy,
+                        side,
+                        profile.explodeOffset,
+                        cx,
+                        cy
+                    );
+                    mesh.userData.windowCell = fixedCell.id;
+                    mesh.userData.fixedGlazingAccessory = true;
+                    mesh.userData.fixedGlazingBead = true;
+                    mesh.userData.fixedGlazingConnectionBoundary = 'outer-frame';
+                    frameGroup.add(mesh);
+                    return;
+                }
+
+                dividerSegmentsForSide.forEach(segment => {
+                    const variantProfile = getEditableProfileVariant(profile, segment);
+                    const dividerSide = segment.negativeCellId === fixedCell.id ? 'left' : 'right';
+                    const authoredDividerSide = segment.reversed
+                        ? (dividerSide === 'left' ? 'right' : 'left')
+                        : dividerSide;
+                    const mountedTransforms = variantProfile.mullionConnectionCadTransforms || {};
+                    if (
+                        mountedTransforms[authoredDividerSide]
+                        || (
+                            variantProfile.mullionConnectionCadTransform
+                            && variantProfile.mullionConnectionCellSide === authoredDividerSide
+                        )
+                    ) {
+                        return;
                     }
-                    : profile;
+
+                    let transform = getEditableFixedGlazingDividerCadTransform({
+                        profile,
+                        divider: segment,
+                        runtimeDividerSide: dividerSide,
+                    });
+                    transform = applyFixedGlazingFollowerThicknessShift(variantProfile, transform);
+                    const placedProfile = transform
+                        ? {
+                            ...variantProfile,
+                            cadCoordinateTransform: transform,
+                            cadAlignmentShiftXMm: 0,
+                            cadAlignmentShiftYMm: 0,
+                        }
+                        : variantProfile;
+                    const mesh = createMiteredSide(
+                        placedProfile,
+                        sx,
+                        sy,
+                        side,
+                        profile.explodeOffset,
+                        cx,
+                        cy
+                    );
+                    mesh.userData.windowCell = fixedCell.id;
+                    mesh.userData.fixedGlazingAccessory = true;
+                    mesh.userData.fixedGlazingBead = true;
+                    mesh.userData.fixedGlazingConnectionBoundary =
+                        `divider-${segment.id}-${dividerSide}`;
+                    frameGroup.add(mesh);
+                });
+                return;
+            }
+
+            const framePlacementsForSide = getEditableFixedFramePlacements(fixedCell, side);
+
+            const renderFullFixedSide = (placedProfile, connectionBoundary) => {
+                if (!placedProfile) return;
                 const mesh = createMiteredSide(
                     placedProfile,
                     sx,
@@ -3805,30 +4257,35 @@ export function createWindowBuilder({
                 );
                 mesh.userData.windowCell = fixedCell.id;
                 mesh.userData.fixedGlazingAccessory = true;
-                mesh.userData.fixedGlazingBead = getProfileGroup(profile) === 'bead';
-                mesh.userData.fixedGlazingConnectionBoundary = 'outer-frame';
+                mesh.userData.fixedGlazingBead = false;
+                mesh.userData.fixedGlazingConnectionBoundary = connectionBoundary;
                 frameGroup.add(mesh);
-                return;
-            }
+            };
 
-            dividerSegmentsForSide.forEach(segment => {
+            const getDividerPlacedProfile = segment => {
                 const variantProfile = getEditableProfileVariant(profile, segment);
                 const dividerSide = segment.negativeCellId === fixedCell.id ? 'left' : 'right';
                 const authoredDividerSide = segment.reversed
                     ? (dividerSide === 'left' ? 'right' : 'left')
                     : dividerSide;
                 const mountedTransforms = variantProfile.mullionConnectionCadTransforms || {};
-                if (
+                const fixedMountedTransforms =
+                    variantProfile.fixedGlazingMullionCadTransforms || {};
+                const isMountedDirectly = Boolean(
                     mountedTransforms[authoredDividerSide]
                     || (
                         variantProfile.mullionConnectionCadTransform
                         && variantProfile.mullionConnectionCellSide === authoredDividerSide
                     )
-                ) {
-                    // The direct 224063/245472 join INSERT has already been
-                    // emitted with the divider segment; do not duplicate it as
-                    // a perimeter component.
-                    return;
+                    || (
+                        isFixedGlassAnchorGasket(variantProfile)
+                        && fixedMountedTransforms[authoredDividerSide]
+                    )
+                );
+                if (isMountedDirectly) {
+                    // The direct 224063 join INSERT is emitted with the divider
+                    // segment itself, so this fixed-light pass must not duplicate it.
+                    return { placedProfile: null, dividerSide, mountedDirectly: true };
                 }
 
                 let transform = getEditableFixedGlazingDividerCadTransform({
@@ -3837,31 +4294,162 @@ export function createWindowBuilder({
                     runtimeDividerSide: dividerSide,
                 });
                 transform = applyFixedGlazingFollowerThicknessShift(variantProfile, transform);
-                if (!transform && isFixedGlassAnchorGasket(profile)) return;
-                const placedProfile = transform
-                    ? {
-                        ...variantProfile,
-                        cadCoordinateTransform: transform,
-                        cadAlignmentShiftXMm: 0,
-                        cadAlignmentShiftYMm: 0,
-                    }
-                    : variantProfile;
-                const mesh = createMiteredSide(
-                    placedProfile,
+                if (!transform && isFixedGlassAnchorGasket(profile)) {
+                    return { placedProfile: null, dividerSide, mountedDirectly: false };
+                }
+                return {
+                    placedProfile: transform
+                        ? {
+                            ...variantProfile,
+                            cadCoordinateTransform: transform,
+                            cadAlignmentShiftXMm: 0,
+                            cadAlignmentShiftYMm: 0,
+                        }
+                        : variantProfile,
+                    dividerSide,
+                    mountedDirectly: false,
+                };
+            };
+
+            // Ordinary fixed-light frame sides must keep the complete fixed-cell
+            // span. Splitting 224063 by every frame placement made the gasket
+            // visibly short on otherwise normal fixed windows. Segmentation is
+            // only required when one logical side is physically shared by an
+            // outer-frame piece and a mullion piece (the merged/re-entrant case).
+            if (!dividerSegmentsForSide.length) {
+                renderFullFixedSide(
+                    getEditableFixedOuterPlacedProfile(profile),
+                    'outer-frame'
+                );
+                return;
+            }
+
+            const hasMixedFrameAndDividerBoundary = framePlacementsForSide.length > 0;
+            if (!hasMixedFrameAndDividerBoundary) {
+                // A single divider-owned side can still use the full fixed-cell
+                // perimeter dimensions when its 224063 is not already emitted
+                // as a direct mullion INSERT. Multi-segment divider boundaries
+                // remain segmented so each join keeps its own CAD seat.
+                if (dividerSegmentsForSide.length === 1) {
+                    const segment = dividerSegmentsForSide[0];
+                    const placement = getDividerPlacedProfile(segment);
+                    if (placement.mountedDirectly) return;
+                    renderFullFixedSide(
+                        placement.placedProfile,
+                        `divider-${segment.id}-${placement.dividerSide}`
+                    );
+                    return;
+                }
+
+                dividerSegmentsForSide.forEach(segment => {
+                    const placement = getDividerPlacedProfile(segment);
+                    if (!placement.placedProfile) return;
+                    const rect = getEditableFixedSidePlacementRect({
+                        side,
+                        spanLength: segment.length,
+                        spanCenter: segment.longitudinalOffset,
+                        sx,
+                        sy,
+                        cx,
+                        cy,
+                    });
+                    const mesh = createMiteredSide(
+                        placement.placedProfile,
+                        rect.width,
+                        rect.height,
+                        side,
+                        profile.explodeOffset,
+                        rect.originX,
+                        rect.originY
+                    );
+                    mesh.userData.windowCell = fixedCell.id;
+                    mesh.userData.fixedGlazingAccessory = true;
+                    mesh.userData.fixedGlazingBead = false;
+                    mesh.userData.fixedGlazingConnectionBoundary =
+                        `divider-${segment.id}-${placement.dividerSide}`;
+                    frameGroup.add(mesh);
+                });
+                return;
+            }
+
+            // Mixed merged/re-entrant side: render only the exposed outer-frame
+            // portions here. The divider-owned 224063 copies are either emitted
+            // directly from the join CAD or, when unavailable, rendered below
+            // with the exact divider-side transform. Together they cover the
+            // full logical fixed-light edge without stretching one CAD seat over
+            // two different host profiles.
+            framePlacementsForSide.forEach(placement => {
+                const placedProfile = getEditableFixedOuterPlacedProfile(profile);
+                if (!placedProfile) return;
+                const rect = getEditableFixedSidePlacementRect({
+                    side,
+                    spanLength: side === 'top' || side === 'bottom'
+                        ? placement.width
+                        : placement.height,
+                    spanCenter: side === 'top' || side === 'bottom'
+                        ? placement.originX
+                        : placement.originY,
                     sx,
                     sy,
+                    cx,
+                    cy,
+                });
+                const mesh = createMiteredSide(
+                    placedProfile,
+                    rect.width,
+                    rect.height,
                     side,
                     profile.explodeOffset,
-                    cx,
-                    cy
+                    rect.originX,
+                    rect.originY,
+                    placement.localJointEnds?.length
+                        ? {
+                            localJointEnd: placement.localJointEnd,
+                            localJointEnds: placement.localJointEnds,
+                            faceSpan: dividerFaceSpan,
+                            frameInwardSpan: frameJointInwardSpan,
+                            endModes: placement.frameJointModes,
+                            centerShifts: placement.frameJointCenterShifts,
+                            reentrantFrameBoundaryOffset: placement.reentrantFrameBoundaryOffset,
+                        }
+                        : null
                 );
                 mesh.userData.windowCell = fixedCell.id;
                 mesh.userData.fixedGlazingAccessory = true;
-                mesh.userData.fixedGlazingBead = getProfileGroup(profile) === 'bead';
-                mesh.userData.fixedGlazingConnectionBoundary =
-                    `divider-${segment.id}-${dividerSide}`;
+                mesh.userData.fixedGlazingBead = false;
+                mesh.userData.fixedGlazingConnectionBoundary = 'outer-frame';
                 frameGroup.add(mesh);
             });
+
+            dividerSegmentsForSide.forEach(segment => {
+                const placement = getDividerPlacedProfile(segment);
+                if (!placement.placedProfile) return;
+                const rect = getEditableFixedSidePlacementRect({
+                    side,
+                    spanLength: segment.length,
+                    spanCenter: segment.longitudinalOffset,
+                    sx,
+                    sy,
+                    cx,
+                    cy,
+                });
+                const mesh = createMiteredSide(
+                    placement.placedProfile,
+                    rect.width,
+                    rect.height,
+                    side,
+                    profile.explodeOffset,
+                    rect.originX,
+                    rect.originY
+                );
+                mesh.userData.windowCell = fixedCell.id;
+                mesh.userData.fixedGlazingAccessory = true;
+                mesh.userData.fixedGlazingBead = false;
+                mesh.userData.fixedGlazingConnectionBoundary =
+                    `divider-${segment.id}-${placement.dividerSide}`;
+                frameGroup.add(mesh);
+            });
+
         }
 
         if (fixedCells.length) {

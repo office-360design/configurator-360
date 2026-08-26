@@ -4,24 +4,26 @@ const { onInit } = require('firebase-functions/v2/core');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
-const { randomBytes } = require('node:crypto');
+const { createHash, randomBytes } = require('node:crypto');
 const { GoogleAuth } = require('google-auth-library');
 const { initializeApp } = require('firebase-admin/app');
-const { getAuth } = require('firebase-admin/auth');
 const { AggregateField, FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestore');
 
 // Firebase CLI loads this module during deployment to discover exported functions.
 // Defer Admin/Monitoring initialization until the deployed runtime starts so
 // discovery does not initialize Google services on the developer machine.
 let db;
-let adminAuth;
 let monitoringAuth;
+let mailerSignerAuth;
+let gmailAccessTokenCache = { token: '', expiresAtMs: 0 };
 onInit(() => {
   initializeApp();
   db = getFirestore();
-  adminAuth = getAuth();
   monitoringAuth = new GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/monitoring.read'],
+  });
+  mailerSignerAuth = new GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
   });
 });
 
@@ -38,11 +40,13 @@ const SHARE_LIFETIME_MS = 90 * 24 * 60 * 60 * 1000;
 const CLEANUP_QUERY_BATCH = 400;
 const FUNCTION_REGION = 'europe-west1';
 const RUNTIME_SERVICE_ACCOUNT = 'configurator-runtime@configurator-360.iam.gserviceaccount.com';
-const DOMAIN_AUTH_HANDOFFS_COLLECTION = 'domainAuthHandoffs';
-const DOMAIN_AUTH_HANDOFF_LIFETIME_MS = 5 * 60 * 1000;
-const DOMAIN_AUTH_HANDOFF_CLEANUP_LIMIT = 100;
-const DOMAIN_AUTH_HANDOFF_ID_PATTERN = /^[A-Za-z0-9_-]{32,64}$/;
-const ALLOWED_CONFIGURATOR_ORIGINS = new Set([
+// Marketing-site contact form.
+const CONTACT_RATE_LIMIT_COLLECTION = 'contactSubmissionRateLimits';
+const CONTACT_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const CONTACT_RATE_LIMIT_MAX_ATTEMPTS = 5;
+const CONTACT_RATE_LIMIT_BLOCK_MS = 30 * 60 * 1000;
+const CONTACT_RATE_LIMIT_TTL_MS = 24 * 60 * 60 * 1000;
+const CONTACT_ALLOWED_ORIGINS = Object.freeze([
   'https://360configurator.com',
   'https://www.360configurator.com',
   'https://360configurator.ro',
@@ -51,6 +55,19 @@ const ALLOWED_CONFIGURATOR_ORIGINS = new Set([
   'https://www.360konfigurator.de',
   'https://aks.360configurator.com',
 ]);
+const CONTACT_DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
+const CONTACT_ALLOWED_LANGUAGES = new Set(['en', 'ro', 'de']);
+const CONTACT_DESTINATIONS = Object.freeze({
+  ro: 'office@360configurator.ro',
+  en: 'office@360configurator.com',
+  de: 'office@360configurator.com',
+});
+const CONTACT_FROM = '360Configurator Website <office@360configurator.com>';
+const CONTACT_FALLBACK_FROM = '360Configurator Website <office@360design.ro>';
+const CONTACT_WORKSPACE_USER = 'office@360design.ro';
+const CONTACT_MAILER_SERVICE_ACCOUNT = 'configurator-mailer@configurator-360.iam.gserviceaccount.com';
+const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
 // reCAPTCHA Enterprise / App Check budget policy.
 const RECAPTCHA_ASSESSMENT_METRIC = 'recaptchaenterprise.googleapis.com/assessment_count';
@@ -362,6 +379,378 @@ async function refreshRecaptchaUsageStatus({ force = false } = {}) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Marketing website contact form
+// ---------------------------------------------------------------------------
+
+function isAllowedContactOrigin(origin) {
+  const normalized = String(origin || '').trim().replace(/\/$/, '');
+  return CONTACT_ALLOWED_ORIGINS.includes(normalized)
+    || CONTACT_DEVELOPMENT_ORIGIN.test(normalized);
+}
+
+function sanitizeSingleLine(value, maxLength) {
+  const normalized = String(value ?? '')
+    .normalize('NFKC')
+    .replace(/[\u0000-\u001F\u007F]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return normalized.slice(0, maxLength);
+}
+
+function sanitizeMessage(value, maxLength) {
+  return String(value ?? '')
+    .normalize('NFKC')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/\n{4,}/g, '\n\n\n')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function validEmail(value) {
+  if (!value || value.length > 254 || /[\r\n]/.test(value)) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function validateContactPayload(data, requestOrigin) {
+  const name = sanitizeSingleLine(data?.name, 120);
+  const email = sanitizeSingleLine(data?.email, 254).toLowerCase();
+  const company = sanitizeSingleLine(data?.company, 160);
+  const phone = sanitizeSingleLine(data?.phone, 60);
+  const configuratorInterest = sanitizeSingleLine(data?.configuratorInterest, 160);
+  const message = sanitizeMessage(data?.message, 5000);
+  const language = sanitizeSingleLine(data?.language, 8).toLowerCase();
+  const sourcePageValue = sanitizeSingleLine(data?.sourcePage, 2048);
+
+  if (!name || !email || !company || !message || !language || !sourcePageValue) {
+    throw new HttpsError('invalid-argument', 'Please complete all required contact fields.');
+  }
+  if (!validEmail(email)) {
+    throw new HttpsError('invalid-argument', 'Please enter a valid email address.');
+  }
+  if (!CONTACT_ALLOWED_LANGUAGES.has(language)) {
+    throw new HttpsError('invalid-argument', 'Unsupported contact form language.');
+  }
+
+  let sourcePage;
+  try {
+    sourcePage = new URL(sourcePageValue);
+  } catch {
+    throw new HttpsError('invalid-argument', 'Invalid contact form source page.');
+  }
+  if (!['https:', 'http:'].includes(sourcePage.protocol)) {
+    throw new HttpsError('invalid-argument', 'Invalid contact form source page.');
+  }
+  if (sourcePage.origin !== requestOrigin) {
+    throw new HttpsError('permission-denied', 'The contact form source page is not allowed.');
+  }
+  // The path is enough to identify the source page. Drop query strings and
+  // fragments so campaign parameters or accidental personal data never enter
+  // the email/logging pipeline through the URL.
+  sourcePage.search = '';
+  sourcePage.hash = '';
+
+  return {
+    name,
+    email,
+    company,
+    phone,
+    configuratorInterest,
+    message,
+    language,
+    sourcePage: sourcePage.toString(),
+    sourceHost: sourcePage.hostname,
+  };
+}
+
+function contactClientIp(rawRequest) {
+  const forwarded = String(rawRequest?.headers?.['x-forwarded-for'] || '')
+    .split(',')[0]
+    .trim();
+  return forwarded || String(rawRequest?.ip || rawRequest?.socket?.remoteAddress || 'unknown');
+}
+
+function contactRateLimitKey(rawRequest) {
+  return createHash('sha256')
+    .update(`contact-rate-limit:v1:${contactClientIp(rawRequest)}`)
+    .digest('hex');
+}
+
+async function enforceContactRateLimit(rawRequest) {
+  const nowMs = Date.now();
+  const ref = db.collection(CONTACT_RATE_LIMIT_COLLECTION).doc(contactRateLimitKey(rawRequest));
+
+  const result = await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const existing = snapshot.exists ? snapshot.data() || {} : {};
+    const windowStartMs = timestampMillis(existing.windowStart);
+    const blockedUntilMs = timestampMillis(existing.blockedUntil);
+    const existingCount = Math.max(0, Number(existing.count || 0));
+
+    if (blockedUntilMs > nowMs) {
+      return { allowed: false, retryAfterMs: blockedUntilMs - nowMs };
+    }
+
+    const windowExpired = !windowStartMs || windowStartMs <= nowMs - CONTACT_RATE_LIMIT_WINDOW_MS;
+    const windowStart = windowExpired ? Timestamp.fromMillis(nowMs) : existing.windowStart;
+    const count = windowExpired ? 1 : existingCount + 1;
+    const blocked = count > CONTACT_RATE_LIMIT_MAX_ATTEMPTS;
+    const blockedUntil = blocked
+      ? Timestamp.fromMillis(nowMs + CONTACT_RATE_LIMIT_BLOCK_MS)
+      : null;
+
+    transaction.set(ref, {
+      count,
+      windowStart,
+      lastAttemptAt: Timestamp.fromMillis(nowMs),
+      blockedUntil,
+      expiresAt: Timestamp.fromMillis(nowMs + CONTACT_RATE_LIMIT_TTL_MS),
+    }, { merge: false });
+
+    return {
+      allowed: !blocked,
+      retryAfterMs: blocked ? CONTACT_RATE_LIMIT_BLOCK_MS : 0,
+    };
+  });
+
+  if (!result.allowed) {
+    throw new HttpsError(
+      'resource-exhausted',
+      'Too many contact form attempts. Please try again later.',
+      { retryAfterSeconds: Math.ceil(result.retryAfterMs / 1000) },
+    );
+  }
+}
+
+function contactEmailText(contact) {
+  const labels = {
+    en: 'English',
+    ro: 'Romanian',
+    de: 'German',
+  };
+  const optionalPhone = contact.phone || 'Not provided';
+  const optionalInterest = contact.configuratorInterest || 'Not provided';
+
+  return [
+    'New 360Configurator website enquiry',
+    '',
+    `Name: ${contact.name}`,
+    `Email: ${contact.email}`,
+    `Company: ${contact.company}`,
+    `Phone: ${optionalPhone}`,
+    `Configurator interest: ${optionalInterest}`,
+    `Language: ${labels[contact.language]} (${contact.language})`,
+    `Source page: ${contact.sourcePage}`,
+    '',
+    'Message:',
+    contact.message,
+  ].join('\n');
+}
+
+function encodeMimeSubject(value) {
+  return `=?UTF-8?B?${Buffer.from(String(value), 'utf8').toString('base64')}?=`;
+}
+
+function encodeMimeMessage({ from, to, replyTo, subject, text }) {
+  const normalizedText = String(text || '').replace(/\r?\n/g, '\r\n');
+  const mime = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Reply-To: ${replyTo}`,
+    `Subject: ${encodeMimeSubject(subject)}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    normalizedText,
+  ].join('\r\n');
+
+  return Buffer.from(mime, 'utf8').toString('base64url');
+}
+
+async function delegatedGmailAccessToken() {
+  const nowMs = Date.now();
+  if (gmailAccessTokenCache.token && gmailAccessTokenCache.expiresAtMs > nowMs + 5 * 60 * 1000) {
+    return gmailAccessTokenCache.token;
+  }
+
+  const nowSeconds = Math.floor(nowMs / 1000);
+  const jwtPayload = JSON.stringify({
+    iss: CONTACT_MAILER_SERVICE_ACCOUNT,
+    sub: CONTACT_WORKSPACE_USER,
+    scope: GMAIL_SEND_SCOPE,
+    aud: GOOGLE_OAUTH_TOKEN_URL,
+    iat: nowSeconds,
+    exp: nowSeconds + 3600,
+  });
+
+  const signerClient = await mailerSignerAuth.getClient();
+  const signResponse = await signerClient.request({
+    url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(CONTACT_MAILER_SERVICE_ACCOUNT)}:signJwt`,
+    method: 'POST',
+    data: { payload: jwtPayload },
+  });
+  const signedJwt = String(signResponse.data?.signedJwt || '');
+  if (!signedJwt) {
+    throw new Error('Google IAM Credentials did not return a signed JWT.');
+  }
+
+  const tokenResponse = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: signedJwt,
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    logger.error('Could not exchange the delegated Workspace JWT for a Gmail access token.', {
+      event: 'contact-gmail-token-error',
+      providerStatus: tokenResponse.status,
+      impersonatedUserDomain: CONTACT_WORKSPACE_USER.split('@')[1],
+    });
+    throw new Error('Google Workspace delegated authorization failed.');
+  }
+
+  const tokenData = await tokenResponse.json();
+  const accessToken = String(tokenData?.access_token || '');
+  const expiresInSeconds = Math.max(60, Number(tokenData?.expires_in || 3600));
+  if (!accessToken) {
+    throw new Error('Google OAuth did not return an access token.');
+  }
+
+  gmailAccessTokenCache = {
+    token: accessToken,
+    expiresAtMs: nowMs + expiresInSeconds * 1000,
+  };
+  return accessToken;
+}
+
+async function gmailSendRaw(accessToken, raw) {
+  return fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/${encodeURIComponent(CONTACT_WORKSPACE_USER)}/messages/send`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'User-Agent': '360ConfiguratorContact/1.0',
+      },
+      body: JSON.stringify({ raw }),
+    },
+  );
+}
+
+async function sendContactEmail(contact) {
+  const destination = CONTACT_DESTINATIONS[contact.language];
+  const accessToken = await delegatedGmailAccessToken();
+  const subject = `[360Configurator] ${contact.company} — ${contact.name}`;
+  const text = contactEmailText(contact);
+
+  let sender = CONTACT_FROM;
+  let response = await gmailSendRaw(accessToken, encodeMimeMessage({
+    from: sender,
+    to: destination,
+    replyTo: contact.email,
+    subject,
+    text,
+  }));
+
+  // The 360configurator.com domain is a Google Workspace alias domain. If its
+  // send-as alias has not yet been enabled for the mailbox, retry once from the
+  // primary Workspace address rather than losing the enquiry.
+  if (response.status === 400) {
+    sender = CONTACT_FALLBACK_FROM;
+    response = await gmailSendRaw(accessToken, encodeMimeMessage({
+      from: sender,
+      to: destination,
+      replyTo: contact.email,
+      subject,
+      text,
+    }));
+  }
+
+  if (!response.ok) {
+    logger.error('Gmail API rejected a contact form email.', {
+      event: 'contact-email-provider-error',
+      provider: 'gmail-api',
+      providerStatus: response.status,
+      recipientDomain: destination.split('@')[1],
+      senderDomain: sender.match(/@([^>]+)>?$/)?.[1] || '',
+      language: contact.language,
+      sourceHost: contact.sourceHost,
+    });
+    throw new HttpsError('unavailable', 'Your message could not be sent. Please try again.');
+  }
+
+  let providerMessageId = '';
+  try {
+    const providerResult = await response.json();
+    providerMessageId = sanitizeSingleLine(providerResult?.id, 128);
+  } catch {
+    // A successful Gmail API response is enough to consider the message accepted.
+  }
+
+  return { destination, providerMessageId, sender };
+}
+
+exports.submitContact = onCall(
+  {
+    region: FUNCTION_REGION,
+    serviceAccount: RUNTIME_SERVICE_ACCOUNT,
+    cors: [...CONTACT_ALLOWED_ORIGINS, CONTACT_DEVELOPMENT_ORIGIN],
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (request) => {
+    if (request.rawRequest?.method !== 'POST') {
+      throw new HttpsError('invalid-argument', 'Contact submissions must use POST.');
+    }
+
+    const origin = String(request.rawRequest?.get?.('origin') || '').trim().replace(/\/$/, '');
+    if (!origin || !isAllowedContactOrigin(origin)) {
+      throw new HttpsError('permission-denied', 'This contact form origin is not allowed.');
+    }
+
+    // Count every protected submission attempt, including honeypot hits, so a
+    // bot cannot burn App Check assessments indefinitely without reaching the
+    // rate limiter simply by filling the hidden field.
+    await enforceContactRateLimit(request.rawRequest);
+
+    // Honeypot. A bot that filled the hidden field receives a harmless success
+    // response, but no email is sent and the frontend will not emit generate_lead.
+    if (sanitizeSingleLine(request.data?.website, 200)) {
+      logger.info('Contact form honeypot submission discarded.', {
+        event: 'contact-honeypot-discarded',
+        origin,
+        appId: String(request.app?.appId || ''),
+      });
+      return { success: true, delivered: false };
+    }
+
+    const contact = validateContactPayload(request.data, origin);
+    const delivery = await sendContactEmail(contact);
+
+    logger.info('Contact form email accepted by provider.', {
+      event: 'contact-email-accepted',
+      provider: 'gmail-api',
+      providerStatus: 'accepted',
+      providerMessageId: delivery.providerMessageId || null,
+      senderDomain: delivery.sender.match(/@([^>]+)>?$/)?.[1] || '',
+      recipientDomain: delivery.destination.split('@')[1],
+      language: contact.language,
+      sourceHost: contact.sourceHost,
+      configuratorInterestProvided: Boolean(contact.configuratorInterest),
+      appId: String(request.app?.appId || ''),
+    });
+
+    return { success: true, delivered: true };
+  },
+);
+
 // Public on purpose. The browser must ask this BEFORE App Check is initialized;
 // protecting this endpoint with App Check would consume the assessment that this
 // endpoint exists to decide whether we are still allowed to spend.
@@ -461,48 +850,6 @@ exports.createSharedConfiguration = onCall(
 
 
 // ---------------------------------------------------------------------------
-// Cross-domain Firebase Authentication handoff helpers
-// ---------------------------------------------------------------------------
-function normalizeConfiguratorOrigin(value) {
-  try {
-    return new URL(String(value || '')).origin;
-  } catch {
-    return '';
-  }
-}
-
-function requestOrigin(request) {
-  return normalizeConfiguratorOrigin(request.rawRequest?.headers?.origin || '');
-}
-
-function requireAllowedConfiguratorOrigin(origin, label = 'origin') {
-  const normalized = normalizeConfiguratorOrigin(origin);
-  if (!ALLOWED_CONFIGURATOR_ORIGINS.has(normalized)) {
-    throw new HttpsError('permission-denied', `Unsupported configurator ${label}.`);
-  }
-  return normalized;
-}
-
-function domainAuthHandoffsCollection() {
-  return db.collection(DOMAIN_AUTH_HANDOFFS_COLLECTION);
-}
-
-async function cleanupExpiredDomainAuthHandoffs() {
-  const expired = await domainAuthHandoffsCollection()
-    .where('expiresAt', '<=', Timestamp.now())
-    .limit(DOMAIN_AUTH_HANDOFF_CLEANUP_LIMIT)
-    .get();
-  if (expired.empty) return;
-  const batch = db.batch();
-  expired.docs.forEach((doc) => batch.delete(doc.ref));
-  await batch.commit();
-}
-
-function generateDomainAuthHandoffId() {
-  return randomBytes(32).toString('base64url');
-}
-
-// ---------------------------------------------------------------------------
 // Private per-user saved configurations
 // ---------------------------------------------------------------------------
 const USER_SAVED_CONFIGURATION_VERSION = 1;
@@ -566,82 +913,13 @@ const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
   region: FUNCTION_REGION,
   serviceAccount: RUNTIME_SERVICE_ACCOUNT,
   // Saved configurations authenticate with the Google/Firebase ID token. App
-  // Check remains deliberately disabled here so reCAPTCHA assessments stay
-  // exclusive to the Share action, as required by the monthly assessment policy.
+  // Check remains deliberately disabled here so ordinary Save/Open actions do
+  // not create reCAPTCHA assessments. Share and the public contact form are the
+  // only browser flows in this backend that currently enforce App Check.
   enforceAppCheck: false,
   timeoutSeconds: 30,
   memory: '256MiB',
 });
-
-exports.createDomainAuthHandoff = onCall(
-  USER_CONFIGURATION_CALLABLE_OPTIONS,
-  async (request) => {
-    const uid = requireAuthenticatedUid(request);
-    const sourceOrigin = requireAllowedConfiguratorOrigin(requestOrigin(request), 'source origin');
-    const targetOrigin = requireAllowedConfiguratorOrigin(request.data?.targetOrigin, 'target origin');
-    const now = Timestamp.now();
-    const expiresAt = Timestamp.fromMillis(now.toMillis() + DOMAIN_AUTH_HANDOFF_LIFETIME_MS);
-
-    await cleanupExpiredDomainAuthHandoffs();
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      const handoffId = generateDomainAuthHandoffId();
-      try {
-        await domainAuthHandoffsCollection().doc(handoffId).create({
-          uid,
-          sourceOrigin,
-          targetOrigin,
-          createdAt: now,
-          expiresAt,
-        });
-        return { handoffId, expiresAtMs: expiresAt.toMillis() };
-      } catch (error) {
-        if (Number(error?.code) === 6 || String(error?.code) === 'already-exists') continue;
-        logger.error('Domain authentication handoff creation failed.', error);
-        throw new HttpsError('internal', 'The domain authentication handoff could not be created.');
-      }
-    }
-    throw new HttpsError('aborted', 'Could not allocate a domain authentication handoff.');
-  },
-);
-
-exports.redeemDomainAuthHandoff = onCall(
-  USER_CONFIGURATION_CALLABLE_OPTIONS,
-  async (request) => {
-    const origin = requireAllowedConfiguratorOrigin(requestOrigin(request), 'destination origin');
-    const handoffId = String(request.data?.handoffId || '').trim();
-    if (!DOMAIN_AUTH_HANDOFF_ID_PATTERN.test(handoffId)) {
-      throw new HttpsError('invalid-argument', 'Invalid domain authentication handoff.');
-    }
-
-    const ref = domainAuthHandoffsCollection().doc(handoffId);
-    const result = await db.runTransaction(async (transaction) => {
-      const snapshot = await transaction.get(ref);
-      if (!snapshot.exists) return { missing: true };
-      const data = snapshot.data() || {};
-      const expiresAtMs = timestampMillis(data.expiresAt);
-      if (!expiresAtMs || expiresAtMs <= Date.now()) {
-        transaction.delete(ref);
-        return { expired: true };
-      }
-      if (String(data.targetOrigin || '') !== origin) return { wrongOrigin: true };
-      const uid = String(data.uid || '');
-      if (!uid) {
-        transaction.delete(ref);
-        return { invalid: true };
-      }
-      transaction.delete(ref);
-      return { uid };
-    });
-
-    if (result.missing) throw new HttpsError('not-found', 'Domain authentication handoff not found.');
-    if (result.expired) throw new HttpsError('deadline-exceeded', 'Domain authentication handoff expired.');
-    if (result.wrongOrigin) throw new HttpsError('permission-denied', 'Domain authentication handoff belongs to another origin.');
-    if (result.invalid || !result.uid) throw new HttpsError('failed-precondition', 'Invalid domain authentication handoff.');
-
-    const customToken = await adminAuth.createCustomToken(result.uid);
-    return { customToken };
-  },
-);
 
 exports.saveUserConfiguration = onCall(
   USER_CONFIGURATION_CALLABLE_OPTIONS,
