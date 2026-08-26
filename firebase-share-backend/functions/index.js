@@ -36,6 +36,38 @@ const SYSTEM_COLLECTION = 'sharedConfigurationSystem';
 const APP_CHECK_USAGE_DOCUMENT = 'appCheckUsage';
 const FIRESTORE_RECORD_VERSION = 1;
 const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence']);
+
+// Tier-1 tenant provisioning.
+const TENANTS_COLLECTION = 'tenants';
+const TENANT_PUBLIC_COLLECTION = 'tenantPublic';
+const TENANT_PROVISIONING_ADMINS_COLLECTION = 'tenantProvisioningAdmins';
+const TENANT_SCHEMA_VERSION = 1;
+const TENANT_PLAN_GO_LIVE_NOW = 'go_live_now';
+const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
+const TENANT_COMPANY_NAME_MAX_LENGTH = 120;
+const TENANT_LOGO_MAX_BYTES = 200_000;
+const TENANT_ADMIN_ORIGIN = 'https://www.360configurator.com';
+const TENANT_ADMIN_DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
+const RESERVED_TENANT_SLUGS = new Set([
+  'www',
+  'aks',
+  'admin',
+  'api',
+  'app',
+  'assets',
+  'auth',
+  'billing',
+  'cdn',
+  'demo',
+  'dev',
+  'ftp',
+  'mail',
+  'staging',
+  'static',
+  'status',
+  'support',
+  'test',
+]);
 const MAX_TOTAL_BYTES = 200 * 1024 * 1024;       // 200 MiB
 const CLEANUP_CHUNK_BYTES = 1 * 1024 * 1024;     // 1 MiB
 const MAX_SINGLE_SHARE_BYTES = 850_000;           // headroom below Firestore's document limit
@@ -904,6 +936,136 @@ function generateDomainAuthHandoffId() {
 }
 
 // ---------------------------------------------------------------------------
+// Tier-1 tenant provisioning helpers
+// ---------------------------------------------------------------------------
+function tenantProvisioningAdminsCollection() {
+  return db.collection(TENANT_PROVISIONING_ADMINS_COLLECTION);
+}
+
+function normalizeTenantSlug(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function validateTenantSlug(value) {
+  const slug = normalizeTenantSlug(value);
+  if (!TENANT_SLUG_PATTERN.test(slug)) {
+    throw new HttpsError(
+      'invalid-argument',
+      'The subdomain must use only lowercase letters, numbers, and hyphens, with a maximum length of 40 characters.',
+    );
+  }
+  if (RESERVED_TENANT_SLUGS.has(slug)) {
+    throw new HttpsError('invalid-argument', 'This subdomain is reserved by 360Configurator.');
+  }
+  return slug;
+}
+
+function validateTenantCompanyName(value) {
+  const companyName = String(value || '').trim();
+  if (!companyName || companyName.length > TENANT_COMPANY_NAME_MAX_LENGTH) {
+    throw new HttpsError(
+      'invalid-argument',
+      `Company name must contain between 1 and ${TENANT_COMPANY_NAME_MAX_LENGTH} characters.`,
+    );
+  }
+  return companyName;
+}
+
+function validateTenantConfigurators(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const configurators = Object.fromEntries(
+    [...ALLOWED_PRODUCTS].map((product) => [product, source[product] === true]),
+  );
+  if (!Object.values(configurators).some(Boolean)) {
+    throw new HttpsError('invalid-argument', 'Enable at least one configurator.');
+  }
+  return configurators;
+}
+
+function detectLogoMime(buffer) {
+  if (
+    buffer.length >= 8
+    && buffer[0] === 0x89
+    && buffer[1] === 0x50
+    && buffer[2] === 0x4e
+    && buffer[3] === 0x47
+    && buffer[4] === 0x0d
+    && buffer[5] === 0x0a
+    && buffer[6] === 0x1a
+    && buffer[7] === 0x0a
+  ) return 'image/png';
+
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+
+  if (
+    buffer.length >= 12
+    && buffer.subarray(0, 4).toString('ascii') === 'RIFF'
+    && buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) return 'image/webp';
+
+  return '';
+}
+
+function validateTenantLogoDataUrl(value) {
+  const dataUrl = String(value || '').trim();
+  if (!dataUrl) return '';
+
+  const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
+  if (!match) {
+    throw new HttpsError('invalid-argument', 'Logo must be a PNG, JPEG, or WebP image.');
+  }
+
+  let buffer;
+  try {
+    buffer = Buffer.from(match[2], 'base64');
+  } catch {
+    throw new HttpsError('invalid-argument', 'The logo image is invalid.');
+  }
+  if (!buffer.length || buffer.length > TENANT_LOGO_MAX_BYTES) {
+    throw new HttpsError(
+      'invalid-argument',
+      `Logo must be smaller than ${Math.floor(TENANT_LOGO_MAX_BYTES / 1000)} KB after optimization.`,
+    );
+  }
+
+  const detectedMime = detectLogoMime(buffer);
+  if (!detectedMime || detectedMime !== match[1]) {
+    throw new HttpsError('invalid-argument', 'The logo image format does not match its declared type.');
+  }
+
+  return `data:${detectedMime};base64,${buffer.toString('base64')}`;
+}
+
+function requireTenantAdminOrigin(request) {
+  const origin = requestOrigin(request);
+  if (origin === TENANT_ADMIN_ORIGIN || TENANT_ADMIN_DEVELOPMENT_ORIGIN.test(origin)) return origin;
+  throw new HttpsError('permission-denied', 'Tenant provisioning is only available from the internal admin page.');
+}
+
+async function requireTenantProvisioningAdmin(request) {
+  const uid = requireAuthenticatedUid(request);
+  const email = String(request.auth?.token?.email || '').trim().toLowerCase();
+  if (!email || request.auth?.token?.email_verified !== true) {
+    throw new HttpsError('permission-denied', 'A verified Google account is required.');
+  }
+
+  const snapshot = await tenantProvisioningAdminsCollection().doc(uid).get();
+  const data = snapshot.data() || {};
+  if (!snapshot.exists || data.active !== true) {
+    throw new HttpsError('permission-denied', 'This account is not authorized to provision tenants.');
+  }
+
+  const restrictedEmail = String(data.email || '').trim().toLowerCase();
+  if (restrictedEmail && restrictedEmail !== email) {
+    throw new HttpsError('permission-denied', 'This account is not authorized to provision tenants.');
+  }
+
+  return { uid, email };
+}
+
+// ---------------------------------------------------------------------------
 // Private per-user saved configurations
 // ---------------------------------------------------------------------------
 const USER_SAVED_CONFIGURATION_VERSION = 1;
@@ -973,6 +1135,84 @@ const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
   timeoutSeconds: 30,
   memory: '256MiB',
 });
+
+const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
+  region: FUNCTION_REGION,
+  serviceAccount: RUNTIME_SERVICE_ACCOUNT,
+  // Provisioning is protected by Firebase Auth + a private UID allowlist. App
+  // Check is intentionally disabled so opening the internal admin page does not
+  // consume the Share-only reCAPTCHA assessment budget.
+  enforceAppCheck: false,
+  timeoutSeconds: 30,
+  memory: '256MiB',
+});
+
+exports.provisionTenant = onCall(
+  TENANT_PROVISIONING_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    const admin = await requireTenantProvisioningAdmin(request);
+    const slug = validateTenantSlug(request.data?.slug);
+    const companyName = validateTenantCompanyName(request.data?.companyName);
+    const configurators = validateTenantConfigurators(request.data?.configurators);
+    const logoUrl = validateTenantLogoDataUrl(request.data?.logoDataUrl);
+    const now = Timestamp.now();
+    const domain = `${slug}.360configurator.com`;
+    const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
+    const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
+
+    await db.runTransaction(async (transaction) => {
+      const privateSnapshot = await transaction.get(privateRef);
+      const publicSnapshot = await transaction.get(publicRef);
+      if (privateSnapshot.exists || publicSnapshot.exists) {
+        throw new HttpsError('already-exists', 'This subdomain is already in use.');
+      }
+
+      transaction.create(privateRef, {
+        schemaVersion: TENANT_SCHEMA_VERSION,
+        slug,
+        domain,
+        companyName,
+        plan: TENANT_PLAN_GO_LIVE_NOW,
+        status: 'active',
+        ownerUid: '',
+        configurators,
+        logoUrl,
+        createdByUid: admin.uid,
+        createdByEmail: admin.email,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      transaction.create(publicRef, {
+        schemaVersion: TENANT_SCHEMA_VERSION,
+        slug,
+        companyName,
+        status: 'active',
+        logoUrl,
+        configurators,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    logger.info('Tier-1 tenant provisioned.', {
+      slug,
+      companyName,
+      configurators: Object.entries(configurators).filter(([, enabled]) => enabled).map(([id]) => id),
+      createdByUid: admin.uid,
+    });
+
+    return {
+      slug,
+      companyName,
+      domain,
+      url: `https://${domain}/`,
+      configurators,
+      createdAtMs: now.toMillis(),
+    };
+  },
+);
 
 exports.createDomainAuthHandoff = onCall(
   USER_CONFIGURATION_CALLABLE_OPTIONS,
