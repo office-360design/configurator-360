@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=20';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=21';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
@@ -62,6 +62,7 @@ const shell = mountStandaloneConfiguratorShell({
       return snapshot ? createShareUrl({ productType: 'fence', state: snapshot }) : window.location.href;
     },
     onPreferenceChange(name, value, preferences) {
+      if (name === 'locale') applyFenceTranslations(preferences.locale);
       window.dispatchEvent(new CustomEvent('fence-preference-change', { detail: { name, value, preferences: { ...preferences } } }));
     },
     onToolsOpenChange(open) {

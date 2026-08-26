@@ -1,4 +1,4 @@
-import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
+import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname } from './config.js';
 import { sharedT } from './i18n.js';
 import { renderActionFeedback } from './components/feedback.js?v=17';
 import { renderTopBar } from './components/topBar.js?v=17';
@@ -8,37 +8,11 @@ import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
-import { decodeShareState, encodeShareState } from './shareState.js?v=17';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
+const GLOBAL_LOCALE_STORAGE_KEY = '360-configurator:shared-ui:locale';
 const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
-const SAVED_LANGUAGE_ID_PARAM = 'savedConfig';
-const SAVED_LANGUAGE_NAME_PARAM = 'savedName';
-const SAVED_LANGUAGE_OWNER_PARAM = 'savedOwner';
-const SAVED_LANGUAGE_DRAFT_PARAM = 'savedDraft';
-const SAVED_CONFIGURATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
-
-function readHashParams(target) {
-  const raw = target.hash.startsWith('#') ? target.hash.slice(1) : target.hash;
-  return new URLSearchParams(raw);
-}
-
-function writeHashParams(target, params) {
-  const value = params.toString();
-  target.hash = value ? `#${value}` : '';
-}
-
-function stripConfigurationTransport(target) {
-  ['s', 'c', 'config', SAVED_LANGUAGE_ID_PARAM, SAVED_LANGUAGE_NAME_PARAM, SAVED_LANGUAGE_OWNER_PARAM].forEach((key) => {
-    target.searchParams.delete(key);
-  });
-  const hash = readHashParams(target);
-  ['s', 'c', 'config', SAVED_LANGUAGE_ID_PARAM, SAVED_LANGUAGE_NAME_PARAM, SAVED_LANGUAGE_OWNER_PARAM, SAVED_LANGUAGE_DRAFT_PARAM].forEach((key) => hash.delete(key));
-  writeHashParams(target, hash);
-  return target;
-}
-
 function savedConfigurationMissing(error) {
   const code = String(error?.code || '').toLowerCase().replace(/_/g, '-');
   const message = String(error?.message || '').toLowerCase();
@@ -98,17 +72,22 @@ export class StandaloneConfiguratorShell {
     const preferences = safeJsonParse(window.localStorage.getItem(this.preferencesKey), {});
     const domainLocale = getLocaleForHostname(window.location.hostname);
     const domainProfile = getLanguageProfile(domainLocale);
+    const sharedLocale = window.localStorage.getItem(GLOBAL_LOCALE_STORAGE_KEY);
+    const preferredLocale = LANGUAGE_PROFILES[sharedLocale]
+      ? sharedLocale
+      : (LANGUAGE_PROFILES[preferences.locale] ? preferences.locale : domainLocale);
     this.state = {
-      locale: domainLocale,
+      locale: preferredLocale,
       units: domainProfile.units,
       currency: domainProfile.currency,
       quality: 'balanced',
       defaultArPlatform: 'android',
       darkMode: false,
       ...preferences,
-      // Country domains are authoritative for language. Unit/currency overrides
-      // remain user-configurable and persist independently per origin.
-      locale: domainLocale,
+      // The current domain only supplies the first-visit default. Once a user
+      // chooses a language, keep that preference on this origin and translate
+      // the configurator in place instead of navigating to another country site.
+      locale: preferredLocale,
     };
 
     // Guests always start in their own unsaved book. Do not hydrate the previous
@@ -135,7 +114,6 @@ export class StandaloneConfiguratorShell {
     this.feedbackTimer = 0;
     this.saveBusy = false;
     this.savedLoadBlocked = false;
-    this.pendingSavedLanguageHandoff = this.readSavedLanguageHandoff();
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
     this.settingsPanelCollapsed = false;
     this.settingsPanel = null;
@@ -150,6 +128,10 @@ export class StandaloneConfiguratorShell {
 
     this.bindEvents();
     this.bindSettingsPanel();
+    // Product-specific translation tables stay in each configurator, while the
+    // shared shell owns when the locale changes. Apply the persisted locale once
+    // on mount so a language chosen on this domain survives refreshes.
+    this.options.callbacks.onPreferenceChange?.('locale', this.state.locale, this.state);
     this.sync();
     this.initializeAuthentication();
     this.dirtyWatchTimer = window.setInterval(() => this.refreshDirtyFromCapturedState(), 300);
@@ -193,114 +175,6 @@ export class StandaloneConfiguratorShell {
     return {};
   }
 
-
-  readSavedLanguageHandoff() {
-    try {
-      const target = new URL(window.location.href);
-      const hash = readHashParams(target);
-      const id = String(hash.get(SAVED_LANGUAGE_ID_PARAM) || target.searchParams.get(SAVED_LANGUAGE_ID_PARAM) || '').trim();
-      if (!SAVED_CONFIGURATION_ID_PATTERN.test(id)) return null;
-      const projectName = String(hash.get(SAVED_LANGUAGE_NAME_PARAM) || target.searchParams.get(SAVED_LANGUAGE_NAME_PARAM) || '').slice(0, 80);
-      const ownerUid = String(hash.get(SAVED_LANGUAGE_OWNER_PARAM) || target.searchParams.get(SAVED_LANGUAGE_OWNER_PARAM) || '').trim();
-      return {
-        id,
-        ownerUid,
-        projectName,
-        draft: String(hash.get(SAVED_LANGUAGE_DRAFT_PARAM) || ''),
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  clearSavedLanguageHandoffUrl() {
-    try {
-      const target = new URL(window.location.href);
-      target.searchParams.delete(SAVED_LANGUAGE_ID_PARAM);
-      target.searchParams.delete(SAVED_LANGUAGE_NAME_PARAM);
-      target.searchParams.delete(SAVED_LANGUAGE_OWNER_PARAM);
-      const hash = readHashParams(target);
-      hash.delete(SAVED_LANGUAGE_ID_PARAM);
-      hash.delete(SAVED_LANGUAGE_NAME_PARAM);
-      hash.delete(SAVED_LANGUAGE_OWNER_PARAM);
-      hash.delete(SAVED_LANGUAGE_DRAFT_PARAM);
-      writeHashParams(target, hash);
-      window.history.replaceState(window.history.state, '', target.href);
-    } catch {
-      // Navigation already succeeded; URL cleanup is best-effort only.
-    }
-  }
-
-  async restoreSavedLanguageHandoff(user) {
-    const handoff = this.pendingSavedLanguageHandoff;
-    const uid = String(user?.uid || '');
-    if (!handoff?.id || !uid) return false;
-
-    if (handoff.ownerUid && handoff.ownerUid !== uid) {
-      // Authentication is origin-scoped. If another Google account is active on
-      // the destination domain, never interpret its empty saved list as deletion
-      // of the source account's configuration. Preserve the handoff until the
-      // correct account signs in or the user explicitly starts/opens another file.
-      this.savedLoadBlocked = true;
-      this.currentSavedConfigurationId = handoff.id;
-      this.currentSavedOwnerUid = handoff.ownerUid;
-      this.projectName = handoff.projectName || this.projectName;
-      this.renderHost();
-      this.sync();
-      this.showFeedback(sharedT(this.state.locale, 'saved.openUnavailable'), 'error');
-      return true;
-    }
-
-    try {
-      const saved = await getUserConfiguration({ id: handoff.id, productType: this.productId });
-      let state = saved.state;
-      if (handoff.draft) {
-        const draft = await decodeShareState(handoff.draft, { productType: this.productId });
-        if (!draft || typeof draft !== 'object') throw new Error('The language-switch draft is invalid.');
-        state = draft;
-      }
-
-      const restored = await this.restoreConfiguratorState(state);
-      if (!restored) throw new Error('Configurator rejected the language-switch state.');
-
-      const savedName = String(saved.name || this.getNextDefaultProjectName(uid)).slice(0, 80);
-      this.projectName = String(handoff.projectName || savedName).slice(0, 80);
-      this.lastSavedProjectName = savedName;
-      this.currentSavedConfigurationId = handoff.id;
-      this.currentSavedOwnerUid = uid;
-      this.savedLoadBlocked = false;
-      this.cleanStateJson = JSON.stringify(saved.state ?? {});
-      this.cleanProjectName = savedName;
-      this.dirty = Boolean(handoff.draft || this.projectName !== savedName);
-      this.currentDraftStateJson = this.dirty ? JSON.stringify(state ?? {}) : '';
-      this.pendingSavedLanguageHandoff = null;
-      this.clearSavedLanguageHandoffUrl();
-      this.persistMeta();
-      this.renderHost();
-      this.sync();
-      return true;
-    } catch (error) {
-      if (savedConfigurationMissing(error)) {
-        console.warn('The saved configuration referenced by the language switch no longer exists.', error);
-        this.pendingSavedLanguageHandoff = null;
-        this.clearSavedLanguageHandoffUrl();
-        return false;
-      }
-
-      // A temporary backend/network/auth problem must never detach the account
-      // from its save. Keep the handoff in the URL so a later login/reload can
-      // retry, and block Save to avoid overwriting the wrong state.
-      console.error('The saved configuration could not be restored after the language switch.', error);
-      this.savedLoadBlocked = true;
-      this.currentSavedConfigurationId = handoff.id;
-      this.currentSavedOwnerUid = uid;
-      this.projectName = handoff.projectName || this.projectName;
-      this.renderHost();
-      this.sync();
-      this.showFeedback(sharedT(this.state.locale, 'saved.openUnavailable'), 'error');
-      return true;
-    }
-  }
 
   renderHost() {
     this.host.innerHTML = `
@@ -573,7 +447,6 @@ export class StandaloneConfiguratorShell {
     this.savedLoadBlocked = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
 
-    if (await this.restoreSavedLanguageHandoff(user)) return;
 
     const meta = this.readUserMeta(uid);
     this.projectName = String(meta.name || this.getNextDefaultProjectName(uid)).slice(0, 80);
@@ -735,49 +608,6 @@ export class StandaloneConfiguratorShell {
     });
   }
 
-  async getLanguageSwitchTarget(nextLocale, fallbackTarget) {
-    const baseTarget = stripConfigurationTransport(new URL(fallbackTarget, window.location.href));
-    const user = this.authUser;
-    const savedId = String(this.currentSavedConfigurationId || '');
-    const ownsSavedConfiguration = Boolean(
-      user?.uid
-      && SAVED_CONFIGURATION_ID_PATTERN.test(savedId)
-      && this.currentSavedOwnerUid === user.uid
-    );
-
-    if (ownsSavedConfiguration) {
-      const hash = readHashParams(baseTarget);
-      hash.set(SAVED_LANGUAGE_ID_PARAM, savedId);
-      hash.set(SAVED_LANGUAGE_OWNER_PARAM, user.uid);
-
-      if (this.dirty) {
-        const currentJson = this.captureCurrentStateJson();
-        const stateChanged = !this.cleanStateJson || currentJson !== this.cleanStateJson;
-        const nameChanged = this.projectName !== (this.cleanProjectName || this.lastSavedProjectName);
-
-        if (nameChanged) hash.set(SAVED_LANGUAGE_NAME_PARAM, this.projectName.slice(0, 80));
-        if (stateChanged) {
-          const snapshot = this.options.callbacks.captureState?.();
-          if (snapshot === undefined || snapshot === null) {
-            throw new Error('The current saved configuration could not be captured for the language switch.');
-          }
-          const encodedDraft = await encodeShareState(this.productId, snapshot);
-          hash.set(SAVED_LANGUAGE_DRAFT_PARAM, encodedDraft);
-        }
-      }
-
-      writeHashParams(baseTarget, hash);
-      return baseTarget.href;
-    }
-
-    // Guests and authenticated users working in a brand-new unsaved project do
-    // not have a private saved id that the destination domain can reopen. Use the
-    // normal Share transport only for those two cases.
-    const shareUrl = await Promise.resolve(this.options.callbacks.getShareUrl?.() || '');
-    if (!shareUrl) return baseTarget.href;
-    return getLocalizedConfiguratorUrl(nextLocale, this.productId, new URL(shareUrl, window.location.href)) || baseTarget.href;
-  }
-
   async handleClick(event) {
     const actionTarget = event.target.closest('[data-action]');
     if (!actionTarget) return;
@@ -821,37 +651,39 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'select-language') {
       const nextLocale = actionTarget.dataset.locale;
       const profile = LANGUAGE_PROFILES[nextLocale];
-      if (profile) {
-        const targetUrl = getLocalizedConfiguratorUrl(nextLocale, this.productId, window.location);
-        const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-        if (targetUrl && nextLocale !== this.state.locale && !isLocalDevelopmentHost) {
-          // The unified shell owns language-switch feedback so every configurator
-          // paints the same loading state before any potentially expensive state
-          // handoff or cross-domain navigation begins.
-          this.languageOpen = false;
-          this.syncMenus();
-          this.showLanguageSwitchLoading();
-          await this.waitForLanguageSwitchPaint();
+      if (profile && nextLocale !== this.state.locale) {
+        // Language switching is intentionally local to the current page/origin.
+        // Do not create a share, load a saved configuration, or navigate between
+        // country domains: only translate the current configurator in place.
+        this.languageOpen = false;
+        this.syncMenus();
+        this.showLanguageSwitchLoading();
+        await this.waitForLanguageSwitchPaint();
 
+        const previousLocale = this.state.locale;
+        try {
+          this.state.locale = nextLocale;
+          this.persistPreferences();
+          await Promise.resolve(this.options.callbacks.onPreferenceChange?.('locale', this.state.locale, this.state));
+          this.renderHost();
+          this.sync();
+          await this.waitForLanguageSwitchPaint();
+        } catch (error) {
+          this.state.locale = previousLocale;
+          this.persistPreferences();
           try {
-            const resolvedTarget = await this.getLanguageSwitchTarget(nextLocale, targetUrl);
-            window.location.assign(resolvedTarget || targetUrl);
-          } catch (error) {
-            this.hideLanguageSwitchLoading();
-            console.error('Configuration could not be preserved during the language switch.', error);
-            this.showFeedback(sharedT(this.state.locale, 'feedback.languageSwitchUnavailable'), 'error');
+            await Promise.resolve(this.options.callbacks.onPreferenceChange?.('locale', previousLocale, this.state));
+          } catch {
+            // Preserve the original translation error below.
           }
-          return;
+          this.renderHost();
+          this.sync();
+          console.error('The configurator could not be translated.', error);
+          this.showFeedback(sharedT(this.state.locale, 'feedback.languageSwitchUnavailable'), 'error');
+        } finally {
+          this.hideLanguageSwitchLoading();
         }
-        const localeChanged = nextLocale !== this.state.locale;
-        this.state.locale = nextLocale;
-        this.state.units = profile.units;
-        this.state.currency = profile.currency;
-        this.persistPreferences();
-        this.options.callbacks.onPreferenceChange?.('locale', this.state.locale, this.state);
-        this.options.callbacks.onPreferenceChange?.('units', this.state.units, this.state);
-        this.options.callbacks.onPreferenceChange?.('currency', this.state.currency, this.state);
-        if (localeChanged) this.renderHost();
+        return;
       }
       this.languageOpen = false;
       this.sync();
@@ -985,8 +817,6 @@ export class StandaloneConfiguratorShell {
       this.currentSavedConfigurationId = '';
       this.currentSavedOwnerUid = this.authUser.uid;
       this.savedLoadBlocked = false;
-      this.pendingSavedLanguageHandoff = null;
-      this.clearSavedLanguageHandoffUrl();
       this.currentDraftStateJson = '';
       this.cleanStateJson = '';
       this.cleanProjectName = '';
@@ -1045,8 +875,6 @@ export class StandaloneConfiguratorShell {
       this.currentSavedOwnerUid = this.authUser.uid;
       this.currentDraftStateJson = '';
       this.savedLoadBlocked = false;
-      this.pendingSavedLanguageHandoff = null;
-      this.clearSavedLanguageHandoffUrl();
       this.dirty = false;
       this.captureCleanBaseline();
       this.persistMeta();
@@ -1158,6 +986,9 @@ export class StandaloneConfiguratorShell {
 
   persistPreferences() {
     window.localStorage.setItem(this.preferencesKey, JSON.stringify(this.state));
+    if (LANGUAGE_PROFILES[this.state.locale]) {
+      window.localStorage.setItem(GLOBAL_LOCALE_STORAGE_KEY, this.state.locale);
+    }
   }
 
   sync() {

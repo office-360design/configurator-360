@@ -54,7 +54,8 @@ if (!scene.includes('hallCompassLabels')) failures.push('scene compass is not lo
 if (!scene.includes("'dimension.ridge'")) failures.push('ridge dimension label is not localized');
 const shell = fs.readFileSync(path.join(root, 'hall-configurator', 'js', 'sharedShell.js'), 'utf8');
 const sharedShell = fs.readFileSync(path.join(root, 'shared-ui', 'src', 'standaloneShell.js'), 'utf8');
-if (!sharedShell.includes('getLanguageSwitchTarget(nextLocale, fallbackTarget)')) failures.push('shared cross-domain language switching is missing');
+if (sharedShell.includes('getLanguageSwitchTarget(') || sharedShell.includes('window.location.assign(')) failures.push('shared shell still performs cross-domain language switching');
+if (!sharedShell.includes("callbacks.onPreferenceChange?.('locale'")) failures.push('shared in-place locale switching is missing');
 if (shell.includes('getLocalizedConfiguratorUrl(nextLocale')) failures.push('Hall duplicates shared language switching');
 
 if (failures.length) {
@@ -62,5 +63,5 @@ if (failures.length) {
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exitCode = 1;
 } else {
-  console.log(`Hall i18n validated for ${locales.join(', ')}: ${baseKeys.length} message keys, localized UI/BOM/pricing/CSV, compass, openings and country-domain switching.`);
+  console.log(`Hall i18n validated for ${locales.join(', ')}: ${baseKeys.length} message keys, localized UI/BOM/pricing/CSV, compass, openings and in-place language switching.`);
 }

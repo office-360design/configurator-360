@@ -63,7 +63,7 @@ Firebase Console setup required: enable **Authentication → Sign-in method → 
 Configurator-local shell files are adapters only. They may provide product-specific callbacks
 such as `captureState()`, `restoreState()`, reset/undo behavior or tool actions, but they must not
 render or own the common top bar, account menu, Google authentication, language menu, language
-state handoff, feedback UI or shared tool interaction lifecycle. Those remain in `shared-ui`.
+selection/state, feedback UI or shared tool interaction lifecycle. Those remain in `shared-ui`.
 
 ## Saved configurations
 
@@ -79,9 +79,11 @@ Only an explicit Saved configurations → Delete action calls `deleteUserConfigu
 90-day expiry and 200 MiB cleanup apply only to `sharedConfigurations`. Temporary load failures
 do not clear the local pointer to a private save.
 
-Cross-domain language switching is also owned by the shared shell. A signed-in user on an
-existing save navigates with that private save id instead of creating a public Share record. If
-that save has unsaved edits, the current draft is gzip/base64 encoded into the navigation URL so
-the destination can keep the same save association without touching the public Share collection.
-Guests and signed-in users on a brand-new unsaved project still use the normal Share transport,
-because no private saved record exists yet.
+Language switching is owned by the shared shell and is now translation-only. Selecting English,
+Romanian or German keeps the current URL, hostname, account/save association and configurator
+state untouched; the shell changes only its persisted locale and asks the product adapter to
+apply that locale to product-specific strings. The current hostname supplies only the first-visit
+default language. The selected locale is stored by Common UI for the current origin so the same
+language is reused by the other configurators on that site. Language changes never create a Share
+record and never navigate to another country-domain configurator. Units and currency remain
+independent user preferences and are not changed by the language selector.

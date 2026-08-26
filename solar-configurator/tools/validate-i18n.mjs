@@ -94,7 +94,8 @@ const sourceGuards = [
   ['solar-configurator/js/app.js', "t('pvgis.ready'"],
 ];
 const sharedShellSource = fs.readFileSync(path.join(root, 'shared-ui/src/standaloneShell.js'), 'utf8');
-if (!sharedShellSource.includes('getLanguageSwitchTarget(nextLocale, fallbackTarget)')) failures.push('Shared UI does not own Solar language switching.');
+if (sharedShellSource.includes('getLanguageSwitchTarget(') || sharedShellSource.includes('window.location.assign(')) failures.push('Shared UI still performs cross-domain Solar language switching.');
+if (!sharedShellSource.includes("callbacks.onPreferenceChange?.('locale'")) failures.push('Shared UI does not apply Solar locale changes in place.');
 const solarShellSource = fs.readFileSync(path.join(root, 'solar-configurator/js/sharedShell.js'), 'utf8');
 if (solarShellSource.includes('getLocalizedConfiguratorUrl(nextLocale')) failures.push('Solar duplicates shared language switching.');
 
@@ -108,5 +109,5 @@ if (failures.length) {
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exitCode = 1;
 } else {
-  console.log(`Solar i18n validated for ${locales.join(', ')}: ${baseKeys.length} message keys, ${Object.keys(staticTranslations).length} static UI strings, localized estimate/CSV, compass, PVGIS/environment states, and country-domain switching.`);
+  console.log(`Solar i18n validated for ${locales.join(', ')}: ${baseKeys.length} message keys, ${Object.keys(staticTranslations).length} static UI strings, localized estimate/CSV, compass, PVGIS/environment states, and in-place language switching.`);
 }
