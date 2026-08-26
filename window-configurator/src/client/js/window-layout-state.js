@@ -853,6 +853,36 @@ function canUnionRectangles(a, b) {
     return Math.abs((x1 - x0) * (y1 - y0) - (rectArea(a.rect) + rectArea(b.rect))) <= 1e-6;
 }
 
+function windowsFormSingleConnectedStructure(windows) {
+    if (!Array.isArray(windows) || windows.length <= 1) return true;
+
+    // Window cells are structurally connected only when they share a real
+    // frame/mullion edge segment. Corner-only contact does not connect two
+    // parts of the assembly. This also works for merged cells because
+    // sharedBoundary() accepts partial edge overlap.
+    const visited = new Set([0]);
+    const pending = [0];
+    while (pending.length) {
+        const index = pending.pop();
+        const current = windows[index];
+        for (let candidateIndex = 0; candidateIndex < windows.length; candidateIndex += 1) {
+            if (visited.has(candidateIndex)) continue;
+            if (!sharedBoundary(current, windows[candidateIndex])) continue;
+            visited.add(candidateIndex);
+            pending.push(candidateIndex);
+        }
+    }
+    return visited.size === windows.length;
+}
+
+export function canDeleteWindowFromState(stateValue, cellId) {
+    const state = normalizeWindowState(stateValue);
+    const target = getCell(state, cellId);
+    if (!target || state.windows.length <= 1) return false;
+    const remainingWindows = state.windows.filter(cell => cell.id !== target.id);
+    return windowsFormSingleConnectedStructure(remainingWindows);
+}
+
 function transPairKey(cellAId, cellBId) {
     return [String(cellAId), String(cellBId)].sort().join('|');
 }
@@ -1311,18 +1341,30 @@ export function mergeWindowsInState(stateValue, {
         throw new Error('Only adjacent windows whose union is one rectangle can be merged.');
     }
     const boundary = sharedBoundary(a, b);
+    const indexA = state.windows.findIndex(cell => cell.id === a.id);
+    const indexB = state.windows.findIndex(cell => cell.id === b.id);
+    // Visible window numbers are the dense 1-based order of state.windows.
+    // When windows a < b are merged, keep the lower-numbered window in its
+    // original slot and remove only the higher-numbered slot. That makes the
+    // merged pane retain number a while every number >= b shifts down by one.
+    // Do this independently of the order in which the two cell IDs are passed.
+    const survivorIndex = Math.min(indexA, indexB);
+    const absorbedIndex = Math.max(indexA, indexB);
+    const survivor = state.windows[survivorIndex];
+    const absorbed = state.windows[absorbedIndex];
     const resultType = normalizeType(type || (a.type === b.type ? a.type : FIXED_WINDOW_TYPE));
-    const merged = makeCell(a.id, resultType, {
+    const merged = makeCell(survivor.id, resultType, {
         x0: Math.min(a.rect.x0, b.rect.x0),
         y0: Math.min(a.rect.y0, b.rect.y0),
         x1: Math.max(a.rect.x1, b.rect.x1),
         y1: Math.max(a.rect.y1, b.rect.y1),
-    }, handleSide || (resultType === SASH_WINDOW_TYPE ? (a.handleSide || b.handleSide) : null));
+    }, handleSide || (resultType === SASH_WINDOW_TYPE ? (survivor.handleSide || absorbed.handleSide) : null));
 
-    const windows = state.windows
-        .filter(cell => cell.id !== a.id && cell.id !== b.id)
-        .map(cell => makeCell(cell.id, cell.type, cell.rect, cell.handleSide));
-    windows.push(merged);
+    const windows = state.windows.flatMap((cell, index) => {
+        if (index === survivorIndex) return [merged];
+        if (index === absorbedIndex) return [];
+        return [makeCell(cell.id, cell.type, cell.rect, cell.handleSide)];
+    });
     return normalizeWindowState({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
@@ -1342,8 +1384,8 @@ export function mergeWindowsInState(stateValue, {
                 start: boundary.start,
                 end: boundary.end,
                 restoreCells: [
-                    { id: a.id, type: a.type, handleSide: a.handleSide, rect: { ...a.rect } },
-                    { id: b.id, type: b.type, handleSide: b.handleSide, rect: { ...b.rect } },
+                    { id: survivor.id, type: survivor.type, handleSide: survivor.handleSide, rect: { ...survivor.rect } },
+                    { id: absorbed.id, type: absorbed.type, handleSide: absorbed.handleSide, rect: { ...absorbed.rect } },
                 ],
             },
         ],
@@ -1454,6 +1496,60 @@ export function unmergeWindowInState(stateValue, { cellId } = {}) {
         mergeGuides,
         windows,
     });
+}
+
+export function deleteWindowFromState(stateValue, { cellId } = {}) {
+    const state = normalizeWindowState(stateValue);
+    const target = getCell(state, cellId);
+    if (!target) throw new Error(`Unknown window ${cellId}.`);
+    if (state.windows.length <= 1) {
+        throw new Error('At least one window must remain in the layout.');
+    }
+    if (!canDeleteWindowFromState(state, target.id)) {
+        throw new Error('Deleting this window would split the window structure into separate parts.');
+    }
+
+    const preservedSizes = new Map(
+        state.windows
+            .filter(cell => cell.id !== target.id)
+            .map(cell => [cell.id, getWindowActualSizeInState(state, cell.id)])
+    );
+    const windows = state.windows
+        .filter(cell => cell.id !== target.id)
+        .map(cell => makeCell(cell.id, cell.type, cell.rect, cell.handleSide));
+    const mergeGuides = state.mergeGuides.filter(guide => {
+        if (mergeGuideSplitsCell(target, guide)) return false;
+        return !guide.restoreCells?.some?.(restoreCell => String(restoreCell.id) === String(target.id));
+    });
+    const transConnections = state.transConnections.filter(connection => (
+        connection.cellAId !== target.id
+        && connection.cellBId !== target.id
+        && connection.ownerCellId !== target.id
+    ));
+
+    let nextState = normalizeWindowState({
+        version: WINDOW_STATE_VERSION,
+        dividerProfileId: state.dividerProfileId,
+        transProfileId: state.transProfileId,
+        gridTracks: state.gridTracks,
+        transConnections,
+        mergeGuides,
+        windows,
+    });
+
+    // Removing a neighbour can turn a mullion-facing cell edge into an exposed
+    // outer-frame edge. Preserve each surviving window's selected actual size
+    // by re-solving the affected grid tracks against the new exposure state.
+    for (const cell of nextState.windows) {
+        const size = preservedSizes.get(cell.id);
+        if (!size) continue;
+        nextState = setWindowSizeInState(nextState, cell.id, {
+            widthM: size.widthM,
+            heightM: size.heightM,
+            edgeExtensionM: DEFAULT_WINDOW_EDGE_EXTENSION_M,
+        });
+    }
+    return nextState;
 }
 
 export function setWindowTypeInState(stateValue, cellId, type, handleSide = null) {

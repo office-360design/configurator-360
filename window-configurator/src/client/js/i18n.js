@@ -226,6 +226,11 @@ const MESSAGES = Object.freeze({
     'layout.sash': 'Sash',
     'layout.close': 'Close',
     'layout.cellMenu': 'Window options',
+    'layout.selectedWindow': 'Selected window',
+    'layout.window': 'Window',
+    'layout.deleteWindow': 'Delete window',
+    'layout.deleteLastDisabled': 'At least one window must remain',
+    'layout.deleteSplitDisabled': 'This window cannot be deleted because it would split the structure',
     'layout.unmerge': 'Unmerge',
     'layout.makeSash': 'Change to sash',
     'layout.makeFixed': 'Change to fixed',
@@ -491,6 +496,11 @@ const MESSAGES = Object.freeze({
     'layout.sash': 'Cercevea',
     'layout.close': 'Închide',
     'layout.cellMenu': 'Opțiuni fereastră',
+    'layout.selectedWindow': 'Fereastră selectată',
+    'layout.window': 'Fereastra',
+    'layout.deleteWindow': 'Șterge fereastra',
+    'layout.deleteLastDisabled': 'Trebuie să rămână cel puțin o fereastră',
+    'layout.deleteSplitDisabled': 'Această fereastră nu poate fi ștearsă deoarece ar împărți structura',
     'layout.unmerge': 'Separă',
     'layout.makeSash': 'Schimbă în cercevea',
     'layout.makeFixed': 'Schimbă în fix',
@@ -756,6 +766,11 @@ const MESSAGES = Object.freeze({
     'layout.sash': 'Flügel',
     'layout.close': 'Schließen',
     'layout.cellMenu': 'Fensteroptionen',
+    'layout.selectedWindow': 'Ausgewähltes Fenster',
+    'layout.window': 'Fenster',
+    'layout.deleteWindow': 'Fenster löschen',
+    'layout.deleteLastDisabled': 'Mindestens ein Fenster muss erhalten bleiben',
+    'layout.deleteSplitDisabled': 'Dieses Fenster kann nicht gelöscht werden, da die Struktur sonst getrennt würde',
     'layout.unmerge': 'Trennen',
     'layout.makeSash': 'In Flügel ändern',
     'layout.makeFixed': 'In Festverglasung ändern',
@@ -974,6 +989,21 @@ export function applyWindowTranslations(locale = null) {
   const sidebarKey = sidebarCollapsed ? 'sidebar.show' : 'sidebar.hide';
   setAttr('#sidebar-toggle', 'aria-label', resolved, sidebarKey);
   setAttr('#sidebar-toggle', 'title', resolved, sidebarKey);
+
+  setAttr('#selected-window-panel', 'aria-label', resolved, 'layout.selectedWindow');
+  setAttr('#selectedWindowClose', 'aria-label', resolved, 'layout.close');
+  setText('.selected-window-kicker', resolved, 'layout.selectedWindow');
+  const selectedWindowTitle = document.querySelector('.selected-window-title');
+  if (selectedWindowTitle?.firstChild) selectedWindowTitle.firstChild.textContent = `${windowT(resolved, 'layout.window')} `;
+  setText('#selectedWindowUnmerge', resolved, 'layout.unmerge');
+  setText('#selectedWindowDelete', resolved, 'layout.deleteWindow');
+  setAttr('#selectedWindowOpenLeft', 'aria-label', resolved, 'layout.openLeft');
+  setAttr('#selectedWindowOpenLeft', 'title', resolved, 'layout.openLeft');
+  setAttr('#selectedWindowOpenRight', 'aria-label', resolved, 'layout.openRight');
+  setAttr('#selectedWindowOpenRight', 'title', resolved, 'layout.openRight');
+  const selectedWindowOpeningLabels = document.querySelectorAll('.selected-window-opening-action > span');
+  if (selectedWindowOpeningLabels[0]) selectedWindowOpeningLabels[0].textContent = windowT(resolved, 'side.left');
+  if (selectedWindowOpeningLabels[1]) selectedWindowOpeningLabels[1].textContent = windowT(resolved, 'side.right');
 
   setAttr('#component-selection-popup', 'aria-label', resolved, 'selection.aria');
   setAttr('#component-selection-close', 'aria-label', resolved, 'selection.close');

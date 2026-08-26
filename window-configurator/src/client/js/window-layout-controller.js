@@ -13,6 +13,7 @@ import {
     classifyWindowState,
     createWindowStateFromLayoutDefinition,
     deriveWindowTopology,
+    deleteWindowFromState,
     mergeWindowsInState,
     unmergeWindowInState,
     normalizeWindowState,
@@ -495,6 +496,15 @@ export function createWindowLayoutController({
         return getConfigurationSnapshot();
     }
 
+    async function deleteWindow(cellId, { notify = true } = {}) {
+        const previous = getConfigurationSnapshot();
+        windowState = deleteWindowFromState(windowState, { cellId });
+        layoutId = 'dynamic';
+        if (notify) return notifyChange(previous, { topologyOnly: true });
+        syncControls();
+        return getConfigurationSnapshot();
+    }
+
     async function setWindowType(cellId, type, { handleSide = null, notify = true } = {}) {
         const previous = getConfigurationSnapshot();
         windowState = setWindowTypeInState(windowState, cellId, type, handleSide);
@@ -585,6 +595,7 @@ export function createWindowLayoutController({
         addWindow,
         mergeWindows,
         setTransBetweenWindows,
+        deleteWindow,
         setWindowType,
         setWindowSize,
         unmergeWindow,

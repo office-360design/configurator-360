@@ -175,6 +175,35 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls input[type="range"]::
   background: #0878c9;
 }
 
+
+
+/* Selected-window editor lives outside #controls, so mirror the current
+   Common UI light-theme treatment for its dimension controls. */
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel input[type="range"] {
+  background: #dce4e9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel input[type="range"]::-webkit-slider-thumb {
+  background: #0878c9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel input[type="range"]::-moz-range-thumb {
+  background: #0878c9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel .handle-side-btn {
+  color: #5e6b75;
+  background: transparent;
+  border-color: transparent;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel .handle-side-btn:hover:not(.active):not(:disabled) {
+  color: #172027;
+  background: #e8eef2;
+  border-color: #cfd8dd;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel .handle-side-btn:disabled {
+  color: #a8b1b8;
+  background: #f4f7f8;
+  border-color: #e1e6e9;
+}
+
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .action-box {
   color: #005a9f;
   background: #eef8fe;

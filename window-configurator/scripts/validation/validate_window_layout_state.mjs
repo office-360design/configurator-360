@@ -3,10 +3,12 @@ import {
     MAX_WINDOW_CELLS,
     SASH_WINDOW_TYPE,
     addWindowToState,
+    canDeleteWindowFromState,
     classifyWindowState,
     createSingleWindowState,
     createWindowStateFromLayoutDefinition,
     deriveWindowTopology,
+    deleteWindowFromState,
     getTransOwnerHandleSide,
     getWindowActualSizeInState,
     getWindowUnmergeGuide,
@@ -60,6 +62,59 @@ assert(
     Math.abs(getWindowActualSizeInState(sizedPair, 'w1').heightM - 0.9) < 1e-9
         && Math.abs(getWindowActualSizeInState(sizedPair, 'w2').heightM - 0.9) < 1e-9,
     'Changing width alone must never modify the row height.'
+);
+
+const deletedPair = deleteWindowFromState(sizedPair, { cellId: 'w1' });
+assert(
+    deletedPair.windows.length === 1
+        && deletedPair.windows[0].id === 'w2'
+        && Math.abs(getWindowActualSizeInState(deletedPair, 'w2').widthM - 0.6) < 1e-9
+        && Math.abs(getWindowActualSizeInState(deletedPair, 'w2').heightM - 0.9) < 1e-9,
+    'Deleting one window must remove only that cell and preserve the surviving window dimensions.'
+);
+let deleteLastRejected = false;
+try {
+    deleteWindowFromState(deletedPair, { cellId: 'w2' });
+} catch {
+    deleteLastRejected = true;
+}
+assert(deleteLastRejected, 'Deleting the final remaining window must be rejected.');
+
+let deleteBridgeState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+deleteBridgeState = addWindowToState(deleteBridgeState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+deleteBridgeState = addWindowToState(deleteBridgeState, { cellId: 'w2', direction: 'right', type: FIXED_WINDOW_TYPE });
+assert(
+    canDeleteWindowFromState(deleteBridgeState, 'w1') === true
+        && canDeleteWindowFromState(deleteBridgeState, 'w3') === true,
+    'An end window in a connected row must remain deletable.'
+);
+assert(
+    canDeleteWindowFromState(deleteBridgeState, 'w2') === false,
+    'A middle window that is the only bridge between two parts must not be deletable.'
+);
+let deleteBridgeRejected = false;
+try {
+    deleteWindowFromState(deleteBridgeState, { cellId: 'w2' });
+} catch {
+    deleteBridgeRejected = true;
+}
+assert(deleteBridgeRejected, 'State mutation must reject deletion when it would split the structure.');
+
+let deleteCornerBridgeState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+deleteCornerBridgeState = addWindowToState(deleteCornerBridgeState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+deleteCornerBridgeState = addWindowToState(deleteCornerBridgeState, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
+assert(
+    canDeleteWindowFromState(deleteCornerBridgeState, 'w1') === false,
+    'Two windows that only meet at a corner after deletion must count as disconnected.'
+);
+
+let deleteLoopState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+deleteLoopState = addWindowToState(deleteLoopState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+deleteLoopState = addWindowToState(deleteLoopState, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
+deleteLoopState = addWindowToState(deleteLoopState, { cellId: 'w2', direction: 'top', type: FIXED_WINDOW_TYPE });
+assert(
+    canDeleteWindowFromState(deleteLoopState, 'w1') === true,
+    'Deleting one corner of a 2x2 block must stay allowed because the other three windows remain edge-connected.'
 );
 
 let customAddState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
@@ -189,6 +244,25 @@ mergeState = mergeWindowsInState(mergeState, {
     type: SASH_WINDOW_TYPE,
 });
 assert(mergeState.windows.length === 1, 'Merging must remove the mullion and replace two cells with one window.');
+assert(
+    mergeState.windows[0]?.id === 'w1',
+    'Merging windows 1 and 2 must keep the lower visible number as the merged window number.'
+);
+
+let mergeNumberState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+mergeNumberState = addWindowToState(mergeNumberState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+mergeNumberState = addWindowToState(mergeNumberState, { cellId: 'w2', direction: 'right', type: FIXED_WINDOW_TYPE });
+// Pass the IDs in reverse order on purpose: numbering semantics must depend on
+// their visible numbers, not on which ID the UI supplies as cellA/cellB.
+mergeNumberState = mergeWindowsInState(mergeNumberState, {
+    cellAId: 'w2',
+    cellBId: 'w1',
+    type: FIXED_WINDOW_TYPE,
+});
+assert(
+    mergeNumberState.windows.map(windowCell => windowCell.id).join(',') === 'w1,w3',
+    'Merging visible windows a < b must retain a and decrement every visible number >= b by one.'
+);
 assert(
     getWindowUnmergeGuide(mergeState, 'w1')?.orientation === 'vertical',
     'A merged window must expose its last restorable merge boundary.'

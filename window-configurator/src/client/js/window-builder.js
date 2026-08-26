@@ -1611,10 +1611,11 @@ export function createWindowBuilder({
         return sprite;
     }
 
-    function getWindowNumber(cellId, fallbackIndex = 0) {
-        const match = String(cellId || '').match(/(\d+)$/);
-        const parsed = match ? Number.parseInt(match[1], 10) : NaN;
-        return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackIndex + 1;
+    function getWindowNumber(_cellId, fallbackIndex = 0) {
+        // Window IDs are stable topology identifiers and can legitimately skip
+        // after merge/delete operations. Visible numbering is always dense and
+        // follows the current rendered cell order instead of exposing those IDs.
+        return Math.max(1, Number(fallbackIndex) + 1);
     }
 
     function createGlassNumberSprite(cellId, fallbackIndex = 0) {
@@ -1624,7 +1625,7 @@ export function createWindowBuilder({
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.font = '700 128px Outfit, system-ui, sans-serif';
+        ctx.font = '700 64px Outfit, system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(getWindowNumber(cellId, fallbackIndex)), 64, 66);
@@ -3544,7 +3545,7 @@ export function createWindowBuilder({
                         // fixed-cell perimeter transform used by createMiteredSide().
                         const fixedCadTransform =
                             variantProfile.fixedGlazingMullionCadTransforms?.[
-                            fillerRuntimeCellSide
+                                fillerRuntimeCellSide
                             ] || null;
                         if (fixedCadTransform) {
                             const placedProfile = {
