@@ -1,8 +1,8 @@
-import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname } from './config.js';
-import { sharedT } from './i18n.js';
+import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
+import { sharedT } from './i18n.js?v=18';
 import { renderActionFeedback } from './components/feedback.js?v=17';
-import { renderTopBar } from './components/topBar.js?v=17';
-import { syncAccountIdentity } from './components/accountMenu.js?v=17';
+import { renderTopBar } from './components/topBar.js?v=18';
+import { syncAccountIdentity } from './components/accountMenu.js?v=18';
 import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=17';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
@@ -12,7 +12,29 @@ import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
 const GLOBAL_LOCALE_STORAGE_KEY = '360-configurator:shared-ui:locale';
+const SAVED_DOMAIN_ID_PARAM = 'savedConfig';
+const SAVED_DOMAIN_OWNER_PARAM = 'savedOwner';
+const SAVED_CONFIGURATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+const DOMAIN_SAVE_FAILURE_MESSAGE = 'Domain change failed because of a saving failure';
 const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
+function readHashParams(target) {
+  const raw = target.hash.startsWith('#') ? target.hash.slice(1) : target.hash;
+  return new URLSearchParams(raw);
+}
+
+function writeHashParams(target, params) {
+  const value = params.toString();
+  target.hash = value ? `#${value}` : '';
+}
+
+function stripConfigurationTransport(target) {
+  ['s', 'c', 'config', SAVED_DOMAIN_ID_PARAM, SAVED_DOMAIN_OWNER_PARAM].forEach((key) => target.searchParams.delete(key));
+  const hash = readHashParams(target);
+  ['s', 'c', 'config', SAVED_DOMAIN_ID_PARAM, SAVED_DOMAIN_OWNER_PARAM].forEach((key) => hash.delete(key));
+  writeHashParams(target, hash);
+  return target;
+}
+
 function savedConfigurationMissing(error) {
   const code = String(error?.code || '').toLowerCase().replace(/_/g, '-');
   const message = String(error?.message || '').toLowerCase();
@@ -106,6 +128,8 @@ export class StandaloneConfiguratorShell {
     this.draftPersistTimer = 0;
     this.accountOpen = false;
     this.accountSettingsOpen = false;
+    this.domainOpen = false;
+    this.domainBusy = false;
     this.authUser = null;
     this.authBusy = false;
     this.authUnsubscribe = null;
@@ -114,6 +138,7 @@ export class StandaloneConfiguratorShell {
     this.feedbackTimer = 0;
     this.saveBusy = false;
     this.savedLoadBlocked = false;
+    this.pendingSavedDomainHandoff = this.readSavedDomainHandoff();
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
     this.settingsPanelCollapsed = false;
     this.settingsPanel = null;
@@ -176,13 +201,100 @@ export class StandaloneConfiguratorShell {
   }
 
 
+  readSavedDomainHandoff() {
+    try {
+      const target = new URL(window.location.href);
+      const hash = readHashParams(target);
+      const id = String(hash.get(SAVED_DOMAIN_ID_PARAM) || target.searchParams.get(SAVED_DOMAIN_ID_PARAM) || '').trim();
+      if (!SAVED_CONFIGURATION_ID_PATTERN.test(id)) return null;
+      const ownerUid = String(hash.get(SAVED_DOMAIN_OWNER_PARAM) || target.searchParams.get(SAVED_DOMAIN_OWNER_PARAM) || '').trim();
+      return { id, ownerUid };
+    } catch {
+      return null;
+    }
+  }
+
+  clearSavedDomainHandoffUrl() {
+    try {
+      const target = new URL(window.location.href);
+      target.searchParams.delete(SAVED_DOMAIN_ID_PARAM);
+      target.searchParams.delete(SAVED_DOMAIN_OWNER_PARAM);
+      const hash = readHashParams(target);
+      hash.delete(SAVED_DOMAIN_ID_PARAM);
+      hash.delete(SAVED_DOMAIN_OWNER_PARAM);
+      writeHashParams(target, hash);
+      window.history.replaceState(window.history.state, '', target.href);
+    } catch {
+      // The saved configuration has already been restored; URL cleanup is best effort.
+    }
+  }
+
+  async restoreSavedDomainHandoff(user) {
+    const handoff = this.pendingSavedDomainHandoff;
+    const uid = String(user?.uid || '');
+    if (!handoff?.id || !uid) return false;
+
+    if (handoff.ownerUid && handoff.ownerUid !== uid) {
+      this.savedLoadBlocked = true;
+      this.currentSavedConfigurationId = handoff.id;
+      this.currentSavedOwnerUid = handoff.ownerUid;
+      this.renderHost();
+      this.sync();
+      this.showFeedback(sharedT(this.state.locale, 'saved.openUnavailable'), 'error');
+      return true;
+    }
+
+    try {
+      const saved = await getUserConfiguration({ id: handoff.id, productType: this.productId });
+      const restored = await this.restoreConfiguratorState(saved.state);
+      if (!restored) throw new Error('Configurator rejected the domain-handoff saved state.');
+
+      this.projectName = String(saved.name || this.getNextDefaultProjectName(uid)).slice(0, 80);
+      this.lastSavedProjectName = this.projectName;
+      this.currentSavedConfigurationId = handoff.id;
+      this.currentSavedOwnerUid = uid;
+      this.currentDraftStateJson = '';
+      this.savedLoadBlocked = false;
+      this.dirty = false;
+      this.captureCleanBaseline();
+      this.pendingSavedDomainHandoff = null;
+      this.clearSavedDomainHandoffUrl();
+      this.persistMeta();
+      this.renderHost();
+      this.sync();
+      return true;
+    } catch (error) {
+      if (savedConfigurationMissing(error)) {
+        console.warn('The saved configuration referenced by the domain handoff no longer exists.', error);
+        this.pendingSavedDomainHandoff = null;
+        this.clearSavedDomainHandoffUrl();
+        return false;
+      }
+
+      console.error('The saved configuration could not be restored after the domain change.', error);
+      this.savedLoadBlocked = true;
+      this.currentSavedConfigurationId = handoff.id;
+      this.currentSavedOwnerUid = uid;
+      this.renderHost();
+      this.sync();
+      this.showFeedback(sharedT(this.state.locale, 'saved.openUnavailable'), 'error');
+      return true;
+    }
+  }
+
+
   renderHost() {
     this.host.innerHTML = `
       ${renderTopBar({
         brandSrc: this.options.brandSrc,
         brandAlt: this.options.brandAlt,
         projectName: this.projectName,
-        state: { ...this.state, authUser: this.authUser },
+        state: {
+          ...this.state,
+          authUser: this.authUser,
+          domainOpen: this.domainOpen,
+          currentDomainLocale: getLocaleForHostname(window.location.hostname),
+        },
         capabilities: this.options.capabilities,
       })}
       ${renderActionFeedback(this.state.locale)}
@@ -209,6 +321,7 @@ export class StandaloneConfiguratorShell {
     this.onDocumentClick = (event) => {
       if (!event.target.closest('[data-account-menu], [data-action="account"]')) {
         this.accountOpen = false;
+        this.domainOpen = false;
       }
       if (!event.target.closest('[data-language-menu], [data-action="language"]')) {
         this.languageOpen = false;
@@ -222,6 +335,7 @@ export class StandaloneConfiguratorShell {
         const savedDialogWasOpen = this.savedDialog.open;
         this.accountOpen = false;
         this.languageOpen = false;
+        this.domainOpen = false;
         this.savedDialog.open = false;
         if (this.toolsOpen) {
           this.toolsOpen = false;
@@ -447,6 +561,7 @@ export class StandaloneConfiguratorShell {
     this.savedLoadBlocked = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
 
+    if (await this.restoreSavedDomainHandoff(user)) return;
 
     const meta = this.readUserMeta(uid);
     this.projectName = String(meta.name || this.getNextDefaultProjectName(uid)).slice(0, 80);
@@ -594,6 +709,18 @@ export class StandaloneConfiguratorShell {
     overlay.setAttribute('aria-hidden', 'false');
   }
 
+  showDomainSwitchLoading() {
+    const overlay = this.languageSwitchLoading || this.host.querySelector('[data-language-switch-loading]');
+    if (!overlay) return;
+    const title = overlay.querySelector('[data-language-switch-loading-title]');
+    const detail = overlay.querySelector('[data-language-switch-loading-detail]');
+    if (title) title.textContent = sharedT(this.state.locale, 'domain.switching');
+    if (detail) detail.textContent = sharedT(this.state.locale, 'domain.switchingDetail');
+    this.host.classList.add('is-language-switching');
+    overlay.classList.add('is-visible');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+
   hideLanguageSwitchLoading() {
     const overlay = this.languageSwitchLoading || this.host.querySelector('[data-language-switch-loading]');
     if (!overlay) return;
@@ -606,6 +733,83 @@ export class StandaloneConfiguratorShell {
     return new Promise((resolve) => {
       window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
     });
+  }
+
+  ownsCurrentSavedConfiguration() {
+    const user = this.authUser;
+    const savedId = String(this.currentSavedConfigurationId || '');
+    return Boolean(
+      user?.uid
+      && SAVED_CONFIGURATION_ID_PATTERN.test(savedId)
+      && this.currentSavedOwnerUid === user.uid
+    );
+  }
+
+  buildSavedDomainTarget(targetUrl) {
+    const target = stripConfigurationTransport(new URL(targetUrl, window.location.href));
+    const hash = readHashParams(target);
+    hash.set(SAVED_DOMAIN_ID_PARAM, this.currentSavedConfigurationId);
+    hash.set(SAVED_DOMAIN_OWNER_PARAM, this.authUser.uid);
+    writeHashParams(target, hash);
+    return target.href;
+  }
+
+  async buildSharedDomainTarget(nextLocale) {
+    const shareUrl = await Promise.resolve(this.options.callbacks.getShareUrl?.() || '');
+    if (!shareUrl) throw new Error('A share URL could not be generated for the domain change.');
+    const target = getLocalizedConfiguratorUrl(nextLocale, this.productId, new URL(shareUrl, window.location.href));
+    if (!target) throw new Error('The destination domain URL could not be generated.');
+    return target;
+  }
+
+  async changeSiteDomain(nextLocale) {
+    if (this.domainBusy || !LANGUAGE_PROFILES[nextLocale]) return;
+    const targetUrl = getLocalizedConfiguratorUrl(nextLocale, this.productId, window.location);
+    if (!targetUrl) return;
+
+    const currentDomainLocale = getLocaleForHostname(window.location.hostname);
+    if (nextLocale === currentDomainLocale) {
+      this.domainOpen = false;
+      this.sync();
+      return;
+    }
+
+    this.domainBusy = true;
+    this.domainOpen = false;
+    this.sync();
+    this.showDomainSwitchLoading();
+    await this.waitForLanguageSwitchPaint();
+
+    let navigating = false;
+    try {
+      this.refreshDirtyFromCapturedState();
+      if (this.ownsCurrentSavedConfiguration()) {
+        if (this.dirty) {
+          const saveButton = this.host.querySelector('[data-action="save"]');
+          const saved = await this.save(saveButton, { suppressFeedback: true });
+          if (!saved) {
+            this.hideLanguageSwitchLoading();
+            this.showFeedback(DOMAIN_SAVE_FAILURE_MESSAGE, 'error', 2000);
+            return;
+          }
+        }
+        const target = this.buildSavedDomainTarget(targetUrl);
+        navigating = true;
+        window.location.assign(target);
+        return;
+      }
+
+      const target = await this.buildSharedDomainTarget(nextLocale);
+      navigating = true;
+      window.location.assign(target);
+    } catch (error) {
+      console.error('The site domain could not be changed while preserving the configuration.', error);
+      this.hideLanguageSwitchLoading();
+      this.showFeedback(sharedT(this.state.locale, 'feedback.domainSwitchUnavailable'), 'error', 2000);
+    } finally {
+      this.domainBusy = false;
+      if (!navigating) this.sync();
+    }
   }
 
   async handleClick(event) {
@@ -627,11 +831,13 @@ export class StandaloneConfiguratorShell {
       this.share(actionTarget);
     } else if (action === 'account') {
       this.accountOpen = !this.accountOpen;
+      if (!this.accountOpen) this.domainOpen = false;
       this.languageOpen = false;
       this.syncMenus();
     } else if (action === 'language') {
       this.languageOpen = !this.languageOpen;
       this.accountOpen = false;
+      this.domainOpen = false;
       this.syncMenus();
       if (this.languageOpen) {
         window.setTimeout(() => this.host.querySelector('[data-language-search]')?.focus(), 0);
@@ -640,9 +846,17 @@ export class StandaloneConfiguratorShell {
       this.toolsOpen = !this.toolsOpen;
       this.syncTools();
       this.options.callbacks.onToolsOpenChange?.(this.toolsOpen);
+    } else if (action === 'toggle-domain-menu') {
+      this.domainOpen = !this.domainOpen;
+      this.accountSettingsOpen = false;
+      this.sync();
+    } else if (action === 'select-domain') {
+      void this.changeSiteDomain(actionTarget.dataset.domainLocale);
     } else if (action === 'toggle-account-settings') {
       this.accountSettingsOpen = !this.accountSettingsOpen;
+      this.domainOpen = false;
       this.syncAccountSettings();
+      this.syncDomainMenu();
     } else if (action === 'toggle-dark-mode') {
       this.state.darkMode = !this.state.darkMode;
       this.persistPreferences();
@@ -740,27 +954,27 @@ export class StandaloneConfiguratorShell {
     this.options.callbacks.onPreferenceChange?.(field.dataset.path, field.value, this.state);
   }
 
-  async save(button) {
-    if (this.saveBusy) return;
+  async save(button, { suppressFeedback = false } = {}) {
+    if (this.saveBusy) return false;
     if (this.savedLoadBlocked) {
-      this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
-      return;
+      if (!suppressFeedback) this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
+      return false;
     }
 
     const user = this.authUser;
     if (!user?.uid) {
-      this.showFeedback(sharedT(this.state.locale, 'feedback.saveLoginRequired'), 'error');
-      return;
+      if (!suppressFeedback) this.showFeedback(sharedT(this.state.locale, 'feedback.saveLoginRequired'), 'error');
+      return false;
     }
 
     const configuration = this.options.callbacks.captureState?.();
     if (configuration === undefined || configuration === null) {
-      this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
-      return;
+      if (!suppressFeedback) this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
+      return false;
     }
 
     this.saveBusy = true;
-    button.disabled = true;
+    if (button) button.disabled = true;
     try {
       const result = await saveUserConfiguration({
         id: this.currentSavedOwnerUid === user.uid ? this.currentSavedConfigurationId : '',
@@ -773,9 +987,11 @@ export class StandaloneConfiguratorShell {
       this.currentSavedOwnerUid = user.uid;
       this.currentDraftStateJson = '';
       this.savedLoadBlocked = false;
-      button.classList.remove('is-success');
-      void button.offsetWidth;
-      button.classList.add('is-success');
+      if (button) {
+        button.classList.remove('is-success');
+        void button.offsetWidth;
+        button.classList.add('is-success');
+      }
       this.dirty = false;
       this.lastSavedProjectName = this.projectName;
       this.captureCleanBaseline();
@@ -786,12 +1002,14 @@ export class StandaloneConfiguratorShell {
         preferences: { ...this.state },
         savedConfigurationId: this.currentSavedConfigurationId,
       });
-      this.showFeedback(sharedT(this.state.locale, 'feedback.saved'));
+      if (!suppressFeedback) this.showFeedback(sharedT(this.state.locale, 'feedback.saved'));
       this.sync();
-      window.setTimeout(() => button.classList.remove('is-success'), 1050);
+      if (button) window.setTimeout(() => button.classList.remove('is-success'), 1050);
+      return true;
     } catch (error) {
       console.error('Configuration could not be saved to the user account.', error);
-      this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
+      if (!suppressFeedback) this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
+      return false;
     } finally {
       this.saveBusy = false;
       this.syncAuthenticationControls();
@@ -941,14 +1159,16 @@ export class StandaloneConfiguratorShell {
     window.setTimeout(() => button.classList.remove('is-success'), 1050);
   }
 
-  showFeedback(message, type = 'success') {
+  showFeedback(message, type = 'success', durationMs = 1050) {
     window.clearTimeout(this.feedbackTimer);
     const feedbackType = type === 'error' ? 'is-error' : 'is-success';
     this.feedback.classList.remove('is-success', 'is-error', 'is-animating');
     void this.feedback.offsetWidth;
+    const duration = Math.max(300, Number(durationMs) || 1050);
+    this.feedback.style.animationDuration = `${duration}ms`;
     this.feedback.classList.add(feedbackType, 'is-animating');
     this.feedbackText.textContent = message;
-    this.feedbackTimer = window.setTimeout(() => this.feedback.classList.remove('is-animating'), 1050);
+    this.feedbackTimer = window.setTimeout(() => this.feedback.classList.remove('is-animating'), duration);
   }
 
   markDirty() {
@@ -997,6 +1217,7 @@ export class StandaloneConfiguratorShell {
     this.syncProjectNameWidth();
     this.syncMenus();
     this.syncAccountSettings();
+    this.syncDomainMenu();
     this.syncAuthenticationControls();
     syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: this.authBusy });
     this.syncLanguage();
@@ -1025,10 +1246,24 @@ export class StandaloneConfiguratorShell {
     this.host.querySelector('[data-action="language"]')?.setAttribute('aria-expanded', String(this.languageOpen));
   }
 
+  syncDomainMenu() {
+    this.host.querySelectorAll('[data-account-domain]').forEach((menu) => menu.classList.toggle('is-open', this.domainOpen));
+    this.host.querySelectorAll('[data-action="toggle-domain-menu"]').forEach((button) => button.setAttribute('aria-expanded', String(this.domainOpen)));
+    const currentDomainLocale = getLocaleForHostname(window.location.hostname);
+    this.host.querySelectorAll('[data-action="select-domain"]').forEach((button) => {
+      const selected = button.dataset.domainLocale === currentDomainLocale;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-current', selected ? 'true' : 'false');
+      button.disabled = this.domainBusy;
+      const check = button.querySelector('.account-domain__check');
+      if (check) check.textContent = selected ? '✓' : '';
+    });
+  }
+
   syncAuthenticationControls() {
     const authenticated = Boolean(this.authUser?.uid);
-    const saveEnabled = authenticated && this.options.capabilities.save !== false && !this.saveBusy && !this.savedLoadBlocked;
-    const newEnabled = authenticated && this.options.capabilities.save !== false;
+    const saveEnabled = authenticated && this.options.capabilities.save !== false && !this.saveBusy && !this.savedLoadBlocked && !this.domainBusy;
+    const newEnabled = authenticated && this.options.capabilities.save !== false && !this.domainBusy;
     const saveButton = this.host.querySelector('[data-action="save"]');
     const newButton = this.host.querySelector('[data-action="new-configuration"]');
     if (saveButton) {

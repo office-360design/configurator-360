@@ -94,7 +94,7 @@ const sourceGuards = [
   ['solar-configurator/js/app.js', "t('pvgis.ready'"],
 ];
 const sharedShellSource = fs.readFileSync(path.join(root, 'shared-ui/src/standaloneShell.js'), 'utf8');
-if (sharedShellSource.includes('getLanguageSwitchTarget(') || sharedShellSource.includes('window.location.assign(')) failures.push('Shared UI still performs cross-domain Solar language switching.');
+if (sharedShellSource.includes('getLanguageSwitchTarget(')) failures.push('Shared UI still contains legacy cross-domain language switching.');
 if (!sharedShellSource.includes("callbacks.onPreferenceChange?.('locale'")) failures.push('Shared UI does not apply Solar locale changes in place.');
 const solarShellSource = fs.readFileSync(path.join(root, 'solar-configurator/js/sharedShell.js'), 'utf8');
 if (solarShellSource.includes('getLocalizedConfiguratorUrl(nextLocale')) failures.push('Solar duplicates shared language switching.');

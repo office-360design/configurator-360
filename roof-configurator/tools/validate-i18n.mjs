@@ -73,7 +73,7 @@ for (const [source, needle, message] of guards) {
 }
 
 const sharedShell = fs.readFileSync(path.join(root, 'shared-ui', 'src', 'standaloneShell.js'), 'utf8');
-if (sharedShell.includes('getLanguageSwitchTarget(') || sharedShell.includes('window.location.assign(')) {
+if (sharedShell.includes('getLanguageSwitchTarget(')) {
   failures.push('Shared UI still performs cross-domain language switching');
 }
 if (!sharedShell.includes("callbacks.onPreferenceChange?.('locale'")) {
@@ -84,7 +84,7 @@ if (files.shell.includes('getLocalizedConfiguratorUrl(nextLocale')) {
 }
 if (!files.app.includes('state.locale = resolveRoofLocale')) failures.push('app.js does not initialize locale from the shared shell/domain');
 if (!files.scene.includes('scene.setLocale') && !files.app.includes('scene.setLocale')) failures.push('Roof scene compass locale is not synchronized');
-if (!files.index.includes('./js/sharedShell.js?v=27') || !files.index.includes('./js/app.js?v=23')) {
+if (!files.index.includes('./js/sharedShell.js?v=28') || !files.index.includes('./js/app.js?v=23')) {
   failures.push('Roof entrypoint cache-busting versions were not updated for the i18n release');
 }
 

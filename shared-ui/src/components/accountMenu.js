@@ -4,9 +4,35 @@ import {
   QUALITY_OPTIONS,
   UNIT_OPTIONS,
 } from '../config.js';
-import { sharedT } from '../i18n.js';
+import { sharedT } from '../i18n.js?v=18';
 import { sharedIcon } from '../icons.js';
 import { escapeHtml } from '../utils.js';
+
+
+const DOMAIN_OPTIONS = Object.freeze([
+  { locale: 'en-US', suffix: 'COM', flag: '🇺🇸' },
+  { locale: 'ro-RO', suffix: 'RO', flag: '🇷🇴' },
+  { locale: 'de-DE', suffix: 'DE', flag: '🇩🇪' },
+]);
+
+function renderDomainControl(locale, domainOpen = false, currentDomainLocale = 'en-US') {
+  return `
+    <button type="button" data-action="toggle-domain-menu" aria-expanded="${domainOpen}">
+      <span class="account-menu__domain-icon" aria-hidden="true">🌐</span>
+      <strong>${escapeHtml(sharedT(locale, 'account.changeSiteDomain'))}</strong>
+      <span class="account-menu__chevron">›</span>
+    </button>
+    <div class="account-domain" data-account-domain>
+      ${DOMAIN_OPTIONS.map((option) => `
+        <button type="button" data-action="select-domain" data-domain-locale="${option.locale}" ${option.locale === currentDomainLocale ? 'aria-current="true"' : ''}>
+          <strong>${option.suffix}</strong>
+          <span class="account-domain__flag" aria-hidden="true">${option.flag}</span>
+          <span class="account-domain__check" aria-hidden="true">${option.locale === currentDomainLocale ? '✓' : ''}</span>
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
 
 function localizedOptions(locale, path, options) {
   const namespaces = {
@@ -50,6 +76,7 @@ export function syncAccountIdentity(root, locale, user, { busy = false } = {}) {
   const loginButton = root.querySelector('[data-action="account-login"]');
   const signOutButton = root.querySelector('[data-action="account-signout"]');
   const authenticatedContent = root.querySelector('[data-account-authenticated-content]');
+  const guestDomainContent = root.querySelector('[data-account-guest-domain-content]');
 
   if (greeting) {
     greeting.textContent = authenticated
@@ -66,11 +93,14 @@ export function syncAccountIdentity(root, locale, user, { busy = false } = {}) {
   }
   if (signOutButton) signOutButton.hidden = !authenticated;
   if (authenticatedContent) authenticatedContent.hidden = !authenticated;
+  if (guestDomainContent) guestDomainContent.hidden = authenticated;
 }
 
 export function renderAccountMenu(state) {
   const locale = state.locale;
   const authenticated = Boolean(state.authUser?.uid);
+  const domainOpen = Boolean(state.domainOpen);
+  const currentDomainLocale = String(state.currentDomainLocale || 'en-US');
   const greeting = authenticated
     ? sharedT(locale, 'account.greetingUser', { name: accountDisplayName(state.authUser) })
     : sharedT(locale, 'account.greetingGuest');
@@ -84,10 +114,16 @@ export function renderAccountMenu(state) {
           <strong data-account-login-label>${escapeHtml(sharedT(locale, 'account.loginGoogle'))}</strong>
         </button>
       </div>
+      <div data-account-guest-domain-content ${authenticated ? 'hidden' : ''}>
+        <nav class="account-menu__items account-menu__items--guest">
+          ${renderDomainControl(locale, domainOpen, currentDomainLocale)}
+        </nav>
+      </div>
       <div data-account-authenticated-content ${authenticated ? '' : 'hidden'}>
         <nav class="account-menu__items">
           <button type="button" data-action="account-profile"><span>${sharedIcon('account')}</span><strong>${escapeHtml(sharedT(locale, 'account.profile'))}</strong></button>
           <button type="button" data-action="account-saved"><span>${sharedIcon('folder')}</span><strong>${escapeHtml(sharedT(locale, 'account.saved'))}</strong></button>
+          ${renderDomainControl(locale, domainOpen, currentDomainLocale)}
           <button type="button" data-action="account-help"><span>${sharedIcon('help')}</span><strong>${escapeHtml(sharedT(locale, 'account.help'))}</strong></button>
           <button type="button" data-action="toggle-account-settings" aria-expanded="false"><span>${sharedIcon('settings')}</span><strong>${escapeHtml(sharedT(locale, 'account.settings'))}</strong><span class="account-menu__chevron">›</span></button>
           <div class="account-settings" data-account-settings>

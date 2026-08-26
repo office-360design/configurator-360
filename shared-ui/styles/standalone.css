@@ -195,6 +195,7 @@
 .shared-ui-host .account-menu__items { display: grid; gap: 4px; padding-top: 9px; }
 .shared-ui-host .account-menu__items > button,
 .shared-ui-host .account-settings button,
+.shared-ui-host .account-domain button,
 .shared-ui-host .language-list button {
   display: grid;
   grid-template-columns: 24px minmax(0,1fr) auto;
@@ -233,12 +234,25 @@
 .shared-ui-host [data-action="account-signout"][hidden] { display: none !important; }
 .shared-ui-host .account-menu__items > button:hover,
 .shared-ui-host .account-settings button:hover,
+.shared-ui-host .account-domain button:hover,
 .shared-ui-host .language-list button:hover { background: #f0f3f5; }
 .shared-ui-host .account-menu__items > button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; }
 .shared-ui-host .account-menu__items strong,
 .shared-ui-host .language-list strong { font-size: 12px; font-weight: 700; }
 .shared-ui-host .account-menu__chevron { font-size: 21px; transition: transform 150ms ease; }
-.shared-ui-host [data-action="toggle-account-settings"][aria-expanded="true"] .account-menu__chevron { transform: rotate(90deg); }
+.shared-ui-host [data-action="toggle-account-settings"][aria-expanded="true"] .account-menu__chevron,
+.shared-ui-host [data-action="toggle-domain-menu"][aria-expanded="true"] .account-menu__chevron { transform: rotate(90deg); }
+
+.shared-ui-host .account-menu__domain-icon { font-size: 18px; line-height: 1; }
+.shared-ui-host .account-menu__items--guest { padding-top: 9px; }
+.shared-ui-host .account-domain { display: grid; max-height: 0; margin-left: 34px; overflow: hidden; opacity: 0; transition: max-height 170ms ease, opacity 150ms ease; }
+.shared-ui-host .account-domain.is-open { max-height: 150px; opacity: 1; padding-bottom: 5px; }
+.shared-ui-host .account-domain button { grid-template-columns: minmax(0,1fr) auto 18px; min-height: 36px; padding: 7px 10px; color: #55616a; }
+.shared-ui-host .account-domain button.is-selected { color: var(--blue-800); background: #eaf5fc; }
+.shared-ui-host .account-domain button:disabled { cursor: wait; opacity: .65; }
+.shared-ui-host .account-domain__flag { font-size: 19px; }
+.shared-ui-host .account-domain__check { justify-self: end; color: var(--blue-700); font-weight: 900; }
+
 .shared-ui-host .account-settings { display: grid; max-height: 0; margin-left: 34px; overflow: hidden; opacity: 0; transition: max-height 170ms ease, opacity 150ms ease; }
 .shared-ui-host .account-settings.is-open { max-height: 470px; opacity: 1; padding-bottom: 7px; }
 .shared-ui-host .account-settings__field { display: grid; gap: 6px; padding: 7px 10px; color: #55616a; }
@@ -288,7 +302,7 @@
 .shared-ui-host .save-feedback__icon { position: absolute; left: 14px; display: none; width: 26px; height: 26px; }
 .shared-ui-host .save-feedback__icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2.1; }
 .shared-ui-host .save-feedback.is-success .save-feedback__icon--success { display: block; color: var(--success); }
-.shared-ui-host .save-feedback.is-error { border-color: #d9363e; }
+.shared-ui-host .save-feedback.is-error { border-color: #d9363e; color: #8b1e24; background: #fff1f2; }
 .shared-ui-host .save-feedback.is-error .save-feedback__icon--failure { display: block; color: #d9363e; }
 @keyframes shared-save-feedback-cycle {
   0% { opacity: 0; transform: translate(-50%,calc(100% + 28px)); }
@@ -337,10 +351,12 @@
 .shared-ui-host.is-dark-mode .language-search input,
 .shared-ui-host.is-dark-mode .account-menu__items > button,
 .shared-ui-host.is-dark-mode .account-settings button,
+.shared-ui-host.is-dark-mode .account-domain button,
 .shared-ui-host.is-dark-mode .language-list button,
 .shared-ui-host.is-dark-mode .account-settings__field { color: #e2e8f0; }
 .shared-ui-host.is-dark-mode .account-menu__items > button:hover,
 .shared-ui-host.is-dark-mode .account-settings button:hover,
+.shared-ui-host.is-dark-mode .account-domain button:hover,
 .shared-ui-host.is-dark-mode .language-list button:hover { background: rgba(255,255,255,.08); }
 .shared-ui-host.is-dark-mode .language-list button.is-selected { color: #dff3ff; background: rgba(20,148,222,.18); }
 .shared-ui-host.is-dark-mode .tool-launcher { color: #e7eef3; background: rgba(20,31,45,.94); border-color: rgba(255,255,255,.11); }
