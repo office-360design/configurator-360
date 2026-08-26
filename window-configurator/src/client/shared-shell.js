@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=23';
+import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=24';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=4';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=1';
