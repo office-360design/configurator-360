@@ -1,7 +1,7 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
-import { sharedT } from './i18n.js?v=18';
+import { sharedT } from './i18n.js?v=19';
 import { renderActionFeedback } from './components/feedback.js?v=17';
-import { renderTopBar } from './components/topBar.js?v=18';
+import { renderTopBar } from './components/topBar.js?v=19';
 import { syncAccountIdentity } from './components/accountMenu.js?v=18';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=18';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
@@ -999,6 +999,9 @@ export class StandaloneConfiguratorShell {
       this.options.callbacks.onViewAR?.();
     } else if (action === 'share') {
       this.share(actionTarget);
+    } else if (action === 'cart') {
+      // Reserved Common UI entry point. Cart state/pricing will be wired later.
+      this.options.callbacks.onCartAction?.();
     } else if (action === 'account') {
       this.accountOpen = !this.accountOpen;
       if (!this.accountOpen) this.domainOpen = false;

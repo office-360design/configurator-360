@@ -176,8 +176,10 @@
 
 .shared-ui-host .topbar-icon-button > svg,
 .shared-ui-host .topbar-icon-button .save-icon svg,
+.shared-ui-host .topbar-icon-button .cart-icon svg,
 .topbar-icon-button > svg,
-.topbar-icon-button .save-icon svg {
+.topbar-icon-button .save-icon svg,
+.topbar-icon-button .cart-icon svg {
   width: 20px;
   height: 20px;
   fill: none;
@@ -682,6 +684,41 @@ body,
   stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.cart-button .cart-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+.cart-button .cart-icon {
+  display: grid;
+  place-items: center;
+  transform-origin: 50% 64%;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cart-button:hover:not(:disabled) .cart-icon {
+    animation: shared-cart-hover 560ms cubic-bezier(.2,.78,.24,1);
+  }
+}
+.cart-button:focus-visible:not(:disabled) .cart-icon {
+  animation: shared-cart-hover 560ms cubic-bezier(.2,.78,.24,1);
+}
+@keyframes shared-cart-hover {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  28% { transform: translateX(2px) rotate(-7deg); }
+  54% { transform: translateX(-1px) rotate(4deg); }
+  78% { transform: translateX(1px) rotate(-2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cart-button:hover:not(:disabled) .cart-icon,
+  .cart-button:focus-visible:not(:disabled) .cart-icon { animation: none; }
 }
 
 .language-button {
@@ -1727,20 +1764,27 @@ body.roof-sidebar-collapsed .shared-settings-toggle {
 }
 
 @media (max-width: 360px) {
+  .shared-ui-host .site-header {
+    grid-template-columns: minmax(60px, 1fr) auto;
+    column-gap: 2px;
+    padding: 0 4px;
+  }
+
   .shared-ui-host .brand img {
-    width: 68px;
+    width: 60px;
   }
 
   .shared-ui-host .topbar-icon-button {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
   }
 
   .shared-ui-host .topbar-icon-button > svg,
   .shared-ui-host .topbar-icon-button .save-icon svg,
-  .shared-ui-host .topbar-icon-button .share-icon svg {
-    width: 18px;
-    height: 18px;
+  .shared-ui-host .topbar-icon-button .share-icon svg,
+  .shared-ui-host .topbar-icon-button .cart-icon svg {
+    width: 17px;
+    height: 17px;
   }
 }
 
