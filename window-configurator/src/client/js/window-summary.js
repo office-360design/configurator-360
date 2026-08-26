@@ -227,6 +227,9 @@ function mergeDividerSegments(geometry) {
         start: Math.min(...group.map(piece => finite(piece.structuralWorldStart, piece.worldStart))),
         end: Math.max(...group.map(piece => finite(piece.structuralWorldEnd, piece.worldEnd))),
         sourceIds: group.map(piece => piece.id),
+        neighborCellPairs: group
+            .map(piece => [piece.negativeCellId, piece.positiveCellId])
+            .filter(pair => pair[0] && pair[1]),
     }));
 }
 
@@ -251,6 +254,64 @@ function jointLabel(locale, jointCode) {
     return windowT(locale, key);
 }
 
+function getWindowNumberMap(snapshot) {
+    const windows = snapshot?.layoutState?.windowState?.windows;
+    if (Array.isArray(windows) && windows.length) {
+        return new Map(windows.map((cell, index) => [String(cell.id), index + 1]));
+    }
+
+    // Compatibility fallback for older/incomplete fabrication snapshots. The
+    // live configurator always provides windowState, but keeping this fallback
+    // makes the summary robust for validation fixtures and imported snapshots.
+    const ids = [];
+    const seen = new Set();
+    [
+        ...(snapshot?.openingCells || []),
+        ...(snapshot?.fixedCells || []),
+        ...(snapshot?.glassPieces || []),
+    ].forEach(cell => {
+        const id = String(cell?.id || cell?.cellId || '');
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        ids.push(id);
+    });
+    return new Map(ids.map((id, index) => [id, index + 1]));
+}
+
+function getWindowNumber(windowNumberMap, cellId) {
+    const number = windowNumberMap?.get?.(String(cellId || ''));
+    return Number.isInteger(number) && number > 0 ? number : null;
+}
+
+function windowOwnerLabel(locale, windowNumberMap, cellId) {
+    const number = getWindowNumber(windowNumberMap, cellId);
+    if (number == null) return '';
+    return `${windowT(locale, 'layout.window')} ${number}`;
+}
+
+function normalizeWindowPair(windowNumberMap, firstCellId, secondCellId) {
+    const first = getWindowNumber(windowNumberMap, firstCellId);
+    const second = getWindowNumber(windowNumberMap, secondCellId);
+    if (first == null || second == null || first === second) return null;
+    return first < second ? [first, second] : [second, first];
+}
+
+function formatBetweenWindows(locale, pairs = []) {
+    const unique = [];
+    const seen = new Set();
+    pairs.forEach(pair => {
+        if (!Array.isArray(pair) || pair.length !== 2) return;
+        const key = `${pair[0]}-${pair[1]}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        unique.push(pair);
+    });
+    if (!unique.length) return '';
+    unique.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const pairText = unique.map(([a, b]) => `${a}–${b}`).join(', ');
+    return windowT(locale, 'summary.betweenWindows', { pairs: pairText });
+}
+
 function makeProfileCut({
     category,
     name,
@@ -260,6 +321,8 @@ function makeProfileCut({
     endJoint,
     orientation = null,
     cellId = null,
+    windowNumber = null,
+    windowPairs = null,
     note = null,
 }) {
     const tech = getProfileData(profileId, category);
@@ -275,6 +338,8 @@ function makeProfileCut({
         endJoint,
         orientation,
         cellId,
+        windowNumber,
+        windowPairs,
         note,
         kgPerM: tech.kgPerM,
         weightKg,
@@ -367,30 +432,35 @@ function dividerEndTrim({ geometry, piece, atStart, frameProfileId, dividerProfi
     return { trim: 0, joint: 'square' };
 }
 
-function buildDividerCuts({ geometry, dividerProfileId, frameProfileId, locale }) {
+function buildDividerCuts({ geometry, dividerProfileId, frameProfileId, locale, windowNumberMap }) {
     if (!geometry?.dividerSegments?.length) return [];
     return mergeDividerSegments(geometry).map(piece => {
         const start = dividerEndTrim({ geometry, piece, atStart: true, frameProfileId, dividerProfileId });
         const end = dividerEndTrim({ geometry, piece, atStart: false, frameProfileId, dividerProfileId });
+        const numberedPairs = (piece.neighborCellPairs || [])
+            .map(([firstCellId, secondCellId]) => normalizeWindowPair(windowNumberMap, firstCellId, secondCellId))
+            .filter(Boolean);
+        const betweenLabel = formatBetweenWindows(locale, numberedPairs);
+        const identity = betweenLabel ? ` · ${betweenLabel}` : '';
         return makeProfileCut({
             category: 'mullion',
-            name: `${windowT(locale, 'summary.profile.mullion')} · ${windowT(locale, piece.orientation === 'vertical' ? 'summary.vertical' : 'summary.horizontal')}`,
+            name: `${windowT(locale, 'summary.profile.mullion')}${identity} · ${windowT(locale, piece.orientation === 'vertical' ? 'summary.vertical' : 'summary.horizontal')}`,
             profileId: dividerProfileId,
             lengthM: piece.end - piece.start - start.trim - end.trim,
             startJoint: start.joint,
             endJoint: end.joint,
             orientation: piece.orientation,
+            windowPairs: numberedPairs,
         });
     });
 }
 
-function buildSashCuts({ snapshot, sashProfileId, locale }) {
+function buildSashCuts({ snapshot, sashProfileId, locale, windowNumberMap }) {
     const cuts = [];
-    (snapshot?.openingCells || []).forEach((cell, index) => {
-        const cellName = (snapshot.openingCells.length > 1)
-            ? ` ${index + 1}`
-            : '';
-        const prefix = `${windowT(locale, 'summary.profile.sash')}${cellName}`;
+    (snapshot?.openingCells || []).forEach(cell => {
+        const owner = windowOwnerLabel(locale, windowNumberMap, cell.id);
+        const prefix = `${windowT(locale, 'summary.profile.sash')}${owner ? ` · ${owner}` : ''}`;
+        const windowNumber = getWindowNumber(windowNumberMap, cell.id);
         const width = clampLength(cell.width);
         const height = clampLength(cell.height);
         [
@@ -407,36 +477,41 @@ function buildSashCuts({ snapshot, sashProfileId, locale }) {
             endJoint: 'miter',
             orientation,
             cellId: cell.id,
+            windowNumber,
         })));
     });
     return cuts;
 }
 
-function buildTransCuts({ geometry, snapshot, transProfileId, sashProfileId, locale }) {
+function buildTransCuts({ geometry, snapshot, transProfileId, sashProfileId, locale, windowNumberMap }) {
     const transSegments = geometry?.transSegments || [];
     if (!transSegments.length) return [];
     const sashFaceM = finite(getProfileData(sashProfileId, 'sash').faceWidthMm, 49) * M_PER_MM;
     return transSegments.map((segment, index) => {
         const owner = (snapshot?.openingCells || []).find(cell => cell.id === segment.ownerCellId)
             || (snapshot?.openingCells || []).find(cell => cell.id === segment.negativeCellId || cell.id === segment.positiveCellId);
+        const pair = normalizeWindowPair(windowNumberMap, segment.negativeCellId, segment.positiveCellId);
+        const betweenLabel = formatBetweenWindows(locale, pair ? [pair] : []);
         const ownerSpan = segment.orientation === 'vertical'
             ? finite(owner?.height, segment.structuralWorldEnd - segment.structuralWorldStart)
             : finite(owner?.width, segment.structuralWorldEnd - segment.structuralWorldStart);
         return makeProfileCut({
             category: 'trans',
-            name: `${windowT(locale, 'summary.profile.trans')}${transSegments.length > 1 ? ` ${index + 1}` : ''}`,
+            name: `${windowT(locale, 'summary.profile.trans')}${betweenLabel ? ` · ${betweenLabel}` : (transSegments.length > 1 ? ` ${index + 1}` : '')}`,
             profileId: transProfileId,
             lengthM: Math.max(0, ownerSpan - sashFaceM * 2),
             startJoint: 'square-sash',
             endJoint: 'square-sash',
             orientation: segment.orientation,
             cellId: segment.ownerCellId,
+            windowNumber: getWindowNumber(windowNumberMap, segment.ownerCellId),
+            windowPairs: pair ? [pair] : [],
             note: windowT(locale, 'summary.cut.transNote'),
         });
     });
 }
 
-function buildBeadCuts({ snapshot, glazingBeadCode, locale }) {
+function buildBeadCuts({ snapshot, glazingBeadCode, locale, windowNumberMap }) {
     if (!glazingBeadCode) return [];
     const cells = [
         ...(snapshot?.openingCells || []).map(cell => ({ ...cell, kind: 'sash' })),
@@ -448,9 +523,10 @@ function buildBeadCuts({ snapshot, glazingBeadCode, locale }) {
         })),
     ];
     const cuts = [];
-    cells.forEach((cell, index) => {
-        const suffix = cells.length > 1 ? ` ${index + 1}` : '';
-        const prefix = `${windowT(locale, 'summary.profile.bead')}${suffix}`;
+    cells.forEach(cell => {
+        const owner = windowOwnerLabel(locale, windowNumberMap, cell.id);
+        const prefix = `${windowT(locale, 'summary.profile.bead')}${owner ? ` · ${owner}` : ''}`;
+        const windowNumber = getWindowNumber(windowNumberMap, cell.id);
         const width = clampLength(cell.width);
         const height = clampLength(cell.height);
         [
@@ -467,20 +543,24 @@ function buildBeadCuts({ snapshot, glazingBeadCode, locale }) {
             endJoint: 'miter',
             orientation,
             cellId: cell.id,
+            windowNumber,
         })));
     });
     return cuts;
 }
 
-function buildGlassItems(snapshot, locale) {
-    return (snapshot?.glassPieces || []).map((piece, index) => {
+function buildGlassItems(snapshot, locale, windowNumberMap) {
+    return (snapshot?.glassPieces || []).map(piece => {
         const widthM = clampLength(piece.width);
         const heightM = clampLength(piece.height);
+        const owner = windowOwnerLabel(locale, windowNumberMap, piece.cellId);
+        const windowNumber = getWindowNumber(windowNumberMap, piece.cellId);
         return {
             type: 'glass',
             category: 'glass',
-            name: `${windowT(locale, 'summary.profile.glass')}${(snapshot.glassPieces || []).length > 1 ? ` ${index + 1}` : ''}`,
+            name: `${windowT(locale, 'summary.profile.glass')}${owner ? ` · ${owner}` : ''}`,
             cellId: piece.cellId || null,
+            windowNumber,
             widthM,
             heightM,
             areaSqm: widthM * heightM,
@@ -508,15 +588,16 @@ export function buildWindowFabricationSummary({
     const transProfileId = String(layoutSelection.transProfileId || '575820');
     const resolvedBeadCode = String(glazingBeadCode || '573940');
     const geometry = buildManufacturingGeometry(snapshot, frameProfileId, dividerProfileId);
+    const windowNumberMap = getWindowNumberMap(snapshot);
 
     const cuts = [
         ...buildFrameCuts({ geometry, frameProfileId, locale, snapshot }),
-        ...buildDividerCuts({ geometry, dividerProfileId, frameProfileId, locale }),
-        ...buildSashCuts({ snapshot, sashProfileId, locale }),
-        ...buildTransCuts({ geometry, snapshot, transProfileId, sashProfileId, locale }),
-        ...buildBeadCuts({ snapshot, glazingBeadCode: resolvedBeadCode, locale }),
+        ...buildDividerCuts({ geometry, dividerProfileId, frameProfileId, locale, windowNumberMap }),
+        ...buildSashCuts({ snapshot, sashProfileId, locale, windowNumberMap }),
+        ...buildTransCuts({ geometry, snapshot, transProfileId, sashProfileId, locale, windowNumberMap }),
+        ...buildBeadCuts({ snapshot, glazingBeadCode: resolvedBeadCode, locale, windowNumberMap }),
     ];
-    const glassItems = buildGlassItems(snapshot, locale);
+    const glassItems = buildGlassItems(snapshot, locale, windowNumberMap);
 
     const aluminiumRate = Number(aluminiumRatePerKg) > 0 ? Number(aluminiumRatePerKg) : null;
     const glassRate = Number(glassRatePerSqm) > 0 ? Number(glassRatePerSqm) : null;
