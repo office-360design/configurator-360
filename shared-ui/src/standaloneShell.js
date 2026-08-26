@@ -8,6 +8,7 @@ import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
+import { readShareState } from './shareState.js?v=4';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
@@ -144,12 +145,15 @@ export class StandaloneConfiguratorShell {
     this.saveBusy = false;
     this.savedLoadBlocked = false;
     this.pendingDomainAuthTransport = this.readDomainAuthTransport();
-    this.pendingDomainSharedDraft = Boolean(
-      this.pendingDomainAuthTransport?.mode === DOMAIN_AUTH_USER_STATE
-      && this.hasSharedConfigurationTransport()
-      && !this.readSavedDomainHandoff()
-    );
     this.pendingSavedDomainHandoff = this.readSavedDomainHandoff();
+    // A Share transport is configuration state, regardless of authentication.
+    // It must win over the destination domain's local/default account state.
+    // The shared shell restores it through the configurator's restoreState hook,
+    // so every configurator gets the same cross-domain behavior.
+    this.pendingSharedConfigurationTransport = Boolean(
+      this.hasSharedConfigurationTransport()
+      && !this.pendingSavedDomainHandoff
+    );
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
     this.settingsPanelCollapsed = false;
     this.settingsPanel = null;
@@ -279,6 +283,33 @@ export class StandaloneConfiguratorShell {
     } catch {
       // The saved configuration has already been restored; URL cleanup is best effort.
     }
+  }
+
+  clearSharedConfigurationTransportUrl() {
+    try {
+      const target = new URL(window.location.href);
+      ['s', 'c', 'config'].forEach((key) => target.searchParams.delete(key));
+      const hash = readHashParams(target);
+      ['s', 'c', 'config'].forEach((key) => hash.delete(key));
+      writeHashParams(target, hash);
+      window.history.replaceState(window.history.state, '', target.href);
+    } catch {
+      // The shared configuration has already been restored; URL cleanup is best effort.
+    }
+  }
+
+  async restorePendingSharedConfiguration() {
+    if (!this.pendingSharedConfigurationTransport) return null;
+    const sharedState = await readShareState({ productType: this.productId });
+    if (!sharedState || typeof sharedState !== 'object') {
+      throw new Error('The shared configuration referenced by the domain handoff could not be loaded.');
+    }
+    const restored = await this.restoreConfiguratorState(sharedState);
+    if (!restored) {
+      throw new Error('Configurator rejected the shared domain-handoff state.');
+    }
+    this.pendingSharedConfigurationTransport = false;
+    return sharedState;
   }
 
   async restoreSavedDomainHandoff(user) {
@@ -521,7 +552,8 @@ export class StandaloneConfiguratorShell {
       // user's local account book or saved-configuration pointer.
       try { await signOutGoogle(); } catch { /* best effort */ }
       this.pendingDomainAuthTransport = null;
-      this.pendingDomainSharedDraft = false;
+      // Keep any Share transport intact. Even if authentication transfer fails,
+      // the destination must still be able to restore the configuration as guest.
       this.clearDomainAuthTransportUrl();
       this.showFeedback(sharedT(this.state.locale, 'feedback.loginUnavailable'), 'error', 2000);
     } finally {
@@ -576,7 +608,7 @@ export class StandaloneConfiguratorShell {
   }
 
   async restoreConfiguratorState(snapshot) {
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    for (let attempt = 0; attempt < 80; attempt += 1) {
       const callback = this.options.callbacks.restoreState;
       if (typeof callback === 'function') {
         const handled = await Promise.resolve(callback(snapshot));
@@ -621,7 +653,16 @@ export class StandaloneConfiguratorShell {
     this.dirty = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
 
-    if (resetModel) await this.resetConfiguratorToDefault();
+    if (this.pendingSharedConfigurationTransport) {
+      try {
+        await this.restorePendingSharedConfiguration();
+      } catch (error) {
+        console.error('The shared configuration could not be restored for the guest session.', error);
+        this.showFeedback(sharedT(this.state.locale, 'feedback.shareUnavailable'), 'error', 2000);
+      }
+    } else if (resetModel) {
+      await this.resetConfiguratorToDefault();
+    }
     if (token !== this.sessionSwitchToken) return;
     this.projectName = this.getGuestProjectName();
     this.lastSavedProjectName = '';
@@ -646,8 +687,7 @@ export class StandaloneConfiguratorShell {
 
     if (await this.restoreSavedDomainHandoff(user)) return;
 
-    if (this.pendingDomainSharedDraft) {
-      this.pendingDomainSharedDraft = false;
+    if (this.pendingSharedConfigurationTransport) {
       this.projectName = this.getNextDefaultProjectName(uid);
       this.lastSavedProjectName = '';
       this.currentSavedConfigurationId = '';
@@ -657,20 +697,20 @@ export class StandaloneConfiguratorShell {
       this.cleanProjectName = '';
       this.savedLoadBlocked = false;
       this.dirty = true;
-      // The configurator-specific app is responsible for reading the Share state
-      // from the URL. Do not reset or load the destination domain's previous
-      // account pointer over it; just adopt the resulting model as this account's
-      // new unsaved draft once its API becomes available.
-      for (let attempt = 0; attempt < 40; attempt += 1) {
-        const snapshot = this.options.callbacks.captureState?.();
-        if (snapshot && typeof snapshot === 'object') {
-          this.currentDraftStateJson = JSON.stringify(snapshot);
-          break;
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, 75));
+      try {
+        const sharedState = await this.restorePendingSharedConfiguration();
+        if (token !== this.sessionSwitchToken) return;
+        // A Share opened while authenticated is an unsaved draft, not a saved
+        // configuration. Persist the exact transferred snapshot locally before
+        // removing the bearer Share id from the URL.
+        this.currentDraftStateJson = JSON.stringify(sharedState);
+        this.persistMeta();
+        this.clearSharedConfigurationTransportUrl();
+      } catch (error) {
+        console.error('The shared configuration could not be restored for the authenticated draft.', error);
+        this.showFeedback(sharedT(this.state.locale, 'feedback.shareUnavailable'), 'error', 2000);
       }
       if (token !== this.sessionSwitchToken) return;
-      this.persistMeta();
       this.renderHost();
       this.sync();
       return;
