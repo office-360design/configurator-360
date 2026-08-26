@@ -91,6 +91,13 @@ function decodeFirestoreFields(fields = {}) {
 function safeLogoUrl(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
+
+  // Provisioned Tier-1 logos are small optimized raster data URLs. SVG/data
+  // HTML is deliberately unsupported so tenant branding cannot execute script.
+  if (/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(raw)) {
+    return raw;
+  }
+
   try {
     const url = new URL(raw, globalThis.location?.origin || 'https://www.360configurator.com');
     return url.protocol === 'https:' ? url.href : '';

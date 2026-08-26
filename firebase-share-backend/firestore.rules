@@ -15,6 +15,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Internal provisioning allowlist. Only Admin-SDK backend code may inspect
+    // or modify the list of Firebase UIDs allowed to create customer tenants.
+    match /tenantProvisioningAdmins/{uid} {
+      allow read, write: if false;
+    }
+
     function loggedIn() {
       return request.auth.uid != null;
     }
