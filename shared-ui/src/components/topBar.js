@@ -1,6 +1,6 @@
 import { getLanguageProfile } from '../config.js';
-import { sharedT } from '../i18n.js';
-import { sharedIcon } from '../icons.js';
+import { sharedT } from '../i18n.js?v=19';
+import { sharedIcon } from '../icons.js?v=19';
 import { escapeHtml } from '../utils.js';
 import { renderAccountMenu } from './accountMenu.js?v=18';
 import { renderLanguageMenu } from './languageMenu.js';
@@ -38,6 +38,15 @@ function shareButton(locale, disabled = false) {
     <button class="topbar-icon-button share-preview-button" type="button" data-action="share" data-tooltip="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${disabled ? 'disabled aria-disabled="true"' : ''}>
       <span class="share-icon share-icon--default">${sharedIcon('share')}</span>
       <span class="share-icon share-icon--success">${sharedIcon('success')}</span>
+    </button>
+  `;
+}
+
+function cartButton(locale) {
+  const label = sharedT(locale, 'topbar.cart');
+  return `
+    <button class="topbar-icon-button cart-button" type="button" data-action="cart" data-tooltip="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
+      <span class="cart-icon">${sharedIcon('cart')}</span>
     </button>
   `;
 }
@@ -81,6 +90,7 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
         ${iconButton({ action: 'undo', label: labels.undo, icon: sharedIcon('undo'), disabled: !canUndo })}
         ${iconButton({ action: 'reset', label: labels.reset, icon: sharedIcon('reset'), disabled: !canReset })}
         ${shareButton(locale, !canShare)}
+        ${cartButton(locale)}
         ${iconButton({ action: 'account', label: labels.account, icon: sharedIcon('account') })}
         <button class="topbar-icon-button language-button" type="button" data-action="language" data-tooltip="${escapeHtml(language.nativeName)}" aria-label="${escapeHtml(language.nativeName)}" aria-expanded="false">
           <span class="language-flag" data-language-button-flag aria-hidden="true">${language.flag}</span>
