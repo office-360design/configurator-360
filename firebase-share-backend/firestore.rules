@@ -119,6 +119,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Cross-domain authentication handoffs contain only server-side temporary
+    // state and are redeemed through Cloud Functions. Browser Firestore access
+    // is intentionally impossible.
+    match /domainAuthHandoffs/{handoffId} {
+      allow read, write: if false;
+    }
+
     // generatedOffers
     match /generatedOffers/{item} {
       allow read, create;
