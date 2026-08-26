@@ -138,6 +138,43 @@ assert(
     'Filling an already established row and column must inherit both dimensions and apply neither the 600 mm nor 900 mm default.'
 );
 
+// Concave/L-shaped layouts share physical row/column tracks even where one
+// corner cell is missing. A locally exposed side on that missing corner must
+// not add another 13 mm to a shared track; otherwise filling the corner later
+// changes an existing 600 x 900 window to 613 or 913 mm.
+let lSizeState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+lSizeState = addWindowToState(lSizeState, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
+lSizeState = addWindowToState(lSizeState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+assert(
+    lSizeState.windows.every(windowCell => {
+        const size = getWindowActualSizeInState(lSizeState, windowCell.id);
+        return Math.abs(size.widthM - 0.6) < 1e-9 && Math.abs(size.heightM - 0.9) < 1e-9;
+    }),
+    'All three windows in a 600 x 900 L layout must remain 600 x 900 before the missing corner is filled.'
+);
+const lTopLeftId = lSizeState.windows.find(windowCell => windowCell.rect.x0 === 0 && windowCell.rect.y0 === 1)?.id;
+lSizeState = addWindowToState(lSizeState, { cellId: lTopLeftId, direction: 'right', type: FIXED_WINDOW_TYPE });
+assert(
+    lSizeState.windows.every(windowCell => {
+        const size = getWindowActualSizeInState(lSizeState, windowCell.id);
+        return Math.abs(size.widthM - 0.6) < 1e-9 && Math.abs(size.heightM - 0.9) < 1e-9;
+    }),
+    'Filling the top-right corner from the top-left window must not change any 600 x 900 row/column size.'
+);
+
+let lSizeStateFromRight = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+lSizeStateFromRight = addWindowToState(lSizeStateFromRight, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
+lSizeStateFromRight = addWindowToState(lSizeStateFromRight, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+const lBottomRightId = lSizeStateFromRight.windows.find(windowCell => windowCell.rect.x0 === 1 && windowCell.rect.y0 === 0)?.id;
+lSizeStateFromRight = addWindowToState(lSizeStateFromRight, { cellId: lBottomRightId, direction: 'top', type: FIXED_WINDOW_TYPE });
+assert(
+    lSizeStateFromRight.windows.every(windowCell => {
+        const size = getWindowActualSizeInState(lSizeStateFromRight, windowCell.id);
+        return Math.abs(size.widthM - 0.6) < 1e-9 && Math.abs(size.heightM - 0.9) < 1e-9;
+    }),
+    'Filling the top-right corner from the bottom-right window must not change any 600 x 900 row/column size.'
+);
+
 let leftState = createSingleWindowState({ type: SASH_WINDOW_TYPE });
 leftState = addWindowToState(leftState, { cellId: 'w1', direction: 'left', type: FIXED_WINDOW_TYPE });
 const leftTopology = deriveWindowTopology(leftState);

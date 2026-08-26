@@ -552,6 +552,22 @@ function cellHasExposedSide(state, cell, direction) {
     return getExposedCellSideIntervals(state, cell, direction).some(interval => interval.end > interval.start + EPSILON);
 }
 
+// Grid-track sizing is shared by every window in the same row/column. The
+// 13 mm frame correction therefore has to depend on the cell's position on
+// the OUTER BOUNDS of the complete grid, not on whether a particular side
+// segment happens to be exposed in a concave/L-shaped layout. Otherwise two
+// cells sharing one track can demand structural sizes that differ by 13 mm
+// (for example the upper-left and lower-left cells of an L), which makes a
+// 600 mm column jump to 613 mm when the missing corner is later filled.
+function cellTouchesLayoutBoundary(state, cell, direction) {
+    const bounds = stateBounds(state?.windows || []);
+    if (direction === 'left') return nearlyEqual(cell.rect.x0, bounds.x0);
+    if (direction === 'right') return nearlyEqual(cell.rect.x1, bounds.x1);
+    if (direction === 'bottom') return nearlyEqual(cell.rect.y0, bounds.y0);
+    if (direction === 'top') return nearlyEqual(cell.rect.y1, bounds.y1);
+    return false;
+}
+
 function tracksForCell(state, cell, axis) {
     const start = axis === 'x' ? cell.rect.x0 : cell.rect.y0;
     const end = axis === 'x' ? cell.rect.x1 : cell.rect.y1;
@@ -575,10 +591,10 @@ export function getWindowActualSizeInState(
     const cell = getCell(state, cellId);
     if (!cell) return null;
     const extension = Math.max(0, finite(edgeExtensionM, DEFAULT_WINDOW_EDGE_EXTENSION_M));
-    const horizontalOuterSides = (cellHasExposedSide(state, cell, 'left') ? 1 : 0)
-        + (cellHasExposedSide(state, cell, 'right') ? 1 : 0);
-    const verticalOuterSides = (cellHasExposedSide(state, cell, 'bottom') ? 1 : 0)
-        + (cellHasExposedSide(state, cell, 'top') ? 1 : 0);
+    const horizontalOuterSides = (cellTouchesLayoutBoundary(state, cell, 'left') ? 1 : 0)
+        + (cellTouchesLayoutBoundary(state, cell, 'right') ? 1 : 0);
+    const verticalOuterSides = (cellTouchesLayoutBoundary(state, cell, 'bottom') ? 1 : 0)
+        + (cellTouchesLayoutBoundary(state, cell, 'top') ? 1 : 0);
     return Object.freeze({
         widthM: trackSpanForCell(state, cell, 'x') + horizontalOuterSides * extension,
         heightM: trackSpanForCell(state, cell, 'y') + verticalOuterSides * extension,
@@ -598,8 +614,8 @@ function resizeAxisTracksForCell(state, cell, axis, targetActualM, edgeExtension
     if (!selected.length) return sourceTracks;
 
     const outerSides = axis === 'x'
-        ? (cellHasExposedSide(state, cell, 'left') ? 1 : 0) + (cellHasExposedSide(state, cell, 'right') ? 1 : 0)
-        : (cellHasExposedSide(state, cell, 'bottom') ? 1 : 0) + (cellHasExposedSide(state, cell, 'top') ? 1 : 0);
+        ? (cellTouchesLayoutBoundary(state, cell, 'left') ? 1 : 0) + (cellTouchesLayoutBoundary(state, cell, 'right') ? 1 : 0)
+        : (cellTouchesLayoutBoundary(state, cell, 'bottom') ? 1 : 0) + (cellTouchesLayoutBoundary(state, cell, 'top') ? 1 : 0);
     const targetStructural = Math.max(
         MIN_GRID_TRACK_M * selected.length,
         Number(targetActualM) - outerSides * edgeExtensionM
@@ -750,10 +766,10 @@ export function addWindowToState(stateValue, {
     if (freshTracks.length) {
         const extension = Math.max(0, finite(edgeExtensionM, DEFAULT_WINDOW_EDGE_EXTENSION_M));
         const outerSides = defaultAxis === 'x'
-            ? (cellHasExposedSide(resizedState, addedCell, 'left') ? 1 : 0)
-                + (cellHasExposedSide(resizedState, addedCell, 'right') ? 1 : 0)
-            : (cellHasExposedSide(resizedState, addedCell, 'bottom') ? 1 : 0)
-                + (cellHasExposedSide(resizedState, addedCell, 'top') ? 1 : 0);
+            ? (cellTouchesLayoutBoundary(resizedState, addedCell, 'left') ? 1 : 0)
+                + (cellTouchesLayoutBoundary(resizedState, addedCell, 'right') ? 1 : 0)
+            : (cellTouchesLayoutBoundary(resizedState, addedCell, 'bottom') ? 1 : 0)
+                + (cellTouchesLayoutBoundary(resizedState, addedCell, 'top') ? 1 : 0);
         const targetStructural = Math.max(
             MIN_GRID_TRACK_M * selectedTracks.length,
             defaultActualM - outerSides * extension
@@ -788,9 +804,11 @@ export function addWindowToState(stateValue, {
         }, { defaultWidthM, defaultHeightM, edgeExtensionM });
     }
 
-    // Replacing an exposed outer frame with a mullion changes the 13 mm edge
-    // contribution. Preserve the selected source window's actual size on the
-    // axis of the add, without touching the inherited parallel row/column.
+    // Extending the overall grid can move the source cell from an outer grid
+    // boundary to an internal one, changing its 13 mm correction. Preserve the
+    // source window's selected size on the axis of the add without touching the
+    // inherited parallel row/column. Filling an existing L-shaped grid hole does
+    // not change outer-grid boundaries, so this becomes a no-op there.
     if (targetSizeBeforeAdd) {
         if (defaultAxis === 'x') {
             resizedState = setWindowSizeInState(resizedState, target.id, {
