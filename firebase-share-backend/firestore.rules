@@ -1,6 +1,20 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Public tenant metadata used to bootstrap tenant subdomains.
+    // Documents may be read individually by browsers but never listed or modified.
+    match /tenantPublic/{tenantSlug} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+    
+    // Private tenant configuration.
+    // Provisioning/backend functions use the Admin SDK, which bypasses Security Rules.
+    match /tenants/{tenantSlug} {
+      allow read, write: if false;
+    }
+
     function loggedIn() {
       return request.auth.uid != null;
     }
