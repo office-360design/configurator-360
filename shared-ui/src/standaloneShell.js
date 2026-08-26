@@ -461,6 +461,17 @@ export class StandaloneConfiguratorShell {
     panel.classList.add('shared-configurator-panel');
     panel.dataset.sharedPanelLayout = config.nativeLayout ? 'native' : 'managed';
 
+    if (config.geometry === 'floating-right') {
+      panel.dataset.sharedPanelGeometry = 'floating-right';
+      this.configuratorPanelHost = panel.closest('.app-shell');
+      this.configuratorPanelHost?.classList.add('shared-configurator-panel-host--floating-right');
+
+      const toggleSelector = this.options.settingsPanel?.toggleSelector;
+      this.configuratorPanelToggle = toggleSelector ? document.querySelector(toggleSelector) : null;
+      this.configuratorPanelToggle?.classList.add('shared-configurator-panel__toggle--floating-right');
+      this.syncFloatingConfiguratorPanelToggle();
+    }
+
     let footer = config.footerSelector
       ? panel.querySelector(config.footerSelector)
       : panel.querySelector(':scope > [data-shared-configurator-panel-footer]');
@@ -502,6 +513,25 @@ export class StandaloneConfiguratorShell {
     };
     footer.addEventListener('click', this.onConfiguratorPanelFooterClick);
     this.refreshConfiguratorPanelFooter();
+  }
+
+  syncFloatingConfiguratorPanelToggle() {
+    if (!this.configuratorPanelToggle || this.options.configuratorPanel?.geometry !== 'floating-right') return;
+
+    const compact = window.matchMedia('(max-width: 760px)').matches;
+    const toggle = this.configuratorPanelToggle;
+    const right = this.settingsPanelCollapsed
+      ? '0px'
+      : (compact ? 'min(352px, calc(100vw - 44px))' : '380px');
+
+    toggle.style.setProperty('position', 'absolute', 'important');
+    toggle.style.setProperty('top', compact ? '26px' : '34px', 'important');
+    toggle.style.setProperty('right', right, 'important');
+    toggle.style.setProperty('left', 'auto', 'important');
+    toggle.style.setProperty('width', '34px', 'important');
+    toggle.style.setProperty('height', '42px', 'important');
+    toggle.style.setProperty('margin', '0', 'important');
+    toggle.style.setProperty('border-radius', '10px 0 0 10px', 'important');
   }
 
   formatConfiguratorPanelPrice(value, currency = this.state.currency, locale = this.state.locale) {
@@ -579,6 +609,7 @@ export class StandaloneConfiguratorShell {
     if (!config || !this.settingsPanel || !this.settingsToggle) return;
     this.settingsPanelCollapsed = Boolean(collapsed);
     this.settingsPanel.classList.toggle(config.collapsedClass ?? 'is-collapsed', this.settingsPanelCollapsed);
+    this.syncFloatingConfiguratorPanelToggle();
     if (config.bodyCollapsedClass) {
       document.body.classList.toggle(config.bodyCollapsedClass, this.settingsPanelCollapsed);
     }
@@ -1677,6 +1708,16 @@ export class StandaloneConfiguratorShell {
     }
     if (this.configuratorPanelFooter && this.onConfiguratorPanelFooterClick) {
       this.configuratorPanelFooter.removeEventListener('click', this.onConfiguratorPanelFooterClick);
+    }
+    this.configuratorPanelHost?.classList.remove('shared-configurator-panel-host--floating-right');
+    if (this.configuratorPanelToggle) {
+      this.configuratorPanelToggle.classList.remove('shared-configurator-panel__toggle--floating-right');
+      ['position', 'top', 'right', 'left', 'width', 'height', 'margin', 'border-radius'].forEach((property) => {
+        this.configuratorPanelToggle.style.removeProperty(property);
+      });
+    }
+    if (this.configuratorPanel?.dataset.sharedPanelGeometry === 'floating-right') {
+      delete this.configuratorPanel.dataset.sharedPanelGeometry;
     }
     this.host.remove();
     document.body.classList.remove('shared-ui-mounted', 'shared-ui-dark-mode');
