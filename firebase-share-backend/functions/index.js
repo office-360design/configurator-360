@@ -7,16 +7,19 @@ const logger = require('firebase-functions/logger');
 const { randomBytes } = require('node:crypto');
 const { GoogleAuth } = require('google-auth-library');
 const { initializeApp } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
 const { AggregateField, FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestore');
 
 // Firebase CLI loads this module during deployment to discover exported functions.
 // Defer Admin/Monitoring initialization until the deployed runtime starts so
 // discovery does not initialize Google services on the developer machine.
 let db;
+let adminAuth;
 let monitoringAuth;
 onInit(() => {
   initializeApp();
   db = getFirestore();
+  adminAuth = getAuth();
   monitoringAuth = new GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/monitoring.read'],
   });
@@ -35,6 +38,19 @@ const SHARE_LIFETIME_MS = 90 * 24 * 60 * 60 * 1000;
 const CLEANUP_QUERY_BATCH = 400;
 const FUNCTION_REGION = 'europe-west1';
 const RUNTIME_SERVICE_ACCOUNT = 'configurator-runtime@configurator-360.iam.gserviceaccount.com';
+const DOMAIN_AUTH_HANDOFFS_COLLECTION = 'domainAuthHandoffs';
+const DOMAIN_AUTH_HANDOFF_LIFETIME_MS = 5 * 60 * 1000;
+const DOMAIN_AUTH_HANDOFF_CLEANUP_LIMIT = 100;
+const DOMAIN_AUTH_HANDOFF_ID_PATTERN = /^[A-Za-z0-9_-]{32,64}$/;
+const ALLOWED_CONFIGURATOR_ORIGINS = new Set([
+  'https://360configurator.com',
+  'https://www.360configurator.com',
+  'https://360configurator.ro',
+  'https://www.360configurator.ro',
+  'https://360konfigurator.de',
+  'https://www.360konfigurator.de',
+  'https://aks.360configurator.com',
+]);
 
 // reCAPTCHA Enterprise / App Check budget policy.
 const RECAPTCHA_ASSESSMENT_METRIC = 'recaptchaenterprise.googleapis.com/assessment_count';
@@ -445,6 +461,48 @@ exports.createSharedConfiguration = onCall(
 
 
 // ---------------------------------------------------------------------------
+// Cross-domain Firebase Authentication handoff helpers
+// ---------------------------------------------------------------------------
+function normalizeConfiguratorOrigin(value) {
+  try {
+    return new URL(String(value || '')).origin;
+  } catch {
+    return '';
+  }
+}
+
+function requestOrigin(request) {
+  return normalizeConfiguratorOrigin(request.rawRequest?.headers?.origin || '');
+}
+
+function requireAllowedConfiguratorOrigin(origin, label = 'origin') {
+  const normalized = normalizeConfiguratorOrigin(origin);
+  if (!ALLOWED_CONFIGURATOR_ORIGINS.has(normalized)) {
+    throw new HttpsError('permission-denied', `Unsupported configurator ${label}.`);
+  }
+  return normalized;
+}
+
+function domainAuthHandoffsCollection() {
+  return db.collection(DOMAIN_AUTH_HANDOFFS_COLLECTION);
+}
+
+async function cleanupExpiredDomainAuthHandoffs() {
+  const expired = await domainAuthHandoffsCollection()
+    .where('expiresAt', '<=', Timestamp.now())
+    .limit(DOMAIN_AUTH_HANDOFF_CLEANUP_LIMIT)
+    .get();
+  if (expired.empty) return;
+  const batch = db.batch();
+  expired.docs.forEach((doc) => batch.delete(doc.ref));
+  await batch.commit();
+}
+
+function generateDomainAuthHandoffId() {
+  return randomBytes(32).toString('base64url');
+}
+
+// ---------------------------------------------------------------------------
 // Private per-user saved configurations
 // ---------------------------------------------------------------------------
 const USER_SAVED_CONFIGURATION_VERSION = 1;
@@ -514,6 +572,76 @@ const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
   timeoutSeconds: 30,
   memory: '256MiB',
 });
+
+exports.createDomainAuthHandoff = onCall(
+  USER_CONFIGURATION_CALLABLE_OPTIONS,
+  async (request) => {
+    const uid = requireAuthenticatedUid(request);
+    const sourceOrigin = requireAllowedConfiguratorOrigin(requestOrigin(request), 'source origin');
+    const targetOrigin = requireAllowedConfiguratorOrigin(request.data?.targetOrigin, 'target origin');
+    const now = Timestamp.now();
+    const expiresAt = Timestamp.fromMillis(now.toMillis() + DOMAIN_AUTH_HANDOFF_LIFETIME_MS);
+
+    await cleanupExpiredDomainAuthHandoffs();
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const handoffId = generateDomainAuthHandoffId();
+      try {
+        await domainAuthHandoffsCollection().doc(handoffId).create({
+          uid,
+          sourceOrigin,
+          targetOrigin,
+          createdAt: now,
+          expiresAt,
+        });
+        return { handoffId, expiresAtMs: expiresAt.toMillis() };
+      } catch (error) {
+        if (Number(error?.code) === 6 || String(error?.code) === 'already-exists') continue;
+        logger.error('Domain authentication handoff creation failed.', error);
+        throw new HttpsError('internal', 'The domain authentication handoff could not be created.');
+      }
+    }
+    throw new HttpsError('aborted', 'Could not allocate a domain authentication handoff.');
+  },
+);
+
+exports.redeemDomainAuthHandoff = onCall(
+  USER_CONFIGURATION_CALLABLE_OPTIONS,
+  async (request) => {
+    const origin = requireAllowedConfiguratorOrigin(requestOrigin(request), 'destination origin');
+    const handoffId = String(request.data?.handoffId || '').trim();
+    if (!DOMAIN_AUTH_HANDOFF_ID_PATTERN.test(handoffId)) {
+      throw new HttpsError('invalid-argument', 'Invalid domain authentication handoff.');
+    }
+
+    const ref = domainAuthHandoffsCollection().doc(handoffId);
+    const result = await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) return { missing: true };
+      const data = snapshot.data() || {};
+      const expiresAtMs = timestampMillis(data.expiresAt);
+      if (!expiresAtMs || expiresAtMs <= Date.now()) {
+        transaction.delete(ref);
+        return { expired: true };
+      }
+      if (String(data.targetOrigin || '') !== origin) return { wrongOrigin: true };
+      const uid = String(data.uid || '');
+      if (!uid) {
+        transaction.delete(ref);
+        return { invalid: true };
+      }
+      transaction.delete(ref);
+      return { uid };
+    });
+
+    if (result.missing) throw new HttpsError('not-found', 'Domain authentication handoff not found.');
+    if (result.expired) throw new HttpsError('deadline-exceeded', 'Domain authentication handoff expired.');
+    if (result.wrongOrigin) throw new HttpsError('permission-denied', 'Domain authentication handoff belongs to another origin.');
+    if (result.invalid || !result.uid) throw new HttpsError('failed-precondition', 'Invalid domain authentication handoff.');
+
+    const customToken = await adminAuth.createCustomToken(result.uid);
+    return { customToken };
+  },
+);
 
 exports.saveUserConfiguration = onCall(
   USER_CONFIGURATION_CALLABLE_OPTIONS,

@@ -91,8 +91,20 @@ The top-bar **Save** action now stores the active configurator state in the sign
 
 Functions: `saveUserConfiguration`, `listUserConfigurations`, `getUserConfiguration`, and `deleteUserConfiguration`.
 
+## Cross-domain authentication handoff
+
+**Change site domain** keeps the Firebase Authentication state synchronized between the `.com`, `.ro`, and `.de` sites without placing Google credentials, Firebase ID tokens, refresh tokens, or passwords in the URL.
+
+- A signed-in source site creates a random 256-bit handoff id through `createDomainAuthHandoff`.
+- The handoff is bound to the destination origin, expires after 5 minutes, is stored in the server-only `domainAuthHandoffs` collection, and is deleted when redeemed.
+- The destination sends that opaque id to `redeemDomainAuthHandoff` over HTTPS and receives a Firebase custom token in the response body. The custom token is immediately exchanged by the Firebase Auth SDK and is never placed in browser history or the URL.
+- A guest source carries only a `guest` marker; the destination signs out any pre-existing local Firebase session before initializing the guest configuration.
+- Browser Firestore access to `domainAuthHandoffs` is explicitly denied.
+
+The runtime service account needs `roles/iam.serviceAccountTokenCreator` on itself so Firebase Admin can sign the short-lived custom token. The IAM bootstrap script enables the IAM Service Account Credentials API and grants this binding.
+
 ## Deployment
 
 `.github/workflows/deploy-firebase-share.yml` deploys automatically when `firebase-share-backend/**` changes on `main` and can also be run manually.
 
-The one-time IAM helper is `iam/setup-github-deployer.sh`. It now also grants `roles/monitoring.viewer` to `configurator-runtime`.
+The one-time IAM helper is `iam/setup-github-deployer.sh`. It grants `roles/monitoring.viewer` and the self-scoped `roles/iam.serviceAccountTokenCreator` binding required by the domain-authentication handoff.

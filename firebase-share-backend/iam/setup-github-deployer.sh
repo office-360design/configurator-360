@@ -10,6 +10,10 @@ COMPUTE_DEFAULT="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 EVENTARC_AGENT="service-${PROJECT_NUMBER}@gcp-sa-eventarc.iam.gserviceaccount.com"
 CLOUD_BUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
 
+# Firebase Admin uses the IAM Service Account Credentials API to sign the
+# short-lived custom token used by cross-domain authentication handoff.
+gcloud services enable iamcredentials.googleapis.com --project="$PROJECT_ID" --quiet
+
 # Project-level permissions used by Firebase CLI for backend deployment.
 for ROLE in \
   roles/cloudfunctions.developer \
@@ -46,6 +50,15 @@ gcloud iam service-accounts add-iam-policy-binding "$RUNTIME" \
   --project="$PROJECT_ID" \
   --member="serviceAccount:${DEPLOYER}" \
   --role="roles/iam.serviceAccountUser" \
+  --quiet
+
+# Firebase Admin creates a short-lived custom token when a signed-in user moves
+# between the .com/.ro/.de origins. The runtime account must be allowed to sign
+# that token; grant the permission only on its own service-account identity.
+gcloud iam service-accounts add-iam-policy-binding "$RUNTIME" \
+  --project="$PROJECT_ID" \
+  --member="serviceAccount:${RUNTIME}" \
+  --role="roles/iam.serviceAccountTokenCreator" \
   --quiet
 
 # Firebase CLI inspects the default App Engine execution identity during deploy.

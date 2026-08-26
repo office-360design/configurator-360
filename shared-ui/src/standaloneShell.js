@@ -3,7 +3,7 @@ import { sharedT } from './i18n.js?v=18';
 import { renderActionFeedback } from './components/feedback.js?v=17';
 import { renderTopBar } from './components/topBar.js?v=18';
 import { syncAccountIdentity } from './components/accountMenu.js?v=18';
-import { observeGoogleAuth, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=17';
+import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=18';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
@@ -14,6 +14,11 @@ const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
 const GLOBAL_LOCALE_STORAGE_KEY = '360-configurator:shared-ui:locale';
 const SAVED_DOMAIN_ID_PARAM = 'savedConfig';
 const SAVED_DOMAIN_OWNER_PARAM = 'savedOwner';
+const DOMAIN_AUTH_STATE_PARAM = 'domainAuthState';
+const DOMAIN_AUTH_HANDOFF_PARAM = 'domainAuthHandoff';
+const DOMAIN_AUTH_GUEST_STATE = 'guest';
+const DOMAIN_AUTH_USER_STATE = 'user';
+const DOMAIN_AUTH_HANDOFF_ID_PATTERN = /^[A-Za-z0-9_-]{32,64}$/;
 const SAVED_CONFIGURATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const DOMAIN_SAVE_FAILURE_MESSAGE = 'Domain change failed because of a saving failure';
 const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
@@ -28,9 +33,9 @@ function writeHashParams(target, params) {
 }
 
 function stripConfigurationTransport(target) {
-  ['s', 'c', 'config', SAVED_DOMAIN_ID_PARAM, SAVED_DOMAIN_OWNER_PARAM].forEach((key) => target.searchParams.delete(key));
+  ['s', 'c', 'config', SAVED_DOMAIN_ID_PARAM, SAVED_DOMAIN_OWNER_PARAM, DOMAIN_AUTH_STATE_PARAM, DOMAIN_AUTH_HANDOFF_PARAM].forEach((key) => target.searchParams.delete(key));
   const hash = readHashParams(target);
-  ['s', 'c', 'config', SAVED_DOMAIN_ID_PARAM, SAVED_DOMAIN_OWNER_PARAM].forEach((key) => hash.delete(key));
+  ['s', 'c', 'config', SAVED_DOMAIN_ID_PARAM, SAVED_DOMAIN_OWNER_PARAM, DOMAIN_AUTH_STATE_PARAM, DOMAIN_AUTH_HANDOFF_PARAM].forEach((key) => hash.delete(key));
   writeHashParams(target, hash);
   return target;
 }
@@ -138,6 +143,12 @@ export class StandaloneConfiguratorShell {
     this.feedbackTimer = 0;
     this.saveBusy = false;
     this.savedLoadBlocked = false;
+    this.pendingDomainAuthTransport = this.readDomainAuthTransport();
+    this.pendingDomainSharedDraft = Boolean(
+      this.pendingDomainAuthTransport?.mode === DOMAIN_AUTH_USER_STATE
+      && this.hasSharedConfigurationTransport()
+      && !this.readSavedDomainHandoff()
+    );
     this.pendingSavedDomainHandoff = this.readSavedDomainHandoff();
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
     this.settingsPanelCollapsed = false;
@@ -200,6 +211,47 @@ export class StandaloneConfiguratorShell {
     return {};
   }
 
+
+  hasSharedConfigurationTransport(url = window.location.href) {
+    try {
+      const target = new URL(url, window.location.href);
+      const hash = readHashParams(target);
+      return ['s', 'c', 'config'].some((key) => target.searchParams.has(key) || hash.has(key));
+    } catch {
+      return false;
+    }
+  }
+
+  readDomainAuthTransport() {
+    try {
+      const target = new URL(window.location.href);
+      const hash = readHashParams(target);
+      const mode = String(hash.get(DOMAIN_AUTH_STATE_PARAM) || target.searchParams.get(DOMAIN_AUTH_STATE_PARAM) || '').trim();
+      if (mode === DOMAIN_AUTH_GUEST_STATE) return { mode };
+      const handoffId = String(hash.get(DOMAIN_AUTH_HANDOFF_PARAM) || target.searchParams.get(DOMAIN_AUTH_HANDOFF_PARAM) || '').trim();
+      if (mode === DOMAIN_AUTH_USER_STATE && DOMAIN_AUTH_HANDOFF_ID_PATTERN.test(handoffId)) {
+        return { mode, handoffId };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  clearDomainAuthTransportUrl() {
+    try {
+      const target = new URL(window.location.href);
+      target.searchParams.delete(DOMAIN_AUTH_STATE_PARAM);
+      target.searchParams.delete(DOMAIN_AUTH_HANDOFF_PARAM);
+      const hash = readHashParams(target);
+      hash.delete(DOMAIN_AUTH_STATE_PARAM);
+      hash.delete(DOMAIN_AUTH_HANDOFF_PARAM);
+      writeHashParams(target, hash);
+      window.history.replaceState(window.history.state, '', target.href);
+    } catch {
+      // Authentication handoff already completed; URL cleanup is best effort.
+    }
+  }
 
   readSavedDomainHandoff() {
     try {
@@ -448,8 +500,39 @@ export class StandaloneConfiguratorShell {
     this.persistMeta();
   }
 
+  async applyPendingDomainAuthentication() {
+    const transport = this.pendingDomainAuthTransport;
+    if (!transport) return;
+    this.authBusy = true;
+    this.sync();
+    try {
+      if (transport.mode === DOMAIN_AUTH_GUEST_STATE) {
+        await signOutGoogle();
+      } else {
+        const customToken = await redeemDomainAuthHandoff(transport.handoffId);
+        await signInWithDomainCustomToken(customToken);
+      }
+      this.pendingDomainAuthTransport = null;
+      this.clearDomainAuthTransportUrl();
+    } catch (error) {
+      console.error('The authentication state could not be transferred to the new domain.', error);
+      // Never keep an unrelated destination-domain account active when a domain
+      // handoff was explicitly requested. Failing closed avoids opening another
+      // user's local account book or saved-configuration pointer.
+      try { await signOutGoogle(); } catch { /* best effort */ }
+      this.pendingDomainAuthTransport = null;
+      this.pendingDomainSharedDraft = false;
+      this.clearDomainAuthTransportUrl();
+      this.showFeedback(sharedT(this.state.locale, 'feedback.loginUnavailable'), 'error', 2000);
+    } finally {
+      this.authBusy = false;
+      this.sync();
+    }
+  }
+
   async initializeAuthentication() {
     try {
+      await this.applyPendingDomainAuthentication();
       this.authUnsubscribe = await observeGoogleAuth((user, error) => {
         if (error) return;
         this.authBusy = false;
@@ -562,6 +645,36 @@ export class StandaloneConfiguratorShell {
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
 
     if (await this.restoreSavedDomainHandoff(user)) return;
+
+    if (this.pendingDomainSharedDraft) {
+      this.pendingDomainSharedDraft = false;
+      this.projectName = this.getNextDefaultProjectName(uid);
+      this.lastSavedProjectName = '';
+      this.currentSavedConfigurationId = '';
+      this.currentSavedOwnerUid = uid;
+      this.currentDraftStateJson = '';
+      this.cleanStateJson = '';
+      this.cleanProjectName = '';
+      this.savedLoadBlocked = false;
+      this.dirty = true;
+      // The configurator-specific app is responsible for reading the Share state
+      // from the URL. Do not reset or load the destination domain's previous
+      // account pointer over it; just adopt the resulting model as this account's
+      // new unsaved draft once its API becomes available.
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        const snapshot = this.options.callbacks.captureState?.();
+        if (snapshot && typeof snapshot === 'object') {
+          this.currentDraftStateJson = JSON.stringify(snapshot);
+          break;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 75));
+      }
+      if (token !== this.sessionSwitchToken) return;
+      this.persistMeta();
+      this.renderHost();
+      this.sync();
+      return;
+    }
 
     const meta = this.readUserMeta(uid);
     this.projectName = String(meta.name || this.getNextDefaultProjectName(uid)).slice(0, 80);
@@ -745,11 +858,23 @@ export class StandaloneConfiguratorShell {
     );
   }
 
+  withDomainAuthentication(targetUrl, mode, handoffId = '') {
+    const target = new URL(targetUrl, window.location.href);
+    target.searchParams.delete(DOMAIN_AUTH_STATE_PARAM);
+    target.searchParams.delete(DOMAIN_AUTH_HANDOFF_PARAM);
+    const hash = readHashParams(target);
+    hash.delete(DOMAIN_AUTH_STATE_PARAM);
+    hash.delete(DOMAIN_AUTH_HANDOFF_PARAM);
+    hash.set(DOMAIN_AUTH_STATE_PARAM, mode);
+    if (mode === DOMAIN_AUTH_USER_STATE && handoffId) hash.set(DOMAIN_AUTH_HANDOFF_PARAM, handoffId);
+    writeHashParams(target, hash);
+    return target.href;
+  }
+
   buildSavedDomainTarget(targetUrl) {
     const target = stripConfigurationTransport(new URL(targetUrl, window.location.href));
     const hash = readHashParams(target);
     hash.set(SAVED_DOMAIN_ID_PARAM, this.currentSavedConfigurationId);
-    hash.set(SAVED_DOMAIN_OWNER_PARAM, this.authUser.uid);
     writeHashParams(target, hash);
     return target.href;
   }
@@ -783,23 +908,28 @@ export class StandaloneConfiguratorShell {
     let navigating = false;
     try {
       this.refreshDirtyFromCapturedState();
-      if (this.ownsCurrentSavedConfiguration()) {
-        if (this.dirty) {
-          const saveButton = this.host.querySelector('[data-action="save"]');
-          const saved = await this.save(saveButton, { suppressFeedback: true });
-          if (!saved) {
-            this.hideLanguageSwitchLoading();
-            this.showFeedback(DOMAIN_SAVE_FAILURE_MESSAGE, 'error', 2000);
-            return;
-          }
+      const ownsSavedConfiguration = this.ownsCurrentSavedConfiguration();
+      if (ownsSavedConfiguration && this.dirty) {
+        const saveButton = this.host.querySelector('[data-action="save"]');
+        const saved = await this.save(saveButton, { suppressFeedback: true });
+        if (!saved) {
+          this.hideLanguageSwitchLoading();
+          this.showFeedback(DOMAIN_SAVE_FAILURE_MESSAGE, 'error', 2000);
+          return;
         }
-        const target = this.buildSavedDomainTarget(targetUrl);
-        navigating = true;
-        window.location.assign(target);
-        return;
       }
 
-      const target = await this.buildSharedDomainTarget(nextLocale);
+      let authHandoffId = '';
+      if (this.authUser?.uid) {
+        authHandoffId = await createDomainAuthHandoff(new URL(targetUrl).origin);
+      }
+
+      let target = ownsSavedConfiguration
+        ? this.buildSavedDomainTarget(targetUrl)
+        : await this.buildSharedDomainTarget(nextLocale);
+      target = this.authUser?.uid
+        ? this.withDomainAuthentication(target, DOMAIN_AUTH_USER_STATE, authHandoffId)
+        : this.withDomainAuthentication(target, DOMAIN_AUTH_GUEST_STATE);
       navigating = true;
       window.location.assign(target);
     } catch (error) {

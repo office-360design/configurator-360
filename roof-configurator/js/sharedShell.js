@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=22';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=23';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
 import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=1';
