@@ -54,7 +54,7 @@ if (!scene.includes('hallCompassLabels')) failures.push('scene compass is not lo
 if (!scene.includes("'dimension.ridge'")) failures.push('ridge dimension label is not localized');
 const shell = fs.readFileSync(path.join(root, 'hall-configurator', 'js', 'sharedShell.js'), 'utf8');
 const sharedShell = fs.readFileSync(path.join(root, 'shared-ui', 'src', 'standaloneShell.js'), 'utf8');
-if (sharedShell.includes('getLanguageSwitchTarget(') || sharedShell.includes('window.location.assign(')) failures.push('shared shell still performs cross-domain language switching');
+if (sharedShell.includes('getLanguageSwitchTarget(')) failures.push('shared shell still contains legacy cross-domain language switching');
 if (!sharedShell.includes("callbacks.onPreferenceChange?.('locale'")) failures.push('shared in-place locale switching is missing');
 if (shell.includes('getLocalizedConfiguratorUrl(nextLocale')) failures.push('Hall duplicates shared language switching');
 

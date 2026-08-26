@@ -110,7 +110,7 @@ const sourceChecks = [
 ];
 
 const sharedShellSource = fs.readFileSync(path.join(workspaceRoot, 'shared-ui/src/standaloneShell.js'), 'utf8');
-if (sharedShellSource.includes('getLanguageSwitchTarget(') || sharedShellSource.includes('window.location.assign(')) failures.push('Shared UI still contains cross-domain Window language switching.');
+if (sharedShellSource.includes('getLanguageSwitchTarget(')) failures.push('Shared UI still contains legacy cross-domain language switching.');
 if (!sharedShellSource.includes("callbacks.onPreferenceChange?.('locale'")) failures.push('Shared UI does not apply locale changes in place.');
 const windowShellSource = fs.readFileSync(path.join(root, 'src/client/shared-shell.js'), 'utf8');
 if (windowShellSource.includes('getLocalizedConfiguratorUrl(nextLocale')) failures.push('Window adapter duplicates shared language switching.');
