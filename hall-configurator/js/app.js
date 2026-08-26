@@ -4,6 +4,9 @@ import { HallUI } from './ui.js?v=14';
 import { normalizeOpenings } from './openings.js?v=13';
 import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=1';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+
+await requireTenantConfiguratorAccess('hall');
 
 const initialLocale = applyHallTranslations(resolveHallLocale());
 const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');

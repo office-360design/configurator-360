@@ -9,6 +9,9 @@ import { PergolaScene } from './scene/PergolaScene.js';
 import { ConfiguratorUI } from './ui/ConfiguratorUI.js';
 import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js';
 import { pergolaT } from './i18n.js';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js';
+
+const tenantContext = await requireTenantConfiguratorAccess('pergola');
 
 applyConfiguratorSeo('pergola');
 
@@ -30,7 +33,7 @@ if (store.get().locale !== domainLocale) {
   }, { path: 'domain-locale', skipHistory: true });
 }
 const ui = new ConfiguratorUI(root, store);
-const sharedShell = mountPergolaSharedShell({ store, ui });
+const sharedShell = mountPergolaSharedShell({ store, ui, tenantContext });
 const viewport = root.querySelector('[data-viewport]');
 
 if (!viewport) {

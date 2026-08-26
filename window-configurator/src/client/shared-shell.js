@@ -2,6 +2,9 @@ import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShel
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=4';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=1';
+import { requireTenantConfiguratorAccess } from './shared-ui/src/tenantBootstrap.js?v=1';
+
+const tenantContext = await requireTenantConfiguratorAccess('window');
 
 const initialLocale = resolveWindowLocale();
 applyWindowTranslations(initialLocale);
@@ -16,8 +19,8 @@ const shell = mountStandaloneConfiguratorShell({
   productType: t('project.type'),
   productId: 'window',
   storagePrefix: '360-configurator:window',
-  brandSrc: './shared-ui/assets/360CONFIGURATOR.png',
-  brandAlt: '360 Configurator',
+  brandSrc: tenantContext?.logoUrl || './shared-ui/assets/360CONFIGURATOR.png',
+  brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
     viewAR: true,
     save: true,

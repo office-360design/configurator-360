@@ -3,6 +3,9 @@ import { DEFAULT_FENCE_STATE, createFenceState, deriveFenceMetrics, normalizeFen
 import { FenceScene } from './scene.js?v=10';
 import { FenceUI } from './ui.js?v=4';
 import { resolveFenceLocale } from './i18n.js?v=4';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+
+await requireTenantConfiguratorAccess('fence');
 
 const initialLocale = resolveFenceLocale(window.FENCE_CONFIGURATOR_SHARED_SHELL?.state?.locale);
 let state = createFenceState();

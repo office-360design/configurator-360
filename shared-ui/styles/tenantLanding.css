@@ -1,0 +1,143 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #15171a;
+  background: #f5f6f8;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; margin: 0; }
+body { min-height: 100vh; background: #f5f6f8; }
+
+.tenant-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(24px, 5vw, 64px);
+}
+
+.tenant-shell,
+.tenant-card {
+  width: min(980px, 100%);
+  border: 1px solid rgba(20, 24, 33, .08);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(16, 24, 40, .10);
+}
+
+.tenant-shell { padding: clamp(28px, 5vw, 54px); }
+
+.tenant-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 34px;
+  border-bottom: 1px solid #e7e9ee;
+}
+
+.tenant-logo {
+  width: min(190px, 34vw);
+  max-height: 76px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.tenant-brand-mark {
+  width: 70px;
+  height: 70px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: #111827;
+  color: #fff;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -.04em;
+}
+
+.tenant-eyebrow {
+  margin: 0 0 6px;
+  color: #697386;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.tenant-header h1,
+.tenant-card h1 {
+  margin: 0;
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.05;
+  letter-spacing: -.035em;
+}
+
+.tenant-subtitle,
+.tenant-card p,
+.tenant-empty {
+  margin: 10px 0 0;
+  color: #667085;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.tenant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding-top: 32px;
+}
+
+.tenant-configurator {
+  min-height: 126px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid #e4e7ec;
+  border-radius: 16px;
+  color: inherit;
+  text-decoration: none;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.tenant-configurator:hover,
+.tenant-configurator:focus-visible {
+  transform: translateY(-2px);
+  border-color: #aeb5c2;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, .08);
+  outline: none;
+}
+
+.tenant-configurator__name { font-size: 20px; font-weight: 720; }
+.tenant-configurator__action { color: #667085; font-size: 14px; font-weight: 650; }
+
+.tenant-card {
+  width: min(560px, 100%);
+  padding: 42px;
+  text-align: center;
+}
+.tenant-card .tenant-brand-mark { margin: 0 auto 22px; }
+.tenant-card--loading { display: grid; justify-items: center; gap: 12px; }
+
+.tenant-loading {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #111827;
+  border-radius: 50%;
+  animation: tenant-spin .8s linear infinite;
+}
+
+@keyframes tenant-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 680px) {
+  .tenant-page { align-items: start; padding: 18px; }
+  .tenant-shell { padding: 26px 20px; border-radius: 18px; }
+  .tenant-header { align-items: flex-start; flex-direction: column; gap: 16px; padding-bottom: 26px; }
+  .tenant-logo { width: min(220px, 70vw); max-height: 68px; }
+  .tenant-grid { grid-template-columns: 1fr; padding-top: 24px; }
+  .tenant-configurator { min-height: 110px; }
+}
