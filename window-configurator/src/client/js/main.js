@@ -181,6 +181,7 @@ function syncSelectedWindowSizeControls() {
 
 function selectWindowCell(cellId) {
     selectedWindowCellId = cellId ? String(cellId) : null;
+    windowBuilder?.setSelectedGlassCell?.(selectedWindowCellId);
     syncSelectedWindowSizeControls();
 }
 

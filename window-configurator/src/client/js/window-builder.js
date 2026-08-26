@@ -91,6 +91,8 @@ export function createWindowBuilder({
     let explodeProgress = 0;
     let explodableObjects = [];
     let editableTopologyGeometry = null;
+    let selectedGlassCellId = null;
+    const glassNumberSprites = new Map();
     let lastFabricationSnapshot = null;
 
     function registerExplode(obj, dx, dy, dz) {
@@ -1609,6 +1611,49 @@ export function createWindowBuilder({
         return sprite;
     }
 
+    function getWindowNumber(cellId, fallbackIndex = 0) {
+        const match = String(cellId || '').match(/(\d+)$/);
+        const parsed = match ? Number.parseInt(match[1], 10) : NaN;
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackIndex + 1;
+    }
+
+    function createGlassNumberSprite(cellId, fallbackIndex = 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 128px Outfit, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(getWindowNumber(cellId, fallbackIndex)), 64, 66);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            color: String(cellId) === String(selectedGlassCellId) ? 0x7dd3fc : 0xffffff,
+        });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(0.12, 0.12, 1);
+        sprite.renderOrder = 20;
+        sprite.userData.windowNumberCellId = String(cellId || '');
+        glassNumberSprites.set(String(cellId || ''), sprite);
+        return sprite;
+    }
+
+    function setSelectedGlassCell(cellId) {
+        selectedGlassCellId = cellId ? String(cellId) : null;
+        glassNumberSprites.forEach((sprite, id) => {
+            if (!sprite?.material?.color) return;
+            sprite.material.color.setHex(id === selectedGlassCellId ? 0x7dd3fc : 0xffffff);
+        });
+    }
+
     function buildDimensionLines(A, B, activeProfiles = []) {
         const dimensionsGroup = new THREE.Group();
         mainGroup.add(dimensionsGroup);
@@ -2187,6 +2232,7 @@ export function createWindowBuilder({
         sashPoseAssemblies = [];
         handleHitMeshes = [];
         glassHitMeshes = [];
+        glassNumberSprites.clear();
         explodableObjects = [];
         const t_clear = performance.now();
 
@@ -3498,7 +3544,7 @@ export function createWindowBuilder({
                         // fixed-cell perimeter transform used by createMiteredSide().
                         const fixedCadTransform =
                             variantProfile.fixedGlazingMullionCadTransforms?.[
-                                fillerRuntimeCellSide
+                            fillerRuntimeCellSide
                             ] || null;
                         if (fixedCadTransform) {
                             const placedProfile = {
@@ -4537,7 +4583,7 @@ export function createWindowBuilder({
                         || isFixedGlassAnchorGasket(profile);
                 })
                 .forEach(profile => {
-                    fixedCells.forEach(fixedCell => {
+                    fixedCells.forEach((fixedCell, fixedCellIndex) => {
                         sides.forEach(side => {
                             if (!shouldPlaceProfileOnSide(profile, side)) return;
                             if (isEditableTopology) {
@@ -4591,6 +4637,7 @@ export function createWindowBuilder({
             isFixed = false,
             cellId = null,
             glazingCavity = null,
+            numberIndex = 0,
         }) {
             const paneWidth = Math.max(0.05, width);
             const paneHeight = Math.max(0.05, height);
@@ -4616,7 +4663,12 @@ export function createWindowBuilder({
             pane.userData.glazingCavity = glazingCavity;
             pane.userData.windowCell = cellId || (isFixed ? 'fixed' : 'opening');
             pane.userData.windowGlassCellId = cellId || null;
-            if (cellId) glassHitMeshes.push(pane);
+            if (cellId) {
+                glassHitMeshes.push(pane);
+                const numberSprite = createGlassNumberSprite(cellId, numberIndex);
+                numberSprite.position.set(0, 0, glassPlacement.thicknessMm * S * 0.6 + 0.006);
+                pane.add(numberSprite);
+            }
             registerExplode(pane, 0, 0, isFixed ? 0.35 : 0.5);
             return pane;
         }
@@ -4665,6 +4717,7 @@ export function createWindowBuilder({
                     centerY: openingGlassCenterY,
                     cellId: cell.id,
                     glazingCavity,
+                    numberIndex: cell.cellIndex ?? cellIndex,
                 }));
 
                 // In a sash/sash mullion layout both handles sit toward the
@@ -4846,6 +4899,7 @@ export function createWindowBuilder({
                     centerY: panePlacement.centerY,
                     isFixed: true,
                     cellId: fixedCell.id,
+                    numberIndex: fixedCell.cellIndex ?? (openingCells.length + fixedCellIndex),
                 }));
             });
         }
@@ -5077,6 +5131,7 @@ export function createWindowBuilder({
         setExploded,
         getIsExploded,
         getEditableTopologyGeometry: () => editableTopologyGeometry,
+        setSelectedGlassCell,
         getFabricationSnapshot: () => lastFabricationSnapshot,
     };
 }
