@@ -72,15 +72,19 @@ for (const [source, needle, message] of guards) {
   if (source.includes(needle)) failures.push(message);
 }
 
-if (!files.shell.includes("createShareUrl({ productType: 'roof', state: snapshot })")) {
-  failures.push('Roof language switch does not preserve the current configuration through a short share link');
+const sharedShell = fs.readFileSync(path.join(root, 'shared-ui', 'src', 'standaloneShell.js'), 'utf8');
+if (sharedShell.includes('getLanguageSwitchTarget(') || sharedShell.includes('window.location.assign(')) {
+  failures.push('Shared UI still performs cross-domain language switching');
 }
-if (!files.shell.includes("getLocalizedConfiguratorUrl(nextLocale, 'roof'")) {
-  failures.push('Roof language switch does not use localized country-domain URLs');
+if (!sharedShell.includes("callbacks.onPreferenceChange?.('locale'")) {
+  failures.push('Shared UI does not own in-place locale switching');
+}
+if (files.shell.includes('getLocalizedConfiguratorUrl(nextLocale')) {
+  failures.push('Roof duplicates language switching instead of using the shared shell');
 }
 if (!files.app.includes('state.locale = resolveRoofLocale')) failures.push('app.js does not initialize locale from the shared shell/domain');
 if (!files.scene.includes('scene.setLocale') && !files.app.includes('scene.setLocale')) failures.push('Roof scene compass locale is not synchronized');
-if (!files.index.includes('./js/sharedShell.js?v=23') || !files.index.includes('./js/app.js?v=22')) {
+if (!files.index.includes('./js/sharedShell.js?v=27') || !files.index.includes('./js/app.js?v=23')) {
   failures.push('Roof entrypoint cache-busting versions were not updated for the i18n release');
 }
 
@@ -89,5 +93,5 @@ if (failures.length) {
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exitCode = 1;
 } else {
-  console.log(`Roof i18n validated for ${locales.join(', ')}: ${referenceKeys.length} message keys, 21 rainwater parts per locale, localized BOM/CSV, compass, tools, and country-domain switching.`);
+  console.log(`Roof i18n validated for ${locales.join(', ')}: ${referenceKeys.length} message keys, 21 rainwater parts per locale, localized BOM/CSV, compass, tools, and in-place language switching.`);
 }

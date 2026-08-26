@@ -1,6 +1,5 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=19';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=21';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=12';
-import { getLocalizedConfiguratorUrl } from '../../../shared-ui/src/config.js';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
 import { pergolaT } from '../i18n.js';
 
@@ -52,10 +51,6 @@ export function mountPergolaSharedShell({ store, ui }) {
       },
       getShareUrl() {
         return store.getShareUrl();
-      },
-      async getLocalizedUrl(nextLocale, fallbackTarget) {
-        const shareUrl = await store.getShareUrl();
-        return getLocalizedConfiguratorUrl(nextLocale, 'pergola', new URL(shareUrl)) || fallbackTarget;
       },
       onPreferenceChange(path, value) {
         store.update(path, value, { path });

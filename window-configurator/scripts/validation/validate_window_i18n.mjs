@@ -73,9 +73,6 @@ const sourceChecks = [
     file: "src/client/shared-shell.js",
     required: [
       "applyWindowTranslations",
-      "getLocalizedConfiguratorUrl",
-      "createShareUrl({ productType: 'window'",
-      "feedback.languageSwitchUnavailable",
     ],
   },
   {
@@ -112,6 +109,12 @@ const sourceChecks = [
   },
 ];
 
+const sharedShellSource = fs.readFileSync(path.join(workspaceRoot, 'shared-ui/src/standaloneShell.js'), 'utf8');
+if (sharedShellSource.includes('getLanguageSwitchTarget(') || sharedShellSource.includes('window.location.assign(')) failures.push('Shared UI still contains cross-domain Window language switching.');
+if (!sharedShellSource.includes("callbacks.onPreferenceChange?.('locale'")) failures.push('Shared UI does not apply locale changes in place.');
+const windowShellSource = fs.readFileSync(path.join(root, 'src/client/shared-shell.js'), 'utf8');
+if (windowShellSource.includes('getLocalizedConfiguratorUrl(nextLocale')) failures.push('Window adapter duplicates shared language switching.');
+
 for (const check of sourceChecks) {
   const absolute = path.join(root, check.file);
   const source = fs.readFileSync(absolute, "utf8");
@@ -138,6 +141,6 @@ if (failures.length) {
   console.log(
     `Window i18n validated for ${locales.join(", ")}: ` +
     `${englishKeys.length} message keys, localized routes, runtime UI, AR/CAD/layout controls, ` +
-    "and cross-domain configuration-preserving language switching."
+    "and shared in-place language translation."
   );
 }

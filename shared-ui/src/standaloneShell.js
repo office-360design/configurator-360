@@ -1,4 +1,4 @@
-import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
+import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname } from './config.js';
 import { sharedT } from './i18n.js';
 import { renderActionFeedback } from './components/feedback.js?v=17';
 import { renderTopBar } from './components/topBar.js?v=17';
@@ -11,7 +11,13 @@ import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, 
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
+const GLOBAL_LOCALE_STORAGE_KEY = '360-configurator:shared-ui:locale';
 const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
+function savedConfigurationMissing(error) {
+  const code = String(error?.code || '').toLowerCase().replace(/_/g, '-');
+  const message = String(error?.message || '').toLowerCase();
+  return code === 'not-found' || code === '404' || code === 'http-404' || message.includes('saved configuration not found');
+}
 
 function normalizeProductId(value = '') {
   const normalized = String(value).trim().toLowerCase();
@@ -66,17 +72,22 @@ export class StandaloneConfiguratorShell {
     const preferences = safeJsonParse(window.localStorage.getItem(this.preferencesKey), {});
     const domainLocale = getLocaleForHostname(window.location.hostname);
     const domainProfile = getLanguageProfile(domainLocale);
+    const sharedLocale = window.localStorage.getItem(GLOBAL_LOCALE_STORAGE_KEY);
+    const preferredLocale = LANGUAGE_PROFILES[sharedLocale]
+      ? sharedLocale
+      : (LANGUAGE_PROFILES[preferences.locale] ? preferences.locale : domainLocale);
     this.state = {
-      locale: domainLocale,
+      locale: preferredLocale,
       units: domainProfile.units,
       currency: domainProfile.currency,
       quality: 'balanced',
       defaultArPlatform: 'android',
       darkMode: false,
       ...preferences,
-      // Country domains are authoritative for language. Unit/currency overrides
-      // remain user-configurable and persist independently per origin.
-      locale: domainLocale,
+      // The current domain only supplies the first-visit default. Once a user
+      // chooses a language, keep that preference on this origin and translate
+      // the configurator in place instead of navigating to another country site.
+      locale: preferredLocale,
     };
 
     // Guests always start in their own unsaved book. Do not hydrate the previous
@@ -102,6 +113,7 @@ export class StandaloneConfiguratorShell {
     this.toolsOpen = false;
     this.feedbackTimer = 0;
     this.saveBusy = false;
+    this.savedLoadBlocked = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
     this.settingsPanelCollapsed = false;
     this.settingsPanel = null;
@@ -116,6 +128,10 @@ export class StandaloneConfiguratorShell {
 
     this.bindEvents();
     this.bindSettingsPanel();
+    // Product-specific translation tables stay in each configurator, while the
+    // shared shell owns when the locale changes. Apply the persisted locale once
+    // on mount so a language chosen on this domain survives refreshes.
+    this.options.callbacks.onPreferenceChange?.('locale', this.state.locale, this.state);
     this.sync();
     this.initializeAuthentication();
     this.dirtyWatchTimer = window.setInterval(() => this.refreshDirtyFromCapturedState(), 300);
@@ -158,6 +174,7 @@ export class StandaloneConfiguratorShell {
     }
     return {};
   }
+
 
   renderHost() {
     this.host.innerHTML = `
@@ -361,6 +378,18 @@ export class StandaloneConfiguratorShell {
     this.options.callbacks.onAuthChange?.(null);
   }
 
+  async restoreConfiguratorState(snapshot) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const callback = this.options.callbacks.restoreState;
+      if (typeof callback === 'function') {
+        const handled = await Promise.resolve(callback(snapshot));
+        if (handled !== false && handled !== undefined && handled !== null) return true;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 75));
+    }
+    return false;
+  }
+
   async resetConfiguratorToDefault() {
     // Some configurators expose their default snapshot shortly after their API is
     // created. A reset request during an auth transition must wait for that state
@@ -385,6 +414,7 @@ export class StandaloneConfiguratorShell {
     const token = ++this.sessionSwitchToken;
     this.authUser = null;
     this.activeSessionUid = '';
+    this.savedLoadBlocked = false;
     this.projectName = this.getGuestProjectName();
     this.lastSavedProjectName = '';
     this.currentSavedConfigurationId = '';
@@ -414,7 +444,9 @@ export class StandaloneConfiguratorShell {
     const token = ++this.sessionSwitchToken;
     this.authUser = user;
     this.activeSessionUid = uid;
+    this.savedLoadBlocked = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
+
 
     const meta = this.readUserMeta(uid);
     this.projectName = String(meta.name || this.getNextDefaultProjectName(uid)).slice(0, 80);
@@ -431,8 +463,8 @@ export class StandaloneConfiguratorShell {
     if (this.dirty && this.currentDraftStateJson) {
       try {
         const draft = JSON.parse(this.currentDraftStateJson);
-        const restored = await Promise.resolve(this.options.callbacks.restoreState?.(draft));
-        if (restored === false) throw new Error('Configurator rejected the local account draft.');
+        const restored = await this.restoreConfiguratorState(draft);
+        if (!restored) throw new Error('Configurator rejected the local account draft.');
         if (token !== this.sessionSwitchToken) return;
         this.persistMeta();
         this.renderHost();
@@ -463,12 +495,13 @@ export class StandaloneConfiguratorShell {
         productType: this.productId,
       });
       if (token !== this.sessionSwitchToken) return;
-      const restored = await Promise.resolve(this.options.callbacks.restoreState?.(saved.state));
-      if (restored === false) throw new Error('Configurator rejected the saved state.');
+      const restored = await this.restoreConfiguratorState(saved.state);
+      if (!restored) throw new Error('Configurator rejected the saved state.');
       this.projectName = String(saved.name || this.projectName).slice(0, 80);
       this.lastSavedProjectName = this.projectName;
       this.currentSavedOwnerUid = uid;
       this.currentDraftStateJson = '';
+      this.savedLoadBlocked = false;
       this.dirty = false;
       this.captureCleanBaseline();
       this.persistMeta();
@@ -477,6 +510,23 @@ export class StandaloneConfiguratorShell {
     } catch (error) {
       if (token !== this.sessionSwitchToken) return;
       console.error('The last account configuration could not be restored.', error);
+
+      if (!savedConfigurationMissing(error)) {
+        // Do not convert a temporary load failure into a permanent local detach.
+        // The remote document is persistent and may be perfectly healthy; keep
+        // its id so refresh/re-login can retry, and disable Save until a valid
+        // account state has been restored.
+        this.savedLoadBlocked = true;
+        this.currentSavedOwnerUid = uid;
+        this.currentDraftStateJson = '';
+        this.dirty = false;
+        this.renderHost();
+        this.sync();
+        this.showFeedback(sharedT(this.state.locale, 'saved.openUnavailable'), 'error');
+        return;
+      }
+
+      this.savedLoadBlocked = false;
       this.currentSavedConfigurationId = '';
       this.currentSavedOwnerUid = uid;
       this.currentDraftStateJson = '';
@@ -601,41 +651,39 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'select-language') {
       const nextLocale = actionTarget.dataset.locale;
       const profile = LANGUAGE_PROFILES[nextLocale];
-      if (profile) {
-        const targetUrl = getLocalizedConfiguratorUrl(nextLocale, this.options.productType, window.location);
-        const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-        if (targetUrl && nextLocale !== this.state.locale && !isLocalDevelopmentHost) {
-          // The unified shell owns language-switch feedback so every configurator
-          // paints the same loading state before any potentially expensive state
-          // handoff or cross-domain navigation begins.
-          this.languageOpen = false;
-          this.syncMenus();
-          this.showLanguageSwitchLoading();
-          await this.waitForLanguageSwitchPaint();
+      if (profile && nextLocale !== this.state.locale) {
+        // Language switching is intentionally local to the current page/origin.
+        // Do not create a share, load a saved configuration, or navigate between
+        // country domains: only translate the current configurator in place.
+        this.languageOpen = false;
+        this.syncMenus();
+        this.showLanguageSwitchLoading();
+        await this.waitForLanguageSwitchPaint();
 
-          let resolvedTarget = targetUrl;
-          if (this.options.callbacks.getLocalizedUrl) {
-            try {
-              resolvedTarget = await this.options.callbacks.getLocalizedUrl(nextLocale, targetUrl) || targetUrl;
-            } catch (error) {
-              this.hideLanguageSwitchLoading();
-              console.error('Configuration could not be preserved during the language switch.', error);
-              this.showFeedback(sharedT(this.state.locale, 'feedback.languageSwitchUnavailable'), 'error');
-              return;
-            }
+        const previousLocale = this.state.locale;
+        try {
+          this.state.locale = nextLocale;
+          this.persistPreferences();
+          await Promise.resolve(this.options.callbacks.onPreferenceChange?.('locale', this.state.locale, this.state));
+          this.renderHost();
+          this.sync();
+          await this.waitForLanguageSwitchPaint();
+        } catch (error) {
+          this.state.locale = previousLocale;
+          this.persistPreferences();
+          try {
+            await Promise.resolve(this.options.callbacks.onPreferenceChange?.('locale', previousLocale, this.state));
+          } catch {
+            // Preserve the original translation error below.
           }
-          window.location.assign(resolvedTarget);
-          return;
+          this.renderHost();
+          this.sync();
+          console.error('The configurator could not be translated.', error);
+          this.showFeedback(sharedT(this.state.locale, 'feedback.languageSwitchUnavailable'), 'error');
+        } finally {
+          this.hideLanguageSwitchLoading();
         }
-        const localeChanged = nextLocale !== this.state.locale;
-        this.state.locale = nextLocale;
-        this.state.units = profile.units;
-        this.state.currency = profile.currency;
-        this.persistPreferences();
-        this.options.callbacks.onPreferenceChange?.('locale', this.state.locale, this.state);
-        this.options.callbacks.onPreferenceChange?.('units', this.state.units, this.state);
-        this.options.callbacks.onPreferenceChange?.('currency', this.state.currency, this.state);
-        if (localeChanged) this.renderHost();
+        return;
       }
       this.languageOpen = false;
       this.sync();
@@ -694,6 +742,10 @@ export class StandaloneConfiguratorShell {
 
   async save(button) {
     if (this.saveBusy) return;
+    if (this.savedLoadBlocked) {
+      this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
+      return;
+    }
 
     const user = this.authUser;
     if (!user?.uid) {
@@ -720,6 +772,7 @@ export class StandaloneConfiguratorShell {
       this.currentSavedConfigurationId = String(result?.id || this.currentSavedConfigurationId || '');
       this.currentSavedOwnerUid = user.uid;
       this.currentDraftStateJson = '';
+      this.savedLoadBlocked = false;
       button.classList.remove('is-success');
       void button.offsetWidth;
       button.classList.add('is-success');
@@ -763,6 +816,7 @@ export class StandaloneConfiguratorShell {
       if (!handled) return;
       this.currentSavedConfigurationId = '';
       this.currentSavedOwnerUid = this.authUser.uid;
+      this.savedLoadBlocked = false;
       this.currentDraftStateJson = '';
       this.cleanStateJson = '';
       this.cleanProjectName = '';
@@ -813,13 +867,14 @@ export class StandaloneConfiguratorShell {
     if (!savedId || !this.authUser) return;
     try {
       const saved = await getUserConfiguration({ id: savedId, productType: this.productId });
-      const restored = await Promise.resolve(this.options.callbacks.restoreState?.(saved.state));
-      if (restored === false) throw new Error('Configurator rejected the saved state.');
+      const restored = await this.restoreConfiguratorState(saved.state);
+      if (!restored) throw new Error('Configurator rejected the saved state.');
       this.projectName = String(saved.name || this.projectName).slice(0, 80);
       this.lastSavedProjectName = this.projectName;
       this.currentSavedConfigurationId = savedId;
       this.currentSavedOwnerUid = this.authUser.uid;
       this.currentDraftStateJson = '';
+      this.savedLoadBlocked = false;
       this.dirty = false;
       this.captureCleanBaseline();
       this.persistMeta();
@@ -931,6 +986,9 @@ export class StandaloneConfiguratorShell {
 
   persistPreferences() {
     window.localStorage.setItem(this.preferencesKey, JSON.stringify(this.state));
+    if (LANGUAGE_PROFILES[this.state.locale]) {
+      window.localStorage.setItem(GLOBAL_LOCALE_STORAGE_KEY, this.state.locale);
+    }
   }
 
   sync() {
@@ -969,7 +1027,7 @@ export class StandaloneConfiguratorShell {
 
   syncAuthenticationControls() {
     const authenticated = Boolean(this.authUser?.uid);
-    const saveEnabled = authenticated && this.options.capabilities.save !== false && !this.saveBusy;
+    const saveEnabled = authenticated && this.options.capabilities.save !== false && !this.saveBusy && !this.savedLoadBlocked;
     const newEnabled = authenticated && this.options.capabilities.save !== false;
     const saveButton = this.host.querySelector('[data-action="save"]');
     const newButton = this.host.querySelector('[data-action="new-configuration"]');

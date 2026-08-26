@@ -1,7 +1,6 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=19';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=21';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
-import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
 import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=1';
 
 
@@ -99,36 +98,6 @@ window.dispatchEvent(new CustomEvent('roof-preference-change', {
   detail: { name: 'initial', value: null, preferences: { ...shell.state } },
 }));
 
-const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-
-shell.host.addEventListener('click', (event) => {
-  const languageButton = event.target.closest('[data-action="select-language"]');
-  if (!languageButton || isLocalDevelopmentHost) return;
-
-  const nextLocale = languageButton.dataset.locale;
-  if (!nextLocale || nextLocale === shell.state.locale) return;
-  const fallbackTarget = getLocalizedConfiguratorUrl(nextLocale, 'roof', window.location);
-  if (!fallbackTarget) return;
-
-  event.preventDefault();
-  event.stopPropagation();
-
-  void (async () => {
-    try {
-      const snapshot = window.ROOF_CONFIGURATOR_API?.captureState?.();
-      if (!snapshot) {
-        window.location.assign(fallbackTarget);
-        return;
-      }
-      const shareUrl = await createShareUrl({ productType: 'roof', state: snapshot });
-      const targetUrl = getLocalizedConfiguratorUrl(nextLocale, 'roof', new URL(shareUrl));
-      window.location.assign(targetUrl || fallbackTarget);
-    } catch (error) {
-      console.error('Roof language switch could not preserve the current configuration.', error);
-      shell.showFeedback?.(t('feedback.languageSwitchUnavailable'));
-    }
-  })();
-}, true);
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#roofSidebarToggle');

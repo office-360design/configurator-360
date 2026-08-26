@@ -4,7 +4,7 @@ import { FenceScene } from './scene.js?v=10';
 import { FenceUI } from './ui.js?v=4';
 import { resolveFenceLocale } from './i18n.js?v=4';
 
-const initialLocale = resolveFenceLocale();
+const initialLocale = resolveFenceLocale(window.FENCE_CONFIGURATOR_SHARED_SHELL?.state?.locale);
 let state = createFenceState();
 const sharedState = await readShareState({ productType: 'fence' });
 if (sharedState && typeof sharedState === 'object') state = createFenceState(sharedState);

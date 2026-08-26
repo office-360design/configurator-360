@@ -31,4 +31,4 @@ Shared tools enabled by this configurator:
 - Romanian: `/configurator-garduri/`
 - German: `/zaun-konfigurator/`
 
-The localized language switch preserves the current fence configuration through a compact cross-domain state handoff without creating a public shared-configuration record.
+The localized language switch is owned by the root shared UI. Existing account saves reopen by their private saved-configuration id; unsaved changes on an existing save use a compact URL-only draft handoff, while guests and brand-new unsaved account projects use the normal Share transport.

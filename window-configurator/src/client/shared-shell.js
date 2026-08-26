@@ -1,7 +1,6 @@
-import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=19';
+import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=21';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=4';
-import { getLocalizedConfiguratorUrl } from './shared-ui/src/config.js';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=1';
 
 const initialLocale = resolveWindowLocale();
@@ -77,38 +76,6 @@ const shell = mountStandaloneConfiguratorShell({
 });
 
 
-const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-
-shell.host.addEventListener('click', (event) => {
-  const languageButton = event.target.closest('[data-action="select-language"]');
-  if (!languageButton || isLocalDevelopmentHost) return;
-
-  const nextLocale = languageButton.dataset.locale;
-  if (!nextLocale || nextLocale === shell.state.locale) return;
-
-  const fallbackTarget = getLocalizedConfiguratorUrl(nextLocale, 'window', window.location);
-  if (!fallbackTarget) return;
-
-  event.preventDefault();
-  event.stopPropagation();
-
-  void (async () => {
-    try {
-      const snapshot = window.WINDOW_CONFIGURATOR_API?.captureState?.();
-      if (!snapshot) {
-        window.location.assign(fallbackTarget);
-        return;
-      }
-
-      const shareUrl = await createShareUrl({ productType: 'window', state: snapshot });
-      const targetUrl = getLocalizedConfiguratorUrl(nextLocale, 'window', new URL(shareUrl));
-      window.location.assign(targetUrl || fallbackTarget);
-    } catch (error) {
-      console.error('Window language switch could not preserve the current configuration.', error);
-      shell.showFeedback?.(t('feedback.languageSwitchUnavailable'));
-    }
-  })();
-}, true);
 
 const controls = document.querySelector('#controls');
 history.bindSource(controls);
