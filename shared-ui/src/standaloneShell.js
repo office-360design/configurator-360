@@ -1,5 +1,5 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
-import { sharedT } from './i18n.js?v=19';
+import { sharedT } from './i18n.js?v=20';
 import { renderActionFeedback } from './components/feedback.js?v=17';
 import { renderTopBar } from './components/topBar.js?v=19';
 import { syncAccountIdentity } from './components/accountMenu.js?v=18';
@@ -7,6 +7,7 @@ import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, si
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
+import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=1';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 import { readShareState } from './shareState.js?v=4';
 
@@ -85,6 +86,7 @@ export class StandaloneConfiguratorShell {
       callbacks: {},
       tools: { items: [], placement: {} },
       settingsPanel: null,
+      configuratorPanel: null,
       ...options,
     };
 
@@ -158,6 +160,10 @@ export class StandaloneConfiguratorShell {
     this.settingsPanelCollapsed = false;
     this.settingsPanel = null;
     this.settingsToggle = null;
+    this.configuratorPanel = null;
+    this.configuratorPanelBody = null;
+    this.configuratorPanelFooter = null;
+    this.onConfiguratorPanelFooterClick = null;
 
     this.host = document.createElement('div');
     this.host.className = 'shared-ui-host';
@@ -168,13 +174,17 @@ export class StandaloneConfiguratorShell {
 
     this.bindEvents();
     this.bindSettingsPanel();
+    this.bindConfiguratorPanel();
     // Product-specific translation tables stay in each configurator, while the
     // shared shell owns when the locale changes. Apply the persisted locale once
     // on mount so a language chosen on this domain survives refreshes.
     this.options.callbacks.onPreferenceChange?.('locale', this.state.locale, this.state);
     this.sync();
     this.initializeAuthentication();
-    this.dirtyWatchTimer = window.setInterval(() => this.refreshDirtyFromCapturedState(), 300);
+    this.dirtyWatchTimer = window.setInterval(() => {
+      this.refreshDirtyFromCapturedState();
+      this.refreshConfiguratorPanelFooter();
+    }, 300);
   }
 
   getGuestProjectName() {
@@ -437,6 +447,117 @@ export class StandaloneConfiguratorShell {
       this.persistMeta();
     };
     window.addEventListener('beforeunload', this.onBeforeUnload);
+  }
+
+
+  bindConfiguratorPanel() {
+    const config = this.options.configuratorPanel;
+    if (!config?.panelSelector) return;
+
+    const panel = document.querySelector(config.panelSelector);
+    if (!panel) return;
+
+    this.configuratorPanel = panel;
+    panel.classList.add('shared-configurator-panel');
+    panel.dataset.sharedPanelLayout = config.nativeLayout ? 'native' : 'managed';
+
+    let footer = config.footerSelector
+      ? panel.querySelector(config.footerSelector)
+      : panel.querySelector(':scope > [data-shared-configurator-panel-footer]');
+
+    if (!config.nativeLayout) {
+      let body = panel.querySelector(':scope > .shared-configurator-panel__body');
+      if (!body) {
+        const computed = window.getComputedStyle(panel);
+        body = document.createElement('div');
+        body.className = 'shared-configurator-panel__body';
+        body.style.paddingTop = computed.paddingTop;
+        body.style.paddingRight = computed.paddingRight;
+        body.style.paddingBottom = computed.paddingBottom;
+        body.style.paddingLeft = computed.paddingLeft;
+
+        const movable = Array.from(panel.childNodes).filter((node) => node !== footer);
+        movable.forEach((node) => body.append(node));
+        panel.style.setProperty('padding', '0', 'important');
+        panel.prepend(body);
+      }
+      this.configuratorPanelBody = body;
+    } else if (config.bodySelector) {
+      this.configuratorPanelBody = panel.querySelector(config.bodySelector);
+    }
+
+    if (!footer) {
+      footer = document.createElement('footer');
+      footer.dataset.sharedConfiguratorPanelFooter = '';
+      panel.append(footer);
+    }
+    footer.classList.add('shared-configurator-panel__footer');
+    footer.dataset.sharedConfiguratorPanelFooter = '';
+    this.configuratorPanelFooter = footer;
+
+    this.onConfiguratorPanelFooterClick = (event) => {
+      const button = event.target.closest('[data-shared-panel-add-to-cart]');
+      if (!button) return;
+      this.options.callbacks.onAddToCart?.();
+    };
+    footer.addEventListener('click', this.onConfiguratorPanelFooterClick);
+    this.refreshConfiguratorPanelFooter();
+  }
+
+  formatConfiguratorPanelPrice(value, currency = this.state.currency, locale = this.state.locale) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '—';
+    try {
+      return new Intl.NumberFormat(locale || 'en-US', {
+        style: 'currency',
+        currency: currency || 'EUR',
+        maximumFractionDigits: 0,
+      }).format(number);
+    } catch {
+      return String(Math.round(number));
+    }
+  }
+
+  resolveConfiguratorPanelPriceText() {
+    const config = this.options.configuratorPanel;
+    if (!config) return '—';
+
+    try {
+      const result = config.getEstimatedTotal?.({
+        locale: this.state.locale,
+        currency: this.state.currency,
+      });
+      if (typeof result === 'string' && result.trim()) return result.trim();
+      if (typeof result === 'number') return this.formatConfiguratorPanelPrice(result);
+      if (result && typeof result === 'object' && Number.isFinite(Number(result.value))) {
+        return this.formatConfiguratorPanelPrice(
+          result.value,
+          result.currency || this.state.currency,
+          result.locale || this.state.locale,
+        );
+      }
+    } catch {
+      // The product can still expose an already-rendered price below.
+    }
+
+    if (config.priceSelector) {
+      const rendered = document.querySelector(config.priceSelector)?.textContent?.trim();
+      if (rendered) return rendered;
+    }
+
+    if (Number.isFinite(Number(config.fallbackValue))) {
+      return this.formatConfiguratorPanelPrice(config.fallbackValue, config.fallbackCurrency || this.state.currency);
+    }
+    return '—';
+  }
+
+  refreshConfiguratorPanelFooter() {
+    if (!this.configuratorPanelFooter) return;
+    renderConfiguratorPanelFooter(this.configuratorPanelFooter, {
+      estimatedTotalLabel: sharedT(this.state.locale, 'panel.estimatedTotal'),
+      priceText: this.resolveConfiguratorPanelPriceText(),
+      addToCartLabel: sharedT(this.state.locale, 'panel.addToCart'),
+    });
   }
 
 
@@ -1395,6 +1516,7 @@ export class StandaloneConfiguratorShell {
     syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: this.authBusy });
     this.syncLanguage();
     this.syncTools();
+    this.refreshConfiguratorPanelFooter();
     document.body.classList.toggle('shared-ui-dark-mode', Boolean(this.state.darkMode));
     document.querySelector('.app-shell')?.classList.toggle('is-dark-mode', Boolean(this.state.darkMode));
   }
@@ -1552,6 +1674,9 @@ export class StandaloneConfiguratorShell {
     window.clearInterval(this.dirtyWatchTimer);
     if (this.settingsToggle && this.onSettingsToggle) {
       this.settingsToggle.removeEventListener('click', this.onSettingsToggle);
+    }
+    if (this.configuratorPanelFooter && this.onConfiguratorPanelFooterClick) {
+      this.configuratorPanelFooter.removeEventListener('click', this.onConfiguratorPanelFooterClick);
     }
     this.host.remove();
     document.body.classList.remove('shared-ui-mounted', 'shared-ui-dark-mode');

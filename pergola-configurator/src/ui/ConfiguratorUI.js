@@ -160,7 +160,8 @@ export class ConfiguratorUI {
     this.root.querySelector('.app-shell')?.classList.toggle('is-dark-mode', Boolean(this.state.darkMode));
 
     this.stepContent.innerHTML = this.renderAccordionSections();
-    this.sidebarFooter.innerHTML = this.renderFooter();
+    if (this.sharedShell?.refreshConfiguratorPanelFooter) this.sharedShell.refreshConfiguratorPanelFooter();
+    else this.sidebarFooter.replaceChildren();
     this.environmentPanel.innerHTML = this.renderEnvironmentPanel();
     this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
     this.syncToolbar();
@@ -527,6 +528,7 @@ export class ConfiguratorUI {
     this.sharedShell.setActionEnabled('undo', Boolean(this.store.canUndo?.()));
     this.sharedShell.setToolActive('dimensions', Boolean(this.state.view.dimensionsVisible));
     this.sharedShell.setToolActive('compass', Boolean(this.state.view.compassVisible));
+    this.sharedShell.refreshConfiguratorPanelFooter?.();
   }
 
   toggleEnvironmentPanel() {

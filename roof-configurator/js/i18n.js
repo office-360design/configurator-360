@@ -771,8 +771,8 @@ export function applyRoofTranslations(locale) {
 
   setText('.brand-subtitle', resolved, 'brand.subtitle');
   setLivePill(resolved);
-  setText('.sidebar > .panel-section:nth-of-type(1) .eyebrow', resolved, 'step.1');
-  setText('.sidebar > .panel-section:nth-of-type(1) h1', resolved, 'roof.type');
+  setText('.sidebar .panel-section:nth-of-type(1) .eyebrow', resolved, 'step.1');
+  setText('.sidebar .panel-section:nth-of-type(1) h1', resolved, 'roof.type');
   ['gable', 'hip', 'shed', 'lshape', 'dormer', 'custom'].forEach((type) => setRoofCard(type, resolved));
   setText('.custom-plan-copy strong', resolved, 'custom.uploadTitle');
   setText('.custom-plan-copy span', resolved, 'custom.uploadBody');
@@ -780,16 +780,16 @@ export function applyRoofTranslations(locale) {
   setText('.custom-plan-types', resolved, 'custom.fileTypes');
   setAttribute('#customPlanRemove', 'aria-label', resolved, 'custom.removeAria');
 
-  setText('.sidebar > .panel-section:nth-of-type(2) .eyebrow', resolved, 'step.2');
-  setText('.sidebar > .panel-section:nth-of-type(2) h2', resolved, 'dimensions.title');
+  setText('.sidebar .panel-section:nth-of-type(2) .eyebrow', resolved, 'step.2');
+  setText('.sidebar .panel-section:nth-of-type(2) h2', resolved, 'dimensions.title');
   setControlLabel('length', resolved, 'dimensions.length');
   setControlLabel('depth', resolved, 'dimensions.depth');
   setControlLabel('wallHeight', resolved, 'dimensions.wallHeight');
   setControlLabel('pitch', resolved, 'dimensions.pitch');
   setControlLabel('overhang', resolved, 'dimensions.overhang');
 
-  setText('.sidebar > .panel-section:nth-of-type(3) .eyebrow', resolved, 'step.3');
-  setText('.sidebar > .panel-section:nth-of-type(3) h2', resolved, 'covering.title');
+  setText('.sidebar .panel-section:nth-of-type(3) .eyebrow', resolved, 'step.3');
+  setText('.sidebar .panel-section:nth-of-type(3) h2', resolved, 'covering.title');
   setText('.select-label[for="coveringSelect"]', resolved, 'covering.preset');
   ['generic', 'roca', 'teclado'].forEach((value) => setCoveringOption(value, resolved));
   setText('.color-heading', resolved, 'covering.colour');

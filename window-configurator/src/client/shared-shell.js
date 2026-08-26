@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=25';
+import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=26';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=4';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=1';
@@ -36,6 +36,10 @@ const shell = mountStandaloneConfiguratorShell({
     toggleSelector: '#sidebar-toggle',
     collapsedClass: 'sidebar-collapsed',
     bodyCollapsedClass: 'sidebar-is-collapsed',
+  },
+  configuratorPanel: {
+    panelSelector: '#controls',
+    fallbackValue: 0,
   },
   callbacks: {
     onViewAR() {
@@ -82,6 +86,7 @@ history.bindSource(controls);
 
 if (controls) {
   const markDirty = (event) => {
+    if (event.target.closest('[data-shared-configurator-panel-footer]')) return;
     if (event.target.closest('button, input, select, textarea, summary')) shell.markDirty();
   };
   controls.addEventListener('click', markDirty, true);
