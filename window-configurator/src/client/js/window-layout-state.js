@@ -710,7 +710,21 @@ export function addWindowToState(stateValue, {
     }
 
     windows.push(makeCell(newId, type, newRect, handleSide));
-    const addedState = normalizeWindowState({
+
+    // Keep track of which physical grid tracks existed before the add. Adding
+    // on the left/bottom temporarily moves the old normalized coordinates, so
+    // compare against the same shifted coordinate system used by normalization.
+    const rawBounds = stateBounds(windows);
+    const oldTrackKeys = {
+        x: new Set((state.gridTracks?.x || []).map(track => (
+            `${coordinateKey(track.start - rawBounds.x0)}:${coordinateKey(track.end - rawBounds.x0)}`
+        ))),
+        y: new Set((state.gridTracks?.y || []).map(track => (
+            `${coordinateKey(track.start - rawBounds.y0)}:${coordinateKey(track.end - rawBounds.y0)}`
+        ))),
+    };
+
+    let resizedState = normalizeWindowState({
         version: WINDOW_STATE_VERSION,
         dividerProfileId: state.dividerProfileId,
         transProfileId: state.transProfileId,
@@ -720,17 +734,65 @@ export function addWindowToState(stateValue, {
         windows,
     }, { defaultWidthM, defaultHeightM, edgeExtensionM });
 
-    // New windows are deliberately reset to 600 x 900 mm. Because the layout
-    // is a shared grid, the dimension parallel to the shared edge also changes
-    // the row/column it joins. The perpendicular dimension has its own track,
-    // so preserve the neighbour's previous size on that independent axis.
-    let resizedState = setWindowSizeInState(addedState, newId, {
-        widthM: defaultWidthM,
-        heightM: defaultHeightM,
-        edgeExtensionM,
-    });
+    // A default is applied only to a dimension that introduces a genuinely new
+    // grid track. The dimension parallel to the side being extended already
+    // belongs to an existing row/column and must therefore be inherited. This
+    // also means that filling an existing grid hole applies no 600/900 default
+    // at all because both dimensions have already been established.
+    const defaultAxis = direction === 'left' || direction === 'right' ? 'x' : 'y';
+    const defaultActualM = defaultAxis === 'x' ? defaultWidthM : defaultHeightM;
+    const addedCell = getCell(resizedState, newId);
+    const selectedTracks = tracksForCell(resizedState, addedCell, defaultAxis);
+    const freshTracks = selectedTracks.filter(track => !oldTrackKeys[defaultAxis].has(
+        `${coordinateKey(track.start)}:${coordinateKey(track.end)}`
+    ));
+
+    if (freshTracks.length) {
+        const extension = Math.max(0, finite(edgeExtensionM, DEFAULT_WINDOW_EDGE_EXTENSION_M));
+        const outerSides = defaultAxis === 'x'
+            ? (cellHasExposedSide(resizedState, addedCell, 'left') ? 1 : 0)
+                + (cellHasExposedSide(resizedState, addedCell, 'right') ? 1 : 0)
+            : (cellHasExposedSide(resizedState, addedCell, 'bottom') ? 1 : 0)
+                + (cellHasExposedSide(resizedState, addedCell, 'top') ? 1 : 0);
+        const targetStructural = Math.max(
+            MIN_GRID_TRACK_M * selectedTracks.length,
+            defaultActualM - outerSides * extension
+        );
+        const freshKeys = new Set(freshTracks.map(track => (
+            `${coordinateKey(track.start)}:${coordinateKey(track.end)}`
+        )));
+        const establishedStructural = selectedTracks
+            .filter(track => !freshKeys.has(`${coordinateKey(track.start)}:${coordinateKey(track.end)}`))
+            .reduce((sum, track) => sum + Math.max(0, finite(track.sizeM)), 0);
+        const freshMinimum = MIN_GRID_TRACK_M * freshTracks.length;
+        const freshStructural = Math.max(freshMinimum, targetStructural - establishedStructural);
+        const totalWeight = freshTracks.reduce(
+            (sum, track) => sum + Math.max(EPSILON, track.end - track.start),
+            0
+        );
+        const distributable = Math.max(0, freshStructural - freshMinimum);
+        const freshSizes = new Map(freshTracks.map(track => {
+            const key = `${coordinateKey(track.start)}:${coordinateKey(track.end)}`;
+            const weight = Math.max(EPSILON, track.end - track.start);
+            return [key, MIN_GRID_TRACK_M + distributable * (weight / totalWeight)];
+        }));
+        const nextTracks = (resizedState.gridTracks?.[defaultAxis] || []).map(track => {
+            const key = `${coordinateKey(track.start)}:${coordinateKey(track.end)}`;
+            return freshSizes.has(key) ? { ...track, sizeM: freshSizes.get(key) } : { ...track };
+        });
+        resizedState = normalizeWindowState({
+            ...resizedState,
+            gridTracks: defaultAxis === 'x'
+                ? { x: nextTracks, y: resizedState.gridTracks?.y || [] }
+                : { x: resizedState.gridTracks?.x || [], y: nextTracks },
+        }, { defaultWidthM, defaultHeightM, edgeExtensionM });
+    }
+
+    // Replacing an exposed outer frame with a mullion changes the 13 mm edge
+    // contribution. Preserve the selected source window's actual size on the
+    // axis of the add, without touching the inherited parallel row/column.
     if (targetSizeBeforeAdd) {
-        if (direction === 'left' || direction === 'right') {
+        if (defaultAxis === 'x') {
             resizedState = setWindowSizeInState(resizedState, target.id, {
                 widthM: targetSizeBeforeAdd.widthM,
                 edgeExtensionM,

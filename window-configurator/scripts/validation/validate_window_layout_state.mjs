@@ -62,6 +62,27 @@ assert(
     'Changing width alone must never modify the row height.'
 );
 
+let customAddState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+customAddState = setWindowSizeInState(customAddState, 'w1', { widthM: 0.4, heightM: 0.4 });
+customAddState = addWindowToState(customAddState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+assert(
+    Math.abs(getWindowActualSizeInState(customAddState, 'w1').widthM - 0.4) < 1e-9
+        && Math.abs(getWindowActualSizeInState(customAddState, 'w1').heightM - 0.4) < 1e-9
+        && Math.abs(getWindowActualSizeInState(customAddState, 'w2').widthM - 0.6) < 1e-9
+        && Math.abs(getWindowActualSizeInState(customAddState, 'w2').heightM - 0.4) < 1e-9,
+    'Adding right to a 400 x 400 window must preserve the 400 mm row height and default only the new width to 600 mm.'
+);
+customAddState = addWindowToState(customAddState, { cellId: 'w2', direction: 'top', type: FIXED_WINDOW_TYPE });
+customAddState = setWindowSizeInState(customAddState, 'w3', { widthM: 0.55, heightM: 0.5 });
+customAddState = addWindowToState(customAddState, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
+const filledCell = customAddState.windows.find(windowCell => windowCell.id === 'w4');
+const filledSize = getWindowActualSizeInState(customAddState, filledCell?.id);
+assert(
+    Math.abs(filledSize?.widthM - 0.4) < 1e-9
+        && Math.abs(filledSize?.heightM - 0.5) < 1e-9,
+    'Filling an already established row and column must inherit both dimensions and apply neither the 600 mm nor 900 mm default.'
+);
+
 let leftState = createSingleWindowState({ type: SASH_WINDOW_TYPE });
 leftState = addWindowToState(leftState, { cellId: 'w1', direction: 'left', type: FIXED_WINDOW_TYPE });
 const leftTopology = deriveWindowTopology(leftState);
@@ -273,5 +294,5 @@ if (errors.length) {
     errors.forEach(error => console.error(`- ${error}`));
     process.exitCode = 1;
 } else {
-    console.log('Window layout state valid: per-window grid sizing, 600x900 defaults, outward add, arbitrary cell count, L/T classification, frame-to-divider replacement, merge, and floating-trans topology passed.');
+    console.log('Window layout state valid: per-window grid sizing, directional 600/900 defaults, inherited established tracks, outward add, arbitrary cell count, L/T classification, frame-to-divider replacement, merge, and floating-trans topology passed.');
 }
