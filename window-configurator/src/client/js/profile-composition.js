@@ -2509,6 +2509,24 @@ function applyFixedGlazingConnectionPlacements({
                 profileId: '224063',
                 cellType: 'fixed-glazing',
             });
+            // Keep a divider-native 224063 transform for every fixed-facing
+            // side. fixedGlazingDividerCadTransforms are perimeter transforms
+            // used by createMiteredSide(); a re-entrant half-mullion is rendered
+            // with createDividerSegment() and must use the direct mullion-mounted
+            // CAD basis instead.
+            const fixedMullionMountedTargets = createMullionMountedGasketTargets({
+                definition,
+                dividerConnectionTemplate: dividerGasketConnectionTemplate,
+                profile,
+                profileId: '224063',
+                cellType: 'fixed-glazing',
+            });
+            const fixedGlazingMullionCadTransforms = {};
+            for (const [cellSide, target] of fixedMullionMountedTargets) {
+                if (target?.cadTransform) {
+                    fixedGlazingMullionCadTransforms[cellSide] = target.cadTransform;
+                }
+            }
             const frameTarget = normalizeWorkingPointForSection(
                 definition,
                 frameFixedGasketTarget?.point,
@@ -2555,6 +2573,7 @@ function applyFixedGlazingConnectionPlacements({
                 ...profile,
                 fixedGlazingFrameCadTransform,
                 fixedGlazingDividerCadTransforms: Object.freeze(fixedGlazingDividerCadTransforms),
+                fixedGlazingMullionCadTransforms: Object.freeze(fixedGlazingMullionCadTransforms),
                 fixedGlazingConnectionOnly: true,
                 mullionConnectionCadTransform: mixedMullionMountedTarget?.cadTransform || null,
                 mullionConnectionCellSide: mixedMullionMountedTarget?.cellSide || null,

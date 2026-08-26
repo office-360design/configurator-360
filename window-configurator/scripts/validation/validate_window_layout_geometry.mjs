@@ -56,18 +56,18 @@ assert(
         inwardDistance: 0,
         dividerFaceSpan: 0.088,
         frameInwardSpan: 0.065,
-    })) < 1e-12
+    }) - 0.021) < 1e-12
         && Math.abs(getFrameMixedPlusMiterInset({
             inwardDistance: 0.021,
             dividerFaceSpan: 0.088,
             frameInwardSpan: 0.065,
-        }) + 0.021) < 1e-12
+        })) < 1e-12
         && Math.abs(getFrameMixedPlusMiterInset({
             inwardDistance: 0.065,
             dividerFaceSpan: 0.088,
             frameInwardSpan: 0.065,
-        }) - 0.023) < 1e-12,
-    'A mixed-+ frame cut must keep the outer edge on the structural endpoint, extend 21 mm at the shared apex, and retract 23 mm at the inner edge.'
+        }) - 0.044) < 1e-12,
+    'A mixed-+ frame cut must retract 21 mm at the outer edge, put the V apex exactly on the grid vertex at the 21 mm frame reference, and retract 44 mm at the inner edge.'
 );
 assert(
     Math.abs(getFrameShiftedDividerSocketInset({
@@ -1446,12 +1446,12 @@ editableLGeometry.dividerSegments.forEach(segment => {
             const expectedSign = frame?.side === 'bottom' || frame?.side === 'left' ? -1 : 1;
             assert(
                 frame
-                    && frame.frameJointModes?.[arm.localEnd] === 'grid-miter'
+                    && frame.frameJointModes?.[arm.localEnd] === 'mixed-plus'
                     && Math.abs(
                         frame.perpendicularOffset
                             - (frame.structuralPerpendicularOffset + expectedSign * contactStart)
                     ) < 1e-9,
-                `Grid L rotation ${rotationIndex + 1} must put the 21 mm asymmetry on the frame line, not on a mullion.`
+                `Grid L rotation ${rotationIndex + 1} must keep the 21 mm asymmetry on the frame line and terminate the frame with the mixed-+ 90-degree V.`
             );
         });
 
@@ -1615,7 +1615,7 @@ function assertPartialMergedPerimeter({ windows, mergeA, mergeB, side, start, en
         const expectedSign = frame?.side === 'bottom' || frame?.side === 'left' ? -1 : 1;
         assert(
             frame
-                && frame.frameJointModes?.[endpoint.localEnd] === 'grid-miter'
+                && frame.frameJointModes?.[endpoint.localEnd] === 'square'
                 && Math.abs(
                     frame.perpendicularOffset
                         - (frame.structuralPerpendicularOffset + expectedSign * contactStart)
@@ -1783,12 +1783,12 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
         const expectedSign = frame?.side === 'bottom' || frame?.side === 'left' ? -1 : 1;
         assert(
             frame
-                && frame.frameJointModes?.[endpoint.localEnd] === 'grid-miter'
+                && frame.frameJointModes?.[endpoint.localEnd] === 'square'
                 && Math.abs(
                     frame.perpendicularOffset
                         - (frame.structuralPerpendicularOffset + expectedSign * contactStart)
                 ) < 1e-9,
-            'Merged top-right L frame arms must use the same 21 mm frame offset and grid-miter law.'
+            'Merged top-right L frame arms must keep the same 21 mm frame offset and use square 90-degree ends at the concave intersection.'
         );
     });
 
@@ -2701,8 +2701,8 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
     );
     assert(
         placedFrame.reentrantHost === false
-            && placedFrame.frameJointModes?.[perimeterJunction?.hostFrameEndpoint?.localEnd] === 'grid-miter',
-        'Merged top-sash L must use the shared grid-miter cut at the three-arm re-entrant junction.'
+            && placedFrame.frameJointModes?.[perimeterJunction?.hostFrameEndpoint?.localEnd] === 'square',
+        'Merged top-sash L must use a square 90-degree frame end at the three-arm re-entrant junction.'
     );
 }
 
