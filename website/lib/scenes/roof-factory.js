@@ -7,24 +7,128 @@ const WALL_COLOR = 0xe9e6df;
 const TRIM_COLOR = 0x4b2428;
 const EDGE_COLOR = 0x261a1c;
 const ROOF_OFFSET_Y = 0.05;
+const PROFILE_TEXTURE_CACHE = new Map();
+
+const fract = (value) => value - Math.floor(value);
+const clamp01 = (value) => Math.max(0, Math.min(1, value));
+
+function surfaceNoise(x, y) {
+  return fract(Math.sin(x * 127.1 + y * 311.7) * 43758.5453);
+}
+
+function coveringHeight(covering, u, v) {
+  if (covering === 'generic') {
+    const rowIndex = Math.floor(v * 4);
+    const row = fract(v * 4);
+    const tile = fract(u * 6 + (rowIndex % 2) * 0.5);
+    const pan = Math.pow(0.5 + 0.5 * Math.cos((tile - 0.5) * Math.PI * 2), 0.72);
+    const overlap = Math.exp(-Math.pow(Math.min(row, 1 - row) / 0.075, 2));
+    return pan * 0.58 + overlap * 0.18 + (1 - row) * 0.09;
+  }
+  if (covering === 'roca') {
+    const rowIndex = Math.floor(v * 4);
+    const row = fract(v * 4);
+    const tile = fract(u * 5 + (rowIndex % 2) * 0.5);
+    const barrel = Math.pow(0.5 + 0.5 * Math.cos((tile - 0.5) * Math.PI * 2), 1.25);
+    const overlap = Math.exp(-Math.pow(Math.min(row, 1 - row) / 0.085, 2));
+    const grain = (surfaceNoise(Math.floor(u * 256), Math.floor(v * 256)) - 0.5) * 0.055;
+    return barrel * 0.5 + overlap * 0.16 + (1 - row) * 0.11 + grain;
+  }
+  const rowIndex = Math.floor(v * 5);
+  const row = fract(v * 5);
+  const tile = fract(u * 4 + (rowIndex % 2) * 0.5);
+  const distanceToEdge = Math.min(tile, 1 - tile, row, 1 - row);
+  const flatModule = clamp01(distanceToEdge / 0.065);
+  const mineralGrain = (surfaceNoise(Math.floor(u * 256), Math.floor(v * 256)) - 0.5) * 0.035;
+  return flatModule * 0.42 + (1 - row) * 0.07 + mineralGrain;
+}
+
+function coveringRoughness(covering, x, y) {
+  const noise = surfaceNoise(x, y) - 0.5;
+  if (covering === 'generic') return clamp01(0.38 + noise * 0.08);
+  if (covering === 'roca') return clamp01(0.82 + noise * 0.18);
+  return clamp01(0.74 + noise * 0.14);
+}
+
+function coveringTextures(covering) {
+  if (PROFILE_TEXTURE_CACHE.has(covering)) return PROFILE_TEXTURE_CACHE.get(covering);
+  const size = 256;
+  const heights = new Float32Array(size * size);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      heights[y * size + x] = coveringHeight(covering, x / size, y / size);
+    }
+  }
+  const bumpData = new Uint8Array(size * size * 4);
+  const roughnessData = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const offset = (y * size + x) * 4;
+      const height = Math.round(clamp01(heights[y * size + x]) * 255);
+      bumpData[offset] = height;
+      bumpData[offset + 1] = height;
+      bumpData[offset + 2] = height;
+      bumpData[offset + 3] = 255;
+      const roughness = Math.round(coveringRoughness(covering, x, y) * 255);
+      roughnessData[offset] = roughness;
+      roughnessData[offset + 1] = roughness;
+      roughnessData[offset + 2] = roughness;
+      roughnessData[offset + 3] = 255;
+    }
+  }
+  const bump = new THREE.DataTexture(bumpData, size, size, THREE.RGBAFormat);
+  const roughness = new THREE.DataTexture(roughnessData, size, size, THREE.RGBAFormat);
+  [bump, roughness].forEach((texture) => {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+  });
+  const textures = { bump, roughness };
+  PROFILE_TEXTURE_CACHE.set(covering, textures);
+  return textures;
+}
+
+function addPlanarRoofUvs(geometry, scale = 0.42) {
+  const position = geometry.getAttribute('position');
+  const uvs = [];
+  for (let index = 0; index < position.count; index += 1) {
+    uvs.push(position.getX(index) * scale, position.getZ(index) * scale);
+  }
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+}
 
 function materialSet(state) {
-  const roof = new THREE.MeshStandardMaterial({
+  const isMetalTile = state.covering === 'generic';
+  const isMineralTile = state.covering === 'roca';
+  const roofColor = new THREE.Color(state.roofColor);
+  const trimColor = roofColor.clone().multiplyScalar(0.5);
+  const edgeColor = roofColor.clone().multiplyScalar(0.3);
+  const textures = coveringTextures(state.covering);
+  const roof = new THREE.MeshPhysicalMaterial({
     color: state.roofColor,
-    roughness: state.covering === 'generic' ? 0.62 : 0.92,
-    metalness: state.covering === 'generic' ? 0.32 : 0.05,
+    bumpMap: textures.bump,
+    bumpScale: isMetalTile ? 0.045 : isMineralTile ? 0.052 : 0.026,
+    roughnessMap: textures.roughness,
+    roughness: isMetalTile ? 0.38 : isMineralTile ? 0.78 : 0.7,
+    metalness: isMetalTile ? 0.58 : isMineralTile ? 0.08 : 0.12,
+    clearcoat: isMetalTile ? 0.34 : isMineralTile ? 0.06 : 0.14,
+    clearcoatRoughness: isMetalTile ? 0.4 : 0.74,
+    envMapIntensity: isMetalTile ? 1.12 : 0.78,
     side: THREE.DoubleSide,
     polygonOffset: true,
     polygonOffsetFactor: 1,
     polygonOffsetUnits: 1,
   });
-
   const wall = new THREE.MeshStandardMaterial({ color: WALL_COLOR, roughness: 0.92, side: THREE.DoubleSide });
   const slab = new THREE.MeshStandardMaterial({ color: 0xb8bdc1, roughness: 0.95 });
   slab.name = 'roof-theme-ground-slab';
-  const trim = new THREE.MeshStandardMaterial({ color: TRIM_COLOR, roughness: 0.7, metalness: 0.12 });
-  const edge = new THREE.LineBasicMaterial({ color: EDGE_COLOR, transparent: true, opacity: state.technicalEdges ? 0.95 : 0.42 });
-  const seam = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: state.technicalEdges ? 0.38 : 0.12 });
+  const trim = new THREE.MeshPhysicalMaterial({ color: trimColor, roughness: 0.42, metalness: 0.5, clearcoat: 0.16, clearcoatRoughness: 0.48 });
+  const edge = new THREE.LineBasicMaterial({ color: edgeColor, transparent: true, opacity: state.technicalEdges ? 0.95 : 0.48 });
+  // The generated subdivision grid does not represent the selected covering's
+  // actual module, so it stays hidden in both public preview modes. Perimeter
+  // and profile edges remain available through the separate edge material.
+  const seam = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 });
   return { roof, wall, slab, trim, edge, seam };
 }
 
@@ -35,6 +139,7 @@ function makeFace(points, materials, name = 'roof-face') {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
+  addPlanarRoofUvs(geometry);
 
   const mesh = new THREE.Mesh(geometry, materials.roof);
   mesh.name = name;
@@ -318,6 +423,7 @@ function addHeightFieldMesh(group, xCoordinates, zCoordinates, isInside, heightA
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
+  addPlanarRoofUvs(geometry);
 
   const mesh = new THREE.Mesh(geometry, materials.roof);
   mesh.name = name;
@@ -474,6 +580,7 @@ function addVerticalBoundaryFill(group, segments, bottomY, heightAt, material) {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
+  addPlanarRoofUvs(geometry);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -659,6 +766,7 @@ function addExactRoofEnvelope(group, xCoordinates, zCoordinates, planes, materia
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
+  addPlanarRoofUvs(geometry);
 
   const mesh = new THREE.Mesh(geometry, materials.roof);
   mesh.name = name;

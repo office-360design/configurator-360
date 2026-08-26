@@ -6,17 +6,20 @@ import type { ConfiguratorSlug } from "../lib/configurators";
 import type { Locale } from "../lib/i18n";
 import { useMobileDeckSwipe } from "./use-mobile-deck-swipe";
 import { buildPoleGrid } from "../lib/scenes/pergola-layout.js";
-import { bomToCsv, formatLei } from "../lib/scenes/roof-bom.js";
+import { bomToCsv } from "../../roof-configurator/js/bom.js";
+import { formatCurrency } from "../../roof-configurator/js/preferences.js";
 import { FenceControls, HallControls, SolarControls } from "./extended-showcase-controls";
 
 type ControlValue = string | number | boolean | Record<string, string>;
 
 type RoofBom = {
-  lines: Array<{ key: string; name: string; unit: string; quantity: number; unitPrice: number; value: number }>;
+  lines: Array<{ key: string; name: string; unit: string; quantity: number; unitPrice: number; value: number; included?: boolean }>;
   subtotal: number;
   vat: number;
   total: number;
   vatRate: number;
+  currency: string;
+  locale: string;
   assumptions: { roofArea: number; ridgeLength: number; eavesLength: number; valleyLength: number };
 };
 
@@ -75,7 +78,7 @@ function RoofBomModal({ bom, locale, onClose }: { bom: RoofBom; locale: Locale; 
   }, [onClose]);
 
   const downloadCsv = () => {
-    const blob = new Blob([`\uFEFF${bomToCsv(bom)}`], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([`\uFEFF${bomToCsv(bom, bom.locale)}`], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = "roof-bill-of-materials.csv";
@@ -86,17 +89,17 @@ function RoofBomModal({ bom, locale, onClose }: { bom: RoofBom; locale: Locale; 
   return (
     <div className="energy-modal roof-bom-modal" role="dialog" aria-modal="true" aria-label={text.title}>
       <button className="energy-modal-backdrop" aria-label={text.close} onClick={onClose} />
-      <div className="energy-modal-panel roof-bom-panel">
-        <header>
+      <div className="energy-modal-panel roof-bom-panel" data-lenis-prevent onWheel={(event) => event.stopPropagation()}>
+        <header className="roof-bom-header">
           <div><span className="mono-label">{text.eyebrow}</span><h2>{text.title}</h2><p>{text.area}: {bom.assumptions.roofArea.toFixed(1)} m²</p></div>
           <button type="button" onClick={onClose}>{text.close} ×</button>
         </header>
-        <div className="roof-bom-table" role="table">
+        <div className="roof-bom-table" role="table" data-lenis-prevent onWheel={(event) => event.stopPropagation()}>
           <div className="roof-bom-row roof-bom-head" role="row"><span>{text.item}</span><span>{text.qty}</span><span>{text.unit}</span><span>{text.value}</span></div>
-          {bom.lines.map((line) => <div className="roof-bom-row" role="row" key={line.key}><span>{line.name}</span><b>{line.quantity}</b><span>{line.unit}</span><span>{formatLei(line.value)} RON</span></div>)}
+          {bom.lines.filter((line) => line.included !== false).map((line) => <div className="roof-bom-row" role="row" key={line.key}><span>{line.name}</span><b>{line.quantity}</b><span>{line.unit}</span><span>{formatCurrency(line.value, bom.currency)}</span></div>)}
         </div>
         <footer className="roof-bom-summary">
-          <div><span>{text.subtotal}</span><b>{formatLei(bom.subtotal)} RON</b><span>{text.vat} {Math.round(bom.vatRate * 100)}%</span><b>{formatLei(bom.vat)} RON</b><strong>{text.total}</strong><strong>{formatLei(bom.total)} RON</strong></div>
+          <div><span>{text.subtotal}</span><b>{formatCurrency(bom.subtotal, bom.currency)}</b><span>{text.vat} {Math.round(bom.vatRate * 100)}%</span><b>{formatCurrency(bom.vat, bom.currency)}</b><strong>{text.total}</strong><strong>{formatCurrency(bom.total, bom.currency)}</strong></div>
           <button type="button" onClick={downloadCsv}>{text.download} ↗</button>
         </footer>
       </div>
@@ -109,17 +112,17 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
     resolving: "Se calculează…", structure: "STRUCTURĂ / LIVE", roof: "ACOPERIȘ PARAMETRIC", environment: "MEDIU / LIVE", controls: "Personalizează", hide: "Vezi modelul",
     length: "Lungime", depth: "Adâncime", wall: "Înălțime pereți", pitch: "Pantă", eaves: "Streașină", graphite: "Grafit", slate: "Ardezie", oxide: "Oxid",
     slopes2: "2 ape", slopes4: "4 ape", slope1: "1 apă", lshape: "Formă L", dormer: "Lucarnă", louver: "Unghi lamele", width: "Lățime",
-    open: "Deschis", screen: "Screen", motorized: "Screen motorizat", privacy: "Intimitate", glass: "Sticlă", day: "Mod zi", night: "Mod noapte", perimeter: "LED perimetral", spots: "Spoturi integrate", cool: "Rece", ice: "Albastru glaciar", sunset: "Apus", closings: "Închideri laterale", chooseSegment: "Alege segmentul", segment: "Segment",
+    open: "Deschis", screen: "Screen", motorized: "Screen motorizat", privacy: "Intimitate", glass: "Sticlă", day: "Mod zi", night: "Mod noapte", perimeter: "LED perimetral", spots: "Spoturi integrate", cool: "Rece", ice: "Albastru glaciar", sunset: "Apus", closings: "Închideri laterale", chooseSegment: "Alege segmentul", segment: "Segment", covering: "Învelitoare", materialPreset: "Preset material", roofColour: "Culoare acoperiș", genericTile: "Țiglă metalică", mineralTile: "Țiglă cu granule minerale", slateTile: "Țiglă minerală tip ardezie", burgundy: "Burgund", brown: "Maro", terracotta: "Teracotă", forestGreen: "Verde pădure",
   } : locale === "de" ? {
     resolving: "Wird berechnet…", structure: "STRUKTUR / LIVE", roof: "PARAMETRISCHES DACH", environment: "UMGEBUNG / LIVE", controls: "Konfigurieren", hide: "Modell ansehen",
     length: "Länge", depth: "Tiefe", wall: "Wandhöhe", pitch: "Dachneigung", eaves: "Traufe", graphite: "Graphit", slate: "Schiefer", oxide: "Oxid",
     slopes2: "2 Flächen", slopes4: "4 Flächen", slope1: "1 Fläche", lshape: "L-Form", dormer: "Gaube", louver: "Lamellenwinkel", width: "Breite",
-    open: "Offen", screen: "Screen", motorized: "Motor-Screen", privacy: "Sichtschutz", glass: "Glas", day: "Tagmodus", night: "Nachtmodus", perimeter: "Umlaufende LED", spots: "Integrierte Spots", cool: "Kaltweiß", ice: "Eisblau", sunset: "Sonnenuntergang", closings: "Seitenabschlüsse", chooseSegment: "Segment wählen", segment: "Segment",
+    open: "Offen", screen: "Screen", motorized: "Motor-Screen", privacy: "Sichtschutz", glass: "Glas", day: "Tagmodus", night: "Nachtmodus", perimeter: "Umlaufende LED", spots: "Integrierte Spots", cool: "Kaltweiß", ice: "Eisblau", sunset: "Sonnenuntergang", closings: "Seitenabschlüsse", chooseSegment: "Segment wählen", segment: "Segment", covering: "Dacheindeckung", materialPreset: "Materialvorgabe", roofColour: "Dachfarbe", genericTile: "Metalldachpfanne", mineralTile: "Mineralgranulat-Metalldachpfanne", slateTile: "Schieferartige Mineralpfanne", burgundy: "Burgunderrot", brown: "Braun", terracotta: "Terrakotta", forestGreen: "Waldgrün",
   } : {
     resolving: "Resolving…", structure: "STRUCTURE / LIVE", roof: "PARAMETRIC ROOF", environment: "ENVIRONMENT / LIVE", controls: "Customize", hide: "View model",
     length: "Length", depth: "Depth", wall: "Wall height", pitch: "Roof pitch", eaves: "Eaves", graphite: "Graphite", slate: "Slate", oxide: "Oxide",
     slopes2: "2 slope", slopes4: "4 slope", slope1: "1 slope", lshape: "L shape", dormer: "Dormer", louver: "Louver tilt", width: "Width",
-    open: "Open", screen: "Pull-down", motorized: "Motorized", privacy: "Privacy", glass: "Glass", day: "Day mode", night: "Night mode", perimeter: "Perimeter LED", spots: "Integrated spots", cool: "Cool", ice: "Ice blue", sunset: "Sunset", closings: "Side closings", chooseSegment: "Choose segment", segment: "Segment",
+    open: "Open", screen: "Pull-down", motorized: "Motorized", privacy: "Privacy", glass: "Glass", day: "Day mode", night: "Night mode", perimeter: "Perimeter LED", spots: "Integrated spots", cool: "Cool", ice: "Ice blue", sunset: "Sunset", closings: "Side closings", chooseSegment: "Choose segment", segment: "Segment", covering: "Roof covering", materialPreset: "Material preset", roofColour: "Roof colour", genericTile: "Generic metal tile", mineralTile: "Mineral-granule metal tile", slateTile: "Slate-style mineral tile", burgundy: "Burgundy", brown: "Brown", terracotta: "Terracotta", forestGreen: "Forest green",
   };
   const [collapsed, setCollapsed] = useState(false);
   const deckSwipe = useMobileDeckSwipe(setCollapsed);
@@ -135,7 +138,9 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
   const [wallHeight, setWallHeight] = useState(3);
   const [roofPitch, setRoofPitch] = useState(30);
   const [overhang, setOverhang] = useState(0.4);
-  const [roofMaterial, setRoofMaterial] = useState("graphite");
+  const [roofCovering, setRoofCovering] = useState("generic");
+  const [roofColor, setRoofColor] = useState("#7f1d2d");
+  const [coveringOpen, setCoveringOpen] = useState(false);
   const [roofShape, setRoofShape] = useState("lshape");
   const [led, setLed] = useState(true);
   const [ledColor, setLedColor] = useState("#fff1b4");
@@ -206,8 +211,19 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
   if (scene === "window") return null;
 
   if (scene === "roof") {
-    const materials = [["graphite", text.graphite], ["slate", text.slate], ["oxide", text.oxide]];
+    const materials = [["generic", text.genericTile], ["roca", text.mineralTile], ["teclado", text.slateTile]];
+    const roofColors = [["#7f1d2d", text.burgundy], ["#293544", text.graphite], ["#684230", text.brown], ["#8a3428", text.terracotta], ["#315449", text.forestGreen]];
     const shapes = [["gable", text.slopes2], ["hip", text.slopes4], ["shed", text.slope1], ["lshape", text.lshape], ["dormer", text.dormer]];
+    const coveringLabel = materials.find(([value]) => value === roofCovering)?.[1] ?? text.genericTile;
+    const selectCovering = (value: string) => {
+      const minimumPitch = value === "roca" ? 14 : value === "teclado" ? 18 : 5;
+      setRoofCovering(value);
+      emit(scene, "materialPreset", value);
+      if (roofPitch < minimumPitch) {
+        setRoofPitch(minimumPitch);
+        emit(scene, "pitch", minimumPitch);
+      }
+    };
     return (
       <>
       <div className={`scene-controls scene-controls-panel instrument-console roof-controls ${collapsed ? "is-collapsed" : ""}`} aria-label="Roof preview controls">
@@ -223,9 +239,13 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
         <div className="scene-preset-row shape-row" aria-label="Roof shape">
           {shapes.map(([value, label]) => <button key={value} className={roofShape === value ? "active" : ""} onClick={() => { setRoofShape(value); emit(scene, "shape", value); }}>{label}</button>)}
         </div>
-        <div className="scene-preset-row material-row" aria-label="Roof material">
-          {materials.map(([value, label]) => <button key={value} className={roofMaterial === value ? "active" : ""} onClick={() => { setRoofMaterial(value); emit(scene, "material", value); }}>{label}</button>)}
+        <div className="roof-covering-toolbar">
+          <button className={coveringOpen ? "active" : ""} type="button" onClick={() => setCoveringOpen((value) => !value)} aria-expanded={coveringOpen}><span>{text.covering}</span><b>{coveringLabel}</b><i style={{ background: roofColor }} /></button>
         </div>
+        {coveringOpen && <div className="roof-covering-editor">
+          <div><span className="control-section-label">{text.materialPreset}</span><div className="scene-preset-row material-row" aria-label={text.materialPreset}>{materials.map(([value, label]) => <button key={value} className={roofCovering === value ? "active" : ""} onClick={() => selectCovering(value)}>{label}</button>)}</div></div>
+          <div><span className="control-section-label">{text.roofColour}</span><div className="roof-color-row" aria-label={text.roofColour}>{roofColors.map(([value, label]) => <button key={value} className={roofColor === value ? "active" : ""} type="button" title={label} aria-label={label} aria-pressed={roofColor === value} onClick={() => { setRoofColor(value); emit(scene, "roofColor", value); }}><i style={{ background: value }} /><span>{label}</span></button>)}</div></div>
+        </div>}
         </div>
       </div>
       <button className="analytics-bubble roof-bom-bubble" type="button" onClick={() => { setRoofBomOpen(true); emit(scene, "requestBom", true); }} aria-label={locale === "ro" ? "Deschide necesarul de materiale" : locale === "de" ? "Materialliste öffnen" : "Open bill of materials"}>

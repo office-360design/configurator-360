@@ -7,7 +7,8 @@ import { DEFAULT_STATE } from "../lib/scenes/pergola-state.js";
 import { buildPoleGrid } from "../lib/scenes/pergola-layout.js";
 import { buildRoofModel } from "../lib/scenes/roof-factory.js";
 import { calculatePrice as calculatePergolaPrice } from "../lib/scenes/pergola-pricing.js";
-import { calculateBom } from "../lib/scenes/roof-bom.js";
+import { calculateBom } from "../../roof-configurator/js/bom.js";
+import { getFallbackCurrencyRate, resolveCurrencyRate } from "../../roof-configurator/js/preferences.js";
 import {
   buildHallPreview,
   buildFencePreview,
@@ -196,11 +197,17 @@ function buildPergolaInto(wrapper: THREE.Group, state: typeof DEFAULT_STATE) {
 }
 
 function createRoofState() {
+  const language = document.documentElement.lang.toLowerCase();
+  const locale = language.startsWith("ro") ? "ro-RO" : language.startsWith("de") ? "de-DE" : "en-US";
+  const currency = locale === "ro-RO" ? "RON" : locale === "de-DE" ? "EUR" : "USD";
   return {
     roofType: "lshape", length: 10, depth: 7, wallHeight: 3, pitch: 30, overhang: 0.4,
-    covering: "generic", roofColor: "#263a49", showDimensions: false,
+    covering: "generic", roofColor: "#7f1d2d", showDimensions: false,
     technicalEdges: true, showCompass: false, sunPosition: 42,
     northDirection: 108, nightPreview: false, customPlan: null,
+    locale, currency, currencyRate: getFallbackCurrencyRate(currency), currencyRateDate: null,
+    currencyRateSource: currency === "RON" ? "reference" : "temporary-fallback", currencyRateIsFallback: currency !== "RON",
+    excludedBomItems: [],
   };
 }
 
@@ -340,6 +347,8 @@ export function WebGLStage() {
     const rim = new THREE.DirectionalLight(0x6fc4ff, 1.85); rim.position.set(4, 4.5, -6); scene.add(rim);
     const cool = new THREE.DirectionalLight(0xb7d9ff, 1.25); cool.position.set(-5.5, 2.5, 4); scene.add(cool);
     const warm = new THREE.PointLight(0xffffff, 0.55, 12, 1.5); warm.position.set(0, 5, 1.2); scene.add(warm);
+    const neutralKeyColor = new THREE.Color(0xffffff);
+    const warmKeyColor = new THREE.Color(0xfff1dc);
 
     let active: SceneKey = "engine";
     let desiredActive: SceneKey = "engine";
@@ -365,6 +374,23 @@ export function WebGLStage() {
     let hallRebuildTimer = 0;
     let solarRebuildTimer = 0;
     let fenceRebuildTimer = 0;
+    let roofRateRequested = false;
+
+    function requestRoofCurrencyRate() {
+      if (roofRateRequested || roofState.currency === "RON") return;
+      roofRateRequested = true;
+      resolveCurrencyRate(roofState.currency).then((rateInfo) => {
+        if (disposed) return;
+        roofState.currencyRate = rateInfo.rate;
+        roofState.currencyRateDate = rateInfo.date || null;
+        roofState.currencyRateSource = rateInfo.source;
+        roofState.currencyRateIsFallback = Boolean(rateInfo.isFallback);
+        if (!builtScenes.has("roof")) return;
+        const bom = calculateBom(roofState, groups.roof.userData.metrics);
+        emitPrice("roof", bom.total, bom.currency);
+        window.dispatchEvent(new CustomEvent("roof-bom", { detail: bom }));
+      });
+    }
 
     function applyPergolaEnvironment(night: boolean) {
       pergolaState.roof.louverTilt = night ? 34 : 0;
@@ -394,7 +420,7 @@ export function WebGLStage() {
         const metrics = buildRoofInto(groups.roof, roofState);
         applyGroundTheme(groups.roof, document.documentElement.dataset.theme === "light");
         const bom = calculateBom(roofState, metrics);
-        emitPrice("roof", bom.total, "RON");
+        emitPrice("roof", bom.total, bom.currency);
         window.dispatchEvent(new CustomEvent("roof-bom", { detail: bom }));
       }, 45);
     }
@@ -445,7 +471,8 @@ export function WebGLStage() {
         emitPrice("pergola", calculatePergolaPrice(pergolaState).total, "USD");
       } else if (sceneName === "roof") {
         const metrics = buildRoofInto(groups.roof, roofState);
-        emitPrice("roof", calculateBom(roofState, metrics).total, "RON");
+        { const bom = calculateBom(roofState, metrics); emitPrice("roof", bom.total, bom.currency); }
+        requestRoofCurrencyRate();
       } else if (sceneName === "hall") {
         buildExtendedInto(groups.hall, buildHallPreview(hallState), 8.5);
       } else if (sceneName === "solar") {
@@ -584,7 +611,7 @@ export function WebGLStage() {
         }
         if (detail.control === "requestPrice") {
           const metrics = groups.roof.userData.metrics;
-          emitPrice("roof", calculateBom(roofState, metrics).total, "RON");
+          { const bom = calculateBom(roofState, metrics); emitPrice("roof", bom.total, bom.currency); }
           return;
         }
         if (detail.control === "length") roofState.length = Number(detail.value);
@@ -598,6 +625,12 @@ export function WebGLStage() {
           roofState.covering = preset === "slate" ? "teclado" : preset === "oxide" ? "roca" : "generic";
           roofState.roofColor = preset === "slate" ? "#354650" : preset === "oxide" ? "#7b4038" : "#263a49";
         }
+        if (detail.control === "materialPreset") {
+          const preset = String(detail.value);
+          roofState.covering = preset;
+          roofState.pitch = Math.max(roofState.pitch, preset === "roca" ? 14 : preset === "teclado" ? 18 : 5);
+        }
+        if (detail.control === "roofColor") roofState.roofColor = String(detail.value);
         rebuildRoof();
       }
       if (detail.scene === "hall") {
@@ -802,13 +835,15 @@ export function WebGLStage() {
       const darkSolar = active === "solar" && solarState.nightPreview;
       const nightScene = darkPergola || darkSolar;
       const solarDay = active === "solar" && !darkSolar;
-      hemisphere.intensity += ((nightScene ? 0.27 : solarDay ? 0.62 : 0.92) - hemisphere.intensity) * 0.08;
-      key.intensity += ((nightScene ? 1.08 : 3.15) - key.intensity) * 0.08;
-      rim.intensity += ((nightScene ? 0.68 : solarDay ? 1.05 : 1.85) - rim.intensity) * 0.08;
-      cool.intensity += ((nightScene ? 0.24 : solarDay ? 0.58 : 1.25) - cool.intensity) * 0.08;
+      const fenceScene = active === "fence";
+      hemisphere.intensity += ((nightScene ? 0.27 : solarDay ? 0.62 : fenceScene ? 1.06 : 0.92) - hemisphere.intensity) * 0.08;
+      key.intensity += ((nightScene ? 1.08 : fenceScene ? 1.85 : 3.15) - key.intensity) * 0.08;
+      key.color.lerp(fenceScene ? neutralKeyColor : warmKeyColor, 0.08);
+      rim.intensity += ((nightScene ? 0.68 : solarDay ? 1.05 : fenceScene ? 0.7 : 1.85) - rim.intensity) * 0.08;
+      cool.intensity += ((nightScene ? 0.24 : solarDay ? 0.58 : fenceScene ? 0.82 : 1.25) - cool.intensity) * 0.08;
       // The configurable perimeter and integrated fixtures live in the pergola model.
       // Keep the global studio fill neutral so "lights off" still reads as night.
-      warm.intensity += ((nightScene ? 0.12 : solarDay ? 0.24 : 0.55) - warm.intensity) * 0.08;
+      warm.intensity += ((nightScene ? 0.12 : solarDay ? 0.24 : fenceScene ? 0.04 : 0.55) - warm.intensity) * 0.08;
       if (active === "solar") {
         const sun = solarDirection(
           solarState.simulationDate,

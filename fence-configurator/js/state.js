@@ -1,9 +1,9 @@
 export const FINISHES = Object.freeze({
-  anthracite: { color: '#343a40', labelKey: 'finish.anthracite', multiplier: 1 },
-  black: { color: '#181b1e', labelKey: 'finish.black', multiplier: 1.04 },
-  white: { color: '#e7e7e2', labelKey: 'finish.white', multiplier: 1.05 },
-  bronze: { color: '#5e5145', labelKey: 'finish.bronze', multiplier: 1.08 },
-  wood: { color: '#9b6539', labelKey: 'finish.wood', multiplier: 1.18 },
+  anthracite: { color: '#252d33', labelKey: 'finish.anthracite', multiplier: 1 },
+  black: { color: '#0e1215', labelKey: 'finish.black', multiplier: 1.04 },
+  white: { color: '#d8d7d2', labelKey: 'finish.white', multiplier: 1.05 },
+  bronze: { color: '#795433', labelKey: 'finish.bronze', multiplier: 1.08 },
+  wood: { color: '#8a5734', labelKey: 'finish.wood', multiplier: 1.18 },
 });
 
 export const PANEL_STYLES = Object.freeze({

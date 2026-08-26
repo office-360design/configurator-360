@@ -28,9 +28,9 @@ export function PricingSolid({ shape, items, description, descriptions, label, o
 
       const trapezohedronEdges: number[] = [];
       const trapezohedron = () => {
-        const ringOffset=.159415;
-        const ring = Array.from({ length: 10 }, (_, index) => new THREE.Vector3(Math.cos(index * Math.PI / 5) * 1.08, index % 2 ? -ringOffset : ringOffset, Math.sin(index * Math.PI / 5) * 1.08));
-        const top = new THREE.Vector3(0, 1.51, 0), bottom = new THREE.Vector3(0, -1.51, 0), values: number[] = [];
+        const ringOffset=.14;
+        const ring = Array.from({ length: 10 }, (_, index) => new THREE.Vector3(Math.cos(index * Math.PI / 5) * 1.12, index % 2 ? -ringOffset : ringOffset, Math.sin(index * Math.PI / 5) * 1.12));
+        const top = new THREE.Vector3(0, 1.34, 0), bottom = new THREE.Vector3(0, -1.34, 0), values: number[] = [];
         const tri = (a: InstanceType<typeof THREE.Vector3>, b: InstanceType<typeof THREE.Vector3>, c: InstanceType<typeof THREE.Vector3>) => values.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z);
         const edge=(a:InstanceType<typeof THREE.Vector3>,b:InstanceType<typeof THREE.Vector3>)=>trapezohedronEdges.push(a.x,a.y,a.z,b.x,b.y,b.z);
         for (let i=0;i<5;i++){const even=i*2,odd=even+1,next=(even+2)%10;tri(top,ring[even],ring[odd]);tri(top,ring[odd],ring[next]);edge(top,ring[even]);edge(ring[even],ring[odd]);edge(ring[odd],ring[next]);edge(ring[next],top);}
