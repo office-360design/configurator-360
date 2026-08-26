@@ -29,11 +29,18 @@ export function mountPergolaSharedShell({ store, ui }) {
       ]),
       placement: { side: 'left', direction: 'down', offsetX: 12, offsetY: 12 },
     },
+    settingsPanel: {
+      panelSelector: '.configurator-sidebar',
+      toggleSelector: '#pergolaSidebarToggle',
+      collapsedClass: 'is-collapsed',
+      bodyCollapsedClass: 'pergola-sidebar-collapsed',
+      initiallyCollapsed: ui.mobileLayoutQuery.matches,
+    },
     configuratorPanel: {
       panelSelector: '.configurator-sidebar',
       footerSelector: '[data-sidebar-footer]',
       bodySelector: '.sidebar-scroll',
-      nativeLayout: true,
+      geometry: 'floating-right',
       getEstimatedTotal() {
         const state = store.get();
         return formatMoney(calculatePrice(state).total, state.currency, state.locale);
@@ -65,6 +72,9 @@ export function mountPergolaSharedShell({ store, ui }) {
       },
       onPreferenceChange(path, value) {
         store.update(path, value, { path });
+      },
+      onSettingsPanelToggle(collapsed) {
+        ui.setSidebarHidden(collapsed, { fromSharedShell: true });
       },
       onAccountAction(action) {
         if (action === 'profile') ui.showModal(t('modal.profileTitle'), `<p>${escapeHtml(t('modal.profileBody'))}</p>`);
