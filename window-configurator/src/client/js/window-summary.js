@@ -6,6 +6,8 @@ const M_PER_MM = 0.001;
 const MERGE_TOLERANCE_M = 0.0005;
 const JUNCTION_TOLERANCE_M = 0.0008;
 const PRICE_STORAGE_KEY = 'window-configurator-summary-rates-v1';
+const DEFAULT_ALUMINIUM_RATE_EUR_PER_KG = 8;
+const DEFAULT_GLASS_RATE_EUR_PER_SQM = 80;
 
 // Face widths come from the supplied Schüco AW CT 65 fabrication manual.
 // Linear masses are calculated from the aluminium contour area in the current
@@ -793,11 +795,18 @@ function readStoredRates() {
     try {
         const parsed = JSON.parse(localStorage.getItem(PRICE_STORAGE_KEY) || '{}');
         return {
-            aluminium: Number(parsed.aluminium) > 0 ? Number(parsed.aluminium) : null,
-            glass: Number(parsed.glass) > 0 ? Number(parsed.glass) : null,
+            aluminium: Number(parsed.aluminium) > 0
+                ? Number(parsed.aluminium)
+                : DEFAULT_ALUMINIUM_RATE_EUR_PER_KG,
+            glass: Number(parsed.glass) > 0
+                ? Number(parsed.glass)
+                : DEFAULT_GLASS_RATE_EUR_PER_SQM,
         };
     } catch (_error) {
-        return { aluminium: null, glass: null };
+        return {
+            aluminium: DEFAULT_ALUMINIUM_RATE_EUR_PER_KG,
+            glass: DEFAULT_GLASS_RATE_EUR_PER_SQM,
+        };
     }
 }
 
@@ -879,8 +888,8 @@ export function createWindowSummaryController({
     const aluminiumRateInput = document.getElementById('summaryAluminiumRate');
     const glassRateInput = document.getElementById('summaryGlassRate');
     const stored = readStoredRates();
-    if (aluminiumRateInput && stored.aluminium != null) aluminiumRateInput.value = String(stored.aluminium);
-    if (glassRateInput && stored.glass != null) glassRateInput.value = String(stored.glass);
+    if (aluminiumRateInput) aluminiumRateInput.value = String(stored.aluminium);
+    if (glassRateInput) glassRateInput.value = String(stored.glass);
 
     const readRates = () => ({
         aluminium: Number(aluminiumRateInput?.value) > 0 ? Number(aluminiumRateInput.value) : null,
