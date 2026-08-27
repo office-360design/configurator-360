@@ -371,3 +371,16 @@ input[type="text"], input[type="search"], input:not([type]) { width: 100%; }
 @media (max-width: 620px) {
   .activity-item__header { flex-direction: column; }
 }
+
+.pending-plan-fieldset {
+  margin: 28px 0 0;
+  padding: 22px;
+  border: 1px solid #f6d58b;
+  border-radius: 14px;
+  background: #fffbeb;
+}
+.pending-plan-fieldset legend { padding: 0 8px; font-weight: 750; }
+.pending-plan-summary { display: grid; gap: 6px; margin-top: 14px; }
+.pending-plan-summary strong { font-size: 16px; }
+.pending-plan-summary span { color: #667085; font-size: 13px; line-height: 1.45; }
+.pending-plan-actions { margin-top: 16px; }

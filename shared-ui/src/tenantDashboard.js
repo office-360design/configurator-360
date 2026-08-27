@@ -9,6 +9,7 @@ const FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net'
 const FUNCTION_URLS = Object.freeze({
   getTenantDashboard: `${FUNCTION_BASE}/getTenantDashboard`,
   updateTenantDashboard: `${FUNCTION_BASE}/updateTenantDashboard`,
+  cancelTenantPlanChange: `${FUNCTION_BASE}/cancelTenantPlanChange`,
 });
 const LOGO_TARGET_BYTES = 190_000;
 const LOGO_MAX_DIMENSION = 512;
@@ -47,6 +48,10 @@ const logoPreviewWrap = document.querySelector('#logoPreviewWrap');
 const logoPreview = document.querySelector('#logoPreview');
 const settingsStatus = document.querySelector('#settingsStatus');
 const saveButton = document.querySelector('#saveButton');
+const pendingPlanCard = document.querySelector('#pendingPlanCard');
+const pendingPlanTitle = document.querySelector('#pendingPlanTitle');
+const pendingPlanDetails = document.querySelector('#pendingPlanDetails');
+const cancelPlanChangeButton = document.querySelector('#cancelPlanChangeButton');
 const refreshButton = document.querySelector('#refreshButton');
 const showAllAnalytics = document.querySelector('#showAllAnalytics');
 const analyticsMonth = document.querySelector('#analyticsMonth');
@@ -105,7 +110,11 @@ function enabledCount(configurators = {}) { return Object.values(configurators).
 function planById(id) { return dashboard?.plans?.find((plan) => plan.id === id) || null; }
 function planDescription(plan) {
   if (!plan) return 'Plan details unavailable.';
-  return plan.maxConfigurators === 1 ? 'Includes 1 configurator.' : `Includes up to ${plan.maxConfigurators} configurators.`;
+  const count = plan.maxConfigurators === 1 ? '1 configurator' : `up to ${plan.maxConfigurators} configurators`;
+  const price = Number.isInteger(plan.monthlyPriceCents)
+    ? `${(plan.monthlyPriceCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${plan.currency}/${plan.billingInterval}`
+    : 'Price to be confirmed';
+  return `${plan.description || `Includes ${count}.`} · ${count} · ${price}`;
 }
 function validateSelection(planId, configurators) {
   const plan = planById(planId);
@@ -152,6 +161,10 @@ function activityTypeLabel(type) {
     tenant_dashboard_updated: 'Settings',
     tenant_admin_updated: 'Administration',
     subscription_state_changed: 'Subscription',
+    plan_change_requested: 'Plan request',
+    plan_change_cancelled: 'Plan request',
+    plan_change_approved: 'Plan changed',
+    plan_change_rejected: 'Plan request',
   })[type] || 'Activity';
 }
 
@@ -253,9 +266,26 @@ function populateDashboard(data) {
   (data.plans || []).forEach((plan) => {
     const option = document.createElement('option'); option.value = plan.id; option.textContent = plan.name; planSelect.append(option);
   });
-  planSelect.value = data.planId;
-  planHint.textContent = planDescription(planById(data.planId));
-  setConfiguratorSelection(data.configurators);
+  const pending = data.pendingPlanChange || null;
+  const editablePlanId = pending?.planId || data.planId;
+  planSelect.value = editablePlanId;
+  planHint.textContent = pending
+    ? `${planDescription(planById(editablePlanId))} · Pending confirmation; your current plan remains ${data.planName || data.planId}.`
+    : planDescription(planById(data.planId));
+  setConfiguratorSelection(pending?.configurators || data.configurators);
+  if (pending) {
+    pendingPlanCard.hidden = false;
+    pendingPlanTitle.textContent = pending.planName || pending.planId;
+    const enabled = Object.entries(CONFIGURATOR_LABELS)
+      .filter(([id]) => pending.configurators?.[id] === true)
+      .map(([, label]) => label);
+    const requestedAt = pending.requestedAtMs ? formatActivityTime(pending.requestedAtMs) : 'recently';
+    pendingPlanDetails.textContent = `Requested ${requestedAt} · ${enabled.join(', ') || 'No configurators selected'} · Your current plan stays active until the change is confirmed.`;
+  } else {
+    pendingPlanCard.hidden = true;
+    pendingPlanTitle.textContent = 'Requested plan change';
+    pendingPlanDetails.textContent = '—';
+  }
   removeLogo.checked = false; logoInput.value = ''; clearLogoPreview();
 
   subscriptionBadge.textContent = String(data.subscription?.status || data.status || 'unknown').replaceAll('_', ' ');
@@ -303,7 +333,12 @@ logoInput.addEventListener('change', () => {
   removeLogo.checked = false; logoObjectUrl = URL.createObjectURL(file); logoPreview.src = logoObjectUrl; logoPreviewWrap.hidden = false;
 });
 removeLogo.addEventListener('change', () => { if (removeLogo.checked) { logoInput.value = ''; clearLogoPreview(); } });
-planSelect.addEventListener('change', () => { planHint.textContent = planDescription(planById(planSelect.value)); });
+planSelect.addEventListener('change', () => {
+  const description = planDescription(planById(planSelect.value));
+  planHint.textContent = dashboard && planSelect.value !== dashboard.planId
+    ? `${description} · Changing plan creates a pending request until billing/admin confirmation.`
+    : description;
+});
 settingsForm.addEventListener('submit', async (event) => {
   event.preventDefault(); if (!dashboard) return;
   const configurators = selectedConfigurators();
@@ -315,13 +350,38 @@ settingsForm.addEventListener('submit', async (event) => {
     let logoMode = 'keep'; let logoDataUrl = '';
     if (removeLogo.checked) logoMode = 'remove';
     else if (file) { logoMode = 'replace'; logoDataUrl = await optimizeLogo(file); }
+    const requestedPlanChange = planSelect.value !== dashboard.planId;
     const result = await callDashboardFunction('updateTenantDashboard', {
       companyName: name, planId: planSelect.value, configurators, logoMode, logoDataUrl,
     });
-    populateDashboard(result); setStatus('Changes saved.', 'success');
+    populateDashboard(result);
+    setStatus(
+      requestedPlanChange ? 'Branding changes saved. Your plan change request is pending confirmation.' : 'Changes saved.',
+      'success',
+    );
   } catch (error) { console.error('Tenant dashboard update failed.', error); setStatus(error?.message || 'Could not save changes.', 'error'); }
   finally { saveButton.disabled = false; }
 });
+cancelPlanChangeButton?.addEventListener('click', async () => {
+  if (!dashboard?.pendingPlanChange) return;
+  const confirmed = window.confirm(`Cancel the pending change to ${dashboard.pendingPlanChange.planName || dashboard.pendingPlanChange.planId}?`);
+  if (!confirmed) return;
+  cancelPlanChangeButton.disabled = true;
+  saveButton.disabled = true;
+  setStatus('Cancelling plan change request…');
+  try {
+    const result = await callDashboardFunction('cancelTenantPlanChange');
+    populateDashboard(result);
+    setStatus('Plan change request cancelled.', 'success');
+  } catch (error) {
+    console.error('Plan change cancellation failed.', error);
+    setStatus(error?.message || 'Could not cancel the plan change request.', 'error');
+  } finally {
+    cancelPlanChangeButton.disabled = false;
+    saveButton.disabled = false;
+  }
+});
+
 refreshButton.addEventListener('click', refreshDashboard);
 showAllAnalytics?.addEventListener('change', renderDashboardAnalytics);
 

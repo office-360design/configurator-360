@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#f4f5f7" />
   <title>Customer Dashboard | 360Configurator</title>
-  <link rel="stylesheet" href="/shared-ui/styles/tenantDashboard.css?v=3" />
+  <link rel="stylesheet" href="/shared-ui/styles/tenantDashboard.css?v=4" />
 </head>
 <body>
   <main class="dashboard-page">
@@ -66,6 +66,15 @@
             <h2>Company & plan</h2>
             <p>Update the branding and configurators shown on your customer site.</p>
           </div>
+        </div>
+
+        <div class="pending-plan-card" id="pendingPlanCard" hidden>
+          <div>
+            <span class="pending-plan-card__eyebrow">Plan change pending</span>
+            <strong id="pendingPlanTitle">Requested plan change</strong>
+            <p id="pendingPlanDetails">—</p>
+          </div>
+          <button type="button" class="button button--secondary" id="cancelPlanChangeButton">Cancel request</button>
         </div>
 
         <form id="settingsForm" novalidate>
@@ -176,6 +185,6 @@
     </div>
   </main>
 
-  <script type="module" src="/shared-ui/src/tenantDashboard.js?v=3"></script>
+  <script type="module" src="/shared-ui/src/tenantDashboard.js?v=4"></script>
 </body>
 </html>
