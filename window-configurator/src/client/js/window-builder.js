@@ -598,8 +598,19 @@ export function createWindowBuilder({
             && longitudinalJoint?.positiveRectangularEndNotch
         );
         const dividerGasketTotalShortening = isAttachedDividerGasket ? 0.030 : 0;
-        const negativeGasketTrim = dividerGasketTotalShortening / 2;
-        const positiveGasketTrim = dividerGasketTotalShortening / 2;
+        const defaultGasketEndTrim = dividerGasketTotalShortening / 2;
+        const resolveGasketEndTrim = overrideValue => {
+            const parsed = Number(overrideValue);
+            return Number.isFinite(parsed)
+                ? Math.max(0, parsed)
+                : defaultGasketEndTrim;
+        };
+        const negativeGasketTrim = resolveGasketEndTrim(
+            longitudinalJoint?.negativeGasketTrimOverride
+        );
+        const positiveGasketTrim = resolveGasketEndTrim(
+            longitudinalJoint?.positiveGasketTrimOverride
+        );
         // Avoid the divider's full 88 mm-face arrow deformation at a notched
         // branch end. Keep the gasket endpoint on the mullion endpoint and
         // apply only the small local 45-degree cut across the gasket section.
@@ -3401,6 +3412,7 @@ export function createWindowBuilder({
                 return null;
             };
 
+
             const getDividerSegmentWorldRange = segment => {
                 const rawStart = Number.isFinite(Number(segment?.structuralWorldStart))
                     ? Number(segment.structuralWorldStart)
@@ -3471,8 +3483,22 @@ export function createWindowBuilder({
                 ));
             };
 
-            const applyDividerGasketMiterSide = (joint, runtimeCellSide) => {
-                const localGasketMiterSign = runtimeCellSide === 'left' ? -1 : 1;
+            const getDividerGasketMiterSign = (segmentOrientation, runtimeCellSide) => {
+                if (segmentOrientation === 'horizontal') {
+                    return runtimeCellSide === 'left' ? 1 : -1;
+                }
+                return runtimeCellSide === 'left' ? -1 : 1;
+            };
+
+            const applyDividerGasketMiterSide = (
+                joint,
+                runtimeCellSide,
+                segmentOrientation = 'vertical'
+            ) => {
+                const localGasketMiterSign = getDividerGasketMiterSign(
+                    segmentOrientation,
+                    runtimeCellSide
+                );
                 const resolvedJoint = { ...(joint || {}) };
                 if (
                     resolvedJoint.negativeRectangularEndNotch
@@ -3489,15 +3515,85 @@ export function createWindowBuilder({
                 return resolvedJoint;
             };
 
+            const getDividerHostEndpointBranchSides = (segment, atStart) => {
+                const junction = (editableTopologyGeometry?.physicalIntersections || [])
+                    .find(candidate => candidate?.endpoints?.some(endpoint => (
+                        endpoint?.dividerId === segment?.id
+                        && Boolean(endpoint?.atStart) === Boolean(atStart)
+                    ))) || null;
+                if (
+                    !junction
+                    || (junction.type !== 'T' && junction.type !== 'cross')
+                    || junction.hostOrientation !== segment?.orientation
+                ) {
+                    return new Set();
+                }
+
+                const sides = new Set();
+                (junction.activeDirections || [])
+                    .map(direction => junction.arms?.[direction])
+                    .filter(arm => (
+                        arm?.kind === 'divider'
+                        && arm.orientation !== segment.orientation
+                    ))
+                    .forEach(arm => {
+                        const side = getRuntimeCellSideForDividerBranchDirection(
+                            segment.orientation,
+                            arm.direction
+                        );
+                        if (side) sides.add(side);
+                    });
+                return sides;
+            };
+
+            const applyHostEndpointGasketContinuity = (
+                segment,
+                joint,
+                runtimeCellSide
+            ) => {
+                const resolvedJoint = { ...(joint || {}) };
+                const applyEndRule = (atStart, endPrefix) => {
+                    const branchSides = getDividerHostEndpointBranchSides(segment, atStart);
+                    if (!branchSides.size) return;
+                    const isBranchFacingSide = branchSides.has(runtimeCellSide);
+                    if (isBranchFacingSide) {
+                        // This is the actual half-mullion under the incoming
+                        // branch. Keep the normal 15 mm end clearance, so the
+                        // two host segments leave the intended no-gasket zone.
+                        return;
+                    }
+
+                    // The opposite half of the host mullion is physically
+                    // continuous through the T. Do not apply the generic
+                    // 15 mm-per-end shortening at this internal endpoint or the
+                    // two host segments create the visible 30 mm gasket hole.
+                    resolvedJoint[`${endPrefix}GasketTrimOverride`] = 0;
+                    resolvedJoint[`${endPrefix}LocalGasketMiter`] = false;
+                    delete resolvedJoint[`${endPrefix}LocalGasketMiterSign`];
+                };
+
+                applyEndRule(true, 'negative');
+                applyEndRule(false, 'positive');
+                return resolvedJoint;
+            };
+
             const getSplitHostGasketPlacements = (segment, basePlacement, runtimeCellSide) => {
-                const localGasketMiterSign = runtimeCellSide === 'left' ? -1 : 1;
+                const localGasketMiterSign = getDividerGasketMiterSign(
+                    segment?.orientation,
+                    runtimeCellSide
+                );
                 const baseLength = Math.max(0, Number(basePlacement?.length) || 0);
                 const baseCenter = Number(basePlacement?.longitudinalOffset) || 0;
                 if (baseLength <= 1e-9) {
                     return [{
                         ...basePlacement,
-                        joint: applyDividerGasketMiterSide(
-                            basePlacement?.joint,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                basePlacement?.joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
                             runtimeCellSide
                         ),
                     }];
@@ -3518,8 +3614,13 @@ export function createWindowBuilder({
                 if (!splitCoordinates.length) {
                     return [{
                         ...basePlacement,
-                        joint: applyDividerGasketMiterSide(
-                            basePlacement?.joint,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                basePlacement?.joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
                             runtimeCellSide
                         ),
                     }];
@@ -3557,15 +3658,28 @@ export function createWindowBuilder({
                     placements.push({
                         length,
                         longitudinalOffset: (start + end) / 2,
-                        joint: applyDividerGasketMiterSide(joint, runtimeCellSide),
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
+                            runtimeCellSide
+                        ),
                     });
                 }
                 return placements.length
                     ? placements
                     : [{
                         ...basePlacement,
-                        joint: applyDividerGasketMiterSide(
-                            basePlacement?.joint,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                basePlacement?.joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
                             runtimeCellSide
                         ),
                     }];
