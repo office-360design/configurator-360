@@ -178,6 +178,14 @@ function stateBounds(windows) {
     };
 }
 
+function windowsFillRectangularBounds(windows) {
+    if (!Array.isArray(windows) || !windows.length) return false;
+    const bounds = stateBounds(windows);
+    const boundsArea = rectArea(bounds);
+    const cellsArea = windows.reduce((sum, cell) => sum + rectArea(cell.rect), 0);
+    return boundsArea > EPSILON && Math.abs(boundsArea - cellsArea) <= 1e-6;
+}
+
 function normalizeRectangles(windows) {
     const bounds = stateBounds(windows);
     return windows.map(cell => ({
@@ -685,6 +693,44 @@ export function canAddWindow(stateValue, cellId, direction, { start = null, end 
     return intervalIsExposed(state, cell, direction, requestedStart, requestedEnd);
 }
 
+function getOuterSidePieces(state, direction) {
+    const bounds = stateBounds(state.windows);
+    const horizontal = direction === 'top' || direction === 'bottom';
+    const sideCoordinate = direction === 'top'
+        ? bounds.y1
+        : direction === 'bottom'
+            ? bounds.y0
+            : direction === 'right'
+                ? bounds.x1
+                : bounds.x0;
+    const extentStart = horizontal ? bounds.x0 : bounds.y0;
+    const extentEnd = horizontal ? bounds.x1 : bounds.y1;
+
+    const pieces = state.windows.flatMap(cell => {
+        const touchesSide = direction === 'top'
+            ? nearlyEqual(cell.rect.y1, sideCoordinate)
+            : direction === 'bottom'
+                ? nearlyEqual(cell.rect.y0, sideCoordinate)
+                : direction === 'right'
+                    ? nearlyEqual(cell.rect.x1, sideCoordinate)
+                    : nearlyEqual(cell.rect.x0, sideCoordinate);
+        if (!touchesSide) return [];
+        return [{
+            cellId: cell.id,
+            start: horizontal ? cell.rect.x0 : cell.rect.y0,
+            end: horizontal ? cell.rect.x1 : cell.rect.y1,
+        }];
+    }).sort((a, b) => a.start - b.start || a.end - b.end);
+
+    if (!pieces.length || !nearlyEqual(pieces[0].start, extentStart)) return [];
+    let cursor = extentStart;
+    for (const piece of pieces) {
+        if (!nearlyEqual(piece.start, cursor) || piece.end <= piece.start + EPSILON) return [];
+        cursor = piece.end;
+    }
+    return nearlyEqual(cursor, extentEnd) ? pieces : [];
+}
+
 export function addWindowToState(stateValue, {
     cellId,
     direction,
@@ -825,6 +871,119 @@ export function addWindowToState(stateValue, {
     return resizedState;
 }
 
+export function addWindowSideToState(stateValue, {
+    direction,
+    type = FIXED_WINDOW_TYPE,
+    handleSide = null,
+    defaultWidthM = DEFAULT_NEW_WINDOW_WIDTH_M,
+    defaultHeightM = DEFAULT_NEW_WINDOW_HEIGHT_M,
+    edgeExtensionM = DEFAULT_WINDOW_EDGE_EXTENSION_M,
+} = {}) {
+    const extension = Math.max(0, finite(edgeExtensionM, DEFAULT_WINDOW_EDGE_EXTENSION_M));
+    const state = normalizeWindowState(stateValue, { edgeExtensionM: extension });
+    if (!['left', 'right', 'top', 'bottom'].includes(direction)) {
+        throw new Error('A side window can only be added on the left, right, top, or bottom.');
+    }
+    if (state.windows.length >= MAX_WINDOW_CELLS) {
+        throw new Error(`A layout can contain at most ${MAX_WINDOW_CELLS} windows.`);
+    }
+    if (!windowsFillRectangularBounds(state.windows)) {
+        throw new Error('New windows can only be added to a rectangular window layout.');
+    }
+    if (!getOuterSidePieces(state, direction).length) {
+        throw new Error('The selected outer side is not a complete rectangular edge.');
+    }
+
+    const bounds = stateBounds(state.windows);
+    const horizontalSide = direction === 'top' || direction === 'bottom';
+    const perpendicularAxis = horizontalSide ? 'y' : 'x';
+    const parallelAxis = horizontalSide ? 'x' : 'y';
+    const parallelMin = parallelAxis === 'x' ? bounds.x0 : bounds.y0;
+    const parallelMax = parallelAxis === 'x' ? bounds.x1 : bounds.y1;
+    const perpendicularMin = perpendicularAxis === 'x' ? bounds.x0 : bounds.y0;
+    const perpendicularMax = perpendicularAxis === 'x' ? bounds.x1 : bounds.y1;
+    const positiveSide = direction === 'top' || direction === 'right';
+    const defaultActualM = perpendicularAxis === 'x' ? defaultWidthM : defaultHeightM;
+
+    // Preserve every existing window's selected physical size. The old outside
+    // boundary becomes an internal mullion line, so the one boundary track that
+    // touches that side gains the 13 mm outer-frame correction it just lost.
+    const adjustedPerpendicularTracks = (state.gridTracks?.[perpendicularAxis] || []).map(track => {
+        const isBoundaryTrack = positiveSide
+            ? nearlyEqual(track.end, perpendicularMax)
+            : nearlyEqual(track.start, perpendicularMin);
+        return isBoundaryTrack
+            ? { ...track, sizeM: Math.max(MIN_GRID_TRACK_M, track.sizeM + extension) }
+            : { ...track };
+    });
+    const newTrack = positiveSide
+        ? {
+            start: perpendicularMax,
+            end: perpendicularMax + 1,
+            sizeM: Math.max(MIN_GRID_TRACK_M, defaultActualM - extension),
+        }
+        : {
+            start: perpendicularMin - 1,
+            end: perpendicularMin,
+            sizeM: Math.max(MIN_GRID_TRACK_M, defaultActualM - extension),
+        };
+    adjustedPerpendicularTracks.push(newTrack);
+
+    const nextGridTracks = perpendicularAxis === 'x'
+        ? {
+            x: adjustedPerpendicularTracks,
+            y: (state.gridTracks?.y || []).map(track => ({ ...track })),
+        }
+        : {
+            x: (state.gridTracks?.x || []).map(track => ({ ...track })),
+            y: adjustedPerpendicularTracks,
+        };
+
+    const newId = nextCellId(state.windows);
+    const newRect = direction === 'top'
+        ? { x0: bounds.x0, x1: bounds.x1, y0: bounds.y1, y1: bounds.y1 + 1 }
+        : direction === 'bottom'
+            ? { x0: bounds.x0, x1: bounds.x1, y0: bounds.y0 - 1, y1: bounds.y0 }
+            : direction === 'right'
+                ? { x0: bounds.x1, x1: bounds.x1 + 1, y0: bounds.y0, y1: bounds.y1 }
+                : { x0: bounds.x0 - 1, x1: bounds.x0, y0: bounds.y0, y1: bounds.y1 };
+
+    const splitCoordinates = [...new Set((state.gridTracks?.[parallelAxis] || [])
+        .flatMap(track => [track.start, track.end])
+        .map(value => coordinateKey(value)))]
+        .map(Number)
+        .filter(value => value > parallelMin + EPSILON && value < parallelMax - EPSILON)
+        .sort((a, b) => a - b);
+    const addedMergeGuides = splitCoordinates.map(coordinate => (
+        parallelAxis === 'x'
+            ? {
+                orientation: 'vertical',
+                coordinate,
+                start: newRect.y0,
+                end: newRect.y1,
+            }
+            : {
+                orientation: 'horizontal',
+                coordinate,
+                start: newRect.x0,
+                end: newRect.x1,
+            }
+    ));
+
+    return normalizeWindowState({
+        version: WINDOW_STATE_VERSION,
+        dividerProfileId: state.dividerProfileId,
+        transProfileId: state.transProfileId,
+        transConnections: state.transConnections,
+        gridTracks: nextGridTracks,
+        mergeGuides: [...state.mergeGuides, ...addedMergeGuides],
+        windows: [
+            ...state.windows.map(cell => makeCell(cell.id, cell.type, cell.rect, cell.handleSide)),
+            makeCell(newId, type, newRect, handleSide),
+        ],
+    }, { defaultWidthM, defaultHeightM, edgeExtensionM: extension });
+}
+
 function sharedBoundary(a, b) {
     const yOverlap = intervalOverlap(a.rect.y0, a.rect.y1, b.rect.y0, b.rect.y1);
     const xOverlap = intervalOverlap(a.rect.x0, a.rect.x1, b.rect.x0, b.rect.x1);
@@ -898,7 +1057,8 @@ export function canDeleteWindowFromState(stateValue, cellId) {
     const target = getCell(state, cellId);
     if (!target || state.windows.length <= 1) return false;
     const remainingWindows = state.windows.filter(cell => cell.id !== target.id);
-    return windowsFormSingleConnectedStructure(remainingWindows);
+    return windowsFormSingleConnectedStructure(remainingWindows)
+        && windowsFillRectangularBounds(remainingWindows);
 }
 
 function transPairKey(cellAId, cellBId) {
@@ -1196,41 +1356,6 @@ function deriveGridLinePieces(state) {
     return Object.freeze(pieces);
 }
 
-function splitFrameEdgeForAddCandidates(state, edge) {
-    const breaks = [edge.start, edge.end];
-
-    (state.mergeGuides || []).forEach(guide => {
-        if (edge.orientation === 'horizontal' && guide.orientation === 'vertical') {
-            const reachesEdge = nearlyEqual(guide.start, edge.coordinate)
-                || nearlyEqual(guide.end, edge.coordinate);
-            if (reachesEdge && guide.coordinate > edge.start + EPSILON && guide.coordinate < edge.end - EPSILON) {
-                breaks.push(guide.coordinate);
-            }
-            return;
-        }
-
-        if (edge.orientation === 'vertical' && guide.orientation === 'horizontal') {
-            const reachesEdge = nearlyEqual(guide.start, edge.coordinate)
-                || nearlyEqual(guide.end, edge.coordinate);
-            if (reachesEdge && guide.coordinate > edge.start + EPSILON && guide.coordinate < edge.end - EPSILON) {
-                breaks.push(guide.coordinate);
-            }
-        }
-    });
-
-    const sorted = [...new Set(breaks.map(value => topologyCoordinateKey(value)))]
-        .map(Number)
-        .sort((a, b) => a - b);
-    const pieces = [];
-    for (let index = 0; index + 1 < sorted.length; index += 1) {
-        const start = sorted[index];
-        const end = sorted[index + 1];
-        if (end <= start + EPSILON) continue;
-        pieces.push({ start, end });
-    }
-    return pieces;
-}
-
 export function deriveWindowTopology(stateValue) {
     const state = normalizeWindowState(stateValue);
     const linePieces = deriveGridLinePieces(state);
@@ -1284,19 +1409,42 @@ export function deriveWindowTopology(stateValue) {
         }
     }
 
+    const bounds = stateBounds(state.windows);
     const addCandidates = state.windows.length >= MAX_WINDOW_CELLS
+        || !windowsFillRectangularBounds(state.windows)
         ? []
-        : frameEdges.flatMap(edge => splitFrameEdgeForAddCandidates(state, edge).map((piece, index) => Object.freeze({
-            id: `add-${edge.id}-${topologyCoordinateKey(piece.start)}-${topologyCoordinateKey(piece.end)}`,
-            frameEdgeId: edge.id,
-            cellId: edge.cellId,
-            direction: edge.side,
-            side: edge.side,
-            coordinate: edge.coordinate,
-            start: piece.start,
-            end: piece.end,
-            segmentIndex: index,
-        })));
+        : ['left', 'right', 'top', 'bottom'].flatMap(direction => {
+            const pieces = getOuterSidePieces(state, direction);
+            if (!pieces.length) return [];
+            const horizontal = direction === 'top' || direction === 'bottom';
+            const coordinate = direction === 'top'
+                ? bounds.y1
+                : direction === 'bottom'
+                    ? bounds.y0
+                    : direction === 'right'
+                        ? bounds.x1
+                        : bounds.x0;
+            const start = horizontal ? bounds.x0 : bounds.y0;
+            const end = horizontal ? bounds.x1 : bounds.y1;
+            const sideFrameEdges = frameEdges.filter(edge => (
+                edge.side === direction
+                && nearlyEqual(edge.coordinate, coordinate)
+                && edge.end > start + EPSILON
+                && edge.start < end - EPSILON
+            ));
+            return [Object.freeze({
+                id: `add-side-${direction}`,
+                frameEdgeId: sideFrameEdges[0]?.id || null,
+                frameEdgeIds: Object.freeze(sideFrameEdges.map(edge => edge.id)),
+                cellId: pieces[0].cellId,
+                direction,
+                side: direction,
+                coordinate,
+                start,
+                end,
+                wholeSide: true,
+            })];
+        });
 
     return Object.freeze({
         version: WINDOW_STATE_VERSION,
@@ -1524,7 +1672,7 @@ export function deleteWindowFromState(stateValue, { cellId } = {}) {
         throw new Error('At least one window must remain in the layout.');
     }
     if (!canDeleteWindowFromState(state, target.id)) {
-        throw new Error('Deleting this window would split the window structure into separate parts.');
+        throw new Error('Deleting this window would make the layout non-rectangular or disconnected.');
     }
 
     const preservedSizes = new Map(

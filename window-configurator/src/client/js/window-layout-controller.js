@@ -9,7 +9,7 @@ import {
     DEFAULT_WINDOW_EDGE_EXTENSION_M,
     FIXED_WINDOW_TYPE,
     SASH_WINDOW_TYPE,
-    addWindowToState,
+    addWindowSideToState,
     classifyWindowState,
     createWindowStateFromLayoutDefinition,
     deriveWindowTopology,
@@ -451,13 +451,10 @@ export function createWindowLayoutController({
 
     async function addWindow(cellId, direction, type, { handleSide = null, start = null, end = null, notify = true } = {}) {
         const previous = getConfigurationSnapshot();
-        windowState = addWindowToState(windowState, {
-            cellId,
+        windowState = addWindowSideToState(windowState, {
             direction,
             type,
             handleSide,
-            start,
-            end,
             defaultWidthM: DEFAULT_NEW_WINDOW_WIDTH_M,
             defaultHeightM: DEFAULT_NEW_WINDOW_HEIGHT_M,
             edgeExtensionM,

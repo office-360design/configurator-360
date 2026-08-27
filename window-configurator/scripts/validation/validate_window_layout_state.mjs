@@ -2,6 +2,7 @@ import {
     FIXED_WINDOW_TYPE,
     MAX_WINDOW_CELLS,
     SASH_WINDOW_TYPE,
+    addWindowSideToState,
     addWindowToState,
     canDeleteWindowFromState,
     classifyWindowState,
@@ -64,6 +65,51 @@ assert(
     'Changing width alone must never modify the row height.'
 );
 
+let rectangleSideAddState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+rectangleSideAddState = addWindowToState(rectangleSideAddState, {
+    cellId: 'w1',
+    direction: 'right',
+    type: FIXED_WINDOW_TYPE,
+});
+const rectangleSideTopology = deriveWindowTopology(rectangleSideAddState);
+const topSideAdd = rectangleSideTopology.addCandidates.find(candidate => candidate.direction === 'top');
+const bottomSideAdd = rectangleSideTopology.addCandidates.find(candidate => candidate.direction === 'bottom');
+assert(
+    rectangleSideTopology.addCandidates.length === 4
+        && topSideAdd?.start === 0 && topSideAdd?.end === 2
+        && bottomSideAdd?.start === 0 && bottomSideAdd?.end === 2,
+    'A two-bay rectangle must expose exactly one add button per outer side, with top and bottom spanning both bays.'
+);
+rectangleSideAddState = addWindowSideToState(rectangleSideAddState, {
+    direction: 'top',
+    type: FIXED_WINDOW_TYPE,
+});
+const fullTopCell = rectangleSideAddState.windows.find(windowCell => (
+    windowCell.rect.x0 === 0
+    && windowCell.rect.x1 === 2
+    && windowCell.rect.y0 === 1
+    && windowCell.rect.y1 === 2
+));
+assert(
+    rectangleSideAddState.windows.length === 3 && fullTopCell,
+    'Pressing the single top add button must create one merged window across the complete layout width.'
+);
+assert(
+    Math.abs(getWindowActualSizeInState(rectangleSideAddState, fullTopCell?.id)?.widthM - 1.2) < 1e-9
+        && Math.abs(getWindowActualSizeInState(rectangleSideAddState, fullTopCell?.id)?.heightM - 0.9) < 1e-9,
+    'The merged side window must inherit the full 1200 mm layout width and use the normal 900 mm new-row height.'
+);
+assert(
+    getWindowUnmergeGuide(rectangleSideAddState, fullTopCell?.id)?.orientation === 'vertical',
+    'A full-width side window added over two columns must retain the internal column boundary so it can be unmerged.'
+);
+const unmergedTopSideState = unmergeWindowInState(rectangleSideAddState, { cellId: fullTopCell?.id });
+assert(
+    unmergedTopSideState.windows.length === 4
+        && unmergedTopSideState.windows.filter(windowCell => windowCell.rect.y0 === 1).length === 2,
+    'Unmerging the newly added full-width side window must restore two normal top windows.'
+);
+
 const deletedPair = deleteWindowFromState(sizedPair, { cellId: 'w1' });
 assert(
     deletedPair.windows.length === 1
@@ -113,8 +159,8 @@ deleteLoopState = addWindowToState(deleteLoopState, { cellId: 'w1', direction: '
 deleteLoopState = addWindowToState(deleteLoopState, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
 deleteLoopState = addWindowToState(deleteLoopState, { cellId: 'w2', direction: 'top', type: FIXED_WINDOW_TYPE });
 assert(
-    canDeleteWindowFromState(deleteLoopState, 'w1') === true,
-    'Deleting one corner of a 2x2 block must stay allowed because the other three windows remain edge-connected.'
+    canDeleteWindowFromState(deleteLoopState, 'w1') === false,
+    'Deleting one corner of a 2x2 block must be rejected because it would leave an L-shaped outer layout.'
 );
 
 let customAddState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
@@ -230,12 +276,12 @@ assert(cell(state, 'w3').rect.x0 === 0 && cell(state, 'w3').rect.x1 === 1 && cel
 topology = deriveWindowTopology(state);
 assert(topology.dividers.length === 2, 'A three-window L has exactly two cell-to-cell mullion segments.');
 assert(topology.mergeCandidates.length === 2, 'Both adjacent pairs of a three-window L should be mergeable when each pair forms a rectangle.');
-assert(topology.addCandidates.length > 0, 'Adding windows must remain available after three windows.');
+assert(topology.addCandidates.length === 0, 'Legacy non-rectangular layouts must not expose add buttons that can extend the L shape.');
 
 state = addWindowToState(state, { cellId: 'w2', direction: 'top', type: SASH_WINDOW_TYPE });
 assert(state.windows.length === 4, 'A fourth window must be addable; the editable layout is not limited to three windows.');
 assert(classifyWindowState(state).kind === 'grid', 'A four-window 2x2 assembly must use generic grid classification.');
-assert(deriveWindowTopology(state).addCandidates.length > 0, 'Add buttons must remain available beyond four windows.');
+assert(deriveWindowTopology(state).addCandidates.length === 4, 'A rectangular 2x2 assembly must expose exactly one add button per outer side.');
 
 const normalizedFour = normalizeWindowState({
     dividerProfileId: state.dividerProfileId,
@@ -332,31 +378,26 @@ const mergedBottomAdds = mergedTopology.addCandidates
     .filter(candidate => candidate.cellId === 'w1' && candidate.direction === 'bottom')
     .sort((a, b) => a.start - b.start);
 assert(
-    mergedTopAdds.length === 2
-        && mergedTopAdds[0].start === 0 && mergedTopAdds[0].end === 1
-        && mergedTopAdds[1].start === 1 && mergedTopAdds[1].end === 2,
-    'Merging two side-by-side windows must keep two separate add positions along the merged top edge.'
+    mergedTopAdds.length === 1
+        && mergedTopAdds[0].start === 0 && mergedTopAdds[0].end === 2,
+    'A merged two-bay window must expose one top add button spanning the complete layout width.'
 );
 assert(
-    mergedBottomAdds.length === 2
-        && mergedBottomAdds[0].start === 0 && mergedBottomAdds[0].end === 1
-        && mergedBottomAdds[1].start === 1 && mergedBottomAdds[1].end === 2,
-    'Merging two side-by-side windows must keep two separate add positions along the merged bottom edge.'
+    mergedBottomAdds.length === 1
+        && mergedBottomAdds[0].start === 0 && mergedBottomAdds[0].end === 2,
+    'A merged two-bay window must expose one bottom add button spanning the complete layout width.'
 );
-const mergedWithNeighbour = addWindowToState(mergeState, {
-    cellId: 'w1',
+const mergedWithNeighbour = addWindowSideToState(mergeState, {
     direction: 'top',
     type: FIXED_WINDOW_TYPE,
-    start: mergedTopAdds[1].start,
-    end: mergedTopAdds[1].end,
 });
 const mergedNeighbour = mergedWithNeighbour.windows.find(windowCell => windowCell.id !== 'w1');
 assert(
-    mergedNeighbour?.rect.x0 === 1
+    mergedNeighbour?.rect.x0 === 0
         && mergedNeighbour?.rect.x1 === 2
         && mergedNeighbour?.rect.y0 === 1
         && mergedNeighbour?.rect.y1 === 2,
-    'Adding next to one half of a merged window must create one normal bay, not another merged-width window.'
+    'Adding on the top side must create one merged-width window spanning the complete side.'
 );
 
 let transState = createSingleWindowState({ type: SASH_WINDOW_TYPE, handleSide: 'left', transProfileId: '575830' });

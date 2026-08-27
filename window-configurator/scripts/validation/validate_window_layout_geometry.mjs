@@ -1561,8 +1561,8 @@ function assertPartialMergedPerimeter({ windows, mergeA, mergeB, side, start, en
     );
     const addCandidate = topology.addCandidates.find(candidate => candidate.frameEdgeId === edge?.id);
     assert(
-        Boolean(addCandidate),
-        `${label} must keep the reconstructed frame line usable as an add-window edge.`
+        !addCandidate,
+        `${label} must not expose an add button on a partial L-shaped perimeter edge.`
     );
 
     const frameSpan = 0.075;
