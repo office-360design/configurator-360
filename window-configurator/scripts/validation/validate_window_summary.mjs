@@ -82,6 +82,23 @@ function build(snapshot, overrides = {}) {
     assert.ok(result.totals.total > 0);
 }
 
+
+{
+    // Two 600 x 900 fixed windows side by side: each top/bottom glazing bead
+    // terminates at one 32 mm outer-frame side and one 19 mm mullion side.
+    let state = createSingleWindowState({ type: 'fixed-glazing', dividerProfileId: '575800' });
+    state = addWindowToState(state, { cellId: 'w1', direction: 'right', type: 'fixed-glazing' });
+    const layoutState = { windowState: state, topology: deriveWindowTopology(state), dividerProfileId: '575800', transProfileId: '575820' };
+    const result = build(makeSnapshot(layoutState, {
+        fixedCells: state.windows.map(cell => ({ id: cell.id, width: 0.6, height: 0.9 })),
+    }));
+    const w1Beads = result.cuts.filter(cut => cut.category === 'bead' && cut.windowNumber === 1);
+    const horizontal = w1Beads.filter(cut => cut.orientation === 'horizontal').map(cut => Number(cut.lengthM.toFixed(3)));
+    const vertical = w1Beads.filter(cut => cut.orientation === 'vertical').map(cut => Number(cut.lengthM.toFixed(3)));
+    assert.deepEqual(horizontal, [0.549, 0.549], '600 - 32 - 19 = 549 mm for frame-to-mullion fixed glazing beads.');
+    assert.deepEqual(vertical, [0.836, 0.836], '900 - 32 - 32 = 836 mm where both bead ends terminate at outer frames.');
+}
+
 {
     const state = createWindowStateFromLayoutDefinition(
         getWindowLayoutDefinition('top-fixed-bottom-sash-sash'),
@@ -186,8 +203,8 @@ function build(snapshot, overrides = {}) {
     const fixedBeads = result.cuts.filter(cut => cut.category === 'bead' && cut.windowNumber === 4);
     assert.deepEqual(
         fixedBeads.map(cut => Number(cut.lengthM.toFixed(3))).sort((a, b) => a - b),
-        [0.541, 0.541, 0.841, 0.841],
-        'A 600 x 900 corner fixed light uses 32 mm frame-side and 27 mm mullion-side glazing-bead saw offsets, not renderer connection spans.'
+        [0.549, 0.549, 0.849, 0.849],
+        'A 600 x 900 corner fixed light uses 32 mm frame-side and 19 mm mullion-side glazing-bead saw offsets, not renderer connection spans.'
     );
 
     const verticalMullion = result.cuts.find(cut => cut.category === 'mullion' && cut.orientation === 'vertical');

@@ -31,6 +31,8 @@ export const WINDOW_PROFILE_MANUFACTURING_DATA = Object.freeze({
 // the LONG POINT of the 45° mitre cut, not the physical mounting-line offsets
 // used by the renderer. The section drawings show:
 // - fixed glazing bead at an outer frame: 32 mm per frame side;
+// - fixed glazing bead at a mullion/transom: 19 mm per divider side
+//   (half of the 38 mm inner profile width);
 // - sash cut length at an outer frame: 27 mm per frame side;
 // - sash glazing bead: another 49 mm per sash side, measured from the sash
 //   mitre long-point dimension;
@@ -38,7 +40,7 @@ export const WINDOW_PROFILE_MANUFACTURING_DATA = Object.freeze({
 // - double-vent profile length: h - 80 mm (fabrication drawing K1036297).
 const AW_CT65_CUT_OFFSETS_MM = Object.freeze({
     fixedBeadFromFrame: 32,
-    fixedBeadFromMullion: 27,
+    fixedBeadFromMullion: 19,
     sashFromFrame: 27,
     sashFromMullion: 49,
     sashFromTrans: 38.5,
