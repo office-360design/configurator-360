@@ -22,6 +22,7 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
         </div>
         <div className="footer-links">
           <span>{copy.contactLabel}</span>
+          <a href={localizedPath(locale, "/pricing")}>{copy.pricing}</a>
           <a href={localizedPath(locale, "/about")}>{copy.about}</a>
           <a href={localizedPath(locale, "/contact")}>{copy.contact}</a>
           <a href={`mailto:${email}`}>{email}</a>

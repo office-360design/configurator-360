@@ -2,15 +2,21 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import { buildPergola } from "../lib/scenes/pergola-builder.js";
 import { DEFAULT_STATE } from "../lib/scenes/pergola-state.js";
 import { buildPoleGrid } from "../lib/scenes/pergola-layout.js";
-import { buildRoofModel } from "../lib/scenes/roof-factory.js";
+// Use the configurator's source directly so the homepage can never lag behind
+// the production roof geometry/material implementation.
+import { buildRoofModel } from "../../roof-configurator/js/roofFactory.js";
 import { calculatePrice as calculatePergolaPrice } from "../lib/scenes/pergola-pricing.js";
-import { calculateBom } from "../lib/scenes/roof-bom.js";
+import { calculateBom } from "../../roof-configurator/js/bom.js";
+import { getFallbackCurrencyRate, resolveCurrencyRate } from "../../roof-configurator/js/preferences.js";
 import {
   buildHallPreview,
+  buildFencePreview,
   buildSolarPreview,
+  createFencePreviewState,
   createHallPreviewState,
   createSolarPreviewState,
   type HallPreviewState,
@@ -194,11 +200,17 @@ function buildPergolaInto(wrapper: THREE.Group, state: typeof DEFAULT_STATE) {
 }
 
 function createRoofState() {
+  const language = document.documentElement.lang.toLowerCase();
+  const locale = language.startsWith("ro") ? "ro-RO" : language.startsWith("de") ? "de-DE" : "en-US";
+  const currency = locale === "ro-RO" ? "RON" : locale === "de-DE" ? "EUR" : "USD";
   return {
     roofType: "lshape", length: 10, depth: 7, wallHeight: 3, pitch: 30, overhang: 0.4,
-    covering: "generic", roofColor: "#263a49", showDimensions: false,
+    covering: "generic", roofColor: "#7f1d2d", showDimensions: false,
     technicalEdges: true, showCompass: false, sunPosition: 42,
     northDirection: 108, nightPreview: false, customPlan: null,
+    locale, currency, currencyRate: getFallbackCurrencyRate(currency), currencyRateDate: null,
+    currencyRateSource: currency === "RON" ? "reference" : "temporary-fallback", currencyRateIsFallback: currency !== "RON",
+    excludedBomItems: [],
   };
 }
 
@@ -216,6 +228,10 @@ function emitPrice(scene: ConfiguratorSlug, total: number, currency: string) {
   window.dispatchEvent(new CustomEvent("configurator-price", { detail: { scene, total, currency } }));
 }
 
+function emitRoofBom(state: ReturnType<typeof createRoofState>, metrics: unknown) {
+  window.dispatchEvent(new CustomEvent("roof-bom", { detail: calculateBom(state, metrics) }));
+}
+
 function makeWindowShell() {
   const wrapper = new THREE.Group();
   wrapper.name = "window";
@@ -231,6 +247,7 @@ export function WebGLStage() {
   const host = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    RectAreaLightUniformsLib.init();
     if (!host.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const container = host.current;
     const scene = new THREE.Scene();
@@ -276,6 +293,10 @@ export function WebGLStage() {
     addEnvironmentPanel([-8, 5, 5], [0.08, 5, 4], 0xfff0d6, 18);
     addEnvironmentPanel([7, 2, 3], [0.08, 3.5, 5], 0x9dd8ff, 11);
     addEnvironmentPanel([0, 8, -2], [5, 0.08, 3], 0xffffff, 14);
+    // Front softbox: the default fence camera looks from +Z, so this creates
+    // the long, controlled coating reflection that was previously visible only
+    // from beneath the model. It is baked into the PMREM, not evaluated per frame.
+    addEnvironmentPanel([-2.2, 4.2, 10], [1.35, 4.2, 0.08], 0xffe7c7, 19);
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     const environmentTarget = pmremGenerator.fromScene(environmentScene, 0.035);
     scene.environment = environmentTarget.texture;
@@ -290,6 +311,7 @@ export function WebGLStage() {
     const roofState = createRoofState();
     const hallState = createHallPreviewState();
     const solarState = createSolarPreviewState();
+    const fenceState = createFencePreviewState();
     let solarEnvironment: SolarEnvironmentData | null = null;
     let solarEnvironmentRequest: AbortController | null = null;
     const groups: Record<ConfiguratorSlug, THREE.Group> = {
@@ -298,11 +320,13 @@ export function WebGLStage() {
       window: makeWindowShell(),
       hall: new THREE.Group(),
       solar: new THREE.Group(),
+      fence: new THREE.Group(),
     };
     groups.pergola.name = "pergola";
     groups.roof.name = "roof";
     groups.hall.name = "hall";
     groups.solar.name = "solar";
+    groups.fence.name = "fence";
     const builtScenes = new Set<ConfiguratorSlug>(["window"]);
     Object.values(groups).forEach((group) => {
       group.scale.setScalar(0.001);
@@ -323,6 +347,8 @@ export function WebGLStage() {
 
     const hemisphere = new THREE.HemisphereLight(0xffffff, 0x8d99a6, 0.92);
     scene.add(hemisphere);
+    const ambient = new THREE.AmbientLight(0xffffff, 0);
+    scene.add(ambient);
     const key = new THREE.DirectionalLight(0xfff1dc, 3.15);
     key.position.set(4.5, 6.5, 7); key.castShadow = true;
     const shadowMapSize = lowCoreDevice ? 1024 : 1536;
@@ -331,6 +357,23 @@ export function WebGLStage() {
     const rim = new THREE.DirectionalLight(0x6fc4ff, 1.85); rim.position.set(4, 4.5, -6); scene.add(rim);
     const cool = new THREE.DirectionalLight(0xb7d9ff, 1.25); cool.position.set(-5.5, 2.5, 4); scene.add(cool);
     const warm = new THREE.PointLight(0xffffff, 0.55, 12, 1.5); warm.position.set(0, 5, 1.2); scene.add(warm);
+    // A three-panel product-photography rig follows the fence viewing side.
+    // Area lights create a broad coating gradient instead of the tiny hotspot
+    // produced by the previous spotlight, while a rear strip keeps posts and
+    // panel edges separated from the pale stage.
+    const fenceAreaKey = new THREE.RectAreaLight(0xf8fbff, 0, 4.6, 4.2);
+    const fenceAreaFill = new THREE.RectAreaLight(0xcfe3ff, 0, 4.4, 3.6);
+    const fenceAreaRim = new THREE.RectAreaLight(0xfff1dc, 0, 6.2, 1.8);
+    const fenceSpot = new THREE.SpotLight(0xfff7e8, 0, 32, Math.PI / 6.5, 0.82, 1.35);
+    const fenceSpotTarget = new THREE.Object3D();
+    scene.add(fenceAreaKey, fenceAreaFill, fenceAreaRim, fenceSpot, fenceSpotTarget);
+    fenceSpot.target = fenceSpotTarget;
+    const fenceViewDirection = new THREE.Vector3();
+    const fenceViewRight = new THREE.Vector3();
+    const fenceViewUp = new THREE.Vector3();
+    const fenceWorldUp = new THREE.Vector3(0, 1, 0);
+    const fenceKeyColor = new THREE.Color(0xf6fbff);
+    const warmKeyColor = new THREE.Color(0xfff1dc);
 
     let active: SceneKey = "engine";
     let desiredActive: SceneKey = "engine";
@@ -349,11 +392,30 @@ export function WebGLStage() {
       // Lift the configured house and its closest context above the compact
       // instrument console while retaining the wider geographic overview.
       solar: { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: -4.05 },
+      fence: { yaw: 0, pitch: 0, zoom: 1, panX: 0, panY: -0.35 },
     };
     let pergolaRebuildTimer = 0;
     let roofRebuildTimer = 0;
     let hallRebuildTimer = 0;
     let solarRebuildTimer = 0;
+    let fenceRebuildTimer = 0;
+    let roofRateRequested = false;
+
+    function requestRoofCurrencyRate() {
+      if (roofRateRequested || roofState.currency === "RON") return;
+      roofRateRequested = true;
+      resolveCurrencyRate(roofState.currency).then((rateInfo) => {
+        if (disposed) return;
+        roofState.currencyRate = rateInfo.rate;
+        roofState.currencyRateDate = rateInfo.date || null;
+        roofState.currencyRateSource = rateInfo.source;
+        roofState.currencyRateIsFallback = Boolean(rateInfo.isFallback);
+        if (!builtScenes.has("roof")) return;
+        const bom = calculateBom(roofState, groups.roof.userData.metrics);
+        emitPrice("roof", bom.total, bom.currency);
+        window.dispatchEvent(new CustomEvent("roof-bom", { detail: bom }));
+      });
+    }
 
     function applyPergolaEnvironment(night: boolean) {
       pergolaState.roof.louverTilt = night ? 34 : 0;
@@ -382,7 +444,9 @@ export function WebGLStage() {
         if (oldModel) { groups.roof.remove(oldModel); disposeObject(oldModel); }
         const metrics = buildRoofInto(groups.roof, roofState);
         applyGroundTheme(groups.roof, document.documentElement.dataset.theme === "light");
-        emitPrice("roof", calculateBom(roofState, metrics).total, "RON");
+        const bom = calculateBom(roofState, metrics);
+        emitPrice("roof", bom.total, bom.currency);
+        window.dispatchEvent(new CustomEvent("roof-bom", { detail: bom }));
       }, 45);
     }
 
@@ -414,6 +478,17 @@ export function WebGLStage() {
       if (key === "hall") hallRebuildTimer = next; else solarRebuildTimer = next;
     }
 
+    function rebuildFence() {
+      window.clearTimeout(fenceRebuildTimer);
+      fenceRebuildTimer = window.setTimeout(() => {
+        const oldModel = groups.fence.userData.model as THREE.Object3D;
+        if (oldModel) { groups.fence.remove(oldModel); disposeObject(oldModel); }
+        buildExtendedInto(groups.fence, buildFencePreview(fenceState), 8.8);
+        applyGroundTheme(groups.fence, document.documentElement.dataset.theme === "light");
+        window.dispatchEvent(new CustomEvent("fence-metrics", { detail: groups.fence.userData.metrics }));
+      }, 42);
+    }
+
     function ensureSceneBuilt(sceneName: ConfiguratorSlug) {
       if (builtScenes.has(sceneName)) return;
       if (sceneName === "pergola") {
@@ -421,12 +496,16 @@ export function WebGLStage() {
         emitPrice("pergola", calculatePergolaPrice(pergolaState).total, "USD");
       } else if (sceneName === "roof") {
         const metrics = buildRoofInto(groups.roof, roofState);
-        emitPrice("roof", calculateBom(roofState, metrics).total, "RON");
+        { const bom = calculateBom(roofState, metrics); emitPrice("roof", bom.total, bom.currency); }
+        requestRoofCurrencyRate();
       } else if (sceneName === "hall") {
         buildExtendedInto(groups.hall, buildHallPreview(hallState), 8.5);
       } else if (sceneName === "solar") {
         buildExtendedInto(groups.solar, buildSolarPreview(solarState, solarEnvironment), 7.1);
         window.dispatchEvent(new CustomEvent("solar-metrics", { detail: groups.solar.userData.metrics }));
+      } else if (sceneName === "fence") {
+        buildExtendedInto(groups.fence, buildFencePreview(fenceState), 8.8);
+        window.dispatchEvent(new CustomEvent("fence-metrics", { detail: groups.fence.userData.metrics }));
       }
       applyGroundTheme(groups[sceneName], document.documentElement.dataset.theme === "light");
       builtScenes.add(sceneName);
@@ -551,9 +630,13 @@ export function WebGLStage() {
         rebuildPergola();
       }
       if (detail.scene === "roof") {
+        if (detail.control === "requestBom") {
+          emitRoofBom(roofState, groups.roof.userData.metrics);
+          return;
+        }
         if (detail.control === "requestPrice") {
           const metrics = groups.roof.userData.metrics;
-          emitPrice("roof", calculateBom(roofState, metrics).total, "RON");
+          { const bom = calculateBom(roofState, metrics); emitPrice("roof", bom.total, bom.currency); }
           return;
         }
         if (detail.control === "length") roofState.length = Number(detail.value);
@@ -567,6 +650,12 @@ export function WebGLStage() {
           roofState.covering = preset === "slate" ? "teclado" : preset === "oxide" ? "roca" : "generic";
           roofState.roofColor = preset === "slate" ? "#354650" : preset === "oxide" ? "#7b4038" : "#263a49";
         }
+        if (detail.control === "materialPreset") {
+          const preset = String(detail.value);
+          roofState.covering = preset;
+          roofState.pitch = Math.max(roofState.pitch, preset === "roca" ? 14 : preset === "teclado" ? 18 : 5);
+        }
+        if (detail.control === "roofColor") roofState.roofColor = String(detail.value);
         rebuildRoof();
       }
       if (detail.scene === "hall") {
@@ -612,6 +701,25 @@ export function WebGLStage() {
         if (detail.control === "nudgeEast") solarState.environmentLocalEastM = Number(detail.value);
         if (detail.control === "nudgeNorth") solarState.environmentLocalNorthM = Number(detail.value);
         rebuildExtended("solar");
+      }
+      if (detail.scene === "fence") {
+        if (detail.control === "layout") fenceState.layout = String(detail.value);
+        if (detail.control === "runA") fenceState.runA = Number(detail.value);
+        if (detail.control === "runB") fenceState.runB = Number(detail.value);
+        if (detail.control === "runC") fenceState.runC = Number(detail.value);
+        if (detail.control === "runD") fenceState.runD = Number(detail.value);
+        if (detail.control === "angleB") fenceState.angleB = Number(detail.value);
+        if (detail.control === "height") fenceState.height = Number(detail.value);
+        if (detail.control === "targetBayWidth") fenceState.targetBayWidth = Number(detail.value);
+        if (detail.control === "panelStyle") fenceState.panelStyle = String(detail.value);
+        if (detail.control === "finish") fenceState.finish = String(detail.value);
+        if (detail.control === "infillGap") fenceState.infillGap = Number(detail.value);
+        if (detail.control === "foundation") fenceState.foundation = String(detail.value);
+        if (detail.control === "gateType") {
+          const type = String(detail.value);
+          fenceState.gates = type === "none" ? [] : [{ id: "gate-1", type, runId: "a", position: 1, handing: "right" }];
+        }
+        rebuildFence();
       }
     }
     function onOrbit(event: Event) {
@@ -727,7 +835,7 @@ export function WebGLStage() {
         frameSampleCount = 0;
         // A coarse/mobile viewport wakes this loop via scroll or resize. Avoid
         // spending even a low-frequency render budget while the canvas is offscreen.
-        if (!compact) scheduleFrame(500);
+        if (!compactViewport) scheduleFrame(500);
         return;
       }
       const handingOff = desiredActive !== active;
@@ -752,13 +860,21 @@ export function WebGLStage() {
       const darkSolar = active === "solar" && solarState.nightPreview;
       const nightScene = darkPergola || darkSolar;
       const solarDay = active === "solar" && !darkSolar;
-      hemisphere.intensity += ((nightScene ? 0.27 : solarDay ? 0.62 : 0.92) - hemisphere.intensity) * 0.08;
-      key.intensity += ((nightScene ? 1.08 : 3.15) - key.intensity) * 0.08;
-      rim.intensity += ((nightScene ? 0.68 : solarDay ? 1.05 : 1.85) - rim.intensity) * 0.08;
-      cool.intensity += ((nightScene ? 0.24 : solarDay ? 0.58 : 1.25) - cool.intensity) * 0.08;
+      const fenceScene = active === "fence";
+      const roofScene = active === "roof";
+      // Roof materials use one neutral product-lighting balance for every
+      // topology. Shape-dependent intensities made the same finish look pale
+      // on one roof and almost black on another.
+      hemisphere.intensity += ((nightScene ? 0.27 : solarDay ? 0.62 : fenceScene ? 0.56 : roofScene ? 1.45 : 0.92) - hemisphere.intensity) * 0.08;
+      ambient.intensity += ((roofScene ? 0.45 : 0) - ambient.intensity) * 0.08;
+      key.intensity += ((nightScene ? 1.08 : fenceScene ? 1.35 : roofScene ? 0.95 : 3.15) - key.intensity) * 0.08;
+      key.color.lerp(fenceScene ? fenceKeyColor : warmKeyColor, 0.08);
+      rim.intensity += ((nightScene ? 0.68 : solarDay ? 1.05 : fenceScene ? 0.38 : roofScene ? 0.18 : 1.85) - rim.intensity) * 0.08;
+      cool.intensity += ((nightScene ? 0.24 : solarDay ? 0.58 : fenceScene ? 0.3 : roofScene ? 0.18 : 1.25) - cool.intensity) * 0.08;
       // The configurable perimeter and integrated fixtures live in the pergola model.
       // Keep the global studio fill neutral so "lights off" still reads as night.
-      warm.intensity += ((nightScene ? 0.12 : solarDay ? 0.24 : 0.55) - warm.intensity) * 0.08;
+      warm.intensity += ((nightScene ? 0.12 : solarDay ? 0.24 : fenceScene ? 0.04 : roofScene ? 0.03 : 0.55) - warm.intensity) * 0.08;
+      scene.environmentIntensity += ((roofScene ? 0.28 : 1) - scene.environmentIntensity) * 0.08;
       if (active === "solar") {
         const sun = solarDirection(
           solarState.simulationDate,
@@ -769,6 +885,10 @@ export function WebGLStage() {
         );
         key.position.set(sun.x, Math.max(.35, sun.y), sun.z);
         key.intensity += (((sun.elevationDeg < 0 || solarState.nightPreview) ? .22 : 3.15) - key.intensity) * .12;
+      } else if (fenceScene) {
+        // A broad, camera-side key lets powder-coated metal read from the
+        // default elevated view instead of revealing its highlight only below.
+        key.position.lerp(new THREE.Vector3(9.5, 10.5, 13.5), .1);
       } else key.position.lerp(new THREE.Vector3(4.5, 6.5, 7), .08);
 
       if (active === "roof") {
@@ -777,6 +897,7 @@ export function WebGLStage() {
       }
       if (active === "hall") groups.hall.rotation.y += ((Math.PI - 0.38 + pointerX * .035) - groups.hall.rotation.y) * .045;
       if (active === "solar") groups.solar.rotation.y += ((-0.32 + pointerX * .035) - groups.solar.rotation.y) * .045;
+      if (active === "fence") groups.fence.rotation.y += ((-0.4 + pointerX * .035) - groups.fence.rotation.y) * .045;
 
       const desiredCamera = active === "pergola"
         ? new THREE.Vector3(9.8, 7.4, 14.8)
@@ -786,6 +907,8 @@ export function WebGLStage() {
             ? new THREE.Vector3(11.8, 7.2, 15.8)
           : active === "solar"
             ? new THREE.Vector3(11.8, 8.2, 16.6)
+          : active === "fence"
+            ? new THREE.Vector3(11.2, 7.4, 15.6)
           : active === "window"
             ? new THREE.Vector3(3.8, 2.6, 14.2)
             : new THREE.Vector3(4.6 - heroProgress * 1.4, 2.5 + heroProgress * 1.8, 14.8 - heroProgress * 4.5);
@@ -802,6 +925,35 @@ export function WebGLStage() {
       }
       camera.position.lerp(desiredCamera, 0.035);
       camera.lookAt(cameraTarget);
+      fenceViewDirection.subVectors(cameraTarget, camera.position).normalize();
+      fenceViewRight.crossVectors(fenceViewDirection, fenceWorldUp).normalize();
+      fenceViewUp.crossVectors(fenceViewRight, fenceViewDirection).normalize();
+      fenceAreaKey.intensity += ((fenceScene ? 13.4 : 0) - fenceAreaKey.intensity) * 0.1;
+      fenceAreaFill.intensity += ((fenceScene ? 2.1 : 0) - fenceAreaFill.intensity) * 0.1;
+      fenceAreaRim.intensity += ((fenceScene ? 4.4 : 0) - fenceAreaRim.intensity) * 0.1;
+      fenceSpot.intensity += ((fenceScene ? 210 : 0) - fenceSpot.intensity) * 0.1;
+      fenceAreaKey.position.copy(cameraTarget)
+        .addScaledVector(fenceViewDirection, -6.2)
+        .addScaledVector(fenceViewRight, -1.35)
+        .addScaledVector(fenceViewUp, 1.65);
+      fenceAreaFill.position.copy(cameraTarget)
+        .addScaledVector(fenceViewDirection, -6.5)
+        .addScaledVector(fenceViewRight, 5.2)
+        .addScaledVector(fenceViewUp, 0.8);
+      fenceAreaRim.position.copy(cameraTarget)
+        .addScaledVector(fenceViewDirection, 5.5)
+        .addScaledVector(fenceViewRight, 2.4)
+        .addScaledVector(fenceViewUp, 4.6);
+      fenceSpot.position.copy(cameraTarget)
+        .addScaledVector(fenceViewDirection, -6.4)
+        .addScaledVector(fenceViewRight, -1.9)
+        .addScaledVector(fenceViewUp, 2.15);
+      fenceSpotTarget.position.copy(cameraTarget)
+        .addScaledVector(fenceViewRight, 0.7)
+        .addScaledVector(fenceViewUp, 0.15);
+      fenceAreaKey.lookAt(cameraTarget);
+      fenceAreaFill.lookAt(cameraTarget);
+      fenceAreaRim.lookAt(cameraTarget);
 
       gridUniforms.uTime.value = clock;
       gridUniforms.uMomentum.value = momentum;
@@ -839,6 +991,7 @@ export function WebGLStage() {
       window.clearTimeout(roofRebuildTimer);
       window.clearTimeout(hallRebuildTimer);
       window.clearTimeout(solarRebuildTimer);
+      window.clearTimeout(fenceRebuildTimer);
       solarEnvironmentRequest?.abort();
       environmentTarget.dispose();
       renderer.dispose(); renderer.domElement.remove(); disposeScene(scene);

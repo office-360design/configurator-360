@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 PROJECT_ID="configurator-360"
 PROJECT_NUMBER="719238533149"
 DEPLOYER="github-deployer@configurator-360.iam.gserviceaccount.com"
@@ -13,6 +15,10 @@ CLOUD_BUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
 # Firebase Admin uses the IAM Service Account Credentials API to sign the
 # short-lived custom token used by cross-domain authentication handoff.
 gcloud services enable iamcredentials.googleapis.com --project="$PROJECT_ID" --quiet
+
+# Tier-1 provisioning also adds each customer hostname to Firebase Authentication
+# automatically. Keep that permission in a dedicated least-privilege custom role.
+bash "${SCRIPT_DIR}/setup-tenant-auth-domain-manager.sh"
 
 # Project-level permissions used by Firebase CLI for backend deployment.
 for ROLE in \

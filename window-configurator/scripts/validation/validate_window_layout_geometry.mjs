@@ -13,7 +13,7 @@ import {
     getFrameSidePlacements,
     getLinearDividerLayout,
     getTopFixedBottomSashSashLayout,
-    getEditableWindowTopologyGeometry,
+    getEditableWindowTopologyGeometry as resolveEditableWindowTopologyGeometry,
     getEditableCellInteriorPlacement,
     getEditableDividerSegmentPlacement,
     getEditableReentrantFramePlacement,
@@ -27,12 +27,22 @@ import {
     mergeWindowsInState,
     normalizeWindowState,
     setTransBetweenWindowsInState,
+    setWindowSizeInState,
 } from '../../src/client/js/window-layout-state.js';
 
 const errors = [];
 const assert = (condition, message) => {
     if (!condition) errors.push(message);
 };
+
+// Most geometry regression cases below pre-date per-row/per-column sizing and
+// deliberately exercise only the intersection/joint solver. Strip the new
+// track metadata there so those assertions continue to test the same legacy
+// coordinates. Dedicated sized-grid assertions are kept at the end.
+const getEditableWindowTopologyGeometry = options => resolveEditableWindowTopologyGeometry({
+    ...options,
+    topology: options?.topology ? { ...options.topology, gridTracks: null } : options?.topology,
+});
 
 const metrics = getDividerCrossSectionMetrics({
     minX: 56,
@@ -2804,16 +2814,16 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
     );
 }
 
-// Dynamic slider semantics: width/height are the complete dimensions of one
-// standalone framed window. A shared edge replaces one frame with a mullion, so
-// the topology grid pitch must be smaller by the constant frame face span. The
-// half-span is restored only on the global outer perimeter.
+// Sized-grid semantics: every column/row stores its own structural span. The
+// outside size of a cell adds 13 mm for each exposed frame side because the
+// 57 mm outer-frame face extends 57 - 88/2 beyond the mullion-centre grid.
 {
-    const sliderWidth = 1.2;
-    const sliderHeight = 1.5;
-    const frameSpan = 0.075;
-    const expectedCellWidth = sliderWidth - frameSpan;
-    const expectedCellHeight = sliderHeight - frameSpan;
+    const windowWidth = 0.6;
+    const windowHeight = 0.9;
+    const frameFaceSpan = 0.057;
+    const frameDepth = 0.065;
+    const dividerFaceSpan = 0.088;
+    const edgeExtension = frameFaceSpan - dividerFaceSpan / 2;
     const fixedFixedVariants = {
         'vertical:mullion-fixed-fixed:normal': {
             fixedGlazingConnections: {
@@ -2826,50 +2836,34 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
             },
         },
     };
-    const geometryFor = state => getEditableWindowTopologyGeometry({
-        width: sliderWidth,
-        height: sliderHeight,
+    const geometryFor = state => resolveEditableWindowTopologyGeometry({
+        width: windowWidth,
+        height: windowHeight,
         topology: deriveWindowTopology(state),
         dividerConnectionVariants: fixedFixedVariants,
-        frameReplacementSpan: frameSpan,
-        dividerFaceSpan: 0.088,
+        frameReplacementSpan: frameDepth,
+        frameFaceSpan,
+        frameInwardSpan: frameDepth,
+        dividerFaceSpan,
     });
-    const outerEnvelope = geometry => {
-        const frames = geometry.framePlacements || [];
-        const xs = [];
-        const ys = [];
-        frames.forEach(frame => {
-            if (frame.orientation === 'vertical') {
-                xs.push(frame.perpendicularOffset);
-                ys.push(frame.worldStart, frame.worldEnd);
-            } else {
-                ys.push(frame.perpendicularOffset);
-                xs.push(frame.worldStart, frame.worldEnd);
-            }
-        });
-        return {
-            minX: Math.min(...xs),
-            maxX: Math.max(...xs),
-            minY: Math.min(...ys),
-            maxY: Math.max(...ys),
-        };
-    };
 
     const standaloneState = normalizeWindowState({
         windows: [fixedCell('standalone', 0, 0, 1, 1)],
-    });
+    }, { defaultWidthM: windowWidth, defaultHeightM: windowHeight, edgeExtensionM: edgeExtension });
     const standaloneGeometry = geometryFor(standaloneState);
     const standaloneCell = standaloneGeometry.cells[0];
-    const standaloneEnvelope = outerEnvelope(standaloneGeometry);
     assert(
-        Math.abs(standaloneCell.width - expectedCellWidth) < 1e-9
-            && Math.abs(standaloneCell.height - expectedCellHeight) < 1e-9,
-        'Editable topology cell pitch must be one slider dimension minus the constant frame replacement span.'
+        Math.abs(standaloneCell.width - (windowWidth - edgeExtension * 2)) < 1e-9
+            && Math.abs(standaloneCell.height - (windowHeight - edgeExtension * 2)) < 1e-9
+            && Math.abs(standaloneCell.actualWidth - windowWidth) < 1e-9
+            && Math.abs(standaloneCell.actualHeight - windowHeight) < 1e-9
+            && Math.abs(standaloneGeometry.overallWidth - windowWidth) < 1e-9
+            && Math.abs(standaloneGeometry.overallHeight - windowHeight) < 1e-9,
+        'A standalone 600 x 900 window must use a reduced structural track but retain exactly 600 x 900 outside dimensions.'
     );
     assert(
-        Math.abs((standaloneEnvelope.maxX - standaloneEnvelope.minX) - sliderWidth) < 1e-9
-            && Math.abs((standaloneEnvelope.maxY - standaloneEnvelope.minY) - sliderHeight) < 1e-9,
-        'Reducing the topology cell pitch must not change the outside size of one standalone window shown by the sliders.'
+        Math.abs(standaloneGeometry.frameReferenceOffsetX - 0.013) < 1e-12,
+        'The sized grid must derive a 13 mm frame overhang from the 57 mm frame and 88 mm mullion faces.'
     );
 
     const adjacentState = normalizeWindowState({
@@ -2877,16 +2871,53 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
             fixedCell('left-module', 0, 0, 1, 1),
             fixedCell('right-module', 1, 0, 2, 1),
         ],
-    });
+    }, { defaultWidthM: windowWidth, defaultHeightM: windowHeight, edgeExtensionM: edgeExtension });
     const adjacentGeometry = geometryFor(adjacentState);
-    const adjacentEnvelope = outerEnvelope(adjacentGeometry);
     assert(
-        adjacentGeometry.cells.every(cell => Math.abs(cell.width - expectedCellWidth) < 1e-9)
-            && Math.abs(
-                (adjacentEnvelope.maxX - adjacentEnvelope.minX)
-                - (sliderWidth * 2 - frameSpan)
-            ) < 1e-9,
-        'Two adjacent windows must count the replaced shared frame only once instead of occupying two complete standalone slider widths.'
+        adjacentGeometry.cells.every(cell => (
+            Math.abs(cell.actualWidth - windowWidth) < 1e-9
+            && Math.abs(cell.actualHeight - windowHeight) < 1e-9
+        ))
+            && Math.abs(adjacentGeometry.overallWidth - 1.2) < 1e-9
+            && Math.abs(adjacentGeometry.overallHeight - 0.9) < 1e-9,
+        'Two default side-by-side windows must each remain 600 x 900 and make a 1200 x 900 outside layout.'
+    );
+
+    const resizedAdjacentState = setWindowSizeInState(adjacentState, 'left-module', {
+        widthM: 0.8,
+        edgeExtensionM: edgeExtension,
+    });
+    const resizedAdjacentGeometry = geometryFor(resizedAdjacentState);
+    const resizedLeft = resizedAdjacentGeometry.cells.find(cell => cell.id === 'left-module');
+    const unchangedRight = resizedAdjacentGeometry.cells.find(cell => cell.id === 'right-module');
+    assert(
+        Math.abs(resizedLeft.actualWidth - 0.8) < 1e-9
+            && Math.abs(unchangedRight.actualWidth - 0.6) < 1e-9
+            && Math.abs(resizedAdjacentGeometry.overallWidth - 1.4) < 1e-9,
+        'Changing one selected window width must resize its grid column without changing a different column.'
+    );
+
+    const gridState = normalizeWindowState({
+        windows: [
+            fixedCell('bl', 0, 0, 1, 1),
+            fixedCell('br', 1, 0, 2, 1),
+            fixedCell('tl', 0, 1, 1, 2),
+            fixedCell('tr', 1, 1, 2, 2),
+        ],
+    }, { defaultWidthM: windowWidth, defaultHeightM: windowHeight, edgeExtensionM: edgeExtension });
+    const resizedGridState = setWindowSizeInState(gridState, 'bl', {
+        widthM: 0.75,
+        heightM: 1.1,
+        edgeExtensionM: edgeExtension,
+    });
+    const resizedGridGeometry = geometryFor(resizedGridState);
+    const byId = id => resizedGridGeometry.cells.find(cell => cell.id === id);
+    assert(
+        Math.abs(byId('bl').actualWidth - 0.75) < 1e-9
+            && Math.abs(byId('tl').actualWidth - 0.75) < 1e-9
+            && Math.abs(byId('bl').actualHeight - 1.1) < 1e-9
+            && Math.abs(byId('br').actualHeight - 1.1) < 1e-9,
+        'Resizing a selected cell must resize every window in its shared column and row.'
     );
 
     const mergedState = mergeWindowsInState(adjacentState, {
@@ -2895,63 +2926,14 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
         type: 'fixed-glazing',
     });
     const mergedGeometry = geometryFor(mergedState);
-    const mergedEnvelope = outerEnvelope(mergedGeometry);
     assert(
         mergedGeometry.cells.length === 1
-            && Math.abs(mergedGeometry.cells[0].width - expectedCellWidth * 2) < 1e-9
-            && Math.abs(mergedEnvelope.minX - adjacentEnvelope.minX) < 1e-9
-            && Math.abs(mergedEnvelope.maxX - adjacentEnvelope.maxX) < 1e-9,
-        'Merging two side-by-side windows must preserve their exact pre-merge outside envelope; removing the mullion must not make the merged window wider.'
+            && Math.abs(mergedGeometry.cells[0].actualWidth - adjacentGeometry.overallWidth) < 1e-9
+            && Math.abs(mergedGeometry.overallWidth - adjacentGeometry.overallWidth) < 1e-9,
+        'Merging adjacent windows must preserve the exact pre-merge outside envelope.'
     );
 
-    const lState = normalizeWindowState({
-        windows: [
-            fixedCell('l-bottom-left', 0, 0, 1, 1),
-            fixedCell('l-top-left', 0, 1, 1, 2),
-            fixedCell('l-top-right', 1, 1, 2, 2),
-        ],
-    });
-    const lGeometry = geometryFor(lState);
-    assert(
-        lGeometry.cells.every(cell => (
-            Math.abs(cell.width - expectedCellWidth) < 1e-9
-            && Math.abs(cell.height - expectedCellHeight) < 1e-9
-        )),
-        'Every unmerged L cell, including the two-mullion corner cell, must use the same reduced one-window pitch.'
-    );
-    const lHorizontal = lGeometry.dividerSegments.find(divider => divider.orientation === 'horizontal');
-    const lVertical = lGeometry.dividerSegments.find(divider => divider.orientation === 'vertical');
-    const lRightFrame = lGeometry.framePlacements.find(frame =>
-        frame.windowCell === 'l-bottom-left' && frame.side === 'right'
-    );
-    const lBottomFrame = lGeometry.framePlacements.find(frame =>
-        frame.windowCell === 'l-top-right' && frame.side === 'bottom'
-    );
-    assert(
-        lHorizontal
-            && lVertical
-            && lRightFrame
-            && lBottomFrame
-            && Math.abs(lHorizontal.worldEnd - lVertical.structuralPerpendicularOffset) < 1e-9
-            && Math.abs(lVertical.worldStart - lHorizontal.structuralPerpendicularOffset) < 1e-9
-            && Math.abs(lRightFrame.structuralPerpendicularOffset - lVertical.structuralPerpendicularOffset) < 1e-9
-            && Math.abs(lRightFrame.structuralWorldEnd - lHorizontal.structuralPerpendicularOffset) < 1e-9
-            && Math.abs(lBottomFrame.structuralWorldStart - lVertical.structuralPerpendicularOffset) < 1e-9
-            && Math.abs(lBottomFrame.structuralPerpendicularOffset - lHorizontal.structuralPerpendicularOffset) < 1e-9,
-        'Unmerged L frame and mullion arms must still share one structural + point; CAD mullion offsets must not resize the corner module.'
-    );
-    const lExpectedFrameOffset = frameSpan - 0.088 / 2;
-    assert(
-        Math.abs(lVertical.mixedPlusPerpendicularShift) < 1e-12
-            && Math.abs(lHorizontal.mixedPlusPerpendicularShift) < 1e-12
-            && Math.abs(lRightFrame.perpendicularOffset - (lRightFrame.structuralPerpendicularOffset + lExpectedFrameOffset)) < 1e-9
-            && Math.abs(lBottomFrame.perpendicularOffset - (lBottomFrame.structuralPerpendicularOffset - lExpectedFrameOffset)) < 1e-9,
-        'For this L rotation the mullions must stay centred while the asymmetric right/bottom frames carry the +/- frameSpan-halfFace offset.'
-    );
-
-    // Preserve the previous no-gap fix: after merging the first two windows in
-    // the top row of the four-window T, the surviving mullion must still feed
-    // its exact CAD seat to both the merged cell and the ordinary top-right cell.
+    // Keep the no-gap CAD-seat regression under the new sized-grid model.
     let tState = normalizeWindowState({
         windows: [
             fixedCell('t-bottom-middle', 1, 0, 2, 1),
@@ -2959,7 +2941,7 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
             fixedCell('t-top-middle', 1, 1, 2, 2),
             fixedCell('t-top-right', 2, 1, 3, 2),
         ],
-    });
+    }, { defaultWidthM: windowWidth, defaultHeightM: windowHeight, edgeExtensionM: edgeExtension });
     tState = mergeWindowsInState(tState, {
         cellAId: 't-top-left',
         cellBId: 't-top-middle',
@@ -2979,7 +2961,7 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
             && tVertical
             && Math.abs(tMerged.connectionX1 - (tVertical.perpendicularOffset + 0.031)) < 1e-9
             && Math.abs(tRight.connectionX0 - (tVertical.perpendicularOffset - 0.031)) < 1e-9,
-        'Reduced cell pitch must not remove the exact mullion CAD seats that keep sash/glazing-bead geometry touching the surviving top T mullion.'
+        'Per-window sizing must preserve the exact mullion CAD seats used by fixed glazing.'
     );
 }
 

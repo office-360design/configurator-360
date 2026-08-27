@@ -6,7 +6,7 @@ import {
 } from './config.js';
 import { createComponentSelection } from './component-selection.js';
 import { createSceneContext } from './scene.js';
-import { initializeUIControls } from './ui-controls.js';
+import { initializeUIControls } from './ui-controls.js?v=2';
 import { createWindowBuilder } from './window-builder.js';
 import { createMaterialManager } from './materials.js';
 import { createARController } from './ar-controller.js';
@@ -24,6 +24,15 @@ await requireTenantConfiguratorAccess('window');
 import { resolveLegacyProfileSelection } from './profile-compatibility.js';
 import { createProfileSelectionSignature } from './profile-composition.js';
 import { createWindowLayoutOverlay } from './window-layout-overlay.js';
+import {
+    FIXED_WINDOW_TYPE,
+    SASH_WINDOW_TYPE,
+    canDeleteWindowFromState,
+    getWindowActualSizeInState,
+    getWindowUnmergeGuide,
+} from './window-layout-state.js';
+import { createWindowSummaryController } from './window-summary.js';
+import { getWindowLocale, windowT } from './i18n.js';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
@@ -58,6 +67,7 @@ const parseBoundedNumber = (value, fallback, min, max) => {
 };
 
 let selectedHandleSide = 'right';
+let selectedWindowCellId = null;
 
 if (isARMode) {
     const width = parseBoundedNumber(
@@ -123,6 +133,162 @@ const glassThicknessInput = document.getElementById('glassThickness');
 const glassThicknessLabel = document.getElementById('valGlassThickness');
 const cadReferenceButton = document.getElementById('cad-reference-button');
 const cadReferenceModal = document.getElementById('cad-reference-modal');
+
+const widthControl = document.getElementById('windowWidthControl');
+const heightControl = document.getElementById('windowHeightControl');
+const widthDecButton = document.getElementById('btnWidthDec');
+const widthIncButton = document.getElementById('btnWidthInc');
+const heightDecButton = document.getElementById('btnHeightDec');
+const heightIncButton = document.getElementById('btnHeightInc');
+const widthValueInput = document.getElementById('valWidth');
+const heightValueInput = document.getElementById('valHeight');
+const selectedWindowPanel = document.getElementById('selected-window-panel');
+const selectedWindowNumber = document.getElementById('selectedWindowNumber');
+const selectedWindowTypeButton = document.getElementById('selectedWindowType');
+const selectedWindowTypeIcon = document.getElementById('selectedWindowTypeIcon');
+const selectedWindowTypeLabel = document.getElementById('selectedWindowTypeLabel');
+const selectedWindowOpeningActions = document.getElementById('selectedWindowOpeningActions');
+const selectedWindowOpenLeft = document.getElementById('selectedWindowOpenLeft');
+const selectedWindowOpenRight = document.getElementById('selectedWindowOpenRight');
+const selectedWindowUnmerge = document.getElementById('selectedWindowUnmerge');
+const selectedWindowDelete = document.getElementById('selectedWindowDelete');
+const selectedWindowClose = document.getElementById('selectedWindowClose');
+const baseWidthMax = Number(widthInput?.max) || WINDOW_WIDTH_MAX_M;
+const baseHeightMax = Number(heightInput?.max) || WINDOW_HEIGHT_MAX_M;
+
+function setWindowSizeControlsEnabled(enabled) {
+    const isEnabled = Boolean(enabled);
+    [widthInput, heightInput, widthDecButton, widthIncButton, heightDecButton, heightIncButton, widthValueInput, heightValueInput]
+        .filter(Boolean)
+        .forEach(control => { control.disabled = !isEnabled; });
+    widthControl?.classList.toggle('is-disabled', !isEnabled);
+    heightControl?.classList.toggle('is-disabled', !isEnabled);
+}
+
+function syncSelectedWindowSizeControls() {
+    if (!selectedWindowCellId) {
+        setWindowSizeControlsEnabled(false);
+        widthInput.max = String(baseWidthMax);
+        heightInput.max = String(baseHeightMax);
+        return false;
+    }
+    const stateSize = windowLayoutController?.getWindowState
+        ? getWindowActualSizeInState(windowLayoutController.getWindowState(), selectedWindowCellId)
+        : null;
+    const geometry = windowBuilder?.getEditableTopologyGeometry?.();
+    const cell = geometry?.cells?.find(candidate => String(candidate.id) === String(selectedWindowCellId));
+    if (!stateSize && !cell) {
+        selectedWindowCellId = null;
+        setWindowSizeControlsEnabled(false);
+        return false;
+    }
+
+    // The editable grid state is the sizing source of truth. CAD rendering can
+    // include lips/flanges outside the nominal 57/88 mm layout faces and must
+    // never feed those raw bounds back into the width/height controls.
+    const widthM = Number(stateSize?.widthM ?? cell?.actualWidth);
+    const heightM = Number(stateSize?.heightM ?? cell?.actualHeight);
+    if (!Number.isFinite(widthM) || !Number.isFinite(heightM)) return false;
+
+    widthInput.max = String(Math.max(baseWidthMax, widthM));
+    heightInput.max = String(Math.max(baseHeightMax, heightM));
+    widthInput.value = String(widthM);
+    heightInput.value = String(heightM);
+    if (widthValueInput) {
+        widthValueInput.max = String(Math.round(Number(widthInput.max) * 1000));
+        widthValueInput.value = String(Math.round(widthM * 1000));
+    }
+    if (heightValueInput) {
+        heightValueInput.max = String(Math.round(Number(heightInput.max) * 1000));
+        heightValueInput.value = String(Math.round(heightM * 1000));
+    }
+    setWindowSizeControlsEnabled(true);
+    return true;
+}
+
+function syncSelectedWindowPanel() {
+    if (!selectedWindowPanel) return false;
+    const snapshot = windowLayoutController?.getConfigurationSnapshot?.();
+    const windows = snapshot?.windowState?.windows || [];
+    const index = selectedWindowCellId
+        ? windows.findIndex(cell => String(cell.id) === String(selectedWindowCellId))
+        : -1;
+    const cell = index >= 0 ? windows[index] : null;
+
+    if (!cell) {
+        selectedWindowPanel.hidden = true;
+        return false;
+    }
+
+    const locale = getWindowLocale();
+    const isSash = cell.type === SASH_WINDOW_TYPE;
+    const targetType = isSash ? FIXED_WINDOW_TYPE : SASH_WINDOW_TYPE;
+    const isTransOwner = Boolean(
+        snapshot?.windowState?.transConnections?.some(connection => connection.ownerCellId === cell.id)
+    );
+    const handleSide = cell.handleSide || selectedHandleSide || 'right';
+    const unmergeGuide = getWindowUnmergeGuide(snapshot.windowState, cell.id);
+
+    selectedWindowPanel.hidden = false;
+    if (selectedWindowNumber) selectedWindowNumber.textContent = String(index + 1);
+
+    if (selectedWindowTypeButton) {
+        const targetKey = targetType === SASH_WINDOW_TYPE ? 'layout.makeSash' : 'layout.makeFixed';
+        selectedWindowTypeButton.title = windowT(locale, targetKey);
+        selectedWindowTypeButton.setAttribute('aria-label', windowT(locale, targetKey));
+    }
+    if (selectedWindowTypeLabel) {
+        selectedWindowTypeLabel.textContent = windowT(
+            locale,
+            targetType === SASH_WINDOW_TYPE ? 'layout.makeSash' : 'layout.makeFixed'
+        );
+    }
+    if (selectedWindowTypeIcon) {
+        selectedWindowTypeIcon.classList.toggle('is-sash', targetType === SASH_WINDOW_TYPE);
+        selectedWindowTypeIcon.textContent = targetType === FIXED_WINDOW_TYPE ? 'F' : '';
+    }
+
+    if (selectedWindowOpeningActions) selectedWindowOpeningActions.hidden = !isSash || isTransOwner;
+    selectedWindowOpenLeft?.classList.toggle('is-active', isSash && !isTransOwner && handleSide === 'left');
+    selectedWindowOpenRight?.classList.toggle('is-active', isSash && !isTransOwner && handleSide === 'right');
+    if (selectedWindowUnmerge) selectedWindowUnmerge.hidden = !unmergeGuide;
+    if (selectedWindowDelete) {
+        const isLastWindow = windows.length <= 1;
+        const wouldSplitStructure = !isLastWindow
+            && !canDeleteWindowFromState(snapshot.windowState, cell.id);
+        selectedWindowDelete.disabled = isLastWindow || wouldSplitStructure;
+        selectedWindowDelete.title = isLastWindow
+            ? windowT(locale, 'layout.deleteLastDisabled')
+            : wouldSplitStructure
+                ? windowT(locale, 'layout.deleteSplitDisabled')
+                : windowT(locale, 'layout.deleteWindow');
+    }
+    return true;
+}
+
+function syncSelectedWindowSelectionUI() {
+    const hasSelection = syncSelectedWindowSizeControls();
+    syncSelectedWindowPanel();
+    return hasSelection;
+}
+
+function selectWindowCell(cellId) {
+    selectedWindowCellId = cellId ? String(cellId) : null;
+    windowBuilder?.setSelectedGlassCell?.(selectedWindowCellId);
+    syncSelectedWindowSelectionUI();
+}
+
+function getOverallWindowDimensions() {
+    const geometry = windowBuilder?.getEditableTopologyGeometry?.();
+    const widthM = Number(geometry?.overallWidth);
+    const heightM = Number(geometry?.overallHeight);
+    return {
+        widthM: Number.isFinite(widthM) && widthM > 0 ? widthM : Number(widthInput.value),
+        heightM: Number.isFinite(heightM) && heightM > 0 ? heightM : Number(heightInput.value),
+    };
+}
+
+setWindowSizeControlsEnabled(false);
 
 if (Number.isFinite(requestedWidth)) {
     widthInput.value = String(
@@ -208,6 +374,7 @@ let profileSelectionController = null;
 let windowLayoutController = null;
 let windowLayoutOverlay = null;
 let arController = null;
+let windowSummaryController = null;
 
 const componentSelection = createComponentSelection({
     renderer,
@@ -327,6 +494,8 @@ windowLayoutController = createWindowLayoutController({
     dividerProfileInput,
     transProfileInput,
     initialSelection: requestedWindowLayoutSelection,
+    initialWidthM: Number(widthInput.value) || 0.6,
+    initialHeightM: Number(heightInput.value) || 0.9,
     onLayoutChange: async (layoutSelection, { reloadDivider = false, reloadTrans = false, topologyOnly = false } = {}) => {
         profileSelectionController?.markCustomCadAssembly();
         if (
@@ -343,14 +512,65 @@ windowLayoutController = createWindowLayoutController({
             )
         ) {
             windowBuilder?.buildWindow();
+            syncSelectedWindowSelectionUI();
             return;
         }
         await profileController.loadProfileSelection({
             ...profileSelectionController.getConfigurationSnapshot(),
             ...layoutSelection,
         });
+        syncSelectedWindowSelectionUI();
     },
 });
+
+function initializeSelectedWindowPanel() {
+    selectedWindowClose?.addEventListener('click', () => selectWindowCell(null));
+
+    selectedWindowTypeButton?.addEventListener('click', async () => {
+        if (!selectedWindowCellId) return;
+        const snapshot = windowLayoutController.getConfigurationSnapshot();
+        const cell = snapshot.windowState?.windows?.find(candidate => String(candidate.id) === String(selectedWindowCellId));
+        if (!cell) return;
+        const targetType = cell.type === SASH_WINDOW_TYPE ? FIXED_WINDOW_TYPE : SASH_WINDOW_TYPE;
+        await windowLayoutController.setWindowType(
+            cell.id,
+            targetType,
+            targetType === SASH_WINDOW_TYPE ? { handleSide: selectedHandleSide } : {}
+        );
+        syncSelectedWindowSelectionUI();
+    });
+
+    selectedWindowOpenLeft?.addEventListener('click', async () => {
+        if (!selectedWindowCellId) return;
+        await windowLayoutController.setWindowType(selectedWindowCellId, SASH_WINDOW_TYPE, { handleSide: 'left' });
+        syncSelectedWindowSelectionUI();
+    });
+
+    selectedWindowOpenRight?.addEventListener('click', async () => {
+        if (!selectedWindowCellId) return;
+        await windowLayoutController.setWindowType(selectedWindowCellId, SASH_WINDOW_TYPE, { handleSide: 'right' });
+        syncSelectedWindowSelectionUI();
+    });
+
+    selectedWindowUnmerge?.addEventListener('click', async () => {
+        if (!selectedWindowCellId) return;
+        const selectedId = selectedWindowCellId;
+        await windowLayoutController.unmergeWindow(selectedId);
+        selectWindowCell(null);
+    });
+
+    selectedWindowDelete?.addEventListener('click', async () => {
+        if (!selectedWindowCellId || selectedWindowDelete.disabled) return;
+        const selectedId = selectedWindowCellId;
+        await windowLayoutController.deleteWindow(selectedId);
+        selectWindowCell(null);
+    });
+
+    globalThis.window?.addEventListener('window-locale-applied', syncSelectedWindowPanel);
+    syncSelectedWindowPanel();
+}
+
+initializeSelectedWindowPanel();
 
 const {
     isGlazingBeadProfile,
@@ -398,7 +618,10 @@ windowBuilder = createWindowBuilder({
     updateComponentPictures,
     getFinishState: materialManager.getFinishState,
     getSelectedHandleSide: () => selectedHandleSide,
-    onGlassClick: ({ cellId }) => windowLayoutOverlay?.openCellWheel(cellId),
+    onGlassClick: ({ cellId }) => {
+        selectWindowCell(cellId);
+    },
+    onFabricationSnapshot: snapshot => windowSummaryController?.update(snapshot),
     isProfileEnabled: accessoryController.isProfileEnabled,
     canPlaceProfileOnSide: accessoryController.canPlaceProfileOnSide,
     getWindowLayoutState: () => windowLayoutController?.getConfigurationSnapshot() || {
@@ -416,6 +639,12 @@ const {
     applyCurrentPoseInstantly,
 } = windowBuilder;
 
+windowSummaryController = createWindowSummaryController({
+    getProfileSelection: () => profileSelectionController?.getConfigurationSnapshot() || {},
+    getLayoutSelection: () => windowLayoutController?.getConfigurationSnapshot() || {},
+    getActiveGlazingBeadCode,
+});
+
 windowLayoutOverlay = createWindowLayoutOverlay({
     container: document.getElementById('canvas-container'),
     camera,
@@ -424,19 +653,20 @@ windowLayoutOverlay = createWindowLayoutOverlay({
     getWidth: () => Number(widthInput?.value) || 1,
     getHeight: () => Number(heightInput?.value) || 1,
     getSelectedHandleSide: () => selectedHandleSide,
-    onAddWindow: (cellId, direction, type, handleSide, edge = {}) =>
-        windowLayoutController.addWindow(cellId, direction, type, {
+    onAddWindow: async (cellId, direction, type, handleSide, edge = {}) => {
+        return windowLayoutController.addWindow(cellId, direction, type, {
             handleSide,
             start: edge.start,
             end: edge.end,
-        }),
-    onMergeWindows: (cellAId, cellBId, type, handleSide) =>
-        windowLayoutController.mergeWindows(cellAId, cellBId, type, { handleSide }),
+        });
+    },
+    onMergeWindows: async (cellAId, cellBId, type, handleSide) => {
+        const result = await windowLayoutController.mergeWindows(cellAId, cellBId, type, { handleSide });
+        selectWindowCell(null);
+        return result;
+    },
     onSetTransWindows: (cellAId, cellBId, enabled, ownerCellId) =>
         windowLayoutController.setTransBetweenWindows(cellAId, cellBId, { enabled, ownerCellId }),
-    onSetWindowType: (cellId, type, handleSide) =>
-        windowLayoutController.setWindowType(cellId, type, { handleSide }),
-    onUnmergeWindow: cellId => windowLayoutController.unmergeWindow(cellId),
     enabled: !isARMode && !captureMode,
     getEditableTopologyGeometry: () => windowBuilder?.getEditableTopologyGeometry?.(),
 });
@@ -459,6 +689,7 @@ arController = createARController({
 });
 
 window.applyConfiguration = async function applyConfiguration(configuration) {
+    selectWindowCell(null);
     window.CONFIGURATOR_READY = false;
     window.LAST_APPLIED_CONFIGURATION = null;
 
@@ -556,10 +787,11 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
         profileSelectionController.markCustomCadAssembly();
     }
 
+    const overallDimensions = getOverallWindowDimensions();
     const applied = {
         requestToken: String(configuration.requestToken || ''),
-        widthM: Number(widthInput.value),
-        heightM: Number(heightInput.value),
+        widthM: overallDimensions.widthM,
+        heightM: overallDimensions.heightM,
         ...materialManager.getConfigurationSnapshot(),
         ...accessoryController.getConfigurationSnapshot(),
         ...profileSelectionController.getConfigurationSnapshot(),
@@ -605,9 +837,10 @@ async function resetWindowConfiguration() {
 }
 
 function captureWindowConfiguration() {
+    const overallDimensions = getOverallWindowDimensions();
     return {
-        widthM: Number(widthInput.value),
-        heightM: Number(heightInput.value),
+        widthM: overallDimensions.widthM,
+        heightM: overallDimensions.heightM,
         ...materialManager.getConfigurationSnapshot(),
         ...accessoryController.getConfigurationSnapshot(),
         ...profileSelectionController.getConfigurationSnapshot(),
@@ -664,6 +897,12 @@ initializeUIControls({
     renderer,
     componentSelection,
     buildWindow,
+    onWindowSizeChange: ({ widthM, heightM }) => {
+        if (!selectedWindowCellId) return;
+        windowLayoutController.setWindowSize(selectedWindowCellId, { widthM, heightM })
+            .then(() => syncSelectedWindowSelectionUI())
+            .catch(error => console.error('Unable to resize selected window:', error));
+    },
     syncModeButtons,
     setExploded: (value) => {
         windowBuilder.setExploded(value);

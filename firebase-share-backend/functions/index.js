@@ -17,6 +17,7 @@ let db;
 let adminAuth;
 let monitoringAuth;
 let mailerSignerAuth;
+let identityToolkitAuth;
 let gmailAccessTokenCache = { token: '', expiresAtMs: 0 };
 onInit(() => {
   initializeApp();
@@ -26,6 +27,9 @@ onInit(() => {
     scopes: ['https://www.googleapis.com/auth/monitoring.read'],
   });
   mailerSignerAuth = new GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+  });
+  identityToolkitAuth = new GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/cloud-platform'],
   });
 });
@@ -46,6 +50,8 @@ const TENANT_PLAN_GO_LIVE_NOW = 'go_live_now';
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const TENANT_COMPANY_NAME_MAX_LENGTH = 120;
 const TENANT_LOGO_MAX_BYTES = 200_000;
+const TENANT_ADMIN_LIST_LIMIT = 500;
+const TENANT_STATUSES = new Set(['active', 'suspended']);
 const TENANT_ADMIN_ORIGIN = 'https://www.360configurator.com';
 const TENANT_ADMIN_DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
 const RESERVED_TENANT_SLUGS = new Set([
@@ -88,6 +94,7 @@ const ALLOWED_CONFIGURATOR_ORIGINS = new Set([
   'https://www.360konfigurator.de',
   'https://aks.360configurator.com',
 ]);
+const USER_CONFIGURATION_DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
 
 // Marketing-site contact form.
 const CONTACT_RATE_LIMIT_COLLECTION = 'contactSubmissionRateLimits';
@@ -908,12 +915,44 @@ function requestOrigin(request) {
   return normalizeConfiguratorOrigin(request.rawRequest?.headers?.origin || '');
 }
 
-function requireAllowedConfiguratorOrigin(origin, label = 'origin') {
+function tenantSlugFromConfiguratorOrigin(origin) {
   const normalized = normalizeConfiguratorOrigin(origin);
-  if (!ALLOWED_CONFIGURATOR_ORIGINS.has(normalized)) {
-    throw new HttpsError('permission-denied', `Unsupported configurator ${label}.`);
+  if (!normalized) return '';
+
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return '';
   }
-  return normalized;
+  if (parsed.protocol !== 'https:' || parsed.port) return '';
+
+  const suffix = '.360configurator.com';
+  const hostname = parsed.hostname.toLowerCase();
+  if (!hostname.endsWith(suffix)) return '';
+
+  const slug = hostname.slice(0, -suffix.length);
+  if (!slug || slug.includes('.') || !TENANT_SLUG_PATTERN.test(slug) || RESERVED_TENANT_SLUGS.has(slug)) {
+    return '';
+  }
+  return slug;
+}
+
+async function requireAllowedConfiguratorOrigin(origin, label = 'origin') {
+  const normalized = normalizeConfiguratorOrigin(origin);
+  if (ALLOWED_CONFIGURATOR_ORIGINS.has(normalized)) return normalized;
+
+  const tenantSlug = tenantSlugFromConfiguratorOrigin(normalized);
+  if (tenantSlug) {
+    const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
+    const tenant = snapshot.data() || {};
+    const expectedDomain = `${tenantSlug}.360configurator.com`;
+    if (snapshot.exists && tenant.status === 'active' && String(tenant.domain || '') === expectedDomain) {
+      return normalized;
+    }
+  }
+
+  throw new HttpsError('permission-denied', `Unsupported configurator ${label}.`);
 }
 
 function domainAuthHandoffsCollection() {
@@ -938,6 +977,74 @@ function generateDomainAuthHandoffId() {
 // ---------------------------------------------------------------------------
 // Tier-1 tenant provisioning helpers
 // ---------------------------------------------------------------------------
+const IDENTITY_TOOLKIT_CONFIG_URL = `https://identitytoolkit.googleapis.com/admin/v2/projects/${PROJECT_ID}/config`;
+
+async function identityToolkitAccessToken() {
+  const client = await identityToolkitAuth.getClient();
+  const result = await client.getAccessToken();
+  const token = typeof result === 'string' ? result : result?.token;
+  if (!token) throw new Error('Identity Toolkit access token unavailable.');
+  return token;
+}
+
+async function identityToolkitConfigRequest({ method = 'GET', updateMask = '', body = null } = {}) {
+  const accessToken = await identityToolkitAccessToken();
+  const url = new URL(IDENTITY_TOOLKIT_CONFIG_URL);
+  if (updateMask) url.searchParams.set('updateMask', updateMask);
+
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  let payload = null;
+  try { payload = await response.json(); } catch { /* handled below */ }
+  if (!response.ok) {
+    const detail = String(payload?.error?.message || `HTTP ${response.status}`);
+    const error = new Error(`Identity Toolkit config request failed: ${detail}`);
+    error.statusCode = response.status;
+    throw error;
+  }
+  return payload || {};
+}
+
+async function ensureFirebaseAuthorizedDomain(domain) {
+  const hostname = String(domain || '').trim().toLowerCase();
+  const tenantSlug = tenantSlugFromConfiguratorOrigin(`https://${hostname}`);
+  if (!tenantSlug || hostname !== `${tenantSlug}.360configurator.com`) {
+    throw new Error('Refusing to authorize an invalid tenant authentication domain.');
+  }
+
+  const config = await identityToolkitConfigRequest();
+  const currentDomains = Array.isArray(config.authorizedDomains)
+    ? config.authorizedDomains.map((value) => String(value || '').trim().toLowerCase()).filter(Boolean)
+    : [];
+  if (currentDomains.includes(hostname)) return false;
+
+  const authorizedDomains = [...new Set([...currentDomains, hostname])].sort();
+  const updated = await identityToolkitConfigRequest({
+    method: 'PATCH',
+    updateMask: 'authorizedDomains',
+    body: {
+      name: `projects/${PROJECT_ID}/config`,
+      authorizedDomains,
+    },
+  });
+
+  const savedDomains = Array.isArray(updated.authorizedDomains)
+    ? updated.authorizedDomains.map((value) => String(value || '').trim().toLowerCase())
+    : [];
+  if (!savedDomains.includes(hostname)) {
+    throw new Error('Firebase Authentication did not retain the tenant authorized domain.');
+  }
+  return true;
+}
+
 function tenantProvisioningAdminsCollection() {
   return db.collection(TENANT_PROVISIONING_ADMINS_COLLECTION);
 }
@@ -971,11 +1078,23 @@ function validateTenantCompanyName(value) {
   return companyName;
 }
 
-function validateTenantConfigurators(value) {
+function validateTenantStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  if (!TENANT_STATUSES.has(status)) {
+    throw new HttpsError('invalid-argument', 'Tenant status must be active or suspended.');
+  }
+  return status;
+}
+
+function normalizedTenantConfigurators(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const configurators = Object.fromEntries(
+  return Object.fromEntries(
     [...ALLOWED_PRODUCTS].map((product) => [product, source[product] === true]),
   );
+}
+
+function validateTenantConfigurators(value) {
+  const configurators = normalizedTenantConfigurators(value);
   if (!Object.values(configurators).some(Boolean)) {
     throw new HttpsError('invalid-argument', 'Enable at least one configurator.');
   }
@@ -1065,6 +1184,43 @@ async function requireTenantProvisioningAdmin(request) {
   return { uid, email };
 }
 
+function tenantTimestampMs(value) {
+  return value && typeof value.toMillis === 'function' ? value.toMillis() : 0;
+}
+
+function tenantAdminSummaryFromSnapshot(snapshot) {
+  const data = snapshot.data() || {};
+  const slug = normalizeTenantSlug(data.slug || snapshot.id);
+  return {
+    slug,
+    domain: String(data.domain || `${slug}.360configurator.com`),
+    companyName: String(data.companyName || slug),
+    status: String(data.status || '').trim().toLowerCase(),
+    configurators: normalizedTenantConfigurators(data.configurators),
+    hasLogo: Boolean(String(data.logoUrl || '').trim()),
+    firebaseAuthDomainAuthorized: data.firebaseAuthDomainAuthorized === true,
+    createdAtMs: tenantTimestampMs(data.createdAt),
+    updatedAtMs: tenantTimestampMs(data.updatedAt),
+  };
+}
+
+function tenantAdminDetailFromSnapshot(snapshot) {
+  const data = snapshot.data() || {};
+  return {
+    ...tenantAdminSummaryFromSnapshot(snapshot),
+    logoUrl: String(data.logoUrl || ''),
+  };
+}
+
+async function requireGoLiveNowTenant(slug) {
+  const snapshot = await db.collection(TENANTS_COLLECTION).doc(slug).get();
+  const data = snapshot.data() || {};
+  if (!snapshot.exists || data.plan !== TENANT_PLAN_GO_LIVE_NOW) {
+    throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+  }
+  return snapshot;
+}
+
 // ---------------------------------------------------------------------------
 // Private per-user saved configurations
 // ---------------------------------------------------------------------------
@@ -1116,13 +1272,57 @@ function validateSavedConfigurationPayload(productType, name, stateJson) {
   return { product, projectName, sizeBytes };
 }
 
-function userSavedItemsCollection(uid, product) {
-  return db
-    .collection('users')
-    .doc(uid)
-    .collection('savedConfigurations')
+function userSavedItemsCollection(uid, product, tenantSlug = '') {
+  const userRef = db.collection('users').doc(uid);
+  if (!tenantSlug) {
+    // Preserve the existing account-wide library for the public 360Configurator
+    // domains. This keeps all pre-Tier-1 saves and .com/.ro/.de domain handoffs
+    // compatible with the original storage path.
+    return userRef
+      .collection('savedConfigurations')
+      .doc(product)
+      .collection('items');
+  }
+
+  // Tier-1 customer saves live in a tenant-specific subtree. The browser never
+  // chooses this path: the callable derives the tenant from the request Origin
+  // and validates the private tenant record before accessing it.
+  return userRef
+    .collection('tenantSavedConfigurations')
+    .doc(tenantSlug)
+    .collection('products')
     .doc(product)
     .collection('items');
+}
+
+async function requireSavedConfigurationScope(request, product) {
+  const origin = requestOrigin(request);
+  if (ALLOWED_CONFIGURATOR_ORIGINS.has(origin) || USER_CONFIGURATION_DEVELOPMENT_ORIGIN.test(origin)) {
+    return { origin, tenantSlug: '' };
+  }
+
+  const tenantSlug = tenantSlugFromConfiguratorOrigin(origin);
+  if (!tenantSlug) {
+    throw new HttpsError('permission-denied', 'Unsupported saved-configuration origin.');
+  }
+
+  const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
+  const tenant = snapshot.data() || {};
+  const expectedDomain = `${tenantSlug}.360configurator.com`;
+  const configurators = tenant.configurators && typeof tenant.configurators === 'object'
+    ? tenant.configurators
+    : {};
+
+  if (
+    !snapshot.exists
+    || tenant.status !== 'active'
+    || String(tenant.domain || '') !== expectedDomain
+    || configurators[product] !== true
+  ) {
+    throw new HttpsError('permission-denied', 'This configurator is not enabled for the customer tenant.');
+  }
+
+  return { origin, tenantSlug };
 }
 
 const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
@@ -1136,15 +1336,24 @@ const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
   memory: '256MiB',
 });
 
-const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
+const TENANT_ADMIN_CALLABLE_OPTIONS = Object.freeze({
   region: FUNCTION_REGION,
   serviceAccount: RUNTIME_SERVICE_ACCOUNT,
-  // Provisioning is protected by Firebase Auth + a private UID allowlist. App
-  // Check is intentionally disabled so opening the internal admin page does not
-  // consume the Share-only reCAPTCHA assessment budget.
+  // Tenant administration is protected by Firebase Auth + a private UID
+  // allowlist. App Check remains disabled so the internal page does not consume
+  // the Share-only reCAPTCHA assessment budget.
   enforceAppCheck: false,
   timeoutSeconds: 30,
   memory: '256MiB',
+});
+
+const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
+  ...TENANT_ADMIN_CALLABLE_OPTIONS,
+  // Identity Platform authorizedDomains is a project-level read/modify/write
+  // list. Provision customers serially so two simultaneous admin requests can
+  // never overwrite each other's domain registration.
+  concurrency: 1,
+  maxInstances: 1,
 });
 
 exports.provisionTenant = onCall(
@@ -1160,6 +1369,27 @@ exports.provisionTenant = onCall(
     const domain = `${slug}.360configurator.com`;
     const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
     const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
+
+    // Fail before touching Firebase Auth when a Firestore tenant already owns
+    // the slug. The transaction below repeats this check before creating data.
+    const [privateExisting, publicExisting] = await Promise.all([privateRef.get(), publicRef.get()]);
+    if (privateExisting.exists || publicExisting.exists) {
+      throw new HttpsError('already-exists', 'This subdomain is already in use.');
+    }
+
+    try {
+      await ensureFirebaseAuthorizedDomain(domain);
+    } catch (error) {
+      logger.error('Tier-1 Firebase Authentication domain authorization failed.', {
+        slug,
+        domain,
+        error: String(error?.message || error),
+      });
+      throw new HttpsError(
+        'failed-precondition',
+        'The tenant domain could not be enabled for Google login. Provisioning was not completed.',
+      );
+    }
 
     await db.runTransaction(async (transaction) => {
       const privateSnapshot = await transaction.get(privateRef);
@@ -1178,6 +1408,8 @@ exports.provisionTenant = onCall(
         ownerUid: '',
         configurators,
         logoUrl,
+        firebaseAuthDomain: domain,
+        firebaseAuthDomainAuthorized: true,
         createdByUid: admin.uid,
         createdByEmail: admin.email,
         createdAt: now,
@@ -1214,12 +1446,134 @@ exports.provisionTenant = onCall(
   },
 );
 
+exports.listTenants = onCall(
+  TENANT_ADMIN_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    await requireTenantProvisioningAdmin(request);
+
+    const snapshot = await db.collection(TENANTS_COLLECTION).limit(TENANT_ADMIN_LIST_LIMIT).get();
+    const tenants = snapshot.docs
+      .filter((doc) => (doc.data() || {}).plan === TENANT_PLAN_GO_LIVE_NOW)
+      .map(tenantAdminSummaryFromSnapshot)
+      .sort((a, b) => {
+        const byCompany = a.companyName.localeCompare(b.companyName, 'en', { sensitivity: 'base' });
+        return byCompany || a.slug.localeCompare(b.slug);
+      });
+
+    return { tenants, truncated: snapshot.size >= TENANT_ADMIN_LIST_LIMIT };
+  },
+);
+
+exports.getTenant = onCall(
+  TENANT_ADMIN_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    await requireTenantProvisioningAdmin(request);
+    const slug = validateTenantSlug(request.data?.slug);
+    const snapshot = await requireGoLiveNowTenant(slug);
+    return tenantAdminDetailFromSnapshot(snapshot);
+  },
+);
+
+exports.updateTenant = onCall(
+  TENANT_ADMIN_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    const admin = await requireTenantProvisioningAdmin(request);
+    const input = request.data && typeof request.data === 'object' ? request.data : {};
+    const slug = validateTenantSlug(input.slug);
+    const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
+    const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
+    const expectedDomain = `${slug}.360configurator.com`;
+    const now = Timestamp.now();
+    const hasOwn = (key) => Object.prototype.hasOwnProperty.call(input, key);
+
+    const result = await db.runTransaction(async (transaction) => {
+      const privateSnapshot = await transaction.get(privateRef);
+      const publicSnapshot = await transaction.get(publicRef);
+      const tenant = privateSnapshot.data() || {};
+
+      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
+        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      }
+      if (!publicSnapshot.exists) {
+        throw new HttpsError('failed-precondition', 'The public tenant document is missing.');
+      }
+
+      const storedDomain = String(tenant.domain || '').trim().toLowerCase();
+      if (storedDomain && storedDomain !== expectedDomain) {
+        throw new HttpsError('failed-precondition', 'The tenant domain does not match its immutable subdomain.');
+      }
+
+      const companyName = hasOwn('companyName')
+        ? validateTenantCompanyName(input.companyName)
+        : validateTenantCompanyName(tenant.companyName);
+      const status = hasOwn('status')
+        ? validateTenantStatus(input.status)
+        : validateTenantStatus(tenant.status);
+      const configurators = hasOwn('configurators')
+        ? validateTenantConfigurators(input.configurators)
+        : validateTenantConfigurators(tenant.configurators);
+
+      const logoMode = hasOwn('logoMode') ? String(input.logoMode || '').trim().toLowerCase() : 'keep';
+      if (!['keep', 'replace', 'remove'].includes(logoMode)) {
+        throw new HttpsError('invalid-argument', 'Logo update mode is invalid.');
+      }
+
+      let logoUrl = String(tenant.logoUrl || '');
+      if (logoMode === 'remove') logoUrl = '';
+      if (logoMode === 'replace') {
+        logoUrl = validateTenantLogoDataUrl(input.logoDataUrl);
+        if (!logoUrl) throw new HttpsError('invalid-argument', 'Choose a logo image to replace the current logo.');
+      }
+
+      const synchronizedFields = {
+        companyName,
+        status,
+        configurators,
+        logoUrl,
+        updatedAt: now,
+      };
+
+      transaction.update(privateRef, {
+        ...synchronizedFields,
+        domain: expectedDomain,
+        lastUpdatedByUid: admin.uid,
+        lastUpdatedByEmail: admin.email,
+      });
+      transaction.update(publicRef, synchronizedFields);
+
+      return {
+        slug,
+        domain: expectedDomain,
+        companyName,
+        status,
+        configurators,
+        logoUrl,
+        firebaseAuthDomainAuthorized: tenant.firebaseAuthDomainAuthorized === true,
+        createdAtMs: tenantTimestampMs(tenant.createdAt),
+        updatedAtMs: now.toMillis(),
+      };
+    });
+
+    logger.info('Tier-1 tenant updated.', {
+      slug,
+      status: result.status,
+      configurators: Object.entries(result.configurators).filter(([, enabled]) => enabled).map(([id]) => id),
+      updatedByUid: admin.uid,
+    });
+
+    return result;
+  },
+);
+
 exports.createDomainAuthHandoff = onCall(
   USER_CONFIGURATION_CALLABLE_OPTIONS,
   async (request) => {
     const uid = requireAuthenticatedUid(request);
-    const sourceOrigin = requireAllowedConfiguratorOrigin(requestOrigin(request), 'source origin');
-    const targetOrigin = requireAllowedConfiguratorOrigin(request.data?.targetOrigin, 'target origin');
+    const sourceOrigin = await requireAllowedConfiguratorOrigin(requestOrigin(request), 'source origin');
+    const targetOrigin = await requireAllowedConfiguratorOrigin(request.data?.targetOrigin, 'target origin');
     const now = Timestamp.now();
     const expiresAt = Timestamp.fromMillis(now.toMillis() + DOMAIN_AUTH_HANDOFF_LIFETIME_MS);
 
@@ -1248,7 +1602,7 @@ exports.createDomainAuthHandoff = onCall(
 exports.redeemDomainAuthHandoff = onCall(
   USER_CONFIGURATION_CALLABLE_OPTIONS,
   async (request) => {
-    const origin = requireAllowedConfiguratorOrigin(requestOrigin(request), 'destination origin');
+    const origin = await requireAllowedConfiguratorOrigin(requestOrigin(request), 'destination origin');
     const handoffId = String(request.data?.handoffId || '').trim();
     if (!DOMAIN_AUTH_HANDOFF_ID_PATTERN.test(handoffId)) {
       throw new HttpsError('invalid-argument', 'Invalid domain authentication handoff.');
@@ -1295,7 +1649,8 @@ exports.saveUserConfiguration = onCall(
       stateJson,
     );
     const requestedId = validateSavedConfigurationId(request.data?.id, { optional: true });
-    const collection = userSavedItemsCollection(uid, product);
+    const { tenantSlug } = await requireSavedConfigurationScope(request, product);
+    const collection = userSavedItemsCollection(uid, product, tenantSlug);
     const ref = requestedId ? collection.doc(requestedId) : collection.doc();
     const existing = await ref.get();
     const now = Timestamp.now();
@@ -1309,6 +1664,7 @@ exports.saveUserConfiguration = onCall(
       n: projectName,
       s: stateJson,
       sizeBytes,
+      tenantSlug,
       createdAt,
       updatedAt: now,
     });
@@ -1333,7 +1689,8 @@ exports.listUserConfigurations = onCall(
       throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
     }
 
-    const snapshot = await userSavedItemsCollection(uid, product)
+    const { tenantSlug } = await requireSavedConfigurationScope(request, product);
+    const snapshot = await userSavedItemsCollection(uid, product, tenantSlug)
       .orderBy('updatedAt', 'desc')
       .limit(SAVED_CONFIGURATION_LIST_LIMIT)
       .select('n', 'createdAt', 'updatedAt', 'sizeBytes')
@@ -1363,7 +1720,8 @@ exports.getUserConfiguration = onCall(
       throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
     }
     const id = validateSavedConfigurationId(request.data?.id);
-    const snapshot = await userSavedItemsCollection(uid, product).doc(id).get();
+    const { tenantSlug } = await requireSavedConfigurationScope(request, product);
+    const snapshot = await userSavedItemsCollection(uid, product, tenantSlug).doc(id).get();
     if (!snapshot.exists) throw new HttpsError('not-found', 'Saved configuration not found.');
     const data = snapshot.data() || {};
 
@@ -1388,7 +1746,8 @@ exports.deleteUserConfiguration = onCall(
       throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
     }
     const id = validateSavedConfigurationId(request.data?.id);
-    await userSavedItemsCollection(uid, product).doc(id).delete();
+    const { tenantSlug } = await requireSavedConfigurationScope(request, product);
+    await userSavedItemsCollection(uid, product, tenantSlug).doc(id).delete();
     return { id, deleted: true };
   },
 );

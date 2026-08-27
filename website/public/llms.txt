@@ -6,6 +6,7 @@
 
 - [Homepage](https://360configurator.com/): Platform overview, common capabilities and active deployments.
 - [About 360Configurator](https://360configurator.com/about): Product initiative, engineering principles and approach.
+- [Deployment paths and pricing](https://360configurator.com/pricing): Existing System subscription, Adapted System adaptation plus subscription, and Custom System implementation plus subscription. Scope and pricing are established after technical review.
 - [Contact](https://360configurator.com/contact): Project enquiries and direct correspondence.
 
 ## Active configurator systems
@@ -15,6 +16,7 @@
 - [Window and architectural profile](https://360configurator.com/configurators/window): Schüco AW CT 65 B2-6 profile configuration, glazing compatibility, opening mechanics, finishes and assembly diagnostics.
 - [Industrial hall and warehouse](https://360configurator.com/configurators/hall): Parametric portal frames, structural spacing, envelope layers, industrial access and exploded assembly.
 - [Solar roof and energy system](https://360configurator.com/configurators/solar): Address-aware solar context, roof and PV layout, real sun, consumption, storage and energy analytics.
+- [Fence and perimeter system](https://360configurator.com/configurators/fence): Parametric perimeter layouts, resolved bays, panel systems, finishes, gates, foundations, BOM and live pricing logic.
 
 ## Languages
 

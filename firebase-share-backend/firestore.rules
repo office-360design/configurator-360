@@ -139,6 +139,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Tier-1 customer saves are additionally isolated by tenant. Browser access
+    // is still forbidden; authenticated Cloud Functions derive the tenant from
+    // the trusted request Origin and use the Admin SDK.
+    match /users/{userId}/tenantSavedConfigurations/{tenantSlug}/products/{product}/items/{configurationId} {
+      allow read, write: if false;
+    }
+
     // Cross-domain authentication handoffs contain only server-side temporary
     // state and are redeemed through Cloud Functions. Browser Firestore access
     // is intentionally impossible.

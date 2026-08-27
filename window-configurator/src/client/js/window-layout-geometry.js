@@ -1113,6 +1113,48 @@ function gridToWorldY(row, minRow, totalHeight, cellHeight) {
     return -totalHeight / 2 + (finiteNumber(row) - minRow) * finiteNumber(cellHeight);
 }
 
+function buildTrackAxisMapper(rawTracks, minCoordinate, maxCoordinate) {
+    const tracks = (Array.isArray(rawTracks) ? rawTracks : [])
+        .map(track => ({
+            start: finiteNumber(track?.start, NaN),
+            end: finiteNumber(track?.end, NaN),
+            size: Math.max(0, finiteNumber(track?.sizeM ?? track?.size, NaN)),
+        }))
+        .filter(track => Number.isFinite(track.start) && Number.isFinite(track.end) && Number.isFinite(track.size) && track.end > track.start + 1e-9 && track.size > 0)
+        .sort((a, b) => a.start - b.start || a.end - b.end);
+    if (!tracks.length) return null;
+
+    const relevant = tracks.filter(track => track.end > minCoordinate + 1e-9 && track.start < maxCoordinate - 1e-9);
+    if (!relevant.length) return null;
+    const segments = [];
+    let cursor = 0;
+    relevant.forEach(track => {
+        const start = Math.max(minCoordinate, track.start);
+        const end = Math.min(maxCoordinate, track.end);
+        if (end <= start + 1e-9) return;
+        const sourceSpan = Math.max(1e-9, track.end - track.start);
+        const size = track.size * ((end - start) / sourceSpan);
+        segments.push({ start, end, size, worldStart: cursor, worldEnd: cursor + size });
+        cursor += size;
+    });
+    if (!segments.length) return null;
+
+    const total = cursor;
+    const worldAt = value => {
+        const coordinate = finiteNumber(value);
+        if (coordinate <= minCoordinate + 1e-9) return -total / 2;
+        if (coordinate >= maxCoordinate - 1e-9) return total / 2;
+        const segment = segments.find(item => coordinate >= item.start - 1e-9 && coordinate <= item.end + 1e-9);
+        if (!segment) {
+            const before = [...segments].reverse().find(item => item.end <= coordinate + 1e-9);
+            return -total / 2 + (before?.worldEnd || 0);
+        }
+        const ratio = (coordinate - segment.start) / Math.max(1e-9, segment.end - segment.start);
+        return -total / 2 + segment.worldStart + segment.size * ratio;
+    };
+    return Object.freeze({ total, worldAt, segments: Object.freeze(segments.map(segment => Object.freeze({ ...segment }))) });
+}
+
 function localJointEndForFrameSide(side, worldEnd) {
     if (side === 'top' || side === 'left') {
         return worldEnd === 'negative' ? 'negative' : 'positive';
@@ -1462,12 +1504,23 @@ export function getEditableWindowTopologyGeometry({
     dividerConnectionVariants = null,
     transConnection = null,
     connectionScale = MM_TO_M,
+    // Legacy parameter kept for older saved/test callers. New code separates
+    // the 65 mm frame depth used for machining from the 57 mm frame face used
+    // to position the layout grid.
     frameReplacementSpan = 0,
+    frameFaceSpan = null,
+    frameInwardSpan = null,
     dividerFaceSpan = 0,
 } = {}) {
     const normalizedWidth = Math.max(0, finiteNumber(width));
     const normalizedHeight = Math.max(0, finiteNumber(height));
     const requestedFrameReplacementSpan = Math.max(0, finiteNumber(frameReplacementSpan));
+    const requestedFrameFaceSpan = Math.max(0, frameFaceSpan === null || frameFaceSpan === undefined
+        ? requestedFrameReplacementSpan
+        : finiteNumber(frameFaceSpan));
+    const requestedFrameInwardSpan = Math.max(0, frameInwardSpan === null || frameInwardSpan === undefined
+        ? requestedFrameReplacementSpan
+        : finiteNumber(frameInwardSpan));
     const normalizedDividerFaceSpan = Math.max(0, finiteNumber(dividerFaceSpan));
     const windows = Array.isArray(topology?.windows) ? topology.windows : [];
     const dividers = Array.isArray(topology?.dividers) ? topology.dividers : [];
@@ -1479,17 +1532,13 @@ export function getEditableWindowTopologyGeometry({
     const minRow = windows.length ? Math.min(...windows.map(c => c.rect.y0)) : 0;
     const maxRow = windows.length ? Math.max(...windows.map(c => c.rect.y1)) : 1;
 
-    // The sliders describe a complete standalone window, outer frame to outer
-    // frame. Once another window is attached, the touching outer frame is
-    // replaced by a mullion. Therefore one topology grid step cannot also be a
-    // complete slider width/height: doing that effectively counts the removed
-    // frame again at every shared edge and makes merged cells grow.
-    //
-    // Use the actual frame face/inward span as the constant replacement amount.
-    // The logical cell pitch is one slider dimension minus that constant. Half
-    // of the constant is added back only at the global outer perimeter, so a
-    // single standalone cell is still exactly the slider size while N adjacent
-    // cells occupy N * slider - (N - 1) * frameSpan.
+    const topologyXMapper = buildTrackAxisMapper(topology?.gridTracks?.x, minCol, maxCol);
+    const topologyYMapper = buildTrackAxisMapper(topology?.gridTracks?.y, minRow, maxRow);
+    const usesSizedGrid = Boolean(topologyXMapper && topologyYMapper);
+
+    // Legacy states used one global slider as a repeated bay size. Keep that
+    // fallback for compatibility. Version-5 states carry physical grid-track
+    // sizes, so each column/row can be changed independently.
     const replacementSpanX = Math.min(
         requestedFrameReplacementSpan,
         Math.max(0, normalizedWidth - 0.05)
@@ -1501,61 +1550,91 @@ export function getEditableWindowTopologyGeometry({
     const cellPitchX = Math.max(0.05, normalizedWidth - replacementSpanX);
     const cellPitchY = Math.max(0.05, normalizedHeight - replacementSpanY);
 
-    // The topology is a graph of reference lines. A mullion is symmetric, so
-    // its centre plane sits directly on the graph line. The outer frame is not
-    // symmetric: for the active 575760/575800 pair its physical outer edge is
-    // 21 mm away from the common frame/mullion miter apex. Keep that difference
-    // on the FRAME, never on the mullion. This is the key invariant that lets a
-    // single grid line host frame -> mullion -> frame without changing levels.
-    const frameReferenceOffsetX = getFrameDividerMiterContactStart({
-        dividerFaceSpan: normalizedDividerFaceSpan,
-        frameInwardSpan: replacementSpanX,
-    });
-    const frameReferenceOffsetY = getFrameDividerMiterContactStart({
-        dividerFaceSpan: normalizedDividerFaceSpan,
-        frameInwardSpan: replacementSpanY,
-    });
-    const outerPhysicalPadX = replacementSpanX / 2;
-    const outerPhysicalPadY = replacementSpanY / 2;
-    const outerReferencePadX = Math.max(0, outerPhysicalPadX - frameReferenceOffsetX);
-    const outerReferencePadY = Math.max(0, outerPhysicalPadY - frameReferenceOffsetY);
-    const totalWidth = (maxCol - minCol) * cellPitchX;
-    const totalHeight = (maxRow - minRow) * cellPitchY;
+    // Window-plane reference relation from the CAD profile faces:
+    // outer frame = 57 mm, mullion = 88 mm => 57 - 44 = 13 mm.
+    // This is intentionally independent from the 65 mm profile depth used by
+    // the frame/mullion machining geometry below.
+    const frameReferenceOffsetX = Math.max(0, requestedFrameFaceSpan - normalizedDividerFaceSpan / 2);
+    const frameReferenceOffsetY = frameReferenceOffsetX;
 
-    const worldGridX = col => gridToWorldX(col, minCol, totalWidth, cellPitchX);
-    const worldGridY = row => gridToWorldY(row, minRow, totalHeight, cellPitchY);
+    const totalWidth = topologyXMapper
+        ? topologyXMapper.total
+        : (maxCol - minCol) * cellPitchX;
+    const totalHeight = topologyYMapper
+        ? topologyYMapper.total
+        : (maxRow - minRow) * cellPitchY;
+
+    const worldGridX = col => topologyXMapper
+        ? topologyXMapper.worldAt(col)
+        : gridToWorldX(col, minCol, totalWidth, cellPitchX);
+    const worldGridY = row => topologyYMapper
+        ? topologyYMapper.worldAt(row)
+        : gridToWorldY(row, minRow, totalHeight, cellPitchY);
+
+    // In the sized-grid model the grid line itself is the mullion centreline /
+    // equivalent perimeter reference. The physical outer frame extends 13 mm
+    // beyond it. Legacy states retain the previous padding model unchanged.
+    const legacyOuterPhysicalPadX = replacementSpanX / 2;
+    const legacyOuterPhysicalPadY = replacementSpanY / 2;
+    const legacyOuterReferencePadX = Math.max(0, legacyOuterPhysicalPadX - frameReferenceOffsetX);
+    const legacyOuterReferencePadY = Math.max(0, legacyOuterPhysicalPadY - frameReferenceOffsetY);
     const worldReferenceX = col => {
         const base = worldGridX(col);
-        if (Math.abs(finiteNumber(col) - minCol) <= 1e-9) return base - outerReferencePadX;
-        if (Math.abs(finiteNumber(col) - maxCol) <= 1e-9) return base + outerReferencePadX;
+        if (usesSizedGrid) return base;
+        if (Math.abs(finiteNumber(col) - minCol) <= 1e-9) return base - legacyOuterReferencePadX;
+        if (Math.abs(finiteNumber(col) - maxCol) <= 1e-9) return base + legacyOuterReferencePadX;
         return base;
     };
     const worldReferenceY = row => {
         const base = worldGridY(row);
-        if (Math.abs(finiteNumber(row) - minRow) <= 1e-9) return base - outerReferencePadY;
-        if (Math.abs(finiteNumber(row) - maxRow) <= 1e-9) return base + outerReferencePadY;
+        if (usesSizedGrid) return base;
+        if (Math.abs(finiteNumber(row) - minRow) <= 1e-9) return base - legacyOuterReferencePadY;
+        if (Math.abs(finiteNumber(row) - maxRow) <= 1e-9) return base + legacyOuterReferencePadY;
         return base;
     };
-    // These are the actual outer aluminium boundaries used by the sash/glass
-    // connection envelope. They stay bit-for-bit at the old slider extents.
     const worldPhysicalFrameX = col => {
         const base = worldGridX(col);
-        if (Math.abs(finiteNumber(col) - minCol) <= 1e-9) return base - outerPhysicalPadX;
-        if (Math.abs(finiteNumber(col) - maxCol) <= 1e-9) return base + outerPhysicalPadX;
+        if (Math.abs(finiteNumber(col) - minCol) <= 1e-9) {
+            return base - (usesSizedGrid ? frameReferenceOffsetX : legacyOuterPhysicalPadX);
+        }
+        if (Math.abs(finiteNumber(col) - maxCol) <= 1e-9) {
+            return base + (usesSizedGrid ? frameReferenceOffsetX : legacyOuterPhysicalPadX);
+        }
         return base;
     };
     const worldPhysicalFrameY = row => {
         const base = worldGridY(row);
-        if (Math.abs(finiteNumber(row) - minRow) <= 1e-9) return base - outerPhysicalPadY;
-        if (Math.abs(finiteNumber(row) - maxRow) <= 1e-9) return base + outerPhysicalPadY;
+        if (Math.abs(finiteNumber(row) - minRow) <= 1e-9) {
+            return base - (usesSizedGrid ? frameReferenceOffsetY : legacyOuterPhysicalPadY);
+        }
+        if (Math.abs(finiteNumber(row) - maxRow) <= 1e-9) {
+            return base + (usesSizedGrid ? frameReferenceOffsetY : legacyOuterPhysicalPadY);
+        }
         return base;
     };
+
+
+    const hasExposedFrameSide = (cellId, side) => frameEdges.some(edge => (
+        String(edge.cellId) === String(cellId)
+        && edge.side === side
+        && finiteNumber(edge.end) > finiteNumber(edge.start) + 1e-9
+    ));
+    const sizedGridEdgeExtensionX = usesSizedGrid ? frameReferenceOffsetX : legacyOuterPhysicalPadX;
+    const sizedGridEdgeExtensionY = usesSizedGrid ? frameReferenceOffsetY : legacyOuterPhysicalPadY;
 
     const cells = windows.map(cell => {
         const x0 = worldGridX(cell.rect.x0);
         const x1 = worldGridX(cell.rect.x1);
         const y0 = worldGridY(cell.rect.y0);
         const y1 = worldGridY(cell.rect.y1);
+        const hasLeftFrame = hasExposedFrameSide(cell.id, 'left');
+        const hasRightFrame = hasExposedFrameSide(cell.id, 'right');
+        const hasBottomFrame = hasExposedFrameSide(cell.id, 'bottom');
+        const hasTopFrame = hasExposedFrameSide(cell.id, 'top');
+        const actualX0 = x0 - (hasLeftFrame ? sizedGridEdgeExtensionX : 0);
+        const actualX1 = x1 + (hasRightFrame ? sizedGridEdgeExtensionX : 0);
+        const actualY0 = y0 - (hasBottomFrame ? sizedGridEdgeExtensionY : 0);
+        const actualY1 = y1 + (hasTopFrame ? sizedGridEdgeExtensionY : 0);
         const connectionX0 = Math.abs(cell.rect.x0 - minCol) <= 1e-9
             ? worldPhysicalFrameX(cell.rect.x0)
             : x0;
@@ -1580,6 +1659,18 @@ export function getEditableWindowTopologyGeometry({
             structuralX1: x1,
             structuralY0: y0,
             structuralY1: y1,
+            actualX0,
+            actualX1,
+            actualY0,
+            actualY1,
+            actualWidth: Math.max(0, actualX1 - actualX0),
+            actualHeight: Math.max(0, actualY1 - actualY0),
+            actualCenterX: (actualX0 + actualX1) / 2,
+            actualCenterY: (actualY0 + actualY1) / 2,
+            hasLeftFrame,
+            hasRightFrame,
+            hasBottomFrame,
+            hasTopFrame,
             // The structural cell is the reduced topology pitch. Exposed global
             // frame sides extend by half the removed-frame constant so the
             // complete standalone window still matches the slider dimension.
@@ -2039,7 +2130,7 @@ export function getEditableWindowTopologyGeometry({
     // local corner because that changes the level seen by another intersection.
     const mixedPlusPerpendicularShift = getFrameDividerMiterContactStart({
         dividerFaceSpan: normalizedDividerFaceSpan,
-        frameInwardSpan: requestedFrameReplacementSpan,
+        frameInwardSpan: requestedFrameInwardSpan,
     });
     dividerSegments.forEach(segment => {
         segment.pieceType = 'mullion';
@@ -2246,7 +2337,7 @@ export function getEditableWindowTopologyGeometry({
     // neighbouring frames carry the same material.
     const halfFrameSpan = getFrameDividerMiterContactStart({
         dividerFaceSpan: normalizedDividerFaceSpan,
-        frameInwardSpan: requestedFrameReplacementSpan,
+        frameInwardSpan: requestedFrameInwardSpan,
     });
     const halfFrameFillers = physicalIntersections
         .map(junction => {
@@ -2344,7 +2435,7 @@ export function getEditableWindowTopologyGeometry({
             }
             if (!faceHalfSign) return null;
 
-            const length = requestedFrameReplacementSpan;
+            const length = requestedFrameInwardSpan;
             const tipLocalCoordinate = arrowAtStart
                 ? (-length / 2 + mixedPlusPerpendicularShift)
                 : (length / 2 - mixedPlusPerpendicularShift);
@@ -2370,8 +2461,8 @@ export function getEditableWindowTopologyGeometry({
                 joint: Object.freeze({
                     negativeEndMode: arrowAtStart ? 'arrow' : 'square',
                     positiveEndMode: arrowAtStart ? 'square' : 'arrow',
-                    negativeFrameInwardSpan: requestedFrameReplacementSpan,
-                    positiveFrameInwardSpan: requestedFrameReplacementSpan,
+                    negativeFrameInwardSpan: requestedFrameInwardSpan,
+                    positiveFrameInwardSpan: requestedFrameInwardSpan,
                     negativeArrowFaceBias: 0,
                     positiveArrowFaceBias: 0,
                     faceHalfSign,
@@ -2384,7 +2475,24 @@ export function getEditableWindowTopologyGeometry({
     // physical point that has at least one divider, with its frame arms attached.
     const junctions = physicalIntersections.filter(junction => junction.dividerCount >= 2);
 
+    const overallMinX = cells.length ? Math.min(...cells.map(cell => finiteNumber(cell.actualX0))) : -normalizedWidth / 2;
+    const overallMaxX = cells.length ? Math.max(...cells.map(cell => finiteNumber(cell.actualX1))) : normalizedWidth / 2;
+    const overallMinY = cells.length ? Math.min(...cells.map(cell => finiteNumber(cell.actualY0))) : -normalizedHeight / 2;
+    const overallMaxY = cells.length ? Math.max(...cells.map(cell => finiteNumber(cell.actualY1))) : normalizedHeight / 2;
+
     return Object.freeze({
+        usesSizedGrid,
+        frameFaceSpan: requestedFrameFaceSpan,
+        frameInwardSpan: requestedFrameInwardSpan,
+        dividerFaceSpan: normalizedDividerFaceSpan,
+        frameReferenceOffsetX,
+        frameReferenceOffsetY,
+        overallMinX,
+        overallMaxX,
+        overallMinY,
+        overallMaxY,
+        overallWidth: Math.max(0, overallMaxX - overallMinX),
+        overallHeight: Math.max(0, overallMaxY - overallMinY),
         cells: Object.freeze(cells.map(cell => Object.freeze({
             ...cell,
             dividerJoinSideByBoundary: Object.freeze({ ...cell.dividerJoinSideByBoundary }),

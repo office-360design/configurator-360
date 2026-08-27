@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./pricing.css";
 
 :root,:root[data-theme="dark"]{color-scheme:dark;--canvas:#050507;--canvas-rgb:5,5,7;--panel:#0a0b0e;--paper:#e9ecec;--ink:#f5f7f7;--ink-soft:#a6adb0;--ink-faint:#626b70;--line:rgba(233,244,246,.13);--line-strong:rgba(233,244,246,.29);--brand:#2f9be8;--brand-core:#0761aa;--brand-glow:rgba(47,155,232,.25);--titanium:#b8c2c6;--hud:#61d9ff;--solid:#08090b;--solid-ink:#f2f5f5;--header:rgba(5,5,7,.72);--shadow:rgba(0,0,0,.6);--noise:.045}
 :root[data-theme="light"]{color-scheme:light;--canvas:#eceeea;--canvas-rgb:236,238,234;--panel:#f7f8f5;--paper:#111719;--ink:#101619;--ink-soft:#4c565a;--ink-faint:#747f83;--line:rgba(13,28,33,.14);--line-strong:rgba(13,28,33,.31);--brand:#0761aa;--brand-core:#0761aa;--brand-glow:rgba(7,97,170,.13);--titanium:#687479;--hud:#0761aa;--solid:#0b0d0f;--solid-ink:#f2f5f5;--header:rgba(236,238,234,.78);--shadow:rgba(37,48,52,.18);--noise:.022}
