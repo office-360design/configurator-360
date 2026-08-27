@@ -1625,7 +1625,7 @@ export function createWindowBuilder({
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.font = '700 64px Outfit, system-ui, sans-serif';
+        ctx.font = '700 128px Outfit, system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(getWindowNumber(cellId, fallbackIndex)), 64, 66);
@@ -3545,7 +3545,7 @@ export function createWindowBuilder({
                         // fixed-cell perimeter transform used by createMiteredSide().
                         const fixedCadTransform =
                             variantProfile.fixedGlazingMullionCadTransforms?.[
-                                fillerRuntimeCellSide
+                            fillerRuntimeCellSide
                             ] || null;
                         if (fixedCadTransform) {
                             const placedProfile = {

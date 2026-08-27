@@ -1,4 +1,5 @@
 import { getEditableWindowTopologyGeometry } from './window-layout-geometry.js';
+import { getWindowActualSizeInState } from './window-layout-state.js';
 import { getWindowLocale, windowT } from './i18n.js';
 
 const M_PER_MM = 0.001;
@@ -19,11 +20,30 @@ export const WINDOW_PROFILE_MANUFACTURING_DATA = Object.freeze({
     '575790': Object.freeze({ family: 'sash', faceWidthMm: 49, kgPerM: 1.007, nameKey: 'summary.profile.sash' }),
     '575800': Object.freeze({ family: 'mullion', faceWidthMm: 88, profileDepthMm: 65, kgPerM: 1.475, nameKey: 'summary.profile.mullion' }),
     '575810': Object.freeze({ family: 'mullion', faceWidthMm: 88, profileDepthMm: 65, kgPerM: 1.475, nameKey: 'summary.profile.mullion' }),
-    '575820': Object.freeze({ family: 'trans', faceWidthMm: 31, kgPerM: 1.314, nameKey: 'summary.profile.trans' }),
-    '575830': Object.freeze({ family: 'trans', faceWidthMm: 31, kgPerM: 1.314, nameKey: 'summary.profile.trans' }),
+    '575820': Object.freeze({ family: 'trans', faceWidthMm: 67, kgPerM: 1.314, nameKey: 'summary.profile.trans' }),
+    '575830': Object.freeze({ family: 'trans', faceWidthMm: 67, kgPerM: 1.314, nameKey: 'summary.profile.trans' }),
     '573920': Object.freeze({ family: 'bead', faceWidthMm: null, kgPerM: 0.334, nameKey: 'summary.profile.bead' }),
     '573930': Object.freeze({ family: 'bead', faceWidthMm: null, kgPerM: 0.352, nameKey: 'summary.profile.bead' }),
     '573940': Object.freeze({ family: 'bead', faceWidthMm: null, kgPerM: 0.369, nameKey: 'summary.profile.bead' }),
+});
+
+// AW CT 65 saw-length offsets in the window plane. These are the offsets to
+// the LONG POINT of the 45° mitre cut, not the physical mounting-line offsets
+// used by the renderer. The section drawings show:
+// - fixed glazing bead at an outer frame: 32 mm per frame side;
+// - sash cut length at an outer frame: 27 mm per frame side;
+// - sash glazing bead: another 49 mm per sash side, measured from the sash
+//   mitre long-point dimension;
+// - mullion/trans offsets remain the member-specific fabrication values;
+// - double-vent profile length: h - 80 mm (fabrication drawing K1036297).
+const AW_CT65_CUT_OFFSETS_MM = Object.freeze({
+    fixedBeadFromFrame: 32,
+    fixedBeadFromMullion: 27,
+    sashFromFrame: 27,
+    sashFromMullion: 49,
+    sashFromTrans: 38.5,
+    sashBeadFromSash: 49,
+    doubleVentReduction: 80,
 });
 
 function finite(value, fallback = 0) {
@@ -312,6 +332,140 @@ function formatBetweenWindows(locale, pairs = []) {
     return windowT(locale, 'summary.betweenWindows', { pairs: pairText });
 }
 
+function getTopologyCell(snapshot, cellId) {
+    const windows = snapshot?.layoutState?.topology?.windows || [];
+    return windows.find(cell => String(cell?.id) === String(cellId || '')) || null;
+}
+
+function boundaryPieceMatchesCellSide(piece, cellId, side) {
+    const id = String(cellId || '');
+    if (!piece || !id) return false;
+    if (piece.pieceType === 'frame') {
+        return String(piece.cellId || '') === id && piece.side === side;
+    }
+    if (piece.orientation === 'vertical') {
+        if (side === 'right') return String(piece.negativeCellId || '') === id;
+        if (side === 'left') return String(piece.positiveCellId || '') === id;
+        return false;
+    }
+    if (piece.orientation === 'horizontal') {
+        if (side === 'top') return String(piece.negativeCellId || '') === id;
+        if (side === 'bottom') return String(piece.positiveCellId || '') === id;
+    }
+    return false;
+}
+
+function boundaryKindAtSidePosition(snapshot, cellId, side, position = null) {
+    const topology = snapshot?.layoutState?.topology;
+    const pieces = topology?.linePieces || [];
+    const candidates = pieces.filter(piece => boundaryPieceMatchesCellSide(piece, cellId, side));
+    if (!candidates.length) return null;
+    if (position == null || !Number.isFinite(Number(position))) {
+        const kinds = [...new Set(candidates.map(piece => piece.pieceType))];
+        return kinds.length === 1 ? kinds[0] : 'mixed';
+    }
+    const p = Number(position);
+    const hit = candidates.find(piece => (
+        p >= finite(piece.start) - 1e-7
+        && p <= finite(piece.end) + 1e-7
+    ));
+    return hit?.pieceType || candidates[0]?.pieceType || null;
+}
+
+function getCellActualSize(snapshot, cell) {
+    const state = snapshot?.layoutState?.windowState;
+    if (state && cell?.id) {
+        try {
+            const size = getWindowActualSizeInState(state, cell.id);
+            if (size) return size;
+        } catch (_error) {
+            // Older imported summaries may not carry a complete v5 state.
+        }
+    }
+    return {
+        widthM: clampLength(cell?.width),
+        heightM: clampLength(cell?.height),
+        structuralWidthM: clampLength(cell?.width),
+        structuralHeightM: clampLength(cell?.height),
+    };
+}
+
+function sideProbePosition(cell, side, atEnd = false) {
+    if (!cell?.rect) return null;
+    const epsilon = 1e-6;
+    if (side === 'left' || side === 'right') {
+        return atEnd ? finite(cell.rect.y1) - epsilon : finite(cell.rect.y0) + epsilon;
+    }
+    return atEnd ? finite(cell.rect.x1) - epsilon : finite(cell.rect.x0) + epsilon;
+}
+
+function fixedBeadBoundaryInsetM(kind) {
+    if (kind === 'frame') return AW_CT65_CUT_OFFSETS_MM.fixedBeadFromFrame * M_PER_MM;
+    if (kind === 'mullion') return AW_CT65_CUT_OFFSETS_MM.fixedBeadFromMullion * M_PER_MM;
+    if (kind === 'trans') return AW_CT65_CUT_OFFSETS_MM.fixedBeadFromMullion * M_PER_MM;
+    return 0;
+}
+
+function sashBoundaryInsetM(kind) {
+    if (kind === 'frame') return AW_CT65_CUT_OFFSETS_MM.sashFromFrame * M_PER_MM;
+    if (kind === 'mullion') return AW_CT65_CUT_OFFSETS_MM.sashFromMullion * M_PER_MM;
+    if (kind === 'trans') return AW_CT65_CUT_OFFSETS_MM.sashFromTrans * M_PER_MM;
+    return 0;
+}
+
+function getBoundaryKindsAtCorners(snapshot, cellId) {
+    const cell = getTopologyCell(snapshot, cellId);
+    if (!cell) {
+        return {
+            leftBottom: null, leftTop: null, rightBottom: null, rightTop: null,
+            bottomLeft: null, bottomRight: null, topLeft: null, topRight: null,
+        };
+    }
+    return {
+        leftBottom: boundaryKindAtSidePosition(snapshot, cellId, 'left', sideProbePosition(cell, 'left', false)),
+        leftTop: boundaryKindAtSidePosition(snapshot, cellId, 'left', sideProbePosition(cell, 'left', true)),
+        rightBottom: boundaryKindAtSidePosition(snapshot, cellId, 'right', sideProbePosition(cell, 'right', false)),
+        rightTop: boundaryKindAtSidePosition(snapshot, cellId, 'right', sideProbePosition(cell, 'right', true)),
+        bottomLeft: boundaryKindAtSidePosition(snapshot, cellId, 'bottom', sideProbePosition(cell, 'bottom', false)),
+        bottomRight: boundaryKindAtSidePosition(snapshot, cellId, 'bottom', sideProbePosition(cell, 'bottom', true)),
+        topLeft: boundaryKindAtSidePosition(snapshot, cellId, 'top', sideProbePosition(cell, 'top', false)),
+        topRight: boundaryKindAtSidePosition(snapshot, cellId, 'top', sideProbePosition(cell, 'top', true)),
+    };
+}
+
+function getFixedBeadSideLengths(snapshot, cell) {
+    const actual = getCellActualSize(snapshot, cell);
+    const kinds = getBoundaryKindsAtCorners(snapshot, cell?.id);
+    return {
+        top: clampLength(actual.widthM - fixedBeadBoundaryInsetM(kinds.leftTop) - fixedBeadBoundaryInsetM(kinds.rightTop)),
+        bottom: clampLength(actual.widthM - fixedBeadBoundaryInsetM(kinds.leftBottom) - fixedBeadBoundaryInsetM(kinds.rightBottom)),
+        left: clampLength(actual.heightM - fixedBeadBoundaryInsetM(kinds.bottomLeft) - fixedBeadBoundaryInsetM(kinds.topLeft)),
+        right: clampLength(actual.heightM - fixedBeadBoundaryInsetM(kinds.bottomRight) - fixedBeadBoundaryInsetM(kinds.topRight)),
+    };
+}
+
+function getSashSideLengths(snapshot, cell) {
+    const actual = getCellActualSize(snapshot, cell);
+    const kinds = getBoundaryKindsAtCorners(snapshot, cell?.id);
+    return {
+        top: clampLength(actual.widthM - sashBoundaryInsetM(kinds.leftTop) - sashBoundaryInsetM(kinds.rightTop)),
+        bottom: clampLength(actual.widthM - sashBoundaryInsetM(kinds.leftBottom) - sashBoundaryInsetM(kinds.rightBottom)),
+        left: clampLength(actual.heightM - sashBoundaryInsetM(kinds.bottomLeft) - sashBoundaryInsetM(kinds.topLeft)),
+        right: clampLength(actual.heightM - sashBoundaryInsetM(kinds.bottomRight) - sashBoundaryInsetM(kinds.topRight)),
+    };
+}
+
+function getSashBeadSideLengths(snapshot, cell) {
+    const sash = getSashSideLengths(snapshot, cell);
+    const inset = AW_CT65_CUT_OFFSETS_MM.sashBeadFromSash * M_PER_MM * 2;
+    return {
+        top: clampLength(sash.top - inset),
+        bottom: clampLength(sash.bottom - inset),
+        left: clampLength(sash.left - inset),
+        right: clampLength(sash.right - inset),
+    };
+}
+
 function makeProfileCut({
     category,
     name,
@@ -461,13 +615,12 @@ function buildSashCuts({ snapshot, sashProfileId, locale, windowNumberMap }) {
         const owner = windowOwnerLabel(locale, windowNumberMap, cell.id);
         const prefix = `${windowT(locale, 'summary.profile.sash')}${owner ? ` · ${owner}` : ''}`;
         const windowNumber = getWindowNumber(windowNumberMap, cell.id);
-        const width = clampLength(cell.width);
-        const height = clampLength(cell.height);
+        const lengths = getSashSideLengths(snapshot, cell);
         [
-            ['top', width, 'horizontal'],
-            ['bottom', width, 'horizontal'],
-            ['left', height, 'vertical'],
-            ['right', height, 'vertical'],
+            ['top', lengths.top, 'horizontal'],
+            ['bottom', lengths.bottom, 'horizontal'],
+            ['left', lengths.left, 'vertical'],
+            ['right', lengths.right, 'vertical'],
         ].forEach(([side, lengthM, orientation]) => cuts.push(makeProfileCut({
             category: 'sash',
             name: `${prefix} · ${labelSide(locale, side)}`,
@@ -486,20 +639,25 @@ function buildSashCuts({ snapshot, sashProfileId, locale, windowNumberMap }) {
 function buildTransCuts({ geometry, snapshot, transProfileId, sashProfileId, locale, windowNumberMap }) {
     const transSegments = geometry?.transSegments || [];
     if (!transSegments.length) return [];
-    const sashFaceM = finite(getProfileData(sashProfileId, 'sash').faceWidthMm, 49) * M_PER_MM;
     return transSegments.map((segment, index) => {
         const owner = (snapshot?.openingCells || []).find(cell => cell.id === segment.ownerCellId)
             || (snapshot?.openingCells || []).find(cell => cell.id === segment.negativeCellId || cell.id === segment.positiveCellId);
         const pair = normalizeWindowPair(windowNumberMap, segment.negativeCellId, segment.positiveCellId);
         const betweenLabel = formatBetweenWindows(locale, pair ? [pair] : []);
-        const ownerSpan = segment.orientation === 'vertical'
+        const sashLengths = owner ? getSashSideLengths(snapshot, owner) : null;
+        const ownerVentSpan = segment.orientation === 'vertical'
+            ? Math.min(finite(sashLengths?.left, Infinity), finite(sashLengths?.right, Infinity))
+            : Math.min(finite(sashLengths?.top, Infinity), finite(sashLengths?.bottom, Infinity));
+        const fallbackSpan = segment.orientation === 'vertical'
             ? finite(owner?.height, segment.structuralWorldEnd - segment.structuralWorldStart)
             : finite(owner?.width, segment.structuralWorldEnd - segment.structuralWorldStart);
+        const ventSpan = Number.isFinite(ownerVentSpan) ? ownerVentSpan : fallbackSpan;
         return makeProfileCut({
             category: 'trans',
             name: `${windowT(locale, 'summary.profile.trans')}${betweenLabel ? ` · ${betweenLabel}` : (transSegments.length > 1 ? ` ${index + 1}` : '')}`,
             profileId: transProfileId,
-            lengthM: Math.max(0, ownerSpan - sashFaceM * 2),
+            // K1036297: double-vent profile length X = h - 80 mm.
+            lengthM: Math.max(0, ventSpan - AW_CT65_CUT_OFFSETS_MM.doubleVentReduction * M_PER_MM),
             startJoint: 'square-sash',
             endJoint: 'square-sash',
             orientation: segment.orientation,
@@ -515,25 +673,26 @@ function buildBeadCuts({ snapshot, glazingBeadCode, locale, windowNumberMap }) {
     if (!glazingBeadCode) return [];
     const cells = [
         ...(snapshot?.openingCells || []).map(cell => ({ ...cell, kind: 'sash' })),
-        ...(snapshot?.fixedCells || []).map(cell => ({
-            ...cell,
-            width: cell.fixedAccessoryWidth ?? cell.width,
-            height: cell.fixedAccessoryHeight ?? cell.height,
-            kind: 'fixed',
-        })),
+        ...(snapshot?.fixedCells || []).map(cell => ({ ...cell, kind: 'fixed' })),
     ];
     const cuts = [];
     cells.forEach(cell => {
         const owner = windowOwnerLabel(locale, windowNumberMap, cell.id);
         const prefix = `${windowT(locale, 'summary.profile.bead')}${owner ? ` · ${owner}` : ''}`;
         const windowNumber = getWindowNumber(windowNumberMap, cell.id);
-        const width = clampLength(cell.width);
-        const height = clampLength(cell.height);
+        // fixedAccessoryWidth/Height are CAD connection-seat rectangles used by
+        // the renderer; they are not saw lengths. In a 600 mm frame/mullion bay
+        // that rectangle can legitimately be 613 mm because it reaches 13 mm
+        // past the mullion-centre grid line. Manufacturing bead lengths instead
+        // use the actual window size and the profile mounting-line offsets.
+        const lengths = cell.kind === 'sash'
+            ? getSashBeadSideLengths(snapshot, cell)
+            : getFixedBeadSideLengths(snapshot, cell);
         [
-            ['top', width, 'horizontal'],
-            ['bottom', width, 'horizontal'],
-            ['left', height, 'vertical'],
-            ['right', height, 'vertical'],
+            ['top', lengths.top, 'horizontal'],
+            ['bottom', lengths.bottom, 'horizontal'],
+            ['left', lengths.left, 'vertical'],
+            ['right', lengths.right, 'vertical'],
         ].forEach(([side, lengthM, orientation]) => cuts.push(makeProfileCut({
             category: 'bead',
             name: `${prefix} · ${labelSide(locale, side)}`,
