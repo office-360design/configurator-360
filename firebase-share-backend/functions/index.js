@@ -46,73 +46,14 @@ const TENANTS_COLLECTION = 'tenants';
 const TENANT_PUBLIC_COLLECTION = 'tenantPublic';
 const TENANT_PROVISIONING_ADMINS_COLLECTION = 'tenantProvisioningAdmins';
 const TENANT_USAGE_COLLECTION = 'tenantUsage';
-const CONFIGURATOR_ANALYTICS_COLLECTION = 'configuratorAnalytics';
 const TENANT_SCHEMA_VERSION = 1;
 const TENANT_PLAN_GO_LIVE_NOW = 'go_live_now';
-const TENANT_SUBSCRIPTION_SCHEMA_VERSION = 1;
-const TENANT_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due', 'suspended', 'cancelled']);
-const TENANT_ACCESSIBLE_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due']);
-const TENANT_PLAN_CATALOG = Object.freeze({
-  go_live_now_1: Object.freeze({
-    id: 'go_live_now_1',
-    name: 'Go Live Now — 1 configurator',
-    maxConfigurators: 1,
-    billingInterval: 'month',
-    currency: 'EUR',
-    monthlyPriceCents: null,
-    stripePriceId: '',
-    solarUsageLimits: Object.freeze({
-      analysesPerMonth: 0,
-      buildingInsightsPerMonth: 0,
-      dataLayersPerMonth: 0,
-      pvgisPerMonth: 0,
-    }),
-  }),
-  go_live_now_3: Object.freeze({
-    id: 'go_live_now_3',
-    name: 'Go Live Now — up to 3 configurators',
-    maxConfigurators: 3,
-    billingInterval: 'month',
-    currency: 'EUR',
-    monthlyPriceCents: null,
-    stripePriceId: '',
-    solarUsageLimits: Object.freeze({
-      analysesPerMonth: 0,
-      buildingInsightsPerMonth: 0,
-      dataLayersPerMonth: 0,
-      pvgisPerMonth: 0,
-    }),
-  }),
-  go_live_now_all: Object.freeze({
-    id: 'go_live_now_all',
-    name: 'Go Live Now — all configurators',
-    maxConfigurators: 6,
-    billingInterval: 'month',
-    currency: 'EUR',
-    monthlyPriceCents: null,
-    stripePriceId: '',
-    solarUsageLimits: Object.freeze({
-      analysesPerMonth: 0,
-      buildingInsightsPerMonth: 0,
-      dataLayersPerMonth: 0,
-      pvgisPerMonth: 0,
-    }),
-  }),
-});
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const TENANT_COMPANY_NAME_MAX_LENGTH = 120;
-const TENANT_OWNER_EMAIL_MAX_LENGTH = 254;
 const TENANT_LOGO_MAX_BYTES = 200_000;
 const TENANT_ADMIN_LIST_LIMIT = 500;
 const TENANT_STATUSES = new Set(['active', 'suspended']);
 const TENANT_USAGE_LIMIT_MAX = 1_000_000_000;
-const CONFIGURATOR_ANALYTICS_EVENTS = Object.freeze({
-  access: 'accesses',
-  login: 'logins',
-  configuration_created: 'configurationsCreated',
-});
-const CONFIGURATOR_ANALYTICS_METRICS = Object.freeze(['accesses', 'logins', 'configurationsCreated']);
-const PLATFORM_ANALYTICS_SCOPE_ID = 'platform';
 const DEFAULT_SOLAR_USAGE_LIMITS = Object.freeze({
   analysesPerMonth: 0,
   buildingInsightsPerMonth: 0,
@@ -1145,15 +1086,6 @@ function validateTenantCompanyName(value) {
   return companyName;
 }
 
-function validateTenantOwnerEmail(value, { optional = true } = {}) {
-  const email = String(value || '').trim().toLowerCase();
-  if (!email && optional) return '';
-  if (!email || email.length > TENANT_OWNER_EMAIL_MAX_LENGTH || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new HttpsError('invalid-argument', 'Enter a valid tenant dashboard owner email address.');
-  }
-  return email;
-}
-
 function validateTenantStatus(value) {
   const status = String(value || '').trim().toLowerCase();
   if (!TENANT_STATUSES.has(status)) {
@@ -1175,137 +1107,6 @@ function validateTenantConfigurators(value) {
     throw new HttpsError('invalid-argument', 'Enable at least one configurator.');
   }
   return configurators;
-}
-
-function enabledConfiguratorCount(configurators) {
-  return Object.values(normalizedTenantConfigurators(configurators)).filter(Boolean).length;
-}
-
-function inferredTenantPlanId(configurators) {
-  const count = enabledConfiguratorCount(configurators);
-  if (count <= 1) return 'go_live_now_1';
-  if (count <= 3) return 'go_live_now_3';
-  return 'go_live_now_all';
-}
-
-function validateTenantPlanId(value, configurators = null) {
-  const fallback = configurators ? inferredTenantPlanId(configurators) : '';
-  const planId = String(value || fallback).trim().toLowerCase();
-  const plan = TENANT_PLAN_CATALOG[planId];
-  if (!plan) throw new HttpsError('invalid-argument', 'Unsupported Go Live Now plan.');
-  return planId;
-}
-
-function tenantPlan(planId) {
-  const normalized = validateTenantPlanId(planId);
-  return TENANT_PLAN_CATALOG[normalized];
-}
-
-function validateConfiguratorsForPlan(configurators, planId) {
-  const normalized = validateTenantConfigurators(configurators);
-  const plan = tenantPlan(planId);
-  const count = enabledConfiguratorCount(normalized);
-  if (count > plan.maxConfigurators) {
-    throw new HttpsError(
-      'failed-precondition',
-      `${plan.name} allows at most ${plan.maxConfigurators} configurator${plan.maxConfigurators === 1 ? '' : 's'}.`,
-    );
-  }
-  return normalized;
-}
-
-function publicTenantPlanCatalog() {
-  return Object.values(TENANT_PLAN_CATALOG).map((plan) => ({
-    id: plan.id,
-    name: plan.name,
-    maxConfigurators: plan.maxConfigurators,
-    billingInterval: plan.billingInterval,
-    currency: plan.currency,
-    monthlyPriceCents: plan.monthlyPriceCents,
-    stripePriceId: plan.stripePriceId,
-    solarUsageLimits: { ...plan.solarUsageLimits },
-  }));
-}
-
-function validateTenantSubscriptionStatus(value) {
-  const status = String(value || '').trim().toLowerCase();
-  if (!TENANT_SUBSCRIPTION_STATUSES.has(status)) {
-    throw new HttpsError('invalid-argument', 'Unsupported subscription status.');
-  }
-  return status;
-}
-
-function tenantRuntimeStatusForSubscription(subscriptionStatus) {
-  return TENANT_ACCESSIBLE_SUBSCRIPTION_STATUSES.has(subscriptionStatus) ? 'active' : 'suspended';
-}
-
-function defaultTenantSubscription(now = Timestamp.now()) {
-  return {
-    schemaVersion: TENANT_SUBSCRIPTION_SCHEMA_VERSION,
-    status: 'active',
-    cancelAtPeriodEnd: false,
-    provider: 'manual',
-    customerId: '',
-    subscriptionId: '',
-    priceId: '',
-    currentPeriodStart: null,
-    currentPeriodEnd: null,
-    lastEventId: '',
-    updatedAt: now,
-  };
-}
-
-function normalizedTenantSubscription(value, legacyTenantStatus = 'active') {
-  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const fallbackStatus = legacyTenantStatus === 'suspended' ? 'suspended' : 'active';
-  const candidateStatus = String(source.status || fallbackStatus).trim().toLowerCase();
-  const status = TENANT_SUBSCRIPTION_STATUSES.has(candidateStatus) ? candidateStatus : fallbackStatus;
-  return {
-    schemaVersion: Number(source.schemaVersion) || TENANT_SUBSCRIPTION_SCHEMA_VERSION,
-    status,
-    cancelAtPeriodEnd: source.cancelAtPeriodEnd === true,
-    provider: String(source.provider || 'manual'),
-    customerId: String(source.customerId || ''),
-    subscriptionId: String(source.subscriptionId || ''),
-    priceId: String(source.priceId || ''),
-    currentPeriodStart: source.currentPeriodStart || null,
-    currentPeriodEnd: source.currentPeriodEnd || null,
-    lastEventId: String(source.lastEventId || ''),
-    updatedAt: source.updatedAt || null,
-  };
-}
-
-function subscriptionAdminView(subscription, legacyTenantStatus = 'active') {
-  const normalized = normalizedTenantSubscription(subscription, legacyTenantStatus);
-  return {
-    schemaVersion: normalized.schemaVersion,
-    status: normalized.status,
-    cancelAtPeriodEnd: normalized.cancelAtPeriodEnd,
-    provider: normalized.provider,
-    customerId: normalized.customerId,
-    subscriptionId: normalized.subscriptionId,
-    priceId: normalized.priceId,
-    currentPeriodStartMs: tenantTimestampMs(normalized.currentPeriodStart),
-    currentPeriodEndMs: tenantTimestampMs(normalized.currentPeriodEnd),
-    updatedAtMs: tenantTimestampMs(normalized.updatedAt),
-  };
-}
-
-function validateTenantSubscriptionTransition(fromStatus, toStatus) {
-  const from = validateTenantSubscriptionStatus(fromStatus);
-  const to = validateTenantSubscriptionStatus(toStatus);
-  if (from === to) return to;
-  const allowed = {
-    trialing: new Set(['active', 'past_due', 'suspended', 'cancelled']),
-    active: new Set(['trialing', 'past_due', 'suspended', 'cancelled']),
-    past_due: new Set(['active', 'suspended', 'cancelled']),
-    suspended: new Set(['active', 'cancelled']),
-    cancelled: new Set(['active']),
-  };
-  if (!allowed[from]?.has(to)) {
-    throw new HttpsError('failed-precondition', `Subscription cannot move from ${from} to ${to}.`);
-  }
-  return to;
 }
 
 function normalizeTenantUsageLimit(value) {
@@ -1364,124 +1165,6 @@ async function tenantUsageForMonth(slug, month = currentTenantUsageMonth()) {
     solar: normalizedSolarUsage(data.solar),
     updatedAtMs: tenantTimestampMs(data.updatedAt),
   };
-}
-
-function currentAnalyticsDay() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function analyticsScopeIdForTenant(slug) {
-  return `tenant--${normalizeTenantSlug(slug)}`;
-}
-
-function emptyConfiguratorAnalytics() {
-  return Object.fromEntries(
-    [...ALLOWED_PRODUCTS].sort().map((product) => [product, { accesses: 0, logins: 0, configurationsCreated: 0 }]),
-  );
-}
-
-function normalizedConfiguratorAnalytics(value) {
-  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const sourceConfigurators = source.configurators && typeof source.configurators === 'object'
-    ? source.configurators
-    : {};
-  const result = emptyConfiguratorAnalytics();
-  for (const product of Object.keys(result)) {
-    const metrics = sourceConfigurators[product] && typeof sourceConfigurators[product] === 'object'
-      ? sourceConfigurators[product]
-      : {};
-    for (const metric of CONFIGURATOR_ANALYTICS_METRICS) {
-      result[product][metric] = Math.max(0, Math.floor(Number(metrics[metric]) || 0));
-    }
-  }
-  return result;
-}
-
-async function configuratorAnalyticsForScope(scopeId, month = currentTenantUsageMonth()) {
-  const scopeRef = db.collection(CONFIGURATOR_ANALYTICS_COLLECTION).doc(scopeId);
-  const [monthSnapshot, lifetimeSnapshot] = await Promise.all([
-    scopeRef.collection('months').doc(month).get(),
-    scopeRef.collection('summary').doc('all').get(),
-  ]);
-  const monthData = monthSnapshot.data() || {};
-  const lifetimeData = lifetimeSnapshot.data() || {};
-  return {
-    month,
-    currentMonth: normalizedConfiguratorAnalytics(monthData),
-    lifetime: normalizedConfiguratorAnalytics(lifetimeData),
-    updatedAtMs: Math.max(tenantTimestampMs(monthData.updatedAt), tenantTimestampMs(lifetimeData.updatedAt)),
-  };
-}
-
-function validateConfiguratorAnalyticsProduct(value) {
-  const product = String(value || '').trim().toLowerCase();
-  if (!ALLOWED_PRODUCTS.has(product)) {
-    throw new HttpsError('invalid-argument', 'Unsupported configurator analytics product.');
-  }
-  return product;
-}
-
-function validateConfiguratorAnalyticsEvent(value) {
-  const event = String(value || '').trim().toLowerCase();
-  if (!Object.prototype.hasOwnProperty.call(CONFIGURATOR_ANALYTICS_EVENTS, event)) {
-    throw new HttpsError('invalid-argument', 'Unsupported configurator analytics event.');
-  }
-  return event;
-}
-
-async function configuratorAnalyticsScopeForRequest(request, product) {
-  const origin = requestOrigin(request);
-  if (USER_CONFIGURATION_DEVELOPMENT_ORIGIN.test(origin) || origin === 'https://aks.360configurator.com') {
-    return { skip: true, scopeId: '', scopeType: 'development', tenantSlug: '' };
-  }
-  if (ALLOWED_CONFIGURATOR_ORIGINS.has(origin)) {
-    return { skip: false, scopeId: PLATFORM_ANALYTICS_SCOPE_ID, scopeType: 'platform', tenantSlug: '' };
-  }
-
-  const tenantSlug = tenantSlugFromConfiguratorOrigin(origin);
-  if (!tenantSlug) throw new HttpsError('permission-denied', 'Unsupported configurator analytics origin.');
-
-  const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
-  const tenant = snapshot.data() || {};
-  const expectedDomain = `${tenantSlug}.360configurator.com`;
-  const configurators = tenant.configurators && typeof tenant.configurators === 'object' ? tenant.configurators : {};
-  if (
-    !snapshot.exists
-    || tenant.status !== 'active'
-    || String(tenant.domain || '') !== expectedDomain
-    || configurators[product] !== true
-  ) {
-    throw new HttpsError('permission-denied', 'This configurator is not enabled for the customer tenant.');
-  }
-  return {
-    skip: false,
-    scopeId: analyticsScopeIdForTenant(tenantSlug),
-    scopeType: 'tenant',
-    tenantSlug,
-  };
-}
-
-async function incrementConfiguratorAnalytics(scope, product, metric) {
-  const now = Timestamp.now();
-  const month = currentTenantUsageMonth();
-  const day = currentAnalyticsDay();
-  const scopeRef = db.collection(CONFIGURATOR_ANALYTICS_COLLECTION).doc(scope.scopeId);
-  const payload = {
-    schemaVersion: 1,
-    scopeType: scope.scopeType,
-    ...(scope.tenantSlug ? { tenantSlug: scope.tenantSlug } : {}),
-    configurators: {
-      [product]: {
-        [metric]: FieldValue.increment(1),
-      },
-    },
-    updatedAt: now,
-  };
-  const batch = db.batch();
-  batch.set(scopeRef.collection('summary').doc('all'), payload, { merge: true });
-  batch.set(scopeRef.collection('months').doc(month), { ...payload, period: month }, { merge: true });
-  batch.set(scopeRef.collection('days').doc(day), { ...payload, period: day }, { merge: true });
-  await batch.commit();
 }
 
 function detectLogoMime(buffer) {
@@ -1574,21 +1257,12 @@ function tenantTimestampMs(value) {
 function tenantAdminSummaryFromSnapshot(snapshot) {
   const data = snapshot.data() || {};
   const slug = normalizeTenantSlug(data.slug || snapshot.id);
-  const configurators = normalizedTenantConfigurators(data.configurators);
-  const planId = validateTenantPlanId(data.planId, configurators);
-  const plan = tenantPlan(planId);
-  const subscription = subscriptionAdminView(data.subscription, data.status);
   return {
     slug,
     domain: String(data.domain || `${slug}.360configurator.com`),
     companyName: String(data.companyName || slug),
-    status: String(data.status || tenantRuntimeStatusForSubscription(subscription.status)).trim().toLowerCase(),
-    planId,
-    planName: plan.name,
-    maxConfigurators: plan.maxConfigurators,
-    subscription,
-    configurators,
-    ownerEmail: String(data.ownerEmail || '').trim().toLowerCase(),
+    status: String(data.status || '').trim().toLowerCase(),
+    configurators: normalizedTenantConfigurators(data.configurators),
     hasLogo: Boolean(String(data.logoUrl || '').trim()),
     firebaseAuthDomainAuthorized: data.firebaseAuthDomainAuthorized === true,
     createdAtMs: tenantTimestampMs(data.createdAt),
@@ -1596,7 +1270,7 @@ function tenantAdminSummaryFromSnapshot(snapshot) {
   };
 }
 
-function tenantAdminDetailFromSnapshot(snapshot, usage = null, analytics = null) {
+function tenantAdminDetailFromSnapshot(snapshot, usage = null) {
   const data = snapshot.data() || {};
   return {
     ...tenantAdminSummaryFromSnapshot(snapshot),
@@ -1605,12 +1279,6 @@ function tenantAdminDetailFromSnapshot(snapshot, usage = null, analytics = null)
     usage: usage || {
       month: currentTenantUsageMonth(),
       solar: normalizedSolarUsage(null),
-      updatedAtMs: 0,
-    },
-    analytics: analytics || {
-      month: currentTenantUsageMonth(),
-      currentMonth: emptyConfiguratorAnalytics(),
-      lifetime: emptyConfiguratorAnalytics(),
       updatedAtMs: 0,
     },
   };
@@ -1625,84 +1293,6 @@ async function requireGoLiveNowTenant(slug) {
   return snapshot;
 }
 
-
-async function requireTenantDashboardOwner(request) {
-  const uid = requireAuthenticatedUid(request);
-  const email = String(request.auth?.token?.email || '').trim().toLowerCase();
-  if (!email || request.auth?.token?.email_verified !== true) {
-    throw new HttpsError('permission-denied', 'A verified Google account is required.');
-  }
-
-  const origin = requestOrigin(request);
-  const slug = tenantSlugFromConfiguratorOrigin(origin);
-  if (!slug || origin !== `https://${slug}.360configurator.com`) {
-    throw new HttpsError('permission-denied', 'Tenant dashboard requests must come from the customer domain.');
-  }
-
-  const ref = db.collection(TENANTS_COLLECTION).doc(slug);
-  const snapshot = await ref.get();
-  const tenant = snapshot.data() || {};
-  if (!snapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
-    throw new HttpsError('not-found', 'Tier-1 tenant not found.');
-  }
-
-  const ownerEmail = String(tenant.ownerEmail || '').trim().toLowerCase();
-  const ownerUid = String(tenant.ownerUid || '').trim();
-  if (!ownerEmail) {
-    throw new HttpsError('permission-denied', 'No dashboard owner is assigned to this tenant yet.');
-  }
-
-  if (ownerUid) {
-    if (ownerUid !== uid) {
-      throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
-    }
-  } else {
-    if (ownerEmail !== email) {
-      throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
-    }
-    await ref.update({ ownerUid: uid, ownerBoundAt: Timestamp.now() });
-  }
-
-  return { uid, email, slug, ref, snapshot, tenant };
-}
-
-function tenantDashboardViewFromSnapshot(snapshot, analytics = null, usage = null) {
-  const data = snapshot.data() || {};
-  const slug = normalizeTenantSlug(data.slug || snapshot.id);
-  const configurators = normalizedTenantConfigurators(data.configurators);
-  const planId = validateTenantPlanId(data.planId, configurators);
-  const plan = tenantPlan(planId);
-  const subscription = normalizedTenantSubscription(data.subscription, data.status);
-  return {
-    slug,
-    domain: String(data.domain || `${slug}.360configurator.com`),
-    companyName: String(data.companyName || slug),
-    logoUrl: String(data.logoUrl || ''),
-    status: String(data.status || tenantRuntimeStatusForSubscription(subscription.status)),
-    planId,
-    planName: plan.name,
-    maxConfigurators: plan.maxConfigurators,
-    subscription: {
-      status: subscription.status,
-      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-      currentPeriodEndMs: tenantTimestampMs(subscription.currentPeriodEnd),
-    },
-    configurators,
-    plans: publicTenantPlanCatalog(),
-    analytics: analytics || {
-      month: currentTenantUsageMonth(),
-      currentMonth: emptyConfiguratorAnalytics(),
-      lifetime: emptyConfiguratorAnalytics(),
-      updatedAtMs: 0,
-    },
-    usage: usage || {
-      month: currentTenantUsageMonth(),
-      solar: normalizedSolarUsage(null),
-      updatedAtMs: 0,
-    },
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Private per-user saved configurations
 // ---------------------------------------------------------------------------
@@ -1710,7 +1300,7 @@ const USER_SAVED_CONFIGURATION_VERSION = 1;
 const MAX_SAVED_CONFIGURATION_BYTES = 850_000;
 const MAX_SAVED_CONFIGURATION_NAME_LENGTH = 80;
 const SAVED_CONFIGURATION_LIST_LIMIT = 100;
-const USER_CART_VERSION = 3;
+const USER_CART_VERSION = 4;
 const MAX_USER_CART_ITEMS = 100;
 const USER_CART_CURRENCIES = new Set(['USD', 'EUR', 'RON']);
 const SHOPPING_CART_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
@@ -1942,13 +1532,30 @@ function shoppingCartItemSummary(snapshot) {
   };
 }
 
-function shoppingCartResponse(snapshot, { addedItem = null, updatedAtMs = Date.now() } = {}) {
+function shoppingCartItemDetail(snapshot) {
+  if (!snapshot?.exists) return null;
+  const summary = shoppingCartItemSummary(snapshot);
+  if (!summary) return null;
+  const data = snapshot.data() || {};
+  const stateJson = String(data.s || '');
+  if (!stateJson) return null;
+  return {
+    ...summary,
+    stateJson,
+    sizeBytes: Number(data.sizeBytes || utf8ByteLength(stateJson)),
+    updatedAtMs: timestampMillis(data.updatedAt) || timestampMillis(data.createdAt) || 0,
+  };
+}
+
+function shoppingCartResponse(snapshot, { addedItem = null, updatedItem = null, editingItem = null, updatedAtMs = Date.now() } = {}) {
   const docs = Array.isArray(snapshot?.docs) ? snapshot.docs : [];
   const items = docs.map((doc) => shoppingCartItemSummary(doc)).filter(Boolean);
   return {
     exists: true,
     items,
     addedItem: addedItem ? shoppingCartItemSummary(addedItem) : null,
+    updatedItem: updatedItem ? shoppingCartItemSummary(updatedItem) : null,
+    editingItem: editingItem || null,
     updatedAtMs,
   };
 }
@@ -2074,27 +1681,6 @@ const TENANT_ADMIN_CALLABLE_OPTIONS = Object.freeze({
   memory: '256MiB',
 });
 
-const CONFIGURATOR_ANALYTICS_CALLABLE_OPTIONS = Object.freeze({
-  region: FUNCTION_REGION,
-  serviceAccount: RUNTIME_SERVICE_ACCOUNT,
-  // Product analytics deliberately does not use App Check. It is non-billable
-  // telemetry, while reCAPTCHA assessments remain reserved for Share.
-  enforceAppCheck: false,
-  timeoutSeconds: 15,
-  memory: '256MiB',
-});
-
-
-const TENANT_DASHBOARD_CALLABLE_OPTIONS = Object.freeze({
-  region: FUNCTION_REGION,
-  serviceAccount: RUNTIME_SERVICE_ACCOUNT,
-  // Dashboard access is authenticated and bound to the tenant owner stored in
-  // the private tenant document. App Check remains reserved for Share.
-  enforceAppCheck: false,
-  timeoutSeconds: 30,
-  memory: '256MiB',
-});
-
 const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
   ...TENANT_ADMIN_CALLABLE_OPTIONS,
   // Identity Platform authorizedDomains is a project-level read/modify/write
@@ -2104,119 +1690,6 @@ const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
   maxInstances: 1,
 });
 
-exports.recordConfiguratorAnalyticsEvent = onCall(
-  CONFIGURATOR_ANALYTICS_CALLABLE_OPTIONS,
-  async (request) => {
-    const product = validateConfiguratorAnalyticsProduct(request.data?.productType);
-    const event = validateConfiguratorAnalyticsEvent(request.data?.eventType);
-    if (event === 'login' && !String(request.auth?.uid || '')) {
-      throw new HttpsError('unauthenticated', 'A successful Firebase login is required for login analytics.');
-    }
-
-    const scope = await configuratorAnalyticsScopeForRequest(request, product);
-    if (scope.skip) return { recorded: false, scope: scope.scopeType };
-
-    await incrementConfiguratorAnalytics(scope, product, CONFIGURATOR_ANALYTICS_EVENTS[event]);
-    return { recorded: true, scope: scope.scopeType };
-  },
-);
-
-exports.getTenantDashboard = onCall(
-  TENANT_DASHBOARD_CALLABLE_OPTIONS,
-  async (request) => {
-    const access = await requireTenantDashboardOwner(request);
-    const [snapshot, analytics, usage] = await Promise.all([
-      access.ref.get(),
-      configuratorAnalyticsForScope(analyticsScopeIdForTenant(access.slug)),
-      tenantUsageForMonth(access.slug),
-    ]);
-    return tenantDashboardViewFromSnapshot(snapshot, analytics, usage);
-  },
-);
-
-exports.updateTenantDashboard = onCall(
-  TENANT_DASHBOARD_CALLABLE_OPTIONS,
-  async (request) => {
-    const access = await requireTenantDashboardOwner(request);
-    const input = request.data && typeof request.data === 'object' ? request.data : {};
-    const now = Timestamp.now();
-    const hasOwn = (key) => Object.prototype.hasOwnProperty.call(input, key);
-    const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(access.slug);
-
-    await db.runTransaction(async (transaction) => {
-      const privateSnapshot = await transaction.get(access.ref);
-      const publicSnapshot = await transaction.get(publicRef);
-      const tenant = privateSnapshot.data() || {};
-      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW || !publicSnapshot.exists) {
-        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
-      }
-      if (String(tenant.ownerUid || '') !== access.uid) {
-        throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
-      }
-
-      const companyName = hasOwn('companyName')
-        ? validateTenantCompanyName(input.companyName)
-        : validateTenantCompanyName(tenant.companyName);
-      const existingConfigurators = validateTenantConfigurators(tenant.configurators);
-      const planId = hasOwn('planId')
-        ? validateTenantPlanId(input.planId, existingConfigurators)
-        : validateTenantPlanId(tenant.planId, existingConfigurators);
-      const configurators = hasOwn('configurators')
-        ? validateConfiguratorsForPlan(input.configurators, planId)
-        : validateConfiguratorsForPlan(existingConfigurators, planId);
-
-      const logoMode = hasOwn('logoMode') ? String(input.logoMode || '').trim().toLowerCase() : 'keep';
-      if (!['keep', 'replace', 'remove'].includes(logoMode)) {
-        throw new HttpsError('invalid-argument', 'Logo update mode is invalid.');
-      }
-      let logoUrl = String(tenant.logoUrl || '');
-      if (logoMode === 'remove') logoUrl = '';
-      if (logoMode === 'replace') {
-        logoUrl = validateTenantLogoDataUrl(input.logoDataUrl);
-        if (!logoUrl) throw new HttpsError('invalid-argument', 'Choose a logo image to replace the current logo.');
-      }
-
-      const synchronizedFields = { companyName, configurators, logoUrl, updatedAt: now };
-      transaction.update(access.ref, {
-        ...synchronizedFields,
-        planId,
-        lastSelfServiceUpdateByUid: access.uid,
-        lastSelfServiceUpdateByEmail: access.email,
-      });
-      transaction.update(publicRef, synchronizedFields);
-    });
-
-    const [snapshot, analytics, usage] = await Promise.all([
-      access.ref.get(),
-      configuratorAnalyticsForScope(analyticsScopeIdForTenant(access.slug)),
-      tenantUsageForMonth(access.slug),
-    ]);
-    logger.info('Tier-1 tenant updated through customer dashboard.', {
-      slug: access.slug,
-      updatedByUid: access.uid,
-    });
-    return tenantDashboardViewFromSnapshot(snapshot, analytics, usage);
-  },
-);
-
-exports.getPlatformAnalytics = onCall(
-  TENANT_ADMIN_CALLABLE_OPTIONS,
-  async (request) => {
-    requireTenantAdminOrigin(request);
-    await requireTenantProvisioningAdmin(request);
-    return configuratorAnalyticsForScope(PLATFORM_ANALYTICS_SCOPE_ID);
-  },
-);
-
-exports.getTenantPlans = onCall(
-  TENANT_ADMIN_CALLABLE_OPTIONS,
-  async (request) => {
-    requireTenantAdminOrigin(request);
-    await requireTenantProvisioningAdmin(request);
-    return { plans: publicTenantPlanCatalog() };
-  },
-);
-
 exports.provisionTenant = onCall(
   TENANT_PROVISIONING_CALLABLE_OPTIONS,
   async (request) => {
@@ -2224,14 +1697,9 @@ exports.provisionTenant = onCall(
     const admin = await requireTenantProvisioningAdmin(request);
     const slug = validateTenantSlug(request.data?.slug);
     const companyName = validateTenantCompanyName(request.data?.companyName);
-    const ownerEmail = validateTenantOwnerEmail(request.data?.ownerEmail);
-    const requestedConfigurators = validateTenantConfigurators(request.data?.configurators);
-    const planId = validateTenantPlanId(request.data?.planId, requestedConfigurators);
-    const configurators = validateConfiguratorsForPlan(requestedConfigurators, planId);
-    const plan = tenantPlan(planId);
+    const configurators = validateTenantConfigurators(request.data?.configurators);
     const logoUrl = validateTenantLogoDataUrl(request.data?.logoDataUrl);
     const now = Timestamp.now();
-    const subscription = defaultTenantSubscription(now);
     const domain = `${slug}.360configurator.com`;
     const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
     const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
@@ -2270,13 +1738,10 @@ exports.provisionTenant = onCall(
         domain,
         companyName,
         plan: TENANT_PLAN_GO_LIVE_NOW,
-        planId,
-        status: tenantRuntimeStatusForSubscription(subscription.status),
-        subscription,
+        status: 'active',
         ownerUid: '',
-        ownerEmail,
         configurators,
-        solarUsageLimits: { ...plan.solarUsageLimits },
+        solarUsageLimits: { ...DEFAULT_SOLAR_USAGE_LIMITS },
         logoUrl,
         firebaseAuthDomain: domain,
         firebaseAuthDomainAuthorized: true,
@@ -2290,7 +1755,7 @@ exports.provisionTenant = onCall(
         schemaVersion: TENANT_SCHEMA_VERSION,
         slug,
         companyName,
-        status: tenantRuntimeStatusForSubscription(subscription.status),
+        status: 'active',
         logoUrl,
         configurators,
         createdAt: now,
@@ -2301,8 +1766,6 @@ exports.provisionTenant = onCall(
     logger.info('Tier-1 tenant provisioned.', {
       slug,
       companyName,
-      planId,
-      subscriptionStatus: subscription.status,
       configurators: Object.entries(configurators).filter(([, enabled]) => enabled).map(([id]) => id),
       createdByUid: admin.uid,
     });
@@ -2311,11 +1774,7 @@ exports.provisionTenant = onCall(
       slug,
       companyName,
       domain,
-      ownerEmail,
       url: `https://${domain}/`,
-      planId,
-      planName: plan.name,
-      subscription: subscriptionAdminView(subscription, 'active'),
       configurators,
       createdAtMs: now.toMillis(),
     };
@@ -2348,11 +1807,8 @@ exports.getTenant = onCall(
     await requireTenantProvisioningAdmin(request);
     const slug = validateTenantSlug(request.data?.slug);
     const snapshot = await requireGoLiveNowTenant(slug);
-    const [usage, analytics] = await Promise.all([
-      tenantUsageForMonth(slug),
-      configuratorAnalyticsForScope(analyticsScopeIdForTenant(slug)),
-    ]);
-    return tenantAdminDetailFromSnapshot(snapshot, usage, analytics);
+    const usage = await tenantUsageForMonth(slug);
+    return tenantAdminDetailFromSnapshot(snapshot, usage);
   },
 );
 
@@ -2389,32 +1845,15 @@ exports.updateTenant = onCall(
       const companyName = hasOwn('companyName')
         ? validateTenantCompanyName(input.companyName)
         : validateTenantCompanyName(tenant.companyName);
-      const previousOwnerEmail = validateTenantOwnerEmail(tenant.ownerEmail);
-      const ownerEmail = hasOwn('ownerEmail')
-        ? validateTenantOwnerEmail(input.ownerEmail)
-        : previousOwnerEmail;
-      const ownerUid = ownerEmail === previousOwnerEmail ? String(tenant.ownerUid || '') : '';
-      const existingConfigurators = validateTenantConfigurators(tenant.configurators);
-      const planId = hasOwn('planId')
-        ? validateTenantPlanId(input.planId, existingConfigurators)
-        : validateTenantPlanId(tenant.planId, existingConfigurators);
+      const status = hasOwn('status')
+        ? validateTenantStatus(input.status)
+        : validateTenantStatus(tenant.status);
       const configurators = hasOwn('configurators')
-        ? validateConfiguratorsForPlan(input.configurators, planId)
-        : validateConfiguratorsForPlan(existingConfigurators, planId);
+        ? validateTenantConfigurators(input.configurators)
+        : validateTenantConfigurators(tenant.configurators);
       const solarUsageLimits = hasOwn('solarUsageLimits')
         ? validateSolarUsageLimits(input.solarUsageLimits)
         : normalizedSolarUsageLimits(tenant.solarUsageLimits);
-      let subscription = normalizedTenantSubscription(tenant.subscription, tenant.status);
-      if (hasOwn('status')) {
-        const legacyStatus = validateTenantStatus(input.status);
-        subscription = {
-          ...subscription,
-          status: legacyStatus === 'active' ? 'active' : 'suspended',
-          cancelAtPeriodEnd: legacyStatus === 'active' ? subscription.cancelAtPeriodEnd : false,
-          updatedAt: now,
-        };
-      }
-      const status = tenantRuntimeStatusForSubscription(subscription.status);
 
       const logoMode = hasOwn('logoMode') ? String(input.logoMode || '').trim().toLowerCase() : 'keep';
       if (!['keep', 'replace', 'remove'].includes(logoMode)) {
@@ -2438,12 +1877,8 @@ exports.updateTenant = onCall(
 
       transaction.update(privateRef, {
         ...synchronizedFields,
-        planId,
-        subscription,
         solarUsageLimits,
         domain: expectedDomain,
-        ownerEmail,
-        ownerUid,
         lastUpdatedByUid: admin.uid,
         lastUpdatedByEmail: admin.email,
       });
@@ -2454,99 +1889,21 @@ exports.updateTenant = onCall(
         domain: expectedDomain,
         companyName,
         status,
-        planId,
-        planName: tenantPlan(planId).name,
-        maxConfigurators: tenantPlan(planId).maxConfigurators,
-        subscription: subscriptionAdminView(subscription, status),
         configurators,
         logoUrl,
         solarUsageLimits,
-        ownerEmail,
         firebaseAuthDomainAuthorized: tenant.firebaseAuthDomainAuthorized === true,
         createdAtMs: tenantTimestampMs(tenant.createdAt),
         updatedAtMs: now.toMillis(),
       };
     });
 
-    [result.usage, result.analytics] = await Promise.all([
-      tenantUsageForMonth(slug),
-      configuratorAnalyticsForScope(analyticsScopeIdForTenant(slug)),
-    ]);
+    result.usage = await tenantUsageForMonth(slug);
 
     logger.info('Tier-1 tenant updated.', {
       slug,
       status: result.status,
       configurators: Object.entries(result.configurators).filter(([, enabled]) => enabled).map(([id]) => id),
-      updatedByUid: admin.uid,
-    });
-
-    return result;
-  },
-);
-
-exports.setTenantSubscriptionState = onCall(
-  TENANT_ADMIN_CALLABLE_OPTIONS,
-  async (request) => {
-    requireTenantAdminOrigin(request);
-    const admin = await requireTenantProvisioningAdmin(request);
-    const input = request.data && typeof request.data === 'object' ? request.data : {};
-    const slug = validateTenantSlug(input.slug);
-    const requestedStatus = validateTenantSubscriptionStatus(input.status);
-    const requestedCancelAtPeriodEnd = input.cancelAtPeriodEnd === true;
-    const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
-    const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
-    const now = Timestamp.now();
-
-    const result = await db.runTransaction(async (transaction) => {
-      const privateSnapshot = await transaction.get(privateRef);
-      const publicSnapshot = await transaction.get(publicRef);
-      const tenant = privateSnapshot.data() || {};
-      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
-        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
-      }
-      if (!publicSnapshot.exists) {
-        throw new HttpsError('failed-precondition', 'The public tenant document is missing.');
-      }
-
-      const currentSubscription = normalizedTenantSubscription(tenant.subscription, tenant.status);
-      const status = validateTenantSubscriptionTransition(currentSubscription.status, requestedStatus);
-      const cancelAtPeriodEnd = ['suspended', 'cancelled'].includes(status)
-        ? false
-        : requestedCancelAtPeriodEnd;
-      const subscription = {
-        ...currentSubscription,
-        schemaVersion: TENANT_SUBSCRIPTION_SCHEMA_VERSION,
-        status,
-        cancelAtPeriodEnd,
-        updatedAt: now,
-      };
-      const runtimeStatus = tenantRuntimeStatusForSubscription(status);
-
-      transaction.update(privateRef, {
-        status: runtimeStatus,
-        subscription,
-        lastUpdatedByUid: admin.uid,
-        lastUpdatedByEmail: admin.email,
-        updatedAt: now,
-      });
-      transaction.update(publicRef, {
-        status: runtimeStatus,
-        updatedAt: now,
-      });
-
-      return {
-        slug,
-        status: runtimeStatus,
-        subscription: subscriptionAdminView(subscription, runtimeStatus),
-        updatedAtMs: now.toMillis(),
-      };
-    });
-
-    logger.info('Tier-1 subscription state changed.', {
-      slug,
-      subscriptionStatus: result.subscription.status,
-      cancelAtPeriodEnd: result.subscription.cancelAtPeriodEnd,
-      runtimeStatus: result.status,
       updatedByUid: admin.uid,
     });
 
@@ -2745,8 +2102,24 @@ exports.getUserCart = onCall(
     const { tenantSlug } = await requireUserCartScope(request);
     await migrateFlatShoppingCartIfNeeded(uid, tenantSlug);
     await migrateLegacyUserCartIfNeeded(uid, tenantSlug);
+
+    let editingItem = null;
+    const requestedKey = String(request.data?.key || '').trim();
+    const requestedProduct = String(request.data?.productId || '').trim().toLowerCase();
+    if (requestedKey || requestedProduct) {
+      const productId = normalizeProductType(requestedProduct);
+      if (!ALLOWED_PRODUCTS.has(productId)) {
+        throw new HttpsError('invalid-argument', 'Unsupported cart configurator type.');
+      }
+      const itemId = validateShoppingCartItemId(requestedKey);
+      const itemSnapshot = await userShoppingCartItemsCollection(uid, productId, tenantSlug).doc(itemId).get();
+      if (!itemSnapshot.exists) throw new HttpsError('not-found', 'Shopping cart configuration not found.');
+      editingItem = shoppingCartItemDetail(itemSnapshot);
+      if (!editingItem) throw new HttpsError('failed-precondition', 'Shopping cart configuration is empty.');
+    }
+
     const snapshot = await readShoppingCartSnapshots(uid, tenantSlug);
-    return shoppingCartResponse(snapshot);
+    return shoppingCartResponse(snapshot, { editingItem });
   },
 );
 
@@ -2756,7 +2129,7 @@ exports.mutateUserCart = onCall(
     const uid = requireAuthenticatedUid(request);
     const { tenantSlug } = await requireUserCartScope(request);
     const action = String(request.data?.action || '').trim().toLowerCase();
-    if (!['add', 'remove', 'empty'].includes(action)) {
+    if (!['add', 'update', 'remove', 'empty'].includes(action)) {
       throw new HttpsError('invalid-argument', 'Unsupported cart action.');
     }
 
@@ -2814,14 +2187,16 @@ exports.mutateUserCart = onCall(
           n: name,
           sourceName,
           sourceSavedConfigurationId: savedConfigurationId,
-          // Copy the saved payload into the cart item. Cart entries are immutable
-          // snapshots: later edits to the source save cannot alter an order draft.
+          // Copy the saved payload into the cart item. The cart entry is detached
+          // from the source save: later source edits cannot alter it, while explicit
+          // cart editing updates only this shoppingCart snapshot.
           s: stateJson,
           sizeBytes: Number(saved.sizeBytes || utf8ByteLength(stateJson)),
           priceAmount,
           currency,
           tenantSlug,
           createdAt: now,
+          updatedAt: now,
         };
         transaction.create(cartItemRef, addedData);
       });
@@ -2830,6 +2205,46 @@ exports.mutateUserCart = onCall(
       return shoppingCartResponse(snapshot, {
         addedItem: { id: cartItemRef.id, ...addedData },
         updatedAtMs: Date.now(),
+      });
+    }
+
+    if (action === 'update') {
+      const rawItem = request.data?.item || {};
+      const productId = normalizeProductType(rawItem.productId);
+      if (!ALLOWED_PRODUCTS.has(productId)) {
+        throw new HttpsError('invalid-argument', 'Unsupported cart configurator type.');
+      }
+      const itemId = validateShoppingCartItemId(rawItem.key || rawItem.cartItemId);
+      const itemRef = userShoppingCartItemsCollection(uid, productId, tenantSlug).doc(itemId);
+      const stateJson = rawItem.stateJson;
+      const requestedName = String(rawItem.name || '').trim();
+      const priceAmount = normalizeCartPrice(rawItem.costAmount);
+      const currency = normalizeCartCurrency(rawItem.currency);
+
+      const existing = await itemRef.get();
+      if (!existing.exists) throw new HttpsError('not-found', 'Shopping cart configuration not found.');
+      const existingData = existing.data() || {};
+      const { projectName, sizeBytes } = validateSavedConfigurationPayload(
+        productId,
+        requestedName || existingData.n || 'Configuration',
+        stateJson,
+      );
+      const now = Timestamp.now();
+      const updates = {
+        v: USER_CART_VERSION,
+        n: projectName,
+        s: stateJson,
+        sizeBytes,
+        priceAmount,
+        currency,
+        updatedAt: now,
+      };
+      await itemRef.update(updates);
+      const updatedData = { id: itemId, ...existingData, ...updates };
+      const snapshot = await readShoppingCartSnapshots(uid, tenantSlug);
+      return shoppingCartResponse(snapshot, {
+        updatedItem: updatedData,
+        updatedAtMs: now.toMillis(),
       });
     }
 

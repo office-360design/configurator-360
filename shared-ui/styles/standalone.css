@@ -366,6 +366,23 @@
 .shared-ui-host .cart-menu__total span { color: #66737c; font-size: 10px; font-weight: 700; }
 .shared-ui-host .cart-menu__total strong { min-width: 0; color: #172027; font-size: 13px; font-weight: 850; text-align: right; overflow-wrap: anywhere; }
 
+.shared-ui-host .cart-menu__item { grid-template-columns:minmax(0,1fr) auto; }
+.shared-ui-host .cart-menu__item-actions { display:flex; align-items:center; gap:2px; }
+.shared-ui-host .cart-menu__edit,
+.shared-ui-host .cart-menu__remove { display:grid; width:34px; height:34px; place-items:center; padding:0; border:0; border-radius:9px; color:#69767e; background:transparent; cursor:pointer; transition:color 140ms ease, background 140ms ease, transform 140ms ease; }
+.shared-ui-host .cart-menu__edit:hover:not(:disabled),
+.shared-ui-host .cart-menu__edit:focus-visible:not(:disabled) { color:var(--blue-800); background:var(--blue-100); }
+.shared-ui-host .cart-menu__edit svg,
+.shared-ui-host .cart-menu__remove svg { display:block; width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+@media (hover:hover) and (pointer:fine) { .shared-ui-host .cart-menu__edit:hover:not(:disabled) .cart-menu__edit-icon { animation:shared-cart-edit-hover 360ms ease; } }
+@keyframes shared-cart-edit-hover { 0%,100%{transform:translate(0,0) rotate(0)} 45%{transform:translate(1px,-2px) rotate(-8deg)} 75%{transform:translate(-1px,0) rotate(4deg)} }
+.shared-ui-host .cart-menu__footer { display:grid; }
+.shared-ui-host .cart-menu__quote { display:flex; width:calc(100% - 10px); min-height:38px; align-items:center; justify-content:center; gap:8px; margin:6px 5px 2px; padding:0 14px; border:1px solid var(--blue-700); border-radius:10px; color:#fff; background:var(--blue-700); font:inherit; font-size:11px; font-weight:850; cursor:pointer; transition:background 140ms ease, border-color 140ms ease, transform 140ms ease; }
+.shared-ui-host .cart-menu__quote:hover,
+.shared-ui-host .cart-menu__quote:focus-visible { background:var(--blue-800); border-color:var(--blue-800); transform:translateY(-1px); }
+.shared-ui-host .cart-menu__quote-icon { display:grid; place-items:center; }
+.shared-ui-host .cart-menu__quote svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
 .shared-ui-host .account-menu__profile { display: grid; justify-items: center; gap: 8px; padding: 10px 8px 15px; border-bottom: 1px solid #e8ecee; text-align: center; }
 .shared-ui-host .account-menu__avatar { display: grid; width: 52px; height: 52px; place-items: center; border: 1px solid #dce2e5; border-radius: 50%; background: #f4f6f7; }
 .shared-ui-host .account-menu__avatar svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.65; }
