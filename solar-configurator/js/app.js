@@ -12,7 +12,7 @@ import {
   resolveGoogleSolarEndpoint,
   testGoogleSolarProxy,
   unlockGoogleSolar,
-} from './googleSolar.js?v=7';
+} from './googleSolar.js?v=8';
 import {
   getSeasonPresetDate,
   getSolarContext,

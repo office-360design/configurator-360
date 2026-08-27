@@ -35,6 +35,7 @@ function storeGoogleSolarSession(session) {
 
 async function jsonFetch(url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController();
+  const usingInternalTimeout = !options.signal;
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { ...options, signal: options.signal || controller.signal });
@@ -48,6 +49,13 @@ async function jsonFetch(url, options = {}, timeoutMs = 15000) {
       throw error;
     }
     return payload;
+  } catch (error) {
+    if (usingInternalTimeout && (error?.name === 'AbortError' || /aborted/i.test(String(error?.message || '')))) {
+      const timeoutError = new Error(`Google Solar analysis timed out after ${Math.round(timeoutMs / 1000)} seconds.`);
+      timeoutError.name = 'TimeoutError';
+      throw timeoutError;
+    }
+    throw error;
   } finally {
     window.clearTimeout(timeoutId);
   }
@@ -168,7 +176,7 @@ export async function analyzeGoogleSolar(endpoint, requestBody, { force = false 
       Authorization: `Bearer ${session.token}`,
     },
     body: JSON.stringify(requestBody),
-  }, 60000);
+  }, 240000);
   cacheGoogleAnalysis(signature, analysis);
   return analysis;
 }

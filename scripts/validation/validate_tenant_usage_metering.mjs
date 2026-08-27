@@ -11,6 +11,10 @@ const checks = [
   ['solar-google-api/src/tenantUsage.mjs', [
     "const TENANT_USAGE_COLLECTION = 'tenantUsage'",
     'export async function resolveSolarRequestContext(request)',
+    'const RESERVED_PLATFORM_SUBDOMAINS = new Set([',
+    "'www'",
+    "'aks'",
+    'RESERVED_PLATFORM_SUBDOMAINS.has(slug)',
     'configurators.solar !== true',
     'export async function consumeTenantSolarMetric',
     'class TenantUsageQuotaError',
@@ -57,6 +61,9 @@ const checks = [
     'solarUsageLimits,',
     'usageValueWithLimit',
   ]],
+  ['solar-configurator/js/googleSolar.js', ['}, 240000);', 'Google Solar analysis timed out after']],
+  ['solar-configurator/js/app.js', ["from './googleSolar.js?v=8';"]],
+  ['solar-configurator/index.html', ['./js/app.js?v=28']],
   ['solar-google-api/package.json', ['node --check src/tenantUsage.mjs']],
   ['package.json', ['check:tenant-usage', 'validate_tenant_usage_metering.mjs']],
 ];
