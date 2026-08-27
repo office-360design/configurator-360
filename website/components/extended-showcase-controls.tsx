@@ -873,7 +873,7 @@ export function FenceControls({ locale }: { locale: Locale }) {
           <span className="fence-field-label">{text.panels}</span>
           {visualChoices([["vertical", text.vertical], ["horizontal", text.horizontal], ["privacy", text.privacy], ["mesh", text.mesh]], "panelStyle", state.panelStyle)}
           {state.panelStyle !== "privacy" && state.panelStyle !== "mesh" && <Range label={text.gap} value={state.infillGap} min={.015} max={.09} step={.005} unit=" m" onChange={(value) => update("infillGap", value)} />}
-          <div className="fence-finish-grid">{[["anthracite", "#252d33", text.anthracite], ["black", "#0e1215", text.black], ["white", "#d8d7d2", text.white], ["bronze", "#795433", text.bronze], ["wood", "#8a5734", text.wood]].map(([value, color, label]) => <button type="button" key={value} className={state.finish === value ? "active" : ""} onClick={() => update("finish", value)}><i style={{ background: color }} /><span>{label}</span></button>)}</div>
+          <div className="fence-finish-grid">{[["anthracite", "#252d33", text.anthracite], ["black", "#0e1215", text.black], ["white", "#d8d7d2", text.white], ["bronze", "#5f544c", text.bronze], ["wood", "#8a5734", text.wood]].map(([value, color, label]) => <button type="button" key={value} className={state.finish === value ? "active" : ""} onClick={() => update("finish", value)}><i style={{ background: color }} /><span>{label}</span></button>)}</div>
         </div>}
         {tab === "access" && <div className="fence-control-section fence-access-section">
           {choices([["none", text.noGate], ["pedestrian", text.pedestrian], ["driveway", text.driveway]], "gateType", state.gateType)}

@@ -44,7 +44,7 @@ export function buildFencePreview(state: FencePreviewState) {
   // Lift the broad vertical panels without introducing a moving gold hotspot.
   // Directional highlights remain supplied by the shared stage, while this
   // neutral diffuse fill keeps finishes readable throughout an orbit.
-  const materialFill = new THREE.AmbientLight(0xf5f8fb, 0.34);
+  const materialFill = new THREE.AmbientLight(0xf5f8fb, 0.08);
   materialFill.name = "fence-neutral-material-fill";
   root.add(materialFill);
 

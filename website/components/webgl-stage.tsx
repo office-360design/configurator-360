@@ -2,10 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import { buildPergola } from "../lib/scenes/pergola-builder.js";
 import { DEFAULT_STATE } from "../lib/scenes/pergola-state.js";
 import { buildPoleGrid } from "../lib/scenes/pergola-layout.js";
-import { buildRoofModel } from "../lib/scenes/roof-factory.js";
+// Use the configurator's source directly so the homepage can never lag behind
+// the production roof geometry/material implementation.
+import { buildRoofModel } from "../../roof-configurator/js/roofFactory.js";
 import { calculatePrice as calculatePergolaPrice } from "../lib/scenes/pergola-pricing.js";
 import { calculateBom } from "../../roof-configurator/js/bom.js";
 import { getFallbackCurrencyRate, resolveCurrencyRate } from "../../roof-configurator/js/preferences.js";
@@ -244,6 +247,7 @@ export function WebGLStage() {
   const host = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    RectAreaLightUniformsLib.init();
     if (!host.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const container = host.current;
     const scene = new THREE.Scene();
@@ -289,6 +293,10 @@ export function WebGLStage() {
     addEnvironmentPanel([-8, 5, 5], [0.08, 5, 4], 0xfff0d6, 18);
     addEnvironmentPanel([7, 2, 3], [0.08, 3.5, 5], 0x9dd8ff, 11);
     addEnvironmentPanel([0, 8, -2], [5, 0.08, 3], 0xffffff, 14);
+    // Front softbox: the default fence camera looks from +Z, so this creates
+    // the long, controlled coating reflection that was previously visible only
+    // from beneath the model. It is baked into the PMREM, not evaluated per frame.
+    addEnvironmentPanel([-2.2, 4.2, 10], [1.35, 4.2, 0.08], 0xffe7c7, 19);
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     const environmentTarget = pmremGenerator.fromScene(environmentScene, 0.035);
     scene.environment = environmentTarget.texture;
@@ -339,6 +347,8 @@ export function WebGLStage() {
 
     const hemisphere = new THREE.HemisphereLight(0xffffff, 0x8d99a6, 0.92);
     scene.add(hemisphere);
+    const ambient = new THREE.AmbientLight(0xffffff, 0);
+    scene.add(ambient);
     const key = new THREE.DirectionalLight(0xfff1dc, 3.15);
     key.position.set(4.5, 6.5, 7); key.castShadow = true;
     const shadowMapSize = lowCoreDevice ? 1024 : 1536;
@@ -347,7 +357,22 @@ export function WebGLStage() {
     const rim = new THREE.DirectionalLight(0x6fc4ff, 1.85); rim.position.set(4, 4.5, -6); scene.add(rim);
     const cool = new THREE.DirectionalLight(0xb7d9ff, 1.25); cool.position.set(-5.5, 2.5, 4); scene.add(cool);
     const warm = new THREE.PointLight(0xffffff, 0.55, 12, 1.5); warm.position.set(0, 5, 1.2); scene.add(warm);
-    const neutralKeyColor = new THREE.Color(0xffffff);
+    // A three-panel product-photography rig follows the fence viewing side.
+    // Area lights create a broad coating gradient instead of the tiny hotspot
+    // produced by the previous spotlight, while a rear strip keeps posts and
+    // panel edges separated from the pale stage.
+    const fenceAreaKey = new THREE.RectAreaLight(0xf8fbff, 0, 4.6, 4.2);
+    const fenceAreaFill = new THREE.RectAreaLight(0xcfe3ff, 0, 4.4, 3.6);
+    const fenceAreaRim = new THREE.RectAreaLight(0xfff1dc, 0, 6.2, 1.8);
+    const fenceSpot = new THREE.SpotLight(0xfff7e8, 0, 32, Math.PI / 6.5, 0.82, 1.35);
+    const fenceSpotTarget = new THREE.Object3D();
+    scene.add(fenceAreaKey, fenceAreaFill, fenceAreaRim, fenceSpot, fenceSpotTarget);
+    fenceSpot.target = fenceSpotTarget;
+    const fenceViewDirection = new THREE.Vector3();
+    const fenceViewRight = new THREE.Vector3();
+    const fenceViewUp = new THREE.Vector3();
+    const fenceWorldUp = new THREE.Vector3(0, 1, 0);
+    const fenceKeyColor = new THREE.Color(0xf6fbff);
     const warmKeyColor = new THREE.Color(0xfff1dc);
 
     let active: SceneKey = "engine";
@@ -836,14 +861,20 @@ export function WebGLStage() {
       const nightScene = darkPergola || darkSolar;
       const solarDay = active === "solar" && !darkSolar;
       const fenceScene = active === "fence";
-      hemisphere.intensity += ((nightScene ? 0.27 : solarDay ? 0.62 : fenceScene ? 1.06 : 0.92) - hemisphere.intensity) * 0.08;
-      key.intensity += ((nightScene ? 1.08 : fenceScene ? 1.85 : 3.15) - key.intensity) * 0.08;
-      key.color.lerp(fenceScene ? neutralKeyColor : warmKeyColor, 0.08);
-      rim.intensity += ((nightScene ? 0.68 : solarDay ? 1.05 : fenceScene ? 0.7 : 1.85) - rim.intensity) * 0.08;
-      cool.intensity += ((nightScene ? 0.24 : solarDay ? 0.58 : fenceScene ? 0.82 : 1.25) - cool.intensity) * 0.08;
+      const roofScene = active === "roof";
+      // Roof materials use one neutral product-lighting balance for every
+      // topology. Shape-dependent intensities made the same finish look pale
+      // on one roof and almost black on another.
+      hemisphere.intensity += ((nightScene ? 0.27 : solarDay ? 0.62 : fenceScene ? 0.56 : roofScene ? 1.45 : 0.92) - hemisphere.intensity) * 0.08;
+      ambient.intensity += ((roofScene ? 0.45 : 0) - ambient.intensity) * 0.08;
+      key.intensity += ((nightScene ? 1.08 : fenceScene ? 1.35 : roofScene ? 0.95 : 3.15) - key.intensity) * 0.08;
+      key.color.lerp(fenceScene ? fenceKeyColor : warmKeyColor, 0.08);
+      rim.intensity += ((nightScene ? 0.68 : solarDay ? 1.05 : fenceScene ? 0.38 : roofScene ? 0.18 : 1.85) - rim.intensity) * 0.08;
+      cool.intensity += ((nightScene ? 0.24 : solarDay ? 0.58 : fenceScene ? 0.3 : roofScene ? 0.18 : 1.25) - cool.intensity) * 0.08;
       // The configurable perimeter and integrated fixtures live in the pergola model.
       // Keep the global studio fill neutral so "lights off" still reads as night.
-      warm.intensity += ((nightScene ? 0.12 : solarDay ? 0.24 : fenceScene ? 0.04 : 0.55) - warm.intensity) * 0.08;
+      warm.intensity += ((nightScene ? 0.12 : solarDay ? 0.24 : fenceScene ? 0.04 : roofScene ? 0.03 : 0.55) - warm.intensity) * 0.08;
+      scene.environmentIntensity += ((roofScene ? 0.28 : 1) - scene.environmentIntensity) * 0.08;
       if (active === "solar") {
         const sun = solarDirection(
           solarState.simulationDate,
@@ -854,6 +885,10 @@ export function WebGLStage() {
         );
         key.position.set(sun.x, Math.max(.35, sun.y), sun.z);
         key.intensity += (((sun.elevationDeg < 0 || solarState.nightPreview) ? .22 : 3.15) - key.intensity) * .12;
+      } else if (fenceScene) {
+        // A broad, camera-side key lets powder-coated metal read from the
+        // default elevated view instead of revealing its highlight only below.
+        key.position.lerp(new THREE.Vector3(9.5, 10.5, 13.5), .1);
       } else key.position.lerp(new THREE.Vector3(4.5, 6.5, 7), .08);
 
       if (active === "roof") {
@@ -890,6 +925,35 @@ export function WebGLStage() {
       }
       camera.position.lerp(desiredCamera, 0.035);
       camera.lookAt(cameraTarget);
+      fenceViewDirection.subVectors(cameraTarget, camera.position).normalize();
+      fenceViewRight.crossVectors(fenceViewDirection, fenceWorldUp).normalize();
+      fenceViewUp.crossVectors(fenceViewRight, fenceViewDirection).normalize();
+      fenceAreaKey.intensity += ((fenceScene ? 13.4 : 0) - fenceAreaKey.intensity) * 0.1;
+      fenceAreaFill.intensity += ((fenceScene ? 2.1 : 0) - fenceAreaFill.intensity) * 0.1;
+      fenceAreaRim.intensity += ((fenceScene ? 4.4 : 0) - fenceAreaRim.intensity) * 0.1;
+      fenceSpot.intensity += ((fenceScene ? 210 : 0) - fenceSpot.intensity) * 0.1;
+      fenceAreaKey.position.copy(cameraTarget)
+        .addScaledVector(fenceViewDirection, -6.2)
+        .addScaledVector(fenceViewRight, -1.35)
+        .addScaledVector(fenceViewUp, 1.65);
+      fenceAreaFill.position.copy(cameraTarget)
+        .addScaledVector(fenceViewDirection, -6.5)
+        .addScaledVector(fenceViewRight, 5.2)
+        .addScaledVector(fenceViewUp, 0.8);
+      fenceAreaRim.position.copy(cameraTarget)
+        .addScaledVector(fenceViewDirection, 5.5)
+        .addScaledVector(fenceViewRight, 2.4)
+        .addScaledVector(fenceViewUp, 4.6);
+      fenceSpot.position.copy(cameraTarget)
+        .addScaledVector(fenceViewDirection, -6.4)
+        .addScaledVector(fenceViewRight, -1.9)
+        .addScaledVector(fenceViewUp, 2.15);
+      fenceSpotTarget.position.copy(cameraTarget)
+        .addScaledVector(fenceViewRight, 0.7)
+        .addScaledVector(fenceViewUp, 0.15);
+      fenceAreaKey.lookAt(cameraTarget);
+      fenceAreaFill.lookAt(cameraTarget);
+      fenceAreaRim.lookAt(cameraTarget);
 
       gridUniforms.uTime.value = clock;
       gridUniforms.uMomentum.value = momentum;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FINISHES, calculateClosedFenceGeometry, calculateClosedFiveFenceGeometry, deriveFenceMetrics } from './state.js?v=4';
+import { FINISHES, calculateClosedFenceGeometry, calculateClosedFiveFenceGeometry, deriveFenceMetrics } from './state.js?v=5';
 
 const TEXTURE_LOADER = new THREE.TextureLoader();
 const TEXTURE_CACHE = new Map();
@@ -39,21 +39,21 @@ export function buildFenceAssembly(state) {
   const woodColor = isWood ? surfaceTexture('/textures/pbr/fence-wood-color.jpg', { color: true }) : null;
   const woodNormal = isWood ? surfaceTexture('/textures/pbr/fence-wood-normal.jpg') : null;
   const woodRoughness = isWood ? surfaceTexture('/textures/pbr/fence-wood-roughness.jpg') : null;
-  const bronzeNormal = isBronze ? surfaceTexture('/textures/pbr/fence-metal-normal.jpg', { repeatX: 3, repeatY: 3 }) : null;
-  const bronzeRoughness = isBronze ? surfaceTexture('/textures/pbr/fence-metal-roughness.jpg', { repeatX: 3, repeatY: 3 }) : null;
   const finishMaterial = new THREE.MeshPhysicalMaterial({
     color: isWood ? 0xffffff : finish.color,
     map: woodColor,
-    normalMap: woodNormal ?? bronzeNormal,
-    roughnessMap: woodRoughness ?? bronzeRoughness,
-    roughness: isWood ? 0.56 : isBronze ? 0.4 : 0.46,
-    metalness: isWood ? 0.01 : isBronze ? 0.56 : 0.24,
-    clearcoat: isWood ? 0.14 : isBronze ? 0.16 : 0.22,
-    clearcoatRoughness: isWood ? 0.56 : isBronze ? 0.46 : 0.54,
-    envMapIntensity: isWood ? 0.86 : isBronze ? 1.02 : 0.86,
+    normalMap: woodNormal,
+    roughnessMap: woodRoughness,
+    roughness: isWood ? 0.56 : isBronze ? 0.27 : 0.46,
+    // Bronze here is a coloured powder coat, not bare copper. Keeping the
+    // metallic response restrained preserves the bronze body colour while the
+    // clear coat carries the studio highlight at the default camera.
+    metalness: isWood ? 0.01 : isBronze ? 0.14 : 0.24,
+    clearcoat: isWood ? 0.14 : isBronze ? 0.52 : 0.22,
+    clearcoatRoughness: isWood ? 0.56 : isBronze ? 0.18 : 0.54,
+    envMapIntensity: isWood ? 0.86 : isBronze ? 1.28 : 0.86,
   });
   if (isWood) finishMaterial.normalScale.set(0.16, 0.16);
-  if (isBronze) finishMaterial.normalScale.set(0.11, 0.11);
   const darkMaterial = new THREE.MeshPhysicalMaterial({ color: 0x151b20, roughness: 0.34, metalness: 0.72, clearcoat: 0.18, clearcoatRoughness: 0.42 });
   const meshMaterial = finishMaterial;
   const footingMaterial = state.foundation === 'baseplate'

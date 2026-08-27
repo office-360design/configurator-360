@@ -1,5 +1,5 @@
 import { state, pitchRules, roofNames } from './state.js?v=16';
-import { RoofScene } from './scene.js?v=18';
+import { RoofScene } from './scene.js?v=48';
 import { RoofUI } from './ui.js?v=17';
 import {
   getFallbackCurrencyRate,
@@ -55,6 +55,15 @@ state.currencyRateIsFallback = state.currency !== 'RON';
 
 const host = document.querySelector('#canvasHost');
 const scene = new RoofScene(host);
+if (new URLSearchParams(window.location.search).has('profile')) {
+  const profileOutput = document.createElement('output');
+  profileOutput.id = 'roofProfileMetrics';
+  profileOutput.hidden = true;
+  document.body.appendChild(profileOutput);
+  const publishProfile = () => { profileOutput.textContent = JSON.stringify(scene.getProfileSnapshot()); };
+  publishProfile();
+  window.setInterval(publishProfile, 250);
+}
 scene.setLocale(state.locale);
 let currentView = VIEW_ORDER.includes(sharedRoofState?.currentView) ? sharedRoofState.currentView : 'perspective';
 let lastMetrics = null;

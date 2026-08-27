@@ -2,7 +2,9 @@ export const FINISHES = Object.freeze({
   anthracite: { color: '#252d33', labelKey: 'finish.anthracite', multiplier: 1 },
   black: { color: '#0e1215', labelKey: 'finish.black', multiplier: 1.04 },
   white: { color: '#d8d7d2', labelKey: 'finish.white', multiplier: 1.05 },
-  bronze: { color: '#795433', labelKey: 'finish.bronze', multiplier: 1.08 },
+  // Powder-coated bronze grey: deliberately muted and neutral enough to stay
+  // distinct from the warmer wood-effect finish under the studio lights.
+  bronze: { color: '#5f544c', labelKey: 'finish.bronze', multiplier: 1.08 },
   wood: { color: '#8a5734', labelKey: 'finish.wood', multiplier: 1.18 },
 });
 
