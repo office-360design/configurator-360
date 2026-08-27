@@ -141,7 +141,7 @@ Provisioning requires all of the following:
 - The caller UID must have an active private allowlist record at `tenantProvisioningAdmins/{uid}`.
 - The request must originate from `https://www.360configurator.com` (localhost is accepted for development).
 - The slug must be a non-reserved single DNS label using lowercase letters, numbers, and hyphens.
-- At least one of `window`, `pergola`, `roof`, `solar`, `hall`, or `fence` must be enabled.
+- At least one of `window`, `pergola`, `roof`, `solar`, `hall`, or `fence` must be enabled, and the selected count must fit the chosen Go Live Now `planId`.
 - Optional logos are optimized by the internal admin page and limited server-side to 200 KB PNG/JPEG/WebP data URLs. SVG is intentionally not accepted.
 
 The browser cannot read or write `tenantProvisioningAdmins` or private `tenants` documents. `provisionTenant` uses the Admin SDK and records the provisioning UID/email in the private tenant document.
@@ -193,15 +193,31 @@ This is a one-time administrative setup, not a per-customer deployment step. Nor
 
 ### Tenant lifecycle administration
 
-The internal admin page uses three additional allowlisted callable functions:
+The internal admin page uses additional allowlisted callable functions:
 
 - `listTenants` returns a limited summary list of Go Live Now tenants without exposing billing/internal tenant fields or large logo payloads.
 - `getTenant` returns the editable administration fields for one tenant, including its current logo.
 - `updateTenant` updates the private `tenants/{slug}` and public `tenantPublic/{slug}` documents in one Firestore transaction.
+- `getTenantPlans` returns the centrally defined Go Live Now plan catalog.
+- `setTenantSubscriptionState` updates the private subscription state and projects it into the existing public tenant `status`.
 
 The tenant slug and its `<slug>.360configurator.com` domain are immutable. Normal administration deliberately exposes no hard-delete operation. Company name, logo and configurator entitlements can be changed; tenants can be suspended and later reactivated. Suspension preserves the configured products and tenant-scoped saved configurations so reactivation restores the previous customer environment. Disabling one configurator similarly leaves its stored saves in place while server-side entitlement checks make them inaccessible until that configurator is enabled again.
 
 The same `tenantProvisioningAdmins/{uid}` allowlist protects provisioning and lifecycle operations. Tenant changes record the UID/email of the last administrator in the private document while only synchronized public branding/status/entitlements are written to `tenantPublic`.
+
+### Go Live Now plans and subscription state
+
+Before Stripe is connected, Tier-1 tenants use a centrally defined plan/subscription model in the Firebase backend. The legacy `plan: "go_live_now"` field remains the product-family marker, while the concrete commercial package is stored privately as `planId`. Current plan IDs are:
+
+- `go_live_now_1` — maximum 1 configurator
+- `go_live_now_3` — maximum 3 configurators
+- `go_live_now_all` — maximum 6 configurators
+
+Existing tenants created before `planId` are interpreted by their current enabled-configurator count and are backfilled the next time an administrator saves them. Prices and Stripe price IDs are intentionally left unset until commercial pricing is finalized. Each plan already carries billing interval/currency placeholders and default Solar quota fields so Stripe price mapping can be added later without changing tenant entitlement logic.
+
+Private tenant documents also contain a `subscription` object. Its internal status is one of `trialing`, `active`, `past_due`, `suspended`, or `cancelled`; `cancelAtPeriodEnd` is a separate boolean so the model matches recurring-billing semantics. `trialing`, `active`, and `past_due` project to public tenant `status: active`, while `suspended` and `cancelled` project to `status: suspended`. This keeps every existing tenant gate unchanged while giving a future Stripe webhook a single state machine to drive.
+
+New tenants begin with a manual `active` subscription. The internal admin page can change the plan, enforce its configurator-count limit, mark a subscription trialing/past-due/suspended/cancelled, and set or clear cancel-at-period-end. Normal suspend/reactivate buttons use the same subscription state function rather than maintaining a second lifecycle mechanism. Billing provider IDs, customer IDs, subscription IDs, price IDs and future period timestamps live only in the private tenant document and are never copied to `tenantPublic`.
 
 ### One-time Firebase Auth domain IAM setup
 
@@ -233,3 +249,61 @@ After provisioning:
 - Saved-configuration callable functions work with the resulting Firebase ID token exactly as they do on the standard 360Configurator domains.
 - Cross-domain authentication handoffs accept an active customer hostname only after validating it against the private tenant record.
 - Suspending a tenant keeps its Firebase Auth hostname registered but all tenant bootstrap, saved-configuration and cross-domain handoff access requires `status: active`; suspension therefore blocks product access without deleting customer data.
+
+### Tier-1 Solar usage limits and telemetry
+
+Private Tier-1 tenant documents may contain `solarUsageLimits` with four monthly UTC limits:
+
+- `analysesPerMonth`
+- `buildingInsightsPerMonth`
+- `dataLayersPerMonth`
+- `pvgisPerMonth`
+
+`0` means unlimited. Existing tenants without this map are treated as unlimited until an administrator saves explicit limits.
+
+Current counters are stored server-side at `tenantUsage/{slug}/months/{YYYY-MM}` and are never exposed through browser Firestore rules. `getTenant` includes the current month's normalized counters for the internal administration page, while `updateTenant` can change only the private usage-limit map; limits are not copied to `tenantPublic`.
+
+Google Solar Building Insights and Data Layers counters are reserved only when the Cloud Run Solar backend is about to make an upstream API request, so shared backend cache hits do not consume those limits. PVGIS records total valid requests plus upstream cache misses separately. Quotas reset naturally because each UTC month uses a new usage document.
+
+### Configurator product analytics
+
+`recordConfiguratorAnalyticsEvent` records non-billable product analytics for the six configurators. The browser can submit only the fixed events `access`, `login`, and `configuration_created`; the backend derives the analytics scope from the request origin. Public `.com/.ro/.de` configurators are grouped under the `platform` scope, while a Tier-1 hostname is accepted only when its private tenant is active and the requested configurator entitlement is enabled. Development/AKS traffic is ignored.
+
+Aggregates are stored only server-side under `configuratorAnalytics/{scopeId}` in three granularities: `summary/all`, `months/{YYYY-MM}`, and `days/{YYYY-MM-DD}`. No raw visitor event stream or user identity is retained. Firestore browser rules deny direct access to the aggregate collection.
+
+Metric definitions are intentionally stable:
+
+- **Accesses**: one configurator access per browser tab/session; refreshes in the same tab do not add another access.
+- **Logins**: successful user-initiated Google/Firebase popup sign-ins only; persisted sessions and cross-domain custom-token handoffs do not increment this counter.
+- **Configurations created**: a fresh default configuration at the start of a new session, or an explicit **New Configuration** action. Loading a saved configuration, local draft, domain handoff, or Share snapshot does not increment it.
+
+`getTenant` returns current-month and lifetime analytics for that tenant to the internal administration page. `getPlatformAnalytics` returns the same aggregate view for public platform domains and is protected by the existing tenant-admin Firebase UID allowlist.
+
+## Tier-1 customer dashboard
+
+Tier-1 tenants expose a self-service dashboard at:
+
+```text
+https://<tenant>.360configurator.com/dashboard/
+```
+
+Dashboard access is not granted merely because a Firebase user is authenticated. The private
+`tenants/{slug}` document must have a `ownerEmail` value assigned by the internal Tenant
+Administration page. On the first successful dashboard login with that verified email, the
+backend binds `ownerUid` to the Firebase UID. Subsequent access is UID-bound. Changing the owner
+email from internal administration clears the previous UID binding so access can be transferred.
+
+The customer dashboard can change only self-service fields:
+
+- company name;
+- logo;
+- Go Live Now plan;
+- enabled configurators, subject to the selected plan's limit.
+
+It can read tenant analytics and current Solar usage. It cannot change subscription state, Solar
+quotas, billing-provider identifiers, tenant slug/domain, Firebase Auth registration, or internal
+administration metadata.
+
+Dashboard reads and writes are performed through `getTenantDashboard` and
+`updateTenantDashboard`. Both derive the tenant from the HTTPS `Origin` and never accept a tenant
+slug from the browser.

@@ -30,9 +30,33 @@ body { min-height: 100vh; background: #f5f6f8; }
 .tenant-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 24px;
   padding-bottom: 34px;
   border-bottom: 1px solid #e7e9ee;
+}
+
+.tenant-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+}
+
+.tenant-dashboard-link {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: #fff;
+  color: #344054;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .tenant-logo {
@@ -136,7 +160,9 @@ body { min-height: 100vh; background: #f5f6f8; }
 @media (max-width: 680px) {
   .tenant-page { align-items: start; padding: 18px; }
   .tenant-shell { padding: 26px 20px; border-radius: 18px; }
-  .tenant-header { align-items: flex-start; flex-direction: column; gap: 16px; padding-bottom: 26px; }
+  .tenant-header { align-items: stretch; flex-direction: column; gap: 16px; padding-bottom: 26px; }
+  .tenant-header__brand { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .tenant-dashboard-link { align-self: flex-start; }
   .tenant-logo { width: min(220px, 70vw); max-height: 68px; }
   .tenant-grid { grid-template-columns: 1fr; padding-top: 24px; }
   .tenant-configurator { min-height: 110px; }

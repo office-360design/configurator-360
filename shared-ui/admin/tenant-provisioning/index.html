@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#f4f5f7" />
   <title>Tenant Administration | 360Configurator</title>
-  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=3" />
+  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=6" />
 </head>
 <body>
   <main class="admin-page">
@@ -23,6 +23,28 @@
     </header>
 
     <div id="adminWorkspace" hidden>
+      <section class="admin-card analytics-card" id="platformAnalyticsCard">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Platform usage</p>
+            <h2>Configurator analytics</h2>
+            <p>Current-month and lifetime activity across the public 360Configurator domains.</p>
+          </div>
+          <button type="button" class="button button--secondary" id="refreshPlatformAnalyticsButton">Refresh analytics</button>
+        </div>
+        <div class="status" id="platformAnalyticsStatus" role="status" aria-live="polite"></div>
+        <div class="analytics-grid">
+          <div class="analytics-panel">
+            <div class="analytics-panel__heading"><strong>Current month</strong><span id="platformAnalyticsMonth">—</span></div>
+            <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="platformAnalyticsMonthBody"></tbody></table></div>
+          </div>
+          <div class="analytics-panel">
+            <div class="analytics-panel__heading"><strong>Lifetime</strong><span>Since analytics launch</span></div>
+            <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="platformAnalyticsLifetimeBody"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
       <section class="admin-card admin-card--management">
         <div class="section-heading">
           <div>
@@ -65,6 +87,18 @@
               <small>The subdomain is permanent and cannot be changed from tenant administration.</small>
             </label>
 
+            <label class="field field--wide">
+              <span>Dashboard owner email</span>
+              <input id="manageOwnerEmail" type="email" maxlength="254" autocomplete="off" placeholder="customer@example.com" />
+              <small>The verified Google/Firebase account with this email can manage this tenant at /dashboard/. Changing it revokes the previously bound owner.</small>
+            </label>
+
+            <label class="field field--wide">
+              <span>Plan</span>
+              <select id="managePlan" required></select>
+              <small id="managePlanHint">Plan limits are enforced by the backend.</small>
+            </label>
+
             <div class="field field--wide">
               <span>Current logo</span>
               <div class="current-logo" id="manageCurrentLogoWrap">
@@ -100,6 +134,29 @@
               <label><input type="checkbox" name="manageConfigurator" value="hall" /> <span>Hall</span></label>
               <label><input type="checkbox" name="manageConfigurator" value="fence" /> <span>Fence</span></label>
             </div>
+          </fieldset>
+
+          <fieldset class="subscription-fieldset">
+            <legend>Subscription state</legend>
+            <p class="usage-help">This is the internal state Stripe will control later. Trialing, active and past due keep the tenant accessible; suspended and cancelled block access.</p>
+            <div class="subscription-grid">
+              <label class="field">
+                <span>Status</span>
+                <select id="manageSubscriptionStatus">
+                  <option value="trialing">Trialing</option>
+                  <option value="active">Active</option>
+                  <option value="past_due">Past due</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+              <label class="inline-option subscription-cancel-option">
+                <input type="checkbox" id="manageCancelAtPeriodEnd" />
+                <span>Cancel at period end</span>
+              </label>
+            </div>
+            <div class="subscription-meta" id="manageSubscriptionMeta">Manual subscription · no billing provider attached.</div>
+            <button type="button" class="button button--secondary" id="saveSubscriptionButton">Apply subscription state</button>
           </fieldset>
 
           <fieldset class="usage-fieldset">
@@ -140,6 +197,22 @@
             </div>
           </fieldset>
 
+
+          <fieldset class="analytics-fieldset">
+            <legend>Configurator analytics</legend>
+            <p class="usage-help">Accesses count one configurator session per browser tab, logins count successful user-initiated sign-ins, and configurations count fresh configurations rather than saved/share loads.</p>
+            <div class="analytics-grid">
+              <div class="analytics-panel">
+                <div class="analytics-panel__heading"><strong>Current month</strong><span id="manageAnalyticsMonth">—</span></div>
+                <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="manageAnalyticsMonthBody"></tbody></table></div>
+              </div>
+              <div class="analytics-panel">
+                <div class="analytics-panel__heading"><strong>Lifetime</strong><span>Since analytics launch</span></div>
+                <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="manageAnalyticsLifetimeBody"></tbody></table></div>
+              </div>
+            </div>
+          </fieldset>
+
           <div class="status" id="manageStatus" role="status" aria-live="polite"></div>
 
           <div class="tenant-editor-actions">
@@ -175,6 +248,18 @@
                 <span>.360configurator.com</span>
               </div>
               <small id="slugHint">Lowercase letters, numbers and hyphens only.</small>
+            </label>
+
+            <label class="field field--wide">
+              <span>Dashboard owner email</span>
+              <input id="ownerEmail" type="email" maxlength="254" autocomplete="off" placeholder="customer@example.com" />
+              <small>Optional for now. Assigning it enables the customer's self-service dashboard.</small>
+            </label>
+
+            <label class="field field--wide">
+              <span>Plan</span>
+              <select id="createPlan" required></select>
+              <small id="createPlanHint">Choose the commercial package before selecting configurators.</small>
             </label>
 
             <label class="field field--wide">
@@ -225,6 +310,6 @@
     </div>
   </main>
 
-  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=3"></script>
+  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=6"></script>
 </body>
 </html>

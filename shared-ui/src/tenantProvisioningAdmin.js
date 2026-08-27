@@ -11,6 +11,9 @@ const FUNCTION_URLS = Object.freeze({
   listTenants: `${FUNCTION_BASE}/listTenants`,
   getTenant: `${FUNCTION_BASE}/getTenant`,
   updateTenant: `${FUNCTION_BASE}/updateTenant`,
+  getTenantPlans: `${FUNCTION_BASE}/getTenantPlans`,
+  setTenantSubscriptionState: `${FUNCTION_BASE}/setTenantSubscriptionState`,
+  getPlatformAnalytics: `${FUNCTION_BASE}/getPlatformAnalytics`,
 });
 const TENANT_SUFFIX = '.360configurator.com';
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -41,6 +44,12 @@ const authState = document.querySelector('#authState');
 const authButton = document.querySelector('#authButton');
 const adminWorkspace = document.querySelector('#adminWorkspace');
 
+const platformAnalyticsStatus = document.querySelector('#platformAnalyticsStatus');
+const platformAnalyticsMonth = document.querySelector('#platformAnalyticsMonth');
+const platformAnalyticsMonthBody = document.querySelector('#platformAnalyticsMonthBody');
+const platformAnalyticsLifetimeBody = document.querySelector('#platformAnalyticsLifetimeBody');
+const refreshPlatformAnalyticsButton = document.querySelector('#refreshPlatformAnalyticsButton');
+
 const tenantList = document.querySelector('#tenantList');
 const tenantListStatus = document.querySelector('#tenantListStatus');
 const tenantSearch = document.querySelector('#tenantSearch');
@@ -52,6 +61,9 @@ const tenantEditorMeta = document.querySelector('#tenantEditorMeta');
 const tenantEditorForm = document.querySelector('#tenantEditorForm');
 const manageCompanyName = document.querySelector('#manageCompanyName');
 const manageDomain = document.querySelector('#manageDomain');
+const manageOwnerEmail = document.querySelector('#manageOwnerEmail');
+const managePlan = document.querySelector('#managePlan');
+const managePlanHint = document.querySelector('#managePlanHint');
 const manageLogo = document.querySelector('#manageLogo');
 const manageRemoveLogo = document.querySelector('#manageRemoveLogo');
 const manageCurrentLogo = document.querySelector('#manageCurrentLogo');
@@ -69,6 +81,13 @@ const manageUsageBuildingInsights = document.querySelector('#manageUsageBuilding
 const manageUsageDataLayers = document.querySelector('#manageUsageDataLayers');
 const manageUsagePvgis = document.querySelector('#manageUsagePvgis');
 const manageUsagePvgisUpstream = document.querySelector('#manageUsagePvgisUpstream');
+const manageAnalyticsMonth = document.querySelector('#manageAnalyticsMonth');
+const manageAnalyticsMonthBody = document.querySelector('#manageAnalyticsMonthBody');
+const manageAnalyticsLifetimeBody = document.querySelector('#manageAnalyticsLifetimeBody');
+const manageSubscriptionStatus = document.querySelector('#manageSubscriptionStatus');
+const manageCancelAtPeriodEnd = document.querySelector('#manageCancelAtPeriodEnd');
+const manageSubscriptionMeta = document.querySelector('#manageSubscriptionMeta');
+const saveSubscriptionButton = document.querySelector('#saveSubscriptionButton');
 const saveTenantButton = document.querySelector('#saveTenantButton');
 const tenantStatusButton = document.querySelector('#tenantStatusButton');
 const openTenantButton = document.querySelector('#openTenantButton');
@@ -78,6 +97,9 @@ const tenantForm = document.querySelector('#tenantForm');
 const companyNameInput = document.querySelector('#companyName');
 const slugInput = document.querySelector('#slug');
 const slugHint = document.querySelector('#slugHint');
+const ownerEmailInput = document.querySelector('#ownerEmail');
+const createPlan = document.querySelector('#createPlan');
+const createPlanHint = document.querySelector('#createPlanHint');
 const logoInput = document.querySelector('#logo');
 const logoPreview = document.querySelector('#logoPreview');
 const logoPreviewWrap = document.querySelector('#logoPreviewWrap');
@@ -94,6 +116,7 @@ let slugWasEdited = false;
 let logoObjectUrl = '';
 let manageLogoObjectUrl = '';
 let tenantSummaries = [];
+let tenantPlans = [];
 let currentManagedTenant = null;
 
 function setStatus(element, message = '', kind = '') {
@@ -163,6 +186,71 @@ function enabledConfiguratorLabels(configurators = {}) {
     .map(([, label]) => label);
 }
 
+function planById(planId) {
+  return tenantPlans.find((plan) => plan.id === planId) || null;
+}
+
+function enabledConfiguratorCount(configurators = {}) {
+  return Object.values(configurators).filter(Boolean).length;
+}
+
+function planHint(planId) {
+  const plan = planById(planId);
+  if (!plan) return 'Plan information is unavailable.';
+  const countLabel = plan.maxConfigurators === 1 ? '1 configurator' : `up to ${plan.maxConfigurators} configurators`;
+  const price = Number.isInteger(plan.monthlyPriceCents)
+    ? `${(plan.monthlyPriceCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${plan.currency}/${plan.billingInterval}`
+    : 'Price not configured yet';
+  return `${countLabel} · ${price}`;
+}
+
+function populatePlanSelect(select, selectedId = '') {
+  if (!select) return;
+  const previous = selectedId || select.value;
+  select.replaceChildren();
+  tenantPlans.forEach((plan) => {
+    const option = document.createElement('option');
+    option.value = plan.id;
+    option.textContent = plan.name;
+    select.append(option);
+  });
+  if (tenantPlans.some((plan) => plan.id === previous)) select.value = previous;
+  else if (tenantPlans.length) select.value = tenantPlans[0].id;
+}
+
+function validatePlanConfiguratorSelection(planId, configurators) {
+  const plan = planById(planId);
+  if (!plan) throw new Error('Choose a valid Go Live Now plan.');
+  const count = enabledConfiguratorCount(configurators);
+  if (count > plan.maxConfigurators) {
+    throw new Error(`${plan.name} allows at most ${plan.maxConfigurators} configurator${plan.maxConfigurators === 1 ? '' : 's'}.`);
+  }
+  return plan;
+}
+
+function updatePlanHints() {
+  createPlanHint.textContent = planHint(createPlan.value);
+  managePlanHint.textContent = planHint(managePlan.value);
+}
+
+function subscriptionStatusLabel(status) {
+  return ({
+    trialing: 'Trialing',
+    active: 'Active',
+    past_due: 'Past due',
+    suspended: 'Suspended',
+    cancelled: 'Cancelled',
+  })[status] || status || 'Unknown';
+}
+
+async function refreshPlanCatalog() {
+  const result = await callAdminFunction('getTenantPlans');
+  tenantPlans = Array.isArray(result?.plans) ? result.plans : [];
+  populatePlanSelect(createPlan, createPlan.value || 'go_live_now_1');
+  populatePlanSelect(managePlan, currentManagedTenant?.planId || '');
+  updatePlanHints();
+}
+
 function normalizeUsageLimitInput(input) {
   const value = Number(input?.value || 0);
   if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
@@ -199,6 +287,50 @@ function populateSolarUsage(tenant) {
   manageUsageDataLayers.textContent = usageValueWithLimit(usage.dataLayers, limits.dataLayersPerMonth);
   manageUsagePvgis.textContent = usageValueWithLimit(usage.pvgis, limits.pvgisPerMonth);
   manageUsagePvgisUpstream.textContent = Math.max(0, Number(usage.pvgisUpstream) || 0).toLocaleString();
+}
+
+function analyticsMetric(value) {
+  return Math.max(0, Math.floor(Number(value) || 0));
+}
+
+function renderAnalyticsTable(tbody, analytics = {}, { enabledConfigurators = null } = {}) {
+  if (!tbody) return;
+  const rows = Object.entries(CONFIGURATOR_LABELS)
+    .filter(([id]) => !enabledConfigurators || enabledConfigurators?.[id] === true)
+    .map(([id, label]) => {
+      const metrics = analytics?.[id] || {};
+      const accesses = analyticsMetric(metrics.accesses);
+      const logins = analyticsMetric(metrics.logins);
+      const configurationsCreated = analyticsMetric(metrics.configurationsCreated);
+      const zeroClass = accesses + logins + configurationsCreated === 0 ? ' class="analytics-zero"' : '';
+      return `<tr${zeroClass}><td>${label}</td><td>${accesses.toLocaleString()}</td><td>${logins.toLocaleString()}</td><td>${configurationsCreated.toLocaleString()}</td></tr>`;
+    });
+  tbody.innerHTML = rows.join('') || '<tr><td colspan="4" class="analytics-zero">No enabled configurators.</td></tr>';
+}
+
+function populateTenantAnalytics(tenant) {
+  const analytics = tenant?.analytics || {};
+  manageAnalyticsMonth.textContent = analytics.month ? `${analytics.month} UTC` : 'Current UTC month';
+  renderAnalyticsTable(manageAnalyticsMonthBody, analytics.currentMonth);
+  renderAnalyticsTable(manageAnalyticsLifetimeBody, analytics.lifetime);
+}
+
+async function refreshPlatformAnalytics() {
+  if (!currentUser) return;
+  refreshPlatformAnalyticsButton.disabled = true;
+  setStatus(platformAnalyticsStatus, 'Loading analytics…');
+  try {
+    const analytics = await callAdminFunction('getPlatformAnalytics');
+    platformAnalyticsMonth.textContent = analytics?.month ? `${analytics.month} UTC` : 'Current UTC month';
+    renderAnalyticsTable(platformAnalyticsMonthBody, analytics?.currentMonth);
+    renderAnalyticsTable(platformAnalyticsLifetimeBody, analytics?.lifetime);
+    setStatus(platformAnalyticsStatus, 'Analytics updated.', 'success');
+  } catch (error) {
+    console.error('Platform analytics loading failed.', error);
+    setStatus(platformAnalyticsStatus, administrationErrorMessage(error), 'error');
+  } finally {
+    refreshPlatformAnalyticsButton.disabled = false;
+  }
 }
 
 function dataUrlFromBlob(blob) {
@@ -307,6 +439,13 @@ function renderProvisioned(result) {
   homeLink.textContent = 'Open customer site';
   resultLinks.append(homeLink);
 
+  const dashboardLink = document.createElement('a');
+  dashboardLink.href = new URL('/dashboard/', url).href;
+  dashboardLink.target = '_blank';
+  dashboardLink.rel = 'noopener';
+  dashboardLink.textContent = result?.ownerEmail ? 'Open customer dashboard' : 'Dashboard (owner not assigned)';
+  resultLinks.append(dashboardLink);
+
   Object.entries(CONFIGURATOR_PATHS).forEach(([id, path]) => {
     if (configurators[id] !== true) return;
     const link = document.createElement('a');
@@ -364,7 +503,11 @@ function renderTenantList() {
     const products = document.createElement('span');
     products.className = 'tenant-row__products';
     const labels = enabledConfiguratorLabels(tenant.configurators);
-    products.textContent = labels.length ? labels.join(' · ') : 'No configurators';
+    const subscriptionLabel = subscriptionStatusLabel(tenant.subscription?.status);
+    const planLabel = tenant.planName || tenant.planId || 'Go Live Now';
+    const configuratorLabel = labels.length ? labels.join(' · ') : 'No configurators';
+    const dashboardOwnerLabel = tenant.ownerEmail ? `Dashboard: ${tenant.ownerEmail}` : 'Dashboard owner not assigned';
+    products.textContent = `${planLabel} · ${subscriptionLabel} · ${configuratorLabel} · ${dashboardOwnerLabel}`;
     main.append(titleLine, domain, products);
 
     const actions = document.createElement('div');
@@ -415,11 +558,21 @@ function clearManageLogoPreview() {
 function populateTenantEditor(tenant) {
   currentManagedTenant = tenant;
   tenantEditorTitle.textContent = tenant.companyName || tenant.slug;
-  tenantEditorMeta.textContent = `${tenant.slug} · ${tenant.status === 'active' ? 'Active' : 'Suspended'}`;
+  tenantEditorMeta.textContent = `${tenant.slug} · ${tenant.planName || tenant.planId || 'Go Live Now'} · ${subscriptionStatusLabel(tenant.subscription?.status)}`;
   manageCompanyName.value = tenant.companyName || '';
   manageDomain.textContent = tenant.domain || `${tenant.slug}${TENANT_SUFFIX}`;
+  manageOwnerEmail.value = tenant.ownerEmail || '';
+  populatePlanSelect(managePlan, tenant.planId || '');
+  managePlanHint.textContent = planHint(managePlan.value);
   setConfiguratorSelection(tenantEditorForm, 'manageConfigurator', tenant.configurators);
+  manageSubscriptionStatus.value = tenant.subscription?.status || (tenant.status === 'active' ? 'active' : 'suspended');
+  manageCancelAtPeriodEnd.checked = tenant.subscription?.cancelAtPeriodEnd === true;
+  manageCancelAtPeriodEnd.disabled = ['suspended', 'cancelled'].includes(manageSubscriptionStatus.value);
+  const provider = tenant.subscription?.provider || 'manual';
+  const providerId = tenant.subscription?.subscriptionId ? ` · ${tenant.subscription.subscriptionId}` : '';
+  manageSubscriptionMeta.textContent = `${provider === 'manual' ? 'Manual subscription' : provider}${providerId}`;
   populateSolarUsage(tenant);
+  populateTenantAnalytics(tenant);
   manageLogo.value = '';
   manageRemoveLogo.checked = false;
   clearManageLogoPreview();
@@ -436,7 +589,7 @@ function populateTenantEditor(tenant) {
 
   openTenantButton.href = tenantUrl(tenant.slug);
   tenantStatusButton.textContent = tenant.status === 'active' ? 'Suspend tenant' : 'Reactivate tenant';
-  tenantStatusButton.dataset.nextStatus = tenant.status === 'active' ? 'suspended' : 'active';
+  tenantStatusButton.dataset.nextSubscriptionStatus = tenant.status === 'active' ? 'suspended' : 'active';
   tenantStatusButton.classList.toggle('button--danger', tenant.status === 'active');
   tenantStatusButton.classList.toggle('button--success', tenant.status !== 'active');
   setStatus(manageStatus);
@@ -522,6 +675,8 @@ tenantForm.addEventListener('reset', () => {
     logoObjectUrl = '';
     logoPreviewWrap.hidden = true;
     logoPreview.removeAttribute('src');
+    populatePlanSelect(createPlan, 'go_live_now_1');
+    updatePlanHints();
   }, 0);
 });
 
@@ -534,6 +689,7 @@ tenantForm.addEventListener('submit', async (event) => {
 
   const companyName = companyNameInput.value.trim();
   const slug = normalizeSlugCandidate(slugInput.value);
+  const ownerEmail = ownerEmailInput.value.trim().toLowerCase();
   const configurators = selectedConfigurators(tenantForm, 'configurator');
   if (!companyName) {
     setStatus(formStatus, 'Enter the company name.', 'error');
@@ -547,6 +703,13 @@ tenantForm.addEventListener('submit', async (event) => {
     setStatus(formStatus, 'Enable at least one configurator.', 'error');
     return;
   }
+  const planId = createPlan.value;
+  try {
+    validatePlanConfiguratorSelection(planId, configurators);
+  } catch (error) {
+    setStatus(formStatus, error.message, 'error');
+    return;
+  }
 
   createButton.disabled = true;
   resultCard.hidden = true;
@@ -556,7 +719,7 @@ tenantForm.addEventListener('submit', async (event) => {
     const [logoFile] = logoInput.files || [];
     const logoDataUrl = logoFile ? await optimizeLogo(logoFile) : '';
     setStatus(formStatus, 'Creating tenant…');
-    const result = await callAdminFunction('provisionTenant', { companyName, slug, configurators, logoDataUrl });
+    const result = await callAdminFunction('provisionTenant', { companyName, slug, ownerEmail, planId, configurators, logoDataUrl });
     setStatus(formStatus, 'Tenant created successfully.', 'success');
     renderProvisioned(result);
     await refreshTenantList({ quiet: true });
@@ -573,6 +736,7 @@ tenantEditorForm.addEventListener('submit', async (event) => {
   if (!currentManagedTenant) return;
 
   const companyName = manageCompanyName.value.trim();
+  const ownerEmail = manageOwnerEmail.value.trim().toLowerCase();
   const configurators = selectedConfigurators(tenantEditorForm, 'manageConfigurator');
   if (!companyName) {
     setStatus(manageStatus, 'Enter the company name.', 'error');
@@ -580,6 +744,13 @@ tenantEditorForm.addEventListener('submit', async (event) => {
   }
   if (!Object.values(configurators).some(Boolean)) {
     setStatus(manageStatus, 'Keep at least one configurator enabled.', 'error');
+    return;
+  }
+  const planId = managePlan.value;
+  try {
+    validatePlanConfiguratorSelection(planId, configurators);
+  } catch (error) {
+    setStatus(manageStatus, error.message, 'error');
     return;
   }
 
@@ -606,6 +777,8 @@ tenantEditorForm.addEventListener('submit', async (event) => {
 
     await updateManagedTenant({
       companyName,
+      ownerEmail,
+      planId,
       configurators,
       solarUsageLimits,
       logoMode,
@@ -620,9 +793,46 @@ tenantEditorForm.addEventListener('submit', async (event) => {
   }
 });
 
+async function applySubscriptionState(status, cancelAtPeriodEnd, successMessage) {
+  if (!currentManagedTenant) return null;
+  const result = await callAdminFunction('setTenantSubscriptionState', {
+    slug: currentManagedTenant.slug,
+    status,
+    cancelAtPeriodEnd,
+  });
+  const tenant = await callAdminFunction('getTenant', { slug: currentManagedTenant.slug });
+  populateTenantEditor(tenant);
+  tenantEditorForm.hidden = false;
+  setStatus(manageStatus, successMessage, 'success');
+  await refreshTenantList({ quiet: true });
+  return result;
+}
+
+saveSubscriptionButton.addEventListener('click', async () => {
+  if (!currentManagedTenant) return;
+  saveSubscriptionButton.disabled = true;
+  saveTenantButton.disabled = true;
+  tenantStatusButton.disabled = true;
+  setStatus(manageStatus, 'Applying subscription state…');
+  try {
+    await applySubscriptionState(
+      manageSubscriptionStatus.value,
+      manageCancelAtPeriodEnd.checked,
+      'Subscription state updated.',
+    );
+  } catch (error) {
+    console.error('Subscription state update failed.', error);
+    setStatus(manageStatus, administrationErrorMessage(error), 'error');
+  } finally {
+    saveSubscriptionButton.disabled = false;
+    saveTenantButton.disabled = false;
+    tenantStatusButton.disabled = false;
+  }
+});
+
 tenantStatusButton.addEventListener('click', async () => {
   if (!currentManagedTenant) return;
-  const nextStatus = tenantStatusButton.dataset.nextStatus;
+  const nextStatus = tenantStatusButton.dataset.nextSubscriptionStatus;
   const suspending = nextStatus === 'suspended';
   if (suspending) {
     const confirmed = window.confirm(
@@ -631,20 +841,34 @@ tenantStatusButton.addEventListener('click', async () => {
     if (!confirmed) return;
   }
 
+  saveSubscriptionButton.disabled = true;
   saveTenantButton.disabled = true;
   tenantStatusButton.disabled = true;
   setStatus(manageStatus, suspending ? 'Suspending tenant…' : 'Reactivating tenant…');
   try {
-    await updateManagedTenant(
-      { status: nextStatus },
+    await applySubscriptionState(
+      nextStatus,
+      false,
       suspending ? 'Tenant suspended. No tenant data was deleted.' : 'Tenant reactivated.',
     );
   } catch (error) {
     console.error('Tenant status update failed.', error);
     setStatus(manageStatus, administrationErrorMessage(error), 'error');
   } finally {
+    saveSubscriptionButton.disabled = false;
     saveTenantButton.disabled = false;
     tenantStatusButton.disabled = false;
+  }
+});
+
+createPlan.addEventListener('change', updatePlanHints);
+managePlan.addEventListener('change', updatePlanHints);
+manageSubscriptionStatus.addEventListener('change', () => {
+  if (['suspended', 'cancelled'].includes(manageSubscriptionStatus.value)) {
+    manageCancelAtPeriodEnd.checked = false;
+    manageCancelAtPeriodEnd.disabled = true;
+  } else {
+    manageCancelAtPeriodEnd.disabled = false;
   }
 });
 
@@ -657,6 +881,7 @@ closeTenantEditorButton.addEventListener('click', () => {
 
 tenantSearch.addEventListener('input', renderTenantList);
 refreshTenantsButton.addEventListener('click', () => refreshTenantList());
+refreshPlatformAnalyticsButton.addEventListener('click', () => refreshPlatformAnalytics());
 
 authButton.addEventListener('click', async () => {
   authButton.disabled = true;
@@ -678,7 +903,8 @@ await observeGoogleAuth(async (user) => {
     authButton.textContent = 'Sign out';
     authButton.hidden = false;
     adminWorkspace.hidden = false;
-    await refreshTenantList();
+    await refreshPlanCatalog();
+    await Promise.all([refreshTenantList(), refreshPlatformAnalytics()]);
   } else {
     authState.textContent = 'Sign in with a tenant-admin Google account.';
     authButton.textContent = 'Sign in with Google';
