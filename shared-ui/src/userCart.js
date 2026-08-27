@@ -58,6 +58,7 @@ export async function mutateUserCart({ action, item = null, items = null, key = 
   return {
     exists: Boolean(result?.exists),
     items: Array.isArray(result?.items) ? result.items : [],
+    addedItem: result?.addedItem && typeof result.addedItem === 'object' ? result.addedItem : null,
     updatedAtMs: Number(result?.updatedAtMs) || 0,
   };
 }
