@@ -50,6 +50,9 @@ jobs:
         working-directory: firebase-share-backend/functions
         run: node --check index.js
 
+      - name: Validate Tier-1 tenant authentication integration
+        run: node scripts/validation/validate_tenant_auth_domains.mjs
+
       - name: Validate expected Firebase exports
         working-directory: firebase-share-backend/functions
         run: >-
@@ -82,7 +85,7 @@ jobs:
           echo "- Contact form: App Check-protected server-side email delivery through Google Workspace Gmail API" >> "$GITHUB_STEP_SUMMARY"
           echo "- Contact spam protection: honeypot + hashed-IP Firestore rate limit" >> "$GITHUB_STEP_SUMMARY"
           echo "- Domain switching: short-lived one-time authentication handoff functions deployed" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Tier-1 provisioning: authenticated allowlisted tenant creation function deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tier-1 provisioning: authenticated allowlisted tenant creation + automatic Firebase Auth domain authorization deployed" >> "$GITHUB_STEP_SUMMARY"
           echo "- reCAPTCHA monthly safety threshold: 9,500 assessments" >> "$GITHUB_STEP_SUMMARY"
           echo "- Automatic fallback: reCAPTCHA-free direct Firestore Share until next UTC month" >> "$GITHUB_STEP_SUMMARY"
           echo "- Internal warnings: 8,000 / 9,000 / 9,400 assessments" >> "$GITHUB_STEP_SUMMARY"

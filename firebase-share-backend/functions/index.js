@@ -17,6 +17,7 @@ let db;
 let adminAuth;
 let monitoringAuth;
 let mailerSignerAuth;
+let identityToolkitAuth;
 let gmailAccessTokenCache = { token: '', expiresAtMs: 0 };
 onInit(() => {
   initializeApp();
@@ -26,6 +27,9 @@ onInit(() => {
     scopes: ['https://www.googleapis.com/auth/monitoring.read'],
   });
   mailerSignerAuth = new GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+  });
+  identityToolkitAuth = new GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/cloud-platform'],
   });
 });
@@ -908,12 +912,44 @@ function requestOrigin(request) {
   return normalizeConfiguratorOrigin(request.rawRequest?.headers?.origin || '');
 }
 
-function requireAllowedConfiguratorOrigin(origin, label = 'origin') {
+function tenantSlugFromConfiguratorOrigin(origin) {
   const normalized = normalizeConfiguratorOrigin(origin);
-  if (!ALLOWED_CONFIGURATOR_ORIGINS.has(normalized)) {
-    throw new HttpsError('permission-denied', `Unsupported configurator ${label}.`);
+  if (!normalized) return '';
+
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return '';
   }
-  return normalized;
+  if (parsed.protocol !== 'https:' || parsed.port) return '';
+
+  const suffix = '.360configurator.com';
+  const hostname = parsed.hostname.toLowerCase();
+  if (!hostname.endsWith(suffix)) return '';
+
+  const slug = hostname.slice(0, -suffix.length);
+  if (!slug || slug.includes('.') || !TENANT_SLUG_PATTERN.test(slug) || RESERVED_TENANT_SLUGS.has(slug)) {
+    return '';
+  }
+  return slug;
+}
+
+async function requireAllowedConfiguratorOrigin(origin, label = 'origin') {
+  const normalized = normalizeConfiguratorOrigin(origin);
+  if (ALLOWED_CONFIGURATOR_ORIGINS.has(normalized)) return normalized;
+
+  const tenantSlug = tenantSlugFromConfiguratorOrigin(normalized);
+  if (tenantSlug) {
+    const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
+    const tenant = snapshot.data() || {};
+    const expectedDomain = `${tenantSlug}.360configurator.com`;
+    if (snapshot.exists && tenant.status === 'active' && String(tenant.domain || '') === expectedDomain) {
+      return normalized;
+    }
+  }
+
+  throw new HttpsError('permission-denied', `Unsupported configurator ${label}.`);
 }
 
 function domainAuthHandoffsCollection() {
@@ -938,6 +974,74 @@ function generateDomainAuthHandoffId() {
 // ---------------------------------------------------------------------------
 // Tier-1 tenant provisioning helpers
 // ---------------------------------------------------------------------------
+const IDENTITY_TOOLKIT_CONFIG_URL = `https://identitytoolkit.googleapis.com/admin/v2/projects/${PROJECT_ID}/config`;
+
+async function identityToolkitAccessToken() {
+  const client = await identityToolkitAuth.getClient();
+  const result = await client.getAccessToken();
+  const token = typeof result === 'string' ? result : result?.token;
+  if (!token) throw new Error('Identity Toolkit access token unavailable.');
+  return token;
+}
+
+async function identityToolkitConfigRequest({ method = 'GET', updateMask = '', body = null } = {}) {
+  const accessToken = await identityToolkitAccessToken();
+  const url = new URL(IDENTITY_TOOLKIT_CONFIG_URL);
+  if (updateMask) url.searchParams.set('updateMask', updateMask);
+
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  let payload = null;
+  try { payload = await response.json(); } catch { /* handled below */ }
+  if (!response.ok) {
+    const detail = String(payload?.error?.message || `HTTP ${response.status}`);
+    const error = new Error(`Identity Toolkit config request failed: ${detail}`);
+    error.statusCode = response.status;
+    throw error;
+  }
+  return payload || {};
+}
+
+async function ensureFirebaseAuthorizedDomain(domain) {
+  const hostname = String(domain || '').trim().toLowerCase();
+  const tenantSlug = tenantSlugFromConfiguratorOrigin(`https://${hostname}`);
+  if (!tenantSlug || hostname !== `${tenantSlug}.360configurator.com`) {
+    throw new Error('Refusing to authorize an invalid tenant authentication domain.');
+  }
+
+  const config = await identityToolkitConfigRequest();
+  const currentDomains = Array.isArray(config.authorizedDomains)
+    ? config.authorizedDomains.map((value) => String(value || '').trim().toLowerCase()).filter(Boolean)
+    : [];
+  if (currentDomains.includes(hostname)) return false;
+
+  const authorizedDomains = [...new Set([...currentDomains, hostname])].sort();
+  const updated = await identityToolkitConfigRequest({
+    method: 'PATCH',
+    updateMask: 'authorizedDomains',
+    body: {
+      name: `projects/${PROJECT_ID}/config`,
+      authorizedDomains,
+    },
+  });
+
+  const savedDomains = Array.isArray(updated.authorizedDomains)
+    ? updated.authorizedDomains.map((value) => String(value || '').trim().toLowerCase())
+    : [];
+  if (!savedDomains.includes(hostname)) {
+    throw new Error('Firebase Authentication did not retain the tenant authorized domain.');
+  }
+  return true;
+}
+
 function tenantProvisioningAdminsCollection() {
   return db.collection(TENANT_PROVISIONING_ADMINS_COLLECTION);
 }
@@ -1145,6 +1249,11 @@ const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
   enforceAppCheck: false,
   timeoutSeconds: 30,
   memory: '256MiB',
+  // Identity Platform authorizedDomains is a project-level read/modify/write
+  // list. Provision customers serially so two simultaneous admin requests can
+  // never overwrite each other's domain registration.
+  concurrency: 1,
+  maxInstances: 1,
 });
 
 exports.provisionTenant = onCall(
@@ -1160,6 +1269,27 @@ exports.provisionTenant = onCall(
     const domain = `${slug}.360configurator.com`;
     const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
     const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
+
+    // Fail before touching Firebase Auth when a Firestore tenant already owns
+    // the slug. The transaction below repeats this check before creating data.
+    const [privateExisting, publicExisting] = await Promise.all([privateRef.get(), publicRef.get()]);
+    if (privateExisting.exists || publicExisting.exists) {
+      throw new HttpsError('already-exists', 'This subdomain is already in use.');
+    }
+
+    try {
+      await ensureFirebaseAuthorizedDomain(domain);
+    } catch (error) {
+      logger.error('Tier-1 Firebase Authentication domain authorization failed.', {
+        slug,
+        domain,
+        error: String(error?.message || error),
+      });
+      throw new HttpsError(
+        'failed-precondition',
+        'The tenant domain could not be enabled for Google login. Provisioning was not completed.',
+      );
+    }
 
     await db.runTransaction(async (transaction) => {
       const privateSnapshot = await transaction.get(privateRef);
@@ -1178,6 +1308,8 @@ exports.provisionTenant = onCall(
         ownerUid: '',
         configurators,
         logoUrl,
+        firebaseAuthDomain: domain,
+        firebaseAuthDomainAuthorized: true,
         createdByUid: admin.uid,
         createdByEmail: admin.email,
         createdAt: now,
@@ -1218,8 +1350,8 @@ exports.createDomainAuthHandoff = onCall(
   USER_CONFIGURATION_CALLABLE_OPTIONS,
   async (request) => {
     const uid = requireAuthenticatedUid(request);
-    const sourceOrigin = requireAllowedConfiguratorOrigin(requestOrigin(request), 'source origin');
-    const targetOrigin = requireAllowedConfiguratorOrigin(request.data?.targetOrigin, 'target origin');
+    const sourceOrigin = await requireAllowedConfiguratorOrigin(requestOrigin(request), 'source origin');
+    const targetOrigin = await requireAllowedConfiguratorOrigin(request.data?.targetOrigin, 'target origin');
     const now = Timestamp.now();
     const expiresAt = Timestamp.fromMillis(now.toMillis() + DOMAIN_AUTH_HANDOFF_LIFETIME_MS);
 
@@ -1248,7 +1380,7 @@ exports.createDomainAuthHandoff = onCall(
 exports.redeemDomainAuthHandoff = onCall(
   USER_CONFIGURATION_CALLABLE_OPTIONS,
   async (request) => {
-    const origin = requireAllowedConfiguratorOrigin(requestOrigin(request), 'destination origin');
+    const origin = await requireAllowedConfiguratorOrigin(requestOrigin(request), 'destination origin');
     const handoffId = String(request.data?.handoffId || '').trim();
     if (!DOMAIN_AUTH_HANDOFF_ID_PATTERN.test(handoffId)) {
       throw new HttpsError('invalid-argument', 'Invalid domain authentication handoff.');

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Cross-configurator validation, SEO, and website release checks.",
   "scripts": {
-    "check": "npm run check:website-hydration && npm run check:website-route-isolation && npm run check:configurator-notfound && npm run check:tenant && npm run check:tenant-provisioning && node --check shared-ui/src/standaloneShell.js && node --check shared-ui/src/components/topBar.js && node --check roof-configurator/js/sharedShell.js",
+    "check": "npm run check:website-hydration && npm run check:website-route-isolation && npm run check:configurator-notfound && npm run check:tenant && npm run check:tenant-provisioning && npm run check:tenant-auth && node --check shared-ui/src/standaloneShell.js && node --check shared-ui/src/components/topBar.js && node --check roof-configurator/js/sharedShell.js",
     "check:website-hydration": "node scripts/validation/validate_website_release_hydration.mjs",
     "check:website-route-isolation": "node scripts/validation/validate_website_route_isolation.mjs",
     "check:configurator-notfound": "node scripts/validation/validate_configurator_no_notfound.mjs",
@@ -13,7 +13,8 @@
     "check:window-i18n": "node scripts/validation/validate_window_i18n.mjs",
     "check:google-solar-cloudrun": "node scripts/validation/validate_google_solar_cloudrun.mjs",
     "check:tenant": "node scripts/validation/validate_tenant_bootstrap.mjs",
-    "check:tenant-provisioning": "node scripts/validation/validate_tenant_provisioning.mjs"
+    "check:tenant-provisioning": "node scripts/validation/validate_tenant_provisioning.mjs",
+    "check:tenant-auth": "node scripts/validation/validate_tenant_auth_domains.mjs"
   },
   "dependencies": {
     "playwright": "^1.54.1"
