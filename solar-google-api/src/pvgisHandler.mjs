@@ -1,5 +1,12 @@
 import { createHash } from 'node:crypto';
 import { Storage } from '@google-cloud/storage';
+import {
+  consumeTenantSolarMetric,
+  corsAllowOrigin,
+  originIsPotentiallyAllowed,
+  quotaErrorPayload,
+  resolveSolarRequestContext,
+} from './tenantUsage.mjs';
 
 const PVGIS_BASE = 'https://re.jrc.ec.europa.eu/api/v5_3/';
 const CACHE_PREFIX = 'pvgis-cache-v1';
@@ -20,54 +27,9 @@ const TOOL_TTL_MS = {
   printhorizon: 7 * 24 * 60 * 60 * 1000,
 };
 
-function configuredOrigins() {
-  const raw = String(
-    process.env.PVGIS_ALLOWED_ORIGIN
-      || process.env.GOOGLE_SOLAR_ALLOWED_ORIGIN
-      || process.env.ALLOWED_ORIGIN
-      || 'https://www.360configurator.com,https://www.360configurator.ro,https://www.360konfigurator.de,https://aks.360configurator.com',
-  ).trim();
-  return raw.split(',').map((value) => value.trim()).filter(Boolean);
-}
-
-function requestOrigin(request) {
-  return String(request.headers.get('origin') || '').trim();
-}
-
-function originIsLocalDevelopment(origin) {
-  if (!origin) return false;
-  try {
-    const url = new URL(origin);
-    const hostname = String(url.hostname || '').toLowerCase();
-    const loopback = hostname === 'localhost'
-      || hostname === '127.0.0.1'
-      || hostname === '0.0.0.0'
-      || hostname === '::1'
-      || hostname === '[::1]';
-    return loopback && (url.protocol === 'http:' || url.protocol === 'https:');
-  } catch {
-    return false;
-  }
-}
-
-function originIsAllowed(request) {
-  const origin = requestOrigin(request);
-  if (!origin) return true;
-  const allowed = configuredOrigins();
-  return allowed.includes('*') || allowed.includes(origin) || originIsLocalDevelopment(origin);
-}
-
 function corsHeaders(request) {
-  const origin = requestOrigin(request);
-  const allowed = configuredOrigins();
-  let allowOrigin = '*';
-  if (!allowed.includes('*')) {
-    allowOrigin = allowed.includes(origin) || originIsLocalDevelopment(origin)
-      ? origin
-      : allowed[0] || 'https://www.360configurator.com';
-  }
   return {
-    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Origin': corsAllowOrigin(request, 'https://www.360configurator.com'),
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Accept, Content-Type',
     'Access-Control-Max-Age': '86400',
@@ -204,7 +166,7 @@ async function fetchWithRetry(upstream) {
   return response;
 }
 
-async function loadPvgis(tool, upstream) {
+async function loadPvgis(tool, upstream, usageContext = null) {
   const ttlMs = TOOL_TTL_MS[tool];
   const key = canonicalCacheKey(tool, upstream);
   const memoryEntry = readMemoryCache(key, ttlMs);
@@ -222,6 +184,7 @@ async function loadPvgis(tool, upstream) {
   }
 
   const load = (async () => {
+    await consumeTenantSolarMetric(usageContext, 'pvgisUpstream', 1, { enforceLimit: false });
     const response = await fetchWithRetry(upstream);
     const text = await response.text();
     let body;
@@ -258,9 +221,21 @@ async function loadPvgis(tool, upstream) {
 }
 
 export async function handlePvgisRequest(request) {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
-  if (!originIsAllowed(request)) return jsonResponse(request, { error: 'Origin not allowed.' }, 403);
+  if (request.method === 'OPTIONS') {
+    if (!originIsPotentiallyAllowed(request)) return jsonResponse(request, { error: 'Origin not allowed.' }, 403);
+    return new Response(null, { status: 204, headers: corsHeaders(request) });
+  }
+  if (!originIsPotentiallyAllowed(request)) return jsonResponse(request, { error: 'Origin not allowed.' }, 403);
   if (request.method !== 'GET') return jsonResponse(request, { error: 'Method not allowed' }, 405);
+
+  let usageContext;
+  try {
+    usageContext = await resolveSolarRequestContext(request);
+  } catch (error) {
+    console.error('[PVGIS Cloud Run] Tenant usage scope lookup failed.', error);
+    return jsonResponse(request, { error: 'Tenant usage service is temporarily unavailable.' }, 503, { 'Cache-Control': 'no-store' });
+  }
+  if (!usageContext) return jsonResponse(request, { error: 'Solar is not enabled for this tenant.' }, 403);
 
   const url = new URL(request.url);
   if (url.searchParams.get('tool') === 'health') {
@@ -288,7 +263,8 @@ export async function handlePvgisRequest(request) {
   }
 
   try {
-    const result = await loadPvgis(tool, upstream);
+    await consumeTenantSolarMetric(usageContext, 'pvgis');
+    const result = await loadPvgis(tool, upstream, usageContext);
     const cacheTtlSeconds = Math.floor(TOOL_TTL_MS[tool] / 1000);
     return jsonResponse(request, result.body, 200, {
       'Cache-Control': `public, max-age=300, s-maxage=${cacheTtlSeconds}, stale-while-revalidate=3600`,
@@ -296,6 +272,8 @@ export async function handlePvgisRequest(request) {
       'X-PVGIS-Cache': result.cache,
     });
   } catch (error) {
+    const quotaPayload = quotaErrorPayload(error);
+    if (quotaPayload) return jsonResponse(request, quotaPayload, 429, { 'Cache-Control': 'no-store' });
     const status = Number(error?.status);
     if (status >= 400 && status < 600 && error?.body) {
       return jsonResponse(request, error.body, status, {

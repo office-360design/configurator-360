@@ -219,3 +219,18 @@ After provisioning:
 - Saved-configuration callable functions work with the resulting Firebase ID token exactly as they do on the standard 360Configurator domains.
 - Cross-domain authentication handoffs accept an active customer hostname only after validating it against the private tenant record.
 - Suspending a tenant keeps its Firebase Auth hostname registered but all tenant bootstrap, saved-configuration and cross-domain handoff access requires `status: active`; suspension therefore blocks product access without deleting customer data.
+
+### Tier-1 Solar usage limits and telemetry
+
+Private Tier-1 tenant documents may contain `solarUsageLimits` with four monthly UTC limits:
+
+- `analysesPerMonth`
+- `buildingInsightsPerMonth`
+- `dataLayersPerMonth`
+- `pvgisPerMonth`
+
+`0` means unlimited. Existing tenants without this map are treated as unlimited until an administrator saves explicit limits.
+
+Current counters are stored server-side at `tenantUsage/{slug}/months/{YYYY-MM}` and are never exposed through browser Firestore rules. `getTenant` includes the current month's normalized counters for the internal administration page, while `updateTenant` can change only the private usage-limit map; limits are not copied to `tenantPublic`.
+
+Google Solar Building Insights and Data Layers counters are reserved only when the Cloud Run Solar backend is about to make an upstream API request, so shared backend cache hits do not consume those limits. PVGIS records total valid requests plus upstream cache misses separately. Quotas reset naturally because each UTC month uses a new usage document.
