@@ -176,8 +176,10 @@
 
 .shared-ui-host .topbar-icon-button > svg,
 .shared-ui-host .topbar-icon-button .save-icon svg,
+.shared-ui-host .topbar-icon-button .cart-icon svg,
 .topbar-icon-button > svg,
-.topbar-icon-button .save-icon svg {
+.topbar-icon-button .save-icon svg,
+.topbar-icon-button .cart-icon svg {
   width: 20px;
   height: 20px;
   fill: none;
@@ -306,6 +308,8 @@
 .shared-ui-host .save-feedback.is-error,
 .save-feedback.is-error {
   border-color: #d9363e;
+  color: #8b1e24;
+  background: #fff1f2;
 }
 
 .shared-ui-host .save-feedback.is-error .save-feedback__icon--failure,
@@ -682,6 +686,41 @@ body,
   stroke-linejoin: round;
 }
 
+.cart-button .cart-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+.cart-button .cart-icon {
+  display: grid;
+  place-items: center;
+  transform-origin: 50% 64%;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cart-button:hover:not(:disabled) .cart-icon {
+    animation: shared-cart-hover 560ms cubic-bezier(.2,.78,.24,1);
+  }
+}
+.cart-button:focus-visible:not(:disabled) .cart-icon {
+  animation: shared-cart-hover 560ms cubic-bezier(.2,.78,.24,1);
+}
+@keyframes shared-cart-hover {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  28% { transform: translateX(2px) rotate(-7deg); }
+  54% { transform: translateX(-1px) rotate(4deg); }
+  78% { transform: translateX(1px) rotate(-2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cart-button:hover:not(:disabled) .cart-icon,
+  .cart-button:focus-visible:not(:disabled) .cart-icon { animation: none; }
+}
+
 .language-button {
   font-size: 19px;
   line-height: 1;
@@ -787,6 +826,7 @@ body,
 
 .account-menu__items > button,
 .account-settings button,
+.account-domain button,
 .language-list button {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) auto;
@@ -805,6 +845,7 @@ body,
 
 .account-menu__items > button:hover,
 .account-settings button:hover,
+.account-domain button:hover,
 .language-list button:hover {
   background: #f0f3f5;
 }
@@ -836,9 +877,42 @@ body,
   transition: transform 150ms ease;
 }
 
-[data-action="toggle-account-settings"][aria-expanded="true"] .account-menu__chevron {
+[data-action="toggle-account-settings"][aria-expanded="true"] .account-menu__chevron,
+[data-action="toggle-domain-menu"][aria-expanded="true"] .account-menu__chevron {
   transform: rotate(90deg);
 }
+
+
+.account-menu__domain-icon { font-size: 18px; line-height: 1; }
+.account-menu__items--guest { padding-top: 9px; }
+.account-domain {
+  display: grid;
+  max-height: 0;
+  margin-left: 34px;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 170ms ease, opacity 150ms ease;
+}
+.account-domain.is-open { max-height: 150px; opacity: 1; padding-bottom: 5px; }
+.account-domain button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 18px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 9px;
+  color: #55616a;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.account-domain button.is-selected { color: var(--blue-800); background: #eaf5fc; }
+.account-domain button:disabled { cursor: wait; opacity: .65; }
+.account-domain__flag { font-size: 19px; }
+.account-domain__check { justify-self: end; color: var(--blue-700); font-weight: 900; }
 
 .account-settings {
   display: grid;
@@ -1160,6 +1234,7 @@ body,
 .app-shell.is-dark-mode .language-search input,
 .app-shell.is-dark-mode .account-menu__items > button,
 .app-shell.is-dark-mode .account-settings button,
+.app-shell.is-dark-mode .account-domain button,
 .app-shell.is-dark-mode .language-list button,
 .app-shell.is-dark-mode .account-settings__field,
 .app-shell.is-dark-mode .account-settings__field select {
@@ -1168,6 +1243,7 @@ body,
 
 .app-shell.is-dark-mode .account-menu__items > button:hover,
 .app-shell.is-dark-mode .account-settings button:hover,
+.app-shell.is-dark-mode .account-domain button:hover,
 .app-shell.is-dark-mode .language-list button:hover {
   background: rgba(255, 255, 255, 0.08);
 }
@@ -1648,4 +1724,349 @@ body.roof-sidebar-collapsed .shared-settings-toggle {
   .saved-configurations__dialog { width: 100%; max-height: calc(100vh - 82px); border-radius: 18px; }
   .saved-configurations__item { grid-template-columns: 38px minmax(0, 1fr); }
   .saved-configurations__item-actions { grid-column: 2; justify-content: flex-start; }
+}
+
+/* Shared top bar responsiveness for phone-sized standalone configurators. */
+@media (max-width: 760px) {
+  .shared-ui-host .topbar-icon-button:disabled {
+    display: none;
+  }
+
+  .shared-ui-host .site-header__actions {
+    min-width: 0;
+    gap: 1px;
+  }
+
+  .shared-ui-host .topbar-icon-button {
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 480px) {
+  .shared-ui-host .site-header {
+    grid-template-columns: minmax(72px, 1fr) auto;
+    column-gap: 4px;
+    padding: 0 6px;
+  }
+
+  .shared-ui-host .project-name-shell {
+    display: none;
+  }
+
+  .shared-ui-host .brand img {
+    width: 78px;
+  }
+
+  .shared-ui-host .topbar-icon-button {
+    width: 29px;
+    height: 29px;
+  }
+}
+
+@media (max-width: 360px) {
+  .shared-ui-host .site-header {
+    grid-template-columns: minmax(60px, 1fr) auto;
+    column-gap: 2px;
+    padding: 0 4px;
+  }
+
+  .shared-ui-host .brand img {
+    width: 60px;
+  }
+
+  .shared-ui-host .topbar-icon-button {
+    width: 26px;
+    height: 26px;
+  }
+
+  .shared-ui-host .topbar-icon-button > svg,
+  .shared-ui-host .topbar-icon-button .save-icon svg,
+  .shared-ui-host .topbar-icon-button .share-icon svg,
+  .shared-ui-host .topbar-icon-button .cart-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+}
+
+/* Unified language-switch loading state. The shell raises its own stacking
+   context while visible so this blocks configurator-specific dialogs too. */
+.shared-ui-host.is-language-switching { z-index: 6000; }
+.shared-ui-host .language-switch-loading {
+  position: fixed;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  color: #233a46;
+  background: rgba(237, 243, 246, .72);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  transition: opacity .12s ease, visibility .12s ease;
+}
+.shared-ui-host .language-switch-loading.is-visible {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+.shared-ui-host .language-switch-loading__card {
+  width: min(330px, calc(100vw - 48px));
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 17px 20px;
+  border: 1px solid rgba(32, 69, 88, .14);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .97);
+  box-shadow: 0 20px 60px rgba(30, 53, 65, .18);
+}
+.shared-ui-host .language-switch-loading__spinner {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: 3px solid rgba(22, 142, 212, .20);
+  border-top-color: var(--blue-700, #0878c9);
+  border-radius: 50%;
+  animation: shared-language-switch-spin .72s linear infinite;
+}
+.shared-ui-host .language-switch-loading__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.shared-ui-host .language-switch-loading__copy strong {
+  font-size: 13px;
+  line-height: 1.3;
+}
+.shared-ui-host .language-switch-loading__copy span {
+  color: #6c7e88;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.shared-ui-host.is-dark-mode .language-switch-loading {
+  color: #edf5fa;
+  background: rgba(10, 18, 29, .72);
+}
+.shared-ui-host.is-dark-mode .language-switch-loading__card {
+  background: rgba(22, 34, 51, .98);
+  border-color: rgba(142, 194, 224, .20);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+}
+.shared-ui-host.is-dark-mode .language-switch-loading__copy span { color: #a9bac7; }
+.shared-ui-host.is-dark-mode .language-switch-loading__spinner {
+  border-color: rgba(131, 207, 255, .20);
+  border-top-color: #83cfff;
+}
+@keyframes shared-language-switch-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 420px) {
+  .shared-ui-host .language-switch-loading { padding: 18px; }
+  .shared-ui-host .language-switch-loading__card {
+    width: min(330px, calc(100vw - 36px));
+    min-height: 78px;
+    padding: 15px 17px;
+  }
+}
+
+/* Shared configurator settings frame + quote footer ----------------------- */
+.shared-configurator-panel {
+  position: relative;
+  border-radius: 18px !important;
+}
+
+.shared-configurator-panel[data-shared-panel-layout="managed"] {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) auto !important;
+  overflow: hidden !important;
+}
+
+/* Native panels can position their own collapse handle just outside the panel.
+   Do not clip that handle when the common footer is attached. */
+.shared-configurator-panel[data-shared-panel-layout="native"] {
+  overflow: visible !important;
+}
+
+/* Common floating settings geometry. Products that opt into this geometry get
+   the same 360 px panel, 20 px viewport gap and collapse-handle placement as
+   the Window/Roof/Solar configurators. */
+.shared-configurator-panel-host--floating-right {
+  display: block !important;
+}
+
+.shared-configurator-panel-host--floating-right > .viewer-panel {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+
+.shared-configurator-panel[data-shared-panel-geometry="floating-right"] {
+  position: absolute !important;
+  top: 20px !important;
+  right: 20px !important;
+  bottom: 20px !important;
+  left: auto !important;
+  width: 360px !important;
+  max-width: calc(100vw - 74px) !important;
+  height: auto !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border: 1px solid rgba(20, 31, 39, 0.1) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 14px 38px rgba(24, 39, 47, 0.18) !important;
+}
+
+.shared-configurator-panel[data-shared-panel-geometry="floating-right"].is-collapsed {
+  transform: translateX(calc(100% + 20px)) !important;
+}
+
+.shared-configurator-panel__toggle--floating-right {
+  position: absolute !important;
+  top: 34px !important;
+  right: 380px !important;
+  left: auto !important;
+  width: 34px !important;
+  height: 42px !important;
+  margin: 0 !important;
+  border: 1px solid #dfe4e6 !important;
+  border-right: 0 !important;
+  border-radius: 10px 0 0 10px !important;
+  color: #273746 !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: -8px 0 22px rgba(24, 39, 47, 0.14) !important;
+}
+
+body.shared-ui-dark-mode .shared-configurator-panel[data-shared-panel-geometry="floating-right"] {
+  color: #edf4f7;
+  background: rgba(20, 31, 45, 0.98) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+body.shared-ui-dark-mode .shared-configurator-panel__toggle--floating-right {
+  color: #e7eef3 !important;
+  background: rgba(20, 31, 45, 0.98) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.shared-configurator-panel__body {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.shared-configurator-panel > .shared-configurator-panel__footer {
+  position: relative;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 72px;
+  gap: 14px;
+  padding: 11px 18px;
+  color: #172027;
+  background: rgba(255, 255, 255, 0.99);
+  border-top: 1px solid #e6eaec;
+  box-shadow: 0 -8px 24px rgba(24, 39, 47, 0.07);
+}
+
+.shared-configurator-panel__price {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.shared-configurator-panel__price small {
+  overflow: hidden;
+  color: #778087;
+  font-size: 10px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shared-configurator-panel__price strong {
+  overflow: hidden;
+  color: #172027;
+  font-size: 20px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shared-configurator-panel__add-button {
+  min-width: 142px;
+  min-height: 46px;
+  padding: 10px 17px;
+  border: 1px solid #0878c9;
+  border-radius: 10px;
+  color: #fff;
+  background: #0878c9;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  transition: background 150ms ease, border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+.shared-configurator-panel__add-button:hover {
+  background: #066cad;
+  border-color: #066cad;
+  box-shadow: 0 6px 16px rgba(8, 120, 201, 0.2);
+  transform: translateY(-1px);
+}
+.shared-configurator-panel__add-button:active { transform: translateY(0); }
+.shared-configurator-panel__add-button:focus-visible {
+  outline: 3px solid rgba(8, 120, 201, 0.22);
+  outline-offset: 2px;
+}
+.app-shell.is-dark-mode .shared-configurator-panel > .shared-configurator-panel__footer,
+body.shared-ui-dark-mode .shared-configurator-panel > .shared-configurator-panel__footer {
+  color: #edf4f7;
+  background: rgba(23, 34, 53, 0.99);
+  border-top-color: #2a3a51;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.16);
+}
+.app-shell.is-dark-mode .shared-configurator-panel__price small,
+body.shared-ui-dark-mode .shared-configurator-panel__price small { color: #aebdca; }
+.app-shell.is-dark-mode .shared-configurator-panel__price strong,
+body.shared-ui-dark-mode .shared-configurator-panel__price strong { color: #edf4f7; }
+
+@media (max-width: 760px) {
+  .shared-configurator-panel[data-shared-panel-geometry="floating-right"] {
+    top: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: min(340px, calc(100vw - 56px)) !important;
+    max-width: calc(100vw - 56px) !important;
+  }
+
+  .shared-configurator-panel[data-shared-panel-geometry="floating-right"].is-collapsed {
+    transform: translateX(calc(100% + 12px)) !important;
+  }
+
+  .shared-configurator-panel__toggle--floating-right {
+    top: 26px !important;
+    right: min(352px, calc(100vw - 44px)) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .shared-configurator-panel > .shared-configurator-panel__footer {
+    min-height: 68px;
+    gap: 10px;
+    padding: 9px 12px;
+  }
+  .shared-configurator-panel__add-button {
+    min-width: 126px;
+    min-height: 44px;
+    padding-inline: 12px;
+  }
+  .shared-configurator-panel__price strong { font-size: 18px; }
 }

@@ -18,6 +18,9 @@ import {
     createWindowLayoutController,
     getWindowLayoutRequest,
 } from './window-layout-controller.js';
+import { requireTenantConfiguratorAccess } from '../shared-ui/src/tenantBootstrap.js?v=1';
+
+await requireTenantConfiguratorAccess('window');
 import { resolveLegacyProfileSelection } from './profile-compatibility.js';
 import { createProfileSelectionSignature } from './profile-composition.js';
 import { createWindowLayoutOverlay } from './window-layout-overlay.js';
@@ -818,6 +821,21 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
     return applied;
 };
 
+let initialWindowConfiguration = null;
+
+function cloneWindowConfiguration(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return null;
+    if (typeof structuredClone === 'function') return structuredClone(snapshot);
+    return JSON.parse(JSON.stringify(snapshot));
+}
+
+async function resetWindowConfiguration() {
+    const snapshot = cloneWindowConfiguration(initialWindowConfiguration);
+    if (!snapshot) return false;
+    await window.applyConfiguration(snapshot);
+    return true;
+}
+
 function captureWindowConfiguration() {
     const overallDimensions = getOverallWindowDimensions();
     return {
@@ -850,6 +868,7 @@ function captureWindowConfiguration() {
 window.WINDOW_CONFIGURATOR_API = {
     captureState: captureWindowConfiguration,
     restoreState: (snapshot) => window.applyConfiguration(snapshot),
+    resetConfiguration: resetWindowConfiguration,
 };
 
 // ANIMATION & LOOP
@@ -914,6 +933,11 @@ accessoryController.initializeControls({
     presetDescription: document.getElementById('accessoryPresetDescription'),
     container: document.getElementById('accessoryOptions'),
 });
+
+// Keep the model-specific default snapshot next to the configurator API. The
+// common shell can now use one global New Configuration lifecycle for every
+// configurator and only ask this module to restore its own default state.
+initialWindowConfiguration = cloneWindowConfiguration(captureWindowConfiguration());
 glassThicknessInput?.addEventListener('input', () => {
     accessoryController.syncControls('inner-glazing-gasket');
 });

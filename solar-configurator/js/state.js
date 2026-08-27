@@ -279,6 +279,8 @@ export function captureSolarShareState(input = state) {
   return snapshot;
 }
 
+export const DEFAULT_SOLAR_SHARE_STATE = captureSolarShareState(state);
+
 export function applySolarShareState(snapshot, target = state) {
   if (!snapshot || typeof snapshot !== 'object') return false;
   SOLAR_SHARE_KEYS.forEach((key) => {

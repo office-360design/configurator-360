@@ -1,15 +1,21 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
-import { DEFAULT_FENCE_STATE, createFenceState, deriveFenceMetrics, normalizeFenceState } from './state.js';
-import { FenceScene } from './scene.js?v=5';
-import { FenceUI } from './ui.js';
-import { resolveFenceLocale } from './i18n.js';
+import { DEFAULT_FENCE_STATE, createFenceState, deriveFenceMetrics, normalizeFenceState } from './state.js?v=4';
+import { FenceScene } from './scene.js?v=20';
+import { FenceUI } from './ui.js?v=4';
+import { resolveFenceLocale } from './i18n.js?v=4';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
 
-const initialLocale = resolveFenceLocale();
+await requireTenantConfiguratorAccess('fence');
+
+const initialLocale = resolveFenceLocale(window.FENCE_CONFIGURATOR_SHARED_SHELL?.state?.locale);
 let state = createFenceState();
 const sharedState = await readShareState({ productType: 'fence' });
 if (sharedState && typeof sharedState === 'object') state = createFenceState(sharedState);
 
 const scene = new FenceScene(document.querySelector('#canvasHost'));
+const compactViewport = window.matchMedia('(max-width: 760px)');
+const isCompactViewport = () => compactViewport.matches;
+
 let environmentPanelOpen = false;
 let currentBuild = null;
 let rebuildTimer = 0;
@@ -63,7 +69,17 @@ function syncToolButtons() {
 }
 
 function setEnvironmentPanelOpen(open) {
-  environmentPanelOpen = Boolean(open);
+  const nextOpen = Boolean(open);
+  if (nextOpen && isCompactViewport()) {
+    const shell = window.FENCE_CONFIGURATOR_SHARED_SHELL;
+    shell?.setSettingsPanelCollapsed?.(true);
+    if (shell?.toolsOpen) {
+      shell.toolsOpen = false;
+      shell.syncTools?.();
+    }
+  }
+
+  environmentPanelOpen = nextOpen;
   const panel = document.querySelector('#environmentPanel');
   if (panel) {
     panel.hidden = !environmentPanelOpen;

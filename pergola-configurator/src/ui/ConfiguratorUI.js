@@ -28,6 +28,8 @@ export class ConfiguratorUI {
     this.root = root;
     this.store = store;
     this.state = store.get();
+    this.mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
+    this.sidebarUserOverride = false;
     this.scene = null;
     this.activeSideSegment = null;
     this.activePole = null;
@@ -35,7 +37,7 @@ export class ConfiguratorUI {
     this.activeRoofRectangle = null;
     this.activeHeaterSegment = null;
     this.environmentOpen = false;
-    this.sidebarHidden = false;
+    this.sidebarHidden = this.mobileLayoutQuery.matches;
     this.expandedStep = null;
     this.toastTimer = null;
     this.saveFeedbackTimer = null;
@@ -43,9 +45,6 @@ export class ConfiguratorUI {
 
     this.root.innerHTML = this.shellTemplate();
     this.stepContent = this.root.querySelector('[data-step-content]');
-    this.stepTitle = this.root.querySelector('[data-step-title]');
-    this.stepCounter = this.root.querySelector('[data-step-counter]');
-    this.progress = this.root.querySelector('[data-progress]');
     this.sidebarFooter = this.root.querySelector('[data-sidebar-footer]');
     this.environmentPanel = this.root.querySelector('[data-environment-panel]');
     this.toast = this.root.querySelector('[data-toast]');
@@ -56,6 +55,15 @@ export class ConfiguratorUI {
     this.root.addEventListener('input', (event) => this.handleInput(event));
     this.root.addEventListener('submit', (event) => this.handleSubmit(event));
 
+    this.onMobileLayoutChange = (event) => {
+      if (!this.sidebarUserOverride) {
+        this.setSidebarHidden(event.matches);
+      } else {
+        this.syncMobileShellState();
+      }
+    };
+    this.mobileLayoutQuery.addEventListener?.('change', this.onMobileLayoutChange);
+
     this.unsubscribe = this.store.subscribe((state, meta) => this.onStateChange(state, meta));
   }
 
@@ -65,6 +73,9 @@ export class ConfiguratorUI {
 
   attachSharedShell(shell) {
     this.sharedShell = shell;
+    this.sidebarHidden = Boolean(shell.settingsPanelCollapsed);
+    this.syncToolbar();
+    this.syncMobileShellState();
     this.syncSharedShell();
   }
 
@@ -87,16 +98,13 @@ export class ConfiguratorUI {
             <div class="toast" data-toast role="status"></div>
           </section>
 
-          <aside class="configurator-sidebar" aria-label="${escapeHtml(this.t('app.sidebarAria'))}">
-            <button class="sidebar-collapse-handle" type="button" data-action="toggle-sidebar" aria-label="${escapeHtml(this.t('app.sidebarToggleAria'))}" aria-expanded="${!this.sidebarHidden}" title="${escapeHtml(this.t(this.sidebarHidden ? 'app.sidebarShow' : 'app.sidebarHide'))}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-            <div class="sidebar-header sidebar-header--compact sidebar-header--minimal">
-              <div><span class="step-counter" data-step-counter></span><h1 data-step-title></h1></div>
-            </div>
-            <div class="sidebar-scroll" data-step-content></div>
+          <aside class="configurator-sidebar${this.sidebarHidden ? ' is-collapsed' : ''}" aria-label="${escapeHtml(this.t('app.sidebarAria'))}">
+            <div class="sidebar-scroll shared-configurator-panel__body" data-step-content></div>
             <footer class="sidebar-footer" data-sidebar-footer></footer>
           </aside>
+          <button id="pergolaSidebarToggle" class="sidebar-collapse-handle${this.sidebarHidden ? ' is-hidden-state' : ''}" type="button" aria-label="${escapeHtml(this.t('app.sidebarToggleAria'))}" aria-expanded="${!this.sidebarHidden}" title="${escapeHtml(this.t(this.sidebarHidden ? 'app.sidebarShow' : 'app.sidebarHide'))}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
         </main>
         <div data-modal-root></div>
       </div>
@@ -113,7 +121,8 @@ export class ConfiguratorUI {
       this.activeRoofRectangle = null;
       this.activeHeaterSegment = null;
       this.environmentOpen = false;
-      this.sidebarHidden = false;
+      this.sidebarHidden = this.mobileLayoutQuery.matches;
+      this.sidebarUserOverride = false;
       this.expandedStep = null;
       this.pendingDimensionChange = null;
       if (this.modalRoot) this.modalRoot.innerHTML = '';
@@ -139,22 +148,28 @@ export class ConfiguratorUI {
   }
 
   render() {
-    this.stepTitle.textContent = '';
-    this.stepCounter.textContent = '';
-    this.stepCounter.style.display = 'none';
-    if (this.progress) this.progress.innerHTML = '';
-    this.root.querySelector('.configurator-sidebar')?.classList.toggle('is-hidden', this.sidebarHidden);
     this.root.querySelector('.app-shell')?.classList.toggle('is-dark-mode', Boolean(this.state.darkMode));
 
     this.stepContent.innerHTML = this.renderAccordionSections();
-    this.sidebarFooter.innerHTML = this.renderFooter();
+    if (this.sharedShell?.refreshConfiguratorPanelFooter) this.sharedShell.refreshConfiguratorPanelFooter();
+    else this.sidebarFooter.replaceChildren();
     this.environmentPanel.innerHTML = this.renderEnvironmentPanel();
     this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
     this.syncToolbar();
+    this.syncMobileShellState();
     this.syncSharedShell();
   }
 
   async handleClick(event) {
+    if (
+      this.mobileLayoutQuery.matches
+      && !this.sidebarHidden
+      && !event.target.closest('.configurator-sidebar')
+    ) {
+      this.setSidebarHidden(true, { userOverride: false });
+      return;
+    }
+
     const option = event.target.closest('[data-option-path]');
     if (option) {
       const updated = this.store.update(option.dataset.optionPath, option.dataset.optionValue);
@@ -273,9 +288,6 @@ export class ConfiguratorUI {
       const stepId = actionTarget.dataset.stepId;
       this.expandedStep = this.expandedStep === stepId ? null : stepId;
       this.render();
-    } else if (action === 'toggle-sidebar') {
-      this.sidebarHidden = !this.sidebarHidden;
-      this.render();
     } else if (action === 'toggle-environment') {
       this.environmentOpen = !this.environmentOpen;
       this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
@@ -363,6 +375,7 @@ export class ConfiguratorUI {
   }
 
   showDimensionChangeWarning() {
+    this.closeSidebarForMobile();
     this.modalRoot.innerHTML = `
       <div class="modal-backdrop" role="presentation">
         <section class="modal dimension-warning-modal" role="dialog" aria-modal="true" aria-labelledby="dimension-warning-title">
@@ -454,15 +467,72 @@ export class ConfiguratorUI {
     this.root.querySelector('.sidebar-collapse-handle')?.classList.toggle('is-hidden-state', this.sidebarHidden);
   }
 
+  setSidebarHidden(hidden, { userOverride = false, fromSharedShell = false } = {}) {
+    const nextHidden = Boolean(hidden);
+    if (userOverride) this.sidebarUserOverride = true;
+
+    if (this.sharedShell && !fromSharedShell) {
+      this.sharedShell.setSettingsPanelCollapsed(nextHidden);
+      return;
+    }
+
+    this.sidebarHidden = nextHidden;
+
+    if (this.mobileLayoutQuery.matches && !this.sidebarHidden) {
+      this.environmentOpen = false;
+      this.environmentPanel?.classList.remove('is-open');
+      if (this.sharedShell?.toolsOpen) {
+        this.sharedShell.toolsOpen = false;
+        this.sharedShell.syncTools?.();
+      }
+    }
+
+    this.render();
+  }
+
+  closeSidebarForMobile() {
+    if (!this.mobileLayoutQuery.matches || this.sidebarHidden) return false;
+    this.setSidebarHidden(true, { userOverride: false });
+    return true;
+  }
+
+  syncMobileShellState() {
+    const sidebar = this.root.querySelector('.configurator-sidebar');
+    const sidebarContent = this.root.querySelector('.sidebar-scroll');
+    const sidebarFooter = this.root.querySelector('.sidebar-footer');
+    const hiddenForAccessibility = this.mobileLayoutQuery.matches && this.sidebarHidden;
+
+    sidebar?.toggleAttribute('data-mobile-hidden', hiddenForAccessibility);
+    if (sidebarContent) {
+      sidebarContent.inert = hiddenForAccessibility;
+      sidebarContent.setAttribute('aria-hidden', String(hiddenForAccessibility));
+    }
+    if (sidebarFooter) {
+      sidebarFooter.inert = hiddenForAccessibility;
+      sidebarFooter.setAttribute('aria-hidden', String(hiddenForAccessibility));
+    }
+
+    document.body.classList.add('pergola-sidebar-ready');
+    document.body.classList.toggle(
+      'pergola-sidebar-open',
+      this.mobileLayoutQuery.matches && !this.sidebarHidden,
+    );
+  }
+
   syncSharedShell() {
     if (!this.sharedShell) return;
     this.sharedShell.setActionEnabled('undo', Boolean(this.store.canUndo?.()));
     this.sharedShell.setToolActive('dimensions', Boolean(this.state.view.dimensionsVisible));
     this.sharedShell.setToolActive('compass', Boolean(this.state.view.compassVisible));
+    this.sharedShell.refreshConfiguratorPanelFooter?.();
   }
 
   toggleEnvironmentPanel() {
-    this.environmentOpen = !this.environmentOpen;
+    this.setEnvironmentPanelOpen(!this.environmentOpen);
+  }
+
+  setEnvironmentPanelOpen(open) {
+    this.environmentOpen = Boolean(open);
     this.environmentPanel?.classList.toggle('is-open', this.environmentOpen);
   }
 
@@ -505,6 +575,7 @@ export class ConfiguratorUI {
   }
 
   showModal(title, body) {
+    this.closeSidebarForMobile();
     this.modalRoot.innerHTML = `
       <div class="modal-backdrop" role="presentation">
         <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -518,6 +589,8 @@ export class ConfiguratorUI {
 
   destroy() {
     this.unsubscribe?.();
+    this.mobileLayoutQuery.removeEventListener?.('change', this.onMobileLayoutChange);
+    document.body.classList.remove('pergola-sidebar-ready', 'pergola-sidebar-open');
   }
 }
 

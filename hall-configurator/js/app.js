@@ -1,11 +1,15 @@
 import { state, deriveHallMetrics } from './state.js?v=12';
-import { HallScene } from './scene.js?v=13';
-import { HallUI } from './ui.js?v=13';
+import { HallScene } from './scene.js?v=14';
+import { HallUI } from './ui.js?v=14';
 import { normalizeOpenings } from './openings.js?v=13';
 import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=1';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+
+await requireTenantConfiguratorAccess('hall');
 
 const initialLocale = applyHallTranslations(resolveHallLocale());
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
 const DEFAULT_HALL_STATE = structuredClone(state);
 const sharedHallState = await readShareState({ productType: 'hall' });
 if (sharedHallState) {
@@ -119,6 +123,10 @@ ui = new HallUI(state, {
   },
   onOpeningAdd(type) {
     scene.startOpeningPlacement(type, state);
+    if (mobileLayoutQuery.matches) {
+      window.HALL_CONFIGURATOR_SHARED_SHELL?.setSettingsPanelCollapsed?.(true);
+      closeToolPanels();
+    }
   },
   onOpeningPlacementCancel() {
     scene.cancelOpeningPlacement(state);

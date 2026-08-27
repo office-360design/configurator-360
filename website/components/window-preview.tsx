@@ -79,6 +79,8 @@ export function WindowHeroRuntime() {
   const frame = useRef<HTMLIFrameElement>(null);
   const ready = useRef(false);
   const lastSignature = useRef("");
+  const [mounted, setMounted] = useState(false);
+  const [visualReady, setVisualReady] = useState(false);
 
   const update = useCallback(() => {
     const hero = document.querySelector<HTMLElement>(".spatial-hero");
@@ -131,6 +133,56 @@ export function WindowHeroRuntime() {
   }, []);
 
   useEffect(() => {
+    if (mounted) return;
+    const mobile = window.matchMedia("(max-width: 720px), ((max-width: 1050px) and (pointer: coarse))").matches;
+    let cancelled = false;
+    let idleHandle = 0;
+    let queued = false;
+    const mountRuntime = () => {
+      if (!cancelled) setMounted(true);
+    };
+    const activate = () => {
+      if (!mobile) {
+        mountRuntime();
+        return;
+      }
+      if (queued) return;
+      queued = true;
+      const afterLoad = () => {
+        if (cancelled) return;
+        if ("requestIdleCallback" in window) {
+          idleHandle = window.requestIdleCallback(mountRuntime, { timeout: 1800 });
+        } else {
+          idleHandle = window.setTimeout(mountRuntime, 180);
+        }
+      };
+      if (document.readyState === "complete") afterLoad();
+      else window.addEventListener("load", afterLoad, { once: true });
+    };
+    const options = { once: true, passive: true } as AddEventListenerOptions;
+    window.addEventListener("wheel", activate, options);
+    if (!mobile) {
+      window.addEventListener("touchstart", activate, options);
+      window.addEventListener("pointerdown", activate, options);
+    }
+    window.addEventListener("keydown", activate, { once: true });
+    window.addEventListener("scroll", activate, options);
+    return () => {
+      cancelled = true;
+      if (idleHandle) {
+        if ("cancelIdleCallback" in window) window.cancelIdleCallback(idleHandle);
+        else window.clearTimeout(idleHandle);
+      }
+      window.removeEventListener("wheel", activate);
+      window.removeEventListener("touchstart", activate);
+      window.removeEventListener("pointerdown", activate);
+      window.removeEventListener("keydown", activate);
+      window.removeEventListener("scroll", activate);
+    };
+  }, [mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
     let pingTimer = 0;
     const ping = () => frame.current?.contentWindow?.postMessage({ type: "window-preview-ping" }, window.location.origin);
     const syncTheme = () => {
@@ -144,6 +196,7 @@ export function WindowHeroRuntime() {
       if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow) return;
       if (event.data?.type === "window-preview-ready") {
         ready.current = true;
+        setVisualReady(true);
         lastSignature.current = "";
         if (pingTimer) window.clearInterval(pingTimer);
         update();
@@ -165,18 +218,28 @@ export function WindowHeroRuntime() {
       window.removeEventListener("themechange", syncTheme);
       window.removeEventListener("pageshow", syncTheme);
     };
-  }, [update]);
+  }, [mounted, update]);
 
   return (
-    <iframe
-      ref={frame}
-      className="window-hero-runtime"
-      src="/window-runtime/?preview=1&theme=dark"
-      title="Schüco B2-6 scroll sequence"
-      tabIndex={-1}
-      aria-hidden="true"
-      onLoad={() => frame.current?.contentWindow?.postMessage({ type: "window-preview-ping" }, window.location.origin)}
-    />
+    <>
+      <div className={`window-hero-poster${visualReady ? " is-hidden" : ""}`} aria-hidden="true">
+        <div className="window-hero-poster-object">
+          <div className="window-hero-poster-glass" />
+          <i className="window-hero-poster-handle" />
+        </div>
+        <span className="window-hero-poster-dimension dimension-height">1000 mm</span>
+        <span className="window-hero-poster-dimension dimension-width">700 mm</span>
+      </div>
+      {mounted && <iframe
+        ref={frame}
+        className="window-hero-runtime"
+        src="/window-runtime/?preview=1&theme=dark"
+        title="Schüco B2-6 scroll sequence"
+        tabIndex={-1}
+        aria-hidden="true"
+        onLoad={() => frame.current?.contentWindow?.postMessage({ type: "window-preview-ping" }, window.location.origin)}
+      />}
+    </>
   );
 }
 
@@ -217,17 +280,55 @@ export function WindowConfiguratorPreview({ locale = "en", placement = "showcase
   useEffect(() => {
     const element = shell.current;
     if (!element || shouldLoad) return;
+    const mobile = window.matchMedia("(max-width: 720px), ((max-width: 1050px) and (pointer: coarse))").matches;
+    let cancelled = false;
+    let idleHandle = 0;
+    let queued = false;
+    const loadRuntime = () => {
+      if (queued) return;
+      queued = true;
+      if (!mobile) {
+        setShouldLoad(true);
+        return;
+      }
+      const afterLoad = () => {
+        if (cancelled) return;
+        const mount = () => {
+          if (!cancelled) setShouldLoad(true);
+        };
+        if ("requestIdleCallback" in window) {
+          idleHandle = window.requestIdleCallback(mount, { timeout: 1600 });
+        } else {
+          idleHandle = window.setTimeout(mount, 160);
+        }
+      };
+      if (document.readyState === "complete") afterLoad();
+      else window.addEventListener("load", afterLoad, { once: true });
+    };
     if (!("IntersectionObserver" in window)) {
-      const fallbackFrame = requestAnimationFrame(() => setShouldLoad(true));
-      return () => cancelAnimationFrame(fallbackFrame);
+      loadRuntime();
+      return () => {
+        cancelled = true;
+        if (idleHandle) {
+          if ("cancelIdleCallback" in window) window.cancelIdleCallback(idleHandle);
+          else window.clearTimeout(idleHandle);
+        }
+      };
     }
     const observer = new IntersectionObserver((entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return;
-      setShouldLoad(true);
+      loadRuntime();
       observer.disconnect();
-    }, { rootMargin: "1200px 0px" });
+    }, { rootMargin: mobile ? "100px 0px" : "320px 0px" });
     observer.observe(element);
-    return () => observer.disconnect();
+    return () => {
+      cancelled = true;
+      if (idleHandle) {
+        if ("cancelIdleCallback" in window) window.cancelIdleCallback(idleHandle);
+        else window.clearTimeout(idleHandle);
+      }
+      observer.disconnect();
+    };
   }, [shouldLoad]);
 
   useEffect(() => {
@@ -320,14 +421,14 @@ export function WindowConfiguratorPreview({ locale = "en", placement = "showcase
       }}
       onPointerUp={() => { drag.current = null; }}
     >
-      <iframe
+      {shouldLoad && <iframe
         ref={frame}
         className={`window-showcase-runtime ${visible ? "is-visible" : ""}`}
-        src={shouldLoad ? "/window-runtime/?preview=1&theme=dark" : undefined}
+        src="/window-runtime/?preview=1&theme=dark"
         title="Interactive Schüco Window System AW CT 65 B2-6 preview"
         loading="lazy"
         onLoad={() => frame.current?.contentWindow?.postMessage({ type: "window-preview-ping" }, window.location.origin)}
-      />
+      />}
       {coarse && <MobileSceneActions active={interaction} onToggle={() => setInteraction((value) => !value)} locale={locale} />}
       <div className={`runtime-loading mono-label ${ready ? "ready" : ""}`}>{text.loading}</div>
       <div className={`window-instrument ${collapsed ? "is-collapsed" : ""}`} aria-label="Window profile controls">

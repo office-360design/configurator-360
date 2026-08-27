@@ -1,5 +1,5 @@
-import { FINISHES, PANEL_STYLES, deriveFenceMetrics } from './state.js';
-import { fenceT } from './i18n.js';
+import { FINISHES, PANEL_STYLES, deriveFenceMetrics } from './state.js?v=4';
+import { fenceT } from './i18n.js?v=4';
 
 const FX = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 
@@ -20,14 +20,13 @@ export function buildFenceBom(state, { locale = 'en-US' } = {}) {
   const metrics = deriveFenceMetrics(state);
   const style = PANEL_STYLES[state.panelStyle] ?? PANEL_STYLES.vertical;
   const finish = FINISHES[state.finish] ?? FINISHES.anthracite;
-  const gateBayCount = metrics.gate?.span ?? 0;
+  const gateBayCount = metrics.gateBayCount;
   const panelBayCount = Math.max(0, metrics.bayCount - gateBayCount);
-  const panelArea = metrics.area - (metrics.gate ? metrics.gate.width * state.height : 0);
+  const panelArea = Math.max(0, metrics.area - metrics.gateWidth * state.height);
 
   const postUnit = 66 * finish.multiplier;
   const panelUnit = style.pricePerM2 * finish.multiplier;
   const footingUnit = state.foundation === 'baseplate' ? 48 : 34;
-  const gateUnit = metrics.gate?.type === 'driveway' ? 1180 : metrics.gate?.type === 'pedestrian' ? 520 : 0;
   const hardwareUnit = 13.5;
 
   const items = [
@@ -37,20 +36,31 @@ export function buildFenceBom(state, { locale = 'en-US' } = {}) {
     item('hardware', fenceT(locale, 'bom.item.hardware'), panelBayCount, 'sets', hardwareUnit),
   ];
 
-  if (metrics.gate) {
+  const pedestrianCount = metrics.gates.filter((gate) => gate.type === 'pedestrian').length;
+  const drivewayCount = metrics.gates.filter((gate) => gate.type === 'driveway').length;
+  if (pedestrianCount) {
     items.push(item(
-      'gate',
-      fenceT(locale, metrics.gate.type === 'driveway' ? 'bom.item.gate.driveway' : 'bom.item.gate.pedestrian'),
-      1,
+      'gate-pedestrian',
+      fenceT(locale, 'bom.item.gate.pedestrian'),
+      pedestrianCount,
       'set',
-      gateUnit * finish.multiplier,
+      520 * finish.multiplier,
+    ));
+  }
+  if (drivewayCount) {
+    items.push(item(
+      'gate-driveway',
+      fenceT(locale, 'bom.item.gate.driveway'),
+      drivewayCount,
+      'set',
+      1180 * finish.multiplier,
     ));
   }
 
   if (state.panelStyle === 'vertical' || state.panelStyle === 'horizontal') {
     const slatPitch = state.panelStyle === 'vertical' ? 0.115 : 0.145;
     const slatCount = state.panelStyle === 'vertical'
-      ? Math.max(0, Math.round((metrics.totalLength - (metrics.gate?.width ?? 0)) / slatPitch))
+      ? Math.max(0, Math.round((metrics.totalLength - metrics.gateWidth) / slatPitch))
       : Math.max(0, Math.round(state.height / slatPitch) * panelBayCount);
     items.push(item('slats', fenceT(locale, 'bom.item.slats'), slatCount, 'pcs', 0));
   }

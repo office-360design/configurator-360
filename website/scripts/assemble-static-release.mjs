@@ -15,8 +15,8 @@ const localizedOrigins = {
   de: "https://www.360konfigurator.de",
 };
 
-const marketingConfiguratorSlugs = ["pergola", "roof", "window", "hall", "solar"];
-const externalConfiguratorSlugs = [...marketingConfiguratorSlugs, "fence"];
+const marketingConfiguratorSlugs = ["pergola", "roof", "window", "hall", "solar", "fence"];
+const externalConfiguratorSlugs = [...marketingConfiguratorSlugs];
 
 const externalConfiguratorPaths = {
   en: {
@@ -60,6 +60,7 @@ function sitemapUrls(locale) {
     `${origin}/`,
     `${origin}/about`,
     `${origin}/contact`,
+    `${origin}/pricing`,
     ...marketingConfiguratorSlugs.map((slug) => `${origin}/configurators/${slug}`),
     ...externalConfiguratorSlugs.map((slug) => `${origin}${externalConfiguratorPaths[locale][slug]}`),
   ];

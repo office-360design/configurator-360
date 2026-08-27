@@ -11,7 +11,7 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
       <div className="footer-main page-frame">
         <div className="footer-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/360configurator.png" alt="360Configurator" />
+          <img src="/brand/360configurator.png" alt="360Configurator" width={380} height={190} />
           <p>{copy.footerLine}</p>
         </div>
         <div className="footer-links">
@@ -22,6 +22,7 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
         </div>
         <div className="footer-links">
           <span>{copy.contactLabel}</span>
+          <a href={localizedPath(locale, "/pricing")}>{copy.pricing}</a>
           <a href={localizedPath(locale, "/about")}>{copy.about}</a>
           <a href={localizedPath(locale, "/contact")}>{copy.contact}</a>
           <a href={`mailto:${email}`}>{email}</a>

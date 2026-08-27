@@ -236,6 +236,7 @@ export class HallUI {
     if (!panel) return;
     panel.classList.toggle('is-open', Boolean(open));
     panel.setAttribute('aria-hidden', String(!open));
+    document.body.classList.toggle('hall-environment-open', Boolean(open));
   }
 
   bindBom() {
@@ -310,6 +311,9 @@ export class HallUI {
     document.querySelector('#openingDeleteButton')?.addEventListener('click', () => {
       if (this.selectedOpeningId) this.callbacks.onOpeningDelete?.(this.selectedOpeningId);
     });
+    document.querySelector('#openingPlacementCancelButton')?.addEventListener('click', () => {
+      this.callbacks.onOpeningPlacementCancel?.();
+    });
     document.querySelector('#openingEditor')?.addEventListener('pointerdown', (event) => event.stopPropagation());
   }
 
@@ -319,6 +323,9 @@ export class HallUI {
 
   setPlacementMode(type = null) {
     this.placementType = type;
+    document.body.classList.toggle('hall-opening-placement-active', Boolean(type));
+    const mobileCancel = document.querySelector('#openingPlacementCancelButton');
+    if (mobileCancel) mobileCancel.hidden = !type;
     document.querySelectorAll('[data-add-opening]').forEach((button) => {
       const active = Boolean(type) && button.dataset.addOpening === type;
       button.classList.toggle('is-placement-active', active);

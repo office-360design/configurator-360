@@ -21,17 +21,19 @@ test("server-renders the 360Configurator homepage and native previews", async ()
 
   const html = await response.text();
   assert.match(html, /Industrial 3D Product Configuration — 360Configurator/);
-  assert.match(html, /rel="canonical" href="https:\/\/360configurator\.com"/);
+  assert.match(html, /rel="canonical" href="https:\/\/www\.360configurator\.com"/);
   assert.match(html, /hrefLang="x-default"/);
   assert.match(html, /"@type":"WebSite"/);
   assert.match(html, /"@type":"ItemList"/);
   assert.match(html, /Complex products\./);
   assert.match(html, /Made self-evident\./);
-  assert.match(html, /\/window-runtime\/\?preview=1/);
-  assert.match(html, /Schüco B2-6 scroll sequence/);
-  assert.match(html, /Interactive Schüco Window System AW CT 65 B2-6 preview/);
+  assert.doesNotMatch(html, /\/window-runtime\/\?preview=1/);
+  assert.doesNotMatch(html, /Schüco B2-6 scroll sequence/);
+  assert.doesNotMatch(html, /Interactive Schüco Window System AW CT 65 B2-6 preview/);
   assert.match(html, /Pergola/);
   assert.match(html, /Roof/);
+  assert.match(html, /Your product could be/);
+  assert.match(html, /href="\/pricing"/);
   assert.match(html, /https:\/\/www\.linkedin\.com\/company\/360configurator\//);
   assert.match(html, /<title>Facebook<\/title>/);
   assert.match(html, /<title>X<\/title>/);
@@ -53,8 +55,8 @@ test("ships explicit machine-readable discovery context", async () => {
   assert.match(llmsFull, /Bill of materials/);
   assert.match(robots, /OAI-SearchBot/);
   assert.match(robots, /GPTBot/);
-  assert.match(sitemap, /languageAlternates/);
-  assert.match(sitemap, /lastModified/);
+  assert.match(sitemap, /localeOrigins/);
+  assert.match(sitemap, /configuratorUrl/);
 });
 
 test("keeps production-grade configurator behavior inside the isolated website copy", async () => {
@@ -64,7 +66,7 @@ test("keeps production-grade configurator behavior inside the isolated website c
     readFile(new URL("../components/webgl-stage.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/deferred-webgl-stage.tsx", import.meta.url), "utf8"),
     readFile(new URL("../public/window-runtime/lib/three.module.js", import.meta.url), "utf8"),
-    readFile(new URL("../app/homepage-polish.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/styles/homepage-polish.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(runtime, /2_4_Oeffnungselemnt_Vertikal/);

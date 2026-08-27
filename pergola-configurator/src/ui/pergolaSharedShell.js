@@ -1,15 +1,15 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=14';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=28';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=12';
-import { getLocalizedConfiguratorUrl } from '../../../shared-ui/src/config.js';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
 import { pergolaT } from '../i18n.js';
+import { calculatePrice, formatMoney } from '../pricing.js';
 
 function cloneState(state) {
   if (typeof structuredClone === 'function') return structuredClone(state);
   return JSON.parse(JSON.stringify(state));
 }
 
-export function mountPergolaSharedShell({ store, ui }) {
+export function mountPergolaSharedShell({ store, ui, tenantContext = null }) {
   const initial = store.get();
   const t = (key, variables = {}, locale = null) => pergolaT(locale ?? store.get().locale, key, variables);
 
@@ -17,8 +17,8 @@ export function mountPergolaSharedShell({ store, ui }) {
     productType: 'Pergola',
     productId: 'pergola',
     storagePrefix: 'pergola-configurator',
-    brandSrc: './assets/360CONFIGURATOR.png',
-    brandAlt: '360 Configurator',
+    brandSrc: tenantContext?.logoUrl || './assets/360CONFIGURATOR.png',
+    brandAlt: tenantContext?.companyName || '360 Configurator',
     capabilities: { viewAR: true, save: true, undo: true, reset: true, share: true },
     tools: {
       items: resolveSharedTools([
@@ -29,14 +29,28 @@ export function mountPergolaSharedShell({ store, ui }) {
       ]),
       placement: { side: 'left', direction: 'down', offsetX: 12, offsetY: 12 },
     },
+    settingsPanel: {
+      panelSelector: '.configurator-sidebar',
+      toggleSelector: '#pergolaSidebarToggle',
+      collapsedClass: 'is-collapsed',
+      bodyCollapsedClass: 'pergola-sidebar-collapsed',
+      initiallyCollapsed: ui.mobileLayoutQuery.matches,
+    },
+    configuratorPanel: {
+      panelSelector: '.configurator-sidebar',
+      footerSelector: '[data-sidebar-footer]',
+      bodySelector: '.sidebar-scroll',
+      geometry: 'floating-right',
+      getEstimatedTotal() {
+        const state = store.get();
+        return formatMoney(calculatePrice(state).total, state.currency, state.locale);
+      },
+    },
     callbacks: {
       onUndo() {
         if (!store.undo?.()) ui.showToast(t('feedback.nothingToUndo'));
       },
-      onReset() {
-        if (window.confirm(t('feedback.resetConfirm'))) store.reset();
-      },
-      createNewConfiguration() {
+      resetConfiguration() {
         store.reset();
         return true;
       },
@@ -56,12 +70,11 @@ export function mountPergolaSharedShell({ store, ui }) {
       getShareUrl() {
         return store.getShareUrl();
       },
-      async getLocalizedUrl(nextLocale, fallbackTarget) {
-        const shareUrl = await store.getShareUrl();
-        return getLocalizedConfiguratorUrl(nextLocale, 'pergola', new URL(shareUrl)) || fallbackTarget;
-      },
       onPreferenceChange(path, value) {
         store.update(path, value, { path });
+      },
+      onSettingsPanelToggle(collapsed) {
+        ui.setSidebarHidden(collapsed, { fromSharedShell: true });
       },
       onAccountAction(action) {
         if (action === 'profile') ui.showModal(t('modal.profileTitle'), `<p>${escapeHtml(t('modal.profileBody'))}</p>`);

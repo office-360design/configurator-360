@@ -95,6 +95,7 @@ export class PergolaScene {
     });
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.lastQuality = null;
+    this.lastCompactViewport = null;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
@@ -637,12 +638,20 @@ export class PergolaScene {
   }
 
   applyQuality(quality = 'balanced') {
-    if (this.lastQuality === quality) return;
-    const profile = {
+    const compactViewport = window.innerWidth <= 760 || (window.innerWidth <= 900 && window.innerHeight <= 520);
+    if (this.lastQuality === quality && this.lastCompactViewport === compactViewport) return;
+    const baseProfile = {
       low: { pixelRatio: 1, shadows: false, shadowSize: 512 },
       balanced: { pixelRatio: Math.min(window.devicePixelRatio, 1.5), shadows: true, shadowSize: 1024 },
       high: { pixelRatio: Math.min(window.devicePixelRatio, 2), shadows: true, shadowSize: 2048 },
     }[quality] ?? { pixelRatio: Math.min(window.devicePixelRatio, 1.5), shadows: true, shadowSize: 1024 };
+    const profile = compactViewport
+      ? {
+          ...baseProfile,
+          pixelRatio: Math.min(baseProfile.pixelRatio, 1.5),
+          shadowSize: Math.min(baseProfile.shadowSize, 1024),
+        }
+      : baseProfile;
 
     this.renderer.setPixelRatio(profile.pixelRatio);
     this.renderer.shadowMap.enabled = profile.shadows;
@@ -650,10 +659,12 @@ export class PergolaScene {
     this.sun.shadow.mapSize.set(profile.shadowSize, profile.shadowSize);
     this.sun.shadow.map?.dispose?.();
     this.lastQuality = quality;
+    this.lastCompactViewport = compactViewport;
     if (this.container?.clientWidth && this.container?.clientHeight) this.resize();
   }
 
   resize() {
+    this.applyQuality(this.state.quality);
     const width = Math.max(1, this.container.clientWidth);
     const height = Math.max(1, this.container.clientHeight);
     this.camera.aspect = width / height;

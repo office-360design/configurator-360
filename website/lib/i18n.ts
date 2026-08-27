@@ -18,6 +18,7 @@ export const configuratorPublicPaths = {
     window: "/window-configurator/",
     hall: "/hall-configurator/",
     solar: "/solar-configurator/",
+    fence: "/fence-configurator/",
   },
   ro: {
     pergola: "/configurator-pergola/",
@@ -25,6 +26,7 @@ export const configuratorPublicPaths = {
     window: "/configurator-ferestre/",
     hall: "/configurator-hala/",
     solar: "/configurator-solar/",
+    fence: "/configurator-garduri/",
   },
   de: {
     pergola: "/pergola-konfigurator/",
@@ -32,6 +34,7 @@ export const configuratorPublicPaths = {
     window: "/fenster-konfigurator/",
     hall: "/hallen-konfigurator/",
     solar: "/solar-konfigurator/",
+    fence: "/zaun-konfigurator/",
   },
 } as const;
 
@@ -69,7 +72,7 @@ export function contactEmail(locale: Locale) {
 
 export const uiCopy = {
   en: {
-    language: "Language", home: "Home", configurators: "Configurators", about: "About us", contact: "Contact us",
+    language: "Language", home: "Home", configurators: "Configurators", pricing: "Pricing", about: "About us", contact: "Contact us",
     start: "Start a project", deployed: "Deployed systems", live: "Live", more: "More systems are currently in development.",
     footerLine: "Spatial product configuration for complex industrial products.", contactLabel: "Contact",
     begin: "Begin a project", location: "Bucharest · Romania", render: "Render systems online",
@@ -77,7 +80,7 @@ export const uiCopy = {
     loading: "Loading native B2-6 system", controls: "Controls +", hide: "Hide −",
   },
   ro: {
-    language: "Limbă", home: "Acasă", configurators: "Configuratoare", about: "Despre noi", contact: "Contact",
+    language: "Limbă", home: "Acasă", configurators: "Configuratoare", pricing: "Prețuri", about: "Despre noi", contact: "Contact",
     start: "Începe un proiect", deployed: "Sisteme implementate", live: "Live", more: "Alte sisteme sunt în curs de dezvoltare.",
     footerLine: "Configurare spațială pentru produse industriale complexe.", contactLabel: "Contact",
     begin: "Pornește un proiect", location: "București · România", render: "Sisteme de randare online",
@@ -85,7 +88,7 @@ export const uiCopy = {
     loading: "Se încarcă sistemul nativ B2-6", controls: "Comenzi +", hide: "Ascunde −",
   },
   de: {
-    language: "Sprache", home: "Startseite", configurators: "Konfiguratoren", about: "Über uns", contact: "Kontakt",
+    language: "Sprache", home: "Startseite", configurators: "Konfiguratoren", pricing: "Preise", about: "Über uns", contact: "Kontakt",
     start: "Projekt starten", deployed: "Realisierte Systeme", live: "Live", more: "Weitere Systeme befinden sich in Entwicklung.",
     footerLine: "Räumliche Produktkonfiguration für komplexe Industrieprodukte.", contactLabel: "Kontakt",
     begin: "Projekt anfragen", location: "Bukarest · Rumänien", render: "Render-Systeme online",
@@ -107,6 +110,7 @@ export const homeCopy = {
     spatial: "Spatial interface", resolved: "Resolved output", connected: "System connection",
     systems: "04 / Deployed systems", systemsA: "Live systems.", systemsB: "An expanding field of possibilities.",
     systemsCopy: "Explore the deployments available today—part of a platform designed to grow across products, industries and new forms of complexity.",
+    customLabel: "06 / Custom system", customA: "Your product could be", customB: "the next system.", customStatement: "Begin with the product you already manufacture—not a software template.", customCopy: "We map its geometry, options, compatibility rules, pricing and outputs into a configuration system engineered for the way your business actually works.", customStatus: "Product logic intake", customSignal: "CAD + rules + commercial model", customCta: "Discuss your product", customPricing: "See the Custom System path", customViewport: "Configuration blueprint", customFeatures: [["Product data", "CAD", "Existing CAD, drawings, component records and product knowledge become the technical source for the system, preserving the manufacturing reality that already defines your commercial product."], ["Geometry", "Geometry", "Dimensions, assemblies, connection logic and valid spatial relationships define what the configured product can become, ensuring visual changes remain credible as a physical manufactured result."], ["Rules", "Rules", "Compatibility constraints, dependencies and required selections prevent users from creating invalid product states while explaining which decisions remain available at every point in the configuration."], ["Commercial", "Price", "Price logic, BOM structure, margins and lead qualification remain connected to every visual decision, turning a configured product into a commercially usable and traceable project state."], ["Workflow", "Flow", "The interface follows the real decision sequence used by customers, sales and technical teams, reducing interpretation gaps between initial exploration, qualification, engineering review and final handover."], ["Integration", "API", "Qualified configurations can connect with CRM, ERP, commerce, product-data and downstream production systems, keeping selected options and project context available beyond the visual configuration experience."]],
     interactive: "Interactive system", viewCase: "View full case", launch: "Launch full configurator",
     pipeline: "05 / Visual CPQ pipeline", pipelineA: "From interaction.", pipelineB: "To commercial resolution.",
     processLabel: "06 / Deployment path", processA: "From product rules", processB: "to a living interface.",
@@ -133,6 +137,7 @@ export const homeCopy = {
     spatial: "Interfață spațială", resolved: "Rezultat structurat", connected: "Conectare la sisteme",
     systems: "04 / Sisteme implementate", systemsA: "Sisteme live.", systemsB: "Un univers în continuă extindere.",
     systemsCopy: "Explorează implementările disponibile astăzi—parte dintr-o platformă concepută să crească odată cu noi produse, industrii și forme de complexitate.",
+    customLabel: "06 / Sistem personalizat", customA: "Produsul tău poate deveni", customB: "următorul sistem.", customStatement: "Pornim de la produsul pe care îl fabricați deja, nu de la un șablon software.", customCopy: "Îi transformăm geometria, opțiunile, regulile de compatibilitate, prețurile și rezultatele într-un sistem de configurare proiectat pentru modul real în care funcționează compania.", customStatus: "Preluare logică de produs", customSignal: "CAD + reguli + model comercial", customCta: "Discută despre produs", customPricing: "Vezi traseul Sistem personalizat", customViewport: "Arhitectură de configurare", customFeatures: [["Date de produs", "CAD", "Datele CAD, desenele, evidența componentelor și cunoștințele de produs devin sursa tehnică a sistemului, păstrând realitatea de fabricație care definește produsul comercial existent."], ["Geometrie", "Geometrie", "Dimensiunile, ansamblurile, conexiunile și relațiile spațiale valide definesc produsul configurabil, astfel încât fiecare schimbare vizuală să rămână credibilă ca rezultat fizic fabricabil."], ["Reguli", "Reguli", "Compatibilitatea, constrângerile, dependențele și selecțiile obligatorii previn configurațiile invalide și explică utilizatorului ce decizii rămân disponibile în fiecare etapă a configurării."], ["Comercial", "Preț", "Logica de preț, structura BOM, marjele și calificarea lead-ului rămân conectate fiecărei decizii vizuale, transformând configurația într-o stare comercială utilizabilă și trasabilă."], ["Flux", "Flux", "Interfața urmează succesiunea reală de decizii folosită de clienți, vânzări și echipe tehnice, reducând diferențele dintre explorare, calificare, verificare inginerească și predare."], ["Integrare", "API", "Configurațiile calificate se pot conecta la CRM, ERP, commerce, date de produs și producție, păstrând opțiunile și contextul proiectului disponibile dincolo de experiența vizuală."]],
     interactive: "Sistem interactiv", viewCase: "Vezi studiul complet", launch: "Deschide configuratorul complet",
     pipeline: "05 / Flux CPQ vizual", pipelineA: "De la interacțiune.", pipelineB: "La rezultat comercial.",
     processLabel: "06 / Parcursul implementării", processA: "De la regulile produsului", processB: "la o interfață vie.",
@@ -159,6 +164,7 @@ export const homeCopy = {
     spatial: "Räumliche Oberfläche", resolved: "Strukturiertes Ergebnis", connected: "Systemanbindung",
     systems: "04 / Realisierte Systeme", systemsA: "Live-Systeme.", systemsB: "Ein wachsendes Feld von Möglichkeiten.",
     systemsCopy: "Entdecken Sie die heute verfügbaren Implementierungen—Teil einer Plattform, die mit Produkten, Branchen und neuen Formen von Komplexität wächst.",
+    customLabel: "06 / Individuelles System", customA: "Ihr Produkt kann", customB: "das nächste System werden.", customStatement: "Wir beginnen mit dem Produkt, das Sie bereits fertigen—nicht mit einer Softwarevorlage.", customCopy: "Wir übersetzen Geometrie, Optionen, Kompatibilitätsregeln, Kalkulation und Ausgaben in ein Konfigurationssystem, das für Ihre tatsächlichen Geschäftsabläufe entwickelt ist.", customStatus: "Aufnahme der Produktlogik", customSignal: "CAD + Regeln + kaufmännisches Modell", customCta: "Produkt besprechen", customPricing: "Zum individuellen Implementierungsweg", customViewport: "Konfigurationsarchitektur", customFeatures: [["Produktdaten", "CAD", "CAD-Daten, Zeichnungen, Komponentenverzeichnisse und Produktwissen bilden die technische Quelle des Systems und bewahren die Fertigungsrealität, die Ihr bestehendes kommerzielles Produkt bereits definiert."], ["Geometrie", "Geometrie", "Maße, Baugruppen, Verbindungslogik und gültige räumliche Beziehungen definieren das konfigurierbare Produkt, damit jede visuelle Änderung als physisch herstellbares Ergebnis glaubwürdig bleibt."], ["Regeln", "Regeln", "Kompatibilitätsvorgaben, Abhängigkeiten und erforderliche Auswahlen verhindern ungültige Produktzustände und erklären, welche Entscheidungen an jedem Punkt der Konfiguration weiterhin möglich sind."], ["Kaufmännisch", "Preis", "Preislogik, Stücklistenstruktur, Margen und Lead-Qualifizierung bleiben mit jeder visuellen Entscheidung verbunden und verwandeln die Konfiguration in einen nutzbaren, nachvollziehbaren Projektzustand."], ["Workflow", "Ablauf", "Die Oberfläche folgt der realen Entscheidungsfolge von Kunden, Vertrieb und technischen Teams und reduziert Interpretationslücken zwischen Erkundung, Qualifizierung, technischer Prüfung und Übergabe."], ["Integration", "API", "Qualifizierte Konfigurationen lassen sich mit CRM, ERP, Commerce, Produktdaten und Produktion verbinden, damit gewählte Optionen und Projektkontext über die visuelle Erfahrung hinaus verfügbar bleiben."]],
     interactive: "Interaktives System", viewCase: "Gesamten Case ansehen", launch: "Vollständigen Konfigurator öffnen",
     pipeline: "05 / Visuelle CPQ-Pipeline", pipelineA: "Von der Interaktion.", pipelineB: "Zur kommerziellen Lösung.",
     processLabel: "06 / Implementierungsweg", processA: "Von Produktregeln", processB: "zu einer lebendigen Oberfläche.",

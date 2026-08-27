@@ -2,6 +2,8 @@ const FIREBASE_SDK_VERSION = '12.17.1';
 const FIREBASE_APP_MODULE_URL = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app.js`;
 const FIREBASE_AUTH_MODULE_URL = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-auth.js`;
 const APP_NAME = '360-configurator-share-app';
+const FUNCTIONS_REGION = 'europe-west1';
+const PROJECT_ID = 'configurator-360';
 
 // Same Firebase Web App used by App Check and shared configurations. These web
 // identifiers are public Firebase client configuration, not credentials.
@@ -24,6 +26,42 @@ function firebaseAuthConfig() {
     projectId: String(override.projectId || DEFAULT_FIREBASE_AUTH_CONFIG.projectId),
     appId: String(override.appId || DEFAULT_FIREBASE_AUTH_CONFIG.appId),
   };
+}
+
+
+function callableUrl(name) {
+  return `https://${FUNCTIONS_REGION}-${PROJECT_ID}.cloudfunctions.net/${name}`;
+}
+
+async function callDomainAuthFunction(name, data = {}, { requireAuth = false } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (requireAuth) {
+    const token = await getFirebaseIdToken();
+    if (!token) {
+      const error = new Error('Google login is required.');
+      error.code = 'auth-required';
+      throw error;
+    }
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(callableUrl(name), {
+    method: 'POST',
+    mode: 'cors',
+    credentials: 'omit',
+    headers,
+    body: JSON.stringify({ data }),
+  });
+
+  let payload = null;
+  try { payload = await response.json(); } catch { /* handled below */ }
+  if (!response.ok || payload?.error) {
+    const message = payload?.error?.message || `Domain authentication request failed (${response.status}).`;
+    const error = new Error(message);
+    error.code = payload?.error?.status || `http-${response.status}`;
+    throw error;
+  }
+  return payload?.result ?? payload?.data ?? null;
 }
 
 function normalizeUser(user) {
@@ -85,3 +123,30 @@ export async function getFirebaseIdToken() {
   if (!user) return '';
   return user.getIdToken();
 }
+
+export async function createDomainAuthHandoff(targetOrigin) {
+  const result = await callDomainAuthFunction(
+    'createDomainAuthHandoff',
+    { targetOrigin: String(targetOrigin || '') },
+    { requireAuth: true },
+  );
+  const handoffId = String(result?.handoffId || '');
+  if (!handoffId) throw new Error('The domain authentication handoff could not be created.');
+  return handoffId;
+}
+
+export async function redeemDomainAuthHandoff(handoffId) {
+  const result = await callDomainAuthFunction('redeemDomainAuthHandoff', {
+    handoffId: String(handoffId || ''),
+  });
+  const customToken = String(result?.customToken || '');
+  if (!customToken) throw new Error('The domain authentication handoff could not be redeemed.');
+  return customToken;
+}
+
+export async function signInWithDomainCustomToken(customToken) {
+  const { auth, authModule } = await getAuthContext();
+  const result = await authModule.signInWithCustomToken(auth, String(customToken || ''));
+  return normalizeUser(result.user);
+}
+
