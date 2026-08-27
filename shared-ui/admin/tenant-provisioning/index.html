@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <meta name="theme-color" content="#f4f5f7" />
+  <title>Tenant Provisioning | 360Configurator</title>
+  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=1" />
+</head>
+<body>
+  <main class="admin-page">
+    <header class="admin-header">
+      <div>
+        <p class="eyebrow">360Configurator internal</p>
+        <h1>Tier-1 tenant provisioning</h1>
+        <p>Create a Go Live Now customer without manually editing Firestore.</p>
+      </div>
+      <div class="auth-panel" id="authPanel" aria-live="polite">
+        <span id="authState">Checking sign-in…</span>
+        <button type="button" class="button button--secondary" id="authButton" hidden>Sign in with Google</button>
+      </div>
+    </header>
+
+    <section class="admin-card" id="provisioningCard" hidden>
+      <form id="tenantForm" novalidate>
+        <div class="form-grid">
+          <label class="field field--wide">
+            <span>Company name</span>
+            <input id="companyName" name="companyName" maxlength="120" autocomplete="organization" required />
+          </label>
+
+          <label class="field field--wide">
+            <span>Subdomain</span>
+            <div class="domain-input">
+              <input id="slug" name="slug" maxlength="40" spellcheck="false" autocomplete="off" required />
+              <span>.360configurator.com</span>
+            </div>
+            <small id="slugHint">Lowercase letters, numbers and hyphens only.</small>
+          </label>
+
+          <label class="field field--wide">
+            <span>Logo</span>
+            <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp" />
+            <small>Optional for internal testing. PNG, JPEG or WebP; it will be resized automatically.</small>
+          </label>
+        </div>
+
+        <fieldset class="configurator-fieldset">
+          <legend>Enabled configurators</legend>
+          <div class="configurator-grid">
+            <label><input type="checkbox" name="configurator" value="window" /> <span>Window</span></label>
+            <label><input type="checkbox" name="configurator" value="pergola" /> <span>Pergola</span></label>
+            <label><input type="checkbox" name="configurator" value="roof" /> <span>Roof</span></label>
+            <label><input type="checkbox" name="configurator" value="solar" /> <span>Solar</span></label>
+            <label><input type="checkbox" name="configurator" value="hall" /> <span>Hall</span></label>
+            <label><input type="checkbox" name="configurator" value="fence" /> <span>Fence</span></label>
+          </div>
+        </fieldset>
+
+        <div class="preview-row">
+          <div>
+            <span class="preview-label">Customer URL</span>
+            <a id="tenantPreview" href="#" target="_blank" rel="noopener">—</a>
+          </div>
+          <div class="logo-preview-wrap" id="logoPreviewWrap" hidden>
+            <span class="preview-label">Logo preview</span>
+            <img id="logoPreview" alt="Selected logo preview" />
+          </div>
+        </div>
+
+        <div class="status" id="formStatus" role="status" aria-live="polite"></div>
+
+        <div class="actions">
+          <button type="submit" class="button button--primary" id="createButton">Create tenant</button>
+          <button type="reset" class="button button--secondary">Reset</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="admin-card admin-card--result" id="resultCard" hidden aria-live="polite">
+      <p class="eyebrow">Provisioned</p>
+      <h2 id="resultTitle">Tenant created</h2>
+      <p id="resultCopy"></p>
+      <div class="result-links" id="resultLinks"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=1"></script>
+</body>
+</html>

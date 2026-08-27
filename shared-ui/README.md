@@ -61,12 +61,29 @@ Firebase Console setup required: enable **Authentication → Sign-in method → 
 ## Shared shell adapters
 
 Configurator-local shell files are adapters only. They may provide product-specific callbacks
-such as `captureState()`, reset/undo behavior, tool actions or language-state preservation, but
-they must not render or own the common top bar, account menu, Google authentication, language
-menu, feedback UI or shared tool interaction lifecycle. Those remain in `shared-ui`.
+such as `captureState()`, `restoreState()`, reset/undo behavior or tool actions, but they must not
+render or own the common top bar, account menu, Google authentication, language menu, language
+selection/state, feedback UI or shared tool interaction lifecycle. Those remain in `shared-ui`.
 
 ## Saved configurations
 
 The shared shell owns account-based configuration saving for every configurator. The top-bar **Save** button captures the product-specific state through the configurator adapter and stores it under the signed-in Firebase/Google user. **Saved configurations** in the account menu opens the same shared modal in Window, Roof, Hall, Solar, Pergola and Fence.
 
 Configurator adapters only provide `productId`, `captureState()` and `restoreState()`; they do not implement their own saved-project UI or storage. Saving account data uses Firebase Authentication but intentionally does not initialize or refresh App Check, so reCAPTCHA assessments remain exclusive to the **Share** action.
+
+
+### Account save persistence and language switching
+
+Private account saves have no application TTL and are not part of the public Share FIFO quota.
+Only an explicit Saved configurations → Delete action calls `deleteUserConfiguration`; the
+90-day expiry and 200 MiB cleanup apply only to `sharedConfigurations`. Temporary load failures
+do not clear the local pointer to a private save.
+
+Language switching is owned by the shared shell and is now translation-only. Selecting English,
+Romanian or German keeps the current URL, hostname, account/save association and configurator
+state untouched; the shell changes only its persisted locale and asks the product adapter to
+apply that locale to product-specific strings. The current hostname supplies only the first-visit
+default language. The selected locale is stored by Common UI for the current origin so the same
+language is reused by the other configurators on that site. Language changes never create a Share
+record and never navigate to another country-domain configurator. Units and currency remain
+independent user preferences and are not changed by the language selector.

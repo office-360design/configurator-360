@@ -1,9 +1,11 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=19';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=27';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
-import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
 import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+
+const tenantContext = await requireTenantConfiguratorAccess('hall');
 
 const initialLocale = resolveHallLocale();
 applyHallTranslations(initialLocale);
@@ -31,8 +33,8 @@ shell = mountStandaloneConfiguratorShell({
   productType: 'Hall',
   productId: 'hall',
   storagePrefix: '360-configurator:hall',
-  brandSrc: '../shared-ui/assets/360CONFIGURATOR.png',
-  brandAlt: '360 Configurator',
+  brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
+  brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
     viewAR: false,
     save: true,
@@ -53,6 +55,11 @@ shell = mountStandaloneConfiguratorShell({
     bodyCollapsedClass: 'hall-sidebar-collapsed',
     initiallyCollapsed: mobileLayoutQuery.matches,
   },
+  configuratorPanel: {
+    panelSelector: '.sidebar',
+    priceSelector: '#summaryTotal',
+    geometry: 'floating-right',
+  },
   callbacks: {
     onUndo() { history.undo(); },
     async resetConfiguration() {
@@ -64,7 +71,10 @@ shell = mountStandaloneConfiguratorShell({
       return window.HALL_CONFIGURATOR_API?.captureState?.();
     },
     restoreState(snapshot) {
-      return window.HALL_CONFIGURATOR_API?.restoreState?.(snapshot);
+      const api = window.HALL_CONFIGURATOR_API;
+      if (!api?.restoreState) return false;
+      api.restoreState(snapshot);
+      return true;
     },
     getShareUrl() {
       const snapshot = window.HALL_CONFIGURATOR_API?.captureState?.();
@@ -97,30 +107,6 @@ shell = mountStandaloneConfiguratorShell({
 });
 
 
-const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-
-shell.host.addEventListener('click', (event) => {
-  const languageButton = event.target.closest('[data-action="select-language"]');
-  if (!languageButton || isLocalDevelopmentHost) return;
-  const nextLocale = languageButton.dataset.locale;
-  if (!nextLocale || nextLocale === shell.state.locale) return;
-  const fallbackTarget = getLocalizedConfiguratorUrl(nextLocale, 'hall', window.location);
-  if (!fallbackTarget) return;
-  event.preventDefault();
-  event.stopPropagation();
-  void (async () => {
-    try {
-      const snapshot = window.HALL_CONFIGURATOR_API?.captureState?.();
-      if (!snapshot) { window.location.assign(fallbackTarget); return; }
-      const shareUrl = await createShareUrl({ productType: 'hall', state: snapshot });
-      const targetUrl = getLocalizedConfiguratorUrl(nextLocale, 'hall', new URL(shareUrl));
-      window.location.assign(targetUrl || fallbackTarget);
-    } catch (error) {
-      console.error('Hall language switch could not preserve the current configuration.', error);
-      shell.showFeedback?.(t('feedback.languageSwitchUnavailable'));
-    }
-  })();
-}, true);
 
 history.bindSource(document.querySelector('.sidebar'));
 
@@ -155,6 +141,7 @@ appShell?.addEventListener('pointerdown', (event) => {
 
 if (sidebar) {
   const markDirty = (event) => {
+    if (event.target.closest('[data-shared-configurator-panel-footer]')) return;
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
   };
   sidebar.addEventListener('click', markDirty, true);

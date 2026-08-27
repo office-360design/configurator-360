@@ -1,6 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Public tenant metadata used to bootstrap tenant subdomains.
+    // Documents may be read individually by browsers but never listed or modified.
+    match /tenantPublic/{tenantSlug} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+    
+    // Private tenant configuration.
+    // Provisioning/backend functions use the Admin SDK, which bypasses Security Rules.
+    match /tenants/{tenantSlug} {
+      allow read, write: if false;
+    }
+
+    // Internal provisioning allowlist. Only Admin-SDK backend code may inspect
+    // or modify the list of Firebase UIDs allowed to create customer tenants.
+    match /tenantProvisioningAdmins/{uid} {
+      allow read, write: if false;
+    }
+
     function loggedIn() {
       return request.auth.uid != null;
     }
@@ -116,6 +136,13 @@ service cloud.firestore {
     // The authenticated callable functions use the Admin SDK and verify request.auth.uid,
     // so one account can never list/read/write another account's configurations.
     match /users/{userId}/savedConfigurations/{product}/items/{configurationId} {
+      allow read, write: if false;
+    }
+
+    // Cross-domain authentication handoffs contain only server-side temporary
+    // state and are redeemed through Cloud Functions. Browser Firestore access
+    // is intentionally impossible.
+    match /domainAuthHandoffs/{handoffId} {
       allow read, write: if false;
     }
 

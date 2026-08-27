@@ -86,7 +86,6 @@ for (const locale of locales) {
 }
 
 const sourceGuards = [
-  ['solar-configurator/js/sharedShell.js', "getLocalizedConfiguratorUrl(nextLocale, 'solar'"],
   ['solar-configurator/js/sharedShell.js', 'applySolarTranslations(snapshot.locale)'],
   ['solar-configurator/js/ui.js', 'solarModuleNote(this.state.modulePreset, this.locale)'],
   ['solar-configurator/js/ui.js', "this.t('simulation.date'"],
@@ -94,6 +93,12 @@ const sourceGuards = [
   ['solar-configurator/js/scene.js', 'solarCompassLabels(resolveSolarLocale())'],
   ['solar-configurator/js/app.js', "t('pvgis.ready'"],
 ];
+const sharedShellSource = fs.readFileSync(path.join(root, 'shared-ui/src/standaloneShell.js'), 'utf8');
+if (sharedShellSource.includes('getLanguageSwitchTarget(')) failures.push('Shared UI still contains legacy cross-domain language switching.');
+if (!sharedShellSource.includes("callbacks.onPreferenceChange?.('locale'")) failures.push('Shared UI does not apply Solar locale changes in place.');
+const solarShellSource = fs.readFileSync(path.join(root, 'solar-configurator/js/sharedShell.js'), 'utf8');
+if (solarShellSource.includes('getLocalizedConfiguratorUrl(nextLocale')) failures.push('Solar duplicates shared language switching.');
+
 for (const [relative, needle] of sourceGuards) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
   if (!source.includes(needle)) failures.push(`${relative} is missing i18n guard: ${needle}`);
@@ -104,5 +109,5 @@ if (failures.length) {
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exitCode = 1;
 } else {
-  console.log(`Solar i18n validated for ${locales.join(', ')}: ${baseKeys.length} message keys, ${Object.keys(staticTranslations).length} static UI strings, localized estimate/CSV, compass, PVGIS/environment states, and country-domain switching.`);
+  console.log(`Solar i18n validated for ${locales.join(', ')}: ${baseKeys.length} message keys, ${Object.keys(staticTranslations).length} static UI strings, localized estimate/CSV, compass, PVGIS/environment states, and in-place language switching.`);
 }

@@ -1,9 +1,11 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=19';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=26';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { getSeasonForDate } from './solarPosition.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
-import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
 import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=2';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+
+const tenantContext = await requireTenantConfiguratorAccess('solar');
 
 const initialLocale = resolveSolarLocale();
 applySolarTranslations(initialLocale);
@@ -53,8 +55,8 @@ const shell = mountStandaloneConfiguratorShell({
   productType: 'Solar',
   productId: 'solar',
   storagePrefix: '360-configurator:solar',
-  brandSrc: '../shared-ui/assets/360CONFIGURATOR.png',
-  brandAlt: '360 Configurator',
+  brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
+  brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
     viewAR: false,
     save: true,
@@ -65,6 +67,10 @@ const shell = mountStandaloneConfiguratorShell({
   tools: {
     items: tools,
     placement: { side: 'left', direction: 'down', offsetX: 0, offsetY: 0 },
+  },
+  configuratorPanel: {
+    panelSelector: '.sidebar',
+    priceSelector: '#headerEstimateTotal',
   },
   callbacks: {
     async resetConfiguration() {
@@ -100,30 +106,6 @@ window.dispatchEvent(new CustomEvent('solar-preference-change', {
   detail: { name: 'initial', value: null, preferences: { ...shell.state } },
 }));
 
-const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-
-shell.host.addEventListener('click', (event) => {
-  const languageButton = event.target.closest('[data-action="select-language"]');
-  if (!languageButton || isLocalDevelopmentHost) return;
-  const nextLocale = languageButton.dataset.locale;
-  if (!nextLocale || nextLocale === shell.state.locale) return;
-  const fallbackTarget = getLocalizedConfiguratorUrl(nextLocale, 'solar', window.location);
-  if (!fallbackTarget) return;
-  event.preventDefault();
-  event.stopPropagation();
-  void (async () => {
-    try {
-      const snapshot = window.SOLAR_CONFIGURATOR_API?.captureState?.();
-      if (!snapshot) { window.location.assign(fallbackTarget); return; }
-      const shareUrl = await createShareUrl({ productType: 'solar', state: snapshot });
-      const targetUrl = getLocalizedConfiguratorUrl(nextLocale, 'solar', new URL(shareUrl));
-      window.location.assign(targetUrl || fallbackTarget);
-    } catch (error) {
-      console.error('Solar language switch could not preserve the current configuration.', error);
-      shell.showFeedback?.(t('feedback.languageSwitchUnavailable'));
-    }
-  })();
-}, true);
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#solarSidebarToggle');
@@ -184,6 +166,7 @@ appShell?.addEventListener('pointerdown', (event) => {
 
 if (sidebar) {
   const markDirty = (event) => {
+    if (event.target.closest('[data-shared-configurator-panel-footer]')) return;
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
   };
   sidebar.addEventListener('click', markDirty, true);

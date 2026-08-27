@@ -98,6 +98,54 @@ export function getReentrantFillerTriangle({
     return Object.freeze([apex, firstShoulder, secondShoulder]);
 }
 
+export function getHalfFrameTriangle({
+    filler,
+    frameReferenceSpan = 0,
+} = {}) {
+    if (!filler) return Object.freeze([]);
+    const span = Math.max(0, finiteNumber(frameReferenceSpan));
+    if (span <= 0) return Object.freeze([]);
+
+    const outward = armDirectionVector(filler.direction);
+    const tangent = filler.orientation === 'horizontal'
+        ? Object.freeze({ x: 1, y: 0 })
+        : (filler.orientation === 'vertical'
+            ? Object.freeze({ x: 0, y: 1 })
+            : Object.freeze({ x: 0, y: 0 }));
+    if ((!outward.x && !outward.y) || (!tangent.x && !tangent.y)) {
+        return Object.freeze([]);
+    }
+
+    // A normal perimeter T has two collinear frame pieces meeting a centred
+    // mullion. The asymmetric frame reference sits `span` outside the grid
+    // vertex (21 mm for the active frame/mullion pair). That outer 45-degree
+    // triangle must be owned exactly once instead of being repeated by both
+    // neighbouring frame pieces.
+    //
+    // The half-frame therefore has its apex on the structural grid vertex and
+    // its two shoulders on the physical outer-frame boundary, one `span` to
+    // either side along the host frame. This is a literal 45-degree triangle:
+    // base = 2 * span, height = span.
+    const apex = Object.freeze({
+        x: finiteNumber(filler.apexX),
+        y: finiteNumber(filler.apexY),
+    });
+    const baseCenter = Object.freeze({
+        x: apex.x + outward.x * span,
+        y: apex.y + outward.y * span,
+    });
+    const firstShoulder = Object.freeze({
+        x: baseCenter.x + tangent.x * span,
+        y: baseCenter.y + tangent.y * span,
+    });
+    const secondShoulder = Object.freeze({
+        x: baseCenter.x - tangent.x * span,
+        y: baseCenter.y - tangent.y * span,
+    });
+
+    return Object.freeze([apex, firstShoulder, secondShoulder]);
+}
+
 function hasWindowAcrossMissingReentrantDirection({ junction, cells, direction }) {
     const epsilon = 1e-9;
     const x = finiteNumber(junction?.x);
@@ -207,6 +255,75 @@ function getMixedReentrantTDividerArm(junction) {
     if (!missingIsPerpendicular) return null;
 
     return Object.freeze({ dividerArm, missingDirection });
+}
+
+function isInteriorLMixedPlusJunction(junction) {
+    if (!junction) return false;
+
+    // At the four-arm centre of an L, two adjacent arms are asymmetric outer
+    // frames and the other two adjacent arms are centred mullions. All four
+    // terminate at the SAME grid apex. The frame ends are therefore not square
+    // and not one simple 45-degree miter: they form a 90-degree V made from two
+    // 45-degree faces, matching the mullion V around the common vertex.
+    if (
+        junction.type !== 'plus'
+        || junction.frameCount !== 2
+        || junction.dividerCount !== 2
+    ) {
+        return false;
+    }
+
+    const frameDirections = junction.activeDirections.filter(
+        direction => junction.arms?.[direction]?.kind === 'frame'
+    );
+    if (frameDirections.length !== 2) return false;
+
+    // The L centre has the two frame arms perpendicular/adjacent. Collinear
+    // frame arms belong to other + configurations and keep their own logic.
+    return OPPOSITE_ARM_DIRECTION[frameDirections[0]] !== frameDirections[1];
+}
+
+function getNormalPerimeterTHalfFrameInfo(junction) {
+    if (
+        junction?.type !== 'T'
+        || junction?.dividerCount !== 1
+        || junction?.frameCount !== 2
+        || !junction?.hostOrientation
+    ) {
+        return null;
+    }
+
+    const dividerArm = junction.activeDirections
+        .map(direction => junction.arms?.[direction])
+        .find(arm => arm?.kind === 'divider') || null;
+    if (!dividerArm) return null;
+
+    const missingDirection = PHYSICAL_ARM_DIRECTIONS.find(
+        direction => !junction.arms?.[direction]
+    ) || null;
+    if (!missingDirection) return null;
+
+    // Only the ordinary outside-perimeter T gets a half-frame. Its missing arm
+    // is the outward continuation of the terminating mullion. A merged-L
+    // re-entrant T has the missing direction perpendicular to the mullion and
+    // is handled by the existing half-mullion filler instead.
+    if (OPPOSITE_ARM_DIRECTION[dividerArm.direction] !== missingDirection) {
+        return null;
+    }
+
+    const frameArms = junction.activeDirections
+        .map(direction => junction.arms?.[direction])
+        .filter(arm => arm?.kind === 'frame');
+    if (frameArms.length !== 2) return null;
+    const side = frameArms[0].side || null;
+    if (!side || frameArms.some(arm => arm.side !== side)) return null;
+
+    return Object.freeze({
+        dividerArm,
+        frameArms: Object.freeze(frameArms),
+        missingDirection,
+        side,
+    });
 }
 
 function classifyPhysicalJunction(entry) {
@@ -634,16 +751,18 @@ export function getFrameMixedPlusMiterInset({
         frameInwardSpan: normalizedFrameSpan,
     });
 
-    // At the mixed frame+mullion + junction, the common physical apex lies
-    // contactStart into the frame section: 21 mm for the active 65 mm frame /
-    // 88 mm mullion pair. Relative to the frame endpoint this means:
-    //   - outer edge (inward = 0) stays on the structural endpoint,
-    //   - the apex extends by contactStart,
-    //   - the inner edge retracts by halfFace - contactStart.
-    // A negative inset intentionally extends the frame beyond its structural
-    // endpoint; createMiteredSide() applies the sign consistently on every
-    // side and keeps the frame touching the shifted mullion correctly.
-    return Math.abs(normalizedInwardDistance - contactStart) - contactStart;
+    // At the four-arm mixed frame+mullion + used by an L centre, the two
+    // asymmetric frame arms and two centred mullion arms must share ONE grid
+    // apex. The 21 mm frame reference offset still selects the apex across the
+    // frame section, but it must not extend the frame longitudinally beyond the
+    // grid vertex. Therefore both faces of the frame's 90-degree V retract from
+    // the endpoint and meet at zero inset exactly at `contactStart`.
+    //
+    // Active 65/88 mm example:
+    //   inward  0 mm -> retract 21 mm
+    //   inward 21 mm -> apex on grid vertex
+    //   inward 65 mm -> retract 44 mm
+    return Math.abs(normalizedInwardDistance - contactStart);
 }
 
 export function getFrameDividerSocketInset({
@@ -672,6 +791,36 @@ export function getFrameDividerSocketInset({
     );
 
     return Math.min(diagonalInwardDistance, halfDividerFace);
+}
+
+export function getFrameHalfFrameSocketInset({
+    inwardDistance,
+    dividerFaceSpan,
+    frameInwardSpan = 0,
+} = {}) {
+    const normalizedInwardDistance = Math.max(0, finiteNumber(inwardDistance));
+    const halfDividerFace = Math.max(0, finiteNumber(dividerFaceSpan)) / 2;
+    const normalizedFrameInwardSpan = Math.max(0, finiteNumber(frameInwardSpan));
+    const straightContactSpan = getFrameDividerMiterContactStart({
+        dividerFaceSpan,
+        frameInwardSpan: normalizedFrameInwardSpan,
+    });
+
+    // Partition a normal perimeter T into three non-overlapping owners:
+    //   frame | half-frame | frame  (outside the grid vertex)
+    // and keep the existing mullion V socket on the inside.
+    //
+    // At the physical outer edge the two host frames stop `straightContactSpan`
+    // away from the centre, leaving the 42 x 21 mm half-frame triangle. At the
+    // grid vertex they meet at zero gap. Deeper than the vertex the same 45°
+    // socket opens toward the mullion face exactly as before.
+    if (normalizedInwardDistance <= straightContactSpan) {
+        return straightContactSpan - normalizedInwardDistance;
+    }
+    return Math.min(
+        normalizedInwardDistance - straightContactSpan,
+        halfDividerFace
+    );
 }
 
 export function getFrameShiftedDividerSocketInset({
@@ -1958,15 +2107,28 @@ export function getEditableWindowTopologyGeometry({
             const hasPerpendicularDivider = perpendicularArms.some(arm => arm.kind === 'divider');
             const hasPerpendicularFrame = perpendicularArms.some(arm => arm.kind === 'frame');
 
-            if (
+            if (isInteriorLMixedPlusJunction(junction)) {
+                // Four-arm L centre: each asymmetric frame terminates in a
+                // 90-degree V (two 45-degree faces) around the same grid apex as
+                // the two mullions. This avoids the overlapping single-miter
+                // triangles while preserving the intended frame/mullion joint.
+                mode = 'mixed-plus';
+            } else if (getMixedReentrantTDividerArm(junction)) {
+                // A merged L is still a three-arm re-entrant T. Its missing
+                // divider half is owned by the half-mullion filler, so keep the
+                // established square frame ends for that separate topology.
+                mode = 'square';
+            } else if (
                 junction.type === 'T'
                 && oppositeArm?.kind === 'frame'
                 && hasPerpendicularDivider
+                && getNormalPerimeterTHalfFrameInfo(junction)
             ) {
-                // A divider terminating in a continuous frame line uses a V
-                // socket. The two collinear frame pieces stay flush on their
-                // outer half and open only after the 21 mm reference point.
-                mode = 'socket';
+                // A normal perimeter T owns the asymmetric outer triangle as a
+                // separate half-frame piece. The two host frames therefore open
+                // toward that triangle before the grid vertex, then continue
+                // with the ordinary mullion V socket after the vertex.
+                mode = 'half-frame-socket';
             } else if (
                 oppositeArm?.kind === 'divider'
                 || hasPerpendicularDivider
@@ -2074,6 +2236,39 @@ export function getEditableWindowTopologyGeometry({
                 });
             }
             return null;
+        })
+        .filter(Boolean);
+
+    // Normal perimeter T: two collinear outer-frame pieces meet one
+    // terminating mullion. Because the frame reference is offset from the grid
+    // vertex, the outer 45-degree triangle belongs to neither complete host
+    // frame. Model it explicitly as one `half-frame` instead of letting both
+    // neighbouring frames carry the same material.
+    const halfFrameSpan = getFrameDividerMiterContactStart({
+        dividerFaceSpan: normalizedDividerFaceSpan,
+        frameInwardSpan: requestedFrameReplacementSpan,
+    });
+    const halfFrameFillers = physicalIntersections
+        .map(junction => {
+            const info = getNormalPerimeterTHalfFrameInfo(junction);
+            if (!info || halfFrameSpan <= 1e-9) return null;
+
+            const sourceFrameArm = [...info.frameArms]
+                .sort((a, b) => String(a.segmentId).localeCompare(String(b.segmentId)))[0];
+            if (!sourceFrameArm) return null;
+
+            return Object.freeze({
+                id: `half-frame-${junction.key}`,
+                pieceType: 'half-frame',
+                sourceFrameId: sourceFrameArm.segmentId,
+                hostFrameIds: Object.freeze(info.frameArms.map(arm => arm.segmentId)),
+                side: info.side,
+                orientation: junction.hostOrientation,
+                direction: info.missingDirection,
+                apexX: finiteNumber(junction.x),
+                apexY: finiteNumber(junction.y),
+                frameReferenceSpan: halfFrameSpan,
+            });
         })
         .filter(Boolean);
 
@@ -2201,6 +2396,7 @@ export function getEditableWindowTopologyGeometry({
         junctions: Object.freeze(junctions),
         physicalIntersections: Object.freeze(physicalIntersections),
         perimeterJunctions: Object.freeze(perimeterJunctions),
+        halfFrameFillers: Object.freeze(halfFrameFillers),
         reentrantFillers: Object.freeze(reentrantFillers),
         gridLinePieces: Object.freeze([
             ...framePlacements.map(piece => Object.freeze({
@@ -2231,6 +2427,20 @@ export function getEditableWindowTopologyGeometry({
                 start: piece.structuralWorldStart,
                 end: piece.structuralWorldEnd,
                 renderPerpendicularOffset: piece.perpendicularOffset,
+                source: piece,
+            })),
+            ...halfFrameFillers.map(piece => Object.freeze({
+                id: piece.id,
+                pieceType: 'half-frame',
+                orientation: piece.orientation,
+                coordinate: piece.orientation === 'horizontal' ? piece.apexY : piece.apexX,
+                start: (piece.orientation === 'horizontal' ? piece.apexX : piece.apexY)
+                    - piece.frameReferenceSpan,
+                end: (piece.orientation === 'horizontal' ? piece.apexX : piece.apexY)
+                    + piece.frameReferenceSpan,
+                renderPerpendicularOffset: piece.orientation === 'horizontal'
+                    ? piece.apexY
+                    : piece.apexX,
                 source: piece,
             })),
             ...reentrantFillers.map(piece => Object.freeze({

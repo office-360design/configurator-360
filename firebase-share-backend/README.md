@@ -91,8 +91,79 @@ The top-bar **Save** action now stores the active configurator state in the sign
 
 Functions: `saveUserConfiguration`, `listUserConfigurations`, `getUserConfiguration`, and `deleteUserConfiguration`.
 
+## Cross-domain authentication handoff
+
+**Change site domain** keeps the Firebase Authentication state synchronized between the `.com`, `.ro`, and `.de` sites without placing Google credentials, Firebase ID tokens, refresh tokens, or passwords in the URL.
+
+- A signed-in source site creates a random 256-bit handoff id through `createDomainAuthHandoff`.
+- The handoff is bound to the destination origin, expires after 5 minutes, is stored in the server-only `domainAuthHandoffs` collection, and is deleted when redeemed.
+- The destination sends that opaque id to `redeemDomainAuthHandoff` over HTTPS and receives a Firebase custom token in the response body. The custom token is immediately exchanged by the Firebase Auth SDK and is never placed in browser history or the URL.
+- A guest source carries only a `guest` marker; the destination signs out any pre-existing local Firebase session before initializing the guest configuration.
+- Browser Firestore access to `domainAuthHandoffs` is explicitly denied.
+
+The runtime service account needs `roles/iam.serviceAccountTokenCreator` on itself so Firebase Admin can sign the short-lived custom token. The IAM bootstrap script enables the IAM Service Account Credentials API and grants this binding.
+
 ## Deployment
 
 `.github/workflows/deploy-firebase-share.yml` deploys automatically when `firebase-share-backend/**` changes on `main` and can also be run manually.
 
-The one-time IAM helper is `iam/setup-github-deployer.sh`. It now also grants `roles/monitoring.viewer` to `configurator-runtime`.
+The one-time IAM helper is `iam/setup-github-deployer.sh`. It grants `roles/monitoring.viewer` and the self-scoped `roles/iam.serviceAccountTokenCreator` binding required by the domain-authentication handoff.
+
+## Tier-1 tenant provisioning
+
+`provisionTenant` is the internal backend for **Go Live Now** customer creation. It creates the private `tenants/{slug}` and public `tenantPublic/{slug}` records in one Firestore transaction. If either document already exists, the whole operation fails with `already-exists` and no partial tenant is created.
+
+Provisioning requires all of the following:
+
+- Firebase Authentication with a verified Google account.
+- The caller UID must have an active private allowlist record at `tenantProvisioningAdmins/{uid}`.
+- The request must originate from `https://www.360configurator.com` (localhost is accepted for development).
+- The slug must be a non-reserved single DNS label using lowercase letters, numbers, and hyphens.
+- At least one of `window`, `pergola`, `roof`, `solar`, `hall`, or `fence` must be enabled.
+- Optional logos are optimized by the internal admin page and limited server-side to 200 KB PNG/JPEG/WebP data URLs. SVG is intentionally not accepted.
+
+The browser cannot read or write `tenantProvisioningAdmins` or private `tenants` documents. `provisionTenant` uses the Admin SDK and records the provisioning UID/email in the private tenant document.
+
+### Internal admin page
+
+After the Cloud Run/static site deployment, open:
+
+`https://www.360configurator.com/internal/tenant-provisioning/`
+
+The page is intentionally not linked from the public website. Sign in with Google; the page displays the Firebase UID of the signed-in account.
+
+### One-time provisioning-admin authorization
+
+Creating customers is intentionally disabled for every account until its Firebase UID is added to the private allowlist. After signing in on the internal page, copy the displayed UID and run this once from an authorized Google Cloud Shell account:
+
+```bash
+ACCESS_TOKEN="$(gcloud auth print-access-token)"
+UID="PASTE_FIREBASE_UID_HERE"
+EMAIL="admin@example.com"
+
+curl -sS -X PATCH \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "X-Goog-User-Project: configurator-360" \
+  -H "Content-Type: application/json" \
+  "https://firestore.googleapis.com/v1/projects/configurator-360/databases/(default)/documents/tenantProvisioningAdmins/${UID}" \
+  -d "{\
+    \"fields\": {\
+      \"active\": {\"booleanValue\": true},\
+      \"email\": {\"stringValue\": \"${EMAIL}\"}\
+    }\
+  }" | jq .
+```
+
+The optional `email` field binds the UID to the expected verified Firebase email as an additional safeguard. Set `active` to `false` to revoke provisioning access without deleting the document.
+
+The repository also includes a helper for the same one-time operation:
+
+```bash
+bash firebase-share-backend/iam/authorize-tenant-provisioning-admin.sh \
+  FIREBASE_UID \
+  verified-admin@example.com
+```
+
+Append `disable` as the third argument to revoke that UID later.
+
+This is a one-time administrative setup, not a per-customer deployment step. Normal Tier-1 customers are subsequently created entirely through the provisioning page.

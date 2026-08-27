@@ -1,8 +1,10 @@
-import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=19';
+import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=26';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=4';
-import { getLocalizedConfiguratorUrl } from './shared-ui/src/config.js';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=1';
+import { requireTenantConfiguratorAccess } from './shared-ui/src/tenantBootstrap.js?v=1';
+
+const tenantContext = await requireTenantConfiguratorAccess('window');
 
 const initialLocale = resolveWindowLocale();
 applyWindowTranslations(initialLocale);
@@ -17,8 +19,8 @@ const shell = mountStandaloneConfiguratorShell({
   productType: t('project.type'),
   productId: 'window',
   storagePrefix: '360-configurator:window',
-  brandSrc: './shared-ui/assets/360CONFIGURATOR.png',
-  brandAlt: '360 Configurator',
+  brandSrc: tenantContext?.logoUrl || './shared-ui/assets/360CONFIGURATOR.png',
+  brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
     viewAR: true,
     save: true,
@@ -37,6 +39,10 @@ const shell = mountStandaloneConfiguratorShell({
     toggleSelector: '#sidebar-toggle',
     collapsedClass: 'sidebar-collapsed',
     bodyCollapsedClass: 'sidebar-is-collapsed',
+  },
+  configuratorPanel: {
+    panelSelector: '#controls',
+    fallbackValue: 0,
   },
   callbacks: {
     onViewAR() {
@@ -77,44 +83,13 @@ const shell = mountStandaloneConfiguratorShell({
 });
 
 
-const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-
-shell.host.addEventListener('click', (event) => {
-  const languageButton = event.target.closest('[data-action="select-language"]');
-  if (!languageButton || isLocalDevelopmentHost) return;
-
-  const nextLocale = languageButton.dataset.locale;
-  if (!nextLocale || nextLocale === shell.state.locale) return;
-
-  const fallbackTarget = getLocalizedConfiguratorUrl(nextLocale, 'window', window.location);
-  if (!fallbackTarget) return;
-
-  event.preventDefault();
-  event.stopPropagation();
-
-  void (async () => {
-    try {
-      const snapshot = window.WINDOW_CONFIGURATOR_API?.captureState?.();
-      if (!snapshot) {
-        window.location.assign(fallbackTarget);
-        return;
-      }
-
-      const shareUrl = await createShareUrl({ productType: 'window', state: snapshot });
-      const targetUrl = getLocalizedConfiguratorUrl(nextLocale, 'window', new URL(shareUrl));
-      window.location.assign(targetUrl || fallbackTarget);
-    } catch (error) {
-      console.error('Window language switch could not preserve the current configuration.', error);
-      shell.showFeedback?.(t('feedback.languageSwitchUnavailable'));
-    }
-  })();
-}, true);
 
 const controls = document.querySelector('#controls');
 history.bindSource(controls);
 
 if (controls) {
   const markDirty = (event) => {
+    if (event.target.closest('[data-shared-configurator-panel-footer]')) return;
     if (event.target.closest('button, input, select, textarea, summary')) shell.markDirty();
   };
   controls.addEventListener('click', markDirty, true);

@@ -1,8 +1,10 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=19';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=26';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
-import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
 import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+
+const tenantContext = await requireTenantConfiguratorAccess('roof');
 
 
 const initialLocale = resolveRoofLocale();
@@ -47,8 +49,8 @@ const shell = mountStandaloneConfiguratorShell({
   productType: 'Roof',
   productId: 'roof',
   storagePrefix: '360-configurator:roof',
-  brandSrc: '../shared-ui/assets/360CONFIGURATOR.png',
-  brandAlt: '360 Configurator',
+  brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
+  brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
     viewAR: false,
     save: true,
@@ -64,6 +66,10 @@ const shell = mountStandaloneConfiguratorShell({
       offsetX: 0,
       offsetY: 0,
     },
+  },
+  configuratorPanel: {
+    panelSelector: '.sidebar',
+    priceSelector: '#headerEstimateTotal',
   },
   callbacks: {
     async resetConfiguration() {
@@ -99,49 +105,12 @@ window.dispatchEvent(new CustomEvent('roof-preference-change', {
   detail: { name: 'initial', value: null, preferences: { ...shell.state } },
 }));
 
-const isLocalDevelopmentHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-
-shell.host.addEventListener('click', (event) => {
-  const languageButton = event.target.closest('[data-action="select-language"]');
-  if (!languageButton || isLocalDevelopmentHost) return;
-
-  const nextLocale = languageButton.dataset.locale;
-  if (!nextLocale || nextLocale === shell.state.locale) return;
-  const fallbackTarget = getLocalizedConfiguratorUrl(nextLocale, 'roof', window.location);
-  if (!fallbackTarget) return;
-
-  event.preventDefault();
-  event.stopPropagation();
-
-  void (async () => {
-    try {
-      const snapshot = window.ROOF_CONFIGURATOR_API?.captureState?.();
-      if (!snapshot) {
-        window.location.assign(fallbackTarget);
-        return;
-      }
-      const shareUrl = await createShareUrl({ productType: 'roof', state: snapshot });
-      const targetUrl = getLocalizedConfiguratorUrl(nextLocale, 'roof', new URL(shareUrl));
-      window.location.assign(targetUrl || fallbackTarget);
-    } catch (error) {
-      console.error('Roof language switch could not preserve the current configuration.', error);
-      shell.showFeedback?.(t('feedback.languageSwitchUnavailable'));
-    }
-  })();
-}, true);
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#roofSidebarToggle');
-const appShell = document.querySelector('.app-shell');
-const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
-let sidebarUserOverride = false;
 
 function setSidebarCollapsed(collapsed) {
   sidebar?.classList.toggle('is-collapsed', collapsed);
-  if (sidebar) {
-    sidebar.inert = Boolean(collapsed);
-    sidebar.setAttribute('aria-hidden', String(Boolean(collapsed)));
-  }
   document.body.classList.toggle('roof-sidebar-collapsed', collapsed);
   sidebarToggle?.setAttribute('aria-expanded', String(!collapsed));
   const label = t(collapsed ? 'sidebar.show' : 'sidebar.hide');
@@ -150,26 +119,9 @@ function setSidebarCollapsed(collapsed) {
 }
 
 sidebarToggle?.addEventListener('click', () => {
-  sidebarUserOverride = true;
   setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed'));
 });
-
-// Mobile is 3D-first. Mark the sidebar ready only after the initial collapsed
-// state is applied; the CSS uses this class to prevent an open-drawer flash.
-setSidebarCollapsed(mobileLayoutQuery.matches || Boolean(sidebar?.classList.contains('is-collapsed')));
-document.body.classList.add('roof-sidebar-ready');
-
-mobileLayoutQuery.addEventListener?.('change', (event) => {
-  if (!sidebarUserOverride) setSidebarCollapsed(event.matches);
-  scheduleToolsPosition();
-});
-
-appShell?.addEventListener('click', (event) => {
-  if (!mobileLayoutQuery.matches || sidebar?.classList.contains('is-collapsed')) return;
-  if (event.target.closest('.sidebar, #roofSidebarToggle')) return;
-  setSidebarCollapsed(true);
-});
-
+setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
 window.addEventListener('roof-locale-applied', () => {
   setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
   syncToolsState();
@@ -177,6 +129,7 @@ window.addEventListener('roof-locale-applied', () => {
 
 if (sidebar) {
   const markDirty = (event) => {
+    if (event.target.closest('[data-shared-configurator-panel-footer]')) return;
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
   };
   sidebar.addEventListener('click', markDirty, true);

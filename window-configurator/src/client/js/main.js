@@ -18,6 +18,9 @@ import {
     createWindowLayoutController,
     getWindowLayoutRequest,
 } from './window-layout-controller.js';
+import { requireTenantConfiguratorAccess } from '../shared-ui/src/tenantBootstrap.js?v=1';
+
+await requireTenantConfiguratorAccess('window');
 import { resolveLegacyProfileSelection } from './profile-compatibility.js';
 import { createProfileSelectionSignature } from './profile-composition.js';
 import { createWindowLayoutOverlay } from './window-layout-overlay.js';

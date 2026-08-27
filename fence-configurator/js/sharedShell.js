@@ -1,9 +1,11 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=19';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=27';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
-import { createShareUrl, encodeShareState } from '../../shared-ui/src/shareState.js?v=4';
-import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
 import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=4';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+
+const tenantContext = await requireTenantConfiguratorAccess('fence');
 
 const initialLocale = resolveFenceLocale();
 const compactViewport = window.matchMedia('(max-width: 760px)');
@@ -22,8 +24,8 @@ const shell = mountStandaloneConfiguratorShell({
   productType: 'Fence',
   productId: 'fence',
   storagePrefix: '360-configurator:fence',
-  brandSrc: '../shared-ui/assets/360CONFIGURATOR.png',
-  brandAlt: '360 Configurator',
+  brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
+  brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: { viewAR: false, save: true, undo: true, reset: true, share: true },
   tools: {
     items: resolveSharedTools([
@@ -42,6 +44,11 @@ const shell = mountStandaloneConfiguratorShell({
     bodyCollapsedClass: 'fence-sidebar-collapsed',
     initiallyCollapsed: isCompactViewport(),
   },
+  configuratorPanel: {
+    panelSelector: '.sidebar',
+    priceSelector: '#summaryTotal',
+    geometry: 'floating-right',
+  },
   callbacks: {
     onUndo() { history.undo(); },
     async resetConfiguration() {
@@ -53,41 +60,17 @@ const shell = mountStandaloneConfiguratorShell({
       return window.FENCE_CONFIGURATOR_API?.captureState?.();
     },
     restoreState(snapshot) {
-      return window.FENCE_CONFIGURATOR_API?.restoreState?.(snapshot);
+      const api = window.FENCE_CONFIGURATOR_API;
+      if (!api?.restoreState) return false;
+      api.restoreState(snapshot);
+      return true;
     },
     getShareUrl() {
       const snapshot = window.FENCE_CONFIGURATOR_API?.captureState?.();
       return snapshot ? createShareUrl({ productType: 'fence', state: snapshot }) : window.location.href;
     },
-    async getLocalizedUrl(nextLocale, fallbackTarget) {
-      try {
-        const snapshot = window.FENCE_CONFIGURATOR_API?.captureState?.();
-        if (!snapshot) return fallbackTarget;
-
-        // Language changes cross origins (.com / .ro / .de), so localStorage cannot
-        // carry the live configuration with the navigation. Use the compact legacy
-        // share payload only as a temporary cross-domain state handoff. Unlike the
-        // normal Share action, this does not create a Firestore document.
-        const encodedState = await encodeShareState('fence', snapshot);
-        const localized = getLocalizedConfiguratorUrl(nextLocale, 'fence', window.location) || fallbackTarget;
-        const target = new URL(localized, window.location.href);
-
-        // A previous shared link may already contain a state id. Remove all state
-        // transports before adding the current snapshot so the destination cannot
-        // accidentally restore an older configuration instead.
-        target.searchParams.delete('s');
-        target.searchParams.delete('c');
-        target.searchParams.delete('config');
-        target.hash = `c=${encodedState}`;
-        return target.href;
-      } catch (error) {
-        // The language change should still work if the state handoff fails. The
-        // overlay remains visible until the fallback destination takes over.
-        console.warn('Fence language state handoff failed; using localized fallback URL.', error);
-        return fallbackTarget;
-      }
-    },
     onPreferenceChange(name, value, preferences) {
+      if (name === 'locale') applyFenceTranslations(preferences.locale);
       window.dispatchEvent(new CustomEvent('fence-preference-change', { detail: { name, value, preferences: { ...preferences } } }));
     },
     onToolsOpenChange(open) {
@@ -117,6 +100,7 @@ history.bindSource(document.querySelector('.sidebar'));
 const sidebar = document.querySelector('.sidebar');
 if (sidebar) {
   const markDirty = (event) => {
+    if (event.target.closest('[data-shared-configurator-panel-footer]')) return;
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
   };
   sidebar.addEventListener('click', markDirty, true);
