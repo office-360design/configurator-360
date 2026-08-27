@@ -50,6 +50,8 @@ const TENANT_PLAN_GO_LIVE_NOW = 'go_live_now';
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const TENANT_COMPANY_NAME_MAX_LENGTH = 120;
 const TENANT_LOGO_MAX_BYTES = 200_000;
+const TENANT_ADMIN_LIST_LIMIT = 500;
+const TENANT_STATUSES = new Set(['active', 'suspended']);
 const TENANT_ADMIN_ORIGIN = 'https://www.360configurator.com';
 const TENANT_ADMIN_DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
 const RESERVED_TENANT_SLUGS = new Set([
@@ -1076,11 +1078,23 @@ function validateTenantCompanyName(value) {
   return companyName;
 }
 
-function validateTenantConfigurators(value) {
+function validateTenantStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  if (!TENANT_STATUSES.has(status)) {
+    throw new HttpsError('invalid-argument', 'Tenant status must be active or suspended.');
+  }
+  return status;
+}
+
+function normalizedTenantConfigurators(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const configurators = Object.fromEntries(
+  return Object.fromEntries(
     [...ALLOWED_PRODUCTS].map((product) => [product, source[product] === true]),
   );
+}
+
+function validateTenantConfigurators(value) {
+  const configurators = normalizedTenantConfigurators(value);
   if (!Object.values(configurators).some(Boolean)) {
     throw new HttpsError('invalid-argument', 'Enable at least one configurator.');
   }
@@ -1168,6 +1182,43 @@ async function requireTenantProvisioningAdmin(request) {
   }
 
   return { uid, email };
+}
+
+function tenantTimestampMs(value) {
+  return value && typeof value.toMillis === 'function' ? value.toMillis() : 0;
+}
+
+function tenantAdminSummaryFromSnapshot(snapshot) {
+  const data = snapshot.data() || {};
+  const slug = normalizeTenantSlug(data.slug || snapshot.id);
+  return {
+    slug,
+    domain: String(data.domain || `${slug}.360configurator.com`),
+    companyName: String(data.companyName || slug),
+    status: String(data.status || '').trim().toLowerCase(),
+    configurators: normalizedTenantConfigurators(data.configurators),
+    hasLogo: Boolean(String(data.logoUrl || '').trim()),
+    firebaseAuthDomainAuthorized: data.firebaseAuthDomainAuthorized === true,
+    createdAtMs: tenantTimestampMs(data.createdAt),
+    updatedAtMs: tenantTimestampMs(data.updatedAt),
+  };
+}
+
+function tenantAdminDetailFromSnapshot(snapshot) {
+  const data = snapshot.data() || {};
+  return {
+    ...tenantAdminSummaryFromSnapshot(snapshot),
+    logoUrl: String(data.logoUrl || ''),
+  };
+}
+
+async function requireGoLiveNowTenant(slug) {
+  const snapshot = await db.collection(TENANTS_COLLECTION).doc(slug).get();
+  const data = snapshot.data() || {};
+  if (!snapshot.exists || data.plan !== TENANT_PLAN_GO_LIVE_NOW) {
+    throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+  }
+  return snapshot;
 }
 
 // ---------------------------------------------------------------------------
@@ -1285,15 +1336,19 @@ const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
   memory: '256MiB',
 });
 
-const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
+const TENANT_ADMIN_CALLABLE_OPTIONS = Object.freeze({
   region: FUNCTION_REGION,
   serviceAccount: RUNTIME_SERVICE_ACCOUNT,
-  // Provisioning is protected by Firebase Auth + a private UID allowlist. App
-  // Check is intentionally disabled so opening the internal admin page does not
-  // consume the Share-only reCAPTCHA assessment budget.
+  // Tenant administration is protected by Firebase Auth + a private UID
+  // allowlist. App Check remains disabled so the internal page does not consume
+  // the Share-only reCAPTCHA assessment budget.
   enforceAppCheck: false,
   timeoutSeconds: 30,
   memory: '256MiB',
+});
+
+const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
+  ...TENANT_ADMIN_CALLABLE_OPTIONS,
   // Identity Platform authorizedDomains is a project-level read/modify/write
   // list. Provision customers serially so two simultaneous admin requests can
   // never overwrite each other's domain registration.
@@ -1388,6 +1443,128 @@ exports.provisionTenant = onCall(
       configurators,
       createdAtMs: now.toMillis(),
     };
+  },
+);
+
+exports.listTenants = onCall(
+  TENANT_ADMIN_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    await requireTenantProvisioningAdmin(request);
+
+    const snapshot = await db.collection(TENANTS_COLLECTION).limit(TENANT_ADMIN_LIST_LIMIT).get();
+    const tenants = snapshot.docs
+      .filter((doc) => (doc.data() || {}).plan === TENANT_PLAN_GO_LIVE_NOW)
+      .map(tenantAdminSummaryFromSnapshot)
+      .sort((a, b) => {
+        const byCompany = a.companyName.localeCompare(b.companyName, 'en', { sensitivity: 'base' });
+        return byCompany || a.slug.localeCompare(b.slug);
+      });
+
+    return { tenants, truncated: snapshot.size >= TENANT_ADMIN_LIST_LIMIT };
+  },
+);
+
+exports.getTenant = onCall(
+  TENANT_ADMIN_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    await requireTenantProvisioningAdmin(request);
+    const slug = validateTenantSlug(request.data?.slug);
+    const snapshot = await requireGoLiveNowTenant(slug);
+    return tenantAdminDetailFromSnapshot(snapshot);
+  },
+);
+
+exports.updateTenant = onCall(
+  TENANT_ADMIN_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    const admin = await requireTenantProvisioningAdmin(request);
+    const input = request.data && typeof request.data === 'object' ? request.data : {};
+    const slug = validateTenantSlug(input.slug);
+    const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
+    const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
+    const expectedDomain = `${slug}.360configurator.com`;
+    const now = Timestamp.now();
+    const hasOwn = (key) => Object.prototype.hasOwnProperty.call(input, key);
+
+    const result = await db.runTransaction(async (transaction) => {
+      const privateSnapshot = await transaction.get(privateRef);
+      const publicSnapshot = await transaction.get(publicRef);
+      const tenant = privateSnapshot.data() || {};
+
+      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
+        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      }
+      if (!publicSnapshot.exists) {
+        throw new HttpsError('failed-precondition', 'The public tenant document is missing.');
+      }
+
+      const storedDomain = String(tenant.domain || '').trim().toLowerCase();
+      if (storedDomain && storedDomain !== expectedDomain) {
+        throw new HttpsError('failed-precondition', 'The tenant domain does not match its immutable subdomain.');
+      }
+
+      const companyName = hasOwn('companyName')
+        ? validateTenantCompanyName(input.companyName)
+        : validateTenantCompanyName(tenant.companyName);
+      const status = hasOwn('status')
+        ? validateTenantStatus(input.status)
+        : validateTenantStatus(tenant.status);
+      const configurators = hasOwn('configurators')
+        ? validateTenantConfigurators(input.configurators)
+        : validateTenantConfigurators(tenant.configurators);
+
+      const logoMode = hasOwn('logoMode') ? String(input.logoMode || '').trim().toLowerCase() : 'keep';
+      if (!['keep', 'replace', 'remove'].includes(logoMode)) {
+        throw new HttpsError('invalid-argument', 'Logo update mode is invalid.');
+      }
+
+      let logoUrl = String(tenant.logoUrl || '');
+      if (logoMode === 'remove') logoUrl = '';
+      if (logoMode === 'replace') {
+        logoUrl = validateTenantLogoDataUrl(input.logoDataUrl);
+        if (!logoUrl) throw new HttpsError('invalid-argument', 'Choose a logo image to replace the current logo.');
+      }
+
+      const synchronizedFields = {
+        companyName,
+        status,
+        configurators,
+        logoUrl,
+        updatedAt: now,
+      };
+
+      transaction.update(privateRef, {
+        ...synchronizedFields,
+        domain: expectedDomain,
+        lastUpdatedByUid: admin.uid,
+        lastUpdatedByEmail: admin.email,
+      });
+      transaction.update(publicRef, synchronizedFields);
+
+      return {
+        slug,
+        domain: expectedDomain,
+        companyName,
+        status,
+        configurators,
+        logoUrl,
+        firebaseAuthDomainAuthorized: tenant.firebaseAuthDomainAuthorized === true,
+        createdAtMs: tenantTimestampMs(tenant.createdAt),
+        updatedAtMs: now.toMillis(),
+      };
+    });
+
+    logger.info('Tier-1 tenant updated.', {
+      slug,
+      status: result.status,
+      configurators: Object.entries(result.configurators).filter(([, enabled]) => enabled).map(([id]) => id),
+      updatedByUid: admin.uid,
+    });
+
+    return result;
   },
 );
 

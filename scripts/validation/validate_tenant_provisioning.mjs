@@ -30,11 +30,12 @@ const checks = [
     '/shared-ui/admin/tenant-provisioning/index.html',
   ]],
   ['shared-ui/admin/tenant-provisioning/index.html', [
-    'Tier-1 tenant provisioning',
-    'tenantProvisioningAdmin.js?v=1',
+    'Tier-1 tenant administration',
+    'tenantProvisioningAdmin.js?v=2',
   ]],
   ['shared-ui/src/tenantProvisioningAdmin.js', [
-    'cloudfunctions.net/provisionTenant',
+    'FUNCTION_BASE',
+    'provisionTenant',
     'getFirebaseIdToken',
     'optimizeLogo',
     'image/png',

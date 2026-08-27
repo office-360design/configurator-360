@@ -5,7 +5,13 @@ import {
   signOutGoogle,
 } from './firebaseAuth.js?v=26';
 
-const FUNCTION_URL = 'https://europe-west1-configurator-360.cloudfunctions.net/provisionTenant';
+const FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
+const FUNCTION_URLS = Object.freeze({
+  provisionTenant: `${FUNCTION_BASE}/provisionTenant`,
+  listTenants: `${FUNCTION_BASE}/listTenants`,
+  getTenant: `${FUNCTION_BASE}/getTenant`,
+  updateTenant: `${FUNCTION_BASE}/updateTenant`,
+});
 const TENANT_SUFFIX = '.360configurator.com';
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const LOGO_TARGET_BYTES = 190_000;
@@ -18,6 +24,14 @@ const CONFIGURATOR_PATHS = Object.freeze({
   hall: '/hall-configurator/',
   fence: '/fence-configurator/',
 });
+const CONFIGURATOR_LABELS = Object.freeze({
+  window: 'Window',
+  pergola: 'Pergola',
+  roof: 'Roof',
+  solar: 'Solar',
+  hall: 'Hall',
+  fence: 'Fence',
+});
 const RESERVED_SLUGS = new Set([
   'www', 'aks', 'admin', 'api', 'app', 'assets', 'auth', 'billing', 'cdn', 'demo',
   'dev', 'ftp', 'mail', 'staging', 'static', 'status', 'support', 'test',
@@ -25,7 +39,31 @@ const RESERVED_SLUGS = new Set([
 
 const authState = document.querySelector('#authState');
 const authButton = document.querySelector('#authButton');
-const provisioningCard = document.querySelector('#provisioningCard');
+const adminWorkspace = document.querySelector('#adminWorkspace');
+
+const tenantList = document.querySelector('#tenantList');
+const tenantListStatus = document.querySelector('#tenantListStatus');
+const tenantSearch = document.querySelector('#tenantSearch');
+const refreshTenantsButton = document.querySelector('#refreshTenantsButton');
+
+const tenantEditorCard = document.querySelector('#tenantEditorCard');
+const tenantEditorTitle = document.querySelector('#tenantEditorTitle');
+const tenantEditorMeta = document.querySelector('#tenantEditorMeta');
+const tenantEditorForm = document.querySelector('#tenantEditorForm');
+const manageCompanyName = document.querySelector('#manageCompanyName');
+const manageDomain = document.querySelector('#manageDomain');
+const manageLogo = document.querySelector('#manageLogo');
+const manageRemoveLogo = document.querySelector('#manageRemoveLogo');
+const manageCurrentLogo = document.querySelector('#manageCurrentLogo');
+const manageNoLogo = document.querySelector('#manageNoLogo');
+const manageLogoPreviewWrap = document.querySelector('#manageLogoPreviewWrap');
+const manageLogoPreview = document.querySelector('#manageLogoPreview');
+const manageStatus = document.querySelector('#manageStatus');
+const saveTenantButton = document.querySelector('#saveTenantButton');
+const tenantStatusButton = document.querySelector('#tenantStatusButton');
+const openTenantButton = document.querySelector('#openTenantButton');
+const closeTenantEditorButton = document.querySelector('#closeTenantEditorButton');
+
 const tenantForm = document.querySelector('#tenantForm');
 const companyNameInput = document.querySelector('#companyName');
 const slugInput = document.querySelector('#slug');
@@ -44,11 +82,14 @@ const resultLinks = document.querySelector('#resultLinks');
 let currentUser = null;
 let slugWasEdited = false;
 let logoObjectUrl = '';
+let manageLogoObjectUrl = '';
+let tenantSummaries = [];
+let currentManagedTenant = null;
 
-function setStatus(message = '', kind = '') {
-  formStatus.textContent = message;
-  if (kind) formStatus.dataset.kind = kind;
-  else delete formStatus.dataset.kind;
+function setStatus(element, message = '', kind = '') {
+  element.textContent = message;
+  if (kind) element.dataset.kind = kind;
+  else delete element.dataset.kind;
 }
 
 function normalizeSlugCandidate(value) {
@@ -92,12 +133,24 @@ function updateSlugState() {
   }
 }
 
-function selectedConfigurators() {
+function selectedConfigurators(form, name) {
   const result = Object.fromEntries(Object.keys(CONFIGURATOR_PATHS).map((id) => [id, false]));
-  tenantForm.querySelectorAll('input[name="configurator"]:checked').forEach((input) => {
+  form.querySelectorAll(`input[name="${name}"]:checked`).forEach((input) => {
     if (input.value in result) result[input.value] = true;
   });
   return result;
+}
+
+function setConfiguratorSelection(form, name, configurators = {}) {
+  form.querySelectorAll(`input[name="${name}"]`).forEach((input) => {
+    input.checked = configurators?.[input.value] === true;
+  });
+}
+
+function enabledConfiguratorLabels(configurators = {}) {
+  return Object.entries(CONFIGURATOR_LABELS)
+    .filter(([id]) => configurators?.[id] === true)
+    .map(([, label]) => label);
 }
 
 function dataUrlFromBlob(blob) {
@@ -149,11 +202,11 @@ async function optimizeLogo(file) {
   throw new Error('The logo is too complex to optimize below 200 KB. Use a simpler or smaller image.');
 }
 
-async function callProvisionTenant(data) {
+async function callAdminFunction(functionName, data = {}) {
   const token = await getFirebaseIdToken();
   if (!token) throw Object.assign(new Error('Sign in with Google first.'), { code: 'unauthenticated' });
 
-  const response = await fetch(FUNCTION_URL, {
+  const response = await fetch(FUNCTION_URLS[functionName], {
     method: 'POST',
     mode: 'cors',
     credentials: 'omit',
@@ -167,11 +220,25 @@ async function callProvisionTenant(data) {
   let payload = null;
   try { payload = await response.json(); } catch { /* handled below */ }
   if (!response.ok || payload?.error) {
-    const error = new Error(payload?.error?.message || `Tenant provisioning failed (${response.status}).`);
+    const error = new Error(payload?.error?.message || `Tenant administration failed (${response.status}).`);
     error.code = String(payload?.error?.status || `http-${response.status}`).toLowerCase();
     throw error;
   }
   return payload?.result ?? payload?.data ?? null;
+}
+
+function administrationErrorMessage(error) {
+  const code = String(error?.code || '').toLowerCase();
+  if (code.includes('already-exists')) return 'That subdomain is already in use.';
+  if (code.includes('permission-denied')) {
+    return `This Firebase account is not a tenant admin. Current UID: ${currentUser?.uid || 'unknown'}`;
+  }
+  if (code.includes('unauthenticated')) return 'Sign in with Google first.';
+  if (code.includes('not-found')) return 'The tenant no longer exists.';
+  if (code.includes('invalid-argument') || code.includes('failed-precondition')) {
+    return error.message || 'Check the tenant details and try again.';
+  }
+  return error?.message || 'Tenant administration failed.';
 }
 
 function renderProvisioned(result) {
@@ -198,7 +265,7 @@ function renderProvisioned(result) {
     link.href = new URL(path, url).href;
     link.target = '_blank';
     link.rel = 'noopener';
-    link.textContent = id[0].toUpperCase() + id.slice(1);
+    link.textContent = CONFIGURATOR_LABELS[id];
     resultLinks.append(link);
   });
 
@@ -206,15 +273,152 @@ function renderProvisioned(result) {
   resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function provisioningErrorMessage(error) {
-  const code = String(error?.code || '').toLowerCase();
-  if (code.includes('already-exists')) return 'That subdomain is already in use.';
-  if (code.includes('permission-denied')) {
-    return `This Firebase account is not a provisioning admin. Current UID: ${currentUser?.uid || 'unknown'}`;
+function tenantMatchesSearch(tenant, query) {
+  if (!query) return true;
+  const haystack = `${tenant.companyName || ''} ${tenant.slug || ''} ${tenant.domain || ''}`.toLowerCase();
+  return haystack.includes(query);
+}
+
+function renderTenantList() {
+  const query = tenantSearch.value.trim().toLowerCase();
+  const visible = tenantSummaries.filter((tenant) => tenantMatchesSearch(tenant, query));
+  tenantList.replaceChildren();
+
+  if (!visible.length) {
+    const empty = document.createElement('div');
+    empty.className = 'tenant-list-empty';
+    empty.textContent = query ? 'No tenants match this search.' : 'No Tier-1 tenants have been created yet.';
+    tenantList.append(empty);
+    return;
   }
-  if (code.includes('unauthenticated')) return 'Sign in with Google before creating a tenant.';
-  if (code.includes('invalid-argument')) return error.message || 'Check the tenant details and try again.';
-  return error?.message || 'Tenant provisioning failed.';
+
+  visible.forEach((tenant) => {
+    const row = document.createElement('article');
+    row.className = 'tenant-row';
+    row.dataset.status = tenant.status;
+
+    const main = document.createElement('div');
+    main.className = 'tenant-row__main';
+    const titleLine = document.createElement('div');
+    titleLine.className = 'tenant-row__title-line';
+    const title = document.createElement('strong');
+    title.textContent = tenant.companyName || tenant.slug;
+    const badge = document.createElement('span');
+    badge.className = 'status-badge';
+    badge.dataset.status = tenant.status;
+    badge.textContent = tenant.status === 'active' ? 'Active' : 'Suspended';
+    titleLine.append(title, badge);
+
+    const domain = document.createElement('span');
+    domain.className = 'tenant-row__domain';
+    domain.textContent = tenant.domain || `${tenant.slug}${TENANT_SUFFIX}`;
+
+    const products = document.createElement('span');
+    products.className = 'tenant-row__products';
+    const labels = enabledConfiguratorLabels(tenant.configurators);
+    products.textContent = labels.length ? labels.join(' · ') : 'No configurators';
+    main.append(titleLine, domain, products);
+
+    const actions = document.createElement('div');
+    actions.className = 'tenant-row__actions';
+    const open = document.createElement('a');
+    open.className = 'button button--secondary button--link';
+    open.href = tenantUrl(tenant.slug);
+    open.target = '_blank';
+    open.rel = 'noopener';
+    open.textContent = 'Open';
+    const manage = document.createElement('button');
+    manage.type = 'button';
+    manage.className = 'button button--primary';
+    manage.textContent = 'Manage';
+    manage.addEventListener('click', () => openTenantEditor(tenant.slug));
+    actions.append(open, manage);
+
+    row.append(main, actions);
+    tenantList.append(row);
+  });
+}
+
+async function refreshTenantList({ quiet = false } = {}) {
+  if (!currentUser) return;
+  refreshTenantsButton.disabled = true;
+  if (!quiet) setStatus(tenantListStatus, 'Loading tenants…');
+  try {
+    const result = await callAdminFunction('listTenants');
+    tenantSummaries = Array.isArray(result?.tenants) ? result.tenants : [];
+    renderTenantList();
+    const suffix = result?.truncated ? ' Showing the first 500 tenants.' : '';
+    setStatus(tenantListStatus, `${tenantSummaries.length} tenant${tenantSummaries.length === 1 ? '' : 's'}.${suffix}`, 'success');
+  } catch (error) {
+    console.error('Tenant listing failed.', error);
+    setStatus(tenantListStatus, administrationErrorMessage(error), 'error');
+  } finally {
+    refreshTenantsButton.disabled = false;
+  }
+}
+
+function clearManageLogoPreview() {
+  if (manageLogoObjectUrl) URL.revokeObjectURL(manageLogoObjectUrl);
+  manageLogoObjectUrl = '';
+  manageLogoPreviewWrap.hidden = true;
+  manageLogoPreview.removeAttribute('src');
+}
+
+function populateTenantEditor(tenant) {
+  currentManagedTenant = tenant;
+  tenantEditorTitle.textContent = tenant.companyName || tenant.slug;
+  tenantEditorMeta.textContent = `${tenant.slug} · ${tenant.status === 'active' ? 'Active' : 'Suspended'}`;
+  manageCompanyName.value = tenant.companyName || '';
+  manageDomain.textContent = tenant.domain || `${tenant.slug}${TENANT_SUFFIX}`;
+  setConfiguratorSelection(tenantEditorForm, 'manageConfigurator', tenant.configurators);
+  manageLogo.value = '';
+  manageRemoveLogo.checked = false;
+  clearManageLogoPreview();
+
+  if (tenant.logoUrl) {
+    manageCurrentLogo.src = tenant.logoUrl;
+    manageCurrentLogo.hidden = false;
+    manageNoLogo.hidden = true;
+  } else {
+    manageCurrentLogo.removeAttribute('src');
+    manageCurrentLogo.hidden = true;
+    manageNoLogo.hidden = false;
+  }
+
+  openTenantButton.href = tenantUrl(tenant.slug);
+  tenantStatusButton.textContent = tenant.status === 'active' ? 'Suspend tenant' : 'Reactivate tenant';
+  tenantStatusButton.dataset.nextStatus = tenant.status === 'active' ? 'suspended' : 'active';
+  tenantStatusButton.classList.toggle('button--danger', tenant.status === 'active');
+  tenantStatusButton.classList.toggle('button--success', tenant.status !== 'active');
+  setStatus(manageStatus);
+  tenantEditorCard.hidden = false;
+}
+
+async function openTenantEditor(slug) {
+  tenantEditorCard.hidden = false;
+  tenantEditorTitle.textContent = 'Loading tenant…';
+  tenantEditorMeta.textContent = slug;
+  tenantEditorForm.hidden = true;
+  try {
+    const tenant = await callAdminFunction('getTenant', { slug });
+    populateTenantEditor(tenant);
+    tenantEditorForm.hidden = false;
+    tenantEditorCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (error) {
+    console.error('Tenant loading failed.', error);
+    tenantEditorTitle.textContent = 'Could not load tenant';
+    tenantEditorMeta.textContent = administrationErrorMessage(error);
+  }
+}
+
+async function updateManagedTenant(data, successMessage) {
+  if (!currentManagedTenant) return null;
+  const result = await callAdminFunction('updateTenant', { slug: currentManagedTenant.slug, ...data });
+  populateTenantEditor(result);
+  tenantEditorForm.hidden = false;
+  setStatus(manageStatus, successMessage, 'success');
+  await refreshTenantList({ quiet: true });
+  return result;
 }
 
 companyNameInput.addEventListener('input', () => {
@@ -243,11 +447,27 @@ logoInput.addEventListener('change', () => {
   logoPreviewWrap.hidden = false;
 });
 
+manageLogo.addEventListener('change', () => {
+  clearManageLogoPreview();
+  const [file] = manageLogo.files || [];
+  if (!file) return;
+  manageRemoveLogo.checked = false;
+  manageLogoObjectUrl = URL.createObjectURL(file);
+  manageLogoPreview.src = manageLogoObjectUrl;
+  manageLogoPreviewWrap.hidden = false;
+});
+
+manageRemoveLogo.addEventListener('change', () => {
+  if (!manageRemoveLogo.checked) return;
+  manageLogo.value = '';
+  clearManageLogoPreview();
+});
+
 tenantForm.addEventListener('reset', () => {
   window.setTimeout(() => {
     slugWasEdited = false;
     resultCard.hidden = true;
-    setStatus();
+    setStatus(formStatus);
     updateSlugState();
     if (logoObjectUrl) URL.revokeObjectURL(logoObjectUrl);
     logoObjectUrl = '';
@@ -259,44 +479,121 @@ tenantForm.addEventListener('reset', () => {
 tenantForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (!currentUser) {
-    setStatus('Sign in with Google first.', 'error');
+    setStatus(formStatus, 'Sign in with Google first.', 'error');
     return;
   }
 
   const companyName = companyNameInput.value.trim();
   const slug = normalizeSlugCandidate(slugInput.value);
-  const configurators = selectedConfigurators();
+  const configurators = selectedConfigurators(tenantForm, 'configurator');
   if (!companyName) {
-    setStatus('Enter the company name.', 'error');
+    setStatus(formStatus, 'Enter the company name.', 'error');
     return;
   }
   if (!TENANT_SLUG_PATTERN.test(slug) || RESERVED_SLUGS.has(slug)) {
-    setStatus('Choose a valid, non-reserved subdomain.', 'error');
+    setStatus(formStatus, 'Choose a valid, non-reserved subdomain.', 'error');
     return;
   }
   if (!Object.values(configurators).some(Boolean)) {
-    setStatus('Enable at least one configurator.', 'error');
+    setStatus(formStatus, 'Enable at least one configurator.', 'error');
     return;
   }
 
   createButton.disabled = true;
   resultCard.hidden = true;
-  setStatus('Preparing tenant…');
+  setStatus(formStatus, 'Preparing tenant…');
 
   try {
     const [logoFile] = logoInput.files || [];
     const logoDataUrl = logoFile ? await optimizeLogo(logoFile) : '';
-    setStatus('Creating tenant…');
-    const result = await callProvisionTenant({ companyName, slug, configurators, logoDataUrl });
-    setStatus('Tenant created successfully.', 'success');
+    setStatus(formStatus, 'Creating tenant…');
+    const result = await callAdminFunction('provisionTenant', { companyName, slug, configurators, logoDataUrl });
+    setStatus(formStatus, 'Tenant created successfully.', 'success');
     renderProvisioned(result);
+    await refreshTenantList({ quiet: true });
   } catch (error) {
     console.error('Tenant provisioning failed.', error);
-    setStatus(provisioningErrorMessage(error), 'error');
+    setStatus(formStatus, administrationErrorMessage(error), 'error');
   } finally {
     createButton.disabled = false;
   }
 });
+
+tenantEditorForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!currentManagedTenant) return;
+
+  const companyName = manageCompanyName.value.trim();
+  const configurators = selectedConfigurators(tenantEditorForm, 'manageConfigurator');
+  if (!companyName) {
+    setStatus(manageStatus, 'Enter the company name.', 'error');
+    return;
+  }
+  if (!Object.values(configurators).some(Boolean)) {
+    setStatus(manageStatus, 'Keep at least one configurator enabled.', 'error');
+    return;
+  }
+
+  saveTenantButton.disabled = true;
+  tenantStatusButton.disabled = true;
+  setStatus(manageStatus, 'Saving changes…');
+  try {
+    const [logoFile] = manageLogo.files || [];
+    let logoMode = 'keep';
+    let logoDataUrl = '';
+    if (manageRemoveLogo.checked) logoMode = 'remove';
+    else if (logoFile) {
+      logoMode = 'replace';
+      logoDataUrl = await optimizeLogo(logoFile);
+    }
+
+    await updateManagedTenant({ companyName, configurators, logoMode, logoDataUrl }, 'Tenant updated successfully.');
+  } catch (error) {
+    console.error('Tenant update failed.', error);
+    setStatus(manageStatus, administrationErrorMessage(error), 'error');
+  } finally {
+    saveTenantButton.disabled = false;
+    tenantStatusButton.disabled = false;
+  }
+});
+
+tenantStatusButton.addEventListener('click', async () => {
+  if (!currentManagedTenant) return;
+  const nextStatus = tenantStatusButton.dataset.nextStatus;
+  const suspending = nextStatus === 'suspended';
+  if (suspending) {
+    const confirmed = window.confirm(
+      `Suspend ${currentManagedTenant.companyName}? The customer site and tenant saved configurations will become inaccessible until reactivated. No data will be deleted.`,
+    );
+    if (!confirmed) return;
+  }
+
+  saveTenantButton.disabled = true;
+  tenantStatusButton.disabled = true;
+  setStatus(manageStatus, suspending ? 'Suspending tenant…' : 'Reactivating tenant…');
+  try {
+    await updateManagedTenant(
+      { status: nextStatus },
+      suspending ? 'Tenant suspended. No tenant data was deleted.' : 'Tenant reactivated.',
+    );
+  } catch (error) {
+    console.error('Tenant status update failed.', error);
+    setStatus(manageStatus, administrationErrorMessage(error), 'error');
+  } finally {
+    saveTenantButton.disabled = false;
+    tenantStatusButton.disabled = false;
+  }
+});
+
+closeTenantEditorButton.addEventListener('click', () => {
+  tenantEditorCard.hidden = true;
+  tenantEditorForm.hidden = false;
+  currentManagedTenant = null;
+  clearManageLogoPreview();
+});
+
+tenantSearch.addEventListener('input', renderTenantList);
+refreshTenantsButton.addEventListener('click', () => refreshTenantList());
 
 authButton.addEventListener('click', async () => {
   authButton.disabled = true;
@@ -311,18 +608,22 @@ authButton.addEventListener('click', async () => {
   }
 });
 
-await observeGoogleAuth((user) => {
+await observeGoogleAuth(async (user) => {
   currentUser = user;
   if (user) {
     authState.textContent = `${user.email || user.displayName || 'Signed in'} · UID ${user.uid}`;
     authButton.textContent = 'Sign out';
     authButton.hidden = false;
-    provisioningCard.hidden = false;
+    adminWorkspace.hidden = false;
+    await refreshTenantList();
   } else {
-    authState.textContent = 'Sign in with a provisioning-admin Google account.';
+    authState.textContent = 'Sign in with a tenant-admin Google account.';
     authButton.textContent = 'Sign in with Google';
     authButton.hidden = false;
-    provisioningCard.hidden = true;
+    adminWorkspace.hidden = true;
+    tenantEditorCard.hidden = true;
+    currentManagedTenant = null;
+    tenantSummaries = [];
   }
 });
 
