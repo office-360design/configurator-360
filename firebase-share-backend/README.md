@@ -138,7 +138,7 @@ After the Cloud Run/static site deployment, open:
 
 `https://www.360configurator.com/internal/tenant-provisioning/`
 
-The page is intentionally not linked from the public website. Sign in with Google; the page displays the Firebase UID of the signed-in account.
+The page is intentionally not linked from the public website. Sign in with Google; the page displays the Firebase UID of the signed-in account. The same page also lists existing Tier-1 tenants and provides lifecycle administration after the account is authorized.
 
 ### One-time provisioning-admin authorization
 
@@ -146,14 +146,14 @@ Creating customers is intentionally disabled for every account until its Firebas
 
 ```bash
 ACCESS_TOKEN="$(gcloud auth print-access-token)"
-UID="PASTE_FIREBASE_UID_HERE"
+FIREBASE_UID="PASTE_FIREBASE_UID_HERE"
 EMAIL="admin@example.com"
 
 curl -sS -X PATCH \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   -H "X-Goog-User-Project: configurator-360" \
   -H "Content-Type: application/json" \
-  "https://firestore.googleapis.com/v1/projects/configurator-360/databases/(default)/documents/tenantProvisioningAdmins/${UID}" \
+  "https://firestore.googleapis.com/v1/projects/configurator-360/databases/(default)/documents/tenantProvisioningAdmins/${FIREBASE_UID}" \
   -d "{\
     \"fields\": {\
       \"active\": {\"booleanValue\": true},\
@@ -175,6 +175,19 @@ bash firebase-share-backend/iam/authorize-tenant-provisioning-admin.sh \
 Append `disable` as the third argument to revoke that UID later.
 
 This is a one-time administrative setup, not a per-customer deployment step. Normal Tier-1 customers are subsequently created entirely through the provisioning page.
+
+
+### Tenant lifecycle administration
+
+The internal admin page uses three additional allowlisted callable functions:
+
+- `listTenants` returns a limited summary list of Go Live Now tenants without exposing billing/internal tenant fields or large logo payloads.
+- `getTenant` returns the editable administration fields for one tenant, including its current logo.
+- `updateTenant` updates the private `tenants/{slug}` and public `tenantPublic/{slug}` documents in one Firestore transaction.
+
+The tenant slug and its `<slug>.360configurator.com` domain are immutable. Normal administration deliberately exposes no hard-delete operation. Company name, logo and configurator entitlements can be changed; tenants can be suspended and later reactivated. Suspension preserves the configured products and tenant-scoped saved configurations so reactivation restores the previous customer environment. Disabling one configurator similarly leaves its stored saves in place while server-side entitlement checks make them inaccessible until that configurator is enabled again.
+
+The same `tenantProvisioningAdmins/{uid}` allowlist protects provisioning and lifecycle operations. Tenant changes record the UID/email of the last administrator in the private document while only synchronized public branding/status/entitlements are written to `tenantPublic`.
 
 ### One-time Firebase Auth domain IAM setup
 
@@ -205,4 +218,4 @@ After provisioning:
 - Google `signInWithPopup` continues to use the existing Firebase Web App and `configurator-360.firebaseapp.com` auth helper, but Firebase recognizes the customer hostname as an authorized application domain.
 - Saved-configuration callable functions work with the resulting Firebase ID token exactly as they do on the standard 360Configurator domains.
 - Cross-domain authentication handoffs accept an active customer hostname only after validating it against the private tenant record.
-- Disabling/removing a tenant does not currently remove its hostname from Firebase Auth automatically; that cleanup should be paired with the future tenant lifecycle/deprovisioning flow.
+- Suspending a tenant keeps its Firebase Auth hostname registered but all tenant bootstrap, saved-configuration and cross-domain handoff access requires `status: active`; suspension therefore blocks product access without deleting customer data.
