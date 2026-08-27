@@ -2333,12 +2333,84 @@ body.shared-ui-dark-mode .selected-window-size-control {
     border-top-color: rgba(255, 255, 255, 0.1);
 }
 
-.selected-window-size-control label {
+.selected-window-size-heading {
+    color: #334155;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.selected-window-size-name {
     color: #334155;
 }
 
-body.shared-ui-dark-mode .selected-window-size-control label {
+#windowHeightControl {
+    padding-top: 0;
+    border-top: 0;
+}
+
+.selected-window-size-value {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    color: #60a5fa;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.selected-window-size-value input[type="number"] {
+    width: 48px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    text-align: right;
+    outline: none;
+    box-shadow: none;
+    appearance: textfield;
+}
+
+.selected-window-size-value input[type="number"]::-webkit-inner-spin-button,
+.selected-window-size-value input[type="number"]::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+}
+
+.selected-window-size-value input[type="number"]:focus {
+    border: 0;
+    outline: 0;
+    box-shadow: inset 0 -1px 0 currentColor;
+}
+
+.selected-window-size-value input[type="number"]:disabled {
+    background: transparent;
+    color: inherit;
+    cursor: not-allowed;
+}
+
+.selected-window-size-unit {
+    min-width: 22px;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) .selected-window-size-value {
+    color: #0878c9;
+}
+
+body.shared-ui-dark-mode .selected-window-size-heading,
+body.shared-ui-dark-mode .selected-window-size-name {
     color: #e2e8f0;
+}
+
+body.shared-ui-dark-mode .selected-window-size-value {
+    color: #93c5fd;
 }
 
 .selected-window-size-row {
@@ -2396,4 +2468,13 @@ html.ar-mode #selected-window-panel {
         width: min(300px, calc(100vw - 24px));
         max-height: calc(100vh - 88px);
     }
+}
+
+/* Selected-window size fields own their labels; suppress generic injected labels. */
+.selected-window-size-heading::before,
+.selected-window-size-heading::after,
+.selected-window-size-value::before,
+.selected-window-size-value::after {
+    content: none !important;
+    display: none !important;
 }

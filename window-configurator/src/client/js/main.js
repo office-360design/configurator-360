@@ -6,7 +6,7 @@ import {
 } from './config.js';
 import { createComponentSelection } from './component-selection.js';
 import { createSceneContext } from './scene.js';
-import { initializeUIControls } from './ui-controls.js';
+import { initializeUIControls } from './ui-controls.js?v=2';
 import { createWindowBuilder } from './window-builder.js';
 import { createMaterialManager } from './materials.js';
 import { createARController } from './ar-controller.js';
@@ -137,6 +137,8 @@ const widthDecButton = document.getElementById('btnWidthDec');
 const widthIncButton = document.getElementById('btnWidthInc');
 const heightDecButton = document.getElementById('btnHeightDec');
 const heightIncButton = document.getElementById('btnHeightInc');
+const widthValueInput = document.getElementById('valWidth');
+const heightValueInput = document.getElementById('valHeight');
 const selectedWindowPanel = document.getElementById('selected-window-panel');
 const selectedWindowNumber = document.getElementById('selectedWindowNumber');
 const selectedWindowTypeButton = document.getElementById('selectedWindowType');
@@ -153,7 +155,7 @@ const baseHeightMax = Number(heightInput?.max) || WINDOW_HEIGHT_MAX_M;
 
 function setWindowSizeControlsEnabled(enabled) {
     const isEnabled = Boolean(enabled);
-    [widthInput, heightInput, widthDecButton, widthIncButton, heightDecButton, heightIncButton]
+    [widthInput, heightInput, widthDecButton, widthIncButton, heightDecButton, heightIncButton, widthValueInput, heightValueInput]
         .filter(Boolean)
         .forEach(control => { control.disabled = !isEnabled; });
     widthControl?.classList.toggle('is-disabled', !isEnabled);
@@ -189,10 +191,14 @@ function syncSelectedWindowSizeControls() {
     heightInput.max = String(Math.max(baseHeightMax, heightM));
     widthInput.value = String(widthM);
     heightInput.value = String(heightM);
-    const valWidth = document.getElementById('valWidth');
-    const valHeight = document.getElementById('valHeight');
-    if (valWidth) valWidth.textContent = `${Math.round(widthM * 1000)} mm`;
-    if (valHeight) valHeight.textContent = `${Math.round(heightM * 1000)} mm`;
+    if (widthValueInput) {
+        widthValueInput.max = String(Math.round(Number(widthInput.max) * 1000));
+        widthValueInput.value = String(Math.round(widthM * 1000));
+    }
+    if (heightValueInput) {
+        heightValueInput.max = String(Math.round(Number(heightInput.max) * 1000));
+        heightValueInput.value = String(Math.round(heightM * 1000));
+    }
     setWindowSizeControlsEnabled(true);
     return true;
 }
@@ -645,17 +651,11 @@ windowLayoutOverlay = createWindowLayoutOverlay({
     getHeight: () => Number(heightInput?.value) || 1,
     getSelectedHandleSide: () => selectedHandleSide,
     onAddWindow: async (cellId, direction, type, handleSide, edge = {}) => {
-        const beforeIds = new Set(
-            windowLayoutController.getConfigurationSnapshot().windowState?.windows?.map(cell => String(cell.id)) || []
-        );
-        const result = await windowLayoutController.addWindow(cellId, direction, type, {
+        return windowLayoutController.addWindow(cellId, direction, type, {
             handleSide,
             start: edge.start,
             end: edge.end,
         });
-        const addedCell = result?.windowState?.windows?.find(cell => !beforeIds.has(String(cell.id)));
-        if (addedCell) selectWindowCell(addedCell.id);
-        return result;
     },
     onMergeWindows: async (cellAId, cellBId, type, handleSide) => {
         const result = await windowLayoutController.mergeWindows(cellAId, cellBId, type, { handleSide });

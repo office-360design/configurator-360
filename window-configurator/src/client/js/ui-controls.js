@@ -73,11 +73,60 @@ export function initializeUIControls({
     let lastSizeRebuildAt = 0;
     const pendingSizeAxes = new Set();
 
+    const widthValueInput = document.getElementById('valWidth');
+    const heightValueInput = document.getElementById('valHeight');
+
     function updateSizeLabelsOnly() {
         const width = Number.parseFloat(widthInput.value) || WINDOW_WIDTH_MAX_M;
         const height = Number.parseFloat(heightInput.value) || 1.5;
-        document.getElementById('valWidth').innerText = `${Math.round(width * 1000)} mm`;
-        document.getElementById('valHeight').innerText = `${Math.round(height * 1000)} mm`;
+        if (widthValueInput) {
+            widthValueInput.max = String(Math.round(Number(widthInput.max) * 1000));
+            widthValueInput.value = String(Math.round(width * 1000));
+        }
+        if (heightValueInput) {
+            heightValueInput.max = String(Math.round(Number(heightInput.max) * 1000));
+            heightValueInput.value = String(Math.round(height * 1000));
+        }
+    }
+
+    function getRangeBoundsMm(rangeInput) {
+        return {
+            minMm: Math.round(Number.parseFloat(rangeInput.min) * 1000),
+            maxMm: Math.round(Number.parseFloat(rangeInput.max) * 1000),
+        };
+    }
+
+    function clampSizeMm(rangeInput, requestedMm) {
+        const { minMm, maxMm } = getRangeBoundsMm(rangeInput);
+        return Math.min(maxMm, Math.max(minMm, Math.round(requestedMm)));
+    }
+
+    function writeSizeInputs(valueInput, rangeInput, nextMm) {
+        const clampedMm = clampSizeMm(rangeInput, nextMm);
+        valueInput.value = String(clampedMm);
+        rangeInput.value = (clampedMm / 1000).toFixed(3);
+        return clampedMm;
+    }
+
+    function commitSizeTextInput(valueInput, rangeInput, axis) {
+        if (!valueInput || !rangeInput || valueInput.disabled) return false;
+        const requestedMm = Number.parseFloat(valueInput.value);
+        if (!Number.isFinite(requestedMm)) {
+            updateSizeLabelsOnly();
+            return false;
+        }
+        writeSizeInputs(valueInput, rangeInput, requestedMm);
+        flushWindowSizeRebuild(axis);
+        return true;
+    }
+
+    function stepSizeTextInput(valueInput, rangeInput, axis, deltaMm) {
+        if (!valueInput || !rangeInput || valueInput.disabled) return;
+        const typedMm = Number.parseFloat(valueInput.value);
+        const rangeMm = Math.round((Number.parseFloat(rangeInput.value) || 0) * 1000);
+        const baseMm = Number.isFinite(typedMm) ? typedMm : rangeMm;
+        writeSizeInputs(valueInput, rangeInput, baseMm + deltaMm);
+        flushWindowSizeRebuild(axis);
     }
 
     function queueSizeAxis(axis) {
@@ -132,17 +181,34 @@ export function initializeUIControls({
     widthInput.addEventListener('change', () => flushWindowSizeRebuild('width'));
     heightInput.addEventListener('change', () => flushWindowSizeRebuild('height'));
 
+    const bindSizeTextInput = (valueInput, rangeInput, axis) => {
+        if (!valueInput) return;
+        valueInput.addEventListener('keydown', event => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            commitSizeTextInput(valueInput, rangeInput, axis);
+        });
+        // Number inputs fire change when their edited value is committed by
+        // clicking/tabbing elsewhere, which should resize the selected window.
+        valueInput.addEventListener('change', () => {
+            commitSizeTextInput(valueInput, rangeInput, axis);
+        });
+    };
+
+    bindSizeTextInput(widthValueInput, widthInput, 'width');
+    bindSizeTextInput(heightValueInput, heightInput, 'height');
+
     document.getElementById('btnWidthDec').addEventListener('click', () => {
-        changeInputValue(widthInput, -0.001);
+        stepSizeTextInput(widthValueInput, widthInput, 'width', -1);
     });
     document.getElementById('btnWidthInc').addEventListener('click', () => {
-        changeInputValue(widthInput, 0.001);
+        stepSizeTextInput(widthValueInput, widthInput, 'width', 1);
     });
     document.getElementById('btnHeightDec').addEventListener('click', () => {
-        changeInputValue(heightInput, -0.001);
+        stepSizeTextInput(heightValueInput, heightInput, 'height', -1);
     });
     document.getElementById('btnHeightInc').addEventListener('click', () => {
-        changeInputValue(heightInput, 0.001);
+        stepSizeTextInput(heightValueInput, heightInput, 'height', 1);
     });
 
     const toggleSectionButton = document.getElementById('toggleSectionViewBtn');
