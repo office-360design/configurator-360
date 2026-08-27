@@ -4,6 +4,13 @@ import { Firestore } from '@google-cloud/firestore';
 import * as geotiff from 'geotiff';
 import geokeysToProj4 from 'geotiff-geokeys-to-proj4';
 import proj4 from 'proj4';
+import {
+  consumeTenantSolarMetric,
+  corsAllowOrigin,
+  originIsPotentiallyAllowed,
+  quotaErrorPayload,
+  resolveSolarRequestContext,
+} from './tenantUsage.mjs';
 
 const SOLAR_BASE = 'https://solar.googleapis.com/v1/';
 const CACHE_PREFIX = 'google-solar-cache-v1';
@@ -100,49 +107,13 @@ async function fetchWithDiagnostics(rawUrl, options = {}, {
   throw lastError || new Error(`${label}: network fetch failed.`);
 }
 
-function configuredOrigins() {
-  const raw = String(process.env.GOOGLE_SOLAR_ALLOWED_ORIGIN || process.env.ALLOWED_ORIGIN || 'https://www.360configurator.com,https://www.360configurator.ro,https://www.360konfigurator.de,https://aks.360configurator.com').trim();
-  return raw.split(',').map((value) => value.trim()).filter(Boolean);
-}
-
 function requestOrigin(request) {
   return String(request.headers.get('origin') || '').trim();
 }
 
-function originIsLocalDevelopment(origin) {
-  if (!origin) return false;
-  try {
-    const url = new URL(origin);
-    const hostname = String(url.hostname || '').toLowerCase();
-    const loopback = hostname === 'localhost'
-      || hostname === '127.0.0.1'
-      || hostname === '0.0.0.0'
-      || hostname === '::1'
-      || hostname === '[::1]';
-    return loopback && (url.protocol === 'http:' || url.protocol === 'https:');
-  } catch {
-    return false;
-  }
-}
-
-function originIsAllowed(request) {
-  const origin = requestOrigin(request);
-  if (!origin) return true; // Allows curl/server diagnostics; paid actions still require a signed token.
-  const allowed = configuredOrigins();
-  return allowed.includes('*') || allowed.includes(origin) || originIsLocalDevelopment(origin);
-}
-
 function corsHeaders(request) {
-  const origin = requestOrigin(request);
-  const allowed = configuredOrigins();
-  let allowOrigin = '*';
-  if (!allowed.includes('*')) {
-    allowOrigin = allowed.includes(origin) || originIsLocalDevelopment(origin)
-      ? origin
-      : allowed[0] || 'null';
-  }
   return {
-    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Origin': corsAllowOrigin(request, 'https://www.360configurator.com'),
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Accept, Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
@@ -473,7 +444,7 @@ async function readBuildingFromAreaIndex(layerBaseKey, lat, lon) {
   return null;
 }
 
-async function getBuildingInsights(lat, lon, { layerBaseKey = '' } = {}) {
+async function getBuildingInsights(lat, lon, { layerBaseKey = '', usageContext = null } = {}) {
   const cacheKey = buildingCoordinateCacheKey(lat, lon);
   const cached = await readBlob(cacheKey, 'json');
   if (cached) {
@@ -501,6 +472,7 @@ async function getBuildingInsights(lat, lon, { layerBaseKey = '' } = {}) {
       return { value: retryArea, cached: true, cacheSource: 'building-bounds', upstreamRequests: 0 };
     }
 
+    await consumeTenantSolarMetric(usageContext, 'buildingInsights');
     const url = new URL(`${SOLAR_BASE}buildingInsights:findClosest`);
     url.searchParams.set('location.latitude', Number(lat).toFixed(5));
     url.searchParams.set('location.longitude', Number(lon).toFixed(5));
@@ -573,7 +545,7 @@ async function readCachedHourlyShadeBuffers(layerBaseKey) {
   return months.every(Boolean) ? months : null;
 }
 
-async function getDataLayers(lat, lon, radiusM, { force = false } = {}) {
+async function getDataLayers(lat, lon, radiusM, { force = false, usageContext = null } = {}) {
   const cacheKey = dataLayersCacheKey(lat, lon, radiusM);
   if (!force) {
     const cached = await readBlob(cacheKey, 'json');
@@ -586,6 +558,7 @@ async function getDataLayers(lat, lon, radiusM, { force = false } = {}) {
       if (retryCached) return { value: retryCached.data, cached: true, upstreamRequests: 0, cacheKey };
     }
 
+    await consumeTenantSolarMetric(usageContext, 'dataLayers');
     const url = new URL(`${SOLAR_BASE}dataLayers:get`);
     url.searchParams.set('location.latitude', Number(lat).toFixed(5));
     url.searchParams.set('location.longitude', Number(lon).toFixed(5));
@@ -995,7 +968,7 @@ function compactBuildingInsights(raw, requestedPanelCount = 0) {
   };
 }
 
-async function analyzeGoogleSolar(body) {
+async function analyzeGoogleSolar(body, { usageContext = null } = {}) {
   const siteLat = validateCoordinate(body?.siteLat, -90, 90);
   const siteLon = validateCoordinate(body?.siteLon, -180, 180);
   const houseLat = validateCoordinate(body?.houseLat ?? body?.siteLat, -90, 90);
@@ -1024,7 +997,7 @@ async function analyzeGoogleSolar(body) {
 
   const layerBaseKey = dataLayersCacheKey(siteLat, siteLon, radiusM);
   const [buildingResult, preCachedShadeBuffers, preCachedLayerInfo, preCachedSurfaceModel, preCachedFluxModel] = await Promise.all([
-    getBuildingInsights(houseLat, houseLon, { layerBaseKey }),
+    getBuildingInsights(houseLat, houseLon, { layerBaseKey, usageContext }),
     readCachedHourlyShadeBuffers(layerBaseKey),
     readCachedLayerInfo(layerBaseKey),
     readBlob(surfaceModelKey(layerBaseKey), 'json'),
@@ -1047,7 +1020,7 @@ async function analyzeGoogleSolar(body) {
   if (shadeBuffers && surfaceResult && fluxResult) {
     geoTiffCacheHits = 12;
   } else {
-    layersResult = await getDataLayers(siteLat, siteLon, radiusM);
+    layersResult = await getDataLayers(siteLat, siteLon, radiusM, { usageContext });
     dataLayersUpstreamRequests += layersResult.upstreamRequests;
     layerInfo = compactLayerInfo(layersResult.value, radiusM);
 
@@ -1073,7 +1046,7 @@ async function analyzeGoogleSolar(body) {
           return binary.value;
         } catch (error) {
           if (retry && [400, 401, 403, 404].includes(Number(error?.status))) {
-            layersResult = await getDataLayers(siteLat, siteLon, radiusM, { force: true });
+            layersResult = await getDataLayers(siteLat, siteLon, radiusM, { force: true, usageContext });
             dataLayersUpstreamRequests += layersResult.upstreamRequests;
             layerInfo = compactLayerInfo(layersResult.value, radiusM);
             const refreshedUrl = layersResult.value?.hourlyShadeUrls?.[monthIndex];
@@ -1089,7 +1062,7 @@ async function analyzeGoogleSolar(body) {
 
   if (!surfaceResult) {
     // This path is only expected when older shade caches exist without the new Step A surface cache.
-    layersResult = layersResult || await getDataLayers(siteLat, siteLon, radiusM);
+    layersResult = layersResult || await getDataLayers(siteLat, siteLon, radiusM, { usageContext });
     dataLayersUpstreamRequests += layersResult.upstreamRequests;
     layerInfo = compactLayerInfo(layersResult.value, radiusM);
     surfaceResult = await getGoogleSurfaceModel(layerBaseKey, layersResult.value, siteLat, siteLon, radiusM);
@@ -1098,7 +1071,7 @@ async function analyzeGoogleSolar(body) {
     // Existing DSM/shade caches created before the heatmap feature may need one
     // fresh Data Layers request to obtain non-expired flux download URLs. New
     // site analyses reuse the same Data Layers response used by shade/DSM.
-    layersResult = layersResult || await getDataLayers(siteLat, siteLon, radiusM);
+    layersResult = layersResult || await getDataLayers(siteLat, siteLon, radiusM, { usageContext });
     dataLayersUpstreamRequests += layersResult.upstreamRequests;
     layerInfo = compactLayerInfo(layersResult.value, radiusM);
     fluxResult = await getGoogleFluxModel(layerBaseKey, layersResult.value, surfaceResult.value, siteLat, siteLon, radiusM);
@@ -1157,8 +1130,20 @@ async function analyzeGoogleSolar(body) {
 }
 
 export async function handleGoogleSolarRequest(request) {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
-  if (!originIsAllowed(request)) return jsonResponse(request, { error: 'Origin not allowed.' }, 403);
+  if (request.method === 'OPTIONS') {
+    if (!originIsPotentiallyAllowed(request)) return jsonResponse(request, { error: 'Origin not allowed.' }, 403);
+    return new Response(null, { status: 204, headers: corsHeaders(request) });
+  }
+  if (!originIsPotentiallyAllowed(request)) return jsonResponse(request, { error: 'Origin not allowed.' }, 403);
+
+  let usageContext;
+  try {
+    usageContext = await resolveSolarRequestContext(request);
+  } catch (error) {
+    console.error('[Google Solar proxy] Tenant usage scope lookup failed.', error);
+    return jsonResponse(request, { error: 'Tenant usage service is temporarily unavailable.' }, 503);
+  }
+  if (!usageContext) return jsonResponse(request, { error: 'Solar is not enabled for this tenant.' }, 403);
 
   const url = new URL(request.url);
   const action = String(url.searchParams.get('action') || 'health');
@@ -1207,14 +1192,21 @@ export async function handleGoogleSolarRequest(request) {
   const session = verifySession(bearerToken(request), request);
   if (!session) return jsonResponse(request, { error: 'Google Solar demo session is locked or expired.' }, 401);
 
-  const limit = await enforceAnalysisRateLimit(request);
+  const limit = usageContext.kind === 'tenant'
+    ? {
+      allowed: true,
+      perIp: { allowed: true, count: 0, max: 0 },
+      global: { allowed: true, count: 0, max: 0 },
+    }
+    : await enforceAnalysisRateLimit(request);
   if (!limit.allowed) return jsonResponse(request, {
     error: 'Google Solar demo request limit reached for today.',
     limit: { perIp: limit.perIp, global: limit.global },
   }, 429);
 
   try {
-    const result = await analyzeGoogleSolar(body);
+    const analysisUsage = await consumeTenantSolarMetric(usageContext, 'analyses');
+    const result = await analyzeGoogleSolar(body, { usageContext });
     return jsonResponse(request, {
       ...result,
       security: {
@@ -1224,8 +1216,17 @@ export async function handleGoogleSolarRequest(request) {
         globalAnalysesToday: limit.global.count,
         globalLimit: limit.global.max,
       },
+      ...(usageContext.kind === 'tenant' ? {
+        tenantUsage: {
+          month: analysisUsage.month,
+          analyses: analysisUsage.count,
+          analysesLimit: analysisUsage.limit || 0,
+        },
+      } : {}),
     });
   } catch (error) {
+    const quotaPayload = quotaErrorPayload(error);
+    if (quotaPayload) return jsonResponse(request, quotaPayload, 429);
     console.error('[Google Solar proxy] Analysis failed.', error);
     const status = Number(error?.status) || 502;
     return jsonResponse(request, {
