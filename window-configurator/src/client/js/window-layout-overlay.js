@@ -188,11 +188,40 @@ export function createWindowLayoutOverlay({
     function localPointForControl(definition) {
         if (definition.kind === 'add') {
             const geometry = getEditableTopologyGeometry();
-            const placement = geometry?.framePlacements?.find(p =>
-                definition.frameEdgeId
-                    ? p.id === definition.frameEdgeId
-                    : (p.windowCell === definition.cellId && p.side === definition.direction)
-            );
+            let placement = null;
+            if (definition.wholeSide && geometry?.framePlacements?.length) {
+                const edgeIds = new Set(definition.frameEdgeIds || []);
+                const sidePlacements = geometry.framePlacements.filter(p => (
+                    p.side === definition.direction
+                    && (!edgeIds.size || edgeIds.has(p.id))
+                ));
+                if (sidePlacements.length) {
+                    const structuralStarts = sidePlacements
+                        .map(p => Number.isFinite(Number(p.structuralWorldStart))
+                            ? Number(p.structuralWorldStart)
+                            : Number(p.worldStart))
+                        .filter(Number.isFinite);
+                    const structuralEnds = sidePlacements
+                        .map(p => Number.isFinite(Number(p.structuralWorldEnd))
+                            ? Number(p.structuralWorldEnd)
+                            : Number(p.worldEnd))
+                        .filter(Number.isFinite);
+                    placement = {
+                        ...sidePlacements[0],
+                        start: definition.start,
+                        end: definition.end,
+                        structuralWorldStart: structuralStarts.length ? Math.min(...structuralStarts) : null,
+                        structuralWorldEnd: structuralEnds.length ? Math.max(...structuralEnds) : null,
+                    };
+                }
+            }
+            if (!placement) {
+                placement = geometry?.framePlacements?.find(p =>
+                    definition.frameEdgeId
+                        ? p.id === definition.frameEdgeId
+                        : (p.windowCell === definition.cellId && p.side === definition.direction)
+                );
+            }
             if (placement) {
                 const edgeStart = Number(placement.start);
                 const edgeEnd = Number(placement.end);
