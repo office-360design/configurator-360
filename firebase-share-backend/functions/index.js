@@ -45,6 +45,7 @@ const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 
 const TENANTS_COLLECTION = 'tenants';
 const TENANT_PUBLIC_COLLECTION = 'tenantPublic';
 const TENANT_PROVISIONING_ADMINS_COLLECTION = 'tenantProvisioningAdmins';
+const TENANT_USAGE_COLLECTION = 'tenantUsage';
 const TENANT_SCHEMA_VERSION = 1;
 const TENANT_PLAN_GO_LIVE_NOW = 'go_live_now';
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -52,6 +53,13 @@ const TENANT_COMPANY_NAME_MAX_LENGTH = 120;
 const TENANT_LOGO_MAX_BYTES = 200_000;
 const TENANT_ADMIN_LIST_LIMIT = 500;
 const TENANT_STATUSES = new Set(['active', 'suspended']);
+const TENANT_USAGE_LIMIT_MAX = 1_000_000_000;
+const DEFAULT_SOLAR_USAGE_LIMITS = Object.freeze({
+  analysesPerMonth: 0,
+  buildingInsightsPerMonth: 0,
+  dataLayersPerMonth: 0,
+  pvgisPerMonth: 0,
+});
 const TENANT_ADMIN_ORIGIN = 'https://www.360configurator.com';
 const TENANT_ADMIN_DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
 const RESERVED_TENANT_SLUGS = new Set([
@@ -1101,6 +1109,64 @@ function validateTenantConfigurators(value) {
   return configurators;
 }
 
+function normalizeTenantUsageLimit(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return 0;
+  return Math.min(TENANT_USAGE_LIMIT_MAX, Math.floor(number));
+}
+
+function normalizedSolarUsageLimits(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    analysesPerMonth: normalizeTenantUsageLimit(source.analysesPerMonth),
+    buildingInsightsPerMonth: normalizeTenantUsageLimit(source.buildingInsightsPerMonth),
+    dataLayersPerMonth: normalizeTenantUsageLimit(source.dataLayersPerMonth),
+    pvgisPerMonth: normalizeTenantUsageLimit(source.pvgisPerMonth),
+  };
+}
+
+function validateSolarUsageLimits(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  for (const key of Object.keys(DEFAULT_SOLAR_USAGE_LIMITS)) {
+    const raw = source[key];
+    if (raw === undefined || raw === null || raw === '') continue;
+    const number = Number(raw);
+    if (!Number.isFinite(number) || number < 0 || !Number.isInteger(number) || number > TENANT_USAGE_LIMIT_MAX) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Solar usage limits must be whole numbers between 0 and 1,000,000,000.',
+      );
+    }
+  }
+  return normalizedSolarUsageLimits(source);
+}
+
+function currentTenantUsageMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function normalizedSolarUsage(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const counter = (key) => Math.max(0, Math.floor(Number(source[key]) || 0));
+  return {
+    analyses: counter('analyses'),
+    buildingInsights: counter('buildingInsights'),
+    dataLayers: counter('dataLayers'),
+    pvgis: counter('pvgis'),
+    pvgisUpstream: counter('pvgisUpstream'),
+  };
+}
+
+async function tenantUsageForMonth(slug, month = currentTenantUsageMonth()) {
+  const snapshot = await db.collection(TENANT_USAGE_COLLECTION).doc(slug).collection('months').doc(month).get();
+  const data = snapshot.data() || {};
+  return {
+    month,
+    solar: normalizedSolarUsage(data.solar),
+    updatedAtMs: tenantTimestampMs(data.updatedAt),
+  };
+}
+
 function detectLogoMime(buffer) {
   if (
     buffer.length >= 8
@@ -1204,11 +1270,17 @@ function tenantAdminSummaryFromSnapshot(snapshot) {
   };
 }
 
-function tenantAdminDetailFromSnapshot(snapshot) {
+function tenantAdminDetailFromSnapshot(snapshot, usage = null) {
   const data = snapshot.data() || {};
   return {
     ...tenantAdminSummaryFromSnapshot(snapshot),
     logoUrl: String(data.logoUrl || ''),
+    solarUsageLimits: normalizedSolarUsageLimits(data.solarUsageLimits),
+    usage: usage || {
+      month: currentTenantUsageMonth(),
+      solar: normalizedSolarUsage(null),
+      updatedAtMs: 0,
+    },
   };
 }
 
@@ -1599,6 +1671,7 @@ exports.provisionTenant = onCall(
         status: 'active',
         ownerUid: '',
         configurators,
+        solarUsageLimits: { ...DEFAULT_SOLAR_USAGE_LIMITS },
         logoUrl,
         firebaseAuthDomain: domain,
         firebaseAuthDomainAuthorized: true,
@@ -1664,7 +1737,8 @@ exports.getTenant = onCall(
     await requireTenantProvisioningAdmin(request);
     const slug = validateTenantSlug(request.data?.slug);
     const snapshot = await requireGoLiveNowTenant(slug);
-    return tenantAdminDetailFromSnapshot(snapshot);
+    const usage = await tenantUsageForMonth(slug);
+    return tenantAdminDetailFromSnapshot(snapshot, usage);
   },
 );
 
@@ -1707,6 +1781,9 @@ exports.updateTenant = onCall(
       const configurators = hasOwn('configurators')
         ? validateTenantConfigurators(input.configurators)
         : validateTenantConfigurators(tenant.configurators);
+      const solarUsageLimits = hasOwn('solarUsageLimits')
+        ? validateSolarUsageLimits(input.solarUsageLimits)
+        : normalizedSolarUsageLimits(tenant.solarUsageLimits);
 
       const logoMode = hasOwn('logoMode') ? String(input.logoMode || '').trim().toLowerCase() : 'keep';
       if (!['keep', 'replace', 'remove'].includes(logoMode)) {
@@ -1730,6 +1807,7 @@ exports.updateTenant = onCall(
 
       transaction.update(privateRef, {
         ...synchronizedFields,
+        solarUsageLimits,
         domain: expectedDomain,
         lastUpdatedByUid: admin.uid,
         lastUpdatedByEmail: admin.email,
@@ -1743,11 +1821,14 @@ exports.updateTenant = onCall(
         status,
         configurators,
         logoUrl,
+        solarUsageLimits,
         firebaseAuthDomainAuthorized: tenant.firebaseAuthDomainAuthorized === true,
         createdAtMs: tenantTimestampMs(tenant.createdAt),
         updatedAtMs: now.toMillis(),
       };
     });
+
+    result.usage = await tenantUsageForMonth(slug);
 
     logger.info('Tier-1 tenant updated.', {
       slug,
