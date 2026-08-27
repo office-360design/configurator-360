@@ -48,6 +48,7 @@ const logoPreview = document.querySelector('#logoPreview');
 const settingsStatus = document.querySelector('#settingsStatus');
 const saveButton = document.querySelector('#saveButton');
 const refreshButton = document.querySelector('#refreshButton');
+const showAllAnalytics = document.querySelector('#showAllAnalytics');
 const analyticsMonth = document.querySelector('#analyticsMonth');
 const monthAnalyticsBody = document.querySelector('#monthAnalyticsBody');
 const lifetimeAnalyticsBody = document.querySelector('#lifetimeAnalyticsBody');
@@ -113,15 +114,25 @@ function validateSelection(planId, configurators) {
 }
 
 function analyticsMetric(value) { return Math.max(0, Math.floor(Number(value) || 0)); }
-function renderAnalytics(tbody, analytics = {}) {
-  const rows = Object.entries(CONFIGURATOR_LABELS).map(([id, label]) => {
+function visibleAnalyticsConfiguratorIds(configurators = {}, showAll = false) {
+  return Object.keys(CONFIGURATOR_LABELS).filter((id) => showAll || configurators?.[id] === true);
+}
+function renderAnalytics(tbody, analytics = {}, configurators = {}, showAll = false) {
+  const rows = visibleAnalyticsConfiguratorIds(configurators, showAll).map((id) => {
+    const label = CONFIGURATOR_LABELS[id];
     const metric = analytics?.[id] || {};
     return `<tr><td>${label}</td><td>${analyticsMetric(metric.accesses).toLocaleString()}</td><td>${analyticsMetric(metric.logins).toLocaleString()}</td><td>${analyticsMetric(metric.configurationsCreated).toLocaleString()}</td></tr>`;
   });
   tbody.innerHTML = rows.join('');
 }
-function analyticsTotal(analytics, key) {
-  return Object.keys(CONFIGURATOR_LABELS).reduce((sum, id) => sum + analyticsMetric(analytics?.[id]?.[key]), 0);
+function analyticsTotal(analytics, key, configurators = {}) {
+  return visibleAnalyticsConfiguratorIds(configurators, false).reduce((sum, id) => sum + analyticsMetric(analytics?.[id]?.[key]), 0);
+}
+function renderDashboardAnalytics() {
+  if (!dashboard) return;
+  const showAll = showAllAnalytics?.checked === true;
+  renderAnalytics(monthAnalyticsBody, dashboard.analytics?.currentMonth, dashboard.configurators, showAll);
+  renderAnalytics(lifetimeAnalyticsBody, dashboard.analytics?.lifetime, dashboard.configurators, showAll);
 }
 
 function clearLogoPreview() {
@@ -191,12 +202,11 @@ function populateDashboard(data) {
   metricPlan.textContent = data.planName || data.planId;
   metricPlanDetail.textContent = planDescription(planById(data.planId));
   metricConfigurators.textContent = enabledCount(data.configurators).toLocaleString();
-  metricAccesses.textContent = analyticsTotal(data.analytics?.currentMonth, 'accesses').toLocaleString();
-  metricConfigurations.textContent = analyticsTotal(data.analytics?.currentMonth, 'configurationsCreated').toLocaleString();
+  metricAccesses.textContent = analyticsTotal(data.analytics?.currentMonth, 'accesses', data.configurators).toLocaleString();
+  metricConfigurations.textContent = analyticsTotal(data.analytics?.currentMonth, 'configurationsCreated', data.configurators).toLocaleString();
 
   analyticsMonth.textContent = data.analytics?.month ? `${data.analytics.month} UTC` : 'Current UTC month';
-  renderAnalytics(monthAnalyticsBody, data.analytics?.currentMonth);
-  renderAnalytics(lifetimeAnalyticsBody, data.analytics?.lifetime);
+  renderDashboardAnalytics();
 
   solarUsageCard.hidden = data.configurators?.solar !== true;
   if (!solarUsageCard.hidden) {
@@ -251,6 +261,7 @@ settingsForm.addEventListener('submit', async (event) => {
   finally { saveButton.disabled = false; }
 });
 refreshButton.addEventListener('click', refreshDashboard);
+showAllAnalytics?.addEventListener('change', renderDashboardAnalytics);
 
 async function toggleAuth() {
   authButton.disabled = true; signedOutButton.disabled = true;
