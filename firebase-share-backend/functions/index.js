@@ -46,6 +46,7 @@ const TENANTS_COLLECTION = 'tenants';
 const TENANT_PUBLIC_COLLECTION = 'tenantPublic';
 const TENANT_PROVISIONING_ADMINS_COLLECTION = 'tenantProvisioningAdmins';
 const TENANT_USAGE_COLLECTION = 'tenantUsage';
+const CONFIGURATOR_ANALYTICS_COLLECTION = 'configuratorAnalytics';
 const TENANT_SCHEMA_VERSION = 1;
 const TENANT_PLAN_GO_LIVE_NOW = 'go_live_now';
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -54,6 +55,13 @@ const TENANT_LOGO_MAX_BYTES = 200_000;
 const TENANT_ADMIN_LIST_LIMIT = 500;
 const TENANT_STATUSES = new Set(['active', 'suspended']);
 const TENANT_USAGE_LIMIT_MAX = 1_000_000_000;
+const CONFIGURATOR_ANALYTICS_EVENTS = Object.freeze({
+  access: 'accesses',
+  login: 'logins',
+  configuration_created: 'configurationsCreated',
+});
+const CONFIGURATOR_ANALYTICS_METRICS = Object.freeze(['accesses', 'logins', 'configurationsCreated']);
+const PLATFORM_ANALYTICS_SCOPE_ID = 'platform';
 const DEFAULT_SOLAR_USAGE_LIMITS = Object.freeze({
   analysesPerMonth: 0,
   buildingInsightsPerMonth: 0,
@@ -1167,6 +1175,124 @@ async function tenantUsageForMonth(slug, month = currentTenantUsageMonth()) {
   };
 }
 
+function currentAnalyticsDay() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function analyticsScopeIdForTenant(slug) {
+  return `tenant--${normalizeTenantSlug(slug)}`;
+}
+
+function emptyConfiguratorAnalytics() {
+  return Object.fromEntries(
+    [...ALLOWED_PRODUCTS].sort().map((product) => [product, { accesses: 0, logins: 0, configurationsCreated: 0 }]),
+  );
+}
+
+function normalizedConfiguratorAnalytics(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const sourceConfigurators = source.configurators && typeof source.configurators === 'object'
+    ? source.configurators
+    : {};
+  const result = emptyConfiguratorAnalytics();
+  for (const product of Object.keys(result)) {
+    const metrics = sourceConfigurators[product] && typeof sourceConfigurators[product] === 'object'
+      ? sourceConfigurators[product]
+      : {};
+    for (const metric of CONFIGURATOR_ANALYTICS_METRICS) {
+      result[product][metric] = Math.max(0, Math.floor(Number(metrics[metric]) || 0));
+    }
+  }
+  return result;
+}
+
+async function configuratorAnalyticsForScope(scopeId, month = currentTenantUsageMonth()) {
+  const scopeRef = db.collection(CONFIGURATOR_ANALYTICS_COLLECTION).doc(scopeId);
+  const [monthSnapshot, lifetimeSnapshot] = await Promise.all([
+    scopeRef.collection('months').doc(month).get(),
+    scopeRef.collection('summary').doc('all').get(),
+  ]);
+  const monthData = monthSnapshot.data() || {};
+  const lifetimeData = lifetimeSnapshot.data() || {};
+  return {
+    month,
+    currentMonth: normalizedConfiguratorAnalytics(monthData),
+    lifetime: normalizedConfiguratorAnalytics(lifetimeData),
+    updatedAtMs: Math.max(tenantTimestampMs(monthData.updatedAt), tenantTimestampMs(lifetimeData.updatedAt)),
+  };
+}
+
+function validateConfiguratorAnalyticsProduct(value) {
+  const product = String(value || '').trim().toLowerCase();
+  if (!ALLOWED_PRODUCTS.has(product)) {
+    throw new HttpsError('invalid-argument', 'Unsupported configurator analytics product.');
+  }
+  return product;
+}
+
+function validateConfiguratorAnalyticsEvent(value) {
+  const event = String(value || '').trim().toLowerCase();
+  if (!Object.prototype.hasOwnProperty.call(CONFIGURATOR_ANALYTICS_EVENTS, event)) {
+    throw new HttpsError('invalid-argument', 'Unsupported configurator analytics event.');
+  }
+  return event;
+}
+
+async function configuratorAnalyticsScopeForRequest(request, product) {
+  const origin = requestOrigin(request);
+  if (USER_CONFIGURATION_DEVELOPMENT_ORIGIN.test(origin) || origin === 'https://aks.360configurator.com') {
+    return { skip: true, scopeId: '', scopeType: 'development', tenantSlug: '' };
+  }
+  if (ALLOWED_CONFIGURATOR_ORIGINS.has(origin)) {
+    return { skip: false, scopeId: PLATFORM_ANALYTICS_SCOPE_ID, scopeType: 'platform', tenantSlug: '' };
+  }
+
+  const tenantSlug = tenantSlugFromConfiguratorOrigin(origin);
+  if (!tenantSlug) throw new HttpsError('permission-denied', 'Unsupported configurator analytics origin.');
+
+  const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
+  const tenant = snapshot.data() || {};
+  const expectedDomain = `${tenantSlug}.360configurator.com`;
+  const configurators = tenant.configurators && typeof tenant.configurators === 'object' ? tenant.configurators : {};
+  if (
+    !snapshot.exists
+    || tenant.status !== 'active'
+    || String(tenant.domain || '') !== expectedDomain
+    || configurators[product] !== true
+  ) {
+    throw new HttpsError('permission-denied', 'This configurator is not enabled for the customer tenant.');
+  }
+  return {
+    skip: false,
+    scopeId: analyticsScopeIdForTenant(tenantSlug),
+    scopeType: 'tenant',
+    tenantSlug,
+  };
+}
+
+async function incrementConfiguratorAnalytics(scope, product, metric) {
+  const now = Timestamp.now();
+  const month = currentTenantUsageMonth();
+  const day = currentAnalyticsDay();
+  const scopeRef = db.collection(CONFIGURATOR_ANALYTICS_COLLECTION).doc(scope.scopeId);
+  const payload = {
+    schemaVersion: 1,
+    scopeType: scope.scopeType,
+    ...(scope.tenantSlug ? { tenantSlug: scope.tenantSlug } : {}),
+    configurators: {
+      [product]: {
+        [metric]: FieldValue.increment(1),
+      },
+    },
+    updatedAt: now,
+  };
+  const batch = db.batch();
+  batch.set(scopeRef.collection('summary').doc('all'), payload, { merge: true });
+  batch.set(scopeRef.collection('months').doc(month), { ...payload, period: month }, { merge: true });
+  batch.set(scopeRef.collection('days').doc(day), { ...payload, period: day }, { merge: true });
+  await batch.commit();
+}
+
 function detectLogoMime(buffer) {
   if (
     buffer.length >= 8
@@ -1270,7 +1396,7 @@ function tenantAdminSummaryFromSnapshot(snapshot) {
   };
 }
 
-function tenantAdminDetailFromSnapshot(snapshot, usage = null) {
+function tenantAdminDetailFromSnapshot(snapshot, usage = null, analytics = null) {
   const data = snapshot.data() || {};
   return {
     ...tenantAdminSummaryFromSnapshot(snapshot),
@@ -1279,6 +1405,12 @@ function tenantAdminDetailFromSnapshot(snapshot, usage = null) {
     usage: usage || {
       month: currentTenantUsageMonth(),
       solar: normalizedSolarUsage(null),
+      updatedAtMs: 0,
+    },
+    analytics: analytics || {
+      month: currentTenantUsageMonth(),
+      currentMonth: emptyConfiguratorAnalytics(),
+      lifetime: emptyConfiguratorAnalytics(),
       updatedAtMs: 0,
     },
   };
@@ -1611,6 +1743,16 @@ const TENANT_ADMIN_CALLABLE_OPTIONS = Object.freeze({
   memory: '256MiB',
 });
 
+const CONFIGURATOR_ANALYTICS_CALLABLE_OPTIONS = Object.freeze({
+  region: FUNCTION_REGION,
+  serviceAccount: RUNTIME_SERVICE_ACCOUNT,
+  // Product analytics deliberately does not use App Check. It is non-billable
+  // telemetry, while reCAPTCHA assessments remain reserved for Share.
+  enforceAppCheck: false,
+  timeoutSeconds: 15,
+  memory: '256MiB',
+});
+
 const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
   ...TENANT_ADMIN_CALLABLE_OPTIONS,
   // Identity Platform authorizedDomains is a project-level read/modify/write
@@ -1619,6 +1761,32 @@ const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
   concurrency: 1,
   maxInstances: 1,
 });
+
+exports.recordConfiguratorAnalyticsEvent = onCall(
+  CONFIGURATOR_ANALYTICS_CALLABLE_OPTIONS,
+  async (request) => {
+    const product = validateConfiguratorAnalyticsProduct(request.data?.productType);
+    const event = validateConfiguratorAnalyticsEvent(request.data?.eventType);
+    if (event === 'login' && !String(request.auth?.uid || '')) {
+      throw new HttpsError('unauthenticated', 'A successful Firebase login is required for login analytics.');
+    }
+
+    const scope = await configuratorAnalyticsScopeForRequest(request, product);
+    if (scope.skip) return { recorded: false, scope: scope.scopeType };
+
+    await incrementConfiguratorAnalytics(scope, product, CONFIGURATOR_ANALYTICS_EVENTS[event]);
+    return { recorded: true, scope: scope.scopeType };
+  },
+);
+
+exports.getPlatformAnalytics = onCall(
+  TENANT_ADMIN_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    await requireTenantProvisioningAdmin(request);
+    return configuratorAnalyticsForScope(PLATFORM_ANALYTICS_SCOPE_ID);
+  },
+);
 
 exports.provisionTenant = onCall(
   TENANT_PROVISIONING_CALLABLE_OPTIONS,
@@ -1737,8 +1905,11 @@ exports.getTenant = onCall(
     await requireTenantProvisioningAdmin(request);
     const slug = validateTenantSlug(request.data?.slug);
     const snapshot = await requireGoLiveNowTenant(slug);
-    const usage = await tenantUsageForMonth(slug);
-    return tenantAdminDetailFromSnapshot(snapshot, usage);
+    const [usage, analytics] = await Promise.all([
+      tenantUsageForMonth(slug),
+      configuratorAnalyticsForScope(analyticsScopeIdForTenant(slug)),
+    ]);
+    return tenantAdminDetailFromSnapshot(snapshot, usage, analytics);
   },
 );
 
@@ -1828,7 +1999,10 @@ exports.updateTenant = onCall(
       };
     });
 
-    result.usage = await tenantUsageForMonth(slug);
+    [result.usage, result.analytics] = await Promise.all([
+      tenantUsageForMonth(slug),
+      configuratorAnalyticsForScope(analyticsScopeIdForTenant(slug)),
+    ]);
 
     logger.info('Tier-1 tenant updated.', {
       slug,

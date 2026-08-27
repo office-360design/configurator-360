@@ -13,6 +13,7 @@ import { getUserCart, mutateUserCart } from './userCart.js?v=2';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 import { readShareState } from './shareState.js?v=4';
 import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
+import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=1';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
@@ -144,6 +145,9 @@ export class StandaloneConfiguratorShell {
 
     this.storagePrefix = this.options.storagePrefix;
     this.productId = normalizeProductId(this.options.productId || this.options.productType);
+    void recordConfiguratorAccessOnce(this.productId).catch((error) => {
+      console.warn('Configurator access analytics could not be recorded.', error);
+    });
     // The old shell used one project-meta record for every authentication state.
     // Keep its key only for one-time migration; active project pointers are now
     // isolated by Firebase UID so one account can never leak into another/guest.
@@ -184,6 +188,7 @@ export class StandaloneConfiguratorShell {
     this.dirty = false;
     this.activeSessionUid = '';
     this.authInitialized = false;
+    this.initialConfigurationAnalyticsRecorded = false;
     this.sessionSwitchToken = 0;
     this.draftPersistTimer = 0;
     this.accountOpen = false;
@@ -1082,7 +1087,7 @@ export class StandaloneConfiguratorShell {
     } catch (error) {
       console.error('Google authentication could not be initialized.', error);
       this.authInitialized = true;
-      await this.enterGuestSession({ resetModel: false });
+      await this.enterGuestSession({ resetModel: false, recordInitialConfiguration: true });
     }
   }
 
@@ -1099,13 +1104,13 @@ export class StandaloneConfiguratorShell {
     if (previousUid && nextUid !== previousUid) this.flushDraftPersistence();
     if (!nextUid && !previousUid) {
       this.authUser = null;
-      await this.enterGuestSession({ resetModel: false });
+      await this.enterGuestSession({ resetModel: false, recordInitialConfiguration: initial });
       this.options.callbacks.onAuthChange?.(null);
       return;
     }
 
     if (nextUid) {
-      await this.enterUserSession(user);
+      await this.enterUserSession(user, { recordInitialConfiguration: initial });
       this.options.callbacks.onAuthChange?.(user);
       return;
     }
@@ -1148,7 +1153,29 @@ export class StandaloneConfiguratorShell {
     return false;
   }
 
-  async enterGuestSession({ resetModel = false } = {}) {
+  recordConfigurationCreatedAnalytics({ initial = false } = {}) {
+    let initialSessionKey = '';
+    if (initial) {
+      if (this.initialConfigurationAnalyticsRecorded) return;
+      this.initialConfigurationAnalyticsRecorded = true;
+      initialSessionKey = `360-configurator:analytics:initial-configuration:${window.location.hostname.toLowerCase()}:${this.productId}`;
+      try {
+        if (window.sessionStorage.getItem(initialSessionKey) === '1') return;
+        window.sessionStorage.setItem(initialSessionKey, '1');
+      } catch { /* analytics remains best effort when storage is unavailable */ }
+    }
+    void recordConfiguratorAnalyticsEvent({
+      productType: this.productId,
+      eventType: 'configuration_created',
+    }).catch((error) => {
+      if (initialSessionKey) {
+        try { window.sessionStorage.removeItem(initialSessionKey); } catch { /* best effort */ }
+      }
+      console.warn('Configuration-created analytics could not be recorded.', error);
+    });
+  }
+
+  async enterGuestSession({ resetModel = false, recordInitialConfiguration = false } = {}) {
     const token = ++this.sessionSwitchToken;
     this.authUser = null;
     this.activeSessionUid = '';
@@ -1163,6 +1190,7 @@ export class StandaloneConfiguratorShell {
     this.cleanProjectName = '';
     this.dirty = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
+    const restoringSharedConfiguration = this.pendingSharedConfigurationTransport;
 
     if (this.pendingSharedConfigurationTransport) {
       try {
@@ -1183,11 +1211,14 @@ export class StandaloneConfiguratorShell {
     this.cleanStateJson = '';
     this.cleanProjectName = '';
     this.dirty = false;
+    if (recordInitialConfiguration && !restoringSharedConfiguration) {
+      this.recordConfigurationCreatedAnalytics({ initial: true });
+    }
     this.renderHost();
     this.sync();
   }
 
-  async enterUserSession(user) {
+  async enterUserSession(user, { recordInitialConfiguration = false } = {}) {
     const uid = String(user?.uid || '');
     if (!uid) return this.enterGuestSession({ resetModel: false });
     const token = ++this.sessionSwitchToken;
@@ -1266,6 +1297,7 @@ export class StandaloneConfiguratorShell {
       this.dirty = true;
       this.captureDraftState();
       this.persistMeta();
+      if (recordInitialConfiguration) this.recordConfigurationCreatedAnalytics({ initial: true });
       this.renderHost();
       this.sync();
       return;
@@ -1317,6 +1349,7 @@ export class StandaloneConfiguratorShell {
       this.dirty = true;
       await this.resetConfiguratorToDefault();
       this.persistMeta();
+      if (recordInitialConfiguration) this.recordConfigurationCreatedAnalytics({ initial: true });
       this.renderHost();
       this.sync();
     }
@@ -1328,7 +1361,16 @@ export class StandaloneConfiguratorShell {
     syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: true });
     try {
       const user = await signInWithGoogle();
-      if (user) await this.handleAuthStateChange(user);
+      if (user) {
+        await this.handleAuthStateChange(user);
+        void recordConfiguratorAnalyticsEvent({
+          productType: this.productId,
+          eventType: 'login',
+          requireAuth: true,
+        }).catch((error) => {
+          console.warn('Configurator login analytics could not be recorded.', error);
+        });
+      }
       this.accountOpen = true;
       this.options.callbacks.onAccountAction?.('login', user);
       return user;
@@ -1745,6 +1787,7 @@ export class StandaloneConfiguratorShell {
       this.savedDialog.open = false;
       this.captureDraftState();
       this.persistMeta();
+      this.recordConfigurationCreatedAnalytics();
       this.renderHost();
       this.sync();
     } catch (error) {

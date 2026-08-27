@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=31';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=32';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=12';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
 import { pergolaT } from '../i18n.js';

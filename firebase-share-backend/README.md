@@ -233,3 +233,32 @@ After provisioning:
 - Saved-configuration callable functions work with the resulting Firebase ID token exactly as they do on the standard 360Configurator domains.
 - Cross-domain authentication handoffs accept an active customer hostname only after validating it against the private tenant record.
 - Suspending a tenant keeps its Firebase Auth hostname registered but all tenant bootstrap, saved-configuration and cross-domain handoff access requires `status: active`; suspension therefore blocks product access without deleting customer data.
+
+### Tier-1 Solar usage limits and telemetry
+
+Private Tier-1 tenant documents may contain `solarUsageLimits` with four monthly UTC limits:
+
+- `analysesPerMonth`
+- `buildingInsightsPerMonth`
+- `dataLayersPerMonth`
+- `pvgisPerMonth`
+
+`0` means unlimited. Existing tenants without this map are treated as unlimited until an administrator saves explicit limits.
+
+Current counters are stored server-side at `tenantUsage/{slug}/months/{YYYY-MM}` and are never exposed through browser Firestore rules. `getTenant` includes the current month's normalized counters for the internal administration page, while `updateTenant` can change only the private usage-limit map; limits are not copied to `tenantPublic`.
+
+Google Solar Building Insights and Data Layers counters are reserved only when the Cloud Run Solar backend is about to make an upstream API request, so shared backend cache hits do not consume those limits. PVGIS records total valid requests plus upstream cache misses separately. Quotas reset naturally because each UTC month uses a new usage document.
+
+### Configurator product analytics
+
+`recordConfiguratorAnalyticsEvent` records non-billable product analytics for the six configurators. The browser can submit only the fixed events `access`, `login`, and `configuration_created`; the backend derives the analytics scope from the request origin. Public `.com/.ro/.de` configurators are grouped under the `platform` scope, while a Tier-1 hostname is accepted only when its private tenant is active and the requested configurator entitlement is enabled. Development/AKS traffic is ignored.
+
+Aggregates are stored only server-side under `configuratorAnalytics/{scopeId}` in three granularities: `summary/all`, `months/{YYYY-MM}`, and `days/{YYYY-MM-DD}`. No raw visitor event stream or user identity is retained. Firestore browser rules deny direct access to the aggregate collection.
+
+Metric definitions are intentionally stable:
+
+- **Accesses**: one configurator access per browser tab/session; refreshes in the same tab do not add another access.
+- **Logins**: successful user-initiated Google/Firebase popup sign-ins only; persisted sessions and cross-domain custom-token handoffs do not increment this counter.
+- **Configurations created**: a fresh default configuration at the start of a new session, or an explicit **New Configuration** action. Loading a saved configuration, local draft, domain handoff, or Share snapshot does not increment it.
+
+`getTenant` returns current-month and lifetime analytics for that tenant to the internal administration page. `getPlatformAnalytics` returns the same aggregate view for public platform domains and is protected by the existing tenant-admin Firebase UID allowlist.
