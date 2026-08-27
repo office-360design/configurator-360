@@ -1,13 +1,14 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
-import { sharedT } from './i18n.js?v=20';
+import { sharedT } from './i18n.js?v=21';
 import { renderActionFeedback } from './components/feedback.js?v=17';
-import { renderTopBar } from './components/topBar.js?v=19';
+import { renderTopBar } from './components/topBar.js?v=20';
 import { syncAccountIdentity } from './components/accountMenu.js?v=18';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=18';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
-import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=1';
+import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=2';
+import { renderCartMenu } from './components/cartMenu.js?v=1';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 import { readShareState } from './shareState.js?v=4';
 import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
@@ -15,6 +16,8 @@ import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
 const GLOBAL_LOCALE_STORAGE_KEY = '360-configurator:shared-ui:locale';
+const CART_STORAGE_BASE_KEY = '360-configurator:cart';
+const MAX_CART_ITEMS = 100;
 const SAVED_DOMAIN_ID_PARAM = 'savedConfig';
 const SAVED_DOMAIN_OWNER_PARAM = 'savedOwner';
 const DOMAIN_AUTH_STATE_PARAM = 'domainAuthState';
@@ -148,6 +151,9 @@ export class StandaloneConfiguratorShell {
     this.authBusy = false;
     this.authUnsubscribe = null;
     this.languageOpen = false;
+    this.cartOpen = false;
+    this.cartBusy = false;
+    this.cartItems = [];
     this.toolsOpen = false;
     this.feedbackTimer = 0;
     this.saveBusy = false;
@@ -213,6 +219,122 @@ export class StandaloneConfiguratorShell {
       return `${this.projectCounterBaseKey}:tenant:${encodeURIComponent(tenantSlug)}:user:${encodedUid}`;
     }
     return `${this.projectCounterBaseKey}:user:${encodedUid}`;
+  }
+
+  getCartStorageKey(uid = this.authUser?.uid) {
+    const normalizedUid = String(uid || '').trim();
+    return normalizedUid ? `${CART_STORAGE_BASE_KEY}:user:${encodeURIComponent(normalizedUid)}` : '';
+  }
+
+  loadCart(uid = this.authUser?.uid) {
+    const key = this.getCartStorageKey(uid);
+    if (!key) {
+      this.cartItems = [];
+      return;
+    }
+    const stored = safeJsonParse(window.localStorage.getItem(key), []);
+    if (!Array.isArray(stored)) {
+      this.cartItems = [];
+      return;
+    }
+    this.cartItems = stored.slice(0, MAX_CART_ITEMS).map((item) => {
+      const productId = normalizeProductId(item?.productId || 'configuration');
+      const savedConfigurationId = String(item?.savedConfigurationId || '').slice(0, 128);
+      const itemKey = String(item?.key || `${productId}:${savedConfigurationId}`).slice(0, 260);
+      return {
+        key: itemKey,
+        productId,
+        savedConfigurationId,
+        name: String(item?.name || '').slice(0, 80),
+        costText: String(item?.costText || '—').slice(0, 80),
+        addedAt: Number(item?.addedAt) || Date.now(),
+      };
+    }).filter((item) => item.savedConfigurationId && item.key);
+  }
+
+  persistCart() {
+    const key = this.getCartStorageKey();
+    if (!key) return;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(this.cartItems.slice(0, MAX_CART_ITEMS)));
+    } catch (error) {
+      console.warn('Cart state could not be persisted locally.', error);
+    }
+  }
+
+  canAddToCart() {
+    return Boolean(
+      this.authUser?.uid
+      && this.options.capabilities.save !== false
+      && !this.saveBusy
+      && !this.cartBusy
+      && !this.savedLoadBlocked
+      && !this.domainBusy
+    );
+  }
+
+  async addCurrentConfigurationToCart(button) {
+    if (!this.canAddToCart()) return false;
+
+    this.cartBusy = true;
+    this.refreshConfiguratorPanelFooter();
+    try {
+      // Cart entries always reference a persistent user save. Save first so a
+      // cart item can never point at an unsaved or stale configurator state.
+      const saveButton = this.host.querySelector('[data-action="save"]');
+      const saved = await this.save(saveButton, { suppressFeedback: true });
+      if (!saved || !this.currentSavedConfigurationId) {
+        this.showFeedback(sharedT(this.state.locale, 'feedback.cartSaveFailed'), 'error', 2000);
+        return false;
+      }
+
+      const itemKey = `${this.productId}:${this.currentSavedConfigurationId}`;
+      const item = {
+        key: itemKey,
+        productId: this.productId,
+        savedConfigurationId: this.currentSavedConfigurationId,
+        name: String(this.projectName || sharedT(this.state.locale, 'cart.unnamed')).slice(0, 80),
+        costText: String(this.resolveConfiguratorPanelPriceText() || '—').slice(0, 80),
+        addedAt: Date.now(),
+      };
+      const existingIndex = this.cartItems.findIndex((candidate) => candidate.key === itemKey);
+      if (existingIndex >= 0) {
+        this.cartItems.splice(existingIndex, 1, item);
+      } else {
+        this.cartItems.push(item);
+        if (this.cartItems.length > MAX_CART_ITEMS) {
+          this.cartItems.splice(0, this.cartItems.length - MAX_CART_ITEMS);
+        }
+      }
+      this.persistCart();
+      this.renderHost();
+      this.sync();
+      this.showFeedback(sharedT(this.state.locale, 'feedback.addedToCart'));
+      this.options.callbacks.onAddToCart?.({ ...item });
+      return true;
+    } finally {
+      this.cartBusy = false;
+      this.refreshConfiguratorPanelFooter();
+    }
+  }
+
+  removeCartItem(key, button = null) {
+    const itemKey = String(key || '');
+    if (!itemKey) return;
+    const index = this.cartItems.findIndex((item) => item.key === itemKey);
+    if (index < 0) return;
+    const row = button?.closest('[data-cart-item]')
+      || this.host.querySelector(`[data-cart-item][data-cart-key="${CSS.escape(itemKey)}"]`);
+    row?.classList.add('is-removing');
+    button?.setAttribute('disabled', '');
+    window.setTimeout(() => {
+      const currentIndex = this.cartItems.findIndex((item) => item.key === itemKey);
+      if (currentIndex < 0) return;
+      this.cartItems.splice(currentIndex, 1);
+      this.persistCart();
+      this.renderHost();
+      this.sync();
+    }, 220);
   }
 
   getNextDefaultProjectName(uid = this.authUser?.uid || this.activeSessionUid) {
@@ -407,9 +529,12 @@ export class StandaloneConfiguratorShell {
           authUser: this.authUser,
           domainOpen: this.domainOpen,
           currentDomainLocale: getLocaleForHostname(window.location.hostname),
+          cartCount: this.cartItems.length,
+          cartOpen: this.cartOpen,
         },
         capabilities: this.options.capabilities,
       })}
+      ${renderCartMenu(this.state.locale, this.cartItems, { open: this.cartOpen })}
       ${renderActionFeedback(this.state.locale)}
       ${renderLanguageSwitchLoading(this.state.locale)}
       ${renderToolsMenu(this.toolsOpen, { ...this.options.tools, locale: this.state.locale })}
@@ -421,6 +546,7 @@ export class StandaloneConfiguratorShell {
     this.dirtyIndicator = this.host.querySelector('[data-project-dirty]');
     this.accountMenu = this.host.querySelector('[data-account-menu]');
     this.languageMenu = this.host.querySelector('[data-language-menu]');
+    this.cartMenu = this.host.querySelector('[data-cart-menu]');
     this.feedback = this.host.querySelector('[data-save-feedback]');
     this.feedbackText = this.host.querySelector('[data-save-feedback-text]');
     this.languageSwitchLoading = this.host.querySelector('[data-language-switch-loading]');
@@ -439,6 +565,9 @@ export class StandaloneConfiguratorShell {
       if (!event.target.closest('[data-language-menu], [data-action="language"]')) {
         this.languageOpen = false;
       }
+      if (!event.target.closest('[data-cart-menu], [data-action="cart"]')) {
+        this.cartOpen = false;
+      }
       this.syncMenus();
     };
     document.addEventListener('click', this.onDocumentClick);
@@ -448,6 +577,7 @@ export class StandaloneConfiguratorShell {
         const savedDialogWasOpen = this.savedDialog.open;
         this.accountOpen = false;
         this.languageOpen = false;
+        this.cartOpen = false;
         this.domainOpen = false;
         this.savedDialog.open = false;
         if (this.toolsOpen) {
@@ -467,6 +597,17 @@ export class StandaloneConfiguratorShell {
       this.persistMeta();
     };
     window.addEventListener('beforeunload', this.onBeforeUnload);
+
+    // The cart is shared across configurators on this origin. Synchronize
+    // already-open tabs when another configurator adds or removes an item.
+    this.onStorage = (event) => {
+      const uid = this.authUser?.uid;
+      if (!uid || event.key !== this.getCartStorageKey(uid)) return;
+      this.loadCart(uid);
+      this.renderHost();
+      this.sync();
+    };
+    window.addEventListener('storage', this.onStorage);
   }
 
 
@@ -528,8 +669,8 @@ export class StandaloneConfiguratorShell {
 
     this.onConfiguratorPanelFooterClick = (event) => {
       const button = event.target.closest('[data-shared-panel-add-to-cart]');
-      if (!button) return;
-      this.options.callbacks.onAddToCart?.();
+      if (!button || button.disabled) return;
+      void this.addCurrentConfigurationToCart(button);
     };
     footer.addEventListener('click', this.onConfiguratorPanelFooterClick);
     this.refreshConfiguratorPanelFooter();
@@ -544,8 +685,10 @@ export class StandaloneConfiguratorShell {
       ? '0px'
       : (compact ? 'min(352px, calc(100vw - 44px))' : '380px');
 
-    toggle.style.setProperty('position', 'absolute', 'important');
-    toggle.style.setProperty('top', compact ? '26px' : '34px', 'important');
+    toggle.style.setProperty('position', 'fixed', 'important');
+    toggle.style.setProperty('top', compact
+      ? 'calc(var(--shared-topbar-height, 47px) + 26px)'
+      : 'calc(var(--shared-topbar-height, 47px) + 34px)', 'important');
     toggle.style.setProperty('right', right, 'important');
     toggle.style.setProperty('left', 'auto', 'important');
     toggle.style.setProperty('width', '34px', 'important');
@@ -607,6 +750,7 @@ export class StandaloneConfiguratorShell {
       estimatedTotalLabel: sharedT(this.state.locale, 'panel.estimatedTotal'),
       priceText: this.resolveConfiguratorPanelPriceText(),
       addToCartLabel: sharedT(this.state.locale, 'panel.addToCart'),
+      addToCartDisabled: !this.canAddToCart(),
     });
   }
 
@@ -815,6 +959,8 @@ export class StandaloneConfiguratorShell {
     const token = ++this.sessionSwitchToken;
     this.authUser = null;
     this.activeSessionUid = '';
+    this.cartOpen = false;
+    this.cartItems = [];
     this.savedLoadBlocked = false;
     this.projectName = this.getGuestProjectName();
     this.lastSavedProjectName = '';
@@ -854,6 +1000,8 @@ export class StandaloneConfiguratorShell {
     const token = ++this.sessionSwitchToken;
     this.authUser = user;
     this.activeSessionUid = uid;
+    this.cartOpen = false;
+    this.loadCart(uid);
     this.savedLoadBlocked = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
 
@@ -1174,16 +1322,23 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'share') {
       this.share(actionTarget);
     } else if (action === 'cart') {
-      // Reserved Common UI entry point. Cart state/pricing will be wired later.
-      this.options.callbacks.onCartAction?.();
+      this.cartOpen = !this.cartOpen;
+      this.accountOpen = false;
+      this.languageOpen = false;
+      this.domainOpen = false;
+      this.syncMenus();
+    } else if (action === 'cart-remove') {
+      this.removeCartItem(actionTarget.dataset.cartKey, actionTarget);
     } else if (action === 'account') {
       this.accountOpen = !this.accountOpen;
       if (!this.accountOpen) this.domainOpen = false;
       this.languageOpen = false;
+      this.cartOpen = false;
       this.syncMenus();
     } else if (action === 'language') {
       this.languageOpen = !this.languageOpen;
       this.accountOpen = false;
+      this.cartOpen = false;
       this.domainOpen = false;
       this.syncMenus();
       if (this.languageOpen) {
@@ -1590,8 +1745,10 @@ export class StandaloneConfiguratorShell {
   syncMenus() {
     this.accountMenu?.classList.toggle('is-open', this.accountOpen);
     this.languageMenu?.classList.toggle('is-open', this.languageOpen);
+    this.cartMenu?.classList.toggle('is-open', this.cartOpen);
     this.host.querySelector('[data-action="account"]')?.setAttribute('aria-expanded', String(this.accountOpen));
     this.host.querySelector('[data-action="language"]')?.setAttribute('aria-expanded', String(this.languageOpen));
+    this.host.querySelector('[data-action="cart"]')?.setAttribute('aria-expanded', String(this.cartOpen));
   }
 
   syncDomainMenu() {
@@ -1723,6 +1880,7 @@ export class StandaloneConfiguratorShell {
     document.removeEventListener('click', this.onDocumentClick);
     document.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('beforeunload', this.onBeforeUnload);
+    window.removeEventListener('storage', this.onStorage);
     window.clearTimeout(this.draftPersistTimer);
     window.clearInterval(this.dirtyWatchTimer);
     if (this.settingsToggle && this.onSettingsToggle) {
