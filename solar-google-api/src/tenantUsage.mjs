@@ -5,6 +5,26 @@ const TENANTS_COLLECTION = 'tenants';
 const TENANT_USAGE_COLLECTION = 'tenantUsage';
 const TENANT_SUFFIX = '.360configurator.com';
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
+const RESERVED_PLATFORM_SUBDOMAINS = new Set([
+  'www',
+  'aks',
+  'admin',
+  'api',
+  'app',
+  'assets',
+  'auth',
+  'billing',
+  'cdn',
+  'demo',
+  'dev',
+  'ftp',
+  'mail',
+  'staging',
+  'static',
+  'status',
+  'support',
+  'test',
+]);
 const DEFAULT_PLATFORM_ORIGINS = Object.freeze([
   'https://360configurator.com',
   'https://www.360configurator.com',
@@ -66,10 +86,12 @@ function originIsLocalDevelopment(origin) {
 }
 
 function tenantSlugFromHostname(hostname) {
-  const normalized = String(hostname || '').trim().toLowerCase();
+  const normalized = String(hostname || '').trim().toLowerCase().replace(/\.$/, '');
   if (!normalized.endsWith(TENANT_SUFFIX)) return '';
   const slug = normalized.slice(0, -TENANT_SUFFIX.length);
-  return TENANT_SLUG_PATTERN.test(slug) ? slug : '';
+  if (!slug || slug.includes('.') || !TENANT_SLUG_PATTERN.test(slug)) return '';
+  if (RESERVED_PLATFORM_SUBDOMAINS.has(slug)) return '';
+  return slug;
 }
 
 function requestHostname(request) {
