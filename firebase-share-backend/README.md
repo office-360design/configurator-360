@@ -198,7 +198,9 @@ The internal admin page uses additional allowlisted callable functions:
 - `listTenants` returns a limited summary list of Go Live Now tenants without exposing billing/internal tenant fields or large logo payloads.
 - `getTenant` returns the editable administration fields for one tenant, including its current logo.
 - `updateTenant` updates the private `tenants/{slug}` and public `tenantPublic/{slug}` documents in one Firestore transaction.
-- `getTenantPlans` returns the centrally defined Go Live Now plan catalog.
+- `getTenantPlans` returns the centrally defined Go Live Now plan catalog to internal administration.
+- `getPublicTenantPlans` returns the same non-sensitive plan metadata for the future public subscription/pricing experience.
+- `resolveTenantPlanChange` approves or rejects a customer-requested pending plan change.
 - `setTenantSubscriptionState` updates the private subscription state and projects it into the existing public tenant `status`.
 
 The tenant slug and its `<slug>.360configurator.com` domain are immutable. Normal administration deliberately exposes no hard-delete operation. Company name, logo and configurator entitlements can be changed; tenants can be suspended and later reactivated. Suspension preserves the configured products and tenant-scoped saved configurations so reactivation restores the previous customer environment. Disabling one configurator similarly leaves its stored saves in place while server-side entitlement checks make them inaccessible until that configurator is enabled again.
@@ -213,11 +215,13 @@ Before Stripe is connected, Tier-1 tenants use a centrally defined plan/subscrip
 - `go_live_now_3` — maximum 3 configurators
 - `go_live_now_all` — maximum 6 configurators
 
-Existing tenants created before `planId` are interpreted by their current enabled-configurator count and are backfilled the next time an administrator saves them. Prices and Stripe price IDs are intentionally left unset until commercial pricing is finalized. Each plan already carries billing interval/currency placeholders and default Solar quota fields so Stripe price mapping can be added later without changing tenant entitlement logic.
+Existing tenants created before `planId` are interpreted by their current enabled-configurator count and are backfilled the next time an administrator saves them. Prices and Stripe price IDs are intentionally left unset until commercial pricing is finalized. Each plan already carries billing interval/currency placeholders and default Solar quota fields so Stripe price mapping can be added later without changing tenant entitlement logic. The plan catalog also contains display order, short name, description, recommended-plan flag and a feature list so the future subscription page can render its cards from one backend source instead of hard-coding marketing metadata in the frontend.
 
 Private tenant documents also contain a `subscription` object. Its internal status is one of `trialing`, `active`, `past_due`, `suspended`, or `cancelled`; `cancelAtPeriodEnd` is a separate boolean so the model matches recurring-billing semantics. `trialing`, `active`, and `past_due` project to public tenant `status: active`, while `suspended` and `cancelled` project to `status: suspended`. This keeps every existing tenant gate unchanged while giving a future Stripe webhook a single state machine to drive.
 
 New tenants begin with a manual `active` subscription. The internal admin page can change the plan, enforce its configurator-count limit, mark a subscription trialing/past-due/suspended/cancelled, and set or clear cancel-at-period-end. Normal suspend/reactivate buttons use the same subscription state function rather than maintaining a second lifecycle mechanism. Billing provider IDs, customer IDs, subscription IDs, price IDs and future period timestamps live only in the private tenant document and are never copied to `tenantPublic`.
+
+Customer-requested plan changes are now staged rather than applied immediately. The dashboard writes a private `pendingPlanChange` containing the target `planId`, requested configurators and request metadata while the tenant's current plan/entitlements remain active. The tenant can cancel the request through `cancelTenantPlanChange`; internal administration can approve or reject it through `resolveTenantPlanChange`. Approval atomically updates the private/current plan and public configurator entitlements, while rejection simply clears the request. All request/cancel/approve/reject transitions are appended to the tenant audit log. This is the same boundary a future Stripe Checkout/webhook flow can drive.
 
 ### One-time Firebase Auth domain IAM setup
 
@@ -297,13 +301,13 @@ The customer dashboard can change only self-service fields:
 
 - company name;
 - logo;
-- Go Live Now plan;
-- enabled configurators, subject to the selected plan's limit.
+- enabled configurators within the currently active plan;
+- a requested Go Live Now plan change, which remains pending until billing/admin confirmation.
 
 It can read tenant analytics and current Solar usage. It cannot change subscription state, Solar
 quotas, billing-provider identifiers, tenant slug/domain, Firebase Auth registration, or internal
 administration metadata.
 
-Dashboard reads and writes are performed through `getTenantDashboard` and
-`updateTenantDashboard`. Both derive the tenant from the HTTPS `Origin` and never accept a tenant
+Dashboard reads and writes are performed through `getTenantDashboard`, `updateTenantDashboard`,
+and `cancelTenantPlanChange`. All derive the tenant from the HTTPS `Origin` and never accept a tenant
 slug from the browser.

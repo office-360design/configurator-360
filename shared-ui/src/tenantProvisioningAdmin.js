@@ -13,6 +13,7 @@ const FUNCTION_URLS = Object.freeze({
   updateTenant: `${FUNCTION_BASE}/updateTenant`,
   getTenantPlans: `${FUNCTION_BASE}/getTenantPlans`,
   setTenantSubscriptionState: `${FUNCTION_BASE}/setTenantSubscriptionState`,
+  resolveTenantPlanChange: `${FUNCTION_BASE}/resolveTenantPlanChange`,
   getPlatformAnalytics: `${FUNCTION_BASE}/getPlatformAnalytics`,
 });
 const TENANT_SUFFIX = '.360configurator.com';
@@ -90,6 +91,12 @@ const manageSubscriptionStatus = document.querySelector('#manageSubscriptionStat
 const manageCancelAtPeriodEnd = document.querySelector('#manageCancelAtPeriodEnd');
 const manageSubscriptionMeta = document.querySelector('#manageSubscriptionMeta');
 const saveSubscriptionButton = document.querySelector('#saveSubscriptionButton');
+const managePendingPlanFieldset = document.querySelector('#managePendingPlanFieldset');
+const managePendingPlanTitle = document.querySelector('#managePendingPlanTitle');
+const managePendingPlanMeta = document.querySelector('#managePendingPlanMeta');
+const managePendingPlanConfigurators = document.querySelector('#managePendingPlanConfigurators');
+const approvePlanChangeButton = document.querySelector('#approvePlanChangeButton');
+const rejectPlanChangeButton = document.querySelector('#rejectPlanChangeButton');
 const saveTenantButton = document.querySelector('#saveTenantButton');
 const tenantStatusButton = document.querySelector('#tenantStatusButton');
 const openTenantButton = document.querySelector('#openTenantButton');
@@ -203,7 +210,7 @@ function planHint(planId) {
   const price = Number.isInteger(plan.monthlyPriceCents)
     ? `${(plan.monthlyPriceCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${plan.currency}/${plan.billingInterval}`
     : 'Price not configured yet';
-  return `${countLabel} · ${price}`;
+  return `${plan.description || countLabel} · ${countLabel} · ${price}`;
 }
 
 function populatePlanSelect(select, selectedId = '') {
@@ -330,6 +337,10 @@ function auditTypeLabel(type) {
     tenant_dashboard_updated: 'Customer settings',
     tenant_admin_updated: 'Admin settings',
     subscription_state_changed: 'Subscription',
+    plan_change_requested: 'Plan request',
+    plan_change_cancelled: 'Plan request',
+    plan_change_approved: 'Plan changed',
+    plan_change_rejected: 'Plan request',
   })[type] || 'Activity';
 }
 
@@ -575,7 +586,8 @@ function renderTenantList() {
     const planLabel = tenant.planName || tenant.planId || 'Go Live Now';
     const configuratorLabel = labels.length ? labels.join(' · ') : 'No configurators';
     const dashboardOwnerLabel = tenant.ownerEmail ? `Dashboard: ${tenant.ownerEmail}` : 'Dashboard owner not assigned';
-    products.textContent = `${planLabel} · ${subscriptionLabel} · ${configuratorLabel} · ${dashboardOwnerLabel}`;
+    const pendingPlanLabel = tenant.pendingPlanChange ? ` · Pending: ${tenant.pendingPlanChange.planName || tenant.pendingPlanChange.planId}` : '';
+    products.textContent = `${planLabel} · ${subscriptionLabel} · ${configuratorLabel} · ${dashboardOwnerLabel}${pendingPlanLabel}`;
     main.append(titleLine, domain, products);
 
     const actions = document.createElement('div');
@@ -639,6 +651,19 @@ function populateTenantEditor(tenant) {
   const provider = tenant.subscription?.provider || 'manual';
   const providerId = tenant.subscription?.subscriptionId ? ` · ${tenant.subscription.subscriptionId}` : '';
   manageSubscriptionMeta.textContent = `${provider === 'manual' ? 'Manual subscription' : provider}${providerId}`;
+  const pending = tenant.pendingPlanChange || null;
+  managePendingPlanFieldset.hidden = !pending;
+  if (pending) {
+    managePendingPlanTitle.textContent = `${tenant.planName || tenant.planId} → ${pending.planName || pending.planId}`;
+    const requestedBy = pending.requestedByEmail || 'Tenant owner';
+    const requestedAt = pending.requestedAtMs ? formatAuditTime(pending.requestedAtMs) : 'Unknown time';
+    managePendingPlanMeta.textContent = `Requested by ${requestedBy} · ${requestedAt}`;
+    managePendingPlanConfigurators.textContent = `Requested configurators: ${enabledConfiguratorLabels(pending.configurators).join(', ') || 'none'}`;
+  } else {
+    managePendingPlanTitle.textContent = '—';
+    managePendingPlanMeta.textContent = '—';
+    managePendingPlanConfigurators.textContent = '—';
+  }
   populateSolarUsage(tenant);
   populateTenantAnalytics(tenant);
   populateTenantActivity(tenant);
@@ -861,6 +886,42 @@ tenantEditorForm.addEventListener('submit', async (event) => {
     tenantStatusButton.disabled = false;
   }
 });
+
+async function resolvePendingPlanChange(decision) {
+  if (!currentManagedTenant?.pendingPlanChange) return null;
+  const approving = decision === 'approve';
+  const pendingName = currentManagedTenant.pendingPlanChange.planName || currentManagedTenant.pendingPlanChange.planId;
+  if (approving) {
+    const confirmed = window.confirm(`Approve the pending change to ${pendingName}? The requested configurators will become active immediately.`);
+    if (!confirmed) return null;
+  }
+  approvePlanChangeButton.disabled = true;
+  rejectPlanChangeButton.disabled = true;
+  saveTenantButton.disabled = true;
+  setStatus(manageStatus, approving ? 'Approving plan change…' : 'Rejecting plan change…');
+  try {
+    const tenant = await callAdminFunction('resolveTenantPlanChange', {
+      slug: currentManagedTenant.slug,
+      decision,
+    });
+    populateTenantEditor(tenant);
+    tenantEditorForm.hidden = false;
+    setStatus(manageStatus, approving ? 'Plan change approved.' : 'Plan change rejected.', 'success');
+    await refreshTenantList({ quiet: true });
+    return tenant;
+  } catch (error) {
+    console.error('Plan change resolution failed.', error);
+    setStatus(manageStatus, administrationErrorMessage(error), 'error');
+    return null;
+  } finally {
+    approvePlanChangeButton.disabled = false;
+    rejectPlanChangeButton.disabled = false;
+    saveTenantButton.disabled = false;
+  }
+}
+
+approvePlanChangeButton.addEventListener('click', () => resolvePendingPlanChange('approve'));
+rejectPlanChangeButton.addEventListener('click', () => resolvePendingPlanChange('reject'));
 
 async function applySubscriptionState(status, cancelAtPeriodEnd, successMessage) {
   if (!currentManagedTenant) return null;
