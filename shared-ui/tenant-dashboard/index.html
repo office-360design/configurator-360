@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#f4f5f7" />
   <title>Customer Dashboard | 360Configurator</title>
-  <link rel="stylesheet" href="/shared-ui/styles/tenantDashboard.css?v=1" />
+  <link rel="stylesheet" href="/shared-ui/styles/tenantDashboard.css?v=2" />
 </head>
 <body>
   <main class="dashboard-page">
@@ -87,7 +87,7 @@
                 <span id="noCurrentLogo">No logo configured.</span>
               </div>
             </div>
-            <label class="field field--wide">
+            <label class="field field--wide logo-upload-field">
               <span>Replace logo</span>
               <input id="logoInput" type="file" accept="image/png,image/jpeg,image/webp" />
               <small>PNG, JPEG or WebP. The image is resized before it is saved.</small>
@@ -126,7 +126,13 @@
             <h2>Configurator activity</h2>
             <p>Accesses are counted once per configurator tab/session; logins are explicit sign-ins; configurations are fresh configurations created.</p>
           </div>
-          <button type="button" class="button button--secondary" id="refreshButton">Refresh</button>
+          <div class="analytics-actions">
+            <label class="analytics-toggle">
+              <input type="checkbox" id="showAllAnalytics" />
+              <span>Show all configurators</span>
+            </label>
+            <button type="button" class="button button--secondary" id="refreshButton">Refresh</button>
+          </div>
         </div>
         <div class="analytics-grid">
           <div class="analytics-panel">
@@ -158,6 +164,6 @@
     </div>
   </main>
 
-  <script type="module" src="/shared-ui/src/tenantDashboard.js?v=1"></script>
+  <script type="module" src="/shared-ui/src/tenantDashboard.js?v=2"></script>
 </body>
 </html>
