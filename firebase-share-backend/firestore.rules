@@ -33,6 +33,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Tenant audit/activity history is append-only through trusted backend code.
+    // Browsers receive filtered views through authenticated callable functions.
+    match /tenantAuditLogs/{tenantSlug}/{document=**} {
+      allow read, write: if false;
+    }
+
     function loggedIn() {
       return request.auth.uid != null;
     }

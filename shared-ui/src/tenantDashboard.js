@@ -58,6 +58,8 @@ const solarAnalyses = document.querySelector('#solarAnalyses');
 const solarBuildingInsights = document.querySelector('#solarBuildingInsights');
 const solarDataLayers = document.querySelector('#solarDataLayers');
 const solarPvgis = document.querySelector('#solarPvgis');
+const activityList = document.querySelector('#activityList');
+const activityEmpty = document.querySelector('#activityEmpty');
 
 let currentUser = null;
 let dashboard = null;
@@ -133,6 +135,65 @@ function renderDashboardAnalytics() {
   const showAll = showAllAnalytics?.checked === true;
   renderAnalytics(monthAnalyticsBody, dashboard.analytics?.currentMonth, dashboard.configurators, showAll);
   renderAnalytics(lifetimeAnalyticsBody, dashboard.analytics?.lifetime, dashboard.configurators, showAll);
+}
+
+function activityActorLabel(actorType) {
+  return ({
+    admin: '360Configurator admin',
+    tenant_owner: 'Customer account',
+    system: 'System',
+  })[actorType] || 'System';
+}
+
+function activityTypeLabel(type) {
+  return ({
+    tenant_created: 'Created',
+    dashboard_owner_claimed: 'Owner linked',
+    tenant_dashboard_updated: 'Settings',
+    tenant_admin_updated: 'Administration',
+    subscription_state_changed: 'Subscription',
+  })[type] || 'Activity';
+}
+
+function formatActivityTime(value) {
+  const ms = Number(value) || 0;
+  if (!ms) return 'Unknown time';
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toLocaleString();
+  }
+}
+
+function renderActivityLog(events = []) {
+  if (!activityList || !activityEmpty) return;
+  activityList.replaceChildren();
+  const items = Array.isArray(events) ? events : [];
+  activityEmpty.hidden = items.length > 0;
+  items.forEach((event) => {
+    const row = document.createElement('article');
+    row.className = 'activity-item';
+
+    const marker = document.createElement('span');
+    marker.className = 'activity-item__marker';
+    marker.textContent = activityTypeLabel(event.type).slice(0, 1);
+
+    const body = document.createElement('div');
+    body.className = 'activity-item__body';
+    const title = document.createElement('strong');
+    title.textContent = event.summary || 'Tenant activity recorded.';
+    const meta = document.createElement('span');
+    meta.textContent = `${activityActorLabel(event.actorType)} · ${formatActivityTime(event.createdAtMs)}`;
+    body.append(title, meta);
+
+    const badge = document.createElement('span');
+    badge.className = 'activity-item__badge';
+    badge.textContent = activityTypeLabel(event.type);
+    row.append(marker, body, badge);
+    activityList.append(row);
+  });
 }
 
 function clearLogoPreview() {
@@ -217,6 +278,7 @@ function populateDashboard(data) {
     solarDataLayers.textContent = analyticsMetric(usage.dataLayers).toLocaleString();
     solarPvgis.textContent = analyticsMetric(usage.pvgis).toLocaleString();
   }
+  renderActivityLog(data.auditEvents);
   workspace.hidden = false; accessErrorCard.hidden = true; signedOutCard.hidden = true; setStatus();
 }
 

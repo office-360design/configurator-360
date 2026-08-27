@@ -98,3 +98,43 @@ tbody tr:last-child td { border-bottom: 0; }
   .form-grid, .metric-grid, .metric-grid--usage { grid-template-columns: 1fr; }
   .configurator-grid { grid-template-columns: 1fr; }
 }
+
+.activity-list { display: grid; gap: 10px; }
+.activity-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  background: #fbfcfd;
+}
+.activity-item__marker {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #111827;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+.activity-item__body { min-width: 0; display: grid; gap: 4px; }
+.activity-item__body strong { font-size: 14px; line-height: 1.4; }
+.activity-item__body span { color: #667085; font-size: 12px; }
+.activity-item__badge {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: #475467;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.activity-empty { margin: 0; padding: 18px; border: 1px dashed #d0d5dd; border-radius: 12px; color: #667085; text-align: center; }
+@media (max-width: 680px) {
+  .activity-item { grid-template-columns: 34px minmax(0, 1fr); align-items: start; }
+  .activity-item__badge { grid-column: 2; justify-self: start; }
+}

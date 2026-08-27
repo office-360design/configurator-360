@@ -71,6 +71,9 @@ jobs:
       - name: Validate Tier-1 customer dashboard
         run: node scripts/validation/validate_tenant_dashboard.mjs
 
+      - name: Validate Tier-1 tenant audit log
+        run: node scripts/validation/validate_tenant_audit_log.mjs
+
       - name: Validate expected Firebase exports
         working-directory: firebase-share-backend/functions
         run: >-
@@ -108,6 +111,7 @@ jobs:
           echo "- Tier-1 lifecycle: list/edit configurators, branding, suspend and reactivate tenants without deleting data" >> "$GITHUB_STEP_SUMMARY"
           echo "- Tier-1 subscription foundation: plan limits + Stripe-ready subscription state machine" >> "$GITHUB_STEP_SUMMARY"
           echo "- Tier-1 customer dashboard: owner-bound self-service branding, plan/configurator management and analytics" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tier-1 audit log: append-only tenant lifecycle/settings history for customers and internal admins" >> "$GITHUB_STEP_SUMMARY"
           echo "- Tier-1 usage: monthly Solar metering and enforceable per-tenant quotas" >> "$GITHUB_STEP_SUMMARY"
           echo "- reCAPTCHA monthly safety threshold: 9,500 assessments" >> "$GITHUB_STEP_SUMMARY"
           echo "- Automatic fallback: reCAPTCHA-free direct Firestore Share until next UTC month" >> "$GITHUB_STEP_SUMMARY"
