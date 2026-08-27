@@ -277,7 +277,26 @@ function orientRoofTrianglesUpward(geometry, preserveAuthoredNormals = false) {
   return geometry;
 }
 
-function roofFaceGeometry(points, covering, preferredCourseDirection = null) {
+function distanceToPolygonEdges(point, polygon) {
+  let minimum = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < polygon.length; index += 1) {
+    const start = polygon[index];
+    const end = polygon[(index + 1) % polygon.length];
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared > 1e-12
+      ? clamp01(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared)
+      : 0;
+    minimum = Math.min(minimum, Math.hypot(
+      point.x - (start.x + dx * t),
+      point.y - (start.y + dy * t),
+    ));
+  }
+  return minimum;
+}
+
+function roofFaceGeometry(points, covering, preferredCourseDirection = null, options = {}) {
   const normal = faceNormal(points);
   let edgeIndex = 0;
   let edgeScore = Number.POSITIVE_INFINITY;
@@ -287,13 +306,14 @@ function roofFaceGeometry(points, covering, preferredCourseDirection = null) {
     const score = (points[index].y + points[next].y) * 0.5 + verticalDelta * 100;
     if (score < edgeScore) { edgeScore = score; edgeIndex = index; }
   }
-  const origin = points[edgeIndex].clone();
+  const localOrigin = points[edgeIndex].clone();
   const next = points[(edgeIndex + 1) % points.length];
   const courseDirection = preferredCourseDirection
     ? preferredCourseDirection.clone().normalize()
-    : new THREE.Vector3().subVectors(next, origin).normalize();
+    : new THREE.Vector3().subVectors(next, localOrigin).normalize();
   const slopeDirection = normal.clone().cross(courseDirection).normalize();
   if (slopeDirection.y < 0) slopeDirection.negate();
+  const origin = options.profileOrigin?.clone() ?? localOrigin;
   const clipPolygon = points.map((point) => {
     const relative = new THREE.Vector3().subVectors(point, origin);
     return new THREE.Vector2(relative.dot(courseDirection), relative.dot(slopeDirection));
@@ -315,16 +335,33 @@ function roofFaceGeometry(points, covering, preferredCourseDirection = null) {
   const indices = [];
   const derivativeStep = 0.002;
 
+  const surfaceHeight = (uv) => {
+    const basePoint = origin.clone()
+      .addScaledVector(courseDirection, uv.x)
+      .addScaledVector(slopeDirection, uv.y);
+    let reliefScale = 1;
+    if (covering === 'teclado') {
+      // The shallow slate profile already meets cleanly and should retain its
+      // crisp rectangular perimeter.
+      reliefScale = 1;
+    } else if (options.reliefScaleAtPoint) {
+      reliefScale = clamp01(options.reliefScaleAtPoint(basePoint));
+    } else if (options.fadeAtBoundary !== false) {
+      reliefScale = smoothstep(0, 0.14, distanceToPolygonEdges(uv, clipPolygon));
+    }
+    return roofProfileHeight(covering, uv.x, uv.y) * reliefScale;
+  };
+
   const addVertex = (uv) => {
-    const height = roofProfileHeight(covering, uv.x, uv.y);
+    const height = surfaceHeight(uv);
     const point = origin.clone()
       .addScaledVector(courseDirection, uv.x)
       .addScaledVector(slopeDirection, uv.y)
       .addScaledVector(normal, height);
-    const du = (roofProfileHeight(covering, uv.x + derivativeStep, uv.y)
-      - roofProfileHeight(covering, uv.x - derivativeStep, uv.y)) / (derivativeStep * 2);
-    const dv = (roofProfileHeight(covering, uv.x, uv.y + derivativeStep)
-      - roofProfileHeight(covering, uv.x, uv.y - derivativeStep)) / (derivativeStep * 2);
+    const du = (surfaceHeight(new THREE.Vector2(uv.x + derivativeStep, uv.y))
+      - surfaceHeight(new THREE.Vector2(uv.x - derivativeStep, uv.y))) / (derivativeStep * 2);
+    const dv = (surfaceHeight(new THREE.Vector2(uv.x, uv.y + derivativeStep))
+      - surfaceHeight(new THREE.Vector2(uv.x, uv.y - derivativeStep))) / (derivativeStep * 2);
     const tangentU = courseDirection.clone().addScaledVector(normal, du);
     const tangentV = slopeDirection.clone().addScaledVector(normal, dv);
     const surfaceNormal = tangentU.cross(tangentV).normalize();
@@ -1065,7 +1102,7 @@ function addExactRoofEnvelope(group, xCoordinates, zCoordinates, planes, materia
   const underlayIndices = [];
   let roofArea = 0;
 
-  const addPolygon = (polygon, plane) => {
+  const addPolygon = (polygon, plane, activePlanes) => {
     if (polygon.length < 3 || Math.abs(polygonArea2D(polygon)) < 1e-9) return;
 
     // In Three.js' XZ plane, clockwise 2D winding produces an upward +Y normal.
@@ -1088,7 +1125,27 @@ function addExactRoofEnvelope(group, xCoordinates, zCoordinates, planes, materia
     for (let index = 1; index < worldPoints.length - 1; index += 1) {
       underlayIndices.push(underlayBase, underlayBase + index, underlayBase + index + 1);
     }
-    const geometry = roofFaceGeometry(worldPoints, materials.covering, courseDirection);
+    const profileOrigin = new THREE.Vector3(0, plane.height(0, 0), 0);
+    const competingPlanes = activePlanes.filter((competitor) => competitor !== plane);
+    const reliefScaleAtPoint = (point) => {
+      let scale = 1;
+      for (const competitor of competingPlanes) {
+        const epsilon = 0.01;
+        const difference = (x, z) => plane.height(x, z) - competitor.height(x, z);
+        const gradientX = (difference(point.x + epsilon, point.z) - difference(point.x - epsilon, point.z)) / (epsilon * 2);
+        const gradientZ = (difference(point.x, point.z + epsilon) - difference(point.x, point.z - epsilon)) / (epsilon * 2);
+        const gradientLength = Math.hypot(gradientX, gradientZ);
+        if (gradientLength < 1e-8) continue;
+        const seamDistance = Math.abs(difference(point.x, point.z)) / gradientLength;
+        scale = Math.min(scale, smoothstep(0, 0.16, seamDistance));
+      }
+      return scale;
+    };
+    const geometry = roofFaceGeometry(worldPoints, materials.covering, courseDirection, {
+      profileOrigin,
+      reliefScaleAtPoint,
+      fadeAtBoundary: false,
+    });
     const baseIndex = positions.length / 3;
     positions.push(...geometry.getAttribute('position').array);
     normals.push(...geometry.getAttribute('normal').array);
@@ -1135,7 +1192,7 @@ function addExactRoofEnvelope(group, xCoordinates, zCoordinates, planes, materia
           );
           if (polygon.length < 3) break;
         }
-        addPolygon(polygon, plane);
+        addPolygon(polygon, plane, activePlanes);
       }
     }
   }
