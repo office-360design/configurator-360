@@ -869,6 +869,7 @@ window.WINDOW_CONFIGURATOR_API = {
     captureState: captureWindowConfiguration,
     restoreState: (snapshot) => window.applyConfiguration(snapshot),
     resetConfiguration: resetWindowConfiguration,
+    getEstimatedTotalEur: () => windowSummaryController?.getResult()?.totals?.total ?? null,
 };
 
 // ANIMATION & LOOP

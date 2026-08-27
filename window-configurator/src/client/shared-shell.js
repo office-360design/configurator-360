@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=33';
+import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=34';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=4';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=1';
@@ -43,6 +43,17 @@ const shell = mountStandaloneConfiguratorShell({
   configuratorPanel: {
     panelSelector: '#controls',
     fallbackValue: 0,
+    getEstimatedTotal({ currency = 'EUR' } = {}) {
+      const totalEur = window.WINDOW_CONFIGURATOR_API?.getEstimatedTotalEur?.();
+      if (totalEur === null || totalEur === undefined || !Number.isFinite(Number(totalEur))) return null;
+      const converted = convertCartMoneyAmount(Number(totalEur), 'EUR', currency);
+      // Common UI displays whole currency units, so return the same amount that
+      // will be persisted into the immutable cart snapshot.
+      return {
+        value: Math.round(converted),
+        currency,
+      };
+    },
   },
   callbacks: {
     onViewAR() {
@@ -106,3 +117,10 @@ if (preferredPlatform) {
 
 window.WINDOW_CONFIGURATOR_SHARED_SHELL = shell;
 window.WINDOW_CONFIGURATOR_UNDO_HISTORY = history;
+window.dispatchEvent(new CustomEvent('window-shared-shell-ready', {
+  detail: { currency: shell.state?.currency || 'EUR' },
+}));
+
+window.addEventListener('window-pricing-updated', () => {
+  shell.refreshConfiguratorPanelFooter();
+});
