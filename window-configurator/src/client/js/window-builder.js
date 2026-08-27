@@ -38,6 +38,7 @@ import {
 } from './window-layout-state.js';
 
 const S = 0.001;
+const NOMINAL_OUTER_FRAME_FACE_M = 0.057;
 
 export function createWindowBuilder({
     scene,
@@ -71,6 +72,7 @@ export function createWindowBuilder({
     getFinishState,
     getSelectedHandleSide,
     onGlassClick = () => { },
+    onFabricationSnapshot = () => { },
     isProfileEnabled = () => true,
     canPlaceProfileOnSide = () => true,
     getWindowLayoutState = () => ({
@@ -89,6 +91,9 @@ export function createWindowBuilder({
     let explodeProgress = 0;
     let explodableObjects = [];
     let editableTopologyGeometry = null;
+    let selectedGlassCellId = null;
+    const glassNumberSprites = new Map();
+    let lastFabricationSnapshot = null;
 
     function registerExplode(obj, dx, dy, dz) {
         obj.userData.basePos = obj.position.clone();
@@ -189,6 +194,14 @@ export function createWindowBuilder({
         const bounds = getDividerSourceBounds(dividerProfiles);
         if (!bounds) return 0;
         return getDividerCrossSectionMetrics(bounds).faceSpanM;
+    }
+
+    function getFrameFaceSpanM() {
+        // The converted CAD assembly bounding box includes small lips/flanges
+        // outside the nominal frame face, so using the complete bbox produced
+        // a 72 mm layout face and made a 600 x 900 cell render as 615 x 930.
+        // The AW CT 65 outer-frame sizing face is 57 mm (575760 / 575770).
+        return NOMINAL_OUTER_FRAME_FACE_M;
     }
 
 
@@ -965,11 +978,13 @@ export function createWindowBuilder({
     const pivotBatant = new THREE.Group();
     let handleLeverGroup = new THREE.Group();
     let sashPoseAssemblies = [];
+    const sashPoseAnglesByCell = new Map();
+    let activePoseCellId = null;
+    let poseStateInitialized = false;
     let handleHitMeshes = [];
     let glassHitMeshes = [];
     let lastBuiltHandleSide = null;
     let handleHoldUntil = 0;
-    let currentPoseAngle = Number.parseFloat(document.getElementById('openAngle')?.value) || 0;
     let handleAngleAnimation = null;
 
     const HANDLE_CLICK_DRAG_THRESHOLD_PX = 5;
@@ -994,37 +1009,87 @@ export function createWindowBuilder({
         );
     }
 
-    function startHandleAngleToggle() {
+    function clampOpeningAngle(value, maxAngle = getOpeningAngleLimit()) {
+        return Math.min(maxAngle, Math.max(0, Number.parseFloat(value) || 0));
+    }
+
+    function getPoseAngle(cellId) {
+        const id = cellId ? String(cellId) : null;
+        if (!id) return 0;
+        return clampOpeningAngle(sashPoseAnglesByCell.get(id) || 0);
+    }
+
+    function setPoseAngle(cellId, value) {
+        const id = cellId ? String(cellId) : null;
+        if (!id) return 0;
+        const clamped = clampOpeningAngle(value);
+        sashPoseAnglesByCell.set(id, clamped);
+        return clamped;
+    }
+
+    function hasPoseAssembly(cellId) {
+        const id = cellId ? String(cellId) : null;
+        return Boolean(id && sashPoseAssemblies.some(assembly => String(assembly.cellId) === id));
+    }
+
+    function getActivePoseCellId() {
+        if (activePoseCellId && hasPoseAssembly(activePoseCellId)) {
+            return String(activePoseCellId);
+        }
+        if (selectedGlassCellId && hasPoseAssembly(selectedGlassCellId)) {
+            return String(selectedGlassCellId);
+        }
+        return sashPoseAssemblies[0]?.cellId ? String(sashPoseAssemblies[0].cellId) : null;
+    }
+
+    function syncOpenAngleControl(cellId = getActivePoseCellId()) {
         const input = document.getElementById('openAngle');
-        if (!input || !sashPoseAssemblies.length) return false;
+        const value = cellId ? getPoseAngle(cellId) : 0;
+        if (input) input.value = String(Math.round(value));
+        const valAngleEl = document.getElementById('valAngle');
+        if (valAngleEl) valAngleEl.innerText = `${Math.round(value)}°`;
+    }
+
+    function startHandleAngleToggle(cellId) {
+        const id = cellId ? String(cellId) : null;
+        if (!id || !hasPoseAssembly(id)) return false;
 
         const maxAngle = getOpeningAngleLimit();
-        const sliderAngle = Math.min(
-            maxAngle,
-            Math.max(0, Number.parseFloat(input.value) || 0)
-        );
-        const from = handleAngleAnimation ? currentPoseAngle : sliderAngle;
-        // A second handle click during motion always means "close". When
-        // stationary, anything above the closed position also closes; only a
-        // genuinely closed sash opens fully.
-        const to = handleAngleAnimation
+        const from = getPoseAngle(id);
+        const isSameAnimation = handleAngleAnimation?.cellId === id;
+        // A second click on the same moving sash means close. Otherwise only
+        // the clicked sash toggles between closed and the current mode limit.
+        const to = isSameAnimation
             ? 0
             : (from > HANDLE_CLOSED_EPSILON_DEG ? 0 : maxAngle);
         const travelRatio = maxAngle > 0 ? Math.abs(to - from) / maxAngle : 1;
 
-        currentPoseAngle = from;
+        activePoseCellId = id;
         handleAngleAnimation = {
+            cellId: id,
             from,
             to,
             maxAngle,
             startedAt: performance.now(),
             durationMs: 300 + 400 * travelRatio,
         };
+        syncOpenAngleControl(id);
         return true;
     }
 
     function cancelHandleAngleAnimation() {
         handleAngleAnimation = null;
+    }
+
+    function handleOpenAngleInput() {
+        const input = document.getElementById('openAngle');
+        const cellId = getActivePoseCellId();
+        if (!input || !cellId) return;
+        activePoseCellId = cellId;
+        handleAngleAnimation = null;
+        const value = setPoseAngle(cellId, input.value);
+        const valAngleEl = document.getElementById('valAngle');
+        if (valAngleEl) valAngleEl.innerText = `${Math.round(value)}°`;
     }
 
     function raycastMeshes(clientX, clientY, meshes) {
@@ -1067,8 +1132,10 @@ export function createWindowBuilder({
         if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > HANDLE_CLICK_DRAG_THRESHOLD_PX) {
             return;
         }
-        if (raycastHandle(event.clientX, event.clientY)) {
-            if (startHandleAngleToggle()) {
+        const handleObject = raycastHandle(event.clientX, event.clientY);
+        if (handleObject) {
+            const handleCellId = handleObject.userData?.windowHandleCellId;
+            if (startHandleAngleToggle(handleCellId)) {
                 event.preventDefault();
             }
             return;
@@ -1095,6 +1162,7 @@ export function createWindowBuilder({
         renderer.domElement.addEventListener('pointerup', handleCanvasPointerUp);
         renderer.domElement.addEventListener('pointercancel', handleCanvasPointerCancel);
         document.getElementById('openAngle')?.addEventListener('input', cancelHandleAngleAnimation);
+        document.getElementById('openAngle')?.addEventListener('input', handleOpenAngleInput);
     }
 
     placementRoot.add(mainGroup);
@@ -1547,7 +1615,7 @@ export function createWindowBuilder({
         color: 0x38bdf8
     });
 
-    function createLabelSprite(text) {
+    function createLabelSprite(text, scale = 1) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = 256;
@@ -1593,8 +1661,57 @@ export function createWindowBuilder({
             depthWrite: false
         });
         const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(0.35, 0.175, 1);
+        const safeScale = Math.max(0.4, Number(scale) || 1);
+        sprite.scale.set(0.35 * safeScale, 0.175 * safeScale, 1);
         return sprite;
+    }
+
+    function getWindowNumber(_cellId, fallbackIndex = 0) {
+        // Window IDs are stable topology identifiers and can legitimately skip
+        // after merge/delete operations. Visible numbering is always dense and
+        // follows the current rendered cell order instead of exposing those IDs.
+        return Math.max(1, Number(fallbackIndex) + 1);
+    }
+
+    function createGlassNumberSprite(cellId, fallbackIndex = 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 64px Outfit, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(getWindowNumber(cellId, fallbackIndex)), 64, 66);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            color: String(cellId) === String(selectedGlassCellId) ? 0x7dd3fc : 0xffffff,
+        });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(0.12, 0.12, 1);
+        sprite.renderOrder = 20;
+        sprite.userData.windowNumberCellId = String(cellId || '');
+        glassNumberSprites.set(String(cellId || ''), sprite);
+        return sprite;
+    }
+
+    function setSelectedGlassCell(cellId) {
+        selectedGlassCellId = cellId ? String(cellId) : null;
+        glassNumberSprites.forEach((sprite, id) => {
+            if (!sprite?.material?.color) return;
+            sprite.material.color.setHex(id === selectedGlassCellId ? 0x7dd3fc : 0xffffff);
+        });
+        if (selectedGlassCellId && hasPoseAssembly(selectedGlassCellId)) {
+            activePoseCellId = selectedGlassCellId;
+            syncOpenAngleControl(selectedGlassCellId);
+        }
     }
 
     function buildDimensionLines(A, B, activeProfiles = []) {
@@ -1622,23 +1739,17 @@ export function createWindowBuilder({
         let maxY = B / 2;
 
         if (editableTopologyGeometry) {
-            const framePlacements = editableTopologyGeometry.framePlacements || [];
-            const verticalFrameEdges = framePlacements
-                .filter(frame => frame.orientation === 'vertical')
-                .map(frame => Number(frame.perpendicularOffset))
-                .filter(Number.isFinite);
-            const horizontalFrameEdges = framePlacements
-                .filter(frame => frame.orientation === 'horizontal')
-                .map(frame => Number(frame.perpendicularOffset))
-                .filter(Number.isFinite);
-
-            if (verticalFrameEdges.length >= 2) {
-                minX = Math.min(...verticalFrameEdges);
-                maxX = Math.max(...verticalFrameEdges);
+            const geometryMinX = Number(editableTopologyGeometry.overallMinX);
+            const geometryMaxX = Number(editableTopologyGeometry.overallMaxX);
+            const geometryMinY = Number(editableTopologyGeometry.overallMinY);
+            const geometryMaxY = Number(editableTopologyGeometry.overallMaxY);
+            if ([geometryMinX, geometryMaxX].every(Number.isFinite)) {
+                minX = geometryMinX;
+                maxX = geometryMaxX;
             }
-            if (horizontalFrameEdges.length >= 2) {
-                minY = Math.min(...horizontalFrameEdges);
-                maxY = Math.max(...horizontalFrameEdges);
+            if ([geometryMinY, geometryMaxY].every(Number.isFinite)) {
+                minY = geometryMinY;
+                maxY = geometryMaxY;
             }
         }
 
@@ -1676,6 +1787,77 @@ export function createWindowBuilder({
         const leftLabel = createLabelSprite(`${Math.round(constructionHeight * 1000)} mm`);
         leftLabel.position.set(leftX, constructionCenterY, zPos);
         dimensionsGroup.add(leftLabel);
+
+        // Individual window dimensions are projected to the OUTSIDE margins
+        // of the complete construction. This keeps the model readable: width
+        // bars live only above the layout and height bars only to its right,
+        // rather than drawing a pair of guides around every cell. Identical
+        // spans are deduplicated (for example two windows in the same column).
+        if (editableTopologyGeometry?.cells?.length) {
+            const localOffset = 0.075;
+            const localTick = 0.025;
+            const laneGap = 0.06;
+
+            const uniqueItems = (items) => {
+                const seen = new Set();
+                return items.filter(item => {
+                    const key = [item.start, item.end, item.value]
+                        .map(value => Number(value).toFixed(6))
+                        .join(':');
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+            };
+
+            const assignLanes = (items) => {
+                const laneEnds = [];
+                return [...items]
+                    .sort((a, b) => a.start - b.start || a.end - b.end)
+                    .map(item => {
+                        let lane = laneEnds.findIndex(end => item.start >= end - 1e-9);
+                        if (lane < 0) {
+                            lane = laneEnds.length;
+                            laneEnds.push(item.end);
+                        } else {
+                            laneEnds[lane] = item.end;
+                        }
+                        return { ...item, lane };
+                    });
+            };
+
+            const widthItems = uniqueItems(editableTopologyGeometry.cells.flatMap(cell => {
+                const start = Number(cell.actualX0);
+                const end = Number(cell.actualX1);
+                if (![start, end].every(Number.isFinite) || end <= start) return [];
+                return [{ start, end, value: Math.max(0, end - start) }];
+            }));
+            assignLanes(widthItems).forEach(item => {
+                const y = maxY + localOffset + item.lane * laneGap;
+                addLineSegment(new THREE.Vector3(item.start, y, zPos), new THREE.Vector3(item.end, y, zPos));
+                addLineSegment(new THREE.Vector3(item.start, y - localTick, zPos), new THREE.Vector3(item.start, y + localTick, zPos));
+                addLineSegment(new THREE.Vector3(item.end, y - localTick, zPos), new THREE.Vector3(item.end, y + localTick, zPos));
+                const label = createLabelSprite(`${Math.round(item.value * 1000)} mm`, 0.72);
+                label.position.set((item.start + item.end) / 2, y, zPos);
+                dimensionsGroup.add(label);
+            });
+
+            const heightItems = uniqueItems(editableTopologyGeometry.cells.flatMap(cell => {
+                const start = Number(cell.actualY0);
+                const end = Number(cell.actualY1);
+                if (![start, end].every(Number.isFinite) || end <= start) return [];
+                return [{ start, end, value: Math.max(0, end - start) }];
+            }));
+            assignLanes(heightItems).forEach(item => {
+                const x = maxX + localOffset + item.lane * laneGap;
+                addLineSegment(new THREE.Vector3(x, item.start, zPos), new THREE.Vector3(x, item.end, zPos));
+                addLineSegment(new THREE.Vector3(x - localTick, item.start, zPos), new THREE.Vector3(x + localTick, item.start, zPos));
+                addLineSegment(new THREE.Vector3(x - localTick, item.end, zPos), new THREE.Vector3(x + localTick, item.end, zPos));
+                const label = createLabelSprite(`${Math.round(item.value * 1000)} mm`, 0.72);
+                label.position.set(x, (item.start + item.end) / 2, zPos);
+                dimensionsGroup.add(label);
+            });
+        }
 
         // 4. RIGHT DIMENSION (Height)
         const rightX = maxX + offset;
@@ -2110,17 +2292,13 @@ export function createWindowBuilder({
         sashPoseAssemblies = [];
         handleHitMeshes = [];
         glassHitMeshes = [];
+        glassNumberSprites.clear();
         explodableObjects = [];
         const t_clear = performance.now();
 
-        const A = parseFloat(document.getElementById('widthA').value);
-        const B = parseFloat(document.getElementById('heightB').value);
-
-        // UI text update
-        const valWidthEl = document.getElementById('valWidth');
-        if (valWidthEl) valWidthEl.innerText = `${Math.round(A * 1000)} mm`;
-        const valHeightEl = document.getElementById('valHeight');
-        if (valHeightEl) valHeightEl.innerText = `${Math.round(B * 1000)} mm`;
+        let A = parseFloat(document.getElementById('widthA').value);
+        let B = parseFloat(document.getElementById('heightB').value);
+        const fabricationGlassPieces = [];
 
         const frameGroup = new THREE.Group();
         const sashGroup = new THREE.Group();
@@ -2139,20 +2317,20 @@ export function createWindowBuilder({
         const layoutState = getWindowLayoutState();
         const isEditableTopology = layoutState.isDynamicWindowState === true;
 
-        // The sliders are the outside dimensions of one complete standalone
-        // window. Dynamic topology uses a smaller grid pitch because every
-        // shared side replaces an outer frame with a mullion. Compute that
-        // constant from the active frame profile before resolving topology and
-        // keep using it even after a merge removes the last divider; otherwise
-        // the merged window jumps wider as soon as the mullion disappears.
-        const editableFrameReplacementSpan = isEditableTopology
+        // Keep the profile dimensions used by the layout editor separate:
+        // - outer-frame visible face: 57 mm (CAD X span)
+        // - mullion visible face: 88 mm
+        // - outer-frame profile depth / machining span: 65 mm (CAD inward Y)
+        // The grid reference is the mullion centreline, therefore an exposed
+        // frame contributes 57 - 88/2 = 13 mm beyond a cell grid line.
+        const editableFrameFaceSpan = isEditableTopology
+            ? getFrameFaceSpanM(activeProfiles)
+            : 0;
+        const editableFrameInwardSpan = isEditableTopology
             ? getFrameJointInwardSpanM(activeProfiles)
             : 0;
-        const editableDividerFaceSpan = isEditableTopology && activeDividerProfiles.length
-            ? Math.min(
-                Math.min(A, B) * 0.3,
-                getDividerFaceSpanM(activeDividerProfiles)
-            )
+        const editableDividerFaceSpan = isEditableTopology
+            ? getDividerFaceSpanM(activeDividerProfiles)
             : 0;
         editableTopologyGeometry = isEditableTopology
             ? getEditableWindowTopologyGeometry({
@@ -2162,10 +2340,16 @@ export function createWindowBuilder({
                 dividerConnectionVariants: currentMetadata.dividerConnectionVariants,
                 transConnection: currentMetadata.transConnection,
                 connectionScale: S,
-                frameReplacementSpan: editableFrameReplacementSpan,
+                frameReplacementSpan: editableFrameInwardSpan,
+                frameFaceSpan: editableFrameFaceSpan,
+                frameInwardSpan: editableFrameInwardSpan,
                 dividerFaceSpan: editableDividerFaceSpan,
             })
             : null;
+        if (editableTopologyGeometry) {
+            A = Number(editableTopologyGeometry.overallWidth) || A;
+            B = Number(editableTopologyGeometry.overallHeight) || B;
+        }
         const isTopFixedBottomSashSash = !isEditableTopology && (
             layoutState.layoutId === 'top-fixed-bottom-sash-sash'
             || layoutState.layoutKind === 't-grid'
@@ -2192,7 +2376,7 @@ export function createWindowBuilder({
         // miters lose the CAD-derived reference extension and the whole outside
         // frame visibly shrinks.
         const frameJointInwardSpan = isEditableTopology
-            ? (editableFrameReplacementSpan || getFrameJointInwardSpanM(activeProfiles))
+            ? (editableFrameInwardSpan || getFrameJointInwardSpanM(activeProfiles))
             : (dividerOrientation ? getFrameJointInwardSpanM(activeProfiles) : 0);
         const editableFramePlacements = isEditableTopology
             ? (editableTopologyGeometry?.framePlacements || []).map(placement =>
@@ -4459,7 +4643,7 @@ export function createWindowBuilder({
                         || isFixedGlassAnchorGasket(profile);
                 })
                 .forEach(profile => {
-                    fixedCells.forEach(fixedCell => {
+                    fixedCells.forEach((fixedCell, fixedCellIndex) => {
                         sides.forEach(side => {
                             if (!shouldPlaceProfileOnSide(profile, side)) return;
                             if (isEditableTopology) {
@@ -4513,22 +4697,44 @@ export function createWindowBuilder({
             isFixed = false,
             cellId = null,
             glazingCavity = null,
+            numberIndex = 0,
         }) {
+            const paneWidth = Math.max(0.05, width);
+            const paneHeight = Math.max(0.05, height);
             const pane = new THREE.Mesh(
                 new THREE.BoxGeometry(
-                    Math.max(0.05, width),
-                    Math.max(0.05, height),
+                    paneWidth,
+                    paneHeight,
                     glassPlacement.thicknessMm * S
                 ),
                 glassMat
             );
+            fabricationGlassPieces.push(Object.freeze({
+                width: paneWidth,
+                height: paneHeight,
+                centerX,
+                centerY,
+                isFixed: Boolean(isFixed),
+                cellId,
+            }));
             pane.position.set(centerX, centerY, glassPlacement.centerZ);
-            pane.castShadow = !captureMode;
+            // Transparent glass should not cast the same fully opaque shadow as
+            // aluminium/PVC components. Three.js shadow maps treat a transparent
+            // MeshStandardMaterial as an opaque depth caster, so leaving castShadow
+            // enabled makes the pane darken the ground as strongly as the frame.
+            // Keep receiving shadows for depth cues, but let only the solid window
+            // components cast workshop/scene shadows.
+            pane.castShadow = false;
             pane.receiveShadow = !captureMode;
             pane.userData.glazingCavity = glazingCavity;
             pane.userData.windowCell = cellId || (isFixed ? 'fixed' : 'opening');
             pane.userData.windowGlassCellId = cellId || null;
-            if (cellId) glassHitMeshes.push(pane);
+            if (cellId) {
+                glassHitMeshes.push(pane);
+                const numberSprite = createGlassNumberSprite(cellId, numberIndex);
+                numberSprite.position.set(0, 0, glassPlacement.thicknessMm * S * 0.6 + 0.006);
+                pane.add(numberSprite);
+            }
             registerExplode(pane, 0, 0, isFixed ? 0.35 : 0.5);
             return pane;
         }
@@ -4577,6 +4783,7 @@ export function createWindowBuilder({
                     centerY: openingGlassCenterY,
                     cellId: cell.id,
                     glazingCavity,
+                    numberIndex: cell.cellIndex ?? cellIndex,
                 }));
 
                 // In a sash/sash mullion layout both handles sit toward the
@@ -4742,6 +4949,33 @@ export function createWindowBuilder({
             mainGroup.add(sashGroup);
         }
 
+        // Opening pose is per sash. Rebuilding the geometry must not collapse
+        // all opening sashes back onto one shared angle value.
+        const activeSashIds = new Set(
+            sashPoseAssemblies.map(assembly => String(assembly.cellId))
+        );
+        for (const id of [...sashPoseAnglesByCell.keys()]) {
+            if (!activeSashIds.has(String(id))) sashPoseAnglesByCell.delete(id);
+        }
+        sashPoseAssemblies.forEach((assembly, index) => {
+            const id = String(assembly.cellId);
+            if (!sashPoseAnglesByCell.has(id)) {
+                const initialAngle = !poseStateInitialized && sashPoseAssemblies.length === 1 && index === 0
+                    ? clampOpeningAngle(document.getElementById('openAngle')?.value)
+                    : 0;
+                sashPoseAnglesByCell.set(id, initialAngle);
+            }
+        });
+        poseStateInitialized = true;
+        if (selectedGlassCellId && activeSashIds.has(String(selectedGlassCellId))) {
+            activePoseCellId = String(selectedGlassCellId);
+        } else if (!activePoseCellId || !activeSashIds.has(String(activePoseCellId))) {
+            activePoseCellId = sashPoseAssemblies[0]?.cellId
+                ? String(sashPoseAssemblies[0].cellId)
+                : null;
+        }
+        syncOpenAngleControl(activePoseCellId);
+
         if (fixedCells.length) {
             fixedCells.forEach(fixedCell => {
                 const panePlacement = getFixedGlassPanePlacement({
@@ -4758,6 +4992,7 @@ export function createWindowBuilder({
                     centerY: panePlacement.centerY,
                     isFixed: true,
                     cellId: fixedCell.id,
+                    numberIndex: fixedCell.cellIndex ?? (openingCells.length + fixedCellIndex),
                 }));
             });
         }
@@ -4778,6 +5013,36 @@ export function createWindowBuilder({
         buildDimensionLines(A, B, activeProfiles);
         const t_dims_end = performance.now();
 
+        // Manufacturing data deliberately follows the logical window assembly,
+        // not the renderer's temporary socket/arrow meshes. The Summary BOM can
+        // therefore turn frame/divider topology into realistic workshop cuts
+        // (for example a continuous frame with a square-ended mullion attached).
+        lastFabricationSnapshot = Object.freeze({
+            width: A,
+            height: B,
+            layoutState,
+            openingCells: Object.freeze(openingCells.map(cell => Object.freeze({
+                id: cell.id,
+                width: Number(cell.width) || 0,
+                height: Number(cell.height) || 0,
+                centerX: Number(cell.centerX) || 0,
+                centerY: Number(cell.centerY) || 0,
+            }))),
+            fixedCells: Object.freeze(fixedCells.map(cell => Object.freeze({
+                id: cell.id,
+                width: Number(cell.width) || 0,
+                height: Number(cell.height) || 0,
+                centerX: Number(cell.centerX) || 0,
+                centerY: Number(cell.centerY) || 0,
+                fixedAccessoryWidth: Number(cell.fixedAccessoryWidth ?? cell.width) || 0,
+                fixedAccessoryHeight: Number(cell.fixedAccessoryHeight ?? cell.height) || 0,
+                fixedAccessoryCenterX: Number(cell.fixedAccessoryCenterX ?? cell.centerX) || 0,
+                fixedAccessoryCenterY: Number(cell.fixedAccessoryCenterY ?? cell.centerY) || 0,
+            }))),
+            glassPieces: Object.freeze([...fabricationGlassPieces]),
+        });
+        onFabricationSnapshot(lastFabricationSnapshot);
+
         const t_end = performance.now();
         console.log("PERF:", JSON.stringify({
             total: t_end - t_start,
@@ -4790,30 +5055,52 @@ export function createWindowBuilder({
         }));
     }
 
+    function applySashPose(assembly, value, isBatant, { instantHandle = false } = {}) {
+        const isLeftHandle = assembly.isLeftHandle;
+        const clamped = clampOpeningAngle(value);
+        if (isBatant) {
+            const valueRad = Math.min(clamped, 80) * (Math.PI / 180);
+            assembly.pivotBatant.rotation.y = isLeftHandle ? valueRad : -valueRad;
+            assembly.pivotOscilo.rotation.x = 0;
+        } else {
+            assembly.pivotBatant.rotation.y = 0;
+            const valueRad = Math.min(clamped, 15) * (Math.PI / 180);
+            assembly.pivotOscilo.rotation.x = valueRad;
+        }
+
+        const targetRotationZ = isBatant
+            ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
+            : (isLeftHandle ? Math.PI : -Math.PI);
+        if (assembly.handleLeverGroup) {
+            if (instantHandle) {
+                assembly.handleLeverGroup.rotation.z = targetRotationZ;
+            } else if (performance.now() < handleHoldUntil && sashPoseAssemblies.length === 1) {
+                assembly.handleLeverGroup.rotation.z = 0;
+            } else {
+                assembly.handleLeverGroup.rotation.z = THREE.MathUtils.lerp(
+                    assembly.handleLeverGroup.rotation.z,
+                    targetRotationZ,
+                    0.10
+                );
+            }
+        }
+    }
+
     function applyCurrentPoseInstantly() {
-        const value = Number.parseFloat(document.getElementById('openAngle').value) || 0;
-        currentPoseAngle = value;
         handleAngleAnimation = null;
         const isBatant = document.getElementById('mBatant').checked;
+        const activeId = getActivePoseCellId();
+        if (activeId) {
+            // Preserve the existing external opening-angle control, but scope it
+            // to the currently selected/active sash instead of all sashes.
+            const input = document.getElementById('openAngle');
+            if (input) setPoseAngle(activeId, input.value);
+        }
 
         sashPoseAssemblies.forEach(assembly => {
-            const isLeftHandle = assembly.isLeftHandle;
-            if (isBatant) {
-                const valRad = Math.min(value, 80) * (Math.PI / 180);
-                assembly.pivotBatant.rotation.y = isLeftHandle ? valRad : -valRad;
-                assembly.pivotOscilo.rotation.x = 0;
-            } else {
-                assembly.pivotBatant.rotation.y = 0;
-                const valRad = Math.min(value, 15) * (Math.PI / 180);
-                assembly.pivotOscilo.rotation.x = valRad;
-            }
-
-            if (assembly.handleLeverGroup) {
-                assembly.handleLeverGroup.rotation.z = isBatant
-                    ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
-                    : (isLeftHandle ? Math.PI : -Math.PI);
-            }
+            applySashPose(assembly, getPoseAngle(assembly.cellId), isBatant, { instantHandle: true });
         });
+        syncOpenAngleControl(activeId);
 
         const targetExplode = isExploded ? 1 : 0;
         explodeProgress = targetExplode;
@@ -4832,78 +5119,56 @@ export function createWindowBuilder({
         const openAngleInput = document.getElementById('openAngle');
         const isBatant = document.getElementById('mBatant').checked;
         const maxAngle = getOpeningAngleLimit();
-        let value = Math.min(
-            maxAngle,
-            Math.max(0, Number.parseFloat(openAngleInput?.value) || 0)
-        );
 
         if (handleAngleAnimation) {
-            // Changing opening mode changes the legal range (80° turn / 15°
-            // tilt). In that case the mode control's clamped slider value wins.
-            if (Math.abs(handleAngleAnimation.maxAngle - maxAngle) > 0.001) {
+            const animationCellId = String(handleAngleAnimation.cellId);
+            if (!hasPoseAssembly(animationCellId)) {
                 handleAngleAnimation = null;
-                currentPoseAngle = value;
+            } else if (Math.abs(handleAngleAnimation.maxAngle - maxAngle) > 0.001) {
+                // Changing turn/tilt mode changes the legal range. Keep the
+                // animated sash independent and clamp only that sash.
+                setPoseAngle(animationCellId, getPoseAngle(animationCellId));
+                handleAngleAnimation = null;
             } else {
                 const elapsed = performance.now() - handleAngleAnimation.startedAt;
                 const progress = Math.min(1, elapsed / handleAngleAnimation.durationMs);
                 const eased = easeHandleMotion(progress);
-                value = THREE.MathUtils.lerp(
+                let value = THREE.MathUtils.lerp(
                     handleAngleAnimation.from,
                     handleAngleAnimation.to,
                     eased
                 );
-                currentPoseAngle = value;
-
-                // Keep the existing range control in sync with the animation.
-                // The sash uses the continuous value while the UI only needs
-                // degree precision, so the visible slider remains stable.
-                if (openAngleInput) {
-                    openAngleInput.value = String(Math.round(value));
-                }
-
                 if (progress >= 1) {
                     value = handleAngleAnimation.to;
-                    currentPoseAngle = value;
-                    if (openAngleInput) openAngleInput.value = String(value);
+                }
+                setPoseAngle(animationCellId, value);
+
+                if (getActivePoseCellId() === animationCellId && openAngleInput) {
+                    openAngleInput.value = String(Math.round(value));
+                }
+                if (progress >= 1) {
                     handleAngleAnimation = null;
                 }
             }
-        } else {
-            currentPoseAngle = value;
-        }
-
-        const valAngleEl = document.getElementById('valAngle');
-        if (valAngleEl) {
-            valAngleEl.innerText = `${Math.round(value)}°`;
         }
 
         sashPoseAssemblies.forEach(assembly => {
-            const isLeftHandle = assembly.isLeftHandle;
-            if (isBatant) {
-                const valueRad = Math.min(value, 80) * (Math.PI / 180);
-                assembly.pivotBatant.rotation.y = isLeftHandle ? valueRad : -valueRad;
-                assembly.pivotOscilo.rotation.x = 0;
-            } else {
-                assembly.pivotBatant.rotation.y = 0;
-                const valueRad = Math.min(value, 15) * (Math.PI / 180);
-                assembly.pivotOscilo.rotation.x = valueRad;
-            }
-
-            const targetRotationZ = isBatant
-                ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
-                : (isLeftHandle ? Math.PI : -Math.PI);
-            if (assembly.handleLeverGroup) {
-                if (performance.now() < handleHoldUntil && sashPoseAssemblies.length === 1) {
-                    assembly.handleLeverGroup.rotation.z = 0;
-                } else {
-                    assembly.handleLeverGroup.rotation.z = THREE.MathUtils.lerp(
-                        assembly.handleLeverGroup.rotation.z,
-                        targetRotationZ,
-                        0.10
-                    );
-                }
-            }
+            const value = setPoseAngle(assembly.cellId, getPoseAngle(assembly.cellId));
+            applySashPose(assembly, value, isBatant);
         });
+
+        const activeId = getActivePoseCellId();
+        if (activeId) {
+            const activeValue = getPoseAngle(activeId);
+            const valAngleEl = document.getElementById('valAngle');
+            if (valAngleEl) valAngleEl.innerText = `${Math.round(activeValue)}°`;
+            if (!handleAngleAnimation && openAngleInput) {
+                openAngleInput.value = String(Math.round(activeValue));
+            }
+        } else {
+            const valAngleEl = document.getElementById('valAngle');
+            if (valAngleEl) valAngleEl.innerText = '0°';
+        }
 
         explodeProgress = THREE.MathUtils.lerp(
             explodeProgress,
@@ -4959,5 +5224,7 @@ export function createWindowBuilder({
         setExploded,
         getIsExploded,
         getEditableTopologyGeometry: () => editableTopologyGeometry,
+        setSelectedGlassCell,
+        getFabricationSnapshot: () => lastFabricationSnapshot,
     };
 }

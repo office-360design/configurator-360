@@ -1,5 +1,5 @@
 import { getLanguageProfile } from '../config.js';
-import { sharedT } from '../i18n.js?v=19';
+import { sharedT } from '../i18n.js?v=21';
 import { sharedIcon } from '../icons.js?v=19';
 import { escapeHtml } from '../utils.js';
 import { renderAccountMenu } from './accountMenu.js?v=18';
@@ -42,11 +42,15 @@ function shareButton(locale, disabled = false) {
   `;
 }
 
-function cartButton(locale) {
+function cartButton(locale, count = 0, open = false) {
   const label = sharedT(locale, 'topbar.cart');
+  const safeCount = Math.max(0, Math.floor(Number(count) || 0));
+  const badgeText = safeCount > 99 ? '99+' : String(safeCount);
+  const accessibleLabel = safeCount > 0 ? `${label} (${safeCount})` : label;
   return `
-    <button class="topbar-icon-button cart-button" type="button" data-action="cart" data-tooltip="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
+    <button class="topbar-icon-button cart-button" type="button" data-action="cart" data-tooltip="${escapeHtml(label)}" aria-label="${escapeHtml(accessibleLabel)}" aria-expanded="${Boolean(open)}">
       <span class="cart-icon">${sharedIcon('cart')}</span>
+      <span class="cart-count-badge" data-cart-count ${safeCount > 0 ? '' : 'hidden'} aria-hidden="true">${escapeHtml(badgeText)}</span>
     </button>
   `;
 }
@@ -90,7 +94,7 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
         ${iconButton({ action: 'undo', label: labels.undo, icon: sharedIcon('undo'), disabled: !canUndo })}
         ${iconButton({ action: 'reset', label: labels.reset, icon: sharedIcon('reset'), disabled: !canReset })}
         ${shareButton(locale, !canShare)}
-        ${cartButton(locale)}
+        ${cartButton(locale, state.cartCount, state.cartOpen)}
         ${iconButton({ action: 'account', label: labels.account, icon: sharedIcon('account') })}
         <button class="topbar-icon-button language-button" type="button" data-action="language" data-tooltip="${escapeHtml(language.nativeName)}" aria-label="${escapeHtml(language.nativeName)}" aria-expanded="false">
           <span class="language-flag" data-language-button-flag aria-hidden="true">${language.flag}</span>

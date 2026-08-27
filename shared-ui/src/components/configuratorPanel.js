@@ -2,6 +2,7 @@ export function renderConfiguratorPanelFooter(root, {
   estimatedTotalLabel = 'Estimated total',
   priceText = '—',
   addToCartLabel = 'Add to cart',
+  addToCartDisabled = false,
 } = {}) {
   if (!root) return;
 
@@ -35,4 +36,6 @@ export function renderConfiguratorPanelFooter(root, {
   price.textContent = String(priceText || '—');
   button.textContent = String(addToCartLabel || 'Add to cart');
   button.setAttribute('aria-label', String(addToCartLabel || 'Add to cart'));
+  button.disabled = Boolean(addToCartDisabled);
+  button.setAttribute('aria-disabled', String(Boolean(addToCartDisabled)));
 }

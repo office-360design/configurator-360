@@ -78,6 +78,7 @@ const targetFiles = [
     'js/profile-controller.js',
     'js/materials.js',
     'js/window-builder.js',
+    'js/window-summary.js',
 ];
 
 for (const relativePath of targetFiles) {
