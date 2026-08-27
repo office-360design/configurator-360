@@ -151,6 +151,23 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Shopping-cart rows are immutable snapshots of saved configurations. The
+    // public country domains share users/{uid}/shoppingCart, while customer
+    // tenants use a tenant-isolated subtree. Browser Firestore access remains
+    // disabled; authenticated Cloud Functions bind every operation to request.auth.uid.
+    match /users/{userId}/shoppingCart/{cartItemId} {
+      allow read, write: if false;
+    }
+    match /users/{userId}/tenantShoppingCart/{tenantSlug}/items/{cartItemId} {
+      allow read, write: if false;
+    }
+
+    // Legacy mutable cart document retained only so the backend can migrate old
+    // carts once. Clients never receive direct access to it.
+    match /users/{userId}/carts/{scopeId} {
+      allow read, write: if false;
+    }
+
     // Cross-domain authentication handoffs contain only server-side temporary
     // state and are redeemed through Cloud Functions. Browser Firestore access
     // is intentionally impossible.

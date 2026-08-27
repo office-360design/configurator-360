@@ -1132,7 +1132,10 @@ function validateSolarUsageLimits(value) {
     if (raw === undefined || raw === null || raw === '') continue;
     const number = Number(raw);
     if (!Number.isFinite(number) || number < 0 || !Number.isInteger(number) || number > TENANT_USAGE_LIMIT_MAX) {
-      throw new HttpsError('invalid-argument', 'Solar usage limits must be whole numbers between 0 and 1,000,000,000.');
+      throw new HttpsError(
+        'invalid-argument',
+        'Solar usage limits must be whole numbers between 0 and 1,000,000,000.',
+      );
     }
   }
   return normalizedSolarUsageLimits(source);
@@ -1273,7 +1276,11 @@ function tenantAdminDetailFromSnapshot(snapshot, usage = null) {
     ...tenantAdminSummaryFromSnapshot(snapshot),
     logoUrl: String(data.logoUrl || ''),
     solarUsageLimits: normalizedSolarUsageLimits(data.solarUsageLimits),
-    usage: usage || { month: currentTenantUsageMonth(), solar: normalizedSolarUsage(null), updatedAtMs: 0 },
+    usage: usage || {
+      month: currentTenantUsageMonth(),
+      solar: normalizedSolarUsage(null),
+      updatedAtMs: 0,
+    },
   };
 }
 
@@ -1293,6 +1300,10 @@ const USER_SAVED_CONFIGURATION_VERSION = 1;
 const MAX_SAVED_CONFIGURATION_BYTES = 850_000;
 const MAX_SAVED_CONFIGURATION_NAME_LENGTH = 80;
 const SAVED_CONFIGURATION_LIST_LIMIT = 100;
+const USER_CART_VERSION = 2;
+const MAX_USER_CART_ITEMS = 100;
+const USER_CART_CURRENCIES = new Set(['USD', 'EUR', 'RON']);
+const SHOPPING_CART_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
 
 function requireAuthenticatedUid(request) {
   const uid = String(request.auth?.uid || '');
@@ -1388,6 +1399,194 @@ async function requireSavedConfigurationScope(request, product) {
   }
 
   return { origin, tenantSlug };
+}
+
+function userShoppingCartCollection(uid, tenantSlug = '') {
+  const userRef = db.collection('users').doc(uid);
+  if (!tenantSlug) {
+    // Public .com/.ro/.de domains share one account-level shopping cart.
+    return userRef.collection('shoppingCart');
+  }
+
+  // Customer tenant carts remain isolated from the public-platform cart and
+  // from every other tenant while keeping the same immutable snapshot model.
+  return userRef
+    .collection('tenantShoppingCart')
+    .doc(tenantSlug)
+    .collection('items');
+}
+
+// Previous releases stored the entire cart as one mutable document. Keep this
+// reference only for one-time migration into immutable shoppingCart documents.
+function legacyUserCartDocument(uid, tenantSlug = '') {
+  const scopeId = tenantSlug ? `tenant_${tenantSlug}` : 'platform';
+  return db.collection('users').doc(uid).collection('carts').doc(scopeId);
+}
+
+async function requireUserCartScope(request) {
+  const origin = requestOrigin(request);
+  if (ALLOWED_CONFIGURATOR_ORIGINS.has(origin) || USER_CONFIGURATION_DEVELOPMENT_ORIGIN.test(origin)) {
+    return { origin, tenantSlug: '' };
+  }
+
+  const tenantSlug = tenantSlugFromConfiguratorOrigin(origin);
+  if (!tenantSlug) throw new HttpsError('permission-denied', 'Unsupported cart origin.');
+
+  const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
+  const tenant = snapshot.data() || {};
+  if (
+    !snapshot.exists
+    || tenant.status !== 'active'
+    || String(tenant.domain || '') !== `${tenantSlug}.360configurator.com`
+  ) {
+    throw new HttpsError('permission-denied', 'This customer tenant is not active.');
+  }
+
+  return { origin, tenantSlug };
+}
+
+function validateShoppingCartItemId(value) {
+  const id = String(value || '').trim();
+  if (!SHOPPING_CART_ITEM_ID_PATTERN.test(id)) {
+    throw new HttpsError('invalid-argument', 'Invalid shopping cart item id.');
+  }
+  return id;
+}
+
+function normalizeCartCurrency(value) {
+  const currency = String(value || '').trim().toUpperCase();
+  if (!USER_CART_CURRENCIES.has(currency)) {
+    throw new HttpsError('invalid-argument', 'Unsupported cart currency.');
+  }
+  return currency;
+}
+
+function normalizeCartPrice(value) {
+  const costAmount = Number(value);
+  if (!Number.isFinite(costAmount) || costAmount < 0 || costAmount > 1_000_000_000_000) {
+    throw new HttpsError('invalid-argument', 'Invalid cart price.');
+  }
+  return costAmount;
+}
+
+function cartNameWithNumber(baseName, existingNames = []) {
+  const base = String(baseName || '').trim().slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH) || 'Configuration';
+  const names = new Set(existingNames.map((name) => String(name || '').trim()));
+  if (!names.has(base)) return base;
+  for (let number = 1; number <= MAX_USER_CART_ITEMS + 1; number += 1) {
+    const suffix = ` (${number})`;
+    const candidate = `${base.slice(0, Math.max(1, MAX_SAVED_CONFIGURATION_NAME_LENGTH - suffix.length))}${suffix}`;
+    if (!names.has(candidate)) return candidate;
+  }
+  throw new HttpsError('resource-exhausted', 'Could not allocate a shopping cart item name.');
+}
+
+function shoppingCartItemSummary(snapshot) {
+  const data = snapshot?.data?.() || snapshot || {};
+  const id = String(snapshot?.id || data.id || '');
+  const productId = normalizeProductType(data.p || data.productId);
+  if (!id || !ALLOWED_PRODUCTS.has(productId)) return null;
+  const costAmount = Number(data.priceAmount ?? data.costAmount);
+  const currency = String(data.currency || '').trim().toUpperCase();
+  if (!Number.isFinite(costAmount) || costAmount < 0 || !USER_CART_CURRENCIES.has(currency)) return null;
+  return {
+    key: id,
+    cartItemId: id,
+    productId,
+    savedConfigurationId: String(data.sourceSavedConfigurationId || ''),
+    name: String(data.n || data.name || '').trim().slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH),
+    sourceName: String(data.sourceName || '').trim().slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH),
+    costAmount,
+    currency,
+    addedAt: timestampMillis(data.createdAt) || Number(data.addedAt) || 0,
+  };
+}
+
+function shoppingCartResponse(snapshot, { addedItem = null, updatedAtMs = Date.now() } = {}) {
+  const docs = Array.isArray(snapshot?.docs) ? snapshot.docs : [];
+  const items = docs.map((doc) => shoppingCartItemSummary(doc)).filter(Boolean);
+  return {
+    exists: true,
+    items,
+    addedItem: addedItem ? shoppingCartItemSummary(addedItem) : null,
+    updatedAtMs,
+  };
+}
+
+function normalizeLegacyCartItems(items) {
+  if (!Array.isArray(items)) return [];
+  const deduplicated = new Map();
+  items.slice(0, MAX_USER_CART_ITEMS).forEach((raw) => {
+    try {
+      const productId = normalizeProductType(raw?.productId);
+      if (!ALLOWED_PRODUCTS.has(productId)) return;
+      const savedConfigurationId = validateSavedConfigurationId(raw?.savedConfigurationId);
+      const currency = normalizeCartCurrency(raw?.currency);
+      const costAmount = normalizeCartPrice(raw?.costAmount);
+      deduplicated.set(`${productId}:${savedConfigurationId}`, {
+        productId,
+        savedConfigurationId,
+        currency,
+        costAmount,
+        addedAt: Number(raw?.addedAt) || Date.now(),
+      });
+    } catch {
+      // Ignore malformed legacy entries instead of blocking cart migration.
+    }
+  });
+  return [...deduplicated.values()];
+}
+
+async function migrateLegacyUserCartIfNeeded(uid, tenantSlug = '') {
+  const legacyRef = legacyUserCartDocument(uid, tenantSlug);
+  const legacySnapshot = await legacyRef.get();
+  if (!legacySnapshot.exists) return;
+
+  const cartCollection = userShoppingCartCollection(uid, tenantSlug);
+  const currentSnapshot = await cartCollection.limit(MAX_USER_CART_ITEMS).get();
+  const existingNames = currentSnapshot.docs
+    .map((doc) => String(doc.data()?.n || '').trim())
+    .filter(Boolean);
+  const existingIds = new Set(currentSnapshot.docs.map((doc) => doc.id));
+  const legacyItems = normalizeLegacyCartItems(legacySnapshot.data()?.items);
+
+  for (const legacyItem of legacyItems) {
+    const migrationId = `legacy_${legacyItem.productId}_${legacyItem.savedConfigurationId}`;
+    if (existingIds.has(migrationId)) continue;
+    const savedSnapshot = await userSavedItemsCollection(
+      uid,
+      legacyItem.productId,
+      tenantSlug,
+    ).doc(legacyItem.savedConfigurationId).get();
+    if (!savedSnapshot.exists) continue;
+    const saved = savedSnapshot.data() || {};
+    const stateJson = String(saved.s || '');
+    if (!stateJson) continue;
+    const sourceName = String(saved.n || 'Configuration').trim().slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH);
+    const name = cartNameWithNumber(sourceName, existingNames);
+    const createdAt = Timestamp.fromMillis(
+      Number.isFinite(legacyItem.addedAt) && legacyItem.addedAt > 0 ? legacyItem.addedAt : Date.now(),
+    );
+    await cartCollection.doc(migrationId).set({
+      v: USER_CART_VERSION,
+      p: legacyItem.productId,
+      n: name,
+      sourceName,
+      sourceSavedConfigurationId: legacyItem.savedConfigurationId,
+      s: stateJson,
+      sizeBytes: Number(saved.sizeBytes || utf8ByteLength(stateJson)),
+      priceAmount: legacyItem.costAmount,
+      currency: legacyItem.currency,
+      tenantSlug,
+      createdAt,
+    });
+    existingNames.push(name);
+    existingIds.add(migrationId);
+  }
+
+  // Once migration has completed, remove the mutable legacy cart document so an
+  // Empty cart action can never resurrect stale rows on a later domain visit.
+  await legacyRef.delete();
 }
 
 const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
@@ -1823,6 +2022,112 @@ exports.deleteUserConfiguration = onCall(
     const { tenantSlug } = await requireSavedConfigurationScope(request, product);
     await userSavedItemsCollection(uid, product, tenantSlug).doc(id).delete();
     return { id, deleted: true };
+  },
+);
+
+exports.getUserCart = onCall(
+  USER_CONFIGURATION_CALLABLE_OPTIONS,
+  async (request) => {
+    const uid = requireAuthenticatedUid(request);
+    const { tenantSlug } = await requireUserCartScope(request);
+    await migrateLegacyUserCartIfNeeded(uid, tenantSlug);
+    const snapshot = await userShoppingCartCollection(uid, tenantSlug)
+      .orderBy('createdAt', 'asc')
+      .limit(MAX_USER_CART_ITEMS)
+      .get();
+    return shoppingCartResponse(snapshot);
+  },
+);
+
+exports.mutateUserCart = onCall(
+  USER_CONFIGURATION_CALLABLE_OPTIONS,
+  async (request) => {
+    const uid = requireAuthenticatedUid(request);
+    const { tenantSlug } = await requireUserCartScope(request);
+    const action = String(request.data?.action || '').trim().toLowerCase();
+    if (!['add', 'remove', 'empty'].includes(action)) {
+      throw new HttpsError('invalid-argument', 'Unsupported cart action.');
+    }
+
+    await migrateLegacyUserCartIfNeeded(uid, tenantSlug);
+    const collection = userShoppingCartCollection(uid, tenantSlug);
+
+    if (action === 'add') {
+      const rawItem = request.data?.item || {};
+      const productId = normalizeProductType(rawItem.productId);
+      if (!ALLOWED_PRODUCTS.has(productId)) {
+        throw new HttpsError('invalid-argument', 'Unsupported cart configurator type.');
+      }
+      const savedConfigurationId = validateSavedConfigurationId(rawItem.savedConfigurationId);
+      const priceAmount = normalizeCartPrice(rawItem.costAmount);
+      const currency = normalizeCartCurrency(rawItem.currency);
+      const savedRef = userSavedItemsCollection(uid, productId, tenantSlug).doc(savedConfigurationId);
+      const cartItemRef = collection.doc();
+      let addedData = null;
+
+      await db.runTransaction(async (transaction) => {
+        const savedSnapshot = await transaction.get(savedRef);
+        if (!savedSnapshot.exists) {
+          throw new HttpsError('not-found', 'The saved configuration referenced by this cart item no longer exists.');
+        }
+        const existingSnapshot = await transaction.get(
+          collection.orderBy('createdAt', 'asc').limit(MAX_USER_CART_ITEMS + 1),
+        );
+        if (existingSnapshot.size >= MAX_USER_CART_ITEMS) {
+          throw new HttpsError('resource-exhausted', 'The shopping cart is full.');
+        }
+
+        const saved = savedSnapshot.data() || {};
+        const stateJson = String(saved.s || '');
+        if (!stateJson) {
+          throw new HttpsError('failed-precondition', 'The saved configuration snapshot is empty.');
+        }
+        const sourceName = String(saved.n || 'Configuration').trim()
+          .slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH);
+        const existingNames = existingSnapshot.docs
+          .map((doc) => String(doc.data()?.n || '').trim())
+          .filter(Boolean);
+        const name = cartNameWithNumber(sourceName, existingNames);
+        const now = Timestamp.now();
+        addedData = {
+          v: USER_CART_VERSION,
+          p: productId,
+          n: name,
+          sourceName,
+          sourceSavedConfigurationId: savedConfigurationId,
+          // Copy the saved payload into the cart item. Cart entries are immutable
+          // snapshots: later edits to the source save cannot alter an order draft.
+          s: stateJson,
+          sizeBytes: Number(saved.sizeBytes || utf8ByteLength(stateJson)),
+          priceAmount,
+          currency,
+          tenantSlug,
+          createdAt: now,
+        };
+        transaction.create(cartItemRef, addedData);
+      });
+
+      const snapshot = await collection.orderBy('createdAt', 'asc').limit(MAX_USER_CART_ITEMS).get();
+      return shoppingCartResponse(snapshot, {
+        addedItem: { id: cartItemRef.id, ...addedData },
+        updatedAtMs: Date.now(),
+      });
+    }
+
+    if (action === 'remove') {
+      const itemId = validateShoppingCartItemId(request.data?.key);
+      await collection.doc(itemId).delete();
+      const snapshot = await collection.orderBy('createdAt', 'asc').limit(MAX_USER_CART_ITEMS).get();
+      return shoppingCartResponse(snapshot);
+    }
+
+    const snapshot = await collection.limit(MAX_USER_CART_ITEMS).get();
+    if (!snapshot.empty) {
+      const batch = db.batch();
+      snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+    return shoppingCartResponse({ docs: [] });
   },
 );
 

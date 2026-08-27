@@ -1,4 +1,4 @@
-import { sharedT } from '../i18n.js?v=21';
+import { sharedT } from '../i18n.js?v=22';
 import { sharedIcon } from '../icons.js?v=19';
 import { escapeHtml } from '../utils.js';
 
@@ -20,18 +20,26 @@ function renderCartItem(locale, item) {
   `;
 }
 
-export function renderCartMenu(locale, items = [], { open = false } = {}) {
+export function renderCartMenu(locale, items = [], { open = false, busy = false, totalText = '' } = {}) {
   const normalized = Array.isArray(items) ? items : [];
+  const emptyLabel = escapeHtml(sharedT(locale, 'cart.emptyCart'));
   return `
     <section class="cart-menu ${open ? 'is-open' : ''}" data-cart-menu aria-label="${escapeHtml(sharedT(locale, 'cart.title'))}">
       <div class="cart-menu__header">
         <strong>${escapeHtml(sharedT(locale, 'cart.title'))}</strong>
-        <span>${normalized.length}</span>
+        <div class="cart-menu__header-actions">
+          <button class="cart-menu__empty-button" type="button" data-action="cart-empty" ${busy || normalized.length === 0 ? 'disabled' : ''}>${emptyLabel}</button>
+          <span class="cart-menu__count">${normalized.length}</span>
+        </div>
       </div>
       <div class="cart-menu__items" data-cart-items>
         ${normalized.length
           ? normalized.map((item) => renderCartItem(locale, item)).join('')
           : `<p class="cart-menu__empty">${escapeHtml(sharedT(locale, 'cart.empty'))}</p>`}
+      </div>
+      <div class="cart-menu__total">
+        <span>${escapeHtml(sharedT(locale, 'cart.total'))}</span>
+        <strong>${escapeHtml(String(totalText || '—'))}</strong>
       </div>
     </section>
   `;
