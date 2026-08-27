@@ -175,6 +175,35 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls input[type="range"]::
   background: #0878c9;
 }
 
+
+
+/* Selected-window editor lives outside #controls, so mirror the current
+   Common UI light-theme treatment for its dimension controls. */
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel input[type="range"] {
+  background: #dce4e9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel input[type="range"]::-webkit-slider-thumb {
+  background: #0878c9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel input[type="range"]::-moz-range-thumb {
+  background: #0878c9;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel .handle-side-btn {
+  color: #5e6b75;
+  background: transparent;
+  border-color: transparent;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel .handle-side-btn:hover:not(.active):not(:disabled) {
+  color: #172027;
+  background: #e8eef2;
+  border-color: #cfd8dd;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #selected-window-panel .handle-side-btn:disabled {
+  color: #a8b1b8;
+  background: #f4f7f8;
+  border-color: #e1e6e9;
+}
+
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .action-box {
   color: #005a9f;
   background: #eef8fe;
@@ -316,4 +345,44 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #component-selection-close:hove
   body.shared-ui-mounted.sidebar-is-collapsed #component-selection-popup {
     left: 12px;
   }
+}
+
+/* Manufacturing summary in the shared light theme. */
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-section > .clean-dropdown-header,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-section-body,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-item,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-card,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-metric,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-specs,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-rate-input {
+  background: #f5f7f8;
+  border-color: #dce3e7;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-section > .clean-dropdown-header,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-item-main strong,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-title strong,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-metric strong,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-specs strong {
+  color: #26343e !important;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-metric.is-total strong {
+  color: #0878c9 !important;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-note,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-item-main small,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-item-main > span,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-title span,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-specs span,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-card p,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-empty,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-rate-grid > label {
+  color: #697781 !important;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-rate-input input[type="number"] {
+  color: #172027;
+  background: transparent !important;
 }

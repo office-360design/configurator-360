@@ -89,6 +89,38 @@ const MESSAGES = Object.freeze({
     'component.gasket': 'Gasket',
     'component.glazingBead': 'Glazing bead',
     'professional.title': 'Professional settings',
+    'summary.title': 'Summary',
+    'summary.bom': 'Bill of materials',
+    'summary.cuts': 'Cut specifications',
+    'summary.aluminiumRate': 'Aluminium price',
+    'summary.glassRate': 'Glass price',
+    'summary.sourceNote': 'The supplied manual points to a separate current price list, so rates are editable here. Aluminium kg/m values are estimated from the current CAD profile contours. 6 m stock lengths and waste are ignored.',
+    'summary.cutsNote': 'Workshop cuts use manufacturing joints rather than the temporary 3D intersection sockets.',
+    'summary.empty': 'No manufacturing items are available yet.',
+    'summary.vertical': 'vertical',
+    'summary.horizontal': 'horizontal',
+    'summary.betweenWindows': 'between windows {pairs}',
+    'summary.profile.frame': 'Outer frame',
+    'summary.profile.sash': 'Sash / vent',
+    'summary.profile.mullion': 'Mullion / transom',
+    'summary.profile.trans': 'Double vent profile',
+    'summary.profile.bead': 'Glazing bead',
+    'summary.profile.glass': 'Insulated glass unit',
+    'summary.metric.aluminiumWeight': 'Aluminium weight',
+    'summary.metric.glassArea': 'Glass area',
+    'summary.metric.aluminiumCost': 'Aluminium cost',
+    'summary.metric.total': 'Material total',
+    'summary.cut.length': 'Length',
+    'summary.cut.joint': 'Joint cut',
+    'summary.cut.start': 'start',
+    'summary.cut.end': 'end',
+    'summary.cut.bothEnds': 'both ends',
+    'summary.cut.miter': '45° welded mitre',
+    'summary.cut.square': '90° square cut',
+    'summary.cut.squareFrame': '90° square cut · frame cleat',
+    'summary.cut.squareDivider': '90° square cut · mullion/transom cleat',
+    'summary.cut.squareSash': '90° square cut · sash connector',
+    'summary.cut.transNote': 'Cut to the clear distance between the sash rails; the outer frame is not notched for this member.',
     'opening.mode': 'Opening mode',
     'opening.turn': 'Turn opening',
     'opening.tilt': 'Tilt opening',
@@ -195,6 +227,11 @@ const MESSAGES = Object.freeze({
     'layout.sash': 'Sash',
     'layout.close': 'Close',
     'layout.cellMenu': 'Window options',
+    'layout.selectedWindow': 'Selected window',
+    'layout.window': 'Window',
+    'layout.deleteWindow': 'Delete window',
+    'layout.deleteLastDisabled': 'At least one window must remain',
+    'layout.deleteSplitDisabled': 'This window cannot be deleted because it would split the structure',
     'layout.unmerge': 'Unmerge',
     'layout.makeSash': 'Change to sash',
     'layout.makeFixed': 'Change to fixed',
@@ -323,6 +360,38 @@ const MESSAGES = Object.freeze({
     'component.gasket': 'Garnitură',
     'component.glazingBead': 'Baghetă vitraj',
     'professional.title': 'Setări profesionale',
+    'summary.title': 'Rezumat',
+    'summary.bom': 'Listă de materiale',
+    'summary.cuts': 'Specificații de debitare',
+    'summary.aluminiumRate': 'Preț aluminiu',
+    'summary.glassRate': 'Preț sticlă',
+    'summary.sourceNote': 'Manualul furnizat face trimitere la o listă de prețuri separată, astfel că tarifele sunt editabile aici. Valorile kg/m pentru aluminiu sunt estimate din contururile profilelor CAD curente. Lungimile de stoc de 6 m și pierderile sunt ignorate.',
+    'summary.cutsNote': 'Debitările de atelier folosesc îmbinările reale de fabricație, nu locașurile temporare folosite de geometria 3D.',
+    'summary.empty': 'Nu există încă elemente de fabricație disponibile.',
+    'summary.vertical': 'vertical',
+    'summary.horizontal': 'orizontal',
+    'summary.betweenWindows': 'între ferestrele {pairs}',
+    'summary.profile.frame': 'Ramă exterioară',
+    'summary.profile.sash': 'Cercevea / ventil',
+    'summary.profile.mullion': 'Montant / traversă',
+    'summary.profile.trans': 'Profil dublu ventil',
+    'summary.profile.bead': 'Baghetă de vitrare',
+    'summary.profile.glass': 'Geam termoizolant',
+    'summary.metric.aluminiumWeight': 'Greutate aluminiu',
+    'summary.metric.glassArea': 'Suprafață sticlă',
+    'summary.metric.aluminiumCost': 'Cost aluminiu',
+    'summary.metric.total': 'Total materiale',
+    'summary.cut.length': 'Lungime',
+    'summary.cut.joint': 'Debitare îmbinare',
+    'summary.cut.start': 'început',
+    'summary.cut.end': 'sfârșit',
+    'summary.cut.bothEnds': 'ambele capete',
+    'summary.cut.miter': 'tăiere la 45° pentru sudare',
+    'summary.cut.square': 'tăiere dreaptă la 90°',
+    'summary.cut.squareFrame': 'tăiere dreaptă la 90° · clemă ramă',
+    'summary.cut.squareDivider': 'tăiere dreaptă la 90° · clemă montant/traversă',
+    'summary.cut.squareSash': 'tăiere dreaptă la 90° · conector cercevea',
+    'summary.cut.transNote': 'Debitat la distanța liberă dintre profilele cercevelei; rama exterioară nu este decupată pentru această piesă.',
     'opening.mode': 'Mod de deschidere',
     'opening.turn': 'Deschidere batantă',
     'opening.tilt': 'Deschidere oscilantă',
@@ -429,6 +498,11 @@ const MESSAGES = Object.freeze({
     'layout.sash': 'Cercevea',
     'layout.close': 'Închide',
     'layout.cellMenu': 'Opțiuni fereastră',
+    'layout.selectedWindow': 'Fereastră selectată',
+    'layout.window': 'Fereastra',
+    'layout.deleteWindow': 'Șterge fereastra',
+    'layout.deleteLastDisabled': 'Trebuie să rămână cel puțin o fereastră',
+    'layout.deleteSplitDisabled': 'Această fereastră nu poate fi ștearsă deoarece ar împărți structura',
     'layout.unmerge': 'Separă',
     'layout.makeSash': 'Schimbă în cercevea',
     'layout.makeFixed': 'Schimbă în fix',
@@ -557,6 +631,38 @@ const MESSAGES = Object.freeze({
     'component.gasket': 'Dichtung',
     'component.glazingBead': 'Glasleiste',
     'professional.title': 'Profi-Einstellungen',
+    'summary.title': 'Zusammenfassung',
+    'summary.bom': 'Stückliste',
+    'summary.cuts': 'Zuschnittangaben',
+    'summary.aluminiumRate': 'Aluminiumpreis',
+    'summary.glassRate': 'Glaspreis',
+    'summary.sourceNote': 'Das gelieferte Handbuch verweist auf eine separate aktuelle Preisliste; deshalb sind die Preise hier editierbar. Die Aluminiumwerte in kg/m werden aus den aktuellen CAD-Profilkonturen geschätzt. 6-m-Lagerlängen und Verschnitt werden ignoriert.',
+    'summary.cutsNote': 'Die Werkstattzuschnitte verwenden reale Fertigungsverbindungen statt der temporären 3D-Sockelgeometrie.',
+    'summary.empty': 'Noch keine Fertigungsteile verfügbar.',
+    'summary.vertical': 'vertikal',
+    'summary.horizontal': 'horizontal',
+    'summary.betweenWindows': 'zwischen Fenstern {pairs}',
+    'summary.profile.frame': 'Außenrahmen',
+    'summary.profile.sash': 'Flügel',
+    'summary.profile.mullion': 'Pfosten / Riegel',
+    'summary.profile.trans': 'Doppelflügelprofil',
+    'summary.profile.bead': 'Glasleiste',
+    'summary.profile.glass': 'Isolierglaseinheit',
+    'summary.metric.aluminiumWeight': 'Aluminiumgewicht',
+    'summary.metric.glassArea': 'Glasfläche',
+    'summary.metric.aluminiumCost': 'Aluminiumkosten',
+    'summary.metric.total': 'Materialsumme',
+    'summary.cut.length': 'Länge',
+    'summary.cut.joint': 'Verbindungsschnitt',
+    'summary.cut.start': 'Anfang',
+    'summary.cut.end': 'Ende',
+    'summary.cut.bothEnds': 'beide Enden',
+    'summary.cut.miter': '45° Schweißgehrung',
+    'summary.cut.square': '90° gerader Schnitt',
+    'summary.cut.squareFrame': '90° gerader Schnitt · Rahmenverbinder',
+    'summary.cut.squareDivider': '90° gerader Schnitt · Pfosten-/Riegelverbinder',
+    'summary.cut.squareSash': '90° gerader Schnitt · Flügelverbinder',
+    'summary.cut.transNote': 'Auf das lichte Maß zwischen den Flügelprofilen zugeschnitten; der Außenrahmen wird für dieses Teil nicht ausgeklinkt.',
     'opening.mode': 'Öffnungsart',
     'opening.turn': 'Drehöffnung',
     'opening.tilt': 'Kippöffnung',
@@ -663,6 +769,11 @@ const MESSAGES = Object.freeze({
     'layout.sash': 'Flügel',
     'layout.close': 'Schließen',
     'layout.cellMenu': 'Fensteroptionen',
+    'layout.selectedWindow': 'Ausgewähltes Fenster',
+    'layout.window': 'Fenster',
+    'layout.deleteWindow': 'Fenster löschen',
+    'layout.deleteLastDisabled': 'Mindestens ein Fenster muss erhalten bleiben',
+    'layout.deleteSplitDisabled': 'Dieses Fenster kann nicht gelöscht werden, da die Struktur sonst getrennt würde',
     'layout.unmerge': 'Trennen',
     'layout.makeSash': 'In Flügel ändern',
     'layout.makeFixed': 'In Festverglasung ändern',
@@ -848,7 +959,14 @@ export function applyWindowTranslations(locale = null) {
   setAttr('#gasketPic', 'alt', resolved, 'component.gasket');
   setAttr('#beadPic', 'alt', resolved, 'component.glazingBead');
 
-  setText('.clean-dropdown > .clean-dropdown-header span', resolved, 'professional.title');
+  setText('#professional-settings > .clean-dropdown-header span', resolved, 'professional.title');
+  setText('#summary-settings > .clean-dropdown-header span', resolved, 'summary.title');
+  setText('#summary-bom > .clean-dropdown-header span', resolved, 'summary.bom');
+  setText('#summary-cuts > .clean-dropdown-header span', resolved, 'summary.cuts');
+  setText('label[for="summaryAluminiumRate"] > span', resolved, 'summary.aluminiumRate');
+  setText('label[for="summaryGlassRate"] > span', resolved, 'summary.glassRate');
+  setText('#window-bom-source-note', resolved, 'summary.sourceNote');
+  setText('#window-cuts-note', resolved, 'summary.cutsNote');
   const openingModeLabel = document.querySelector('#mBatant')?.closest('.control-group')?.querySelector('label');
   if (openingModeLabel) openingModeLabel.textContent = `${windowT(resolved, 'opening.mode')}:`;
   setAttr('#btnModeBatant', 'aria-label', resolved, 'opening.turn');
@@ -874,6 +992,21 @@ export function applyWindowTranslations(locale = null) {
   const sidebarKey = sidebarCollapsed ? 'sidebar.show' : 'sidebar.hide';
   setAttr('#sidebar-toggle', 'aria-label', resolved, sidebarKey);
   setAttr('#sidebar-toggle', 'title', resolved, sidebarKey);
+
+  setAttr('#selected-window-panel', 'aria-label', resolved, 'layout.selectedWindow');
+  setAttr('#selectedWindowClose', 'aria-label', resolved, 'layout.close');
+  setText('.selected-window-kicker', resolved, 'layout.selectedWindow');
+  const selectedWindowTitle = document.querySelector('.selected-window-title');
+  if (selectedWindowTitle?.firstChild) selectedWindowTitle.firstChild.textContent = `${windowT(resolved, 'layout.window')} `;
+  setText('#selectedWindowUnmerge', resolved, 'layout.unmerge');
+  setText('#selectedWindowDelete', resolved, 'layout.deleteWindow');
+  setAttr('#selectedWindowOpenLeft', 'aria-label', resolved, 'layout.openLeft');
+  setAttr('#selectedWindowOpenLeft', 'title', resolved, 'layout.openLeft');
+  setAttr('#selectedWindowOpenRight', 'aria-label', resolved, 'layout.openRight');
+  setAttr('#selectedWindowOpenRight', 'title', resolved, 'layout.openRight');
+  const selectedWindowOpeningLabels = document.querySelectorAll('.selected-window-opening-action > span');
+  if (selectedWindowOpeningLabels[0]) selectedWindowOpeningLabels[0].textContent = windowT(resolved, 'side.left');
+  if (selectedWindowOpeningLabels[1]) selectedWindowOpeningLabels[1].textContent = windowT(resolved, 'side.right');
 
   setAttr('#component-selection-popup', 'aria-label', resolved, 'selection.aria');
   setAttr('#component-selection-close', 'aria-label', resolved, 'selection.close');
