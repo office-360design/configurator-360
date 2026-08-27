@@ -146,6 +146,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Account carts are synchronized across the public country domains through
+    // authenticated Cloud Functions. Browser Firestore access stays disabled so
+    // a user can only read or mutate the cart bound to their verified UID/origin.
+    match /users/{userId}/carts/{scopeId} {
+      allow read, write: if false;
+    }
+
     // Cross-domain authentication handoffs contain only server-side temporary
     // state and are redeemed through Cloud Functions. Browser Firestore access
     // is intentionally impossible.

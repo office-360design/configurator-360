@@ -86,9 +86,12 @@ const SHARED_MESSAGES = Object.freeze({
     'cart.title': 'Cart',
     'cart.empty': 'Your cart is empty.',
     'cart.remove': 'Remove from cart',
+    'cart.emptyCart': 'Empty cart',
+    'cart.total': 'Total',
     'cart.unnamed': 'Untitled configuration',
     'feedback.addedToCart': 'Added to cart',
     'feedback.cartSaveFailed': 'Could not add to cart because the configuration could not be saved.',
+    'feedback.cartUpdateFailed': 'The cart could not be updated.',
   }),
   'ro-RO': Object.freeze({
     'topbar.home': 'Acasă configurator',
@@ -177,9 +180,12 @@ const SHARED_MESSAGES = Object.freeze({
     'cart.title': 'Coș',
     'cart.empty': 'Coșul este gol.',
     'cart.remove': 'Elimină din coș',
+    'cart.emptyCart': 'Golește coșul',
+    'cart.total': 'Total',
     'cart.unnamed': 'Configurație fără nume',
     'feedback.addedToCart': 'Adăugat în coș',
     'feedback.cartSaveFailed': 'Configurația nu a putut fi adăugată în coș deoarece salvarea a eșuat.',
+    'feedback.cartUpdateFailed': 'Coșul nu a putut fi actualizat.',
   }),
   'de-DE': Object.freeze({
     'topbar.home': 'Konfigurator-Startseite',
@@ -268,9 +274,12 @@ const SHARED_MESSAGES = Object.freeze({
     'cart.title': 'Warenkorb',
     'cart.empty': 'Der Warenkorb ist leer.',
     'cart.remove': 'Aus dem Warenkorb entfernen',
+    'cart.emptyCart': 'Warenkorb leeren',
+    'cart.total': 'Gesamt',
     'cart.unnamed': 'Unbenannte Konfiguration',
     'feedback.addedToCart': 'Zum Warenkorb hinzugefügt',
     'feedback.cartSaveFailed': 'Die Konfiguration konnte nicht zum Warenkorb hinzugefügt werden, weil das Speichern fehlgeschlagen ist.',
+    'feedback.cartUpdateFailed': 'Der Warenkorb konnte nicht aktualisiert werden.',
   }),
 });
 
