@@ -1,7 +1,8 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=24';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=26';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=12';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
 import { pergolaT } from '../i18n.js';
+import { calculatePrice, formatMoney } from '../pricing.js';
 
 function cloneState(state) {
   if (typeof structuredClone === 'function') return structuredClone(state);
@@ -27,6 +28,23 @@ export function mountPergolaSharedShell({ store, ui, tenantContext = null }) {
         'camera',
       ]),
       placement: { side: 'left', direction: 'down', offsetX: 12, offsetY: 12 },
+    },
+    settingsPanel: {
+      panelSelector: '.configurator-sidebar',
+      toggleSelector: '#pergolaSidebarToggle',
+      collapsedClass: 'is-collapsed',
+      bodyCollapsedClass: 'pergola-sidebar-collapsed',
+      initiallyCollapsed: ui.mobileLayoutQuery.matches,
+    },
+    configuratorPanel: {
+      panelSelector: '.configurator-sidebar',
+      footerSelector: '[data-sidebar-footer]',
+      bodySelector: '.sidebar-scroll',
+      geometry: 'floating-right',
+      getEstimatedTotal() {
+        const state = store.get();
+        return formatMoney(calculatePrice(state).total, state.currency, state.locale);
+      },
     },
     callbacks: {
       onUndo() {
@@ -54,6 +72,9 @@ export function mountPergolaSharedShell({ store, ui, tenantContext = null }) {
       },
       onPreferenceChange(path, value) {
         store.update(path, value, { path });
+      },
+      onSettingsPanelToggle(collapsed) {
+        ui.setSidebarHidden(collapsed, { fromSharedShell: true });
       },
       onAccountAction(action) {
         if (action === 'profile') ui.showModal(t('modal.profileTitle'), `<p>${escapeHtml(t('modal.profileBody'))}</p>`);

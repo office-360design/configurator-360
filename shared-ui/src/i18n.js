@@ -9,6 +9,7 @@ const SHARED_MESSAGES = Object.freeze({
     'topbar.undo': 'Undo',
     'topbar.reset': 'Reset',
     'topbar.share': 'Share',
+    'topbar.cart': 'Cart',
     'topbar.account': 'Account',
     'account.menu': 'Account menu',
     'account.greeting': 'Hello, guest',
@@ -80,6 +81,8 @@ const SHARED_MESSAGES = Object.freeze({
     'feedback.domainSwitchUnavailable': 'Domain change unavailable',
     'settingsPanel.show': 'Show configurator settings',
     'settingsPanel.hide': 'Hide configurator settings',
+    'panel.estimatedTotal': 'Estimated total',
+    'panel.addToCart': 'Add to cart',
   }),
   'ro-RO': Object.freeze({
     'topbar.home': 'Acasă configurator',
@@ -91,6 +94,7 @@ const SHARED_MESSAGES = Object.freeze({
     'topbar.undo': 'Anulează ultima acțiune',
     'topbar.reset': 'Resetează',
     'topbar.share': 'Distribuie',
+    'topbar.cart': 'Coș',
     'topbar.account': 'Cont',
     'account.menu': 'Meniu cont',
     'account.greeting': 'Salut, vizitator',
@@ -162,6 +166,8 @@ const SHARED_MESSAGES = Object.freeze({
     'feedback.domainSwitchUnavailable': 'Schimbarea domeniului nu este disponibilă',
     'settingsPanel.show': 'Arată setările configuratorului',
     'settingsPanel.hide': 'Ascunde setările configuratorului',
+    'panel.estimatedTotal': 'Total estimat',
+    'panel.addToCart': 'Adaugă în coș',
   }),
   'de-DE': Object.freeze({
     'topbar.home': 'Konfigurator-Startseite',
@@ -173,6 +179,7 @@ const SHARED_MESSAGES = Object.freeze({
     'topbar.undo': 'Rückgängig',
     'topbar.reset': 'Zurücksetzen',
     'topbar.share': 'Teilen',
+    'topbar.cart': 'Warenkorb',
     'topbar.account': 'Konto',
     'account.menu': 'Kontomenü',
     'account.greeting': 'Hallo, Gast',
@@ -244,6 +251,8 @@ const SHARED_MESSAGES = Object.freeze({
     'feedback.domainSwitchUnavailable': 'Domainwechsel nicht verfügbar',
     'settingsPanel.show': 'Konfigurator-Einstellungen anzeigen',
     'settingsPanel.hide': 'Konfigurator-Einstellungen ausblenden',
+    'panel.estimatedTotal': 'Geschätzte Gesamtsumme',
+    'panel.addToCart': 'In den Warenkorb',
   }),
 });
 

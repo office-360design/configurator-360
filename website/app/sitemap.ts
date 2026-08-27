@@ -4,7 +4,7 @@ import { configuratorUrl, localeOrigins } from "../lib/i18n";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const origin = localeOrigins.en;
-  const staticPaths = ["/", "/about", "/contact"];
+  const staticPaths = ["/", "/about", "/contact", "/pricing"];
 
   return [
     ...staticPaths.map((path) => ({

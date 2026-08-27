@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=24';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=26';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
 import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=1';
@@ -67,6 +67,10 @@ const shell = mountStandaloneConfiguratorShell({
       offsetY: 0,
     },
   },
+  configuratorPanel: {
+    panelSelector: '.sidebar',
+    priceSelector: '#headerEstimateTotal',
+  },
   callbacks: {
     async resetConfiguration() {
       const api = window.ROOF_CONFIGURATOR_API;
@@ -125,6 +129,7 @@ window.addEventListener('roof-locale-applied', () => {
 
 if (sidebar) {
   const markDirty = (event) => {
+    if (event.target.closest('[data-shared-configurator-panel-footer]')) return;
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
   };
   sidebar.addEventListener('click', markDirty, true);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Locale } from "../lib/i18n";
 
 const FIREBASE_SDK_VERSION = "12.17.1";
@@ -91,6 +91,7 @@ function firebaseErrorCode(error: unknown) {
 
 export function ContactForm({ locale }: { locale: Locale }) {
   const [state, setState] = useState<SubmissionState>("idle");
+  const [projectPath, setProjectPath] = useState("");
   const copy = locale === "ro" ? {
     name: "Nume",
     workEmail: "Email profesional",
@@ -104,6 +105,7 @@ export function ContactForm({ locale }: { locale: Locale }) {
     ready: "Mesajul a fost trimis. Revenim cât mai curând.",
     error: "Mesajul nu a putut fi trimis. Verificați conexiunea și încercați din nou.",
     rateLimited: "Au fost prea multe încercări într-un timp scurt. Încercați din nou mai târziu.",
+    path: "Traseu comercial selectat",
   } : locale === "de" ? {
     name: "Name",
     workEmail: "Geschäftliche E-Mail",
@@ -117,6 +119,7 @@ export function ContactForm({ locale }: { locale: Locale }) {
     ready: "Ihre Nachricht wurde gesendet. Wir melden uns so bald wie möglich.",
     error: "Ihre Nachricht konnte nicht gesendet werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
     rateLimited: "Zu viele Versuche in kurzer Zeit. Bitte versuchen Sie es später erneut.",
+    path: "Gewählter Implementierungsweg",
   } : {
     name: "Name",
     workEmail: "Work email",
@@ -130,7 +133,15 @@ export function ContactForm({ locale }: { locale: Locale }) {
     ready: "Your message has been sent. We will get back to you as soon as possible.",
     error: "Your message could not be sent. Check your connection and try again.",
     rateLimited: "Too many attempts were made in a short time. Please try again later.",
+    path: "Selected commercial path",
   };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setProjectPath((new URLSearchParams(window.location.search).get("project") || "").replaceAll("-", " "));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const statusText = state === "success"
     ? copy.ready
@@ -155,10 +166,10 @@ export function ContactForm({ locale }: { locale: Locale }) {
         email: String(data.get("email") || ""),
         company: String(data.get("company") || ""),
         phone: String(data.get("phone") || ""),
-        configuratorInterest: String(data.get("configuratorInterest") || ""),
+        configuratorInterest: String(data.get("configuratorInterest") || projectPath),
         message: String(data.get("message") || ""),
         language: locale,
-        sourcePage: `${window.location.origin}${window.location.pathname}`,
+        sourcePage: window.location.href,
         website: String(data.get("website") || ""),
       });
 
@@ -179,12 +190,13 @@ export function ContactForm({ locale }: { locale: Locale }) {
       setState(code.includes("resource-exhausted") ? "rate-limited" : "error");
     }
   }}>
+    {projectPath && <p className="contact-project-context"><span>{copy.path}</span><strong>{projectPath}</strong></p>}
     <div className="contact-form-grid">
       <label><span>{copy.name}</span><input name="name" autoComplete="name" maxLength={120} required /></label>
       <label><span>{copy.workEmail}</span><input name="email" type="email" autoComplete="email" maxLength={254} required /></label>
       <label><span>{copy.company}</span><input name="company" autoComplete="organization" maxLength={160} required /></label>
       <label><span>{copy.phone}</span><input name="phone" type="tel" autoComplete="tel" maxLength={60} /></label>
-      <label className="contact-form-wide"><span>{copy.product}</span><input name="configuratorInterest" maxLength={160} /></label>
+      <label className="contact-form-wide"><span>{copy.product}</span><input name="configuratorInterest" maxLength={160} defaultValue={projectPath} /></label>
     </div>
     <label className="contact-message"><span>{copy.message}</span><textarea name="message" rows={5} maxLength={5000} required /></label>
     <label className="contact-honeypot" aria-hidden="true">

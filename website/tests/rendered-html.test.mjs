@@ -32,6 +32,8 @@ test("server-renders the 360Configurator homepage and native previews", async ()
   assert.doesNotMatch(html, /Interactive Schüco Window System AW CT 65 B2-6 preview/);
   assert.match(html, /Pergola/);
   assert.match(html, /Roof/);
+  assert.match(html, /Your product could be/);
+  assert.match(html, /href="\/pricing"/);
   assert.match(html, /https:\/\/www\.linkedin\.com\/company\/360configurator\//);
   assert.match(html, /<title>Facebook<\/title>/);
   assert.match(html, /<title>X<\/title>/);

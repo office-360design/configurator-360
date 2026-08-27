@@ -1,4 +1,4 @@
-export type ConfiguratorSlug = "pergola" | "roof" | "window" | "hall" | "solar";
+export type ConfiguratorSlug = "pergola" | "roof" | "window" | "hall" | "solar" | "fence";
 
 export type Configurator = {
   slug: ConfiguratorSlug;
@@ -141,6 +141,30 @@ export const configurators: Configurator[] = [
     seoH1: "3D Solar System Configurator",
     seoTitle: "3D Solar Configurator | PV System & Roof Design",
     seoDescription: "Configure a residential solar system in 3D with roof geometry, panel layout, sun position, household consumption, battery storage and energy analysis.",
+  },
+  {
+    slug: "fence",
+    index: "06",
+    category: "Perimeter systems",
+    title: "Fence & Perimeter System",
+    shortTitle: "Fence systems",
+    statement: "Define the boundary. Resolve every bay.",
+    description: "A parametric fence configurator that coordinates perimeter layout, bay spacing, panel construction, finishes, access gates and foundation logic in one measurable 3D system.",
+    launchUrl: "https://www.360configurator.com/fence-configurator/",
+    accent: "#359CE7",
+    controls: ["Layout", "Panels", "Access"],
+    features: [
+      { title: "Parametric perimeter layout", short: "Layout", body: "Build straight, L-shaped, U-shaped or closed perimeter arrangements from measurable runs and corner angles. Every change rebuilds the full fence path while preserving a coherent relationship between endpoints, corners and installation geometry." },
+      { title: "Resolved bay system", short: "Bays", body: "Set a target bay width and let each run resolve into practical, equal panel divisions. Posts, clear openings and panel widths stay coordinated as the overall boundary changes, avoiding arbitrary stretched panels at the end of a run." },
+      { title: "Panel construction", short: "Panels", body: "Compare vertical slats, horizontal slats, solid privacy panels and welded mesh within the same structural frame. Panel-specific spacing and infill geometry remain visible, so the choice communicates construction and privacy rather than color alone." },
+      { title: "Finish specification", short: "Finishes", body: "Apply powder-coated and wood-effect finishes across posts, rails, panels and gates as one system-level selection. The preview keeps finish intent attached to the configured geometry and the commercial material schedule." },
+      { title: "Access and foundations", short: "Access", body: "Place pedestrian or driveway gates into valid bays, choose handing and coordinate the opening with adjacent posts. Concrete footings and base-plate installation options make the supporting condition part of the configured product." },
+      { title: "Measured commercial output", short: "BOM", body: "Derive total fence length, panel area, bay count, post count, gates and installation components from the active perimeter. The resulting bill of materials and pricing state update from the same geometry shown to the customer." },
+    ],
+    outputs: ["Bill of materials", "Bay schedule", "Gate specification", "Configured perimeter"],
+    seoH1: "3D Fence Configurator Online",
+    seoTitle: "3D Fence Configurator | Panels, Gates & Perimeter Layout",
+    seoDescription: "Configure a fence online in 3D. Set perimeter layout, dimensions, bay width, panel style, finishes, gates and foundations with live BOM and pricing logic.",
   },
 ];
 

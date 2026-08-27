@@ -45,9 +45,6 @@ export class ConfiguratorUI {
 
     this.root.innerHTML = this.shellTemplate();
     this.stepContent = this.root.querySelector('[data-step-content]');
-    this.stepTitle = this.root.querySelector('[data-step-title]');
-    this.stepCounter = this.root.querySelector('[data-step-counter]');
-    this.progress = this.root.querySelector('[data-progress]');
     this.sidebarFooter = this.root.querySelector('[data-sidebar-footer]');
     this.environmentPanel = this.root.querySelector('[data-environment-panel]');
     this.toast = this.root.querySelector('[data-toast]');
@@ -60,8 +57,7 @@ export class ConfiguratorUI {
 
     this.onMobileLayoutChange = (event) => {
       if (!this.sidebarUserOverride) {
-        this.sidebarHidden = event.matches;
-        this.render();
+        this.setSidebarHidden(event.matches);
       } else {
         this.syncMobileShellState();
       }
@@ -77,6 +73,9 @@ export class ConfiguratorUI {
 
   attachSharedShell(shell) {
     this.sharedShell = shell;
+    this.sidebarHidden = Boolean(shell.settingsPanelCollapsed);
+    this.syncToolbar();
+    this.syncMobileShellState();
     this.syncSharedShell();
   }
 
@@ -99,16 +98,13 @@ export class ConfiguratorUI {
             <div class="toast" data-toast role="status"></div>
           </section>
 
-          <aside class="configurator-sidebar" aria-label="${escapeHtml(this.t('app.sidebarAria'))}">
-            <button class="sidebar-collapse-handle" type="button" data-action="toggle-sidebar" aria-label="${escapeHtml(this.t('app.sidebarToggleAria'))}" aria-expanded="${!this.sidebarHidden}" title="${escapeHtml(this.t(this.sidebarHidden ? 'app.sidebarShow' : 'app.sidebarHide'))}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-            <div class="sidebar-header sidebar-header--compact sidebar-header--minimal">
-              <div><span class="step-counter" data-step-counter></span><h1 data-step-title></h1></div>
-            </div>
-            <div class="sidebar-scroll" data-step-content></div>
+          <aside class="configurator-sidebar${this.sidebarHidden ? ' is-collapsed' : ''}" aria-label="${escapeHtml(this.t('app.sidebarAria'))}">
+            <div class="sidebar-scroll shared-configurator-panel__body" data-step-content></div>
             <footer class="sidebar-footer" data-sidebar-footer></footer>
           </aside>
+          <button id="pergolaSidebarToggle" class="sidebar-collapse-handle${this.sidebarHidden ? ' is-hidden-state' : ''}" type="button" aria-label="${escapeHtml(this.t('app.sidebarToggleAria'))}" aria-expanded="${!this.sidebarHidden}" title="${escapeHtml(this.t(this.sidebarHidden ? 'app.sidebarShow' : 'app.sidebarHide'))}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
         </main>
         <div data-modal-root></div>
       </div>
@@ -152,15 +148,11 @@ export class ConfiguratorUI {
   }
 
   render() {
-    this.stepTitle.textContent = '';
-    this.stepCounter.textContent = '';
-    this.stepCounter.style.display = 'none';
-    if (this.progress) this.progress.innerHTML = '';
-    this.root.querySelector('.configurator-sidebar')?.classList.toggle('is-hidden', this.sidebarHidden);
     this.root.querySelector('.app-shell')?.classList.toggle('is-dark-mode', Boolean(this.state.darkMode));
 
     this.stepContent.innerHTML = this.renderAccordionSections();
-    this.sidebarFooter.innerHTML = this.renderFooter();
+    if (this.sharedShell?.refreshConfiguratorPanelFooter) this.sharedShell.refreshConfiguratorPanelFooter();
+    else this.sidebarFooter.replaceChildren();
     this.environmentPanel.innerHTML = this.renderEnvironmentPanel();
     this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
     this.syncToolbar();
@@ -296,8 +288,6 @@ export class ConfiguratorUI {
       const stepId = actionTarget.dataset.stepId;
       this.expandedStep = this.expandedStep === stepId ? null : stepId;
       this.render();
-    } else if (action === 'toggle-sidebar') {
-      this.setSidebarHidden(!this.sidebarHidden, { userOverride: true });
     } else if (action === 'toggle-environment') {
       this.environmentOpen = !this.environmentOpen;
       this.environmentPanel.classList.toggle('is-open', this.environmentOpen);
@@ -477,9 +467,16 @@ export class ConfiguratorUI {
     this.root.querySelector('.sidebar-collapse-handle')?.classList.toggle('is-hidden-state', this.sidebarHidden);
   }
 
-  setSidebarHidden(hidden, { userOverride = false } = {}) {
-    this.sidebarHidden = Boolean(hidden);
+  setSidebarHidden(hidden, { userOverride = false, fromSharedShell = false } = {}) {
+    const nextHidden = Boolean(hidden);
     if (userOverride) this.sidebarUserOverride = true;
+
+    if (this.sharedShell && !fromSharedShell) {
+      this.sharedShell.setSettingsPanelCollapsed(nextHidden);
+      return;
+    }
+
+    this.sidebarHidden = nextHidden;
 
     if (this.mobileLayoutQuery.matches && !this.sidebarHidden) {
       this.environmentOpen = false;
@@ -527,6 +524,7 @@ export class ConfiguratorUI {
     this.sharedShell.setActionEnabled('undo', Boolean(this.store.canUndo?.()));
     this.sharedShell.setToolActive('dimensions', Boolean(this.state.view.dimensionsVisible));
     this.sharedShell.setToolActive('compass', Boolean(this.state.view.compassVisible));
+    this.sharedShell.refreshConfiguratorPanelFooter?.();
   }
 
   toggleEnvironmentPanel() {

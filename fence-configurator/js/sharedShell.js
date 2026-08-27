@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=24';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=27';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
@@ -43,6 +43,11 @@ const shell = mountStandaloneConfiguratorShell({
     collapsedClass: 'is-collapsed',
     bodyCollapsedClass: 'fence-sidebar-collapsed',
     initiallyCollapsed: isCompactViewport(),
+  },
+  configuratorPanel: {
+    panelSelector: '.sidebar',
+    priceSelector: '#summaryTotal',
+    geometry: 'floating-right',
   },
   callbacks: {
     onUndo() { history.undo(); },
@@ -95,6 +100,7 @@ history.bindSource(document.querySelector('.sidebar'));
 const sidebar = document.querySelector('.sidebar');
 if (sidebar) {
   const markDirty = (event) => {
+    if (event.target.closest('[data-shared-configurator-panel-footer]')) return;
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
   };
   sidebar.addEventListener('click', markDirty, true);

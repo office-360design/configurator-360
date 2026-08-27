@@ -1,5 +1,21 @@
 import * as THREE from 'three';
-import { FINISHES, calculateClosedFenceGeometry, calculateClosedFiveFenceGeometry, deriveFenceMetrics } from './state.js?v=4';
+import { FINISHES, calculateClosedFenceGeometry, calculateClosedFiveFenceGeometry, deriveFenceMetrics } from './state.js?v=5';
+
+const TEXTURE_LOADER = new THREE.TextureLoader();
+const TEXTURE_CACHE = new Map();
+
+function surfaceTexture(path, { color = false, repeatX = 1, repeatY = 1 } = {}) {
+  const key = `${path}:${color}:${repeatX}:${repeatY}`;
+  if (TEXTURE_CACHE.has(key)) return TEXTURE_CACHE.get(key);
+  const texture = TEXTURE_LOADER.load(path);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(repeatX, repeatY);
+  texture.anisotropy = 4;
+  if (color) texture.colorSpace = THREE.SRGBColorSpace;
+  TEXTURE_CACHE.set(key, texture);
+  return texture;
+}
 
 const POST_SIZE = 0.085;
 const PANEL_THICKNESS = 0.045;
@@ -18,10 +34,31 @@ export function buildFenceAssembly(state) {
   const root = new THREE.Group();
   root.name = 'fence-configurator-assembly';
   const finish = FINISHES[state.finish] ?? FINISHES.anthracite;
-  const finishMaterial = new THREE.MeshStandardMaterial({ color: finish.color, roughness: state.finish === 'wood' ? 0.72 : 0.48, metalness: state.finish === 'wood' ? 0.05 : 0.35 });
-  const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x20252a, roughness: 0.48, metalness: 0.52 });
-  const meshMaterial = new THREE.MeshStandardMaterial({ color: finish.color, roughness: 0.5, metalness: 0.5 });
-  const footingMaterial = new THREE.MeshStandardMaterial({ color: state.foundation === 'baseplate' ? 0x555f67 : 0xb8b4aa, roughness: 0.88, metalness: state.foundation === 'baseplate' ? 0.48 : 0.02 });
+  const isWood = state.finish === 'wood';
+  const isBronze = state.finish === 'bronze';
+  const woodColor = isWood ? surfaceTexture('/textures/pbr/fence-wood-color.jpg', { color: true }) : null;
+  const woodNormal = isWood ? surfaceTexture('/textures/pbr/fence-wood-normal.jpg') : null;
+  const woodRoughness = isWood ? surfaceTexture('/textures/pbr/fence-wood-roughness.jpg') : null;
+  const finishMaterial = new THREE.MeshPhysicalMaterial({
+    color: isWood ? 0xffffff : finish.color,
+    map: woodColor,
+    normalMap: woodNormal,
+    roughnessMap: woodRoughness,
+    roughness: isWood ? 0.56 : isBronze ? 0.27 : 0.46,
+    // Bronze here is a coloured powder coat, not bare copper. Keeping the
+    // metallic response restrained preserves the bronze body colour while the
+    // clear coat carries the studio highlight at the default camera.
+    metalness: isWood ? 0.01 : isBronze ? 0.14 : 0.24,
+    clearcoat: isWood ? 0.14 : isBronze ? 0.52 : 0.22,
+    clearcoatRoughness: isWood ? 0.56 : isBronze ? 0.18 : 0.54,
+    envMapIntensity: isWood ? 0.86 : isBronze ? 1.28 : 0.86,
+  });
+  if (isWood) finishMaterial.normalScale.set(0.16, 0.16);
+  const darkMaterial = new THREE.MeshPhysicalMaterial({ color: 0x151b20, roughness: 0.34, metalness: 0.72, clearcoat: 0.18, clearcoatRoughness: 0.42 });
+  const meshMaterial = finishMaterial;
+  const footingMaterial = state.foundation === 'baseplate'
+    ? new THREE.MeshPhysicalMaterial({ color: 0x4a555d, roughness: 0.38, metalness: 0.78, clearcoat: 0.12, clearcoatRoughness: 0.55 })
+    : new THREE.MeshStandardMaterial({ color: 0xa7a49c, roughness: 0.98, metalness: 0 });
 
   const fenceGroup = new THREE.Group();
   fenceGroup.name = 'fence';
@@ -315,12 +352,44 @@ function buildTechnicalEdges(fenceGroup) {
 }
 
 function boxMesh(width, height, depth, material, x, y, z, angle = 0) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+  const geometry = new THREE.BoxGeometry(width, height, depth);
+  applyWorldScaleBoxUvs(geometry, width, height, x, y, z, angle);
+  const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x, y, z);
   mesh.rotation.y = angle;
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   return mesh;
+}
+
+// BoxGeometry normally maps the complete image onto every slat, rail and
+// panel. Projecting UVs in metres keeps grain and brushed-metal scale coherent
+// across a full run. Long horizontal members rotate the grain with the part;
+// vertical slats and privacy sheets keep it upright.
+function applyWorldScaleBoxUvs(geometry, width, height, x, y, z, angle) {
+  const uv = geometry.getAttribute('uv');
+  if (!uv) return;
+  const metresPerTexture = 1.35;
+  const localRunPosition = x * Math.cos(angle) - z * Math.sin(angle);
+  const horizontalMember = width > height * 2.2;
+  for (let index = 0; index < uv.count; index += 1) {
+    const sourceU = uv.getX(index);
+    const sourceV = uv.getY(index);
+    if (horizontalMember) {
+      uv.setXY(
+        index,
+        (y - height / 2 + sourceV * height) / metresPerTexture,
+        (localRunPosition - width / 2 + sourceU * width) / metresPerTexture,
+      );
+    } else {
+      uv.setXY(
+        index,
+        (localRunPosition - width / 2 + sourceU * width) / metresPerTexture,
+        (y - height / 2 + sourceV * height) / metresPerTexture,
+      );
+    }
+  }
+  uv.needsUpdate = true;
 }
 
 function markFence(object) {

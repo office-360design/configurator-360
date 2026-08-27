@@ -115,7 +115,7 @@ const sitemapExpectations = {
     apps: ["/pergola-konfigurator/", "/dach-konfigurator/", "/fenster-konfigurator/", "/hallen-konfigurator/", "/solar-konfigurator/", "/zaun-konfigurator/"],
   },
 };
-const marketingSlugs = ["pergola", "roof", "window", "hall", "solar"];
+const marketingSlugs = ["pergola", "roof", "window", "hall", "solar", "fence"];
 const allOrigins = Object.values(sitemapExpectations).map(({ origin }) => origin);
 
 for (const [locale, { origin, apps }] of Object.entries(sitemapExpectations)) {
@@ -125,6 +125,7 @@ for (const [locale, { origin, apps }] of Object.entries(sitemapExpectations)) {
     `${origin}/`,
     `${origin}/about`,
     `${origin}/contact`,
+    `${origin}/pricing`,
     ...marketingSlugs.map((slug) => `${origin}/configurators/${slug}`),
     ...apps.map((appPath) => `${origin}${appPath}`),
   ];

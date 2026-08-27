@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=7';
+import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=11';
 
 export class FenceScene {
   constructor(host) {
+    RectAreaLightUniformsLib.init();
     this.host = host;
     this.units = 'metric';
     this.locale = 'en-US';
@@ -22,7 +24,44 @@ export class FenceScene {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.08;
     this.host.appendChild(this.renderer.domElement);
+
+    // Metallic powder coats need something structured to reflect. The former
+    // light-only setup left bronze nearly black from the default camera and
+    // produced a highlight only after orbiting underneath the assembly.
+    const environmentScene = new THREE.Scene();
+    environmentScene.background = new THREE.Color(0x222a31);
+    const studioBox = new THREE.BoxGeometry();
+    const studioRoom = new THREE.Mesh(
+      studioBox,
+      new THREE.MeshStandardMaterial({ color: 0x38424a, side: THREE.BackSide, roughness: 0.94 }),
+    );
+    studioRoom.scale.set(24, 24, 24);
+    environmentScene.add(studioRoom);
+    const addSoftbox = (position, scale, color, intensity) => {
+      const panel = new THREE.Mesh(
+        studioBox,
+        new THREE.MeshLambertMaterial({ color: 0x000000, emissive: color, emissiveIntensity: intensity }),
+      );
+      panel.position.fromArray(position);
+      panel.scale.fromArray(scale);
+      environmentScene.add(panel);
+    };
+    addSoftbox([-8, 5, 5], [0.08, 5, 4], 0xffecd1, 17);
+    addSoftbox([7, 3, 2], [0.08, 3.6, 5], 0xaad9ff, 10);
+    addSoftbox([0, 8, -2], [5, 0.08, 3], 0xffffff, 12);
+    addSoftbox([-2, 4.2, 10], [1.5, 4.2, 0.08], 0xffdfb8, 19);
+    const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+    this.environmentTarget = pmremGenerator.fromScene(environmentScene, 0.04);
+    this.scene.environment = this.environmentTarget.texture;
+    pmremGenerator.dispose();
+    environmentScene.traverse((object) => {
+      object.geometry?.dispose?.();
+      const surface = object.material;
+      if (surface) (Array.isArray(surface) ? surface : [surface]).forEach((entry) => entry.dispose());
+    });
 
     this.labelRenderer = new CSS2DRenderer();
     this.labelRenderer.domElement.className = 'fence-label-layer';
@@ -41,7 +80,7 @@ export class FenceScene {
 
     this.ambient = new THREE.HemisphereLight(0xeaf7ff, 0x7d7569, 2.2);
     this.scene.add(this.ambient);
-    this.sun = new THREE.DirectionalLight(0xfff2d7, 3.2);
+    this.sun = new THREE.DirectionalLight(0xf6fbff, 2.6);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(compactRendering ? 1024 : 2048, compactRendering ? 1024 : 2048);
     this.sun.shadow.camera.left = -22;
@@ -50,6 +89,21 @@ export class FenceScene {
     this.sun.shadow.camera.bottom = -22;
     this.sun.shadow.bias = -0.00025;
     this.scene.add(this.sun);
+
+    // Neutral product-photography panels reveal coating gloss without turning
+    // bronze into orange wood. Their camera-relative placement keeps the same
+    // readable highlight at the default view and while orbiting.
+    this.studioKey = new THREE.RectAreaLight(0xf8fbff, 13.4, 4.6, 4.2);
+    this.studioFill = new THREE.RectAreaLight(0xcfe3ff, 2.1, 4.4, 3.6);
+    this.studioRim = new THREE.RectAreaLight(0xfff1dc, 4.4, 6.2, 1.8);
+    this.studioSpot = new THREE.SpotLight(0xfff7e8, 210, 32, Math.PI / 6.5, 0.82, 1.35);
+    this.studioSpotTarget = new THREE.Object3D();
+    this.scene.add(this.studioKey, this.studioFill, this.studioRim, this.studioSpot, this.studioSpotTarget);
+    this.studioSpot.target = this.studioSpotTarget;
+    this.studioView = new THREE.Vector3();
+    this.studioRight = new THREE.Vector3();
+    this.studioUp = new THREE.Vector3();
+    this.worldUp = new THREE.Vector3(0, 1, 0);
 
     this.floorGroup = new THREE.Group();
     this.scene.add(this.floorGroup);
@@ -100,13 +154,49 @@ export class FenceScene {
       Math.sin(azimuth) * Math.cos(elevation) * radius,
     );
     const night = Boolean(state.nightPreview);
-    this.sun.intensity = night ? 0.32 : 3.1;
+    this.isNight = night;
+    this.sun.intensity = night ? 0.32 : 2.6;
+    this.sun.color.set(night ? 0x9eb8e8 : 0xf6fbff);
     this.ambient.intensity = night ? 0.62 : 2.2;
     this.ambient.color.set(night ? 0x8397bd : 0xeaf7ff);
-    this.ambient.groundColor.set(night ? 0x2d3342 : 0x7d7569);
+    this.ambient.groundColor.set(night ? 0x2d3342 : 0x8b9195);
     this.scene.background.set(night ? 0x131a27 : this.darkMode ? 0x172235 : 0xeef2f3);
-    this.renderer.toneMappingExposure = night ? 0.72 : 1;
+    this.renderer.toneMappingExposure = night ? 0.72 : 1.08;
     this.updateFloorMaterials(night);
+  }
+
+  updateStudioLights() {
+    const target = this.controls.target;
+    this.studioView.subVectors(target, this.camera.position).normalize();
+    this.studioRight.crossVectors(this.studioView, this.worldUp).normalize();
+    this.studioUp.crossVectors(this.studioRight, this.studioView).normalize();
+    const nightScale = this.isNight ? 0.18 : 1;
+    this.studioKey.intensity = 13.4 * nightScale;
+    this.studioFill.intensity = 2.1 * nightScale;
+    this.studioRim.intensity = 4.4 * nightScale;
+    this.studioSpot.intensity = 210 * nightScale;
+    this.studioKey.position.copy(target)
+      .addScaledVector(this.studioView, -6.2)
+      .addScaledVector(this.studioRight, -1.35)
+      .addScaledVector(this.studioUp, 1.65);
+    this.studioFill.position.copy(target)
+      .addScaledVector(this.studioView, -6.5)
+      .addScaledVector(this.studioRight, 5.2)
+      .addScaledVector(this.studioUp, 0.8);
+    this.studioRim.position.copy(target)
+      .addScaledVector(this.studioView, 5.5)
+      .addScaledVector(this.studioRight, 2.4)
+      .addScaledVector(this.studioUp, 4.6);
+    this.studioSpot.position.copy(target)
+      .addScaledVector(this.studioView, -6.4)
+      .addScaledVector(this.studioRight, -1.9)
+      .addScaledVector(this.studioUp, 2.15);
+    this.studioSpotTarget.position.copy(target)
+      .addScaledVector(this.studioRight, 0.7)
+      .addScaledVector(this.studioUp, 0.15);
+    this.studioKey.lookAt(target);
+    this.studioFill.lookAt(target);
+    this.studioRim.lookAt(target);
   }
 
   setDarkMode(enabled, state) {
@@ -302,6 +392,7 @@ export class FenceScene {
   animate() {
     this.animationFrame = requestAnimationFrame(() => this.animate());
     this.controls.update();
+    this.updateStudioLights();
     this.renderer.render(this.scene, this.camera);
     this.labelRenderer.render(this.scene, this.camera);
   }
