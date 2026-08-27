@@ -101,6 +101,7 @@ const TENANT_PLAN_CATALOG = Object.freeze({
 });
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const TENANT_COMPANY_NAME_MAX_LENGTH = 120;
+const TENANT_OWNER_EMAIL_MAX_LENGTH = 254;
 const TENANT_LOGO_MAX_BYTES = 200_000;
 const TENANT_ADMIN_LIST_LIMIT = 500;
 const TENANT_STATUSES = new Set(['active', 'suspended']);
@@ -1144,6 +1145,15 @@ function validateTenantCompanyName(value) {
   return companyName;
 }
 
+function validateTenantOwnerEmail(value, { optional = true } = {}) {
+  const email = String(value || '').trim().toLowerCase();
+  if (!email && optional) return '';
+  if (!email || email.length > TENANT_OWNER_EMAIL_MAX_LENGTH || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpsError('invalid-argument', 'Enter a valid tenant dashboard owner email address.');
+  }
+  return email;
+}
+
 function validateTenantStatus(value) {
   const status = String(value || '').trim().toLowerCase();
   if (!TENANT_STATUSES.has(status)) {
@@ -1578,6 +1588,7 @@ function tenantAdminSummaryFromSnapshot(snapshot) {
     maxConfigurators: plan.maxConfigurators,
     subscription,
     configurators,
+    ownerEmail: String(data.ownerEmail || '').trim().toLowerCase(),
     hasLogo: Boolean(String(data.logoUrl || '').trim()),
     firebaseAuthDomainAuthorized: data.firebaseAuthDomainAuthorized === true,
     createdAtMs: tenantTimestampMs(data.createdAt),
@@ -1612,6 +1623,84 @@ async function requireGoLiveNowTenant(slug) {
     throw new HttpsError('not-found', 'Tier-1 tenant not found.');
   }
   return snapshot;
+}
+
+
+async function requireTenantDashboardOwner(request) {
+  const uid = requireAuthenticatedUid(request);
+  const email = String(request.auth?.token?.email || '').trim().toLowerCase();
+  if (!email || request.auth?.token?.email_verified !== true) {
+    throw new HttpsError('permission-denied', 'A verified Google account is required.');
+  }
+
+  const origin = requestOrigin(request);
+  const slug = tenantSlugFromConfiguratorOrigin(origin);
+  if (!slug || origin !== `https://${slug}.360configurator.com`) {
+    throw new HttpsError('permission-denied', 'Tenant dashboard requests must come from the customer domain.');
+  }
+
+  const ref = db.collection(TENANTS_COLLECTION).doc(slug);
+  const snapshot = await ref.get();
+  const tenant = snapshot.data() || {};
+  if (!snapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
+    throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+  }
+
+  const ownerEmail = String(tenant.ownerEmail || '').trim().toLowerCase();
+  const ownerUid = String(tenant.ownerUid || '').trim();
+  if (!ownerEmail) {
+    throw new HttpsError('permission-denied', 'No dashboard owner is assigned to this tenant yet.');
+  }
+
+  if (ownerUid) {
+    if (ownerUid !== uid) {
+      throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
+    }
+  } else {
+    if (ownerEmail !== email) {
+      throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
+    }
+    await ref.update({ ownerUid: uid, ownerBoundAt: Timestamp.now() });
+  }
+
+  return { uid, email, slug, ref, snapshot, tenant };
+}
+
+function tenantDashboardViewFromSnapshot(snapshot, analytics = null, usage = null) {
+  const data = snapshot.data() || {};
+  const slug = normalizeTenantSlug(data.slug || snapshot.id);
+  const configurators = normalizedTenantConfigurators(data.configurators);
+  const planId = validateTenantPlanId(data.planId, configurators);
+  const plan = tenantPlan(planId);
+  const subscription = normalizedTenantSubscription(data.subscription, data.status);
+  return {
+    slug,
+    domain: String(data.domain || `${slug}.360configurator.com`),
+    companyName: String(data.companyName || slug),
+    logoUrl: String(data.logoUrl || ''),
+    status: String(data.status || tenantRuntimeStatusForSubscription(subscription.status)),
+    planId,
+    planName: plan.name,
+    maxConfigurators: plan.maxConfigurators,
+    subscription: {
+      status: subscription.status,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      currentPeriodEndMs: tenantTimestampMs(subscription.currentPeriodEnd),
+    },
+    configurators,
+    plans: publicTenantPlanCatalog(),
+    analytics: analytics || {
+      month: currentTenantUsageMonth(),
+      currentMonth: emptyConfiguratorAnalytics(),
+      lifetime: emptyConfiguratorAnalytics(),
+      updatedAtMs: 0,
+    },
+    usage: usage || {
+      month: currentTenantUsageMonth(),
+      solar: normalizedSolarUsage(null),
+      updatedAtMs: 0,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1995,6 +2084,17 @@ const CONFIGURATOR_ANALYTICS_CALLABLE_OPTIONS = Object.freeze({
   memory: '256MiB',
 });
 
+
+const TENANT_DASHBOARD_CALLABLE_OPTIONS = Object.freeze({
+  region: FUNCTION_REGION,
+  serviceAccount: RUNTIME_SERVICE_ACCOUNT,
+  // Dashboard access is authenticated and bound to the tenant owner stored in
+  // the private tenant document. App Check remains reserved for Share.
+  enforceAppCheck: false,
+  timeoutSeconds: 30,
+  memory: '256MiB',
+});
+
 const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
   ...TENANT_ADMIN_CALLABLE_OPTIONS,
   // Identity Platform authorizedDomains is a project-level read/modify/write
@@ -2018,6 +2118,84 @@ exports.recordConfiguratorAnalyticsEvent = onCall(
 
     await incrementConfiguratorAnalytics(scope, product, CONFIGURATOR_ANALYTICS_EVENTS[event]);
     return { recorded: true, scope: scope.scopeType };
+  },
+);
+
+exports.getTenantDashboard = onCall(
+  TENANT_DASHBOARD_CALLABLE_OPTIONS,
+  async (request) => {
+    const access = await requireTenantDashboardOwner(request);
+    const [snapshot, analytics, usage] = await Promise.all([
+      access.ref.get(),
+      configuratorAnalyticsForScope(analyticsScopeIdForTenant(access.slug)),
+      tenantUsageForMonth(access.slug),
+    ]);
+    return tenantDashboardViewFromSnapshot(snapshot, analytics, usage);
+  },
+);
+
+exports.updateTenantDashboard = onCall(
+  TENANT_DASHBOARD_CALLABLE_OPTIONS,
+  async (request) => {
+    const access = await requireTenantDashboardOwner(request);
+    const input = request.data && typeof request.data === 'object' ? request.data : {};
+    const now = Timestamp.now();
+    const hasOwn = (key) => Object.prototype.hasOwnProperty.call(input, key);
+    const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(access.slug);
+
+    await db.runTransaction(async (transaction) => {
+      const privateSnapshot = await transaction.get(access.ref);
+      const publicSnapshot = await transaction.get(publicRef);
+      const tenant = privateSnapshot.data() || {};
+      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW || !publicSnapshot.exists) {
+        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      }
+      if (String(tenant.ownerUid || '') !== access.uid) {
+        throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
+      }
+
+      const companyName = hasOwn('companyName')
+        ? validateTenantCompanyName(input.companyName)
+        : validateTenantCompanyName(tenant.companyName);
+      const existingConfigurators = validateTenantConfigurators(tenant.configurators);
+      const planId = hasOwn('planId')
+        ? validateTenantPlanId(input.planId, existingConfigurators)
+        : validateTenantPlanId(tenant.planId, existingConfigurators);
+      const configurators = hasOwn('configurators')
+        ? validateConfiguratorsForPlan(input.configurators, planId)
+        : validateConfiguratorsForPlan(existingConfigurators, planId);
+
+      const logoMode = hasOwn('logoMode') ? String(input.logoMode || '').trim().toLowerCase() : 'keep';
+      if (!['keep', 'replace', 'remove'].includes(logoMode)) {
+        throw new HttpsError('invalid-argument', 'Logo update mode is invalid.');
+      }
+      let logoUrl = String(tenant.logoUrl || '');
+      if (logoMode === 'remove') logoUrl = '';
+      if (logoMode === 'replace') {
+        logoUrl = validateTenantLogoDataUrl(input.logoDataUrl);
+        if (!logoUrl) throw new HttpsError('invalid-argument', 'Choose a logo image to replace the current logo.');
+      }
+
+      const synchronizedFields = { companyName, configurators, logoUrl, updatedAt: now };
+      transaction.update(access.ref, {
+        ...synchronizedFields,
+        planId,
+        lastSelfServiceUpdateByUid: access.uid,
+        lastSelfServiceUpdateByEmail: access.email,
+      });
+      transaction.update(publicRef, synchronizedFields);
+    });
+
+    const [snapshot, analytics, usage] = await Promise.all([
+      access.ref.get(),
+      configuratorAnalyticsForScope(analyticsScopeIdForTenant(access.slug)),
+      tenantUsageForMonth(access.slug),
+    ]);
+    logger.info('Tier-1 tenant updated through customer dashboard.', {
+      slug: access.slug,
+      updatedByUid: access.uid,
+    });
+    return tenantDashboardViewFromSnapshot(snapshot, analytics, usage);
   },
 );
 
@@ -2046,6 +2224,7 @@ exports.provisionTenant = onCall(
     const admin = await requireTenantProvisioningAdmin(request);
     const slug = validateTenantSlug(request.data?.slug);
     const companyName = validateTenantCompanyName(request.data?.companyName);
+    const ownerEmail = validateTenantOwnerEmail(request.data?.ownerEmail);
     const requestedConfigurators = validateTenantConfigurators(request.data?.configurators);
     const planId = validateTenantPlanId(request.data?.planId, requestedConfigurators);
     const configurators = validateConfiguratorsForPlan(requestedConfigurators, planId);
@@ -2095,6 +2274,7 @@ exports.provisionTenant = onCall(
         status: tenantRuntimeStatusForSubscription(subscription.status),
         subscription,
         ownerUid: '',
+        ownerEmail,
         configurators,
         solarUsageLimits: { ...plan.solarUsageLimits },
         logoUrl,
@@ -2131,6 +2311,7 @@ exports.provisionTenant = onCall(
       slug,
       companyName,
       domain,
+      ownerEmail,
       url: `https://${domain}/`,
       planId,
       planName: plan.name,
@@ -2208,6 +2389,11 @@ exports.updateTenant = onCall(
       const companyName = hasOwn('companyName')
         ? validateTenantCompanyName(input.companyName)
         : validateTenantCompanyName(tenant.companyName);
+      const previousOwnerEmail = validateTenantOwnerEmail(tenant.ownerEmail);
+      const ownerEmail = hasOwn('ownerEmail')
+        ? validateTenantOwnerEmail(input.ownerEmail)
+        : previousOwnerEmail;
+      const ownerUid = ownerEmail === previousOwnerEmail ? String(tenant.ownerUid || '') : '';
       const existingConfigurators = validateTenantConfigurators(tenant.configurators);
       const planId = hasOwn('planId')
         ? validateTenantPlanId(input.planId, existingConfigurators)
@@ -2256,6 +2442,8 @@ exports.updateTenant = onCall(
         subscription,
         solarUsageLimits,
         domain: expectedDomain,
+        ownerEmail,
+        ownerUid,
         lastUpdatedByUid: admin.uid,
         lastUpdatedByEmail: admin.email,
       });
@@ -2273,6 +2461,7 @@ exports.updateTenant = onCall(
         configurators,
         logoUrl,
         solarUsageLimits,
+        ownerEmail,
         firebaseAuthDomainAuthorized: tenant.firebaseAuthDomainAuthorized === true,
         createdAtMs: tenantTimestampMs(tenant.createdAt),
         updatedAtMs: now.toMillis(),

@@ -278,3 +278,32 @@ Metric definitions are intentionally stable:
 - **Configurations created**: a fresh default configuration at the start of a new session, or an explicit **New Configuration** action. Loading a saved configuration, local draft, domain handoff, or Share snapshot does not increment it.
 
 `getTenant` returns current-month and lifetime analytics for that tenant to the internal administration page. `getPlatformAnalytics` returns the same aggregate view for public platform domains and is protected by the existing tenant-admin Firebase UID allowlist.
+
+## Tier-1 customer dashboard
+
+Tier-1 tenants expose a self-service dashboard at:
+
+```text
+https://<tenant>.360configurator.com/dashboard/
+```
+
+Dashboard access is not granted merely because a Firebase user is authenticated. The private
+`tenants/{slug}` document must have a `ownerEmail` value assigned by the internal Tenant
+Administration page. On the first successful dashboard login with that verified email, the
+backend binds `ownerUid` to the Firebase UID. Subsequent access is UID-bound. Changing the owner
+email from internal administration clears the previous UID binding so access can be transferred.
+
+The customer dashboard can change only self-service fields:
+
+- company name;
+- logo;
+- Go Live Now plan;
+- enabled configurators, subject to the selected plan's limit.
+
+It can read tenant analytics and current Solar usage. It cannot change subscription state, Solar
+quotas, billing-provider identifiers, tenant slug/domain, Firebase Auth registration, or internal
+administration metadata.
+
+Dashboard reads and writes are performed through `getTenantDashboard` and
+`updateTenantDashboard`. Both derive the tenant from the HTTPS `Origin` and never accept a tenant
+slug from the browser.

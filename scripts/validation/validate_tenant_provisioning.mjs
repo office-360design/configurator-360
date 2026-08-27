@@ -31,7 +31,7 @@ const checks = [
   ]],
   ['shared-ui/admin/tenant-provisioning/index.html', [
     'Tier-1 tenant administration',
-    'tenantProvisioningAdmin.js?v=5',
+    'tenantProvisioningAdmin.js?v=6',
   ]],
   ['shared-ui/src/tenantProvisioningAdmin.js', [
     'FUNCTION_BASE',
