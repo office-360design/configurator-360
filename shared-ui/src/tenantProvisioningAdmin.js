@@ -84,6 +84,8 @@ const manageUsagePvgisUpstream = document.querySelector('#manageUsagePvgisUpstre
 const manageAnalyticsMonth = document.querySelector('#manageAnalyticsMonth');
 const manageAnalyticsMonthBody = document.querySelector('#manageAnalyticsMonthBody');
 const manageAnalyticsLifetimeBody = document.querySelector('#manageAnalyticsLifetimeBody');
+const manageActivityList = document.querySelector('#manageActivityList');
+const manageActivityEmpty = document.querySelector('#manageActivityEmpty');
 const manageSubscriptionStatus = document.querySelector('#manageSubscriptionStatus');
 const manageCancelAtPeriodEnd = document.querySelector('#manageCancelAtPeriodEnd');
 const manageSubscriptionMeta = document.querySelector('#manageSubscriptionMeta');
@@ -313,6 +315,72 @@ function populateTenantAnalytics(tenant) {
   manageAnalyticsMonth.textContent = analytics.month ? `${analytics.month} UTC` : 'Current UTC month';
   renderAnalyticsTable(manageAnalyticsMonthBody, analytics.currentMonth);
   renderAnalyticsTable(manageAnalyticsLifetimeBody, analytics.lifetime);
+}
+
+function auditActorLabel(event) {
+  if (event?.actorType === 'admin') return event.actorEmail || '360Configurator admin';
+  if (event?.actorType === 'tenant_owner') return event.actorEmail || 'Tenant owner';
+  return 'System';
+}
+
+function auditTypeLabel(type) {
+  return ({
+    tenant_created: 'Created',
+    dashboard_owner_claimed: 'Owner linked',
+    tenant_dashboard_updated: 'Customer settings',
+    tenant_admin_updated: 'Admin settings',
+    subscription_state_changed: 'Subscription',
+  })[type] || 'Activity';
+}
+
+function formatAuditTime(value) {
+  const ms = Number(value) || 0;
+  if (!ms) return 'Unknown time';
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toLocaleString();
+  }
+}
+
+function populateTenantActivity(tenant) {
+  if (!manageActivityList || !manageActivityEmpty) return;
+  manageActivityList.replaceChildren();
+  const events = Array.isArray(tenant?.auditEvents) ? tenant.auditEvents : [];
+  manageActivityEmpty.hidden = events.length > 0;
+  events.forEach((event) => {
+    const row = document.createElement('article');
+    row.className = 'activity-item activity-item--admin';
+
+    const header = document.createElement('div');
+    header.className = 'activity-item__header';
+    const title = document.createElement('strong');
+    title.textContent = event.summary || 'Tenant activity recorded.';
+    const badge = document.createElement('span');
+    badge.className = 'activity-item__badge';
+    badge.textContent = auditTypeLabel(event.type);
+    header.append(title, badge);
+
+    const meta = document.createElement('div');
+    meta.className = 'activity-item__meta';
+    meta.textContent = `${auditActorLabel(event)} · ${formatAuditTime(event.createdAtMs)}`;
+
+    row.append(header, meta);
+    const changes = Array.isArray(event?.details?.changes) ? event.details.changes : [];
+    if (changes.length) {
+      const list = document.createElement('ul');
+      list.className = 'activity-item__changes';
+      changes.forEach((change) => {
+        const item = document.createElement('li');
+        item.textContent = String(change || '');
+        list.append(item);
+      });
+      row.append(list);
+    }
+    manageActivityList.append(row);
+  });
 }
 
 async function refreshPlatformAnalytics() {
@@ -573,6 +641,7 @@ function populateTenantEditor(tenant) {
   manageSubscriptionMeta.textContent = `${provider === 'manual' ? 'Manual subscription' : provider}${providerId}`;
   populateSolarUsage(tenant);
   populateTenantAnalytics(tenant);
+  populateTenantActivity(tenant);
   manageLogo.value = '';
   manageRemoveLogo.checked = false;
   clearManageLogoPreview();
