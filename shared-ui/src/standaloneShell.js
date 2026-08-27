@@ -1,5 +1,5 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
-import { sharedT } from './i18n.js?v=22';
+import { sharedT } from './i18n.js?v=23';
 import { renderActionFeedback } from './components/feedback.js?v=17';
 import { renderTopBar } from './components/topBar.js?v=20';
 import { syncAccountIdentity } from './components/accountMenu.js?v=18';
@@ -9,7 +9,7 @@ import { renderSavedConfigurationsDialog } from './components/savedConfiguration
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=2';
 import { renderCartMenu } from './components/cartMenu.js?v=2';
-import { getUserCart, mutateUserCart } from './userCart.js?v=2';
+import { getUserCart, mutateUserCart } from './userCart.js?v=3';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 import { readShareState } from './shareState.js?v=4';
 import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
@@ -20,6 +20,7 @@ const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
 const GLOBAL_LOCALE_STORAGE_KEY = '360-configurator:shared-ui:locale';
 const CART_STORAGE_BASE_KEY = '360-configurator:cart';
 const MAX_CART_ITEMS = 100;
+const CART_FX_RATES_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 const SAVED_DOMAIN_ID_PARAM = 'savedConfig';
 const SAVED_DOMAIN_OWNER_PARAM = 'savedOwner';
 const DOMAIN_AUTH_STATE_PARAM = 'domainAuthState';
@@ -87,6 +88,17 @@ function cartCurrencyFromText(value, fallback = 'USD') {
   if (text.includes('USD') || text.includes('$')) return 'USD';
   const normalizedFallback = String(fallback || '').toUpperCase();
   return ['USD', 'EUR', 'RON'].includes(normalizedFallback) ? normalizedFallback : 'USD';
+}
+
+function convertCartMoneyAmount(value, fromCurrency, toCurrency) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+  const from = cartCurrencyFromText(fromCurrency, 'EUR');
+  const to = cartCurrencyFromText(toCurrency, 'EUR');
+  if (from === to) return amount;
+  const fromRate = Number(CART_FX_RATES_FROM_EUR[from]) || 1;
+  const toRate = Number(CART_FX_RATES_FROM_EUR[to]) || 1;
+  return (amount / fromRate) * toRate;
 }
 
 function parseCartMoneyText(value, fallbackCurrency = 'USD') {
@@ -352,22 +364,24 @@ export class StandaloneConfiguratorShell {
   }
 
   cartRenderItems() {
+    const selectedCurrency = cartCurrencyFromText(this.state.currency, 'USD');
     return this.cartItems.map((item) => ({
       ...item,
-      costText: this.formatCartMoney(item.costAmount, item.currency),
+      costText: this.formatCartMoney(
+        convertCartMoneyAmount(item.costAmount, item.currency, selectedCurrency),
+        selectedCurrency,
+      ),
     }));
   }
 
   cartTotalText() {
-    if (!this.cartItems.length) return this.formatCartMoney(0, this.state.currency);
-    const totals = new Map();
-    this.cartItems.forEach((item) => {
-      const currency = cartCurrencyFromText(item.currency, this.state.currency);
-      totals.set(currency, (totals.get(currency) || 0) + Math.max(0, Number(item.costAmount) || 0));
-    });
-    return [...totals.entries()]
-      .map(([currency, amount]) => this.formatCartMoney(amount, currency))
-      .join(' + ');
+    const selectedCurrency = cartCurrencyFromText(this.state.currency, 'USD');
+    const total = this.cartItems.reduce((sum, item) => sum + Math.max(0, convertCartMoneyAmount(
+      item.costAmount,
+      item.currency,
+      selectedCurrency,
+    )), 0);
+    return this.formatCartMoney(total, selectedCurrency);
   }
 
   async refreshCartFromBackend(uid = this.authUser?.uid, { force = false } = {}) {
@@ -461,7 +475,7 @@ export class StandaloneConfiguratorShell {
     this.cartBusy = true;
     button?.setAttribute('disabled', '');
     try {
-      const result = await mutateUserCart({ action: 'remove', key: itemKey });
+      const result = await mutateUserCart({ action: 'remove', key: itemKey, productId: this.cartItems[index].productId });
       const row = button?.closest('[data-cart-item]')
         || this.host.querySelector(`[data-cart-item][data-cart-key="${CSS.escape(itemKey)}"]`);
       row?.classList.add('is-removing');
@@ -1695,6 +1709,13 @@ export class StandaloneConfiguratorShell {
     this.state[field.dataset.path] = field.value;
     this.persistPreferences();
     this.options.callbacks.onPreferenceChange?.(field.dataset.path, field.value, this.state);
+    if (field.dataset.path === 'currency') {
+      // Cart snapshots preserve the price/currency captured when they were added,
+      // but the cart itself always renders every row and the total in the user's
+      // currently selected currency. Re-render immediately when that preference changes.
+      this.renderHost();
+      this.sync();
+    }
   }
 
   async save(button, { suppressFeedback = false } = {}) {
