@@ -1293,6 +1293,10 @@ const USER_SAVED_CONFIGURATION_VERSION = 1;
 const MAX_SAVED_CONFIGURATION_BYTES = 850_000;
 const MAX_SAVED_CONFIGURATION_NAME_LENGTH = 80;
 const SAVED_CONFIGURATION_LIST_LIMIT = 100;
+const USER_CART_VERSION = 1;
+const MAX_USER_CART_ITEMS = 100;
+const USER_CART_CURRENCIES = new Set(['USD', 'EUR', 'RON']);
+const USER_CART_KEY_PATTERN = /^(window|roof|pergola|hall|solar|fence):[A-Za-z0-9_-]{1,128}$/;
 
 function requireAuthenticatedUid(request) {
   const uid = String(request.auth?.uid || '');
@@ -1388,6 +1392,91 @@ async function requireSavedConfigurationScope(request, product) {
   }
 
   return { origin, tenantSlug };
+}
+
+function userCartDocument(uid, tenantSlug = '') {
+  const scopeId = tenantSlug ? `tenant_${tenantSlug}` : 'platform';
+  return db.collection('users').doc(uid).collection('carts').doc(scopeId);
+}
+
+async function requireUserCartScope(request) {
+  const origin = requestOrigin(request);
+  if (ALLOWED_CONFIGURATOR_ORIGINS.has(origin) || USER_CONFIGURATION_DEVELOPMENT_ORIGIN.test(origin)) {
+    return { origin, tenantSlug: '' };
+  }
+
+  const tenantSlug = tenantSlugFromConfiguratorOrigin(origin);
+  if (!tenantSlug) throw new HttpsError('permission-denied', 'Unsupported cart origin.');
+
+  const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
+  const tenant = snapshot.data() || {};
+  if (
+    !snapshot.exists
+    || tenant.status !== 'active'
+    || String(tenant.domain || '') !== `${tenantSlug}.360configurator.com`
+  ) {
+    throw new HttpsError('permission-denied', 'This customer tenant is not active.');
+  }
+
+  return { origin, tenantSlug };
+}
+
+function validateUserCartKey(value) {
+  const key = String(value || '').trim();
+  if (!USER_CART_KEY_PATTERN.test(key)) {
+    throw new HttpsError('invalid-argument', 'Invalid cart item key.');
+  }
+  return key;
+}
+
+function normalizeUserCartItem(raw) {
+  const productId = normalizeProductType(raw?.productId);
+  if (!ALLOWED_PRODUCTS.has(productId)) {
+    throw new HttpsError('invalid-argument', 'Unsupported cart configurator type.');
+  }
+  const savedConfigurationId = validateSavedConfigurationId(raw?.savedConfigurationId);
+  const key = `${productId}:${savedConfigurationId}`;
+  const name = String(raw?.name || '').trim().slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH);
+  const costAmount = Number(raw?.costAmount);
+  if (!Number.isFinite(costAmount) || costAmount < 0 || costAmount > 1_000_000_000_000) {
+    throw new HttpsError('invalid-argument', 'Invalid cart price.');
+  }
+  const currency = String(raw?.currency || '').trim().toUpperCase();
+  if (!USER_CART_CURRENCIES.has(currency)) {
+    throw new HttpsError('invalid-argument', 'Unsupported cart currency.');
+  }
+  const addedAt = Number(raw?.addedAt);
+  return {
+    key,
+    productId,
+    savedConfigurationId,
+    name,
+    costAmount,
+    currency,
+    addedAt: Number.isFinite(addedAt) && addedAt > 0 ? Math.round(addedAt) : Date.now(),
+  };
+}
+
+function normalizeStoredUserCartItems(items) {
+  if (!Array.isArray(items)) return [];
+  const deduplicated = new Map();
+  items.slice(0, MAX_USER_CART_ITEMS).forEach((raw) => {
+    try {
+      const item = normalizeUserCartItem(raw);
+      deduplicated.set(item.key, item);
+    } catch {
+      // Ignore malformed historical cart rows instead of making the cart unreadable.
+    }
+  });
+  return [...deduplicated.values()].slice(-MAX_USER_CART_ITEMS);
+}
+
+function userCartResponse({ exists = true, items = [], updatedAt = null } = {}) {
+  return {
+    exists,
+    items: normalizeStoredUserCartItems(items),
+    updatedAtMs: timestampMillis(updatedAt),
+  };
 }
 
 const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
@@ -1823,6 +1912,95 @@ exports.deleteUserConfiguration = onCall(
     const { tenantSlug } = await requireSavedConfigurationScope(request, product);
     await userSavedItemsCollection(uid, product, tenantSlug).doc(id).delete();
     return { id, deleted: true };
+  },
+);
+
+exports.getUserCart = onCall(
+  USER_CONFIGURATION_CALLABLE_OPTIONS,
+  async (request) => {
+    const uid = requireAuthenticatedUid(request);
+    const { tenantSlug } = await requireUserCartScope(request);
+    const snapshot = await userCartDocument(uid, tenantSlug).get();
+    if (!snapshot.exists) return userCartResponse({ exists: false, items: [] });
+    const data = snapshot.data() || {};
+    return userCartResponse({
+      exists: true,
+      items: data.items,
+      updatedAt: data.updatedAt,
+    });
+  },
+);
+
+exports.mutateUserCart = onCall(
+  USER_CONFIGURATION_CALLABLE_OPTIONS,
+  async (request) => {
+    const uid = requireAuthenticatedUid(request);
+    const { tenantSlug } = await requireUserCartScope(request);
+    const action = String(request.data?.action || '').trim().toLowerCase();
+    if (!['initialize', 'upsert', 'remove', 'empty'].includes(action)) {
+      throw new HttpsError('invalid-argument', 'Unsupported cart action.');
+    }
+
+    const ref = userCartDocument(uid, tenantSlug);
+    const now = Timestamp.now();
+    let preparedItem = null;
+    let preparedInitialItems = null;
+    let removeKey = '';
+
+    if (action === 'upsert') {
+      preparedItem = normalizeUserCartItem(request.data?.item);
+      const savedSnapshot = await userSavedItemsCollection(
+        uid,
+        preparedItem.productId,
+        tenantSlug,
+      ).doc(preparedItem.savedConfigurationId).get();
+      if (!savedSnapshot.exists) {
+        throw new HttpsError('not-found', 'The saved configuration referenced by this cart item no longer exists.');
+      }
+      preparedItem.name = String(savedSnapshot.data()?.n || preparedItem.name || '').trim()
+        .slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH);
+    } else if (action === 'remove') {
+      removeKey = validateUserCartKey(request.data?.key);
+    } else if (action === 'initialize') {
+      const incoming = Array.isArray(request.data?.items) ? request.data.items : [];
+      preparedInitialItems = normalizeStoredUserCartItems(incoming.slice(0, MAX_USER_CART_ITEMS));
+    }
+
+    const result = await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      const data = snapshot.exists ? snapshot.data() || {} : {};
+      const existingItems = normalizeStoredUserCartItems(data.items);
+      const createdAt = data.createdAt || now;
+
+      if (action === 'initialize' && snapshot.exists) {
+        return userCartResponse({ exists: true, items: existingItems, updatedAt: data.updatedAt });
+      }
+
+      let items = existingItems;
+      if (action === 'initialize') {
+        items = preparedInitialItems;
+      } else if (action === 'upsert') {
+        items = existingItems.filter((item) => item.key !== preparedItem.key);
+        items.push(preparedItem);
+        if (items.length > MAX_USER_CART_ITEMS) items = items.slice(items.length - MAX_USER_CART_ITEMS);
+      } else if (action === 'remove') {
+        items = existingItems.filter((item) => item.key !== removeKey);
+      } else if (action === 'empty') {
+        items = [];
+      }
+
+      transaction.set(ref, {
+        v: USER_CART_VERSION,
+        tenantSlug,
+        items,
+        createdAt,
+        updatedAt: now,
+      });
+
+      return userCartResponse({ exists: true, items, updatedAt: now });
+    });
+
+    return result;
   },
 );
 
