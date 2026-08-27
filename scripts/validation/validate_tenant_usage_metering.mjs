@@ -38,7 +38,7 @@ const checks = [
     'DEFAULT_SOLAR_USAGE_LIMITS',
     'normalizedSolarUsageLimits',
     'tenantUsageForMonth',
-    'solarUsageLimits: { ...DEFAULT_SOLAR_USAGE_LIMITS }',
+    'solarUsageLimits: { ...plan.solarUsageLimits }',
     "hasOwn('solarUsageLimits')",
     '[result.usage, result.analytics] = await Promise.all([',
     'tenantUsageForMonth(slug)',
@@ -54,7 +54,7 @@ const checks = [
     'manageSolarDataLayersLimit',
     'manageSolarPvgisLimit',
     'manageUsageDataLayers',
-    'tenantProvisioningAdmin.js?v=4',
+    'tenantProvisioningAdmin.js?v=5',
   ]],
   ['shared-ui/src/tenantProvisioningAdmin.js', [
     'currentSolarUsageLimitsFromForm',

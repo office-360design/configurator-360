@@ -49,6 +49,56 @@ const TENANT_USAGE_COLLECTION = 'tenantUsage';
 const CONFIGURATOR_ANALYTICS_COLLECTION = 'configuratorAnalytics';
 const TENANT_SCHEMA_VERSION = 1;
 const TENANT_PLAN_GO_LIVE_NOW = 'go_live_now';
+const TENANT_SUBSCRIPTION_SCHEMA_VERSION = 1;
+const TENANT_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due', 'suspended', 'cancelled']);
+const TENANT_ACCESSIBLE_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due']);
+const TENANT_PLAN_CATALOG = Object.freeze({
+  go_live_now_1: Object.freeze({
+    id: 'go_live_now_1',
+    name: 'Go Live Now — 1 configurator',
+    maxConfigurators: 1,
+    billingInterval: 'month',
+    currency: 'EUR',
+    monthlyPriceCents: null,
+    stripePriceId: '',
+    solarUsageLimits: Object.freeze({
+      analysesPerMonth: 0,
+      buildingInsightsPerMonth: 0,
+      dataLayersPerMonth: 0,
+      pvgisPerMonth: 0,
+    }),
+  }),
+  go_live_now_3: Object.freeze({
+    id: 'go_live_now_3',
+    name: 'Go Live Now — up to 3 configurators',
+    maxConfigurators: 3,
+    billingInterval: 'month',
+    currency: 'EUR',
+    monthlyPriceCents: null,
+    stripePriceId: '',
+    solarUsageLimits: Object.freeze({
+      analysesPerMonth: 0,
+      buildingInsightsPerMonth: 0,
+      dataLayersPerMonth: 0,
+      pvgisPerMonth: 0,
+    }),
+  }),
+  go_live_now_all: Object.freeze({
+    id: 'go_live_now_all',
+    name: 'Go Live Now — all configurators',
+    maxConfigurators: 6,
+    billingInterval: 'month',
+    currency: 'EUR',
+    monthlyPriceCents: null,
+    stripePriceId: '',
+    solarUsageLimits: Object.freeze({
+      analysesPerMonth: 0,
+      buildingInsightsPerMonth: 0,
+      dataLayersPerMonth: 0,
+      pvgisPerMonth: 0,
+    }),
+  }),
+});
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const TENANT_COMPANY_NAME_MAX_LENGTH = 120;
 const TENANT_LOGO_MAX_BYTES = 200_000;
@@ -1117,6 +1167,137 @@ function validateTenantConfigurators(value) {
   return configurators;
 }
 
+function enabledConfiguratorCount(configurators) {
+  return Object.values(normalizedTenantConfigurators(configurators)).filter(Boolean).length;
+}
+
+function inferredTenantPlanId(configurators) {
+  const count = enabledConfiguratorCount(configurators);
+  if (count <= 1) return 'go_live_now_1';
+  if (count <= 3) return 'go_live_now_3';
+  return 'go_live_now_all';
+}
+
+function validateTenantPlanId(value, configurators = null) {
+  const fallback = configurators ? inferredTenantPlanId(configurators) : '';
+  const planId = String(value || fallback).trim().toLowerCase();
+  const plan = TENANT_PLAN_CATALOG[planId];
+  if (!plan) throw new HttpsError('invalid-argument', 'Unsupported Go Live Now plan.');
+  return planId;
+}
+
+function tenantPlan(planId) {
+  const normalized = validateTenantPlanId(planId);
+  return TENANT_PLAN_CATALOG[normalized];
+}
+
+function validateConfiguratorsForPlan(configurators, planId) {
+  const normalized = validateTenantConfigurators(configurators);
+  const plan = tenantPlan(planId);
+  const count = enabledConfiguratorCount(normalized);
+  if (count > plan.maxConfigurators) {
+    throw new HttpsError(
+      'failed-precondition',
+      `${plan.name} allows at most ${plan.maxConfigurators} configurator${plan.maxConfigurators === 1 ? '' : 's'}.`,
+    );
+  }
+  return normalized;
+}
+
+function publicTenantPlanCatalog() {
+  return Object.values(TENANT_PLAN_CATALOG).map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    maxConfigurators: plan.maxConfigurators,
+    billingInterval: plan.billingInterval,
+    currency: plan.currency,
+    monthlyPriceCents: plan.monthlyPriceCents,
+    stripePriceId: plan.stripePriceId,
+    solarUsageLimits: { ...plan.solarUsageLimits },
+  }));
+}
+
+function validateTenantSubscriptionStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  if (!TENANT_SUBSCRIPTION_STATUSES.has(status)) {
+    throw new HttpsError('invalid-argument', 'Unsupported subscription status.');
+  }
+  return status;
+}
+
+function tenantRuntimeStatusForSubscription(subscriptionStatus) {
+  return TENANT_ACCESSIBLE_SUBSCRIPTION_STATUSES.has(subscriptionStatus) ? 'active' : 'suspended';
+}
+
+function defaultTenantSubscription(now = Timestamp.now()) {
+  return {
+    schemaVersion: TENANT_SUBSCRIPTION_SCHEMA_VERSION,
+    status: 'active',
+    cancelAtPeriodEnd: false,
+    provider: 'manual',
+    customerId: '',
+    subscriptionId: '',
+    priceId: '',
+    currentPeriodStart: null,
+    currentPeriodEnd: null,
+    lastEventId: '',
+    updatedAt: now,
+  };
+}
+
+function normalizedTenantSubscription(value, legacyTenantStatus = 'active') {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const fallbackStatus = legacyTenantStatus === 'suspended' ? 'suspended' : 'active';
+  const candidateStatus = String(source.status || fallbackStatus).trim().toLowerCase();
+  const status = TENANT_SUBSCRIPTION_STATUSES.has(candidateStatus) ? candidateStatus : fallbackStatus;
+  return {
+    schemaVersion: Number(source.schemaVersion) || TENANT_SUBSCRIPTION_SCHEMA_VERSION,
+    status,
+    cancelAtPeriodEnd: source.cancelAtPeriodEnd === true,
+    provider: String(source.provider || 'manual'),
+    customerId: String(source.customerId || ''),
+    subscriptionId: String(source.subscriptionId || ''),
+    priceId: String(source.priceId || ''),
+    currentPeriodStart: source.currentPeriodStart || null,
+    currentPeriodEnd: source.currentPeriodEnd || null,
+    lastEventId: String(source.lastEventId || ''),
+    updatedAt: source.updatedAt || null,
+  };
+}
+
+function subscriptionAdminView(subscription, legacyTenantStatus = 'active') {
+  const normalized = normalizedTenantSubscription(subscription, legacyTenantStatus);
+  return {
+    schemaVersion: normalized.schemaVersion,
+    status: normalized.status,
+    cancelAtPeriodEnd: normalized.cancelAtPeriodEnd,
+    provider: normalized.provider,
+    customerId: normalized.customerId,
+    subscriptionId: normalized.subscriptionId,
+    priceId: normalized.priceId,
+    currentPeriodStartMs: tenantTimestampMs(normalized.currentPeriodStart),
+    currentPeriodEndMs: tenantTimestampMs(normalized.currentPeriodEnd),
+    updatedAtMs: tenantTimestampMs(normalized.updatedAt),
+  };
+}
+
+function validateTenantSubscriptionTransition(fromStatus, toStatus) {
+  const from = validateTenantSubscriptionStatus(fromStatus);
+  const to = validateTenantSubscriptionStatus(toStatus);
+  if (from === to) return to;
+  const allowed = {
+    trialing: new Set(['active', 'past_due', 'suspended', 'cancelled']),
+    active: new Set(['trialing', 'past_due', 'suspended', 'cancelled']),
+    past_due: new Set(['active', 'suspended', 'cancelled']),
+    suspended: new Set(['active', 'cancelled']),
+    cancelled: new Set(['active']),
+  };
+  if (!allowed[from]?.has(to)) {
+    throw new HttpsError('failed-precondition', `Subscription cannot move from ${from} to ${to}.`);
+  }
+  return to;
+}
+
 function normalizeTenantUsageLimit(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) return 0;
@@ -1383,12 +1564,20 @@ function tenantTimestampMs(value) {
 function tenantAdminSummaryFromSnapshot(snapshot) {
   const data = snapshot.data() || {};
   const slug = normalizeTenantSlug(data.slug || snapshot.id);
+  const configurators = normalizedTenantConfigurators(data.configurators);
+  const planId = validateTenantPlanId(data.planId, configurators);
+  const plan = tenantPlan(planId);
+  const subscription = subscriptionAdminView(data.subscription, data.status);
   return {
     slug,
     domain: String(data.domain || `${slug}.360configurator.com`),
     companyName: String(data.companyName || slug),
-    status: String(data.status || '').trim().toLowerCase(),
-    configurators: normalizedTenantConfigurators(data.configurators),
+    status: String(data.status || tenantRuntimeStatusForSubscription(subscription.status)).trim().toLowerCase(),
+    planId,
+    planName: plan.name,
+    maxConfigurators: plan.maxConfigurators,
+    subscription,
+    configurators,
     hasLogo: Boolean(String(data.logoUrl || '').trim()),
     firebaseAuthDomainAuthorized: data.firebaseAuthDomainAuthorized === true,
     createdAtMs: tenantTimestampMs(data.createdAt),
@@ -1841,6 +2030,15 @@ exports.getPlatformAnalytics = onCall(
   },
 );
 
+exports.getTenantPlans = onCall(
+  TENANT_ADMIN_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    await requireTenantProvisioningAdmin(request);
+    return { plans: publicTenantPlanCatalog() };
+  },
+);
+
 exports.provisionTenant = onCall(
   TENANT_PROVISIONING_CALLABLE_OPTIONS,
   async (request) => {
@@ -1848,9 +2046,13 @@ exports.provisionTenant = onCall(
     const admin = await requireTenantProvisioningAdmin(request);
     const slug = validateTenantSlug(request.data?.slug);
     const companyName = validateTenantCompanyName(request.data?.companyName);
-    const configurators = validateTenantConfigurators(request.data?.configurators);
+    const requestedConfigurators = validateTenantConfigurators(request.data?.configurators);
+    const planId = validateTenantPlanId(request.data?.planId, requestedConfigurators);
+    const configurators = validateConfiguratorsForPlan(requestedConfigurators, planId);
+    const plan = tenantPlan(planId);
     const logoUrl = validateTenantLogoDataUrl(request.data?.logoDataUrl);
     const now = Timestamp.now();
+    const subscription = defaultTenantSubscription(now);
     const domain = `${slug}.360configurator.com`;
     const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
     const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
@@ -1889,10 +2091,12 @@ exports.provisionTenant = onCall(
         domain,
         companyName,
         plan: TENANT_PLAN_GO_LIVE_NOW,
-        status: 'active',
+        planId,
+        status: tenantRuntimeStatusForSubscription(subscription.status),
+        subscription,
         ownerUid: '',
         configurators,
-        solarUsageLimits: { ...DEFAULT_SOLAR_USAGE_LIMITS },
+        solarUsageLimits: { ...plan.solarUsageLimits },
         logoUrl,
         firebaseAuthDomain: domain,
         firebaseAuthDomainAuthorized: true,
@@ -1906,7 +2110,7 @@ exports.provisionTenant = onCall(
         schemaVersion: TENANT_SCHEMA_VERSION,
         slug,
         companyName,
-        status: 'active',
+        status: tenantRuntimeStatusForSubscription(subscription.status),
         logoUrl,
         configurators,
         createdAt: now,
@@ -1917,6 +2121,8 @@ exports.provisionTenant = onCall(
     logger.info('Tier-1 tenant provisioned.', {
       slug,
       companyName,
+      planId,
+      subscriptionStatus: subscription.status,
       configurators: Object.entries(configurators).filter(([, enabled]) => enabled).map(([id]) => id),
       createdByUid: admin.uid,
     });
@@ -1926,6 +2132,9 @@ exports.provisionTenant = onCall(
       companyName,
       domain,
       url: `https://${domain}/`,
+      planId,
+      planName: plan.name,
+      subscription: subscriptionAdminView(subscription, 'active'),
       configurators,
       createdAtMs: now.toMillis(),
     };
@@ -1999,15 +2208,27 @@ exports.updateTenant = onCall(
       const companyName = hasOwn('companyName')
         ? validateTenantCompanyName(input.companyName)
         : validateTenantCompanyName(tenant.companyName);
-      const status = hasOwn('status')
-        ? validateTenantStatus(input.status)
-        : validateTenantStatus(tenant.status);
+      const existingConfigurators = validateTenantConfigurators(tenant.configurators);
+      const planId = hasOwn('planId')
+        ? validateTenantPlanId(input.planId, existingConfigurators)
+        : validateTenantPlanId(tenant.planId, existingConfigurators);
       const configurators = hasOwn('configurators')
-        ? validateTenantConfigurators(input.configurators)
-        : validateTenantConfigurators(tenant.configurators);
+        ? validateConfiguratorsForPlan(input.configurators, planId)
+        : validateConfiguratorsForPlan(existingConfigurators, planId);
       const solarUsageLimits = hasOwn('solarUsageLimits')
         ? validateSolarUsageLimits(input.solarUsageLimits)
         : normalizedSolarUsageLimits(tenant.solarUsageLimits);
+      let subscription = normalizedTenantSubscription(tenant.subscription, tenant.status);
+      if (hasOwn('status')) {
+        const legacyStatus = validateTenantStatus(input.status);
+        subscription = {
+          ...subscription,
+          status: legacyStatus === 'active' ? 'active' : 'suspended',
+          cancelAtPeriodEnd: legacyStatus === 'active' ? subscription.cancelAtPeriodEnd : false,
+          updatedAt: now,
+        };
+      }
+      const status = tenantRuntimeStatusForSubscription(subscription.status);
 
       const logoMode = hasOwn('logoMode') ? String(input.logoMode || '').trim().toLowerCase() : 'keep';
       if (!['keep', 'replace', 'remove'].includes(logoMode)) {
@@ -2031,6 +2252,8 @@ exports.updateTenant = onCall(
 
       transaction.update(privateRef, {
         ...synchronizedFields,
+        planId,
+        subscription,
         solarUsageLimits,
         domain: expectedDomain,
         lastUpdatedByUid: admin.uid,
@@ -2043,6 +2266,10 @@ exports.updateTenant = onCall(
         domain: expectedDomain,
         companyName,
         status,
+        planId,
+        planName: tenantPlan(planId).name,
+        maxConfigurators: tenantPlan(planId).maxConfigurators,
+        subscription: subscriptionAdminView(subscription, status),
         configurators,
         logoUrl,
         solarUsageLimits,
@@ -2061,6 +2288,76 @@ exports.updateTenant = onCall(
       slug,
       status: result.status,
       configurators: Object.entries(result.configurators).filter(([, enabled]) => enabled).map(([id]) => id),
+      updatedByUid: admin.uid,
+    });
+
+    return result;
+  },
+);
+
+exports.setTenantSubscriptionState = onCall(
+  TENANT_ADMIN_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    const admin = await requireTenantProvisioningAdmin(request);
+    const input = request.data && typeof request.data === 'object' ? request.data : {};
+    const slug = validateTenantSlug(input.slug);
+    const requestedStatus = validateTenantSubscriptionStatus(input.status);
+    const requestedCancelAtPeriodEnd = input.cancelAtPeriodEnd === true;
+    const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
+    const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
+    const now = Timestamp.now();
+
+    const result = await db.runTransaction(async (transaction) => {
+      const privateSnapshot = await transaction.get(privateRef);
+      const publicSnapshot = await transaction.get(publicRef);
+      const tenant = privateSnapshot.data() || {};
+      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
+        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      }
+      if (!publicSnapshot.exists) {
+        throw new HttpsError('failed-precondition', 'The public tenant document is missing.');
+      }
+
+      const currentSubscription = normalizedTenantSubscription(tenant.subscription, tenant.status);
+      const status = validateTenantSubscriptionTransition(currentSubscription.status, requestedStatus);
+      const cancelAtPeriodEnd = ['suspended', 'cancelled'].includes(status)
+        ? false
+        : requestedCancelAtPeriodEnd;
+      const subscription = {
+        ...currentSubscription,
+        schemaVersion: TENANT_SUBSCRIPTION_SCHEMA_VERSION,
+        status,
+        cancelAtPeriodEnd,
+        updatedAt: now,
+      };
+      const runtimeStatus = tenantRuntimeStatusForSubscription(status);
+
+      transaction.update(privateRef, {
+        status: runtimeStatus,
+        subscription,
+        lastUpdatedByUid: admin.uid,
+        lastUpdatedByEmail: admin.email,
+        updatedAt: now,
+      });
+      transaction.update(publicRef, {
+        status: runtimeStatus,
+        updatedAt: now,
+      });
+
+      return {
+        slug,
+        status: runtimeStatus,
+        subscription: subscriptionAdminView(subscription, runtimeStatus),
+        updatedAtMs: now.toMillis(),
+      };
+    });
+
+    logger.info('Tier-1 subscription state changed.', {
+      slug,
+      subscriptionStatus: result.subscription.status,
+      cancelAtPeriodEnd: result.subscription.cancelAtPeriodEnd,
+      runtimeStatus: result.status,
       updatedByUid: admin.uid,
     });
 

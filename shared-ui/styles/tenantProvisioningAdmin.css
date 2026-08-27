@@ -291,3 +291,49 @@ input[type="text"], input[type="search"], input:not([type]) { width: 100%; }
 .analytics-table td:first-child { font-weight: 700; color: #344054; }
 .analytics-table .analytics-zero { color: #98a2b3; }
 @media (max-width: 860px) { .analytics-grid { grid-template-columns: 1fr; } }
+
+.field select {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: #fff;
+  color: #14171c;
+  outline: none;
+  font: inherit;
+}
+.field select:focus {
+  border-color: #667085;
+  box-shadow: 0 0 0 3px rgba(102, 112, 133, .12);
+}
+.subscription-fieldset {
+  margin: 28px 0 0;
+  padding: 22px;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  background: #fbfcfd;
+}
+.subscription-fieldset legend { padding: 0 8px; font-weight: 750; }
+.subscription-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, .8fr);
+  gap: 16px;
+  align-items: end;
+}
+.subscription-cancel-option {
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  background: #fff;
+}
+.subscription-meta {
+  margin: 14px 0;
+  color: #667085;
+  font-size: 13px;
+  word-break: break-word;
+}
+@media (max-width: 720px) {
+  .subscription-grid { grid-template-columns: 1fr; }
+}
