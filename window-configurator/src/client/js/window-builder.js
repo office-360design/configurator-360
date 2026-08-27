@@ -4718,7 +4718,13 @@ export function createWindowBuilder({
                 cellId,
             }));
             pane.position.set(centerX, centerY, glassPlacement.centerZ);
-            pane.castShadow = !captureMode;
+            // Transparent glass should not cast the same fully opaque shadow as
+            // aluminium/PVC components. Three.js shadow maps treat a transparent
+            // MeshStandardMaterial as an opaque depth caster, so leaving castShadow
+            // enabled makes the pane darken the ground as strongly as the frame.
+            // Keep receiving shadows for depth cues, but let only the solid window
+            // components cast workshop/scene shadows.
+            pane.castShadow = false;
             pane.receiveShadow = !captureMode;
             pane.userData.glazingCavity = glazingCavity;
             pane.userData.windowCell = cellId || (isFixed ? 'fixed' : 'opening');
