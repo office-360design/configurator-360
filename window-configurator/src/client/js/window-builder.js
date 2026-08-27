@@ -978,11 +978,13 @@ export function createWindowBuilder({
     const pivotBatant = new THREE.Group();
     let handleLeverGroup = new THREE.Group();
     let sashPoseAssemblies = [];
+    const sashPoseAnglesByCell = new Map();
+    let activePoseCellId = null;
+    let poseStateInitialized = false;
     let handleHitMeshes = [];
     let glassHitMeshes = [];
     let lastBuiltHandleSide = null;
     let handleHoldUntil = 0;
-    let currentPoseAngle = Number.parseFloat(document.getElementById('openAngle')?.value) || 0;
     let handleAngleAnimation = null;
 
     const HANDLE_CLICK_DRAG_THRESHOLD_PX = 5;
@@ -1007,37 +1009,87 @@ export function createWindowBuilder({
         );
     }
 
-    function startHandleAngleToggle() {
+    function clampOpeningAngle(value, maxAngle = getOpeningAngleLimit()) {
+        return Math.min(maxAngle, Math.max(0, Number.parseFloat(value) || 0));
+    }
+
+    function getPoseAngle(cellId) {
+        const id = cellId ? String(cellId) : null;
+        if (!id) return 0;
+        return clampOpeningAngle(sashPoseAnglesByCell.get(id) || 0);
+    }
+
+    function setPoseAngle(cellId, value) {
+        const id = cellId ? String(cellId) : null;
+        if (!id) return 0;
+        const clamped = clampOpeningAngle(value);
+        sashPoseAnglesByCell.set(id, clamped);
+        return clamped;
+    }
+
+    function hasPoseAssembly(cellId) {
+        const id = cellId ? String(cellId) : null;
+        return Boolean(id && sashPoseAssemblies.some(assembly => String(assembly.cellId) === id));
+    }
+
+    function getActivePoseCellId() {
+        if (activePoseCellId && hasPoseAssembly(activePoseCellId)) {
+            return String(activePoseCellId);
+        }
+        if (selectedGlassCellId && hasPoseAssembly(selectedGlassCellId)) {
+            return String(selectedGlassCellId);
+        }
+        return sashPoseAssemblies[0]?.cellId ? String(sashPoseAssemblies[0].cellId) : null;
+    }
+
+    function syncOpenAngleControl(cellId = getActivePoseCellId()) {
         const input = document.getElementById('openAngle');
-        if (!input || !sashPoseAssemblies.length) return false;
+        const value = cellId ? getPoseAngle(cellId) : 0;
+        if (input) input.value = String(Math.round(value));
+        const valAngleEl = document.getElementById('valAngle');
+        if (valAngleEl) valAngleEl.innerText = `${Math.round(value)}°`;
+    }
+
+    function startHandleAngleToggle(cellId) {
+        const id = cellId ? String(cellId) : null;
+        if (!id || !hasPoseAssembly(id)) return false;
 
         const maxAngle = getOpeningAngleLimit();
-        const sliderAngle = Math.min(
-            maxAngle,
-            Math.max(0, Number.parseFloat(input.value) || 0)
-        );
-        const from = handleAngleAnimation ? currentPoseAngle : sliderAngle;
-        // A second handle click during motion always means "close". When
-        // stationary, anything above the closed position also closes; only a
-        // genuinely closed sash opens fully.
-        const to = handleAngleAnimation
+        const from = getPoseAngle(id);
+        const isSameAnimation = handleAngleAnimation?.cellId === id;
+        // A second click on the same moving sash means close. Otherwise only
+        // the clicked sash toggles between closed and the current mode limit.
+        const to = isSameAnimation
             ? 0
             : (from > HANDLE_CLOSED_EPSILON_DEG ? 0 : maxAngle);
         const travelRatio = maxAngle > 0 ? Math.abs(to - from) / maxAngle : 1;
 
-        currentPoseAngle = from;
+        activePoseCellId = id;
         handleAngleAnimation = {
+            cellId: id,
             from,
             to,
             maxAngle,
             startedAt: performance.now(),
             durationMs: 300 + 400 * travelRatio,
         };
+        syncOpenAngleControl(id);
         return true;
     }
 
     function cancelHandleAngleAnimation() {
         handleAngleAnimation = null;
+    }
+
+    function handleOpenAngleInput() {
+        const input = document.getElementById('openAngle');
+        const cellId = getActivePoseCellId();
+        if (!input || !cellId) return;
+        activePoseCellId = cellId;
+        handleAngleAnimation = null;
+        const value = setPoseAngle(cellId, input.value);
+        const valAngleEl = document.getElementById('valAngle');
+        if (valAngleEl) valAngleEl.innerText = `${Math.round(value)}°`;
     }
 
     function raycastMeshes(clientX, clientY, meshes) {
@@ -1080,8 +1132,10 @@ export function createWindowBuilder({
         if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > HANDLE_CLICK_DRAG_THRESHOLD_PX) {
             return;
         }
-        if (raycastHandle(event.clientX, event.clientY)) {
-            if (startHandleAngleToggle()) {
+        const handleObject = raycastHandle(event.clientX, event.clientY);
+        if (handleObject) {
+            const handleCellId = handleObject.userData?.windowHandleCellId;
+            if (startHandleAngleToggle(handleCellId)) {
                 event.preventDefault();
             }
             return;
@@ -1108,6 +1162,7 @@ export function createWindowBuilder({
         renderer.domElement.addEventListener('pointerup', handleCanvasPointerUp);
         renderer.domElement.addEventListener('pointercancel', handleCanvasPointerCancel);
         document.getElementById('openAngle')?.addEventListener('input', cancelHandleAngleAnimation);
+        document.getElementById('openAngle')?.addEventListener('input', handleOpenAngleInput);
     }
 
     placementRoot.add(mainGroup);
@@ -1625,7 +1680,7 @@ export function createWindowBuilder({
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.font = '700 128px Outfit, system-ui, sans-serif';
+        ctx.font = '700 64px Outfit, system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(getWindowNumber(cellId, fallbackIndex)), 64, 66);
@@ -1653,6 +1708,10 @@ export function createWindowBuilder({
             if (!sprite?.material?.color) return;
             sprite.material.color.setHex(id === selectedGlassCellId ? 0x7dd3fc : 0xffffff);
         });
+        if (selectedGlassCellId && hasPoseAssembly(selectedGlassCellId)) {
+            activePoseCellId = selectedGlassCellId;
+            syncOpenAngleControl(selectedGlassCellId);
+        }
     }
 
     function buildDimensionLines(A, B, activeProfiles = []) {
@@ -3545,7 +3604,7 @@ export function createWindowBuilder({
                         // fixed-cell perimeter transform used by createMiteredSide().
                         const fixedCadTransform =
                             variantProfile.fixedGlazingMullionCadTransforms?.[
-                            fillerRuntimeCellSide
+                                fillerRuntimeCellSide
                             ] || null;
                         if (fixedCadTransform) {
                             const placedProfile = {
@@ -4884,6 +4943,33 @@ export function createWindowBuilder({
             mainGroup.add(sashGroup);
         }
 
+        // Opening pose is per sash. Rebuilding the geometry must not collapse
+        // all opening sashes back onto one shared angle value.
+        const activeSashIds = new Set(
+            sashPoseAssemblies.map(assembly => String(assembly.cellId))
+        );
+        for (const id of [...sashPoseAnglesByCell.keys()]) {
+            if (!activeSashIds.has(String(id))) sashPoseAnglesByCell.delete(id);
+        }
+        sashPoseAssemblies.forEach((assembly, index) => {
+            const id = String(assembly.cellId);
+            if (!sashPoseAnglesByCell.has(id)) {
+                const initialAngle = !poseStateInitialized && sashPoseAssemblies.length === 1 && index === 0
+                    ? clampOpeningAngle(document.getElementById('openAngle')?.value)
+                    : 0;
+                sashPoseAnglesByCell.set(id, initialAngle);
+            }
+        });
+        poseStateInitialized = true;
+        if (selectedGlassCellId && activeSashIds.has(String(selectedGlassCellId))) {
+            activePoseCellId = String(selectedGlassCellId);
+        } else if (!activePoseCellId || !activeSashIds.has(String(activePoseCellId))) {
+            activePoseCellId = sashPoseAssemblies[0]?.cellId
+                ? String(sashPoseAssemblies[0].cellId)
+                : null;
+        }
+        syncOpenAngleControl(activePoseCellId);
+
         if (fixedCells.length) {
             fixedCells.forEach(fixedCell => {
                 const panePlacement = getFixedGlassPanePlacement({
@@ -4963,30 +5049,52 @@ export function createWindowBuilder({
         }));
     }
 
+    function applySashPose(assembly, value, isBatant, { instantHandle = false } = {}) {
+        const isLeftHandle = assembly.isLeftHandle;
+        const clamped = clampOpeningAngle(value);
+        if (isBatant) {
+            const valueRad = Math.min(clamped, 80) * (Math.PI / 180);
+            assembly.pivotBatant.rotation.y = isLeftHandle ? valueRad : -valueRad;
+            assembly.pivotOscilo.rotation.x = 0;
+        } else {
+            assembly.pivotBatant.rotation.y = 0;
+            const valueRad = Math.min(clamped, 15) * (Math.PI / 180);
+            assembly.pivotOscilo.rotation.x = valueRad;
+        }
+
+        const targetRotationZ = isBatant
+            ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
+            : (isLeftHandle ? Math.PI : -Math.PI);
+        if (assembly.handleLeverGroup) {
+            if (instantHandle) {
+                assembly.handleLeverGroup.rotation.z = targetRotationZ;
+            } else if (performance.now() < handleHoldUntil && sashPoseAssemblies.length === 1) {
+                assembly.handleLeverGroup.rotation.z = 0;
+            } else {
+                assembly.handleLeverGroup.rotation.z = THREE.MathUtils.lerp(
+                    assembly.handleLeverGroup.rotation.z,
+                    targetRotationZ,
+                    0.10
+                );
+            }
+        }
+    }
+
     function applyCurrentPoseInstantly() {
-        const value = Number.parseFloat(document.getElementById('openAngle').value) || 0;
-        currentPoseAngle = value;
         handleAngleAnimation = null;
         const isBatant = document.getElementById('mBatant').checked;
+        const activeId = getActivePoseCellId();
+        if (activeId) {
+            // Preserve the existing external opening-angle control, but scope it
+            // to the currently selected/active sash instead of all sashes.
+            const input = document.getElementById('openAngle');
+            if (input) setPoseAngle(activeId, input.value);
+        }
 
         sashPoseAssemblies.forEach(assembly => {
-            const isLeftHandle = assembly.isLeftHandle;
-            if (isBatant) {
-                const valRad = Math.min(value, 80) * (Math.PI / 180);
-                assembly.pivotBatant.rotation.y = isLeftHandle ? valRad : -valRad;
-                assembly.pivotOscilo.rotation.x = 0;
-            } else {
-                assembly.pivotBatant.rotation.y = 0;
-                const valRad = Math.min(value, 15) * (Math.PI / 180);
-                assembly.pivotOscilo.rotation.x = valRad;
-            }
-
-            if (assembly.handleLeverGroup) {
-                assembly.handleLeverGroup.rotation.z = isBatant
-                    ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
-                    : (isLeftHandle ? Math.PI : -Math.PI);
-            }
+            applySashPose(assembly, getPoseAngle(assembly.cellId), isBatant, { instantHandle: true });
         });
+        syncOpenAngleControl(activeId);
 
         const targetExplode = isExploded ? 1 : 0;
         explodeProgress = targetExplode;
@@ -5005,78 +5113,56 @@ export function createWindowBuilder({
         const openAngleInput = document.getElementById('openAngle');
         const isBatant = document.getElementById('mBatant').checked;
         const maxAngle = getOpeningAngleLimit();
-        let value = Math.min(
-            maxAngle,
-            Math.max(0, Number.parseFloat(openAngleInput?.value) || 0)
-        );
 
         if (handleAngleAnimation) {
-            // Changing opening mode changes the legal range (80° turn / 15°
-            // tilt). In that case the mode control's clamped slider value wins.
-            if (Math.abs(handleAngleAnimation.maxAngle - maxAngle) > 0.001) {
+            const animationCellId = String(handleAngleAnimation.cellId);
+            if (!hasPoseAssembly(animationCellId)) {
                 handleAngleAnimation = null;
-                currentPoseAngle = value;
+            } else if (Math.abs(handleAngleAnimation.maxAngle - maxAngle) > 0.001) {
+                // Changing turn/tilt mode changes the legal range. Keep the
+                // animated sash independent and clamp only that sash.
+                setPoseAngle(animationCellId, getPoseAngle(animationCellId));
+                handleAngleAnimation = null;
             } else {
                 const elapsed = performance.now() - handleAngleAnimation.startedAt;
                 const progress = Math.min(1, elapsed / handleAngleAnimation.durationMs);
                 const eased = easeHandleMotion(progress);
-                value = THREE.MathUtils.lerp(
+                let value = THREE.MathUtils.lerp(
                     handleAngleAnimation.from,
                     handleAngleAnimation.to,
                     eased
                 );
-                currentPoseAngle = value;
-
-                // Keep the existing range control in sync with the animation.
-                // The sash uses the continuous value while the UI only needs
-                // degree precision, so the visible slider remains stable.
-                if (openAngleInput) {
-                    openAngleInput.value = String(Math.round(value));
-                }
-
                 if (progress >= 1) {
                     value = handleAngleAnimation.to;
-                    currentPoseAngle = value;
-                    if (openAngleInput) openAngleInput.value = String(value);
+                }
+                setPoseAngle(animationCellId, value);
+
+                if (getActivePoseCellId() === animationCellId && openAngleInput) {
+                    openAngleInput.value = String(Math.round(value));
+                }
+                if (progress >= 1) {
                     handleAngleAnimation = null;
                 }
             }
-        } else {
-            currentPoseAngle = value;
-        }
-
-        const valAngleEl = document.getElementById('valAngle');
-        if (valAngleEl) {
-            valAngleEl.innerText = `${Math.round(value)}°`;
         }
 
         sashPoseAssemblies.forEach(assembly => {
-            const isLeftHandle = assembly.isLeftHandle;
-            if (isBatant) {
-                const valueRad = Math.min(value, 80) * (Math.PI / 180);
-                assembly.pivotBatant.rotation.y = isLeftHandle ? valueRad : -valueRad;
-                assembly.pivotOscilo.rotation.x = 0;
-            } else {
-                assembly.pivotBatant.rotation.y = 0;
-                const valueRad = Math.min(value, 15) * (Math.PI / 180);
-                assembly.pivotOscilo.rotation.x = valueRad;
-            }
-
-            const targetRotationZ = isBatant
-                ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
-                : (isLeftHandle ? Math.PI : -Math.PI);
-            if (assembly.handleLeverGroup) {
-                if (performance.now() < handleHoldUntil && sashPoseAssemblies.length === 1) {
-                    assembly.handleLeverGroup.rotation.z = 0;
-                } else {
-                    assembly.handleLeverGroup.rotation.z = THREE.MathUtils.lerp(
-                        assembly.handleLeverGroup.rotation.z,
-                        targetRotationZ,
-                        0.10
-                    );
-                }
-            }
+            const value = setPoseAngle(assembly.cellId, getPoseAngle(assembly.cellId));
+            applySashPose(assembly, value, isBatant);
         });
+
+        const activeId = getActivePoseCellId();
+        if (activeId) {
+            const activeValue = getPoseAngle(activeId);
+            const valAngleEl = document.getElementById('valAngle');
+            if (valAngleEl) valAngleEl.innerText = `${Math.round(activeValue)}°`;
+            if (!handleAngleAnimation && openAngleInput) {
+                openAngleInput.value = String(Math.round(activeValue));
+            }
+        } else {
+            const valAngleEl = document.getElementById('valAngle');
+            if (valAngleEl) valAngleEl.innerText = '0°';
+        }
 
         explodeProgress = THREE.MathUtils.lerp(
             explodeProgress,
