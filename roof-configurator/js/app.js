@@ -1,5 +1,5 @@
 import { state, pitchRules, roofNames } from './state.js?v=16';
-import { RoofScene } from './scene.js?v=48';
+import { RoofScene } from './scene.js?v=56';
 import { RoofUI } from './ui.js?v=17';
 import {
   getFallbackCurrencyRate,
