@@ -2304,11 +2304,16 @@ export function createWindowBuilder({
         const sashGroup = new THREE.Group();
         const dividerGroup = new THREE.Group();
 
-        const activeProfiles = profilesData.filter(profile => {
+        // Visibility toggles are presentation-only. Keep a separate profile set
+        // for layout measurements so hiding a structural component (notably the
+        // mullion group) cannot change cell/frame positions or overall sizing.
+        const layoutProfiles = profilesData.filter(profile => isProfileEnabled(profile));
+        const activeProfiles = layoutProfiles.filter(profile => {
             const toggle = document.getElementById(`toggle_${profile.index}`);
             const componentEnabled = toggle ? toggle.checked : true;
-            return componentEnabled && isProfileEnabled(profile);
+            return componentEnabled;
         });
+        const layoutDividerProfiles = layoutProfiles.filter(profile => profile.role === 'divider');
         const activeDividerProfiles = activeProfiles.filter(profile => profile.role === 'divider');
         const activeTransProfiles = activeProfiles.filter(profile => profile.role === 'trans');
         const activeTransGasketProfiles = activeProfiles.filter(
@@ -2324,13 +2329,13 @@ export function createWindowBuilder({
         // The grid reference is the mullion centreline, therefore an exposed
         // frame contributes 57 - 88/2 = 13 mm beyond a cell grid line.
         const editableFrameFaceSpan = isEditableTopology
-            ? getFrameFaceSpanM(activeProfiles)
+            ? getFrameFaceSpanM(layoutProfiles)
             : 0;
         const editableFrameInwardSpan = isEditableTopology
-            ? getFrameJointInwardSpanM(activeProfiles)
+            ? getFrameJointInwardSpanM(layoutProfiles)
             : 0;
         const editableDividerFaceSpan = isEditableTopology
-            ? getDividerFaceSpanM(activeDividerProfiles)
+            ? getDividerFaceSpanM(layoutDividerProfiles)
             : 0;
         editableTopologyGeometry = isEditableTopology
             ? getEditableWindowTopologyGeometry({
@@ -2354,21 +2359,21 @@ export function createWindowBuilder({
             layoutState.layoutId === 'top-fixed-bottom-sash-sash'
             || layoutState.layoutKind === 't-grid'
         );
-        const dividerOrientation = activeDividerProfiles.length
+        const dividerOrientation = layoutDividerProfiles.length
             ? (
                 isEditableTopology
                     ? (editableTopologyGeometry?.dividerSegments?.length ? 'grid' : null)
                     : layoutState.dividerOrientation
             )
             : null;
-        const dividerBounds = getDividerSourceBounds(activeDividerProfiles);
+        const dividerBounds = getDividerSourceBounds(layoutDividerProfiles);
         const dividerFaceSpan = isEditableTopology
             ? editableDividerFaceSpan
             : Math.min(
                 dividerOrientation === 'vertical'
                     ? A * 0.3
                     : (dividerOrientation === 'horizontal' ? B * 0.3 : Math.min(A, B) * 0.3),
-                getDividerFaceSpanM(activeDividerProfiles)
+                getDividerFaceSpanM(layoutDividerProfiles)
             );
         // Editable topology always uses the same frame/grid reference relation,
         // even when the last fixed mullion is replaced by a floating trans. If
@@ -2376,8 +2381,8 @@ export function createWindowBuilder({
         // miters lose the CAD-derived reference extension and the whole outside
         // frame visibly shrinks.
         const frameJointInwardSpan = isEditableTopology
-            ? (editableFrameInwardSpan || getFrameJointInwardSpanM(activeProfiles))
-            : (dividerOrientation ? getFrameJointInwardSpanM(activeProfiles) : 0);
+            ? (editableFrameInwardSpan || getFrameJointInwardSpanM(layoutProfiles))
+            : (dividerOrientation ? getFrameJointInwardSpanM(layoutProfiles) : 0);
         const editableFramePlacements = isEditableTopology
             ? (editableTopologyGeometry?.framePlacements || []).map(placement =>
                 getEditableReentrantFramePlacement({
