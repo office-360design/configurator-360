@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { buildRoofModel } from './roofFactory.js?v=49';
+import { buildRoofModel } from './roofFactory.js?v=50';
 import { createDimensions } from './dimensions.js?v=13';
 import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=1';
 
