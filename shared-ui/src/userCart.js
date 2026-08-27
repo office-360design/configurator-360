@@ -48,12 +48,13 @@ export async function getUserCart() {
   };
 }
 
-export async function mutateUserCart({ action, item = null, items = null, key = '' } = {}) {
+export async function mutateUserCart({ action, item = null, items = null, key = '', productId = '' } = {}) {
   const result = await callCartFunction('mutateUserCart', {
     action: String(action || ''),
     item,
     items,
     key: String(key || ''),
+    productId: String(productId || ''),
   });
   return {
     exists: Boolean(result?.exists),
