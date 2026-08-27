@@ -92,6 +92,7 @@ const ALLOWED_CONFIGURATOR_ORIGINS = new Set([
   'https://www.360konfigurator.de',
   'https://aks.360configurator.com',
 ]);
+const USER_CONFIGURATION_DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
 
 // Marketing-site contact form.
 const CONTACT_RATE_LIMIT_COLLECTION = 'contactSubmissionRateLimits';
@@ -1220,13 +1221,57 @@ function validateSavedConfigurationPayload(productType, name, stateJson) {
   return { product, projectName, sizeBytes };
 }
 
-function userSavedItemsCollection(uid, product) {
-  return db
-    .collection('users')
-    .doc(uid)
-    .collection('savedConfigurations')
+function userSavedItemsCollection(uid, product, tenantSlug = '') {
+  const userRef = db.collection('users').doc(uid);
+  if (!tenantSlug) {
+    // Preserve the existing account-wide library for the public 360Configurator
+    // domains. This keeps all pre-Tier-1 saves and .com/.ro/.de domain handoffs
+    // compatible with the original storage path.
+    return userRef
+      .collection('savedConfigurations')
+      .doc(product)
+      .collection('items');
+  }
+
+  // Tier-1 customer saves live in a tenant-specific subtree. The browser never
+  // chooses this path: the callable derives the tenant from the request Origin
+  // and validates the private tenant record before accessing it.
+  return userRef
+    .collection('tenantSavedConfigurations')
+    .doc(tenantSlug)
+    .collection('products')
     .doc(product)
     .collection('items');
+}
+
+async function requireSavedConfigurationScope(request, product) {
+  const origin = requestOrigin(request);
+  if (ALLOWED_CONFIGURATOR_ORIGINS.has(origin) || USER_CONFIGURATION_DEVELOPMENT_ORIGIN.test(origin)) {
+    return { origin, tenantSlug: '' };
+  }
+
+  const tenantSlug = tenantSlugFromConfiguratorOrigin(origin);
+  if (!tenantSlug) {
+    throw new HttpsError('permission-denied', 'Unsupported saved-configuration origin.');
+  }
+
+  const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
+  const tenant = snapshot.data() || {};
+  const expectedDomain = `${tenantSlug}.360configurator.com`;
+  const configurators = tenant.configurators && typeof tenant.configurators === 'object'
+    ? tenant.configurators
+    : {};
+
+  if (
+    !snapshot.exists
+    || tenant.status !== 'active'
+    || String(tenant.domain || '') !== expectedDomain
+    || configurators[product] !== true
+  ) {
+    throw new HttpsError('permission-denied', 'This configurator is not enabled for the customer tenant.');
+  }
+
+  return { origin, tenantSlug };
 }
 
 const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
@@ -1427,7 +1472,8 @@ exports.saveUserConfiguration = onCall(
       stateJson,
     );
     const requestedId = validateSavedConfigurationId(request.data?.id, { optional: true });
-    const collection = userSavedItemsCollection(uid, product);
+    const { tenantSlug } = await requireSavedConfigurationScope(request, product);
+    const collection = userSavedItemsCollection(uid, product, tenantSlug);
     const ref = requestedId ? collection.doc(requestedId) : collection.doc();
     const existing = await ref.get();
     const now = Timestamp.now();
@@ -1441,6 +1487,7 @@ exports.saveUserConfiguration = onCall(
       n: projectName,
       s: stateJson,
       sizeBytes,
+      tenantSlug,
       createdAt,
       updatedAt: now,
     });
@@ -1465,7 +1512,8 @@ exports.listUserConfigurations = onCall(
       throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
     }
 
-    const snapshot = await userSavedItemsCollection(uid, product)
+    const { tenantSlug } = await requireSavedConfigurationScope(request, product);
+    const snapshot = await userSavedItemsCollection(uid, product, tenantSlug)
       .orderBy('updatedAt', 'desc')
       .limit(SAVED_CONFIGURATION_LIST_LIMIT)
       .select('n', 'createdAt', 'updatedAt', 'sizeBytes')
@@ -1495,7 +1543,8 @@ exports.getUserConfiguration = onCall(
       throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
     }
     const id = validateSavedConfigurationId(request.data?.id);
-    const snapshot = await userSavedItemsCollection(uid, product).doc(id).get();
+    const { tenantSlug } = await requireSavedConfigurationScope(request, product);
+    const snapshot = await userSavedItemsCollection(uid, product, tenantSlug).doc(id).get();
     if (!snapshot.exists) throw new HttpsError('not-found', 'Saved configuration not found.');
     const data = snapshot.data() || {};
 
@@ -1520,7 +1569,8 @@ exports.deleteUserConfiguration = onCall(
       throw new HttpsError('invalid-argument', 'Unsupported configurator type.');
     }
     const id = validateSavedConfigurationId(request.data?.id);
-    await userSavedItemsCollection(uid, product).doc(id).delete();
+    const { tenantSlug } = await requireSavedConfigurationScope(request, product);
+    await userSavedItemsCollection(uid, product, tenantSlug).doc(id).delete();
     return { id, deleted: true };
   },
 );

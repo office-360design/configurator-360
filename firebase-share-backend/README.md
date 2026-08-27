@@ -80,14 +80,19 @@ For localhost development, `debugOnLocalhost` uses the Firebase App Check debug 
 
 ## Private saved configurations
 
-The top-bar **Save** action now stores the active configurator state in the signed-in Google user's private Firebase area. These records are persistent account data and are separate from the 90-day public `sharedConfigurations` links.
+The top-bar **Save** action stores the active configurator state in the signed-in Google user's private Firebase area. These records are persistent account data and are separate from the 90-day public `sharedConfigurations` links.
 
-- Storage path: `users/{uid}/savedConfigurations/{product}/items/{configurationId}`.
+- Public 360Configurator domains keep the existing account-wide path: `users/{uid}/savedConfigurations/{product}/items/{configurationId}`. This preserves existing `.com/.ro/.de` saves and their cross-domain behavior.
+- Tier-1 customer domains use a tenant-isolated path: `users/{uid}/tenantSavedConfigurations/{tenantSlug}/products/{product}/items/{configurationId}`. A save created under one customer tenant is not visible, loadable, overwriteable, or deletable from another tenant.
+- The browser never supplies a trusted tenant id. Each callable derives the tenant from the HTTPS `Origin`, validates the private `tenants/{slug}` record and its enabled configurator entitlement, then chooses the storage path server-side.
 - Saved configuration operations require Firebase Authentication and use `request.auth.uid` server-side.
-- Browser Firestore access to the saved-configuration path is explicitly denied; only the authenticated callable functions use the Admin SDK.
+- Browser Firestore access to both saved-configuration paths is explicitly denied; only the authenticated callable functions use the Admin SDK.
 - The saved-configuration functions intentionally do **not** enforce App Check. Their client calls are made with the Firebase Auth ID token directly so saving/opening account data never causes a reCAPTCHA assessment. reCAPTCHA remains exclusive to **Share**.
-- Each product currently lists the user's 100 most recently updated saves for that configurator.
+- Each product currently lists the user's 100 most recently updated saves for the active platform/tenant scope.
 - Maximum serialized state per saved configuration: **850,000 UTF-8 bytes**.
+- Saves created on Tier-1 domains before tenant isolation was introduced remain in the legacy platform library because those older records contain no trustworthy tenant provenance. They are deliberately not guessed/migrated automatically.
+
+When **Change site domain** crosses from a tenant scope to the public platform (or between different tenant scopes in future), the shared UI transports a Share snapshot instead of a tenant-only saved-document id. This preserves the visible configuration without exposing the source tenant's private save record.
 
 Functions: `saveUserConfiguration`, `listUserConfigurations`, `getUserConfiguration`, and `deleteUserConfiguration`.
 

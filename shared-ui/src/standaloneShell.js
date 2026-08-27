@@ -10,6 +10,7 @@ import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=1';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 import { readShareState } from './shareState.js?v=4';
+import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
@@ -24,6 +25,11 @@ const DOMAIN_AUTH_HANDOFF_ID_PATTERN = /^[A-Za-z0-9_-]{32,64}$/;
 const SAVED_CONFIGURATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const DOMAIN_SAVE_FAILURE_MESSAGE = 'Domain change failed because of a saving failure';
 const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
+
+function savedConfigurationScopeForHostname(hostname = '') {
+  const tenantSlug = getTenantSlugForHostname(hostname);
+  return tenantSlug ? `tenant:${tenantSlug}` : 'platform';
+}
 function readHashParams(target) {
   const raw = target.hash.startsWith('#') ? target.hash.slice(1) : target.hash;
   return new URLSearchParams(raw);
@@ -192,11 +198,21 @@ export class StandaloneConfiguratorShell {
   }
 
   getProjectMetaKey(uid) {
-    return `${this.storagePrefix}:project-meta:user:${encodeURIComponent(String(uid || ''))}`;
+    const encodedUid = encodeURIComponent(String(uid || ''));
+    const tenantSlug = getTenantSlugForHostname(window.location.hostname);
+    if (tenantSlug) {
+      return `${this.storagePrefix}:project-meta:tenant:${encodeURIComponent(tenantSlug)}:user:${encodedUid}`;
+    }
+    return `${this.storagePrefix}:project-meta:user:${encodedUid}`;
   }
 
   getProjectCounterKey(uid) {
-    return `${this.projectCounterBaseKey}:user:${encodeURIComponent(String(uid || ''))}`;
+    const encodedUid = encodeURIComponent(String(uid || ''));
+    const tenantSlug = getTenantSlugForHostname(window.location.hostname);
+    if (tenantSlug) {
+      return `${this.projectCounterBaseKey}:tenant:${encodeURIComponent(tenantSlug)}:user:${encodedUid}`;
+    }
+    return `${this.projectCounterBaseKey}:user:${encodedUid}`;
   }
 
   getNextDefaultProjectName(uid = this.authUser?.uid || this.activeSessionUid) {
@@ -213,6 +229,10 @@ export class StandaloneConfiguratorShell {
     const key = this.getProjectMetaKey(uid);
     let meta = safeJsonParse(window.localStorage.getItem(key), null);
     if (meta) return meta;
+
+    // Tenant domains have their own local draft/save pointer namespace. Never
+    // inherit a pre-Tier-1 platform pointer into a customer tenant.
+    if (getTenantSlugForHostname(window.location.hostname)) return {};
 
     // Migrate the pre-account-scoped pointer only when its owner matches the
     // current Firebase account. A guest must never inherit this legacy record.
@@ -1116,7 +1136,9 @@ export class StandaloneConfiguratorShell {
         authHandoffId = await createDomainAuthHandoff(new URL(targetUrl).origin);
       }
 
-      let target = ownsSavedConfiguration
+      const sameSavedScope = savedConfigurationScopeForHostname(window.location.hostname)
+        === savedConfigurationScopeForHostname(new URL(targetUrl, window.location.href).hostname);
+      let target = ownsSavedConfiguration && sameSavedScope
         ? this.buildSavedDomainTarget(targetUrl)
         : await this.buildSharedDomainTarget(nextLocale);
       target = this.authUser?.uid
