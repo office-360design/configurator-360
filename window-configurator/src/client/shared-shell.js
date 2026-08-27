@@ -43,16 +43,24 @@ const shell = mountStandaloneConfiguratorShell({
   configuratorPanel: {
     panelSelector: '#controls',
     fallbackValue: 0,
-    getEstimatedTotal({ currency = 'EUR' } = {}) {
+    getEstimatedTotal({ currency = 'EUR', locale = initialLocale } = {}) {
       const totalEur = window.WINDOW_CONFIGURATOR_API?.getEstimatedTotalEur?.();
       if (totalEur === null || totalEur === undefined || !Number.isFinite(Number(totalEur))) return null;
       const converted = convertCartMoneyAmount(Number(totalEur), 'EUR', currency);
-      // Common UI displays whole currency units, so return the same amount that
-      // will be persisted into the immutable cart snapshot.
-      return {
-        value: Math.round(converted),
-        currency,
-      };
+      // Window configurator only: keep the Estimated total at currency precision
+      // (two decimals) without changing the shared formatter used by other products.
+      // Returning the formatted text also makes cart persistence parse the exact
+      // displayed cents instead of storing a separately rounded whole-unit value.
+      try {
+        return new Intl.NumberFormat(locale || 'en-US', {
+          style: 'currency',
+          currency,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(converted);
+      } catch {
+        return `${currency} ${converted.toFixed(2)}`;
+      }
     },
   },
   callbacks: {
