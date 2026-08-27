@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { buildRoofModel } from './roofFactory.js?v=39';
+import { buildRoofModel } from './roofFactory.js?v=49';
 import { createDimensions } from './dimensions.js?v=13';
 import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=1';
 
@@ -43,7 +43,9 @@ export class RoofScene {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    // Start at the settled daylight value so reloads do not briefly show a
+    // brighter, flatter roof before updateLighting() runs.
+    this.renderer.toneMappingExposure = 0.98;
     this.host.appendChild(this.renderer.domElement);
 
     // Metals need a broad environment to remain readable between direct-light
@@ -55,7 +57,7 @@ export class RoofScene {
     const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
     this.environmentTarget = pmremGenerator.fromScene(roomEnvironment, 0.045);
     this.scene.environment = this.environmentTarget.texture;
-    this.scene.environmentIntensity = 1;
+    this.scene.environmentIntensity = 0.2;
     roomEnvironment.dispose();
     pmremGenerator.dispose();
 
@@ -99,16 +101,17 @@ export class RoofScene {
   }
 
   addLights() {
-    this.hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x72777d, 1.6);
+    this.hemisphereLight = new THREE.HemisphereLight(0xf7fbff, 0x69737d, 0.5);
     this.scene.add(this.hemisphereLight);
 
     // A small orientation-independent base prevents the same finish from
     // changing value when a roof family rotates or reverses a plane.
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.02);
     this.scene.add(this.ambientLight);
 
-    this.keyLight = new THREE.DirectionalLight(0xffffff, 4.2);
-    this.keyLight.position.set(-9, 14, 8);
+    this.keyLight = new THREE.DirectionalLight(0xffffff, 2.7);
+    this.keyLight.position.set(-12, 20, -10);
+    this.keyLight.target.position.set(0, 2, 0);
     this.keyLight.castShadow = true;
     const shadowMapSize = this.compactViewport ? 1024 : 2048;
     this.keyLight.shadow.mapSize.set(shadowMapSize, shadowMapSize);
@@ -116,17 +119,17 @@ export class RoofScene {
     this.keyLight.shadow.camera.right = 25;
     this.keyLight.shadow.camera.top = 25;
     this.keyLight.shadow.camera.bottom = -25;
-    this.keyLight.shadow.bias = -0.0004;
-    this.scene.add(this.keyLight);
+    // Detailed tile relief needs a small receiver offset. The former negative
+    // bias caused isolated self-shadow specks on faces aimed away from the key.
+    this.keyLight.shadow.bias = -0.0001;
+    this.keyLight.shadow.normalBias = 0.018;
+    this.scene.add(this.keyLight, this.keyLight.target);
 
-    this.fillLight = new THREE.DirectionalLight(0xcbdcff, 1.35);
+    this.fillLight = new THREE.DirectionalLight(0xcbdcff, 0);
     this.fillLight.position.set(10, 7, -10);
     this.scene.add(this.fillLight);
 
-    // Camera-side studio fill: the simpler roof families otherwise present
-    // one broad plane away from the moving sun and read much darker than the
-    // multi-directional L-shaped roof.
-    this.presentationLight = new THREE.DirectionalLight(0xffffff, 1.8);
+    this.presentationLight = new THREE.DirectionalLight(0xffffff, 0);
     this.presentationLight.position.set(-11, 13, -14);
     this.scene.add(this.presentationLight);
   }
@@ -265,19 +268,6 @@ export class RoofScene {
   updateLighting() {
     const progress = clamp(this.environmentState.sunPosition / 100, 0, 1);
     const sunArc = Math.sin(progress * Math.PI);
-    const elevation = THREE.MathUtils.degToRad(8 + sunArc * 57);
-    // The compass treats -Z as north at 0°. The sun travels from east
-    // through south to west as the slider moves from morning to evening.
-    const relativeAzimuth = 70 - progress * 140;
-    const azimuth = THREE.MathUtils.degToRad(-this.environmentState.northDirection + relativeAzimuth);
-    const radius = 20;
-    const horizontalRadius = Math.cos(elevation) * radius;
-
-    this.keyLight.position.set(
-      Math.sin(azimuth) * horizontalRadius,
-      Math.sin(elevation) * radius,
-      Math.cos(azimuth) * horizontalRadius,
-    );
 
     const isNight = this.environmentState.nightPreview;
     if (isNight) {
@@ -294,19 +284,21 @@ export class RoofScene {
       this.grid.material.opacity = 0.11;
     } else {
       this.keyLight.color.setHex(0xffffff);
-      // Keep direct light below the point where ACES turns the selected roof
-      // colour into a pale highlight. Broad ambient/fill illumination carries
-      // readability, so changing roof topology does not change the apparent
-      // finish or make ridge trims flare.
-      this.keyLight.intensity = 0.9 + sunArc * 0.4;
-      this.hemisphereLight.intensity = 1.75;
-      this.ambientLight.intensity = 0.55;
-      this.hemisphereLight.color.setHex(0xffffff);
-      this.hemisphereLight.groundColor.setHex(0x858e96);
-      this.fillLight.intensity = 0.55;
-      this.presentationLight.intensity = 0.55;
-      this.scene.environmentIntensity = 0.28;
-      this.renderer.toneMappingExposure = 1.03;
+      // One elevated, asymmetric sun establishes a physically legible light
+      // direction across every roof topology. Hemisphere light supplies only
+      // soft sky bounce; the former opposing directional fills made shaded
+      // slopes appear self-lit and caused trims to flare independently.
+      this.keyLight.position.set(-12, 20, -10);
+      this.keyLight.target.position.set(0, 2, 0);
+      this.keyLight.intensity = 2.95 + sunArc * 0.15;
+      this.hemisphereLight.intensity = 0.5;
+      this.ambientLight.intensity = 0.02;
+      this.hemisphereLight.color.setHex(0xf7fbff);
+      this.hemisphereLight.groundColor.setHex(0x69737d);
+      this.fillLight.intensity = 0;
+      this.presentationLight.intensity = 0;
+      this.scene.environmentIntensity = 0.2;
+      this.renderer.toneMappingExposure = 0.98;
       this.groundMaterial.color.setHex(0xd9dddf);
       this.grid.material.opacity = 0.25;
     }

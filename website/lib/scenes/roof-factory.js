@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import * as THREE from 'three';
 
-console.info('[RoofLab] roofFactory build 11 loaded');
+console.info('[RoofLab] roofFactory build 14 loaded');
 
 const WALL_COLOR = 0xe9e6df;
 const EDGE_COLOR = 0x261a1c;
@@ -22,7 +22,7 @@ function hashNoise(x, y) {
 function surfaceTextures(covering) {
   if (SURFACE_TEXTURE_CACHE.has(covering)) return SURFACE_TEXTURE_CACHE.get(covering);
   const specification = covering === 'teclado'
-    ? { moduleWidth: 0.78, course: 0.44 }
+    ? { moduleWidth: 0.36, course: 0.25 }
     : { moduleWidth: 0.72, course: 0.42 };
 
   if (covering !== 'generic') {
@@ -36,7 +36,23 @@ function surfaceTextures(covering) {
       for (let x = 0; x < colorSize; x += 1) {
         const fine = hashNoise(x, y) - 0.5;
         const cluster = hashNoise(Math.floor(x / 3) + 17, Math.floor(y / 3) + 29) - 0.5;
-        const shade = clamp01((covering === 'roca' ? 0.92 : 0.95) + fine * 0.14 + cluster * 0.055);
+        let shade = (covering === 'roca' ? 0.92 : 0.95) + fine * 0.14 + cluster * 0.055;
+        if (covering === 'teclado') {
+          // Two-course repeat: narrow surface-darkened joints describe the
+          // staggered rectangular bond without cutting open slots in the mesh.
+          const courseCoordinate = (y / colorSize) * 2;
+          const courseIndex = Math.floor(courseCoordinate);
+          const coursePhase = fract(courseCoordinate);
+          const modulePhase = fract((x / colorSize) * 2 + (courseIndex % 2) * 0.5);
+          const moduleEdge = Math.min(modulePhase, 1 - modulePhase);
+          const courseEdge = Math.min(coursePhase, 1 - coursePhase);
+          const horizontalJoint = 1 - smoothstep(0.012, 0.04, courseEdge);
+          const verticalJoint = (1 - smoothstep(0.012, 0.045, moduleEdge))
+            * smoothstep(0.09, 0.18, coursePhase)
+            * (1 - smoothstep(0.88, 0.96, coursePhase));
+          shade *= 1 - Math.max(horizontalJoint * 0.24, verticalJoint * 0.2);
+        }
+        shade = clamp01(shade);
         const byte = Math.round(shade * 255);
         const index = (y * colorSize + x) * 4;
         colorData[index] = byte;
@@ -57,7 +73,10 @@ function surfaceTextures(covering) {
     });
     color.wrapS = THREE.RepeatWrapping;
     color.wrapT = THREE.RepeatWrapping;
-    color.repeat.set(1.7, 1.7);
+    color.repeat.set(
+      covering === 'teclado' ? 1 / (specification.moduleWidth * 2) : 1.7,
+      covering === 'teclado' ? 1 / (specification.course * 2) : 1.7,
+    );
     color.minFilter = THREE.LinearMipmapLinearFilter;
     color.magFilter = THREE.LinearFilter;
     color.generateMipmaps = true;
@@ -127,19 +146,22 @@ function surfaceTextures(covering) {
 
 function roofProfileHeight(covering, u, v) {
   if (covering === 'teclado') {
-    const moduleWidth = 0.78;
-    const course = 0.44;
+    // A slate roof reads as many thin, flat, double-lapped stone rectangles.
+    // Keep the visible module close to common UK slate proportions and avoid
+    // the deep negative channels that made the previous profile look vented.
+    const moduleWidth = 0.36;
+    const course = 0.25;
     const rowIndex = Math.floor(v / course);
     const coursePhase = fract(v / course);
     const modulePhase = fract(u / moduleWidth + (Math.abs(rowIndex) % 2) * 0.5);
     const sideDistance = Math.min(modulePhase, 1 - modulePhase);
-    const overlap = Math.pow(1 - smoothstep(0, 0.2, coursePhase), 2) * 0.052;
-    const bodyFall = (1 - coursePhase) * 0.012;
-    // The joint is part of the slate profile rather than a drawn grid. Keep it
-    // broad enough to remain legible at the configurator's default camera.
-    const sideJoint = Math.pow(1 - smoothstep(0, 0.09, sideDistance), 2)
-      * smoothstep(0.13, 0.3, coursePhase) * 0.038;
-    return overlap + bodyFall - sideJoint;
+    const leadingEdge = Math.pow(1 - smoothstep(0, 0.16, coursePhase), 2) * 0.018;
+    const stoneBed = 0.006 + (1 - coursePhase) * 0.004;
+    const joint = Math.pow(1 - smoothstep(0, 0.035, sideDistance), 2)
+      * smoothstep(0.12, 0.28, coursePhase)
+      * (1 - smoothstep(0.88, 0.98, coursePhase)) * 0.006;
+    const naturalCrown = Math.sin(Math.PI * modulePhase) * 0.0015;
+    return stoneBed + leadingEdge + naturalCrown - joint;
   }
 
   const moduleWidth = 0.72;
@@ -210,6 +232,43 @@ function faceNormal(points) {
   return normal;
 }
 
+function orientRoofTrianglesUpward(geometry, preserveAuthoredNormals = false) {
+  const position = geometry.getAttribute('position');
+  const index = geometry.getIndex();
+  if (!position || !index) return geometry;
+
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const ab = new THREE.Vector3();
+  const ac = new THREE.Vector3();
+
+  for (let offset = 0; offset < index.count; offset += 3) {
+    const ia = index.getX(offset);
+    const ib = index.getX(offset + 1);
+    const ic = index.getX(offset + 2);
+    a.fromBufferAttribute(position, ia);
+    b.fromBufferAttribute(position, ib);
+    c.fromBufferAttribute(position, ic);
+    ab.subVectors(b, a);
+    ac.subVectors(c, a);
+    if (ab.cross(ac).y < -1e-8) {
+      index.setX(offset + 1, ic);
+      index.setX(offset + 2, ib);
+    }
+  }
+
+  index.needsUpdate = true;
+  if (preserveAuthoredNormals && geometry.getAttribute('normal')) {
+    geometry.normalizeNormals();
+    geometry.getAttribute('normal').needsUpdate = true;
+  } else {
+    geometry.deleteAttribute('normal');
+    geometry.computeVertexNormals();
+  }
+  return geometry;
+}
+
 function roofFaceGeometry(points, covering, preferredCourseDirection = null) {
   const normal = faceNormal(points);
   let edgeIndex = 0;
@@ -234,7 +293,7 @@ function roofFaceGeometry(points, covering, preferredCourseDirection = null) {
   if (polygonAreaUv(clipPolygon) < 0) clipPolygon.reverse();
 
   const specification = covering === 'teclado'
-    ? { moduleWidth: 0.78, course: 0.44, uSteps: 12, vSteps: 8 }
+    ? { moduleWidth: 0.36, course: 0.25, uSteps: 8, vSteps: 7 }
     : { moduleWidth: 0.72, course: 0.42, uSteps: 7, vSteps: 5 };
   const stepU = specification.moduleWidth / specification.uSteps;
   const stepV = specification.course / specification.vSteps;
@@ -292,6 +351,7 @@ function roofFaceGeometry(points, covering, preferredCourseDirection = null) {
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
+  orientRoofTrianglesUpward(geometry, true);
   geometry.computeBoundingSphere();
   return geometry;
 }
@@ -319,9 +379,9 @@ function materialSet(state) {
   }
   const finish = state.covering === 'generic'
     ? {
-        roughness: 0.7, metalness: 0.48, clearcoat: 0.015,
-        clearcoatRoughness: 0.82, envMapIntensity: 0.06,
-        emissiveIntensity: 0.012, roughnessMap: null, normalScale: 0.08,
+        roughness: 0.64, metalness: 0.28, clearcoat: 0.025,
+        clearcoatRoughness: 0.76, envMapIntensity: 0.32,
+        emissiveIntensity: 0.008, roughnessMap: null, normalScale: 0.08,
       }
     : state.covering === 'roca'
       ? {
@@ -359,14 +419,21 @@ function materialSet(state) {
   const trimColor = selectedColor.clone().lerp(new THREE.Color(0x121820), trimDarkening);
   const edgeColor = selectedColor.clone().lerp(new THREE.Color(0x10161d), 0.58);
   const trimFinish = state.covering === 'generic'
-    ? { roughness: 0.68, metalness: 0.4, envMapIntensity: 0.06 }
+    ? { roughness: 0.7, metalness: 0.26, envMapIntensity: 0.1 }
     : state.covering === 'roca'
       ? { roughness: 0.9, metalness: 0.05, envMapIntensity: 0.03 }
       : { roughness: 0.96, metalness: 0.02, envMapIntensity: 0.015 };
   const trim = new THREE.MeshStandardMaterial({ color: trimColor, ...trimFinish });
-  const edge = new THREE.LineBasicMaterial({ color: edgeColor, transparent: true, opacity: state.technicalEdges ? 0.95 : 0.42 });
+  const underlay = new THREE.MeshStandardMaterial({
+    color: roofColor,
+    roughness: 0.96,
+    metalness: 0.02,
+    envMapIntensity: 0.01,
+    side: THREE.DoubleSide,
+  });
+  const edge = new THREE.LineBasicMaterial({ color: edgeColor, transparent: true, opacity: state.technicalEdges ? 0.95 : 0 });
   const seam = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 });
-  return { roof, wall, slab, trim, edge, seam, covering: state.covering };
+  return { roof, wall, slab, trim, underlay, edge, seam, covering: state.covering };
 }
 
 function makeFace(points, materials, name = 'roof-face') {
@@ -375,12 +442,39 @@ function makeFace(points, materials, name = 'roof-face') {
   const mesh = new THREE.Mesh(geometry, materials.roof);
   mesh.name = name;
   mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  // Detailed relief is already shaded by its authored normals. Receiving the
+  // directional shadow map on the same sub-centimetre surface produces broad
+  // moire bands on long single-slope planes as shadow texels drift across the
+  // repeated courses. Keep casting onto walls/ground, but avoid self-shadowing.
+  mesh.receiveShadow = false;
 
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 42), materials.edge);
-  edges.renderOrder = 3;
-  mesh.add(edges);
+  if (materials.edge.opacity > 0) {
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 42), materials.edge);
+    edges.renderOrder = 3;
+    mesh.add(edges);
+  }
   return mesh;
+}
+
+function makePlanarRoofBacking(points, material, name = 'roof-underlay') {
+  const normal = faceNormal(points);
+  const backingPoints = points.map((point) => point.clone().addScaledVector(normal, -0.012));
+  const positions = backingPoints.flatMap((point) => [point.x, point.y, point.z]);
+  const indices = [];
+  for (let index = 1; index < backingPoints.length - 1; index += 1) {
+    indices.push(0, index, index + 1);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  orientRoofTrianglesUpward(geometry);
+
+  const backing = new THREE.Mesh(geometry, material);
+  backing.name = name;
+  backing.castShadow = false;
+  backing.receiveShadow = true;
+  return backing;
 }
 
 function makeWallFace(points, material) {
@@ -430,6 +524,7 @@ function addQuadSeams(group, a, b, c, d, materials, alongCount = 8, acrossCount 
 }
 
 function addRoofFace(group, points, materials, name) {
+  group.add(makePlanarRoofBacking(points, materials.underlay, `${name}-underlay`));
   const mesh = makeFace(points, materials, name);
   group.add(mesh);
   if (points.length === 4) addQuadSeams(group, points[0], points[1], points[2], points[3], materials);
@@ -653,13 +748,13 @@ function addHeightFieldMesh(group, xCoordinates, zCoordinates, isInside, heightA
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
-  geometry.computeVertexNormals();
+  orientRoofTrianglesUpward(geometry, true);
   addPlanarRoofUvs(geometry);
 
   const mesh = new THREE.Mesh(geometry, materials.roof);
   mesh.name = name;
   mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  mesh.receiveShadow = false;
   group.add(mesh);
   return roofArea;
 }
@@ -810,7 +905,7 @@ function addVerticalBoundaryFill(group, segments, bottomY, heightAt, material) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
-  geometry.computeVertexNormals();
+  orientRoofTrianglesUpward(geometry, true);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -955,7 +1050,7 @@ function addExactRoofEnvelope(group, xCoordinates, zCoordinates, planes, materia
     const planeNormal = faceNormal(worldPoints);
     const underlayBase = underlayPositions.length / 3;
     worldPoints.forEach((point) => {
-      const underlayPoint = point.clone().addScaledVector(planeNormal, -0.028);
+      const underlayPoint = point.clone().addScaledVector(planeNormal, -0.012);
       underlayPositions.push(underlayPoint.x, underlayPoint.y, underlayPoint.z);
     });
     for (let index = 1; index < worldPoints.length - 1; index += 1) {
@@ -1018,19 +1113,20 @@ function addExactRoofEnvelope(group, xCoordinates, zCoordinates, planes, materia
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
+  orientRoofTrianglesUpward(geometry, true);
   geometry.computeBoundingSphere();
 
   const mesh = new THREE.Mesh(geometry, materials.roof);
   mesh.name = name;
   mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  mesh.receiveShadow = false;
   const underlayGeometry = new THREE.BufferGeometry();
   underlayGeometry.setAttribute('position', new THREE.Float32BufferAttribute(underlayPositions, 3));
   underlayGeometry.setIndex(underlayIndices);
-  underlayGeometry.computeVertexNormals();
-  const underlay = new THREE.Mesh(underlayGeometry, materials.trim);
+  orientRoofTrianglesUpward(underlayGeometry);
+  const underlay = new THREE.Mesh(underlayGeometry, materials.underlay);
   underlay.name = `${name}-valley-underlay`;
-  underlay.castShadow = true;
+  underlay.castShadow = false;
   underlay.receiveShadow = true;
   group.add(underlay);
   group.add(mesh);
