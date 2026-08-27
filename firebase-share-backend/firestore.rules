@@ -21,6 +21,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Per-tenant usage counters and quota telemetry are backend-only.
+    match /tenantUsage/{tenantSlug}/months/{month} {
+      allow read, write: if false;
+    }
+
     function loggedIn() {
       return request.auth.uid != null;
     }
