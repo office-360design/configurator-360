@@ -59,6 +59,9 @@ jobs:
       - name: Validate Tier-1 tenant lifecycle administration
         run: node scripts/validation/validate_tenant_lifecycle.mjs
 
+      - name: Validate Tier-1 tenant usage metering
+        run: node scripts/validation/validate_tenant_usage_metering.mjs
+
       - name: Validate expected Firebase exports
         working-directory: firebase-share-backend/functions
         run: >-
@@ -94,6 +97,7 @@ jobs:
           echo "- Domain switching: short-lived one-time authentication handoff functions deployed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Tier-1 provisioning: authenticated allowlisted tenant creation + automatic Firebase Auth domain authorization deployed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Tier-1 lifecycle: list/edit configurators, branding, suspend and reactivate tenants without deleting data" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tier-1 usage: monthly Solar metering and enforceable per-tenant quotas" >> "$GITHUB_STEP_SUMMARY"
           echo "- reCAPTCHA monthly safety threshold: 9,500 assessments" >> "$GITHUB_STEP_SUMMARY"
           echo "- Automatic fallback: reCAPTCHA-free direct Firestore Share until next UTC month" >> "$GITHUB_STEP_SUMMARY"
           echo "- Internal warnings: 8,000 / 9,000 / 9,400 assessments" >> "$GITHUB_STEP_SUMMARY"

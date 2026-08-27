@@ -131,3 +131,11 @@ The previous Netlify implementation remains under
 `solar-configurator/pvgis-proxy-netlify/` as a temporary rollback reference. To
 roll back either endpoint temporarily, override `window.SOLAR_GOOGLE_SOLAR_ENDPOINT`
 or `window.SOLAR_PVGIS_PROXY_ENDPOINT` before `app.js` loads.
+
+## Tier-1 tenant usage metering
+
+Requests arriving on `<slug>.360configurator.com` are resolved against the private `tenants/{slug}` Firestore document by the Solar Cloud Run service. The tenant must be active, use the Go Live Now plan, own the hostname, and have the Solar configurator enabled. This lookup uses the request hostname as the authoritative tenant scope so same-origin GET requests that omit an `Origin` header are still metered correctly.
+
+Per-tenant monthly telemetry is stored under `tenantUsage/{slug}/months/{YYYY-MM}`. The backend meters accepted Google Solar analyses, actual upstream Building Insights requests, actual upstream Data Layers requests, PVGIS requests, and PVGIS upstream cache misses. Building Insights/Data Layers cache hits do not increment the paid-upstream counters.
+
+Limits come from the private tenant's `solarUsageLimits` map. A value of `0` means unlimited. When a positive limit would be exceeded, the backend returns HTTP 429 before issuing the corresponding upstream request. Platform domains retain the existing demo/session and global safety limits and are not written into tenant usage documents.

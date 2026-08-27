@@ -59,6 +59,16 @@ const manageNoLogo = document.querySelector('#manageNoLogo');
 const manageLogoPreviewWrap = document.querySelector('#manageLogoPreviewWrap');
 const manageLogoPreview = document.querySelector('#manageLogoPreview');
 const manageStatus = document.querySelector('#manageStatus');
+const manageSolarAnalysesLimit = document.querySelector('#manageSolarAnalysesLimit');
+const manageSolarBuildingInsightsLimit = document.querySelector('#manageSolarBuildingInsightsLimit');
+const manageSolarDataLayersLimit = document.querySelector('#manageSolarDataLayersLimit');
+const manageSolarPvgisLimit = document.querySelector('#manageSolarPvgisLimit');
+const manageUsageMonth = document.querySelector('#manageUsageMonth');
+const manageUsageAnalyses = document.querySelector('#manageUsageAnalyses');
+const manageUsageBuildingInsights = document.querySelector('#manageUsageBuildingInsights');
+const manageUsageDataLayers = document.querySelector('#manageUsageDataLayers');
+const manageUsagePvgis = document.querySelector('#manageUsagePvgis');
+const manageUsagePvgisUpstream = document.querySelector('#manageUsagePvgisUpstream');
 const saveTenantButton = document.querySelector('#saveTenantButton');
 const tenantStatusButton = document.querySelector('#tenantStatusButton');
 const openTenantButton = document.querySelector('#openTenantButton');
@@ -151,6 +161,44 @@ function enabledConfiguratorLabels(configurators = {}) {
   return Object.entries(CONFIGURATOR_LABELS)
     .filter(([id]) => configurators?.[id] === true)
     .map(([, label]) => label);
+}
+
+function normalizeUsageLimitInput(input) {
+  const value = Number(input?.value || 0);
+  if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
+    throw new Error('Solar usage limits must be whole numbers greater than or equal to 0.');
+  }
+  return value;
+}
+
+function currentSolarUsageLimitsFromForm() {
+  return {
+    analysesPerMonth: normalizeUsageLimitInput(manageSolarAnalysesLimit),
+    buildingInsightsPerMonth: normalizeUsageLimitInput(manageSolarBuildingInsightsLimit),
+    dataLayersPerMonth: normalizeUsageLimitInput(manageSolarDataLayersLimit),
+    pvgisPerMonth: normalizeUsageLimitInput(manageSolarPvgisLimit),
+  };
+}
+
+function usageValueWithLimit(value, limit) {
+  const used = Math.max(0, Number(value) || 0);
+  const cap = Math.max(0, Number(limit) || 0);
+  return cap > 0 ? `${used.toLocaleString()} / ${cap.toLocaleString()}` : `${used.toLocaleString()} / unlimited`;
+}
+
+function populateSolarUsage(tenant) {
+  const limits = tenant?.solarUsageLimits || {};
+  const usage = tenant?.usage?.solar || {};
+  manageSolarAnalysesLimit.value = String(Math.max(0, Number(limits.analysesPerMonth) || 0));
+  manageSolarBuildingInsightsLimit.value = String(Math.max(0, Number(limits.buildingInsightsPerMonth) || 0));
+  manageSolarDataLayersLimit.value = String(Math.max(0, Number(limits.dataLayersPerMonth) || 0));
+  manageSolarPvgisLimit.value = String(Math.max(0, Number(limits.pvgisPerMonth) || 0));
+  manageUsageMonth.textContent = tenant?.usage?.month ? `${tenant.usage.month} UTC` : 'Current UTC month';
+  manageUsageAnalyses.textContent = usageValueWithLimit(usage.analyses, limits.analysesPerMonth);
+  manageUsageBuildingInsights.textContent = usageValueWithLimit(usage.buildingInsights, limits.buildingInsightsPerMonth);
+  manageUsageDataLayers.textContent = usageValueWithLimit(usage.dataLayers, limits.dataLayersPerMonth);
+  manageUsagePvgis.textContent = usageValueWithLimit(usage.pvgis, limits.pvgisPerMonth);
+  manageUsagePvgisUpstream.textContent = Math.max(0, Number(usage.pvgisUpstream) || 0).toLocaleString();
 }
 
 function dataUrlFromBlob(blob) {
@@ -371,6 +419,7 @@ function populateTenantEditor(tenant) {
   manageCompanyName.value = tenant.companyName || '';
   manageDomain.textContent = tenant.domain || `${tenant.slug}${TENANT_SUFFIX}`;
   setConfiguratorSelection(tenantEditorForm, 'manageConfigurator', tenant.configurators);
+  populateSolarUsage(tenant);
   manageLogo.value = '';
   manageRemoveLogo.checked = false;
   clearManageLogoPreview();
@@ -534,6 +583,14 @@ tenantEditorForm.addEventListener('submit', async (event) => {
     return;
   }
 
+  let solarUsageLimits;
+  try {
+    solarUsageLimits = currentSolarUsageLimitsFromForm();
+  } catch (error) {
+    setStatus(manageStatus, error.message, 'error');
+    return;
+  }
+
   saveTenantButton.disabled = true;
   tenantStatusButton.disabled = true;
   setStatus(manageStatus, 'Saving changes…');
@@ -547,7 +604,13 @@ tenantEditorForm.addEventListener('submit', async (event) => {
       logoDataUrl = await optimizeLogo(logoFile);
     }
 
-    await updateManagedTenant({ companyName, configurators, logoMode, logoDataUrl }, 'Tenant updated successfully.');
+    await updateManagedTenant({
+      companyName,
+      configurators,
+      solarUsageLimits,
+      logoMode,
+      logoDataUrl,
+    }, 'Tenant updated successfully.');
   } catch (error) {
     console.error('Tenant update failed.', error);
     setStatus(manageStatus, administrationErrorMessage(error), 'error');

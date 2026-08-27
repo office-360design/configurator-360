@@ -25,7 +25,7 @@ const checks = [
     'Manage tenants',
     'tenantEditorForm',
     'tenantStatusButton',
-    'tenantProvisioningAdmin.js?v=2',
+    'tenantProvisioningAdmin.js?v=3',
   ]],
   ['shared-ui/src/tenantProvisioningAdmin.js', [
     'cloudfunctions.net',

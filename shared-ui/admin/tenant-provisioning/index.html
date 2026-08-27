@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#f4f5f7" />
   <title>Tenant Administration | 360Configurator</title>
-  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=2" />
+  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=3" />
 </head>
 <body>
   <main class="admin-page">
@@ -102,6 +102,44 @@
             </div>
           </fieldset>
 
+          <fieldset class="usage-fieldset">
+            <legend>Solar monthly usage limits</legend>
+            <p class="usage-help">Limits are per tenant and reset automatically each UTC month. Use <strong>0</strong> for unlimited.</p>
+            <div class="usage-limit-grid">
+              <label class="field">
+                <span>Analyses</span>
+                <input id="manageSolarAnalysesLimit" type="number" min="0" step="1" value="0" />
+              </label>
+              <label class="field">
+                <span>Building Insights API calls</span>
+                <input id="manageSolarBuildingInsightsLimit" type="number" min="0" step="1" value="0" />
+              </label>
+              <label class="field">
+                <span>Data Layers API calls</span>
+                <input id="manageSolarDataLayersLimit" type="number" min="0" step="1" value="0" />
+              </label>
+              <label class="field">
+                <span>PVGIS requests</span>
+                <input id="manageSolarPvgisLimit" type="number" min="0" step="1" value="0" />
+              </label>
+            </div>
+
+            <div class="usage-summary">
+              <div class="usage-summary__heading">
+                <strong>Current Solar usage</strong>
+                <span id="manageUsageMonth">—</span>
+              </div>
+              <div class="usage-metric-grid">
+                <div class="usage-metric"><span>Analyses</span><strong id="manageUsageAnalyses">0</strong></div>
+                <div class="usage-metric"><span>Building Insights</span><strong id="manageUsageBuildingInsights">0</strong></div>
+                <div class="usage-metric"><span>Data Layers</span><strong id="manageUsageDataLayers">0</strong></div>
+                <div class="usage-metric"><span>PVGIS</span><strong id="manageUsagePvgis">0</strong></div>
+                <div class="usage-metric"><span>PVGIS upstream</span><strong id="manageUsagePvgisUpstream">0</strong></div>
+              </div>
+              <small>Google API counters increase only when the shared backend actually makes an upstream request; cache hits do not consume those counters.</small>
+            </div>
+          </fieldset>
+
           <div class="status" id="manageStatus" role="status" aria-live="polite"></div>
 
           <div class="tenant-editor-actions">
@@ -187,6 +225,6 @@
     </div>
   </main>
 
-  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=2"></script>
+  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=3"></script>
 </body>
 </html>
