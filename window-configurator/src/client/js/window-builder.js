@@ -581,9 +581,10 @@ export function createWindowBuilder({
                 });
         }
 
-        // Divider-mounted glazing/rebate gaskets cannot continue through the
-        // aluminium's 25 mm notch. Shorten the complete gasket by 25 mm at the
-        // corresponding end while preserving its CAD cross-sectional position.
+        // Divider-mounted glazing/rebate gaskets follow the mullion they are
+        // mounted on, but are intentionally 10 mm shorter overall. Keep them
+        // centred on the mullion (5 mm clearance at each longitudinal end).
+        // The local diagonal end cut is then applied inside that shorter span.
         const isAttachedDividerGasket = Boolean(
             isFixedGlassAnchorGasket(profile)
             || isFrameToSashRebateGasket(profile)
@@ -596,12 +597,32 @@ export function createWindowBuilder({
             isAttachedDividerGasket
             && longitudinalJoint?.positiveRectangularEndNotch
         );
-        const negativeGasketTrim = trimNegativeGasketEnd
-            ? INTERSECTION_MULLION_END_NOTCH_LENGTH_M
-            : 0;
-        const positiveGasketTrim = trimPositiveGasketEnd
-            ? INTERSECTION_MULLION_END_NOTCH_LENGTH_M
-            : 0;
+        const dividerGasketTotalShortening = isAttachedDividerGasket ? 0.030 : 0;
+        const negativeGasketTrim = dividerGasketTotalShortening / 2;
+        const positiveGasketTrim = dividerGasketTotalShortening / 2;
+        // Avoid the divider's full 88 mm-face arrow deformation at a notched
+        // branch end. Keep the gasket endpoint on the mullion endpoint and
+        // apply only the small local 45-degree cut across the gasket section.
+        const useNegativeLocalGasketMiter = Boolean(
+            isAttachedDividerGasket
+            && (trimNegativeGasketEnd || longitudinalJoint?.negativeLocalGasketMiter)
+        );
+        const usePositiveLocalGasketMiter = Boolean(
+            isAttachedDividerGasket
+            && (trimPositiveGasketEnd || longitudinalJoint?.positiveLocalGasketMiter)
+        );
+        const renderedNegativeEndMode = trimNegativeGasketEnd
+            ? 'square'
+            : (longitudinalJoint?.negativeEndMode || 'arrow');
+        const renderedPositiveEndMode = trimPositiveGasketEnd
+            ? 'square'
+            : (longitudinalJoint?.positiveEndMode || 'arrow');
+        const renderedNegativeFrameInwardSpan = trimNegativeGasketEnd
+            ? 0
+            : longitudinalJoint?.negativeFrameInwardSpan;
+        const renderedPositiveFrameInwardSpan = trimPositiveGasketEnd
+            ? 0
+            : longitudinalJoint?.positiveFrameInwardSpan;
         const renderedLength = Math.max(
             0,
             length - negativeGasketTrim - positiveGasketTrim
@@ -614,6 +635,30 @@ export function createWindowBuilder({
         const point = new THREE.Vector3();
         const centerY = Number(bounds?.centerY) || 0;
         const metrics = dividerMetrics;
+        let localGasketFaceMin = Infinity;
+        let localGasketFaceMax = -Infinity;
+        if (useNegativeLocalGasketMiter || usePositiveLocalGasketMiter) {
+            for (let index = 0; index < position.count; index += 1) {
+                const renderedFace = resolveRenderedFace({
+                    x: position.getX(index),
+                    y: position.getY(index),
+                });
+                if (!Number.isFinite(renderedFace)) continue;
+                localGasketFaceMin = Math.min(localGasketFaceMin, renderedFace);
+                localGasketFaceMax = Math.max(localGasketFaceMax, renderedFace);
+            }
+        }
+        const hasLocalGasketFaceRange = (
+            Number.isFinite(localGasketFaceMin)
+            && Number.isFinite(localGasketFaceMax)
+            && localGasketFaceMax - localGasketFaceMin > 1e-9
+        );
+        const getLocalGasketMiterInset = (face, sign = 1) => {
+            if (!hasLocalGasketFaceRange) return 0;
+            return sign >= 0
+                ? Math.max(0, face - localGasketFaceMin)
+                : Math.max(0, localGasketFaceMax - face);
+        };
         const rectangularNotchInsetByTriangle = hasRectangularEndNotch
             ? new Array(Math.ceil(position.count / 3)).fill(0)
             : null;
@@ -700,16 +745,29 @@ export function createWindowBuilder({
                 faceOffset: face,
                 faceSpan: metrics.faceSpanM,
                 frameInwardSpan,
-                negativeFrameInwardSpan: longitudinalJoint?.negativeFrameInwardSpan,
-                positiveFrameInwardSpan: longitudinalJoint?.positiveFrameInwardSpan,
-                negativeEndMode: longitudinalJoint?.negativeEndMode || 'arrow',
-                positiveEndMode: longitudinalJoint?.positiveEndMode || 'arrow',
+                negativeFrameInwardSpan: renderedNegativeFrameInwardSpan,
+                positiveFrameInwardSpan: renderedPositiveFrameInwardSpan,
+                negativeEndMode: renderedNegativeEndMode,
+                positiveEndMode: renderedPositiveEndMode,
                 negativeArrowFaceBias: longitudinalJoint?.negativeArrowFaceBias,
                 positiveArrowFaceBias: longitudinalJoint?.positiveArrowFaceBias,
                 socketInwardDistance,
                 negativeSocketInwardDistance,
                 positiveSocketInwardDistance,
             });
+
+            // Local gasket miters are referenced to the gasket itself, not to
+            // the 88 mm mullion face. The longest edge therefore remains at the
+            // exact 25 mm trim plane and only the opposite edge recedes by the
+            // gasket's own width, matching the small diagonal end in the CAD.
+            if (useNegativeLocalGasketMiter) {
+                const sign = Number(longitudinalJoint?.negativeLocalGasketMiterSign) || 1;
+                along += getLocalGasketMiterInset(face, sign) * (1 - effectiveExtrusionT);
+            }
+            if (usePositiveLocalGasketMiter) {
+                const sign = Number(longitudinalJoint?.positiveLocalGasketMiterSign) || 1;
+                along -= getLocalGasketMiterInset(face, sign) * effectiveExtrusionT;
+            }
 
             if (orientation === 'horizontal') {
                 position.setXYZ(index, along, -face, depth);
@@ -3332,6 +3390,187 @@ export function createWindowBuilder({
                 dividerGroup.add(mesh);
             };
 
+            const getRuntimeCellSideForDividerBranchDirection = (orientation, direction) => {
+                if (orientation === 'vertical') {
+                    if (direction === 'west') return 'left';
+                    if (direction === 'east') return 'right';
+                } else if (orientation === 'horizontal') {
+                    if (direction === 'south') return 'left';
+                    if (direction === 'north') return 'right';
+                }
+                return null;
+            };
+
+            const getDividerSegmentWorldRange = segment => {
+                const rawStart = Number.isFinite(Number(segment?.structuralWorldStart))
+                    ? Number(segment.structuralWorldStart)
+                    : Number(segment?.worldStart);
+                const rawEnd = Number.isFinite(Number(segment?.structuralWorldEnd))
+                    ? Number(segment.structuralWorldEnd)
+                    : Number(segment?.worldEnd);
+                if (!Number.isFinite(rawStart) || !Number.isFinite(rawEnd)) {
+                    return null;
+                }
+                return Object.freeze({
+                    start: Math.min(rawStart, rawEnd),
+                    end: Math.max(rawStart, rawEnd),
+                });
+            };
+
+            const getHostGasketBranchSplitCoordinates = (
+                segment,
+                runtimeCellSide,
+                explicitRange = null
+            ) => {
+                if (!segment || !runtimeCellSide) return [];
+                const range = explicitRange || getDividerSegmentWorldRange(segment);
+                if (!range) return [];
+                const rawCoordinates = (editableTopologyGeometry?.physicalIntersections || [])
+                    .flatMap(junction => {
+                        if (!junction || junction.hostOrientation !== segment.orientation) {
+                            return [];
+                        }
+                        if (junction.type !== 'T' && junction.type !== 'cross') {
+                            return [];
+                        }
+                        const activeDirections = Array.isArray(junction.activeDirections)
+                            ? junction.activeDirections
+                            : [];
+                        const hostArms = activeDirections
+                            .map(direction => junction.arms?.[direction])
+                            .filter(arm => (
+                                arm?.kind === 'divider'
+                                && arm.orientation === segment.orientation
+                                && arm.segmentId === segment.id
+                            ));
+                        if (!hostArms.length) return [];
+                        return activeDirections
+                            .map(direction => junction.arms?.[direction])
+                            .filter(arm => (
+                                arm?.kind === 'divider'
+                                && arm.orientation !== segment.orientation
+                                && getRuntimeCellSideForDividerBranchDirection(
+                                    segment.orientation,
+                                    arm.direction
+                                ) === runtimeCellSide
+                            ))
+                            .map(() => (
+                                segment.orientation === 'vertical'
+                                    ? Number(junction.y)
+                                    : Number(junction.x)
+                            ));
+                    })
+                    .filter(value => (
+                        Number.isFinite(value)
+                        && value > range.start + 1e-9
+                        && value < range.end - 1e-9
+                    ))
+                    .sort((a, b) => a - b);
+                return rawCoordinates.filter((value, index) => (
+                    index === 0 || Math.abs(value - rawCoordinates[index - 1]) > 1e-9
+                ));
+            };
+
+            const applyDividerGasketMiterSide = (joint, runtimeCellSide) => {
+                const localGasketMiterSign = runtimeCellSide === 'left' ? -1 : 1;
+                const resolvedJoint = { ...(joint || {}) };
+                if (
+                    resolvedJoint.negativeRectangularEndNotch
+                    || resolvedJoint.negativeLocalGasketMiter
+                ) {
+                    resolvedJoint.negativeLocalGasketMiterSign = localGasketMiterSign;
+                }
+                if (
+                    resolvedJoint.positiveRectangularEndNotch
+                    || resolvedJoint.positiveLocalGasketMiter
+                ) {
+                    resolvedJoint.positiveLocalGasketMiterSign = localGasketMiterSign;
+                }
+                return resolvedJoint;
+            };
+
+            const getSplitHostGasketPlacements = (segment, basePlacement, runtimeCellSide) => {
+                const localGasketMiterSign = runtimeCellSide === 'left' ? -1 : 1;
+                const baseLength = Math.max(0, Number(basePlacement?.length) || 0);
+                const baseCenter = Number(basePlacement?.longitudinalOffset) || 0;
+                if (baseLength <= 1e-9) {
+                    return [{
+                        ...basePlacement,
+                        joint: applyDividerGasketMiterSide(
+                            basePlacement?.joint,
+                            runtimeCellSide
+                        ),
+                    }];
+                }
+                // Split the ACTUAL rendered placement, not the raw structural
+                // segment range. The rendered mullion may include the frame-grid
+                // extension at its outer ends; dropping that extension was the
+                // other reason the gasket became visibly too short.
+                const range = {
+                    start: baseCenter - baseLength / 2,
+                    end: baseCenter + baseLength / 2,
+                };
+                const splitCoordinates = getHostGasketBranchSplitCoordinates(
+                    segment,
+                    runtimeCellSide,
+                    range
+                );
+                if (!splitCoordinates.length) {
+                    return [{
+                        ...basePlacement,
+                        joint: applyDividerGasketMiterSide(
+                            basePlacement?.joint,
+                            runtimeCellSide
+                        ),
+                    }];
+                }
+                const points = [range.start, ...splitCoordinates, range.end];
+                const placements = [];
+                for (let index = 0; index < points.length - 1; index += 1) {
+                    const start = points[index];
+                    const end = points[index + 1];
+                    const length = Math.max(0, end - start);
+                    if (length <= 1e-6) continue;
+                    const joint = {
+                        ...(basePlacement?.joint || {}),
+                    };
+                    if (index > 0) {
+                        joint.negativeEndMode = 'square';
+                        joint.negativeFrameInwardSpan = 0;
+                        joint.negativeArrowFaceBias = 0;
+                        joint.negativeLocalGasketMiter = true;
+                        joint.negativeLocalGasketMiterSign = localGasketMiterSign;
+                        delete joint.negativeRectangularEndNotch;
+                    }
+                    if (index < points.length - 2) {
+                        joint.positiveEndMode = 'square';
+                        joint.positiveFrameInwardSpan = 0;
+                        joint.positiveArrowFaceBias = 0;
+                        joint.positiveLocalGasketMiter = true;
+                        // Both longitudinal ends of one gasket use the same
+                        // local face edge, but the gasket on the opposite side of
+                        // the mullion must mirror that edge. runtimeCellSide is
+                        // already normalized for reversed connection templates.
+                        joint.positiveLocalGasketMiterSign = localGasketMiterSign;
+                        delete joint.positiveRectangularEndNotch;
+                    }
+                    placements.push({
+                        length,
+                        longitudinalOffset: (start + end) / 2,
+                        joint: applyDividerGasketMiterSide(joint, runtimeCellSide),
+                    });
+                }
+                return placements.length
+                    ? placements
+                    : [{
+                        ...basePlacement,
+                        joint: applyDividerGasketMiterSide(
+                            basePlacement?.joint,
+                            runtimeCellSide
+                        ),
+                    }];
+            };
+
             editableSegments.forEach(segment => {
                 const variantMetadata = getEditableDividerVariantMetadata(segment);
                 const connectionMetadata = variantMetadata?.dividerConnection || {};
@@ -3420,24 +3659,31 @@ export function createWindowBuilder({
                                     || Number(variantProfile.dividerSectionRotationDeg)
                                     || 180,
                             };
-                            const mesh = createDividerSegment(
-                                placedProfile,
-                                segmentPlacement.length,
-                                segment.orientation,
-                                segmentDividerBounds,
-                                depthOffset,
-                                frameJointInwardSpan,
-                                segment.perpendicularOffset,
-                                segmentPlacement.longitudinalOffset,
-                                faceDirection,
-                                segmentPlacement.joint
+                            const splitPlacements = getSplitHostGasketPlacements(
+                                segment,
+                                segmentPlacement,
+                                runtimeCellSide
                             );
-                            renderedConnectionSides.add(runtimeCellSide);
-                            mesh.userData.mullionConnectionGasket = true;
-                            mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
-                            mesh.userData.connectionProfileId =
-                                variantProfile.mullionConnectionProfileId || null;
-                            placeEditableDividerMesh(mesh, segment, 'connection-gasket');
+                            splitPlacements.forEach(placement => {
+                                const mesh = createDividerSegment(
+                                    placedProfile,
+                                    placement.length,
+                                    segment.orientation,
+                                    segmentDividerBounds,
+                                    depthOffset,
+                                    frameJointInwardSpan,
+                                    segment.perpendicularOffset,
+                                    placement.longitudinalOffset,
+                                    faceDirection,
+                                    placement.joint
+                                );
+                                renderedConnectionSides.add(runtimeCellSide);
+                                mesh.userData.mullionConnectionGasket = true;
+                                mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
+                                mesh.userData.connectionProfileId =
+                                    variantProfile.mullionConnectionProfileId || null;
+                                placeEditableDividerMesh(mesh, segment, 'connection-gasket');
+                            });
                         });
 
                         // Fixed-facing 224063 must be a real divider-mounted
@@ -3478,28 +3724,35 @@ export function createWindowBuilder({
                                         || Number(variantProfile.dividerSectionRotationDeg)
                                         || 180,
                                 };
-                                const mesh = createDividerSegment(
-                                    placedProfile,
-                                    segmentPlacement.length,
-                                    segment.orientation,
-                                    segmentDividerBounds,
-                                    depthOffset,
-                                    frameJointInwardSpan,
-                                    segment.perpendicularOffset,
-                                    segmentPlacement.longitudinalOffset,
-                                    faceDirection,
-                                    segmentPlacement.joint
-                                );
-                                renderedConnectionSides.add(runtimeCellSide);
-                                mesh.userData.mullionConnectionGasket = true;
-                                mesh.userData.fixedGlazingAccessory = true;
-                                mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
-                                mesh.userData.connectionProfileId = '224063';
-                                placeEditableDividerMesh(
-                                    mesh,
+                                const splitPlacements = getSplitHostGasketPlacements(
                                     segment,
-                                    'fixed-connection-gasket'
+                                    segmentPlacement,
+                                    runtimeCellSide
                                 );
+                                splitPlacements.forEach(placement => {
+                                    const mesh = createDividerSegment(
+                                        placedProfile,
+                                        placement.length,
+                                        segment.orientation,
+                                        segmentDividerBounds,
+                                        depthOffset,
+                                        frameJointInwardSpan,
+                                        segment.perpendicularOffset,
+                                        placement.longitudinalOffset,
+                                        faceDirection,
+                                        placement.joint
+                                    );
+                                    renderedConnectionSides.add(runtimeCellSide);
+                                    mesh.userData.mullionConnectionGasket = true;
+                                    mesh.userData.fixedGlazingAccessory = true;
+                                    mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
+                                    mesh.userData.connectionProfileId = '224063';
+                                    placeEditableDividerMesh(
+                                        mesh,
+                                        segment,
+                                        'fixed-connection-gasket'
+                                    );
+                                });
                             });
                         }
 
