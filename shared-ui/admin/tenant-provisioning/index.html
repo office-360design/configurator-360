@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#f4f5f7" />
   <title>Tenant Administration | 360Configurator</title>
-  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=3" />
+  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=4" />
 </head>
 <body>
   <main class="admin-page">
@@ -23,6 +23,28 @@
     </header>
 
     <div id="adminWorkspace" hidden>
+      <section class="admin-card analytics-card" id="platformAnalyticsCard">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Platform usage</p>
+            <h2>Configurator analytics</h2>
+            <p>Current-month and lifetime activity across the public 360Configurator domains.</p>
+          </div>
+          <button type="button" class="button button--secondary" id="refreshPlatformAnalyticsButton">Refresh analytics</button>
+        </div>
+        <div class="status" id="platformAnalyticsStatus" role="status" aria-live="polite"></div>
+        <div class="analytics-grid">
+          <div class="analytics-panel">
+            <div class="analytics-panel__heading"><strong>Current month</strong><span id="platformAnalyticsMonth">—</span></div>
+            <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="platformAnalyticsMonthBody"></tbody></table></div>
+          </div>
+          <div class="analytics-panel">
+            <div class="analytics-panel__heading"><strong>Lifetime</strong><span>Since analytics launch</span></div>
+            <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="platformAnalyticsLifetimeBody"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
       <section class="admin-card admin-card--management">
         <div class="section-heading">
           <div>
@@ -140,6 +162,22 @@
             </div>
           </fieldset>
 
+
+          <fieldset class="analytics-fieldset">
+            <legend>Configurator analytics</legend>
+            <p class="usage-help">Accesses count one configurator session per browser tab, logins count successful user-initiated sign-ins, and configurations count fresh configurations rather than saved/share loads.</p>
+            <div class="analytics-grid">
+              <div class="analytics-panel">
+                <div class="analytics-panel__heading"><strong>Current month</strong><span id="manageAnalyticsMonth">—</span></div>
+                <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="manageAnalyticsMonthBody"></tbody></table></div>
+              </div>
+              <div class="analytics-panel">
+                <div class="analytics-panel__heading"><strong>Lifetime</strong><span>Since analytics launch</span></div>
+                <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="manageAnalyticsLifetimeBody"></tbody></table></div>
+              </div>
+            </div>
+          </fieldset>
+
           <div class="status" id="manageStatus" role="status" aria-live="polite"></div>
 
           <div class="tenant-editor-actions">
@@ -225,6 +263,6 @@
     </div>
   </main>
 
-  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=3"></script>
+  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=4"></script>
 </body>
 </html>

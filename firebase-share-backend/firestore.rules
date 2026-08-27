@@ -26,6 +26,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Configurator product analytics are aggregate backend telemetry. Browsers
+    // record events only through the validated Cloud Function and cannot inspect
+    // or alter aggregate counters directly.
+    match /configuratorAnalytics/{scopeId}/{document=**} {
+      allow read, write: if false;
+    }
+
     function loggedIn() {
       return request.auth.uid != null;
     }

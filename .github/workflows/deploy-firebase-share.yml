@@ -62,17 +62,20 @@ jobs:
       - name: Validate Tier-1 tenant usage metering
         run: node scripts/validation/validate_tenant_usage_metering.mjs
 
+      - name: Validate configurator product analytics
+        run: node scripts/validation/validate_configurator_analytics.mjs
+
       - name: Validate expected Firebase exports
         working-directory: firebase-share-backend/functions
         run: >-
-          node -e "const f=require('./index.js'); const expected=['enforceSharedConfigurationQuota','createSharedConfiguration','getShareProtectionStatus','saveUserConfiguration','listUserConfigurations','getUserConfiguration','deleteUserConfiguration','getUserCart','mutateUserCart','submitContact','createDomainAuthHandoff','redeemDomainAuthHandoff','provisionTenant','listTenants','getTenant','updateTenant']; const missing=expected.filter((name)=>typeof f[name]!=='function'); if(missing.length){console.error('Missing Firebase exports:', missing.join(', ')); process.exit(1);} console.log('Firebase exports OK:', expected.join(', '));"
+          node -e "const f=require('./index.js'); const expected=['enforceSharedConfigurationQuota','createSharedConfiguration','getShareProtectionStatus','saveUserConfiguration','listUserConfigurations','getUserConfiguration','deleteUserConfiguration','getUserCart','mutateUserCart','submitContact','createDomainAuthHandoff','redeemDomainAuthHandoff','provisionTenant','listTenants','getTenant','updateTenant','recordConfiguratorAnalyticsEvent','getPlatformAnalytics']; const missing=expected.filter((name)=>typeof f[name]!=='function'); if(missing.length){console.error('Missing Firebase exports:', missing.join(', ')); process.exit(1);} console.log('Firebase exports OK:', expected.join(', '));"
 
       - name: Deploy share functions
         working-directory: firebase-share-backend
         run: >-
           npx --yes firebase-tools@latest deploy
           --project "${GCP_PROJECT_ID}"
-          --only functions:enforceSharedConfigurationQuota,functions:createSharedConfiguration,functions:getShareProtectionStatus,functions:saveUserConfiguration,functions:listUserConfigurations,functions:getUserConfiguration,functions:deleteUserConfiguration,functions:getUserCart,functions:mutateUserCart,functions:submitContact,functions:createDomainAuthHandoff,functions:redeemDomainAuthHandoff,functions:provisionTenant,functions:listTenants,functions:getTenant,functions:updateTenant
+          --only functions:enforceSharedConfigurationQuota,functions:createSharedConfiguration,functions:getShareProtectionStatus,functions:saveUserConfiguration,functions:listUserConfigurations,functions:getUserConfiguration,functions:deleteUserConfiguration,functions:getUserCart,functions:mutateUserCart,functions:submitContact,functions:createDomainAuthHandoff,functions:redeemDomainAuthHandoff,functions:provisionTenant,functions:listTenants,functions:getTenant,functions:updateTenant,functions:recordConfiguratorAnalyticsEvent,functions:getPlatformAnalytics
           --non-interactive
 
       - name: Deploy Firestore rules, TTL and index exemptions

@@ -11,6 +11,7 @@ const FUNCTION_URLS = Object.freeze({
   listTenants: `${FUNCTION_BASE}/listTenants`,
   getTenant: `${FUNCTION_BASE}/getTenant`,
   updateTenant: `${FUNCTION_BASE}/updateTenant`,
+  getPlatformAnalytics: `${FUNCTION_BASE}/getPlatformAnalytics`,
 });
 const TENANT_SUFFIX = '.360configurator.com';
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -41,6 +42,12 @@ const authState = document.querySelector('#authState');
 const authButton = document.querySelector('#authButton');
 const adminWorkspace = document.querySelector('#adminWorkspace');
 
+const platformAnalyticsStatus = document.querySelector('#platformAnalyticsStatus');
+const platformAnalyticsMonth = document.querySelector('#platformAnalyticsMonth');
+const platformAnalyticsMonthBody = document.querySelector('#platformAnalyticsMonthBody');
+const platformAnalyticsLifetimeBody = document.querySelector('#platformAnalyticsLifetimeBody');
+const refreshPlatformAnalyticsButton = document.querySelector('#refreshPlatformAnalyticsButton');
+
 const tenantList = document.querySelector('#tenantList');
 const tenantListStatus = document.querySelector('#tenantListStatus');
 const tenantSearch = document.querySelector('#tenantSearch');
@@ -69,6 +76,9 @@ const manageUsageBuildingInsights = document.querySelector('#manageUsageBuilding
 const manageUsageDataLayers = document.querySelector('#manageUsageDataLayers');
 const manageUsagePvgis = document.querySelector('#manageUsagePvgis');
 const manageUsagePvgisUpstream = document.querySelector('#manageUsagePvgisUpstream');
+const manageAnalyticsMonth = document.querySelector('#manageAnalyticsMonth');
+const manageAnalyticsMonthBody = document.querySelector('#manageAnalyticsMonthBody');
+const manageAnalyticsLifetimeBody = document.querySelector('#manageAnalyticsLifetimeBody');
 const saveTenantButton = document.querySelector('#saveTenantButton');
 const tenantStatusButton = document.querySelector('#tenantStatusButton');
 const openTenantButton = document.querySelector('#openTenantButton');
@@ -199,6 +209,50 @@ function populateSolarUsage(tenant) {
   manageUsageDataLayers.textContent = usageValueWithLimit(usage.dataLayers, limits.dataLayersPerMonth);
   manageUsagePvgis.textContent = usageValueWithLimit(usage.pvgis, limits.pvgisPerMonth);
   manageUsagePvgisUpstream.textContent = Math.max(0, Number(usage.pvgisUpstream) || 0).toLocaleString();
+}
+
+function analyticsMetric(value) {
+  return Math.max(0, Math.floor(Number(value) || 0));
+}
+
+function renderAnalyticsTable(tbody, analytics = {}, { enabledConfigurators = null } = {}) {
+  if (!tbody) return;
+  const rows = Object.entries(CONFIGURATOR_LABELS)
+    .filter(([id]) => !enabledConfigurators || enabledConfigurators?.[id] === true)
+    .map(([id, label]) => {
+      const metrics = analytics?.[id] || {};
+      const accesses = analyticsMetric(metrics.accesses);
+      const logins = analyticsMetric(metrics.logins);
+      const configurationsCreated = analyticsMetric(metrics.configurationsCreated);
+      const zeroClass = accesses + logins + configurationsCreated === 0 ? ' class="analytics-zero"' : '';
+      return `<tr${zeroClass}><td>${label}</td><td>${accesses.toLocaleString()}</td><td>${logins.toLocaleString()}</td><td>${configurationsCreated.toLocaleString()}</td></tr>`;
+    });
+  tbody.innerHTML = rows.join('') || '<tr><td colspan="4" class="analytics-zero">No enabled configurators.</td></tr>';
+}
+
+function populateTenantAnalytics(tenant) {
+  const analytics = tenant?.analytics || {};
+  manageAnalyticsMonth.textContent = analytics.month ? `${analytics.month} UTC` : 'Current UTC month';
+  renderAnalyticsTable(manageAnalyticsMonthBody, analytics.currentMonth);
+  renderAnalyticsTable(manageAnalyticsLifetimeBody, analytics.lifetime);
+}
+
+async function refreshPlatformAnalytics() {
+  if (!currentUser) return;
+  refreshPlatformAnalyticsButton.disabled = true;
+  setStatus(platformAnalyticsStatus, 'Loading analytics…');
+  try {
+    const analytics = await callAdminFunction('getPlatformAnalytics');
+    platformAnalyticsMonth.textContent = analytics?.month ? `${analytics.month} UTC` : 'Current UTC month';
+    renderAnalyticsTable(platformAnalyticsMonthBody, analytics?.currentMonth);
+    renderAnalyticsTable(platformAnalyticsLifetimeBody, analytics?.lifetime);
+    setStatus(platformAnalyticsStatus, 'Analytics updated.', 'success');
+  } catch (error) {
+    console.error('Platform analytics loading failed.', error);
+    setStatus(platformAnalyticsStatus, administrationErrorMessage(error), 'error');
+  } finally {
+    refreshPlatformAnalyticsButton.disabled = false;
+  }
 }
 
 function dataUrlFromBlob(blob) {
@@ -420,6 +474,7 @@ function populateTenantEditor(tenant) {
   manageDomain.textContent = tenant.domain || `${tenant.slug}${TENANT_SUFFIX}`;
   setConfiguratorSelection(tenantEditorForm, 'manageConfigurator', tenant.configurators);
   populateSolarUsage(tenant);
+  populateTenantAnalytics(tenant);
   manageLogo.value = '';
   manageRemoveLogo.checked = false;
   clearManageLogoPreview();
@@ -657,6 +712,7 @@ closeTenantEditorButton.addEventListener('click', () => {
 
 tenantSearch.addEventListener('input', renderTenantList);
 refreshTenantsButton.addEventListener('click', () => refreshTenantList());
+refreshPlatformAnalyticsButton.addEventListener('click', () => refreshPlatformAnalytics());
 
 authButton.addEventListener('click', async () => {
   authButton.disabled = true;
@@ -678,7 +734,7 @@ await observeGoogleAuth(async (user) => {
     authButton.textContent = 'Sign out';
     authButton.hidden = false;
     adminWorkspace.hidden = false;
-    await refreshTenantList();
+    await Promise.all([refreshTenantList(), refreshPlatformAnalytics()]);
   } else {
     authState.textContent = 'Sign in with a tenant-admin Google account.';
     authButton.textContent = 'Sign in with Google';

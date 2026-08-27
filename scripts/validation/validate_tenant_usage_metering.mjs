@@ -40,7 +40,8 @@ const checks = [
     'tenantUsageForMonth',
     'solarUsageLimits: { ...DEFAULT_SOLAR_USAGE_LIMITS }',
     "hasOwn('solarUsageLimits')",
-    'result.usage = await tenantUsageForMonth(slug)',
+    '[result.usage, result.analytics] = await Promise.all([',
+    'tenantUsageForMonth(slug)',
   ]],
   ['firebase-share-backend/firestore.rules', [
     'match /tenantUsage/{tenantSlug}/months/{month}',
@@ -53,7 +54,7 @@ const checks = [
     'manageSolarDataLayersLimit',
     'manageSolarPvgisLimit',
     'manageUsageDataLayers',
-    'tenantProvisioningAdmin.js?v=3',
+    'tenantProvisioningAdmin.js?v=4',
   ]],
   ['shared-ui/src/tenantProvisioningAdmin.js', [
     'currentSolarUsageLimitsFromForm',
