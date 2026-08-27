@@ -168,10 +168,10 @@ service cloud.firestore {
     // public country domains share users/{uid}/shoppingCart, while customer
     // tenants use a tenant-isolated subtree. Browser Firestore access remains
     // disabled; authenticated Cloud Functions bind every operation to request.auth.uid.
-    match /users/{userId}/shoppingCart/{cartItemId} {
+    match /users/{userId}/shoppingCart/{product}/items/{cartItemId} {
       allow read, write: if false;
     }
-    match /users/{userId}/tenantShoppingCart/{tenantSlug}/items/{cartItemId} {
+    match /users/{userId}/tenantShoppingCart/{tenantSlug}/products/{product}/items/{cartItemId} {
       allow read, write: if false;
     }
 

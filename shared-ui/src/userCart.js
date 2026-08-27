@@ -39,26 +39,39 @@ async function callCartFunction(name, data = {}) {
   return payload?.result ?? payload?.data ?? null;
 }
 
-export async function getUserCart() {
-  const result = await callCartFunction('getUserCart');
+export async function getUserCart({ key = '', productId = '' } = {}) {
+  const result = await callCartFunction('getUserCart', {
+    key: String(key || ''),
+    productId: String(productId || ''),
+  });
+  let editingItem = null;
+  if (result?.editingItem && typeof result.editingItem === 'object') {
+    editingItem = { ...result.editingItem };
+    if (editingItem.stateJson) {
+      try { editingItem.state = JSON.parse(editingItem.stateJson); } catch { editingItem = null; }
+    }
+  }
   return {
     exists: Boolean(result?.exists),
     items: Array.isArray(result?.items) ? result.items : [],
+    editingItem,
     updatedAtMs: Number(result?.updatedAtMs) || 0,
   };
 }
 
-export async function mutateUserCart({ action, item = null, items = null, key = '' } = {}) {
+export async function mutateUserCart({ action, item = null, items = null, key = '', productId = '' } = {}) {
   const result = await callCartFunction('mutateUserCart', {
     action: String(action || ''),
     item,
     items,
     key: String(key || ''),
+    productId: String(productId || ''),
   });
   return {
     exists: Boolean(result?.exists),
     items: Array.isArray(result?.items) ? result.items : [],
     addedItem: result?.addedItem && typeof result.addedItem === 'object' ? result.addedItem : null,
+    updatedItem: result?.updatedItem && typeof result.updatedItem === 'object' ? result.updatedItem : null,
     updatedAtMs: Number(result?.updatedAtMs) || 0,
   };
 }

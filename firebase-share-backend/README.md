@@ -98,15 +98,15 @@ Functions: `saveUserConfiguration`, `listUserConfigurations`, `getUserConfigurat
 
 ## Per-user shopping cart snapshots
 
-The shared **Add to cart** action always saves the current configuration first, then creates a separate immutable Firestore snapshot for the signed-in user. Cart rows do not point at live saved configurations, so later edits to a source save cannot change an item that is already in the cart.
+The shared **Ask for quotation** action always saves the current configuration first, then creates a separate immutable Firestore shopping-cart snapshot for the signed-in user. Cart rows do not point at live saved configurations, so later edits to a source save cannot change an item that is already in the cart.
 
-- Public `.com/.ro/.de` domains share `users/{uid}/shoppingCart/{cartItemId}`.
-- Tier-1 customer domains use `users/{uid}/tenantShoppingCart/{tenantSlug}/items/{cartItemId}` so customer carts remain isolated from the public platform and from other tenants.
+- Public `.com/.ro/.de` domains share `users/{uid}/shoppingCart/{product}/items/{cartItemId}`.
+- Tier-1 customer domains use `users/{uid}/tenantShoppingCart/{tenantSlug}/products/{product}/items/{cartItemId}` so customer carts remain isolated from the public platform and from other tenants.
 - Each cart document stores a copy of the serialized saved state plus the source save id, source name, cart display name, snapshot price/currency and creation timestamp.
 - Adding the same save repeatedly always creates a new cart document. Display names follow the normal duplicate convention: `ABC`, `ABC (1)`, `ABC (2)`, and so on.
 - Cart documents are append-only snapshots from the UI's perspective; they are only listed or deleted. **Empty cart** deletes all snapshot documents in the active account/tenant scope.
 - Browser Firestore access is denied. `getUserCart` and `mutateUserCart` derive the UID and tenant scope server-side.
-- The previous `users/{uid}/carts/{scopeId}` mutable cart document is migrated once into snapshot documents and then deleted.
+- The previous `users/{uid}/carts/{scopeId}` mutable cart document and the earlier flat `shoppingCart/{cartItemId}` snapshot layout are migrated once into the product-grouped snapshot structure and then removed.
 
 Functions: `getUserCart` and `mutateUserCart`.
 
