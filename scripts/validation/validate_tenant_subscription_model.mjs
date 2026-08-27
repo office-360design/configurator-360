@@ -35,7 +35,7 @@ const checks = [
     'id="manageSubscriptionStatus"',
     'id="manageCancelAtPeriodEnd"',
     'id="saveSubscriptionButton"',
-    'tenantProvisioningAdmin.js?v=5',
+    'tenantProvisioningAdmin.js?v=6',
   ]],
   ['shared-ui/src/tenantProvisioningAdmin.js', [
     'getTenantPlans',

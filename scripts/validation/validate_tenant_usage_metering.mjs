@@ -54,7 +54,7 @@ const checks = [
     'manageSolarDataLayersLimit',
     'manageSolarPvgisLimit',
     'manageUsageDataLayers',
-    'tenantProvisioningAdmin.js?v=5',
+    'tenantProvisioningAdmin.js?v=6',
   ]],
   ['shared-ui/src/tenantProvisioningAdmin.js', [
     'currentSolarUsageLimitsFromForm',

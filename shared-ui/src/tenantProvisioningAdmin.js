@@ -61,6 +61,7 @@ const tenantEditorMeta = document.querySelector('#tenantEditorMeta');
 const tenantEditorForm = document.querySelector('#tenantEditorForm');
 const manageCompanyName = document.querySelector('#manageCompanyName');
 const manageDomain = document.querySelector('#manageDomain');
+const manageOwnerEmail = document.querySelector('#manageOwnerEmail');
 const managePlan = document.querySelector('#managePlan');
 const managePlanHint = document.querySelector('#managePlanHint');
 const manageLogo = document.querySelector('#manageLogo');
@@ -96,6 +97,7 @@ const tenantForm = document.querySelector('#tenantForm');
 const companyNameInput = document.querySelector('#companyName');
 const slugInput = document.querySelector('#slug');
 const slugHint = document.querySelector('#slugHint');
+const ownerEmailInput = document.querySelector('#ownerEmail');
 const createPlan = document.querySelector('#createPlan');
 const createPlanHint = document.querySelector('#createPlanHint');
 const logoInput = document.querySelector('#logo');
@@ -437,6 +439,13 @@ function renderProvisioned(result) {
   homeLink.textContent = 'Open customer site';
   resultLinks.append(homeLink);
 
+  const dashboardLink = document.createElement('a');
+  dashboardLink.href = new URL('/dashboard/', url).href;
+  dashboardLink.target = '_blank';
+  dashboardLink.rel = 'noopener';
+  dashboardLink.textContent = result?.ownerEmail ? 'Open customer dashboard' : 'Dashboard (owner not assigned)';
+  resultLinks.append(dashboardLink);
+
   Object.entries(CONFIGURATOR_PATHS).forEach(([id, path]) => {
     if (configurators[id] !== true) return;
     const link = document.createElement('a');
@@ -497,7 +506,8 @@ function renderTenantList() {
     const subscriptionLabel = subscriptionStatusLabel(tenant.subscription?.status);
     const planLabel = tenant.planName || tenant.planId || 'Go Live Now';
     const configuratorLabel = labels.length ? labels.join(' · ') : 'No configurators';
-    products.textContent = `${planLabel} · ${subscriptionLabel} · ${configuratorLabel}`;
+    const dashboardOwnerLabel = tenant.ownerEmail ? `Dashboard: ${tenant.ownerEmail}` : 'Dashboard owner not assigned';
+    products.textContent = `${planLabel} · ${subscriptionLabel} · ${configuratorLabel} · ${dashboardOwnerLabel}`;
     main.append(titleLine, domain, products);
 
     const actions = document.createElement('div');
@@ -551,6 +561,7 @@ function populateTenantEditor(tenant) {
   tenantEditorMeta.textContent = `${tenant.slug} · ${tenant.planName || tenant.planId || 'Go Live Now'} · ${subscriptionStatusLabel(tenant.subscription?.status)}`;
   manageCompanyName.value = tenant.companyName || '';
   manageDomain.textContent = tenant.domain || `${tenant.slug}${TENANT_SUFFIX}`;
+  manageOwnerEmail.value = tenant.ownerEmail || '';
   populatePlanSelect(managePlan, tenant.planId || '');
   managePlanHint.textContent = planHint(managePlan.value);
   setConfiguratorSelection(tenantEditorForm, 'manageConfigurator', tenant.configurators);
@@ -678,6 +689,7 @@ tenantForm.addEventListener('submit', async (event) => {
 
   const companyName = companyNameInput.value.trim();
   const slug = normalizeSlugCandidate(slugInput.value);
+  const ownerEmail = ownerEmailInput.value.trim().toLowerCase();
   const configurators = selectedConfigurators(tenantForm, 'configurator');
   if (!companyName) {
     setStatus(formStatus, 'Enter the company name.', 'error');
@@ -707,7 +719,7 @@ tenantForm.addEventListener('submit', async (event) => {
     const [logoFile] = logoInput.files || [];
     const logoDataUrl = logoFile ? await optimizeLogo(logoFile) : '';
     setStatus(formStatus, 'Creating tenant…');
-    const result = await callAdminFunction('provisionTenant', { companyName, slug, planId, configurators, logoDataUrl });
+    const result = await callAdminFunction('provisionTenant', { companyName, slug, ownerEmail, planId, configurators, logoDataUrl });
     setStatus(formStatus, 'Tenant created successfully.', 'success');
     renderProvisioned(result);
     await refreshTenantList({ quiet: true });
@@ -724,6 +736,7 @@ tenantEditorForm.addEventListener('submit', async (event) => {
   if (!currentManagedTenant) return;
 
   const companyName = manageCompanyName.value.trim();
+  const ownerEmail = manageOwnerEmail.value.trim().toLowerCase();
   const configurators = selectedConfigurators(tenantEditorForm, 'manageConfigurator');
   if (!companyName) {
     setStatus(manageStatus, 'Enter the company name.', 'error');
@@ -764,6 +777,7 @@ tenantEditorForm.addEventListener('submit', async (event) => {
 
     await updateManagedTenant({
       companyName,
+      ownerEmail,
       planId,
       configurators,
       solarUsageLimits,
