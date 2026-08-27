@@ -3,16 +3,16 @@ set -euo pipefail
 
 PROJECT_ID="configurator-360"
 DATABASE_ID="(default)"
-UID="${1:-}"
+FIREBASE_UID="${1:-}"
 EMAIL="${2:-}"
 ACTION="${3:-enable}"
 
-if [[ -z "$UID" || -z "$EMAIL" ]]; then
+if [[ -z "$FIREBASE_UID" || -z "$EMAIL" ]]; then
   echo "Usage: $0 <firebase-uid> <verified-email> [enable|disable]" >&2
   exit 2
 fi
 
-if [[ ! "$UID" =~ ^[A-Za-z0-9:_-]{1,128}$ ]]; then
+if [[ ! "$FIREBASE_UID" =~ ^[A-Za-z0-9:_-]{1,128}$ ]]; then
   echo "Invalid Firebase UID format." >&2
   exit 2
 fi
@@ -32,7 +32,7 @@ case "$ACTION" in
 esac
 
 ACCESS_TOKEN="$(gcloud auth print-access-token)"
-URL="https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/${DATABASE_ID}/documents/tenantProvisioningAdmins/${UID}"
+URL="https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/${DATABASE_ID}/documents/tenantProvisioningAdmins/${FIREBASE_UID}"
 
 curl -fsS -X PATCH \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
@@ -47,4 +47,4 @@ curl -fsS -X PATCH \
   }"
 
 echo
-echo "Provisioning admin ${ACTION}d: ${EMAIL} (${UID})"
+echo "Provisioning admin ${ACTION}d: ${EMAIL} (${FIREBASE_UID})"

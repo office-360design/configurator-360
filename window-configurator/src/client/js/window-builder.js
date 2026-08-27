@@ -31,6 +31,13 @@ import {
     getEditableFixedGlazingDividerCadTransform,
     getReentrantFillerTriangle,
     getHalfFrameTriangle,
+    getInsideHalfFrameTriangle,
+    getHalfMullionTriangle,
+    getFrameInsideHalfFrameInset,
+    getRectangularDividerEndNotchInset,
+    INTERSECTION_MULLION_END_NOTCH_DEPTH_M,
+    INTERSECTION_MULLION_END_NOTCH_LENGTH_M,
+    RECTANGULAR_DIVIDER_SETBACK_M,
 } from './window-layout-geometry.js';
 import {
     getDividerConnectionVariantKey,
@@ -38,6 +45,7 @@ import {
 } from './window-layout-state.js';
 
 const S = 0.001;
+const NOMINAL_OUTER_FRAME_FACE_M = 0.057;
 
 export function createWindowBuilder({
     scene,
@@ -71,6 +79,7 @@ export function createWindowBuilder({
     getFinishState,
     getSelectedHandleSide,
     onGlassClick = () => { },
+    onFabricationSnapshot = () => { },
     isProfileEnabled = () => true,
     canPlaceProfileOnSide = () => true,
     getWindowLayoutState = () => ({
@@ -89,6 +98,9 @@ export function createWindowBuilder({
     let explodeProgress = 0;
     let explodableObjects = [];
     let editableTopologyGeometry = null;
+    let selectedGlassCellId = null;
+    const glassNumberSprites = new Map();
+    let lastFabricationSnapshot = null;
 
     function registerExplode(obj, dx, dy, dz) {
         obj.userData.basePos = obj.position.clone();
@@ -189,6 +201,14 @@ export function createWindowBuilder({
         const bounds = getDividerSourceBounds(dividerProfiles);
         if (!bounds) return 0;
         return getDividerCrossSectionMetrics(bounds).faceSpanM;
+    }
+
+    function getFrameFaceSpanM() {
+        // The converted CAD assembly bounding box includes small lips/flanges
+        // outside the nominal frame face, so using the complete bbox produced
+        // a 72 mm layout face and made a 600 x 900 cell render as 615 x 930.
+        // The AW CT 65 outer-frame sizing face is 57 mm (575760 / 575770).
+        return NOMINAL_OUTER_FRAME_FACE_M;
     }
 
 
@@ -400,6 +420,7 @@ export function createWindowBuilder({
             steps: 1,
         });
         const centerX = Number(bounds?.centerX) || 0;
+        const dividerMetrics = getDividerCrossSectionMetrics(bounds);
         const resolveRenderedFace = rawPoint => {
             const cadPoint = getProfileCadPointMm(profile, rawPoint.x, rawPoint.y);
             let renderedFace = (cadPoint.x - centerX) * S;
@@ -456,7 +477,6 @@ export function createWindowBuilder({
         // source of the twisted/bridged geometry at the top of the middle
         // mullion. Insert vertices on every socket transition plane before the
         // longitudinal deformation, just like we already do for arrow V apices.
-        const dividerMetrics = getDividerCrossSectionMetrics(bounds);
         const socketOffset = Number(longitudinalJoint?.socketInwardOffset) || 0;
         const sharedSocketSign = Number(longitudinalJoint?.socketInwardSign) || 0;
         const getEndSocketSign = key => (
@@ -500,10 +520,180 @@ export function createWindowBuilder({
                 ));
                 previousGeom.dispose();
             });
+
+        // The real end machining is an L-shaped notch in SIDE view. The
+        // branch already ends 19 mm before the grid; from that square end, only
+        // the outermost 5 mm flange is cut back another 25 mm. This is not a
+        // 5 mm longitudinal shortening of the two 25 mm face wings.
+        const hasNegativeRectangularEndNotch = Boolean(
+            profile?.isAlu === true
+            && longitudinalJoint?.negativeRectangularEndNotch
+        );
+        const hasPositiveRectangularEndNotch = Boolean(
+            profile?.isAlu === true
+            && longitudinalJoint?.positiveRectangularEndNotch
+        );
+        const hasRectangularEndNotch = (
+            hasNegativeRectangularEndNotch
+            || hasPositiveRectangularEndNotch
+        );
+
+        // The 575800 source is authored with the full-width 5 mm flange at the
+        // minimum CAD-Y side of the assembly (the 88 mm-wide flange visible in
+        // section). Split the section exactly at that 5 mm boundary so only
+        // that flange receives the 25 mm longitudinal cut-back.
+        const notchOuterCadY = Number(bounds?.minY);
+        const notchCadYBoundary = Number.isFinite(notchOuterCadY)
+            ? notchOuterCadY + INTERSECTION_MULLION_END_NOTCH_DEPTH_M / S
+            : null;
+        if (hasRectangularEndNotch && Number.isFinite(notchCadYBoundary)) {
+            const previousGeom = geom;
+            geom = splitBufferGeometryAtScalarZero(previousGeom, rawPoint => {
+                const cadPoint = getProfileCadPointMm(profile, rawPoint.x, rawPoint.y);
+                return cadPoint.y - notchCadYBoundary;
+            });
+            previousGeom.dispose();
+
+            // ExtrudeGeometry normally has only z=0 and z=1 longitudinal
+            // vertices. Add vertices at the 25 mm cut planes before moving the
+            // flange endpoint; otherwise the flange would taper diagonally over
+            // the entire mullion instead of forming the requested square L cut.
+            const notchFraction = Math.min(
+                1,
+                INTERSECTION_MULLION_END_NOTCH_LENGTH_M / Math.max(1e-9, length)
+            );
+            const longitudinalBreaks = [];
+            if (hasNegativeRectangularEndNotch && notchFraction < 1 - 1e-9) {
+                longitudinalBreaks.push(notchFraction);
+            }
+            if (hasPositiveRectangularEndNotch && notchFraction < 1 - 1e-9) {
+                longitudinalBreaks.push(1 - notchFraction);
+            }
+            [...new Set(longitudinalBreaks.map(value => value.toFixed(9)))]
+                .map(Number)
+                .forEach(extrusionBreak => {
+                    const sourceBeforeSplit = geom;
+                    geom = splitBufferGeometryAtScalarZero(
+                        sourceBeforeSplit,
+                        rawPoint => (Number(rawPoint.z) || 0) - extrusionBreak
+                    );
+                    sourceBeforeSplit.dispose();
+                });
+        }
+
+        // Divider-mounted glazing/rebate gaskets follow the mullion they are
+        // mounted on, but are intentionally 10 mm shorter overall. Keep them
+        // centred on the mullion (5 mm clearance at each longitudinal end).
+        // The local diagonal end cut is then applied inside that shorter span.
+        const isAttachedDividerGasket = Boolean(
+            isFixedGlassAnchorGasket(profile)
+            || isFrameToSashRebateGasket(profile)
+        );
+        const trimNegativeGasketEnd = Boolean(
+            isAttachedDividerGasket
+            && longitudinalJoint?.negativeRectangularEndNotch
+        );
+        const trimPositiveGasketEnd = Boolean(
+            isAttachedDividerGasket
+            && longitudinalJoint?.positiveRectangularEndNotch
+        );
+        const dividerGasketTotalShortening = isAttachedDividerGasket ? 0.030 : 0;
+        const defaultGasketEndTrim = dividerGasketTotalShortening / 2;
+        const resolveGasketEndTrim = overrideValue => {
+            const parsed = Number(overrideValue);
+            return Number.isFinite(parsed)
+                ? Math.max(0, parsed)
+                : defaultGasketEndTrim;
+        };
+        const negativeGasketTrim = resolveGasketEndTrim(
+            longitudinalJoint?.negativeGasketTrimOverride
+        );
+        const positiveGasketTrim = resolveGasketEndTrim(
+            longitudinalJoint?.positiveGasketTrimOverride
+        );
+        // Avoid the divider's full 88 mm-face arrow deformation at a notched
+        // branch end. Keep the gasket endpoint on the mullion endpoint and
+        // apply only the small local 45-degree cut across the gasket section.
+        const useNegativeLocalGasketMiter = Boolean(
+            isAttachedDividerGasket
+            && (trimNegativeGasketEnd || longitudinalJoint?.negativeLocalGasketMiter)
+        );
+        const usePositiveLocalGasketMiter = Boolean(
+            isAttachedDividerGasket
+            && (trimPositiveGasketEnd || longitudinalJoint?.positiveLocalGasketMiter)
+        );
+        const renderedNegativeEndMode = trimNegativeGasketEnd
+            ? 'square'
+            : (longitudinalJoint?.negativeEndMode || 'arrow');
+        const renderedPositiveEndMode = trimPositiveGasketEnd
+            ? 'square'
+            : (longitudinalJoint?.positiveEndMode || 'arrow');
+        const renderedNegativeFrameInwardSpan = trimNegativeGasketEnd
+            ? 0
+            : longitudinalJoint?.negativeFrameInwardSpan;
+        const renderedPositiveFrameInwardSpan = trimPositiveGasketEnd
+            ? 0
+            : longitudinalJoint?.positiveFrameInwardSpan;
+        const renderedLength = Math.max(
+            0,
+            length - negativeGasketTrim - positiveGasketTrim
+        );
+        const renderedLongitudinalOffset = longitudinalOffset
+            + negativeGasketTrim / 2
+            - positiveGasketTrim / 2;
+
         const position = geom.attributes.position;
         const point = new THREE.Vector3();
         const centerY = Number(bounds?.centerY) || 0;
         const metrics = dividerMetrics;
+        let localGasketFaceMin = Infinity;
+        let localGasketFaceMax = -Infinity;
+        if (useNegativeLocalGasketMiter || usePositiveLocalGasketMiter) {
+            for (let index = 0; index < position.count; index += 1) {
+                const renderedFace = resolveRenderedFace({
+                    x: position.getX(index),
+                    y: position.getY(index),
+                });
+                if (!Number.isFinite(renderedFace)) continue;
+                localGasketFaceMin = Math.min(localGasketFaceMin, renderedFace);
+                localGasketFaceMax = Math.max(localGasketFaceMax, renderedFace);
+            }
+        }
+        const hasLocalGasketFaceRange = (
+            Number.isFinite(localGasketFaceMin)
+            && Number.isFinite(localGasketFaceMax)
+            && localGasketFaceMax - localGasketFaceMin > 1e-9
+        );
+        const getLocalGasketMiterInset = (face, sign = 1) => {
+            if (!hasLocalGasketFaceRange) return 0;
+            return sign >= 0
+                ? Math.max(0, face - localGasketFaceMin)
+                : Math.max(0, localGasketFaceMax - face);
+        };
+        const rectangularNotchInsetByTriangle = hasRectangularEndNotch
+            ? new Array(Math.ceil(position.count / 3)).fill(0)
+            : null;
+        if (rectangularNotchInsetByTriangle && Number.isFinite(notchOuterCadY)) {
+            for (let base = 0; base + 2 < position.count; base += 3) {
+                let cadYSum = 0;
+                for (let offset = 0; offset < 3; offset += 1) {
+                    const cadPoint = getProfileCadPointMm(
+                        profile,
+                        position.getX(base + offset),
+                        position.getY(base + offset)
+                    );
+                    cadYSum += cadPoint.y;
+                }
+                const averageCadY = cadYSum / 3;
+                rectangularNotchInsetByTriangle[Math.floor(base / 3)] =
+                    getRectangularDividerEndNotchInset({
+                        sectionDepthFromOuterFace: Math.max(
+                            0,
+                            (averageCadY - notchOuterCadY) * S
+                        ),
+                    });
+            }
+        }
 
         for (let index = 0; index < position.count; index += 1) {
             point.fromBufferAttribute(position, index);
@@ -539,22 +729,56 @@ export function createWindowBuilder({
             const positiveSocketInwardDistance = positiveSocketInwardSign
                 ? face * positiveSocketInwardSign + socketInwardOffset
                 : Math.abs(face);
-            const along = getDividerSegmentAlongCoordinate({
-                extrusionT: point.z,
-                length,
+            const sourceExtrusionT = Math.min(
+                1,
+                Math.max(0, Number(point.z) || 0)
+            );
+            let effectiveExtrusionT = sourceExtrusionT;
+            const notchInset = Number(
+                rectangularNotchInsetByTriangle?.[Math.floor(index / 3)]
+            ) || 0;
+            if (notchInset > 1e-9 && length > 1e-9) {
+                const notchFraction = Math.min(1, notchInset / length);
+                if (hasNegativeRectangularEndNotch) {
+                    effectiveExtrusionT = Math.max(effectiveExtrusionT, notchFraction);
+                }
+                if (hasPositiveRectangularEndNotch) {
+                    effectiveExtrusionT = Math.min(
+                        effectiveExtrusionT,
+                        1 - notchFraction
+                    );
+                }
+            }
+
+            let along = getDividerSegmentAlongCoordinate({
+                extrusionT: effectiveExtrusionT,
+                length: renderedLength,
                 faceOffset: face,
                 faceSpan: metrics.faceSpanM,
                 frameInwardSpan,
-                negativeFrameInwardSpan: longitudinalJoint?.negativeFrameInwardSpan,
-                positiveFrameInwardSpan: longitudinalJoint?.positiveFrameInwardSpan,
-                negativeEndMode: longitudinalJoint?.negativeEndMode || 'arrow',
-                positiveEndMode: longitudinalJoint?.positiveEndMode || 'arrow',
+                negativeFrameInwardSpan: renderedNegativeFrameInwardSpan,
+                positiveFrameInwardSpan: renderedPositiveFrameInwardSpan,
+                negativeEndMode: renderedNegativeEndMode,
+                positiveEndMode: renderedPositiveEndMode,
                 negativeArrowFaceBias: longitudinalJoint?.negativeArrowFaceBias,
                 positiveArrowFaceBias: longitudinalJoint?.positiveArrowFaceBias,
                 socketInwardDistance,
                 negativeSocketInwardDistance,
                 positiveSocketInwardDistance,
             });
+
+            // Local gasket miters are referenced to the gasket itself, not to
+            // the 88 mm mullion face. The longest edge therefore remains at the
+            // exact 25 mm trim plane and only the opposite edge recedes by the
+            // gasket's own width, matching the small diagonal end in the CAD.
+            if (useNegativeLocalGasketMiter) {
+                const sign = Number(longitudinalJoint?.negativeLocalGasketMiterSign) || 1;
+                along += getLocalGasketMiterInset(face, sign) * (1 - effectiveExtrusionT);
+            }
+            if (usePositiveLocalGasketMiter) {
+                const sign = Number(longitudinalJoint?.positiveLocalGasketMiterSign) || 1;
+                along -= getLocalGasketMiterInset(face, sign) * effectiveExtrusionT;
+            }
 
             if (orientation === 'horizontal') {
                 position.setXYZ(index, along, -face, depth);
@@ -575,10 +799,10 @@ export function createWindowBuilder({
         // animation reset every copy to (0, 0) and collapsed them into one.
         if (orientation === 'vertical') {
             mesh.position.x = (Number(perpendicularOffset) || 0);
-            mesh.position.y = (Number(longitudinalOffset) || 0);
+            mesh.position.y = (Number(renderedLongitudinalOffset) || 0);
         } else if (orientation === 'horizontal') {
             mesh.position.y = (Number(perpendicularOffset) || 0);
-            mesh.position.x = (Number(longitudinalOffset) || 0);
+            mesh.position.x = (Number(renderedLongitudinalOffset) || 0);
         }
         mesh.castShadow = !captureMode;
         mesh.receiveShadow = !captureMode;
@@ -609,10 +833,15 @@ export function createWindowBuilder({
         dividerFaceSpan,
         { includeFaceBoundary = true } = {}
     ) {
-        const triangle = getReentrantFillerTriangle({
-            filler,
-            dividerFaceSpan,
-        });
+        const triangle = filler?.fillerKind === 'rectangular-host'
+            ? getHalfMullionTriangle({
+                filler,
+                triangleSpan: filler?.triangleSpan || RECTANGULAR_DIVIDER_SETBACK_M,
+            })
+            : getReentrantFillerTriangle({
+                filler,
+                dividerFaceSpan,
+            });
         if (!mesh?.geometry || triangle.length !== 3) return false;
 
         const [a, b, c] = triangle;
@@ -659,10 +888,15 @@ export function createWindowBuilder({
     }
 
     function clipFrameMeshToHalfFrameTriangle(mesh, filler) {
-        const triangle = getHalfFrameTriangle({
-            filler,
-            frameReferenceSpan: filler?.frameReferenceSpan,
-        });
+        const triangle = filler?.positionMode === 'inside'
+            ? getInsideHalfFrameTriangle({
+                filler,
+                frameReferenceSpan: filler?.frameReferenceSpan,
+            })
+            : getHalfFrameTriangle({
+                filler,
+                frameReferenceSpan: filler?.frameReferenceSpan,
+            });
         if (!mesh?.geometry || triangle.length !== 3) return false;
 
         const [a, b, c] = triangle;
@@ -854,6 +1088,13 @@ export function createWindowBuilder({
                         frameInwardSpan: dividerJoint.frameInwardSpan,
                     });
                 }
+                if (mode === 'inside-half-frame') {
+                    return getFrameInsideHalfFrameInset({
+                        inwardDistance: inw,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                        halfFrameSpan: RECTANGULAR_DIVIDER_SETBACK_M,
+                    });
+                }
                 if (mode === 'grid-miter') {
                     return getFrameGridMiterInset({
                         inwardDistance: inw,
@@ -965,11 +1206,13 @@ export function createWindowBuilder({
     const pivotBatant = new THREE.Group();
     let handleLeverGroup = new THREE.Group();
     let sashPoseAssemblies = [];
+    const sashPoseAnglesByCell = new Map();
+    let activePoseCellId = null;
+    let poseStateInitialized = false;
     let handleHitMeshes = [];
     let glassHitMeshes = [];
     let lastBuiltHandleSide = null;
     let handleHoldUntil = 0;
-    let currentPoseAngle = Number.parseFloat(document.getElementById('openAngle')?.value) || 0;
     let handleAngleAnimation = null;
 
     const HANDLE_CLICK_DRAG_THRESHOLD_PX = 5;
@@ -994,37 +1237,87 @@ export function createWindowBuilder({
         );
     }
 
-    function startHandleAngleToggle() {
+    function clampOpeningAngle(value, maxAngle = getOpeningAngleLimit()) {
+        return Math.min(maxAngle, Math.max(0, Number.parseFloat(value) || 0));
+    }
+
+    function getPoseAngle(cellId) {
+        const id = cellId ? String(cellId) : null;
+        if (!id) return 0;
+        return clampOpeningAngle(sashPoseAnglesByCell.get(id) || 0);
+    }
+
+    function setPoseAngle(cellId, value) {
+        const id = cellId ? String(cellId) : null;
+        if (!id) return 0;
+        const clamped = clampOpeningAngle(value);
+        sashPoseAnglesByCell.set(id, clamped);
+        return clamped;
+    }
+
+    function hasPoseAssembly(cellId) {
+        const id = cellId ? String(cellId) : null;
+        return Boolean(id && sashPoseAssemblies.some(assembly => String(assembly.cellId) === id));
+    }
+
+    function getActivePoseCellId() {
+        if (activePoseCellId && hasPoseAssembly(activePoseCellId)) {
+            return String(activePoseCellId);
+        }
+        if (selectedGlassCellId && hasPoseAssembly(selectedGlassCellId)) {
+            return String(selectedGlassCellId);
+        }
+        return sashPoseAssemblies[0]?.cellId ? String(sashPoseAssemblies[0].cellId) : null;
+    }
+
+    function syncOpenAngleControl(cellId = getActivePoseCellId()) {
         const input = document.getElementById('openAngle');
-        if (!input || !sashPoseAssemblies.length) return false;
+        const value = cellId ? getPoseAngle(cellId) : 0;
+        if (input) input.value = String(Math.round(value));
+        const valAngleEl = document.getElementById('valAngle');
+        if (valAngleEl) valAngleEl.innerText = `${Math.round(value)}°`;
+    }
+
+    function startHandleAngleToggle(cellId) {
+        const id = cellId ? String(cellId) : null;
+        if (!id || !hasPoseAssembly(id)) return false;
 
         const maxAngle = getOpeningAngleLimit();
-        const sliderAngle = Math.min(
-            maxAngle,
-            Math.max(0, Number.parseFloat(input.value) || 0)
-        );
-        const from = handleAngleAnimation ? currentPoseAngle : sliderAngle;
-        // A second handle click during motion always means "close". When
-        // stationary, anything above the closed position also closes; only a
-        // genuinely closed sash opens fully.
-        const to = handleAngleAnimation
+        const from = getPoseAngle(id);
+        const isSameAnimation = handleAngleAnimation?.cellId === id;
+        // A second click on the same moving sash means close. Otherwise only
+        // the clicked sash toggles between closed and the current mode limit.
+        const to = isSameAnimation
             ? 0
             : (from > HANDLE_CLOSED_EPSILON_DEG ? 0 : maxAngle);
         const travelRatio = maxAngle > 0 ? Math.abs(to - from) / maxAngle : 1;
 
-        currentPoseAngle = from;
+        activePoseCellId = id;
         handleAngleAnimation = {
+            cellId: id,
             from,
             to,
             maxAngle,
             startedAt: performance.now(),
             durationMs: 300 + 400 * travelRatio,
         };
+        syncOpenAngleControl(id);
         return true;
     }
 
     function cancelHandleAngleAnimation() {
         handleAngleAnimation = null;
+    }
+
+    function handleOpenAngleInput() {
+        const input = document.getElementById('openAngle');
+        const cellId = getActivePoseCellId();
+        if (!input || !cellId) return;
+        activePoseCellId = cellId;
+        handleAngleAnimation = null;
+        const value = setPoseAngle(cellId, input.value);
+        const valAngleEl = document.getElementById('valAngle');
+        if (valAngleEl) valAngleEl.innerText = `${Math.round(value)}°`;
     }
 
     function raycastMeshes(clientX, clientY, meshes) {
@@ -1067,8 +1360,10 @@ export function createWindowBuilder({
         if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > HANDLE_CLICK_DRAG_THRESHOLD_PX) {
             return;
         }
-        if (raycastHandle(event.clientX, event.clientY)) {
-            if (startHandleAngleToggle()) {
+        const handleObject = raycastHandle(event.clientX, event.clientY);
+        if (handleObject) {
+            const handleCellId = handleObject.userData?.windowHandleCellId;
+            if (startHandleAngleToggle(handleCellId)) {
                 event.preventDefault();
             }
             return;
@@ -1095,6 +1390,7 @@ export function createWindowBuilder({
         renderer.domElement.addEventListener('pointerup', handleCanvasPointerUp);
         renderer.domElement.addEventListener('pointercancel', handleCanvasPointerCancel);
         document.getElementById('openAngle')?.addEventListener('input', cancelHandleAngleAnimation);
+        document.getElementById('openAngle')?.addEventListener('input', handleOpenAngleInput);
     }
 
     placementRoot.add(mainGroup);
@@ -1547,7 +1843,7 @@ export function createWindowBuilder({
         color: 0x38bdf8
     });
 
-    function createLabelSprite(text) {
+    function createLabelSprite(text, scale = 1) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = 256;
@@ -1593,8 +1889,57 @@ export function createWindowBuilder({
             depthWrite: false
         });
         const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.scale.set(0.35, 0.175, 1);
+        const safeScale = Math.max(0.4, Number(scale) || 1);
+        sprite.scale.set(0.35 * safeScale, 0.175 * safeScale, 1);
         return sprite;
+    }
+
+    function getWindowNumber(_cellId, fallbackIndex = 0) {
+        // Window IDs are stable topology identifiers and can legitimately skip
+        // after merge/delete operations. Visible numbering is always dense and
+        // follows the current rendered cell order instead of exposing those IDs.
+        return Math.max(1, Number(fallbackIndex) + 1);
+    }
+
+    function createGlassNumberSprite(cellId, fallbackIndex = 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 64px Outfit, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(getWindowNumber(cellId, fallbackIndex)), 64, 66);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            color: String(cellId) === String(selectedGlassCellId) ? 0x7dd3fc : 0xffffff,
+        });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(0.12, 0.12, 1);
+        sprite.renderOrder = 20;
+        sprite.userData.windowNumberCellId = String(cellId || '');
+        glassNumberSprites.set(String(cellId || ''), sprite);
+        return sprite;
+    }
+
+    function setSelectedGlassCell(cellId) {
+        selectedGlassCellId = cellId ? String(cellId) : null;
+        glassNumberSprites.forEach((sprite, id) => {
+            if (!sprite?.material?.color) return;
+            sprite.material.color.setHex(id === selectedGlassCellId ? 0x7dd3fc : 0xffffff);
+        });
+        if (selectedGlassCellId && hasPoseAssembly(selectedGlassCellId)) {
+            activePoseCellId = selectedGlassCellId;
+            syncOpenAngleControl(selectedGlassCellId);
+        }
     }
 
     function buildDimensionLines(A, B, activeProfiles = []) {
@@ -1622,23 +1967,17 @@ export function createWindowBuilder({
         let maxY = B / 2;
 
         if (editableTopologyGeometry) {
-            const framePlacements = editableTopologyGeometry.framePlacements || [];
-            const verticalFrameEdges = framePlacements
-                .filter(frame => frame.orientation === 'vertical')
-                .map(frame => Number(frame.perpendicularOffset))
-                .filter(Number.isFinite);
-            const horizontalFrameEdges = framePlacements
-                .filter(frame => frame.orientation === 'horizontal')
-                .map(frame => Number(frame.perpendicularOffset))
-                .filter(Number.isFinite);
-
-            if (verticalFrameEdges.length >= 2) {
-                minX = Math.min(...verticalFrameEdges);
-                maxX = Math.max(...verticalFrameEdges);
+            const geometryMinX = Number(editableTopologyGeometry.overallMinX);
+            const geometryMaxX = Number(editableTopologyGeometry.overallMaxX);
+            const geometryMinY = Number(editableTopologyGeometry.overallMinY);
+            const geometryMaxY = Number(editableTopologyGeometry.overallMaxY);
+            if ([geometryMinX, geometryMaxX].every(Number.isFinite)) {
+                minX = geometryMinX;
+                maxX = geometryMaxX;
             }
-            if (horizontalFrameEdges.length >= 2) {
-                minY = Math.min(...horizontalFrameEdges);
-                maxY = Math.max(...horizontalFrameEdges);
+            if ([geometryMinY, geometryMaxY].every(Number.isFinite)) {
+                minY = geometryMinY;
+                maxY = geometryMaxY;
             }
         }
 
@@ -1676,6 +2015,77 @@ export function createWindowBuilder({
         const leftLabel = createLabelSprite(`${Math.round(constructionHeight * 1000)} mm`);
         leftLabel.position.set(leftX, constructionCenterY, zPos);
         dimensionsGroup.add(leftLabel);
+
+        // Individual window dimensions are projected to the OUTSIDE margins
+        // of the complete construction. This keeps the model readable: width
+        // bars live only above the layout and height bars only to its right,
+        // rather than drawing a pair of guides around every cell. Identical
+        // spans are deduplicated (for example two windows in the same column).
+        if (editableTopologyGeometry?.cells?.length) {
+            const localOffset = 0.075;
+            const localTick = 0.025;
+            const laneGap = 0.06;
+
+            const uniqueItems = (items) => {
+                const seen = new Set();
+                return items.filter(item => {
+                    const key = [item.start, item.end, item.value]
+                        .map(value => Number(value).toFixed(6))
+                        .join(':');
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+            };
+
+            const assignLanes = (items) => {
+                const laneEnds = [];
+                return [...items]
+                    .sort((a, b) => a.start - b.start || a.end - b.end)
+                    .map(item => {
+                        let lane = laneEnds.findIndex(end => item.start >= end - 1e-9);
+                        if (lane < 0) {
+                            lane = laneEnds.length;
+                            laneEnds.push(item.end);
+                        } else {
+                            laneEnds[lane] = item.end;
+                        }
+                        return { ...item, lane };
+                    });
+            };
+
+            const widthItems = uniqueItems(editableTopologyGeometry.cells.flatMap(cell => {
+                const start = Number(cell.actualX0);
+                const end = Number(cell.actualX1);
+                if (![start, end].every(Number.isFinite) || end <= start) return [];
+                return [{ start, end, value: Math.max(0, end - start) }];
+            }));
+            assignLanes(widthItems).forEach(item => {
+                const y = maxY + localOffset + item.lane * laneGap;
+                addLineSegment(new THREE.Vector3(item.start, y, zPos), new THREE.Vector3(item.end, y, zPos));
+                addLineSegment(new THREE.Vector3(item.start, y - localTick, zPos), new THREE.Vector3(item.start, y + localTick, zPos));
+                addLineSegment(new THREE.Vector3(item.end, y - localTick, zPos), new THREE.Vector3(item.end, y + localTick, zPos));
+                const label = createLabelSprite(`${Math.round(item.value * 1000)} mm`, 0.72);
+                label.position.set((item.start + item.end) / 2, y, zPos);
+                dimensionsGroup.add(label);
+            });
+
+            const heightItems = uniqueItems(editableTopologyGeometry.cells.flatMap(cell => {
+                const start = Number(cell.actualY0);
+                const end = Number(cell.actualY1);
+                if (![start, end].every(Number.isFinite) || end <= start) return [];
+                return [{ start, end, value: Math.max(0, end - start) }];
+            }));
+            assignLanes(heightItems).forEach(item => {
+                const x = maxX + localOffset + item.lane * laneGap;
+                addLineSegment(new THREE.Vector3(x, item.start, zPos), new THREE.Vector3(x, item.end, zPos));
+                addLineSegment(new THREE.Vector3(x - localTick, item.start, zPos), new THREE.Vector3(x + localTick, item.start, zPos));
+                addLineSegment(new THREE.Vector3(x - localTick, item.end, zPos), new THREE.Vector3(x + localTick, item.end, zPos));
+                const label = createLabelSprite(`${Math.round(item.value * 1000)} mm`, 0.72);
+                label.position.set(x, (item.start + item.end) / 2, zPos);
+                dimensionsGroup.add(label);
+            });
+        }
 
         // 4. RIGHT DIMENSION (Height)
         const rightX = maxX + offset;
@@ -2110,27 +2520,28 @@ export function createWindowBuilder({
         sashPoseAssemblies = [];
         handleHitMeshes = [];
         glassHitMeshes = [];
+        glassNumberSprites.clear();
         explodableObjects = [];
         const t_clear = performance.now();
 
-        const A = parseFloat(document.getElementById('widthA').value);
-        const B = parseFloat(document.getElementById('heightB').value);
-
-        // UI text update
-        const valWidthEl = document.getElementById('valWidth');
-        if (valWidthEl) valWidthEl.innerText = `${Math.round(A * 1000)} mm`;
-        const valHeightEl = document.getElementById('valHeight');
-        if (valHeightEl) valHeightEl.innerText = `${Math.round(B * 1000)} mm`;
+        let A = parseFloat(document.getElementById('widthA').value);
+        let B = parseFloat(document.getElementById('heightB').value);
+        const fabricationGlassPieces = [];
 
         const frameGroup = new THREE.Group();
         const sashGroup = new THREE.Group();
         const dividerGroup = new THREE.Group();
 
-        const activeProfiles = profilesData.filter(profile => {
+        // Visibility toggles are presentation-only. Keep a separate profile set
+        // for layout measurements so hiding a structural component (notably the
+        // mullion group) cannot change cell/frame positions or overall sizing.
+        const layoutProfiles = profilesData.filter(profile => isProfileEnabled(profile));
+        const activeProfiles = layoutProfiles.filter(profile => {
             const toggle = document.getElementById(`toggle_${profile.index}`);
             const componentEnabled = toggle ? toggle.checked : true;
-            return componentEnabled && isProfileEnabled(profile);
+            return componentEnabled;
         });
+        const layoutDividerProfiles = layoutProfiles.filter(profile => profile.role === 'divider');
         const activeDividerProfiles = activeProfiles.filter(profile => profile.role === 'divider');
         const activeTransProfiles = activeProfiles.filter(profile => profile.role === 'trans');
         const activeTransGasketProfiles = activeProfiles.filter(
@@ -2139,20 +2550,20 @@ export function createWindowBuilder({
         const layoutState = getWindowLayoutState();
         const isEditableTopology = layoutState.isDynamicWindowState === true;
 
-        // The sliders are the outside dimensions of one complete standalone
-        // window. Dynamic topology uses a smaller grid pitch because every
-        // shared side replaces an outer frame with a mullion. Compute that
-        // constant from the active frame profile before resolving topology and
-        // keep using it even after a merge removes the last divider; otherwise
-        // the merged window jumps wider as soon as the mullion disappears.
-        const editableFrameReplacementSpan = isEditableTopology
-            ? getFrameJointInwardSpanM(activeProfiles)
+        // Keep the profile dimensions used by the layout editor separate:
+        // - outer-frame visible face: 57 mm (CAD X span)
+        // - mullion visible face: 88 mm
+        // - outer-frame profile depth / machining span: 65 mm (CAD inward Y)
+        // The grid reference is the mullion centreline, therefore an exposed
+        // frame contributes 57 - 88/2 = 13 mm beyond a cell grid line.
+        const editableFrameFaceSpan = isEditableTopology
+            ? getFrameFaceSpanM(layoutProfiles)
             : 0;
-        const editableDividerFaceSpan = isEditableTopology && activeDividerProfiles.length
-            ? Math.min(
-                Math.min(A, B) * 0.3,
-                getDividerFaceSpanM(activeDividerProfiles)
-            )
+        const editableFrameInwardSpan = isEditableTopology
+            ? getFrameJointInwardSpanM(layoutProfiles)
+            : 0;
+        const editableDividerFaceSpan = isEditableTopology
+            ? getDividerFaceSpanM(layoutDividerProfiles)
             : 0;
         editableTopologyGeometry = isEditableTopology
             ? getEditableWindowTopologyGeometry({
@@ -2162,29 +2573,35 @@ export function createWindowBuilder({
                 dividerConnectionVariants: currentMetadata.dividerConnectionVariants,
                 transConnection: currentMetadata.transConnection,
                 connectionScale: S,
-                frameReplacementSpan: editableFrameReplacementSpan,
+                frameReplacementSpan: editableFrameInwardSpan,
+                frameFaceSpan: editableFrameFaceSpan,
+                frameInwardSpan: editableFrameInwardSpan,
                 dividerFaceSpan: editableDividerFaceSpan,
             })
             : null;
+        if (editableTopologyGeometry) {
+            A = Number(editableTopologyGeometry.overallWidth) || A;
+            B = Number(editableTopologyGeometry.overallHeight) || B;
+        }
         const isTopFixedBottomSashSash = !isEditableTopology && (
             layoutState.layoutId === 'top-fixed-bottom-sash-sash'
             || layoutState.layoutKind === 't-grid'
         );
-        const dividerOrientation = activeDividerProfiles.length
+        const dividerOrientation = layoutDividerProfiles.length
             ? (
                 isEditableTopology
                     ? (editableTopologyGeometry?.dividerSegments?.length ? 'grid' : null)
                     : layoutState.dividerOrientation
             )
             : null;
-        const dividerBounds = getDividerSourceBounds(activeDividerProfiles);
+        const dividerBounds = getDividerSourceBounds(layoutDividerProfiles);
         const dividerFaceSpan = isEditableTopology
             ? editableDividerFaceSpan
             : Math.min(
                 dividerOrientation === 'vertical'
                     ? A * 0.3
                     : (dividerOrientation === 'horizontal' ? B * 0.3 : Math.min(A, B) * 0.3),
-                getDividerFaceSpanM(activeDividerProfiles)
+                getDividerFaceSpanM(layoutDividerProfiles)
             );
         // Editable topology always uses the same frame/grid reference relation,
         // even when the last fixed mullion is replaced by a floating trans. If
@@ -2192,8 +2609,8 @@ export function createWindowBuilder({
         // miters lose the CAD-derived reference extension and the whole outside
         // frame visibly shrinks.
         const frameJointInwardSpan = isEditableTopology
-            ? (editableFrameReplacementSpan || getFrameJointInwardSpanM(activeProfiles))
-            : (dividerOrientation ? getFrameJointInwardSpanM(activeProfiles) : 0);
+            ? (editableFrameInwardSpan || getFrameJointInwardSpanM(layoutProfiles))
+            : (dividerOrientation ? getFrameJointInwardSpanM(layoutProfiles) : 0);
         const editableFramePlacements = isEditableTopology
             ? (editableTopologyGeometry?.framePlacements || []).map(placement =>
                 getEditableReentrantFramePlacement({
@@ -2720,14 +3137,13 @@ export function createWindowBuilder({
                 });
             });
 
-        // A normal perimeter T (for example the top/bottom end of the
-        // mullion between two side-by-side windows) contains one small outer
-        // frame triangle. The host frame ends use `half-frame-socket`, which
-        // removes that triangle from both complete frame runs. Render it once
-        // here from the real frame profile so the intersection has explicit
-        // ownership and no coincident/overlapping frame stock.
+        // A normal perimeter T keeps the outer frame visually continuous.
+        // `halfFrameFillers` now describe the inner 25 mm host band for
+        // intersection ownership/BOM purposes only; they are not separate
+        // triangular front-view meshes.
         if (isEditableTopology) {
             (editableTopologyGeometry?.halfFrameFillers || []).forEach(filler => {
+                if (filler?.renderAsSeparateMesh === false) return;
                 const sourcePlacement = (editableFramePlacements || []).find(
                     placement => placement.id === filler.sourceFrameId
                 );
@@ -2985,6 +3401,290 @@ export function createWindowBuilder({
                 dividerGroup.add(mesh);
             };
 
+            const getRuntimeCellSideForDividerBranchDirection = (orientation, direction) => {
+                if (orientation === 'vertical') {
+                    if (direction === 'west') return 'left';
+                    if (direction === 'east') return 'right';
+                } else if (orientation === 'horizontal') {
+                    if (direction === 'south') return 'left';
+                    if (direction === 'north') return 'right';
+                }
+                return null;
+            };
+
+
+            const getDividerSegmentWorldRange = segment => {
+                const rawStart = Number.isFinite(Number(segment?.structuralWorldStart))
+                    ? Number(segment.structuralWorldStart)
+                    : Number(segment?.worldStart);
+                const rawEnd = Number.isFinite(Number(segment?.structuralWorldEnd))
+                    ? Number(segment.structuralWorldEnd)
+                    : Number(segment?.worldEnd);
+                if (!Number.isFinite(rawStart) || !Number.isFinite(rawEnd)) {
+                    return null;
+                }
+                return Object.freeze({
+                    start: Math.min(rawStart, rawEnd),
+                    end: Math.max(rawStart, rawEnd),
+                });
+            };
+
+            const getHostGasketBranchSplitCoordinates = (
+                segment,
+                runtimeCellSide,
+                explicitRange = null
+            ) => {
+                if (!segment || !runtimeCellSide) return [];
+                const range = explicitRange || getDividerSegmentWorldRange(segment);
+                if (!range) return [];
+                const rawCoordinates = (editableTopologyGeometry?.physicalIntersections || [])
+                    .flatMap(junction => {
+                        if (!junction || junction.hostOrientation !== segment.orientation) {
+                            return [];
+                        }
+                        if (junction.type !== 'T' && junction.type !== 'cross') {
+                            return [];
+                        }
+                        const activeDirections = Array.isArray(junction.activeDirections)
+                            ? junction.activeDirections
+                            : [];
+                        const hostArms = activeDirections
+                            .map(direction => junction.arms?.[direction])
+                            .filter(arm => (
+                                arm?.kind === 'divider'
+                                && arm.orientation === segment.orientation
+                                && arm.segmentId === segment.id
+                            ));
+                        if (!hostArms.length) return [];
+                        return activeDirections
+                            .map(direction => junction.arms?.[direction])
+                            .filter(arm => (
+                                arm?.kind === 'divider'
+                                && arm.orientation !== segment.orientation
+                                && getRuntimeCellSideForDividerBranchDirection(
+                                    segment.orientation,
+                                    arm.direction
+                                ) === runtimeCellSide
+                            ))
+                            .map(() => (
+                                segment.orientation === 'vertical'
+                                    ? Number(junction.y)
+                                    : Number(junction.x)
+                            ));
+                    })
+                    .filter(value => (
+                        Number.isFinite(value)
+                        && value > range.start + 1e-9
+                        && value < range.end - 1e-9
+                    ))
+                    .sort((a, b) => a - b);
+                return rawCoordinates.filter((value, index) => (
+                    index === 0 || Math.abs(value - rawCoordinates[index - 1]) > 1e-9
+                ));
+            };
+
+            const getDividerGasketMiterSign = (segmentOrientation, runtimeCellSide) => {
+                if (segmentOrientation === 'horizontal') {
+                    return runtimeCellSide === 'left' ? 1 : -1;
+                }
+                return runtimeCellSide === 'left' ? -1 : 1;
+            };
+
+            const applyDividerGasketMiterSide = (
+                joint,
+                runtimeCellSide,
+                segmentOrientation = 'vertical'
+            ) => {
+                const localGasketMiterSign = getDividerGasketMiterSign(
+                    segmentOrientation,
+                    runtimeCellSide
+                );
+                const resolvedJoint = { ...(joint || {}) };
+                if (
+                    resolvedJoint.negativeRectangularEndNotch
+                    || resolvedJoint.negativeLocalGasketMiter
+                ) {
+                    resolvedJoint.negativeLocalGasketMiterSign = localGasketMiterSign;
+                }
+                if (
+                    resolvedJoint.positiveRectangularEndNotch
+                    || resolvedJoint.positiveLocalGasketMiter
+                ) {
+                    resolvedJoint.positiveLocalGasketMiterSign = localGasketMiterSign;
+                }
+                return resolvedJoint;
+            };
+
+            const getDividerHostEndpointBranchSides = (segment, atStart) => {
+                const junction = (editableTopologyGeometry?.physicalIntersections || [])
+                    .find(candidate => candidate?.endpoints?.some(endpoint => (
+                        endpoint?.dividerId === segment?.id
+                        && Boolean(endpoint?.atStart) === Boolean(atStart)
+                    ))) || null;
+                if (
+                    !junction
+                    || (junction.type !== 'T' && junction.type !== 'cross')
+                    || junction.hostOrientation !== segment?.orientation
+                ) {
+                    return new Set();
+                }
+
+                const sides = new Set();
+                (junction.activeDirections || [])
+                    .map(direction => junction.arms?.[direction])
+                    .filter(arm => (
+                        arm?.kind === 'divider'
+                        && arm.orientation !== segment.orientation
+                    ))
+                    .forEach(arm => {
+                        const side = getRuntimeCellSideForDividerBranchDirection(
+                            segment.orientation,
+                            arm.direction
+                        );
+                        if (side) sides.add(side);
+                    });
+                return sides;
+            };
+
+            const applyHostEndpointGasketContinuity = (
+                segment,
+                joint,
+                runtimeCellSide
+            ) => {
+                const resolvedJoint = { ...(joint || {}) };
+                const applyEndRule = (atStart, endPrefix) => {
+                    const branchSides = getDividerHostEndpointBranchSides(segment, atStart);
+                    if (!branchSides.size) return;
+                    const isBranchFacingSide = branchSides.has(runtimeCellSide);
+                    if (isBranchFacingSide) {
+                        // This is the actual half-mullion under the incoming
+                        // branch. Keep the normal 15 mm end clearance, so the
+                        // two host segments leave the intended no-gasket zone.
+                        return;
+                    }
+
+                    // The opposite half of the host mullion is physically
+                    // continuous through the T. Do not apply the generic
+                    // 15 mm-per-end shortening at this internal endpoint or the
+                    // two host segments create the visible 30 mm gasket hole.
+                    resolvedJoint[`${endPrefix}GasketTrimOverride`] = 0;
+                    resolvedJoint[`${endPrefix}LocalGasketMiter`] = false;
+                    delete resolvedJoint[`${endPrefix}LocalGasketMiterSign`];
+                };
+
+                applyEndRule(true, 'negative');
+                applyEndRule(false, 'positive');
+                return resolvedJoint;
+            };
+
+            const getSplitHostGasketPlacements = (segment, basePlacement, runtimeCellSide) => {
+                const localGasketMiterSign = getDividerGasketMiterSign(
+                    segment?.orientation,
+                    runtimeCellSide
+                );
+                const baseLength = Math.max(0, Number(basePlacement?.length) || 0);
+                const baseCenter = Number(basePlacement?.longitudinalOffset) || 0;
+                if (baseLength <= 1e-9) {
+                    return [{
+                        ...basePlacement,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                basePlacement?.joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
+                            runtimeCellSide
+                        ),
+                    }];
+                }
+                // Split the ACTUAL rendered placement, not the raw structural
+                // segment range. The rendered mullion may include the frame-grid
+                // extension at its outer ends; dropping that extension was the
+                // other reason the gasket became visibly too short.
+                const range = {
+                    start: baseCenter - baseLength / 2,
+                    end: baseCenter + baseLength / 2,
+                };
+                const splitCoordinates = getHostGasketBranchSplitCoordinates(
+                    segment,
+                    runtimeCellSide,
+                    range
+                );
+                if (!splitCoordinates.length) {
+                    return [{
+                        ...basePlacement,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                basePlacement?.joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
+                            runtimeCellSide
+                        ),
+                    }];
+                }
+                const points = [range.start, ...splitCoordinates, range.end];
+                const placements = [];
+                for (let index = 0; index < points.length - 1; index += 1) {
+                    const start = points[index];
+                    const end = points[index + 1];
+                    const length = Math.max(0, end - start);
+                    if (length <= 1e-6) continue;
+                    const joint = {
+                        ...(basePlacement?.joint || {}),
+                    };
+                    if (index > 0) {
+                        joint.negativeEndMode = 'square';
+                        joint.negativeFrameInwardSpan = 0;
+                        joint.negativeArrowFaceBias = 0;
+                        joint.negativeLocalGasketMiter = true;
+                        joint.negativeLocalGasketMiterSign = localGasketMiterSign;
+                        delete joint.negativeRectangularEndNotch;
+                    }
+                    if (index < points.length - 2) {
+                        joint.positiveEndMode = 'square';
+                        joint.positiveFrameInwardSpan = 0;
+                        joint.positiveArrowFaceBias = 0;
+                        joint.positiveLocalGasketMiter = true;
+                        // Both longitudinal ends of one gasket use the same
+                        // local face edge, but the gasket on the opposite side of
+                        // the mullion must mirror that edge. runtimeCellSide is
+                        // already normalized for reversed connection templates.
+                        joint.positiveLocalGasketMiterSign = localGasketMiterSign;
+                        delete joint.positiveRectangularEndNotch;
+                    }
+                    placements.push({
+                        length,
+                        longitudinalOffset: (start + end) / 2,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
+                            runtimeCellSide
+                        ),
+                    });
+                }
+                return placements.length
+                    ? placements
+                    : [{
+                        ...basePlacement,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                basePlacement?.joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
+                            runtimeCellSide
+                        ),
+                    }];
+            };
+
             editableSegments.forEach(segment => {
                 const variantMetadata = getEditableDividerVariantMetadata(segment);
                 const connectionMetadata = variantMetadata?.dividerConnection || {};
@@ -3073,24 +3773,31 @@ export function createWindowBuilder({
                                     || Number(variantProfile.dividerSectionRotationDeg)
                                     || 180,
                             };
-                            const mesh = createDividerSegment(
-                                placedProfile,
-                                segmentPlacement.length,
-                                segment.orientation,
-                                segmentDividerBounds,
-                                depthOffset,
-                                frameJointInwardSpan,
-                                segment.perpendicularOffset,
-                                segmentPlacement.longitudinalOffset,
-                                faceDirection,
-                                segmentPlacement.joint
+                            const splitPlacements = getSplitHostGasketPlacements(
+                                segment,
+                                segmentPlacement,
+                                runtimeCellSide
                             );
-                            renderedConnectionSides.add(runtimeCellSide);
-                            mesh.userData.mullionConnectionGasket = true;
-                            mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
-                            mesh.userData.connectionProfileId =
-                                variantProfile.mullionConnectionProfileId || null;
-                            placeEditableDividerMesh(mesh, segment, 'connection-gasket');
+                            splitPlacements.forEach(placement => {
+                                const mesh = createDividerSegment(
+                                    placedProfile,
+                                    placement.length,
+                                    segment.orientation,
+                                    segmentDividerBounds,
+                                    depthOffset,
+                                    frameJointInwardSpan,
+                                    segment.perpendicularOffset,
+                                    placement.longitudinalOffset,
+                                    faceDirection,
+                                    placement.joint
+                                );
+                                renderedConnectionSides.add(runtimeCellSide);
+                                mesh.userData.mullionConnectionGasket = true;
+                                mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
+                                mesh.userData.connectionProfileId =
+                                    variantProfile.mullionConnectionProfileId || null;
+                                placeEditableDividerMesh(mesh, segment, 'connection-gasket');
+                            });
                         });
 
                         // Fixed-facing 224063 must be a real divider-mounted
@@ -3131,28 +3838,35 @@ export function createWindowBuilder({
                                         || Number(variantProfile.dividerSectionRotationDeg)
                                         || 180,
                                 };
-                                const mesh = createDividerSegment(
-                                    placedProfile,
-                                    segmentPlacement.length,
-                                    segment.orientation,
-                                    segmentDividerBounds,
-                                    depthOffset,
-                                    frameJointInwardSpan,
-                                    segment.perpendicularOffset,
-                                    segmentPlacement.longitudinalOffset,
-                                    faceDirection,
-                                    segmentPlacement.joint
-                                );
-                                renderedConnectionSides.add(runtimeCellSide);
-                                mesh.userData.mullionConnectionGasket = true;
-                                mesh.userData.fixedGlazingAccessory = true;
-                                mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
-                                mesh.userData.connectionProfileId = '224063';
-                                placeEditableDividerMesh(
-                                    mesh,
+                                const splitPlacements = getSplitHostGasketPlacements(
                                     segment,
-                                    'fixed-connection-gasket'
+                                    segmentPlacement,
+                                    runtimeCellSide
                                 );
+                                splitPlacements.forEach(placement => {
+                                    const mesh = createDividerSegment(
+                                        placedProfile,
+                                        placement.length,
+                                        segment.orientation,
+                                        segmentDividerBounds,
+                                        depthOffset,
+                                        frameJointInwardSpan,
+                                        segment.perpendicularOffset,
+                                        placement.longitudinalOffset,
+                                        faceDirection,
+                                        placement.joint
+                                    );
+                                    renderedConnectionSides.add(runtimeCellSide);
+                                    mesh.userData.mullionConnectionGasket = true;
+                                    mesh.userData.fixedGlazingAccessory = true;
+                                    mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
+                                    mesh.userData.connectionProfileId = '224063';
+                                    placeEditableDividerMesh(
+                                        mesh,
+                                        segment,
+                                        'fixed-connection-gasket'
+                                    );
+                                });
                             });
                         }
 
@@ -3209,6 +3923,7 @@ export function createWindowBuilder({
             // opening. This keeps the real aluminium/gasket/profile appearance
             // instead of drawing a generic solid-colour triangle.
             (editableTopologyGeometry?.reentrantFillers || []).forEach(filler => {
+                if (filler?.renderAsSeparateMesh === false) return;
                 const sourceSegment = editableSegments.find(
                     segment => segment.id === filler.sourceDividerId
                 );
@@ -3231,7 +3946,9 @@ export function createWindowBuilder({
                 // mullion stock to cover it, centred on the V apex, then clip
                 // the result to the triangular opening. For a missing top arm
                 // this creates a HORIZONTAL extrusion, not a vertical stub.
-                const renderLength = fillerFaceSpan;
+                const renderLength = filler?.fillerKind === 'rectangular-host'
+                    ? Math.max(RECTANGULAR_DIVIDER_SETBACK_M * 2, Number(filler.length) || 0)
+                    : fillerFaceSpan;
                 const longitudinalOffset = filler.orientation === 'horizontal'
                     ? filler.apexX
                     : filler.apexY;
@@ -4459,7 +5176,7 @@ export function createWindowBuilder({
                         || isFixedGlassAnchorGasket(profile);
                 })
                 .forEach(profile => {
-                    fixedCells.forEach(fixedCell => {
+                    fixedCells.forEach((fixedCell, fixedCellIndex) => {
                         sides.forEach(side => {
                             if (!shouldPlaceProfileOnSide(profile, side)) return;
                             if (isEditableTopology) {
@@ -4513,22 +5230,44 @@ export function createWindowBuilder({
             isFixed = false,
             cellId = null,
             glazingCavity = null,
+            numberIndex = 0,
         }) {
+            const paneWidth = Math.max(0.05, width);
+            const paneHeight = Math.max(0.05, height);
             const pane = new THREE.Mesh(
                 new THREE.BoxGeometry(
-                    Math.max(0.05, width),
-                    Math.max(0.05, height),
+                    paneWidth,
+                    paneHeight,
                     glassPlacement.thicknessMm * S
                 ),
                 glassMat
             );
+            fabricationGlassPieces.push(Object.freeze({
+                width: paneWidth,
+                height: paneHeight,
+                centerX,
+                centerY,
+                isFixed: Boolean(isFixed),
+                cellId,
+            }));
             pane.position.set(centerX, centerY, glassPlacement.centerZ);
-            pane.castShadow = !captureMode;
+            // Transparent glass should not cast the same fully opaque shadow as
+            // aluminium/PVC components. Three.js shadow maps treat a transparent
+            // MeshStandardMaterial as an opaque depth caster, so leaving castShadow
+            // enabled makes the pane darken the ground as strongly as the frame.
+            // Keep receiving shadows for depth cues, but let only the solid window
+            // components cast workshop/scene shadows.
+            pane.castShadow = false;
             pane.receiveShadow = !captureMode;
             pane.userData.glazingCavity = glazingCavity;
             pane.userData.windowCell = cellId || (isFixed ? 'fixed' : 'opening');
             pane.userData.windowGlassCellId = cellId || null;
-            if (cellId) glassHitMeshes.push(pane);
+            if (cellId) {
+                glassHitMeshes.push(pane);
+                const numberSprite = createGlassNumberSprite(cellId, numberIndex);
+                numberSprite.position.set(0, 0, glassPlacement.thicknessMm * S * 0.6 + 0.006);
+                pane.add(numberSprite);
+            }
             registerExplode(pane, 0, 0, isFixed ? 0.35 : 0.5);
             return pane;
         }
@@ -4577,6 +5316,7 @@ export function createWindowBuilder({
                     centerY: openingGlassCenterY,
                     cellId: cell.id,
                     glazingCavity,
+                    numberIndex: cell.cellIndex ?? cellIndex,
                 }));
 
                 // In a sash/sash mullion layout both handles sit toward the
@@ -4742,6 +5482,33 @@ export function createWindowBuilder({
             mainGroup.add(sashGroup);
         }
 
+        // Opening pose is per sash. Rebuilding the geometry must not collapse
+        // all opening sashes back onto one shared angle value.
+        const activeSashIds = new Set(
+            sashPoseAssemblies.map(assembly => String(assembly.cellId))
+        );
+        for (const id of [...sashPoseAnglesByCell.keys()]) {
+            if (!activeSashIds.has(String(id))) sashPoseAnglesByCell.delete(id);
+        }
+        sashPoseAssemblies.forEach((assembly, index) => {
+            const id = String(assembly.cellId);
+            if (!sashPoseAnglesByCell.has(id)) {
+                const initialAngle = !poseStateInitialized && sashPoseAssemblies.length === 1 && index === 0
+                    ? clampOpeningAngle(document.getElementById('openAngle')?.value)
+                    : 0;
+                sashPoseAnglesByCell.set(id, initialAngle);
+            }
+        });
+        poseStateInitialized = true;
+        if (selectedGlassCellId && activeSashIds.has(String(selectedGlassCellId))) {
+            activePoseCellId = String(selectedGlassCellId);
+        } else if (!activePoseCellId || !activeSashIds.has(String(activePoseCellId))) {
+            activePoseCellId = sashPoseAssemblies[0]?.cellId
+                ? String(sashPoseAssemblies[0].cellId)
+                : null;
+        }
+        syncOpenAngleControl(activePoseCellId);
+
         if (fixedCells.length) {
             fixedCells.forEach(fixedCell => {
                 const panePlacement = getFixedGlassPanePlacement({
@@ -4758,6 +5525,7 @@ export function createWindowBuilder({
                     centerY: panePlacement.centerY,
                     isFixed: true,
                     cellId: fixedCell.id,
+                    numberIndex: fixedCell.cellIndex ?? (openingCells.length + fixedCellIndex),
                 }));
             });
         }
@@ -4778,6 +5546,36 @@ export function createWindowBuilder({
         buildDimensionLines(A, B, activeProfiles);
         const t_dims_end = performance.now();
 
+        // Manufacturing data deliberately follows the logical window assembly,
+        // not the renderer's temporary socket/arrow meshes. The Summary BOM can
+        // therefore turn frame/divider topology into realistic workshop cuts
+        // (for example a continuous frame with a square-ended mullion attached).
+        lastFabricationSnapshot = Object.freeze({
+            width: A,
+            height: B,
+            layoutState,
+            openingCells: Object.freeze(openingCells.map(cell => Object.freeze({
+                id: cell.id,
+                width: Number(cell.width) || 0,
+                height: Number(cell.height) || 0,
+                centerX: Number(cell.centerX) || 0,
+                centerY: Number(cell.centerY) || 0,
+            }))),
+            fixedCells: Object.freeze(fixedCells.map(cell => Object.freeze({
+                id: cell.id,
+                width: Number(cell.width) || 0,
+                height: Number(cell.height) || 0,
+                centerX: Number(cell.centerX) || 0,
+                centerY: Number(cell.centerY) || 0,
+                fixedAccessoryWidth: Number(cell.fixedAccessoryWidth ?? cell.width) || 0,
+                fixedAccessoryHeight: Number(cell.fixedAccessoryHeight ?? cell.height) || 0,
+                fixedAccessoryCenterX: Number(cell.fixedAccessoryCenterX ?? cell.centerX) || 0,
+                fixedAccessoryCenterY: Number(cell.fixedAccessoryCenterY ?? cell.centerY) || 0,
+            }))),
+            glassPieces: Object.freeze([...fabricationGlassPieces]),
+        });
+        onFabricationSnapshot(lastFabricationSnapshot);
+
         const t_end = performance.now();
         console.log("PERF:", JSON.stringify({
             total: t_end - t_start,
@@ -4790,30 +5588,52 @@ export function createWindowBuilder({
         }));
     }
 
+    function applySashPose(assembly, value, isBatant, { instantHandle = false } = {}) {
+        const isLeftHandle = assembly.isLeftHandle;
+        const clamped = clampOpeningAngle(value);
+        if (isBatant) {
+            const valueRad = Math.min(clamped, 80) * (Math.PI / 180);
+            assembly.pivotBatant.rotation.y = isLeftHandle ? valueRad : -valueRad;
+            assembly.pivotOscilo.rotation.x = 0;
+        } else {
+            assembly.pivotBatant.rotation.y = 0;
+            const valueRad = Math.min(clamped, 15) * (Math.PI / 180);
+            assembly.pivotOscilo.rotation.x = valueRad;
+        }
+
+        const targetRotationZ = isBatant
+            ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
+            : (isLeftHandle ? Math.PI : -Math.PI);
+        if (assembly.handleLeverGroup) {
+            if (instantHandle) {
+                assembly.handleLeverGroup.rotation.z = targetRotationZ;
+            } else if (performance.now() < handleHoldUntil && sashPoseAssemblies.length === 1) {
+                assembly.handleLeverGroup.rotation.z = 0;
+            } else {
+                assembly.handleLeverGroup.rotation.z = THREE.MathUtils.lerp(
+                    assembly.handleLeverGroup.rotation.z,
+                    targetRotationZ,
+                    0.10
+                );
+            }
+        }
+    }
+
     function applyCurrentPoseInstantly() {
-        const value = Number.parseFloat(document.getElementById('openAngle').value) || 0;
-        currentPoseAngle = value;
         handleAngleAnimation = null;
         const isBatant = document.getElementById('mBatant').checked;
+        const activeId = getActivePoseCellId();
+        if (activeId) {
+            // Preserve the existing external opening-angle control, but scope it
+            // to the currently selected/active sash instead of all sashes.
+            const input = document.getElementById('openAngle');
+            if (input) setPoseAngle(activeId, input.value);
+        }
 
         sashPoseAssemblies.forEach(assembly => {
-            const isLeftHandle = assembly.isLeftHandle;
-            if (isBatant) {
-                const valRad = Math.min(value, 80) * (Math.PI / 180);
-                assembly.pivotBatant.rotation.y = isLeftHandle ? valRad : -valRad;
-                assembly.pivotOscilo.rotation.x = 0;
-            } else {
-                assembly.pivotBatant.rotation.y = 0;
-                const valRad = Math.min(value, 15) * (Math.PI / 180);
-                assembly.pivotOscilo.rotation.x = valRad;
-            }
-
-            if (assembly.handleLeverGroup) {
-                assembly.handleLeverGroup.rotation.z = isBatant
-                    ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
-                    : (isLeftHandle ? Math.PI : -Math.PI);
-            }
+            applySashPose(assembly, getPoseAngle(assembly.cellId), isBatant, { instantHandle: true });
         });
+        syncOpenAngleControl(activeId);
 
         const targetExplode = isExploded ? 1 : 0;
         explodeProgress = targetExplode;
@@ -4832,78 +5652,56 @@ export function createWindowBuilder({
         const openAngleInput = document.getElementById('openAngle');
         const isBatant = document.getElementById('mBatant').checked;
         const maxAngle = getOpeningAngleLimit();
-        let value = Math.min(
-            maxAngle,
-            Math.max(0, Number.parseFloat(openAngleInput?.value) || 0)
-        );
 
         if (handleAngleAnimation) {
-            // Changing opening mode changes the legal range (80° turn / 15°
-            // tilt). In that case the mode control's clamped slider value wins.
-            if (Math.abs(handleAngleAnimation.maxAngle - maxAngle) > 0.001) {
+            const animationCellId = String(handleAngleAnimation.cellId);
+            if (!hasPoseAssembly(animationCellId)) {
                 handleAngleAnimation = null;
-                currentPoseAngle = value;
+            } else if (Math.abs(handleAngleAnimation.maxAngle - maxAngle) > 0.001) {
+                // Changing turn/tilt mode changes the legal range. Keep the
+                // animated sash independent and clamp only that sash.
+                setPoseAngle(animationCellId, getPoseAngle(animationCellId));
+                handleAngleAnimation = null;
             } else {
                 const elapsed = performance.now() - handleAngleAnimation.startedAt;
                 const progress = Math.min(1, elapsed / handleAngleAnimation.durationMs);
                 const eased = easeHandleMotion(progress);
-                value = THREE.MathUtils.lerp(
+                let value = THREE.MathUtils.lerp(
                     handleAngleAnimation.from,
                     handleAngleAnimation.to,
                     eased
                 );
-                currentPoseAngle = value;
-
-                // Keep the existing range control in sync with the animation.
-                // The sash uses the continuous value while the UI only needs
-                // degree precision, so the visible slider remains stable.
-                if (openAngleInput) {
-                    openAngleInput.value = String(Math.round(value));
-                }
-
                 if (progress >= 1) {
                     value = handleAngleAnimation.to;
-                    currentPoseAngle = value;
-                    if (openAngleInput) openAngleInput.value = String(value);
+                }
+                setPoseAngle(animationCellId, value);
+
+                if (getActivePoseCellId() === animationCellId && openAngleInput) {
+                    openAngleInput.value = String(Math.round(value));
+                }
+                if (progress >= 1) {
                     handleAngleAnimation = null;
                 }
             }
-        } else {
-            currentPoseAngle = value;
-        }
-
-        const valAngleEl = document.getElementById('valAngle');
-        if (valAngleEl) {
-            valAngleEl.innerText = `${Math.round(value)}°`;
         }
 
         sashPoseAssemblies.forEach(assembly => {
-            const isLeftHandle = assembly.isLeftHandle;
-            if (isBatant) {
-                const valueRad = Math.min(value, 80) * (Math.PI / 180);
-                assembly.pivotBatant.rotation.y = isLeftHandle ? valueRad : -valueRad;
-                assembly.pivotOscilo.rotation.x = 0;
-            } else {
-                assembly.pivotBatant.rotation.y = 0;
-                const valueRad = Math.min(value, 15) * (Math.PI / 180);
-                assembly.pivotOscilo.rotation.x = valueRad;
-            }
-
-            const targetRotationZ = isBatant
-                ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
-                : (isLeftHandle ? Math.PI : -Math.PI);
-            if (assembly.handleLeverGroup) {
-                if (performance.now() < handleHoldUntil && sashPoseAssemblies.length === 1) {
-                    assembly.handleLeverGroup.rotation.z = 0;
-                } else {
-                    assembly.handleLeverGroup.rotation.z = THREE.MathUtils.lerp(
-                        assembly.handleLeverGroup.rotation.z,
-                        targetRotationZ,
-                        0.10
-                    );
-                }
-            }
+            const value = setPoseAngle(assembly.cellId, getPoseAngle(assembly.cellId));
+            applySashPose(assembly, value, isBatant);
         });
+
+        const activeId = getActivePoseCellId();
+        if (activeId) {
+            const activeValue = getPoseAngle(activeId);
+            const valAngleEl = document.getElementById('valAngle');
+            if (valAngleEl) valAngleEl.innerText = `${Math.round(activeValue)}°`;
+            if (!handleAngleAnimation && openAngleInput) {
+                openAngleInput.value = String(Math.round(activeValue));
+            }
+        } else {
+            const valAngleEl = document.getElementById('valAngle');
+            if (valAngleEl) valAngleEl.innerText = '0°';
+        }
 
         explodeProgress = THREE.MathUtils.lerp(
             explodeProgress,
@@ -4959,5 +5757,7 @@ export function createWindowBuilder({
         setExploded,
         getIsExploded,
         getEditableTopologyGeometry: () => editableTopologyGeometry,
+        setSelectedGlassCell,
+        getFabricationSnapshot: () => lastFabricationSnapshot,
     };
 }

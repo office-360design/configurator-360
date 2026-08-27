@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#f4f5f7" />
-  <title>Tenant Provisioning | 360Configurator</title>
-  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=1" />
+  <title>Tenant Administration | 360Configurator</title>
+  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=8" />
 </head>
 <body>
   <main class="admin-page">
     <header class="admin-header">
       <div>
         <p class="eyebrow">360Configurator internal</p>
-        <h1>Tier-1 tenant provisioning</h1>
-        <p>Create a Go Live Now customer without manually editing Firestore.</p>
+        <h1>Tier-1 tenant administration</h1>
+        <p>Provision and manage Go Live Now customer environments.</p>
       </div>
       <div class="auth-panel" id="authPanel" aria-live="polite">
         <span id="authState">Checking sign-in…</span>
@@ -22,70 +22,315 @@
       </div>
     </header>
 
-    <section class="admin-card" id="provisioningCard" hidden>
-      <form id="tenantForm" novalidate>
-        <div class="form-grid">
-          <label class="field field--wide">
-            <span>Company name</span>
-            <input id="companyName" name="companyName" maxlength="120" autocomplete="organization" required />
-          </label>
-
-          <label class="field field--wide">
-            <span>Subdomain</span>
-            <div class="domain-input">
-              <input id="slug" name="slug" maxlength="40" spellcheck="false" autocomplete="off" required />
-              <span>.360configurator.com</span>
-            </div>
-            <small id="slugHint">Lowercase letters, numbers and hyphens only.</small>
-          </label>
-
-          <label class="field field--wide">
-            <span>Logo</span>
-            <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp" />
-            <small>Optional for internal testing. PNG, JPEG or WebP; it will be resized automatically.</small>
-          </label>
-        </div>
-
-        <fieldset class="configurator-fieldset">
-          <legend>Enabled configurators</legend>
-          <div class="configurator-grid">
-            <label><input type="checkbox" name="configurator" value="window" /> <span>Window</span></label>
-            <label><input type="checkbox" name="configurator" value="pergola" /> <span>Pergola</span></label>
-            <label><input type="checkbox" name="configurator" value="roof" /> <span>Roof</span></label>
-            <label><input type="checkbox" name="configurator" value="solar" /> <span>Solar</span></label>
-            <label><input type="checkbox" name="configurator" value="hall" /> <span>Hall</span></label>
-            <label><input type="checkbox" name="configurator" value="fence" /> <span>Fence</span></label>
-          </div>
-        </fieldset>
-
-        <div class="preview-row">
+    <div id="adminWorkspace" hidden>
+      <section class="admin-card analytics-card" id="platformAnalyticsCard">
+        <div class="section-heading">
           <div>
-            <span class="preview-label">Customer URL</span>
-            <a id="tenantPreview" href="#" target="_blank" rel="noopener">—</a>
+            <p class="eyebrow">Platform usage</p>
+            <h2>Configurator analytics</h2>
+            <p>Current-month and lifetime activity across the public 360Configurator domains.</p>
           </div>
-          <div class="logo-preview-wrap" id="logoPreviewWrap" hidden>
-            <span class="preview-label">Logo preview</span>
-            <img id="logoPreview" alt="Selected logo preview" />
+          <button type="button" class="button button--secondary" id="refreshPlatformAnalyticsButton">Refresh analytics</button>
+        </div>
+        <div class="status" id="platformAnalyticsStatus" role="status" aria-live="polite"></div>
+        <div class="analytics-grid">
+          <div class="analytics-panel">
+            <div class="analytics-panel__heading"><strong>Current month</strong><span id="platformAnalyticsMonth">—</span></div>
+            <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="platformAnalyticsMonthBody"></tbody></table></div>
+          </div>
+          <div class="analytics-panel">
+            <div class="analytics-panel__heading"><strong>Lifetime</strong><span>Since analytics launch</span></div>
+            <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="platformAnalyticsLifetimeBody"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-card admin-card--management">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Customers</p>
+            <h2>Manage tenants</h2>
+            <p>Company details, branding, configurator access and lifecycle status.</p>
+          </div>
+          <button type="button" class="button button--secondary" id="refreshTenantsButton">Refresh</button>
+        </div>
+
+        <label class="field tenant-search-field">
+          <span>Search tenants</span>
+          <input id="tenantSearch" type="search" placeholder="Company or subdomain" autocomplete="off" />
+        </label>
+
+        <div class="status" id="tenantListStatus" role="status" aria-live="polite"></div>
+        <div class="tenant-list" id="tenantList"></div>
+      </section>
+
+      <section class="admin-card tenant-editor" id="tenantEditorCard" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Tenant settings</p>
+            <h2 id="tenantEditorTitle">Manage tenant</h2>
+            <p id="tenantEditorMeta"></p>
+          </div>
+          <button type="button" class="button button--secondary" id="closeTenantEditorButton">Close</button>
+        </div>
+
+        <form id="tenantEditorForm" novalidate>
+          <div class="form-grid">
+            <label class="field field--wide">
+              <span>Company name</span>
+              <input id="manageCompanyName" maxlength="120" autocomplete="organization" required />
+            </label>
+
+            <label class="field field--wide">
+              <span>Subdomain</span>
+              <div class="readonly-value" id="manageDomain">—</div>
+              <small>The subdomain is permanent and cannot be changed from tenant administration.</small>
+            </label>
+
+            <label class="field field--wide">
+              <span>Dashboard owner email</span>
+              <input id="manageOwnerEmail" type="email" maxlength="254" autocomplete="off" placeholder="customer@example.com" />
+              <small>The verified Google/Firebase account with this email can manage this tenant at /dashboard/. Changing it revokes the previously bound owner.</small>
+            </label>
+
+            <label class="field field--wide">
+              <span>Plan</span>
+              <select id="managePlan" required></select>
+              <small id="managePlanHint">Plan limits are enforced by the backend.</small>
+            </label>
+
+            <div class="field field--wide">
+              <span>Current logo</span>
+              <div class="current-logo" id="manageCurrentLogoWrap">
+                <img id="manageCurrentLogo" alt="Current tenant logo" hidden />
+                <span id="manageNoLogo">No logo configured.</span>
+              </div>
+            </div>
+
+            <label class="field field--wide">
+              <span>Replace logo</span>
+              <input id="manageLogo" type="file" accept="image/png,image/jpeg,image/webp" />
+              <small>Optional. PNG, JPEG or WebP; the image will be resized automatically.</small>
+            </label>
+
+            <label class="inline-option field--wide">
+              <input type="checkbox" id="manageRemoveLogo" />
+              <span>Remove the current logo</span>
+            </label>
+
+            <div class="logo-preview-wrap field--wide" id="manageLogoPreviewWrap" hidden>
+              <span class="preview-label">New logo preview</span>
+              <img id="manageLogoPreview" alt="Replacement logo preview" />
+            </div>
+          </div>
+
+          <fieldset class="configurator-fieldset">
+            <legend>Enabled configurators</legend>
+            <div class="configurator-grid" id="manageConfiguratorGrid">
+              <label><input type="checkbox" name="manageConfigurator" value="window" /> <span>Window</span></label>
+              <label><input type="checkbox" name="manageConfigurator" value="pergola" /> <span>Pergola</span></label>
+              <label><input type="checkbox" name="manageConfigurator" value="roof" /> <span>Roof</span></label>
+              <label><input type="checkbox" name="manageConfigurator" value="solar" /> <span>Solar</span></label>
+              <label><input type="checkbox" name="manageConfigurator" value="hall" /> <span>Hall</span></label>
+              <label><input type="checkbox" name="manageConfigurator" value="fence" /> <span>Fence</span></label>
+            </div>
+          </fieldset>
+
+          <fieldset class="pending-plan-fieldset" id="managePendingPlanFieldset" hidden>
+            <legend>Pending plan change</legend>
+            <p class="usage-help">Customer-requested plan changes remain pending until billing or an administrator confirms them.</p>
+            <div class="pending-plan-summary">
+              <strong id="managePendingPlanTitle">—</strong>
+              <span id="managePendingPlanMeta">—</span>
+              <span id="managePendingPlanConfigurators">—</span>
+            </div>
+            <div class="actions pending-plan-actions">
+              <button type="button" class="button button--primary" id="approvePlanChangeButton">Approve change</button>
+              <button type="button" class="button button--secondary" id="rejectPlanChangeButton">Reject request</button>
+            </div>
+          </fieldset>
+
+          <fieldset class="subscription-fieldset">
+            <legend>Subscription state</legend>
+            <p class="usage-help">This is the internal state Stripe will control later. Trialing, active and past due keep the tenant accessible; suspended and cancelled block access.</p>
+            <div class="subscription-grid">
+              <label class="field">
+                <span>Status</span>
+                <select id="manageSubscriptionStatus">
+                  <option value="trialing">Trialing</option>
+                  <option value="active">Active</option>
+                  <option value="past_due">Past due</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+              <label class="inline-option subscription-cancel-option">
+                <input type="checkbox" id="manageCancelAtPeriodEnd" />
+                <span>Cancel at period end</span>
+              </label>
+            </div>
+            <div class="subscription-meta" id="manageSubscriptionMeta">Manual subscription · no billing provider attached.</div>
+            <button type="button" class="button button--secondary" id="saveSubscriptionButton">Apply subscription state</button>
+          </fieldset>
+
+          <fieldset class="usage-fieldset">
+            <legend>Solar monthly usage limits</legend>
+            <p class="usage-help">Limits are per tenant and reset automatically each UTC month. Use <strong>0</strong> for unlimited.</p>
+            <div class="usage-limit-grid">
+              <label class="field">
+                <span>Analyses</span>
+                <input id="manageSolarAnalysesLimit" type="number" min="0" step="1" value="0" />
+              </label>
+              <label class="field">
+                <span>Building Insights API calls</span>
+                <input id="manageSolarBuildingInsightsLimit" type="number" min="0" step="1" value="0" />
+              </label>
+              <label class="field">
+                <span>Data Layers API calls</span>
+                <input id="manageSolarDataLayersLimit" type="number" min="0" step="1" value="0" />
+              </label>
+              <label class="field">
+                <span>PVGIS requests</span>
+                <input id="manageSolarPvgisLimit" type="number" min="0" step="1" value="0" />
+              </label>
+            </div>
+
+            <div class="usage-summary">
+              <div class="usage-summary__heading">
+                <strong>Current Solar usage</strong>
+                <span id="manageUsageMonth">—</span>
+              </div>
+              <div class="usage-metric-grid">
+                <div class="usage-metric"><span>Analyses</span><strong id="manageUsageAnalyses">0</strong></div>
+                <div class="usage-metric"><span>Building Insights</span><strong id="manageUsageBuildingInsights">0</strong></div>
+                <div class="usage-metric"><span>Data Layers</span><strong id="manageUsageDataLayers">0</strong></div>
+                <div class="usage-metric"><span>PVGIS</span><strong id="manageUsagePvgis">0</strong></div>
+                <div class="usage-metric"><span>PVGIS upstream</span><strong id="manageUsagePvgisUpstream">0</strong></div>
+              </div>
+              <small>Google API counters increase only when the shared backend actually makes an upstream request; cache hits do not consume those counters.</small>
+            </div>
+          </fieldset>
+
+
+          <fieldset class="analytics-fieldset">
+            <legend>Configurator analytics</legend>
+            <p class="usage-help">Accesses count one configurator session per browser tab, logins count successful user-initiated sign-ins, and configurations count fresh configurations rather than saved/share loads.</p>
+            <div class="analytics-grid">
+              <div class="analytics-panel">
+                <div class="analytics-panel__heading"><strong>Current month</strong><span id="manageAnalyticsMonth">—</span></div>
+                <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="manageAnalyticsMonthBody"></tbody></table></div>
+              </div>
+              <div class="analytics-panel">
+                <div class="analytics-panel__heading"><strong>Lifetime</strong><span>Since analytics launch</span></div>
+                <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="manageAnalyticsLifetimeBody"></tbody></table></div>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="activity-fieldset">
+            <legend>Activity log</legend>
+            <p class="usage-help">Latest 100 lifecycle and settings changes. The log is backend-only and cannot be edited from the browser.</p>
+            <div class="activity-list activity-list--admin" id="manageActivityList"></div>
+            <p class="activity-empty" id="manageActivityEmpty" hidden>No activity has been recorded yet.</p>
+          </fieldset>
+
+          <div class="status" id="manageStatus" role="status" aria-live="polite"></div>
+
+          <div class="tenant-editor-actions">
+            <div class="actions">
+              <button type="submit" class="button button--primary" id="saveTenantButton">Save changes</button>
+              <a class="button button--secondary button--link" id="openTenantButton" href="#" target="_blank" rel="noopener">Open customer site</a>
+            </div>
+            <button type="button" class="button button--danger" id="tenantStatusButton">Suspend tenant</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="admin-card" id="provisioningCard">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">New customer</p>
+            <h2>Create tenant</h2>
+            <p>Create a Go Live Now customer without manually editing Firestore.</p>
           </div>
         </div>
 
-        <div class="status" id="formStatus" role="status" aria-live="polite"></div>
+        <form id="tenantForm" novalidate>
+          <div class="form-grid">
+            <label class="field field--wide">
+              <span>Company name</span>
+              <input id="companyName" name="companyName" maxlength="120" autocomplete="organization" required />
+            </label>
 
-        <div class="actions">
-          <button type="submit" class="button button--primary" id="createButton">Create tenant</button>
-          <button type="reset" class="button button--secondary">Reset</button>
-        </div>
-      </form>
-    </section>
+            <label class="field field--wide">
+              <span>Subdomain</span>
+              <div class="domain-input">
+                <input id="slug" name="slug" maxlength="40" spellcheck="false" autocomplete="off" required />
+                <span>.360configurator.com</span>
+              </div>
+              <small id="slugHint">Lowercase letters, numbers and hyphens only.</small>
+            </label>
 
-    <section class="admin-card admin-card--result" id="resultCard" hidden aria-live="polite">
-      <p class="eyebrow">Provisioned</p>
-      <h2 id="resultTitle">Tenant created</h2>
-      <p id="resultCopy"></p>
-      <div class="result-links" id="resultLinks"></div>
-    </section>
+            <label class="field field--wide">
+              <span>Dashboard owner email</span>
+              <input id="ownerEmail" type="email" maxlength="254" autocomplete="off" placeholder="customer@example.com" />
+              <small>Optional for now. Assigning it enables the customer's self-service dashboard.</small>
+            </label>
+
+            <label class="field field--wide">
+              <span>Plan</span>
+              <select id="createPlan" required></select>
+              <small id="createPlanHint">Choose the commercial package before selecting configurators.</small>
+            </label>
+
+            <label class="field field--wide">
+              <span>Logo</span>
+              <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp" />
+              <small>Optional. PNG, JPEG or WebP; it will be resized automatically.</small>
+            </label>
+          </div>
+
+          <fieldset class="configurator-fieldset">
+            <legend>Enabled configurators</legend>
+            <div class="configurator-grid">
+              <label><input type="checkbox" name="configurator" value="window" /> <span>Window</span></label>
+              <label><input type="checkbox" name="configurator" value="pergola" /> <span>Pergola</span></label>
+              <label><input type="checkbox" name="configurator" value="roof" /> <span>Roof</span></label>
+              <label><input type="checkbox" name="configurator" value="solar" /> <span>Solar</span></label>
+              <label><input type="checkbox" name="configurator" value="hall" /> <span>Hall</span></label>
+              <label><input type="checkbox" name="configurator" value="fence" /> <span>Fence</span></label>
+            </div>
+          </fieldset>
+
+          <div class="preview-row">
+            <div>
+              <span class="preview-label">Customer URL</span>
+              <a id="tenantPreview" href="#" target="_blank" rel="noopener">—</a>
+            </div>
+            <div class="logo-preview-wrap" id="logoPreviewWrap" hidden>
+              <span class="preview-label">Logo preview</span>
+              <img id="logoPreview" alt="Selected logo preview" />
+            </div>
+          </div>
+
+          <div class="status" id="formStatus" role="status" aria-live="polite"></div>
+
+          <div class="actions">
+            <button type="submit" class="button button--primary" id="createButton">Create tenant</button>
+            <button type="reset" class="button button--secondary">Reset</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="admin-card admin-card--result" id="resultCard" hidden aria-live="polite">
+        <p class="eyebrow">Provisioned</p>
+        <h2 id="resultTitle">Tenant created</h2>
+        <p id="resultCopy"></p>
+        <div class="result-links" id="resultLinks"></div>
+      </section>
+    </div>
   </main>
 
-  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=1"></script>
+  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=8"></script>
 </body>
 </html>

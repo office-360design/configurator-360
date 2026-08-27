@@ -44,12 +44,15 @@ function renderTenant(context) {
   page.innerHTML = `
     <section class="tenant-shell">
       <header class="tenant-header">
-        ${brand}
-        <div>
-          <p class="tenant-eyebrow">Powered by 360Configurator</p>
-          <h1>${escapeHtml(context.companyName)}</h1>
-          <p class="tenant-subtitle">Select a configurator to begin.</p>
+        <div class="tenant-header__brand">
+          ${brand}
+          <div>
+            <p class="tenant-eyebrow">Powered by 360Configurator</p>
+            <h1>${escapeHtml(context.companyName)}</h1>
+            <p class="tenant-subtitle">Select a configurator to begin.</p>
+          </div>
         </div>
+        <a class="tenant-dashboard-link" href="/dashboard/">Dashboard</a>
       </header>
       <div class="tenant-grid">${cards}</div>
     </section>

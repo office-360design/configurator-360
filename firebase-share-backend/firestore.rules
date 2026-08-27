@@ -21,6 +21,24 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Per-tenant usage counters and quota telemetry are backend-only.
+    match /tenantUsage/{tenantSlug}/months/{month} {
+      allow read, write: if false;
+    }
+
+    // Configurator product analytics are aggregate backend telemetry. Browsers
+    // record events only through the validated Cloud Function and cannot inspect
+    // or alter aggregate counters directly.
+    match /configuratorAnalytics/{scopeId}/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Tenant audit/activity history is append-only through trusted backend code.
+    // Browsers receive filtered views through authenticated callable functions.
+    match /tenantAuditLogs/{tenantSlug}/{document=**} {
+      allow read, write: if false;
+    }
+
     function loggedIn() {
       return request.auth.uid != null;
     }
@@ -136,6 +154,30 @@ service cloud.firestore {
     // The authenticated callable functions use the Admin SDK and verify request.auth.uid,
     // so one account can never list/read/write another account's configurations.
     match /users/{userId}/savedConfigurations/{product}/items/{configurationId} {
+      allow read, write: if false;
+    }
+
+    // Tier-1 customer saves are additionally isolated by tenant. Browser access
+    // is still forbidden; authenticated Cloud Functions derive the tenant from
+    // the trusted request Origin and use the Admin SDK.
+    match /users/{userId}/tenantSavedConfigurations/{tenantSlug}/products/{product}/items/{configurationId} {
+      allow read, write: if false;
+    }
+
+    // Shopping-cart rows are immutable snapshots of saved configurations. The
+    // public country domains share users/{uid}/shoppingCart, while customer
+    // tenants use a tenant-isolated subtree. Browser Firestore access remains
+    // disabled; authenticated Cloud Functions bind every operation to request.auth.uid.
+    match /users/{userId}/shoppingCart/{product}/items/{cartItemId} {
+      allow read, write: if false;
+    }
+    match /users/{userId}/tenantShoppingCart/{tenantSlug}/products/{product}/items/{cartItemId} {
+      allow read, write: if false;
+    }
+
+    // Legacy mutable cart document retained only so the backend can migrate old
+    // carts once. Clients never receive direct access to it.
+    match /users/{userId}/carts/{scopeId} {
       allow read, write: if false;
     }
 

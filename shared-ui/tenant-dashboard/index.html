@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <meta name="theme-color" content="#f4f5f7" />
+  <title>Customer Dashboard | 360Configurator</title>
+  <link rel="stylesheet" href="/shared-ui/styles/tenantDashboard.css?v=4" />
+</head>
+<body>
+  <main class="dashboard-page">
+    <header class="dashboard-header">
+      <a class="dashboard-home" href="/" aria-label="Back to configurators">
+        <span class="brand-mark" id="headerBrandMark">360</span>
+        <img class="brand-logo" id="headerLogo" alt="" hidden />
+        <span>
+          <small>Customer dashboard</small>
+          <strong id="headerCompany">360Configurator</strong>
+        </span>
+      </a>
+      <div class="auth-panel" aria-live="polite">
+        <span id="authState">Checking sign-in…</span>
+        <button type="button" class="button button--secondary" id="authButton" hidden>Sign in with Google</button>
+      </div>
+    </header>
+
+    <section class="message-card" id="signedOutCard">
+      <p class="eyebrow">Tenant account</p>
+      <h1>Manage your configurators</h1>
+      <p>Sign in with the Google account assigned by your 360Configurator administrator to manage branding, plan settings and analytics.</p>
+      <button type="button" class="button button--primary" id="signedOutButton">Sign in with Google</button>
+    </section>
+
+    <section class="message-card message-card--error" id="accessErrorCard" hidden>
+      <p class="eyebrow">Dashboard access</p>
+      <h1 id="accessErrorTitle">Access unavailable</h1>
+      <p id="accessErrorMessage">This account is not authorized to manage this customer environment.</p>
+      <div class="actions"><a class="button button--secondary" href="/">Back to configurators</a></div>
+    </section>
+
+    <div class="dashboard-workspace" id="dashboardWorkspace" hidden>
+      <section class="hero-card">
+        <div>
+          <p class="eyebrow">Account overview</p>
+          <h1 id="overviewCompany">Customer</h1>
+          <p id="overviewDomain">—</p>
+        </div>
+        <div class="hero-actions">
+          <span class="status-badge" id="subscriptionBadge">Active</span>
+          <a class="button button--secondary" href="/">Open configurators</a>
+        </div>
+      </section>
+
+      <section class="metric-grid" aria-label="Account metrics">
+        <article class="metric-card"><span>Current plan</span><strong id="metricPlan">—</strong><small id="metricPlanDetail">—</small></article>
+        <article class="metric-card"><span>Enabled configurators</span><strong id="metricConfigurators">0</strong><small>Available on your customer site</small></article>
+        <article class="metric-card"><span>Accesses this month</span><strong id="metricAccesses">0</strong><small>Across enabled configurators</small></article>
+        <article class="metric-card"><span>Configurations this month</span><strong id="metricConfigurations">0</strong><small>Fresh configurations created</small></article>
+      </section>
+
+      <section class="dashboard-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h2>Company & plan</h2>
+            <p>Update the branding and configurators shown on your customer site.</p>
+          </div>
+        </div>
+
+        <div class="pending-plan-card" id="pendingPlanCard" hidden>
+          <div>
+            <span class="pending-plan-card__eyebrow">Plan change pending</span>
+            <strong id="pendingPlanTitle">Requested plan change</strong>
+            <p id="pendingPlanDetails">—</p>
+          </div>
+          <button type="button" class="button button--secondary" id="cancelPlanChangeButton">Cancel request</button>
+        </div>
+
+        <form id="settingsForm" novalidate>
+          <div class="form-grid">
+            <label class="field">
+              <span>Company name</span>
+              <input id="companyName" maxlength="120" autocomplete="organization" required />
+            </label>
+            <label class="field">
+              <span>Plan</span>
+              <select id="planSelect" required></select>
+              <small id="planHint">—</small>
+            </label>
+
+            <div class="field field--wide">
+              <span>Current logo</span>
+              <div class="current-logo">
+                <img id="currentLogo" alt="Current company logo" hidden />
+                <span id="noCurrentLogo">No logo configured.</span>
+              </div>
+            </div>
+            <label class="field field--wide logo-upload-field">
+              <span>Replace logo</span>
+              <input id="logoInput" type="file" accept="image/png,image/jpeg,image/webp" />
+              <small>PNG, JPEG or WebP. The image is resized before it is saved.</small>
+            </label>
+            <label class="inline-option field--wide">
+              <input id="removeLogo" type="checkbox" />
+              <span>Remove current logo</span>
+            </label>
+            <div class="logo-preview field--wide" id="logoPreviewWrap" hidden>
+              <span>New logo preview</span>
+              <img id="logoPreview" alt="New logo preview" />
+            </div>
+          </div>
+
+          <fieldset>
+            <legend>Enabled configurators</legend>
+            <div class="configurator-grid" id="configuratorGrid">
+              <label><input type="checkbox" name="configurator" value="window" /> <span>Window</span></label>
+              <label><input type="checkbox" name="configurator" value="pergola" /> <span>Pergola</span></label>
+              <label><input type="checkbox" name="configurator" value="roof" /> <span>Roof</span></label>
+              <label><input type="checkbox" name="configurator" value="solar" /> <span>Solar</span></label>
+              <label><input type="checkbox" name="configurator" value="hall" /> <span>Hall</span></label>
+              <label><input type="checkbox" name="configurator" value="fence" /> <span>Fence</span></label>
+            </div>
+          </fieldset>
+
+          <div class="status" id="settingsStatus" role="status" aria-live="polite"></div>
+          <div class="actions"><button class="button button--primary" id="saveButton" type="submit">Save changes</button></div>
+        </form>
+      </section>
+
+      <section class="dashboard-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Analytics</p>
+            <h2>Configurator activity</h2>
+            <p>Accesses are counted once per configurator tab/session; logins are explicit sign-ins; configurations are fresh configurations created.</p>
+          </div>
+          <div class="analytics-actions">
+            <label class="analytics-toggle">
+              <input type="checkbox" id="showAllAnalytics" />
+              <span>Show all configurators</span>
+            </label>
+            <button type="button" class="button button--secondary" id="refreshButton">Refresh</button>
+          </div>
+        </div>
+        <div class="analytics-grid">
+          <div class="analytics-panel">
+            <div class="analytics-heading"><strong>Current month</strong><span id="analyticsMonth">—</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="monthAnalyticsBody"></tbody></table></div>
+          </div>
+          <div class="analytics-panel">
+            <div class="analytics-heading"><strong>Lifetime</strong><span>Since analytics launch</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="lifetimeAnalyticsBody"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-card" id="solarUsageCard" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Solar usage</p>
+            <h2>Current month</h2>
+            <p id="solarUsageMonth">—</p>
+          </div>
+        </div>
+        <div class="metric-grid metric-grid--usage">
+          <article class="metric-card"><span>Analyses</span><strong id="solarAnalyses">0</strong></article>
+          <article class="metric-card"><span>Building Insights</span><strong id="solarBuildingInsights">0</strong></article>
+          <article class="metric-card"><span>Data Layers</span><strong id="solarDataLayers">0</strong></article>
+          <article class="metric-card"><span>PVGIS requests</span><strong id="solarPvgis">0</strong></article>
+        </div>
+      </section>
+
+      <section class="dashboard-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Activity</p>
+            <h2>Recent changes</h2>
+            <p>Recent tenant settings, plan and account changes. Technical analytics events are not included here.</p>
+          </div>
+        </div>
+        <div class="activity-list" id="activityList"></div>
+        <p class="activity-empty" id="activityEmpty" hidden>No activity has been recorded yet.</p>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/shared-ui/src/tenantDashboard.js?v=4"></script>
+</body>
+</html>

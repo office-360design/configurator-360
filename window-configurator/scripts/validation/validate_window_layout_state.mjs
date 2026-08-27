@@ -2,12 +2,16 @@ import {
     FIXED_WINDOW_TYPE,
     MAX_WINDOW_CELLS,
     SASH_WINDOW_TYPE,
+    addWindowSideToState,
     addWindowToState,
+    canDeleteWindowFromState,
     classifyWindowState,
     createSingleWindowState,
     createWindowStateFromLayoutDefinition,
     deriveWindowTopology,
+    deleteWindowFromState,
     getTransOwnerHandleSide,
+    getWindowActualSizeInState,
     getWindowUnmergeGuide,
     mergeWindowsInState,
     unmergeWindowInState,
@@ -17,6 +21,7 @@ import {
     serializeWindowState,
     setTransBetweenWindowsInState,
     setWindowTypeInState,
+    setWindowSizeInState,
 } from '../../src/client/js/window-layout-state.js';
 
 const errors = [];
@@ -31,6 +36,189 @@ assert(
         singleTopology.addCandidates.some(candidate => candidate.direction === direction)
     ),
     'The starting window must be addable from left, right, top, and bottom.'
+);
+const singleSize = getWindowActualSizeInState(singleState, 'w1');
+assert(
+    Math.abs(singleSize.widthM - 0.6) < 1e-9
+        && Math.abs(singleSize.heightM - 0.9) < 1e-9
+        && Math.abs(singleSize.structuralWidthM - 0.574) < 1e-9
+        && Math.abs(singleSize.structuralHeightM - 0.874) < 1e-9,
+    'A new standalone window must default to 600 x 900 while storing a 13 mm structural inset on every exposed side.'
+);
+let sizedPair = addWindowToState(singleState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+assert(
+    sizedPair.windows.every(windowCell => {
+        const size = getWindowActualSizeInState(sizedPair, windowCell.id);
+        return Math.abs(size.widthM - 0.6) < 1e-9 && Math.abs(size.heightM - 0.9) < 1e-9;
+    }),
+    'Adding a neighbour must create a 600 x 900 window and preserve the independent width of the original column.'
+);
+sizedPair = setWindowSizeInState(sizedPair, 'w1', { widthM: 0.75 });
+assert(
+    Math.abs(getWindowActualSizeInState(sizedPair, 'w1').widthM - 0.75) < 1e-9
+        && Math.abs(getWindowActualSizeInState(sizedPair, 'w2').widthM - 0.6) < 1e-9,
+    'Changing one window width must resize its column without changing another column.'
+);
+assert(
+    Math.abs(getWindowActualSizeInState(sizedPair, 'w1').heightM - 0.9) < 1e-9
+        && Math.abs(getWindowActualSizeInState(sizedPair, 'w2').heightM - 0.9) < 1e-9,
+    'Changing width alone must never modify the row height.'
+);
+
+let rectangleSideAddState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+rectangleSideAddState = addWindowToState(rectangleSideAddState, {
+    cellId: 'w1',
+    direction: 'right',
+    type: FIXED_WINDOW_TYPE,
+});
+const rectangleSideTopology = deriveWindowTopology(rectangleSideAddState);
+const topSideAdd = rectangleSideTopology.addCandidates.find(candidate => candidate.direction === 'top');
+const bottomSideAdd = rectangleSideTopology.addCandidates.find(candidate => candidate.direction === 'bottom');
+assert(
+    rectangleSideTopology.addCandidates.length === 4
+        && topSideAdd?.start === 0 && topSideAdd?.end === 2
+        && bottomSideAdd?.start === 0 && bottomSideAdd?.end === 2,
+    'A two-bay rectangle must expose exactly one add button per outer side, with top and bottom spanning both bays.'
+);
+rectangleSideAddState = addWindowSideToState(rectangleSideAddState, {
+    direction: 'top',
+    type: FIXED_WINDOW_TYPE,
+});
+const fullTopCell = rectangleSideAddState.windows.find(windowCell => (
+    windowCell.rect.x0 === 0
+    && windowCell.rect.x1 === 2
+    && windowCell.rect.y0 === 1
+    && windowCell.rect.y1 === 2
+));
+assert(
+    rectangleSideAddState.windows.length === 3 && fullTopCell,
+    'Pressing the single top add button must create one merged window across the complete layout width.'
+);
+assert(
+    Math.abs(getWindowActualSizeInState(rectangleSideAddState, fullTopCell?.id)?.widthM - 1.2) < 1e-9
+        && Math.abs(getWindowActualSizeInState(rectangleSideAddState, fullTopCell?.id)?.heightM - 0.9) < 1e-9,
+    'The merged side window must inherit the full 1200 mm layout width and use the normal 900 mm new-row height.'
+);
+assert(
+    getWindowUnmergeGuide(rectangleSideAddState, fullTopCell?.id)?.orientation === 'vertical',
+    'A full-width side window added over two columns must retain the internal column boundary so it can be unmerged.'
+);
+const unmergedTopSideState = unmergeWindowInState(rectangleSideAddState, { cellId: fullTopCell?.id });
+assert(
+    unmergedTopSideState.windows.length === 4
+        && unmergedTopSideState.windows.filter(windowCell => windowCell.rect.y0 === 1).length === 2,
+    'Unmerging the newly added full-width side window must restore two normal top windows.'
+);
+
+const deletedPair = deleteWindowFromState(sizedPair, { cellId: 'w1' });
+assert(
+    deletedPair.windows.length === 1
+        && deletedPair.windows[0].id === 'w2'
+        && Math.abs(getWindowActualSizeInState(deletedPair, 'w2').widthM - 0.6) < 1e-9
+        && Math.abs(getWindowActualSizeInState(deletedPair, 'w2').heightM - 0.9) < 1e-9,
+    'Deleting one window must remove only that cell and preserve the surviving window dimensions.'
+);
+let deleteLastRejected = false;
+try {
+    deleteWindowFromState(deletedPair, { cellId: 'w2' });
+} catch {
+    deleteLastRejected = true;
+}
+assert(deleteLastRejected, 'Deleting the final remaining window must be rejected.');
+
+let deleteBridgeState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+deleteBridgeState = addWindowToState(deleteBridgeState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+deleteBridgeState = addWindowToState(deleteBridgeState, { cellId: 'w2', direction: 'right', type: FIXED_WINDOW_TYPE });
+assert(
+    canDeleteWindowFromState(deleteBridgeState, 'w1') === true
+        && canDeleteWindowFromState(deleteBridgeState, 'w3') === true,
+    'An end window in a connected row must remain deletable.'
+);
+assert(
+    canDeleteWindowFromState(deleteBridgeState, 'w2') === false,
+    'A middle window that is the only bridge between two parts must not be deletable.'
+);
+let deleteBridgeRejected = false;
+try {
+    deleteWindowFromState(deleteBridgeState, { cellId: 'w2' });
+} catch {
+    deleteBridgeRejected = true;
+}
+assert(deleteBridgeRejected, 'State mutation must reject deletion when it would split the structure.');
+
+let deleteCornerBridgeState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+deleteCornerBridgeState = addWindowToState(deleteCornerBridgeState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+deleteCornerBridgeState = addWindowToState(deleteCornerBridgeState, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
+assert(
+    canDeleteWindowFromState(deleteCornerBridgeState, 'w1') === false,
+    'Two windows that only meet at a corner after deletion must count as disconnected.'
+);
+
+let deleteLoopState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+deleteLoopState = addWindowToState(deleteLoopState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+deleteLoopState = addWindowToState(deleteLoopState, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
+deleteLoopState = addWindowToState(deleteLoopState, { cellId: 'w2', direction: 'top', type: FIXED_WINDOW_TYPE });
+assert(
+    canDeleteWindowFromState(deleteLoopState, 'w1') === false,
+    'Deleting one corner of a 2x2 block must be rejected because it would leave an L-shaped outer layout.'
+);
+
+let customAddState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+customAddState = setWindowSizeInState(customAddState, 'w1', { widthM: 0.4, heightM: 0.4 });
+customAddState = addWindowToState(customAddState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+assert(
+    Math.abs(getWindowActualSizeInState(customAddState, 'w1').widthM - 0.4) < 1e-9
+        && Math.abs(getWindowActualSizeInState(customAddState, 'w1').heightM - 0.4) < 1e-9
+        && Math.abs(getWindowActualSizeInState(customAddState, 'w2').widthM - 0.6) < 1e-9
+        && Math.abs(getWindowActualSizeInState(customAddState, 'w2').heightM - 0.4) < 1e-9,
+    'Adding right to a 400 x 400 window must preserve the 400 mm row height and default only the new width to 600 mm.'
+);
+customAddState = addWindowToState(customAddState, { cellId: 'w2', direction: 'top', type: FIXED_WINDOW_TYPE });
+customAddState = setWindowSizeInState(customAddState, 'w3', { widthM: 0.55, heightM: 0.5 });
+customAddState = addWindowToState(customAddState, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
+const filledCell = customAddState.windows.find(windowCell => windowCell.id === 'w4');
+const filledSize = getWindowActualSizeInState(customAddState, filledCell?.id);
+assert(
+    Math.abs(filledSize?.widthM - 0.4) < 1e-9
+        && Math.abs(filledSize?.heightM - 0.5) < 1e-9,
+    'Filling an already established row and column must inherit both dimensions and apply neither the 600 mm nor 900 mm default.'
+);
+
+// Concave/L-shaped layouts share physical row/column tracks even where one
+// corner cell is missing. A locally exposed side on that missing corner must
+// not add another 13 mm to a shared track; otherwise filling the corner later
+// changes an existing 600 x 900 window to 613 or 913 mm.
+let lSizeState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+lSizeState = addWindowToState(lSizeState, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
+lSizeState = addWindowToState(lSizeState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+assert(
+    lSizeState.windows.every(windowCell => {
+        const size = getWindowActualSizeInState(lSizeState, windowCell.id);
+        return Math.abs(size.widthM - 0.6) < 1e-9 && Math.abs(size.heightM - 0.9) < 1e-9;
+    }),
+    'All three windows in a 600 x 900 L layout must remain 600 x 900 before the missing corner is filled.'
+);
+const lTopLeftId = lSizeState.windows.find(windowCell => windowCell.rect.x0 === 0 && windowCell.rect.y0 === 1)?.id;
+lSizeState = addWindowToState(lSizeState, { cellId: lTopLeftId, direction: 'right', type: FIXED_WINDOW_TYPE });
+assert(
+    lSizeState.windows.every(windowCell => {
+        const size = getWindowActualSizeInState(lSizeState, windowCell.id);
+        return Math.abs(size.widthM - 0.6) < 1e-9 && Math.abs(size.heightM - 0.9) < 1e-9;
+    }),
+    'Filling the top-right corner from the top-left window must not change any 600 x 900 row/column size.'
+);
+
+let lSizeStateFromRight = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+lSizeStateFromRight = addWindowToState(lSizeStateFromRight, { cellId: 'w1', direction: 'top', type: FIXED_WINDOW_TYPE });
+lSizeStateFromRight = addWindowToState(lSizeStateFromRight, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+const lBottomRightId = lSizeStateFromRight.windows.find(windowCell => windowCell.rect.x0 === 1 && windowCell.rect.y0 === 0)?.id;
+lSizeStateFromRight = addWindowToState(lSizeStateFromRight, { cellId: lBottomRightId, direction: 'top', type: FIXED_WINDOW_TYPE });
+assert(
+    lSizeStateFromRight.windows.every(windowCell => {
+        const size = getWindowActualSizeInState(lSizeStateFromRight, windowCell.id);
+        return Math.abs(size.widthM - 0.6) < 1e-9 && Math.abs(size.heightM - 0.9) < 1e-9;
+    }),
+    'Filling the top-right corner from the bottom-right window must not change any 600 x 900 row/column size.'
 );
 
 let leftState = createSingleWindowState({ type: SASH_WINDOW_TYPE });
@@ -88,12 +276,12 @@ assert(cell(state, 'w3').rect.x0 === 0 && cell(state, 'w3').rect.x1 === 1 && cel
 topology = deriveWindowTopology(state);
 assert(topology.dividers.length === 2, 'A three-window L has exactly two cell-to-cell mullion segments.');
 assert(topology.mergeCandidates.length === 2, 'Both adjacent pairs of a three-window L should be mergeable when each pair forms a rectangle.');
-assert(topology.addCandidates.length > 0, 'Adding windows must remain available after three windows.');
+assert(topology.addCandidates.length === 0, 'Legacy non-rectangular layouts must not expose add buttons that can extend the L shape.');
 
 state = addWindowToState(state, { cellId: 'w2', direction: 'top', type: SASH_WINDOW_TYPE });
 assert(state.windows.length === 4, 'A fourth window must be addable; the editable layout is not limited to three windows.');
 assert(classifyWindowState(state).kind === 'grid', 'A four-window 2x2 assembly must use generic grid classification.');
-assert(deriveWindowTopology(state).addCandidates.length > 0, 'Add buttons must remain available beyond four windows.');
+assert(deriveWindowTopology(state).addCandidates.length === 4, 'A rectangular 2x2 assembly must expose exactly one add button per outer side.');
 
 const normalizedFour = normalizeWindowState({
     dividerProfileId: state.dividerProfileId,
@@ -140,6 +328,25 @@ mergeState = mergeWindowsInState(mergeState, {
 });
 assert(mergeState.windows.length === 1, 'Merging must remove the mullion and replace two cells with one window.');
 assert(
+    mergeState.windows[0]?.id === 'w1',
+    'Merging windows 1 and 2 must keep the lower visible number as the merged window number.'
+);
+
+let mergeNumberState = createSingleWindowState({ type: FIXED_WINDOW_TYPE });
+mergeNumberState = addWindowToState(mergeNumberState, { cellId: 'w1', direction: 'right', type: FIXED_WINDOW_TYPE });
+mergeNumberState = addWindowToState(mergeNumberState, { cellId: 'w2', direction: 'right', type: FIXED_WINDOW_TYPE });
+// Pass the IDs in reverse order on purpose: numbering semantics must depend on
+// their visible numbers, not on which ID the UI supplies as cellA/cellB.
+mergeNumberState = mergeWindowsInState(mergeNumberState, {
+    cellAId: 'w2',
+    cellBId: 'w1',
+    type: FIXED_WINDOW_TYPE,
+});
+assert(
+    mergeNumberState.windows.map(windowCell => windowCell.id).join(',') === 'w1,w3',
+    'Merging visible windows a < b must retain a and decrement every visible number >= b by one.'
+);
+assert(
     getWindowUnmergeGuide(mergeState, 'w1')?.orientation === 'vertical',
     'A merged window must expose its last restorable merge boundary.'
 );
@@ -171,31 +378,26 @@ const mergedBottomAdds = mergedTopology.addCandidates
     .filter(candidate => candidate.cellId === 'w1' && candidate.direction === 'bottom')
     .sort((a, b) => a.start - b.start);
 assert(
-    mergedTopAdds.length === 2
-        && mergedTopAdds[0].start === 0 && mergedTopAdds[0].end === 1
-        && mergedTopAdds[1].start === 1 && mergedTopAdds[1].end === 2,
-    'Merging two side-by-side windows must keep two separate add positions along the merged top edge.'
+    mergedTopAdds.length === 1
+        && mergedTopAdds[0].start === 0 && mergedTopAdds[0].end === 2,
+    'A merged two-bay window must expose one top add button spanning the complete layout width.'
 );
 assert(
-    mergedBottomAdds.length === 2
-        && mergedBottomAdds[0].start === 0 && mergedBottomAdds[0].end === 1
-        && mergedBottomAdds[1].start === 1 && mergedBottomAdds[1].end === 2,
-    'Merging two side-by-side windows must keep two separate add positions along the merged bottom edge.'
+    mergedBottomAdds.length === 1
+        && mergedBottomAdds[0].start === 0 && mergedBottomAdds[0].end === 2,
+    'A merged two-bay window must expose one bottom add button spanning the complete layout width.'
 );
-const mergedWithNeighbour = addWindowToState(mergeState, {
-    cellId: 'w1',
+const mergedWithNeighbour = addWindowSideToState(mergeState, {
     direction: 'top',
     type: FIXED_WINDOW_TYPE,
-    start: mergedTopAdds[1].start,
-    end: mergedTopAdds[1].end,
 });
 const mergedNeighbour = mergedWithNeighbour.windows.find(windowCell => windowCell.id !== 'w1');
 assert(
-    mergedNeighbour?.rect.x0 === 1
+    mergedNeighbour?.rect.x0 === 0
         && mergedNeighbour?.rect.x1 === 2
         && mergedNeighbour?.rect.y0 === 1
         && mergedNeighbour?.rect.y1 === 2,
-    'Adding next to one half of a merged window must create one normal bay, not another merged-width window.'
+    'Adding on the top side must create one merged-width window spanning the complete side.'
 );
 
 let transState = createSingleWindowState({ type: SASH_WINDOW_TYPE, handleSide: 'left', transProfileId: '575830' });
@@ -244,5 +446,5 @@ if (errors.length) {
     errors.forEach(error => console.error(`- ${error}`));
     process.exitCode = 1;
 } else {
-    console.log('Window layout state valid: outward add, arbitrary cell count, L/T classification, frame-to-divider replacement, per-divider join mapping, merge, and floating-trans topology passed.');
+    console.log('Window layout state valid: per-window grid sizing, directional 600/900 defaults, inherited established tracks, outward add, arbitrary cell count, L/T classification, frame-to-divider replacement, merge, and floating-trans topology passed.');
 }

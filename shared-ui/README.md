@@ -69,6 +69,8 @@ selection/state, feedback UI or shared tool interaction lifecycle. Those remain 
 
 The shared shell owns account-based configuration saving for every configurator. The top-bar **Save** button captures the product-specific state through the configurator adapter and stores it under the signed-in Firebase/Google user. **Saved configurations** in the account menu opens the same shared modal in Window, Roof, Hall, Solar, Pergola and Fence.
 
+Saved configuration pointers and local drafts are tenant-scoped on `*.360configurator.com`. The public `.com/.ro/.de` sites keep their existing shared platform scope. Crossing between scopes with **Change site domain** uses Share transport rather than attempting to reuse a private saved-document id from the source scope.
+
 Configurator adapters only provide `productId`, `captureState()` and `restoreState()`; they do not implement their own saved-project UI or storage. Saving account data uses Firebase Authentication but intentionally does not initialize or refresh App Check, so reCAPTCHA assessments remain exclusive to the **Share** action.
 
 

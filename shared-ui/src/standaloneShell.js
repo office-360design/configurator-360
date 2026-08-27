@@ -1,19 +1,26 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
-import { sharedT } from './i18n.js?v=20';
+import { sharedT } from './i18n.js?v=24';
 import { renderActionFeedback } from './components/feedback.js?v=17';
-import { renderTopBar } from './components/topBar.js?v=19';
+import { renderTopBar } from './components/topBar.js?v=20';
 import { syncAccountIdentity } from './components/accountMenu.js?v=18';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=18';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
-import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=1';
+import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=2';
+import { renderCartMenu } from './components/cartMenu.js?v=3';
+import { getUserCart, mutateUserCart } from './userCart.js?v=4';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 import { readShareState } from './shareState.js?v=4';
+import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
+import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=1';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
 const GLOBAL_LOCALE_STORAGE_KEY = '360-configurator:shared-ui:locale';
+const CART_STORAGE_BASE_KEY = '360-configurator:cart';
+const MAX_CART_ITEMS = 100;
+const CART_FX_RATES_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 const SAVED_DOMAIN_ID_PARAM = 'savedConfig';
 const SAVED_DOMAIN_OWNER_PARAM = 'savedOwner';
 const DOMAIN_AUTH_STATE_PARAM = 'domainAuthState';
@@ -22,8 +29,17 @@ const DOMAIN_AUTH_GUEST_STATE = 'guest';
 const DOMAIN_AUTH_USER_STATE = 'user';
 const DOMAIN_AUTH_HANDOFF_ID_PATTERN = /^[A-Za-z0-9_-]{32,64}$/;
 const SAVED_CONFIGURATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+const CART_EDIT_ITEM_PARAM = 'cartItem';
+const CART_EDIT_PRODUCT_PARAM = 'cartProduct';
+const CART_EDIT_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
+const CART_EDIT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence']);
 const DOMAIN_SAVE_FAILURE_MESSAGE = 'Domain change failed because of a saving failure';
 const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
+
+function savedConfigurationScopeForHostname(hostname = '') {
+  const tenantSlug = getTenantSlugForHostname(hostname);
+  return tenantSlug ? `tenant:${tenantSlug}` : 'platform';
+}
 function readHashParams(target) {
   const raw = target.hash.startsWith('#') ? target.hash.slice(1) : target.hash;
   return new URLSearchParams(raw);
@@ -35,9 +51,9 @@ function writeHashParams(target, params) {
 }
 
 function stripConfigurationTransport(target) {
-  ['s', 'c', 'config', SAVED_DOMAIN_ID_PARAM, SAVED_DOMAIN_OWNER_PARAM, DOMAIN_AUTH_STATE_PARAM, DOMAIN_AUTH_HANDOFF_PARAM].forEach((key) => target.searchParams.delete(key));
+  ['s', 'c', 'config', SAVED_DOMAIN_ID_PARAM, SAVED_DOMAIN_OWNER_PARAM, DOMAIN_AUTH_STATE_PARAM, DOMAIN_AUTH_HANDOFF_PARAM, CART_EDIT_ITEM_PARAM, CART_EDIT_PRODUCT_PARAM].forEach((key) => target.searchParams.delete(key));
   const hash = readHashParams(target);
-  ['s', 'c', 'config', SAVED_DOMAIN_ID_PARAM, SAVED_DOMAIN_OWNER_PARAM, DOMAIN_AUTH_STATE_PARAM, DOMAIN_AUTH_HANDOFF_PARAM].forEach((key) => hash.delete(key));
+  ['s', 'c', 'config', SAVED_DOMAIN_ID_PARAM, SAVED_DOMAIN_OWNER_PARAM, DOMAIN_AUTH_STATE_PARAM, DOMAIN_AUTH_HANDOFF_PARAM, CART_EDIT_ITEM_PARAM, CART_EDIT_PRODUCT_PARAM].forEach((key) => hash.delete(key));
   writeHashParams(target, hash);
   return target;
 }
@@ -69,6 +85,59 @@ function safeJsonParse(value, fallback) {
   }
 }
 
+function cartCurrencyFromText(value, fallback = 'USD') {
+  const text = String(value || '').toUpperCase();
+  if (text.includes('RON') || text.includes(' LEI') || text.endsWith('LEI')) return 'RON';
+  if (text.includes('EUR') || text.includes('€')) return 'EUR';
+  if (text.includes('USD') || text.includes('$')) return 'USD';
+  const normalizedFallback = String(fallback || '').toUpperCase();
+  return ['USD', 'EUR', 'RON'].includes(normalizedFallback) ? normalizedFallback : 'USD';
+}
+
+function convertCartMoneyAmount(value, fromCurrency, toCurrency) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+  const from = cartCurrencyFromText(fromCurrency, 'EUR');
+  const to = cartCurrencyFromText(toCurrency, 'EUR');
+  if (from === to) return amount;
+  const fromRate = Number(CART_FX_RATES_FROM_EUR[from]) || 1;
+  const toRate = Number(CART_FX_RATES_FROM_EUR[to]) || 1;
+  return (amount / fromRate) * toRate;
+}
+
+function parseCartMoneyText(value, fallbackCurrency = 'USD') {
+  const raw = String(value || '').trim();
+  const currency = cartCurrencyFromText(raw, fallbackCurrency);
+  if (!raw) return { amount: 0, currency };
+
+  let numeric = raw.replace(/[^0-9.,-]/g, '');
+  if (!/[0-9]/.test(numeric)) return { amount: 0, currency };
+  const negative = numeric.startsWith('-');
+  numeric = numeric.replace(/-/g, '');
+
+  const lastDot = numeric.lastIndexOf('.');
+  const lastComma = numeric.lastIndexOf(',');
+  const separator = lastDot > lastComma ? '.' : (lastComma > lastDot ? ',' : '');
+  if (separator) {
+    const occurrences = numeric.split(separator).length - 1;
+    const digitsAfter = numeric.length - numeric.lastIndexOf(separator) - 1;
+    const other = separator === '.' ? ',' : '.';
+    numeric = numeric.split(other).join('');
+    if (occurrences > 1 || digitsAfter === 3 || digitsAfter === 0) {
+      numeric = numeric.split(separator).join('');
+    } else {
+      const index = numeric.lastIndexOf(separator);
+      numeric = `${numeric.slice(0, index).split(separator).join('')}.${numeric.slice(index + 1)}`;
+    }
+  }
+
+  const amount = Number(numeric);
+  return {
+    amount: Number.isFinite(amount) ? (negative ? -amount : amount) : 0,
+    currency,
+  };
+}
+
 function setSelectValue(root, path, value) {
   const select = root.querySelector(`[data-path="${path}"]`);
   if (select) select.value = value;
@@ -92,6 +161,9 @@ export class StandaloneConfiguratorShell {
 
     this.storagePrefix = this.options.storagePrefix;
     this.productId = normalizeProductId(this.options.productId || this.options.productType);
+    void recordConfiguratorAccessOnce(this.productId).catch((error) => {
+      console.warn('Configurator access analytics could not be recorded.', error);
+    });
     // The old shell used one project-meta record for every authentication state.
     // Keep its key only for one-time migration; active project pointers are now
     // isolated by Firebase UID so one account can never leak into another/guest.
@@ -132,6 +204,7 @@ export class StandaloneConfiguratorShell {
     this.dirty = false;
     this.activeSessionUid = '';
     this.authInitialized = false;
+    this.initialConfigurationAnalyticsRecorded = false;
     this.sessionSwitchToken = 0;
     this.draftPersistTimer = 0;
     this.accountOpen = false;
@@ -142,6 +215,13 @@ export class StandaloneConfiguratorShell {
     this.authBusy = false;
     this.authUnsubscribe = null;
     this.languageOpen = false;
+    this.cartOpen = false;
+    this.cartBusy = false;
+    this.cartItems = [];
+    this.cartLastRemoteSyncAt = 0;
+    this.cartSyncPromise = null;
+    this.currentCartEdit = null;
+    this.pendingCartEditTransport = this.readCartEditTransport();
     this.toolsOpen = false;
     this.feedbackTimer = 0;
     this.saveBusy = false;
@@ -155,6 +235,7 @@ export class StandaloneConfiguratorShell {
     this.pendingSharedConfigurationTransport = Boolean(
       this.hasSharedConfigurationTransport()
       && !this.pendingSavedDomainHandoff
+      && !this.pendingCartEditTransport
     );
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
     this.settingsPanelCollapsed = false;
@@ -192,11 +273,331 @@ export class StandaloneConfiguratorShell {
   }
 
   getProjectMetaKey(uid) {
-    return `${this.storagePrefix}:project-meta:user:${encodeURIComponent(String(uid || ''))}`;
+    const encodedUid = encodeURIComponent(String(uid || ''));
+    const tenantSlug = getTenantSlugForHostname(window.location.hostname);
+    if (tenantSlug) {
+      return `${this.storagePrefix}:project-meta:tenant:${encodeURIComponent(tenantSlug)}:user:${encodedUid}`;
+    }
+    return `${this.storagePrefix}:project-meta:user:${encodedUid}`;
   }
 
   getProjectCounterKey(uid) {
-    return `${this.projectCounterBaseKey}:user:${encodeURIComponent(String(uid || ''))}`;
+    const encodedUid = encodeURIComponent(String(uid || ''));
+    const tenantSlug = getTenantSlugForHostname(window.location.hostname);
+    if (tenantSlug) {
+      return `${this.projectCounterBaseKey}:tenant:${encodeURIComponent(tenantSlug)}:user:${encodedUid}`;
+    }
+    return `${this.projectCounterBaseKey}:user:${encodedUid}`;
+  }
+
+  getCartStorageKey(uid = this.authUser?.uid) {
+    const normalizedUid = String(uid || '').trim();
+    return normalizedUid ? `${CART_STORAGE_BASE_KEY}:user:${encodeURIComponent(normalizedUid)}` : '';
+  }
+
+  normalizeCartItem(item) {
+    const productId = normalizeProductId(item?.productId || 'configuration');
+    const savedConfigurationId = String(item?.savedConfigurationId || '').slice(0, 128);
+    // Each cart row is a detached Firestore snapshot. It keeps its own id even
+    // when the source saved configuration is later edited or deleted.
+    const itemKey = String(item?.key || item?.cartItemId || '').slice(0, 180);
+    const explicitAmount = Number(item?.costAmount);
+    const parsed = Number.isFinite(explicitAmount)
+      ? { amount: explicitAmount, currency: cartCurrencyFromText(item?.currency, this.state.currency) }
+      : parseCartMoneyText(item?.costText, item?.currency || this.state.currency);
+    return {
+      key: itemKey,
+      cartItemId: itemKey,
+      productId,
+      savedConfigurationId,
+      name: String(item?.name || '').slice(0, 80),
+      sourceName: String(item?.sourceName || '').slice(0, 80),
+      costAmount: Math.max(0, Number(parsed.amount) || 0),
+      currency: parsed.currency,
+      addedAt: Number(item?.addedAt) || Date.now(),
+    };
+  }
+
+  setCartItems(items, { persist = true } = {}) {
+    const normalized = Array.isArray(items)
+      ? items.slice(0, MAX_CART_ITEMS).map((item) => this.normalizeCartItem(item))
+        .filter((item) => CART_EDIT_PRODUCTS.has(item.productId) && item.key)
+      : [];
+    this.cartItems = normalized;
+    if (persist) this.persistCart();
+  }
+
+  loadCart(uid = this.authUser?.uid) {
+    const key = this.getCartStorageKey(uid);
+    if (!key) {
+      this.cartItems = [];
+      return;
+    }
+    const stored = safeJsonParse(window.localStorage.getItem(key), []);
+    this.setCartItems(Array.isArray(stored) ? stored : [], { persist: false });
+  }
+
+  persistCart() {
+    const key = this.getCartStorageKey();
+    if (!key) return;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(this.cartItems.slice(0, MAX_CART_ITEMS)));
+    } catch (error) {
+      console.warn('Cart state could not be persisted locally.', error);
+    }
+  }
+
+  cartItemForBackend(item) {
+    return {
+      productId: normalizeProductId(item?.productId || 'configuration'),
+      savedConfigurationId: String(item?.savedConfigurationId || ''),
+      costAmount: Math.max(0, Number(item?.costAmount) || 0),
+      currency: cartCurrencyFromText(item?.currency, this.state.currency),
+    };
+  }
+
+  formatCartMoney(value, currency = this.state.currency) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return '—';
+    try {
+      return new Intl.NumberFormat(this.state.locale || 'en-US', {
+        style: 'currency',
+        currency: cartCurrencyFromText(currency, this.state.currency),
+        maximumFractionDigits: 0,
+      }).format(amount);
+    } catch {
+      return `${Math.round(amount)} ${cartCurrencyFromText(currency, this.state.currency)}`;
+    }
+  }
+
+  cartRenderItems() {
+    const selectedCurrency = cartCurrencyFromText(this.state.currency, 'USD');
+    return this.cartItems.map((item) => ({
+      ...item,
+      costText: this.formatCartMoney(
+        convertCartMoneyAmount(item.costAmount, item.currency, selectedCurrency),
+        selectedCurrency,
+      ),
+    }));
+  }
+
+  cartTotalText() {
+    const selectedCurrency = cartCurrencyFromText(this.state.currency, 'USD');
+    const total = this.cartItems.reduce((sum, item) => sum + Math.max(0, convertCartMoneyAmount(
+      item.costAmount,
+      item.currency,
+      selectedCurrency,
+    )), 0);
+    return this.formatCartMoney(total, selectedCurrency);
+  }
+
+  async refreshCartFromBackend(uid = this.authUser?.uid, { force = false } = {}) {
+    const expectedUid = String(uid || '');
+    if (!expectedUid || expectedUid !== String(this.authUser?.uid || '')) return false;
+    if (!force && Date.now() - this.cartLastRemoteSyncAt < 5000) return true;
+    if (this.cartSyncPromise) return this.cartSyncPromise;
+
+    this.cartSyncPromise = (async () => {
+      try {
+        const remote = await getUserCart();
+        if (expectedUid !== String(this.authUser?.uid || '')) return false;
+        // Firestore shoppingCart snapshots are the source of truth. Local storage
+        // is only an origin-local cache and must never recreate deleted rows.
+        this.setCartItems(remote.items);
+        this.cartLastRemoteSyncAt = Date.now();
+        this.renderHost();
+        this.sync();
+        return true;
+      } catch (error) {
+        console.warn('The account shopping cart could not be synchronized.', error);
+        return false;
+      } finally {
+        this.cartSyncPromise = null;
+      }
+    })();
+    return this.cartSyncPromise;
+  }
+
+  canAddToCart() {
+    return Boolean(
+      this.authUser?.uid
+      && this.options.capabilities.save !== false
+      && !this.saveBusy
+      && !this.cartBusy
+      && !this.savedLoadBlocked
+      && !this.domainBusy
+      && !this.currentCartEdit
+    );
+  }
+
+  async addCurrentConfigurationToCart(button) {
+    if (!this.canAddToCart()) return false;
+
+    this.cartBusy = true;
+    this.refreshConfiguratorPanelFooter();
+    try {
+      // Cart entries always reference a persistent user save. Save first so a
+      // cart item can never point at an unsaved or stale configurator state.
+      const saveButton = this.host.querySelector('[data-action="save"]');
+      const saved = await this.save(saveButton, { suppressFeedback: true });
+      if (!saved || !this.currentSavedConfigurationId) {
+        this.showFeedback(sharedT(this.state.locale, 'feedback.cartSaveFailed'), 'error', 2000);
+        return false;
+      }
+
+      const price = this.resolveConfiguratorPanelPrice();
+      const item = {
+        productId: this.productId,
+        savedConfigurationId: this.currentSavedConfigurationId,
+        costAmount: Math.max(0, Number(price.amount) || 0),
+        currency: price.currency,
+      };
+
+      // The backend reads the just-saved configuration and creates a new
+      // shoppingCart document containing a full copy of that state. This is an
+      // append operation, never an upsert: adding ABC twice yields ABC + ABC (1).
+      const result = await mutateUserCart({ action: 'add', item: this.cartItemForBackend(item) });
+      this.setCartItems(result.items);
+      this.cartLastRemoteSyncAt = Date.now();
+      this.renderHost();
+      this.sync();
+      this.showFeedback(sharedT(this.state.locale, 'feedback.addedToCart'));
+      this.options.callbacks.onAddToCart?.(result.addedItem ? { ...result.addedItem } : { ...item });
+      return true;
+    } catch (error) {
+      console.error('The configuration could not be added to the synchronized cart.', error);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', 2000);
+      return false;
+    } finally {
+      this.cartBusy = false;
+      this.refreshConfiguratorPanelFooter();
+    }
+  }
+
+  buildCartEditTarget(productId, itemKey, baseUrl = window.location.href) {
+    const product = normalizeProductId(productId);
+    if (!CART_EDIT_PRODUCTS.has(product) || !CART_EDIT_ITEM_ID_PATTERN.test(String(itemKey || ''))) return null;
+
+    const tenantSlug = getTenantSlugForHostname(window.location.hostname);
+    let target;
+    if (tenantSlug) {
+      target = new URL(`/${product}-configurator/`, window.location.origin);
+    } else {
+      const domainLocale = getLocaleForHostname(window.location.hostname);
+      const localized = getLocalizedConfiguratorUrl(domainLocale, product, baseUrl);
+      if (!localized) return null;
+      target = new URL(localized, window.location.href);
+    }
+    target.search = '';
+    target.hash = '';
+    const hash = readHashParams(target);
+    hash.set(CART_EDIT_PRODUCT_PARAM, product);
+    hash.set(CART_EDIT_ITEM_PARAM, String(itemKey));
+    writeHashParams(target, hash);
+    return target.href;
+  }
+
+  async editCartItem(key, button = null) {
+    const itemKey = String(key || '');
+    if (!this.authUser?.uid || this.cartBusy || !CART_EDIT_ITEM_ID_PATTERN.test(itemKey)) return false;
+    const item = this.cartItems.find((candidate) => candidate.key === itemKey);
+    if (!item || !CART_EDIT_PRODUCTS.has(item.productId)) return false;
+
+    button?.setAttribute('disabled', '');
+    if (item.productId === this.productId) {
+      try {
+        // Preserve any normal account draft before temporarily replacing the
+        // current model with the cart snapshot. Cart edit mode itself never
+        // overwrites that account draft pointer.
+        this.flushDraftPersistence();
+        const target = this.buildCartEditTarget(item.productId, item.key);
+        if (target) window.history.replaceState(window.history.state, '', target);
+        this.pendingCartEditTransport = { key: item.key, productId: item.productId };
+        this.cartOpen = false;
+        return await this.restoreCartEditTransport(this.authUser);
+      } catch (error) {
+        console.error('The cart configuration could not be opened for editing.', error);
+        this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+        return false;
+      } finally {
+        button?.removeAttribute('disabled');
+      }
+    }
+
+    // Open the correct configurator immediately so the browser treats this as a
+    // user-initiated tab. The auth handoff then guarantees the same Firebase
+    // account even if that tab has no usable local auth session yet.
+    const tab = window.open('about:blank', '_blank');
+    if (!tab) {
+      button?.removeAttribute('disabled');
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+      return false;
+    }
+    try {
+      const target = this.buildCartEditTarget(item.productId, item.key);
+      if (!target) throw new Error('The cart configurator URL could not be generated.');
+      const handoffId = await createDomainAuthHandoff(new URL(target).origin);
+      const authenticatedTarget = this.withDomainAuthentication(target, DOMAIN_AUTH_USER_STATE, handoffId);
+      tab.location.replace(authenticatedTarget);
+      return true;
+    } catch (error) {
+      console.error('The cart configuration could not be opened in its configurator.', error);
+      try { tab.close(); } catch { /* best effort */ }
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+      return false;
+    } finally {
+      button?.removeAttribute('disabled');
+    }
+  }
+
+  async removeCartItem(key, button = null) {
+    const itemKey = String(key || '');
+    if (!itemKey || !this.authUser?.uid || this.cartBusy) return;
+    const index = this.cartItems.findIndex((item) => item.key === itemKey);
+    if (index < 0) return;
+
+    this.cartBusy = true;
+    button?.setAttribute('disabled', '');
+    try {
+      const result = await mutateUserCart({ action: 'remove', key: itemKey, productId: this.cartItems[index].productId });
+      const row = button?.closest('[data-cart-item]')
+        || this.host.querySelector(`[data-cart-item][data-cart-key="${CSS.escape(itemKey)}"]`);
+      row?.classList.add('is-removing');
+      await new Promise((resolve) => window.setTimeout(resolve, 220));
+      this.setCartItems(result.items);
+      this.cartLastRemoteSyncAt = Date.now();
+      this.renderHost();
+      this.sync();
+    } catch (error) {
+      console.error('The cart item could not be removed.', error);
+      button?.removeAttribute('disabled');
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', 2000);
+    } finally {
+      this.cartBusy = false;
+    }
+  }
+
+  async emptyCart() {
+    if (!this.authUser?.uid || this.cartBusy || !this.cartItems.length) return false;
+    this.cartBusy = true;
+    this.renderHost();
+    this.sync();
+    try {
+      const result = await mutateUserCart({ action: 'empty' });
+      this.setCartItems(result.items);
+      this.cartLastRemoteSyncAt = Date.now();
+      this.renderHost();
+      this.sync();
+      return true;
+    } catch (error) {
+      console.error('The cart could not be emptied.', error);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', 2000);
+      return false;
+    } finally {
+      this.cartBusy = false;
+      this.renderHost();
+      this.sync();
+    }
   }
 
   getNextDefaultProjectName(uid = this.authUser?.uid || this.activeSessionUid) {
@@ -213,6 +614,10 @@ export class StandaloneConfiguratorShell {
     const key = this.getProjectMetaKey(uid);
     let meta = safeJsonParse(window.localStorage.getItem(key), null);
     if (meta) return meta;
+
+    // Tenant domains have their own local draft/save pointer namespace. Never
+    // inherit a pre-Tier-1 platform pointer into a customer tenant.
+    if (getTenantSlugForHostname(window.location.hostname)) return {};
 
     // Migrate the pre-account-scoped pointer only when its owner matches the
     // current Firebase account. A guest must never inherit this legacy record.
@@ -264,6 +669,85 @@ export class StandaloneConfiguratorShell {
       window.history.replaceState(window.history.state, '', target.href);
     } catch {
       // Authentication handoff already completed; URL cleanup is best effort.
+    }
+  }
+
+  readCartEditTransport() {
+    try {
+      const target = new URL(window.location.href);
+      const hash = readHashParams(target);
+      const key = String(hash.get(CART_EDIT_ITEM_PARAM) || target.searchParams.get(CART_EDIT_ITEM_PARAM) || '').trim();
+      const productId = normalizeProductId(hash.get(CART_EDIT_PRODUCT_PARAM) || target.searchParams.get(CART_EDIT_PRODUCT_PARAM) || '');
+      if (!CART_EDIT_ITEM_ID_PATTERN.test(key) || !CART_EDIT_PRODUCTS.has(productId)) return null;
+      return { key, productId };
+    } catch {
+      return null;
+    }
+  }
+
+  clearCartEditTransportUrl() {
+    try {
+      const target = new URL(window.location.href);
+      target.searchParams.delete(CART_EDIT_ITEM_PARAM);
+      target.searchParams.delete(CART_EDIT_PRODUCT_PARAM);
+      const hash = readHashParams(target);
+      hash.delete(CART_EDIT_ITEM_PARAM);
+      hash.delete(CART_EDIT_PRODUCT_PARAM);
+      writeHashParams(target, hash);
+      window.history.replaceState(window.history.state, '', target.href);
+    } catch {
+      // Cart edit mode is already detached; URL cleanup is best effort.
+    }
+  }
+
+  exitCartEditMode({ clearUrl = true } = {}) {
+    this.currentCartEdit = null;
+    this.pendingCartEditTransport = null;
+    if (clearUrl) this.clearCartEditTransportUrl();
+  }
+
+  async restoreCartEditTransport(user) {
+    const transport = this.pendingCartEditTransport || this.readCartEditTransport();
+    const uid = String(user?.uid || '');
+    if (!transport?.key || !uid) return false;
+    if (transport.productId !== this.productId) return false;
+
+    try {
+      const result = await getUserCart({ key: transport.key, productId: transport.productId });
+      const item = result.editingItem;
+      if (!item?.state) throw new Error('The shopping cart snapshot is empty.');
+      // Enter cart-edit mode before restoring the model so product-specific
+      // restore hooks cannot accidentally persist a normal account draft while
+      // they dispatch their internal change events.
+      this.currentCartEdit = {
+        key: String(item.key || transport.key),
+        productId: transport.productId,
+        name: String(item.name || this.projectName).slice(0, 80),
+      };
+      this.projectName = this.currentCartEdit.name;
+      const restored = await this.restoreConfiguratorState(item.state);
+      if (!restored) throw new Error('Configurator rejected the shopping cart state.');
+
+      this.setCartItems(result.items);
+      this.pendingCartEditTransport = null;
+      this.lastSavedProjectName = '';
+      this.currentSavedConfigurationId = '';
+      this.currentSavedOwnerUid = uid;
+      this.currentDraftStateJson = '';
+      this.savedLoadBlocked = false;
+      this.dirty = false;
+      this.captureCleanBaseline();
+      this.cartOpen = false;
+      this.renderHost();
+      this.sync();
+      return true;
+    } catch (error) {
+      console.error('The shopping cart configuration could not be restored.', error);
+      this.pendingCartEditTransport = null;
+      this.currentCartEdit = null;
+      this.clearCartEditTransportUrl();
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+      return false;
     }
   }
 
@@ -387,9 +871,12 @@ export class StandaloneConfiguratorShell {
           authUser: this.authUser,
           domainOpen: this.domainOpen,
           currentDomainLocale: getLocaleForHostname(window.location.hostname),
+          cartCount: this.cartItems.length,
+          cartOpen: this.cartOpen,
         },
         capabilities: this.options.capabilities,
       })}
+      ${renderCartMenu(this.state.locale, this.cartRenderItems(), { open: this.cartOpen, busy: this.cartBusy, totalText: this.cartTotalText() })}
       ${renderActionFeedback(this.state.locale)}
       ${renderLanguageSwitchLoading(this.state.locale)}
       ${renderToolsMenu(this.toolsOpen, { ...this.options.tools, locale: this.state.locale })}
@@ -401,6 +888,7 @@ export class StandaloneConfiguratorShell {
     this.dirtyIndicator = this.host.querySelector('[data-project-dirty]');
     this.accountMenu = this.host.querySelector('[data-account-menu]');
     this.languageMenu = this.host.querySelector('[data-language-menu]');
+    this.cartMenu = this.host.querySelector('[data-cart-menu]');
     this.feedback = this.host.querySelector('[data-save-feedback]');
     this.feedbackText = this.host.querySelector('[data-save-feedback-text]');
     this.languageSwitchLoading = this.host.querySelector('[data-language-switch-loading]');
@@ -419,6 +907,9 @@ export class StandaloneConfiguratorShell {
       if (!event.target.closest('[data-language-menu], [data-action="language"]')) {
         this.languageOpen = false;
       }
+      if (!event.target.closest('[data-cart-menu], [data-action="cart"]')) {
+        this.cartOpen = false;
+      }
       this.syncMenus();
     };
     document.addEventListener('click', this.onDocumentClick);
@@ -428,6 +919,7 @@ export class StandaloneConfiguratorShell {
         const savedDialogWasOpen = this.savedDialog.open;
         this.accountOpen = false;
         this.languageOpen = false;
+        this.cartOpen = false;
         this.domainOpen = false;
         this.savedDialog.open = false;
         if (this.toolsOpen) {
@@ -447,6 +939,23 @@ export class StandaloneConfiguratorShell {
       this.persistMeta();
     };
     window.addEventListener('beforeunload', this.onBeforeUnload);
+
+    // The cart is shared across configurators on this origin. Synchronize
+    // already-open tabs when another configurator adds or removes an item.
+    this.onStorage = (event) => {
+      const uid = this.authUser?.uid;
+      if (!uid || event.key !== this.getCartStorageKey(uid)) return;
+      this.loadCart(uid);
+      this.renderHost();
+      this.sync();
+    };
+    window.addEventListener('storage', this.onStorage);
+
+    this.onCartVisibilityChange = () => {
+      if (document.visibilityState !== 'visible' || !this.authUser?.uid) return;
+      void this.refreshCartFromBackend(this.authUser.uid);
+    };
+    document.addEventListener('visibilitychange', this.onCartVisibilityChange);
   }
 
 
@@ -508,8 +1017,8 @@ export class StandaloneConfiguratorShell {
 
     this.onConfiguratorPanelFooterClick = (event) => {
       const button = event.target.closest('[data-shared-panel-add-to-cart]');
-      if (!button) return;
-      this.options.callbacks.onAddToCart?.();
+      if (!button || button.disabled) return;
+      void this.addCurrentConfigurationToCart(button);
     };
     footer.addEventListener('click', this.onConfiguratorPanelFooterClick);
     this.refreshConfiguratorPanelFooter();
@@ -524,8 +1033,10 @@ export class StandaloneConfiguratorShell {
       ? '0px'
       : (compact ? 'min(352px, calc(100vw - 44px))' : '380px');
 
-    toggle.style.setProperty('position', 'absolute', 'important');
-    toggle.style.setProperty('top', compact ? '26px' : '34px', 'important');
+    toggle.style.setProperty('position', 'fixed', 'important');
+    toggle.style.setProperty('top', compact
+      ? 'calc(var(--shared-topbar-height, 47px) + 26px)'
+      : 'calc(var(--shared-topbar-height, 47px) + 34px)', 'important');
     toggle.style.setProperty('right', right, 'important');
     toggle.style.setProperty('left', 'auto', 'important');
     toggle.style.setProperty('width', '34px', 'important');
@@ -548,23 +1059,37 @@ export class StandaloneConfiguratorShell {
     }
   }
 
-  resolveConfiguratorPanelPriceText() {
+  resolveConfiguratorPanelPrice() {
     const config = this.options.configuratorPanel;
-    if (!config) return '—';
+    if (!config) return { amount: 0, currency: this.state.currency, text: '—' };
 
     try {
       const result = config.getEstimatedTotal?.({
         locale: this.state.locale,
         currency: this.state.currency,
       });
-      if (typeof result === 'string' && result.trim()) return result.trim();
-      if (typeof result === 'number') return this.formatConfiguratorPanelPrice(result);
+      if (typeof result === 'string' && result.trim()) {
+        const parsed = parseCartMoneyText(result, this.state.currency);
+        return { ...parsed, text: result.trim() };
+      }
+      if (typeof result === 'number') {
+        return {
+          amount: result,
+          currency: this.state.currency,
+          text: this.formatConfiguratorPanelPrice(result),
+        };
+      }
       if (result && typeof result === 'object' && Number.isFinite(Number(result.value))) {
-        return this.formatConfiguratorPanelPrice(
-          result.value,
-          result.currency || this.state.currency,
-          result.locale || this.state.locale,
-        );
+        const currency = cartCurrencyFromText(result.currency, this.state.currency);
+        return {
+          amount: Number(result.value),
+          currency,
+          text: this.formatConfiguratorPanelPrice(
+            result.value,
+            currency,
+            result.locale || this.state.locale,
+          ),
+        };
       }
     } catch {
       // The product can still expose an already-rendered price below.
@@ -572,13 +1097,26 @@ export class StandaloneConfiguratorShell {
 
     if (config.priceSelector) {
       const rendered = document.querySelector(config.priceSelector)?.textContent?.trim();
-      if (rendered) return rendered;
+      if (rendered) {
+        const parsed = parseCartMoneyText(rendered, this.state.currency);
+        return { ...parsed, text: rendered };
+      }
     }
 
     if (Number.isFinite(Number(config.fallbackValue))) {
-      return this.formatConfiguratorPanelPrice(config.fallbackValue, config.fallbackCurrency || this.state.currency);
+      const amount = Number(config.fallbackValue);
+      const currency = cartCurrencyFromText(config.fallbackCurrency, this.state.currency);
+      return {
+        amount,
+        currency,
+        text: this.formatConfiguratorPanelPrice(amount, currency),
+      };
     }
-    return '—';
+    return { amount: 0, currency: this.state.currency, text: '—' };
+  }
+
+  resolveConfiguratorPanelPriceText() {
+    return this.resolveConfiguratorPanelPrice().text;
   }
 
   refreshConfiguratorPanelFooter() {
@@ -587,6 +1125,7 @@ export class StandaloneConfiguratorShell {
       estimatedTotalLabel: sharedT(this.state.locale, 'panel.estimatedTotal'),
       priceText: this.resolveConfiguratorPanelPriceText(),
       addToCartLabel: sharedT(this.state.locale, 'panel.addToCart'),
+      addToCartDisabled: !this.canAddToCart(),
     });
   }
 
@@ -638,7 +1177,7 @@ export class StandaloneConfiguratorShell {
   }
 
   refreshDirtyFromCapturedState() {
-    if (!this.authUser?.uid || !this.currentSavedConfigurationId || !this.cleanStateJson) return;
+    if (!this.authUser?.uid || (!this.currentSavedConfigurationId && !this.currentCartEdit) || !this.cleanStateJson) return;
     const currentJson = this.captureCurrentStateJson();
     if (!currentJson) return;
     const hasUnsavedChanges = currentJson !== this.cleanStateJson || this.projectName !== this.cleanProjectName;
@@ -646,8 +1185,8 @@ export class StandaloneConfiguratorShell {
 
     this.dirty = hasUnsavedChanges;
     if (hasUnsavedChanges) {
-      this.scheduleDraftPersistence();
-    } else {
+      if (!this.currentCartEdit) this.scheduleDraftPersistence();
+    } else if (!this.currentCartEdit) {
       this.currentDraftStateJson = '';
       this.persistMeta();
     }
@@ -655,7 +1194,7 @@ export class StandaloneConfiguratorShell {
   }
 
   captureDraftState() {
-    if (!this.authUser?.uid || !this.dirty || !DRAFT_PRODUCTS.has(this.productId)) return;
+    if (!this.authUser?.uid || this.currentCartEdit || !this.dirty || !DRAFT_PRODUCTS.has(this.productId)) return;
     try {
       const snapshot = this.options.callbacks.captureState?.();
       if (snapshot === undefined || snapshot === null) return;
@@ -667,7 +1206,7 @@ export class StandaloneConfiguratorShell {
   }
 
   scheduleDraftPersistence() {
-    if (!this.authUser?.uid || !this.dirty || !DRAFT_PRODUCTS.has(this.productId)) return;
+    if (!this.authUser?.uid || this.currentCartEdit || !this.dirty || !DRAFT_PRODUCTS.has(this.productId)) return;
     window.clearTimeout(this.draftPersistTimer);
     this.draftPersistTimer = window.setTimeout(() => {
       this.captureDraftState();
@@ -678,7 +1217,7 @@ export class StandaloneConfiguratorShell {
   flushDraftPersistence() {
     window.clearTimeout(this.draftPersistTimer);
     this.draftPersistTimer = 0;
-    if (!this.authUser?.uid || !this.dirty) return;
+    if (!this.authUser?.uid || this.currentCartEdit || !this.dirty) return;
     this.captureDraftState();
     this.persistMeta();
   }
@@ -725,7 +1264,7 @@ export class StandaloneConfiguratorShell {
     } catch (error) {
       console.error('Google authentication could not be initialized.', error);
       this.authInitialized = true;
-      await this.enterGuestSession({ resetModel: false });
+      await this.enterGuestSession({ resetModel: false, recordInitialConfiguration: true });
     }
   }
 
@@ -742,13 +1281,13 @@ export class StandaloneConfiguratorShell {
     if (previousUid && nextUid !== previousUid) this.flushDraftPersistence();
     if (!nextUid && !previousUid) {
       this.authUser = null;
-      await this.enterGuestSession({ resetModel: false });
+      await this.enterGuestSession({ resetModel: false, recordInitialConfiguration: initial });
       this.options.callbacks.onAuthChange?.(null);
       return;
     }
 
     if (nextUid) {
-      await this.enterUserSession(user);
+      await this.enterUserSession(user, { recordInitialConfiguration: initial });
       this.options.callbacks.onAuthChange?.(user);
       return;
     }
@@ -791,10 +1330,35 @@ export class StandaloneConfiguratorShell {
     return false;
   }
 
-  async enterGuestSession({ resetModel = false } = {}) {
+  recordConfigurationCreatedAnalytics({ initial = false } = {}) {
+    let initialSessionKey = '';
+    if (initial) {
+      if (this.initialConfigurationAnalyticsRecorded) return;
+      this.initialConfigurationAnalyticsRecorded = true;
+      initialSessionKey = `360-configurator:analytics:initial-configuration:${window.location.hostname.toLowerCase()}:${this.productId}`;
+      try {
+        if (window.sessionStorage.getItem(initialSessionKey) === '1') return;
+        window.sessionStorage.setItem(initialSessionKey, '1');
+      } catch { /* analytics remains best effort when storage is unavailable */ }
+    }
+    void recordConfiguratorAnalyticsEvent({
+      productType: this.productId,
+      eventType: 'configuration_created',
+    }).catch((error) => {
+      if (initialSessionKey) {
+        try { window.sessionStorage.removeItem(initialSessionKey); } catch { /* best effort */ }
+      }
+      console.warn('Configuration-created analytics could not be recorded.', error);
+    });
+  }
+
+  async enterGuestSession({ resetModel = false, recordInitialConfiguration = false } = {}) {
     const token = ++this.sessionSwitchToken;
     this.authUser = null;
     this.activeSessionUid = '';
+    this.cartOpen = false;
+    this.cartItems = [];
+    this.currentCartEdit = null;
     this.savedLoadBlocked = false;
     this.projectName = this.getGuestProjectName();
     this.lastSavedProjectName = '';
@@ -804,6 +1368,7 @@ export class StandaloneConfiguratorShell {
     this.cleanProjectName = '';
     this.dirty = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
+    const restoringSharedConfiguration = this.pendingSharedConfigurationTransport;
 
     if (this.pendingSharedConfigurationTransport) {
       try {
@@ -824,19 +1389,26 @@ export class StandaloneConfiguratorShell {
     this.cleanStateJson = '';
     this.cleanProjectName = '';
     this.dirty = false;
+    if (recordInitialConfiguration && !restoringSharedConfiguration) {
+      this.recordConfigurationCreatedAnalytics({ initial: true });
+    }
     this.renderHost();
     this.sync();
   }
 
-  async enterUserSession(user) {
+  async enterUserSession(user, { recordInitialConfiguration = false } = {}) {
     const uid = String(user?.uid || '');
     if (!uid) return this.enterGuestSession({ resetModel: false });
     const token = ++this.sessionSwitchToken;
     this.authUser = user;
     this.activeSessionUid = uid;
+    this.cartOpen = false;
+    this.loadCart(uid);
+    void this.refreshCartFromBackend(uid, { force: true });
     this.savedLoadBlocked = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
 
+    if (this.pendingCartEditTransport && await this.restoreCartEditTransport(user)) return;
     if (await this.restoreSavedDomainHandoff(user)) return;
 
     if (this.pendingSharedConfigurationTransport) {
@@ -868,6 +1440,7 @@ export class StandaloneConfiguratorShell {
       return;
     }
 
+    this.currentCartEdit = null;
     const meta = this.readUserMeta(uid);
     this.projectName = String(meta.name || this.getNextDefaultProjectName(uid)).slice(0, 80);
     this.lastSavedProjectName = String(meta.savedName || '');
@@ -904,6 +1477,7 @@ export class StandaloneConfiguratorShell {
       this.dirty = true;
       this.captureDraftState();
       this.persistMeta();
+      if (recordInitialConfiguration) this.recordConfigurationCreatedAnalytics({ initial: true });
       this.renderHost();
       this.sync();
       return;
@@ -955,6 +1529,7 @@ export class StandaloneConfiguratorShell {
       this.dirty = true;
       await this.resetConfiguratorToDefault();
       this.persistMeta();
+      if (recordInitialConfiguration) this.recordConfigurationCreatedAnalytics({ initial: true });
       this.renderHost();
       this.sync();
     }
@@ -966,7 +1541,16 @@ export class StandaloneConfiguratorShell {
     syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: true });
     try {
       const user = await signInWithGoogle();
-      if (user) await this.handleAuthStateChange(user);
+      if (user) {
+        await this.handleAuthStateChange(user);
+        void recordConfiguratorAnalyticsEvent({
+          productType: this.productId,
+          eventType: 'login',
+          requireAuth: true,
+        }).catch((error) => {
+          console.warn('Configurator login analytics could not be recorded.', error);
+        });
+      }
       this.accountOpen = true;
       this.options.callbacks.onAccountAction?.('login', user);
       return user;
@@ -1100,6 +1684,23 @@ export class StandaloneConfiguratorShell {
     let navigating = false;
     try {
       this.refreshDirtyFromCapturedState();
+      if (this.currentCartEdit) {
+        if (this.dirty) {
+          const saveButton = this.host.querySelector('[data-action="save"]');
+          const saved = await this.save(saveButton, { suppressFeedback: true });
+          if (!saved) {
+            this.hideLanguageSwitchLoading();
+            this.showFeedback(DOMAIN_SAVE_FAILURE_MESSAGE, 'error', 2000);
+            return;
+          }
+        }
+        const handoffId = await createDomainAuthHandoff(new URL(targetUrl).origin);
+        const cartTarget = this.buildCartEditTarget(this.currentCartEdit.productId, this.currentCartEdit.key, targetUrl);
+        if (!cartTarget) throw new Error('The cart edit destination could not be generated.');
+        navigating = true;
+        window.location.assign(this.withDomainAuthentication(cartTarget, DOMAIN_AUTH_USER_STATE, handoffId));
+        return;
+      }
       const ownsSavedConfiguration = this.ownsCurrentSavedConfiguration();
       if (ownsSavedConfiguration && this.dirty) {
         const saveButton = this.host.querySelector('[data-action="save"]');
@@ -1116,7 +1717,9 @@ export class StandaloneConfiguratorShell {
         authHandoffId = await createDomainAuthHandoff(new URL(targetUrl).origin);
       }
 
-      let target = ownsSavedConfiguration
+      const sameSavedScope = savedConfigurationScopeForHostname(window.location.hostname)
+        === savedConfigurationScopeForHostname(new URL(targetUrl, window.location.href).hostname);
+      let target = ownsSavedConfiguration && sameSavedScope
         ? this.buildSavedDomainTarget(targetUrl)
         : await this.buildSharedDomainTarget(nextLocale);
       target = this.authUser?.uid
@@ -1152,16 +1755,33 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'share') {
       this.share(actionTarget);
     } else if (action === 'cart') {
-      // Reserved Common UI entry point. Cart state/pricing will be wired later.
-      this.options.callbacks.onCartAction?.();
+      this.cartOpen = !this.cartOpen;
+      this.accountOpen = false;
+      this.languageOpen = false;
+      this.domainOpen = false;
+      this.syncMenus();
+      if (this.cartOpen && this.authUser?.uid) {
+        void this.refreshCartFromBackend(this.authUser.uid, { force: true });
+      }
+    } else if (action === 'cart-edit') {
+      void this.editCartItem(actionTarget.dataset.cartKey, actionTarget);
+    } else if (action === 'cart-remove') {
+      void this.removeCartItem(actionTarget.dataset.cartKey, actionTarget);
+    } else if (action === 'cart-empty') {
+      void this.emptyCart();
+    } else if (action === 'cart-quote') {
+      // Quotation workflow will be implemented later; keep this control inert for now.
+      return;
     } else if (action === 'account') {
       this.accountOpen = !this.accountOpen;
       if (!this.accountOpen) this.domainOpen = false;
       this.languageOpen = false;
+      this.cartOpen = false;
       this.syncMenus();
     } else if (action === 'language') {
       this.languageOpen = !this.languageOpen;
       this.accountOpen = false;
+      this.cartOpen = false;
       this.domainOpen = false;
       this.syncMenus();
       if (this.languageOpen) {
@@ -1277,9 +1897,69 @@ export class StandaloneConfiguratorShell {
     this.state[field.dataset.path] = field.value;
     this.persistPreferences();
     this.options.callbacks.onPreferenceChange?.(field.dataset.path, field.value, this.state);
+    if (field.dataset.path === 'currency') {
+      // Cart snapshots preserve the price/currency captured when they were added,
+      // but the cart itself always renders every row and the total in the user's
+      // currently selected currency. Re-render immediately when that preference changes.
+      this.renderHost();
+      this.sync();
+    }
+  }
+
+  async saveCartEditedConfiguration(button, { suppressFeedback = false } = {}) {
+    if (this.saveBusy || !this.currentCartEdit || !this.authUser?.uid) return false;
+    const configuration = this.options.callbacks.captureState?.();
+    if (configuration === undefined || configuration === null) {
+      if (!suppressFeedback) this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
+      return false;
+    }
+
+    this.saveBusy = true;
+    if (button) button.disabled = true;
+    try {
+      const price = this.resolveConfiguratorPanelPrice();
+      const result = await mutateUserCart({
+        action: 'update',
+        item: {
+          key: this.currentCartEdit.key,
+          productId: this.currentCartEdit.productId,
+          name: this.projectName,
+          stateJson: JSON.stringify(configuration),
+          costAmount: Math.max(0, Number(price.amount) || 0),
+          currency: price.currency,
+        },
+      });
+      this.setCartItems(result.items);
+      if (result.updatedItem?.name) {
+        this.projectName = String(result.updatedItem.name).slice(0, 80);
+        this.currentCartEdit.name = this.projectName;
+      }
+      this.dirty = false;
+      this.currentDraftStateJson = '';
+      this.captureCleanBaseline();
+      this.cartLastRemoteSyncAt = Date.now();
+      if (button) {
+        button.classList.remove('is-success');
+        void button.offsetWidth;
+        button.classList.add('is-success');
+      }
+      this.renderHost();
+      this.sync();
+      if (!suppressFeedback) this.showFeedback(sharedT(this.state.locale, 'feedback.saved'));
+      if (button) window.setTimeout(() => button.classList.remove('is-success'), 1050);
+      return true;
+    } catch (error) {
+      console.error('Shopping cart configuration could not be saved.', error);
+      if (!suppressFeedback) this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
+      return false;
+    } finally {
+      this.saveBusy = false;
+      this.syncAuthenticationControls();
+    }
   }
 
   async save(button, { suppressFeedback = false } = {}) {
+    if (this.currentCartEdit) return this.saveCartEditedConfiguration(button, { suppressFeedback });
     if (this.saveBusy) return false;
     if (this.savedLoadBlocked) {
       if (!suppressFeedback) this.showFeedback(sharedT(this.state.locale, 'feedback.saveUnavailable'), 'error');
@@ -1354,6 +2034,7 @@ export class StandaloneConfiguratorShell {
 
   async createNewConfiguration() {
     if (!this.authUser?.uid) return;
+    this.exitCartEditMode();
     try {
       const handled = await this.resetConfiguratorToDefault();
       if (!handled) return;
@@ -1369,6 +2050,7 @@ export class StandaloneConfiguratorShell {
       this.savedDialog.open = false;
       this.captureDraftState();
       this.persistMeta();
+      this.recordConfigurationCreatedAnalytics();
       this.renderHost();
       this.sync();
     } catch (error) {
@@ -1410,6 +2092,7 @@ export class StandaloneConfiguratorShell {
     if (!savedId || !this.authUser) return;
     try {
       const saved = await getUserConfiguration({ id: savedId, productType: this.productId });
+      this.exitCartEditMode();
       const restored = await this.restoreConfiguratorState(saved.state);
       if (!restored) throw new Error('Configurator rejected the saved state.');
       this.projectName = String(saved.name || this.projectName).slice(0, 80);
@@ -1500,7 +2183,7 @@ export class StandaloneConfiguratorShell {
     if (!this.authUser?.uid) return;
     const wasDirty = this.dirty;
     this.dirty = true;
-    this.scheduleDraftPersistence();
+    if (!this.currentCartEdit) this.scheduleDraftPersistence();
     if (!wasDirty) this.syncDirty();
   }
 
@@ -1517,6 +2200,9 @@ export class StandaloneConfiguratorShell {
   }
 
   persistMeta() {
+    // Cart editing is a detached working session. Never overwrite the user's
+    // normal saved/draft pointer while a shoppingCart snapshot is open.
+    if (this.currentCartEdit) return;
     const uid = this.authUser?.uid || this.activeSessionUid;
     if (!uid) return;
     window.localStorage.setItem(this.getProjectMetaKey(uid), JSON.stringify({
@@ -1568,8 +2254,10 @@ export class StandaloneConfiguratorShell {
   syncMenus() {
     this.accountMenu?.classList.toggle('is-open', this.accountOpen);
     this.languageMenu?.classList.toggle('is-open', this.languageOpen);
+    this.cartMenu?.classList.toggle('is-open', this.cartOpen);
     this.host.querySelector('[data-action="account"]')?.setAttribute('aria-expanded', String(this.accountOpen));
     this.host.querySelector('[data-action="language"]')?.setAttribute('aria-expanded', String(this.languageOpen));
+    this.host.querySelector('[data-action="cart"]')?.setAttribute('aria-expanded', String(this.cartOpen));
   }
 
   syncDomainMenu() {
@@ -1701,6 +2389,8 @@ export class StandaloneConfiguratorShell {
     document.removeEventListener('click', this.onDocumentClick);
     document.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('beforeunload', this.onBeforeUnload);
+    window.removeEventListener('storage', this.onStorage);
+    document.removeEventListener('visibilitychange', this.onCartVisibilityChange);
     window.clearTimeout(this.draftPersistTimer);
     window.clearInterval(this.dirtyWatchTimer);
     if (this.settingsToggle && this.onSettingsToggle) {
