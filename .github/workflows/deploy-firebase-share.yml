@@ -53,6 +53,9 @@ jobs:
       - name: Validate Tier-1 tenant authentication integration
         run: node scripts/validation/validate_tenant_auth_domains.mjs
 
+      - name: Validate Tier-1 saved-configuration isolation
+        run: node scripts/validation/validate_tenant_saved_configurations.mjs
+
       - name: Validate expected Firebase exports
         working-directory: firebase-share-backend/functions
         run: >-
@@ -81,7 +84,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Functions: share quota/App Check + authenticated per-user saved configurations" >> "$GITHUB_STEP_SUMMARY"
           echo "- App Check: lazy, Share-action only; background token refresh disabled" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Saved configurations: private Firebase-authenticated storage; no App Check assessment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Saved configurations: private Firebase-authenticated storage with Tier-1 tenant isolation; no App Check assessment" >> "$GITHUB_STEP_SUMMARY"
           echo "- Contact form: App Check-protected server-side email delivery through Google Workspace Gmail API" >> "$GITHUB_STEP_SUMMARY"
           echo "- Contact spam protection: honeypot + hashed-IP Firestore rate limit" >> "$GITHUB_STEP_SUMMARY"
           echo "- Domain switching: short-lived one-time authentication handoff functions deployed" >> "$GITHUB_STEP_SUMMARY"
