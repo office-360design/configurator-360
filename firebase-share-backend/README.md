@@ -93,13 +93,14 @@ Functions: `saveUserConfiguration`, `listUserConfigurations`, `getUserConfigurat
 
 ## Cross-domain authentication handoff
 
-**Change site domain** keeps the Firebase Authentication state synchronized between the `.com`, `.ro`, and `.de` sites without placing Google credentials, Firebase ID tokens, refresh tokens, or passwords in the URL.
+**Change site domain** keeps the Firebase Authentication state synchronized between the `.com`, `.ro`, `.de`, and active Tier-1 customer sites without placing Google credentials, Firebase ID tokens, refresh tokens, or passwords in the URL.
 
 - A signed-in source site creates a random 256-bit handoff id through `createDomainAuthHandoff`.
 - The handoff is bound to the destination origin, expires after 5 minutes, is stored in the server-only `domainAuthHandoffs` collection, and is deleted when redeemed.
 - The destination sends that opaque id to `redeemDomainAuthHandoff` over HTTPS and receives a Firebase custom token in the response body. The custom token is immediately exchanged by the Firebase Auth SDK and is never placed in browser history or the URL.
 - A guest source carries only a `guest` marker; the destination signs out any pre-existing local Firebase session before initializing the guest configuration.
 - Browser Firestore access to `domainAuthHandoffs` is explicitly denied.
+- Active `*.360configurator.com` tenant origins are validated server-side against the private `tenants/{slug}` record before they can create or redeem a handoff; arbitrary wildcard hostnames are not trusted just because DNS resolves.
 
 The runtime service account needs `roles/iam.serviceAccountTokenCreator` on itself so Firebase Admin can sign the short-lived custom token. The IAM bootstrap script enables the IAM Service Account Credentials API and grants this binding.
 
@@ -111,7 +112,9 @@ The one-time IAM helper is `iam/setup-github-deployer.sh`. It grants `roles/moni
 
 ## Tier-1 tenant provisioning
 
-`provisionTenant` is the internal backend for **Go Live Now** customer creation. It creates the private `tenants/{slug}` and public `tenantPublic/{slug}` records in one Firestore transaction. If either document already exists, the whole operation fails with `already-exists` and no partial tenant is created.
+`provisionTenant` is the internal backend for **Go Live Now** customer creation. Before creating Firestore records, it automatically adds `<slug>.360configurator.com` to Firebase Authentication's project-level `authorizedDomains` list so Google popup login works directly on the new customer hostname. It then creates the private `tenants/{slug}` and public `tenantPublic/{slug}` records in one Firestore transaction. If either document already exists, the operation fails with `already-exists`.
+
+Provisioning is deliberately serialized (`concurrency: 1`, `maxInstances: 1`) because `authorizedDomains` is a project-level read/modify/write list. This prevents simultaneous customer creation requests from overwriting one another's authentication-domain updates.
 
 Provisioning requires all of the following:
 
@@ -167,3 +170,34 @@ bash firebase-share-backend/iam/authorize-tenant-provisioning-admin.sh \
 Append `disable` as the third argument to revoke that UID later.
 
 This is a one-time administrative setup, not a per-customer deployment step. Normal Tier-1 customers are subsequently created entirely through the provisioning page.
+
+### One-time Firebase Auth domain IAM setup
+
+Automatic customer-domain authorization requires the runtime service account to read and update only the Firebase Authentication project configuration. Run this once from an authorized Cloud Shell/repository checkout:
+
+```bash
+bash firebase-share-backend/iam/setup-tenant-auth-domain-manager.sh
+```
+
+The helper enables `identitytoolkit.googleapis.com`, creates/updates the project custom role `tenantAuthDomainManager` with only `firebaseauth.configs.get` and `firebaseauth.configs.update`, and grants that custom role to `configurator-runtime@configurator-360.iam.gserviceaccount.com`. It does not grant user-management permissions.
+
+This is infrastructure bootstrap only. Future tenants created through the internal provisioning UI are added to Firebase Auth automatically.
+
+### Existing Tier-1 tenants created before automatic Auth registration
+
+A tenant that already exists in Firestore (for example the initial `tier1-test`) predates the automatic Auth-domain step. Authorize it once with:
+
+```bash
+bash firebase-share-backend/iam/authorize-existing-tenant-auth-domain.sh tier1-test
+```
+
+The helper verifies that the private tenant exists, is active, and owns exactly `tier1-test.360configurator.com` before changing Firebase Authentication. It is a migration/repair helper, not part of normal customer provisioning.
+
+### Tenant authentication behavior
+
+After provisioning:
+
+- Google `signInWithPopup` continues to use the existing Firebase Web App and `configurator-360.firebaseapp.com` auth helper, but Firebase recognizes the customer hostname as an authorized application domain.
+- Saved-configuration callable functions work with the resulting Firebase ID token exactly as they do on the standard 360Configurator domains.
+- Cross-domain authentication handoffs accept an active customer hostname only after validating it against the private tenant record.
+- Disabling/removing a tenant does not currently remove its hostname from Firebase Auth automatically; that cleanup should be paired with the future tenant lifecycle/deprovisioning flow.
