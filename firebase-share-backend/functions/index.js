@@ -45,7 +45,6 @@ const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 
 const TENANTS_COLLECTION = 'tenants';
 const TENANT_PUBLIC_COLLECTION = 'tenantPublic';
 const TENANT_PROVISIONING_ADMINS_COLLECTION = 'tenantProvisioningAdmins';
-const TENANT_USAGE_COLLECTION = 'tenantUsage';
 const TENANT_SCHEMA_VERSION = 1;
 const TENANT_PLAN_GO_LIVE_NOW = 'go_live_now';
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -53,13 +52,6 @@ const TENANT_COMPANY_NAME_MAX_LENGTH = 120;
 const TENANT_LOGO_MAX_BYTES = 200_000;
 const TENANT_ADMIN_LIST_LIMIT = 500;
 const TENANT_STATUSES = new Set(['active', 'suspended']);
-const TENANT_USAGE_LIMIT_MAX = 1_000_000_000;
-const DEFAULT_SOLAR_USAGE_LIMITS = Object.freeze({
-  analysesPerMonth: 0,
-  buildingInsightsPerMonth: 0,
-  dataLayersPerMonth: 0,
-  pvgisPerMonth: 0,
-});
 const TENANT_ADMIN_ORIGIN = 'https://www.360configurator.com';
 const TENANT_ADMIN_DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
 const RESERVED_TENANT_SLUGS = new Set([
@@ -1109,61 +1101,6 @@ function validateTenantConfigurators(value) {
   return configurators;
 }
 
-function normalizeTenantUsageLimit(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number <= 0) return 0;
-  return Math.min(TENANT_USAGE_LIMIT_MAX, Math.floor(number));
-}
-
-function normalizedSolarUsageLimits(value) {
-  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  return {
-    analysesPerMonth: normalizeTenantUsageLimit(source.analysesPerMonth),
-    buildingInsightsPerMonth: normalizeTenantUsageLimit(source.buildingInsightsPerMonth),
-    dataLayersPerMonth: normalizeTenantUsageLimit(source.dataLayersPerMonth),
-    pvgisPerMonth: normalizeTenantUsageLimit(source.pvgisPerMonth),
-  };
-}
-
-function validateSolarUsageLimits(value) {
-  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  for (const key of Object.keys(DEFAULT_SOLAR_USAGE_LIMITS)) {
-    const raw = source[key];
-    if (raw === undefined || raw === null || raw === '') continue;
-    const number = Number(raw);
-    if (!Number.isFinite(number) || number < 0 || !Number.isInteger(number) || number > TENANT_USAGE_LIMIT_MAX) {
-      throw new HttpsError('invalid-argument', 'Solar usage limits must be whole numbers between 0 and 1,000,000,000.');
-    }
-  }
-  return normalizedSolarUsageLimits(source);
-}
-
-function currentTenantUsageMonth() {
-  return new Date().toISOString().slice(0, 7);
-}
-
-function normalizedSolarUsage(value) {
-  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const counter = (key) => Math.max(0, Math.floor(Number(source[key]) || 0));
-  return {
-    analyses: counter('analyses'),
-    buildingInsights: counter('buildingInsights'),
-    dataLayers: counter('dataLayers'),
-    pvgis: counter('pvgis'),
-    pvgisUpstream: counter('pvgisUpstream'),
-  };
-}
-
-async function tenantUsageForMonth(slug, month = currentTenantUsageMonth()) {
-  const snapshot = await db.collection(TENANT_USAGE_COLLECTION).doc(slug).collection('months').doc(month).get();
-  const data = snapshot.data() || {};
-  return {
-    month,
-    solar: normalizedSolarUsage(data.solar),
-    updatedAtMs: tenantTimestampMs(data.updatedAt),
-  };
-}
-
 function detectLogoMime(buffer) {
   if (
     buffer.length >= 8
@@ -1267,13 +1204,11 @@ function tenantAdminSummaryFromSnapshot(snapshot) {
   };
 }
 
-function tenantAdminDetailFromSnapshot(snapshot, usage = null) {
+function tenantAdminDetailFromSnapshot(snapshot) {
   const data = snapshot.data() || {};
   return {
     ...tenantAdminSummaryFromSnapshot(snapshot),
     logoUrl: String(data.logoUrl || ''),
-    solarUsageLimits: normalizedSolarUsageLimits(data.solarUsageLimits),
-    usage: usage || { month: currentTenantUsageMonth(), solar: normalizedSolarUsage(null), updatedAtMs: 0 },
   };
 }
 
@@ -1293,10 +1228,10 @@ const USER_SAVED_CONFIGURATION_VERSION = 1;
 const MAX_SAVED_CONFIGURATION_BYTES = 850_000;
 const MAX_SAVED_CONFIGURATION_NAME_LENGTH = 80;
 const SAVED_CONFIGURATION_LIST_LIMIT = 100;
-const USER_CART_VERSION = 1;
+const USER_CART_VERSION = 2;
 const MAX_USER_CART_ITEMS = 100;
 const USER_CART_CURRENCIES = new Set(['USD', 'EUR', 'RON']);
-const USER_CART_KEY_PATTERN = /^(window|roof|pergola|hall|solar|fence):[A-Za-z0-9_-]{1,128}$/;
+const SHOPPING_CART_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
 
 function requireAuthenticatedUid(request) {
   const uid = String(request.auth?.uid || '');
@@ -1394,7 +1329,24 @@ async function requireSavedConfigurationScope(request, product) {
   return { origin, tenantSlug };
 }
 
-function userCartDocument(uid, tenantSlug = '') {
+function userShoppingCartCollection(uid, tenantSlug = '') {
+  const userRef = db.collection('users').doc(uid);
+  if (!tenantSlug) {
+    // Public .com/.ro/.de domains share one account-level shopping cart.
+    return userRef.collection('shoppingCart');
+  }
+
+  // Customer tenant carts remain isolated from the public-platform cart and
+  // from every other tenant while keeping the same immutable snapshot model.
+  return userRef
+    .collection('tenantShoppingCart')
+    .doc(tenantSlug)
+    .collection('items');
+}
+
+// Previous releases stored the entire cart as one mutable document. Keep this
+// reference only for one-time migration into immutable shoppingCart documents.
+function legacyUserCartDocument(uid, tenantSlug = '') {
   const scopeId = tenantSlug ? `tenant_${tenantSlug}` : 'platform';
   return db.collection('users').doc(uid).collection('carts').doc(scopeId);
 }
@@ -1421,62 +1373,148 @@ async function requireUserCartScope(request) {
   return { origin, tenantSlug };
 }
 
-function validateUserCartKey(value) {
-  const key = String(value || '').trim();
-  if (!USER_CART_KEY_PATTERN.test(key)) {
-    throw new HttpsError('invalid-argument', 'Invalid cart item key.');
+function validateShoppingCartItemId(value) {
+  const id = String(value || '').trim();
+  if (!SHOPPING_CART_ITEM_ID_PATTERN.test(id)) {
+    throw new HttpsError('invalid-argument', 'Invalid shopping cart item id.');
   }
-  return key;
+  return id;
 }
 
-function normalizeUserCartItem(raw) {
-  const productId = normalizeProductType(raw?.productId);
-  if (!ALLOWED_PRODUCTS.has(productId)) {
-    throw new HttpsError('invalid-argument', 'Unsupported cart configurator type.');
-  }
-  const savedConfigurationId = validateSavedConfigurationId(raw?.savedConfigurationId);
-  const key = `${productId}:${savedConfigurationId}`;
-  const name = String(raw?.name || '').trim().slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH);
-  const costAmount = Number(raw?.costAmount);
-  if (!Number.isFinite(costAmount) || costAmount < 0 || costAmount > 1_000_000_000_000) {
-    throw new HttpsError('invalid-argument', 'Invalid cart price.');
-  }
-  const currency = String(raw?.currency || '').trim().toUpperCase();
+function normalizeCartCurrency(value) {
+  const currency = String(value || '').trim().toUpperCase();
   if (!USER_CART_CURRENCIES.has(currency)) {
     throw new HttpsError('invalid-argument', 'Unsupported cart currency.');
   }
-  const addedAt = Number(raw?.addedAt);
+  return currency;
+}
+
+function normalizeCartPrice(value) {
+  const costAmount = Number(value);
+  if (!Number.isFinite(costAmount) || costAmount < 0 || costAmount > 1_000_000_000_000) {
+    throw new HttpsError('invalid-argument', 'Invalid cart price.');
+  }
+  return costAmount;
+}
+
+function cartNameWithNumber(baseName, existingNames = []) {
+  const base = String(baseName || '').trim().slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH) || 'Configuration';
+  const names = new Set(existingNames.map((name) => String(name || '').trim()));
+  if (!names.has(base)) return base;
+  for (let number = 1; number <= MAX_USER_CART_ITEMS + 1; number += 1) {
+    const suffix = ` (${number})`;
+    const candidate = `${base.slice(0, Math.max(1, MAX_SAVED_CONFIGURATION_NAME_LENGTH - suffix.length))}${suffix}`;
+    if (!names.has(candidate)) return candidate;
+  }
+  throw new HttpsError('resource-exhausted', 'Could not allocate a shopping cart item name.');
+}
+
+function shoppingCartItemSummary(snapshot) {
+  const data = snapshot?.data?.() || snapshot || {};
+  const id = String(snapshot?.id || data.id || '');
+  const productId = normalizeProductType(data.p || data.productId);
+  if (!id || !ALLOWED_PRODUCTS.has(productId)) return null;
+  const costAmount = Number(data.priceAmount ?? data.costAmount);
+  const currency = String(data.currency || '').trim().toUpperCase();
+  if (!Number.isFinite(costAmount) || costAmount < 0 || !USER_CART_CURRENCIES.has(currency)) return null;
   return {
-    key,
+    key: id,
+    cartItemId: id,
     productId,
-    savedConfigurationId,
-    name,
+    savedConfigurationId: String(data.sourceSavedConfigurationId || ''),
+    name: String(data.n || data.name || '').trim().slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH),
+    sourceName: String(data.sourceName || '').trim().slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH),
     costAmount,
     currency,
-    addedAt: Number.isFinite(addedAt) && addedAt > 0 ? Math.round(addedAt) : Date.now(),
+    addedAt: timestampMillis(data.createdAt) || Number(data.addedAt) || 0,
   };
 }
 
-function normalizeStoredUserCartItems(items) {
+function shoppingCartResponse(snapshot, { addedItem = null, updatedAtMs = Date.now() } = {}) {
+  const docs = Array.isArray(snapshot?.docs) ? snapshot.docs : [];
+  const items = docs.map((doc) => shoppingCartItemSummary(doc)).filter(Boolean);
+  return {
+    exists: true,
+    items,
+    addedItem: addedItem ? shoppingCartItemSummary(addedItem) : null,
+    updatedAtMs,
+  };
+}
+
+function normalizeLegacyCartItems(items) {
   if (!Array.isArray(items)) return [];
   const deduplicated = new Map();
   items.slice(0, MAX_USER_CART_ITEMS).forEach((raw) => {
     try {
-      const item = normalizeUserCartItem(raw);
-      deduplicated.set(item.key, item);
+      const productId = normalizeProductType(raw?.productId);
+      if (!ALLOWED_PRODUCTS.has(productId)) return;
+      const savedConfigurationId = validateSavedConfigurationId(raw?.savedConfigurationId);
+      const currency = normalizeCartCurrency(raw?.currency);
+      const costAmount = normalizeCartPrice(raw?.costAmount);
+      deduplicated.set(`${productId}:${savedConfigurationId}`, {
+        productId,
+        savedConfigurationId,
+        currency,
+        costAmount,
+        addedAt: Number(raw?.addedAt) || Date.now(),
+      });
     } catch {
-      // Ignore malformed historical cart rows instead of making the cart unreadable.
+      // Ignore malformed legacy entries instead of blocking cart migration.
     }
   });
-  return [...deduplicated.values()].slice(-MAX_USER_CART_ITEMS);
+  return [...deduplicated.values()];
 }
 
-function userCartResponse({ exists = true, items = [], updatedAt = null } = {}) {
-  return {
-    exists,
-    items: normalizeStoredUserCartItems(items),
-    updatedAtMs: timestampMillis(updatedAt),
-  };
+async function migrateLegacyUserCartIfNeeded(uid, tenantSlug = '') {
+  const legacyRef = legacyUserCartDocument(uid, tenantSlug);
+  const legacySnapshot = await legacyRef.get();
+  if (!legacySnapshot.exists) return;
+
+  const cartCollection = userShoppingCartCollection(uid, tenantSlug);
+  const currentSnapshot = await cartCollection.limit(MAX_USER_CART_ITEMS).get();
+  const existingNames = currentSnapshot.docs
+    .map((doc) => String(doc.data()?.n || '').trim())
+    .filter(Boolean);
+  const existingIds = new Set(currentSnapshot.docs.map((doc) => doc.id));
+  const legacyItems = normalizeLegacyCartItems(legacySnapshot.data()?.items);
+
+  for (const legacyItem of legacyItems) {
+    const migrationId = `legacy_${legacyItem.productId}_${legacyItem.savedConfigurationId}`;
+    if (existingIds.has(migrationId)) continue;
+    const savedSnapshot = await userSavedItemsCollection(
+      uid,
+      legacyItem.productId,
+      tenantSlug,
+    ).doc(legacyItem.savedConfigurationId).get();
+    if (!savedSnapshot.exists) continue;
+    const saved = savedSnapshot.data() || {};
+    const stateJson = String(saved.s || '');
+    if (!stateJson) continue;
+    const sourceName = String(saved.n || 'Configuration').trim().slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH);
+    const name = cartNameWithNumber(sourceName, existingNames);
+    const createdAt = Timestamp.fromMillis(
+      Number.isFinite(legacyItem.addedAt) && legacyItem.addedAt > 0 ? legacyItem.addedAt : Date.now(),
+    );
+    await cartCollection.doc(migrationId).set({
+      v: USER_CART_VERSION,
+      p: legacyItem.productId,
+      n: name,
+      sourceName,
+      sourceSavedConfigurationId: legacyItem.savedConfigurationId,
+      s: stateJson,
+      sizeBytes: Number(saved.sizeBytes || utf8ByteLength(stateJson)),
+      priceAmount: legacyItem.costAmount,
+      currency: legacyItem.currency,
+      tenantSlug,
+      createdAt,
+    });
+    existingNames.push(name);
+    existingIds.add(migrationId);
+  }
+
+  // Once migration has completed, remove the mutable legacy cart document so an
+  // Empty cart action can never resurrect stale rows on a later domain visit.
+  await legacyRef.delete();
 }
 
 const USER_CONFIGURATION_CALLABLE_OPTIONS = Object.freeze({
@@ -1561,7 +1599,6 @@ exports.provisionTenant = onCall(
         status: 'active',
         ownerUid: '',
         configurators,
-        solarUsageLimits: { ...DEFAULT_SOLAR_USAGE_LIMITS },
         logoUrl,
         firebaseAuthDomain: domain,
         firebaseAuthDomainAuthorized: true,
@@ -1627,8 +1664,7 @@ exports.getTenant = onCall(
     await requireTenantProvisioningAdmin(request);
     const slug = validateTenantSlug(request.data?.slug);
     const snapshot = await requireGoLiveNowTenant(slug);
-    const usage = await tenantUsageForMonth(slug);
-    return tenantAdminDetailFromSnapshot(snapshot, usage);
+    return tenantAdminDetailFromSnapshot(snapshot);
   },
 );
 
@@ -1671,9 +1707,6 @@ exports.updateTenant = onCall(
       const configurators = hasOwn('configurators')
         ? validateTenantConfigurators(input.configurators)
         : validateTenantConfigurators(tenant.configurators);
-      const solarUsageLimits = hasOwn('solarUsageLimits')
-        ? validateSolarUsageLimits(input.solarUsageLimits)
-        : normalizedSolarUsageLimits(tenant.solarUsageLimits);
 
       const logoMode = hasOwn('logoMode') ? String(input.logoMode || '').trim().toLowerCase() : 'keep';
       if (!['keep', 'replace', 'remove'].includes(logoMode)) {
@@ -1697,7 +1730,6 @@ exports.updateTenant = onCall(
 
       transaction.update(privateRef, {
         ...synchronizedFields,
-        solarUsageLimits,
         domain: expectedDomain,
         lastUpdatedByUid: admin.uid,
         lastUpdatedByEmail: admin.email,
@@ -1711,14 +1743,11 @@ exports.updateTenant = onCall(
         status,
         configurators,
         logoUrl,
-        solarUsageLimits,
         firebaseAuthDomainAuthorized: tenant.firebaseAuthDomainAuthorized === true,
         createdAtMs: tenantTimestampMs(tenant.createdAt),
         updatedAtMs: now.toMillis(),
       };
     });
-
-    result.usage = await tenantUsageForMonth(slug);
 
     logger.info('Tier-1 tenant updated.', {
       slug,
@@ -1920,14 +1949,12 @@ exports.getUserCart = onCall(
   async (request) => {
     const uid = requireAuthenticatedUid(request);
     const { tenantSlug } = await requireUserCartScope(request);
-    const snapshot = await userCartDocument(uid, tenantSlug).get();
-    if (!snapshot.exists) return userCartResponse({ exists: false, items: [] });
-    const data = snapshot.data() || {};
-    return userCartResponse({
-      exists: true,
-      items: data.items,
-      updatedAt: data.updatedAt,
-    });
+    await migrateLegacyUserCartIfNeeded(uid, tenantSlug);
+    const snapshot = await userShoppingCartCollection(uid, tenantSlug)
+      .orderBy('createdAt', 'asc')
+      .limit(MAX_USER_CART_ITEMS)
+      .get();
+    return shoppingCartResponse(snapshot);
   },
 );
 
@@ -1937,70 +1964,89 @@ exports.mutateUserCart = onCall(
     const uid = requireAuthenticatedUid(request);
     const { tenantSlug } = await requireUserCartScope(request);
     const action = String(request.data?.action || '').trim().toLowerCase();
-    if (!['initialize', 'upsert', 'remove', 'empty'].includes(action)) {
+    if (!['add', 'remove', 'empty'].includes(action)) {
       throw new HttpsError('invalid-argument', 'Unsupported cart action.');
     }
 
-    const ref = userCartDocument(uid, tenantSlug);
-    const now = Timestamp.now();
-    let preparedItem = null;
-    let preparedInitialItems = null;
-    let removeKey = '';
+    await migrateLegacyUserCartIfNeeded(uid, tenantSlug);
+    const collection = userShoppingCartCollection(uid, tenantSlug);
 
-    if (action === 'upsert') {
-      preparedItem = normalizeUserCartItem(request.data?.item);
-      const savedSnapshot = await userSavedItemsCollection(
-        uid,
-        preparedItem.productId,
-        tenantSlug,
-      ).doc(preparedItem.savedConfigurationId).get();
-      if (!savedSnapshot.exists) {
-        throw new HttpsError('not-found', 'The saved configuration referenced by this cart item no longer exists.');
+    if (action === 'add') {
+      const rawItem = request.data?.item || {};
+      const productId = normalizeProductType(rawItem.productId);
+      if (!ALLOWED_PRODUCTS.has(productId)) {
+        throw new HttpsError('invalid-argument', 'Unsupported cart configurator type.');
       }
-      preparedItem.name = String(savedSnapshot.data()?.n || preparedItem.name || '').trim()
-        .slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH);
-    } else if (action === 'remove') {
-      removeKey = validateUserCartKey(request.data?.key);
-    } else if (action === 'initialize') {
-      const incoming = Array.isArray(request.data?.items) ? request.data.items : [];
-      preparedInitialItems = normalizeStoredUserCartItems(incoming.slice(0, MAX_USER_CART_ITEMS));
-    }
+      const savedConfigurationId = validateSavedConfigurationId(rawItem.savedConfigurationId);
+      const priceAmount = normalizeCartPrice(rawItem.costAmount);
+      const currency = normalizeCartCurrency(rawItem.currency);
+      const savedRef = userSavedItemsCollection(uid, productId, tenantSlug).doc(savedConfigurationId);
+      const cartItemRef = collection.doc();
+      let addedData = null;
 
-    const result = await db.runTransaction(async (transaction) => {
-      const snapshot = await transaction.get(ref);
-      const data = snapshot.exists ? snapshot.data() || {} : {};
-      const existingItems = normalizeStoredUserCartItems(data.items);
-      const createdAt = data.createdAt || now;
+      await db.runTransaction(async (transaction) => {
+        const savedSnapshot = await transaction.get(savedRef);
+        if (!savedSnapshot.exists) {
+          throw new HttpsError('not-found', 'The saved configuration referenced by this cart item no longer exists.');
+        }
+        const existingSnapshot = await transaction.get(
+          collection.orderBy('createdAt', 'asc').limit(MAX_USER_CART_ITEMS + 1),
+        );
+        if (existingSnapshot.size >= MAX_USER_CART_ITEMS) {
+          throw new HttpsError('resource-exhausted', 'The shopping cart is full.');
+        }
 
-      if (action === 'initialize' && snapshot.exists) {
-        return userCartResponse({ exists: true, items: existingItems, updatedAt: data.updatedAt });
-      }
-
-      let items = existingItems;
-      if (action === 'initialize') {
-        items = preparedInitialItems;
-      } else if (action === 'upsert') {
-        items = existingItems.filter((item) => item.key !== preparedItem.key);
-        items.push(preparedItem);
-        if (items.length > MAX_USER_CART_ITEMS) items = items.slice(items.length - MAX_USER_CART_ITEMS);
-      } else if (action === 'remove') {
-        items = existingItems.filter((item) => item.key !== removeKey);
-      } else if (action === 'empty') {
-        items = [];
-      }
-
-      transaction.set(ref, {
-        v: USER_CART_VERSION,
-        tenantSlug,
-        items,
-        createdAt,
-        updatedAt: now,
+        const saved = savedSnapshot.data() || {};
+        const stateJson = String(saved.s || '');
+        if (!stateJson) {
+          throw new HttpsError('failed-precondition', 'The saved configuration snapshot is empty.');
+        }
+        const sourceName = String(saved.n || 'Configuration').trim()
+          .slice(0, MAX_SAVED_CONFIGURATION_NAME_LENGTH);
+        const existingNames = existingSnapshot.docs
+          .map((doc) => String(doc.data()?.n || '').trim())
+          .filter(Boolean);
+        const name = cartNameWithNumber(sourceName, existingNames);
+        const now = Timestamp.now();
+        addedData = {
+          v: USER_CART_VERSION,
+          p: productId,
+          n: name,
+          sourceName,
+          sourceSavedConfigurationId: savedConfigurationId,
+          // Copy the saved payload into the cart item. Cart entries are immutable
+          // snapshots: later edits to the source save cannot alter an order draft.
+          s: stateJson,
+          sizeBytes: Number(saved.sizeBytes || utf8ByteLength(stateJson)),
+          priceAmount,
+          currency,
+          tenantSlug,
+          createdAt: now,
+        };
+        transaction.create(cartItemRef, addedData);
       });
 
-      return userCartResponse({ exists: true, items, updatedAt: now });
-    });
+      const snapshot = await collection.orderBy('createdAt', 'asc').limit(MAX_USER_CART_ITEMS).get();
+      return shoppingCartResponse(snapshot, {
+        addedItem: { id: cartItemRef.id, ...addedData },
+        updatedAtMs: Date.now(),
+      });
+    }
 
-    return result;
+    if (action === 'remove') {
+      const itemId = validateShoppingCartItemId(request.data?.key);
+      await collection.doc(itemId).delete();
+      const snapshot = await collection.orderBy('createdAt', 'asc').limit(MAX_USER_CART_ITEMS).get();
+      return shoppingCartResponse(snapshot);
+    }
+
+    const snapshot = await collection.limit(MAX_USER_CART_ITEMS).get();
+    if (!snapshot.empty) {
+      const batch = db.batch();
+      snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+    return shoppingCartResponse({ docs: [] });
   },
 );
 

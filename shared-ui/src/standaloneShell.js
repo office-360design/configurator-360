@@ -9,7 +9,7 @@ import { renderSavedConfigurationsDialog } from './components/savedConfiguration
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=2';
 import { renderCartMenu } from './components/cartMenu.js?v=2';
-import { getUserCart, mutateUserCart } from './userCart.js?v=1';
+import { getUserCart, mutateUserCart } from './userCart.js?v=2';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 import { readShareState } from './shareState.js?v=4';
 import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
@@ -274,16 +274,20 @@ export class StandaloneConfiguratorShell {
   normalizeCartItem(item) {
     const productId = normalizeProductId(item?.productId || 'configuration');
     const savedConfigurationId = String(item?.savedConfigurationId || '').slice(0, 128);
-    const itemKey = String(item?.key || `${productId}:${savedConfigurationId}`).slice(0, 260);
+    // A cart row is its own immutable Firestore snapshot, so repeated additions
+    // of the same saved configuration must retain distinct cart item ids.
+    const itemKey = String(item?.key || item?.cartItemId || '').slice(0, 180);
     const explicitAmount = Number(item?.costAmount);
     const parsed = Number.isFinite(explicitAmount)
       ? { amount: explicitAmount, currency: cartCurrencyFromText(item?.currency, this.state.currency) }
       : parseCartMoneyText(item?.costText, item?.currency || this.state.currency);
     return {
       key: itemKey,
+      cartItemId: itemKey,
       productId,
       savedConfigurationId,
       name: String(item?.name || '').slice(0, 80),
+      sourceName: String(item?.sourceName || '').slice(0, 80),
       costAmount: Math.max(0, Number(parsed.amount) || 0),
       currency: parsed.currency,
       addedAt: Number(item?.addedAt) || Date.now(),
@@ -321,13 +325,10 @@ export class StandaloneConfiguratorShell {
 
   cartItemForBackend(item) {
     return {
-      key: String(item?.key || ''),
       productId: normalizeProductId(item?.productId || 'configuration'),
       savedConfigurationId: String(item?.savedConfigurationId || ''),
-      name: String(item?.name || '').slice(0, 80),
       costAmount: Math.max(0, Number(item?.costAmount) || 0),
       currency: cartCurrencyFromText(item?.currency, this.state.currency),
-      addedAt: Number(item?.addedAt) || Date.now(),
     };
   }
 
@@ -364,34 +365,25 @@ export class StandaloneConfiguratorShell {
       .join(' + ');
   }
 
-  async refreshCartFromBackend(uid = this.authUser?.uid, { force = false, allowMigration = true } = {}) {
+  async refreshCartFromBackend(uid = this.authUser?.uid, { force = false } = {}) {
     const expectedUid = String(uid || '');
     if (!expectedUid || expectedUid !== String(this.authUser?.uid || '')) return false;
     if (!force && Date.now() - this.cartLastRemoteSyncAt < 5000) return true;
     if (this.cartSyncPromise) return this.cartSyncPromise;
 
-    const localItems = this.cartItems.map((item) => this.cartItemForBackend(item));
     this.cartSyncPromise = (async () => {
       try {
-        let remote = await getUserCart();
+        const remote = await getUserCart();
         if (expectedUid !== String(this.authUser?.uid || '')) return false;
-
-        // Migrate the origin-local cart created by the first cart implementation
-        // exactly once. The backend keeps an empty initialized document after an
-        // Empty cart action, so a stale cart from another origin can never be
-        // resurrected later.
-        if (!remote.exists && allowMigration) {
-          remote = await mutateUserCart({ action: 'initialize', items: localItems });
-          if (expectedUid !== String(this.authUser?.uid || '')) return false;
-        }
-
+        // Firestore shoppingCart snapshots are the source of truth. Local storage
+        // is only an origin-local cache and must never recreate deleted rows.
         this.setCartItems(remote.items);
         this.cartLastRemoteSyncAt = Date.now();
         this.renderHost();
         this.sync();
         return true;
       } catch (error) {
-        console.warn('The account cart could not be synchronized.', error);
+        console.warn('The account shopping cart could not be synchronized.', error);
         return false;
       } finally {
         this.cartSyncPromise = null;
@@ -427,24 +419,23 @@ export class StandaloneConfiguratorShell {
       }
 
       const price = this.resolveConfiguratorPanelPrice();
-      const itemKey = `${this.productId}:${this.currentSavedConfigurationId}`;
       const item = {
-        key: itemKey,
         productId: this.productId,
         savedConfigurationId: this.currentSavedConfigurationId,
-        name: String(this.projectName || sharedT(this.state.locale, 'cart.unnamed')).slice(0, 80),
         costAmount: Math.max(0, Number(price.amount) || 0),
         currency: price.currency,
-        addedAt: Date.now(),
       };
 
-      const result = await mutateUserCart({ action: 'upsert', item: this.cartItemForBackend(item) });
+      // The backend reads the just-saved configuration and creates a new
+      // shoppingCart document containing a full copy of that state. This is an
+      // append operation, never an upsert: adding ABC twice yields ABC + ABC (1).
+      const result = await mutateUserCart({ action: 'add', item: this.cartItemForBackend(item) });
       this.setCartItems(result.items);
       this.cartLastRemoteSyncAt = Date.now();
       this.renderHost();
       this.sync();
       this.showFeedback(sharedT(this.state.locale, 'feedback.addedToCart'));
-      this.options.callbacks.onAddToCart?.({ ...item });
+      this.options.callbacks.onAddToCart?.(result.addedItem ? { ...result.addedItem } : { ...item });
       return true;
     } catch (error) {
       console.error('The configuration could not be added to the synchronized cart.', error);
@@ -1204,7 +1195,7 @@ export class StandaloneConfiguratorShell {
     this.activeSessionUid = uid;
     this.cartOpen = false;
     this.loadCart(uid);
-    void this.refreshCartFromBackend(uid, { force: true, allowMigration: true });
+    void this.refreshCartFromBackend(uid, { force: true });
     this.savedLoadBlocked = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
 
@@ -1531,7 +1522,7 @@ export class StandaloneConfiguratorShell {
       this.domainOpen = false;
       this.syncMenus();
       if (this.cartOpen && this.authUser?.uid) {
-        void this.refreshCartFromBackend(this.authUser.uid, { force: true, allowMigration: true });
+        void this.refreshCartFromBackend(this.authUser.uid, { force: true });
       }
     } else if (action === 'cart-remove') {
       void this.removeCartItem(actionTarget.dataset.cartKey, actionTarget);
