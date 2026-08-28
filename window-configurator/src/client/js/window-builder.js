@@ -221,20 +221,19 @@ export function createWindowBuilder({
     }
 
     function applyExplodeTransforms(progress) {
+        const explodeT = THREE.MathUtils.clamp(progress, 0, 1);
         explodableObjects.forEach(object => {
             const basePos = object?.userData?.basePos;
             if (!basePos) return;
-            const layer = String(object?.userData?.explodeResolvedLayer || getExplodeSemanticLayer(object) || 'structure');
             const baseVector = object?.userData?.explodeBaseDir || new THREE.Vector3();
             const layerVector = object?.userData?.explodeLayerDir || object?.userData?.explodeDir || new THREE.Vector3();
-            const factors = getExplodeProgressFactors(progress, layer);
             const offset = new THREE.Vector3()
                 .copy(baseVector)
-                .multiplyScalar(factors.base)
-                .addScaledVector(layerVector, factors.layer);
+                .add(layerVector)
+                .multiplyScalar(explodeT);
             object.position.copy(basePos).add(offset);
         });
-        applyExplodedWindowForwardOffset(progress);
+        applyExplodedWindowForwardOffset(explodeT);
     }
 
     function getExplodeDividerChainAnchor(segmentId) {
