@@ -360,32 +360,40 @@ export class StandaloneConfiguratorShell {
     return convertCartMoneyAmount(value, fromCurrency, toCurrency);
   }
 
-  formatCartMoney(value, currency = this.state.currency) {
+  formatCartMoney(value, currency = this.state.currency, decimals = 0) {
     const amount = Number(value);
     if (!Number.isFinite(amount)) return '—';
     try {
       return new Intl.NumberFormat(this.state.locale || 'en-US', {
         style: 'currency',
         currency: cartCurrencyFromText(currency, this.state.currency),
-        maximumFractionDigits: 0,
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
       }).format(amount);
     } catch {
-      return `${Math.round(amount)} ${cartCurrencyFromText(currency, this.state.currency)}`;
+      return `${amount.toFixed(decimals)} ${cartCurrencyFromText(currency, this.state.currency)}`;
     }
   }
 
   cartRenderItems() {
+    const hasWindow = this.cartItems.some((item) => item.productId === 'window');
     return this.cartItems.map((item) => ({
       ...item,
       // Cart snapshots keep the exact currency captured when the item was added.
       // Do not silently re-price historical rows when the account currency changes.
-      costText: this.formatCartMoney(item.costAmount, item.currency),
+      costText: this.formatCartMoney(
+        item.costAmount,
+        item.currency,
+        (item.productId === 'window' && hasWindow) ? 2 : 0
+      ),
     }));
   }
 
   cartTotalText() {
     const selectedCurrency = cartCurrencyFromText(this.state.currency, 'USD');
-    if (!this.cartItems.length) return this.formatCartMoney(0, selectedCurrency);
+    const hasWindow = this.cartItems.some((item) => item.productId === 'window');
+    const decimals = hasWindow ? 2 : 0;
+    if (!this.cartItems.length) return this.formatCartMoney(0, selectedCurrency, decimals);
 
     const totalsByCurrency = new Map();
     this.cartItems.forEach((item) => {
@@ -394,7 +402,7 @@ export class StandaloneConfiguratorShell {
       totalsByCurrency.set(currency, (totalsByCurrency.get(currency) || 0) + amount);
     });
     return [...totalsByCurrency.entries()]
-      .map(([currency, amount]) => this.formatCartMoney(amount, currency))
+      .map(([currency, amount]) => this.formatCartMoney(amount, currency, decimals))
       .join(' · ');
   }
 
