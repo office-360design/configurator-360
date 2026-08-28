@@ -102,6 +102,7 @@ export function createWindowBuilder({
     const glassNumberSprites = new Map();
     let lastFabricationSnapshot = null;
     let explodeCellAnchors = new Map();
+    let explodeDividerChainAnchors = new Map();
 
     function registerExplode(obj, dx, dy, dz) {
         obj.userData.basePos = obj.position.clone();
@@ -132,6 +133,7 @@ export function createWindowBuilder({
 
     function resetExplodeAnchors() {
         explodeCellAnchors = new Map();
+        explodeDividerChainAnchors = new Map();
     }
 
     function setExplodeCellAnchor(cell) {
@@ -233,6 +235,88 @@ export function createWindowBuilder({
             object.position.copy(basePos).add(offset);
         });
         applyExplodedWindowForwardOffset(progress);
+    }
+
+    function getExplodeDividerChainAnchor(segmentId) {
+        if (!segmentId && segmentId !== 0) return null;
+        return explodeDividerChainAnchors.get(String(segmentId)) || null;
+    }
+
+    function almostEqualExplodeValue(left, right, epsilon = 1e-6) {
+        return Math.abs(Number(left) - Number(right)) <= epsilon;
+    }
+
+    function buildExplodeDividerChainAnchors() {
+        explodeDividerChainAnchors = new Map();
+        const segments = Array.isArray(editableTopologyGeometry?.dividerSegments)
+            ? editableTopologyGeometry.dividerSegments.filter(segment => segment?.id)
+            : [];
+        if (!segments.length) return;
+
+        const normalized = segments.map(segment => {
+            const orientation = String(segment.orientation || '');
+            const perpendicular = Number(segment.perpendicularOffset);
+            const start = Number.isFinite(Number(segment.structuralWorldStart))
+                ? Number(segment.structuralWorldStart)
+                : Number(segment.worldStart);
+            const end = Number.isFinite(Number(segment.structuralWorldEnd))
+                ? Number(segment.structuralWorldEnd)
+                : Number(segment.worldEnd);
+            if (!orientation || !Number.isFinite(perpendicular) || !Number.isFinite(start) || !Number.isFinite(end)) {
+                return null;
+            }
+            return {
+                id: String(segment.id),
+                orientation,
+                perpendicular,
+                start: Math.min(start, end),
+                end: Math.max(start, end),
+            };
+        }).filter(Boolean);
+
+        const visited = new Set();
+        normalized.forEach(segment => {
+            if (visited.has(segment.id)) return;
+            const queue = [segment];
+            const component = [];
+            visited.add(segment.id);
+            while (queue.length) {
+                const current = queue.shift();
+                component.push(current);
+                normalized.forEach(candidate => {
+                    if (visited.has(candidate.id)) return;
+                    if (candidate.orientation !== current.orientation) return;
+                    if (!almostEqualExplodeValue(candidate.perpendicular, current.perpendicular)) return;
+                    const touches = almostEqualExplodeValue(candidate.start, current.end)
+                        || almostEqualExplodeValue(candidate.end, current.start)
+                        || almostEqualExplodeValue(candidate.start, current.start)
+                        || almostEqualExplodeValue(candidate.end, current.end);
+                    if (!touches) return;
+                    visited.add(candidate.id);
+                    queue.push(candidate);
+                });
+            }
+
+            if (!component.length) return;
+            const orientation = component[0].orientation;
+            const perpendicular = component.reduce((sum, item) => sum + item.perpendicular, 0) / component.length;
+            const spanStart = Math.min(...component.map(item => item.start));
+            const spanEnd = Math.max(...component.map(item => item.end));
+            const anchor = orientation === 'vertical'
+                ? Object.freeze({
+                    x: perpendicular,
+                    y: (spanStart + spanEnd) / 2,
+                    orientation,
+                })
+                : Object.freeze({
+                    x: (spanStart + spanEnd) / 2,
+                    y: perpendicular,
+                    orientation,
+                });
+            component.forEach(item => {
+                explodeDividerChainAnchors.set(item.id, anchor);
+            });
+        });
     }
 
     function getExplosionConfigurationCenter() {
@@ -496,20 +580,13 @@ export function createWindowBuilder({
         }
 
         if (isDivider) {
-            if (assembly.axis === 'x') {
-                return new THREE.Vector3(
-                    (Number(anchor.x) - Number(configurationCenter.x)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
-                    0,
-                    0
-                );
-            }
-            if (assembly.axis === 'y') {
-                return new THREE.Vector3(
-                    0,
-                    (Number(anchor.y) - Number(configurationCenter.y)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
-                    0
-                );
-            }
+            const chainAnchor = getExplodeDividerChainAnchor(primaryData.dividerSegmentId);
+            const effectiveAnchor = chainAnchor || anchor;
+            return new THREE.Vector3(
+                (Number(effectiveAnchor.x) - Number(configurationCenter.x)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
+                (Number(effectiveAnchor.y) - Number(configurationCenter.y)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
+                0
+            );
         }
 
         return new THREE.Vector3(
@@ -3440,6 +3517,7 @@ export function createWindowBuilder({
         }
 
         [...openingCells, ...fixedCells].forEach(setExplodeCellAnchor);
+        buildExplodeDividerChainAnchors();
 
         if (openingCell) {
             sashA = openingCell.width;
