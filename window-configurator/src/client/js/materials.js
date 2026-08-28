@@ -73,12 +73,12 @@ export function createMaterialManager({
     }
 
     const glassMat = createSurfaceMaterial({
-        color: 0x60a5fa,
+        color: 0x9bd7f5,
         transparent: true,
-        opacity: 0.25,
-        metalness: 0.9,
-        roughness: 0.1,
-        shininess: 90,
+        opacity: 0.16,
+        metalness: 0.1,
+        roughness: 0.05,
+        shininess: 75,
     });
 
     const handleMat = createSurfaceMaterial({
@@ -99,10 +99,10 @@ export function createMaterialManager({
         foam: { metalness: 0.0, roughness: 0.95, shininess: 10 },
         glass: {
             transparent: true,
-            opacity: 0.25,
-            metalness: 0.9,
-            roughness: 0.1,
-            shininess: 90,
+            opacity: 0.16,
+            metalness: 0.1,
+            roughness: 0.05,
+            shininess: 75,
         },
         default: { metalness: 0.5, roughness: 0.5, shininess: 35 },
     };
