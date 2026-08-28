@@ -120,7 +120,7 @@ export function createWindowBuilder({
         // The structural skeleton first spreads according to the enlarged bay
         // centers. Additional local branching happens in later layers.
         structure: 0.0,
-        sash: 0.05,
+        sash: 0.12,
         glass: 0.09,
         bead: 0.14,
     });
