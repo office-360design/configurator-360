@@ -315,11 +315,23 @@ export function createWindowLayoutOverlay({
         const screen = projectLocalPoint({ point, camera, mainGroup, container });
         if (!screen) return null;
 
-        const pairOffset = definition.kind === 'merge' ? -18 : (definition.kind === 'trans' ? 18 : 0);
-        const downwardOffset = definition.kind === 'add' ? ADD_WINDOW_DOWNWARD_OFFSET_PX : 0;
+        // A lone merge control stays exactly on the projected divider centre.
+        // When the same divider also has a DV/trans control, centre the pair as
+        // a group: merge sits 21 px left and DV 21 px right, so the midpoint
+        // between their button centres is exactly the mullion/divider centre.
+        const hasPairedTrans = controls.some(({ definition: other }) =>
+            other?.kind === 'trans'
+            && other.coordinate === definition.coordinate
+            && other.start === definition.start
+            && other.end === definition.end
+            && other.orientation === definition.orientation
+        );
+        const pairOffset = definition.kind === 'trans'
+            ? 21
+            : (definition.kind === 'merge' && hasPairedTrans ? -21 : 0);
         return {
             x: screen.x + pairOffset,
-            y: screen.y + downwardOffset,
+            y: screen.y + ADD_WINDOW_DOWNWARD_OFFSET_PX,
         };
     }
 
