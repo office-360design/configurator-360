@@ -623,6 +623,7 @@ windowBuilder = createWindowBuilder({
     },
     onFabricationSnapshot: snapshot => windowSummaryController?.update(snapshot),
     isProfileEnabled: accessoryController.isProfileEnabled,
+    isProfileGroupVisible,
     canPlaceProfileOnSide: accessoryController.canPlaceProfileOnSide,
     getWindowLayoutState: () => windowLayoutController?.getConfigurationSnapshot() || {
         layoutId: 'single',
@@ -643,6 +644,7 @@ windowSummaryController = createWindowSummaryController({
     getProfileSelection: () => profileSelectionController?.getConfigurationSnapshot() || {},
     getLayoutSelection: () => windowLayoutController?.getConfigurationSnapshot() || {},
     getActiveGlazingBeadCode,
+    getAccessorySelection: () => accessoryController?.getConfigurationSnapshot() || {},
 });
 
 windowLayoutOverlay = createWindowLayoutOverlay({

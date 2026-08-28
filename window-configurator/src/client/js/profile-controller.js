@@ -526,7 +526,8 @@ export function createProfileController({
         const filterDefinitions = [
             {
                 name: windowT(getWindowLocale(), 'profile.filter.frame'),
-                match: profile => profile.materialKey === 'alu' && getProfileGroup(profile) === 'frame',
+                match: profile => profile.materialKey === 'alu'
+                    && ['frame', 'divider', 'trans'].includes(getProfileGroup(profile)),
             },
             {
                 name: windowT(getWindowLocale(), 'profile.filter.sash'),
