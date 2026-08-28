@@ -28,7 +28,7 @@ function build(snapshot, overrides = {}) {
         layoutSelection: { ...snapshot.layoutState, dividerProfileId: '575800', transProfileId: '575820' },
         glazingBeadCode: '573940',
         aluminiumRatePerKg: 8,
-        glassRatePerSqm: 45,
+        glassRatePerSqm: 80,
         locale: 'en-US',
         ...overrides,
     });
@@ -79,6 +79,11 @@ function build(snapshot, overrides = {}) {
     const firstFrameBom = result.bomItems.find(item => item.category === 'frame');
     assert.ok(firstFrameBom?.weightKg > 0);
     assert.equal(Number(firstFrameBom.price.toFixed(4)), Number((firstFrameBom.weightKg * 8).toFixed(4)));
+    assert.equal(
+        Number(result.totals.total.toFixed(4)),
+        Number((result.totals.aluminiumWeightKg * 8 + result.totals.glassAreaSqm * 80).toFixed(4)),
+        'The window total must use €8/kg aluminium plus €80/m² glass.'
+    );
     assert.ok(result.totals.total > 0);
 }
 

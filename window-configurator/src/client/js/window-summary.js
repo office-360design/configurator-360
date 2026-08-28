@@ -89,14 +89,58 @@ function formatArea(areaSqm, locale) {
     return `${new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(finite(areaSqm))} m²`;
 }
 
-function formatMoney(value, locale) {
+function normalizeSummaryCurrency(value) {
+    const currency = String(value || '').toUpperCase();
+    return ['EUR', 'USD', 'RON'].includes(currency) ? currency : 'EUR';
+}
+
+function getSummaryCurrency() {
+    if (typeof window === 'undefined') return 'EUR';
+    return normalizeSummaryCurrency(window.WINDOW_CONFIGURATOR_SHARED_SHELL?.state?.currency);
+}
+
+function convertSummaryMoney(value, fromCurrency = 'EUR', toCurrency = getSummaryCurrency()) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return 0;
+    const from = normalizeSummaryCurrency(fromCurrency);
+    const to = normalizeSummaryCurrency(toCurrency);
+    if (from === to) return amount;
+
+    if (typeof window !== 'undefined') {
+        const converted = window.WINDOW_CONFIGURATOR_SHARED_SHELL?.convertMoneyAmount?.(amount, from, to);
+        if (Number.isFinite(Number(converted))) return Number(converted);
+    }
+
+    // The manufacturing summary is natively priced in EUR. If Common UI is
+    // unavailable (for example in a pure Node validation), keep the base value
+    // rather than maintaining a second set of exchange rates here.
+    return amount;
+}
+
+function formatMoney(value, locale, currency = 'EUR') {
     if (!Number.isFinite(Number(value))) return '—';
     return new Intl.NumberFormat(locale, {
         style: 'currency',
-        currency: 'EUR',
+        currency: normalizeSummaryCurrency(currency),
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     }).format(Number(value));
+}
+
+function formatSummaryMoneyFromEur(value, locale, currency = getSummaryCurrency()) {
+    const displayCurrency = normalizeSummaryCurrency(currency);
+    return formatMoney(convertSummaryMoney(value, 'EUR', displayCurrency), locale, displayCurrency);
+}
+
+function formatRateInput(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '';
+    return String(Math.round(number * 100) / 100);
+}
+
+function currencyRateUnit(currency, denominator) {
+    const symbol = { EUR: '€', USD: '$', RON: 'RON' }[normalizeSummaryCurrency(currency)] || '€';
+    return `${symbol}/${denominator}`;
 }
 
 function getProfileData(profileId, fallbackFamily = null) {
@@ -818,7 +862,7 @@ function writeStoredRates(rates) {
     }
 }
 
-function renderBom(result, locale) {
+function renderBom(result, locale, currency = getSummaryCurrency()) {
     const content = document.getElementById('window-bom-content');
     if (!content) return;
     if (!result.bomItems.length) {
@@ -830,8 +874,8 @@ function renderBom(result, locale) {
         <div class="window-summary-metrics">
             <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.aluminiumWeight'))}</span><strong>${escapeHtml(formatWeight(result.totals.aluminiumWeightKg, locale))}</strong></div>
             <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.glassArea'))}</span><strong>${escapeHtml(formatArea(result.totals.glassAreaSqm, locale))}</strong></div>
-            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.aluminiumCost'))}</span><strong>${escapeHtml(formatMoney(result.totals.aluminiumTotal, locale))}</strong></div>
-            <div class="window-summary-metric is-total"><span>${escapeHtml(windowT(locale, 'summary.metric.total'))}</span><strong>${escapeHtml(formatMoney(result.totals.total, locale))}</strong></div>
+            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.aluminiumCost'))}</span><strong>${escapeHtml(formatSummaryMoneyFromEur(result.totals.aluminiumTotal, locale, currency))}</strong></div>
+            <div class="window-summary-metric is-total"><span>${escapeHtml(windowT(locale, 'summary.metric.total'))}</span><strong>${escapeHtml(formatSummaryMoneyFromEur(result.totals.total, locale, currency))}</strong></div>
         </div>
         <div class="window-summary-list">
             ${result.bomItems.map(item => {
@@ -842,7 +886,7 @@ function renderBom(result, locale) {
                 const profile = isGlass ? '' : `<small>${escapeHtml(item.profileId)}</small>`;
                 return `<article class="window-summary-item">
                     <div class="window-summary-item-main"><strong>${escapeHtml(item.name)}</strong>${profile}<span>${escapeHtml(detail)}</span></div>
-                    <b class="window-summary-price">${escapeHtml(formatMoney(item.price, locale))}</b>
+                    <b class="window-summary-price">${escapeHtml(formatSummaryMoneyFromEur(item.price, locale, currency))}</b>
                 </article>`;
             }).join('')}
         </div>`;
@@ -885,41 +929,75 @@ export function createWindowSummaryController({
 } = {}) {
     let snapshot = null;
     let result = null;
+    let ratesEur = readStoredRates();
     const aluminiumRateInput = document.getElementById('summaryAluminiumRate');
     const glassRateInput = document.getElementById('summaryGlassRate');
-    const stored = readStoredRates();
-    if (aluminiumRateInput) aluminiumRateInput.value = String(stored.aluminium);
-    if (glassRateInput) glassRateInput.value = String(stored.glass);
+    const aluminiumRateUnit = aluminiumRateInput?.parentElement?.querySelector('b') || null;
+    const glassRateUnit = glassRateInput?.parentElement?.querySelector('b') || null;
 
-    const readRates = () => ({
-        aluminium: Number(aluminiumRateInput?.value) > 0 ? Number(aluminiumRateInput.value) : null,
-        glass: Number(glassRateInput?.value) > 0 ? Number(glassRateInput.value) : null,
-    });
+    const syncRateInputs = () => {
+        const currency = getSummaryCurrency();
+        if (aluminiumRateInput) {
+            aluminiumRateInput.value = formatRateInput(convertSummaryMoney(ratesEur.aluminium, 'EUR', currency));
+        }
+        if (glassRateInput) {
+            glassRateInput.value = formatRateInput(convertSummaryMoney(ratesEur.glass, 'EUR', currency));
+        }
+        if (aluminiumRateUnit) aluminiumRateUnit.textContent = currencyRateUnit(currency, 'kg');
+        if (glassRateUnit) glassRateUnit.textContent = currencyRateUnit(currency, 'm²');
+    };
+
+    const readRatesFromInputsInEur = () => {
+        const currency = getSummaryCurrency();
+        const aluminium = Number(aluminiumRateInput?.value);
+        const glass = Number(glassRateInput?.value);
+        return {
+            aluminium: aluminium > 0 ? convertSummaryMoney(aluminium, currency, 'EUR') : null,
+            glass: glass > 0 ? convertSummaryMoney(glass, currency, 'EUR') : null,
+        };
+    };
+
+    syncRateInputs();
 
     const render = () => {
         const locale = getWindowLocale();
-        const rates = readRates();
+        const currency = getSummaryCurrency();
         result = buildWindowFabricationSummary({
             snapshot,
             profileSelection: getProfileSelection(),
             layoutSelection: getLayoutSelection(),
             glazingBeadCode: getActiveGlazingBeadCode(),
-            aluminiumRatePerKg: rates.aluminium,
-            glassRatePerSqm: rates.glass,
+            aluminiumRatePerKg: ratesEur.aluminium,
+            glassRatePerSqm: ratesEur.glass,
             locale,
         });
-        renderBom(result, locale);
+        renderBom(result, locale, currency);
         renderCuts(result, locale);
+        window.dispatchEvent(new CustomEvent('window-pricing-updated', {
+            detail: { totalEur: result?.totals?.total ?? null },
+        }));
         return result;
     };
 
     const handleRateInput = () => {
-        writeStoredRates(readRates());
+        ratesEur = readRatesFromInputsInEur();
+        writeStoredRates(ratesEur);
+        render();
+    };
+    const handlePreferenceChange = event => {
+        if (event?.detail?.name !== 'currency') return;
+        syncRateInputs();
+        render();
+    };
+    const handleSharedShellReady = () => {
+        syncRateInputs();
         render();
     };
     aluminiumRateInput?.addEventListener('input', handleRateInput);
     glassRateInput?.addEventListener('input', handleRateInput);
     window.addEventListener('window-locale-applied', render);
+    window.addEventListener('window-preference-change', handlePreferenceChange);
+    window.addEventListener('window-shared-shell-ready', handleSharedShellReady);
 
     return {
         update(nextSnapshot) {
