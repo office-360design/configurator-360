@@ -623,6 +623,7 @@ windowBuilder = createWindowBuilder({
     },
     onFabricationSnapshot: snapshot => windowSummaryController?.update(snapshot),
     isProfileEnabled: accessoryController.isProfileEnabled,
+    isProfileGroupVisible,
     canPlaceProfileOnSide: accessoryController.canPlaceProfileOnSide,
     getWindowLayoutState: () => windowLayoutController?.getConfigurationSnapshot() || {
         layoutId: 'single',

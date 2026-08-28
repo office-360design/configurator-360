@@ -43,6 +43,7 @@ import {
     getDividerConnectionVariantKey,
     getTransOwnerHandleSide,
 } from './window-layout-state.js';
+import { isComponentProfileVisibleOnHost } from './component-group-visibility.js';
 
 const S = 0.001;
 const NOMINAL_OUTER_FRAME_FACE_M = 0.057;
@@ -81,6 +82,7 @@ export function createWindowBuilder({
     onGlassClick = () => { },
     onFabricationSnapshot = () => { },
     isProfileEnabled = () => true,
+    isProfileGroupVisible = () => true,
     canPlaceProfileOnSide = () => true,
     getWindowLayoutState = () => ({
         layoutId: 'single',
@@ -3218,6 +3220,44 @@ export function createWindowBuilder({
             const componentEnabled = toggle ? toggle.checked : true;
             return componentEnabled;
         });
+
+        const isProfileVisibleOnHost = (profile, hostGroup) => {
+            const toggle = document.getElementById(`toggle_${profile.index}`);
+            const profileChecked = toggle ? toggle.checked : true;
+            const sourceGroup = getProfileGroup(profile);
+            return isComponentProfileVisibleOnHost({
+                sourceGroup,
+                hostGroup,
+                sourceGroupVisible: isProfileGroupVisible(sourceGroup),
+                hostGroupVisible: isProfileGroupVisible(hostGroup),
+                profileChecked,
+            });
+        };
+
+        // Connection CAD reuses some profile geometry on a different physical
+        // host than the profile's original B2 assembly. Keep those occurrences
+        // controlled by the host they are mounted on, not by the source group
+        // that happened to provide the reusable SVG section.
+        const frameHostProfiles = layoutProfiles.filter(profile =>
+            isProfileVisibleOnHost(profile, 'frame')
+        );
+        const dividerHostProfiles = layoutProfiles.filter(profile =>
+            isProfileVisibleOnHost(profile, 'divider')
+        );
+
+        // Fixed glazing beads keep their own dedicated bead visibility. 224063
+        // is different: its fixed-light occurrence belongs to either the frame
+        // or the mullion, so it follows that physical host.
+        const fixedGlazingProfiles = layoutProfiles.filter(profile => {
+            if (getProfileGroup(profile) === 'bead') {
+                const toggle = document.getElementById(`toggle_${profile.index}`);
+                return toggle ? toggle.checked : true;
+            }
+            if (!isFixedGlassAnchorGasket(profile)) return false;
+            return isProfileVisibleOnHost(profile, 'frame')
+                || isProfileVisibleOnHost(profile, 'divider');
+        });
+
         const layoutDividerProfiles = layoutProfiles.filter(profile => profile.role === 'divider');
         const activeDividerProfiles = activeProfiles.filter(profile => profile.role === 'divider');
         const activeTransProfiles = activeProfiles.filter(profile => profile.role === 'trans');
@@ -3990,7 +4030,7 @@ export function createWindowBuilder({
         // same divider-end miter cuts as the aluminium frame, while their
         // cross-sectional seat comes only from CAD. On divided layouts the
         // accessory is emitted only on frame segments bordering an opening sash.
-        activeProfiles
+        frameHostProfiles
             .filter(profile => Boolean(profile.frameAccessoryCadTransform))
             .forEach(profile => {
                 sides.forEach(side => {
@@ -4422,8 +4462,11 @@ export function createWindowBuilder({
                     );
                 });
 
-                activeProfiles
+                dividerHostProfiles
                     .forEach(profile => {
+                        if (isFixedGlassAnchorGasket(profile) && !isProfileVisibleOnHost(profile, 'divider')) {
+                            return;
+                        }
                         const variantProfile = getEditableProfileVariant(profile, segment);
                         const connectionTransforms = Object.entries(
                             variantProfile.mullionConnectionCadTransforms || {}
@@ -4739,7 +4782,10 @@ export function createWindowBuilder({
                     return null;
                 })();
 
-                activeProfiles.forEach(profile => {
+                dividerHostProfiles.forEach(profile => {
+                    if (isFixedGlassAnchorGasket(profile) && !isProfileVisibleOnHost(profile, 'divider')) {
+                        return;
+                    }
                     const variantProfile = getEditableProfileVariant(profile, sourceSegment);
                     const sectionRotationDeg =
                         Number(connectionMetadata.sectionRotationDeg)
@@ -5011,9 +5057,13 @@ export function createWindowBuilder({
                 );
             });
 
-            activeProfiles
+            dividerHostProfiles
                 .filter(profile =>
-                    (isFixedGlassAnchorGasket(profile) || isFrameToSashRebateGasket(profile))
+                    (
+                        isFixedGlassAnchorGasket(profile)
+                        && isProfileGroupVisible('divider')
+                    )
+                    || isFrameToSashRebateGasket(profile)
                 )
                 .forEach(profile => {
                     // Mixed fixed/transom/sash direct INSERTs for the horizontal run.
@@ -5134,7 +5184,7 @@ export function createWindowBuilder({
             // the same two transom segments/socket cuts as the aluminium and
             // gaskets; the lower vertical copies use the same V-headed segment
             // as the mullion. No accessory-specific length is hardcoded.
-            activeProfiles
+            dividerHostProfiles
                 .filter(profile =>
                     profile.section !== 'bottom'
                     && (
@@ -5248,14 +5298,19 @@ export function createWindowBuilder({
             // cut as the divider itself. Only the top legacy section is needed
             // as the extrusion template for either a mullion or a transom run.
             if (dividerOrientation) {
-                activeProfiles
+                dividerHostProfiles
                     .filter(profile =>
                         (
                             profile.mullionConnectionCadTransform
                             || Object.keys(profile.mullionConnectionCadTransforms || {}).length
                         )
-                        && (isFixedGlassAnchorGasket(profile)
-                            || isFrameToSashRebateGasket(profile))
+                        && (
+                            (
+                                isFixedGlassAnchorGasket(profile)
+                                && isProfileGroupVisible('divider')
+                            )
+                            || isFrameToSashRebateGasket(profile)
+                        )
                     )
                     .forEach(profile => {
                         const connectionTransforms = Object.entries(
@@ -5307,7 +5362,7 @@ export function createWindowBuilder({
         if (!isEditableTopology && dividerOrientation && dividerBounds && !isTopFixedBottomSashSash) {
             const dividerLength = dividerOrientation === 'vertical' ? B : A;
             const activeDividerPositions = dividerPositions.length ? dividerPositions : [0];
-            activeProfiles
+            dividerHostProfiles
                 .filter(profile =>
                     Object.keys(profile.mullionAccessoryCadTransforms || {}).length
                 )
@@ -5356,7 +5411,7 @@ export function createWindowBuilder({
         // window-mullion-sash-window.dwg, using the opening cell boundary as
         // the local side on which createMiteredSide() operates.
         if (!isEditableTopology && dividerOrientation && openingCell && !isTopFixedBottomSashSash) {
-            activeProfiles
+            dividerHostProfiles
                 .filter(profile =>
                     isFrameToSashRebateGasket(profile)
                     && !profile.mullionConnectionCadTransform
@@ -5644,6 +5699,12 @@ export function createWindowBuilder({
 
             const renderFullFixedSide = (placedProfile, connectionBoundary) => {
                 if (!placedProfile) return;
+                if (isFixedGlassAnchorGasket(profile)) {
+                    const hostGroup = String(connectionBoundary || '').startsWith('divider-')
+                        ? 'divider'
+                        : 'frame';
+                    if (!isProfileVisibleOnHost(profile, hostGroup)) return;
+                }
                 const mesh = createMiteredSide(
                     placedProfile,
                     sx,
@@ -5742,6 +5803,9 @@ export function createWindowBuilder({
                 dividerSegmentsForSide.forEach(segment => {
                     const placement = getDividerPlacedProfile(segment);
                     if (!placement.placedProfile) return;
+                    if (isFixedGlassAnchorGasket(profile) && !isProfileVisibleOnHost(profile, 'divider')) {
+                        return;
+                    }
                     const rect = getEditableFixedSidePlacementRect({
                         side,
                         spanLength: segment.length,
@@ -5779,6 +5843,9 @@ export function createWindowBuilder({
             framePlacementsForSide.forEach(placement => {
                 const placedProfile = getEditableFixedOuterPlacedProfile(profile);
                 if (!placedProfile) return;
+                if (isFixedGlassAnchorGasket(profile) && !isProfileVisibleOnHost(profile, 'frame')) {
+                    return;
+                }
                 const rect = getEditableFixedSidePlacementRect({
                     side,
                     spanLength: side === 'top' || side === 'bottom'
@@ -5822,6 +5889,9 @@ export function createWindowBuilder({
             dividerSegmentsForSide.forEach(segment => {
                 const placement = getDividerPlacedProfile(segment);
                 if (!placement.placedProfile) return;
+                if (isFixedGlassAnchorGasket(profile) && !isProfileVisibleOnHost(profile, 'divider')) {
+                    return;
+                }
                 const rect = getEditableFixedSidePlacementRect({
                     side,
                     spanLength: segment.length,
@@ -5851,7 +5921,7 @@ export function createWindowBuilder({
         }
 
         if (fixedCells.length) {
-            activeProfiles
+            fixedGlazingProfiles
                 .filter(profile => {
                     return getProfileGroup(profile) === 'bead'
                         || isFixedGlassAnchorGasket(profile);
@@ -5871,6 +5941,12 @@ export function createWindowBuilder({
                                 side
                             );
                             if (!placement.profile) return;
+                            if (isFixedGlassAnchorGasket(profile)) {
+                                const hostGroup = String(placement.connectionBoundary || '').startsWith('divider-')
+                                    ? 'divider'
+                                    : 'frame';
+                                if (!isProfileVisibleOnHost(profile, hostGroup)) return;
+                            }
 
                             const mesh = createMiteredSide(
                                 placement.profile,
