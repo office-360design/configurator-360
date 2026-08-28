@@ -103,6 +103,7 @@ export function createWindowBuilder({
     let lastFabricationSnapshot = null;
     let explodeCellAnchors = new Map();
     let explodeDividerChainAnchors = new Map();
+    let explodeTransAnchors = new Map();
 
     function registerExplode(obj, dx, dy, dz) {
         obj.userData.basePos = obj.position.clone();
@@ -134,6 +135,7 @@ export function createWindowBuilder({
     function resetExplodeAnchors() {
         explodeCellAnchors = new Map();
         explodeDividerChainAnchors = new Map();
+        explodeTransAnchors = new Map();
     }
 
     function setExplodeCellAnchor(cell) {
@@ -153,7 +155,9 @@ export function createWindowBuilder({
 
     function getExplodeAssemblyAnchor(assembly) {
         const primaryData = assembly?.primary?.object?.userData || {};
-        const candidateCellId = primaryData.transOwnerCellId || primaryData.windowGlassCellId || primaryData.windowCell || null;
+        const transAnchor = getExplodeTransAnchor(primaryData.transSegmentId);
+        if (transAnchor) return { x: transAnchor.x, y: transAnchor.y };
+        const candidateCellId = primaryData.windowGlassCellId || primaryData.windowCell || primaryData.transOwnerCellId || null;
         const cellAnchor = getExplodeCellAnchor(candidateCellId);
         if (cellAnchor) return { x: cellAnchor.x, y: cellAnchor.y };
         const boxCenter = assembly?.box?.getCenter(new THREE.Vector3());
@@ -241,6 +245,11 @@ export function createWindowBuilder({
         return explodeDividerChainAnchors.get(String(segmentId)) || null;
     }
 
+    function getExplodeTransAnchor(segmentId) {
+        if (!segmentId && segmentId !== 0) return null;
+        return explodeTransAnchors.get(String(segmentId)) || null;
+    }
+
     function almostEqualExplodeValue(left, right, epsilon = 1e-6) {
         return Math.abs(Number(left) - Number(right)) <= epsilon;
     }
@@ -315,6 +324,28 @@ export function createWindowBuilder({
             component.forEach(item => {
                 explodeDividerChainAnchors.set(item.id, anchor);
             });
+        });
+    }
+
+    function buildExplodeTransAnchors() {
+        explodeTransAnchors = new Map();
+        const segments = Array.isArray(editableTopologyGeometry?.transSegments)
+            ? editableTopologyGeometry.transSegments.filter(segment => segment?.id)
+            : [];
+        segments.forEach(segment => {
+            const perpendicular = Number(segment.perpendicularOffset);
+            const start = Number.isFinite(Number(segment.structuralWorldStart))
+                ? Number(segment.structuralWorldStart)
+                : Number(segment.worldStart);
+            const end = Number.isFinite(Number(segment.structuralWorldEnd))
+                ? Number(segment.structuralWorldEnd)
+                : Number(segment.worldEnd);
+            if (!Number.isFinite(perpendicular) || !Number.isFinite(start) || !Number.isFinite(end)) return;
+            explodeTransAnchors.set(String(segment.id), Object.freeze({
+                x: perpendicular,
+                y: (Math.min(start, end) + Math.max(start, end)) / 2,
+                orientation: String(segment.orientation || 'vertical'),
+            }));
         });
     }
 
@@ -412,8 +443,9 @@ export function createWindowBuilder({
         const source = String(object?.userData?.componentSelection?.source || '').toLowerCase();
         const componentId = getExplodeComponentId(object);
 
-        // The floating trans is physically part of its owner sash assembly.
-        if (object?.userData?.trans || source === 'trans') return 'sash';
+        // In normal geometry the trans is fixed to its owner sash, but in
+        // exploded view it should separate like a mullion/structural divider.
+        if (object?.userData?.trans || source === 'trans') return 'structure';
 
         // Fixed-light 224063 is seated on the outer frame/mullion. The moving
         // 224063 copy keeps the sash classification supplied by its source.
@@ -560,8 +592,10 @@ export function createWindowBuilder({
         const primaryData = assembly?.primary?.object?.userData || {};
         const anchor = getExplodeAssemblyAnchor(assembly);
         const sideKey = String(assembly?.sideKey || '');
-        const isDivider = Boolean(primaryData.dividerSegmentId) || String(primaryData?.componentSelection?.source || '').toLowerCase() === 'divider';
-        const isFrame = Boolean(primaryData.frameSegment) || String(primaryData?.componentSelection?.source || '').toLowerCase() === 'frame';
+        const source = String(primaryData?.componentSelection?.source || '').toLowerCase();
+        const isDivider = Boolean(primaryData.dividerSegmentId) || source === 'divider';
+        const isTrans = Boolean(primaryData.transSegmentId) || source === 'trans';
+        const isFrame = Boolean(primaryData.frameSegment) || source === 'frame';
 
         if (isFrame) {
             if (sideKey === 'left') {
@@ -578,9 +612,14 @@ export function createWindowBuilder({
             }
         }
 
-        if (isDivider) {
-            const chainAnchor = getExplodeDividerChainAnchor(primaryData.dividerSegmentId);
-            const effectiveAnchor = chainAnchor || anchor;
+        if (isDivider || isTrans) {
+            const chainAnchor = isDivider
+                ? getExplodeDividerChainAnchor(primaryData.dividerSegmentId)
+                : null;
+            const transAnchor = isTrans
+                ? getExplodeTransAnchor(primaryData.transSegmentId)
+                : null;
+            const effectiveAnchor = chainAnchor || transAnchor || anchor;
             return new THREE.Vector3(
                 (Number(effectiveAnchor.x) - Number(configurationCenter.x)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
                 (Number(effectiveAnchor.y) - Number(configurationCenter.y)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
@@ -3541,6 +3580,7 @@ export function createWindowBuilder({
 
         [...openingCells, ...fixedCells].forEach(setExplodeCellAnchor);
         buildExplodeDividerChainAnchors();
+        buildExplodeTransAnchors();
 
         if (openingCell) {
             sashA = openingCell.width;
