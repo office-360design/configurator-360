@@ -5,7 +5,8 @@ import {
 } from './window-layout-state.js';
 import { getWindowLocale, windowT } from './i18n.js';
 
-const OUTER_OFFSET_M = 0.075;
+const ADD_WINDOW_OUTER_OFFSET_M = 0.075;
+const ADD_WINDOW_DOWNWARD_OFFSET_PX = 22;
 const FRONT_OFFSET_M = 0.16;
 
 function stopPointerPropagation(element) {
@@ -29,9 +30,6 @@ function projectLocalPoint({ point, camera, mainGroup, container }) {
     };
 }
 
-function normalizedCoordinateToLocal(value, span) {
-    return -span / 2 + Number(value) * span;
-}
 
 export function createWindowLayoutOverlay({
     container,
@@ -185,103 +183,111 @@ export function createWindowLayoutOverlay({
         }));
     }
 
+    function getOuterEdgeBounds() {
+        if (mainGroup) {
+            mainGroup.updateWorldMatrix(true, true);
+            const inverseRootMatrix = new THREE.Matrix4().copy(mainGroup.matrixWorld).invert();
+            const bounds = new THREE.Box3();
+            let foundFrame = false;
+
+            mainGroup.traverse(child => {
+                if (!child?.isMesh || !child.geometry) return;
+                const selection = child.userData?.componentSelection || {};
+                if (String(selection.source || '').toLowerCase() !== 'frame') return;
+                if (!child.userData?.frameSegment) return;
+
+                if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+                if (!child.geometry.boundingBox || child.geometry.boundingBox.isEmpty()) return;
+
+                const localBox = child.geometry.boundingBox.clone();
+                const toRootLocal = new THREE.Matrix4().multiplyMatrices(
+                    inverseRootMatrix,
+                    child.matrixWorld
+                );
+                localBox.applyMatrix4(toRootLocal);
+                if (!foundFrame) {
+                    bounds.copy(localBox);
+                    foundFrame = true;
+                } else {
+                    bounds.union(localBox);
+                }
+            });
+
+            if (foundFrame && !bounds.isEmpty()) {
+                return {
+                    minX: bounds.min.x,
+                    maxX: bounds.max.x,
+                    minY: bounds.min.y,
+                    maxY: bounds.max.y,
+                };
+            }
+        }
+
+        const geometry = getEditableTopologyGeometry();
+        const geometryBounds = {
+            minX: Number(geometry?.overallMinX),
+            maxX: Number(geometry?.overallMaxX),
+            minY: Number(geometry?.overallMinY),
+            maxY: Number(geometry?.overallMaxY),
+        };
+        if (Object.values(geometryBounds).every(Number.isFinite)) {
+            return geometryBounds;
+        }
+
+        const width = Math.max(0, Number(getWidth?.()) || 0);
+        const height = Math.max(0, Number(getHeight?.()) || 0);
+        return {
+            minX: -width / 2,
+            maxX: width / 2,
+            minY: -height / 2,
+            maxY: height / 2,
+        };
+    }
+
+    function localOuterEdgeMidpoint(direction, outwardDistance = ADD_WINDOW_OUTER_OFFSET_M) {
+        const bounds = getOuterEdgeBounds();
+        const centerX = (bounds.minX + bounds.maxX) / 2;
+        const centerY = (bounds.minY + bounds.maxY) / 2;
+        const width = Math.max(0, bounds.maxX - bounds.minX);
+        const height = Math.max(0, bounds.maxY - bounds.minY);
+
+        if (direction === 'left') {
+            return new THREE.Vector3(
+                centerX - (width / 2 + outwardDistance),
+                centerY,
+                FRONT_OFFSET_M
+            );
+        }
+        if (direction === 'right') {
+            return new THREE.Vector3(
+                centerX + (width / 2 + outwardDistance),
+                centerY,
+                FRONT_OFFSET_M
+            );
+        }
+        if (direction === 'top') {
+            return new THREE.Vector3(
+                centerX,
+                centerY + (height / 2 + outwardDistance),
+                FRONT_OFFSET_M
+            );
+        }
+        return new THREE.Vector3(
+            centerX,
+            centerY - (height / 2 + outwardDistance),
+            FRONT_OFFSET_M
+        );
+    }
+
     function localPointForControl(definition) {
         if (definition.kind === 'add') {
-            const geometry = getEditableTopologyGeometry();
-            let placement = null;
-            if (definition.wholeSide && geometry?.framePlacements?.length) {
-                const edgeIds = new Set(definition.frameEdgeIds || []);
-                const sidePlacements = geometry.framePlacements.filter(p => (
-                    p.side === definition.direction
-                    && (!edgeIds.size || edgeIds.has(p.id))
-                ));
-                if (sidePlacements.length) {
-                    const structuralStarts = sidePlacements
-                        .map(p => Number.isFinite(Number(p.structuralWorldStart))
-                            ? Number(p.structuralWorldStart)
-                            : Number(p.worldStart))
-                        .filter(Number.isFinite);
-                    const structuralEnds = sidePlacements
-                        .map(p => Number.isFinite(Number(p.structuralWorldEnd))
-                            ? Number(p.structuralWorldEnd)
-                            : Number(p.worldEnd))
-                        .filter(Number.isFinite);
-                    placement = {
-                        ...sidePlacements[0],
-                        start: definition.start,
-                        end: definition.end,
-                        structuralWorldStart: structuralStarts.length ? Math.min(...structuralStarts) : null,
-                        structuralWorldEnd: structuralEnds.length ? Math.max(...structuralEnds) : null,
-                    };
-                }
-            }
-            if (!placement) {
-                placement = geometry?.framePlacements?.find(p =>
-                    definition.frameEdgeId
-                        ? p.id === definition.frameEdgeId
-                        : (p.windowCell === definition.cellId && p.side === definition.direction)
-                );
-            }
-            if (placement) {
-                const edgeStart = Number(placement.start);
-                const edgeEnd = Number(placement.end);
-                const candidateMid = (Number(definition.start) + Number(definition.end)) / 2;
-                const ratio = Number.isFinite(edgeStart)
-                    && Number.isFinite(edgeEnd)
-                    && edgeEnd > edgeStart
-                    && Number.isFinite(candidateMid)
-                    ? Math.max(0, Math.min(1, (candidateMid - edgeStart) / (edgeEnd - edgeStart)))
-                    : 0.5;
-                const worldStart = Number.isFinite(Number(placement.structuralWorldStart))
-                    ? Number(placement.structuralWorldStart)
-                    : Number(placement.worldStart);
-                const worldEnd = Number.isFinite(Number(placement.structuralWorldEnd))
-                    ? Number(placement.structuralWorldEnd)
-                    : Number(placement.worldEnd);
-                const along = Number.isFinite(worldStart) && Number.isFinite(worldEnd)
-                    ? worldStart + (worldEnd - worldStart) * ratio
-                    : (placement.orientation === 'horizontal' ? placement.originX : placement.originY);
-                const perpendicular = Number.isFinite(Number(placement.perpendicularOffset))
-                    ? Number(placement.perpendicularOffset)
-                    : (placement.orientation === 'horizontal' ? placement.originY : placement.originX);
+            // Always anchor add controls to the midpoint of the complete outer
+            // edge. Apply one small fixed offset in the window plane; there is
+            // intentionally no button-to-button avoidance/repulsion.
+            return localOuterEdgeMidpoint(definition.direction, ADD_WINDOW_OUTER_OFFSET_M);
+        }
 
-                if (placement.orientation === 'horizontal') {
-                    const y = perpendicular + (definition.direction === 'bottom' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
-                    return new THREE.Vector3(along, y, FRONT_OFFSET_M);
-                }
-                const x = perpendicular + (definition.direction === 'left' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
-                return new THREE.Vector3(x, along, FRONT_OFFSET_M);
-            }
-
-            // The initial single-window preset is not yet marked as dynamic, so
-            // the builder intentionally has no editable topology geometry for it.
-            // Position those controls directly from the logical window grid
-            // instead of allowing all four add buttons to stack at the origin.
-            const state = getWindowLayoutState?.();
-            const windows = state?.topology?.windows || [];
-            if (windows.length) {
-                const minX = Math.min(...windows.map(cell => Number(cell.rect.x0)));
-                const maxX = Math.max(...windows.map(cell => Number(cell.rect.x1)));
-                const minY = Math.min(...windows.map(cell => Number(cell.rect.y0)));
-                const maxY = Math.max(...windows.map(cell => Number(cell.rect.y1)));
-                const spanX = Math.max(1e-9, maxX - minX);
-                const spanY = Math.max(1e-9, maxY - minY);
-                const width = Math.max(0, Number(getWidth?.()) || 0);
-                const height = Math.max(0, Number(getHeight?.()) || 0);
-                const candidateMid = (Number(definition.start) + Number(definition.end)) / 2;
-
-                if (definition.direction === 'top' || definition.direction === 'bottom') {
-                    const x = ((candidateMid - minX) / spanX - 0.5) * width;
-                    const boundaryY = ((Number(definition.coordinate) - minY) / spanY - 0.5) * height;
-                    const y = boundaryY + (definition.direction === 'bottom' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
-                    return new THREE.Vector3(x, y, FRONT_OFFSET_M);
-                }
-                const boundaryX = ((Number(definition.coordinate) - minX) / spanX - 0.5) * width;
-                const y = ((candidateMid - minY) / spanY - 0.5) * height;
-                const x = boundaryX + (definition.direction === 'left' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
-                return new THREE.Vector3(x, y, FRONT_OFFSET_M);
-            }
-        } else if (definition.kind === 'merge' || definition.kind === 'trans') {
+        if (definition.kind === 'merge' || definition.kind === 'trans') {
             const geometry = getEditableTopologyGeometry();
             const segments = [
                 ...(geometry?.dividerSegments || []),
@@ -308,10 +314,12 @@ export function createWindowLayoutOverlay({
         const point = localPointForControl(definition);
         const screen = projectLocalPoint({ point, camera, mainGroup, container });
         if (!screen) return null;
+
         const pairOffset = definition.kind === 'merge' ? -18 : (definition.kind === 'trans' ? 18 : 0);
+        const downwardOffset = definition.kind === 'add' ? ADD_WINDOW_DOWNWARD_OFFSET_PX : 0;
         return {
             x: screen.x + pairOffset,
-            y: screen.y,
+            y: screen.y + downwardOffset,
         };
     }
 
