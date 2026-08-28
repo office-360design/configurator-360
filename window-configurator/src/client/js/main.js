@@ -643,6 +643,7 @@ windowSummaryController = createWindowSummaryController({
     getProfileSelection: () => profileSelectionController?.getConfigurationSnapshot() || {},
     getLayoutSelection: () => windowLayoutController?.getConfigurationSnapshot() || {},
     getActiveGlazingBeadCode,
+    getAccessorySelection: () => accessoryController?.getConfigurationSnapshot() || {},
 });
 
 windowLayoutOverlay = createWindowLayoutOverlay({

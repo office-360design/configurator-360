@@ -81,8 +81,8 @@ function build(snapshot, overrides = {}) {
     assert.equal(Number(firstFrameBom.price.toFixed(4)), Number((firstFrameBom.weightKg * 8).toFixed(4)));
     assert.equal(
         Number(result.totals.total.toFixed(4)),
-        Number((result.totals.aluminiumWeightKg * 8 + result.totals.glassAreaSqm * 80).toFixed(4)),
-        'The window total must use €8/kg aluminium plus €80/m² glass.'
+        Number((result.totals.aluminiumWeightKg * 8 + result.totals.glassAreaSqm * 80 + result.totals.accessoryTotal).toFixed(4)),
+        'The window total must use €8/kg aluminium plus €80/m² glass plus the profile polymer/insulation material.'
     );
     assert.ok(result.totals.total > 0);
 }
@@ -253,4 +253,40 @@ function build(snapshot, overrides = {}) {
     const transCut = result.cuts.find(cut => cut.category === 'trans');
     assert.equal(Number(transCut.lengthM.toFixed(3)), 0.766, 'Double-vent profile must follow X = h - 80 mm using the corrected 846 mm sash height.');
 }
+
+{
+    const state = createSingleWindowState({ type: 'opening-sash', dividerProfileId: '575800', widthM: 1.2, heightM: 1.4 });
+    const layoutState = { windowState: state, topology: deriveWindowTopology(state), dividerProfileId: '575800', transProfileId: '575820' };
+    const result = build(makeSnapshot(layoutState, {
+        openingCells: [{ id: 'w1', width: 1.2, height: 1.4 }],
+        glassPieces: [{ cellId: 'w1', width: 1.02, height: 1.22, isFixed: false }],
+    }), {
+        accessorySelection: {
+            accessories: {
+                'locking-bar': { enabled: true, available: true, profileId: '275701' },
+                'centre-gasket': { enabled: true, available: true, profileId: '224068' },
+                'insulation-profile': { enabled: true, available: true, profileId: '200988' },
+                'rebate-gasket': { enabled: true, available: true, profileId: '245472' },
+                'outer-glazing-gasket': { enabled: true, available: true, profileId: '224063' },
+                'inner-glazing-gasket': { enabled: true, available: true, profileId: '224378' },
+                'glazing-bridge': { enabled: true, available: true, profileId: '288319' },
+                'drainage-cap': { enabled: true, available: true, profileId: '208694' },
+            },
+        },
+    });
+    const accessories = result.bomItems.filter(item => item.type === 'accessory');
+    assert.equal(accessories.length, 10, 'Profile insulation plus all enabled/available modeled gasket and plastic accessory families should enter the BOM.');
+    assert.ok(accessories.every(item => item.price > 0 && item.weightKg > 0));
+    const drainage = accessories.find(item => item.profileId === '208694');
+    assert.equal(drainage.quantity, 3, 'A 1200 mm bottom drainage field should receive three drainage caps at <=650 mm spacing.');
+    assert.equal(Number(drainage.price.toFixed(2)), 2.02);
+    assert.ok(result.totals.accessoryTotal > 0);
+    assert.ok(result.totals.accessoryWeightKg > 0);
+    assert.equal(
+        Number(result.totals.total.toFixed(4)),
+        Number((result.totals.aluminiumTotal + result.totals.glassTotal + result.totals.accessoryTotal).toFixed(4)),
+        'Material total must include the enabled accessory/plastic BOM.'
+    );
+}
+
 console.log('Window BOM/cut summary validation passed.');
