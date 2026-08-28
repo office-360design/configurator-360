@@ -1813,6 +1813,7 @@ export function createWindowBuilder({
     }
 
     // SCENE ELEMENTS
+    const WINDOW_GROUND_CLEARANCE_M = 0.02;
     const placementRoot = new THREE.Group();
     const mainGroup = new THREE.Group();
     const pivotOscilo = new THREE.Group();
@@ -2036,6 +2037,29 @@ export function createWindowBuilder({
 
     function applyExplodedWindowForwardOffset(progress) {
         mainGroup.position.z = getHouseExplodedWindowForwardOffset() * progress;
+    }
+
+    function alignWindowLayoutAboveGround() {
+        if (isARMode) return;
+
+        // Rebuilds must start from the normal authored placement. If a previous
+        // taller topology needed an upward correction, shrinking it again must
+        // not leave the whole configurator permanently floating higher.
+        placementRoot.position.y = 0;
+        placementRoot.updateWorldMatrix(true, true);
+        mainGroup.updateWorldMatrix(true, true);
+
+        const bounds = new THREE.Box3().setFromObject(mainGroup, true);
+        if (bounds.isEmpty()) return;
+
+        const groundY = Number(ground?.position?.y);
+        if (!Number.isFinite(groundY)) return;
+
+        const minimumAllowedY = groundY + WINDOW_GROUND_CLEARANCE_M;
+        if (bounds.min.y < minimumAllowedY) {
+            placementRoot.position.y = minimumAllowedY - bounds.min.y;
+            placementRoot.updateWorldMatrix(true, true);
+        }
     }
 
     const sectionGroup = new THREE.Group();
@@ -6180,6 +6204,7 @@ export function createWindowBuilder({
         const t_house_start = performance.now();
         // Build House Environment
         buildHouse(A, B);
+        alignWindowLayoutAboveGround();
         applyExplodedWindowForwardOffset(explodeProgress);
         const t_house_end = performance.now();
 
