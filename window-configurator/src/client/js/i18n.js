@@ -51,6 +51,7 @@ const MESSAGES = Object.freeze({
     'dimension.width': 'Width',
     'dimension.height': 'Height',
     'dimension.glassThickness': 'Glass thickness',
+    'accessory.title': 'Accessories',
     'accessory.preset': 'Accessory preset',
     'accessory.note': 'Disabled entries do not have usable geometry in the current CAD assembly.',
     'accessory.customSelection': 'Custom accessory selection.',
@@ -336,6 +337,7 @@ const MESSAGES = Object.freeze({
     'dimension.width': 'Lățime',
     'dimension.height': 'Înălțime',
     'dimension.glassThickness': 'Grosime sticlă',
+    'accessory.title': 'Accesorii',
     'accessory.preset': 'Preset accesorii',
     'accessory.note': 'Elementele dezactivate nu au geometrie utilizabilă în ansamblul CAD curent.',
     'accessory.customSelection': 'Selecție personalizată de accesorii.',
@@ -621,6 +623,7 @@ const MESSAGES = Object.freeze({
     'dimension.width': 'Breite',
     'dimension.height': 'Höhe',
     'dimension.glassThickness': 'Glasdicke',
+    'accessory.title': 'Zubehör',
     'accessory.preset': 'Zubehör-Voreinstellung',
     'accessory.note': 'Deaktivierte Einträge besitzen in der aktuellen CAD-Baugruppe keine nutzbare Geometrie.',
     'accessory.customSelection': 'Benutzerdefinierte Zubehörauswahl.',
@@ -996,6 +999,7 @@ export function applyWindowTranslations(locale = null) {
   const glassLabel = document.querySelector('#glassThickness')?.closest('.control-group')?.querySelector('label');
   if (glassLabel?.firstChild) glassLabel.firstChild.textContent = `${windowT(resolved, 'dimension.glassThickness')}: `;
 
+  setText('#accessory-settings > .clean-dropdown-header span', resolved, 'accessory.title');
   setText('label[for="accessoryPreset"]', resolved, 'accessory.preset');
   setAttr('#accessoryPreset', 'aria-label', resolved, 'accessory.preset');
   setText('.accessory-availability-note', resolved, 'accessory.note');
