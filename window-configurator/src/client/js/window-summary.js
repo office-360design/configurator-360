@@ -8,43 +8,54 @@ const JUNCTION_TOLERANCE_M = 0.0008;
 const PRICE_STORAGE_KEY = 'window-configurator-summary-rates-v1';
 const DEFAULT_ALUMINIUM_RATE_EUR_PER_KG = 8;
 const DEFAULT_GLASS_RATE_EUR_PER_SQM = 80;
+const DEFAULT_GASKET_RATE_EUR_PER_KG = 6;
+const DEFAULT_INSULATION_RATE_EUR_PER_KG = 8;
+const DEFAULT_FOAM_RATE_EUR_PER_KG = 12;
+const DEFAULT_LOCKING_BAR_RATE_EUR_PER_KG = 8;
+const DEFAULT_GLAZING_BRIDGE_RATE_EUR_PER_KG = 8;
+const DEFAULT_DRAINAGE_CAP_RATE_EUR_PER_KG = 8;
+const DEFAULT_OTHER_COMPONENT_RATE_EUR_PER_KG = 8;
 
-// Net material prices in EUR, excluding VAT and shipping. Public Schüco
-// Aluminium Systems trade-list prices (2024 base list) are used where the exact
-// article is listed: 275701, 224068, 245472, 224063, 224378/224379/224350 and
-// 208694. Project-specific parts without a reliable public trade-list match
-// (200988 and 288319) use conservative engineering estimates instead.
-// Linear masses are calculated from the current CAD cross-sections using
-// realistic material densities (EPDM ~1150, PE foam ~30, engineering plastic
-// ~1200 and rigid PVC ~1400 kg/m³).
-// Non-aluminium material that is already built into the thermally-broken
-// aluminium profile. Cross-sectional areas come from S07_Isolation_Kontur,
-// S35_Dämmung_Kontur and S05_EPDM_Kontur in the profile CAD. Costing uses
-// finished-material estimates of €8/kg for PA thermal-break strips, €12/kg for
-// foam inserts and €6/kg for EPDM. These are deliberately separate from the
-// aluminium €/kg rate so a composite profile is not treated as solid aluminium.
-export const WINDOW_PROFILE_NON_ALUMINIUM_DATA = Object.freeze({
-    '575760': Object.freeze({ kgPerM: 0.329, eurPerM: 2.63 }),
-    '575770': Object.freeze({ kgPerM: 0.354, eurPerM: 2.88 }),
-    '575780': Object.freeze({ kgPerM: 0.501, eurPerM: 4.01 }),
-    '575790': Object.freeze({ kgPerM: 0.527, eurPerM: 4.24 }),
-    '575800': Object.freeze({ kgPerM: 0.385, eurPerM: 3.08 }),
-    '575810': Object.freeze({ kgPerM: 0.411, eurPerM: 3.33 }),
-    '575820': Object.freeze({ kgPerM: 0.253, eurPerM: 2.01 }),
-    '575830': Object.freeze({ kgPerM: 0.271, eurPerM: 2.19 }),
+export const WINDOW_NON_ALUMINIUM_MATERIALS = Object.freeze({
+    gasket: Object.freeze({ rateKey: 'gasket', nameKey: 'summary.material.gasket', defaultRateEurPerKg: DEFAULT_GASKET_RATE_EUR_PER_KG }),
+    insulation: Object.freeze({ rateKey: 'insulation', nameKey: 'summary.material.insulation', defaultRateEurPerKg: DEFAULT_INSULATION_RATE_EUR_PER_KG }),
+    foam: Object.freeze({ rateKey: 'foam', nameKey: 'summary.material.foam', defaultRateEurPerKg: DEFAULT_FOAM_RATE_EUR_PER_KG }),
+    other: Object.freeze({ rateKey: 'other', nameKey: 'summary.material.other', defaultRateEurPerKg: DEFAULT_OTHER_COMPONENT_RATE_EUR_PER_KG }),
 });
 
+// Non-aluminium material that is already built into the thermally-broken
+// aluminium profiles. The groups intentionally follow the CAD/debug colours:
+// S05_EPDM_Kontur = gasket/rubber, S07_Isolation_Kontur = insulation bars, and
+// S35_Dämmung_Kontur = insulation foam. The kg/m values are calculated from the
+// current profile contours using the same densities as the 3D material classes
+// (EPDM 1150 kg/m³, insulation polymer 1350 kg/m³, foam 35 kg/m³). Keeping the
+// groups separate means each colour/material can use its own editable €/kg rate.
+export const WINDOW_PROFILE_NON_ALUMINIUM_DATA = Object.freeze({
+    '575760': Object.freeze({ insulation: 0.328638 }),
+    '575770': Object.freeze({ insulation: 0.342577, foam: 0.011595 }),
+    '575780': Object.freeze({ insulation: 0.501195 }),
+    '575790': Object.freeze({ insulation: 0.518753, foam: 0.007759 }),
+    '575800': Object.freeze({ insulation: 0.385273 }),
+    '575810': Object.freeze({ insulation: 0.399211, foam: 0.011595 }),
+    '575820': Object.freeze({ insulation: 0.246934, gasket: 0.005638 }),
+    '575830': Object.freeze({ insulation: 0.257825, foam: 0.007876, gasket: 0.005638 }),
+});
+
+// Accessory masses stay article-specific, but their BOM price is now based on
+// the material colour/group rather than a single mixed "gaskets / plastic"
+// bucket. This also makes the pricing model consistent with the embedded
+// non-aluminium material above.
 export const WINDOW_ACCESSORY_MANUFACTURING_DATA = Object.freeze({
-    '275701': Object.freeze({ groupId: 'locking-bar', unit: 'm', eurPerUnit: 4.19, kgPerUnit: 0.068, nameKey: 'summary.accessory.lockingBar', priceBasis: 'schueco-trade-2024' }),
-    '224068': Object.freeze({ groupId: 'centre-gasket', unit: 'm', eurPerUnit: 1.969, kgPerUnit: 0.124, nameKey: 'summary.accessory.centreGasket', priceBasis: 'schueco-trade-2024' }),
-    '200988': Object.freeze({ groupId: 'insulation-profile', unit: 'm', eurPerUnit: 1.25, kgPerUnit: 0.006, nameKey: 'summary.accessory.insulationProfile', priceBasis: 'estimate' }),
-    '245472': Object.freeze({ groupId: 'rebate-gasket', unit: 'm', eurPerUnit: 0.77, kgPerUnit: 0.024, nameKey: 'summary.accessory.rebateGasket', priceBasis: 'schueco-trade-2024' }),
-    '224063': Object.freeze({ groupId: 'outer-glazing-gasket', unit: 'm', eurPerUnit: 1.346, kgPerUnit: 0.045, nameKey: 'summary.accessory.outerGlazingGasket', priceBasis: 'schueco-trade-2024' }),
-    '224378': Object.freeze({ groupId: 'inner-glazing-gasket', unit: 'm', eurPerUnit: 2.07, kgPerUnit: 0.065, nameKey: 'summary.accessory.innerGlazingGasket', priceBasis: 'schueco-trade-2024' }),
-    '224379': Object.freeze({ groupId: 'inner-glazing-gasket', unit: 'm', eurPerUnit: 2.447, kgPerUnit: 0.082, nameKey: 'summary.accessory.innerGlazingGasket', priceBasis: 'schueco-trade-2024' }),
-    '224350': Object.freeze({ groupId: 'inner-glazing-gasket', unit: 'm', eurPerUnit: 1.646, kgPerUnit: 0.046, nameKey: 'summary.accessory.innerGlazingGasket', priceBasis: 'schueco-trade-2024' }),
-    '288319': Object.freeze({ groupId: 'glazing-bridge', unit: 'm', eurPerUnit: 4.50, kgPerUnit: 0.327, nameKey: 'summary.accessory.glazingBridge', priceBasis: 'estimate' }),
-    '208694': Object.freeze({ groupId: 'drainage-cap', unit: 'pc', eurPerUnit: 0.6736, kgPerUnit: 0.004, nameKey: 'summary.accessory.drainageCap', priceBasis: 'schueco-trade-2024' }),
+    '275701': Object.freeze({ groupId: 'locking-bar', unit: 'm', kgPerUnit: 0.068, materialGroup: 'other', rateKey: 'lockingBar', nameKey: 'summary.accessory.lockingBar' }),
+    '224068': Object.freeze({ groupId: 'centre-gasket', unit: 'm', kgPerUnit: 0.124, materialGroup: 'gasket', rateKey: 'gasket', nameKey: 'summary.accessory.centreGasket' }),
+    '200988': Object.freeze({ groupId: 'insulation-profile', unit: 'm', kgPerUnit: 0.006, materialGroup: 'insulation', rateKey: 'insulation', nameKey: 'summary.accessory.insulationProfile' }),
+    '245472': Object.freeze({ groupId: 'rebate-gasket', unit: 'm', kgPerUnit: 0.024, materialGroup: 'gasket', rateKey: 'gasket', nameKey: 'summary.accessory.rebateGasket' }),
+    '224063': Object.freeze({ groupId: 'outer-glazing-gasket', unit: 'm', kgPerUnit: 0.045, materialGroup: 'gasket', rateKey: 'gasket', nameKey: 'summary.accessory.outerGlazingGasket' }),
+    '224378': Object.freeze({ groupId: 'inner-glazing-gasket', unit: 'm', kgPerUnit: 0.065, materialGroup: 'gasket', rateKey: 'gasket', nameKey: 'summary.accessory.innerGlazingGasket' }),
+    '224379': Object.freeze({ groupId: 'inner-glazing-gasket', unit: 'm', kgPerUnit: 0.082, materialGroup: 'gasket', rateKey: 'gasket', nameKey: 'summary.accessory.innerGlazingGasket' }),
+    '224350': Object.freeze({ groupId: 'inner-glazing-gasket', unit: 'm', kgPerUnit: 0.046, materialGroup: 'gasket', rateKey: 'gasket', nameKey: 'summary.accessory.innerGlazingGasket' }),
+    '288319': Object.freeze({ groupId: 'glazing-bridge', unit: 'm', kgPerUnit: 0.327, materialGroup: 'other', rateKey: 'glazingBridge', nameKey: 'summary.accessory.glazingBridge' }),
+    '208694': Object.freeze({ groupId: 'drainage-cap', unit: 'pc', kgPerUnit: 0.004, materialGroup: 'other', rateKey: 'drainageCap', nameKey: 'summary.accessory.drainageCap' }),
 });
 
 // Face widths come from the supplied Schüco AW CT 65 fabrication manual.
@@ -834,55 +845,88 @@ function getBottomTopologyCells(snapshot) {
     return cells.filter(cell => Math.abs(finite(cell?.rect?.y0) - bottom) <= 1e-7);
 }
 
-function makeAccessoryBomItem({ profileId, quantity, locale, windowNumber = null }) {
+function normalizedMaterialRates(rates = {}) {
+    const legacyOtherRate = Number(rates.other) > 0 ? Number(rates.other) : DEFAULT_OTHER_COMPONENT_RATE_EUR_PER_KG;
+    return {
+        gasket: Number(rates.gasket) > 0 ? Number(rates.gasket) : DEFAULT_GASKET_RATE_EUR_PER_KG,
+        insulation: Number(rates.insulation) > 0 ? Number(rates.insulation) : DEFAULT_INSULATION_RATE_EUR_PER_KG,
+        foam: Number(rates.foam) > 0 ? Number(rates.foam) : DEFAULT_FOAM_RATE_EUR_PER_KG,
+        lockingBar: Number(rates.lockingBar) > 0 ? Number(rates.lockingBar) : legacyOtherRate || DEFAULT_LOCKING_BAR_RATE_EUR_PER_KG,
+        glazingBridge: Number(rates.glazingBridge) > 0 ? Number(rates.glazingBridge) : legacyOtherRate || DEFAULT_GLAZING_BRIDGE_RATE_EUR_PER_KG,
+        drainageCap: Number(rates.drainageCap) > 0 ? Number(rates.drainageCap) : legacyOtherRate || DEFAULT_DRAINAGE_CAP_RATE_EUR_PER_KG,
+        other: legacyOtherRate,
+    };
+}
+
+function makeAccessoryBomItem({ profileId, quantity, locale, materialRates, windowNumber = null }) {
     const tech = WINDOW_ACCESSORY_MANUFACTURING_DATA[String(profileId || '')];
     const safeQuantity = Math.max(0, finite(quantity));
     if (!tech || safeQuantity <= 0) return null;
+    const rates = normalizedMaterialRates(materialRates);
+    const materialGroup = WINDOW_NON_ALUMINIUM_MATERIALS[tech.materialGroup] ? tech.materialGroup : 'other';
+    const rateKey = String(tech.rateKey || materialGroup || 'other');
+    const rateEurPerKg = rateKey === 'other' ? rates.other : (rates[rateKey] ?? rates.other);
+    const weightKg = safeQuantity * tech.kgPerUnit;
     return {
         type: 'accessory',
         category: 'accessory',
         groupId: tech.groupId,
+        materialGroup,
+        rateKey,
+        materialName: windowT(locale, WINDOW_NON_ALUMINIUM_MATERIALS[materialGroup].nameKey),
         name: `${windowT(locale, tech.nameKey)}${windowNumber ? ` · ${windowT(locale, 'layout.window')} ${windowNumber}` : ''}`,
         profileId: String(profileId),
         unit: tech.unit,
         quantity: safeQuantity,
         lengthM: tech.unit === 'm' ? safeQuantity : null,
-        unitPriceEur: tech.eurPerUnit,
+        rateEurPerKg,
         kgPerM: tech.unit === 'm' ? tech.kgPerUnit : null,
-        weightKg: safeQuantity * tech.kgPerUnit,
-        price: safeQuantity * tech.eurPerUnit,
-        priceBasis: tech.priceBasis,
+        weightKg,
+        price: weightKg * rateEurPerKg,
+        priceBasis: 'material-weight',
     };
 }
 
-function buildEmbeddedProfileMaterialItems(cuts, locale) {
+function buildEmbeddedProfileMaterialItems(cuts, locale, materialRates) {
     const lengthByProfile = new Map();
     cuts.forEach(cut => {
         const profileId = String(cut?.profileId || '');
         if (!WINDOW_PROFILE_NON_ALUMINIUM_DATA[profileId]) return;
         lengthByProfile.set(profileId, (lengthByProfile.get(profileId) || 0) + clampLength(cut.lengthM));
     });
-    return [...lengthByProfile.entries()].map(([profileId, lengthM]) => {
-        const tech = WINDOW_PROFILE_NON_ALUMINIUM_DATA[profileId];
-        return {
-            type: 'accessory',
-            category: 'accessory',
-            groupId: 'profile-insulation',
-            name: windowT(locale, 'summary.accessory.profileInsulation'),
-            profileId,
-            unit: 'm',
-            quantity: lengthM,
-            lengthM,
-            unitPriceEur: tech.eurPerM,
-            kgPerM: tech.kgPerM,
-            weightKg: lengthM * tech.kgPerM,
-            price: lengthM * tech.eurPerM,
-            priceBasis: 'estimate',
-        };
+
+    const rates = normalizedMaterialRates(materialRates);
+    const items = [];
+    [...lengthByProfile.entries()].forEach(([profileId, lengthM]) => {
+        const materialData = WINDOW_PROFILE_NON_ALUMINIUM_DATA[profileId] || {};
+        Object.entries(materialData).forEach(([materialGroup, kgPerM]) => {
+            if (!WINDOW_NON_ALUMINIUM_MATERIALS[materialGroup] || finite(kgPerM) <= 0) return;
+            const rateEurPerKg = rates[materialGroup];
+            const weightKg = lengthM * finite(kgPerM);
+            items.push({
+                type: 'accessory',
+                category: 'accessory',
+                groupId: `profile-${materialGroup}`,
+                materialGroup,
+                rateKey: materialGroup,
+                materialName: windowT(locale, WINDOW_NON_ALUMINIUM_MATERIALS[materialGroup].nameKey),
+                name: windowT(locale, `summary.accessory.profileMaterial.${materialGroup}`),
+                profileId,
+                unit: 'm',
+                quantity: lengthM,
+                lengthM,
+                rateEurPerKg,
+                kgPerM: finite(kgPerM),
+                weightKg,
+                price: weightKg * rateEurPerKg,
+                priceBasis: 'material-weight',
+            });
+        });
     });
+    return items;
 }
 
-function buildAccessoryItems({ snapshot, accessorySelection, locale, windowNumberMap }) {
+function buildAccessoryItems({ snapshot, accessorySelection, locale, windowNumberMap, materialRates }) {
     if (!accessorySelection?.accessories) return [];
     const items = [];
     const openingCells = snapshot?.openingCells || [];
@@ -891,7 +935,7 @@ function buildAccessoryItems({ snapshot, accessorySelection, locale, windowNumbe
     const addLinear = (groupId, fallbackProfileId, lengthM) => {
         if (!isAccessoryEnabled(accessorySelection, groupId)) return;
         const profileId = getAccessoryProfileId(accessorySelection, groupId, fallbackProfileId);
-        const item = makeAccessoryBomItem({ profileId, quantity: lengthM, locale });
+        const item = makeAccessoryBomItem({ profileId, quantity: lengthM, locale, materialRates });
         if (item) items.push(item);
     };
 
@@ -912,7 +956,7 @@ function buildAccessoryItems({ snapshot, accessorySelection, locale, windowNumbe
     addLinear('outer-glazing-gasket', '224063', glazingPerimeter);
     if (isAccessoryEnabled(accessorySelection, 'inner-glazing-gasket')) {
         const profileId = getAccessoryProfileId(accessorySelection, 'inner-glazing-gasket', '224378');
-        const item = makeAccessoryBomItem({ profileId, quantity: glazingPerimeter, locale });
+        const item = makeAccessoryBomItem({ profileId, quantity: glazingPerimeter, locale, materialRates });
         if (item) items.push(item);
     }
 
@@ -920,7 +964,7 @@ function buildAccessoryItems({ snapshot, accessorySelection, locale, windowNumbe
     if (isAccessoryEnabled(accessorySelection, 'glazing-bridge')) {
         const profileId = getAccessoryProfileId(accessorySelection, 'glazing-bridge', '288319');
         const lengthM = openingCells.reduce((sum, cell) => sum + clampLength(getSashBeadSideLengths(snapshot, cell).bottom), 0);
-        const item = makeAccessoryBomItem({ profileId, quantity: lengthM, locale });
+        const item = makeAccessoryBomItem({ profileId, quantity: lengthM, locale, materialRates });
         if (item) items.push(item);
     }
 
@@ -930,7 +974,7 @@ function buildAccessoryItems({ snapshot, accessorySelection, locale, windowNumbe
             const actual = getCellActualSize(snapshot, cell);
             return sum + drainageCapsForFieldWidth(actual.widthM || cell?.width);
         }, 0);
-        const item = makeAccessoryBomItem({ profileId, quantity, locale });
+        const item = makeAccessoryBomItem({ profileId, quantity, locale, materialRates });
         if (item) items.push(item);
     }
 
@@ -965,6 +1009,13 @@ export function buildWindowFabricationSummary({
     accessorySelection = {},
     aluminiumRatePerKg = null,
     glassRatePerSqm = null,
+    gasketRatePerKg = DEFAULT_GASKET_RATE_EUR_PER_KG,
+    insulationRatePerKg = DEFAULT_INSULATION_RATE_EUR_PER_KG,
+    foamRatePerKg = DEFAULT_FOAM_RATE_EUR_PER_KG,
+    lockingBarRatePerKg = DEFAULT_LOCKING_BAR_RATE_EUR_PER_KG,
+    glazingBridgeRatePerKg = DEFAULT_GLAZING_BRIDGE_RATE_EUR_PER_KG,
+    drainageCapRatePerKg = DEFAULT_DRAINAGE_CAP_RATE_EUR_PER_KG,
+    otherComponentRatePerKg = DEFAULT_OTHER_COMPONENT_RATE_EUR_PER_KG,
     locale = 'en-US',
 } = {}) {
     if (!snapshot) {
@@ -986,9 +1037,21 @@ export function buildWindowFabricationSummary({
         ...buildTransCuts({ geometry, snapshot, transProfileId, sashProfileId, locale, windowNumberMap }),
         ...buildBeadCuts({ snapshot, glazingBeadCode: resolvedBeadCode, locale, windowNumberMap }),
     ];
+    const materialRates = normalizedMaterialRates({
+        gasket: gasketRatePerKg,
+        insulation: insulationRatePerKg,
+        foam: foamRatePerKg,
+        lockingBar: lockingBarRatePerKg,
+        glazingBridge: glazingBridgeRatePerKg,
+        drainageCap: drainageCapRatePerKg,
+        other: otherComponentRatePerKg,
+    });
     const glassItems = buildGlassItems(snapshot, locale, windowNumberMap);
-    const embeddedProfileItems = buildEmbeddedProfileMaterialItems(cuts, locale);
-    const accessoryItems = [...embeddedProfileItems, ...buildAccessoryItems({ snapshot, accessorySelection, locale, windowNumberMap })];
+    const embeddedProfileItems = buildEmbeddedProfileMaterialItems(cuts, locale, materialRates);
+    const accessoryItems = [
+        ...embeddedProfileItems,
+        ...buildAccessoryItems({ snapshot, accessorySelection, locale, windowNumberMap, materialRates }),
+    ];
 
     const aluminiumRate = Number(aluminiumRatePerKg) > 0 ? Number(aluminiumRatePerKg) : null;
     const glassRate = Number(glassRatePerSqm) > 0 ? Number(glassRatePerSqm) : null;
@@ -1008,23 +1071,92 @@ export function buildWindowFabricationSummary({
     const bomItems = [...profileBom, ...glassBom, ...accessoryBom];
     const aluminiumWeightKg = profileBom.reduce((sum, item) => sum + finite(item.weightKg), 0);
     const glassAreaSqm = glassBom.reduce((sum, item) => sum + finite(item.areaSqm), 0);
+    const materialTotals = Object.fromEntries(Object.keys(WINDOW_NON_ALUMINIUM_MATERIALS).map(materialGroup => {
+        const items = accessoryBom.filter(item => item.materialGroup === materialGroup);
+        return [materialGroup, Object.freeze({
+            weightKg: items.reduce((sum, item) => sum + finite(item.weightKg), 0),
+            price: items.reduce((sum, item) => sum + finite(item.price), 0),
+            rateEurPerKg: materialRates[materialGroup],
+        })];
+    }));
+    const pricingTotals = Object.freeze({
+        gasket: Object.freeze({
+            weightKg: accessoryBom.filter(item => item.rateKey === 'gasket').reduce((sum, item) => sum + finite(item.weightKg), 0),
+            price: accessoryBom.filter(item => item.rateKey === 'gasket').reduce((sum, item) => sum + finite(item.price), 0),
+            rateEurPerKg: materialRates.gasket,
+        }),
+        insulation: Object.freeze({
+            weightKg: accessoryBom.filter(item => item.rateKey === 'insulation').reduce((sum, item) => sum + finite(item.weightKg), 0),
+            price: accessoryBom.filter(item => item.rateKey === 'insulation').reduce((sum, item) => sum + finite(item.price), 0),
+            rateEurPerKg: materialRates.insulation,
+        }),
+        foam: Object.freeze({
+            weightKg: accessoryBom.filter(item => item.rateKey === 'foam').reduce((sum, item) => sum + finite(item.weightKg), 0),
+            price: accessoryBom.filter(item => item.rateKey === 'foam').reduce((sum, item) => sum + finite(item.price), 0),
+            rateEurPerKg: materialRates.foam,
+        }),
+        lockingBar: Object.freeze({
+            weightKg: accessoryBom.filter(item => item.rateKey === 'lockingBar').reduce((sum, item) => sum + finite(item.weightKg), 0),
+            price: accessoryBom.filter(item => item.rateKey === 'lockingBar').reduce((sum, item) => sum + finite(item.price), 0),
+            rateEurPerKg: materialRates.lockingBar,
+        }),
+        glazingBridge: Object.freeze({
+            weightKg: accessoryBom.filter(item => item.rateKey === 'glazingBridge').reduce((sum, item) => sum + finite(item.weightKg), 0),
+            price: accessoryBom.filter(item => item.rateKey === 'glazingBridge').reduce((sum, item) => sum + finite(item.price), 0),
+            rateEurPerKg: materialRates.glazingBridge,
+        }),
+        drainageCap: Object.freeze({
+            weightKg: accessoryBom.filter(item => item.rateKey === 'drainageCap').reduce((sum, item) => sum + finite(item.weightKg), 0),
+            price: accessoryBom.filter(item => item.rateKey === 'drainageCap').reduce((sum, item) => sum + finite(item.price), 0),
+            rateEurPerKg: materialRates.drainageCap,
+        }),
+    });
     const accessoryWeightKg = accessoryBom.reduce((sum, item) => sum + finite(item.weightKg), 0);
     const aluminiumTotal = aluminiumRate == null ? null : profileBom.reduce((sum, item) => sum + finite(item.price), 0);
     const glassTotal = glassRate == null ? null : glassBom.reduce((sum, item) => sum + finite(item.price), 0);
     const accessoryTotal = accessoryBom.reduce((sum, item) => sum + finite(item.price), 0);
+    const otherComponentWeightKg = pricingTotals.lockingBar.weightKg + pricingTotals.glazingBridge.weightKg + pricingTotals.drainageCap.weightKg;
+    const otherComponentTotal = pricingTotals.lockingBar.price + pricingTotals.glazingBridge.price + pricingTotals.drainageCap.price;
     const total = aluminiumTotal != null && glassTotal != null ? aluminiumTotal + glassTotal + accessoryTotal : null;
 
     return Object.freeze({
         geometry,
         cuts: Object.freeze(cuts),
         bomItems: Object.freeze(bomItems),
-        totals: Object.freeze({ aluminiumWeightKg, glassAreaSqm, accessoryWeightKg, aluminiumTotal, glassTotal, accessoryTotal, total }),
+        totals: Object.freeze({
+            aluminiumWeightKg,
+            glassAreaSqm,
+            accessoryWeightKg,
+            aluminiumTotal,
+            glassTotal,
+            accessoryTotal,
+            gasketWeightKg: pricingTotals.gasket.weightKg,
+            gasketTotal: pricingTotals.gasket.price,
+            insulationWeightKg: pricingTotals.insulation.weightKg,
+            insulationTotal: pricingTotals.insulation.price,
+            foamWeightKg: pricingTotals.foam.weightKg,
+            foamTotal: pricingTotals.foam.price,
+            lockingBarWeightKg: pricingTotals.lockingBar.weightKg,
+            lockingBarTotal: pricingTotals.lockingBar.price,
+            glazingBridgeWeightKg: pricingTotals.glazingBridge.weightKg,
+            glazingBridgeTotal: pricingTotals.glazingBridge.price,
+            drainageCapWeightKg: pricingTotals.drainageCap.weightKg,
+            drainageCapTotal: pricingTotals.drainageCap.price,
+            otherComponentWeightKg,
+            otherComponentTotal,
+            materialTotals: Object.freeze(materialTotals),
+            pricingTotals,
+            total,
+        }),
     });
 }
 
 function readStoredRates() {
     try {
         const parsed = JSON.parse(localStorage.getItem(PRICE_STORAGE_KEY) || '{}');
+        const legacyOther = Number(parsed.other) > 0
+            ? Number(parsed.other)
+            : DEFAULT_OTHER_COMPONENT_RATE_EUR_PER_KG;
         return {
             aluminium: Number(parsed.aluminium) > 0
                 ? Number(parsed.aluminium)
@@ -1032,11 +1164,37 @@ function readStoredRates() {
             glass: Number(parsed.glass) > 0
                 ? Number(parsed.glass)
                 : DEFAULT_GLASS_RATE_EUR_PER_SQM,
+            gasket: Number(parsed.gasket) > 0
+                ? Number(parsed.gasket)
+                : DEFAULT_GASKET_RATE_EUR_PER_KG,
+            insulation: Number(parsed.insulation) > 0
+                ? Number(parsed.insulation)
+                : DEFAULT_INSULATION_RATE_EUR_PER_KG,
+            foam: Number(parsed.foam) > 0
+                ? Number(parsed.foam)
+                : DEFAULT_FOAM_RATE_EUR_PER_KG,
+            lockingBar: Number(parsed.lockingBar) > 0
+                ? Number(parsed.lockingBar)
+                : legacyOther || DEFAULT_LOCKING_BAR_RATE_EUR_PER_KG,
+            glazingBridge: Number(parsed.glazingBridge) > 0
+                ? Number(parsed.glazingBridge)
+                : legacyOther || DEFAULT_GLAZING_BRIDGE_RATE_EUR_PER_KG,
+            drainageCap: Number(parsed.drainageCap) > 0
+                ? Number(parsed.drainageCap)
+                : legacyOther || DEFAULT_DRAINAGE_CAP_RATE_EUR_PER_KG,
+            other: legacyOther,
         };
     } catch (_error) {
         return {
             aluminium: DEFAULT_ALUMINIUM_RATE_EUR_PER_KG,
             glass: DEFAULT_GLASS_RATE_EUR_PER_SQM,
+            gasket: DEFAULT_GASKET_RATE_EUR_PER_KG,
+            insulation: DEFAULT_INSULATION_RATE_EUR_PER_KG,
+            foam: DEFAULT_FOAM_RATE_EUR_PER_KG,
+            lockingBar: DEFAULT_LOCKING_BAR_RATE_EUR_PER_KG,
+            glazingBridge: DEFAULT_GLAZING_BRIDGE_RATE_EUR_PER_KG,
+            drainageCap: DEFAULT_DRAINAGE_CAP_RATE_EUR_PER_KG,
+            other: DEFAULT_OTHER_COMPONENT_RATE_EUR_PER_KG,
         };
     }
 }
@@ -1057,14 +1215,77 @@ function renderBom(result, locale, currency = getSummaryCurrency()) {
         return;
     }
 
+    const showRollup = (weightOrArea, price) => finite(weightOrArea) > 0 || Number.isFinite(price);
+    const rollups = [
+        {
+            label: windowT(locale, 'summary.part.aluminium'),
+            detail: formatWeight(result.totals.aluminiumWeightKg, locale),
+            price: result.totals.aluminiumTotal,
+            show: showRollup(result.totals.aluminiumWeightKg, result.totals.aluminiumTotal),
+        },
+        {
+            label: windowT(locale, 'summary.part.glass'),
+            detail: formatArea(result.totals.glassAreaSqm, locale),
+            price: result.totals.glassTotal,
+            show: showRollup(result.totals.glassAreaSqm, result.totals.glassTotal),
+        },
+        {
+            label: windowT(locale, 'summary.metric.gasketCost'),
+            detail: formatWeight(result.totals.gasketWeightKg, locale),
+            price: result.totals.gasketTotal,
+            show: showRollup(result.totals.gasketWeightKg, result.totals.gasketTotal),
+        },
+        {
+            label: windowT(locale, 'summary.metric.insulationCost'),
+            detail: formatWeight(result.totals.insulationWeightKg, locale),
+            price: result.totals.insulationTotal,
+            show: showRollup(result.totals.insulationWeightKg, result.totals.insulationTotal),
+        },
+        {
+            label: windowT(locale, 'summary.metric.foamCost'),
+            detail: formatWeight(result.totals.foamWeightKg, locale),
+            price: result.totals.foamTotal,
+            show: showRollup(result.totals.foamWeightKg, result.totals.foamTotal),
+        },
+        {
+            label: windowT(locale, 'summary.accessory.lockingBar'),
+            detail: formatWeight(result.totals.lockingBarWeightKg, locale),
+            price: result.totals.lockingBarTotal,
+            show: showRollup(result.totals.lockingBarWeightKg, result.totals.lockingBarTotal),
+        },
+        {
+            label: windowT(locale, 'summary.accessory.glazingBridge'),
+            detail: formatWeight(result.totals.glazingBridgeWeightKg, locale),
+            price: result.totals.glazingBridgeTotal,
+            show: showRollup(result.totals.glazingBridgeWeightKg, result.totals.glazingBridgeTotal),
+        },
+        {
+            label: windowT(locale, 'summary.accessory.drainageCap'),
+            detail: formatWeight(result.totals.drainageCapWeightKg, locale),
+            price: result.totals.drainageCapTotal,
+            show: showRollup(result.totals.drainageCapWeightKg, result.totals.drainageCapTotal),
+        },
+        {
+            label: windowT(locale, 'summary.metric.total'),
+            detail: '',
+            price: result.totals.total,
+            show: true,
+            total: true,
+        },
+    ].filter(item => item.show);
+
     content.innerHTML = `
-        <div class="window-summary-metrics">
-            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.aluminiumWeight'))}</span><strong>${escapeHtml(formatWeight(result.totals.aluminiumWeightKg, locale))}</strong></div>
-            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.glassArea'))}</span><strong>${escapeHtml(formatArea(result.totals.glassAreaSqm, locale))}</strong></div>
-            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.otherPartsWeight'))}</span><strong>${escapeHtml(formatWeight(result.totals.accessoryWeightKg, locale))}</strong></div>
-            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.aluminiumCost'))}</span><strong>${escapeHtml(formatSummaryMoneyFromEur(result.totals.aluminiumTotal, locale, currency))}</strong></div>
-            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.accessoryCost'))}</span><strong>${escapeHtml(formatSummaryMoneyFromEur(result.totals.accessoryTotal, locale, currency))}</strong></div>
-            <div class="window-summary-metric is-total"><span>${escapeHtml(windowT(locale, 'summary.metric.total'))}</span><strong>${escapeHtml(formatSummaryMoneyFromEur(result.totals.total, locale, currency))}</strong></div>
+        <div class="window-summary-rollups">
+            ${rollups.map(item => `<article class="window-summary-rollup${item.total ? ' is-total' : ''}">
+                <div class="window-summary-rollup-main">
+                    <div class="window-summary-rollup-line">
+                        <strong>${escapeHtml(item.label)}${item.detail ? ':' : ''}</strong>
+                        ${item.detail ? `<span>${escapeHtml(item.detail)}</span>` : ''}
+                    </div>
+                </div>
+                <span class="window-summary-rollup-arrow" aria-hidden="true">→</span>
+                <b class="window-summary-rollup-price">${escapeHtml(formatSummaryMoneyFromEur(item.price, locale, currency))}</b>
+            </article>`).join('')}
         </div>
         <div class="window-summary-list">
             ${result.bomItems.map(item => {
@@ -1073,13 +1294,15 @@ function renderBom(result, locale, currency = getSummaryCurrency()) {
                 const detail = isGlass
                     ? `${formatLengthMm(item.widthM, locale)} × ${formatLengthMm(item.heightM, locale)} · ${formatArea(item.areaSqm, locale)}`
                     : isAccessory && item.unit === 'pc'
-                        ? `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(item.quantity)} ${windowT(locale, 'summary.unit.pieces')} · ${formatWeight(item.weightKg, locale)} · ${formatSummaryMoneyFromEur(item.unitPriceEur, locale, currency)}/${windowT(locale, 'summary.unit.piece')}`
+                        ? `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(item.quantity)} ${windowT(locale, 'summary.unit.pieces')} · ${formatWeight(item.weightKg, locale)} · ${formatSummaryMoneyFromEur(item.rateEurPerKg, locale, currency)}/kg`
                         : isAccessory
-                            ? `${formatLengthM(item.lengthM, locale)} · ${formatWeight(item.weightKg, locale)} · ${formatSummaryMoneyFromEur(item.unitPriceEur, locale, currency)}/m`
+                            ? `${formatLengthM(item.lengthM, locale)} · ${formatWeight(item.weightKg, locale)} · ${formatSummaryMoneyFromEur(item.rateEurPerKg, locale, currency)}/kg`
                             : `${formatLengthMm(item.lengthM, locale)} · ${Number.isFinite(item.weightKg) ? formatWeight(item.weightKg, locale) : '—'}${Number.isFinite(item.kgPerM) ? ` · ${item.kgPerM.toFixed(3)} kg/m` : ''}`;
                 const profile = isGlass ? '' : `<small>${escapeHtml(item.profileId)}</small>`;
-                return `<article class="window-summary-item">
+                const materialClass = isAccessory && item.materialGroup ? ` is-material-${escapeHtml(item.materialGroup)}` : '';
+                return `<article class="window-summary-item${materialClass}">
                     <div class="window-summary-item-main"><strong>${escapeHtml(item.name)}</strong>${profile}<span>${escapeHtml(detail)}</span></div>
+                    <span class="window-summary-item-arrow" aria-hidden="true">→</span>
                     <b class="window-summary-price">${escapeHtml(formatSummaryMoneyFromEur(item.price, locale, currency))}</b>
                 </article>`;
             }).join('')}
@@ -1125,31 +1348,36 @@ export function createWindowSummaryController({
     let snapshot = null;
     let result = null;
     let ratesEur = readStoredRates();
-    const aluminiumRateInput = document.getElementById('summaryAluminiumRate');
-    const glassRateInput = document.getElementById('summaryGlassRate');
-    const aluminiumRateUnit = aluminiumRateInput?.parentElement?.querySelector('b') || null;
-    const glassRateUnit = glassRateInput?.parentElement?.querySelector('b') || null;
+    const rateInputs = {
+        aluminium: { input: document.getElementById('summaryAluminiumRate'), denominator: 'kg' },
+        glass: { input: document.getElementById('summaryGlassRate'), denominator: 'm²' },
+        gasket: { input: document.getElementById('summaryGasketRate'), denominator: 'kg' },
+        insulation: { input: document.getElementById('summaryInsulationRate'), denominator: 'kg' },
+        foam: { input: document.getElementById('summaryFoamRate'), denominator: 'kg' },
+        lockingBar: { input: document.getElementById('summaryLockingBarRate'), denominator: 'kg' },
+        glazingBridge: { input: document.getElementById('summaryGlazingBridgeRate'), denominator: 'kg' },
+        drainageCap: { input: document.getElementById('summaryDrainageCapRate'), denominator: 'kg' },
+    };
+    Object.values(rateInputs).forEach(entry => {
+        entry.unit = entry.input?.parentElement?.querySelector('b') || null;
+    });
 
     const syncRateInputs = () => {
         const currency = getSummaryCurrency();
-        if (aluminiumRateInput) {
-            aluminiumRateInput.value = formatRateInput(convertSummaryMoney(ratesEur.aluminium, 'EUR', currency));
-        }
-        if (glassRateInput) {
-            glassRateInput.value = formatRateInput(convertSummaryMoney(ratesEur.glass, 'EUR', currency));
-        }
-        if (aluminiumRateUnit) aluminiumRateUnit.textContent = currencyRateUnit(currency, 'kg');
-        if (glassRateUnit) glassRateUnit.textContent = currencyRateUnit(currency, 'm²');
+        Object.entries(rateInputs).forEach(([key, entry]) => {
+            if (entry.input) {
+                entry.input.value = formatRateInput(convertSummaryMoney(ratesEur[key], 'EUR', currency));
+            }
+            if (entry.unit) entry.unit.textContent = currencyRateUnit(currency, entry.denominator);
+        });
     };
 
     const readRatesFromInputsInEur = () => {
         const currency = getSummaryCurrency();
-        const aluminium = Number(aluminiumRateInput?.value);
-        const glass = Number(glassRateInput?.value);
-        return {
-            aluminium: aluminium > 0 ? convertSummaryMoney(aluminium, currency, 'EUR') : null,
-            glass: glass > 0 ? convertSummaryMoney(glass, currency, 'EUR') : null,
-        };
+        return Object.fromEntries(Object.entries(rateInputs).map(([key, entry]) => {
+            const value = Number(entry.input?.value);
+            return [key, value > 0 ? convertSummaryMoney(value, currency, 'EUR') : null];
+        }));
     };
 
     syncRateInputs();
@@ -1165,6 +1393,13 @@ export function createWindowSummaryController({
             accessorySelection: getAccessorySelection(),
             aluminiumRatePerKg: ratesEur.aluminium,
             glassRatePerSqm: ratesEur.glass,
+            gasketRatePerKg: ratesEur.gasket,
+            insulationRatePerKg: ratesEur.insulation,
+            foamRatePerKg: ratesEur.foam,
+            lockingBarRatePerKg: ratesEur.lockingBar,
+            glazingBridgeRatePerKg: ratesEur.glazingBridge,
+            drainageCapRatePerKg: ratesEur.drainageCap,
+            otherComponentRatePerKg: ratesEur.other,
             locale,
         });
         renderBom(result, locale, currency);
@@ -1189,8 +1424,7 @@ export function createWindowSummaryController({
         syncRateInputs();
         render();
     };
-    aluminiumRateInput?.addEventListener('input', handleRateInput);
-    glassRateInput?.addEventListener('input', handleRateInput);
+    Object.values(rateInputs).forEach(entry => entry.input?.addEventListener('input', handleRateInput));
     window.addEventListener('window-locale-applied', render);
     window.addEventListener('window-preference-change', handlePreferenceChange);
     window.addEventListener('window-shared-shell-ready', handleSharedShellReady);

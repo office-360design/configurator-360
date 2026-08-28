@@ -1893,6 +1893,27 @@ html.ar-mode .window-layout-overlay {
     color: #7d8ca3;
 }
 
+.window-summary-material-rate > span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.window-summary-material-rate > span::before {
+    content: '';
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    background: #78716c;
+}
+
+.window-summary-material-rate.is-gasket > span::before { background: #ffbf7f; }
+.window-summary-material-rate.is-insulation > span::before { background: #66cc7f; }
+.window-summary-material-rate.is-foam > span::before { background: #00ffbf; }
+.window-summary-material-rate.is-other > span::before { background: #78716c; }
+
 .window-summary-rate-input {
     display: flex;
     align-items: center;
@@ -1936,6 +1957,81 @@ html.ar-mode .window-layout-overlay {
 
 .window-summary-content {
     min-width: 0;
+}
+
+.window-summary-rollups {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.window-summary-rollup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid #d7e0ea;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.window-summary-rollup.is-total {
+    border-color: #60a5fa;
+    background: #ffffff;
+}
+
+.window-summary-rollup-main {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.window-summary-rollup-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.window-summary-rollup-main strong {
+    display: block;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.window-summary-rollup-main span {
+    display: block;
+    color: #64748b;
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.window-summary-rollup-arrow,
+.window-summary-item-arrow {
+    flex: 0 0 auto;
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.window-summary-rollup-price {
+    flex: 0 0 auto;
+    padding: 4px 6px;
+    border-radius: 5px;
+    background: #ecfdf5;
+    color: #059669;
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.window-summary-rollup.is-total .window-summary-rollup-price {
+    color: #0f766e;
+    background: #f0fdfa;
 }
 
 .window-summary-metrics {
@@ -2005,7 +2101,7 @@ html.ar-mode .window-layout-overlay {
 
 .window-summary-item {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 8px;
     padding: 10px;
@@ -2013,6 +2109,11 @@ html.ar-mode .window-layout-overlay {
     border-radius: 8px;
     background: rgba(15, 23, 42, 0.45);
 }
+
+.window-summary-item.is-material-gasket { box-shadow: inset 3px 0 0 #ffbf7f; }
+.window-summary-item.is-material-insulation { box-shadow: inset 3px 0 0 #66cc7f; }
+.window-summary-item.is-material-foam { box-shadow: inset 3px 0 0 #00ffbf; }
+.window-summary-item.is-material-other { box-shadow: inset 3px 0 0 #78716c; }
 
 .window-summary-item-main {
     min-width: 0;

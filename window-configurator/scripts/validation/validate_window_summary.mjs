@@ -29,6 +29,10 @@ function build(snapshot, overrides = {}) {
         glazingBeadCode: '573940',
         aluminiumRatePerKg: 8,
         glassRatePerSqm: 80,
+        gasketRatePerKg: 6,
+        insulationRatePerKg: 8,
+        foamRatePerKg: 12,
+        otherComponentRatePerKg: 8,
         locale: 'en-US',
         ...overrides,
     });
@@ -275,13 +279,24 @@ function build(snapshot, overrides = {}) {
         },
     });
     const accessories = result.bomItems.filter(item => item.type === 'accessory');
-    assert.equal(accessories.length, 10, 'Profile insulation plus all enabled/available modeled gasket and plastic accessory families should enter the BOM.');
+    assert.equal(accessories.length, 12, 'Profile material colours plus all enabled/available modeled accessory families should enter the BOM.');
     assert.ok(accessories.every(item => item.price > 0 && item.weightKg > 0));
     const drainage = accessories.find(item => item.profileId === '208694');
     assert.equal(drainage.quantity, 3, 'A 1200 mm bottom drainage field should receive three drainage caps at <=650 mm spacing.');
-    assert.equal(Number(drainage.price.toFixed(2)), 2.02);
+    assert.equal(drainage.materialGroup, 'other');
+    assert.equal(Number(drainage.rateEurPerKg.toFixed(2)), 8);
+    assert.equal(Number(drainage.price.toFixed(3)), 0.096, 'Other components should be priced from their weight and the other-component €/kg rate.');
     assert.ok(result.totals.accessoryTotal > 0);
     assert.ok(result.totals.accessoryWeightKg > 0);
+    assert.ok(result.totals.gasketTotal > 0, 'EPDM/gasket-colour parts need their own subtotal.');
+    assert.ok(result.totals.insulationTotal > 0, 'Insulation-bar-colour parts need their own subtotal.');
+    assert.ok(result.totals.foamTotal > 0, 'Foam-colour profile components need their own subtotal.');
+    assert.ok(result.totals.otherComponentTotal > 0, 'Other-colour components need their own subtotal.');
+    assert.equal(
+        Number(result.totals.accessoryTotal.toFixed(6)),
+        Number((result.totals.gasketTotal + result.totals.insulationTotal + result.totals.foamTotal + result.totals.otherComponentTotal).toFixed(6)),
+        'The non-aluminium subtotal must be the sum of the four material-colour groups.'
+    );
     assert.equal(
         Number(result.totals.total.toFixed(4)),
         Number((result.totals.aluminiumTotal + result.totals.glassTotal + result.totals.accessoryTotal).toFixed(4)),
