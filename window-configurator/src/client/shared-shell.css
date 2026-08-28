@@ -209,6 +209,15 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .action-box {
   background: #eef8fe;
   border-color: #b9dff5;
 }
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .debug-colors-control {
+  color: #27343d;
+  background: #f4f7f8;
+  border-color: #cfd8dd;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .debug-colors-control > #debugColorsLabel {
+  color: #27343d;
+}
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .part-toggles,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .group-dropdown-content {
   border-color: #e1e6e9;

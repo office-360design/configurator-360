@@ -35,6 +35,7 @@ import {
     getHalfMullionTriangle,
     getFrameInsideHalfFrameInset,
     getRectangularDividerEndNotchInset,
+    getDividerHostBranchGasketEndTrim,
     INTERSECTION_MULLION_END_NOTCH_DEPTH_M,
     INTERSECTION_MULLION_END_NOTCH_LENGTH_M,
     RECTANGULAR_DIVIDER_SETBACK_M,
@@ -4278,9 +4279,22 @@ export function createWindowBuilder({
                     if (!branchSides.size) return;
                     const isBranchFacingSide = branchSides.has(runtimeCellSide);
                     if (isBranchFacingSide) {
-                        // This is the actual half-mullion under the incoming
-                        // branch. Keep the normal 15 mm end clearance, so the
-                        // two host segments leave the intended no-gasket zone.
+                        // This is the side of the host mullion that the incoming
+                        // branch physically occupies. Each collinear host gasket
+                        // must stop by half of the branch face width, so the two
+                        // pieces leave a full mullion-width opening (88 mm for
+                        // the active 575800 profile), just like a mullion meeting
+                        // the outer frame. The generic 15 mm gasket shortening
+                        // only leaves a 30 mm hole and is visibly too small.
+                        const branchGasketEndTrim = getDividerHostBranchGasketEndTrim({
+                            dividerFaceSpan,
+                        });
+                        if (branchGasketEndTrim > 1e-9) {
+                            resolvedJoint[`${endPrefix}GasketTrimOverride`] =
+                                branchGasketEndTrim;
+                        }
+                        resolvedJoint[`${endPrefix}LocalGasketMiter`] = false;
+                        delete resolvedJoint[`${endPrefix}LocalGasketMiterSign`];
                         return;
                     }
 

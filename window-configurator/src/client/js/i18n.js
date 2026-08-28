@@ -16,6 +16,7 @@ const MESSAGES = Object.freeze({
     'finish.modeAria': 'Inside and outside finish mode',
     'finish.uniform': 'Uniform',
     'finish.bicolor': 'Bicolor',
+    'finish.debugLabel': 'Debug colors for professionals',
     'finish.debugAria': 'Toggle debug colors',
     'finish.debugTitle': 'Show original CAD/debug colors',
     'finish.outside': 'Outside',
@@ -300,6 +301,7 @@ const MESSAGES = Object.freeze({
     'finish.modeAria': 'Mod finisaj interior și exterior',
     'finish.uniform': 'Uniform',
     'finish.bicolor': 'Bicolor',
+    'finish.debugLabel': 'Culori de depanare pentru profesioniști',
     'finish.debugAria': 'Afișează/ascunde culorile de depanare',
     'finish.debugTitle': 'Arată culorile CAD/depanare originale',
     'finish.outside': 'Exterior',
@@ -584,6 +586,7 @@ const MESSAGES = Object.freeze({
     'finish.modeAria': 'Oberflächenmodus innen und außen',
     'finish.uniform': 'Einheitlich',
     'finish.bicolor': 'Bicolor',
+    'finish.debugLabel': 'Debug-Farben für Profis',
     'finish.debugAria': 'Debug-Farben ein-/ausblenden',
     'finish.debugTitle': 'Ursprüngliche CAD-/Debug-Farben anzeigen',
     'finish.outside': 'Außen',
@@ -977,8 +980,9 @@ export function applyWindowTranslations(locale = null) {
   setAttr('.finish-mode-toggle', 'aria-label', resolved, 'finish.modeAria');
   setText('#finishModeSame', resolved, 'finish.uniform');
   setText('#finishModeDifferent', resolved, 'finish.bicolor');
-  setAttr('#debugColorsButton', 'aria-label', resolved, 'finish.debugAria');
-  setAttr('#debugColorsButton', 'title', resolved, 'finish.debugTitle');
+  setText('#debugColorsLabel', resolved, 'finish.debugLabel');
+  setAttr('#debugColorsToggle', 'aria-label', resolved, 'finish.debugAria');
+  setAttr('#debugColorsToggle', 'title', resolved, 'finish.debugTitle');
   setText('#outsideFinishTitle', resolved, 'finish.outside');
   setText('#insideFinishCard .finish-side-header span', resolved, 'finish.inside');
   setAttr('#outsideFinishType', 'aria-label', resolved, 'finish.outsideTypeAria');
@@ -1014,7 +1018,7 @@ export function applyWindowTranslations(locale = null) {
   setAttr('#btnModeOscilo', 'title', resolved, 'opening.tilt');
   const angleLabel = document.querySelector('#openAngle')?.closest('.control-group')?.querySelector('label');
   if (angleLabel?.firstChild) angleLabel.firstChild.textContent = `${windowT(resolved, 'opening.angle')}: `;
-  const actionBoxes = [...document.querySelectorAll('.action-box > label:first-child')];
+  const actionBoxes = [...document.querySelectorAll('.action-box:not(.debug-colors-control) > label:first-child')];
   if (actionBoxes[0]) actionBoxes[0].textContent = windowT(resolved, 'view.exploded');
   if (actionBoxes[1]) actionBoxes[1].textContent = windowT(resolved, 'view.showHouse');
 
