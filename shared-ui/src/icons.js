@@ -12,7 +12,7 @@ export function sharedIcon(type) {
     ar: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.4 7.7 7.6 4.2 7.6-4.2"/><path d="M12 12v9"/></svg>`,
     folder: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l2 2H20.5v9.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V6.5Z"/></svg>`,
     settings: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7.2 7.2 0 0 0-.1-1l2-1.5-2-3.4-2.5 1a7.4 7.4 0 0 0-1.8-1L14.2 3h-4.4l-.4 3.1a7.4 7.4 0 0 0-1.8 1l-2.5-1-2 3.4 2 1.5a7.2 7.2 0 0 0 0 2l-2 1.5 2 3.4 2.5-1a7.4 7.4 0 0 0 1.8 1l.4 3.1h4.4l.4-3.1a7.4 7.4 0 0 0 1.8-1l2.5 1 2-3.4-2-1.5a7.2 7.2 0 0 0 .1-1Z"/></svg>`,
-    help: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .65-1.5 1.25-1.5 2.35"/><path d="M12 17h.01"/></svg>`,
+    help: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .65-1.5 1.25-1.5 2.35"/><circle cx="12" cy="17" r="1.05" fill="currentColor" stroke="none"/></svg>`,
     signout: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5.5A1.5 1.5 0 0 0 4 6.5v11A1.5 1.5 0 0 0 5.5 19H10"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg>`,
     cookies: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13.2A8 8 0 1 1 10.8 4a4.3 4.3 0 0 0 4.7 5.3A4 4 0 0 0 20 13.2Z"/><circle cx="9" cy="10" r=".8"/><circle cx="8" cy="15" r=".8"/><circle cx="13" cy="16" r=".8"/></svg>`,
     edit: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 19.5 5.6 15l9.9-9.9a2.1 2.1 0 0 1 3 0l.4.4a2.1 2.1 0 0 1 0 3L9 18.4l-4.5 1.1Z"/><path d="m13.9 6.7 3.4 3.4"/></svg>`,

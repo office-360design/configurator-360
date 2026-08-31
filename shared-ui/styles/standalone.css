@@ -432,6 +432,11 @@
 .shared-ui-host .account-domain button:hover,
 .shared-ui-host .language-list button:hover { background: #f0f3f5; }
 .shared-ui-host .account-menu__items > button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.shared-ui-host .account-menu__help { align-items: start; min-height: 64px; }
+.shared-ui-host .account-menu__help-icon { display: grid; place-items: center; padding-top: 1px; }
+.shared-ui-host .account-menu__help-copy { display: grid; gap: 3px; min-width: 0; }
+.shared-ui-host .account-menu__help-copy small { color: #69767e; font-size: 10.5px; font-weight: 550; line-height: 1.35; }
+.shared-ui-host .account-menu__help-copy small b { color: #3f4b53; font-weight: 750; overflow-wrap: anywhere; }
 .shared-ui-host .account-menu__items strong,
 .shared-ui-host .language-list strong { font-size: 12px; font-weight: 700; }
 .shared-ui-host .account-menu__chevron { font-size: 21px; transition: transform 150ms ease; }
@@ -563,6 +568,8 @@
 .shared-ui-host.is-dark-mode .account-domain button,
 .shared-ui-host.is-dark-mode .language-list button,
 .shared-ui-host.is-dark-mode .account-settings__field { color: #e2e8f0; }
+.shared-ui-host.is-dark-mode .account-menu__help-copy small { color: #aebdca; }
+.shared-ui-host.is-dark-mode .account-menu__help-copy small b { color: #dfe9ef; }
 .shared-ui-host.is-dark-mode .account-menu__items > button:hover,
 .shared-ui-host.is-dark-mode .account-settings button:hover,
 .shared-ui-host.is-dark-mode .account-domain button:hover,

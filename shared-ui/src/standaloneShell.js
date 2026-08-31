@@ -1,14 +1,14 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
-import { sharedT } from './i18n.js?v=24';
+import { sharedT } from './i18n.js?v=25';
 import { renderActionFeedback } from './components/feedback.js?v=17';
-import { renderTopBar } from './components/topBar.js?v=20';
-import { syncAccountIdentity } from './components/accountMenu.js?v=18';
+import { renderTopBar } from './components/topBar.js?v=21';
+import { syncAccountIdentity } from './components/accountMenu.js?v=19';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=18';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=2';
-import { renderCartMenu } from './components/cartMenu.js?v=3';
+import { renderCartMenu } from './components/cartMenu.js?v=4';
 import { getUserCart, mutateUserCart } from './userCart.js?v=4';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 import { readShareState } from './shareState.js?v=4';
@@ -35,6 +35,17 @@ const CART_EDIT_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
 const CART_EDIT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence']);
 const DOMAIN_SAVE_FAILURE_MESSAGE = 'Domain change failed because of a saving failure';
 const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
+const SUPPORT_EMAIL = 'office@360configurator.com';
+const SUPPORT_PRODUCT_NAMES = Object.freeze({
+  window: 'Window',
+  pergola: 'Pergola',
+  roof: 'Roof',
+  hall: 'Hall',
+  fence: 'Fence',
+  solar: 'Solar',
+});
+const CART_SUCCESS_FEEDBACK_MS = 1500;
+const CART_ERROR_FEEDBACK_MS = 2500;
 
 function savedConfigurationScopeForHostname(hostname = '') {
   const tenantSlug = getTenantSlugForHostname(hostname);
@@ -460,7 +471,7 @@ export class StandaloneConfiguratorShell {
       const saveButton = this.host.querySelector('[data-action="save"]');
       const saved = await this.save(saveButton, { suppressFeedback: true });
       if (!saved || !this.currentSavedConfigurationId) {
-        this.showFeedback(sharedT(this.state.locale, 'feedback.cartSaveFailed'), 'error', 2000);
+        this.showFeedback(sharedT(this.state.locale, 'feedback.cartSaveFailed'), 'error', CART_ERROR_FEEDBACK_MS);
         return false;
       }
 
@@ -480,12 +491,12 @@ export class StandaloneConfiguratorShell {
       this.cartLastRemoteSyncAt = Date.now();
       this.renderHost();
       this.sync();
-      this.showFeedback(sharedT(this.state.locale, 'feedback.addedToCart'));
+      this.showFeedback(sharedT(this.state.locale, 'feedback.addedToCart'), 'success', CART_SUCCESS_FEEDBACK_MS);
       this.options.callbacks.onAddToCart?.(result.addedItem ? { ...result.addedItem } : { ...item });
       return true;
     } catch (error) {
       console.error('The configuration could not be added to the synchronized cart.', error);
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', CART_ERROR_FEEDBACK_MS);
       return false;
     } finally {
       this.cartBusy = false;
@@ -536,7 +547,7 @@ export class StandaloneConfiguratorShell {
         return await this.restoreCartEditTransport(this.authUser);
       } catch (error) {
         console.error('The cart configuration could not be opened for editing.', error);
-        this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+        this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', CART_ERROR_FEEDBACK_MS);
         return false;
       } finally {
         button?.removeAttribute('disabled');
@@ -549,7 +560,7 @@ export class StandaloneConfiguratorShell {
     const tab = window.open('about:blank', '_blank');
     if (!tab) {
       button?.removeAttribute('disabled');
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', CART_ERROR_FEEDBACK_MS);
       return false;
     }
     try {
@@ -562,7 +573,7 @@ export class StandaloneConfiguratorShell {
     } catch (error) {
       console.error('The cart configuration could not be opened in its configurator.', error);
       try { tab.close(); } catch { /* best effort */ }
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', CART_ERROR_FEEDBACK_MS);
       return false;
     } finally {
       button?.removeAttribute('disabled');
@@ -590,7 +601,7 @@ export class StandaloneConfiguratorShell {
     } catch (error) {
       console.error('The cart item could not be removed.', error);
       button?.removeAttribute('disabled');
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', CART_ERROR_FEEDBACK_MS);
     } finally {
       this.cartBusy = false;
     }
@@ -610,7 +621,7 @@ export class StandaloneConfiguratorShell {
       return true;
     } catch (error) {
       console.error('The cart could not be emptied.', error);
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', CART_ERROR_FEEDBACK_MS);
       return false;
     } finally {
       this.cartBusy = false;
@@ -765,7 +776,7 @@ export class StandaloneConfiguratorShell {
       this.pendingCartEditTransport = null;
       this.currentCartEdit = null;
       this.clearCartEditTransportUrl();
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', CART_ERROR_FEEDBACK_MS);
       return false;
     }
   }
@@ -1878,7 +1889,7 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'saved-delete') {
       void this.deleteSavedConfiguration(actionTarget.dataset.savedId);
     } else if (action === 'account-help') {
-      this.options.callbacks.onAccountAction?.('help');
+      void this.requestSupport(actionTarget);
     } else if (action === 'cookies-placeholder') {
       this.options.callbacks.onAccountAction?.('cookies');
     } else if (action === 'account-signout') {
@@ -2152,6 +2163,49 @@ export class StandaloneConfiguratorShell {
     } catch (error) {
       console.error('Saved configuration could not be deleted.', error);
       this.showFeedback(sharedT(this.state.locale, 'saved.deleteUnavailable'), 'error');
+    }
+  }
+
+  buildSupportGmailUrl(shareUrl) {
+    const productName = SUPPORT_PRODUCT_NAMES[this.productId] || String(this.options.productType || 'Configuration').trim() || 'Configuration';
+    const subject = `Support request for ${productName} configurator`;
+    const body = `This is the project I was working on when I requested support: ${shareUrl}.\n\n`;
+    const gmailUrl = new URL('https://mail.google.com/mail/');
+    gmailUrl.searchParams.set('view', 'cm');
+    gmailUrl.searchParams.set('fs', '1');
+    gmailUrl.searchParams.set('to', SUPPORT_EMAIL);
+    gmailUrl.searchParams.set('su', subject);
+    gmailUrl.searchParams.set('body', body);
+    return gmailUrl.href;
+  }
+
+  async requestSupport(button = null) {
+    // Open the destination tab synchronously from the click so browsers do not
+    // treat it as an async popup after the Firestore Share link is generated.
+    const supportTab = window.open('about:blank', '_blank');
+    button?.setAttribute('disabled', '');
+    try {
+      const shareUrl = await Promise.resolve(this.options.callbacks.getShareUrl?.() || window.location.href);
+      if (!shareUrl) throw new Error('A Share link could not be generated for the support request.');
+
+      const gmailUrl = this.buildSupportGmailUrl(shareUrl);
+      if (supportTab && !supportTab.closed) {
+        try { supportTab.opener = null; } catch { /* best effort */ }
+        supportTab.location.replace(gmailUrl);
+      } else {
+        // If the browser blocks the new tab, still honor the user's click by
+        // loading Gmail in the current tab. The generated Share link preserves
+        // the exact configurator state they were working on.
+        window.location.assign(gmailUrl);
+      }
+      return true;
+    } catch (error) {
+      console.error('The support email could not be prepared.', error);
+      try { supportTab?.close(); } catch { /* best effort */ }
+      this.showFeedback(sharedT(this.state.locale, 'feedback.supportUnavailable'), 'error', 2500);
+      return false;
+    } finally {
+      button?.removeAttribute('disabled');
     }
   }
 

@@ -1,6 +1,6 @@
-import { sharedT } from '../i18n.js?v=24';
+import { sharedT } from '../i18n.js?v=25';
 import { sharedIcon } from '../icons.js?v=20';
-import { installQuotationRequestController } from '../quotationRequest.js?v=3';
+import { installQuotationRequestController } from '../quotationRequest.js?v=4';
 import { escapeHtml } from '../utils.js';
 
 installQuotationRequestController();
