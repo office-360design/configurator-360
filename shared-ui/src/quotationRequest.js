@@ -5,8 +5,11 @@ const PROJECT_ID = 'configurator-360';
 const QUOTATION_FUNCTION = 'requestCartQuotation';
 const SUPPORTED_LOCALES = new Set(['en-US', 'ro-RO', 'de-DE']);
 const SUPPORTED_CURRENCIES = new Set(['USD', 'RON', 'EUR']);
-const CONTROLLER_FLAG = '__360ConfiguratorQuotationController';
+const CONTROLLER_FLAG = '__360ConfiguratorQuotationControllerV3';
 const FEEDBACK_TIMER_FLAG = '__360ConfiguratorQuotationFeedbackTimer';
+
+const SUCCESS_DURATION_MS = 500;
+const ERROR_DURATION_MS = 1500;
 
 const UI_TEXT = Object.freeze({
   'en-US': Object.freeze({
@@ -88,7 +91,7 @@ function feedbackElement() {
   return document.querySelector('[data-save-feedback]');
 }
 
-function showSharedFeedback(message, type = 'success', durationMs = 1050) {
+function showSharedFeedback(message, type = 'success', durationMs = SUCCESS_DURATION_MS) {
   const feedback = feedbackElement();
   if (!(feedback instanceof HTMLElement)) return;
   const text = feedback.querySelector('[data-save-feedback-text]');
@@ -98,7 +101,7 @@ function showSharedFeedback(message, type = 'success', durationMs = 1050) {
   const feedbackType = type === 'error' ? 'is-error' : 'is-success';
   feedback.classList.remove('is-success', 'is-error', 'is-animating');
   void feedback.offsetWidth;
-  const duration = Math.max(300, Number(durationMs) || 1050);
+  const duration = Math.max(300, Number(durationMs) || SUCCESS_DURATION_MS);
   feedback.style.animationDuration = `${duration}ms`;
   feedback.classList.add(feedbackType, 'is-animating');
   text.textContent = String(message || '');
@@ -122,29 +125,26 @@ async function submitQuotation(button) {
   const text = UI_TEXT[locale] || UI_TEXT['en-US'];
   const menu = button.closest('[data-cart-menu]');
   if (!menu?.querySelector('[data-cart-item]')) {
-    showSharedFeedback(text.empty, 'error', 500);
+    showSharedFeedback(text.empty, 'error', ERROR_DURATION_MS);
     return;
   }
 
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
   try {
-    // The backend owns quotation snapshot-link creation. This keeps the click
-    // atomic: one click means one request, without a client-side chain of Share
-    // writes that can finish much later or race with cart re-renders.
+    // One click maps to one backend request. The backend reads the immutable
+    // shoppingCart snapshots, creates the guest links, sends the email and only
+    // then reports success. No configurator-specific Share chain runs here.
     await callQuotationFunction({ locale, currency });
-    showSharedFeedback(text.success, 'success', 1050);
+    showSharedFeedback(text.success, 'success', SUCCESS_DURATION_MS);
   } catch (error) {
     console.error('Quotation request failed.', error);
     const code = normalizedErrorCode(error);
     const remaining = retryAfterSeconds(error);
-    if ((code === 'resource-exhausted' || code === 'resource_exhausted') && remaining > 0) {
-      showSharedFeedback(text.cooldown(remaining), 'error', 2000);
+    if (code === 'resource-exhausted' && remaining > 0) {
+      showSharedFeedback(text.cooldown(remaining), 'error', ERROR_DURATION_MS);
     } else {
-      // The click was registered but the request failed. Keep this deliberately
-      // short as requested; the red shared feedback shape still makes the state
-      // immediately visible without leaving a stale alert on screen.
-      showSharedFeedback(text.failure, 'error', 500);
+      showSharedFeedback(text.failure, 'error', ERROR_DURATION_MS);
     }
   } finally {
     button.removeAttribute('aria-busy');
@@ -165,8 +165,11 @@ export function installQuotationRequestController() {
       : null;
     if (!(button instanceof HTMLButtonElement)) return;
 
+    // Own the shared cart quotation action before the standalone shell's legacy
+    // inert cart-quote branch can see it. stopImmediatePropagation also prevents
+    // an older quotation controller from submitting a second request.
     event.preventDefault();
-    event.stopPropagation();
+    event.stopImmediatePropagation();
     void submitQuotation(button);
   }, true);
 }
