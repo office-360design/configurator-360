@@ -35,7 +35,10 @@ jobs:
         # tsx/esbuild require their platform binary during test/build.  Do not
         # suppress package lifecycle scripts here; this lockfile is committed
         # with the server and npm ci provides the reproducible install.
-        run: npm ci && npm test && npm run build
+        # The MCP contract test reads the bundled Apps preview resource, so
+        # build it before executing the tests. GitHub runners start without a
+        # local dist directory, unlike a developer checkout after a prior build.
+        run: npm ci && npm run build && npm test
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
