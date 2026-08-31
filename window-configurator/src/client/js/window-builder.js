@@ -80,6 +80,7 @@ export function createWindowBuilder({
     updateComponentPictures,
     getFinishState,
     getSelectedHandleSide,
+    getHingeType = () => 'surface-mounted',
     onGlassClick = () => { },
     onFabricationSnapshot = () => { },
     isProfileEnabled = () => true,
@@ -3170,7 +3171,97 @@ export function createWindowBuilder({
         sectionGroup.lookAt(camera.position);
     }
 
+    function createSurfaceMountedHingeFrameMesh({ isLeftHinge, material, captureMode }) {
+        const hingeGroup = new THREE.Group();
+        const darkBushingMat = new THREE.MeshStandardMaterial({
+            color: 0x182026,
+            roughness: 0.7,
+            metalness: 0.2,
+        });
 
+        const barrelRadius = 0.007;
+        const barrelSegments = 24;
+
+        const topKnuckleH = 0.026;
+        const midKnuckleH = 0.030;
+        const botKnuckleH = 0.026;
+        const spacerH = 0.002;
+        const capH = 0.002;
+
+        const topY = (midKnuckleH / 2) + spacerH + (topKnuckleH / 2);
+        const topSpacerY = (midKnuckleH / 2) + (spacerH / 2);
+        const botSpacerY = -(midKnuckleH / 2) - (spacerH / 2);
+        const botY = -(midKnuckleH / 2) - spacerH - (botKnuckleH / 2);
+        const topCapY = topY + (topKnuckleH / 2) + (capH / 2);
+        const botCapY = botY - (botKnuckleH / 2) - (capH / 2);
+
+        const createCylinder = (h, mat) => {
+            const geo = new THREE.CylinderGeometry(barrelRadius, barrelRadius, h, barrelSegments);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = !captureMode;
+            mesh.receiveShadow = !captureMode;
+            return mesh;
+        };
+
+        const topKnuckle = createCylinder(topKnuckleH, material);
+        topKnuckle.position.y = topY;
+        const botKnuckle = createCylinder(botKnuckleH, material);
+        botKnuckle.position.y = botY;
+
+        const topSpacer = createCylinder(spacerH, darkBushingMat);
+        topSpacer.position.y = topSpacerY;
+        const botSpacer = createCylinder(spacerH, darkBushingMat);
+        botSpacer.position.y = botSpacerY;
+
+        const topCap = createCylinder(capH, darkBushingMat);
+        topCap.position.y = topCapY;
+        const botCap = createCylinder(capH, darkBushingMat);
+        botCap.position.y = botCapY;
+
+        hingeGroup.add(topKnuckle, botKnuckle, topSpacer, botSpacer, topCap, botCap);
+        return hingeGroup;
+    }
+
+    function createSurfaceMountedHingeSashMesh({ isLeftHinge, material, captureMode }) {
+        const hingeGroup = new THREE.Group();
+        const barrelRadius = 0.007;
+        const barrelSegments = 24;
+        const midKnuckleH = 0.030;
+
+        const geo = new THREE.CylinderGeometry(barrelRadius, barrelRadius, midKnuckleH, barrelSegments);
+        const midKnuckle = new THREE.Mesh(geo, material);
+        midKnuckle.castShadow = !captureMode;
+        midKnuckle.receiveShadow = !captureMode;
+        hingeGroup.add(midKnuckle);
+
+        const tabWidth = 0.026;
+        const tabThickness = 0.0035;
+        const tabHeight = 0.022;
+        const leafOffsetSign = isLeftHinge ? -1 : 1;
+
+        const shape = new THREE.Shape();
+        const dir = -leafOffsetSign; // Extends into/above the sash
+        shape.moveTo(0, -tabHeight / 2);
+        shape.lineTo(dir * tabWidth, -tabHeight / 2);
+        shape.lineTo(dir * tabWidth, tabHeight / 2);
+        shape.lineTo(0, tabHeight / 2);
+        shape.closePath();
+
+        const leafGeo = new THREE.ExtrudeGeometry(shape, {
+            depth: tabThickness,
+            bevelEnabled: true,
+            bevelThickness: 0.001,
+            bevelSize: 0.001,
+            bevelSegments: 3,
+        });
+        leafGeo.translate(0, 0, -tabThickness);
+        const midTab = new THREE.Mesh(leafGeo, material);
+        midTab.castShadow = !captureMode;
+        midTab.receiveShadow = !captureMode;
+        hingeGroup.add(midTab);
+
+        return hingeGroup;
+    }
 
     function buildWindow() {
         if (!currentMetadata) return;
@@ -3651,6 +3742,7 @@ export function createWindowBuilder({
         // Miter-extrude structural and accessory profiles. The verified vertical
         // connection keeps fixed glazing on the left and the opening sash on the right.
         let sashMinX = Infinity, sashMaxX = -Infinity;
+        let frameMinX = Infinity, frameMaxX = -Infinity;
         profilesData.forEach(profile => {
             if (profile.role === 'sash' && String(profile.layer || '').toLowerCase().includes('al')) {
                 const bbox = getEffectiveProfileBbox(profile);
@@ -3658,10 +3750,19 @@ export function createWindowBuilder({
                 if (bbox.minX < sashMinX) sashMinX = bbox.minX;
                 if (bbox.maxX > sashMaxX) sashMaxX = bbox.maxX;
             }
+            if (profile.role === 'frame' && String(profile.layer || '').toLowerCase().includes('al')) {
+                const bbox = getEffectiveProfileBbox(profile);
+                if (!bbox) return;
+                if (bbox.minX < frameMinX) frameMinX = bbox.minX;
+                if (bbox.maxX > frameMaxX) frameMaxX = bbox.maxX;
+            }
         });
         if (sashMinX === Infinity) {
             sashMinX = currentMetadata.globalMinX;
             sashMaxX = currentMetadata.globalMaxX;
+        }
+        if (frameMaxX === -Infinity) {
+            frameMaxX = sashMaxX;
         }
         const sashCenterX = ((sashMinX + sashMaxX) / 2 - currentMetadata.globalCenterX) * S;
         const dividerDepthOffset = dividerOrientation && currentMetadata.dividerConnection
@@ -6120,6 +6221,7 @@ export function createWindowBuilder({
                         ? (cell.joinCellSide === 'left' ? 'right' : 'left')
                         : selectedHandleSide);
                 const isLeftHandle = cellHandleSide === 'left';
+                const sashInteriorZ = (sashMaxX - currentMetadata.globalCenterX) * S;
                 const defaultRot = document.getElementById('mBatant').checked
                     ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
                     : (isLeftHandle ? Math.PI : -Math.PI);
@@ -6211,7 +6313,6 @@ export function createWindowBuilder({
                     leverGroup.add(lever);
                     handleBase.add(leverGroup);
 
-                    const sashInteriorZ = (sashMaxX - currentMetadata.globalCenterX) * S;
                     const handleInwardShift = 0.01;
                     const handleLocalX = isLeftHandle
                         ? -cell.width / 2 + leftInset - 0.04 + handleInwardShift
@@ -6234,11 +6335,16 @@ export function createWindowBuilder({
                     if (cellIndex === 0) handleLeverGroup = null;
                 }
 
+                const isSurfaceHinge = getHingeType() === 'surface-mounted';
+                const frameInteriorZ = (frameMaxX - currentMetadata.globalCenterX) * S;
                 const hingeX = cell.centerX + (
-                    isLeftHandle ? (cell.width / 2 - 0.04) : (-cell.width / 2 + 0.04)
+                    isSurfaceHinge
+                        ? (isLeftHandle ? (cell.width / 2 - 0.013) : (-cell.width / 2 + 0.013))
+                        : (isLeftHandle ? (cell.width / 2 - 0.04) : (-cell.width / 2 + 0.04))
                 );
                 const hingeY = cell.centerY - cell.height / 2 + 0.04;
-                const hingeZ = sashCenterX;
+                const hingeZPos = (isSurfaceHinge ? frameInteriorZ : sashInteriorZ) + 0.0075;
+                const hingeZ = isSurfaceHinge ? hingeZPos : sashCenterX;
                 const cellPivotOscilo = cellIndex === 0 ? pivotOscilo : new THREE.Group();
                 const cellPivotBatant = cellIndex === 0 ? pivotBatant : new THREE.Group();
                 cellPivotOscilo.position.set(0, hingeY, hingeZ);
@@ -6247,6 +6353,70 @@ export function createWindowBuilder({
                 cellPivotBatant.rotation.set(0, 0, 0);
                 mainGroup.add(cellPivotOscilo);
                 cellPivotOscilo.add(cellPivotBatant);
+
+                if (isSurfaceHinge) {
+                    const isLeftHinge = !isLeftHandle;
+                    const topHingeY = cell.centerY + cell.height / 2 - 0.14;
+                    const botHingeY = cell.centerY - cell.height / 2 + 0.14;
+
+                    // Frame-mounted parts (top/bottom knuckles, frame leaves, caps, bushings) - static on frame
+                    const topFrameHinge = createSurfaceMountedHingeFrameMesh({
+                        isLeftHinge,
+                        material: handleMat,
+                        captureMode,
+                    });
+                    topFrameHinge.position.set(hingeX, topHingeY, hingeZPos);
+                    topFrameHinge.userData.windowCell = cell.id;
+                    frameGroup.add(topFrameHinge);
+
+                    const botFrameHinge = createSurfaceMountedHingeFrameMesh({
+                        isLeftHinge,
+                        material: handleMat,
+                        captureMode,
+                    });
+                    botFrameHinge.position.set(hingeX, botHingeY, hingeZPos);
+                    botFrameHinge.userData.windowCell = cell.id;
+                    frameGroup.add(botFrameHinge);
+
+                    // Sash-mounted parts (middle knuckle, sash leaf) - rotates with opening sash
+                    const topSashHinge = createSurfaceMountedHingeSashMesh({
+                        isLeftHinge,
+                        material: handleMat,
+                        captureMode,
+                    });
+                    topSashHinge.position.set(hingeX, topHingeY, hingeZPos);
+                    topSashHinge.userData.windowCell = cell.id;
+                    topSashHinge.userData.explodeLayer = 'sash';
+                    topSashHinge.userData.explodeFollower = true;
+                    topSashHinge.userData.explodeAssemblyKey = `sash:${cell.id}:${isLeftHandle ? 'right' : 'left'}`;
+                    registerOutwardAxisExplode(
+                        topSashHinge,
+                        'x',
+                        0.26,
+                        0.9,
+                        isLeftHandle ? 1 : -1
+                    );
+                    targetSashGroup.add(topSashHinge);
+
+                    const botSashHinge = createSurfaceMountedHingeSashMesh({
+                        isLeftHinge,
+                        material: handleMat,
+                        captureMode,
+                    });
+                    botSashHinge.position.set(hingeX, botHingeY, hingeZPos);
+                    botSashHinge.userData.windowCell = cell.id;
+                    botSashHinge.userData.explodeLayer = 'sash';
+                    botSashHinge.userData.explodeFollower = true;
+                    botSashHinge.userData.explodeAssemblyKey = `sash:${cell.id}:${isLeftHandle ? 'right' : 'left'}`;
+                    registerOutwardAxisExplode(
+                        botSashHinge,
+                        'x',
+                        0.26,
+                        0.9,
+                        isLeftHandle ? 1 : -1
+                    );
+                    targetSashGroup.add(botSashHinge);
+                }
 
                 const sashWrapper = new THREE.Group();
                 sashWrapper.position.set(-hingeX, 0, -hingeZ);

@@ -16,6 +16,10 @@ const MESSAGES = Object.freeze({
     'finish.modeAria': 'Inside and outside finish mode',
     'finish.uniform': 'Uniform',
     'finish.bicolor': 'Bicolor',
+    'finish.hingeTypeLabel': 'Hinges',
+    'finish.hingeTypeAria': 'Hinge type',
+    'finish.hingeTypeSurface': 'Surface-Mounted',
+    'finish.hingeTypeConcealed': 'Concealed',
     'finish.debugLabel': 'Debug colors for professionals',
     'finish.debugAria': 'Toggle debug colors',
     'finish.debugTitle': 'Show original CAD/debug colors',
@@ -321,6 +325,10 @@ const MESSAGES = Object.freeze({
     'finish.modeAria': 'Mod finisaj interior și exterior',
     'finish.uniform': 'Uniform',
     'finish.bicolor': 'Bicolor',
+    'finish.hingeTypeLabel': 'Balamale',
+    'finish.hingeTypeAria': 'Tip balama',
+    'finish.hingeTypeSurface': 'Aplicate',
+    'finish.hingeTypeConcealed': 'Ascunse',
     'finish.debugLabel': 'Culori de depanare pentru profesioniști',
     'finish.debugAria': 'Afișează/ascunde culorile de depanare',
     'finish.debugTitle': 'Arată culorile CAD/depanare originale',
@@ -626,6 +634,10 @@ const MESSAGES = Object.freeze({
     'finish.modeAria': 'Oberflächenmodus innen und außen',
     'finish.uniform': 'Einheitlich',
     'finish.bicolor': 'Bicolor',
+    'finish.hingeTypeLabel': 'Bänder',
+    'finish.hingeTypeAria': 'Bandart',
+    'finish.hingeTypeSurface': 'Aufrechtliegend',
+    'finish.hingeTypeConcealed': 'Verdeckt',
     'finish.debugLabel': 'Debug-Farben für Profis',
     'finish.debugAria': 'Debug-Farben ein-/ausblenden',
     'finish.debugTitle': 'Ursprüngliche CAD-/Debug-Farben anzeigen',
@@ -1036,6 +1048,10 @@ export function applyWindowTranslations(locale = null) {
   setText('label[for="dividerProfile"]', resolved, 'profile.divider');
   setText('label[for="transProfile"]', resolved, 'profile.trans');
 
+  setText('#hingeTypeControls > label', resolved, 'finish.hingeTypeLabel');
+  setAttr('#hingeTypeToggle', 'aria-label', resolved, 'finish.hingeTypeAria');
+  setText('#hingeTypeSurface', resolved, 'finish.hingeTypeSurface');
+  setText('#hingeTypeConcealed', resolved, 'finish.hingeTypeConcealed');
   setText('#aluminiumFinishControls > label', resolved, 'finish.title');
   setAttr('.finish-mode-toggle', 'aria-label', resolved, 'finish.modeAria');
   setText('#finishModeSame', resolved, 'finish.uniform');

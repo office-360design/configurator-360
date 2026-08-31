@@ -590,6 +590,21 @@ const {
     updateComponentPictures,
 } = profileController;
 
+let selectedHingeType = 'surface-mounted';
+const hingeTypeSurfaceBtn = document.getElementById('hingeTypeSurface');
+const hingeTypeConcealedBtn = document.getElementById('hingeTypeConcealed');
+
+function setHingeType(type) {
+    if (type !== 'surface-mounted' && type !== 'concealed') return;
+    selectedHingeType = type;
+    if (hingeTypeSurfaceBtn) hingeTypeSurfaceBtn.classList.toggle('active', type === 'surface-mounted');
+    if (hingeTypeConcealedBtn) hingeTypeConcealedBtn.classList.toggle('active', type === 'concealed');
+    windowBuilder?.buildWindow();
+}
+
+hingeTypeSurfaceBtn?.addEventListener('click', () => setHingeType('surface-mounted'));
+hingeTypeConcealedBtn?.addEventListener('click', () => setHingeType('concealed'));
+
 windowBuilder = createWindowBuilder({
     scene,
     camera,
@@ -618,6 +633,7 @@ windowBuilder = createWindowBuilder({
     updateComponentPictures,
     getFinishState: materialManager.getFinishState,
     getSelectedHandleSide: () => selectedHandleSide,
+    getHingeType: () => selectedHingeType,
     onGlassClick: ({ cellId }) => {
         selectWindowCell(cellId);
     },
