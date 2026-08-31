@@ -63,6 +63,13 @@ test('pergola night preview maps to the live environment state', () => {
   assert.equal((built.state.environment as JsonObject).night, true);
 });
 
+test('hall uses live building and climate values', () => {
+  const built = buildState('hall', { ...defaults('hall'), buildingUse: 'cold', climateSystem: 'frozen', nightPreview: true });
+  assert.equal(built.state.buildingUse, 'cold');
+  assert.equal(built.state.climateSystem, 'frozen');
+  assert.equal(built.state.nightPreview, true);
+});
+
 test('solar exact location stores usable coordinates', () => {
   const exact = buildState('solar', { ...defaults('solar'), locationMode: 'exact', exactLocationConsent: true, locationLat: 46.77, locationLon: 23.59, locationLabel: 'Cluj-Napoca', roofBearingDeg: 210 });
   assert.equal(exact.state.locationMode, 'exact');

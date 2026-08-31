@@ -98,7 +98,7 @@ function hallState(a: JsonObject): JsonObject {
     ...a, ...baseView(), selectedHeaProfile: 'HEA 220', showCladding: a.claddingProfile !== 'none', showScenery: true,
     inspectionMode: 'all', sectionCutEnabled: false, sectionCutPosition: 50, connectionDetails: false,
     forkliftClearance: false, rackDensity: 'standard', serviceVisibility: 'all', serviceCoverage: false,
-    sunPosition: 0.47, season: 'winter', explode: 0,
+    sunPosition: 0.47, season: 'winter', nightPreview: Boolean(a.nightPreview), explode: 0,
   };
 }
 
