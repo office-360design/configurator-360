@@ -64,8 +64,9 @@ test('pergola night preview maps to the live environment state', () => {
 });
 
 test('solar exact location stores usable coordinates', () => {
-  const exact = buildState('solar', { ...defaults('solar'), locationMode: 'exact', locationLat: 46.77, locationLon: 23.59, locationLabel: 'Cluj-Napoca' });
+  const exact = buildState('solar', { ...defaults('solar'), locationMode: 'exact', exactLocationConsent: true, locationLat: 46.77, locationLon: 23.59, locationLabel: 'Cluj-Napoca', roofBearingDeg: 210 });
   assert.equal(exact.state.locationMode, 'exact');
   assert.equal(exact.state.locationLat, 46.77);
   assert.equal(exact.state.locationLon, 23.59);
+  assert.equal(exact.state.northDirection, 210);
 });

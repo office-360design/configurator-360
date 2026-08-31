@@ -110,6 +110,7 @@ export function createMcpServer() {
     try {
       const built = buildState('solar', answers as JsonObject, { requireExplicit: true });
       if (runExactSiteAnalysis && built.answers.locationMode !== 'exact') throw new ConfigurationError('Ask the customer to choose an exact location before requesting PVGIS exact-site analysis.', 'locationMode');
+      if (runExactSiteAnalysis && built.answers.exactLocationConsent !== true) throw new ConfigurationError('Ask the customer to explicitly consent to using the confirmed exact location before requesting PVGIS analysis.', 'exactLocationConsent');
       const analysis = await analyzeSolar(built.state, runExactSiteAnalysis);
       return result({ product: 'solar', normalizedAnswers: built.answers, analysis }, `Completed a ${analysis.productionSource} solar analysis.`);
     } catch (error) { return failure(error); }

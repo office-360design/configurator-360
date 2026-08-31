@@ -207,7 +207,7 @@ function solarState(a: JsonObject): JsonObject {
     batteryCapacityKWh: a.batteryCapacityKWh, batteryReservePct: 10, batteryRoundTripEfficiency: 0.92,
     installationPricePerKwpRon: a.installationPricePerKwpRon, mountingPricePerPanelRon: a.mountingPricePerPanelRon,
     paperworkPriceRon: a.paperworkPriceRon, batteryPricePerKWhRon: a.batteryPricePerKWhRon, vatRate: Number(a.vatRatePct) / 100,
-    showDimensions: false, technicalEdges: false, showCompass: true, showSunPath: true, sunPosition: 50, northDirection: 0, nightPreview: false,
+    showDimensions: false, technicalEdges: false, showCompass: true, showSunPath: true, sunPosition: 50, northDirection: a.roofBearingDeg, nightPreview: false,
     units: 'metric', currency: 'RON', currencyRate: 1, excludedEstimateItems: [],
   };
 }

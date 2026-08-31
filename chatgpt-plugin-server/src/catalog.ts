@@ -109,8 +109,9 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
     id: 'solar', title: 'Solar', description: 'Residential PV array, consumption, storage, and production estimate.',
     baseUrl: 'https://aks.360configurator.com/solar-configurator/',
     questions: [
-      choice('roofType', 'Roof type', ['gable', 'hip', 'shed'], 'gable'), number('length', 'Roof length', 'm', 5, 20, 10),
+      choice('roofType', 'Roof type', ['gable', 'hip', 'shed'], 'gable', undefined, { gable: 'two-slope / gable', hip: 'four-slope / hip', shed: 'single-slope / shed' }), number('length', 'Roof length', 'm', 5, 20, 10),
       number('depth', 'Roof depth', 'm', 4, 14, 7), number('pitch', 'Roof pitch', 'deg', 5, 55, 30),
+      number('roofBearingDeg', 'Roof front bearing', 'deg', 0, 359, 180),
       choice('modulePreset', 'Solar module', ['standard475', 'compact450', 'premium490'], 'standard475'),
       number('panelCount', 'Panel count', 'pcs', 1, 80, 12), number('panelColumns', 'Panel columns', 'pcs', 1, 10, 4),
       choice('moduleOrientation', 'Module orientation', ['portrait', 'landscape'], 'portrait'), choice('roofSide', 'Roof plane', ['best', 'south', 'east', 'west'], 'best'),
@@ -118,6 +119,7 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       number('energyTariffRon', 'Energy tariff', 'RON/kWh', 0.05, 20, 1.3),
       choice('locationMode', 'Location precision', ['region', 'exact'], 'region'),
       choice('region', 'Regional production reference', ['dobrogea', 'muntenia', 'moldova', 'transylvania', 'northwest'], 'muntenia', 'locationMode == region'),
+      bool('exactLocationConsent', 'Use the confirmed exact location for PVGIS and optional Google Solar analysis', false, 'locationMode == exact'),
       number('locationLat', 'Exact latitude', 'degrees', -90, 90, 44.4268, 'locationMode == exact'),
       number('locationLon', 'Exact longitude', 'degrees', -180, 180, 26.1025, 'locationMode == exact'),
       { id: 'locationLabel', label: 'Exact location label', type: 'text', required: true, default: 'Bucharest, Romania', when: 'locationMode == exact' },
