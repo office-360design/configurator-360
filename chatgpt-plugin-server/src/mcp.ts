@@ -9,6 +9,7 @@ import { answersFromState, buildState, ConfigurationError, mergeRevision, pendin
 import { CATALOG, PRODUCT_IDS, ConfirmedProductRequestSchema, ProductRequestSchema, isProductId, type JsonObject, type ProductId, type Question } from './catalog.js';
 import { currentClientKey } from './context.js';
 import { createShare, enforceRateLimit, getShare, parseShareId, type StoredShare } from './storage.js';
+import { analyzeSolar } from './solarAnalysis.js';
 
 const UI_URI = 'ui://360configurator/preview-v1.html';
 const here = dirname(fileURLToPath(import.meta.url));
@@ -73,7 +74,7 @@ function failure(error: unknown) {
 export function createMcpServer() {
   const server = new McpServer(
     { name: '360configurator', version: '0.1.0' },
-    { instructions: 'Required workflow: call get_configurator_spec first, then call preview_draft_configuration exactly once in that same response with every unambiguous value extracted from the first customer message (or {} for a default preview). Do not assign an ambiguous measurement (for example “an 8 m U-shaped fence”) to a particular run. NEVER render two preview tools in one assistant response. After get_configurator_spec, and after every customer message that changes any collected answer, call get_next_configuration_questions and present its assistantPrompt verbatim. Collect every active customer-facing answer; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Treat “no gates” as gates: []. Immediately after every later customer message that changes any collected answer, call preview_draft_configuration once with every answer collected so far; it must update automatically without the user asking. Its assumptions are temporary preview values, not accepted customer choices. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
+    { instructions: 'Required workflow: call get_configurator_spec first, then call preview_draft_configuration exactly once in that same response with every unambiguous value extracted from the first customer message (or {} for a default preview). Do not assign an ambiguous measurement (for example “an 8 m U-shaped fence”) to a particular run. NEVER render two preview tools in one assistant response. After get_configurator_spec, and after every customer message that changes any collected answer, call get_next_configuration_questions and present its assistantPrompt verbatim. Collect every active customer-facing answer; for Solar, call analyze_solar_configuration after all answers are explicit and before asking for final confirmation. Only request runExactSiteAnalysis=true after the customer explicitly chose exact location and asked for an exact-site analysis; do not send an address to any tool. Call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Treat “no gates” as gates: []. Immediately after every later customer message that changes any collected answer, call preview_draft_configuration once with every answer collected so far; it must update automatically without the user asking. Its assumptions are temporary preview values, not accepted customer choices. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
   );
 
   server.registerTool('list_configurators', {
@@ -97,6 +98,20 @@ export function createMcpServer() {
       const raw = answers as JsonObject;
       const guidance = questionGuidance(product, raw);
       return result({ product, questions: guidance.next, remainingQuestions: guidance.remaining, assistantPrompt: guidance.assistantPrompt }, 'Loaded the next customer questions with their exact limits and options.');
+    } catch (error) { return failure(error); }
+  });
+
+  server.registerTool('analyze_solar_configuration', {
+    title: 'Analyze a solar configuration',
+    description: 'Return annual production, consumption coverage, battery size and indicative system price for a complete solar configuration. For exact PVGIS data, the customer must have explicitly selected exact location and explicitly requested exact-site analysis; do not treat regional results as exact-site results.',
+    inputSchema: z.object({ answers: z.record(z.unknown()), runExactSiteAnalysis: z.boolean().default(false) }).shape,
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+  }, async ({ answers, runExactSiteAnalysis }) => {
+    try {
+      const built = buildState('solar', answers as JsonObject, { requireExplicit: true });
+      if (runExactSiteAnalysis && built.answers.locationMode !== 'exact') throw new ConfigurationError('Ask the customer to choose an exact location before requesting PVGIS exact-site analysis.', 'locationMode');
+      const analysis = await analyzeSolar(built.state, runExactSiteAnalysis);
+      return result({ product: 'solar', normalizedAnswers: built.answers, analysis }, `Completed a ${analysis.productionSource} solar analysis.`);
     } catch (error) { return failure(error); }
   });
 

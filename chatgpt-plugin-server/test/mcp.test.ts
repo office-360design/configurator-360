@@ -13,6 +13,7 @@ test('MCP handshake exposes the complete public tool contract', async () => {
   try {
     const listed = await client.listTools();
     assert.deepEqual(listed.tools.map(tool => tool.name).sort(), [
+      'analyze_solar_configuration',
       'create_configuration',
       'get_configurator_spec',
       'get_next_configuration_questions',
@@ -35,6 +36,9 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     assert.match(String((next.structuredContent as { assistantPrompt?: string }).assistantPrompt), /Run A length: 2–30 m/);
     const roofDraft = await client.callTool({ name: 'preview_draft_configuration', arguments: { product: 'roof', answers: {} } });
     assert.match(String((roofDraft.structuredContent as { assistantPrompt?: string }).assistantPrompt), /House \/ roof shape: two-slope \/ gable/);
+    const solarAnswers = Object.fromEntries((spec.structuredContent as { questions: Array<{ id: string; default: unknown }> }).questions.map(question => [question.id, question.default]));
+    const solarAnalysis = await client.callTool({ name: 'analyze_solar_configuration', arguments: { answers: solarAnswers } });
+    assert.equal((solarAnalysis.structuredContent as { analysis?: { productionSource?: string } }).analysis?.productionSource, 'Regional calibrated estimate');
     const resources = await client.listResources();
     assert.equal(resources.resources[0]?.uri, 'ui://360configurator/preview-v1.html');
     const preview = await client.readResource({ uri: 'ui://360configurator/preview-v1.html' });
