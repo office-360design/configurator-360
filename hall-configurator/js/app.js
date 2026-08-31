@@ -51,6 +51,10 @@ function syncToolButtons() {
   setActive('compass', state.compassVisible);
   setActive('technical-edges', state.technicalEdges);
   setActive('explode', state.explode > 0);
+  const previewCladding = document.querySelector('#hallPreviewCladdingButton');
+  const previewExplode = document.querySelector('#hallPreviewExplodeButton');
+  previewCladding?.setAttribute('aria-pressed', String(Boolean(state.showCladding)));
+  previewExplode?.setAttribute('aria-pressed', String(state.explode > 0));
 }
 
 function rebuildNow({ fitCamera = false } = {}) {
@@ -195,6 +199,14 @@ function toggleTechnicalEdges() {
 function toggleExplode() {
   ui.setExplodeValue(state.explode > 0 ? 0 : 100);
 }
+
+document.querySelector('#hallPreviewCladdingButton')?.addEventListener('click', () => {
+  state.showCladding = !state.showCladding;
+  ui.applyStateToControls();
+  scene.applyDisplayState(state);
+  syncToolButtons();
+});
+document.querySelector('#hallPreviewExplodeButton')?.addEventListener('click', toggleExplode);
 
 function resetConfiguration() {
   environmentPanelOpen = false;
