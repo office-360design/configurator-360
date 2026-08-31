@@ -1980,6 +1980,58 @@ body.roof-sidebar-collapsed .shared-settings-toggle {
   }
 }
 
+/* Read-only presentation used by MCP Apps/ChatGPT. The normal share URL keeps
+   the complete configurator; ?embed=preview removes editor chrome while leaving
+   the existing WebGL canvas and orbit controls intact. */
+body.configurator-embed-preview {
+  --shared-topbar-height: 0px;
+  overflow: hidden !important;
+}
+body.configurator-embed-preview .shared-ui-host,
+body.configurator-embed-preview .sidebar,
+body.configurator-embed-preview .configurator-sidebar,
+body.configurator-embed-preview #controls,
+body.configurator-embed-preview #sidebar-toggle,
+body.configurator-embed-preview [id$="SidebarToggle"],
+body.configurator-embed-preview .sidebar-collapse-handle,
+body.configurator-embed-preview .viewer-header,
+body.configurator-embed-preview .metrics-bar,
+body.configurator-embed-preview .tools-toolbar,
+body.configurator-embed-preview .environment-panel,
+body.configurator-embed-preview [class$="environment-panel"],
+body.configurator-embed-preview dialog,
+body.configurator-embed-preview [data-modal-root] {
+  display: none !important;
+}
+body.configurator-embed-preview .app-shell {
+  position: fixed !important;
+  inset: 0 !important;
+  display: block !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+body.configurator-embed-preview .configurator-layout {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+body.configurator-embed-preview .viewer-panel,
+body.configurator-embed-preview .viewer-stage,
+body.configurator-embed-preview .viewport,
+body.configurator-embed-preview #canvasHost,
+body.configurator-embed-preview #canvas-container {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
 /* Shared configurator settings frame + quote footer ----------------------- */
 .shared-configurator-panel {
   position: relative;

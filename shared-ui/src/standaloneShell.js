@@ -161,9 +161,13 @@ export class StandaloneConfiguratorShell {
 
     this.storagePrefix = this.options.storagePrefix;
     this.productId = normalizeProductId(this.options.productId || this.options.productType);
-    void recordConfiguratorAccessOnce(this.productId).catch((error) => {
-      console.warn('Configurator access analytics could not be recorded.', error);
-    });
+    this.embedPreview = new URLSearchParams(window.location.search).get('embed') === 'preview';
+    document.body.classList.toggle('configurator-embed-preview', this.embedPreview);
+    if (!this.embedPreview) {
+      void recordConfiguratorAccessOnce(this.productId).catch((error) => {
+        console.warn('Configurator access analytics could not be recorded.', error);
+      });
+    }
     // The old shell used one project-meta record for every authentication state.
     // Keep its key only for one-time migration; active project pointers are now
     // isolated by Firebase UID so one account can never leak into another/guest.

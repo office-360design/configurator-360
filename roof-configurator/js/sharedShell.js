@@ -152,6 +152,7 @@ const componentsClose = document.querySelector('#roofComponentsClose');
 const componentsSearch = document.querySelector('#roofComponentsSearch');
 const componentsEmpty = document.querySelector('#roofComponentsEmpty');
 const componentCards = [...document.querySelectorAll('[data-component-card]')];
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
 let relocatedToolsToolbar = null;
 let toolsPositionFrame = 0;
 

@@ -1,0 +1,141 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
+import { z } from 'zod';
+import { answersFromState, buildState, ConfigurationError, mergeRevision, summarize } from './adapters.js';
+import { CATALOG, PRODUCT_IDS, ConfirmedProductRequestSchema, ProductRequestSchema, isProductId, type JsonObject, type ProductId } from './catalog.js';
+import { currentClientKey } from './context.js';
+import { createShare, enforceRateLimit, getShare, parseShareId, type StoredShare } from './storage.js';
+
+const UI_URI = 'ui://360configurator/preview-v1.html';
+const here = dirname(fileURLToPath(import.meta.url));
+
+function componentSource() {
+  const candidates = [join(here, 'component.js'), join(here, '../dist/src/component.js')];
+  const path = candidates.find(existsSync);
+  if (!path) throw new Error('The MCP Apps preview bundle has not been built.');
+  return readFileSync(path, 'utf8');
+}
+
+function urls(product: ProductId, id: string) {
+  const base = CATALOG[product].baseUrl;
+  return { url: `${base}#s=${id}`, previewUrl: `${base}?embed=preview#s=${id}` };
+}
+
+function publicShare(share: StoredShare) {
+  return { product: share.product, shareId: share.id, ...urls(share.product, share.id), expiresAtMs: share.expiresAtMs, sizeBytes: share.sizeBytes, summary: summarize(share.product, share.state) };
+}
+
+function result(data: JsonObject, message: string) {
+  return { structuredContent: data, content: [{ type: 'text' as const, text: message }] };
+}
+
+function failure(error: unknown) {
+  const message = error instanceof ConfigurationError ? error.message
+    : error instanceof Error && error.message === 'RATE_LIMITED' ? 'The anonymous configuration creation limit has been reached. Try again later.'
+      : error instanceof Error ? error.message : 'The configuration request failed.';
+  return { isError: true, content: [{ type: 'text' as const, text: message }] };
+}
+
+export function createMcpServer() {
+  const server = new McpServer(
+    { name: '360configurator', version: '0.1.0' },
+    { instructions: 'Required workflow: call get_configurator_spec; ask every active customer-facing question; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Use render_configuration_preview only after a create, revise, or inspect result supplies a valid share ID.' },
+  );
+
+  server.registerTool('list_configurators', {
+    title: 'List 360Configurator products',
+    description: 'Use when the user wants to discover which physical products can be configured or when their requested product is ambiguous.',
+    inputSchema: {}, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  }, async () => result({ configurators: PRODUCT_IDS.map(id => ({ id, title: CATALOG[id].title, description: CATALOG[id].description })) }, 'Six configurators are available.'));
+
+  server.registerTool('get_configurator_spec', {
+    title: 'Get configurator questionnaire',
+    description: 'Get the complete ordered customer questionnaire, choices, limits, dependencies, and defaults for one configurator before creating it.',
+    inputSchema: { product: z.enum(PRODUCT_IDS), locale: z.string().optional() }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  }, async ({ product }) => result({ ...CATALOG[product], locale: 'en-US' }, `Loaded the complete ${CATALOG[product].title} questionnaire.`));
+
+  server.registerTool('prepare_configuration', {
+    title: 'Prepare a configuration for customer confirmation',
+    description: 'Validate all explicitly answered active customer-facing choices and return a compact summary. Use this before asking the user for final confirmation; this does not create a share link.',
+    inputSchema: ProductRequestSchema.shape, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  }, async ({ product, answers }) => {
+    try {
+      const built = buildState(product, answers as JsonObject, { requireExplicit: true });
+      return result({ product, normalizedAnswers: built.answers, summary: summarize(product, built.state), assumptions: built.assumptions, confirmationRequired: true }, `The ${CATALOG[product].title} is ready for the user’s explicit confirmation.`);
+    } catch (error) { return failure(error); }
+  });
+
+  server.registerTool('create_configuration', {
+    title: 'Create a confirmed public 360 configuration',
+    description: 'Create an immutable, 90-day public configuration link only after prepare_configuration was shown and the user explicitly confirmed it in a later message. All active customer-facing answers must be supplied; defaults cannot be silently applied.',
+    inputSchema: ConfirmedProductRequestSchema.shape, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async ({ product, answers }) => {
+    try {
+      const built = buildState(product, answers as JsonObject, { requireExplicit: true });
+      await enforceRateLimit(currentClientKey());
+      const share = await createShare(product, built.state, built.answers);
+      const data = { ...publicShare(share), normalizedAnswers: built.answers, assumptions: built.assumptions, warnings: built.warnings };
+      return result(data, `Created a ${CATALOG[product].title} configuration. It expires in 90 days.`);
+    } catch (error) { return failure(error); }
+  });
+
+  server.registerTool('get_shared_configuration', {
+    title: 'Inspect a shared 360 configuration',
+    description: 'Read an existing 360Configurator share link or 16-character share ID so it can be explained or revised.',
+    inputSchema: { share: z.string().min(1) }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+  }, async ({ share }) => {
+    try {
+      const id = parseShareId(share);
+      if (!id) return failure(new Error('Invalid 360Configurator share link or ID.'));
+      const stored = await getShare(id);
+      if (!stored || !isProductId(stored.product)) return failure(new Error('The shared configuration was not found or has expired.'));
+      return result({ ...publicShare(stored), normalizedAnswers: Object.keys(stored.answers).length ? stored.answers : answersFromState(stored.product, stored.state) }, `Loaded the shared ${CATALOG[stored.product].title} configuration.`);
+    } catch (error) { return failure(error); }
+  });
+
+  server.registerTool('revise_configuration', {
+    title: 'Revise a shared 360 configuration',
+    description: 'Apply requested customer-facing changes to an existing share and create a new immutable 90-day link; never overwrites the source.',
+    inputSchema: { share: z.string().min(1), changes: z.record(z.unknown()), confirmation: z.literal('confirmed') }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async ({ share, changes }) => {
+    try {
+      const id = parseShareId(share);
+      const previous = id ? await getShare(id) : null;
+      if (!previous || !isProductId(previous.product)) return failure(new Error('The shared configuration was not found or has expired.'));
+      const baseAnswers = Object.keys(previous.answers).length ? previous.answers : answersFromState(previous.product, previous.state);
+      const built = mergeRevision(previous.product, baseAnswers, changes as JsonObject);
+      await enforceRateLimit(currentClientKey());
+      const next = await createShare(previous.product, built.state, built.answers);
+      return result({ ...publicShare(next), sourceShareId: previous.id, normalizedAnswers: built.answers, assumptions: built.assumptions, warnings: built.warnings }, `Created a revised ${CATALOG[previous.product].title} configuration without changing the original.`);
+    } catch (error) { return failure(error); }
+  });
+
+  registerAppTool(server, 'render_configuration_preview', {
+    title: 'Show live 3D configuration preview',
+    description: 'Render the live rotatable 3D preview after creating, revising, or inspecting a valid configuration.',
+    inputSchema: { share: z.string().min(1) }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+    _meta: { ui: { resourceUri: UI_URI, visibility: ['model'] } },
+  }, async ({ share }) => {
+    try {
+      const id = parseShareId(share);
+      const stored = id ? await getShare(id) : null;
+      if (!stored || !isProductId(stored.product)) return failure(new Error('The shared configuration was not found or has expired.'));
+      return result(publicShare(stored), `Showing the live ${CATALOG[stored.product].title} 3D preview.`);
+    } catch (error) { return failure(error); }
+  });
+
+  registerAppResource(server, '360Configurator live preview', UI_URI, {
+    description: 'Read-only live 3D preview with a link to the complete configurator.',
+  }, async () => {
+    const component = componentSource();
+    return { contents: [{
+      uri: UI_URI, mimeType: RESOURCE_MIME_TYPE, text: `<div id="root"></div><script type="module">${component}</script>`,
+      _meta: { ui: { prefersBorder: true, domain: 'https://aks.360configurator.com', csp: { frameDomains: ['https://aks.360configurator.com'], connectDomains: ['https://aks.360configurator.com'], resourceDomains: ['https://aks.360configurator.com'] } } },
+    }] };
+  });
+
+  return server;
+}
