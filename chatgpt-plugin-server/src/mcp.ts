@@ -54,7 +54,7 @@ function failure(error: unknown) {
 export function createMcpServer() {
   const server = new McpServer(
     { name: '360configurator', version: '0.1.0' },
-    { instructions: 'Required workflow: call get_configurator_spec; collect every active customer-facing answer; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Make the conversation concise: acknowledge values already supplied, then ask at most 2–4 related missing choices per turn (geometry first, then appearance, then installation/options). Do not ask inactive choices. You may offer the listed defaults as recommendations, but apply them only when the user explicitly accepts the named remaining defaults. Treat “no gates” as gates: []. After the first usable customer answer, call preview_draft_configuration with every answer collected so far; call it again after each later answer so the same unsaved 3D draft visibly updates. Its assumptions are temporary preview values, not accepted customer choices. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
+    { instructions: 'Required workflow: call get_configurator_spec first; it automatically displays the product’s default 3D draft. Then collect every active customer-facing answer; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Make the conversation concise: acknowledge values already supplied, then ask at most 2–4 related missing choices per turn (geometry first, then appearance, then installation/options). For EVERY requested numeric answer, state its unit and inclusive minimum–maximum range. For EVERY requested choice, list its permitted choices. On the first question turn, give a compact roadmap of the remaining groups; on later turns, end with the next remaining group(s). Do not ask inactive choices. You may offer the listed defaults as recommendations, but apply them only when the user explicitly accepts the named remaining defaults. Treat “no gates” as gates: []. Immediately after every customer message that changes any collected answer, call preview_draft_configuration with every answer collected so far; the draft must update automatically without the user asking. Its assumptions are temporary preview values, not accepted customer choices. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
   );
 
   server.registerTool('list_configurators', {
@@ -63,11 +63,17 @@ export function createMcpServer() {
     inputSchema: {}, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   }, async () => result({ configurators: PRODUCT_IDS.map(id => ({ id, title: CATALOG[id].title, description: CATALOG[id].description })) }, 'Six configurators are available.'));
 
-  server.registerTool('get_configurator_spec', {
+  registerAppTool(server, 'get_configurator_spec', {
     title: 'Get configurator questionnaire',
     description: 'Get the complete ordered customer questionnaire, choices, limits, dependencies, and defaults for one configurator before creating it.',
     inputSchema: { product: z.enum(PRODUCT_IDS), locale: z.string().optional() }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  }, async ({ product }) => result({ ...CATALOG[product], locale: 'en-US' }, `Loaded the complete ${CATALOG[product].title} questionnaire.`));
+    _meta: { ui: { resourceUri: UI_URI, visibility: ['model'] } },
+  }, async ({ product }) => {
+    try {
+      const built = buildState(product, {});
+      return result({ ...CATALOG[product], locale: 'en-US', draft: true, ...draftUrls(product, built.state), assumptions: built.assumptions, summary: summarize(product, built.state) }, `Loaded the complete ${CATALOG[product].title} questionnaire and its default live 3D draft.`);
+    } catch (error) { return failure(error); }
+  });
 
   server.registerTool('prepare_configuration', {
     title: 'Prepare a configuration for customer confirmation',
