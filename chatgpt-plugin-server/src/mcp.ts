@@ -10,6 +10,8 @@ import { CATALOG, PRODUCT_IDS, ConfirmedProductRequestSchema, ProductRequestSche
 import { currentClientKey } from './context.js';
 import { createShare, enforceRateLimit, getShare, parseShareId, type StoredShare } from './storage.js';
 import { analyzeSolar } from './solarAnalysis.js';
+import { analyzeProduct } from './productAnalysis.js';
+import { searchSolarLocations } from './solarLocation.js';
 
 const UI_URI = 'ui://360configurator/preview-v1.html';
 const here = dirname(fileURLToPath(import.meta.url));
@@ -74,7 +76,7 @@ function failure(error: unknown) {
 export function createMcpServer() {
   const server = new McpServer(
     { name: '360configurator', version: '0.1.0' },
-    { instructions: 'Required workflow: call get_configurator_spec first, then call preview_draft_configuration exactly once in that same response with every unambiguous value extracted from the first customer message (or {} for a default preview). Do not assign an ambiguous measurement (for example “an 8 m U-shaped fence”) to a particular run. NEVER render two preview tools in one assistant response. After get_configurator_spec, and after every customer message that changes any collected answer, call get_next_configuration_questions and present its assistantPrompt verbatim. Collect every active customer-facing answer; for Solar, call analyze_solar_configuration after all answers are explicit and before asking for final confirmation. Only request runExactSiteAnalysis=true after the customer explicitly chose exact location and asked for an exact-site analysis; do not send an address to any tool. Call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Treat “no gates” as gates: []. Immediately after every later customer message that changes any collected answer, call preview_draft_configuration once with every answer collected so far; it must update automatically without the user asking. Its assumptions are temporary preview values, not accepted customer choices. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
+    { instructions: 'Required workflow: call get_configurator_spec first, then call preview_draft_configuration exactly once in that same response with every unambiguous value extracted from the first customer message (or {} for a default preview). Do not assign an ambiguous measurement to a particular run or dimension. NEVER render two preview tools in one assistant response. After get_configurator_spec, and after every customer message that changes any collected answer, call get_next_configuration_questions and present its assistantPrompt verbatim. Collect every active customer-facing answer. After all answers are explicit, call analyze_solar_configuration for Solar or analyze_product_configuration for every other product, present the analysis and caveats, then call prepare_configuration. Only request Solar exact/Google analysis after explicit exact-location consent; never send a postal address to an analysis tool. Show the preparation summary; wait for explicit confirmation in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Treat “no gates” as gates: [] and “no openings” as openings: []. Immediately after every later customer message that changes any collected answer, call preview_draft_configuration once with every answer collected so far. Its assumptions are temporary preview values, not accepted customer choices. Creation and revision tools return the live 3D preview; do not make a separate render call afterward.' },
   );
 
   server.registerTool('list_configurators', {
@@ -116,6 +118,31 @@ export function createMcpServer() {
     } catch (error) { return failure(error); }
   });
 
+  server.registerTool('search_solar_locations', {
+    title: 'Search Romanian solar installation locations',
+    description: 'Search an address, street, city, or postcode in Romania only after the customer explicitly chooses exact-site Solar analysis and supplies the search text. Return candidates for the customer to confirm. Do not select a candidate automatically and do not persist the search text.',
+    inputSchema: { query: z.string().min(3) },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+  }, async ({ query }) => {
+    try {
+      const candidates = await searchSolarLocations(query);
+      return result({ product: 'solar', candidates, confirmationRequired: true }, candidates.length ? 'Found location candidates. Ask the customer to confirm one candidate before using its coordinates.' : 'No Romanian location candidates were found. Ask for a more specific address or coordinates.');
+    } catch (error) { return failure(error); }
+  });
+
+  server.registerTool('analyze_product_configuration', {
+    title: 'Analyze a non-solar product configuration',
+    description: 'Validate a complete Fence, Roof, Hall, Pergola, or Window configuration and return its product-specific quantities, operational counts, BOM-style metrics, indicative price where supported, and caveats before final confirmation.',
+    inputSchema: ProductRequestSchema.shape,
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  }, async ({ product, answers }) => {
+    try {
+      if (product === 'solar') throw new ConfigurationError('Use analyze_solar_configuration for Solar.', 'product');
+      const built = buildState(product, answers as JsonObject, { requireExplicit: true });
+      return result({ product, normalizedAnswers: built.answers, analysis: analyzeProduct(product, built.state) }, `Completed the ${CATALOG[product].title} configuration analysis.`);
+    } catch (error) { return failure(error); }
+  });
+
   server.registerTool('prepare_configuration', {
     title: 'Prepare a configuration for customer confirmation',
     description: 'Validate all explicitly answered active customer-facing choices and return a compact summary. Use this before asking the user for final confirmation; this does not create a share link.',
@@ -137,10 +164,11 @@ export function createMcpServer() {
       const raw = answers as JsonObject;
       const built = buildState(product, raw);
       const guidance = questionGuidance(product, raw);
+      const draftAnalysis = product === 'solar' ? await analyzeSolar(built.state, false, false) : analyzeProduct(product, built.state);
       return result({
         product, draft: true, ...draftUrls(product, built.state), normalizedAnswers: built.answers,
         assumptions: built.assumptions, summary: summarize(product, built.state),
-        nextQuestions: guidance.next, remainingQuestions: guidance.remaining, assistantPrompt: guidance.assistantPrompt,
+        analysis: draftAnalysis, nextQuestions: guidance.next, remainingQuestions: guidance.remaining, assistantPrompt: guidance.assistantPrompt,
       }, `Updated the unsaved live ${CATALOG[product].title} draft. ${built.assumptions.length ? 'Some visible values are temporary recommendations until the user chooses them.' : 'All current values came from the user.'}\n\n${guidance.assistantPrompt}`);
     } catch (error) { return failure(error); }
   });

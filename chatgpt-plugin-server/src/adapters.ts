@@ -44,7 +44,7 @@ export function normalizeAnswers(product: ProductId, raw: JsonObject, { requireE
     if (!conditionIsActive(question.when, conditionValues)) continue;
     let value = raw[question.id];
     if (value === undefined || value === null || value === '') {
-      if (requireExplicit) throw new ConfigurationError(`Please ask the user to explicitly choose ${question.label} before creating a configuration.`, question.id);
+      if (requireExplicit && question.required) throw new ConfigurationError(`Please ask the user to explicitly choose ${question.label} before creating a configuration.`, question.id);
       value = clone(question.default);
       assumptions.push(`${question.label}: ${Array.isArray(value) ? 'none' : String(value)}`);
     }
@@ -62,6 +62,8 @@ export function normalizeAnswers(product: ProductId, raw: JsonObject, { requireE
 export function pendingQuestions(product: ProductId, raw: JsonObject, limit = 3): Question[] {
   const normalized = normalizeAnswers(product, raw);
   return CATALOG[product].questions.filter(question => (
+    question.required
+    &&
     normalized.answers[question.id] !== undefined
     && (raw[question.id] === undefined || raw[question.id] === null || raw[question.id] === '')
   )).slice(0, limit);
@@ -75,13 +77,18 @@ function fenceState(a: JsonObject): JsonObject {
   const validRuns = a.layout === 'straight' ? ['a'] : a.layout === 'l' ? ['a', 'b'] : a.layout === 'u' ? ['a', 'b', 'c'] : a.layout === 'closed5' ? ['a', 'b', 'c', 'd', 'e'] : ['a', 'b', 'c', 'd'];
   const gates = (a.gates as unknown[]).map((item, index) => {
     const gate = (item && typeof item === 'object' ? item : {}) as JsonObject;
-    const runId = validRuns.includes(String(gate.runId ?? gate.run ?? 'a')) ? String(gate.runId ?? gate.run ?? 'a') : 'a';
+    const requestedRun = String(gate.runId ?? gate.run ?? '');
+    if (!validRuns.includes(requestedRun)) throw new ConfigurationError(`Gate ${index + 1} run must be one of: ${validRuns.join(', ')}.`, 'gates');
+    if (!['pedestrian', 'driveway'].includes(String(gate.type))) throw new ConfigurationError(`Gate ${index + 1} type must be pedestrian or driveway.`, 'gates');
+    if (!['left', 'right'].includes(String(gate.handing))) throw new ConfigurationError(`Gate ${index + 1} handing must be left or right.`, 'gates');
+    const position = Number(gate.position);
+    if (!Number.isInteger(position) || position < 0) throw new ConfigurationError(`Gate ${index + 1} position must be a zero-based bay number.`, 'gates');
     return {
       id: `chatgpt-gate-${index + 1}`,
-      type: gate.type === 'driveway' ? 'driveway' : 'pedestrian',
-      runId,
-      position: Math.max(0, Math.floor(Number(gate.position ?? 0))),
-      handing: gate.handing === 'left' ? 'left' : 'right',
+      type: gate.type,
+      runId: requestedRun,
+      position,
+      handing: gate.handing,
     };
   });
   return { ...a, gates, ...baseView(), scenery: Boolean(a.scenery), sunPosition: 48, infillGap: a.infillGap };
@@ -90,12 +97,39 @@ function fenceState(a: JsonObject): JsonObject {
 function roofState(a: JsonObject): JsonObject {
   const minimumPitch = a.covering === 'roca' ? 14 : a.covering === 'teclado' ? 18 : 5;
   if (Number(a.pitch) < minimumPitch) throw new ConfigurationError(`The selected covering requires a pitch of at least ${minimumPitch} degrees.`, 'pitch');
-  return { ...a, ...baseView(), showCompass: false, sunPosition: 42, units: 'metric', currency: 'RON', locale: 'en-US', currencyRate: 1, excludedBomItems: [], customPlan: null };
+  return { ...a, ...baseView(), showCompass: false, sunPosition: a.sunPosition, northDirection: a.northDirection, nightPreview: Boolean(a.nightPreview), technicalEdges: Boolean(a.technicalEdges), units: 'metric', currency: 'RON', locale: 'en-US', currencyRate: 1, excludedBomItems: [], customPlan: null };
 }
 
 function hallState(a: JsonObject): JsonObject {
+  const limits = {
+    personnel: { minWidth: 0.7, maxWidth: 2.4, minHeight: 1.8, maxHeight: 3.2 },
+    garage: { minWidth: 2.2, maxWidth: 10, minHeight: 2.2, maxHeight: 7 },
+    window: { minWidth: 0.5, maxWidth: 5, minHeight: 0.5, maxHeight: 3.5 },
+  } as const;
+  const openings = (a.openings as unknown[]).map((item, index) => {
+    const opening = (item && typeof item === 'object' ? item : {}) as JsonObject;
+    const type = String(opening.type) as keyof typeof limits;
+    if (!limits[type]) throw new ConfigurationError(`Opening ${index + 1} type must be garage, personnel, or window.`, 'openings');
+    const side = String(opening.side);
+    if (!['front', 'right', 'back', 'left'].includes(side)) throw new ConfigurationError(`Opening ${index + 1} side must be front, right, back, or left.`, 'openings');
+    const width = Number(opening.width); const height = Number(opening.height);
+    if (!Number.isFinite(width) || width < limits[type].minWidth || width > limits[type].maxWidth) throw new ConfigurationError(`Opening ${index + 1} width must be ${limits[type].minWidth}–${limits[type].maxWidth} m.`, 'openings');
+    if (!Number.isFinite(height) || height < limits[type].minHeight || height > limits[type].maxHeight || height > Number(a.eaveHeight) - 0.12) throw new ConfigurationError(`Opening ${index + 1} height does not fit the selected opening type and eave height.`, 'openings');
+    const span = side === 'front' || side === 'back' ? Number(a.width) : Number(a.length);
+    const offset = Number(opening.offset ?? 0); const bottom = Number(opening.bottom ?? (type === 'window' ? 2.15 : 0));
+    if (Math.abs(offset) + width / 2 > span / 2 - 0.06) throw new ConfigurationError(`Opening ${index + 1} does not fit on the ${side} wall at offset ${offset} m.`, 'openings');
+    if (bottom < 0 || bottom + height > Number(a.eaveHeight) - 0.06) throw new ConfigurationError(`Opening ${index + 1} vertical position does not fit below the eave.`, 'openings');
+    return { id: String(opening.id || `chatgpt-opening-${index + 1}`), type, side, width, height, offset, bottom, color: String(opening.color || (type === 'garage' ? '#24445a' : type === 'window' ? '#8ec6df' : '#e5ebee')) };
+  });
+  for (let i = 0; i < openings.length; i += 1) for (let j = i + 1; j < openings.length; j += 1) {
+    const x = openings[i]; const y = openings[j];
+    if (x.side !== y.side) continue;
+    const horizontal = Math.min(x.offset + x.width / 2, y.offset + y.width / 2) - Math.max(x.offset - x.width / 2, y.offset - y.width / 2);
+    const vertical = Math.min(x.bottom + x.height, y.bottom + y.height) - Math.max(x.bottom, y.bottom);
+    if (horizontal > 0.012 && vertical > 0.012) throw new ConfigurationError(`Openings ${i + 1} and ${j + 1} overlap on the ${x.side} wall.`, 'openings');
+  }
   return {
-    ...a, ...baseView(), selectedHeaProfile: 'HEA 220', showCladding: a.claddingProfile !== 'none', showScenery: true,
+    ...a, openings, ...baseView(), selectedHeaProfile: 'HEA 220', showCladding: true, showScenery: true,
     inspectionMode: 'all', sectionCutEnabled: false, sectionCutPosition: 50, connectionDetails: false,
     forkliftClearance: false, rackDensity: 'standard', serviceVisibility: 'all', serviceCoverage: false,
     sunPosition: 0.47, season: 'winter', nightPreview: Boolean(a.nightPreview), explode: 0,
@@ -190,12 +224,14 @@ function pergolaState(a: JsonObject): JsonObject {
       sensors: { rain: { enabled: Boolean(rainPole), pole: rainPole }, wind: { enabled: Boolean(windPole), pole: windPole } },
       speakers: legacySpeakers, outlets: legacyOutlets,
     },
-    environment: { sunPosition: 0.35, northDirection: 0, night: Boolean(a.nightPreview), season: 'winter' },
+    environment: { sunPosition: Number(a.sunPosition) / 100, northDirection: a.northDirection, night: Boolean(a.nightPreview), season: a.season },
     view: { dimensionsVisible: true, cameraPreset: 'perspective', compassVisible: false }, customer: { name: '', email: '', phone: '', postcode: '', notes: '' },
   };
 }
 
 function solarState(a: JsonObject): JsonObject {
+  if (a.roofType === 'shed' && (a.roofSide === 'back' || a.roofSide === 'both')) throw new ConfigurationError('A single-slope roof supports the front roof plane only.', 'roofSide');
+  if (Number(a.panelColumns) > Number(a.panelCount)) throw new ConfigurationError('Panel columns cannot exceed the requested panel count.', 'panelColumns');
   return {
     roofType: a.roofType, length: a.length, depth: a.depth, wallHeight: 3, pitch: a.pitch, overhang: 0.45, roofColor: '#6b7280', covering: 'generic',
     modulePreset: a.modulePreset, panelCount: a.panelCount, panelColumns: a.panelColumns, moduleOrientation: a.moduleOrientation, roofSide: a.roofSide,
@@ -213,6 +249,13 @@ function solarState(a: JsonObject): JsonObject {
 }
 
 function windowState(a: JsonObject): JsonObject {
+  const expected = a.profileSetId === '2_4_Oeffnungselemnt_Vertikal'
+    ? { frame: '575760', sash: '575780', accessory: 'b2-6' }
+    : { frame: '575770', sash: '575790', accessory: a.profileSetId === '2_5_Oeffnungselemnt_Vertikal' ? 'b2-7' : 'b2-8' };
+  if (a.outerFrameProfileId !== expected.frame || a.sashProfileId !== expected.sash) throw new ConfigurationError(`The selected CAD profile family requires outer frame ${expected.frame} and sash ${expected.sash}.`, 'profileSetId');
+  if (a.accessoryPreset !== expected.accessory) throw new ConfigurationError(`The selected CAD profile family requires accessory preset ${expected.accessory}.`, 'accessoryPreset');
+  if (a.outsideFinishType === 'coated' && !/^#[0-9a-f]{6}$/i.test(String(a.outsideColor))) throw new ConfigurationError('Outside coated colour must be a six-digit hex colour.', 'outsideColor');
+  if (a.finishMode === 'different' && a.insideFinishType === 'coated' && !/^#[0-9a-f]{6}$/i.test(String(a.insideColor))) throw new ConfigurationError('Inside coated colour must be a six-digit hex colour.', 'insideColor');
   const finish = (type: unknown, color: unknown) => ({ type, presetId: type === 'coated' ? 'custom' : String(type), color });
   return {
     widthM: a.widthM, heightM: a.heightM, layoutId: a.layoutId, windowLayout: a.layoutId,

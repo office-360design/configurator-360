@@ -13,8 +13,9 @@ function number(value: unknown, fallback = 0) { const parsed = Number(value); re
 function regionalAnnual(state: JsonObject, kwp: number) {
   const yieldPerKwp = REGION_YIELDS[String(state.region)] || REGION_YIELDS.muntenia;
   const pitchFactor = Math.max(0.78, 1 - Math.abs(number(state.pitch, 30) - 30) * 0.004);
-  const side = String(state.roofSide);
-  const orientationFactor = side === 'best' || side === 'south' ? 1 : side === 'east' || side === 'west' ? 0.88 : 0.82;
+  const front = number(state.roofBearingDeg, 180); const back = (front + 180) % 360; const side = String(state.roofSide);
+  const azimuths = side === 'both' ? [front, back] : side === 'back' ? [back] : side === 'front' ? [front] : [Math.abs(front - 180) <= Math.abs(back - 180) ? front : back];
+  const orientationFactor = azimuths.reduce((sum, azimuth) => sum + Math.max(0.78, 1 - Math.abs((((azimuth - 180) + 540) % 360) - 180) / 180 * 0.22), 0) / azimuths.length;
   return kwp * yieldPerKwp * pitchFactor * orientationFactor;
 }
 
@@ -35,18 +36,20 @@ function monthlyProduction(data: JsonObject) {
 async function exactPvgis(state: JsonObject, kwp: number) {
   const lat = number(state.locationLat, NaN); const lon = number(state.locationLon, NaN);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new ConfigurationError('Exact-site analysis needs confirmed latitude and longitude.', 'locationLat');
-  const side = String(state.roofSide);
-  const aspect = side === 'east' ? -90 : side === 'west' ? 90 : 0;
-  const query = new URLSearchParams({ tool: 'PVcalc', lat: lat.toFixed(6), lon: lon.toFixed(6), outputformat: 'json', pvtechchoice: 'crystSi2025', mountingplace: 'free', loss: '14', angle: String(Math.round(number(state.pitch, 30))), aspect: String(aspect), peakpower: kwp.toFixed(4), usehorizon: '1', raddatabase: 'PVGIS-SARAH3' });
-  const response = await fetch(`${PVGIS_ENDPOINT}?${query}`, { signal: AbortSignal.timeout(25_000), headers: { Accept: 'application/json' } });
-  const data = await response.json() as JsonObject;
-  if (!response.ok) throw new ConfigurationError(`PVGIS exact-site analysis is unavailable: ${String(data.error || data.message || response.status)}.`, 'locationLat');
-  const output = data.outputs as JsonObject | undefined;
-  const totals = output?.totals as JsonObject | undefined;
-  const fixed = totals?.fixed as JsonObject | undefined;
-  const annualKWh = number(fixed?.E_y, NaN);
-  if (!Number.isFinite(annualKWh) || annualKWh <= 0) throw new ConfigurationError('PVGIS did not return annual production for this site.', 'locationLat');
-  return { annualKWh, monthlyKWh: monthlyProduction(data), source: 'PVGIS exact site with terrain horizon', coordinates: { lat, lon } };
+  const front = number(state.roofBearingDeg, 180); const back = (front + 180) % 360; const side = String(state.roofSide);
+  const azimuths = state.roofType === 'shed' || side === 'front' ? [front] : side === 'back' ? [back] : side === 'both' ? [front, back] : [Math.abs(front - 180) <= Math.abs(back - 180) ? front : back];
+  const results = await Promise.all(azimuths.map(async azimuth => {
+    const aspect = ((((azimuth - 180) + 540) % 360) - 180).toFixed(2);
+    const query = new URLSearchParams({ tool: 'PVcalc', lat: lat.toFixed(6), lon: lon.toFixed(6), outputformat: 'json', pvtechchoice: 'crystSi2025', mountingplace: 'free', loss: '14', angle: String(Math.round(number(state.pitch, 30))), aspect, peakpower: (kwp / azimuths.length).toFixed(4), usehorizon: '1', raddatabase: 'PVGIS-SARAH3' });
+    const response = await fetch(`${PVGIS_ENDPOINT}?${query}`, { signal: AbortSignal.timeout(25_000), headers: { Accept: 'application/json' } });
+    const data = await response.json() as JsonObject;
+    if (!response.ok) throw new ConfigurationError(`PVGIS exact-site analysis is unavailable: ${String(data.error || data.message || response.status)}.`, 'locationLat');
+    const fixed = (((data.outputs as JsonObject | undefined)?.totals as JsonObject | undefined)?.fixed) as JsonObject | undefined;
+    const annualKWh = number(fixed?.E_y, NaN);
+    if (!Number.isFinite(annualKWh) || annualKWh <= 0) throw new ConfigurationError('PVGIS did not return annual production for this site.', 'locationLat');
+    return { annualKWh, monthly: monthlyProduction(data), azimuth };
+  }));
+  return { annualKWh: results.reduce((sum, item) => sum + item.annualKWh, 0), monthlyKWh: Array.from({ length: 12 }, (_, index) => results.reduce((sum, item) => sum + item.monthly[index], 0)), source: `PVGIS exact site with terrain horizon (${results.length} roof plane${results.length === 1 ? '' : 's'})`, coordinates: { lat, lon }, roofPlaneAzimuthsDeg: results.map(item => item.azimuth) };
 }
 
 function approximatePanelPoints(lat: number, lon: number, panelCount: number, bearingDeg: number) {
