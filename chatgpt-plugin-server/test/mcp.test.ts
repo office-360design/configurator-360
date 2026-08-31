@@ -27,6 +27,8 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     assert.equal((products.structuredContent as { configurators: unknown[] }).configurators.length, 6);
     const spec = await client.callTool({ name: 'get_configurator_spec', arguments: { product: 'solar' } });
     assert.equal((spec.structuredContent as { questions: unknown[] }).questions.length > 20, true);
+    assert.equal((spec.structuredContent as { draft?: boolean }).draft, true);
+    assert.match(String((spec.structuredContent as { previewUrl?: string }).previewUrl), /embed=preview/);
     const resources = await client.listResources();
     assert.equal(resources.resources[0]?.uri, 'ui://360configurator/preview-v1.html');
     const preview = await client.readResource({ uri: 'ui://360configurator/preview-v1.html' });
