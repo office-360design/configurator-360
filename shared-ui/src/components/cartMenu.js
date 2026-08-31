@@ -1,18 +1,99 @@
 import { sharedT } from '../i18n.js?v=24';
 import { sharedIcon } from '../icons.js?v=20';
-import { installQuotationRequestController } from '../quotationRequest.js?v=1';
+import { installQuotationRequestController } from '../quotationRequest.js?v=2';
 import { escapeHtml } from '../utils.js';
 
 installQuotationRequestController();
 
-function quotationCurrencyFromTotalText(value, locale = 'en-US') {
-  const text = String(value || '').toUpperCase();
-  if (text.includes('RON') || text.includes(' LEI') || text.endsWith('LEI')) return 'RON';
-  if (text.includes('EUR') || text.includes('€')) return 'EUR';
-  if (text.includes('USD') || text.includes('$')) return 'USD';
+const CART_FX_RATES_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
+const SUPPORTED_CURRENCIES = new Set(['EUR', 'USD', 'RON']);
+
+function normalizedCurrency(value = '', fallback = 'USD') {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (SUPPORTED_CURRENCIES.has(normalized)) return normalized;
+  const fallbackCurrency = String(fallback || '').trim().toUpperCase();
+  return SUPPORTED_CURRENCIES.has(fallbackCurrency) ? fallbackCurrency : 'USD';
+}
+
+function localeDefaultCurrency(locale = 'en-US') {
   if (locale === 'ro-RO') return 'RON';
   if (locale === 'de-DE') return 'EUR';
   return 'USD';
+}
+
+function selectedCartCurrency(locale = 'en-US') {
+  const control = document.querySelector('[data-path="currency"]');
+  const selected = String(control?.value || '').trim().toUpperCase();
+  if (SUPPORTED_CURRENCIES.has(selected)) return selected;
+  return localeDefaultCurrency(locale);
+}
+
+function convertMoney(value, fromCurrency, toCurrency) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+  const from = normalizedCurrency(fromCurrency, 'EUR');
+  const to = normalizedCurrency(toCurrency, 'EUR');
+  if (from === to) return amount;
+  const fromRate = Number(CART_FX_RATES_FROM_EUR[from]) || 1;
+  const toRate = Number(CART_FX_RATES_FROM_EUR[to]) || 1;
+  return (amount / fromRate) * toRate;
+}
+
+function parseMoneyText(value = '') {
+  let numeric = String(value || '').replace(/[^0-9.,-]/g, '');
+  if (!/[0-9]/.test(numeric)) return 0;
+  const negative = numeric.startsWith('-');
+  numeric = numeric.replace(/-/g, '');
+  const lastDot = numeric.lastIndexOf('.');
+  const lastComma = numeric.lastIndexOf(',');
+  const separator = lastDot > lastComma ? '.' : (lastComma > lastDot ? ',' : '');
+  if (separator) {
+    const other = separator === '.' ? ',' : '.';
+    numeric = numeric.split(other).join('');
+    const index = numeric.lastIndexOf(separator);
+    const digitsAfter = numeric.length - index - 1;
+    if (digitsAfter === 1 || digitsAfter === 2) {
+      numeric = `${numeric.slice(0, index).split(separator).join('')}.${numeric.slice(index + 1)}`;
+    } else {
+      numeric = numeric.split(separator).join('');
+    }
+  }
+  const amount = Number(numeric);
+  return Number.isFinite(amount) ? (negative ? -amount : amount) : 0;
+}
+
+function cartItemAmount(item) {
+  const explicit = Number(item?.costAmount);
+  return Number.isFinite(explicit) ? Math.max(0, explicit) : Math.max(0, parseMoneyText(item?.costText));
+}
+
+function formatMoney(value, currency, locale) {
+  const amount = Number(value) || 0;
+  try {
+    return new Intl.NumberFormat(locale || 'en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
+}
+
+function cartDisplayModel(locale, items) {
+  const selectedCurrency = selectedCartCurrency(locale);
+  let total = 0;
+  const displayItems = items.map((item) => {
+    const converted = convertMoney(cartItemAmount(item), item?.currency, selectedCurrency);
+    total += Math.max(0, converted);
+    return { ...item, costText: formatMoney(converted, selectedCurrency, locale) };
+  });
+  return {
+    selectedCurrency,
+    displayItems,
+    totalText: formatMoney(total, selectedCurrency, locale),
+  };
 }
 
 function renderCartItem(locale, item) {
@@ -40,12 +121,13 @@ function renderCartItem(locale, item) {
   `;
 }
 
-export function renderCartMenu(locale, items = [], { open = false, busy = false, totalText = '' } = {}) {
+export function renderCartMenu(locale, items = [], { open = false, busy = false } = {}) {
   const normalized = Array.isArray(items) ? items : [];
+  const model = cartDisplayModel(locale, normalized);
   const emptyLabel = escapeHtml(sharedT(locale, 'cart.emptyCart'));
   const quoteLabel = escapeHtml(sharedT(locale, 'cart.quote'));
   const quotationLocale = escapeHtml(String(locale || 'en-US'));
-  const quotationCurrency = escapeHtml(quotationCurrencyFromTotalText(totalText, locale));
+  const quotationCurrency = escapeHtml(model.selectedCurrency);
   return `
     <section class="cart-menu ${open ? 'is-open' : ''}" data-cart-menu data-quotation-locale="${quotationLocale}" data-quotation-currency="${quotationCurrency}" aria-label="${escapeHtml(sharedT(locale, 'cart.title'))}">
       <div class="cart-menu__header">
@@ -56,14 +138,14 @@ export function renderCartMenu(locale, items = [], { open = false, busy = false,
         </div>
       </div>
       <div class="cart-menu__items" data-cart-items>
-        ${normalized.length
-          ? normalized.map((item) => renderCartItem(locale, item)).join('')
+        ${model.displayItems.length
+          ? model.displayItems.map((item) => renderCartItem(locale, item)).join('')
           : `<p class="cart-menu__empty">${escapeHtml(sharedT(locale, 'cart.empty'))}</p>`}
       </div>
       <div class="cart-menu__footer">
         <div class="cart-menu__total">
           <span>${escapeHtml(sharedT(locale, 'cart.total'))}</span>
-          <strong>${escapeHtml(String(totalText || '—'))}</strong>
+          <strong>${escapeHtml(model.totalText)}</strong>
         </div>
         <button class="cart-menu__quote" type="button" data-action="cart-quote" ${busy || normalized.length === 0 ? 'disabled' : ''}>
           <span class="cart-menu__quote-icon">${sharedIcon('mail')}</span>
