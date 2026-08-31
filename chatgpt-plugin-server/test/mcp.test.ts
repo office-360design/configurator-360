@@ -18,6 +18,7 @@ test('MCP handshake exposes the complete public tool contract', async () => {
       'get_shared_configuration',
       'list_configurators',
       'prepare_configuration',
+      'preview_draft_configuration',
       'render_configuration_preview',
       'revise_configuration',
     ]);
