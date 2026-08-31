@@ -12,6 +12,9 @@ const TEST_QUOTATION_RECIPIENT = 'matei.belciug.work@gmail.com';
 const QUOTATION_RATE_LIMIT_COLLECTION = 'quotationRequestRateLimits';
 const QUOTATION_MIN_INTERVAL_MS = 10 * 1000;
 const SHARES_COLLECTION = 'sharedConfigurations';
+const SHARE_LIFETIME_MS = 90 * 24 * 60 * 60 * 1000;
+const MAX_SINGLE_SHARE_BYTES = 850_000;
+const FIRESTORE_RECORD_VERSION = 1;
 const SHARE_ID_PATTERN = /^[A-Za-z0-9_-]{16}$/;
 const CART_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -92,7 +95,7 @@ const EMAIL_COPY = Object.freeze({
     preheader: 'We received your quotation request and configuration selection.',
     greeting: 'Hello,',
     intro: (company) => `Thank you for your quotation request. We received the configurations below on behalf of ${company}.`,
-    help: 'You can open each configuration by clicking its name. These links open, without signing in, an exact copy of the configuration included in this request.',
+    help: 'Please note that the prices shown below are indicative and may change. To receive the final quotation, you will need to discuss the request with a representative of our company.',
     configuration: 'Configuration',
     price: 'Price',
     summary: 'Summary',
@@ -107,7 +110,7 @@ const EMAIL_COPY = Object.freeze({
     preheader: 'Am primit solicitarea de ofertă și configurațiile selectate.',
     greeting: 'Bună ziua,',
     intro: (company) => `Vă mulțumim pentru solicitarea de ofertă. Am primit configurațiile de mai jos în numele ${company}.`,
-    help: 'Puteți deschide fiecare configurație apăsând pe numele ei. Linkurile deschid, fără autentificare, o copie exactă a configurației incluse în această solicitare.',
+    help: 'Vă reamintim că prețurile afișate dedesubt sunt orientative și pot suferi schimbări. Pentru primirea ofertei finale va trebui să discutați cu un reprezentant al companiei noastre.',
     configuration: 'Configurație',
     price: 'Preț',
     summary: 'Total',
@@ -122,7 +125,7 @@ const EMAIL_COPY = Object.freeze({
     preheader: 'Wir haben Ihre Angebotsanfrage und die ausgewählten Konfigurationen erhalten.',
     greeting: 'Guten Tag,',
     intro: (company) => `Vielen Dank für Ihre Angebotsanfrage. Wir haben die unten aufgeführten Konfigurationen im Namen von ${company} erhalten.`,
-    help: 'Sie können jede Konfiguration über ihren Namen öffnen. Die Links öffnen ohne Anmeldung eine exakte Kopie der in dieser Anfrage enthaltenen Konfiguration.',
+    help: 'Bitte beachten Sie, dass die unten angezeigten Preise Richtwerte sind und sich ändern können. Für ein endgültiges Angebot müssen Sie die Anfrage mit einem Vertreter unseres Unternehmens besprechen.',
     configuration: 'Konfiguration',
     price: 'Preis',
     summary: 'Summe',
@@ -203,6 +206,80 @@ async function readCart(uid, tenantSlug) {
   }
   items.sort((a, b) => a.createdAtMs - b.createdAtMs || a.productId.localeCompare(b.productId) || a.key.localeCompare(b.key));
   return items.slice(0, MAX_CART_ITEMS);
+}
+
+function quotationGuestUrl(locale, tenantSlug, productId, shareId) {
+  const host = tenantSlug ? `${tenantSlug}.360configurator.com` : LOCALE_HOSTS[locale];
+  const path = tenantSlug
+    ? CONFIGURATOR_PATHS['en-US']?.[productId]
+    : CONFIGURATOR_PATHS[locale]?.[productId];
+  if (!host || !path) throw new HttpsError('internal', 'The quotation configuration link could not be generated.');
+  const target = new URL(`https://${host}${path}`);
+  const hash = new URLSearchParams();
+  hash.set('s', shareId);
+  hash.set('domainAuthState', 'guest');
+  target.hash = hash.toString();
+  return target.href;
+}
+
+async function createQuotationGuestShares(items, locale, tenantSlug) {
+  const collection = getFirestore().collection(SHARES_COLLECTION);
+  const createdShareIds = [];
+  const preparedItems = [];
+  try {
+    for (const item of items) {
+      const sizeBytes = Buffer.byteLength(item.stateJson, 'utf8');
+      if (sizeBytes <= 0 || sizeBytes > MAX_SINGLE_SHARE_BYTES) {
+        throw new HttpsError('failed-precondition', 'A cart configuration is too large to include in a quotation link.');
+      }
+      const createdAt = Timestamp.now();
+      const expiresAt = Timestamp.fromMillis(createdAt.toMillis() + SHARE_LIFETIME_MS);
+      const documentData = {
+        v: FIRESTORE_RECORD_VERSION,
+        p: item.productId,
+        s: item.stateJson,
+        sizeBytes,
+        createdAt,
+        expiresAt,
+        quotaVersion: 2,
+      };
+
+      let shareId = '';
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const candidate = randomBytes(12).toString('base64url');
+        try {
+          await collection.doc(candidate).create(documentData);
+          shareId = candidate;
+          break;
+        } catch (error) {
+          if (Number(error?.code) === 6 || String(error?.code) === 'already-exists') continue;
+          throw error;
+        }
+      }
+      if (!shareId) throw new HttpsError('aborted', 'Could not allocate a quotation configuration link.');
+      createdShareIds.push(shareId);
+      preparedItems.push({
+        ...item,
+        link: quotationGuestUrl(locale, tenantSlug, item.productId, shareId),
+      });
+    }
+    return { items: preparedItems, shareIds: createdShareIds };
+  } catch (error) {
+    await Promise.allSettled(createdShareIds.map((shareId) => collection.doc(shareId).delete()));
+    if (error instanceof HttpsError) throw error;
+    logger.error('Quotation guest-share creation failed.', {
+      event: 'quotation-share-creation-failed',
+      itemCount: items.length,
+      tenantSlug: tenantSlug || null,
+      message: String(error?.message || error),
+    });
+    throw new HttpsError('unavailable', 'The quotation configuration links could not be prepared. Please try again.');
+  }
+}
+
+async function deleteQuotationShares(shareIds) {
+  const collection = getFirestore().collection(SHARES_COLLECTION);
+  await Promise.allSettled((Array.isArray(shareIds) ? shareIds : []).map((shareId) => collection.doc(shareId).delete()));
 }
 
 function normalizeLocale(value) {
@@ -311,7 +388,13 @@ async function enforceQuotationRateLimit(uid) {
     const snapshot = await transaction.get(ref);
     const lastMs = snapshot.data()?.lastAttemptAt?.toMillis?.() || 0;
     if (lastMs && nowMs - lastMs < QUOTATION_MIN_INTERVAL_MS) {
-      throw new HttpsError('resource-exhausted', 'Please wait a few seconds before sending another quotation request.');
+      const retryAfterMs = Math.max(1, QUOTATION_MIN_INTERVAL_MS - (nowMs - lastMs));
+      const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+      throw new HttpsError(
+        'resource-exhausted',
+        `Please wait ${retryAfterSeconds} second${retryAfterSeconds === 1 ? '' : 's'} before sending another quotation request.`,
+        { retryAfterSeconds },
+      );
     }
     transaction.set(ref, {
       lastAttemptAt: Timestamp.fromMillis(nowMs),
@@ -374,8 +457,7 @@ function quotationHtml({ rows, totalText, copy, currency, brand }) {
           <tr><td style="padding:28px 28px 8px;font:400 16px/1.6 Arial,sans-serif;color:#374151">
             <div style="font-size:22px;line-height:1.3;font-weight:750;color:#111827;margin-bottom:16px">${escapeHtml(copy.greeting)}</div>
             <p style="margin:0 0 12px">${escapeHtml(copy.intro(brand.companyName))}</p>
-            <p style="margin:0 0 20px">${escapeHtml(copy.help)}</p>
-            <div style="display:inline-block;padding:7px 11px;border-radius:999px;background:#f3f4f6;color:#4b5563;font-size:13px;font-weight:700">${escapeHtml(copy.currency)}: ${escapeHtml(currency)}</div>
+            <p style="margin:0 0 8px">${escapeHtml(copy.help)}</p>
           </td></tr>
           <tr><td style="padding:16px 28px 24px">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;border-collapse:separate;border-spacing:0">
@@ -412,8 +494,6 @@ function quotationText({ rows, totalText, copy, currency, brand }) {
     '',
     copy.intro(brand.companyName),
     copy.help,
-    '',
-    `${copy.currency}: ${currency}`,
     '',
   ];
   for (const item of rows) {
@@ -574,10 +654,21 @@ exports.requestCartQuotation = onCall(
     const cart = await readCart(uid, tenantSlug);
     if (!cart.length) throw new HttpsError('failed-precondition', 'The shopping cart is empty.');
 
-    const items = await validatedCartLinks(cart, request.data?.links, locale, tenantSlug);
+    // Enforce the 10-second account cooldown before creating any temporary
+    // quotation links. The backend now creates those links atomically from the
+    // immutable shoppingCart snapshots, so the browser no longer has to perform
+    // a slow sequence of Share writes before the email request can begin.
     await enforceQuotationRateLimit(uid);
+    const prepared = await createQuotationGuestShares(cart, locale, tenantSlug);
     const brand = await quotationBrandingForScope({ tenantSlug, origin });
-    const presentation = await sendQuotationEmail({ locale, currency, items, brand });
+    let presentation;
+    try {
+      presentation = await sendQuotationEmail({ locale, currency, items: prepared.items, brand });
+    } catch (error) {
+      // Failed requests should not leave orphaned quotation-only shares behind.
+      await deleteQuotationShares(prepared.shareIds);
+      throw error;
+    }
 
     logger.info('Quotation email accepted by provider.', {
       event: 'quotation-email-accepted',
