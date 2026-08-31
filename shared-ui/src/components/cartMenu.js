@@ -1,6 +1,19 @@
 import { sharedT } from '../i18n.js?v=24';
 import { sharedIcon } from '../icons.js?v=20';
+import { installQuotationRequestController } from '../quotationRequest.js?v=1';
 import { escapeHtml } from '../utils.js';
+
+installQuotationRequestController();
+
+function quotationCurrencyFromTotalText(value, locale = 'en-US') {
+  const text = String(value || '').toUpperCase();
+  if (text.includes('RON') || text.includes(' LEI') || text.endsWith('LEI')) return 'RON';
+  if (text.includes('EUR') || text.includes('€')) return 'EUR';
+  if (text.includes('USD') || text.includes('$')) return 'USD';
+  if (locale === 'ro-RO') return 'RON';
+  if (locale === 'de-DE') return 'EUR';
+  return 'USD';
+}
 
 function renderCartItem(locale, item) {
   const key = escapeHtml(String(item?.key || ''));
@@ -31,8 +44,10 @@ export function renderCartMenu(locale, items = [], { open = false, busy = false,
   const normalized = Array.isArray(items) ? items : [];
   const emptyLabel = escapeHtml(sharedT(locale, 'cart.emptyCart'));
   const quoteLabel = escapeHtml(sharedT(locale, 'cart.quote'));
+  const quotationLocale = escapeHtml(String(locale || 'en-US'));
+  const quotationCurrency = escapeHtml(quotationCurrencyFromTotalText(totalText, locale));
   return `
-    <section class="cart-menu ${open ? 'is-open' : ''}" data-cart-menu aria-label="${escapeHtml(sharedT(locale, 'cart.title'))}">
+    <section class="cart-menu ${open ? 'is-open' : ''}" data-cart-menu data-quotation-locale="${quotationLocale}" data-quotation-currency="${quotationCurrency}" aria-label="${escapeHtml(sharedT(locale, 'cart.title'))}">
       <div class="cart-menu__header">
         <strong>${escapeHtml(sharedT(locale, 'cart.title'))}</strong>
         <div class="cart-menu__header-actions">
@@ -50,7 +65,7 @@ export function renderCartMenu(locale, items = [], { open = false, busy = false,
           <span>${escapeHtml(sharedT(locale, 'cart.total'))}</span>
           <strong>${escapeHtml(String(totalText || '—'))}</strong>
         </div>
-        <button class="cart-menu__quote" type="button" data-action="cart-quote">
+        <button class="cart-menu__quote" type="button" data-action="cart-quote" ${busy || normalized.length === 0 ? 'disabled' : ''}>
           <span class="cart-menu__quote-icon">${sharedIcon('mail')}</span>
           <span>${quoteLabel}</span>
         </button>
