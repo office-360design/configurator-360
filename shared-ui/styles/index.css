@@ -889,6 +889,36 @@ body,
   stroke-linejoin: round;
 }
 
+.account-menu__help {
+  align-items: start;
+  min-height: 64px;
+}
+
+.account-menu__help-icon {
+  display: grid;
+  place-items: center;
+  padding-top: 1px;
+}
+
+.account-menu__help-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.account-menu__help-copy small {
+  color: #69767e;
+  font-size: 10.5px;
+  font-weight: 550;
+  line-height: 1.35;
+}
+
+.account-menu__help-copy small b {
+  color: #3f4b53;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
 .account-menu__items strong,
 .language-list strong {
   font-size: 12px;
@@ -1349,6 +1379,9 @@ body,
 .app-shell.is-dark-mode .account-settings__field select {
   color: #dfe9ef;
 }
+
+.app-shell.is-dark-mode .account-menu__help-copy small { color: #aebdca; }
+.app-shell.is-dark-mode .account-menu__help-copy small b { color: #dfe9ef; }
 
 .app-shell.is-dark-mode .account-menu__items > button:hover,
 .app-shell.is-dark-mode .account-settings button:hover,

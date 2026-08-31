@@ -5,11 +5,11 @@ const PROJECT_ID = 'configurator-360';
 const QUOTATION_FUNCTION = 'requestCartQuotation';
 const SUPPORTED_LOCALES = new Set(['en-US', 'ro-RO', 'de-DE']);
 const SUPPORTED_CURRENCIES = new Set(['USD', 'RON', 'EUR']);
-const CONTROLLER_FLAG = '__360ConfiguratorQuotationControllerV3';
+const CONTROLLER_FLAG = '__360ConfiguratorQuotationControllerV4';
 const FEEDBACK_TIMER_FLAG = '__360ConfiguratorQuotationFeedbackTimer';
 
-const SUCCESS_DURATION_MS = 500;
-const ERROR_DURATION_MS = 1500;
+const SUCCESS_DURATION_MS = 1500;
+const ERROR_DURATION_MS = 2500;
 
 const UI_TEXT = Object.freeze({
   'en-US': Object.freeze({
