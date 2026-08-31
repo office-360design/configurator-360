@@ -28,8 +28,9 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     assert.equal((products.structuredContent as { configurators: unknown[] }).configurators.length, 6);
     const spec = await client.callTool({ name: 'get_configurator_spec', arguments: { product: 'solar' } });
     assert.equal((spec.structuredContent as { questions: unknown[] }).questions.length > 20, true);
-    assert.equal((spec.structuredContent as { draft?: boolean }).draft, true);
-    assert.match(String((spec.structuredContent as { previewUrl?: string }).previewUrl), /embed=preview/);
+    const draft = await client.callTool({ name: 'preview_draft_configuration', arguments: { product: 'fence', answers: { layout: 'u' } } });
+    assert.equal((draft.structuredContent as { draft?: boolean }).draft, true);
+    assert.match(String((draft.structuredContent as { previewUrl?: string }).previewUrl), /embed=preview/);
     const next = await client.callTool({ name: 'get_next_configuration_questions', arguments: { product: 'fence', answers: { layout: 'u' } } });
     assert.match(String((next.structuredContent as { assistantPrompt?: string }).assistantPrompt), /Run A length: 2–30 m/);
     const resources = await client.listResources();

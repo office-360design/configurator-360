@@ -62,7 +62,7 @@ function failure(error: unknown) {
 export function createMcpServer() {
   const server = new McpServer(
     { name: '360configurator', version: '0.1.0' },
-    { instructions: 'Required workflow: extract only unambiguous values from the first customer message, then call get_configurator_spec with those values in answers; it automatically displays the matching live 3D draft. Do not assign an ambiguous measurement (for example “an 8 m U-shaped fence”) to a particular run. After get_configurator_spec, and after every customer message that changes any collected answer, call get_next_configuration_questions and present its assistantPrompt verbatim. Collect every active customer-facing answer; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Treat “no gates” as gates: []. Immediately after every customer message that changes any collected answer, also call preview_draft_configuration with every answer collected so far; the draft must update automatically without the user asking. Its assumptions are temporary preview values, not accepted customer choices. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
+    { instructions: 'Required workflow: call get_configurator_spec first, then call preview_draft_configuration exactly once in that same response with every unambiguous value extracted from the first customer message (or {} for a default preview). Do not assign an ambiguous measurement (for example “an 8 m U-shaped fence”) to a particular run. NEVER render two preview tools in one assistant response. After get_configurator_spec, and after every customer message that changes any collected answer, call get_next_configuration_questions and present its assistantPrompt verbatim. Collect every active customer-facing answer; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Treat “no gates” as gates: []. Immediately after every later customer message that changes any collected answer, call preview_draft_configuration once with every answer collected so far; it must update automatically without the user asking. Its assumptions are temporary preview values, not accepted customer choices. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
   );
 
   server.registerTool('list_configurators', {
@@ -71,17 +71,11 @@ export function createMcpServer() {
     inputSchema: {}, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   }, async () => result({ configurators: PRODUCT_IDS.map(id => ({ id, title: CATALOG[id].title, description: CATALOG[id].description })) }, 'Six configurators are available.'));
 
-  registerAppTool(server, 'get_configurator_spec', {
+  server.registerTool('get_configurator_spec', {
     title: 'Get configurator questionnaire',
-    description: 'Get the complete ordered customer questionnaire, choices, limits, dependencies, and defaults for one configurator before creating it. Include only unambiguous values already stated by the customer in answers so the initial 3D draft matches their request.',
-    inputSchema: { product: z.enum(PRODUCT_IDS), locale: z.string().optional(), answers: z.record(z.unknown()).optional() }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-    _meta: { ui: { resourceUri: UI_URI, visibility: ['model'] } },
-  }, async ({ product, answers }) => {
-    try {
-      const built = buildState(product, (answers || {}) as JsonObject);
-      return result({ ...CATALOG[product], locale: 'en-US', draft: true, ...draftUrls(product, built.state), assumptions: built.assumptions, summary: summarize(product, built.state) }, `Loaded the complete ${CATALOG[product].title} questionnaire and its default live 3D draft.`);
-    } catch (error) { return failure(error); }
-  });
+    description: 'Get the complete ordered customer questionnaire, choices, limits, dependencies, and defaults for one configurator before creating it. This tool does not render a preview; call preview_draft_configuration once after it.',
+    inputSchema: { product: z.enum(PRODUCT_IDS), locale: z.string().optional() }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  }, async ({ product }) => result({ ...CATALOG[product], locale: 'en-US' }, `Loaded the complete ${CATALOG[product].title} questionnaire.`));
 
   server.registerTool('get_next_configuration_questions', {
     title: 'Get the next customer questions with limits',
