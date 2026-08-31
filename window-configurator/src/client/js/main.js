@@ -6,7 +6,7 @@ import {
 } from './config.js';
 import { createComponentSelection } from './component-selection.js';
 import { createSceneContext } from './scene.js';
-import { initializeUIControls } from './ui-controls.js?v=2';
+import { initializeUIControls, setSidebarCollapsed } from './ui-controls.js?v=2';
 import { createWindowBuilder } from './window-builder.js';
 import { createMaterialManager } from './materials.js';
 import { createARController } from './ar-controller.js';
@@ -272,10 +272,17 @@ function syncSelectedWindowSelectionUI() {
     return hasSelection;
 }
 
+function isPhoneViewport() {
+    return window.matchMedia?.('(max-width: 760px)').matches ?? (window.innerWidth <= 760);
+}
+
 function selectWindowCell(cellId) {
     selectedWindowCellId = cellId ? String(cellId) : null;
     windowBuilder?.setSelectedGlassCell?.(selectedWindowCellId);
     syncSelectedWindowSelectionUI();
+    if (selectedWindowCellId && isPhoneViewport()) {
+        setSidebarCollapsed(true);
+    }
 }
 
 function getOverallWindowDimensions() {

@@ -3,7 +3,7 @@ import { WINDOW_WIDTH_MAX_M } from './config.js';
 
 const SIZE_REBUILD_INTERVAL_MS = 70;
 
-function setSidebarCollapsed(collapsed) {
+export function setSidebarCollapsed(collapsed) {
     const controlsPanel = document.getElementById('controls');
     const toggleButton = document.getElementById('sidebar-toggle');
     if (!controlsPanel || !toggleButton) return;

@@ -1,3 +1,11 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overflow-x: hidden;
+}
+
 :root {
   --shared-topbar-height: 47px;
   --shared-settings-gap: 20px;
@@ -10,19 +18,27 @@ body.shared-ui-mounted #canvas-container {
 }
 
 body.shared-ui-mounted #controls {
+  position: fixed;
   top: calc(var(--shared-topbar-height) + var(--shared-settings-gap));
   right: var(--shared-settings-gap);
   left: auto;
   width: var(--shared-settings-width);
   max-height: calc(100vh - var(--shared-topbar-height) - (var(--shared-settings-gap) * 2));
   border-radius: 18px;
+  box-sizing: border-box;
+  transform: translateX(0);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.32s;
+  will-change: transform;
 }
 
 body.shared-ui-mounted #controls.sidebar-collapsed {
   transform: translateX(calc(100% + var(--shared-settings-gap)));
+  visibility: hidden;
+  pointer-events: none;
 }
 
 body.shared-ui-mounted #sidebar-toggle {
+  position: fixed;
   top: calc(var(--shared-topbar-height) + 34px);
   right: calc(var(--shared-settings-width) + var(--shared-settings-gap));
   left: auto;
@@ -56,16 +72,25 @@ body.capture-mode #canvas-container,
     --shared-settings-width: min(320px, calc(100vw - 56px));
   }
   body.shared-ui-mounted #controls {
+    position: fixed;
     top: calc(var(--shared-topbar-height) + 12px);
     right: 12px;
+    left: auto;
     width: min(320px, calc(100vw - 56px));
     max-height: calc(100vh - var(--shared-topbar-height) - 24px);
   }
+  body.shared-ui-mounted #controls.sidebar-collapsed {
+    transform: translateX(calc(100% + 12px));
+    visibility: hidden;
+    pointer-events: none;
+  }
   body.shared-ui-mounted #sidebar-toggle {
+    position: fixed;
     top: calc(var(--shared-topbar-height) + 26px);
     right: min(332px, calc(100vw - 44px));
+    left: auto;
   }
-  body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle { right: 0; }
+  body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle { right: 0; left: auto; }
 }
 
 /* Complete light-mode skin for the legacy window controls. The original
