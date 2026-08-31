@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=22" />
   <link rel="stylesheet" href="./styles.css?v=1" />
   <link rel="stylesheet" href="./shared-shell.css?v=2" />
-  <link rel="stylesheet" href="./solar.css?v=17" />
+  <link rel="stylesheet" href="./solar.css?v=18" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script>
     window.SOLAR_PVGIS_PROXY_ENDPOINT =
@@ -223,6 +223,22 @@
       <div class="viewer-stage" id="viewerStage">
         <div class="roof-tools-anchor" id="solarToolsAnchor" aria-label="Tools control"></div>
         <div id="canvasHost" aria-label="Interactive 3D solar roof model"></div>
+        <section class="solar-embed-alignment" aria-label="Align house in the mapped context">
+          <header><strong>Align house</strong><span id="embedBearingReadout">180° front bearing</span></header>
+          <div class="solar-embed-bearing">
+            <button type="button" data-embed-bearing-delta="-5" aria-label="Rotate roof bearing five degrees counter-clockwise">↶</button>
+            <input id="embedBearingControl" type="range" min="0" max="359" step="1" value="180" aria-label="Roof front bearing" />
+            <button type="button" data-embed-bearing-delta="5" aria-label="Rotate roof bearing five degrees clockwise">↷</button>
+          </div>
+          <div class="solar-embed-position">
+            <div class="solar-embed-nudge-pad" role="group" aria-label="Nudge house position">
+              <span></span><button type="button" data-embed-east="0" data-embed-north="1" aria-label="Move house north">↑<small>N</small></button><span></span>
+              <button type="button" data-embed-east="-1" data-embed-north="0" aria-label="Move house west">←<small>W</small></button><button type="button" id="embedPositionReset" aria-label="Reset house position">⌾</button><button type="button" data-embed-east="1" data-embed-north="0" aria-label="Move house east">→<small>E</small></button>
+              <span></span><button type="button" data-embed-east="0" data-embed-north="-1" aria-label="Move house south">↓<small>S</small></button><span></span>
+            </div>
+            <label><span>Step</span><select id="embedPositionStep"><option value="0.5">0.5 m</option><option value="1" selected>1 m</option><option value="2">2 m</option><option value="5">5 m</option></select><output id="embedPositionReadout">Centered</output></label>
+          </div>
+        </section>
         <div class="stage-hint">Drag to orbit · Scroll to zoom · Tools for location, seasons, real sun & shadows</div>
         <aside class="solar-live-card" aria-label="Live solar simulation">
           <div class="solar-live-card__head"><span>Simulation time</span><strong id="simulationTimeReadout">12:00</strong></div>
@@ -669,6 +685,6 @@
   </script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="./js/sharedShell.js?v=39"></script>
-  <script type="module" src="./js/app.js?v=28"></script>
+  <script type="module" src="./js/app.js?v=29"></script>
 </body>
 </html>

@@ -73,6 +73,18 @@ test('pergola night preview maps to the live environment state', () => {
   assert.equal((built.state.environment as JsonObject).night, true);
 });
 
+test('pergola segment-level side closings map to the live grid state and round-trip', () => {
+  const built = buildState('pergola', {
+    ...defaults('pergola'), widthMm: 9000,
+    sides: [{ segmentId: 'h-r0-c1', side: 'front', type: 'motorized-screen', openness: 25, color: '#123456' }],
+  });
+  const segments = built.state.sideSegments as Record<string, JsonObject>;
+  assert.equal(segments['h-r0-c1'].type, 'motorized-screen');
+  assert.equal(((segments['h-r0-c1'].screenSettings as Record<string, JsonObject>)['motorized-screen']).openness, 25);
+  const extracted = answersFromState('pergola', built.state);
+  assert.deepEqual(extracted.sides, [{ segmentId: 'h-r0-c1', type: 'motorized-screen' }]);
+});
+
 test('hall uses live building and climate values', () => {
   const built = buildState('hall', { ...defaults('hall'), buildingUse: 'cold', climateSystem: 'frozen', showCladding: false, explodedView: true, nightPreview: true });
   assert.equal(built.state.buildingUse, 'cold');
@@ -90,11 +102,14 @@ test('hall rejects overlapping openings', () => {
 });
 
 test('solar exact location stores usable coordinates', () => {
-  const exact = buildState('solar', { ...defaults('solar'), locationMode: 'exact', exactLocationConsent: true, locationLat: 46.77, locationLon: 23.59, locationLabel: 'Cluj-Napoca', roofBearingDeg: 210 });
+  const exact = buildState('solar', { ...defaults('solar'), locationMode: 'exact', exactLocationConsent: true, locationLat: 46.77, locationLon: 23.59, locationLabel: 'Cluj-Napoca', roofBearingDeg: 210, environmentLocalEastM: 4.5, environmentLocalNorthM: -2 });
   assert.equal(exact.state.locationMode, 'exact');
   assert.equal(exact.state.locationLat, 46.77);
   assert.equal(exact.state.locationLon, 23.59);
   assert.equal(exact.state.northDirection, 210);
+  assert.equal(exact.state.environmentLocalEastM, 4.5);
+  assert.equal(exact.state.environmentLocalNorthM, -2);
+  assert.equal(pendingQuestions('solar', {}).some(question => question.id === 'roofBearingDeg'), false);
 });
 
 test('solar exact-location draft never substitutes Bucharest before candidate confirmation', () => {

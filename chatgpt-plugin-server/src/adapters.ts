@@ -149,10 +149,20 @@ function hallState(a: JsonObject): JsonObject {
   };
 }
 
-function side(type: unknown) {
-  const normalized = type === 'privacy' ? 'privacy-wall' : String(type);
+function side(value: unknown) {
+  const source = value && typeof value === 'object' ? value as JsonObject : { type: value };
+  const normalized = source.type === 'privacy' ? 'privacy-wall' : String(source.type);
   const allowed = ['none', 'screen', 'motorized-screen', 'glass', 'privacy-wall'];
-  return { type: allowed.includes(normalized) ? normalized : 'none', screenSettings: { screen: { openness: 50, color: '#67757d' }, 'motorized-screen': { openness: 50, color: '#34444c' } }, privacyColor: '#26343c' };
+  const requestedOpenness = Number(source.openness);
+  const openness = Math.min(100, Math.max(0, Number.isFinite(requestedOpenness) ? requestedOpenness : 50));
+  return {
+    type: allowed.includes(normalized) ? normalized : 'none',
+    screenSettings: {
+      screen: { openness: normalized === 'screen' ? openness : 50, color: String(source.color || '#67757d') },
+      'motorized-screen': { openness: normalized === 'motorized-screen' ? openness : 50, color: String(source.color || '#34444c') },
+    },
+    privacyColor: String(source.privacyColor || '#26343c'),
+  };
 }
 
 type PergolaSegment = { id: string; boundary: string | null };
@@ -211,13 +221,30 @@ function distributePergolaAccessories(width: number, depth: number, installation
 
 function pergolaState(a: JsonObject): JsonObject {
   const selectedSides: Record<string, unknown> = { front: 'none', back: 'none', left: 'none', right: 'none' };
+  const selectedSegments: Record<string, ReturnType<typeof side>> = {};
   for (const entry of a.sides as unknown[]) {
     if (!entry || typeof entry !== 'object') continue;
     const item = entry as JsonObject;
-    if (['front', 'back', 'left', 'right'].includes(String(item.side))) selectedSides[String(item.side)] = item.type;
+    if (String(item.segmentId || '')) selectedSegments[String(item.segmentId)] = side(item);
+    else if (['front', 'back', 'left', 'right'].includes(String(item.side))) selectedSides[String(item.side)] = item.type;
   }
   const width = Number(a.widthMm); const depth = Number(a.depthMm);
   const distributed = distributePergolaAccessories(width, depth, a.installation, a.mountedSide, Number(a.spotlightCount), Number(a.heaterCount));
+  const validSegmentIds = new Set(distributed.grid.segments.map(segment => segment.id));
+  for (const id of Object.keys(selectedSegments)) {
+    if (!validSegmentIds.has(id)) throw new ConfigurationError(`Side closing segment ${id} does not exist for the current pergola dimensions.`, 'sides');
+    const segment = distributed.grid.segments.find(candidate => candidate.id === id);
+    if (a.installation === 'wall-mounted' && segment?.boundary === a.mountedSide && selectedSegments[id].type !== 'none') {
+      throw new ConfigurationError(`Side closing segment ${id} is occupied by the mounted wall.`, 'sides');
+    }
+  }
+  if (a.installation === 'wall-mounted' && selectedSides[String(a.mountedSide)] !== 'none') {
+    throw new ConfigurationError(`The ${String(a.mountedSide)} side is occupied by the mounted wall.`, 'sides');
+  }
+  const sideSegments = Object.fromEntries(distributed.grid.segments.map(segment => {
+    const boundaryType = segment.boundary ? selectedSides[segment.boundary] : 'none';
+    return [segment.id, selectedSegments[segment.id] || side(boundaryType)];
+  }));
   const rainPole = a.rainSensor ? distributed.availableCorners[0]?.pole ?? null : null;
   const windPole = a.windSensor ? distributed.availableCorners.find(corner => corner.pole !== rainPole)?.pole ?? null : null;
   const speakerCorner = a.speaker ? distributed.availableCorners[0] : undefined;
@@ -232,6 +259,7 @@ function pergolaState(a: JsonObject): JsonObject {
     automation: a.automation,
     services: { transportation: a.transportation, assembly: a.assembly, warranty: a.warranty },
     sides: Object.fromEntries(Object.entries(selectedSides).map(([key, value]) => [key, side(value)])),
+    sideSegments,
     accessories: {
       perimeterLed: { enabled: a.perimeterLed, color: '#fff1b4' }, spotlights: distributed.spotlights, heaters: distributed.heaters,
       sensors: { rain: { enabled: Boolean(rainPole), pole: rainPole }, wind: { enabled: Boolean(windPole), pole: windPole } },
@@ -261,6 +289,7 @@ function solarState(a: JsonObject, raw: JsonObject = a): JsonObject {
     installationPricePerKwpRon: a.installationPricePerKwpRon, mountingPricePerPanelRon: a.mountingPricePerPanelRon,
     paperworkPriceRon: a.paperworkPriceRon, batteryPricePerKWhRon: a.batteryPricePerKWhRon, vatRate: Number(a.vatRatePct) / 100,
     showDimensions: false, technicalEdges: false, showCompass: true, showSunPath: true, sunPosition: 50, northDirection: a.roofBearingDeg, nightPreview: false,
+    environmentLocalEastM: a.environmentLocalEastM, environmentLocalNorthM: a.environmentLocalNorthM, environmentLocalStepM: 1,
     units: 'metric', currency: 'RON', currencyRate: 1, excludedEstimateItems: [],
   };
 }
@@ -329,6 +358,10 @@ export function answersFromState(product: ProductId, state: JsonObject): JsonObj
       roofOrientation: roof.orientation, louverTilt: roof.louverTilt, frameColor: roof.frameColor,
       louverColor: roof.louverColor, drainage: roof.drainage,
       transportation: services.transportation, assembly: services.assembly, warranty: services.warranty,
+      nightPreview: Boolean((state.environment as JsonObject)?.night),
+      sides: Object.entries((state.sideSegments || {}) as Record<string, JsonObject>)
+        .filter(([, config]) => config?.type && config.type !== 'none')
+        .map(([segmentId, config]) => ({ segmentId, type: config.type })),
     });
   }
   if (product === 'window') {
@@ -339,6 +372,11 @@ export function answersFromState(product: ProductId, state: JsonObject): JsonObj
       outsideColor: outside.color || state.colour, insideFinishType: inside.type, insideColor: inside.color,
     });
   }
-  if (product === 'solar') answers.vatRatePct = Number(state.vatRate ?? 0.21) * 100;
+  if (product === 'solar') Object.assign(answers, {
+    vatRatePct: Number(state.vatRate ?? 0.21) * 100,
+    roofBearingDeg: state.northDirection,
+    environmentLocalEastM: state.environmentLocalEastM,
+    environmentLocalNorthM: state.environmentLocalNorthM,
+  });
   return answers;
 }

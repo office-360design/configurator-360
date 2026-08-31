@@ -59,9 +59,12 @@ test('MCP handshake exposes the complete public tool contract', async () => {
       assert.match(String(content.assistantPrompt), /Next, please choose:/);
     }
     const resources = await client.listResources();
-    assert.equal(resources.resources[0]?.uri, 'ui://360configurator/preview-v1.html');
-    const preview = await client.readResource({ uri: 'ui://360configurator/preview-v1.html' });
-    assert.match(String(preview.contents[0] && 'text' in preview.contents[0] ? preview.contents[0].text : ''), /<script type="module">/);
+    assert.equal(resources.resources[0]?.uri, 'ui://360configurator/preview-v2.html');
+    const preview = await client.readResource({ uri: 'ui://360configurator/preview-v2.html' });
+    const previewSource = String(preview.contents[0] && 'text' in preview.contents[0] ? preview.contents[0].text : '');
+    assert.match(previewSource, /<script type="module">/);
+    assert.match(previewSource, /360configurator:preview-adjustment/);
+    assert.match(previewSource, /updateModelContext/);
   } finally {
     await client.close();
     await server.close();
