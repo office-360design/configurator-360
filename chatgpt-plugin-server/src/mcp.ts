@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
@@ -24,6 +25,17 @@ function urls(product: ProductId, id: string) {
   return { url: `${base}#s=${id}`, previewUrl: `${base}?embed=preview#s=${id}` };
 }
 
+function draftUrls(product: ProductId, state: JsonObject) {
+  // The configurators already understand the legacy compact #c state format.
+  // A draft therefore needs neither a Firestore document nor a public share ID:
+  // it is a self-contained, short-lived value carried only by the preview URL.
+  const payload = Buffer.from(JSON.stringify({ v: 2, p: product, s: state }));
+  const encoded = `g2.${gzipSync(payload).toString('base64url')}`;
+  if (encoded.length > 20_000) throw new Error('This draft is too large to preview in ChatGPT. Create the configuration to open it in the full configurator.');
+  const base = CATALOG[product].baseUrl;
+  return { url: `${base}#c=${encoded}`, previewUrl: `${base}?embed=preview#c=${encoded}` };
+}
+
 function publicShare(share: StoredShare) {
   return { product: share.product, shareId: share.id, ...urls(share.product, share.id), expiresAtMs: share.expiresAtMs, sizeBytes: share.sizeBytes, summary: summarize(share.product, share.state) };
 }
@@ -42,7 +54,7 @@ function failure(error: unknown) {
 export function createMcpServer() {
   const server = new McpServer(
     { name: '360configurator', version: '0.1.0' },
-    { instructions: 'Required workflow: call get_configurator_spec; collect every active customer-facing answer; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Make the conversation concise: acknowledge values already supplied, then ask at most 2–4 related missing choices per turn (geometry first, then appearance, then installation/options). Do not ask inactive choices. You may offer the listed defaults as recommendations, but apply them only when the user explicitly accepts the named remaining defaults. Treat “no gates” as gates: []. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
+    { instructions: 'Required workflow: call get_configurator_spec; collect every active customer-facing answer; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Make the conversation concise: acknowledge values already supplied, then ask at most 2–4 related missing choices per turn (geometry first, then appearance, then installation/options). Do not ask inactive choices. You may offer the listed defaults as recommendations, but apply them only when the user explicitly accepts the named remaining defaults. Treat “no gates” as gates: []. After the first usable customer answer, call preview_draft_configuration with every answer collected so far; call it again after each later answer so the same unsaved 3D draft visibly updates. Its assumptions are temporary preview values, not accepted customer choices. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
   );
 
   server.registerTool('list_configurators', {
@@ -65,6 +77,21 @@ export function createMcpServer() {
     try {
       const built = buildState(product, answers as JsonObject, { requireExplicit: true });
       return result({ product, normalizedAnswers: built.answers, summary: summarize(product, built.state), assumptions: built.assumptions, confirmationRequired: true }, `The ${CATALOG[product].title} is ready for the user’s explicit confirmation.`);
+    } catch (error) { return failure(error); }
+  });
+
+  registerAppTool(server, 'preview_draft_configuration', {
+    title: 'Update the live unsaved 3D draft',
+    description: 'Show or update the same unsaved live 3D draft while gathering choices. Pass every answer collected so far. Missing active choices use clearly temporary recommended values in the preview; this never saves, shares, or creates a configuration.',
+    inputSchema: ProductRequestSchema.shape, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+    _meta: { ui: { resourceUri: UI_URI, visibility: ['model'] } },
+  }, async ({ product, answers }) => {
+    try {
+      const built = buildState(product, answers as JsonObject);
+      return result({
+        product, draft: true, ...draftUrls(product, built.state), normalizedAnswers: built.answers,
+        assumptions: built.assumptions, summary: summarize(product, built.state),
+      }, `Updated the unsaved live ${CATALOG[product].title} draft. ${built.assumptions.length ? 'Some visible values are temporary recommendations until the user chooses them.' : 'All current values came from the user.'}`);
     } catch (error) { return failure(error); }
   });
 
