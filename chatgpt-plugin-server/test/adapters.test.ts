@@ -74,10 +74,12 @@ test('pergola night preview maps to the live environment state', () => {
 });
 
 test('hall uses live building and climate values', () => {
-  const built = buildState('hall', { ...defaults('hall'), buildingUse: 'cold', climateSystem: 'frozen', nightPreview: true });
+  const built = buildState('hall', { ...defaults('hall'), buildingUse: 'cold', climateSystem: 'frozen', showCladding: false, explodedView: true, nightPreview: true });
   assert.equal(built.state.buildingUse, 'cold');
   assert.equal(built.state.climateSystem, 'frozen');
   assert.equal(built.state.nightPreview, true);
+  assert.equal(built.state.showCladding, false);
+  assert.equal(built.state.explode, 100);
 });
 
 test('hall rejects overlapping openings', () => {
@@ -93,6 +95,21 @@ test('solar exact location stores usable coordinates', () => {
   assert.equal(exact.state.locationLat, 46.77);
   assert.equal(exact.state.locationLon, 23.59);
   assert.equal(exact.state.northDirection, 210);
+});
+
+test('solar exact-location draft never substitutes Bucharest before candidate confirmation', () => {
+  const draft = buildState('solar', { locationMode: 'exact' });
+  assert.equal(draft.state.locationMode, 'region');
+  assert.equal(draft.state.locationLat, null);
+  assert.equal(draft.state.locationLon, null);
+  assert.equal(draft.assumptions.some(item => item.includes('44.4268') || item.includes('26.1025')), false);
+  assert.equal(draft.assumptions.some(item => item.includes('awaiting a confirmed address-search result')), true);
+});
+
+test('window two-sash request maps to the live two-opening-sash layout', () => {
+  const built = buildState('window', { ...defaults('window'), layoutId: 'vertical-sash-sash' });
+  assert.equal(built.state.layoutId, 'vertical-sash-sash');
+  assert.equal(built.state.windowLayout, 'vertical-sash-sash');
 });
 
 test('solar rejects unavailable shed roof planes', () => {
