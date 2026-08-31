@@ -96,7 +96,7 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       choice('louverColor', 'Louver colour', ['#64727b', '#26343c', '#e5e7eb'], '#64727b'),
       choice('drainage', 'Drainage', ['integrated', 'external'], 'integrated'), choice('automation', 'Automation', ['remote', 'wall-switch', 'manual'], 'remote'),
       { id: 'sides', label: 'Front, back, left and right side enclosure types', type: 'array', required: true, default: [] },
-      bool('perimeterLed', 'Perimeter LED lighting', false), number('spotlightCount', 'Spotlight count', 'pcs', 0, 192, 0),
+      bool('perimeterLed', 'Perimeter LED lighting', false), bool('nightPreview', 'Show night preview', false), number('spotlightCount', 'Spotlight count', 'pcs', 0, 192, 0),
       number('heaterCount', 'Heater count', 'pcs', 0, 80, 0), bool('rainSensor', 'Rain sensor', false), bool('windSensor', 'Wind sensor', false),
       bool('speaker', 'Integrated speaker', false), bool('outlet', 'Power outlet', false),
       bool('transportation', 'Transportation service', false), bool('assembly', 'Assembly service', false), bool('warranty', 'Extended warranty', true),

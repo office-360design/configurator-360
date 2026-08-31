@@ -190,7 +190,7 @@ function pergolaState(a: JsonObject): JsonObject {
       sensors: { rain: { enabled: Boolean(rainPole), pole: rainPole }, wind: { enabled: Boolean(windPole), pole: windPole } },
       speakers: legacySpeakers, outlets: legacyOutlets,
     },
-    environment: { sunPosition: 0.35, northDirection: 0, night: false, season: 'winter' },
+    environment: { sunPosition: 0.35, northDirection: 0, night: Boolean(a.nightPreview), season: 'winter' },
     view: { dimensionsVisible: true, cameraPreset: 'perspective', compassVisible: false }, customer: { name: '', email: '', phone: '', postcode: '', notes: '' },
   };
 }

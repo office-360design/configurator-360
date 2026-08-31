@@ -58,6 +58,11 @@ test('pergola accessories are placed in the current grid state', () => {
   assert.notEqual(sensors.rain.pole, sensors.wind.pole);
 });
 
+test('pergola night preview maps to the live environment state', () => {
+  const built = buildState('pergola', { ...defaults('pergola'), nightPreview: true });
+  assert.equal((built.state.environment as JsonObject).night, true);
+});
+
 test('solar exact location stores usable coordinates', () => {
   const exact = buildState('solar', { ...defaults('solar'), locationMode: 'exact', locationLat: 46.77, locationLon: 23.59, locationLabel: 'Cluj-Napoca' });
   assert.equal(exact.state.locationMode, 'exact');
