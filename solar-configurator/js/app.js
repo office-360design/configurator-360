@@ -1495,6 +1495,7 @@ function postEmbedAlignmentAdjustment() {
 }
 
 if (new URLSearchParams(window.location.search).get('embed') === 'preview') {
+  window.addEventListener('solar-tools-state-change', syncEmbedAlignmentControls);
   document.querySelector('#embedBearingControl')?.addEventListener('input', (event) => {
     configuratorApi.setNorthDirection(event.currentTarget.value);
     syncEmbedAlignmentControls();
