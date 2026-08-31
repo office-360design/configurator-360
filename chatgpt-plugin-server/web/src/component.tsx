@@ -6,6 +6,7 @@ type PreviewResult = {
   previewUrl?: string;
   expiresAtMs?: number;
   summary?: Record<string, unknown>;
+  analysis?: Record<string, unknown>;
   assumptions?: string[];
   assistantPrompt?: string;
 };
@@ -23,6 +24,7 @@ function render(data: PreviewResult = {}) {
     return;
   }
   const summary = Object.entries(data.summary || {}).map(([key, value]) => `<span><b>${escapeHtml(key.replace(/([A-Z])/g, ' $1'))}</b>${escapeHtml(value)}</span>`).join('');
+  const analysis = Object.entries(data.analysis || {}).filter(([, value]) => ['string', 'number'].includes(typeof value) && value !== '').slice(0, 6).map(([key, value]) => `<span class="analysis"><b>${escapeHtml(key.replace(/([A-Z])/g, ' $1'))}</b>${escapeHtml(value)}</span>`).join('');
   const temporary = data.draft && data.assumptions?.length
     ? `<p class="draft-note">Draft preview — temporary recommendations: ${escapeHtml(data.assumptions.join(' · '))}</p>`
     : data.draft ? '<p class="draft-note">Draft preview — not saved or shared yet.</p>' : '';
@@ -32,7 +34,7 @@ function render(data: PreviewResult = {}) {
     <main class="${data.draft ? 'is-draft' : ''}">
       <header><div><small>360CONFIGURATOR${data.draft ? ' · DRAFT' : ''}</small><h2>${escapeHtml(data.product)}</h2></div><a href="${escapeHtml(data.url)}" target="_blank" rel="noreferrer">Open full configurator ↗</a></header>
       <iframe title="Live ${escapeHtml(data.product)} 3D preview" src="${escapeHtml(data.previewUrl)}" allow="fullscreen" loading="eager"></iframe>
-      <footer>${temporary}${nextStep}${summary}</footer>
+      <footer>${temporary}${nextStep}${summary}${analysis}</footer>
     </main>`;
 }
 

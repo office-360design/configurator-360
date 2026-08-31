@@ -37,11 +37,21 @@ test('out-of-range values are rejected', () => {
   assert.throws(() => buildState('fence', { ...defaults('fence'), height: 10 }), ConfigurationError);
 });
 
+test('fence rejects incomplete gate placement', () => {
+  assert.throws(() => buildState('fence', { ...defaults('fence'), gates: [{ type: 'driveway', run: 'a' }] }), (error: unknown) => error instanceof ConfigurationError && error.field === 'gates');
+});
+
 test('creation preparation rejects silently omitted active choices', () => {
   assert.throws(
     () => buildState('fence', { layout: 'straight', runA: 8 }, { requireExplicit: true }),
     (error: unknown) => error instanceof ConfigurationError && error.field === 'height',
   );
+});
+
+test('optional viewer and pricing controls may use documented defaults', () => {
+  const supplied = defaults('solar');
+  for (const question of CATALOG.solar.questions.filter(question => !question.required)) delete supplied[question.id];
+  assert.doesNotThrow(() => buildState('solar', supplied, { requireExplicit: true }));
 });
 
 test('pergola accessories are placed in the current grid state', () => {
@@ -70,10 +80,25 @@ test('hall uses live building and climate values', () => {
   assert.equal(built.state.nightPreview, true);
 });
 
+test('hall rejects overlapping openings', () => {
+  assert.throws(() => buildState('hall', { ...defaults('hall'), openings: [
+    { type: 'garage', side: 'front', width: 4, height: 4, offset: 0, bottom: 0 },
+    { type: 'personnel', side: 'front', width: 1, height: 2.1, offset: 1, bottom: 0 },
+  ] }), (error: unknown) => error instanceof ConfigurationError && error.field === 'openings');
+});
+
 test('solar exact location stores usable coordinates', () => {
   const exact = buildState('solar', { ...defaults('solar'), locationMode: 'exact', exactLocationConsent: true, locationLat: 46.77, locationLon: 23.59, locationLabel: 'Cluj-Napoca', roofBearingDeg: 210 });
   assert.equal(exact.state.locationMode, 'exact');
   assert.equal(exact.state.locationLat, 46.77);
   assert.equal(exact.state.locationLon, 23.59);
   assert.equal(exact.state.northDirection, 210);
+});
+
+test('solar rejects unavailable shed roof planes', () => {
+  assert.throws(() => buildState('solar', { ...defaults('solar'), roofType: 'shed', roofSide: 'both' }), (error: unknown) => error instanceof ConfigurationError && error.field === 'roofSide');
+});
+
+test('window rejects incompatible CAD profile selections', () => {
+  assert.throws(() => buildState('window', { ...defaults('window'), profileSetId: '2_6_Oeffnungselemnt_Vertikal' }), (error: unknown) => error instanceof ConfigurationError && error.field === 'profileSetId');
 });

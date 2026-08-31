@@ -13,6 +13,7 @@ test('MCP handshake exposes the complete public tool contract', async () => {
   try {
     const listed = await client.listTools();
     assert.deepEqual(listed.tools.map(tool => tool.name).sort(), [
+      'analyze_product_configuration',
       'analyze_solar_configuration',
       'create_configuration',
       'get_configurator_spec',
@@ -23,6 +24,7 @@ test('MCP handshake exposes the complete public tool contract', async () => {
       'preview_draft_configuration',
       'render_configuration_preview',
       'revise_configuration',
+      'search_solar_locations',
     ]);
     const products = await client.callTool({ name: 'list_configurators', arguments: {} });
     assert.equal(products.isError, undefined);
@@ -39,6 +41,17 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     const solarAnswers = Object.fromEntries((spec.structuredContent as { questions: Array<{ id: string; default: unknown }> }).questions.map(question => [question.id, question.default]));
     const solarAnalysis = await client.callTool({ name: 'analyze_solar_configuration', arguments: { answers: solarAnswers } });
     assert.equal((solarAnalysis.structuredContent as { analysis?: { productionSource?: string } }).analysis?.productionSource, 'Regional calibrated estimate');
+    const hallSpec = await client.callTool({ name: 'get_configurator_spec', arguments: { product: 'hall' } });
+    const hallAnswers = Object.fromEntries((hallSpec.structuredContent as { questions: Array<{ id: string; default: unknown }> }).questions.map(question => [question.id, question.default]));
+    const hallAnalysis = await client.callTool({ name: 'analyze_product_configuration', arguments: { product: 'hall', answers: hallAnswers } });
+    assert.equal(Number((hallAnalysis.structuredContent as { analysis?: { frameCount?: number } }).analysis?.frameCount) > 1, true);
+    for (const product of ['fence', 'roof', 'hall', 'pergola', 'solar', 'window']) {
+      const productDraft = await client.callTool({ name: 'preview_draft_configuration', arguments: { product, answers: {} } });
+      const content = productDraft.structuredContent as { previewUrl?: string; analysis?: Record<string, unknown>; assistantPrompt?: string };
+      assert.match(String(content.previewUrl), /embed=preview/);
+      assert.equal(Boolean(content.analysis && Object.keys(content.analysis).length), true);
+      assert.match(String(content.assistantPrompt), /Next, please choose:/);
+    }
     const resources = await client.listResources();
     assert.equal(resources.resources[0]?.uri, 'ui://360configurator/preview-v1.html');
     const preview = await client.readResource({ uri: 'ui://360configurator/preview-v1.html' });

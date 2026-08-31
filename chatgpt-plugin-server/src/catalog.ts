@@ -35,6 +35,8 @@ const number = (id: string, label: string, unit: string, min: number, max: numbe
 const bool = (id: string, label: string, defaultValue: boolean, when?: string): Question => ({
   id, label, type: 'boolean', required: true, default: defaultValue, when,
 });
+const text = (id: string, label: string, defaultValue: string, when?: string): Question => ({ id, label, type: 'text', required: true, default: defaultValue, when });
+const optional = (question: Question): Question => ({ ...question, required: false });
 
 export const CATALOG: Record<ProductId, ProductSpec> = {
   fence: {
@@ -50,8 +52,8 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       choice('finish', 'Finish', ['anthracite', 'black', 'white', 'bronze', 'wood'], 'anthracite'),
       number('infillGap', 'Slat gap', 'm', 0.015, 0.12, 0.035, 'panelStyle in [vertical, horizontal]'),
       choice('foundation', 'Post foundation', ['concrete', 'baseplate'], 'concrete'),
-      { id: 'gates', label: 'Gates (type, run, zero-based bay position, handing)', type: 'array', required: true, default: [] },
-      bool('scenery', 'Show surrounding scenery', false),
+      { id: 'gates', label: 'Gates: none, or type (pedestrian/driveway), run letter, zero-based bay position, and handing (left/right)', type: 'array', required: true, default: [] },
+      optional(bool('scenery', 'Show surrounding scenery', false)),
     ],
   },
   roof: {
@@ -66,6 +68,8 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       number('overhang', 'Eaves overhang', 'm', 0, 1.2, 0.45),
       choice('covering', 'Roof covering', ['generic', 'roca', 'teclado'], 'generic'),
       choice('roofColor', 'Roof colour', ['#7f1d2d', '#293544', '#684230', '#8a3428', '#315449'], '#7f1d2d'),
+      optional(number('sunPosition', 'Preview sun position', '%', 0, 100, 42)), optional(number('northDirection', 'North direction', 'deg', 0, 359, 0)),
+      optional(bool('nightPreview', 'Show night preview', false)), optional(bool('technicalEdges', 'Show technical edge overlay', false)),
     ],
   },
   hall: {
@@ -75,7 +79,7 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       number('length', 'Hall length', 'm', 6, 100, 24), number('width', 'Hall width', 'm', 4, 40, 12),
       number('eaveHeight', 'Eave height', 'm', 2.5, 15, 5), number('pitch', 'Roof pitch', 'deg', 3, 30, 12),
       number('targetBaySpacing', 'Target frame spacing', 'm', 3, 10, 6), choice('structurePreset', 'Structure duty', ['light', 'standard', 'heavy'], 'standard'),
-      choice('claddingProfile', 'Cladding', ['sandwich', 'single-skin', 'none'], 'sandwich'),
+      choice('claddingProfile', 'Cladding', ['trapezoidal', 'sandwich', 'standing-seam'], 'sandwich', undefined, { trapezoidal: 'trapezoidal steel sheet', sandwich: 'sandwich panel', 'standing-seam': 'standing-seam roof' }),
       choice('wallColor', 'Wall colour', ['#d6d9dc', '#ffffff', '#9ca3af', '#374151'], '#d6d9dc'),
       choice('roofColor', 'Roof colour', ['#36424b', '#7f1d2d', '#315449'], '#36424b'),
       choice('buildingUse', 'Building use', ['general', 'workshop', 'food', 'cold'], 'general', undefined, { general: 'general purpose', workshop: 'workshop', food: 'food production', cold: 'cold storage' }),
@@ -84,15 +88,15 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       bool('highBayLighting', 'Include high-bay lighting', true), bool('fireSprinklers', 'Include fire sprinklers', false),
       bool('roofSkylights', 'Include roof skylights', false), bool('gutters', 'Include gutters', true),
       bool('warehouseRacking', 'Include warehouse racking', false),
-      bool('nightPreview', 'Show night preview', false),
-      { id: 'openings', label: 'Doors, loading bays and windows', type: 'array', required: true, default: [] },
+      optional(bool('nightPreview', 'Show night preview', false)),
+      { id: 'openings', label: 'Wall openings: none, or type (garage/personnel/window), wall side, width, height, centre offset and bottom height in metres', type: 'array', required: true, default: [] },
     ],
   },
   pergola: {
     id: 'pergola', title: 'Pergola', description: 'Bioclimatic pergola with sides, automation, services, and accessories.',
     baseUrl: 'https://aks.360configurator.com/pergola-configurator/',
     questions: [
-      choice('model', 'Model', ['premium'], 'premium'), choice('installation', 'Installation', ['freestanding', 'wall-mounted'], 'freestanding'),
+      optional(choice('model', 'Model', ['premium'], 'premium')), choice('installation', 'Installation', ['freestanding', 'wall-mounted'], 'freestanding'),
       choice('mountedSide', 'Wall-mounted side', ['front', 'right', 'back', 'left'], 'back', 'installation == wall-mounted'),
       number('widthMm', 'Width', 'mm', 2000, 20000, 5000), number('depthMm', 'Depth', 'mm', 2000, 20000, 3500), number('heightMm', 'Height', 'mm', 2000, 3000, 2700),
       choice('roofOrientation', 'Louver orientation', ['width', 'depth'], 'width'), number('louverTilt', 'Louver tilt', 'deg', 0, 90, 28),
@@ -100,7 +104,9 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       choice('louverColor', 'Louver colour', ['#64727b', '#26343c', '#e5e7eb'], '#64727b'),
       choice('drainage', 'Drainage', ['integrated', 'external'], 'integrated'), choice('automation', 'Automation', ['remote', 'wall-switch', 'manual'], 'remote'),
       { id: 'sides', label: 'Front, back, left and right side enclosure types', type: 'array', required: true, default: [] },
-      bool('perimeterLed', 'Perimeter LED lighting', false), bool('nightPreview', 'Show night preview', false), number('spotlightCount', 'Spotlight count', 'pcs', 0, 192, 0),
+      bool('perimeterLed', 'Perimeter LED lighting', false), optional(bool('nightPreview', 'Show night preview', false)),
+      optional(number('sunPosition', 'Preview sun position', '%', 0, 100, 35)), optional(number('northDirection', 'North direction', 'deg', 0, 359, 0)),
+      optional(choice('season', 'Preview season', ['winter', 'summer', 'studio'], 'winter')), number('spotlightCount', 'Spotlight count', 'pcs', 0, 192, 0),
       number('heaterCount', 'Heater count', 'pcs', 0, 80, 0), bool('rainSensor', 'Rain sensor', false), bool('windSensor', 'Wind sensor', false),
       bool('speaker', 'Integrated speaker', false), bool('outlet', 'Power outlet', false),
       bool('transportation', 'Transportation service', false), bool('assembly', 'Assembly service', false), bool('warranty', 'Extended warranty', true),
@@ -115,7 +121,7 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       number('roofBearingDeg', 'Roof front bearing', 'deg', 0, 359, 180),
       choice('modulePreset', 'Solar module', ['standard475', 'compact450', 'premium490'], 'standard475'),
       number('panelCount', 'Panel count', 'pcs', 1, 80, 12), number('panelColumns', 'Panel columns', 'pcs', 1, 10, 4),
-      choice('moduleOrientation', 'Module orientation', ['portrait', 'landscape'], 'portrait'), choice('roofSide', 'Roof plane', ['best', 'south', 'east', 'west'], 'best'),
+      choice('moduleOrientation', 'Module orientation', ['portrait', 'landscape'], 'portrait'), choice('roofSide', 'Roof plane', ['best', 'front', 'back', 'both'], 'best', undefined, { best: 'automatically choose the better plane', front: 'front plane', back: 'back plane', both: 'both planes' }),
       choice('gridConnection', 'Grid connection', ['single', 'three'], 'single'), number('monthlyBillRon', 'Monthly electricity bill', 'RON', 0, 100000, 400),
       number('energyTariffRon', 'Energy tariff', 'RON/kWh', 0.05, 20, 1.3),
       choice('locationMode', 'Location precision', ['region', 'exact'], 'region'),
@@ -127,9 +133,9 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       choice('consumptionProfile', 'Daytime consumption profile', ['low', 'partial', 'high'], 'partial'),
       bool('batteryEnabled', 'Include battery storage', true), bool('batteryAutoSize', 'Automatically size battery', true, 'batteryEnabled'),
       number('batteryCapacityKWh', 'Battery capacity', 'kWh', 2, 20, 5, 'batteryEnabled && !batteryAutoSize'),
-      number('mountingPricePerPanelRon', 'Mounting price per panel', 'RON', 0, 100000, 430), number('installationPricePerKwpRon', 'Installation price per kWp', 'RON', 0, 100000, 1100),
-      number('paperworkPriceRon', 'Design and paperwork', 'RON', 0, 1000000, 1800), number('batteryPricePerKWhRon', 'Battery price per kWh', 'RON', 0, 100000, 1960),
-      number('vatRatePct', 'VAT rate', '%', 0, 50, 21),
+      optional(number('mountingPricePerPanelRon', 'Mounting price per panel', 'RON', 0, 100000, 430)), optional(number('installationPricePerKwpRon', 'Installation price per kWp', 'RON', 0, 100000, 1100)),
+      optional(number('paperworkPriceRon', 'Design and paperwork', 'RON', 0, 1000000, 1800)), optional(number('batteryPricePerKWhRon', 'Battery price per kWh', 'RON', 0, 100000, 1960)),
+      optional(number('vatRatePct', 'VAT rate', '%', 0, 50, 21)),
     ],
   },
   window: {
@@ -137,17 +143,19 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
     baseUrl: 'https://aks.360configurator.com/window-configurator/',
     questions: [
       number('widthM', 'Overall width', 'm', 0.3, 8, 1.2), number('heightM', 'Overall height', 'm', 0.3, 4, 1.4),
-      choice('layoutId', 'Window layout', ['single', 'vertical-2-fixed-right', 'vertical-2-left-right', 'horizontal-2-fixed-top-right', 'vertical-3-fixed-fixed-fixed', 'top-fixed-bottom-sash-sash'], 'single'),
-      choice('openingMode', 'Opening mode', ['batant', 'oscilo'], 'batant'), choice('handleSide', 'Handle side', ['left', 'right'], 'right'),
-      number('openAngle', 'Preview opening angle', 'deg', 0, 80, 0),
-      choice('profileSetId', 'CAD profile family', ['2_4_Oeffnungselemnt_Vertikal', '2_6_Oeffnungselemnt_Vertikal'], '2_4_Oeffnungselemnt_Vertikal'),
+      choice('layoutId', 'Window layout', ['single', 'vertical-divider', 'vertical-fixed-fixed', 'vertical-fixed-fixed-fixed', 'vertical-sash-sash', 'horizontal-divider', 'horizontal-fixed-fixed', 'horizontal-fixed-fixed-fixed', 'top-fixed-bottom-sash-sash'], 'single', undefined, {
+        single: 'single opening', 'vertical-divider': 'vertical fixed + sash', 'vertical-fixed-fixed': 'two fixed columns', 'vertical-fixed-fixed-fixed': 'three fixed columns', 'vertical-sash-sash': 'two opening sashes', 'horizontal-divider': 'horizontal fixed + sash', 'horizontal-fixed-fixed': 'two fixed rows', 'horizontal-fixed-fixed-fixed': 'three fixed rows', 'top-fixed-bottom-sash-sash': 'fixed top + two sashes below',
+      }),
+      choice('openingMode', 'Opening mode', ['batant', 'oscilo'], 'batant', 'layoutId in [single, vertical-divider, vertical-sash-sash, horizontal-divider, top-fixed-bottom-sash-sash]'), choice('handleSide', 'Handle side', ['left', 'right'], 'right', 'layoutId in [single, vertical-divider, vertical-sash-sash, horizontal-divider, top-fixed-bottom-sash-sash]'),
+      optional(number('openAngle', 'Preview opening angle', 'deg', 0, 80, 0, 'layoutId in [single, vertical-divider, vertical-sash-sash, horizontal-divider, top-fixed-bottom-sash-sash]')),
+      choice('profileSetId', 'CAD profile family', ['2_4_Oeffnungselemnt_Vertikal', '2_5_Oeffnungselemnt_Vertikal', '2_6_Oeffnungselemnt_Vertikal'], '2_4_Oeffnungselemnt_Vertikal', undefined, { '2_4_Oeffnungselemnt_Vertikal': 'B2-6 / opening element 2.4', '2_5_Oeffnungselemnt_Vertikal': 'B2-7 / opening element 2.5', '2_6_Oeffnungselemnt_Vertikal': 'B2-8 / opening element 2.6' }),
       choice('outerFrameProfileId', 'Outer frame profile', ['575760', '575770'], '575760'), choice('sashProfileId', 'Sash profile', ['575780', '575790'], '575780'),
       number('glassThicknessMm', 'Glass thickness', 'mm', 16, 29, 24),
       choice('finishMode', 'Finish mode', ['same', 'different'], 'same'), choice('outsideFinishType', 'Outside finish type', ['mill', 'anodized', 'coated'], 'coated'),
-      choice('outsideColor', 'Outside colour', ['#6b7280', '#111827', '#f3f4f6', '#7f1d1d'], '#6b7280'),
+      text('outsideColor', 'Outside coated colour as a hex value', '#6b7280', 'outsideFinishType == coated'),
       choice('insideFinishType', 'Inside finish type', ['mill', 'anodized', 'coated'], 'coated', 'finishMode == different'),
-      choice('insideColor', 'Inside colour', ['#6b7280', '#111827', '#f3f4f6', '#7f1d1d'], '#6b7280', 'finishMode == different'),
-      choice('accessoryPreset', 'Accessory preset', ['none', 'standard', 'security'], 'standard'), bool('showHouse', 'Show house context', false),
+      text('insideColor', 'Inside coated colour as a hex value', '#6b7280', 'finishMode == different && insideFinishType == coated'),
+      choice('accessoryPreset', 'Accessory preset', ['b2-6', 'b2-7', 'b2-8'], 'b2-6'), optional(bool('showHouse', 'Show house context', false)),
     ],
   },
 };

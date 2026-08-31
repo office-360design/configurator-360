@@ -66,6 +66,7 @@ jobs:
 
       - name: Deploy Cloud Run service
         run: |
+          # configurator-runtime has Secret Manager accessor on every secret listed here.
           gcloud run deploy "${CLOUD_RUN_SERVICE}" \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
