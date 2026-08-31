@@ -33,6 +33,8 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     assert.match(String((draft.structuredContent as { previewUrl?: string }).previewUrl), /embed=preview/);
     const next = await client.callTool({ name: 'get_next_configuration_questions', arguments: { product: 'fence', answers: { layout: 'u' } } });
     assert.match(String((next.structuredContent as { assistantPrompt?: string }).assistantPrompt), /Run A length: 2–30 m/);
+    const roofDraft = await client.callTool({ name: 'preview_draft_configuration', arguments: { product: 'roof', answers: {} } });
+    assert.match(String((roofDraft.structuredContent as { assistantPrompt?: string }).assistantPrompt), /House \/ roof shape: two-slope \/ gable/);
     const resources = await client.listResources();
     assert.equal(resources.resources[0]?.uri, 'ui://360configurator/preview-v1.html');
     const preview = await client.readResource({ uri: 'ui://360configurator/preview-v1.html' });

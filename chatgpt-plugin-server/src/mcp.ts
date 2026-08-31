@@ -46,10 +46,21 @@ function result(data: JsonObject, message: string) {
 
 function questionPrompt(question: Question) {
   if (question.type === 'number') return `${question.label}: ${question.min}–${question.max} ${question.unit || ''}`.trim();
-  if (question.type === 'choice') return `${question.label}: ${question.choices?.join(' / ')}`;
+  if (question.type === 'choice') return `${question.label}: ${question.choices?.map(choice => question.choiceLabels?.[choice] || choice).join(' / ')}`;
   if (question.type === 'boolean') return `${question.label}: yes / no`;
   if (question.type === 'array') return `${question.label}: none, or provide the items`;
   return question.label;
+}
+
+function questionGuidance(product: ProductId, raw: JsonObject) {
+  const next = pendingQuestions(product, raw, 3);
+  const allRemaining = pendingQuestions(product, raw, Number.MAX_SAFE_INTEGER);
+  const nextText = next.map(questionPrompt);
+  const later = allRemaining.slice(next.length).map(question => question.label);
+  const assistantPrompt = nextText.length
+    ? `Next, please choose:\n${nextText.map(item => `• ${item}`).join('\n')}${later.length ? `\n\nAfter this, we will configure: ${later.join(', ')}.` : '\n\nThat completes the remaining choices.'}`
+    : 'All active choices are supplied. I will now prepare the configuration summary for your confirmation.';
+  return { next, remaining: allRemaining.slice(next.length), assistantPrompt };
 }
 
 function failure(error: unknown) {
@@ -84,14 +95,8 @@ export function createMcpServer() {
   }, async ({ product, answers }) => {
     try {
       const raw = answers as JsonObject;
-      const next = pendingQuestions(product, raw, 3);
-      const allRemaining = pendingQuestions(product, raw, Number.MAX_SAFE_INTEGER);
-      const nextText = next.map(questionPrompt);
-      const later = allRemaining.slice(next.length).map(question => question.label);
-      const assistantPrompt = nextText.length
-        ? `Next, please choose:\n${nextText.map(item => `• ${item}`).join('\n')}${later.length ? `\n\nAfter this, we will configure: ${later.join(', ')}.` : '\n\nThat completes the remaining choices.'}`
-        : 'All active choices are supplied. I will now prepare the configuration summary for your confirmation.';
-      return result({ product, questions: next, remainingQuestions: allRemaining.slice(next.length), assistantPrompt }, 'Loaded the next customer questions with their exact limits and options.');
+      const guidance = questionGuidance(product, raw);
+      return result({ product, questions: guidance.next, remainingQuestions: guidance.remaining, assistantPrompt: guidance.assistantPrompt }, 'Loaded the next customer questions with their exact limits and options.');
     } catch (error) { return failure(error); }
   });
 
@@ -113,11 +118,14 @@ export function createMcpServer() {
     _meta: { ui: { resourceUri: UI_URI, visibility: ['model'] } },
   }, async ({ product, answers }) => {
     try {
-      const built = buildState(product, answers as JsonObject);
+      const raw = answers as JsonObject;
+      const built = buildState(product, raw);
+      const guidance = questionGuidance(product, raw);
       return result({
         product, draft: true, ...draftUrls(product, built.state), normalizedAnswers: built.answers,
         assumptions: built.assumptions, summary: summarize(product, built.state),
-      }, `Updated the unsaved live ${CATALOG[product].title} draft. ${built.assumptions.length ? 'Some visible values are temporary recommendations until the user chooses them.' : 'All current values came from the user.'}`);
+        nextQuestions: guidance.next, remainingQuestions: guidance.remaining, assistantPrompt: guidance.assistantPrompt,
+      }, `Updated the unsaved live ${CATALOG[product].title} draft. ${built.assumptions.length ? 'Some visible values are temporary recommendations until the user chooses them.' : 'All current values came from the user.'}\n\n${guidance.assistantPrompt}`);
     } catch (error) { return failure(error); }
   });
 

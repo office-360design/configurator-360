@@ -10,6 +10,7 @@ export type Question = {
   type: 'choice' | 'number' | 'boolean' | 'text' | 'array';
   required: boolean;
   choices?: readonly string[];
+  choiceLabels?: Readonly<Record<string, string>>;
   unit?: string;
   min?: number;
   max?: number;
@@ -25,8 +26,8 @@ export type ProductSpec = {
   questions: Question[];
 };
 
-const choice = (id: string, label: string, choices: readonly string[], defaultValue: string, when?: string): Question => ({
-  id, label, type: 'choice', required: true, choices, default: defaultValue, when,
+const choice = (id: string, label: string, choices: readonly string[], defaultValue: string, when?: string, choiceLabels?: Readonly<Record<string, string>>): Question => ({
+  id, label, type: 'choice', required: true, choices, choiceLabels, default: defaultValue, when,
 });
 const number = (id: string, label: string, unit: string, min: number, max: number, defaultValue: number, when?: string): Question => ({
   id, label, type: 'number', required: true, unit, min, max, default: defaultValue, when,
@@ -57,7 +58,9 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
     id: 'roof', title: 'Roof', description: 'Roof geometry, covering, drainage-ready metrics, and BOM.',
     baseUrl: 'https://aks.360configurator.com/roof-configurator/',
     questions: [
-      choice('roofType', 'Roof type', ['gable', 'hip', 'shed', 'lshape', 'dormer'], 'gable'),
+      choice('roofType', 'House / roof shape', ['gable', 'hip', 'shed', 'lshape', 'dormer'], 'gable', undefined, {
+        gable: 'two-slope / gable', hip: 'four-slope / hip', shed: 'single-slope / shed', lshape: 'L-shaped', dormer: 'two-slope with dormer',
+      }),
       number('length', 'Building length', 'm', 3, 30, 10), number('depth', 'Building depth', 'm', 3, 20, 7),
       number('wallHeight', 'Wall height', 'm', 2, 8, 3), number('pitch', 'Roof pitch', 'deg', 5, 55, 30),
       number('overhang', 'Eaves overhang', 'm', 0, 1.2, 0.45),
