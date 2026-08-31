@@ -394,33 +394,41 @@
                                 <span>Aluminium price</span>
                                 <div class="window-summary-rate-input"><input id="summaryAluminiumRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/kg</b></div>
                             </label>
-                            <label for="summaryGlassRate">
-                                <span>Glass price</span>
+                            <div class="window-summary-rate-field">
+                                <div class="window-summary-rate-header">
+                                    <label for="summaryGlassRate">
+                                        <span>Glass price</span>
+                                    </label>
+                                    <label class="switch" for="summaryGlassEnabled" title="Toggle glass price">
+                                        <input id="summaryGlassEnabled" type="checkbox" checked>
+                                        <span class="switch-slider"></span>
+                                    </label>
+                                </div>
                                 <div class="window-summary-rate-input"><input id="summaryGlassRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/m²</b></div>
-                            </label>
+                            </div>
                             <label for="summaryGasketRate" class="window-summary-material-rate is-gasket">
                                 <span>Gasket price</span>
-                                <div class="window-summary-rate-input"><input id="summaryGasketRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/kg</b></div>
+                                <div class="window-summary-rate-input"><input id="summaryGasketRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/m</b></div>
                             </label>
                             <label for="summaryInsulationRate" class="window-summary-material-rate is-insulation">
                                 <span>Insulation bar price</span>
-                                <div class="window-summary-rate-input"><input id="summaryInsulationRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/kg</b></div>
+                                <div class="window-summary-rate-input"><input id="summaryInsulationRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/m</b></div>
                             </label>
                             <label for="summaryFoamRate" class="window-summary-material-rate is-foam">
                                 <span>Insulation foam price</span>
-                                <div class="window-summary-rate-input"><input id="summaryFoamRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/kg</b></div>
+                                <div class="window-summary-rate-input"><input id="summaryFoamRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/m</b></div>
                             </label>
                             <label for="summaryLockingBarRate" class="window-summary-material-rate is-other">
                                 <span>Locking bar price</span>
-                                <div class="window-summary-rate-input"><input id="summaryLockingBarRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/kg</b></div>
+                                <div class="window-summary-rate-input"><input id="summaryLockingBarRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/m</b></div>
                             </label>
                             <label for="summaryGlazingBridgeRate" class="window-summary-material-rate is-other">
                                 <span>Glazing bridge price</span>
-                                <div class="window-summary-rate-input"><input id="summaryGlazingBridgeRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/kg</b></div>
+                                <div class="window-summary-rate-input"><input id="summaryGlazingBridgeRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/m</b></div>
                             </label>
                             <label for="summaryDrainageCapRate" class="window-summary-material-rate is-other">
                                 <span>Drainage cap price</span>
-                                <div class="window-summary-rate-input"><input id="summaryDrainageCapRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/kg</b></div>
+                                <div class="window-summary-rate-input"><input id="summaryDrainageCapRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"><b>€/pc</b></div>
                             </label>
                         </div>
                         <div id="window-bom-content" class="window-summary-content"></div>

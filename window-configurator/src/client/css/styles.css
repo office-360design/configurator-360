@@ -1881,7 +1881,8 @@ html.ar-mode .window-layout-overlay {
     margin-bottom: 10px;
 }
 
-.window-summary-rate-grid > label {
+.window-summary-rate-grid > label,
+.window-summary-rate-grid > .window-summary-rate-field {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -1891,6 +1892,30 @@ html.ar-mode .window-layout-overlay {
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #7d8ca3;
+}
+
+.window-summary-rate-grid > label > span,
+.window-summary-rate-header {
+    display: flex;
+    align-items: center;
+    min-height: 16px;
+}
+
+.window-summary-rate-header {
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.window-summary-rate-header > label {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    cursor: pointer;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
 }
 
 .window-summary-material-rate > span {

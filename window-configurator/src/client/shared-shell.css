@@ -387,7 +387,8 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-title spa
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-specs span,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-card p,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-empty,
-body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-rate-grid > label {
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-rate-grid > label,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-rate-grid > .window-summary-rate-field {
   color: #697781 !important;
 }
 
