@@ -97,5 +97,7 @@ jobs:
           echo 'Public route after the serverless NEG/backend is attached to the existing URL map:' >> "$GITHUB_STEP_SUMMARY"
           echo 'https://www.360configurator.com/api/solar/google-solar?action=health' >> "$GITHUB_STEP_SUMMARY"
           echo 'https://www.360configurator.com/api/solar/pvgis?tool=health' >> "$GITHUB_STEP_SUMMARY"
+          echo 'https://www.360configurator.com/api/solar/overpass-primary' >> "$GITHUB_STEP_SUMMARY"
+          echo 'https://www.360configurator.com/api/solar/overpass-secondary' >> "$GITHUB_STEP_SUMMARY"
           echo '' >> "$GITHUB_STEP_SUMMARY"
           echo 'Tier-1 tenant origins are validated against Firestore and meter monthly Solar/PVGIS usage.' >> "$GITHUB_STEP_SUMMARY"
