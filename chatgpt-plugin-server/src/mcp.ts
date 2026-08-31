@@ -5,8 +5,8 @@ import { gzipSync } from 'node:zlib';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
-import { answersFromState, buildState, ConfigurationError, mergeRevision, summarize } from './adapters.js';
-import { CATALOG, PRODUCT_IDS, ConfirmedProductRequestSchema, ProductRequestSchema, isProductId, type JsonObject, type ProductId } from './catalog.js';
+import { answersFromState, buildState, ConfigurationError, mergeRevision, pendingQuestions, summarize } from './adapters.js';
+import { CATALOG, PRODUCT_IDS, ConfirmedProductRequestSchema, ProductRequestSchema, isProductId, type JsonObject, type ProductId, type Question } from './catalog.js';
 import { currentClientKey } from './context.js';
 import { createShare, enforceRateLimit, getShare, parseShareId, type StoredShare } from './storage.js';
 
@@ -44,6 +44,14 @@ function result(data: JsonObject, message: string) {
   return { structuredContent: data, content: [{ type: 'text' as const, text: message }] };
 }
 
+function questionPrompt(question: Question) {
+  if (question.type === 'number') return `${question.label}: ${question.min}–${question.max} ${question.unit || ''}`.trim();
+  if (question.type === 'choice') return `${question.label}: ${question.choices?.join(' / ')}`;
+  if (question.type === 'boolean') return `${question.label}: yes / no`;
+  if (question.type === 'array') return `${question.label}: none, or provide the items`;
+  return question.label;
+}
+
 function failure(error: unknown) {
   const message = error instanceof ConfigurationError ? error.message
     : error instanceof Error && error.message === 'RATE_LIMITED' ? 'The anonymous configuration creation limit has been reached. Try again later.'
@@ -54,7 +62,7 @@ function failure(error: unknown) {
 export function createMcpServer() {
   const server = new McpServer(
     { name: '360configurator', version: '0.1.0' },
-    { instructions: 'Required workflow: call get_configurator_spec first; it automatically displays the product’s default 3D draft. Then collect every active customer-facing answer; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Make the conversation concise: acknowledge values already supplied, then ask at most 2–4 related missing choices per turn (geometry first, then appearance, then installation/options). For EVERY requested numeric answer, state its unit and inclusive minimum–maximum range. For EVERY requested choice, list its permitted choices. On the first question turn, give a compact roadmap of the remaining groups; on later turns, end with the next remaining group(s). Do not ask inactive choices. You may offer the listed defaults as recommendations, but apply them only when the user explicitly accepts the named remaining defaults. Treat “no gates” as gates: []. Immediately after every customer message that changes any collected answer, call preview_draft_configuration with every answer collected so far; the draft must update automatically without the user asking. Its assumptions are temporary preview values, not accepted customer choices. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
+    { instructions: 'Required workflow: extract only unambiguous values from the first customer message, then call get_configurator_spec with those values in answers; it automatically displays the matching live 3D draft. Do not assign an ambiguous measurement (for example “an 8 m U-shaped fence”) to a particular run. After get_configurator_spec, and after every customer message that changes any collected answer, call get_next_configuration_questions and present its assistantPrompt verbatim. Collect every active customer-facing answer; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Treat “no gates” as gates: []. Immediately after every customer message that changes any collected answer, also call preview_draft_configuration with every answer collected so far; the draft must update automatically without the user asking. Its assumptions are temporary preview values, not accepted customer choices. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
   );
 
   server.registerTool('list_configurators', {
@@ -65,13 +73,31 @@ export function createMcpServer() {
 
   registerAppTool(server, 'get_configurator_spec', {
     title: 'Get configurator questionnaire',
-    description: 'Get the complete ordered customer questionnaire, choices, limits, dependencies, and defaults for one configurator before creating it.',
-    inputSchema: { product: z.enum(PRODUCT_IDS), locale: z.string().optional() }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    description: 'Get the complete ordered customer questionnaire, choices, limits, dependencies, and defaults for one configurator before creating it. Include only unambiguous values already stated by the customer in answers so the initial 3D draft matches their request.',
+    inputSchema: { product: z.enum(PRODUCT_IDS), locale: z.string().optional(), answers: z.record(z.unknown()).optional() }, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     _meta: { ui: { resourceUri: UI_URI, visibility: ['model'] } },
-  }, async ({ product }) => {
+  }, async ({ product, answers }) => {
     try {
-      const built = buildState(product, {});
+      const built = buildState(product, (answers || {}) as JsonObject);
       return result({ ...CATALOG[product], locale: 'en-US', draft: true, ...draftUrls(product, built.state), assumptions: built.assumptions, summary: summarize(product, built.state) }, `Loaded the complete ${CATALOG[product].title} questionnaire and its default live 3D draft.`);
+    } catch (error) { return failure(error); }
+  });
+
+  server.registerTool('get_next_configuration_questions', {
+    title: 'Get the next customer questions with limits',
+    description: 'Return at most three active, unanswered customer questions, with exact permitted values/ranges and a compact roadmap of what remains. Call after loading the configurator and after each answer update; present assistantPrompt verbatim to the customer.',
+    inputSchema: ProductRequestSchema.shape, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  }, async ({ product, answers }) => {
+    try {
+      const raw = answers as JsonObject;
+      const next = pendingQuestions(product, raw, 3);
+      const allRemaining = pendingQuestions(product, raw, Number.MAX_SAFE_INTEGER);
+      const nextText = next.map(questionPrompt);
+      const later = allRemaining.slice(next.length).map(question => question.label);
+      const assistantPrompt = nextText.length
+        ? `Next, please choose:\n${nextText.map(item => `• ${item}`).join('\n')}${later.length ? `\n\nAfter this, we will configure: ${later.join(', ')}.` : '\n\nThat completes the remaining choices.'}`
+        : 'All active choices are supplied. I will now prepare the configuration summary for your confirmation.';
+      return result({ product, questions: next, remainingQuestions: allRemaining.slice(next.length), assistantPrompt }, 'Loaded the next customer questions with their exact limits and options.');
     } catch (error) { return failure(error); }
   });
 

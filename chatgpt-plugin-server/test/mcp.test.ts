@@ -15,6 +15,7 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     assert.deepEqual(listed.tools.map(tool => tool.name).sort(), [
       'create_configuration',
       'get_configurator_spec',
+      'get_next_configuration_questions',
       'get_shared_configuration',
       'list_configurators',
       'prepare_configuration',
@@ -29,6 +30,8 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     assert.equal((spec.structuredContent as { questions: unknown[] }).questions.length > 20, true);
     assert.equal((spec.structuredContent as { draft?: boolean }).draft, true);
     assert.match(String((spec.structuredContent as { previewUrl?: string }).previewUrl), /embed=preview/);
+    const next = await client.callTool({ name: 'get_next_configuration_questions', arguments: { product: 'fence', answers: { layout: 'u' } } });
+    assert.match(String((next.structuredContent as { assistantPrompt?: string }).assistantPrompt), /Run A length: 2–30 m/);
     const resources = await client.listResources();
     assert.equal(resources.resources[0]?.uri, 'ui://360configurator/preview-v1.html');
     const preview = await client.readResource({ uri: 'ui://360configurator/preview-v1.html' });

@@ -59,6 +59,14 @@ export function normalizeAnswers(product: ProductId, raw: JsonObject, { requireE
   return { answers, assumptions };
 }
 
+export function pendingQuestions(product: ProductId, raw: JsonObject, limit = 3): Question[] {
+  const normalized = normalizeAnswers(product, raw);
+  return CATALOG[product].questions.filter(question => (
+    normalized.answers[question.id] !== undefined
+    && (raw[question.id] === undefined || raw[question.id] === null || raw[question.id] === '')
+  )).slice(0, limit);
+}
+
 function baseView() {
   return { showDimensions: true, technicalEdges: false, compassVisible: false, cameraPreset: '3d', northDirection: 0, nightPreview: false };
 }
