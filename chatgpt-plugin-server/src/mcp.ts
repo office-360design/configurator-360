@@ -11,7 +11,7 @@ import { currentClientKey } from './context.js';
 import { createShare, enforceRateLimit, getShare, parseShareId, type StoredShare } from './storage.js';
 import { analyzeSolar } from './solarAnalysis.js';
 import { analyzeProduct } from './productAnalysis.js';
-import { searchSolarLocations } from './solarLocation.js';
+import { directSolarLocationSelection, searchSolarLocations } from './solarLocation.js';
 
 const UI_URI = 'ui://360configurator/preview-v1.html';
 const here = dirname(fileURLToPath(import.meta.url));
@@ -76,7 +76,7 @@ function failure(error: unknown) {
 export function createMcpServer() {
   const server = new McpServer(
     { name: '360configurator', version: '0.1.0' },
-    { instructions: 'Required workflow: call get_configurator_spec first, then call preview_draft_configuration exactly once in that same response with every unambiguous value extracted from the first customer message (or {} for a default preview). Do not assign an ambiguous measurement to a particular run or dimension. NEVER render two preview tools in one assistant response. After get_configurator_spec, and after every customer message that changes any collected answer, call get_next_configuration_questions and present its assistantPrompt verbatim. Collect every active customer-facing answer. For Solar, when the customer names a city, address, street, or postcode, call search_solar_locations and ask them to confirm one returned candidate before passing its exact label/latitude/longitude into any draft; never substitute Bucharest or another default location. After all answers are explicit, call analyze_solar_configuration for Solar or analyze_product_configuration for every other product, present the analysis and caveats, then call prepare_configuration. Only request Solar exact/Google analysis after explicit exact-location consent; never send a postal address to an analysis tool. For Window, map “two sash”, “double sash”, “two opening leaves”, and “two opening panels” to layoutId vertical-sash-sash; vertical-divider is one fixed panel plus one opening sash. Show the preparation summary; wait for explicit confirmation in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Treat “no gates” as gates: [] and “no openings” as openings: []. Immediately after every later customer message that changes any collected answer, call preview_draft_configuration once with every answer collected so far. Its assumptions are temporary preview values, not accepted customer choices. Creation and revision tools return the live 3D preview; do not make a separate render call afterward.' },
+    { instructions: 'Required workflow: call get_configurator_spec first, then call preview_draft_configuration exactly once in that same response with every unambiguous value extracted from the first customer message (or {} for a default preview). Do not assign an ambiguous measurement to a particular run or dimension. NEVER render two preview tools in one assistant response. After get_configurator_spec, and after every customer message that changes any collected answer, call get_next_configuration_questions and present its assistantPrompt verbatim. Collect every active customer-facing answer. For Solar, when the customer names a city, address, street, or postcode, call search_solar_locations. If it returns confirmationRequired=false, the customer’s complete numbered address already confirms suggestedSelection: merge every suggestedSelection field into the draft immediately in the same response. If confirmationRequired=true, ask them to confirm one candidate before using its coordinates. Never substitute Bucharest or another default location, never pass exactLocationConsent=true without confirmed coordinates, and never claim exact-site or Google analysis ran when the returned analysis source is regional. The exact coordinate fields are supplied by search_solar_locations, not questions for the customer. After all answers are explicit, call analyze_solar_configuration for Solar or analyze_product_configuration for every other product, present the analysis and caveats, then call prepare_configuration. Only request Solar exact/Google analysis after explicit exact-location consent; never send a postal address to an analysis tool. For Window, map “two sash”, “double sash”, “two opening leaves”, and “two opening panels” to layoutId vertical-sash-sash; vertical-divider is one fixed panel plus one opening sash. Show the preparation summary; wait for explicit confirmation in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Treat “no gates” as gates: [] and “no openings” as openings: []. Immediately after every later customer message that changes any collected answer, call preview_draft_configuration once with every answer collected so far. Its assumptions are temporary preview values, not accepted customer choices. Creation and revision tools return the live 3D preview; do not make a separate render call afterward.' },
   );
 
   server.registerTool('list_configurators', {
@@ -120,13 +120,19 @@ export function createMcpServer() {
 
   server.registerTool('search_solar_locations', {
     title: 'Search Romanian solar installation locations',
-    description: 'Search an address, street, city, or postcode in Romania only after the customer explicitly chooses exact-site Solar analysis and supplies the search text. Return candidates for the customer to confirm. Do not select a candidate automatically and do not persist the search text.',
+    description: 'Search an address, street, city, or postcode in Romania after the customer chooses exact-site Solar analysis. A complete numbered address that matches the geocoder is already explicit confirmation and returns suggestedSelection for immediate use. Vague or unmatched searches return candidates that require confirmation. Do not persist the original search text.',
     inputSchema: { query: z.string().min(3) },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
   }, async ({ query }) => {
     try {
       const candidates = await searchSolarLocations(query);
-      return result({ product: 'solar', candidates, confirmationRequired: true }, candidates.length ? 'Found location candidates. Ask the customer to confirm one candidate before using its coordinates.' : 'No Romanian location candidates were found. Ask for a more specific address or coordinates.');
+      const suggestedSelection = directSolarLocationSelection(candidates);
+      const confirmationRequired = !suggestedSelection;
+      return result({ product: 'solar', candidates, suggestedSelection, confirmationRequired }, !candidates.length
+        ? 'No Romanian location candidates were found. Ask for a more specific address or coordinates.'
+        : suggestedSelection
+          ? 'Matched the customer’s complete numbered address. Merge suggestedSelection into the Solar draft now; do not ask them to confirm the same address again.'
+          : 'Found location candidates. Ask the customer to confirm one candidate before using its coordinates.');
     } catch (error) { return failure(error); }
   });
 

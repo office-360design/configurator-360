@@ -16,6 +16,7 @@ export type Question = {
   max?: number;
   default?: unknown;
   when?: string;
+  suppliedByTool?: 'search_solar_locations';
 };
 
 export type ProductSpec = {
@@ -129,9 +130,9 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       choice('locationMode', 'Location precision', ['region', 'exact'], 'region'),
       choice('region', 'Regional production reference', ['dobrogea', 'muntenia', 'moldova', 'transylvania', 'northwest'], 'muntenia', 'locationMode == region'),
       bool('exactLocationConsent', 'Use the confirmed exact location for PVGIS and optional Google Solar analysis', false, 'locationMode == exact'),
-      number('locationLat', 'Exact latitude', 'degrees', -90, 90, 44.4268, 'locationMode == exact'),
-      number('locationLon', 'Exact longitude', 'degrees', -180, 180, 26.1025, 'locationMode == exact'),
-      { id: 'locationLabel', label: 'Exact location label', type: 'text', required: true, default: 'Bucharest, Romania', when: 'locationMode == exact' },
+      { id: 'locationLat', label: 'Confirmed exact latitude', type: 'number', required: false, unit: 'degrees', min: -90, max: 90, when: 'locationMode == exact', suppliedByTool: 'search_solar_locations' },
+      { id: 'locationLon', label: 'Confirmed exact longitude', type: 'number', required: false, unit: 'degrees', min: -180, max: 180, when: 'locationMode == exact', suppliedByTool: 'search_solar_locations' },
+      { id: 'locationLabel', label: 'Confirmed exact location', type: 'text', required: false, when: 'locationMode == exact', suppliedByTool: 'search_solar_locations' },
       choice('consumptionProfile', 'Daytime consumption profile', ['low', 'partial', 'high'], 'partial'),
       bool('batteryEnabled', 'Include battery storage', true), bool('batteryAutoSize', 'Automatically size battery', true, 'batteryEnabled'),
       number('batteryCapacityKWh', 'Battery capacity', 'kWh', 2, 20, 5, 'batteryEnabled && !batteryAutoSize'),

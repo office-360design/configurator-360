@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { answersFromState, buildState, ConfigurationError, mergeRevision } from '../src/adapters.js';
+import { answersFromState, buildState, ConfigurationError, mergeRevision, pendingQuestions } from '../src/adapters.js';
 import { CATALOG, PRODUCT_IDS, type JsonObject } from '../src/catalog.js';
 
 function defaults(product: typeof PRODUCT_IDS[number]) {
@@ -104,6 +104,14 @@ test('solar exact-location draft never substitutes Bucharest before candidate co
   assert.equal(draft.state.locationLon, null);
   assert.equal(draft.assumptions.some(item => item.includes('44.4268') || item.includes('26.1025')), false);
   assert.equal(draft.assumptions.some(item => item.includes('awaiting a confirmed address-search result')), true);
+  assert.equal(draft.answers.locationLat, undefined);
+  assert.equal(draft.answers.locationLon, undefined);
+  assert.equal(draft.answers.locationLabel, undefined);
+  assert.equal(pendingQuestions('solar', { locationMode: 'exact' }).some(question => question.id.startsWith('location')), false);
+  assert.throws(
+    () => buildState('solar', { ...defaults('solar'), locationMode: 'exact', exactLocationConsent: true, locationLat: undefined, locationLon: undefined, locationLabel: undefined }, { requireExplicit: true }),
+    (error: unknown) => error instanceof ConfigurationError && error.field === 'locationLabel'
+  );
 });
 
 test('window two-sash request maps to the live two-opening-sash layout', () => {

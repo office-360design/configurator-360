@@ -44,6 +44,7 @@ export function normalizeAnswers(product: ProductId, raw: JsonObject, { requireE
     if (!conditionIsActive(question.when, conditionValues)) continue;
     let value = raw[question.id];
     if (value === undefined || value === null || value === '') {
+      if (question.default === undefined && !question.required) continue;
       if (requireExplicit && question.required) throw new ConfigurationError(`Please ask the user to explicitly choose ${question.label} before creating a configuration.`, question.id);
       value = clone(question.default);
       const isPendingExactLocation = product === 'solar'
@@ -63,6 +64,10 @@ export function normalizeAnswers(product: ProductId, raw: JsonObject, { requireE
     && ['locationLat', 'locationLon', 'locationLabel'].some(id => raw[id] === undefined || raw[id] === null || raw[id] === '')) {
     assumptions.push('Exact location: awaiting a confirmed address-search result');
   }
+  if (product === 'solar' && requireExplicit && raw.locationMode === 'exact'
+    && ['locationLat', 'locationLon', 'locationLabel'].some(id => raw[id] === undefined || raw[id] === null || raw[id] === '')) {
+    throw new ConfigurationError('Search the customer’s address and use the confirmed search result before exact-site Solar analysis or creation.', 'locationLabel');
+  }
   return { answers, assumptions };
 }
 
@@ -70,6 +75,7 @@ export function pendingQuestions(product: ProductId, raw: JsonObject, limit = 3)
   const normalized = normalizeAnswers(product, raw);
   return CATALOG[product].questions.filter(question => (
     question.required
+    && !question.suppliedByTool
     &&
     normalized.answers[question.id] !== undefined
     && (raw[question.id] === undefined || raw[question.id] === null || raw[question.id] === '')
