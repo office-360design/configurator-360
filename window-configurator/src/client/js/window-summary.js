@@ -6,6 +6,46 @@ const M_PER_MM = 0.001;
 const MERGE_TOLERANCE_M = 0.0005;
 const JUNCTION_TOLERANCE_M = 0.0008;
 const PRICE_STORAGE_KEY = 'window-configurator-summary-rates-v1';
+const DEFAULT_ALUMINIUM_RATE_EUR_PER_KG = 8;
+const DEFAULT_GLASS_RATE_EUR_PER_SQM = 80;
+
+// Net material prices in EUR, excluding VAT and shipping. Public Schüco
+// Aluminium Systems trade-list prices (2024 base list) are used where the exact
+// article is listed: 275701, 224068, 245472, 224063, 224378/224379/224350 and
+// 208694. Project-specific parts without a reliable public trade-list match
+// (200988 and 288319) use conservative engineering estimates instead.
+// Linear masses are calculated from the current CAD cross-sections using
+// realistic material densities (EPDM ~1150, PE foam ~30, engineering plastic
+// ~1200 and rigid PVC ~1400 kg/m³).
+// Non-aluminium material that is already built into the thermally-broken
+// aluminium profile. Cross-sectional areas come from S07_Isolation_Kontur,
+// S35_Dämmung_Kontur and S05_EPDM_Kontur in the profile CAD. Costing uses
+// finished-material estimates of €8/kg for PA thermal-break strips, €12/kg for
+// foam inserts and €6/kg for EPDM. These are deliberately separate from the
+// aluminium €/kg rate so a composite profile is not treated as solid aluminium.
+export const WINDOW_PROFILE_NON_ALUMINIUM_DATA = Object.freeze({
+    '575760': Object.freeze({ kgPerM: 0.329, eurPerM: 2.63 }),
+    '575770': Object.freeze({ kgPerM: 0.354, eurPerM: 2.88 }),
+    '575780': Object.freeze({ kgPerM: 0.501, eurPerM: 4.01 }),
+    '575790': Object.freeze({ kgPerM: 0.527, eurPerM: 4.24 }),
+    '575800': Object.freeze({ kgPerM: 0.385, eurPerM: 3.08 }),
+    '575810': Object.freeze({ kgPerM: 0.411, eurPerM: 3.33 }),
+    '575820': Object.freeze({ kgPerM: 0.253, eurPerM: 2.01 }),
+    '575830': Object.freeze({ kgPerM: 0.271, eurPerM: 2.19 }),
+});
+
+export const WINDOW_ACCESSORY_MANUFACTURING_DATA = Object.freeze({
+    '275701': Object.freeze({ groupId: 'locking-bar', unit: 'm', eurPerUnit: 4.19, kgPerUnit: 0.068, nameKey: 'summary.accessory.lockingBar', priceBasis: 'schueco-trade-2024' }),
+    '224068': Object.freeze({ groupId: 'centre-gasket', unit: 'm', eurPerUnit: 1.969, kgPerUnit: 0.124, nameKey: 'summary.accessory.centreGasket', priceBasis: 'schueco-trade-2024' }),
+    '200988': Object.freeze({ groupId: 'insulation-profile', unit: 'm', eurPerUnit: 1.25, kgPerUnit: 0.006, nameKey: 'summary.accessory.insulationProfile', priceBasis: 'estimate' }),
+    '245472': Object.freeze({ groupId: 'rebate-gasket', unit: 'm', eurPerUnit: 0.77, kgPerUnit: 0.024, nameKey: 'summary.accessory.rebateGasket', priceBasis: 'schueco-trade-2024' }),
+    '224063': Object.freeze({ groupId: 'outer-glazing-gasket', unit: 'm', eurPerUnit: 1.346, kgPerUnit: 0.045, nameKey: 'summary.accessory.outerGlazingGasket', priceBasis: 'schueco-trade-2024' }),
+    '224378': Object.freeze({ groupId: 'inner-glazing-gasket', unit: 'm', eurPerUnit: 2.07, kgPerUnit: 0.065, nameKey: 'summary.accessory.innerGlazingGasket', priceBasis: 'schueco-trade-2024' }),
+    '224379': Object.freeze({ groupId: 'inner-glazing-gasket', unit: 'm', eurPerUnit: 2.447, kgPerUnit: 0.082, nameKey: 'summary.accessory.innerGlazingGasket', priceBasis: 'schueco-trade-2024' }),
+    '224350': Object.freeze({ groupId: 'inner-glazing-gasket', unit: 'm', eurPerUnit: 1.646, kgPerUnit: 0.046, nameKey: 'summary.accessory.innerGlazingGasket', priceBasis: 'schueco-trade-2024' }),
+    '288319': Object.freeze({ groupId: 'glazing-bridge', unit: 'm', eurPerUnit: 4.50, kgPerUnit: 0.327, nameKey: 'summary.accessory.glazingBridge', priceBasis: 'estimate' }),
+    '208694': Object.freeze({ groupId: 'drainage-cap', unit: 'pc', eurPerUnit: 0.6736, kgPerUnit: 0.004, nameKey: 'summary.accessory.drainageCap', priceBasis: 'schueco-trade-2024' }),
+});
 
 // Face widths come from the supplied Schüco AW CT 65 fabrication manual.
 // Linear masses are calculated from the aluminium contour area in the current
@@ -87,14 +127,58 @@ function formatArea(areaSqm, locale) {
     return `${new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(finite(areaSqm))} m²`;
 }
 
-function formatMoney(value, locale) {
+function normalizeSummaryCurrency(value) {
+    const currency = String(value || '').toUpperCase();
+    return ['EUR', 'USD', 'RON'].includes(currency) ? currency : 'EUR';
+}
+
+function getSummaryCurrency() {
+    if (typeof window === 'undefined') return 'EUR';
+    return normalizeSummaryCurrency(window.WINDOW_CONFIGURATOR_SHARED_SHELL?.state?.currency);
+}
+
+function convertSummaryMoney(value, fromCurrency = 'EUR', toCurrency = getSummaryCurrency()) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return 0;
+    const from = normalizeSummaryCurrency(fromCurrency);
+    const to = normalizeSummaryCurrency(toCurrency);
+    if (from === to) return amount;
+
+    if (typeof window !== 'undefined') {
+        const converted = window.WINDOW_CONFIGURATOR_SHARED_SHELL?.convertMoneyAmount?.(amount, from, to);
+        if (Number.isFinite(Number(converted))) return Number(converted);
+    }
+
+    // The manufacturing summary is natively priced in EUR. If Common UI is
+    // unavailable (for example in a pure Node validation), keep the base value
+    // rather than maintaining a second set of exchange rates here.
+    return amount;
+}
+
+function formatMoney(value, locale, currency = 'EUR') {
     if (!Number.isFinite(Number(value))) return '—';
     return new Intl.NumberFormat(locale, {
         style: 'currency',
-        currency: 'EUR',
+        currency: normalizeSummaryCurrency(currency),
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     }).format(Number(value));
+}
+
+function formatSummaryMoneyFromEur(value, locale, currency = getSummaryCurrency()) {
+    const displayCurrency = normalizeSummaryCurrency(currency);
+    return formatMoney(convertSummaryMoney(value, 'EUR', displayCurrency), locale, displayCurrency);
+}
+
+function formatRateInput(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '';
+    return String(Math.round(number * 100) / 100);
+}
+
+function currencyRateUnit(currency, denominator) {
+    const symbol = { EUR: '€', USD: '$', RON: 'RON' }[normalizeSummaryCurrency(currency)] || '€';
+    return `${symbol}/${denominator}`;
 }
 
 function getProfileData(profileId, fallbackFamily = null) {
@@ -710,6 +794,149 @@ function buildBeadCuts({ snapshot, glazingBeadCode, locale, windowNumberMap }) {
     return cuts;
 }
 
+function sumSideLengths(lengths = {}) {
+    return ['top', 'bottom', 'left', 'right'].reduce((sum, side) => sum + clampLength(lengths?.[side]), 0);
+}
+
+function getCellGlazingPerimeterM(snapshot, cell) {
+    const isOpening = (snapshot?.openingCells || []).some(candidate => String(candidate?.id) === String(cell?.id));
+    return sumSideLengths(isOpening
+        ? getSashBeadSideLengths(snapshot, cell)
+        : getFixedBeadSideLengths(snapshot, cell));
+}
+
+function getOpeningSashPerimeterM(snapshot, cell) {
+    return sumSideLengths(getSashSideLengths(snapshot, cell));
+}
+
+function isAccessoryEnabled(accessorySelection, groupId) {
+    const state = accessorySelection?.accessories?.[groupId];
+    return Boolean(state?.enabled && state?.available !== false);
+}
+
+function getAccessoryProfileId(accessorySelection, groupId, fallbackProfileId) {
+    return String(accessorySelection?.accessories?.[groupId]?.profileId || fallbackProfileId || '');
+}
+
+function drainageCapsForFieldWidth(widthM) {
+    const width = clampLength(widthM);
+    if (width <= 0) return 0;
+    if (width <= 0.8) return 2;
+    // Schüco drainage guidance uses two outlets for fields up to 800 mm and
+    // additional outlets above that, with roughly <=650 mm centre spacing.
+    return Math.max(2, Math.ceil(Math.max(0, width - 0.15) / 0.65) + 1);
+}
+
+function getBottomTopologyCells(snapshot) {
+    const cells = snapshot?.layoutState?.topology?.windows || [];
+    if (!cells.length) return [...(snapshot?.openingCells || []), ...(snapshot?.fixedCells || [])];
+    const bottom = Math.min(...cells.map(cell => finite(cell?.rect?.y0, Infinity)));
+    return cells.filter(cell => Math.abs(finite(cell?.rect?.y0) - bottom) <= 1e-7);
+}
+
+function makeAccessoryBomItem({ profileId, quantity, locale, windowNumber = null }) {
+    const tech = WINDOW_ACCESSORY_MANUFACTURING_DATA[String(profileId || '')];
+    const safeQuantity = Math.max(0, finite(quantity));
+    if (!tech || safeQuantity <= 0) return null;
+    return {
+        type: 'accessory',
+        category: 'accessory',
+        groupId: tech.groupId,
+        name: `${windowT(locale, tech.nameKey)}${windowNumber ? ` · ${windowT(locale, 'layout.window')} ${windowNumber}` : ''}`,
+        profileId: String(profileId),
+        unit: tech.unit,
+        quantity: safeQuantity,
+        lengthM: tech.unit === 'm' ? safeQuantity : null,
+        unitPriceEur: tech.eurPerUnit,
+        kgPerM: tech.unit === 'm' ? tech.kgPerUnit : null,
+        weightKg: safeQuantity * tech.kgPerUnit,
+        price: safeQuantity * tech.eurPerUnit,
+        priceBasis: tech.priceBasis,
+    };
+}
+
+function buildEmbeddedProfileMaterialItems(cuts, locale) {
+    const lengthByProfile = new Map();
+    cuts.forEach(cut => {
+        const profileId = String(cut?.profileId || '');
+        if (!WINDOW_PROFILE_NON_ALUMINIUM_DATA[profileId]) return;
+        lengthByProfile.set(profileId, (lengthByProfile.get(profileId) || 0) + clampLength(cut.lengthM));
+    });
+    return [...lengthByProfile.entries()].map(([profileId, lengthM]) => {
+        const tech = WINDOW_PROFILE_NON_ALUMINIUM_DATA[profileId];
+        return {
+            type: 'accessory',
+            category: 'accessory',
+            groupId: 'profile-insulation',
+            name: windowT(locale, 'summary.accessory.profileInsulation'),
+            profileId,
+            unit: 'm',
+            quantity: lengthM,
+            lengthM,
+            unitPriceEur: tech.eurPerM,
+            kgPerM: tech.kgPerM,
+            weightKg: lengthM * tech.kgPerM,
+            price: lengthM * tech.eurPerM,
+            priceBasis: 'estimate',
+        };
+    });
+}
+
+function buildAccessoryItems({ snapshot, accessorySelection, locale, windowNumberMap }) {
+    if (!accessorySelection?.accessories) return [];
+    const items = [];
+    const openingCells = snapshot?.openingCells || [];
+    const allGlazingCells = [...openingCells, ...(snapshot?.fixedCells || [])];
+
+    const addLinear = (groupId, fallbackProfileId, lengthM) => {
+        if (!isAccessoryEnabled(accessorySelection, groupId)) return;
+        const profileId = getAccessoryProfileId(accessorySelection, groupId, fallbackProfileId);
+        const item = makeAccessoryBomItem({ profileId, quantity: lengthM, locale });
+        if (item) items.push(item);
+    };
+
+    const sashPerimeter = openingCells.reduce((sum, cell) => sum + getOpeningSashPerimeterM(snapshot, cell), 0);
+    const glazingPerimeter = allGlazingCells.reduce((sum, cell) => sum + getCellGlazingPerimeterM(snapshot, cell), 0);
+
+    // Profiles which follow one complete operable-sash perimeter.
+    addLinear('locking-bar', '275701', sashPerimeter);
+    addLinear('centre-gasket', '224068', sashPerimeter);
+    addLinear('insulation-profile', '200988', sashPerimeter);
+
+    // 245472 appears at both sides of the opening-sash rebate (frame-side and
+    // sash-side), hence two perimeter runs per operable sash.
+    addLinear('rebate-gasket', '245472', sashPerimeter * 2);
+
+    // Inner and outer glazing seals follow each actual glazing/bead perimeter,
+    // for fixed lights as well as opening sashes.
+    addLinear('outer-glazing-gasket', '224063', glazingPerimeter);
+    if (isAccessoryEnabled(accessorySelection, 'inner-glazing-gasket')) {
+        const profileId = getAccessoryProfileId(accessorySelection, 'inner-glazing-gasket', '224378');
+        const item = makeAccessoryBomItem({ profileId, quantity: glazingPerimeter, locale });
+        if (item) items.push(item);
+    }
+
+    // 288319 is only present on the bottom sash channel in the current CAD.
+    if (isAccessoryEnabled(accessorySelection, 'glazing-bridge')) {
+        const profileId = getAccessoryProfileId(accessorySelection, 'glazing-bridge', '288319');
+        const lengthM = openingCells.reduce((sum, cell) => sum + clampLength(getSashBeadSideLengths(snapshot, cell).bottom), 0);
+        const item = makeAccessoryBomItem({ profileId, quantity: lengthM, locale });
+        if (item) items.push(item);
+    }
+
+    if (isAccessoryEnabled(accessorySelection, 'drainage-cap')) {
+        const profileId = getAccessoryProfileId(accessorySelection, 'drainage-cap', '208694');
+        const quantity = getBottomTopologyCells(snapshot).reduce((sum, cell) => {
+            const actual = getCellActualSize(snapshot, cell);
+            return sum + drainageCapsForFieldWidth(actual.widthM || cell?.width);
+        }, 0);
+        const item = makeAccessoryBomItem({ profileId, quantity, locale });
+        if (item) items.push(item);
+    }
+
+    return items;
+}
+
 function buildGlassItems(snapshot, locale, windowNumberMap) {
     return (snapshot?.glassPieces || []).map(piece => {
         const widthM = clampLength(piece.width);
@@ -735,6 +962,7 @@ export function buildWindowFabricationSummary({
     profileSelection = {},
     layoutSelection = {},
     glazingBeadCode = null,
+    accessorySelection = {},
     aluminiumRatePerKg = null,
     glassRatePerSqm = null,
     locale = 'en-US',
@@ -759,6 +987,8 @@ export function buildWindowFabricationSummary({
         ...buildBeadCuts({ snapshot, glazingBeadCode: resolvedBeadCode, locale, windowNumberMap }),
     ];
     const glassItems = buildGlassItems(snapshot, locale, windowNumberMap);
+    const embeddedProfileItems = buildEmbeddedProfileMaterialItems(cuts, locale);
+    const accessoryItems = [...embeddedProfileItems, ...buildAccessoryItems({ snapshot, accessorySelection, locale, windowNumberMap })];
 
     const aluminiumRate = Number(aluminiumRatePerKg) > 0 ? Number(aluminiumRatePerKg) : null;
     const glassRate = Number(glassRatePerSqm) > 0 ? Number(glassRatePerSqm) : null;
@@ -774,18 +1004,21 @@ export function buildWindowFabricationSummary({
         bomId: `glass-${index}`,
         price: glassRate != null ? item.areaSqm * glassRate : null,
     }));
-    const bomItems = [...profileBom, ...glassBom];
+    const accessoryBom = accessoryItems.map((item, index) => ({ ...item, bomId: `accessory-${index}` }));
+    const bomItems = [...profileBom, ...glassBom, ...accessoryBom];
     const aluminiumWeightKg = profileBom.reduce((sum, item) => sum + finite(item.weightKg), 0);
     const glassAreaSqm = glassBom.reduce((sum, item) => sum + finite(item.areaSqm), 0);
+    const accessoryWeightKg = accessoryBom.reduce((sum, item) => sum + finite(item.weightKg), 0);
     const aluminiumTotal = aluminiumRate == null ? null : profileBom.reduce((sum, item) => sum + finite(item.price), 0);
     const glassTotal = glassRate == null ? null : glassBom.reduce((sum, item) => sum + finite(item.price), 0);
-    const total = aluminiumTotal != null && glassTotal != null ? aluminiumTotal + glassTotal : null;
+    const accessoryTotal = accessoryBom.reduce((sum, item) => sum + finite(item.price), 0);
+    const total = aluminiumTotal != null && glassTotal != null ? aluminiumTotal + glassTotal + accessoryTotal : null;
 
     return Object.freeze({
         geometry,
         cuts: Object.freeze(cuts),
         bomItems: Object.freeze(bomItems),
-        totals: Object.freeze({ aluminiumWeightKg, glassAreaSqm, aluminiumTotal, glassTotal, total }),
+        totals: Object.freeze({ aluminiumWeightKg, glassAreaSqm, accessoryWeightKg, aluminiumTotal, glassTotal, accessoryTotal, total }),
     });
 }
 
@@ -793,11 +1026,18 @@ function readStoredRates() {
     try {
         const parsed = JSON.parse(localStorage.getItem(PRICE_STORAGE_KEY) || '{}');
         return {
-            aluminium: Number(parsed.aluminium) > 0 ? Number(parsed.aluminium) : null,
-            glass: Number(parsed.glass) > 0 ? Number(parsed.glass) : null,
+            aluminium: Number(parsed.aluminium) > 0
+                ? Number(parsed.aluminium)
+                : DEFAULT_ALUMINIUM_RATE_EUR_PER_KG,
+            glass: Number(parsed.glass) > 0
+                ? Number(parsed.glass)
+                : DEFAULT_GLASS_RATE_EUR_PER_SQM,
         };
     } catch (_error) {
-        return { aluminium: null, glass: null };
+        return {
+            aluminium: DEFAULT_ALUMINIUM_RATE_EUR_PER_KG,
+            glass: DEFAULT_GLASS_RATE_EUR_PER_SQM,
+        };
     }
 }
 
@@ -809,7 +1049,7 @@ function writeStoredRates(rates) {
     }
 }
 
-function renderBom(result, locale) {
+function renderBom(result, locale, currency = getSummaryCurrency()) {
     const content = document.getElementById('window-bom-content');
     if (!content) return;
     if (!result.bomItems.length) {
@@ -821,19 +1061,26 @@ function renderBom(result, locale) {
         <div class="window-summary-metrics">
             <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.aluminiumWeight'))}</span><strong>${escapeHtml(formatWeight(result.totals.aluminiumWeightKg, locale))}</strong></div>
             <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.glassArea'))}</span><strong>${escapeHtml(formatArea(result.totals.glassAreaSqm, locale))}</strong></div>
-            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.aluminiumCost'))}</span><strong>${escapeHtml(formatMoney(result.totals.aluminiumTotal, locale))}</strong></div>
-            <div class="window-summary-metric is-total"><span>${escapeHtml(windowT(locale, 'summary.metric.total'))}</span><strong>${escapeHtml(formatMoney(result.totals.total, locale))}</strong></div>
+            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.otherPartsWeight'))}</span><strong>${escapeHtml(formatWeight(result.totals.accessoryWeightKg, locale))}</strong></div>
+            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.aluminiumCost'))}</span><strong>${escapeHtml(formatSummaryMoneyFromEur(result.totals.aluminiumTotal, locale, currency))}</strong></div>
+            <div class="window-summary-metric"><span>${escapeHtml(windowT(locale, 'summary.metric.accessoryCost'))}</span><strong>${escapeHtml(formatSummaryMoneyFromEur(result.totals.accessoryTotal, locale, currency))}</strong></div>
+            <div class="window-summary-metric is-total"><span>${escapeHtml(windowT(locale, 'summary.metric.total'))}</span><strong>${escapeHtml(formatSummaryMoneyFromEur(result.totals.total, locale, currency))}</strong></div>
         </div>
         <div class="window-summary-list">
             ${result.bomItems.map(item => {
                 const isGlass = item.type === 'glass';
+                const isAccessory = item.type === 'accessory';
                 const detail = isGlass
                     ? `${formatLengthMm(item.widthM, locale)} × ${formatLengthMm(item.heightM, locale)} · ${formatArea(item.areaSqm, locale)}`
-                    : `${formatLengthMm(item.lengthM, locale)} · ${Number.isFinite(item.weightKg) ? formatWeight(item.weightKg, locale) : '—'}${Number.isFinite(item.kgPerM) ? ` · ${item.kgPerM.toFixed(3)} kg/m` : ''}`;
+                    : isAccessory && item.unit === 'pc'
+                        ? `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(item.quantity)} ${windowT(locale, 'summary.unit.pieces')} · ${formatWeight(item.weightKg, locale)} · ${formatSummaryMoneyFromEur(item.unitPriceEur, locale, currency)}/${windowT(locale, 'summary.unit.piece')}`
+                        : isAccessory
+                            ? `${formatLengthM(item.lengthM, locale)} · ${formatWeight(item.weightKg, locale)} · ${formatSummaryMoneyFromEur(item.unitPriceEur, locale, currency)}/m`
+                            : `${formatLengthMm(item.lengthM, locale)} · ${Number.isFinite(item.weightKg) ? formatWeight(item.weightKg, locale) : '—'}${Number.isFinite(item.kgPerM) ? ` · ${item.kgPerM.toFixed(3)} kg/m` : ''}`;
                 const profile = isGlass ? '' : `<small>${escapeHtml(item.profileId)}</small>`;
                 return `<article class="window-summary-item">
                     <div class="window-summary-item-main"><strong>${escapeHtml(item.name)}</strong>${profile}<span>${escapeHtml(detail)}</span></div>
-                    <b class="window-summary-price">${escapeHtml(formatMoney(item.price, locale))}</b>
+                    <b class="window-summary-price">${escapeHtml(formatSummaryMoneyFromEur(item.price, locale, currency))}</b>
                 </article>`;
             }).join('')}
         </div>`;
@@ -873,44 +1120,80 @@ export function createWindowSummaryController({
     getProfileSelection = () => ({}),
     getLayoutSelection = () => ({}),
     getActiveGlazingBeadCode = () => null,
+    getAccessorySelection = () => ({}),
 } = {}) {
     let snapshot = null;
     let result = null;
+    let ratesEur = readStoredRates();
     const aluminiumRateInput = document.getElementById('summaryAluminiumRate');
     const glassRateInput = document.getElementById('summaryGlassRate');
-    const stored = readStoredRates();
-    if (aluminiumRateInput && stored.aluminium != null) aluminiumRateInput.value = String(stored.aluminium);
-    if (glassRateInput && stored.glass != null) glassRateInput.value = String(stored.glass);
+    const aluminiumRateUnit = aluminiumRateInput?.parentElement?.querySelector('b') || null;
+    const glassRateUnit = glassRateInput?.parentElement?.querySelector('b') || null;
 
-    const readRates = () => ({
-        aluminium: Number(aluminiumRateInput?.value) > 0 ? Number(aluminiumRateInput.value) : null,
-        glass: Number(glassRateInput?.value) > 0 ? Number(glassRateInput.value) : null,
-    });
+    const syncRateInputs = () => {
+        const currency = getSummaryCurrency();
+        if (aluminiumRateInput) {
+            aluminiumRateInput.value = formatRateInput(convertSummaryMoney(ratesEur.aluminium, 'EUR', currency));
+        }
+        if (glassRateInput) {
+            glassRateInput.value = formatRateInput(convertSummaryMoney(ratesEur.glass, 'EUR', currency));
+        }
+        if (aluminiumRateUnit) aluminiumRateUnit.textContent = currencyRateUnit(currency, 'kg');
+        if (glassRateUnit) glassRateUnit.textContent = currencyRateUnit(currency, 'm²');
+    };
+
+    const readRatesFromInputsInEur = () => {
+        const currency = getSummaryCurrency();
+        const aluminium = Number(aluminiumRateInput?.value);
+        const glass = Number(glassRateInput?.value);
+        return {
+            aluminium: aluminium > 0 ? convertSummaryMoney(aluminium, currency, 'EUR') : null,
+            glass: glass > 0 ? convertSummaryMoney(glass, currency, 'EUR') : null,
+        };
+    };
+
+    syncRateInputs();
 
     const render = () => {
         const locale = getWindowLocale();
-        const rates = readRates();
+        const currency = getSummaryCurrency();
         result = buildWindowFabricationSummary({
             snapshot,
             profileSelection: getProfileSelection(),
             layoutSelection: getLayoutSelection(),
             glazingBeadCode: getActiveGlazingBeadCode(),
-            aluminiumRatePerKg: rates.aluminium,
-            glassRatePerSqm: rates.glass,
+            accessorySelection: getAccessorySelection(),
+            aluminiumRatePerKg: ratesEur.aluminium,
+            glassRatePerSqm: ratesEur.glass,
             locale,
         });
-        renderBom(result, locale);
+        renderBom(result, locale, currency);
         renderCuts(result, locale);
+        window.dispatchEvent(new CustomEvent('window-pricing-updated', {
+            detail: { totalEur: result?.totals?.total ?? null },
+        }));
         return result;
     };
 
     const handleRateInput = () => {
-        writeStoredRates(readRates());
+        ratesEur = readRatesFromInputsInEur();
+        writeStoredRates(ratesEur);
+        render();
+    };
+    const handlePreferenceChange = event => {
+        if (event?.detail?.name !== 'currency') return;
+        syncRateInputs();
+        render();
+    };
+    const handleSharedShellReady = () => {
+        syncRateInputs();
         render();
     };
     aluminiumRateInput?.addEventListener('input', handleRateInput);
     glassRateInput?.addEventListener('input', handleRateInput);
     window.addEventListener('window-locale-applied', render);
+    window.addEventListener('window-preference-change', handlePreferenceChange);
+    window.addEventListener('window-shared-shell-ready', handleSharedShellReady);
 
     return {
         update(nextSnapshot) {

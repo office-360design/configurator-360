@@ -9,6 +9,7 @@ const FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net'
 const FUNCTION_URLS = Object.freeze({
   getTenantDashboard: `${FUNCTION_BASE}/getTenantDashboard`,
   updateTenantDashboard: `${FUNCTION_BASE}/updateTenantDashboard`,
+  cancelTenantPlanChange: `${FUNCTION_BASE}/cancelTenantPlanChange`,
 });
 const LOGO_TARGET_BYTES = 190_000;
 const LOGO_MAX_DIMENSION = 512;
@@ -47,7 +48,12 @@ const logoPreviewWrap = document.querySelector('#logoPreviewWrap');
 const logoPreview = document.querySelector('#logoPreview');
 const settingsStatus = document.querySelector('#settingsStatus');
 const saveButton = document.querySelector('#saveButton');
+const pendingPlanCard = document.querySelector('#pendingPlanCard');
+const pendingPlanTitle = document.querySelector('#pendingPlanTitle');
+const pendingPlanDetails = document.querySelector('#pendingPlanDetails');
+const cancelPlanChangeButton = document.querySelector('#cancelPlanChangeButton');
 const refreshButton = document.querySelector('#refreshButton');
+const showAllAnalytics = document.querySelector('#showAllAnalytics');
 const analyticsMonth = document.querySelector('#analyticsMonth');
 const monthAnalyticsBody = document.querySelector('#monthAnalyticsBody');
 const lifetimeAnalyticsBody = document.querySelector('#lifetimeAnalyticsBody');
@@ -57,6 +63,8 @@ const solarAnalyses = document.querySelector('#solarAnalyses');
 const solarBuildingInsights = document.querySelector('#solarBuildingInsights');
 const solarDataLayers = document.querySelector('#solarDataLayers');
 const solarPvgis = document.querySelector('#solarPvgis');
+const activityList = document.querySelector('#activityList');
+const activityEmpty = document.querySelector('#activityEmpty');
 
 let currentUser = null;
 let dashboard = null;
@@ -102,7 +110,11 @@ function enabledCount(configurators = {}) { return Object.values(configurators).
 function planById(id) { return dashboard?.plans?.find((plan) => plan.id === id) || null; }
 function planDescription(plan) {
   if (!plan) return 'Plan details unavailable.';
-  return plan.maxConfigurators === 1 ? 'Includes 1 configurator.' : `Includes up to ${plan.maxConfigurators} configurators.`;
+  const count = plan.maxConfigurators === 1 ? '1 configurator' : `up to ${plan.maxConfigurators} configurators`;
+  const price = Number.isInteger(plan.monthlyPriceCents)
+    ? `${(plan.monthlyPriceCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${plan.currency}/${plan.billingInterval}`
+    : 'Price to be confirmed';
+  return `${plan.description || `Includes ${count}.`} · ${count} · ${price}`;
 }
 function validateSelection(planId, configurators) {
   const plan = planById(planId);
@@ -113,15 +125,88 @@ function validateSelection(planId, configurators) {
 }
 
 function analyticsMetric(value) { return Math.max(0, Math.floor(Number(value) || 0)); }
-function renderAnalytics(tbody, analytics = {}) {
-  const rows = Object.entries(CONFIGURATOR_LABELS).map(([id, label]) => {
+function visibleAnalyticsConfiguratorIds(configurators = {}, showAll = false) {
+  return Object.keys(CONFIGURATOR_LABELS).filter((id) => showAll || configurators?.[id] === true);
+}
+function renderAnalytics(tbody, analytics = {}, configurators = {}, showAll = false) {
+  const rows = visibleAnalyticsConfiguratorIds(configurators, showAll).map((id) => {
+    const label = CONFIGURATOR_LABELS[id];
     const metric = analytics?.[id] || {};
     return `<tr><td>${label}</td><td>${analyticsMetric(metric.accesses).toLocaleString()}</td><td>${analyticsMetric(metric.logins).toLocaleString()}</td><td>${analyticsMetric(metric.configurationsCreated).toLocaleString()}</td></tr>`;
   });
   tbody.innerHTML = rows.join('');
 }
-function analyticsTotal(analytics, key) {
-  return Object.keys(CONFIGURATOR_LABELS).reduce((sum, id) => sum + analyticsMetric(analytics?.[id]?.[key]), 0);
+function analyticsTotal(analytics, key, configurators = {}) {
+  return visibleAnalyticsConfiguratorIds(configurators, false).reduce((sum, id) => sum + analyticsMetric(analytics?.[id]?.[key]), 0);
+}
+function renderDashboardAnalytics() {
+  if (!dashboard) return;
+  const showAll = showAllAnalytics?.checked === true;
+  renderAnalytics(monthAnalyticsBody, dashboard.analytics?.currentMonth, dashboard.configurators, showAll);
+  renderAnalytics(lifetimeAnalyticsBody, dashboard.analytics?.lifetime, dashboard.configurators, showAll);
+}
+
+function activityActorLabel(actorType) {
+  return ({
+    admin: '360Configurator admin',
+    tenant_owner: 'Customer account',
+    system: 'System',
+  })[actorType] || 'System';
+}
+
+function activityTypeLabel(type) {
+  return ({
+    tenant_created: 'Created',
+    dashboard_owner_claimed: 'Owner linked',
+    tenant_dashboard_updated: 'Settings',
+    tenant_admin_updated: 'Administration',
+    subscription_state_changed: 'Subscription',
+    plan_change_requested: 'Plan request',
+    plan_change_cancelled: 'Plan request',
+    plan_change_approved: 'Plan changed',
+    plan_change_rejected: 'Plan request',
+  })[type] || 'Activity';
+}
+
+function formatActivityTime(value) {
+  const ms = Number(value) || 0;
+  if (!ms) return 'Unknown time';
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toLocaleString();
+  }
+}
+
+function renderActivityLog(events = []) {
+  if (!activityList || !activityEmpty) return;
+  activityList.replaceChildren();
+  const items = Array.isArray(events) ? events : [];
+  activityEmpty.hidden = items.length > 0;
+  items.forEach((event) => {
+    const row = document.createElement('article');
+    row.className = 'activity-item';
+
+    const marker = document.createElement('span');
+    marker.className = 'activity-item__marker';
+    marker.textContent = activityTypeLabel(event.type).slice(0, 1);
+
+    const body = document.createElement('div');
+    body.className = 'activity-item__body';
+    const title = document.createElement('strong');
+    title.textContent = event.summary || 'Tenant activity recorded.';
+    const meta = document.createElement('span');
+    meta.textContent = `${activityActorLabel(event.actorType)} · ${formatActivityTime(event.createdAtMs)}`;
+    body.append(title, meta);
+
+    const badge = document.createElement('span');
+    badge.className = 'activity-item__badge';
+    badge.textContent = activityTypeLabel(event.type);
+    row.append(marker, body, badge);
+    activityList.append(row);
+  });
 }
 
 function clearLogoPreview() {
@@ -181,9 +266,26 @@ function populateDashboard(data) {
   (data.plans || []).forEach((plan) => {
     const option = document.createElement('option'); option.value = plan.id; option.textContent = plan.name; planSelect.append(option);
   });
-  planSelect.value = data.planId;
-  planHint.textContent = planDescription(planById(data.planId));
-  setConfiguratorSelection(data.configurators);
+  const pending = data.pendingPlanChange || null;
+  const editablePlanId = pending?.planId || data.planId;
+  planSelect.value = editablePlanId;
+  planHint.textContent = pending
+    ? `${planDescription(planById(editablePlanId))} · Pending confirmation; your current plan remains ${data.planName || data.planId}.`
+    : planDescription(planById(data.planId));
+  setConfiguratorSelection(pending?.configurators || data.configurators);
+  if (pending) {
+    pendingPlanCard.hidden = false;
+    pendingPlanTitle.textContent = pending.planName || pending.planId;
+    const enabled = Object.entries(CONFIGURATOR_LABELS)
+      .filter(([id]) => pending.configurators?.[id] === true)
+      .map(([, label]) => label);
+    const requestedAt = pending.requestedAtMs ? formatActivityTime(pending.requestedAtMs) : 'recently';
+    pendingPlanDetails.textContent = `Requested ${requestedAt} · ${enabled.join(', ') || 'No configurators selected'} · Your current plan stays active until the change is confirmed.`;
+  } else {
+    pendingPlanCard.hidden = true;
+    pendingPlanTitle.textContent = 'Requested plan change';
+    pendingPlanDetails.textContent = '—';
+  }
   removeLogo.checked = false; logoInput.value = ''; clearLogoPreview();
 
   subscriptionBadge.textContent = String(data.subscription?.status || data.status || 'unknown').replaceAll('_', ' ');
@@ -191,12 +293,11 @@ function populateDashboard(data) {
   metricPlan.textContent = data.planName || data.planId;
   metricPlanDetail.textContent = planDescription(planById(data.planId));
   metricConfigurators.textContent = enabledCount(data.configurators).toLocaleString();
-  metricAccesses.textContent = analyticsTotal(data.analytics?.currentMonth, 'accesses').toLocaleString();
-  metricConfigurations.textContent = analyticsTotal(data.analytics?.currentMonth, 'configurationsCreated').toLocaleString();
+  metricAccesses.textContent = analyticsTotal(data.analytics?.currentMonth, 'accesses', data.configurators).toLocaleString();
+  metricConfigurations.textContent = analyticsTotal(data.analytics?.currentMonth, 'configurationsCreated', data.configurators).toLocaleString();
 
   analyticsMonth.textContent = data.analytics?.month ? `${data.analytics.month} UTC` : 'Current UTC month';
-  renderAnalytics(monthAnalyticsBody, data.analytics?.currentMonth);
-  renderAnalytics(lifetimeAnalyticsBody, data.analytics?.lifetime);
+  renderDashboardAnalytics();
 
   solarUsageCard.hidden = data.configurators?.solar !== true;
   if (!solarUsageCard.hidden) {
@@ -207,6 +308,7 @@ function populateDashboard(data) {
     solarDataLayers.textContent = analyticsMetric(usage.dataLayers).toLocaleString();
     solarPvgis.textContent = analyticsMetric(usage.pvgis).toLocaleString();
   }
+  renderActivityLog(data.auditEvents);
   workspace.hidden = false; accessErrorCard.hidden = true; signedOutCard.hidden = true; setStatus();
 }
 
@@ -231,7 +333,12 @@ logoInput.addEventListener('change', () => {
   removeLogo.checked = false; logoObjectUrl = URL.createObjectURL(file); logoPreview.src = logoObjectUrl; logoPreviewWrap.hidden = false;
 });
 removeLogo.addEventListener('change', () => { if (removeLogo.checked) { logoInput.value = ''; clearLogoPreview(); } });
-planSelect.addEventListener('change', () => { planHint.textContent = planDescription(planById(planSelect.value)); });
+planSelect.addEventListener('change', () => {
+  const description = planDescription(planById(planSelect.value));
+  planHint.textContent = dashboard && planSelect.value !== dashboard.planId
+    ? `${description} · Changing plan creates a pending request until billing/admin confirmation.`
+    : description;
+});
 settingsForm.addEventListener('submit', async (event) => {
   event.preventDefault(); if (!dashboard) return;
   const configurators = selectedConfigurators();
@@ -243,14 +350,40 @@ settingsForm.addEventListener('submit', async (event) => {
     let logoMode = 'keep'; let logoDataUrl = '';
     if (removeLogo.checked) logoMode = 'remove';
     else if (file) { logoMode = 'replace'; logoDataUrl = await optimizeLogo(file); }
+    const requestedPlanChange = planSelect.value !== dashboard.planId;
     const result = await callDashboardFunction('updateTenantDashboard', {
       companyName: name, planId: planSelect.value, configurators, logoMode, logoDataUrl,
     });
-    populateDashboard(result); setStatus('Changes saved.', 'success');
+    populateDashboard(result);
+    setStatus(
+      requestedPlanChange ? 'Branding changes saved. Your plan change request is pending confirmation.' : 'Changes saved.',
+      'success',
+    );
   } catch (error) { console.error('Tenant dashboard update failed.', error); setStatus(error?.message || 'Could not save changes.', 'error'); }
   finally { saveButton.disabled = false; }
 });
+cancelPlanChangeButton?.addEventListener('click', async () => {
+  if (!dashboard?.pendingPlanChange) return;
+  const confirmed = window.confirm(`Cancel the pending change to ${dashboard.pendingPlanChange.planName || dashboard.pendingPlanChange.planId}?`);
+  if (!confirmed) return;
+  cancelPlanChangeButton.disabled = true;
+  saveButton.disabled = true;
+  setStatus('Cancelling plan change request…');
+  try {
+    const result = await callDashboardFunction('cancelTenantPlanChange');
+    populateDashboard(result);
+    setStatus('Plan change request cancelled.', 'success');
+  } catch (error) {
+    console.error('Plan change cancellation failed.', error);
+    setStatus(error?.message || 'Could not cancel the plan change request.', 'error');
+  } finally {
+    cancelPlanChangeButton.disabled = false;
+    saveButton.disabled = false;
+  }
+});
+
 refreshButton.addEventListener('click', refreshDashboard);
+showAllAnalytics?.addEventListener('change', renderDashboardAnalytics);
 
 async function toggleAuth() {
   authButton.disabled = true; signedOutButton.disabled = true;

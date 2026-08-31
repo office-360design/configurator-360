@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#f4f5f7" />
   <title>Tenant Administration | 360Configurator</title>
-  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=6" />
+  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=8" />
 </head>
 <body>
   <main class="admin-page">
@@ -136,6 +136,20 @@
             </div>
           </fieldset>
 
+          <fieldset class="pending-plan-fieldset" id="managePendingPlanFieldset" hidden>
+            <legend>Pending plan change</legend>
+            <p class="usage-help">Customer-requested plan changes remain pending until billing or an administrator confirms them.</p>
+            <div class="pending-plan-summary">
+              <strong id="managePendingPlanTitle">—</strong>
+              <span id="managePendingPlanMeta">—</span>
+              <span id="managePendingPlanConfigurators">—</span>
+            </div>
+            <div class="actions pending-plan-actions">
+              <button type="button" class="button button--primary" id="approvePlanChangeButton">Approve change</button>
+              <button type="button" class="button button--secondary" id="rejectPlanChangeButton">Reject request</button>
+            </div>
+          </fieldset>
+
           <fieldset class="subscription-fieldset">
             <legend>Subscription state</legend>
             <p class="usage-help">This is the internal state Stripe will control later. Trialing, active and past due keep the tenant accessible; suspended and cancelled block access.</p>
@@ -211,6 +225,13 @@
                 <div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Configurator</th><th>Accesses</th><th>Logins</th><th>Configurations</th></tr></thead><tbody id="manageAnalyticsLifetimeBody"></tbody></table></div>
               </div>
             </div>
+          </fieldset>
+
+          <fieldset class="activity-fieldset">
+            <legend>Activity log</legend>
+            <p class="usage-help">Latest 100 lifecycle and settings changes. The log is backend-only and cannot be edited from the browser.</p>
+            <div class="activity-list activity-list--admin" id="manageActivityList"></div>
+            <p class="activity-empty" id="manageActivityEmpty" hidden>No activity has been recorded yet.</p>
           </fieldset>
 
           <div class="status" id="manageStatus" role="status" aria-live="polite"></div>
@@ -310,6 +331,6 @@
     </div>
   </main>
 
-  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=6"></script>
+  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=8"></script>
 </body>
 </html>

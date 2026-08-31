@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#f4f5f7" />
   <title>Customer Dashboard | 360Configurator</title>
-  <link rel="stylesheet" href="/shared-ui/styles/tenantDashboard.css?v=1" />
+  <link rel="stylesheet" href="/shared-ui/styles/tenantDashboard.css?v=4" />
 </head>
 <body>
   <main class="dashboard-page">
@@ -68,6 +68,15 @@
           </div>
         </div>
 
+        <div class="pending-plan-card" id="pendingPlanCard" hidden>
+          <div>
+            <span class="pending-plan-card__eyebrow">Plan change pending</span>
+            <strong id="pendingPlanTitle">Requested plan change</strong>
+            <p id="pendingPlanDetails">—</p>
+          </div>
+          <button type="button" class="button button--secondary" id="cancelPlanChangeButton">Cancel request</button>
+        </div>
+
         <form id="settingsForm" novalidate>
           <div class="form-grid">
             <label class="field">
@@ -87,7 +96,7 @@
                 <span id="noCurrentLogo">No logo configured.</span>
               </div>
             </div>
-            <label class="field field--wide">
+            <label class="field field--wide logo-upload-field">
               <span>Replace logo</span>
               <input id="logoInput" type="file" accept="image/png,image/jpeg,image/webp" />
               <small>PNG, JPEG or WebP. The image is resized before it is saved.</small>
@@ -126,7 +135,13 @@
             <h2>Configurator activity</h2>
             <p>Accesses are counted once per configurator tab/session; logins are explicit sign-ins; configurations are fresh configurations created.</p>
           </div>
-          <button type="button" class="button button--secondary" id="refreshButton">Refresh</button>
+          <div class="analytics-actions">
+            <label class="analytics-toggle">
+              <input type="checkbox" id="showAllAnalytics" />
+              <span>Show all configurators</span>
+            </label>
+            <button type="button" class="button button--secondary" id="refreshButton">Refresh</button>
+          </div>
         </div>
         <div class="analytics-grid">
           <div class="analytics-panel">
@@ -155,9 +170,21 @@
           <article class="metric-card"><span>PVGIS requests</span><strong id="solarPvgis">0</strong></article>
         </div>
       </section>
+
+      <section class="dashboard-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Activity</p>
+            <h2>Recent changes</h2>
+            <p>Recent tenant settings, plan and account changes. Technical analytics events are not included here.</p>
+          </div>
+        </div>
+        <div class="activity-list" id="activityList"></div>
+        <p class="activity-empty" id="activityEmpty" hidden>No activity has been recorded yet.</p>
+      </section>
     </div>
   </main>
 
-  <script type="module" src="/shared-ui/src/tenantDashboard.js?v=1"></script>
+  <script type="module" src="/shared-ui/src/tenantDashboard.js?v=4"></script>
 </body>
 </html>

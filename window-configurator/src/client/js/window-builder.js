@@ -31,11 +31,19 @@ import {
     getEditableFixedGlazingDividerCadTransform,
     getReentrantFillerTriangle,
     getHalfFrameTriangle,
+    getInsideHalfFrameTriangle,
+    getHalfMullionTriangle,
+    getFrameInsideHalfFrameInset,
+    getRectangularDividerEndNotchInset,
+    INTERSECTION_MULLION_END_NOTCH_DEPTH_M,
+    INTERSECTION_MULLION_END_NOTCH_LENGTH_M,
+    RECTANGULAR_DIVIDER_SETBACK_M,
 } from './window-layout-geometry.js';
 import {
     getDividerConnectionVariantKey,
     getTransOwnerHandleSide,
 } from './window-layout-state.js';
+import { isComponentProfileVisibleOnHost } from './component-group-visibility.js';
 
 const S = 0.001;
 const NOMINAL_OUTER_FRAME_FACE_M = 0.057;
@@ -74,6 +82,7 @@ export function createWindowBuilder({
     onGlassClick = () => { },
     onFabricationSnapshot = () => { },
     isProfileEnabled = () => true,
+    isProfileGroupVisible = () => true,
     canPlaceProfileOnSide = () => true,
     getWindowLayoutState = () => ({
         layoutId: 'single',
@@ -94,6 +103,9 @@ export function createWindowBuilder({
     let selectedGlassCellId = null;
     const glassNumberSprites = new Map();
     let lastFabricationSnapshot = null;
+    let explodeCellAnchors = new Map();
+    let explodeDividerChainAnchors = new Map();
+    let explodeTransAnchors = new Map();
 
     function registerExplode(obj, dx, dy, dz) {
         obj.userData.basePos = obj.position.clone();
@@ -101,12 +113,660 @@ export function createWindowBuilder({
         explodableObjects.push(obj);
     }
 
+    const EXPLODE_CENTER_EPSILON = 1e-6;
+    const EXPLODE_COLLISION_EPSILON = 0.004;
+    const EXPLODE_COLLISION_LANE_GAP = 0.04;
+    const EXPLODE_WINDOW_SCALE_FACTOR = 1.5;
+    const EXPLODE_WINDOW_CENTER_SHIFT_FACTOR = EXPLODE_WINDOW_SCALE_FACTOR - 1;
+    const EXPLODE_LAYER_ORDER = Object.freeze(['structure', 'sash', 'glass', 'bead']);
+    const EXPLODE_LAYER_BASE_DISTANCE = Object.freeze({
+        // The structural skeleton first spreads according to the enlarged bay
+        // centers. Additional local branching happens in later layers.
+        structure: 0.0,
+        sash: 0.12,
+        glass: 0.09,
+        bead: 0.14,
+    });
+    const EXPLODE_LAYER_Z = Object.freeze({
+        structure: 0.0,
+        sash: 0.25,
+        glass: 0.5,
+        bead: 0.75,
+    });
+
+    function resetExplodeAnchors() {
+        explodeCellAnchors = new Map();
+        explodeDividerChainAnchors = new Map();
+        explodeTransAnchors = new Map();
+    }
+
+    function setExplodeCellAnchor(cell) {
+        if (!cell?.id) return;
+        explodeCellAnchors.set(String(cell.id), Object.freeze({
+            x: Number(cell.centerX) || 0,
+            y: Number(cell.centerY) || 0,
+            width: Number(cell.width) || 0,
+            height: Number(cell.height) || 0,
+        }));
+    }
+
+    function getExplodeCellAnchor(cellId) {
+        if (!cellId && cellId !== 0) return null;
+        return explodeCellAnchors.get(String(cellId)) || null;
+    }
+
+    function getExplodeAssemblyAnchor(assembly) {
+        const primaryData = assembly?.primary?.object?.userData || {};
+        const transAnchor = getExplodeTransAnchor(primaryData.transSegmentId);
+        if (transAnchor) return { x: transAnchor.x, y: transAnchor.y };
+        const candidateCellId = primaryData.windowGlassCellId || primaryData.windowCell || primaryData.transOwnerCellId || null;
+        const cellAnchor = getExplodeCellAnchor(candidateCellId);
+        if (cellAnchor) return { x: cellAnchor.x, y: cellAnchor.y };
+        const boxCenter = assembly?.box?.getCenter(new THREE.Vector3());
+        if (boxCenter) return { x: boxCenter.x, y: boxCenter.y };
+        return { x: 0, y: 0 };
+    }
+
+    function getExplodeSideVector(sideKey) {
+        if (sideKey === 'left') return new THREE.Vector2(-1, 0);
+        if (sideKey === 'right') return new THREE.Vector2(1, 0);
+        if (sideKey === 'top') return new THREE.Vector2(0, 1);
+        if (sideKey === 'bottom') return new THREE.Vector2(0, -1);
+        return new THREE.Vector2(0, 0);
+    }
+
+    function getExplodeCenterVector(anchor, configurationCenter) {
+        const dx = Number(anchor?.x) - Number(configurationCenter?.x || 0);
+        const dy = Number(anchor?.y) - Number(configurationCenter?.y || 0);
+        const vector = new THREE.Vector2(dx, dy);
+        if (vector.lengthSq() <= EXPLODE_CENTER_EPSILON * EXPLODE_CENTER_EPSILON) {
+            return new THREE.Vector2(0, 0);
+        }
+        return vector.normalize();
+    }
+
+    function getExplodeLayerBranchVector(assembly, anchor, configurationCenter) {
+        if (!assembly) return new THREE.Vector2(0, 0);
+        if (assembly.layer === 'structure') return new THREE.Vector2(0, 0);
+        if (assembly.layer === 'glass') {
+            return getExplodeCenterVector(anchor, configurationCenter);
+        }
+        const sideVector = getExplodeSideVector(assembly.sideKey);
+        if (sideVector.lengthSq() > 0) return sideVector;
+        const assemblyCenter = assembly?.box?.getCenter(new THREE.Vector3());
+        if (!assemblyCenter) return new THREE.Vector2(0, 0);
+        const vector = new THREE.Vector2(
+            assemblyCenter.x - Number(anchor?.x || 0),
+            assemblyCenter.y - Number(anchor?.y || 0)
+        );
+        if (vector.lengthSq() <= EXPLODE_CENTER_EPSILON * EXPLODE_CENTER_EPSILON) {
+            return getExplodeCenterVector(anchor, configurationCenter);
+        }
+        return vector.normalize();
+    }
+
+    function smoothExplodeRange(value, start, end) {
+        if (value <= start) return 0;
+        if (value >= end) return 1;
+        const t = (value - start) / Math.max(1e-6, end - start);
+        return t * t * (3 - 2 * t);
+    }
+
+    function getExplodeProgressFactors(progress, layer) {
+        const p = THREE.MathUtils.clamp(progress, 0, 1);
+        return {
+            base: smoothExplodeRange(p, 0.0, 0.45),
+            layer: layer === 'structure'
+                ? smoothExplodeRange(p, 0.45, 0.55)
+                : layer === 'sash'
+                    ? smoothExplodeRange(p, 0.55, 0.72)
+                    : layer === 'glass'
+                        ? smoothExplodeRange(p, 0.72, 0.87)
+                        : smoothExplodeRange(p, 0.87, 1.0),
+        };
+    }
+
+    function applyExplodeTransforms(progress) {
+        const explodeT = THREE.MathUtils.clamp(progress, 0, 1);
+        explodableObjects.forEach(object => {
+            const basePos = object?.userData?.basePos;
+            if (!basePos) return;
+            const baseVector = object?.userData?.explodeBaseDir || new THREE.Vector3();
+            const layerVector = object?.userData?.explodeLayerDir || object?.userData?.explodeDir || new THREE.Vector3();
+            const offset = new THREE.Vector3()
+                .copy(baseVector)
+                .add(layerVector)
+                .multiplyScalar(explodeT);
+            object.position.copy(basePos).add(offset);
+        });
+        applyExplodedWindowForwardOffset(explodeT);
+    }
+
+    function getExplodeDividerChainAnchor(segmentId) {
+        if (!segmentId && segmentId !== 0) return null;
+        return explodeDividerChainAnchors.get(String(segmentId)) || null;
+    }
+
+    function getExplodeTransAnchor(segmentId) {
+        if (!segmentId && segmentId !== 0) return null;
+        return explodeTransAnchors.get(String(segmentId)) || null;
+    }
+
+    function almostEqualExplodeValue(left, right, epsilon = 1e-6) {
+        return Math.abs(Number(left) - Number(right)) <= epsilon;
+    }
+
+    function buildExplodeDividerChainAnchors() {
+        explodeDividerChainAnchors = new Map();
+        const segments = Array.isArray(editableTopologyGeometry?.dividerSegments)
+            ? editableTopologyGeometry.dividerSegments.filter(segment => segment?.id)
+            : [];
+        if (!segments.length) return;
+
+        const normalized = segments.map(segment => {
+            const orientation = String(segment.orientation || '');
+            const perpendicular = Number(segment.perpendicularOffset);
+            const start = Number.isFinite(Number(segment.structuralWorldStart))
+                ? Number(segment.structuralWorldStart)
+                : Number(segment.worldStart);
+            const end = Number.isFinite(Number(segment.structuralWorldEnd))
+                ? Number(segment.structuralWorldEnd)
+                : Number(segment.worldEnd);
+            if (!orientation || !Number.isFinite(perpendicular) || !Number.isFinite(start) || !Number.isFinite(end)) {
+                return null;
+            }
+            return {
+                id: String(segment.id),
+                orientation,
+                perpendicular,
+                start: Math.min(start, end),
+                end: Math.max(start, end),
+            };
+        }).filter(Boolean);
+
+        const visited = new Set();
+        normalized.forEach(segment => {
+            if (visited.has(segment.id)) return;
+            const queue = [segment];
+            const component = [];
+            visited.add(segment.id);
+            while (queue.length) {
+                const current = queue.shift();
+                component.push(current);
+                normalized.forEach(candidate => {
+                    if (visited.has(candidate.id)) return;
+                    if (candidate.orientation !== current.orientation) return;
+                    if (!almostEqualExplodeValue(candidate.perpendicular, current.perpendicular)) return;
+                    const touches = almostEqualExplodeValue(candidate.start, current.end)
+                        || almostEqualExplodeValue(candidate.end, current.start)
+                        || almostEqualExplodeValue(candidate.start, current.start)
+                        || almostEqualExplodeValue(candidate.end, current.end);
+                    if (!touches) return;
+                    visited.add(candidate.id);
+                    queue.push(candidate);
+                });
+            }
+
+            if (!component.length) return;
+            const orientation = component[0].orientation;
+            const perpendicular = component.reduce((sum, item) => sum + item.perpendicular, 0) / component.length;
+            const spanStart = Math.min(...component.map(item => item.start));
+            const spanEnd = Math.max(...component.map(item => item.end));
+            const anchor = orientation === 'vertical'
+                ? Object.freeze({
+                    x: perpendicular,
+                    y: (spanStart + spanEnd) / 2,
+                    orientation,
+                })
+                : Object.freeze({
+                    x: (spanStart + spanEnd) / 2,
+                    y: perpendicular,
+                    orientation,
+                });
+            component.forEach(item => {
+                explodeDividerChainAnchors.set(item.id, anchor);
+            });
+        });
+    }
+
+    function buildExplodeTransAnchors() {
+        explodeTransAnchors = new Map();
+        const segments = Array.isArray(editableTopologyGeometry?.transSegments)
+            ? editableTopologyGeometry.transSegments.filter(segment => segment?.id)
+            : [];
+        segments.forEach(segment => {
+            const perpendicular = Number(segment.perpendicularOffset);
+            const start = Number.isFinite(Number(segment.structuralWorldStart))
+                ? Number(segment.structuralWorldStart)
+                : Number(segment.worldStart);
+            const end = Number.isFinite(Number(segment.structuralWorldEnd))
+                ? Number(segment.structuralWorldEnd)
+                : Number(segment.worldEnd);
+            if (!Number.isFinite(perpendicular) || !Number.isFinite(start) || !Number.isFinite(end)) return;
+            explodeTransAnchors.set(String(segment.id), Object.freeze({
+                x: perpendicular,
+                y: (Math.min(start, end) + Math.max(start, end)) / 2,
+                orientation: String(segment.orientation || 'vertical'),
+            }));
+        });
+    }
+
+    function getExplosionConfigurationCenter() {
+        if (editableTopologyGeometry) {
+            const minX = Number(editableTopologyGeometry.overallMinX);
+            const maxX = Number(editableTopologyGeometry.overallMaxX);
+            const minY = Number(editableTopologyGeometry.overallMinY);
+            const maxY = Number(editableTopologyGeometry.overallMaxY);
+            if ([minX, maxX, minY, maxY].every(Number.isFinite)) {
+                return {
+                    x: (minX + maxX) / 2,
+                    y: (minY + maxY) / 2,
+                };
+            }
+        }
+        return { x: 0, y: 0 };
+    }
+
+    function getExplosionObjectCenter(obj) {
+        const center = obj.position.clone();
+        const geometry = obj.geometry;
+        if (!geometry) return center;
+
+        if (!geometry.boundingBox) geometry.computeBoundingBox();
+        if (!geometry.boundingBox || geometry.boundingBox.isEmpty()) return center;
+
+        const geometryCenter = geometry.boundingBox.getCenter(new THREE.Vector3());
+        geometryCenter.multiply(obj.scale).applyQuaternion(obj.quaternion);
+        return center.add(geometryCenter);
+    }
+
+    function getOutwardExplosionSign(obj, axis, fallbackSign = 1) {
+        const objectCenter = getExplosionObjectCenter(obj);
+        const configurationCenter = getExplosionConfigurationCenter();
+        const delta = axis === 'x'
+            ? objectCenter.x - configurationCenter.x
+            : objectCenter.y - configurationCenter.y;
+        if (Math.abs(delta) > EXPLODE_CENTER_EPSILON) return Math.sign(delta);
+        return Math.sign(fallbackSign) || 1;
+    }
+
+    function registerOutwardAxisExplode(obj, axis, distance, dz, fallbackSign = 1) {
+        const sign = getOutwardExplosionSign(obj, axis, fallbackSign);
+        obj.userData.explodeLayout = {
+            axis,
+            fallbackSign: Math.sign(fallbackSign) || 1,
+            requestedDistance: Math.max(0, Number(distance) || 0),
+            requestedZ: Number(dz) || 0,
+        };
+        registerExplode(
+            obj,
+            axis === 'x' ? distance * sign : 0,
+            axis === 'y' ? distance * sign : 0,
+            dz
+        );
+    }
+
     const EXPLODE_Z_OFFSETS = {
         frame: 0.0,
         sash: 0.25,
+        glass: 0.5,
         bead: 0.75,
-        divider: 0.12
+        divider: 0.0
     };
+
+    function getExplodeObjectBox(object) {
+        if (!object) return null;
+        const box = new THREE.Box3().setFromObject(object, true);
+        if (box.isEmpty()) return null;
+        return box;
+    }
+
+    function getExplodeObjectSideKey(object, axis, sign) {
+        const side = String(object?.userData?.componentSelection?.side || '');
+        if (side === 'left' || side === 'right' || side === 'top' || side === 'bottom') {
+            return side;
+        }
+        if (axis === 'x') return sign < 0 ? 'left' : 'right';
+        return sign < 0 ? 'bottom' : 'top';
+    }
+
+    function getExplodeComponentId(object) {
+        return String(
+            object?.userData?.connectionProfileId
+            || object?.userData?.componentSelection?.name
+            || ''
+        ).replace(/[^0-9A-Za-z_-]/g, '');
+    }
+
+    function getExplodeSemanticLayer(object) {
+        const explicit = String(object?.userData?.explodeLayer || '');
+        if (EXPLODE_LAYER_ORDER.includes(explicit)) return explicit;
+
+        const source = String(object?.userData?.componentSelection?.source || '').toLowerCase();
+        const componentId = getExplodeComponentId(object);
+
+        // In normal geometry the trans is fixed to its owner sash, but in
+        // exploded view it should separate like a mullion/structural divider.
+        if (object?.userData?.trans || source === 'trans') return 'structure';
+
+        // Fixed-light 224063 is seated on the outer frame/mullion. The moving
+        // 224063 copy keeps the sash classification supplied by its source.
+        if (componentId.includes('224063') && object?.userData?.fixedGlazingAccessory) {
+            return 'structure';
+        }
+
+        if (
+            source === 'bead'
+            || componentId.includes('573920')
+            || componentId.includes('573930')
+            || componentId.includes('573940')
+            || componentId.includes('224350')
+            || componentId.includes('224378')
+            || componentId.includes('224379')
+        ) {
+            return 'bead';
+        }
+        if (source === 'sash') return 'sash';
+        if (source === 'frame' || source === 'divider') return 'structure';
+        return 'structure';
+    }
+
+    function isExplodeFollower(object) {
+        if (object?.userData?.explodeFollower === true) return true;
+        const type = String(object?.userData?.componentSelection?.componentType || '').toLowerCase();
+        return [
+            'gasket',
+            'insulation',
+            'hardware',
+            'glass-support',
+            'seal',
+            'end-cap',
+            'drainage-cap',
+        ].includes(type);
+    }
+
+    function getExplodeAssemblyIdentity(object, layer, sideKey) {
+        const explicit = String(object?.userData?.explodeAssemblyKey || '');
+        if (explicit) return `${layer}:${sideKey}:${explicit}`;
+
+        const data = object?.userData || {};
+        if (data.transSegmentId) return `${layer}:${sideKey}:trans:${data.transSegmentId}`;
+        if (data.dividerSegmentId) return `${layer}:${sideKey}:divider:${data.dividerSegmentId}`;
+        if (data.frameSegment) return `${layer}:${sideKey}:frame:${data.frameSegment}`;
+
+        const cell = String(data.windowCell || data.transOwnerCellId || 'global');
+        const boundary = String(data.fixedGlazingConnectionBoundary || '');
+        if (boundary) return `${layer}:${sideKey}:cell:${cell}:boundary:${boundary}`;
+        return `${layer}:${sideKey}:cell:${cell}`;
+    }
+
+    function getExplodeMatchScore(follower, assembly) {
+        const followerData = follower.object?.userData || {};
+        const primaryData = assembly.primary?.object?.userData || {};
+        let score = 0;
+
+        if (followerData.frameSegment && followerData.frameSegment === primaryData.frameSegment) score += 120;
+        if (followerData.dividerSegmentId && followerData.dividerSegmentId === primaryData.dividerSegmentId) score += 120;
+        if (followerData.transSegmentId && followerData.transSegmentId === primaryData.transSegmentId) score += 120;
+        if (followerData.windowCell && followerData.windowCell === primaryData.windowCell) score += 45;
+        if (
+            followerData.fixedGlazingConnectionBoundary
+            && followerData.fixedGlazingConnectionBoundary === primaryData.fixedGlazingConnectionBoundary
+        ) score += 35;
+
+        const followerCenter = follower.box.getCenter(new THREE.Vector3());
+        const primaryCenter = assembly.primary.box.getCenter(new THREE.Vector3());
+        score -= followerCenter.distanceTo(primaryCenter) * 12;
+        return score;
+    }
+
+    function unionExplodeAssemblyBox(assembly, box) {
+        if (!assembly.box) assembly.box = box.clone();
+        else assembly.box.union(box);
+    }
+
+    function translateExplodeBox2D(box, axis, sign, distance) {
+        const dx = axis === 'x' ? sign * distance : 0;
+        const dy = axis === 'y' ? sign * distance : 0;
+        return {
+            minX: box.min.x + dx,
+            maxX: box.max.x + dx,
+            minY: box.min.y + dy,
+            maxY: box.max.y + dy,
+        };
+    }
+
+    function explodeBoxesOverlap2D(left, right) {
+        if (!left || !right) return false;
+        const overlapX = Math.min(left.maxX, right.maxX) - Math.max(left.minX, right.minX);
+        const overlapY = Math.min(left.maxY, right.maxY) - Math.max(left.minY, right.minY);
+        return overlapX > EXPLODE_COLLISION_EPSILON && overlapY > EXPLODE_COLLISION_EPSILON;
+    }
+
+    function getRequiredExplodeDistancePastBox(assembly, otherBox) {
+        if (!assembly?.box || !otherBox) return 0;
+        if (assembly.axis === 'x') {
+            const tangentOverlap = Math.min(assembly.box.max.y, otherBox.maxY)
+                - Math.max(assembly.box.min.y, otherBox.minY);
+            if (tangentOverlap <= EXPLODE_COLLISION_EPSILON) return 0;
+            return assembly.sign > 0
+                ? otherBox.maxX - assembly.box.min.x + EXPLODE_COLLISION_EPSILON
+                : assembly.box.max.x - otherBox.minX + EXPLODE_COLLISION_EPSILON;
+        }
+
+        const tangentOverlap = Math.min(assembly.box.max.x, otherBox.maxX)
+            - Math.max(assembly.box.min.x, otherBox.minX);
+        if (tangentOverlap <= EXPLODE_COLLISION_EPSILON) return 0;
+        return assembly.sign > 0
+            ? otherBox.maxY - assembly.box.min.y + EXPLODE_COLLISION_EPSILON
+            : assembly.box.max.y - otherBox.minY + EXPLODE_COLLISION_EPSILON;
+    }
+
+    function getExplodeBoundsFromEntries(entries) {
+        if (!entries?.length) {
+            return {
+                minX: 0,
+                maxX: 0,
+                minY: 0,
+                maxY: 0,
+            };
+        }
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+        entries.forEach(entry => {
+            if (!entry?.box) return;
+            minX = Math.min(minX, entry.box.min.x);
+            maxX = Math.max(maxX, entry.box.max.x);
+            minY = Math.min(minY, entry.box.min.y);
+            maxY = Math.max(maxY, entry.box.max.y);
+        });
+        return {
+            minX: Number.isFinite(minX) ? minX : 0,
+            maxX: Number.isFinite(maxX) ? maxX : 0,
+            minY: Number.isFinite(minY) ? minY : 0,
+            maxY: Number.isFinite(maxY) ? maxY : 0,
+        };
+    }
+
+    function getStructureAssemblyBaseShift(assembly, configurationCenter, bounds) {
+        const primaryData = assembly?.primary?.object?.userData || {};
+        const anchor = getExplodeAssemblyAnchor(assembly);
+        const sideKey = String(assembly?.sideKey || '');
+        const source = String(primaryData?.componentSelection?.source || '').toLowerCase();
+        const isDivider = Boolean(primaryData.dividerSegmentId) || source === 'divider';
+        const isTrans = Boolean(primaryData.transSegmentId) || source === 'trans';
+        const isFrame = Boolean(primaryData.frameSegment) || source === 'frame';
+
+        if (isFrame) {
+            if (sideKey === 'left') {
+                return new THREE.Vector3((Number(bounds.minX) - Number(configurationCenter.x)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR, 0, 0);
+            }
+            if (sideKey === 'right') {
+                return new THREE.Vector3((Number(bounds.maxX) - Number(configurationCenter.x)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR, 0, 0);
+            }
+            if (sideKey === 'top') {
+                return new THREE.Vector3(0, (Number(bounds.maxY) - Number(configurationCenter.y)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR, 0);
+            }
+            if (sideKey === 'bottom') {
+                return new THREE.Vector3(0, (Number(bounds.minY) - Number(configurationCenter.y)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR, 0);
+            }
+        }
+
+        if (isDivider || isTrans) {
+            const chainAnchor = isDivider
+                ? getExplodeDividerChainAnchor(primaryData.dividerSegmentId)
+                : null;
+            const transAnchor = isTrans
+                ? getExplodeTransAnchor(primaryData.transSegmentId)
+                : null;
+            const effectiveAnchor = chainAnchor || transAnchor || anchor;
+            return new THREE.Vector3(
+                (Number(effectiveAnchor.x) - Number(configurationCenter.x)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
+                (Number(effectiveAnchor.y) - Number(configurationCenter.y)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
+                0
+            );
+        }
+
+        return new THREE.Vector3(
+            (Number(anchor.x) - Number(configurationCenter.x)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
+            (Number(anchor.y) - Number(configurationCenter.y)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
+            0
+        );
+    }
+
+    function finalizeExplodedLayout() {
+        const entries = explodableObjects
+            .map((object, index) => {
+                const box = getExplodeObjectBox(object);
+                if (!box) return null;
+                const center = box.getCenter(new THREE.Vector3());
+                const meta = object?.userData?.explodeLayout || null;
+                const layer = getExplodeSemanticLayer(object);
+                const axis = meta?.axis || null;
+                const configurationCenter = getExplosionConfigurationCenter();
+                const delta = axis === 'x'
+                    ? center.x - configurationCenter.x
+                    : axis === 'y'
+                        ? center.y - configurationCenter.y
+                        : 0;
+                const fallbackSign = Math.sign(meta?.fallbackSign || 1) || 1;
+                const sign = axis
+                    ? (Math.abs(delta) > EXPLODE_CENTER_EPSILON ? Math.sign(delta) : fallbackSign)
+                    : 0;
+                const sideKey = axis
+                    ? getExplodeObjectSideKey(object, axis, sign)
+                    : 'center';
+                return {
+                    object,
+                    index,
+                    box,
+                    center,
+                    axis,
+                    sign,
+                    layer,
+                    sideKey,
+                    follower: isExplodeFollower(object),
+                    identity: getExplodeAssemblyIdentity(object, layer, sideKey),
+                };
+            })
+            .filter(Boolean);
+
+        if (!entries.length) return;
+
+        const assemblies = [];
+        const primaryAssemblies = new Map();
+        const followers = [];
+
+        entries.forEach(entry => {
+            if (entry.follower) {
+                followers.push(entry);
+                return;
+            }
+            let assembly = primaryAssemblies.get(entry.identity);
+            if (!assembly) {
+                assembly = {
+                    id: entry.identity,
+                    layer: entry.layer,
+                    sideKey: entry.sideKey,
+                    axis: entry.axis,
+                    sign: entry.sign,
+                    members: [],
+                    box: null,
+                    primary: entry,
+                    originalIndex: entry.index,
+                };
+                primaryAssemblies.set(entry.identity, assembly);
+                assemblies.push(assembly);
+            }
+            assembly.members.push(entry);
+            unionExplodeAssemblyBox(assembly, entry.box);
+        });
+
+        followers.forEach(entry => {
+            const candidates = assemblies.filter(assembly => assembly.layer === entry.layer);
+            let target = null;
+            let bestScore = -Infinity;
+            candidates.forEach(assembly => {
+                const score = getExplodeMatchScore(entry, assembly);
+                if (score > bestScore) {
+                    bestScore = score;
+                    target = assembly;
+                }
+            });
+            if (!target) {
+                target = {
+                    id: `${entry.identity}:follower:${entry.index}`,
+                    layer: entry.layer,
+                    sideKey: entry.sideKey,
+                    axis: entry.axis,
+                    sign: entry.sign,
+                    members: [],
+                    box: null,
+                    primary: entry,
+                    originalIndex: entry.index,
+                };
+                assemblies.push(target);
+            }
+            target.members.push(entry);
+            unionExplodeAssemblyBox(target, entry.box);
+        });
+
+        const configurationCenter = getExplosionConfigurationCenter();
+        const configurationBounds = getExplodeBoundsFromEntries(entries);
+        assemblies.forEach(assembly => {
+            const anchor = getExplodeAssemblyAnchor(assembly);
+            const baseShift = assembly.layer === 'structure'
+                ? getStructureAssemblyBaseShift(assembly, configurationCenter, configurationBounds)
+                : new THREE.Vector3(
+                    (Number(anchor.x) - Number(configurationCenter.x)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
+                    (Number(anchor.y) - Number(configurationCenter.y)) * EXPLODE_WINDOW_CENTER_SHIFT_FACTOR,
+                    0
+                );
+            const branchDirection = getExplodeLayerBranchVector(assembly, anchor, configurationCenter);
+            const layerDistance = Number(EXPLODE_LAYER_BASE_DISTANCE[assembly.layer]) || 0;
+            const layerShift = new THREE.Vector3(
+                branchDirection.x * layerDistance,
+                branchDirection.y * layerDistance,
+                Number(EXPLODE_LAYER_Z[assembly.layer]) || 0
+            );
+            assembly.members.forEach(member => {
+                member.object.userData.explodeResolvedLayer = assembly.layer;
+                member.object.userData.explodeBaseDir = baseShift.clone();
+                member.object.userData.explodeLayerDir = layerShift.clone();
+                member.object.userData.explodeDir = baseShift.clone().add(layerShift);
+                member.object.userData.explodeLayout = {
+                    ...(member.object.userData.explodeLayout || {}),
+                    layer: assembly.layer,
+                    distance: layerDistance,
+                    lane: 0,
+                    anchorX: Number(anchor.x) || 0,
+                    anchorY: Number(anchor.y) || 0,
+                };
+            });
+        });
+    }
 
     function bboxDistance(boxA, boxB) {
         if (!boxA || !boxB) return Infinity;
@@ -413,6 +1073,7 @@ export function createWindowBuilder({
             steps: 1,
         });
         const centerX = Number(bounds?.centerX) || 0;
+        const dividerMetrics = getDividerCrossSectionMetrics(bounds);
         const resolveRenderedFace = rawPoint => {
             const cadPoint = getProfileCadPointMm(profile, rawPoint.x, rawPoint.y);
             let renderedFace = (cadPoint.x - centerX) * S;
@@ -469,7 +1130,6 @@ export function createWindowBuilder({
         // source of the twisted/bridged geometry at the top of the middle
         // mullion. Insert vertices on every socket transition plane before the
         // longitudinal deformation, just like we already do for arrow V apices.
-        const dividerMetrics = getDividerCrossSectionMetrics(bounds);
         const socketOffset = Number(longitudinalJoint?.socketInwardOffset) || 0;
         const sharedSocketSign = Number(longitudinalJoint?.socketInwardSign) || 0;
         const getEndSocketSign = key => (
@@ -513,10 +1173,180 @@ export function createWindowBuilder({
                 ));
                 previousGeom.dispose();
             });
+
+        // The real end machining is an L-shaped notch in SIDE view. The
+        // branch already ends 19 mm before the grid; from that square end, only
+        // the outermost 5 mm flange is cut back another 25 mm. This is not a
+        // 5 mm longitudinal shortening of the two 25 mm face wings.
+        const hasNegativeRectangularEndNotch = Boolean(
+            profile?.isAlu === true
+            && longitudinalJoint?.negativeRectangularEndNotch
+        );
+        const hasPositiveRectangularEndNotch = Boolean(
+            profile?.isAlu === true
+            && longitudinalJoint?.positiveRectangularEndNotch
+        );
+        const hasRectangularEndNotch = (
+            hasNegativeRectangularEndNotch
+            || hasPositiveRectangularEndNotch
+        );
+
+        // The 575800 source is authored with the full-width 5 mm flange at the
+        // minimum CAD-Y side of the assembly (the 88 mm-wide flange visible in
+        // section). Split the section exactly at that 5 mm boundary so only
+        // that flange receives the 25 mm longitudinal cut-back.
+        const notchOuterCadY = Number(bounds?.minY);
+        const notchCadYBoundary = Number.isFinite(notchOuterCadY)
+            ? notchOuterCadY + INTERSECTION_MULLION_END_NOTCH_DEPTH_M / S
+            : null;
+        if (hasRectangularEndNotch && Number.isFinite(notchCadYBoundary)) {
+            const previousGeom = geom;
+            geom = splitBufferGeometryAtScalarZero(previousGeom, rawPoint => {
+                const cadPoint = getProfileCadPointMm(profile, rawPoint.x, rawPoint.y);
+                return cadPoint.y - notchCadYBoundary;
+            });
+            previousGeom.dispose();
+
+            // ExtrudeGeometry normally has only z=0 and z=1 longitudinal
+            // vertices. Add vertices at the 25 mm cut planes before moving the
+            // flange endpoint; otherwise the flange would taper diagonally over
+            // the entire mullion instead of forming the requested square L cut.
+            const notchFraction = Math.min(
+                1,
+                INTERSECTION_MULLION_END_NOTCH_LENGTH_M / Math.max(1e-9, length)
+            );
+            const longitudinalBreaks = [];
+            if (hasNegativeRectangularEndNotch && notchFraction < 1 - 1e-9) {
+                longitudinalBreaks.push(notchFraction);
+            }
+            if (hasPositiveRectangularEndNotch && notchFraction < 1 - 1e-9) {
+                longitudinalBreaks.push(1 - notchFraction);
+            }
+            [...new Set(longitudinalBreaks.map(value => value.toFixed(9)))]
+                .map(Number)
+                .forEach(extrusionBreak => {
+                    const sourceBeforeSplit = geom;
+                    geom = splitBufferGeometryAtScalarZero(
+                        sourceBeforeSplit,
+                        rawPoint => (Number(rawPoint.z) || 0) - extrusionBreak
+                    );
+                    sourceBeforeSplit.dispose();
+                });
+        }
+
+        // Divider-mounted glazing/rebate gaskets follow the mullion they are
+        // mounted on, but are intentionally 10 mm shorter overall. Keep them
+        // centred on the mullion (5 mm clearance at each longitudinal end).
+        // The local diagonal end cut is then applied inside that shorter span.
+        const isAttachedDividerGasket = Boolean(
+            isFixedGlassAnchorGasket(profile)
+            || isFrameToSashRebateGasket(profile)
+        );
+        const trimNegativeGasketEnd = Boolean(
+            isAttachedDividerGasket
+            && longitudinalJoint?.negativeRectangularEndNotch
+        );
+        const trimPositiveGasketEnd = Boolean(
+            isAttachedDividerGasket
+            && longitudinalJoint?.positiveRectangularEndNotch
+        );
+        const dividerGasketTotalShortening = isAttachedDividerGasket ? 0.030 : 0;
+        const defaultGasketEndTrim = dividerGasketTotalShortening / 2;
+        const resolveGasketEndTrim = overrideValue => {
+            const parsed = Number(overrideValue);
+            return Number.isFinite(parsed)
+                ? Math.max(0, parsed)
+                : defaultGasketEndTrim;
+        };
+        const negativeGasketTrim = resolveGasketEndTrim(
+            longitudinalJoint?.negativeGasketTrimOverride
+        );
+        const positiveGasketTrim = resolveGasketEndTrim(
+            longitudinalJoint?.positiveGasketTrimOverride
+        );
+        // Avoid the divider's full 88 mm-face arrow deformation at a notched
+        // branch end. Keep the gasket endpoint on the mullion endpoint and
+        // apply only the small local 45-degree cut across the gasket section.
+        const useNegativeLocalGasketMiter = Boolean(
+            isAttachedDividerGasket
+            && (trimNegativeGasketEnd || longitudinalJoint?.negativeLocalGasketMiter)
+        );
+        const usePositiveLocalGasketMiter = Boolean(
+            isAttachedDividerGasket
+            && (trimPositiveGasketEnd || longitudinalJoint?.positiveLocalGasketMiter)
+        );
+        const renderedNegativeEndMode = trimNegativeGasketEnd
+            ? 'square'
+            : (longitudinalJoint?.negativeEndMode || 'arrow');
+        const renderedPositiveEndMode = trimPositiveGasketEnd
+            ? 'square'
+            : (longitudinalJoint?.positiveEndMode || 'arrow');
+        const renderedNegativeFrameInwardSpan = trimNegativeGasketEnd
+            ? 0
+            : longitudinalJoint?.negativeFrameInwardSpan;
+        const renderedPositiveFrameInwardSpan = trimPositiveGasketEnd
+            ? 0
+            : longitudinalJoint?.positiveFrameInwardSpan;
+        const renderedLength = Math.max(
+            0,
+            length - negativeGasketTrim - positiveGasketTrim
+        );
+        const renderedLongitudinalOffset = longitudinalOffset
+            + negativeGasketTrim / 2
+            - positiveGasketTrim / 2;
+
         const position = geom.attributes.position;
         const point = new THREE.Vector3();
         const centerY = Number(bounds?.centerY) || 0;
         const metrics = dividerMetrics;
+        let localGasketFaceMin = Infinity;
+        let localGasketFaceMax = -Infinity;
+        if (useNegativeLocalGasketMiter || usePositiveLocalGasketMiter) {
+            for (let index = 0; index < position.count; index += 1) {
+                const renderedFace = resolveRenderedFace({
+                    x: position.getX(index),
+                    y: position.getY(index),
+                });
+                if (!Number.isFinite(renderedFace)) continue;
+                localGasketFaceMin = Math.min(localGasketFaceMin, renderedFace);
+                localGasketFaceMax = Math.max(localGasketFaceMax, renderedFace);
+            }
+        }
+        const hasLocalGasketFaceRange = (
+            Number.isFinite(localGasketFaceMin)
+            && Number.isFinite(localGasketFaceMax)
+            && localGasketFaceMax - localGasketFaceMin > 1e-9
+        );
+        const getLocalGasketMiterInset = (face, sign = 1) => {
+            if (!hasLocalGasketFaceRange) return 0;
+            return sign >= 0
+                ? Math.max(0, face - localGasketFaceMin)
+                : Math.max(0, localGasketFaceMax - face);
+        };
+        const rectangularNotchInsetByTriangle = hasRectangularEndNotch
+            ? new Array(Math.ceil(position.count / 3)).fill(0)
+            : null;
+        if (rectangularNotchInsetByTriangle && Number.isFinite(notchOuterCadY)) {
+            for (let base = 0; base + 2 < position.count; base += 3) {
+                let cadYSum = 0;
+                for (let offset = 0; offset < 3; offset += 1) {
+                    const cadPoint = getProfileCadPointMm(
+                        profile,
+                        position.getX(base + offset),
+                        position.getY(base + offset)
+                    );
+                    cadYSum += cadPoint.y;
+                }
+                const averageCadY = cadYSum / 3;
+                rectangularNotchInsetByTriangle[Math.floor(base / 3)] =
+                    getRectangularDividerEndNotchInset({
+                        sectionDepthFromOuterFace: Math.max(
+                            0,
+                            (averageCadY - notchOuterCadY) * S
+                        ),
+                    });
+            }
+        }
 
         for (let index = 0; index < position.count; index += 1) {
             point.fromBufferAttribute(position, index);
@@ -552,22 +1382,56 @@ export function createWindowBuilder({
             const positiveSocketInwardDistance = positiveSocketInwardSign
                 ? face * positiveSocketInwardSign + socketInwardOffset
                 : Math.abs(face);
-            const along = getDividerSegmentAlongCoordinate({
-                extrusionT: point.z,
-                length,
+            const sourceExtrusionT = Math.min(
+                1,
+                Math.max(0, Number(point.z) || 0)
+            );
+            let effectiveExtrusionT = sourceExtrusionT;
+            const notchInset = Number(
+                rectangularNotchInsetByTriangle?.[Math.floor(index / 3)]
+            ) || 0;
+            if (notchInset > 1e-9 && length > 1e-9) {
+                const notchFraction = Math.min(1, notchInset / length);
+                if (hasNegativeRectangularEndNotch) {
+                    effectiveExtrusionT = Math.max(effectiveExtrusionT, notchFraction);
+                }
+                if (hasPositiveRectangularEndNotch) {
+                    effectiveExtrusionT = Math.min(
+                        effectiveExtrusionT,
+                        1 - notchFraction
+                    );
+                }
+            }
+
+            let along = getDividerSegmentAlongCoordinate({
+                extrusionT: effectiveExtrusionT,
+                length: renderedLength,
                 faceOffset: face,
                 faceSpan: metrics.faceSpanM,
                 frameInwardSpan,
-                negativeFrameInwardSpan: longitudinalJoint?.negativeFrameInwardSpan,
-                positiveFrameInwardSpan: longitudinalJoint?.positiveFrameInwardSpan,
-                negativeEndMode: longitudinalJoint?.negativeEndMode || 'arrow',
-                positiveEndMode: longitudinalJoint?.positiveEndMode || 'arrow',
+                negativeFrameInwardSpan: renderedNegativeFrameInwardSpan,
+                positiveFrameInwardSpan: renderedPositiveFrameInwardSpan,
+                negativeEndMode: renderedNegativeEndMode,
+                positiveEndMode: renderedPositiveEndMode,
                 negativeArrowFaceBias: longitudinalJoint?.negativeArrowFaceBias,
                 positiveArrowFaceBias: longitudinalJoint?.positiveArrowFaceBias,
                 socketInwardDistance,
                 negativeSocketInwardDistance,
                 positiveSocketInwardDistance,
             });
+
+            // Local gasket miters are referenced to the gasket itself, not to
+            // the 88 mm mullion face. The longest edge therefore remains at the
+            // exact 25 mm trim plane and only the opposite edge recedes by the
+            // gasket's own width, matching the small diagonal end in the CAD.
+            if (useNegativeLocalGasketMiter) {
+                const sign = Number(longitudinalJoint?.negativeLocalGasketMiterSign) || 1;
+                along += getLocalGasketMiterInset(face, sign) * (1 - effectiveExtrusionT);
+            }
+            if (usePositiveLocalGasketMiter) {
+                const sign = Number(longitudinalJoint?.positiveLocalGasketMiterSign) || 1;
+                along -= getLocalGasketMiterInset(face, sign) * effectiveExtrusionT;
+            }
 
             if (orientation === 'horizontal') {
                 position.setXYZ(index, along, -face, depth);
@@ -588,10 +1452,10 @@ export function createWindowBuilder({
         // animation reset every copy to (0, 0) and collapsed them into one.
         if (orientation === 'vertical') {
             mesh.position.x = (Number(perpendicularOffset) || 0);
-            mesh.position.y = (Number(longitudinalOffset) || 0);
+            mesh.position.y = (Number(renderedLongitudinalOffset) || 0);
         } else if (orientation === 'horizontal') {
             mesh.position.y = (Number(perpendicularOffset) || 0);
-            mesh.position.x = (Number(longitudinalOffset) || 0);
+            mesh.position.x = (Number(renderedLongitudinalOffset) || 0);
         }
         mesh.castShadow = !captureMode;
         mesh.receiveShadow = !captureMode;
@@ -607,11 +1471,12 @@ export function createWindowBuilder({
         componentSelection.add(mesh);
 
         const explodeDistance = 0.12;
-        registerExplode(
+        registerOutwardAxisExplode(
             mesh,
-            orientation === 'vertical' ? explodeDistance : 0,
-            orientation === 'horizontal' ? explodeDistance : 0,
-            EXPLODE_Z_OFFSETS.divider
+            orientation === 'vertical' ? 'x' : 'y',
+            explodeDistance,
+            EXPLODE_Z_OFFSETS.divider,
+            1
         );
         return mesh;
     }
@@ -622,10 +1487,15 @@ export function createWindowBuilder({
         dividerFaceSpan,
         { includeFaceBoundary = true } = {}
     ) {
-        const triangle = getReentrantFillerTriangle({
-            filler,
-            dividerFaceSpan,
-        });
+        const triangle = filler?.fillerKind === 'rectangular-host'
+            ? getHalfMullionTriangle({
+                filler,
+                triangleSpan: filler?.triangleSpan || RECTANGULAR_DIVIDER_SETBACK_M,
+            })
+            : getReentrantFillerTriangle({
+                filler,
+                dividerFaceSpan,
+            });
         if (!mesh?.geometry || triangle.length !== 3) return false;
 
         const [a, b, c] = triangle;
@@ -672,10 +1542,15 @@ export function createWindowBuilder({
     }
 
     function clipFrameMeshToHalfFrameTriangle(mesh, filler) {
-        const triangle = getHalfFrameTriangle({
-            filler,
-            frameReferenceSpan: filler?.frameReferenceSpan,
-        });
+        const triangle = filler?.positionMode === 'inside'
+            ? getInsideHalfFrameTriangle({
+                filler,
+                frameReferenceSpan: filler?.frameReferenceSpan,
+            })
+            : getHalfFrameTriangle({
+                filler,
+                frameReferenceSpan: filler?.frameReferenceSpan,
+            });
         if (!mesh?.geometry || triangle.length !== 3) return false;
 
         const [a, b, c] = triangle;
@@ -867,6 +1742,13 @@ export function createWindowBuilder({
                         frameInwardSpan: dividerJoint.frameInwardSpan,
                     });
                 }
+                if (mode === 'inside-half-frame') {
+                    return getFrameInsideHalfFrameInset({
+                        inwardDistance: inw,
+                        frameInwardSpan: dividerJoint.frameInwardSpan,
+                        halfFrameSpan: RECTANGULAR_DIVIDER_SETBACK_M,
+                    });
+                }
                 if (mode === 'grid-miter') {
                     return getFrameGridMiterInset({
                         inwardDistance: inw,
@@ -952,26 +1834,27 @@ export function createWindowBuilder({
 
         // Map each group to its outward explosion offset (X/Y)
         const EXPLODE_XY_OFFSETS = {
-            frame: 0.12,
-            sash: 0.26,
-            bead: 0.26
+            frame: 0.0,
+            sash: 0.12,
+            bead: 0.18
         };
         const actualExpDist = EXPLODE_XY_OFFSETS[group] !== undefined ? EXPLODE_XY_OFFSETS[group] : expDist;
 
-        // Explode directions
-        let expX = 0, expY = 0;
-        if (side === 'bottom') expY = -actualExpDist;
-        if (side === 'top') expY = actualExpDist;
-        if (side === 'left') expX = -actualExpDist;
-        if (side === 'right') expX = actualExpDist;
-
+        // Keep every profile moving perpendicular to its own length, but choose
+        // the sign from its physical position relative to the complete window
+        // configuration. This prevents profiles belonging to added bays from
+        // exploding back toward the first bay instead of away from the whole
+        // construction.
+        const explodeAxis = (side === 'left' || side === 'right') ? 'x' : 'y';
+        const fallbackSign = (side === 'left' || side === 'bottom') ? -1 : 1;
         const expZ = EXPLODE_Z_OFFSETS[group] !== undefined ? EXPLODE_Z_OFFSETS[group] : 0.0;
 
-        registerExplode(mesh, expX, expY, expZ);
+        registerOutwardAxisExplode(mesh, explodeAxis, actualExpDist, expZ, fallbackSign);
         return mesh;
     }
 
     // SCENE ELEMENTS
+    const WINDOW_GROUND_CLEARANCE_M = 0.02;
     const placementRoot = new THREE.Group();
     const mainGroup = new THREE.Group();
     const pivotOscilo = new THREE.Group();
@@ -1195,6 +2078,29 @@ export function createWindowBuilder({
 
     function applyExplodedWindowForwardOffset(progress) {
         mainGroup.position.z = getHouseExplodedWindowForwardOffset() * progress;
+    }
+
+    function alignWindowLayoutAboveGround() {
+        if (isARMode) return;
+
+        // Rebuilds must start from the normal authored placement. If a previous
+        // taller topology needed an upward correction, shrinking it again must
+        // not leave the whole configurator permanently floating higher.
+        placementRoot.position.y = 0;
+        placementRoot.updateWorldMatrix(true, true);
+        mainGroup.updateWorldMatrix(true, true);
+
+        const bounds = new THREE.Box3().setFromObject(mainGroup, true);
+        if (bounds.isEmpty()) return;
+
+        const groundY = Number(ground?.position?.y);
+        if (!Number.isFinite(groundY)) return;
+
+        const minimumAllowedY = groundY + WINDOW_GROUND_CLEARANCE_M;
+        if (bounds.min.y < minimumAllowedY) {
+            placementRoot.position.y = minimumAllowedY - bounds.min.y;
+            placementRoot.updateWorldMatrix(true, true);
+        }
     }
 
     const sectionGroup = new THREE.Group();
@@ -1680,7 +2586,7 @@ export function createWindowBuilder({
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.font = '700 64px Outfit, system-ui, sans-serif';
+        ctx.font = '700 128px Outfit, system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(getWindowNumber(cellId, fallbackIndex)), 64, 66);
@@ -2294,6 +3200,7 @@ export function createWindowBuilder({
         glassHitMeshes = [];
         glassNumberSprites.clear();
         explodableObjects = [];
+        resetExplodeAnchors();
         const t_clear = performance.now();
 
         let A = parseFloat(document.getElementById('widthA').value);
@@ -2304,11 +3211,54 @@ export function createWindowBuilder({
         const sashGroup = new THREE.Group();
         const dividerGroup = new THREE.Group();
 
-        const activeProfiles = profilesData.filter(profile => {
+        // Visibility toggles are presentation-only. Keep a separate profile set
+        // for layout measurements so hiding a structural component (notably the
+        // mullion group) cannot change cell/frame positions or overall sizing.
+        const layoutProfiles = profilesData.filter(profile => isProfileEnabled(profile));
+        const activeProfiles = layoutProfiles.filter(profile => {
             const toggle = document.getElementById(`toggle_${profile.index}`);
             const componentEnabled = toggle ? toggle.checked : true;
-            return componentEnabled && isProfileEnabled(profile);
+            return componentEnabled;
         });
+
+        const isProfileVisibleOnHost = (profile, hostGroup) => {
+            const toggle = document.getElementById(`toggle_${profile.index}`);
+            const profileChecked = toggle ? toggle.checked : true;
+            const sourceGroup = getProfileGroup(profile);
+            return isComponentProfileVisibleOnHost({
+                sourceGroup,
+                hostGroup,
+                sourceGroupVisible: isProfileGroupVisible(sourceGroup),
+                hostGroupVisible: isProfileGroupVisible(hostGroup),
+                profileChecked,
+            });
+        };
+
+        // Connection CAD reuses some profile geometry on a different physical
+        // host than the profile's original B2 assembly. Keep those occurrences
+        // controlled by the host they are mounted on, not by the source group
+        // that happened to provide the reusable SVG section.
+        const frameHostProfiles = layoutProfiles.filter(profile =>
+            isProfileVisibleOnHost(profile, 'frame')
+        );
+        const dividerHostProfiles = layoutProfiles.filter(profile =>
+            isProfileVisibleOnHost(profile, 'divider')
+        );
+
+        // Fixed glazing beads keep their own dedicated bead visibility. 224063
+        // is different: its fixed-light occurrence belongs to either the frame
+        // or the mullion, so it follows that physical host.
+        const fixedGlazingProfiles = layoutProfiles.filter(profile => {
+            if (getProfileGroup(profile) === 'bead') {
+                const toggle = document.getElementById(`toggle_${profile.index}`);
+                return toggle ? toggle.checked : true;
+            }
+            if (!isFixedGlassAnchorGasket(profile)) return false;
+            return isProfileVisibleOnHost(profile, 'frame')
+                || isProfileVisibleOnHost(profile, 'divider');
+        });
+
+        const layoutDividerProfiles = layoutProfiles.filter(profile => profile.role === 'divider');
         const activeDividerProfiles = activeProfiles.filter(profile => profile.role === 'divider');
         const activeTransProfiles = activeProfiles.filter(profile => profile.role === 'trans');
         const activeTransGasketProfiles = activeProfiles.filter(
@@ -2324,13 +3274,13 @@ export function createWindowBuilder({
         // The grid reference is the mullion centreline, therefore an exposed
         // frame contributes 57 - 88/2 = 13 mm beyond a cell grid line.
         const editableFrameFaceSpan = isEditableTopology
-            ? getFrameFaceSpanM(activeProfiles)
+            ? getFrameFaceSpanM(layoutProfiles)
             : 0;
         const editableFrameInwardSpan = isEditableTopology
-            ? getFrameJointInwardSpanM(activeProfiles)
+            ? getFrameJointInwardSpanM(layoutProfiles)
             : 0;
         const editableDividerFaceSpan = isEditableTopology
-            ? getDividerFaceSpanM(activeDividerProfiles)
+            ? getDividerFaceSpanM(layoutDividerProfiles)
             : 0;
         editableTopologyGeometry = isEditableTopology
             ? getEditableWindowTopologyGeometry({
@@ -2354,21 +3304,21 @@ export function createWindowBuilder({
             layoutState.layoutId === 'top-fixed-bottom-sash-sash'
             || layoutState.layoutKind === 't-grid'
         );
-        const dividerOrientation = activeDividerProfiles.length
+        const dividerOrientation = layoutDividerProfiles.length
             ? (
                 isEditableTopology
                     ? (editableTopologyGeometry?.dividerSegments?.length ? 'grid' : null)
                     : layoutState.dividerOrientation
             )
             : null;
-        const dividerBounds = getDividerSourceBounds(activeDividerProfiles);
+        const dividerBounds = getDividerSourceBounds(layoutDividerProfiles);
         const dividerFaceSpan = isEditableTopology
             ? editableDividerFaceSpan
             : Math.min(
                 dividerOrientation === 'vertical'
                     ? A * 0.3
                     : (dividerOrientation === 'horizontal' ? B * 0.3 : Math.min(A, B) * 0.3),
-                getDividerFaceSpanM(activeDividerProfiles)
+                getDividerFaceSpanM(layoutDividerProfiles)
             );
         // Editable topology always uses the same frame/grid reference relation,
         // even when the last fixed mullion is replaced by a floating trans. If
@@ -2376,8 +3326,8 @@ export function createWindowBuilder({
         // miters lose the CAD-derived reference extension and the whole outside
         // frame visibly shrinks.
         const frameJointInwardSpan = isEditableTopology
-            ? (editableFrameInwardSpan || getFrameJointInwardSpanM(activeProfiles))
-            : (dividerOrientation ? getFrameJointInwardSpanM(activeProfiles) : 0);
+            ? (editableFrameInwardSpan || getFrameJointInwardSpanM(layoutProfiles))
+            : (dividerOrientation ? getFrameJointInwardSpanM(layoutProfiles) : 0);
         const editableFramePlacements = isEditableTopology
             ? (editableTopologyGeometry?.framePlacements || []).map(placement =>
                 getEditableReentrantFramePlacement({
@@ -2668,6 +3618,10 @@ export function createWindowBuilder({
             }
         }
 
+        [...openingCells, ...fixedCells].forEach(setExplodeCellAnchor);
+        buildExplodeDividerChainAnchors();
+        buildExplodeTransAnchors();
+
         if (openingCell) {
             sashA = openingCell.width;
             sashB = openingCell.height;
@@ -2904,14 +3858,13 @@ export function createWindowBuilder({
                 });
             });
 
-        // A normal perimeter T (for example the top/bottom end of the
-        // mullion between two side-by-side windows) contains one small outer
-        // frame triangle. The host frame ends use `half-frame-socket`, which
-        // removes that triangle from both complete frame runs. Render it once
-        // here from the real frame profile so the intersection has explicit
-        // ownership and no coincident/overlapping frame stock.
+        // A normal perimeter T keeps the outer frame visually continuous.
+        // `halfFrameFillers` now describe the inner 25 mm host band for
+        // intersection ownership/BOM purposes only; they are not separate
+        // triangular front-view meshes.
         if (isEditableTopology) {
             (editableTopologyGeometry?.halfFrameFillers || []).forEach(filler => {
+                if (filler?.renderAsSeparateMesh === false) return;
                 const sourcePlacement = (editableFramePlacements || []).find(
                     placement => placement.id === filler.sourceFrameId
                 );
@@ -3077,7 +4030,7 @@ export function createWindowBuilder({
         // same divider-end miter cuts as the aluminium frame, while their
         // cross-sectional seat comes only from CAD. On divided layouts the
         // accessory is emitted only on frame segments bordering an opening sash.
-        activeProfiles
+        frameHostProfiles
             .filter(profile => Boolean(profile.frameAccessoryCadTransform))
             .forEach(profile => {
                 sides.forEach(side => {
@@ -3169,6 +4122,290 @@ export function createWindowBuilder({
                 dividerGroup.add(mesh);
             };
 
+            const getRuntimeCellSideForDividerBranchDirection = (orientation, direction) => {
+                if (orientation === 'vertical') {
+                    if (direction === 'west') return 'left';
+                    if (direction === 'east') return 'right';
+                } else if (orientation === 'horizontal') {
+                    if (direction === 'south') return 'left';
+                    if (direction === 'north') return 'right';
+                }
+                return null;
+            };
+
+
+            const getDividerSegmentWorldRange = segment => {
+                const rawStart = Number.isFinite(Number(segment?.structuralWorldStart))
+                    ? Number(segment.structuralWorldStart)
+                    : Number(segment?.worldStart);
+                const rawEnd = Number.isFinite(Number(segment?.structuralWorldEnd))
+                    ? Number(segment.structuralWorldEnd)
+                    : Number(segment?.worldEnd);
+                if (!Number.isFinite(rawStart) || !Number.isFinite(rawEnd)) {
+                    return null;
+                }
+                return Object.freeze({
+                    start: Math.min(rawStart, rawEnd),
+                    end: Math.max(rawStart, rawEnd),
+                });
+            };
+
+            const getHostGasketBranchSplitCoordinates = (
+                segment,
+                runtimeCellSide,
+                explicitRange = null
+            ) => {
+                if (!segment || !runtimeCellSide) return [];
+                const range = explicitRange || getDividerSegmentWorldRange(segment);
+                if (!range) return [];
+                const rawCoordinates = (editableTopologyGeometry?.physicalIntersections || [])
+                    .flatMap(junction => {
+                        if (!junction || junction.hostOrientation !== segment.orientation) {
+                            return [];
+                        }
+                        if (junction.type !== 'T' && junction.type !== 'cross') {
+                            return [];
+                        }
+                        const activeDirections = Array.isArray(junction.activeDirections)
+                            ? junction.activeDirections
+                            : [];
+                        const hostArms = activeDirections
+                            .map(direction => junction.arms?.[direction])
+                            .filter(arm => (
+                                arm?.kind === 'divider'
+                                && arm.orientation === segment.orientation
+                                && arm.segmentId === segment.id
+                            ));
+                        if (!hostArms.length) return [];
+                        return activeDirections
+                            .map(direction => junction.arms?.[direction])
+                            .filter(arm => (
+                                arm?.kind === 'divider'
+                                && arm.orientation !== segment.orientation
+                                && getRuntimeCellSideForDividerBranchDirection(
+                                    segment.orientation,
+                                    arm.direction
+                                ) === runtimeCellSide
+                            ))
+                            .map(() => (
+                                segment.orientation === 'vertical'
+                                    ? Number(junction.y)
+                                    : Number(junction.x)
+                            ));
+                    })
+                    .filter(value => (
+                        Number.isFinite(value)
+                        && value > range.start + 1e-9
+                        && value < range.end - 1e-9
+                    ))
+                    .sort((a, b) => a - b);
+                return rawCoordinates.filter((value, index) => (
+                    index === 0 || Math.abs(value - rawCoordinates[index - 1]) > 1e-9
+                ));
+            };
+
+            const getDividerGasketMiterSign = (segmentOrientation, runtimeCellSide) => {
+                if (segmentOrientation === 'horizontal') {
+                    return runtimeCellSide === 'left' ? 1 : -1;
+                }
+                return runtimeCellSide === 'left' ? -1 : 1;
+            };
+
+            const applyDividerGasketMiterSide = (
+                joint,
+                runtimeCellSide,
+                segmentOrientation = 'vertical'
+            ) => {
+                const localGasketMiterSign = getDividerGasketMiterSign(
+                    segmentOrientation,
+                    runtimeCellSide
+                );
+                const resolvedJoint = { ...(joint || {}) };
+                if (
+                    resolvedJoint.negativeRectangularEndNotch
+                    || resolvedJoint.negativeLocalGasketMiter
+                ) {
+                    resolvedJoint.negativeLocalGasketMiterSign = localGasketMiterSign;
+                }
+                if (
+                    resolvedJoint.positiveRectangularEndNotch
+                    || resolvedJoint.positiveLocalGasketMiter
+                ) {
+                    resolvedJoint.positiveLocalGasketMiterSign = localGasketMiterSign;
+                }
+                return resolvedJoint;
+            };
+
+            const getDividerHostEndpointBranchSides = (segment, atStart) => {
+                const junction = (editableTopologyGeometry?.physicalIntersections || [])
+                    .find(candidate => candidate?.endpoints?.some(endpoint => (
+                        endpoint?.dividerId === segment?.id
+                        && Boolean(endpoint?.atStart) === Boolean(atStart)
+                    ))) || null;
+                if (
+                    !junction
+                    || (junction.type !== 'T' && junction.type !== 'cross')
+                    || junction.hostOrientation !== segment?.orientation
+                ) {
+                    return new Set();
+                }
+
+                const sides = new Set();
+                (junction.activeDirections || [])
+                    .map(direction => junction.arms?.[direction])
+                    .filter(arm => (
+                        arm?.kind === 'divider'
+                        && arm.orientation !== segment.orientation
+                    ))
+                    .forEach(arm => {
+                        const side = getRuntimeCellSideForDividerBranchDirection(
+                            segment.orientation,
+                            arm.direction
+                        );
+                        if (side) sides.add(side);
+                    });
+                return sides;
+            };
+
+            const applyHostEndpointGasketContinuity = (
+                segment,
+                joint,
+                runtimeCellSide
+            ) => {
+                const resolvedJoint = { ...(joint || {}) };
+                const applyEndRule = (atStart, endPrefix) => {
+                    const branchSides = getDividerHostEndpointBranchSides(segment, atStart);
+                    if (!branchSides.size) return;
+                    const isBranchFacingSide = branchSides.has(runtimeCellSide);
+                    if (isBranchFacingSide) {
+                        // This is the actual half-mullion under the incoming
+                        // branch. Keep the normal 15 mm end clearance, so the
+                        // two host segments leave the intended no-gasket zone.
+                        return;
+                    }
+
+                    // The opposite half of the host mullion is physically
+                    // continuous through the T. Do not apply the generic
+                    // 15 mm-per-end shortening at this internal endpoint or the
+                    // two host segments create the visible 30 mm gasket hole.
+                    resolvedJoint[`${endPrefix}GasketTrimOverride`] = 0;
+                    resolvedJoint[`${endPrefix}LocalGasketMiter`] = false;
+                    delete resolvedJoint[`${endPrefix}LocalGasketMiterSign`];
+                };
+
+                applyEndRule(true, 'negative');
+                applyEndRule(false, 'positive');
+                return resolvedJoint;
+            };
+
+            const getSplitHostGasketPlacements = (segment, basePlacement, runtimeCellSide) => {
+                const localGasketMiterSign = getDividerGasketMiterSign(
+                    segment?.orientation,
+                    runtimeCellSide
+                );
+                const baseLength = Math.max(0, Number(basePlacement?.length) || 0);
+                const baseCenter = Number(basePlacement?.longitudinalOffset) || 0;
+                if (baseLength <= 1e-9) {
+                    return [{
+                        ...basePlacement,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                basePlacement?.joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
+                            runtimeCellSide
+                        ),
+                    }];
+                }
+                // Split the ACTUAL rendered placement, not the raw structural
+                // segment range. The rendered mullion may include the frame-grid
+                // extension at its outer ends; dropping that extension was the
+                // other reason the gasket became visibly too short.
+                const range = {
+                    start: baseCenter - baseLength / 2,
+                    end: baseCenter + baseLength / 2,
+                };
+                const splitCoordinates = getHostGasketBranchSplitCoordinates(
+                    segment,
+                    runtimeCellSide,
+                    range
+                );
+                if (!splitCoordinates.length) {
+                    return [{
+                        ...basePlacement,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                basePlacement?.joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
+                            runtimeCellSide
+                        ),
+                    }];
+                }
+                const points = [range.start, ...splitCoordinates, range.end];
+                const placements = [];
+                for (let index = 0; index < points.length - 1; index += 1) {
+                    const start = points[index];
+                    const end = points[index + 1];
+                    const length = Math.max(0, end - start);
+                    if (length <= 1e-6) continue;
+                    const joint = {
+                        ...(basePlacement?.joint || {}),
+                    };
+                    if (index > 0) {
+                        joint.negativeEndMode = 'square';
+                        joint.negativeFrameInwardSpan = 0;
+                        joint.negativeArrowFaceBias = 0;
+                        joint.negativeLocalGasketMiter = true;
+                        joint.negativeLocalGasketMiterSign = localGasketMiterSign;
+                        delete joint.negativeRectangularEndNotch;
+                    }
+                    if (index < points.length - 2) {
+                        joint.positiveEndMode = 'square';
+                        joint.positiveFrameInwardSpan = 0;
+                        joint.positiveArrowFaceBias = 0;
+                        joint.positiveLocalGasketMiter = true;
+                        // Both longitudinal ends of one gasket use the same
+                        // local face edge, but the gasket on the opposite side of
+                        // the mullion must mirror that edge. runtimeCellSide is
+                        // already normalized for reversed connection templates.
+                        joint.positiveLocalGasketMiterSign = localGasketMiterSign;
+                        delete joint.positiveRectangularEndNotch;
+                    }
+                    placements.push({
+                        length,
+                        longitudinalOffset: (start + end) / 2,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
+                            runtimeCellSide
+                        ),
+                    });
+                }
+                return placements.length
+                    ? placements
+                    : [{
+                        ...basePlacement,
+                        joint: applyHostEndpointGasketContinuity(
+                            segment,
+                            applyDividerGasketMiterSide(
+                                basePlacement?.joint,
+                                runtimeCellSide,
+                                segment?.orientation
+                            ),
+                            runtimeCellSide
+                        ),
+                    }];
+            };
+
             editableSegments.forEach(segment => {
                 const variantMetadata = getEditableDividerVariantMetadata(segment);
                 const connectionMetadata = variantMetadata?.dividerConnection || {};
@@ -3225,8 +4462,11 @@ export function createWindowBuilder({
                     );
                 });
 
-                activeProfiles
+                dividerHostProfiles
                     .forEach(profile => {
+                        if (isFixedGlassAnchorGasket(profile) && !isProfileVisibleOnHost(profile, 'divider')) {
+                            return;
+                        }
                         const variantProfile = getEditableProfileVariant(profile, segment);
                         const connectionTransforms = Object.entries(
                             variantProfile.mullionConnectionCadTransforms || {}
@@ -3257,24 +4497,31 @@ export function createWindowBuilder({
                                     || Number(variantProfile.dividerSectionRotationDeg)
                                     || 180,
                             };
-                            const mesh = createDividerSegment(
-                                placedProfile,
-                                segmentPlacement.length,
-                                segment.orientation,
-                                segmentDividerBounds,
-                                depthOffset,
-                                frameJointInwardSpan,
-                                segment.perpendicularOffset,
-                                segmentPlacement.longitudinalOffset,
-                                faceDirection,
-                                segmentPlacement.joint
+                            const splitPlacements = getSplitHostGasketPlacements(
+                                segment,
+                                segmentPlacement,
+                                runtimeCellSide
                             );
-                            renderedConnectionSides.add(runtimeCellSide);
-                            mesh.userData.mullionConnectionGasket = true;
-                            mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
-                            mesh.userData.connectionProfileId =
-                                variantProfile.mullionConnectionProfileId || null;
-                            placeEditableDividerMesh(mesh, segment, 'connection-gasket');
+                            splitPlacements.forEach(placement => {
+                                const mesh = createDividerSegment(
+                                    placedProfile,
+                                    placement.length,
+                                    segment.orientation,
+                                    segmentDividerBounds,
+                                    depthOffset,
+                                    frameJointInwardSpan,
+                                    segment.perpendicularOffset,
+                                    placement.longitudinalOffset,
+                                    faceDirection,
+                                    placement.joint
+                                );
+                                renderedConnectionSides.add(runtimeCellSide);
+                                mesh.userData.mullionConnectionGasket = true;
+                                mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
+                                mesh.userData.connectionProfileId =
+                                    variantProfile.mullionConnectionProfileId || null;
+                                placeEditableDividerMesh(mesh, segment, 'connection-gasket');
+                            });
                         });
 
                         // Fixed-facing 224063 must be a real divider-mounted
@@ -3315,28 +4562,35 @@ export function createWindowBuilder({
                                         || Number(variantProfile.dividerSectionRotationDeg)
                                         || 180,
                                 };
-                                const mesh = createDividerSegment(
-                                    placedProfile,
-                                    segmentPlacement.length,
-                                    segment.orientation,
-                                    segmentDividerBounds,
-                                    depthOffset,
-                                    frameJointInwardSpan,
-                                    segment.perpendicularOffset,
-                                    segmentPlacement.longitudinalOffset,
-                                    faceDirection,
-                                    segmentPlacement.joint
-                                );
-                                renderedConnectionSides.add(runtimeCellSide);
-                                mesh.userData.mullionConnectionGasket = true;
-                                mesh.userData.fixedGlazingAccessory = true;
-                                mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
-                                mesh.userData.connectionProfileId = '224063';
-                                placeEditableDividerMesh(
-                                    mesh,
+                                const splitPlacements = getSplitHostGasketPlacements(
                                     segment,
-                                    'fixed-connection-gasket'
+                                    segmentPlacement,
+                                    runtimeCellSide
                                 );
+                                splitPlacements.forEach(placement => {
+                                    const mesh = createDividerSegment(
+                                        placedProfile,
+                                        placement.length,
+                                        segment.orientation,
+                                        segmentDividerBounds,
+                                        depthOffset,
+                                        frameJointInwardSpan,
+                                        segment.perpendicularOffset,
+                                        placement.longitudinalOffset,
+                                        faceDirection,
+                                        placement.joint
+                                    );
+                                    renderedConnectionSides.add(runtimeCellSide);
+                                    mesh.userData.mullionConnectionGasket = true;
+                                    mesh.userData.fixedGlazingAccessory = true;
+                                    mesh.userData.connectionBoundary = `mullion-${runtimeCellSide}`;
+                                    mesh.userData.connectionProfileId = '224063';
+                                    placeEditableDividerMesh(
+                                        mesh,
+                                        segment,
+                                        'fixed-connection-gasket'
+                                    );
+                                });
                             });
                         }
 
@@ -3393,6 +4647,7 @@ export function createWindowBuilder({
             // opening. This keeps the real aluminium/gasket/profile appearance
             // instead of drawing a generic solid-colour triangle.
             (editableTopologyGeometry?.reentrantFillers || []).forEach(filler => {
+                if (filler?.renderAsSeparateMesh === false) return;
                 const sourceSegment = editableSegments.find(
                     segment => segment.id === filler.sourceDividerId
                 );
@@ -3415,7 +4670,9 @@ export function createWindowBuilder({
                 // mullion stock to cover it, centred on the V apex, then clip
                 // the result to the triangular opening. For a missing top arm
                 // this creates a HORIZONTAL extrusion, not a vertical stub.
-                const renderLength = fillerFaceSpan;
+                const renderLength = filler?.fillerKind === 'rectangular-host'
+                    ? Math.max(RECTANGULAR_DIVIDER_SETBACK_M * 2, Number(filler.length) || 0)
+                    : fillerFaceSpan;
                 const longitudinalOffset = filler.orientation === 'horizontal'
                     ? filler.apexX
                     : filler.apexY;
@@ -3525,7 +4782,10 @@ export function createWindowBuilder({
                     return null;
                 })();
 
-                activeProfiles.forEach(profile => {
+                dividerHostProfiles.forEach(profile => {
+                    if (isFixedGlassAnchorGasket(profile) && !isProfileVisibleOnHost(profile, 'divider')) {
+                        return;
+                    }
                     const variantProfile = getEditableProfileVariant(profile, sourceSegment);
                     const sectionRotationDeg =
                         Number(connectionMetadata.sectionRotationDeg)
@@ -3604,7 +4864,7 @@ export function createWindowBuilder({
                         // fixed-cell perimeter transform used by createMiteredSide().
                         const fixedCadTransform =
                             variantProfile.fixedGlazingMullionCadTransforms?.[
-                                fillerRuntimeCellSide
+                            fillerRuntimeCellSide
                             ] || null;
                         if (fixedCadTransform) {
                             const placedProfile = {
@@ -3797,9 +5057,13 @@ export function createWindowBuilder({
                 );
             });
 
-            activeProfiles
+            dividerHostProfiles
                 .filter(profile =>
-                    (isFixedGlassAnchorGasket(profile) || isFrameToSashRebateGasket(profile))
+                    (
+                        isFixedGlassAnchorGasket(profile)
+                        && isProfileGroupVisible('divider')
+                    )
+                    || isFrameToSashRebateGasket(profile)
                 )
                 .forEach(profile => {
                     // Mixed fixed/transom/sash direct INSERTs for the horizontal run.
@@ -3920,7 +5184,7 @@ export function createWindowBuilder({
             // the same two transom segments/socket cuts as the aluminium and
             // gaskets; the lower vertical copies use the same V-headed segment
             // as the mullion. No accessory-specific length is hardcoded.
-            activeProfiles
+            dividerHostProfiles
                 .filter(profile =>
                     profile.section !== 'bottom'
                     && (
@@ -4034,14 +5298,19 @@ export function createWindowBuilder({
             // cut as the divider itself. Only the top legacy section is needed
             // as the extrusion template for either a mullion or a transom run.
             if (dividerOrientation) {
-                activeProfiles
+                dividerHostProfiles
                     .filter(profile =>
                         (
                             profile.mullionConnectionCadTransform
                             || Object.keys(profile.mullionConnectionCadTransforms || {}).length
                         )
-                        && (isFixedGlassAnchorGasket(profile)
-                            || isFrameToSashRebateGasket(profile))
+                        && (
+                            (
+                                isFixedGlassAnchorGasket(profile)
+                                && isProfileGroupVisible('divider')
+                            )
+                            || isFrameToSashRebateGasket(profile)
+                        )
                     )
                     .forEach(profile => {
                         const connectionTransforms = Object.entries(
@@ -4093,7 +5362,7 @@ export function createWindowBuilder({
         if (!isEditableTopology && dividerOrientation && dividerBounds && !isTopFixedBottomSashSash) {
             const dividerLength = dividerOrientation === 'vertical' ? B : A;
             const activeDividerPositions = dividerPositions.length ? dividerPositions : [0];
-            activeProfiles
+            dividerHostProfiles
                 .filter(profile =>
                     Object.keys(profile.mullionAccessoryCadTransforms || {}).length
                 )
@@ -4142,7 +5411,7 @@ export function createWindowBuilder({
         // window-mullion-sash-window.dwg, using the opening cell boundary as
         // the local side on which createMiteredSide() operates.
         if (!isEditableTopology && dividerOrientation && openingCell && !isTopFixedBottomSashSash) {
-            activeProfiles
+            dividerHostProfiles
                 .filter(profile =>
                     isFrameToSashRebateGasket(profile)
                     && !profile.mullionConnectionCadTransform
@@ -4430,6 +5699,12 @@ export function createWindowBuilder({
 
             const renderFullFixedSide = (placedProfile, connectionBoundary) => {
                 if (!placedProfile) return;
+                if (isFixedGlassAnchorGasket(profile)) {
+                    const hostGroup = String(connectionBoundary || '').startsWith('divider-')
+                        ? 'divider'
+                        : 'frame';
+                    if (!isProfileVisibleOnHost(profile, hostGroup)) return;
+                }
                 const mesh = createMiteredSide(
                     placedProfile,
                     sx,
@@ -4528,6 +5803,9 @@ export function createWindowBuilder({
                 dividerSegmentsForSide.forEach(segment => {
                     const placement = getDividerPlacedProfile(segment);
                     if (!placement.placedProfile) return;
+                    if (isFixedGlassAnchorGasket(profile) && !isProfileVisibleOnHost(profile, 'divider')) {
+                        return;
+                    }
                     const rect = getEditableFixedSidePlacementRect({
                         side,
                         spanLength: segment.length,
@@ -4565,6 +5843,9 @@ export function createWindowBuilder({
             framePlacementsForSide.forEach(placement => {
                 const placedProfile = getEditableFixedOuterPlacedProfile(profile);
                 if (!placedProfile) return;
+                if (isFixedGlassAnchorGasket(profile) && !isProfileVisibleOnHost(profile, 'frame')) {
+                    return;
+                }
                 const rect = getEditableFixedSidePlacementRect({
                     side,
                     spanLength: side === 'top' || side === 'bottom'
@@ -4608,6 +5889,9 @@ export function createWindowBuilder({
             dividerSegmentsForSide.forEach(segment => {
                 const placement = getDividerPlacedProfile(segment);
                 if (!placement.placedProfile) return;
+                if (isFixedGlassAnchorGasket(profile) && !isProfileVisibleOnHost(profile, 'divider')) {
+                    return;
+                }
                 const rect = getEditableFixedSidePlacementRect({
                     side,
                     spanLength: segment.length,
@@ -4637,7 +5921,7 @@ export function createWindowBuilder({
         }
 
         if (fixedCells.length) {
-            activeProfiles
+            fixedGlazingProfiles
                 .filter(profile => {
                     return getProfileGroup(profile) === 'bead'
                         || isFixedGlassAnchorGasket(profile);
@@ -4657,6 +5941,12 @@ export function createWindowBuilder({
                                 side
                             );
                             if (!placement.profile) return;
+                            if (isFixedGlassAnchorGasket(profile)) {
+                                const hostGroup = String(placement.connectionBoundary || '').startsWith('divider-')
+                                    ? 'divider'
+                                    : 'frame';
+                                if (!isProfileVisibleOnHost(profile, hostGroup)) return;
+                            }
 
                             const mesh = createMiteredSide(
                                 placement.profile,
@@ -4729,6 +6019,14 @@ export function createWindowBuilder({
             pane.userData.glazingCavity = glazingCavity;
             pane.userData.windowCell = cellId || (isFixed ? 'fixed' : 'opening');
             pane.userData.windowGlassCellId = cellId || null;
+            pane.userData.explodeLayer = 'glass';
+            pane.userData.explodeAssemblyKey = `glass:${cellId || (isFixed ? 'fixed' : 'opening')}`;
+            pane.userData.explodeLayout = {
+                axis: null,
+                fallbackSign: 1,
+                requestedDistance: Number(EXPLODE_LAYER_BASE_DISTANCE.glass) || 0,
+                requestedZ: isFixed ? 0.35 : 0.5,
+            };
             if (cellId) {
                 glassHitMeshes.push(pane);
                 const numberSprite = createGlassNumberSprite(cellId, numberIndex);
@@ -4906,7 +6204,17 @@ export function createWindowBuilder({
                         : cell.width / 2 - rightInset + 0.04 - handleInwardShift;
                     const handleX = cell.centerX + handleLocalX;
                     handleBase.position.set(handleX, cell.centerY, sashInteriorZ + 0.0075);
-                    registerExplode(handleBase, isLeftHandle ? -0.26 : 0.26, 0, 0.9);
+                    handleBase.userData.windowCell = cell.id;
+                    handleBase.userData.explodeLayer = 'sash';
+                    handleBase.userData.explodeFollower = true;
+                    handleBase.userData.explodeAssemblyKey = `sash:${cell.id}:${isLeftHandle ? 'left' : 'right'}`;
+                    registerOutwardAxisExplode(
+                        handleBase,
+                        'x',
+                        0.26,
+                        0.9,
+                        isLeftHandle ? -1 : 1
+                    );
                     targetSashGroup.add(handleBase);
                 } else {
                     if (cellIndex === 0) handleLeverGroup = null;
@@ -4997,6 +6305,13 @@ export function createWindowBuilder({
             });
         }
 
+        // Resolve the exploded view only after every profile has been parented
+        // into its final closed-window hierarchy. This gives collision packing
+        // the real configuration-wide XY bounds instead of the temporary local
+        // coordinates used while individual meshes are being created.
+        mainGroup.updateWorldMatrix(true, true);
+        finalizeExplodedLayout();
+
         const t_pics_start = performance.now();
         // Update side-by-side component pictures
         updateComponentPictures();
@@ -5005,6 +6320,7 @@ export function createWindowBuilder({
         const t_house_start = performance.now();
         // Build House Environment
         buildHouse(A, B);
+        alignWindowLayoutAboveGround();
         applyExplodedWindowForwardOffset(explodeProgress);
         const t_house_end = performance.now();
 
@@ -5104,14 +6420,7 @@ export function createWindowBuilder({
 
         const targetExplode = isExploded ? 1 : 0;
         explodeProgress = targetExplode;
-        explodableObjects.forEach(object => {
-            if (object.userData.basePos && object.userData.explodeDir) {
-                object.position.copy(object.userData.basePos)
-                    .addScaledVector(object.userData.explodeDir, targetExplode);
-            }
-        });
-
-        applyExplodedWindowForwardOffset(targetExplode);
+        applyExplodeTransforms(targetExplode);
         mainGroup.updateWorldMatrix(true, true);
     }
 
@@ -5175,13 +6484,7 @@ export function createWindowBuilder({
             isExploded ? 1 : 0,
             0.08
         );
-        explodableObjects.forEach(object => {
-            if (object.userData.basePos && object.userData.explodeDir) {
-                object.position.copy(object.userData.basePos)
-                    .addScaledVector(object.userData.explodeDir, explodeProgress);
-            }
-        });
-        applyExplodedWindowForwardOffset(explodeProgress);
+        applyExplodeTransforms(explodeProgress);
     }
 
     function setProfileData(

@@ -38,10 +38,15 @@ assert.match(dashboardHtml, /id="settingsForm"/);
 assert.match(dashboardHtml, /id="monthAnalyticsBody"/);
 assert.match(dashboardHtml, /id="lifetimeAnalyticsBody"/);
 assert.match(dashboardHtml, /id="planSelect"/);
+assert.match(dashboardHtml, /class="field field--wide logo-upload-field"/);
+assert.match(dashboardHtml, /id="showAllAnalytics"/);
 assert.match(dashboardJs, /getTenantDashboard/);
 assert.match(dashboardJs, /updateTenantDashboard/);
 assert.match(dashboardJs, /signInWithGoogle/);
 assert.match(dashboardJs, /validateSelection/);
+assert.match(dashboardJs, /visibleAnalyticsConfiguratorIds/);
+assert.match(dashboardJs, /renderDashboardAnalytics/);
+assert.match(dashboardJs, /analyticsTotal\(data\.analytics\?\.currentMonth, 'accesses', data\.configurators\)/);
 
 for (const fn of ['getTenantDashboard', 'updateTenantDashboard']) {
   assert.match(workflow, new RegExp(`functions:${fn}`));

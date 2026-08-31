@@ -94,7 +94,7 @@ function cartCurrencyFromText(value, fallback = 'USD') {
   return ['USD', 'EUR', 'RON'].includes(normalizedFallback) ? normalizedFallback : 'USD';
 }
 
-function convertCartMoneyAmount(value, fromCurrency, toCurrency) {
+export function convertCartMoneyAmount(value, fromCurrency, toCurrency) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return 0;
   const from = cartCurrencyFromText(fromCurrency, 'EUR');
@@ -356,39 +356,54 @@ export class StandaloneConfiguratorShell {
     };
   }
 
-  formatCartMoney(value, currency = this.state.currency) {
+  convertMoneyAmount(value, fromCurrency = 'EUR', toCurrency = this.state.currency) {
+    return convertCartMoneyAmount(value, fromCurrency, toCurrency);
+  }
+
+  formatCartMoney(value, currency = this.state.currency, decimals = 0) {
     const amount = Number(value);
     if (!Number.isFinite(amount)) return '—';
     try {
       return new Intl.NumberFormat(this.state.locale || 'en-US', {
         style: 'currency',
         currency: cartCurrencyFromText(currency, this.state.currency),
-        maximumFractionDigits: 0,
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
       }).format(amount);
     } catch {
-      return `${Math.round(amount)} ${cartCurrencyFromText(currency, this.state.currency)}`;
+      return `${amount.toFixed(decimals)} ${cartCurrencyFromText(currency, this.state.currency)}`;
     }
   }
 
   cartRenderItems() {
-    const selectedCurrency = cartCurrencyFromText(this.state.currency, 'USD');
+    const hasWindow = this.cartItems.some((item) => item.productId === 'window');
     return this.cartItems.map((item) => ({
       ...item,
+      // Cart snapshots keep the exact currency captured when the item was added.
+      // Do not silently re-price historical rows when the account currency changes.
       costText: this.formatCartMoney(
-        convertCartMoneyAmount(item.costAmount, item.currency, selectedCurrency),
-        selectedCurrency,
+        item.costAmount,
+        item.currency,
+        (item.productId === 'window' && hasWindow) ? 2 : 0
       ),
     }));
   }
 
   cartTotalText() {
     const selectedCurrency = cartCurrencyFromText(this.state.currency, 'USD');
-    const total = this.cartItems.reduce((sum, item) => sum + Math.max(0, convertCartMoneyAmount(
-      item.costAmount,
-      item.currency,
-      selectedCurrency,
-    )), 0);
-    return this.formatCartMoney(total, selectedCurrency);
+    const hasWindow = this.cartItems.some((item) => item.productId === 'window');
+    const decimals = hasWindow ? 2 : 0;
+    if (!this.cartItems.length) return this.formatCartMoney(0, selectedCurrency, decimals);
+
+    const totalsByCurrency = new Map();
+    this.cartItems.forEach((item) => {
+      const currency = cartCurrencyFromText(item.currency, selectedCurrency);
+      const amount = Math.max(0, Number(item.costAmount) || 0);
+      totalsByCurrency.set(currency, (totalsByCurrency.get(currency) || 0) + amount);
+    });
+    return [...totalsByCurrency.entries()]
+      .map(([currency, amount]) => this.formatCartMoney(amount, currency, decimals))
+      .join(' · ');
   }
 
   async refreshCartFromBackend(uid = this.authUser?.uid, { force = false } = {}) {
@@ -1898,9 +1913,8 @@ export class StandaloneConfiguratorShell {
     this.persistPreferences();
     this.options.callbacks.onPreferenceChange?.(field.dataset.path, field.value, this.state);
     if (field.dataset.path === 'currency') {
-      // Cart snapshots preserve the price/currency captured when they were added,
-      // but the cart itself always renders every row and the total in the user's
-      // currently selected currency. Re-render immediately when that preference changes.
+      // Re-render the current configurator price immediately. Existing cart rows
+      // keep their captured currencies and mixed-currency totals remain separate.
       this.renderHost();
       this.sync();
     }

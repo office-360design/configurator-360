@@ -53,6 +53,9 @@ button { cursor: pointer; }
 .field input, .field select { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid #d0d5dd; border-radius: 9px; background: #fff; color: #101828; outline: none; }
 .field input:focus, .field select:focus { border-color: #667085; box-shadow: 0 0 0 3px rgba(102,112,133,.12); }
 .field small { color: #667085; line-height: 1.45; }
+.logo-upload-field { justify-items: center; text-align: center; }
+.logo-upload-field input[type="file"] { width: auto; max-width: 100%; padding: 6px 10px; }
+.logo-upload-field small { max-width: 520px; }
 .current-logo { min-height: 72px; display: flex; align-items: center; padding: 12px; border: 1px dashed #d0d5dd; border-radius: 10px; color: #667085; }
 .current-logo img { max-width: 220px; max-height: 58px; object-fit: contain; object-position: left center; }
 .inline-option { display: flex; align-items: center; gap: 9px; color: #475467; font-size: 14px; }
@@ -66,6 +69,9 @@ fieldset legend { padding: 0 8px; }
 .status { min-height: 22px; margin-top: 16px; color: #667085; font-size: 14px; }
 .status[data-kind="error"] { color: #b42318; }
 .status[data-kind="success"] { color: #067647; }
+.analytics-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.analytics-toggle { display: inline-flex; align-items: center; gap: 8px; color: #475467; font-size: 13px; font-weight: 650; white-space: nowrap; }
+.analytics-toggle input { margin: 0; }
 .analytics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .analytics-panel { min-width: 0; border: 1px solid #e4e7ec; border-radius: 12px; overflow: hidden; }
 .analytics-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #e4e7ec; }
@@ -85,8 +91,76 @@ tbody tr:last-child td { border-bottom: 0; }
   .dashboard-page { width: min(100% - 22px, 1220px); padding-top: 12px; }
   .dashboard-header, .hero-card, .section-heading { align-items: stretch; flex-direction: column; }
   .auth-panel { justify-content: space-between; }
+  .analytics-actions { align-items: stretch; justify-content: flex-start; flex-direction: column; }
+  .analytics-toggle { min-height: 42px; }
   .hero-actions { justify-content: space-between; }
   .dashboard-card, .hero-card, .message-card { padding: 20px; border-radius: 14px; }
   .form-grid, .metric-grid, .metric-grid--usage { grid-template-columns: 1fr; }
   .configurator-grid { grid-template-columns: 1fr; }
+}
+
+.activity-list { display: grid; gap: 10px; }
+.activity-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  background: #fbfcfd;
+}
+.activity-item__marker {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #111827;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+.activity-item__body { min-width: 0; display: grid; gap: 4px; }
+.activity-item__body strong { font-size: 14px; line-height: 1.4; }
+.activity-item__body span { color: #667085; font-size: 12px; }
+.activity-item__badge {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: #475467;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.activity-empty { margin: 0; padding: 18px; border: 1px dashed #d0d5dd; border-radius: 12px; color: #667085; text-align: center; }
+@media (max-width: 680px) {
+  .activity-item { grid-template-columns: 34px minmax(0, 1fr); align-items: start; }
+  .activity-item__badge { grid-column: 2; justify-self: start; }
+}
+
+.pending-plan-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 0 22px;
+  padding: 16px 18px;
+  border: 1px solid #f6d58b;
+  border-radius: 12px;
+  background: #fffbeb;
+}
+.pending-plan-card__eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: #b54708;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.pending-plan-card strong { display: block; font-size: 15px; }
+.pending-plan-card p { margin: 5px 0 0; color: #667085; font-size: 13px; line-height: 1.45; }
+@media (max-width: 680px) {
+  .pending-plan-card { align-items: stretch; flex-direction: column; }
 }

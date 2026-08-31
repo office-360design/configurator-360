@@ -47,20 +47,39 @@ const TENANT_PUBLIC_COLLECTION = 'tenantPublic';
 const TENANT_PROVISIONING_ADMINS_COLLECTION = 'tenantProvisioningAdmins';
 const TENANT_USAGE_COLLECTION = 'tenantUsage';
 const CONFIGURATOR_ANALYTICS_COLLECTION = 'configuratorAnalytics';
+const TENANT_AUDIT_COLLECTION = 'tenantAuditLogs';
+const TENANT_AUDIT_SCHEMA_VERSION = 1;
+const TENANT_AUDIT_ADMIN_LIMIT = 100;
+const TENANT_AUDIT_DASHBOARD_LIMIT = 25;
 const TENANT_SCHEMA_VERSION = 1;
 const TENANT_PLAN_GO_LIVE_NOW = 'go_live_now';
 const TENANT_SUBSCRIPTION_SCHEMA_VERSION = 1;
 const TENANT_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due', 'suspended', 'cancelled']);
 const TENANT_ACCESSIBLE_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due']);
+const TENANT_PLAN_CHANGE_SCHEMA_VERSION = 1;
+const TENANT_PLAN_CHANGE_STATUS_PENDING = 'pending';
 const TENANT_PLAN_CATALOG = Object.freeze({
   go_live_now_1: Object.freeze({
     id: 'go_live_now_1',
     name: 'Go Live Now — 1 configurator',
+    shortName: '1 configurator',
+    description: 'A simple launch plan for one standard configurator on your company subdomain.',
     maxConfigurators: 1,
+    displayOrder: 10,
+    recommended: false,
+    features: Object.freeze([
+      '1 standard configurator',
+      'Company name and logo',
+      'Customer dashboard',
+      'Saved configurations',
+      'Usage analytics',
+    ]),
     billingInterval: 'month',
     currency: 'EUR',
     monthlyPriceCents: null,
+    annualPriceCents: null,
     stripePriceId: '',
+    stripeAnnualPriceId: '',
     solarUsageLimits: Object.freeze({
       analysesPerMonth: 0,
       buildingInsightsPerMonth: 0,
@@ -71,11 +90,24 @@ const TENANT_PLAN_CATALOG = Object.freeze({
   go_live_now_3: Object.freeze({
     id: 'go_live_now_3',
     name: 'Go Live Now — up to 3 configurators',
+    shortName: 'Up to 3 configurators',
+    description: 'For companies that want several standard configurators under the same branded customer environment.',
     maxConfigurators: 3,
+    displayOrder: 20,
+    recommended: true,
+    features: Object.freeze([
+      'Up to 3 standard configurators',
+      'Company name and logo',
+      'Customer dashboard',
+      'Saved configurations',
+      'Usage analytics',
+    ]),
     billingInterval: 'month',
     currency: 'EUR',
     monthlyPriceCents: null,
+    annualPriceCents: null,
     stripePriceId: '',
+    stripeAnnualPriceId: '',
     solarUsageLimits: Object.freeze({
       analysesPerMonth: 0,
       buildingInsightsPerMonth: 0,
@@ -86,11 +118,24 @@ const TENANT_PLAN_CATALOG = Object.freeze({
   go_live_now_all: Object.freeze({
     id: 'go_live_now_all',
     name: 'Go Live Now — all configurators',
+    shortName: 'All configurators',
+    description: 'The complete Go Live Now package with access to the full standard configurator catalogue.',
     maxConfigurators: 6,
+    displayOrder: 30,
+    recommended: false,
+    features: Object.freeze([
+      'All 6 standard configurators',
+      'Company name and logo',
+      'Customer dashboard',
+      'Saved configurations',
+      'Usage analytics',
+    ]),
     billingInterval: 'month',
     currency: 'EUR',
     monthlyPriceCents: null,
+    annualPriceCents: null,
     stripePriceId: '',
+    stripeAnnualPriceId: '',
     solarUsageLimits: Object.freeze({
       analysesPerMonth: 0,
       buildingInsightsPerMonth: 0,
@@ -1215,16 +1260,79 @@ function validateConfiguratorsForPlan(configurators, planId) {
 }
 
 function publicTenantPlanCatalog() {
-  return Object.values(TENANT_PLAN_CATALOG).map((plan) => ({
-    id: plan.id,
-    name: plan.name,
+  return Object.values(TENANT_PLAN_CATALOG)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((plan) => ({
+      id: plan.id,
+      name: plan.name,
+      shortName: plan.shortName,
+      description: plan.description,
+      maxConfigurators: plan.maxConfigurators,
+      displayOrder: plan.displayOrder,
+      recommended: plan.recommended,
+      features: [...plan.features],
+      billingInterval: plan.billingInterval,
+      currency: plan.currency,
+      monthlyPriceCents: plan.monthlyPriceCents,
+      annualPriceCents: plan.annualPriceCents,
+      stripePriceId: plan.stripePriceId,
+      stripeAnnualPriceId: plan.stripeAnnualPriceId,
+      solarUsageLimits: { ...plan.solarUsageLimits },
+    }));
+}
+
+function normalizedTenantPendingPlanChange(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  if (!source || String(source.status || '').trim().toLowerCase() !== TENANT_PLAN_CHANGE_STATUS_PENDING) return null;
+
+  try {
+    const planId = validateTenantPlanId(source.planId, source.configurators);
+    const configurators = validateConfiguratorsForPlan(source.configurators, planId);
+    return {
+      schemaVersion: Number(source.schemaVersion) || TENANT_PLAN_CHANGE_SCHEMA_VERSION,
+      status: TENANT_PLAN_CHANGE_STATUS_PENDING,
+      planId,
+      configurators,
+      requestedAt: source.requestedAt || null,
+      requestedByUid: String(source.requestedByUid || ''),
+      requestedByEmail: String(source.requestedByEmail || '').trim().toLowerCase(),
+      source: String(source.source || 'tenant_dashboard'),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function tenantPendingPlanChangeView(value, { includeActor = false } = {}) {
+  const pending = normalizedTenantPendingPlanChange(value);
+  if (!pending) return null;
+  const plan = tenantPlan(pending.planId);
+  const result = {
+    status: pending.status,
+    planId: pending.planId,
+    planName: plan.name,
     maxConfigurators: plan.maxConfigurators,
-    billingInterval: plan.billingInterval,
-    currency: plan.currency,
-    monthlyPriceCents: plan.monthlyPriceCents,
-    stripePriceId: plan.stripePriceId,
-    solarUsageLimits: { ...plan.solarUsageLimits },
-  }));
+    configurators: pending.configurators,
+    requestedAtMs: tenantTimestampMs(pending.requestedAt),
+  };
+  if (includeActor) {
+    result.requestedByEmail = pending.requestedByEmail;
+    result.source = pending.source;
+  }
+  return result;
+}
+
+function createTenantPendingPlanChange({ planId, configurators, actor, source = 'tenant_dashboard', now = Timestamp.now() }) {
+  return {
+    schemaVersion: TENANT_PLAN_CHANGE_SCHEMA_VERSION,
+    status: TENANT_PLAN_CHANGE_STATUS_PENDING,
+    planId: validateTenantPlanId(planId, configurators),
+    configurators: validateConfiguratorsForPlan(configurators, planId),
+    requestedAt: now,
+    requestedByUid: String(actor?.uid || ''),
+    requestedByEmail: String(actor?.email || '').trim().toLowerCase(),
+    source: String(source || 'tenant_dashboard'),
+  };
 }
 
 function validateTenantSubscriptionStatus(value) {
@@ -1571,6 +1679,90 @@ function tenantTimestampMs(value) {
   return value && typeof value.toMillis === 'function' ? value.toMillis() : 0;
 }
 
+function tenantAuditEventsCollection(slug) {
+  return db.collection(TENANT_AUDIT_COLLECTION).doc(slug).collection('events');
+}
+
+function tenantAuditEventRef(slug) {
+  return tenantAuditEventsCollection(slug).doc();
+}
+
+function tenantAuditEnabledProducts(configurators = {}) {
+  return [...ALLOWED_PRODUCTS]
+    .filter((product) => configurators?.[product] === true)
+    .sort();
+}
+
+function tenantAuditChangedConfigurators(before = {}, after = {}) {
+  const previous = normalizedTenantConfigurators(before);
+  const next = normalizedTenantConfigurators(after);
+  return {
+    enabled: [...ALLOWED_PRODUCTS].filter((product) => previous[product] !== true && next[product] === true).sort(),
+    disabled: [...ALLOWED_PRODUCTS].filter((product) => previous[product] === true && next[product] !== true).sort(),
+  };
+}
+
+function enabledConfiguratorLabelsForAudit(configurators = {}) {
+  const normalized = normalizedTenantConfigurators(configurators);
+  return [...ALLOWED_PRODUCTS].filter((product) => normalized[product] === true).sort();
+}
+
+function tenantAuditActor(actorType, { uid = '', email = '' } = {}) {
+  return {
+    actorType: String(actorType || 'system'),
+    actorUid: String(uid || ''),
+    actorEmail: String(email || '').trim().toLowerCase(),
+  };
+}
+
+function createTenantAuditPayload({ type, summary, actorType = 'system', actor = {}, details = {}, createdAt = Timestamp.now() }) {
+  return {
+    schemaVersion: TENANT_AUDIT_SCHEMA_VERSION,
+    type: String(type || 'tenant_activity'),
+    summary: String(summary || 'Tenant activity recorded.').slice(0, 500),
+    ...tenantAuditActor(actorType, actor),
+    details: details && typeof details === 'object' && !Array.isArray(details) ? details : {},
+    createdAt,
+  };
+}
+
+function tenantAuditEventView(snapshot, { includeDetails = false } = {}) {
+  const data = snapshot.data() || {};
+  const result = {
+    id: snapshot.id,
+    type: String(data.type || 'tenant_activity'),
+    summary: String(data.summary || 'Tenant activity recorded.'),
+    actorType: String(data.actorType || 'system'),
+    createdAtMs: tenantTimestampMs(data.createdAt),
+  };
+  if (includeDetails) {
+    result.actorEmail = String(data.actorEmail || '').trim().toLowerCase();
+    result.details = data.details && typeof data.details === 'object' && !Array.isArray(data.details) ? data.details : {};
+  }
+  return result;
+}
+
+async function tenantAuditEventsForTenant(slug, { limit = TENANT_AUDIT_DASHBOARD_LIMIT, includeDetails = false } = {}) {
+  const cappedLimit = Math.max(1, Math.min(TENANT_AUDIT_ADMIN_LIMIT, Number(limit) || TENANT_AUDIT_DASHBOARD_LIMIT));
+  const snapshot = await tenantAuditEventsCollection(slug)
+    .orderBy('createdAt', 'desc')
+    .limit(cappedLimit)
+    .get();
+  return snapshot.docs.map((doc) => tenantAuditEventView(doc, { includeDetails }));
+}
+
+function tenantAuditSummary(prefix, changedFields = []) {
+  const fields = changedFields.filter(Boolean);
+  if (!fields.length) return '';
+  if (fields.length === 1) return `${prefix} ${fields[0]}.`;
+  if (fields.length === 2) return `${prefix} ${fields[0]} and ${fields[1]}.`;
+  return `${prefix} ${fields.slice(0, -1).join(', ')}, and ${fields.at(-1)}.`;
+}
+
+function tenantAuditSubscriptionLabel(value) {
+  return String(value || 'unknown').replaceAll('_', ' ');
+}
+
 function tenantAdminSummaryFromSnapshot(snapshot) {
   const data = snapshot.data() || {};
   const slug = normalizeTenantSlug(data.slug || snapshot.id);
@@ -1587,6 +1779,7 @@ function tenantAdminSummaryFromSnapshot(snapshot) {
     planName: plan.name,
     maxConfigurators: plan.maxConfigurators,
     subscription,
+    pendingPlanChange: tenantPendingPlanChangeView(data.pendingPlanChange, { includeActor: true }),
     configurators,
     ownerEmail: String(data.ownerEmail || '').trim().toLowerCase(),
     hasLogo: Boolean(String(data.logoUrl || '').trim()),
@@ -1596,7 +1789,7 @@ function tenantAdminSummaryFromSnapshot(snapshot) {
   };
 }
 
-function tenantAdminDetailFromSnapshot(snapshot, usage = null, analytics = null) {
+function tenantAdminDetailFromSnapshot(snapshot, usage = null, analytics = null, auditEvents = null) {
   const data = snapshot.data() || {};
   return {
     ...tenantAdminSummaryFromSnapshot(snapshot),
@@ -1613,6 +1806,7 @@ function tenantAdminDetailFromSnapshot(snapshot, usage = null, analytics = null)
       lifetime: emptyConfiguratorAnalytics(),
       updatedAtMs: 0,
     },
+    auditEvents: Array.isArray(auditEvents) ? auditEvents : [],
   };
 }
 
@@ -1640,8 +1834,8 @@ async function requireTenantDashboardOwner(request) {
   }
 
   const ref = db.collection(TENANTS_COLLECTION).doc(slug);
-  const snapshot = await ref.get();
-  const tenant = snapshot.data() || {};
+  let snapshot = await ref.get();
+  let tenant = snapshot.data() || {};
   if (!snapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
     throw new HttpsError('not-found', 'Tier-1 tenant not found.');
   }
@@ -1660,13 +1854,40 @@ async function requireTenantDashboardOwner(request) {
     if (ownerEmail !== email) {
       throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
     }
-    await ref.update({ ownerUid: uid, ownerBoundAt: Timestamp.now() });
+
+    const now = Timestamp.now();
+    const auditRef = tenantAuditEventRef(slug);
+    await db.runTransaction(async (transaction) => {
+      const currentSnapshot = await transaction.get(ref);
+      const current = currentSnapshot.data() || {};
+      if (!currentSnapshot.exists || current.plan !== TENANT_PLAN_GO_LIVE_NOW) {
+        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      }
+      const currentOwnerEmail = String(current.ownerEmail || '').trim().toLowerCase();
+      const currentOwnerUid = String(current.ownerUid || '').trim();
+      if (currentOwnerEmail !== email || (currentOwnerUid && currentOwnerUid !== uid)) {
+        throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
+      }
+      if (!currentOwnerUid) {
+        transaction.update(ref, { ownerUid: uid, ownerBoundAt: now });
+        transaction.create(auditRef, createTenantAuditPayload({
+          type: 'dashboard_owner_claimed',
+          summary: 'Dashboard ownership linked to a verified account.',
+          actorType: 'tenant_owner',
+          actor: { uid, email },
+          details: { changes: [`Dashboard owner verified: ${email}`] },
+          createdAt: now,
+        }));
+      }
+    });
+    snapshot = await ref.get();
+    tenant = snapshot.data() || {};
   }
 
   return { uid, email, slug, ref, snapshot, tenant };
 }
 
-function tenantDashboardViewFromSnapshot(snapshot, analytics = null, usage = null) {
+function tenantDashboardViewFromSnapshot(snapshot, analytics = null, usage = null, auditEvents = null) {
   const data = snapshot.data() || {};
   const slug = normalizeTenantSlug(data.slug || snapshot.id);
   const configurators = normalizedTenantConfigurators(data.configurators);
@@ -1687,6 +1908,7 @@ function tenantDashboardViewFromSnapshot(snapshot, analytics = null, usage = nul
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       currentPeriodEndMs: tenantTimestampMs(subscription.currentPeriodEnd),
     },
+    pendingPlanChange: tenantPendingPlanChangeView(data.pendingPlanChange),
     configurators,
     plans: publicTenantPlanCatalog(),
     analytics: analytics || {
@@ -1700,6 +1922,7 @@ function tenantDashboardViewFromSnapshot(snapshot, analytics = null, usage = nul
       solar: normalizedSolarUsage(null),
       updatedAtMs: 0,
     },
+    auditEvents: Array.isArray(auditEvents) ? auditEvents : [],
   };
 }
 
@@ -2112,6 +2335,16 @@ const TENANT_DASHBOARD_CALLABLE_OPTIONS = Object.freeze({
   memory: '256MiB',
 });
 
+const PUBLIC_PLAN_CATALOG_CALLABLE_OPTIONS = Object.freeze({
+  region: FUNCTION_REGION,
+  serviceAccount: RUNTIME_SERVICE_ACCOUNT,
+  // Plan metadata is intentionally public. No customer or billing-provider
+  // state is returned by this endpoint.
+  enforceAppCheck: false,
+  timeoutSeconds: 15,
+  memory: '256MiB',
+});
+
 const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
   ...TENANT_ADMIN_CALLABLE_OPTIONS,
   // Identity Platform authorizedDomains is a project-level read/modify/write
@@ -2142,12 +2375,13 @@ exports.getTenantDashboard = onCall(
   TENANT_DASHBOARD_CALLABLE_OPTIONS,
   async (request) => {
     const access = await requireTenantDashboardOwner(request);
-    const [snapshot, analytics, usage] = await Promise.all([
+    const [snapshot, analytics, usage, auditEvents] = await Promise.all([
       access.ref.get(),
       configuratorAnalyticsForScope(analyticsScopeIdForTenant(access.slug)),
       tenantUsageForMonth(access.slug),
+      tenantAuditEventsForTenant(access.slug, { limit: TENANT_AUDIT_DASHBOARD_LIMIT, includeDetails: false }),
     ]);
-    return tenantDashboardViewFromSnapshot(snapshot, analytics, usage);
+    return tenantDashboardViewFromSnapshot(snapshot, analytics, usage, auditEvents);
   },
 );
 
@@ -2175,12 +2409,17 @@ exports.updateTenantDashboard = onCall(
         ? validateTenantCompanyName(input.companyName)
         : validateTenantCompanyName(tenant.companyName);
       const existingConfigurators = validateTenantConfigurators(tenant.configurators);
-      const planId = hasOwn('planId')
+      const currentPlanId = validateTenantPlanId(tenant.planId, existingConfigurators);
+      const requestedPlanId = hasOwn('planId')
         ? validateTenantPlanId(input.planId, existingConfigurators)
-        : validateTenantPlanId(tenant.planId, existingConfigurators);
-      const configurators = hasOwn('configurators')
-        ? validateConfiguratorsForPlan(input.configurators, planId)
-        : validateConfiguratorsForPlan(existingConfigurators, planId);
+        : currentPlanId;
+      const requestedConfigurators = hasOwn('configurators')
+        ? validateConfiguratorsForPlan(input.configurators, requestedPlanId)
+        : validateConfiguratorsForPlan(existingConfigurators, requestedPlanId);
+      const isPlanChangeRequest = requestedPlanId !== currentPlanId;
+      const configurators = isPlanChangeRequest
+        ? existingConfigurators
+        : validateConfiguratorsForPlan(requestedConfigurators, currentPlanId);
 
       const logoMode = hasOwn('logoMode') ? String(input.logoMode || '').trim().toLowerCase() : 'keep';
       if (!['keep', 'replace', 'remove'].includes(logoMode)) {
@@ -2193,26 +2432,151 @@ exports.updateTenantDashboard = onCall(
         if (!logoUrl) throw new HttpsError('invalid-argument', 'Choose a logo image to replace the current logo.');
       }
 
-      const synchronizedFields = { companyName, configurators, logoUrl, updatedAt: now };
-      transaction.update(access.ref, {
-        ...synchronizedFields,
-        planId,
+      const privateUpdate = {
+        companyName,
+        configurators,
+        logoUrl,
+        planId: currentPlanId,
+        updatedAt: now,
         lastSelfServiceUpdateByUid: access.uid,
         lastSelfServiceUpdateByEmail: access.email,
-      });
+      };
+      const existingPending = normalizedTenantPendingPlanChange(tenant.pendingPlanChange);
+      let pendingPlanChangeChanged = false;
+      if (isPlanChangeRequest) {
+        const requestedSignature = JSON.stringify({ planId: requestedPlanId, configurators: requestedConfigurators });
+        const existingSignature = existingPending
+          ? JSON.stringify({ planId: existingPending.planId, configurators: existingPending.configurators })
+          : '';
+        if (requestedSignature !== existingSignature) {
+          privateUpdate.pendingPlanChange = createTenantPendingPlanChange({
+            planId: requestedPlanId,
+            configurators: requestedConfigurators,
+            actor: { uid: access.uid, email: access.email },
+            now,
+          });
+          pendingPlanChangeChanged = true;
+        }
+      }
+
+      const synchronizedFields = { companyName, configurators, logoUrl, updatedAt: now };
+      transaction.update(access.ref, privateUpdate);
       transaction.update(publicRef, synchronizedFields);
+
+      const configuratorChanges = tenantAuditChangedConfigurators(existingConfigurators, configurators);
+      const changedFields = [];
+      const changes = [];
+      if (String(tenant.companyName || '') !== companyName) {
+        changedFields.push('company name');
+        changes.push(`Company name: ${String(tenant.companyName || '')} → ${companyName}`);
+      }
+      if (configuratorChanges.enabled.length || configuratorChanges.disabled.length) {
+        changedFields.push('configurators');
+        if (configuratorChanges.enabled.length) changes.push(`Enabled configurators: ${configuratorChanges.enabled.join(', ')}`);
+        if (configuratorChanges.disabled.length) changes.push(`Disabled configurators: ${configuratorChanges.disabled.join(', ')}`);
+      }
+      const previousHasLogo = Boolean(String(tenant.logoUrl || '').trim());
+      const nextHasLogo = Boolean(String(logoUrl || '').trim());
+      if (logoMode !== 'keep' && (previousHasLogo !== nextHasLogo || logoMode === 'replace')) {
+        changedFields.push('logo');
+        changes.push(logoMode === 'remove' ? 'Logo removed' : previousHasLogo ? 'Logo replaced' : 'Logo added');
+      }
+      const summary = tenantAuditSummary('Customer dashboard updated', changedFields);
+      if (summary) {
+        transaction.create(tenantAuditEventRef(access.slug), createTenantAuditPayload({
+          type: 'tenant_dashboard_updated',
+          summary,
+          actorType: 'tenant_owner',
+          actor: { uid: access.uid, email: access.email },
+          details: {
+            changes,
+            changedFields,
+            enabledConfigurators: configuratorChanges.enabled,
+            disabledConfigurators: configuratorChanges.disabled,
+          },
+          createdAt: now,
+        }));
+      }
+
+      if (pendingPlanChangeChanged) {
+        transaction.create(tenantAuditEventRef(access.slug), createTenantAuditPayload({
+          type: 'plan_change_requested',
+          summary: `Plan change requested from ${tenantPlan(currentPlanId).name} to ${tenantPlan(requestedPlanId).name}.`,
+          actorType: 'tenant_owner',
+          actor: { uid: access.uid, email: access.email },
+          details: {
+            changes: [
+              `Requested plan: ${currentPlanId} → ${requestedPlanId}`,
+              `Requested configurators: ${enabledConfiguratorLabelsForAudit(requestedConfigurators).join(', ')}`,
+            ],
+            planFrom: currentPlanId,
+            planTo: requestedPlanId,
+            requestedConfigurators,
+            replacedPendingRequest: Boolean(existingPending),
+          },
+          createdAt: now,
+        }));
+      }
     });
 
-    const [snapshot, analytics, usage] = await Promise.all([
+    const [snapshot, analytics, usage, auditEvents] = await Promise.all([
       access.ref.get(),
       configuratorAnalyticsForScope(analyticsScopeIdForTenant(access.slug)),
       tenantUsageForMonth(access.slug),
+      tenantAuditEventsForTenant(access.slug, { limit: TENANT_AUDIT_DASHBOARD_LIMIT, includeDetails: false }),
     ]);
     logger.info('Tier-1 tenant updated through customer dashboard.', {
       slug: access.slug,
       updatedByUid: access.uid,
     });
-    return tenantDashboardViewFromSnapshot(snapshot, analytics, usage);
+    return tenantDashboardViewFromSnapshot(snapshot, analytics, usage, auditEvents);
+  },
+);
+
+exports.cancelTenantPlanChange = onCall(
+  TENANT_DASHBOARD_CALLABLE_OPTIONS,
+  async (request) => {
+    const access = await requireTenantDashboardOwner(request);
+    const now = Timestamp.now();
+
+    await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(access.ref);
+      const tenant = snapshot.data() || {};
+      if (!snapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
+        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      }
+      if (String(tenant.ownerUid || '') !== access.uid) {
+        throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
+      }
+      const pending = normalizedTenantPendingPlanChange(tenant.pendingPlanChange);
+      if (!pending) return;
+
+      transaction.update(access.ref, {
+        pendingPlanChange: FieldValue.delete(),
+        updatedAt: now,
+        lastSelfServiceUpdateByUid: access.uid,
+        lastSelfServiceUpdateByEmail: access.email,
+      });
+      transaction.create(tenantAuditEventRef(access.slug), createTenantAuditPayload({
+        type: 'plan_change_cancelled',
+        summary: `Pending plan change to ${tenantPlan(pending.planId).name} was cancelled.`,
+        actorType: 'tenant_owner',
+        actor: { uid: access.uid, email: access.email },
+        details: {
+          changes: [`Cancelled requested plan: ${pending.planId}`],
+          planTo: pending.planId,
+        },
+        createdAt: now,
+      }));
+    });
+
+    const [snapshot, analytics, usage, auditEvents] = await Promise.all([
+      access.ref.get(),
+      configuratorAnalyticsForScope(analyticsScopeIdForTenant(access.slug)),
+      tenantUsageForMonth(access.slug),
+      tenantAuditEventsForTenant(access.slug, { limit: TENANT_AUDIT_DASHBOARD_LIMIT, includeDetails: false }),
+    ]);
+    return tenantDashboardViewFromSnapshot(snapshot, analytics, usage, auditEvents);
   },
 );
 
@@ -2230,6 +2594,17 @@ exports.getTenantPlans = onCall(
   async (request) => {
     requireTenantAdminOrigin(request);
     await requireTenantProvisioningAdmin(request);
+    return { plans: publicTenantPlanCatalog() };
+  },
+);
+
+exports.getPublicTenantPlans = onCall(
+  PUBLIC_PLAN_CATALOG_CALLABLE_OPTIONS,
+  async (request) => {
+    const origin = requestOrigin(request);
+    if (!ALLOWED_CONFIGURATOR_ORIGINS.has(origin) && !USER_CONFIGURATION_DEVELOPMENT_ORIGIN.test(origin)) {
+      throw new HttpsError('permission-denied', 'Plan catalogue is not available from this origin.');
+    }
     return { plans: publicTenantPlanCatalog() };
   },
 );
@@ -2252,6 +2627,7 @@ exports.provisionTenant = onCall(
     const domain = `${slug}.360configurator.com`;
     const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
     const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
+    const auditRef = tenantAuditEventRef(slug);
 
     // Fail before touching Firebase Auth when a Firestore tenant already owns
     // the slug. The transaction below repeats this check before creating data.
@@ -2313,6 +2689,24 @@ exports.provisionTenant = onCall(
         createdAt: now,
         updatedAt: now,
       });
+      transaction.create(auditRef, createTenantAuditPayload({
+        type: 'tenant_created',
+        summary: 'Tenant created and activated.',
+        actorType: 'admin',
+        actor: admin,
+        details: {
+          changes: [
+            `Company: ${companyName}`,
+            `Plan: ${planId}`,
+            `Enabled configurators: ${tenantAuditEnabledProducts(configurators).join(', ')}`,
+            ...(ownerEmail ? [`Dashboard owner assigned: ${ownerEmail}`] : []),
+          ],
+          planId,
+          enabledConfigurators: tenantAuditEnabledProducts(configurators),
+          ownerEmail,
+        },
+        createdAt: now,
+      }));
     });
 
     logger.info('Tier-1 tenant provisioned.', {
@@ -2365,11 +2759,12 @@ exports.getTenant = onCall(
     await requireTenantProvisioningAdmin(request);
     const slug = validateTenantSlug(request.data?.slug);
     const snapshot = await requireGoLiveNowTenant(slug);
-    const [usage, analytics] = await Promise.all([
+    const [usage, analytics, auditEvents] = await Promise.all([
       tenantUsageForMonth(slug),
       configuratorAnalyticsForScope(analyticsScopeIdForTenant(slug)),
+      tenantAuditEventsForTenant(slug, { limit: TENANT_AUDIT_ADMIN_LIMIT, includeDetails: true }),
     ]);
-    return tenantAdminDetailFromSnapshot(snapshot, usage, analytics);
+    return tenantAdminDetailFromSnapshot(snapshot, usage, analytics, auditEvents);
   },
 );
 
@@ -2385,6 +2780,7 @@ exports.updateTenant = onCall(
     const expectedDomain = `${slug}.360configurator.com`;
     const now = Timestamp.now();
     const hasOwn = (key) => Object.prototype.hasOwnProperty.call(input, key);
+    const auditRef = tenantAuditEventRef(slug);
 
     const result = await db.runTransaction(async (transaction) => {
       const privateSnapshot = await transaction.get(privateRef);
@@ -2452,8 +2848,12 @@ exports.updateTenant = onCall(
         logoUrl,
         updatedAt: now,
       };
-
-      transaction.update(privateRef, {
+      const previousPlanId = validateTenantPlanId(tenant.planId, existingConfigurators);
+      const configuratorChanges = tenantAuditChangedConfigurators(existingConfigurators, configurators);
+      const existingPendingPlanChange = normalizedTenantPendingPlanChange(tenant.pendingPlanChange);
+      const clearPendingPlanChange = Boolean(existingPendingPlanChange)
+        && (previousPlanId !== planId || configuratorChanges.enabled.length || configuratorChanges.disabled.length);
+      const privateUpdate = {
         ...synchronizedFields,
         planId,
         subscription,
@@ -2463,8 +2863,69 @@ exports.updateTenant = onCall(
         ownerUid,
         lastUpdatedByUid: admin.uid,
         lastUpdatedByEmail: admin.email,
-      });
+      };
+      if (clearPendingPlanChange) privateUpdate.pendingPlanChange = FieldValue.delete();
+
+      transaction.update(privateRef, privateUpdate);
       transaction.update(publicRef, synchronizedFields);
+
+      const previousLimits = normalizedSolarUsageLimits(tenant.solarUsageLimits);
+      const changedFields = [];
+      const changes = [];
+      if (String(tenant.companyName || '') !== companyName) {
+        changedFields.push('company name');
+        changes.push(`Company name: ${String(tenant.companyName || '')} → ${companyName}`);
+      }
+      if (previousPlanId !== planId) {
+        changedFields.push('plan');
+        changes.push(`Plan: ${previousPlanId} → ${planId}`);
+      }
+      if (clearPendingPlanChange) {
+        changedFields.push('pending plan change');
+        changes.push(`Pending plan request to ${existingPendingPlanChange.planId} cleared by direct admin plan/configurator update`);
+      }
+      if (configuratorChanges.enabled.length || configuratorChanges.disabled.length) {
+        changedFields.push('configurators');
+        if (configuratorChanges.enabled.length) changes.push(`Enabled configurators: ${configuratorChanges.enabled.join(', ')}`);
+        if (configuratorChanges.disabled.length) changes.push(`Disabled configurators: ${configuratorChanges.disabled.join(', ')}`);
+      }
+      const previousHasLogo = Boolean(String(tenant.logoUrl || '').trim());
+      const nextHasLogo = Boolean(String(logoUrl || '').trim());
+      if (logoMode !== 'keep' && (previousHasLogo !== nextHasLogo || logoMode === 'replace')) {
+        changedFields.push('logo');
+        changes.push(logoMode === 'remove' ? 'Logo removed' : previousHasLogo ? 'Logo replaced' : 'Logo added');
+      }
+      if (previousOwnerEmail !== ownerEmail) {
+        changedFields.push('dashboard owner');
+        changes.push(`Dashboard owner: ${previousOwnerEmail || 'unassigned'} → ${ownerEmail || 'unassigned'}`);
+      }
+      if (JSON.stringify(previousLimits) !== JSON.stringify(solarUsageLimits)) {
+        changedFields.push('Solar usage limits');
+        changes.push(`Solar usage limits: ${JSON.stringify(previousLimits)} → ${JSON.stringify(solarUsageLimits)}`);
+      }
+      const previousSubscription = normalizedTenantSubscription(tenant.subscription, tenant.status);
+      if (previousSubscription.status !== subscription.status) {
+        changedFields.push('tenant status');
+        changes.push(`Subscription status: ${tenantAuditSubscriptionLabel(previousSubscription.status)} → ${tenantAuditSubscriptionLabel(subscription.status)}`);
+      }
+      const summary = tenantAuditSummary('360Configurator admin updated', changedFields);
+      if (summary) {
+        transaction.create(auditRef, createTenantAuditPayload({
+          type: 'tenant_admin_updated',
+          summary,
+          actorType: 'admin',
+          actor: admin,
+          details: {
+            changes,
+            changedFields,
+            planFrom: previousPlanId,
+            planTo: planId,
+            enabledConfigurators: configuratorChanges.enabled,
+            disabledConfigurators: configuratorChanges.disabled,
+          },
+          createdAt: now,
+        }));
+      }
 
       return {
         slug,
@@ -2475,6 +2936,9 @@ exports.updateTenant = onCall(
         planName: tenantPlan(planId).name,
         maxConfigurators: tenantPlan(planId).maxConfigurators,
         subscription: subscriptionAdminView(subscription, status),
+        pendingPlanChange: clearPendingPlanChange
+          ? null
+          : tenantPendingPlanChangeView(tenant.pendingPlanChange, { includeActor: true }),
         configurators,
         logoUrl,
         solarUsageLimits,
@@ -2485,9 +2949,10 @@ exports.updateTenant = onCall(
       };
     });
 
-    [result.usage, result.analytics] = await Promise.all([
+    [result.usage, result.analytics, result.auditEvents] = await Promise.all([
       tenantUsageForMonth(slug),
       configuratorAnalyticsForScope(analyticsScopeIdForTenant(slug)),
+      tenantAuditEventsForTenant(slug, { limit: TENANT_AUDIT_ADMIN_LIMIT, includeDetails: true }),
     ]);
 
     logger.info('Tier-1 tenant updated.', {
@@ -2498,6 +2963,100 @@ exports.updateTenant = onCall(
     });
 
     return result;
+  },
+);
+
+exports.resolveTenantPlanChange = onCall(
+  TENANT_ADMIN_CALLABLE_OPTIONS,
+  async (request) => {
+    requireTenantAdminOrigin(request);
+    const admin = await requireTenantProvisioningAdmin(request);
+    const input = request.data && typeof request.data === 'object' ? request.data : {};
+    const slug = validateTenantSlug(input.slug);
+    const decision = String(input.decision || '').trim().toLowerCase();
+    if (!['approve', 'reject'].includes(decision)) {
+      throw new HttpsError('invalid-argument', 'Plan change decision must be approve or reject.');
+    }
+
+    const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
+    const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
+    const now = Timestamp.now();
+
+    await db.runTransaction(async (transaction) => {
+      const privateSnapshot = await transaction.get(privateRef);
+      const publicSnapshot = await transaction.get(publicRef);
+      const tenant = privateSnapshot.data() || {};
+      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW || !publicSnapshot.exists) {
+        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      }
+
+      const pending = normalizedTenantPendingPlanChange(tenant.pendingPlanChange);
+      if (!pending) throw new HttpsError('failed-precondition', 'This tenant has no pending plan change.');
+      const currentConfigurators = validateTenantConfigurators(tenant.configurators);
+      const currentPlanId = validateTenantPlanId(tenant.planId, currentConfigurators);
+      const auditRef = tenantAuditEventRef(slug);
+
+      if (decision === 'approve') {
+        const targetPlanId = validateTenantPlanId(pending.planId, pending.configurators);
+        const targetConfigurators = validateConfiguratorsForPlan(pending.configurators, targetPlanId);
+        transaction.update(privateRef, {
+          planId: targetPlanId,
+          configurators: targetConfigurators,
+          pendingPlanChange: FieldValue.delete(),
+          updatedAt: now,
+          lastUpdatedByUid: admin.uid,
+          lastUpdatedByEmail: admin.email,
+        });
+        transaction.update(publicRef, {
+          configurators: targetConfigurators,
+          updatedAt: now,
+        });
+        transaction.create(auditRef, createTenantAuditPayload({
+          type: 'plan_change_approved',
+          summary: `Plan change to ${tenantPlan(targetPlanId).name} was approved.`,
+          actorType: 'admin',
+          actor: admin,
+          details: {
+            changes: [
+              `Plan: ${currentPlanId} → ${targetPlanId}`,
+              `Enabled configurators: ${enabledConfiguratorLabelsForAudit(targetConfigurators).join(', ')}`,
+            ],
+            planFrom: currentPlanId,
+            planTo: targetPlanId,
+            requestedByEmail: pending.requestedByEmail,
+          },
+          createdAt: now,
+        }));
+      } else {
+        transaction.update(privateRef, {
+          pendingPlanChange: FieldValue.delete(),
+          updatedAt: now,
+          lastUpdatedByUid: admin.uid,
+          lastUpdatedByEmail: admin.email,
+        });
+        transaction.create(auditRef, createTenantAuditPayload({
+          type: 'plan_change_rejected',
+          summary: `Plan change to ${tenantPlan(pending.planId).name} was rejected.`,
+          actorType: 'admin',
+          actor: admin,
+          details: {
+            changes: [`Rejected requested plan: ${pending.planId}`],
+            planFrom: currentPlanId,
+            planTo: pending.planId,
+            requestedByEmail: pending.requestedByEmail,
+          },
+          createdAt: now,
+        }));
+      }
+    });
+
+    const snapshot = await requireGoLiveNowTenant(slug);
+    const [usage, analytics, auditEvents] = await Promise.all([
+      tenantUsageForMonth(slug),
+      configuratorAnalyticsForScope(analyticsScopeIdForTenant(slug)),
+      tenantAuditEventsForTenant(slug, { limit: TENANT_AUDIT_ADMIN_LIMIT, includeDetails: true }),
+    ]);
+    return tenantAdminDetailFromSnapshot(snapshot, usage, analytics, auditEvents);
   },
 );
 
@@ -2513,6 +3072,7 @@ exports.setTenantSubscriptionState = onCall(
     const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
     const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
     const now = Timestamp.now();
+    const auditRef = tenantAuditEventRef(slug);
 
     const result = await db.runTransaction(async (transaction) => {
       const privateSnapshot = await transaction.get(privateRef);
@@ -2550,6 +3110,35 @@ exports.setTenantSubscriptionState = onCall(
         status: runtimeStatus,
         updatedAt: now,
       });
+
+      if (
+        currentSubscription.status !== subscription.status
+        || currentSubscription.cancelAtPeriodEnd !== subscription.cancelAtPeriodEnd
+      ) {
+        const changes = [];
+        if (currentSubscription.status !== subscription.status) {
+          changes.push(`Status: ${tenantAuditSubscriptionLabel(currentSubscription.status)} → ${tenantAuditSubscriptionLabel(subscription.status)}`);
+        }
+        if (currentSubscription.cancelAtPeriodEnd !== subscription.cancelAtPeriodEnd) {
+          changes.push(`Cancel at period end: ${currentSubscription.cancelAtPeriodEnd ? 'on' : 'off'} → ${subscription.cancelAtPeriodEnd ? 'on' : 'off'}`);
+        }
+        transaction.create(auditRef, createTenantAuditPayload({
+          type: 'subscription_state_changed',
+          summary: currentSubscription.status !== subscription.status
+            ? `Subscription changed from ${tenantAuditSubscriptionLabel(currentSubscription.status)} to ${tenantAuditSubscriptionLabel(subscription.status)}.`
+            : 'Subscription cancellation schedule updated.',
+          actorType: 'admin',
+          actor: admin,
+          details: {
+            changes,
+            statusFrom: currentSubscription.status,
+            statusTo: subscription.status,
+            cancelAtPeriodEndFrom: currentSubscription.cancelAtPeriodEnd,
+            cancelAtPeriodEndTo: subscription.cancelAtPeriodEnd,
+          },
+          createdAt: now,
+        }));
+      }
 
       return {
         slug,
