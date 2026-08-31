@@ -1,6 +1,6 @@
 import { sharedT } from '../i18n.js?v=24';
 import { sharedIcon } from '../icons.js?v=20';
-import { installQuotationRequestController } from '../quotationRequest.js?v=2';
+import { installQuotationRequestController } from '../quotationRequest.js?v=3';
 import { escapeHtml } from '../utils.js';
 
 installQuotationRequestController();
@@ -11,8 +11,8 @@ const SUPPORTED_CURRENCIES = new Set(['EUR', 'USD', 'RON']);
 function normalizedCurrency(value = '', fallback = 'USD') {
   const normalized = String(value || '').trim().toUpperCase();
   if (SUPPORTED_CURRENCIES.has(normalized)) return normalized;
-  const fallbackCurrency = String(fallback || '').trim().toUpperCase();
-  return SUPPORTED_CURRENCIES.has(fallbackCurrency) ? fallbackCurrency : 'USD';
+  const normalizedFallback = String(fallback || '').trim().toUpperCase();
+  return SUPPORTED_CURRENCIES.has(normalizedFallback) ? normalizedFallback : 'USD';
 }
 
 function localeDefaultCurrency(locale = 'en-US') {
@@ -22,10 +22,13 @@ function localeDefaultCurrency(locale = 'en-US') {
 }
 
 function selectedCartCurrency(locale = 'en-US') {
-  const control = document.querySelector('[data-path="currency"]');
+  // The shared account selector is the single source of truth for the cart
+  // presentation currency. renderHost() is called after this select changes,
+  // so its live value is available before the replacement DOM is committed.
+  const control = document.querySelector('.shared-ui-host [data-path="currency"]')
+    || document.querySelector('[data-path="currency"]');
   const selected = String(control?.value || '').trim().toUpperCase();
-  if (SUPPORTED_CURRENCIES.has(selected)) return selected;
-  return localeDefaultCurrency(locale);
+  return SUPPORTED_CURRENCIES.has(selected) ? selected : localeDefaultCurrency(locale);
 }
 
 function convertMoney(value, fromCurrency, toCurrency) {
@@ -64,7 +67,9 @@ function parseMoneyText(value = '') {
 
 function cartItemAmount(item) {
   const explicit = Number(item?.costAmount);
-  return Number.isFinite(explicit) ? Math.max(0, explicit) : Math.max(0, parseMoneyText(item?.costText));
+  return Number.isFinite(explicit)
+    ? Math.max(0, explicit)
+    : Math.max(0, parseMoneyText(item?.costText));
 }
 
 function formatMoney(value, currency, locale) {
@@ -82,17 +87,20 @@ function formatMoney(value, currency, locale) {
 }
 
 function cartDisplayModel(locale, items) {
-  const selectedCurrency = selectedCartCurrency(locale);
+  const currency = selectedCartCurrency(locale);
   let total = 0;
   const displayItems = items.map((item) => {
-    const converted = convertMoney(cartItemAmount(item), item?.currency, selectedCurrency);
-    total += Math.max(0, converted);
-    return { ...item, costText: formatMoney(converted, selectedCurrency, locale) };
+    const converted = Math.max(0, convertMoney(cartItemAmount(item), item?.currency, currency));
+    total += converted;
+    return {
+      ...item,
+      costText: formatMoney(converted, currency, locale),
+    };
   });
   return {
-    selectedCurrency,
+    currency,
     displayItems,
-    totalText: formatMoney(total, selectedCurrency, locale),
+    totalText: formatMoney(total, currency, locale),
   };
 }
 
@@ -127,7 +135,7 @@ export function renderCartMenu(locale, items = [], { open = false, busy = false 
   const emptyLabel = escapeHtml(sharedT(locale, 'cart.emptyCart'));
   const quoteLabel = escapeHtml(sharedT(locale, 'cart.quote'));
   const quotationLocale = escapeHtml(String(locale || 'en-US'));
-  const quotationCurrency = escapeHtml(model.selectedCurrency);
+  const quotationCurrency = escapeHtml(model.currency);
   return `
     <section class="cart-menu ${open ? 'is-open' : ''}" data-cart-menu data-quotation-locale="${quotationLocale}" data-quotation-currency="${quotationCurrency}" aria-label="${escapeHtml(sharedT(locale, 'cart.title'))}">
       <div class="cart-menu__header">

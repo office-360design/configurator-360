@@ -675,7 +675,7 @@ exports.requestCartQuotation = onCall(
       uid,
       tenantSlug: tenantSlug || null,
       origin,
-      itemCount: items.length,
+      itemCount: prepared.items.length,
       locale,
       currency,
       recipientDomain: TEST_QUOTATION_RECIPIENT.split('@')[1],
@@ -684,7 +684,7 @@ exports.requestCartQuotation = onCall(
     return {
       success: true,
       delivered: true,
-      itemCount: items.length,
+      itemCount: prepared.items.length,
       currency,
       totalText: presentation.totalText,
     };
