@@ -229,6 +229,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Anonymous MCP creation quotas are maintained only by the Cloud Run
+    // service account. Browsers cannot inspect or alter hashed rate counters.
+    match /chatgptPluginRateLimits/{item} {
+      allow read, write: if false;
+    }
+
     function shareUsageControlPath() {
       return /databases/$(database)/documents/sharedConfigurationSystem/appCheckUsage;
     }

@@ -1,0 +1,73 @@
+name: Deploy ChatGPT plugin MCP server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'chatgpt-plugin-server/**'
+      - '.github/workflows/deploy-chatgpt-plugin.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: cloud-run-chatgpt-plugin
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: configurator-360
+  GCP_REGION: europe-central2
+  GAR_REPOSITORY: configurators
+  CLOUD_RUN_SERVICE: configurator-chatgpt-mcp
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install and validate
+        working-directory: chatgpt-plugin-server
+        # tsx/esbuild require their platform binary during test/build.  Do not
+        # suppress package lifecycle scripts here; this lockfile is committed
+        # with the server and npm ci provides the reproducible install.
+        # The MCP contract test reads the bundled Apps preview resource, so
+        # build it before executing the tests. GitHub runners start without a
+        # local dist directory, unlike a developer checkout after a prior build.
+        run: npm ci && npm run build && npm test
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Configure Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+      - name: Build and push
+        run: |
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/configurator-chatgpt-mcp:${GITHUB_SHA}"
+          docker build -t "${IMAGE}" chatgpt-plugin-server
+          docker push "${IMAGE}"
+          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+      - name: Deploy Cloud Run
+        run: |
+          gcloud run deploy "${CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --image="${IMAGE}" \
+            --service-account="configurator-runtime@configurator-360.iam.gserviceaccount.com" \
+            --port=8080 \
+            --cpu=1 \
+            --memory=512Mi \
+            --timeout=120 \
+            --concurrency=20 \
+            --min-instances=0 \
+            --max-instances=3 \
+            --allow-unauthenticated \
+            --set-env-vars="GOOGLE_CLOUD_PROJECT=configurator-360,MCP_IP_HOURLY_LIMIT=30,MCP_IP_DAILY_LIMIT=100,MCP_GLOBAL_DAILY_LIMIT=2000" \
+            --quiet

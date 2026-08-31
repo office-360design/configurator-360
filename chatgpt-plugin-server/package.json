@@ -1,0 +1,29 @@
+{
+  "name": "@360configurator/chatgpt-plugin-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && npm run build:web",
+    "build:web": "esbuild web/src/component.tsx --bundle --format=esm --outfile=dist/src/component.js",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/src/server.js",
+    "start:stdio": "node dist/src/stdio.js",
+    "test": "node --test --import tsx test/*.test.ts"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^8.7.1",
+    "@modelcontextprotocol/ext-apps": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.18.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "esbuild": "^0.25.9",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}
