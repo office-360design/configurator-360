@@ -1,0 +1,213 @@
+<odoo>
+  <record id="view_shopfloor_live_dispatch_pick_form" model="ir.ui.view">
+    <field name="name">shopfloor.live.dispatch.pick.form</field>
+    <field name="model">shopfloor.live.dispatch.pick</field>
+    <field name="arch" type="xml">
+      <form string="Alege operația" create="false" edit="false" delete="false" class="wk_popup_no_footer">
+        <sheet>
+
+          <group invisible="1">
+            <field name="x_session_id"/>
+            <field name="x_employee_id"/>
+          </group>
+
+          <div style="text-align:center; padding:10px 12px 4px 12px;">
+            <div style="font-size:28px; font-weight:800; color:#111827;">
+              Alege operația
+            </div>
+          </div>
+
+          <field name="x_line_ids" nolabel="1" mode="kanban">
+            <kanban create="false" quick_create="false" edit="false" delete="false" can_open="false" class="o_kanban_mobile">
+              <field name="x_operation_name"/>
+              <field name="x_parent_mo_id"/>
+              <field name="x_parent_product_name"/>
+              <field name="x_parent_referinta_interna"/>
+              <field name="x_workcenter_name"/>
+              <field name="x_qty_remaining"/>
+              <field name="x_qty_done"/>
+              <field name="x_qty_total"/>
+              <field name="x_qty_text"/>
+              <field name="x_duration_text"/>
+              <field name="x_is_best"/>
+              <field name="x_score"/>
+
+              <templates>
+                <t t-name="kanban-box">
+                  <div class="oe_kanban_card shadow-sm"
+                       style="border-radius:16px; padding:14px 16px; margin:6px 8px; border:1px solid #e5e7eb;">
+
+                    <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+                      <div style="font-size:24px; font-weight:800; color:#111827; line-height:1.12;">
+                        <field name="x_operation_name"/>
+                      </div>
+
+                      <div t-if="record.x_is_best.raw_value"
+                           style="font-size:14px; font-weight:700; color:#065f46; background:#d1fae5; padding:5px 9px; border-radius:999px; white-space:nowrap;">
+                        Recomandată
+                      </div>
+
+                      <div t-if="!record.x_is_best.raw_value"
+                           style="font-size:14px; font-weight:700; color:#92400e; background:#fef3c7; padding:5px 9px; border-radius:999px; white-space:nowrap;">
+                        Eligibilă
+                      </div>
+                    </div>
+
+                    <div style="font-size:18px; font-weight:650; color:#374151; margin-top:8px; line-height:1.2;">
+                      <field name="x_mo_product_text"/>
+                    </div>
+
+                    <div t-if="record.x_parent_mo_id.raw_value"
+                      style="font-size:16px; color:#6b7280; margin-top:4px; line-height:1.35;">
+
+                      <div>
+                          <span style="font-weight:700; color:#4b5563;">
+                              Sursă: 
+                          </span>
+
+                          <field name="x_parent_product_name"/>
+
+                          <span t-if="record.x_parent_product_name.raw_value">
+                              - 
+                          </span>
+
+                          <field name="x_parent_mo_id"
+                                options="{'no_open': True}"/>
+                      </div>
+
+                      <div style="margin-top:2px;">
+                          <span style="font-weight:700; color:#4b5563;">
+                              Referință:
+                          </span>
+
+                          <field name="x_parent_referinta_interna"/>
+                      </div>
+
+                  </div>
+
+                    <div style="font-size:17px; color:#4b5563; margin-top:9px;">
+                      <span style="font-weight:700; color:#111827;">Mașină: </span>
+                      <field name="x_workcenter_name"/>
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top:10px; align-items:stretch;">
+
+                      <div style="
+                          flex:1 1 0;
+                          border:1px solid #e5e7eb;
+                          border-radius:12px;
+                          background:#f9fafb;
+                          padding:9px 10px;
+                          box-sizing:border-box;
+                      ">
+                        <div style="font-size:13px; color:#6b7280;">
+                          Disponibil acum
+                        </div>
+
+                        <div style="
+                            display:flex;
+                            align-items:center;
+                            gap:6px;
+                            font-size:20px;
+                            font-weight:800;
+                            color:#111827;
+                        ">
+                          <field name="x_qty_remaining"
+                                nolabel="1"
+                                readonly="1"
+                                class="oe_inline"
+                                digits="[16, 0]"/>
+
+                          <span>/</span>
+
+                          <field name="x_qty_total"
+                                nolabel="1"
+                                readonly="1"
+                                class="oe_inline"
+                                digits="[16, 0]"/>
+                        </div>
+
+                        <div style="
+                            border-top:1px solid #e5e7eb;
+                            margin-top:8px;
+                            padding-top:7px;
+                        ">
+                          <div style="font-size:13px; color:#6b7280;">
+                            Realizat
+                          </div>
+
+                          <div style="
+                              display:flex;
+                              align-items:center;
+                              gap:6px;
+                              font-size:18px;
+                              font-weight:700;
+                              color:#374151;
+                          ">
+                            <field name="x_qty_done"
+                                  nolabel="1"
+                                  readonly="1"
+                                  class="oe_inline"
+                                  digits="[16, 0]"/>
+
+                            <span>/</span>
+
+                            <field name="x_qty_total"
+                                  nolabel="1"
+                                  readonly="1"
+                                  class="oe_inline"
+                                  digits="[16, 0]"/>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style="
+                          flex:1 1 0;
+                          border:1px solid #e5e7eb;
+                          border-radius:12px;
+                          background:#f9fafb;
+                          padding:9px 10px;
+                          box-sizing:border-box;
+                      ">
+                        <div style="font-size:13px; color:#6b7280;">
+                          Durată estimată
+                        </div>
+
+                        <div style="
+                            font-size:20px;
+                            font-weight:800;
+                            color:#111827;
+                        ">
+                          <field name="x_duration_text"/>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    <div style="margin-top:12px;">
+                      <button name="action_choose_candidate"
+                              type="object"
+                              string="Alege"
+                              class="btn btn-primary wk_btn_xl shadow-sm"
+                              style="width:100%; max-width:none; padding-top:10px; padding-bottom:10px;"/>
+                    </div>
+
+                  </div>
+                </t>
+              </templates>
+            </kanban>
+          </field>
+
+          <div class="wk_btn_row" style="display:flex; width:100%; gap:16px; margin-top:12px; box-sizing:border-box;">
+            <button string="Înapoi"
+                    name="action_back_to_session"
+                    type="object"
+                    class="btn btn-secondary wk_btn_xl shadow-sm"
+                    style="flex:1 1 0; width:0; min-width:0; max-width:none;"/>
+          </div>
+
+        </sheet>
+      </form>
+    </field>
+  </record>
+</odoo>

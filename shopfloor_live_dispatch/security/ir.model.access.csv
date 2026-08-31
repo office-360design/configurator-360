@@ -1,0 +1,15 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_shopfloor_live_dispatch_pick_user,shopfloor.live.dispatch.pick user,model_shopfloor_live_dispatch_pick,base.group_user,1,1,1,1
+access_shopfloor_live_dispatch_pick_line_user,shopfloor.live.dispatch.pick.line user,model_shopfloor_live_dispatch_pick_line,base.group_user,1,1,1,1
+access_shopfloor_live_help_pick_user,shopfloor.live.help.pick user,model_shopfloor_live_help_pick,base.group_user,1,1,1,1
+access_shopfloor_live_help_pick_line_user,shopfloor.live.help.pick.line user,model_shopfloor_live_help_pick_line,base.group_user,1,1,1,1
+access_shopfloor_live_help_pick_all,shopfloor.live.help.pick all,model_shopfloor_live_help_pick,,1,1,1,1
+access_shopfloor_live_help_pick_line_all,shopfloor.live.help.pick.line all,model_shopfloor_live_help_pick_line,,1,1,1,1
+access_shopfloor_live_other_pick_user,shopfloor.live.other.pick user,model_shopfloor_live_other_pick,base.group_user,1,1,1,1
+access_shopfloor_live_other_pick_line_user,shopfloor.live.other.pick.line user,model_shopfloor_live_other_pick_line,base.group_user,1,1,1,1
+access_shopfloor_live_other_pick_all,shopfloor.live.other.pick all,model_shopfloor_live_other_pick,,1,1,1,1
+access_shopfloor_live_other_pick_line_all,shopfloor.live.other.pick.line all,model_shopfloor_live_other_pick_line,,1,1,1,1
+access_shopfloor_component_flow_user,shopfloor.component.flow user,model_shopfloor_component_flow,base.group_user,1,1,1,1
+access_shopfloor_component_reservation_user,shopfloor.component.reservation user,model_shopfloor_component_reservation,base.group_user,1,1,1,1
+access_shopfloor_force_close_production_wizard_user,shopfloor.force.close.production.wizard user,model_shopfloor_force_close_production_wizard,mrp.group_mrp_user,1,1,1,1
+access_shopfloor_reporting_correction_wizard_manager,shopfloor.reporting.correction.wizard manager,model_shopfloor_reporting_correction_wizard,mrp.group_mrp_manager,1,1,1,1

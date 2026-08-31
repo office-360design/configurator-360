@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_production_kanban_auto_close_warning" model="ir.ui.view">
+        <field name="name">mrp.production.kanban.auto.close.warning</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_kanban_view"/>
+        <field name="priority" eval="120"/>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban" position="inside">
+                <field name="shopfloor_auto_close_blocked" invisible="1"/>
+                <field name="shopfloor_auto_close_block_summary" invisible="1"/>
+                <field name="shopfloor_auto_close_waiting_children" invisible="1"/>
+                <field name="shopfloor_auto_close_waiting_children_summary" invisible="1"/>
+            </xpath>
+            <xpath expr="//footer" position="before">
+                <div t-if="record.shopfloor_auto_close_waiting_children.raw_value"
+                     class="mb-2 p-2 rounded border border-warning bg-warning-subtle">
+                    <div class="d-flex align-items-center gap-1 fw-bold text-warning-emphasis">
+                        <i class="fa fa-clock-o"/>
+                        <span>Așteaptă comenzi reper</span>
+                    </div>
+                    <div class="small mt-1">
+                        <field name="shopfloor_auto_close_waiting_children_summary"/>
+                    </div>
+                </div>
+                <div t-if="record.shopfloor_auto_close_blocked.raw_value"
+                     class="mb-2 p-2 rounded border border-danger bg-danger-subtle">
+                    <div class="d-flex align-items-center gap-1 fw-bold text-danger">
+                        <i class="fa fa-exclamation-triangle"/>
+                        <span>Necesită intervenție</span>
+                    </div>
+                    <div class="small mt-1">
+                        <field name="shopfloor_auto_close_block_summary"/>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mrp_production_form_auto_close_warning" model="ir.ui.view">
+        <field name="name">mrp.production.form.auto.close.warning</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="priority" eval="120"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <field name="shopfloor_auto_close_waiting_children" invisible="1"/>
+                <button name="action_shopfloor_open_force_close_wizard"
+                        type="object"
+                        string="Finalizează manual"
+                        class="btn-primary"
+                        groups="mrp.group_mrp_user"
+                        invisible="state != 'to_close' or shopfloor_auto_close_waiting_children"/>
+            </xpath>
+            <xpath expr="//sheet" position="before">
+                <field name="shopfloor_auto_close_blocked" invisible="1"/>
+                <field name="shopfloor_auto_close_block_summary" invisible="1"/>
+                <field name="shopfloor_auto_close_block_details" invisible="1"/>
+                <field name="shopfloor_auto_close_blocked_at" invisible="1"/>
+                <field name="shopfloor_auto_close_waiting_children" invisible="1"/>
+                <field name="shopfloor_auto_close_waiting_children_summary" invisible="1"/>
+                <div class="alert alert-warning" role="alert"
+                     invisible="not shopfloor_auto_close_waiting_children">
+                    <div class="fw-bold mb-1">
+                        <i class="fa fa-clock-o me-1"/>
+                        Așteaptă comenzi reper
+                    </div>
+                    <div>
+                        <field name="shopfloor_auto_close_waiting_children_summary" readonly="1"/>
+                    </div>
+                </div>
+                <div class="alert alert-danger" role="alert"
+                     invisible="not shopfloor_auto_close_blocked">
+                    <div class="fw-bold mb-1">
+                        <i class="fa fa-exclamation-triangle me-1"/>
+                        Necesită intervenție
+                    </div>
+                    <div><field name="shopfloor_auto_close_block_summary" readonly="1"/></div>
+                    <div class="mt-2" invisible="not shopfloor_auto_close_block_details">
+                        <field name="shopfloor_auto_close_block_details" readonly="1" nolabel="1"/>
+                    </div>
+                    <div class="small text-muted mt-2">
+                        Detectat la: <field name="shopfloor_auto_close_blocked_at" readonly="1"/>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mrp_production_completed_shopfloor_list" model="ir.ui.view">
+        <field name="name">mrp.production.completed.shopfloor.list</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_tree_view"/>
+        <field name="mode">primary</field>
+        <field name="priority" eval="120"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="shopfloor_order_reference"
+                       string="Referință comandă"
+                       optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mrp_production_search_auto_close_warning" model="ir.ui.view">
+        <field name="name">mrp.production.search.auto.close.warning</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.view_mrp_production_filter"/>
+        <field name="priority" eval="120"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <filter name="shopfloor_auto_close_blocked"
+                        string="Necesită verificare la închidere"
+                        domain="[('shopfloor_auto_close_blocked', '=', True)]"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
