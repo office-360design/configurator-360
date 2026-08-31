@@ -2472,6 +2472,30 @@ body.shared-ui-dark-mode .selected-window-opening-action.is-active {
     color: #dbeafe;
 }
 
+.selected-window-angle-control {
+    grid-column: 1 / -1;
+    margin: 4px 0 2px;
+}
+
+.selected-window-angle-control label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: inherit;
+    margin-bottom: 6px;
+}
+
+.selected-window-angle-control #valAngle {
+    font-weight: 700;
+    color: #2563eb;
+}
+
+body.shared-ui-dark-mode .selected-window-angle-control #valAngle {
+    color: #60a5fa;
+}
+
 .selected-window-size-control {
     margin: 0 0 14px;
     padding-top: 12px;

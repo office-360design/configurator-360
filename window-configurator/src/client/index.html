@@ -281,11 +281,6 @@
                     </div>
                 </div>
 
-                <div class="control-group">
-                    <label>Opening Angle: <span id="valAngle">0°</span></label>
-                    <input type="range" id="openAngle" min="0" max="80" step="1" value="0">
-                </div>
-
                 <div class="action-box">
                     <label>Exploded View</label>
                     <label class="switch">
@@ -499,6 +494,10 @@
                     </svg>
                     <span>Right</span>
                 </button>
+                <div class="control-group selected-window-angle-control">
+                    <label>Opening Angle: <span id="valAngle">0°</span></label>
+                    <input type="range" id="openAngle" min="0" max="80" step="1" value="0">
+                </div>
             </div>
             <button id="selectedWindowUnmerge" type="button" class="selected-window-action selected-window-unmerge" hidden>Unmerge</button>
         </div>
