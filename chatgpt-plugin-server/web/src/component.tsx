@@ -24,12 +24,12 @@ function render(data: PreviewResult = {}) {
     return;
   }
   const summary = Object.entries(data.summary || {}).map(([key, value]) => `<span><b>${escapeHtml(key.replace(/([A-Z])/g, ' $1'))}</b>${escapeHtml(value)}</span>`).join('');
-  const analysis = Object.entries(data.analysis || {}).filter(([, value]) => ['string', 'number'].includes(typeof value) && value !== '').slice(0, 6).map(([key, value]) => `<span class="analysis"><b>${escapeHtml(key.replace(/([A-Z])/g, ' $1'))}</b>${escapeHtml(value)}</span>`).join('');
+  const analysis = Object.entries(data.analysis || {}).filter(([, value]) => ['string', 'number'].includes(typeof value) && value !== '').slice(0, 4).map(([key, value]) => `<span class="analysis"><b>${escapeHtml(key.replace(/([A-Z])/g, ' $1'))}</b>${escapeHtml(value)}</span>`).join('');
   const temporary = data.draft && data.assumptions?.length
-    ? `<p class="draft-note">Draft preview — temporary recommendations: ${escapeHtml(data.assumptions.join(' · '))}</p>`
+    ? `<details class="draft-note"><summary>Draft preview · ${data.assumptions.length} temporary recommendation${data.assumptions.length === 1 ? '' : 's'}</summary><p>${escapeHtml(data.assumptions.join(' · '))}</p></details>`
     : data.draft ? '<p class="draft-note">Draft preview — not saved or shared yet.</p>' : '';
   const nextStep = data.draft && data.assistantPrompt
-    ? `<p class="next-step">${escapeHtml(data.assistantPrompt)}</p>` : '';
+    ? `<details class="next-step"><summary>What remains to configure</summary><p>${escapeHtml(data.assistantPrompt)}</p></details>` : '';
   root.innerHTML = `
     <main class="${data.draft ? 'is-draft' : ''}">
       <header><div><small>360CONFIGURATOR${data.draft ? ' · DRAFT' : ''}</small><h2>${escapeHtml(data.product)}</h2></div><a href="${escapeHtml(data.url)}" target="_blank" rel="noreferrer">Open full configurator ↗</a></header>
@@ -44,7 +44,7 @@ style.textContent = `
   main{overflow:hidden;border:1px solid #d9dee3;border-radius:16px;background:#fff;box-shadow:0 10px 30px rgba(17,24,39,.08)}
   header{height:58px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb}small{font-size:9px;letter-spacing:.15em;color:#718096}h2{font-size:17px;margin:1px 0;text-transform:capitalize}
   a{background:#0b63ce;color:#fff;text-decoration:none;padding:9px 12px;border-radius:9px;font-size:13px;font-weight:700}iframe{display:block;width:100%;height:440px;border:0;background:#eef2f5}
-  footer{display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid #e5e7eb}footer span{display:flex;gap:5px;padding:6px 9px;border-radius:8px;background:#f1f5f9;font-size:11px}footer b{text-transform:capitalize}.draft-note,.next-step{width:100%;margin:0;font-size:12px;white-space:pre-line}.draft-note{color:#8a4b00}.next-step{color:#1e3a5f;font-weight:650}.is-draft header{background:#fff8eb}.empty{padding:24px;color:#64748b}
+  footer{display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid #e5e7eb}footer span{display:flex;gap:5px;padding:6px 9px;border-radius:8px;background:#f1f5f9;font-size:11px}footer b{text-transform:capitalize}.draft-note,.next-step{width:100%;margin:0;font-size:12px;white-space:pre-line}.draft-note{color:#8a4b00}.next-step{color:#1e3a5f;font-weight:650}.draft-note summary,.next-step summary{cursor:pointer;font-weight:750}.draft-note p,.next-step p{margin:7px 0 1px;line-height:1.4}.is-draft header{background:#fff8eb}.empty{padding:24px;color:#64748b}
   @media(prefers-color-scheme:dark){body{color:#eef3f6}main{background:#17212b;border-color:#36424b}header,footer{border-color:#36424b}footer span{background:#26313a}}
 `;
 document.head.appendChild(style);

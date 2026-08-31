@@ -46,7 +46,10 @@ export function normalizeAnswers(product: ProductId, raw: JsonObject, { requireE
     if (value === undefined || value === null || value === '') {
       if (requireExplicit && question.required) throw new ConfigurationError(`Please ask the user to explicitly choose ${question.label} before creating a configuration.`, question.id);
       value = clone(question.default);
-      assumptions.push(`${question.label}: ${Array.isArray(value) ? 'none' : String(value)}`);
+      const isPendingExactLocation = product === 'solar'
+        && raw.locationMode === 'exact'
+        && ['locationLat', 'locationLon', 'locationLabel'].includes(question.id);
+      if (question.required && !isPendingExactLocation) assumptions.push(`${question.label}: ${Array.isArray(value) ? 'none' : String(value)}`);
     }
     if (question.type === 'number') value = asNumber(value, question);
     if (question.type === 'boolean') value = Boolean(value);
@@ -55,6 +58,10 @@ export function normalizeAnswers(product: ProductId, raw: JsonObject, { requireE
     }
     if (question.type === 'array' && !Array.isArray(value)) throw new ConfigurationError(`${question.label} must be an array.`, question.id);
     answers[question.id] = value;
+  }
+  if (product === 'solar' && raw.locationMode === 'exact'
+    && ['locationLat', 'locationLon', 'locationLabel'].some(id => raw[id] === undefined || raw[id] === null || raw[id] === '')) {
+    assumptions.push('Exact location: awaiting a confirmed address-search result');
   }
   return { answers, assumptions };
 }
@@ -129,10 +136,10 @@ function hallState(a: JsonObject): JsonObject {
     if (horizontal > 0.012 && vertical > 0.012) throw new ConfigurationError(`Openings ${i + 1} and ${j + 1} overlap on the ${x.side} wall.`, 'openings');
   }
   return {
-    ...a, openings, ...baseView(), selectedHeaProfile: 'HEA 220', showCladding: true, showScenery: true,
+    ...a, openings, ...baseView(), selectedHeaProfile: 'HEA 220', showCladding: Boolean(a.showCladding), showScenery: true,
     inspectionMode: 'all', sectionCutEnabled: false, sectionCutPosition: 50, connectionDetails: false,
     forkliftClearance: false, rackDensity: 'standard', serviceVisibility: 'all', serviceCoverage: false,
-    sunPosition: 0.47, season: 'winter', nightPreview: Boolean(a.nightPreview), explode: 0,
+    sunPosition: 0.47, season: 'winter', nightPreview: Boolean(a.nightPreview), explode: a.explodedView ? 100 : 0,
   };
 }
 
@@ -229,15 +236,19 @@ function pergolaState(a: JsonObject): JsonObject {
   };
 }
 
-function solarState(a: JsonObject): JsonObject {
+function solarState(a: JsonObject, raw: JsonObject = a): JsonObject {
   if (a.roofType === 'shed' && (a.roofSide === 'back' || a.roofSide === 'both')) throw new ConfigurationError('A single-slope roof supports the front roof plane only.', 'roofSide');
   if (Number(a.panelColumns) > Number(a.panelCount)) throw new ConfigurationError('Panel columns cannot exceed the requested panel count.', 'panelColumns');
+  const exactLocationConfirmed = a.locationMode === 'exact'
+    && Number.isFinite(Number(raw.locationLat))
+    && Number.isFinite(Number(raw.locationLon))
+    && String(raw.locationLabel || '').trim().length > 0;
   return {
     roofType: a.roofType, length: a.length, depth: a.depth, wallHeight: 3, pitch: a.pitch, overhang: 0.45, roofColor: '#6b7280', covering: 'generic',
     modulePreset: a.modulePreset, panelCount: a.panelCount, panelColumns: a.panelColumns, moduleOrientation: a.moduleOrientation, roofSide: a.roofSide,
     panelGap: 0.04, panelMargin: 0.32, effectivePanelCount: a.panelCount,
-    region: a.region, locationMode: a.locationMode, locationLat: a.locationMode === 'exact' ? a.locationLat : null,
-    locationLon: a.locationMode === 'exact' ? a.locationLon : null, locationLabel: a.locationMode === 'exact' ? a.locationLabel : '',
+    region: a.region, locationMode: exactLocationConfirmed ? 'exact' : 'region', locationLat: exactLocationConfirmed ? a.locationLat : null,
+    locationLon: exactLocationConfirmed ? a.locationLon : null, locationLabel: exactLocationConfirmed ? a.locationLabel : '',
     locationTimeZone: 'Europe/Bucharest', monthlyBillRon: a.monthlyBillRon, energyTariffRon: a.energyTariffRon, gridConnection: a.gridConnection,
     consumptionProfile: a.consumptionProfile, batteryEnabled: a.batteryEnabled, batteryAutoSize: a.batteryAutoSize,
     batteryCapacityKWh: a.batteryCapacityKWh, batteryReservePct: 10, batteryRoundTripEfficiency: 0.92,
@@ -277,7 +288,7 @@ export function buildState(product: ProductId, raw: JsonObject, options?: { requ
     : product === 'roof' ? roofState(answers)
       : product === 'hall' ? hallState(answers)
         : product === 'pergola' ? pergolaState(answers)
-          : product === 'solar' ? solarState(answers)
+          : product === 'solar' ? solarState(answers, raw)
             : windowState(answers);
   return { state, answers, assumptions, warnings: [] as string[] };
 }
@@ -287,7 +298,10 @@ export function summarize(product: ProductId, state: JsonObject): JsonObject {
   if (product === 'roof') return { roofType: state.roofType, footprintM2: Number(state.length) * Number(state.depth), pitchDeg: state.pitch, covering: state.covering };
   if (product === 'hall') return { dimensionsM: `${state.length} × ${state.width} × ${state.eaveHeight}`, footprintM2: Number(state.length) * Number(state.width), structure: state.structurePreset };
   if (product === 'pergola') { const d = state.dimensions as JsonObject; return { dimensionsMm: `${d.width} × ${d.depth} × ${d.height}`, installation: state.installation, automation: state.automation }; }
-  if (product === 'solar') return { panelCount: state.panelCount, nominalPowerKwp: Number(state.panelCount) * ({ standard475: 0.475, compact450: 0.45, premium490: 0.49 }[String(state.modulePreset)] ?? 0), battery: state.batteryEnabled ? `${state.batteryCapacityKWh} kWh` : 'none' };
+  if (product === 'solar') {
+    const power = Number(state.panelCount) * ({ standard475: 0.475, compact450: 0.45, premium490: 0.49 }[String(state.modulePreset)] ?? 0);
+    return { panelCount: state.panelCount, nominalPowerKwp: Number(power.toFixed(3)), battery: state.batteryEnabled ? (state.batteryAutoSize ? 'auto-sized' : `${state.batteryCapacityKWh} kWh`) : 'none' };
+  }
   return { dimensionsM: `${state.widthM} × ${state.heightM}`, layout: state.layoutId, openingMode: state.openingMode, profile: state.profileSetId };
 }
 

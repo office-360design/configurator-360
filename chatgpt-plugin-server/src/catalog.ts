@@ -88,6 +88,8 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
       bool('highBayLighting', 'Include high-bay lighting', true), bool('fireSprinklers', 'Include fire sprinklers', false),
       bool('roofSkylights', 'Include roof skylights', false), bool('gutters', 'Include gutters', true),
       bool('warehouseRacking', 'Include warehouse racking', false),
+      optional(bool('showCladding', 'Show wall and roof cladding in the 3D preview', true)),
+      optional(bool('explodedView', 'Explode the hall assembly in the 3D preview', false)),
       optional(bool('nightPreview', 'Show night preview', false)),
       { id: 'openings', label: 'Wall openings: none, or type (garage/personnel/window), wall side, width, height, centre offset and bottom height in metres', type: 'array', required: true, default: [] },
     ],
@@ -144,7 +146,7 @@ export const CATALOG: Record<ProductId, ProductSpec> = {
     questions: [
       number('widthM', 'Overall width', 'm', 0.3, 8, 1.2), number('heightM', 'Overall height', 'm', 0.3, 4, 1.4),
       choice('layoutId', 'Window layout', ['single', 'vertical-divider', 'vertical-fixed-fixed', 'vertical-fixed-fixed-fixed', 'vertical-sash-sash', 'horizontal-divider', 'horizontal-fixed-fixed', 'horizontal-fixed-fixed-fixed', 'top-fixed-bottom-sash-sash'], 'single', undefined, {
-        single: 'single opening', 'vertical-divider': 'vertical fixed + sash', 'vertical-fixed-fixed': 'two fixed columns', 'vertical-fixed-fixed-fixed': 'three fixed columns', 'vertical-sash-sash': 'two opening sashes', 'horizontal-divider': 'horizontal fixed + sash', 'horizontal-fixed-fixed': 'two fixed rows', 'horizontal-fixed-fixed-fixed': 'three fixed rows', 'top-fixed-bottom-sash-sash': 'fixed top + two sashes below',
+        single: 'one opening sash', 'vertical-divider': 'two sections: fixed left + one opening sash right (not two sashes)', 'vertical-fixed-fixed': 'two fixed columns (no opening sash)', 'vertical-fixed-fixed-fixed': 'three fixed columns', 'vertical-sash-sash': 'two side-by-side opening sashes / double sash / two sash', 'horizontal-divider': 'two rows: fixed + one opening sash', 'horizontal-fixed-fixed': 'two fixed rows (no opening sash)', 'horizontal-fixed-fixed-fixed': 'three fixed rows', 'top-fixed-bottom-sash-sash': 'one fixed top light + two opening sashes below',
       }),
       choice('openingMode', 'Opening mode', ['batant', 'oscilo'], 'batant', 'layoutId in [single, vertical-divider, vertical-sash-sash, horizontal-divider, top-fixed-bottom-sash-sash]'), choice('handleSide', 'Handle side', ['left', 'right'], 'right', 'layoutId in [single, vertical-divider, vertical-sash-sash, horizontal-divider, top-fixed-bottom-sash-sash]'),
       optional(number('openAngle', 'Preview opening angle', 'deg', 0, 80, 0, 'layoutId in [single, vertical-divider, vertical-sash-sash, horizontal-divider, top-fixed-bottom-sash-sash]')),
