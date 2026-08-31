@@ -42,7 +42,7 @@ function failure(error: unknown) {
 export function createMcpServer() {
   const server = new McpServer(
     { name: '360configurator', version: '0.1.0' },
-    { instructions: 'Required workflow: call get_configurator_spec; ask every active customer-facing question; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Use render_configuration_preview only after a create, revise, or inspect result supplies a valid share ID.' },
+    { instructions: 'Required workflow: call get_configurator_spec; collect every active customer-facing answer; call prepare_configuration; show its returned summary; wait for the user to explicitly confirm in a later message; only then call create_configuration with confirmation="confirmed". Never silently choose defaults. Make the conversation concise: acknowledge values already supplied, then ask at most 2–4 related missing choices per turn (geometry first, then appearance, then installation/options). Do not ask inactive choices. You may offer the listed defaults as recommendations, but apply them only when the user explicitly accepts the named remaining defaults. Treat “no gates” as gates: []. The create_configuration and revise_configuration tools themselves return the live 3D preview: do not omit it and do not make a separate render call after creation.' },
   );
 
   server.registerTool('list_configurators', {
@@ -68,10 +68,11 @@ export function createMcpServer() {
     } catch (error) { return failure(error); }
   });
 
-  server.registerTool('create_configuration', {
+  registerAppTool(server, 'create_configuration', {
     title: 'Create a confirmed public 360 configuration',
     description: 'Create an immutable, 90-day public configuration link only after prepare_configuration was shown and the user explicitly confirmed it in a later message. All active customer-facing answers must be supplied; defaults cannot be silently applied.',
     inputSchema: ConfirmedProductRequestSchema.shape, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    _meta: { ui: { resourceUri: UI_URI, visibility: ['model'] } },
   }, async ({ product, answers }) => {
     try {
       const built = buildState(product, answers as JsonObject, { requireExplicit: true });
@@ -96,10 +97,11 @@ export function createMcpServer() {
     } catch (error) { return failure(error); }
   });
 
-  server.registerTool('revise_configuration', {
+  registerAppTool(server, 'revise_configuration', {
     title: 'Revise a shared 360 configuration',
     description: 'Apply requested customer-facing changes to an existing share and create a new immutable 90-day link; never overwrites the source.',
     inputSchema: { share: z.string().min(1), changes: z.record(z.unknown()), confirmation: z.literal('confirmed') }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    _meta: { ui: { resourceUri: UI_URI, visibility: ['model'] } },
   }, async ({ share, changes }) => {
     try {
       const id = parseShareId(share);
