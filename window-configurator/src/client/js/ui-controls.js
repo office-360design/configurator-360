@@ -66,7 +66,17 @@ export function initializeUIControls({
     document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
         const controlsPanel = document.getElementById('controls');
         const collapsed = controlsPanel?.classList.contains('sidebar-collapsed') || false;
-        setSidebarCollapsed(!collapsed);
+        const nextCollapsed = !collapsed;
+        setSidebarCollapsed(nextCollapsed);
+
+        // On phones the selected-window editor occupies the same limited canvas
+        // space as the settings panel. Close the editor whenever the right-side
+        // settings menu is opened, while leaving desktop behaviour unchanged.
+        const isPhoneViewport = window.matchMedia?.('(max-width: 760px)').matches
+            ?? (window.innerWidth <= 760);
+        if (!nextCollapsed && isPhoneViewport) {
+            document.getElementById('selectedWindowClose')?.click();
+        }
     });
 
     let pendingWindowRebuildTimer = null;
