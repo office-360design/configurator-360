@@ -34,6 +34,7 @@ import {
     getInsideHalfFrameTriangle,
     getHalfMullionTriangle,
     getFrameInsideHalfFrameInset,
+    getRectangularDividerSetback,
     getRectangularDividerEndNotchInset,
     getDividerHostBranchGasketEndTrim,
     INTERSECTION_MULLION_END_NOTCH_DEPTH_M,
@@ -3356,6 +3357,9 @@ export function createWindowBuilder({
         const activeTransGasketProfiles = activeProfiles.filter(
             profile => profile.role === 'trans-gasket'
         );
+        const activeTransAccessoryProfiles = activeProfiles.filter(
+            profile => profile.role === 'trans-accessory'
+        );
         const layoutState = getWindowLayoutState();
         const isEditableTopology = layoutState.isDynamicWindowState === true;
 
@@ -3871,6 +3875,7 @@ export function createWindowBuilder({
                 profile.role !== 'divider'
                 && profile.role !== 'trans'
                 && profile.role !== 'trans-gasket'
+                && profile.role !== 'trans-accessory'
             )
             .forEach(profile => {
                 const group = getProfileGroup(profile);
@@ -4041,6 +4046,29 @@ export function createWindowBuilder({
                 const targetSashGroup = ownerCell ? sashGroupsByCell.get(ownerCell.id) : null;
                 if (!ownerCell || !targetSashGroup || !transBounds) return;
 
+                // Machine the floating trans to the same longitudinal length as
+                // a normal rectangular mullion branch. The normal mullion uses
+                // its 88 mm visible face against the 25 mm host contact band,
+                // so it stops 19 mm before the grid vertex at each end. Keep the
+                // trans profile's own 25 x 5 mm end notch geometry unchanged;
+                // only its overall body length follows the normal mullion.
+                const transEndSetback = getRectangularDividerSetback({
+                    dividerFaceSpan,
+                });
+                const transLength = Math.max(
+                    0,
+                    (Number(segment.length) || 0) - transEndSetback * 2
+                );
+                const transLongitudinalOffset = Number(segment.longitudinalOffset) || 0;
+                const transEndJoint = {
+                    negativeEndMode: 'square',
+                    positiveEndMode: 'square',
+                    negativeFrameInwardSpan: 0,
+                    positiveFrameInwardSpan: 0,
+                    negativeRectangularEndNotch: true,
+                    positiveRectangularEndNotch: true,
+                };
+
                 activeTransProfiles.forEach(profile => {
                     const placedProfile = {
                         ...profile,
@@ -4051,21 +4079,15 @@ export function createWindowBuilder({
                     };
                     const mesh = createDividerSegment(
                         placedProfile,
-                        // temporary fix to make the trans mullion smaller
-                        ownerCell.height - 0.06,
+                        transLength,
                         'vertical',
                         transBounds,
                         transDepthOffset,
                         0,
                         segment.perpendicularOffset,
-                        ownerCell.centerY,
+                        transLongitudinalOffset,
                         1,
-                        {
-                            negativeEndMode: 'square',
-                            positiveEndMode: 'square',
-                            negativeFrameInwardSpan: 0,
-                            positiveFrameInwardSpan: 0,
-                        }
+                        transEndJoint
                     );
                     mesh.userData.trans = true;
                     if (mesh.userData.componentSelection) {
@@ -4074,6 +4096,48 @@ export function createWindowBuilder({
                     mesh.userData.transSegmentId = segment.id;
                     mesh.userData.transOwnerCellId = ownerCell.id;
                     mesh.userData.windowCell = ownerCell.id;
+                    targetSashGroup.add(mesh);
+                });
+
+                // 224068 is authored once in the sash/trans/sash connection.
+                // Render that exact centre-gasket seat on the trans without
+                // duplicating it onto the opposite face. It uses the same
+                // machined longitudinal extent as the normal mullion accessory
+                // and follows the owner sash together with the floating trans.
+                activeTransAccessoryProfiles.forEach(profile => {
+                    if (!profile.transConnectionCadTransform) return;
+                    const placedProfile = {
+                        ...profile,
+                        cadCoordinateTransform: profile.transConnectionCadTransform,
+                        cadAlignmentShiftXMm: 0,
+                        cadAlignmentShiftYMm: 0,
+                        dividerSectionRotationDeg:
+                            Number(transConnection.sectionRotationDeg)
+                            || Number(profile.transSectionRotationDeg)
+                            || 180,
+                    };
+                    const mesh = createDividerSegment(
+                        placedProfile,
+                        transLength,
+                        'vertical',
+                        transBounds,
+                        transDepthOffset,
+                        0,
+                        segment.perpendicularOffset,
+                        transLongitudinalOffset,
+                        1,
+                        transEndJoint
+                    );
+                    mesh.userData.trans = true;
+                    mesh.userData.transAccessory = true;
+                    mesh.userData.connectionProfileId =
+                        profile.transConnectionProfileId || null;
+                    mesh.userData.transSegmentId = segment.id;
+                    mesh.userData.transOwnerCellId = ownerCell.id;
+                    mesh.userData.windowCell = ownerCell.id;
+                    if (mesh.userData.componentSelection) {
+                        mesh.userData.componentSelection.source = 'trans';
+                    }
                     targetSashGroup.add(mesh);
                 });
 
@@ -4096,14 +4160,18 @@ export function createWindowBuilder({
                     };
                     const mesh = createDividerSegment(
                         placedProfile,
-                        // temporary fix to make the trans gasket smaller (matching the trans mullion)
-                        ownerCell.height - 0.11,
+                        // Preserve the existing 25 mm clearance at each end of
+                        // the trans gasket relative to the aluminium body.
+                        Math.max(
+                            0,
+                            transLength - INTERSECTION_MULLION_END_NOTCH_LENGTH_M * 2
+                        ),
                         'vertical',
                         transBounds,
                         transDepthOffset,
                         0,
                         segment.perpendicularOffset,
-                        ownerCell.centerY,
+                        transLongitudinalOffset,
                         1,
                         {
                             negativeEndMode: 'square',
