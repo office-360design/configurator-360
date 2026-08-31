@@ -30,7 +30,13 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     assert.equal(products.isError, undefined);
     assert.equal((products.structuredContent as { configurators: unknown[] }).configurators.length, 6);
     const spec = await client.callTool({ name: 'get_configurator_spec', arguments: { product: 'solar' } });
-    assert.equal((spec.structuredContent as { questions: unknown[] }).questions.length > 20, true);
+    const solarQuestions = (spec.structuredContent as { questions: Array<{ id: string; default?: unknown; suppliedByTool?: string }> }).questions;
+    assert.equal(solarQuestions.length > 20, true);
+    for (const id of ['locationLat', 'locationLon', 'locationLabel']) {
+      const locationQuestion = solarQuestions.find(question => question.id === id);
+      assert.equal(locationQuestion?.default, undefined);
+      assert.equal(locationQuestion?.suppliedByTool, 'search_solar_locations');
+    }
     const draft = await client.callTool({ name: 'preview_draft_configuration', arguments: { product: 'fence', answers: { layout: 'u' } } });
     assert.equal((draft.structuredContent as { draft?: boolean }).draft, true);
     assert.match(String((draft.structuredContent as { previewUrl?: string }).previewUrl), /embed=preview/);
@@ -38,7 +44,7 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     assert.match(String((next.structuredContent as { assistantPrompt?: string }).assistantPrompt), /Run A length: 2–30 m/);
     const roofDraft = await client.callTool({ name: 'preview_draft_configuration', arguments: { product: 'roof', answers: {} } });
     assert.match(String((roofDraft.structuredContent as { assistantPrompt?: string }).assistantPrompt), /House \/ roof shape: two-slope \/ gable/);
-    const solarAnswers = Object.fromEntries((spec.structuredContent as { questions: Array<{ id: string; default: unknown }> }).questions.map(question => [question.id, question.default]));
+    const solarAnswers = Object.fromEntries(solarQuestions.map(question => [question.id, question.default]));
     const solarAnalysis = await client.callTool({ name: 'analyze_solar_configuration', arguments: { answers: solarAnswers } });
     assert.equal((solarAnalysis.structuredContent as { analysis?: { productionSource?: string } }).analysis?.productionSource, 'Regional calibrated estimate');
     const hallSpec = await client.callTool({ name: 'get_configurator_spec', arguments: { product: 'hall' } });
