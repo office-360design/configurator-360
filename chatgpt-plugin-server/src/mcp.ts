@@ -104,14 +104,14 @@ export function createMcpServer() {
   server.registerTool('analyze_solar_configuration', {
     title: 'Analyze a solar configuration',
     description: 'Return annual production, consumption coverage, battery size and indicative system price for a complete solar configuration. For exact PVGIS data, the customer must have explicitly selected exact location and explicitly requested exact-site analysis; do not treat regional results as exact-site results.',
-    inputSchema: z.object({ answers: z.record(z.unknown()), runExactSiteAnalysis: z.boolean().default(false) }).shape,
+    inputSchema: z.object({ answers: z.record(z.unknown()), runExactSiteAnalysis: z.boolean().default(false), runGoogleSolarAnalysis: z.boolean().default(false) }).shape,
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
-  }, async ({ answers, runExactSiteAnalysis }) => {
+  }, async ({ answers, runExactSiteAnalysis, runGoogleSolarAnalysis }) => {
     try {
       const built = buildState('solar', answers as JsonObject, { requireExplicit: true });
-      if (runExactSiteAnalysis && built.answers.locationMode !== 'exact') throw new ConfigurationError('Ask the customer to choose an exact location before requesting PVGIS exact-site analysis.', 'locationMode');
-      if (runExactSiteAnalysis && built.answers.exactLocationConsent !== true) throw new ConfigurationError('Ask the customer to explicitly consent to using the confirmed exact location before requesting PVGIS analysis.', 'exactLocationConsent');
-      const analysis = await analyzeSolar(built.state, runExactSiteAnalysis);
+      if ((runExactSiteAnalysis || runGoogleSolarAnalysis) && built.answers.locationMode !== 'exact') throw new ConfigurationError('Ask the customer to choose an exact location before requesting site analysis.', 'locationMode');
+      if ((runExactSiteAnalysis || runGoogleSolarAnalysis) && built.answers.exactLocationConsent !== true) throw new ConfigurationError('Ask the customer to explicitly consent to using the confirmed exact location before requesting site analysis.', 'exactLocationConsent');
+      const analysis = await analyzeSolar(built.state, runExactSiteAnalysis, runGoogleSolarAnalysis);
       return result({ product: 'solar', normalizedAnswers: built.answers, analysis }, `Completed a ${analysis.productionSource} solar analysis.`);
     } catch (error) { return failure(error); }
   });

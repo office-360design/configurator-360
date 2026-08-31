@@ -144,6 +144,15 @@ function authConfigured() {
   );
 }
 
+function mcpBridgeConfigured() {
+  return Boolean(String(process.env.MCP_GOOGLE_SOLAR_BRIDGE_TOKEN || '').trim());
+}
+
+function mcpBridgeAuthorized(request) {
+  return mcpBridgeConfigured()
+    && safeEqual(request.headers.get('x-mcp-solar-bridge-token') || '', process.env.MCP_GOOGLE_SOLAR_BRIDGE_TOKEN || '');
+}
+
 function base64urlJson(value) {
   return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
 }
@@ -1186,11 +1195,13 @@ export async function handleGoogleSolarRequest(request) {
     });
   }
 
-  if (action !== 'analyze') return jsonResponse(request, { error: 'Unsupported Google Solar action.' }, 400);
+  const mcpAnalysis = action === 'mcp-analyze';
+  if (action !== 'analyze' && !mcpAnalysis) return jsonResponse(request, { error: 'Unsupported Google Solar action.' }, 400);
   if (!googleConfigured()) return jsonResponse(request, { error: 'GOOGLE_SOLAR_API_KEY is not configured.' }, 503);
   if (!authConfigured()) return jsonResponse(request, { error: 'Google Solar demo authentication is not configured.' }, 503);
-  const session = verifySession(bearerToken(request), request);
-  if (!session) return jsonResponse(request, { error: 'Google Solar demo session is locked or expired.' }, 401);
+  const session = mcpAnalysis ? null : verifySession(bearerToken(request), request);
+  if (mcpAnalysis && !mcpBridgeAuthorized(request)) return jsonResponse(request, { error: 'MCP Solar bridge is not authorized.' }, 401);
+  if (!mcpAnalysis && !session) return jsonResponse(request, { error: 'Google Solar demo session is locked or expired.' }, 401);
 
   const limit = usageContext.kind === 'tenant'
     ? {
@@ -1210,7 +1221,7 @@ export async function handleGoogleSolarRequest(request) {
     return jsonResponse(request, {
       ...result,
       security: {
-        sessionExpiresAt: new Date(Number(session.exp) * 1000).toISOString(),
+      sessionExpiresAt: session ? new Date(Number(session.exp) * 1000).toISOString() : null,
         perIpAnalysesToday: limit.perIp.count,
         perIpLimit: limit.perIp.max,
         globalAnalysesToday: limit.global.count,

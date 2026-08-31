@@ -2,6 +2,7 @@ import { ConfigurationError } from './adapters.js';
 import type { JsonObject } from './catalog.js';
 
 const PVGIS_ENDPOINT = 'https://aks.360configurator.com/api/solar/pvgis';
+const GOOGLE_SOLAR_ENDPOINT = 'https://aks.360configurator.com/api/solar/google-solar?action=mcp-analyze';
 const MODULES: Record<string, { watts: number; priceRon: number }> = {
   standard475: { watts: 475, priceRon: 500 }, compact450: { watts: 450, priceRon: 480 }, premium490: { watts: 490, priceRon: 540 },
 };
@@ -48,7 +49,45 @@ async function exactPvgis(state: JsonObject, kwp: number) {
   return { annualKWh, monthlyKWh: monthlyProduction(data), source: 'PVGIS exact site with terrain horizon', coordinates: { lat, lon } };
 }
 
-export async function analyzeSolar(state: JsonObject, runExactSiteAnalysis = false) {
+function approximatePanelPoints(lat: number, lon: number, panelCount: number, bearingDeg: number) {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(panelCount)));
+  const rows = Math.ceil(panelCount / columns);
+  const radians = bearingDeg * Math.PI / 180;
+  const points: Array<{ latitude: number; longitude: number; surfaceId: string }> = [];
+  for (let index = 0; index < panelCount; index += 1) {
+    const localX = (index % columns - (columns - 1) / 2) * 1.25;
+    const localY = (Math.floor(index / columns) - (rows - 1) / 2) * 1.95;
+    const eastM = localX * Math.cos(radians) + localY * Math.sin(radians);
+    const northM = -localX * Math.sin(radians) + localY * Math.cos(radians);
+    points.push({ latitude: lat + northM / 111_320, longitude: lon + eastM / (111_320 * Math.cos(lat * Math.PI / 180)), surfaceId: 'chatgpt-roof' });
+  }
+  return points;
+}
+
+async function googleSolar(state: JsonObject, panelCount: number) {
+  const token = String(process.env.MCP_GOOGLE_SOLAR_BRIDGE_TOKEN || '');
+  if (!token) throw new ConfigurationError('Google Solar analysis is not configured yet. Try again after the service deployment completes.', 'locationLat');
+  const lat = number(state.locationLat, NaN); const lon = number(state.locationLon, NaN);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new ConfigurationError('Google Solar analysis needs confirmed latitude and longitude.', 'locationLat');
+  const response = await fetch(GOOGLE_SOLAR_ENDPOINT, {
+    method: 'POST', signal: AbortSignal.timeout(120_000), headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Mcp-Solar-Bridge-Token': token },
+    body: JSON.stringify({ siteLat: lat, siteLon: lon, houseLat: lat, houseLon: lon, requestedPanelCount: panelCount, radiusM: 100, panelPoints: approximatePanelPoints(lat, lon, panelCount, number(state.roofBearingDeg, 180)) }),
+  });
+  const data = await response.json() as JsonObject;
+  if (!response.ok) throw new ConfigurationError(`Google Solar analysis is unavailable: ${String(data.error || response.status)}.`, 'locationLat');
+  const insight = data.buildingInsights as JsonObject | undefined;
+  const closest = insight?.closestPanelConfig as JsonObject | undefined;
+  const layers = data.dataLayers as JsonObject | undefined;
+  return {
+    provider: 'Google Solar API', imageryDate: layers?.imageryDate || null, imageryQuality: layers?.imageryQuality || null,
+    referencePanelCount: number(closest?.panelsCount, 0) || null, referenceAnnualDcKWh: Math.round(number(closest?.yearlyEnergyDcKwh, 0)) || null,
+    roofSegmentCount: Array.isArray(insight?.roofSegmentSummaries) ? insight?.roofSegmentSummaries.length : 0,
+    shadePanelCount: number(((data.shadeModel as JsonObject | undefined)?.panelCount), 0),
+    note: 'Google shading uses an approximate panel grid generated from the ChatGPT geometry. Refine panel placement in the full configurator for the final visual layout.',
+  };
+}
+
+export async function analyzeSolar(state: JsonObject, runExactSiteAnalysis = false, runGoogleSolarAnalysis = false) {
   const module = MODULES[String(state.modulePreset)] || MODULES.standard475;
   const panels = Math.max(1, Math.round(number(state.panelCount, 1)));
   const nominalPowerKwp = panels * module.watts / 1000;
@@ -61,10 +100,11 @@ export async function analyzeSolar(state: JsonObject, runExactSiteAnalysis = fal
   const batteryKWh = state.batteryEnabled ? (state.batteryAutoSize ? automaticBattery <= 5 ? 5 : automaticBattery <= 10 ? 10 : automaticBattery <= 15 ? 15 : 20 : Math.max(2, number(state.batteryCapacityKWh, 5))) : 0;
   const inverter = Math.round(2200 + 340 * Math.min(12, Math.max(1, nominalPowerKwp)) + (state.gridConnection === 'three' ? 900 : 0));
   const preVat = panels * (module.priceRon + number(state.mountingPricePerPanelRon)) + inverter + nominalPowerKwp * number(state.installationPricePerKwpRon) + number(state.paperworkPriceRon) + batteryKWh * number(state.batteryPricePerKWhRon);
-  return {
+  const result = {
     configuredPanels: panels, nominalPowerKwp: Number(nominalPowerKwp.toFixed(3)), annualProductionKWh: Math.round(production.annualKWh), monthlyProductionKWh: production.monthlyKWh.map(Math.round), productionSource: production.source, exactCoordinates: production.coordinates,
     estimatedAnnualConsumptionKWh: Math.round(annualConsumptionKWh), annualEnergyCoveragePct: annualConsumptionKWh > 0 ? Number(Math.min(100, production.annualKWh / annualConsumptionKWh * 100).toFixed(1)) : null,
     batteryCapacityKWh: batteryKWh, indicativeSystemPriceRon: Math.round(preVat * (1 + number(state.vatRate, 0.21))),
     caveats: ['Roof fit is verified by the live 3D configurator; this analysis uses the requested panel count.', 'Annual energy coverage is not self-sufficiency: hourly consumption, battery dispatch, shading and export rules affect the actual result.', 'This is an indicative production and cost estimate, not an engineering yield guarantee or commercial quotation.'],
   };
+  return runGoogleSolarAnalysis ? { ...result, googleSolar: await googleSolar(state, panels) } : result;
 }

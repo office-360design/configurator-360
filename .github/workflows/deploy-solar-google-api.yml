@@ -82,7 +82,7 @@ jobs:
             --ingress=internal-and-cloud-load-balancing \
             --no-default-url \
             --set-env-vars="GOOGLE_SOLAR_CACHE_BUCKET=${GOOGLE_SOLAR_CACHE_BUCKET},GOOGLE_SOLAR_SECURITY_COLLECTION=${GOOGLE_SOLAR_SECURITY_COLLECTION},GOOGLE_SOLAR_MAX_LOGIN_ATTEMPTS_HOUR=12,GOOGLE_SOLAR_MAX_ANALYSES_PER_IP_DAY=20,GOOGLE_SOLAR_MAX_ANALYSES_DAY=100" \
-            --set-secrets="GOOGLE_SOLAR_API_KEY=google-solar-api-key:latest,GOOGLE_SOLAR_DEMO_ACCESS_CODE=google-solar-demo-access-code:latest,GOOGLE_SOLAR_SESSION_SECRET=google-solar-session-secret:latest" \
+            --set-secrets="GOOGLE_SOLAR_API_KEY=google-solar-api-key:latest,GOOGLE_SOLAR_DEMO_ACCESS_CODE=google-solar-demo-access-code:latest,GOOGLE_SOLAR_SESSION_SECRET=google-solar-session-secret:latest,MCP_GOOGLE_SOLAR_BRIDGE_TOKEN=mcp-google-solar-bridge-token:latest" \
             --quiet
 
       - name: Deployment summary
