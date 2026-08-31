@@ -32,7 +32,10 @@ jobs:
           node-version: 22
       - name: Install and validate
         working-directory: chatgpt-plugin-server
-        run: npm ci --ignore-scripts && npm test && npm run build
+        # tsx/esbuild require their platform binary during test/build.  Do not
+        # suppress package lifecycle scripts here; this lockfile is committed
+        # with the server and npm ci provides the reproducible install.
+        run: npm ci && npm test && npm run build
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
