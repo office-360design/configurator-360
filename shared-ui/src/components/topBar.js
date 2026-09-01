@@ -1,8 +1,8 @@
 import { getLanguageProfile } from '../config.js';
 import { sharedT } from '../i18n.js?v=21';
-import { sharedIcon } from '../icons.js?v=19';
+import { sharedIcon } from '../icons.js?v=21';
 import { escapeHtml } from '../utils.js';
-import { renderAccountMenu } from './accountMenu.js?v=19';
+import { renderAccountMenu } from './accountMenu.js?v=20';
 import { renderLanguageMenu } from './languageMenu.js';
 
 function iconButton({ action, label, icon, disabled = false, extraClass = '' }) {

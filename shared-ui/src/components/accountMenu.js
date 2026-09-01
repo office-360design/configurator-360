@@ -5,7 +5,7 @@ import {
   UNIT_OPTIONS,
 } from '../config.js';
 import { sharedT } from '../i18n.js?v=25';
-import { sharedIcon } from '../icons.js?v=20';
+import { sharedIcon } from '../icons.js?v=21';
 import { escapeHtml } from '../utils.js';
 
 
@@ -100,6 +100,7 @@ export function renderAccountMenu(state) {
   const locale = state.locale;
   const authenticated = Boolean(state.authUser?.uid);
   const domainOpen = Boolean(state.domainOpen);
+  const helpOpen = Boolean(state.helpOpen);
   const currentDomainLocale = String(state.currentDomainLocale || 'en-US');
   const greeting = authenticated
     ? sharedT(locale, 'account.greetingUser', { name: accountDisplayName(state.authUser) })
@@ -124,13 +125,18 @@ export function renderAccountMenu(state) {
           <button type="button" data-action="account-profile"><span>${sharedIcon('account')}</span><strong>${escapeHtml(sharedT(locale, 'account.profile'))}</strong></button>
           <button type="button" data-action="account-saved"><span>${sharedIcon('folder')}</span><strong>${escapeHtml(sharedT(locale, 'account.saved'))}</strong></button>
           ${renderDomainControl(locale, domainOpen, currentDomainLocale)}
-          <button class="account-menu__help" type="button" data-action="account-help">
+          <button class="account-menu__help" type="button" data-action="toggle-account-help" aria-expanded="${helpOpen}">
             <span class="account-menu__help-icon">${sharedIcon('help')}</span>
-            <span class="account-menu__help-copy">
-              <strong>${escapeHtml(sharedT(locale, 'account.help'))}</strong>
-              <small>${escapeHtml(sharedT(locale, 'account.helpContact'))} <b>office@360configurator.com</b></small>
-            </span>
+            <strong>${escapeHtml(sharedT(locale, 'account.help'))}</strong>
+            <span class="account-menu__chevron">›</span>
           </button>
+          <div class="account-help" data-account-help>
+            <span class="account-help__prompt">${escapeHtml(sharedT(locale, 'account.helpContact'))}</span>
+            <button class="account-help__email" type="button" data-action="account-support-email">
+              <span class="account-help__mail-icon" aria-hidden="true">${sharedIcon('supportMail')}</span>
+              <strong>office@360configurator.com</strong>
+            </button>
+          </div>
           <button type="button" data-action="toggle-account-settings" aria-expanded="false"><span>${sharedIcon('settings')}</span><strong>${escapeHtml(sharedT(locale, 'account.settings'))}</strong><span class="account-menu__chevron">›</span></button>
           <div class="account-settings" data-account-settings>
             ${renderSettingsSelect(locale, 'account.measuringUnits', 'units', state.units, UNIT_OPTIONS)}
