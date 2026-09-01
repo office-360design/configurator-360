@@ -15,7 +15,7 @@ function ensureStylesheet() {
   const link = document.createElement('link');
   link.id = ACCORDION_STYLESHEET_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('../sidebar-accordion.css?v=1', import.meta.url).href;
+  link.href = new URL('../sidebar-accordion.css?v=2', import.meta.url).href;
   document.head.append(link);
 }
 
@@ -212,16 +212,27 @@ function observeSummarySources(sidebar) {
   });
 }
 
+function getStepSections(sidebar) {
+  // Common UI converts the sidebar into a managed panel and moves the original
+  // sections into this body wrapper. Fall back to the sidebar itself so the
+  // accordion also works before Common UI finishes mounting and in isolation.
+  const stepContainer = sidebar.querySelector(':scope > .shared-configurator-panel__body') || sidebar;
+  return [...stepContainer.children]
+    .filter((child) => child.classList?.contains('panel-section'))
+    .slice(0, STEP_DEFINITIONS.length);
+}
+
 function initializeSidebarAccordion() {
   ensureStylesheet();
   const sidebar = document.querySelector('.sidebar');
-  if (!sidebar || sidebar.dataset.solarAccordionReady === 'true') return;
+  if (!sidebar) return false;
+  if (sidebar.dataset.solarAccordionReady === 'true') return true;
 
-  const sections = [...sidebar.children].filter((child) => child.classList?.contains('panel-section')).slice(0, STEP_DEFINITIONS.length);
-  if (sections.length !== STEP_DEFINITIONS.length) return;
+  const sections = getStepSections(sidebar);
+  if (sections.length !== STEP_DEFINITIONS.length) return false;
 
   stepEntries = sections.map((section, index) => enhanceStep(section, STEP_DEFINITIONS[index], index)).filter(Boolean);
-  if (stepEntries.length !== STEP_DEFINITIONS.length) return;
+  if (stepEntries.length !== STEP_DEFINITIONS.length) return false;
   sidebar.dataset.solarAccordionReady = 'true';
 
   const storedStep = readStoredStep();
@@ -235,10 +246,24 @@ function initializeSidebarAccordion() {
   window.addEventListener('solar-preference-change', scheduleSummaryUpdate);
   observeSummarySources(sidebar);
   scheduleSummaryUpdate();
+  return true;
+}
+
+function startSidebarAccordion() {
+  if (initializeSidebarAccordion()) return;
+
+  // Module evaluation can finish before or after the managed Common UI panel is
+  // assembled. Retry when that wrapper appears instead of silently doing nothing.
+  const observer = new MutationObserver(() => {
+    if (!initializeSidebarAccordion()) return;
+    observer.disconnect();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  window.setTimeout(() => observer.disconnect(), 5000);
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeSidebarAccordion, { once: true });
+  document.addEventListener('DOMContentLoaded', startSidebarAccordion, { once: true });
 } else {
-  initializeSidebarAccordion();
+  startSidebarAccordion();
 }
