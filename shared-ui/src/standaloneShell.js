@@ -1,8 +1,8 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
 import { sharedT } from './i18n.js?v=25';
 import { renderActionFeedback } from './components/feedback.js?v=17';
-import { renderTopBar } from './components/topBar.js?v=21';
-import { syncAccountIdentity } from './components/accountMenu.js?v=19';
+import { renderTopBar } from './components/topBar.js?v=22';
+import { syncAccountIdentity } from './components/accountMenu.js?v=20';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=18';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
@@ -224,6 +224,7 @@ export class StandaloneConfiguratorShell {
     this.draftPersistTimer = 0;
     this.accountOpen = false;
     this.accountSettingsOpen = false;
+    this.helpOpen = false;
     this.domainOpen = false;
     this.domainBusy = false;
     this.authUser = null;
@@ -900,6 +901,7 @@ export class StandaloneConfiguratorShell {
           ...this.state,
           authUser: this.authUser,
           domainOpen: this.domainOpen,
+          helpOpen: this.helpOpen,
           currentDomainLocale: getLocaleForHostname(window.location.hostname),
           cartCount: this.cartItems.length,
           cartOpen: this.cartOpen,
@@ -932,6 +934,7 @@ export class StandaloneConfiguratorShell {
     this.onDocumentClick = (event) => {
       if (!event.target.closest('[data-account-menu], [data-action="account"]')) {
         this.accountOpen = false;
+        this.helpOpen = false;
         this.domainOpen = false;
       }
       if (!event.target.closest('[data-language-menu], [data-action="language"]')) {
@@ -950,6 +953,7 @@ export class StandaloneConfiguratorShell {
         this.accountOpen = false;
         this.languageOpen = false;
         this.cartOpen = false;
+        this.helpOpen = false;
         this.domainOpen = false;
         this.savedDialog.open = false;
         if (this.toolsOpen) {
@@ -1788,6 +1792,7 @@ export class StandaloneConfiguratorShell {
       this.cartOpen = !this.cartOpen;
       this.accountOpen = false;
       this.languageOpen = false;
+      this.helpOpen = false;
       this.domainOpen = false;
       this.syncMenus();
       if (this.cartOpen && this.authUser?.uid) {
@@ -1804,7 +1809,10 @@ export class StandaloneConfiguratorShell {
       return;
     } else if (action === 'account') {
       this.accountOpen = !this.accountOpen;
-      if (!this.accountOpen) this.domainOpen = false;
+      if (!this.accountOpen) {
+        this.helpOpen = false;
+        this.domainOpen = false;
+      }
       this.languageOpen = false;
       this.cartOpen = false;
       this.syncMenus();
@@ -1812,6 +1820,7 @@ export class StandaloneConfiguratorShell {
       this.languageOpen = !this.languageOpen;
       this.accountOpen = false;
       this.cartOpen = false;
+      this.helpOpen = false;
       this.domainOpen = false;
       this.syncMenus();
       if (this.languageOpen) {
@@ -1824,13 +1833,16 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'toggle-domain-menu') {
       this.domainOpen = !this.domainOpen;
       this.accountSettingsOpen = false;
+      this.helpOpen = false;
       this.sync();
     } else if (action === 'select-domain') {
       void this.changeSiteDomain(actionTarget.dataset.domainLocale);
     } else if (action === 'toggle-account-settings') {
       this.accountSettingsOpen = !this.accountSettingsOpen;
+      this.helpOpen = false;
       this.domainOpen = false;
       this.syncAccountSettings();
+      this.syncHelpMenu();
       this.syncDomainMenu();
     } else if (action === 'toggle-dark-mode') {
       this.state.darkMode = !this.state.darkMode;
@@ -1888,7 +1900,14 @@ export class StandaloneConfiguratorShell {
       void this.openSavedConfiguration(actionTarget.dataset.savedId);
     } else if (action === 'saved-delete') {
       void this.deleteSavedConfiguration(actionTarget.dataset.savedId);
-    } else if (action === 'account-help') {
+    } else if (action === 'toggle-account-help') {
+      this.helpOpen = !this.helpOpen;
+      this.accountSettingsOpen = false;
+      this.domainOpen = false;
+      this.syncHelpMenu();
+      this.syncAccountSettings();
+      this.syncDomainMenu();
+    } else if (action === 'account-support-email') {
       void this.requestSupport(actionTarget);
     } else if (action === 'cookies-placeholder') {
       this.options.callbacks.onAccountAction?.('cookies');
@@ -2166,42 +2185,25 @@ export class StandaloneConfiguratorShell {
     }
   }
 
-  buildSupportGmailUrl(shareUrl) {
+  buildSupportMailtoUrl(shareUrl) {
     const productName = SUPPORT_PRODUCT_NAMES[this.productId] || String(this.options.productType || 'Configuration').trim() || 'Configuration';
     const subject = `Support request for ${productName} configurator`;
     const body = `This is the project I was working on when I requested support: ${shareUrl}.\n\n`;
-    const gmailUrl = new URL('https://mail.google.com/mail/');
-    gmailUrl.searchParams.set('view', 'cm');
-    gmailUrl.searchParams.set('fs', '1');
-    gmailUrl.searchParams.set('to', SUPPORT_EMAIL);
-    gmailUrl.searchParams.set('su', subject);
-    gmailUrl.searchParams.set('body', body);
-    return gmailUrl.href;
+    return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
   async requestSupport(button = null) {
-    // Open the destination tab synchronously from the click so browsers do not
-    // treat it as an async popup after the Firestore Share link is generated.
-    const supportTab = window.open('about:blank', '_blank');
     button?.setAttribute('disabled', '');
     try {
       const shareUrl = await Promise.resolve(this.options.callbacks.getShareUrl?.() || window.location.href);
       if (!shareUrl) throw new Error('A Share link could not be generated for the support request.');
 
-      const gmailUrl = this.buildSupportGmailUrl(shareUrl);
-      if (supportTab && !supportTab.closed) {
-        try { supportTab.opener = null; } catch { /* best effort */ }
-        supportTab.location.replace(gmailUrl);
-      } else {
-        // If the browser blocks the new tab, still honor the user's click by
-        // loading Gmail in the current tab. The generated Share link preserves
-        // the exact configurator state they were working on.
-        window.location.assign(gmailUrl);
-      }
+      // mailto: delegates the compose request to the mail handler configured by
+      // the customer (desktop client or a webmail handler registered in their browser).
+      window.location.assign(this.buildSupportMailtoUrl(shareUrl));
       return true;
     } catch (error) {
       console.error('The support email could not be prepared.', error);
-      try { supportTab?.close(); } catch { /* best effort */ }
       this.showFeedback(sharedT(this.state.locale, 'feedback.supportUnavailable'), 'error', 2500);
       return false;
     } finally {
@@ -2300,6 +2302,7 @@ export class StandaloneConfiguratorShell {
     this.syncProjectNameWidth();
     this.syncMenus();
     this.syncAccountSettings();
+    this.syncHelpMenu();
     this.syncDomainMenu();
     this.syncAuthenticationControls();
     syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: this.authBusy });
@@ -2330,6 +2333,14 @@ export class StandaloneConfiguratorShell {
     this.host.querySelector('[data-action="account"]')?.setAttribute('aria-expanded', String(this.accountOpen));
     this.host.querySelector('[data-action="language"]')?.setAttribute('aria-expanded', String(this.languageOpen));
     this.host.querySelector('[data-action="cart"]')?.setAttribute('aria-expanded', String(this.cartOpen));
+  }
+
+
+  syncHelpMenu() {
+    const help = this.host.querySelector('[data-account-help]');
+    const helpButton = this.host.querySelector('[data-action="toggle-account-help"]');
+    help?.classList.toggle('is-open', this.helpOpen);
+    helpButton?.setAttribute('aria-expanded', String(this.helpOpen));
   }
 
   syncDomainMenu() {
