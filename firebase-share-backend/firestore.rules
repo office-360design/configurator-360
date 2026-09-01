@@ -188,6 +188,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Demo requests are submitted through the App Check-protected website
+    // callable and archived by the Admin SDK. They contain sales contact data,
+    // so browser clients must never read, list, create or modify them directly.
+    match /demoRequests/{requestId} {
+      allow read, write: if false;
+    }
+
     // Cross-domain authentication handoffs contain only server-side temporary
     // state and are redeemed through Cloud Functions. Browser Firestore access
     // is intentionally impossible.

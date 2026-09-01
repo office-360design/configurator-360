@@ -61,6 +61,7 @@ function sitemapUrls(locale) {
     `${origin}/about`,
     `${origin}/contact`,
     `${origin}/pricing`,
+    `${origin}/book-a-demo`,
     ...marketingConfiguratorSlugs.map((slug) => `${origin}/configurators/${slug}`),
     ...externalConfiguratorSlugs.map((slug) => `${origin}${externalConfiguratorPaths[locale][slug]}`),
   ];
