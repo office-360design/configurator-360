@@ -24,6 +24,7 @@ import {
     setWindowStateTransProfile,
     setWindowTypeInState,
     setWindowSizeInState,
+    setOverallWindowSizeInState,
 } from './window-layout-state.js';
 import { getWindowLocale, localizeLayoutLabel } from './i18n.js';
 
@@ -552,6 +553,11 @@ export function createWindowLayoutController({
                     edgeExtensionM,
                 }
             );
+            windowState = setOverallWindowSizeInState(windowState, {
+                widthM: Number.isFinite(Number(configuration.widthM)) ? Number(configuration.widthM) : null,
+                heightM: Number.isFinite(Number(configuration.heightM)) ? Number(configuration.heightM) : null,
+                edgeExtensionM,
+            });
         }
         syncControls();
         if (notify) return notifyChange(previous, {

@@ -150,7 +150,7 @@ simulationPanelToggle?.addEventListener('click', () => {
 function syncMobileLayout() {
   document.body.classList.toggle('solar-mobile-layout', mobileLayoutQuery.matches);
   setSidebarCollapsed(mobileLayoutQuery.matches);
-  setSimulationPanelCollapsed(mobileLayoutQuery.matches);
+  setSimulationPanelCollapsed(mobileLayoutQuery.matches || document.body.classList.contains('configurator-embed-preview'));
 }
 
 syncMobileLayout();

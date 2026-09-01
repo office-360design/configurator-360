@@ -8,7 +8,7 @@ const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 
 const FUNCTION_REGION = 'europe-west1';
 const RUNTIME_SERVICE_ACCOUNT = 'configurator-runtime@configurator-360.iam.gserviceaccount.com';
-const TEST_QUOTATION_RECIPIENT = 'matei.belciug.work@gmail.com';
+const TEST_QUOTATION_RECIPIENT = 'office@360configurator.com';
 const QUOTATION_RATE_LIMIT_COLLECTION = 'quotationRequestRateLimits';
 const QUOTATION_MIN_INTERVAL_MS = 10 * 1000;
 const SHARES_COLLECTION = 'sharedConfigurations';

@@ -70,4 +70,5 @@ jobs:
             --max-instances=3 \
             --allow-unauthenticated \
             --set-env-vars="GOOGLE_CLOUD_PROJECT=configurator-360,MCP_IP_HOURLY_LIMIT=30,MCP_IP_DAILY_LIMIT=100,MCP_GLOBAL_DAILY_LIMIT=2000" \
+            --set-secrets="MCP_GOOGLE_SOLAR_BRIDGE_TOKEN=mcp-google-solar-bridge-token:latest" \
             --quiet

@@ -19,8 +19,14 @@ import {
     getWindowLayoutRequest,
 } from './window-layout-controller.js';
 import { requireTenantConfiguratorAccess } from '../shared-ui/src/tenantBootstrap.js?v=1';
+import { readShareState } from '../shared-ui/src/shareState.js?v=4';
 
 await requireTenantConfiguratorAccess('window');
+// Window CAD initialization is asynchronous and used to race the common shell's
+// generic share restore. This runtime owns the initial restore so it can apply
+// the payload only after the default profile assembly is fully stable.
+window.WINDOW_CONFIGURATOR_SELF_RESTORES_SHARE = true;
+window.WINDOW_CONFIGURATOR_INITIAL_SHARE_RESTORED = false;
 import { resolveLegacyProfileSelection } from './profile-compatibility.js';
 import { createProfileSelectionSignature } from './profile-composition.js';
 import { createWindowLayoutOverlay } from './window-layout-overlay.js';
@@ -746,13 +752,16 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
 
     materialManager.applyConfiguration(configuration);
 
-    const selectedLayout = await windowLayoutController.applyConfiguration(
-        configuration,
-        { notify: false }
-    );
+    // CAD preset selection intentionally resets the interactive editor to one
+    // sash. Apply it first, then restore the requested topology so a shared
+    // two-sash/multi-cell layout cannot be overwritten during state loading.
     const selectedProfiles = await profileSelectionController.applyConfiguration(
         configuration,
         { reload: false }
+    );
+    const selectedLayout = await windowLayoutController.applyConfiguration(
+        configuration,
+        { notify: false }
     );
     const combinedProfileSelection = {
         ...selectedProfiles,
@@ -946,22 +955,32 @@ glassThicknessInput?.addEventListener('input', () => {
 });
 
 // Load the selected profile. In QR AR mode the selection comes from URL parameters.
-profileController.loadProfileSelection({
+await profileController.loadProfileSelection({
     ...profileSelectionController.getConfigurationSnapshot(),
     ...windowLayoutController.getConfigurationSnapshot(),
-}).then(() => {
-    const selection = profileSelectionController.getConfigurationSnapshot();
-    const expectedAccessoryPresetId = String(selection.profileVariantCode || '')
-        .trim()
-        .toLowerCase();
-    if (
-        selection.cadAssemblyId !== 'custom'
-        && (
-            !accessoryController.matchesPreset(expectedAccessoryPresetId)
-            || windowLayoutController.getLayoutId() !== 'single'
-        )
-    ) {
-        profileSelectionController.markCustomCadAssembly();
-    }
 });
+const selection = profileSelectionController.getConfigurationSnapshot();
+const expectedAccessoryPresetId = String(selection.profileVariantCode || '')
+    .trim()
+    .toLowerCase();
+if (
+    selection.cadAssemblyId !== 'custom'
+    && (
+        !accessoryController.matchesPreset(expectedAccessoryPresetId)
+        || windowLayoutController.getLayoutId() !== 'single'
+    )
+) {
+    profileSelectionController.markCustomCadAssembly();
+}
+
+try {
+    const initialSharedState = await readShareState({ productType: 'window' });
+    if (initialSharedState && typeof initialSharedState === 'object') {
+        await window.applyConfiguration(initialSharedState);
+    }
+} catch (error) {
+    console.error('Unable to apply the initial shared Window configuration:', error);
+} finally {
+    window.WINDOW_CONFIGURATOR_INITIAL_SHARE_RESTORED = true;
+}
 renderer.setAnimationLoop(renderFrame);

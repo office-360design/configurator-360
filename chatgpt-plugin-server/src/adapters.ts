@@ -44,9 +44,13 @@ export function normalizeAnswers(product: ProductId, raw: JsonObject, { requireE
     if (!conditionIsActive(question.when, conditionValues)) continue;
     let value = raw[question.id];
     if (value === undefined || value === null || value === '') {
-      if (requireExplicit) throw new ConfigurationError(`Please ask the user to explicitly choose ${question.label} before creating a configuration.`, question.id);
+      if (question.default === undefined && !question.required) continue;
+      if (requireExplicit && question.required) throw new ConfigurationError(`Please ask the user to explicitly choose ${question.label} before creating a configuration.`, question.id);
       value = clone(question.default);
-      assumptions.push(`${question.label}: ${Array.isArray(value) ? 'none' : String(value)}`);
+      const isPendingExactLocation = product === 'solar'
+        && raw.locationMode === 'exact'
+        && ['locationLat', 'locationLon', 'locationLabel'].includes(question.id);
+      if (question.required && !isPendingExactLocation) assumptions.push(`${question.label}: ${Array.isArray(value) ? 'none' : String(value)}`);
     }
     if (question.type === 'number') value = asNumber(value, question);
     if (question.type === 'boolean') value = Boolean(value);
@@ -56,12 +60,23 @@ export function normalizeAnswers(product: ProductId, raw: JsonObject, { requireE
     if (question.type === 'array' && !Array.isArray(value)) throw new ConfigurationError(`${question.label} must be an array.`, question.id);
     answers[question.id] = value;
   }
+  if (product === 'solar' && raw.locationMode === 'exact'
+    && ['locationLat', 'locationLon', 'locationLabel'].some(id => raw[id] === undefined || raw[id] === null || raw[id] === '')) {
+    assumptions.push('Exact location: awaiting a confirmed address-search result');
+  }
+  if (product === 'solar' && requireExplicit && raw.locationMode === 'exact'
+    && ['locationLat', 'locationLon', 'locationLabel'].some(id => raw[id] === undefined || raw[id] === null || raw[id] === '')) {
+    throw new ConfigurationError('Search the customer’s address and use the confirmed search result before exact-site Solar analysis or creation.', 'locationLabel');
+  }
   return { answers, assumptions };
 }
 
 export function pendingQuestions(product: ProductId, raw: JsonObject, limit = 3): Question[] {
   const normalized = normalizeAnswers(product, raw);
   return CATALOG[product].questions.filter(question => (
+    question.required
+    && !question.suppliedByTool
+    &&
     normalized.answers[question.id] !== undefined
     && (raw[question.id] === undefined || raw[question.id] === null || raw[question.id] === '')
   )).slice(0, limit);
@@ -75,13 +90,18 @@ function fenceState(a: JsonObject): JsonObject {
   const validRuns = a.layout === 'straight' ? ['a'] : a.layout === 'l' ? ['a', 'b'] : a.layout === 'u' ? ['a', 'b', 'c'] : a.layout === 'closed5' ? ['a', 'b', 'c', 'd', 'e'] : ['a', 'b', 'c', 'd'];
   const gates = (a.gates as unknown[]).map((item, index) => {
     const gate = (item && typeof item === 'object' ? item : {}) as JsonObject;
-    const runId = validRuns.includes(String(gate.runId ?? gate.run ?? 'a')) ? String(gate.runId ?? gate.run ?? 'a') : 'a';
+    const requestedRun = String(gate.runId ?? gate.run ?? '');
+    if (!validRuns.includes(requestedRun)) throw new ConfigurationError(`Gate ${index + 1} run must be one of: ${validRuns.join(', ')}.`, 'gates');
+    if (!['pedestrian', 'driveway'].includes(String(gate.type))) throw new ConfigurationError(`Gate ${index + 1} type must be pedestrian or driveway.`, 'gates');
+    if (!['left', 'right'].includes(String(gate.handing))) throw new ConfigurationError(`Gate ${index + 1} handing must be left or right.`, 'gates');
+    const position = Number(gate.position);
+    if (!Number.isInteger(position) || position < 0) throw new ConfigurationError(`Gate ${index + 1} position must be a zero-based bay number.`, 'gates');
     return {
       id: `chatgpt-gate-${index + 1}`,
-      type: gate.type === 'driveway' ? 'driveway' : 'pedestrian',
-      runId,
-      position: Math.max(0, Math.floor(Number(gate.position ?? 0))),
-      handing: gate.handing === 'left' ? 'left' : 'right',
+      type: gate.type,
+      runId: requestedRun,
+      position,
+      handing: gate.handing,
     };
   });
   return { ...a, gates, ...baseView(), scenery: Boolean(a.scenery), sunPosition: 48, infillGap: a.infillGap };
@@ -90,22 +110,59 @@ function fenceState(a: JsonObject): JsonObject {
 function roofState(a: JsonObject): JsonObject {
   const minimumPitch = a.covering === 'roca' ? 14 : a.covering === 'teclado' ? 18 : 5;
   if (Number(a.pitch) < minimumPitch) throw new ConfigurationError(`The selected covering requires a pitch of at least ${minimumPitch} degrees.`, 'pitch');
-  return { ...a, ...baseView(), showCompass: false, sunPosition: 42, units: 'metric', currency: 'RON', locale: 'en-US', currencyRate: 1, excludedBomItems: [], customPlan: null };
+  return { ...a, ...baseView(), showCompass: false, sunPosition: a.sunPosition, northDirection: a.northDirection, nightPreview: Boolean(a.nightPreview), technicalEdges: Boolean(a.technicalEdges), units: 'metric', currency: 'RON', locale: 'en-US', currencyRate: 1, excludedBomItems: [], customPlan: null };
 }
 
 function hallState(a: JsonObject): JsonObject {
+  const limits = {
+    personnel: { minWidth: 0.7, maxWidth: 2.4, minHeight: 1.8, maxHeight: 3.2 },
+    garage: { minWidth: 2.2, maxWidth: 10, minHeight: 2.2, maxHeight: 7 },
+    window: { minWidth: 0.5, maxWidth: 5, minHeight: 0.5, maxHeight: 3.5 },
+  } as const;
+  const openings = (a.openings as unknown[]).map((item, index) => {
+    const opening = (item && typeof item === 'object' ? item : {}) as JsonObject;
+    const type = String(opening.type) as keyof typeof limits;
+    if (!limits[type]) throw new ConfigurationError(`Opening ${index + 1} type must be garage, personnel, or window.`, 'openings');
+    const side = String(opening.side);
+    if (!['front', 'right', 'back', 'left'].includes(side)) throw new ConfigurationError(`Opening ${index + 1} side must be front, right, back, or left.`, 'openings');
+    const width = Number(opening.width); const height = Number(opening.height);
+    if (!Number.isFinite(width) || width < limits[type].minWidth || width > limits[type].maxWidth) throw new ConfigurationError(`Opening ${index + 1} width must be ${limits[type].minWidth}–${limits[type].maxWidth} m.`, 'openings');
+    if (!Number.isFinite(height) || height < limits[type].minHeight || height > limits[type].maxHeight || height > Number(a.eaveHeight) - 0.12) throw new ConfigurationError(`Opening ${index + 1} height does not fit the selected opening type and eave height.`, 'openings');
+    const span = side === 'front' || side === 'back' ? Number(a.width) : Number(a.length);
+    const offset = Number(opening.offset ?? 0); const bottom = Number(opening.bottom ?? (type === 'window' ? 2.15 : 0));
+    if (Math.abs(offset) + width / 2 > span / 2 - 0.06) throw new ConfigurationError(`Opening ${index + 1} does not fit on the ${side} wall at offset ${offset} m.`, 'openings');
+    if (bottom < 0 || bottom + height > Number(a.eaveHeight) - 0.06) throw new ConfigurationError(`Opening ${index + 1} vertical position does not fit below the eave.`, 'openings');
+    return { id: String(opening.id || `chatgpt-opening-${index + 1}`), type, side, width, height, offset, bottom, color: String(opening.color || (type === 'garage' ? '#24445a' : type === 'window' ? '#8ec6df' : '#e5ebee')) };
+  });
+  for (let i = 0; i < openings.length; i += 1) for (let j = i + 1; j < openings.length; j += 1) {
+    const x = openings[i]; const y = openings[j];
+    if (x.side !== y.side) continue;
+    const horizontal = Math.min(x.offset + x.width / 2, y.offset + y.width / 2) - Math.max(x.offset - x.width / 2, y.offset - y.width / 2);
+    const vertical = Math.min(x.bottom + x.height, y.bottom + y.height) - Math.max(x.bottom, y.bottom);
+    if (horizontal > 0.012 && vertical > 0.012) throw new ConfigurationError(`Openings ${i + 1} and ${j + 1} overlap on the ${x.side} wall.`, 'openings');
+  }
   return {
-    ...a, ...baseView(), selectedHeaProfile: 'HEA 220', showCladding: a.claddingProfile !== 'none', showScenery: true,
+    ...a, openings, ...baseView(), selectedHeaProfile: 'HEA 220', showCladding: Boolean(a.showCladding), showScenery: true,
     inspectionMode: 'all', sectionCutEnabled: false, sectionCutPosition: 50, connectionDetails: false,
     forkliftClearance: false, rackDensity: 'standard', serviceVisibility: 'all', serviceCoverage: false,
-    sunPosition: 0.47, season: 'winter', explode: 0,
+    sunPosition: 0.47, season: 'winter', nightPreview: Boolean(a.nightPreview), explode: a.explodedView ? 100 : 0,
   };
 }
 
-function side(type: unknown) {
-  const normalized = type === 'privacy' ? 'privacy-wall' : String(type);
+function side(value: unknown) {
+  const source = value && typeof value === 'object' ? value as JsonObject : { type: value };
+  const normalized = source.type === 'privacy' ? 'privacy-wall' : String(source.type);
   const allowed = ['none', 'screen', 'motorized-screen', 'glass', 'privacy-wall'];
-  return { type: allowed.includes(normalized) ? normalized : 'none', screenSettings: { screen: { openness: 50, color: '#67757d' }, 'motorized-screen': { openness: 50, color: '#34444c' } }, privacyColor: '#26343c' };
+  const requestedOpenness = Number(source.openness);
+  const openness = Math.min(100, Math.max(0, Number.isFinite(requestedOpenness) ? requestedOpenness : 50));
+  return {
+    type: allowed.includes(normalized) ? normalized : 'none',
+    screenSettings: {
+      screen: { openness: normalized === 'screen' ? openness : 50, color: String(source.color || '#67757d') },
+      'motorized-screen': { openness: normalized === 'motorized-screen' ? openness : 50, color: String(source.color || '#34444c') },
+    },
+    privacyColor: String(source.privacyColor || '#26343c'),
+  };
 }
 
 type PergolaSegment = { id: string; boundary: string | null };
@@ -164,13 +221,46 @@ function distributePergolaAccessories(width: number, depth: number, installation
 
 function pergolaState(a: JsonObject): JsonObject {
   const selectedSides: Record<string, unknown> = { front: 'none', back: 'none', left: 'none', right: 'none' };
+  const selectedSegments: Record<string, ReturnType<typeof side>> = {};
   for (const entry of a.sides as unknown[]) {
     if (!entry || typeof entry !== 'object') continue;
     const item = entry as JsonObject;
-    if (['front', 'back', 'left', 'right'].includes(String(item.side))) selectedSides[String(item.side)] = item.type;
+    if (String(item.segmentId || '')) selectedSegments[String(item.segmentId)] = side(item);
+    else if (['front', 'back', 'left', 'right'].includes(String(item.side))) selectedSides[String(item.side)] = item.type;
   }
   const width = Number(a.widthMm); const depth = Number(a.depthMm);
   const distributed = distributePergolaAccessories(width, depth, a.installation, a.mountedSide, Number(a.spotlightCount), Number(a.heaterCount));
+  if (Array.isArray(a.spotlights)) {
+    const exactSpotlights: Record<string, number> = {};
+    let exactTotal = 0;
+    for (const entry of a.spotlights) {
+      const item = entry && typeof entry === 'object' ? entry as JsonObject : {};
+      const rectangle = distributed.grid.cells.find(cell => cell.id === String(item.rectangleId || ''));
+      if (!rectangle) throw new ConfigurationError(`Spotlight roof rectangle ${String(item.rectangleId || '')} does not exist for the current pergola dimensions.`, 'spotlights');
+      const count = Number(item.count);
+      const capacity = Math.min(12, spotlightCapacity(rectangle.width, 4) * spotlightCapacity(rectangle.depth, 3));
+      if (!Number.isInteger(count) || count < 0 || count > capacity) throw new ConfigurationError(`Spotlight count for ${rectangle.id} must be 0–${capacity}.`, 'spotlights');
+      if (count > 0) exactSpotlights[rectangle.id] = count;
+      exactTotal += count;
+    }
+    if (exactTotal !== Number(a.spotlightCount)) throw new ConfigurationError(`Exact spotlight placements total ${exactTotal}, but spotlightCount is ${String(a.spotlightCount)}.`, 'spotlightCount');
+    distributed.spotlights = exactSpotlights;
+  }
+  const validSegmentIds = new Set(distributed.grid.segments.map(segment => segment.id));
+  for (const id of Object.keys(selectedSegments)) {
+    if (!validSegmentIds.has(id)) throw new ConfigurationError(`Side closing segment ${id} does not exist for the current pergola dimensions.`, 'sides');
+    const segment = distributed.grid.segments.find(candidate => candidate.id === id);
+    if (a.installation === 'wall-mounted' && segment?.boundary === a.mountedSide && selectedSegments[id].type !== 'none') {
+      throw new ConfigurationError(`Side closing segment ${id} is occupied by the mounted wall.`, 'sides');
+    }
+  }
+  if (a.installation === 'wall-mounted' && selectedSides[String(a.mountedSide)] !== 'none') {
+    throw new ConfigurationError(`The ${String(a.mountedSide)} side is occupied by the mounted wall.`, 'sides');
+  }
+  const sideSegments = Object.fromEntries(distributed.grid.segments.map(segment => {
+    const boundaryType = segment.boundary ? selectedSides[segment.boundary] : 'none';
+    return [segment.id, selectedSegments[segment.id] || side(boundaryType)];
+  }));
   const rainPole = a.rainSensor ? distributed.availableCorners[0]?.pole ?? null : null;
   const windPole = a.windSensor ? distributed.availableCorners.find(corner => corner.pole !== rainPole)?.pole ?? null : null;
   const speakerCorner = a.speaker ? distributed.availableCorners[0] : undefined;
@@ -185,34 +275,52 @@ function pergolaState(a: JsonObject): JsonObject {
     automation: a.automation,
     services: { transportation: a.transportation, assembly: a.assembly, warranty: a.warranty },
     sides: Object.fromEntries(Object.entries(selectedSides).map(([key, value]) => [key, side(value)])),
+    sideSegments,
     accessories: {
       perimeterLed: { enabled: a.perimeterLed, color: '#fff1b4' }, spotlights: distributed.spotlights, heaters: distributed.heaters,
       sensors: { rain: { enabled: Boolean(rainPole), pole: rainPole }, wind: { enabled: Boolean(windPole), pole: windPole } },
       speakers: legacySpeakers, outlets: legacyOutlets,
     },
-    environment: { sunPosition: 0.35, northDirection: 0, night: false, season: 'winter' },
+    environment: { sunPosition: Number(a.sunPosition) / 100, northDirection: a.northDirection, night: Boolean(a.nightPreview), season: a.season },
     view: { dimensionsVisible: true, cameraPreset: 'perspective', compassVisible: false }, customer: { name: '', email: '', phone: '', postcode: '', notes: '' },
   };
 }
 
-function solarState(a: JsonObject): JsonObject {
+function solarState(a: JsonObject, raw: JsonObject = a): JsonObject {
+  if (a.roofType === 'shed' && (a.roofSide === 'back' || a.roofSide === 'both')) throw new ConfigurationError('A single-slope roof supports the front roof plane only.', 'roofSide');
+  if (Number(a.panelColumns) > Number(a.panelCount)) throw new ConfigurationError('Panel columns cannot exceed the requested panel count.', 'panelColumns');
+  const exactLocationConfirmed = a.locationMode === 'exact'
+    && Number.isFinite(Number(raw.locationLat))
+    && Number.isFinite(Number(raw.locationLon))
+    && String(raw.locationLabel || '').trim().length > 0;
   return {
     roofType: a.roofType, length: a.length, depth: a.depth, wallHeight: 3, pitch: a.pitch, overhang: 0.45, roofColor: '#6b7280', covering: 'generic',
     modulePreset: a.modulePreset, panelCount: a.panelCount, panelColumns: a.panelColumns, moduleOrientation: a.moduleOrientation, roofSide: a.roofSide,
     panelGap: 0.04, panelMargin: 0.32, effectivePanelCount: a.panelCount,
-    region: a.region, locationMode: a.locationMode, locationLat: a.locationMode === 'exact' ? a.locationLat : null,
-    locationLon: a.locationMode === 'exact' ? a.locationLon : null, locationLabel: a.locationMode === 'exact' ? a.locationLabel : '',
+    region: a.region, locationMode: exactLocationConfirmed ? 'exact' : 'region', locationLat: exactLocationConfirmed ? a.locationLat : null,
+    locationLon: exactLocationConfirmed ? a.locationLon : null, locationLabel: exactLocationConfirmed ? a.locationLabel : '',
     locationTimeZone: 'Europe/Bucharest', monthlyBillRon: a.monthlyBillRon, energyTariffRon: a.energyTariffRon, gridConnection: a.gridConnection,
     consumptionProfile: a.consumptionProfile, batteryEnabled: a.batteryEnabled, batteryAutoSize: a.batteryAutoSize,
     batteryCapacityKWh: a.batteryCapacityKWh, batteryReservePct: 10, batteryRoundTripEfficiency: 0.92,
     installationPricePerKwpRon: a.installationPricePerKwpRon, mountingPricePerPanelRon: a.mountingPricePerPanelRon,
     paperworkPriceRon: a.paperworkPriceRon, batteryPricePerKWhRon: a.batteryPricePerKWhRon, vatRate: Number(a.vatRatePct) / 100,
-    showDimensions: false, technicalEdges: false, showCompass: true, showSunPath: true, sunPosition: 50, northDirection: 0, nightPreview: false,
+    showDimensions: false, technicalEdges: false, showCompass: true, showSunPath: true, sunPosition: 50, northDirection: a.roofBearingDeg, nightPreview: false,
+    environmentLocalEastM: a.environmentLocalEastM, environmentLocalNorthM: a.environmentLocalNorthM, environmentLocalStepM: 1,
+    environmentEnabled: true, environmentAutoLoad: true, environmentRadiusM: 180, terrainEnabled: true,
+    buildingsEnabled: true, roadsEnabled: true, treesEnabled: true, terrainExaggeration: 1, replaceHostBuilding: true,
+    localBuildingShadingEnabled: true,
     units: 'metric', currency: 'RON', currencyRate: 1, excludedEstimateItems: [],
   };
 }
 
 function windowState(a: JsonObject): JsonObject {
+  const expected = a.profileSetId === '2_4_Oeffnungselemnt_Vertikal'
+    ? { frame: '575760', sash: '575780', accessory: 'b2-6' }
+    : { frame: '575770', sash: '575790', accessory: a.profileSetId === '2_5_Oeffnungselemnt_Vertikal' ? 'b2-7' : 'b2-8' };
+  if (a.outerFrameProfileId !== expected.frame || a.sashProfileId !== expected.sash) throw new ConfigurationError(`The selected CAD profile family requires outer frame ${expected.frame} and sash ${expected.sash}.`, 'profileSetId');
+  if (a.accessoryPreset !== expected.accessory) throw new ConfigurationError(`The selected CAD profile family requires accessory preset ${expected.accessory}.`, 'accessoryPreset');
+  if (a.outsideFinishType === 'coated' && !/^#[0-9a-f]{6}$/i.test(String(a.outsideColor))) throw new ConfigurationError('Outside coated colour must be a six-digit hex colour.', 'outsideColor');
+  if (a.finishMode === 'different' && a.insideFinishType === 'coated' && !/^#[0-9a-f]{6}$/i.test(String(a.insideColor))) throw new ConfigurationError('Inside coated colour must be a six-digit hex colour.', 'insideColor');
   const finish = (type: unknown, color: unknown) => ({ type, presetId: type === 'coated' ? 'custom' : String(type), color });
   return {
     widthM: a.widthM, heightM: a.heightM, layoutId: a.layoutId, windowLayout: a.layoutId,
@@ -234,7 +342,7 @@ export function buildState(product: ProductId, raw: JsonObject, options?: { requ
     : product === 'roof' ? roofState(answers)
       : product === 'hall' ? hallState(answers)
         : product === 'pergola' ? pergolaState(answers)
-          : product === 'solar' ? solarState(answers)
+          : product === 'solar' ? solarState(answers, raw)
             : windowState(answers);
   return { state, answers, assumptions, warnings: [] as string[] };
 }
@@ -244,7 +352,10 @@ export function summarize(product: ProductId, state: JsonObject): JsonObject {
   if (product === 'roof') return { roofType: state.roofType, footprintM2: Number(state.length) * Number(state.depth), pitchDeg: state.pitch, covering: state.covering };
   if (product === 'hall') return { dimensionsM: `${state.length} × ${state.width} × ${state.eaveHeight}`, footprintM2: Number(state.length) * Number(state.width), structure: state.structurePreset };
   if (product === 'pergola') { const d = state.dimensions as JsonObject; return { dimensionsMm: `${d.width} × ${d.depth} × ${d.height}`, installation: state.installation, automation: state.automation }; }
-  if (product === 'solar') return { panelCount: state.panelCount, nominalPowerKwp: Number(state.panelCount) * ({ standard475: 0.475, compact450: 0.45, premium490: 0.49 }[String(state.modulePreset)] ?? 0), battery: state.batteryEnabled ? `${state.batteryCapacityKWh} kWh` : 'none' };
+  if (product === 'solar') {
+    const power = Number(state.panelCount) * ({ standard475: 0.475, compact450: 0.45, premium490: 0.49 }[String(state.modulePreset)] ?? 0);
+    return { panelCount: state.panelCount, nominalPowerKwp: Number(power.toFixed(3)), battery: state.batteryEnabled ? (state.batteryAutoSize ? 'auto-sized' : `${state.batteryCapacityKWh} kWh`) : 'none' };
+  }
   return { dimensionsM: `${state.widthM} × ${state.heightM}`, layout: state.layoutId, openingMode: state.openingMode, profile: state.profileSetId };
 }
 
@@ -266,6 +377,23 @@ export function answersFromState(product: ProductId, state: JsonObject): JsonObj
       roofOrientation: roof.orientation, louverTilt: roof.louverTilt, frameColor: roof.frameColor,
       louverColor: roof.louverColor, drainage: roof.drainage,
       transportation: services.transportation, assembly: services.assembly, warranty: services.warranty,
+      nightPreview: Boolean((state.environment as JsonObject)?.night),
+      sides: Object.entries((state.sideSegments || {}) as Record<string, JsonObject>)
+        .filter(([, config]) => config?.type && config.type !== 'none')
+        .map(([segmentId, config]) => {
+          const item: JsonObject = { segmentId, type: config.type };
+          if (config.type === 'screen' || config.type === 'motorized-screen') {
+            const settings = ((config.screenSettings || {}) as Record<string, JsonObject>)[String(config.type)] || {};
+            item.openness = settings.openness;
+            item.color = settings.color;
+          }
+          if (config.type === 'privacy-wall') item.privacyColor = config.privacyColor;
+          return item;
+        }),
+      spotlightCount: Object.values((((state.accessories || {}) as JsonObject).spotlights || {}) as Record<string, unknown>).reduce<number>((sum, count) => sum + Number(count || 0), 0),
+      spotlights: Object.entries((((state.accessories || {}) as JsonObject).spotlights || {}) as Record<string, unknown>)
+        .filter(([, count]) => Number(count) > 0)
+        .map(([rectangleId, count]) => ({ rectangleId, count: Number(count) })),
     });
   }
   if (product === 'window') {
@@ -276,6 +404,11 @@ export function answersFromState(product: ProductId, state: JsonObject): JsonObj
       outsideColor: outside.color || state.colour, insideFinishType: inside.type, insideColor: inside.color,
     });
   }
-  if (product === 'solar') answers.vatRatePct = Number(state.vatRate ?? 0.21) * 100;
+  if (product === 'solar') Object.assign(answers, {
+    vatRatePct: Number(state.vatRate ?? 0.21) * 100,
+    roofBearingDeg: state.northDirection,
+    environmentLocalEastM: state.environmentLocalEastM,
+    environmentLocalNorthM: state.environmentLocalNorthM,
+  });
   return answers;
 }

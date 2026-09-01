@@ -73,6 +73,8 @@ URL-map resource. Add these paths to the path matcher already used by the three
   /api/solar/google-solar/*
   /api/solar/pvgis
   /api/solar/pvgis/*
+  /api/solar/overpass-primary
+  /api/solar/overpass-secondary
 
 and point them to:
 
@@ -92,6 +94,8 @@ After the URL map propagates, verify:
 
   curl -fsS 'https://www.360configurator.com/api/solar/google-solar?action=health' | jq .
   curl -fsS 'https://www.360configurator.com/api/solar/pvgis?tool=health' | jq .
+  curl -fsS -X POST 'https://www.360configurator.com/api/solar/overpass-primary' \
+    --data-urlencode 'data=[out:json];node["natural"="tree"](around:80,46.77,23.62);out tags geom;' | jq '.elements | length'
 
 Expected platform for both endpoints: google-cloud-run
 

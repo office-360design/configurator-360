@@ -71,6 +71,9 @@ const shell = mountStandaloneConfiguratorShell({
       return window.WINDOW_CONFIGURATOR_API?.captureState?.();
     },
     restoreState(snapshot) {
+      if (window.WINDOW_CONFIGURATOR_SELF_RESTORES_SHARE) {
+        return window.WINDOW_CONFIGURATOR_INITIAL_SHARE_RESTORED ? true : undefined;
+      }
       return window.WINDOW_CONFIGURATOR_API?.restoreState?.(snapshot);
     },
     onUndo() {
