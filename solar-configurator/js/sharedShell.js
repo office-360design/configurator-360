@@ -137,24 +137,52 @@ sidebarToggle?.addEventListener('click', () => setSidebarCollapsed(!sidebar?.cla
 
 const simulationPanel = document.querySelector('.solar-simulation-panel');
 const simulationPanelToggle = document.querySelector('#simulationPanelToggle');
-const setSimulationPanelCollapsed = (collapsed) => {
-  simulationPanel?.classList.toggle('is-collapsed', collapsed);
-  simulationPanelToggle?.setAttribute('aria-expanded', String(!collapsed));
-  simulationPanelToggle?.setAttribute('aria-label', t(collapsed ? 'simulation.graphShow' : 'simulation.graphHide'));
-  simulationPanelToggle?.setAttribute('title', t(collapsed ? 'simulation.graphShow' : 'simulation.graphHide'));
+const simulationPanelBody = document.querySelector('#simulationPanelBody');
+const simulationPanelHeader = simulationPanel?.querySelector(':scope > header');
+const ENERGY_DETAILS_STORAGE_KEY = '360-configurator:solar:energy-details-open';
+
+function readEnergyDetailsOpen() {
+  try { return window.sessionStorage?.getItem(ENERGY_DETAILS_STORAGE_KEY) === 'true'; } catch { return false; }
+}
+
+function writeEnergyDetailsOpen(open) {
+  try { window.sessionStorage?.setItem(ENERGY_DETAILS_STORAGE_KEY, String(Boolean(open))); } catch { /* storage is optional */ }
+}
+
+const setSimulationPanelCollapsed = (collapsed, { persist = false } = {}) => {
+  const isCollapsed = Boolean(collapsed);
+  simulationPanel?.classList.toggle('is-collapsed', isCollapsed);
+  simulationPanelToggle?.setAttribute('aria-expanded', String(!isCollapsed));
+  simulationPanelToggle?.setAttribute('aria-label', t(isCollapsed ? 'simulation.graphShow' : 'simulation.graphHide'));
+  simulationPanelToggle?.setAttribute('title', t(isCollapsed ? 'simulation.graphShow' : 'simulation.graphHide'));
+  if (simulationPanelBody) {
+    simulationPanelBody.inert = isCollapsed;
+    simulationPanelBody.setAttribute('aria-hidden', String(isCollapsed));
+  }
+  if (persist) writeEnergyDetailsOpen(!isCollapsed);
 };
+
 simulationPanelToggle?.addEventListener('click', () => {
-  setSimulationPanelCollapsed(!simulationPanel?.classList.contains('is-collapsed'));
+  setSimulationPanelCollapsed(!simulationPanel?.classList.contains('is-collapsed'), { persist: true });
+});
+
+simulationPanelHeader?.addEventListener('click', (event) => {
+  if (event.target.closest('button, a, input, select, textarea, label')) return;
+  simulationPanelToggle?.click();
 });
 
 function syncMobileLayout() {
   document.body.classList.toggle('solar-mobile-layout', mobileLayoutQuery.matches);
   setSidebarCollapsed(mobileLayoutQuery.matches);
-  setSimulationPanelCollapsed(mobileLayoutQuery.matches);
+  const forceCollapsed = mobileLayoutQuery.matches || document.body.classList.contains('configurator-embed-preview');
+  setSimulationPanelCollapsed(forceCollapsed || !readEnergyDetailsOpen());
 }
 
 syncMobileLayout();
 mobileLayoutQuery.addEventListener?.('change', syncMobileLayout);
+window.addEventListener('solar-preference-change', () => {
+  setSimulationPanelCollapsed(simulationPanel?.classList.contains('is-collapsed'));
+});
 
 appShell?.addEventListener('pointerdown', (event) => {
   if (!mobileLayoutQuery.matches || sidebar?.classList.contains('is-collapsed')) return;
