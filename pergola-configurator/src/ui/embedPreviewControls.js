@@ -14,8 +14,13 @@ const PREVIEW_MESSAGE_TYPE = '360configurator:preview-adjustment';
 
 function segmentLabel(segment) {
   const ordinal = segment.axis === 'horizontal' ? segment.column + 1 : segment.row + 1;
-  const side = String(segment.boundary || 'interior');
-  return `${side.charAt(0).toUpperCase()}${side.slice(1)} ${ordinal}`;
+  if (segment.boundary) {
+    const side = String(segment.boundary);
+    return `${side.charAt(0).toUpperCase()}${side.slice(1)} ${ordinal}`;
+  }
+  return segment.axis === 'horizontal'
+    ? `Interior row ${segment.row + 1}, segment ${segment.column + 1}`
+    : `Interior column ${segment.column + 1}, segment ${segment.row + 1}`;
 }
 
 function configuredSides(state) {
@@ -61,7 +66,7 @@ export function mountPergolaEmbedPreviewControls({ store, viewport }) {
       <button type="button" class="pergola-embed-spotlights-button" data-preview-action="toggle-spotlights" aria-expanded="false">Spotlights <span>0</span></button>
     </div>
     <div class="pergola-embed-panel pergola-embed-sides-panel" data-preview-panel="sides" hidden>
-      <header><div><strong>Side closings</strong><small>Click the exact perimeter segment, then choose its closing.</small></div><button type="button" data-preview-action="close-panels" aria-label="Close side closings">×</button></header>
+      <header><div><strong>Side closings</strong><small>Click any opening between two adjacent poles, including an interior segment, then choose its closing.</small></div><button type="button" data-preview-action="close-panels" aria-label="Close side closings">×</button></header>
       <div class="pergola-embed-side-grid"></div>
       <div class="pergola-grid__legend"><span><i class="legend-line"></i> Click a segment</span><span><i class="legend-line has-closing"></i> Closing configured</span></div>
       <div class="pergola-embed-selected-label"></div>
@@ -101,16 +106,16 @@ export function mountPergolaEmbedPreviewControls({ store, viewport }) {
 
     const sides = configuredSides(state);
     root.querySelector('.pergola-embed-sides-button span').textContent = String(sides.length);
-    const boundarySegments = getPoleGrid(state).segments.filter(segment => segment.boundary && segmentIsAvailable(state, segment.id));
-    if (!boundarySegments.some(segment => segment.id === selectedSegmentId)) selectedSegmentId = null;
+    const availableSegments = getPoleGrid(state).segments.filter(segment => segmentIsAvailable(state, segment.id));
+    if (!availableSegments.some(segment => segment.id === selectedSegmentId)) selectedSegmentId = null;
     sideGrid.innerHTML = renderPergolaGrid(state, {
       mode: 'segments', selectedSegment: selectedSegmentId, segmentAction: 'preview-select-side-segment',
     });
-    const selectedSegment = boundarySegments.find(segment => segment.id === selectedSegmentId) || null;
+    const selectedSegment = availableSegments.find(segment => segment.id === selectedSegmentId) || null;
     const selectedConfig = selectedSegment ? getSideSegmentConfig(state, selectedSegment.id) : null;
     selectedLabel.innerHTML = selectedSegment
       ? `<strong>${segmentLabel(selectedSegment)}</strong><small>Choose the closing for this highlighted segment.</small>`
-      : '<strong>Select a perimeter segment above.</strong><small>The poles are reference points; click a line between them.</small>';
+      : '<strong>Select a grid segment above.</strong><small>The poles are reference points; click any line between two adjacent poles.</small>';
     optionsRoot.hidden = !selectedSegment;
     optionsRoot.innerHTML = selectedSegment ? SIDE_OPTIONS.map(option => `
       <button type="button" data-preview-side-type="${option.value}" aria-pressed="${selectedConfig?.type === option.value}">
