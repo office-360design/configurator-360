@@ -1792,12 +1792,8 @@ export class StandaloneConfiguratorShell {
     const action = actionTarget.dataset.action;
 
     if (action === 'book-demo') {
-      // Functionality will be connected later. For now the CTA only provides
-      // a subtle burst of border sparkles so it already behaves like an interactive button.
-      actionTarget.classList.remove('is-sparkling');
-      void actionTarget.offsetWidth;
-      actionTarget.classList.add('is-sparkling');
-      window.setTimeout(() => actionTarget.classList.remove('is-sparkling'), 900);
+      // Reserved for the future demo-booking flow. Intentionally no action yet.
+      return;
     } else if (action === 'save') {
       void this.save(actionTarget);
     } else if (action === 'new-configuration') {
@@ -2216,15 +2212,26 @@ export class StandaloneConfiguratorShell {
 
   async requestSupport(button = null) {
     button?.setAttribute('disabled', '');
+
+    // Open a blank tab synchronously from the click gesture so popup blockers
+    // allow it even though generating the Share URL can take a moment.
+    const mailTab = window.open('about:blank', '_blank');
+
     try {
       const shareUrl = await Promise.resolve(this.options.callbacks.getShareUrl?.() || window.location.href);
       if (!shareUrl) throw new Error('A Share link could not be generated for the support request.');
 
-      // mailto: delegates the compose request to the mail handler configured by
-      // the customer (desktop client or a webmail handler registered in their browser).
-      window.location.assign(this.buildSupportMailtoUrl(shareUrl));
+      const mailtoUrl = this.buildSupportMailtoUrl(shareUrl);
+      if (mailTab && !mailTab.closed) {
+        mailTab.location.href = mailtoUrl;
+      } else {
+        // Fallback for browsers that block the placeholder tab. This still asks
+        // for a new browsing context and never deliberately replaces the configurator.
+        window.open(mailtoUrl, '_blank', 'noopener');
+      }
       return true;
     } catch (error) {
+      if (mailTab && !mailTab.closed) mailTab.close();
       console.error('The support email could not be prepared.', error);
       this.showFeedback(sharedT(this.state.locale, 'feedback.supportUnavailable'), 'error', 2500);
       return false;
