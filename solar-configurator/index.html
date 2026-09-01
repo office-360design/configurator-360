@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="./styles.css?v=1" />
   <link rel="stylesheet" href="./shared-shell.css?v=2" />
   <link rel="stylesheet" href="./solar.css?v=18" />
+  <link rel="stylesheet" href="./energy-drawer.css?v=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script>
     window.SOLAR_PVGIS_PROXY_ENDPOINT =
@@ -253,38 +254,40 @@
         </aside>
       </div>
 
-      <section class="solar-simulation-panel" aria-label="Day energy simulation">
-        <header>
-          <div><p class="eyebrow" id="simulationDateReadout">24-hour energy flow</p><h3>Energy details</h3></div>
-          <div class="solar-simulation-panel__actions">
-            <button id="simulationPlayButton" type="button">Run day simulation</button>
-            <button id="simulationPanelToggle" class="solar-simulation-panel__toggle" type="button" aria-expanded="true" aria-controls="simulationPanelBody" aria-label="Hide energy graph" title="Hide energy graph">
+      <section class="solar-simulation-panel solar-energy-drawer is-collapsed" aria-label="Day energy simulation">
+        <header class="solar-energy-drawer__bar">
+          <div class="solar-energy-drawer__headline-metrics" aria-label="Solar system summary">
+            <article><span>Installed power</span><strong id="metricSystemSize">5.70 kWp</strong></article>
+            <article><span>Panels fitted</span><strong id="metricPanels">12 panels</strong></article>
+            <article><span>Average production/day</span><strong id="metricDaily">—</strong></article>
+            <article><span>Self-sufficiency</span><strong id="selfSufficiencyReadout">—</strong></article>
+          </div>
+          <div class="solar-simulation-panel__actions solar-energy-drawer__actions">
+            <button id="simulationPanelToggle" class="solar-simulation-panel__toggle solar-energy-drawer__toggle" type="button" aria-expanded="false" aria-controls="simulationPanelBody" aria-label="Show energy graph" title="Show energy graph">
+              <span>Energy details</span>
               <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
           </div>
         </header>
-        <div class="solar-simulation-panel__body" id="simulationPanelBody">
-        <div class="simulation-summary-grid">
-          <article><span>PV generation</span><strong id="energyProductionReadout">—</strong></article>
-          <article><span>Home consumption</span><strong id="energyConsumptionReadout">—</strong></article>
-          <article><span>Self-sufficiency</span><strong id="selfSufficiencyReadout">—</strong></article>
-          <article><span>Grid import</span><strong id="gridImportReadout">—</strong></article>
-          <article><span>Grid export</span><strong id="gridExportReadout">—</strong></article>
-          <article><span>Storage</span><strong id="batteryCapacityReadout">—</strong></article>
-        </div>
-        <div class="simulation-chart-wrap">
-          <svg id="simulationChart" viewBox="0 0 720 230" role="img" aria-label="Hourly solar production, household consumption, and battery state of charge"></svg>
-          <div class="chart-legend"><span class="legend-production">PV production</span><span class="legend-consumption">Consumption</span><span class="legend-battery">Battery SOC</span></div>
-        </div>
+        <div class="solar-simulation-panel__body solar-energy-drawer__body" id="simulationPanelBody" aria-hidden="true" inert>
+          <div class="solar-energy-drawer__body-heading">
+            <p class="eyebrow" id="simulationDateReadout">24-hour energy flow</p>
+            <button id="simulationPlayButton" type="button">Run day simulation</button>
+          </div>
+          <div class="simulation-summary-grid">
+            <article><span>PV generation</span><strong id="energyProductionReadout">—</strong></article>
+            <article><span>Home consumption</span><strong id="energyConsumptionReadout">—</strong></article>
+            <article><span>Grid import</span><strong id="gridImportReadout">—</strong></article>
+            <article><span>Grid export</span><strong id="gridExportReadout">—</strong></article>
+            <article><span>Storage</span><strong id="batteryCapacityReadout">—</strong></article>
+            <article><span>Estimated production/year</span><strong id="metricAnnual">—</strong></article>
+          </div>
+          <div class="simulation-chart-wrap">
+            <svg id="simulationChart" viewBox="0 0 720 230" role="img" aria-label="Hourly solar production, household consumption, and battery state of charge"></svg>
+            <div class="chart-legend"><span class="legend-production">PV production</span><span class="legend-consumption">Consumption</span><span class="legend-battery">Battery SOC</span></div>
+          </div>
         </div>
       </section>
-
-      <footer class="metrics-bar solar-metrics-bar">
-        <article><span>Installed power</span><strong id="metricSystemSize">5.70 kWp</strong></article>
-        <article><span>Panels fitted</span><strong id="metricPanels">12 panels</strong></article>
-        <article><span>Average production/day</span><strong id="metricDaily">—</strong></article>
-        <article><span>Estimated production/year</span><strong id="metricAnnual">—</strong></article>
-      </footer>
     </section>
   </main>
 
@@ -686,7 +689,7 @@
     window.SOLAR_GOOGLE_SOLAR_ENDPOINT = window.SOLAR_GOOGLE_SOLAR_ENDPOINT || new URL('/api/solar/google-solar', window.location.href).toString();
   </script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="./js/sharedShell.js?v=40"></script>
+  <script type="module" src="./js/sharedShell.js?v=41"></script>
   <script type="module" src="./js/app.js?v=31"></script>
   <script type="module" src="./js/sidebarAccordion.js?v=2"></script>
 </body>
