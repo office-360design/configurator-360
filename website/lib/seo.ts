@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { localeOrigins, localizedUrl, type Locale } from "./i18n";
+import { contactPhone, localeOrigins, localizedUrl, type Locale } from "./i18n";
 
 export const SITE_URL = localeOrigins.en;
 export const SITE_NAME = "360Configurator";
@@ -95,6 +95,7 @@ export function organizationSchema(locale: Locale, description: string) {
     url: SITE_URL,
     logo: { "@type": "ImageObject", url: `${SITE_URL}/brand/360configurator.png`, width: 500, height: 250 },
     email: locale === "ro" ? "office@360configurator.ro" : "office@360configurator.com",
+    telephone: contactPhone.international,
     description,
     areaServed: "Worldwide",
     sameAs: SOCIAL_PROFILES,

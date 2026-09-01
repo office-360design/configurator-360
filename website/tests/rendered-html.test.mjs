@@ -2,17 +2,26 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
+async function render(path = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", { headers: { accept: "text/html" } }),
+    new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }),
     { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
     { waitUntil() {}, passThroughOnException() {} },
   );
 }
+
+test("renders the public phone number on Contact and the shared footer", async () => {
+  const [contactResponse, homepageResponse] = await Promise.all([render("/contact"), render()]);
+  const [contactHtml, homepageHtml] = await Promise.all([contactResponse.text(), homepageResponse.text()]);
+
+  assert.match(contactHtml, /href="tel:\+40744142357"[^>]*>0744 142 357<\/a>/);
+  assert.match(contactHtml, /"telephone":"\+40744142357"/);
+  assert.match(homepageHtml, /href="tel:\+40744142357"[^>]*>0744 142 357<\/a>/);
+});
 
 test("server-renders the 360Configurator homepage and native previews", async () => {
   const response = await render();
@@ -60,11 +69,12 @@ test("ships explicit machine-readable discovery context", async () => {
 });
 
 test("keeps production-grade configurator behavior inside the isolated website copy", async () => {
-  const [runtime, controls, stage, deferredStage, threeRuntime, polish] = await Promise.all([
+  const [runtime, controls, stage, deferredStage, interactor, threeRuntime, polish] = await Promise.all([
     readFile(new URL("../public/window-runtime/index.html", import.meta.url), "utf8"),
     readFile(new URL("../components/showcase-controls.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/webgl-stage.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/deferred-webgl-stage.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/scene-interactor.tsx", import.meta.url), "utf8"),
     readFile(new URL("../public/window-runtime/lib/three.module.js", import.meta.url), "utf8"),
     readFile(new URL("../public/styles/homepage-polish.css", import.meta.url), "utf8"),
   ]);
@@ -80,6 +90,8 @@ test("keeps production-grade configurator behavior inside the isolated website c
   assert.match(stage, /detail\.control === "shape"/);
   assert.match(deferredStage, /import\("\.\/webgl-stage"\)/);
   assert.match(deferredStage, /requestIdleCallback/);
+  assert.match(interactor, /event\.preventDefault\(\)/);
+  assert.match(polish, /user-select:\s*none/);
   assert.ok(Buffer.byteLength(threeRuntime) < 700_000, "window runtime Three.js build should stay minified");
   assert.match(threeRuntime, /Copyright 2010-2023 Three\.js Authors/);
   assert.match(polish, /window-instrument/);
