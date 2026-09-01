@@ -1,4 +1,4 @@
-import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=2';
 import { sharedT } from './i18n.js?v=26';
 import { renderActionFeedback } from './components/feedback.js?v=17';
 import { renderTopBar } from './components/topBar.js?v=24';
@@ -11,10 +11,10 @@ import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=2';
 import { renderCartMenu } from './components/cartMenu.js?v=5';
 import { getUserCart, mutateUserCart } from './userCart.js?v=4';
-import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
+import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=17';
 import { readShareState } from './shareState.js?v=4';
 import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
-import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=1';
+import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=2';
 import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=1';
 
 const MAX_PROJECT_NUMBER = 1000;
@@ -34,9 +34,9 @@ const SAVED_CONFIGURATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const CART_EDIT_ITEM_PARAM = 'cartItem';
 const CART_EDIT_PRODUCT_PARAM = 'cartProduct';
 const CART_EDIT_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
-const CART_EDIT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence']);
+const CART_EDIT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox']);
 const DOMAIN_SAVE_FAILURE_MESSAGE = 'Domain change failed because of a saving failure';
-const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
+const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar', 'cardbox']);
 const SUPPORT_EMAIL = 'office@360configurator.com';
 const SUPPORT_PRODUCT_NAMES = Object.freeze({
   window: 'Window',
@@ -45,6 +45,7 @@ const SUPPORT_PRODUCT_NAMES = Object.freeze({
   hall: 'Hall',
   fence: 'Fence',
   solar: 'Solar',
+  cardbox: 'Cardbox',
 });
 const CART_SUCCESS_FEEDBACK_MS = 1500;
 const CART_ERROR_FEEDBACK_MS = 2500;
@@ -85,6 +86,7 @@ function normalizeProductId(value = '') {
   if (normalized.includes('hall')) return 'hall';
   if (normalized.includes('fence')) return 'fence';
   if (normalized.includes('solar')) return 'solar';
+  if (normalized.includes('cardbox') || normalized.includes('cardboard') || normalized.includes('carton') || normalized.includes('karton')) return 'cardbox';
   return normalized || 'configuration';
 }
 

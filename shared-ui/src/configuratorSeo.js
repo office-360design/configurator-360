@@ -95,6 +95,20 @@ const CONFIGURATOR_SEO_COPY = Object.freeze({
       description: 'Konfigurieren Sie einen modularen Zaun online in 3D. Passen Sie Verlauf, Maße, Felder, Oberflächen, Tore und Montageoptionen in Echtzeit an.',
     }),
   }),
+  cardbox: Object.freeze({
+    'en-US': Object.freeze({
+      title: '3D Cardboard Box Configurator | 360Configurator',
+      description: 'Configure a cardboard box online in 3D with rectangular, L-shaped, U-shaped and stepped 90-degree footprints, wall-by-wall board grades, colours and printing.',
+    }),
+    'ro-RO': Object.freeze({
+      title: 'Configurator Cutii din Carton 3D | 360Configurator',
+      description: 'Configurează online în 3D o cutie din carton cu forme dreptunghiulare, L, U și contururi în trepte la 90°, plus carton, culori și imprimare pentru fiecare latură.',
+    }),
+    'de-DE': Object.freeze({
+      title: '3D Kartonbox-Konfigurator | 360Configurator',
+      description: 'Konfigurieren Sie eine Kartonbox online in 3D mit rechteckigen, L-förmigen, U-förmigen und gestuften 90°-Grundrissen sowie Material, Farbe und Druck je Seite.',
+    }),
+  }),
 });
 
 const PRODUCT_ALIASES = Object.freeze({
@@ -111,6 +125,10 @@ const PRODUCT_ALIASES = Object.freeze({
   fencing: 'fence',
   gard: 'fence',
   zaun: 'fence',
+  cardbox: 'cardbox',
+  cardboard: 'cardbox',
+  carton: 'cardbox',
+  karton: 'cardbox',
 });
 
 function normalizeProduct(product) {

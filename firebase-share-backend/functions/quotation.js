@@ -20,7 +20,7 @@ const FIRESTORE_RECORD_VERSION = 1;
 const SHARE_ID_PATTERN = /^[A-Za-z0-9_-]{16}$/;
 const CART_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
-const PRODUCTS = Object.freeze(['window', 'roof', 'pergola', 'hall', 'solar', 'fence']);
+const PRODUCTS = Object.freeze(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox']);
 const PRODUCT_SET = new Set(PRODUCTS);
 const CURRENCIES = new Set(['USD', 'RON', 'EUR']);
 const LOCALES = new Set(['en-US', 'ro-RO', 'de-DE']);
@@ -52,6 +52,7 @@ const CONFIGURATOR_PATHS = Object.freeze({
     hall: '/hall-configurator/',
     solar: '/solar-configurator/',
     fence: '/fence-configurator/',
+    cardbox: '/cardbox-configurator/',
   }),
   'ro-RO': Object.freeze({
     pergola: '/configurator-pergola/',
@@ -60,6 +61,7 @@ const CONFIGURATOR_PATHS = Object.freeze({
     hall: '/configurator-hala/',
     solar: '/configurator-solar/',
     fence: '/configurator-garduri/',
+    cardbox: '/configurator-cutii-carton/',
   }),
   'de-DE': Object.freeze({
     pergola: '/pergola-konfigurator/',
@@ -68,6 +70,7 @@ const CONFIGURATOR_PATHS = Object.freeze({
     hall: '/hallen-konfigurator/',
     solar: '/solar-konfigurator/',
     fence: '/zaun-konfigurator/',
+    cardbox: '/karton-konfigurator/',
   }),
 });
 
@@ -105,7 +108,7 @@ const EMAIL_COPY = Object.freeze({
     closing: 'A member of our team will review your request and contact you with the next steps.',
     regards: 'Kind regards,',
     generated: 'This quotation request was generated from the 360Configurator cart.',
-    product: Object.freeze({ window: 'Window', roof: 'Roof', pergola: 'Pergola', hall: 'Hall', solar: 'Solar', fence: 'Fence' }),
+    product: Object.freeze({ window: 'Window', roof: 'Roof', pergola: 'Pergola', hall: 'Hall', solar: 'Solar', fence: 'Fence', cardbox: 'Cardboard box' }),
   }),
   'ro-RO': Object.freeze({
     subject: 'Solicitarea dumneavoastră de ofertă',
@@ -120,7 +123,7 @@ const EMAIL_COPY = Object.freeze({
     closing: 'Un membru al echipei noastre va analiza solicitarea și vă va contacta pentru pașii următori.',
     regards: 'Cu stimă,',
     generated: 'Această solicitare de ofertă a fost generată din coșul 360Configurator.',
-    product: Object.freeze({ window: 'Fereastră', roof: 'Acoperiș', pergola: 'Pergolă', hall: 'Hală', solar: 'Solar', fence: 'Gard' }),
+    product: Object.freeze({ window: 'Fereastră', roof: 'Acoperiș', pergola: 'Pergolă', hall: 'Hală', solar: 'Solar', fence: 'Gard', cardbox: 'Cutie din carton' }),
   }),
   'de-DE': Object.freeze({
     subject: 'Ihre Angebotsanfrage',
@@ -135,7 +138,7 @@ const EMAIL_COPY = Object.freeze({
     closing: 'Ein Mitglied unseres Teams wird Ihre Anfrage prüfen und Sie zu den nächsten Schritten kontaktieren.',
     regards: 'Mit freundlichen Grüßen,',
     generated: 'Diese Angebotsanfrage wurde aus dem 360Configurator-Warenkorb erstellt.',
-    product: Object.freeze({ window: 'Fenster', roof: 'Dach', pergola: 'Pergola', hall: 'Halle', solar: 'Solar', fence: 'Zaun' }),
+    product: Object.freeze({ window: 'Fenster', roof: 'Dach', pergola: 'Pergola', hall: 'Halle', solar: 'Solar', fence: 'Zaun', cardbox: 'Kartonbox' }),
   }),
 });
 

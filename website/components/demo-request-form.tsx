@@ -17,7 +17,7 @@ const FIREBASE_CONFIG = Object.freeze({
   appId: "1:719238533149:web:9e0b8a97375731b8eaf6f4",
 });
 
-const CONFIGURATORS = ["window", "pergola", "roof", "hall", "solar", "fence"] as const;
+const CONFIGURATORS = ["window", "pergola", "roof", "hall", "solar", "fence", "cardbox"] as const;
 type ConfiguratorId = (typeof CONFIGURATORS)[number];
 type SubmissionState = "idle" | "submitting" | "success" | "error" | "rate-limited" | "validation";
 type RequiredFieldName = "name" | "email" | "company" | "phone";
@@ -29,9 +29,9 @@ type DemoCallableContext = {
 let demoCallablePromise: Promise<DemoCallableContext> | null = null;
 
 const productNames: Record<Locale, Record<ConfiguratorId, string>> = {
-  en: { window: "Window configurator", pergola: "Pergola configurator", roof: "Roof configurator", hall: "Hall configurator", solar: "Solar configurator", fence: "Fence configurator" },
-  ro: { window: "Configurator ferestre", pergola: "Configurator pergole", roof: "Configurator acoperiș", hall: "Configurator hale", solar: "Configurator solar", fence: "Configurator garduri" },
-  de: { window: "Fenster-Konfigurator", pergola: "Pergola-Konfigurator", roof: "Dach-Konfigurator", hall: "Hallen-Konfigurator", solar: "Solar-Konfigurator", fence: "Zaun-Konfigurator" },
+  en: { window: "Window configurator", pergola: "Pergola configurator", roof: "Roof configurator", hall: "Hall configurator", solar: "Solar configurator", fence: "Fence configurator", cardbox: "Cardbox configurator" },
+  ro: { window: "Configurator ferestre", pergola: "Configurator pergole", roof: "Configurator acoperiș", hall: "Configurator hale", solar: "Configurator solar", fence: "Configurator garduri", cardbox: "Configurator cutii din carton" },
+  de: { window: "Fenster-Konfigurator", pergola: "Pergola-Konfigurator", roof: "Dach-Konfigurator", hall: "Hallen-Konfigurator", solar: "Solar-Konfigurator", fence: "Zaun-Konfigurator", cardbox: "Kartonbox-Konfigurator" },
 };
 
 const copyByLocale = {

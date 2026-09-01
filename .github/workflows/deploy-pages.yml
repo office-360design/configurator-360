@@ -75,6 +75,7 @@ jobs:
       #   /solar-configurator/
       #   /hall-configurator/
       #   /fence-configurator/
+      #   /cardbox-configurator/
       # Standalone configurators continue to resolve ../shared-ui from /shared-ui/.
       - name: Assemble GitHub Pages output
         shell: bash
@@ -112,6 +113,9 @@ jobs:
           mkdir -p dist/site/fence-configurator
           cp -R fence-configurator/. dist/site/fence-configurator/
 
+          mkdir -p dist/site/cardbox-configurator
+          cp -R cardbox-configurator/. dist/site/cardbox-configurator/
+
           touch dist/site/.nojekyll
 
       - name: Verify Pages routes
@@ -123,6 +127,7 @@ jobs:
           test -f dist/site/pergola-configurator/index.html
           test -f dist/site/hall-configurator/index.html
           test -f dist/site/fence-configurator/index.html
+          test -f dist/site/cardbox-configurator/index.html
           test -d dist/site/shared-ui
 
       - name: Configure GitHub Pages

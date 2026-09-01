@@ -27,6 +27,7 @@ const CONFIGURATOR_PATHS = Object.freeze({
   solar: '/solar-configurator/',
   hall: '/hall-configurator/',
   fence: '/fence-configurator/',
+  cardbox: '/cardbox-configurator/',
 });
 const CONFIGURATOR_LABELS = Object.freeze({
   window: 'Window',
@@ -35,6 +36,7 @@ const CONFIGURATOR_LABELS = Object.freeze({
   solar: 'Solar',
   hall: 'Hall',
   fence: 'Fence',
+  cardbox: 'Cardbox',
 });
 const RESERVED_SLUGS = new Set([
   'www', 'aks', 'admin', 'api', 'app', 'assets', 'auth', 'billing', 'cdn', 'demo',
