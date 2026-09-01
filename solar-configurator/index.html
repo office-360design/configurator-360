@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="./shared-shell.css?v=2" />
   <link rel="stylesheet" href="./solar.css?v=18" />
   <link rel="stylesheet" href="./energy-drawer.css?v=1" />
+  <link rel="stylesheet" href="./viewer-header.css?v=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script>
     window.SOLAR_PVGIS_PROXY_ENDPOINT =
@@ -204,20 +205,41 @@
     </button>
 
     <section class="viewer-panel">
-      <header class="viewer-header">
+      <header class="viewer-header solar-viewer-header">
         <div class="viewer-actions-wrap">
-          <button type="button" class="estimate-button" id="estimateOpenButton" aria-controls="estimatePanel" aria-haspopup="dialog">
-            <span>System estimate</span><strong id="headerEstimateTotal">—</strong>
-          </button>
           <div class="view-actions" aria-label="Camera controls">
             <button type="button" data-view="perspective" class="active">3D</button>
             <button type="button" data-view="front">Front</button>
             <button type="button" data-view="top">Top</button>
-            <button type="button" data-view="reset" title="Reset view">Reset</button>
           </div>
-          <div class="model-options" aria-label="Model display options"><label><input type="checkbox" id="wireframeToggle" /> Technical edges</label></div>
+          <button type="button" class="estimate-button solar-estimate-button" id="estimateOpenButton" aria-controls="estimatePanel" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M8 7h8M8 11h2M12 11h2M16 11h0M8 15h2M12 15h2M16 15h0"></path></svg>
+            <span>System estimate</span>
+            <strong id="headerEstimateTotal" hidden aria-hidden="true">—</strong>
+          </button>
+          <div class="solar-view-options">
+            <button type="button" class="solar-view-options__toggle" id="solarViewOptionsToggle" aria-expanded="false" aria-controls="solarViewOptionsMenu" aria-haspopup="true" aria-label="Model display options" title="Model display options">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7"></circle><circle cx="12" cy="12" r="1.7"></circle><circle cx="19" cy="12" r="1.7"></circle></svg>
+            </button>
+            <div class="solar-view-options__menu" id="solarViewOptionsMenu" role="group" aria-label="Model display options" hidden>
+              <button type="button" class="solar-view-options__item" data-view="reset" title="Reset view">
+                <span class="solar-view-options__item-copy">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7v5h5"></path><path d="M5.7 16.4A8 8 0 1 0 6 6.3L4 8"></path></svg>
+                  <span>Reset</span>
+                </span>
+              </button>
+              <label class="solar-view-options__item">
+                <span class="solar-view-options__item-copy">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path><path d="M8 4v4M15 10v4M11 16v4"></path></svg>
+                  <span>Technical edges</span>
+                </span>
+                <input type="checkbox" id="wireframeToggle" />
+                <i class="solar-view-options__switch" aria-hidden="true"></i>
+              </label>
+            </div>
+          </div>
         </div>
-        <div class="viewer-title-block"><p class="eyebrow">Real-time model</p><h2 id="viewerTitle">Two-slope solar roof</h2></div>
+        <div class="viewer-title-block"><h2 id="viewerTitle">Two-slope solar roof</h2></div>
         <div class="viewer-header-spacer" aria-hidden="true"></div>
       </header>
 
@@ -692,5 +714,6 @@
   <script type="module" src="./js/sharedShell.js?v=41"></script>
   <script type="module" src="./js/app.js?v=31"></script>
   <script type="module" src="./js/sidebarAccordion.js?v=2"></script>
+  <script type="module" src="./js/viewerHeader.js?v=1"></script>
 </body>
 </html>
