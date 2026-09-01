@@ -83,9 +83,6 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
         </a>
         <button class="book-demo-button" type="button" data-action="book-demo" aria-label="Book a demo">
           <span class="book-demo-button__label">Book a demo</span>
-          <span class="book-demo-button__sparkles" aria-hidden="true">
-            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-          </span>
         </button>
       </div>
 

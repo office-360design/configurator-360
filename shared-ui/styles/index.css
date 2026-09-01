@@ -73,15 +73,12 @@
 
 .shared-ui-host .book-demo-button,
 .book-demo-button {
-  position: relative;
-  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 92px;
   height: 31px;
   padding: 0 12px;
-  overflow: visible;
   border: 1px solid #0878c9;
   border-radius: 9px;
   color: #fff;
@@ -92,7 +89,6 @@
   font-weight: 750;
   line-height: 1;
   white-space: nowrap;
-  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 .shared-ui-host .book-demo-button:hover,
@@ -102,83 +98,6 @@
   border-color: #0067ad;
   background: #006fb8;
   box-shadow: 0 6px 16px rgba(8, 120, 201, .26);
-  transform: translateY(-1px);
-}
-
-.shared-ui-host .book-demo-button:active,
-.book-demo-button:active { transform: translateY(0) scale(.98); }
-
-.shared-ui-host .book-demo-button__sparkles,
-.book-demo-button__sparkles {
-  position: absolute;
-  inset: 0;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.shared-ui-host .book-demo-button__sparkles i,
-.book-demo-button__sparkles i {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  opacity: 0;
-  transform-origin: center;
-  --spark-x: 0px;
-  --spark-y: 0px;
-}
-.shared-ui-host .book-demo-button__sparkles i::before,
-.shared-ui-host .book-demo-button__sparkles i::after,
-.book-demo-button__sparkles i::before,
-.book-demo-button__sparkles i::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  border-radius: 999px;
-  background: #d7f2ff;
-  box-shadow: 0 0 4px rgba(126, 211, 255, .72);
-  transform: translate(-50%, -50%);
-}
-.shared-ui-host .book-demo-button__sparkles i::before,
-.book-demo-button__sparkles i::before { width: 1.5px; height: 8px; }
-.shared-ui-host .book-demo-button__sparkles i::after,
-.book-demo-button__sparkles i::after { width: 8px; height: 1.5px; }
-.shared-ui-host .book-demo-button__sparkles i:nth-child(1),
-.book-demo-button__sparkles i:nth-child(1) { top:-4px; left:15%; --spark-x:-3px; --spark-y:-9px; }
-.shared-ui-host .book-demo-button__sparkles i:nth-child(2),
-.book-demo-button__sparkles i:nth-child(2) { top:-4px; left:48%; --spark-x:0px; --spark-y:-10px; }
-.shared-ui-host .book-demo-button__sparkles i:nth-child(3),
-.book-demo-button__sparkles i:nth-child(3) { top:-4px; right:14%; --spark-x:4px; --spark-y:-9px; }
-.shared-ui-host .book-demo-button__sparkles i:nth-child(4),
-.book-demo-button__sparkles i:nth-child(4) { top:27%; right:-4px; --spark-x:10px; --spark-y:-2px; }
-.shared-ui-host .book-demo-button__sparkles i:nth-child(5),
-.book-demo-button__sparkles i:nth-child(5) { right:-4px; bottom:16%; --spark-x:9px; --spark-y:5px; }
-.shared-ui-host .book-demo-button__sparkles i:nth-child(6),
-.book-demo-button__sparkles i:nth-child(6) { bottom:-4px; left:65%; --spark-x:3px; --spark-y:9px; }
-.shared-ui-host .book-demo-button__sparkles i:nth-child(7),
-.book-demo-button__sparkles i:nth-child(7) { bottom:-4px; left:27%; --spark-x:-3px; --spark-y:9px; }
-.shared-ui-host .book-demo-button__sparkles i:nth-child(8),
-.book-demo-button__sparkles i:nth-child(8) { top:38%; left:-4px; --spark-x:-10px; --spark-y:-1px; }
-.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i,
-.book-demo-button.is-sparkling .book-demo-button__sparkles i { animation: book-demo-spark 620ms cubic-bezier(.18,.72,.32,1) both; }
-.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(2),
-.book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(2) { animation-delay:25ms; }
-.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(3),
-.book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(3) { animation-delay:50ms; }
-.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(4),
-.book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(4) { animation-delay:75ms; }
-.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(5),
-.book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(5) { animation-delay:100ms; }
-.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(6),
-.book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(6) { animation-delay:125ms; }
-.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(7),
-.book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(7) { animation-delay:150ms; }
-.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(8),
-.book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(8) { animation-delay:175ms; }
-@keyframes book-demo-spark {
-  0% { opacity:0; transform:translate(0,0) scale(.15) rotate(0deg); }
-  24% { opacity:.95; transform:translate(0,0) scale(.8) rotate(10deg); }
-  100% { opacity:0; transform:translate(var(--spark-x), var(--spark-y)) scale(.3) rotate(55deg); }
 }
 
 .shared-ui-host .project-name-shell,
@@ -2495,8 +2414,6 @@ body.shared-ui-dark-mode .shared-configurator-panel__price strong { color: #edf4
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i,
-  .book-demo-button.is-sparkling .book-demo-button__sparkles i { animation: none; }
   .shared-ui-host .support-mail-svg__paper,
   .support-mail-svg__paper { transition: none; }
 }
