@@ -55,6 +55,22 @@
   object-position: left center;
 }
 
+.shared-ui-host .site-header__brand-cluster { display: inline-flex; align-items: center; justify-self: start; gap: 10px; min-width: 0; }
+.shared-ui-host .book-demo-button { position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; min-width: 92px; height: 31px; padding: 0 12px; overflow: visible; border: 1px solid #0878c9; border-radius: 9px; color: #fff; background: #0878c9; box-shadow: 0 4px 12px rgba(8,120,201,.2); cursor: pointer; font-size: 11px; font-weight: 750; line-height: 1; white-space: nowrap; transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
+.shared-ui-host .book-demo-button:hover, .shared-ui-host .book-demo-button:focus-visible { border-color: #0067ad; background: #006fb8; box-shadow: 0 6px 16px rgba(8,120,201,.26); transform: translateY(-1px); }
+.shared-ui-host .book-demo-button:active { transform: translateY(0) scale(.98); }
+.shared-ui-host .book-demo-button__sparkles { position: absolute; inset: 0; pointer-events: none; }
+.shared-ui-host .book-demo-button__sparkles i { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #79cdfa; box-shadow: 0 0 5px rgba(121,205,250,.7); opacity: 0; }
+.shared-ui-host .book-demo-button__sparkles i:nth-child(1) { top: 1px; right: 9px; --spark-x: 7px; --spark-y: -7px; }
+.shared-ui-host .book-demo-button__sparkles i:nth-child(2) { top: 9px; right: 0; --spark-x: 8px; --spark-y: -1px; }
+.shared-ui-host .book-demo-button__sparkles i:nth-child(3) { bottom: 1px; left: 13px; --spark-x: -6px; --spark-y: 7px; }
+.shared-ui-host .book-demo-button__sparkles i:nth-child(4) { top: -1px; left: 27px; --spark-x: -2px; --spark-y: -7px; }
+.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i { animation: shared-book-demo-spark 560ms ease-out both; }
+.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(2) { animation-delay: 45ms; }
+.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(3) { animation-delay: 85ms; }
+.shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i:nth-child(4) { animation-delay: 120ms; }
+@keyframes shared-book-demo-spark { 0% { opacity: 0; transform: translate(0,0) scale(.35); } 22% { opacity: .9; transform: translate(0,0) scale(1); } 100% { opacity: 0; transform: translate(var(--spark-x),var(--spark-y)) scale(.15); } }
+
 .shared-ui-host .project-name-shell {
   display: inline-flex;
   align-items: center;
@@ -442,9 +458,12 @@
 .shared-ui-host .account-help__email strong { font-size: 10.7px; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; }
 .shared-ui-host .account-help__mail-icon { display: grid; place-items: center; }
 .shared-ui-host .account-help__mail-icon svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
-.shared-ui-host .support-mail-svg__paper { transform-box: fill-box; transform-origin: center; }
-.shared-ui-host .account-help__email:hover .support-mail-svg__paper { animation: support-mail-paper-cycle 720ms ease-in-out infinite; }
-@keyframes support-mail-paper-cycle { 0%,100% { transform: translateY(0); } 45% { transform: translateY(-3.4px); } 72% { transform: translateY(.8px); } }
+.shared-ui-host .account-help__email { --support-mail-envelope-fill: #fff; }
+.shared-ui-host .account-help__email:hover { --support-mail-envelope-fill: #eaf5fc; }
+.shared-ui-host .support-mail-svg__paper { transform: translateY(2.2px); transform-box: fill-box; transform-origin: center; transition: transform 220ms cubic-bezier(.2,.75,.25,1); }
+.shared-ui-host .support-mail-svg__paper rect { fill: #fff; }
+.shared-ui-host .support-mail-svg__front { fill: var(--support-mail-envelope-fill); transition: fill 140ms ease; }
+.shared-ui-host .account-help__email:hover .support-mail-svg__paper, .shared-ui-host .account-help__email:focus-visible .support-mail-svg__paper { transform: translateY(-2.6px); }
 .shared-ui-host .account-menu__items strong,
 .shared-ui-host .language-list strong { font-size: 12px; font-weight: 700; }
 .shared-ui-host .account-menu__chevron { font-size: 21px; transition: transform 150ms ease; }
@@ -580,6 +599,9 @@
 .shared-ui-host.is-dark-mode .account-help__prompt { color: #aebdca; }
 .shared-ui-host.is-dark-mode .account-help__email { color: #5cc7ff; }
 .shared-ui-host.is-dark-mode .account-help__email:hover { color: #8ad8ff; background: rgba(20,148,222,.14); }
+.shared-ui-host.is-dark-mode .account-help__email { --support-mail-envelope-fill: #1e293b; }
+.shared-ui-host.is-dark-mode .account-help__email:hover { --support-mail-envelope-fill: #20384a; }
+.shared-ui-host.is-dark-mode .support-mail-svg__paper rect { fill: #f8fafc; }
 .shared-ui-host.is-dark-mode .account-menu__items > button:hover,
 .shared-ui-host.is-dark-mode .account-settings button:hover,
 .shared-ui-host.is-dark-mode .account-domain button:hover,
@@ -590,7 +612,7 @@
 body.shared-ui-dark-mode { background: #0f172a !important; }
 
 @media (max-width: 760px) {
-  .shared-ui-host .site-header { grid-template-columns: 84px minmax(116px,1fr) auto; padding: 0 7px; }
+  .shared-ui-host .site-header { grid-template-columns: 190px minmax(90px,1fr) auto; padding: 0 7px; }
   .shared-ui-host .brand img { width: 83px; }
   .shared-ui-host .project-name-input,
   .shared-ui-host .project-name-measure { font-size: 14px; }
@@ -1111,12 +1133,15 @@ body.shared-ui-dark-mode { background: #0f172a !important; }
     column-gap: 4px;
     padding: 0 6px;
   }
+  .shared-ui-host .site-header__brand-cluster { gap: 6px; }
+  .shared-ui-host .book-demo-button { min-width: 78px; height: 29px; padding: 0 9px; font-size: 10px; }
   .shared-ui-host .project-name-shell { display: none; }
   .shared-ui-host .brand img { width: 78px; }
   .shared-ui-host .topbar-icon-button { width: 29px; height: 29px; }
 }
 
 @media (max-width: 360px) {
+  .shared-ui-host .book-demo-button { display: none; }
   .shared-ui-host .site-header {
     grid-template-columns: minmax(60px, 1fr) auto;
     column-gap: 2px;
@@ -1484,4 +1509,9 @@ body.configurator-embed-preview #canvas-container {
   min-height: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shared-ui-host .book-demo-button.is-sparkling .book-demo-button__sparkles i { animation: none; }
+  .shared-ui-host .support-mail-svg__paper { transition: none; }
 }

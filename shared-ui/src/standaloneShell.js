@@ -1,8 +1,8 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
 import { sharedT } from './i18n.js?v=25';
 import { renderActionFeedback } from './components/feedback.js?v=17';
-import { renderTopBar } from './components/topBar.js?v=22';
-import { syncAccountIdentity } from './components/accountMenu.js?v=20';
+import { renderTopBar } from './components/topBar.js?v=23';
+import { syncAccountIdentity } from './components/accountMenu.js?v=21';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=18';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
@@ -154,6 +154,19 @@ function setSelectValue(root, path, value) {
   if (select) select.value = value;
 }
 
+const SHARED_STANDALONE_STYLE_VERSION = '24';
+
+function refreshSharedStandaloneStylesheet() {
+  document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    if (!href.includes('shared-ui/styles/standalone.css')) return;
+    const nextHref = /([?&])v=[^&]*/.test(href)
+      ? href.replace(/([?&])v=[^&]*/, `$1v=${SHARED_STANDALONE_STYLE_VERSION}`)
+      : `${href}${href.includes('?') ? '&' : '?'}v=${SHARED_STANDALONE_STYLE_VERSION}`;
+    if (nextHref !== href) link.setAttribute('href', nextHref);
+  });
+}
+
 export class StandaloneConfiguratorShell {
   constructor(options = {}) {
     this.options = {
@@ -169,6 +182,8 @@ export class StandaloneConfiguratorShell {
       configuratorPanel: null,
       ...options,
     };
+
+    refreshSharedStandaloneStylesheet();
 
     this.storagePrefix = this.options.storagePrefix;
     this.productId = normalizeProductId(this.options.productId || this.options.productType);
@@ -1776,7 +1791,14 @@ export class StandaloneConfiguratorShell {
     if (!actionTarget) return;
     const action = actionTarget.dataset.action;
 
-    if (action === 'save') {
+    if (action === 'book-demo') {
+      // Functionality will be connected later. For now the CTA only provides
+      // a small tactile sparkle so it already behaves like an interactive button.
+      actionTarget.classList.remove('is-sparkling');
+      void actionTarget.offsetWidth;
+      actionTarget.classList.add('is-sparkling');
+      window.setTimeout(() => actionTarget.classList.remove('is-sparkling'), 680);
+    } else if (action === 'save') {
       void this.save(actionTarget);
     } else if (action === 'new-configuration') {
       void this.createNewConfiguration();
@@ -2188,7 +2210,7 @@ export class StandaloneConfiguratorShell {
   buildSupportMailtoUrl(shareUrl) {
     const productName = SUPPORT_PRODUCT_NAMES[this.productId] || String(this.options.productType || 'Configuration').trim() || 'Configuration';
     const subject = `Support request for ${productName} configurator`;
-    const body = `This is the project I was working on when I requested support: ${shareUrl}.\n\n`;
+    const body = `This is the project I was working on when I requested support: ${shareUrl} .\n\n`;
     return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 

@@ -5,7 +5,7 @@ import {
   UNIT_OPTIONS,
 } from '../config.js';
 import { sharedT } from '../i18n.js?v=25';
-import { sharedIcon } from '../icons.js?v=21';
+import { sharedIcon } from '../icons.js?v=22';
 import { escapeHtml } from '../utils.js';
 
 
