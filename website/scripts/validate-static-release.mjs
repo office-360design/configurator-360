@@ -126,6 +126,7 @@ for (const [locale, { origin, apps }] of Object.entries(sitemapExpectations)) {
     `${origin}/about`,
     `${origin}/contact`,
     `${origin}/pricing`,
+    `${origin}/book-a-demo`,
     ...marketingSlugs.map((slug) => `${origin}/configurators/${slug}`),
     ...apps.map((appPath) => `${origin}${appPath}`),
   ];

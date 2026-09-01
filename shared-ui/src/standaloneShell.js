@@ -1,4 +1,4 @@
-import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
 import { sharedT } from './i18n.js?v=25';
 import { renderActionFeedback } from './components/feedback.js?v=17';
 import { renderTopBar } from './components/topBar.js?v=24';
@@ -1792,7 +1792,15 @@ export class StandaloneConfiguratorShell {
     const action = actionTarget.dataset.action;
 
     if (action === 'book-demo') {
-      // Reserved for the future demo-booking flow. Intentionally no action yet.
+      const resolvedLocale = LANGUAGE_PROFILES[this.state.locale] ? this.state.locale : 'en-US';
+      const host = LOCALE_HOSTS[resolvedLocale] || LOCALE_HOSTS['en-US'];
+      const target = new URL(`https://${host}/book-a-demo/`);
+      target.searchParams.set('configurator', this.productId);
+      const source = new URL(window.location.href);
+      source.search = '';
+      source.hash = '';
+      target.searchParams.set('source', source.href);
+      window.location.assign(target.href);
       return;
     } else if (action === 'save') {
       void this.save(actionTarget);
