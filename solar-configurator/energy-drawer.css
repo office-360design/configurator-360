@@ -1,0 +1,348 @@
+/* Compact solar system summary with expandable energy details. */
+.viewer-panel {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.solar-simulation-panel.solar-energy-drawer {
+  min-width: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  box-shadow: 0 -8px 24px rgba(20, 27, 35, .035);
+}
+
+.solar-simulation-panel.solar-energy-drawer.is-collapsed {
+  padding: 0;
+}
+
+.solar-energy-drawer > .solar-energy-drawer__bar {
+  min-width: 0;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  transition: padding-right .32s cubic-bezier(.22, 1, .36, 1);
+}
+
+.solar-energy-drawer__headline-metrics {
+  min-width: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.solar-energy-drawer__headline-metrics::-webkit-scrollbar {
+  display: none;
+}
+
+.solar-energy-drawer__headline-metrics article {
+  min-width: 142px;
+  flex: 1 0 142px;
+  padding: 11px 16px;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.solar-energy-drawer__headline-metrics span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solar-energy-drawer__headline-metrics strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.15;
+  letter-spacing: -.025em;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solar-energy-drawer .solar-energy-drawer__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-left: 1px solid var(--line);
+  background: #fff;
+  cursor: default;
+}
+
+.solar-energy-drawer .solar-energy-drawer__actions #simulationPlayButton,
+.solar-energy-drawer .solar-energy-drawer__toggle {
+  min-height: 40px;
+  border-radius: 10px;
+  padding: 0 13px;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color .16s ease, background-color .16s ease, color .16s ease, transform .16s ease;
+}
+
+.solar-energy-drawer .solar-energy-drawer__actions #simulationPlayButton {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.solar-energy-drawer .solar-energy-drawer__actions #simulationPlayButton:hover,
+.solar-energy-drawer .solar-energy-drawer__actions #simulationPlayButton:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(.97);
+}
+
+.solar-energy-drawer .solar-energy-drawer__toggle {
+  display: inline-flex;
+  width: auto;
+  height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line) !important;
+  background: var(--panel-soft) !important;
+  color: var(--ink) !important;
+  white-space: nowrap;
+}
+
+.solar-energy-drawer .solar-energy-drawer__toggle:hover,
+.solar-energy-drawer .solar-energy-drawer__toggle:focus-visible {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: #fff !important;
+}
+
+.solar-energy-drawer .solar-energy-drawer__toggle svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: rotate(180deg);
+  transition: transform .24s cubic-bezier(.22, 1, .36, 1);
+}
+
+.solar-energy-drawer.is-collapsed .solar-energy-drawer__toggle svg {
+  transform: rotate(0deg);
+}
+
+.solar-energy-drawer > .solar-energy-drawer__body {
+  max-height: min(35dvh, 300px);
+  padding: 11px 18px 14px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  opacity: 1;
+  transition:
+    max-height .32s cubic-bezier(.22, 1, .36, 1),
+    padding .28s cubic-bezier(.22, 1, .36, 1),
+    opacity .18s ease,
+    border-color .18s ease;
+}
+
+.solar-energy-drawer.is-collapsed > .solar-energy-drawer__body {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  border-top-color: transparent;
+  opacity: 0;
+}
+
+.solar-energy-drawer__body-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.solar-energy-drawer__body-heading .eyebrow {
+  margin: 0;
+}
+
+.solar-energy-drawer__body-heading #simulationPlayButton {
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter .16s ease, transform .16s ease;
+}
+
+.solar-energy-drawer__body-heading #simulationPlayButton:hover,
+.solar-energy-drawer__body-heading #simulationPlayButton:focus-visible {
+  filter: brightness(.97);
+  transform: translateY(-1px);
+}
+
+.solar-energy-drawer .simulation-summary-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 7px;
+}
+
+.solar-energy-drawer .simulation-summary-grid article {
+  min-width: 0;
+  padding: 7px 9px;
+}
+
+.solar-energy-drawer #simulationChart {
+  height: 125px;
+}
+
+body.shared-ui-mounted:not(.roof-sidebar-collapsed) .solar-energy-drawer > .solar-energy-drawer__bar {
+  padding-right: calc(var(--shared-settings-width) + var(--shared-settings-gap) + 12px);
+}
+
+body.shared-ui-mounted:not(.roof-sidebar-collapsed) .solar-energy-drawer > .solar-energy-drawer__body {
+  padding-right: calc(var(--shared-settings-width) + var(--shared-settings-gap) + 18px);
+}
+
+body.shared-ui-dark-mode .solar-simulation-panel.solar-energy-drawer,
+body.shared-ui-dark-mode .solar-energy-drawer .solar-energy-drawer__actions {
+  background: #182335;
+  border-color: rgba(255, 255, 255, .1);
+}
+
+body.shared-ui-dark-mode .solar-energy-drawer__headline-metrics article,
+body.shared-ui-dark-mode .solar-energy-drawer > .solar-energy-drawer__body {
+  border-color: rgba(255, 255, 255, .1);
+}
+
+body.shared-ui-dark-mode .solar-energy-drawer__headline-metrics strong {
+  color: #e7eef3;
+}
+
+body.shared-ui-dark-mode .solar-energy-drawer .solar-energy-drawer__toggle {
+  color: #e7eef3 !important;
+  background: #1d2a3a !important;
+  border-color: rgba(255, 255, 255, .12) !important;
+}
+
+body.shared-ui-dark-mode .solar-energy-drawer .solar-energy-drawer__toggle:hover,
+body.shared-ui-dark-mode .solar-energy-drawer .solar-energy-drawer__toggle:focus-visible {
+  color: #65bff8 !important;
+  background: #24354a !important;
+  border-color: #4eb3ed !important;
+}
+
+body.configurator-embed-preview .solar-simulation-panel.solar-energy-drawer {
+  padding: 0;
+}
+
+body.configurator-embed-preview .solar-energy-drawer.is-collapsed {
+  width: min(540px, calc(100vw - 28px));
+}
+
+body.configurator-embed-preview .solar-energy-drawer > .solar-energy-drawer__bar,
+body.configurator-embed-preview .solar-energy-drawer > .solar-energy-drawer__body {
+  padding-right: 0;
+}
+
+body.configurator-embed-preview .solar-energy-drawer.is-collapsed .solar-energy-drawer__headline-metrics article:nth-child(n + 3) {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .solar-energy-drawer .simulation-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  body.shared-ui-mounted .viewer-panel {
+    grid-template-rows: 56px minmax(0, 1fr) auto;
+  }
+
+  body.shared-ui-mounted:not(.roof-sidebar-collapsed) .solar-energy-drawer > .solar-energy-drawer__bar,
+  body.shared-ui-mounted:not(.roof-sidebar-collapsed) .solar-energy-drawer > .solar-energy-drawer__body {
+    padding-right: 0;
+  }
+
+  .solar-energy-drawer > .solar-energy-drawer__bar {
+    min-height: 60px;
+  }
+
+  .solar-energy-drawer__headline-metrics article {
+    min-width: 118px;
+    flex-basis: 118px;
+    padding: 9px 11px;
+  }
+
+  .solar-energy-drawer__headline-metrics span {
+    font-size: 7px;
+  }
+
+  .solar-energy-drawer__headline-metrics strong {
+    font-size: 12px;
+  }
+
+  .solar-energy-drawer .solar-energy-drawer__actions {
+    gap: 5px;
+    padding: 8px;
+  }
+
+  .solar-energy-drawer .solar-energy-drawer__toggle {
+    min-height: 42px;
+    padding: 0 10px;
+  }
+
+  .solar-energy-drawer__toggle span {
+    max-width: 88px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .solar-energy-drawer > .solar-energy-drawer__body {
+    max-height: min(42dvh, 340px);
+    padding: 10px 10px 12px;
+  }
+
+  .solar-energy-drawer__body-heading #simulationPlayButton {
+    min-height: 40px;
+    padding: 0 11px;
+  }
+
+  .solar-energy-drawer .simulation-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .solar-energy-drawer .simulation-chart-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .solar-energy-drawer #simulationChart {
+    min-width: 560px;
+    height: 135px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solar-energy-drawer > .solar-energy-drawer__bar,
+  .solar-energy-drawer .solar-energy-drawer__toggle,
+  .solar-energy-drawer .solar-energy-drawer__toggle svg,
+  .solar-energy-drawer > .solar-energy-drawer__body {
+    transition: none;
+  }
+}
