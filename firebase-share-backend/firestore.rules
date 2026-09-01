@@ -181,6 +181,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Quotation history contains complete immutable configuration snapshots and
+    // is written only by the quotation Cloud Function after an authenticated
+    // request. Browser clients must never read or alter this archive directly.
+    match /quotations/{userId}/{document=**} {
+      allow read, write: if false;
+    }
+
     // Cross-domain authentication handoffs contain only server-side temporary
     // state and are redeemed through Cloud Functions. Browser Firestore access
     // is intentionally impossible.
