@@ -6,4 +6,5 @@
 module.exports = {
   ...require('./index.js'),
   ...require('./quotation.js'),
+  ...require('./profile.js'),
 };

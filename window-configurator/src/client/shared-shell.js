@@ -1,4 +1,4 @@
-import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=36';
+import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=37';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=4';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=1';
@@ -71,9 +71,6 @@ const shell = mountStandaloneConfiguratorShell({
       return window.WINDOW_CONFIGURATOR_API?.captureState?.();
     },
     restoreState(snapshot) {
-      if (window.WINDOW_CONFIGURATOR_SELF_RESTORES_SHARE) {
-        return window.WINDOW_CONFIGURATOR_INITIAL_SHARE_RESTORED ? true : undefined;
-      }
       return window.WINDOW_CONFIGURATOR_API?.restoreState?.(snapshot);
     },
     onUndo() {

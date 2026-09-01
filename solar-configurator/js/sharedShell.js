@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=36';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=37';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { getSeasonForDate } from './solarPosition.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
@@ -150,7 +150,7 @@ simulationPanelToggle?.addEventListener('click', () => {
 function syncMobileLayout() {
   document.body.classList.toggle('solar-mobile-layout', mobileLayoutQuery.matches);
   setSidebarCollapsed(mobileLayoutQuery.matches);
-  setSimulationPanelCollapsed(mobileLayoutQuery.matches || document.body.classList.contains('configurator-embed-preview'));
+  setSimulationPanelCollapsed(mobileLayoutQuery.matches);
 }
 
 syncMobileLayout();
