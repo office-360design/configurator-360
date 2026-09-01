@@ -39,7 +39,7 @@ const SHARES_COLLECTION = 'sharedConfigurations';
 const SYSTEM_COLLECTION = 'sharedConfigurationSystem';
 const APP_CHECK_USAGE_DOCUMENT = 'appCheckUsage';
 const FIRESTORE_RECORD_VERSION = 1;
-const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence']);
+const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox']);
 
 // Tier-1 tenant provisioning.
 const TENANTS_COLLECTION = 'tenants';
@@ -120,11 +120,11 @@ const TENANT_PLAN_CATALOG = Object.freeze({
     name: 'Go Live Now — all configurators',
     shortName: 'All configurators',
     description: 'The complete Go Live Now package with access to the full standard configurator catalogue.',
-    maxConfigurators: 6,
+    maxConfigurators: 7,
     displayOrder: 30,
     recommended: false,
     features: Object.freeze([
-      'All 6 standard configurators',
+      'All 7 standard configurators',
       'Company name and logo',
       'Customer dashboard',
       'Saved configurations',
@@ -240,6 +240,7 @@ const DEMO_REQUEST_CONFIGURATOR_NAMES = Object.freeze({
   hall: 'Hall configurator',
   solar: 'Solar configurator',
   fence: 'Fence configurator',
+  cardbox: 'Cardbox configurator',
 });
 const DEMO_REQUEST_TIMINGS = new Set(['', 'asap', 'week', 'fortnight', 'exploring']);
 const DEMO_REQUEST_JOB_TITLES = Object.freeze({

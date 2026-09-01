@@ -15,7 +15,7 @@ const checks = [
     'TENANT_PLAN_CATALOG',
     'maxConfigurators: 1',
     'maxConfigurators: 3',
-    'maxConfigurators: 6',
+    'maxConfigurators: 7',
     "TENANT_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due', 'suspended', 'cancelled'])",
     'defaultTenantSubscription(now)',
     'validateConfiguratorsForPlan',

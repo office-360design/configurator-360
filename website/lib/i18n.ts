@@ -19,6 +19,7 @@ export const configuratorPublicPaths = {
     hall: "/hall-configurator/",
     solar: "/solar-configurator/",
     fence: "/fence-configurator/",
+    cardbox: "/cardbox-configurator/",
   },
   ro: {
     pergola: "/configurator-pergola/",
@@ -27,6 +28,7 @@ export const configuratorPublicPaths = {
     hall: "/configurator-hala/",
     solar: "/configurator-solar/",
     fence: "/configurator-garduri/",
+    cardbox: "/configurator-cutii-carton/",
   },
   de: {
     pergola: "/pergola-konfigurator/",
@@ -35,6 +37,7 @@ export const configuratorPublicPaths = {
     hall: "/hallen-konfigurator/",
     solar: "/solar-konfigurator/",
     fence: "/zaun-konfigurator/",
+    cardbox: "/karton-konfigurator/",
   },
 } as const;
 

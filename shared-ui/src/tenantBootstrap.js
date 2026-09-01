@@ -35,6 +35,7 @@ export const TENANT_CONFIGURATORS = Object.freeze({
   solar: Object.freeze({ id: 'solar', label: 'Solar Configurator', path: '/solar-configurator/' }),
   hall: Object.freeze({ id: 'hall', label: 'Hall Configurator', path: '/hall-configurator/' }),
   fence: Object.freeze({ id: 'fence', label: 'Fence Configurator', path: '/fence-configurator/' }),
+  cardbox: Object.freeze({ id: 'cardbox', label: 'Cardbox Configurator', path: '/cardbox-configurator/' }),
 });
 
 function normalizeHostname(hostname = '') {
