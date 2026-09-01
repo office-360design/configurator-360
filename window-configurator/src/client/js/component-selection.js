@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getWindowLocale, windowT } from './i18n.js';
+import { setSidebarCollapsed } from './ui-controls.js';
 
 const POINTER_DRAG_THRESHOLD_PX = 5;
 const HIGHLIGHT_COLOUR = new THREE.Color(0x3b82f6);
@@ -82,6 +83,19 @@ export function createComponentSelection({
 
         if (name) name.textContent = component.name;
         if (source) source.textContent = getComponentSourceLabel(component.source);
+
+        // On phones the exploded-part popup and the right settings menu are
+        // mutually exclusive. Selecting a part collapses the menu before the
+        // popup is shown; desktop keeps the existing independent behaviour.
+        const isPhoneViewport = globalThis.window?.matchMedia?.('(max-width: 760px)').matches
+            ?? ((globalThis.window?.innerWidth ?? Number.POSITIVE_INFINITY) <= 760);
+        if (isPhoneViewport) {
+            const controlsPanel = document.getElementById('controls');
+            if (controlsPanel && !controlsPanel.classList.contains('sidebar-collapsed')) {
+                setSidebarCollapsed(true);
+            }
+        }
+
         if (popup) popup.hidden = false;
     }
 
