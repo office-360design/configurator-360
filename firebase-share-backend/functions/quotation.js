@@ -10,7 +10,9 @@ const FUNCTION_REGION = 'europe-west1';
 const RUNTIME_SERVICE_ACCOUNT = 'configurator-runtime@configurator-360.iam.gserviceaccount.com';
 const TEST_QUOTATION_RECIPIENT = 'matei.belciug.work@gmail.com';
 const QUOTATION_RATE_LIMIT_COLLECTION = 'quotationRequestRateLimits';
-const QUOTATION_MIN_INTERVAL_MS = 10 * 1000;
+const QUOTATIONS_COLLECTION = 'quotations';
+const QUOTATION_ARCHIVE_VERSION = 1;
+const QUOTATION_MIN_INTERVAL_MS = 30 * 1000;
 const SHARES_COLLECTION = 'sharedConfigurations';
 const SHARE_LIFETIME_MS = 90 * 24 * 60 * 60 * 1000;
 const MAX_SINGLE_SHARE_BYTES = 850_000;
@@ -434,6 +436,128 @@ function quotationPresentation(items, locale, currency) {
   return { rows, total, totalText: formatMoney(total, currency, locale), copy };
 }
 
+async function discardQuotationArchive(archive) {
+  if (!archive?.requestRef) return;
+  const refs = Array.isArray(archive.itemRefs) ? archive.itemRefs : [];
+  const db = getFirestore();
+  for (let offset = 0; offset < refs.length; offset += 400) {
+    const batch = db.batch();
+    refs.slice(offset, offset + 400).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+  await archive.requestRef.delete().catch(() => {});
+}
+
+async function stageQuotationArchive({ uid, userEmail, userName, tenantSlug, origin, locale, currency, items, presentation }) {
+  const db = getFirestore();
+  const userRef = db.collection(QUOTATIONS_COLLECTION).doc(uid);
+  const requestRef = userRef.collection('requests').doc();
+  const requestedAt = Timestamp.now();
+  const itemRefs = [];
+
+  try {
+    await requestRef.create({
+      v: QUOTATION_ARCHIVE_VERSION,
+      quotationId: requestRef.id,
+      userEmail: userEmail || null,
+      userName: userName || null,
+      status: 'sending',
+      requestedAt,
+      // Keep the send timestamp on the staged record so the request still has
+      // a useful date even if the provider accepts the email but the final
+      // status write is interrupted afterward.
+      sentAt: requestedAt,
+      itemCount: items.length,
+      locale,
+      currency,
+      totalValue: presentation.total,
+      totalText: presentation.totalText,
+      tenantSlug: tenantSlug || null,
+      origin,
+    });
+
+    // A single configuration can be close to Firestore's per-document limit.
+    // Write item snapshots in small batches so a large cart cannot exceed the
+    // 10 MiB Firestore batch-request limit.
+    for (let offset = 0; offset < presentation.rows.length; offset += 8) {
+      const batch = db.batch();
+      const chunk = presentation.rows.slice(offset, offset + 8);
+      chunk.forEach((item, chunkIndex) => {
+        const itemRef = requestRef.collection('items').doc();
+        itemRefs.push(itemRef);
+        batch.set(itemRef, {
+          v: QUOTATION_ARCHIVE_VERSION,
+          position: offset + chunkIndex,
+          cartItemId: item.key,
+          productId: item.productId,
+          name: item.name,
+          configurationState: item.stateJson,
+          originalValue: item.amount,
+          originalCurrency: item.currency,
+          quotationValue: item.convertedAmount,
+          quotationCurrency: currency,
+          configurationLink: item.link,
+          cartCreatedAt: item.createdAtMs ? Timestamp.fromMillis(item.createdAtMs) : null,
+          archivedAt: requestedAt,
+        });
+      });
+      await batch.commit();
+    }
+  } catch (error) {
+    await discardQuotationArchive({ requestRef, itemRefs }).catch(() => {});
+    logger.error('Quotation archive staging failed.', {
+      event: 'quotation-archive-stage-failed',
+      uid,
+      quotationId: requestRef.id,
+      itemCount: items.length,
+      message: String(error?.message || error),
+    });
+    throw new HttpsError('unavailable', 'The quotation request could not be recorded. Please try again.');
+  }
+
+  return { userRef, requestRef, itemRefs, quotationId: requestRef.id, requestedAt, userEmail, userName };
+}
+
+async function finalizeQuotationArchive(archive) {
+  const db = getFirestore();
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await db.runTransaction(async (transaction) => {
+        const userSnapshot = await transaction.get(archive.userRef);
+        const existing = userSnapshot.data() || {};
+        const acceptedAt = Timestamp.now();
+        const userRecord = {
+          uid: archive.userRef.id,
+          firstQuotationAt: existing.firstQuotationAt || archive.requestedAt,
+          lastQuotationAt: acceptedAt,
+          quotationCount: Math.max(0, Number(existing.quotationCount) || 0) + 1,
+          updatedAt: acceptedAt,
+        };
+        if (archive.userEmail) userRecord.email = archive.userEmail;
+        if (archive.userName) userRecord.displayName = archive.userName;
+        transaction.set(archive.userRef, userRecord, { merge: true });
+        transaction.update(archive.requestRef, {
+          status: 'sent',
+          providerAcceptedAt: acceptedAt,
+          updatedAt: acceptedAt,
+        });
+      });
+      return true;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 120 * (attempt + 1)));
+    }
+  }
+  logger.error('Quotation email was sent but the archive finalization failed.', {
+    event: 'quotation-archive-finalize-failed',
+    uid: archive.userRef.id,
+    quotationId: archive.quotationId,
+    message: String(lastError?.message || lastError || 'Unknown error'),
+  });
+  return false;
+}
+
 function quotationHtml({ rows, totalText, copy, currency, brand }) {
   const logo = brand.logoUrl
     ? `<a href="${escapeHtml(brand.websiteUrl)}" style="display:inline-block;text-decoration:none"><img src="${escapeHtml(brand.logoUrl)}" width="190" alt="${escapeHtml(brand.companyName)}" style="display:block;max-width:190px;height:auto;border:0"></a>`
@@ -441,7 +565,7 @@ function quotationHtml({ rows, totalText, copy, currency, brand }) {
   const rowsHtml = rows.map((item) => `
     <tr>
       <td style="padding:16px 18px;border-bottom:1px solid #e5e7eb;font:500 15px/1.4 Arial,sans-serif;color:#111827">
-        <a href="${escapeHtml(item.link)}" style="color:#1267d6;text-decoration:none;font-weight:700">${escapeHtml(item.typeLabel)}: ${escapeHtml(item.name)}</a>
+        <a href="${escapeHtml(item.link)}" style="color:#1267d6;text-decoration:none;font-weight:700"><span aria-hidden="true" style="display:inline-block;margin-right:7px;color:#1267d6;font-size:14px;line-height:1">&#128279;</span>${escapeHtml(item.typeLabel)}: ${escapeHtml(item.name)}</a>
       </td>
       <td align="right" style="padding:16px 18px;border-bottom:1px solid #e5e7eb;white-space:nowrap;font:700 15px/1.4 Arial,sans-serif;color:#111827">${escapeHtml(item.priceText)}</td>
     </tr>`).join('');
@@ -498,7 +622,7 @@ function quotationText({ rows, totalText, copy, currency, brand }) {
   ];
   for (const item of rows) {
     lines.push(`${item.typeLabel}: ${item.name}    ${item.priceText}`);
-    lines.push(item.link);
+    lines.push(`🔗 ${item.link}`);
     lines.push('');
   }
   lines.push(`${copy.summary}: ${totalText}`, '', copy.closing, '', copy.regards, brand.representativeName, brand.companyName);
@@ -593,11 +717,11 @@ async function gmailSendRaw(accessToken, raw) {
   });
 }
 
-async function sendQuotationEmail({ locale, currency, items, brand }) {
-  const presentation = quotationPresentation(items, locale, currency);
-  const subject = `${presentation.copy.subject} — ${brand.companyName}`;
-  const text = quotationText({ ...presentation, currency, brand });
-  const html = quotationHtml({ ...presentation, currency, brand });
+async function sendQuotationEmail({ locale, currency, items, brand, presentation = null }) {
+  const emailPresentation = presentation || quotationPresentation(items, locale, currency);
+  const subject = `${emailPresentation.copy.subject} — ${brand.companyName}`;
+  const text = quotationText({ ...emailPresentation, currency, brand });
+  const html = quotationHtml({ ...emailPresentation, currency, brand });
   const accessToken = await delegatedGmailAccessToken();
 
   let sender = QUOTATION_FROM;
@@ -630,7 +754,7 @@ async function sendQuotationEmail({ locale, currency, items, brand }) {
     });
     throw new HttpsError('unavailable', 'The quotation email could not be sent. Please try again.');
   }
-  return presentation;
+  return emailPresentation;
 }
 
 exports.requestCartQuotation = onCall(
@@ -648,27 +772,47 @@ exports.requestCartQuotation = onCall(
   },
   async (request) => {
     const uid = requireUid(request);
+    const userEmail = String(request.auth?.token?.email || '').trim().slice(0, 320);
+    const userName = String(request.auth?.token?.name || request.auth?.token?.display_name || '').trim().slice(0, 120);
     const locale = normalizeLocale(request.data?.locale);
     const currency = normalizeCurrency(request.data?.currency);
     const { tenantSlug, origin } = await quotationScope(request);
     const cart = await readCart(uid, tenantSlug);
     if (!cart.length) throw new HttpsError('failed-precondition', 'The shopping cart is empty.');
 
-    // Enforce the 10-second account cooldown before creating any temporary
-    // quotation links. The backend now creates those links atomically from the
-    // immutable shoppingCart snapshots, so the browser no longer has to perform
-    // a slow sequence of Share writes before the email request can begin.
+    // Enforce the 30-second account cooldown before creating any temporary
+    // quotation links. The backend reads immutable shoppingCart snapshots so a
+    // single click remains a single, server-owned quotation operation.
     await enforceQuotationRateLimit(uid);
     const prepared = await createQuotationGuestShares(cart, locale, tenantSlug);
     const brand = await quotationBrandingForScope({ tenantSlug, origin });
-    let presentation;
+    const presentation = quotationPresentation(prepared.items, locale, currency);
+    let archive;
     try {
-      presentation = await sendQuotationEmail({ locale, currency, items: prepared.items, brand });
+      archive = await stageQuotationArchive({
+        uid,
+        userEmail,
+        userName,
+        tenantSlug,
+        origin,
+        locale,
+        currency,
+        items: prepared.items,
+        presentation,
+      });
+      await sendQuotationEmail({ locale, currency, items: prepared.items, brand, presentation });
     } catch (error) {
-      // Failed requests should not leave orphaned quotation-only shares behind.
+      // Failed requests should not leave quotation-only shares or a staged
+      // quotation record behind.
       await deleteQuotationShares(prepared.shareIds);
+      if (archive) await discardQuotationArchive(archive).catch(() => {});
       throw error;
     }
+
+    // Gmail has accepted the message. Finalize the Firestore archive afterward;
+    // if this last metadata update is transiently unavailable, the full staged
+    // request and item snapshots still remain recorded with status "sending".
+    await finalizeQuotationArchive(archive);
 
     logger.info('Quotation email accepted by provider.', {
       event: 'quotation-email-accepted',
@@ -679,6 +823,7 @@ exports.requestCartQuotation = onCall(
       locale,
       currency,
       recipientDomain: TEST_QUOTATION_RECIPIENT.split('@')[1],
+      quotationId: archive.quotationId,
     });
 
     return {
@@ -687,6 +832,7 @@ exports.requestCartQuotation = onCall(
       itemCount: prepared.items.length,
       currency,
       totalText: presentation.totalText,
+      quotationId: archive.quotationId,
     };
   },
 );

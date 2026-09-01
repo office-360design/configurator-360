@@ -156,7 +156,10 @@ export function renderCartMenu(locale, items = [], { open = false, busy = false 
           <strong>${escapeHtml(model.totalText)}</strong>
         </div>
         <button class="cart-menu__quote" type="button" data-action="cart-quote" ${busy || normalized.length === 0 ? 'disabled' : ''}>
-          <span class="cart-menu__quote-icon">${sharedIcon('mail')}</span>
+          <span class="cart-menu__quote-icon" aria-hidden="true">
+            <span class="cart-menu__quote-mail">${sharedIcon('mail')}</span>
+            <span class="cart-menu__quote-loader"><i></i><i></i><i></i></span>
+          </span>
           <span>${quoteLabel}</span>
         </button>
       </div>

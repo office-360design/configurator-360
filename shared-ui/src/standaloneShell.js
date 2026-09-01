@@ -1,14 +1,14 @@
 import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
 import { sharedT } from './i18n.js?v=25';
 import { renderActionFeedback } from './components/feedback.js?v=17';
-import { renderTopBar } from './components/topBar.js?v=23';
+import { renderTopBar } from './components/topBar.js?v=24';
 import { syncAccountIdentity } from './components/accountMenu.js?v=21';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=18';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=2';
-import { renderCartMenu } from './components/cartMenu.js?v=4';
+import { renderCartMenu } from './components/cartMenu.js?v=5';
 import { getUserCart, mutateUserCart } from './userCart.js?v=4';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
 import { readShareState } from './shareState.js?v=4';
@@ -1793,11 +1793,11 @@ export class StandaloneConfiguratorShell {
 
     if (action === 'book-demo') {
       // Functionality will be connected later. For now the CTA only provides
-      // a small tactile sparkle so it already behaves like an interactive button.
+      // a subtle burst of border sparkles so it already behaves like an interactive button.
       actionTarget.classList.remove('is-sparkling');
       void actionTarget.offsetWidth;
       actionTarget.classList.add('is-sparkling');
-      window.setTimeout(() => actionTarget.classList.remove('is-sparkling'), 680);
+      window.setTimeout(() => actionTarget.classList.remove('is-sparkling'), 900);
     } else if (action === 'save') {
       void this.save(actionTarget);
     } else if (action === 'new-configuration') {
