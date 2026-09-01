@@ -73,6 +73,11 @@ export function contactEmail(locale: Locale) {
   return locale === "ro" ? "office@360configurator.ro" : "office@360configurator.com";
 }
 
+export const contactPhone = Object.freeze({
+  display: "0744 142 357",
+  international: "+40744142357",
+});
+
 export const uiCopy = {
   en: {
     language: "Language", home: "Home", configurators: "Configurators", pricing: "Pricing", about: "About us", contact: "Contact us",
