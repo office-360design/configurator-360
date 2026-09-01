@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./solar.css?v=18" />
   <link rel="stylesheet" href="./energy-drawer.css?v=1" />
   <link rel="stylesheet" href="./viewer-header.css?v=1" />
+  <link rel="stylesheet" href="./stage-overlays.css?v=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script>
     window.SOLAR_PVGIS_PROXY_ENDPOINT =
@@ -264,14 +265,20 @@
             </div>
           </div>
         </section>
-        <div class="stage-hint">Drag to orbit · Scroll to zoom · Tools for location, seasons, real sun & shadows</div>
-        <aside class="solar-live-card" aria-label="Live solar simulation">
-          <div class="solar-live-card__head"><span>Simulation time</span><strong id="simulationTimeReadout">12:00</strong></div>
-          <div class="solar-live-card__sun" id="liveSunReadout">Sun position loading…</div>
-          <div class="solar-live-card__grid">
-            <div><span>PV output</span><strong id="instantProduction">—</strong></div>
-            <div><span>House load</span><strong id="instantConsumption">—</strong></div>
-            <div><span>Battery</span><strong id="instantBattery">—</strong></div>
+        <div class="stage-hint solar-stage-hint" id="solarStageHint">Drag to orbit · Scroll to zoom · Tools for location, seasons, real sun & shadows</div>
+        <aside class="solar-live-card solar-live-status is-collapsed" id="solarLiveStatus" aria-label="Live solar simulation">
+          <button type="button" class="solar-live-status__summary" id="solarLiveStatusToggle" aria-expanded="false" aria-controls="solarLiveStatusDetails" aria-label="Live solar simulation">
+            <span class="solar-live-status__pulse" aria-hidden="true"></span>
+            <span class="solar-live-status__time"><small>Simulation time</small><strong id="simulationTimeReadout">12:00</strong></span>
+            <span class="solar-live-status__primary"><small>PV output</small><strong id="instantProduction">—</strong></span>
+            <svg class="solar-live-status__chevron" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="solar-live-status__details" id="solarLiveStatusDetails" aria-hidden="true" inert>
+            <div class="solar-live-card__sun" id="liveSunReadout">Sun position loading…</div>
+            <div class="solar-live-card__grid">
+              <div><span>House load</span><strong id="instantConsumption">—</strong></div>
+              <div><span>Battery</span><strong id="instantBattery">—</strong></div>
+            </div>
           </div>
         </aside>
       </div>
@@ -715,5 +722,6 @@
   <script type="module" src="./js/app.js?v=31"></script>
   <script type="module" src="./js/sidebarAccordion.js?v=2"></script>
   <script type="module" src="./js/viewerHeader.js?v=1"></script>
+  <script type="module" src="./js/stageOverlays.js?v=1"></script>
 </body>
 </html>
