@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { gunzipSync } from 'node:zlib';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMcpServer } from '../src/mcp.js';
@@ -32,6 +33,7 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     const spec = await client.callTool({ name: 'get_configurator_spec', arguments: { product: 'solar' } });
     const solarQuestions = (spec.structuredContent as { questions: Array<{ id: string; default?: unknown; suppliedByTool?: string }> }).questions;
     assert.equal(solarQuestions.length > 20, true);
+    assert.equal(solarQuestions.some(question => question.id === 'locationQuery'), true);
     for (const id of ['locationLat', 'locationLon', 'locationLabel']) {
       const locationQuestion = solarQuestions.find(question => question.id === id);
       assert.equal(locationQuestion?.default, undefined);
@@ -47,6 +49,27 @@ test('MCP handshake exposes the complete public tool contract', async () => {
     const solarAnswers = Object.fromEntries(solarQuestions.map(question => [question.id, question.default]));
     const solarAnalysis = await client.callTool({ name: 'analyze_solar_configuration', arguments: { answers: solarAnswers } });
     assert.equal((solarAnalysis.structuredContent as { analysis?: { productionSource?: string } }).analysis?.productionSource, 'Regional calibrated estimate');
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify([{
+      display_name: '6, Aleea Brateș, Mănăștur, Cluj-Napoca, România', lat: '46.7588857', lon: '23.5449116', type: 'apartments',
+      address: { house_number: '6' },
+    }]), { status: 200, headers: { 'content-type': 'application/json' } });
+    try {
+      const exactDraft = await client.callTool({ name: 'preview_draft_configuration', arguments: { product: 'solar', answers: { locationQuery: 'Aleea Brateș 6, Cluj-Napoca' } } });
+      const exactContent = exactDraft.structuredContent as { normalizedAnswers?: Record<string, unknown>; assumptions?: string[]; previewUrl?: string };
+      assert.equal(exactContent.normalizedAnswers?.locationMode, 'exact');
+      assert.equal(exactContent.normalizedAnswers?.exactLocationConsent, true);
+      assert.equal(exactContent.normalizedAnswers?.locationLat, 46.7588857);
+      assert.equal(exactContent.assumptions?.some(item => item.includes('awaiting a confirmed address-search result')), false);
+      const encodedState = String(exactContent.previewUrl).split('#c=g2.')[1];
+      const payload = JSON.parse(gunzipSync(Buffer.from(encodedState, 'base64url')).toString('utf8')) as { s: Record<string, unknown> };
+      assert.equal(payload.s.locationMode, 'exact');
+      assert.equal(payload.s.environmentEnabled, true);
+      assert.equal(payload.s.environmentAutoLoad, true);
+      assert.equal(payload.s.buildingsEnabled, true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
     const hallSpec = await client.callTool({ name: 'get_configurator_spec', arguments: { product: 'hall' } });
     const hallAnswers = Object.fromEntries((hallSpec.structuredContent as { questions: Array<{ id: string; default: unknown }> }).questions.map(question => [question.id, question.default]));
     const hallAnalysis = await client.callTool({ name: 'analyze_product_configuration', arguments: { product: 'hall', answers: hallAnswers } });
@@ -59,8 +82,8 @@ test('MCP handshake exposes the complete public tool contract', async () => {
       assert.match(String(content.assistantPrompt), /Next, please choose:/);
     }
     const resources = await client.listResources();
-    assert.equal(resources.resources[0]?.uri, 'ui://360configurator/preview-v2.html');
-    const preview = await client.readResource({ uri: 'ui://360configurator/preview-v2.html' });
+    assert.equal(resources.resources[0]?.uri, 'ui://360configurator/preview-v3.html');
+    const preview = await client.readResource({ uri: 'ui://360configurator/preview-v3.html' });
     const previewSource = String(preview.contents[0] && 'text' in preview.contents[0] ? preview.contents[0].text : '');
     assert.match(previewSource, /<script type="module">/);
     assert.match(previewSource, /360configurator:preview-adjustment/);

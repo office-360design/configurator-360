@@ -35,6 +35,28 @@ export function directSolarLocationSelection(candidates: SolarLocationCandidate[
   };
 }
 
+export async function resolveSolarLocationAnswers(
+  raw: Record<string, unknown>,
+  search: (query: string) => Promise<SolarLocationCandidate[]> = searchSolarLocations,
+) {
+  const answers = { ...raw };
+  const query = String(answers.locationQuery || '').trim();
+  const alreadyResolved = Number.isFinite(Number(answers.locationLat))
+    && Number.isFinite(Number(answers.locationLon))
+    && String(answers.locationLabel || '').trim().length > 0;
+  if (alreadyResolved) {
+    answers.locationMode = 'exact';
+    return { answers, candidates: [] as SolarLocationCandidate[], suggestedSelection: null, confirmationRequired: false };
+  }
+  if (!query) return { answers, candidates: [] as SolarLocationCandidate[], suggestedSelection: null, confirmationRequired: false };
+
+  const candidates = await search(query);
+  const suggestedSelection = directSolarLocationSelection(candidates);
+  if (suggestedSelection) Object.assign(answers, suggestedSelection);
+  else Object.assign(answers, { locationMode: 'exact', exactLocationConsent: false });
+  return { answers, candidates, suggestedSelection, confirmationRequired: !suggestedSelection };
+}
+
 export async function searchSolarLocations(query: string) {
   const trimmed = query.trim();
   if (trimmed.length < 3) throw new ConfigurationError('Please provide at least three characters for the location search.', 'query');

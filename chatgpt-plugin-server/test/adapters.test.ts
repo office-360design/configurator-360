@@ -82,7 +82,19 @@ test('pergola segment-level side closings map to the live grid state and round-t
   assert.equal(segments['h-r0-c1'].type, 'motorized-screen');
   assert.equal(((segments['h-r0-c1'].screenSettings as Record<string, JsonObject>)['motorized-screen']).openness, 25);
   const extracted = answersFromState('pergola', built.state);
-  assert.deepEqual(extracted.sides, [{ segmentId: 'h-r0-c1', type: 'motorized-screen' }]);
+  assert.deepEqual(extracted.sides, [{ segmentId: 'h-r0-c1', type: 'motorized-screen', openness: 25, color: '#123456' }]);
+});
+
+test('pergola exact spotlight placements map to roof rectangles and round-trip', () => {
+  const built = buildState('pergola', {
+    ...defaults('pergola'), widthMm: 9000, depthMm: 5000, spotlightCount: 5,
+    spotlights: [{ rectangleId: 'roof-r0-c0', count: 2 }, { rectangleId: 'roof-r0-c1', count: 3 }],
+  });
+  const accessories = built.state.accessories as JsonObject;
+  assert.deepEqual(accessories.spotlights, { 'roof-r0-c0': 2, 'roof-r0-c1': 3 });
+  const extracted = answersFromState('pergola', built.state);
+  assert.equal(extracted.spotlightCount, 5);
+  assert.deepEqual(extracted.spotlights, [{ rectangleId: 'roof-r0-c0', count: 2 }, { rectangleId: 'roof-r0-c1', count: 3 }]);
 });
 
 test('hall uses live building and climate values', () => {
@@ -109,6 +121,9 @@ test('solar exact location stores usable coordinates', () => {
   assert.equal(exact.state.northDirection, 210);
   assert.equal(exact.state.environmentLocalEastM, 4.5);
   assert.equal(exact.state.environmentLocalNorthM, -2);
+  assert.equal(exact.state.environmentEnabled, true);
+  assert.equal(exact.state.environmentAutoLoad, true);
+  assert.equal(exact.state.buildingsEnabled, true);
   assert.equal(pendingQuestions('solar', {}).some(question => question.id === 'roofBearingDeg'), false);
 });
 

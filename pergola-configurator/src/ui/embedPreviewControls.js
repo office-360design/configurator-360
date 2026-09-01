@@ -1,5 +1,14 @@
 import { SIDE_OPTIONS } from '../catalog.js';
-import { getPoleGrid, getSideSegmentConfig, segmentIsAvailable } from '../state.js';
+import {
+  getPoleGrid,
+  getRoofRectangles,
+  getSideSegmentConfig,
+  getSpotlightRectangleCapacity,
+  getSpotlightRectangleCount,
+  getTotalSpotlights,
+  segmentIsAvailable,
+} from '../state.js';
+import { renderPergolaGrid, renderRoofRectangleGrid } from './pergolaRenderers.js';
 
 const PREVIEW_MESSAGE_TYPE = '360configurator:preview-adjustment';
 
@@ -24,6 +33,13 @@ function configuredSides(state) {
   });
 }
 
+function configuredSpotlights(state) {
+  return getRoofRectangles(state).flatMap((rectangle) => {
+    const count = getSpotlightRectangleCount(state, rectangle.id);
+    return count > 0 ? [{ rectangleId: rectangle.id, count }] : [];
+  });
+}
+
 function postAdjustment(adjustments, label) {
   if (window.parent === window) return;
   window.parent.postMessage({ type: PREVIEW_MESSAGE_TYPE, product: 'pergola', adjustments, label }, '*');
@@ -42,43 +58,80 @@ export function mountPergolaEmbedPreviewControls({ store, viewport }) {
         <button type="button" data-preview-light="night">☾ Night</button>
       </div>
       <button type="button" class="pergola-embed-sides-button" data-preview-action="toggle-sides" aria-expanded="false">Side closings <span>0</span></button>
+      <button type="button" class="pergola-embed-spotlights-button" data-preview-action="toggle-spotlights" aria-expanded="false">Spotlights <span>0</span></button>
     </div>
-    <div class="pergola-embed-sides-panel" hidden>
-      <header><div><strong>Side closings</strong><small>Choose a segment, then its closing.</small></div><button type="button" data-preview-action="close-sides" aria-label="Close side closings">×</button></header>
-      <div class="pergola-embed-segments" role="group" aria-label="Pergola boundary segments"></div>
+    <div class="pergola-embed-panel pergola-embed-sides-panel" data-preview-panel="sides" hidden>
+      <header><div><strong>Side closings</strong><small>Click the exact perimeter segment, then choose its closing.</small></div><button type="button" data-preview-action="close-panels" aria-label="Close side closings">×</button></header>
+      <div class="pergola-embed-side-grid"></div>
+      <div class="pergola-grid__legend"><span><i class="legend-line"></i> Click a segment</span><span><i class="legend-line has-closing"></i> Closing configured</span></div>
+      <div class="pergola-embed-selected-label"></div>
       <div class="pergola-embed-side-options" role="group" aria-label="Closing type"></div>
       <p class="pergola-embed-control-status" role="status"></p>
+    </div>
+    <div class="pergola-embed-panel pergola-embed-spotlights-panel" data-preview-panel="spotlights" hidden>
+      <header><div><strong>Spotlights</strong><small>Choose a roof section, then set its exact light count.</small></div><button type="button" data-preview-action="close-panels" aria-label="Close spotlights">×</button></header>
+      <div class="pergola-embed-spotlight-grid"></div>
+      <div class="pergola-embed-spotlight-editor"></div>
+      <p class="pergola-embed-spotlight-status" role="status"></p>
     </div>`;
   viewport.appendChild(root);
 
   let selectedSegmentId = null;
-  const panel = root.querySelector('.pergola-embed-sides-panel');
-  const segmentsRoot = root.querySelector('.pergola-embed-segments');
+  let selectedRectangleId = null;
+  const sidesPanel = root.querySelector('[data-preview-panel="sides"]');
+  const spotlightsPanel = root.querySelector('[data-preview-panel="spotlights"]');
+  const sideGrid = root.querySelector('.pergola-embed-side-grid');
   const optionsRoot = root.querySelector('.pergola-embed-side-options');
-  const status = root.querySelector('.pergola-embed-control-status');
+  const selectedLabel = root.querySelector('.pergola-embed-selected-label');
+  const sideStatus = root.querySelector('.pergola-embed-control-status');
+  const spotlightGrid = root.querySelector('.pergola-embed-spotlight-grid');
+  const spotlightEditor = root.querySelector('.pergola-embed-spotlight-editor');
+  const spotlightStatus = root.querySelector('.pergola-embed-spotlight-status');
+
+  function closePanels() {
+    root.querySelectorAll('[data-preview-panel]').forEach(panel => { panel.hidden = true; });
+    root.querySelectorAll('[data-preview-action^="toggle-"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+  }
 
   function render(state) {
     const night = Boolean(state.environment?.night);
     root.querySelectorAll('[data-preview-light]').forEach((button) => {
       button.setAttribute('aria-pressed', String((button.dataset.previewLight === 'night') === night));
     });
-    const configured = configuredSides(state);
-    const count = root.querySelector('.pergola-embed-sides-button span');
-    if (count) count.textContent = String(configured.length);
 
+    const sides = configuredSides(state);
+    root.querySelector('.pergola-embed-sides-button span').textContent = String(sides.length);
     const boundarySegments = getPoleGrid(state).segments.filter(segment => segment.boundary && segmentIsAvailable(state, segment.id));
-    if (!boundarySegments.some(segment => segment.id === selectedSegmentId)) selectedSegmentId = boundarySegments[0]?.id || null;
-    if (segmentsRoot) segmentsRoot.innerHTML = boundarySegments.map(segment => {
-      const config = getSideSegmentConfig(state, segment.id);
-      const selected = segment.id === selectedSegmentId;
-      return `<button type="button" data-preview-segment="${segment.id}" aria-pressed="${selected}" class="${config.type !== 'none' ? 'has-closing' : ''}">${segmentLabel(segment)}<small>${config.type === 'none' ? 'Open' : String(config.type).replace(/-/g, ' ')}</small></button>`;
-    }).join('');
-
-    const selectedConfig = selectedSegmentId ? getSideSegmentConfig(state, selectedSegmentId) : null;
-    if (optionsRoot) optionsRoot.innerHTML = SIDE_OPTIONS.map(option => `
+    if (!boundarySegments.some(segment => segment.id === selectedSegmentId)) selectedSegmentId = null;
+    sideGrid.innerHTML = renderPergolaGrid(state, {
+      mode: 'segments', selectedSegment: selectedSegmentId, segmentAction: 'preview-select-side-segment',
+    });
+    const selectedSegment = boundarySegments.find(segment => segment.id === selectedSegmentId) || null;
+    const selectedConfig = selectedSegment ? getSideSegmentConfig(state, selectedSegment.id) : null;
+    selectedLabel.innerHTML = selectedSegment
+      ? `<strong>${segmentLabel(selectedSegment)}</strong><small>Choose the closing for this highlighted segment.</small>`
+      : '<strong>Select a perimeter segment above.</strong><small>The poles are reference points; click a line between them.</small>';
+    optionsRoot.hidden = !selectedSegment;
+    optionsRoot.innerHTML = selectedSegment ? SIDE_OPTIONS.map(option => `
       <button type="button" data-preview-side-type="${option.value}" aria-pressed="${selectedConfig?.type === option.value}">
         <img src="${option.icon}" alt="" /><span><strong>${option.label}</strong><small>${option.description}</small></span>
-      </button>`).join('');
+      </button>`).join('') : '';
+
+    const spotlights = configuredSpotlights(state);
+    const spotlightCount = getTotalSpotlights(state);
+    root.querySelector('.pergola-embed-spotlights-button span').textContent = String(spotlightCount);
+    const rectangles = getRoofRectangles(state);
+    if (!rectangles.some(rectangle => rectangle.id === selectedRectangleId)) selectedRectangleId = rectangles.length === 1 ? rectangles[0].id : null;
+    spotlightGrid.innerHTML = renderRoofRectangleGrid(state, selectedRectangleId);
+    const selectedRectangle = rectangles.find(rectangle => rectangle.id === selectedRectangleId) || null;
+    if (selectedRectangle) {
+      const count = getSpotlightRectangleCount(state, selectedRectangle.id);
+      const capacity = getSpotlightRectangleCapacity(state, selectedRectangle.id).max;
+      spotlightEditor.innerHTML = `<div><strong>${selectedRectangle.label}</strong><small>Maximum ${capacity} spotlights in this roof section.</small></div><div class="pergola-embed-counter"><button type="button" data-preview-action="spotlight-counter" data-delta="-1" aria-label="Decrease spotlights" ${count <= 0 ? 'disabled' : ''}>−</button><output>${count}</output><button type="button" data-preview-action="spotlight-counter" data-delta="1" aria-label="Increase spotlights" ${count >= capacity ? 'disabled' : ''}>+</button></div>`;
+    } else {
+      spotlightEditor.innerHTML = '<div><strong>Select a roof section above.</strong><small>Each section keeps its own spotlight count.</small></div>';
+    }
+    spotlightStatus.textContent = spotlightCount ? `${spotlightCount} spotlight${spotlightCount === 1 ? '' : 's'} configured across ${spotlights.length} roof section${spotlights.length === 1 ? '' : 's'}.` : 'No spotlights configured yet.';
   }
 
   root.addEventListener('click', event => {
@@ -90,31 +143,52 @@ export function mountPergolaEmbedPreviewControls({ store, viewport }) {
       postAdjustment({ nightPreview: night }, `${night ? 'night' : 'day'} preview selected`);
       return;
     }
-    if (button.dataset.previewAction === 'toggle-sides') {
-      panel.hidden = !panel.hidden;
-      button.setAttribute('aria-expanded', String(!panel.hidden));
+    if (button.dataset.previewAction === 'toggle-sides' || button.dataset.previewAction === 'toggle-spotlights') {
+      const target = button.dataset.previewAction === 'toggle-sides' ? sidesPanel : spotlightsPanel;
+      const opening = target.hidden;
+      closePanels();
+      target.hidden = !opening;
+      if (opening) target.scrollTop = 0;
+      button.setAttribute('aria-expanded', String(opening));
       return;
     }
-    if (button.dataset.previewAction === 'close-sides') {
-      panel.hidden = true;
-      root.querySelector('[data-preview-action="toggle-sides"]')?.setAttribute('aria-expanded', 'false');
+    if (button.dataset.previewAction === 'close-panels') {
+      closePanels();
       return;
     }
-    if (button.dataset.previewSegment) {
-      selectedSegmentId = button.dataset.previewSegment;
-      status.textContent = '';
+    if (button.dataset.action === 'preview-select-side-segment') {
+      selectedSegmentId = button.dataset.segment;
+      sideStatus.textContent = '';
       render(store.get());
       return;
     }
     if (button.dataset.previewSideType && selectedSegmentId) {
       const updated = store.update(`sideSegments.${selectedSegmentId}.type`, button.dataset.previewSideType, { path: `sideSegments.${selectedSegmentId}.type`, previewControl: true });
       if (updated === false) {
-        status.textContent = store.getLastError?.() || 'That closing cannot be placed on this segment.';
+        sideStatus.textContent = store.getLastError?.() || 'That closing cannot be placed on this segment.';
         return;
       }
       const sides = configuredSides(store.get());
-      status.textContent = `${segmentLabel(getPoleGrid(store.get()).segments.find(segment => segment.id === selectedSegmentId))} updated.`;
-      postAdjustment({ sides }, `${sides.length} side closing${sides.length === 1 ? '' : 's'} configured`);
+      const segment = getPoleGrid(store.get()).segments.find(item => item.id === selectedSegmentId);
+      sideStatus.textContent = `${segmentLabel(segment)} updated.`;
+      postAdjustment({ sides }, `${sides.length} exact side closing${sides.length === 1 ? '' : 's'} configured`);
+      return;
+    }
+    if (button.dataset.action === 'select-roof-rectangle') {
+      selectedRectangleId = button.dataset.rectangle;
+      render(store.get());
+      return;
+    }
+    if (button.dataset.previewAction === 'spotlight-counter' && selectedRectangleId) {
+      const state = store.get();
+      const capacity = getSpotlightRectangleCapacity(state, selectedRectangleId).max;
+      const current = getSpotlightRectangleCount(state, selectedRectangleId);
+      const next = Math.min(capacity, Math.max(0, current + (Number(button.dataset.delta) || 0)));
+      store.update(`accessories.spotlights.${selectedRectangleId}`, next, { path: `accessories.spotlights.${selectedRectangleId}`, previewControl: true });
+      const nextState = store.get();
+      const spotlights = configuredSpotlights(nextState);
+      const spotlightCount = getTotalSpotlights(nextState);
+      postAdjustment({ spotlightCount, spotlights }, `${spotlightCount} spotlight${spotlightCount === 1 ? '' : 's'} placed across ${spotlights.length} roof section${spotlights.length === 1 ? '' : 's'}`);
     }
   });
 

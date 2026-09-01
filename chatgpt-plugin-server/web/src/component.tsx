@@ -77,7 +77,21 @@ style.textContent = `
 document.head.appendChild(style);
 
 const app = new App({ name: '360configurator-preview', version: '0.1.0' });
-app.ontoolresult = result => render(result.structuredContent as PreviewResult);
+app.ontoolresult = result => {
+  const data = result.structuredContent as PreviewResult;
+  render(data);
+  const answers = data.normalizedAnswers || {};
+  if (data.product === 'solar' && answers.locationMode === 'exact' && answers.exactLocationConsent === true
+    && Number.isFinite(Number(answers.locationLat)) && Number.isFinite(Number(answers.locationLon))) {
+    void app.updateModelContext({
+      content: [{
+        type: 'text',
+        text: `The Solar draft is pinned to the confirmed exact site ${String(answers.locationLabel || '')}. Keep locationQuery, locationMode, exactLocationConsent, locationLat, locationLon, and locationLabel from normalizedAnswers in every later Solar tool call. The geographic environment in the preview comes from these coordinates.`,
+      }],
+      structuredContent: { product: 'solar', source: 'confirmed-exact-location', normalizedAnswers: answers },
+    }).catch(() => {});
+  }
+};
 
 window.addEventListener('message', event => {
   const frame = root?.querySelector('iframe');

@@ -230,6 +230,22 @@ function pergolaState(a: JsonObject): JsonObject {
   }
   const width = Number(a.widthMm); const depth = Number(a.depthMm);
   const distributed = distributePergolaAccessories(width, depth, a.installation, a.mountedSide, Number(a.spotlightCount), Number(a.heaterCount));
+  if (Array.isArray(a.spotlights)) {
+    const exactSpotlights: Record<string, number> = {};
+    let exactTotal = 0;
+    for (const entry of a.spotlights) {
+      const item = entry && typeof entry === 'object' ? entry as JsonObject : {};
+      const rectangle = distributed.grid.cells.find(cell => cell.id === String(item.rectangleId || ''));
+      if (!rectangle) throw new ConfigurationError(`Spotlight roof rectangle ${String(item.rectangleId || '')} does not exist for the current pergola dimensions.`, 'spotlights');
+      const count = Number(item.count);
+      const capacity = Math.min(12, spotlightCapacity(rectangle.width, 4) * spotlightCapacity(rectangle.depth, 3));
+      if (!Number.isInteger(count) || count < 0 || count > capacity) throw new ConfigurationError(`Spotlight count for ${rectangle.id} must be 0–${capacity}.`, 'spotlights');
+      if (count > 0) exactSpotlights[rectangle.id] = count;
+      exactTotal += count;
+    }
+    if (exactTotal !== Number(a.spotlightCount)) throw new ConfigurationError(`Exact spotlight placements total ${exactTotal}, but spotlightCount is ${String(a.spotlightCount)}.`, 'spotlightCount');
+    distributed.spotlights = exactSpotlights;
+  }
   const validSegmentIds = new Set(distributed.grid.segments.map(segment => segment.id));
   for (const id of Object.keys(selectedSegments)) {
     if (!validSegmentIds.has(id)) throw new ConfigurationError(`Side closing segment ${id} does not exist for the current pergola dimensions.`, 'sides');
@@ -290,6 +306,9 @@ function solarState(a: JsonObject, raw: JsonObject = a): JsonObject {
     paperworkPriceRon: a.paperworkPriceRon, batteryPricePerKWhRon: a.batteryPricePerKWhRon, vatRate: Number(a.vatRatePct) / 100,
     showDimensions: false, technicalEdges: false, showCompass: true, showSunPath: true, sunPosition: 50, northDirection: a.roofBearingDeg, nightPreview: false,
     environmentLocalEastM: a.environmentLocalEastM, environmentLocalNorthM: a.environmentLocalNorthM, environmentLocalStepM: 1,
+    environmentEnabled: true, environmentAutoLoad: true, environmentRadiusM: 180, terrainEnabled: true,
+    buildingsEnabled: true, roadsEnabled: true, treesEnabled: true, terrainExaggeration: 1, replaceHostBuilding: true,
+    localBuildingShadingEnabled: true,
     units: 'metric', currency: 'RON', currencyRate: 1, excludedEstimateItems: [],
   };
 }
@@ -361,7 +380,20 @@ export function answersFromState(product: ProductId, state: JsonObject): JsonObj
       nightPreview: Boolean((state.environment as JsonObject)?.night),
       sides: Object.entries((state.sideSegments || {}) as Record<string, JsonObject>)
         .filter(([, config]) => config?.type && config.type !== 'none')
-        .map(([segmentId, config]) => ({ segmentId, type: config.type })),
+        .map(([segmentId, config]) => {
+          const item: JsonObject = { segmentId, type: config.type };
+          if (config.type === 'screen' || config.type === 'motorized-screen') {
+            const settings = ((config.screenSettings || {}) as Record<string, JsonObject>)[String(config.type)] || {};
+            item.openness = settings.openness;
+            item.color = settings.color;
+          }
+          if (config.type === 'privacy-wall') item.privacyColor = config.privacyColor;
+          return item;
+        }),
+      spotlightCount: Object.values((((state.accessories || {}) as JsonObject).spotlights || {}) as Record<string, unknown>).reduce<number>((sum, count) => sum + Number(count || 0), 0),
+      spotlights: Object.entries((((state.accessories || {}) as JsonObject).spotlights || {}) as Record<string, unknown>)
+        .filter(([, count]) => Number(count) > 0)
+        .map(([rectangleId, count]) => ({ rectangleId, count: Number(count) })),
     });
   }
   if (product === 'window') {

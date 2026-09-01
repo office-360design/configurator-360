@@ -1496,6 +1496,12 @@ function postEmbedAlignmentAdjustment() {
 
 if (new URLSearchParams(window.location.search).get('embed') === 'preview') {
   window.addEventListener('solar-tools-state-change', syncEmbedAlignmentControls);
+  document.querySelector('#embedAlignmentToggle')?.addEventListener('click', (event) => {
+    const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+    event.currentTarget.setAttribute('aria-expanded', String(!expanded));
+    const body = document.querySelector('#embedAlignmentBody');
+    if (body) body.hidden = expanded;
+  });
   document.querySelector('#embedBearingControl')?.addEventListener('input', (event) => {
     configuratorApi.setNorthDirection(event.currentTarget.value);
     syncEmbedAlignmentControls();

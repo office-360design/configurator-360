@@ -3353,7 +3353,7 @@ body.configurator-embed-preview .pergola-embed-controls {
   color: #1f3440;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
-.pergola-embed-toolbar { display: flex; align-items: center; gap: 8px; }
+.pergola-embed-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .pergola-embed-day-night {
   display: inline-flex;
   padding: 3px;
@@ -3364,7 +3364,8 @@ body.configurator-embed-preview .pergola-embed-controls {
   backdrop-filter: blur(10px);
 }
 .pergola-embed-day-night button,
-.pergola-embed-sides-button {
+.pergola-embed-sides-button,
+.pergola-embed-spotlights-button {
   min-height: 34px;
   border: 0;
   border-radius: 999px;
@@ -3375,15 +3376,17 @@ body.configurator-embed-preview .pergola-embed-controls {
   font-weight: 800;
 }
 .pergola-embed-day-night button[aria-pressed="true"] { color: #fff; background: #0878c9; }
-.pergola-embed-sides-button {
+.pergola-embed-sides-button,
+.pergola-embed-spotlights-button {
   border: 1px solid rgba(87, 111, 123, .25);
   color: #294754;
   background: rgba(255, 255, 255, .95);
   box-shadow: 0 7px 22px rgba(26, 47, 58, .15);
   backdrop-filter: blur(10px);
 }
-.pergola-embed-sides-button span { display: inline-grid; place-items: center; min-width: 19px; height: 19px; margin-left: 5px; border-radius: 999px; color: #0878c9; background: #e9f6fd; font-size: 9px; }
-.pergola-embed-sides-panel {
+.pergola-embed-sides-button span,
+.pergola-embed-spotlights-button span { display: inline-grid; place-items: center; min-width: 19px; height: 19px; margin-left: 5px; border-radius: 999px; color: #0878c9; background: #e9f6fd; font-size: 9px; }
+.pergola-embed-panel {
   width: min(430px, calc(100vw - 28px));
   max-height: min(410px, calc(100dvh - 76px));
   overflow: auto;
@@ -3394,29 +3397,17 @@ body.configurator-embed-preview .pergola-embed-controls {
   box-shadow: 0 16px 40px rgba(26, 47, 58, .22);
   backdrop-filter: blur(14px);
 }
-.pergola-embed-sides-panel[hidden] { display: none; }
-.pergola-embed-sides-panel header { display: flex; align-items: start; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
-.pergola-embed-sides-panel header div { display: grid; gap: 2px; }
-.pergola-embed-sides-panel header strong { font-size: 13px; }
-.pergola-embed-sides-panel header small { color: #6b7d86; font-size: 9px; }
-.pergola-embed-sides-panel header > button { width: 30px; height: 30px; border: 0; border-radius: 9px; color: #526873; background: #edf3f5; font-size: 18px; }
-.pergola-embed-segments { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 11px; }
-.pergola-embed-segments button {
-  display: grid;
-  gap: 1px;
-  min-width: 76px;
-  padding: 7px 9px;
-  border: 1px solid #d8e0e4;
-  border-radius: 9px;
-  color: #304955;
-  background: #f8fafb;
-  font-size: 10px;
-  font-weight: 800;
-  text-align: left;
-}
-.pergola-embed-segments button small { color: #72838b; font-size: 8px; font-weight: 650; text-transform: capitalize; }
-.pergola-embed-segments button.has-closing { border-color: #7dc6ed; background: #edf8fe; }
-.pergola-embed-segments button[aria-pressed="true"] { border-color: #0878c9; box-shadow: inset 0 0 0 1px #0878c9; }
+.pergola-embed-panel[hidden] { display: none; }
+.pergola-embed-panel header { display: flex; align-items: start; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
+.pergola-embed-panel header div { display: grid; gap: 2px; }
+.pergola-embed-panel header strong { font-size: 13px; }
+.pergola-embed-panel header small { color: #6b7d86; font-size: 9px; }
+.pergola-embed-panel header > button { width: 30px; height: 30px; border: 0; border-radius: 9px; color: #526873; background: #edf3f5; font-size: 18px; }
+.pergola-embed-side-grid .pergola-grid { width: min(100%, 380px); margin: 3px auto 0; }
+.pergola-embed-side-grid .pergola-grid__canvas { min-height: 175px; }
+.pergola-embed-selected-label { display: grid; gap: 2px; margin: 9px 0; padding: 8px 9px; border-radius: 9px; background: #f3f7f8; }
+.pergola-embed-selected-label strong { font-size: 10px; }
+.pergola-embed-selected-label small { color: #6c7f88; font-size: 8px; }
 .pergola-embed-side-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 .pergola-embed-side-options button {
   display: grid;
@@ -3436,11 +3427,23 @@ body.configurator-embed-preview .pergola-embed-controls {
 .pergola-embed-side-options span { display: grid; gap: 2px; }
 .pergola-embed-side-options strong { font-size: 10px; }
 .pergola-embed-side-options small { color: #73848c; font-size: 7.5px; line-height: 1.25; }
-.pergola-embed-control-status { min-height: 14px; margin: 8px 0 0; color: #5d717b; font-size: 9px; }
+.pergola-embed-control-status,
+.pergola-embed-spotlight-status { min-height: 14px; margin: 8px 0 0; color: #5d717b; font-size: 9px; }
+.pergola-embed-spotlight-grid .roof-rectangle-grid { width: min(100%, 380px); margin: 3px auto 10px; }
+.pergola-embed-spotlight-editor { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border-radius: 10px; background: #f3f7f8; }
+.pergola-embed-spotlight-editor > div:first-child { display: grid; gap: 2px; }
+.pergola-embed-spotlight-editor strong { font-size: 10px; }
+.pergola-embed-spotlight-editor small { color: #6c7f88; font-size: 8px; }
+.pergola-embed-counter { display: grid; grid-template-columns: 30px 34px 30px; align-items: center; flex: 0 0 auto; }
+.pergola-embed-counter button { width: 30px; height: 30px; border: 1px solid #cbd8de; color: #185779; background: #fff; font-size: 16px; font-weight: 850; }
+.pergola-embed-counter button:first-child { border-radius: 8px 0 0 8px; }
+.pergola-embed-counter button:last-child { border-radius: 0 8px 8px 0; }
+.pergola-embed-counter button:disabled { opacity: .4; }
+.pergola-embed-counter output { display: grid; place-items: center; height: 30px; border-top: 1px solid #cbd8de; border-bottom: 1px solid #cbd8de; background: #fff; font-size: 11px; font-weight: 850; }
 
 @media (max-width: 520px) {
   body.configurator-embed-preview .pergola-embed-controls { top: 9px; left: 9px; max-width: calc(100% - 18px); }
-  .pergola-embed-day-night button, .pergola-embed-sides-button { min-height: 32px; padding: 0 10px; font-size: 10px; }
-  .pergola-embed-sides-panel { width: min(360px, calc(100vw - 18px)); padding: 10px; }
+  .pergola-embed-day-night button, .pergola-embed-sides-button, .pergola-embed-spotlights-button { min-height: 32px; padding: 0 10px; font-size: 10px; }
+  .pergola-embed-panel { width: min(360px, calc(100vw - 18px)); padding: 10px; }
   .pergola-embed-side-options { grid-template-columns: 1fr; }
 }
