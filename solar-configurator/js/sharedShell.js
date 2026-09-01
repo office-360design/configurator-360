@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=36';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=37';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { getSeasonForDate } from './solarPosition.js?v=2';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';

@@ -69,6 +69,15 @@ function accountDisplayName(user) {
   return sharedT('en-US', 'account.userFallback');
 }
 
+function accountInitials(user) {
+  const source = String(user?.displayName || '').trim() || String(user?.email || '').split('@')[0] || 'U';
+  const parts = source.split(/\s+/).filter(Boolean);
+  const value = parts.length > 1
+    ? `${parts[0][0]}${parts[parts.length - 1][0]}`
+    : source.slice(0, 2);
+  return value.toUpperCase();
+}
+
 export function syncAccountIdentity(root, locale, user, { busy = false } = {}) {
   if (!root) return;
   const authenticated = Boolean(user?.uid);
@@ -105,10 +114,12 @@ export function renderAccountMenu(state) {
   const greeting = authenticated
     ? sharedT(locale, 'account.greetingUser', { name: accountDisplayName(state.authUser) })
     : sharedT(locale, 'account.greetingGuest');
+  const avatarUrl = authenticated ? String(state.profileAvatarUrl || '') : '';
+  const avatarInitials = authenticated ? accountInitials(state.authUser) : '';
   return `
     <section class="account-menu" data-account-menu aria-label="${escapeHtml(sharedT(locale, 'account.menu'))}">
       <div class="account-menu__profile">
-        <span class="account-menu__avatar">${sharedIcon('account')}</span>
+        <span class="account-menu__avatar">${authenticated ? (avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" alt="" />` : `<strong class="account-menu__avatar-initials">${escapeHtml(avatarInitials)}</strong>`) : sharedIcon('account')}</span>
         <strong data-account-greeting>${escapeHtml(greeting)}</strong>
         <button class="account-menu__login" type="button" data-action="account-login" ${authenticated ? 'hidden' : ''}>
           <span>${sharedIcon('account')}</span>

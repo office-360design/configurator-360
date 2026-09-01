@@ -144,10 +144,11 @@ service cloud.firestore {
       allow update, delete: if loggedIn();
     }
 
-    // users
+    // Account root documents can contain private profile/contact data. Keep
+    // browser access scoped to the authenticated owner; saved configurations,
+    // carts and profile APIs still use the Admin SDK through callable functions.
     match /users/{item} {
-      allow read, create;
-      allow update, delete: if loggedIn();
+      allow read, create, update, delete: if loggedIn() && request.auth.uid == item;
     }
 
     // Private configurator saves are never exposed directly to browser Firestore.
