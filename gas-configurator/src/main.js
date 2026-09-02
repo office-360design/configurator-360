@@ -1,5 +1,5 @@
 import '../../shared-ui/styles/index.css';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import 'leaflet/dist/leaflet.css';
 import './styles/gas.css';
 import { RouteMap } from './map/RouteMap.js';
 import { applyGasTranslations } from './i18n.js';

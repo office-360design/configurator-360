@@ -1,63 +1,20 @@
-import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-import {
-  LngLatBounds,
-  Map,
-  Marker,
-  NavigationControl,
-  setWorkerUrl,
-} from 'maplibre-gl';
+import L from 'leaflet';
 import {
   buildRouteSegments,
   coordinateBounds,
   interpolateRoute,
   nearestPointOnSegmentRatio,
 } from '../domain/geometry.js';
-import { createMapStartupGuard, mapErrorFrom } from './startupGuard.js';
+import { toLeafletBounds, toLeafletLatLng } from './leafletCoordinates.js';
 
-const ROUTE_SOURCE_ID = 'gas-route';
-const STATION_SOURCE_ID = 'gas-station';
-const ROUTE_HALO_LAYER_ID = 'gas-route-halo';
-const ROUTE_LAYER_ID = 'gas-route-line';
-const STATION_LAYER_ID = 'gas-route-station';
-const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+const DEFAULT_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const DEFAULT_TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const TILE_URL = import.meta.env.VITE_GAS_TILE_URL?.trim() || DEFAULT_TILE_URL;
+const TILE_ATTRIBUTION = import.meta.env.VITE_GAS_TILE_ATTRIBUTION?.trim()
+  || DEFAULT_TILE_ATTRIBUTION;
 
-// MapLibre resolves its worker next to the bundled application module by
-// default. Vite does not emit that sibling unless the worker is part of its
-// module graph, so load it as an explicit worker entry.
-setWorkerUrl(maplibreWorkerUrl);
-
-function emptyFeatureCollection() {
-  return { type: 'FeatureCollection', features: [] };
-}
-
-function routeFeatureCollection(state) {
-  return {
-    type: 'FeatureCollection',
-    features: buildRouteSegments(state.route.points).map((segment) => ({
-      type: 'Feature',
-      properties: {
-        id: segment.id,
-        index: segment.index,
-        selected: segment.id === state.route.selectedSegmentId,
-      },
-      geometry: {
-        type: 'LineString',
-        coordinates: [segment.startPoint.coordinate, segment.endPoint.coordinate],
-      },
-    })),
-  };
-}
-
-function stationFeatureCollection(state) {
-  const station = interpolateRoute(state.route.points, state.route.stationM);
-  return {
-    type: 'FeatureCollection',
-    features: station.segment ? [{
-      type: 'Feature',
-      properties: { segmentId: station.segment.id },
-      geometry: { type: 'Point', coordinates: station.coordinate },
-    }] : [],
-  };
+function markerSize(point) {
+  return point.kind === 'waypoint' ? 24 : 29;
 }
 
 function makeMarkerElement(point) {
@@ -80,142 +37,152 @@ export class RouteMap {
     this.onLoadingChange = onLoadingChange;
     this.onError = onError;
     this.markers = new globalThis.Map();
+    this.routeLayers = new globalThis.Map();
+    this.stationLayer = null;
     this.ready = false;
     this.destroyed = false;
     this.lastState = store.get();
-
-    this.reportInitializationFailure = (error) => {
-      if (this.ready || this.destroyed) return;
-      console.error('The route base map could not be initialized.', error);
-      this.onLoadingChange?.(false);
-      this.onError?.(error);
-    };
+    this.tileErrorReported = false;
 
     onLoadingChange?.(true);
-    this.map = new Map({
-      container,
-      style: OPENFREEMAP_STYLE,
-      center: [26.1025, 44.4288],
-      zoom: 13.2,
+
+    // Leaflet renders the route as SVG and does not require WebGL. That keeps
+    // route editing available on browsers where a GPU context cannot be kept.
+    this.map = L.map(container, {
+      center: [44.4288, 26.1025],
+      zoom: 13,
       minZoom: 2,
-      maxZoom: 20,
-      pitchWithRotate: false,
-      dragRotate: false,
+      maxZoom: 19,
+      zoomControl: false,
+      preferCanvas: false,
       attributionControl: true,
-      cooperativeGestures: false,
     });
 
-    this.map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), 'top-right');
+    this.onTileError = (event) => {
+      if (this.destroyed || this.tileErrorReported) return;
+      this.tileErrorReported = true;
+      console.warn(
+        'A base-map tile could not be loaded. Route editing remains available.',
+        event?.error || event,
+      );
+    };
 
-    this.startupGuard = createMapStartupGuard({
-      onTimeout: this.reportInitializationFailure,
+    this.zoomControl = L.control.zoom({ position: 'topright' }).addTo(this.map);
+    this.baseLayer = L.tileLayer(TILE_URL, {
+      maxZoom: 19,
+      attribution: TILE_ATTRIBUTION,
+      updateWhenIdle: true,
+      keepBuffer: 2,
     });
-
-    this.onStyleLoad = () => {
-      if (this.destroyed || this.ready) return;
-      try {
-        this.installLayers();
-        this.ready = true;
-        this.startupGuard.complete();
-        this.sync(this.lastState);
-        this.fitRoute({ animate: false });
-        this.onLoadingChange?.(false);
-        this.onError?.(null);
-      } catch (error) {
-        this.startupGuard.cancel();
-        this.reportInitializationFailure(mapErrorFrom(error));
-      }
-    };
-
-    this.onMapError = (event) => {
-      if (this.destroyed) return;
-      const error = mapErrorFrom(event);
-      if (!this.ready) {
-        this.startupGuard.noteError(error);
-        console.warn('MapLibre reported a startup resource warning; waiting for the base style.', error);
-        return;
-      }
-      console.warn('MapLibre reported a recoverable map resource error.', error);
-    };
+    this.baseLayer.on('tileerror', this.onTileError);
+    this.baseLayer.addTo(this.map);
+    this.routeLayerGroup = L.layerGroup().addTo(this.map);
 
     this.onMapClick = (event) => {
       const mode = this.store.get().route.editMode;
-      const coordinate = [event.lngLat.lng, event.lngLat.lat];
+      const coordinate = [event.latlng.lng, event.latlng.lat];
       if (mode === 'setA') this.store.setEndpoint('a', coordinate);
       else if (mode === 'setB') this.store.setEndpoint('b', coordinate);
       else if (mode === 'addWaypoint') this.store.addWaypoint(coordinate);
     };
 
-    this.onRouteClick = (event) => {
-      const feature = event.features?.[0];
-      if (!feature || this.store.get().route.editMode !== 'inspect') return;
-      const segments = buildRouteSegments(this.store.get().route.points);
-      const segment = segments.find((candidate) => candidate.id === feature.properties?.id);
-      if (!segment) return;
-      const ratio = nearestPointOnSegmentRatio([event.lngLat.lng, event.lngLat.lat], segment);
-      this.store.selectSegment(segment.id, segment.startChainageM + (segment.lengthM * ratio));
-    };
-
-    this.onRouteEnter = () => { this.map.getCanvas().style.cursor = 'pointer'; };
-    this.onRouteLeave = () => { this.map.getCanvas().style.cursor = ''; };
-
-    this.map.on('style.load', this.onStyleLoad);
-    this.map.on('error', this.onMapError);
     this.map.on('click', this.onMapClick);
+    this.ready = true;
+    this.sync(this.lastState);
+    this.fitRoute({ animate: false });
+    this.onLoadingChange?.(false);
+    this.onError?.(null);
   }
 
-  installLayers() {
-    if (!this.map.getSource(ROUTE_SOURCE_ID)) {
-      this.map.addSource(ROUTE_SOURCE_ID, { type: 'geojson', data: emptyFeatureCollection() });
+  applyCursor() {
+    const mode = this.store.get().route.editMode;
+    this.container.style.cursor = mode === 'inspect' ? '' : 'crosshair';
+  }
+
+  syncRouteLayers(state) {
+    this.routeLayerGroup.clearLayers();
+    this.routeLayers.clear();
+
+    buildRouteSegments(state.route.points).forEach((segment) => {
+      const selected = segment.id === state.route.selectedSegmentId;
+      const coordinates = [
+        toLeafletLatLng(segment.startPoint.coordinate),
+        toLeafletLatLng(segment.endPoint.coordinate),
+      ];
+      const halo = L.polyline(coordinates, {
+        color: '#ffffff',
+        weight: selected ? 12 : 9,
+        opacity: 0.92,
+        lineCap: 'round',
+        lineJoin: 'round',
+        interactive: false,
+      }).addTo(this.routeLayerGroup);
+      const line = L.polyline(coordinates, {
+        color: selected ? '#e67e22' : '#0878c9',
+        weight: selected ? 7 : 5,
+        opacity: 1,
+        lineCap: 'round',
+        lineJoin: 'round',
+        interactive: true,
+        bubblingMouseEvents: true,
+      }).addTo(this.routeLayerGroup);
+
+      const onClick = (event) => {
+        if (this.store.get().route.editMode !== 'inspect') return;
+        const ratio = nearestPointOnSegmentRatio(
+          [event.latlng.lng, event.latlng.lat],
+          segment,
+        );
+        this.store.selectSegment(
+          segment.id,
+          segment.startChainageM + (segment.lengthM * ratio),
+        );
+      };
+      const onMouseOver = () => { this.container.style.cursor = 'pointer'; };
+      const onMouseOut = () => this.applyCursor();
+      line.on('click', onClick);
+      line.on('mouseover', onMouseOver);
+      line.on('mouseout', onMouseOut);
+      this.routeLayers.set(segment.id, {
+        halo,
+        line,
+        onClick,
+        onMouseOver,
+        onMouseOut,
+      });
+    });
+  }
+
+  syncStation(state) {
+    const station = interpolateRoute(state.route.points, state.route.stationM);
+    if (!station.segment) {
+      this.stationLayer?.remove();
+      this.stationLayer = null;
+      return;
     }
-    if (!this.map.getSource(STATION_SOURCE_ID)) {
-      this.map.addSource(STATION_SOURCE_ID, { type: 'geojson', data: emptyFeatureCollection() });
+
+    const position = toLeafletLatLng(station.coordinate);
+    if (!this.stationLayer) {
+      this.stationLayer = L.circleMarker(position, {
+        radius: 7,
+        color: '#14212b',
+        weight: 3,
+        fillColor: '#ffffff',
+        fillOpacity: 1,
+        interactive: false,
+      }).addTo(this.map);
+      return;
     }
-
-    this.map.addLayer({
-      id: ROUTE_HALO_LAYER_ID,
-      type: 'line',
-      source: ROUTE_SOURCE_ID,
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': '#ffffff',
-        'line-width': ['case', ['boolean', ['get', 'selected'], false], 12, 9],
-        'line-opacity': 0.92,
-      },
-    });
-
-    this.map.addLayer({
-      id: ROUTE_LAYER_ID,
-      type: 'line',
-      source: ROUTE_SOURCE_ID,
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': ['case', ['boolean', ['get', 'selected'], false], '#e67e22', '#0878c9'],
-        'line-width': ['case', ['boolean', ['get', 'selected'], false], 7, 5],
-      },
-    });
-
-    this.map.addLayer({
-      id: STATION_LAYER_ID,
-      type: 'circle',
-      source: STATION_SOURCE_ID,
-      paint: {
-        'circle-radius': 7,
-        'circle-color': '#ffffff',
-        'circle-stroke-color': '#14212b',
-        'circle-stroke-width': 3,
-      },
-    });
-
-    this.map.on('click', ROUTE_LAYER_ID, this.onRouteClick);
-    this.map.on('mouseenter', ROUTE_LAYER_ID, this.onRouteEnter);
-    this.map.on('mouseleave', ROUTE_LAYER_ID, this.onRouteLeave);
+    this.stationLayer.setLatLng(position);
+    this.stationLayer.bringToFront();
   }
 
   syncMarkers(state) {
     const currentIds = new Set(state.route.points.map((point) => point.id));
     this.markers.forEach((entry, id) => {
       if (currentIds.has(id)) return;
+      entry.element.removeEventListener('click', entry.onClick);
+      entry.marker.off('dragend', entry.onDragEnd);
       entry.marker.remove();
       this.markers.delete(id);
     });
@@ -224,9 +191,19 @@ export class RouteMap {
       let entry = this.markers.get(point.id);
       if (!entry) {
         const element = makeMarkerElement(point);
-        const marker = new Marker({ element, anchor: 'bottom', draggable: true })
-          .setLngLat(point.coordinate)
-          .addTo(this.map);
+        const size = markerSize(point);
+        const icon = L.divIcon({
+          className: 'gas-route-marker-host',
+          html: element,
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size],
+        });
+        const marker = L.marker(toLeafletLatLng(point.coordinate), {
+          icon,
+          draggable: true,
+          keyboard: false,
+          riseOnHover: true,
+        }).addTo(this.map);
         const onClick = (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -239,7 +216,7 @@ export class RouteMap {
           }
         };
         const onDragEnd = () => {
-          const location = marker.getLngLat();
+          const location = marker.getLatLng();
           this.store.movePoint(point.id, [location.lng, location.lat]);
         };
         element.addEventListener('click', onClick);
@@ -247,7 +224,8 @@ export class RouteMap {
         entry = { marker, element, onClick, onDragEnd };
         this.markers.set(point.id, entry);
       }
-      entry.marker.setLngLat(point.coordinate);
+      entry.marker.setLatLng(toLeafletLatLng(point.coordinate));
+      entry.marker.setZIndexOffset(state.route.selectedPointId === point.id ? 1000 : 0);
       entry.element.classList.toggle('is-selected', state.route.selectedPointId === point.id);
       const label = entry.element.querySelector('span');
       if (label) label.textContent = point.label;
@@ -257,46 +235,47 @@ export class RouteMap {
   sync(state) {
     this.lastState = state;
     if (!this.ready || this.destroyed) return;
-    this.map.getSource(ROUTE_SOURCE_ID)?.setData(routeFeatureCollection(state));
-    this.map.getSource(STATION_SOURCE_ID)?.setData(stationFeatureCollection(state));
+    this.syncRouteLayers(state);
+    this.syncStation(state);
     this.syncMarkers(state);
-    const mode = state.route.editMode;
-    this.map.getCanvas().style.cursor = mode === 'inspect' ? '' : 'crosshair';
+    this.applyCursor();
   }
 
   fitRoute({ animate = true } = {}) {
     const state = this.store.get();
     const bounds = coordinateBounds(state.route.points);
     if (!bounds || !this.ready) return;
-    const mapBounds = new LngLatBounds(
-      [bounds.minLon, bounds.minLat],
-      [bounds.maxLon, bounds.maxLat],
-    );
     const samePoint = bounds.minLon === bounds.maxLon && bounds.minLat === bounds.maxLat;
     if (samePoint) {
-      this.map.easeTo({ center: [bounds.minLon, bounds.minLat], zoom: 17, duration: animate ? 450 : 0 });
+      this.map.setView([bounds.minLat, bounds.minLon], 17, { animate });
       return;
     }
-    this.map.fitBounds(mapBounds, { padding: 72, maxZoom: 17, duration: animate ? 450 : 0 });
+    this.map.fitBounds(
+      toLeafletBounds(bounds),
+      {
+        padding: [72, 72],
+        maxZoom: 17,
+        animate,
+        duration: animate ? 0.45 : 0,
+      },
+    );
   }
 
   resize() {
-    this.map?.resize();
+    this.map?.invalidateSize({ animate: false, pan: false });
   }
 
   destroy() {
     this.destroyed = true;
-    this.startupGuard?.cancel();
-    this.markers.forEach(({ marker }) => marker.remove());
+    this.baseLayer?.off('tileerror', this.onTileError);
+    this.map?.off('click', this.onMapClick);
+    this.markers.forEach((entry) => {
+      entry.element.removeEventListener('click', entry.onClick);
+      entry.marker.off('dragend', entry.onDragEnd);
+      entry.marker.remove();
+    });
     this.markers.clear();
-    if (this.ready) {
-      this.map.off('click', ROUTE_LAYER_ID, this.onRouteClick);
-      this.map.off('mouseenter', ROUTE_LAYER_ID, this.onRouteEnter);
-      this.map.off('mouseleave', ROUTE_LAYER_ID, this.onRouteLeave);
-    }
-    this.map.off('style.load', this.onStyleLoad);
-    this.map.off('error', this.onMapError);
-    this.map.off('click', this.onMapClick);
-    this.map.remove();
+    this.routeLayers.clear();
+    this.map?.remove();
   }
 }
