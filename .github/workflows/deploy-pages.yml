@@ -52,6 +52,20 @@ jobs:
       - name: Build pergola configurator
         run: npm run build --prefix pergola-configurator
 
+      # Gas route configurator prototype
+      - name: Configure Node.js for gas configurator
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gas-configurator/package-lock.json
+
+      - name: Install gas configurator dependencies
+        run: npm ci --prefix gas-configurator
+
+      - name: Build gas configurator
+        run: npm run build --prefix gas-configurator
+
       # The website requires Node >=22.13 and produces a static release that can
       # be hosted directly at https://aks.360configurator.com/.
       - name: Configure Node.js for website
@@ -71,6 +85,7 @@ jobs:
       #   /                     -> website
       #   /window-configurator/ -> former root window configurator
       #   /pergola-configurator/
+      #   /gas-configurator/
       #   /roof-configurator/
       #   /solar-configurator/
       #   /hall-configurator/
@@ -96,6 +111,9 @@ jobs:
 
           mkdir -p dist/site/pergola-configurator
           cp -R pergola-configurator/dist/. dist/site/pergola-configurator/
+
+          mkdir -p dist/site/gas-configurator
+          cp -R gas-configurator/dist/. dist/site/gas-configurator/
 
           if [ -d roof-configurator ]; then
             mkdir -p dist/site/roof-configurator
@@ -125,6 +143,7 @@ jobs:
           test -f dist/site/index.html
           test -f dist/site/window-configurator/index.html
           test -f dist/site/pergola-configurator/index.html
+          test -f dist/site/gas-configurator/index.html
           test -f dist/site/hall-configurator/index.html
           test -f dist/site/fence-configurator/index.html
           test -f dist/site/cardbox-configurator/index.html
