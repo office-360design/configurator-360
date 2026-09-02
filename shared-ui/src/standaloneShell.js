@@ -1523,7 +1523,7 @@ export class StandaloneConfiguratorShell {
     const token = ++this.sessionSwitchToken;
     this.authUser = user;
     this.activeSessionUid = uid;
-    void this.refreshProfileSummary(uid);
+    if (this.options.capabilities.profile !== false) void this.refreshProfileSummary(uid);
     this.cartOpen = false;
     this.loadCart(uid);
     void this.refreshCartFromBackend(uid, { force: true });
@@ -1918,7 +1918,7 @@ export class StandaloneConfiguratorShell {
   }
 
   async openProfile() {
-    if (!this.authUser?.uid) return;
+    if (this.options.capabilities.profile === false || !this.authUser?.uid) return;
     this.accountOpen = false;
     this.helpOpen = false;
     this.domainOpen = false;

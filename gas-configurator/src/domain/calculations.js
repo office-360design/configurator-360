@@ -96,6 +96,7 @@ export function calculateProject(state) {
     outsideDiameterM,
     coverM,
     trenchWidthM,
+    beddingM,
     trenchDepthM,
     excavationM3,
     beddingM3,

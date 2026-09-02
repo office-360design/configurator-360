@@ -1,4 +1,11 @@
-import { LngLatBounds, Map, Marker, NavigationControl } from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import {
+  LngLatBounds,
+  Map,
+  Marker,
+  NavigationControl,
+  setWorkerUrl,
+} from 'maplibre-gl';
 import {
   buildRouteSegments,
   coordinateBounds,
@@ -12,6 +19,11 @@ const ROUTE_HALO_LAYER_ID = 'gas-route-halo';
 const ROUTE_LAYER_ID = 'gas-route-line';
 const STATION_LAYER_ID = 'gas-route-station';
 const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+
+// MapLibre resolves its worker next to the bundled application module by
+// default. Vite does not emit that sibling unless the worker is part of its
+// module graph, so load it as an explicit worker entry.
+setWorkerUrl(maplibreWorkerUrl);
 
 function emptyFeatureCollection() {
   return { type: 'FeatureCollection', features: [] };

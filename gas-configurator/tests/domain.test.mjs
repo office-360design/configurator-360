@@ -14,6 +14,14 @@ test('default route produces coherent quantities', () => {
   assert.ok(calculation.pipeLengthM > calculation.routeLengthM);
   assert.ok(calculation.excavationM3 > calculation.beddingM3);
   assert.ok(calculation.estimateHighEur > calculation.estimateLowEur);
+  assert.equal(calculation.beddingM, DEFAULT_STATE.trench.beddingM);
+  assert.ok([
+    calculation.outsideDiameterM,
+    calculation.coverM,
+    calculation.trenchWidthM,
+    calculation.beddingM,
+    calculation.trenchDepthM,
+  ].every(Number.isFinite));
 });
 
 test('a waypoint splits the nearest route segment and inherits its assumptions', () => {
