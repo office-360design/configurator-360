@@ -3,7 +3,7 @@ import { sharedT } from './i18n.js?v=26';
 import { renderActionFeedback } from './components/feedback.js?v=17';
 import { renderTopBar } from './components/topBar.js?v=24';
 import { syncAccountIdentity } from './components/accountMenu.js?v=22';
-import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=18';
+import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=27';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
 import { renderProfileDialog } from './components/profileDialog.js?v=1';
@@ -12,7 +12,7 @@ import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js
 import { renderCartMenu } from './components/cartMenu.js?v=5';
 import { getUserCart, mutateUserCart } from './userCart.js?v=4';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=17';
-import { readShareState } from './shareState.js?v=4';
+import { readShareState } from './shareState.js?v=5';
 import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
 import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=2';
 import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=1';
@@ -1677,9 +1677,19 @@ export class StandaloneConfiguratorShell {
       this.options.callbacks.onAccountAction?.('login', user);
       return user;
     } catch (error) {
-      if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
-        console.error('Google login failed.', error);
-        this.showFeedback(sharedT(this.state.locale, 'feedback.loginUnavailable'), 'error');
+      const code = String(error?.code || 'auth/unknown');
+      const cancelled = code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request';
+      const diagnostic = {
+        code,
+        message: String(error?.message || ''),
+        visibilityState: typeof document !== 'undefined' ? document.visibilityState : '',
+      };
+      if (cancelled) {
+        console.warn('Google login popup ended without authentication.', diagnostic, error);
+      } else {
+        console.error('Google login failed.', diagnostic, error);
+        const baseMessage = sharedT(this.state.locale, 'feedback.loginUnavailable');
+        this.showFeedback(`${baseMessage} (${code})`, 'error');
       }
       return null;
     } finally {
