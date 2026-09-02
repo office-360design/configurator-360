@@ -64,3 +64,13 @@ test('capacity and authorized review stay unresolved in the prototype', () => {
   assert.equal(validation.find((item) => item.id === 'authorization').status, 'missing');
   assert.equal(validation.find((item) => item.id === 'rule-pack').status, 'warning');
 });
+
+test('public elevation data remains a screening warning', () => {
+  const state = clone(DEFAULT_STATE);
+  const validation = buildValidationResults(state, calculateProject(state), {
+    elevationProfile: { status: 'ready' },
+  });
+  const ground = validation.find((item) => item.id === 'ground');
+  assert.equal(ground.status, 'warning');
+  assert.equal(ground.detailKey, 'validation.ground.publicTerrain');
+});

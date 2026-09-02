@@ -10,6 +10,10 @@ import {
   validationSummary,
 } from '../domain/calculations.js';
 import { interpolateRoute, routeProfileSamples } from '../domain/geometry.js';
+import {
+  interpolateElevationAtChainage,
+  routeElevationKey,
+} from '../elevation/routeElevation.js';
 import { gasT } from '../i18n.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -44,7 +48,7 @@ function appendSvg(parent, name, attributes = {}, text = '') {
   return element;
 }
 
-function profileElevation(state, progress) {
+function fallbackProfileElevation(state, progress) {
   const start = Number(state.data.startElevationM) || 0;
   const end = Number(state.data.endElevationM) || 0;
   const base = start + ((end - start) * progress);
@@ -53,7 +57,31 @@ function profileElevation(state, progress) {
   return base + terrainVariation;
 }
 
-export function renderProfile(svg, state, calculation) {
+function resolvedProfileSamples(state, elevationProfile) {
+  const hasLiveProfile = (
+    elevationProfile?.status === 'ready'
+    && elevationProfile.routeKey === routeElevationKey(state.route.points)
+    && elevationProfile.samples?.length >= 2
+  );
+  if (hasLiveProfile) {
+    return {
+      live: true,
+      samples: elevationProfile.samples.map((sample) => ({
+        ...sample,
+        groundM: Number(sample.elevationM),
+      })),
+    };
+  }
+  return {
+    live: false,
+    samples: routeProfileSamples(state.route.points, 82).map((sample) => ({
+      ...sample,
+      groundM: fallbackProfileElevation(state, sample.progress),
+    })),
+  };
+}
+
+export function renderProfile(svg, state, calculation, elevationProfile = null) {
   if (!svg) return;
   svg.replaceChildren();
 
@@ -62,11 +90,11 @@ export function renderProfile(svg, state, calculation) {
   const margin = { left: 48, right: 16, top: 20, bottom: 31 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
-  const samples = routeProfileSamples(state.route.points, 82).map((sample) => {
-    const groundM = profileElevation(state, sample.progress);
-    const pipeM = groundM - calculation.coverM - (calculation.outsideDiameterM / 2);
-    return { ...sample, groundM, pipeM };
-  });
+  const resolved = resolvedProfileSamples(state, elevationProfile);
+  const samples = resolved.samples.map((sample) => ({
+    ...sample,
+    pipeM: sample.groundM - calculation.coverM - (calculation.outsideDiameterM / 2),
+  }));
   const elevations = samples.flatMap((sample) => [sample.groundM, sample.pipeM]);
   const minElevation = Math.min(...elevations);
   const maxElevation = Math.max(...elevations);
@@ -82,15 +110,22 @@ export function renderProfile(svg, state, calculation) {
     const y = margin.top + (progress * plotHeight);
     const elevation = yMax - (progress * (yMax - yMin));
     appendSvg(background, 'line', { x1: margin.left, x2: width - margin.right, y1: y, y2: y });
-    appendSvg(background, 'text', { x: margin.left - 8, y: y + 3, 'text-anchor': 'end' }, new Intl.NumberFormat(state.preferences.locale, { maximumFractionDigits: 1 }).format(elevation));
+    const displayElevation = state.preferences.units === 'imperial' ? elevation * 3.28084 : elevation;
+    appendSvg(background, 'text', { x: margin.left - 8, y: y + 3, 'text-anchor': 'end' }, new Intl.NumberFormat(state.preferences.locale, { maximumFractionDigits: 1 }).format(displayElevation));
   }
 
   const groundPoints = samples.map((sample) => `${xFor(sample.progress).toFixed(1)},${yFor(sample.groundM).toFixed(1)}`).join(' ');
   const pipePoints = samples.map((sample) => `${xFor(sample.progress).toFixed(1)},${yFor(sample.pipeM).toFixed(1)}`).join(' ');
   const groundArea = `${margin.left},${height - margin.bottom} ${groundPoints} ${width - margin.right},${height - margin.bottom}`;
   appendSvg(svg, 'polygon', { points: groundArea, class: 'gas-profile-earth' });
-  appendSvg(svg, 'polyline', { points: groundPoints, class: 'gas-profile-ground' });
-  appendSvg(svg, 'polyline', { points: pipePoints, class: 'gas-profile-pipe' });
+  appendSvg(svg, 'polyline', {
+    points: groundPoints,
+    class: `gas-profile-ground${resolved.live ? '' : ' gas-profile-ground--fallback'}`,
+  });
+  appendSvg(svg, 'polyline', {
+    points: pipePoints,
+    class: `gas-profile-pipe${resolved.live ? '' : ' gas-profile-pipe--fallback'}`,
+  });
 
   calculation.segments.slice(0, -1).forEach((segment) => {
     const progress = calculation.routeLengthM > 0 ? segment.endChainageM / calculation.routeLengthM : 0;
@@ -101,7 +136,11 @@ export function renderProfile(svg, state, calculation) {
 
   const station = interpolateRoute(state.route.points, state.route.stationM);
   const stationProgress = calculation.routeLengthM > 0 ? station.chainageM / calculation.routeLengthM : 0;
-  const stationGround = profileElevation(state, stationProgress);
+  const stationGround = interpolateElevationAtChainage(
+    samples.map((sample) => ({ chainageM: sample.chainageM, elevationM: sample.groundM })),
+    station.chainageM,
+    fallbackProfileElevation(state, stationProgress),
+  );
   const stationPipe = stationGround - calculation.coverM - (calculation.outsideDiameterM / 2);
   const stationX = xFor(stationProgress);
   const stationY = yFor(stationPipe);
@@ -177,8 +216,8 @@ export function renderCrossSection(svg, state, calculation, t) {
   appendSvg(svg, 'text', { x: 241, y: pipeCenterY + 4, 'text-anchor': 'middle', class: 'gas-section-pipe-label' }, t('section.pipe', { diameter: `${calculation.diameterMm} mm` }));
 }
 
-function renderValidations(root, state, calculation, t) {
-  const results = buildValidationResults(state, calculation);
+function renderValidations(root, state, calculation, t, elevationProfile) {
+  const results = buildValidationResults(state, calculation, { elevationProfile });
   const summary = validationSummary(results);
   const needsReview = summary.warning + summary.missing + summary.blocked;
   setText(root, '#validationSummary', `${needsReview}/${results.length}`);
@@ -206,7 +245,7 @@ function renderValidations(root, state, calculation, t) {
   }));
 }
 
-export function renderGasState(root, state) {
+export function renderGasState(root, state, elevationProfile = null) {
   const calculation = calculateProject(state);
   const locale = state.preferences.locale;
   const units = state.preferences.units;
@@ -214,10 +253,27 @@ export function renderGasState(root, state) {
   const t = (key, variables = {}) => gasT(locale, key, variables);
   const selected = calculation.segments.find((segment) => segment.id === state.route.selectedSegmentId)
     || calculation.segments[0];
+  const currentRouteElevationKey = routeElevationKey(state.route.points);
+  const elevationStatusMatchesRoute = elevationProfile?.routeKey === currentRouteElevationKey;
+  const matchingTerrainProfile = (
+    elevationProfile?.status === 'ready'
+    && elevationStatusMatchesRoute
+    && elevationProfile.samples?.length >= 2
+  );
 
   setText(root, '#headerRouteLength', formatDistance(calculation.routeLengthM, units, locale));
   setText(root, '#headerSegmentCount', t('route.segmentCount', { count: calculation.segments.length }));
-  setText(root, '#profileStationLabel', t('view.station', { station: formatDistance(state.route.stationM, units, locale) }));
+  const stationDistance = formatDistance(state.route.stationM, units, locale);
+  const stationElevation = matchingTerrainProfile
+    ? formatDimension(
+      interpolateElevationAtChainage(elevationProfile.samples, state.route.stationM),
+      units,
+      locale,
+    )
+    : null;
+  setText(root, '#profileStationLabel', stationElevation
+    ? t('view.stationElevation', { station: stationDistance, elevation: stationElevation })
+    : t('view.station', { station: stationDistance }));
   setText(root, '#crossSectionSegmentLabel', selected
     ? t('view.selectedSegment', { number: selected.index + 1 })
     : t('empty.segment'));
@@ -225,6 +281,24 @@ export function renderGasState(root, state) {
     ? t('view.selectedSegment', { number: selected.index + 1 })
     : t('empty.segment'));
   setText(root, '#selectedSegmentLength', selected ? formatDistance(selected.lengthM, units, locale) : '—');
+
+  const elevationStatus = root.querySelector('#profileDataStatus');
+  const elevationRetry = root.querySelector('#retryElevationButton');
+  const effectiveElevationStatus = elevationStatusMatchesRoute
+    ? elevationProfile?.status || 'idle'
+    : 'idle';
+  if (elevationStatus) {
+    let statusKey = 'view.elevationFallback';
+    if (effectiveElevationStatus === 'loading') statusKey = 'view.elevationLoading';
+    else if (effectiveElevationStatus === 'ready') statusKey = 'view.elevationReady';
+    else if (effectiveElevationStatus === 'error') statusKey = 'view.elevationError';
+    elevationStatus.textContent = t(statusKey);
+    elevationStatus.className = `gas-elevation-status gas-elevation-status--${effectiveElevationStatus}`;
+    elevationStatus.title = effectiveElevationStatus === 'error' ? elevationProfile?.error || '' : '';
+  }
+  if (elevationRetry) {
+    elevationRetry.hidden = effectiveElevationStatus !== 'error';
+  }
 
   const stationInput = root.querySelector('#stationInput');
   if (stationInput) {
@@ -270,8 +344,8 @@ export function renderGasState(root, state) {
   setText(root, '#dataConfidenceResult', t(verifiedData ? 'metric.verified' : 'metric.estimated'));
   setText(root, '#costRangeResult', `${formatMoneyFromEur(calculation.estimateLowEur, currency, locale)} – ${formatMoneyFromEur(calculation.estimateHighEur, currency, locale)}`);
 
-  renderProfile(root.querySelector('#profileSvg'), state, calculation);
+  renderProfile(root.querySelector('#profileSvg'), state, calculation, elevationProfile);
   renderCrossSection(root.querySelector('#crossSectionSvg'), state, calculation, t);
-  renderValidations(root, state, calculation, t);
+  renderValidations(root, state, calculation, t, matchingTerrainProfile ? elevationProfile : null);
   return calculation;
 }

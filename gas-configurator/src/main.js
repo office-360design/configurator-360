@@ -1,6 +1,7 @@
 import '../../shared-ui/styles/index.css';
 import 'leaflet/dist/leaflet.css';
 import './styles/gas.css';
+import { RouteElevationController } from './elevation/routeElevation.js';
 import { RouteMap } from './map/RouteMap.js';
 import { applyGasTranslations } from './i18n.js';
 import { GasConfiguratorStore } from './state.js';
@@ -15,6 +16,14 @@ renderGasLayout(root);
 const store = new GasConfiguratorStore();
 let routeMap = null;
 let resizeTimer = 0;
+let elevationProfile = { status: 'idle', routeKey: '', samples: [] };
+
+const elevationController = new RouteElevationController({
+  onChange(nextProfile) {
+    elevationProfile = nextProfile;
+    renderGasState(root, store.get(), elevationProfile);
+  },
+});
 
 const sharedShellHandle = mountGasSharedShell({
   store,
@@ -67,6 +76,9 @@ root.querySelectorAll('[data-route-mode]').forEach((button) => {
 root.querySelector('#removeWaypointButton')?.addEventListener('click', () => store.removeSelectedWaypoint());
 root.querySelector('#clearWaypointsButton')?.addEventListener('click', () => store.clearWaypoints());
 root.querySelector('#fitRouteButton')?.addEventListener('click', () => routeMap?.fitRoute());
+root.querySelector('#retryElevationButton')?.addEventListener('click', () => {
+  elevationController.retry(store.get().route.points);
+});
 root.querySelector('#groundTypeSelect')?.addEventListener('change', (event) => store.setSegmentSetting('groundType', event.target.value));
 root.querySelector('#surfaceTypeSelect')?.addEventListener('change', (event) => store.setSegmentSetting('surfaceType', event.target.value));
 root.querySelector('#stationInput')?.addEventListener('input', (event) => store.setStation(Number(event.target.value)));
@@ -99,8 +111,9 @@ root.querySelector('#profileSvg')?.addEventListener('pointerdown', (event) => {
 const unsubscribe = store.subscribe((state) => {
   applyGasTranslations(root, state.preferences.locale);
   document.documentElement.lang = state.preferences.locale.split('-')[0];
-  renderGasState(root, state);
+  renderGasState(root, state, elevationProfile);
   routeMap?.sync(state);
+  elevationController.request(state.route.points);
   ['locale', 'units', 'currency', 'darkMode'].forEach((preference) => {
     sharedShell.setPreference?.(preference, state.preferences[preference]);
   });
@@ -113,6 +126,7 @@ window.addEventListener('beforeunload', () => {
   window.clearTimeout(resizeTimer);
   window.removeEventListener('resize', onResize);
   unsubscribe();
+  elevationController.destroy();
   routeMap?.destroy();
   sharedShellHandle.destroy();
 }, { once: true });

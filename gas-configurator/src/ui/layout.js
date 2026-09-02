@@ -104,9 +104,17 @@ export function renderGasLayout(root) {
             <div class="gas-card-heading">
               <div>
                 <h2 id="profileTitle" data-gas-i18n="view.profile"></h2>
-                <p data-gas-i18n="view.illustrative"></p>
+                <p class="gas-profile-data-line">
+                  <span id="profileDataStatus" class="gas-elevation-status" data-gas-i18n="view.elevationLoading" aria-live="polite"></span>
+                  <a class="gas-elevation-source" href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer" data-gas-i18n="view.elevationSource"></a>
+                </p>
               </div>
-              <span id="profileStationLabel" class="gas-station-pill">—</span>
+              <div class="gas-profile-heading-actions">
+                <button type="button" id="retryElevationButton" class="gas-profile-retry" data-gas-i18n-title="action.retryElevation" data-gas-i18n-aria-label="action.retryElevation" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 9A7 7 0 0 1 18.7 7M17.9 15A7 7 0 0 1 5.3 17"></path></svg>
+                </button>
+                <span id="profileStationLabel" class="gas-station-pill">—</span>
+              </div>
             </div>
             <svg id="profileSvg" class="gas-diagram" viewBox="0 0 720 220" role="img" aria-labelledby="profileTitle"></svg>
           </section>

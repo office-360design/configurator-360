@@ -450,6 +450,85 @@ summary:focus-visible {
   white-space: nowrap;
 }
 
+.gas-profile-data-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 8px;
+}
+
+.gas-elevation-status {
+  color: var(--gas-muted);
+}
+
+.gas-elevation-status--loading::before {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border: 1.5px solid rgba(8, 120, 201, 0.22);
+  border-top-color: var(--gas-blue);
+  border-radius: 50%;
+  animation: gas-spin 720ms linear infinite;
+  content: "";
+}
+
+.gas-elevation-status--ready {
+  color: var(--gas-green);
+}
+
+.gas-elevation-status--error {
+  color: #9a5f24;
+}
+
+.gas-elevation-source {
+  color: var(--gas-blue-dark);
+  font-size: 9px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.gas-elevation-source:hover {
+  text-decoration: underline;
+}
+
+.gas-profile-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gas-profile-retry {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #cbd8df;
+  border-radius: 7px;
+  color: var(--gas-blue-dark);
+  background: #f8fbfc;
+  cursor: pointer;
+}
+
+.gas-profile-retry[hidden] {
+  display: none !important;
+}
+
+.gas-profile-retry:hover {
+  background: #eaf4f9;
+}
+
+.gas-profile-retry svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .gas-section-scale {
   color: var(--gas-muted);
   background: #eef1f3;
@@ -494,6 +573,11 @@ summary:focus-visible {
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.gas-profile-ground--fallback,
+.gas-profile-pipe--fallback {
+  stroke-dasharray: 7 5;
 }
 
 .gas-profile-pipe {
@@ -973,6 +1057,13 @@ summary:focus-visible {
 }
 
 .shared-ui-dark-mode .gas-diagram { background: #14232c; }
+.shared-ui-dark-mode .gas-elevation-source { color: #76c9f4; }
+.shared-ui-dark-mode .gas-profile-retry {
+  color: #83d0f5;
+  background: #1b2c36;
+  border-color: #40545f;
+}
+.shared-ui-dark-mode .gas-profile-retry:hover { background: #243945; }
 .shared-ui-dark-mode .gas-field select,
 .shared-ui-dark-mode .gas-field input[type="number"] {
   color: #edf4f7;
