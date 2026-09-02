@@ -1,193 +1,92 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const BOARD_EUR_M2 = 1.55;
 const DEFAULT_COLOR = '#c78f5a';
+const SELECTED_COLOR = '#65b7eb';
+const BOARD_EUR_M2 = 1.55;
 const CURRENCY_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 const LID_LIFT_MM = 1000;
-const SURFACE_OFFSET_MM = 1.2;
+const SURFACE_TEXT_OFFSET_MM = 1.5;
+const EPSILON = 1e-6;
 
 const TEXT = Object.freeze({
   'en-US': Object.freeze({
     'intro.eyebrow': 'Packaging geometry',
     'intro.title': 'Cardboard box settings',
-    'intro.copy': 'Start from a rectangular box, add more box pieces to a selected face, and place custom text on any inner or outer surface.',
-    'section.geometry': 'Box geometry',
-    'section.face': 'Selected face',
+    'intro.copy': 'Start from a rectangular box, then build custom shapes by attaching additional box volumes to exposed faces.',
+    'section.geometry': 'Base box',
     'section.summary': 'Summary & pricing',
-    'dimension.width': 'Overall width',
-    'dimension.depth': 'Overall depth',
-    'dimension.height': 'Box height',
-    'dimension.floor': 'Board / lid thickness',
-    'geometry.helpTitle': 'How to add more box pieces',
-    'geometry.helpCopy': 'Double-click a vertical face in the viewer. A plus button appears on that face. Click it, set the new piece dimensions, and it will be centered on that face.',
-    'face.none': 'No face selected',
-    'face.color': 'Face colour',
-    'piece.title': 'Add box piece',
-    'piece.help': 'The new piece is centered on the selected face and attached outward.',
-    'piece.width': 'New piece width',
-    'piece.depth': 'New piece depth',
-    'piece.add': 'Attach centered piece',
-    'text.title': 'Add text',
-    'text.help': 'Prepare the text style, then place it on any inner or outer surface of the box.',
-    'text.content': 'Text',
-    'text.size': 'Text size',
-    'text.font': 'Font',
-    'text.color': 'Text colour',
-    'text.background': 'Background',
-    'text.bold': 'Bold',
-    'text.italic': 'Italic',
-    'text.underline': 'Underline',
-    'text.underlineStyle': 'Underline style',
-    'text.lineSolid': 'Solid',
-    'text.lineDashed': 'Dashed',
-    'text.lineDotted': 'Dotted',
-    'text.lineDouble': 'Double',
-    'text.done': 'Done — place on box',
-    'text.cancel': 'Cancel placement',
-    'summary.sides': 'Sides',
-    'summary.perimeter': 'Perimeter',
-    'summary.boardArea': 'Board area',
-    'summary.floorArea': 'Floor area',
-    'summary.total': 'Estimated total',
-    'summary.note': 'Indicative material and print estimate for one configured box.',
-    'summary.material': 'Cardboard body',
-    'summary.lid': 'Lid',
-    'summary.text': 'Text finishing',
-    'summary.setup': 'Production setup',
-    'wall': 'Face',
+    'dimension.width': 'Base width', 'dimension.depth': 'Base depth', 'dimension.height': 'Base height', 'dimension.floor': 'Board thickness',
+    'geometry.helpTitle': 'Build the shape directly in 3D',
+    'geometry.helpCopy': 'Double-click any exposed vertical face to select it. Use the plus button to attach another box volume. Joined areas become one continuous cavity with no internal wall.',
+    'face.addText': 'Add text',
+    'piece.title': 'New box piece', 'piece.help': 'Attached and centered on the selected face.', 'piece.width': 'Width', 'piece.height': 'Height', 'piece.depth': 'Depth',
+    'text.title': 'Add text', 'text.help': 'Style the text, then place it on any inner or outer surface.', 'text.content': 'Text', 'text.size': 'Size', 'text.font': 'Font', 'text.color': 'Text', 'text.background': 'Background',
+    'text.underlineStyle': 'Underline style', 'text.lineSolid': 'Solid', 'text.lineDashed': 'Dashed', 'text.lineDotted': 'Dotted', 'text.lineDouble': 'Double', 'text.done': 'Done', 'text.cancel': 'Cancel text placement',
+    'common.back': 'Back', 'common.done': 'Done', 'common.cancel': 'Cancel',
     'viewer.hint': 'Double-click a vertical face to select it.',
-    'viewer.hint.placement': 'Text placement mode: move over any surface and click to place the text. The lid is lifted while placing.',
-    'error.pieceShort': 'The selected face is too short for that attached piece.',
-    'error.pieceInvalid': 'That attached piece would create an invalid or intersecting footprint.',
+    'viewer.hint.placement': 'Text placement mode: move over any surface and click to place. The top surfaces are lifted by 1 metre.',
+    'summary.pieces': 'Box pieces', 'summary.faces': 'Exterior faces', 'summary.boardArea': 'Board area', 'summary.volume': 'Internal volume', 'summary.total': 'Estimated total',
+    'summary.note': 'Indicative material and personalization estimate for one configured box.', 'summary.material': 'Cardboard', 'summary.text': 'Text finishing', 'summary.setup': 'Production setup',
+    'error.invalidPiece': 'The new piece must have positive width, height and depth.',
   }),
   'ro-RO': Object.freeze({
     'intro.eyebrow': 'Geometrie ambalaj',
     'intro.title': 'Setări cutie din carton',
-    'intro.copy': 'Pornește de la o cutie dreptunghiulară, adaugă corpuri noi pe fețele selectate și plasează text pe orice suprafață interioară sau exterioară.',
-    'section.geometry': 'Geometrie cutie',
-    'section.face': 'Față selectată',
-    'section.summary': 'Sumar și preț',
-    'dimension.width': 'Lățime totală',
-    'dimension.depth': 'Adâncime totală',
-    'dimension.height': 'Înălțime cutie',
-    'dimension.floor': 'Grosime carton / capac',
-    'geometry.helpTitle': 'Cum adaugi corpuri noi',
-    'geometry.helpCopy': 'Dublu-click pe o față verticală în viewer. Apare un buton plus pe acea față. Apasă-l, setează dimensiunile noului corp, iar acesta va fi centrat pe fața aleasă.',
-    'face.none': 'Nicio față selectată',
-    'face.color': 'Culoare față',
-    'piece.title': 'Adaugă corp de cutie',
-    'piece.help': 'Noul corp se centrează pe fața selectată și se atașează în exterior.',
-    'piece.width': 'Lățime corp nou',
-    'piece.depth': 'Adâncime corp nou',
-    'piece.add': 'Atașează corpul centrat',
-    'text.title': 'Adaugă text',
-    'text.help': 'Pregătește stilul textului, apoi plasează-l pe orice suprafață interioară sau exterioară a cutiei.',
-    'text.content': 'Text',
-    'text.size': 'Mărime text',
-    'text.font': 'Font',
-    'text.color': 'Culoare text',
-    'text.background': 'Fundal',
-    'text.bold': 'Bold',
-    'text.italic': 'Italic',
-    'text.underline': 'Subliniat',
-    'text.underlineStyle': 'Stil subliniere',
-    'text.lineSolid': 'Continuu',
-    'text.lineDashed': 'Întrerupt',
-    'text.lineDotted': 'Punctat',
-    'text.lineDouble': 'Dublu',
-    'text.done': 'Gata — plasează pe cutie',
-    'text.cancel': 'Anulează plasarea',
-    'summary.sides': 'Laturi',
-    'summary.perimeter': 'Perimetru',
-    'summary.boardArea': 'Suprafață carton',
-    'summary.floorArea': 'Suprafață bază',
-    'summary.total': 'Total estimat',
-    'summary.note': 'Estimare orientativă de material și personalizare pentru o cutie configurată.',
-    'summary.material': 'Corp carton',
-    'summary.lid': 'Capac',
-    'summary.text': 'Finisaj text',
-    'summary.setup': 'Pregătire producție',
-    'wall': 'Față',
+    'intro.copy': 'Pornește de la o cutie dreptunghiulară, apoi construiește forme personalizate atașând corpuri suplimentare pe fețele expuse.',
+    'section.geometry': 'Cutia de bază', 'section.summary': 'Sumar și preț',
+    'dimension.width': 'Lățime bază', 'dimension.depth': 'Adâncime bază', 'dimension.height': 'Înălțime bază', 'dimension.floor': 'Grosime carton',
+    'geometry.helpTitle': 'Construiește forma direct în 3D',
+    'geometry.helpCopy': 'Dublu-click pe orice față verticală expusă pentru selectare. Folosește butonul plus pentru a atașa un alt corp. Zonele unite devin o singură cavitate continuă, fără perete interior.',
+    'face.addText': 'Adaugă text',
+    'piece.title': 'Corp nou de cutie', 'piece.help': 'Atașat și centrat pe fața selectată.', 'piece.width': 'Lățime', 'piece.height': 'Înălțime', 'piece.depth': 'Adâncime',
+    'text.title': 'Adaugă text', 'text.help': 'Stabilește stilul textului, apoi plasează-l pe orice suprafață interioară sau exterioară.', 'text.content': 'Text', 'text.size': 'Mărime', 'text.font': 'Font', 'text.color': 'Text', 'text.background': 'Fundal',
+    'text.underlineStyle': 'Stil subliniere', 'text.lineSolid': 'Continuu', 'text.lineDashed': 'Întrerupt', 'text.lineDotted': 'Punctat', 'text.lineDouble': 'Dublu', 'text.done': 'Gata', 'text.cancel': 'Anulează plasarea textului',
+    'common.back': 'Înapoi', 'common.done': 'Gata', 'common.cancel': 'Anulează',
     'viewer.hint': 'Dublu-click pe o față verticală pentru a o selecta.',
-    'viewer.hint.placement': 'Mod plasare text: mută cursorul pe orice suprafață și apasă click pentru a plasa textul. Capacul este ridicat în timpul plasării.',
-    'error.pieceShort': 'Fața selectată este prea scurtă pentru acel corp atașat.',
-    'error.pieceInvalid': 'Corpul atașat ar crea un contur invalid sau cu intersecții.',
+    'viewer.hint.placement': 'Mod plasare text: mută cursorul pe orice suprafață și apasă click. Suprafețele superioare sunt ridicate cu 1 metru.',
+    'summary.pieces': 'Corpuri cutie', 'summary.faces': 'Fețe exterioare', 'summary.boardArea': 'Suprafață carton', 'summary.volume': 'Volum interior', 'summary.total': 'Total estimat',
+    'summary.note': 'Estimare orientativă de material și personalizare pentru o cutie configurată.', 'summary.material': 'Carton', 'summary.text': 'Finisaj text', 'summary.setup': 'Pregătire producție',
+    'error.invalidPiece': 'Noul corp trebuie să aibă lățime, înălțime și adâncime pozitive.',
   }),
   'de-DE': Object.freeze({
     'intro.eyebrow': 'Verpackungsgeometrie',
     'intro.title': 'Kartonbox-Einstellungen',
-    'intro.copy': 'Beginnen Sie mit einer rechteckigen Box, fügen Sie weitere Box-Elemente an ausgewählte Flächen an und platzieren Sie Text auf inneren oder äußeren Oberflächen.',
-    'section.geometry': 'Box-Geometrie',
-    'section.face': 'Ausgewählte Fläche',
-    'section.summary': 'Übersicht & Preis',
-    'dimension.width': 'Gesamtbreite',
-    'dimension.depth': 'Gesamttiefe',
-    'dimension.height': 'Boxhöhe',
-    'dimension.floor': 'Material- / Deckelstärke',
-    'geometry.helpTitle': 'So fügen Sie weitere Box-Elemente hinzu',
-    'geometry.helpCopy': 'Doppelklicken Sie im Viewer auf eine vertikale Fläche. Darauf erscheint eine Plus-Schaltfläche. Klicken Sie darauf, geben Sie die Maße des neuen Elements ein, und es wird mittig an dieser Fläche platziert.',
-    'face.none': 'Keine Fläche ausgewählt',
-    'face.color': 'Flächenfarbe',
-    'piece.title': 'Box-Element hinzufügen',
-    'piece.help': 'Das neue Element wird mittig auf der ausgewählten Fläche ausgerichtet und nach außen angefügt.',
-    'piece.width': 'Breite des neuen Elements',
-    'piece.depth': 'Tiefe des neuen Elements',
-    'piece.add': 'Zentriertes Element anfügen',
-    'text.title': 'Text hinzufügen',
-    'text.help': 'Definieren Sie den Textstil und platzieren Sie ihn anschließend auf jeder inneren oder äußeren Oberfläche der Box.',
-    'text.content': 'Text',
-    'text.size': 'Textgröße',
-    'text.font': 'Schriftart',
-    'text.color': 'Textfarbe',
-    'text.background': 'Hintergrund',
-    'text.bold': 'Fett',
-    'text.italic': 'Kursiv',
-    'text.underline': 'Unterstrichen',
-    'text.underlineStyle': 'Unterstreichungsstil',
-    'text.lineSolid': 'Durchgezogen',
-    'text.lineDashed': 'Gestrichelt',
-    'text.lineDotted': 'Gepunktet',
-    'text.lineDouble': 'Doppelt',
-    'text.done': 'Fertig — auf der Box platzieren',
-    'text.cancel': 'Platzierung abbrechen',
-    'summary.sides': 'Seiten',
-    'summary.perimeter': 'Umfang',
-    'summary.boardArea': 'Kartonfläche',
-    'summary.floorArea': 'Bodenfläche',
-    'summary.total': 'Geschätzter Gesamtpreis',
-    'summary.note': 'Unverbindliche Material- und Personalisierungsschätzung für eine konfigurierte Box.',
-    'summary.material': 'Kartonkörper',
-    'summary.lid': 'Deckel',
-    'summary.text': 'Textveredelung',
-    'summary.setup': 'Produktionsvorbereitung',
-    'wall': 'Fläche',
+    'intro.copy': 'Beginnen Sie mit einer rechteckigen Box und bauen Sie individuelle Formen, indem Sie zusätzliche Box-Volumen an freiliegende Flächen anfügen.',
+    'section.geometry': 'Basisbox', 'section.summary': 'Übersicht & Preis',
+    'dimension.width': 'Basisbreite', 'dimension.depth': 'Basistiefe', 'dimension.height': 'Basishöhe', 'dimension.floor': 'Kartonstärke',
+    'geometry.helpTitle': 'Form direkt in 3D aufbauen',
+    'geometry.helpCopy': 'Doppelklicken Sie auf eine freiliegende vertikale Fläche. Mit der Plus-Schaltfläche fügen Sie ein weiteres Box-Volumen hinzu. Verbundene Bereiche bilden einen durchgehenden Hohlraum ohne Innenwand.',
+    'face.addText': 'Text hinzufügen',
+    'piece.title': 'Neues Box-Element', 'piece.help': 'An der ausgewählten Fläche befestigt und zentriert.', 'piece.width': 'Breite', 'piece.height': 'Höhe', 'piece.depth': 'Tiefe',
+    'text.title': 'Text hinzufügen', 'text.help': 'Definieren Sie den Textstil und platzieren Sie ihn anschließend auf jeder inneren oder äußeren Oberfläche.', 'text.content': 'Text', 'text.size': 'Größe', 'text.font': 'Schriftart', 'text.color': 'Text', 'text.background': 'Hintergrund',
+    'text.underlineStyle': 'Unterstreichungsstil', 'text.lineSolid': 'Durchgezogen', 'text.lineDashed': 'Gestrichelt', 'text.lineDotted': 'Gepunktet', 'text.lineDouble': 'Doppelt', 'text.done': 'Fertig', 'text.cancel': 'Textplatzierung abbrechen',
+    'common.back': 'Zurück', 'common.done': 'Fertig', 'common.cancel': 'Abbrechen',
     'viewer.hint': 'Doppelklicken Sie auf eine vertikale Fläche, um sie auszuwählen.',
-    'viewer.hint.placement': 'Textplatzierungsmodus: Bewegen Sie den Cursor über eine beliebige Oberfläche und klicken Sie, um den Text zu platzieren. Der Deckel wird währenddessen angehoben.',
-    'error.pieceShort': 'Die ausgewählte Fläche ist für dieses angefügte Element zu kurz.',
-    'error.pieceInvalid': 'Dieses angefügte Element würde einen ungültigen oder sich überschneidenden Grundriss erzeugen.',
+    'viewer.hint.placement': 'Textplatzierungsmodus: Bewegen Sie den Cursor über eine Oberfläche und klicken Sie. Die oberen Flächen werden um 1 Meter angehoben.',
+    'summary.pieces': 'Box-Elemente', 'summary.faces': 'Außenflächen', 'summary.boardArea': 'Kartonfläche', 'summary.volume': 'Innenvolumen', 'summary.total': 'Geschätzter Gesamtpreis',
+    'summary.note': 'Unverbindliche Material- und Personalisierungsschätzung für eine konfigurierte Box.', 'summary.material': 'Karton', 'summary.text': 'Textveredelung', 'summary.setup': 'Produktionsvorbereitung',
+    'error.invalidPiece': 'Das neue Element benötigt positive Werte für Breite, Höhe und Tiefe.',
   }),
 });
 
 const $ = (selector) => document.querySelector(selector);
 const canvasHost = $('#canvasHost');
 const dimensionLayer = $('#dimensionLayer');
+const faceActionPopup = $('#faceActionPopup');
+const faceMainActions = $('#faceMainActions');
+const faceTextEditor = $('#faceTextEditor');
+const addBoxEditor = $('#addBoxEditor');
+const cancelTextPlacementButton = $('#cancelTextPlacementButton');
+const viewerHint = $('#viewerHint');
 const widthInput = $('#widthInput');
 const depthInput = $('#depthInput');
 const heightInput = $('#heightInput');
 const floorThicknessInput = $('#floorThicknessInput');
-const selectedWallName = $('#selectedWallName');
-const selectedWallLength = $('#selectedWallLength');
-const selectedWallBadge = $('#selectedWallBadge');
-const wallColorInput = $('#wallColorInput');
-const wallColorText = $('#wallColorText');
 const pieceWidthInput = $('#pieceWidthInput');
+const pieceHeightInput = $('#pieceHeightInput');
 const pieceDepthInput = $('#pieceDepthInput');
 const pieceError = $('#pieceError');
-const addPiecePanel = $('#addPiecePanel');
-const floatingAddBoxButton = $('#floatingAddBoxButton');
-const startTextPlacementButton = $('#startTextPlacementButton');
-const cancelTextPlacementButton = $('#cancelTextPlacementButton');
 const textContentInput = $('#textContentInput');
 const textSizeInput = $('#textSizeInput');
 const textFontSelect = $('#textFontSelect');
@@ -198,31 +97,35 @@ const textItalicToggle = $('#textItalicToggle');
 const textUnderlineToggle = $('#textUnderlineToggle');
 const textUnderlineStyle = $('#textUnderlineStyle');
 const summaryTotal = $('#summaryTotal');
-const viewerHint = $('#viewerHint');
 
 let locale = localeForHost();
 let units = locale === 'en-US' ? 'imperial' : 'metric';
 let currency = locale === 'ro-RO' ? 'RON' : locale === 'de-DE' ? 'EUR' : 'USD';
-let selectedWall = null;
-let wallMeshes = [];
-let floorMesh = null;
-let lidMesh = null;
-let dimensionAnchors = [];
 let dimensionsVisible = true;
 let technicalEdgesVisible = true;
 let cameraMode = 0;
 let resizeObserver;
+let surfaceMeshes = [];
+let surfaceDescriptors = [];
+let selectedFaceKey = '';
+let selectedFaceSnapshot = null;
+let addMode = false;
+let draftBox = null;
+let draftBeforeState = null;
 let placementMode = false;
 let pendingTextSpec = null;
 let previewTextMesh = null;
-let previewPlacementData = null;
+let previewPlacement = null;
+let dimensionAnchors = [];
+
+function makeBaseBox(width = 600, depth = 400, height = 300) {
+  return { id: 'base', minX: -width / 2, maxX: width / 2, minY: 0, maxY: height, minZ: -depth / 2, maxZ: depth / 2 };
+}
 
 let state = {
-  version: 2,
-  points: rectanglePoints(),
-  wallStyles: Array.from({ length: 4 }, () => ({ color: DEFAULT_COLOR })),
-  height: 300,
-  floorThickness: 3,
+  version: 3,
+  boxes: [makeBaseBox()],
+  boardThickness: 3,
   textPlacements: [],
 };
 
@@ -233,128 +136,109 @@ function localeForHost() {
   return 'en-US';
 }
 function t(key) { return TEXT[locale]?.[key] ?? TEXT['en-US'][key] ?? key; }
-function round(value, digits = 4) { const f = 10 ** digits; return Math.round(value * f) / f; }
 function clamp(value, min, max) { return Math.min(max, Math.max(min, Number(value) || 0)); }
+function round(value, digits = 4) { const f = 10 ** digits; return Math.round(value * f) / f; }
 function toMm(value) { return units === 'imperial' ? Number(value) * 25.4 : Number(value); }
 function fromMm(value) { return units === 'imperial' ? Number(value) / 25.4 : Number(value); }
-function displayLength(mm, digits = 0) { return units === 'imperial' ? `${(mm / 25.4).toFixed(digits ? 2 : 1)} in` : `${mm.toFixed(digits)} mm`; }
-function displayMetres(mm) { return units === 'imperial' ? `${(mm / 304.8).toFixed(2)} ft` : `${(mm / 1000).toFixed(2)} m`; }
+function displayLength(mm) { return units === 'imperial' ? `${(mm / 25.4).toFixed(1)} in` : `${Math.round(mm)} mm`; }
 function formatMoney(eur) {
   const rate = CURRENCY_FROM_EUR[currency] || 1;
   const amount = eur * rate;
   try { return new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); }
   catch { return `${currency} ${amount.toFixed(2)}`; }
 }
-function cloneStyle(style = { color: DEFAULT_COLOR }) { return { color: style.color || DEFAULT_COLOR }; }
-function rectanglePoints(width = 600, depth = 400) {
-  return [
-    { x: -width / 2, z: -depth / 2 },
-    { x: width / 2, z: -depth / 2 },
-    { x: width / 2, z: depth / 2 },
-    { x: -width / 2, z: depth / 2 },
-  ];
-}
-function bounds(points = state.points) {
-  const xs = points.map((p) => p.x); const zs = points.map((p) => p.z);
-  return { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs), width: Math.max(...xs) - Math.min(...xs), depth: Math.max(...zs) - Math.min(...zs) };
-}
-function signedArea(points = state.points) {
-  let sum = 0;
-  for (let i = 0; i < points.length; i += 1) {
-    const a = points[i]; const b = points[(i + 1) % points.length];
-    sum += a.x * b.z - b.x * a.z;
-  }
-  return sum / 2;
-}
-function polygonAreaMm2(points = state.points) { return Math.abs(signedArea(points)); }
-function centerPoints(points) {
-  const b = bounds(points);
-  const cx = (b.minX + b.maxX) / 2; const cz = (b.minZ + b.maxZ) / 2;
-  return points.map((p) => ({ x: round(p.x - cx), z: round(p.z - cz) }));
-}
-function edgeLength(index, points = state.points) {
-  const a = points[index]; const b = points[(index + 1) % points.length];
-  return Math.hypot(b.x - a.x, b.z - a.z);
-}
-function perimeter(points = state.points) { return points.reduce((total, _p, i) => total + edgeLength(i, points), 0); }
-function orientation(a, b, c) {
-  const value = (b.z - a.z) * (c.x - b.x) - (b.x - a.x) * (c.z - b.z);
-  return Math.abs(value) < 1e-7 ? 0 : value > 0 ? 1 : 2;
-}
-function onSegment(a, b, c) { return b.x <= Math.max(a.x, c.x) + 1e-7 && b.x + 1e-7 >= Math.min(a.x, c.x) && b.z <= Math.max(a.z, c.z) + 1e-7 && b.z + 1e-7 >= Math.min(a.z, c.z); }
-function segmentsIntersect(p1, q1, p2, q2) {
-  const o1 = orientation(p1, q1, p2), o2 = orientation(p1, q1, q2), o3 = orientation(p2, q2, p1), o4 = orientation(p2, q2, q1);
-  if (o1 !== o2 && o3 !== o4) return true;
-  if (o1 === 0 && onSegment(p1, p2, q1)) return true;
-  if (o2 === 0 && onSegment(p1, q2, q1)) return true;
-  if (o3 === 0 && onSegment(p2, p1, q2)) return true;
-  if (o4 === 0 && onSegment(p2, q1, q2)) return true;
-  return false;
-}
-function validOrthogonalPolygon(points) {
-  if (!Array.isArray(points) || points.length < 4 || polygonAreaMm2(points) < 100) return false;
-  for (let i = 0; i < points.length; i += 1) {
-    const a = points[i]; const b = points[(i + 1) % points.length];
-    const dx = Math.abs(b.x - a.x); const dz = Math.abs(b.z - a.z);
-    if (Math.hypot(dx, dz) < 10 || (dx > 1e-6 && dz > 1e-6)) return false;
-  }
-  const n = points.length;
-  for (let i = 0; i < n; i += 1) {
-    const a1 = points[i]; const a2 = points[(i + 1) % n];
-    for (let j = i + 1; j < n; j += 1) {
-      if (j === i || j === (i + 1) % n || (i === 0 && j === n - 1)) continue;
-      const b1 = points[j]; const b2 = points[(j + 1) % n];
-      if (segmentsIntersect(a1, a2, b1, b2)) return false;
+function cloneBox(box) { return { id: box.id, minX: box.minX, maxX: box.maxX, minY: box.minY, maxY: box.maxY, minZ: box.minZ, maxZ: box.maxZ }; }
+function currentBoxes() { return draftBox ? [...state.boxes, draftBox] : state.boxes; }
+function baseBox() { return state.boxes[0]; }
+function uniqueSorted(values) { return [...new Set(values.map((v) => round(v, 6)))].sort((a, b) => a - b); }
+function faceKey(face) { return [face.axis, face.sign, round(face.coord, 4), round(face.u1, 4), round(face.u2, 4), round(face.v1, 4), round(face.v2, 4)].join(':'); }
+
+function buildUnionGrid(boxes) {
+  const xs = uniqueSorted(boxes.flatMap((b) => [b.minX, b.maxX]));
+  const ys = uniqueSorted(boxes.flatMap((b) => [b.minY, b.maxY]));
+  const zs = uniqueSorted(boxes.flatMap((b) => [b.minZ, b.maxZ]));
+  const occupied = Array.from({ length: xs.length - 1 }, () => Array.from({ length: ys.length - 1 }, () => Array(zs.length - 1).fill(false)));
+  for (let ix = 0; ix < xs.length - 1; ix += 1) {
+    const cx = (xs[ix] + xs[ix + 1]) / 2;
+    for (let iy = 0; iy < ys.length - 1; iy += 1) {
+      const cy = (ys[iy] + ys[iy + 1]) / 2;
+      for (let iz = 0; iz < zs.length - 1; iz += 1) {
+        const cz = (zs[iz] + zs[iz + 1]) / 2;
+        occupied[ix][iy][iz] = boxes.some((b) => cx > b.minX - EPSILON && cx < b.maxX + EPSILON && cy > b.minY - EPSILON && cy < b.maxY + EPSILON && cz > b.minZ - EPSILON && cz < b.maxZ + EPSILON);
+      }
     }
   }
-  return true;
+  return { xs, ys, zs, occupied };
 }
 
-function resizeFootprint(targetWidth, targetDepth) {
-  const b = bounds();
-  if (!b.width || !b.depth) return;
-  const sx = clamp(targetWidth, 100, 3000) / b.width;
-  const sz = clamp(targetDepth, 100, 3000) / b.depth;
-  state.points = centerPoints(state.points.map((p) => ({ x: p.x * sx, z: p.z * sz })));
-  renderAll();
+function collectBoundaryTiles(grid) {
+  const { xs, ys, zs, occupied } = grid;
+  const tiles = [];
+  const nx = xs.length - 1, ny = ys.length - 1, nz = zs.length - 1;
+  const isOcc = (ix, iy, iz) => ix >= 0 && iy >= 0 && iz >= 0 && ix < nx && iy < ny && iz < nz && occupied[ix][iy][iz];
+  for (let ix = 0; ix < nx; ix += 1) {
+    for (let iy = 0; iy < ny; iy += 1) {
+      for (let iz = 0; iz < nz; iz += 1) {
+        if (!occupied[ix][iy][iz]) continue;
+        if (!isOcc(ix - 1, iy, iz)) tiles.push({ axis: 'x', sign: -1, coord: xs[ix], u1: zs[iz], u2: zs[iz + 1], v1: ys[iy], v2: ys[iy + 1] });
+        if (!isOcc(ix + 1, iy, iz)) tiles.push({ axis: 'x', sign: 1, coord: xs[ix + 1], u1: zs[iz], u2: zs[iz + 1], v1: ys[iy], v2: ys[iy + 1] });
+        if (!isOcc(ix, iy - 1, iz)) tiles.push({ axis: 'y', sign: -1, coord: ys[iy], u1: xs[ix], u2: xs[ix + 1], v1: zs[iz], v2: zs[iz + 1] });
+        if (!isOcc(ix, iy + 1, iz)) tiles.push({ axis: 'y', sign: 1, coord: ys[iy + 1], u1: xs[ix], u2: xs[ix + 1], v1: zs[iz], v2: zs[iz + 1] });
+        if (!isOcc(ix, iy, iz - 1)) tiles.push({ axis: 'z', sign: -1, coord: zs[iz], u1: xs[ix], u2: xs[ix + 1], v1: ys[iy], v2: ys[iy + 1] });
+        if (!isOcc(ix, iy, iz + 1)) tiles.push({ axis: 'z', sign: 1, coord: zs[iz + 1], u1: xs[ix], u2: xs[ix + 1], v1: ys[iy], v2: ys[iy + 1] });
+      }
+    }
+  }
+  return tiles;
 }
 
-function attachCenteredPiece() {
-  pieceError.hidden = true;
-  if (selectedWall == null) return;
-  const i = Math.min(selectedWall, state.points.length - 1);
-  const a = state.points[i];
-  const b = state.points[(i + 1) % state.points.length];
-  const dx = b.x - a.x; const dz = b.z - a.z; const length = Math.hypot(dx, dz);
-  const span = clamp(toMm(pieceWidthInput.value), 40, 1200);
-  const depth = clamp(toMm(pieceDepthInput.value), 20, 1000);
-  if (length < span + 40) {
-    pieceError.textContent = t('error.pieceShort');
-    pieceError.hidden = false;
-    return;
+function mergeTiles(tiles) {
+  const groups = new Map();
+  for (const tile of tiles) {
+    const key = `${tile.axis}:${tile.sign}:${round(tile.coord, 6)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(tile);
   }
-  const ux = dx / length; const uz = dz / length;
-  const ccw = signedArea() > 0;
-  const nx = ccw ? uz : -uz;
-  const nz = ccw ? -ux : ux;
-  const margin = (length - span) / 2;
-  const p1 = { x: a.x + ux * margin, z: a.z + uz * margin };
-  const p2 = { x: p1.x + nx * depth, z: p1.z + nz * depth };
-  const p3 = { x: p2.x + ux * span, z: p2.z + uz * span };
-  const p4 = { x: p3.x - nx * depth, z: p3.z - nz * depth };
-  const candidate = state.points.map((p) => ({ ...p }));
-  candidate.splice(i + 1, 0, p1, p2, p3, p4);
-  const centered = centerPoints(candidate);
-  if (!validOrthogonalPolygon(centered)) {
-    pieceError.textContent = t('error.pieceInvalid');
-    pieceError.hidden = false;
-    return;
+  const faces = [];
+  for (const group of groups.values()) {
+    const uCoords = uniqueSorted(group.flatMap((t0) => [t0.u1, t0.u2]));
+    const vCoords = uniqueSorted(group.flatMap((t0) => [t0.v1, t0.v2]));
+    const cells = Array.from({ length: uCoords.length - 1 }, () => Array(vCoords.length - 1).fill(false));
+    for (const tile of group) {
+      const iu = uCoords.findIndex((v) => Math.abs(v - tile.u1) < EPSILON);
+      const iv = vCoords.findIndex((v) => Math.abs(v - tile.v1) < EPSILON);
+      if (iu >= 0 && iv >= 0) cells[iu][iv] = true;
+    }
+    const used = cells.map((row) => row.map(() => false));
+    for (let iu = 0; iu < cells.length; iu += 1) {
+      for (let iv = 0; iv < cells[iu].length; iv += 1) {
+        if (!cells[iu][iv] || used[iu][iv]) continue;
+        let endU = iu;
+        while (endU + 1 < cells.length && cells[endU + 1][iv] && !used[endU + 1][iv]) endU += 1;
+        let endV = iv;
+        outer: while (endV + 1 < cells[iu].length) {
+          for (let u = iu; u <= endU; u += 1) if (!cells[u][endV + 1] || used[u][endV + 1]) break outer;
+          endV += 1;
+        }
+        for (let u = iu; u <= endU; u += 1) for (let v = iv; v <= endV; v += 1) used[u][v] = true;
+        const seed = group[0];
+        faces.push({ axis: seed.axis, sign: seed.sign, coord: seed.coord, u1: uCoords[iu], u2: uCoords[endU + 1], v1: vCoords[iv], v2: vCoords[endV + 1] });
+      }
+    }
   }
-  const inherited = cloneStyle(state.wallStyles[i]);
-  state.points = centered;
-  state.wallStyles.splice(i, 1, ...Array.from({ length: 5 }, () => cloneStyle(inherited)));
-  selectedWall = i + 2;
-  renderAll();
+  return faces;
+}
+
+function calculateUnionMetrics(boxes = state.boxes) {
+  const grid = buildUnionGrid(boxes);
+  const { xs, ys, zs, occupied } = grid;
+  let volume = 0;
+  for (let ix = 0; ix < xs.length - 1; ix += 1) for (let iy = 0; iy < ys.length - 1; iy += 1) for (let iz = 0; iz < zs.length - 1; iz += 1) {
+    if (occupied[ix][iy][iz]) volume += (xs[ix + 1] - xs[ix]) * (ys[iy + 1] - ys[iy]) * (zs[iz + 1] - zs[iz]);
+  }
+  const faces = mergeTiles(collectBoundaryTiles(grid));
+  const area = faces.reduce((sum, face) => sum + (face.u2 - face.u1) * (face.v2 - face.v1), 0);
+  return { volumeMm3: volume, areaMm2: area, faces };
 }
 
 const scene = new THREE.Scene();
@@ -370,18 +254,19 @@ canvasHost.append(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
-controls.minDistance = 240;
-controls.maxDistance = 4200;
+controls.minDistance = 180;
+controls.maxDistance = 5200;
 controls.maxPolarAngle = Math.PI * 0.49;
 controls.target.set(0, 120, 0);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x8a979f, 2.1));
 const keyLight = new THREE.DirectionalLight(0xffffff, 2.7); keyLight.position.set(900, 1100, 620); keyLight.castShadow = true; keyLight.shadow.mapSize.set(2048, 2048); scene.add(keyLight);
 const fillLight = new THREE.DirectionalLight(0xb8dbf1, 1.1); fillLight.position.set(-700, 500, -500); scene.add(fillLight);
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000), new THREE.MeshStandardMaterial({ color: 0xe7ecef, roughness: 1, metalness: 0 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshStandardMaterial({ color: 0xe7ecef, roughness: 1, metalness: 0 }));
 ground.rotation.x = -Math.PI / 2; ground.position.y = -4; ground.receiveShadow = true; scene.add(ground);
-const grid = new THREE.GridHelper(4000, 80, 0xc6d2d8, 0xdce4e8); grid.position.y = -3; grid.material.opacity = 0.35; grid.material.transparent = true; scene.add(grid);
+const gridHelper = new THREE.GridHelper(5000, 100, 0xc6d2d8, 0xdce4e8); gridHelper.position.y = -3; gridHelper.material.opacity = 0.32; gridHelper.material.transparent = true; scene.add(gridHelper);
 const boxGroup = new THREE.Group(); scene.add(boxGroup);
+const textGroup = new THREE.Group(); scene.add(textGroup);
 const previewGroup = new THREE.Group(); scene.add(previewGroup);
 
 function disposeObject(object) {
@@ -389,172 +274,139 @@ function disposeObject(object) {
     child.geometry?.dispose?.();
     if (child.material) {
       const materials = Array.isArray(child.material) ? child.material : [child.material];
-      materials.forEach((m) => {
-        m.map?.dispose?.();
-        m.dispose?.();
-      });
+      materials.forEach((material) => { material.map?.dispose?.(); material.dispose?.(); });
     }
   });
-}
-function wallMaterial(style, index) {
-  const color = new THREE.Color(style.color || DEFAULT_COLOR);
-  if (index === selectedWall) color.lerp(new THREE.Color(0x60bdf4), 0.24);
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness: 0, side: THREE.DoubleSide });
 }
 function clearGroup(group) {
-  for (const child of [...group.children]) {
-    group.remove(child);
-    disposeObject(child);
-  }
+  for (const child of [...group.children]) { group.remove(child); disposeObject(child); }
 }
-function currentLidOffset() { return placementMode ? LID_LIFT_MM : 0; }
-
-function createPlacementTextMesh(placement, preview = false) {
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  const fontPx = clamp(Number(placement.spec.size) || 54, 12, 180);
-  const linePad = Math.max(18, Math.round(fontPx * 0.38));
-  const fontWeight = placement.spec.bold ? '700' : '500';
-  const fontStyle = placement.spec.italic ? 'italic' : 'normal';
-  context.font = `${fontStyle} ${fontWeight} ${fontPx}px ${placement.spec.fontFamily}`;
-  const measured = Math.max(context.measureText(placement.spec.text || '').width, fontPx * 1.2);
-  canvas.width = Math.ceil(measured + linePad * 2);
-  canvas.height = Math.ceil(fontPx + linePad * 2 + (placement.spec.underline ? fontPx * 0.35 : 0));
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = placement.spec.backgroundColor || '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.font = `${fontStyle} ${fontWeight} ${fontPx}px ${placement.spec.fontFamily}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = placement.spec.textColor || '#1f2d36';
-  const textY = canvas.height / 2 - (placement.spec.underline ? fontPx * 0.08 : 0);
-  ctx.fillText(placement.spec.text || '', canvas.width / 2, textY);
-  if (placement.spec.underline) {
-    const startX = linePad;
-    const endX = canvas.width - linePad;
-    const underlineY = textY + fontPx * 0.42;
-    ctx.strokeStyle = placement.spec.textColor || '#1f2d36';
-    ctx.lineWidth = Math.max(2, Math.round(fontPx * 0.07));
-    if (placement.spec.underlineStyle === 'double') {
-      ctx.beginPath(); ctx.moveTo(startX, underlineY - 3); ctx.lineTo(endX, underlineY - 3); ctx.moveTo(startX, underlineY + 3); ctx.lineTo(endX, underlineY + 3); ctx.stroke();
-    } else if (placement.spec.underlineStyle === 'dashed') {
-      ctx.setLineDash([12, 8]); ctx.beginPath(); ctx.moveTo(startX, underlineY); ctx.lineTo(endX, underlineY); ctx.stroke(); ctx.setLineDash([]);
-    } else if (placement.spec.underlineStyle === 'dotted') {
-      ctx.setLineDash([2, 7]); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(startX, underlineY); ctx.lineTo(endX, underlineY); ctx.stroke(); ctx.setLineDash([]); ctx.lineCap = 'butt';
-    } else {
-      ctx.beginPath(); ctx.moveTo(startX, underlineY); ctx.lineTo(endX, underlineY); ctx.stroke();
+function faceNormal(face) {
+  if (face.axis === 'x') return new THREE.Vector3(face.sign, 0, 0);
+  if (face.axis === 'y') return new THREE.Vector3(0, face.sign, 0);
+  return new THREE.Vector3(0, 0, face.sign);
+}
+function faceCenter(face) {
+  if (face.axis === 'x') return new THREE.Vector3(face.coord, (face.v1 + face.v2) / 2, (face.u1 + face.u2) / 2);
+  if (face.axis === 'y') return new THREE.Vector3((face.u1 + face.u2) / 2, face.coord, (face.v1 + face.v2) / 2);
+  return new THREE.Vector3((face.u1 + face.u2) / 2, (face.v1 + face.v2) / 2, face.coord);
+}
+function faceHorizontalWidth(face) { return face.u2 - face.u1; }
+function faceHeight(face) { return face.v2 - face.v1; }
+function isVerticalFace(face) { return face.axis === 'x' || face.axis === 'z'; }
+function isTopFace(face) { return face.axis === 'y' && face.sign > 0; }
+function isBottomFace(face) { return face.axis === 'y' && face.sign < 0; }
+function makeSurfaceMesh(face) {
+  const width = face.u2 - face.u1;
+  const height = face.v2 - face.v1;
+  const geometry = new THREE.PlaneGeometry(width, height);
+  const selected = faceKey(face) === selectedFaceKey;
+  const material = new THREE.MeshStandardMaterial({ color: selected ? SELECTED_COLOR : DEFAULT_COLOR, roughness: 0.84, metalness: 0, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geometry, material);
+  const normal = faceNormal(face);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+  const center = faceCenter(face);
+  if (placementMode && isTopFace(face)) center.y += LID_LIFT_MM;
+  mesh.position.copy(center);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.userData.cardboxSurface = true;
+  mesh.userData.face = face;
+  mesh.userData.faceKey = faceKey(face);
+  mesh.userData.vertical = isVerticalFace(face);
+  mesh.userData.top = isTopFace(face);
+  mesh.userData.bottom = isBottomFace(face);
+  return mesh;
+}
+function rebuildSurfaceMeshes() {
+  clearGroup(boxGroup);
+  surfaceMeshes = [];
+  const metrics = calculateUnionMetrics(currentBoxes());
+  surfaceDescriptors = metrics.faces;
+  dimensionAnchors = [];
+  for (const face of surfaceDescriptors) {
+    const mesh = makeSurfaceMesh(face);
+    boxGroup.add(mesh);
+    surfaceMeshes.push(mesh);
+    if (technicalEdgesVisible) {
+      const edgeMaterial = new THREE.LineBasicMaterial({ color: faceKey(face) === selectedFaceKey ? 0x0876be : 0x755335, transparent: true, opacity: faceKey(face) === selectedFaceKey ? 0.9 : 0.38 });
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), edgeMaterial);
+      mesh.add(edges);
+    }
+    if (isVerticalFace(face)) {
+      const anchor = faceCenter(face);
+      anchor.y = face.v2 + 24;
+      dimensionAnchors.push({ point: anchor, label: displayLength(faceHorizontalWidth(face)) });
     }
   }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.needsUpdate = true;
-  const aspect = canvas.width / canvas.height;
-  const heightWorld = clamp(fontPx * 1.8, 52, 360);
-  const widthWorld = heightWorld * aspect;
-  const geometry = new THREE.PlaneGeometry(widthWorld, heightWorld);
-  const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, opacity: preview ? 0.78 : 1 });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.userData.cardboxText = true;
-  return { mesh, widthWorld, heightWorld };
+  renderPlacedTexts();
+  renderDimensions();
+  fitControlsTarget();
 }
 
-function computeTextQuaternion(normal) {
-  const reference = Math.abs(normal.dot(new THREE.Vector3(0, 1, 0))) > 0.95 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
+function boundsForBoxes(boxes = currentBoxes()) {
+  return {
+    minX: Math.min(...boxes.map((b) => b.minX)), maxX: Math.max(...boxes.map((b) => b.maxX)),
+    minY: Math.min(...boxes.map((b) => b.minY)), maxY: Math.max(...boxes.map((b) => b.maxY)),
+    minZ: Math.min(...boxes.map((b) => b.minZ)), maxZ: Math.max(...boxes.map((b) => b.maxZ)),
+  };
+}
+function fitControlsTarget() {
+  const b = boundsForBoxes();
+  controls.target.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2 + (placementMode ? LID_LIFT_MM * 0.08 : 0), (b.minZ + b.maxZ) / 2);
+}
+
+function createTextMesh(spec, opacity = 1) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const fontPx = clamp(spec.size || 54, 12, 180);
+  const weight = spec.bold ? '700' : '500';
+  const style = spec.italic ? 'italic' : 'normal';
+  ctx.font = `${style} ${weight} ${fontPx}px ${spec.fontFamily}`;
+  const padding = Math.max(16, fontPx * 0.35);
+  const measured = Math.max(ctx.measureText(spec.text).width, fontPx);
+  canvas.width = Math.ceil(measured + padding * 2);
+  canvas.height = Math.ceil(fontPx + padding * 2 + (spec.underline ? fontPx * 0.3 : 0));
+  const draw = canvas.getContext('2d');
+  draw.fillStyle = spec.backgroundColor;
+  draw.fillRect(0, 0, canvas.width, canvas.height);
+  draw.font = `${style} ${weight} ${fontPx}px ${spec.fontFamily}`;
+  draw.textAlign = 'center'; draw.textBaseline = 'middle'; draw.fillStyle = spec.textColor;
+  const textY = canvas.height / 2 - (spec.underline ? fontPx * 0.08 : 0);
+  draw.fillText(spec.text, canvas.width / 2, textY);
+  if (spec.underline) {
+    const y = textY + fontPx * 0.42;
+    draw.strokeStyle = spec.textColor; draw.lineWidth = Math.max(2, fontPx * 0.06);
+    if (spec.underlineStyle === 'dashed') draw.setLineDash([12, 8]);
+    if (spec.underlineStyle === 'dotted') { draw.setLineDash([2, 7]); draw.lineCap = 'round'; }
+    if (spec.underlineStyle === 'double') {
+      draw.beginPath(); draw.moveTo(padding, y - 3); draw.lineTo(canvas.width - padding, y - 3); draw.moveTo(padding, y + 3); draw.lineTo(canvas.width - padding, y + 3); draw.stroke();
+    } else {
+      draw.beginPath(); draw.moveTo(padding, y); draw.lineTo(canvas.width - padding, y); draw.stroke();
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+  const worldHeight = clamp(fontPx * 1.8, 48, 360);
+  const worldWidth = worldHeight * canvas.width / canvas.height;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(worldWidth, worldHeight), new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, opacity }));
+  return mesh;
+}
+function renderPlacedTexts() {
+  clearGroup(textGroup);
+  for (const placement of state.textPlacements) {
+    const mesh = createTextMesh(placement.spec, 1);
+    const position = new THREE.Vector3().fromArray(placement.position);
+    if (placement.topSurface && placementMode) position.y += LID_LIFT_MM;
+    mesh.position.copy(position);
+    mesh.quaternion.fromArray(placement.quaternion);
+    textGroup.add(mesh);
+  }
+}
+function quaternionForNormal(normal) {
+  const reference = Math.abs(normal.y) > 0.95 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
   const tangent = new THREE.Vector3().crossVectors(reference, normal).normalize();
   const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
-  const matrix = new THREE.Matrix4().makeBasis(tangent, bitangent, normal);
-  return new THREE.Quaternion().setFromRotationMatrix(matrix);
-}
-
-function restoreTextPlacements() {
-  for (const placement of state.textPlacements) {
-    const target = placement.surfaceType === 'wall' ? wallMeshes[placement.wallIndex] : placement.surfaceType === 'lid' ? lidMesh : floorMesh;
-    if (!target) continue;
-    const { mesh } = createPlacementTextMesh(placement, false);
-    mesh.position.fromArray(placement.localPosition);
-    mesh.quaternion.fromArray(placement.localQuaternion);
-    target.add(mesh);
-  }
-}
-
-function rebuild3D() {
-  clearGroup(boxGroup);
-  wallMeshes = [];
-  floorMesh = null;
-  lidMesh = null;
-  dimensionAnchors = [];
-  const shape = new THREE.Shape();
-  state.points.forEach((p, i) => { if (i === 0) shape.moveTo(p.x, p.z); else shape.lineTo(p.x, p.z); });
-  shape.closePath();
-  const thickness = Math.max(1, state.floorThickness);
-  const lidOffset = currentLidOffset();
-
-  const floorGeometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
-  floorGeometry.rotateX(-Math.PI / 2);
-  const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xb77c47, roughness: 0.9, side: THREE.DoubleSide });
-  floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
-  floorMesh.castShadow = true; floorMesh.receiveShadow = true; floorMesh.userData.surfaceType = 'floor';
-  boxGroup.add(floorMesh);
-
-  const lidGeometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
-  lidGeometry.rotateX(-Math.PI / 2);
-  const lidMaterial = new THREE.MeshStandardMaterial({ color: 0xc5905d, roughness: 0.9, side: THREE.DoubleSide });
-  lidMesh = new THREE.Mesh(lidGeometry, lidMaterial);
-  lidMesh.position.y = state.height + thickness + lidOffset;
-  lidMesh.castShadow = true; lidMesh.receiveShadow = true; lidMesh.userData.surfaceType = 'lid';
-  boxGroup.add(lidMesh);
-
-  state.points.forEach((a, i) => {
-    const b = state.points[(i + 1) % state.points.length];
-    const dx = b.x - a.x; const dz = b.z - a.z; const length = Math.hypot(dx, dz);
-    const geometry = new THREE.BoxGeometry(length, state.height, thickness);
-    const mesh = new THREE.Mesh(geometry, wallMaterial(state.wallStyles[i], i));
-    mesh.position.set((a.x + b.x) / 2, state.height / 2 + thickness, (a.z + b.z) / 2);
-    mesh.rotation.y = Math.atan2(-dz, dx);
-    mesh.castShadow = true; mesh.receiveShadow = true;
-    mesh.userData.cardboxWall = true; mesh.userData.wallIndex = i; mesh.userData.surfaceType = 'wall';
-    boxGroup.add(mesh); wallMeshes.push(mesh);
-    if (technicalEdgesVisible) {
-      const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 30), new THREE.LineBasicMaterial({ color: i === selectedWall ? 0x0876be : 0x755335, transparent: true, opacity: i === selectedWall ? 0.8 : 0.34 }));
-      lines.position.copy(mesh.position); lines.rotation.copy(mesh.rotation); boxGroup.add(lines);
-    }
-    dimensionAnchors.push(new THREE.Vector3(mesh.position.x, state.height + thickness + 28, mesh.position.z));
-  });
-  restoreTextPlacements();
-  fitControlsTarget();
-  renderDimensions();
-}
-
-function fitControlsTarget() {
-  const b = bounds();
-  controls.target.set((b.minX + b.maxX) / 2, state.height * 0.4 + currentLidOffset() * 0.08, (b.minZ + b.maxZ) / 2);
-}
-
-function calculatePricing() {
-  const wallAreaM2 = state.points.reduce((sum, _p, i) => sum + edgeLength(i) * state.height / 1_000_000, 0);
-  const floorAreaM2 = polygonAreaMm2() / 1_000_000;
-  const lidAreaM2 = floorAreaM2;
-  const bodyEur = wallAreaM2 * BOARD_EUR_M2;
-  const lidEur = lidAreaM2 * BOARD_EUR_M2;
-  const textEur = state.textPlacements.length * 0.35;
-  const setupEur = 0.95 + state.points.length * 0.035;
-  return { wallAreaM2, floorAreaM2, lidAreaM2, bodyEur, lidEur, textEur, setupEur, totalEur: bodyEur + lidEur + textEur + setupEur };
-}
-
-function renderSummary() {
-  const price = calculatePricing();
-  $('#summarySides').textContent = String(state.points.length);
-  $('#summaryPerimeter').textContent = displayMetres(perimeter());
-  $('#summaryBoardArea').textContent = `${price.wallAreaM2.toFixed(3)} m²`;
-  $('#summaryFloorArea').textContent = `${price.floorAreaM2.toFixed(3)} m²`;
-  $('#priceBreakdown').innerHTML = [
-    [t('summary.material'), price.bodyEur],
-    [t('summary.lid'), price.lidEur],
-    [t('summary.text'), price.textEur],
-    [t('summary.setup'), price.setupEur],
-  ].map(([label, value]) => `<div class="price-row"><span>${label}</span><strong>${formatMoney(value)}</strong></div>`).join('');
-  summaryTotal.textContent = formatMoney(price.totalEur);
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(tangent, bitangent, normal));
 }
 
 function renderTranslations() {
@@ -562,115 +414,138 @@ function renderTranslations() {
   document.querySelectorAll('[data-cardbox-i18n]').forEach((el) => { el.textContent = t(el.dataset.cardboxI18n); });
   viewerHint.textContent = placementMode ? t('viewer.hint.placement') : t('viewer.hint');
 }
-
 function renderInputs() {
-  const b = bounds();
-  widthInput.value = round(fromMm(b.width), units === 'imperial' ? 2 : 0);
-  depthInput.value = round(fromMm(b.depth), units === 'imperial' ? 2 : 0);
-  heightInput.value = round(fromMm(state.height), units === 'imperial' ? 2 : 0);
-  floorThicknessInput.value = round(fromMm(state.floorThickness), units === 'imperial' ? 2 : 1);
-  pieceWidthInput.value = round(fromMm(clamp(toMm(pieceWidthInput.value || 180), 40, 1200)), units === 'imperial' ? 2 : 0);
-  pieceDepthInput.value = round(fromMm(clamp(toMm(pieceDepthInput.value || 120), 20, 1000)), units === 'imperial' ? 2 : 0);
+  const base = baseBox();
+  widthInput.value = round(fromMm(base.maxX - base.minX), units === 'imperial' ? 2 : 0);
+  depthInput.value = round(fromMm(base.maxZ - base.minZ), units === 'imperial' ? 2 : 0);
+  heightInput.value = round(fromMm(base.maxY - base.minY), units === 'imperial' ? 2 : 0);
+  floorThicknessInput.value = round(fromMm(state.boardThickness), units === 'imperial' ? 2 : 1);
   const imperial = units === 'imperial';
-  [[widthInput, 100, 3000, 10], [depthInput, 100, 3000, 10], [heightInput, 50, 2000, 10], [floorThicknessInput, 1, 20, 0.5], [pieceWidthInput, 40, 1200, 10], [pieceDepthInput, 20, 1000, 10]].forEach(([input, minMm, maxMm, stepMm]) => {
-    input.min = String(round(imperial ? minMm / 25.4 : minMm, imperial ? 2 : 1));
-    input.max = String(round(imperial ? maxMm / 25.4 : maxMm, imperial ? 2 : 1));
-    input.step = String(round(imperial ? stepMm / 25.4 : stepMm, imperial ? 2 : 1));
-  });
   document.querySelectorAll('[data-unit-label]').forEach((el) => { el.textContent = imperial ? 'in' : 'mm'; });
 }
+function renderSummary() {
+  const metrics = calculateUnionMetrics(state.boxes);
+  const areaM2 = metrics.areaMm2 / 1_000_000;
+  const volumeM3 = metrics.volumeMm3 / 1_000_000_000;
+  const materialEur = areaM2 * BOARD_EUR_M2;
+  const textEur = state.textPlacements.length * 0.35;
+  const setupEur = 0.95 + Math.max(0, state.boxes.length - 1) * 0.18;
+  const totalEur = materialEur + textEur + setupEur;
+  $('#summaryPieces').textContent = String(state.boxes.length);
+  $('#summarySides').textContent = String(metrics.faces.length);
+  $('#summaryBoardArea').textContent = `${areaM2.toFixed(3)} m²`;
+  $('#summaryVolume').textContent = `${volumeM3.toFixed(3)} m³`;
+  $('#priceBreakdown').innerHTML = [[t('summary.material'), materialEur], [t('summary.text'), textEur], [t('summary.setup'), setupEur]].map(([label, value]) => `<div class="price-row"><span>${label}</span><strong>${formatMoney(value)}</strong></div>`).join('');
+  summaryTotal.textContent = formatMoney(totalEur);
+}
 
-function renderSelectedFace() {
-  if (selectedWall == null) {
-    selectedWallName.textContent = t('face.none');
-    selectedWallLength.textContent = '—';
-    selectedWallBadge.textContent = '—';
-    addPiecePanel.hidden = true;
-    floatingAddBoxButton.hidden = true;
+function renderFacePopup() {
+  if (!selectedFaceSnapshot || addMode || placementMode) {
+    faceActionPopup.hidden = true;
     return;
   }
-  selectedWallName.textContent = `${t('wall')} ${selectedWall + 1}`;
-  selectedWallLength.textContent = displayLength(edgeLength(selectedWall), 0);
-  selectedWallBadge.textContent = String(selectedWall + 1);
-  const style = state.wallStyles[selectedWall] || cloneStyle();
-  wallColorInput.value = style.color;
-  wallColorText.value = style.color.toUpperCase();
-  addPiecePanel.hidden = false;
+  faceActionPopup.hidden = false;
+  updateFacePopupPosition();
 }
-
-function updateAddButtonPosition() {
-  if (selectedWall == null || placementMode || !wallMeshes[selectedWall]) {
-    floatingAddBoxButton.hidden = true;
-    return;
-  }
-  const mesh = wallMeshes[selectedWall];
-  const point = mesh.position.clone();
-  point.y += state.height * 0.18;
-  const projected = point.project(camera);
+function updateFacePopupPosition() {
+  if (faceActionPopup.hidden || !selectedFaceSnapshot) return;
+  const world = faceCenter(selectedFaceSnapshot).add(faceNormal(selectedFaceSnapshot).multiplyScalar(18));
+  const projected = world.project(camera);
   const rect = canvasHost.getBoundingClientRect();
-  const visible = projected.z > -1 && projected.z < 1;
-  floatingAddBoxButton.hidden = !visible;
-  if (!visible) return;
-  floatingAddBoxButton.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
-  floatingAddBoxButton.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
+  if (projected.z < -1 || projected.z > 1) { faceActionPopup.hidden = true; return; }
+  faceActionPopup.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
+  faceActionPopup.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
 }
-
-function renderDimensions() {
-  dimensionLayer.hidden = !dimensionsVisible;
-  if (!dimensionsVisible) { dimensionLayer.innerHTML = ''; return; }
-  dimensionLayer.innerHTML = dimensionAnchors.map((_a, i) => `<div class="dimension-label" data-dimension-index="${i}">${displayLength(edgeLength(i), 0)}</div>`).join('');
-}
-function updateDimensionPositions() {
-  if (!dimensionsVisible) return;
-  const rect = canvasHost.getBoundingClientRect();
-  dimensionAnchors.forEach((world, i) => {
-    const projected = world.clone().project(camera);
-    const el = dimensionLayer.querySelector(`[data-dimension-index="${i}"]`); if (!el) return;
-    const visible = projected.z > -1 && projected.z < 1;
-    el.style.display = visible ? '' : 'none';
-    el.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
-    el.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
-  });
-  updateAddButtonPosition();
-}
-
 function renderAll() {
-  renderInputs();
-  renderTranslations();
-  renderSelectedFace();
-  renderSummary();
-  rebuild3D();
+  renderInputs(); renderTranslations(); renderSummary(); rebuildSurfaceMeshes(); renderFacePopup();
 }
 
-function setSelectedWall(index) {
-  selectedWall = clamp(index, 0, state.points.length - 1);
+function selectFace(face) {
+  const key = faceKey(face);
+  if (selectedFaceKey === key) { deselectFace(); return; }
+  selectedFaceKey = key;
+  selectedFaceSnapshot = { ...face };
+  faceMainActions.hidden = false;
+  faceTextEditor.hidden = true;
+  renderAll();
+}
+function deselectFace() {
+  selectedFaceKey = '';
+  selectedFaceSnapshot = null;
+  faceActionPopup.hidden = true;
+  faceMainActions.hidden = false;
+  faceTextEditor.hidden = true;
+  if (!addMode && !placementMode) rebuildSurfaceMeshes();
+}
+
+function newAttachedBox(face, width, height, depth) {
+  const center = faceCenter(face);
+  const normal = faceNormal(face);
+  const halfW = width / 2;
+  const halfH = height / 2;
+  const minY = center.y - halfH;
+  const maxY = center.y + halfH;
+  if (face.axis === 'x') {
+    const minZ = center.z - halfW, maxZ = center.z + halfW;
+    if (face.sign > 0) return { id: `piece-${Date.now()}`, minX: face.coord, maxX: face.coord + depth, minY, maxY, minZ, maxZ };
+    return { id: `piece-${Date.now()}`, minX: face.coord - depth, maxX: face.coord, minY, maxY, minZ, maxZ };
+  }
+  const minX = center.x - halfW, maxX = center.x + halfW;
+  if (face.sign > 0) return { id: `piece-${Date.now()}`, minX, maxX, minY, maxY, minZ: face.coord, maxZ: face.coord + depth };
+  return { id: `piece-${Date.now()}`, minX, maxX, minY, maxY, minZ: face.coord - depth, maxZ: face.coord };
+}
+function beginAddMode() {
+  if (!selectedFaceSnapshot || !isVerticalFace(selectedFaceSnapshot)) return;
+  const defaultWidth = faceHorizontalWidth(selectedFaceSnapshot) / 2;
+  const defaultHeight = faceHeight(selectedFaceSnapshot) / 2;
+  const defaultDepth = Math.min(defaultWidth, defaultHeight);
+  draftBeforeState = { selectedFaceKey, selectedFaceSnapshot: { ...selectedFaceSnapshot } };
+  draftBox = newAttachedBox(selectedFaceSnapshot, defaultWidth, defaultHeight, defaultDepth);
+  addMode = true;
+  faceActionPopup.hidden = true;
+  pieceWidthInput.value = round(fromMm(defaultWidth), units === 'imperial' ? 2 : 0);
+  pieceHeightInput.value = round(fromMm(defaultHeight), units === 'imperial' ? 2 : 0);
+  pieceDepthInput.value = round(fromMm(defaultDepth), units === 'imperial' ? 2 : 0);
   pieceError.hidden = true;
-  previewPlacementData = null;
+  addBoxEditor.hidden = false;
+  renderAll();
+}
+function updateDraftFromEditor() {
+  if (!addMode || !selectedFaceSnapshot) return;
+  const width = clamp(toMm(pieceWidthInput.value), 20, 3000);
+  const height = clamp(toMm(pieceHeightInput.value), 20, 3000);
+  const depth = clamp(toMm(pieceDepthInput.value), 20, 3000);
+  if (!(width > 0 && height > 0 && depth > 0)) {
+    pieceError.textContent = t('error.invalidPiece'); pieceError.hidden = false; return;
+  }
+  pieceError.hidden = true;
+  draftBox = newAttachedBox(selectedFaceSnapshot, width, height, depth);
+  renderAll();
+}
+function finishAddMode() {
+  if (!addMode || !draftBox) return;
+  state.boxes.push(cloneBox(draftBox));
+  draftBox = null;
+  draftBeforeState = null;
+  addMode = false;
+  addBoxEditor.hidden = true;
+  selectedFaceKey = '';
+  selectedFaceSnapshot = null;
+  renderAll();
+}
+function cancelAddMode() {
+  draftBox = null;
+  addMode = false;
+  addBoxEditor.hidden = true;
+  if (draftBeforeState) {
+    selectedFaceKey = draftBeforeState.selectedFaceKey;
+    selectedFaceSnapshot = { ...draftBeforeState.selectedFaceSnapshot };
+  }
+  draftBeforeState = null;
   renderAll();
 }
 
-function updateSelectedStyle(patch) {
-  if (selectedWall == null) return;
-  state.wallStyles[selectedWall] = { ...cloneStyle(state.wallStyles[selectedWall]), ...patch };
-  renderAll();
-}
-
-function getPlaceableMeshes() {
-  return [...wallMeshes, floorMesh, lidMesh].filter(Boolean);
-}
-
-function raycastFromPointer(event, objects) {
-  const rect = renderer.domElement.getBoundingClientRect();
-  const pointer = new THREE.Vector2(
-    ((event.clientX - rect.left) / rect.width) * 2 - 1,
-    -((event.clientY - rect.top) / rect.height) * 2 + 1,
-  );
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(pointer, camera);
-  return raycaster.intersectObjects(objects, false)[0] || null;
-}
-
-function buildTextSpecFromForm() {
+function buildTextSpec() {
   return {
     text: (textContentInput.value || '').trim() || 'TEXT',
     size: clamp(textSizeInput.value, 12, 180),
@@ -683,191 +558,172 @@ function buildTextSpecFromForm() {
     underlineStyle: textUnderlineStyle.value,
   };
 }
-
-function enterTextPlacementMode() {
-  pendingTextSpec = buildTextSpecFromForm();
+function startTextEditor() {
+  faceMainActions.hidden = true;
+  faceTextEditor.hidden = false;
+  updateFacePopupPosition();
+}
+function backFromTextEditor() {
+  faceTextEditor.hidden = true;
+  faceMainActions.hidden = false;
+  updateFacePopupPosition();
+}
+function enterPlacementMode() {
+  pendingTextSpec = buildTextSpec();
   placementMode = true;
+  faceActionPopup.hidden = true;
+  selectedFaceKey = '';
+  selectedFaceSnapshot = null;
   cancelTextPlacementButton.hidden = false;
   renderAll();
 }
-
-function exitTextPlacementMode() {
+function exitPlacementMode() {
   placementMode = false;
   pendingTextSpec = null;
-  previewPlacementData = null;
-  cancelTextPlacementButton.hidden = true;
-  clearGroup(previewGroup);
+  previewPlacement = null;
   previewTextMesh = null;
+  clearGroup(previewGroup);
+  cancelTextPlacementButton.hidden = true;
   renderAll();
 }
 
-function updatePreviewPlacement(event) {
+function raycast(event, objects = surfaceMeshes) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const pointer = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(pointer, camera);
+  const hit = raycaster.intersectObjects(objects, false)[0] || null;
+  return { hit, raycaster };
+}
+function updateTextPreview(event) {
   if (!placementMode || !pendingTextSpec) return;
-  const hit = raycastFromPointer(event, getPlaceableMeshes());
   clearGroup(previewGroup);
   previewTextMesh = null;
-  previewPlacementData = null;
+  previewPlacement = null;
+  const { hit, raycaster } = raycast(event);
   if (!hit) return;
-  const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
-  const worldPosition = hit.point.clone().add(normal.clone().multiplyScalar(SURFACE_OFFSET_MM));
-  const worldQuaternion = computeTextQuaternion(normal);
-  const placement = { spec: pendingTextSpec };
-  const { mesh, widthWorld, heightWorld } = createPlacementTextMesh(placement, true);
-  mesh.position.copy(worldPosition);
-  mesh.quaternion.copy(worldQuaternion);
-  previewGroup.add(mesh);
-  previewTextMesh = mesh;
-  const target = hit.object;
-  const parentQuat = target.getWorldQuaternion(new THREE.Quaternion());
-  const localQuat = parentQuat.clone().invert().multiply(worldQuaternion.clone());
-  const localPos = target.worldToLocal(worldPosition.clone());
-  previewPlacementData = {
-    surfaceType: target.userData.surfaceType,
-    wallIndex: target.userData.wallIndex ?? null,
-    localPosition: localPos.toArray(),
-    localQuaternion: localQuat.toArray(),
-    widthWorld,
-    heightWorld,
-    spec: { ...pendingTextSpec },
-  };
+  let normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+  if (normal.dot(raycaster.ray.direction) > 0) normal.multiplyScalar(-1);
+  const position = hit.point.clone().add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM));
+  const quaternion = quaternionForNormal(normal);
+  const mesh = createTextMesh(pendingTextSpec, 0.78);
+  mesh.position.copy(position); mesh.quaternion.copy(quaternion);
+  previewGroup.add(mesh); previewTextMesh = mesh;
+  const topSurface = Boolean(hit.object.userData.top);
+  const storedPosition = position.clone();
+  if (topSurface) storedPosition.y -= LID_LIFT_MM;
+  previewPlacement = { position: storedPosition.toArray(), quaternion: quaternion.toArray(), topSurface, spec: { ...pendingTextSpec } };
+}
+function commitTextPlacement() {
+  if (!previewPlacement) return;
+  state.textPlacements.push({ ...previewPlacement, spec: { ...previewPlacement.spec } });
+  exitPlacementMode();
 }
 
-function placeCurrentText() {
-  if (!placementMode || !previewPlacementData) return;
-  state.textPlacements.push({ ...previewPlacementData });
-  exitTextPlacementMode();
+function renderDimensions() {
+  dimensionLayer.hidden = !dimensionsVisible;
+  if (!dimensionsVisible) { dimensionLayer.innerHTML = ''; return; }
+  dimensionLayer.innerHTML = dimensionAnchors.map((item, i) => `<div class="dimension-label" data-dimension-index="${i}">${item.label}</div>`).join('');
+}
+function updateOverlayPositions() {
+  const rect = canvasHost.getBoundingClientRect();
+  dimensionAnchors.forEach((item, i) => {
+    const projected = item.point.clone().project(camera);
+    const el = dimensionLayer.querySelector(`[data-dimension-index="${i}"]`); if (!el) return;
+    const visible = projected.z > -1 && projected.z < 1;
+    el.style.display = visible ? '' : 'none';
+    el.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
+    el.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
+  });
+  updateFacePopupPosition();
 }
 
+function updateBaseDimension(axis, value) {
+  const base = baseBox();
+  const mm = axis === 'height' ? clamp(toMm(value), 50, 2000) : clamp(toMm(value), 100, 3000);
+  if (axis === 'width') { const c = (base.minX + base.maxX) / 2; base.minX = c - mm / 2; base.maxX = c + mm / 2; }
+  if (axis === 'depth') { const c = (base.minZ + base.maxZ) / 2; base.minZ = c - mm / 2; base.maxZ = c + mm / 2; }
+  if (axis === 'height') base.maxY = base.minY + mm;
+  deselectFace(); renderAll();
+}
 function bindAccordions() {
   document.querySelectorAll('.accordion-toggle').forEach((button) => button.addEventListener('click', () => {
-    const section = button.closest('.accordion-section');
-    const panel = section.querySelector('.accordion-panel');
-    const open = !section.classList.contains('is-open');
-    section.classList.toggle('is-open', open);
-    button.setAttribute('aria-expanded', String(open));
-    panel.hidden = !open;
+    const section = button.closest('.accordion-section'); const panel = section.querySelector('.accordion-panel'); const open = !section.classList.contains('is-open');
+    section.classList.toggle('is-open', open); button.setAttribute('aria-expanded', String(open)); panel.hidden = !open;
   }));
 }
-
 function bindControls() {
-  widthInput.addEventListener('change', () => resizeFootprint(toMm(widthInput.value), bounds().depth));
-  depthInput.addEventListener('change', () => resizeFootprint(bounds().width, toMm(depthInput.value)));
-  heightInput.addEventListener('change', () => { state.height = clamp(toMm(heightInput.value), 50, 2000); renderAll(); });
-  floorThicknessInput.addEventListener('change', () => { state.floorThickness = clamp(toMm(floorThicknessInput.value), 1, 20); renderAll(); });
-  wallColorInput.addEventListener('input', () => { wallColorText.value = wallColorInput.value.toUpperCase(); updateSelectedStyle({ color: wallColorInput.value }); });
-  wallColorText.addEventListener('change', () => {
-    const value = wallColorText.value.trim();
-    if (/^#[0-9a-f]{6}$/i.test(value)) {
-      wallColorInput.value = value;
-      updateSelectedStyle({ color: value.toLowerCase() });
-    } else if (selectedWall != null) {
-      wallColorText.value = state.wallStyles[selectedWall].color.toUpperCase();
-    }
-  });
-  $('#confirmAddPieceButton').addEventListener('click', attachCenteredPiece);
-  floatingAddBoxButton.addEventListener('click', () => {
-    addPiecePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    const firstInput = pieceWidthInput;
-    requestAnimationFrame(() => firstInput.focus());
-  });
-  startTextPlacementButton.addEventListener('click', enterTextPlacementMode);
-  cancelTextPlacementButton.addEventListener('click', exitTextPlacementMode);
+  widthInput.addEventListener('change', () => updateBaseDimension('width', widthInput.value));
+  depthInput.addEventListener('change', () => updateBaseDimension('depth', depthInput.value));
+  heightInput.addEventListener('change', () => updateBaseDimension('height', heightInput.value));
+  floorThicknessInput.addEventListener('change', () => { state.boardThickness = clamp(toMm(floorThicknessInput.value), 1, 20); renderInputs(); });
+  $('#faceAddButton').addEventListener('click', beginAddMode);
+  $('#faceTextButton').addEventListener('click', startTextEditor);
+  $('#backFromTextButton').addEventListener('click', backFromTextEditor);
+  $('#startTextPlacementButton').addEventListener('click', enterPlacementMode);
+  cancelTextPlacementButton.addEventListener('click', exitPlacementMode);
+  [pieceWidthInput, pieceHeightInput, pieceDepthInput].forEach((input) => input.addEventListener('change', updateDraftFromEditor));
+  $('#confirmAddPieceButton').addEventListener('click', finishAddMode);
+  $('#cancelAddPieceButton').addEventListener('click', cancelAddMode);
 }
 
 renderer.domElement.addEventListener('dblclick', (event) => {
-  if (placementMode) return;
-  const hit = raycastFromPointer(event, wallMeshes);
-  if (hit?.object?.userData?.cardboxWall) setSelectedWall(hit.object.userData.wallIndex);
+  if (addMode || placementMode) return;
+  const { hit } = raycast(event);
+  if (!hit?.object?.userData?.vertical) return;
+  const face = hit.object.userData.face;
+  if (selectedFaceKey && selectedFaceKey === hit.object.userData.faceKey) deselectFace();
+  else selectFace(face);
 });
-renderer.domElement.addEventListener('pointermove', (event) => updatePreviewPlacement(event));
 renderer.domElement.addEventListener('click', (event) => {
-  if (!placementMode) return;
-  updatePreviewPlacement(event);
-  if (previewPlacementData) placeCurrentText();
+  if (placementMode) {
+    updateTextPreview(event);
+    if (previewPlacement) commitTextPlacement();
+    return;
+  }
+  if (addMode) return;
+  const { hit } = raycast(event);
+  if (!hit) deselectFace();
 });
+renderer.domElement.addEventListener('pointermove', updateTextPreview);
 
 function resizeRenderer() {
-  const width = Math.max(1, canvasHost.clientWidth);
-  const height = Math.max(1, canvasHost.clientHeight);
-  renderer.setSize(width, height, false);
-  camera.aspect = width / height;
-  camera.updateProjectionMatrix();
+  const width = Math.max(1, canvasHost.clientWidth), height = Math.max(1, canvasHost.clientHeight);
+  renderer.setSize(width, height, false); camera.aspect = width / height; camera.updateProjectionMatrix();
 }
 resizeObserver = new ResizeObserver(resizeRenderer); resizeObserver.observe(canvasHost); resizeRenderer();
-function animate() { requestAnimationFrame(animate); controls.update(); updateDimensionPositions(); renderer.render(scene, camera); }
+function animate() { requestAnimationFrame(animate); controls.update(); updateOverlayPositions(); renderer.render(scene, camera); }
 animate();
 
 function captureState() {
-  return {
-    version: 2,
-    points: state.points.map((p) => ({ x: round(p.x), z: round(p.z) })),
-    wallStyles: state.wallStyles.map(cloneStyle),
-    height: round(state.height),
-    floorThickness: round(state.floorThickness),
-    textPlacements: state.textPlacements.map((placement) => ({ ...placement, spec: { ...placement.spec } })),
-  };
+  return { version: 3, boxes: state.boxes.map(cloneBox), boardThickness: round(state.boardThickness), textPlacements: state.textPlacements.map((p) => ({ position: [...p.position], quaternion: [...p.quaternion], topSurface: Boolean(p.topSurface), spec: { ...p.spec } })) };
 }
 function restoreState(snapshot) {
-  const source = snapshot?.state && !snapshot.points ? snapshot.state : snapshot;
-  if (!source || !Array.isArray(source.points) || !validOrthogonalPolygon(source.points)) return false;
-  state.points = centerPoints(source.points.map((p) => ({ x: Number(p.x), z: Number(p.z) })));
-  state.wallStyles = Array.from({ length: state.points.length }, (_v, i) => cloneStyle(source.wallStyles?.[i] || { color: DEFAULT_COLOR }));
-  state.height = Number.isFinite(Number(source.height)) ? clamp(source.height, 50, 2000) : 300;
-  state.floorThickness = Number.isFinite(Number(source.floorThickness)) ? clamp(source.floorThickness, 1, 20) : 3;
-  state.textPlacements = Array.isArray(source.textPlacements) ? source.textPlacements.map((placement) => ({
-    surfaceType: placement.surfaceType,
-    wallIndex: Number.isFinite(Number(placement.wallIndex)) ? Number(placement.wallIndex) : null,
-    localPosition: Array.isArray(placement.localPosition) ? placement.localPosition.map(Number) : [0, 0, 0],
-    localQuaternion: Array.isArray(placement.localQuaternion) ? placement.localQuaternion.map(Number) : [0, 0, 0, 1],
-    widthWorld: Number(placement.widthWorld) || 100,
-    heightWorld: Number(placement.heightWorld) || 50,
-    spec: {
-      text: placement.spec?.text || 'TEXT',
-      size: clamp(placement.spec?.size || 54, 12, 180),
-      fontFamily: placement.spec?.fontFamily || 'Arial, sans-serif',
-      textColor: placement.spec?.textColor || '#1f2d36',
-      backgroundColor: placement.spec?.backgroundColor || '#ffffff',
-      bold: Boolean(placement.spec?.bold),
-      italic: Boolean(placement.spec?.italic),
-      underline: Boolean(placement.spec?.underline),
-      underlineStyle: placement.spec?.underlineStyle || 'solid',
-    },
-  })) : [];
-  selectedWall = null;
-  exitTextPlacementMode();
-  renderAll();
-  return true;
+  const source = snapshot?.state && !snapshot.boxes ? snapshot.state : snapshot;
+  if (!source || !Array.isArray(source.boxes) || source.boxes.length === 0) return false;
+  const boxes = source.boxes.map((box, index) => ({ id: String(box.id || (index === 0 ? 'base' : `piece-${index}`)), minX: Number(box.minX), maxX: Number(box.maxX), minY: Number(box.minY), maxY: Number(box.maxY), minZ: Number(box.minZ), maxZ: Number(box.maxZ) }));
+  if (boxes.some((b) => ![b.minX,b.maxX,b.minY,b.maxY,b.minZ,b.maxZ].every(Number.isFinite) || b.maxX <= b.minX || b.maxY <= b.minY || b.maxZ <= b.minZ)) return false;
+  state = { version: 3, boxes, boardThickness: clamp(source.boardThickness || 3, 1, 20), textPlacements: Array.isArray(source.textPlacements) ? source.textPlacements.map((p) => ({ position: Array.isArray(p.position) ? p.position.map(Number) : [0,0,0], quaternion: Array.isArray(p.quaternion) ? p.quaternion.map(Number) : [0,0,0,1], topSurface: Boolean(p.topSurface), spec: { text: p.spec?.text || 'TEXT', size: clamp(p.spec?.size || 54,12,180), fontFamily: p.spec?.fontFamily || 'Arial, sans-serif', textColor: p.spec?.textColor || '#1f2d36', backgroundColor: p.spec?.backgroundColor || '#ffffff', bold: Boolean(p.spec?.bold), italic: Boolean(p.spec?.italic), underline: Boolean(p.spec?.underline), underlineStyle: p.spec?.underlineStyle || 'solid' } })) : [] };
+  addMode = false; draftBox = null; placementMode = false; selectedFaceKey = ''; selectedFaceSnapshot = null; addBoxEditor.hidden = true; cancelTextPlacementButton.hidden = true; renderAll(); return true;
 }
 function resetConfiguration() {
-  state = { version: 2, points: rectanglePoints(), wallStyles: Array.from({ length: 4 }, () => ({ color: DEFAULT_COLOR })), height: 300, floorThickness: 3, textPlacements: [] };
-  selectedWall = null;
-  exitTextPlacementMode();
-  renderAll();
-  return true;
+  state = { version: 3, boxes: [makeBaseBox()], boardThickness: 3, textPlacements: [] };
+  addMode = false; draftBox = null; placementMode = false; selectedFaceKey = ''; selectedFaceSnapshot = null; addBoxEditor.hidden = true; cancelTextPlacementButton.hidden = true; renderAll(); return true;
 }
 function setUnits(value) { units = value === 'imperial' ? 'imperial' : 'metric'; renderAll(); }
-function setCurrency(value) { currency = ['USD', 'RON', 'EUR'].includes(String(value).toUpperCase()) ? String(value).toUpperCase() : 'EUR'; renderSummary(); }
+function setCurrency(value) { currency = ['USD','RON','EUR'].includes(String(value).toUpperCase()) ? String(value).toUpperCase() : 'EUR'; renderSummary(); }
 function setLocale(value) { if (TEXT[value]) locale = value; renderAll(); }
 function setDarkMode(value) { document.body.classList.toggle('cardbox-dark-mode', Boolean(value)); scene.background.set(Boolean(value) ? 0x172027 : 0xf0f4f6); ground.material.color.set(Boolean(value) ? 0x141b20 : 0xe7ecef); }
 function toggleDimensions() { dimensionsVisible = !dimensionsVisible; renderDimensions(); return dimensionsVisible; }
-function toggleTechnicalEdges() { technicalEdgesVisible = !technicalEdgesVisible; rebuild3D(); return technicalEdgesVisible; }
+function toggleTechnicalEdges() { technicalEdgesVisible = !technicalEdgesVisible; rebuildSurfaceMeshes(); return technicalEdgesVisible; }
 function cycleCamera() {
-  cameraMode = (cameraMode + 1) % 3;
-  const b = bounds(); const maxDim = Math.max(b.width, b.depth, state.height + currentLidOffset(), 400);
-  if (cameraMode === 1) camera.position.set(0, maxDim * 1.8, 0.01);
-  else if (cameraMode === 2) camera.position.set(maxDim * 1.45, state.height * 0.9, 0);
-  else camera.position.set(maxDim * 1.2, maxDim * 0.9, maxDim * 1.25);
+  cameraMode = (cameraMode + 1) % 3; const b = boundsForBoxes(); const maxDim = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, b.maxY - b.minY + (placementMode ? LID_LIFT_MM : 0), 400);
+  if (cameraMode === 1) camera.position.set(0, maxDim * 1.8, 0.01); else if (cameraMode === 2) camera.position.set(maxDim * 1.45, maxDim * 0.65, 0); else camera.position.set(maxDim * 1.2, maxDim * 0.9, maxDim * 1.25);
   fitControlsTarget(); controls.update();
 }
+function getPrice() { const metrics = calculateUnionMetrics(state.boxes); const eur = metrics.areaMm2 / 1_000_000 * BOARD_EUR_M2 + state.textPlacements.length * 0.35 + 0.95 + Math.max(0, state.boxes.length - 1) * 0.18; return { amount: eur * (CURRENCY_FROM_EUR[currency] || 1), currency }; }
 
-window.CARDBOX_CONFIGURATOR_API = {
-  captureState, restoreState, resetConfiguration, setUnits, setCurrency, setLocale, setDarkMode,
-  toggleDimensions, toggleTechnicalEdges, cycleCamera,
-  syncToolButtons() {}, closeToolPanels() {},
-  getPrice() { return { amount: calculatePricing().totalEur * (CURRENCY_FROM_EUR[currency] || 1), currency }; },
-};
+window.CARDBOX_CONFIGURATOR_API = { captureState, restoreState, resetConfiguration, setUnits, setCurrency, setLocale, setDarkMode, toggleDimensions, toggleTechnicalEdges, cycleCamera, getPrice, syncToolButtons() {}, closeToolPanels() {} };
 
-bindAccordions();
-bindControls();
-renderAll();
+bindAccordions(); bindControls(); renderAll();
 window.addEventListener('beforeunload', () => resizeObserver?.disconnect());
