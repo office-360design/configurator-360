@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { calculateProject } from '../src/domain/calculations.js';
 import { DEFAULT_STATE } from '../src/state.js';
@@ -66,4 +67,15 @@ test('profile and cross-section SVG attributes remain finite', () => {
 
 test('an empty shared tool set renders no launcher', () => {
   assert.equal(renderToolsMenu(false, { items: [] }), '');
+});
+
+test('hidden map overlays cannot override their hidden state', () => {
+  const stylesheet = readFileSync(
+    new URL('../src/styles/gas.css', import.meta.url),
+    'utf8',
+  );
+  assert.match(
+    stylesheet,
+    /\.gas-map-state\[hidden\]\s*\{[^}]*display:\s*none\s*!important;/,
+  );
 });

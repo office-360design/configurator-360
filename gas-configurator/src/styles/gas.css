@@ -341,6 +341,10 @@ summary:focus-visible {
   font-weight: 700;
 }
 
+.gas-map-state[hidden] {
+  display: none !important;
+}
+
 .gas-map-state--error {
   flex-direction: column;
   padding: 28px;
