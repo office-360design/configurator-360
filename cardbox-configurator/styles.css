@@ -180,7 +180,7 @@ button, input, select { font: inherit; }
 .add-box-editor {
   position: absolute;
   left: 18px;
-  top: 18px;
+  top: 86px;
   z-index: 7;
   width: 286px;
   padding: 14px;
@@ -319,7 +319,7 @@ body.cardbox-dark-mode .viewer-hint { background: rgba(24,31,36,0.83); color: #d
   .sidebar.is-collapsed { transform: translateX(102%); }
   .viewer-hint { bottom: 14px; }
   .text-editor-panel,
-  .add-box-editor { left: 12px; top: 12px; width: min(286px, 82vw); }
+  .add-box-editor { left: 12px; top: 82px; width: min(286px, 82vw); }
 }
 @media (max-width: 430px) {
   .sidebar { width: 100vw; padding-left: 17px; padding-right: 17px; }
@@ -356,32 +356,38 @@ body.cardbox-dark-mode .viewer-hint { background: rgba(24,31,36,0.83); color: #d
 .text-selection-hud {
   position: absolute;
   z-index: 8;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px;
-  border: 1px solid #d8e2e8;
-  border-radius: 999px;
-  background: rgba(255,255,255,.97);
-  box-shadow: 0 12px 28px rgba(31,55,68,.16);
-  backdrop-filter: blur(12px);
-  transform: translate(-50%, 18px);
+  width: 230px;
+  height: 132px;
+  pointer-events: none;
+  transform: translate(12px, 10px);
 }
+.text-selection-hud[hidden] { display: none !important; }
+.text-selection-arc { position: relative; width: 100%; height: 100%; }
 .text-selection-tool {
-  width: 38px;
-  height: 38px;
+  position: absolute;
+  width: 42px;
+  height: 42px;
   padding: 0;
   display: grid;
   place-items: center;
   border: 1px solid #d6e0e6;
   border-radius: 50%;
-  background: #fff;
+  background: rgba(255,255,255,.98);
   color: #31444f;
+  box-shadow: 0 10px 24px rgba(31,55,68,.15);
+  backdrop-filter: blur(10px);
   cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
   transition: border-color .15s ease, background .15s ease, color .15s ease, transform .15s ease;
 }
+.text-selection-tool--horizontal { left: 15%; top: 52%; }
+.text-selection-tool--vertical { left: 35%; top: 18%; }
+.text-selection-tool--delete { left: 65%; top: 18%; }
+.text-selection-tool--edit { left: 85%; top: 52%; }
+.text-selection-tool--dismiss { left: 50%; top: 82%; font-size: 28px; line-height: 1; }
 .text-selection-tool:hover {
-  transform: translateY(-1px);
+  transform: translate(-50%, calc(-50% - 2px));
   border-color: #8bc4e8;
   background: #f5fbff;
   color: #0876be;
@@ -390,7 +396,7 @@ body.cardbox-dark-mode .viewer-hint { background: rgba(24,31,36,0.83); color: #d
   border-color: #0e82d8;
   background: #eaf6ff;
   color: #0876be;
-  box-shadow: 0 0 0 2px rgba(14,130,216,.12);
+  box-shadow: 0 0 0 2px rgba(14,130,216,.12), 0 10px 24px rgba(31,55,68,.15);
 }
 .text-selection-tool--danger:hover {
   border-color: #e3a4a4;
@@ -414,7 +420,9 @@ body.cardbox-dark-mode .viewer-hint { background: rgba(24,31,36,0.83); color: #d
 #canvasHost.has-selected-text canvas { cursor: default; }
 
 @media (max-width: 760px) {
-  .text-selection-hud { gap: 5px; padding: 5px; }
-  .text-selection-tool { width: 36px; height: 36px; }
+  .text-editor-panel,
+  .add-box-editor { top: 82px; }
+  .text-selection-hud { width: 205px; height: 118px; }
+  .text-selection-tool { width: 38px; height: 38px; }
   .text-guide-label { font-size: 9px; padding: 3px 6px; }
 }
