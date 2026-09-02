@@ -356,8 +356,8 @@ body.cardbox-dark-mode .viewer-hint { background: rgba(24,31,36,0.83); color: #d
 .text-selection-hud {
   position: absolute;
   z-index: 8;
-  width: 230px;
-  height: 132px;
+  width: 258px;
+  height: 142px;
   pointer-events: none;
   transform: translate(12px, 10px);
 }
@@ -381,11 +381,12 @@ body.cardbox-dark-mode .viewer-hint { background: rgba(24,31,36,0.83); color: #d
   transform: translate(-50%, -50%);
   transition: border-color .15s ease, background .15s ease, color .15s ease, transform .15s ease;
 }
-.text-selection-tool--horizontal { left: 15%; top: 52%; }
-.text-selection-tool--vertical { left: 35%; top: 18%; }
-.text-selection-tool--delete { left: 65%; top: 18%; }
-.text-selection-tool--edit { left: 85%; top: 52%; }
-.text-selection-tool--dismiss { left: 50%; top: 82%; font-size: 28px; line-height: 1; }
+.text-selection-tool--horizontal { left: 10%; top: 58%; }
+.text-selection-tool--vertical { left: 22%; top: 32%; }
+.text-selection-tool--lift { left: 50%; top: 18%; }
+.text-selection-tool--delete { left: 78%; top: 32%; }
+.text-selection-tool--edit { left: 90%; top: 58%; }
+.text-selection-tool--dismiss { left: 50%; top: 86%; font-size: 28px; line-height: 1; }
 .text-selection-tool:hover {
   transform: translate(-50%, calc(-50% - 2px));
   border-color: #8bc4e8;
@@ -422,7 +423,7 @@ body.cardbox-dark-mode .viewer-hint { background: rgba(24,31,36,0.83); color: #d
 @media (max-width: 760px) {
   .text-editor-panel,
   .add-box-editor { top: 82px; }
-  .text-selection-hud { width: 205px; height: 118px; }
+  .text-selection-hud { width: 225px; height: 126px; }
   .text-selection-tool { width: 38px; height: 38px; }
   .text-guide-label { font-size: 9px; padding: 3px 6px; }
 }
