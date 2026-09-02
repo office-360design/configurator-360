@@ -234,6 +234,7 @@ summary:focus-visible {
 .gas-map {
   position: absolute;
   inset: 0;
+  z-index: 0;
 }
 
 .gas-map-tools {
@@ -398,19 +399,24 @@ summary:focus-visible {
   box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.24), 0 5px 14px rgba(17, 36, 49, 0.28);
 }
 
-.maplibregl-ctrl-top-right {
+.leaflet-top.leaflet-right {
   top: 52px;
   right: 2px;
 }
 
-.maplibregl-ctrl-group {
+.leaflet-bar {
   overflow: hidden;
   border-radius: 9px !important;
   box-shadow: 0 5px 16px rgba(22, 39, 50, 0.15) !important;
 }
 
-.maplibregl-ctrl-attrib {
+.leaflet-control-attribution {
   font-size: 9px;
+}
+
+.gas-route-marker-host {
+  border: 0;
+  background: transparent;
 }
 
 .gas-analysis-grid {
