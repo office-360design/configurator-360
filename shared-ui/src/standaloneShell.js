@@ -204,7 +204,7 @@ function resizeProfileAvatar(file) {
   });
 }
 
-const SHARED_STANDALONE_STYLE_VERSION = '25';
+const SHARED_STANDALONE_STYLE_VERSION = '26';
 
 function refreshSharedStandaloneStylesheet() {
   document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {

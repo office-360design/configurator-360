@@ -1926,3 +1926,21 @@ body.configurator-embed-preview #canvas-container {
   .shared-ui-host .profile-provider__connected { grid-column: 2; justify-self: start; }
   .shared-ui-host .profile-dialog__footer { margin: 0 -14px -14px; padding: 12px 14px; }
 }
+
+/* Phone layout: keep the primary navigation clear by taking Book a demo out
+   of the top-bar brand cluster and exposing it as a floating CTA instead. */
+@media (max-width: 760px) {
+  .shared-ui-host .book-demo-button {
+    position: fixed;
+    left: calc(12px + env(safe-area-inset-left, 0px));
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    z-index: 35;
+    display: inline-flex;
+    min-width: 108px;
+    height: 40px;
+    padding: 0 15px;
+    border-radius: 11px;
+    font-size: 11px;
+    box-shadow: 0 8px 22px rgba(8,120,201,.26);
+  }
+}
