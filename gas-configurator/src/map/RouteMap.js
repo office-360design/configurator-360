@@ -12,6 +12,7 @@ import {
   interpolateRoute,
   nearestPointOnSegmentRatio,
 } from '../domain/geometry.js';
+import { createMapStartupGuard, mapErrorFrom } from './startupGuard.js';
 
 const ROUTE_SOURCE_ID = 'gas-route';
 const STATION_SOURCE_ID = 'gas-station';
@@ -83,6 +84,13 @@ export class RouteMap {
     this.destroyed = false;
     this.lastState = store.get();
 
+    this.reportInitializationFailure = (error) => {
+      if (this.ready || this.destroyed) return;
+      console.error('The route base map could not be initialized.', error);
+      this.onLoadingChange?.(false);
+      this.onError?.(error);
+    };
+
     onLoadingChange?.(true);
     this.map = new Map({
       container,
@@ -99,21 +107,35 @@ export class RouteMap {
 
     this.map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), 'top-right');
 
-    this.onLoad = () => {
-      if (this.destroyed) return;
-      this.installLayers();
-      this.ready = true;
-      this.sync(this.lastState);
-      this.fitRoute({ animate: false });
-      this.onLoadingChange?.(false);
-      this.onError?.(null);
+    this.startupGuard = createMapStartupGuard({
+      onTimeout: this.reportInitializationFailure,
+    });
+
+    this.onStyleLoad = () => {
+      if (this.destroyed || this.ready) return;
+      try {
+        this.installLayers();
+        this.ready = true;
+        this.startupGuard.complete();
+        this.sync(this.lastState);
+        this.fitRoute({ animate: false });
+        this.onLoadingChange?.(false);
+        this.onError?.(null);
+      } catch (error) {
+        this.startupGuard.cancel();
+        this.reportInitializationFailure(mapErrorFrom(error));
+      }
     };
 
     this.onMapError = (event) => {
-      if (this.ready || this.destroyed) return;
-      console.error('The route base map could not be initialized.', event?.error || event);
-      this.onLoadingChange?.(false);
-      this.onError?.(event?.error || new Error('Map initialization failed.'));
+      if (this.destroyed) return;
+      const error = mapErrorFrom(event);
+      if (!this.ready) {
+        this.startupGuard.noteError(error);
+        console.warn('MapLibre reported a startup resource warning; waiting for the base style.', error);
+        return;
+      }
+      console.warn('MapLibre reported a recoverable map resource error.', error);
     };
 
     this.onMapClick = (event) => {
@@ -137,7 +159,7 @@ export class RouteMap {
     this.onRouteEnter = () => { this.map.getCanvas().style.cursor = 'pointer'; };
     this.onRouteLeave = () => { this.map.getCanvas().style.cursor = ''; };
 
-    this.map.on('load', this.onLoad);
+    this.map.on('style.load', this.onStyleLoad);
     this.map.on('error', this.onMapError);
     this.map.on('click', this.onMapClick);
   }
@@ -264,6 +286,7 @@ export class RouteMap {
 
   destroy() {
     this.destroyed = true;
+    this.startupGuard?.cancel();
     this.markers.forEach(({ marker }) => marker.remove());
     this.markers.clear();
     if (this.ready) {
@@ -271,7 +294,7 @@ export class RouteMap {
       this.map.off('mouseenter', ROUTE_LAYER_ID, this.onRouteEnter);
       this.map.off('mouseleave', ROUTE_LAYER_ID, this.onRouteLeave);
     }
-    this.map.off('load', this.onLoad);
+    this.map.off('style.load', this.onStyleLoad);
     this.map.off('error', this.onMapError);
     this.map.off('click', this.onMapClick);
     this.map.remove();
