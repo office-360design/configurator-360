@@ -113,7 +113,7 @@ export function calculateProject(state) {
   };
 }
 
-export function buildValidationResults(state, calculation) {
+export function buildValidationResults(state, calculation, { elevationProfile = null } = {}) {
   const results = [];
 
   results.push({
@@ -133,11 +133,16 @@ export function buildValidationResults(state, calculation) {
   });
 
   const groundStatus = state.data.groundSource === 'verifiedSurvey' ? 'pass' : 'warning';
+  const groundDetailKey = groundStatus === 'pass'
+    ? 'validation.ground.verified'
+    : elevationProfile?.status === 'ready'
+      ? 'validation.ground.publicTerrain'
+      : 'validation.ground.estimated';
   results.push({
     id: 'ground',
     status: groundStatus,
     titleKey: 'validation.ground.title',
-    detailKey: groundStatus === 'pass' ? 'validation.ground.verified' : 'validation.ground.estimated',
+    detailKey: groundDetailKey,
   });
 
   const utilityStatus = state.data.utilitySource === 'fieldVerified'
