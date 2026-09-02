@@ -21,7 +21,7 @@ const TEXT = Object.freeze({
     'face.addText': 'Add text',
     'piece.title': 'New box piece', 'piece.help': 'Attached and centered on the selected face.', 'piece.width': 'Width', 'piece.height': 'Height', 'piece.depth': 'Depth',
     'text.title': 'Add text', 'text.help': 'Style the text, then place it on any inner or outer surface.', 'text.content': 'Text', 'text.size': 'Size', 'text.font': 'Font', 'text.color': 'Text', 'text.background': 'Background',
-    'text.lockHorizontal': 'Lock to horizontal center line', 'text.lockVertical': 'Lock to vertical center line', 'text.edit': 'Edit text', 'text.delete': 'Delete text', 'text.underlineStyle': 'Underline style', 'text.lineSolid': 'Solid', 'text.lineDashed': 'Dashed', 'text.lineDotted': 'Dotted', 'text.lineDouble': 'Double', 'text.done': 'Done', 'text.cancel': 'Cancel text placement', 'text.transparentBackground': 'Transparent background',
+    'text.lockHorizontal': 'Lock to horizontal center line', 'text.lockVertical': 'Lock to vertical center line', 'text.edit': 'Edit text', 'text.delete': 'Delete text', 'text.deselect': 'Deselect text', 'text.underlineStyle': 'Underline style', 'text.lineSolid': 'Solid', 'text.lineDashed': 'Dashed', 'text.lineDotted': 'Dotted', 'text.lineDouble': 'Double', 'text.done': 'Done', 'text.cancel': 'Cancel text placement', 'text.transparentBackground': 'Transparent background',
     'common.back': 'Back', 'common.done': 'Done', 'common.cancel': 'Cancel',
     'viewer.hint': 'Double-click a vertical face to select it.',
     'viewer.hint.placement': 'Text placement mode: move over any surface and click to place. The top surfaces are lifted by 1 metre.',
@@ -40,7 +40,7 @@ const TEXT = Object.freeze({
     'face.addText': 'Adaugă text',
     'piece.title': 'Corp nou de cutie', 'piece.help': 'Atașat și centrat pe fața selectată.', 'piece.width': 'Lățime', 'piece.height': 'Înălțime', 'piece.depth': 'Adâncime',
     'text.title': 'Adaugă text', 'text.help': 'Stabilește stilul textului, apoi plasează-l pe orice suprafață interioară sau exterioară.', 'text.content': 'Text', 'text.size': 'Mărime', 'text.font': 'Font', 'text.color': 'Text', 'text.background': 'Fundal',
-    'text.lockHorizontal': 'Blochează pe linia orizontală centrală', 'text.lockVertical': 'Blochează pe linia verticală centrală', 'text.edit': 'Editează textul', 'text.delete': 'Șterge textul', 'text.underlineStyle': 'Stil subliniere', 'text.lineSolid': 'Continuu', 'text.lineDashed': 'Întrerupt', 'text.lineDotted': 'Punctat', 'text.lineDouble': 'Dublu', 'text.done': 'Gata', 'text.cancel': 'Anulează plasarea textului', 'text.transparentBackground': 'Fundal transparent',
+    'text.lockHorizontal': 'Blochează pe linia orizontală centrală', 'text.lockVertical': 'Blochează pe linia verticală centrală', 'text.edit': 'Editează textul', 'text.delete': 'Șterge textul', 'text.deselect': 'Deselectează textul', 'text.underlineStyle': 'Stil subliniere', 'text.lineSolid': 'Continuu', 'text.lineDashed': 'Întrerupt', 'text.lineDotted': 'Punctat', 'text.lineDouble': 'Dublu', 'text.done': 'Gata', 'text.cancel': 'Anulează plasarea textului', 'text.transparentBackground': 'Fundal transparent',
     'common.back': 'Înapoi', 'common.done': 'Gata', 'common.cancel': 'Anulează',
     'viewer.hint': 'Dublu-click pe o față verticală pentru a o selecta.',
     'viewer.hint.placement': 'Mod plasare text: mută cursorul pe orice suprafață și apasă click. Suprafețele superioare sunt ridicate cu 1 metru.',
@@ -59,7 +59,7 @@ const TEXT = Object.freeze({
     'face.addText': 'Text hinzufügen',
     'piece.title': 'Neues Box-Element', 'piece.help': 'An der ausgewählten Fläche befestigt und zentriert.', 'piece.width': 'Breite', 'piece.height': 'Höhe', 'piece.depth': 'Tiefe',
     'text.title': 'Text hinzufügen', 'text.help': 'Definieren Sie den Textstil und platzieren Sie ihn anschließend auf jeder inneren oder äußeren Oberfläche.', 'text.content': 'Text', 'text.size': 'Größe', 'text.font': 'Schriftart', 'text.color': 'Text', 'text.background': 'Hintergrund',
-    'text.lockHorizontal': 'Auf horizontaler Mittellinie fixieren', 'text.lockVertical': 'Auf vertikaler Mittellinie fixieren', 'text.edit': 'Text bearbeiten', 'text.delete': 'Text löschen', 'text.underlineStyle': 'Unterstreichungsstil', 'text.lineSolid': 'Durchgezogen', 'text.lineDashed': 'Gestrichelt', 'text.lineDotted': 'Gepunktet', 'text.lineDouble': 'Doppelt', 'text.done': 'Fertig', 'text.cancel': 'Textplatzierung abbrechen', 'text.transparentBackground': 'Transparenter Hintergrund',
+    'text.lockHorizontal': 'Auf horizontaler Mittellinie fixieren', 'text.lockVertical': 'Auf vertikaler Mittellinie fixieren', 'text.edit': 'Text bearbeiten', 'text.delete': 'Text löschen', 'text.deselect': 'Text abwählen', 'text.underlineStyle': 'Unterstreichungsstil', 'text.lineSolid': 'Durchgezogen', 'text.lineDashed': 'Gestrichelt', 'text.lineDotted': 'Gepunktet', 'text.lineDouble': 'Doppelt', 'text.done': 'Fertig', 'text.cancel': 'Textplatzierung abbrechen', 'text.transparentBackground': 'Transparenter Hintergrund',
     'common.back': 'Zurück', 'common.done': 'Fertig', 'common.cancel': 'Abbrechen',
     'viewer.hint': 'Doppelklicken Sie auf eine vertikale Fläche, um sie auszuwählen.',
     'viewer.hint.placement': 'Textplatzierungsmodus: Bewegen Sie den Cursor über eine Oberfläche und klicken Sie. Die oberen Flächen werden um 1 Meter angehoben.',
@@ -78,6 +78,7 @@ const textHorizontalLockButton = $('#textHorizontalLockButton');
 const textVerticalLockButton = $('#textVerticalLockButton');
 const textEditButton = $('#textEditButton');
 const textDeleteButton = $('#textDeleteButton');
+const textDismissButton = $('#textDismissButton');
 const faceActionPopup = $('#faceActionPopup');
 const faceDismissButton = $('#faceDismissButton');
 const textEditorPanel = $('#textEditorPanel');
@@ -130,6 +131,7 @@ let selectedTextId = '';
 let selectedTextConstraint = '';
 let selectedTextConstraintFace = null;
 let selectedTextConstraintSideFactor = 1;
+let selectedTextConstraintFixedS = null;
 let textDragging = false;
 let textDragPointerId = null;
 let textDragMoved = false;
@@ -226,6 +228,11 @@ function facePointFromLocal(face, sideFactor, h, v, offset = 0) {
     .add(basis.horizontal.clone().multiplyScalar(h))
     .add(basis.vertical.clone().multiplyScalar(v))
     .add(basis.normal.clone().multiplyScalar(offset));
+}
+function faceDisplayPointFromLocal(face, sideFactor, h, v, offset = 0) {
+  const point = facePointFromLocal(face, sideFactor, h, v, offset);
+  if (isTopFace(face) && isLidLiftActive()) point.y += LID_LIFT_MM;
+  return point;
 }
 function pointToFaceLocal(face, sideFactor, point) {
   const basis = faceBasis(face, sideFactor);
@@ -512,6 +519,95 @@ function faceHeight(face) { return face.v2 - face.v1; }
 function isVerticalFace(face) { return face.axis === 'x' || face.axis === 'z'; }
 function isTopFace(face) { return face.axis === 'y' && face.sign > 0; }
 function isBottomFace(face) { return face.axis === 'y' && face.sign < 0; }
+
+function isLidLiftActive() {
+  return placementMode || Boolean(selectedTextId) || Boolean(editingTextId);
+}
+function sameVerticalPlane(a, b, tolerance = 0.75) {
+  return Boolean(a && b)
+    && isVerticalFace(a) && isVerticalFace(b)
+    && a.axis === b.axis
+    && a.sign === b.sign
+    && Math.abs(a.coord - b.coord) <= tolerance;
+}
+function verticalPlaneEntries(referenceFace, sideFactor = 1) {
+  if (!isVerticalFace(referenceFace)) return [];
+  const horizontal = verticalFaceTangent(referenceFace, sideFactor).normalize();
+  return surfaceDescriptors
+    .filter((candidate) => sameVerticalPlane(referenceFace, candidate))
+    .map((face) => {
+      const a = verticalFaceEndpoint(face, 'u1', (face.v1 + face.v2) / 2);
+      const b = verticalFaceEndpoint(face, 'u2', (face.v1 + face.v2) / 2);
+      const sa = a.dot(horizontal);
+      const sb = b.dot(horizontal);
+      return { face, sMin: Math.min(sa, sb), sMax: Math.max(sa, sb), yMin: face.v1, yMax: face.v2 };
+    });
+}
+function mergeIntervals(intervals = [], tolerance = 0.75) {
+  const sorted = intervals
+    .filter((interval) => Number.isFinite(interval.min) && Number.isFinite(interval.max))
+    .map((interval) => ({ min: Math.min(interval.min, interval.max), max: Math.max(interval.min, interval.max) }))
+    .sort((a, b) => a.min - b.min);
+  const merged = [];
+  for (const interval of sorted) {
+    const last = merged[merged.length - 1];
+    if (!last || interval.min > last.max + tolerance) merged.push({ ...interval });
+    else last.max = Math.max(last.max, interval.max);
+  }
+  return merged;
+}
+function intervalContainingOrNearest(intervals, value) {
+  if (!intervals.length) return null;
+  const containing = intervals.find((interval) => value >= interval.min - EPSILON && value <= interval.max + EPSILON);
+  if (containing) return containing;
+  return [...intervals].sort((a, b) => {
+    const da = value < a.min ? a.min - value : value - a.max;
+    const db = value < b.min ? b.min - value : value - b.max;
+    return da - db;
+  })[0];
+}
+function verticalPlanePoint(referenceFace, sideFactor, s, y) {
+  const normal = faceNormal(referenceFace).multiplyScalar(sideFactor >= 0 ? 1 : -1).normalize();
+  const horizontal = verticalFaceTangent(referenceFace, sideFactor).normalize();
+  const planeDistance = faceCenter(referenceFace).dot(normal);
+  return horizontal.clone().multiplyScalar(s)
+    .add(new THREE.Vector3(0, y, 0))
+    .add(normal.clone().multiplyScalar(planeDistance));
+}
+function planeHorizontalRunAtY(referenceFace, sideFactor, y, s) {
+  const entries = verticalPlaneEntries(referenceFace, sideFactor);
+  const runs = mergeIntervals(entries
+    .filter((entry) => y >= entry.yMin - EPSILON && y <= entry.yMax + EPSILON)
+    .map((entry) => ({ min: entry.sMin, max: entry.sMax })));
+  return intervalContainingOrNearest(runs, s);
+}
+function planeVerticalRunAtS(referenceFace, sideFactor, s, y) {
+  const entries = verticalPlaneEntries(referenceFace, sideFactor);
+  const runs = mergeIntervals(entries
+    .filter((entry) => s >= entry.sMin - EPSILON && s <= entry.sMax + EPSILON)
+    .map((entry) => ({ min: entry.yMin, max: entry.yMax })));
+  return intervalContainingOrNearest(runs, y);
+}
+function planeFaceAt(referenceFace, sideFactor, s, preferredY) {
+  const entries = verticalPlaneEntries(referenceFace, sideFactor);
+  const candidates = entries.filter((entry) => s >= entry.sMin - EPSILON && s <= entry.sMax + EPSILON);
+  if (!candidates.length) return null;
+  const containingY = candidates.filter((entry) => preferredY >= entry.yMin - EPSILON && preferredY <= entry.yMax + EPSILON);
+  const source = containingY.length ? containingY : candidates;
+  return [...source].sort((a, b) => {
+    const ac = (a.yMin + a.yMax) / 2;
+    const bc = (b.yMin + b.yMax) / 2;
+    return Math.abs(ac - preferredY) - Math.abs(bc - preferredY);
+  })[0]?.face || null;
+}
+function stickerDimensionsForFace(spec, face) {
+  const artwork = createTextArtwork(spec);
+  const availableHeight = Math.max(36, faceHeight(face) - 8);
+  const scale = Math.min(1, availableHeight / artwork.worldHeight);
+  const result = { width: artwork.worldWidth * scale, height: artwork.worldHeight * scale };
+  artwork.texture.dispose();
+  return result;
+}
 function verticalFaceTangent(face, sideFactor = 1) {
   const normal = faceNormal(face).multiplyScalar(sideFactor);
   return new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), normal).normalize();
@@ -526,13 +622,20 @@ function sameHorizontalPoint(a, b, tolerance = 0.75) {
 function faceContainsY(face, y) {
   return y >= face.v1 - EPSILON && y <= face.v2 + EPSILON;
 }
-function adjacentVerticalFace(currentFace, edgePoint, y) {
-  return surfaceDescriptors.find((candidate) => {
+function adjacentVerticalFace(currentFace, edgePoint, y, sideFactor = 1, directionSign = 1, currentDirection = null) {
+  const candidates = surfaceDescriptors.filter((candidate) => {
     if (!isVerticalFace(candidate) || faceKey(candidate) === faceKey(currentFace) || !faceContainsY(candidate, y)) return false;
     const a = verticalFaceEndpoint(candidate, 'u1', y);
     const b = verticalFaceEndpoint(candidate, 'u2', y);
     return sameHorizontalPoint(a, edgePoint) || sameHorizontalPoint(b, edgePoint);
-  }) || null;
+  });
+  if (!candidates.length) return null;
+  if (!currentDirection) return candidates[0];
+  return candidates.sort((lhs, rhs) => {
+    const leftDirection = verticalFaceTangent(lhs, sideFactor).multiplyScalar(directionSign).normalize();
+    const rightDirection = verticalFaceTangent(rhs, sideFactor).multiplyScalar(directionSign).normalize();
+    return rightDirection.dot(currentDirection) - leftDirection.dot(currentDirection);
+  })[0] || null;
 }
 function walkStickerOffset(startFace, startPoint, sideFactor, offset) {
   if (!isVerticalFace(startFace) || Math.abs(offset) < EPSILON) {
@@ -543,31 +646,42 @@ function walkStickerOffset(startFace, startPoint, sideFactor, offset) {
   let face = startFace;
   let point = startPoint.clone();
   const y = startPoint.y;
-  for (let step = 0; step < 20; step += 1) {
+  for (let step = 0; step < 48; step += 1) {
     const canonical = verticalFaceTangent(face, sideFactor);
-    let direction = canonical.clone().multiplyScalar(sign);
+    const direction = canonical.clone().multiplyScalar(sign).normalize();
     const a = verticalFaceEndpoint(face, 'u1', y);
     const b = verticalFaceEndpoint(face, 'u2', y);
     const da = a.clone().sub(point).dot(direction);
     const db = b.clone().sub(point).dot(direction);
     const candidates = [[da, a], [db, b]].filter(([distance]) => distance > EPSILON).sort((lhs, rhs) => lhs[0] - rhs[0]);
+
+    // When the anchor itself sits exactly on a face boundary, the old walker
+    // had no positive in-face distance and pinned every remaining strip to the
+    // corner. Continue immediately onto the adjacent surface instead so the
+    // sticker bends rather than visually compressing at the edge.
     if (!candidates.length) {
-      return { face, point, tangent: canonical, normal: faceNormal(face).multiplyScalar(sideFactor) };
+      const nextFace = adjacentVerticalFace(face, point, y, sideFactor, sign, direction);
+      if (!nextFace) return { face, point, tangent: canonical, normal: faceNormal(face).multiplyScalar(sideFactor), blocked: true };
+      face = nextFace;
+      continue;
     }
+
     const [distanceToEdge, edgePoint] = candidates[0];
-    if (remaining <= distanceToEdge + EPSILON) {
+    if (remaining < distanceToEdge - EPSILON) {
       point.add(direction.multiplyScalar(remaining));
-      return { face, point, tangent: canonical, normal: faceNormal(face).multiplyScalar(sideFactor) };
+      return { face, point, tangent: canonical, normal: faceNormal(face).multiplyScalar(sideFactor), blocked: false };
+    }
+    if (Math.abs(remaining - distanceToEdge) <= EPSILON) {
+      point.copy(edgePoint);
+      return { face, point, tangent: canonical, normal: faceNormal(face).multiplyScalar(sideFactor), blocked: false };
     }
     remaining -= distanceToEdge;
     point.copy(edgePoint);
-    const nextFace = adjacentVerticalFace(face, point, y);
-    if (!nextFace) {
-      return { face, point, tangent: canonical, normal: faceNormal(face).multiplyScalar(sideFactor) };
-    }
+    const nextFace = adjacentVerticalFace(face, point, y, sideFactor, sign, direction);
+    if (!nextFace) return { face, point, tangent: canonical, normal: faceNormal(face).multiplyScalar(sideFactor), blocked: true };
     face = nextFace;
   }
-  return { face, point, tangent: verticalFaceTangent(face, sideFactor), normal: faceNormal(face).multiplyScalar(sideFactor) };
+  return { face, point, tangent: verticalFaceTangent(face, sideFactor), normal: faceNormal(face).multiplyScalar(sideFactor), blocked: true };
 }
 function selectedFaceHighlightVisible(face) {
   return Boolean(selectedFaceSnapshot)
@@ -599,7 +713,7 @@ function makeSurfaceMesh(face) {
   const normal = faceNormal(face);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
   const center = faceCenter(face);
-  if (placementMode && isTopFace(face)) center.y += LID_LIFT_MM;
+  if (isLidLiftActive() && isTopFace(face)) center.y += LID_LIFT_MM;
   mesh.position.copy(center);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -649,7 +763,7 @@ function boundsForBoxes(boxes = currentBoxes()) {
 }
 function fitControlsTarget() {
   const b = boundsForBoxes();
-  controls.target.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2 + (placementMode ? LID_LIFT_MM * 0.08 : 0), (b.minZ + b.maxZ) / 2);
+  controls.target.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2 + (isLidLiftActive() ? LID_LIFT_MM * 0.08 : 0), (b.minZ + b.maxZ) / 2);
 }
 
 function createTextArtwork(spec) {
@@ -762,7 +876,7 @@ function renderPlacedTexts() {
     if (!Array.isArray(placement.position)) continue;
     const mesh = createTextMesh(placement.spec, 1);
     const position = new THREE.Vector3().fromArray(placement.position);
-    if (placement.topSurface && placementMode) position.y += LID_LIFT_MM;
+    if (placement.topSurface && isLidLiftActive()) position.y += LID_LIFT_MM;
     mesh.position.copy(position);
     mesh.quaternion.fromArray(placement.quaternion || [0,0,0,1]);
     mesh.userData.cardboxText = true;
@@ -886,6 +1000,7 @@ function placementBoundsOnFace(placement, face, sideFactor = 1) {
   } else if (Array.isArray(placement.position)) {
     const artwork = createTextArtwork(placement.spec);
     const position = new THREE.Vector3().fromArray(placement.position);
+    if (placement.topSurface && isLidLiftActive()) position.y += LID_LIFT_MM;
     const quaternion = new THREE.Quaternion().fromArray(placement.quaternion || [0,0,0,1]);
     points.push(...textPlaneCorners(position, quaternion, artwork.worldWidth, artwork.worldHeight));
     artwork.texture.dispose();
@@ -909,6 +1024,90 @@ function placementBoundsOnFace(placement, face, sideFactor = 1) {
     vMin: Math.min(...coordinates.map((p0) => p0.v)), vMax: Math.max(...coordinates.map((p0) => p0.v)),
   };
 }
+function placementCenterFaceInfo(placement) {
+  if (!placement) return null;
+  if (Array.isArray(placement.segments) && placement.segments.length) {
+    const ordered = [...placement.segments].sort((a, b) => {
+      const ca = Math.abs((((Number(a.u0) || 0) + (Number(a.u1) || 1)) / 2) - 0.5);
+      const cb = Math.abs((((Number(b.u0) || 0) + (Number(b.u1) || 1)) / 2) - 0.5);
+      return ca - cb;
+    });
+    for (const segment of ordered) {
+      const info = segmentFaceInfo(segment);
+      if (!info) continue;
+      const point = new THREE.Vector3().fromArray(segment.position || [0,0,0]);
+      const basis = faceBasis(info.face, info.sideFactor);
+      point.sub(basis.normal.clone().multiplyScalar(point.clone().sub(basis.center).dot(basis.normal)));
+      return { face: info.face, sideFactor: info.sideFactor, anchor: point, segment };
+    }
+  }
+  return resolvePlacementFaceInfo(placement);
+}
+function segmentHorizontalEdge(segment, edgeSign) {
+  const position = new THREE.Vector3().fromArray(segment.position || [0,0,0]);
+  const quaternion = new THREE.Quaternion().fromArray(segment.quaternion || [0,0,0,1]);
+  const xAxis = new THREE.Vector3(1,0,0).applyQuaternion(quaternion).normalize();
+  return position.add(xAxis.multiplyScalar((Number(segment.width) || 10) * 0.5 * edgeSign));
+}
+function placementHorizontalEndpoints(placement) {
+  if (!placement) return null;
+  if (Array.isArray(placement.segments) && placement.segments.length) {
+    const ordered = [...placement.segments].sort((a,b) => {
+      const ac = ((Number(a.u0) || 0) + (Number(a.u1) || 1)) / 2;
+      const bc = ((Number(b.u0) || 0) + (Number(b.u1) || 1)) / 2;
+      return ac - bc;
+    });
+    const first = ordered[0];
+    const last = ordered[ordered.length - 1];
+    const firstInfo = segmentFaceInfo(first);
+    const lastInfo = segmentFaceInfo(last);
+    if (firstInfo && lastInfo) {
+      return {
+        left: { point: segmentHorizontalEdge(first, -1), face: firstInfo.face, sideFactor: firstInfo.sideFactor, direction: new THREE.Vector3(-1,0,0).applyQuaternion(new THREE.Quaternion().fromArray(first.quaternion || [0,0,0,1])).normalize() },
+        right: { point: segmentHorizontalEdge(last, 1), face: lastInfo.face, sideFactor: lastInfo.sideFactor, direction: new THREE.Vector3(1,0,0).applyQuaternion(new THREE.Quaternion().fromArray(last.quaternion || [0,0,0,1])).normalize() },
+      };
+    }
+  }
+  if (Array.isArray(placement.position)) {
+    const info = resolvePlacementFaceInfo(placement);
+    if (!info) return null;
+    const artwork = createTextArtwork(placement.spec);
+    const position = new THREE.Vector3().fromArray(placement.position);
+    if (placement.topSurface && isLidLiftActive()) position.y += LID_LIFT_MM;
+    const quaternion = new THREE.Quaternion().fromArray(placement.quaternion || [0,0,0,1]);
+    const xAxis = new THREE.Vector3(1,0,0).applyQuaternion(quaternion).normalize();
+    const half = artwork.worldWidth / 2;
+    artwork.texture.dispose();
+    return {
+      left: { point: position.clone().add(xAxis.clone().multiplyScalar(-half)), face: info.face, sideFactor: info.sideFactor, direction: xAxis.clone().multiplyScalar(-1) },
+      right: { point: position.clone().add(xAxis.clone().multiplyScalar(half)), face: info.face, sideFactor: info.sideFactor, direction: xAxis.clone() },
+    };
+  }
+  return null;
+}
+function flatBoundaryGuide(endpoint) {
+  if (!endpoint?.face || !isVerticalFace(endpoint.face)) return null;
+  const basis = faceBasis(endpoint.face, endpoint.sideFactor);
+  const projected = endpoint.point.clone().sub(basis.normal.clone().multiplyScalar(endpoint.point.clone().sub(basis.center).dot(basis.normal)));
+  const horizontal = verticalFaceTangent(endpoint.face, endpoint.sideFactor).normalize();
+  const s = projected.dot(horizontal);
+  const run = planeHorizontalRunAtY(endpoint.face, endpoint.sideFactor, projected.y, s);
+  if (!run) return null;
+  const directionSign = endpoint.direction.dot(horizontal) >= 0 ? 1 : -1;
+  const targetS = directionSign > 0 ? run.max : run.min;
+  const end = verticalPlanePoint(endpoint.face, endpoint.sideFactor, targetS, projected.y);
+  return {
+    start: projected,
+    end,
+    direction: endpoint.direction.clone().normalize(),
+    normal: basis.normal,
+    distance: Math.max(0, Math.abs(targetS - s)),
+  };
+}
+function stickerDimensionsForPlacementOnFace(placement, face) {
+  return stickerDimensionsForFace(placement.spec, face);
+}
+
 function makeGuideLine(start, end) {
   const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
   const material = new THREE.LineDashedMaterial({ color: 0x0e82d8, dashSize: 2, gapSize: 4, transparent: true, opacity: 0.9, depthTest: false });
@@ -935,24 +1134,22 @@ function makeGuideArrow(point, direction, normal) {
   mesh.renderOrder = 21;
   return mesh;
 }
-function addDistanceGuide(id, start, end, outwardDirection, basis, distance) {
-  const surfaceOffset = basis.normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM + 3.2);
+function addWorldDistanceGuide(id, start, end, outwardDirection, normal, distance) {
+  const surfaceOffset = normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM + 3.2);
   const a = start.clone().add(surfaceOffset);
   const b = end.clone().add(surfaceOffset);
   textSelectionGroup.add(makeGuideLine(a, b));
-  textSelectionGroup.add(makeGuideArrow(b, outwardDirection, basis.normal));
-  textSelectionGroup.add(makeGuideArrow(a, outwardDirection.clone().multiplyScalar(-1), basis.normal));
+  textSelectionGroup.add(makeGuideArrow(b, outwardDirection, normal));
+  textSelectionGroup.add(makeGuideArrow(a, outwardDirection.clone().multiplyScalar(-1), normal));
   textGuidePoints.push({ id, point: a.clone().lerp(b, 0.5), label: displayLength(Math.max(0, distance)) });
+}
+function addDistanceGuide(id, start, end, outwardDirection, basis, distance) {
+  addWorldDistanceGuide(id, start, end, outwardDirection, basis.normal, distance);
 }
 function selectedTextFaceInfo() {
   const placement = placementById(selectedTextId);
   if (!placement) return null;
-  if (selectedTextConstraint && selectedTextConstraintFace) {
-    const face = currentFaceForDescriptor(selectedTextConstraintFace) || selectedTextConstraintFace;
-    const anchor = Array.isArray(placement.anchor) ? new THREE.Vector3().fromArray(placement.anchor) : faceCenter(face);
-    return { face, sideFactor: selectedTextConstraintSideFactor, anchor };
-  }
-  return resolvePlacementPrimaryFaceInfo(placement);
+  return placementCenterFaceInfo(placement) || resolvePlacementPrimaryFaceInfo(placement) || resolvePlacementFaceInfo(placement);
 }
 function renderTextGuideLabels() {
   textGuideLayer.innerHTML = textGuidePoints.map((guide) => `<div class="text-guide-label" data-text-guide="${guide.id}">${guide.label}</div>`).join('');
@@ -963,27 +1160,51 @@ function renderTextSelection() {
   textHudAnchor = null;
   textGuideLayer.innerHTML = '';
   textSelectionHud.hidden = true;
+  textSelectionHud.style.display = 'none';
   canvasHost.classList.toggle('has-selected-text', Boolean(selectedTextId));
   textHorizontalLockButton.classList.toggle('is-active', selectedTextConstraint === 'horizontal');
   textVerticalLockButton.classList.toggle('is-active', selectedTextConstraint === 'vertical');
   if (!selectedTextId || placementMode || addMode || editingTextId || !textEditorPanel.hidden) return;
+
   const placement = placementById(selectedTextId);
   const info = selectedTextFaceInfo();
   if (!placement || !info) return;
   const bounds = placementBoundsOnFace(placement, info.face, info.sideFactor);
   if (!bounds) return;
   const basis = bounds.basis;
-  const textHMin = Math.max(bounds.hMin, basis.hMin);
-  const textHMax = Math.min(bounds.hMax, basis.hMax);
-  const textVMin = Math.max(bounds.vMin, basis.vMin);
-  const textVMax = Math.min(bounds.vMax, basis.vMax);
+
+  let surfaceHMin = basis.hMin;
+  let surfaceHMax = basis.hMax;
+  let surfaceVMin = basis.vMin;
+  let surfaceVMax = basis.vMax;
+  if (isVerticalFace(info.face)) {
+    const horizontal = verticalFaceTangent(info.face, info.sideFactor).normalize();
+    const centerS = info.anchor.dot(horizontal);
+    const verticalRun = planeVerticalRunAtS(info.face, info.sideFactor, centerS, info.anchor.y);
+    if (verticalRun) {
+      surfaceVMin = verticalRun.min - basis.center.y;
+      surfaceVMax = verticalRun.max - basis.center.y;
+    }
+    const flatRun = planeHorizontalRunAtY(info.face, info.sideFactor, info.anchor.y, centerS);
+    if (flatRun) {
+      const centerS0 = basis.center.dot(horizontal);
+      surfaceHMin = flatRun.min - centerS0;
+      surfaceHMax = flatRun.max - centerS0;
+    }
+  }
+
+  const textHMin = Math.max(bounds.hMin, surfaceHMin);
+  const textHMax = Math.min(bounds.hMax, surfaceHMax);
+  const textVMin = Math.max(bounds.vMin, surfaceVMin);
+  const textVMax = Math.min(bounds.vMax, surfaceVMax);
   const hCenter = (textHMin + textHMax) / 2;
   const vCenter = (textVMin + textVMax) / 2;
+
   const outlinePoints = [
-    facePointFromLocal(info.face, info.sideFactor, textHMin, textVMin, SURFACE_TEXT_OFFSET_MM + 3.4),
-    facePointFromLocal(info.face, info.sideFactor, textHMax, textVMin, SURFACE_TEXT_OFFSET_MM + 3.4),
-    facePointFromLocal(info.face, info.sideFactor, textHMax, textVMax, SURFACE_TEXT_OFFSET_MM + 3.4),
-    facePointFromLocal(info.face, info.sideFactor, textHMin, textVMax, SURFACE_TEXT_OFFSET_MM + 3.4),
+    faceDisplayPointFromLocal(info.face, info.sideFactor, textHMin, textVMin, SURFACE_TEXT_OFFSET_MM + 3.4),
+    faceDisplayPointFromLocal(info.face, info.sideFactor, textHMax, textVMin, SURFACE_TEXT_OFFSET_MM + 3.4),
+    faceDisplayPointFromLocal(info.face, info.sideFactor, textHMax, textVMax, SURFACE_TEXT_OFFSET_MM + 3.4),
+    faceDisplayPointFromLocal(info.face, info.sideFactor, textHMin, textVMax, SURFACE_TEXT_OFFSET_MM + 3.4),
   ];
   const outlineGeometry = new THREE.BufferGeometry().setFromPoints([...outlinePoints, outlinePoints[0]]);
   const outlineMaterial = new THREE.LineBasicMaterial({ color: 0x0e82d8, transparent: true, opacity: 0.95, depthTest: false });
@@ -991,26 +1212,47 @@ function renderTextSelection() {
   outline.renderOrder = 20;
   textSelectionGroup.add(outline);
 
-  addDistanceGuide('left',
-    facePointFromLocal(info.face, info.sideFactor, textHMin, vCenter),
-    facePointFromLocal(info.face, info.sideFactor, basis.hMin, vCenter),
-    basis.horizontal.clone().multiplyScalar(-1), basis, textHMin - basis.hMin);
-  addDistanceGuide('right',
-    facePointFromLocal(info.face, info.sideFactor, textHMax, vCenter),
-    facePointFromLocal(info.face, info.sideFactor, basis.hMax, vCenter),
-    basis.horizontal.clone(), basis, basis.hMax - textHMax);
-  addDistanceGuide('down',
-    facePointFromLocal(info.face, info.sideFactor, hCenter, textVMin),
-    facePointFromLocal(info.face, info.sideFactor, hCenter, basis.vMin),
-    basis.vertical.clone().multiplyScalar(-1), basis, textVMin - basis.vMin);
-  addDistanceGuide('up',
-    facePointFromLocal(info.face, info.sideFactor, hCenter, textVMax),
-    facePointFromLocal(info.face, info.sideFactor, hCenter, basis.vMax),
-    basis.vertical.clone(), basis, basis.vMax - textVMax);
+  // Horizontal measurements follow the actual sticker endpoints. When the text
+  // bends around a corner, the right/left guide therefore continues from the
+  // final strip on that adjacent side rather than reporting 0 mm at the seam.
+  const endpoints = placementHorizontalEndpoints(placement);
+  const leftGuide = endpoints ? flatBoundaryGuide(endpoints.left) : null;
+  const rightGuide = endpoints ? flatBoundaryGuide(endpoints.right) : null;
+  if (leftGuide) {
+    addWorldDistanceGuide('left', leftGuide.start, leftGuide.end, leftGuide.direction, leftGuide.normal, leftGuide.distance);
+  } else {
+    addDistanceGuide('left',
+      faceDisplayPointFromLocal(info.face, info.sideFactor, textHMin, vCenter),
+      faceDisplayPointFromLocal(info.face, info.sideFactor, surfaceHMin, vCenter),
+      basis.horizontal.clone().multiplyScalar(-1), basis, textHMin - surfaceHMin);
+  }
+  if (rightGuide) {
+    addWorldDistanceGuide('right', rightGuide.start, rightGuide.end, rightGuide.direction, rightGuide.normal, rightGuide.distance);
+  } else {
+    addDistanceGuide('right',
+      faceDisplayPointFromLocal(info.face, info.sideFactor, textHMax, vCenter),
+      faceDisplayPointFromLocal(info.face, info.sideFactor, surfaceHMax, vCenter),
+      basis.horizontal.clone(), basis, surfaceHMax - textHMax);
+  }
 
-  textHudAnchor = facePointFromLocal(info.face, info.sideFactor, hCenter, textVMin, SURFACE_TEXT_OFFSET_MM + 4);
+  // Vertical distances are taken at the middle of the textbox. This makes an
+  // L-shaped elevation report the local height directly above/below the text
+  // center instead of using a larger rectangular bounding face elsewhere.
+  addDistanceGuide('down',
+    faceDisplayPointFromLocal(info.face, info.sideFactor, hCenter, textVMin),
+    faceDisplayPointFromLocal(info.face, info.sideFactor, hCenter, surfaceVMin),
+    basis.vertical.clone().multiplyScalar(-1), basis, textVMin - surfaceVMin);
+  addDistanceGuide('up',
+    faceDisplayPointFromLocal(info.face, info.sideFactor, hCenter, textVMax),
+    faceDisplayPointFromLocal(info.face, info.sideFactor, hCenter, surfaceVMax),
+    basis.vertical.clone(), basis, surfaceVMax - textVMax);
+
+  // Put the action arc diagonally outside the selected text, between the right
+  // and down measurement axes, so none of the four distance guides is hidden.
+  textHudAnchor = faceDisplayPointFromLocal(info.face, info.sideFactor, textHMax, textVMin, SURFACE_TEXT_OFFSET_MM + 4);
   renderTextGuideLabels();
   textSelectionHud.hidden = false;
+  textSelectionHud.style.display = '';
 }
 function selectTextPlacement(id) {
   const placement = placementById(id);
@@ -1020,7 +1262,8 @@ function selectTextPlacement(id) {
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
   selectedTextConstraintSideFactor = 1;
-  renderPlacedTexts();
+  selectedTextConstraintFixedS = null;
+  rebuildSurfaceMeshes();
   renderTextSelection();
 }
 function deselectTextPlacement() {
@@ -1028,11 +1271,13 @@ function deselectTextPlacement() {
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
   selectedTextConstraintSideFactor = 1;
+  selectedTextConstraintFixedS = null;
   textDragging = false;
   textDragPointerId = null;
   textDragMoved = false;
   controls.enabled = true;
   canvasHost.classList.remove('is-text-dragging', 'has-selected-text');
+  rebuildSurfaceMeshes();
   renderTextSelection();
 }
 
@@ -1310,6 +1555,104 @@ function updateSelectedTextGeometry(placement, face, anchor, sideFactor) {
   renderTextSelection();
   return true;
 }
+function nearestPlaneEntryForS(referenceFace, sideFactor, s) {
+  const entries = verticalPlaneEntries(referenceFace, sideFactor);
+  if (!entries.length) return null;
+  return [...entries].sort((a, b) => {
+    const da = s < a.sMin ? a.sMin - s : s > a.sMax ? s - a.sMax : 0;
+    const db = s < b.sMin ? b.sMin - s : s > b.sMax ? s - b.sMax : 0;
+    return da - db;
+  })[0] || null;
+}
+function horizontalConstraintAnchor(placement, referenceFace, sideFactor, desiredPoint) {
+  const horizontal = verticalFaceTangent(referenceFace, sideFactor).normalize();
+  const currentInfo = placementCenterFaceInfo(placement) || resolvePlacementFaceInfo(placement);
+  if (!currentInfo) return null;
+  const currentS = currentInfo.anchor.dot(horizontal);
+  let desiredS = desiredPoint.dot(horizontal);
+  let targetFace = planeFaceAt(referenceFace, sideFactor, desiredS, currentInfo.anchor.y);
+  if (!targetFace) {
+    const nearest = nearestPlaneEntryForS(referenceFace, sideFactor, desiredS);
+    if (!nearest) return null;
+    desiredS = clamp(desiredS, nearest.sMin, nearest.sMax);
+    targetFace = nearest.face;
+  }
+
+  let verticalRun = planeVerticalRunAtS(referenceFace, sideFactor, desiredS, currentInfo.anchor.y);
+  if (!verticalRun) return null;
+  let targetY = (verticalRun.min + verticalRun.max) / 2;
+  targetFace = planeFaceAt(referenceFace, sideFactor, desiredS, targetY) || targetFace;
+  let flatRun = planeHorizontalRunAtY(referenceFace, sideFactor, targetY, desiredS);
+  if (!flatRun) return null;
+  let dimensions = stickerDimensionsForPlacementOnFace(placement, targetFace);
+  const flatWidth = flatRun.max - flatRun.min;
+
+  // A normal-size sticker stays entirely on the current flat side while the
+  // horizontal-center lock is active. Its center is clamped by half the real
+  // sticker width, so the textbox border can never slide through the side edge.
+  if (dimensions.width <= flatWidth + EPSILON) {
+    const minS = flatRun.min + dimensions.width / 2;
+    const maxS = flatRun.max - dimensions.width / 2;
+    desiredS = clamp(desiredS, Math.min(minS, maxS), Math.max(minS, maxS));
+    selectedTextConstraintFixedS = desiredS; // last valid horizontal position
+
+    verticalRun = planeVerticalRunAtS(referenceFace, sideFactor, desiredS, targetY) || verticalRun;
+    targetY = (verticalRun.min + verticalRun.max) / 2;
+    targetFace = planeFaceAt(referenceFace, sideFactor, desiredS, targetY) || targetFace;
+    flatRun = planeHorizontalRunAtY(referenceFace, sideFactor, targetY, desiredS) || flatRun;
+    dimensions = stickerDimensionsForPlacementOnFace(placement, targetFace);
+    if (dimensions.width > flatRun.max - flatRun.min + EPSILON) return null;
+    return { face: targetFace, anchor: verticalPlanePoint(referenceFace, sideFactor, desiredS, targetY), sideFactor, tooWide: false };
+  }
+
+  // If the artwork is literally wider than that side, wrapping is required.
+  // Keep its horizontal coordinate fixed while the lock is active so dragging
+  // cannot squeeze it into an edge or move it through empty space.
+  const fixedS = Number.isFinite(selectedTextConstraintFixedS) ? selectedTextConstraintFixedS : currentS;
+  const fixedVerticalRun = planeVerticalRunAtS(referenceFace, sideFactor, fixedS, currentInfo.anchor.y);
+  if (!fixedVerticalRun) return null;
+  const fixedY = (fixedVerticalRun.min + fixedVerticalRun.max) / 2;
+  const fixedFace = planeFaceAt(referenceFace, sideFactor, fixedS, fixedY) || currentInfo.face;
+  return { face: fixedFace, anchor: verticalPlanePoint(referenceFace, sideFactor, fixedS, fixedY), sideFactor, tooWide: true };
+}
+function verticalConstraintAnchor(placement, referenceFace, sideFactor, desiredPoint) {
+  const horizontal = verticalFaceTangent(referenceFace, sideFactor).normalize();
+  const currentInfo = placementCenterFaceInfo(placement) || resolvePlacementFaceInfo(placement);
+  if (!currentInfo) return null;
+  const currentS = currentInfo.anchor.dot(horizontal);
+  let fixedS = Number.isFinite(selectedTextConstraintFixedS) ? selectedTextConstraintFixedS : currentS;
+  const verticalRun = planeVerticalRunAtS(referenceFace, sideFactor, fixedS, desiredPoint.y);
+  if (!verticalRun) return null;
+  let targetY = desiredPoint.y;
+  let targetFace = planeFaceAt(referenceFace, sideFactor, fixedS, targetY) || currentInfo.face;
+  const dimensions = stickerDimensionsForPlacementOnFace(placement, targetFace);
+  if (dimensions.height >= verticalRun.max - verticalRun.min - EPSILON) {
+    targetY = (verticalRun.min + verticalRun.max) / 2;
+  } else {
+    targetY = clamp(targetY, verticalRun.min + dimensions.height / 2, verticalRun.max - dimensions.height / 2);
+  }
+  targetFace = planeFaceAt(referenceFace, sideFactor, fixedS, targetY) || targetFace;
+  return { face: targetFace, anchor: verticalPlanePoint(referenceFace, sideFactor, fixedS, targetY), sideFactor };
+}
+function genericConstraintAnchor(placement, face, sideFactor, mode, desiredPoint) {
+  const local = pointToFaceLocal(face, sideFactor, desiredPoint);
+  const artwork = createTextArtwork(placement.spec);
+  const marginH = artwork.worldWidth / 2;
+  const marginV = artwork.worldHeight / 2;
+  artwork.texture.dispose();
+  let h = local.h;
+  let v = local.v;
+  if (mode === 'horizontal') {
+    v = 0;
+    if (marginH >= local.basis.hMax - local.basis.hMin) h = 0;
+    else h = clamp(h, local.basis.hMin + marginH, local.basis.hMax - marginH);
+  } else {
+    h = 0;
+    if (marginV >= local.basis.vMax - local.basis.vMin) v = 0;
+    else v = clamp(v, local.basis.vMin + marginV, local.basis.vMax - marginV);
+  }
+  return { face, anchor: facePointFromLocal(face, sideFactor, h, v, 0), sideFactor };
+}
 function toggleSelectedTextConstraint(mode) {
   const placement = placementById(selectedTextId);
   if (!placement) return;
@@ -1317,20 +1660,37 @@ function toggleSelectedTextConstraint(mode) {
     selectedTextConstraint = '';
     selectedTextConstraintFace = null;
     selectedTextConstraintSideFactor = 1;
+    selectedTextConstraintFixedS = null;
     renderTextSelection();
     return;
   }
-  const info = resolvePlacementPrimaryFaceInfo(placement);
+  const info = placementCenterFaceInfo(placement) || resolvePlacementPrimaryFaceInfo(placement);
   if (!info) return;
   recordUndoCheckpoint();
   selectedTextConstraint = mode;
   selectedTextConstraintFace = copyFace(info.face);
   selectedTextConstraintSideFactor = info.sideFactor;
-  const local = pointToFaceLocal(info.face, info.sideFactor, info.anchor);
-  const h = mode === 'vertical' ? 0 : local.h;
-  const v = mode === 'horizontal' ? 0 : local.v;
-  const anchor = facePointFromLocal(info.face, info.sideFactor, h, v, 0);
-  updateSelectedTextGeometry(placement, info.face, anchor, info.sideFactor);
+  selectedTextConstraintFixedS = null;
+
+  let result;
+  if (isVerticalFace(info.face)) {
+    const horizontal = verticalFaceTangent(info.face, info.sideFactor).normalize();
+    const currentS = info.anchor.dot(horizontal);
+    if (mode === 'vertical') {
+      const flatRun = planeHorizontalRunAtY(info.face, info.sideFactor, info.anchor.y, currentS);
+      selectedTextConstraintFixedS = flatRun ? (flatRun.min + flatRun.max) / 2 : currentS;
+      result = verticalConstraintAnchor(placement, info.face, info.sideFactor, info.anchor);
+    } else {
+      selectedTextConstraintFixedS = currentS;
+      result = horizontalConstraintAnchor(placement, info.face, info.sideFactor, info.anchor);
+    }
+  } else {
+    result = genericConstraintAnchor(placement, info.face, info.sideFactor, mode, info.anchor);
+  }
+  if (!result) return;
+  selectedTextConstraintFace = copyFace(result.face);
+  selectedTextConstraintSideFactor = result.sideFactor;
+  updateSelectedTextGeometry(placement, result.face, result.anchor, result.sideFactor);
   markConfigurationDirty();
 }
 function deleteSelectedText() {
@@ -1343,18 +1703,18 @@ function deleteSelectedText() {
   renderAll();
   markConfigurationDirty();
 }
-function dragPointOnConstraintFace(event, face, sideFactor, mode) {
+function dragPointOnConstraintFace(event, placement, face, sideFactor, mode) {
   const { raycaster } = raycast(event, []);
   const basis = faceBasis(face, sideFactor);
   const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(basis.normal, basis.center);
   const hitPoint = new THREE.Vector3();
   if (!raycaster.ray.intersectPlane(plane, hitPoint)) return null;
-  const local = pointToFaceLocal(face, sideFactor, hitPoint);
-  let h = clamp(local.h, basis.hMin, basis.hMax);
-  let v = clamp(local.v, basis.vMin, basis.vMax);
-  if (mode === 'horizontal') v = 0;
-  if (mode === 'vertical') h = 0;
-  return facePointFromLocal(face, sideFactor, h, v, 0);
+  if (isVerticalFace(face)) {
+    return mode === 'horizontal'
+      ? horizontalConstraintAnchor(placement, face, sideFactor, hitPoint)
+      : verticalConstraintAnchor(placement, face, sideFactor, hitPoint);
+  }
+  return genericConstraintAnchor(placement, face, sideFactor, mode, hitPoint);
 }
 function moveSelectedTextWithPointer(event) {
   if (!textDragging || !selectedTextId) return false;
@@ -1362,11 +1722,13 @@ function moveSelectedTextWithPointer(event) {
   if (!placement) return false;
   if (selectedTextConstraint && selectedTextConstraintFace) {
     const face = currentFaceForDescriptor(selectedTextConstraintFace) || selectedTextConstraintFace;
-    const anchor = dragPointOnConstraintFace(event, face, selectedTextConstraintSideFactor, selectedTextConstraint);
-    if (!anchor) return false;
+    const result = dragPointOnConstraintFace(event, placement, face, selectedTextConstraintSideFactor, selectedTextConstraint);
+    if (!result) return false;
+    selectedTextConstraintFace = copyFace(result.face);
+    selectedTextConstraintSideFactor = result.sideFactor;
     textDragMoved = true;
     suppressCanvasClick = true;
-    return updateSelectedTextGeometry(placement, face, anchor, selectedTextConstraintSideFactor);
+    return updateSelectedTextGeometry(placement, result.face, result.anchor, result.sideFactor);
   }
 
   const { hit, raycaster } = raycast(event, surfaceMeshes, false);
@@ -1487,11 +1849,15 @@ function updateOverlayPositions() {
     const visible = projected.z > -1 && projected.z < 1;
     textSelectionHud.style.display = visible ? '' : 'none';
     if (visible) {
-      textSelectionHud.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
-      textSelectionHud.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
+      const rawLeft = (projected.x * 0.5 + 0.5) * rect.width;
+      const rawTop = (-projected.y * 0.5 + 0.5) * rect.height;
+      const hudWidth = textSelectionHud.offsetWidth || 230;
+      const hudHeight = textSelectionHud.offsetHeight || 132;
+      textSelectionHud.style.left = `${clamp(rawLeft, 4, Math.max(4, rect.width - hudWidth - 18))}px`;
+      textSelectionHud.style.top = `${clamp(rawTop, 4, Math.max(4, rect.height - hudHeight - 18))}px`;
     }
   } else {
-    textSelectionHud.style.display = '';
+    textSelectionHud.style.display = 'none';
   }
   updateFacePopupPosition();
 }
@@ -1546,6 +1912,7 @@ function bindControls() {
   textVerticalLockButton.addEventListener('click', () => toggleSelectedTextConstraint('vertical'));
   textEditButton.addEventListener('click', editSelectedText);
   textDeleteButton.addEventListener('click', deleteSelectedText);
+  textDismissButton.addEventListener('click', deselectTextPlacement);
   bindTextPreviewControls();
 }
 
@@ -1679,6 +2046,7 @@ function restoreState(snapshot) {
   selectedTextId = '';
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
+  selectedTextConstraintFixedS = null;
   editingTextId = '';
   addBoxEditor.hidden = true;
   textEditorPanel.hidden = true;
@@ -1697,6 +2065,7 @@ function resetConfiguration() {
   selectedTextId = '';
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
+  selectedTextConstraintFixedS = null;
   editingTextId = '';
   addBoxEditor.hidden = true;
   textEditorPanel.hidden = true;
@@ -1712,7 +2081,7 @@ function setDarkMode(value) { document.body.classList.toggle('cardbox-dark-mode'
 function toggleDimensions() { dimensionsVisible = !dimensionsVisible; renderDimensions(); return dimensionsVisible; }
 function toggleTechnicalEdges() { technicalEdgesVisible = !technicalEdgesVisible; rebuildSurfaceMeshes(); return technicalEdgesVisible; }
 function cycleCamera() {
-  cameraMode = (cameraMode + 1) % 3; const b = boundsForBoxes(); const maxDim = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, b.maxY - b.minY + (placementMode ? LID_LIFT_MM : 0), 400);
+  cameraMode = (cameraMode + 1) % 3; const b = boundsForBoxes(); const maxDim = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, b.maxY - b.minY + (isLidLiftActive() ? LID_LIFT_MM : 0), 400);
   if (cameraMode === 1) camera.position.set(0, maxDim * 1.8, 0.01); else if (cameraMode === 2) camera.position.set(maxDim * 1.45, maxDim * 0.65, 0); else camera.position.set(maxDim * 1.2, maxDim * 0.9, maxDim * 1.25);
   fitControlsTarget(); controls.update();
 }

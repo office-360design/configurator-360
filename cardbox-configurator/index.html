@@ -8,7 +8,7 @@
   <title>3D Cardboard Box Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=25" />
-  <link rel="stylesheet" href="./styles.css?v=5" />
+  <link rel="stylesheet" href="./styles.css?v=6" />
   <script type="importmap">
     {
       "imports": {
@@ -31,18 +31,21 @@
         <div id="textGuideLayer" class="text-guide-layer" aria-hidden="true"></div>
 
         <div id="textSelectionHud" class="text-selection-hud" hidden aria-label="Selected text actions">
-          <button id="textHorizontalLockButton" class="text-selection-tool" type="button" aria-label="Lock to horizontal center line" title="Lock to horizontal center line" data-cardbox-i18n-title="text.lockHorizontal">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"/><path class="center-line" d="M12 5v14"/></svg>
-          </button>
-          <button id="textVerticalLockButton" class="text-selection-tool" type="button" aria-label="Lock to vertical center line" title="Lock to vertical center line" data-cardbox-i18n-title="text.lockVertical">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M9 7l3-3 3 3M9 17l3 3 3-3"/><path class="center-line" d="M5 12h14"/></svg>
-          </button>
-          <button id="textDeleteButton" class="text-selection-tool text-selection-tool--danger" type="button" aria-label="Delete text" title="Delete text" data-cardbox-i18n-title="text.delete">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>
-          </button>
-          <button id="textEditButton" class="text-selection-tool" type="button" aria-label="Edit text" title="Edit text" data-cardbox-i18n-title="text.edit">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4.3-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14 7 3 3"/></svg>
-          </button>
+          <div class="text-selection-arc">
+            <button id="textHorizontalLockButton" class="text-selection-tool text-selection-tool--horizontal" type="button" aria-label="Lock to horizontal center line" title="Lock to horizontal center line" data-cardbox-i18n-title="text.lockHorizontal">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"/><path class="center-line" d="M12 5v14"/></svg>
+            </button>
+            <button id="textVerticalLockButton" class="text-selection-tool text-selection-tool--vertical" type="button" aria-label="Lock to vertical center line" title="Lock to vertical center line" data-cardbox-i18n-title="text.lockVertical">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M9 7l3-3 3 3M9 17l3 3 3-3"/><path class="center-line" d="M5 12h14"/></svg>
+            </button>
+            <button id="textDeleteButton" class="text-selection-tool text-selection-tool--danger text-selection-tool--delete" type="button" aria-label="Delete text" title="Delete text" data-cardbox-i18n-title="text.delete">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>
+            </button>
+            <button id="textEditButton" class="text-selection-tool text-selection-tool--edit" type="button" aria-label="Edit text" title="Edit text" data-cardbox-i18n-title="text.edit">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4.3-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14 7 3 3"/></svg>
+            </button>
+            <button id="textDismissButton" class="text-selection-tool text-selection-tool--dismiss" type="button" aria-label="Deselect text" title="Deselect text" data-cardbox-i18n-title="text.deselect">×</button>
+          </div>
         </div>
 
         <div id="faceActionPopup" class="face-action-popup" hidden>
@@ -165,7 +168,7 @@
     <button id="cardboxSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide cardboard box settings" aria-expanded="true" title="Hide cardboard box settings"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
   </main>
 
-  <script type="module" src="./js/app.js?v=5"></script>
+  <script type="module" src="./js/app.js?v=6"></script>
   <script type="module" src="./js/sharedShell.js?v=1"></script>
 </body>
 </html>
