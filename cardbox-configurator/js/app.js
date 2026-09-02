@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const DEFAULT_COLOR = '#c78f5a';
-const SELECTED_COLOR = '#65b7eb';
 const BOARD_EUR_M2 = 1.55;
 const CURRENCY_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 const LID_LIFT_MM = 1000;
@@ -109,6 +108,7 @@ let surfaceMeshes = [];
 let surfaceDescriptors = [];
 let selectedFaceKey = '';
 let selectedFaceSnapshot = null;
+let selectedFaceSideFactor = 1;
 let addMode = false;
 let draftBox = null;
 let draftBeforeState = null;
@@ -300,12 +300,89 @@ function faceHeight(face) { return face.v2 - face.v1; }
 function isVerticalFace(face) { return face.axis === 'x' || face.axis === 'z'; }
 function isTopFace(face) { return face.axis === 'y' && face.sign > 0; }
 function isBottomFace(face) { return face.axis === 'y' && face.sign < 0; }
+function verticalFaceTangent(face, sideFactor = 1) {
+  const normal = faceNormal(face).multiplyScalar(sideFactor);
+  return new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), normal).normalize();
+}
+function verticalFaceEndpoint(face, which, y) {
+  if (face.axis === 'x') return new THREE.Vector3(face.coord, y, which === 'u1' ? face.u1 : face.u2);
+  return new THREE.Vector3(which === 'u1' ? face.u1 : face.u2, y, face.coord);
+}
+function sameHorizontalPoint(a, b, tolerance = 0.75) {
+  return Math.abs(a.x - b.x) <= tolerance && Math.abs(a.z - b.z) <= tolerance;
+}
+function faceContainsY(face, y) {
+  return y >= face.v1 - EPSILON && y <= face.v2 + EPSILON;
+}
+function adjacentVerticalFace(currentFace, edgePoint, y) {
+  return surfaceDescriptors.find((candidate) => {
+    if (!isVerticalFace(candidate) || faceKey(candidate) === faceKey(currentFace) || !faceContainsY(candidate, y)) return false;
+    const a = verticalFaceEndpoint(candidate, 'u1', y);
+    const b = verticalFaceEndpoint(candidate, 'u2', y);
+    return sameHorizontalPoint(a, edgePoint) || sameHorizontalPoint(b, edgePoint);
+  }) || null;
+}
+function walkStickerOffset(startFace, startPoint, sideFactor, offset) {
+  if (!isVerticalFace(startFace) || Math.abs(offset) < EPSILON) {
+    return { face: startFace, point: startPoint.clone(), tangent: verticalFaceTangent(startFace, sideFactor), normal: faceNormal(startFace).multiplyScalar(sideFactor) };
+  }
+  const sign = offset >= 0 ? 1 : -1;
+  let remaining = Math.abs(offset);
+  let face = startFace;
+  let point = startPoint.clone();
+  const y = startPoint.y;
+  for (let step = 0; step < 20; step += 1) {
+    const canonical = verticalFaceTangent(face, sideFactor);
+    let direction = canonical.clone().multiplyScalar(sign);
+    const a = verticalFaceEndpoint(face, 'u1', y);
+    const b = verticalFaceEndpoint(face, 'u2', y);
+    const da = a.clone().sub(point).dot(direction);
+    const db = b.clone().sub(point).dot(direction);
+    const candidates = [[da, a], [db, b]].filter(([distance]) => distance > EPSILON).sort((lhs, rhs) => lhs[0] - rhs[0]);
+    if (!candidates.length) {
+      return { face, point, tangent: canonical, normal: faceNormal(face).multiplyScalar(sideFactor) };
+    }
+    const [distanceToEdge, edgePoint] = candidates[0];
+    if (remaining <= distanceToEdge + EPSILON) {
+      point.add(direction.multiplyScalar(remaining));
+      return { face, point, tangent: canonical, normal: faceNormal(face).multiplyScalar(sideFactor) };
+    }
+    remaining -= distanceToEdge;
+    point.copy(edgePoint);
+    const nextFace = adjacentVerticalFace(face, point, y);
+    if (!nextFace) {
+      return { face, point, tangent: canonical, normal: faceNormal(face).multiplyScalar(sideFactor) };
+    }
+    face = nextFace;
+  }
+  return { face, point, tangent: verticalFaceTangent(face, sideFactor), normal: faceNormal(face).multiplyScalar(sideFactor) };
+}
+function selectedFaceHighlightVisible(face) {
+  return Boolean(selectedFaceSnapshot)
+    && faceKey(face) === selectedFaceKey
+    && textEditorPanel.hidden
+    && !addMode
+    && !placementMode;
+}
+function addSelectionMarkers(mesh, face) {
+  if (!selectedFaceHighlightVisible(face)) return;
+  const width = face.u2 - face.u1;
+  const height = face.v2 - face.v1;
+  const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x0e82d8, side: THREE.DoubleSide, depthTest: false });
+  const markerGeometry = new THREE.RingGeometry(4, 6.5, 20);
+  const z = selectedFaceSideFactor * 1.8;
+  for (const [x, y] of [[-width/2,-height/2],[width/2,-height/2],[-width/2,height/2],[width/2,height/2]]) {
+    const marker = new THREE.Mesh(markerGeometry, ringMaterial.clone());
+    marker.position.set(x, y, z);
+    marker.renderOrder = 5;
+    mesh.add(marker);
+  }
+}
 function makeSurfaceMesh(face) {
   const width = face.u2 - face.u1;
   const height = face.v2 - face.v1;
   const geometry = new THREE.PlaneGeometry(width, height);
-  const selected = faceKey(face) === selectedFaceKey;
-  const material = new THREE.MeshStandardMaterial({ color: selected ? SELECTED_COLOR : DEFAULT_COLOR, roughness: 0.84, metalness: 0, side: THREE.DoubleSide });
+  const material = new THREE.MeshStandardMaterial({ color: DEFAULT_COLOR, roughness: 0.84, metalness: 0, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geometry, material);
   const normal = faceNormal(face);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
@@ -320,6 +397,7 @@ function makeSurfaceMesh(face) {
   mesh.userData.vertical = isVerticalFace(face);
   mesh.userData.top = isTopFace(face);
   mesh.userData.bottom = isBottomFace(face);
+  addSelectionMarkers(mesh, face);
   return mesh;
 }
 function rebuildSurfaceMeshes() {
@@ -332,9 +410,11 @@ function rebuildSurfaceMeshes() {
     const mesh = makeSurfaceMesh(face);
     boxGroup.add(mesh);
     surfaceMeshes.push(mesh);
-    if (technicalEdgesVisible) {
-      const edgeMaterial = new THREE.LineBasicMaterial({ color: faceKey(face) === selectedFaceKey ? 0x0876be : 0x755335, transparent: true, opacity: faceKey(face) === selectedFaceKey ? 0.9 : 0.38 });
+    const highlighted = selectedFaceHighlightVisible(face);
+    if (technicalEdgesVisible || highlighted) {
+      const edgeMaterial = new THREE.LineBasicMaterial({ color: highlighted ? 0x0e82d8 : 0x755335, transparent: true, opacity: highlighted ? 0.95 : 0.38, depthTest: !highlighted });
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), edgeMaterial);
+      edges.renderOrder = highlighted ? 4 : 0;
       mesh.add(edges);
     }
     if (isVerticalFace(face)) {
@@ -360,7 +440,7 @@ function fitControlsTarget() {
   controls.target.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2 + (placementMode ? LID_LIFT_MM * 0.08 : 0), (b.minZ + b.maxZ) / 2);
 }
 
-function createTextMesh(spec, opacity = 1) {
+function createTextArtwork(spec) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   const fontPx = clamp(spec.size || 54, 12, 180);
@@ -392,15 +472,70 @@ function createTextMesh(spec, opacity = 1) {
       draw.beginPath(); draw.moveTo(padding, y); draw.lineTo(canvas.width - padding, y); draw.stroke();
     }
   }
-  const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
   const worldHeight = clamp(fontPx * 1.8, 48, 360);
   const worldWidth = worldHeight * canvas.width / canvas.height;
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(worldWidth, worldHeight), new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, opacity }));
-  return mesh;
+  return { texture, worldWidth, worldHeight };
+}
+function makeArtworkPlane(artwork, width, height, opacity = 1, u0 = 0, u1 = 1) {
+  const geometry = new THREE.PlaneGeometry(width, height);
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i += 1) uv.setX(i, uv.getX(i) < 0.5 ? u0 : u1);
+  uv.needsUpdate = true;
+  const material = new THREE.MeshBasicMaterial({ map: artwork.texture, transparent: true, side: THREE.DoubleSide, opacity, depthWrite: opacity >= 1 });
+  return new THREE.Mesh(geometry, material);
+}
+function createTextMesh(spec, opacity = 1) {
+  const artwork = createTextArtwork(spec);
+  return makeArtworkPlane(artwork, artwork.worldWidth, artwork.worldHeight, opacity);
+}
+function createWrappedSticker(spec, face, anchorPoint, sideFactor = 1, opacity = 1) {
+  const artwork = createTextArtwork(spec);
+  const availableHeight = Math.max(36, faceHeight(face) - 8);
+  const scale = Math.min(1, availableHeight / artwork.worldHeight);
+  const width = artwork.worldWidth * scale;
+  const height = artwork.worldHeight * scale;
+  const anchor = anchorPoint.clone();
+  anchor.y = clamp(anchor.y, face.v1 + height / 2, face.v2 - height / 2);
+  const stripCount = Math.max(10, Math.min(96, Math.ceil(width / 10)));
+  const stripWidth = width / stripCount;
+  const group = new THREE.Group();
+  const segments = [];
+  for (let i = 0; i < stripCount; i += 1) {
+    const u0 = i / stripCount;
+    const u1 = (i + 1) / stripCount;
+    const offset = -width / 2 + stripWidth * (i + 0.5);
+    const mapped = walkStickerOffset(face, anchor, sideFactor, offset);
+    const segment = makeArtworkPlane(artwork, stripWidth + 0.55, height, opacity, u0, u1);
+    const normal = mapped.normal.clone().normalize();
+    const position = mapped.point.clone().add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM));
+    segment.position.copy(position);
+    segment.quaternion.copy(quaternionForNormal(normal));
+    group.add(segment);
+    segments.push({ position: position.toArray(), quaternion: segment.quaternion.toArray(), u0, u1, width: stripWidth + 0.55, height });
+  }
+  return { group, segments };
+}
+function createStoredStickerSegments(spec, segments, opacity = 1) {
+  const artwork = createTextArtwork(spec);
+  const group = new THREE.Group();
+  for (const segmentData of segments) {
+    const segment = makeArtworkPlane(artwork, Number(segmentData.width) || 10, Number(segmentData.height) || artwork.worldHeight, opacity, Number(segmentData.u0) || 0, Number(segmentData.u1) || 1);
+    segment.position.fromArray(segmentData.position || [0, 0, 0]);
+    segment.quaternion.fromArray(segmentData.quaternion || [0, 0, 0, 1]);
+    group.add(segment);
+  }
+  return group;
 }
 function renderPlacedTexts() {
   clearGroup(textGroup);
   for (const placement of state.textPlacements) {
+    if (Array.isArray(placement.segments) && placement.segments.length) {
+      textGroup.add(createStoredStickerSegments(placement.spec, placement.segments, 1));
+      continue;
+    }
     const mesh = createTextMesh(placement.spec, 1);
     const position = new THREE.Vector3().fromArray(placement.position);
     if (placement.topSurface && placementMode) position.y += LID_LIFT_MM;
@@ -425,12 +560,17 @@ function renderEditorPreview() {
   if (textEditorPanel.hidden || !selectedFaceSnapshot) return;
   const spec = buildTextSpec();
   editorPreviewSpec = { ...spec };
-  const mesh = createTextMesh(spec, 0.94);
-  const normal = faceNormal(selectedFaceSnapshot);
-  const position = faceCenter(selectedFaceSnapshot).add(normal.multiplyScalar(SURFACE_TEXT_OFFSET_MM));
-  mesh.position.copy(position);
-  mesh.quaternion.copy(quaternionForNormal(faceNormal(selectedFaceSnapshot)));
-  editorPreviewGroup.add(mesh);
+  const anchor = faceCenter(selectedFaceSnapshot);
+  if (isVerticalFace(selectedFaceSnapshot)) {
+    const sticker = createWrappedSticker(spec, selectedFaceSnapshot, anchor, selectedFaceSideFactor, 0.94);
+    editorPreviewGroup.add(sticker.group);
+  } else {
+    const mesh = createTextMesh(spec, 0.94);
+    const normal = faceNormal(selectedFaceSnapshot).multiplyScalar(selectedFaceSideFactor);
+    mesh.position.copy(anchor.add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM)));
+    mesh.quaternion.copy(quaternionForNormal(normal));
+    editorPreviewGroup.add(mesh);
+  }
 }
 function clearEditorPreview() {
   editorPreviewSpec = null;
@@ -484,7 +624,7 @@ function renderFacePopup() {
 }
 function updateFacePopupPosition() {
   if (faceActionPopup.hidden || !selectedFaceSnapshot) return;
-  const world = faceCenter(selectedFaceSnapshot).add(faceNormal(selectedFaceSnapshot).multiplyScalar(10));
+  const world = faceCenter(selectedFaceSnapshot).add(faceNormal(selectedFaceSnapshot).multiplyScalar(10 * selectedFaceSideFactor));
   const projected = world.project(camera);
   const rect = canvasHost.getBoundingClientRect();
   if (projected.z < -1 || projected.z > 1) { faceActionPopup.hidden = true; return; }
@@ -495,11 +635,12 @@ function renderAll() {
   renderInputs(); renderTranslations(); renderSummary(); rebuildSurfaceMeshes(); renderFacePopup();
 }
 
-function selectFace(face) {
+function selectFace(face, sideFactor = 1) {
   const key = faceKey(face);
   if (selectedFaceKey === key) { deselectFace(); return; }
   selectedFaceKey = key;
   selectedFaceSnapshot = { ...face };
+  selectedFaceSideFactor = sideFactor >= 0 ? 1 : -1;
   textEditorPanel.hidden = true;
   clearEditorPreview();
   renderAll();
@@ -507,6 +648,7 @@ function selectFace(face) {
 function deselectFace() {
   selectedFaceKey = '';
   selectedFaceSnapshot = null;
+  selectedFaceSideFactor = 1;
   faceActionPopup.hidden = true;
   textEditorPanel.hidden = true;
   clearEditorPreview();
@@ -534,7 +676,7 @@ function beginAddMode() {
   const defaultWidth = faceHorizontalWidth(selectedFaceSnapshot) / 2;
   const defaultHeight = faceHeight(selectedFaceSnapshot) / 2;
   const defaultDepth = Math.min(defaultWidth, defaultHeight);
-  draftBeforeState = { selectedFaceKey, selectedFaceSnapshot: { ...selectedFaceSnapshot } };
+  draftBeforeState = { selectedFaceKey, selectedFaceSnapshot: { ...selectedFaceSnapshot }, selectedFaceSideFactor };
   draftBox = newAttachedBox(selectedFaceSnapshot, defaultWidth, defaultHeight, defaultDepth);
   addMode = true;
   faceActionPopup.hidden = true;
@@ -577,6 +719,7 @@ function cancelAddMode() {
   if (draftBeforeState) {
     selectedFaceKey = draftBeforeState.selectedFaceKey;
     selectedFaceSnapshot = { ...draftBeforeState.selectedFaceSnapshot };
+    selectedFaceSideFactor = draftBeforeState.selectedFaceSideFactor || 1;
   }
   draftBeforeState = null;
   renderAll();
@@ -599,11 +742,15 @@ function startTextEditor() {
   if (!selectedFaceSnapshot) return;
   faceActionPopup.hidden = true;
   textEditorPanel.hidden = false;
+  // Keep the actual face color untouched while styling text; selection is shown
+  // only by the discrete outline/corner markers in the main face-action state.
+  rebuildSurfaceMeshes();
   renderEditorPreview();
 }
 function backFromTextEditor() {
   textEditorPanel.hidden = true;
   clearEditorPreview();
+  rebuildSurfaceMeshes();
   renderFacePopup();
 }
 function enterPlacementMode() {
@@ -644,6 +791,15 @@ function updateTextPreview(event) {
   if (!hit) return;
   let normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
   if (normal.dot(raycaster.ray.direction) > 0) normal.multiplyScalar(-1);
+  const face = hit.object.userData.face;
+  if (isVerticalFace(face)) {
+    const outward = faceNormal(face);
+    const sideFactor = normal.dot(outward) >= 0 ? 1 : -1;
+    const sticker = createWrappedSticker(pendingTextSpec, face, hit.point.clone(), sideFactor, 0.78);
+    previewGroup.add(sticker.group);
+    previewPlacement = { segments: sticker.segments, spec: { ...pendingTextSpec } };
+    return;
+  }
   const position = hit.point.clone().add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM));
   const quaternion = quaternionForNormal(normal);
   const mesh = createTextMesh(pendingTextSpec, 0.78);
@@ -729,11 +885,13 @@ function bindControls() {
 
 renderer.domElement.addEventListener('dblclick', (event) => {
   if (addMode || placementMode) return;
-  const { hit } = raycast(event);
+  const { hit, raycaster } = raycast(event);
   if (!hit?.object?.userData?.vertical) return;
   const face = hit.object.userData.face;
-  if (selectedFaceKey && selectedFaceKey === hit.object.userData.faceKey) deselectFace();
-  else selectFace(face);
+  if (selectedFaceKey && selectedFaceKey === hit.object.userData.faceKey) { deselectFace(); return; }
+  const outward = faceNormal(face);
+  const sideFactor = outward.dot(raycaster.ray.direction) < 0 ? 1 : -1;
+  selectFace(face, sideFactor);
 });
 renderer.domElement.addEventListener('click', (event) => {
   if (placementMode) {
@@ -756,14 +914,14 @@ function animate() { requestAnimationFrame(animate); controls.update(); updateOv
 animate();
 
 function captureState() {
-  return { version: 3, boxes: state.boxes.map(cloneBox), boardThickness: round(state.boardThickness), textPlacements: state.textPlacements.map((p) => ({ position: [...p.position], quaternion: [...p.quaternion], topSurface: Boolean(p.topSurface), spec: { ...p.spec } })) };
+  return { version: 3, boxes: state.boxes.map(cloneBox), boardThickness: round(state.boardThickness), textPlacements: state.textPlacements.map((p) => ({ position: Array.isArray(p.position) ? [...p.position] : undefined, quaternion: Array.isArray(p.quaternion) ? [...p.quaternion] : undefined, topSurface: Boolean(p.topSurface), segments: Array.isArray(p.segments) ? p.segments.map((s) => ({ position: [...s.position], quaternion: [...s.quaternion], u0: s.u0, u1: s.u1, width: s.width, height: s.height })) : undefined, spec: { ...p.spec } })) };
 }
 function restoreState(snapshot) {
   const source = snapshot?.state && !snapshot.boxes ? snapshot.state : snapshot;
   if (!source || !Array.isArray(source.boxes) || source.boxes.length === 0) return false;
   const boxes = source.boxes.map((box, index) => ({ id: String(box.id || (index === 0 ? 'base' : `piece-${index}`)), minX: Number(box.minX), maxX: Number(box.maxX), minY: Number(box.minY), maxY: Number(box.maxY), minZ: Number(box.minZ), maxZ: Number(box.maxZ) }));
   if (boxes.some((b) => ![b.minX,b.maxX,b.minY,b.maxY,b.minZ,b.maxZ].every(Number.isFinite) || b.maxX <= b.minX || b.maxY <= b.minY || b.maxZ <= b.minZ)) return false;
-  state = { version: 3, boxes, boardThickness: clamp(source.boardThickness || 3, 1, 20), textPlacements: Array.isArray(source.textPlacements) ? source.textPlacements.map((p) => ({ position: Array.isArray(p.position) ? p.position.map(Number) : [0,0,0], quaternion: Array.isArray(p.quaternion) ? p.quaternion.map(Number) : [0,0,0,1], topSurface: Boolean(p.topSurface), spec: { text: p.spec?.text || 'TEXT', size: clamp(p.spec?.size || 54,12,180), fontFamily: p.spec?.fontFamily || 'Arial, sans-serif', textColor: p.spec?.textColor || '#1f2d36', backgroundColor: p.spec?.backgroundColor || '#ffffff', bold: Boolean(p.spec?.bold), italic: Boolean(p.spec?.italic), underline: Boolean(p.spec?.underline), underlineStyle: p.spec?.underlineStyle || 'solid' } })) : [] };
+  state = { version: 3, boxes, boardThickness: clamp(source.boardThickness || 3, 1, 20), textPlacements: Array.isArray(source.textPlacements) ? source.textPlacements.map((p) => ({ position: Array.isArray(p.position) ? p.position.map(Number) : undefined, quaternion: Array.isArray(p.quaternion) ? p.quaternion.map(Number) : undefined, topSurface: Boolean(p.topSurface), segments: Array.isArray(p.segments) ? p.segments.map((s) => ({ position: Array.isArray(s.position) ? s.position.map(Number) : [0,0,0], quaternion: Array.isArray(s.quaternion) ? s.quaternion.map(Number) : [0,0,0,1], u0: Number(s.u0) || 0, u1: Number(s.u1) || 1, width: Number(s.width) || 10, height: Number(s.height) || 50 })) : undefined, spec: { text: p.spec?.text || 'TEXT', size: clamp(p.spec?.size || 54,12,180), fontFamily: p.spec?.fontFamily || 'Arial, sans-serif', textColor: p.spec?.textColor || '#1f2d36', backgroundColor: p.spec?.backgroundColor || 'transparent', bold: Boolean(p.spec?.bold), italic: Boolean(p.spec?.italic), underline: Boolean(p.spec?.underline), underlineStyle: p.spec?.underlineStyle || 'solid' } })) : [] };
   addMode = false; draftBox = null; placementMode = false; selectedFaceKey = ''; selectedFaceSnapshot = null; addBoxEditor.hidden = true; textEditorPanel.hidden = true; cancelTextPlacementButton.hidden = true; clearEditorPreview(); renderAll(); return true;
 }
 function resetConfiguration() {
