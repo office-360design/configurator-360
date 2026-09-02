@@ -4,6 +4,18 @@ const FIREBASE_APP_CHECK_MODULE_URL = `https://www.gstatic.com/firebasejs/${FIRE
 const FIREBASE_FUNCTIONS_MODULE_URL = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-functions.js`;
 const APP_NAME = '360-configurator-share-app';
 const CONFIG_URL = new URL('../firebase-app-check.json', import.meta.url);
+const FIRST_PARTY_AUTH_DOMAINS = new Set([
+  'www.360configurator.com',
+  'www.360configurator.ro',
+  'www.360konfigurator.de',
+  'aks.360configurator.com',
+]);
+
+function currentFirstPartyAuthDomain() {
+  if (typeof location === 'undefined' || location.protocol !== 'https:') return '';
+  const hostname = String(location.hostname || '').toLowerCase().replace(/\.$/, '');
+  return FIRST_PARTY_AUTH_DOMAINS.has(hostname) ? hostname : '';
+}
 
 let runtimeConfigPromise = null;
 let protectedFirebaseContextPromise = null;
@@ -49,7 +61,7 @@ async function loadRuntimeConfig() {
 function normalizeFirebaseConfig(firebaseConfig = {}) {
   const config = {
     apiKey: String(firebaseConfig.apiKey || '').trim(),
-    authDomain: String(firebaseConfig.authDomain || '').trim(),
+    authDomain: currentFirstPartyAuthDomain() || String(firebaseConfig.authDomain || '').trim(),
     projectId: String(firebaseConfig.projectId || '').trim(),
     appId: String(firebaseConfig.appId || '').trim(),
   };
