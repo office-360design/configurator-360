@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const DEFAULT_COLOR = '#c78f5a';
 const BOARD_EUR_M2 = 1.55;
 const CURRENCY_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
-const LID_LIFT_MM = 1000;
+const LID_LIFT_MM = 300;
 const SURFACE_TEXT_OFFSET_MM = 1.5;
 const EPSILON = 1e-6;
 
@@ -21,10 +21,10 @@ const TEXT = Object.freeze({
     'face.addText': 'Add text',
     'piece.title': 'New box piece', 'piece.help': 'Attached and centered on the selected face.', 'piece.width': 'Width', 'piece.height': 'Height', 'piece.depth': 'Depth',
     'text.title': 'Add text', 'text.help': 'Style the text, then place it on any inner or outer surface.', 'text.content': 'Text', 'text.size': 'Size', 'text.font': 'Font', 'text.color': 'Text', 'text.background': 'Background',
-    'text.lockHorizontal': 'Lock to horizontal center line', 'text.lockVertical': 'Lock to vertical center line', 'text.edit': 'Edit text', 'text.delete': 'Delete text', 'text.deselect': 'Deselect text', 'text.underlineStyle': 'Underline style', 'text.lineSolid': 'Solid', 'text.lineDashed': 'Dashed', 'text.lineDotted': 'Dotted', 'text.lineDouble': 'Double', 'text.done': 'Done', 'text.cancel': 'Cancel text placement', 'text.transparentBackground': 'Transparent background',
+    'text.lockHorizontal': 'Lock to horizontal center line', 'text.lockVertical': 'Lock to vertical center line', 'text.liftTop': 'Lift the top by 300 mm', 'text.edit': 'Edit text', 'text.delete': 'Delete text', 'text.deselect': 'Deselect text', 'text.underlineStyle': 'Underline style', 'text.lineSolid': 'Solid', 'text.lineDashed': 'Dashed', 'text.lineDotted': 'Dotted', 'text.lineDouble': 'Double', 'text.done': 'Done', 'text.cancel': 'Cancel text placement', 'text.transparentBackground': 'Transparent background',
     'common.back': 'Back', 'common.done': 'Done', 'common.cancel': 'Cancel',
     'viewer.hint': 'Double-click a vertical face to select it.',
-    'viewer.hint.placement': 'Text placement mode: move over any surface and click to place. The top surfaces are lifted by 1 metre.',
+    'viewer.hint.placement': 'Text placement mode: move over any surface and click to place.',
     'summary.pieces': 'Box pieces', 'summary.faces': 'Exterior faces', 'summary.boardArea': 'Board area', 'summary.volume': 'Internal volume', 'summary.total': 'Estimated total',
     'summary.note': 'Indicative material and personalization estimate for one configured box.', 'summary.material': 'Cardboard', 'summary.text': 'Text finishing', 'summary.setup': 'Production setup',
     'error.invalidPiece': 'The new piece must have positive width, height and depth.',
@@ -40,10 +40,10 @@ const TEXT = Object.freeze({
     'face.addText': 'Adaugă text',
     'piece.title': 'Corp nou de cutie', 'piece.help': 'Atașat și centrat pe fața selectată.', 'piece.width': 'Lățime', 'piece.height': 'Înălțime', 'piece.depth': 'Adâncime',
     'text.title': 'Adaugă text', 'text.help': 'Stabilește stilul textului, apoi plasează-l pe orice suprafață interioară sau exterioară.', 'text.content': 'Text', 'text.size': 'Mărime', 'text.font': 'Font', 'text.color': 'Text', 'text.background': 'Fundal',
-    'text.lockHorizontal': 'Blochează pe linia orizontală centrală', 'text.lockVertical': 'Blochează pe linia verticală centrală', 'text.edit': 'Editează textul', 'text.delete': 'Șterge textul', 'text.deselect': 'Deselectează textul', 'text.underlineStyle': 'Stil subliniere', 'text.lineSolid': 'Continuu', 'text.lineDashed': 'Întrerupt', 'text.lineDotted': 'Punctat', 'text.lineDouble': 'Dublu', 'text.done': 'Gata', 'text.cancel': 'Anulează plasarea textului', 'text.transparentBackground': 'Fundal transparent',
+    'text.lockHorizontal': 'Blochează pe linia orizontală centrală', 'text.lockVertical': 'Blochează pe linia verticală centrală', 'text.liftTop': 'Ridică partea superioară cu 300 mm', 'text.edit': 'Editează textul', 'text.delete': 'Șterge textul', 'text.deselect': 'Deselectează textul', 'text.underlineStyle': 'Stil subliniere', 'text.lineSolid': 'Continuu', 'text.lineDashed': 'Întrerupt', 'text.lineDotted': 'Punctat', 'text.lineDouble': 'Dublu', 'text.done': 'Gata', 'text.cancel': 'Anulează plasarea textului', 'text.transparentBackground': 'Fundal transparent',
     'common.back': 'Înapoi', 'common.done': 'Gata', 'common.cancel': 'Anulează',
     'viewer.hint': 'Dublu-click pe o față verticală pentru a o selecta.',
-    'viewer.hint.placement': 'Mod plasare text: mută cursorul pe orice suprafață și apasă click. Suprafețele superioare sunt ridicate cu 1 metru.',
+    'viewer.hint.placement': 'Mod plasare text: mută cursorul pe orice suprafață și apasă click.',
     'summary.pieces': 'Corpuri cutie', 'summary.faces': 'Fețe exterioare', 'summary.boardArea': 'Suprafață carton', 'summary.volume': 'Volum interior', 'summary.total': 'Total estimat',
     'summary.note': 'Estimare orientativă de material și personalizare pentru o cutie configurată.', 'summary.material': 'Carton', 'summary.text': 'Finisaj text', 'summary.setup': 'Pregătire producție',
     'error.invalidPiece': 'Noul corp trebuie să aibă lățime, înălțime și adâncime pozitive.',
@@ -59,10 +59,10 @@ const TEXT = Object.freeze({
     'face.addText': 'Text hinzufügen',
     'piece.title': 'Neues Box-Element', 'piece.help': 'An der ausgewählten Fläche befestigt und zentriert.', 'piece.width': 'Breite', 'piece.height': 'Höhe', 'piece.depth': 'Tiefe',
     'text.title': 'Text hinzufügen', 'text.help': 'Definieren Sie den Textstil und platzieren Sie ihn anschließend auf jeder inneren oder äußeren Oberfläche.', 'text.content': 'Text', 'text.size': 'Größe', 'text.font': 'Schriftart', 'text.color': 'Text', 'text.background': 'Hintergrund',
-    'text.lockHorizontal': 'Auf horizontaler Mittellinie fixieren', 'text.lockVertical': 'Auf vertikaler Mittellinie fixieren', 'text.edit': 'Text bearbeiten', 'text.delete': 'Text löschen', 'text.deselect': 'Text abwählen', 'text.underlineStyle': 'Unterstreichungsstil', 'text.lineSolid': 'Durchgezogen', 'text.lineDashed': 'Gestrichelt', 'text.lineDotted': 'Gepunktet', 'text.lineDouble': 'Doppelt', 'text.done': 'Fertig', 'text.cancel': 'Textplatzierung abbrechen', 'text.transparentBackground': 'Transparenter Hintergrund',
+    'text.lockHorizontal': 'Auf horizontaler Mittellinie fixieren', 'text.lockVertical': 'Auf vertikaler Mittellinie fixieren', 'text.liftTop': 'Oberseite um 300 mm anheben', 'text.edit': 'Text bearbeiten', 'text.delete': 'Text löschen', 'text.deselect': 'Text abwählen', 'text.underlineStyle': 'Unterstreichungsstil', 'text.lineSolid': 'Durchgezogen', 'text.lineDashed': 'Gestrichelt', 'text.lineDotted': 'Gepunktet', 'text.lineDouble': 'Doppelt', 'text.done': 'Fertig', 'text.cancel': 'Textplatzierung abbrechen', 'text.transparentBackground': 'Transparenter Hintergrund',
     'common.back': 'Zurück', 'common.done': 'Fertig', 'common.cancel': 'Abbrechen',
     'viewer.hint': 'Doppelklicken Sie auf eine vertikale Fläche, um sie auszuwählen.',
-    'viewer.hint.placement': 'Textplatzierungsmodus: Bewegen Sie den Cursor über eine Oberfläche und klicken Sie. Die oberen Flächen werden um 1 Meter angehoben.',
+    'viewer.hint.placement': 'Textplatzierungsmodus: Bewegen Sie den Cursor über eine Oberfläche und klicken Sie.',
     'summary.pieces': 'Box-Elemente', 'summary.faces': 'Außenflächen', 'summary.boardArea': 'Kartonfläche', 'summary.volume': 'Innenvolumen', 'summary.total': 'Geschätzter Gesamtpreis',
     'summary.note': 'Unverbindliche Material- und Personalisierungsschätzung für eine konfigurierte Box.', 'summary.material': 'Karton', 'summary.text': 'Textveredelung', 'summary.setup': 'Produktionsvorbereitung',
     'error.invalidPiece': 'Das neue Element benötigt positive Werte für Breite, Höhe und Tiefe.',
@@ -76,6 +76,7 @@ const textGuideLayer = $('#textGuideLayer');
 const textSelectionHud = $('#textSelectionHud');
 const textHorizontalLockButton = $('#textHorizontalLockButton');
 const textVerticalLockButton = $('#textVerticalLockButton');
+const textLiftTopButton = $('#textLiftTopButton');
 const textEditButton = $('#textEditButton');
 const textDeleteButton = $('#textDeleteButton');
 const textDismissButton = $('#textDismissButton');
@@ -140,6 +141,7 @@ let textHudAnchor = null;
 let editingTextId = '';
 let editingTextOriginalSpec = null;
 let suppressCanvasClick = false;
+let lidLiftEnabled = false;
 
 function makeBaseBox(width = 600, depth = 400, height = 300) {
   return { id: 'base', minX: -width / 2, maxX: width / 2, minY: 0, maxY: height, minZ: -depth / 2, maxZ: depth / 2 };
@@ -521,7 +523,7 @@ function isTopFace(face) { return face.axis === 'y' && face.sign > 0; }
 function isBottomFace(face) { return face.axis === 'y' && face.sign < 0; }
 
 function isLidLiftActive() {
-  return placementMode || Boolean(selectedTextId) || Boolean(editingTextId);
+  return lidLiftEnabled;
 }
 function sameVerticalPlane(a, b, tolerance = 0.75) {
   return Boolean(a && b)
@@ -825,23 +827,68 @@ function createWrappedSticker(spec, face, anchorPoint, sideFactor = 1, opacity =
   const height = artwork.worldHeight * scale;
   const anchor = anchorPoint.clone();
   anchor.y = clamp(anchor.y, face.v1 + height / 2, face.v2 - height / 2);
-  const stripCount = Math.max(10, Math.min(96, Math.ceil(width / 10)));
-  const stripWidth = width / stripCount;
   const group = new THREE.Group();
   const segments = [];
-  for (let i = 0; i < stripCount; i += 1) {
-    const u0 = i / stripCount;
-    const u1 = (i + 1) / stripCount;
-    const offset = -width / 2 + stripWidth * (i + 0.5);
-    const mapped = walkStickerOffset(face, anchor, sideFactor, offset);
-    const segment = makeArtworkPlane(artwork, stripWidth + 0.55, height, opacity, u0, u1);
+  const minimumSliceWidth = 0.18;
+
+  function mappedAtU(u, insetDirection = 0, rangeWidth = width) {
+    const inset = Math.min(0.04, Math.max(0, rangeWidth * 0.08));
+    const adjustedOffset = -width / 2 + width * u + inset * insetDirection;
+    return walkStickerOffset(face, anchor, sideFactor, adjustedOffset);
+  }
+
+  function emitRange(u0, u1) {
+    const segmentWidth = width * (u1 - u0);
+    if (segmentWidth <= EPSILON) return;
+    const midU = (u0 + u1) / 2;
+    const mapped = mappedAtU(midU, 0, segmentWidth);
+    // If there is no physical surface after an edge, crop the sticker there.
+    // Never keep drawing strips at the edge point because that makes the unused
+    // artwork appear to float or collapse into a black spike in space.
+    if (!mapped?.face || mapped.blocked) return;
+    const segment = makeArtworkPlane(artwork, segmentWidth, height, opacity, u0, u1);
     const normal = mapped.normal.clone().normalize();
     const position = mapped.point.clone().add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM));
     segment.position.copy(position);
     segment.quaternion.copy(quaternionForNormal(normal));
     group.add(segment);
-    segments.push({ position: position.toArray(), quaternion: segment.quaternion.toArray(), u0, u1, width: stripWidth + 0.55, height, face: copyFace(mapped.face), sideFactor });
+    segments.push({
+      position: position.toArray(), quaternion: segment.quaternion.toArray(),
+      u0, u1, width: segmentWidth, height, face: copyFace(mapped.face), sideFactor,
+    });
   }
+
+  function addRange(u0, u1, depth = 0) {
+    const segmentWidth = width * (u1 - u0);
+    if (segmentWidth <= EPSILON) return;
+    const insetU = Math.min((0.04 / Math.max(width, 1)), (u1 - u0) * 0.2);
+    const left = mappedAtU(u0 + insetU, 0, segmentWidth);
+    const right = mappedAtU(u1 - insetU, 0, segmentWidth);
+    const middle = mappedAtU((u0 + u1) / 2, 0, segmentWidth);
+    const keys = [left, middle, right].map((mapped) => mapped?.face ? faceKey(mapped.face) : '');
+    const samePhysicalFace = keys[0] && keys.every((key) => key === keys[0]);
+    const blocked = Boolean(left?.blocked || middle?.blocked || right?.blocked);
+
+    if (samePhysicalFace && !blocked) {
+      emitRange(u0, u1);
+      return;
+    }
+    if (segmentWidth <= minimumSliceWidth || depth >= 18) {
+      // At a corner keep only the portion whose midpoint really lies on a
+      // surface. This sub-millimetre fallback removes the last visual sliver
+      // that could otherwise bridge the two planes.
+      emitRange(u0, u1);
+      return;
+    }
+    const mid = (u0 + u1) / 2;
+    addRange(u0, mid, depth + 1);
+    addRange(mid, u1, depth + 1);
+  }
+
+  // Coarse ranges make flat sections cheap; only ranges that actually cross a
+  // corner are recursively subdivided down to the exact bend.
+  const coarseCount = Math.max(4, Math.min(24, Math.ceil(width / 36)));
+  for (let i = 0; i < coarseCount; i += 1) addRange(i / coarseCount, (i + 1) / coarseCount);
   return { group, segments };
 }
 function createStoredStickerSegments(spec, segments, opacity = 1) {
@@ -867,6 +914,23 @@ function renderPlacedTexts() {
   for (const placement of state.textPlacements) {
     const placementId = ensurePlacementId(placement);
     if (placementId === editingTextId) continue;
+    const resolved = resolvePlacementFaceInfo(placement);
+    if (resolved?.face && isVerticalFace(resolved.face) && resolved.anchor) {
+      const sticker = createWrappedSticker(placement.spec, resolved.face, resolved.anchor.clone(), resolved.sideFactor, 1);
+      placement.face = copyFace(resolved.face);
+      placement.sideFactor = resolved.sideFactor;
+      placement.anchor = resolved.anchor.toArray();
+      placement.segments = sticker.segments.map((segment) => ({
+        ...segment,
+        position: [...segment.position], quaternion: [...segment.quaternion], face: copyFace(segment.face),
+      }));
+      placement.position = undefined;
+      placement.quaternion = undefined;
+      placement.topSurface = false;
+      tagTextRenderable(sticker.group, placementId);
+      textGroup.add(sticker.group);
+      continue;
+    }
     if (Array.isArray(placement.segments) && placement.segments.length) {
       const group = createStoredStickerSegments(placement.spec, placement.segments, 1);
       tagTextRenderable(group, placementId);
@@ -958,7 +1022,9 @@ function renderEditorPreview() {
   } else {
     const mesh = createTextMesh(spec, 0.94);
     const normal = faceNormal(face).multiplyScalar(sideFactor);
-    mesh.position.copy(anchor.clone().add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM)));
+    const previewAnchor = anchor.clone();
+    if (isTopFace(face) && isLidLiftActive()) previewAnchor.y += LID_LIFT_MM;
+    mesh.position.copy(previewAnchor.add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM)));
     mesh.quaternion.copy(quaternionForNormal(normal));
     editorPreviewGroup.add(mesh);
   }
@@ -1164,6 +1230,7 @@ function renderTextSelection() {
   canvasHost.classList.toggle('has-selected-text', Boolean(selectedTextId));
   textHorizontalLockButton.classList.toggle('is-active', selectedTextConstraint === 'horizontal');
   textVerticalLockButton.classList.toggle('is-active', selectedTextConstraint === 'vertical');
+  textLiftTopButton.classList.toggle('is-active', isLidLiftActive());
   if (!selectedTextId || placementMode || addMode || editingTextId || !textEditorPanel.hidden) return;
 
   const placement = placementById(selectedTextId);
@@ -1263,11 +1330,13 @@ function selectTextPlacement(id) {
   selectedTextConstraintFace = null;
   selectedTextConstraintSideFactor = 1;
   selectedTextConstraintFixedS = null;
+  lidLiftEnabled = false;
   rebuildSurfaceMeshes();
   renderTextSelection();
 }
 function deselectTextPlacement() {
   selectedTextId = '';
+  lidLiftEnabled = false;
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
   selectedTextConstraintSideFactor = 1;
@@ -1693,6 +1762,13 @@ function toggleSelectedTextConstraint(mode) {
   updateSelectedTextGeometry(placement, result.face, result.anchor, result.sideFactor);
   markConfigurationDirty();
 }
+function toggleSelectedTextLidLift() {
+  if (!selectedTextId) return;
+  lidLiftEnabled = !lidLiftEnabled;
+  rebuildSurfaceMeshes();
+  renderPlacedTexts();
+  renderTextSelection();
+}
 function deleteSelectedText() {
   if (!selectedTextId) return;
   recordUndoCheckpoint();
@@ -1804,7 +1880,7 @@ function updateTextPreview(event) {
   const topSurface = Boolean(hit.object.userData.top);
   const storedPosition = position.clone();
   const storedAnchor = hit.point.clone();
-  if (topSurface) { storedPosition.y -= LID_LIFT_MM; storedAnchor.y -= LID_LIFT_MM; }
+  if (topSurface && isLidLiftActive()) { storedPosition.y -= LID_LIFT_MM; storedAnchor.y -= LID_LIFT_MM; }
   previewPlacement = {
     id: makeTextPlacementId(), face: copyFace(face), sideFactor, anchor: storedAnchor.toArray(),
     position: storedPosition.toArray(), quaternion: quaternion.toArray(), topSurface, spec: { ...pendingTextSpec },
@@ -1910,6 +1986,7 @@ function bindControls() {
   $('#cancelAddPieceButton').addEventListener('click', cancelAddMode);
   textHorizontalLockButton.addEventListener('click', () => toggleSelectedTextConstraint('horizontal'));
   textVerticalLockButton.addEventListener('click', () => toggleSelectedTextConstraint('vertical'));
+  textLiftTopButton.addEventListener('click', toggleSelectedTextLidLift);
   textEditButton.addEventListener('click', editSelectedText);
   textDeleteButton.addEventListener('click', deleteSelectedText);
   textDismissButton.addEventListener('click', deselectTextPlacement);
@@ -1954,9 +2031,18 @@ renderer.domElement.addEventListener('click', (event) => {
   }
   if (addMode || editingTextId || !textEditorPanel.hidden) return;
   const textHit = raycastText(event).hit;
-  if (textHit?.object?.userData?.textPlacementId) return;
-  if (selectedTextId) deselectTextPlacement();
+  const clickedTextId = textHit?.object?.userData?.textPlacementId || '';
+  if (clickedTextId) {
+    if (selectedTextId && clickedTextId !== selectedTextId) deselectTextPlacement();
+    return;
+  }
   const { hit } = raycast(event);
+  if (selectedTextId) {
+    // Empty viewer space is commonly used to orbit the camera. Keep the text
+    // selected there; deselect only when the click actually lands on the box.
+    if (hit?.object?.userData?.cardboxSurface) deselectTextPlacement();
+    return;
+  }
   if (!hit) deselectFace();
 });
 
@@ -2047,6 +2133,7 @@ function restoreState(snapshot) {
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
   selectedTextConstraintFixedS = null;
+  lidLiftEnabled = false;
   editingTextId = '';
   addBoxEditor.hidden = true;
   textEditorPanel.hidden = true;
@@ -2066,6 +2153,7 @@ function resetConfiguration() {
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
   selectedTextConstraintFixedS = null;
+  lidLiftEnabled = false;
   editingTextId = '';
   addBoxEditor.hidden = true;
   textEditorPanel.hidden = true;
