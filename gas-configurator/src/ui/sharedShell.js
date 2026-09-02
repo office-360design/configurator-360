@@ -17,6 +17,7 @@ export function mountGasSharedShell({ store, onSettingsPanelToggle } = {}) {
       undo: true,
       reset: true,
       share: false,
+      profile: false,
     },
     tools: { items: [], placement: {} },
     settingsPanel: {

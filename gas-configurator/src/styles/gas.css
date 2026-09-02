@@ -54,6 +54,8 @@ summary:focus-visible {
   inset: var(--shared-topbar-height, 47px) 0 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-rows: minmax(0, 1fr);
+  height: auto;
   min-height: 0;
   background:
     radial-gradient(circle at 20% 0%, rgba(8, 120, 201, 0.06), transparent 30%),
@@ -555,7 +557,7 @@ summary:focus-visible {
   position: relative;
   z-index: 4;
   width: 380px;
-  height: 100%;
+  height: auto;
   padding: 0 !important;
   overflow: auto;
   border-left: 1px solid #d0d9de;
@@ -918,6 +920,26 @@ summary:focus-visible {
 
 .gas-app > .shared-settings-toggle {
   z-index: 8;
+}
+
+.gas-app > .shared-settings-toggle svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 180ms ease;
+}
+
+.gas-sidebar-collapsed #gasSidebarToggle {
+  right: 0 !important;
+}
+
+.gas-sidebar-collapsed #gasSidebarToggle svg {
+  transform: rotate(180deg);
 }
 
 .shared-ui-dark-mode {
