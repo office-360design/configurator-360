@@ -1,4 +1,4 @@
-const FIREBASE_SDK_VERSION = '12.17.1';
+const FIREBASE_SDK_VERSION = '12.18.0';
 const FIREBASE_APP_MODULE_URL = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app.js`;
 const FIREBASE_AUTH_MODULE_URL = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-auth.js`;
 const APP_NAME = '360-configurator-share-app';
@@ -106,10 +106,61 @@ export async function observeGoogleAuth(callback) {
   );
 }
 
+function authErrorDetails(error) {
+  return {
+    code: String(error?.code || 'auth/unknown'),
+    message: String(error?.message || 'Unknown Firebase Authentication error.'),
+    name: String(error?.name || 'Error'),
+    sdkVersion: FIREBASE_SDK_VERSION,
+    visibilityState: typeof document !== 'undefined' ? String(document.visibilityState || '') : '',
+    userAgent: typeof navigator !== 'undefined' ? String(navigator.userAgent || '') : '',
+  };
+}
+
+function rememberAuthError(details) {
+  try {
+    sessionStorage.setItem('360-configurator:last-auth-error', JSON.stringify({
+      ...details,
+      recordedAt: new Date().toISOString(),
+    }));
+  } catch {
+    // Diagnostics must never interfere with authentication.
+  }
+}
+
+function waitForAuthSettle(delayMs = 350) {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
 export async function signInWithGoogle() {
   const { auth, authModule, provider } = await getAuthContext();
-  const result = await authModule.signInWithPopup(auth, provider);
-  return normalizeUser(result.user);
+  try {
+    const result = await authModule.signInWithPopup(auth, provider);
+    await auth.authStateReady?.();
+    const user = auth.currentUser || result.user;
+    if (!user) {
+      const error = new Error('Google sign-in completed without an authenticated Firebase user.');
+      error.code = 'auth/popup-auth-state-missing';
+      throw error;
+    }
+    return normalizeUser(user);
+  } catch (error) {
+    // Firebase 12.17.0-12.17.1 could fail popup authentication when the opener
+    // became hidden on macOS. 12.18.0 fixes that regression. Keep a short
+    // recovery check for browsers that report popup-closed/cancelled after the
+    // credential has already been persisted, and retain useful diagnostics for
+    // any remaining browser-specific failures.
+    const code = String(error?.code || '');
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+      await waitForAuthSettle();
+      if (auth.currentUser) return normalizeUser(auth.currentUser);
+    }
+
+    const details = authErrorDetails(error);
+    rememberAuthError(details);
+    console.error('Firebase Google popup sign-in failed.', details, error);
+    throw error;
+  }
 }
 
 export async function signOutGoogle() {
