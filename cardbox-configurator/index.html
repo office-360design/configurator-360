@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Configure custom cardboard boxes online in 3D. Start from a rectangle, add centered box pieces to faces, customize face colours and place text on any inner or outer surface." />
+  <meta name="description" content="Configure custom cardboard boxes online in 3D. Start from a rectangular box, attach new box volumes to exposed faces, and place custom text on inner or outer surfaces." />
   <meta name="robots" content="index, follow" />
   <title>3D Cardboard Box Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=25" />
-  <link rel="stylesheet" href="./styles.css?v=2" />
+  <link rel="stylesheet" href="./styles.css?v=3" />
   <script type="importmap">
     {
       "imports": {
@@ -28,7 +28,57 @@
       <div class="viewer-stage">
         <div id="canvasHost" aria-label="Interactive 3D cardboard box model"></div>
         <div id="dimensionLayer" class="dimension-layer" aria-hidden="true"></div>
-        <button id="floatingAddBoxButton" class="floating-add-box" type="button" hidden aria-label="Add a new box piece to the selected face">+</button>
+
+        <div id="faceActionPopup" class="face-action-popup" hidden>
+          <div id="faceMainActions" class="face-main-actions">
+            <button id="faceAddButton" class="face-action-button face-action-button--plus" type="button" aria-label="Add box piece">+</button>
+            <button id="faceTextButton" class="face-action-button" type="button">
+              <span class="face-action-button__icon" aria-hidden="true">T</span>
+              <span data-cardbox-i18n="face.addText">Add text</span>
+            </button>
+          </div>
+
+          <div id="faceTextEditor" class="face-text-editor" hidden>
+            <div class="popup-heading">
+              <b data-cardbox-i18n="text.title">Add text</b>
+              <small data-cardbox-i18n="text.help">Style the text, then place it on any inner or outer surface.</small>
+            </div>
+            <label class="popup-field"><span data-cardbox-i18n="text.content">Text</span><input id="textContentInput" type="text" value="FRAGILE" maxlength="120" /></label>
+            <div class="popup-grid">
+              <label class="popup-field"><span data-cardbox-i18n="text.size">Size</span><input id="textSizeInput" type="number" min="12" max="180" step="1" value="54" /></label>
+              <label class="popup-field"><span data-cardbox-i18n="text.font">Font</span><select id="textFontSelect"><option value="Arial, sans-serif">Arial</option><option value="Inter, sans-serif">Inter</option><option value="Georgia, serif">Georgia</option><option value="Times New Roman, serif">Times New Roman</option><option value="Courier New, monospace">Courier New</option><option value="Verdana, sans-serif">Verdana</option></select></label>
+            </div>
+            <div class="popup-grid">
+              <label class="popup-field"><span data-cardbox-i18n="text.color">Text</span><input id="textColorInput" type="color" value="#1f2d36" /></label>
+              <label class="popup-field"><span data-cardbox-i18n="text.background">Background</span><input id="textBackgroundInput" type="color" value="#ffffff" /></label>
+            </div>
+            <div class="text-style-buttons">
+              <label><input id="textBoldToggle" type="checkbox" /><span><b>B</b></span></label>
+              <label><input id="textItalicToggle" type="checkbox" /><span><i>I</i></span></label>
+              <label><input id="textUnderlineToggle" type="checkbox" /><span><u>U</u></span></label>
+            </div>
+            <label class="popup-field"><span data-cardbox-i18n="text.underlineStyle">Underline style</span><select id="textUnderlineStyle"><option value="solid" data-cardbox-i18n="text.lineSolid">Solid</option><option value="dashed" data-cardbox-i18n="text.lineDashed">Dashed</option><option value="dotted" data-cardbox-i18n="text.lineDotted">Dotted</option><option value="double" data-cardbox-i18n="text.lineDouble">Double</option></select></label>
+            <div class="popup-action-row">
+              <button id="startTextPlacementButton" class="popup-primary" type="button" data-cardbox-i18n="text.done">Done</button>
+              <button id="backFromTextButton" class="popup-secondary" type="button" data-cardbox-i18n="common.back">Back</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="addBoxEditor" class="add-box-editor" hidden>
+          <div class="add-box-editor__heading">
+            <b data-cardbox-i18n="piece.title">New box piece</b>
+            <small data-cardbox-i18n="piece.help">Attached and centered on the selected face.</small>
+          </div>
+          <label><span data-cardbox-i18n="piece.width">Width</span><div><input id="pieceWidthInput" type="number" min="20" max="3000" step="10" /><em data-unit-label>mm</em></div></label>
+          <label><span data-cardbox-i18n="piece.height">Height</span><div><input id="pieceHeightInput" type="number" min="20" max="3000" step="10" /><em data-unit-label>mm</em></div></label>
+          <label><span data-cardbox-i18n="piece.depth">Depth</span><div><input id="pieceDepthInput" type="number" min="20" max="3000" step="10" /><em data-unit-label>mm</em></div></label>
+          <div id="pieceError" class="inline-error" hidden></div>
+          <button id="confirmAddPieceButton" class="add-box-editor__done" type="button" data-cardbox-i18n="common.done">Done</button>
+          <button id="cancelAddPieceButton" class="add-box-editor__cancel" type="button" data-cardbox-i18n="common.cancel">Cancel</button>
+        </div>
+
+        <button id="cancelTextPlacementButton" class="placement-cancel" type="button" hidden data-cardbox-i18n="text.cancel">Cancel text placement</button>
         <div class="viewer-hint" id="viewerHint">Double-click a face to select it</div>
       </div>
     </section>
@@ -37,90 +87,24 @@
       <section class="panel-section intro-section">
         <p class="eyebrow" data-cardbox-i18n="intro.eyebrow">Packaging geometry</p>
         <h1 data-cardbox-i18n="intro.title">Cardboard box settings</h1>
-        <p class="section-copy" data-cardbox-i18n="intro.copy">Start from a rectangular box, add more box pieces to a selected face, and place custom text on any inner or outer surface.</p>
+        <p class="section-copy" data-cardbox-i18n="intro.copy">Start from a rectangular box, then build custom shapes by attaching additional box volumes to exposed faces.</p>
       </section>
 
       <section class="accordion-section is-open" data-accordion="geometry">
         <button class="accordion-toggle" type="button" aria-expanded="true">
-          <span data-cardbox-i18n="section.geometry">Box geometry</span>
+          <span data-cardbox-i18n="section.geometry">Base box</span>
           <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <div class="accordion-panel">
           <div class="two-column-controls top-gap">
-            <label class="field-control"><span data-cardbox-i18n="dimension.width">Overall width</span><div><input id="widthInput" type="number" min="100" max="3000" step="10" value="600" /><em data-unit-label>mm</em></div></label>
-            <label class="field-control"><span data-cardbox-i18n="dimension.depth">Overall depth</span><div><input id="depthInput" type="number" min="100" max="3000" step="10" value="400" /><em data-unit-label>mm</em></div></label>
-            <label class="field-control"><span data-cardbox-i18n="dimension.height">Box height</span><div><input id="heightInput" type="number" min="50" max="2000" step="10" value="300" /><em data-unit-label>mm</em></div></label>
-            <label class="field-control"><span data-cardbox-i18n="dimension.floor">Board / lid thickness</span><div><input id="floorThicknessInput" type="number" min="1" max="20" step="0.5" value="3" /><em data-unit-label>mm</em></div></label>
+            <label class="field-control"><span data-cardbox-i18n="dimension.width">Base width</span><div><input id="widthInput" type="number" min="100" max="3000" step="10" value="600" /><em data-unit-label>mm</em></div></label>
+            <label class="field-control"><span data-cardbox-i18n="dimension.depth">Base depth</span><div><input id="depthInput" type="number" min="100" max="3000" step="10" value="400" /><em data-unit-label>mm</em></div></label>
+            <label class="field-control"><span data-cardbox-i18n="dimension.height">Base height</span><div><input id="heightInput" type="number" min="50" max="2000" step="10" value="300" /><em data-unit-label>mm</em></div></label>
+            <label class="field-control"><span data-cardbox-i18n="dimension.floor">Board thickness</span><div><input id="floorThicknessInput" type="number" min="1" max="20" step="0.5" value="3" /><em data-unit-label>mm</em></div></label>
           </div>
-
           <div class="info-card top-gap">
-            <b data-cardbox-i18n="geometry.helpTitle">How to add more box pieces</b>
-            <small data-cardbox-i18n="geometry.helpCopy">Double-click a vertical face in the viewer. A plus button appears on that face. Click it, set the new piece dimensions, and it will be centered on that face.</small>
-          </div>
-        </div>
-      </section>
-
-      <section class="accordion-section is-open" data-accordion="face">
-        <button class="accordion-toggle" type="button" aria-expanded="true">
-          <span data-cardbox-i18n="section.face">Selected face</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </button>
-        <div class="accordion-panel">
-          <div class="selected-side-card">
-            <div>
-              <span id="selectedWallName" data-cardbox-i18n="face.none">No face selected</span>
-              <strong id="selectedWallLength">—</strong>
-            </div>
-            <span class="side-index-badge" id="selectedWallBadge">—</span>
-          </div>
-
-          <div class="color-control top-gap">
-            <span data-cardbox-i18n="face.color">Face colour</span>
-            <div><input id="wallColorInput" type="color" value="#c78f5a" /><input id="wallColorText" type="text" value="#C78F5A" maxlength="7" /></div>
-          </div>
-
-          <div class="builder-card top-gap" id="addPiecePanel" hidden>
-            <div class="builder-card__heading">
-              <div>
-                <b data-cardbox-i18n="piece.title">Add box piece</b>
-                <small data-cardbox-i18n="piece.help">The new piece is centered on the selected face and attached outward.</small>
-              </div>
-            </div>
-            <div class="two-column-controls">
-              <label class="field-control"><span data-cardbox-i18n="piece.width">New piece width</span><div><input id="pieceWidthInput" type="number" min="40" max="1200" step="10" value="180" /><em data-unit-label>mm</em></div></label>
-              <label class="field-control"><span data-cardbox-i18n="piece.depth">New piece depth</span><div><input id="pieceDepthInput" type="number" min="20" max="1000" step="10" value="120" /><em data-unit-label>mm</em></div></label>
-            </div>
-            <button type="button" class="secondary-action wide-action" id="confirmAddPieceButton" data-cardbox-i18n="piece.add">Attach centered piece</button>
-            <div class="inline-error" id="pieceError" hidden></div>
-          </div>
-
-          <div class="builder-card top-gap">
-            <div class="builder-card__heading">
-              <div>
-                <b data-cardbox-i18n="text.title">Add text</b>
-                <small data-cardbox-i18n="text.help">Prepare the text style, then place it on any inner or outer surface of the box.</small>
-              </div>
-            </div>
-            <label class="field-control full-width"><span data-cardbox-i18n="text.content">Text</span><div><input id="textContentInput" type="text" value="FRAGILE" maxlength="120" /></div></label>
-            <div class="two-column-controls top-gap">
-              <label class="field-control"><span data-cardbox-i18n="text.size">Text size</span><div><input id="textSizeInput" type="number" min="12" max="180" step="1" value="54" /><em>px</em></div></label>
-              <label class="field-control"><span data-cardbox-i18n="text.font">Font</span><div class="select-wrap"><select id="textFontSelect"><option value="Arial, sans-serif">Arial</option><option value="Inter, sans-serif">Inter</option><option value="Georgia, serif">Georgia</option><option value="Times New Roman, serif">Times New Roman</option><option value="Courier New, monospace">Courier New</option><option value="Verdana, sans-serif">Verdana</option></select></div></label>
-            </div>
-            <div class="two-column-controls top-gap">
-              <label class="field-control"><span data-cardbox-i18n="text.color">Text colour</span><div><input id="textColorInput" type="color" value="#1f2d36" /><em></em></div></label>
-              <label class="field-control"><span data-cardbox-i18n="text.background">Background</span><div><input id="textBackgroundInput" type="color" value="#ffffff" /><em></em></div></label>
-            </div>
-            <div class="inline-toggle-grid top-gap">
-              <label class="check-pill"><input id="textBoldToggle" type="checkbox" /><span data-cardbox-i18n="text.bold">Bold</span></label>
-              <label class="check-pill"><input id="textItalicToggle" type="checkbox" /><span data-cardbox-i18n="text.italic">Italic</span></label>
-              <label class="check-pill"><input id="textUnderlineToggle" type="checkbox" /><span data-cardbox-i18n="text.underline">Underline</span></label>
-            </div>
-            <label class="select-label top-gap" for="textUnderlineStyle" data-cardbox-i18n="text.underlineStyle">Underline style</label>
-            <select id="textUnderlineStyle"><option value="solid" data-cardbox-i18n="text.lineSolid">Solid</option><option value="dashed" data-cardbox-i18n="text.lineDashed">Dashed</option><option value="dotted" data-cardbox-i18n="text.lineDotted">Dotted</option><option value="double" data-cardbox-i18n="text.lineDouble">Double</option></select>
-            <div class="text-action-row top-gap">
-              <button type="button" class="secondary-action" id="startTextPlacementButton" data-cardbox-i18n="text.done">Done — place on box</button>
-              <button type="button" class="secondary-action" id="cancelTextPlacementButton" hidden data-cardbox-i18n="text.cancel">Cancel placement</button>
-            </div>
+            <b data-cardbox-i18n="geometry.helpTitle">Build the shape directly in 3D</b>
+            <small data-cardbox-i18n="geometry.helpCopy">Double-click any exposed vertical face to select it. Use the plus button to attach another box volume. Joined areas become one continuous cavity with no internal wall.</small>
           </div>
         </div>
       </section>
@@ -132,14 +116,14 @@
         </button>
         <div class="accordion-panel" hidden>
           <div class="summary-grid">
-            <div><span data-cardbox-i18n="summary.sides">Sides</span><strong id="summarySides">4</strong></div>
-            <div><span data-cardbox-i18n="summary.perimeter">Perimeter</span><strong id="summaryPerimeter">2.00 m</strong></div>
-            <div><span data-cardbox-i18n="summary.boardArea">Board area</span><strong id="summaryBoardArea">0.84 m²</strong></div>
-            <div><span data-cardbox-i18n="summary.floorArea">Floor area</span><strong id="summaryFloorArea">0.24 m²</strong></div>
+            <div><span data-cardbox-i18n="summary.pieces">Box pieces</span><strong id="summaryPieces">1</strong></div>
+            <div><span data-cardbox-i18n="summary.faces">Exterior faces</span><strong id="summarySides">6</strong></div>
+            <div><span data-cardbox-i18n="summary.boardArea">Board area</span><strong id="summaryBoardArea">0.00 m²</strong></div>
+            <div><span data-cardbox-i18n="summary.volume">Internal volume</span><strong id="summaryVolume">0.00 m³</strong></div>
           </div>
           <div class="price-breakdown" id="priceBreakdown"></div>
           <div class="summary-total"><span data-cardbox-i18n="summary.total">Estimated total</span><strong id="summaryTotal">€0.00</strong></div>
-          <small class="pricing-note" data-cardbox-i18n="summary.note">Indicative material and print estimate for one configured box.</small>
+          <small class="pricing-note" data-cardbox-i18n="summary.note">Indicative material and personalization estimate for one configured box.</small>
         </div>
       </section>
     </aside>
@@ -147,7 +131,7 @@
     <button id="cardboxSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide cardboard box settings" aria-expanded="true" title="Hide cardboard box settings"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
   </main>
 
-  <script type="module" src="./js/app.js?v=2"></script>
+  <script type="module" src="./js/app.js?v=3"></script>
   <script type="module" src="./js/sharedShell.js?v=1"></script>
 </body>
 </html>
