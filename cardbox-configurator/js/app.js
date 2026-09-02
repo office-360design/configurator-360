@@ -22,7 +22,7 @@ const TEXT = Object.freeze({
     'face.addText': 'Add text',
     'piece.title': 'New box piece', 'piece.help': 'Attached and centered on the selected face.', 'piece.width': 'Width', 'piece.height': 'Height', 'piece.depth': 'Depth',
     'text.title': 'Add text', 'text.help': 'Style the text, then place it on any inner or outer surface.', 'text.content': 'Text', 'text.size': 'Size', 'text.font': 'Font', 'text.color': 'Text', 'text.background': 'Background',
-    'text.underlineStyle': 'Underline style', 'text.lineSolid': 'Solid', 'text.lineDashed': 'Dashed', 'text.lineDotted': 'Dotted', 'text.lineDouble': 'Double', 'text.done': 'Done', 'text.cancel': 'Cancel text placement',
+    'text.underlineStyle': 'Underline style', 'text.lineSolid': 'Solid', 'text.lineDashed': 'Dashed', 'text.lineDotted': 'Dotted', 'text.lineDouble': 'Double', 'text.done': 'Done', 'text.cancel': 'Cancel text placement', 'text.transparentBackground': 'Transparent background',
     'common.back': 'Back', 'common.done': 'Done', 'common.cancel': 'Cancel',
     'viewer.hint': 'Double-click a vertical face to select it.',
     'viewer.hint.placement': 'Text placement mode: move over any surface and click to place. The top surfaces are lifted by 1 metre.',
@@ -41,7 +41,7 @@ const TEXT = Object.freeze({
     'face.addText': 'Adaugă text',
     'piece.title': 'Corp nou de cutie', 'piece.help': 'Atașat și centrat pe fața selectată.', 'piece.width': 'Lățime', 'piece.height': 'Înălțime', 'piece.depth': 'Adâncime',
     'text.title': 'Adaugă text', 'text.help': 'Stabilește stilul textului, apoi plasează-l pe orice suprafață interioară sau exterioară.', 'text.content': 'Text', 'text.size': 'Mărime', 'text.font': 'Font', 'text.color': 'Text', 'text.background': 'Fundal',
-    'text.underlineStyle': 'Stil subliniere', 'text.lineSolid': 'Continuu', 'text.lineDashed': 'Întrerupt', 'text.lineDotted': 'Punctat', 'text.lineDouble': 'Dublu', 'text.done': 'Gata', 'text.cancel': 'Anulează plasarea textului',
+    'text.underlineStyle': 'Stil subliniere', 'text.lineSolid': 'Continuu', 'text.lineDashed': 'Întrerupt', 'text.lineDotted': 'Punctat', 'text.lineDouble': 'Dublu', 'text.done': 'Gata', 'text.cancel': 'Anulează plasarea textului', 'text.transparentBackground': 'Fundal transparent',
     'common.back': 'Înapoi', 'common.done': 'Gata', 'common.cancel': 'Anulează',
     'viewer.hint': 'Dublu-click pe o față verticală pentru a o selecta.',
     'viewer.hint.placement': 'Mod plasare text: mută cursorul pe orice suprafață și apasă click. Suprafețele superioare sunt ridicate cu 1 metru.',
@@ -60,7 +60,7 @@ const TEXT = Object.freeze({
     'face.addText': 'Text hinzufügen',
     'piece.title': 'Neues Box-Element', 'piece.help': 'An der ausgewählten Fläche befestigt und zentriert.', 'piece.width': 'Breite', 'piece.height': 'Höhe', 'piece.depth': 'Tiefe',
     'text.title': 'Text hinzufügen', 'text.help': 'Definieren Sie den Textstil und platzieren Sie ihn anschließend auf jeder inneren oder äußeren Oberfläche.', 'text.content': 'Text', 'text.size': 'Größe', 'text.font': 'Schriftart', 'text.color': 'Text', 'text.background': 'Hintergrund',
-    'text.underlineStyle': 'Unterstreichungsstil', 'text.lineSolid': 'Durchgezogen', 'text.lineDashed': 'Gestrichelt', 'text.lineDotted': 'Gepunktet', 'text.lineDouble': 'Doppelt', 'text.done': 'Fertig', 'text.cancel': 'Textplatzierung abbrechen',
+    'text.underlineStyle': 'Unterstreichungsstil', 'text.lineSolid': 'Durchgezogen', 'text.lineDashed': 'Gestrichelt', 'text.lineDotted': 'Gepunktet', 'text.lineDouble': 'Doppelt', 'text.done': 'Fertig', 'text.cancel': 'Textplatzierung abbrechen', 'text.transparentBackground': 'Transparenter Hintergrund',
     'common.back': 'Zurück', 'common.done': 'Fertig', 'common.cancel': 'Abbrechen',
     'viewer.hint': 'Doppelklicken Sie auf eine vertikale Fläche, um sie auszuwählen.',
     'viewer.hint.placement': 'Textplatzierungsmodus: Bewegen Sie den Cursor über eine Oberfläche und klicken Sie. Die oberen Flächen werden um 1 Meter angehoben.',
@@ -74,8 +74,8 @@ const $ = (selector) => document.querySelector(selector);
 const canvasHost = $('#canvasHost');
 const dimensionLayer = $('#dimensionLayer');
 const faceActionPopup = $('#faceActionPopup');
-const faceMainActions = $('#faceMainActions');
-const faceTextEditor = $('#faceTextEditor');
+const faceDismissButton = $('#faceDismissButton');
+const textEditorPanel = $('#textEditorPanel');
 const addBoxEditor = $('#addBoxEditor');
 const cancelTextPlacementButton = $('#cancelTextPlacementButton');
 const viewerHint = $('#viewerHint');
@@ -90,8 +90,8 @@ const pieceError = $('#pieceError');
 const textContentInput = $('#textContentInput');
 const textSizeInput = $('#textSizeInput');
 const textFontSelect = $('#textFontSelect');
-const textColorInput = $('#textColorInput');
-const textBackgroundInput = $('#textBackgroundInput');
+const textColorPalette = $('#textColorPalette');
+const textBackgroundPalette = $('#textBackgroundPalette');
 const textBoldToggle = $('#textBoldToggle');
 const textItalicToggle = $('#textItalicToggle');
 const textUnderlineToggle = $('#textUnderlineToggle');
@@ -116,6 +116,9 @@ let placementMode = false;
 let pendingTextSpec = null;
 let previewTextMesh = null;
 let previewPlacement = null;
+let editorPreviewSpec = null;
+let currentTextColor = '#1f2d36';
+let currentBackgroundColor = 'transparent';
 let dimensionAnchors = [];
 
 function makeBaseBox(width = 600, depth = 400, height = 300) {
@@ -267,6 +270,7 @@ ground.rotation.x = -Math.PI / 2; ground.position.y = -4; ground.receiveShadow =
 const gridHelper = new THREE.GridHelper(5000, 100, 0xc6d2d8, 0xdce4e8); gridHelper.position.y = -3; gridHelper.material.opacity = 0.32; gridHelper.material.transparent = true; scene.add(gridHelper);
 const boxGroup = new THREE.Group(); scene.add(boxGroup);
 const textGroup = new THREE.Group(); scene.add(textGroup);
+const editorPreviewGroup = new THREE.Group(); scene.add(editorPreviewGroup);
 const previewGroup = new THREE.Group(); scene.add(previewGroup);
 
 function disposeObject(object) {
@@ -368,8 +372,11 @@ function createTextMesh(spec, opacity = 1) {
   canvas.width = Math.ceil(measured + padding * 2);
   canvas.height = Math.ceil(fontPx + padding * 2 + (spec.underline ? fontPx * 0.3 : 0));
   const draw = canvas.getContext('2d');
-  draw.fillStyle = spec.backgroundColor;
-  draw.fillRect(0, 0, canvas.width, canvas.height);
+  draw.clearRect(0, 0, canvas.width, canvas.height);
+  if (!isTransparentColor(spec.backgroundColor)) {
+    draw.fillStyle = spec.backgroundColor;
+    draw.fillRect(0, 0, canvas.width, canvas.height);
+  }
   draw.font = `${style} ${weight} ${fontPx}px ${spec.fontFamily}`;
   draw.textAlign = 'center'; draw.textBaseline = 'middle'; draw.fillStyle = spec.textColor;
   const textY = canvas.height / 2 - (spec.underline ? fontPx * 0.08 : 0);
@@ -402,6 +409,33 @@ function renderPlacedTexts() {
     textGroup.add(mesh);
   }
 }
+
+function isTransparentColor(value) {
+  return !value || value === 'transparent' || value === 'rgba(0,0,0,0)';
+}
+function syncPaletteSelection(container, value) {
+  if (!container) return;
+  container.querySelectorAll('[data-color]').forEach((button) => {
+    button.classList.toggle('is-active', button.dataset.color === value);
+  });
+}
+function renderEditorPreview() {
+  clearGroup(editorPreviewGroup);
+  editorPreviewSpec = null;
+  if (textEditorPanel.hidden || !selectedFaceSnapshot) return;
+  const spec = buildTextSpec();
+  editorPreviewSpec = { ...spec };
+  const mesh = createTextMesh(spec, 0.94);
+  const normal = faceNormal(selectedFaceSnapshot);
+  const position = faceCenter(selectedFaceSnapshot).add(normal.multiplyScalar(SURFACE_TEXT_OFFSET_MM));
+  mesh.position.copy(position);
+  mesh.quaternion.copy(quaternionForNormal(faceNormal(selectedFaceSnapshot)));
+  editorPreviewGroup.add(mesh);
+}
+function clearEditorPreview() {
+  editorPreviewSpec = null;
+  clearGroup(editorPreviewGroup);
+}
 function quaternionForNormal(normal) {
   const reference = Math.abs(normal.y) > 0.95 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
   const tangent = new THREE.Vector3().crossVectors(reference, normal).normalize();
@@ -412,6 +446,7 @@ function quaternionForNormal(normal) {
 function renderTranslations() {
   document.documentElement.lang = locale.startsWith('ro') ? 'ro' : locale.startsWith('de') ? 'de' : 'en';
   document.querySelectorAll('[data-cardbox-i18n]').forEach((el) => { el.textContent = t(el.dataset.cardboxI18n); });
+  document.querySelectorAll('[data-cardbox-i18n-title]').forEach((el) => { el.title = t(el.dataset.cardboxI18nTitle); el.setAttribute('aria-label', t(el.dataset.cardboxI18nTitle)); });
   viewerHint.textContent = placementMode ? t('viewer.hint.placement') : t('viewer.hint');
 }
 function renderInputs() {
@@ -440,7 +475,7 @@ function renderSummary() {
 }
 
 function renderFacePopup() {
-  if (!selectedFaceSnapshot || addMode || placementMode) {
+  if (!selectedFaceSnapshot || addMode || placementMode || !textEditorPanel.hidden) {
     faceActionPopup.hidden = true;
     return;
   }
@@ -449,7 +484,7 @@ function renderFacePopup() {
 }
 function updateFacePopupPosition() {
   if (faceActionPopup.hidden || !selectedFaceSnapshot) return;
-  const world = faceCenter(selectedFaceSnapshot).add(faceNormal(selectedFaceSnapshot).multiplyScalar(18));
+  const world = faceCenter(selectedFaceSnapshot).add(faceNormal(selectedFaceSnapshot).multiplyScalar(10));
   const projected = world.project(camera);
   const rect = canvasHost.getBoundingClientRect();
   if (projected.z < -1 || projected.z > 1) { faceActionPopup.hidden = true; return; }
@@ -465,16 +500,16 @@ function selectFace(face) {
   if (selectedFaceKey === key) { deselectFace(); return; }
   selectedFaceKey = key;
   selectedFaceSnapshot = { ...face };
-  faceMainActions.hidden = false;
-  faceTextEditor.hidden = true;
+  textEditorPanel.hidden = true;
+  clearEditorPreview();
   renderAll();
 }
 function deselectFace() {
   selectedFaceKey = '';
   selectedFaceSnapshot = null;
   faceActionPopup.hidden = true;
-  faceMainActions.hidden = false;
-  faceTextEditor.hidden = true;
+  textEditorPanel.hidden = true;
+  clearEditorPreview();
   if (!addMode && !placementMode) rebuildSurfaceMeshes();
 }
 
@@ -503,6 +538,8 @@ function beginAddMode() {
   draftBox = newAttachedBox(selectedFaceSnapshot, defaultWidth, defaultHeight, defaultDepth);
   addMode = true;
   faceActionPopup.hidden = true;
+  textEditorPanel.hidden = true;
+  clearEditorPreview();
   pieceWidthInput.value = round(fromMm(defaultWidth), units === 'imperial' ? 2 : 0);
   pieceHeightInput.value = round(fromMm(defaultHeight), units === 'imperial' ? 2 : 0);
   pieceDepthInput.value = round(fromMm(defaultDepth), units === 'imperial' ? 2 : 0);
@@ -550,8 +587,8 @@ function buildTextSpec() {
     text: (textContentInput.value || '').trim() || 'TEXT',
     size: clamp(textSizeInput.value, 12, 180),
     fontFamily: textFontSelect.value,
-    textColor: textColorInput.value,
-    backgroundColor: textBackgroundInput.value,
+    textColor: currentTextColor,
+    backgroundColor: currentBackgroundColor,
     bold: textBoldToggle.checked,
     italic: textItalicToggle.checked,
     underline: textUnderlineToggle.checked,
@@ -559,19 +596,22 @@ function buildTextSpec() {
   };
 }
 function startTextEditor() {
-  faceMainActions.hidden = true;
-  faceTextEditor.hidden = false;
-  updateFacePopupPosition();
+  if (!selectedFaceSnapshot) return;
+  faceActionPopup.hidden = true;
+  textEditorPanel.hidden = false;
+  renderEditorPreview();
 }
 function backFromTextEditor() {
-  faceTextEditor.hidden = true;
-  faceMainActions.hidden = false;
-  updateFacePopupPosition();
+  textEditorPanel.hidden = true;
+  clearEditorPreview();
+  renderFacePopup();
 }
 function enterPlacementMode() {
   pendingTextSpec = buildTextSpec();
   placementMode = true;
   faceActionPopup.hidden = true;
+  textEditorPanel.hidden = true;
+  clearEditorPreview();
   selectedFaceKey = '';
   selectedFaceSnapshot = null;
   cancelTextPlacementButton.hidden = false;
@@ -646,6 +686,24 @@ function updateBaseDimension(axis, value) {
   if (axis === 'height') base.maxY = base.minY + mm;
   deselectFace(); renderAll();
 }
+function bindPalette(container, assign) {
+  container?.querySelectorAll('[data-color]').forEach((button) => {
+    button.addEventListener('click', () => {
+      assign(button.dataset.color || 'transparent');
+      syncPaletteSelection(container, button.dataset.color || 'transparent');
+      renderEditorPreview();
+    });
+  });
+}
+function bindTextPreviewControls() {
+  [textContentInput, textSizeInput, textFontSelect, textUnderlineStyle].forEach((input) => input.addEventListener('input', renderEditorPreview));
+  [textBoldToggle, textItalicToggle, textUnderlineToggle].forEach((input) => input.addEventListener('change', renderEditorPreview));
+  bindPalette(textColorPalette, (value) => { currentTextColor = value; });
+  bindPalette(textBackgroundPalette, (value) => { currentBackgroundColor = value; });
+  syncPaletteSelection(textColorPalette, currentTextColor);
+  syncPaletteSelection(textBackgroundPalette, currentBackgroundColor);
+}
+
 function bindAccordions() {
   document.querySelectorAll('.accordion-toggle').forEach((button) => button.addEventListener('click', () => {
     const section = button.closest('.accordion-section'); const panel = section.querySelector('.accordion-panel'); const open = !section.classList.contains('is-open');
@@ -659,12 +717,14 @@ function bindControls() {
   floorThicknessInput.addEventListener('change', () => { state.boardThickness = clamp(toMm(floorThicknessInput.value), 1, 20); renderInputs(); });
   $('#faceAddButton').addEventListener('click', beginAddMode);
   $('#faceTextButton').addEventListener('click', startTextEditor);
+  faceDismissButton.addEventListener('click', deselectFace);
   $('#backFromTextButton').addEventListener('click', backFromTextEditor);
   $('#startTextPlacementButton').addEventListener('click', enterPlacementMode);
   cancelTextPlacementButton.addEventListener('click', exitPlacementMode);
   [pieceWidthInput, pieceHeightInput, pieceDepthInput].forEach((input) => input.addEventListener('change', updateDraftFromEditor));
   $('#confirmAddPieceButton').addEventListener('click', finishAddMode);
   $('#cancelAddPieceButton').addEventListener('click', cancelAddMode);
+  bindTextPreviewControls();
 }
 
 renderer.domElement.addEventListener('dblclick', (event) => {
@@ -681,7 +741,7 @@ renderer.domElement.addEventListener('click', (event) => {
     if (previewPlacement) commitTextPlacement();
     return;
   }
-  if (addMode) return;
+  if (addMode || !textEditorPanel.hidden) return;
   const { hit } = raycast(event);
   if (!hit) deselectFace();
 });
@@ -704,11 +764,11 @@ function restoreState(snapshot) {
   const boxes = source.boxes.map((box, index) => ({ id: String(box.id || (index === 0 ? 'base' : `piece-${index}`)), minX: Number(box.minX), maxX: Number(box.maxX), minY: Number(box.minY), maxY: Number(box.maxY), minZ: Number(box.minZ), maxZ: Number(box.maxZ) }));
   if (boxes.some((b) => ![b.minX,b.maxX,b.minY,b.maxY,b.minZ,b.maxZ].every(Number.isFinite) || b.maxX <= b.minX || b.maxY <= b.minY || b.maxZ <= b.minZ)) return false;
   state = { version: 3, boxes, boardThickness: clamp(source.boardThickness || 3, 1, 20), textPlacements: Array.isArray(source.textPlacements) ? source.textPlacements.map((p) => ({ position: Array.isArray(p.position) ? p.position.map(Number) : [0,0,0], quaternion: Array.isArray(p.quaternion) ? p.quaternion.map(Number) : [0,0,0,1], topSurface: Boolean(p.topSurface), spec: { text: p.spec?.text || 'TEXT', size: clamp(p.spec?.size || 54,12,180), fontFamily: p.spec?.fontFamily || 'Arial, sans-serif', textColor: p.spec?.textColor || '#1f2d36', backgroundColor: p.spec?.backgroundColor || '#ffffff', bold: Boolean(p.spec?.bold), italic: Boolean(p.spec?.italic), underline: Boolean(p.spec?.underline), underlineStyle: p.spec?.underlineStyle || 'solid' } })) : [] };
-  addMode = false; draftBox = null; placementMode = false; selectedFaceKey = ''; selectedFaceSnapshot = null; addBoxEditor.hidden = true; cancelTextPlacementButton.hidden = true; renderAll(); return true;
+  addMode = false; draftBox = null; placementMode = false; selectedFaceKey = ''; selectedFaceSnapshot = null; addBoxEditor.hidden = true; textEditorPanel.hidden = true; cancelTextPlacementButton.hidden = true; clearEditorPreview(); renderAll(); return true;
 }
 function resetConfiguration() {
   state = { version: 3, boxes: [makeBaseBox()], boardThickness: 3, textPlacements: [] };
-  addMode = false; draftBox = null; placementMode = false; selectedFaceKey = ''; selectedFaceSnapshot = null; addBoxEditor.hidden = true; cancelTextPlacementButton.hidden = true; renderAll(); return true;
+  addMode = false; draftBox = null; placementMode = false; selectedFaceKey = ''; selectedFaceSnapshot = null; addBoxEditor.hidden = true; textEditorPanel.hidden = true; cancelTextPlacementButton.hidden = true; clearEditorPreview(); renderAll(); return true;
 }
 function setUnits(value) { units = value === 'imperial' ? 'imperial' : 'metric'; renderAll(); }
 function setCurrency(value) { currency = ['USD','RON','EUR'].includes(String(value).toUpperCase()) ? String(value).toUpperCase() : 'EUR'; renderSummary(); }
