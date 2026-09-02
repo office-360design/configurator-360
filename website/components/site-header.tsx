@@ -9,6 +9,12 @@ function languagePath(locale: Locale, currentPath: string) {
   return localizedUrl(locale, currentPath || "/");
 }
 
+function bookDemoLabel(locale: Locale) {
+  if (locale === "ro") return "Rezervă un demo";
+  if (locale === "de") return "Demo buchen";
+  return "Book a demo";
+}
+
 export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Locale; currentPath?: string }) {
   const copy = uiCopy[locale];
   const configurators = getLocalizedConfigurators(locale);
@@ -76,8 +82,8 @@ export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Loca
             {(["en", "ro", "de"] as Locale[]).map((language) => <a key={language} className={language === locale ? "active" : ""} href={languagePath(language, currentPath)} lang={language}>{language.toUpperCase()}</a>)}
           </div>
           <ThemeToggle />
-          <a className="header-contact" href={localizedPath(locale, "/contact")}>
-            {copy.start} <span>↗</span>
+          <a className="header-contact" href={localizedPath(locale, "/book-a-demo")}>
+            {bookDemoLabel(locale)} <span>↗</span>
           </a>
           <details className="mobile-navigation">
             <summary>Menu</summary>
@@ -91,6 +97,7 @@ export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Loca
               {configurators.map((item) => <a key={item.slug} href={localizedPath(locale, `/configurators/${item.slug}`)}>{configuratorNavLabel(item.slug, item.shortTitle)}<span>→</span></a>)}
               <a href={localizedPath(locale, "/pricing")}>{copy.pricing}<span>→</span></a>
               <a href={localizedPath(locale, "/about")}>{copy.about}</a>
+              <a href={localizedPath(locale, "/book-a-demo")}>{bookDemoLabel(locale)}<span>→</span></a>
               <a href={localizedPath(locale, "/contact")}>{copy.contact}</a>
             </div>
           </details>
