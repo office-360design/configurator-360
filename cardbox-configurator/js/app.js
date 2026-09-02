@@ -21,7 +21,7 @@ const TEXT = Object.freeze({
     'face.addText': 'Add text',
     'piece.title': 'New box piece', 'piece.help': 'Attached and centered on the selected face.', 'piece.width': 'Width', 'piece.height': 'Height', 'piece.depth': 'Depth',
     'text.title': 'Add text', 'text.help': 'Style the text, then place it on any inner or outer surface.', 'text.content': 'Text', 'text.size': 'Size', 'text.font': 'Font', 'text.color': 'Text', 'text.background': 'Background',
-    'text.underlineStyle': 'Underline style', 'text.lineSolid': 'Solid', 'text.lineDashed': 'Dashed', 'text.lineDotted': 'Dotted', 'text.lineDouble': 'Double', 'text.done': 'Done', 'text.cancel': 'Cancel text placement', 'text.transparentBackground': 'Transparent background',
+    'text.lockHorizontal': 'Lock to horizontal center line', 'text.lockVertical': 'Lock to vertical center line', 'text.edit': 'Edit text', 'text.delete': 'Delete text', 'text.underlineStyle': 'Underline style', 'text.lineSolid': 'Solid', 'text.lineDashed': 'Dashed', 'text.lineDotted': 'Dotted', 'text.lineDouble': 'Double', 'text.done': 'Done', 'text.cancel': 'Cancel text placement', 'text.transparentBackground': 'Transparent background',
     'common.back': 'Back', 'common.done': 'Done', 'common.cancel': 'Cancel',
     'viewer.hint': 'Double-click a vertical face to select it.',
     'viewer.hint.placement': 'Text placement mode: move over any surface and click to place. The top surfaces are lifted by 1 metre.',
@@ -40,7 +40,7 @@ const TEXT = Object.freeze({
     'face.addText': 'Adaugă text',
     'piece.title': 'Corp nou de cutie', 'piece.help': 'Atașat și centrat pe fața selectată.', 'piece.width': 'Lățime', 'piece.height': 'Înălțime', 'piece.depth': 'Adâncime',
     'text.title': 'Adaugă text', 'text.help': 'Stabilește stilul textului, apoi plasează-l pe orice suprafață interioară sau exterioară.', 'text.content': 'Text', 'text.size': 'Mărime', 'text.font': 'Font', 'text.color': 'Text', 'text.background': 'Fundal',
-    'text.underlineStyle': 'Stil subliniere', 'text.lineSolid': 'Continuu', 'text.lineDashed': 'Întrerupt', 'text.lineDotted': 'Punctat', 'text.lineDouble': 'Dublu', 'text.done': 'Gata', 'text.cancel': 'Anulează plasarea textului', 'text.transparentBackground': 'Fundal transparent',
+    'text.lockHorizontal': 'Blochează pe linia orizontală centrală', 'text.lockVertical': 'Blochează pe linia verticală centrală', 'text.edit': 'Editează textul', 'text.delete': 'Șterge textul', 'text.underlineStyle': 'Stil subliniere', 'text.lineSolid': 'Continuu', 'text.lineDashed': 'Întrerupt', 'text.lineDotted': 'Punctat', 'text.lineDouble': 'Dublu', 'text.done': 'Gata', 'text.cancel': 'Anulează plasarea textului', 'text.transparentBackground': 'Fundal transparent',
     'common.back': 'Înapoi', 'common.done': 'Gata', 'common.cancel': 'Anulează',
     'viewer.hint': 'Dublu-click pe o față verticală pentru a o selecta.',
     'viewer.hint.placement': 'Mod plasare text: mută cursorul pe orice suprafață și apasă click. Suprafețele superioare sunt ridicate cu 1 metru.',
@@ -59,7 +59,7 @@ const TEXT = Object.freeze({
     'face.addText': 'Text hinzufügen',
     'piece.title': 'Neues Box-Element', 'piece.help': 'An der ausgewählten Fläche befestigt und zentriert.', 'piece.width': 'Breite', 'piece.height': 'Höhe', 'piece.depth': 'Tiefe',
     'text.title': 'Text hinzufügen', 'text.help': 'Definieren Sie den Textstil und platzieren Sie ihn anschließend auf jeder inneren oder äußeren Oberfläche.', 'text.content': 'Text', 'text.size': 'Größe', 'text.font': 'Schriftart', 'text.color': 'Text', 'text.background': 'Hintergrund',
-    'text.underlineStyle': 'Unterstreichungsstil', 'text.lineSolid': 'Durchgezogen', 'text.lineDashed': 'Gestrichelt', 'text.lineDotted': 'Gepunktet', 'text.lineDouble': 'Doppelt', 'text.done': 'Fertig', 'text.cancel': 'Textplatzierung abbrechen', 'text.transparentBackground': 'Transparenter Hintergrund',
+    'text.lockHorizontal': 'Auf horizontaler Mittellinie fixieren', 'text.lockVertical': 'Auf vertikaler Mittellinie fixieren', 'text.edit': 'Text bearbeiten', 'text.delete': 'Text löschen', 'text.underlineStyle': 'Unterstreichungsstil', 'text.lineSolid': 'Durchgezogen', 'text.lineDashed': 'Gestrichelt', 'text.lineDotted': 'Gepunktet', 'text.lineDouble': 'Doppelt', 'text.done': 'Fertig', 'text.cancel': 'Textplatzierung abbrechen', 'text.transparentBackground': 'Transparenter Hintergrund',
     'common.back': 'Zurück', 'common.done': 'Fertig', 'common.cancel': 'Abbrechen',
     'viewer.hint': 'Doppelklicken Sie auf eine vertikale Fläche, um sie auszuwählen.',
     'viewer.hint.placement': 'Textplatzierungsmodus: Bewegen Sie den Cursor über eine Oberfläche und klicken Sie. Die oberen Flächen werden um 1 Meter angehoben.',
@@ -72,6 +72,12 @@ const TEXT = Object.freeze({
 const $ = (selector) => document.querySelector(selector);
 const canvasHost = $('#canvasHost');
 const dimensionLayer = $('#dimensionLayer');
+const textGuideLayer = $('#textGuideLayer');
+const textSelectionHud = $('#textSelectionHud');
+const textHorizontalLockButton = $('#textHorizontalLockButton');
+const textVerticalLockButton = $('#textVerticalLockButton');
+const textEditButton = $('#textEditButton');
+const textDeleteButton = $('#textDeleteButton');
 const faceActionPopup = $('#faceActionPopup');
 const faceDismissButton = $('#faceDismissButton');
 const textEditorPanel = $('#textEditorPanel');
@@ -120,13 +126,25 @@ let editorPreviewSpec = null;
 let currentTextColor = '#1f2d36';
 let currentBackgroundColor = 'transparent';
 let dimensionAnchors = [];
+let selectedTextId = '';
+let selectedTextConstraint = '';
+let selectedTextConstraintFace = null;
+let selectedTextConstraintSideFactor = 1;
+let textDragging = false;
+let textDragPointerId = null;
+let textDragMoved = false;
+let textGuidePoints = [];
+let textHudAnchor = null;
+let editingTextId = '';
+let editingTextOriginalSpec = null;
+let suppressCanvasClick = false;
 
 function makeBaseBox(width = 600, depth = 400, height = 300) {
   return { id: 'base', minX: -width / 2, maxX: width / 2, minY: 0, maxY: height, minZ: -depth / 2, maxZ: depth / 2 };
 }
 
 let state = {
-  version: 3,
+  version: 4,
   boxes: [makeBaseBox()],
   boardThickness: 3,
   textPlacements: [],
@@ -139,6 +157,8 @@ function localeForHost() {
   return 'en-US';
 }
 function t(key) { return TEXT[locale]?.[key] ?? TEXT['en-US'][key] ?? key; }
+function recordUndoCheckpoint() { window.CARDBOX_CONFIGURATOR_UNDO_HISTORY?.record?.(); }
+function markConfigurationDirty() { window.CARDBOX_CONFIGURATOR_SHARED_SHELL?.markDirty?.(); }
 function clamp(value, min, max) { return Math.min(max, Math.max(min, Number(value) || 0)); }
 function round(value, digits = 4) { const f = 10 ** digits; return Math.round(value * f) / f; }
 function toMm(value) { return units === 'imperial' ? Number(value) * 25.4 : Number(value); }
@@ -155,6 +175,197 @@ function currentBoxes() { return draftBox ? [...state.boxes, draftBox] : state.b
 function baseBox() { return state.boxes[0]; }
 function uniqueSorted(values) { return [...new Set(values.map((v) => round(v, 6)))].sort((a, b) => a - b); }
 function faceKey(face) { return [face.axis, face.sign, round(face.coord, 4), round(face.u1, 4), round(face.u2, 4), round(face.v1, 4), round(face.v2, 4)].join(':'); }
+
+function makeTextPlacementId() {
+  if (globalThis.crypto?.randomUUID) return `text-${globalThis.crypto.randomUUID()}`;
+  return `text-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+function copyFace(face) {
+  if (!face) return null;
+  return { axis: face.axis, sign: Number(face.sign), coord: Number(face.coord), u1: Number(face.u1), u2: Number(face.u2), v1: Number(face.v1), v2: Number(face.v2) };
+}
+function faceWorldCorners(face) {
+  if (face.axis === 'x') return [
+    new THREE.Vector3(face.coord, face.v1, face.u1), new THREE.Vector3(face.coord, face.v1, face.u2),
+    new THREE.Vector3(face.coord, face.v2, face.u2), new THREE.Vector3(face.coord, face.v2, face.u1),
+  ];
+  if (face.axis === 'y') return [
+    new THREE.Vector3(face.u1, face.coord, face.v1), new THREE.Vector3(face.u2, face.coord, face.v1),
+    new THREE.Vector3(face.u2, face.coord, face.v2), new THREE.Vector3(face.u1, face.coord, face.v2),
+  ];
+  return [
+    new THREE.Vector3(face.u1, face.v1, face.coord), new THREE.Vector3(face.u2, face.v1, face.coord),
+    new THREE.Vector3(face.u2, face.v2, face.coord), new THREE.Vector3(face.u1, face.v2, face.coord),
+  ];
+}
+function faceBasis(face, sideFactor = 1) {
+  const normal = faceNormal(face).multiplyScalar(sideFactor >= 0 ? 1 : -1).normalize();
+  const center = faceCenter(face);
+  let horizontal;
+  let vertical;
+  if (isVerticalFace(face)) {
+    vertical = new THREE.Vector3(0, 1, 0);
+    horizontal = new THREE.Vector3().crossVectors(vertical, normal).normalize();
+  } else {
+    horizontal = new THREE.Vector3(1, 0, 0);
+    vertical = new THREE.Vector3().crossVectors(normal, horizontal).normalize();
+  }
+  const projected = faceWorldCorners(face).map((point) => {
+    const relative = point.clone().sub(center);
+    return { h: relative.dot(horizontal), v: relative.dot(vertical) };
+  });
+  return {
+    center, normal, horizontal, vertical,
+    hMin: Math.min(...projected.map((p0) => p0.h)), hMax: Math.max(...projected.map((p0) => p0.h)),
+    vMin: Math.min(...projected.map((p0) => p0.v)), vMax: Math.max(...projected.map((p0) => p0.v)),
+  };
+}
+function facePointFromLocal(face, sideFactor, h, v, offset = 0) {
+  const basis = faceBasis(face, sideFactor);
+  return basis.center.clone()
+    .add(basis.horizontal.clone().multiplyScalar(h))
+    .add(basis.vertical.clone().multiplyScalar(v))
+    .add(basis.normal.clone().multiplyScalar(offset));
+}
+function pointToFaceLocal(face, sideFactor, point) {
+  const basis = faceBasis(face, sideFactor);
+  const relative = point.clone().sub(basis.center);
+  return { h: relative.dot(basis.horizontal), v: relative.dot(basis.vertical), basis };
+}
+function clampPointToFace(face, sideFactor, point, marginH = 0, marginV = 0) {
+  const local = pointToFaceLocal(face, sideFactor, point);
+  const hMin = local.basis.hMin + Math.max(0, marginH);
+  const hMax = local.basis.hMax - Math.max(0, marginH);
+  const vMin = local.basis.vMin + Math.max(0, marginV);
+  const vMax = local.basis.vMax - Math.max(0, marginV);
+  const h = clamp(local.h, Math.min(hMin, hMax), Math.max(hMin, hMax));
+  const v = clamp(local.v, Math.min(vMin, vMax), Math.max(vMin, vMax));
+  return facePointFromLocal(face, sideFactor, h, v, 0);
+}
+function currentFaceForDescriptor(face) {
+  if (!face) return null;
+  const exact = surfaceDescriptors.find((candidate) => faceKey(candidate) === faceKey(face));
+  if (exact) return exact;
+  const center = faceCenter(face);
+  return surfaceDescriptors.find((candidate) => {
+    if (candidate.axis !== face.axis || candidate.sign !== face.sign || Math.abs(candidate.coord - face.coord) > 1.5) return false;
+    if (candidate.axis === 'x') return center.z >= candidate.u1 - 2 && center.z <= candidate.u2 + 2 && center.y >= candidate.v1 - 2 && center.y <= candidate.v2 + 2;
+    if (candidate.axis === 'y') return center.x >= candidate.u1 - 2 && center.x <= candidate.u2 + 2 && center.z >= candidate.v1 - 2 && center.z <= candidate.v2 + 2;
+    return center.x >= candidate.u1 - 2 && center.x <= candidate.u2 + 2 && center.y >= candidate.v1 - 2 && center.y <= candidate.v2 + 2;
+  }) || null;
+}
+function inferFaceForWorldPlane(position, normal = null) {
+  let best = null;
+  let bestScore = Infinity;
+  for (const face of surfaceDescriptors) {
+    const outward = faceNormal(face).normalize();
+    if (normal && Math.abs(normal.clone().normalize().dot(outward)) < 0.88) continue;
+    const center = faceCenter(face);
+    const planeDistance = Math.abs(position.clone().sub(center).dot(outward));
+    if (planeDistance > 8) continue;
+    const basis = faceBasis(face, 1);
+    const relative = position.clone().sub(center);
+    const h = relative.dot(basis.horizontal);
+    const v = relative.dot(basis.vertical);
+    if (h < basis.hMin - 16 || h > basis.hMax + 16 || v < basis.vMin - 16 || v > basis.vMax + 16) continue;
+    const alignmentPenalty = normal ? (1 - Math.abs(normal.clone().normalize().dot(outward))) * 20 : 0;
+    const score = planeDistance + alignmentPenalty;
+    if (score < bestScore) { best = face; bestScore = score; }
+  }
+  return best;
+}
+function segmentWorldNormal(segment) {
+  const quaternion = new THREE.Quaternion().fromArray(segment.quaternion || [0, 0, 0, 1]);
+  return new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion).normalize();
+}
+function segmentFaceInfo(segment) {
+  const stored = currentFaceForDescriptor(segment.face);
+  if (stored) {
+    const normal = segmentWorldNormal(segment);
+    return { face: stored, sideFactor: normal.dot(faceNormal(stored)) >= 0 ? 1 : -1 };
+  }
+  const position = new THREE.Vector3().fromArray(segment.position || [0, 0, 0]);
+  const normal = segmentWorldNormal(segment);
+  const face = inferFaceForWorldPlane(position, normal);
+  if (!face) return null;
+  return { face, sideFactor: normal.dot(faceNormal(face)) >= 0 ? 1 : -1 };
+}
+function ensurePlacementId(placement) {
+  if (!placement.id) placement.id = makeTextPlacementId();
+  return placement.id;
+}
+function resolvePlacementFaceInfo(placement) {
+  if (!placement) return null;
+  ensurePlacementId(placement);
+  let face = currentFaceForDescriptor(placement.face);
+  let sideFactor = Number(placement.sideFactor) < 0 ? -1 : 1;
+  let anchor = Array.isArray(placement.anchor) ? new THREE.Vector3().fromArray(placement.anchor) : null;
+
+  // Older wrapped stickers did not store an anchor. The strip closest to the
+  // center of the artwork is the best reconstruction of the original click
+  // point and avoids moving the sticker when it is first edited after upgrade.
+  if ((!face || !anchor) && Array.isArray(placement.segments) && placement.segments.length) {
+    const ordered = [...placement.segments].sort((a, b) => {
+      const ca = Math.abs(((Number(a.u0) || 0) + (Number(a.u1) || 1)) / 2 - 0.5);
+      const cb = Math.abs(((Number(b.u0) || 0) + (Number(b.u1) || 1)) / 2 - 0.5);
+      return ca - cb;
+    });
+    for (const segment of ordered) {
+      const info = segmentFaceInfo(segment);
+      if (!info) continue;
+      face = face || info.face;
+      sideFactor = info.sideFactor;
+      if (!anchor) anchor = new THREE.Vector3().fromArray(segment.position || [0,0,0]);
+      if (!segment.face) segment.face = copyFace(info.face);
+      break;
+    }
+  }
+
+  if (!face && Array.isArray(placement.position)) {
+    const position = new THREE.Vector3().fromArray(placement.position);
+    const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(new THREE.Quaternion().fromArray(placement.quaternion || [0,0,0,1])).normalize();
+    face = inferFaceForWorldPlane(position, normal);
+    if (face) sideFactor = normal.dot(faceNormal(face)) >= 0 ? 1 : -1;
+    if (!anchor) anchor = position.clone();
+  }
+  if (!face) return null;
+  if (!anchor) anchor = faceCenter(face);
+  const basis = faceBasis(face, sideFactor);
+  anchor.sub(basis.normal.clone().multiplyScalar(anchor.clone().sub(basis.center).dot(basis.normal)));
+  placement.face = copyFace(face);
+  placement.sideFactor = sideFactor;
+  placement.anchor = anchor.toArray();
+  return { face, sideFactor, anchor };
+}
+function resolvePlacementPrimaryFaceInfo(placement) {
+  if (!placement) return null;
+  if (!Array.isArray(placement.segments) || !placement.segments.length) return resolvePlacementFaceInfo(placement);
+  const weights = new Map();
+  const centers = new Map();
+  const sideFactors = new Map();
+  for (const segment of placement.segments) {
+    const info = segmentFaceInfo(segment);
+    if (!info) continue;
+    const key = faceKey(info.face);
+    const weight = Math.max(1, Number(segment.width) || 1);
+    weights.set(key, (weights.get(key) || 0) + weight);
+    const entry = centers.get(key) || { point: new THREE.Vector3(), weight: 0 };
+    entry.point.add(new THREE.Vector3().fromArray(segment.position || [0,0,0]).multiplyScalar(weight));
+    entry.weight += weight;
+    centers.set(key, entry);
+    sideFactors.set(key, info.sideFactor);
+  }
+  if (!weights.size) return resolvePlacementFaceInfo(placement);
+  const key = [...weights.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const face = surfaceDescriptors.find((candidate) => faceKey(candidate) === key);
+  if (!face) return resolvePlacementFaceInfo(placement);
+  const sideFactor = sideFactors.get(key) || 1;
+  const entry = centers.get(key);
+  let anchor = entry?.weight ? entry.point.multiplyScalar(1 / entry.weight) : faceCenter(face);
+  const basis = faceBasis(face, sideFactor);
+  anchor.sub(basis.normal.clone().multiplyScalar(anchor.clone().sub(basis.center).dot(basis.normal)));
+  return { face, sideFactor, anchor };
+}
 
 function buildUnionGrid(boxes) {
   const xs = uniqueSorted(boxes.flatMap((b) => [b.minX, b.maxX]));
@@ -272,6 +483,7 @@ const boxGroup = new THREE.Group(); scene.add(boxGroup);
 const textGroup = new THREE.Group(); scene.add(textGroup);
 const editorPreviewGroup = new THREE.Group(); scene.add(editorPreviewGroup);
 const previewGroup = new THREE.Group(); scene.add(previewGroup);
+const textSelectionGroup = new THREE.Group(); scene.add(textSelectionGroup);
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -514,7 +726,7 @@ function createWrappedSticker(spec, face, anchorPoint, sideFactor = 1, opacity =
     segment.position.copy(position);
     segment.quaternion.copy(quaternionForNormal(normal));
     group.add(segment);
-    segments.push({ position: position.toArray(), quaternion: segment.quaternion.toArray(), u0, u1, width: stripWidth + 0.55, height });
+    segments.push({ position: position.toArray(), quaternion: segment.quaternion.toArray(), u0, u1, width: stripWidth + 0.55, height, face: copyFace(mapped.face), sideFactor });
   }
   return { group, segments };
 }
@@ -529,20 +741,74 @@ function createStoredStickerSegments(spec, segments, opacity = 1) {
   }
   return group;
 }
+function tagTextRenderable(object, placementId) {
+  object.traverse((child) => {
+    if (!child.isMesh) return;
+    child.userData.cardboxText = true;
+    child.userData.textPlacementId = placementId;
+  });
+}
 function renderPlacedTexts() {
   clearGroup(textGroup);
   for (const placement of state.textPlacements) {
+    const placementId = ensurePlacementId(placement);
+    if (placementId === editingTextId) continue;
     if (Array.isArray(placement.segments) && placement.segments.length) {
-      textGroup.add(createStoredStickerSegments(placement.spec, placement.segments, 1));
+      const group = createStoredStickerSegments(placement.spec, placement.segments, 1);
+      tagTextRenderable(group, placementId);
+      textGroup.add(group);
       continue;
     }
+    if (!Array.isArray(placement.position)) continue;
     const mesh = createTextMesh(placement.spec, 1);
     const position = new THREE.Vector3().fromArray(placement.position);
     if (placement.topSurface && placementMode) position.y += LID_LIFT_MM;
     mesh.position.copy(position);
-    mesh.quaternion.fromArray(placement.quaternion);
+    mesh.quaternion.fromArray(placement.quaternion || [0,0,0,1]);
+    mesh.userData.cardboxText = true;
+    mesh.userData.textPlacementId = placementId;
     textGroup.add(mesh);
   }
+}
+
+function placementById(id) {
+  return state.textPlacements.find((placement) => ensurePlacementId(placement) === id) || null;
+}
+function buildPlacementGeometry(spec, face, anchorPoint, sideFactor = 1) {
+  const anchor = clampPointToFace(face, sideFactor, anchorPoint);
+  if (isVerticalFace(face)) {
+    const sticker = createWrappedSticker(spec, face, anchor, sideFactor, 1);
+    const segments = sticker.segments.map((segment) => ({
+      ...segment,
+      position: [...segment.position],
+      quaternion: [...segment.quaternion],
+      face: copyFace(segment.face),
+    }));
+    clearGroup(sticker.group);
+    return {
+      face: copyFace(face), sideFactor, anchor: anchor.toArray(), segments,
+      position: undefined, quaternion: undefined, topSurface: false,
+    };
+  }
+  const normal = faceNormal(face).multiplyScalar(sideFactor).normalize();
+  const position = anchor.clone().add(normal.multiplyScalar(SURFACE_TEXT_OFFSET_MM));
+  const quaternion = quaternionForNormal(normal);
+  return {
+    face: copyFace(face), sideFactor, anchor: anchor.toArray(), segments: undefined,
+    position: position.toArray(), quaternion: quaternion.toArray(), topSurface: isTopFace(face),
+  };
+}
+function applyPlacementGeometry(placement, face, anchorPoint, sideFactor = 1) {
+  if (!placement || !face) return false;
+  const geometry = buildPlacementGeometry(placement.spec, face, anchorPoint, sideFactor);
+  placement.face = geometry.face;
+  placement.sideFactor = geometry.sideFactor;
+  placement.anchor = geometry.anchor;
+  placement.segments = geometry.segments;
+  placement.position = geometry.position;
+  placement.quaternion = geometry.quaternion;
+  placement.topSurface = geometry.topSurface;
+  return true;
 }
 
 function isTransparentColor(value) {
@@ -557,17 +823,28 @@ function syncPaletteSelection(container, value) {
 function renderEditorPreview() {
   clearGroup(editorPreviewGroup);
   editorPreviewSpec = null;
-  if (textEditorPanel.hidden || !selectedFaceSnapshot) return;
+  if (textEditorPanel.hidden) return;
   const spec = buildTextSpec();
   editorPreviewSpec = { ...spec };
-  const anchor = faceCenter(selectedFaceSnapshot);
-  if (isVerticalFace(selectedFaceSnapshot)) {
-    const sticker = createWrappedSticker(spec, selectedFaceSnapshot, anchor, selectedFaceSideFactor, 0.94);
+  let face = selectedFaceSnapshot;
+  let sideFactor = selectedFaceSideFactor;
+  let anchor = face ? faceCenter(face) : null;
+  if (editingTextId) {
+    const placement = placementById(editingTextId);
+    const info = resolvePlacementFaceInfo(placement);
+    if (!placement || !info) return;
+    face = info.face;
+    sideFactor = info.sideFactor;
+    anchor = info.anchor;
+  }
+  if (!face || !anchor) return;
+  if (isVerticalFace(face)) {
+    const sticker = createWrappedSticker(spec, face, anchor.clone(), sideFactor, 0.94);
     editorPreviewGroup.add(sticker.group);
   } else {
     const mesh = createTextMesh(spec, 0.94);
-    const normal = faceNormal(selectedFaceSnapshot).multiplyScalar(selectedFaceSideFactor);
-    mesh.position.copy(anchor.add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM)));
+    const normal = faceNormal(face).multiplyScalar(sideFactor);
+    mesh.position.copy(anchor.clone().add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM)));
     mesh.quaternion.copy(quaternionForNormal(normal));
     editorPreviewGroup.add(mesh);
   }
@@ -581,6 +858,182 @@ function quaternionForNormal(normal) {
   const tangent = new THREE.Vector3().crossVectors(reference, normal).normalize();
   const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
   return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(tangent, bitangent, normal));
+}
+
+function textPlaneCorners(position, quaternion, width, height) {
+  const xAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion).normalize();
+  const yAxis = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion).normalize();
+  const halfW = width / 2;
+  const halfH = height / 2;
+  return [
+    position.clone().add(xAxis.clone().multiplyScalar(-halfW)).add(yAxis.clone().multiplyScalar(-halfH)),
+    position.clone().add(xAxis.clone().multiplyScalar(halfW)).add(yAxis.clone().multiplyScalar(-halfH)),
+    position.clone().add(xAxis.clone().multiplyScalar(halfW)).add(yAxis.clone().multiplyScalar(halfH)),
+    position.clone().add(xAxis.clone().multiplyScalar(-halfW)).add(yAxis.clone().multiplyScalar(halfH)),
+  ];
+}
+function placementBoundsOnFace(placement, face, sideFactor = 1) {
+  const basis = faceBasis(face, sideFactor);
+  const points = [];
+  if (Array.isArray(placement.segments) && placement.segments.length) {
+    for (const segment of placement.segments) {
+      const info = segmentFaceInfo(segment);
+      if (!info || faceKey(info.face) !== faceKey(face)) continue;
+      const position = new THREE.Vector3().fromArray(segment.position || [0,0,0]);
+      const quaternion = new THREE.Quaternion().fromArray(segment.quaternion || [0,0,0,1]);
+      points.push(...textPlaneCorners(position, quaternion, Number(segment.width) || 10, Number(segment.height) || 50));
+    }
+  } else if (Array.isArray(placement.position)) {
+    const artwork = createTextArtwork(placement.spec);
+    const position = new THREE.Vector3().fromArray(placement.position);
+    const quaternion = new THREE.Quaternion().fromArray(placement.quaternion || [0,0,0,1]);
+    points.push(...textPlaneCorners(position, quaternion, artwork.worldWidth, artwork.worldHeight));
+    artwork.texture.dispose();
+  }
+  if (!points.length) {
+    const info = resolvePlacementFaceInfo(placement);
+    if (!info) return null;
+    const artwork = createTextArtwork(placement.spec);
+    const anchor = info.anchor;
+    const quaternion = quaternionForNormal(basis.normal);
+    points.push(...textPlaneCorners(anchor.clone().add(basis.normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM)), quaternion, artwork.worldWidth, artwork.worldHeight));
+    artwork.texture.dispose();
+  }
+  const coordinates = points.map((point) => {
+    const relative = point.clone().sub(basis.center);
+    return { h: relative.dot(basis.horizontal), v: relative.dot(basis.vertical) };
+  });
+  return {
+    basis,
+    hMin: Math.min(...coordinates.map((p0) => p0.h)), hMax: Math.max(...coordinates.map((p0) => p0.h)),
+    vMin: Math.min(...coordinates.map((p0) => p0.v)), vMax: Math.max(...coordinates.map((p0) => p0.v)),
+  };
+}
+function makeGuideLine(start, end) {
+  const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+  const material = new THREE.LineDashedMaterial({ color: 0x0e82d8, dashSize: 2, gapSize: 4, transparent: true, opacity: 0.9, depthTest: false });
+  const line = new THREE.Line(geometry, material);
+  line.computeLineDistances();
+  line.renderOrder = 20;
+  return line;
+}
+function makeGuideArrow(point, direction, normal) {
+  const dir = direction.clone().normalize();
+  const side = new THREE.Vector3().crossVectors(normal, dir).normalize();
+  const back = point.clone().add(dir.clone().multiplyScalar(-9));
+  const vertices = new Float32Array([
+    point.x, point.y, point.z,
+    back.x + side.x * 4.2, back.y + side.y * 4.2, back.z + side.z * 4.2,
+    back.x - side.x * 4.2, back.y - side.y * 4.2, back.z - side.z * 4.2,
+  ]);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  geometry.setIndex([0, 1, 2]);
+  geometry.computeVertexNormals();
+  const material = new THREE.MeshBasicMaterial({ color: 0x0e82d8, side: THREE.DoubleSide, depthTest: false });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.renderOrder = 21;
+  return mesh;
+}
+function addDistanceGuide(id, start, end, outwardDirection, basis, distance) {
+  const surfaceOffset = basis.normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM + 3.2);
+  const a = start.clone().add(surfaceOffset);
+  const b = end.clone().add(surfaceOffset);
+  textSelectionGroup.add(makeGuideLine(a, b));
+  textSelectionGroup.add(makeGuideArrow(b, outwardDirection, basis.normal));
+  textSelectionGroup.add(makeGuideArrow(a, outwardDirection.clone().multiplyScalar(-1), basis.normal));
+  textGuidePoints.push({ id, point: a.clone().lerp(b, 0.5), label: displayLength(Math.max(0, distance)) });
+}
+function selectedTextFaceInfo() {
+  const placement = placementById(selectedTextId);
+  if (!placement) return null;
+  if (selectedTextConstraint && selectedTextConstraintFace) {
+    const face = currentFaceForDescriptor(selectedTextConstraintFace) || selectedTextConstraintFace;
+    const anchor = Array.isArray(placement.anchor) ? new THREE.Vector3().fromArray(placement.anchor) : faceCenter(face);
+    return { face, sideFactor: selectedTextConstraintSideFactor, anchor };
+  }
+  return resolvePlacementPrimaryFaceInfo(placement);
+}
+function renderTextGuideLabels() {
+  textGuideLayer.innerHTML = textGuidePoints.map((guide) => `<div class="text-guide-label" data-text-guide="${guide.id}">${guide.label}</div>`).join('');
+}
+function renderTextSelection() {
+  clearGroup(textSelectionGroup);
+  textGuidePoints = [];
+  textHudAnchor = null;
+  textGuideLayer.innerHTML = '';
+  textSelectionHud.hidden = true;
+  canvasHost.classList.toggle('has-selected-text', Boolean(selectedTextId));
+  textHorizontalLockButton.classList.toggle('is-active', selectedTextConstraint === 'horizontal');
+  textVerticalLockButton.classList.toggle('is-active', selectedTextConstraint === 'vertical');
+  if (!selectedTextId || placementMode || addMode || editingTextId || !textEditorPanel.hidden) return;
+  const placement = placementById(selectedTextId);
+  const info = selectedTextFaceInfo();
+  if (!placement || !info) return;
+  const bounds = placementBoundsOnFace(placement, info.face, info.sideFactor);
+  if (!bounds) return;
+  const basis = bounds.basis;
+  const textHMin = Math.max(bounds.hMin, basis.hMin);
+  const textHMax = Math.min(bounds.hMax, basis.hMax);
+  const textVMin = Math.max(bounds.vMin, basis.vMin);
+  const textVMax = Math.min(bounds.vMax, basis.vMax);
+  const hCenter = (textHMin + textHMax) / 2;
+  const vCenter = (textVMin + textVMax) / 2;
+  const outlinePoints = [
+    facePointFromLocal(info.face, info.sideFactor, textHMin, textVMin, SURFACE_TEXT_OFFSET_MM + 3.4),
+    facePointFromLocal(info.face, info.sideFactor, textHMax, textVMin, SURFACE_TEXT_OFFSET_MM + 3.4),
+    facePointFromLocal(info.face, info.sideFactor, textHMax, textVMax, SURFACE_TEXT_OFFSET_MM + 3.4),
+    facePointFromLocal(info.face, info.sideFactor, textHMin, textVMax, SURFACE_TEXT_OFFSET_MM + 3.4),
+  ];
+  const outlineGeometry = new THREE.BufferGeometry().setFromPoints([...outlinePoints, outlinePoints[0]]);
+  const outlineMaterial = new THREE.LineBasicMaterial({ color: 0x0e82d8, transparent: true, opacity: 0.95, depthTest: false });
+  const outline = new THREE.Line(outlineGeometry, outlineMaterial);
+  outline.renderOrder = 20;
+  textSelectionGroup.add(outline);
+
+  addDistanceGuide('left',
+    facePointFromLocal(info.face, info.sideFactor, textHMin, vCenter),
+    facePointFromLocal(info.face, info.sideFactor, basis.hMin, vCenter),
+    basis.horizontal.clone().multiplyScalar(-1), basis, textHMin - basis.hMin);
+  addDistanceGuide('right',
+    facePointFromLocal(info.face, info.sideFactor, textHMax, vCenter),
+    facePointFromLocal(info.face, info.sideFactor, basis.hMax, vCenter),
+    basis.horizontal.clone(), basis, basis.hMax - textHMax);
+  addDistanceGuide('down',
+    facePointFromLocal(info.face, info.sideFactor, hCenter, textVMin),
+    facePointFromLocal(info.face, info.sideFactor, hCenter, basis.vMin),
+    basis.vertical.clone().multiplyScalar(-1), basis, textVMin - basis.vMin);
+  addDistanceGuide('up',
+    facePointFromLocal(info.face, info.sideFactor, hCenter, textVMax),
+    facePointFromLocal(info.face, info.sideFactor, hCenter, basis.vMax),
+    basis.vertical.clone(), basis, basis.vMax - textVMax);
+
+  textHudAnchor = facePointFromLocal(info.face, info.sideFactor, hCenter, textVMin, SURFACE_TEXT_OFFSET_MM + 4);
+  renderTextGuideLabels();
+  textSelectionHud.hidden = false;
+}
+function selectTextPlacement(id) {
+  const placement = placementById(id);
+  if (!placement) return;
+  deselectFace();
+  selectedTextId = ensurePlacementId(placement);
+  selectedTextConstraint = '';
+  selectedTextConstraintFace = null;
+  selectedTextConstraintSideFactor = 1;
+  renderPlacedTexts();
+  renderTextSelection();
+}
+function deselectTextPlacement() {
+  selectedTextId = '';
+  selectedTextConstraint = '';
+  selectedTextConstraintFace = null;
+  selectedTextConstraintSideFactor = 1;
+  textDragging = false;
+  textDragPointerId = null;
+  textDragMoved = false;
+  controls.enabled = true;
+  canvasHost.classList.remove('is-text-dragging', 'has-selected-text');
+  renderTextSelection();
 }
 
 function renderTranslations() {
@@ -632,10 +1085,11 @@ function updateFacePopupPosition() {
   faceActionPopup.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
 }
 function renderAll() {
-  renderInputs(); renderTranslations(); renderSummary(); rebuildSurfaceMeshes(); renderFacePopup();
+  renderInputs(); renderTranslations(); renderSummary(); rebuildSurfaceMeshes(); renderFacePopup(); renderTextSelection();
 }
 
 function selectFace(face, sideFactor = 1) {
+  deselectTextPlacement();
   const key = faceKey(face);
   if (selectedFaceKey === key) { deselectFace(); return; }
   selectedFaceKey = key;
@@ -703,6 +1157,7 @@ function updateDraftFromEditor() {
 }
 function finishAddMode() {
   if (!addMode || !draftBox) return;
+  recordUndoCheckpoint();
   state.boxes.push(cloneBox(draftBox));
   draftBox = null;
   draftBeforeState = null;
@@ -711,6 +1166,7 @@ function finishAddMode() {
   selectedFaceKey = '';
   selectedFaceSnapshot = null;
   renderAll();
+  markConfigurationDirty();
 }
 function cancelAddMode() {
   draftBox = null;
@@ -738,22 +1194,82 @@ function buildTextSpec() {
     underlineStyle: textUnderlineStyle.value,
   };
 }
+function populateTextEditor(spec) {
+  const source = spec || {};
+  textContentInput.value = source.text || 'TEXT';
+  textSizeInput.value = String(clamp(source.size || 54, 12, 180));
+  textFontSelect.value = source.fontFamily || 'Arial, sans-serif';
+  currentTextColor = source.textColor || '#1f2d36';
+  currentBackgroundColor = source.backgroundColor || 'transparent';
+  textBoldToggle.checked = Boolean(source.bold);
+  textItalicToggle.checked = Boolean(source.italic);
+  textUnderlineToggle.checked = Boolean(source.underline);
+  textUnderlineStyle.value = source.underlineStyle || 'solid';
+  syncPaletteSelection(textColorPalette, currentTextColor);
+  syncPaletteSelection(textBackgroundPalette, currentBackgroundColor);
+}
 function startTextEditor() {
   if (!selectedFaceSnapshot) return;
+  editingTextId = '';
+  editingTextOriginalSpec = null;
   faceActionPopup.hidden = true;
   textEditorPanel.hidden = false;
   // Keep the actual face color untouched while styling text; selection is shown
   // only by the discrete outline/corner markers in the main face-action state.
   rebuildSurfaceMeshes();
   renderEditorPreview();
+  renderTextSelection();
+}
+function editSelectedText() {
+  const placement = placementById(selectedTextId);
+  const info = resolvePlacementFaceInfo(placement);
+  if (!placement || !info) return;
+  editingTextId = ensurePlacementId(placement);
+  editingTextOriginalSpec = { ...placement.spec };
+  selectedFaceSnapshot = copyFace(info.face);
+  selectedFaceSideFactor = info.sideFactor;
+  selectedFaceKey = '';
+  populateTextEditor(placement.spec);
+  faceActionPopup.hidden = true;
+  textEditorPanel.hidden = false;
+  renderPlacedTexts();
+  renderEditorPreview();
+  renderTextSelection();
 }
 function backFromTextEditor() {
   textEditorPanel.hidden = true;
   clearEditorPreview();
+  if (editingTextId) {
+    editingTextId = '';
+    editingTextOriginalSpec = null;
+    selectedFaceSnapshot = null;
+    selectedFaceKey = '';
+    renderPlacedTexts();
+    renderTextSelection();
+    return;
+  }
   rebuildSurfaceMeshes();
   renderFacePopup();
 }
 function enterPlacementMode() {
+  if (editingTextId) {
+    const placement = placementById(editingTextId);
+    const info = resolvePlacementFaceInfo(placement);
+    if (placement && info) {
+      recordUndoCheckpoint();
+      placement.spec = buildTextSpec();
+      applyPlacementGeometry(placement, info.face, info.anchor, info.sideFactor);
+    }
+    editingTextId = '';
+    editingTextOriginalSpec = null;
+    textEditorPanel.hidden = true;
+    clearEditorPreview();
+    selectedFaceSnapshot = null;
+    selectedFaceKey = '';
+    renderAll();
+    markConfigurationDirty();
+    return;
+  }
   pendingTextSpec = buildTextSpec();
   placementMode = true;
   faceActionPopup.hidden = true;
@@ -774,13 +1290,124 @@ function exitPlacementMode() {
   renderAll();
 }
 
-function raycast(event, objects = surfaceMeshes) {
+function raycast(event, objects = surfaceMeshes, recursive = false) {
   const rect = renderer.domElement.getBoundingClientRect();
   const pointer = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObjects(objects, false)[0] || null;
+  const hit = raycaster.intersectObjects(objects, recursive)[0] || null;
   return { hit, raycaster };
+}
+function raycastText(event) {
+  return raycast(event, textGroup.children, true);
+}
+
+function updateSelectedTextGeometry(placement, face, anchor, sideFactor) {
+  if (!placement || !face || !anchor) return false;
+  const applied = applyPlacementGeometry(placement, face, anchor, sideFactor);
+  if (!applied) return false;
+  renderPlacedTexts();
+  renderTextSelection();
+  return true;
+}
+function toggleSelectedTextConstraint(mode) {
+  const placement = placementById(selectedTextId);
+  if (!placement) return;
+  if (selectedTextConstraint === mode) {
+    selectedTextConstraint = '';
+    selectedTextConstraintFace = null;
+    selectedTextConstraintSideFactor = 1;
+    renderTextSelection();
+    return;
+  }
+  const info = resolvePlacementPrimaryFaceInfo(placement);
+  if (!info) return;
+  recordUndoCheckpoint();
+  selectedTextConstraint = mode;
+  selectedTextConstraintFace = copyFace(info.face);
+  selectedTextConstraintSideFactor = info.sideFactor;
+  const local = pointToFaceLocal(info.face, info.sideFactor, info.anchor);
+  const h = mode === 'vertical' ? 0 : local.h;
+  const v = mode === 'horizontal' ? 0 : local.v;
+  const anchor = facePointFromLocal(info.face, info.sideFactor, h, v, 0);
+  updateSelectedTextGeometry(placement, info.face, anchor, info.sideFactor);
+  markConfigurationDirty();
+}
+function deleteSelectedText() {
+  if (!selectedTextId) return;
+  recordUndoCheckpoint();
+  state.textPlacements = state.textPlacements.filter((placement) => ensurePlacementId(placement) !== selectedTextId);
+  editingTextId = '';
+  editingTextOriginalSpec = null;
+  deselectTextPlacement();
+  renderAll();
+  markConfigurationDirty();
+}
+function dragPointOnConstraintFace(event, face, sideFactor, mode) {
+  const { raycaster } = raycast(event, []);
+  const basis = faceBasis(face, sideFactor);
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(basis.normal, basis.center);
+  const hitPoint = new THREE.Vector3();
+  if (!raycaster.ray.intersectPlane(plane, hitPoint)) return null;
+  const local = pointToFaceLocal(face, sideFactor, hitPoint);
+  let h = clamp(local.h, basis.hMin, basis.hMax);
+  let v = clamp(local.v, basis.vMin, basis.vMax);
+  if (mode === 'horizontal') v = 0;
+  if (mode === 'vertical') h = 0;
+  return facePointFromLocal(face, sideFactor, h, v, 0);
+}
+function moveSelectedTextWithPointer(event) {
+  if (!textDragging || !selectedTextId) return false;
+  const placement = placementById(selectedTextId);
+  if (!placement) return false;
+  if (selectedTextConstraint && selectedTextConstraintFace) {
+    const face = currentFaceForDescriptor(selectedTextConstraintFace) || selectedTextConstraintFace;
+    const anchor = dragPointOnConstraintFace(event, face, selectedTextConstraintSideFactor, selectedTextConstraint);
+    if (!anchor) return false;
+    textDragMoved = true;
+    suppressCanvasClick = true;
+    return updateSelectedTextGeometry(placement, face, anchor, selectedTextConstraintSideFactor);
+  }
+
+  const { hit, raycaster } = raycast(event, surfaceMeshes, false);
+  if (!hit?.object?.userData?.face) return false;
+  const face = hit.object.userData.face;
+  let normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+  if (normal.dot(raycaster.ray.direction) > 0) normal.multiplyScalar(-1);
+  const outward = faceNormal(face);
+  const sideFactor = normal.dot(outward) >= 0 ? 1 : -1;
+  const anchor = clampPointToFace(face, sideFactor, hit.point.clone());
+  textDragMoved = true;
+  suppressCanvasClick = true;
+  return updateSelectedTextGeometry(placement, face, anchor, sideFactor);
+}
+function beginSelectedTextDrag(event) {
+  if (event.button !== 0 || !selectedTextId || placementMode || addMode || editingTextId || !textEditorPanel.hidden) return false;
+  const { hit } = raycastText(event);
+  if (!hit || hit.object.userData.textPlacementId !== selectedTextId) return false;
+  recordUndoCheckpoint();
+  textDragging = true;
+  textDragPointerId = event.pointerId;
+  textDragMoved = false;
+  controls.enabled = false;
+  canvasHost.classList.add('is-text-dragging');
+  try { renderer.domElement.setPointerCapture(event.pointerId); } catch { /* optional */ }
+  event.preventDefault();
+  return true;
+}
+function endSelectedTextDrag(event) {
+  if (!textDragging) return false;
+  if (textDragPointerId != null && event.pointerId !== textDragPointerId) return false;
+  const moved = textDragMoved;
+  textDragging = false;
+  textDragPointerId = null;
+  textDragMoved = false;
+  controls.enabled = true;
+  canvasHost.classList.remove('is-text-dragging');
+  try { renderer.domElement.releasePointerCapture(event.pointerId); } catch { /* optional */ }
+  renderTextSelection();
+  if (moved) markConfigurationDirty();
+  return true;
 }
 function updateTextPreview(event) {
   if (!placementMode || !pendingTextSpec) return;
@@ -795,11 +1422,18 @@ function updateTextPreview(event) {
   if (isVerticalFace(face)) {
     const outward = faceNormal(face);
     const sideFactor = normal.dot(outward) >= 0 ? 1 : -1;
-    const sticker = createWrappedSticker(pendingTextSpec, face, hit.point.clone(), sideFactor, 0.78);
+    const anchor = clampPointToFace(face, sideFactor, hit.point.clone());
+    const sticker = createWrappedSticker(pendingTextSpec, face, anchor.clone(), sideFactor, 0.78);
     previewGroup.add(sticker.group);
-    previewPlacement = { segments: sticker.segments, spec: { ...pendingTextSpec } };
+    previewPlacement = {
+      id: makeTextPlacementId(), face: copyFace(face), sideFactor, anchor: anchor.toArray(),
+      segments: sticker.segments.map((segment) => ({ ...segment, face: copyFace(segment.face) })),
+      spec: { ...pendingTextSpec },
+    };
     return;
   }
+  const outward = faceNormal(face);
+  const sideFactor = normal.dot(outward) >= 0 ? 1 : -1;
   const position = hit.point.clone().add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM));
   const quaternion = quaternionForNormal(normal);
   const mesh = createTextMesh(pendingTextSpec, 0.78);
@@ -807,13 +1441,21 @@ function updateTextPreview(event) {
   previewGroup.add(mesh); previewTextMesh = mesh;
   const topSurface = Boolean(hit.object.userData.top);
   const storedPosition = position.clone();
-  if (topSurface) storedPosition.y -= LID_LIFT_MM;
-  previewPlacement = { position: storedPosition.toArray(), quaternion: quaternion.toArray(), topSurface, spec: { ...pendingTextSpec } };
+  const storedAnchor = hit.point.clone();
+  if (topSurface) { storedPosition.y -= LID_LIFT_MM; storedAnchor.y -= LID_LIFT_MM; }
+  previewPlacement = {
+    id: makeTextPlacementId(), face: copyFace(face), sideFactor, anchor: storedAnchor.toArray(),
+    position: storedPosition.toArray(), quaternion: quaternion.toArray(), topSurface, spec: { ...pendingTextSpec },
+  };
 }
 function commitTextPlacement() {
   if (!previewPlacement) return;
-  state.textPlacements.push({ ...previewPlacement, spec: { ...previewPlacement.spec } });
+  recordUndoCheckpoint();
+  const placement = { ...previewPlacement, spec: { ...previewPlacement.spec } };
+  ensurePlacementId(placement);
+  state.textPlacements.push(placement);
   exitPlacementMode();
+  markConfigurationDirty();
 }
 
 function renderDimensions() {
@@ -831,6 +1473,26 @@ function updateOverlayPositions() {
     el.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
     el.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
   });
+  textGuidePoints.forEach((guide) => {
+    const projected = guide.point.clone().project(camera);
+    const el = textGuideLayer.querySelector(`[data-text-guide="${guide.id}"]`);
+    if (!el) return;
+    const visible = projected.z > -1 && projected.z < 1;
+    el.style.display = visible ? '' : 'none';
+    el.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
+    el.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
+  });
+  if (!textSelectionHud.hidden && textHudAnchor) {
+    const projected = textHudAnchor.clone().project(camera);
+    const visible = projected.z > -1 && projected.z < 1;
+    textSelectionHud.style.display = visible ? '' : 'none';
+    if (visible) {
+      textSelectionHud.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
+      textSelectionHud.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
+    }
+  } else {
+    textSelectionHud.style.display = '';
+  }
   updateFacePopupPosition();
 }
 
@@ -880,11 +1542,22 @@ function bindControls() {
   [pieceWidthInput, pieceHeightInput, pieceDepthInput].forEach((input) => input.addEventListener('change', updateDraftFromEditor));
   $('#confirmAddPieceButton').addEventListener('click', finishAddMode);
   $('#cancelAddPieceButton').addEventListener('click', cancelAddMode);
+  textHorizontalLockButton.addEventListener('click', () => toggleSelectedTextConstraint('horizontal'));
+  textVerticalLockButton.addEventListener('click', () => toggleSelectedTextConstraint('vertical'));
+  textEditButton.addEventListener('click', editSelectedText);
+  textDeleteButton.addEventListener('click', deleteSelectedText);
   bindTextPreviewControls();
 }
 
 renderer.domElement.addEventListener('dblclick', (event) => {
-  if (addMode || placementMode) return;
+  if (addMode || placementMode || editingTextId || !textEditorPanel.hidden) return;
+  const textHit = raycastText(event).hit;
+  const placementId = textHit?.object?.userData?.textPlacementId;
+  if (placementId) {
+    selectTextPlacement(placementId);
+    event.preventDefault();
+    return;
+  }
   const { hit, raycaster } = raycast(event);
   if (!hit?.object?.userData?.vertical) return;
   const face = hit.object.userData.face;
@@ -893,17 +1566,32 @@ renderer.domElement.addEventListener('dblclick', (event) => {
   const sideFactor = outward.dot(raycaster.ray.direction) < 0 ? 1 : -1;
   selectFace(face, sideFactor);
 });
+renderer.domElement.addEventListener('pointerdown', (event) => {
+  beginSelectedTextDrag(event);
+}, true);
+renderer.domElement.addEventListener('pointermove', (event) => {
+  if (textDragging) moveSelectedTextWithPointer(event);
+  else updateTextPreview(event);
+});
+renderer.domElement.addEventListener('pointerup', endSelectedTextDrag);
+renderer.domElement.addEventListener('pointercancel', endSelectedTextDrag);
 renderer.domElement.addEventListener('click', (event) => {
+  if (suppressCanvasClick) {
+    suppressCanvasClick = false;
+    return;
+  }
   if (placementMode) {
     updateTextPreview(event);
     if (previewPlacement) commitTextPlacement();
     return;
   }
-  if (addMode || !textEditorPanel.hidden) return;
+  if (addMode || editingTextId || !textEditorPanel.hidden) return;
+  const textHit = raycastText(event).hit;
+  if (textHit?.object?.userData?.textPlacementId) return;
+  if (selectedTextId) deselectTextPlacement();
   const { hit } = raycast(event);
   if (!hit) deselectFace();
 });
-renderer.domElement.addEventListener('pointermove', updateTextPreview);
 
 function resizeRenderer() {
   const width = Math.max(1, canvasHost.clientWidth), height = Math.max(1, canvasHost.clientHeight);
@@ -913,20 +1601,109 @@ resizeObserver = new ResizeObserver(resizeRenderer); resizeObserver.observe(canv
 function animate() { requestAnimationFrame(animate); controls.update(); updateOverlayPositions(); renderer.render(scene, camera); }
 animate();
 
+function serializeTextPlacement(placement) {
+  return {
+    id: ensurePlacementId(placement),
+    face: placement.face ? copyFace(placement.face) : undefined,
+    sideFactor: Number(placement.sideFactor) < 0 ? -1 : 1,
+    anchor: Array.isArray(placement.anchor) ? [...placement.anchor] : undefined,
+    position: Array.isArray(placement.position) ? [...placement.position] : undefined,
+    quaternion: Array.isArray(placement.quaternion) ? [...placement.quaternion] : undefined,
+    topSurface: Boolean(placement.topSurface),
+    segments: Array.isArray(placement.segments) ? placement.segments.map((segment) => ({
+      position: [...segment.position], quaternion: [...segment.quaternion],
+      u0: segment.u0, u1: segment.u1, width: segment.width, height: segment.height,
+      face: segment.face ? copyFace(segment.face) : undefined,
+      sideFactor: Number(segment.sideFactor) < 0 ? -1 : 1,
+    })) : undefined,
+    spec: { ...placement.spec },
+  };
+}
 function captureState() {
-  return { version: 3, boxes: state.boxes.map(cloneBox), boardThickness: round(state.boardThickness), textPlacements: state.textPlacements.map((p) => ({ position: Array.isArray(p.position) ? [...p.position] : undefined, quaternion: Array.isArray(p.quaternion) ? [...p.quaternion] : undefined, topSurface: Boolean(p.topSurface), segments: Array.isArray(p.segments) ? p.segments.map((s) => ({ position: [...s.position], quaternion: [...s.quaternion], u0: s.u0, u1: s.u1, width: s.width, height: s.height })) : undefined, spec: { ...p.spec } })) };
+  return {
+    version: 4,
+    boxes: state.boxes.map(cloneBox),
+    boardThickness: round(state.boardThickness),
+    textPlacements: state.textPlacements.map(serializeTextPlacement),
+  };
+}
+function restoreTextPlacement(raw = {}) {
+  const placement = {
+    id: String(raw.id || makeTextPlacementId()),
+    face: raw.face ? copyFace(raw.face) : undefined,
+    sideFactor: Number(raw.sideFactor) < 0 ? -1 : 1,
+    anchor: Array.isArray(raw.anchor) ? raw.anchor.map(Number) : undefined,
+    position: Array.isArray(raw.position) ? raw.position.map(Number) : undefined,
+    quaternion: Array.isArray(raw.quaternion) ? raw.quaternion.map(Number) : undefined,
+    topSurface: Boolean(raw.topSurface),
+    segments: Array.isArray(raw.segments) ? raw.segments.map((segment) => ({
+      position: Array.isArray(segment.position) ? segment.position.map(Number) : [0,0,0],
+      quaternion: Array.isArray(segment.quaternion) ? segment.quaternion.map(Number) : [0,0,0,1],
+      u0: Number(segment.u0) || 0,
+      u1: Number(segment.u1) || 1,
+      width: Number(segment.width) || 10,
+      height: Number(segment.height) || 50,
+      face: segment.face ? copyFace(segment.face) : undefined,
+      sideFactor: Number(segment.sideFactor) < 0 ? -1 : 1,
+    })) : undefined,
+    spec: {
+      text: raw.spec?.text || 'TEXT',
+      size: clamp(raw.spec?.size || 54, 12, 180),
+      fontFamily: raw.spec?.fontFamily || 'Arial, sans-serif',
+      textColor: raw.spec?.textColor || '#1f2d36',
+      backgroundColor: raw.spec?.backgroundColor || 'transparent',
+      bold: Boolean(raw.spec?.bold),
+      italic: Boolean(raw.spec?.italic),
+      underline: Boolean(raw.spec?.underline),
+      underlineStyle: raw.spec?.underlineStyle || 'solid',
+    },
+  };
+  return placement;
 }
 function restoreState(snapshot) {
   const source = snapshot?.state && !snapshot.boxes ? snapshot.state : snapshot;
   if (!source || !Array.isArray(source.boxes) || source.boxes.length === 0) return false;
   const boxes = source.boxes.map((box, index) => ({ id: String(box.id || (index === 0 ? 'base' : `piece-${index}`)), minX: Number(box.minX), maxX: Number(box.maxX), minY: Number(box.minY), maxY: Number(box.maxY), minZ: Number(box.minZ), maxZ: Number(box.maxZ) }));
-  if (boxes.some((b) => ![b.minX,b.maxX,b.minY,b.maxY,b.minZ,b.maxZ].every(Number.isFinite) || b.maxX <= b.minX || b.maxY <= b.minY || b.maxZ <= b.minZ)) return false;
-  state = { version: 3, boxes, boardThickness: clamp(source.boardThickness || 3, 1, 20), textPlacements: Array.isArray(source.textPlacements) ? source.textPlacements.map((p) => ({ position: Array.isArray(p.position) ? p.position.map(Number) : undefined, quaternion: Array.isArray(p.quaternion) ? p.quaternion.map(Number) : undefined, topSurface: Boolean(p.topSurface), segments: Array.isArray(p.segments) ? p.segments.map((s) => ({ position: Array.isArray(s.position) ? s.position.map(Number) : [0,0,0], quaternion: Array.isArray(s.quaternion) ? s.quaternion.map(Number) : [0,0,0,1], u0: Number(s.u0) || 0, u1: Number(s.u1) || 1, width: Number(s.width) || 10, height: Number(s.height) || 50 })) : undefined, spec: { text: p.spec?.text || 'TEXT', size: clamp(p.spec?.size || 54,12,180), fontFamily: p.spec?.fontFamily || 'Arial, sans-serif', textColor: p.spec?.textColor || '#1f2d36', backgroundColor: p.spec?.backgroundColor || 'transparent', bold: Boolean(p.spec?.bold), italic: Boolean(p.spec?.italic), underline: Boolean(p.spec?.underline), underlineStyle: p.spec?.underlineStyle || 'solid' } })) : [] };
-  addMode = false; draftBox = null; placementMode = false; selectedFaceKey = ''; selectedFaceSnapshot = null; addBoxEditor.hidden = true; textEditorPanel.hidden = true; cancelTextPlacementButton.hidden = true; clearEditorPreview(); renderAll(); return true;
+  if (boxes.some((box) => ![box.minX,box.maxX,box.minY,box.maxY,box.minZ,box.maxZ].every(Number.isFinite) || box.maxX <= box.minX || box.maxY <= box.minY || box.maxZ <= box.minZ)) return false;
+  state = {
+    version: 4,
+    boxes,
+    boardThickness: clamp(source.boardThickness || 3, 1, 20),
+    textPlacements: Array.isArray(source.textPlacements) ? source.textPlacements.map(restoreTextPlacement) : [],
+  };
+  addMode = false;
+  draftBox = null;
+  placementMode = false;
+  selectedFaceKey = '';
+  selectedFaceSnapshot = null;
+  selectedTextId = '';
+  selectedTextConstraint = '';
+  selectedTextConstraintFace = null;
+  editingTextId = '';
+  addBoxEditor.hidden = true;
+  textEditorPanel.hidden = true;
+  cancelTextPlacementButton.hidden = true;
+  clearEditorPreview();
+  renderAll();
+  return true;
 }
 function resetConfiguration() {
-  state = { version: 3, boxes: [makeBaseBox()], boardThickness: 3, textPlacements: [] };
-  addMode = false; draftBox = null; placementMode = false; selectedFaceKey = ''; selectedFaceSnapshot = null; addBoxEditor.hidden = true; textEditorPanel.hidden = true; cancelTextPlacementButton.hidden = true; clearEditorPreview(); renderAll(); return true;
+  state = { version: 4, boxes: [makeBaseBox()], boardThickness: 3, textPlacements: [] };
+  addMode = false;
+  draftBox = null;
+  placementMode = false;
+  selectedFaceKey = '';
+  selectedFaceSnapshot = null;
+  selectedTextId = '';
+  selectedTextConstraint = '';
+  selectedTextConstraintFace = null;
+  editingTextId = '';
+  addBoxEditor.hidden = true;
+  textEditorPanel.hidden = true;
+  cancelTextPlacementButton.hidden = true;
+  clearEditorPreview();
+  renderAll();
+  return true;
 }
 function setUnits(value) { units = value === 'imperial' ? 'imperial' : 'metric'; renderAll(); }
 function setCurrency(value) { currency = ['USD','RON','EUR'].includes(String(value).toUpperCase()) ? String(value).toUpperCase() : 'EUR'; renderSummary(); }
