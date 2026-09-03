@@ -16,6 +16,11 @@ const MESSAGES = Object.freeze({
     'finish.modeAria': 'Inside and outside finish mode',
     'finish.uniform': 'Uniform',
     'finish.bicolor': 'Bicolor',
+    'finish.hingeTypeLabel': 'Hinges',
+    'finish.hingeTypeAria': 'Hinge type',
+    'finish.hingeTypeSurface': 'Surface-Mounted',
+    'finish.hingeTypeConcealed': 'Concealed',
+    'finish.debugLabel': 'Debug colors for professionals',
     'finish.debugAria': 'Toggle debug colors',
     'finish.debugTitle': 'Show original CAD/debug colors',
     'finish.outside': 'Outside',
@@ -50,6 +55,7 @@ const MESSAGES = Object.freeze({
     'dimension.width': 'Width',
     'dimension.height': 'Height',
     'dimension.glassThickness': 'Glass thickness',
+    'accessory.title': 'Accessories',
     'accessory.preset': 'Accessory preset',
     'accessory.note': 'Disabled entries do not have usable geometry in the current CAD assembly.',
     'accessory.customSelection': 'Custom accessory selection.',
@@ -94,7 +100,12 @@ const MESSAGES = Object.freeze({
     'summary.cuts': 'Cut specifications',
     'summary.aluminiumRate': 'Aluminium price',
     'summary.glassRate': 'Glass price',
-    'summary.sourceNote': 'The supplied manual points to a separate current price list, so aluminium and glass rates remain editable. Gaskets and plastic accessories use net Schüco trade-list prices where the exact article is publicly listed; items without a reliable public trade-list price use conservative engineering estimates. Aluminium and accessory weights are calculated from the current CAD contours. 6 m stock lengths, waste, labour and full opening hardware are ignored.',
+    'summary.gasketRate': 'Gasket price',
+    'summary.insulationRate': 'Insulation bar price',
+    'summary.foamRate': 'Insulation foam price',
+    'summary.lockingBarRate': 'Locking bar price',
+    'summary.glazingBridgeRate': 'Glazing bridge price',
+    'summary.drainageCapRate': 'Drainage cap price',
     'summary.cutsNote': 'Workshop cuts use manufacturing joints rather than the temporary 3D intersection sockets.',
     'summary.empty': 'No manufacturing items are available yet.',
     'summary.vertical': 'vertical',
@@ -109,10 +120,24 @@ const MESSAGES = Object.freeze({
     'summary.metric.aluminiumWeight': 'Aluminium weight',
     'summary.metric.glassArea': 'Glass area',
     'summary.metric.aluminiumCost': 'Aluminium cost',
+    'summary.metric.glassCost': 'Glass cost',
+    'summary.metric.gasketCost': 'Gaskets',
+    'summary.metric.insulationCost': 'Insulation bars',
+    'summary.metric.foamCost': 'Insulation foam',
+    'summary.metric.otherComponentCost': 'Other components',
     'summary.metric.otherPartsWeight': 'Gaskets / plastic weight',
     'summary.metric.accessoryCost': 'Gaskets / plastic cost',
     'summary.metric.total': 'Material total',
+    'summary.part.aluminium': 'Aluminium',
+    'summary.part.glass': 'Glass',
+    'summary.material.gasket': 'Gasket',
+    'summary.material.insulation': 'Insulation',
+    'summary.material.foam': 'Insulation foam',
+    'summary.material.other': 'Other component',
     'summary.accessory.profileInsulation': 'Thermal breaks / profile insulation',
+    'summary.accessory.profileMaterial.gasket': 'Profile gasket material',
+    'summary.accessory.profileMaterial.insulation': 'Profile insulation bars',
+    'summary.accessory.profileMaterial.foam': 'Profile insulation foam',
     'summary.accessory.lockingBar': 'Locking bar',
     'summary.accessory.centreGasket': 'Centre gasket',
     'summary.accessory.insulationProfile': 'Insulation profile',
@@ -300,6 +325,11 @@ const MESSAGES = Object.freeze({
     'finish.modeAria': 'Mod finisaj interior și exterior',
     'finish.uniform': 'Uniform',
     'finish.bicolor': 'Bicolor',
+    'finish.hingeTypeLabel': 'Balamale',
+    'finish.hingeTypeAria': 'Tip balama',
+    'finish.hingeTypeSurface': 'Aplicate',
+    'finish.hingeTypeConcealed': 'Ascunse',
+    'finish.debugLabel': 'Culori de depanare pentru profesioniști',
     'finish.debugAria': 'Afișează/ascunde culorile de depanare',
     'finish.debugTitle': 'Arată culorile CAD/depanare originale',
     'finish.outside': 'Exterior',
@@ -334,6 +364,7 @@ const MESSAGES = Object.freeze({
     'dimension.width': 'Lățime',
     'dimension.height': 'Înălțime',
     'dimension.glassThickness': 'Grosime sticlă',
+    'accessory.title': 'Accesorii',
     'accessory.preset': 'Set de accesorii',
     'accessory.note': 'Elementele dezactivate nu au geometrie utilizabilă în ansamblul CAD curent.',
     'accessory.customSelection': 'Selecție personalizată de accesorii.',
@@ -378,7 +409,12 @@ const MESSAGES = Object.freeze({
     'summary.cuts': 'Specificații de debitare',
     'summary.aluminiumRate': 'Preț aluminiu',
     'summary.glassRate': 'Preț sticlă',
-    'summary.sourceNote': 'Manualul furnizat face trimitere la o listă de prețuri separată, astfel că tarifele pentru aluminiu și sticlă rămân editabile. Garniturile și accesoriile din plastic folosesc prețuri nete din lista comercială Schüco acolo unde articolul exact este public; pentru piesele fără un preț public sigur din lista comercială sunt folosite estimări inginerești prudente. Greutățile aluminiului și accesoriilor sunt calculate din contururile CAD curente. Lungimile de stoc de 6 m, pierderile, manopera și feroneria completă de deschidere sunt ignorate.',
+    'summary.gasketRate': 'Preț garnituri',
+    'summary.insulationRate': 'Preț barete de izolație',
+    'summary.foamRate': 'Preț spumă de izolație',
+    'summary.lockingBarRate': 'Preț bară de închidere',
+    'summary.glazingBridgeRate': 'Preț punte geam',
+    'summary.drainageCapRate': 'Preț capac drenaj',
     'summary.cutsNote': 'Debitările de atelier folosesc îmbinările reale de fabricație, nu locașurile temporare folosite de geometria 3D.',
     'summary.empty': 'Nu există încă elemente de fabricație disponibile.',
     'summary.vertical': 'vertical',
@@ -393,10 +429,24 @@ const MESSAGES = Object.freeze({
     'summary.metric.aluminiumWeight': 'Greutate aluminiu',
     'summary.metric.glassArea': 'Suprafață sticlă',
     'summary.metric.aluminiumCost': 'Cost aluminiu',
+    'summary.metric.glassCost': 'Cost sticlă',
+    'summary.metric.gasketCost': 'Garnituri',
+    'summary.metric.insulationCost': 'Barete de izolație',
+    'summary.metric.foamCost': 'Spumă de izolație',
+    'summary.metric.otherComponentCost': 'Alte componente',
     'summary.metric.otherPartsWeight': 'Greutate garnituri / plastic',
     'summary.metric.accessoryCost': 'Cost garnituri / plastic',
     'summary.metric.total': 'Total materiale',
+    'summary.part.aluminium': 'Aluminiu',
+    'summary.part.glass': 'Sticlă',
+    'summary.material.gasket': 'Garnitură',
+    'summary.material.insulation': 'Izolație',
+    'summary.material.foam': 'Spumă de izolație',
+    'summary.material.other': 'Altă componentă',
     'summary.accessory.profileInsulation': 'Barete termice / izolație profil',
+    'summary.accessory.profileMaterial.gasket': 'Material garnitură din profil',
+    'summary.accessory.profileMaterial.insulation': 'Barete de izolație din profil',
+    'summary.accessory.profileMaterial.foam': 'Spumă de izolație din profil',
     'summary.accessory.lockingBar': 'Bară de închidere',
     'summary.accessory.centreGasket': 'Garnitură centrală',
     'summary.accessory.insulationProfile': 'Profil de izolație',
@@ -584,6 +634,11 @@ const MESSAGES = Object.freeze({
     'finish.modeAria': 'Oberflächenmodus innen und außen',
     'finish.uniform': 'Einheitlich',
     'finish.bicolor': 'Bicolor',
+    'finish.hingeTypeLabel': 'Bänder',
+    'finish.hingeTypeAria': 'Bandart',
+    'finish.hingeTypeSurface': 'Aufrechtliegend',
+    'finish.hingeTypeConcealed': 'Verdeckt',
+    'finish.debugLabel': 'Debug-Farben für Profis',
     'finish.debugAria': 'Debug-Farben ein-/ausblenden',
     'finish.debugTitle': 'Ursprüngliche CAD-/Debug-Farben anzeigen',
     'finish.outside': 'Außen',
@@ -618,6 +673,7 @@ const MESSAGES = Object.freeze({
     'dimension.width': 'Breite',
     'dimension.height': 'Höhe',
     'dimension.glassThickness': 'Glasdicke',
+    'accessory.title': 'Zubehör',
     'accessory.preset': 'Zubehör-Voreinstellung',
     'accessory.note': 'Deaktivierte Einträge besitzen in der aktuellen CAD-Baugruppe keine nutzbare Geometrie.',
     'accessory.customSelection': 'Benutzerdefinierte Zubehörauswahl.',
@@ -662,7 +718,12 @@ const MESSAGES = Object.freeze({
     'summary.cuts': 'Zuschnittangaben',
     'summary.aluminiumRate': 'Aluminiumpreis',
     'summary.glassRate': 'Glaspreis',
-    'summary.sourceNote': 'Das gelieferte Handbuch verweist auf eine separate aktuelle Preisliste; deshalb bleiben Aluminium- und Glaspreise editierbar. Dichtungen und Kunststoffzubehör verwenden Netto-Preise aus der Schüco-Handelspreisliste, sofern der genaue Artikel öffentlich gelistet ist; für Teile ohne verlässlichen öffentlichen Listenpreis werden konservative technische Schätzwerte verwendet. Aluminium- und Zubehörgewichte werden aus den aktuellen CAD-Konturen berechnet. 6-m-Lagerlängen, Verschnitt, Arbeit und der vollständige Öffnungsbeschlag werden ignoriert.',
+    'summary.gasketRate': 'Dichtungspreis',
+    'summary.insulationRate': 'Preis Isolierstege',
+    'summary.foamRate': 'Preis Dämmschaum',
+    'summary.lockingBarRate': 'Preis Riegelstange',
+    'summary.glazingBridgeRate': 'Preis Glassteg',
+    'summary.drainageCapRate': 'Preis Entwässerungskappe',
     'summary.cutsNote': 'Die Werkstattzuschnitte verwenden reale Fertigungsverbindungen statt der temporären 3D-Sockelgeometrie.',
     'summary.empty': 'Noch keine Fertigungsteile verfügbar.',
     'summary.vertical': 'vertikal',
@@ -677,10 +738,24 @@ const MESSAGES = Object.freeze({
     'summary.metric.aluminiumWeight': 'Aluminiumgewicht',
     'summary.metric.glassArea': 'Glasfläche',
     'summary.metric.aluminiumCost': 'Aluminiumkosten',
+    'summary.metric.glassCost': 'Glaskosten',
+    'summary.metric.gasketCost': 'Dichtungen',
+    'summary.metric.insulationCost': 'Isolierstege',
+    'summary.metric.foamCost': 'Dämmschaum',
+    'summary.metric.otherComponentCost': 'Sonstige Komponenten',
     'summary.metric.otherPartsWeight': 'Dichtungs-/Kunststoffgewicht',
     'summary.metric.accessoryCost': 'Dichtungs-/Kunststoffkosten',
     'summary.metric.total': 'Materialsumme',
+    'summary.part.aluminium': 'Aluminium',
+    'summary.part.glass': 'Glas',
+    'summary.material.gasket': 'Dichtung',
+    'summary.material.insulation': 'Isolierung',
+    'summary.material.foam': 'Dämmschaum',
+    'summary.material.other': 'Sonstige Komponente',
     'summary.accessory.profileInsulation': 'Isolierstege / Profildämmung',
+    'summary.accessory.profileMaterial.gasket': 'Dichtungsmaterial im Profil',
+    'summary.accessory.profileMaterial.insulation': 'Isolierstege im Profil',
+    'summary.accessory.profileMaterial.foam': 'Dämmschaum im Profil',
     'summary.accessory.lockingBar': 'Riegelstange',
     'summary.accessory.centreGasket': 'Mitteldichtung',
     'summary.accessory.insulationProfile': 'Dämmprofil',
@@ -973,12 +1048,17 @@ export function applyWindowTranslations(locale = null) {
   setText('label[for="dividerProfile"]', resolved, 'profile.divider');
   setText('label[for="transProfile"]', resolved, 'profile.trans');
 
+  setText('#hingeTypeControls > label', resolved, 'finish.hingeTypeLabel');
+  setAttr('#hingeTypeToggle', 'aria-label', resolved, 'finish.hingeTypeAria');
+  setText('#hingeTypeSurface', resolved, 'finish.hingeTypeSurface');
+  setText('#hingeTypeConcealed', resolved, 'finish.hingeTypeConcealed');
   setText('#aluminiumFinishControls > label', resolved, 'finish.title');
   setAttr('.finish-mode-toggle', 'aria-label', resolved, 'finish.modeAria');
   setText('#finishModeSame', resolved, 'finish.uniform');
   setText('#finishModeDifferent', resolved, 'finish.bicolor');
-  setAttr('#debugColorsButton', 'aria-label', resolved, 'finish.debugAria');
-  setAttr('#debugColorsButton', 'title', resolved, 'finish.debugTitle');
+  setText('#debugColorsLabel', resolved, 'finish.debugLabel');
+  setAttr('#debugColorsToggle', 'aria-label', resolved, 'finish.debugAria');
+  setAttr('#debugColorsToggle', 'title', resolved, 'finish.debugTitle');
   setText('#outsideFinishTitle', resolved, 'finish.outside');
   setText('#insideFinishCard .finish-side-header span', resolved, 'finish.inside');
   setAttr('#outsideFinishType', 'aria-label', resolved, 'finish.outsideTypeAria');
@@ -992,6 +1072,7 @@ export function applyWindowTranslations(locale = null) {
   const glassLabel = document.querySelector('#glassThickness')?.closest('.control-group')?.querySelector('label');
   if (glassLabel?.firstChild) glassLabel.firstChild.textContent = `${windowT(resolved, 'dimension.glassThickness')}: `;
 
+  setText('#accessory-settings > .clean-dropdown-header span', resolved, 'accessory.title');
   setText('label[for="accessoryPreset"]', resolved, 'accessory.preset');
   setAttr('#accessoryPreset', 'aria-label', resolved, 'accessory.preset');
   setText('.accessory-availability-note', resolved, 'accessory.note');
@@ -1004,7 +1085,12 @@ export function applyWindowTranslations(locale = null) {
   setText('#summary-cuts > .clean-dropdown-header span', resolved, 'summary.cuts');
   setText('label[for="summaryAluminiumRate"] > span', resolved, 'summary.aluminiumRate');
   setText('label[for="summaryGlassRate"] > span', resolved, 'summary.glassRate');
-  setText('#window-bom-source-note', resolved, 'summary.sourceNote');
+  setText('label[for="summaryGasketRate"] > span', resolved, 'summary.gasketRate');
+  setText('label[for="summaryInsulationRate"] > span', resolved, 'summary.insulationRate');
+  setText('label[for="summaryFoamRate"] > span', resolved, 'summary.foamRate');
+  setText('label[for="summaryLockingBarRate"] > span', resolved, 'summary.lockingBarRate');
+  setText('label[for="summaryGlazingBridgeRate"] > span', resolved, 'summary.glazingBridgeRate');
+  setText('label[for="summaryDrainageCapRate"] > span', resolved, 'summary.drainageCapRate');
   setText('#window-cuts-note', resolved, 'summary.cutsNote');
   const openingModeLabel = document.querySelector('#mBatant')?.closest('.control-group')?.querySelector('label');
   if (openingModeLabel) openingModeLabel.textContent = `${windowT(resolved, 'opening.mode')}:`;
@@ -1014,7 +1100,7 @@ export function applyWindowTranslations(locale = null) {
   setAttr('#btnModeOscilo', 'title', resolved, 'opening.tilt');
   const angleLabel = document.querySelector('#openAngle')?.closest('.control-group')?.querySelector('label');
   if (angleLabel?.firstChild) angleLabel.firstChild.textContent = `${windowT(resolved, 'opening.angle')}: `;
-  const actionBoxes = [...document.querySelectorAll('.action-box > label:first-child')];
+  const actionBoxes = [...document.querySelectorAll('.action-box:not(.debug-colors-control) > label:first-child')];
   if (actionBoxes[0]) actionBoxes[0].textContent = windowT(resolved, 'view.exploded');
   if (actionBoxes[1]) actionBoxes[1].textContent = windowT(resolved, 'view.showHouse');
 

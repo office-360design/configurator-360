@@ -1,3 +1,11 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overflow-x: hidden;
+}
+
 :root {
   --shared-topbar-height: 47px;
   --shared-settings-gap: 20px;
@@ -10,19 +18,27 @@ body.shared-ui-mounted #canvas-container {
 }
 
 body.shared-ui-mounted #controls {
+  position: fixed;
   top: calc(var(--shared-topbar-height) + var(--shared-settings-gap));
   right: var(--shared-settings-gap);
   left: auto;
   width: var(--shared-settings-width);
   max-height: calc(100vh - var(--shared-topbar-height) - (var(--shared-settings-gap) * 2));
   border-radius: 18px;
+  box-sizing: border-box;
+  transform: translateX(0);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.32s;
+  will-change: transform;
 }
 
 body.shared-ui-mounted #controls.sidebar-collapsed {
   transform: translateX(calc(100% + var(--shared-settings-gap)));
+  visibility: hidden;
+  pointer-events: none;
 }
 
 body.shared-ui-mounted #sidebar-toggle {
+  position: fixed;
   top: calc(var(--shared-topbar-height) + 34px);
   right: calc(var(--shared-settings-width) + var(--shared-settings-gap));
   left: auto;
@@ -56,16 +72,25 @@ body.capture-mode #canvas-container,
     --shared-settings-width: min(320px, calc(100vw - 56px));
   }
   body.shared-ui-mounted #controls {
+    position: fixed;
     top: calc(var(--shared-topbar-height) + 12px);
     right: 12px;
+    left: auto;
     width: min(320px, calc(100vw - 56px));
     max-height: calc(100vh - var(--shared-topbar-height) - 24px);
   }
+  body.shared-ui-mounted #controls.sidebar-collapsed {
+    transform: translateX(calc(100% + 12px));
+    visibility: hidden;
+    pointer-events: none;
+  }
   body.shared-ui-mounted #sidebar-toggle {
+    position: fixed;
     top: calc(var(--shared-topbar-height) + 26px);
     right: min(332px, calc(100vw - 44px));
+    left: auto;
   }
-  body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle { right: 0; }
+  body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle { right: 0; left: auto; }
 }
 
 /* Complete light-mode skin for the legacy window controls. The original
@@ -122,6 +147,7 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .action-box label {
   color: #0878c9;
 }
 
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .hinge-type-toggle,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-mode-toggle,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-type-toggle,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .mode-select,
@@ -134,6 +160,7 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls [style*="background: 
   border-color: #dce3e7 !important;
   box-shadow: none;
 }
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .hinge-type-btn,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-mode-btn,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-type-btn,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .handle-side-btn,
@@ -142,6 +169,7 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .square-toggle-btn {
   background: transparent;
   border-color: transparent;
 }
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .hinge-type-btn:hover,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-mode-btn:hover,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-type-btn:hover,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .handle-side-btn:hover:not(.active),
@@ -150,6 +178,7 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .square-toggle-btn:ho
   background: #e8eef2;
   border-color: #cfd8dd;
 }
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .hinge-type-btn.active,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-mode-btn.active,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .finish-type-btn.active,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .handle-side-btn.active,
@@ -208,6 +237,15 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .action-box {
   color: #005a9f;
   background: #eef8fe;
   border-color: #b9dff5;
+}
+
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .debug-colors-control {
+  color: #27343d;
+  background: #f4f7f8;
+  border-color: #cfd8dd;
+}
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .debug-colors-control > #debugColorsLabel {
+  color: #27343d;
 }
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .part-toggles,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .group-dropdown-content {
@@ -378,7 +416,8 @@ body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-title spa
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-specs span,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-cut-card p,
 body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-empty,
-body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-rate-grid > label {
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-rate-grid > label,
+body.shared-ui-mounted:not(.shared-ui-dark-mode) #controls .window-summary-rate-grid > .window-summary-rate-field {
   color: #697781 !important;
 }
 

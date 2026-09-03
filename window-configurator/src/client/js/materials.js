@@ -73,12 +73,12 @@ export function createMaterialManager({
     }
 
     const glassMat = createSurfaceMaterial({
-        color: 0x60a5fa,
+        color: 0x9bd7f5,
         transparent: true,
-        opacity: 0.25,
-        metalness: 0.9,
-        roughness: 0.1,
-        shininess: 90,
+        opacity: 0.16,
+        metalness: 0.1,
+        roughness: 0.05,
+        shininess: 75,
     });
 
     const handleMat = createSurfaceMaterial({
@@ -99,10 +99,10 @@ export function createMaterialManager({
         foam: { metalness: 0.0, roughness: 0.95, shininess: 10 },
         glass: {
             transparent: true,
-            opacity: 0.25,
-            metalness: 0.9,
-            roughness: 0.1,
-            shininess: 90,
+            opacity: 0.16,
+            metalness: 0.1,
+            roughness: 0.05,
+            shininess: 75,
         },
         default: { metalness: 0.5, roughness: 0.5, shininess: 35 },
     };
@@ -281,9 +281,9 @@ export function createMaterialManager({
             button.setAttribute('aria-label', presetLabel);
             button.setAttribute('aria-pressed', selection.presetId === preset.id ? 'true' : 'false');
             button.addEventListener('click', () => {
+                const debugWasEnabled = disableDebugColoursForFinishChange();
                 setFinishSelection(side, createFinishSelection(selection.type, preset.id));
-                syncFinishControls();
-                refreshAluminiumFinishMaterials();
+                refreshAfterUserFinishChange(debugWasEnabled);
             });
             ui.swatches.appendChild(button);
         });
@@ -298,13 +298,13 @@ export function createMaterialManager({
         const differentButton = document.getElementById('finishModeDifferent');
         const insideCard = document.getElementById('insideFinishCard');
         const outsideTitle = document.getElementById('outsideFinishTitle');
-        const debugButton = document.getElementById('debugColorsButton');
+        const debugToggle = document.getElementById('debugColorsToggle');
 
         sameButton?.classList.toggle('active', aluminiumFinishMode === 'same');
         differentButton?.classList.toggle('active', aluminiumFinishMode === 'different');
-        if (debugButton) {
-            debugButton.classList.toggle('active', debugColoursEnabled);
-            debugButton.setAttribute('aria-pressed', debugColoursEnabled ? 'true' : 'false');
+        if (debugToggle) {
+            debugToggle.checked = debugColoursEnabled;
+            debugToggle.setAttribute('aria-checked', debugColoursEnabled ? 'true' : 'false');
         }
         if (insideCard) insideCard.hidden = aluminiumFinishMode === 'same';
         if (outsideTitle) {
@@ -352,19 +352,34 @@ export function createMaterialManager({
         }
     }
 
+    function disableDebugColoursForFinishChange() {
+        if (!debugColoursEnabled) return false;
+        debugColoursEnabled = false;
+        return true;
+    }
+
+    function refreshAfterUserFinishChange(debugWasEnabled) {
+        syncFinishControls();
+        if (debugWasEnabled) {
+            refreshAllProfileMaterials();
+        } else {
+            refreshAluminiumFinishMaterials();
+        }
+    }
+
     function initializeControls() {
         document.getElementById('finishModeSame')?.addEventListener('click', () => {
             if (aluminiumFinishMode === 'same') return;
+            const debugWasEnabled = disableDebugColoursForFinishChange();
             aluminiumFinishMode = 'same';
-            syncFinishControls();
-            refreshAluminiumFinishMaterials();
+            refreshAfterUserFinishChange(debugWasEnabled);
         });
 
         document.getElementById('finishModeDifferent')?.addEventListener('click', () => {
             if (aluminiumFinishMode === 'different') return;
+            const debugWasEnabled = disableDebugColoursForFinishChange();
             aluminiumFinishMode = 'different';
-            syncFinishControls();
-            refreshAluminiumFinishMaterials();
+            refreshAfterUserFinishChange(debugWasEnabled);
         });
 
         for (const side of ['outside', 'inside']) {
@@ -375,15 +390,17 @@ export function createMaterialManager({
                     if (!ALUMINIUM_FINISH_CATALOG[nextType]) return;
                     const currentSelection = getFinishSelection(side);
                     if (currentSelection.type === nextType) return;
+                    const debugWasEnabled = disableDebugColoursForFinishChange();
                     setFinishSelection(side, createFinishSelection(nextType));
-                    syncFinishControls();
-                    refreshAluminiumFinishMaterials();
+                    refreshAfterUserFinishChange(debugWasEnabled);
                 });
             });
         }
 
-        document.getElementById('debugColorsButton')?.addEventListener('click', () => {
-            debugColoursEnabled = !debugColoursEnabled;
+        document.getElementById('debugColorsToggle')?.addEventListener('change', event => {
+            const nextEnabled = Boolean(event.currentTarget?.checked);
+            if (debugColoursEnabled === nextEnabled) return;
+            debugColoursEnabled = nextEnabled;
             syncFinishControls();
             refreshAllProfileMaterials();
         });

@@ -990,6 +990,93 @@ function appendStandaloneTransProfiles({
         }
     }
 
+    // The sash/trans/sash join also authors one 224068 centre-gasket INSERT
+    // directly against the floating trans. Keep that single authored occurrence
+    // instead of reusing the normal frame perimeter copy or mirroring it onto
+    // both trans faces. This is the centre seal on the opening/meeting side of
+    // the floating mullion.
+    let transCentreGasketProfile = null;
+    let transCentreGasketOccurrence = null;
+    if (connectionTemplate && connectionTransOccurrence?.bbox) {
+        const centreGasketProfileId = '224068';
+        const sourceCentreGasketProfiles = definition.profiles.filter(profile =>
+            String(profile.catalogProfileId || profile.profileId || '') === centreGasketProfileId
+            && profile?.bbox
+            && hasCadAffineTransform(profile.sourceTransform)
+        );
+        const exactOccurrences = resolveConnectionOccurrences(
+            connectionTemplate,
+            centreGasketProfileId,
+            'accessory'
+        ).filter(occurrence =>
+            occurrence?.bbox
+            && hasCadAffineTransform(occurrence.transform)
+            && occurrence.matchStrategy === 'direct-named-join-component'
+            && String(occurrence.profileId || '') === centreGasketProfileId
+        );
+
+        const candidates = [];
+        sourceCentreGasketProfiles.forEach(sourceProfile => {
+            const sourceBlockName = normalizeBlockName(sourceProfile.blockName);
+            exactOccurrences.forEach(occurrence => {
+                const directBlockNames = (occurrence.directBlockNames || [])
+                    .map(normalizeBlockName);
+                if (
+                    sourceBlockName
+                    && directBlockNames.length
+                    && !directBlockNames.includes(sourceBlockName)
+                ) {
+                    return;
+                }
+                candidates.push({
+                    sourceProfile,
+                    occurrence,
+                    gapDistance: bboxGapDistance(
+                        occurrence.bbox,
+                        connectionTransOccurrence.bbox
+                    ),
+                    centerDistance: bboxCenterDistance(
+                        occurrence.bbox,
+                        connectionTransOccurrence.bbox
+                    ),
+                });
+            });
+        });
+        candidates.sort((left, right) =>
+            left.gapDistance - right.gapDistance
+            || left.centerDistance - right.centerDistance
+            || finiteNumber(left.occurrence.occurrenceIndex)
+                - finiteNumber(right.occurrence.occurrenceIndex)
+        );
+
+        const selected = candidates[0] || null;
+        if (selected) {
+            transCentreGasketOccurrence = selected.occurrence;
+            const cadCoordinateTransform = composeCadTransforms(
+                selected.occurrence.transform,
+                invertCadTransform(selected.sourceProfile.sourceTransform)
+            );
+            transCentreGasketProfile = {
+                ...selected.sourceProfile,
+                role: 'trans-accessory',
+                componentRole: 'trans-accessory',
+                section: 'top',
+                placementSection: 'trans',
+                geometrySource: 'trans-connection-accessory',
+                transProfileId: profileId,
+                transConnectionProfileId: centreGasketProfileId,
+                transConnectionOccurrenceIndex:
+                    selected.occurrence.occurrenceIndex ?? null,
+                transConnectionPlacementMethod:
+                    'exact-direct-join-accessory-nearest-selected-trans',
+                transConnectionCadTransform: cadCoordinateTransform,
+                cadCoordinateTransform,
+                cadAlignmentShiftXMm: 0,
+                cadAlignmentShiftYMm: 0,
+            };
+        }
+    }
+
     const transProfiles = standaloneProfiles.map(profile => {
         const centerY = profile.bbox
             ? (finiteNumber(profile.bbox.minY) + finiteNumber(profile.bbox.maxY)) / 2
@@ -1080,16 +1167,24 @@ function appendStandaloneTransProfiles({
                         transGasketOccurrence?.occurrenceIndex ?? null,
                     gasketPlacementMethod:
                         transGasketProfile?.transConnectionPlacementMethod || null,
+                    centreGasketProfileId:
+                        transCentreGasketProfile?.transConnectionProfileId || null,
+                    centreGasketOccurrenceIndex:
+                        transCentreGasketOccurrence?.occurrenceIndex ?? null,
+                    centreGasketPlacementMethod:
+                        transCentreGasketProfile?.transConnectionPlacementMethod || null,
                 }
                 : null,
             usesCadConnectionTemplate: Boolean(connectionTemplate),
             usesStandaloneTransProfile: true,
             usesTransConnectionGasket: Boolean(transGasketProfile),
+            usesTransCentreGasket: Boolean(transCentreGasketProfile),
         },
         profiles: [
             ...definition.profiles,
             ...transProfiles,
             ...(transGasketProfile ? [transGasketProfile] : []),
+            ...(transCentreGasketProfile ? [transCentreGasketProfile] : []),
         ],
     };
 }

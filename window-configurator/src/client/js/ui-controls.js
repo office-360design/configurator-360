@@ -3,7 +3,7 @@ import { WINDOW_WIDTH_MAX_M } from './config.js';
 
 const SIZE_REBUILD_INTERVAL_MS = 70;
 
-function setSidebarCollapsed(collapsed) {
+export function setSidebarCollapsed(collapsed) {
     const controlsPanel = document.getElementById('controls');
     const toggleButton = document.getElementById('sidebar-toggle');
     if (!controlsPanel || !toggleButton) return;
@@ -66,7 +66,18 @@ export function initializeUIControls({
     document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
         const controlsPanel = document.getElementById('controls');
         const collapsed = controlsPanel?.classList.contains('sidebar-collapsed') || false;
-        setSidebarCollapsed(!collapsed);
+        const nextCollapsed = !collapsed;
+        setSidebarCollapsed(nextCollapsed);
+
+        // On phones the settings panel shares the limited canvas space with
+        // both floating edit/info popups. Opening the sidebar closes either
+        // popup and clears its selection state; desktop behaviour is unchanged.
+        const isPhoneViewport = window.matchMedia?.('(max-width: 760px)').matches
+            ?? (window.innerWidth <= 760);
+        if (!nextCollapsed && isPhoneViewport) {
+            document.getElementById('selectedWindowClose')?.click();
+            componentSelection?.clear?.();
+        }
     });
 
     let pendingWindowRebuildTimer = null;
@@ -328,9 +339,82 @@ export function initializeUIControls({
 
     document.getElementById('ar-start-button').addEventListener('click', startAR);
 
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    const originalViewportContent = viewportMeta?.getAttribute('content') || '';
+    let viewportRestoreTimer = null;
+    let rendererResizeFrame = null;
+
+    function isPhoneDevice() {
+        const screenWidth = Number(window.screen?.width) || window.innerWidth;
+        const screenHeight = Number(window.screen?.height) || window.innerHeight;
+        const shortestScreenSide = Math.min(screenWidth, screenHeight);
+        const hasTouch = (navigator.maxTouchPoints || 0) > 0
+            || window.matchMedia?.('(pointer: coarse)').matches;
+        return hasTouch && shortestScreenSide <= 760;
+    }
+
+    function resizeRendererToLayoutViewport() {
+        rendererResizeFrame = null;
+        const width = Math.max(1, document.documentElement.clientWidth || window.innerWidth);
+        const height = Math.max(1, document.documentElement.clientHeight || window.innerHeight);
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(width, height);
+    }
+
+    function scheduleRendererResize() {
+        if (rendererResizeFrame !== null) cancelAnimationFrame(rendererResizeFrame);
+        rendererResizeFrame = requestAnimationFrame(resizeRendererToLayoutViewport);
+    }
+
+    function forcePhoneViewportScaleOne() {
+        if (!viewportMeta || !originalViewportContent || !isPhoneDevice()) return;
+
+        if (viewportRestoreTimer !== null) {
+            clearTimeout(viewportRestoreTimer);
+            viewportRestoreTimer = null;
+        }
+
+        // Some mobile browsers can keep the landscape page scale after the
+        // phone returns to portrait. Temporarily pinning the viewport to 1x
+        // makes the layout viewport recalculate at device width. The original
+        // viewport string is restored immediately afterwards so pinch zoom is
+        // not permanently disabled.
+        const stableParts = originalViewportContent
+            .split(',')
+            .map(part => part.trim())
+            .filter(Boolean)
+            .filter(part => !/^(initial-scale|minimum-scale|maximum-scale)\s*=/i.test(part));
+        viewportMeta.setAttribute(
+            'content',
+            [...stableParts, 'initial-scale=1', 'minimum-scale=1', 'maximum-scale=1'].join(', ')
+        );
+        window.scrollTo(0, 0);
+        scheduleRendererResize();
+
+        viewportRestoreTimer = window.setTimeout(() => {
+            viewportRestoreTimer = null;
+            viewportMeta.setAttribute('content', originalViewportContent);
+            scheduleRendererResize();
+        }, 320);
+    }
+
+    window.addEventListener('resize', scheduleRendererResize);
+    window.visualViewport?.addEventListener('resize', scheduleRendererResize);
+
+    window.addEventListener('orientationchange', () => {
+        if (!isPhoneDevice()) return;
+        forcePhoneViewportScaleOne();
+
+        // Safari/Chrome can report one or two intermediate viewport sizes while
+        // their browser chrome and safe-area insets settle after rotation.
+        // Re-sync after both of those delayed layout passes.
+        window.setTimeout(() => {
+            forcePhoneViewportScaleOne();
+            scheduleRendererResize();
+        }, 120);
+        window.setTimeout(scheduleRendererResize, 420);
     });
+
+    scheduleRendererResize();
 }
