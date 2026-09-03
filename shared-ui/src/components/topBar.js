@@ -1,8 +1,8 @@
 import { getLanguageProfile } from '../config.js';
 import { sharedT } from '../i18n.js?v=21';
-import { sharedIcon } from '../icons.js?v=19';
+import { sharedIcon } from '../icons.js?v=22';
 import { escapeHtml } from '../utils.js';
-import { renderAccountMenu } from './accountMenu.js?v=18';
+import { renderAccountMenu } from './accountMenu.js?v=21';
 import { renderLanguageMenu } from './languageMenu.js';
 
 function iconButton({ action, label, icon, disabled = false, extraClass = '' }) {
@@ -77,9 +77,14 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
 
   return `
     <header class="site-header">
-      <a class="brand" href="#" aria-label="${escapeHtml(labels.home)}">
-        <img src="${escapeHtml(brandSrc)}" alt="${escapeHtml(brandAlt)}" />
-      </a>
+      <div class="site-header__brand-cluster">
+        <a class="brand" href="#" aria-label="${escapeHtml(labels.home)}">
+          <img src="${escapeHtml(brandSrc)}" alt="${escapeHtml(brandAlt)}" />
+        </a>
+        <button class="book-demo-button" type="button" data-action="book-demo" aria-label="Book a demo">
+          <span class="book-demo-button__label">Book a demo</span>
+        </button>
+      </div>
 
       <div class="project-name-shell ${authenticated ? '' : 'is-guest'}">
         <span class="project-name-measure" data-project-name-measure aria-hidden="true">${escapeHtml(projectName)}</span>
@@ -101,7 +106,7 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
         </button>
       </div>
 
-      ${renderAccountMenu(state)}
+      ${renderAccountMenu(state, { profile: capabilities.profile !== false })}
       ${renderLanguageMenu(locale)}
     </header>
   `;

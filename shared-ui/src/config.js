@@ -39,6 +39,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     hall: '/hall-configurator/',
     solar: '/solar-configurator/',
     fence: '/fence-configurator/',
+    cardbox: '/cardbox-configurator/',
   }),
   'ro-RO': Object.freeze({
     pergola: '/configurator-pergola/',
@@ -47,6 +48,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     hall: '/configurator-hala/',
     solar: '/configurator-solar/',
     fence: '/configurator-garduri/',
+    cardbox: '/configurator-cutii-carton/',
   }),
   'de-DE': Object.freeze({
     pergola: '/pergola-konfigurator/',
@@ -55,6 +57,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     hall: '/hallen-konfigurator/',
     solar: '/solar-konfigurator/',
     fence: '/zaun-konfigurator/',
+    cardbox: '/karton-konfigurator/',
   }),
 });
 
@@ -99,6 +102,7 @@ function normalizeProductType(productType = '') {
   if (value.includes('hall')) return 'hall';
   if (value.includes('solar')) return 'solar';
   if (value.includes('fence') || value.includes('gard') || value.includes('zaun')) return 'fence';
+  if (value.includes('cardbox') || value.includes('cardboard') || value.includes('carton') || value.includes('karton')) return 'cardbox';
   return null;
 }
 

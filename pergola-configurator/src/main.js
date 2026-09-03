@@ -10,6 +10,7 @@ import { ConfiguratorUI } from './ui/ConfiguratorUI.js';
 import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js';
 import { pergolaT } from './i18n.js';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js';
+import { mountPergolaEmbedPreviewControls } from './ui/embedPreviewControls.js';
 
 const tenantContext = await requireTenantConfiguratorAccess('pergola');
 
@@ -41,6 +42,7 @@ if (!viewport) {
 }
 
 let scene;
+const embedPreviewControls = mountPergolaEmbedPreviewControls({ store, viewport });
 
 try {
   scene = new PergolaScene(viewport, store);
@@ -57,6 +59,7 @@ try {
 
 window.addEventListener('beforeunload', () => {
   scene?.destroy();
+  embedPreviewControls?.destroy();
   sharedShell?.destroy();
   ui.destroy();
 });

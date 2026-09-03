@@ -39,7 +39,7 @@ const SHARES_COLLECTION = 'sharedConfigurations';
 const SYSTEM_COLLECTION = 'sharedConfigurationSystem';
 const APP_CHECK_USAGE_DOCUMENT = 'appCheckUsage';
 const FIRESTORE_RECORD_VERSION = 1;
-const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence']);
+const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox']);
 
 // Tier-1 tenant provisioning.
 const TENANTS_COLLECTION = 'tenants';
@@ -120,11 +120,11 @@ const TENANT_PLAN_CATALOG = Object.freeze({
     name: 'Go Live Now — all configurators',
     shortName: 'All configurators',
     description: 'The complete Go Live Now package with access to the full standard configurator catalogue.',
-    maxConfigurators: 6,
+    maxConfigurators: 7,
     displayOrder: 30,
     recommended: false,
     features: Object.freeze([
-      'All 6 standard configurators',
+      'All 7 standard configurators',
       'Company name and logo',
       'Customer dashboard',
       'Saved configurations',
@@ -229,6 +229,31 @@ const CONTACT_DESTINATIONS = Object.freeze({
   ro: 'office@360configurator.ro',
   en: 'office@360configurator.com',
   de: 'office@360configurator.com',
+});
+const DEMO_REQUESTS_COLLECTION = 'demoRequests';
+const DEMO_REQUEST_DESTINATION = 'matei.belciug.work@gmail.com';
+const DEMO_REQUEST_SCHEMA_VERSION = 2;
+const DEMO_REQUEST_CONFIGURATOR_NAMES = Object.freeze({
+  window: 'Window configurator',
+  pergola: 'Pergola configurator',
+  roof: 'Roof configurator',
+  hall: 'Hall configurator',
+  solar: 'Solar configurator',
+  fence: 'Fence configurator',
+  cardbox: 'Cardbox configurator',
+});
+const DEMO_REQUEST_TIMINGS = new Set(['', 'asap', 'week', 'fortnight', 'exploring']);
+const DEMO_REQUEST_JOB_TITLES = Object.freeze({
+  'owner-founder': 'Owner / founder',
+  'ceo-managing-director': 'CEO / Managing Director',
+  'sales-business-development': 'Sales / Business Development',
+  'design-engineering': 'Design / Engineering',
+  'operations-production': 'Operations / Production',
+  'procurement-purchasing': 'Procurement / Purchasing',
+  'it-software': 'IT / Software',
+  marketing: 'Marketing',
+  other: 'Other',
+  'prefer-not-to-say': 'Prefer not to say',
 });
 const CONTACT_FROM = '360Configurator Website <office@360configurator.com>';
 const CONTACT_FALLBACK_FROM = '360Configurator Website <office@360design.ro>';
@@ -632,6 +657,198 @@ function validateContactPayload(data, requestOrigin) {
   };
 }
 
+function normalizeOptionalWebsite(value) {
+  const raw = sanitizeSingleLine(value, 300);
+  if (!raw) return '';
+  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(candidate);
+    if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) return '';
+    parsed.username = '';
+    parsed.password = '';
+    parsed.hash = '';
+    return parsed.toString().slice(0, 300);
+  } catch {
+    return '';
+  }
+}
+
+function validateDemoRequestPayload(data, requestOrigin) {
+  const name = sanitizeSingleLine(data?.name, 120);
+  const email = sanitizeSingleLine(data?.email, 254).toLowerCase();
+  const company = sanitizeSingleLine(data?.company, 160);
+  const phone = sanitizeSingleLine(data?.phone, 60);
+  const companyWebsiteRaw = sanitizeSingleLine(data?.companyWebsite, 300);
+  const companyWebsite = normalizeOptionalWebsite(companyWebsiteRaw);
+  const jobTitleRaw = sanitizeSingleLine(data?.jobTitle, 120);
+  const jobTitle = DEMO_REQUEST_JOB_TITLES[jobTitleRaw] || jobTitleRaw;
+  const country = sanitizeSingleLine(data?.country, 120);
+  const preferredTiming = sanitizeSingleLine(data?.preferredTiming, 32).toLowerCase();
+  const message = sanitizeMessage(data?.message, 3000);
+  const primaryConfigurator = sanitizeSingleLine(data?.configurator, 32).toLowerCase();
+  const requestedSourceConfigurator = sanitizeSingleLine(data?.sourceConfigurator, 32).toLowerCase();
+  const language = sanitizeSingleLine(data?.language, 8).toLowerCase();
+  const sourcePageValue = sanitizeSingleLine(data?.sourcePage, 2048);
+  const sourceConfiguratorPageValue = sanitizeSingleLine(data?.sourceConfiguratorPage, 2048);
+
+  const rawConfigurators = Array.isArray(data?.configurators)
+    ? data.configurators
+    : (primaryConfigurator ? [primaryConfigurator] : []);
+  const configurators = [];
+  for (const raw of rawConfigurators.slice(0, 6)) {
+    const configurator = sanitizeSingleLine(raw, 32).toLowerCase();
+    if (!configurator) continue;
+    if (!ALLOWED_PRODUCTS.has(configurator)) {
+      throw new HttpsError('invalid-argument', 'Unsupported demo configurator.');
+    }
+    if (!configurators.includes(configurator)) configurators.push(configurator);
+  }
+  const sourceConfigurator = requestedSourceConfigurator || primaryConfigurator || configurators[0] || '';
+  if (sourceConfigurator && !ALLOWED_PRODUCTS.has(sourceConfigurator)) {
+    throw new HttpsError('invalid-argument', 'Unsupported source demo configurator.');
+  }
+  if (sourceConfigurator && !configurators.includes(sourceConfigurator)) configurators.unshift(sourceConfigurator);
+
+  if (!name || !email || !company || !phone || !configurators.length || !language || !sourcePageValue) {
+    throw new HttpsError('invalid-argument', 'Please complete all required demo request fields.');
+  }
+  if (!validEmail(email)) {
+    throw new HttpsError('invalid-argument', 'Please enter a valid work email address.');
+  }
+  if (companyWebsiteRaw && !companyWebsite) {
+    throw new HttpsError('invalid-argument', 'Please enter a valid company website.');
+  }
+  if (!CONTACT_ALLOWED_LANGUAGES.has(language)) {
+    throw new HttpsError('invalid-argument', 'Unsupported demo request language.');
+  }
+  if (!DEMO_REQUEST_TIMINGS.has(preferredTiming)) {
+    throw new HttpsError('invalid-argument', 'Unsupported preferred demo timing.');
+  }
+
+  let sourcePage;
+  try {
+    sourcePage = new URL(sourcePageValue);
+  } catch {
+    throw new HttpsError('invalid-argument', 'Invalid demo request source page.');
+  }
+  if (!['https:', 'http:'].includes(sourcePage.protocol) || sourcePage.origin !== requestOrigin) {
+    throw new HttpsError('permission-denied', 'The demo request source page is not allowed.');
+  }
+  sourcePage.search = '';
+  sourcePage.hash = '';
+
+  let sourceConfiguratorPage = '';
+  if (sourceConfiguratorPageValue) {
+    try {
+      const parsedSource = new URL(sourceConfiguratorPageValue);
+      const sourceOrigin = parsedSource.origin;
+      const sourceAllowed = ALLOWED_CONFIGURATOR_ORIGINS.has(sourceOrigin)
+        || USER_CONFIGURATION_DEVELOPMENT_ORIGIN.test(sourceOrigin)
+        || Boolean(tenantSlugFromConfiguratorOrigin(sourceOrigin));
+      if (['https:', 'http:'].includes(parsedSource.protocol) && sourceAllowed) {
+        parsedSource.search = '';
+        parsedSource.hash = '';
+        sourceConfiguratorPage = parsedSource.toString().slice(0, 2048);
+      }
+    } catch {
+      // The source configurator id is authoritative for the demo interest. An
+      // invalid optional source URL is omitted rather than blocking a valid lead.
+    }
+  }
+
+  const configuratorNames = configurators.map((id) => DEMO_REQUEST_CONFIGURATOR_NAMES[id]);
+  const effectiveSourceConfigurator = sourceConfigurator || configurators[0];
+
+  return {
+    name,
+    email,
+    company,
+    phone,
+    companyWebsite,
+    jobTitle,
+    country,
+    preferredTiming,
+    message,
+    configurator: effectiveSourceConfigurator,
+    configuratorName: DEMO_REQUEST_CONFIGURATOR_NAMES[effectiveSourceConfigurator],
+    configurators,
+    configuratorNames,
+    sourceConfigurator: effectiveSourceConfigurator,
+    sourceConfiguratorName: DEMO_REQUEST_CONFIGURATOR_NAMES[effectiveSourceConfigurator],
+    language,
+    sourcePage: sourcePage.toString(),
+    sourceHost: sourcePage.hostname,
+    sourceConfiguratorPage,
+  };
+}
+
+function demoRequestEmailText(demo) {
+  const timingLabels = {
+    asap: 'As soon as possible',
+    week: 'This week',
+    fortnight: 'Within two weeks',
+    exploring: 'Just exploring for now',
+  };
+  const configuratorLines = demo.configurators
+    .map((id, index) => `  ${index + 1}. ${DEMO_REQUEST_CONFIGURATOR_NAMES[id]} (${id})`)
+    .join('\n');
+  return [
+    'New 360Configurator demo request',
+    '',
+    `Source configurator: ${demo.sourceConfiguratorName} (${demo.sourceConfigurator})`,
+    'Configurators of interest:',
+    configuratorLines,
+    `Name: ${demo.name}`,
+    `Work email: ${demo.email}`,
+    `Company: ${demo.company}`,
+    `Phone: ${demo.phone}`,
+    `Company website: ${demo.companyWebsite || 'Not provided'}`,
+    `Job title / role: ${demo.jobTitle || 'Not provided'}`,
+    `Country / region: ${demo.country || 'Not provided'}`,
+    `Preferred timing: ${timingLabels[demo.preferredTiming] || 'No preference'}`,
+    `Language: ${demo.language}`,
+    `Demo request page: ${demo.sourcePage}`,
+    `Configurator source page: ${demo.sourceConfiguratorPage || 'Not provided'}`,
+    '',
+    'What they would like to see:',
+    demo.message || 'Not provided',
+  ].join('\n');
+}
+
+async function stageDemoRequest(demo) {
+  const ref = db.collection(DEMO_REQUESTS_COLLECTION).doc();
+  const now = Timestamp.now();
+  await ref.create({
+    v: DEMO_REQUEST_SCHEMA_VERSION,
+    requestId: ref.id,
+    status: 'sending',
+    emailStatus: 'sending',
+    createdAt: now,
+    updatedAt: now,
+    name: demo.name,
+    email: demo.email,
+    company: demo.company,
+    phone: demo.phone,
+    companyWebsite: demo.companyWebsite || null,
+    jobTitle: demo.jobTitle || null,
+    country: demo.country || null,
+    preferredTiming: demo.preferredTiming || null,
+    message: demo.message || null,
+    configuratorId: demo.configurator,
+    configuratorName: demo.configuratorName,
+    configuratorIds: demo.configurators,
+    configuratorNames: demo.configuratorNames,
+    sourceConfiguratorId: demo.sourceConfigurator,
+    sourceConfiguratorName: demo.sourceConfiguratorName,
+    language: demo.language,
+    sourcePage: demo.sourcePage,
+    sourceHost: demo.sourceHost,
+    sourceConfiguratorPage: demo.sourceConfiguratorPage || null,
+    recipient: DEMO_REQUEST_DESTINATION,
+  });
+  return ref;
+}
+
 function contactClientIp(rawRequest) {
   const forwarded = String(rawRequest?.headers?.['x-forwarded-for'] || '')
     .split(',')[0]
@@ -861,6 +1078,84 @@ async function sendContactEmail(contact) {
   return { destination, providerMessageId, sender };
 }
 
+async function sendDemoRequestEmail(demo) {
+  const accessToken = await delegatedGmailAccessToken();
+  const subject = `[360Configurator Demo] ${demo.sourceConfiguratorName}${demo.configurators.length > 1 ? ` + ${demo.configurators.length - 1} more` : ''} — ${demo.company}`;
+  const text = demoRequestEmailText(demo);
+
+  let sender = CONTACT_FROM;
+  let response = await gmailSendRaw(accessToken, encodeMimeMessage({
+    from: sender,
+    to: DEMO_REQUEST_DESTINATION,
+    replyTo: demo.email,
+    subject,
+    text,
+  }));
+  if (response.status === 400) {
+    sender = CONTACT_FALLBACK_FROM;
+    response = await gmailSendRaw(accessToken, encodeMimeMessage({
+      from: sender,
+      to: DEMO_REQUEST_DESTINATION,
+      replyTo: demo.email,
+      subject,
+      text,
+    }));
+  }
+  if (!response.ok) {
+    logger.error('Gmail API rejected a demo request email.', {
+      event: 'demo-request-email-provider-error',
+      providerStatus: response.status,
+      recipientDomain: DEMO_REQUEST_DESTINATION.split('@')[1],
+      configurator: demo.configurator,
+      configurators: demo.configurators,
+      sourceHost: demo.sourceHost,
+    });
+    throw new HttpsError('unavailable', 'Your demo request email could not be sent. Please try again.');
+  }
+
+  let providerMessageId = '';
+  try {
+    providerMessageId = sanitizeSingleLine((await response.json())?.id, 128);
+  } catch {
+    // Successful Gmail response is sufficient.
+  }
+  return { providerMessageId, sender };
+}
+
+async function processDemoRequest(data, origin) {
+  const demo = validateDemoRequestPayload(data, origin);
+  const ref = await stageDemoRequest(demo);
+  try {
+    const delivery = await sendDemoRequestEmail(demo);
+    const now = Timestamp.now();
+    await ref.set({
+      status: 'sent',
+      emailStatus: 'sent',
+      sentAt: now,
+      updatedAt: now,
+      providerMessageId: delivery.providerMessageId || null,
+      sender: delivery.sender,
+    }, { merge: true });
+    logger.info('Demo request accepted and archived.', {
+      event: 'demo-request-sent',
+      requestId: ref.id,
+      configurator: demo.configurator,
+      configurators: demo.configurators,
+      sourceHost: demo.sourceHost,
+      recipientDomain: DEMO_REQUEST_DESTINATION.split('@')[1],
+    });
+    return { success: true, delivered: true, requestId: ref.id };
+  } catch (error) {
+    await ref.set({
+      status: 'email_failed',
+      emailStatus: 'failed',
+      failedAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    }, { merge: true }).catch(() => {});
+    throw error;
+  }
+}
+
 exports.submitContact = onCall(
   {
     region: FUNCTION_REGION,
@@ -886,14 +1181,18 @@ exports.submitContact = onCall(
     await enforceContactRateLimit(request.rawRequest);
 
     // Honeypot. A bot that filled the hidden field receives a harmless success
-    // response, but no email is sent and the frontend will not emit generate_lead.
+    // response, but no email is sent and no lead document is created.
     if (sanitizeSingleLine(request.data?.website, 200)) {
-      logger.info('Contact form honeypot submission discarded.', {
+      logger.info('Contact/demo honeypot submission discarded.', {
         event: 'contact-honeypot-discarded',
         origin,
         appId: String(request.app?.appId || ''),
       });
       return { success: true, delivered: false };
+    }
+
+    if (sanitizeSingleLine(request.data?.requestType, 32).toLowerCase() === 'demo') {
+      return processDemoRequest(request.data, origin);
     }
 
     const contact = validateContactPayload(request.data, origin);

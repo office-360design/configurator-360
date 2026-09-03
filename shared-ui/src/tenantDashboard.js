@@ -3,7 +3,7 @@ import {
   observeGoogleAuth,
   signInWithGoogle,
   signOutGoogle,
-} from './firebaseAuth.js?v=26';
+} from './firebaseAuth.js?v=28';
 
 const FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
 const FUNCTION_URLS = Object.freeze({
@@ -14,7 +14,7 @@ const FUNCTION_URLS = Object.freeze({
 const LOGO_TARGET_BYTES = 190_000;
 const LOGO_MAX_DIMENSION = 512;
 const CONFIGURATOR_LABELS = Object.freeze({
-  window: 'Window', pergola: 'Pergola', roof: 'Roof', solar: 'Solar', hall: 'Hall', fence: 'Fence',
+  window: 'Window', pergola: 'Pergola', roof: 'Roof', solar: 'Solar', hall: 'Hall', fence: 'Fence', cardbox: 'Cardbox',
 });
 
 const authState = document.querySelector('#authState');

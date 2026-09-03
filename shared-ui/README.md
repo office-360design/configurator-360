@@ -13,7 +13,7 @@ from the repository root; see the pergola configurator's `vite.config.js`.
 ## Standalone/static configurators
 
 `mountStandaloneConfiguratorShell()` mounts the same shared navigation, account, language,
-feedback and tools shell for every configurator. Window, Roof, Hall, Solar, Pergola and Fence all
+feedback and tools shell for every configurator. Window, Roof, Hall, Solar, Pergola, Fence and Cardbox all
 use this shell; only product-specific callbacks and scene/control logic remain inside each
 configurator folder.
 
@@ -53,7 +53,7 @@ The public reCAPTCHA Enterprise site key is configured in `firebase-app-check.js
 
 ## Google account login
 
-The shared account menu uses Firebase Authentication with the Google provider. Guests are shown as `Hello, guest`; successful Google sign-in replaces the greeting with the Google account display name. Authentication is owned entirely by the shared shell and is therefore identical across Window, Roof, Hall, Solar, Pergola and Fence through the same Firebase Web App used by App Check. Configurators do not implement their own account/login state.
+The shared account menu uses Firebase Authentication with the Google provider. Guests are shown as `Hello, guest`; successful Google sign-in replaces the greeting with the Google account display name. Authentication is owned entirely by the shared shell and is therefore identical across Window, Roof, Hall, Solar, Pergola, Fence and Cardbox through the same Firebase Web App used by App Check. Configurators do not implement their own account/login state.
 
 Firebase Console setup required: enable **Authentication → Sign-in method → Google** and add every production hostname to **Authentication → Settings → Authorized domains**.
 
@@ -67,7 +67,7 @@ selection/state, feedback UI or shared tool interaction lifecycle. Those remain 
 
 ## Saved configurations
 
-The shared shell owns account-based configuration saving for every configurator. The top-bar **Save** button captures the product-specific state through the configurator adapter and stores it under the signed-in Firebase/Google user. **Saved configurations** in the account menu opens the same shared modal in Window, Roof, Hall, Solar, Pergola and Fence.
+The shared shell owns account-based configuration saving for every configurator. The top-bar **Save** button captures the product-specific state through the configurator adapter and stores it under the signed-in Firebase/Google user. **Saved configurations** in the account menu opens the same shared modal in Window, Roof, Hall, Solar, Pergola, Fence and Cardbox.
 
 Saved configuration pointers and local drafts are tenant-scoped on `*.360configurator.com`. The public `.com/.ro/.de` sites keep their existing shared platform scope. Crossing between scopes with **Change site domain** uses Share transport rather than attempting to reuse a private saved-document id from the source scope.
 

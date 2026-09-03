@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { handleGoogleSolarRequest } from './googleSolarHandler.mjs';
 import { handlePvgisRequest } from './pvgisHandler.mjs';
+import { handleOverpassRequest } from './overpassHandler.mjs';
 
 const PORT = Math.max(1, Number(process.env.PORT) || 8080);
 const MAX_BODY_BYTES = Math.max(1024, Number(process.env.MAX_REQUEST_BODY_BYTES) || 1_000_000);
@@ -81,6 +82,10 @@ const server = http.createServer(async (req, res) => {
       response = await handleGoogleSolarRequest(request);
     } else if (pathname === '/api/solar/pvgis') {
       response = await handlePvgisRequest(request);
+    } else if (pathname === '/api/solar/overpass-primary') {
+      response = await handleOverpassRequest(request);
+    } else if (pathname === '/api/solar/overpass-secondary') {
+      response = await handleOverpassRequest(request, { secondary: true });
     } else {
       response = notFoundResponse();
     }
