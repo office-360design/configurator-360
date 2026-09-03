@@ -40,6 +40,12 @@ explored, while throughput and official network capacity remain unresolved. A na
 numeric rule pack is now available for screening, with each result linked to its rule ID,
 pack version and official source.
 
+The company-supplied Vâlcea KMZ is also treated as a presentation and screening source.
+Point A may be snapped exactly to one of its mapped lines and the corresponding service UAT
+is highlighted, but this is labelled as a geometric connection candidate rather than an OSD
+connection solution. The source has no pipe diameter, material, pressure, condition or
+available-capacity attributes and is not utility-locating evidence.
+
 ## Implemented screening rules
 
 Rule pack `RO-NTPEE-PE-PUBLIC-DOMAIN@2023-01-26.prototype-2` applies only to underground
@@ -105,7 +111,8 @@ Every additional numeric rule should follow the same registry contract:
 Have a Romanian ANRE-authorized gas designer and verifier review the pack's applicability,
 the PE diameter interpretation, wording and exception behavior. After that review, add the
 Article 30/Table 1 horizontal-clearance matrix and multiple existing-asset declarations before
-expanding into special crossings.
+expanding into special crossings. Separately, replace the prototype KMZ schema with stable
+customer asset identifiers and verified network attributes when the operator can supply them.
 
 After that foundation is signed off, add data adapters in this order:
 

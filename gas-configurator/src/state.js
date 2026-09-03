@@ -8,6 +8,13 @@ import {
   routeSegmentId,
 } from './domain/geometry.js';
 import { GROUND_TYPES, PIPE_DIAMETERS_MM, PIPE_MATERIALS, SURFACE_TYPES } from './domain/calculations.js';
+import {
+  DEFAULT_NETWORK_SNAP_TOLERANCE_M,
+  findNearestNetworkPoint,
+  NETWORK_CONNECTION_EPSILON_M,
+  projectCoordinateToNetworkAsset,
+  serializeNetworkConnection,
+} from './network/networkConnection.js';
 
 const STORAGE_KEY = '360-configurator:gas-prototype:v1';
 const MAX_HISTORY = 60;
@@ -32,6 +39,11 @@ export const DEFAULT_STATE = Object.freeze({
       { id: 'a', kind: 'endpoint', label: 'A', coordinate: [26.0937, 44.4324] },
       { id: 'b', kind: 'endpoint', label: 'B', coordinate: [26.1112, 44.4252] },
     ],
+  },
+  connection: {
+    assetId: null,
+    coordinate: null,
+    snapToleranceM: DEFAULT_NETWORK_SNAP_TOLERANCE_M,
   },
   pipe: {
     material: 'pe100rc',
@@ -168,6 +180,13 @@ export function normalizeState(incoming = {}) {
       stationM: 0,
       points,
     },
+    connection: serializeNetworkConnection(
+      null,
+      finiteNumber(
+        merged.connection?.snapToleranceM,
+        DEFAULT_NETWORK_SNAP_TOLERANCE_M,
+      ),
+    ),
     pipe: {
       material: Object.hasOwn(PIPE_MATERIALS, merged.pipe?.material) ? merged.pipe.material : 'pe100rc',
       diameterMm: PIPE_DIAMETERS_MM.includes(diameter) ? diameter : 63,
@@ -211,15 +230,43 @@ export function normalizeState(incoming = {}) {
     },
   };
 
+  const startCoordinate = normalized.route.points[0].coordinate;
+  const requestedAssetId = String(merged.connection?.assetId || '').trim();
+  const requestedCoordinate = Array.isArray(merged.connection?.coordinate)
+    ? merged.connection.coordinate
+    : startCoordinate;
+  const requestedCandidate = requestedAssetId
+    ? projectCoordinateToNetworkAsset(requestedCoordinate, requestedAssetId)
+    : null;
+  const requestedMatchesStart = requestedCandidate
+    && haversineDistanceMeters(startCoordinate, requestedCandidate.coordinate)
+      <= NETWORK_CONNECTION_EPSILON_M;
+  const coincidentCandidate = requestedMatchesStart
+    ? requestedCandidate
+    : findNearestNetworkPoint(startCoordinate);
+  if (
+    coincidentCandidate
+    && coincidentCandidate.distanceM <= NETWORK_CONNECTION_EPSILON_M
+  ) {
+    normalized.route.points[0].coordinate = normalizeCoordinate(
+      coincidentCandidate.coordinate,
+      startCoordinate,
+    );
+    normalized.connection = serializeNetworkConnection(
+      coincidentCandidate,
+      normalized.connection.snapToleranceM,
+    );
+  }
+  const normalizedRouteLengthM = routeLengthMeters(normalized.route.points);
   normalized.route.stationM = clamp(
     finiteNumber(merged.route?.stationM, 0),
     0,
-    routeLengthMeters(normalized.route.points),
+    normalizedRouteLengthM,
   );
   normalized.crossing.stationM = clamp(
     finiteNumber(merged.crossing?.stationM, DEFAULT_STATE.crossing.stationM),
     0,
-    routeLengthMeters(normalized.route.points),
+    normalizedRouteLengthM,
   );
   return normalized;
 }
@@ -314,8 +361,47 @@ export class GasConfiguratorStore {
     const next = clone(this.state);
     const point = next.route.points.find((candidate) => candidate.id === pointId);
     if (!point) return false;
-    point.coordinate = normalizeCoordinate(coordinate);
+    const requestedCoordinate = normalizeCoordinate(coordinate);
+    if (pointId === 'a') {
+      const nearest = findNearestNetworkPoint(requestedCoordinate);
+      if (nearest && nearest.distanceM <= next.connection.snapToleranceM) {
+        point.coordinate = nearest.coordinate;
+        next.connection = serializeNetworkConnection(
+          nearest,
+          next.connection.snapToleranceM,
+        );
+      } else {
+        point.coordinate = requestedCoordinate;
+        next.connection = serializeNetworkConnection(
+          null,
+          next.connection.snapToleranceM,
+        );
+      }
+    } else {
+      point.coordinate = requestedCoordinate;
+    }
     return this.commit(next, { source: 'route-point' });
+  }
+
+  connectToNetwork(assetId, coordinate) {
+    const candidate = projectCoordinateToNetworkAsset(coordinate, assetId);
+    if (!candidate) return false;
+    const next = clone(this.state);
+    next.route.points[0].coordinate = candidate.coordinate;
+    next.route.selectedPointId = null;
+    next.connection = serializeNetworkConnection(
+      candidate,
+      next.connection.snapToleranceM,
+    );
+    return this.commit(next, { source: 'network-connection' });
+  }
+
+  snapStartToNearestNetwork() {
+    const start = this.state.route.points[0];
+    const candidate = findNearestNetworkPoint(start.coordinate);
+    return candidate
+      ? this.connectToNetwork(candidate.assetId, candidate.coordinate)
+      : false;
   }
 
   setEndpoint(id, coordinate) {

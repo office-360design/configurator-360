@@ -669,6 +669,24 @@ summary:focus-visible {
   font-size: 8px;
 }
 
+.gas-reference-popup__action {
+  min-height: 32px;
+  margin-top: 5px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  background: #087f5b;
+  box-shadow: 0 4px 10px rgba(8, 127, 91, 0.24);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 780;
+}
+
+.gas-reference-popup__action:hover {
+  background: #066b4d;
+}
+
 .gas-route-marker-host {
   border: 0;
   background: transparent;
@@ -1142,6 +1160,159 @@ summary:focus-visible {
   font-size: 9px;
 }
 
+.gas-connection-card {
+  display: grid;
+  gap: 7px;
+  padding: 11px;
+  border: 1px solid #e4cda9;
+  border-left: 4px solid #cf7b2b;
+  border-radius: 10px;
+  background: #fff9ef;
+}
+
+.gas-connection-card--connected {
+  border-color: #b9decd;
+  border-left-color: #087f5b;
+  background: #f0faf6;
+}
+
+.gas-connection-card--missing {
+  border-color: #d5dde1;
+  border-left-color: #84939c;
+  background: #f6f8f9;
+}
+
+.gas-connection-card__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.gas-connection-card__heading > span {
+  color: #526b78;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gas-connection-card__heading > strong {
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #8d520d;
+  background: #ffebc9;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.gas-connection-card--connected .gas-connection-card__heading > strong {
+  color: #076347;
+  background: #d9f1e7;
+}
+
+.gas-connection-card--missing .gas-connection-card__heading > strong {
+  color: #5f7079;
+  background: #e5eaed;
+}
+
+.gas-connection-card > strong {
+  overflow: hidden;
+  color: #203845;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gas-connection-card__group {
+  color: #637985;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.gas-connection-card__details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.gas-connection-card__details > div,
+.gas-connection-card__metrics > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gas-connection-card__details dt,
+.gas-connection-card__details dd {
+  margin: 0;
+}
+
+.gas-connection-card__details dt,
+.gas-connection-card__metrics span {
+  color: #758690;
+  font-size: 7px;
+  font-weight: 690;
+}
+
+.gas-connection-card__details dd,
+.gas-connection-card__metrics strong {
+  overflow: hidden;
+  color: #2b424f;
+  font-size: 9px;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gas-connection-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(55, 83, 97, 0.12);
+}
+
+.gas-connection-card__action {
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid #0a7959;
+  border-radius: 7px;
+  color: #fff;
+  background: #087f5b;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 760;
+}
+
+.gas-connection-card__action:hover {
+  background: #066b4d;
+}
+
+.gas-connection-card__action[hidden] {
+  display: none;
+}
+
+.gas-connection-card__hint {
+  color: #6e7f88;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.gas-connection-card__source {
+  padding-top: 6px;
+  border-top: 1px solid rgba(55, 83, 97, 0.12);
+  color: #6f7f87;
+  font-size: 7px;
+  font-weight: 690;
+  line-height: 1.35;
+}
+
+.gas-connection-tolerance {
+  padding: 0 2px;
+}
+
 .gas-check-row {
   display: flex;
   align-items: flex-start;
@@ -1489,6 +1660,30 @@ summary:focus-visible {
 
 .shared-ui-dark-mode .gas-metrics-grid,
 .shared-ui-dark-mode .gas-segment-card { border-color: #40545f; }
+
+.shared-ui-dark-mode .gas-connection-card {
+  border-color: #67563f;
+  border-left-color: #d78b42;
+  background: #312a22;
+}
+
+.shared-ui-dark-mode .gas-connection-card--connected {
+  border-color: #356b58;
+  border-left-color: #35ad83;
+  background: #1b322c;
+}
+
+.shared-ui-dark-mode .gas-connection-card--missing {
+  border-color: #40545f;
+  border-left-color: #84939c;
+  background: #22313a;
+}
+
+.shared-ui-dark-mode .gas-connection-card > strong,
+.shared-ui-dark-mode .gas-connection-card__details dd,
+.shared-ui-dark-mode .gas-connection-card__metrics strong {
+  color: #e9f1f4;
+}
 
 .shared-ui-dark-mode .gas-terrain-distance-row {
   background: #18313e;
