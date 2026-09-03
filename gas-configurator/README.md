@@ -24,6 +24,8 @@ the repository-level `shared-ui` package.
 - Manual A/B points and optional waypoints.
 - Terrain elevations are sampled automatically along the route from Mapzen Terrain Tiles;
   they are public screening data rather than surveyed design levels.
+- Both horizontal plan length and terrain-adjusted 3D length are shown. The 3D value is a
+  screening estimate derived from the sampled public elevations, not a surveyed pipe length.
 - Ground and surface classifications are user assumptions.
 - Article 75 minimum cover and Article 82 geometry for one manually declared utility
   crossing are evaluated as preliminary checks with exact rule IDs and source links.
@@ -62,6 +64,12 @@ The sampler includes every route vertex, adds intermediate chainage samples, cac
 tiles, cancels stale requests after route edits and limits the number of tiles requested. If
 the source cannot be loaded, the profile visibly falls back to the two editable A/B elevation
 values and remains dashed so screening data is not confused with surveyed levels.
+
+Once a matching terrain profile is available, the configurator sums each profile interval as
+`sqrt(horizontal distance² + elevation change²)` and displays that terrain-adjusted 3D length
+beside the horizontal plan length. Quantity and cost calculations continue to use plan length;
+changing their basis should be an explicit engineering and commercial decision rather than an
+implicit consequence of public elevation data.
 
 The default tile template can be replaced at build time with
 `VITE_GAS_TERRAIN_TILE_URL` or at runtime with `window.GAS_TERRAIN_TILE_ENDPOINT`.

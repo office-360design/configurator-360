@@ -13,6 +13,7 @@ import { interpolateRoute, routeProfileSamples } from '../domain/geometry.js';
 import {
   interpolateElevationAtChainage,
   routeElevationKey,
+  terrainAdjustedRouteLengthMeters,
 } from '../elevation/routeElevation.js';
 import { gasT } from '../i18n.js';
 
@@ -38,6 +39,15 @@ function formatDimension(meters, units, locale) {
   const converted = units === 'imperial' ? numeric * 3.28084 : numeric;
   const suffix = units === 'imperial' ? 'ft' : 'm';
   return `${new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(converted)} ${suffix}`;
+}
+
+function formatDistanceDifference(meters, units, locale) {
+  const converted = units === 'imperial' ? Number(meters) * 3.28084 : Number(meters);
+  const suffix = units === 'imperial' ? 'ft' : 'm';
+  return `${new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  }).format(Math.max(0, converted))} ${suffix}`;
 }
 
 function svgElement(name, attributes = {}, text = '') {
@@ -302,8 +312,18 @@ export function renderGasState(root, state, elevationProfile = null) {
     && elevationStatusMatchesRoute
     && elevationProfile.samples?.length >= 2
   );
+  const terrainAdjustedLengthM = matchingTerrainProfile
+    ? terrainAdjustedRouteLengthMeters(elevationProfile.samples)
+    : NaN;
+  const hasTerrainAdjustedLength = Number.isFinite(terrainAdjustedLengthM);
+  const terrainLengthDifferenceM = hasTerrainAdjustedLength
+    ? Math.max(0, terrainAdjustedLengthM - calculation.routeLengthM)
+    : NaN;
 
   setText(root, '#headerRouteLength', formatDistance(calculation.routeLengthM, units, locale));
+  setText(root, '#headerTerrainLength', hasTerrainAdjustedLength
+    ? formatDistance(terrainAdjustedLengthM, units, locale)
+    : '—');
   setText(root, '#headerSegmentCount', t('route.segmentCount', { count: calculation.segments.length }));
   const stationDistance = formatDistance(state.route.stationM, units, locale);
   const stationElevation = matchingTerrainProfile
@@ -397,6 +417,14 @@ export function renderGasState(root, state, elevationProfile = null) {
   if (clearButton) clearButton.disabled = waypointCount === 0;
 
   setText(root, '#routeLengthResult', formatDistance(calculation.routeLengthM, units, locale));
+  setText(root, '#terrainLengthResult', hasTerrainAdjustedLength
+    ? formatDistance(terrainAdjustedLengthM, units, locale)
+    : '—');
+  setText(root, '#terrainLengthDetail', hasTerrainAdjustedLength
+    ? t('metric.terrainLengthDelta', {
+      difference: formatDistanceDifference(terrainLengthDifferenceM, units, locale),
+    })
+    : t('metric.terrainLengthPending'));
   setText(root, '#pipeLengthResult', formatDistance(calculation.pipeLengthM, units, locale));
   setText(root, '#excavationResult', formatVolume(calculation.excavationM3, units, locale));
   setText(root, '#beddingResult', formatVolume(calculation.beddingM3, units, locale));
