@@ -49,6 +49,8 @@ export function renderGasLayout(root) {
           <div class="gas-route-summary" aria-live="polite">
             <span data-gas-i18n="metric.routeLength"></span>
             <strong id="headerRouteLength">—</strong>
+            <span class="gas-route-summary__terrain" data-gas-i18n="metric.terrainLength"></span>
+            <strong id="headerTerrainLength" class="gas-route-summary__terrain">—</strong>
             <small id="headerSegmentCount">—</small>
           </div>
         </header>
@@ -346,6 +348,11 @@ export function renderGasLayout(root) {
               ${metric('beddingResult', 'metric.bedding')}
               ${metric('restorationResult', 'metric.restoration')}
               ${metric('dataConfidenceResult', 'metric.dataConfidence')}
+            </div>
+            <div class="gas-terrain-distance-row">
+              <span data-gas-i18n="metric.terrainLength"></span>
+              <strong id="terrainLengthResult">—</strong>
+              <small id="terrainLengthDetail" data-gas-i18n="metric.terrainLengthPending"></small>
             </div>
             <div class="gas-throughput-row">
               <span data-gas-i18n="metric.throughput"></span>

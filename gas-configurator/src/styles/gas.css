@@ -165,6 +165,16 @@ summary:focus-visible {
   letter-spacing: -0.035em;
 }
 
+.gas-route-summary > .gas-route-summary__terrain {
+  font-size: 10px;
+}
+
+.gas-route-summary > strong.gas-route-summary__terrain {
+  color: #075d8b;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+}
+
 .gas-route-summary > small {
   grid-column: 1 / -1;
   color: var(--gas-muted);
@@ -1012,6 +1022,33 @@ summary:focus-visible {
   letter-spacing: -0.01em;
 }
 
+.gas-terrain-distance-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 10px;
+  padding: 9px 10px;
+  border-left: 3px solid var(--gas-blue);
+  background: #eef8fc;
+}
+
+.gas-terrain-distance-row span {
+  color: var(--gas-muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.gas-terrain-distance-row strong {
+  color: #075d8b;
+  font-size: 13px;
+}
+
+.gas-terrain-distance-row small {
+  grid-column: 1 / -1;
+  color: var(--gas-muted);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
 .gas-throughput-row {
   display: grid;
   gap: 3px;
@@ -1180,6 +1217,13 @@ summary:focus-visible {
 .shared-ui-dark-mode .gas-metrics-grid,
 .shared-ui-dark-mode .gas-segment-card { border-color: #40545f; }
 
+.shared-ui-dark-mode .gas-terrain-distance-row {
+  background: #18313e;
+}
+
+.shared-ui-dark-mode .gas-terrain-distance-row strong,
+.shared-ui-dark-mode .gas-route-summary > strong.gas-route-summary__terrain { color: #76c9f4; }
+
 .shared-ui-dark-mode .gas-rule-pack {
   background: #1b303c;
   border-color: #365263;
@@ -1223,6 +1267,7 @@ summary:focus-visible {
   .gas-title-row h1 { font-size: 18px; }
   .gas-route-summary { display: block; padding-left: 10px; }
   .gas-route-summary > strong { font-size: 17px; }
+  .gas-route-summary > .gas-route-summary__terrain { display: none; }
   .gas-screening-label { display: none; }
   .gas-card-heading { min-height: 48px; }
   .gas-map-tools { max-width: calc(100% - 24px); }

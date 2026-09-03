@@ -78,6 +78,30 @@ export function routeElevationSampleCount(points = []) {
   ));
 }
 
+export function terrainAdjustedRouteLengthMeters(samples = []) {
+  if (!Array.isArray(samples) || samples.length < 2) return NaN;
+
+  let lengthM = 0;
+  for (let index = 1; index < samples.length; index += 1) {
+    const previousChainageM = Number(samples[index - 1]?.chainageM);
+    const currentChainageM = Number(samples[index]?.chainageM);
+    const previousElevationM = Number(samples[index - 1]?.elevationM);
+    const currentElevationM = Number(samples[index]?.elevationM);
+    const horizontalDistanceM = currentChainageM - previousChainageM;
+    const elevationChangeM = currentElevationM - previousElevationM;
+
+    if (
+      !Number.isFinite(horizontalDistanceM)
+      || horizontalDistanceM <= 0
+      || !Number.isFinite(elevationChangeM)
+    ) return NaN;
+
+    lengthM += Math.hypot(horizontalDistanceM, elevationChangeM);
+  }
+
+  return lengthM;
+}
+
 export function buildRouteElevationLocations(points = []) {
   const routeLengthM = routeLengthMeters(points);
   const uniformSamples = routeProfileSamples(points, routeElevationSampleCount(points));
@@ -317,6 +341,7 @@ export async function loadRouteElevationProfile(points = [], {
     maxElevationM: Math.max(...elevationValues),
     startElevationM: samples[0].elevationM,
     endElevationM: samples.at(-1).elevationM,
+    terrainAdjustedLengthM: terrainAdjustedRouteLengthMeters(samples),
     samples,
   };
 }
