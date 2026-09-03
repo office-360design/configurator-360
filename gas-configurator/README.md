@@ -27,8 +27,9 @@ the repository-level `shared-ui` package.
 - Both horizontal plan length and terrain-adjusted 3D length are shown. The 3D value is a
   screening estimate derived from the sampled public elevations, not a surveyed pipe length.
 - Ground and surface classifications are user assumptions.
-- Article 75 minimum cover and Article 82 geometry for one manually declared utility
-  crossing are evaluated as preliminary checks with exact rule IDs and source links.
+- Article 75 minimum cover, Articles 194/196 trench construction and Article 82 geometry
+  for one manually declared utility crossing are evaluated as preliminary checks with
+  exact rule IDs and source links.
 - Unit rates and rule results are visibly marked as prototype inputs or screening outputs.
 - Hydraulic and official upstream capacity calculations are intentionally deferred.
 
@@ -37,11 +38,16 @@ product boundaries, implemented rules and remaining review requirements.
 
 ## Regulatory screening pack
 
-The first rule pack is `RO-NTPEE-PE-PUBLIC-DOMAIN@2023-01-26.prototype-1`. Its scope is
+The first rule pack is `RO-NTPEE-PE-PUBLIC-DOMAIN@2023-01-26.prototype-2`. Its scope is
 limited to underground PE gas-distribution pipe in Romania's public domain at no more
 than 6 bar. It currently evaluates:
 
 - minimum 0.90 m cover from the pipe's upper generatrix under NTPEE Article 75;
+- minimum trench width under Article 194: 0.40 m below DN 100, or 0.40 m plus
+  the nominal diameter at DN 100 and above;
+- a 0.10–0.15 m bed below the pipe made from 0.3–0.8 mm graded sand under Article 196;
+- an explicit not-evaluated result for trench preparation and wall support that can only
+  be verified during design/execution;
 - documented approval from the owner of the crossed utility under Article 82;
 - a normally perpendicular crossing under Article 82, with an exceptional minimum angle
   of 60 degrees;
@@ -52,6 +58,9 @@ Reduced cover is never automatically passed: when both OSD agreement and additio
 protection are declared it remains a warning requiring documented authorized review.
 Likewise, no crossing or approval is inferred from the basemap; the user must declare
 them, and utility-owner plans/field verification remain separate evidence checks.
+For segments marked as sand/gravel, Article 194 dimensions remain case-specific and never
+receive an automatic pass. Quantities and cost use the configured geometry even when a rule
+blocks it; the application does not silently enlarge the trench.
 
 ## Terrain elevation profile
 

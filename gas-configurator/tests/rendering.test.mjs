@@ -69,6 +69,12 @@ test('profile and cross-section SVG attributes remain finite', () => {
     assert.ok(attributes.every((value) => !/NaN|Infinity/.test(value)));
     assert.ok(findByClass(profile, 'gas-profile-crossing-line'));
     assert.ok(findByClass(profile, 'gas-profile-crossing-point'));
+    assert.ok(findByClass(section, 'gas-section-rule-status--pass'));
+
+    state.pipe.diameterMm = 110;
+    state.trench.widthM = 0.3;
+    renderCrossSection(section, state, calculateProject(state), translate);
+    assert.ok(findByClass(section, 'gas-section-rule-status--blocked'));
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;

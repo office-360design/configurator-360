@@ -1,4 +1,6 @@
-import { REGULATORY_RULES } from './ruleRegistry.js';
+import { minimumTrenchWidthMeters, REGULATORY_RULES } from './ruleRegistry.js';
+
+const COMPARISON_TOLERANCE = 1e-9;
 
 function finiteNumber(value, fallback = 0) {
   const numeric = Number(value);
@@ -46,6 +48,56 @@ export function evaluateMinimumCover(state) {
   }
 
   return createResult(rule, 'blocked', 'validation.cover.blocked', variables);
+}
+
+export function evaluateTrenchWidth(state) {
+  const rule = REGULATORY_RULES.minimumTrenchWidth;
+  const actualM = finiteNumber(state?.trench?.widthM);
+  const requiredM = minimumTrenchWidthMeters(state?.pipe?.diameterMm);
+  const variables = {
+    actual: metric(actualM),
+    minimum: metric(requiredM),
+  };
+  const hasCaseSpecificGround = Object.values(state?.segmentSettings || {}).some((setting) => (
+    rule.caseSpecificGroundTypes.includes(setting?.groundType)
+  ));
+
+  if (hasCaseSpecificGround) {
+    return createResult(rule, 'not-evaluated', 'validation.trenchWidth.caseSpecific', variables);
+  }
+  if (actualM + COMPARISON_TOLERANCE >= requiredM) {
+    return createResult(rule, 'pass', 'validation.trenchWidth.pass', variables);
+  }
+  return createResult(rule, 'blocked', 'validation.trenchWidth.blocked', variables);
+}
+
+export function evaluateBeddingLayer(state) {
+  const rule = REGULATORY_RULES.beddingLayer;
+  const actualM = finiteNumber(state?.trench?.beddingM);
+  const variables = {
+    actual: metric(actualM),
+    minimum: metric(rule.minimumM),
+    maximum: metric(rule.maximumM),
+  };
+
+  if (
+    actualM + COMPARISON_TOLERANCE < rule.minimumM
+    || actualM - COMPARISON_TOLERANCE > rule.maximumM
+  ) {
+    return createResult(rule, 'blocked', 'validation.bedding.thicknessBlocked', variables);
+  }
+  if (state?.trench?.beddingMaterial === 'unspecified') {
+    return createResult(rule, 'missing', 'validation.bedding.materialMissing', variables);
+  }
+  if (state?.trench?.beddingMaterial !== rule.requiredMaterial) {
+    return createResult(rule, 'blocked', 'validation.bedding.materialBlocked', variables);
+  }
+  return createResult(rule, 'pass', 'validation.bedding.pass', variables);
+}
+
+export function evaluateTrenchPreparation() {
+  const rule = REGULATORY_RULES.trenchPreparation;
+  return createResult(rule, 'not-evaluated', 'validation.trenchPreparation.notEvaluated');
 }
 
 export function evaluateCrossingAngle(state) {
@@ -103,6 +155,9 @@ export function evaluateCrossingVerticalSeparation(state) {
 export function evaluateRegulatoryRules(state) {
   return [
     evaluateMinimumCover(state),
+    evaluateTrenchWidth(state),
+    evaluateBeddingLayer(state),
+    evaluateTrenchPreparation(state),
     evaluateCrossingOwnerApproval(state),
     evaluateCrossingAngle(state),
     evaluateCrossingVerticalSeparation(state),

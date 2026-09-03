@@ -663,6 +663,17 @@ summary:focus-visible {
   font-weight: 720;
 }
 .gas-section-pipe-label { fill: #fff; font-size: 8px; }
+.gas-section-rule-detail {
+  fill: #263b47;
+  font-family: inherit;
+  font-size: 7px;
+  font-weight: 720;
+}
+.gas-section-rule-status--pass { fill: var(--gas-green); }
+.gas-section-rule-status--warning,
+.gas-section-rule-status--not-evaluated { fill: var(--gas-missing); }
+.gas-section-rule-status--missing,
+.gas-section-rule-status--blocked { fill: #a44635; }
 
 .shared-ui-dark-mode .gas-profile-grid line { stroke: #30444f; }
 .shared-ui-dark-mode .gas-profile-earth { fill: #4c4034; }
@@ -839,6 +850,27 @@ summary:focus-visible {
   font-size: 9px;
   font-weight: 500;
   line-height: 1.5;
+}
+
+.gas-field-requirement {
+  min-height: 12px;
+  color: #647680;
+  font-size: 8px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.gas-field-requirement--pass { color: var(--gas-green); }
+.gas-field-requirement--warning,
+.gas-field-requirement--not-evaluated { color: var(--gas-missing); }
+.gas-field-requirement--missing,
+.gas-field-requirement--blocked { color: #a44635; }
+
+.gas-field input[aria-invalid="true"],
+.gas-field select[aria-invalid="true"] {
+  border-color: #bc6657;
+  background: #fff9f7;
+  box-shadow: 0 0 0 2px rgba(188, 102, 87, 0.1);
 }
 
 .gas-segment-card {
@@ -1230,6 +1262,24 @@ summary:focus-visible {
 }
 
 .shared-ui-dark-mode .gas-rule-group__heading strong { color: #e9f1f4; }
+
+.shared-ui-dark-mode .gas-field input[aria-invalid="true"],
+.shared-ui-dark-mode .gas-field select[aria-invalid="true"] {
+  border-color: #c97768;
+  background: #392d2c;
+}
+
+.shared-ui-dark-mode .gas-field-requirement--pass { color: #72c99e; }
+.shared-ui-dark-mode .gas-field-requirement--warning,
+.shared-ui-dark-mode .gas-field-requirement--not-evaluated { color: #e0a25d; }
+.shared-ui-dark-mode .gas-field-requirement--missing,
+.shared-ui-dark-mode .gas-field-requirement--blocked { color: #ef8b7a; }
+
+.shared-ui-dark-mode .gas-section-rule-status--pass { fill: #72c99e; }
+.shared-ui-dark-mode .gas-section-rule-status--warning,
+.shared-ui-dark-mode .gas-section-rule-status--not-evaluated { fill: #e0a25d; }
+.shared-ui-dark-mode .gas-section-rule-status--missing,
+.shared-ui-dark-mode .gas-section-rule-status--blocked { fill: #ef8b7a; }
 
 @media (max-width: 1120px) {
   .gas-analysis-grid { grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr); }

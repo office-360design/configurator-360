@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildValidationResults, calculateProject } from '../src/domain/calculations.js';
 import { buildRouteSegments, interpolateRoute } from '../src/domain/geometry.js';
-import { DEFAULT_STATE, GasConfiguratorStore } from '../src/state.js';
+import { DEFAULT_STATE, GasConfiguratorStore, normalizeState } from '../src/state.js';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -22,6 +22,28 @@ test('default route produces coherent quantities', () => {
     calculation.beddingM,
     calculation.trenchDepthM,
   ].every(Number.isFinite));
+});
+
+test('quantities use the configured trench width without silently correcting a blocked value', () => {
+  const state = clone(DEFAULT_STATE);
+  state.pipe.diameterMm = 110;
+  state.trench.widthM = 0.3;
+  const calculation = calculateProject(state);
+
+  assert.equal(calculation.trenchWidthM, 0.3);
+  assert.ok(Math.abs(calculation.requiredTrenchWidthM - 0.51) < 1e-12);
+  assert.equal(calculation.trenchWidthAssessment.status, 'blocked');
+  assert.ok(Math.abs(
+    calculation.excavationM3
+      - (calculation.routeLengthM * state.trench.widthM * calculation.trenchDepthM),
+  ) < 1e-8);
+});
+
+test('saved v1-shaped state receives the compliant default bedding material', () => {
+  const normalized = normalizeState({
+    trench: { coverM: 1, widthM: 0.55, beddingM: 0.1 },
+  });
+  assert.equal(normalized.trench.beddingMaterial, 'sand03to08');
 });
 
 test('a waypoint splits the nearest route segment and inherits its assumptions', () => {

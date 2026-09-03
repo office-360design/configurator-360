@@ -42,7 +42,7 @@ pack version and official source.
 
 ## Implemented screening rules
 
-Rule pack `RO-NTPEE-PE-PUBLIC-DOMAIN@2023-01-26.prototype-1` applies only to underground
+Rule pack `RO-NTPEE-PE-PUBLIC-DOMAIN@2023-01-26.prototype-2` applies only to underground
 PE distribution pipe in the public domain with design pressure up to and including 6 bar.
 It is marked `requires-authorized-engineer-signoff` and implements:
 
@@ -59,18 +59,37 @@ It is marked `requires-authorized-engineer-signoff` and implements:
 4. `RO-NTPEE-082-SEPARATION-001`: Article 82 normally requires the gas pipe to be at least
    0.20 m above the crossed installation. If that relation is not met, the result is blocked
    unless a protective sleeve is declared, in which case it remains an exceptional warning.
+5. `RO-NTPEE-194-WIDTH-001`: Article 194(2) sets the trench width at 0.40 m below DN 100,
+   and at 0.40 m plus DN (expressed in metres) from DN 100 upward. The prototype interprets
+   the selected PE nominal outside diameter as `DN`; this interpretation must be confirmed
+   by the authorized reviewer. A segment classified as sand/gravel is kept `not-evaluated`
+   because Article 194(4) requires case-specific dimensions for sandy/fill-type ground.
+6. `RO-NTPEE-196-BEDDING-001`: Article 196(3) requires a 0.10–0.15 m bed of sand with
+   0.3–0.8 mm grading. Thickness outside that range is blocked; missing material information
+   is reported as missing, and another material is blocked.
+7. `RO-NTPEE-196-PREPARATION-001`: Article 194(5) and Article 196(1)–(2) concern wall
+   support, excavation timing and a level, clean trench bottom without stones or roughness.
+   These remain `not-evaluated` because they need project-specific and execution-stage field
+   verification rather than a self-declaration that could create a false pass.
 
 The crossing is manually declared at a route chainage and appears on both plan and profile.
 It is not inferred from the basemap. Plan provenance (`missing`, utility-owner plan, or field
 verified) remains an independent evidence result so plausible geometry cannot conceal weak
 input data.
 
+Quantity and cost calculations use the width and bedding thickness actually configured,
+including when either value is blocked. The previous implicit width increase has been removed
+so a regulatory mismatch cannot be hidden inside a plausible-looking quantity estimate. The
+0.10 m sand surround above the pipe remains a fixed prototype quantity assumption associated
+with Article 197; it is not yet an editable or separately evaluated rule.
+
 ## Rules intentionally not encoded yet
 
 The current pack does not cover the Article 75 connection-endpoint depth, Article 30/Table 1
-horizontal clearances, trench-width/bedding construction rules, detailed sleeve dimensions,
-or road, rail, water and protected-area crossings. Diameter, SDR and most material/pressure
-choices remain prototype catalogue inputs.
+horizontal clearances, Article 194 welding-pit geometry, Article 195 pavement breakout widths,
+detailed sleeve dimensions, or road, rail, water and protected-area crossings. Article 197's
+sand surround/backfill requirements are not yet independently configurable or evaluated.
+Diameter, SDR and most material/pressure choices remain prototype catalogue inputs.
 
 Every additional numeric rule should follow the same registry contract:
 
@@ -84,9 +103,9 @@ Every additional numeric rule should follow the same registry contract:
 ## Recommended next implementation slice
 
 Have a Romanian ANRE-authorized gas designer and verifier review the pack's applicability,
-wording and exception behavior. After that review, add the Article 30/Table 1 horizontal
-clearance matrix and the Article 194/196 trench construction rules before expanding into
-special crossings.
+the PE diameter interpretation, wording and exception behavior. After that review, add the
+Article 30/Table 1 horizontal-clearance matrix and multiple existing-asset declarations before
+expanding into special crossings.
 
 After that foundation is signed off, add data adapters in this order:
 
