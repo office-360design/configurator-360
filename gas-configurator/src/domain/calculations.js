@@ -1,4 +1,5 @@
 import { buildRouteSegments, routeLengthMeters } from './geometry.js';
+import { evaluateRegulatoryRules } from '../regulatory/ruleEngine.js';
 
 export const PIPE_MATERIALS = Object.freeze({
   pe100rc: Object.freeze({ labelKey: 'option.material.pe100rc', costMultiplier: 1.12 }),
@@ -123,14 +124,7 @@ export function buildValidationResults(state, calculation, { elevationProfile = 
     detailKey: calculation.routeLengthM > 0 ? 'validation.route.pass' : 'validation.route.blocked',
   });
 
-  results.push({
-    id: 'rule-pack',
-    status: 'warning',
-    titleKey: 'validation.rules.title',
-    detailKey: 'validation.rules.pending',
-    sourceLabel: 'ANRE Order 89/2018, amended by Order 2/2023',
-    sourceHref: 'https://arhiva.anre.ro/ro/gaze-naturale/legislatie/reglementari-tehnice/norme-tehnice1387184362',
-  });
+  results.push(...evaluateRegulatoryRules(state));
 
   const groundStatus = state.data.groundSource === 'verifiedSurvey' ? 'pass' : 'warning';
   const groundDetailKey = groundStatus === 'pass'
@@ -180,7 +174,7 @@ export function validationSummary(results = []) {
   return results.reduce((summary, result) => {
     summary[result.status] = (summary[result.status] || 0) + 1;
     return summary;
-  }, { pass: 0, warning: 0, missing: 0, blocked: 0 });
+  }, { pass: 0, warning: 0, missing: 0, blocked: 0, 'not-evaluated': 0 });
 }
 
 export function convertFromEur(amountEur, currency = 'EUR') {

@@ -59,6 +59,8 @@ const numericBindings = [
   ['#beddingInput', 'trench.beddingM'],
   ['#startElevationInput', 'data.startElevationM'],
   ['#endElevationInput', 'data.endElevationM'],
+  ['#crossingAngleInput', 'crossing.angleDeg'],
+  ['#crossingClearanceInput', 'crossing.verticalClearanceM'],
 ];
 
 const selectBindings = [
@@ -67,6 +69,8 @@ const selectBindings = [
   ['#sdrSelect', 'pipe.sdr'],
   ['#groundSourceSelect', 'data.groundSource'],
   ['#utilitySourceSelect', 'data.utilitySource'],
+  ['#crossingUtilityTypeSelect', 'crossing.utilityType'],
+  ['#crossingGasPositionSelect', 'crossing.gasPosition'],
 ];
 
 root.querySelectorAll('[data-route-mode]').forEach((button) => {
@@ -82,7 +86,13 @@ root.querySelector('#retryElevationButton')?.addEventListener('click', () => {
 root.querySelector('#groundTypeSelect')?.addEventListener('change', (event) => store.setSegmentSetting('groundType', event.target.value));
 root.querySelector('#surfaceTypeSelect')?.addEventListener('change', (event) => store.setSegmentSetting('surfaceType', event.target.value));
 root.querySelector('#stationInput')?.addEventListener('input', (event) => store.setStation(Number(event.target.value)));
+root.querySelector('#crossingStationInput')?.addEventListener('change', (event) => store.setCrossingStation(Number(event.target.value)));
 root.querySelector('#osdCapacityInput')?.addEventListener('change', (event) => store.update('project.osdCapacityKnown', event.target.checked));
+root.querySelector('#coverOsdAgreementInput')?.addEventListener('change', (event) => store.update('regulatory.reducedCover.osdAgreement', event.target.checked));
+root.querySelector('#coverProtectionInput')?.addEventListener('change', (event) => store.update('regulatory.reducedCover.additionalProtection', event.target.checked));
+root.querySelector('#crossingEnabledInput')?.addEventListener('change', (event) => store.update('crossing.enabled', event.target.checked));
+root.querySelector('#crossingSleeveInput')?.addEventListener('change', (event) => store.update('crossing.protectiveSleeve', event.target.checked));
+root.querySelector('#crossingOwnerApprovalInput')?.addEventListener('change', (event) => store.update('crossing.ownerApprovalDocumented', event.target.checked));
 
 numericBindings.forEach(([selector, path]) => {
   root.querySelector(selector)?.addEventListener('change', (event) => store.update(path, Number(event.target.value)));
