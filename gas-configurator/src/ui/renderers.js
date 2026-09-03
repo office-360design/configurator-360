@@ -34,6 +34,17 @@ function setChecked(root, selector, checked) {
   if (element) element.checked = Boolean(checked);
 }
 
+function setFieldAssessment(root, inputSelector, hintSelector, status, hint) {
+  const input = root.querySelector(inputSelector);
+  const hintElement = root.querySelector(hintSelector);
+  const needsCorrection = status === 'blocked' || status === 'missing';
+  if (input) input.setAttribute('aria-invalid', String(needsCorrection));
+  if (hintElement) {
+    hintElement.textContent = hint;
+    hintElement.className = `gas-field-requirement gas-field-requirement--${status}`;
+  }
+}
+
 function formatDimension(meters, units, locale) {
   const numeric = Number(meters) || 0;
   const converted = units === 'imperial' ? numeric * 3.28084 : numeric;
@@ -196,7 +207,9 @@ export function renderProfile(svg, state, calculation, elevationProfile = null) 
   appendSvg(svg, 'text', { x: width - margin.right, y: height - 10, 'text-anchor': 'end', class: 'gas-profile-end-label' }, `B · ${formatDistance(calculation.routeLengthM, state.preferences.units, state.preferences.locale)}`);
 }
 
-function addDimension(svg, { x1, y1, x2, y2, label, labelX, labelY, anchor = 'middle' }) {
+function addDimension(svg, {
+  x1, y1, x2, y2, label, labelX, labelY, anchor = 'middle', labelClass = 'gas-section-label',
+}) {
   appendSvg(svg, 'line', { x1, y1, x2, y2, class: 'gas-section-dimension' });
   const vertical = Math.abs(x2 - x1) < Math.abs(y2 - y1);
   if (vertical) {
@@ -204,7 +217,7 @@ function addDimension(svg, { x1, y1, x2, y2, label, labelX, labelY, anchor = 'mi
   } else {
     appendSvg(svg, 'path', { d: `M${x1 + 5} ${y1 - 4}L${x1} ${y1}L${x1 + 5} ${y1 + 4}M${x2 - 5} ${y2 - 4}L${x2} ${y2}L${x2 - 5} ${y2 + 4}`, class: 'gas-section-arrow' });
   }
-  appendSvg(svg, 'text', { x: labelX, y: labelY, 'text-anchor': anchor, class: 'gas-section-label' }, label);
+  appendSvg(svg, 'text', { x: labelX, y: labelY, 'text-anchor': anchor, class: labelClass }, label);
 }
 
 export function renderCrossSection(svg, state, calculation, t) {
@@ -248,8 +261,16 @@ export function renderCrossSection(svg, state, calculation, t) {
   });
   addDimension(svg, {
     x1: trenchLeft, y1: 204, x2: trenchRight, y2: 204,
-    label: t('section.width', { width: formatDimension(calculation.trenchWidthM, state.preferences.units, state.preferences.locale) }),
+    label: calculation.trenchWidthAssessment.status === 'not-evaluated'
+      ? t('section.widthCaseSpecific', {
+        width: formatDimension(calculation.trenchWidthM, state.preferences.units, state.preferences.locale),
+      })
+      : t('section.widthRequirement', {
+        width: formatDimension(calculation.trenchWidthM, state.preferences.units, state.preferences.locale),
+        minimum: formatDimension(calculation.requiredTrenchWidthM, state.preferences.units, state.preferences.locale),
+      }),
     labelX: 241, labelY: 217,
+    labelClass: `gas-section-label gas-section-rule-status--${calculation.trenchWidthAssessment.status}`,
   });
 
   appendSvg(svg, 'text', { x: 15, y: 31, class: 'gas-section-label' }, t('section.surface'));
@@ -257,6 +278,15 @@ export function renderCrossSection(svg, state, calculation, t) {
   appendSvg(svg, 'text', { x: 369, y: warningY + 3, class: 'gas-section-label' }, t('section.warningTape'));
   appendSvg(svg, 'line', { x1: 360, y1: warningY, x2: trenchRight - 10, y2: warningY, class: 'gas-section-leader' });
   appendSvg(svg, 'text', { x: 369, y: beddingTop + 22, class: 'gas-section-label' }, t('section.bedding'));
+  appendSvg(svg, 'text', {
+    x: 369,
+    y: beddingTop + 34,
+    class: `gas-section-rule-detail gas-section-rule-status--${calculation.beddingAssessment.status}`,
+  }, t('section.beddingRequirement', {
+    actual: formatDimension(calculation.beddingM, state.preferences.units, state.preferences.locale),
+    minimum: formatDimension(calculation.beddingMinimumM, state.preferences.units, state.preferences.locale),
+    maximum: formatDimension(calculation.beddingMaximumM, state.preferences.units, state.preferences.locale),
+  }));
   appendSvg(svg, 'line', { x1: 360, y1: beddingTop + 18, x2: trenchRight - 8, y2: beddingTop + 18, class: 'gas-section-leader' });
   appendSvg(svg, 'text', { x: 241, y: pipeCenterY + 4, 'text-anchor': 'middle', class: 'gas-section-pipe-label' }, t('section.pipe', { diameter: `${calculation.diameterMm} mm` }));
 }
@@ -378,6 +408,7 @@ export function renderGasState(root, state, elevationProfile = null) {
   setValue(root, '#coverInput', state.trench.coverM);
   setValue(root, '#trenchWidthInput', state.trench.widthM);
   setValue(root, '#beddingInput', state.trench.beddingM);
+  setValue(root, '#beddingMaterialSelect', state.trench.beddingMaterial);
   setValue(root, '#groundSourceSelect', state.data.groundSource);
   setValue(root, '#utilitySourceSelect', state.data.utilitySource);
   setValue(root, '#startElevationInput', state.data.startElevationM);
@@ -392,6 +423,37 @@ export function renderGasState(root, state, elevationProfile = null) {
   setChecked(root, '#crossingEnabledInput', state.crossing.enabled);
   setChecked(root, '#crossingSleeveInput', state.crossing.protectiveSleeve);
   setChecked(root, '#crossingOwnerApprovalInput', state.crossing.ownerApprovalDocumented);
+
+  const trenchWidthInput = root.querySelector('#trenchWidthInput');
+  if (trenchWidthInput) trenchWidthInput.min = String(calculation.requiredTrenchWidthM);
+  setFieldAssessment(
+    root,
+    '#trenchWidthInput',
+    '#trenchWidthRequirement',
+    calculation.trenchWidthAssessment.status,
+    t(
+      calculation.trenchWidthAssessment.status === 'not-evaluated'
+        ? 'field.trenchWidthRequirementCaseSpecific'
+        : 'field.trenchWidthRequirement',
+      { minimum: formatDimension(calculation.requiredTrenchWidthM, units, locale) },
+    ),
+  );
+  setFieldAssessment(
+    root,
+    '#beddingInput',
+    '#beddingRequirement',
+    calculation.beddingAssessment.status,
+    t('field.beddingRequirement', {
+      minimum: formatDimension(calculation.beddingMinimumM, units, locale),
+      maximum: formatDimension(calculation.beddingMaximumM, units, locale),
+    }),
+  );
+  const beddingInput = root.querySelector('#beddingInput');
+  if (beddingInput) beddingInput.setAttribute('aria-invalid', String(!calculation.beddingThicknessCompliant));
+  const beddingMaterialSelect = root.querySelector('#beddingMaterialSelect');
+  if (beddingMaterialSelect) {
+    beddingMaterialSelect.setAttribute('aria-invalid', String(!calculation.beddingMaterialCompliant));
+  }
 
   const reducedCoverFields = root.querySelector('#reducedCoverExceptionFields');
   if (reducedCoverFields) reducedCoverFields.hidden = state.trench.coverM >= 0.9;

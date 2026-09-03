@@ -67,6 +67,7 @@ const selectBindings = [
   ['#materialSelect', 'pipe.material'],
   ['#diameterSelect', 'pipe.diameterMm', Number],
   ['#sdrSelect', 'pipe.sdr'],
+  ['#beddingMaterialSelect', 'trench.beddingMaterial'],
   ['#groundSourceSelect', 'data.groundSource'],
   ['#utilitySourceSelect', 'data.utilitySource'],
   ['#crossingUtilityTypeSelect', 'crossing.utilityType'],

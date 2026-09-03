@@ -204,10 +204,19 @@ export function renderGasLayout(root) {
                 <span class="gas-input-with-unit"><input id="coverInput" type="number" min="0.3" max="3" step="0.05" /><em>m</em></span>
               </label>
               <label class="gas-field" for="trenchWidthInput"><span data-gas-i18n="field.trenchWidth"></span>
-                <span class="gas-input-with-unit"><input id="trenchWidthInput" type="number" min="0.3" max="2" step="0.05" /><em>m</em></span>
+                <span class="gas-input-with-unit"><input id="trenchWidthInput" type="number" min="0.3" max="2" step="0.01" aria-describedby="trenchWidthRequirement" /><em>m</em></span>
+                <small id="trenchWidthRequirement" class="gas-field-requirement" aria-live="polite"></small>
               </label>
               <label class="gas-field" for="beddingInput"><span data-gas-i18n="field.bedding"></span>
-                <span class="gas-input-with-unit"><input id="beddingInput" type="number" min="0.05" max="0.5" step="0.05" /><em>m</em></span>
+                <span class="gas-input-with-unit"><input id="beddingInput" type="number" min="0.1" max="0.15" step="0.01" aria-describedby="beddingRequirement" /><em>m</em></span>
+                <small id="beddingRequirement" class="gas-field-requirement" aria-live="polite"></small>
+              </label>
+              <label class="gas-field" for="beddingMaterialSelect"><span data-gas-i18n="field.beddingMaterial"></span>
+                <select id="beddingMaterialSelect" aria-describedby="beddingRequirement">
+                  ${option('sand03to08', 'option.beddingMaterial.sand03to08', true)}
+                  ${option('unspecified', 'option.beddingMaterial.unspecified')}
+                  ${option('other', 'option.beddingMaterial.other')}
+                </select>
               </label>
             </div>
             <p class="gas-field-hint" data-gas-i18n="hint.pipe"></p>
@@ -242,6 +251,14 @@ export function renderGasLayout(root) {
                   <span><b data-gas-i18n="field.coverProtection"></b></span>
                 </label>
               </div>
+            </section>
+
+            <section class="gas-rule-group" aria-labelledby="trenchRuleTitle">
+              <div class="gas-rule-group__heading">
+                <strong id="trenchRuleTitle" data-gas-i18n="rule.trenchTitle"></strong>
+                <span data-gas-i18n="rule.trenchCriterion"></span>
+              </div>
+              <p class="gas-field-hint" data-gas-i18n="rule.trenchHint"></p>
             </section>
 
             <section class="gas-rule-group" aria-labelledby="crossingRuleTitle">

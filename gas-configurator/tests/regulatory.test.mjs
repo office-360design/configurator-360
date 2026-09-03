@@ -1,13 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  evaluateBeddingLayer,
   evaluateCrossingAngle,
   evaluateCrossingOwnerApproval,
   evaluateCrossingVerticalSeparation,
   evaluateMinimumCover,
   evaluateRegulatoryRules,
+  evaluateTrenchPreparation,
+  evaluateTrenchWidth,
 } from '../src/regulatory/ruleEngine.js';
-import { REGULATORY_RULE_PACK, REGULATORY_RULES } from '../src/regulatory/ruleRegistry.js';
+import {
+  minimumTrenchWidthMeters,
+  REGULATORY_RULE_PACK,
+  REGULATORY_RULES,
+} from '../src/regulatory/ruleRegistry.js';
 import { DEFAULT_STATE } from '../src/state.js';
 
 function clone(value) {
@@ -16,12 +23,61 @@ function clone(value) {
 
 test('the regulatory registry is versioned and traceable to official articles', () => {
   assert.equal(REGULATORY_RULE_PACK.jurisdiction, 'RO');
+  assert.equal(REGULATORY_RULE_PACK.version, '2023-01-26.prototype-2');
   assert.equal(REGULATORY_RULE_PACK.consolidationDate, '2023-01-26');
   assert.match(REGULATORY_RULE_PACK.source.href, /^https:\/\/legislatie\.just\.ro\//);
   assert.equal(REGULATORY_RULES.minimumCover.article, 'Art. 75');
   assert.equal(REGULATORY_RULES.crossingOwnerApproval.requiredEvidence, 'crossed-utility-owner-approval');
   assert.equal(REGULATORY_RULES.crossingAngle.exceptionalMinimumAngleDeg, 60);
   assert.equal(REGULATORY_RULES.crossingVerticalSeparation.normalMinimumM, 0.2);
+  assert.equal(REGULATORY_RULES.beddingLayer.granulationMinimumMm, 0.3);
+  assert.equal(REGULATORY_RULES.beddingLayer.granulationMaximumMm, 0.8);
+});
+
+test('Article 194 trench-width formula switches at DN 100', () => {
+  assert.equal(minimumTrenchWidthMeters(63), 0.4);
+  assert.ok(Math.abs(minimumTrenchWidthMeters(110) - 0.51) < 1e-12);
+
+  const state = clone(DEFAULT_STATE);
+  state.trench.widthM = 0.39;
+  assert.equal(evaluateTrenchWidth(state).status, 'blocked');
+  state.trench.widthM = 0.4;
+  assert.equal(evaluateTrenchWidth(state).status, 'pass');
+
+  state.pipe.diameterMm = 110;
+  state.trench.widthM = 0.5;
+  assert.equal(evaluateTrenchWidth(state).status, 'blocked');
+  state.trench.widthM = 0.51;
+  assert.equal(evaluateTrenchWidth(state).status, 'pass');
+});
+
+test('sandy or gravel ground keeps trench dimensions case-specific', () => {
+  const state = clone(DEFAULT_STATE);
+  state.segmentSettings['a:b'].groundType = 'granular';
+  state.trench.widthM = 0.8;
+  assert.equal(evaluateTrenchWidth(state).status, 'not-evaluated');
+});
+
+test('Article 196 checks bedding thickness and graded-sand declaration separately', () => {
+  const state = clone(DEFAULT_STATE);
+  state.trench.beddingM = 0.1;
+  assert.equal(evaluateBeddingLayer(state).status, 'pass');
+  state.trench.beddingM = 0.15;
+  assert.equal(evaluateBeddingLayer(state).status, 'pass');
+  state.trench.beddingM = 0.09;
+  assert.equal(evaluateBeddingLayer(state).status, 'blocked');
+  state.trench.beddingM = 0.16;
+  assert.equal(evaluateBeddingLayer(state).status, 'blocked');
+
+  state.trench.beddingM = 0.1;
+  state.trench.beddingMaterial = 'unspecified';
+  assert.equal(evaluateBeddingLayer(state).status, 'missing');
+  state.trench.beddingMaterial = 'other';
+  assert.equal(evaluateBeddingLayer(state).status, 'blocked');
+});
+
+test('execution-stage trench preparation is not falsely auto-approved', () => {
+  assert.equal(evaluateTrenchPreparation().status, 'not-evaluated');
 });
 
 test('normal cover passes while an unsupported reduction is blocked', () => {

@@ -16,6 +16,7 @@ const GROUND_SOURCES = new Set(['assumption', 'publicScreening', 'verifiedSurvey
 const UTILITY_SOURCES = new Set(['missing', 'ownerPlan', 'fieldVerified']);
 const CROSSING_UTILITY_TYPES = new Set(['water', 'sewer', 'electric', 'telecom', 'districtHeating', 'other']);
 const CROSSING_GAS_POSITIONS = new Set(['above', 'below']);
+const BEDDING_MATERIALS = new Set(['sand03to08', 'unspecified', 'other']);
 
 export const DEFAULT_STATE = Object.freeze({
   project: {
@@ -42,6 +43,7 @@ export const DEFAULT_STATE = Object.freeze({
     coverM: 1,
     widthM: 0.55,
     beddingM: 0.1,
+    beddingMaterial: 'sand03to08',
   },
   regulatory: {
     reducedCover: {
@@ -176,6 +178,7 @@ export function normalizeState(incoming = {}) {
       coverM: clamp(finiteNumber(merged.trench?.coverM, 1), 0.3, 3),
       widthM: clamp(finiteNumber(merged.trench?.widthM, 0.55), 0.3, 2),
       beddingM: clamp(finiteNumber(merged.trench?.beddingM, 0.1), 0.05, 0.5),
+      beddingMaterial: safeChoice(merged.trench?.beddingMaterial, BEDDING_MATERIALS, 'sand03to08'),
     },
     regulatory: {
       reducedCover: {

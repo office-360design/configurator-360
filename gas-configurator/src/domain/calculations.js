@@ -1,5 +1,10 @@
 import { buildRouteSegments, routeLengthMeters } from './geometry.js';
-import { evaluateRegulatoryRules } from '../regulatory/ruleEngine.js';
+import {
+  evaluateBeddingLayer,
+  evaluateRegulatoryRules,
+  evaluateTrenchWidth,
+} from '../regulatory/ruleEngine.js';
+import { minimumTrenchWidthMeters, REGULATORY_RULES } from '../regulatory/ruleRegistry.js';
 
 export const PIPE_MATERIALS = Object.freeze({
   pe100rc: Object.freeze({ labelKey: 'option.material.pe100rc', costMultiplier: 1.12 }),
@@ -28,6 +33,8 @@ const CURRENCY_FROM_EUR = Object.freeze({ EUR: 1, RON: 4.98, USD: 1.09 });
 const BEDDING_EUR_M3 = 34;
 const PRELIMINARY_FIXED_COST_EUR = 1_800;
 const PIPE_ALLOWANCE_RATIO = 1.03;
+// Article 197's 0.10 m cover above the pipe remains a fixed quantity assumption in this slice.
+const SAND_SURROUND_ABOVE_PIPE_M = 0.1;
 
 function numberOr(value, fallback) {
   const numeric = Number(value);
@@ -44,17 +51,25 @@ export function calculateProject(state) {
   const diameterMm = numberOr(state.pipe.diameterMm, 63);
   const outsideDiameterM = diameterMm / 1_000;
   const coverM = Math.max(0, numberOr(state.trench.coverM, 1));
-  const trenchWidthM = Math.max(outsideDiameterM + 0.2, numberOr(state.trench.widthM, 0.55));
+  const trenchWidthM = Math.max(0, numberOr(state.trench.widthM, 0.55));
   const beddingM = Math.max(0, numberOr(state.trench.beddingM, 0.1));
   const trenchDepthM = coverM + outsideDiameterM + beddingM;
   const material = PIPE_MATERIALS[state.pipe.material] || PIPE_MATERIALS.pe100rc;
+  const requiredTrenchWidthM = minimumTrenchWidthMeters(diameterMm);
+  const trenchWidthAssessment = evaluateTrenchWidth(state);
+  const beddingAssessment = evaluateBeddingLayer(state);
+  const beddingThicknessCompliant = (
+    beddingM >= REGULATORY_RULES.beddingLayer.minimumM
+    && beddingM <= REGULATORY_RULES.beddingLayer.maximumM
+  );
+  const beddingMaterialCompliant = state.trench.beddingMaterial === REGULATORY_RULES.beddingLayer.requiredMaterial;
 
   const perSegment = segments.map((segment) => {
     const setting = segmentSetting(state, segment);
     const ground = GROUND_TYPES[setting.groundType] || GROUND_TYPES.common;
     const surface = SURFACE_TYPES[setting.surfaceType] || SURFACE_TYPES.greenfield;
     const excavationM3 = segment.lengthM * trenchWidthM * trenchDepthM;
-    const beddingEnvelopeHeightM = beddingM + outsideDiameterM + 0.1;
+    const beddingEnvelopeHeightM = beddingM + outsideDiameterM + SAND_SURROUND_ABOVE_PIPE_M;
     const beddingM3 = segment.lengthM * trenchWidthM * beddingEnvelopeHeightM;
     const pipeDisplacementM3 = segment.lengthM * Math.PI * (outsideDiameterM / 2) ** 2;
     const backfillM3 = Math.max(0, excavationM3 - beddingM3 - pipeDisplacementM3);
@@ -97,7 +112,14 @@ export function calculateProject(state) {
     outsideDiameterM,
     coverM,
     trenchWidthM,
+    requiredTrenchWidthM,
+    trenchWidthAssessment,
     beddingM,
+    beddingMinimumM: REGULATORY_RULES.beddingLayer.minimumM,
+    beddingMaximumM: REGULATORY_RULES.beddingLayer.maximumM,
+    beddingAssessment,
+    beddingThicknessCompliant,
+    beddingMaterialCompliant,
     trenchDepthM,
     excavationM3,
     beddingM3,
