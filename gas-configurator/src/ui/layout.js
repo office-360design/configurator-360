@@ -79,6 +79,35 @@ export function renderGasLayout(root) {
                 ${addIcon}<span data-gas-i18n="mode.addWaypoint"></span>
               </button>
             </div>
+            <section class="gas-map-layers" data-gas-i18n-aria-label="map.layersAria" aria-label="Map reference layers">
+              <button type="button" id="fitExistingNetworkButton" class="gas-map-layers__heading" data-gas-i18n-title="action.fitExistingNetwork" data-gas-i18n-aria-label="action.fitExistingNetwork">
+                <span>
+                  <small>Vâlcea</small>
+                  <strong data-gas-i18n="map.networkFocus"></strong>
+                </span>
+                ${fitIcon}
+              </button>
+              <div class="gas-map-layers__toggles" role="group" data-gas-i18n-aria-label="map.layersAria" aria-label="Map reference layers">
+                <div class="gas-map-layer-key">
+                  <span class="gas-map-layer-swatch gas-map-layer-swatch--proposed" aria-hidden="true"></span>
+                  <span data-gas-i18n="map.layer.proposedRoute"></span>
+                </div>
+                <button type="button" class="gas-map-layer-toggle is-active" data-map-layer="existingNetwork" aria-pressed="true">
+                  <span class="gas-map-layer-swatch gas-map-layer-swatch--network" aria-hidden="true"></span>
+                  <span data-gas-i18n="map.layer.existingNetwork"></span>
+                  <small data-gas-i18n="map.layer.networkLength"></small>
+                </button>
+                <button type="button" class="gas-map-layer-toggle is-active" data-map-layer="servedUats" aria-pressed="true">
+                  <span class="gas-map-layer-swatch gas-map-layer-swatch--uat" aria-hidden="true"></span>
+                  <span data-gas-i18n="map.layer.servedUats"></span>
+                  <small data-gas-i18n="map.layer.uatCount"></small>
+                </button>
+              </div>
+              <p>
+                <span data-gas-i18n="map.layer.disclaimer"></span>
+                <a href="https://geo-spatial.org/descarcare/date/administrative-boundaries/" target="_blank" rel="noreferrer" data-gas-i18n="map.layer.boundarySource"></a>
+              </p>
+            </section>
             <div class="gas-map-actions">
               <button type="button" id="removeWaypointButton" class="gas-icon-action" data-gas-i18n-title="action.removeWaypoint" data-gas-i18n-aria-label="action.removeWaypoint" aria-label="Remove waypoint">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M9 7V4h6v3M8 7l1 13h6l1-13"></path></svg>
