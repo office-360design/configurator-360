@@ -20,7 +20,6 @@ export function createHouseBuilder({
 
     let activeHousePresetKey = null;
     let houseWasVisible = false;
-    let windowPlacementRoot = null;
 
     const sharedBoxGeo = new THREE.BoxGeometry(1, 1, 1);
     const sharedBoxEdges = new THREE.EdgesGeometry(sharedBoxGeo);
@@ -76,69 +75,8 @@ export function createHouseBuilder({
         group.clear();
     }
 
-    function resolveWindowPlacementRoot() {
-        if (windowPlacementRoot?.parent === scene) return windowPlacementRoot;
-
-        let resolved = null;
-        scene.traverse(object => {
-            if (resolved || !object?.isMesh) return;
-            const selection = object.userData?.componentSelection || {};
-            const isWindowFrame = String(selection.source || '').toLowerCase() === 'frame'
-                || Boolean(object.userData?.frameSegment);
-            if (!isWindowFrame) return;
-
-            let root = object;
-            while (root.parent && root.parent !== scene) root = root.parent;
-            if (root.parent === scene && root !== houseGroup) resolved = root;
-        });
-
-        windowPlacementRoot = resolved;
-        return resolved;
-    }
-
-    function syncWindowDimensionOrientation(houseActive) {
-        const placementRoot = resolveWindowPlacementRoot();
-        if (!placementRoot) return;
-
-        // Dimension guides are authored inside the same placement root as the
-        // physical window. Counter-rotate only the blue dimension groups so
-        // house mode flips the product, not the width/height annotations.
-        placementRoot.traverse(object => {
-            if (!object?.isGroup || !Array.isArray(object.children)) return;
-            const hasDimensionLine = object.children.some(child => (
-                child?.isLine
-                && child.material?.color?.getHex?.() === 0x38bdf8
-            ));
-            if (!hasDimensionLine) return;
-
-            object.rotation.y = houseActive ? Math.PI : 0;
-            object.updateMatrixWorld(true);
-        });
-    }
-
-    function syncWindowHouseOrientation(houseActive) {
-        const placementRoot = resolveWindowPlacementRoot();
-        if (!placementRoot) return;
-
-        // The authored standalone view exposes the inside face toward +Z.
-        // The house interior extends behind the front wall toward -Z, so when
-        // the house is visible the complete window assembly must face the
-        // opposite way. Restore the authored orientation as soon as house mode
-        // is disabled so standalone/AR behaviour is unchanged.
-        placementRoot.rotation.y = houseActive ? Math.PI : 0;
-        placementRoot.updateMatrixWorld(true);
-
-        // Existing dimensions can be corrected immediately. During a normal
-        // window rebuild buildHouse() runs just before the dimension guides are
-        // recreated, so repeat this once the current synchronous rebuild has
-        // finished to catch the newly-created dimensionsGroup as well.
-        syncWindowDimensionOrientation(houseActive);
-        queueMicrotask(() => syncWindowDimensionOrientation(houseActive));
-    }
-
     function buildHouse(A, B) {
         const showHouse = document.getElementById('cShowHouse')?.checked === true;
-        syncWindowHouseOrientation(showHouse && !isARMode);
 
         if (isARMode || !showHouse) {
             if (houseWasVisible) {

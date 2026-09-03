@@ -34,9 +34,7 @@ import {
     getInsideHalfFrameTriangle,
     getHalfMullionTriangle,
     getFrameInsideHalfFrameInset,
-    getRectangularDividerSetback,
     getRectangularDividerEndNotchInset,
-    getDividerHostBranchGasketEndTrim,
     INTERSECTION_MULLION_END_NOTCH_DEPTH_M,
     INTERSECTION_MULLION_END_NOTCH_LENGTH_M,
     RECTANGULAR_DIVIDER_SETBACK_M,
@@ -81,7 +79,6 @@ export function createWindowBuilder({
     updateComponentPictures,
     getFinishState,
     getSelectedHandleSide,
-    getHingeType = () => 'surface-mounted',
     onGlassClick = () => { },
     onFabricationSnapshot = () => { },
     isProfileEnabled = () => true,
@@ -3172,97 +3169,7 @@ export function createWindowBuilder({
         sectionGroup.lookAt(camera.position);
     }
 
-    function createSurfaceMountedHingeFrameMesh({ isLeftHinge, material, captureMode }) {
-        const hingeGroup = new THREE.Group();
-        const darkBushingMat = new THREE.MeshStandardMaterial({
-            color: 0x182026,
-            roughness: 0.7,
-            metalness: 0.2,
-        });
 
-        const barrelRadius = 0.007;
-        const barrelSegments = 24;
-
-        const topKnuckleH = 0.026;
-        const midKnuckleH = 0.030;
-        const botKnuckleH = 0.026;
-        const spacerH = 0.002;
-        const capH = 0.002;
-
-        const topY = (midKnuckleH / 2) + spacerH + (topKnuckleH / 2);
-        const topSpacerY = (midKnuckleH / 2) + (spacerH / 2);
-        const botSpacerY = -(midKnuckleH / 2) - (spacerH / 2);
-        const botY = -(midKnuckleH / 2) - spacerH - (botKnuckleH / 2);
-        const topCapY = topY + (topKnuckleH / 2) + (capH / 2);
-        const botCapY = botY - (botKnuckleH / 2) - (capH / 2);
-
-        const createCylinder = (h, mat) => {
-            const geo = new THREE.CylinderGeometry(barrelRadius, barrelRadius, h, barrelSegments);
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.castShadow = !captureMode;
-            mesh.receiveShadow = !captureMode;
-            return mesh;
-        };
-
-        const topKnuckle = createCylinder(topKnuckleH, material);
-        topKnuckle.position.y = topY;
-        const botKnuckle = createCylinder(botKnuckleH, material);
-        botKnuckle.position.y = botY;
-
-        const topSpacer = createCylinder(spacerH, darkBushingMat);
-        topSpacer.position.y = topSpacerY;
-        const botSpacer = createCylinder(spacerH, darkBushingMat);
-        botSpacer.position.y = botSpacerY;
-
-        const topCap = createCylinder(capH, darkBushingMat);
-        topCap.position.y = topCapY;
-        const botCap = createCylinder(capH, darkBushingMat);
-        botCap.position.y = botCapY;
-
-        hingeGroup.add(topKnuckle, botKnuckle, topSpacer, botSpacer, topCap, botCap);
-        return hingeGroup;
-    }
-
-    function createSurfaceMountedHingeSashMesh({ isLeftHinge, material, captureMode }) {
-        const hingeGroup = new THREE.Group();
-        const barrelRadius = 0.007;
-        const barrelSegments = 24;
-        const midKnuckleH = 0.030;
-
-        const geo = new THREE.CylinderGeometry(barrelRadius, barrelRadius, midKnuckleH, barrelSegments);
-        const midKnuckle = new THREE.Mesh(geo, material);
-        midKnuckle.castShadow = !captureMode;
-        midKnuckle.receiveShadow = !captureMode;
-        hingeGroup.add(midKnuckle);
-
-        const tabWidth = 0.026;
-        const tabThickness = 0.0035;
-        const tabHeight = 0.022;
-        const leafOffsetSign = isLeftHinge ? -1 : 1;
-
-        const shape = new THREE.Shape();
-        const dir = -leafOffsetSign; // Extends into/above the sash
-        shape.moveTo(0, -tabHeight / 2);
-        shape.lineTo(dir * tabWidth, -tabHeight / 2);
-        shape.lineTo(dir * tabWidth, tabHeight / 2);
-        shape.lineTo(0, tabHeight / 2);
-        shape.closePath();
-
-        const leafGeo = new THREE.ExtrudeGeometry(shape, {
-            depth: tabThickness,
-            bevelEnabled: true,
-            bevelThickness: 0.001,
-            bevelSize: 0.001,
-            bevelSegments: 3,
-        });
-        leafGeo.translate(0, 0, -tabThickness);
-        const midTab = new THREE.Mesh(leafGeo, material);
-        midTab.castShadow = !captureMode;
-        midTab.receiveShadow = !captureMode;
-        hingeGroup.add(midTab);
-
-        return hingeGroup;
-    }
 
     function buildWindow() {
         if (!currentMetadata) return;
@@ -3356,9 +3263,6 @@ export function createWindowBuilder({
         const activeTransProfiles = activeProfiles.filter(profile => profile.role === 'trans');
         const activeTransGasketProfiles = activeProfiles.filter(
             profile => profile.role === 'trans-gasket'
-        );
-        const activeTransAccessoryProfiles = activeProfiles.filter(
-            profile => profile.role === 'trans-accessory'
         );
         const layoutState = getWindowLayoutState();
         const isEditableTopology = layoutState.isDynamicWindowState === true;
@@ -3746,7 +3650,6 @@ export function createWindowBuilder({
         // Miter-extrude structural and accessory profiles. The verified vertical
         // connection keeps fixed glazing on the left and the opening sash on the right.
         let sashMinX = Infinity, sashMaxX = -Infinity;
-        let frameMinX = Infinity, frameMaxX = -Infinity;
         profilesData.forEach(profile => {
             if (profile.role === 'sash' && String(profile.layer || '').toLowerCase().includes('al')) {
                 const bbox = getEffectiveProfileBbox(profile);
@@ -3754,19 +3657,10 @@ export function createWindowBuilder({
                 if (bbox.minX < sashMinX) sashMinX = bbox.minX;
                 if (bbox.maxX > sashMaxX) sashMaxX = bbox.maxX;
             }
-            if (profile.role === 'frame' && String(profile.layer || '').toLowerCase().includes('al')) {
-                const bbox = getEffectiveProfileBbox(profile);
-                if (!bbox) return;
-                if (bbox.minX < frameMinX) frameMinX = bbox.minX;
-                if (bbox.maxX > frameMaxX) frameMaxX = bbox.maxX;
-            }
         });
         if (sashMinX === Infinity) {
             sashMinX = currentMetadata.globalMinX;
             sashMaxX = currentMetadata.globalMaxX;
-        }
-        if (frameMaxX === -Infinity) {
-            frameMaxX = sashMaxX;
         }
         const sashCenterX = ((sashMinX + sashMaxX) / 2 - currentMetadata.globalCenterX) * S;
         const dividerDepthOffset = dividerOrientation && currentMetadata.dividerConnection
@@ -3875,7 +3769,6 @@ export function createWindowBuilder({
                 profile.role !== 'divider'
                 && profile.role !== 'trans'
                 && profile.role !== 'trans-gasket'
-                && profile.role !== 'trans-accessory'
             )
             .forEach(profile => {
                 const group = getProfileGroup(profile);
@@ -4046,29 +3939,6 @@ export function createWindowBuilder({
                 const targetSashGroup = ownerCell ? sashGroupsByCell.get(ownerCell.id) : null;
                 if (!ownerCell || !targetSashGroup || !transBounds) return;
 
-                // Machine the floating trans to the same longitudinal length as
-                // a normal rectangular mullion branch. The normal mullion uses
-                // its 88 mm visible face against the 25 mm host contact band,
-                // so it stops 19 mm before the grid vertex at each end. Keep the
-                // trans profile's own 25 x 5 mm end notch geometry unchanged;
-                // only its overall body length follows the normal mullion.
-                const transEndSetback = getRectangularDividerSetback({
-                    dividerFaceSpan,
-                });
-                const transLength = Math.max(
-                    0,
-                    (Number(segment.length) || 0) - transEndSetback * 2
-                );
-                const transLongitudinalOffset = Number(segment.longitudinalOffset) || 0;
-                const transEndJoint = {
-                    negativeEndMode: 'square',
-                    positiveEndMode: 'square',
-                    negativeFrameInwardSpan: 0,
-                    positiveFrameInwardSpan: 0,
-                    negativeRectangularEndNotch: true,
-                    positiveRectangularEndNotch: true,
-                };
-
                 activeTransProfiles.forEach(profile => {
                     const placedProfile = {
                         ...profile,
@@ -4079,15 +3949,21 @@ export function createWindowBuilder({
                     };
                     const mesh = createDividerSegment(
                         placedProfile,
-                        transLength,
+                        // temporary fix to make the trans mullion smaller
+                        ownerCell.height - 0.06,
                         'vertical',
                         transBounds,
                         transDepthOffset,
                         0,
                         segment.perpendicularOffset,
-                        transLongitudinalOffset,
+                        ownerCell.centerY,
                         1,
-                        transEndJoint
+                        {
+                            negativeEndMode: 'square',
+                            positiveEndMode: 'square',
+                            negativeFrameInwardSpan: 0,
+                            positiveFrameInwardSpan: 0,
+                        }
                     );
                     mesh.userData.trans = true;
                     if (mesh.userData.componentSelection) {
@@ -4096,48 +3972,6 @@ export function createWindowBuilder({
                     mesh.userData.transSegmentId = segment.id;
                     mesh.userData.transOwnerCellId = ownerCell.id;
                     mesh.userData.windowCell = ownerCell.id;
-                    targetSashGroup.add(mesh);
-                });
-
-                // 224068 is authored once in the sash/trans/sash connection.
-                // Render that exact centre-gasket seat on the trans without
-                // duplicating it onto the opposite face. It uses the same
-                // machined longitudinal extent as the normal mullion accessory
-                // and follows the owner sash together with the floating trans.
-                activeTransAccessoryProfiles.forEach(profile => {
-                    if (!profile.transConnectionCadTransform) return;
-                    const placedProfile = {
-                        ...profile,
-                        cadCoordinateTransform: profile.transConnectionCadTransform,
-                        cadAlignmentShiftXMm: 0,
-                        cadAlignmentShiftYMm: 0,
-                        dividerSectionRotationDeg:
-                            Number(transConnection.sectionRotationDeg)
-                            || Number(profile.transSectionRotationDeg)
-                            || 180,
-                    };
-                    const mesh = createDividerSegment(
-                        placedProfile,
-                        transLength,
-                        'vertical',
-                        transBounds,
-                        transDepthOffset,
-                        0,
-                        segment.perpendicularOffset,
-                        transLongitudinalOffset,
-                        1,
-                        transEndJoint
-                    );
-                    mesh.userData.trans = true;
-                    mesh.userData.transAccessory = true;
-                    mesh.userData.connectionProfileId =
-                        profile.transConnectionProfileId || null;
-                    mesh.userData.transSegmentId = segment.id;
-                    mesh.userData.transOwnerCellId = ownerCell.id;
-                    mesh.userData.windowCell = ownerCell.id;
-                    if (mesh.userData.componentSelection) {
-                        mesh.userData.componentSelection.source = 'trans';
-                    }
                     targetSashGroup.add(mesh);
                 });
 
@@ -4160,18 +3994,14 @@ export function createWindowBuilder({
                     };
                     const mesh = createDividerSegment(
                         placedProfile,
-                        // Preserve the existing 25 mm clearance at each end of
-                        // the trans gasket relative to the aluminium body.
-                        Math.max(
-                            0,
-                            transLength - INTERSECTION_MULLION_END_NOTCH_LENGTH_M * 2
-                        ),
+                        // temporary fix to make the trans gasket smaller (matching the trans mullion)
+                        ownerCell.height - 0.11,
                         'vertical',
                         transBounds,
                         transDepthOffset,
                         0,
                         segment.perpendicularOffset,
-                        transLongitudinalOffset,
+                        ownerCell.centerY,
                         1,
                         {
                             negativeEndMode: 'square',
@@ -4448,22 +4278,9 @@ export function createWindowBuilder({
                     if (!branchSides.size) return;
                     const isBranchFacingSide = branchSides.has(runtimeCellSide);
                     if (isBranchFacingSide) {
-                        // This is the side of the host mullion that the incoming
-                        // branch physically occupies. Each collinear host gasket
-                        // must stop by half of the branch face width, so the two
-                        // pieces leave a full mullion-width opening (88 mm for
-                        // the active 575800 profile), just like a mullion meeting
-                        // the outer frame. The generic 15 mm gasket shortening
-                        // only leaves a 30 mm hole and is visibly too small.
-                        const branchGasketEndTrim = getDividerHostBranchGasketEndTrim({
-                            dividerFaceSpan,
-                        });
-                        if (branchGasketEndTrim > 1e-9) {
-                            resolvedJoint[`${endPrefix}GasketTrimOverride`] =
-                                branchGasketEndTrim;
-                        }
-                        resolvedJoint[`${endPrefix}LocalGasketMiter`] = false;
-                        delete resolvedJoint[`${endPrefix}LocalGasketMiterSign`];
+                        // This is the actual half-mullion under the incoming
+                        // branch. Keep the normal 15 mm end clearance, so the
+                        // two host segments leave the intended no-gasket zone.
                         return;
                     }
 
@@ -6289,7 +6106,6 @@ export function createWindowBuilder({
                         ? (cell.joinCellSide === 'left' ? 'right' : 'left')
                         : selectedHandleSide);
                 const isLeftHandle = cellHandleSide === 'left';
-                const sashInteriorZ = (sashMaxX - currentMetadata.globalCenterX) * S;
                 const defaultRot = document.getElementById('mBatant').checked
                     ? (isLeftHandle ? Math.PI / 2 : -Math.PI / 2)
                     : (isLeftHandle ? Math.PI : -Math.PI);
@@ -6381,6 +6197,7 @@ export function createWindowBuilder({
                     leverGroup.add(lever);
                     handleBase.add(leverGroup);
 
+                    const sashInteriorZ = (sashMaxX - currentMetadata.globalCenterX) * S;
                     const handleInwardShift = 0.01;
                     const handleLocalX = isLeftHandle
                         ? -cell.width / 2 + leftInset - 0.04 + handleInwardShift
@@ -6403,16 +6220,11 @@ export function createWindowBuilder({
                     if (cellIndex === 0) handleLeverGroup = null;
                 }
 
-                const isSurfaceHinge = getHingeType() === 'surface-mounted';
-                const frameInteriorZ = (frameMaxX - currentMetadata.globalCenterX) * S;
                 const hingeX = cell.centerX + (
-                    isSurfaceHinge
-                        ? (isLeftHandle ? (cell.width / 2 - 0.013) : (-cell.width / 2 + 0.013))
-                        : (isLeftHandle ? (cell.width / 2 - 0.04) : (-cell.width / 2 + 0.04))
+                    isLeftHandle ? (cell.width / 2 - 0.04) : (-cell.width / 2 + 0.04)
                 );
                 const hingeY = cell.centerY - cell.height / 2 + 0.04;
-                const hingeZPos = (isSurfaceHinge ? frameInteriorZ : sashInteriorZ) + 0.0075;
-                const hingeZ = isSurfaceHinge ? hingeZPos : sashCenterX;
+                const hingeZ = sashCenterX;
                 const cellPivotOscilo = cellIndex === 0 ? pivotOscilo : new THREE.Group();
                 const cellPivotBatant = cellIndex === 0 ? pivotBatant : new THREE.Group();
                 cellPivotOscilo.position.set(0, hingeY, hingeZ);
@@ -6421,70 +6233,6 @@ export function createWindowBuilder({
                 cellPivotBatant.rotation.set(0, 0, 0);
                 mainGroup.add(cellPivotOscilo);
                 cellPivotOscilo.add(cellPivotBatant);
-
-                if (isSurfaceHinge) {
-                    const isLeftHinge = !isLeftHandle;
-                    const topHingeY = cell.centerY + cell.height / 2 - 0.14;
-                    const botHingeY = cell.centerY - cell.height / 2 + 0.14;
-
-                    // Frame-mounted parts (top/bottom knuckles, frame leaves, caps, bushings) - static on frame
-                    const topFrameHinge = createSurfaceMountedHingeFrameMesh({
-                        isLeftHinge,
-                        material: handleMat,
-                        captureMode,
-                    });
-                    topFrameHinge.position.set(hingeX, topHingeY, hingeZPos);
-                    topFrameHinge.userData.windowCell = cell.id;
-                    frameGroup.add(topFrameHinge);
-
-                    const botFrameHinge = createSurfaceMountedHingeFrameMesh({
-                        isLeftHinge,
-                        material: handleMat,
-                        captureMode,
-                    });
-                    botFrameHinge.position.set(hingeX, botHingeY, hingeZPos);
-                    botFrameHinge.userData.windowCell = cell.id;
-                    frameGroup.add(botFrameHinge);
-
-                    // Sash-mounted parts (middle knuckle, sash leaf) - rotates with opening sash
-                    const topSashHinge = createSurfaceMountedHingeSashMesh({
-                        isLeftHinge,
-                        material: handleMat,
-                        captureMode,
-                    });
-                    topSashHinge.position.set(hingeX, topHingeY, hingeZPos);
-                    topSashHinge.userData.windowCell = cell.id;
-                    topSashHinge.userData.explodeLayer = 'sash';
-                    topSashHinge.userData.explodeFollower = true;
-                    topSashHinge.userData.explodeAssemblyKey = `sash:${cell.id}:${isLeftHandle ? 'right' : 'left'}`;
-                    registerOutwardAxisExplode(
-                        topSashHinge,
-                        'x',
-                        0.26,
-                        0.9,
-                        isLeftHandle ? 1 : -1
-                    );
-                    targetSashGroup.add(topSashHinge);
-
-                    const botSashHinge = createSurfaceMountedHingeSashMesh({
-                        isLeftHinge,
-                        material: handleMat,
-                        captureMode,
-                    });
-                    botSashHinge.position.set(hingeX, botHingeY, hingeZPos);
-                    botSashHinge.userData.windowCell = cell.id;
-                    botSashHinge.userData.explodeLayer = 'sash';
-                    botSashHinge.userData.explodeFollower = true;
-                    botSashHinge.userData.explodeAssemblyKey = `sash:${cell.id}:${isLeftHandle ? 'right' : 'left'}`;
-                    registerOutwardAxisExplode(
-                        botSashHinge,
-                        'x',
-                        0.26,
-                        0.9,
-                        isLeftHandle ? 1 : -1
-                    );
-                    targetSashGroup.add(botSashHinge);
-                }
 
                 const sashWrapper = new THREE.Group();
                 sashWrapper.position.set(-hingeX, 0, -hingeZ);
