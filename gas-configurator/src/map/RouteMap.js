@@ -136,11 +136,8 @@ export class RouteMap {
     this.container.addEventListener('click', this.onNetworkActionClick);
 
     this.onMapClick = (event) => {
-      const mode = this.store.get().route.editMode;
       const coordinate = [event.latlng.lng, event.latlng.lat];
-      if (mode === 'setA') this.store.setEndpoint('a', coordinate);
-      else if (mode === 'setB') this.store.setEndpoint('b', coordinate);
-      else if (mode === 'addWaypoint') this.store.addWaypoint(coordinate);
+      this.applyRouteEdit(coordinate);
     };
 
     this.map.on('click', this.onMapClick);
@@ -179,8 +176,10 @@ export class RouteMap {
           className: 'gas-reference-popup-shell',
           maxWidth: 310,
         });
-        layer.on('click', () => {
-          if (this.store.get().route.editMode !== 'inspect') layer.closePopup();
+        layer.on('click', (event) => {
+          if (this.store.get().route.editMode === 'inspect') return;
+          this.applyRouteEdit([event.latlng.lng, event.latlng.lat]);
+          layer.closePopup();
         });
       },
     });
@@ -195,6 +194,7 @@ export class RouteMap {
         weight: 1.5,
         fillColor: '#b84218',
         fillOpacity: 1,
+        bubblingMouseEvents: false,
       }),
       onEachFeature: (feature, layer) => {
         let connectionCandidate = null;
@@ -216,8 +216,10 @@ export class RouteMap {
           className: 'gas-reference-popup-shell',
           maxWidth: 310,
         });
-        layer.on('click', () => {
-          if (this.store.get().route.editMode !== 'inspect') layer.closePopup();
+        layer.on('click', (event) => {
+          if (this.store.get().route.editMode === 'inspect') return;
+          this.applyRouteEdit([event.latlng.lng, event.latlng.lat]);
+          layer.closePopup();
         });
       },
     });
@@ -232,6 +234,14 @@ export class RouteMap {
     return gasT(this.store.get().preferences.locale, key, variables);
   }
 
+  applyRouteEdit(coordinate) {
+    const mode = this.store.get().route.editMode;
+    if (mode === 'setA') return this.store.setEndpoint('a', coordinate);
+    if (mode === 'setB') return this.store.setEndpoint('b', coordinate);
+    if (mode === 'addWaypoint') return this.store.addWaypoint(coordinate);
+    return false;
+  }
+
   networkStyle(feature, selectedAssetId = null) {
     const selectable = feature.geometry?.type === 'LineString';
     const selected = selectable && feature.properties?.assetId === selectedAssetId;
@@ -243,6 +253,7 @@ export class RouteMap {
       opacity: selected ? 1 : hasSelection ? 0.5 : 0.94,
       lineCap: 'round',
       lineJoin: 'round',
+      bubblingMouseEvents: false,
     };
   }
 
@@ -256,6 +267,7 @@ export class RouteMap {
       opacity: selected ? 1 : hasSelection ? 0.45 : 0.92,
       fillColor: selected ? '#46b98a' : '#f4b63f',
       fillOpacity: selected ? 0.3 : hasSelection ? 0.08 : 0.2,
+      bubblingMouseEvents: false,
     };
   }
 
