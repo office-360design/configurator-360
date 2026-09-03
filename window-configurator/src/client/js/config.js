@@ -60,7 +60,7 @@ export const FIXED_PROFILE_COLOURS = Object.freeze({
     centralSeal: '#2f343a',
     iso: '#41474e',
     foam: '#9aa1a8',
-    glass: '#9bd7f5',
+    glass: '#60a5fa',
     default: '#4b5158',
 });
 

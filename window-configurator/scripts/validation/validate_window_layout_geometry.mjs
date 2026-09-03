@@ -23,7 +23,6 @@ import {
     getFrameInsideHalfFrameInset,
     getRectangularDividerSetback,
     getRectangularDividerEndNotchInset,
-    getDividerHostBranchGasketEndTrim,
     INTERSECTION_HOST_INNER_FACE_M,
     INTERSECTION_MULLION_END_NOTCH_DEPTH_M,
     INTERSECTION_MULLION_END_NOTCH_LENGTH_M,
@@ -78,11 +77,6 @@ assert(
         && Math.abs(RECTANGULAR_DIVIDER_SETBACK_M - 0.019) < 1e-12,
     'The branch setback must be 88 / 2 - 25 = 19 mm.'
 );
-assert(
-    Math.abs(getDividerHostBranchGasketEndTrim({ dividerFaceSpan: 0.088 }) - 0.044) < 1e-12,
-    'Each branch-facing host gasket end must trim by half the mullion face so the two host pieces leave an 88 mm opening.'
-);
-
 assert(
     Math.abs(INTERSECTION_MULLION_END_NOTCH_LENGTH_M - 0.025) < 1e-12
         && Math.abs(getRectangularDividerEndNotchInset({
