@@ -183,6 +183,30 @@ export function renderGasLayout(root) {
               <strong id="selectedSegmentLabel">—</strong>
               <small><span data-gas-i18n="field.segmentLength"></span> · <span id="selectedSegmentLength">—</span></small>
             </div>
+            <section id="networkConnectionCard" class="gas-connection-card gas-connection-card--unconnected" aria-labelledby="networkConnectionTitle">
+              <div class="gas-connection-card__heading">
+                <span id="networkConnectionTitle" data-gas-i18n="connection.title"></span>
+                <strong id="networkConnectionStatus" aria-live="polite">—</strong>
+              </div>
+              <strong id="networkConnectionAsset">—</strong>
+              <span id="networkConnectionGroup" class="gas-connection-card__group">—</span>
+              <dl class="gas-connection-card__details">
+                <div><dt data-gas-i18n="connection.gap"></dt><dd id="networkConnectionGap">—</dd></div>
+                <div><dt data-gas-i18n="connection.coordinates"></dt><dd id="networkConnectionCoordinates">—</dd></div>
+              </dl>
+              <div class="gas-connection-card__metrics">
+                <div><span data-gas-i18n="connection.planLength"></span><strong id="networkConnectionPlanLength">—</strong></div>
+                <div><span data-gas-i18n="connection.terrainLength"></span><strong id="networkConnectionTerrainLength">—</strong></div>
+                <div><span data-gas-i18n="connection.cost"></span><strong id="networkConnectionCost">—</strong></div>
+              </div>
+              <button type="button" id="snapToNearestNetworkButton" class="gas-connection-card__action" data-gas-i18n="action.snapAtoNetwork" hidden></button>
+              <small class="gas-connection-card__source" data-gas-i18n="connection.source"></small>
+              <small id="networkConnectionHint" class="gas-connection-card__hint"></small>
+            </section>
+            <label class="gas-field gas-field--range gas-connection-tolerance" for="connectionToleranceInput">
+              <span><b data-gas-i18n="field.connectionTolerance"></b><output id="connectionToleranceValue">—</output></span>
+              <input id="connectionToleranceInput" type="range" min="1" max="50" step="1" value="8" />
+            </label>
             <div class="gas-field-grid">
               <label class="gas-field" for="groundTypeSelect">
                 <span data-gas-i18n="field.groundType"></span>

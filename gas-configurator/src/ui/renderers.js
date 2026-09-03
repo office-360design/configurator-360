@@ -16,6 +16,7 @@ import {
   terrainAdjustedRouteLengthMeters,
 } from '../elevation/routeElevation.js';
 import { gasT } from '../i18n.js';
+import { assessNetworkConnection } from '../network/networkConnection.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -59,6 +60,13 @@ function formatDistanceDifference(meters, units, locale) {
     minimumFractionDigits: 1,
     maximumFractionDigits: 2,
   }).format(Math.max(0, converted))} ${suffix}`;
+}
+
+function formatConnectionCoordinate(coordinate) {
+  const longitude = Number(coordinate?.[0]);
+  const latitude = Number(coordinate?.[1]);
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return '—';
+  return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
 }
 
 function svgElement(name, attributes = {}, text = '') {
@@ -349,6 +357,8 @@ export function renderGasState(root, state, elevationProfile = null) {
   const terrainLengthDifferenceM = hasTerrainAdjustedLength
     ? Math.max(0, terrainAdjustedLengthM - calculation.routeLengthM)
     : NaN;
+  const networkConnection = assessNetworkConnection(state);
+  const networkCandidate = networkConnection.candidate;
 
   setText(root, '#headerRouteLength', formatDistance(calculation.routeLengthM, units, locale));
   setText(root, '#headerTerrainLength', hasTerrainAdjustedLength
@@ -373,6 +383,40 @@ export function renderGasState(root, state, elevationProfile = null) {
     ? t('view.selectedSegment', { number: selected.index + 1 })
     : t('empty.segment'));
   setText(root, '#selectedSegmentLength', selected ? formatDistance(selected.lengthM, units, locale) : '—');
+
+  const connectionCard = root.querySelector('#networkConnectionCard');
+  if (connectionCard) {
+    connectionCard.className = `gas-connection-card gas-connection-card--${networkConnection.status}`;
+  }
+  setText(root, '#networkConnectionStatus', t(`connection.status.${networkConnection.status}`));
+  setText(root, '#networkConnectionAsset', networkCandidate?.name || t('connection.noAsset'));
+  setText(root, '#networkConnectionGroup', networkCandidate?.serviceGroup || '—');
+  setText(root, '#networkConnectionGap', Number.isFinite(networkConnection.distanceM)
+    ? formatDistance(networkConnection.distanceM, units, locale)
+    : '—');
+  setText(root, '#networkConnectionCoordinates', formatConnectionCoordinate(networkCandidate?.coordinate));
+  setText(root, '#networkConnectionPlanLength', formatDistance(calculation.routeLengthM, units, locale));
+  setText(root, '#networkConnectionTerrainLength', hasTerrainAdjustedLength
+    ? formatDistance(terrainAdjustedLengthM, units, locale)
+    : '—');
+  setText(root, '#networkConnectionCost', `${formatMoneyFromEur(calculation.estimateLowEur, currency, locale)} – ${formatMoneyFromEur(calculation.estimateHighEur, currency, locale)}`);
+  const snapButton = root.querySelector('#snapToNearestNetworkButton');
+  if (snapButton) snapButton.hidden = networkConnection.connected || !networkConnection.canSnap;
+  const connectionHintKey = networkConnection.connected
+    ? 'connection.hint.connected'
+    : networkCandidate
+      ? networkConnection.canSnap
+        ? 'connection.hint.snap'
+        : 'connection.hint.far'
+      : 'connection.hint.missing';
+  setText(root, '#networkConnectionHint', t(connectionHintKey));
+  const connectionToleranceInput = root.querySelector('#connectionToleranceInput');
+  if (connectionToleranceInput) connectionToleranceInput.value = String(networkConnection.snapToleranceM);
+  setText(
+    root,
+    '#connectionToleranceValue',
+    formatDistance(networkConnection.snapToleranceM, units, locale),
+  );
 
   const elevationStatus = root.querySelector('#profileDataStatus');
   const elevationRetry = root.querySelector('#retryElevationButton');

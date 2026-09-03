@@ -1,5 +1,4 @@
 import L from 'leaflet';
-import existingNetworkData from '../data/valcea-existing-network.json';
 import servedUatData from '../data/valcea-served-uats.json';
 import {
   buildRouteSegments,
@@ -9,6 +8,12 @@ import {
   nearestPointOnSegmentRatio,
 } from '../domain/geometry.js';
 import { gasT } from '../i18n.js';
+import {
+  assessNetworkConnection,
+  EXISTING_NETWORK_DATA,
+  getExistingNetworkAsset,
+  projectCoordinateToNetworkAsset,
+} from '../network/networkConnection.js';
 import { toLeafletBounds, toLeafletLatLng } from './leafletCoordinates.js';
 
 const DEFAULT_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -68,8 +73,13 @@ export class RouteMap {
     this.routeLayers = new globalThis.Map();
     this.referenceLayers = new globalThis.Map();
     this.referenceLayerVisibility = new globalThis.Map();
+    this.networkLayerEntries = new globalThis.Map();
+    this.uatLayerEntries = [];
+    this.selectedReferenceAssetId = undefined;
+    this.connectionMapKey = null;
     this.stationLayer = null;
     this.crossingLayerGroup = null;
+    this.connectionLayerGroup = null;
     this.ready = false;
     this.destroyed = false;
     this.lastState = store.get();
@@ -110,7 +120,20 @@ export class RouteMap {
     this.createMapPanes();
     this.createReferenceLayers();
     this.routeLayerGroup = L.layerGroup().addTo(this.map);
+    this.connectionLayerGroup = L.layerGroup().addTo(this.map);
     this.crossingLayerGroup = L.layerGroup().addTo(this.map);
+
+    this.onNetworkActionClick = (event) => {
+      const button = event.target?.closest?.('[data-gas-network-connect]');
+      if (!button || !this.container.contains(button)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const coordinate = [Number(button.dataset.longitude), Number(button.dataset.latitude)];
+      const changed = this.store.connectToNetwork(button.dataset.assetId, coordinate);
+      if (changed) this.store.setEditMode('setB');
+      this.map.closePopup();
+    };
+    this.container.addEventListener('click', this.onNetworkActionClick);
 
     this.onMapClick = (event) => {
       const mode = this.store.get().route.editMode;
@@ -133,6 +156,7 @@ export class RouteMap {
       ['gas-served-uats', 340],
       ['gas-existing-network', 410],
       ['gas-proposed-route', 430],
+      ['gas-connection', 435],
       ['gas-crossing', 440],
     ].forEach(([name, zIndex]) => {
       const pane = this.map.createPane(name);
@@ -143,15 +167,9 @@ export class RouteMap {
   createReferenceLayers() {
     const servedUats = L.geoJSON(servedUatData, {
       pane: 'gas-served-uats',
-      style: {
-        pane: 'gas-served-uats',
-        color: '#96510f',
-        weight: 2,
-        opacity: 0.92,
-        fillColor: '#f4b63f',
-        fillOpacity: 0.2,
-      },
+      style: (feature) => this.uatStyle(feature),
       onEachFeature: (feature, layer) => {
+        this.uatLayerEntries.push({ feature, layer });
         layer.bindTooltip(escapeHtml(feature.properties.name), {
           className: 'gas-reference-tooltip',
           direction: 'top',
@@ -167,16 +185,9 @@ export class RouteMap {
       },
     });
 
-    const existingNetwork = L.geoJSON(existingNetworkData, {
+    const existingNetwork = L.geoJSON(EXISTING_NETWORK_DATA, {
       pane: 'gas-existing-network',
-      style: {
-        pane: 'gas-existing-network',
-        color: '#cf5a21',
-        weight: 4,
-        opacity: 0.94,
-        lineCap: 'round',
-        lineJoin: 'round',
-      },
+      style: (feature) => this.networkStyle(feature),
       pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
         pane: 'gas-existing-network',
         radius: feature.properties.geometryRole === 'service-uat' ? 5 : 3.5,
@@ -186,12 +197,22 @@ export class RouteMap {
         fillOpacity: 1,
       }),
       onEachFeature: (feature, layer) => {
+        let connectionCandidate = null;
+        if (feature.geometry?.type === 'LineString') {
+          this.networkLayerEntries.set(feature.properties.assetId, { feature, layer });
+          layer.on('click', (event) => {
+            connectionCandidate = projectCoordinateToNetworkAsset(
+              [event.latlng.lng, event.latlng.lat],
+              feature,
+            );
+          });
+        }
         layer.bindTooltip(escapeHtml(feature.properties.name), {
           className: 'gas-reference-tooltip',
           direction: 'top',
           sticky: true,
         });
-        layer.bindPopup(() => this.networkPopupContent(feature), {
+        layer.bindPopup(() => this.networkPopupContent(feature, connectionCandidate), {
           className: 'gas-reference-popup-shell',
           maxWidth: 310,
         });
@@ -209,6 +230,33 @@ export class RouteMap {
 
   translation(key, variables = {}) {
     return gasT(this.store.get().preferences.locale, key, variables);
+  }
+
+  networkStyle(feature, selectedAssetId = null) {
+    const selectable = feature.geometry?.type === 'LineString';
+    const selected = selectable && feature.properties?.assetId === selectedAssetId;
+    const hasSelection = Boolean(selectedAssetId);
+    return {
+      pane: 'gas-existing-network',
+      color: selected ? '#087f5b' : '#cf5a21',
+      weight: selected ? 8 : hasSelection ? 3.5 : 4,
+      opacity: selected ? 1 : hasSelection ? 0.5 : 0.94,
+      lineCap: 'round',
+      lineJoin: 'round',
+    };
+  }
+
+  uatStyle(feature, selectedGroupId = null) {
+    const selected = selectedGroupId && feature.properties?.groupId === selectedGroupId;
+    const hasSelection = Boolean(selectedGroupId);
+    return {
+      pane: 'gas-served-uats',
+      color: selected ? '#087f5b' : '#96510f',
+      weight: selected ? 3 : hasSelection ? 1.5 : 2,
+      opacity: selected ? 1 : hasSelection ? 0.45 : 0.92,
+      fillColor: selected ? '#46b98a' : '#f4b63f',
+      fillOpacity: selected ? 0.3 : hasSelection ? 0.08 : 0.2,
+    };
   }
 
   uatPopupContent(feature) {
@@ -230,15 +278,97 @@ export class RouteMap {
       </div>`;
   }
 
-  networkPopupContent(feature) {
+  networkPopupContent(feature, connectionCandidate = null) {
     const { properties } = feature;
     const group = SERVICE_STATS_BY_GROUP.get(properties.groupId);
+    const action = connectionCandidate ? `
+      <button
+        type="button"
+        class="gas-reference-popup__action"
+        data-gas-network-connect
+        data-asset-id="${escapeHtml(connectionCandidate.assetId)}"
+        data-longitude="${connectionCandidate.coordinate[0]}"
+        data-latitude="${connectionCandidate.coordinate[1]}"
+      >${escapeHtml(this.translation('action.startRouteHere'))}</button>
+      <small>${escapeHtml(this.translation('map.popup.connectionHint'))}</small>` : '';
     return `
       <div class="gas-reference-popup">
         <span class="gas-reference-popup__eyebrow">${escapeHtml(this.translation('map.popup.existingFeature'))}</span>
         <strong>${escapeHtml(properties.name)}</strong>
         ${group ? `<span>${escapeHtml(this.translation('map.popup.group'))}: ${escapeHtml(group.serviceGroup)}</span>` : ''}
+        ${action}
       </div>`;
+  }
+
+  syncReferenceSelection(state) {
+    const selectedAssetId = state.connection?.assetId || null;
+    if (this.selectedReferenceAssetId === selectedAssetId) return;
+    this.selectedReferenceAssetId = selectedAssetId;
+    const selectedGroupId = getExistingNetworkAsset(selectedAssetId)?.properties?.groupId || null;
+    this.networkLayerEntries.forEach(({ feature, layer }, assetId) => {
+      layer.setStyle(this.networkStyle(feature, selectedAssetId));
+      if (assetId === selectedAssetId) layer.bringToFront();
+    });
+    this.uatLayerEntries.forEach(({ feature, layer }) => {
+      layer.setStyle(this.uatStyle(feature, selectedGroupId));
+    });
+  }
+
+  syncConnection(state) {
+    const startCoordinate = state.route.points[0].coordinate;
+    const connectionMapKey = JSON.stringify([
+      startCoordinate,
+      state.connection?.assetId || null,
+      state.preferences.locale,
+    ]);
+    if (this.connectionMapKey === connectionMapKey) return;
+    this.connectionMapKey = connectionMapKey;
+    this.connectionLayerGroup.clearLayers();
+    const assessment = assessNetworkConnection(state);
+    if (!assessment.candidate || (!assessment.connected && !assessment.canSnap)) return;
+
+    const candidateCoordinate = assessment.candidate.coordinate;
+    if (!assessment.connected) {
+      L.polyline([
+        toLeafletLatLng(startCoordinate),
+        toLeafletLatLng(candidateCoordinate),
+      ], {
+        pane: 'gas-connection',
+        color: '#087f5b',
+        weight: 3,
+        opacity: 0.9,
+        dashArray: '6 6',
+        interactive: false,
+      }).addTo(this.connectionLayerGroup);
+    }
+
+    const connectionMarker = L.circleMarker(toLeafletLatLng(candidateCoordinate), {
+      pane: 'gas-connection',
+      radius: assessment.connected ? 10 : 7,
+      color: '#ffffff',
+      weight: 3,
+      fillColor: assessment.connected ? '#087f5b' : '#cf5a21',
+      fillOpacity: 1,
+      interactive: true,
+      bubblingMouseEvents: false,
+    })
+      .bindTooltip(this.translation(
+        assessment.connected ? 'map.connection.connected' : 'map.connection.nearest',
+      ), {
+        className: 'gas-reference-tooltip',
+        direction: 'top',
+      })
+      .addTo(this.connectionLayerGroup);
+    if (!assessment.connected) {
+      connectionMarker.on('click', () => {
+        if (this.store.connectToNetwork(
+          assessment.candidate.assetId,
+          assessment.candidate.coordinate,
+        )) {
+          this.store.setEditMode('setB');
+        }
+      });
+    }
   }
 
   setReferenceLayerVisibility(layerId, visible) {
@@ -447,7 +577,9 @@ export class RouteMap {
   sync(state) {
     this.lastState = state;
     if (!this.ready || this.destroyed) return;
+    this.syncReferenceSelection(state);
     this.syncRouteLayers(state);
+    this.syncConnection(state);
     this.syncCrossing(state);
     this.syncStation(state);
     this.syncMarkers(state);
@@ -498,6 +630,7 @@ export class RouteMap {
     this.destroyed = true;
     this.baseLayer?.off('tileerror', this.onTileError);
     this.map?.off('click', this.onMapClick);
+    this.container.removeEventListener('click', this.onNetworkActionClick);
     this.markers.forEach((entry) => {
       entry.element.removeEventListener('click', entry.onClick);
       entry.marker.off('dragend', entry.onDragEnd);
@@ -507,6 +640,10 @@ export class RouteMap {
     this.routeLayers.clear();
     this.referenceLayers.clear();
     this.referenceLayerVisibility.clear();
+    this.networkLayerEntries.clear();
+    this.uatLayerEntries = [];
+    this.selectedReferenceAssetId = undefined;
+    this.connectionMapKey = null;
     this.map?.remove();
   }
 }

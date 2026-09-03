@@ -26,12 +26,20 @@ the repository-level `shared-ui` package.
   they are public screening data rather than surveyed design levels.
 - Both horizontal plan length and terrain-adjusted 3D length are shown. The 3D value is a
   screening estimate derived from the sampled public elevations, not a surveyed pipe length.
+- The company-supplied Vâlcea KMZ is displayed with its served UATs. An existing line can be
+  selected as a geometric connection candidate, and point A can be snapped to its exact
+  mapped position with a configurable tolerance.
 - Ground and surface classifications are user assumptions.
 - Article 75 minimum cover, Articles 194/196 trench construction and Article 82 geometry
   for one manually declared utility crossing are evaluated as preliminary checks with
   exact rule IDs and source links.
 - Unit rates and rule results are visibly marked as prototype inputs or screening outputs.
 - Hydraulic and official upstream capacity calculations are intentionally deferred.
+
+The existing-network connection result proves only coincidence with the supplied map
+geometry. The KMZ does not contain design-grade location, diameter, material, pressure,
+condition or available-capacity attributes, so the OSD must still establish and approve the
+technical connection solution.
 
 See [`docs/regulatory-notes.md`](docs/regulatory-notes.md) for the reviewed sources,
 product boundaries, implemented rules and remaining review requirements.

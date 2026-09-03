@@ -5,6 +5,10 @@ import {
   evaluateTrenchWidth,
 } from '../regulatory/ruleEngine.js';
 import { minimumTrenchWidthMeters, REGULATORY_RULES } from '../regulatory/ruleRegistry.js';
+import {
+  assessNetworkConnection,
+  EXISTING_NETWORK_METADATA,
+} from '../network/networkConnection.js';
 
 export const PIPE_MATERIALS = Object.freeze({
   pe100rc: Object.freeze({ labelKey: 'option.material.pe100rc', costMultiplier: 1.12 }),
@@ -144,6 +148,28 @@ export function buildValidationResults(state, calculation, { elevationProfile = 
     status: calculation.routeLengthM > 0 ? 'pass' : 'blocked',
     titleKey: 'validation.route.title',
     detailKey: calculation.routeLengthM > 0 ? 'validation.route.pass' : 'validation.route.blocked',
+  });
+
+  const networkConnection = assessNetworkConnection(state);
+  results.push({
+    id: 'network-connection',
+    status: networkConnection.connected ? 'pass' : networkConnection.candidate ? 'warning' : 'missing',
+    titleKey: 'validation.networkConnection.title',
+    detailKey: networkConnection.connected
+      ? 'validation.networkConnection.pass'
+      : networkConnection.candidate
+        ? 'validation.networkConnection.warning'
+        : 'validation.networkConnection.missing',
+    detailVariables: networkConnection.candidate ? {
+      asset: networkConnection.candidate.name,
+      distance: formatDistance(
+        networkConnection.distanceM,
+        state.preferences.units,
+        state.preferences.locale,
+      ),
+    } : {},
+    sourceLabel: EXISTING_NETWORK_METADATA.source || 'Company-supplied KMZ',
+    sourceHref: EXISTING_NETWORK_METADATA.sourceUrl,
   });
 
   results.push(...evaluateRegulatoryRules(state));

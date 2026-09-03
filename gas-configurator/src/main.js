@@ -91,6 +91,14 @@ root.querySelector('#removeWaypointButton')?.addEventListener('click', () => sto
 root.querySelector('#clearWaypointsButton')?.addEventListener('click', () => store.clearWaypoints());
 root.querySelector('#fitRouteButton')?.addEventListener('click', () => routeMap?.fitRoute());
 root.querySelector('#fitExistingNetworkButton')?.addEventListener('click', () => routeMap?.fitExistingNetwork());
+root.querySelector('#snapToNearestNetworkButton')?.addEventListener('click', () => {
+  if (store.snapStartToNearestNetwork()) store.setEditMode('setB');
+});
+root.querySelector('#connectionToleranceInput')?.addEventListener('change', (event) => {
+  store.update('connection.snapToleranceM', Number(event.target.value), {
+    source: 'connection-tolerance',
+  });
+});
 root.querySelector('#retryElevationButton')?.addEventListener('click', () => {
   elevationController.retry(store.get().route.points);
 });
