@@ -78,9 +78,19 @@ root.querySelectorAll('[data-route-mode]').forEach((button) => {
   button.addEventListener('click', () => store.setEditMode(button.dataset.routeMode));
 });
 
+root.querySelectorAll('[data-map-layer]').forEach((button) => {
+  button.addEventListener('click', () => {
+    if (!routeMap) return;
+    const visible = routeMap.toggleReferenceLayer(button.dataset.mapLayer);
+    button.classList.toggle('is-active', visible);
+    button.setAttribute('aria-pressed', String(visible));
+  });
+});
+
 root.querySelector('#removeWaypointButton')?.addEventListener('click', () => store.removeSelectedWaypoint());
 root.querySelector('#clearWaypointsButton')?.addEventListener('click', () => store.clearWaypoints());
 root.querySelector('#fitRouteButton')?.addEventListener('click', () => routeMap?.fitRoute());
+root.querySelector('#fitExistingNetworkButton')?.addEventListener('click', () => routeMap?.fitExistingNetwork());
 root.querySelector('#retryElevationButton')?.addEventListener('click', () => {
   elevationController.retry(store.get().route.points);
 });
