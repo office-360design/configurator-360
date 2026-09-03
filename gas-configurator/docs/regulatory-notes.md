@@ -1,6 +1,6 @@
 # Regulatory boundary for the gas prototype
 
-Checked on 2026-09-02. This note records the product decisions behind the first
+Checked on 2026-09-03. This note records the product decisions behind the first
 prototype; it is not legal or engineering advice.
 
 ## Sources reviewed
@@ -15,6 +15,8 @@ prototype; it is not legal or engineering advice.
   which identifies Order 89/2018 as the technical norms for design, execution and
   operation of gas-supply systems and identifies Order 2/2023 as an amendment.
 - [Official legislative portal entry for the Order 89/2018 norms](https://legislatie.just.ro/Public/DetaliiDocumentAfis/201310).
+- [Official legislative portal entry for Order 2/2023](https://legislatie.just.ro/Public/DetaliiDocumentAfis/264378),
+  the amendment reflected in the 2023-01-26 consolidation used by this prototype.
 - [Official legislative portal entry for Order 7/2022](https://legislatie.just.ro/Public/DetaliiDocumentAfis/252209).
 
 ## Product consequences already encoded
@@ -33,18 +35,44 @@ design rulebook. The supplied consolidation supports several important boundarie
 - ATR, survey/ground investigation, utility-owner information and authorized technical
   review are tracked as evidence states instead of being silently assumed.
 
-The first slice follows those boundaries: route geometry, quantities and costs can be
-explored, while throughput, numeric compliance and official network capacity remain
-unresolved.
+The prototype follows those boundaries: route geometry, quantities and costs can be
+explored, while throughput and official network capacity remain unresolved. A narrow
+numeric rule pack is now available for screening, with each result linked to its rule ID,
+pack version and official source.
+
+## Implemented screening rules
+
+Rule pack `RO-NTPEE-PE-PUBLIC-DOMAIN@2023-01-26.prototype-1` applies only to underground
+PE distribution pipe in the public domain with design pressure up to and including 6 bar.
+It is marked `requires-authorized-engineer-signoff` and implements:
+
+1. `RO-NTPEE-075-COVER-001`: Article 75 minimum 0.90 m cover, measured from the upper
+   generatrix of the pipe or protective sleeve. A reduction is blocked unless both OSD
+   agreement and additional protection are declared; with both declarations it remains
+   an exception warning, not a pass.
+2. `RO-NTPEE-082-APPROVAL-001`: Article 82 requires the approval of the owner of the
+   crossed installation or construction. A declared crossing is blocked until that
+   approval is declared as documented.
+3. `RO-NTPEE-082-ANGLE-001`: Article 82 normally requires a perpendicular crossing. A
+   declared angle from 60 degrees up to, but not perpendicular to, 90 degrees is treated
+   as an exceptional warning; below 60 degrees is blocked.
+4. `RO-NTPEE-082-SEPARATION-001`: Article 82 normally requires the gas pipe to be at least
+   0.20 m above the crossed installation. If that relation is not met, the result is blocked
+   unless a protective sleeve is declared, in which case it remains an exceptional warning.
+
+The crossing is manually declared at a route chainage and appears on both plan and profile.
+It is not inferred from the basemap. Plan provenance (`missing`, utility-owner plan, or field
+verified) remains an independent evidence result so plausible geometry cannot conceal weak
+input data.
 
 ## Rules intentionally not encoded yet
 
-No numeric depth, clearance, crossing, protective-sleeve or material/pressure rule is
-currently represented as a regulatory pass/fail result. The visible pipe diameter, SDR,
-cover, trench and material choices are prototype catalogue inputs only.
+The current pack does not cover the Article 75 connection-endpoint depth, Article 30/Table 1
+horizontal clearances, trench-width/bedding construction rules, detailed sleeve dimensions,
+or road, rail, water and protected-area crossings. Diameter, SDR and most material/pressure
+choices remain prototype catalogue inputs.
 
-Before any numeric rule is enabled, it should be entered into a versioned rule registry
-with:
+Every additional numeric rule should follow the same registry contract:
 
 1. jurisdiction and asset scope;
 2. pressure/material/diameter/placement applicability conditions;
@@ -55,11 +83,10 @@ with:
 
 ## Recommended next implementation slice
 
-Build the regulatory matrix and rule-engine contract before adding automatic terrain or
-soil integrations. Start with a narrow scenario - an underground PE distribution
-connection in the public domain - and validate cover plus one utility crossing end to
-end. This establishes the evidence/citation pattern that every later rule and geospatial
-layer must follow.
+Have a Romanian ANRE-authorized gas designer and verifier review the pack's applicability,
+wording and exception behavior. After that review, add the Article 30/Table 1 horizontal
+clearance matrix and the Article 194/196 trench construction rules before expanding into
+special crossings.
 
 After that foundation is signed off, add data adapters in this order:
 

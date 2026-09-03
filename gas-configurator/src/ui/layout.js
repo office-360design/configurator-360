@@ -212,6 +212,92 @@ export function renderGasLayout(root) {
           </div>
         </details>
 
+        <details class="gas-panel" open>
+          <summary>
+            <span data-gas-i18n="panel.rules"></span>
+            <span class="gas-panel__chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="gas-panel__body">
+            <div class="gas-rule-pack">
+              <span data-gas-i18n="rule.scope"></span>
+              <strong data-gas-i18n="rule.packVersion"></strong>
+              <a href="https://legislatie.just.ro/Public/DetaliiDocumentAfis/201310" target="_blank" rel="noreferrer" data-gas-i18n="rule.officialSource"></a>
+            </div>
+
+            <section class="gas-rule-group" aria-labelledby="coverRuleTitle">
+              <div class="gas-rule-group__heading">
+                <strong id="coverRuleTitle" data-gas-i18n="rule.coverTitle"></strong>
+                <span data-gas-i18n="rule.coverCriterion"></span>
+              </div>
+              <div id="reducedCoverExceptionFields" class="gas-conditional-fields" hidden>
+                <p class="gas-field-hint" data-gas-i18n="rule.coverExceptionHint"></p>
+                <label class="gas-check-row" for="coverOsdAgreementInput">
+                  <input id="coverOsdAgreementInput" type="checkbox" />
+                  <span><b data-gas-i18n="field.coverOsdAgreement"></b></span>
+                </label>
+                <label class="gas-check-row" for="coverProtectionInput">
+                  <input id="coverProtectionInput" type="checkbox" />
+                  <span><b data-gas-i18n="field.coverProtection"></b></span>
+                </label>
+              </div>
+            </section>
+
+            <section class="gas-rule-group" aria-labelledby="crossingRuleTitle">
+              <div class="gas-rule-group__heading">
+                <strong id="crossingRuleTitle" data-gas-i18n="rule.crossingTitle"></strong>
+                <span data-gas-i18n="rule.crossingCriterion"></span>
+              </div>
+              <label class="gas-check-row" for="crossingEnabledInput">
+                <input id="crossingEnabledInput" type="checkbox" />
+                <span><b data-gas-i18n="field.crossingEnabled"></b></span>
+              </label>
+              <div id="crossingFields" class="gas-conditional-fields" hidden>
+                <label class="gas-field gas-field--range" for="crossingStationInput">
+                  <span><b data-gas-i18n="field.crossingStation"></b><output id="crossingStationValue">—</output></span>
+                  <input id="crossingStationInput" type="range" min="0" max="100" step="1" value="0" />
+                </label>
+                <div class="gas-field-grid">
+                  <label class="gas-field" for="crossingUtilityTypeSelect">
+                    <span data-gas-i18n="field.crossingUtilityType"></span>
+                    <select id="crossingUtilityTypeSelect">
+                      ${option('water', 'option.crossingUtility.water', true)}
+                      ${option('sewer', 'option.crossingUtility.sewer')}
+                      ${option('electric', 'option.crossingUtility.electric')}
+                      ${option('telecom', 'option.crossingUtility.telecom')}
+                      ${option('districtHeating', 'option.crossingUtility.districtHeating')}
+                      ${option('other', 'option.crossingUtility.other')}
+                    </select>
+                  </label>
+                  <label class="gas-field" for="crossingGasPositionSelect">
+                    <span data-gas-i18n="field.crossingGasPosition"></span>
+                    <select id="crossingGasPositionSelect">
+                      ${option('above', 'option.crossingPosition.above', true)}
+                      ${option('below', 'option.crossingPosition.below')}
+                    </select>
+                  </label>
+                  <label class="gas-field" for="crossingAngleInput">
+                    <span data-gas-i18n="field.crossingAngle"></span>
+                    <span class="gas-input-with-unit"><input id="crossingAngleInput" type="number" min="0" max="90" step="1" /><em>°</em></span>
+                  </label>
+                  <label class="gas-field" for="crossingClearanceInput">
+                    <span data-gas-i18n="field.crossingClearance"></span>
+                    <span class="gas-input-with-unit"><input id="crossingClearanceInput" type="number" min="0" max="5" step="0.01" /><em>m</em></span>
+                  </label>
+                </div>
+                <label class="gas-check-row" for="crossingSleeveInput">
+                  <input id="crossingSleeveInput" type="checkbox" />
+                  <span><b data-gas-i18n="field.crossingSleeve"></b></span>
+                </label>
+                <label class="gas-check-row" for="crossingOwnerApprovalInput">
+                  <input id="crossingOwnerApprovalInput" type="checkbox" />
+                  <span><b data-gas-i18n="field.crossingOwnerApproval"></b></span>
+                </label>
+                <p class="gas-field-hint" data-gas-i18n="rule.crossingHint"></p>
+              </div>
+            </section>
+          </div>
+        </details>
+
         <details class="gas-panel">
           <summary><span data-gas-i18n="panel.data"></span><span class="gas-panel__chevron" aria-hidden="true"></span></summary>
           <div class="gas-panel__body">

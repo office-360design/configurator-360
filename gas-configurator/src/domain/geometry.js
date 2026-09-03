@@ -97,6 +97,34 @@ export function routeProfileSamples(points = [], sampleCount = 72) {
   });
 }
 
+export function crossingLineCoordinates(points = [], requestedChainageM = 0, angleDeg = 90, lengthM = 70) {
+  const station = interpolateRoute(points, requestedChainageM);
+  if (!station.segment) return null;
+
+  const center = normalizeCoordinate(station.coordinate);
+  const start = normalizeCoordinate(station.segment.startPoint.coordinate);
+  const end = normalizeCoordinate(station.segment.endPoint.coordinate);
+  const meanLatitudeRadians = center[1] * (Math.PI / 180);
+  const metersPerDegreeLatitude = 111_320;
+  const metersPerDegreeLongitude = Math.max(1, metersPerDegreeLatitude * Math.cos(meanLatitudeRadians));
+  const routeEastM = (end[0] - start[0]) * metersPerDegreeLongitude;
+  const routeNorthM = (end[1] - start[1]) * metersPerDegreeLatitude;
+  const routeBearingRadians = Math.atan2(routeNorthM, routeEastM);
+  const crossingBearingRadians = routeBearingRadians + (clamp(angleDeg, 0, 90) * Math.PI / 180);
+  const halfLengthM = Math.max(2, Number(lengthM) || 70) / 2;
+  const eastOffsetM = Math.cos(crossingBearingRadians) * halfLengthM;
+  const northOffsetM = Math.sin(crossingBearingRadians) * halfLengthM;
+  const longitudeOffset = eastOffsetM / metersPerDegreeLongitude;
+  const latitudeOffset = northOffsetM / metersPerDegreeLatitude;
+
+  return {
+    center,
+    start: [center[0] - longitudeOffset, center[1] - latitudeOffset],
+    end: [center[0] + longitudeOffset, center[1] + latitudeOffset],
+    station,
+  };
+}
+
 export function coordinateBounds(points = []) {
   if (!points.length) return null;
   const coordinates = points.map((point) => normalizeCoordinate(point.coordinate));

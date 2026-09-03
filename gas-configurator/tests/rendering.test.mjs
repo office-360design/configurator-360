@@ -55,6 +55,7 @@ test('profile and cross-section SVG attributes remain finite', () => {
 
   try {
     const state = clone(DEFAULT_STATE);
+    state.crossing.enabled = true;
     const calculation = calculateProject(state);
     const profile = new FakeSvgElement('svg');
     const section = new FakeSvgElement('svg');
@@ -66,6 +67,8 @@ test('profile and cross-section SVG attributes remain finite', () => {
     const attributes = [...collectAttributes(profile), ...collectAttributes(section)];
     assert.ok(attributes.length > 0);
     assert.ok(attributes.every((value) => !/NaN|Infinity/.test(value)));
+    assert.ok(findByClass(profile, 'gas-profile-crossing-line'));
+    assert.ok(findByClass(profile, 'gas-profile-crossing-point'));
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;

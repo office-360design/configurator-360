@@ -14,6 +14,8 @@ const MAX_HISTORY = 60;
 const ROUTE_MODES = new Set(['inspect', 'setA', 'setB', 'addWaypoint']);
 const GROUND_SOURCES = new Set(['assumption', 'publicScreening', 'verifiedSurvey']);
 const UTILITY_SOURCES = new Set(['missing', 'ownerPlan', 'fieldVerified']);
+const CROSSING_UTILITY_TYPES = new Set(['water', 'sewer', 'electric', 'telecom', 'districtHeating', 'other']);
+const CROSSING_GAS_POSITIONS = new Set(['above', 'below']);
 
 export const DEFAULT_STATE = Object.freeze({
   project: {
@@ -40,6 +42,22 @@ export const DEFAULT_STATE = Object.freeze({
     coverM: 1,
     widthM: 0.55,
     beddingM: 0.1,
+  },
+  regulatory: {
+    reducedCover: {
+      osdAgreement: false,
+      additionalProtection: false,
+    },
+  },
+  crossing: {
+    enabled: false,
+    stationM: 800,
+    utilityType: 'water',
+    angleDeg: 90,
+    gasPosition: 'above',
+    verticalClearanceM: 0.25,
+    protectiveSleeve: false,
+    ownerApprovalDocumented: false,
   },
   data: {
     groundSource: 'assumption',
@@ -159,6 +177,22 @@ export function normalizeState(incoming = {}) {
       widthM: clamp(finiteNumber(merged.trench?.widthM, 0.55), 0.3, 2),
       beddingM: clamp(finiteNumber(merged.trench?.beddingM, 0.1), 0.05, 0.5),
     },
+    regulatory: {
+      reducedCover: {
+        osdAgreement: Boolean(merged.regulatory?.reducedCover?.osdAgreement),
+        additionalProtection: Boolean(merged.regulatory?.reducedCover?.additionalProtection),
+      },
+    },
+    crossing: {
+      enabled: Boolean(merged.crossing?.enabled),
+      stationM: 0,
+      utilityType: safeChoice(merged.crossing?.utilityType, CROSSING_UTILITY_TYPES, 'water'),
+      angleDeg: clamp(finiteNumber(merged.crossing?.angleDeg, 90), 0, 90),
+      gasPosition: safeChoice(merged.crossing?.gasPosition, CROSSING_GAS_POSITIONS, 'above'),
+      verticalClearanceM: clamp(finiteNumber(merged.crossing?.verticalClearanceM, 0.25), 0, 5),
+      protectiveSleeve: Boolean(merged.crossing?.protectiveSleeve),
+      ownerApprovalDocumented: Boolean(merged.crossing?.ownerApprovalDocumented),
+    },
     data: {
       groundSource: safeChoice(merged.data?.groundSource, GROUND_SOURCES, 'assumption'),
       utilitySource: safeChoice(merged.data?.utilitySource, UTILITY_SOURCES, 'missing'),
@@ -176,6 +210,11 @@ export function normalizeState(incoming = {}) {
 
   normalized.route.stationM = clamp(
     finiteNumber(merged.route?.stationM, 0),
+    0,
+    routeLengthMeters(normalized.route.points),
+  );
+  normalized.crossing.stationM = clamp(
+    finiteNumber(merged.crossing?.stationM, DEFAULT_STATE.crossing.stationM),
     0,
     routeLengthMeters(normalized.route.points),
   );
@@ -258,6 +297,10 @@ export class GasConfiguratorStore {
 
   setStation(stationM) {
     return this.update('route.stationM', stationM, { recordHistory: false, source: 'station' });
+  }
+
+  setCrossingStation(stationM) {
+    return this.update('crossing.stationM', stationM, { source: 'crossing-station' });
   }
 
   selectPoint(pointId) {

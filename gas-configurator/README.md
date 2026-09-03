@@ -4,7 +4,7 @@ Early-stage route and trench configurator for natural-gas distribution connectio
 
 The current slice is deliberately preliminary. It provides route editing, synchronized
 plan/profile/section views, a public-terrain elevation profile, quantity estimates and
-traceable data-quality checks. It does
+traceable data-quality checks, plus a narrow versioned regulatory screening pack. It does
 not replace the OSD connection solution, the ATR, a technical design, permits, survey or
 geotechnical investigation.
 
@@ -25,11 +25,31 @@ the repository-level `shared-ui` package.
 - Terrain elevations are sampled automatically along the route from Mapzen Terrain Tiles;
   they are public screening data rather than surveyed design levels.
 - Ground and surface classifications are user assumptions.
-- Unit rates and rule results are visibly marked as prototype inputs.
+- Article 75 minimum cover and Article 82 geometry for one manually declared utility
+  crossing are evaluated as preliminary checks with exact rule IDs and source links.
+- Unit rates and rule results are visibly marked as prototype inputs or screening outputs.
 - Hydraulic and official upstream capacity calculations are intentionally deferred.
 
 See [`docs/regulatory-notes.md`](docs/regulatory-notes.md) for the reviewed sources,
-product boundaries and the recommended next rule-engine slice.
+product boundaries, implemented rules and remaining review requirements.
+
+## Regulatory screening pack
+
+The first rule pack is `RO-NTPEE-PE-PUBLIC-DOMAIN@2023-01-26.prototype-1`. Its scope is
+limited to underground PE gas-distribution pipe in Romania's public domain at no more
+than 6 bar. It currently evaluates:
+
+- minimum 0.90 m cover from the pipe's upper generatrix under NTPEE Article 75;
+- documented approval from the owner of the crossed utility under Article 82;
+- a normally perpendicular crossing under Article 82, with an exceptional minimum angle
+  of 60 degrees;
+- the normal requirement for the gas pipe to be at least 0.20 m above the crossed utility,
+  with a declared protective sleeve treated as an exception requiring review.
+
+Reduced cover is never automatically passed: when both OSD agreement and additional
+protection are declared it remains a warning requiring documented authorized review.
+Likewise, no crossing or approval is inferred from the basemap; the user must declare
+them, and utility-owner plans/field verification remain separate evidence checks.
 
 ## Terrain elevation profile
 

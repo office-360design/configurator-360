@@ -2,6 +2,7 @@ import L from 'leaflet';
 import {
   buildRouteSegments,
   coordinateBounds,
+  crossingLineCoordinates,
   interpolateRoute,
   nearestPointOnSegmentRatio,
 } from '../domain/geometry.js';
@@ -39,6 +40,7 @@ export class RouteMap {
     this.markers = new globalThis.Map();
     this.routeLayers = new globalThis.Map();
     this.stationLayer = null;
+    this.crossingLayerGroup = null;
     this.ready = false;
     this.destroyed = false;
     this.lastState = store.get();
@@ -77,6 +79,7 @@ export class RouteMap {
     this.baseLayer.on('tileerror', this.onTileError);
     this.baseLayer.addTo(this.map);
     this.routeLayerGroup = L.layerGroup().addTo(this.map);
+    this.crossingLayerGroup = L.layerGroup().addTo(this.map);
 
     this.onMapClick = (event) => {
       const mode = this.store.get().route.editMode;
@@ -177,6 +180,47 @@ export class RouteMap {
     this.stationLayer.bringToFront();
   }
 
+  syncCrossing(state) {
+    this.crossingLayerGroup.clearLayers();
+    if (!state.crossing?.enabled) return;
+
+    const crossing = crossingLineCoordinates(
+      state.route.points,
+      state.crossing.stationM,
+      state.crossing.angleDeg,
+    );
+    if (!crossing) return;
+    const coordinates = [
+      toLeafletLatLng(crossing.start),
+      toLeafletLatLng(crossing.end),
+    ];
+    L.polyline(coordinates, {
+      color: '#ffffff',
+      weight: 8,
+      opacity: 0.94,
+      interactive: false,
+    }).addTo(this.crossingLayerGroup);
+    L.polyline(coordinates, {
+      color: '#9b3fa8',
+      weight: 4,
+      opacity: 1,
+      dashArray: '7 6',
+      interactive: false,
+    }).addTo(this.crossingLayerGroup);
+    const marker = L.circleMarker(toLeafletLatLng(crossing.center), {
+      radius: 6,
+      color: '#6c2478',
+      weight: 2,
+      fillColor: '#ffffff',
+      fillOpacity: 1,
+      interactive: true,
+      bubblingMouseEvents: false,
+    }).addTo(this.crossingLayerGroup);
+    marker.on('click', () => {
+      this.store.selectSegment(crossing.station.segment.id, crossing.station.chainageM);
+    });
+  }
+
   syncMarkers(state) {
     const currentIds = new Set(state.route.points.map((point) => point.id));
     this.markers.forEach((entry, id) => {
@@ -236,6 +280,7 @@ export class RouteMap {
     this.lastState = state;
     if (!this.ready || this.destroyed) return;
     this.syncRouteLayers(state);
+    this.syncCrossing(state);
     this.syncStation(state);
     this.syncMarkers(state);
     this.applyCursor();

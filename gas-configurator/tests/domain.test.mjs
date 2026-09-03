@@ -57,12 +57,13 @@ test('station interpolation remains within the route', () => {
   assert.equal(station.segment.id, 'a:b');
 });
 
-test('capacity and authorized review stay unresolved in the prototype', () => {
+test('capacity and authorized review stay unresolved while the scoped cover rule runs', () => {
   const state = clone(DEFAULT_STATE);
   const validation = buildValidationResults(state, calculateProject(state));
   assert.equal(validation.find((item) => item.id === 'capacity').status, 'missing');
   assert.equal(validation.find((item) => item.id === 'authorization').status, 'missing');
-  assert.equal(validation.find((item) => item.id === 'rule-pack').status, 'warning');
+  assert.equal(validation.find((item) => item.id === 'RO-NTPEE-075-COVER-001').status, 'pass');
+  assert.equal(validation.find((item) => item.id === 'RO-NTPEE-082-ANGLE-001').status, 'not-evaluated');
 });
 
 test('public elevation data remains a screening warning', () => {

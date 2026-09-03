@@ -606,6 +606,25 @@ summary:focus-visible {
   stroke-width: 3;
 }
 
+.gas-profile-crossing-line {
+  stroke: #9b3fa8;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.gas-profile-crossing-point {
+  fill: #fff;
+  stroke: #7d2f89;
+  stroke-width: 2.5;
+}
+
+.gas-profile-crossing-label {
+  fill: #7d2f89;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 780;
+}
+
 .gas-section-trench {
   fill: #876d52;
   stroke: rgba(48, 42, 35, 0.35);
@@ -860,6 +879,76 @@ summary:focus-visible {
   accent-color: var(--gas-blue);
 }
 
+.gas-rule-pack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  padding: 10px 11px;
+  border: 1px solid #cfe3ef;
+  border-radius: 9px;
+  background: #f0f8fc;
+}
+
+.gas-rule-pack span {
+  grid-column: 1 / -1;
+  color: #54717f;
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.gas-rule-pack strong {
+  color: #075b8d;
+  font-size: 10px;
+}
+
+.gas-rule-pack a {
+  color: #076dad;
+  font-size: 9px;
+  font-weight: 720;
+  text-decoration: none;
+}
+
+.gas-rule-pack a:hover {
+  text-decoration: underline;
+}
+
+.gas-rule-group {
+  display: grid;
+  gap: 9px;
+  padding-top: 2px;
+}
+
+.gas-rule-group + .gas-rule-group {
+  padding-top: 11px;
+  border-top: 1px solid var(--gas-line);
+}
+
+.gas-rule-group__heading {
+  display: grid;
+  gap: 3px;
+}
+
+.gas-rule-group__heading strong {
+  color: #2c414d;
+  font-size: 10px;
+}
+
+.gas-rule-group__heading span {
+  color: #71818b;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.gas-conditional-fields {
+  display: grid;
+  gap: 9px;
+}
+
+.gas-conditional-fields[hidden] {
+  display: none !important;
+}
+
 .gas-primary-result {
   display: grid;
   gap: 4px;
@@ -980,6 +1069,7 @@ summary:focus-visible {
 .gas-validation-item--pass::before { background: var(--gas-green); }
 .gas-validation-item--missing::before { background: var(--gas-missing); }
 .gas-validation-item--blocked::before { background: #c83d42; }
+.gas-validation-item--not-evaluated::before { background: #84939c; }
 
 .gas-validation-item > div {
   display: grid;
@@ -996,6 +1086,13 @@ summary:focus-visible {
   color: #697984;
   font-size: 9px;
   line-height: 1.45;
+}
+
+.gas-validation-meta {
+  color: #81909a;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7.5px;
+  line-height: 1.35;
 }
 
 .gas-validation-item a {
@@ -1082,6 +1179,13 @@ summary:focus-visible {
 
 .shared-ui-dark-mode .gas-metrics-grid,
 .shared-ui-dark-mode .gas-segment-card { border-color: #40545f; }
+
+.shared-ui-dark-mode .gas-rule-pack {
+  background: #1b303c;
+  border-color: #365263;
+}
+
+.shared-ui-dark-mode .gas-rule-group__heading strong { color: #e9f1f4; }
 
 @media (max-width: 1120px) {
   .gas-analysis-grid { grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr); }

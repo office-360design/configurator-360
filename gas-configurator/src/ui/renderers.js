@@ -28,6 +28,11 @@ function setText(root, selector, value) {
   if (element) element.textContent = value;
 }
 
+function setChecked(root, selector, checked) {
+  const element = root.querySelector(selector);
+  if (element) element.checked = Boolean(checked);
+}
+
 function formatDimension(meters, units, locale) {
   const numeric = Number(meters) || 0;
   const converted = units === 'imperial' ? numeric * 3.28084 : numeric;
@@ -134,6 +139,36 @@ export function renderProfile(svg, state, calculation, elevationProfile = null) 
     appendSvg(svg, 'text', { x: x + 4, y: margin.top + 11, class: 'gas-profile-note' }, String(segment.index + 2));
   });
 
+  if (state.crossing?.enabled) {
+    const crossingProgress = calculation.routeLengthM > 0
+      ? state.crossing.stationM / calculation.routeLengthM
+      : 0;
+    const crossingGround = interpolateElevationAtChainage(
+      samples.map((sample) => ({ chainageM: sample.chainageM, elevationM: sample.groundM })),
+      state.crossing.stationM,
+      fallbackProfileElevation(state, crossingProgress),
+    );
+    const crossingPipe = crossingGround - calculation.coverM - (calculation.outsideDiameterM / 2);
+    const crossingX = xFor(crossingProgress);
+    const crossingY = yFor(crossingPipe);
+    appendSvg(svg, 'line', {
+      x1: crossingX,
+      x2: crossingX,
+      y1: margin.top,
+      y2: height - margin.bottom,
+      class: 'gas-profile-crossing-line',
+    });
+    appendSvg(svg, 'path', {
+      d: `M${crossingX} ${crossingY - 6}L${crossingX + 6} ${crossingY}L${crossingX} ${crossingY + 6}L${crossingX - 6} ${crossingY}Z`,
+      class: 'gas-profile-crossing-point',
+    });
+    appendSvg(svg, 'text', {
+      x: crossingX + 5,
+      y: margin.top + 11,
+      class: 'gas-profile-crossing-label',
+    }, gasT(state.preferences.locale, 'view.utilityCrossing'));
+  }
+
   const station = interpolateRoute(state.route.points, state.route.stationM);
   const stationProgress = calculation.routeLengthM > 0 ? station.chainageM / calculation.routeLengthM : 0;
   const stationGround = interpolateElevationAtChainage(
@@ -219,7 +254,7 @@ export function renderCrossSection(svg, state, calculation, t) {
 function renderValidations(root, state, calculation, t, elevationProfile) {
   const results = buildValidationResults(state, calculation, { elevationProfile });
   const summary = validationSummary(results);
-  const needsReview = summary.warning + summary.missing + summary.blocked;
+  const needsReview = summary.warning + summary.missing + summary.blocked + summary['not-evaluated'];
   setText(root, '#validationSummary', `${needsReview}/${results.length}`);
   const list = root.querySelector('#validationList');
   if (!list) return;
@@ -230,8 +265,15 @@ function renderValidations(root, state, calculation, t, elevationProfile) {
     const title = document.createElement('strong');
     title.textContent = `${t(result.titleKey)} · ${t(`status.${result.status}`)}`;
     const detail = document.createElement('p');
-    detail.textContent = t(result.detailKey);
-    body.append(title, detail);
+    detail.textContent = t(result.detailKey, result.detailVariables || {});
+    body.append(title);
+    if (result.ruleId) {
+      const metadata = document.createElement('small');
+      metadata.className = 'gas-validation-meta';
+      metadata.textContent = `${result.ruleId} · v${result.packVersion}`;
+      body.append(metadata);
+    }
+    body.append(detail);
     if (result.sourceHref && result.sourceLabel) {
       const link = document.createElement('a');
       link.href = result.sourceHref;
@@ -320,8 +362,27 @@ export function renderGasState(root, state, elevationProfile = null) {
   setValue(root, '#utilitySourceSelect', state.data.utilitySource);
   setValue(root, '#startElevationInput', state.data.startElevationM);
   setValue(root, '#endElevationInput', state.data.endElevationM);
-  const capacityInput = root.querySelector('#osdCapacityInput');
-  if (capacityInput) capacityInput.checked = state.project.osdCapacityKnown;
+  setValue(root, '#crossingUtilityTypeSelect', state.crossing.utilityType);
+  setValue(root, '#crossingGasPositionSelect', state.crossing.gasPosition);
+  setValue(root, '#crossingAngleInput', state.crossing.angleDeg);
+  setValue(root, '#crossingClearanceInput', state.crossing.verticalClearanceM);
+  setChecked(root, '#osdCapacityInput', state.project.osdCapacityKnown);
+  setChecked(root, '#coverOsdAgreementInput', state.regulatory.reducedCover.osdAgreement);
+  setChecked(root, '#coverProtectionInput', state.regulatory.reducedCover.additionalProtection);
+  setChecked(root, '#crossingEnabledInput', state.crossing.enabled);
+  setChecked(root, '#crossingSleeveInput', state.crossing.protectiveSleeve);
+  setChecked(root, '#crossingOwnerApprovalInput', state.crossing.ownerApprovalDocumented);
+
+  const reducedCoverFields = root.querySelector('#reducedCoverExceptionFields');
+  if (reducedCoverFields) reducedCoverFields.hidden = state.trench.coverM >= 0.9;
+  const crossingFields = root.querySelector('#crossingFields');
+  if (crossingFields) crossingFields.hidden = !state.crossing.enabled;
+  const crossingStationInput = root.querySelector('#crossingStationInput');
+  if (crossingStationInput) {
+    crossingStationInput.max = String(Math.max(1, calculation.routeLengthM));
+    crossingStationInput.value = String(Math.round(state.crossing.stationM));
+  }
+  setText(root, '#crossingStationValue', formatDistance(state.crossing.stationM, units, locale));
 
   root.querySelectorAll('[data-route-mode]').forEach((button) => {
     const active = button.dataset.routeMode === state.route.editMode;
