@@ -300,6 +300,10 @@ function deriveLayout(modules = state.modules, origin = state.origin, spec = fam
   return { entries, segments, start: poseCopy(origin), end: pose, closed };
 }
 
+function endpointsOverlap(layout, tolerance = 0.5) {
+  return Boolean(layout) && dist2(posePoint(layout.start), posePoint(layout.end)) < tolerance;
+}
+
 function pointEqual(a, b, tolerance = EPS) { return dist2(a, b) < tolerance; }
 function orientation(a, b, c) {
   const value = (b.z - a.z) * (c.x - b.x) - (b.x - a.x) * (c.z - b.z);
@@ -433,7 +437,7 @@ function addBox(group, size, position, material, moduleId, { cast = true, receiv
 }
 function frontZ(depth) { return -depth; }
 
-function addShelfWing(parent, module, pose, length, { cornerWing = false } = {}) {
+function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null } = {}) {
   const spec = familySpec();
   const group = new THREE.Group();
   group.position.set(pose.x, 0, pose.z);
@@ -470,7 +474,7 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false } = {})
   // Decorative cap rails visible in the source imagery.
   addBox(group, { x: innerWidth, y: 40, z: 55 }, { x: width / 2, y: height - 38, z: -28 }, wood, module.id);
 
-  addDoors(group, module, { width, depth, height, cornerWing });
+  addDoors(group, module, { width, depth, height, cornerWing, sharedSide });
   return group;
 }
 
@@ -500,14 +504,17 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
   parent.add(glass);
 }
 
-function addDoors(parent, module, { width, depth, height }) {
+function addDoors(parent, module, { width, depth, height, cornerWing = false, sharedSide = null }) {
   if (module.door === 'open') return;
   const z = frontZ(depth) - 12;
-  const openingWidth = Math.max(120, width - POST * 2 - 18);
+  const cornerInset = cornerWing ? Math.max(36, POST * 0.9) : 0;
+  const openingStart = POST + 9 + (sharedSide === 'start' ? cornerInset : 0);
+  const openingEnd = width - POST - 9 - (sharedSide === 'end' ? cornerInset : 0);
+  const openingWidth = Math.max(120, openingEnd - openingStart);
   const leafGap = 8;
-  const leafWidth = (openingWidth - leafGap) / 2;
-  const leftX = POST + 9 + leafWidth / 2;
-  const rightX = leftX + leafWidth + leafGap;
+  const leafWidth = Math.max(46, (openingWidth - leafGap) / 2);
+  const leftX = openingStart + leafWidth / 2;
+  const rightX = openingStart + leafWidth + leafGap + leafWidth / 2;
 
   if (module.door === 'lower') {
     const doorHeight = Math.min(720, height * 0.34);
@@ -533,10 +540,10 @@ function renderModule(entry) {
   if (module.kind === 'straight') {
     addShelfWing(root, module, entry.start, familySpec().width);
   } else {
-    const first = addShelfWing(root, module, entry.start, familySpec().corner, { cornerWing: true });
-    // Slightly shorten the second wing visually at the shared corner to reduce z-fighting while preserving the 800/900 footprint.
+    const first = addShelfWing(root, module, entry.start, familySpec().corner, { cornerWing: true, sharedSide: 'end' });
+    // The second wing starts at the shared corner, so its door leaves are inset away from that joint.
     const secondPose = { x: entry.corner.x, z: entry.corner.z, heading: entry.end.heading };
-    const second = addShelfWing(root, module, secondPose, familySpec().corner, { cornerWing: true });
+    const second = addShelfWing(root, module, secondPose, familySpec().corner, { cornerWing: true, sharedSide: 'start' });
     first.userData.cornerWing = 'incoming';
     second.userData.cornerWing = 'outgoing';
   }
@@ -546,23 +553,25 @@ function renderModule(entry) {
 function renderConnectors(layout) {
   clearGroup(connectorGroup);
   const spec = familySpec();
-  const joints = [];
-  for (let i = 0; i < layout.entries.length - 1; i += 1) joints.push(layout.entries[i].end);
-  if (layout.closed && layout.entries.length) joints.push(layout.end);
+  const jointPoses = [];
+  for (let i = 0; i < layout.entries.length - 1; i += 1) jointPoses.push(layout.entries[i].end);
+  if (layout.closed && layout.entries.length) jointPoses.push(layout.end);
 
-  joints.forEach((pose) => {
+  jointPoses.forEach((pose) => {
     const d = vec(pose.heading);
     const n = { x: -d.z, z: d.x };
-    const mat = metalMaterial();
-    const points = [
-      { x: pose.x, z: pose.z },
-      { x: pose.x + n.x * spec.depth, z: pose.z + n.z * spec.depth },
-    ];
-    points.forEach((point) => {
-      [72, spec.height - 72].forEach((y) => {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(58, 44, 58), mat.clone());
+    const offsets = [POST / 2, spec.depth - POST / 2];
+    offsets.forEach((offset) => {
+      const point = {
+        x: pose.x - n.x * offset,
+        z: pose.z - n.z * offset,
+      };
+      [84, spec.height - 84].forEach((y) => {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(56, 42, 28), metalMaterial());
         mesh.position.set(point.x, y, point.z);
+        mesh.rotation.y = -pose.heading;
         mesh.castShadow = true;
+        mesh.receiveShadow = true;
         connectorGroup.add(mesh);
       });
     });
@@ -680,7 +689,7 @@ function positionOverlayButton(button, worldPoint) {
   button.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
 }
 function updateEndpointButtons() {
-  if (!layoutCache || layoutCache.closed || addModulePanel.hidden === false) {
+  if (!layoutCache || endpointsOverlap(layoutCache) || addModulePanel.hidden === false) {
     addStartButton.hidden = true;
     addEndButton.hidden = true;
     return;
@@ -791,16 +800,26 @@ function renderAll({ refit = false } = {}) {
   if (refit) fitCameraToConfiguration();
 }
 
-function fitCameraToConfiguration() {
+function applyCameraFrame(mode = cameraMode) {
   const b = layoutBounds();
   const spec = familySpec();
-  const span = Math.max(b.maxX - b.minX + spec.depth * 2, b.maxZ - b.minZ + spec.depth * 2, spec.height, 900);
+  const span = Math.max(b.maxX - b.minX + spec.depth * 2.2, b.maxZ - b.minZ + spec.depth * 2.2, spec.height, 900);
   const cx = (b.minX + b.maxX) / 2;
   const cz = (b.minZ + b.maxZ) / 2;
   controls.target.set(cx, spec.height * 0.42, cz);
-  camera.position.set(cx + span * 1.05, spec.height * 0.74 + span * 0.45, cz + span * 1.12);
+  if (mode === 1) {
+    camera.position.set(cx, spec.height + span * 1.25, cz + 0.01);
+  } else if (mode === 2) {
+    camera.position.set(b.maxX + span * 1.25, spec.height * 0.58, cz);
+  } else {
+    camera.position.set(cx, spec.height * 0.58, b.minZ - span * 1.5);
+  }
   camera.lookAt(controls.target);
   controls.update();
+}
+
+function fitCameraToConfiguration() {
+  applyCameraFrame(cameraMode);
 }
 
 function openAddPanel(side) {
@@ -949,7 +968,14 @@ function bindControls() {
     down = null;
     if (moved > 5) return;
     const moduleId = raycastModule(event);
-    if (!moduleId) return;
+    if (!moduleId) {
+      if (selectedModuleId) {
+        selectedModuleId = '';
+        renderSelectedControls();
+        rebuildSelectionHelper();
+      }
+      return;
+    }
     selectedModuleId = moduleId;
     closeAddPanel();
     renderSelectedControls();
@@ -967,7 +993,11 @@ function resizeRenderer() {
 
 function updateOverlays() {
   updateDimensionPositions();
-  if (!layoutCache?.closed && addModulePanel.hidden) updateEndpointButtons();
+  if (addModulePanel.hidden) updateEndpointButtons();
+  else {
+    addStartButton.hidden = true;
+    addEndButton.hidden = true;
+  }
 }
 function animate() {
   requestAnimationFrame(animate);
@@ -1041,17 +1071,7 @@ function toggleDimensions() {
 }
 function cycleCamera() {
   cameraMode = (cameraMode + 1) % 3;
-  const b = layoutBounds();
-  const spec = familySpec();
-  const span = Math.max(b.maxX - b.minX + spec.depth * 2, b.maxZ - b.minZ + spec.depth * 2, spec.height, 900);
-  const cx = (b.minX + b.maxX) / 2;
-  const cz = (b.minZ + b.maxZ) / 2;
-  controls.target.set(cx, spec.height * 0.42, cz);
-  if (cameraMode === 1) camera.position.set(cx, spec.height + span * 1.25, cz + 0.01);
-  else if (cameraMode === 2) camera.position.set(cx + span * 1.45, spec.height * 0.55, cz);
-  else camera.position.set(cx + span * 1.05, spec.height * 0.74 + span * 0.45, cz + span * 1.12);
-  camera.lookAt(controls.target);
-  controls.update();
+  applyCameraFrame(cameraMode);
   return cameraMode;
 }
 function syncToolButtons() {}
