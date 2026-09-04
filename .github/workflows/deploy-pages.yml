@@ -134,6 +134,9 @@ jobs:
           mkdir -p dist/site/cardbox-configurator
           cp -R cardbox-configurator/. dist/site/cardbox-configurator/
 
+          mkdir -p dist/site/bookshelf-configurator
+          cp -R bookshelf-configurator/. dist/site/bookshelf-configurator/
+
           touch dist/site/.nojekyll
 
       - name: Verify Pages routes
@@ -147,6 +150,7 @@ jobs:
           test -f dist/site/hall-configurator/index.html
           test -f dist/site/fence-configurator/index.html
           test -f dist/site/cardbox-configurator/index.html
+          test -f dist/site/bookshelf-configurator/index.html
           test -d dist/site/shared-ui
 
       - name: Configure GitHub Pages
