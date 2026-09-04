@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildValidationResults, calculateProject } from '../src/domain/calculations.js';
 import { buildRouteSegments, interpolateRoute } from '../src/domain/geometry.js';
-import { DEFAULT_STATE, GasConfiguratorStore, normalizeState } from '../src/state.js';
+import {
+  DEFAULT_STATE,
+  GAS_STATE_SCHEMA_VERSION,
+  GasConfiguratorStore,
+  normalizeState,
+} from '../src/state.js';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -44,6 +49,54 @@ test('saved v1-shaped state receives the compliant default bedding material', ()
     trench: { coverM: 1, widthM: 0.55, beddingM: 0.1 },
   });
   assert.equal(normalized.trench.beddingMaterial, 'sand03to08');
+});
+
+
+test('obstacle-screening settings are versioned, preserved and clamped', () => {
+  const disabled = normalizeState({
+    schemaVersion: 2,
+    screening: { obstaclesEnabled: false, proximityThresholdM: 250 },
+  });
+  assert.equal(disabled.schemaVersion, GAS_STATE_SCHEMA_VERSION);
+  assert.equal(disabled.screening.obstaclesEnabled, false);
+  assert.equal(disabled.screening.proximityThresholdM, 100);
+
+  const defaults = normalizeState({ schemaVersion: 2 });
+  assert.equal(defaults.screening.obstaclesEnabled, true);
+  assert.equal(defaults.screening.proximityThresholdM, 25);
+});
+
+test('the store migrates the previous v2 persistence key before falling back to defaults', () => {
+  const previousLocalStorage = globalThis.localStorage;
+  const requestedKeys = [];
+  globalThis.localStorage = {
+    getItem(key) {
+      requestedKeys.push(key);
+      if (key.endsWith(':v2')) {
+        return JSON.stringify({
+          schemaVersion: 2,
+          project: { name: 'Migrated gas route' },
+          screening: { obstaclesEnabled: false, proximityThresholdM: 40 },
+        });
+      }
+      return null;
+    },
+    setItem() {},
+  };
+
+  try {
+    const store = new GasConfiguratorStore();
+    assert.deepEqual(requestedKeys.slice(0, 2), [
+      '360-configurator:gas-prototype:v3',
+      '360-configurator:gas-prototype:v2',
+    ]);
+    assert.equal(store.get().project.name, 'Migrated gas route');
+    assert.equal(store.get().screening.obstaclesEnabled, false);
+    assert.equal(store.get().screening.proximityThresholdM, 40);
+  } finally {
+    if (previousLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previousLocalStorage;
+  }
 });
 
 test('a waypoint splits the nearest route segment and inherits its assumptions', () => {

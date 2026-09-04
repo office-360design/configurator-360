@@ -138,3 +138,65 @@ test('crossing separation requires gas above with 0.20 m or a sleeve exception',
   state.crossing.protectiveSleeve = false;
   assert.equal(evaluateCrossingVerticalSeparation(state).status, 'blocked');
 });
+
+test('each configured utility crossing receives its own traceable rule results', async () => {
+  const { normalizeState } = await import('../src/state.js');
+  const state = normalizeState({
+    routeEvents: [
+      {
+        id: 'utility-one',
+        type: 'utility-crossing',
+        stationM: 200,
+        confirmed: true,
+        crossing: {
+          utilityType: 'water',
+          angleDeg: 90,
+          gasPosition: 'above',
+          verticalClearanceM: 0.25,
+          ownerApprovalDocumented: true,
+        },
+      },
+      {
+        id: 'utility-two',
+        type: 'utility-crossing',
+        stationM: 650,
+        confirmed: true,
+        crossing: {
+          utilityType: 'electric',
+          angleDeg: 70,
+          gasPosition: 'below',
+          verticalClearanceM: 0.1,
+          protectiveSleeve: true,
+          ownerApprovalDocumented: false,
+        },
+      },
+      {
+        id: 'road-one',
+        type: 'road-crossing',
+        stationM: 800,
+        confirmed: false,
+        crossing: { angleDeg: 88 },
+      },
+    ],
+  });
+
+  const results = evaluateRegulatoryRules(state);
+  const crossingRuleIds = new Set([
+    REGULATORY_RULES.crossingOwnerApproval.id,
+    REGULATORY_RULES.crossingAngle.id,
+    REGULATORY_RULES.crossingVerticalSeparation.id,
+  ]);
+  const crossingResults = results.filter((result) => crossingRuleIds.has(result.ruleId));
+
+  assert.equal(crossingResults.length, 6);
+  assert.equal(new Set(crossingResults.map((result) => result.id)).size, 6);
+  assert.deepEqual(
+    [...new Set(crossingResults.map((result) => result.eventId))].sort(),
+    ['utility-one', 'utility-two'],
+  );
+  assert.ok(crossingResults.every((result) => result.contextKey === 'option.routeEventType.utilityCrossing'));
+  assert.deepEqual(
+    [...new Set(crossingResults.map((result) => result.contextIndex))].sort(),
+    [1, 2],
+  );
+});

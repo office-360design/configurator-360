@@ -9,6 +9,14 @@ import {
 } from '../domain/geometry.js';
 import { gasT } from '../i18n.js';
 import {
+  getRouteEvents,
+  legacyCrossingToRouteEvent,
+  matchingRouteEventForObstacle,
+  routeEventDisplayIndex,
+  routeEventTypeDefinition,
+} from '../domain/routeEvents.js';
+import { routeObstacleRouteKey } from '../obstacles/routeObstacles.js';
+import {
   assessNetworkConnection,
   EXISTING_NETWORK_DATA,
   getExistingNetworkAsset,
@@ -24,6 +32,21 @@ const TILE_ATTRIBUTION = import.meta.env.VITE_GAS_TILE_ATTRIBUTION?.trim()
 const REFERENCE_LAYER_IDS = Object.freeze({
   existingNetwork: 'existingNetwork',
   servedUats: 'servedUats',
+  obstacleRoads: 'obstacleRoads',
+  obstacleRailways: 'obstacleRailways',
+  obstacleWaterways: 'obstacleWaterways',
+});
+
+const OBSTACLE_LAYER_ID_BY_TYPE = Object.freeze({
+  road: REFERENCE_LAYER_IDS.obstacleRoads,
+  railway: REFERENCE_LAYER_IDS.obstacleRailways,
+  waterway: REFERENCE_LAYER_IDS.obstacleWaterways,
+});
+
+const OBSTACLE_STYLE_BY_TYPE = Object.freeze({
+  road: Object.freeze({ color: '#8a6848', weight: 4, dashArray: null }),
+  railway: Object.freeze({ color: '#4f5961', weight: 4, dashArray: '9 5' }),
+  waterway: Object.freeze({ color: '#2389b5', weight: 4, dashArray: null }),
 });
 
 const SERVICE_STATS_BY_GROUP = new globalThis.Map(
@@ -72,11 +95,13 @@ export class RouteMap {
     this.markers = new globalThis.Map();
     this.routeLayers = new globalThis.Map();
     this.referenceLayers = new globalThis.Map();
+    this.obstacleLayers = new globalThis.Map();
     this.referenceLayerVisibility = new globalThis.Map();
     this.networkLayerEntries = new globalThis.Map();
     this.uatLayerEntries = [];
     this.selectedReferenceAssetId = undefined;
     this.connectionMapKey = null;
+    this.obstacleScreeningMapKey = null;
     this.stationLayer = null;
     this.crossingLayerGroup = null;
     this.connectionLayerGroup = null;
@@ -152,8 +177,10 @@ export class RouteMap {
     [
       ['gas-served-uats', 340],
       ['gas-existing-network', 410],
+      ['gas-public-obstacles', 420],
       ['gas-proposed-route', 430],
       ['gas-connection', 435],
+      ['gas-obstacle-events', 438],
       ['gas-crossing', 440],
     ].forEach(([name, zIndex]) => {
       const pane = this.map.createPane(name);
@@ -226,8 +253,16 @@ export class RouteMap {
 
     this.referenceLayers.set(REFERENCE_LAYER_IDS.servedUats, servedUats);
     this.referenceLayers.set(REFERENCE_LAYER_IDS.existingNetwork, existingNetwork);
+    Object.values(OBSTACLE_LAYER_ID_BY_TYPE).forEach((layerId) => {
+      const layer = L.layerGroup();
+      this.obstacleLayers.set(layerId, layer);
+      this.referenceLayers.set(layerId, layer);
+    });
     this.setReferenceLayerVisibility(REFERENCE_LAYER_IDS.servedUats, true);
     this.setReferenceLayerVisibility(REFERENCE_LAYER_IDS.existingNetwork, true);
+    Object.values(OBSTACLE_LAYER_ID_BY_TYPE).forEach((layerId) => {
+      this.setReferenceLayerVisibility(layerId, true);
+    });
   }
 
   translation(key, variables = {}) {
@@ -406,6 +441,121 @@ export class RouteMap {
     this.container.style.cursor = mode === 'inspect' ? '' : 'crosshair';
   }
 
+  obstacleFeatureLabel(feature) {
+    const typeLabel = this.translation(`obstacle.type.${feature.type}`);
+    return feature.name || this.translation('obstacle.unnamed', { type: typeLabel });
+  }
+
+  obstacleEventTooltip(event) {
+    const locale = this.store.get().preferences.locale;
+    const units = this.store.get().preferences.units;
+    const station = units === 'imperial' ? event.stationM * 3.28084 : event.stationM;
+    const distance = units === 'imperial' ? event.distanceM * 3.28084 : event.distanceM;
+    const unit = units === 'imperial' ? 'ft' : 'm';
+    const stationLabel = `${localeNumber(station, locale, 1)} ${unit}`;
+    const detail = event.relation === 'crossing'
+      ? this.translation('obstacle.detail.crossing', {
+        station: stationLabel,
+        angle: `${localeNumber(event.angleDeg || 0, locale, 0)}°`,
+      })
+      : this.translation('obstacle.detail.proximity', {
+        station: stationLabel,
+        distance: `${localeNumber(distance, locale, 1)} ${unit}`,
+      });
+    return `<strong>${escapeHtml(this.obstacleFeatureLabel(event))}</strong><br><span>${escapeHtml(detail)}</span>`;
+  }
+
+  obstacleFeatureStyle(feature, hasCrossing, hasProximity) {
+    const base = OBSTACLE_STYLE_BY_TYPE[feature.type] || OBSTACLE_STYLE_BY_TYPE.road;
+    return {
+      pane: 'gas-public-obstacles',
+      color: base.color,
+      weight: hasCrossing ? base.weight + 2 : hasProximity ? base.weight + 1 : base.weight,
+      opacity: hasCrossing ? 0.98 : hasProximity ? 0.82 : 0.48,
+      dashArray: base.dashArray,
+      lineCap: 'round',
+      lineJoin: 'round',
+      bubblingMouseEvents: false,
+    };
+  }
+
+  syncObstacleScreening(state, obstacleScreening = null) {
+    const routeKey = routeObstacleRouteKey(state.route.points);
+    const screeningMatchesRoute = obstacleScreening?.routeKey === routeKey;
+    const mapKey = JSON.stringify([
+      routeKey,
+      obstacleScreening?.status || 'idle',
+      screeningMatchesRoute ? obstacleScreening?.requestKey || obstacleScreening?.fetchedAt || null : null,
+      state.preferences.locale,
+      state.preferences.units,
+      getRouteEvents(state)
+        .filter((event) => event.source === 'publicScreening')
+        .map((event) => [event.sourceFeatureId, event.type, Math.round(event.stationM)])
+        .sort(),
+    ]);
+    if (this.obstacleScreeningMapKey === mapKey) return;
+    this.obstacleScreeningMapKey = mapKey;
+    this.obstacleLayers.forEach((layer) => layer.clearLayers());
+    if (!screeningMatchesRoute || obstacleScreening?.status !== 'ready') return;
+
+    const visibleEvents = (obstacleScreening.events || []).filter((event) => (
+      !matchingRouteEventForObstacle(state, event)
+    ));
+    const eventsByFeature = new globalThis.Map();
+    (obstacleScreening.events || []).forEach((event) => {
+      const events = eventsByFeature.get(event.featureId) || [];
+      events.push(event);
+      eventsByFeature.set(event.featureId, events);
+    });
+
+    (obstacleScreening.features || []).forEach((feature) => {
+      const layerId = OBSTACLE_LAYER_ID_BY_TYPE[feature.type];
+      const group = this.obstacleLayers.get(layerId);
+      if (!group || !Array.isArray(feature.coordinates) || feature.coordinates.length < 2) return;
+      const events = eventsByFeature.get(feature.id) || [];
+      const hasCrossing = events.some((event) => event.relation === 'crossing');
+      const hasProximity = events.some((event) => event.relation === 'proximity');
+      L.polyline(feature.coordinates.map(toLeafletLatLng), this.obstacleFeatureStyle(
+        feature,
+        hasCrossing,
+        hasProximity,
+      ))
+        .bindTooltip(escapeHtml(this.obstacleFeatureLabel(feature)), {
+          className: 'gas-reference-tooltip',
+          direction: 'top',
+          sticky: true,
+        })
+        .addTo(group);
+    });
+
+    visibleEvents.forEach((event) => {
+      const layerId = OBSTACLE_LAYER_ID_BY_TYPE[event.type];
+      const group = this.obstacleLayers.get(layerId);
+      const style = OBSTACLE_STYLE_BY_TYPE[event.type] || OBSTACLE_STYLE_BY_TYPE.road;
+      if (!group) return;
+      const marker = L.circleMarker(toLeafletLatLng(event.coordinate), {
+        pane: 'gas-obstacle-events',
+        radius: event.relation === 'crossing' ? 7 : 5.5,
+        color: style.color,
+        weight: event.relation === 'crossing' ? 3 : 2,
+        fillColor: event.relation === 'crossing' ? '#ffffff' : style.color,
+        fillOpacity: event.relation === 'crossing' ? 1 : 0.32,
+        dashArray: event.relation === 'proximity' ? '3 3' : null,
+        interactive: true,
+        bubblingMouseEvents: false,
+      })
+        .bindTooltip(this.obstacleEventTooltip(event), {
+          className: 'gas-reference-tooltip gas-obstacle-tooltip',
+          direction: 'top',
+        })
+        .addTo(group);
+      marker.on('click', () => {
+        this.store.selectSegment(event.segmentId, event.stationM);
+        this.store.setEditMode('inspect');
+      });
+    });
+  }
+
   syncRouteLayers(state) {
     this.routeLayerGroup.clearLayers();
     this.routeLayers.clear();
@@ -487,47 +637,92 @@ export class RouteMap {
     this.stationLayer.bringToFront();
   }
 
-  syncCrossing(state) {
-    this.crossingLayerGroup.clearLayers();
-    if (!state.crossing?.enabled) return;
+  routeEventTooltip(state, event) {
+    const definition = routeEventTypeDefinition(event.type);
+    const index = routeEventDisplayIndex(state, event);
+    const locale = state.preferences.locale;
+    const units = state.preferences.units;
+    const station = units === 'imperial' ? event.stationM * 3.28084 : event.stationM;
+    const unit = units === 'imperial' ? 'ft' : 'm';
+    const title = event.label || `${this.translation(definition.labelKey)} ${index}`;
+    const source = this.translation(`option.routeEventSource.${event.source}`);
+    return `<strong>${escapeHtml(title)}</strong><br><span>${escapeHtml(this.translation(definition.labelKey))} · ${escapeHtml(localeNumber(station, locale, 1))} ${unit}</span><br><small>${escapeHtml(source)}</small>`;
+  }
 
-    const crossing = crossingLineCoordinates(
-      state.route.points,
-      state.crossing.stationM,
-      state.crossing.angleDeg,
-    );
-    if (!crossing) return;
-    const coordinates = [
-      toLeafletLatLng(crossing.start),
-      toLeafletLatLng(crossing.end),
-    ];
-    L.polyline(coordinates, {
-      pane: 'gas-crossing',
-      color: '#ffffff',
-      weight: 8,
-      opacity: 0.94,
-      interactive: false,
-    }).addTo(this.crossingLayerGroup);
-    L.polyline(coordinates, {
-      pane: 'gas-crossing',
-      color: '#9b3fa8',
-      weight: 4,
-      opacity: 1,
-      dashArray: '7 6',
-      interactive: false,
-    }).addTo(this.crossingLayerGroup);
-    const marker = L.circleMarker(toLeafletLatLng(crossing.center), {
-      pane: 'gas-crossing',
-      radius: 6,
-      color: '#6c2478',
-      weight: 2,
-      fillColor: '#ffffff',
-      fillOpacity: 1,
-      interactive: true,
-      bubblingMouseEvents: false,
-    }).addTo(this.crossingLayerGroup);
-    marker.on('click', () => {
-      this.store.selectSegment(crossing.station.segment.id, crossing.station.chainageM);
+  syncRouteEvents(state) {
+    this.crossingLayerGroup.clearLayers();
+    const configuredEvents = getRouteEvents(state);
+    const legacyEvent = configuredEvents.length === 0
+      ? legacyCrossingToRouteEvent(state.crossing)
+      : null;
+    const events = configuredEvents.length > 0
+      ? configuredEvents
+      : legacyEvent ? [legacyEvent] : [];
+
+    events.forEach((event) => {
+      const definition = routeEventTypeDefinition(event.type);
+      const widthM = Number(event.crossing?.obstacleWidthM) || 0;
+      const lineLengthM = widthM > 0 ? Math.max(28, widthM + 16) : 70;
+      const crossing = crossingLineCoordinates(
+        state.route.points,
+        event.stationM,
+        event.crossing?.angleDeg,
+        lineLengthM,
+      );
+      if (!crossing) return;
+      const coordinates = [
+        toLeafletLatLng(crossing.start),
+        toLeafletLatLng(crossing.end),
+      ];
+      const selected = state.route.selectedEventId === event.id;
+      const dashArray = event.type === 'road-crossing'
+        ? null
+        : event.type === 'railway-crossing' ? '10 5' : '7 6';
+      L.polyline(coordinates, {
+        pane: 'gas-crossing',
+        color: '#ffffff',
+        weight: selected ? 10 : 8,
+        opacity: 0.94,
+        interactive: false,
+      }).addTo(this.crossingLayerGroup);
+      const line = L.polyline(coordinates, {
+        pane: 'gas-crossing',
+        color: definition.color,
+        weight: selected ? 6 : 4,
+        opacity: event.confirmed ? 1 : 0.76,
+        dashArray,
+        interactive: true,
+        bubblingMouseEvents: false,
+      }).addTo(this.crossingLayerGroup);
+      const marker = L.circleMarker(toLeafletLatLng(crossing.center), {
+        pane: 'gas-crossing',
+        radius: selected ? 8 : 6,
+        color: definition.color,
+        weight: selected ? 3 : 2,
+        fillColor: selected ? definition.color : '#ffffff',
+        fillOpacity: 1,
+        interactive: true,
+        bubblingMouseEvents: false,
+      }).addTo(this.crossingLayerGroup);
+      const tooltip = this.routeEventTooltip(state, event);
+      line.bindTooltip(tooltip, {
+        className: 'gas-reference-tooltip gas-route-event-tooltip',
+        direction: 'top',
+      });
+      marker.bindTooltip(tooltip, {
+        className: 'gas-reference-tooltip gas-route-event-tooltip',
+        direction: 'top',
+      });
+      const onSelect = () => {
+        if (configuredEvents.some((candidate) => candidate.id === event.id)) {
+          this.store.selectRouteEvent(event.id);
+        } else {
+          this.store.selectSegment(crossing.station.segment.id, crossing.station.chainageM);
+        }
+        this.store.setEditMode('inspect');
+      };
+      line.on('click', onSelect);
+      marker.on('click', onSelect);
     });
   }
 
@@ -586,13 +781,14 @@ export class RouteMap {
     });
   }
 
-  sync(state) {
+  sync(state, obstacleScreening = null) {
     this.lastState = state;
     if (!this.ready || this.destroyed) return;
     this.syncReferenceSelection(state);
     this.syncRouteLayers(state);
     this.syncConnection(state);
-    this.syncCrossing(state);
+    this.syncObstacleScreening(state, obstacleScreening);
+    this.syncRouteEvents(state);
     this.syncStation(state);
     this.syncMarkers(state);
     this.applyCursor();
@@ -651,11 +847,13 @@ export class RouteMap {
     this.markers.clear();
     this.routeLayers.clear();
     this.referenceLayers.clear();
+    this.obstacleLayers.clear();
     this.referenceLayerVisibility.clear();
     this.networkLayerEntries.clear();
     this.uatLayerEntries = [];
     this.selectedReferenceAssetId = undefined;
     this.connectionMapKey = null;
+    this.obstacleScreeningMapKey = null;
     this.map?.remove();
   }
 }

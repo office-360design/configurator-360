@@ -1,5 +1,15 @@
 import { buildRouteSegments, routeLengthMeters } from './geometry.js';
 import {
+  PIPE_DIAMETERS_MM,
+  PIPE_MATERIALS,
+  resolvePipeProduct,
+} from './pipeCatalog.js';
+import {
+  getRouteEvents,
+  isUtilityCrossingEvent,
+  routeEventTypeDefinition,
+} from './routeEvents.js';
+import {
   evaluateBeddingLayer,
   evaluateRegulatoryRules,
   evaluateTrenchWidth,
@@ -10,12 +20,7 @@ import {
   EXISTING_NETWORK_METADATA,
 } from '../network/networkConnection.js';
 
-export const PIPE_MATERIALS = Object.freeze({
-  pe100rc: Object.freeze({ labelKey: 'option.material.pe100rc', costMultiplier: 1.12 }),
-  pe100: Object.freeze({ labelKey: 'option.material.pe100', costMultiplier: 1 }),
-});
-
-export const PIPE_DIAMETERS_MM = Object.freeze([32, 40, 63, 90, 110]);
+export { PIPE_DIAMETERS_MM, PIPE_MATERIALS };
 
 export const GROUND_TYPES = Object.freeze({
   common: Object.freeze({ labelKey: 'option.ground.common', excavationEurM3: 28, color: '#a9784b' }),
@@ -32,7 +37,6 @@ export const SURFACE_TYPES = Object.freeze({
   concrete: Object.freeze({ labelKey: 'option.surface.concrete', restorationEurM2: 92, color: '#a9afb3' }),
 });
 
-const PIPE_EUR_M = Object.freeze({ 32: 4.2, 40: 5.4, 63: 10.8, 90: 18.5, 110: 25.5 });
 const CURRENCY_FROM_EUR = Object.freeze({ EUR: 1, RON: 4.98, USD: 1.09 });
 const BEDDING_EUR_M3 = 34;
 const PRELIMINARY_FIXED_COST_EUR = 1_800;
@@ -52,13 +56,15 @@ function segmentSetting(state, segment) {
 export function calculateProject(state) {
   const segments = buildRouteSegments(state.route.points);
   const routeLengthM = routeLengthMeters(state.route.points);
-  const diameterMm = numberOr(state.pipe.diameterMm, 63);
+  const pipeProduct = resolvePipeProduct(state.pipe);
+  const diameterMm = pipeProduct.outsideDiameterMm;
   const outsideDiameterM = diameterMm / 1_000;
+  const internalDiameterM = pipeProduct.internalDiameterMm / 1_000;
+  const wallThicknessM = pipeProduct.wallThicknessMm / 1_000;
   const coverM = Math.max(0, numberOr(state.trench.coverM, 1));
   const trenchWidthM = Math.max(0, numberOr(state.trench.widthM, 0.55));
   const beddingM = Math.max(0, numberOr(state.trench.beddingM, 0.1));
   const trenchDepthM = coverM + outsideDiameterM + beddingM;
-  const material = PIPE_MATERIALS[state.pipe.material] || PIPE_MATERIALS.pe100rc;
   const requiredTrenchWidthM = minimumTrenchWidthMeters(diameterMm);
   const trenchWidthAssessment = evaluateTrenchWidth(state);
   const beddingAssessment = evaluateBeddingLayer(state);
@@ -98,7 +104,7 @@ export function calculateProject(state) {
   });
 
   const pipeLengthM = routeLengthM * PIPE_ALLOWANCE_RATIO;
-  const pipeCostEur = pipeLengthM * (PIPE_EUR_M[diameterMm] || PIPE_EUR_M[63]) * material.costMultiplier;
+  const pipeCostEur = pipeLengthM * pipeProduct.prototypeUnitRateEurM;
   const excavationM3 = perSegment.reduce((sum, segment) => sum + segment.excavationM3, 0);
   const beddingM3 = perSegment.reduce((sum, segment) => sum + segment.beddingM3, 0);
   const backfillM3 = perSegment.reduce((sum, segment) => sum + segment.backfillM3, 0);
@@ -114,6 +120,12 @@ export function calculateProject(state) {
     pipeLengthM,
     diameterMm,
     outsideDiameterM,
+    internalDiameterM,
+    wallThicknessM,
+    pipeProduct,
+    pipeCatalogVersion: pipeProduct.catalogVersion,
+    pipeProductId: pipeProduct.id,
+    pipeUnitRateEurM: pipeProduct.prototypeUnitRateEurM,
     coverM,
     trenchWidthM,
     requiredTrenchWidthM,
@@ -173,6 +185,28 @@ export function buildValidationResults(state, calculation, { elevationProfile = 
   });
 
   results.push(...evaluateRegulatoryRules(state));
+
+  getRouteEvents(state).forEach((event) => {
+    const definition = routeEventTypeDefinition(event.type);
+    if (!event.confirmed) {
+      results.push({
+        id: `route-event-confirmation:${event.id}`,
+        status: 'warning',
+        titleKey: 'validation.routeEvent.title',
+        contextKey: definition.labelKey,
+        detailKey: 'validation.routeEvent.confirmationRequired',
+      });
+    }
+    if (!isUtilityCrossingEvent(event)) {
+      results.push({
+        id: `route-event-rule-scope:${event.id}`,
+        status: 'not-evaluated',
+        titleKey: 'validation.routeEvent.title',
+        contextKey: definition.labelKey,
+        detailKey: 'validation.routeEvent.unreviewed',
+      });
+    }
+  });
 
   const groundStatus = state.data.groundSource === 'verifiedSurvey' ? 'pass' : 'warning';
   const groundDetailKey = groundStatus === 'pass'
