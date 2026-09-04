@@ -1,6 +1,6 @@
 # Regulatory boundary for the gas prototype
 
-Checked on 2026-09-03. This note records the product decisions behind the first
+Checked on 2026-09-03. This note records product and implementation decisions for the
 prototype; it is not legal or engineering advice.
 
 ## Sources reviewed
@@ -37,14 +37,27 @@ design rulebook. The supplied consolidation supports several important boundarie
 
 The prototype follows those boundaries: route geometry, quantities and costs can be
 explored, while throughput and official network capacity remain unresolved. A narrow
-numeric rule pack is now available for screening, with each result linked to its rule ID,
-pack version and official source.
+numeric rule pack is available for screening, with each result linked to its rule ID, pack
+version and official source.
 
-The company-supplied Vâlcea KMZ is also treated as a presentation and screening source.
-Point A may be snapped exactly to one of its mapped lines and the corresponding service UAT
-is highlighted, but this is labelled as a geometric connection candidate rather than an OSD
+The company-supplied Vâlcea KMZ is treated as a presentation and screening source. Point A
+may be snapped exactly to one of its mapped lines and the corresponding service UAT is
+highlighted, but this is labelled as a geometric connection candidate rather than an OSD
 connection solution. The source has no pipe diameter, material, pressure, condition or
 available-capacity attributes and is not utility-locating evidence.
+
+## Pipe catalogue boundary
+
+Catalogue `RO-PE-PROTOTYPE@1` gives the configurator stable product IDs and physical
+dimensions for the currently supported PE100/PE100-RC, diameter and SDR combinations.
+Wall thickness and internal diameter are calculated from outside diameter and SDR.
+
+The catalogue is not a declaration that every combination is approved for every Romanian
+gas project. Its design-pressure limit and rates are prototype constraints. The rates are
+indexed from the existing PE100 SDR11 baseline rather than obtained from a manufacturer or
+supplier. Before BOM procurement or hydraulic sizing, the product set, dimensional standard,
+pressure class, coefficients and commercial catalogue must be replaced or approved by the
+responsible designer/operator.
 
 ## Implemented screening rules
 
@@ -57,10 +70,10 @@ It is marked `requires-authorized-engineer-signoff` and implements:
    agreement and additional protection are declared; with both declarations it remains
    an exception warning, not a pass.
 2. `RO-NTPEE-082-APPROVAL-001`: Article 82 requires the approval of the owner of the
-   crossed installation or construction. A declared crossing is blocked until that
-   approval is declared as documented.
+   crossed installation or construction. Each configured utility crossing is blocked
+   until that approval is declared as documented.
 3. `RO-NTPEE-082-ANGLE-001`: Article 82 normally requires a perpendicular crossing. A
-   declared angle from 60 degrees up to, but not perpendicular to, 90 degrees is treated
+   configured angle from 60 degrees up to, but not perpendicular to, 90 degrees is treated
    as an exceptional warning; below 60 degrees is blocked.
 4. `RO-NTPEE-082-SEPARATION-001`: Article 82 normally requires the gas pipe to be at least
    0.20 m above the crossed installation. If that relation is not met, the result is blocked
@@ -78,50 +91,69 @@ It is marked `requires-authorized-engineer-signoff` and implements:
    These remain `not-evaluated` because they need project-specific and execution-stage field
    verification rather than a self-declaration that could create a false pass.
 
-The crossing is manually declared at a route chainage and appears on both plan and profile.
-It is not inferred from the basemap. Plan provenance (`missing`, utility-owner plan, or field
-verified) remains an independent evidence result so plausible geometry cannot conceal weak
-input data.
+Utility crossings are independent route events. Every event is evaluated separately and
+its results include event identity and chainage, so one compliant crossing cannot conceal a
+second unresolved or blocked crossing. Utility plan provenance (`missing`, utility-owner
+plan, or field verified) remains an independent evidence result so plausible geometry cannot
+conceal weak input data.
 
 Quantity and cost calculations use the width and bedding thickness actually configured,
-including when either value is blocked. The previous implicit width increase has been removed
-so a regulatory mismatch cannot be hidden inside a plausible-looking quantity estimate. The
-0.10 m sand surround above the pipe remains a fixed prototype quantity assumption associated
-with Article 197; it is not yet an editable or separately evaluated rule.
+including when either value is blocked. The application does not silently enlarge the trench
+to hide a regulatory mismatch. The 0.10 m sand surround above the pipe remains a fixed
+prototype quantity assumption associated with Article 197; it is not yet an editable or
+separately evaluated rule.
+
+## Public road, railway and watercourse screening
+
+The application can query OpenStreetMap geometry through Overpass and identify exact
+plan-view intersections or features entering a configurable proximity buffer. Exact public
+findings can be promoted to editable road, railway or watercourse route events. They start
+unconfirmed and retain their source feature ID.
+
+This is screening, not a regulatory conclusion:
+
+- a plan-view intersection does not prove that two assets conflict vertically;
+- bridge, tunnel and layer tags are useful hints but not design evidence;
+- route/event angle is approximate and depends on public geometry quality;
+- a nearby-only finding is not converted into a crossing;
+- public basemaps cannot establish the position or absence of underground utilities;
+- public data does not replace cadastral, road-administrator, railway-administrator,
+  water-management, utility-owner, survey or field-verification documents.
+
+The current regulatory pack intentionally returns `not-evaluated` for configured road,
+railway and watercourse events. It does not yet encode special-crossing cover, sleeve,
+installation-method, corridor, approval or restoration requirements.
 
 ## Rules intentionally not encoded yet
 
 The current pack does not cover the Article 75 connection-endpoint depth, Article 30/Table 1
 horizontal clearances, Article 194 welding-pit geometry, Article 195 pavement breakout widths,
-detailed sleeve dimensions, or road, rail, water and protected-area crossings. Article 197's
-sand surround/backfill requirements are not yet independently configurable or evaluated.
-Diameter, SDR and most material/pressure choices remain prototype catalogue inputs.
+detailed sleeve dimensions, or road, rail, water and protected-area crossing rules. Article
+197's sand surround/backfill requirements are not yet independently configurable or evaluated.
+The catalogue does not yet validate manufacturer-specific product availability or hydraulic
+suitability.
 
 Every additional numeric rule should follow the same registry contract:
 
 1. jurisdiction and asset scope;
 2. pressure/material/diameter/placement applicability conditions;
-3. the exact source, article/table and consolidation date;
+3. exact source, article/table and consolidation date;
 4. normal rule, exceptions and required evidence;
 5. `pass`, `warning`, `blocked` or `not-evaluated` behavior;
 6. sign-off by a Romanian ANRE-authorized gas designer and verifier.
 
 ## Recommended next implementation slice
 
-Have a Romanian ANRE-authorized gas designer and verifier review the pack's applicability,
-the PE diameter interpretation, wording and exception behavior. After that review, add the
-Article 30/Table 1 horizontal-clearance matrix and multiple existing-asset declarations before
-expanding into special crossings. Separately, replace the prototype KMZ schema with stable
-customer asset identifiers and verified network attributes when the operator can supply them.
+Have a Romanian ANRE-authorized gas designer and verifier review the current rule pack,
+product catalogue assumptions, PE diameter interpretation, wording and exception behavior.
+In the application, the most useful continuation is:
 
-After that foundation is signed off, add data adapters in this order:
+1. editable pipe-depth control points and profile elevations;
+2. configurable crossing widths, sleeves and quantities;
+3. utility-owner GeoJSON/KML/KMZ import with provenance;
+4. Article 30/Table 1 proximity/clearance rules after review;
+5. structured BOM rows and report output;
+6. branch-route topology, followed by approved hydraulic inputs and calculations.
 
-1. surveyed or approved elevation profile;
-2. geotechnical boreholes/polygons with provenance and confidence;
-3. utility-owner plans and field-verification records;
-4. road, rail, water and protected-area crossings;
-5. OSD network and hydraulic inputs under the applicable data agreement.
-
-Public basemaps are suitable for orientation only. They are not evidence that underground
-utilities are absent, and soil/geology layers should be presented as screening data until
-confirmed by project-specific investigation.
+Separately, replace the prototype KMZ schema with stable customer asset identifiers and
+verified network attributes when the operator can supply them.

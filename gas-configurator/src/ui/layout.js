@@ -1,3 +1,14 @@
+import {
+  PIPE_DIAMETERS_MM,
+  PIPE_MATERIALS,
+  PIPE_SDRS,
+} from '../domain/pipeCatalog.js';
+import {
+  CROSSING_INSTALLATION_METHODS,
+  ROUTE_EVENT_SOURCES,
+  ROUTE_EVENT_TYPES,
+} from '../domain/routeEvents.js';
+
 const routeIcon = `
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <circle cx="5" cy="18" r="2.25"></circle>
@@ -23,6 +34,48 @@ const fitIcon = `
 
 function option(value, translationKey, selected = false) {
   return `<option value="${value}" data-gas-i18n="${translationKey}"${selected ? ' selected' : ''}></option>`;
+}
+
+function textOption(value, label, selected = false) {
+  return `<option value="${value}"${selected ? ' selected' : ''}>${label}</option>`;
+}
+
+function pipeMaterialOptions() {
+  return Object.values(PIPE_MATERIALS)
+    .map((material, index) => option(material.id, material.labelKey, index === 0))
+    .join('');
+}
+
+function pipeDiameterOptions() {
+  return PIPE_DIAMETERS_MM
+    .map((diameterMm) => textOption(diameterMm, `${diameterMm} mm`, diameterMm === 63))
+    .join('');
+}
+
+function pipeSdrOptions() {
+  return PIPE_SDRS.map((sdr) => textOption(sdr, sdr, sdr === 'SDR11')).join('');
+}
+
+function routeEventTypeOptions() {
+  return Object.values(ROUTE_EVENT_TYPES)
+    .map((definition) => option(
+      definition.id,
+      definition.labelKey,
+      definition.id === ROUTE_EVENT_TYPES.utilityCrossing.id,
+    ))
+    .join('');
+}
+
+function routeEventSourceOptions() {
+  return ROUTE_EVENT_SOURCES
+    .map((source) => option(source, `option.routeEventSource.${source}`, source === 'manual'))
+    .join('');
+}
+
+function installationMethodOptions() {
+  return CROSSING_INSTALLATION_METHODS
+    .map((method) => option(method, `option.installationMethod.${method}`, method === 'notSpecified'))
+    .join('');
 }
 
 function metric(id, labelKey, modifier = '') {
@@ -102,10 +155,28 @@ export function renderGasLayout(root) {
                   <span data-gas-i18n="map.layer.servedUats"></span>
                   <small data-gas-i18n="map.layer.uatCount"></small>
                 </button>
+                <button type="button" class="gas-map-layer-toggle is-active" data-map-layer="obstacleRoads" aria-pressed="true">
+                  <span class="gas-map-layer-swatch gas-map-layer-swatch--road" aria-hidden="true"></span>
+                  <span data-gas-i18n="map.layer.roads"></span>
+                  <small id="roadObstacleLayerCount">—</small>
+                </button>
+                <button type="button" class="gas-map-layer-toggle is-active" data-map-layer="obstacleRailways" aria-pressed="true">
+                  <span class="gas-map-layer-swatch gas-map-layer-swatch--railway" aria-hidden="true"></span>
+                  <span data-gas-i18n="map.layer.railways"></span>
+                  <small id="railwayObstacleLayerCount">—</small>
+                </button>
+                <button type="button" class="gas-map-layer-toggle is-active" data-map-layer="obstacleWaterways" aria-pressed="true">
+                  <span class="gas-map-layer-swatch gas-map-layer-swatch--waterway" aria-hidden="true"></span>
+                  <span data-gas-i18n="map.layer.waterways"></span>
+                  <small id="waterwayObstacleLayerCount">—</small>
+                </button>
               </div>
               <p>
                 <span data-gas-i18n="map.layer.disclaimer"></span>
                 <a href="https://geo-spatial.org/descarcare/date/administrative-boundaries/" target="_blank" rel="noreferrer" data-gas-i18n="map.layer.boundarySource"></a>
+                <br />
+                <span data-gas-i18n="map.layer.obstacleDisclaimer"></span>
+                <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" data-gas-i18n="map.layer.obstacleSource"></a>
               </p>
             </section>
             <div class="gas-map-actions">
@@ -233,22 +304,53 @@ export function renderGasLayout(root) {
         </details>
 
         <details class="gas-panel" open>
+          <summary>
+            <span data-gas-i18n="panel.obstacles"></span>
+            <span id="obstacleSummaryBadge" class="gas-validation-count">—</span>
+            <span class="gas-panel__chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="gas-panel__body">
+            <label class="gas-check-row" for="obstacleScreeningEnabledInput">
+              <input id="obstacleScreeningEnabledInput" type="checkbox" />
+              <span><b data-gas-i18n="field.obstacleScreeningEnabled"></b></span>
+            </label>
+            <div id="obstacleScreeningFields" class="gas-obstacle-screening">
+              <div class="gas-obstacle-status-row">
+                <span id="obstacleScreeningStatus" class="gas-obstacle-status" aria-live="polite">—</span>
+                <button type="button" id="retryObstacleScreeningButton" class="gas-profile-retry" data-gas-i18n-title="action.retryObstacles" data-gas-i18n-aria-label="action.retryObstacles" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 9A7 7 0 0 1 18.7 7M17.9 15A7 7 0 0 1 5.3 17"></path></svg>
+                </button>
+              </div>
+              <label class="gas-field gas-field--range" for="obstacleProximityInput">
+                <span><b data-gas-i18n="field.obstacleProximity"></b><output id="obstacleProximityValue">—</output></span>
+                <input id="obstacleProximityInput" type="range" min="0" max="100" step="5" value="25" />
+              </label>
+              <div class="gas-obstacle-metrics" aria-live="polite">
+                <div><span data-gas-i18n="obstacle.metric.crossings"></span><strong id="obstacleCrossingCount">—</strong></div>
+                <div><span data-gas-i18n="obstacle.metric.nearby"></span><strong id="obstacleProximityCount">—</strong></div>
+                <div><span data-gas-i18n="obstacle.metric.features"></span><strong id="obstacleFeatureCount">—</strong></div>
+              </div>
+              <div id="obstacleEventList" class="gas-obstacle-list" aria-live="polite"></div>
+              <p class="gas-field-hint">
+                <span data-gas-i18n="hint.obstacles"></span>
+                <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" data-gas-i18n="map.layer.obstacleSource"></a>
+              </p>
+            </div>
+          </div>
+        </details>
+
+        <details class="gas-panel" open>
           <summary><span data-gas-i18n="panel.pipe"></span><span class="gas-panel__chevron" aria-hidden="true"></span></summary>
           <div class="gas-panel__body">
             <div class="gas-field-grid">
               <label class="gas-field" for="materialSelect"><span data-gas-i18n="field.material"></span>
-                <select id="materialSelect">
-                  ${option('pe100rc', 'option.material.pe100rc', true)}
-                  ${option('pe100', 'option.material.pe100')}
-                </select>
+                <select id="materialSelect">${pipeMaterialOptions()}</select>
               </label>
               <label class="gas-field" for="diameterSelect"><span data-gas-i18n="field.diameter"></span>
-                <select id="diameterSelect">
-                  <option value="32">32 mm</option><option value="40">40 mm</option><option value="63" selected>63 mm</option><option value="90">90 mm</option><option value="110">110 mm</option>
-                </select>
+                <select id="diameterSelect">${pipeDiameterOptions()}</select>
               </label>
               <label class="gas-field" for="sdrSelect"><span data-gas-i18n="field.sdr"></span>
-                <select id="sdrSelect"><option value="SDR11">SDR11</option><option value="SDR17">SDR17</option></select>
+                <select id="sdrSelect">${pipeSdrOptions()}</select>
               </label>
               <label class="gas-field" for="pressureInput"><span data-gas-i18n="field.pressure"></span>
                 <span class="gas-input-with-unit"><input id="pressureInput" type="number" min="0.05" max="6" step="0.05" /><em>bar</em></span>
@@ -271,6 +373,12 @@ export function renderGasLayout(root) {
                   ${option('other', 'option.beddingMaterial.other')}
                 </select>
               </label>
+            </div>
+            <div class="gas-pipe-catalog-card" aria-live="polite">
+              <span data-gas-i18n="pipeCatalog.selection"></span>
+              <strong id="pipeProductLabel">—</strong>
+              <small id="pipeProductDimensions">—</small>
+              <code id="pipeCatalogVersion">—</code>
             </div>
             <p class="gas-field-hint" data-gas-i18n="hint.pipe"></p>
           </div>
@@ -314,57 +422,93 @@ export function renderGasLayout(root) {
               <p class="gas-field-hint" data-gas-i18n="rule.trenchHint"></p>
             </section>
 
-            <section class="gas-rule-group" aria-labelledby="crossingRuleTitle">
+            <section class="gas-rule-group" aria-labelledby="routeEventRuleTitle">
               <div class="gas-rule-group__heading">
-                <strong id="crossingRuleTitle" data-gas-i18n="rule.crossingTitle"></strong>
-                <span data-gas-i18n="rule.crossingCriterion"></span>
+                <strong id="routeEventRuleTitle" data-gas-i18n="rule.routeEventsTitle"></strong>
+                <span data-gas-i18n="rule.routeEventsCriterion"></span>
               </div>
-              <label class="gas-check-row" for="crossingEnabledInput">
-                <input id="crossingEnabledInput" type="checkbox" />
-                <span><b data-gas-i18n="field.crossingEnabled"></b></span>
-              </label>
-              <div id="crossingFields" class="gas-conditional-fields" hidden>
-                <label class="gas-field gas-field--range" for="crossingStationInput">
-                  <span><b data-gas-i18n="field.crossingStation"></b><output id="crossingStationValue">—</output></span>
-                  <input id="crossingStationInput" type="range" min="0" max="100" step="1" value="0" />
+              <div class="gas-route-event-toolbar">
+                <span id="routeEventCount">—</span>
+                <button type="button" id="addRouteEventButton" class="gas-route-event-add">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                  <span data-gas-i18n="action.addRouteEvent"></span>
+                </button>
+              </div>
+              <div id="routeEventList" class="gas-route-event-list" aria-live="polite"></div>
+              <p id="routeEventEmpty" class="gas-route-event-empty" data-gas-i18n="empty.routeEvents"></p>
+              <div id="routeEventFields" class="gas-conditional-fields" hidden>
+                <label class="gas-field" for="routeEventLabelInput">
+                  <span data-gas-i18n="field.routeEventLabel"></span>
+                  <input id="routeEventLabelInput" type="text" maxlength="80" autocomplete="off" />
                 </label>
                 <div class="gas-field-grid">
-                  <label class="gas-field" for="crossingUtilityTypeSelect">
-                    <span data-gas-i18n="field.crossingUtilityType"></span>
-                    <select id="crossingUtilityTypeSelect">
-                      ${option('water', 'option.crossingUtility.water', true)}
-                      ${option('sewer', 'option.crossingUtility.sewer')}
-                      ${option('electric', 'option.crossingUtility.electric')}
-                      ${option('telecom', 'option.crossingUtility.telecom')}
-                      ${option('districtHeating', 'option.crossingUtility.districtHeating')}
-                      ${option('other', 'option.crossingUtility.other')}
-                    </select>
+                  <label class="gas-field" for="routeEventTypeSelect">
+                    <span data-gas-i18n="field.routeEventType"></span>
+                    <select id="routeEventTypeSelect">${routeEventTypeOptions()}</select>
                   </label>
-                  <label class="gas-field" for="crossingGasPositionSelect">
-                    <span data-gas-i18n="field.crossingGasPosition"></span>
-                    <select id="crossingGasPositionSelect">
-                      ${option('above', 'option.crossingPosition.above', true)}
-                      ${option('below', 'option.crossingPosition.below')}
-                    </select>
-                  </label>
-                  <label class="gas-field" for="crossingAngleInput">
-                    <span data-gas-i18n="field.crossingAngle"></span>
-                    <span class="gas-input-with-unit"><input id="crossingAngleInput" type="number" min="0" max="90" step="1" /><em>°</em></span>
-                  </label>
-                  <label class="gas-field" for="crossingClearanceInput">
-                    <span data-gas-i18n="field.crossingClearance"></span>
-                    <span class="gas-input-with-unit"><input id="crossingClearanceInput" type="number" min="0" max="5" step="0.01" /><em>m</em></span>
+                  <label class="gas-field" for="routeEventSourceSelect">
+                    <span data-gas-i18n="field.routeEventSource"></span>
+                    <select id="routeEventSourceSelect">${routeEventSourceOptions()}</select>
                   </label>
                 </div>
-                <label class="gas-check-row" for="crossingSleeveInput">
-                  <input id="crossingSleeveInput" type="checkbox" />
+                <label class="gas-field gas-field--range" for="routeEventStationInput">
+                  <span><b data-gas-i18n="field.routeEventStation"></b><output id="routeEventStationValue">—</output></span>
+                  <input id="routeEventStationInput" type="range" min="0" max="100" step="1" value="0" />
+                </label>
+                <div class="gas-field-grid">
+                  <label class="gas-field" for="routeEventAngleInput">
+                    <span data-gas-i18n="field.routeEventAngle"></span>
+                    <span class="gas-input-with-unit"><input id="routeEventAngleInput" type="number" min="0" max="90" step="1" /><em>°</em></span>
+                  </label>
+                  <label class="gas-field" for="routeEventWidthInput">
+                    <span data-gas-i18n="field.routeEventWidth"></span>
+                    <span class="gas-input-with-unit"><input id="routeEventWidthInput" type="number" min="0" max="500" step="0.1" /><em>m</em></span>
+                  </label>
+                </div>
+                <label class="gas-field" for="routeEventMethodSelect">
+                  <span data-gas-i18n="field.routeEventMethod"></span>
+                  <select id="routeEventMethodSelect">${installationMethodOptions()}</select>
+                </label>
+                <div id="utilityRouteEventFields" class="gas-conditional-fields">
+                  <div class="gas-field-grid">
+                    <label class="gas-field" for="routeEventUtilityTypeSelect">
+                      <span data-gas-i18n="field.crossingUtilityType"></span>
+                      <select id="routeEventUtilityTypeSelect">
+                        ${option('water', 'option.crossingUtility.water', true)}
+                        ${option('sewer', 'option.crossingUtility.sewer')}
+                        ${option('electric', 'option.crossingUtility.electric')}
+                        ${option('telecom', 'option.crossingUtility.telecom')}
+                        ${option('districtHeating', 'option.crossingUtility.districtHeating')}
+                        ${option('other', 'option.crossingUtility.other')}
+                      </select>
+                    </label>
+                    <label class="gas-field" for="routeEventGasPositionSelect">
+                      <span data-gas-i18n="field.crossingGasPosition"></span>
+                      <select id="routeEventGasPositionSelect">
+                        ${option('above', 'option.crossingPosition.above', true)}
+                        ${option('below', 'option.crossingPosition.below')}
+                      </select>
+                    </label>
+                    <label class="gas-field" for="routeEventClearanceInput">
+                      <span data-gas-i18n="field.crossingClearance"></span>
+                      <span class="gas-input-with-unit"><input id="routeEventClearanceInput" type="number" min="0" max="5" step="0.01" /><em>m</em></span>
+                    </label>
+                  </div>
+                  <label class="gas-check-row" for="routeEventOwnerApprovalInput">
+                    <input id="routeEventOwnerApprovalInput" type="checkbox" />
+                    <span><b data-gas-i18n="field.crossingOwnerApproval"></b></span>
+                  </label>
+                </div>
+                <label class="gas-check-row" for="routeEventSleeveInput">
+                  <input id="routeEventSleeveInput" type="checkbox" />
                   <span><b data-gas-i18n="field.crossingSleeve"></b></span>
                 </label>
-                <label class="gas-check-row" for="crossingOwnerApprovalInput">
-                  <input id="crossingOwnerApprovalInput" type="checkbox" />
-                  <span><b data-gas-i18n="field.crossingOwnerApproval"></b></span>
+                <label class="gas-check-row" for="routeEventConfirmedInput">
+                  <input id="routeEventConfirmedInput" type="checkbox" />
+                  <span><b data-gas-i18n="field.routeEventConfirmed"></b></span>
                 </label>
-                <p class="gas-field-hint" data-gas-i18n="rule.crossingHint"></p>
+                <button type="button" id="removeRouteEventButton" class="gas-route-event-remove" data-gas-i18n="action.removeRouteEvent"></button>
+                <p class="gas-field-hint" data-gas-i18n="rule.routeEventsHint"></p>
               </div>
             </section>
           </div>

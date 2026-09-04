@@ -16,7 +16,17 @@ import {
   terrainAdjustedRouteLengthMeters,
 } from '../elevation/routeElevation.js';
 import { gasT } from '../i18n.js';
+import {
+  getRouteEvents,
+  isUtilityCrossingEvent,
+  legacyCrossingToRouteEvent,
+  matchingRouteEventForObstacle,
+  routeEventDisplayIndex,
+  routeEventTypeDefinition,
+  selectedRouteEvent,
+} from '../domain/routeEvents.js';
 import { assessNetworkConnection } from '../network/networkConnection.js';
+import { routeObstacleRouteKey } from '../obstacles/routeObstacles.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -115,7 +125,144 @@ function resolvedProfileSamples(state, elevationProfile) {
   };
 }
 
-export function renderProfile(svg, state, calculation, elevationProfile = null) {
+function resolvedDepthPoints(state, routeLengthM, fallbackCoverM) {
+  const source = Array.isArray(state.depthPoints) ? state.depthPoints : [];
+  const points = source
+    .map((point) => ({
+      stationM: Math.max(0, Math.min(routeLengthM, Number(point?.stationM) || 0)),
+      coverM: Math.max(0.3, Number(point?.coverM) || fallbackCoverM),
+    }))
+    .sort((left, right) => left.stationM - right.stationM);
+  if (points.length === 0) {
+    return [
+      { stationM: 0, coverM: fallbackCoverM },
+      { stationM: routeLengthM, coverM: fallbackCoverM },
+    ];
+  }
+  return points;
+}
+
+function coverAtChainage(state, chainageM, routeLengthM, fallbackCoverM) {
+  const points = resolvedDepthPoints(state, routeLengthM, fallbackCoverM);
+  const requested = Math.max(0, Math.min(routeLengthM, Number(chainageM) || 0));
+  if (requested <= points[0].stationM) return points[0].coverM;
+  for (let index = 1; index < points.length; index += 1) {
+    const right = points[index];
+    if (requested > right.stationM) continue;
+    const left = points[index - 1];
+    const span = right.stationM - left.stationM;
+    const ratio = span > 0 ? (requested - left.stationM) / span : 0;
+    return left.coverM + ((right.coverM - left.coverM) * ratio);
+  }
+  return points.at(-1).coverM;
+}
+
+function configuredRouteEvents(state) {
+  const events = getRouteEvents(state);
+  if (events.length > 0) return events;
+  const legacy = legacyCrossingToRouteEvent(state.crossing);
+  return legacy ? [legacy] : [];
+}
+
+function obstacleEventLabel(event, state) {
+  const typeLabel = gasT(state.preferences.locale, `obstacle.type.${event.type}`);
+  const name = event.name || gasT(state.preferences.locale, 'obstacle.unnamed', { type: typeLabel });
+  const station = formatDistance(event.stationM, state.preferences.units, state.preferences.locale);
+  const detail = event.relation === 'crossing'
+    ? gasT(state.preferences.locale, 'obstacle.detail.crossing', {
+      station,
+      angle: `${new Intl.NumberFormat(state.preferences.locale, { maximumFractionDigits: 0 }).format(event.angleDeg || 0)}°`,
+    })
+    : gasT(state.preferences.locale, 'obstacle.detail.proximity', {
+      station,
+      distance: formatDistance(event.distanceM, state.preferences.units, state.preferences.locale),
+    });
+  return `${name} · ${detail}`;
+}
+
+function appendObstacleProfileSymbol(svg, event, x, y, state, margin, height) {
+  const relationClass = `gas-profile-obstacle--${event.relation}`;
+  const typeClass = `gas-profile-obstacle--${event.type}`;
+  const group = appendSvg(svg, 'g', {
+    class: `gas-profile-obstacle ${typeClass} ${relationClass}`,
+    'data-obstacle-event-id': event.id,
+  });
+  appendSvg(group, 'title', {}, obstacleEventLabel(event, state));
+  appendSvg(group, 'line', {
+    x1: x,
+    x2: x,
+    y1: margin.top,
+    y2: height - margin.bottom,
+    class: 'gas-profile-obstacle-line',
+  });
+  if (event.type === 'road') {
+    appendSvg(group, 'rect', {
+      x: x - 5,
+      y: y - 5,
+      width: 10,
+      height: 10,
+      rx: 2,
+      class: 'gas-profile-obstacle-point',
+    });
+  } else if (event.type === 'railway') {
+    appendSvg(group, 'path', {
+      d: `M${x - 5} ${y - 5}L${x + 5} ${y + 5}M${x + 5} ${y - 5}L${x - 5} ${y + 5}`,
+      class: 'gas-profile-obstacle-point gas-profile-obstacle-point--railway',
+    });
+  } else {
+    appendSvg(group, 'circle', {
+      cx: x,
+      cy: y,
+      r: 5.3,
+      class: 'gas-profile-obstacle-point',
+    });
+  }
+}
+
+function appendRouteEventProfileSymbol(svg, event, x, y, state, calculation, margin, height, index) {
+  const definition = routeEventTypeDefinition(event.type);
+  const selected = state.route.selectedEventId === event.id;
+  const group = appendSvg(svg, 'g', {
+    class: `gas-profile-route-event gas-profile-route-event--${event.type}${selected ? ' is-selected' : ''}${event.confirmed ? '' : ' is-unconfirmed'}`,
+    'data-route-event-id': event.id,
+  });
+  const station = formatDistance(event.stationM, state.preferences.units, state.preferences.locale);
+  const eventNumber = routeEventDisplayIndex(state, event);
+  const title = event.label || `${gasT(state.preferences.locale, definition.labelKey)} ${eventNumber}`;
+  appendSvg(group, 'title', {}, `${title} · ${station} · ${gasT(state.preferences.locale, `option.routeEventSource.${event.source}`)}`);
+
+  const widthM = Math.max(0, Number(event.crossing?.obstacleWidthM) || 0);
+  if (widthM > 0 && calculation.routeLengthM > 0) {
+    const plotWidth = 720 - margin.left - margin.right;
+    const widthPx = Math.max(4, Math.min(plotWidth, widthM / calculation.routeLengthM * plotWidth));
+    appendSvg(group, 'rect', {
+      x: x - (widthPx / 2),
+      y: margin.top,
+      width: widthPx,
+      height: height - margin.top - margin.bottom,
+      class: 'gas-profile-route-event-band',
+    });
+  }
+
+  appendSvg(group, 'line', {
+    x1: x,
+    x2: x,
+    y1: margin.top,
+    y2: height - margin.bottom,
+    class: `gas-profile-route-event-line${isUtilityCrossingEvent(event) ? ' gas-profile-crossing-line' : ''}`,
+  });
+  appendSvg(group, 'path', {
+    d: `M${x} ${y - 6}L${x + 6} ${y}L${x} ${y + 6}L${x - 6} ${y}Z`,
+    class: `gas-profile-route-event-point${isUtilityCrossingEvent(event) ? ' gas-profile-crossing-point' : ''}`,
+  });
+  appendSvg(group, 'text', {
+    x: x + 5,
+    y: margin.top + 11 + ((index % 3) * 13),
+    class: 'gas-profile-route-event-label',
+  }, `${gasT(state.preferences.locale, definition.profileLabelKey)} ${eventNumber}`);
+}
+
+export function renderProfile(svg, state, calculation, elevationProfile = null, obstacleScreening = null) {
   if (!svg) return;
   svg.replaceChildren();
 
@@ -125,10 +272,19 @@ export function renderProfile(svg, state, calculation, elevationProfile = null) 
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
   const resolved = resolvedProfileSamples(state, elevationProfile);
-  const samples = resolved.samples.map((sample) => ({
-    ...sample,
-    pipeM: sample.groundM - calculation.coverM - (calculation.outsideDiameterM / 2),
-  }));
+  const samples = resolved.samples.map((sample) => {
+    const coverM = coverAtChainage(
+      state,
+      sample.chainageM,
+      calculation.routeLengthM,
+      calculation.coverM,
+    );
+    return {
+      ...sample,
+      coverM,
+      pipeM: sample.groundM - coverM - (calculation.outsideDiameterM / 2),
+    };
+  });
   const elevations = samples.flatMap((sample) => [sample.groundM, sample.pipeM]);
   const minElevation = Math.min(...elevations);
   const maxElevation = Math.max(...elevations);
@@ -168,35 +324,63 @@ export function renderProfile(svg, state, calculation, elevationProfile = null) 
     appendSvg(svg, 'text', { x: x + 4, y: margin.top + 11, class: 'gas-profile-note' }, String(segment.index + 2));
   });
 
-  if (state.crossing?.enabled) {
-    const crossingProgress = calculation.routeLengthM > 0
-      ? state.crossing.stationM / calculation.routeLengthM
-      : 0;
-    const crossingGround = interpolateElevationAtChainage(
+  const routeEvents = configuredRouteEvents(state);
+  const currentObstacleRouteKey = routeObstacleRouteKey(state.route.points);
+  const obstacleEvents = (
+    obstacleScreening?.status === 'ready'
+    && obstacleScreening.routeKey === currentObstacleRouteKey
+  ) ? (obstacleScreening.events || []).filter((event) => !matchingRouteEventForObstacle(state, event)) : [];
+  obstacleEvents.forEach((event) => {
+    const progress = calculation.routeLengthM > 0 ? event.stationM / calculation.routeLengthM : 0;
+    const groundM = interpolateElevationAtChainage(
       samples.map((sample) => ({ chainageM: sample.chainageM, elevationM: sample.groundM })),
-      state.crossing.stationM,
-      fallbackProfileElevation(state, crossingProgress),
+      event.stationM,
+      fallbackProfileElevation(state, progress),
     );
-    const crossingPipe = crossingGround - calculation.coverM - (calculation.outsideDiameterM / 2);
-    const crossingX = xFor(crossingProgress);
-    const crossingY = yFor(crossingPipe);
-    appendSvg(svg, 'line', {
-      x1: crossingX,
-      x2: crossingX,
-      y1: margin.top,
-      y2: height - margin.bottom,
-      class: 'gas-profile-crossing-line',
-    });
-    appendSvg(svg, 'path', {
-      d: `M${crossingX} ${crossingY - 6}L${crossingX + 6} ${crossingY}L${crossingX} ${crossingY + 6}L${crossingX - 6} ${crossingY}Z`,
-      class: 'gas-profile-crossing-point',
-    });
-    appendSvg(svg, 'text', {
-      x: crossingX + 5,
-      y: margin.top + 11,
-      class: 'gas-profile-crossing-label',
-    }, gasT(state.preferences.locale, 'view.utilityCrossing'));
-  }
+    const localCoverM = coverAtChainage(
+      state,
+      event.stationM,
+      calculation.routeLengthM,
+      calculation.coverM,
+    );
+    const pipeM = groundM - localCoverM - (calculation.outsideDiameterM / 2);
+    appendObstacleProfileSymbol(
+      svg,
+      event,
+      xFor(progress),
+      yFor(pipeM),
+      state,
+      margin,
+      height,
+    );
+  });
+
+  routeEvents.forEach((event, index) => {
+    const progress = calculation.routeLengthM > 0 ? event.stationM / calculation.routeLengthM : 0;
+    const groundM = interpolateElevationAtChainage(
+      samples.map((sample) => ({ chainageM: sample.chainageM, elevationM: sample.groundM })),
+      event.stationM,
+      fallbackProfileElevation(state, progress),
+    );
+    const localCoverM = coverAtChainage(
+      state,
+      event.stationM,
+      calculation.routeLengthM,
+      calculation.coverM,
+    );
+    const pipeM = groundM - localCoverM - (calculation.outsideDiameterM / 2);
+    appendRouteEventProfileSymbol(
+      svg,
+      event,
+      xFor(progress),
+      yFor(pipeM),
+      state,
+      calculation,
+      margin,
+      height,
+      index,
+    );
+  });
 
   const station = interpolateRoute(state.route.points, state.route.stationM);
   const stationProgress = calculation.routeLengthM > 0 ? station.chainageM / calculation.routeLengthM : 0;
@@ -205,7 +389,13 @@ export function renderProfile(svg, state, calculation, elevationProfile = null) 
     station.chainageM,
     fallbackProfileElevation(state, stationProgress),
   );
-  const stationPipe = stationGround - calculation.coverM - (calculation.outsideDiameterM / 2);
+  const stationCoverM = coverAtChainage(
+    state,
+    station.chainageM,
+    calculation.routeLengthM,
+    calculation.coverM,
+  );
+  const stationPipe = stationGround - stationCoverM - (calculation.outsideDiameterM / 2);
   const stationX = xFor(stationProgress);
   const stationY = yFor(stationPipe);
   appendSvg(svg, 'line', { x1: stationX, x2: stationX, y1: margin.top, y2: height - margin.bottom, class: 'gas-profile-station-line' });
@@ -311,7 +501,10 @@ function renderValidations(root, state, calculation, t, elevationProfile) {
     item.className = `gas-validation-item gas-validation-item--${result.status}`;
     const body = document.createElement('div');
     const title = document.createElement('strong');
-    title.textContent = `${t(result.titleKey)} · ${t(`status.${result.status}`)}`;
+    const context = result.contextKey
+      ? ` · ${t(result.contextKey)}${result.contextIndex ? ` ${result.contextIndex}` : ''}`
+      : '';
+    title.textContent = `${t(result.titleKey)}${context} · ${t(`status.${result.status}`)}`;
     const detail = document.createElement('p');
     detail.textContent = t(result.detailKey, result.detailVariables || {});
     body.append(title);
@@ -335,7 +528,228 @@ function renderValidations(root, state, calculation, t, elevationProfile) {
   }));
 }
 
-export function renderGasState(root, state, elevationProfile = null) {
+function obstacleDisplayName(event, t) {
+  const type = t(`obstacle.type.${event.type}`);
+  return event.name || t('obstacle.unnamed', { type });
+}
+
+function renderPipeCatalog(root, state, calculation, t) {
+  const product = calculation.pipeProduct;
+  const number = new Intl.NumberFormat(state.preferences.locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  });
+  setText(
+    root,
+    '#pipeProductLabel',
+    `${t(product.materialLabelKey)} · Ø${product.outsideDiameterMm} mm · ${product.sdr}`,
+  );
+  setText(root, '#pipeProductDimensions', t('pipeCatalog.dimensions', {
+    wall: number.format(product.wallThicknessMm),
+    inside: number.format(product.internalDiameterMm),
+    rate: formatMoneyFromEur(
+      product.prototypeUnitRateEurM,
+      state.preferences.currency,
+      state.preferences.locale,
+    ),
+  }));
+  setText(
+    root,
+    '#pipeCatalogVersion',
+    `${calculation.pipeCatalogVersion} · ${calculation.pipeProductId}`,
+  );
+  const pressureInput = root.querySelector('#pressureInput');
+  if (pressureInput) {
+    pressureInput.max = String(product.maximumPrototypeDesignPressureBar);
+    pressureInput.title = t('pipeCatalog.pressureLimit', {
+      maximum: `${product.maximumPrototypeDesignPressureBar} bar`,
+    });
+  }
+}
+
+function renderRouteEvents(root, state, calculation, t) {
+  const events = getRouteEvents(state);
+  const selected = selectedRouteEvent(state);
+  setText(root, '#routeEventCount', t('routeEvent.count', { count: events.length }));
+
+  const list = root.querySelector('#routeEventList');
+  if (list) {
+    list.replaceChildren(...events.map((event) => {
+      const definition = routeEventTypeDefinition(event.type);
+      const index = routeEventDisplayIndex(state, event);
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = `gas-route-event-item${selected?.id === event.id ? ' is-selected' : ''}`;
+      item.dataset.routeEventId = event.id;
+      item.setAttribute('aria-pressed', String(selected?.id === event.id));
+      item.style.setProperty('--gas-route-event-color', definition.color);
+
+      const marker = document.createElement('span');
+      marker.className = 'gas-route-event-item__marker';
+      marker.setAttribute('aria-hidden', 'true');
+      const body = document.createElement('span');
+      body.className = 'gas-route-event-item__body';
+      const name = document.createElement('strong');
+      name.textContent = event.label || `${t(definition.labelKey)} ${index}`;
+      const meta = document.createElement('small');
+      meta.textContent = `${t(definition.labelKey)} · ${formatDistance(
+        event.stationM,
+        state.preferences.units,
+        state.preferences.locale,
+      )}`;
+      const source = document.createElement('em');
+      source.textContent = t(`option.routeEventSource.${event.source}`);
+      const status = document.createElement('span');
+      status.className = `gas-route-event-item__status${event.confirmed ? ' is-confirmed' : ''}`;
+      status.textContent = t(event.confirmed ? 'routeEvent.confirmed' : 'routeEvent.needsConfirmation');
+      body.append(name, meta, source);
+      item.append(marker, body, status);
+      return item;
+    }));
+  }
+
+  const empty = root.querySelector('#routeEventEmpty');
+  if (empty) empty.hidden = events.length > 0;
+  const fields = root.querySelector('#routeEventFields');
+  if (fields) fields.hidden = !selected;
+  const removeButton = root.querySelector('#removeRouteEventButton');
+  if (removeButton) removeButton.disabled = !selected;
+  if (!selected) return;
+
+  const stationInput = root.querySelector('#routeEventStationInput');
+  if (stationInput) {
+    stationInput.max = String(Math.max(1, calculation.routeLengthM));
+    stationInput.value = String(Math.round(selected.stationM));
+  }
+  setText(
+    root,
+    '#routeEventStationValue',
+    formatDistance(selected.stationM, state.preferences.units, state.preferences.locale),
+  );
+  setValue(root, '#routeEventLabelInput', selected.label);
+  setValue(root, '#routeEventTypeSelect', selected.type);
+  setValue(root, '#routeEventSourceSelect', selected.source);
+  setValue(root, '#routeEventAngleInput', selected.crossing.angleDeg);
+  setValue(root, '#routeEventWidthInput', selected.crossing.obstacleWidthM);
+  setValue(root, '#routeEventMethodSelect', selected.crossing.installationMethod);
+  setValue(root, '#routeEventUtilityTypeSelect', selected.crossing.utilityType);
+  setValue(root, '#routeEventGasPositionSelect', selected.crossing.gasPosition);
+  setValue(root, '#routeEventClearanceInput', selected.crossing.verticalClearanceM);
+  setChecked(root, '#routeEventSleeveInput', selected.crossing.protectiveSleeve);
+  setChecked(root, '#routeEventOwnerApprovalInput', selected.crossing.ownerApprovalDocumented);
+  setChecked(root, '#routeEventConfirmedInput', selected.confirmed);
+
+  const utilityFields = root.querySelector('#utilityRouteEventFields');
+  if (utilityFields) utilityFields.hidden = !isUtilityCrossingEvent(selected);
+}
+
+function renderObstacleScreening(root, state, obstacleScreening, t) {
+  const enabled = state.screening?.obstaclesEnabled !== false;
+  const routeKey = routeObstacleRouteKey(state.route.points);
+  const matchesRoute = obstacleScreening?.routeKey === routeKey;
+  const status = enabled && matchesRoute ? obstacleScreening?.status || 'idle' : enabled ? 'idle' : 'disabled';
+  const ready = status === 'ready';
+  const summary = ready ? obstacleScreening.summary || {} : {};
+  const eventCount = Number(summary.eventCount) || 0;
+  const crossingCount = Number(summary.crossingCount) || 0;
+  const proximityCount = Number(summary.proximityCount) || 0;
+  const featureCount = Number(summary.featureCount) || 0;
+
+  setChecked(root, '#obstacleScreeningEnabledInput', enabled);
+  setValue(root, '#obstacleProximityInput', state.screening?.proximityThresholdM ?? 25);
+  setText(
+    root,
+    '#obstacleProximityValue',
+    formatDistance(state.screening?.proximityThresholdM ?? 25, state.preferences.units, state.preferences.locale),
+  );
+  setText(root, '#obstacleSummaryBadge', ready ? String(eventCount) : '—');
+  setText(root, '#obstacleCrossingCount', ready ? String(crossingCount) : '—');
+  setText(root, '#obstacleProximityCount', ready ? String(proximityCount) : '—');
+  setText(root, '#obstacleFeatureCount', ready ? String(featureCount) : '—');
+  ['road', 'railway', 'waterway'].forEach((type) => {
+    const selector = type === 'road'
+      ? '#roadObstacleLayerCount'
+      : type === 'railway' ? '#railwayObstacleLayerCount' : '#waterwayObstacleLayerCount';
+    setText(root, selector, ready ? String(Number(summary.byType?.[type]?.features) || 0) : '—');
+  });
+
+  const fields = root.querySelector('#obstacleScreeningFields');
+  if (fields) fields.hidden = !enabled;
+  const statusElement = root.querySelector('#obstacleScreeningStatus');
+  if (statusElement) {
+    statusElement.textContent = t(`obstacle.status.${status}`);
+    statusElement.className = `gas-obstacle-status gas-obstacle-status--${status}`;
+    statusElement.title = status === 'error' ? obstacleScreening?.error || '' : '';
+  }
+  const retryButton = root.querySelector('#retryObstacleScreeningButton');
+  if (retryButton) retryButton.hidden = status !== 'error';
+  root.querySelectorAll('[data-map-layer^="obstacle"]').forEach((button) => {
+    button.disabled = !enabled;
+  });
+
+  const list = root.querySelector('#obstacleEventList');
+  if (!list) return;
+  if (ready && eventCount > 0) {
+    list.replaceChildren(...(obstacleScreening.events || []).map((event) => {
+      const item = document.createElement('article');
+      item.className = `gas-obstacle-item gas-obstacle-item--${event.type} gas-obstacle-item--${event.relation}`;
+      const selectButton = document.createElement('button');
+      selectButton.type = 'button';
+      selectButton.className = 'gas-obstacle-item__select';
+      selectButton.dataset.obstacleEventStation = String(event.stationM);
+      selectButton.dataset.obstacleEventSegment = event.segmentId || '';
+      const marker = document.createElement('span');
+      marker.className = 'gas-obstacle-item__marker';
+      marker.setAttribute('aria-hidden', 'true');
+      const body = document.createElement('span');
+      body.className = 'gas-obstacle-item__body';
+      const name = document.createElement('strong');
+      name.textContent = obstacleDisplayName(event, t);
+      const meta = document.createElement('small');
+      meta.textContent = `${t(`obstacle.type.${event.type}`)} · ${t(`obstacle.relation.${event.relation}`)}`;
+      const detail = document.createElement('em');
+      detail.textContent = event.relation === 'crossing'
+        ? t('obstacle.detail.crossing', {
+          station: formatDistance(event.stationM, state.preferences.units, state.preferences.locale),
+          angle: `${new Intl.NumberFormat(state.preferences.locale, { maximumFractionDigits: 0 }).format(event.angleDeg || 0)}°`,
+        })
+        : t('obstacle.detail.proximity', {
+          station: formatDistance(event.stationM, state.preferences.units, state.preferences.locale),
+          distance: formatDistance(event.distanceM, state.preferences.units, state.preferences.locale),
+        });
+      body.append(name, meta, detail);
+      selectButton.append(marker, body);
+      item.append(selectButton);
+
+      if (event.relation === 'crossing') {
+        const configured = matchingRouteEventForObstacle(state, event);
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.className = `gas-obstacle-item__action${configured ? ' is-configured' : ''}`;
+        if (configured) {
+          action.dataset.obstacleRouteEventId = configured.id;
+          action.textContent = t('routeEvent.alreadyAdded');
+          action.title = t('action.openConfiguredCrossing');
+        } else {
+          action.dataset.obstacleEventAdd = event.id;
+          action.textContent = t('action.addDetectedCrossing');
+        }
+        item.append(action);
+      }
+      return item;
+    }));
+    return;
+  }
+
+  const empty = document.createElement('p');
+  empty.className = `gas-obstacle-empty gas-obstacle-empty--${status}`;
+  empty.textContent = ready
+    ? t('obstacle.empty')
+    : status === 'error' ? t('obstacle.errorHint') : t('obstacle.waiting');
+  list.replaceChildren(empty);
+}
+
+export function renderGasState(root, state, elevationProfile = null, obstacleScreening = null) {
   const calculation = calculateProject(state);
   const locale = state.preferences.locale;
   const units = state.preferences.units;
@@ -457,16 +871,11 @@ export function renderGasState(root, state, elevationProfile = null) {
   setValue(root, '#utilitySourceSelect', state.data.utilitySource);
   setValue(root, '#startElevationInput', state.data.startElevationM);
   setValue(root, '#endElevationInput', state.data.endElevationM);
-  setValue(root, '#crossingUtilityTypeSelect', state.crossing.utilityType);
-  setValue(root, '#crossingGasPositionSelect', state.crossing.gasPosition);
-  setValue(root, '#crossingAngleInput', state.crossing.angleDeg);
-  setValue(root, '#crossingClearanceInput', state.crossing.verticalClearanceM);
   setChecked(root, '#osdCapacityInput', state.project.osdCapacityKnown);
   setChecked(root, '#coverOsdAgreementInput', state.regulatory.reducedCover.osdAgreement);
   setChecked(root, '#coverProtectionInput', state.regulatory.reducedCover.additionalProtection);
-  setChecked(root, '#crossingEnabledInput', state.crossing.enabled);
-  setChecked(root, '#crossingSleeveInput', state.crossing.protectiveSleeve);
-  setChecked(root, '#crossingOwnerApprovalInput', state.crossing.ownerApprovalDocumented);
+  renderPipeCatalog(root, state, calculation, t);
+  renderRouteEvents(root, state, calculation, t);
 
   const trenchWidthInput = root.querySelector('#trenchWidthInput');
   if (trenchWidthInput) trenchWidthInput.min = String(calculation.requiredTrenchWidthM);
@@ -501,14 +910,6 @@ export function renderGasState(root, state, elevationProfile = null) {
 
   const reducedCoverFields = root.querySelector('#reducedCoverExceptionFields');
   if (reducedCoverFields) reducedCoverFields.hidden = state.trench.coverM >= 0.9;
-  const crossingFields = root.querySelector('#crossingFields');
-  if (crossingFields) crossingFields.hidden = !state.crossing.enabled;
-  const crossingStationInput = root.querySelector('#crossingStationInput');
-  if (crossingStationInput) {
-    crossingStationInput.max = String(Math.max(1, calculation.routeLengthM));
-    crossingStationInput.value = String(Math.round(state.crossing.stationM));
-  }
-  setText(root, '#crossingStationValue', formatDistance(state.crossing.stationM, units, locale));
 
   root.querySelectorAll('[data-route-mode]').forEach((button) => {
     const active = button.dataset.routeMode === state.route.editMode;
@@ -539,7 +940,8 @@ export function renderGasState(root, state, elevationProfile = null) {
   setText(root, '#dataConfidenceResult', t(verifiedData ? 'metric.verified' : 'metric.estimated'));
   setText(root, '#costRangeResult', `${formatMoneyFromEur(calculation.estimateLowEur, currency, locale)} – ${formatMoneyFromEur(calculation.estimateHighEur, currency, locale)}`);
 
-  renderProfile(root.querySelector('#profileSvg'), state, calculation, elevationProfile);
+  renderObstacleScreening(root, state, obstacleScreening, t);
+  renderProfile(root.querySelector('#profileSvg'), state, calculation, elevationProfile, obstacleScreening);
   renderCrossSection(root.querySelector('#crossSectionSvg'), state, calculation, t);
   renderValidations(root, state, calculation, t, matchingTerrainProfile ? elevationProfile : null);
   return calculation;
