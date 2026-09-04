@@ -225,6 +225,12 @@ function localeForHost() {
 }
 
 function t(key) { return COPY[locale]?.[key] ?? COPY['en-US'][key] ?? key; }
+function recordUndoCheckpoint() {
+  window.BOOKSHELF_CONFIGURATOR_UNDO_HISTORY?.record?.();
+}
+function markDirty() {
+  window.BOOKSHELF_CONFIGURATOR_SHARED_SHELL?.markDirty?.();
+}
 function round(value, digits = 3) { const f = 10 ** digits; return Math.round(Number(value) * f) / f; }
 function familySpec() { return FAMILIES[state.family] || FAMILIES.compact; }
 function uid() { return `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
@@ -657,11 +663,11 @@ function endpointOverlayPoint(pose, isStart = false) {
   const spec = familySpec();
   const heading = isStart ? normalizeAngle(pose.heading + Math.PI) : pose.heading;
   const d = vec(heading);
-  const n = { x: -d.z, z: d.x };
+  const offset = Math.max(105, spec.depth * 0.3);
   return new THREE.Vector3(
-    pose.x + d.x * 85 + n.x * spec.depth * 0.46,
+    pose.x + d.x * offset,
     spec.height * 0.55,
-    pose.z + d.z * 85 + n.z * spec.depth * 0.46,
+    pose.z + d.z * offset,
   );
 }
 function positionOverlayButton(button, worldPoint) {
