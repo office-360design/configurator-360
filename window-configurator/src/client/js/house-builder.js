@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { getHouseDimensions } from './house-config.js';
 import { getWindowLocale } from './i18n.js';
 
-// Keep a window-local copy of the same shared environment tree GLB.
-// This works in both the standalone :3000 dev server and the static production build.
+// Resolve the tree relative to this module instead of the website root.
+// Local dev loads this module from /js/, while production mounts the
+// configurator below /window-configurator/ (and localized aliases).
 const TREE_MODEL_URLS = Object.freeze([
-    '/assets/models/environment/tree.glb',
+    new URL('../assets/models/environment/tree.glb', import.meta.url).href,
 ]);
 const TREE_TARGET_HEIGHTS_M = Object.freeze([2.45, 2.8]);
 const ENVIRONMENT_LABELS = Object.freeze({
