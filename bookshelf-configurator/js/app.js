@@ -437,7 +437,7 @@ function addBox(group, size, position, material, moduleId, { cast = true, receiv
 }
 function frontZ(depth) { return -depth; }
 
-function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null } = {}) {
+function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null, omitStartPosts = false, omitEndPosts = false } = {}) {
   const spec = familySpec();
   const group = new THREE.Group();
   group.position.set(pose.x, 0, pose.z);
@@ -457,17 +457,21 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   addBox(group, { x: innerWidth, y: height - 160, z: BACK }, { x: width / 2, y: height / 2 + 20, z: -BACK / 2 }, darkWood, module.id);
   addBox(group, { x: innerWidth, y: 105, z: depth - 18 }, { x: width / 2, y: 62, z: -depth / 2 }, darkWood, module.id);
 
-  // Four uprights keep the construction legible and make joint locations visible.
-  [POST / 2, width - POST / 2].forEach((x) => {
+  // Uprights at the free ends of the wing and, when needed, at the shared corner.
+  const postPositions = [];
+  if (!omitStartPosts) postPositions.push(POST / 2);
+  if (!omitEndPosts) postPositions.push(width - POST / 2);
+  postPositions.forEach((x) => {
     addBox(group, { x: POST, y: height, z: POST }, { x, y: height / 2, z: -POST / 2 }, wood, module.id);
     addBox(group, { x: POST, y: height, z: POST }, { x, y: height / 2, z: front + POST / 2 }, wood, module.id);
   });
 
   const shelfCount = spec.height > 2200 ? 7 : 6;
-  const bottomY = 150;
-  const topY = height - 130;
+  const plinthTopY = 105;
+  const topShelfY = height - 130;
+  const shelfGap = (topShelfY - plinthTopY) / (shelfCount + 1);
   for (let i = 0; i <= shelfCount; i += 1) {
-    const y = bottomY + (topY - bottomY) * (i / shelfCount);
+    const y = plinthTopY + shelfGap * (i + 1);
     addBox(group, { x: innerWidth, y: BOARD, z: shelfDepth }, { x: width / 2, y, z: -depth / 2 }, wood, module.id);
   }
 
@@ -507,10 +511,28 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
 function addDoors(parent, module, { width, depth, height, cornerWing = false, sharedSide = null }) {
   if (module.door === 'open') return;
   const z = frontZ(depth) - 12;
-  const cornerInset = cornerWing ? Math.max(36, POST * 0.9) : 0;
+  const cornerInset = cornerWing ? Math.max(64, POST * 1.5) : 0;
   const openingStart = POST + 9 + (sharedSide === 'start' ? cornerInset : 0);
   const openingEnd = width - POST - 9 - (sharedSide === 'end' ? cornerInset : 0);
   const openingWidth = Math.max(120, openingEnd - openingStart);
+
+  if (cornerWing) {
+    const leafWidth = Math.max(90, Math.min(openingWidth * 0.5, 220));
+    const x = sharedSide === 'start'
+      ? openingEnd - leafWidth / 2
+      : openingStart + leafWidth / 2;
+    if (module.door === 'lower') {
+      const doorHeight = Math.min(720, height * 0.34);
+      const y = 118 + doorHeight / 2;
+      addDoorFrame(parent, module, x, leafWidth, y, doorHeight, z, { glazed: false });
+      return;
+    }
+    const doorHeight = height - 205;
+    const y = 105 + doorHeight / 2;
+    addDoorFrame(parent, module, x, leafWidth, y, doorHeight, z, { glazed: true });
+    return;
+  }
+
   const leafGap = 8;
   const leafWidth = Math.max(46, (openingWidth - leafGap) / 2);
   const leftX = openingStart + leafWidth / 2;
@@ -543,7 +565,7 @@ function renderModule(entry) {
     const first = addShelfWing(root, module, entry.start, familySpec().corner, { cornerWing: true, sharedSide: 'end' });
     // The second wing starts at the shared corner, so its door leaves are inset away from that joint.
     const secondPose = { x: entry.corner.x, z: entry.corner.z, heading: entry.end.heading };
-    const second = addShelfWing(root, module, secondPose, familySpec().corner, { cornerWing: true, sharedSide: 'start' });
+    const second = addShelfWing(root, module, secondPose, familySpec().corner, { cornerWing: true, sharedSide: 'start', omitStartPosts: true });
     first.userData.cornerWing = 'incoming';
     second.userData.cornerWing = 'outgoing';
   }
@@ -557,17 +579,22 @@ function renderConnectors(layout) {
   for (let i = 0; i < layout.entries.length - 1; i += 1) jointPoses.push(layout.entries[i].end);
   if (layout.closed && layout.entries.length) jointPoses.push(layout.end);
 
+  const thickness = 16;
+  const size = { x: 54, y: 38, z: thickness };
   jointPoses.forEach((pose) => {
     const d = vec(pose.heading);
     const n = { x: -d.z, z: d.x };
-    const offsets = [POST / 2, spec.depth - POST / 2];
-    offsets.forEach((offset) => {
-      const point = {
-        x: pose.x - n.x * offset,
-        z: pose.z - n.z * offset,
-      };
-      [84, spec.height - 84].forEach((y) => {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(56, 42, 28), metalMaterial());
+    const backPoint = {
+      x: pose.x + n.x * (thickness / 2 + 2),
+      z: pose.z + n.z * (thickness / 2 + 2),
+    };
+    const frontPoint = {
+      x: pose.x - n.x * (spec.depth + thickness / 2 + 2),
+      z: pose.z - n.z * (spec.depth + thickness / 2 + 2),
+    };
+    [backPoint, frontPoint].forEach((point) => {
+      [92, spec.height - 92].forEach((y) => {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), metalMaterial());
         mesh.position.set(point.x, y, point.z);
         mesh.rotation.y = -pose.heading;
         mesh.castShadow = true;
@@ -668,6 +695,15 @@ function updateDimensionPositions() {
   });
 }
 
+function hideEndpointButton(button) {
+  button.hidden = true;
+  button.style.display = 'none';
+}
+function showEndpointButton(button) {
+  button.hidden = false;
+  button.style.display = 'grid';
+}
+
 function endpointOverlayPoint(pose, isStart = false) {
   const spec = familySpec();
   const heading = isStart ? normalizeAngle(pose.heading + Math.PI) : pose.heading;
@@ -683,15 +719,18 @@ function positionOverlayButton(button, worldPoint) {
   const rect = canvasHost.getBoundingClientRect();
   const projected = worldPoint.clone().project(camera);
   const visible = projected.z > -1 && projected.z < 1;
-  button.hidden = !visible;
-  if (!visible) return;
+  if (!visible) {
+    hideEndpointButton(button);
+    return;
+  }
+  showEndpointButton(button);
   button.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
   button.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
 }
 function updateEndpointButtons() {
-  if (!layoutCache || endpointsOverlap(layoutCache) || addModulePanel.hidden === false) {
-    addStartButton.hidden = true;
-    addEndButton.hidden = true;
+  if (!layoutCache || layoutCache.closed || endpointsOverlap(layoutCache) || addModulePanel.hidden === false) {
+    hideEndpointButton(addStartButton);
+    hideEndpointButton(addEndButton);
     return;
   }
   positionOverlayButton(addStartButton, endpointOverlayPoint(layoutCache.start, true));
@@ -803,16 +842,16 @@ function renderAll({ refit = false } = {}) {
 function applyCameraFrame(mode = cameraMode) {
   const b = layoutBounds();
   const spec = familySpec();
-  const span = Math.max(b.maxX - b.minX + spec.depth * 2.2, b.maxZ - b.minZ + spec.depth * 2.2, spec.height, 900);
+  const span = Math.max(b.maxX - b.minX + spec.depth * 2.8, b.maxZ - b.minZ + spec.depth * 2.8, spec.height * 1.18, 1100);
   const cx = (b.minX + b.maxX) / 2;
   const cz = (b.minZ + b.maxZ) / 2;
-  controls.target.set(cx, spec.height * 0.42, cz);
+  controls.target.set(cx, spec.height * 0.44, cz);
   if (mode === 1) {
-    camera.position.set(cx, spec.height + span * 1.25, cz + 0.01);
+    camera.position.set(cx, spec.height + span * 1.4, cz + 0.01);
   } else if (mode === 2) {
-    camera.position.set(b.maxX + span * 1.25, spec.height * 0.58, cz);
+    camera.position.set(b.maxX + span * 1.45, spec.height * 0.62, cz);
   } else {
-    camera.position.set(cx, spec.height * 0.58, b.minZ - span * 1.5);
+    camera.position.set(cx, spec.height * 0.68, b.minZ - span * 2.05);
   }
   camera.lookAt(controls.target);
   controls.update();
