@@ -437,7 +437,7 @@ function addBox(group, size, position, material, moduleId, { cast = true, receiv
 }
 function frontZ(depth) { return -depth; }
 
-function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null, omitStartPosts = false, omitEndPosts = false } = {}) {
+function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null, omitStartPosts = false, omitEndPosts = false, omitStartFrontPost = false, omitStartBackPost = false, omitEndFrontPost = false, omitEndBackPost = false } = {}) {
   const spec = familySpec();
   const group = new THREE.Group();
   group.position.set(pose.x, 0, pose.z);
@@ -458,12 +458,28 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   addBox(group, { x: innerWidth, y: 105, z: depth - 18 }, { x: width / 2, y: 62, z: -depth / 2 }, darkWood, module.id);
 
   // Uprights at the free ends of the wing and, when needed, at the shared corner.
-  const postPositions = [];
-  if (!omitStartPosts) postPositions.push(POST / 2);
-  if (!omitEndPosts) postPositions.push(width - POST / 2);
-  postPositions.forEach((x) => {
-    addBox(group, { x: POST, y: height, z: POST }, { x, y: height / 2, z: -POST / 2 }, wood, module.id);
-    addBox(group, { x: POST, y: height, z: POST }, { x, y: height / 2, z: front + POST / 2 }, wood, module.id);
+  const postEnds = [
+    {
+      x: POST / 2,
+      omitAll: omitStartPosts,
+      omitBack: omitStartBackPost,
+      omitFront: omitStartFrontPost,
+    },
+    {
+      x: width - POST / 2,
+      omitAll: omitEndPosts,
+      omitBack: omitEndBackPost,
+      omitFront: omitEndFrontPost,
+    },
+  ];
+  postEnds.forEach(({ x, omitAll, omitBack, omitFront }) => {
+    if (omitAll) return;
+    if (!omitBack) {
+      addBox(group, { x: POST, y: height, z: POST }, { x, y: height / 2, z: -POST / 2 }, wood, module.id);
+    }
+    if (!omitFront) {
+      addBox(group, { x: POST, y: height, z: POST }, { x, y: height / 2, z: front + POST / 2 }, wood, module.id);
+    }
   });
 
   const shelfCount = spec.height > 2200 ? 7 : 6;
@@ -517,7 +533,8 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
   const openingWidth = Math.max(120, openingEnd - openingStart);
 
   if (cornerWing) {
-    const leafWidth = Math.max(90, Math.min(openingWidth * 0.5, 220));
+    const straightLeafWidth = (Math.max(120, width - POST * 2 - 18) - 8) / 2;
+    const leafWidth = Math.max(90, Math.min(openingWidth, straightLeafWidth));
     const x = sharedSide === 'start'
       ? openingEnd - leafWidth / 2
       : openingStart + leafWidth / 2;
@@ -562,7 +579,7 @@ function renderModule(entry) {
   if (module.kind === 'straight') {
     addShelfWing(root, module, entry.start, familySpec().width);
   } else {
-    const first = addShelfWing(root, module, entry.start, familySpec().corner, { cornerWing: true, sharedSide: 'end' });
+    const first = addShelfWing(root, module, entry.start, familySpec().corner, { cornerWing: true, sharedSide: 'end', omitEndFrontPost: true });
     // The second wing starts at the shared corner, so its door leaves are inset away from that joint.
     const secondPose = { x: entry.corner.x, z: entry.corner.z, heading: entry.end.heading };
     const second = addShelfWing(root, module, secondPose, familySpec().corner, { cornerWing: true, sharedSide: 'start', omitStartPosts: true });
