@@ -7,6 +7,9 @@ const CURRENCY_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 const LID_LIFT_MM = 300;
 const SURFACE_TEXT_OFFSET_MM = 1.5;
 const EPSILON = 1e-6;
+const MAX_IMAGE_FILE_BYTES = 15_000_000;
+const MAX_IMAGE_DATA_URL_CHARS = 220_000;
+const MAX_TOTAL_IMAGE_DATA_URL_CHARS = 700_000;
 
 const TEXT = Object.freeze({
   'en-US': Object.freeze({
@@ -104,6 +107,30 @@ const textItalicToggle = $('#textItalicToggle');
 const textUnderlineToggle = $('#textUnderlineToggle');
 const textUnderlineStyle = $('#textUnderlineStyle');
 const summaryTotal = $('#summaryTotal');
+const faceColorButton = $('#faceColorButton');
+const faceImageButton = $('#faceImageButton');
+const faceColorPanel = $('#faceColorPanel');
+const faceColorPalette = $('#faceColorPalette');
+const faceCurrentColorSwatch = $('#faceCurrentColorSwatch');
+const faceColorSideLabel = $('#faceColorSideLabel');
+const applyOuterColorButton = $('#applyOuterColorButton');
+const applyInnerColorButton = $('#applyInnerColorButton');
+const applyBothColorButton = $('#applyBothColorButton');
+const backFromColorButton = $('#backFromColorButton');
+const faceImageInput = $('#faceImageInput');
+const cancelImagePlacementButton = $('#cancelImagePlacementButton');
+const imageSelectionHud = $('#imageSelectionHud');
+const imageResizeButton = $('#imageResizeButton');
+const imageLiftTopButton = $('#imageLiftTopButton');
+const imageDeleteButton = $('#imageDeleteButton');
+const imageDismissButton = $('#imageDismissButton');
+const imageResizePanel = $('#imageResizePanel');
+const imageWidthInput = $('#imageWidthInput');
+const imageHeightInput = $('#imageHeightInput');
+const imageScaleInput = $('#imageScaleInput');
+const imageScaleValue = $('#imageScaleValue');
+const confirmImageResizeButton = $('#confirmImageResizeButton');
+const cancelImageResizeButton = $('#cancelImageResizeButton');
 
 let locale = localeForHost();
 let units = locale === 'en-US' ? 'imperial' : 'metric';
@@ -142,6 +169,22 @@ let editingTextId = '';
 let editingTextOriginalSpec = null;
 let suppressCanvasClick = false;
 let lidLiftEnabled = false;
+let selectedFaceColor = DEFAULT_COLOR;
+let imagePlacementMode = false;
+let pendingImageSpec = null;
+let pendingImageElement = null;
+let previewImagePlacement = null;
+let selectedImageId = '';
+let imageDragging = false;
+let imageDragPointerId = null;
+let imageDragMoved = false;
+let imageHudAnchor = null;
+let imageRenderGeneration = 0;
+let imageResizeOriginal = null;
+let imageResizeStartWidth = 0;
+let imageResizeStartHeight = 0;
+let imageResizeUpdating = false;
+const imageElementCache = new Map();
 
 function makeBaseBox(width = 600, depth = 400, height = 300) {
   return { id: 'base', minX: -width / 2, maxX: width / 2, minY: 0, maxY: height, minZ: -depth / 2, maxZ: depth / 2 };
@@ -493,6 +536,9 @@ const textGroup = new THREE.Group(); scene.add(textGroup);
 const editorPreviewGroup = new THREE.Group(); scene.add(editorPreviewGroup);
 const previewGroup = new THREE.Group(); scene.add(previewGroup);
 const textSelectionGroup = new THREE.Group(); scene.add(textSelectionGroup);
+const imageGroup = new THREE.Group(); scene.add(imageGroup);
+const imagePreviewGroup = new THREE.Group(); scene.add(imagePreviewGroup);
+const imageSelectionGroup = new THREE.Group(); scene.add(imageSelectionGroup);
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -1335,7 +1381,7 @@ function selectTextPlacement(id) {
   renderTextSelection();
 }
 function deselectTextPlacement() {
-  selectedTextId = '';
+  if (typeof selectedTextId !== 'undefined') selectedTextId = '';
   lidLiftEnabled = false;
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
@@ -1395,8 +1441,14 @@ function updateFacePopupPosition() {
   const projected = world.project(camera);
   const rect = canvasHost.getBoundingClientRect();
   if (projected.z < -1 || projected.z > 1) { faceActionPopup.hidden = true; return; }
-  faceActionPopup.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
-  faceActionPopup.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
+  const popupWidth = faceActionPopup.offsetWidth || 238;
+  const popupHeight = faceActionPopup.offsetHeight || 132;
+  const rawLeft = (projected.x * 0.5 + 0.5) * rect.width;
+  const rawTop = (-projected.y * 0.5 + 0.5) * rect.height;
+  const halfWidth = popupWidth / 2;
+  const halfHeight = popupHeight / 2;
+  faceActionPopup.style.left = `${clamp(rawLeft, halfWidth + 6, Math.max(halfWidth + 6, rect.width - halfWidth - 6))}px`;
+  faceActionPopup.style.top = `${clamp(rawTop, halfHeight + 6, Math.max(halfHeight + 6, rect.height - halfHeight - 6))}px`;
 }
 function renderAll() {
   renderInputs(); renderTranslations(); renderSummary(); rebuildSurfaceMeshes(); renderFacePopup(); renderTextSelection();
@@ -1994,34 +2046,90 @@ function bindControls() {
 }
 
 renderer.domElement.addEventListener('dblclick', (event) => {
-  if (addMode || placementMode || editingTextId || !textEditorPanel.hidden) return;
+  if (
+    addMode
+    || placementMode
+    || imagePlacementMode
+    || editingTextId
+    || !textEditorPanel.hidden
+    || !faceColorPanel.hidden
+    || !imageResizePanel.hidden
+  ) return;
+
+  const imageHit = raycastImage(event).hit;
+  const imageId = imageHit?.object?.userData?.imagePlacementId || '';
+  if (imageId) {
+    selectImagePlacement(imageId);
+    event.preventDefault();
+    return;
+  }
+
   const textHit = raycastText(event).hit;
-  const placementId = textHit?.object?.userData?.textPlacementId;
+  const placementId = textHit?.object?.userData?.textPlacementId || '';
   if (placementId) {
     selectTextPlacement(placementId);
     event.preventDefault();
     return;
   }
+
   const { hit, raycaster } = raycast(event);
-  if (!hit?.object?.userData?.vertical) return;
+  if (!hit?.object?.userData?.cardboxSurface || !hit.object.userData.face) return;
   const face = hit.object.userData.face;
-  if (selectedFaceKey && selectedFaceKey === hit.object.userData.faceKey) { deselectFace(); return; }
+  if (!decorationFaceAvailable(face)) return;
+  const explicitSideFactor = Number(hit.object.userData.surfaceSideFactor);
   const outward = faceNormal(face);
-  const sideFactor = outward.dot(raycaster.ray.direction) < 0 ? 1 : -1;
+  const inferredSideFactor = outward.dot(raycaster.ray.direction) < 0 ? 1 : -1;
+  const sideFactor = explicitSideFactor < 0 ? -1 : explicitSideFactor > 0 ? 1 : inferredSideFactor;
+  if (
+    selectedFaceKey
+    && selectedFaceKey === hit.object.userData.faceKey
+    && selectedFaceSideFactor === sideFactor
+  ) {
+    deselectFace();
+    return;
+  }
   selectFace(face, sideFactor);
+  event.preventDefault();
 });
+
 renderer.domElement.addEventListener('pointerdown', (event) => {
+  if (beginSelectedImageDrag(event)) return;
   beginSelectedTextDrag(event);
 }, true);
+
 renderer.domElement.addEventListener('pointermove', (event) => {
-  if (textDragging) moveSelectedTextWithPointer(event);
-  else updateTextPreview(event);
+  if (imageDragging) {
+    moveSelectedImageWithPointer(event);
+    return;
+  }
+  if (textDragging) {
+    moveSelectedTextWithPointer(event);
+    return;
+  }
+  if (imagePlacementMode) {
+    updateImagePreview(event);
+    return;
+  }
+  updateTextPreview(event);
 });
-renderer.domElement.addEventListener('pointerup', endSelectedTextDrag);
-renderer.domElement.addEventListener('pointercancel', endSelectedTextDrag);
+
+renderer.domElement.addEventListener('pointerup', (event) => {
+  if (endSelectedImageDrag(event)) return;
+  endSelectedTextDrag(event);
+});
+renderer.domElement.addEventListener('pointercancel', (event) => {
+  if (endSelectedImageDrag(event)) return;
+  endSelectedTextDrag(event);
+});
+
 renderer.domElement.addEventListener('click', (event) => {
   if (suppressCanvasClick) {
     suppressCanvasClick = false;
+    return;
+  }
+  if (imagePlacementMode) {
+    updateImagePreview(event);
+    if (previewImagePlacement) commitImagePlacement();
     return;
   }
   if (placementMode) {
@@ -2029,14 +2137,37 @@ renderer.domElement.addEventListener('click', (event) => {
     if (previewPlacement) commitTextPlacement();
     return;
   }
-  if (addMode || editingTextId || !textEditorPanel.hidden) return;
+  if (
+    addMode
+    || editingTextId
+    || !textEditorPanel.hidden
+    || !faceColorPanel.hidden
+    || !imageResizePanel.hidden
+  ) return;
+
+  const imageHit = raycastImage(event).hit;
+  const clickedImageId = imageHit?.object?.userData?.imagePlacementId || '';
+  if (clickedImageId) {
+    if (selectedTextId) deselectTextPlacement();
+    if (selectedImageId && clickedImageId !== selectedImageId) deselectImagePlacement();
+    return;
+  }
+
   const textHit = raycastText(event).hit;
   const clickedTextId = textHit?.object?.userData?.textPlacementId || '';
   if (clickedTextId) {
+    if (selectedImageId) deselectImagePlacement();
     if (selectedTextId && clickedTextId !== selectedTextId) deselectTextPlacement();
     return;
   }
+
   const { hit } = raycast(event);
+  if (selectedImageId) {
+    // Preserve selection while the user drags empty viewer space to orbit.
+    // Clicking an actual box surface or other box artwork dismisses it.
+    if (hit?.object?.userData?.cardboxSurface) deselectImagePlacement();
+    return;
+  }
   if (selectedTextId) {
     // Empty viewer space is commonly used to orbit the camera. Keep the text
     // selected there; deselect only when the click actually lands on the box.
@@ -2129,7 +2260,7 @@ function restoreState(snapshot) {
   placementMode = false;
   selectedFaceKey = '';
   selectedFaceSnapshot = null;
-  selectedTextId = '';
+  if (typeof selectedTextId !== 'undefined') selectedTextId = '';
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
   selectedTextConstraintFixedS = null;
@@ -2149,7 +2280,7 @@ function resetConfiguration() {
   placementMode = false;
   selectedFaceKey = '';
   selectedFaceSnapshot = null;
-  selectedTextId = '';
+  if (typeof selectedTextId !== 'undefined') selectedTextId = '';
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
   selectedTextConstraintFixedS = null;
@@ -2175,7 +2306,2230 @@ function cycleCamera() {
 }
 function getPrice() { const metrics = calculateUnionMetrics(state.boxes); const eur = metrics.areaMm2 / 1_000_000 * BOARD_EUR_M2 + state.textPlacements.length * 0.35 + 0.95 + Math.max(0, state.boxes.length - 1) * 0.18; return { amount: eur * (CURRENCY_FROM_EUR[currency] || 1), currency }; }
 
-window.CARDBOX_CONFIGURATOR_API = { captureState, restoreState, resetConfiguration, setUnits, setCurrency, setLocale, setDarkMode, toggleDimensions, toggleTechnicalEdges, cycleCamera, getPrice, syncToolButtons() {}, closeToolPanels() {} };
+
+// ---------------------------------------------------------------------------
+// Practical FEFCO catalogue, closures, die-cut features and paper recipes.
+// The legacy arbitrary-volume add workflow remains intentionally unreachable:
+// the product can now only use the nine manufacturing-oriented structures below.
+// ---------------------------------------------------------------------------
+const PACKAGING_CATALOG_SCHEMA_VERSION = 1;
+const PACKAGING_BOX_TYPES = Object.freeze({
+  standard: Object.freeze({ code: '0201', family: '02', dims: [600, 400, 300], top: 'simple-flaps', bottom: 'simple-flaps', topOptions: ['open','flat','simple-flaps','folded-flaps','full-overlap','interlocking','tuck'], bottomOptions: ['open','flat','simple-flaps','folded-flaps','full-overlap','interlocking','snap-lock','auto-lock'] }),
+  'full-overlap': Object.freeze({ code: '0203', family: '02', dims: [600, 400, 300], top: 'full-overlap', bottom: 'full-overlap', topOptions: ['open','flat','simple-flaps','folded-flaps','full-overlap','interlocking'], bottomOptions: ['open','flat','simple-flaps','folded-flaps','full-overlap','interlocking'] }),
+  telescope: Object.freeze({ code: '03xx', family: '03', dims: [520, 360, 240], top: 'telescope', bottom: 'flat', topOptions: ['telescope','open'], bottomOptions: ['flat','open'] }),
+  archive: Object.freeze({ code: '04xx', family: '04', dims: [400, 320, 260], top: 'archive-lid', bottom: 'flat', topOptions: ['archive-lid','hinged','tuck','open'], bottomOptions: ['flat','open'], defaultHandle: 'die-cut' }),
+  pizza: Object.freeze({ code: '0426', family: '04', dims: [330, 330, 50], top: 'pizza-lid', bottom: 'flat', topOptions: ['pizza-lid','hinged','self-locking','open'], bottomOptions: ['flat'], defaultHoles: 'vents' }),
+  mailer: Object.freeze({ code: '0427', family: '04', dims: [360, 260, 100], top: 'mailer-lid', bottom: 'flat', topOptions: ['mailer-lid','hinged','tuck','self-locking','open'], bottomOptions: ['flat'] }),
+  'auto-bottom': Object.freeze({ code: '07xx', family: '07', dims: [420, 300, 250], top: 'tuck', bottom: 'auto-lock', topOptions: ['open','simple-flaps','tuck'], bottomOptions: ['auto-lock','snap-lock'] }),
+  'two-point-glued': Object.freeze({ code: '07xx · 2P', family: '07', dims: [420, 300, 180], top: 'tuck', bottom: 'two-point-glued', topOptions: ['open','simple-flaps','tuck'], bottomOptions: ['two-point-glued','flat'] }),
+  'sleeve-drawer': Object.freeze({ code: '05xx', family: '05', dims: [400, 260, 110], top: 'sleeve', bottom: 'drawer', topOptions: ['sleeve','open'], bottomOptions: ['drawer'] }),
+});
+const PACKAGING_CLOSURES = Object.freeze({
+  open: Object.freeze({ factor: 0 }),
+  flat: Object.freeze({ factor: 1 }),
+  'simple-flaps': Object.freeze({ factor: 2 }),
+  'folded-flaps': Object.freeze({ factor: 2.1 }),
+  'full-overlap': Object.freeze({ factor: 2.5 }),
+  interlocking: Object.freeze({ factor: 2.2 }),
+  tuck: Object.freeze({ factor: 1.3 }),
+  hinged: Object.freeze({ factor: 1.18 }),
+  'self-locking': Object.freeze({ factor: 1.42 }),
+  telescope: Object.freeze({ factor: 1.45 }),
+  'archive-lid': Object.freeze({ factor: 1.5 }),
+  'pizza-lid': Object.freeze({ factor: 1.42 }),
+  'mailer-lid': Object.freeze({ factor: 1.4 }),
+  'snap-lock': Object.freeze({ factor: 1.35 }),
+  'auto-lock': Object.freeze({ factor: 1.5 }),
+  'two-point-glued': Object.freeze({ factor: 1.35 }),
+  sleeve: Object.freeze({ factor: 1.55 }),
+  drawer: Object.freeze({ factor: 1.2 }),
+});
+const PACKAGING_FLUTES = Object.freeze({
+  E: Object.freeze({ thickness: 1.5, takeUp: 1.24, priceM2: 1.35 }),
+  B: Object.freeze({ thickness: 3.0, takeUp: 1.35, priceM2: 1.55 }),
+  C: Object.freeze({ thickness: 4.0, takeUp: 1.43, priceM2: 1.72 }),
+  EB: Object.freeze({ thickness: 4.5, takeUp: [1.24, 1.35], priceM2: 2.35 }),
+  BC: Object.freeze({ thickness: 7.0, takeUp: [1.35, 1.43], priceM2: 2.78 }),
+});
+const PACKAGING_PAPERS = Object.freeze({
+  'testliner-natural': Object.freeze({ color: '#b88959', liner: true }),
+  kraftliner: Object.freeze({ color: '#a87342', liner: true }),
+  'white-top-testliner': Object.freeze({ color: '#f1efe7', liner: true }),
+  'white-kraftliner': Object.freeze({ color: '#fafaf6', liner: true }),
+  fluting: Object.freeze({ color: '#c99b68', medium: true }),
+  'semi-chemical-fluting': Object.freeze({ color: '#c39058', medium: true }),
+  'recycled-fluting': Object.freeze({ color: '#b98858', medium: true }),
+});
+const PACKAGING_COPY = Object.freeze({
+  'en-US': Object.freeze({
+    'intro.eyebrow':'Corrugated packaging','intro.title':'Cardboard box settings','intro.copy':'Choose a practical FEFCO-based box style, then configure its closures, features and board construction.',
+    'section.structure':'1. Box structure','section.closures':'2. Closures','section.features':'3. Cut-outs & features','section.board':'4. Cardboard','section.summary':'5. Summary & BOM',
+    'structure.type':'Box type','structure.typeHelp':'Approachable names are shown first; the corresponding FEFCO style or family remains visible underneath.',
+    'dimension.width':'Width','dimension.depth':'Depth','dimension.height':'Height','dimension.thickness':'Nominal board thickness',
+    'type.standard':'Standard shipping box','type.fullOverlap':'Full-overlap box','type.telescope':'Telescope lid box','type.archive':'Archive box','type.pizza':'Pizza box','type.mailer':'Postal mailer','type.autoBottom':'Self-erecting box','type.twoPoint':'Two-point glued box','type.sleeve':'Sleeve & drawer box',
+    'desc.standard':'The familiar regular slotted shipping carton. Four wall panels and meeting top and bottom flaps make it the most versatile transport box.',
+    'desc.full-overlap':'A slotted transport box whose outer flaps overlap for extra top and bottom protection.',
+    'desc.telescope':'A base and a larger cap-style lid that slides over the body, useful for products that need a removable protective cover.',
+    'desc.archive':'A rigid storage-oriented folder box with an accessible lid and optional carry handle.',
+    'desc.pizza':'A shallow one-piece folder with a hinged self-locking lid, intended for pizza and similar flat products.',
+    'desc.mailer':'A one-piece postal box with a hinged lid, side dust flaps and a front locking/tuck section.',
+    'desc.autoBottom':'A ready-glued box that opens into shape and locks its bottom automatically for fast packing.',
+    'desc.twoPoint':'A ready-glued construction secured at two manufacturing glue points, supplied flat and erected before use.',
+    'desc.sleeve':'An inner tray that slides into an outer sleeve, suited to premium presentation and drawer-style packaging.',
+    'closure.top':'Top closure','closure.bottom':'Bottom closure','closure.note':'Only closures compatible with the selected structural family are shown.','closure.open':'Open','closure.flat':'Flat panel','closure.simple-flaps':'Simple flaps','closure.folded-flaps':'Folded flaps','closure.full-overlap':'Full-overlap flaps','closure.interlocking':'Interlocking flaps','closure.tuck':'Tuck flap','closure.hinged':'Hinged lid','closure.self-locking':'Self-locking lid','closure.telescope':'Telescope cap','closure.archive-lid':'Archive lid','closure.pizza-lid':'Pizza self-locking lid','closure.mailer-lid':'Mailer locking lid','closure.snap-lock':'Snap-lock bottom','closure.auto-lock':'Automatic / crash-lock bottom','closure.two-point-glued':'Two-point glued bottom','closure.sleeve':'Outer sleeve','closure.drawer':'Inner drawer',
+    'feature.handles':'Handles','feature.handlesHelp':'Add a real die-cut opening to the selected box faces.','feature.holes':'Holes & ventilation','feature.holesHelp':'Circular, oval or slotted openings are cut through the board.','feature.type':'Type','feature.position':'Position','feature.width':'Width','feature.height':'Height','feature.quantity':'Quantity / face','feature.none':'None','feature.dieCut':'Simple die-cut','feature.reinforced':'Reinforced die-cut','feature.round':'Circular','feature.oval':'Oval','feature.vents':'Ventilation slots','feature.front':'Front','feature.sides':'Both sides','feature.allSides':'All vertical sides','feature.lid':'Top / lid',
+    'board.construction':'Construction','board.flute':'Flute profile','board.fluteHelp':'The available profiles depend on the selected single- or double-wall construction.','board.paperPreset':'Paper preset','board.paperPresetHelp':'T / A / F describe the outer liner, fluting medium and inner liner sequence used by the supplier.','board.tft':'Natural outside / natural inside','board.aft':'White outside / natural inside','board.afa':'White outside / white inside','board.stack':'Layer stack','board.estimatedGsm':'Estimated board weight','board.outside':'Outside','board.inside':'Inside','board.advanced':'Advanced paper composition','board.advancedHelp':'Edit the paper grade and grammage of every liner and fluting layer. Changing a row creates a custom paper recipe.','board.custom':'Custom recipe',
+    'paper.outer':'Outer liner','paper.flute1':'Fluting medium','paper.middle':'Middle liner','paper.flute2':'Second fluting','paper.inner':'Inner liner','paper.testlinerNatural':'Natural testliner','paper.kraftliner':'Natural kraftliner','paper.whiteTop':'White-top testliner','paper.whiteKraft':'White kraftliner','paper.fluting':'Fluting','paper.semiChemical':'Semi-chemical fluting','paper.recycledFluting':'Recycled fluting',
+    'summary.material':'Cardboard','summary.conversion':'Conversion','summary.features':'Features','summary.textCost':'Text',
+    'summary.type':'Box type','summary.boardArea':'Estimated blank area','summary.mass':'Estimated mass','summary.volume':'Internal volume','summary.texts':'Text objects','summary.total':'Estimated total','summary.note':'Indicative material, conversion and personalization estimate for one configured box.','bom.structure':'Structure','bom.closures':'Closures','bom.board':'Board','bom.layers':'Paper composition','bom.features':'Features','bom.dimensions':'Finished dimensions','bom.none':'None',
+  }),
+  'ro-RO': Object.freeze({
+    'intro.eyebrow':'Ambalaje din carton ondulat','intro.title':'Setări cutie din carton','intro.copy':'Alege un model de cutie bazat pe standardul FEFCO, apoi configurează închiderile, decupajele și structura cartonului.',
+    'section.structure':'1. Structura cutiei','section.closures':'2. Închideri','section.features':'3. Decupaje și elemente','section.board':'4. Carton','section.summary':'5. Sumar și BOM',
+    'structure.type':'Tip de cutie','structure.typeHelp':'Denumirea uzuală apare prima, iar stilul sau familia FEFCO rămâne vizibilă dedesubt.',
+    'dimension.width':'Lățime','dimension.depth':'Adâncime','dimension.height':'Înălțime','dimension.thickness':'Grosime nominală carton',
+    'type.standard':'Cutie standard de transport','type.fullOverlap':'Cutie cu clapete suprapuse','type.telescope':'Cutie telescopică','type.archive':'Cutie pentru arhivare','type.pizza':'Cutie pentru pizza','type.mailer':'Cutie poștală','type.autoBottom':'Cutie cu autoformare','type.twoPoint':'Cutie lipită în două puncte','type.sleeve':'Cutie tip manșon și sertar',
+    'desc.standard':'Cutia de transport cu clapete clasice. Patru pereți și clapete superioare/inferioare care se întâlnesc o fac potrivită pentru majoritatea produselor.',
+    'desc.full-overlap':'Cutie de transport ale cărei clapete exterioare se suprapun pentru protecție suplimentară sus și jos.',
+    'desc.telescope':'O bază și un capac mai mare care culisează peste corp, potrivite pentru produse care necesită un capac detașabil.',
+    'desc.archive':'Cutie de depozitare cu capac accesibil și posibilitate de mâner pentru transport.',
+    'desc.pizza':'Cutie joasă dintr-o singură bucată, cu capac rabatabil și autoblocant pentru pizza și produse plate.',
+    'desc.mailer':'Cutie poștală dintr-o bucată, cu capac rabatabil, aripioare laterale și blocare frontală.',
+    'desc.autoBottom':'Cutie prelipită care se deschide în formă și își blochează automat baza pentru ambalare rapidă.',
+    'desc.twoPoint':'Construcție prelipită în două puncte de fabricație, livrată plat și formată înainte de utilizare.',
+    'desc.sleeve':'O tăviță interioară care culisează într-un manșon exterior, potrivită pentru ambalaje premium.',
+    'closure.top':'Închidere superioară','closure.bottom':'Închidere inferioară','closure.note':'Sunt afișate doar închiderile compatibile cu familia structurală selectată.','closure.open':'Deschis','closure.flat':'Panou plat','closure.simple-flaps':'Clapete simple','closure.folded-flaps':'Clapete îndoite','closure.full-overlap':'Clapete suprapuse','closure.interlocking':'Clapete interblocabile','closure.tuck':'Clapetă de introducere','closure.hinged':'Capac rabatabil','closure.self-locking':'Capac autoblocant','closure.telescope':'Capac telescopic','closure.archive-lid':'Capac de arhivare','closure.pizza-lid':'Capac autoblocant pizza','closure.mailer-lid':'Capac cu blocare poștală','closure.snap-lock':'Bază cu blocare rapidă','closure.auto-lock':'Bază automată / crash-lock','closure.two-point-glued':'Bază lipită în două puncte','closure.sleeve':'Manșon exterior','closure.drawer':'Sertar interior',
+    'feature.handles':'Mânere','feature.handlesHelp':'Adaugă un decupaj real în fețele selectate ale cutiei.','feature.holes':'Găuri și ventilație','feature.holesHelp':'Deschiderile circulare, ovale sau fantele sunt decupate prin carton.','feature.type':'Tip','feature.position':'Poziție','feature.width':'Lățime','feature.height':'Înălțime','feature.quantity':'Cantitate / față','feature.none':'Fără','feature.dieCut':'Decupaj simplu','feature.reinforced':'Decupaj ranforsat','feature.round':'Circulară','feature.oval':'Ovală','feature.vents':'Fante de ventilație','feature.front':'Față','feature.sides':'Ambele laterale','feature.allSides':'Toate fețele verticale','feature.lid':'Sus / capac',
+    'board.construction':'Construcție','board.flute':'Tip ondulă','board.fluteHelp':'Profilele disponibile depind de construcția CO3 sau CO5 selectată.','board.paperPreset':'Preset hârtii','board.paperPresetHelp':'T / A / F descriu succesiunea feței exterioare, a hârtiei de ondulă și a feței interioare folosită de furnizor.','board.tft':'Natur exterior / natur interior','board.aft':'Alb exterior / natur interior','board.afa':'Alb exterior / alb interior','board.stack':'Structură straturi','board.estimatedGsm':'Greutate estimată carton','board.outside':'Exterior','board.inside':'Interior','board.advanced':'Compoziție avansată a hârtiilor','board.advancedHelp':'Editează tipul și gramajul fiecărui strat. Modificarea unui rând creează o rețetă personalizată.','board.custom':'Rețetă personalizată',
+    'paper.outer':'Față exterioară','paper.flute1':'Hârtie ondulă','paper.middle':'Față intermediară','paper.flute2':'A doua ondulă','paper.inner':'Față interioară','paper.testlinerNatural':'Testliner natur','paper.kraftliner':'Kraftliner natur','paper.whiteTop':'Testliner alb','paper.whiteKraft':'Kraftliner alb','paper.fluting':'Fluting','paper.semiChemical':'Fluting semicelulozic','paper.recycledFluting':'Fluting reciclat',
+    'summary.material':'Carton','summary.conversion':'Conversie','summary.features':'Elemente','summary.textCost':'Text',
+    'summary.type':'Tip cutie','summary.boardArea':'Suprafață estimată ștanță','summary.mass':'Masă estimată','summary.volume':'Volum interior','summary.texts':'Elemente text','summary.total':'Total estimat','summary.note':'Estimare orientativă pentru material, conversie și personalizare pentru o cutie configurată.','bom.structure':'Structură','bom.closures':'Închideri','bom.board':'Carton','bom.layers':'Compoziție hârtii','bom.features':'Elemente','bom.dimensions':'Dimensiuni finite','bom.none':'Fără',
+  }),
+  'de-DE': Object.freeze({
+    'intro.eyebrow':'Wellpappenverpackung','intro.title':'Kartonbox-Einstellungen','intro.copy':'Wählen Sie einen praxisnahen FEFCO-basierten Boxstil und konfigurieren Sie Verschlüsse, Ausschnitte und Kartonaufbau.',
+    'section.structure':'1. Box-Struktur','section.closures':'2. Verschlüsse','section.features':'3. Ausschnitte & Merkmale','section.board':'4. Wellpappe','section.summary':'5. Übersicht & Stückliste',
+    'structure.type':'Boxtyp','structure.typeHelp':'Zuerst erscheint die verständliche Bezeichnung; der entsprechende FEFCO-Stil oder die Familie bleibt darunter sichtbar.',
+    'dimension.width':'Breite','dimension.depth':'Tiefe','dimension.height':'Höhe','dimension.thickness':'Nennstärke der Wellpappe',
+    'type.standard':'Standard-Versandkarton','type.fullOverlap':'Vollüberlappende Box','type.telescope':'Teleskopbox','type.archive':'Archivbox','type.pizza':'Pizzakarton','type.mailer':'Versandbox','type.autoBottom':'Automatikbodenbox','type.twoPoint':'Zweipunkt-Klebebox','type.sleeve':'Schuber- & Schubladenbox',
+    'desc.standard':'Der bekannte Faltkarton mit vier Wandfeldern und zusammentreffenden oberen und unteren Klappen für vielseitigen Versand.',
+    'desc.fullOverlap':'Ein Versandkarton mit überlappenden Außenklappen für zusätzlichen Schutz oben und unten.',
+    'desc.telescope':'Unterteil und größerer Stülpdeckel, der über den Körper gleitet und einen abnehmbaren Schutz bietet.',
+    'desc.archive':'Lagerorientierte Faltbox mit leicht zugänglichem Deckel und optionalem Tragegriff.',
+    'desc.pizza':'Flache einteilige Faltbox mit Klappdeckel und Selbstverriegelung für Pizza und andere flache Produkte.',
+    'desc.mailer':'Einteilige Versandbox mit Klappdeckel, Staublaschen und vorderem Steck-/Verschlussbereich.',
+    'desc.autoBottom':'Vorgeklebte Box, die sich aufrichtet und den Boden automatisch verriegelt.',
+    'desc.twoPoint':'Vorgeklebte Konstruktion mit zwei Klebepunkten, flach geliefert und vor Gebrauch aufgerichtet.',
+    'desc.sleeve':'Eine innere Schublade gleitet in einen äußeren Schuber – geeignet für hochwertige Präsentationsverpackungen.',
+    'closure.top':'Oberer Verschluss','closure.bottom':'Unterer Verschluss','closure.note':'Es werden nur Verschlüsse angezeigt, die zur gewählten Struktur passen.','closure.open':'Offen','closure.flat':'Flache Platte','closure.simple-flaps':'Einfache Klappen','closure.folded-flaps':'Gefaltete Klappen','closure.full-overlap':'Vollüberlappende Klappen','closure.interlocking':'Ineinandergreifende Klappen','closure.tuck':'Stecklasche','closure.hinged':'Klappdeckel','closure.self-locking':'Selbstverriegelnder Deckel','closure.telescope':'Teleskopdeckel','closure.archive-lid':'Archivdeckel','closure.pizza-lid':'Selbstverriegelnder Pizzadeckel','closure.mailer-lid':'Verriegelnder Versanddeckel','closure.snap-lock':'Steckboden','closure.auto-lock':'Automatik- / Crash-Lock-Boden','closure.two-point-glued':'Zweipunkt-Klebeboden','closure.sleeve':'Außenschuber','closure.drawer':'Innenschublade',
+    'feature.handles':'Griffe','feature.handlesHelp':'Fügt echte gestanzte Öffnungen in die ausgewählten Boxflächen ein.','feature.holes':'Löcher & Belüftung','feature.holesHelp':'Runde, ovale oder geschlitzte Öffnungen werden durch die Wellpappe gestanzt.','feature.type':'Typ','feature.position':'Position','feature.width':'Breite','feature.height':'Höhe','feature.quantity':'Anzahl / Fläche','feature.none':'Keine','feature.dieCut':'Einfach gestanzt','feature.reinforced':'Verstärkt gestanzt','feature.round':'Rund','feature.oval':'Oval','feature.vents':'Belüftungsschlitze','feature.front':'Vorderseite','feature.sides':'Beide Seiten','feature.allSides':'Alle vertikalen Seiten','feature.lid':'Oben / Deckel',
+    'board.construction':'Aufbau','board.flute':'Wellenprofil','board.fluteHelp':'Die verfügbaren Profile hängen vom gewählten ein- oder zweiwelligen Aufbau ab.','board.paperPreset':'Papier-Voreinstellung','board.paperPresetHelp':'T / A / F beschreiben die Reihenfolge aus Außenliner, Wellenpapier und Innenliner.','board.tft':'Natur außen / Natur innen','board.aft':'Weiß außen / Natur innen','board.afa':'Weiß außen / Weiß innen','board.stack':'Schichtaufbau','board.estimatedGsm':'Geschätztes Flächengewicht','board.outside':'Außen','board.inside':'Innen','board.advanced':'Erweiterter Papieraufbau','board.advancedHelp':'Papiersorte und Grammatur jeder Lage bearbeiten. Eine Änderung erzeugt ein benutzerdefiniertes Rezept.','board.custom':'Benutzerdefiniertes Rezept',
+    'paper.outer':'Außenliner','paper.flute1':'Wellenpapier','paper.middle':'Mittelliner','paper.flute2':'Zweites Wellenpapier','paper.inner':'Innenliner','paper.testlinerNatural':'Natur-Testliner','paper.kraftliner':'Natur-Kraftliner','paper.whiteTop':'White-Top-Testliner','paper.whiteKraft':'Weißer Kraftliner','paper.fluting':'Wellenstoff','paper.semiChemical':'Halbzellstoff-Wellenpapier','paper.recycledFluting':'Recycling-Wellenpapier',
+    'summary.material':'Wellpappe','summary.conversion':'Verarbeitung','summary.features':'Merkmale','summary.textCost':'Text',
+    'summary.type':'Boxtyp','summary.boardArea':'Geschätzte Zuschnittfläche','summary.mass':'Geschätzte Masse','summary.volume':'Innenvolumen','summary.texts':'Textobjekte','summary.total':'Geschätzter Gesamtpreis','summary.note':'Unverbindliche Schätzung für Material, Verarbeitung und Personalisierung einer konfigurierten Box.','bom.structure':'Struktur','bom.closures':'Verschlüsse','bom.board':'Wellpappe','bom.layers':'Papieraufbau','bom.features':'Merkmale','bom.dimensions':'Fertigmaße','bom.none':'Keine',
+  }),
+});
+const PACKAGING_PAPER_COPY_KEYS = Object.freeze({
+  'testliner-natural':'paper.testlinerNatural', kraftliner:'paper.kraftliner', 'white-top-testliner':'paper.whiteTop', 'white-kraftliner':'paper.whiteKraft', fluting:'paper.fluting', 'semi-chemical-fluting':'paper.semiChemical', 'recycled-fluting':'paper.recycledFluting',
+});
+const PACKAGING_ROLE_KEYS = Object.freeze({ outer:'paper.outer', flute1:'paper.flute1', middle:'paper.middle', flute2:'paper.flute2', inner:'paper.inner' });
+const PACKAGING_CLOSURE_KEYS = Object.freeze({
+  open:'closure.open', flat:'closure.flat', 'simple-flaps':'closure.simple-flaps', 'folded-flaps':'closure.folded-flaps', 'full-overlap':'closure.full-overlap', interlocking:'closure.interlocking', tuck:'closure.tuck', hinged:'closure.hinged', 'self-locking':'closure.self-locking', telescope:'closure.telescope', 'archive-lid':'closure.archive-lid', 'pizza-lid':'closure.pizza-lid', 'mailer-lid':'closure.mailer-lid', 'snap-lock':'closure.snap-lock', 'auto-lock':'closure.auto-lock', 'two-point-glued':'closure.two-point-glued', sleeve:'closure.sleeve', drawer:'closure.drawer',
+});
+const packagingClosureGroup = new THREE.Group(); scene.add(packagingClosureGroup);
+const packagingFeatureGroup = new THREE.Group(); scene.add(packagingFeatureGroup);
+
+function packT(key) { return PACKAGING_COPY[locale]?.[key] ?? PACKAGING_COPY['en-US'][key] ?? key; }
+function packagingDefaultLayers(construction = 'CO3', preset = 'TFT') {
+  if (construction === 'CO5') {
+    const outer = preset === 'TFT' ? 'testliner-natural' : 'white-top-testliner';
+    const inner = preset === 'AFA' ? 'white-top-testliner' : 'testliner-natural';
+    return [
+      { role:'outer', paper:outer, gsm:200 },
+      { role:'flute1', paper:'fluting', gsm:160 },
+      { role:'middle', paper:preset === 'AFA' ? 'white-top-testliner' : 'testliner-natural', gsm:180 },
+      { role:'flute2', paper:'fluting', gsm:160 },
+      { role:'inner', paper:inner, gsm:200 },
+    ];
+  }
+  if (preset === 'AFT') return [{ role:'outer',paper:'white-top-testliner',gsm:200 },{ role:'flute1',paper:'fluting',gsm:200 },{ role:'inner',paper:'testliner-natural',gsm:200 }];
+  if (preset === 'AFA') return [{ role:'outer',paper:'white-top-testliner',gsm:200 },{ role:'flute1',paper:'fluting',gsm:180 },{ role:'inner',paper:'white-top-testliner',gsm:200 }];
+  return [{ role:'outer',paper:'testliner-natural',gsm:180 },{ role:'flute1',paper:'fluting',gsm:160 },{ role:'inner',paper:'testliner-natural',gsm:180 }];
+}
+function packagingDefaultFeatures(typeId = 'standard') {
+  const def = PACKAGING_BOX_TYPES[typeId] || PACKAGING_BOX_TYPES.standard;
+  return {
+    handleType: def.defaultHandle || 'none', handlePlacement:'front', handleWidth:120, handleHeight:35,
+    holeType: def.defaultHoles || 'none', holePlacement:def.defaultHoles ? 'sides' : 'front', holeCount:def.defaultHoles ? 2 : 2, holeWidth:30, holeHeight:20,
+  };
+}
+function ensurePackagingState() {
+  if (!PACKAGING_BOX_TYPES[state.boxType]) state.boxType = 'standard';
+  const def = PACKAGING_BOX_TYPES[state.boxType];
+  if (!state.closures || typeof state.closures !== 'object') state.closures = { top:def.top, bottom:def.bottom };
+  if (!def.topOptions.includes(state.closures.top)) state.closures.top = def.top;
+  if (!def.bottomOptions.includes(state.closures.bottom)) state.closures.bottom = def.bottom;
+  if (!state.features || typeof state.features !== 'object') state.features = packagingDefaultFeatures(state.boxType);
+  state.features = { ...packagingDefaultFeatures(state.boxType), ...state.features };
+  if (!state.board || typeof state.board !== 'object') state.board = { construction:'CO3', flute:'B', preset:'TFT', layers:packagingDefaultLayers('CO3','TFT') };
+  if (!['CO3','CO5'].includes(state.board.construction)) state.board.construction = 'CO3';
+  const validFlutes = state.board.construction === 'CO5' ? ['EB','BC'] : ['E','B','C'];
+  if (!validFlutes.includes(state.board.flute)) state.board.flute = state.board.construction === 'CO5' ? 'EB' : 'B';
+  if (!Array.isArray(state.board.layers) || state.board.layers.length !== (state.board.construction === 'CO5' ? 5 : 3)) state.board.layers = packagingDefaultLayers(state.board.construction, ['TFT','AFT','AFA'].includes(state.board.preset) ? state.board.preset : 'TFT');
+  if (!state.board.preset) state.board.preset = 'TFT';
+  state.boardThickness = PACKAGING_FLUTES[state.board.flute]?.thickness || 3;
+  state.catalogSchemaVersion = PACKAGING_CATALOG_SCHEMA_VERSION;
+}
+function packagingSetBaseDimensions(width, depth, height) {
+  state.boxes = [makeBaseBox(width, depth, height)];
+}
+function packagingApplyType(typeId) {
+  const def = PACKAGING_BOX_TYPES[typeId];
+  if (!def) return;
+  state.boxType = typeId;
+  packagingSetBaseDimensions(...def.dims);
+  state.closures = { top:def.top, bottom:def.bottom };
+  state.features = packagingDefaultFeatures(typeId);
+  selectedFaceKey = '';
+  selectedFaceSnapshot = null;
+  if (typeof selectedTextId !== 'undefined') selectedTextId = '';
+  faceActionPopup.hidden = true;
+  renderAll();
+}
+function packagingPaperColor(layer, fallback = '#b88959') { return PACKAGING_PAPERS[layer?.paper]?.color || fallback; }
+function packagingOuterColor() { ensurePackagingState(); return packagingPaperColor(state.board.layers[0]); }
+function packagingInnerColor() { ensurePackagingState(); return packagingPaperColor(state.board.layers[state.board.layers.length - 1]); }
+function packagingNominalThickness() { ensurePackagingState(); return PACKAGING_FLUTES[state.board.flute]?.thickness || 3; }
+function packagingBoardGsm() {
+  ensurePackagingState();
+  const flute = PACKAGING_FLUTES[state.board.flute];
+  const factors = Array.isArray(flute.takeUp) ? flute.takeUp : [flute.takeUp];
+  let mediumIndex = 0;
+  return state.board.layers.reduce((sum, layer) => {
+    const paper = PACKAGING_PAPERS[layer.paper];
+    if (paper?.medium) return sum + Number(layer.gsm || 0) * (factors[Math.min(mediumIndex++, factors.length - 1)] || 1.3);
+    return sum + Number(layer.gsm || 0);
+  }, 0);
+}
+function packagingClosureLabel(id) { return packT(PACKAGING_CLOSURE_KEYS[id] || id); }
+function packagingTypeKey(typeId) {
+  return ({ standard:'type.standard','full-overlap':'type.fullOverlap',telescope:'type.telescope',archive:'type.archive',pizza:'type.pizza',mailer:'type.mailer','auto-bottom':'type.autoBottom','two-point-glued':'type.twoPoint','sleeve-drawer':'type.sleeve' })[typeId] || 'type.standard';
+}
+function packagingTypeLabel(typeId = state.boxType) { return packT(packagingTypeKey(typeId)); }
+function packagingTypeDescriptionKey(typeId) { return `desc.${typeId === 'full-overlap' ? 'fullOverlap' : typeId === 'auto-bottom' ? 'autoBottom' : typeId === 'two-point-glued' ? 'twoPoint' : typeId === 'sleeve-drawer' ? 'sleeve' : typeId}`; }
+function packagingEscape(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
+function packagingRenderClosureSelect(select, values, current) {
+  select.innerHTML = values.map((value) => `<option value="${value}">${packagingEscape(packagingClosureLabel(value))}</option>`).join('');
+  select.value = values.includes(current) ? current : values[0];
+  select.disabled = values.length === 1;
+}
+function packagingRenderFlutes() {
+  const container = document.querySelector('#fluteChoiceGrid');
+  if (!container) return;
+  const values = state.board.construction === 'CO5' ? ['EB','BC'] : ['E','B','C'];
+  container.innerHTML = values.map((fluteId) => {
+    const flute = PACKAGING_FLUTES[fluteId];
+    return `<button type="button" class="flute-choice${state.board.flute === fluteId ? ' is-selected' : ''}" data-flute="${fluteId}"><b>${fluteId}</b><small>≈ ${flute.thickness.toFixed(1)} mm</small></button>`;
+  }).join('');
+}
+function packagingRenderLayerEditor() {
+  const container = document.querySelector('#paperLayerEditor');
+  if (!container) return;
+  container.innerHTML = state.board.layers.map((layer, index) => {
+    const isMedium = PACKAGING_PAPERS[layer.paper]?.medium || layer.role.startsWith('flute');
+    const paperIds = Object.keys(PACKAGING_PAPERS).filter((id) => isMedium ? PACKAGING_PAPERS[id].medium : PACKAGING_PAPERS[id].liner);
+    const options = paperIds.map((paperId) => `<option value="${paperId}"${layer.paper === paperId ? ' selected' : ''}>${packagingEscape(packT(PACKAGING_PAPER_COPY_KEYS[paperId]))}</option>`).join('');
+    return `<div class="paper-layer-row" data-layer-index="${index}"><span>${packagingEscape(packT(PACKAGING_ROLE_KEYS[layer.role]))}</span><select data-layer-paper>${options}</select><label class="gsm-input"><input data-layer-gsm type="number" min="80" max="500" step="5" value="${Number(layer.gsm || 0)}"/><em>g/m²</em></label></div>`;
+  }).join('');
+}
+function packagingSetOptionLabels(select, map) {
+  if (!select) return;
+  [...select.options].forEach((option) => { option.textContent = packT(map[option.value] || option.value); });
+}
+function packagingApplyCopy() {
+  document.querySelectorAll('[data-pack-copy]').forEach((node) => { node.textContent = packT(node.dataset.packCopy); });
+  packagingSetOptionLabels(document.querySelector('#handleTypeSelect'), {none:'feature.none','die-cut':'feature.dieCut',reinforced:'feature.reinforced'});
+  packagingSetOptionLabels(document.querySelector('#handlePlacementSelect'), {front:'feature.front',sides:'feature.sides','all-sides':'feature.allSides',lid:'feature.lid'});
+  packagingSetOptionLabels(document.querySelector('#holeTypeSelect'), {none:'feature.none',round:'feature.round',oval:'feature.oval',vents:'feature.vents'});
+  packagingSetOptionLabels(document.querySelector('#holePlacementSelect'), {front:'feature.front',sides:'feature.sides','all-sides':'feature.allSides',lid:'feature.lid'});
+}
+function packagingRenderCatalogControls() {
+  ensurePackagingState();
+  packagingApplyCopy();
+  document.querySelectorAll('[data-box-type]').forEach((button) => button.classList.toggle('is-selected', button.dataset.boxType === state.boxType));
+  const def = PACKAGING_BOX_TYPES[state.boxType];
+  const description = document.querySelector('#boxTypeDescription');
+  if (description) description.innerHTML = `<b>${packagingEscape(packagingTypeLabel())}</b><p>${packagingEscape(packT(packagingTypeDescriptionKey(state.boxType)))}</p><span>FEFCO ${packagingEscape(def.code)}</span>`;
+  packagingRenderClosureSelect(document.querySelector('#topClosureSelect'), def.topOptions, state.closures.top);
+  packagingRenderClosureSelect(document.querySelector('#bottomClosureSelect'), def.bottomOptions, state.closures.bottom);
+  const note = document.querySelector('#closureCompatibilityNote');
+  if (note) note.textContent = packT('closure.note');
+  const construction = document.querySelector('#boardConstructionSelect'); if (construction) construction.value = state.board.construction;
+  packagingRenderFlutes();
+  document.querySelectorAll('[data-paper-preset]').forEach((button) => button.classList.toggle('is-selected', button.dataset.paperPreset === state.board.preset));
+  const thickness = packagingNominalThickness();
+  const nominal = document.querySelector('#nominalThicknessDisplay'); if (nominal) nominal.textContent = `≈ ${displayLength(thickness, 1)}`;
+  floorThicknessInput.value = round(fromMm(thickness), units === 'imperial' ? 2 : 1);
+  const stack = document.querySelector('#boardStackDisplay'); if (stack) stack.textContent = state.board.preset === 'CUSTOM' ? packT('board.custom') : `${state.board.preset} · ${state.board.construction} ${state.board.flute}`;
+  const gsm = document.querySelector('#boardGsmDisplay'); if (gsm) gsm.textContent = `≈ ${Math.round(packagingBoardGsm())} g/m²`;
+  const outer = document.querySelector('#outerPaperSwatch'); if (outer) outer.style.background = packagingOuterColor();
+  const inner = document.querySelector('#innerPaperSwatch'); if (inner) inner.style.background = packagingInnerColor();
+  packagingRenderLayerEditor();
+  const f = state.features;
+  const setValue = (id, value) => { const el = document.querySelector(id); if (el) el.value = String(value); };
+  setValue('#handleTypeSelect', f.handleType); setValue('#handlePlacementSelect', f.handlePlacement); setValue('#handleWidthInput', round(fromMm(f.handleWidth), units === 'imperial' ? 2 : 0)); setValue('#handleHeightInput', round(fromMm(f.handleHeight), units === 'imperial' ? 2 : 0));
+  setValue('#holeTypeSelect', f.holeType); setValue('#holePlacementSelect', f.holePlacement); setValue('#holeCountInput', f.holeCount); setValue('#holeWidthInput', round(fromMm(f.holeWidth), units === 'imperial' ? 2 : 0)); setValue('#holeHeightInput', round(fromMm(f.holeHeight), units === 'imperial' ? 2 : 0));
+  const handleSizes = document.querySelector('#handleSizeControls'); if (handleSizes) handleSizes.hidden = f.handleType === 'none';
+  const holeSizes = document.querySelector('#holeSizeControls'); if (holeSizes) holeSizes.hidden = f.holeType === 'none';
+  packagingRenderClosurePreview();
+}
+function packagingRenderClosurePreview() {
+  const svg = document.querySelector('#closurePreview');
+  if (!svg) return;
+  const top = state.closures.top; const bottom = state.closures.bottom;
+  let topMarkup = '<path class="cut" d="M72 42h116"/>';
+  if (top === 'simple-flaps') topMarkup += '<path class="fold" d="M130 14v28M72 28h116"/>';
+  else if (top === 'full-overlap') topMarkup += '<path class="fold" d="M95 14v28m70-28v28"/>';
+  else if (['tuck','hinged','pizza-lid','mailer-lid','archive-lid'].includes(top)) topMarkup += '<path class="fold" d="M72 18h116M88 18v24m84-24v24"/>';
+  else if (top === 'interlocking') topMarkup += '<path class="fold" d="m72 28 15-8 15 16 15-16 15 16 15-16 15 16 15-16 15 8"/>';
+  else if (top === 'telescope') topMarkup += '<path class="cut" d="M66 11h128v34H66z"/>';
+  else if (top === 'open') topMarkup = '<path class="cut" d="M72 42h116"/><path class="fold" d="M74 18h112"/>';
+  let bottomMarkup = '<path class="cut" d="M72 88h116"/>';
+  if (bottom === 'simple-flaps') bottomMarkup += '<path class="fold" d="M130 60v28M72 74h116"/>';
+  else if (bottom === 'full-overlap') bottomMarkup += '<path class="fold" d="M95 60v28m70-28v28"/>';
+  else if (['auto-lock','snap-lock','two-point-glued'].includes(bottom)) bottomMarkup += '<path class="fold" d="m72 74 24-14 34 14 34-14 24 14M96 60l68 28m0-28L96 88"/>';
+  svg.innerHTML = `<path class="body" d="M72 42h116v46H72z"/>${topMarkup}${bottomMarkup}`;
+}
+function packagingFaceMatchesPlacement(face, placement) {
+  if (placement === 'lid') return face.axis === 'y' && face.sign > 0;
+  if (!isVerticalFace(face)) return false;
+  if (placement === 'all-sides') return true;
+  if (placement === 'sides') return face.axis === 'x';
+  return face.axis === 'z' && face.sign > 0;
+}
+function packagingRoundedRectPath(cx, cy, width, height, radius) {
+  const p = new THREE.Path(); const x = cx - width/2, y = cy - height/2; const r = Math.min(radius, width/2, height/2);
+  p.moveTo(x+r,y); p.lineTo(x+width-r,y); p.quadraticCurveTo(x+width,y,x+width,y+r); p.lineTo(x+width,y+height-r); p.quadraticCurveTo(x+width,y+height,x+width-r,y+height); p.lineTo(x+r,y+height); p.quadraticCurveTo(x,y+height,x,y+height-r); p.lineTo(x,y+r); p.quadraticCurveTo(x,y,x+r,y); return p;
+}
+function packagingFeatureHoles(face, width, height) {
+  ensurePackagingState();
+  const holes = [];
+  const f = state.features;
+  if (f.handleType !== 'none' && packagingFaceMatchesPlacement(face, f.handlePlacement)) {
+    const w = Math.min(width * .72, Math.max(20, f.handleWidth)); const h = Math.min(height * .35, Math.max(10, f.handleHeight));
+    holes.push({ path:packagingRoundedRectPath(0, isVerticalFace(face) ? height*.2 : 0, w, h, h*.48), reinforced:f.handleType === 'reinforced', cx:0, cy:isVerticalFace(face) ? height*.2 : 0, width:w, height:h });
+  }
+  if (f.holeType !== 'none' && packagingFaceMatchesPlacement(face, f.holePlacement)) {
+    const count = Math.max(1, Math.min(12, Math.round(f.holeCount || 1))); const available = width * .7; const start = count === 1 ? 0 : -available/2; const step = count === 1 ? 0 : available/(count-1);
+    for (let i=0;i<count;i+=1) {
+      const cx = start + step*i; const cy = isVerticalFace(face) ? -height*.12 : 0;
+      const w = Math.min(width*.3, Math.max(6, f.holeWidth)); const h = Math.min(height*.25, Math.max(6, f.holeHeight));
+      if (f.holeType === 'round') { const p = new THREE.Path(); const r = Math.min(w,h)/2; p.absellipse(cx,cy,r,r,0,Math.PI*2,true); holes.push({path:p}); }
+      else if (f.holeType === 'oval') { const p = new THREE.Path(); p.absellipse(cx,cy,w/2,h/2,0,Math.PI*2,true); holes.push({path:p}); }
+      else holes.push({ path:packagingRoundedRectPath(cx,cy,w,h,h*.48) });
+    }
+  }
+  return holes;
+}
+function packagingApplyBoardAndFeatures() {
+  ensurePackagingState();
+  clearGroup(packagingFeatureGroup);
+  const outerColor = new THREE.Color(packagingOuterColor());
+  for (const mesh of surfaceMeshes) {
+    const face = mesh.userData?.face;
+    if (!face || !mesh.geometry) continue;
+    if (mesh.material?.color) mesh.material.color.copy(outerColor);
+    const width = face.u2 - face.u1; const height = face.v2 - face.v1;
+    const features = packagingFeatureHoles(face,width,height);
+    if (!features.length) continue;
+    const shape = new THREE.Shape(); shape.moveTo(-width/2,-height/2); shape.lineTo(width/2,-height/2); shape.lineTo(width/2,height/2); shape.lineTo(-width/2,height/2); shape.closePath();
+    features.forEach((item) => shape.holes.push(item.path));
+    mesh.geometry.dispose?.(); mesh.geometry = new THREE.ShapeGeometry(shape);
+    for (const item of features.filter((entry) => entry.reinforced)) {
+      const curve = new THREE.EllipseCurve(item.cx,item.cy,item.width/2+5,item.height/2+5,0,Math.PI*2,false,0);
+      const points = curve.getPoints(40).map((p) => new THREE.Vector3(p.x,p.y,1));
+      const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({color:0x7a542f,transparent:true,opacity:.75})); mesh.add(line);
+    }
+  }
+}
+function packagingLine(points, { color=0x725036, dashed=false, opacity=.65 } = {}) {
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = dashed ? new THREE.LineDashedMaterial({color,transparent:true,opacity,dashSize:12,gapSize:8}) : new THREE.LineBasicMaterial({color,transparent:true,opacity});
+  const line = new THREE.Line(geometry,material); if (dashed) line.computeLineDistances(); packagingClosureGroup.add(line); return line;
+}
+function packagingTopMesh() { return surfaceMeshes.find((mesh) => mesh.userData?.top); }
+function packagingBottomMesh() { return surfaceMeshes.find((mesh) => mesh.userData?.bottom); }
+function packagingAddTopLine(x1,z1,x2,z2,y,opts) { packagingLine([new THREE.Vector3(x1,y,z1),new THREE.Vector3(x2,y,z2)],opts); }
+function packagingRenderClosureVisuals() {
+  ensurePackagingState();
+  clearGroup(packagingClosureGroup);
+  const b = boundsForBoxes(state.boxes); const topMesh = packagingTopMesh(); const bottomMesh = packagingBottomMesh();
+  const topY = topMesh?.position?.y ?? b.maxY; const bottomY = bottomMesh?.position?.y ?? b.minY;
+  if (topMesh) { topMesh.visible = state.closures.top !== 'open'; if (state.closures.top === 'open') topMesh.raycast = () => {}; }
+  if (bottomMesh) { bottomMesh.visible = state.closures.bottom !== 'open'; if (state.closures.bottom === 'open') bottomMesh.raycast = () => {}; }
+  const cx=(b.minX+b.maxX)/2, cz=(b.minZ+b.maxZ)/2, w=b.maxX-b.minX, d=b.maxZ-b.minZ;
+  const top=state.closures.top, bottom=state.closures.bottom, seam={color:0x765035,opacity:.62};
+  const cross=(y) => { packagingAddTopLine(cx,b.minZ,cx,b.maxZ,y,seam); packagingAddTopLine(b.minX,cz,b.maxX,cz,y,seam); };
+  if (['simple-flaps','folded-flaps'].includes(top)) cross(topY+1.1);
+  if (top === 'full-overlap') { packagingAddTopLine(b.minX,cz-d*.18,b.maxX,cz-d*.18,topY+1.1,seam); packagingAddTopLine(b.minX,cz+d*.18,b.maxX,cz+d*.18,topY+1.1,seam); }
+  if (top === 'interlocking') { const pts=[]; for(let i=0;i<=10;i++) pts.push(new THREE.Vector3(b.minX+w*i/10,topY+1.1,cz+(i%2?d*.08:-d*.08))); packagingLine(pts,seam); }
+  if (['tuck','hinged','self-locking','archive-lid','pizza-lid','mailer-lid'].includes(top)) {
+    packagingAddTopLine(b.minX,b.minZ+w*0,b.maxX,b.minZ,topY+1.1,{...seam,dashed:true});
+    packagingAddTopLine(b.minX+w*.12,b.maxZ-d*.08,b.maxX-w*.12,b.maxZ-d*.08,topY+1.1,seam);
+    packagingAddTopLine(b.minX+w*.1,b.minZ,b.minX+w*.1,b.maxZ,topY+1.1,{...seam,opacity:.42}); packagingAddTopLine(b.maxX-w*.1,b.minZ,b.maxX-w*.1,b.maxZ,topY+1.1,{...seam,opacity:.42});
+  }
+  if (top === 'telescope') {
+    const over=10; const y=topY+1.2; packagingLine([new THREE.Vector3(b.minX-over,y,b.minZ-over),new THREE.Vector3(b.maxX+over,y,b.minZ-over),new THREE.Vector3(b.maxX+over,y,b.maxZ+over),new THREE.Vector3(b.minX-over,y,b.maxZ+over),new THREE.Vector3(b.minX-over,y,b.minZ-over)],{...seam,opacity:.85});
+  }
+  if (top === 'sleeve') { packagingAddTopLine(b.minX+w*.16,b.minZ,b.minX+w*.16,b.maxZ,topY+1.1,seam); packagingAddTopLine(b.maxX-w*.16,b.minZ,b.maxX-w*.16,b.maxZ,topY+1.1,seam); }
+  const bottomYLine=bottomY-1.1;
+  if (['simple-flaps','folded-flaps'].includes(bottom)) cross(bottomYLine);
+  if (bottom === 'full-overlap') { packagingAddTopLine(b.minX,cz-d*.18,b.maxX,cz-d*.18,bottomYLine,seam); packagingAddTopLine(b.minX,cz+d*.18,b.maxX,cz+d*.18,bottomYLine,seam); }
+  if (['auto-lock','snap-lock','two-point-glued'].includes(bottom)) {
+    packagingLine([new THREE.Vector3(b.minX,bottomYLine,b.minZ),new THREE.Vector3(cx,bottomYLine,cz),new THREE.Vector3(b.maxX,bottomYLine,b.minZ)],{...seam,dashed:true});
+    packagingLine([new THREE.Vector3(b.minX,bottomYLine,b.maxZ),new THREE.Vector3(cx,bottomYLine,cz),new THREE.Vector3(b.maxX,bottomYLine,b.maxZ)],{...seam,dashed:true});
+  }
+  // Manufacturing seam / style-specific surface cues.
+  if (['standard','full-overlap','auto-bottom','two-point-glued'].includes(state.boxType)) packagingLine([new THREE.Vector3(b.maxX+1,b.minY,b.minZ+w*.0),new THREE.Vector3(b.maxX+1,b.maxY,b.minZ)],{...seam,dashed:true,opacity:.42});
+  if (state.boxType === 'sleeve-drawer') {
+    packagingLine([new THREE.Vector3(b.minX+w*.08,b.minY+b.maxY*.13,b.maxZ+1),new THREE.Vector3(b.maxX-w*.08,b.minY+b.maxY*.13,b.maxZ+1)],seam);
+    const pull=new THREE.EllipseCurve(cx,b.minY+b.maxY*.55,w*.08,Math.max(8,(b.maxY-b.minY)*.09),0,Math.PI,false,0); const points=pull.getPoints(24).map((p)=>new THREE.Vector3(p.x,p.y,b.maxZ+1.2)); packagingLine(points,seam);
+  }
+}
+function packagingVerticalAreaMm2() {
+  const metrics = calculateUnionMetrics(state.boxes);
+  return metrics.faces.filter(isVerticalFace).reduce((sum,face)=>sum+(face.u2-face.u1)*(face.v2-face.v1),0);
+}
+function packagingBlankMetrics() {
+  ensurePackagingState();
+  const b=boundsForBoxes(state.boxes), opening=(b.maxX-b.minX)*(b.maxZ-b.minZ), vertical=packagingVerticalAreaMm2();
+  const topFactor=PACKAGING_CLOSURES[state.closures.top]?.factor ?? 1, bottomFactor=PACKAGING_CLOSURES[state.closures.bottom]?.factor ?? 1;
+  let areaMm2=vertical+opening*(topFactor+bottomFactor);
+  if(state.boxType==='telescope') areaMm2+=vertical*.25;
+  if(state.boxType==='sleeve-drawer') areaMm2+=vertical*.7+opening*.45;
+  const gsm=packagingBoardGsm(); return {areaMm2,gsm,massKg:areaMm2/1_000_000*gsm/1000};
+}
+function packagingFeatureSummary() {
+  const f=state.features, parts=[];
+  if(f.handleType!=='none') parts.push(`${packT(f.handleType==='reinforced'?'feature.reinforced':'feature.dieCut')} · ${packT(({front:'feature.front',sides:'feature.sides','all-sides':'feature.allSides',lid:'feature.lid'})[f.handlePlacement])}`);
+  if(f.holeType!=='none') parts.push(`${packT(({round:'feature.round',oval:'feature.oval',vents:'feature.vents'})[f.holeType])} × ${f.holeCount}`);
+  return parts.join(' · ') || packT('bom.none');
+}
+function packagingLayerSummary() { return state.board.layers.map((layer)=>`${packT(PACKAGING_PAPER_COPY_KEYS[layer.paper])} ${Math.round(layer.gsm)} g/m²`).join(' / '); }
+function packagingRenderSummaryExtension() {
+  ensurePackagingState();
+  const type=PACKAGING_BOX_TYPES[state.boxType], blank=packagingBlankMetrics(), b=boundsForBoxes(state.boxes), volume=(b.maxX-b.minX)*(b.maxY-b.minY)*(b.maxZ-b.minZ)/1_000_000_000;
+  const set=(id,value)=>{const el=document.querySelector(id);if(el)el.textContent=value;};
+  set('#summaryPieces',packagingTypeLabel()); set('#summarySides',type.code); set('#summaryBoardArea',`${(blank.areaMm2/1_000_000).toFixed(3)} m²`); set('#summaryMass',`${blank.massKg.toFixed(3)} kg`); set('#summaryVolume',`${volume.toFixed(3)} m³`); set('#summaryTextCount',String(state.textPlacements.length));
+  const bom=document.querySelector('#bomList'); if(bom) bom.innerHTML=[
+    [packT('bom.structure'),`${packagingTypeLabel()} · FEFCO ${type.code}`],
+    [packT('bom.dimensions'),`${displayLength(b.maxX-b.minX)} × ${displayLength(b.maxZ-b.minZ)} × ${displayLength(b.maxY-b.minY)}`],
+    [packT('bom.closures'),`${packagingClosureLabel(state.closures.top)} / ${packagingClosureLabel(state.closures.bottom)}`],
+    [packT('bom.board'),`${state.board.construction} · ${state.board.flute} · ${state.board.preset==='CUSTOM'?packT('board.custom'):state.board.preset} · ≈ ${packagingNominalThickness().toFixed(1)} mm`],
+    [packT('bom.layers'),packagingLayerSummary()],
+    [packT('bom.features'),packagingFeatureSummary()],
+  ].map(([label,value])=>`<div class="bom-row"><span>${packagingEscape(label)}</span><strong>${packagingEscape(value)}</strong></div>`).join('');
+  const boardRate=PACKAGING_FLUTES[state.board.flute]?.priceM2||1.55; const whiteSurcharge=state.board.preset==='AFA'?1.12:state.board.preset==='AFT'?1.06:1; const material=blank.areaMm2/1_000_000*boardRate*whiteSurcharge; const conversion=.85+Object.keys(PACKAGING_BOX_TYPES).indexOf(state.boxType)*.07+(state.closures.top==='open'?0:.15)+(state.closures.bottom==='open'?0:.15); const features=(state.features.handleType==='none'?0:state.features.handleType==='reinforced'?.65:.35)+(state.features.holeType==='none'?0:.08*state.features.holeCount); const textCost=state.textPlacements.length*.35; const total=material+conversion+features+textCost;
+  const breakdown=document.querySelector('#priceBreakdown'); if(breakdown) breakdown.innerHTML=[[packT('summary.material'),material],[packT('summary.conversion'),conversion],[packT('summary.features'),features],[packT('summary.textCost'),textCost]].map(([label,value])=>`<div class="price-row"><span>${packagingEscape(label)}</span><strong>${formatMoney(value)}</strong></div>`).join('');
+  summaryTotal.textContent=formatMoney(total);
+  return {totalEur:total};
+}
+function packagingBindControls() {
+  document.querySelector('#boxTypeGrid')?.addEventListener('click',(event)=>{const button=event.target.closest('[data-box-type]');if(button)packagingApplyType(button.dataset.boxType);});
+  document.querySelector('#topClosureSelect')?.addEventListener('change',(event)=>{state.closures.top=event.target.value;renderAll();});
+  document.querySelector('#bottomClosureSelect')?.addEventListener('change',(event)=>{state.closures.bottom=event.target.value;renderAll();});
+  document.querySelector('#boardConstructionSelect')?.addEventListener('change',(event)=>{const construction=event.target.value==='CO5'?'CO5':'CO3';state.board.construction=construction;state.board.flute=construction==='CO5'?'EB':'B';state.board.preset=['TFT','AFT','AFA'].includes(state.board.preset)?state.board.preset:'TFT';state.board.layers=packagingDefaultLayers(construction,state.board.preset);renderAll();});
+  document.querySelector('#fluteChoiceGrid')?.addEventListener('click',(event)=>{const button=event.target.closest('[data-flute]');if(button&&PACKAGING_FLUTES[button.dataset.flute]){state.board.flute=button.dataset.flute;renderAll();}});
+  document.querySelector('#paperPresetGrid')?.addEventListener('click',(event)=>{const button=event.target.closest('[data-paper-preset]');if(!button)return;state.board.preset=button.dataset.paperPreset;state.board.layers=packagingDefaultLayers(state.board.construction,state.board.preset);renderAll();});
+  document.querySelector('#paperLayerEditor')?.addEventListener('change',(event)=>{const row=event.target.closest('[data-layer-index]');if(!row)return;const index=Number(row.dataset.layerIndex);const layer=state.board.layers[index];if(!layer)return;if(event.target.matches('[data-layer-paper]'))layer.paper=event.target.value;if(event.target.matches('[data-layer-gsm]'))layer.gsm=clamp(event.target.value,80,500);state.board.preset='CUSTOM';renderAll();});
+  const featureChange=()=>{const read=(id)=>document.querySelector(id);state.features.handleType=read('#handleTypeSelect').value;state.features.handlePlacement=read('#handlePlacementSelect').value;state.features.handleWidth=clamp(toMm(read('#handleWidthInput').value),30,300);state.features.handleHeight=clamp(toMm(read('#handleHeightInput').value),15,120);state.features.holeType=read('#holeTypeSelect').value;state.features.holePlacement=read('#holePlacementSelect').value;state.features.holeCount=clamp(read('#holeCountInput').value,1,12);state.features.holeWidth=clamp(toMm(read('#holeWidthInput').value),8,180);state.features.holeHeight=clamp(toMm(read('#holeHeightInput').value),8,120);renderAll();};
+  ['#handleTypeSelect','#handlePlacementSelect','#handleWidthInput','#handleHeightInput','#holeTypeSelect','#holePlacementSelect','#holeCountInput','#holeWidthInput','#holeHeightInput'].forEach((id)=>document.querySelector(id)?.addEventListener('change',featureChange));
+}
+
+// Preserve the full text-selection, wrapping, dragging and face-selection system.
+// Only its arbitrary box-volume entry point is disabled.
+beginAddMode = function disabledArbitraryBoxAdd() {};
+const packagingLegacyRenderTranslations = renderTranslations;
+renderTranslations = function renderTranslationsWithPackagingCatalog() { packagingLegacyRenderTranslations(); packagingApplyCopy(); };
+const packagingLegacyRenderInputs = renderInputs;
+renderInputs = function renderInputsWithPackagingCatalog() { packagingLegacyRenderInputs(); packagingRenderCatalogControls(); };
+const packagingLegacyRebuildSurfaceMeshes = rebuildSurfaceMeshes;
+rebuildSurfaceMeshes = function rebuildSurfaceMeshesWithPackagingDetails() { packagingLegacyRebuildSurfaceMeshes(); packagingApplyBoardAndFeatures(); packagingRenderClosureVisuals(); };
+const packagingLegacyRenderSummary = renderSummary;
+renderSummary = function renderSummaryWithPackagingBom() { packagingLegacyRenderSummary(); packagingRenderSummaryExtension(); };
+const packagingLegacyCaptureState = captureState;
+captureState = function capturePackagingState() { ensurePackagingState(); return { ...packagingLegacyCaptureState(), version:8, catalogSchemaVersion:PACKAGING_CATALOG_SCHEMA_VERSION, boxType:state.boxType, closures:{...state.closures}, features:{...state.features}, board:{...state.board,layers:state.board.layers.map((layer)=>({...layer}))} }; };
+const packagingLegacyRestoreState = restoreState;
+restoreState = function restorePackagingState(snapshot) { const source=snapshot?.state&&!snapshot.boxes?snapshot.state:snapshot; const restored=packagingLegacyRestoreState(snapshot); if(!restored)return false; state.boxType=PACKAGING_BOX_TYPES[source?.boxType]?source.boxType:'standard'; state.closures=source?.closures&&typeof source.closures==='object'?{...source.closures}:null; state.features=source?.features&&typeof source.features==='object'?{...source.features}:null; state.board=source?.board&&typeof source.board==='object'?{...source.board,layers:Array.isArray(source.board.layers)?source.board.layers.map((layer)=>({...layer})):null}:null; ensurePackagingState(); if(!source?.boxType&&state.boxes.length>1){const b=boundsForBoxes(state.boxes);packagingSetBaseDimensions(b.maxX-b.minX,b.maxZ-b.minZ,b.maxY-b.minY);} renderAll(); return true; };
+const packagingLegacyResetConfiguration = resetConfiguration;
+resetConfiguration = function resetPackagingConfiguration() { packagingLegacyResetConfiguration(); state.boxType='standard'; state.closures={top:'simple-flaps',bottom:'simple-flaps'}; state.features=packagingDefaultFeatures('standard'); state.board={construction:'CO3',flute:'B',preset:'TFT',layers:packagingDefaultLayers('CO3','TFT')}; packagingSetBaseDimensions(...PACKAGING_BOX_TYPES.standard.dims); renderAll(); return true; };
+getPrice = function getPackagingPrice() { const total=packagingRenderSummaryExtension().totalEur; return {amount:total*(CURRENCY_FROM_EUR[currency]||1),currency}; };
+ensurePackagingState();
+packagingBindControls();
+
+
+/* --------------------------------------------------------------------------
+   Per-surface colours and image artwork
+   -------------------------------------------------------------------------- */
+const DECORATION_COPY = Object.freeze({
+  'en-US': Object.freeze({
+    'face.color': 'Colour surface', 'face.image': 'Add image', 'face.colorTitle': 'Surface colour',
+    'face.outside': 'Outside surface', 'face.inside': 'Inside surface', 'face.currentColor': 'Current surface colour',
+    'face.applyOuter': 'Apply to all outside surfaces', 'face.applyInner': 'Apply to all inside surfaces',
+    'face.applyBoth': 'Apply to all outside & inside surfaces',
+    'image.resize': 'Resize image', 'image.liftTop': 'Lift the top by 300 mm', 'image.delete': 'Delete image',
+    'image.deselect': 'Deselect image', 'image.resizeTitle': 'Resize image',
+    'image.resizeHelp': 'The image proportions are preserved automatically.', 'image.width': 'Width',
+    'image.height': 'Height', 'image.scale': 'Scale', 'image.cancelPlacement': 'Cancel image placement',
+    'image.uploadError': 'Choose a valid JPG or PNG image.', 'image.processing': 'Preparing the image…',
+    'image.stateLimit': 'This configuration already contains too much image data. Remove an image or upload a smaller file.',
+    'image.placeHint': 'Image placement mode: move over any outside or inside surface and click to place.',
+    'summary.images': 'Image objects', 'summary.imageCost': 'Image finishing',
+  }),
+  'ro-RO': Object.freeze({
+    'face.color': 'Colorează suprafața', 'face.image': 'Adaugă imagine', 'face.colorTitle': 'Culoare suprafață',
+    'face.outside': 'Suprafață exterioară', 'face.inside': 'Suprafață interioară', 'face.currentColor': 'Culoarea curentă a suprafeței',
+    'face.applyOuter': 'Aplică pe toate suprafețele exterioare', 'face.applyInner': 'Aplică pe toate suprafețele interioare',
+    'face.applyBoth': 'Aplică pe toate suprafețele exterioare și interioare',
+    'image.resize': 'Redimensionează imaginea', 'image.liftTop': 'Ridică partea superioară cu 300 mm', 'image.delete': 'Șterge imaginea',
+    'image.deselect': 'Deselectează imaginea', 'image.resizeTitle': 'Redimensionează imaginea',
+    'image.resizeHelp': 'Proporțiile imaginii sunt păstrate automat.', 'image.width': 'Lățime',
+    'image.height': 'Înălțime', 'image.scale': 'Scală', 'image.cancelPlacement': 'Anulează plasarea imaginii',
+    'image.uploadError': 'Alege o imagine JPG sau PNG validă.', 'image.processing': 'Se pregătește imaginea…',
+    'image.stateLimit': 'Configurația conține deja prea multe date de imagine. Șterge o imagine sau încarcă un fișier mai mic.',
+    'image.placeHint': 'Mod plasare imagine: mută cursorul pe orice suprafață exterioară sau interioară și apasă click.',
+    'summary.images': 'Imagini', 'summary.imageCost': 'Finisaj imagini',
+  }),
+  'de-DE': Object.freeze({
+    'face.color': 'Oberfläche färben', 'face.image': 'Bild hinzufügen', 'face.colorTitle': 'Oberflächenfarbe',
+    'face.outside': 'Außenfläche', 'face.inside': 'Innenfläche', 'face.currentColor': 'Aktuelle Oberflächenfarbe',
+    'face.applyOuter': 'Auf alle Außenflächen anwenden', 'face.applyInner': 'Auf alle Innenflächen anwenden',
+    'face.applyBoth': 'Auf alle Außen- und Innenflächen anwenden',
+    'image.resize': 'Bildgröße ändern', 'image.liftTop': 'Oberseite um 300 mm anheben', 'image.delete': 'Bild löschen',
+    'image.deselect': 'Bild abwählen', 'image.resizeTitle': 'Bildgröße ändern',
+    'image.resizeHelp': 'Das Seitenverhältnis des Bildes bleibt automatisch erhalten.', 'image.width': 'Breite',
+    'image.height': 'Höhe', 'image.scale': 'Skalierung', 'image.cancelPlacement': 'Bildplatzierung abbrechen',
+    'image.uploadError': 'Wählen Sie ein gültiges JPG- oder PNG-Bild.', 'image.processing': 'Bild wird vorbereitet…',
+    'image.stateLimit': 'Diese Konfiguration enthält bereits zu viele Bilddaten. Entfernen Sie ein Bild oder laden Sie eine kleinere Datei hoch.',
+    'image.placeHint': 'Bildplatzierungsmodus: Bewegen Sie den Cursor über eine Außen- oder Innenfläche und klicken Sie zum Platzieren.',
+    'summary.images': 'Bildobjekte', 'summary.imageCost': 'Bildveredelung',
+  }),
+});
+function decorationT(key) { return DECORATION_COPY[locale]?.[key] || DECORATION_COPY['en-US'][key] || key; }
+function applyDecorationCopy() {
+  document.querySelectorAll('[data-decoration-copy]').forEach((element) => { element.textContent = decorationT(element.dataset.decorationCopy); });
+  document.querySelectorAll('[data-decoration-title]').forEach((element) => {
+    const value = decorationT(element.dataset.decorationTitle);
+    element.title = value;
+    element.setAttribute('aria-label', value);
+  });
+}
+function ensureDecorationState() {
+  if (!state.faceColors || typeof state.faceColors !== 'object') state.faceColors = { outer: {}, inner: {} };
+  if (!state.faceColors.outer || typeof state.faceColors.outer !== 'object') state.faceColors.outer = {};
+  if (!state.faceColors.inner || typeof state.faceColors.inner !== 'object') state.faceColors.inner = {};
+  if (!Array.isArray(state.imagePlacements)) state.imagePlacements = [];
+}
+function surfaceColorSlot(face) { return `${face.axis}:${face.sign >= 0 ? '+' : '-'}`; }
+function surfaceColorBucket(sideFactor) { return sideFactor >= 0 ? 'outer' : 'inner'; }
+function defaultSurfaceColor(sideFactor) {
+  try { return sideFactor >= 0 ? packagingOuterColor() : packagingInnerColor(); }
+  catch { return DEFAULT_COLOR; }
+}
+function resolvedSurfaceColor(face, sideFactor = 1) {
+  ensureDecorationState();
+  const bucket = surfaceColorBucket(sideFactor);
+  return state.faceColors[bucket][surfaceColorSlot(face)] || defaultSurfaceColor(sideFactor);
+}
+function allSurfaceSlots() {
+  return [...new Set(surfaceDescriptors.map(surfaceColorSlot))];
+}
+function setFaceColorOverride(face, sideFactor, color) {
+  ensureDecorationState();
+  state.faceColors[surfaceColorBucket(sideFactor)][surfaceColorSlot(face)] = color;
+}
+function renderFaceColorPanel() {
+  if (!selectedFaceSnapshot || faceColorPanel.hidden) return;
+  selectedFaceColor = resolvedSurfaceColor(selectedFaceSnapshot, selectedFaceSideFactor);
+  faceColorSideLabel.textContent = decorationT(selectedFaceSideFactor >= 0 ? 'face.outside' : 'face.inside');
+  faceCurrentColorSwatch.dataset.faceColor = selectedFaceColor;
+  faceCurrentColorSwatch.style.setProperty('--swatch', selectedFaceColor);
+  faceColorPalette.querySelectorAll('[data-face-color]').forEach((button) => {
+    button.classList.toggle('is-active', String(button.dataset.faceColor).toLowerCase() === selectedFaceColor.toLowerCase());
+  });
+}
+function openFaceColorPanel() {
+  if (!selectedFaceSnapshot) return;
+  faceActionPopup.hidden = true;
+  textEditorPanel.hidden = true;
+  imageResizePanel.hidden = true;
+  faceColorPanel.hidden = false;
+  renderFaceColorPanel();
+  rebuildSurfaceMeshes();
+}
+function closeFaceColorPanel() {
+  faceColorPanel.hidden = true;
+  renderFacePopup();
+}
+function applySelectedFaceColor(color) {
+  if (!selectedFaceSnapshot || !/^#[0-9a-f]{6}$/i.test(color)) return;
+  recordUndoCheckpoint();
+  selectedFaceColor = color.toLowerCase();
+  setFaceColorOverride(selectedFaceSnapshot, selectedFaceSideFactor, selectedFaceColor);
+  renderAll();
+  markConfigurationDirty();
+}
+function applySelectedColorToScope(scope) {
+  if (!/^#[0-9a-f]{6}$/i.test(selectedFaceColor)) return;
+  ensureDecorationState();
+  recordUndoCheckpoint();
+  const slots = allSurfaceSlots();
+  if (scope === 'outer' || scope === 'both') slots.forEach((slot) => { state.faceColors.outer[slot] = selectedFaceColor; });
+  if (scope === 'inner' || scope === 'both') slots.forEach((slot) => { state.faceColors.inner[slot] = selectedFaceColor; });
+  renderAll();
+  markConfigurationDirty();
+}
+
+function displayFacePoint(face, point) {
+  const result = point.clone();
+  if (isTopFace(face) && isLidLiftActive()) result.y += LID_LIFT_MM;
+  return result;
+}
+function storagePointForHit(face, point) {
+  const result = point.clone();
+  if (isTopFace(face) && isLidLiftActive()) result.y -= LID_LIFT_MM;
+  return result;
+}
+function decorationFaceAvailable(face) {
+  if (isTopFace(face) && state.closures?.top === 'open') return false;
+  if (isBottomFace(face) && state.closures?.bottom === 'open') return false;
+  return true;
+}
+function faceCoordinateRanges(face) {
+  if (face.axis === 'x') return [{ axis: 'z', min: face.u1, max: face.u2 }, { axis: 'y', min: face.v1, max: face.v2 }];
+  if (face.axis === 'y') return [{ axis: 'x', min: face.u1, max: face.u2 }, { axis: 'z', min: face.v1, max: face.v2 }];
+  return [{ axis: 'x', min: face.u1, max: face.u2 }, { axis: 'y', min: face.v1, max: face.v2 }];
+}
+function worldPointOnFace(face, point, tolerance = 0.8) {
+  const planeAxis = face.axis;
+  if (Math.abs(point[planeAxis] - face.coord) > tolerance) return false;
+  return faceCoordinateRanges(face).every((range) => point[range.axis] >= range.min - tolerance && point[range.axis] <= range.max + tolerance);
+}
+function faceBoundaryAlongDirection(face, point, direction) {
+  let best = null;
+  for (const range of faceCoordinateRanges(face)) {
+    const component = direction[range.axis];
+    if (Math.abs(component) < 1e-8) continue;
+    const target = component > 0 ? range.max : range.min;
+    const rawDistance = (target - point[range.axis]) / component;
+    if (rawDistance < -1e-4) continue;
+    const distance = Math.max(0, rawDistance);
+    if (!best || distance < best.distance) best = { distance, axis: range.axis, target };
+  }
+  return best;
+}
+function adjacentSurfaceFace(currentFace, edgePoint, direction) {
+  const candidates = surfaceDescriptors.filter((candidate) => {
+    if (faceKey(candidate) === faceKey(currentFace) || !decorationFaceAvailable(candidate)) return false;
+    if (!worldPointOnFace(candidate, edgePoint, 1.2)) return false;
+    return faceNormal(candidate).dot(direction) > 1e-5;
+  });
+  return candidates.sort((a, b) => faceNormal(b).dot(direction) - faceNormal(a).dot(direction))[0] || null;
+}
+function cloneSurfaceFrame(frame) {
+  return {
+    face: frame.face,
+    point: frame.point.clone(),
+    horizontal: frame.horizontal.clone(),
+    vertical: frame.vertical.clone(),
+    normal: frame.normal.clone(),
+    sideFactor: frame.sideFactor >= 0 ? 1 : -1,
+    blocked: Boolean(frame.blocked),
+  };
+}
+function transitionSurfaceFrame(frame, direction) {
+  const nextFace = adjacentSurfaceFace(frame.face, frame.point, direction);
+  if (!nextFace) {
+    frame.blocked = true;
+    return false;
+  }
+  const nextNormal = faceNormal(nextFace).multiplyScalar(frame.sideFactor).normalize();
+  const rotation = new THREE.Quaternion().setFromUnitVectors(frame.normal.clone().normalize(), nextNormal);
+  frame.horizontal.applyQuaternion(rotation).normalize();
+  frame.vertical.applyQuaternion(rotation).normalize();
+  frame.normal.copy(nextNormal);
+  frame.face = nextFace;
+  return true;
+}
+function walkSurfaceFrame(frame, offset, vectorKey) {
+  const result = cloneSurfaceFrame(frame);
+  const directionSign = offset >= 0 ? 1 : -1;
+  let remaining = Math.abs(offset);
+  if (remaining < EPSILON || result.blocked) return result;
+
+  for (let step = 0; step < 128 && remaining > EPSILON; step += 1) {
+    const direction = result[vectorKey].clone().multiplyScalar(directionSign).normalize();
+    const boundary = faceBoundaryAlongDirection(result.face, result.point, direction);
+    if (!boundary) {
+      result.blocked = true;
+      break;
+    }
+
+    // The frame may already sit exactly on an edge. Move onto the adjacent
+    // surface immediately instead of travelling to the opposite edge of the
+    // current face. This is what prevents artwork strips from collapsing at a
+    // corner or generating thousands of tiny recursive cells.
+    if (boundary.distance <= 1e-5) {
+      if (!transitionSurfaceFrame(result, direction)) break;
+      continue;
+    }
+
+    if (remaining <= boundary.distance + 1e-5) {
+      result.point.add(direction.multiplyScalar(remaining));
+      remaining = 0;
+      break;
+    }
+
+    result.point.add(direction.multiplyScalar(boundary.distance));
+    remaining -= boundary.distance;
+    if (!transitionSurfaceFrame(result, direction)) break;
+  }
+
+  if (remaining > EPSILON) result.blocked = true;
+  return result;
+}
+function traceSurfaceBreakpoints(startFrame, extent, vectorKey, directionSign) {
+  const requested = Math.max(0, Number(extent) || 0);
+  const result = cloneSurfaceFrame(startFrame);
+  const breaks = [0];
+  let travelled = 0;
+  let remaining = requested;
+
+  for (let step = 0; step < 128 && remaining > EPSILON; step += 1) {
+    const direction = result[vectorKey].clone().multiplyScalar(directionSign).normalize();
+    const boundary = faceBoundaryAlongDirection(result.face, result.point, direction);
+    if (!boundary) {
+      result.blocked = true;
+      break;
+    }
+    if (boundary.distance <= 1e-5) {
+      if (!transitionSurfaceFrame(result, direction)) break;
+      continue;
+    }
+    if (remaining <= boundary.distance + 1e-5) {
+      travelled += remaining;
+      remaining = 0;
+      breaks.push(directionSign * travelled);
+      break;
+    }
+    result.point.add(direction.multiplyScalar(boundary.distance));
+    travelled += boundary.distance;
+    remaining -= boundary.distance;
+    breaks.push(directionSign * travelled);
+    if (!transitionSurfaceFrame(result, direction)) break;
+  }
+
+  if (requested <= EPSILON) return { breaks, reachable: 0 };
+  if (remaining > EPSILON) {
+    result.blocked = true;
+    if (travelled > EPSILON && Math.abs(breaks[breaks.length - 1] - directionSign * travelled) > 1e-5) {
+      breaks.push(directionSign * travelled);
+    }
+  }
+  return { breaks, reachable: travelled, blocked: result.blocked };
+}
+function sortedUniqueBreakpoints(values) {
+  return [...values]
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b)
+    .filter((value, index, array) => index === 0 || Math.abs(value - array[index - 1]) > 1e-5);
+}
+function sameMappedSurface(lhs, rhs) {
+  if (!lhs?.face || !rhs?.face || lhs.blocked || rhs.blocked) return false;
+  if (faceKey(lhs.face) !== faceKey(rhs.face)) return false;
+  return lhs.normal.dot(rhs.normal) > 0.9999
+    && lhs.horizontal.dot(rhs.horizontal) > 0.9999
+    && lhs.vertical.dot(rhs.vertical) > 0.9999;
+}
+function pruneRedundantSurfaceBreakpoints(breaks, mapper) {
+  let result = sortedUniqueBreakpoints(breaks);
+  let changed = true;
+  while (changed && result.length > 2) {
+    changed = false;
+    const next = [result[0]];
+    for (let index = 1; index < result.length - 1; index += 1) {
+      const value = result[index];
+      const leftGap = value - result[index - 1];
+      const rightGap = result[index + 1] - value;
+      const probe = Math.max(1e-4, Math.min(leftGap, rightGap) * 0.2);
+      const before = mapper(value - probe);
+      const after = mapper(value + probe);
+      if (sameMappedSurface(before, after)) {
+        changed = true;
+        continue;
+      }
+      next.push(value);
+    }
+    next.push(result[result.length - 1]);
+    result = next;
+  }
+  return result;
+}
+function mapSurfaceArtworkPoint(startFace, startAnchor, sideFactor, horizontalOffset, verticalOffset) {
+  const basis = faceBasis(startFace, sideFactor);
+  let frame = {
+    face: startFace,
+    point: startAnchor.clone(),
+    horizontal: basis.horizontal.clone(),
+    vertical: basis.vertical.clone(),
+    normal: basis.normal.clone(),
+    sideFactor: sideFactor >= 0 ? 1 : -1,
+    blocked: false,
+  };
+  frame = walkSurfaceFrame(frame, horizontalOffset, 'horizontal');
+  if (frame.blocked) return frame;
+  return walkSurfaceFrame(frame, verticalOffset, 'vertical');
+}
+function quaternionForSurfaceFrame(horizontal, vertical, normal) {
+  const h = horizontal.clone().normalize();
+  const v = vertical.clone().normalize();
+  const n = normal.clone().normalize();
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(h, v, n));
+}
+function computeSurfaceWrappedSegments(face, anchorPoint, sideFactor, width, height) {
+  const safeWidth = Math.max(1, Number(width) || 1);
+  const safeHeight = Math.max(1, Number(height) || 1);
+  const anchor = clampPointToFace(face, sideFactor, anchorPoint, 0, 0);
+  const basis = faceBasis(face, sideFactor);
+  const startFrame = {
+    face,
+    point: anchor.clone(),
+    horizontal: basis.horizontal.clone(),
+    vertical: basis.vertical.clone(),
+    normal: basis.normal.clone(),
+    sideFactor: sideFactor >= 0 ? 1 : -1,
+    blocked: false,
+  };
+
+  const leftTrace = traceSurfaceBreakpoints(startFrame, safeWidth / 2, 'horizontal', -1);
+  const rightTrace = traceSurfaceBreakpoints(startFrame, safeWidth / 2, 'horizontal', 1);
+  const horizontalBreaks = pruneRedundantSurfaceBreakpoints([
+    ...leftTrace.breaks,
+    0,
+    ...rightTrace.breaks,
+  ], (offset) => walkSurfaceFrame(startFrame, offset, 'horizontal'));
+  const segments = [];
+
+  for (let hIndex = 0; hIndex < horizontalBreaks.length - 1; hIndex += 1) {
+    const h0 = horizontalBreaks[hIndex];
+    const h1 = horizontalBreaks[hIndex + 1];
+    if (h1 - h0 <= 1e-5) continue;
+    const hMid = (h0 + h1) / 2;
+    const horizontalFrame = walkSurfaceFrame(startFrame, hMid, 'horizontal');
+    if (!horizontalFrame?.face || horizontalFrame.blocked) continue;
+
+    const downTrace = traceSurfaceBreakpoints(horizontalFrame, safeHeight / 2, 'vertical', -1);
+    const upTrace = traceSurfaceBreakpoints(horizontalFrame, safeHeight / 2, 'vertical', 1);
+    const verticalBreaks = pruneRedundantSurfaceBreakpoints([
+      ...downTrace.breaks,
+      0,
+      ...upTrace.breaks,
+    ], (offset) => walkSurfaceFrame(horizontalFrame, offset, 'vertical'));
+
+    for (let vIndex = 0; vIndex < verticalBreaks.length - 1; vIndex += 1) {
+      const v0Offset = verticalBreaks[vIndex];
+      const v1Offset = verticalBreaks[vIndex + 1];
+      if (v1Offset - v0Offset <= 1e-5) continue;
+      const vMid = (v0Offset + v1Offset) / 2;
+      const mapped = mapSurfaceArtworkPoint(face, anchor, sideFactor, hMid, vMid);
+      if (!mapped?.face || mapped.blocked) continue;
+      const normal = mapped.normal.clone().normalize();
+      const u0 = clamp(h0 / safeWidth + 0.5, 0, 1);
+      const u1 = clamp(h1 / safeWidth + 0.5, 0, 1);
+      const v0 = clamp(v0Offset / safeHeight + 0.5, 0, 1);
+      const v1 = clamp(v1Offset / safeHeight + 0.5, 0, 1);
+      const position = mapped.point.clone().add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM));
+      segments.push({
+        position: position.toArray(),
+        quaternion: quaternionForSurfaceFrame(mapped.horizontal, mapped.vertical, normal).toArray(),
+        u0, u1, v0, v1,
+        width: h1 - h0,
+        height: v1Offset - v0Offset,
+        face: copyFace(mapped.face),
+        sideFactor: sideFactor >= 0 ? 1 : -1,
+      });
+    }
+  }
+
+  return { anchor, segments };
+}
+
+const decorationLegacyMakeArtworkPlane = makeArtworkPlane;
+makeArtworkPlane = function makeArtworkPlaneWithVerticalCrop(artwork, width, height, opacity = 1, u0 = 0, u1 = 1, v0 = 0, v1 = 1) {
+  const geometry = new THREE.PlaneGeometry(width, height);
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i += 1) {
+    uv.setX(i, uv.getX(i) < 0.5 ? u0 : u1);
+    uv.setY(i, uv.getY(i) < 0.5 ? v0 : v1);
+  }
+  uv.needsUpdate = true;
+  const material = new THREE.MeshBasicMaterial({ map: artwork.texture, transparent: true, side: THREE.DoubleSide, opacity, depthWrite: opacity >= 1, alphaTest: 0.001 });
+  return new THREE.Mesh(geometry, material);
+};
+function renderArtworkSegments(artwork, segments, opacity = 1) {
+  const group = new THREE.Group();
+  for (const segmentData of segments || []) {
+    const segment = makeArtworkPlane(
+      artwork,
+      Number(segmentData.width) || 10,
+      Number(segmentData.height) || 10,
+      opacity,
+      Number.isFinite(Number(segmentData.u0)) ? Number(segmentData.u0) : 0,
+      Number.isFinite(Number(segmentData.u1)) ? Number(segmentData.u1) : 1,
+      Number.isFinite(Number(segmentData.v0)) ? Number(segmentData.v0) : 0,
+      Number.isFinite(Number(segmentData.v1)) ? Number(segmentData.v1) : 1,
+    );
+    const position = new THREE.Vector3().fromArray(segmentData.position || [0,0,0]);
+    const segmentFace = currentFaceForDescriptor(segmentData.face) || segmentData.face;
+    if (segmentFace && isTopFace(segmentFace) && isLidLiftActive()) position.y += LID_LIFT_MM;
+    segment.position.copy(position);
+    segment.quaternion.fromArray(segmentData.quaternion || [0,0,0,1]);
+    group.add(segment);
+  }
+  return group;
+}
+createStoredStickerSegments = function createStoredStickerSegmentsWithTopAndBottomWrapping(spec, segments, opacity = 1) {
+  const artwork = createTextArtwork(spec);
+  return renderArtworkSegments(artwork, segments, opacity);
+};
+function createGeneralTextSticker(spec, face, anchorPoint, sideFactor = 1, opacity = 1) {
+  const artwork = createTextArtwork(spec);
+  const computed = computeSurfaceWrappedSegments(face, anchorPoint, sideFactor, artwork.worldWidth, artwork.worldHeight);
+  return { group: renderArtworkSegments(artwork, computed.segments, opacity), segments: computed.segments, anchor: computed.anchor };
+}
+
+const decorationLegacyBuildPlacementGeometry = buildPlacementGeometry;
+buildPlacementGeometry = function buildPlacementGeometryWithHorizontalSurfaceWrapping(spec, face, anchorPoint, sideFactor = 1) {
+  if (isVerticalFace(face)) return decorationLegacyBuildPlacementGeometry(spec, face, anchorPoint, sideFactor);
+  const sticker = createGeneralTextSticker(spec, face, anchorPoint, sideFactor, 1);
+  clearGroup(sticker.group);
+  return {
+    face: copyFace(face), sideFactor, anchor: sticker.anchor.toArray(),
+    segments: sticker.segments.map((segment) => ({ ...segment, position: [...segment.position], quaternion: [...segment.quaternion], face: copyFace(segment.face) })),
+    position: undefined, quaternion: undefined, topSurface: isTopFace(face),
+  };
+};
+renderPlacedTexts = function renderPlacedTextsWithTopAndBottomWrapping() {
+  clearGroup(textGroup);
+  for (const placement of state.textPlacements) {
+    const placementId = ensurePlacementId(placement);
+    if (placementId === editingTextId) continue;
+    const resolved = resolvePlacementFaceInfo(placement);
+    if (resolved?.face && resolved.anchor) {
+      const sticker = isVerticalFace(resolved.face)
+        ? createWrappedSticker(placement.spec, resolved.face, resolved.anchor.clone(), resolved.sideFactor, 1)
+        : createGeneralTextSticker(placement.spec, resolved.face, resolved.anchor.clone(), resolved.sideFactor, 1);
+      placement.face = copyFace(resolved.face);
+      placement.sideFactor = resolved.sideFactor;
+      placement.anchor = resolved.anchor.toArray();
+      placement.segments = sticker.segments.map((segment) => ({
+        ...segment, position: [...segment.position], quaternion: [...segment.quaternion], face: copyFace(segment.face),
+      }));
+      placement.position = undefined;
+      placement.quaternion = undefined;
+      placement.topSurface = isTopFace(resolved.face);
+      tagTextRenderable(sticker.group, placementId);
+      textGroup.add(sticker.group);
+      continue;
+    }
+    if (Array.isArray(placement.segments) && placement.segments.length) {
+      const group = createStoredStickerSegments(placement.spec, placement.segments, 1);
+      tagTextRenderable(group, placementId);
+      textGroup.add(group);
+    }
+  }
+};
+renderEditorPreview = function renderEditorPreviewWithHorizontalWrapping() {
+  clearGroup(editorPreviewGroup);
+  editorPreviewSpec = null;
+  if (textEditorPanel.hidden) return;
+  const spec = buildTextSpec();
+  editorPreviewSpec = { ...spec };
+  let face = selectedFaceSnapshot;
+  let sideFactor = selectedFaceSideFactor;
+  let anchor = face ? faceCenter(face) : null;
+  if (editingTextId) {
+    const placement = placementById(editingTextId);
+    const info = resolvePlacementFaceInfo(placement);
+    if (!placement || !info) return;
+    face = info.face; sideFactor = info.sideFactor; anchor = info.anchor;
+  }
+  if (!face || !anchor) return;
+  const sticker = isVerticalFace(face)
+    ? createWrappedSticker(spec, face, anchor.clone(), sideFactor, 0.94)
+    : createGeneralTextSticker(spec, face, anchor.clone(), sideFactor, 0.94);
+  editorPreviewGroup.add(sticker.group);
+};
+updateTextPreview = function updateTextPreviewWithAllSurfaceWrapping(event) {
+  if (!placementMode || !pendingTextSpec) return;
+  clearGroup(previewGroup);
+  previewTextMesh = null;
+  previewPlacement = null;
+  const { hit, raycaster } = raycast(event);
+  if (!hit?.object?.userData?.face) return;
+  const face = hit.object.userData.face;
+  if (!decorationFaceAvailable(face)) return;
+  let normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+  if (normal.dot(raycaster.ray.direction) > 0) normal.multiplyScalar(-1);
+  const outward = faceNormal(face);
+  const sideFactor = Number(hit.object.userData.surfaceSideFactor) || (normal.dot(outward) >= 0 ? 1 : -1);
+  const hitStoragePoint = storagePointForHit(face, hit.point);
+  const anchor = clampPointToFace(face, sideFactor, hitStoragePoint);
+  const sticker = isVerticalFace(face)
+    ? createWrappedSticker(pendingTextSpec, face, anchor.clone(), sideFactor, 0.78)
+    : createGeneralTextSticker(pendingTextSpec, face, anchor.clone(), sideFactor, 0.78);
+  previewGroup.add(sticker.group);
+  previewPlacement = {
+    id: makeTextPlacementId(), face: copyFace(face), sideFactor, anchor: anchor.toArray(),
+    segments: sticker.segments.map((segment) => ({ ...segment, face: copyFace(segment.face) })),
+    topSurface: isTopFace(face), spec: { ...pendingTextSpec },
+  };
+};
+
+function makeImagePlacementId() {
+  if (globalThis.crypto?.randomUUID) return `image-${globalThis.crypto.randomUUID()}`;
+  return `image-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+}
+function ensureImagePlacementId(placement) {
+  if (!placement.id) placement.id = makeImagePlacementId();
+  return placement.id;
+}
+function imagePlacementById(id) { return state.imagePlacements.find((placement) => ensureImagePlacementId(placement) === id) || null; }
+function serializeImagePlacement(placement) {
+  return {
+    id: ensureImagePlacementId(placement),
+    face: placement.face ? copyFace(placement.face) : undefined,
+    sideFactor: Number(placement.sideFactor) < 0 ? -1 : 1,
+    anchor: Array.isArray(placement.anchor) ? [...placement.anchor] : undefined,
+    segments: Array.isArray(placement.segments) ? placement.segments.map((segment) => ({
+      position: [...segment.position], quaternion: [...segment.quaternion],
+      u0: segment.u0, u1: segment.u1, v0: segment.v0, v1: segment.v1,
+      width: segment.width, height: segment.height,
+      face: segment.face ? copyFace(segment.face) : undefined,
+      sideFactor: Number(segment.sideFactor) < 0 ? -1 : 1,
+    })) : undefined,
+    spec: { ...placement.spec },
+  };
+}
+function restoreImagePlacement(raw = {}) {
+  return {
+    id: String(raw.id || makeImagePlacementId()),
+    face: raw.face ? copyFace(raw.face) : undefined,
+    sideFactor: Number(raw.sideFactor) < 0 ? -1 : 1,
+    anchor: Array.isArray(raw.anchor) ? raw.anchor.map(Number) : undefined,
+    segments: Array.isArray(raw.segments) ? raw.segments.map((segment) => ({
+      position: Array.isArray(segment.position) ? segment.position.map(Number) : [0,0,0],
+      quaternion: Array.isArray(segment.quaternion) ? segment.quaternion.map(Number) : [0,0,0,1],
+      u0: Number(segment.u0) || 0, u1: Number(segment.u1) || 1,
+      v0: Number.isFinite(Number(segment.v0)) ? Number(segment.v0) : 0,
+      v1: Number.isFinite(Number(segment.v1)) ? Number(segment.v1) : 1,
+      width: Math.max(1, Number(segment.width) || 10), height: Math.max(1, Number(segment.height) || 10),
+      face: segment.face ? copyFace(segment.face) : undefined,
+      sideFactor: Number(segment.sideFactor) < 0 ? -1 : 1,
+    })) : [],
+    spec: {
+      dataUrl: String(raw.spec?.dataUrl || ''),
+      fileName: String(raw.spec?.fileName || 'image'),
+      mimeType: String(raw.spec?.mimeType || 'image/webp'),
+      naturalWidth: Math.max(1, Number(raw.spec?.naturalWidth) || 1),
+      naturalHeight: Math.max(1, Number(raw.spec?.naturalHeight) || 1),
+      width: clamp(raw.spec?.width || 120, 5, 5000),
+      height: clamp(raw.spec?.height || 80, 5, 5000),
+    },
+  };
+}
+function resolveImagePlacementFaceInfo(placement) {
+  if (!placement) return null;
+  ensureImagePlacementId(placement);
+  let face = currentFaceForDescriptor(placement.face);
+  let sideFactor = Number(placement.sideFactor) < 0 ? -1 : 1;
+  let anchor = Array.isArray(placement.anchor) ? new THREE.Vector3().fromArray(placement.anchor) : null;
+  if ((!face || !anchor) && Array.isArray(placement.segments) && placement.segments.length) {
+    const ordered = [...placement.segments].sort((a,b) => {
+      const au = ((Number(a.u0)||0)+(Number(a.u1)||1))/2 - .5;
+      const av = ((Number(a.v0)||0)+(Number(a.v1)||1))/2 - .5;
+      const bu = ((Number(b.u0)||0)+(Number(b.u1)||1))/2 - .5;
+      const bv = ((Number(b.v0)||0)+(Number(b.v1)||1))/2 - .5;
+      return au*au+av*av - (bu*bu+bv*bv);
+    });
+    const segment = ordered[0];
+    const info = segmentFaceInfo(segment);
+    if (info) {
+      face = face || info.face;
+      sideFactor = info.sideFactor;
+      anchor = anchor || new THREE.Vector3().fromArray(segment.position || [0,0,0]);
+    }
+  }
+  if (!face) return null;
+  if (!anchor) anchor = faceCenter(face);
+  const basis = faceBasis(face, sideFactor);
+  anchor.sub(basis.normal.clone().multiplyScalar(anchor.clone().sub(basis.center).dot(basis.normal)));
+  placement.face = copyFace(face); placement.sideFactor = sideFactor; placement.anchor = anchor.toArray();
+  return { face, sideFactor, anchor };
+}
+function resolveImagePrimaryFaceInfo(placement) {
+  if (!placement?.segments?.length) return resolveImagePlacementFaceInfo(placement);
+  const weights = new Map();
+  const centers = new Map();
+  const sideFactors = new Map();
+  for (const segment of placement.segments) {
+    const info = segmentFaceInfo(segment); if (!info) continue;
+    const key = faceKey(info.face); const weight = Math.max(1, Number(segment.width)||1) * Math.max(1, Number(segment.height)||1);
+    weights.set(key,(weights.get(key)||0)+weight);
+    const entry=centers.get(key)||{point:new THREE.Vector3(),weight:0};
+    entry.point.add(new THREE.Vector3().fromArray(segment.position||[0,0,0]).multiplyScalar(weight)); entry.weight+=weight; centers.set(key,entry); sideFactors.set(key,info.sideFactor);
+  }
+  if (!weights.size) return resolveImagePlacementFaceInfo(placement);
+  const key=[...weights.entries()].sort((a,b)=>b[1]-a[1])[0][0];
+  const face=surfaceDescriptors.find((candidate)=>faceKey(candidate)===key); if(!face)return resolveImagePlacementFaceInfo(placement);
+  const sideFactor=sideFactors.get(key)||1; const entry=centers.get(key); const anchor=entry?.weight?entry.point.multiplyScalar(1/entry.weight):faceCenter(face);
+  const basis=faceBasis(face,sideFactor); anchor.sub(basis.normal.clone().multiplyScalar(anchor.clone().sub(basis.center).dot(basis.normal)));
+  return {face,sideFactor,anchor};
+}
+function applyImagePlacementGeometry(placement, face, anchorPoint, sideFactor = 1) {
+  if (!placement || !face || !anchorPoint) return false;
+  const computed = computeSurfaceWrappedSegments(face, anchorPoint, sideFactor, placement.spec.width, placement.spec.height);
+  placement.face = copyFace(face); placement.sideFactor = sideFactor; placement.anchor = computed.anchor.toArray();
+  placement.segments = computed.segments.map((segment) => ({ ...segment, position:[...segment.position], quaternion:[...segment.quaternion], face:copyFace(segment.face) }));
+  return true;
+}
+function loadImageElement(dataUrl) {
+  if (!dataUrl) return Promise.reject(new Error('Missing image data.'));
+  if (imageElementCache.has(dataUrl)) return imageElementCache.get(dataUrl);
+  const promise = new Promise((resolve,reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('The uploaded image could not be decoded.'));
+    image.src = dataUrl;
+  });
+  imageElementCache.set(dataUrl,promise);
+  return promise;
+}
+function createImageArtwork(spec, image) {
+  const texture = new THREE.Texture(image);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  return { texture, worldWidth: spec.width, worldHeight: spec.height };
+}
+function tagImageRenderable(object, placementId) {
+  object.traverse((child) => {
+    if (!child.isMesh) return;
+    child.userData.cardboxImage = true;
+    child.userData.imagePlacementId = placementId;
+  });
+}
+async function renderPlacedImages() {
+  ensureDecorationState();
+  const generation = ++imageRenderGeneration;
+  clearGroup(imageGroup);
+  const placements = [...state.imagePlacements];
+  await Promise.all(placements.map(async (placement) => {
+    try {
+      const image = await loadImageElement(placement.spec.dataUrl);
+      if (generation !== imageRenderGeneration) return;
+      const info = resolveImagePlacementFaceInfo(placement);
+      if (!info) return;
+      applyImagePlacementGeometry(placement, info.face, info.anchor, info.sideFactor);
+      const artwork = createImageArtwork(placement.spec, image);
+      const group = renderArtworkSegments(artwork, placement.segments, 1);
+      tagImageRenderable(group, ensureImagePlacementId(placement));
+      imageGroup.add(group);
+    } catch (error) {
+      console.warn('A saved Cardbox image could not be rendered.', error);
+    }
+  }));
+  if (generation === imageRenderGeneration) renderImageSelection();
+}
+function raycastImage(event) { return raycast(event, imageGroup.children, true); }
+function totalEmbeddedImageChars() {
+  ensureDecorationState();
+  return state.imagePlacements.reduce((total, placement) => total + String(placement?.spec?.dataUrl || '').length, 0);
+}
+function normalizedImageMimeAllowed(file) {
+  const mimeType = String(file?.type || '').toLowerCase();
+  const name = String(file?.name || '').toLowerCase();
+  return mimeType === 'image/jpeg' || mimeType === 'image/png' || /\.(jpe?g|png)$/.test(name);
+}
+function normalizeImageFile(file) {
+  return new Promise((resolve,reject) => {
+    if (!file || !normalizedImageMimeAllowed(file) || file.size > MAX_IMAGE_FILE_BYTES) {
+      reject(new Error(decorationT('image.uploadError')));
+      return;
+    }
+    const remainingBudget = MAX_TOTAL_IMAGE_DATA_URL_CHARS - totalEmbeddedImageChars();
+    const targetChars = Math.min(MAX_IMAGE_DATA_URL_CHARS, remainingBudget);
+    if (targetChars < 24_000) {
+      reject(new Error(decorationT('image.stateLimit')));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(decorationT('image.uploadError')));
+    reader.onload = async () => {
+      try {
+        const originalUrl = String(reader.result || '');
+        const original = await loadImageElement(originalUrl);
+        let scale = Math.min(1, 1400 / Math.max(original.naturalWidth, original.naturalHeight));
+        let width = Math.max(1, Math.round(original.naturalWidth * scale));
+        let height = Math.max(1, Math.round(original.naturalHeight * scale));
+        let dataUrl = originalUrl;
+
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d');
+          context.clearRect(0, 0, width, height);
+          context.drawImage(original, 0, 0, width, height);
+          const quality = Math.max(0.5, 0.9 - attempt * 0.045);
+          const webpCandidate = canvas.toDataURL('image/webp', quality);
+          dataUrl = webpCandidate.startsWith('data:image/webp')
+            ? webpCandidate
+            : canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', quality);
+          if (dataUrl.length <= targetChars) break;
+
+          const ratio = Math.sqrt(targetChars / Math.max(1, dataUrl.length)) * 0.92;
+          const shrink = clamp(ratio, 0.58, 0.84);
+          const nextWidth = Math.max(180, Math.round(width * shrink));
+          const nextHeight = Math.max(180, Math.round(height * shrink));
+          if (nextWidth === width && nextHeight === height) break;
+          width = nextWidth;
+          height = nextHeight;
+        }
+
+        if (dataUrl.length > targetChars || totalEmbeddedImageChars() + dataUrl.length > MAX_TOTAL_IMAGE_DATA_URL_CHARS) {
+          throw new Error(decorationT('image.stateLimit'));
+        }
+        const normalizedImage = await loadImageElement(dataUrl);
+        resolve({
+          dataUrl,
+          image: normalizedImage,
+          fileName: String(file.name || 'image').slice(0,120),
+          mimeType: dataUrl.slice(5,dataUrl.indexOf(';')) || file.type,
+          naturalWidth: normalizedImage.naturalWidth,
+          naturalHeight: normalizedImage.naturalHeight,
+        });
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function initialImageDimensions(face, sideFactor, naturalWidth, naturalHeight) {
+  const basis = faceBasis(face, sideFactor);
+  const faceWidth = basis.hMax - basis.hMin;
+  const faceHeightValue = basis.vMax - basis.vMin;
+  const aspect = Math.max(.01, naturalWidth / Math.max(1,naturalHeight));
+  let width; let height;
+  if (naturalWidth >= naturalHeight) { width = faceWidth * .5; height = width / aspect; }
+  else { height = faceHeightValue * .5; width = height * aspect; }
+  const fitScale = Math.min(1, faceWidth*.92/Math.max(width,1), faceHeightValue*.92/Math.max(height,1));
+  return { width: Math.max(10,width*fitScale), height: Math.max(10,height*fitScale) };
+}
+function showImagePlacementPreview(face, anchor, sideFactor) {
+  clearGroup(imagePreviewGroup);
+  if (!pendingImageSpec || !pendingImageElement) return;
+  const placement = { id:makeImagePlacementId(), face:copyFace(face), sideFactor, anchor:anchor.toArray(), spec:{...pendingImageSpec}, segments:[] };
+  applyImagePlacementGeometry(placement,face,anchor,sideFactor);
+  const artwork=createImageArtwork(placement.spec,pendingImageElement);
+  const group=renderArtworkSegments(artwork,placement.segments,.78);
+  imagePreviewGroup.add(group);
+  previewImagePlacement=placement;
+}
+async function startImageUpload() {
+  if (!selectedFaceSnapshot) return;
+  faceActionPopup.hidden = true;
+  faceColorPanel.hidden = true;
+  faceImageInput.value = '';
+  faceImageInput.click();
+}
+async function handleImageUploadFile(file) {
+  if (!selectedFaceSnapshot || !file) { renderFacePopup(); return; }
+  viewerHint.textContent = decorationT('image.processing');
+  try {
+    const normalized = await normalizeImageFile(file);
+    const dimensions = initialImageDimensions(selectedFaceSnapshot, selectedFaceSideFactor, normalized.naturalWidth, normalized.naturalHeight);
+    pendingImageSpec = {
+      dataUrl: normalized.dataUrl, fileName: normalized.fileName, mimeType: normalized.mimeType,
+      naturalWidth: normalized.naturalWidth, naturalHeight: normalized.naturalHeight,
+      width: dimensions.width, height: dimensions.height,
+    };
+    pendingImageElement = normalized.image;
+    imagePlacementMode = true;
+    cancelImagePlacementButton.hidden = false;
+    const initialFace = copyFace(selectedFaceSnapshot);
+    const initialSideFactor = selectedFaceSideFactor;
+    const initialAnchor = faceCenter(initialFace);
+    selectedFaceKey=''; selectedFaceSnapshot=null;
+    rebuildSurfaceMeshes();
+    showImagePlacementPreview(currentFaceForDescriptor(initialFace)||initialFace, initialAnchor, initialSideFactor);
+    viewerHint.textContent = decorationT('image.placeHint');
+  } catch (error) {
+    console.error('Cardbox image upload failed.', error);
+    viewerHint.textContent = error?.message || decorationT('image.uploadError');
+    renderFacePopup();
+  }
+}
+function updateImagePreview(event) {
+  if (!imagePlacementMode || !pendingImageSpec || !pendingImageElement) return;
+  clearGroup(imagePreviewGroup); previewImagePlacement=null;
+  const {hit,raycaster}=raycast(event);
+  if(!hit?.object?.userData?.face)return;
+  const face=hit.object.userData.face; if(!decorationFaceAvailable(face))return;
+  let normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+  if(normal.dot(raycaster.ray.direction)>0)normal.multiplyScalar(-1);
+  const outward=faceNormal(face);
+  const sideFactor=Number(hit.object.userData.surfaceSideFactor)||(normal.dot(outward)>=0?1:-1);
+  const anchor=clampPointToFace(face,sideFactor,storagePointForHit(face,hit.point));
+  showImagePlacementPreview(face,anchor,sideFactor);
+}
+function exitImagePlacementMode({selectId=''}={}) {
+  imagePlacementMode=false; pendingImageSpec=null; pendingImageElement=null; previewImagePlacement=null;
+  clearGroup(imagePreviewGroup); cancelImagePlacementButton.hidden=true;
+  if(selectId)selectedImageId=selectId;
+  renderAll();
+}
+function commitImagePlacement() {
+  if(!previewImagePlacement)return;
+  recordUndoCheckpoint();
+  const placement=restoreImagePlacement(serializeImagePlacement(previewImagePlacement));
+  ensureImagePlacementId(placement); state.imagePlacements.push(placement);
+  const id=placement.id; exitImagePlacementMode({selectId:id}); markConfigurationDirty();
+}
+function selectImagePlacement(id) {
+  const placement=imagePlacementById(id); if(!placement)return;
+  if(selectedImageId===id){deselectImagePlacement();return;}
+  deselectFace();
+  if(selectedTextId)deselectTextPlacement();
+  selectedImageId=id; lidLiftEnabled=false;
+  canvasHost.classList.add('has-selected-image');
+  rebuildSurfaceMeshes(); renderImageSelection();
+}
+function deselectImagePlacement() {
+  selectedImageId=''; imageDragging=false; imageDragPointerId=null; imageDragMoved=false; controls.enabled=true;
+  lidLiftEnabled=false; canvasHost.classList.remove('is-image-dragging','has-selected-image');
+  imageResizePanel.hidden=true; imageResizeOriginal=null;
+  clearGroup(imageSelectionGroup); imageSelectionHud.hidden=true; imageSelectionHud.style.display='none'; imageHudAnchor=null;
+  rebuildSurfaceMeshes();
+}
+function imagePlacementBoundsOnFace(placement,face,sideFactor) {
+  const basis=faceBasis(face,sideFactor); const points=[];
+  for(const segment of placement.segments||[]){const info=segmentFaceInfo(segment);if(!info||faceKey(info.face)!==faceKey(face))continue;const position=new THREE.Vector3().fromArray(segment.position||[0,0,0]);if(isTopFace(info.face)&&isLidLiftActive())position.y+=LID_LIFT_MM;const quaternion=new THREE.Quaternion().fromArray(segment.quaternion||[0,0,0,1]);points.push(...textPlaneCorners(position,quaternion,Number(segment.width)||10,Number(segment.height)||10));}
+  if(!points.length)return null;
+  const coords=points.map((point)=>{const relative=point.clone().sub(basis.center);return{h:relative.dot(basis.horizontal),v:relative.dot(basis.vertical)};});
+  return{basis,hMin:Math.min(...coords.map(p=>p.h)),hMax:Math.max(...coords.map(p=>p.h)),vMin:Math.min(...coords.map(p=>p.v)),vMax:Math.max(...coords.map(p=>p.v))};
+}
+function renderImageSelection() {
+  clearGroup(imageSelectionGroup); imageHudAnchor=null; imageSelectionHud.hidden=true; imageSelectionHud.style.display='none';
+  canvasHost.classList.toggle('has-selected-image',Boolean(selectedImageId));
+  imageLiftTopButton.classList.toggle('is-active',isLidLiftActive());
+  if(!selectedImageId||imagePlacementMode||placementMode||addMode||!imageResizePanel.hidden||!textEditorPanel.hidden||!faceColorPanel.hidden)return;
+  const placement=imagePlacementById(selectedImageId); const info=resolveImagePrimaryFaceInfo(placement); if(!placement||!info)return;
+  const bounds=imagePlacementBoundsOnFace(placement,info.face,info.sideFactor); if(!bounds)return;
+  const hMin=Math.max(bounds.hMin,bounds.basis.hMin),hMax=Math.min(bounds.hMax,bounds.basis.hMax),vMin=Math.max(bounds.vMin,bounds.basis.vMin),vMax=Math.min(bounds.vMax,bounds.basis.vMax);
+  const points=[faceDisplayPointFromLocal(info.face,info.sideFactor,hMin,vMin,SURFACE_TEXT_OFFSET_MM+3.5),faceDisplayPointFromLocal(info.face,info.sideFactor,hMax,vMin,SURFACE_TEXT_OFFSET_MM+3.5),faceDisplayPointFromLocal(info.face,info.sideFactor,hMax,vMax,SURFACE_TEXT_OFFSET_MM+3.5),faceDisplayPointFromLocal(info.face,info.sideFactor,hMin,vMax,SURFACE_TEXT_OFFSET_MM+3.5)];
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([...points,points[0]]),new THREE.LineBasicMaterial({color:0x0e82d8,transparent:true,opacity:.95,depthTest:false})); line.renderOrder=25; imageSelectionGroup.add(line);
+  imageHudAnchor=faceDisplayPointFromLocal(info.face,info.sideFactor,hMax,vMin,SURFACE_TEXT_OFFSET_MM+4);
+  imageSelectionHud.hidden=false; imageSelectionHud.style.display='';
+}
+function toggleSelectedImageLidLift(){if(!selectedImageId)return;lidLiftEnabled=!lidLiftEnabled;rebuildSurfaceMeshes();renderImageSelection();}
+function deleteSelectedImage(){if(!selectedImageId)return;recordUndoCheckpoint();state.imagePlacements=state.imagePlacements.filter((p)=>ensureImagePlacementId(p)!==selectedImageId);selectedImageId='';lidLiftEnabled=false;renderAll();markConfigurationDirty();}
+function beginSelectedImageDrag(event){
+  if(event.button!==0||!selectedImageId||imagePlacementMode||placementMode||addMode||!imageResizePanel.hidden||!textEditorPanel.hidden||!faceColorPanel.hidden)return false;
+  const hit=raycastImage(event).hit;if(!hit||hit.object.userData.imagePlacementId!==selectedImageId)return false;
+  recordUndoCheckpoint();imageDragging=true;imageDragPointerId=event.pointerId;imageDragMoved=false;controls.enabled=false;canvasHost.classList.add('is-image-dragging');
+  try{renderer.domElement.setPointerCapture(event.pointerId);}catch{} event.preventDefault();return true;
+}
+function moveSelectedImageWithPointer(event){
+  if(!imageDragging||!selectedImageId)return false;const placement=imagePlacementById(selectedImageId);if(!placement)return false;
+  const{hit,raycaster}=raycast(event,surfaceMeshes,false);if(!hit?.object?.userData?.face)return false;const face=hit.object.userData.face;if(!decorationFaceAvailable(face))return false;
+  let normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();if(normal.dot(raycaster.ray.direction)>0)normal.multiplyScalar(-1);
+  const sideFactor=Number(hit.object.userData.surfaceSideFactor)||(normal.dot(faceNormal(face))>=0?1:-1);const anchor=clampPointToFace(face,sideFactor,storagePointForHit(face,hit.point));
+  imageDragMoved=true;suppressCanvasClick=true;applyImagePlacementGeometry(placement,face,anchor,sideFactor);void renderPlacedImages();renderImageSelection();return true;
+}
+function endSelectedImageDrag(event){
+  if(!imageDragging)return false;if(imageDragPointerId!=null&&event.pointerId!==imageDragPointerId)return false;const moved=imageDragMoved;imageDragging=false;imageDragPointerId=null;imageDragMoved=false;controls.enabled=true;canvasHost.classList.remove('is-image-dragging');
+  try{renderer.domElement.releasePointerCapture(event.pointerId);}catch{} renderImageSelection();if(moved)markConfigurationDirty();return true;
+}
+function openImageResizePanel(){
+  const placement=imagePlacementById(selectedImageId);if(!placement)return;recordUndoCheckpoint();
+  imageResizeOriginal={width:placement.spec.width,height:placement.spec.height};imageResizeStartWidth=placement.spec.width;imageResizeStartHeight=placement.spec.height;
+  imageSelectionHud.hidden=true;imageResizePanel.hidden=false;renderImageResizeInputs(placement,100);
+}
+function renderImageResizeInputs(placement,scalePercent=null){
+  imageResizeUpdating=true;imageWidthInput.value=round(fromMm(placement.spec.width),units==='imperial'?2:0);imageHeightInput.value=round(fromMm(placement.spec.height),units==='imperial'?2:0);
+  const percent=scalePercent??Math.round(placement.spec.width/Math.max(1,imageResizeStartWidth)*100);imageScaleInput.value=String(clamp(percent,10,250));imageScaleValue.textContent=`${Math.round(clamp(percent,10,250))}%`;imageResizeUpdating=false;
+}
+function resizeSelectedImageFromWidth(value){
+  if(imageResizeUpdating)return;const placement=imagePlacementById(selectedImageId);if(!placement)return;const aspect=placement.spec.naturalWidth/Math.max(1,placement.spec.naturalHeight);placement.spec.width=clamp(toMm(value),5,5000);placement.spec.height=placement.spec.width/aspect;const info=resolveImagePlacementFaceInfo(placement);if(info)applyImagePlacementGeometry(placement,info.face,info.anchor,info.sideFactor);renderImageResizeInputs(placement);void renderPlacedImages();renderImageSelection();
+}
+function resizeSelectedImageFromHeight(value){
+  if(imageResizeUpdating)return;const placement=imagePlacementById(selectedImageId);if(!placement)return;const aspect=placement.spec.naturalWidth/Math.max(1,placement.spec.naturalHeight);placement.spec.height=clamp(toMm(value),5,5000);placement.spec.width=placement.spec.height*aspect;const info=resolveImagePlacementFaceInfo(placement);if(info)applyImagePlacementGeometry(placement,info.face,info.anchor,info.sideFactor);renderImageResizeInputs(placement);void renderPlacedImages();renderImageSelection();
+}
+function resizeSelectedImageFromScale(value){
+  if(imageResizeUpdating)return;const placement=imagePlacementById(selectedImageId);if(!placement)return;const scale=clamp(value,10,250)/100;placement.spec.width=imageResizeStartWidth*scale;placement.spec.height=imageResizeStartHeight*scale;const info=resolveImagePlacementFaceInfo(placement);if(info)applyImagePlacementGeometry(placement,info.face,info.anchor,info.sideFactor);renderImageResizeInputs(placement,scale*100);void renderPlacedImages();renderImageSelection();
+}
+function finishImageResize(){if(!selectedImageId)return;imageResizePanel.hidden=true;imageResizeOriginal=null;renderImageSelection();markConfigurationDirty();}
+function cancelImageResize(){const placement=imagePlacementById(selectedImageId);if(placement&&imageResizeOriginal){placement.spec.width=imageResizeOriginal.width;placement.spec.height=imageResizeOriginal.height;const info=resolveImagePlacementFaceInfo(placement);if(info)applyImagePlacementGeometry(placement,info.face,info.anchor,info.sideFactor);}imageResizePanel.hidden=true;imageResizeOriginal=null;void renderPlacedImages();renderImageSelection();}
+
+function makeColoredSurfaceMesh(face, sideFactor) {
+  const width=face.u2-face.u1,height=face.v2-face.v1;
+  const geometry=new THREE.PlaneGeometry(width,height);
+  const material=new THREE.MeshStandardMaterial({color:resolvedSurfaceColor(face,sideFactor),roughness:.84,metalness:0,side:sideFactor>=0?THREE.FrontSide:THREE.BackSide});
+  const mesh=new THREE.Mesh(geometry,material);const normal=faceNormal(face);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);
+  const center=faceCenter(face);if(isLidLiftActive()&&isTopFace(face))center.y+=LID_LIFT_MM;mesh.position.copy(center);mesh.castShadow=true;mesh.receiveShadow=true;
+  mesh.userData.cardboxSurface=true;mesh.userData.face=face;mesh.userData.faceKey=faceKey(face);mesh.userData.vertical=isVerticalFace(face);mesh.userData.top=isTopFace(face);mesh.userData.bottom=isBottomFace(face);mesh.userData.surfaceSideFactor=sideFactor;
+  if(selectedFaceSnapshot&&faceKey(face)===selectedFaceKey&&selectedFaceSideFactor===sideFactor&&selectedFaceHighlightVisible(face))addSelectionMarkers(mesh,face);
+  return mesh;
+}
+function applyFeaturesAndSurfaceColours() {
+  ensurePackagingState();ensureDecorationState();clearGroup(packagingFeatureGroup);
+  for(const mesh of surfaceMeshes){
+    const face=mesh.userData?.face;if(!face||!mesh.geometry)continue;const sideFactor=Number(mesh.userData.surfaceSideFactor)||1;if(mesh.material?.color)mesh.material.color.set(resolvedSurfaceColor(face,sideFactor));
+    const width=face.u2-face.u1,height=face.v2-face.v1;const features=packagingFeatureHoles(face,width,height);if(!features.length)continue;
+    const shape=new THREE.Shape();shape.moveTo(-width/2,-height/2);shape.lineTo(width/2,-height/2);shape.lineTo(width/2,height/2);shape.lineTo(-width/2,height/2);shape.closePath();features.forEach((item)=>shape.holes.push(item.path));mesh.geometry.dispose?.();mesh.geometry=new THREE.ShapeGeometry(shape);
+    if(sideFactor<0)continue;
+    for(const item of features.filter((entry)=>entry.reinforced)){const curve=new THREE.EllipseCurve(item.cx,item.cy,item.width/2+5,item.height/2+5,0,Math.PI*2,false,0);const points=curve.getPoints(40).map((p)=>new THREE.Vector3(p.x,p.y,1));const line=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:0x7a542f,transparent:true,opacity:.75}));mesh.add(line);}
+  }
+}
+rebuildSurfaceMeshes = function rebuildSurfaceMeshesWithInsideOutsideColoursAndImages() {
+  ensureDecorationState();clearGroup(boxGroup);surfaceMeshes=[];const metrics=calculateUnionMetrics(currentBoxes());surfaceDescriptors=metrics.faces;dimensionAnchors=[];
+  for(const face of surfaceDescriptors){
+    const outer=makeColoredSurfaceMesh(face,1);const inner=makeColoredSurfaceMesh(face,-1);boxGroup.add(outer);boxGroup.add(inner);surfaceMeshes.push(outer,inner);
+    const highlighted=selectedFaceHighlightVisible(face);
+    if(technicalEdgesVisible||highlighted){const edgeMaterial=new THREE.LineBasicMaterial({color:highlighted?0x0e82d8:0x755335,transparent:true,opacity:highlighted?.95:.38,depthTest:!highlighted});const edges=new THREE.LineSegments(new THREE.EdgesGeometry(outer.geometry),edgeMaterial);edges.renderOrder=highlighted?4:0;outer.add(edges);}
+    if(isVerticalFace(face)){const anchor=faceCenter(face);anchor.y=face.v2+24;dimensionAnchors.push({point:anchor,label:displayLength(faceHorizontalWidth(face))});}
+  }
+  applyFeaturesAndSurfaceColours();packagingRenderClosureVisuals();
+  const topVisible=state.closures?.top!=='open',bottomVisible=state.closures?.bottom!=='open';
+  surfaceMeshes.forEach((mesh)=>{if(mesh.userData.top)mesh.visible=topVisible;if(mesh.userData.bottom)mesh.visible=bottomVisible;});
+  renderPlacedTexts();void renderPlacedImages();renderDimensions();fitControlsTarget();
+};
+
+const decorationLegacySelectedFaceHighlightVisible = selectedFaceHighlightVisible;
+selectedFaceHighlightVisible = function selectedFaceHighlightVisibleWithPanels(face) {
+  return Boolean(selectedFaceSnapshot)&&faceKey(face)===selectedFaceKey&&textEditorPanel.hidden&&faceColorPanel.hidden&&imageResizePanel.hidden&&!addMode&&!placementMode&&!imagePlacementMode;
+};
+renderFacePopup = function renderFacePopupWithDecorationActions() {
+  if(!selectedFaceSnapshot||addMode||placementMode||imagePlacementMode||!textEditorPanel.hidden||!faceColorPanel.hidden||!imageResizePanel.hidden||selectedTextId||selectedImageId){faceActionPopup.hidden=true;return;}
+  faceActionPopup.hidden=false;updateFacePopupPosition();
+};
+const decorationLegacySelectFace = selectFace;
+selectFace = function selectAnyDecoratableFace(face,sideFactor=1){
+  if(selectedTextId)deselectTextPlacement();if(selectedImageId)deselectImagePlacement();
+  const key=faceKey(face);if(selectedFaceKey===key&&selectedFaceSideFactor===(sideFactor>=0?1:-1)){deselectFace();return;}
+  selectedFaceKey=key;selectedFaceSnapshot={...face};selectedFaceSideFactor=sideFactor>=0?1:-1;textEditorPanel.hidden=true;faceColorPanel.hidden=true;imageResizePanel.hidden=true;clearEditorPreview();renderAll();
+};
+deselectFace = function deselectFaceAndDecorationPanels(){selectedFaceKey='';selectedFaceSnapshot=null;selectedFaceSideFactor=1;faceActionPopup.hidden=true;textEditorPanel.hidden=true;faceColorPanel.hidden=true;imageResizePanel.hidden=true;clearEditorPreview();if(!addMode&&!placementMode&&!imagePlacementMode)rebuildSurfaceMeshes();};
+
+const decorationLegacyRenderTranslations = renderTranslations;
+renderTranslations = function renderTranslationsWithDecorations(){decorationLegacyRenderTranslations();applyDecorationCopy();if(imagePlacementMode)viewerHint.textContent=decorationT('image.placeHint');};
+const decorationLegacyRenderAll = renderAll;
+renderAll = function renderAllWithImagesAndColours(){ensureDecorationState();decorationLegacyRenderAll();renderFaceColorPanel();renderImageSelection();};
+const decorationLegacyUpdateOverlayPositions = updateOverlayPositions;
+updateOverlayPositions = function updateOverlayPositionsWithImageHud(){decorationLegacyUpdateOverlayPositions();if(!imageSelectionHud.hidden&&imageHudAnchor){const rect=canvasHost.getBoundingClientRect();const projected=imageHudAnchor.clone().project(camera);const visible=projected.z>-1&&projected.z<1;imageSelectionHud.style.display=visible?'':'none';if(visible){const rawLeft=(projected.x*.5+.5)*rect.width,rawTop=(-projected.y*.5+.5)*rect.height;const hudWidth=imageSelectionHud.offsetWidth||218,hudHeight=imageSelectionHud.offsetHeight||128;imageSelectionHud.style.left=`${clamp(rawLeft,4,Math.max(4,rect.width-hudWidth-18))}px`;imageSelectionHud.style.top=`${clamp(rawTop,4,Math.max(4,rect.height-hudHeight-18))}px`;}}else imageSelectionHud.style.display='none';};
+
+const decorationLegacyBindControls = bindControls;
+bindControls = function bindControlsWithSurfaceColoursAndImages(){
+  decorationLegacyBindControls();
+  faceColorButton.addEventListener('click',openFaceColorPanel);faceImageButton.addEventListener('click',startImageUpload);backFromColorButton.addEventListener('click',closeFaceColorPanel);
+  faceColorPalette.addEventListener('click',(event)=>{const button=event.target.closest('[data-face-color]');if(button)applySelectedFaceColor(button.dataset.faceColor);});
+  applyOuterColorButton.addEventListener('click',()=>applySelectedColorToScope('outer'));applyInnerColorButton.addEventListener('click',()=>applySelectedColorToScope('inner'));applyBothColorButton.addEventListener('click',()=>applySelectedColorToScope('both'));
+  faceImageInput.addEventListener('change',()=>{const[file]=faceImageInput.files||[];void handleImageUploadFile(file);});faceImageInput.addEventListener('cancel',()=>renderFacePopup());cancelImagePlacementButton.addEventListener('click',()=>exitImagePlacementMode());
+  imageResizeButton.addEventListener('click',openImageResizePanel);imageLiftTopButton.addEventListener('click',toggleSelectedImageLidLift);imageDeleteButton.addEventListener('click',deleteSelectedImage);imageDismissButton.addEventListener('click',deselectImagePlacement);
+  imageWidthInput.addEventListener('change',()=>resizeSelectedImageFromWidth(imageWidthInput.value));imageHeightInput.addEventListener('change',()=>resizeSelectedImageFromHeight(imageHeightInput.value));imageScaleInput.addEventListener('input',()=>resizeSelectedImageFromScale(imageScaleInput.value));confirmImageResizeButton.addEventListener('click',finishImageResize);cancelImageResizeButton.addEventListener('click',cancelImageResize);
+};
+
+const decorationLegacySerializeTextPlacement = serializeTextPlacement;
+serializeTextPlacement = function serializeTextPlacementWithVerticalUvs(placement){const result=decorationLegacySerializeTextPlacement(placement);if(result.segments)result.segments=result.segments.map((segment,index)=>({...segment,v0:Number.isFinite(Number(placement.segments?.[index]?.v0))?Number(placement.segments[index].v0):0,v1:Number.isFinite(Number(placement.segments?.[index]?.v1))?Number(placement.segments[index].v1):1}));return result;};
+const decorationLegacyRestoreTextPlacement = restoreTextPlacement;
+restoreTextPlacement = function restoreTextPlacementWithVerticalUvs(raw){const placement=decorationLegacyRestoreTextPlacement(raw);if(placement.segments)placement.segments=placement.segments.map((segment,index)=>({...segment,v0:Number.isFinite(Number(raw.segments?.[index]?.v0))?Number(raw.segments[index].v0):0,v1:Number.isFinite(Number(raw.segments?.[index]?.v1))?Number(raw.segments[index].v1):1}));return placement;};
+
+const decorationLegacyPackagingSummary = packagingRenderSummaryExtension;
+packagingRenderSummaryExtension = function packagingRenderSummaryWithImages(){
+  const base=decorationLegacyPackagingSummary();ensureDecorationState();const imageCost=state.imagePlacements.length*.5;const total=base.totalEur+imageCost;
+  const count=document.querySelector('#summaryImageCount');if(count)count.textContent=String(state.imagePlacements.length);
+  const breakdown=document.querySelector('#priceBreakdown');if(breakdown&&imageCost>0)breakdown.insertAdjacentHTML('beforeend',`<div class="price-row"><span>${packagingEscape(decorationT('summary.imageCost'))}</span><strong>${formatMoney(imageCost)}</strong></div>`);
+  summaryTotal.textContent=formatMoney(total);return{totalEur:total};
+};
+const decorationLegacyCaptureState = captureState;
+captureState = function captureDecorationState(){ensureDecorationState();return{...decorationLegacyCaptureState(),version:9,decorationSchemaVersion:1,faceColors:{outer:{...state.faceColors.outer},inner:{...state.faceColors.inner}},imagePlacements:state.imagePlacements.map(serializeImagePlacement)};};
+const decorationLegacyRestoreState = restoreState;
+restoreState = function restoreDecorationState(snapshot){const source=snapshot?.state&&!snapshot.boxes?snapshot.state:snapshot;const restored=decorationLegacyRestoreState(snapshot);if(!restored)return false;state.faceColors=source?.faceColors&&typeof source.faceColors==='object'?{outer:{...(source.faceColors.outer||{})},inner:{...(source.faceColors.inner||{})}}:{outer:{},inner:{}};state.imagePlacements=Array.isArray(source?.imagePlacements)?source.imagePlacements.map(restoreImagePlacement):[];selectedImageId='';imagePlacementMode=false;imageResizePanel.hidden=true;faceColorPanel.hidden=true;cancelImagePlacementButton.hidden=true;ensureDecorationState();renderAll();return true;};
+const decorationLegacyResetConfiguration = resetConfiguration;
+resetConfiguration = function resetDecorationState(){decorationLegacyResetConfiguration();state.faceColors={outer:{},inner:{}};state.imagePlacements=[];selectedImageId='';imagePlacementMode=false;imageResizePanel.hidden=true;faceColorPanel.hidden=true;cancelImagePlacementButton.hidden=true;renderAll();return true;};
+getPrice = function getDecorationPrice(){const total=packagingRenderSummaryExtension().totalEur;return{amount:total*(CURRENCY_FROM_EUR[currency]||1),currency};};
+ensureDecorationState();
+
+
+/* --------------------------------------------------------------------------
+   Cardbox inspection and presentation tools
+   -------------------------------------------------------------------------- */
+
+const CARDBOX_TOOL_BOX_LIFT_MM = 500;
+const CARDBOX_TOOL_LID_ANGLE = Math.PI * 0.58;
+const CARDBOX_TOOL_TWEEN_MS = 420;
+const CARDBOX_FOLD_ANIMATION_MS = 3200;
+const CARDBOX_FOLD_WATCHDOG_MS = 9000;
+
+const CARDBOX_TOOL_COPY = Object.freeze({
+  'en-US': Object.freeze({
+    closureTitle: 'Open / close',
+    closureHelp: 'Inspect the upper and lower closures independently.',
+    upper: 'Upper closure',
+    upperHelp: 'Top lid or flaps',
+    lower: 'Lower closure',
+    lowerHelp: 'Bottom lid or flaps',
+    open: 'Open',
+    close: 'Close',
+    unavailable: 'Not available',
+    panelClose: 'Close',
+    foldTitle: 'Fold animation in progress',
+    foldDetail: 'The configurator is temporarily locked.',
+  }),
+  'ro-RO': Object.freeze({
+    closureTitle: 'Deschide / închide',
+    closureHelp: 'Inspectează independent închiderea superioară și cea inferioară.',
+    upper: 'Închidere superioară',
+    upperHelp: 'Capac sau clapete superioare',
+    lower: 'Închidere inferioară',
+    lowerHelp: 'Capac sau clapete inferioare',
+    open: 'Deschide',
+    close: 'Închide',
+    unavailable: 'Indisponibil',
+    panelClose: 'Închide',
+    foldTitle: 'Animația de pliere este în curs',
+    foldDetail: 'Configuratorul este blocat temporar.',
+  }),
+  'de-DE': Object.freeze({
+    closureTitle: 'Öffnen / schließen',
+    closureHelp: 'Oberen und unteren Verschluss getrennt prüfen.',
+    upper: 'Oberer Verschluss',
+    upperHelp: 'Oberer Deckel oder Klappen',
+    lower: 'Unterer Verschluss',
+    lowerHelp: 'Unterer Deckel oder Klappen',
+    open: 'Öffnen',
+    close: 'Schließen',
+    unavailable: 'Nicht verfügbar',
+    panelClose: 'Schließen',
+    foldTitle: 'Faltanimation läuft',
+    foldDetail: 'Der Konfigurator ist vorübergehend gesperrt.',
+  }),
+});
+
+const boxClosureToolPanel = $('#boxClosureToolPanel');
+const closureToolTitle = $('#closureToolTitle');
+const closureToolHelp = $('#closureToolHelp');
+const topClosureToolLabel = $('#topClosureToolLabel');
+const topClosureToolDescription = $('#topClosureToolDescription');
+const bottomClosureToolLabel = $('#bottomClosureToolLabel');
+const bottomClosureToolDescription = $('#bottomClosureToolDescription');
+const topClosureToolState = $('#topClosureToolState');
+const bottomClosureToolState = $('#bottomClosureToolState');
+const toggleTopClosureButton = $('#toggleTopClosureButton');
+const toggleBottomClosureButton = $('#toggleBottomClosureButton');
+const closeClosureToolPanelButton = $('#closeClosureToolPanelButton');
+const foldAnimationOverlay = $('#foldAnimationOverlay');
+const foldAnimationOverlayTitle = $('#foldAnimationOverlayTitle');
+const foldAnimationOverlayDetail = $('#foldAnimationOverlayDetail');
+
+let closurePanelOpen = false;
+let topClosureProgress = 0;
+let bottomClosureProgress = 0;
+let boxLiftCurrent = 0;
+let boxLiftTarget = 0;
+let transparentMode = false;
+let artworkVisible = true;
+let foldAnimationActive = false;
+let interactionLocked = false;
+let configuredClosureSignature = '';
+let lidTweenToken = 0;
+let liftTweenToken = 0;
+let foldAnimationFrame = 0;
+let foldAnimationWatchdog = 0;
+let foldAnimationRestoreState = null;
+let foldInertSnapshot = [];
+
+const CARD_BOX_MOVABLE_GROUPS = Object.freeze([
+  boxGroup,
+  textGroup,
+  editorPreviewGroup,
+  previewGroup,
+  textSelectionGroup,
+  imageGroup,
+  imagePreviewGroup,
+  imageSelectionGroup,
+  packagingClosureGroup,
+  packagingFeatureGroup,
+]);
+
+function cardboxToolCopy() {
+  return CARDBOX_TOOL_COPY[locale] || CARDBOX_TOOL_COPY['en-US'];
+}
+
+function cardboxToolState() {
+  return {
+    closurePanelOpen,
+    boxLifted: boxLiftTarget > 0.5,
+    transparentMode,
+    artworkVisible,
+    foldAnimationActive,
+    interactionLocked,
+    topOpen: topClosureProgress > 0.5,
+    bottomOpen: bottomClosureProgress > 0.5,
+  };
+}
+
+function notifyCardboxToolState() {
+  window.dispatchEvent(new CustomEvent('cardbox:tool-state', { detail: cardboxToolState() }));
+}
+
+function configuredClosureAvailable(which) {
+  const value = state.closures?.[which];
+  return Boolean(value && value !== 'open');
+}
+
+function reconcileConfiguredClosures() {
+  const signature = `${state.boxType || ''}|${state.closures?.top || ''}|${state.closures?.bottom || ''}`;
+  if (configuredClosureSignature && configuredClosureSignature !== signature && !foldAnimationActive) {
+    topClosureProgress = 0;
+    bottomClosureProgress = 0;
+    lidTweenToken += 1;
+  }
+  configuredClosureSignature = signature;
+  if (!configuredClosureAvailable('top')) topClosureProgress = 0;
+  if (!configuredClosureAvailable('bottom')) bottomClosureProgress = 0;
+}
+
+function renderClosureToolPanel() {
+  const copy = cardboxToolCopy();
+  closureToolTitle.textContent = copy.closureTitle;
+  closureToolHelp.textContent = copy.closureHelp;
+  topClosureToolLabel.textContent = copy.upper;
+  topClosureToolDescription.textContent = copy.upperHelp;
+  bottomClosureToolLabel.textContent = copy.lower;
+  bottomClosureToolDescription.textContent = copy.lowerHelp;
+  closeClosureToolPanelButton.textContent = copy.panelClose;
+  foldAnimationOverlayTitle.textContent = copy.foldTitle;
+  foldAnimationOverlayDetail.textContent = copy.foldDetail;
+
+  const topAvailable = configuredClosureAvailable('top');
+  const bottomAvailable = configuredClosureAvailable('bottom');
+  const topOpen = topClosureProgress > 0.5;
+  const bottomOpen = bottomClosureProgress > 0.5;
+
+  toggleTopClosureButton.disabled = !topAvailable || foldAnimationActive;
+  toggleBottomClosureButton.disabled = !bottomAvailable || foldAnimationActive;
+  toggleTopClosureButton.setAttribute('aria-disabled', String(toggleTopClosureButton.disabled));
+  toggleBottomClosureButton.setAttribute('aria-disabled', String(toggleBottomClosureButton.disabled));
+  toggleTopClosureButton.setAttribute('aria-pressed', String(topOpen));
+  toggleBottomClosureButton.setAttribute('aria-pressed', String(bottomOpen));
+  toggleTopClosureButton.classList.toggle('is-open', topOpen);
+  toggleBottomClosureButton.classList.toggle('is-open', bottomOpen);
+  topClosureToolState.textContent = !topAvailable ? copy.unavailable : topOpen ? copy.close : copy.open;
+  bottomClosureToolState.textContent = !bottomAvailable ? copy.unavailable : bottomOpen ? copy.close : copy.open;
+  boxClosureToolPanel.hidden = !closurePanelOpen || foldAnimationActive;
+}
+
+function clearInspectionSelections() {
+  if (placementMode) exitPlacementMode();
+  if (imagePlacementMode) exitImagePlacementMode();
+  if (selectedTextId) deselectTextPlacement();
+  if (selectedImageId) deselectImagePlacement();
+  if (selectedFaceSnapshot) deselectFace();
+  textEditorPanel.hidden = true;
+  faceColorPanel.hidden = true;
+  imageResizePanel.hidden = true;
+  clearEditorPreview();
+}
+
+function closeToolPanels() {
+  if (!closurePanelOpen) return false;
+  closurePanelOpen = false;
+  renderClosureToolPanel();
+  notifyCardboxToolState();
+  return true;
+}
+
+function toggleClosureToolPanel() {
+  if (interactionLocked) return false;
+  clearInspectionSelections();
+  closurePanelOpen = !closurePanelOpen;
+  renderClosureToolPanel();
+  notifyCardboxToolState();
+  return closurePanelOpen;
+}
+
+function toolTopDisplayY() {
+  const b = boundsForBoxes(state.boxes);
+  return b.maxY + (isLidLiftActive() ? LID_LIFT_MM : 0);
+}
+
+function toolBottomDisplayY() {
+  return boundsForBoxes(state.boxes).minY;
+}
+
+function closurePivot(which) {
+  const b = boundsForBoxes(state.boxes);
+  const x = (b.minX + b.maxX) / 2;
+  if (which === 'top') return new THREE.Vector3(x, toolTopDisplayY(), b.minZ);
+  return new THREE.Vector3(x, toolBottomDisplayY(), b.maxZ);
+}
+
+function closureQuaternion(which, progress) {
+  if (!progress) return new THREE.Quaternion();
+  const angle = -CARDBOX_TOOL_LID_ANGLE * clamp(progress, 0, 1);
+  return new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle);
+}
+
+function captureToolBaseTransform(object) {
+  if (object.userData.cardboxToolBaseTransform) return object.userData.cardboxToolBaseTransform;
+  const base = {
+    position: object.position.clone(),
+    quaternion: object.quaternion.clone(),
+    scale: object.scale.clone(),
+  };
+  object.userData.cardboxToolBaseTransform = base;
+  return base;
+}
+
+function resetToolRenderable(object) {
+  const base = captureToolBaseTransform(object);
+  object.position.copy(base.position);
+  object.quaternion.copy(base.quaternion);
+  object.scale.copy(base.scale);
+  object.updateMatrix();
+}
+
+function baseObjectNormal(object) {
+  const base = captureToolBaseTransform(object);
+  return new THREE.Vector3(0, 0, 1).applyQuaternion(base.quaternion).normalize();
+}
+
+function baseObjectCenter(object) {
+  const base = captureToolBaseTransform(object);
+  if (!object.geometry) return base.position.clone();
+  object.geometry.computeBoundingBox?.();
+  const center = object.geometry.boundingBox?.getCenter(new THREE.Vector3()) || new THREE.Vector3();
+  center.multiply(base.scale).applyQuaternion(base.quaternion).add(base.position);
+  return center;
+}
+
+function classifyToolSurface(object) {
+  if (object.userData.cardboxToolSurface) return object.userData.cardboxToolSurface;
+  if (object.userData.top) return 'top';
+  if (object.userData.bottom) return 'bottom';
+
+  const center = baseObjectCenter(object);
+  const tolerance = Math.max(18, state.boardThickness * 8);
+  const isClosureLine = object.isLine || object.isLineSegments || object.isLineLoop;
+  if (isClosureLine) {
+    if (Math.abs(center.y - toolTopDisplayY()) <= tolerance) return 'top';
+    if (Math.abs(center.y - toolBottomDisplayY()) <= tolerance) return 'bottom';
+    return '';
+  }
+
+  const normal = baseObjectNormal(object);
+  if (Math.abs(normal.y) < 0.78) return '';
+  if (Math.abs(center.y - toolTopDisplayY()) <= tolerance) return 'top';
+  if (Math.abs(center.y - toolBottomDisplayY()) <= tolerance) return 'bottom';
+  return '';
+}
+
+function transformToolRenderable(object, which, progress) {
+  const base = captureToolBaseTransform(object);
+  object.position.copy(base.position);
+  object.quaternion.copy(base.quaternion);
+  if (!progress) return;
+  const pivot = closurePivot(which);
+  const rotation = closureQuaternion(which, progress);
+  object.position.sub(pivot).applyQuaternion(rotation).add(pivot);
+  object.quaternion.premultiply(rotation);
+  object.updateMatrix();
+}
+
+function hasSurfaceMeshAncestor(object) {
+  let parent = object.parent;
+  while (parent) {
+    if (surfaceMeshes.includes(parent)) return true;
+    if (CARD_BOX_MOVABLE_GROUPS.includes(parent)) break;
+    parent = parent.parent;
+  }
+  return false;
+}
+
+function toolRenderables() {
+  const objects = new Set(surfaceMeshes);
+  [textGroup, editorPreviewGroup, previewGroup, imageGroup, imagePreviewGroup, packagingClosureGroup, packagingFeatureGroup].forEach((group) => {
+    group.traverse((object) => {
+      if (!(object.isMesh || object.isLine || object.isLineSegments || object.isLineLoop)) return;
+      if (surfaceMeshes.includes(object) || hasSurfaceMeshAncestor(object)) return;
+      objects.add(object);
+    });
+  });
+  return [...objects];
+}
+
+function restoreMaterialPresentation(material) {
+  if (!material?.userData?.cardboxPresentationBase) return;
+  const base = material.userData.cardboxPresentationBase;
+  material.transparent = base.transparent;
+  material.opacity = base.opacity;
+  material.depthWrite = base.depthWrite;
+  material.alphaTest = base.alphaTest;
+  material.needsUpdate = true;
+}
+
+function applyMaterialTransparency(material, opacity = 0.27) {
+  if (!material) return;
+  if (!material.userData.cardboxPresentationBase) {
+    material.userData.cardboxPresentationBase = {
+      transparent: material.transparent,
+      opacity: material.opacity,
+      depthWrite: material.depthWrite,
+      alphaTest: material.alphaTest,
+    };
+  }
+  if (!transparentMode) {
+    restoreMaterialPresentation(material);
+    return;
+  }
+  material.transparent = true;
+  material.opacity = Math.min(Number(material.opacity) || 1, opacity);
+  material.depthWrite = false;
+  material.alphaTest = 0;
+  material.needsUpdate = true;
+}
+
+function applyTransparentPresentation() {
+  surfaceMeshes.forEach((mesh) => {
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    materials.forEach((material) => applyMaterialTransparency(material, 0.27));
+  });
+  packagingClosureGroup.traverse((object) => {
+    const materials = object.material ? (Array.isArray(object.material) ? object.material : [object.material]) : [];
+    materials.forEach((material) => applyMaterialTransparency(material, 0.42));
+  });
+  packagingFeatureGroup.traverse((object) => {
+    const materials = object.material ? (Array.isArray(object.material) ? object.material : [object.material]) : [];
+    materials.forEach((material) => applyMaterialTransparency(material, 0.55));
+  });
+}
+
+function applyArtworkVisibility() {
+  textGroup.visible = artworkVisible;
+  imageGroup.visible = artworkVisible;
+  editorPreviewGroup.visible = artworkVisible;
+  previewGroup.visible = artworkVisible;
+  imagePreviewGroup.visible = artworkVisible;
+  textSelectionGroup.visible = artworkVisible;
+  imageSelectionGroup.visible = artworkVisible;
+  if (!artworkVisible) {
+    textSelectionHud.hidden = true;
+    imageSelectionHud.hidden = true;
+    textGuideLayer.hidden = true;
+  } else {
+    textGuideLayer.hidden = false;
+  }
+}
+
+function applyBoxLift() {
+  CARD_BOX_MOVABLE_GROUPS.forEach((group) => { group.position.y = boxLiftCurrent; group.updateMatrixWorld(true); });
+}
+
+function applyToolVisualState() {
+  reconcileConfiguredClosures();
+  const topProgress = configuredClosureAvailable('top') ? topClosureProgress : 0;
+  const bottomProgress = configuredClosureAvailable('bottom') ? bottomClosureProgress : 0;
+  toolRenderables().forEach((object) => {
+    resetToolRenderable(object);
+    const surface = classifyToolSurface(object);
+    object.userData.cardboxToolSurface = surface;
+    if (surface === 'top') transformToolRenderable(object, 'top', topProgress);
+    else if (surface === 'bottom') transformToolRenderable(object, 'bottom', bottomProgress);
+  });
+  applyTransparentPresentation();
+  applyArtworkVisibility();
+  applyBoxLift();
+  renderClosureToolPanel();
+}
+
+function inverseClosurePoint(point, which) {
+  const progress = which === 'top' ? topClosureProgress : bottomClosureProgress;
+  if (!progress) return point;
+  const pivot = closurePivot(which);
+  const inverse = closureQuaternion(which, progress).invert();
+  return point.sub(pivot).applyQuaternion(inverse).add(pivot);
+}
+
+function modelPointFromToolWorld(point, object) {
+  const result = point.clone();
+  result.y -= boxLiftCurrent;
+  const surface = object?.userData?.cardboxToolSurface || classifyToolSurface(object);
+  if (surface === 'top' || surface === 'bottom') inverseClosurePoint(result, surface);
+  return result;
+}
+
+function easeInOutCubic(value) {
+  const t = clamp(value, 0, 1);
+  return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2;
+}
+
+function animateClosure(which, target, duration = CARDBOX_TOOL_TWEEN_MS) {
+  if (interactionLocked || !configuredClosureAvailable(which)) return Promise.resolve(false);
+  const token = ++lidTweenToken;
+  const start = which === 'top' ? topClosureProgress : bottomClosureProgress;
+  const startedAt = performance.now();
+  toggleTopClosureButton.disabled = true;
+  toggleBottomClosureButton.disabled = true;
+
+  return new Promise((resolve) => {
+    const frame = (now) => {
+      if (token !== lidTweenToken || foldAnimationActive) { resolve(false); return; }
+      const ratio = Math.min(1, (now - startedAt) / duration);
+      const value = start + (target - start) * easeInOutCubic(ratio);
+      if (which === 'top') topClosureProgress = value;
+      else bottomClosureProgress = value;
+      applyToolVisualState();
+      if (ratio < 1) requestAnimationFrame(frame);
+      else {
+        if (which === 'top') topClosureProgress = target;
+        else bottomClosureProgress = target;
+        applyToolVisualState();
+        notifyCardboxToolState();
+        resolve(true);
+      }
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+function toggleTopClosure() {
+  clearInspectionSelections();
+  return animateClosure('top', topClosureProgress > 0.5 ? 0 : 1);
+}
+
+function toggleBottomClosure() {
+  clearInspectionSelections();
+  return animateClosure('bottom', bottomClosureProgress > 0.5 ? 0 : 1);
+}
+
+function animateBoxLift(target) {
+  if (interactionLocked) return Promise.resolve(false);
+  const token = ++liftTweenToken;
+  const start = boxLiftCurrent;
+  const startedAt = performance.now();
+  boxLiftTarget = target;
+  notifyCardboxToolState();
+  return new Promise((resolve) => {
+    const frame = (now) => {
+      if (token !== liftTweenToken || foldAnimationActive) { resolve(false); return; }
+      const ratio = Math.min(1, (now - startedAt) / 360);
+      const previous = boxLiftCurrent;
+      boxLiftCurrent = start + (target - start) * easeInOutCubic(ratio);
+      const delta = boxLiftCurrent - previous;
+      controls.target.y += delta;
+      camera.position.y += delta * 0.36;
+      applyToolVisualState();
+      if (ratio < 1) requestAnimationFrame(frame);
+      else {
+        boxLiftCurrent = target;
+        applyToolVisualState();
+        notifyCardboxToolState();
+        resolve(true);
+      }
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+function toggleBoxLift() {
+  if (interactionLocked) return false;
+  clearInspectionSelections();
+  closeToolPanels();
+  const target = boxLiftTarget > 0.5 ? 0 : CARDBOX_TOOL_BOX_LIFT_MM;
+  void animateBoxLift(target);
+  return target > 0;
+}
+
+function toggleTransparentMode() {
+  if (interactionLocked) return transparentMode;
+  clearInspectionSelections();
+  closeToolPanels();
+  transparentMode = !transparentMode;
+  applyToolVisualState();
+  notifyCardboxToolState();
+  return transparentMode;
+}
+
+function toggleArtworkVisibility() {
+  if (interactionLocked) return artworkVisible;
+  closeToolPanels();
+  artworkVisible = !artworkVisible;
+  if (!artworkVisible) clearInspectionSelections();
+  applyArtworkVisibility();
+  notifyCardboxToolState();
+  return artworkVisible;
+}
+
+function lockFoldInteraction() {
+  if (interactionLocked) return;
+  interactionLocked = true;
+  foldAnimationOverlay.hidden = false;
+  foldInertSnapshot = [...document.body.children]
+    .filter((element) => element !== foldAnimationOverlay)
+    .map((element) => ({ element, inert: Boolean(element.inert), ariaBusy: element.getAttribute('aria-busy') }));
+  foldInertSnapshot.forEach(({ element }) => { element.inert = true; element.setAttribute('aria-busy', 'true'); });
+  controls.enabled = false;
+  document.body.classList.add('cardbox-fold-animation-active');
+  notifyCardboxToolState();
+}
+
+function unlockFoldInteraction() {
+  interactionLocked = false;
+  foldAnimationOverlay.hidden = true;
+  foldInertSnapshot.forEach(({ element, inert, ariaBusy }) => {
+    element.inert = inert;
+    if (ariaBusy == null) element.removeAttribute('aria-busy');
+    else element.setAttribute('aria-busy', ariaBusy);
+  });
+  foldInertSnapshot = [];
+  controls.enabled = true;
+  document.body.classList.remove('cardbox-fold-animation-active');
+  notifyCardboxToolState();
+}
+
+function cancelFoldAnimation({ restore = true } = {}) {
+  if (!foldAnimationActive && !interactionLocked) return false;
+  if (foldAnimationFrame) cancelAnimationFrame(foldAnimationFrame);
+  if (foldAnimationWatchdog) clearTimeout(foldAnimationWatchdog);
+  foldAnimationFrame = 0;
+  foldAnimationWatchdog = 0;
+  lidTweenToken += 1;
+  liftTweenToken += 1;
+  if (restore && foldAnimationRestoreState) {
+    topClosureProgress = foldAnimationRestoreState.top;
+    bottomClosureProgress = foldAnimationRestoreState.bottom;
+  }
+  foldAnimationRestoreState = null;
+  foldAnimationActive = false;
+  applyToolVisualState();
+  unlockFoldInteraction();
+  return true;
+}
+
+function playFoldAnimation() {
+  if (foldAnimationActive || interactionLocked) return Promise.resolve(false);
+  clearInspectionSelections();
+  closeToolPanels();
+  lidTweenToken += 1;
+  liftTweenToken += 1;
+  foldAnimationRestoreState = { top: topClosureProgress, bottom: bottomClosureProgress };
+  foldAnimationActive = true;
+  renderClosureToolPanel();
+  lockFoldInteraction();
+
+  const topAvailable = configuredClosureAvailable('top');
+  const bottomAvailable = configuredClosureAvailable('bottom');
+  const initialTop = topClosureProgress;
+  const initialBottom = bottomClosureProgress;
+  const startedAt = performance.now();
+
+  foldAnimationWatchdog = window.setTimeout(() => cancelFoldAnimation({ restore: true }), CARDBOX_FOLD_WATCHDOG_MS);
+
+  return new Promise((resolve) => {
+    const frame = (now) => {
+      if (!foldAnimationActive) { resolve(false); return; }
+      try {
+        const elapsed = now - startedAt;
+        if (elapsed < 700) {
+          const p = easeInOutCubic(elapsed / 700);
+          topClosureProgress = topAvailable ? initialTop + (1 - initialTop) * p : 0;
+          bottomClosureProgress = bottomAvailable ? initialBottom + (1 - initialBottom) * p : 0;
+        } else if (elapsed < 1050) {
+          topClosureProgress = topAvailable ? 1 : 0;
+          bottomClosureProgress = bottomAvailable ? 1 : 0;
+        } else if (elapsed < 1850) {
+          const p = easeInOutCubic((elapsed - 1050) / 800);
+          topClosureProgress = topAvailable ? 1 : 0;
+          bottomClosureProgress = bottomAvailable ? 1 - p : 0;
+        } else if (elapsed < 2150) {
+          topClosureProgress = topAvailable ? 1 : 0;
+          bottomClosureProgress = 0;
+        } else if (elapsed < CARDBOX_FOLD_ANIMATION_MS) {
+          const p = easeInOutCubic((elapsed - 2150) / (CARDBOX_FOLD_ANIMATION_MS - 2150));
+          topClosureProgress = topAvailable ? 1 - p : 0;
+          bottomClosureProgress = 0;
+        } else {
+          topClosureProgress = 0;
+          bottomClosureProgress = 0;
+          foldAnimationActive = false;
+          foldAnimationRestoreState = null;
+          if (foldAnimationWatchdog) clearTimeout(foldAnimationWatchdog);
+          foldAnimationWatchdog = 0;
+          foldAnimationFrame = 0;
+          applyToolVisualState();
+          unlockFoldInteraction();
+          resolve(true);
+          return;
+        }
+        applyToolVisualState();
+        foldAnimationFrame = requestAnimationFrame(frame);
+      } catch (error) {
+        console.error('Cardbox fold animation was cancelled.', error);
+        cancelFoldAnimation({ restore: true });
+        resolve(false);
+      }
+    };
+    foldAnimationFrame = requestAnimationFrame(frame);
+  });
+}
+
+function resetCardboxToolViewState() {
+  lidTweenToken += 1;
+  liftTweenToken += 1;
+  if (foldAnimationActive || interactionLocked) cancelFoldAnimation({ restore: false });
+  closurePanelOpen = false;
+  topClosureProgress = 0;
+  bottomClosureProgress = 0;
+  boxLiftCurrent = 0;
+  boxLiftTarget = 0;
+  transparentMode = false;
+  artworkVisible = true;
+  configuredClosureSignature = '';
+  CARD_BOX_MOVABLE_GROUPS.forEach((group) => { group.position.y = 0; });
+  applyToolVisualState();
+  notifyCardboxToolState();
+}
+
+closeClosureToolPanelButton.addEventListener('click', closeToolPanels);
+toggleTopClosureButton.addEventListener('click', () => { void toggleTopClosure(); });
+toggleBottomClosureButton.addEventListener('click', () => { void toggleBottomClosure(); });
+
+window.addEventListener('offline', () => cancelFoldAnimation({ restore: true }));
+window.addEventListener('pagehide', () => cancelFoldAnimation({ restore: true }));
+window.addEventListener('beforeunload', () => cancelFoldAnimation({ restore: false }));
+window.addEventListener('error', () => cancelFoldAnimation({ restore: true }));
+window.addEventListener('unhandledrejection', () => cancelFoldAnimation({ restore: true }));
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') cancelFoldAnimation({ restore: true });
+});
+
+const cardboxToolsLegacyRaycast = raycast;
+raycast = function raycastWithInspectionTransforms(event, objects = surfaceMeshes, recursive = false) {
+  const result = cardboxToolsLegacyRaycast(event, objects, recursive);
+  result.raycaster.ray.origin.y -= boxLiftCurrent;
+  if (result.hit?.point) result.hit.point.copy(modelPointFromToolWorld(result.hit.point, result.hit.object));
+  return result;
+};
+
+const cardboxToolsLegacyFitControlsTarget = fitControlsTarget;
+fitControlsTarget = function fitControlsTargetWithBoxLift() {
+  cardboxToolsLegacyFitControlsTarget();
+  controls.target.y += boxLiftCurrent;
+};
+
+const cardboxToolsLegacyCycleCamera = cycleCamera;
+cycleCamera = function cycleCameraWithBoxLift() {
+  const previousLift = boxLiftCurrent;
+  cardboxToolsLegacyCycleCamera();
+  camera.position.y += previousLift;
+};
+
+const cardboxToolsLegacyUpdateOverlayPositions = updateOverlayPositions;
+updateOverlayPositions = function updateOverlayPositionsWithBoxLift() {
+  if (!boxLiftCurrent) {
+    cardboxToolsLegacyUpdateOverlayPositions();
+    return;
+  }
+  dimensionAnchors.forEach((item) => { item.point.y += boxLiftCurrent; });
+  textGuidePoints.forEach((item) => { item.point.y += boxLiftCurrent; });
+  if (textHudAnchor) textHudAnchor.y += boxLiftCurrent;
+  if (imageHudAnchor) imageHudAnchor.y += boxLiftCurrent;
+  try {
+    cardboxToolsLegacyUpdateOverlayPositions();
+  } finally {
+    dimensionAnchors.forEach((item) => { item.point.y -= boxLiftCurrent; });
+    textGuidePoints.forEach((item) => { item.point.y -= boxLiftCurrent; });
+    if (textHudAnchor) textHudAnchor.y -= boxLiftCurrent;
+    if (imageHudAnchor) imageHudAnchor.y -= boxLiftCurrent;
+  }
+};
+
+const cardboxToolsLegacyRebuildSurfaceMeshes = rebuildSurfaceMeshes;
+rebuildSurfaceMeshes = function rebuildSurfaceMeshesWithInspectionTools() {
+  cardboxToolsLegacyRebuildSurfaceMeshes();
+  applyToolVisualState();
+};
+
+const cardboxToolsLegacyRenderPlacedTexts = renderPlacedTexts;
+renderPlacedTexts = function renderPlacedTextsWithInspectionTools() {
+  cardboxToolsLegacyRenderPlacedTexts();
+  applyToolVisualState();
+};
+
+const cardboxToolsLegacyRenderPlacedImages = renderPlacedImages;
+renderPlacedImages = async function renderPlacedImagesWithInspectionTools() {
+  await cardboxToolsLegacyRenderPlacedImages();
+  applyToolVisualState();
+};
+
+const cardboxToolsLegacyRenderTranslations = renderTranslations;
+renderTranslations = function renderTranslationsWithInspectionTools() {
+  cardboxToolsLegacyRenderTranslations();
+  renderClosureToolPanel();
+};
+
+const cardboxToolsLegacyRestoreState = restoreState;
+restoreState = function restoreStateAndResetInspectionTools(snapshot) {
+  const restored = cardboxToolsLegacyRestoreState(snapshot);
+  if (restored) resetCardboxToolViewState();
+  return restored;
+};
+
+const cardboxToolsLegacyResetConfiguration = resetConfiguration;
+resetConfiguration = function resetConfigurationAndInspectionTools() {
+  const reset = cardboxToolsLegacyResetConfiguration();
+  resetCardboxToolViewState();
+  return reset;
+};
+
+applyToolVisualState();
+
+
+window.CARDBOX_CONFIGURATOR_API = {
+  captureState,
+  restoreState,
+  resetConfiguration,
+  setUnits,
+  setCurrency,
+  setLocale,
+  setDarkMode,
+  toggleDimensions,
+  cycleCamera,
+  getPrice,
+  toggleClosureToolPanel,
+  closeToolPanels,
+  toggleBoxLift,
+  toggleTransparentMode,
+  playFoldAnimation,
+  cancelFoldAnimation,
+  toggleArtworkVisibility,
+  getToolState: cardboxToolState,
+  syncToolButtons() { notifyCardboxToolState(); },
+};
 
 bindAccordions(); bindControls(); renderAll();
 window.addEventListener('beforeunload', () => resizeObserver?.disconnect());

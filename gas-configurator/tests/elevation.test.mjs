@@ -9,6 +9,7 @@ import {
   RouteElevationController,
   sampleTerrainTile,
   selectTerrainZoom,
+  terrainAdjustedRouteLengthMeters,
   terrainTileReference,
 } from '../src/elevation/routeElevation.js';
 import { buildRouteSegments } from '../src/domain/geometry.js';
@@ -103,6 +104,9 @@ test('route profile loader samples terrain tiles and reports provenance', async 
   assert.equal(profile.repairedCount, 0);
   assert.equal(tileLoads, profile.tileCount);
   assert.ok(profile.samples.length >= 24);
+  assert.ok(Math.abs(
+    profile.terrainAdjustedLengthM - profile.samples.at(-1).chainageM
+  ) < 1e-9);
 });
 
 test('station elevation is interpolated between terrain samples', () => {
@@ -114,6 +118,30 @@ test('station elevation is interpolated between terrain samples', () => {
   assert.equal(interpolateElevationAtChainage(samples, 50), 85);
   assert.equal(interpolateElevationAtChainage(samples, 150), 80);
   assert.equal(interpolateElevationAtChainage(samples, 500), 70);
+});
+
+test('terrain-adjusted length sums three-dimensional profile intervals', () => {
+  const samples = [
+    { chainageM: 0, elevationM: 100 },
+    { chainageM: 4, elevationM: 103 },
+    { chainageM: 16, elevationM: 108 },
+  ];
+
+  assert.equal(terrainAdjustedRouteLengthMeters(samples), 18);
+});
+
+test('flat terrain-adjusted length equals the horizontal profile length', () => {
+  const samples = [
+    { chainageM: 0, elevationM: 91.25 },
+    { chainageM: 100, elevationM: 91.25 },
+  ];
+
+  assert.equal(terrainAdjustedRouteLengthMeters(samples), 100);
+  assert.ok(Number.isNaN(terrainAdjustedRouteLengthMeters(samples.slice(0, 1))));
+  assert.ok(Number.isNaN(terrainAdjustedRouteLengthMeters([
+    samples[1],
+    samples[0],
+  ])));
 });
 
 test('a newer route request supersedes an older elevation response', async () => {

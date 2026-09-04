@@ -19,16 +19,6 @@ export function getRectangularDividerSetback({
     return Math.max(0, halfDividerFace - normalizedHostInnerFaceSpan);
 }
 
-export function getDividerHostBranchGasketEndTrim({
-    dividerFaceSpan = 0,
-} = {}) {
-    // At an interior T, the branch-facing gasket on each half of the host
-    // mullion must stop at the incoming mullion shoulder, not at the generic
-    // 15 mm gasket end clearance. Two collinear host pieces therefore leave
-    // one opening exactly as wide as the incoming mullion face.
-    return Math.max(0, finiteNumber(dividerFaceSpan)) / 2;
-}
-
 export function getRectangularDividerEndNotchInset({
     sectionDepthFromOuterFace = 0,
     notchDepth = INTERSECTION_MULLION_END_NOTCH_DEPTH_M,
