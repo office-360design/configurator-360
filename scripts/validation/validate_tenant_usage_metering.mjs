@@ -64,7 +64,6 @@ const checks = [
   ]],
   ['solar-configurator/js/googleSolar.js', ['}, 240000);', 'Google Solar analysis timed out after']],
   ['solar-configurator/js/app.js', ["from './googleSolar.js?v=8';"]],
-  ['solar-configurator/index.html', ['./js/app.js?v=28']],
   ['solar-google-api/package.json', ['node --check src/tenantUsage.mjs']],
   ['package.json', ['check:tenant-usage', 'validate_tenant_usage_metering.mjs']],
 ];
@@ -80,6 +79,11 @@ for (const [relativePath, needles] of checks) {
   for (const needle of needles) {
     if (!content.includes(needle)) failures.push(`${relativePath}: missing ${JSON.stringify(needle)}`);
   }
+}
+
+const solarIndex = read('solar-configurator/index.html');
+if (!/<script\s+type=["']module["']\s+src=["']\.\/js\/app\.js\?v=\d+["']><\/script>/.test(solarIndex)) {
+  failures.push('solar-configurator/index.html: missing versioned ./js/app.js module script');
 }
 
 const usageModule = read('solar-google-api/src/tenantUsage.mjs');

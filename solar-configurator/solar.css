@@ -205,6 +205,56 @@
 .solar-live-card__grid span { color: var(--muted); font-size: 7px; }
 .solar-live-card__grid strong { font-size: 11px; font-variant-numeric: tabular-nums; }
 
+.solar-embed-alignment { display: none; }
+body.configurator-embed-preview .solar-embed-alignment {
+  position: absolute;
+  z-index: 30;
+  top: 14px;
+  left: 14px;
+  display: grid;
+  width: min(270px, calc(100% - 28px));
+  border: 1px solid rgba(88, 112, 125, .25);
+  border-radius: 15px;
+  color: #203946;
+  background: rgba(255, 255, 255, .95);
+  box-shadow: 0 10px 28px rgba(27, 48, 60, .16);
+  backdrop-filter: blur(12px);
+}
+.solar-embed-alignment__summary { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; width: 100%; min-height: 42px; padding: 0 11px; border: 0 !important; border-radius: 14px !important; background: transparent !important; text-align: left; }
+.solar-embed-alignment__summary strong { font-size: 12px; }
+.solar-embed-alignment__summary span { color: #607582; font-size: 10px; font-weight: 750; font-variant-numeric: tabular-nums; text-align: right; }
+.solar-embed-alignment__summary i { color: #607582; font-size: 15px; font-style: normal; transition: transform .18s ease; }
+.solar-embed-alignment__summary[aria-expanded="true"] i { transform: rotate(180deg); }
+.solar-embed-alignment__body { display: grid; gap: 9px; padding: 0 11px 11px; }
+.solar-embed-alignment__body[hidden] { display: none; }
+.solar-embed-bearing { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 7px; }
+.solar-embed-bearing input { width: 100%; accent-color: #0878c9; }
+.solar-embed-alignment button,
+.solar-embed-alignment select {
+  min-height: 32px;
+  border: 1px solid rgba(91, 117, 131, .24);
+  border-radius: 9px;
+  color: #254251;
+  background: #f7fafb;
+  font: inherit;
+  font-weight: 800;
+}
+.solar-embed-alignment button:hover { border-color: #0878c9; color: #0878c9; background: #edf8fe; }
+.solar-embed-position { display: grid; grid-template-columns: 108px 1fr; align-items: center; gap: 10px; }
+.solar-embed-nudge-pad { display: grid; grid-template-columns: repeat(3, 32px); grid-template-rows: repeat(3, 32px); gap: 3px; }
+.solar-embed-nudge-pad button { min-height: 32px; padding: 0; }
+.solar-embed-nudge-pad small { margin-left: 2px; color: #6b7f8a; font-size: 7px; }
+.solar-embed-position label { display: grid; gap: 5px; color: #657986; font-size: 9px; font-weight: 750; }
+.solar-embed-position select { width: 100%; padding: 0 8px; font-size: 11px; }
+.solar-embed-position output { min-height: 25px; color: #294552; font-size: 9px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 620px) {
+  body.configurator-embed-preview .solar-embed-alignment { top: 9px; left: 9px; width: 238px; padding: 9px; }
+  .solar-embed-position { grid-template-columns: 96px 1fr; gap: 8px; }
+  .solar-embed-nudge-pad { grid-template-columns: repeat(3, 29px); grid-template-rows: repeat(3, 29px); }
+  .solar-embed-nudge-pad button { min-height: 29px; }
+}
+
 .solar-simulation-panel {
   border-top: 1px solid var(--line);
   padding: 13px 18px 12px;
@@ -1268,6 +1318,51 @@ body.shared-ui-dark-mode #solarSidebarToggle { color:#e7eef3; background:rgba(20
 .simulation-summary-grid strong { font-size: 9px; }
 #simulationChart { height: 105px; }
 .chart-legend { margin-top: -6px; font-size: 6.5px; }
+
+/* ChatGPT's read-only iframe has no editor grid to reserve space for this tray.
+   Keep the energy model available, but present it as an opaque, closed-by-default
+   details drawer instead of painting a translucent chart over the roof. */
+body.configurator-embed-preview .solar-simulation-panel {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 45;
+  width: min(760px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, .24);
+}
+body.configurator-embed-preview .solar-simulation-panel.is-collapsed {
+  width: 220px;
+  min-width: 0;
+}
+body.configurator-embed-preview .solar-simulation-panel.is-collapsed .solar-simulation-panel__actions #simulationPlayButton {
+  display: none;
+}
+body.configurator-embed-preview .solar-simulation-panel > header {
+  min-height: 44px;
+  margin: 0;
+  cursor: pointer;
+}
+body.configurator-embed-preview .solar-simulation-panel > header .eyebrow { display: none; }
+body.configurator-embed-preview .solar-simulation-panel__body {
+  max-height: min(330px, calc(100dvh - 88px));
+  padding-top: 7px;
+  overflow: auto;
+}
+body.configurator-embed-preview .solar-simulation-panel.is-collapsed .solar-simulation-panel__body {
+  max-height: 0;
+  padding-top: 0;
+}
+body.configurator-embed-preview #simulationChart {
+  height: 180px;
+}
+body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
+  background: #18212a;
+}
 
 /* Ensure all Google checkbox rows use only the custom switch, never the browser checkbox. */
 .solar-google-layout__toggle > input[type="checkbox"] { position:absolute !important; width:1px; height:1px; opacity:0 !important; pointer-events:none; }

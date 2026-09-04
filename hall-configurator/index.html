@@ -7,8 +7,8 @@
   <meta name="robots" content="index, follow" />
   <title>3D Industrial Hall Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=21" />
-  <link rel="stylesheet" href="./styles.css?v=13" />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=23" />
+  <link rel="stylesheet" href="./styles.css?v=14" />
   <script type="importmap">
     {
       "imports": {
@@ -27,6 +27,10 @@
     <section class="viewer-panel" aria-label="Hall 3D viewer" data-hall-i18n-aria-label="viewer.aria">
       <div class="viewer-stage" id="viewerStage">
         <div id="canvasHost" aria-label="Interactive 3D hall model" data-hall-i18n-aria-label="viewer.canvasAria"></div>
+        <div class="hall-embed-inspection-controls" aria-label="Hall preview inspection controls">
+          <button type="button" id="hallPreviewCladdingButton" aria-pressed="true"><span class="hall-embed-control-dot" aria-hidden="true"></span><span data-hall-i18n="display.cladding">Cladding</span></button>
+          <button type="button" id="hallPreviewExplodeButton" aria-pressed="false"><span class="hall-embed-control-icon" aria-hidden="true">↗</span><span data-hall-i18n="display.exploded">Exploded view</span></button>
+        </div>
       </div>
     </section>
 
@@ -201,7 +205,7 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton" data-hall-i18n="bom.export">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-hall-i18n="bom.done">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=39"></script>
-  <script type="module" src="./js/app.js?v=19"></script>
+  <script type="module" src="./js/sharedShell.js?v=40"></script>
+  <script type="module" src="./js/app.js?v=20"></script>
 </body>
 </html>

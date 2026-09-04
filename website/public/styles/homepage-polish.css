@@ -112,6 +112,8 @@
   z-index: 2;
   cursor: grab;
   pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .scene-interactor:active {
@@ -126,6 +128,7 @@
   font: 500 7px var(--font-geist-mono);
   letter-spacing: 0.11em;
   text-transform: uppercase;
+  pointer-events: none;
 }
 
 .interaction-toggle {
@@ -2451,7 +2454,10 @@
 
 .contact-workspace { padding: 145px 0; }
 .contact-layout { display: grid; grid-template-columns: .72fr 1.28fr; gap: 90px; align-items: start; }
-.contact-layout aside > a { display: inline-block; margin: 20px 0 80px; color: #4bb9ff; font-size: clamp(18px, 2vw, 29px); }
+.contact-channels { display: grid; gap: 24px; margin: 20px 0 80px; }
+.contact-channel { display: grid; gap: 7px; justify-items: start; }
+.contact-channel > span { color: var(--ink-faint); }
+.contact-channel > a { color: #4bb9ff; font-size: clamp(18px, 2vw, 29px); }
 .contact-layout aside h2 { margin: 0 0 30px; font-size: clamp(34px, 3.6vw, 57px); line-height: .95; letter-spacing: -.05em; text-transform: uppercase; font-weight: 520; }
 .contact-layout ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid rgba(255,255,255,.15); }
 .contact-layout li { display: grid; grid-template-columns: 42px 1fr; gap: 12px; padding: 18px 0; border-bottom: 1px solid rgba(255,255,255,.15); color: #c6cdcf; font-size: 14px; line-height: 1.45; }
@@ -2510,7 +2516,7 @@
   .contact-signal { width: 175px; align-self: flex-end; }
   .contact-layout { grid-template-columns: 1fr; }
   .contact-workspace { padding: 100px 0; }
-  .contact-layout aside > a { margin-bottom: 55px; }
+  .contact-channels { margin-bottom: 55px; }
   .contact-form-grid { grid-template-columns: 1fr; }
   .contact-submit { grid-template-columns: 1fr; }
 }

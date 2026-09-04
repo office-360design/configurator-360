@@ -10,6 +10,12 @@ import {
     getWindowLayoutRequest,
     normalizeWindowLayoutId,
 } from '../../src/client/js/window-layout-controller.js';
+import {
+    createWindowStateFromLayoutDefinition,
+    getWindowActualSizeInState,
+    setOverallWindowSizeInState,
+} from '../../src/client/js/window-layout-state.js';
+import { readFileSync } from 'node:fs';
 
 const errors = [];
 const assert = (condition, message) => {
@@ -19,6 +25,34 @@ const assert = (condition, message) => {
 assert(
     normalizeWindowLayoutId('unknown') === DEFAULT_WINDOW_LAYOUT_ID,
     'Unknown layouts must fall back to the single-opening layout.'
+);
+
+const doubleSashState = setOverallWindowSizeInState(
+    createWindowStateFromLayoutDefinition(WINDOW_LAYOUTS['vertical-sash-sash']),
+    { widthM: 2.2, heightM: 1.5 }
+);
+const doubleSashWidths = doubleSashState.windows.map(cell => (
+    getWindowActualSizeInState(doubleSashState, cell.id)?.widthM
+));
+const doubleSashOverallWidth = doubleSashState.gridTracks.x.reduce(
+    (sum, track) => sum + track.sizeM,
+    0
+) + 0.026;
+assert(
+    Math.abs(doubleSashOverallWidth - 2.2) < 1e-9
+        && doubleSashWidths.every(width => Number.isFinite(width) && width < 1.2),
+    'A requested double-sash overall width must be distributed across both sashes.'
+);
+
+const mainSource = readFileSync(new URL('../../src/client/js/main.js', import.meta.url), 'utf8');
+assert(
+    mainSource.indexOf('const selectedProfiles = await profileSelectionController.applyConfiguration')
+        < mainSource.indexOf('const selectedLayout = await windowLayoutController.applyConfiguration'),
+    'Shared Window configuration must apply the CAD preset before the requested layout topology.'
+);
+assert(
+    mainSource.includes("readShareState({ productType: 'window' })"),
+    'Window startup must restore the shared configuration after its default CAD profile is ready.'
 );
 assert(
     WINDOW_LAYOUTS['vertical-divider'].dividerOrientation === 'vertical',

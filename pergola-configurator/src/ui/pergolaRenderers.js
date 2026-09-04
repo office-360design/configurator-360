@@ -92,7 +92,7 @@ function segmentDisplayLabel(state, segmentOrId, locale) {
     : pergolaT(locale, 'segment.interiorColumn', { column: segment.column + 1, segment: segment.row + 1 });
 }
 
-function renderPergolaGrid(state, options = {}, locale = state.locale) {
+export function renderPergolaGrid(state, options = {}, locale = state.locale) {
   const grid = getPoleGrid(state);
   const mode = options.mode === 'segments' ? 'segments' : 'poles';
   const conflicts = options.conflicts ?? {};
@@ -163,7 +163,7 @@ function renderPergolaGrid(state, options = {}, locale = state.locale) {
   `;
 }
 
-function renderRoofRectangleGrid(state, selectedRectangle = null, locale = state.locale) {
+export function renderRoofRectangleGrid(state, selectedRectangle = null, locale = state.locale) {
   const grid = getPoleGrid(state);
   const rectangles = getRoofRectangles(state);
   const aspect = Math.min(3.2, Math.max(0.7, grid.width / grid.depth));

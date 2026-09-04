@@ -1,19 +1,21 @@
-import { LANGUAGE_PROFILES, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js';
-import { sharedT } from './i18n.js?v=24';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=2';
+import { sharedT } from './i18n.js?v=26';
 import { renderActionFeedback } from './components/feedback.js?v=17';
-import { renderTopBar } from './components/topBar.js?v=20';
-import { syncAccountIdentity } from './components/accountMenu.js?v=18';
-import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=18';
+import { renderTopBar } from './components/topBar.js?v=24';
+import { syncAccountIdentity } from './components/accountMenu.js?v=22';
+import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=28';
 import { renderToolsMenu } from './components/toolsMenu.js?v=17';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
+import { renderProfileDialog } from './components/profileDialog.js?v=1';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=2';
-import { renderCartMenu } from './components/cartMenu.js?v=3';
+import { renderCartMenu } from './components/cartMenu.js?v=5';
 import { getUserCart, mutateUserCart } from './userCart.js?v=4';
-import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=16';
-import { readShareState } from './shareState.js?v=4';
+import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=17';
+import { readShareState } from './shareState.js?v=6';
 import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
-import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=1';
+import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=2';
+import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=1';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
@@ -32,9 +34,21 @@ const SAVED_CONFIGURATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const CART_EDIT_ITEM_PARAM = 'cartItem';
 const CART_EDIT_PRODUCT_PARAM = 'cartProduct';
 const CART_EDIT_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
-const CART_EDIT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence']);
+const CART_EDIT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox']);
 const DOMAIN_SAVE_FAILURE_MESSAGE = 'Domain change failed because of a saving failure';
-const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar']);
+const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar', 'cardbox']);
+const SUPPORT_EMAIL = 'office@360configurator.com';
+const SUPPORT_PRODUCT_NAMES = Object.freeze({
+  window: 'Window',
+  pergola: 'Pergola',
+  roof: 'Roof',
+  hall: 'Hall',
+  fence: 'Fence',
+  solar: 'Solar',
+  cardbox: 'Cardbox',
+});
+const CART_SUCCESS_FEEDBACK_MS = 1500;
+const CART_ERROR_FEEDBACK_MS = 2500;
 
 function savedConfigurationScopeForHostname(hostname = '') {
   const tenantSlug = getTenantSlugForHostname(hostname);
@@ -72,6 +86,7 @@ function normalizeProductId(value = '') {
   if (normalized.includes('hall')) return 'hall';
   if (normalized.includes('fence')) return 'fence';
   if (normalized.includes('solar')) return 'solar';
+  if (normalized.includes('cardbox') || normalized.includes('cardboard') || normalized.includes('carton') || normalized.includes('karton')) return 'cardbox';
   return normalized || 'configuration';
 }
 
@@ -143,6 +158,65 @@ function setSelectValue(root, path, value) {
   if (select) select.value = value;
 }
 
+function currentBrowserTimeZone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; }
+}
+
+function currentDomainPreference() {
+  const locale = getLocaleForHostname(window.location.hostname);
+  if (locale === 'ro-RO') return 'ro';
+  if (locale === 'de-DE') return 'de';
+  return 'com';
+}
+
+function profileAvatarUrl(profile, auth) {
+  if (profile?.avatarMode === 'initials') return '';
+  return String(profile?.avatarDataUrl || auth?.photoURL || '');
+}
+
+function resizeProfileAvatar(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error('Could not read image.'));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('Could not decode image.'));
+      image.onload = () => {
+        const size = 256;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext('2d');
+        if (!context) return reject(new Error('Canvas is unavailable.'));
+        const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+        const width = image.naturalWidth * scale;
+        const height = image.naturalHeight * scale;
+        const x = (size - width) / 2;
+        const y = (size - height) / 2;
+        context.drawImage(image, x, y, width, height);
+        let dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+        if (dataUrl.length > 220000) dataUrl = canvas.toDataURL('image/jpeg', 0.68);
+        resolve(dataUrl);
+      };
+      image.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+const SHARED_STANDALONE_STYLE_VERSION = '26';
+
+function refreshSharedStandaloneStylesheet() {
+  document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    if (!href.includes('shared-ui/styles/standalone.css') && !href.includes('shared-ui/styles/index.css')) return;
+    const nextHref = /([?&])v=[^&]*/.test(href)
+      ? href.replace(/([?&])v=[^&]*/, `$1v=${SHARED_STANDALONE_STYLE_VERSION}`)
+      : `${href}${href.includes('?') ? '&' : '?'}v=${SHARED_STANDALONE_STYLE_VERSION}`;
+    if (nextHref !== href) link.setAttribute('href', nextHref);
+  });
+}
+
 export class StandaloneConfiguratorShell {
   constructor(options = {}) {
     this.options = {
@@ -159,11 +233,17 @@ export class StandaloneConfiguratorShell {
       ...options,
     };
 
+    refreshSharedStandaloneStylesheet();
+
     this.storagePrefix = this.options.storagePrefix;
     this.productId = normalizeProductId(this.options.productId || this.options.productType);
-    void recordConfiguratorAccessOnce(this.productId).catch((error) => {
-      console.warn('Configurator access analytics could not be recorded.', error);
-    });
+    this.embedPreview = new URLSearchParams(window.location.search).get('embed') === 'preview';
+    document.body.classList.toggle('configurator-embed-preview', this.embedPreview);
+    if (!this.embedPreview) {
+      void recordConfiguratorAccessOnce(this.productId).catch((error) => {
+        console.warn('Configurator access analytics could not be recorded.', error);
+      });
+    }
     // The old shell used one project-meta record for every authentication state.
     // Keep its key only for one-time migration; active project pointers are now
     // isolated by Firebase UID so one account can never leak into another/guest.
@@ -209,6 +289,7 @@ export class StandaloneConfiguratorShell {
     this.draftPersistTimer = 0;
     this.accountOpen = false;
     this.accountSettingsOpen = false;
+    this.helpOpen = false;
     this.domainOpen = false;
     this.domainBusy = false;
     this.authUser = null;
@@ -238,6 +319,21 @@ export class StandaloneConfiguratorShell {
       && !this.pendingCartEditTransport
     );
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
+    this.userProfile = null;
+    this.profileAvatarUrl = '';
+    this.profileDialog = {
+      open: false,
+      loading: false,
+      saving: false,
+      exporting: false,
+      deleting: false,
+      error: '',
+      draft: {},
+      auth: {},
+      quotationHistory: [],
+      deleteConfirmOpen: false,
+      deleteConfirmation: '',
+    };
     this.settingsPanelCollapsed = false;
     this.settingsPanel = null;
     this.settingsToggle = null;
@@ -360,32 +456,40 @@ export class StandaloneConfiguratorShell {
     return convertCartMoneyAmount(value, fromCurrency, toCurrency);
   }
 
-  formatCartMoney(value, currency = this.state.currency) {
+  formatCartMoney(value, currency = this.state.currency, decimals = 0) {
     const amount = Number(value);
     if (!Number.isFinite(amount)) return '—';
     try {
       return new Intl.NumberFormat(this.state.locale || 'en-US', {
         style: 'currency',
         currency: cartCurrencyFromText(currency, this.state.currency),
-        maximumFractionDigits: 0,
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
       }).format(amount);
     } catch {
-      return `${Math.round(amount)} ${cartCurrencyFromText(currency, this.state.currency)}`;
+      return `${amount.toFixed(decimals)} ${cartCurrencyFromText(currency, this.state.currency)}`;
     }
   }
 
   cartRenderItems() {
+    const hasWindow = this.cartItems.some((item) => item.productId === 'window');
     return this.cartItems.map((item) => ({
       ...item,
       // Cart snapshots keep the exact currency captured when the item was added.
       // Do not silently re-price historical rows when the account currency changes.
-      costText: this.formatCartMoney(item.costAmount, item.currency),
+      costText: this.formatCartMoney(
+        item.costAmount,
+        item.currency,
+        (item.productId === 'window' && hasWindow) ? 2 : 0
+      ),
     }));
   }
 
   cartTotalText() {
     const selectedCurrency = cartCurrencyFromText(this.state.currency, 'USD');
-    if (!this.cartItems.length) return this.formatCartMoney(0, selectedCurrency);
+    const hasWindow = this.cartItems.some((item) => item.productId === 'window');
+    const decimals = hasWindow ? 2 : 0;
+    if (!this.cartItems.length) return this.formatCartMoney(0, selectedCurrency, decimals);
 
     const totalsByCurrency = new Map();
     this.cartItems.forEach((item) => {
@@ -394,7 +498,7 @@ export class StandaloneConfiguratorShell {
       totalsByCurrency.set(currency, (totalsByCurrency.get(currency) || 0) + amount);
     });
     return [...totalsByCurrency.entries()]
-      .map(([currency, amount]) => this.formatCartMoney(amount, currency))
+      .map(([currency, amount]) => this.formatCartMoney(amount, currency, decimals))
       .join(' · ');
   }
 
@@ -448,7 +552,7 @@ export class StandaloneConfiguratorShell {
       const saveButton = this.host.querySelector('[data-action="save"]');
       const saved = await this.save(saveButton, { suppressFeedback: true });
       if (!saved || !this.currentSavedConfigurationId) {
-        this.showFeedback(sharedT(this.state.locale, 'feedback.cartSaveFailed'), 'error', 2000);
+        this.showFeedback(sharedT(this.state.locale, 'feedback.cartSaveFailed'), 'error', CART_ERROR_FEEDBACK_MS);
         return false;
       }
 
@@ -468,12 +572,12 @@ export class StandaloneConfiguratorShell {
       this.cartLastRemoteSyncAt = Date.now();
       this.renderHost();
       this.sync();
-      this.showFeedback(sharedT(this.state.locale, 'feedback.addedToCart'));
+      this.showFeedback(sharedT(this.state.locale, 'feedback.addedToCart'), 'success', CART_SUCCESS_FEEDBACK_MS);
       this.options.callbacks.onAddToCart?.(result.addedItem ? { ...result.addedItem } : { ...item });
       return true;
     } catch (error) {
       console.error('The configuration could not be added to the synchronized cart.', error);
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', CART_ERROR_FEEDBACK_MS);
       return false;
     } finally {
       this.cartBusy = false;
@@ -524,7 +628,7 @@ export class StandaloneConfiguratorShell {
         return await this.restoreCartEditTransport(this.authUser);
       } catch (error) {
         console.error('The cart configuration could not be opened for editing.', error);
-        this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+        this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', CART_ERROR_FEEDBACK_MS);
         return false;
       } finally {
         button?.removeAttribute('disabled');
@@ -537,7 +641,7 @@ export class StandaloneConfiguratorShell {
     const tab = window.open('about:blank', '_blank');
     if (!tab) {
       button?.removeAttribute('disabled');
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', CART_ERROR_FEEDBACK_MS);
       return false;
     }
     try {
@@ -550,7 +654,7 @@ export class StandaloneConfiguratorShell {
     } catch (error) {
       console.error('The cart configuration could not be opened in its configurator.', error);
       try { tab.close(); } catch { /* best effort */ }
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', CART_ERROR_FEEDBACK_MS);
       return false;
     } finally {
       button?.removeAttribute('disabled');
@@ -578,7 +682,7 @@ export class StandaloneConfiguratorShell {
     } catch (error) {
       console.error('The cart item could not be removed.', error);
       button?.removeAttribute('disabled');
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', CART_ERROR_FEEDBACK_MS);
     } finally {
       this.cartBusy = false;
     }
@@ -598,7 +702,7 @@ export class StandaloneConfiguratorShell {
       return true;
     } catch (error) {
       console.error('The cart could not be emptied.', error);
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartUpdateFailed'), 'error', CART_ERROR_FEEDBACK_MS);
       return false;
     } finally {
       this.cartBusy = false;
@@ -753,7 +857,7 @@ export class StandaloneConfiguratorShell {
       this.pendingCartEditTransport = null;
       this.currentCartEdit = null;
       this.clearCartEditTransportUrl();
-      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', 2000);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.cartOpenFailed'), 'error', CART_ERROR_FEEDBACK_MS);
       return false;
     }
   }
@@ -877,9 +981,11 @@ export class StandaloneConfiguratorShell {
           ...this.state,
           authUser: this.authUser,
           domainOpen: this.domainOpen,
+          helpOpen: this.helpOpen,
           currentDomainLocale: getLocaleForHostname(window.location.hostname),
           cartCount: this.cartItems.length,
           cartOpen: this.cartOpen,
+          profileAvatarUrl: this.profileAvatarUrl,
         },
         capabilities: this.options.capabilities,
       })}
@@ -888,6 +994,7 @@ export class StandaloneConfiguratorShell {
       ${renderLanguageSwitchLoading(this.state.locale)}
       ${renderToolsMenu(this.toolsOpen, { ...this.options.tools, locale: this.state.locale })}
       ${renderSavedConfigurationsDialog(this.state.locale, this.savedDialog)}
+      ${renderProfileDialog(this.state.locale, this.profileDialog)}
     `;
 
     this.projectInput = this.host.querySelector('[data-project-name]');
@@ -909,6 +1016,7 @@ export class StandaloneConfiguratorShell {
     this.onDocumentClick = (event) => {
       if (!event.target.closest('[data-account-menu], [data-action="account"]')) {
         this.accountOpen = false;
+        this.helpOpen = false;
         this.domainOpen = false;
       }
       if (!event.target.closest('[data-language-menu], [data-action="language"]')) {
@@ -924,17 +1032,20 @@ export class StandaloneConfiguratorShell {
     this.onKeyDown = (event) => {
       if (event.key === 'Escape') {
         const savedDialogWasOpen = this.savedDialog.open;
+        const profileDialogWasOpen = this.profileDialog.open;
         this.accountOpen = false;
         this.languageOpen = false;
         this.cartOpen = false;
+        this.helpOpen = false;
         this.domainOpen = false;
         this.savedDialog.open = false;
+        this.profileDialog.open = false;
         if (this.toolsOpen) {
           this.toolsOpen = false;
           this.syncTools();
           this.options.callbacks.onToolsOpenChange?.(false);
         }
-        if (savedDialogWasOpen) this.renderHost();
+        if (savedDialogWasOpen || profileDialogWasOpen) this.renderHost();
         this.sync();
       }
     };
@@ -1375,6 +1486,9 @@ export class StandaloneConfiguratorShell {
     this.cleanProjectName = '';
     this.dirty = false;
     this.savedDialog = { open: false, loading: false, error: '', items: [] };
+    this.userProfile = null;
+    this.profileAvatarUrl = '';
+    this.profileDialog.open = false;
     const restoringSharedConfiguration = this.pendingSharedConfigurationTransport;
 
     if (this.pendingSharedConfigurationTransport) {
@@ -1409,6 +1523,7 @@ export class StandaloneConfiguratorShell {
     const token = ++this.sessionSwitchToken;
     this.authUser = user;
     this.activeSessionUid = uid;
+    if (this.options.capabilities.profile !== false) void this.refreshProfileSummary(uid);
     this.cartOpen = false;
     this.loadCart(uid);
     void this.refreshCartFromBackend(uid, { force: true });
@@ -1562,9 +1677,19 @@ export class StandaloneConfiguratorShell {
       this.options.callbacks.onAccountAction?.('login', user);
       return user;
     } catch (error) {
-      if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
-        console.error('Google login failed.', error);
-        this.showFeedback(sharedT(this.state.locale, 'feedback.loginUnavailable'), 'error');
+      const code = String(error?.code || 'auth/unknown');
+      const cancelled = code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request';
+      const diagnostic = {
+        code,
+        message: String(error?.message || ''),
+        visibilityState: typeof document !== 'undefined' ? document.visibilityState : '',
+      };
+      if (cancelled) {
+        console.warn('Google login popup ended without authentication.', diagnostic, error);
+      } else {
+        console.error('Google login failed.', diagnostic, error);
+        const baseMessage = sharedT(this.state.locale, 'feedback.loginUnavailable');
+        this.showFeedback(`${baseMessage} (${code})`, 'error');
       }
       return null;
     } finally {
@@ -1744,12 +1869,252 @@ export class StandaloneConfiguratorShell {
     }
   }
 
+  profileDraftFromResult(result) {
+    const profile = { ...(result?.profile || {}) };
+    if (!Number(result?.profileUpdatedAtMs)) {
+      profile.preferredLanguage = this.state.locale;
+      profile.defaultCurrency = this.state.currency;
+      profile.defaultMeasurementSystem = this.state.units;
+      profile.defaultSiteDomain = currentDomainPreference();
+      profile.timeZone = currentBrowserTimeZone();
+      if (!profile.fullName) profile.fullName = this.authUser?.displayName || '';
+    }
+    if (!profile.timeZone) profile.timeZone = currentBrowserTimeZone();
+    return profile;
+  }
+
+  applyLoadedProfile(result, { populateDialog = false } = {}) {
+    if (!result || !this.authUser?.uid) return;
+    const profile = this.profileDraftFromResult(result);
+    this.userProfile = profile;
+    this.profileAvatarUrl = profileAvatarUrl(profile, result.auth || this.authUser);
+    if (profile.fullName) {
+      this.authUser = { ...this.authUser, displayName: profile.fullName };
+    }
+    if (populateDialog) {
+      this.profileDialog = {
+        ...this.profileDialog,
+        loading: false,
+        error: '',
+        draft: { ...profile },
+        auth: result.auth || {},
+        quotationHistory: Array.isArray(result.quotationHistory) ? result.quotationHistory : [],
+      };
+    }
+  }
+
+  async refreshProfileSummary(uid = this.authUser?.uid) {
+    const expectedUid = String(uid || '');
+    if (!expectedUid) return;
+    try {
+      const result = await getUserProfile();
+      if (String(this.authUser?.uid || '') !== expectedUid) return;
+      this.applyLoadedProfile(result);
+      this.renderHost();
+      this.sync();
+    } catch (error) {
+      console.warn('The user profile summary could not be loaded.', error);
+    }
+  }
+
+  async openProfile() {
+    if (this.options.capabilities.profile === false || !this.authUser?.uid) return;
+    this.accountOpen = false;
+    this.helpOpen = false;
+    this.domainOpen = false;
+    this.profileDialog = {
+      ...this.profileDialog,
+      open: true,
+      loading: true,
+      saving: false,
+      exporting: false,
+      deleting: false,
+      error: '',
+      deleteConfirmOpen: false,
+      deleteConfirmation: '',
+    };
+    this.renderHost();
+    this.sync();
+    try {
+      const result = await getUserProfile();
+      if (!this.profileDialog.open || !this.authUser?.uid) return;
+      this.applyLoadedProfile(result, { populateDialog: true });
+      this.renderHost();
+      this.sync();
+      this.options.callbacks.onAccountAction?.('profile');
+    } catch (error) {
+      console.error('The user profile could not be loaded.', error);
+      this.profileDialog.loading = false;
+      this.profileDialog.error = sharedT(this.state.locale, 'profile.loadFailed');
+      this.renderHost();
+      this.sync();
+    }
+  }
+
+  closeProfile() {
+    this.profileDialog.open = false;
+    this.profileDialog.error = '';
+    this.profileDialog.deleteConfirmOpen = false;
+    this.profileDialog.deleteConfirmation = '';
+    this.renderHost();
+    this.sync();
+  }
+
+  async handleProfileAvatarFile(file) {
+    if (!file) return;
+    if (Number(file.size) > 5 * 1024 * 1024) {
+      this.profileDialog.error = sharedT(this.state.locale, 'profile.avatarTooLarge');
+      this.renderHost();
+      this.sync();
+      return;
+    }
+    try {
+      const dataUrl = await resizeProfileAvatar(file);
+      if (!this.profileDialog.open) return;
+      this.profileDialog.draft.avatarMode = 'photo';
+      this.profileDialog.draft.avatarDataUrl = dataUrl;
+      this.profileDialog.error = '';
+      this.renderHost();
+      this.sync();
+    } catch (error) {
+      console.error('The profile avatar could not be processed.', error);
+      this.profileDialog.error = sharedT(this.state.locale, 'profile.avatarFailed');
+      this.renderHost();
+      this.sync();
+    }
+  }
+
+  async saveProfile() {
+    if (!this.authUser?.uid || this.profileDialog.saving) return;
+    const draft = { ...this.profileDialog.draft };
+    draft.fullName = String(draft.fullName || '').trim();
+    if (!draft.fullName) {
+      this.profileDialog.error = sharedT(this.state.locale, 'profile.saveFailed');
+      const field = this.host.querySelector('[data-profile-field="fullName"]');
+      field?.classList.add('is-invalid');
+      field?.focus();
+      return;
+    }
+
+    this.profileDialog.saving = true;
+    this.profileDialog.error = '';
+    this.renderHost();
+    this.sync();
+    try {
+      const result = await updateUserProfile(draft);
+      const profile = { ...(result?.profile || draft) };
+      this.userProfile = profile;
+      this.profileAvatarUrl = profileAvatarUrl(profile, result?.auth || this.authUser);
+      this.authUser = { ...this.authUser, displayName: profile.fullName };
+      this.profileDialog = {
+        ...this.profileDialog,
+        saving: false,
+        error: '',
+        draft: { ...profile },
+        auth: { ...this.profileDialog.auth, ...(result?.auth || {}), displayName: profile.fullName },
+      };
+
+      const preferenceChanges = [];
+      if (LANGUAGE_PROFILES[profile.preferredLanguage] && this.state.locale !== profile.preferredLanguage) {
+        this.state.locale = profile.preferredLanguage;
+        preferenceChanges.push(['locale', profile.preferredLanguage]);
+      }
+      if (['USD', 'RON', 'EUR'].includes(profile.defaultCurrency) && this.state.currency !== profile.defaultCurrency) {
+        this.state.currency = profile.defaultCurrency;
+        preferenceChanges.push(['currency', profile.defaultCurrency]);
+      }
+      if (['metric', 'imperial'].includes(profile.defaultMeasurementSystem) && this.state.units !== profile.defaultMeasurementSystem) {
+        this.state.units = profile.defaultMeasurementSystem;
+        preferenceChanges.push(['units', profile.defaultMeasurementSystem]);
+      }
+      this.persistPreferences();
+      for (const [path, value] of preferenceChanges) {
+        try { await Promise.resolve(this.options.callbacks.onPreferenceChange?.(path, value, this.state)); } catch (error) {
+          console.warn(`Profile preference ${path} could not be applied immediately.`, error);
+        }
+      }
+
+      this.renderHost();
+      this.sync();
+      this.showFeedback(sharedT(this.state.locale, 'profile.saved'), 'success', 1500);
+    } catch (error) {
+      console.error('The user profile could not be saved.', error);
+      this.profileDialog.saving = false;
+      this.profileDialog.error = sharedT(this.state.locale, 'profile.saveFailed');
+      this.renderHost();
+      this.sync();
+    }
+  }
+
+  async exportProfileData() {
+    if (!this.authUser?.uid || this.profileDialog.exporting) return;
+    this.profileDialog.exporting = true;
+    this.profileDialog.error = '';
+    this.renderHost();
+    this.sync();
+    try {
+      const data = await exportUserProfileData();
+      const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `360configurator-account-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      this.profileDialog.exporting = false;
+      this.renderHost();
+      this.sync();
+    } catch (error) {
+      console.error('The account data export could not be prepared.', error);
+      this.profileDialog.exporting = false;
+      this.profileDialog.error = sharedT(this.state.locale, 'profile.exportFailed');
+      this.renderHost();
+      this.sync();
+    }
+  }
+
+  async confirmDeleteProfile() {
+    if (!this.authUser?.uid || this.profileDialog.deleting || this.profileDialog.deleteConfirmation !== 'DELETE') return;
+    this.profileDialog.deleting = true;
+    this.profileDialog.error = '';
+    this.renderHost();
+    this.sync();
+    try {
+      await deleteUserAccount('DELETE');
+      try { await signOutGoogle(); } catch { /* account may already be gone */ }
+      this.profileDialog.open = false;
+      this.userProfile = null;
+      this.profileAvatarUrl = '';
+      this.authUser = null;
+      await this.enterGuestSession({ resetModel: true });
+    } catch (error) {
+      console.error('The account could not be deleted.', error);
+      this.profileDialog.deleting = false;
+      this.profileDialog.error = sharedT(this.state.locale, 'profile.deleteFailed');
+      this.renderHost();
+      this.sync();
+    }
+  }
+
   async handleClick(event) {
     const actionTarget = event.target.closest('[data-action]');
     if (!actionTarget) return;
     const action = actionTarget.dataset.action;
 
-    if (action === 'save') {
+    if (action === 'book-demo') {
+      const resolvedLocale = LANGUAGE_PROFILES[this.state.locale] ? this.state.locale : 'en-US';
+      const host = LOCALE_HOSTS[resolvedLocale] || LOCALE_HOSTS['en-US'];
+      const target = new URL(`https://${host}/book-a-demo/`);
+      target.searchParams.set('configurator', this.productId);
+      const source = new URL(window.location.href);
+      source.search = '';
+      source.hash = '';
+      target.searchParams.set('source', source.href);
+      window.location.assign(target.href);
+      return;
+    } else if (action === 'save') {
       void this.save(actionTarget);
     } else if (action === 'new-configuration') {
       void this.createNewConfiguration();
@@ -1765,6 +2130,7 @@ export class StandaloneConfiguratorShell {
       this.cartOpen = !this.cartOpen;
       this.accountOpen = false;
       this.languageOpen = false;
+      this.helpOpen = false;
       this.domainOpen = false;
       this.syncMenus();
       if (this.cartOpen && this.authUser?.uid) {
@@ -1781,7 +2147,10 @@ export class StandaloneConfiguratorShell {
       return;
     } else if (action === 'account') {
       this.accountOpen = !this.accountOpen;
-      if (!this.accountOpen) this.domainOpen = false;
+      if (!this.accountOpen) {
+        this.helpOpen = false;
+        this.domainOpen = false;
+      }
       this.languageOpen = false;
       this.cartOpen = false;
       this.syncMenus();
@@ -1789,6 +2158,7 @@ export class StandaloneConfiguratorShell {
       this.languageOpen = !this.languageOpen;
       this.accountOpen = false;
       this.cartOpen = false;
+      this.helpOpen = false;
       this.domainOpen = false;
       this.syncMenus();
       if (this.languageOpen) {
@@ -1801,13 +2171,16 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'toggle-domain-menu') {
       this.domainOpen = !this.domainOpen;
       this.accountSettingsOpen = false;
+      this.helpOpen = false;
       this.sync();
     } else if (action === 'select-domain') {
       void this.changeSiteDomain(actionTarget.dataset.domainLocale);
     } else if (action === 'toggle-account-settings') {
       this.accountSettingsOpen = !this.accountSettingsOpen;
+      this.helpOpen = false;
       this.domainOpen = false;
       this.syncAccountSettings();
+      this.syncHelpMenu();
       this.syncDomainMenu();
     } else if (action === 'toggle-dark-mode') {
       this.state.darkMode = !this.state.darkMode;
@@ -1856,7 +2229,27 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'account-login') {
       this.loginWithGoogle();
     } else if (action === 'account-profile') {
-      this.options.callbacks.onAccountAction?.('profile');
+      void this.openProfile();
+    } else if (action === 'profile-close') {
+      this.closeProfile();
+    } else if (action === 'profile-save') {
+      void this.saveProfile();
+    } else if (action === 'profile-avatar-upload') {
+      this.host.querySelector('[data-profile-avatar-input]')?.click();
+    } else if (action === 'profile-avatar-initials') {
+      this.profileDialog.draft.avatarMode = 'initials';
+      this.profileDialog.draft.avatarDataUrl = '';
+      this.renderHost();
+      this.sync();
+    } else if (action === 'profile-export') {
+      void this.exportProfileData();
+    } else if (action === 'profile-delete-toggle') {
+      this.profileDialog.deleteConfirmOpen = !this.profileDialog.deleteConfirmOpen;
+      this.profileDialog.deleteConfirmation = '';
+      this.renderHost();
+      this.sync();
+    } else if (action === 'profile-delete-confirm') {
+      void this.confirmDeleteProfile();
     } else if (action === 'account-saved') {
       void this.openSavedConfigurations();
     } else if (action === 'saved-close') {
@@ -1865,8 +2258,15 @@ export class StandaloneConfiguratorShell {
       void this.openSavedConfiguration(actionTarget.dataset.savedId);
     } else if (action === 'saved-delete') {
       void this.deleteSavedConfiguration(actionTarget.dataset.savedId);
-    } else if (action === 'account-help') {
-      this.options.callbacks.onAccountAction?.('help');
+    } else if (action === 'toggle-account-help') {
+      this.helpOpen = !this.helpOpen;
+      this.accountSettingsOpen = false;
+      this.domainOpen = false;
+      this.syncHelpMenu();
+      this.syncAccountSettings();
+      this.syncDomainMenu();
+    } else if (action === 'account-support-email') {
+      void this.requestSupport(actionTarget);
     } else if (action === 'cookies-placeholder') {
       this.options.callbacks.onAccountAction?.('cookies');
     } else if (action === 'account-signout') {
@@ -1881,6 +2281,19 @@ export class StandaloneConfiguratorShell {
   }
 
   handleInput(event) {
+    if (event.target.matches('[data-profile-field]')) {
+      const name = String(event.target.dataset.profileField || event.target.name || '');
+      if (name) this.profileDialog.draft[name] = event.target.value;
+      return;
+    }
+
+    if (event.target.matches('[data-profile-delete-confirm]')) {
+      this.profileDialog.deleteConfirmation = event.target.value;
+      const button = this.host.querySelector('[data-action="profile-delete-confirm"]');
+      if (button) button.disabled = this.profileDialog.deleting || event.target.value !== 'DELETE';
+      return;
+    }
+
     if (event.target.matches('[data-project-name]')) {
       if (!this.authUser?.uid) return;
       this.projectName = event.target.value;
@@ -1899,6 +2312,19 @@ export class StandaloneConfiguratorShell {
   }
 
   handleChange(event) {
+    if (event.target.matches('[data-profile-avatar-input]')) {
+      const [file] = event.target.files || [];
+      event.target.value = '';
+      if (file) void this.handleProfileAvatarFile(file);
+      return;
+    }
+
+    if (event.target.matches('[data-profile-field]')) {
+      const name = String(event.target.dataset.profileField || event.target.name || '');
+      if (name) this.profileDialog.draft[name] = event.target.value;
+      return;
+    }
+
     const field = event.target.closest('[data-path]');
     if (!field) return;
     this.state[field.dataset.path] = field.value;
@@ -2143,6 +2569,43 @@ export class StandaloneConfiguratorShell {
     }
   }
 
+  buildSupportMailtoUrl(shareUrl) {
+    const productName = SUPPORT_PRODUCT_NAMES[this.productId] || String(this.options.productType || 'Configuration').trim() || 'Configuration';
+    const subject = `Support request for ${productName} configurator`;
+    const body = `This is the project I was working on when I requested support: ${shareUrl} .\n\n`;
+    return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
+  async requestSupport(button = null) {
+    button?.setAttribute('disabled', '');
+
+    // Open a blank tab synchronously from the click gesture so popup blockers
+    // allow it even though generating the Share URL can take a moment.
+    const mailTab = window.open('about:blank', '_blank');
+
+    try {
+      const shareUrl = await Promise.resolve(this.options.callbacks.getShareUrl?.() || window.location.href);
+      if (!shareUrl) throw new Error('A Share link could not be generated for the support request.');
+
+      const mailtoUrl = this.buildSupportMailtoUrl(shareUrl);
+      if (mailTab && !mailTab.closed) {
+        mailTab.location.href = mailtoUrl;
+      } else {
+        // Fallback for browsers that block the placeholder tab. This still asks
+        // for a new browsing context and never deliberately replaces the configurator.
+        window.open(mailtoUrl, '_blank', 'noopener');
+      }
+      return true;
+    } catch (error) {
+      if (mailTab && !mailTab.closed) mailTab.close();
+      console.error('The support email could not be prepared.', error);
+      this.showFeedback(sharedT(this.state.locale, 'feedback.supportUnavailable'), 'error', 2500);
+      return false;
+    } finally {
+      button?.removeAttribute('disabled');
+    }
+  }
+
   async share(button) {
     let url;
     try {
@@ -2234,6 +2697,7 @@ export class StandaloneConfiguratorShell {
     this.syncProjectNameWidth();
     this.syncMenus();
     this.syncAccountSettings();
+    this.syncHelpMenu();
     this.syncDomainMenu();
     this.syncAuthenticationControls();
     syncAccountIdentity(this.host, this.state.locale, this.authUser, { busy: this.authBusy });
@@ -2264,6 +2728,14 @@ export class StandaloneConfiguratorShell {
     this.host.querySelector('[data-action="account"]')?.setAttribute('aria-expanded', String(this.accountOpen));
     this.host.querySelector('[data-action="language"]')?.setAttribute('aria-expanded', String(this.languageOpen));
     this.host.querySelector('[data-action="cart"]')?.setAttribute('aria-expanded', String(this.cartOpen));
+  }
+
+
+  syncHelpMenu() {
+    const help = this.host.querySelector('[data-account-help]');
+    const helpButton = this.host.querySelector('[data-action="toggle-account-help"]');
+    help?.classList.toggle('is-open', this.helpOpen);
+    helpButton?.setAttribute('aria-expanded', String(this.helpOpen));
   }
 
   syncDomainMenu() {

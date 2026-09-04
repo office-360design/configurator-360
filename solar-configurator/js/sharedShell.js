@@ -1,7 +1,7 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=33';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=40';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
 import { getSeasonForDate } from './solarPosition.js?v=2';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=5';
 import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=2';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
 

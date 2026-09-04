@@ -672,6 +672,47 @@ export function setWindowSizeInState(
     }, { edgeExtensionM: extension });
 }
 
+export function setOverallWindowSizeInState(
+    stateValue,
+    {
+        widthM = null,
+        heightM = null,
+        edgeExtensionM = DEFAULT_WINDOW_EDGE_EXTENSION_M,
+    } = {}
+) {
+    const extension = Math.max(0, finite(edgeExtensionM, DEFAULT_WINDOW_EDGE_EXTENSION_M));
+    const state = normalizeWindowState(stateValue, { edgeExtensionM: extension });
+    const resizeTracks = (tracks, targetActualM) => {
+        if (targetActualM === null || targetActualM === undefined || !Number.isFinite(Number(targetActualM))) {
+            return tracks;
+        }
+        const source = (tracks || []).map(track => ({ ...track }));
+        if (!source.length) return source;
+        const targetStructural = Math.max(
+            MIN_GRID_TRACK_M * source.length,
+            Number(targetActualM) - extension * 2
+        );
+        const currentStructural = source.reduce((sum, track) => sum + Math.max(0, finite(track.sizeM)), 0);
+        if (currentStructural > EPSILON) {
+            const scale = targetStructural / currentStructural;
+            return source.map(track => ({
+                ...track,
+                sizeM: Math.max(MIN_GRID_TRACK_M, track.sizeM * scale),
+            }));
+        }
+        const equalSize = targetStructural / source.length;
+        return source.map(track => ({ ...track, sizeM: equalSize }));
+    };
+
+    return normalizeWindowState({
+        ...state,
+        gridTracks: {
+            x: resizeTracks(state.gridTracks?.x, widthM),
+            y: resizeTracks(state.gridTracks?.y, heightM),
+        },
+    }, { edgeExtensionM: extension });
+}
+
 export function canAddWindow(stateValue, cellId, direction, { start = null, end = null } = {}) {
     const state = normalizeWindowState(stateValue);
     const cell = getCell(state, cellId);

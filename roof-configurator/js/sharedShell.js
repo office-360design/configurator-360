@@ -1,6 +1,6 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=33';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=40';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=4';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=5';
 import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
 
@@ -152,6 +152,7 @@ const componentsClose = document.querySelector('#roofComponentsClose');
 const componentsSearch = document.querySelector('#roofComponentsSearch');
 const componentsEmpty = document.querySelector('#roofComponentsEmpty');
 const componentCards = [...document.querySelectorAll('[data-component-card]')];
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
 let relocatedToolsToolbar = null;
 let toolsPositionFrame = 0;
 

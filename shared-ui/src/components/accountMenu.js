@@ -4,8 +4,8 @@ import {
   QUALITY_OPTIONS,
   UNIT_OPTIONS,
 } from '../config.js';
-import { sharedT } from '../i18n.js?v=18';
-import { sharedIcon } from '../icons.js';
+import { sharedT } from '../i18n.js?v=25';
+import { sharedIcon } from '../icons.js?v=22';
 import { escapeHtml } from '../utils.js';
 
 
@@ -69,6 +69,15 @@ function accountDisplayName(user) {
   return sharedT('en-US', 'account.userFallback');
 }
 
+function accountInitials(user) {
+  const source = String(user?.displayName || '').trim() || String(user?.email || '').split('@')[0] || 'U';
+  const parts = source.split(/\s+/).filter(Boolean);
+  const value = parts.length > 1
+    ? `${parts[0][0]}${parts[parts.length - 1][0]}`
+    : source.slice(0, 2);
+  return value.toUpperCase();
+}
+
 export function syncAccountIdentity(root, locale, user, { busy = false } = {}) {
   if (!root) return;
   const authenticated = Boolean(user?.uid);
@@ -96,18 +105,21 @@ export function syncAccountIdentity(root, locale, user, { busy = false } = {}) {
   if (guestDomainContent) guestDomainContent.hidden = authenticated;
 }
 
-export function renderAccountMenu(state) {
+export function renderAccountMenu(state, { profile = true } = {}) {
   const locale = state.locale;
   const authenticated = Boolean(state.authUser?.uid);
   const domainOpen = Boolean(state.domainOpen);
+  const helpOpen = Boolean(state.helpOpen);
   const currentDomainLocale = String(state.currentDomainLocale || 'en-US');
   const greeting = authenticated
     ? sharedT(locale, 'account.greetingUser', { name: accountDisplayName(state.authUser) })
     : sharedT(locale, 'account.greetingGuest');
+  const avatarUrl = authenticated ? String(state.profileAvatarUrl || '') : '';
+  const avatarInitials = authenticated ? accountInitials(state.authUser) : '';
   return `
     <section class="account-menu" data-account-menu aria-label="${escapeHtml(sharedT(locale, 'account.menu'))}">
       <div class="account-menu__profile">
-        <span class="account-menu__avatar">${sharedIcon('account')}</span>
+        <span class="account-menu__avatar">${authenticated ? (avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" alt="" />` : `<strong class="account-menu__avatar-initials">${escapeHtml(avatarInitials)}</strong>`) : sharedIcon('account')}</span>
         <strong data-account-greeting>${escapeHtml(greeting)}</strong>
         <button class="account-menu__login" type="button" data-action="account-login" ${authenticated ? 'hidden' : ''}>
           <span>${sharedIcon('account')}</span>
@@ -121,10 +133,21 @@ export function renderAccountMenu(state) {
       </div>
       <div data-account-authenticated-content ${authenticated ? '' : 'hidden'}>
         <nav class="account-menu__items">
-          <button type="button" data-action="account-profile"><span>${sharedIcon('account')}</span><strong>${escapeHtml(sharedT(locale, 'account.profile'))}</strong></button>
+          ${profile ? `<button type="button" data-action="account-profile"><span>${sharedIcon('account')}</span><strong>${escapeHtml(sharedT(locale, 'account.profile'))}</strong></button>` : ''}
           <button type="button" data-action="account-saved"><span>${sharedIcon('folder')}</span><strong>${escapeHtml(sharedT(locale, 'account.saved'))}</strong></button>
           ${renderDomainControl(locale, domainOpen, currentDomainLocale)}
-          <button type="button" data-action="account-help"><span>${sharedIcon('help')}</span><strong>${escapeHtml(sharedT(locale, 'account.help'))}</strong></button>
+          <button class="account-menu__help" type="button" data-action="toggle-account-help" aria-expanded="${helpOpen}">
+            <span class="account-menu__help-icon">${sharedIcon('help')}</span>
+            <strong>${escapeHtml(sharedT(locale, 'account.help'))}</strong>
+            <span class="account-menu__chevron">›</span>
+          </button>
+          <div class="account-help" data-account-help>
+            <span class="account-help__prompt">${escapeHtml(sharedT(locale, 'account.helpContact'))}</span>
+            <button class="account-help__email" type="button" data-action="account-support-email">
+              <span class="account-help__mail-icon" aria-hidden="true">${sharedIcon('supportMail')}</span>
+              <strong>office@360configurator.com</strong>
+            </button>
+          </div>
           <button type="button" data-action="toggle-account-settings" aria-expanded="false"><span>${sharedIcon('settings')}</span><strong>${escapeHtml(sharedT(locale, 'account.settings'))}</strong><span class="account-menu__chevron">›</span></button>
           <div class="account-settings" data-account-settings>
             ${renderSettingsSelect(locale, 'account.measuringUnits', 'units', state.units, UNIT_OPTIONS)}

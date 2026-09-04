@@ -141,7 +141,7 @@ Provisioning requires all of the following:
 - The caller UID must have an active private allowlist record at `tenantProvisioningAdmins/{uid}`.
 - The request must originate from `https://www.360configurator.com` (localhost is accepted for development).
 - The slug must be a non-reserved single DNS label using lowercase letters, numbers, and hyphens.
-- At least one of `window`, `pergola`, `roof`, `solar`, `hall`, or `fence` must be enabled, and the selected count must fit the chosen Go Live Now `planId`.
+- At least one of `window`, `pergola`, `roof`, `solar`, `hall`, `fence`, or `cardbox` must be enabled, and the selected count must fit the chosen Go Live Now `planId`.
 - Optional logos are optimized by the internal admin page and limited server-side to 200 KB PNG/JPEG/WebP data URLs. SVG is intentionally not accepted.
 
 The browser cannot read or write `tenantProvisioningAdmins` or private `tenants` documents. `provisionTenant` uses the Admin SDK and records the provisioning UID/email in the private tenant document.

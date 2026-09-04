@@ -144,10 +144,11 @@ service cloud.firestore {
       allow update, delete: if loggedIn();
     }
 
-    // users
+    // Account root documents can contain private profile/contact data. Keep
+    // browser access scoped to the authenticated owner; saved configurations,
+    // carts and profile APIs still use the Admin SDK through callable functions.
     match /users/{item} {
-      allow read, create;
-      allow update, delete: if loggedIn();
+      allow read, create, update, delete: if loggedIn() && request.auth.uid == item;
     }
 
     // Private configurator saves are never exposed directly to browser Firestore.
@@ -178,6 +179,20 @@ service cloud.firestore {
     // Legacy mutable cart document retained only so the backend can migrate old
     // carts once. Clients never receive direct access to it.
     match /users/{userId}/carts/{scopeId} {
+      allow read, write: if false;
+    }
+
+    // Quotation history contains complete immutable configuration snapshots and
+    // is written only by the quotation Cloud Function after an authenticated
+    // request. Browser clients must never read or alter this archive directly.
+    match /quotations/{userId}/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Demo requests are submitted through the App Check-protected website
+    // callable and archived by the Admin SDK. They contain sales contact data,
+    // so browser clients must never read, list, create or modify them directly.
+    match /demoRequests/{requestId} {
       allow read, write: if false;
     }
 
@@ -229,6 +244,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Anonymous MCP creation quotas are maintained only by the Cloud Run
+    // service account. Browsers cannot inspect or alter hashed rate counters.
+    match /chatgptPluginRateLimits/{item} {
+      allow read, write: if false;
+    }
+
     function shareUsageControlPath() {
       return /databases/$(database)/documents/sharedConfigurationSystem/appCheckUsage;
     }
@@ -262,7 +283,7 @@ service cloud.firestore {
       // reading exactly at expiresAt even if TTL deletion has not run yet.
       allow get: if shareId.matches('[A-Za-z0-9_-]{16}')
           && resource.data.v == 1
-          && resource.data.p in ['window', 'roof', 'pergola', 'hall', 'solar', 'fence']
+          && resource.data.p in ['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox']
           && resource.data.s is string
           && (
             !('expiresAt' in resource.data)
@@ -280,7 +301,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasAll(['v', 'p', 's'])
           && request.resource.data.keys().hasOnly(['v', 'p', 's'])
           && request.resource.data.v == 1
-          && request.resource.data.p in ['window', 'roof', 'pergola', 'hall', 'solar', 'fence']
+          && request.resource.data.p in ['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox']
           && request.resource.data.s is string
           && request.resource.data.s.size() > 0
           && request.resource.data.s.size() <= 850000;
