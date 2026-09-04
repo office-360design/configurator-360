@@ -1335,7 +1335,7 @@ function selectTextPlacement(id) {
   renderTextSelection();
 }
 function deselectTextPlacement() {
-  selectedTextId = '';
+  if (typeof selectedTextId !== 'undefined') selectedTextId = '';
   lidLiftEnabled = false;
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
@@ -2129,7 +2129,7 @@ function restoreState(snapshot) {
   placementMode = false;
   selectedFaceKey = '';
   selectedFaceSnapshot = null;
-  selectedTextId = '';
+  if (typeof selectedTextId !== 'undefined') selectedTextId = '';
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
   selectedTextConstraintFixedS = null;
@@ -2149,7 +2149,7 @@ function resetConfiguration() {
   placementMode = false;
   selectedFaceKey = '';
   selectedFaceSnapshot = null;
-  selectedTextId = '';
+  if (typeof selectedTextId !== 'undefined') selectedTextId = '';
   selectedTextConstraint = '';
   selectedTextConstraintFace = null;
   selectedTextConstraintFixedS = null;
@@ -2174,6 +2174,466 @@ function cycleCamera() {
   fitControlsTarget(); controls.update();
 }
 function getPrice() { const metrics = calculateUnionMetrics(state.boxes); const eur = metrics.areaMm2 / 1_000_000 * BOARD_EUR_M2 + state.textPlacements.length * 0.35 + 0.95 + Math.max(0, state.boxes.length - 1) * 0.18; return { amount: eur * (CURRENCY_FROM_EUR[currency] || 1), currency }; }
+
+
+// ---------------------------------------------------------------------------
+// Practical FEFCO catalogue, closures, die-cut features and paper recipes.
+// The legacy arbitrary-volume add workflow remains intentionally unreachable:
+// the product can now only use the nine manufacturing-oriented structures below.
+// ---------------------------------------------------------------------------
+const PACKAGING_CATALOG_SCHEMA_VERSION = 1;
+const PACKAGING_BOX_TYPES = Object.freeze({
+  standard: Object.freeze({ code: '0201', family: '02', dims: [600, 400, 300], top: 'simple-flaps', bottom: 'simple-flaps', topOptions: ['open','flat','simple-flaps','folded-flaps','full-overlap','interlocking','tuck'], bottomOptions: ['open','flat','simple-flaps','folded-flaps','full-overlap','interlocking','snap-lock','auto-lock'] }),
+  'full-overlap': Object.freeze({ code: '0203', family: '02', dims: [600, 400, 300], top: 'full-overlap', bottom: 'full-overlap', topOptions: ['open','flat','simple-flaps','folded-flaps','full-overlap','interlocking'], bottomOptions: ['open','flat','simple-flaps','folded-flaps','full-overlap','interlocking'] }),
+  telescope: Object.freeze({ code: '03xx', family: '03', dims: [520, 360, 240], top: 'telescope', bottom: 'flat', topOptions: ['telescope','open'], bottomOptions: ['flat','open'] }),
+  archive: Object.freeze({ code: '04xx', family: '04', dims: [400, 320, 260], top: 'archive-lid', bottom: 'flat', topOptions: ['archive-lid','hinged','tuck','open'], bottomOptions: ['flat','open'], defaultHandle: 'die-cut' }),
+  pizza: Object.freeze({ code: '0426', family: '04', dims: [330, 330, 50], top: 'pizza-lid', bottom: 'flat', topOptions: ['pizza-lid','hinged','self-locking','open'], bottomOptions: ['flat'], defaultHoles: 'vents' }),
+  mailer: Object.freeze({ code: '0427', family: '04', dims: [360, 260, 100], top: 'mailer-lid', bottom: 'flat', topOptions: ['mailer-lid','hinged','tuck','self-locking','open'], bottomOptions: ['flat'] }),
+  'auto-bottom': Object.freeze({ code: '07xx', family: '07', dims: [420, 300, 250], top: 'tuck', bottom: 'auto-lock', topOptions: ['open','simple-flaps','tuck'], bottomOptions: ['auto-lock','snap-lock'] }),
+  'two-point-glued': Object.freeze({ code: '07xx · 2P', family: '07', dims: [420, 300, 180], top: 'tuck', bottom: 'two-point-glued', topOptions: ['open','simple-flaps','tuck'], bottomOptions: ['two-point-glued','flat'] }),
+  'sleeve-drawer': Object.freeze({ code: '05xx', family: '05', dims: [400, 260, 110], top: 'sleeve', bottom: 'drawer', topOptions: ['sleeve','open'], bottomOptions: ['drawer'] }),
+});
+const PACKAGING_CLOSURES = Object.freeze({
+  open: Object.freeze({ factor: 0 }),
+  flat: Object.freeze({ factor: 1 }),
+  'simple-flaps': Object.freeze({ factor: 2 }),
+  'folded-flaps': Object.freeze({ factor: 2.1 }),
+  'full-overlap': Object.freeze({ factor: 2.5 }),
+  interlocking: Object.freeze({ factor: 2.2 }),
+  tuck: Object.freeze({ factor: 1.3 }),
+  hinged: Object.freeze({ factor: 1.18 }),
+  'self-locking': Object.freeze({ factor: 1.42 }),
+  telescope: Object.freeze({ factor: 1.45 }),
+  'archive-lid': Object.freeze({ factor: 1.5 }),
+  'pizza-lid': Object.freeze({ factor: 1.42 }),
+  'mailer-lid': Object.freeze({ factor: 1.4 }),
+  'snap-lock': Object.freeze({ factor: 1.35 }),
+  'auto-lock': Object.freeze({ factor: 1.5 }),
+  'two-point-glued': Object.freeze({ factor: 1.35 }),
+  sleeve: Object.freeze({ factor: 1.55 }),
+  drawer: Object.freeze({ factor: 1.2 }),
+});
+const PACKAGING_FLUTES = Object.freeze({
+  E: Object.freeze({ thickness: 1.5, takeUp: 1.24, priceM2: 1.35 }),
+  B: Object.freeze({ thickness: 3.0, takeUp: 1.35, priceM2: 1.55 }),
+  C: Object.freeze({ thickness: 4.0, takeUp: 1.43, priceM2: 1.72 }),
+  EB: Object.freeze({ thickness: 4.5, takeUp: [1.24, 1.35], priceM2: 2.35 }),
+  BC: Object.freeze({ thickness: 7.0, takeUp: [1.35, 1.43], priceM2: 2.78 }),
+});
+const PACKAGING_PAPERS = Object.freeze({
+  'testliner-natural': Object.freeze({ color: '#b88959', liner: true }),
+  kraftliner: Object.freeze({ color: '#a87342', liner: true }),
+  'white-top-testliner': Object.freeze({ color: '#f1efe7', liner: true }),
+  'white-kraftliner': Object.freeze({ color: '#fafaf6', liner: true }),
+  fluting: Object.freeze({ color: '#c99b68', medium: true }),
+  'semi-chemical-fluting': Object.freeze({ color: '#c39058', medium: true }),
+  'recycled-fluting': Object.freeze({ color: '#b98858', medium: true }),
+});
+const PACKAGING_COPY = Object.freeze({
+  'en-US': Object.freeze({
+    'intro.eyebrow':'Corrugated packaging','intro.title':'Cardboard box settings','intro.copy':'Choose a practical FEFCO-based box style, then configure its closures, features and board construction.',
+    'section.structure':'1. Box structure','section.closures':'2. Closures','section.features':'3. Cut-outs & features','section.board':'4. Cardboard','section.summary':'5. Summary & BOM',
+    'structure.type':'Box type','structure.typeHelp':'Approachable names are shown first; the corresponding FEFCO style or family remains visible underneath.',
+    'dimension.width':'Width','dimension.depth':'Depth','dimension.height':'Height','dimension.thickness':'Nominal board thickness',
+    'type.standard':'Standard shipping box','type.fullOverlap':'Full-overlap box','type.telescope':'Telescope lid box','type.archive':'Archive box','type.pizza':'Pizza box','type.mailer':'Postal mailer','type.autoBottom':'Self-erecting box','type.twoPoint':'Two-point glued box','type.sleeve':'Sleeve & drawer box',
+    'desc.standard':'The familiar regular slotted shipping carton. Four wall panels and meeting top and bottom flaps make it the most versatile transport box.',
+    'desc.full-overlap':'A slotted transport box whose outer flaps overlap for extra top and bottom protection.',
+    'desc.telescope':'A base and a larger cap-style lid that slides over the body, useful for products that need a removable protective cover.',
+    'desc.archive':'A rigid storage-oriented folder box with an accessible lid and optional carry handle.',
+    'desc.pizza':'A shallow one-piece folder with a hinged self-locking lid, intended for pizza and similar flat products.',
+    'desc.mailer':'A one-piece postal box with a hinged lid, side dust flaps and a front locking/tuck section.',
+    'desc.autoBottom':'A ready-glued box that opens into shape and locks its bottom automatically for fast packing.',
+    'desc.twoPoint':'A ready-glued construction secured at two manufacturing glue points, supplied flat and erected before use.',
+    'desc.sleeve':'An inner tray that slides into an outer sleeve, suited to premium presentation and drawer-style packaging.',
+    'closure.top':'Top closure','closure.bottom':'Bottom closure','closure.note':'Only closures compatible with the selected structural family are shown.','closure.open':'Open','closure.flat':'Flat panel','closure.simple-flaps':'Simple flaps','closure.folded-flaps':'Folded flaps','closure.full-overlap':'Full-overlap flaps','closure.interlocking':'Interlocking flaps','closure.tuck':'Tuck flap','closure.hinged':'Hinged lid','closure.self-locking':'Self-locking lid','closure.telescope':'Telescope cap','closure.archive-lid':'Archive lid','closure.pizza-lid':'Pizza self-locking lid','closure.mailer-lid':'Mailer locking lid','closure.snap-lock':'Snap-lock bottom','closure.auto-lock':'Automatic / crash-lock bottom','closure.two-point-glued':'Two-point glued bottom','closure.sleeve':'Outer sleeve','closure.drawer':'Inner drawer',
+    'feature.handles':'Handles','feature.handlesHelp':'Add a real die-cut opening to the selected box faces.','feature.holes':'Holes & ventilation','feature.holesHelp':'Circular, oval or slotted openings are cut through the board.','feature.type':'Type','feature.position':'Position','feature.width':'Width','feature.height':'Height','feature.quantity':'Quantity / face','feature.none':'None','feature.dieCut':'Simple die-cut','feature.reinforced':'Reinforced die-cut','feature.round':'Circular','feature.oval':'Oval','feature.vents':'Ventilation slots','feature.front':'Front','feature.sides':'Both sides','feature.allSides':'All vertical sides','feature.lid':'Top / lid',
+    'board.construction':'Construction','board.flute':'Flute profile','board.fluteHelp':'The available profiles depend on the selected single- or double-wall construction.','board.paperPreset':'Paper preset','board.paperPresetHelp':'T / A / F describe the outer liner, fluting medium and inner liner sequence used by the supplier.','board.tft':'Natural outside / natural inside','board.aft':'White outside / natural inside','board.afa':'White outside / white inside','board.stack':'Layer stack','board.estimatedGsm':'Estimated board weight','board.outside':'Outside','board.inside':'Inside','board.advanced':'Advanced paper composition','board.advancedHelp':'Edit the paper grade and grammage of every liner and fluting layer. Changing a row creates a custom paper recipe.','board.custom':'Custom recipe',
+    'paper.outer':'Outer liner','paper.flute1':'Fluting medium','paper.middle':'Middle liner','paper.flute2':'Second fluting','paper.inner':'Inner liner','paper.testlinerNatural':'Natural testliner','paper.kraftliner':'Natural kraftliner','paper.whiteTop':'White-top testliner','paper.whiteKraft':'White kraftliner','paper.fluting':'Fluting','paper.semiChemical':'Semi-chemical fluting','paper.recycledFluting':'Recycled fluting',
+    'summary.material':'Cardboard','summary.conversion':'Conversion','summary.features':'Features','summary.textCost':'Text',
+    'summary.type':'Box type','summary.boardArea':'Estimated blank area','summary.mass':'Estimated mass','summary.volume':'Internal volume','summary.texts':'Text objects','summary.total':'Estimated total','summary.note':'Indicative material, conversion and personalization estimate for one configured box.','bom.structure':'Structure','bom.closures':'Closures','bom.board':'Board','bom.layers':'Paper composition','bom.features':'Features','bom.dimensions':'Finished dimensions','bom.none':'None',
+  }),
+  'ro-RO': Object.freeze({
+    'intro.eyebrow':'Ambalaje din carton ondulat','intro.title':'Setări cutie din carton','intro.copy':'Alege un model de cutie bazat pe standardul FEFCO, apoi configurează închiderile, decupajele și structura cartonului.',
+    'section.structure':'1. Structura cutiei','section.closures':'2. Închideri','section.features':'3. Decupaje și elemente','section.board':'4. Carton','section.summary':'5. Sumar și BOM',
+    'structure.type':'Tip de cutie','structure.typeHelp':'Denumirea uzuală apare prima, iar stilul sau familia FEFCO rămâne vizibilă dedesubt.',
+    'dimension.width':'Lățime','dimension.depth':'Adâncime','dimension.height':'Înălțime','dimension.thickness':'Grosime nominală carton',
+    'type.standard':'Cutie standard de transport','type.fullOverlap':'Cutie cu clapete suprapuse','type.telescope':'Cutie telescopică','type.archive':'Cutie pentru arhivare','type.pizza':'Cutie pentru pizza','type.mailer':'Cutie poștală','type.autoBottom':'Cutie cu autoformare','type.twoPoint':'Cutie lipită în două puncte','type.sleeve':'Cutie tip manșon și sertar',
+    'desc.standard':'Cutia de transport cu clapete clasice. Patru pereți și clapete superioare/inferioare care se întâlnesc o fac potrivită pentru majoritatea produselor.',
+    'desc.full-overlap':'Cutie de transport ale cărei clapete exterioare se suprapun pentru protecție suplimentară sus și jos.',
+    'desc.telescope':'O bază și un capac mai mare care culisează peste corp, potrivite pentru produse care necesită un capac detașabil.',
+    'desc.archive':'Cutie de depozitare cu capac accesibil și posibilitate de mâner pentru transport.',
+    'desc.pizza':'Cutie joasă dintr-o singură bucată, cu capac rabatabil și autoblocant pentru pizza și produse plate.',
+    'desc.mailer':'Cutie poștală dintr-o bucată, cu capac rabatabil, aripioare laterale și blocare frontală.',
+    'desc.autoBottom':'Cutie prelipită care se deschide în formă și își blochează automat baza pentru ambalare rapidă.',
+    'desc.twoPoint':'Construcție prelipită în două puncte de fabricație, livrată plat și formată înainte de utilizare.',
+    'desc.sleeve':'O tăviță interioară care culisează într-un manșon exterior, potrivită pentru ambalaje premium.',
+    'closure.top':'Închidere superioară','closure.bottom':'Închidere inferioară','closure.note':'Sunt afișate doar închiderile compatibile cu familia structurală selectată.','closure.open':'Deschis','closure.flat':'Panou plat','closure.simple-flaps':'Clapete simple','closure.folded-flaps':'Clapete îndoite','closure.full-overlap':'Clapete suprapuse','closure.interlocking':'Clapete interblocabile','closure.tuck':'Clapetă de introducere','closure.hinged':'Capac rabatabil','closure.self-locking':'Capac autoblocant','closure.telescope':'Capac telescopic','closure.archive-lid':'Capac de arhivare','closure.pizza-lid':'Capac autoblocant pizza','closure.mailer-lid':'Capac cu blocare poștală','closure.snap-lock':'Bază cu blocare rapidă','closure.auto-lock':'Bază automată / crash-lock','closure.two-point-glued':'Bază lipită în două puncte','closure.sleeve':'Manșon exterior','closure.drawer':'Sertar interior',
+    'feature.handles':'Mânere','feature.handlesHelp':'Adaugă un decupaj real în fețele selectate ale cutiei.','feature.holes':'Găuri și ventilație','feature.holesHelp':'Deschiderile circulare, ovale sau fantele sunt decupate prin carton.','feature.type':'Tip','feature.position':'Poziție','feature.width':'Lățime','feature.height':'Înălțime','feature.quantity':'Cantitate / față','feature.none':'Fără','feature.dieCut':'Decupaj simplu','feature.reinforced':'Decupaj ranforsat','feature.round':'Circulară','feature.oval':'Ovală','feature.vents':'Fante de ventilație','feature.front':'Față','feature.sides':'Ambele laterale','feature.allSides':'Toate fețele verticale','feature.lid':'Sus / capac',
+    'board.construction':'Construcție','board.flute':'Tip ondulă','board.fluteHelp':'Profilele disponibile depind de construcția CO3 sau CO5 selectată.','board.paperPreset':'Preset hârtii','board.paperPresetHelp':'T / A / F descriu succesiunea feței exterioare, a hârtiei de ondulă și a feței interioare folosită de furnizor.','board.tft':'Natur exterior / natur interior','board.aft':'Alb exterior / natur interior','board.afa':'Alb exterior / alb interior','board.stack':'Structură straturi','board.estimatedGsm':'Greutate estimată carton','board.outside':'Exterior','board.inside':'Interior','board.advanced':'Compoziție avansată a hârtiilor','board.advancedHelp':'Editează tipul și gramajul fiecărui strat. Modificarea unui rând creează o rețetă personalizată.','board.custom':'Rețetă personalizată',
+    'paper.outer':'Față exterioară','paper.flute1':'Hârtie ondulă','paper.middle':'Față intermediară','paper.flute2':'A doua ondulă','paper.inner':'Față interioară','paper.testlinerNatural':'Testliner natur','paper.kraftliner':'Kraftliner natur','paper.whiteTop':'Testliner alb','paper.whiteKraft':'Kraftliner alb','paper.fluting':'Fluting','paper.semiChemical':'Fluting semicelulozic','paper.recycledFluting':'Fluting reciclat',
+    'summary.material':'Carton','summary.conversion':'Conversie','summary.features':'Elemente','summary.textCost':'Text',
+    'summary.type':'Tip cutie','summary.boardArea':'Suprafață estimată ștanță','summary.mass':'Masă estimată','summary.volume':'Volum interior','summary.texts':'Elemente text','summary.total':'Total estimat','summary.note':'Estimare orientativă pentru material, conversie și personalizare pentru o cutie configurată.','bom.structure':'Structură','bom.closures':'Închideri','bom.board':'Carton','bom.layers':'Compoziție hârtii','bom.features':'Elemente','bom.dimensions':'Dimensiuni finite','bom.none':'Fără',
+  }),
+  'de-DE': Object.freeze({
+    'intro.eyebrow':'Wellpappenverpackung','intro.title':'Kartonbox-Einstellungen','intro.copy':'Wählen Sie einen praxisnahen FEFCO-basierten Boxstil und konfigurieren Sie Verschlüsse, Ausschnitte und Kartonaufbau.',
+    'section.structure':'1. Box-Struktur','section.closures':'2. Verschlüsse','section.features':'3. Ausschnitte & Merkmale','section.board':'4. Wellpappe','section.summary':'5. Übersicht & Stückliste',
+    'structure.type':'Boxtyp','structure.typeHelp':'Zuerst erscheint die verständliche Bezeichnung; der entsprechende FEFCO-Stil oder die Familie bleibt darunter sichtbar.',
+    'dimension.width':'Breite','dimension.depth':'Tiefe','dimension.height':'Höhe','dimension.thickness':'Nennstärke der Wellpappe',
+    'type.standard':'Standard-Versandkarton','type.fullOverlap':'Vollüberlappende Box','type.telescope':'Teleskopbox','type.archive':'Archivbox','type.pizza':'Pizzakarton','type.mailer':'Versandbox','type.autoBottom':'Automatikbodenbox','type.twoPoint':'Zweipunkt-Klebebox','type.sleeve':'Schuber- & Schubladenbox',
+    'desc.standard':'Der bekannte Faltkarton mit vier Wandfeldern und zusammentreffenden oberen und unteren Klappen für vielseitigen Versand.',
+    'desc.fullOverlap':'Ein Versandkarton mit überlappenden Außenklappen für zusätzlichen Schutz oben und unten.',
+    'desc.telescope':'Unterteil und größerer Stülpdeckel, der über den Körper gleitet und einen abnehmbaren Schutz bietet.',
+    'desc.archive':'Lagerorientierte Faltbox mit leicht zugänglichem Deckel und optionalem Tragegriff.',
+    'desc.pizza':'Flache einteilige Faltbox mit Klappdeckel und Selbstverriegelung für Pizza und andere flache Produkte.',
+    'desc.mailer':'Einteilige Versandbox mit Klappdeckel, Staublaschen und vorderem Steck-/Verschlussbereich.',
+    'desc.autoBottom':'Vorgeklebte Box, die sich aufrichtet und den Boden automatisch verriegelt.',
+    'desc.twoPoint':'Vorgeklebte Konstruktion mit zwei Klebepunkten, flach geliefert und vor Gebrauch aufgerichtet.',
+    'desc.sleeve':'Eine innere Schublade gleitet in einen äußeren Schuber – geeignet für hochwertige Präsentationsverpackungen.',
+    'closure.top':'Oberer Verschluss','closure.bottom':'Unterer Verschluss','closure.note':'Es werden nur Verschlüsse angezeigt, die zur gewählten Struktur passen.','closure.open':'Offen','closure.flat':'Flache Platte','closure.simple-flaps':'Einfache Klappen','closure.folded-flaps':'Gefaltete Klappen','closure.full-overlap':'Vollüberlappende Klappen','closure.interlocking':'Ineinandergreifende Klappen','closure.tuck':'Stecklasche','closure.hinged':'Klappdeckel','closure.self-locking':'Selbstverriegelnder Deckel','closure.telescope':'Teleskopdeckel','closure.archive-lid':'Archivdeckel','closure.pizza-lid':'Selbstverriegelnder Pizzadeckel','closure.mailer-lid':'Verriegelnder Versanddeckel','closure.snap-lock':'Steckboden','closure.auto-lock':'Automatik- / Crash-Lock-Boden','closure.two-point-glued':'Zweipunkt-Klebeboden','closure.sleeve':'Außenschuber','closure.drawer':'Innenschublade',
+    'feature.handles':'Griffe','feature.handlesHelp':'Fügt echte gestanzte Öffnungen in die ausgewählten Boxflächen ein.','feature.holes':'Löcher & Belüftung','feature.holesHelp':'Runde, ovale oder geschlitzte Öffnungen werden durch die Wellpappe gestanzt.','feature.type':'Typ','feature.position':'Position','feature.width':'Breite','feature.height':'Höhe','feature.quantity':'Anzahl / Fläche','feature.none':'Keine','feature.dieCut':'Einfach gestanzt','feature.reinforced':'Verstärkt gestanzt','feature.round':'Rund','feature.oval':'Oval','feature.vents':'Belüftungsschlitze','feature.front':'Vorderseite','feature.sides':'Beide Seiten','feature.allSides':'Alle vertikalen Seiten','feature.lid':'Oben / Deckel',
+    'board.construction':'Aufbau','board.flute':'Wellenprofil','board.fluteHelp':'Die verfügbaren Profile hängen vom gewählten ein- oder zweiwelligen Aufbau ab.','board.paperPreset':'Papier-Voreinstellung','board.paperPresetHelp':'T / A / F beschreiben die Reihenfolge aus Außenliner, Wellenpapier und Innenliner.','board.tft':'Natur außen / Natur innen','board.aft':'Weiß außen / Natur innen','board.afa':'Weiß außen / Weiß innen','board.stack':'Schichtaufbau','board.estimatedGsm':'Geschätztes Flächengewicht','board.outside':'Außen','board.inside':'Innen','board.advanced':'Erweiterter Papieraufbau','board.advancedHelp':'Papiersorte und Grammatur jeder Lage bearbeiten. Eine Änderung erzeugt ein benutzerdefiniertes Rezept.','board.custom':'Benutzerdefiniertes Rezept',
+    'paper.outer':'Außenliner','paper.flute1':'Wellenpapier','paper.middle':'Mittelliner','paper.flute2':'Zweites Wellenpapier','paper.inner':'Innenliner','paper.testlinerNatural':'Natur-Testliner','paper.kraftliner':'Natur-Kraftliner','paper.whiteTop':'White-Top-Testliner','paper.whiteKraft':'Weißer Kraftliner','paper.fluting':'Wellenstoff','paper.semiChemical':'Halbzellstoff-Wellenpapier','paper.recycledFluting':'Recycling-Wellenpapier',
+    'summary.material':'Wellpappe','summary.conversion':'Verarbeitung','summary.features':'Merkmale','summary.textCost':'Text',
+    'summary.type':'Boxtyp','summary.boardArea':'Geschätzte Zuschnittfläche','summary.mass':'Geschätzte Masse','summary.volume':'Innenvolumen','summary.texts':'Textobjekte','summary.total':'Geschätzter Gesamtpreis','summary.note':'Unverbindliche Schätzung für Material, Verarbeitung und Personalisierung einer konfigurierten Box.','bom.structure':'Struktur','bom.closures':'Verschlüsse','bom.board':'Wellpappe','bom.layers':'Papieraufbau','bom.features':'Merkmale','bom.dimensions':'Fertigmaße','bom.none':'Keine',
+  }),
+});
+const PACKAGING_PAPER_COPY_KEYS = Object.freeze({
+  'testliner-natural':'paper.testlinerNatural', kraftliner:'paper.kraftliner', 'white-top-testliner':'paper.whiteTop', 'white-kraftliner':'paper.whiteKraft', fluting:'paper.fluting', 'semi-chemical-fluting':'paper.semiChemical', 'recycled-fluting':'paper.recycledFluting',
+});
+const PACKAGING_ROLE_KEYS = Object.freeze({ outer:'paper.outer', flute1:'paper.flute1', middle:'paper.middle', flute2:'paper.flute2', inner:'paper.inner' });
+const PACKAGING_CLOSURE_KEYS = Object.freeze({
+  open:'closure.open', flat:'closure.flat', 'simple-flaps':'closure.simple-flaps', 'folded-flaps':'closure.folded-flaps', 'full-overlap':'closure.full-overlap', interlocking:'closure.interlocking', tuck:'closure.tuck', hinged:'closure.hinged', 'self-locking':'closure.self-locking', telescope:'closure.telescope', 'archive-lid':'closure.archive-lid', 'pizza-lid':'closure.pizza-lid', 'mailer-lid':'closure.mailer-lid', 'snap-lock':'closure.snap-lock', 'auto-lock':'closure.auto-lock', 'two-point-glued':'closure.two-point-glued', sleeve:'closure.sleeve', drawer:'closure.drawer',
+});
+const packagingClosureGroup = new THREE.Group(); scene.add(packagingClosureGroup);
+const packagingFeatureGroup = new THREE.Group(); scene.add(packagingFeatureGroup);
+
+function packT(key) { return PACKAGING_COPY[locale]?.[key] ?? PACKAGING_COPY['en-US'][key] ?? key; }
+function packagingDefaultLayers(construction = 'CO3', preset = 'TFT') {
+  if (construction === 'CO5') {
+    const outer = preset === 'TFT' ? 'testliner-natural' : 'white-top-testliner';
+    const inner = preset === 'AFA' ? 'white-top-testliner' : 'testliner-natural';
+    return [
+      { role:'outer', paper:outer, gsm:200 },
+      { role:'flute1', paper:'fluting', gsm:160 },
+      { role:'middle', paper:preset === 'AFA' ? 'white-top-testliner' : 'testliner-natural', gsm:180 },
+      { role:'flute2', paper:'fluting', gsm:160 },
+      { role:'inner', paper:inner, gsm:200 },
+    ];
+  }
+  if (preset === 'AFT') return [{ role:'outer',paper:'white-top-testliner',gsm:200 },{ role:'flute1',paper:'fluting',gsm:200 },{ role:'inner',paper:'testliner-natural',gsm:200 }];
+  if (preset === 'AFA') return [{ role:'outer',paper:'white-top-testliner',gsm:200 },{ role:'flute1',paper:'fluting',gsm:180 },{ role:'inner',paper:'white-top-testliner',gsm:200 }];
+  return [{ role:'outer',paper:'testliner-natural',gsm:180 },{ role:'flute1',paper:'fluting',gsm:160 },{ role:'inner',paper:'testliner-natural',gsm:180 }];
+}
+function packagingDefaultFeatures(typeId = 'standard') {
+  const def = PACKAGING_BOX_TYPES[typeId] || PACKAGING_BOX_TYPES.standard;
+  return {
+    handleType: def.defaultHandle || 'none', handlePlacement:'front', handleWidth:120, handleHeight:35,
+    holeType: def.defaultHoles || 'none', holePlacement:def.defaultHoles ? 'sides' : 'front', holeCount:def.defaultHoles ? 2 : 2, holeWidth:30, holeHeight:20,
+  };
+}
+function ensurePackagingState() {
+  if (!PACKAGING_BOX_TYPES[state.boxType]) state.boxType = 'standard';
+  const def = PACKAGING_BOX_TYPES[state.boxType];
+  if (!state.closures || typeof state.closures !== 'object') state.closures = { top:def.top, bottom:def.bottom };
+  if (!def.topOptions.includes(state.closures.top)) state.closures.top = def.top;
+  if (!def.bottomOptions.includes(state.closures.bottom)) state.closures.bottom = def.bottom;
+  if (!state.features || typeof state.features !== 'object') state.features = packagingDefaultFeatures(state.boxType);
+  state.features = { ...packagingDefaultFeatures(state.boxType), ...state.features };
+  if (!state.board || typeof state.board !== 'object') state.board = { construction:'CO3', flute:'B', preset:'TFT', layers:packagingDefaultLayers('CO3','TFT') };
+  if (!['CO3','CO5'].includes(state.board.construction)) state.board.construction = 'CO3';
+  const validFlutes = state.board.construction === 'CO5' ? ['EB','BC'] : ['E','B','C'];
+  if (!validFlutes.includes(state.board.flute)) state.board.flute = state.board.construction === 'CO5' ? 'EB' : 'B';
+  if (!Array.isArray(state.board.layers) || state.board.layers.length !== (state.board.construction === 'CO5' ? 5 : 3)) state.board.layers = packagingDefaultLayers(state.board.construction, ['TFT','AFT','AFA'].includes(state.board.preset) ? state.board.preset : 'TFT');
+  if (!state.board.preset) state.board.preset = 'TFT';
+  state.boardThickness = PACKAGING_FLUTES[state.board.flute]?.thickness || 3;
+  state.catalogSchemaVersion = PACKAGING_CATALOG_SCHEMA_VERSION;
+}
+function packagingSetBaseDimensions(width, depth, height) {
+  state.boxes = [makeBaseBox(width, depth, height)];
+}
+function packagingApplyType(typeId) {
+  const def = PACKAGING_BOX_TYPES[typeId];
+  if (!def) return;
+  state.boxType = typeId;
+  packagingSetBaseDimensions(...def.dims);
+  state.closures = { top:def.top, bottom:def.bottom };
+  state.features = packagingDefaultFeatures(typeId);
+  selectedFaceKey = '';
+  selectedFaceSnapshot = null;
+  if (typeof selectedTextId !== 'undefined') selectedTextId = '';
+  faceActionPopup.hidden = true;
+  renderAll();
+}
+function packagingPaperColor(layer, fallback = '#b88959') { return PACKAGING_PAPERS[layer?.paper]?.color || fallback; }
+function packagingOuterColor() { ensurePackagingState(); return packagingPaperColor(state.board.layers[0]); }
+function packagingInnerColor() { ensurePackagingState(); return packagingPaperColor(state.board.layers[state.board.layers.length - 1]); }
+function packagingNominalThickness() { ensurePackagingState(); return PACKAGING_FLUTES[state.board.flute]?.thickness || 3; }
+function packagingBoardGsm() {
+  ensurePackagingState();
+  const flute = PACKAGING_FLUTES[state.board.flute];
+  const factors = Array.isArray(flute.takeUp) ? flute.takeUp : [flute.takeUp];
+  let mediumIndex = 0;
+  return state.board.layers.reduce((sum, layer) => {
+    const paper = PACKAGING_PAPERS[layer.paper];
+    if (paper?.medium) return sum + Number(layer.gsm || 0) * (factors[Math.min(mediumIndex++, factors.length - 1)] || 1.3);
+    return sum + Number(layer.gsm || 0);
+  }, 0);
+}
+function packagingClosureLabel(id) { return packT(PACKAGING_CLOSURE_KEYS[id] || id); }
+function packagingTypeKey(typeId) {
+  return ({ standard:'type.standard','full-overlap':'type.fullOverlap',telescope:'type.telescope',archive:'type.archive',pizza:'type.pizza',mailer:'type.mailer','auto-bottom':'type.autoBottom','two-point-glued':'type.twoPoint','sleeve-drawer':'type.sleeve' })[typeId] || 'type.standard';
+}
+function packagingTypeLabel(typeId = state.boxType) { return packT(packagingTypeKey(typeId)); }
+function packagingTypeDescriptionKey(typeId) { return `desc.${typeId === 'full-overlap' ? 'fullOverlap' : typeId === 'auto-bottom' ? 'autoBottom' : typeId === 'two-point-glued' ? 'twoPoint' : typeId === 'sleeve-drawer' ? 'sleeve' : typeId}`; }
+function packagingEscape(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
+function packagingRenderClosureSelect(select, values, current) {
+  select.innerHTML = values.map((value) => `<option value="${value}">${packagingEscape(packagingClosureLabel(value))}</option>`).join('');
+  select.value = values.includes(current) ? current : values[0];
+  select.disabled = values.length === 1;
+}
+function packagingRenderFlutes() {
+  const container = document.querySelector('#fluteChoiceGrid');
+  if (!container) return;
+  const values = state.board.construction === 'CO5' ? ['EB','BC'] : ['E','B','C'];
+  container.innerHTML = values.map((fluteId) => {
+    const flute = PACKAGING_FLUTES[fluteId];
+    return `<button type="button" class="flute-choice${state.board.flute === fluteId ? ' is-selected' : ''}" data-flute="${fluteId}"><b>${fluteId}</b><small>≈ ${flute.thickness.toFixed(1)} mm</small></button>`;
+  }).join('');
+}
+function packagingRenderLayerEditor() {
+  const container = document.querySelector('#paperLayerEditor');
+  if (!container) return;
+  container.innerHTML = state.board.layers.map((layer, index) => {
+    const isMedium = PACKAGING_PAPERS[layer.paper]?.medium || layer.role.startsWith('flute');
+    const paperIds = Object.keys(PACKAGING_PAPERS).filter((id) => isMedium ? PACKAGING_PAPERS[id].medium : PACKAGING_PAPERS[id].liner);
+    const options = paperIds.map((paperId) => `<option value="${paperId}"${layer.paper === paperId ? ' selected' : ''}>${packagingEscape(packT(PACKAGING_PAPER_COPY_KEYS[paperId]))}</option>`).join('');
+    return `<div class="paper-layer-row" data-layer-index="${index}"><span>${packagingEscape(packT(PACKAGING_ROLE_KEYS[layer.role]))}</span><select data-layer-paper>${options}</select><label class="gsm-input"><input data-layer-gsm type="number" min="80" max="500" step="5" value="${Number(layer.gsm || 0)}"/><em>g/m²</em></label></div>`;
+  }).join('');
+}
+function packagingSetOptionLabels(select, map) {
+  if (!select) return;
+  [...select.options].forEach((option) => { option.textContent = packT(map[option.value] || option.value); });
+}
+function packagingApplyCopy() {
+  document.querySelectorAll('[data-pack-copy]').forEach((node) => { node.textContent = packT(node.dataset.packCopy); });
+  packagingSetOptionLabels(document.querySelector('#handleTypeSelect'), {none:'feature.none','die-cut':'feature.dieCut',reinforced:'feature.reinforced'});
+  packagingSetOptionLabels(document.querySelector('#handlePlacementSelect'), {front:'feature.front',sides:'feature.sides','all-sides':'feature.allSides',lid:'feature.lid'});
+  packagingSetOptionLabels(document.querySelector('#holeTypeSelect'), {none:'feature.none',round:'feature.round',oval:'feature.oval',vents:'feature.vents'});
+  packagingSetOptionLabels(document.querySelector('#holePlacementSelect'), {front:'feature.front',sides:'feature.sides','all-sides':'feature.allSides',lid:'feature.lid'});
+}
+function packagingRenderCatalogControls() {
+  ensurePackagingState();
+  packagingApplyCopy();
+  document.querySelectorAll('[data-box-type]').forEach((button) => button.classList.toggle('is-selected', button.dataset.boxType === state.boxType));
+  const def = PACKAGING_BOX_TYPES[state.boxType];
+  const description = document.querySelector('#boxTypeDescription');
+  if (description) description.innerHTML = `<b>${packagingEscape(packagingTypeLabel())}</b><p>${packagingEscape(packT(packagingTypeDescriptionKey(state.boxType)))}</p><span>FEFCO ${packagingEscape(def.code)}</span>`;
+  packagingRenderClosureSelect(document.querySelector('#topClosureSelect'), def.topOptions, state.closures.top);
+  packagingRenderClosureSelect(document.querySelector('#bottomClosureSelect'), def.bottomOptions, state.closures.bottom);
+  const note = document.querySelector('#closureCompatibilityNote');
+  if (note) note.textContent = packT('closure.note');
+  const construction = document.querySelector('#boardConstructionSelect'); if (construction) construction.value = state.board.construction;
+  packagingRenderFlutes();
+  document.querySelectorAll('[data-paper-preset]').forEach((button) => button.classList.toggle('is-selected', button.dataset.paperPreset === state.board.preset));
+  const thickness = packagingNominalThickness();
+  const nominal = document.querySelector('#nominalThicknessDisplay'); if (nominal) nominal.textContent = `≈ ${displayLength(thickness, 1)}`;
+  floorThicknessInput.value = round(fromMm(thickness), units === 'imperial' ? 2 : 1);
+  const stack = document.querySelector('#boardStackDisplay'); if (stack) stack.textContent = state.board.preset === 'CUSTOM' ? packT('board.custom') : `${state.board.preset} · ${state.board.construction} ${state.board.flute}`;
+  const gsm = document.querySelector('#boardGsmDisplay'); if (gsm) gsm.textContent = `≈ ${Math.round(packagingBoardGsm())} g/m²`;
+  const outer = document.querySelector('#outerPaperSwatch'); if (outer) outer.style.background = packagingOuterColor();
+  const inner = document.querySelector('#innerPaperSwatch'); if (inner) inner.style.background = packagingInnerColor();
+  packagingRenderLayerEditor();
+  const f = state.features;
+  const setValue = (id, value) => { const el = document.querySelector(id); if (el) el.value = String(value); };
+  setValue('#handleTypeSelect', f.handleType); setValue('#handlePlacementSelect', f.handlePlacement); setValue('#handleWidthInput', round(fromMm(f.handleWidth), units === 'imperial' ? 2 : 0)); setValue('#handleHeightInput', round(fromMm(f.handleHeight), units === 'imperial' ? 2 : 0));
+  setValue('#holeTypeSelect', f.holeType); setValue('#holePlacementSelect', f.holePlacement); setValue('#holeCountInput', f.holeCount); setValue('#holeWidthInput', round(fromMm(f.holeWidth), units === 'imperial' ? 2 : 0)); setValue('#holeHeightInput', round(fromMm(f.holeHeight), units === 'imperial' ? 2 : 0));
+  const handleSizes = document.querySelector('#handleSizeControls'); if (handleSizes) handleSizes.hidden = f.handleType === 'none';
+  const holeSizes = document.querySelector('#holeSizeControls'); if (holeSizes) holeSizes.hidden = f.holeType === 'none';
+  packagingRenderClosurePreview();
+}
+function packagingRenderClosurePreview() {
+  const svg = document.querySelector('#closurePreview');
+  if (!svg) return;
+  const top = state.closures.top; const bottom = state.closures.bottom;
+  let topMarkup = '<path class="cut" d="M72 42h116"/>';
+  if (top === 'simple-flaps') topMarkup += '<path class="fold" d="M130 14v28M72 28h116"/>';
+  else if (top === 'full-overlap') topMarkup += '<path class="fold" d="M95 14v28m70-28v28"/>';
+  else if (['tuck','hinged','pizza-lid','mailer-lid','archive-lid'].includes(top)) topMarkup += '<path class="fold" d="M72 18h116M88 18v24m84-24v24"/>';
+  else if (top === 'interlocking') topMarkup += '<path class="fold" d="m72 28 15-8 15 16 15-16 15 16 15-16 15 16 15-16 15 8"/>';
+  else if (top === 'telescope') topMarkup += '<path class="cut" d="M66 11h128v34H66z"/>';
+  else if (top === 'open') topMarkup = '<path class="cut" d="M72 42h116"/><path class="fold" d="M74 18h112"/>';
+  let bottomMarkup = '<path class="cut" d="M72 88h116"/>';
+  if (bottom === 'simple-flaps') bottomMarkup += '<path class="fold" d="M130 60v28M72 74h116"/>';
+  else if (bottom === 'full-overlap') bottomMarkup += '<path class="fold" d="M95 60v28m70-28v28"/>';
+  else if (['auto-lock','snap-lock','two-point-glued'].includes(bottom)) bottomMarkup += '<path class="fold" d="m72 74 24-14 34 14 34-14 24 14M96 60l68 28m0-28L96 88"/>';
+  svg.innerHTML = `<path class="body" d="M72 42h116v46H72z"/>${topMarkup}${bottomMarkup}`;
+}
+function packagingFaceMatchesPlacement(face, placement) {
+  if (placement === 'lid') return face.axis === 'y' && face.sign > 0;
+  if (!isVerticalFace(face)) return false;
+  if (placement === 'all-sides') return true;
+  if (placement === 'sides') return face.axis === 'x';
+  return face.axis === 'z' && face.sign > 0;
+}
+function packagingRoundedRectPath(cx, cy, width, height, radius) {
+  const p = new THREE.Path(); const x = cx - width/2, y = cy - height/2; const r = Math.min(radius, width/2, height/2);
+  p.moveTo(x+r,y); p.lineTo(x+width-r,y); p.quadraticCurveTo(x+width,y,x+width,y+r); p.lineTo(x+width,y+height-r); p.quadraticCurveTo(x+width,y+height,x+width-r,y+height); p.lineTo(x+r,y+height); p.quadraticCurveTo(x,y+height,x,y+height-r); p.lineTo(x,y+r); p.quadraticCurveTo(x,y,x+r,y); return p;
+}
+function packagingFeatureHoles(face, width, height) {
+  ensurePackagingState();
+  const holes = [];
+  const f = state.features;
+  if (f.handleType !== 'none' && packagingFaceMatchesPlacement(face, f.handlePlacement)) {
+    const w = Math.min(width * .72, Math.max(20, f.handleWidth)); const h = Math.min(height * .35, Math.max(10, f.handleHeight));
+    holes.push({ path:packagingRoundedRectPath(0, isVerticalFace(face) ? height*.2 : 0, w, h, h*.48), reinforced:f.handleType === 'reinforced', cx:0, cy:isVerticalFace(face) ? height*.2 : 0, width:w, height:h });
+  }
+  if (f.holeType !== 'none' && packagingFaceMatchesPlacement(face, f.holePlacement)) {
+    const count = Math.max(1, Math.min(12, Math.round(f.holeCount || 1))); const available = width * .7; const start = count === 1 ? 0 : -available/2; const step = count === 1 ? 0 : available/(count-1);
+    for (let i=0;i<count;i+=1) {
+      const cx = start + step*i; const cy = isVerticalFace(face) ? -height*.12 : 0;
+      const w = Math.min(width*.3, Math.max(6, f.holeWidth)); const h = Math.min(height*.25, Math.max(6, f.holeHeight));
+      if (f.holeType === 'round') { const p = new THREE.Path(); const r = Math.min(w,h)/2; p.absellipse(cx,cy,r,r,0,Math.PI*2,true); holes.push({path:p}); }
+      else if (f.holeType === 'oval') { const p = new THREE.Path(); p.absellipse(cx,cy,w/2,h/2,0,Math.PI*2,true); holes.push({path:p}); }
+      else holes.push({ path:packagingRoundedRectPath(cx,cy,w,h,h*.48) });
+    }
+  }
+  return holes;
+}
+function packagingApplyBoardAndFeatures() {
+  ensurePackagingState();
+  clearGroup(packagingFeatureGroup);
+  const outerColor = new THREE.Color(packagingOuterColor());
+  for (const mesh of surfaceMeshes) {
+    const face = mesh.userData?.face;
+    if (!face || !mesh.geometry) continue;
+    if (mesh.material?.color) mesh.material.color.copy(outerColor);
+    const width = face.u2 - face.u1; const height = face.v2 - face.v1;
+    const features = packagingFeatureHoles(face,width,height);
+    if (!features.length) continue;
+    const shape = new THREE.Shape(); shape.moveTo(-width/2,-height/2); shape.lineTo(width/2,-height/2); shape.lineTo(width/2,height/2); shape.lineTo(-width/2,height/2); shape.closePath();
+    features.forEach((item) => shape.holes.push(item.path));
+    mesh.geometry.dispose?.(); mesh.geometry = new THREE.ShapeGeometry(shape);
+    for (const item of features.filter((entry) => entry.reinforced)) {
+      const curve = new THREE.EllipseCurve(item.cx,item.cy,item.width/2+5,item.height/2+5,0,Math.PI*2,false,0);
+      const points = curve.getPoints(40).map((p) => new THREE.Vector3(p.x,p.y,1));
+      const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({color:0x7a542f,transparent:true,opacity:.75})); mesh.add(line);
+    }
+  }
+}
+function packagingLine(points, { color=0x725036, dashed=false, opacity=.65 } = {}) {
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = dashed ? new THREE.LineDashedMaterial({color,transparent:true,opacity,dashSize:12,gapSize:8}) : new THREE.LineBasicMaterial({color,transparent:true,opacity});
+  const line = new THREE.Line(geometry,material); if (dashed) line.computeLineDistances(); packagingClosureGroup.add(line); return line;
+}
+function packagingTopMesh() { return surfaceMeshes.find((mesh) => mesh.userData?.top); }
+function packagingBottomMesh() { return surfaceMeshes.find((mesh) => mesh.userData?.bottom); }
+function packagingAddTopLine(x1,z1,x2,z2,y,opts) { packagingLine([new THREE.Vector3(x1,y,z1),new THREE.Vector3(x2,y,z2)],opts); }
+function packagingRenderClosureVisuals() {
+  ensurePackagingState();
+  clearGroup(packagingClosureGroup);
+  const b = boundsForBoxes(state.boxes); const topMesh = packagingTopMesh(); const bottomMesh = packagingBottomMesh();
+  const topY = topMesh?.position?.y ?? b.maxY; const bottomY = bottomMesh?.position?.y ?? b.minY;
+  if (topMesh) { topMesh.visible = state.closures.top !== 'open'; if (state.closures.top === 'open') topMesh.raycast = () => {}; }
+  if (bottomMesh) { bottomMesh.visible = state.closures.bottom !== 'open'; if (state.closures.bottom === 'open') bottomMesh.raycast = () => {}; }
+  const cx=(b.minX+b.maxX)/2, cz=(b.minZ+b.maxZ)/2, w=b.maxX-b.minX, d=b.maxZ-b.minZ;
+  const top=state.closures.top, bottom=state.closures.bottom, seam={color:0x765035,opacity:.62};
+  const cross=(y) => { packagingAddTopLine(cx,b.minZ,cx,b.maxZ,y,seam); packagingAddTopLine(b.minX,cz,b.maxX,cz,y,seam); };
+  if (['simple-flaps','folded-flaps'].includes(top)) cross(topY+1.1);
+  if (top === 'full-overlap') { packagingAddTopLine(b.minX,cz-d*.18,b.maxX,cz-d*.18,topY+1.1,seam); packagingAddTopLine(b.minX,cz+d*.18,b.maxX,cz+d*.18,topY+1.1,seam); }
+  if (top === 'interlocking') { const pts=[]; for(let i=0;i<=10;i++) pts.push(new THREE.Vector3(b.minX+w*i/10,topY+1.1,cz+(i%2?d*.08:-d*.08))); packagingLine(pts,seam); }
+  if (['tuck','hinged','self-locking','archive-lid','pizza-lid','mailer-lid'].includes(top)) {
+    packagingAddTopLine(b.minX,b.minZ+w*0,b.maxX,b.minZ,topY+1.1,{...seam,dashed:true});
+    packagingAddTopLine(b.minX+w*.12,b.maxZ-d*.08,b.maxX-w*.12,b.maxZ-d*.08,topY+1.1,seam);
+    packagingAddTopLine(b.minX+w*.1,b.minZ,b.minX+w*.1,b.maxZ,topY+1.1,{...seam,opacity:.42}); packagingAddTopLine(b.maxX-w*.1,b.minZ,b.maxX-w*.1,b.maxZ,topY+1.1,{...seam,opacity:.42});
+  }
+  if (top === 'telescope') {
+    const over=10; const y=topY+1.2; packagingLine([new THREE.Vector3(b.minX-over,y,b.minZ-over),new THREE.Vector3(b.maxX+over,y,b.minZ-over),new THREE.Vector3(b.maxX+over,y,b.maxZ+over),new THREE.Vector3(b.minX-over,y,b.maxZ+over),new THREE.Vector3(b.minX-over,y,b.minZ-over)],{...seam,opacity:.85});
+  }
+  if (top === 'sleeve') { packagingAddTopLine(b.minX+w*.16,b.minZ,b.minX+w*.16,b.maxZ,topY+1.1,seam); packagingAddTopLine(b.maxX-w*.16,b.minZ,b.maxX-w*.16,b.maxZ,topY+1.1,seam); }
+  const bottomYLine=bottomY-1.1;
+  if (['simple-flaps','folded-flaps'].includes(bottom)) cross(bottomYLine);
+  if (bottom === 'full-overlap') { packagingAddTopLine(b.minX,cz-d*.18,b.maxX,cz-d*.18,bottomYLine,seam); packagingAddTopLine(b.minX,cz+d*.18,b.maxX,cz+d*.18,bottomYLine,seam); }
+  if (['auto-lock','snap-lock','two-point-glued'].includes(bottom)) {
+    packagingLine([new THREE.Vector3(b.minX,bottomYLine,b.minZ),new THREE.Vector3(cx,bottomYLine,cz),new THREE.Vector3(b.maxX,bottomYLine,b.minZ)],{...seam,dashed:true});
+    packagingLine([new THREE.Vector3(b.minX,bottomYLine,b.maxZ),new THREE.Vector3(cx,bottomYLine,cz),new THREE.Vector3(b.maxX,bottomYLine,b.maxZ)],{...seam,dashed:true});
+  }
+  // Manufacturing seam / style-specific surface cues.
+  if (['standard','full-overlap','auto-bottom','two-point-glued'].includes(state.boxType)) packagingLine([new THREE.Vector3(b.maxX+1,b.minY,b.minZ+w*.0),new THREE.Vector3(b.maxX+1,b.maxY,b.minZ)],{...seam,dashed:true,opacity:.42});
+  if (state.boxType === 'sleeve-drawer') {
+    packagingLine([new THREE.Vector3(b.minX+w*.08,b.minY+b.maxY*.13,b.maxZ+1),new THREE.Vector3(b.maxX-w*.08,b.minY+b.maxY*.13,b.maxZ+1)],seam);
+    const pull=new THREE.EllipseCurve(cx,b.minY+b.maxY*.55,w*.08,Math.max(8,(b.maxY-b.minY)*.09),0,Math.PI,false,0); const points=pull.getPoints(24).map((p)=>new THREE.Vector3(p.x,p.y,b.maxZ+1.2)); packagingLine(points,seam);
+  }
+}
+function packagingVerticalAreaMm2() {
+  const metrics = calculateUnionMetrics(state.boxes);
+  return metrics.faces.filter(isVerticalFace).reduce((sum,face)=>sum+(face.u2-face.u1)*(face.v2-face.v1),0);
+}
+function packagingBlankMetrics() {
+  ensurePackagingState();
+  const b=boundsForBoxes(state.boxes), opening=(b.maxX-b.minX)*(b.maxZ-b.minZ), vertical=packagingVerticalAreaMm2();
+  const topFactor=PACKAGING_CLOSURES[state.closures.top]?.factor ?? 1, bottomFactor=PACKAGING_CLOSURES[state.closures.bottom]?.factor ?? 1;
+  let areaMm2=vertical+opening*(topFactor+bottomFactor);
+  if(state.boxType==='telescope') areaMm2+=vertical*.25;
+  if(state.boxType==='sleeve-drawer') areaMm2+=vertical*.7+opening*.45;
+  const gsm=packagingBoardGsm(); return {areaMm2,gsm,massKg:areaMm2/1_000_000*gsm/1000};
+}
+function packagingFeatureSummary() {
+  const f=state.features, parts=[];
+  if(f.handleType!=='none') parts.push(`${packT(f.handleType==='reinforced'?'feature.reinforced':'feature.dieCut')} · ${packT(({front:'feature.front',sides:'feature.sides','all-sides':'feature.allSides',lid:'feature.lid'})[f.handlePlacement])}`);
+  if(f.holeType!=='none') parts.push(`${packT(({round:'feature.round',oval:'feature.oval',vents:'feature.vents'})[f.holeType])} × ${f.holeCount}`);
+  return parts.join(' · ') || packT('bom.none');
+}
+function packagingLayerSummary() { return state.board.layers.map((layer)=>`${packT(PACKAGING_PAPER_COPY_KEYS[layer.paper])} ${Math.round(layer.gsm)} g/m²`).join(' / '); }
+function packagingRenderSummaryExtension() {
+  ensurePackagingState();
+  const type=PACKAGING_BOX_TYPES[state.boxType], blank=packagingBlankMetrics(), b=boundsForBoxes(state.boxes), volume=(b.maxX-b.minX)*(b.maxY-b.minY)*(b.maxZ-b.minZ)/1_000_000_000;
+  const set=(id,value)=>{const el=document.querySelector(id);if(el)el.textContent=value;};
+  set('#summaryPieces',packagingTypeLabel()); set('#summarySides',type.code); set('#summaryBoardArea',`${(blank.areaMm2/1_000_000).toFixed(3)} m²`); set('#summaryMass',`${blank.massKg.toFixed(3)} kg`); set('#summaryVolume',`${volume.toFixed(3)} m³`); set('#summaryTextCount',String(state.textPlacements.length));
+  const bom=document.querySelector('#bomList'); if(bom) bom.innerHTML=[
+    [packT('bom.structure'),`${packagingTypeLabel()} · FEFCO ${type.code}`],
+    [packT('bom.dimensions'),`${displayLength(b.maxX-b.minX)} × ${displayLength(b.maxZ-b.minZ)} × ${displayLength(b.maxY-b.minY)}`],
+    [packT('bom.closures'),`${packagingClosureLabel(state.closures.top)} / ${packagingClosureLabel(state.closures.bottom)}`],
+    [packT('bom.board'),`${state.board.construction} · ${state.board.flute} · ${state.board.preset==='CUSTOM'?packT('board.custom'):state.board.preset} · ≈ ${packagingNominalThickness().toFixed(1)} mm`],
+    [packT('bom.layers'),packagingLayerSummary()],
+    [packT('bom.features'),packagingFeatureSummary()],
+  ].map(([label,value])=>`<div class="bom-row"><span>${packagingEscape(label)}</span><strong>${packagingEscape(value)}</strong></div>`).join('');
+  const boardRate=PACKAGING_FLUTES[state.board.flute]?.priceM2||1.55; const whiteSurcharge=state.board.preset==='AFA'?1.12:state.board.preset==='AFT'?1.06:1; const material=blank.areaMm2/1_000_000*boardRate*whiteSurcharge; const conversion=.85+Object.keys(PACKAGING_BOX_TYPES).indexOf(state.boxType)*.07+(state.closures.top==='open'?0:.15)+(state.closures.bottom==='open'?0:.15); const features=(state.features.handleType==='none'?0:state.features.handleType==='reinforced'?.65:.35)+(state.features.holeType==='none'?0:.08*state.features.holeCount); const textCost=state.textPlacements.length*.35; const total=material+conversion+features+textCost;
+  const breakdown=document.querySelector('#priceBreakdown'); if(breakdown) breakdown.innerHTML=[[packT('summary.material'),material],[packT('summary.conversion'),conversion],[packT('summary.features'),features],[packT('summary.textCost'),textCost]].map(([label,value])=>`<div class="price-row"><span>${packagingEscape(label)}</span><strong>${formatMoney(value)}</strong></div>`).join('');
+  summaryTotal.textContent=formatMoney(total);
+  return {totalEur:total};
+}
+function packagingBindControls() {
+  document.querySelector('#boxTypeGrid')?.addEventListener('click',(event)=>{const button=event.target.closest('[data-box-type]');if(button)packagingApplyType(button.dataset.boxType);});
+  document.querySelector('#topClosureSelect')?.addEventListener('change',(event)=>{state.closures.top=event.target.value;renderAll();});
+  document.querySelector('#bottomClosureSelect')?.addEventListener('change',(event)=>{state.closures.bottom=event.target.value;renderAll();});
+  document.querySelector('#boardConstructionSelect')?.addEventListener('change',(event)=>{const construction=event.target.value==='CO5'?'CO5':'CO3';state.board.construction=construction;state.board.flute=construction==='CO5'?'EB':'B';state.board.preset=['TFT','AFT','AFA'].includes(state.board.preset)?state.board.preset:'TFT';state.board.layers=packagingDefaultLayers(construction,state.board.preset);renderAll();});
+  document.querySelector('#fluteChoiceGrid')?.addEventListener('click',(event)=>{const button=event.target.closest('[data-flute]');if(button&&PACKAGING_FLUTES[button.dataset.flute]){state.board.flute=button.dataset.flute;renderAll();}});
+  document.querySelector('#paperPresetGrid')?.addEventListener('click',(event)=>{const button=event.target.closest('[data-paper-preset]');if(!button)return;state.board.preset=button.dataset.paperPreset;state.board.layers=packagingDefaultLayers(state.board.construction,state.board.preset);renderAll();});
+  document.querySelector('#paperLayerEditor')?.addEventListener('change',(event)=>{const row=event.target.closest('[data-layer-index]');if(!row)return;const index=Number(row.dataset.layerIndex);const layer=state.board.layers[index];if(!layer)return;if(event.target.matches('[data-layer-paper]'))layer.paper=event.target.value;if(event.target.matches('[data-layer-gsm]'))layer.gsm=clamp(event.target.value,80,500);state.board.preset='CUSTOM';renderAll();});
+  const featureChange=()=>{const read=(id)=>document.querySelector(id);state.features.handleType=read('#handleTypeSelect').value;state.features.handlePlacement=read('#handlePlacementSelect').value;state.features.handleWidth=clamp(toMm(read('#handleWidthInput').value),30,300);state.features.handleHeight=clamp(toMm(read('#handleHeightInput').value),15,120);state.features.holeType=read('#holeTypeSelect').value;state.features.holePlacement=read('#holePlacementSelect').value;state.features.holeCount=clamp(read('#holeCountInput').value,1,12);state.features.holeWidth=clamp(toMm(read('#holeWidthInput').value),8,180);state.features.holeHeight=clamp(toMm(read('#holeHeightInput').value),8,120);renderAll();};
+  ['#handleTypeSelect','#handlePlacementSelect','#handleWidthInput','#handleHeightInput','#holeTypeSelect','#holePlacementSelect','#holeCountInput','#holeWidthInput','#holeHeightInput'].forEach((id)=>document.querySelector(id)?.addEventListener('change',featureChange));
+}
+
+// Preserve the full text-selection, wrapping, dragging and face-selection system.
+// Only its arbitrary box-volume entry point is disabled.
+beginAddMode = function disabledArbitraryBoxAdd() {};
+const packagingLegacyRenderTranslations = renderTranslations;
+renderTranslations = function renderTranslationsWithPackagingCatalog() { packagingLegacyRenderTranslations(); packagingApplyCopy(); };
+const packagingLegacyRenderInputs = renderInputs;
+renderInputs = function renderInputsWithPackagingCatalog() { packagingLegacyRenderInputs(); packagingRenderCatalogControls(); };
+const packagingLegacyRebuildSurfaceMeshes = rebuildSurfaceMeshes;
+rebuildSurfaceMeshes = function rebuildSurfaceMeshesWithPackagingDetails() { packagingLegacyRebuildSurfaceMeshes(); packagingApplyBoardAndFeatures(); packagingRenderClosureVisuals(); };
+const packagingLegacyRenderSummary = renderSummary;
+renderSummary = function renderSummaryWithPackagingBom() { packagingLegacyRenderSummary(); packagingRenderSummaryExtension(); };
+const packagingLegacyCaptureState = captureState;
+captureState = function capturePackagingState() { ensurePackagingState(); return { ...packagingLegacyCaptureState(), version:8, catalogSchemaVersion:PACKAGING_CATALOG_SCHEMA_VERSION, boxType:state.boxType, closures:{...state.closures}, features:{...state.features}, board:{...state.board,layers:state.board.layers.map((layer)=>({...layer}))} }; };
+const packagingLegacyRestoreState = restoreState;
+restoreState = function restorePackagingState(snapshot) { const source=snapshot?.state&&!snapshot.boxes?snapshot.state:snapshot; const restored=packagingLegacyRestoreState(snapshot); if(!restored)return false; state.boxType=PACKAGING_BOX_TYPES[source?.boxType]?source.boxType:'standard'; state.closures=source?.closures&&typeof source.closures==='object'?{...source.closures}:null; state.features=source?.features&&typeof source.features==='object'?{...source.features}:null; state.board=source?.board&&typeof source.board==='object'?{...source.board,layers:Array.isArray(source.board.layers)?source.board.layers.map((layer)=>({...layer})):null}:null; ensurePackagingState(); if(!source?.boxType&&state.boxes.length>1){const b=boundsForBoxes(state.boxes);packagingSetBaseDimensions(b.maxX-b.minX,b.maxZ-b.minZ,b.maxY-b.minY);} renderAll(); return true; };
+const packagingLegacyResetConfiguration = resetConfiguration;
+resetConfiguration = function resetPackagingConfiguration() { packagingLegacyResetConfiguration(); state.boxType='standard'; state.closures={top:'simple-flaps',bottom:'simple-flaps'}; state.features=packagingDefaultFeatures('standard'); state.board={construction:'CO3',flute:'B',preset:'TFT',layers:packagingDefaultLayers('CO3','TFT')}; packagingSetBaseDimensions(...PACKAGING_BOX_TYPES.standard.dims); renderAll(); return true; };
+getPrice = function getPackagingPrice() { const total=packagingRenderSummaryExtension().totalEur; return {amount:total*(CURRENCY_FROM_EUR[currency]||1),currency}; };
+ensurePackagingState();
+packagingBindControls();
 
 window.CARDBOX_CONFIGURATOR_API = { captureState, restoreState, resetConfiguration, setUnits, setCurrency, setLocale, setDarkMode, toggleDimensions, toggleTechnicalEdges, cycleCamera, getPrice, syncToolButtons() {}, closeToolPanels() {} };
 

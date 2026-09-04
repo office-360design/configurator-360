@@ -427,3 +427,122 @@ body.cardbox-dark-mode .viewer-hint { background: rgba(24,31,36,0.83); color: #d
   .text-selection-tool { width: 38px; height: 38px; }
   .text-guide-label { font-size: 9px; padding: 3px 6px; }
 }
+
+
+/* --------------------------------------------------------------------------
+   FEFCO catalogue, closures, features and board specification
+   -------------------------------------------------------------------------- */
+#faceAddButton,
+.face-action-button--plus,
+.face-arc-button--add { display: none !important; }
+.face-action-popup .face-main-actions,
+.face-action-popup .face-action-arc { min-width: 118px; }
+#faceTextButton { margin-inline: auto; }
+
+.section-lead { display: flex; flex-direction: column; gap: 3px; margin-bottom: 9px; }
+.section-lead b { font-size: 12px; color: #253640; }
+.section-lead small { font-size: 10.5px; line-height: 1.4; color: #7a8790; }
+.box-type-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; }
+.box-type-card {
+  min-height: 108px;
+  padding: 8px 6px;
+  border: 1px solid #dce4e9;
+  border-radius: 12px;
+  background: #fff;
+  color: #42525c;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.box-type-card:hover { border-color: #93c4e3; transform: translateY(-1px); }
+.box-type-card.is-selected { border-color: #0e82d8; background: #f3faff; box-shadow: inset 0 0 0 1px #0e82d8; color: #0876be; }
+.box-type-card svg { width: 46px; height: 34px; fill: rgba(14,130,216,.06); stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.box-type-card span { display: flex; flex-direction: column; gap: 2px; }
+.box-type-card b { font-size: 9.5px; line-height: 1.16; }
+.box-type-card small { font-size: 8.5px; color: #89959c; }
+.type-description-card { margin-top: 9px; padding: 10px 11px; border: 1px solid #dce5ea; border-radius: 11px; background: #f8fafb; }
+.type-description-card b { display: block; color: #243640; font-size: 11.5px; }
+.type-description-card p { margin: 4px 0 0; color: #72808a; font-size: 10.5px; line-height: 1.42; }
+.type-description-card span { display: inline-flex; margin-top: 7px; padding: 3px 7px; border-radius: 999px; background: #eaf6fd; color: #0876be; font-size: 9px; font-weight: 800; }
+.readonly-value { min-height: 38px; justify-content: flex-start; padding: 0 9px; color: #0876be; font-size: 12px; }
+.closure-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.select-control { display: block; }
+.select-control > span { display: block; margin-bottom: 5px; color: #4d5b65; font-size: 11px; font-weight: 700; }
+.select-control select { width: 100%; min-width: 0; border: 1px solid #dce3e8; border-radius: 10px; background: #fff; padding: 9px 30px 9px 9px; color: #263640; outline: none; }
+.select-control select:focus { border-color: #198ee0; box-shadow: 0 0 0 2px rgba(25,142,224,.12); }
+.select-control select:disabled { background: #f5f7f8; color: #6f7b83; }
+.compatibility-note { margin-top: 9px; min-height: 34px; padding: 8px 10px; border-left: 3px solid #0e82d8; border-radius: 8px; background: #f3f9fd; color: #65747e; font-size: 10px; line-height: 1.4; }
+.closure-preview-card { margin-top: 10px; border: 1px solid #dfe7eb; border-radius: 12px; background: linear-gradient(180deg,#fbfcfd,#f4f7f8); overflow: hidden; }
+#closurePreview { display: block; width: 100%; height: 104px; }
+#closurePreview .body { fill: #d7a06b; stroke: #8f6037; stroke-width: 1.5; }
+#closurePreview .fold { fill: none; stroke: #0e82d8; stroke-width: 1.5; stroke-dasharray: 4 3; }
+#closurePreview .cut { fill: none; stroke: #6f4b2e; stroke-width: 1.7; }
+.feature-card { padding: 11px; border: 1px solid #dce5ea; border-radius: 12px; background: #f8fafb; }
+.feature-card__title { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.feature-card__title b { display: block; font-size: 12px; }
+.feature-card__title small { display: block; margin-top: 2px; color: #78868f; font-size: 9.7px; line-height: 1.35; }
+.feature-symbol { display: grid; place-items: center; flex: 0 0 30px; height: 30px; border: 1px solid #cfe1ec; border-radius: 9px; background: #fff; color: #0876be; font-size: 18px; font-weight: 800; }
+.feature-dimensions { display: grid; grid-template-columns: .8fr 1fr 1fr; gap: 7px; }
+.flute-choice-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+.flute-choice {
+  min-height: 56px;
+  border: 1px solid #dce4e9;
+  border-radius: 10px;
+  background: #fff;
+  color: #43535d;
+  cursor: pointer;
+}
+.flute-choice b { display: block; font-size: 12px; }
+.flute-choice small { display: block; margin-top: 2px; color: #88949b; font-size: 8.5px; }
+.flute-choice.is-selected { border-color: #0e82d8; background: #f3faff; color: #0876be; box-shadow: inset 0 0 0 1px #0e82d8; }
+.paper-preset-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+.paper-preset-grid button { min-height: 66px; padding: 8px 6px; border: 1px solid #dce4e9; border-radius: 10px; background: #fff; color: #43535d; cursor: pointer; text-align: left; }
+.paper-preset-grid button b { display: block; color: #263943; font-size: 12px; }
+.paper-preset-grid button span { display: block; margin-top: 3px; color: #7d8991; font-size: 8.8px; line-height: 1.25; }
+.paper-preset-grid button.is-selected { border-color: #0e82d8; background: #f3faff; box-shadow: inset 0 0 0 1px #0e82d8; }
+.board-summary-card { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; border: 1px solid #dce5ea; border-radius: 11px; background: #f8fafb; }
+.board-summary-card > div > span { display: block; color: #7a8790; font-size: 9px; }
+.board-summary-card > div > strong { display: block; margin-top: 2px; color: #273943; font-size: 11px; }
+.paper-side-preview { grid-column: 1/-1; display: grid; grid-template-columns: 22px 1fr 22px 1fr; align-items: center; gap: 6px; }
+.paper-side-preview i { width: 22px; height: 22px; border: 1px solid #cfd8dd; border-radius: 6px; background: #b88959; }
+.paper-side-preview span { color: #66747d; font-size: 9.5px; }
+.advanced-board-details { border: 1px solid #dce5ea; border-radius: 11px; background: #fff; overflow: hidden; }
+.advanced-board-details summary { padding: 10px 11px; cursor: pointer; color: #2d414c; font-size: 11px; font-weight: 800; }
+.advanced-board-details > p { margin: 0; padding: 0 11px 9px; color: #7a8790; font-size: 9.5px; line-height: 1.4; }
+.paper-layer-editor { display: grid; gap: 6px; padding: 0 10px 10px; }
+.paper-layer-row { display: grid; grid-template-columns: 86px minmax(0,1fr) 65px; gap: 6px; align-items: center; }
+.paper-layer-row > span { color: #596871; font-size: 9px; font-weight: 750; }
+.paper-layer-row select,
+.paper-layer-row input { width: 100%; min-width: 0; border: 1px solid #dbe3e8; border-radius: 8px; background: #fff; padding: 7px; color: #32444e; font-size: 9.5px; }
+.paper-layer-row .gsm-input { position: relative; }
+.paper-layer-row .gsm-input input { padding-right: 24px; }
+.paper-layer-row .gsm-input em { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); color: #8b969d; font-size: 8px; font-style: normal; pointer-events: none; }
+.bom-list { margin-top: 10px; display: grid; gap: 5px; }
+.bom-row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; padding: 8px 9px; border-radius: 9px; background: #f5f7f8; }
+.bom-row span { color: #7b878f; font-size: 9px; }
+.bom-row strong { color: #2c3d47; font-size: 9.8px; font-weight: 750; text-align: right; }
+
+@media (max-width: 760px) {
+  .box-type-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .box-type-card { min-height: 96px; }
+  .feature-dimensions { grid-template-columns: 1fr 1fr; }
+  .feature-dimensions .field-control:first-child { grid-column: 1/-1; }
+}
+@media (max-width: 430px) {
+  .closure-grid { grid-template-columns: 1fr; }
+  .paper-layer-row { grid-template-columns: 76px minmax(0,1fr) 60px; }
+}
+/* Rebalance the selected-face action arc after removing arbitrary box attachment. */
+#faceTextButton {
+  position: absolute !important;
+  left: 50% !important;
+  right: auto !important;
+  top: 4px !important;
+  transform: translateX(-50%) !important;
+}
+#faceTextButton:hover { transform: translateX(-50%) translateY(-2px) !important; }
