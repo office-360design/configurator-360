@@ -7,6 +7,9 @@ const CURRENCY_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 const LID_LIFT_MM = 300;
 const SURFACE_TEXT_OFFSET_MM = 1.5;
 const EPSILON = 1e-6;
+const MAX_IMAGE_FILE_BYTES = 15_000_000;
+const MAX_IMAGE_DATA_URL_CHARS = 220_000;
+const MAX_TOTAL_IMAGE_DATA_URL_CHARS = 700_000;
 
 const TEXT = Object.freeze({
   'en-US': Object.freeze({
@@ -104,6 +107,30 @@ const textItalicToggle = $('#textItalicToggle');
 const textUnderlineToggle = $('#textUnderlineToggle');
 const textUnderlineStyle = $('#textUnderlineStyle');
 const summaryTotal = $('#summaryTotal');
+const faceColorButton = $('#faceColorButton');
+const faceImageButton = $('#faceImageButton');
+const faceColorPanel = $('#faceColorPanel');
+const faceColorPalette = $('#faceColorPalette');
+const faceCurrentColorSwatch = $('#faceCurrentColorSwatch');
+const faceColorSideLabel = $('#faceColorSideLabel');
+const applyOuterColorButton = $('#applyOuterColorButton');
+const applyInnerColorButton = $('#applyInnerColorButton');
+const applyBothColorButton = $('#applyBothColorButton');
+const backFromColorButton = $('#backFromColorButton');
+const faceImageInput = $('#faceImageInput');
+const cancelImagePlacementButton = $('#cancelImagePlacementButton');
+const imageSelectionHud = $('#imageSelectionHud');
+const imageResizeButton = $('#imageResizeButton');
+const imageLiftTopButton = $('#imageLiftTopButton');
+const imageDeleteButton = $('#imageDeleteButton');
+const imageDismissButton = $('#imageDismissButton');
+const imageResizePanel = $('#imageResizePanel');
+const imageWidthInput = $('#imageWidthInput');
+const imageHeightInput = $('#imageHeightInput');
+const imageScaleInput = $('#imageScaleInput');
+const imageScaleValue = $('#imageScaleValue');
+const confirmImageResizeButton = $('#confirmImageResizeButton');
+const cancelImageResizeButton = $('#cancelImageResizeButton');
 
 let locale = localeForHost();
 let units = locale === 'en-US' ? 'imperial' : 'metric';
@@ -142,6 +169,22 @@ let editingTextId = '';
 let editingTextOriginalSpec = null;
 let suppressCanvasClick = false;
 let lidLiftEnabled = false;
+let selectedFaceColor = DEFAULT_COLOR;
+let imagePlacementMode = false;
+let pendingImageSpec = null;
+let pendingImageElement = null;
+let previewImagePlacement = null;
+let selectedImageId = '';
+let imageDragging = false;
+let imageDragPointerId = null;
+let imageDragMoved = false;
+let imageHudAnchor = null;
+let imageRenderGeneration = 0;
+let imageResizeOriginal = null;
+let imageResizeStartWidth = 0;
+let imageResizeStartHeight = 0;
+let imageResizeUpdating = false;
+const imageElementCache = new Map();
 
 function makeBaseBox(width = 600, depth = 400, height = 300) {
   return { id: 'base', minX: -width / 2, maxX: width / 2, minY: 0, maxY: height, minZ: -depth / 2, maxZ: depth / 2 };
@@ -493,6 +536,9 @@ const textGroup = new THREE.Group(); scene.add(textGroup);
 const editorPreviewGroup = new THREE.Group(); scene.add(editorPreviewGroup);
 const previewGroup = new THREE.Group(); scene.add(previewGroup);
 const textSelectionGroup = new THREE.Group(); scene.add(textSelectionGroup);
+const imageGroup = new THREE.Group(); scene.add(imageGroup);
+const imagePreviewGroup = new THREE.Group(); scene.add(imagePreviewGroup);
+const imageSelectionGroup = new THREE.Group(); scene.add(imageSelectionGroup);
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -1395,8 +1441,14 @@ function updateFacePopupPosition() {
   const projected = world.project(camera);
   const rect = canvasHost.getBoundingClientRect();
   if (projected.z < -1 || projected.z > 1) { faceActionPopup.hidden = true; return; }
-  faceActionPopup.style.left = `${(projected.x * 0.5 + 0.5) * rect.width}px`;
-  faceActionPopup.style.top = `${(-projected.y * 0.5 + 0.5) * rect.height}px`;
+  const popupWidth = faceActionPopup.offsetWidth || 238;
+  const popupHeight = faceActionPopup.offsetHeight || 132;
+  const rawLeft = (projected.x * 0.5 + 0.5) * rect.width;
+  const rawTop = (-projected.y * 0.5 + 0.5) * rect.height;
+  const halfWidth = popupWidth / 2;
+  const halfHeight = popupHeight / 2;
+  faceActionPopup.style.left = `${clamp(rawLeft, halfWidth + 6, Math.max(halfWidth + 6, rect.width - halfWidth - 6))}px`;
+  faceActionPopup.style.top = `${clamp(rawTop, halfHeight + 6, Math.max(halfHeight + 6, rect.height - halfHeight - 6))}px`;
 }
 function renderAll() {
   renderInputs(); renderTranslations(); renderSummary(); rebuildSurfaceMeshes(); renderFacePopup(); renderTextSelection();
@@ -1994,34 +2046,90 @@ function bindControls() {
 }
 
 renderer.domElement.addEventListener('dblclick', (event) => {
-  if (addMode || placementMode || editingTextId || !textEditorPanel.hidden) return;
+  if (
+    addMode
+    || placementMode
+    || imagePlacementMode
+    || editingTextId
+    || !textEditorPanel.hidden
+    || !faceColorPanel.hidden
+    || !imageResizePanel.hidden
+  ) return;
+
+  const imageHit = raycastImage(event).hit;
+  const imageId = imageHit?.object?.userData?.imagePlacementId || '';
+  if (imageId) {
+    selectImagePlacement(imageId);
+    event.preventDefault();
+    return;
+  }
+
   const textHit = raycastText(event).hit;
-  const placementId = textHit?.object?.userData?.textPlacementId;
+  const placementId = textHit?.object?.userData?.textPlacementId || '';
   if (placementId) {
     selectTextPlacement(placementId);
     event.preventDefault();
     return;
   }
+
   const { hit, raycaster } = raycast(event);
-  if (!hit?.object?.userData?.vertical) return;
+  if (!hit?.object?.userData?.cardboxSurface || !hit.object.userData.face) return;
   const face = hit.object.userData.face;
-  if (selectedFaceKey && selectedFaceKey === hit.object.userData.faceKey) { deselectFace(); return; }
+  if (!decorationFaceAvailable(face)) return;
+  const explicitSideFactor = Number(hit.object.userData.surfaceSideFactor);
   const outward = faceNormal(face);
-  const sideFactor = outward.dot(raycaster.ray.direction) < 0 ? 1 : -1;
+  const inferredSideFactor = outward.dot(raycaster.ray.direction) < 0 ? 1 : -1;
+  const sideFactor = explicitSideFactor < 0 ? -1 : explicitSideFactor > 0 ? 1 : inferredSideFactor;
+  if (
+    selectedFaceKey
+    && selectedFaceKey === hit.object.userData.faceKey
+    && selectedFaceSideFactor === sideFactor
+  ) {
+    deselectFace();
+    return;
+  }
   selectFace(face, sideFactor);
+  event.preventDefault();
 });
+
 renderer.domElement.addEventListener('pointerdown', (event) => {
+  if (beginSelectedImageDrag(event)) return;
   beginSelectedTextDrag(event);
 }, true);
+
 renderer.domElement.addEventListener('pointermove', (event) => {
-  if (textDragging) moveSelectedTextWithPointer(event);
-  else updateTextPreview(event);
+  if (imageDragging) {
+    moveSelectedImageWithPointer(event);
+    return;
+  }
+  if (textDragging) {
+    moveSelectedTextWithPointer(event);
+    return;
+  }
+  if (imagePlacementMode) {
+    updateImagePreview(event);
+    return;
+  }
+  updateTextPreview(event);
 });
-renderer.domElement.addEventListener('pointerup', endSelectedTextDrag);
-renderer.domElement.addEventListener('pointercancel', endSelectedTextDrag);
+
+renderer.domElement.addEventListener('pointerup', (event) => {
+  if (endSelectedImageDrag(event)) return;
+  endSelectedTextDrag(event);
+});
+renderer.domElement.addEventListener('pointercancel', (event) => {
+  if (endSelectedImageDrag(event)) return;
+  endSelectedTextDrag(event);
+});
+
 renderer.domElement.addEventListener('click', (event) => {
   if (suppressCanvasClick) {
     suppressCanvasClick = false;
+    return;
+  }
+  if (imagePlacementMode) {
+    updateImagePreview(event);
+    if (previewImagePlacement) commitImagePlacement();
     return;
   }
   if (placementMode) {
@@ -2029,14 +2137,37 @@ renderer.domElement.addEventListener('click', (event) => {
     if (previewPlacement) commitTextPlacement();
     return;
   }
-  if (addMode || editingTextId || !textEditorPanel.hidden) return;
+  if (
+    addMode
+    || editingTextId
+    || !textEditorPanel.hidden
+    || !faceColorPanel.hidden
+    || !imageResizePanel.hidden
+  ) return;
+
+  const imageHit = raycastImage(event).hit;
+  const clickedImageId = imageHit?.object?.userData?.imagePlacementId || '';
+  if (clickedImageId) {
+    if (selectedTextId) deselectTextPlacement();
+    if (selectedImageId && clickedImageId !== selectedImageId) deselectImagePlacement();
+    return;
+  }
+
   const textHit = raycastText(event).hit;
   const clickedTextId = textHit?.object?.userData?.textPlacementId || '';
   if (clickedTextId) {
+    if (selectedImageId) deselectImagePlacement();
     if (selectedTextId && clickedTextId !== selectedTextId) deselectTextPlacement();
     return;
   }
+
   const { hit } = raycast(event);
+  if (selectedImageId) {
+    // Preserve selection while the user drags empty viewer space to orbit.
+    // Clicking an actual box surface or other box artwork dismisses it.
+    if (hit?.object?.userData?.cardboxSurface) deselectImagePlacement();
+    return;
+  }
   if (selectedTextId) {
     // Empty viewer space is commonly used to orbit the camera. Keep the text
     // selected there; deselect only when the click actually lands on the box.
@@ -2634,6 +2765,1014 @@ resetConfiguration = function resetPackagingConfiguration() { packagingLegacyRes
 getPrice = function getPackagingPrice() { const total=packagingRenderSummaryExtension().totalEur; return {amount:total*(CURRENCY_FROM_EUR[currency]||1),currency}; };
 ensurePackagingState();
 packagingBindControls();
+
+
+/* --------------------------------------------------------------------------
+   Per-surface colours and image artwork
+   -------------------------------------------------------------------------- */
+const DECORATION_COPY = Object.freeze({
+  'en-US': Object.freeze({
+    'face.color': 'Colour surface', 'face.image': 'Add image', 'face.colorTitle': 'Surface colour',
+    'face.outside': 'Outside surface', 'face.inside': 'Inside surface', 'face.currentColor': 'Current surface colour',
+    'face.applyOuter': 'Apply to all outside surfaces', 'face.applyInner': 'Apply to all inside surfaces',
+    'face.applyBoth': 'Apply to all outside & inside surfaces',
+    'image.resize': 'Resize image', 'image.liftTop': 'Lift the top by 300 mm', 'image.delete': 'Delete image',
+    'image.deselect': 'Deselect image', 'image.resizeTitle': 'Resize image',
+    'image.resizeHelp': 'The image proportions are preserved automatically.', 'image.width': 'Width',
+    'image.height': 'Height', 'image.scale': 'Scale', 'image.cancelPlacement': 'Cancel image placement',
+    'image.uploadError': 'Choose a valid JPG or PNG image.', 'image.processing': 'Preparing the image…',
+    'image.stateLimit': 'This configuration already contains too much image data. Remove an image or upload a smaller file.',
+    'image.placeHint': 'Image placement mode: move over any outside or inside surface and click to place.',
+    'summary.images': 'Image objects', 'summary.imageCost': 'Image finishing',
+  }),
+  'ro-RO': Object.freeze({
+    'face.color': 'Colorează suprafața', 'face.image': 'Adaugă imagine', 'face.colorTitle': 'Culoare suprafață',
+    'face.outside': 'Suprafață exterioară', 'face.inside': 'Suprafață interioară', 'face.currentColor': 'Culoarea curentă a suprafeței',
+    'face.applyOuter': 'Aplică pe toate suprafețele exterioare', 'face.applyInner': 'Aplică pe toate suprafețele interioare',
+    'face.applyBoth': 'Aplică pe toate suprafețele exterioare și interioare',
+    'image.resize': 'Redimensionează imaginea', 'image.liftTop': 'Ridică partea superioară cu 300 mm', 'image.delete': 'Șterge imaginea',
+    'image.deselect': 'Deselectează imaginea', 'image.resizeTitle': 'Redimensionează imaginea',
+    'image.resizeHelp': 'Proporțiile imaginii sunt păstrate automat.', 'image.width': 'Lățime',
+    'image.height': 'Înălțime', 'image.scale': 'Scală', 'image.cancelPlacement': 'Anulează plasarea imaginii',
+    'image.uploadError': 'Alege o imagine JPG sau PNG validă.', 'image.processing': 'Se pregătește imaginea…',
+    'image.stateLimit': 'Configurația conține deja prea multe date de imagine. Șterge o imagine sau încarcă un fișier mai mic.',
+    'image.placeHint': 'Mod plasare imagine: mută cursorul pe orice suprafață exterioară sau interioară și apasă click.',
+    'summary.images': 'Imagini', 'summary.imageCost': 'Finisaj imagini',
+  }),
+  'de-DE': Object.freeze({
+    'face.color': 'Oberfläche färben', 'face.image': 'Bild hinzufügen', 'face.colorTitle': 'Oberflächenfarbe',
+    'face.outside': 'Außenfläche', 'face.inside': 'Innenfläche', 'face.currentColor': 'Aktuelle Oberflächenfarbe',
+    'face.applyOuter': 'Auf alle Außenflächen anwenden', 'face.applyInner': 'Auf alle Innenflächen anwenden',
+    'face.applyBoth': 'Auf alle Außen- und Innenflächen anwenden',
+    'image.resize': 'Bildgröße ändern', 'image.liftTop': 'Oberseite um 300 mm anheben', 'image.delete': 'Bild löschen',
+    'image.deselect': 'Bild abwählen', 'image.resizeTitle': 'Bildgröße ändern',
+    'image.resizeHelp': 'Das Seitenverhältnis des Bildes bleibt automatisch erhalten.', 'image.width': 'Breite',
+    'image.height': 'Höhe', 'image.scale': 'Skalierung', 'image.cancelPlacement': 'Bildplatzierung abbrechen',
+    'image.uploadError': 'Wählen Sie ein gültiges JPG- oder PNG-Bild.', 'image.processing': 'Bild wird vorbereitet…',
+    'image.stateLimit': 'Diese Konfiguration enthält bereits zu viele Bilddaten. Entfernen Sie ein Bild oder laden Sie eine kleinere Datei hoch.',
+    'image.placeHint': 'Bildplatzierungsmodus: Bewegen Sie den Cursor über eine Außen- oder Innenfläche und klicken Sie zum Platzieren.',
+    'summary.images': 'Bildobjekte', 'summary.imageCost': 'Bildveredelung',
+  }),
+});
+function decorationT(key) { return DECORATION_COPY[locale]?.[key] || DECORATION_COPY['en-US'][key] || key; }
+function applyDecorationCopy() {
+  document.querySelectorAll('[data-decoration-copy]').forEach((element) => { element.textContent = decorationT(element.dataset.decorationCopy); });
+  document.querySelectorAll('[data-decoration-title]').forEach((element) => {
+    const value = decorationT(element.dataset.decorationTitle);
+    element.title = value;
+    element.setAttribute('aria-label', value);
+  });
+}
+function ensureDecorationState() {
+  if (!state.faceColors || typeof state.faceColors !== 'object') state.faceColors = { outer: {}, inner: {} };
+  if (!state.faceColors.outer || typeof state.faceColors.outer !== 'object') state.faceColors.outer = {};
+  if (!state.faceColors.inner || typeof state.faceColors.inner !== 'object') state.faceColors.inner = {};
+  if (!Array.isArray(state.imagePlacements)) state.imagePlacements = [];
+}
+function surfaceColorSlot(face) { return `${face.axis}:${face.sign >= 0 ? '+' : '-'}`; }
+function surfaceColorBucket(sideFactor) { return sideFactor >= 0 ? 'outer' : 'inner'; }
+function defaultSurfaceColor(sideFactor) {
+  try { return sideFactor >= 0 ? packagingOuterColor() : packagingInnerColor(); }
+  catch { return DEFAULT_COLOR; }
+}
+function resolvedSurfaceColor(face, sideFactor = 1) {
+  ensureDecorationState();
+  const bucket = surfaceColorBucket(sideFactor);
+  return state.faceColors[bucket][surfaceColorSlot(face)] || defaultSurfaceColor(sideFactor);
+}
+function allSurfaceSlots() {
+  return [...new Set(surfaceDescriptors.map(surfaceColorSlot))];
+}
+function setFaceColorOverride(face, sideFactor, color) {
+  ensureDecorationState();
+  state.faceColors[surfaceColorBucket(sideFactor)][surfaceColorSlot(face)] = color;
+}
+function renderFaceColorPanel() {
+  if (!selectedFaceSnapshot || faceColorPanel.hidden) return;
+  selectedFaceColor = resolvedSurfaceColor(selectedFaceSnapshot, selectedFaceSideFactor);
+  faceColorSideLabel.textContent = decorationT(selectedFaceSideFactor >= 0 ? 'face.outside' : 'face.inside');
+  faceCurrentColorSwatch.dataset.faceColor = selectedFaceColor;
+  faceCurrentColorSwatch.style.setProperty('--swatch', selectedFaceColor);
+  faceColorPalette.querySelectorAll('[data-face-color]').forEach((button) => {
+    button.classList.toggle('is-active', String(button.dataset.faceColor).toLowerCase() === selectedFaceColor.toLowerCase());
+  });
+}
+function openFaceColorPanel() {
+  if (!selectedFaceSnapshot) return;
+  faceActionPopup.hidden = true;
+  textEditorPanel.hidden = true;
+  imageResizePanel.hidden = true;
+  faceColorPanel.hidden = false;
+  renderFaceColorPanel();
+  rebuildSurfaceMeshes();
+}
+function closeFaceColorPanel() {
+  faceColorPanel.hidden = true;
+  renderFacePopup();
+}
+function applySelectedFaceColor(color) {
+  if (!selectedFaceSnapshot || !/^#[0-9a-f]{6}$/i.test(color)) return;
+  recordUndoCheckpoint();
+  selectedFaceColor = color.toLowerCase();
+  setFaceColorOverride(selectedFaceSnapshot, selectedFaceSideFactor, selectedFaceColor);
+  renderAll();
+  markConfigurationDirty();
+}
+function applySelectedColorToScope(scope) {
+  if (!/^#[0-9a-f]{6}$/i.test(selectedFaceColor)) return;
+  ensureDecorationState();
+  recordUndoCheckpoint();
+  const slots = allSurfaceSlots();
+  if (scope === 'outer' || scope === 'both') slots.forEach((slot) => { state.faceColors.outer[slot] = selectedFaceColor; });
+  if (scope === 'inner' || scope === 'both') slots.forEach((slot) => { state.faceColors.inner[slot] = selectedFaceColor; });
+  renderAll();
+  markConfigurationDirty();
+}
+
+function displayFacePoint(face, point) {
+  const result = point.clone();
+  if (isTopFace(face) && isLidLiftActive()) result.y += LID_LIFT_MM;
+  return result;
+}
+function storagePointForHit(face, point) {
+  const result = point.clone();
+  if (isTopFace(face) && isLidLiftActive()) result.y -= LID_LIFT_MM;
+  return result;
+}
+function decorationFaceAvailable(face) {
+  if (isTopFace(face) && state.closures?.top === 'open') return false;
+  if (isBottomFace(face) && state.closures?.bottom === 'open') return false;
+  return true;
+}
+function faceCoordinateRanges(face) {
+  if (face.axis === 'x') return [{ axis: 'z', min: face.u1, max: face.u2 }, { axis: 'y', min: face.v1, max: face.v2 }];
+  if (face.axis === 'y') return [{ axis: 'x', min: face.u1, max: face.u2 }, { axis: 'z', min: face.v1, max: face.v2 }];
+  return [{ axis: 'x', min: face.u1, max: face.u2 }, { axis: 'y', min: face.v1, max: face.v2 }];
+}
+function worldPointOnFace(face, point, tolerance = 0.8) {
+  const planeAxis = face.axis;
+  if (Math.abs(point[planeAxis] - face.coord) > tolerance) return false;
+  return faceCoordinateRanges(face).every((range) => point[range.axis] >= range.min - tolerance && point[range.axis] <= range.max + tolerance);
+}
+function faceBoundaryAlongDirection(face, point, direction) {
+  let best = null;
+  for (const range of faceCoordinateRanges(face)) {
+    const component = direction[range.axis];
+    if (Math.abs(component) < 1e-8) continue;
+    const target = component > 0 ? range.max : range.min;
+    const rawDistance = (target - point[range.axis]) / component;
+    if (rawDistance < -1e-4) continue;
+    const distance = Math.max(0, rawDistance);
+    if (!best || distance < best.distance) best = { distance, axis: range.axis, target };
+  }
+  return best;
+}
+function adjacentSurfaceFace(currentFace, edgePoint, direction) {
+  const candidates = surfaceDescriptors.filter((candidate) => {
+    if (faceKey(candidate) === faceKey(currentFace) || !decorationFaceAvailable(candidate)) return false;
+    if (!worldPointOnFace(candidate, edgePoint, 1.2)) return false;
+    return faceNormal(candidate).dot(direction) > 1e-5;
+  });
+  return candidates.sort((a, b) => faceNormal(b).dot(direction) - faceNormal(a).dot(direction))[0] || null;
+}
+function cloneSurfaceFrame(frame) {
+  return {
+    face: frame.face,
+    point: frame.point.clone(),
+    horizontal: frame.horizontal.clone(),
+    vertical: frame.vertical.clone(),
+    normal: frame.normal.clone(),
+    sideFactor: frame.sideFactor >= 0 ? 1 : -1,
+    blocked: Boolean(frame.blocked),
+  };
+}
+function transitionSurfaceFrame(frame, direction) {
+  const nextFace = adjacentSurfaceFace(frame.face, frame.point, direction);
+  if (!nextFace) {
+    frame.blocked = true;
+    return false;
+  }
+  const nextNormal = faceNormal(nextFace).multiplyScalar(frame.sideFactor).normalize();
+  const rotation = new THREE.Quaternion().setFromUnitVectors(frame.normal.clone().normalize(), nextNormal);
+  frame.horizontal.applyQuaternion(rotation).normalize();
+  frame.vertical.applyQuaternion(rotation).normalize();
+  frame.normal.copy(nextNormal);
+  frame.face = nextFace;
+  return true;
+}
+function walkSurfaceFrame(frame, offset, vectorKey) {
+  const result = cloneSurfaceFrame(frame);
+  const directionSign = offset >= 0 ? 1 : -1;
+  let remaining = Math.abs(offset);
+  if (remaining < EPSILON || result.blocked) return result;
+
+  for (let step = 0; step < 128 && remaining > EPSILON; step += 1) {
+    const direction = result[vectorKey].clone().multiplyScalar(directionSign).normalize();
+    const boundary = faceBoundaryAlongDirection(result.face, result.point, direction);
+    if (!boundary) {
+      result.blocked = true;
+      break;
+    }
+
+    // The frame may already sit exactly on an edge. Move onto the adjacent
+    // surface immediately instead of travelling to the opposite edge of the
+    // current face. This is what prevents artwork strips from collapsing at a
+    // corner or generating thousands of tiny recursive cells.
+    if (boundary.distance <= 1e-5) {
+      if (!transitionSurfaceFrame(result, direction)) break;
+      continue;
+    }
+
+    if (remaining <= boundary.distance + 1e-5) {
+      result.point.add(direction.multiplyScalar(remaining));
+      remaining = 0;
+      break;
+    }
+
+    result.point.add(direction.multiplyScalar(boundary.distance));
+    remaining -= boundary.distance;
+    if (!transitionSurfaceFrame(result, direction)) break;
+  }
+
+  if (remaining > EPSILON) result.blocked = true;
+  return result;
+}
+function traceSurfaceBreakpoints(startFrame, extent, vectorKey, directionSign) {
+  const requested = Math.max(0, Number(extent) || 0);
+  const result = cloneSurfaceFrame(startFrame);
+  const breaks = [0];
+  let travelled = 0;
+  let remaining = requested;
+
+  for (let step = 0; step < 128 && remaining > EPSILON; step += 1) {
+    const direction = result[vectorKey].clone().multiplyScalar(directionSign).normalize();
+    const boundary = faceBoundaryAlongDirection(result.face, result.point, direction);
+    if (!boundary) {
+      result.blocked = true;
+      break;
+    }
+    if (boundary.distance <= 1e-5) {
+      if (!transitionSurfaceFrame(result, direction)) break;
+      continue;
+    }
+    if (remaining <= boundary.distance + 1e-5) {
+      travelled += remaining;
+      remaining = 0;
+      breaks.push(directionSign * travelled);
+      break;
+    }
+    result.point.add(direction.multiplyScalar(boundary.distance));
+    travelled += boundary.distance;
+    remaining -= boundary.distance;
+    breaks.push(directionSign * travelled);
+    if (!transitionSurfaceFrame(result, direction)) break;
+  }
+
+  if (requested <= EPSILON) return { breaks, reachable: 0 };
+  if (remaining > EPSILON) {
+    result.blocked = true;
+    if (travelled > EPSILON && Math.abs(breaks[breaks.length - 1] - directionSign * travelled) > 1e-5) {
+      breaks.push(directionSign * travelled);
+    }
+  }
+  return { breaks, reachable: travelled, blocked: result.blocked };
+}
+function sortedUniqueBreakpoints(values) {
+  return [...values]
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b)
+    .filter((value, index, array) => index === 0 || Math.abs(value - array[index - 1]) > 1e-5);
+}
+function sameMappedSurface(lhs, rhs) {
+  if (!lhs?.face || !rhs?.face || lhs.blocked || rhs.blocked) return false;
+  if (faceKey(lhs.face) !== faceKey(rhs.face)) return false;
+  return lhs.normal.dot(rhs.normal) > 0.9999
+    && lhs.horizontal.dot(rhs.horizontal) > 0.9999
+    && lhs.vertical.dot(rhs.vertical) > 0.9999;
+}
+function pruneRedundantSurfaceBreakpoints(breaks, mapper) {
+  let result = sortedUniqueBreakpoints(breaks);
+  let changed = true;
+  while (changed && result.length > 2) {
+    changed = false;
+    const next = [result[0]];
+    for (let index = 1; index < result.length - 1; index += 1) {
+      const value = result[index];
+      const leftGap = value - result[index - 1];
+      const rightGap = result[index + 1] - value;
+      const probe = Math.max(1e-4, Math.min(leftGap, rightGap) * 0.2);
+      const before = mapper(value - probe);
+      const after = mapper(value + probe);
+      if (sameMappedSurface(before, after)) {
+        changed = true;
+        continue;
+      }
+      next.push(value);
+    }
+    next.push(result[result.length - 1]);
+    result = next;
+  }
+  return result;
+}
+function mapSurfaceArtworkPoint(startFace, startAnchor, sideFactor, horizontalOffset, verticalOffset) {
+  const basis = faceBasis(startFace, sideFactor);
+  let frame = {
+    face: startFace,
+    point: startAnchor.clone(),
+    horizontal: basis.horizontal.clone(),
+    vertical: basis.vertical.clone(),
+    normal: basis.normal.clone(),
+    sideFactor: sideFactor >= 0 ? 1 : -1,
+    blocked: false,
+  };
+  frame = walkSurfaceFrame(frame, horizontalOffset, 'horizontal');
+  if (frame.blocked) return frame;
+  return walkSurfaceFrame(frame, verticalOffset, 'vertical');
+}
+function quaternionForSurfaceFrame(horizontal, vertical, normal) {
+  const h = horizontal.clone().normalize();
+  const v = vertical.clone().normalize();
+  const n = normal.clone().normalize();
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(h, v, n));
+}
+function computeSurfaceWrappedSegments(face, anchorPoint, sideFactor, width, height) {
+  const safeWidth = Math.max(1, Number(width) || 1);
+  const safeHeight = Math.max(1, Number(height) || 1);
+  const anchor = clampPointToFace(face, sideFactor, anchorPoint, 0, 0);
+  const basis = faceBasis(face, sideFactor);
+  const startFrame = {
+    face,
+    point: anchor.clone(),
+    horizontal: basis.horizontal.clone(),
+    vertical: basis.vertical.clone(),
+    normal: basis.normal.clone(),
+    sideFactor: sideFactor >= 0 ? 1 : -1,
+    blocked: false,
+  };
+
+  const leftTrace = traceSurfaceBreakpoints(startFrame, safeWidth / 2, 'horizontal', -1);
+  const rightTrace = traceSurfaceBreakpoints(startFrame, safeWidth / 2, 'horizontal', 1);
+  const horizontalBreaks = pruneRedundantSurfaceBreakpoints([
+    ...leftTrace.breaks,
+    0,
+    ...rightTrace.breaks,
+  ], (offset) => walkSurfaceFrame(startFrame, offset, 'horizontal'));
+  const segments = [];
+
+  for (let hIndex = 0; hIndex < horizontalBreaks.length - 1; hIndex += 1) {
+    const h0 = horizontalBreaks[hIndex];
+    const h1 = horizontalBreaks[hIndex + 1];
+    if (h1 - h0 <= 1e-5) continue;
+    const hMid = (h0 + h1) / 2;
+    const horizontalFrame = walkSurfaceFrame(startFrame, hMid, 'horizontal');
+    if (!horizontalFrame?.face || horizontalFrame.blocked) continue;
+
+    const downTrace = traceSurfaceBreakpoints(horizontalFrame, safeHeight / 2, 'vertical', -1);
+    const upTrace = traceSurfaceBreakpoints(horizontalFrame, safeHeight / 2, 'vertical', 1);
+    const verticalBreaks = pruneRedundantSurfaceBreakpoints([
+      ...downTrace.breaks,
+      0,
+      ...upTrace.breaks,
+    ], (offset) => walkSurfaceFrame(horizontalFrame, offset, 'vertical'));
+
+    for (let vIndex = 0; vIndex < verticalBreaks.length - 1; vIndex += 1) {
+      const v0Offset = verticalBreaks[vIndex];
+      const v1Offset = verticalBreaks[vIndex + 1];
+      if (v1Offset - v0Offset <= 1e-5) continue;
+      const vMid = (v0Offset + v1Offset) / 2;
+      const mapped = mapSurfaceArtworkPoint(face, anchor, sideFactor, hMid, vMid);
+      if (!mapped?.face || mapped.blocked) continue;
+      const normal = mapped.normal.clone().normalize();
+      const u0 = clamp(h0 / safeWidth + 0.5, 0, 1);
+      const u1 = clamp(h1 / safeWidth + 0.5, 0, 1);
+      const v0 = clamp(v0Offset / safeHeight + 0.5, 0, 1);
+      const v1 = clamp(v1Offset / safeHeight + 0.5, 0, 1);
+      const position = mapped.point.clone().add(normal.clone().multiplyScalar(SURFACE_TEXT_OFFSET_MM));
+      segments.push({
+        position: position.toArray(),
+        quaternion: quaternionForSurfaceFrame(mapped.horizontal, mapped.vertical, normal).toArray(),
+        u0, u1, v0, v1,
+        width: h1 - h0,
+        height: v1Offset - v0Offset,
+        face: copyFace(mapped.face),
+        sideFactor: sideFactor >= 0 ? 1 : -1,
+      });
+    }
+  }
+
+  return { anchor, segments };
+}
+
+const decorationLegacyMakeArtworkPlane = makeArtworkPlane;
+makeArtworkPlane = function makeArtworkPlaneWithVerticalCrop(artwork, width, height, opacity = 1, u0 = 0, u1 = 1, v0 = 0, v1 = 1) {
+  const geometry = new THREE.PlaneGeometry(width, height);
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i += 1) {
+    uv.setX(i, uv.getX(i) < 0.5 ? u0 : u1);
+    uv.setY(i, uv.getY(i) < 0.5 ? v0 : v1);
+  }
+  uv.needsUpdate = true;
+  const material = new THREE.MeshBasicMaterial({ map: artwork.texture, transparent: true, side: THREE.DoubleSide, opacity, depthWrite: opacity >= 1, alphaTest: 0.001 });
+  return new THREE.Mesh(geometry, material);
+};
+function renderArtworkSegments(artwork, segments, opacity = 1) {
+  const group = new THREE.Group();
+  for (const segmentData of segments || []) {
+    const segment = makeArtworkPlane(
+      artwork,
+      Number(segmentData.width) || 10,
+      Number(segmentData.height) || 10,
+      opacity,
+      Number.isFinite(Number(segmentData.u0)) ? Number(segmentData.u0) : 0,
+      Number.isFinite(Number(segmentData.u1)) ? Number(segmentData.u1) : 1,
+      Number.isFinite(Number(segmentData.v0)) ? Number(segmentData.v0) : 0,
+      Number.isFinite(Number(segmentData.v1)) ? Number(segmentData.v1) : 1,
+    );
+    const position = new THREE.Vector3().fromArray(segmentData.position || [0,0,0]);
+    const segmentFace = currentFaceForDescriptor(segmentData.face) || segmentData.face;
+    if (segmentFace && isTopFace(segmentFace) && isLidLiftActive()) position.y += LID_LIFT_MM;
+    segment.position.copy(position);
+    segment.quaternion.fromArray(segmentData.quaternion || [0,0,0,1]);
+    group.add(segment);
+  }
+  return group;
+}
+createStoredStickerSegments = function createStoredStickerSegmentsWithTopAndBottomWrapping(spec, segments, opacity = 1) {
+  const artwork = createTextArtwork(spec);
+  return renderArtworkSegments(artwork, segments, opacity);
+};
+function createGeneralTextSticker(spec, face, anchorPoint, sideFactor = 1, opacity = 1) {
+  const artwork = createTextArtwork(spec);
+  const computed = computeSurfaceWrappedSegments(face, anchorPoint, sideFactor, artwork.worldWidth, artwork.worldHeight);
+  return { group: renderArtworkSegments(artwork, computed.segments, opacity), segments: computed.segments, anchor: computed.anchor };
+}
+
+const decorationLegacyBuildPlacementGeometry = buildPlacementGeometry;
+buildPlacementGeometry = function buildPlacementGeometryWithHorizontalSurfaceWrapping(spec, face, anchorPoint, sideFactor = 1) {
+  if (isVerticalFace(face)) return decorationLegacyBuildPlacementGeometry(spec, face, anchorPoint, sideFactor);
+  const sticker = createGeneralTextSticker(spec, face, anchorPoint, sideFactor, 1);
+  clearGroup(sticker.group);
+  return {
+    face: copyFace(face), sideFactor, anchor: sticker.anchor.toArray(),
+    segments: sticker.segments.map((segment) => ({ ...segment, position: [...segment.position], quaternion: [...segment.quaternion], face: copyFace(segment.face) })),
+    position: undefined, quaternion: undefined, topSurface: isTopFace(face),
+  };
+};
+renderPlacedTexts = function renderPlacedTextsWithTopAndBottomWrapping() {
+  clearGroup(textGroup);
+  for (const placement of state.textPlacements) {
+    const placementId = ensurePlacementId(placement);
+    if (placementId === editingTextId) continue;
+    const resolved = resolvePlacementFaceInfo(placement);
+    if (resolved?.face && resolved.anchor) {
+      const sticker = isVerticalFace(resolved.face)
+        ? createWrappedSticker(placement.spec, resolved.face, resolved.anchor.clone(), resolved.sideFactor, 1)
+        : createGeneralTextSticker(placement.spec, resolved.face, resolved.anchor.clone(), resolved.sideFactor, 1);
+      placement.face = copyFace(resolved.face);
+      placement.sideFactor = resolved.sideFactor;
+      placement.anchor = resolved.anchor.toArray();
+      placement.segments = sticker.segments.map((segment) => ({
+        ...segment, position: [...segment.position], quaternion: [...segment.quaternion], face: copyFace(segment.face),
+      }));
+      placement.position = undefined;
+      placement.quaternion = undefined;
+      placement.topSurface = isTopFace(resolved.face);
+      tagTextRenderable(sticker.group, placementId);
+      textGroup.add(sticker.group);
+      continue;
+    }
+    if (Array.isArray(placement.segments) && placement.segments.length) {
+      const group = createStoredStickerSegments(placement.spec, placement.segments, 1);
+      tagTextRenderable(group, placementId);
+      textGroup.add(group);
+    }
+  }
+};
+renderEditorPreview = function renderEditorPreviewWithHorizontalWrapping() {
+  clearGroup(editorPreviewGroup);
+  editorPreviewSpec = null;
+  if (textEditorPanel.hidden) return;
+  const spec = buildTextSpec();
+  editorPreviewSpec = { ...spec };
+  let face = selectedFaceSnapshot;
+  let sideFactor = selectedFaceSideFactor;
+  let anchor = face ? faceCenter(face) : null;
+  if (editingTextId) {
+    const placement = placementById(editingTextId);
+    const info = resolvePlacementFaceInfo(placement);
+    if (!placement || !info) return;
+    face = info.face; sideFactor = info.sideFactor; anchor = info.anchor;
+  }
+  if (!face || !anchor) return;
+  const sticker = isVerticalFace(face)
+    ? createWrappedSticker(spec, face, anchor.clone(), sideFactor, 0.94)
+    : createGeneralTextSticker(spec, face, anchor.clone(), sideFactor, 0.94);
+  editorPreviewGroup.add(sticker.group);
+};
+updateTextPreview = function updateTextPreviewWithAllSurfaceWrapping(event) {
+  if (!placementMode || !pendingTextSpec) return;
+  clearGroup(previewGroup);
+  previewTextMesh = null;
+  previewPlacement = null;
+  const { hit, raycaster } = raycast(event);
+  if (!hit?.object?.userData?.face) return;
+  const face = hit.object.userData.face;
+  if (!decorationFaceAvailable(face)) return;
+  let normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+  if (normal.dot(raycaster.ray.direction) > 0) normal.multiplyScalar(-1);
+  const outward = faceNormal(face);
+  const sideFactor = Number(hit.object.userData.surfaceSideFactor) || (normal.dot(outward) >= 0 ? 1 : -1);
+  const hitStoragePoint = storagePointForHit(face, hit.point);
+  const anchor = clampPointToFace(face, sideFactor, hitStoragePoint);
+  const sticker = isVerticalFace(face)
+    ? createWrappedSticker(pendingTextSpec, face, anchor.clone(), sideFactor, 0.78)
+    : createGeneralTextSticker(pendingTextSpec, face, anchor.clone(), sideFactor, 0.78);
+  previewGroup.add(sticker.group);
+  previewPlacement = {
+    id: makeTextPlacementId(), face: copyFace(face), sideFactor, anchor: anchor.toArray(),
+    segments: sticker.segments.map((segment) => ({ ...segment, face: copyFace(segment.face) })),
+    topSurface: isTopFace(face), spec: { ...pendingTextSpec },
+  };
+};
+
+function makeImagePlacementId() {
+  if (globalThis.crypto?.randomUUID) return `image-${globalThis.crypto.randomUUID()}`;
+  return `image-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+}
+function ensureImagePlacementId(placement) {
+  if (!placement.id) placement.id = makeImagePlacementId();
+  return placement.id;
+}
+function imagePlacementById(id) { return state.imagePlacements.find((placement) => ensureImagePlacementId(placement) === id) || null; }
+function serializeImagePlacement(placement) {
+  return {
+    id: ensureImagePlacementId(placement),
+    face: placement.face ? copyFace(placement.face) : undefined,
+    sideFactor: Number(placement.sideFactor) < 0 ? -1 : 1,
+    anchor: Array.isArray(placement.anchor) ? [...placement.anchor] : undefined,
+    segments: Array.isArray(placement.segments) ? placement.segments.map((segment) => ({
+      position: [...segment.position], quaternion: [...segment.quaternion],
+      u0: segment.u0, u1: segment.u1, v0: segment.v0, v1: segment.v1,
+      width: segment.width, height: segment.height,
+      face: segment.face ? copyFace(segment.face) : undefined,
+      sideFactor: Number(segment.sideFactor) < 0 ? -1 : 1,
+    })) : undefined,
+    spec: { ...placement.spec },
+  };
+}
+function restoreImagePlacement(raw = {}) {
+  return {
+    id: String(raw.id || makeImagePlacementId()),
+    face: raw.face ? copyFace(raw.face) : undefined,
+    sideFactor: Number(raw.sideFactor) < 0 ? -1 : 1,
+    anchor: Array.isArray(raw.anchor) ? raw.anchor.map(Number) : undefined,
+    segments: Array.isArray(raw.segments) ? raw.segments.map((segment) => ({
+      position: Array.isArray(segment.position) ? segment.position.map(Number) : [0,0,0],
+      quaternion: Array.isArray(segment.quaternion) ? segment.quaternion.map(Number) : [0,0,0,1],
+      u0: Number(segment.u0) || 0, u1: Number(segment.u1) || 1,
+      v0: Number.isFinite(Number(segment.v0)) ? Number(segment.v0) : 0,
+      v1: Number.isFinite(Number(segment.v1)) ? Number(segment.v1) : 1,
+      width: Math.max(1, Number(segment.width) || 10), height: Math.max(1, Number(segment.height) || 10),
+      face: segment.face ? copyFace(segment.face) : undefined,
+      sideFactor: Number(segment.sideFactor) < 0 ? -1 : 1,
+    })) : [],
+    spec: {
+      dataUrl: String(raw.spec?.dataUrl || ''),
+      fileName: String(raw.spec?.fileName || 'image'),
+      mimeType: String(raw.spec?.mimeType || 'image/webp'),
+      naturalWidth: Math.max(1, Number(raw.spec?.naturalWidth) || 1),
+      naturalHeight: Math.max(1, Number(raw.spec?.naturalHeight) || 1),
+      width: clamp(raw.spec?.width || 120, 5, 5000),
+      height: clamp(raw.spec?.height || 80, 5, 5000),
+    },
+  };
+}
+function resolveImagePlacementFaceInfo(placement) {
+  if (!placement) return null;
+  ensureImagePlacementId(placement);
+  let face = currentFaceForDescriptor(placement.face);
+  let sideFactor = Number(placement.sideFactor) < 0 ? -1 : 1;
+  let anchor = Array.isArray(placement.anchor) ? new THREE.Vector3().fromArray(placement.anchor) : null;
+  if ((!face || !anchor) && Array.isArray(placement.segments) && placement.segments.length) {
+    const ordered = [...placement.segments].sort((a,b) => {
+      const au = ((Number(a.u0)||0)+(Number(a.u1)||1))/2 - .5;
+      const av = ((Number(a.v0)||0)+(Number(a.v1)||1))/2 - .5;
+      const bu = ((Number(b.u0)||0)+(Number(b.u1)||1))/2 - .5;
+      const bv = ((Number(b.v0)||0)+(Number(b.v1)||1))/2 - .5;
+      return au*au+av*av - (bu*bu+bv*bv);
+    });
+    const segment = ordered[0];
+    const info = segmentFaceInfo(segment);
+    if (info) {
+      face = face || info.face;
+      sideFactor = info.sideFactor;
+      anchor = anchor || new THREE.Vector3().fromArray(segment.position || [0,0,0]);
+    }
+  }
+  if (!face) return null;
+  if (!anchor) anchor = faceCenter(face);
+  const basis = faceBasis(face, sideFactor);
+  anchor.sub(basis.normal.clone().multiplyScalar(anchor.clone().sub(basis.center).dot(basis.normal)));
+  placement.face = copyFace(face); placement.sideFactor = sideFactor; placement.anchor = anchor.toArray();
+  return { face, sideFactor, anchor };
+}
+function resolveImagePrimaryFaceInfo(placement) {
+  if (!placement?.segments?.length) return resolveImagePlacementFaceInfo(placement);
+  const weights = new Map();
+  const centers = new Map();
+  const sideFactors = new Map();
+  for (const segment of placement.segments) {
+    const info = segmentFaceInfo(segment); if (!info) continue;
+    const key = faceKey(info.face); const weight = Math.max(1, Number(segment.width)||1) * Math.max(1, Number(segment.height)||1);
+    weights.set(key,(weights.get(key)||0)+weight);
+    const entry=centers.get(key)||{point:new THREE.Vector3(),weight:0};
+    entry.point.add(new THREE.Vector3().fromArray(segment.position||[0,0,0]).multiplyScalar(weight)); entry.weight+=weight; centers.set(key,entry); sideFactors.set(key,info.sideFactor);
+  }
+  if (!weights.size) return resolveImagePlacementFaceInfo(placement);
+  const key=[...weights.entries()].sort((a,b)=>b[1]-a[1])[0][0];
+  const face=surfaceDescriptors.find((candidate)=>faceKey(candidate)===key); if(!face)return resolveImagePlacementFaceInfo(placement);
+  const sideFactor=sideFactors.get(key)||1; const entry=centers.get(key); const anchor=entry?.weight?entry.point.multiplyScalar(1/entry.weight):faceCenter(face);
+  const basis=faceBasis(face,sideFactor); anchor.sub(basis.normal.clone().multiplyScalar(anchor.clone().sub(basis.center).dot(basis.normal)));
+  return {face,sideFactor,anchor};
+}
+function applyImagePlacementGeometry(placement, face, anchorPoint, sideFactor = 1) {
+  if (!placement || !face || !anchorPoint) return false;
+  const computed = computeSurfaceWrappedSegments(face, anchorPoint, sideFactor, placement.spec.width, placement.spec.height);
+  placement.face = copyFace(face); placement.sideFactor = sideFactor; placement.anchor = computed.anchor.toArray();
+  placement.segments = computed.segments.map((segment) => ({ ...segment, position:[...segment.position], quaternion:[...segment.quaternion], face:copyFace(segment.face) }));
+  return true;
+}
+function loadImageElement(dataUrl) {
+  if (!dataUrl) return Promise.reject(new Error('Missing image data.'));
+  if (imageElementCache.has(dataUrl)) return imageElementCache.get(dataUrl);
+  const promise = new Promise((resolve,reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('The uploaded image could not be decoded.'));
+    image.src = dataUrl;
+  });
+  imageElementCache.set(dataUrl,promise);
+  return promise;
+}
+function createImageArtwork(spec, image) {
+  const texture = new THREE.Texture(image);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  return { texture, worldWidth: spec.width, worldHeight: spec.height };
+}
+function tagImageRenderable(object, placementId) {
+  object.traverse((child) => {
+    if (!child.isMesh) return;
+    child.userData.cardboxImage = true;
+    child.userData.imagePlacementId = placementId;
+  });
+}
+async function renderPlacedImages() {
+  ensureDecorationState();
+  const generation = ++imageRenderGeneration;
+  clearGroup(imageGroup);
+  const placements = [...state.imagePlacements];
+  await Promise.all(placements.map(async (placement) => {
+    try {
+      const image = await loadImageElement(placement.spec.dataUrl);
+      if (generation !== imageRenderGeneration) return;
+      const info = resolveImagePlacementFaceInfo(placement);
+      if (!info) return;
+      applyImagePlacementGeometry(placement, info.face, info.anchor, info.sideFactor);
+      const artwork = createImageArtwork(placement.spec, image);
+      const group = renderArtworkSegments(artwork, placement.segments, 1);
+      tagImageRenderable(group, ensureImagePlacementId(placement));
+      imageGroup.add(group);
+    } catch (error) {
+      console.warn('A saved Cardbox image could not be rendered.', error);
+    }
+  }));
+  if (generation === imageRenderGeneration) renderImageSelection();
+}
+function raycastImage(event) { return raycast(event, imageGroup.children, true); }
+function totalEmbeddedImageChars() {
+  ensureDecorationState();
+  return state.imagePlacements.reduce((total, placement) => total + String(placement?.spec?.dataUrl || '').length, 0);
+}
+function normalizedImageMimeAllowed(file) {
+  const mimeType = String(file?.type || '').toLowerCase();
+  const name = String(file?.name || '').toLowerCase();
+  return mimeType === 'image/jpeg' || mimeType === 'image/png' || /\.(jpe?g|png)$/.test(name);
+}
+function normalizeImageFile(file) {
+  return new Promise((resolve,reject) => {
+    if (!file || !normalizedImageMimeAllowed(file) || file.size > MAX_IMAGE_FILE_BYTES) {
+      reject(new Error(decorationT('image.uploadError')));
+      return;
+    }
+    const remainingBudget = MAX_TOTAL_IMAGE_DATA_URL_CHARS - totalEmbeddedImageChars();
+    const targetChars = Math.min(MAX_IMAGE_DATA_URL_CHARS, remainingBudget);
+    if (targetChars < 24_000) {
+      reject(new Error(decorationT('image.stateLimit')));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(decorationT('image.uploadError')));
+    reader.onload = async () => {
+      try {
+        const originalUrl = String(reader.result || '');
+        const original = await loadImageElement(originalUrl);
+        let scale = Math.min(1, 1400 / Math.max(original.naturalWidth, original.naturalHeight));
+        let width = Math.max(1, Math.round(original.naturalWidth * scale));
+        let height = Math.max(1, Math.round(original.naturalHeight * scale));
+        let dataUrl = originalUrl;
+
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d');
+          context.clearRect(0, 0, width, height);
+          context.drawImage(original, 0, 0, width, height);
+          const quality = Math.max(0.5, 0.9 - attempt * 0.045);
+          const webpCandidate = canvas.toDataURL('image/webp', quality);
+          dataUrl = webpCandidate.startsWith('data:image/webp')
+            ? webpCandidate
+            : canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', quality);
+          if (dataUrl.length <= targetChars) break;
+
+          const ratio = Math.sqrt(targetChars / Math.max(1, dataUrl.length)) * 0.92;
+          const shrink = clamp(ratio, 0.58, 0.84);
+          const nextWidth = Math.max(180, Math.round(width * shrink));
+          const nextHeight = Math.max(180, Math.round(height * shrink));
+          if (nextWidth === width && nextHeight === height) break;
+          width = nextWidth;
+          height = nextHeight;
+        }
+
+        if (dataUrl.length > targetChars || totalEmbeddedImageChars() + dataUrl.length > MAX_TOTAL_IMAGE_DATA_URL_CHARS) {
+          throw new Error(decorationT('image.stateLimit'));
+        }
+        const normalizedImage = await loadImageElement(dataUrl);
+        resolve({
+          dataUrl,
+          image: normalizedImage,
+          fileName: String(file.name || 'image').slice(0,120),
+          mimeType: dataUrl.slice(5,dataUrl.indexOf(';')) || file.type,
+          naturalWidth: normalizedImage.naturalWidth,
+          naturalHeight: normalizedImage.naturalHeight,
+        });
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function initialImageDimensions(face, sideFactor, naturalWidth, naturalHeight) {
+  const basis = faceBasis(face, sideFactor);
+  const faceWidth = basis.hMax - basis.hMin;
+  const faceHeightValue = basis.vMax - basis.vMin;
+  const aspect = Math.max(.01, naturalWidth / Math.max(1,naturalHeight));
+  let width; let height;
+  if (naturalWidth >= naturalHeight) { width = faceWidth * .5; height = width / aspect; }
+  else { height = faceHeightValue * .5; width = height * aspect; }
+  const fitScale = Math.min(1, faceWidth*.92/Math.max(width,1), faceHeightValue*.92/Math.max(height,1));
+  return { width: Math.max(10,width*fitScale), height: Math.max(10,height*fitScale) };
+}
+function showImagePlacementPreview(face, anchor, sideFactor) {
+  clearGroup(imagePreviewGroup);
+  if (!pendingImageSpec || !pendingImageElement) return;
+  const placement = { id:makeImagePlacementId(), face:copyFace(face), sideFactor, anchor:anchor.toArray(), spec:{...pendingImageSpec}, segments:[] };
+  applyImagePlacementGeometry(placement,face,anchor,sideFactor);
+  const artwork=createImageArtwork(placement.spec,pendingImageElement);
+  const group=renderArtworkSegments(artwork,placement.segments,.78);
+  imagePreviewGroup.add(group);
+  previewImagePlacement=placement;
+}
+async function startImageUpload() {
+  if (!selectedFaceSnapshot) return;
+  faceActionPopup.hidden = true;
+  faceColorPanel.hidden = true;
+  faceImageInput.value = '';
+  faceImageInput.click();
+}
+async function handleImageUploadFile(file) {
+  if (!selectedFaceSnapshot || !file) { renderFacePopup(); return; }
+  viewerHint.textContent = decorationT('image.processing');
+  try {
+    const normalized = await normalizeImageFile(file);
+    const dimensions = initialImageDimensions(selectedFaceSnapshot, selectedFaceSideFactor, normalized.naturalWidth, normalized.naturalHeight);
+    pendingImageSpec = {
+      dataUrl: normalized.dataUrl, fileName: normalized.fileName, mimeType: normalized.mimeType,
+      naturalWidth: normalized.naturalWidth, naturalHeight: normalized.naturalHeight,
+      width: dimensions.width, height: dimensions.height,
+    };
+    pendingImageElement = normalized.image;
+    imagePlacementMode = true;
+    cancelImagePlacementButton.hidden = false;
+    const initialFace = copyFace(selectedFaceSnapshot);
+    const initialSideFactor = selectedFaceSideFactor;
+    const initialAnchor = faceCenter(initialFace);
+    selectedFaceKey=''; selectedFaceSnapshot=null;
+    rebuildSurfaceMeshes();
+    showImagePlacementPreview(currentFaceForDescriptor(initialFace)||initialFace, initialAnchor, initialSideFactor);
+    viewerHint.textContent = decorationT('image.placeHint');
+  } catch (error) {
+    console.error('Cardbox image upload failed.', error);
+    viewerHint.textContent = error?.message || decorationT('image.uploadError');
+    renderFacePopup();
+  }
+}
+function updateImagePreview(event) {
+  if (!imagePlacementMode || !pendingImageSpec || !pendingImageElement) return;
+  clearGroup(imagePreviewGroup); previewImagePlacement=null;
+  const {hit,raycaster}=raycast(event);
+  if(!hit?.object?.userData?.face)return;
+  const face=hit.object.userData.face; if(!decorationFaceAvailable(face))return;
+  let normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+  if(normal.dot(raycaster.ray.direction)>0)normal.multiplyScalar(-1);
+  const outward=faceNormal(face);
+  const sideFactor=Number(hit.object.userData.surfaceSideFactor)||(normal.dot(outward)>=0?1:-1);
+  const anchor=clampPointToFace(face,sideFactor,storagePointForHit(face,hit.point));
+  showImagePlacementPreview(face,anchor,sideFactor);
+}
+function exitImagePlacementMode({selectId=''}={}) {
+  imagePlacementMode=false; pendingImageSpec=null; pendingImageElement=null; previewImagePlacement=null;
+  clearGroup(imagePreviewGroup); cancelImagePlacementButton.hidden=true;
+  if(selectId)selectedImageId=selectId;
+  renderAll();
+}
+function commitImagePlacement() {
+  if(!previewImagePlacement)return;
+  recordUndoCheckpoint();
+  const placement=restoreImagePlacement(serializeImagePlacement(previewImagePlacement));
+  ensureImagePlacementId(placement); state.imagePlacements.push(placement);
+  const id=placement.id; exitImagePlacementMode({selectId:id}); markConfigurationDirty();
+}
+function selectImagePlacement(id) {
+  const placement=imagePlacementById(id); if(!placement)return;
+  if(selectedImageId===id){deselectImagePlacement();return;}
+  deselectFace();
+  if(selectedTextId)deselectTextPlacement();
+  selectedImageId=id; lidLiftEnabled=false;
+  canvasHost.classList.add('has-selected-image');
+  rebuildSurfaceMeshes(); renderImageSelection();
+}
+function deselectImagePlacement() {
+  selectedImageId=''; imageDragging=false; imageDragPointerId=null; imageDragMoved=false; controls.enabled=true;
+  lidLiftEnabled=false; canvasHost.classList.remove('is-image-dragging','has-selected-image');
+  imageResizePanel.hidden=true; imageResizeOriginal=null;
+  clearGroup(imageSelectionGroup); imageSelectionHud.hidden=true; imageSelectionHud.style.display='none'; imageHudAnchor=null;
+  rebuildSurfaceMeshes();
+}
+function imagePlacementBoundsOnFace(placement,face,sideFactor) {
+  const basis=faceBasis(face,sideFactor); const points=[];
+  for(const segment of placement.segments||[]){const info=segmentFaceInfo(segment);if(!info||faceKey(info.face)!==faceKey(face))continue;const position=new THREE.Vector3().fromArray(segment.position||[0,0,0]);if(isTopFace(info.face)&&isLidLiftActive())position.y+=LID_LIFT_MM;const quaternion=new THREE.Quaternion().fromArray(segment.quaternion||[0,0,0,1]);points.push(...textPlaneCorners(position,quaternion,Number(segment.width)||10,Number(segment.height)||10));}
+  if(!points.length)return null;
+  const coords=points.map((point)=>{const relative=point.clone().sub(basis.center);return{h:relative.dot(basis.horizontal),v:relative.dot(basis.vertical)};});
+  return{basis,hMin:Math.min(...coords.map(p=>p.h)),hMax:Math.max(...coords.map(p=>p.h)),vMin:Math.min(...coords.map(p=>p.v)),vMax:Math.max(...coords.map(p=>p.v))};
+}
+function renderImageSelection() {
+  clearGroup(imageSelectionGroup); imageHudAnchor=null; imageSelectionHud.hidden=true; imageSelectionHud.style.display='none';
+  canvasHost.classList.toggle('has-selected-image',Boolean(selectedImageId));
+  imageLiftTopButton.classList.toggle('is-active',isLidLiftActive());
+  if(!selectedImageId||imagePlacementMode||placementMode||addMode||!imageResizePanel.hidden||!textEditorPanel.hidden||!faceColorPanel.hidden)return;
+  const placement=imagePlacementById(selectedImageId); const info=resolveImagePrimaryFaceInfo(placement); if(!placement||!info)return;
+  const bounds=imagePlacementBoundsOnFace(placement,info.face,info.sideFactor); if(!bounds)return;
+  const hMin=Math.max(bounds.hMin,bounds.basis.hMin),hMax=Math.min(bounds.hMax,bounds.basis.hMax),vMin=Math.max(bounds.vMin,bounds.basis.vMin),vMax=Math.min(bounds.vMax,bounds.basis.vMax);
+  const points=[faceDisplayPointFromLocal(info.face,info.sideFactor,hMin,vMin,SURFACE_TEXT_OFFSET_MM+3.5),faceDisplayPointFromLocal(info.face,info.sideFactor,hMax,vMin,SURFACE_TEXT_OFFSET_MM+3.5),faceDisplayPointFromLocal(info.face,info.sideFactor,hMax,vMax,SURFACE_TEXT_OFFSET_MM+3.5),faceDisplayPointFromLocal(info.face,info.sideFactor,hMin,vMax,SURFACE_TEXT_OFFSET_MM+3.5)];
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([...points,points[0]]),new THREE.LineBasicMaterial({color:0x0e82d8,transparent:true,opacity:.95,depthTest:false})); line.renderOrder=25; imageSelectionGroup.add(line);
+  imageHudAnchor=faceDisplayPointFromLocal(info.face,info.sideFactor,hMax,vMin,SURFACE_TEXT_OFFSET_MM+4);
+  imageSelectionHud.hidden=false; imageSelectionHud.style.display='';
+}
+function toggleSelectedImageLidLift(){if(!selectedImageId)return;lidLiftEnabled=!lidLiftEnabled;rebuildSurfaceMeshes();renderImageSelection();}
+function deleteSelectedImage(){if(!selectedImageId)return;recordUndoCheckpoint();state.imagePlacements=state.imagePlacements.filter((p)=>ensureImagePlacementId(p)!==selectedImageId);selectedImageId='';lidLiftEnabled=false;renderAll();markConfigurationDirty();}
+function beginSelectedImageDrag(event){
+  if(event.button!==0||!selectedImageId||imagePlacementMode||placementMode||addMode||!imageResizePanel.hidden||!textEditorPanel.hidden||!faceColorPanel.hidden)return false;
+  const hit=raycastImage(event).hit;if(!hit||hit.object.userData.imagePlacementId!==selectedImageId)return false;
+  recordUndoCheckpoint();imageDragging=true;imageDragPointerId=event.pointerId;imageDragMoved=false;controls.enabled=false;canvasHost.classList.add('is-image-dragging');
+  try{renderer.domElement.setPointerCapture(event.pointerId);}catch{} event.preventDefault();return true;
+}
+function moveSelectedImageWithPointer(event){
+  if(!imageDragging||!selectedImageId)return false;const placement=imagePlacementById(selectedImageId);if(!placement)return false;
+  const{hit,raycaster}=raycast(event,surfaceMeshes,false);if(!hit?.object?.userData?.face)return false;const face=hit.object.userData.face;if(!decorationFaceAvailable(face))return false;
+  let normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();if(normal.dot(raycaster.ray.direction)>0)normal.multiplyScalar(-1);
+  const sideFactor=Number(hit.object.userData.surfaceSideFactor)||(normal.dot(faceNormal(face))>=0?1:-1);const anchor=clampPointToFace(face,sideFactor,storagePointForHit(face,hit.point));
+  imageDragMoved=true;suppressCanvasClick=true;applyImagePlacementGeometry(placement,face,anchor,sideFactor);void renderPlacedImages();renderImageSelection();return true;
+}
+function endSelectedImageDrag(event){
+  if(!imageDragging)return false;if(imageDragPointerId!=null&&event.pointerId!==imageDragPointerId)return false;const moved=imageDragMoved;imageDragging=false;imageDragPointerId=null;imageDragMoved=false;controls.enabled=true;canvasHost.classList.remove('is-image-dragging');
+  try{renderer.domElement.releasePointerCapture(event.pointerId);}catch{} renderImageSelection();if(moved)markConfigurationDirty();return true;
+}
+function openImageResizePanel(){
+  const placement=imagePlacementById(selectedImageId);if(!placement)return;recordUndoCheckpoint();
+  imageResizeOriginal={width:placement.spec.width,height:placement.spec.height};imageResizeStartWidth=placement.spec.width;imageResizeStartHeight=placement.spec.height;
+  imageSelectionHud.hidden=true;imageResizePanel.hidden=false;renderImageResizeInputs(placement,100);
+}
+function renderImageResizeInputs(placement,scalePercent=null){
+  imageResizeUpdating=true;imageWidthInput.value=round(fromMm(placement.spec.width),units==='imperial'?2:0);imageHeightInput.value=round(fromMm(placement.spec.height),units==='imperial'?2:0);
+  const percent=scalePercent??Math.round(placement.spec.width/Math.max(1,imageResizeStartWidth)*100);imageScaleInput.value=String(clamp(percent,10,250));imageScaleValue.textContent=`${Math.round(clamp(percent,10,250))}%`;imageResizeUpdating=false;
+}
+function resizeSelectedImageFromWidth(value){
+  if(imageResizeUpdating)return;const placement=imagePlacementById(selectedImageId);if(!placement)return;const aspect=placement.spec.naturalWidth/Math.max(1,placement.spec.naturalHeight);placement.spec.width=clamp(toMm(value),5,5000);placement.spec.height=placement.spec.width/aspect;const info=resolveImagePlacementFaceInfo(placement);if(info)applyImagePlacementGeometry(placement,info.face,info.anchor,info.sideFactor);renderImageResizeInputs(placement);void renderPlacedImages();renderImageSelection();
+}
+function resizeSelectedImageFromHeight(value){
+  if(imageResizeUpdating)return;const placement=imagePlacementById(selectedImageId);if(!placement)return;const aspect=placement.spec.naturalWidth/Math.max(1,placement.spec.naturalHeight);placement.spec.height=clamp(toMm(value),5,5000);placement.spec.width=placement.spec.height*aspect;const info=resolveImagePlacementFaceInfo(placement);if(info)applyImagePlacementGeometry(placement,info.face,info.anchor,info.sideFactor);renderImageResizeInputs(placement);void renderPlacedImages();renderImageSelection();
+}
+function resizeSelectedImageFromScale(value){
+  if(imageResizeUpdating)return;const placement=imagePlacementById(selectedImageId);if(!placement)return;const scale=clamp(value,10,250)/100;placement.spec.width=imageResizeStartWidth*scale;placement.spec.height=imageResizeStartHeight*scale;const info=resolveImagePlacementFaceInfo(placement);if(info)applyImagePlacementGeometry(placement,info.face,info.anchor,info.sideFactor);renderImageResizeInputs(placement,scale*100);void renderPlacedImages();renderImageSelection();
+}
+function finishImageResize(){if(!selectedImageId)return;imageResizePanel.hidden=true;imageResizeOriginal=null;renderImageSelection();markConfigurationDirty();}
+function cancelImageResize(){const placement=imagePlacementById(selectedImageId);if(placement&&imageResizeOriginal){placement.spec.width=imageResizeOriginal.width;placement.spec.height=imageResizeOriginal.height;const info=resolveImagePlacementFaceInfo(placement);if(info)applyImagePlacementGeometry(placement,info.face,info.anchor,info.sideFactor);}imageResizePanel.hidden=true;imageResizeOriginal=null;void renderPlacedImages();renderImageSelection();}
+
+function makeColoredSurfaceMesh(face, sideFactor) {
+  const width=face.u2-face.u1,height=face.v2-face.v1;
+  const geometry=new THREE.PlaneGeometry(width,height);
+  const material=new THREE.MeshStandardMaterial({color:resolvedSurfaceColor(face,sideFactor),roughness:.84,metalness:0,side:sideFactor>=0?THREE.FrontSide:THREE.BackSide});
+  const mesh=new THREE.Mesh(geometry,material);const normal=faceNormal(face);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);
+  const center=faceCenter(face);if(isLidLiftActive()&&isTopFace(face))center.y+=LID_LIFT_MM;mesh.position.copy(center);mesh.castShadow=true;mesh.receiveShadow=true;
+  mesh.userData.cardboxSurface=true;mesh.userData.face=face;mesh.userData.faceKey=faceKey(face);mesh.userData.vertical=isVerticalFace(face);mesh.userData.top=isTopFace(face);mesh.userData.bottom=isBottomFace(face);mesh.userData.surfaceSideFactor=sideFactor;
+  if(selectedFaceSnapshot&&faceKey(face)===selectedFaceKey&&selectedFaceSideFactor===sideFactor&&selectedFaceHighlightVisible(face))addSelectionMarkers(mesh,face);
+  return mesh;
+}
+function applyFeaturesAndSurfaceColours() {
+  ensurePackagingState();ensureDecorationState();clearGroup(packagingFeatureGroup);
+  for(const mesh of surfaceMeshes){
+    const face=mesh.userData?.face;if(!face||!mesh.geometry)continue;const sideFactor=Number(mesh.userData.surfaceSideFactor)||1;if(mesh.material?.color)mesh.material.color.set(resolvedSurfaceColor(face,sideFactor));
+    const width=face.u2-face.u1,height=face.v2-face.v1;const features=packagingFeatureHoles(face,width,height);if(!features.length)continue;
+    const shape=new THREE.Shape();shape.moveTo(-width/2,-height/2);shape.lineTo(width/2,-height/2);shape.lineTo(width/2,height/2);shape.lineTo(-width/2,height/2);shape.closePath();features.forEach((item)=>shape.holes.push(item.path));mesh.geometry.dispose?.();mesh.geometry=new THREE.ShapeGeometry(shape);
+    if(sideFactor<0)continue;
+    for(const item of features.filter((entry)=>entry.reinforced)){const curve=new THREE.EllipseCurve(item.cx,item.cy,item.width/2+5,item.height/2+5,0,Math.PI*2,false,0);const points=curve.getPoints(40).map((p)=>new THREE.Vector3(p.x,p.y,1));const line=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:0x7a542f,transparent:true,opacity:.75}));mesh.add(line);}
+  }
+}
+rebuildSurfaceMeshes = function rebuildSurfaceMeshesWithInsideOutsideColoursAndImages() {
+  ensureDecorationState();clearGroup(boxGroup);surfaceMeshes=[];const metrics=calculateUnionMetrics(currentBoxes());surfaceDescriptors=metrics.faces;dimensionAnchors=[];
+  for(const face of surfaceDescriptors){
+    const outer=makeColoredSurfaceMesh(face,1);const inner=makeColoredSurfaceMesh(face,-1);boxGroup.add(outer);boxGroup.add(inner);surfaceMeshes.push(outer,inner);
+    const highlighted=selectedFaceHighlightVisible(face);
+    if(technicalEdgesVisible||highlighted){const edgeMaterial=new THREE.LineBasicMaterial({color:highlighted?0x0e82d8:0x755335,transparent:true,opacity:highlighted?.95:.38,depthTest:!highlighted});const edges=new THREE.LineSegments(new THREE.EdgesGeometry(outer.geometry),edgeMaterial);edges.renderOrder=highlighted?4:0;outer.add(edges);}
+    if(isVerticalFace(face)){const anchor=faceCenter(face);anchor.y=face.v2+24;dimensionAnchors.push({point:anchor,label:displayLength(faceHorizontalWidth(face))});}
+  }
+  applyFeaturesAndSurfaceColours();packagingRenderClosureVisuals();
+  const topVisible=state.closures?.top!=='open',bottomVisible=state.closures?.bottom!=='open';
+  surfaceMeshes.forEach((mesh)=>{if(mesh.userData.top)mesh.visible=topVisible;if(mesh.userData.bottom)mesh.visible=bottomVisible;});
+  renderPlacedTexts();void renderPlacedImages();renderDimensions();fitControlsTarget();
+};
+
+const decorationLegacySelectedFaceHighlightVisible = selectedFaceHighlightVisible;
+selectedFaceHighlightVisible = function selectedFaceHighlightVisibleWithPanels(face) {
+  return Boolean(selectedFaceSnapshot)&&faceKey(face)===selectedFaceKey&&textEditorPanel.hidden&&faceColorPanel.hidden&&imageResizePanel.hidden&&!addMode&&!placementMode&&!imagePlacementMode;
+};
+renderFacePopup = function renderFacePopupWithDecorationActions() {
+  if(!selectedFaceSnapshot||addMode||placementMode||imagePlacementMode||!textEditorPanel.hidden||!faceColorPanel.hidden||!imageResizePanel.hidden||selectedTextId||selectedImageId){faceActionPopup.hidden=true;return;}
+  faceActionPopup.hidden=false;updateFacePopupPosition();
+};
+const decorationLegacySelectFace = selectFace;
+selectFace = function selectAnyDecoratableFace(face,sideFactor=1){
+  if(selectedTextId)deselectTextPlacement();if(selectedImageId)deselectImagePlacement();
+  const key=faceKey(face);if(selectedFaceKey===key&&selectedFaceSideFactor===(sideFactor>=0?1:-1)){deselectFace();return;}
+  selectedFaceKey=key;selectedFaceSnapshot={...face};selectedFaceSideFactor=sideFactor>=0?1:-1;textEditorPanel.hidden=true;faceColorPanel.hidden=true;imageResizePanel.hidden=true;clearEditorPreview();renderAll();
+};
+deselectFace = function deselectFaceAndDecorationPanels(){selectedFaceKey='';selectedFaceSnapshot=null;selectedFaceSideFactor=1;faceActionPopup.hidden=true;textEditorPanel.hidden=true;faceColorPanel.hidden=true;imageResizePanel.hidden=true;clearEditorPreview();if(!addMode&&!placementMode&&!imagePlacementMode)rebuildSurfaceMeshes();};
+
+const decorationLegacyRenderTranslations = renderTranslations;
+renderTranslations = function renderTranslationsWithDecorations(){decorationLegacyRenderTranslations();applyDecorationCopy();if(imagePlacementMode)viewerHint.textContent=decorationT('image.placeHint');};
+const decorationLegacyRenderAll = renderAll;
+renderAll = function renderAllWithImagesAndColours(){ensureDecorationState();decorationLegacyRenderAll();renderFaceColorPanel();renderImageSelection();};
+const decorationLegacyUpdateOverlayPositions = updateOverlayPositions;
+updateOverlayPositions = function updateOverlayPositionsWithImageHud(){decorationLegacyUpdateOverlayPositions();if(!imageSelectionHud.hidden&&imageHudAnchor){const rect=canvasHost.getBoundingClientRect();const projected=imageHudAnchor.clone().project(camera);const visible=projected.z>-1&&projected.z<1;imageSelectionHud.style.display=visible?'':'none';if(visible){const rawLeft=(projected.x*.5+.5)*rect.width,rawTop=(-projected.y*.5+.5)*rect.height;const hudWidth=imageSelectionHud.offsetWidth||218,hudHeight=imageSelectionHud.offsetHeight||128;imageSelectionHud.style.left=`${clamp(rawLeft,4,Math.max(4,rect.width-hudWidth-18))}px`;imageSelectionHud.style.top=`${clamp(rawTop,4,Math.max(4,rect.height-hudHeight-18))}px`;}}else imageSelectionHud.style.display='none';};
+
+const decorationLegacyBindControls = bindControls;
+bindControls = function bindControlsWithSurfaceColoursAndImages(){
+  decorationLegacyBindControls();
+  faceColorButton.addEventListener('click',openFaceColorPanel);faceImageButton.addEventListener('click',startImageUpload);backFromColorButton.addEventListener('click',closeFaceColorPanel);
+  faceColorPalette.addEventListener('click',(event)=>{const button=event.target.closest('[data-face-color]');if(button)applySelectedFaceColor(button.dataset.faceColor);});
+  applyOuterColorButton.addEventListener('click',()=>applySelectedColorToScope('outer'));applyInnerColorButton.addEventListener('click',()=>applySelectedColorToScope('inner'));applyBothColorButton.addEventListener('click',()=>applySelectedColorToScope('both'));
+  faceImageInput.addEventListener('change',()=>{const[file]=faceImageInput.files||[];void handleImageUploadFile(file);});faceImageInput.addEventListener('cancel',()=>renderFacePopup());cancelImagePlacementButton.addEventListener('click',()=>exitImagePlacementMode());
+  imageResizeButton.addEventListener('click',openImageResizePanel);imageLiftTopButton.addEventListener('click',toggleSelectedImageLidLift);imageDeleteButton.addEventListener('click',deleteSelectedImage);imageDismissButton.addEventListener('click',deselectImagePlacement);
+  imageWidthInput.addEventListener('change',()=>resizeSelectedImageFromWidth(imageWidthInput.value));imageHeightInput.addEventListener('change',()=>resizeSelectedImageFromHeight(imageHeightInput.value));imageScaleInput.addEventListener('input',()=>resizeSelectedImageFromScale(imageScaleInput.value));confirmImageResizeButton.addEventListener('click',finishImageResize);cancelImageResizeButton.addEventListener('click',cancelImageResize);
+};
+
+const decorationLegacySerializeTextPlacement = serializeTextPlacement;
+serializeTextPlacement = function serializeTextPlacementWithVerticalUvs(placement){const result=decorationLegacySerializeTextPlacement(placement);if(result.segments)result.segments=result.segments.map((segment,index)=>({...segment,v0:Number.isFinite(Number(placement.segments?.[index]?.v0))?Number(placement.segments[index].v0):0,v1:Number.isFinite(Number(placement.segments?.[index]?.v1))?Number(placement.segments[index].v1):1}));return result;};
+const decorationLegacyRestoreTextPlacement = restoreTextPlacement;
+restoreTextPlacement = function restoreTextPlacementWithVerticalUvs(raw){const placement=decorationLegacyRestoreTextPlacement(raw);if(placement.segments)placement.segments=placement.segments.map((segment,index)=>({...segment,v0:Number.isFinite(Number(raw.segments?.[index]?.v0))?Number(raw.segments[index].v0):0,v1:Number.isFinite(Number(raw.segments?.[index]?.v1))?Number(raw.segments[index].v1):1}));return placement;};
+
+const decorationLegacyPackagingSummary = packagingRenderSummaryExtension;
+packagingRenderSummaryExtension = function packagingRenderSummaryWithImages(){
+  const base=decorationLegacyPackagingSummary();ensureDecorationState();const imageCost=state.imagePlacements.length*.5;const total=base.totalEur+imageCost;
+  const count=document.querySelector('#summaryImageCount');if(count)count.textContent=String(state.imagePlacements.length);
+  const breakdown=document.querySelector('#priceBreakdown');if(breakdown&&imageCost>0)breakdown.insertAdjacentHTML('beforeend',`<div class="price-row"><span>${packagingEscape(decorationT('summary.imageCost'))}</span><strong>${formatMoney(imageCost)}</strong></div>`);
+  summaryTotal.textContent=formatMoney(total);return{totalEur:total};
+};
+const decorationLegacyCaptureState = captureState;
+captureState = function captureDecorationState(){ensureDecorationState();return{...decorationLegacyCaptureState(),version:9,decorationSchemaVersion:1,faceColors:{outer:{...state.faceColors.outer},inner:{...state.faceColors.inner}},imagePlacements:state.imagePlacements.map(serializeImagePlacement)};};
+const decorationLegacyRestoreState = restoreState;
+restoreState = function restoreDecorationState(snapshot){const source=snapshot?.state&&!snapshot.boxes?snapshot.state:snapshot;const restored=decorationLegacyRestoreState(snapshot);if(!restored)return false;state.faceColors=source?.faceColors&&typeof source.faceColors==='object'?{outer:{...(source.faceColors.outer||{})},inner:{...(source.faceColors.inner||{})}}:{outer:{},inner:{}};state.imagePlacements=Array.isArray(source?.imagePlacements)?source.imagePlacements.map(restoreImagePlacement):[];selectedImageId='';imagePlacementMode=false;imageResizePanel.hidden=true;faceColorPanel.hidden=true;cancelImagePlacementButton.hidden=true;ensureDecorationState();renderAll();return true;};
+const decorationLegacyResetConfiguration = resetConfiguration;
+resetConfiguration = function resetDecorationState(){decorationLegacyResetConfiguration();state.faceColors={outer:{},inner:{}};state.imagePlacements=[];selectedImageId='';imagePlacementMode=false;imageResizePanel.hidden=true;faceColorPanel.hidden=true;cancelImagePlacementButton.hidden=true;renderAll();return true;};
+getPrice = function getDecorationPrice(){const total=packagingRenderSummaryExtension().totalEur;return{amount:total*(CURRENCY_FROM_EUR[currency]||1),currency};};
+ensureDecorationState();
+
 
 window.CARDBOX_CONFIGURATOR_API = { captureState, restoreState, resetConfiguration, setUnits, setCurrency, setLocale, setDarkMode, toggleDimensions, toggleTechnicalEdges, cycleCamera, getPrice, syncToolButtons() {}, closeToolPanels() {} };
 
