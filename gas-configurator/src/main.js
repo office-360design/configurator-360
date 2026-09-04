@@ -7,7 +7,7 @@ import { RouteObstacleController } from './obstacles/routeObstacles.js';
 import { applyGasTranslations } from './i18n.js';
 import { GasConfiguratorStore } from './state.js';
 import { renderGasLayout } from './ui/layout.js';
-import { renderGasState } from './ui/renderers.js';
+import { profilePointerToDesign, renderGasState } from './ui/renderers.js';
 import { mountGasSharedShell } from './ui/sharedShell.js';
 
 const root = document.querySelector('#app');
@@ -125,6 +125,39 @@ root.querySelector('#sdrSelect')?.addEventListener('change', (event) => store.se
 root.querySelector('#pressureInput')?.addEventListener('change', (event) => store.setPipeSelection({ designPressureBar: Number(event.target.value) }));
 root.querySelector('#coverInput')?.addEventListener('change', (event) => store.setTrenchCover(Number(event.target.value)));
 
+root.querySelector('#toggleDepthProfileEditButton')?.addEventListener('click', () => {
+  store.setProfileEditMode(!store.get().route.profileEditMode);
+});
+root.querySelector('#addDepthPointButton')?.addEventListener('click', () => {
+  const state = store.get();
+  store.addDepthPoint(state.route.stationM);
+});
+[
+  '#removeDepthPointButton',
+  '#removeDepthPointProfileButton',
+].forEach((selector) => {
+  root.querySelector(selector)?.addEventListener('click', () => store.removeSelectedDepthPoint());
+});
+[
+  '#resetDepthProfileButton',
+  '#resetDepthProfileProfileButton',
+].forEach((selector) => {
+  root.querySelector(selector)?.addEventListener('click', () => store.resetDepthProfile());
+});
+root.querySelector('#depthPointList')?.addEventListener('click', (event) => {
+  const button = event.target.closest?.('[data-depth-point-id]');
+  if (button) store.selectDepthPoint(button.dataset.depthPointId);
+});
+root.querySelector('#depthPointStationInput')?.addEventListener('change', (event) => {
+  store.updateSelectedDepthPoint('stationM', Number(event.target.value));
+});
+root.querySelector('#depthPointCoverInput')?.addEventListener('change', (event) => {
+  store.updateSelectedDepthPoint('coverM', Number(event.target.value));
+});
+root.querySelector('#depthPointSourceSelect')?.addEventListener('change', (event) => {
+  if (event.target.value !== 'default') store.updateSelectedDepthPoint('source', event.target.value);
+});
+
 root.querySelector('#addRouteEventButton')?.addEventListener('click', () => store.addRouteEvent());
 root.querySelector('#removeRouteEventButton')?.addEventListener('click', () => store.removeSelectedRouteEvent());
 root.querySelector('#routeEventList')?.addEventListener('click', (event) => {
@@ -144,6 +177,12 @@ root.querySelector('#routeEventClearanceInput')?.addEventListener('change', (eve
 root.querySelector('#routeEventSleeveInput')?.addEventListener('change', (event) => store.updateSelectedRouteEvent('crossing.protectiveSleeve', event.target.checked));
 root.querySelector('#routeEventOwnerApprovalInput')?.addEventListener('change', (event) => store.updateSelectedRouteEvent('crossing.ownerApprovalDocumented', event.target.checked));
 root.querySelector('#routeEventConfirmedInput')?.addEventListener('change', (event) => store.updateSelectedRouteEvent('confirmed', event.target.checked));
+root.querySelector('#applyRouteEventDepthZoneButton')?.addEventListener('click', () => {
+  const state = store.get();
+  if (!state.route.selectedEventId) return;
+  const coverM = Number(root.querySelector('#routeEventDepthCoverInput')?.value);
+  store.createDepthZoneForRouteEvent(state.route.selectedEventId, coverM);
+});
 
 numericBindings.forEach(([selector, path]) => {
   root.querySelector(selector)?.addEventListener('change', (event) => store.update(path, Number(event.target.value)));
@@ -179,20 +218,77 @@ root.querySelector('#obstacleEventList')?.addEventListener('click', (event) => {
   store.setEditMode('inspect');
 });
 
-root.querySelector('#profileSvg')?.addEventListener('pointerdown', (event) => {
+const profileSvg = root.querySelector('#profileSvg');
+let profileDrag = null;
+
+profileSvg?.addEventListener('pointerdown', (event) => {
+  if (event.button !== undefined && event.button !== 0) return;
   const svg = event.currentTarget;
-  const matrix = svg.getScreenCTM();
-  if (!matrix) return;
-  const point = svg.createSVGPoint();
-  point.x = event.clientX;
-  point.y = event.clientY;
-  const local = point.matrixTransform(matrix.inverse());
-  const progress = Math.max(0, Math.min(1, (local.x - 48) / (720 - 48 - 16)));
   const current = store.get();
-  const stationInput = root.querySelector('#stationInput');
-  const total = Number(stationInput?.max) || 0;
-  store.setStation(total * progress);
-  if (current.route.editMode !== 'inspect') store.setEditMode('inspect');
+  const pointControl = event.target.closest?.('[data-depth-point-id]');
+  const design = profilePointerToDesign(svg, event.clientX, event.clientY);
+  if (!design) return;
+
+  if (!current.route.profileEditMode) {
+    if (pointControl) store.selectDepthPoint(pointControl.dataset.depthPointId);
+    else store.setStation(design.stationM);
+    if (current.route.editMode !== 'inspect') store.setEditMode('inspect');
+    return;
+  }
+
+  event.preventDefault();
+  let pointId = pointControl?.dataset.depthPointId || null;
+  let historySnapshot = null;
+  if (pointId) {
+    historySnapshot = store.captureState();
+    store.selectDepthPoint(pointId);
+  } else {
+    pointId = store.addDepthPoint(design.stationM, design.coverM);
+  }
+  if (!pointId) return;
+  profileDrag = {
+    pointerId: event.pointerId,
+    pointId,
+    historySnapshot,
+    changed: false,
+  };
+  svg.setPointerCapture?.(event.pointerId);
+  profileDrag.changed = store.moveDepthPoint(
+    pointId,
+    design.stationM,
+    design.coverM,
+    { persist: false },
+  );
+});
+
+profileSvg?.addEventListener('pointermove', (event) => {
+  if (!profileDrag || profileDrag.pointerId !== event.pointerId) return;
+  const design = profilePointerToDesign(event.currentTarget, event.clientX, event.clientY);
+  if (!design) return;
+  event.preventDefault();
+  if (store.moveDepthPoint(profileDrag.pointId, design.stationM, design.coverM, { persist: false })) {
+    profileDrag.changed = true;
+  }
+});
+
+function finishProfileDrag(event) {
+  if (!profileDrag || profileDrag.pointerId !== event.pointerId) return;
+  const svg = event.currentTarget;
+  svg.releasePointerCapture?.(event.pointerId);
+  if (profileDrag.historySnapshot && profileDrag.changed) {
+    store.recordTransientHistory(profileDrag.historySnapshot);
+  }
+  store.persist();
+  profileDrag = null;
+}
+
+profileSvg?.addEventListener('pointerup', finishProfileDrag);
+profileSvg?.addEventListener('pointercancel', finishProfileDrag);
+profileSvg?.addEventListener('keydown', (event) => {
+  const pointControl = event.target.closest?.('[data-depth-point-id]');
+  if (!pointControl || !['Enter', ' '].includes(event.key)) return;
+  event.preventDefault();
+  store.selectDepthPoint(pointControl.dataset.depthPointId);
 });
 
 const unsubscribe = store.subscribe((state) => {

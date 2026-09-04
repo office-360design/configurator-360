@@ -103,6 +103,32 @@ to hide a regulatory mismatch. The 0.10 m sand surround above the pipe remains a
 prototype quantity assumption associated with Article 197; it is not yet an editable or
 separately evaluated rule.
 
+## Editable longitudinal depth profile
+
+State schema v4 exposes piecewise-linear cover controls along the main route. The default A/B
+controls inherit the global cover; manual and surveyed-labelled controls can override it between
+stations. The profile derives pipe crown, centreline and invert elevations from the active terrain
+source and selected pipe outside diameter.
+
+The quantity engine integrates excavation over the resulting cover intervals and recalculates
+backfill and preliminary work cost. It also reports terrain-surface length and designed
+pipe-centreline length. When the source is public or fallback terrain, these remain screening
+outputs rather than surveyed levels or approved procurement quantities. Marking a control as
+`surveyed` is provenance metadata only; the prototype does not authenticate a survey file or the
+person entering the value.
+
+Minimum-cover screening now evaluates the minimum of the entire designed profile, not only the
+global default field. Reduced-cover declarations still follow the same Article 75 exception
+behaviour: they can prevent an immediate block only when both required declarations are present,
+and the result remains a warning requiring authorized review.
+
+A configured route event with a non-zero obstacle/corridor width can create entry, centre and
+exit depth controls. Their station positions follow the event chainage and width, but the
+prototype deliberately does not invent a required crossing depth. Missing or stale crossing
+zones, duplicate controls and abrupt profile gradients are design warnings, not encoded legal or
+engineering pass/fail rules. The current abrupt-gradient threshold is a prototype usability
+warning and must not be treated as a gas-network slope requirement.
+
 ## Public road, railway and watercourse screening
 
 The application can query OpenStreetMap geometry through Overpass and identify exact
@@ -146,13 +172,13 @@ Every additional numeric rule should follow the same registry contract:
 
 Have a Romanian ANRE-authorized gas designer and verifier review the current rule pack,
 product catalogue assumptions, PE diameter interpretation, wording and exception behavior.
-In the application, the most useful continuation is:
+With editable pipe-depth controls now implemented, the most useful continuation is:
 
-1. editable pipe-depth control points and profile elevations;
-2. configurable crossing widths, sleeves and quantities;
+1. structured BOM rows for pipe, warning tape, sand, backfill, sleeves and crossing works;
+2. full protective-sleeve configuration and quantities;
 3. utility-owner GeoJSON/KML/KMZ import with provenance;
 4. Article 30/Table 1 proximity/clearance rules after review;
-5. structured BOM rows and report output;
+5. CSV and printable/PDF report output from a versioned project snapshot;
 6. branch-route topology, followed by approved hydraulic inputs and calculations.
 
 Separately, replace the prototype KMZ schema with stable customer asset identifiers and

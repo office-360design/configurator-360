@@ -9,12 +9,13 @@ import {
   SURFACE_TYPES,
   validationSummary,
 } from '../domain/calculations.js';
-import { interpolateRoute, routeProfileSamples } from '../domain/geometry.js';
+import { interpolateRoute } from '../domain/geometry.js';
+import { routeElevationKey } from '../elevation/routeElevation.js';
 import {
-  interpolateElevationAtChainage,
-  routeElevationKey,
-  terrainAdjustedRouteLengthMeters,
-} from '../elevation/routeElevation.js';
+  clampPipeCover,
+  interpolatePipeProfileAtChainage,
+  routeEventDepthZoneStatus,
+} from '../domain/depthProfile.js';
 import { gasT } from '../i18n.js';
 import {
   getRouteEvents,
@@ -92,70 +93,6 @@ function appendSvg(parent, name, attributes = {}, text = '') {
   return element;
 }
 
-function fallbackProfileElevation(state, progress) {
-  const start = Number(state.data.startElevationM) || 0;
-  const end = Number(state.data.endElevationM) || 0;
-  const base = start + ((end - start) * progress);
-  const terrainVariation = Math.sin(progress * Math.PI * 2) * 0.55
-    + Math.sin(progress * Math.PI * 5) * 0.16;
-  return base + terrainVariation;
-}
-
-function resolvedProfileSamples(state, elevationProfile) {
-  const hasLiveProfile = (
-    elevationProfile?.status === 'ready'
-    && elevationProfile.routeKey === routeElevationKey(state.route.points)
-    && elevationProfile.samples?.length >= 2
-  );
-  if (hasLiveProfile) {
-    return {
-      live: true,
-      samples: elevationProfile.samples.map((sample) => ({
-        ...sample,
-        groundM: Number(sample.elevationM),
-      })),
-    };
-  }
-  return {
-    live: false,
-    samples: routeProfileSamples(state.route.points, 82).map((sample) => ({
-      ...sample,
-      groundM: fallbackProfileElevation(state, sample.progress),
-    })),
-  };
-}
-
-function resolvedDepthPoints(state, routeLengthM, fallbackCoverM) {
-  const source = Array.isArray(state.depthPoints) ? state.depthPoints : [];
-  const points = source
-    .map((point) => ({
-      stationM: Math.max(0, Math.min(routeLengthM, Number(point?.stationM) || 0)),
-      coverM: Math.max(0.3, Number(point?.coverM) || fallbackCoverM),
-    }))
-    .sort((left, right) => left.stationM - right.stationM);
-  if (points.length === 0) {
-    return [
-      { stationM: 0, coverM: fallbackCoverM },
-      { stationM: routeLengthM, coverM: fallbackCoverM },
-    ];
-  }
-  return points;
-}
-
-function coverAtChainage(state, chainageM, routeLengthM, fallbackCoverM) {
-  const points = resolvedDepthPoints(state, routeLengthM, fallbackCoverM);
-  const requested = Math.max(0, Math.min(routeLengthM, Number(chainageM) || 0));
-  if (requested <= points[0].stationM) return points[0].coverM;
-  for (let index = 1; index < points.length; index += 1) {
-    const right = points[index];
-    if (requested > right.stationM) continue;
-    const left = points[index - 1];
-    const span = right.stationM - left.stationM;
-    const ratio = span > 0 ? (requested - left.stationM) / span : 0;
-    return left.coverM + ((right.coverM - left.coverM) * ratio);
-  }
-  return points.at(-1).coverM;
-}
 
 function configuredRouteEvents(state) {
   const events = getRouteEvents(state);
@@ -266,26 +203,28 @@ export function renderProfile(svg, state, calculation, elevationProfile = null, 
   if (!svg) return;
   svg.replaceChildren();
 
+  const matchingLiveProfile = (
+    elevationProfile?.status === 'ready'
+    && elevationProfile.routeKey === routeElevationKey(state.route.points)
+    && elevationProfile.samples?.length >= 2
+  );
+  const profileCalculation = matchingLiveProfile && !calculation.profileUsesLiveTerrain
+    ? calculateProject(state, { terrainSamples: elevationProfile.samples })
+    : calculation;
+  const samples = profileCalculation.profileSamples || [];
+  if (samples.length < 2) return;
+
   const width = 720;
   const height = 220;
   const margin = { left: 48, right: 16, top: 20, bottom: 31 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
-  const resolved = resolvedProfileSamples(state, elevationProfile);
-  const samples = resolved.samples.map((sample) => {
-    const coverM = coverAtChainage(
-      state,
-      sample.chainageM,
-      calculation.routeLengthM,
-      calculation.coverM,
-    );
-    return {
-      ...sample,
-      coverM,
-      pipeM: sample.groundM - coverM - (calculation.outsideDiameterM / 2),
-    };
-  });
-  const elevations = samples.flatMap((sample) => [sample.groundM, sample.pipeM]);
+  const elevations = samples.flatMap((sample) => [
+    sample.groundM,
+    sample.pipeCrownM,
+    sample.pipeCenterlineM,
+    sample.pipeInvertM,
+  ]);
   const minElevation = Math.min(...elevations);
   const maxElevation = Math.max(...elevations);
   const verticalPadding = Math.max(0.4, (maxElevation - minElevation) * 0.16);
@@ -293,6 +232,21 @@ export function renderProfile(svg, state, calculation, elevationProfile = null, 
   const yMax = maxElevation + verticalPadding;
   const xFor = (progress) => margin.left + (progress * plotWidth);
   const yFor = (elevation) => margin.top + ((yMax - elevation) / (yMax - yMin || 1)) * plotHeight;
+  const terrainIsLive = profileCalculation.profileUsesLiveTerrain;
+
+  svg.setAttribute('data-profile-edit-mode', String(Boolean(state.route.profileEditMode)));
+  svg.__gasProfileModel = {
+    width,
+    height,
+    margin,
+    plotWidth,
+    plotHeight,
+    yMin,
+    yMax,
+    routeLengthM: profileCalculation.routeLengthM,
+    outsideDiameterM: profileCalculation.outsideDiameterM,
+    samples,
+  };
 
   const background = appendSvg(svg, 'g', { class: 'gas-profile-grid' });
   for (let index = 0; index <= 4; index += 1) {
@@ -305,20 +259,26 @@ export function renderProfile(svg, state, calculation, elevationProfile = null, 
   }
 
   const groundPoints = samples.map((sample) => `${xFor(sample.progress).toFixed(1)},${yFor(sample.groundM).toFixed(1)}`).join(' ');
-  const pipePoints = samples.map((sample) => `${xFor(sample.progress).toFixed(1)},${yFor(sample.pipeM).toFixed(1)}`).join(' ');
+  const crownPoints = samples.map((sample) => `${xFor(sample.progress).toFixed(1)},${yFor(sample.pipeCrownM).toFixed(1)}`);
+  const invertPoints = samples.map((sample) => `${xFor(sample.progress).toFixed(1)},${yFor(sample.pipeInvertM).toFixed(1)}`);
+  const pipePoints = samples.map((sample) => `${xFor(sample.progress).toFixed(1)},${yFor(sample.pipeCenterlineM).toFixed(1)}`).join(' ');
   const groundArea = `${margin.left},${height - margin.bottom} ${groundPoints} ${width - margin.right},${height - margin.bottom}`;
   appendSvg(svg, 'polygon', { points: groundArea, class: 'gas-profile-earth' });
   appendSvg(svg, 'polyline', {
     points: groundPoints,
-    class: `gas-profile-ground${resolved.live ? '' : ' gas-profile-ground--fallback'}`,
+    class: `gas-profile-ground${terrainIsLive ? '' : ' gas-profile-ground--fallback'}`,
+  });
+  appendSvg(svg, 'polygon', {
+    points: [...crownPoints, ...invertPoints.reverse()].join(' '),
+    class: `gas-profile-pipe-envelope${terrainIsLive ? '' : ' gas-profile-pipe-envelope--fallback'}`,
   });
   appendSvg(svg, 'polyline', {
     points: pipePoints,
-    class: `gas-profile-pipe${resolved.live ? '' : ' gas-profile-pipe--fallback'}`,
+    class: `gas-profile-pipe${terrainIsLive ? '' : ' gas-profile-pipe--fallback'}`,
   });
 
-  calculation.segments.slice(0, -1).forEach((segment) => {
-    const progress = calculation.routeLengthM > 0 ? segment.endChainageM / calculation.routeLengthM : 0;
+  profileCalculation.segments.slice(0, -1).forEach((segment) => {
+    const progress = profileCalculation.routeLengthM > 0 ? segment.endChainageM / profileCalculation.routeLengthM : 0;
     const x = xFor(progress);
     appendSvg(svg, 'line', { x1: x, x2: x, y1: margin.top, y2: height - margin.bottom, class: 'gas-profile-segment-line' });
     appendSvg(svg, 'text', { x: x + 4, y: margin.top + 11, class: 'gas-profile-note' }, String(segment.index + 2));
@@ -331,24 +291,13 @@ export function renderProfile(svg, state, calculation, elevationProfile = null, 
     && obstacleScreening.routeKey === currentObstacleRouteKey
   ) ? (obstacleScreening.events || []).filter((event) => !matchingRouteEventForObstacle(state, event)) : [];
   obstacleEvents.forEach((event) => {
-    const progress = calculation.routeLengthM > 0 ? event.stationM / calculation.routeLengthM : 0;
-    const groundM = interpolateElevationAtChainage(
-      samples.map((sample) => ({ chainageM: sample.chainageM, elevationM: sample.groundM })),
-      event.stationM,
-      fallbackProfileElevation(state, progress),
-    );
-    const localCoverM = coverAtChainage(
-      state,
-      event.stationM,
-      calculation.routeLengthM,
-      calculation.coverM,
-    );
-    const pipeM = groundM - localCoverM - (calculation.outsideDiameterM / 2);
+    const profile = interpolatePipeProfileAtChainage(samples, event.stationM);
+    if (!profile) return;
     appendObstacleProfileSymbol(
       svg,
       event,
-      xFor(progress),
-      yFor(pipeM),
+      xFor(profile.progress),
+      yFor(profile.pipeCenterlineM),
       state,
       margin,
       height,
@@ -356,53 +305,136 @@ export function renderProfile(svg, state, calculation, elevationProfile = null, 
   });
 
   routeEvents.forEach((event, index) => {
-    const progress = calculation.routeLengthM > 0 ? event.stationM / calculation.routeLengthM : 0;
-    const groundM = interpolateElevationAtChainage(
-      samples.map((sample) => ({ chainageM: sample.chainageM, elevationM: sample.groundM })),
-      event.stationM,
-      fallbackProfileElevation(state, progress),
-    );
-    const localCoverM = coverAtChainage(
-      state,
-      event.stationM,
-      calculation.routeLengthM,
-      calculation.coverM,
-    );
-    const pipeM = groundM - localCoverM - (calculation.outsideDiameterM / 2);
+    const profile = interpolatePipeProfileAtChainage(samples, event.stationM);
+    if (!profile) return;
     appendRouteEventProfileSymbol(
       svg,
       event,
-      xFor(progress),
-      yFor(pipeM),
+      xFor(profile.progress),
+      yFor(profile.pipeCenterlineM),
       state,
-      calculation,
+      profileCalculation,
       margin,
       height,
       index,
     );
   });
 
+  (state.depthPoints || []).forEach((point) => {
+    const profile = interpolatePipeProfileAtChainage(samples, point.stationM);
+    if (!profile) return;
+    const selected = state.route.selectedDepthPointId === point.id;
+    const locked = Boolean(point.endpoint || (point.routeEventId && point.zoneRole));
+    const source = point.source || 'manual';
+    const x = xFor(profile.progress);
+    const pipeY = yFor(profile.pipeCenterlineM);
+    const groundY = yFor(profile.groundM);
+    const crownY = yFor(profile.pipeCrownM);
+    const group = appendSvg(svg, 'g', {
+      class: `gas-profile-depth-control gas-profile-depth-control--${source}${selected ? ' is-selected' : ''}${locked ? ' is-station-locked' : ''}${point.routeEventId ? ' is-route-event-zone' : ''}`,
+      'data-depth-point-id': point.id,
+      role: 'button',
+      tabindex: 0,
+    });
+    appendSvg(group, 'title', {}, `${gasT(state.preferences.locale, 'depthProfile.control')} · ${formatDistance(point.stationM, state.preferences.units, state.preferences.locale)} · ${gasT(state.preferences.locale, 'depthProfile.coverValue', { cover: formatDimension(profile.coverM, state.preferences.units, state.preferences.locale) })}`);
+    if (selected) {
+      appendSvg(group, 'line', {
+        x1: x,
+        x2: x,
+        y1: groundY,
+        y2: crownY,
+        class: 'gas-profile-depth-cover-line',
+      });
+    }
+    if (point.routeEventId) {
+      appendSvg(group, 'path', {
+        d: `M${x} ${pipeY - 7}L${x + 7} ${pipeY}L${x} ${pipeY + 7}L${x - 7} ${pipeY}Z`,
+        class: 'gas-profile-depth-control__shape',
+        'data-depth-point-id': point.id,
+      });
+    } else if (point.endpoint) {
+      appendSvg(group, 'rect', {
+        x: x - 5.5,
+        y: pipeY - 5.5,
+        width: 11,
+        height: 11,
+        rx: 2,
+        class: 'gas-profile-depth-control__shape',
+        'data-depth-point-id': point.id,
+      });
+    } else {
+      appendSvg(group, 'circle', {
+        cx: x,
+        cy: pipeY,
+        r: 5.7,
+        class: 'gas-profile-depth-control__shape',
+        'data-depth-point-id': point.id,
+      });
+    }
+    appendSvg(group, 'circle', {
+      cx: x,
+      cy: pipeY,
+      r: selected ? 2.6 : 1.8,
+      class: 'gas-profile-depth-control__core',
+      'data-depth-point-id': point.id,
+    });
+    if (selected) {
+      appendSvg(group, 'text', {
+        x: Math.min(width - margin.right - 4, x + 8),
+        y: Math.max(margin.top + 10, pipeY - 10),
+        class: 'gas-profile-depth-control__label',
+      }, `${formatDistance(point.stationM, state.preferences.units, state.preferences.locale)} · ${formatDimension(profile.coverM, state.preferences.units, state.preferences.locale)}`);
+    }
+  });
+
   const station = interpolateRoute(state.route.points, state.route.stationM);
-  const stationProgress = calculation.routeLengthM > 0 ? station.chainageM / calculation.routeLengthM : 0;
-  const stationGround = interpolateElevationAtChainage(
-    samples.map((sample) => ({ chainageM: sample.chainageM, elevationM: sample.groundM })),
-    station.chainageM,
-    fallbackProfileElevation(state, stationProgress),
-  );
-  const stationCoverM = coverAtChainage(
-    state,
-    station.chainageM,
-    calculation.routeLengthM,
-    calculation.coverM,
-  );
-  const stationPipe = stationGround - stationCoverM - (calculation.outsideDiameterM / 2);
-  const stationX = xFor(stationProgress);
-  const stationY = yFor(stationPipe);
-  appendSvg(svg, 'line', { x1: stationX, x2: stationX, y1: margin.top, y2: height - margin.bottom, class: 'gas-profile-station-line' });
-  appendSvg(svg, 'circle', { cx: stationX, cy: stationY, r: 5.2, class: 'gas-profile-station-point' });
+  const stationProfile = interpolatePipeProfileAtChainage(samples, station.chainageM);
+  if (stationProfile) {
+    const stationX = xFor(stationProfile.progress);
+    const stationY = yFor(stationProfile.pipeCenterlineM);
+    appendSvg(svg, 'line', { x1: stationX, x2: stationX, y1: margin.top, y2: height - margin.bottom, class: 'gas-profile-station-line' });
+    appendSvg(svg, 'circle', { cx: stationX, cy: stationY, r: 5.2, class: 'gas-profile-station-point' });
+  }
 
   appendSvg(svg, 'text', { x: margin.left, y: height - 10, class: 'gas-profile-end-label' }, 'A · 0');
-  appendSvg(svg, 'text', { x: width - margin.right, y: height - 10, 'text-anchor': 'end', class: 'gas-profile-end-label' }, `B · ${formatDistance(calculation.routeLengthM, state.preferences.units, state.preferences.locale)}`);
+  appendSvg(svg, 'text', { x: width - margin.right, y: height - 10, 'text-anchor': 'end', class: 'gas-profile-end-label' }, `B · ${formatDistance(profileCalculation.routeLengthM, state.preferences.units, state.preferences.locale)}`);
+}
+
+export function profilePointerToDesign(svg, clientX, clientY) {
+  const model = svg?.__gasProfileModel;
+  if (!model) return null;
+  let localX;
+  let localY;
+  const matrix = svg.getScreenCTM?.();
+  if (matrix && svg.createSVGPoint) {
+    const point = svg.createSVGPoint();
+    point.x = clientX;
+    point.y = clientY;
+    const local = point.matrixTransform(matrix.inverse());
+    localX = local.x;
+    localY = local.y;
+  } else {
+    const rect = svg.getBoundingClientRect?.();
+    if (!rect?.width || !rect?.height) return null;
+    localX = ((clientX - rect.left) / rect.width) * model.width;
+    localY = ((clientY - rect.top) / rect.height) * model.height;
+  }
+  const xProgress = Math.max(0, Math.min(1, (localX - model.margin.left) / model.plotWidth));
+  const yProgress = Math.max(0, Math.min(1, (localY - model.margin.top) / model.plotHeight));
+  const stationM = xProgress * model.routeLengthM;
+  const profile = interpolatePipeProfileAtChainage(model.samples, stationM);
+  if (!profile) return null;
+  const targetPipeCenterlineM = model.yMax - (yProgress * (model.yMax - model.yMin));
+  const coverM = clampPipeCover(
+    profile.groundM - targetPipeCenterlineM - (model.outsideDiameterM / 2),
+    profile.coverM,
+  );
+  return {
+    stationM,
+    coverM,
+    groundM: profile.groundM,
+    pipeCenterlineM: targetPipeCenterlineM,
+  };
 }
 
 function addDimension(svg, {
@@ -430,11 +462,13 @@ export function renderCrossSection(svg, state, calculation, t) {
   const trenchLeft = 126;
   const trenchRight = 356;
   const trenchBottom = 184;
-  const verticalScale = 128 / Math.max(0.7, calculation.trenchDepthM);
+  const localCoverM = calculation.stationCoverM ?? calculation.coverM;
+  const localTrenchDepthM = calculation.stationTrenchDepthM ?? calculation.trenchDepthM;
+  const verticalScale = 128 / Math.max(0.7, localTrenchDepthM);
   const pipeRadius = Math.max(10, Math.min(31, (calculation.outsideDiameterM / calculation.trenchWidthM) * 115));
-  const pipeCenterY = Math.min(trenchBottom - calculation.beddingM * verticalScale - pipeRadius, surfaceY + (calculation.coverM * verticalScale) + pipeRadius);
+  const pipeCenterY = Math.min(trenchBottom - calculation.beddingM * verticalScale - pipeRadius, surfaceY + (localCoverM * verticalScale) + pipeRadius);
   const beddingTop = Math.max(surfaceY + 12, pipeCenterY - pipeRadius - 10);
-  const warningY = surfaceY + Math.min(42, Math.max(20, calculation.coverM * verticalScale * 0.42));
+  const warningY = surfaceY + Math.min(42, Math.max(20, localCoverM * verticalScale * 0.42));
 
   appendSvg(svg, 'rect', { x: 0, y: surfaceY, width: 480, height: 176, fill: ground.color });
   appendSvg(svg, 'rect', { x: 0, y: surfaceY - 10, width: 480, height: 12, fill: surface.color });
@@ -454,7 +488,7 @@ export function renderCrossSection(svg, state, calculation, t) {
   appendSvg(svg, 'line', { x1: 241, y1: surfaceY, x2: 241, y2: pipeCenterY - pipeRadius, class: 'gas-section-guide' });
   addDimension(svg, {
     x1: 91, y1: surfaceY, x2: 91, y2: pipeCenterY - pipeRadius,
-    label: t('section.cover', { cover: formatDimension(calculation.coverM, state.preferences.units, state.preferences.locale) }),
+    label: t('section.cover', { cover: formatDimension(localCoverM, state.preferences.units, state.preferences.locale) }),
     labelX: 82, labelY: ((surfaceY + pipeCenterY - pipeRadius) / 2) + 3, anchor: 'end',
   });
   addDimension(svg, {
@@ -639,8 +673,170 @@ function renderRouteEvents(root, state, calculation, t) {
   setChecked(root, '#routeEventOwnerApprovalInput', selected.crossing.ownerApprovalDocumented);
   setChecked(root, '#routeEventConfirmedInput', selected.confirmed);
 
+  const zone = calculation.routeEventDepthZones.find(({ event }) => event.id === selected.id)
+    || { status: 'missing-width', expected: null, points: [] };
+  const centerZonePoint = zone.points?.find((point) => point.zoneRole === 'center');
+  const eventProfile = interpolatePipeProfileAtChainage(calculation.profileSamples, selected.stationM);
+  setValue(
+    root,
+    '#routeEventDepthCoverInput',
+    centerZonePoint?.coverM ?? eventProfile?.coverM ?? calculation.coverM,
+  );
+  setText(root, '#routeEventDepthZoneStatus', t(`depthProfile.zoneStatus.${zone.status}`));
+  const zoneFields = root.querySelector('#routeEventDepthZoneFields');
+  if (zoneFields) zoneFields.className = `gas-route-event-depth-zone gas-route-event-depth-zone--${zone.status}`;
+  const zoneButton = root.querySelector('#applyRouteEventDepthZoneButton');
+  if (zoneButton) {
+    zoneButton.disabled = !zone.expected;
+    zoneButton.textContent = t(zone.status === 'ready'
+      ? 'action.updateCrossingDepthZone'
+      : 'action.applyCrossingDepthZone');
+  }
+
   const utilityFields = root.querySelector('#utilityRouteEventFields');
   if (utilityFields) utilityFields.hidden = !isUtilityCrossingEvent(selected);
+}
+
+function depthPointDisplayName(point, index, state, t) {
+  if (point.endpoint === 'start') return t('depthProfile.endpointA');
+  if (point.endpoint === 'end') return t('depthProfile.endpointB');
+  if (point.routeEventId) {
+    const event = getRouteEvents(state).find((candidate) => candidate.id === point.routeEventId);
+    const eventDefinition = routeEventTypeDefinition(event?.type);
+    const eventNumber = event ? routeEventDisplayIndex(state, event) : '';
+    return t('depthProfile.eventControl', {
+      event: event ? `${t(eventDefinition.labelKey)} ${eventNumber}` : t('depthProfile.orphanEvent'),
+      role: t(`depthProfile.zoneRole.${point.zoneRole || 'center'}`),
+    });
+  }
+  return t('depthProfile.manualControl', { number: index + 1 });
+}
+
+function renderDepthProfilePanel(root, state, calculation, t) {
+  const units = state.preferences.units;
+  const locale = state.preferences.locale;
+  const points = [...(state.depthPoints || [])].sort((left, right) => left.stationM - right.stationM);
+  const selected = points.find((point) => point.id === state.route.selectedDepthPointId) || null;
+  const selectedIndex = selected ? points.findIndex((point) => point.id === selected.id) : -1;
+  const selectedProfile = selected
+    ? interpolatePipeProfileAtChainage(calculation.profileSamples, selected.stationM)
+    : null;
+  const selectedLocked = Boolean(selected?.endpoint || (selected?.routeEventId && selected?.zoneRole));
+
+  setText(root, '#depthPointCount', t('depthProfile.count', { count: points.length }));
+  setText(root, '#minimumCoverResult', formatDimension(calculation.minimumCoverM, units, locale));
+  setText(root, '#averageCoverResult', formatDimension(calculation.averageCoverM, units, locale));
+  setText(root, '#maximumCoverResult', formatDimension(calculation.maximumCoverM, units, locale));
+  setText(root, '#maximumTrenchDepthResult', formatDimension(calculation.maximumTrenchDepthM, units, locale));
+
+  const list = root.querySelector('#depthPointList');
+  if (list) {
+    list.replaceChildren(...points.map((point, index) => {
+      const profile = interpolatePipeProfileAtChainage(calculation.profileSamples, point.stationM);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `gas-depth-point-item gas-depth-point-item--${point.source || 'manual'}${selected?.id === point.id ? ' is-selected' : ''}`;
+      button.dataset.depthPointId = point.id;
+      button.setAttribute('aria-pressed', String(selected?.id === point.id));
+      const marker = document.createElement('span');
+      marker.className = 'gas-depth-point-item__marker';
+      marker.setAttribute('aria-hidden', 'true');
+      const body = document.createElement('span');
+      body.className = 'gas-depth-point-item__body';
+      const name = document.createElement('strong');
+      name.textContent = depthPointDisplayName(point, index, state, t);
+      const meta = document.createElement('small');
+      meta.textContent = `${formatDistance(point.stationM, units, locale)} · ${t('depthProfile.coverValue', {
+        cover: formatDimension(profile?.coverM ?? point.coverM, units, locale),
+      })}`;
+      const source = document.createElement('em');
+      source.textContent = t(`option.depthPointSource.${point.source || 'manual'}`);
+      body.append(name, meta, source);
+      button.append(marker, body);
+      return button;
+    }));
+  }
+
+  const empty = root.querySelector('#depthPointEmpty');
+  if (empty) empty.hidden = points.length > 0;
+  const fields = root.querySelector('#depthPointFields');
+  if (fields) fields.hidden = !selected;
+
+  const stationInput = root.querySelector('#depthPointStationInput');
+  if (stationInput) {
+    stationInput.max = String(calculation.routeLengthM);
+    stationInput.disabled = !selected || selectedLocked;
+    if (selected) stationInput.value = String(Number(selected.stationM).toFixed(1));
+  }
+  const coverInput = root.querySelector('#depthPointCoverInput');
+  if (coverInput) {
+    coverInput.disabled = !selected;
+    if (selected) coverInput.value = String(Number(selected.coverM).toFixed(2));
+  }
+  const sourceSelect = root.querySelector('#depthPointSourceSelect');
+  if (sourceSelect) {
+    sourceSelect.disabled = !selected || selected.source === 'default';
+    if (selected) sourceSelect.value = selected.source || 'manual';
+  }
+  setText(
+    root,
+    '#depthPointLockHint',
+    t(selectedLocked ? 'depthProfile.lockedStationHint' : 'depthProfile.editHint'),
+  );
+  setText(root, '#depthGroundValue', selectedProfile ? formatDimension(selectedProfile.groundM, units, locale) : '—');
+  setText(root, '#depthCrownValue', selectedProfile ? formatDimension(selectedProfile.pipeCrownM, units, locale) : '—');
+  setText(root, '#depthCenterlineValue', selectedProfile ? formatDimension(selectedProfile.pipeCenterlineM, units, locale) : '—');
+  setText(root, '#depthInvertValue', selectedProfile ? formatDimension(selectedProfile.pipeInvertM, units, locale) : '—');
+  setText(root, '#depthSlopeValue', selectedProfile
+    ? `${new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(selectedProfile.slopeRatio * 100)}%`
+    : '—');
+
+  const removeButtons = [
+    root.querySelector('#removeDepthPointButton'),
+    root.querySelector('#removeDepthPointProfileButton'),
+  ];
+  removeButtons.forEach((button) => {
+    if (button) button.disabled = !selected || Boolean(selected.endpoint);
+  });
+  const addButton = root.querySelector('#addDepthPointButton');
+  if (addButton) addButton.disabled = calculation.routeLengthM <= 0;
+
+  const editButton = root.querySelector('#toggleDepthProfileEditButton');
+  if (editButton) {
+    editButton.classList.toggle('is-active', Boolean(state.route.profileEditMode));
+    editButton.setAttribute('aria-pressed', String(Boolean(state.route.profileEditMode)));
+    const label = editButton.querySelector('span');
+    if (label) label.textContent = t(state.route.profileEditMode
+      ? 'action.finishDepthProfile'
+      : 'action.editDepthProfile');
+  }
+  setText(root, '#profileEditHint', t(state.route.profileEditMode
+    ? 'view.profileEditHint'
+    : 'view.profileReadHint'));
+
+  const warningKeys = [];
+  if (calculation.duplicateDepthPointStations.length > 0) {
+    warningKeys.push(['depthProfile.warning.duplicates', { count: calculation.duplicateDepthPointStations.length }]);
+  }
+  if (calculation.abruptProfileSegments.length > 0) {
+    warningKeys.push(['depthProfile.warning.abrupt', { count: calculation.abruptProfileSegments.length }]);
+  }
+  const missingZones = calculation.routeEventDepthZones.filter(({ expected, status }) => expected && status !== 'ready').length;
+  if (missingZones > 0) warningKeys.push(['depthProfile.warning.missingZones', { count: missingZones }]);
+  if (!calculation.profileUsesLiveTerrain) warningKeys.push(['depthProfile.warning.fallbackTerrain', {}]);
+  if (warningKeys.length === 0) warningKeys.push(['depthProfile.warning.none', {}]);
+  const warnings = root.querySelector('#depthProfileWarnings');
+  if (warnings) {
+    warnings.className = `gas-depth-warning${warningKeys.length === 1 && warningKeys[0][0] === 'depthProfile.warning.none' ? ' is-clear' : ''}`;
+    warnings.replaceChildren(...warningKeys.map(([key, variables]) => {
+      const line = document.createElement('p');
+      line.textContent = t(key, variables);
+      return line;
+    }));
+  }
+
+  const panel = root.querySelector('#depthProfilePanel');
+  if (panel && selectedIndex >= 0 && state.route.profileEditMode) panel.open = true;
 }
 
 function renderObstacleScreening(root, state, obstacleScreening, t) {
@@ -750,13 +946,10 @@ function renderObstacleScreening(root, state, obstacleScreening, t) {
 }
 
 export function renderGasState(root, state, elevationProfile = null, obstacleScreening = null) {
-  const calculation = calculateProject(state);
   const locale = state.preferences.locale;
   const units = state.preferences.units;
   const currency = state.preferences.currency;
   const t = (key, variables = {}) => gasT(locale, key, variables);
-  const selected = calculation.segments.find((segment) => segment.id === state.route.selectedSegmentId)
-    || calculation.segments[0];
   const currentRouteElevationKey = routeElevationKey(state.route.points);
   const elevationStatusMatchesRoute = elevationProfile?.routeKey === currentRouteElevationKey;
   const matchingTerrainProfile = (
@@ -764,34 +957,42 @@ export function renderGasState(root, state, elevationProfile = null, obstacleScr
     && elevationStatusMatchesRoute
     && elevationProfile.samples?.length >= 2
   );
-  const terrainAdjustedLengthM = matchingTerrainProfile
-    ? terrainAdjustedRouteLengthMeters(elevationProfile.samples)
-    : NaN;
-  const hasTerrainAdjustedLength = Number.isFinite(terrainAdjustedLengthM);
+  const calculation = calculateProject(state, {
+    terrainSamples: matchingTerrainProfile ? elevationProfile.samples : null,
+  });
+  const selected = calculation.segments.find((segment) => segment.id === state.route.selectedSegmentId)
+    || calculation.segments[0];
+  const hasTerrainAdjustedLength = matchingTerrainProfile && Number.isFinite(calculation.terrainLengthM);
   const terrainLengthDifferenceM = hasTerrainAdjustedLength
-    ? Math.max(0, terrainAdjustedLengthM - calculation.routeLengthM)
+    ? Math.max(0, calculation.terrainLengthM - calculation.routeLengthM)
     : NaN;
   const networkConnection = assessNetworkConnection(state);
   const networkCandidate = networkConnection.candidate;
 
   setText(root, '#headerRouteLength', formatDistance(calculation.routeLengthM, units, locale));
   setText(root, '#headerTerrainLength', hasTerrainAdjustedLength
-    ? formatDistance(terrainAdjustedLengthM, units, locale)
+    ? formatDistance(calculation.terrainLengthM, units, locale)
     : '—');
   setText(root, '#headerSegmentCount', t('route.segmentCount', { count: calculation.segments.length }));
   const stationDistance = formatDistance(state.route.stationM, units, locale);
-  const stationElevation = matchingTerrainProfile
-    ? formatDimension(
-      interpolateElevationAtChainage(elevationProfile.samples, state.route.stationM),
-      units,
-      locale,
-    )
+  const stationElevation = calculation.stationProfile
+    ? formatDimension(calculation.stationProfile.groundM, units, locale)
+    : null;
+  const stationCover = calculation.stationProfile
+    ? formatDimension(calculation.stationProfile.coverM, units, locale)
     : null;
   setText(root, '#profileStationLabel', stationElevation
-    ? t('view.stationElevation', { station: stationDistance, elevation: stationElevation })
+    ? t('view.stationElevationCover', {
+      station: stationDistance,
+      elevation: stationElevation,
+      cover: stationCover,
+    })
     : t('view.station', { station: stationDistance }));
   setText(root, '#crossSectionSegmentLabel', selected
-    ? t('view.selectedSegment', { number: selected.index + 1 })
+    ? t('view.selectedSegmentStation', {
+      number: selected.index + 1,
+      station: stationDistance,
+    })
     : t('empty.segment'));
   setText(root, '#selectedSegmentLabel', selected
     ? t('view.selectedSegment', { number: selected.index + 1 })
@@ -799,9 +1000,7 @@ export function renderGasState(root, state, elevationProfile = null, obstacleScr
   setText(root, '#selectedSegmentLength', selected ? formatDistance(selected.lengthM, units, locale) : '—');
 
   const connectionCard = root.querySelector('#networkConnectionCard');
-  if (connectionCard) {
-    connectionCard.className = `gas-connection-card gas-connection-card--${networkConnection.status}`;
-  }
+  if (connectionCard) connectionCard.className = `gas-connection-card gas-connection-card--${networkConnection.status}`;
   setText(root, '#networkConnectionStatus', t(`connection.status.${networkConnection.status}`));
   setText(root, '#networkConnectionAsset', networkCandidate?.name || t('connection.noAsset'));
   setText(root, '#networkConnectionGroup', networkCandidate?.serviceGroup || '—');
@@ -811,7 +1010,7 @@ export function renderGasState(root, state, elevationProfile = null, obstacleScr
   setText(root, '#networkConnectionCoordinates', formatConnectionCoordinate(networkCandidate?.coordinate));
   setText(root, '#networkConnectionPlanLength', formatDistance(calculation.routeLengthM, units, locale));
   setText(root, '#networkConnectionTerrainLength', hasTerrainAdjustedLength
-    ? formatDistance(terrainAdjustedLengthM, units, locale)
+    ? formatDistance(calculation.terrainLengthM, units, locale)
     : '—');
   setText(root, '#networkConnectionCost', `${formatMoneyFromEur(calculation.estimateLowEur, currency, locale)} – ${formatMoneyFromEur(calculation.estimateHighEur, currency, locale)}`);
   const snapButton = root.querySelector('#snapToNearestNetworkButton');
@@ -819,24 +1018,16 @@ export function renderGasState(root, state, elevationProfile = null, obstacleScr
   const connectionHintKey = networkConnection.connected
     ? 'connection.hint.connected'
     : networkCandidate
-      ? networkConnection.canSnap
-        ? 'connection.hint.snap'
-        : 'connection.hint.far'
+      ? networkConnection.canSnap ? 'connection.hint.snap' : 'connection.hint.far'
       : 'connection.hint.missing';
   setText(root, '#networkConnectionHint', t(connectionHintKey));
   const connectionToleranceInput = root.querySelector('#connectionToleranceInput');
   if (connectionToleranceInput) connectionToleranceInput.value = String(networkConnection.snapToleranceM);
-  setText(
-    root,
-    '#connectionToleranceValue',
-    formatDistance(networkConnection.snapToleranceM, units, locale),
-  );
+  setText(root, '#connectionToleranceValue', formatDistance(networkConnection.snapToleranceM, units, locale));
 
   const elevationStatus = root.querySelector('#profileDataStatus');
   const elevationRetry = root.querySelector('#retryElevationButton');
-  const effectiveElevationStatus = elevationStatusMatchesRoute
-    ? elevationProfile?.status || 'idle'
-    : 'idle';
+  const effectiveElevationStatus = elevationStatusMatchesRoute ? elevationProfile?.status || 'idle' : 'idle';
   if (elevationStatus) {
     let statusKey = 'view.elevationFallback';
     if (effectiveElevationStatus === 'loading') statusKey = 'view.elevationLoading';
@@ -846,16 +1037,14 @@ export function renderGasState(root, state, elevationProfile = null, obstacleScr
     elevationStatus.className = `gas-elevation-status gas-elevation-status--${effectiveElevationStatus}`;
     elevationStatus.title = effectiveElevationStatus === 'error' ? elevationProfile?.error || '' : '';
   }
-  if (elevationRetry) {
-    elevationRetry.hidden = effectiveElevationStatus !== 'error';
-  }
+  if (elevationRetry) elevationRetry.hidden = effectiveElevationStatus !== 'error';
 
   const stationInput = root.querySelector('#stationInput');
   if (stationInput) {
     stationInput.max = String(Math.max(1, calculation.routeLengthM));
     stationInput.value = String(Math.round(state.route.stationM));
   }
-  setText(root, '#stationValue', formatDistance(state.route.stationM, units, locale));
+  setText(root, '#stationValue', stationDistance);
 
   setValue(root, '#groundTypeSelect', selected?.setting.groundType || 'common');
   setValue(root, '#surfaceTypeSelect', selected?.setting.surfaceType || 'greenfield');
@@ -876,6 +1065,7 @@ export function renderGasState(root, state, elevationProfile = null, obstacleScr
   setChecked(root, '#coverProtectionInput', state.regulatory.reducedCover.additionalProtection);
   renderPipeCatalog(root, state, calculation, t);
   renderRouteEvents(root, state, calculation, t);
+  renderDepthProfilePanel(root, state, calculation, t);
 
   const trenchWidthInput = root.querySelector('#trenchWidthInput');
   if (trenchWidthInput) trenchWidthInput.min = String(calculation.requiredTrenchWidthM);
@@ -884,12 +1074,11 @@ export function renderGasState(root, state, elevationProfile = null, obstacleScr
     '#trenchWidthInput',
     '#trenchWidthRequirement',
     calculation.trenchWidthAssessment.status,
-    t(
-      calculation.trenchWidthAssessment.status === 'not-evaluated'
-        ? 'field.trenchWidthRequirementCaseSpecific'
-        : 'field.trenchWidthRequirement',
-      { minimum: formatDimension(calculation.requiredTrenchWidthM, units, locale) },
-    ),
+    t(calculation.trenchWidthAssessment.status === 'not-evaluated'
+      ? 'field.trenchWidthRequirementCaseSpecific'
+      : 'field.trenchWidthRequirement', {
+      minimum: formatDimension(calculation.requiredTrenchWidthM, units, locale),
+    }),
   );
   setFieldAssessment(
     root,
@@ -904,12 +1093,10 @@ export function renderGasState(root, state, elevationProfile = null, obstacleScr
   const beddingInput = root.querySelector('#beddingInput');
   if (beddingInput) beddingInput.setAttribute('aria-invalid', String(!calculation.beddingThicknessCompliant));
   const beddingMaterialSelect = root.querySelector('#beddingMaterialSelect');
-  if (beddingMaterialSelect) {
-    beddingMaterialSelect.setAttribute('aria-invalid', String(!calculation.beddingMaterialCompliant));
-  }
+  if (beddingMaterialSelect) beddingMaterialSelect.setAttribute('aria-invalid', String(!calculation.beddingMaterialCompliant));
 
   const reducedCoverFields = root.querySelector('#reducedCoverExceptionFields');
-  if (reducedCoverFields) reducedCoverFields.hidden = state.trench.coverM >= 0.9;
+  if (reducedCoverFields) reducedCoverFields.hidden = calculation.minimumCoverM >= 0.9;
 
   root.querySelectorAll('[data-route-mode]').forEach((button) => {
     const active = button.dataset.routeMode === state.route.editMode;
@@ -925,17 +1112,24 @@ export function renderGasState(root, state, elevationProfile = null, obstacleScr
 
   setText(root, '#routeLengthResult', formatDistance(calculation.routeLengthM, units, locale));
   setText(root, '#terrainLengthResult', hasTerrainAdjustedLength
-    ? formatDistance(terrainAdjustedLengthM, units, locale)
+    ? formatDistance(calculation.terrainLengthM, units, locale)
     : '—');
   setText(root, '#terrainLengthDetail', hasTerrainAdjustedLength
     ? t('metric.terrainLengthDelta', {
       difference: formatDistanceDifference(terrainLengthDifferenceM, units, locale),
     })
     : t('metric.terrainLengthPending'));
+  setText(root, '#designedPipeLengthResult', formatDistance(calculation.designedPipeLengthM, units, locale));
   setText(root, '#pipeLengthResult', formatDistance(calculation.pipeLengthM, units, locale));
   setText(root, '#excavationResult', formatVolume(calculation.excavationM3, units, locale));
   setText(root, '#beddingResult', formatVolume(calculation.beddingM3, units, locale));
+  setText(root, '#backfillResult', formatVolume(calculation.backfillM3, units, locale));
   setText(root, '#restorationResult', formatArea(calculation.restorationM2, units, locale));
+  const excavationDelta = calculation.excavationDifferenceM3;
+  setText(root, '#excavationDifferenceResult', `${excavationDelta > 1e-6 ? '+' : ''}${formatVolume(excavationDelta, units, locale)}`);
+  setText(root, '#excavationDifferenceDetail', t(Math.abs(excavationDelta) <= 1e-6
+    ? 'metric.excavationDeltaNone'
+    : 'metric.excavationDeltaDetail'));
   const verifiedData = state.data.groundSource === 'verifiedSurvey' && state.data.utilitySource === 'fieldVerified';
   setText(root, '#dataConfidenceResult', t(verifiedData ? 'metric.verified' : 'metric.estimated'));
   setText(root, '#costRangeResult', `${formatMoneyFromEur(calculation.estimateLowEur, currency, locale)} – ${formatMoneyFromEur(calculation.estimateHighEur, currency, locale)}`);

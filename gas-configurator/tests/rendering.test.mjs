@@ -6,7 +6,7 @@ import { routeProfileSamples } from '../src/domain/geometry.js';
 import { routeElevationKey } from '../src/elevation/routeElevation.js';
 import { routeObstacleRouteKey } from '../src/obstacles/routeObstacles.js';
 import { DEFAULT_STATE } from '../src/state.js';
-import { renderCrossSection, renderProfile } from '../src/ui/renderers.js';
+import { profilePointerToDesign, renderCrossSection, renderProfile } from '../src/ui/renderers.js';
 import { renderToolsMenu } from '../../shared-ui/src/components/toolsMenu.js';
 
 class FakeSvgElement {
@@ -154,6 +154,56 @@ test('a matching terrain profile renders as live rather than fallback data', () 
     assert.ok(ground);
     assert.equal(String(ground.attributes.class).includes('fallback'), false);
     assert.equal(String(ground.attributes.points).split(' ').length, samples.length);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+});
+
+
+test('editable depth controls render with a pipe envelope and pointer coordinates map to design values', () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = {
+    createElementNS(_namespace, name) {
+      return new FakeSvgElement(name);
+    },
+  };
+
+  try {
+    const state = clone(DEFAULT_STATE);
+    const initial = calculateProject(state);
+    state.depthPoints.push({
+      id: 'depth-manual-test',
+      routeId: 'main',
+      stationM: initial.routeLengthM * 0.5,
+      coverM: 1.45,
+      source: 'manual',
+      inheritsDefault: false,
+      endpoint: null,
+      routeEventId: null,
+      zoneRole: null,
+    });
+    state.route.selectedDepthPointId = 'depth-manual-test';
+    state.route.profileEditMode = true;
+
+    const calculation = calculateProject(state);
+    const profile = new FakeSvgElement('svg');
+    profile.getBoundingClientRect = () => ({ left: 0, top: 0, width: 760, height: 260 });
+    renderProfile(profile, state, calculation);
+
+    assert.ok(findByClass(profile, 'gas-profile-pipe-envelope'));
+    assert.equal(findAllByClass(profile, 'gas-profile-depth-control').length, 3);
+    assert.ok(findByClass(profile, 'gas-profile-depth-cover-line'));
+    assert.ok(findByClass(profile, 'gas-profile-depth-control--manual'));
+    assert.ok(findByClass(profile, 'is-selected'));
+
+    const design = profilePointerToDesign(profile, 380, 130);
+    assert.ok(design);
+    assert.ok(Number.isFinite(design.stationM));
+    assert.ok(Number.isFinite(design.coverM));
+    assert.ok(design.stationM > calculation.routeLengthM * 0.4);
+    assert.ok(design.stationM < calculation.routeLengthM * 0.6);
+    assert.ok(design.coverM >= 0.3 && design.coverM <= 5);
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;

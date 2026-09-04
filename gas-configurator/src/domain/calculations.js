@@ -1,5 +1,12 @@
 import { buildRouteSegments, routeLengthMeters } from './geometry.js';
 import {
+  buildDepthIntervals,
+  buildDesignedPipeProfile,
+  depthProfileStatistics,
+  interpolatePipeProfileAtChainage,
+  routeEventDepthZoneStatus,
+} from './depthProfile.js';
+import {
   PIPE_DIAMETERS_MM,
   PIPE_MATERIALS,
   resolvePipeProduct,
@@ -7,6 +14,7 @@ import {
 import {
   getRouteEvents,
   isUtilityCrossingEvent,
+  routeEventDisplayIndex,
   routeEventTypeDefinition,
 } from './routeEvents.js';
 import {
@@ -53,7 +61,7 @@ function segmentSetting(state, segment) {
   return state.segmentSettings?.[segment.id] || { groundType: 'common', surfaceType: 'greenfield' };
 }
 
-export function calculateProject(state) {
+export function calculateProject(state, { terrainSamples = null } = {}) {
   const segments = buildRouteSegments(state.route.points);
   const routeLengthM = routeLengthMeters(state.route.points);
   const pipeProduct = resolvePipeProduct(state.pipe);
@@ -73,12 +81,32 @@ export function calculateProject(state) {
     && beddingM <= REGULATORY_RULES.beddingLayer.maximumM
   );
   const beddingMaterialCompliant = state.trench.beddingMaterial === REGULATORY_RULES.beddingLayer.requiredMaterial;
+  const depthProfile = depthProfileStatistics(state.depthPoints, routeLengthM, coverM);
+  const depthIntervals = buildDepthIntervals(segments, state.depthPoints, routeLengthM, coverM);
+  const designedProfile = buildDesignedPipeProfile({
+    state,
+    terrainSamples,
+    routeLengthM,
+    depthPoints: state.depthPoints,
+    defaultCoverM: coverM,
+    outsideDiameterM,
+  });
+  const stationProfile = interpolatePipeProfileAtChainage(
+    designedProfile.samples,
+    state.route.stationM,
+  );
 
   const perSegment = segments.map((segment) => {
     const setting = segmentSetting(state, segment);
     const ground = GROUND_TYPES[setting.groundType] || GROUND_TYPES.common;
     const surface = SURFACE_TYPES[setting.surfaceType] || SURFACE_TYPES.greenfield;
-    const excavationM3 = segment.lengthM * trenchWidthM * trenchDepthM;
+    const intervals = depthIntervals.filter((interval) => interval.segmentId === segment.id);
+    const excavationM3 = intervals.reduce((sum, interval) => (
+      sum + interval.lengthM * trenchWidthM * (
+        interval.averageCoverM + outsideDiameterM + beddingM
+      )
+    ), 0);
+    const uniformExcavationM3 = segment.lengthM * trenchWidthM * trenchDepthM;
     const beddingEnvelopeHeightM = beddingM + outsideDiameterM + SAND_SURROUND_ABOVE_PIPE_M;
     const beddingM3 = segment.lengthM * trenchWidthM * beddingEnvelopeHeightM;
     const pipeDisplacementM3 = segment.lengthM * Math.PI * (outsideDiameterM / 2) ** 2;
@@ -87,13 +115,25 @@ export function calculateProject(state) {
     const excavationCostEur = excavationM3 * ground.excavationEurM3;
     const beddingCostEur = beddingM3 * BEDDING_EUR_M3;
     const restorationCostEur = restorationM2 * surface.restorationEurM2;
+    const weightedCoverM2 = intervals.reduce((sum, interval) => (
+      sum + interval.lengthM * interval.averageCoverM
+    ), 0);
 
     return {
       ...segment,
       setting,
       ground,
       surface,
+      depthIntervals: intervals,
+      minimumCoverM: intervals.length > 0
+        ? Math.min(...intervals.flatMap((interval) => [interval.startCoverM, interval.endCoverM]))
+        : coverM,
+      maximumCoverM: intervals.length > 0
+        ? Math.max(...intervals.flatMap((interval) => [interval.startCoverM, interval.endCoverM]))
+        : coverM,
+      averageCoverM: segment.lengthM > 0 ? weightedCoverM2 / segment.lengthM : coverM,
       excavationM3,
+      uniformExcavationM3,
       beddingM3,
       backfillM3,
       restorationM2,
@@ -103,9 +143,16 @@ export function calculateProject(state) {
     };
   });
 
-  const pipeLengthM = routeLengthM * PIPE_ALLOWANCE_RATIO;
+  const designedPipeLengthM = Number.isFinite(designedProfile.designedPipeLengthM)
+    ? designedProfile.designedPipeLengthM
+    : routeLengthM;
+  const terrainLengthM = Number.isFinite(designedProfile.terrainLengthM)
+    ? designedProfile.terrainLengthM
+    : routeLengthM;
+  const pipeLengthM = designedPipeLengthM * PIPE_ALLOWANCE_RATIO;
   const pipeCostEur = pipeLengthM * pipeProduct.prototypeUnitRateEurM;
   const excavationM3 = perSegment.reduce((sum, segment) => sum + segment.excavationM3, 0);
+  const uniformCoverExcavationM3 = perSegment.reduce((sum, segment) => sum + segment.uniformExcavationM3, 0);
   const beddingM3 = perSegment.reduce((sum, segment) => sum + segment.beddingM3, 0);
   const backfillM3 = perSegment.reduce((sum, segment) => sum + segment.backfillM3, 0);
   const restorationM2 = perSegment.reduce((sum, segment) => sum + segment.restorationM2, 0);
@@ -113,11 +160,19 @@ export function calculateProject(state) {
     sum + segment.excavationCostEur + segment.beddingCostEur + segment.restorationCostEur
   ), 0);
   const estimateMidEur = pipeCostEur + routeWorkCostEur + PRELIMINARY_FIXED_COST_EUR;
+  const routeEventDepthZones = getRouteEvents(state).map((event) => ({
+    event,
+    ...routeEventDepthZoneStatus(state.depthPoints, event, routeLengthM),
+  }));
 
   return {
     segments: perSegment,
+    depthIntervals,
     routeLengthM,
+    terrainLengthM,
+    designedPipeLengthM,
     pipeLengthM,
+    pipeAllowanceRatio: PIPE_ALLOWANCE_RATIO,
     diameterMm,
     outsideDiameterM,
     internalDiameterM,
@@ -127,6 +182,22 @@ export function calculateProject(state) {
     pipeProductId: pipeProduct.id,
     pipeUnitRateEurM: pipeProduct.prototypeUnitRateEurM,
     coverM,
+    minimumCoverM: depthProfile.minimumCoverM,
+    maximumCoverM: depthProfile.maximumCoverM,
+    averageCoverM: depthProfile.averageCoverM,
+    depthControls: depthProfile.controls,
+    effectiveDepthPoints: depthProfile.effectivePoints,
+    duplicateDepthPointStations: depthProfile.duplicates,
+    maximumTrenchDepthM: depthProfile.maximumCoverM + outsideDiameterM + beddingM,
+    stationCoverM: stationProfile?.coverM ?? coverM,
+    stationTrenchDepthM: (stationProfile?.coverM ?? coverM) + outsideDiameterM + beddingM,
+    stationProfile,
+    routeEventDepthZones,
+    profileTerrainSource: designedProfile.terrainSource,
+    profileUsesLiveTerrain: designedProfile.liveTerrain,
+    profileSamples: designedProfile.samples,
+    terrainProfileSamples: designedProfile.terrainSamples,
+    abruptProfileSegments: designedProfile.abruptSegments,
     trenchWidthM,
     requiredTrenchWidthM,
     trenchWidthAssessment,
@@ -138,6 +209,8 @@ export function calculateProject(state) {
     beddingMaterialCompliant,
     trenchDepthM,
     excavationM3,
+    uniformCoverExcavationM3,
+    excavationDifferenceM3: excavationM3 - uniformCoverExcavationM3,
     beddingM3,
     backfillM3,
     restorationM2,
@@ -185,6 +258,56 @@ export function buildValidationResults(state, calculation, { elevationProfile = 
   });
 
   results.push(...evaluateRegulatoryRules(state));
+
+  if (calculation.duplicateDepthPointStations.length > 0) {
+    results.push({
+      id: 'depth-profile-duplicates',
+      status: 'warning',
+      titleKey: 'validation.depthProfile.title',
+      detailKey: 'validation.depthProfile.duplicates',
+      detailVariables: { count: calculation.duplicateDepthPointStations.length },
+    });
+  }
+
+  if (calculation.abruptProfileSegments.length > 0) {
+    results.push({
+      id: 'depth-profile-abrupt',
+      status: 'warning',
+      titleKey: 'validation.depthProfile.title',
+      detailKey: 'validation.depthProfile.abrupt',
+      detailVariables: { count: calculation.abruptProfileSegments.length },
+    });
+  }
+
+  const incompleteDepthZones = calculation.routeEventDepthZones.filter(({ status, expected }) => (
+    expected && status !== 'ready'
+  ));
+  incompleteDepthZones.forEach(({ event, status }) => {
+    const definition = routeEventTypeDefinition(event.type);
+    results.push({
+      id: `depth-profile-route-event:${event.id}`,
+      status: 'warning',
+      titleKey: 'validation.depthProfile.title',
+      contextKey: definition.labelKey,
+      contextIndex: routeEventDisplayIndex(state, event),
+      detailKey: status === 'stale'
+        ? 'validation.depthProfile.crossingStale'
+        : 'validation.depthProfile.crossingMissing',
+    });
+  });
+
+  if (
+    calculation.duplicateDepthPointStations.length === 0
+    && calculation.abruptProfileSegments.length === 0
+    && incompleteDepthZones.length === 0
+  ) {
+    results.push({
+      id: 'depth-profile',
+      status: 'pass',
+      titleKey: 'validation.depthProfile.title',
+      detailKey: 'validation.depthProfile.pass',
+    });
+  }
 
   getRouteEvents(state).forEach((event) => {
     const definition = routeEventTypeDefinition(event.type);

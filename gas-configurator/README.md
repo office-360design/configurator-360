@@ -3,10 +3,10 @@
 Early-stage route and trench configurator for natural-gas distribution connections.
 
 The current slice is deliberately preliminary. It provides route editing, synchronized
-plan/profile/section views, a public-terrain elevation profile, a versioned PE pipe catalogue,
-multiple configurable route events, public road/rail/water screening, quantity estimates and
-traceable data-quality checks, plus a narrow versioned regulatory screening pack. It does not
-replace the OSD connection solution, the ATR, a technical design, permits, survey, utility
+plan/profile/section views, a public-terrain elevation profile with editable pipe-depth controls,
+a versioned PE pipe catalogue, multiple configurable route events, public road/rail/water
+screening, variable-depth quantity estimates and traceable data-quality checks, plus a narrow
+versioned regulatory screening pack. It does not replace the OSD connection solution, the ATR, a technical design, permits, survey, utility
 location work or geotechnical investigation.
 
 ## Local development
@@ -25,8 +25,13 @@ the repository-level `shared-ui` package.
 - Manual A/B points and optional waypoints.
 - Terrain elevations are sampled automatically along the route from Mapzen Terrain Tiles;
   they are public screening data rather than surveyed design levels.
-- Both horizontal plan length and terrain-adjusted 3D length are shown. The 3D value is a
-  screening estimate derived from the sampled public elevations, not a surveyed pipe length.
+- Horizontal plan length, terrain-surface length and designed pipe-centreline length are shown.
+  The last two values inherit the active terrain source, so they remain screening estimates when
+  public or fallback terrain is used rather than surveyed levels.
+- The longitudinal profile supports piecewise-linear cover control points. Users can add, drag,
+  edit and remove manual controls; inherited A/B controls remain attached to the route endpoints.
+  Excavation, backfill, preliminary work cost and procurement pipe length update from the designed
+  profile rather than silently retaining a uniform-depth assumption.
 - The company-supplied Vâlcea KMZ is displayed with its served UATs. An existing line can be
   selected as a geometric connection candidate, and point A can be snapped to its exact
   mapped position with a configurable tolerance.
@@ -59,8 +64,8 @@ product boundaries, implemented rules and remaining review requirements.
 
 ## Versioned pipe catalogue and state model
 
-The gas state is currently `schemaVersion: 3` and the product catalogue is
-`RO-PE-PROTOTYPE@1`. Existing local saves from the former v1/v2 keys are loaded and normalized
+The gas state is currently `schemaVersion: 4` and the product catalogue is
+`RO-PE-PROTOTYPE@1`. Existing local saves from the former v1/v2/v3 keys are loaded and normalized
 automatically. A legacy single `crossing` is migrated into one `routeEvents` entry while a
 compatibility projection is retained for older calculation and rendering paths.
 
@@ -69,14 +74,18 @@ The normalized state now contains:
 - `pipe`: the current default catalogue selection;
 - `pipeSections`: route-chainage intervals prepared for later per-section material/diameter/SDR
   editing;
-- `depthPoints`: cover control points prepared for an editable longitudinal design profile;
+- `depthPoints`: editable cover controls with stable IDs, source metadata, inherited endpoints
+  and optional route-event depth-zone roles;
 - `routeEvents`: multiple source-aware utility/road/rail/watercourse crossings;
 - `screening`: public obstacle-screening preferences.
 
-The current UI still edits one default pipe selection and one global cover. Until section and
-depth-point editors are exposed, the inherited main pipe section and default depth endpoints
-are regenerated to span the full route after every route edit. This avoids stale unmodelled
-route tails or accumulated phantom depth controls.
+The current UI still edits one default pipe selection; `pipeSections` remain a foundation for
+later per-section product editing. The default cover remains the inherited value for route areas
+without a manual control. In profile-edit mode, clicking the chart creates a manual control,
+dragging changes its station and cover, and numeric controls expose ground, crown, centreline and
+invert elevations. A/B endpoint controls are not removable and continue to follow route edits.
+Crossing events with a configured corridor width can create locked entry/centre/exit stations;
+their cover values remain editable while their chainages follow the event geometry.
 
 Changing material, diameter or SDR now resolves a concrete catalogue product. SDR therefore
 affects wall thickness, internal diameter and the indexed preliminary pipe rate instead of
@@ -145,11 +154,18 @@ tiles, cancels stale requests after route edits and limits the number of tiles r
 the source cannot be loaded, the profile visibly falls back to the two editable A/B elevation
 values and remains dashed so screening data is not confused with surveyed levels.
 
-Once a matching terrain profile is available, the configurator sums each profile interval as
-`sqrt(horizontal distance² + elevation change²)` and displays that terrain-adjusted 3D length
-beside the horizontal plan length. Quantity and cost calculations continue to use plan length;
-changing their basis should be an explicit engineering and commercial decision rather than an
-implicit consequence of public elevation data.
+The terrain and designed pipe-centreline lengths are both summed interval by interval as
+`sqrt(horizontal distance² + elevation change²)`. Procurement pipe quantity uses the designed
+centreline length plus the existing prototype allowance. This is useful for comparing profile
+alternatives, but a public/fallback terrain source still does not turn the result into a surveyed
+or procurement-approved length.
+
+Excavation is integrated exactly over each piecewise-linear cover interval using the configured
+trench width, pipe outside diameter and bedding thickness. Bedding/sand-envelope quantity remains
+length-based under the existing prototype assumption; backfill is recalculated from excavation,
+the sand envelope and pipe displacement. The results show minimum, maximum and average cover,
+maximum trench depth and the excavation difference versus the same route at uniform default
+cover.
 
 The default tile template can be replaced at build time with
 `VITE_GAS_TERRAIN_TILE_URL` or at runtime with `window.GAS_TERRAIN_TILE_ENDPOINT`.

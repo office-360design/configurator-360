@@ -202,7 +202,7 @@ export function renderGasLayout(root) {
         </section>
 
         <div class="gas-analysis-grid">
-          <section class="gas-analysis-card gas-surface-card" aria-labelledby="profileTitle">
+          <section class="gas-analysis-card gas-analysis-card--profile gas-surface-card" aria-labelledby="profileTitle">
             <div class="gas-card-heading">
               <div>
                 <h2 id="profileTitle" data-gas-i18n="view.profile"></h2>
@@ -215,10 +215,31 @@ export function renderGasLayout(root) {
                 <button type="button" id="retryElevationButton" class="gas-profile-retry" data-gas-i18n-title="action.retryElevation" data-gas-i18n-aria-label="action.retryElevation" hidden>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 9A7 7 0 0 1 18.7 7M17.9 15A7 7 0 0 1 5.3 17"></path></svg>
                 </button>
+                <button type="button" id="toggleDepthProfileEditButton" class="gas-profile-edit-toggle" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.2-1 10.9-10.9a2.1 2.1 0 0 0-3-3L5.2 16 4 20Z"></path><path d="m14.8 6.4 2.8 2.8"></path></svg>
+                  <span data-gas-i18n="action.editDepthProfile"></span>
+                </button>
                 <span id="profileStationLabel" class="gas-station-pill">—</span>
               </div>
             </div>
             <svg id="profileSvg" class="gas-diagram" viewBox="0 0 720 220" role="img" aria-labelledby="profileTitle"></svg>
+            <div class="gas-profile-footer">
+              <p id="profileEditHint" class="gas-profile-edit-hint" data-gas-i18n="view.profileReadHint"></p>
+              <div class="gas-profile-actions" role="toolbar" data-gas-i18n-aria-label="depthProfile.toolbar">
+                <button type="button" id="addDepthPointButton" class="gas-profile-action">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                  <span data-gas-i18n="action.addDepthPoint"></span>
+                </button>
+                <button type="button" id="removeDepthPointProfileButton" class="gas-profile-action gas-profile-action--danger" data-gas-i18n="action.removeDepthPoint"></button>
+                <button type="button" id="resetDepthProfileProfileButton" class="gas-profile-action" data-gas-i18n="action.resetDepthProfile"></button>
+              </div>
+              <div class="gas-profile-legend" aria-label="Profile legend">
+                <span><i class="gas-profile-legend__line gas-profile-legend__line--terrain"></i><b data-gas-i18n="legend.terrain"></b></span>
+                <span><i class="gas-profile-legend__line gas-profile-legend__line--pipe"></i><b data-gas-i18n="legend.designedPipe"></b></span>
+                <span><i class="gas-profile-legend__point gas-profile-legend__point--manual"></i><b data-gas-i18n="legend.manualDepth"></b></span>
+                <span><i class="gas-profile-legend__point gas-profile-legend__point--surveyed"></i><b data-gas-i18n="legend.surveyedDepth"></b></span>
+              </div>
+            </div>
           </section>
 
           <section class="gas-analysis-card gas-surface-card" aria-labelledby="crossSectionTitle">
@@ -384,6 +405,56 @@ export function renderGasLayout(root) {
           </div>
         </details>
 
+        <details id="depthProfilePanel" class="gas-panel" open>
+          <summary>
+            <span data-gas-i18n="panel.depthProfile"></span>
+            <span id="depthPointCount" class="gas-validation-count">—</span>
+            <span class="gas-panel__chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="gas-panel__body">
+            <div class="gas-depth-summary-grid">
+              <div><span data-gas-i18n="depthProfile.minimumCover"></span><strong id="minimumCoverResult">—</strong></div>
+              <div><span data-gas-i18n="depthProfile.averageCover"></span><strong id="averageCoverResult">—</strong></div>
+              <div><span data-gas-i18n="depthProfile.maximumCover"></span><strong id="maximumCoverResult">—</strong></div>
+              <div><span data-gas-i18n="depthProfile.maximumTrenchDepth"></span><strong id="maximumTrenchDepthResult">—</strong></div>
+            </div>
+            <div id="depthPointList" class="gas-depth-point-list" aria-live="polite"></div>
+            <p id="depthPointEmpty" class="gas-route-event-empty" data-gas-i18n="depthProfile.empty"></p>
+            <div id="depthPointFields" class="gas-conditional-fields" hidden>
+              <div class="gas-field-grid">
+                <label class="gas-field" for="depthPointStationInput">
+                  <span data-gas-i18n="field.depthPointStation"></span>
+                  <span class="gas-input-with-unit"><input id="depthPointStationInput" type="number" min="0" step="0.1" /><em>m</em></span>
+                </label>
+                <label class="gas-field" for="depthPointCoverInput">
+                  <span data-gas-i18n="field.depthPointCover"></span>
+                  <span class="gas-input-with-unit"><input id="depthPointCoverInput" type="number" min="0.3" max="5" step="0.05" /><em>m</em></span>
+                </label>
+              </div>
+              <label class="gas-field" for="depthPointSourceSelect">
+                <span data-gas-i18n="field.depthPointSource"></span>
+                <select id="depthPointSourceSelect">
+                  ${option('default', 'option.depthPointSource.default', true)}
+                  ${option('manual', 'option.depthPointSource.manual')}
+                  ${option('surveyed', 'option.depthPointSource.surveyed')}
+                </select>
+              </label>
+              <p id="depthPointLockHint" class="gas-field-hint" data-gas-i18n="depthProfile.editHint"></p>
+              <dl class="gas-depth-point-values">
+                <div><dt data-gas-i18n="depthProfile.ground"></dt><dd id="depthGroundValue">—</dd></div>
+                <div><dt data-gas-i18n="depthProfile.pipeCrown"></dt><dd id="depthCrownValue">—</dd></div>
+                <div><dt data-gas-i18n="depthProfile.pipeCenterline"></dt><dd id="depthCenterlineValue">—</dd></div>
+                <div><dt data-gas-i18n="depthProfile.pipeInvert"></dt><dd id="depthInvertValue">—</dd></div>
+                <div><dt data-gas-i18n="depthProfile.localSlope"></dt><dd id="depthSlopeValue">—</dd></div>
+              </dl>
+              <button type="button" id="removeDepthPointButton" class="gas-route-event-remove" data-gas-i18n="action.removeDepthPoint"></button>
+            </div>
+            <div id="depthProfileWarnings" class="gas-depth-warning" aria-live="polite"></div>
+            <button type="button" id="resetDepthProfileButton" class="gas-secondary-action" data-gas-i18n="action.resetDepthProfile"></button>
+            <p class="gas-field-hint" data-gas-i18n="depthProfile.defaultHint"></p>
+          </div>
+        </details>
+
         <details class="gas-panel" open>
           <summary>
             <span data-gas-i18n="panel.rules"></span>
@@ -469,6 +540,18 @@ export function renderGasLayout(root) {
                   <span data-gas-i18n="field.routeEventMethod"></span>
                   <select id="routeEventMethodSelect">${installationMethodOptions()}</select>
                 </label>
+                <div id="routeEventDepthZoneFields" class="gas-route-event-depth-zone">
+                  <div class="gas-route-event-depth-zone__heading">
+                    <strong data-gas-i18n="depthProfile.crossingZone"></strong>
+                    <span id="routeEventDepthZoneStatus">—</span>
+                  </div>
+                  <label class="gas-field" for="routeEventDepthCoverInput">
+                    <span data-gas-i18n="field.routeEventDepthCover"></span>
+                    <span class="gas-input-with-unit"><input id="routeEventDepthCoverInput" type="number" min="0.3" max="5" step="0.05" /><em>m</em></span>
+                  </label>
+                  <button type="button" id="applyRouteEventDepthZoneButton" class="gas-secondary-action" data-gas-i18n="action.applyCrossingDepthZone"></button>
+                  <p class="gas-field-hint" data-gas-i18n="depthProfile.crossingZoneHint"></p>
+                </div>
                 <div id="utilityRouteEventFields" class="gas-conditional-fields">
                   <div class="gas-field-grid">
                     <label class="gas-field" for="routeEventUtilityTypeSelect">
@@ -557,11 +640,18 @@ export function renderGasLayout(root) {
             </div>
             <div class="gas-metrics-grid">
               ${metric('routeLengthResult', 'metric.routeLength')}
+              ${metric('designedPipeLengthResult', 'metric.designedPipeLength')}
               ${metric('pipeLengthResult', 'metric.pipeLength')}
               ${metric('excavationResult', 'metric.excavation')}
               ${metric('beddingResult', 'metric.bedding')}
+              ${metric('backfillResult', 'metric.backfill')}
               ${metric('restorationResult', 'metric.restoration')}
               ${metric('dataConfidenceResult', 'metric.dataConfidence')}
+            </div>
+            <div class="gas-excavation-delta-row">
+              <span data-gas-i18n="metric.excavationDelta"></span>
+              <strong id="excavationDifferenceResult">—</strong>
+              <small id="excavationDifferenceDetail">—</small>
             </div>
             <div class="gas-terrain-distance-row">
               <span data-gas-i18n="metric.terrainLength"></span>

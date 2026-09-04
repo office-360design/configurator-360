@@ -66,7 +66,7 @@ test('obstacle-screening settings are versioned, preserved and clamped', () => {
   assert.equal(defaults.screening.proximityThresholdM, 25);
 });
 
-test('the store migrates the previous v2 persistence key before falling back to defaults', () => {
+test('the store checks v4 and v3 before migrating the previous v2 persistence key', () => {
   const previousLocalStorage = globalThis.localStorage;
   const requestedKeys = [];
   globalThis.localStorage = {
@@ -86,7 +86,8 @@ test('the store migrates the previous v2 persistence key before falling back to 
 
   try {
     const store = new GasConfiguratorStore();
-    assert.deepEqual(requestedKeys.slice(0, 2), [
+    assert.deepEqual(requestedKeys.slice(0, 3), [
+      '360-configurator:gas-prototype:v4',
       '360-configurator:gas-prototype:v3',
       '360-configurator:gas-prototype:v2',
     ]);

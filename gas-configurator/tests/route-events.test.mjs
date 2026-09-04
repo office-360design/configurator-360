@@ -31,7 +31,7 @@ function detectedRoad(overrides = {}) {
   };
 }
 
-test('legacy single-crossing state migrates to the v3 route-event model', () => {
+test('legacy single-crossing state migrates through the route-event model into schema v4', () => {
   const state = normalizeState({
     schemaVersion: 2,
     crossing: {
