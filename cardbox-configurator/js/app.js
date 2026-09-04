@@ -3774,7 +3774,762 @@ getPrice = function getDecorationPrice(){const total=packagingRenderSummaryExten
 ensureDecorationState();
 
 
-window.CARDBOX_CONFIGURATOR_API = { captureState, restoreState, resetConfiguration, setUnits, setCurrency, setLocale, setDarkMode, toggleDimensions, toggleTechnicalEdges, cycleCamera, getPrice, syncToolButtons() {}, closeToolPanels() {} };
+/* --------------------------------------------------------------------------
+   Cardbox inspection and presentation tools
+   -------------------------------------------------------------------------- */
+
+const CARDBOX_TOOL_BOX_LIFT_MM = 500;
+const CARDBOX_TOOL_LID_ANGLE = Math.PI * 0.58;
+const CARDBOX_TOOL_TWEEN_MS = 420;
+const CARDBOX_FOLD_ANIMATION_MS = 3200;
+const CARDBOX_FOLD_WATCHDOG_MS = 9000;
+
+const CARDBOX_TOOL_COPY = Object.freeze({
+  'en-US': Object.freeze({
+    closureTitle: 'Open / close',
+    closureHelp: 'Inspect the upper and lower closures independently.',
+    upper: 'Upper closure',
+    upperHelp: 'Top lid or flaps',
+    lower: 'Lower closure',
+    lowerHelp: 'Bottom lid or flaps',
+    open: 'Open',
+    close: 'Close',
+    unavailable: 'Not available',
+    panelClose: 'Close',
+    foldTitle: 'Fold animation in progress',
+    foldDetail: 'The configurator is temporarily locked.',
+  }),
+  'ro-RO': Object.freeze({
+    closureTitle: 'Deschide / închide',
+    closureHelp: 'Inspectează independent închiderea superioară și cea inferioară.',
+    upper: 'Închidere superioară',
+    upperHelp: 'Capac sau clapete superioare',
+    lower: 'Închidere inferioară',
+    lowerHelp: 'Capac sau clapete inferioare',
+    open: 'Deschide',
+    close: 'Închide',
+    unavailable: 'Indisponibil',
+    panelClose: 'Închide',
+    foldTitle: 'Animația de pliere este în curs',
+    foldDetail: 'Configuratorul este blocat temporar.',
+  }),
+  'de-DE': Object.freeze({
+    closureTitle: 'Öffnen / schließen',
+    closureHelp: 'Oberen und unteren Verschluss getrennt prüfen.',
+    upper: 'Oberer Verschluss',
+    upperHelp: 'Oberer Deckel oder Klappen',
+    lower: 'Unterer Verschluss',
+    lowerHelp: 'Unterer Deckel oder Klappen',
+    open: 'Öffnen',
+    close: 'Schließen',
+    unavailable: 'Nicht verfügbar',
+    panelClose: 'Schließen',
+    foldTitle: 'Faltanimation läuft',
+    foldDetail: 'Der Konfigurator ist vorübergehend gesperrt.',
+  }),
+});
+
+const boxClosureToolPanel = $('#boxClosureToolPanel');
+const closureToolTitle = $('#closureToolTitle');
+const closureToolHelp = $('#closureToolHelp');
+const topClosureToolLabel = $('#topClosureToolLabel');
+const topClosureToolDescription = $('#topClosureToolDescription');
+const bottomClosureToolLabel = $('#bottomClosureToolLabel');
+const bottomClosureToolDescription = $('#bottomClosureToolDescription');
+const topClosureToolState = $('#topClosureToolState');
+const bottomClosureToolState = $('#bottomClosureToolState');
+const toggleTopClosureButton = $('#toggleTopClosureButton');
+const toggleBottomClosureButton = $('#toggleBottomClosureButton');
+const closeClosureToolPanelButton = $('#closeClosureToolPanelButton');
+const foldAnimationOverlay = $('#foldAnimationOverlay');
+const foldAnimationOverlayTitle = $('#foldAnimationOverlayTitle');
+const foldAnimationOverlayDetail = $('#foldAnimationOverlayDetail');
+
+let closurePanelOpen = false;
+let topClosureProgress = 0;
+let bottomClosureProgress = 0;
+let boxLiftCurrent = 0;
+let boxLiftTarget = 0;
+let transparentMode = false;
+let artworkVisible = true;
+let foldAnimationActive = false;
+let interactionLocked = false;
+let configuredClosureSignature = '';
+let lidTweenToken = 0;
+let liftTweenToken = 0;
+let foldAnimationFrame = 0;
+let foldAnimationWatchdog = 0;
+let foldAnimationRestoreState = null;
+let foldInertSnapshot = [];
+
+const CARD_BOX_MOVABLE_GROUPS = Object.freeze([
+  boxGroup,
+  textGroup,
+  editorPreviewGroup,
+  previewGroup,
+  textSelectionGroup,
+  imageGroup,
+  imagePreviewGroup,
+  imageSelectionGroup,
+  packagingClosureGroup,
+  packagingFeatureGroup,
+]);
+
+function cardboxToolCopy() {
+  return CARDBOX_TOOL_COPY[locale] || CARDBOX_TOOL_COPY['en-US'];
+}
+
+function cardboxToolState() {
+  return {
+    closurePanelOpen,
+    boxLifted: boxLiftTarget > 0.5,
+    transparentMode,
+    artworkVisible,
+    foldAnimationActive,
+    interactionLocked,
+    topOpen: topClosureProgress > 0.5,
+    bottomOpen: bottomClosureProgress > 0.5,
+  };
+}
+
+function notifyCardboxToolState() {
+  window.dispatchEvent(new CustomEvent('cardbox:tool-state', { detail: cardboxToolState() }));
+}
+
+function configuredClosureAvailable(which) {
+  const value = state.closures?.[which];
+  return Boolean(value && value !== 'open');
+}
+
+function reconcileConfiguredClosures() {
+  const signature = `${state.boxType || ''}|${state.closures?.top || ''}|${state.closures?.bottom || ''}`;
+  if (configuredClosureSignature && configuredClosureSignature !== signature && !foldAnimationActive) {
+    topClosureProgress = 0;
+    bottomClosureProgress = 0;
+    lidTweenToken += 1;
+  }
+  configuredClosureSignature = signature;
+  if (!configuredClosureAvailable('top')) topClosureProgress = 0;
+  if (!configuredClosureAvailable('bottom')) bottomClosureProgress = 0;
+}
+
+function renderClosureToolPanel() {
+  const copy = cardboxToolCopy();
+  closureToolTitle.textContent = copy.closureTitle;
+  closureToolHelp.textContent = copy.closureHelp;
+  topClosureToolLabel.textContent = copy.upper;
+  topClosureToolDescription.textContent = copy.upperHelp;
+  bottomClosureToolLabel.textContent = copy.lower;
+  bottomClosureToolDescription.textContent = copy.lowerHelp;
+  closeClosureToolPanelButton.textContent = copy.panelClose;
+  foldAnimationOverlayTitle.textContent = copy.foldTitle;
+  foldAnimationOverlayDetail.textContent = copy.foldDetail;
+
+  const topAvailable = configuredClosureAvailable('top');
+  const bottomAvailable = configuredClosureAvailable('bottom');
+  const topOpen = topClosureProgress > 0.5;
+  const bottomOpen = bottomClosureProgress > 0.5;
+
+  toggleTopClosureButton.disabled = !topAvailable || foldAnimationActive;
+  toggleBottomClosureButton.disabled = !bottomAvailable || foldAnimationActive;
+  toggleTopClosureButton.setAttribute('aria-disabled', String(toggleTopClosureButton.disabled));
+  toggleBottomClosureButton.setAttribute('aria-disabled', String(toggleBottomClosureButton.disabled));
+  toggleTopClosureButton.setAttribute('aria-pressed', String(topOpen));
+  toggleBottomClosureButton.setAttribute('aria-pressed', String(bottomOpen));
+  toggleTopClosureButton.classList.toggle('is-open', topOpen);
+  toggleBottomClosureButton.classList.toggle('is-open', bottomOpen);
+  topClosureToolState.textContent = !topAvailable ? copy.unavailable : topOpen ? copy.close : copy.open;
+  bottomClosureToolState.textContent = !bottomAvailable ? copy.unavailable : bottomOpen ? copy.close : copy.open;
+  boxClosureToolPanel.hidden = !closurePanelOpen || foldAnimationActive;
+}
+
+function clearInspectionSelections() {
+  if (placementMode) exitPlacementMode();
+  if (imagePlacementMode) exitImagePlacementMode();
+  if (selectedTextId) deselectTextPlacement();
+  if (selectedImageId) deselectImagePlacement();
+  if (selectedFaceSnapshot) deselectFace();
+  textEditorPanel.hidden = true;
+  faceColorPanel.hidden = true;
+  imageResizePanel.hidden = true;
+  clearEditorPreview();
+}
+
+function closeToolPanels() {
+  if (!closurePanelOpen) return false;
+  closurePanelOpen = false;
+  renderClosureToolPanel();
+  notifyCardboxToolState();
+  return true;
+}
+
+function toggleClosureToolPanel() {
+  if (interactionLocked) return false;
+  clearInspectionSelections();
+  closurePanelOpen = !closurePanelOpen;
+  renderClosureToolPanel();
+  notifyCardboxToolState();
+  return closurePanelOpen;
+}
+
+function toolTopDisplayY() {
+  const b = boundsForBoxes(state.boxes);
+  return b.maxY + (isLidLiftActive() ? LID_LIFT_MM : 0);
+}
+
+function toolBottomDisplayY() {
+  return boundsForBoxes(state.boxes).minY;
+}
+
+function closurePivot(which) {
+  const b = boundsForBoxes(state.boxes);
+  const x = (b.minX + b.maxX) / 2;
+  if (which === 'top') return new THREE.Vector3(x, toolTopDisplayY(), b.minZ);
+  return new THREE.Vector3(x, toolBottomDisplayY(), b.maxZ);
+}
+
+function closureQuaternion(which, progress) {
+  if (!progress) return new THREE.Quaternion();
+  const angle = -CARDBOX_TOOL_LID_ANGLE * clamp(progress, 0, 1);
+  return new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle);
+}
+
+function captureToolBaseTransform(object) {
+  if (object.userData.cardboxToolBaseTransform) return object.userData.cardboxToolBaseTransform;
+  const base = {
+    position: object.position.clone(),
+    quaternion: object.quaternion.clone(),
+    scale: object.scale.clone(),
+  };
+  object.userData.cardboxToolBaseTransform = base;
+  return base;
+}
+
+function resetToolRenderable(object) {
+  const base = captureToolBaseTransform(object);
+  object.position.copy(base.position);
+  object.quaternion.copy(base.quaternion);
+  object.scale.copy(base.scale);
+  object.updateMatrix();
+}
+
+function baseObjectNormal(object) {
+  const base = captureToolBaseTransform(object);
+  return new THREE.Vector3(0, 0, 1).applyQuaternion(base.quaternion).normalize();
+}
+
+function baseObjectCenter(object) {
+  const base = captureToolBaseTransform(object);
+  if (!object.geometry) return base.position.clone();
+  object.geometry.computeBoundingBox?.();
+  const center = object.geometry.boundingBox?.getCenter(new THREE.Vector3()) || new THREE.Vector3();
+  center.multiply(base.scale).applyQuaternion(base.quaternion).add(base.position);
+  return center;
+}
+
+function classifyToolSurface(object) {
+  if (object.userData.cardboxToolSurface) return object.userData.cardboxToolSurface;
+  if (object.userData.top) return 'top';
+  if (object.userData.bottom) return 'bottom';
+
+  const center = baseObjectCenter(object);
+  const tolerance = Math.max(18, state.boardThickness * 8);
+  const isClosureLine = object.isLine || object.isLineSegments || object.isLineLoop;
+  if (isClosureLine) {
+    if (Math.abs(center.y - toolTopDisplayY()) <= tolerance) return 'top';
+    if (Math.abs(center.y - toolBottomDisplayY()) <= tolerance) return 'bottom';
+    return '';
+  }
+
+  const normal = baseObjectNormal(object);
+  if (Math.abs(normal.y) < 0.78) return '';
+  if (Math.abs(center.y - toolTopDisplayY()) <= tolerance) return 'top';
+  if (Math.abs(center.y - toolBottomDisplayY()) <= tolerance) return 'bottom';
+  return '';
+}
+
+function transformToolRenderable(object, which, progress) {
+  const base = captureToolBaseTransform(object);
+  object.position.copy(base.position);
+  object.quaternion.copy(base.quaternion);
+  if (!progress) return;
+  const pivot = closurePivot(which);
+  const rotation = closureQuaternion(which, progress);
+  object.position.sub(pivot).applyQuaternion(rotation).add(pivot);
+  object.quaternion.premultiply(rotation);
+  object.updateMatrix();
+}
+
+function hasSurfaceMeshAncestor(object) {
+  let parent = object.parent;
+  while (parent) {
+    if (surfaceMeshes.includes(parent)) return true;
+    if (CARD_BOX_MOVABLE_GROUPS.includes(parent)) break;
+    parent = parent.parent;
+  }
+  return false;
+}
+
+function toolRenderables() {
+  const objects = new Set(surfaceMeshes);
+  [textGroup, editorPreviewGroup, previewGroup, imageGroup, imagePreviewGroup, packagingClosureGroup, packagingFeatureGroup].forEach((group) => {
+    group.traverse((object) => {
+      if (!(object.isMesh || object.isLine || object.isLineSegments || object.isLineLoop)) return;
+      if (surfaceMeshes.includes(object) || hasSurfaceMeshAncestor(object)) return;
+      objects.add(object);
+    });
+  });
+  return [...objects];
+}
+
+function restoreMaterialPresentation(material) {
+  if (!material?.userData?.cardboxPresentationBase) return;
+  const base = material.userData.cardboxPresentationBase;
+  material.transparent = base.transparent;
+  material.opacity = base.opacity;
+  material.depthWrite = base.depthWrite;
+  material.alphaTest = base.alphaTest;
+  material.needsUpdate = true;
+}
+
+function applyMaterialTransparency(material, opacity = 0.27) {
+  if (!material) return;
+  if (!material.userData.cardboxPresentationBase) {
+    material.userData.cardboxPresentationBase = {
+      transparent: material.transparent,
+      opacity: material.opacity,
+      depthWrite: material.depthWrite,
+      alphaTest: material.alphaTest,
+    };
+  }
+  if (!transparentMode) {
+    restoreMaterialPresentation(material);
+    return;
+  }
+  material.transparent = true;
+  material.opacity = Math.min(Number(material.opacity) || 1, opacity);
+  material.depthWrite = false;
+  material.alphaTest = 0;
+  material.needsUpdate = true;
+}
+
+function applyTransparentPresentation() {
+  surfaceMeshes.forEach((mesh) => {
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    materials.forEach((material) => applyMaterialTransparency(material, 0.27));
+  });
+  packagingClosureGroup.traverse((object) => {
+    const materials = object.material ? (Array.isArray(object.material) ? object.material : [object.material]) : [];
+    materials.forEach((material) => applyMaterialTransparency(material, 0.42));
+  });
+  packagingFeatureGroup.traverse((object) => {
+    const materials = object.material ? (Array.isArray(object.material) ? object.material : [object.material]) : [];
+    materials.forEach((material) => applyMaterialTransparency(material, 0.55));
+  });
+}
+
+function applyArtworkVisibility() {
+  textGroup.visible = artworkVisible;
+  imageGroup.visible = artworkVisible;
+  editorPreviewGroup.visible = artworkVisible;
+  previewGroup.visible = artworkVisible;
+  imagePreviewGroup.visible = artworkVisible;
+  textSelectionGroup.visible = artworkVisible;
+  imageSelectionGroup.visible = artworkVisible;
+  if (!artworkVisible) {
+    textSelectionHud.hidden = true;
+    imageSelectionHud.hidden = true;
+    textGuideLayer.hidden = true;
+  } else {
+    textGuideLayer.hidden = false;
+  }
+}
+
+function applyBoxLift() {
+  CARD_BOX_MOVABLE_GROUPS.forEach((group) => { group.position.y = boxLiftCurrent; group.updateMatrixWorld(true); });
+}
+
+function applyToolVisualState() {
+  reconcileConfiguredClosures();
+  const topProgress = configuredClosureAvailable('top') ? topClosureProgress : 0;
+  const bottomProgress = configuredClosureAvailable('bottom') ? bottomClosureProgress : 0;
+  toolRenderables().forEach((object) => {
+    resetToolRenderable(object);
+    const surface = classifyToolSurface(object);
+    object.userData.cardboxToolSurface = surface;
+    if (surface === 'top') transformToolRenderable(object, 'top', topProgress);
+    else if (surface === 'bottom') transformToolRenderable(object, 'bottom', bottomProgress);
+  });
+  applyTransparentPresentation();
+  applyArtworkVisibility();
+  applyBoxLift();
+  renderClosureToolPanel();
+}
+
+function inverseClosurePoint(point, which) {
+  const progress = which === 'top' ? topClosureProgress : bottomClosureProgress;
+  if (!progress) return point;
+  const pivot = closurePivot(which);
+  const inverse = closureQuaternion(which, progress).invert();
+  return point.sub(pivot).applyQuaternion(inverse).add(pivot);
+}
+
+function modelPointFromToolWorld(point, object) {
+  const result = point.clone();
+  result.y -= boxLiftCurrent;
+  const surface = object?.userData?.cardboxToolSurface || classifyToolSurface(object);
+  if (surface === 'top' || surface === 'bottom') inverseClosurePoint(result, surface);
+  return result;
+}
+
+function easeInOutCubic(value) {
+  const t = clamp(value, 0, 1);
+  return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2;
+}
+
+function animateClosure(which, target, duration = CARDBOX_TOOL_TWEEN_MS) {
+  if (interactionLocked || !configuredClosureAvailable(which)) return Promise.resolve(false);
+  const token = ++lidTweenToken;
+  const start = which === 'top' ? topClosureProgress : bottomClosureProgress;
+  const startedAt = performance.now();
+  toggleTopClosureButton.disabled = true;
+  toggleBottomClosureButton.disabled = true;
+
+  return new Promise((resolve) => {
+    const frame = (now) => {
+      if (token !== lidTweenToken || foldAnimationActive) { resolve(false); return; }
+      const ratio = Math.min(1, (now - startedAt) / duration);
+      const value = start + (target - start) * easeInOutCubic(ratio);
+      if (which === 'top') topClosureProgress = value;
+      else bottomClosureProgress = value;
+      applyToolVisualState();
+      if (ratio < 1) requestAnimationFrame(frame);
+      else {
+        if (which === 'top') topClosureProgress = target;
+        else bottomClosureProgress = target;
+        applyToolVisualState();
+        notifyCardboxToolState();
+        resolve(true);
+      }
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+function toggleTopClosure() {
+  clearInspectionSelections();
+  return animateClosure('top', topClosureProgress > 0.5 ? 0 : 1);
+}
+
+function toggleBottomClosure() {
+  clearInspectionSelections();
+  return animateClosure('bottom', bottomClosureProgress > 0.5 ? 0 : 1);
+}
+
+function animateBoxLift(target) {
+  if (interactionLocked) return Promise.resolve(false);
+  const token = ++liftTweenToken;
+  const start = boxLiftCurrent;
+  const startedAt = performance.now();
+  boxLiftTarget = target;
+  notifyCardboxToolState();
+  return new Promise((resolve) => {
+    const frame = (now) => {
+      if (token !== liftTweenToken || foldAnimationActive) { resolve(false); return; }
+      const ratio = Math.min(1, (now - startedAt) / 360);
+      const previous = boxLiftCurrent;
+      boxLiftCurrent = start + (target - start) * easeInOutCubic(ratio);
+      const delta = boxLiftCurrent - previous;
+      controls.target.y += delta;
+      camera.position.y += delta * 0.36;
+      applyToolVisualState();
+      if (ratio < 1) requestAnimationFrame(frame);
+      else {
+        boxLiftCurrent = target;
+        applyToolVisualState();
+        notifyCardboxToolState();
+        resolve(true);
+      }
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+function toggleBoxLift() {
+  if (interactionLocked) return false;
+  clearInspectionSelections();
+  closeToolPanels();
+  const target = boxLiftTarget > 0.5 ? 0 : CARDBOX_TOOL_BOX_LIFT_MM;
+  void animateBoxLift(target);
+  return target > 0;
+}
+
+function toggleTransparentMode() {
+  if (interactionLocked) return transparentMode;
+  clearInspectionSelections();
+  closeToolPanels();
+  transparentMode = !transparentMode;
+  applyToolVisualState();
+  notifyCardboxToolState();
+  return transparentMode;
+}
+
+function toggleArtworkVisibility() {
+  if (interactionLocked) return artworkVisible;
+  closeToolPanels();
+  artworkVisible = !artworkVisible;
+  if (!artworkVisible) clearInspectionSelections();
+  applyArtworkVisibility();
+  notifyCardboxToolState();
+  return artworkVisible;
+}
+
+function lockFoldInteraction() {
+  if (interactionLocked) return;
+  interactionLocked = true;
+  foldAnimationOverlay.hidden = false;
+  foldInertSnapshot = [...document.body.children]
+    .filter((element) => element !== foldAnimationOverlay)
+    .map((element) => ({ element, inert: Boolean(element.inert), ariaBusy: element.getAttribute('aria-busy') }));
+  foldInertSnapshot.forEach(({ element }) => { element.inert = true; element.setAttribute('aria-busy', 'true'); });
+  controls.enabled = false;
+  document.body.classList.add('cardbox-fold-animation-active');
+  notifyCardboxToolState();
+}
+
+function unlockFoldInteraction() {
+  interactionLocked = false;
+  foldAnimationOverlay.hidden = true;
+  foldInertSnapshot.forEach(({ element, inert, ariaBusy }) => {
+    element.inert = inert;
+    if (ariaBusy == null) element.removeAttribute('aria-busy');
+    else element.setAttribute('aria-busy', ariaBusy);
+  });
+  foldInertSnapshot = [];
+  controls.enabled = true;
+  document.body.classList.remove('cardbox-fold-animation-active');
+  notifyCardboxToolState();
+}
+
+function cancelFoldAnimation({ restore = true } = {}) {
+  if (!foldAnimationActive && !interactionLocked) return false;
+  if (foldAnimationFrame) cancelAnimationFrame(foldAnimationFrame);
+  if (foldAnimationWatchdog) clearTimeout(foldAnimationWatchdog);
+  foldAnimationFrame = 0;
+  foldAnimationWatchdog = 0;
+  lidTweenToken += 1;
+  liftTweenToken += 1;
+  if (restore && foldAnimationRestoreState) {
+    topClosureProgress = foldAnimationRestoreState.top;
+    bottomClosureProgress = foldAnimationRestoreState.bottom;
+  }
+  foldAnimationRestoreState = null;
+  foldAnimationActive = false;
+  applyToolVisualState();
+  unlockFoldInteraction();
+  return true;
+}
+
+function playFoldAnimation() {
+  if (foldAnimationActive || interactionLocked) return Promise.resolve(false);
+  clearInspectionSelections();
+  closeToolPanels();
+  lidTweenToken += 1;
+  liftTweenToken += 1;
+  foldAnimationRestoreState = { top: topClosureProgress, bottom: bottomClosureProgress };
+  foldAnimationActive = true;
+  renderClosureToolPanel();
+  lockFoldInteraction();
+
+  const topAvailable = configuredClosureAvailable('top');
+  const bottomAvailable = configuredClosureAvailable('bottom');
+  const initialTop = topClosureProgress;
+  const initialBottom = bottomClosureProgress;
+  const startedAt = performance.now();
+
+  foldAnimationWatchdog = window.setTimeout(() => cancelFoldAnimation({ restore: true }), CARDBOX_FOLD_WATCHDOG_MS);
+
+  return new Promise((resolve) => {
+    const frame = (now) => {
+      if (!foldAnimationActive) { resolve(false); return; }
+      try {
+        const elapsed = now - startedAt;
+        if (elapsed < 700) {
+          const p = easeInOutCubic(elapsed / 700);
+          topClosureProgress = topAvailable ? initialTop + (1 - initialTop) * p : 0;
+          bottomClosureProgress = bottomAvailable ? initialBottom + (1 - initialBottom) * p : 0;
+        } else if (elapsed < 1050) {
+          topClosureProgress = topAvailable ? 1 : 0;
+          bottomClosureProgress = bottomAvailable ? 1 : 0;
+        } else if (elapsed < 1850) {
+          const p = easeInOutCubic((elapsed - 1050) / 800);
+          topClosureProgress = topAvailable ? 1 : 0;
+          bottomClosureProgress = bottomAvailable ? 1 - p : 0;
+        } else if (elapsed < 2150) {
+          topClosureProgress = topAvailable ? 1 : 0;
+          bottomClosureProgress = 0;
+        } else if (elapsed < CARDBOX_FOLD_ANIMATION_MS) {
+          const p = easeInOutCubic((elapsed - 2150) / (CARDBOX_FOLD_ANIMATION_MS - 2150));
+          topClosureProgress = topAvailable ? 1 - p : 0;
+          bottomClosureProgress = 0;
+        } else {
+          topClosureProgress = 0;
+          bottomClosureProgress = 0;
+          foldAnimationActive = false;
+          foldAnimationRestoreState = null;
+          if (foldAnimationWatchdog) clearTimeout(foldAnimationWatchdog);
+          foldAnimationWatchdog = 0;
+          foldAnimationFrame = 0;
+          applyToolVisualState();
+          unlockFoldInteraction();
+          resolve(true);
+          return;
+        }
+        applyToolVisualState();
+        foldAnimationFrame = requestAnimationFrame(frame);
+      } catch (error) {
+        console.error('Cardbox fold animation was cancelled.', error);
+        cancelFoldAnimation({ restore: true });
+        resolve(false);
+      }
+    };
+    foldAnimationFrame = requestAnimationFrame(frame);
+  });
+}
+
+function resetCardboxToolViewState() {
+  lidTweenToken += 1;
+  liftTweenToken += 1;
+  if (foldAnimationActive || interactionLocked) cancelFoldAnimation({ restore: false });
+  closurePanelOpen = false;
+  topClosureProgress = 0;
+  bottomClosureProgress = 0;
+  boxLiftCurrent = 0;
+  boxLiftTarget = 0;
+  transparentMode = false;
+  artworkVisible = true;
+  configuredClosureSignature = '';
+  CARD_BOX_MOVABLE_GROUPS.forEach((group) => { group.position.y = 0; });
+  applyToolVisualState();
+  notifyCardboxToolState();
+}
+
+closeClosureToolPanelButton.addEventListener('click', closeToolPanels);
+toggleTopClosureButton.addEventListener('click', () => { void toggleTopClosure(); });
+toggleBottomClosureButton.addEventListener('click', () => { void toggleBottomClosure(); });
+
+window.addEventListener('offline', () => cancelFoldAnimation({ restore: true }));
+window.addEventListener('pagehide', () => cancelFoldAnimation({ restore: true }));
+window.addEventListener('beforeunload', () => cancelFoldAnimation({ restore: false }));
+window.addEventListener('error', () => cancelFoldAnimation({ restore: true }));
+window.addEventListener('unhandledrejection', () => cancelFoldAnimation({ restore: true }));
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') cancelFoldAnimation({ restore: true });
+});
+
+const cardboxToolsLegacyRaycast = raycast;
+raycast = function raycastWithInspectionTransforms(event, objects = surfaceMeshes, recursive = false) {
+  const result = cardboxToolsLegacyRaycast(event, objects, recursive);
+  result.raycaster.ray.origin.y -= boxLiftCurrent;
+  if (result.hit?.point) result.hit.point.copy(modelPointFromToolWorld(result.hit.point, result.hit.object));
+  return result;
+};
+
+const cardboxToolsLegacyFitControlsTarget = fitControlsTarget;
+fitControlsTarget = function fitControlsTargetWithBoxLift() {
+  cardboxToolsLegacyFitControlsTarget();
+  controls.target.y += boxLiftCurrent;
+};
+
+const cardboxToolsLegacyCycleCamera = cycleCamera;
+cycleCamera = function cycleCameraWithBoxLift() {
+  const previousLift = boxLiftCurrent;
+  cardboxToolsLegacyCycleCamera();
+  camera.position.y += previousLift;
+};
+
+const cardboxToolsLegacyUpdateOverlayPositions = updateOverlayPositions;
+updateOverlayPositions = function updateOverlayPositionsWithBoxLift() {
+  if (!boxLiftCurrent) {
+    cardboxToolsLegacyUpdateOverlayPositions();
+    return;
+  }
+  dimensionAnchors.forEach((item) => { item.point.y += boxLiftCurrent; });
+  textGuidePoints.forEach((item) => { item.point.y += boxLiftCurrent; });
+  if (textHudAnchor) textHudAnchor.y += boxLiftCurrent;
+  if (imageHudAnchor) imageHudAnchor.y += boxLiftCurrent;
+  try {
+    cardboxToolsLegacyUpdateOverlayPositions();
+  } finally {
+    dimensionAnchors.forEach((item) => { item.point.y -= boxLiftCurrent; });
+    textGuidePoints.forEach((item) => { item.point.y -= boxLiftCurrent; });
+    if (textHudAnchor) textHudAnchor.y -= boxLiftCurrent;
+    if (imageHudAnchor) imageHudAnchor.y -= boxLiftCurrent;
+  }
+};
+
+const cardboxToolsLegacyRebuildSurfaceMeshes = rebuildSurfaceMeshes;
+rebuildSurfaceMeshes = function rebuildSurfaceMeshesWithInspectionTools() {
+  cardboxToolsLegacyRebuildSurfaceMeshes();
+  applyToolVisualState();
+};
+
+const cardboxToolsLegacyRenderPlacedTexts = renderPlacedTexts;
+renderPlacedTexts = function renderPlacedTextsWithInspectionTools() {
+  cardboxToolsLegacyRenderPlacedTexts();
+  applyToolVisualState();
+};
+
+const cardboxToolsLegacyRenderPlacedImages = renderPlacedImages;
+renderPlacedImages = async function renderPlacedImagesWithInspectionTools() {
+  await cardboxToolsLegacyRenderPlacedImages();
+  applyToolVisualState();
+};
+
+const cardboxToolsLegacyRenderTranslations = renderTranslations;
+renderTranslations = function renderTranslationsWithInspectionTools() {
+  cardboxToolsLegacyRenderTranslations();
+  renderClosureToolPanel();
+};
+
+const cardboxToolsLegacyRestoreState = restoreState;
+restoreState = function restoreStateAndResetInspectionTools(snapshot) {
+  const restored = cardboxToolsLegacyRestoreState(snapshot);
+  if (restored) resetCardboxToolViewState();
+  return restored;
+};
+
+const cardboxToolsLegacyResetConfiguration = resetConfiguration;
+resetConfiguration = function resetConfigurationAndInspectionTools() {
+  const reset = cardboxToolsLegacyResetConfiguration();
+  resetCardboxToolViewState();
+  return reset;
+};
+
+applyToolVisualState();
+
+
+window.CARDBOX_CONFIGURATOR_API = {
+  captureState,
+  restoreState,
+  resetConfiguration,
+  setUnits,
+  setCurrency,
+  setLocale,
+  setDarkMode,
+  toggleDimensions,
+  cycleCamera,
+  getPrice,
+  toggleClosureToolPanel,
+  closeToolPanels,
+  toggleBoxLift,
+  toggleTransparentMode,
+  playFoldAnimation,
+  cancelFoldAnimation,
+  toggleArtworkVisibility,
+  getToolState: cardboxToolState,
+  syncToolButtons() { notifyCardboxToolState(); },
+};
 
 bindAccordions(); bindControls(); renderAll();
 window.addEventListener('beforeunload', () => resizeObserver?.disconnect());
