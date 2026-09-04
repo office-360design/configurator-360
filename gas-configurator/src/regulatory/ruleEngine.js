@@ -1,3 +1,5 @@
+import { depthProfileStatistics } from '../domain/depthProfile.js';
+import { routeLengthMeters } from '../domain/geometry.js';
 import {
   firstUtilityCrossingEvent,
   getRouteEvents,
@@ -57,7 +59,12 @@ function resolveUtilityCrossing(state, event = null) {
 
 export function evaluateMinimumCover(state) {
   const rule = REGULATORY_RULES.minimumCover;
-  const actualM = finiteNumber(state?.trench?.coverM);
+  const routeLengthM = routeLengthMeters(state?.route?.points || []);
+  const actualM = depthProfileStatistics(
+    state?.depthPoints,
+    routeLengthM,
+    finiteNumber(state?.trench?.coverM, 1),
+  ).minimumCoverM;
   const variables = {
     actual: metric(actualM),
     minimum: metric(rule.minimumM),

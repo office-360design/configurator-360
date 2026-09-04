@@ -2305,6 +2305,377 @@ summary:focus-visible {
 .shared-ui-dark-mode .gas-section-rule-status--missing,
 .shared-ui-dark-mode .gas-section-rule-status--blocked { fill: #ef8b7a; }
 
+
+
+/* Editable longitudinal pipe-depth profile */
+.gas-analysis-card--profile {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.gas-profile-edit-toggle,
+.gas-profile-action,
+.gas-secondary-action {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid #bfd0da;
+  border-radius: 8px;
+  color: #195a7d;
+  background: #f7fbfd;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 760;
+}
+
+.gas-profile-edit-toggle:hover,
+.gas-profile-action:hover:not(:disabled),
+.gas-secondary-action:hover:not(:disabled) {
+  border-color: #86b9d4;
+  background: #eaf6fb;
+}
+
+.gas-profile-edit-toggle.is-active {
+  color: #fff;
+  border-color: #0878b6;
+  background: #0878b6;
+  box-shadow: 0 4px 12px rgba(8, 120, 182, 0.22);
+}
+
+.gas-profile-edit-toggle svg,
+.gas-profile-action svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.gas-profile-action:disabled,
+.gas-secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.gas-profile-action--danger {
+  color: #9d3b31;
+  border-color: #ebc8c4;
+  background: #fff9f8;
+}
+
+.gas-profile-action--danger:hover:not(:disabled) {
+  border-color: #d89a92;
+  background: #fceae7;
+}
+
+.gas-profile-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px 12px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--gas-line);
+  background: #fbfcfd;
+}
+
+.gas-profile-edit-hint {
+  min-width: 0;
+  margin: 0;
+  color: var(--gas-muted);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.gas-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.gas-profile-legend {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  color: #677b86;
+  font-size: 7.5px;
+  font-weight: 680;
+}
+
+.gas-profile-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.gas-profile-legend b { font: inherit; }
+.gas-profile-legend__line { width: 18px; height: 0; border-top: 2px solid; }
+.gas-profile-legend__line--terrain { border-color: #75634f; }
+.gas-profile-legend__line--pipe { border-color: var(--gas-blue); border-top-width: 3px; }
+.gas-profile-legend__point {
+  width: 8px;
+  height: 8px;
+  border: 2px solid;
+  border-radius: 50%;
+  background: #fff;
+}
+.gas-profile-legend__point--manual { border-color: #0878b6; }
+.gas-profile-legend__point--surveyed { border-color: #087f5b; border-radius: 2px; }
+
+.gas-profile-pipe-envelope {
+  fill: rgba(8, 120, 182, 0.16);
+  stroke: none;
+  pointer-events: none;
+}
+.gas-profile-pipe-envelope--fallback { fill: rgba(8, 120, 182, 0.08); }
+
+.gas-diagram[data-profile-edit-mode="true"] {
+  cursor: cell;
+  touch-action: none;
+}
+
+.gas-profile-depth-control {
+  cursor: pointer;
+  outline: none;
+}
+.gas-diagram[data-profile-edit-mode="true"] .gas-profile-depth-control { cursor: grab; }
+.gas-diagram[data-profile-edit-mode="true"] .gas-profile-depth-control:active { cursor: grabbing; }
+
+.gas-profile-depth-control__shape {
+  fill: #fff;
+  stroke: #0878b6;
+  stroke-width: 2.3;
+  vector-effect: non-scaling-stroke;
+}
+.gas-profile-depth-control__core { fill: #0878b6; pointer-events: none; }
+.gas-profile-depth-control--default .gas-profile-depth-control__shape { stroke: #6e7e87; }
+.gas-profile-depth-control--default .gas-profile-depth-control__core { fill: #6e7e87; }
+.gas-profile-depth-control--surveyed .gas-profile-depth-control__shape { stroke: #087f5b; }
+.gas-profile-depth-control--surveyed .gas-profile-depth-control__core { fill: #087f5b; }
+.gas-profile-depth-control.is-route-event-zone .gas-profile-depth-control__shape { stroke: #d17618; }
+.gas-profile-depth-control.is-route-event-zone .gas-profile-depth-control__core { fill: #d17618; }
+.gas-profile-depth-control.is-selected .gas-profile-depth-control__shape {
+  stroke-width: 3.5;
+  filter: drop-shadow(0 2px 3px rgba(10, 73, 108, 0.28));
+}
+.gas-profile-depth-control:focus-visible .gas-profile-depth-control__shape {
+  stroke-width: 4;
+  stroke-dasharray: 3 2;
+}
+.gas-profile-depth-control.is-station-locked .gas-profile-depth-control__shape { stroke-dasharray: 2 1.5; }
+.gas-profile-depth-cover-line {
+  stroke: #0878b6;
+  stroke-width: 1.3;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+.gas-profile-depth-control__label {
+  fill: #075d8f;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.gas-depth-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.gas-depth-summary-grid > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid #d8e3e9;
+  border-radius: 8px;
+  background: #f7fafb;
+}
+.gas-depth-summary-grid span {
+  color: var(--gas-muted);
+  font-size: 7.5px;
+  font-weight: 690;
+  line-height: 1.25;
+}
+.gas-depth-summary-grid strong {
+  color: #183847;
+  font-size: 11px;
+}
+
+.gas-depth-point-list {
+  display: grid;
+  max-height: 220px;
+  gap: 5px;
+  overflow-y: auto;
+}
+.gas-depth-point-item {
+  display: grid;
+  grid-template-columns: 13px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid #d8e2e7;
+  border-radius: 8px;
+  color: inherit;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+.gas-depth-point-item:hover { background: #f6fafc; }
+.gas-depth-point-item.is-selected {
+  border-color: #7bb8d7;
+  background: #edf8fd;
+  box-shadow: 0 0 0 1px rgba(8, 120, 182, 0.12);
+}
+.gas-depth-point-item__marker {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #0878b6;
+  border-radius: 50%;
+  background: #fff;
+}
+.gas-depth-point-item--default .gas-depth-point-item__marker { border-color: #6e7e87; border-radius: 2px; }
+.gas-depth-point-item--surveyed .gas-depth-point-item__marker { border-color: #087f5b; border-radius: 2px; }
+.gas-depth-point-item__body { display: grid; gap: 2px; min-width: 0; }
+.gas-depth-point-item__body strong {
+  overflow: hidden;
+  color: #29424f;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gas-depth-point-item__body small,
+.gas-depth-point-item__body em {
+  overflow: hidden;
+  color: #6a7d87;
+  font-size: 7.5px;
+  font-style: normal;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gas-depth-point-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 10px;
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid #dce5ea;
+  border-radius: 8px;
+  background: #f8fafb;
+}
+.gas-depth-point-values > div { min-width: 0; }
+.gas-depth-point-values dt,
+.gas-depth-point-values dd { margin: 0; }
+.gas-depth-point-values dt { color: var(--gas-muted); font-size: 7px; font-weight: 690; }
+.gas-depth-point-values dd { margin-top: 2px; color: #27414e; font-size: 9px; font-weight: 760; }
+
+.gas-depth-warning {
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  border: 1px solid #e7c8a4;
+  border-left: 3px solid #c77b26;
+  border-radius: 8px;
+  color: #785126;
+  background: #fff8ef;
+}
+.gas-depth-warning.is-clear {
+  border-color: #bcded0;
+  border-left-color: #18845f;
+  color: #28674f;
+  background: #f1faf6;
+}
+.gas-depth-warning p { margin: 0; font-size: 8px; line-height: 1.4; }
+
+.gas-secondary-action { width: 100%; }
+
+.gas-route-event-depth-zone {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #d5e2e8;
+  border-left: 3px solid #81939d;
+  border-radius: 8px;
+  background: #f8fafb;
+}
+.gas-route-event-depth-zone--ready { border-left-color: #18845f; background: #f2faf6; }
+.gas-route-event-depth-zone--stale,
+.gas-route-event-depth-zone--partial { border-left-color: #c77b26; background: #fff8ef; }
+.gas-route-event-depth-zone__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gas-route-event-depth-zone__heading strong { color: #334c58; font-size: 9px; }
+.gas-route-event-depth-zone__heading span {
+  padding: 3px 6px;
+  border-radius: 999px;
+  color: #647781;
+  background: #e8edf0;
+  font-size: 7px;
+  font-weight: 780;
+}
+.gas-route-event-depth-zone--ready .gas-route-event-depth-zone__heading span { color: #1e684d; background: #dcefe7; }
+.gas-route-event-depth-zone--stale .gas-route-event-depth-zone__heading span,
+.gas-route-event-depth-zone--partial .gas-route-event-depth-zone__heading span { color: #875217; background: #f8e4c8; }
+
+.gas-excavation-delta-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 10px;
+  padding: 9px 10px;
+  border: 1px solid #d7e4eb;
+  border-radius: 8px;
+  background: #f5fafc;
+}
+.gas-excavation-delta-row span { color: var(--gas-muted); font-size: 8px; font-weight: 690; }
+.gas-excavation-delta-row strong { color: #0b679b; font-size: 11px; }
+.gas-excavation-delta-row small { grid-column: 1 / -1; color: #70818a; font-size: 7.5px; line-height: 1.35; }
+
+.shared-ui-dark-mode .gas-profile-footer,
+.shared-ui-dark-mode .gas-depth-point-item,
+.shared-ui-dark-mode .gas-depth-summary-grid > div,
+.shared-ui-dark-mode .gas-depth-point-values,
+.shared-ui-dark-mode .gas-route-event-depth-zone,
+.shared-ui-dark-mode .gas-excavation-delta-row {
+  border-color: #3b505c;
+  background: #1d2d36;
+}
+.shared-ui-dark-mode .gas-profile-edit-toggle,
+.shared-ui-dark-mode .gas-profile-action,
+.shared-ui-dark-mode .gas-secondary-action {
+  color: #8dd1f2;
+  border-color: #405a68;
+  background: #20343f;
+}
+.shared-ui-dark-mode .gas-profile-edit-toggle.is-active { color: #fff; border-color: #1689c4; background: #0878b6; }
+.shared-ui-dark-mode .gas-depth-point-item:hover,
+.shared-ui-dark-mode .gas-depth-point-item.is-selected { background: #243e4b; }
+.shared-ui-dark-mode .gas-depth-point-item__body strong,
+.shared-ui-dark-mode .gas-depth-summary-grid strong,
+.shared-ui-dark-mode .gas-depth-point-values dd,
+.shared-ui-dark-mode .gas-route-event-depth-zone__heading strong { color: #e9f1f4; }
+.shared-ui-dark-mode .gas-depth-warning { color: #e0b27f; border-color: #725435; border-left-color: #d89043; background: #33271f; }
+.shared-ui-dark-mode .gas-depth-warning.is-clear { color: #8fd1b3; border-color: #3c6858; border-left-color: #35ad83; background: #1c322b; }
+.shared-ui-dark-mode .gas-profile-depth-control__shape,
+.shared-ui-dark-mode .gas-profile-legend__point { fill: #1a2932; background: #1a2932; }
+.shared-ui-dark-mode .gas-profile-depth-control__label { fill: #87d3f7; stroke: #18262f; }
+.shared-ui-dark-mode .gas-excavation-delta-row strong { color: #78cff5; }
+
 @media (max-width: 1120px) {
   .gas-analysis-grid { grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr); }
   .gas-map-tool span { display: none; }

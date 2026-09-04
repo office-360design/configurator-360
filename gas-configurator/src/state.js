@@ -10,6 +10,12 @@ import {
 } from './domain/geometry.js';
 import { GROUND_TYPES, SURFACE_TYPES } from './domain/calculations.js';
 import {
+  clampPipeCover,
+  coverAtChainage,
+  DEPTH_POINT_MATCH_TOLERANCE_M,
+  routeEventDepthZoneStations,
+} from './domain/depthProfile.js';
+import {
   DEFAULT_PIPE_PRODUCT_ID,
   DEFAULT_PIPE_SELECTION,
   normalizePipeSelection,
@@ -42,10 +48,11 @@ import {
   serializeNetworkConnection,
 } from './network/networkConnection.js';
 
-export const GAS_STATE_SCHEMA_VERSION = 3;
+export const GAS_STATE_SCHEMA_VERSION = 4;
 
-const STORAGE_KEY = '360-configurator:gas-prototype:v3';
+const STORAGE_KEY = '360-configurator:gas-prototype:v4';
 const LEGACY_STORAGE_KEYS = Object.freeze([
+  '360-configurator:gas-prototype:v3',
   '360-configurator:gas-prototype:v2',
   '360-configurator:gas-prototype:v1',
 ]);
@@ -55,6 +62,8 @@ const GROUND_SOURCES = new Set(['assumption', 'publicScreening', 'verifiedSurvey
 const UTILITY_SOURCES = new Set(['missing', 'ownerPlan', 'fieldVerified']);
 const BEDDING_MATERIALS = new Set(['sand03to08', 'unspecified', 'other']);
 const DEPTH_POINT_SOURCES = new Set(['default', 'manual', 'surveyed']);
+const DEPTH_ZONE_ROLES = new Set(['entry', 'center', 'exit']);
+const DEPTH_ENDPOINTS = new Set(['start', 'end']);
 
 const DEFAULT_ROUTE_POINTS = Object.freeze([
   Object.freeze({ id: 'a', kind: 'endpoint', label: 'A', coordinate: Object.freeze([26.0937, 44.4324]) }),
@@ -86,6 +95,8 @@ export const DEFAULT_STATE = Object.freeze({
     selectedSegmentId: 'a:b',
     selectedPointId: null,
     selectedEventId: null,
+    selectedDepthPointId: null,
+    profileEditMode: false,
     stationM: 430,
     points: DEFAULT_ROUTE_POINTS,
   },
@@ -118,6 +129,9 @@ export const DEFAULT_STATE = Object.freeze({
       coverM: 1,
       source: 'default',
       inheritsDefault: true,
+      endpoint: 'start',
+      routeEventId: null,
+      zoneRole: null,
     },
     {
       id: 'depth-b',
@@ -126,6 +140,9 @@ export const DEFAULT_STATE = Object.freeze({
       coverM: 1,
       source: 'default',
       inheritsDefault: true,
+      endpoint: 'end',
+      routeEventId: null,
+      zoneRole: null,
     },
   ],
   routeEvents: [],
@@ -309,51 +326,80 @@ function normalizePipeSections(sections, routeLengthM, defaultPipe) {
   }];
 }
 
-function normalizeDepthPoints(points, routeLengthM, defaultCoverM) {
+function normalizeDepthPoints(points, routeLengthM, defaultCoverM, routeEvents = []) {
   const ids = new Set();
-  // Default endpoint controls are regenerated for the current route length. Keeping
-  // obsolete inherited endpoints after every map drag would otherwise accumulate
-  // phantom depth controls along the route.
-  const editablePoints = (Array.isArray(points) ? points : []).filter((point) => (
-    point?.inheritsDefault === false || ['manual', 'surveyed'].includes(point?.source)
+  const eventById = new Map((Array.isArray(routeEvents) ? routeEvents : []).map((event) => [event.id, event]));
+  const sourcePoints = Array.isArray(points) ? points : [];
+  const endpointCandidate = (endpoint) => sourcePoints.find((point) => (
+    point?.endpoint === endpoint
+    || (endpoint === 'start' && point?.id === 'depth-a')
+    || (endpoint === 'end' && point?.id === 'depth-b')
   ));
+  const endpointCandidates = new Set([
+    endpointCandidate('start'),
+    endpointCandidate('end'),
+  ].filter(Boolean));
+
+  // Inherited endpoints are regenerated for the current route length. Manual or
+  // surveyed endpoint values remain attached to A/B through route geometry edits.
+  const editablePoints = sourcePoints.filter((point) => (
+    !endpointCandidates.has(point)
+    && (point?.inheritsDefault === false || ['manual', 'surveyed'].includes(point?.source) || point?.routeEventId)
+  ));
+
   const normalized = editablePoints.map((point, index) => {
     let id = String(point?.id || `depth-${index + 1}`);
     while (ids.has(id)) id = `${id}-${index + 1}`;
     ids.add(id);
+    const routeEventId = point?.routeEventId && eventById.has(String(point.routeEventId))
+      ? String(point.routeEventId)
+      : null;
+    const zoneRole = routeEventId && DEPTH_ZONE_ROLES.has(point?.zoneRole) ? point.zoneRole : null;
+    const zoneStations = zoneRole ? routeEventDepthZoneStations(eventById.get(routeEventId), routeLengthM) : null;
     return {
       id,
       routeId: MAIN_ROUTE_ID,
-      stationM: clamp(finiteNumber(point?.stationM, 0), 0, routeLengthM),
-      coverM: clamp(finiteNumber(point?.coverM, defaultCoverM), 0.3, 5),
+      stationM: zoneStations
+        ? zoneStations[zoneRole]
+        : clamp(finiteNumber(point?.stationM, 0), 0, routeLengthM),
+      coverM: clampPipeCover(point?.coverM, defaultCoverM),
       source: safeChoice(point?.source, DEPTH_POINT_SOURCES, 'manual'),
       inheritsDefault: false,
+      endpoint: null,
+      routeEventId,
+      zoneRole,
     };
   });
 
-  const hasStart = normalized.some((point) => point.stationM <= 1e-6);
-  const hasEnd = normalized.some((point) => Math.abs(point.stationM - routeLengthM) <= 1e-6);
-  if (!hasStart) {
+  ['start', 'end'].forEach((endpoint) => {
+    const candidate = endpointCandidate(endpoint);
+    const defaultId = endpoint === 'start' ? 'depth-a' : 'depth-b';
+    let id = String(candidate?.id || defaultId);
+    while (ids.has(id)) id = `${id}-${endpoint}`;
+    ids.add(id);
+    const inheritsDefault = candidate?.inheritsDefault !== false && candidate?.source !== 'manual' && candidate?.source !== 'surveyed';
     normalized.push({
-      id: ids.has('depth-a') ? 'depth-start' : 'depth-a',
+      id,
       routeId: MAIN_ROUTE_ID,
-      stationM: 0,
-      coverM: defaultCoverM,
-      source: 'default',
-      inheritsDefault: true,
+      stationM: endpoint === 'start' ? 0 : routeLengthM,
+      coverM: inheritsDefault
+        ? defaultCoverM
+        : clampPipeCover(candidate?.coverM, defaultCoverM),
+      source: inheritsDefault
+        ? 'default'
+        : safeChoice(candidate?.source, DEPTH_POINT_SOURCES, 'manual'),
+      inheritsDefault,
+      endpoint,
+      routeEventId: null,
+      zoneRole: null,
     });
-  }
-  if (!hasEnd && routeLengthM > 0) {
-    normalized.push({
-      id: ids.has('depth-b') ? 'depth-end' : 'depth-b',
-      routeId: MAIN_ROUTE_ID,
-      stationM: routeLengthM,
-      coverM: defaultCoverM,
-      source: 'default',
-      inheritsDefault: true,
-    });
-  }
-  return normalized.sort((left, right) => left.stationM - right.stationM || left.id.localeCompare(right.id));
+  });
+
+  return normalized.sort((left, right) => (
+    left.stationM - right.stationM
+    || Number(Boolean(left.endpoint)) - Number(Boolean(right.endpoint))
+    || left.id.localeCompare(right.id)
+  ));
 }
 
 export function normalizeState(incoming = {}) {
@@ -384,6 +430,8 @@ export function normalizeState(incoming = {}) {
         : segments[0]?.id || null,
       selectedPointId: waypointIds.has(merged.route?.selectedPointId) ? merged.route.selectedPointId : null,
       selectedEventId: null,
+      selectedDepthPointId: null,
+      profileEditMode: Boolean(merged.route?.profileEditMode),
       stationM: 0,
       points,
     },
@@ -485,7 +533,12 @@ export function normalizeState(incoming = {}) {
     merged.depthPoints,
     normalizedRouteLengthM,
     normalized.trench.coverM,
+    normalized.routeEvents,
   );
+  const depthPointIds = new Set(normalized.depthPoints.map((point) => point.id));
+  normalized.route.selectedDepthPointId = depthPointIds.has(merged.route?.selectedDepthPointId)
+    ? merged.route.selectedDepthPointId
+    : null;
   normalized.crossing = routeEventToLegacyCrossing(
     firstUtilityCrossingEvent(normalized),
     DEFAULT_LEGACY_CROSSING.stationM,
@@ -515,6 +568,20 @@ function setAtPath(object, path, value) {
     target = target[part];
   });
   target[parts.at(-1)] = value;
+}
+
+function depthPointStationIsLocked(point) {
+  return DEPTH_ENDPOINTS.has(point?.endpoint)
+    || Boolean(point?.routeEventId && DEPTH_ZONE_ROLES.has(point?.zoneRole));
+}
+
+function selectSegmentAtStation(nextState, stationM) {
+  const station = interpolateRoute(nextState.route.points, stationM);
+  if (station.segment) nextState.route.selectedSegmentId = station.segment.id;
+}
+
+function createDepthPointId(prefix = 'depth') {
+  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 export class GasConfiguratorStore {
@@ -571,6 +638,182 @@ export class GasConfiguratorStore {
     const next = clone(this.state);
     next.trench.coverM = coverM;
     return this.commit(next, { source: 'trench-cover' });
+  }
+
+  setProfileEditMode(enabled) {
+    return this.update('route.profileEditMode', Boolean(enabled), {
+      recordHistory: false,
+      source: 'depth-profile-mode',
+    });
+  }
+
+  selectDepthPoint(pointId) {
+    const point = this.state.depthPoints.find((candidate) => candidate.id === pointId);
+    if (!point) return false;
+    const next = clone(this.state);
+    next.route.selectedDepthPointId = point.id;
+    next.route.stationM = point.stationM;
+    selectSegmentAtStation(next, point.stationM);
+    return this.commit(next, { recordHistory: false, source: 'depth-point-selection' });
+  }
+
+  addDepthPoint(stationM, coverM = null, {
+    source = 'manual',
+    routeEventId = null,
+    zoneRole = null,
+    recordHistory = true,
+  } = {}) {
+    const next = clone(this.state);
+    const routeLengthM = routeLengthMeters(next.route.points);
+    const requestedStationM = clamp(finiteNumber(stationM, next.route.stationM), 0, routeLengthM);
+    const requestedCoverM = clampPipeCover(
+      coverM,
+      coverAtChainage(next.depthPoints, requestedStationM, routeLengthM, next.trench.coverM),
+    );
+    const nearby = !routeEventId && next.depthPoints.find((point) => (
+      !point.routeEventId
+      && Math.abs(point.stationM - requestedStationM) <= DEPTH_POINT_MATCH_TOLERANCE_M
+    ));
+    if (nearby) {
+      nearby.coverM = requestedCoverM;
+      nearby.source = source === 'surveyed' ? 'surveyed' : 'manual';
+      nearby.inheritsDefault = false;
+      next.route.selectedDepthPointId = nearby.id;
+      next.route.stationM = nearby.stationM;
+      selectSegmentAtStation(next, nearby.stationM);
+      this.commit(next, { source: 'depth-point-update-nearby', recordHistory });
+      return nearby.id;
+    }
+
+    const id = createDepthPointId('depth-manual');
+    next.depthPoints.push({
+      id,
+      routeId: MAIN_ROUTE_ID,
+      stationM: requestedStationM,
+      coverM: requestedCoverM,
+      source: source === 'surveyed' ? 'surveyed' : 'manual',
+      inheritsDefault: false,
+      endpoint: null,
+      routeEventId: routeEventId ? String(routeEventId) : null,
+      zoneRole: DEPTH_ZONE_ROLES.has(zoneRole) ? zoneRole : null,
+    });
+    next.route.selectedDepthPointId = id;
+    next.route.stationM = requestedStationM;
+    next.route.profileEditMode = true;
+    selectSegmentAtStation(next, requestedStationM);
+    return this.commit(next, { source: 'depth-point-add', recordHistory }) ? id : false;
+  }
+
+  updateSelectedDepthPoint(path, value, options = {}) {
+    const selectedId = this.state.route.selectedDepthPointId;
+    const next = clone(this.state);
+    const point = next.depthPoints.find((candidate) => candidate.id === selectedId);
+    if (!point) return false;
+    if (path === 'stationM' && depthPointStationIsLocked(point)) return false;
+
+    if (path === 'coverM') {
+      point.coverM = clampPipeCover(value, next.trench.coverM);
+      point.inheritsDefault = false;
+      if (point.source === 'default') point.source = 'manual';
+    } else if (path === 'stationM') {
+      const routeLengthM = routeLengthMeters(next.route.points);
+      point.stationM = clamp(finiteNumber(value, point.stationM), 0, routeLengthM);
+      next.route.stationM = point.stationM;
+      selectSegmentAtStation(next, point.stationM);
+    } else if (path === 'source') {
+      point.source = value === 'surveyed' ? 'surveyed' : 'manual';
+      point.inheritsDefault = false;
+    } else {
+      setAtPath(point, path, value);
+    }
+    return this.commit(next, { source: `depth-point-${path}`, ...options });
+  }
+
+  moveDepthPoint(pointId, stationM, coverM, options = {}) {
+    const next = clone(this.state);
+    const point = next.depthPoints.find((candidate) => candidate.id === pointId);
+    if (!point) return false;
+    const routeLengthM = routeLengthMeters(next.route.points);
+    if (!depthPointStationIsLocked(point)) {
+      point.stationM = clamp(finiteNumber(stationM, point.stationM), 0, routeLengthM);
+    }
+    point.coverM = clampPipeCover(coverM, point.coverM);
+    point.inheritsDefault = false;
+    if (point.source === 'default') point.source = 'manual';
+    next.route.selectedDepthPointId = point.id;
+    next.route.stationM = point.stationM;
+    next.route.profileEditMode = true;
+    selectSegmentAtStation(next, point.stationM);
+    return this.commit(next, {
+      recordHistory: false,
+      source: 'depth-point-drag',
+      ...options,
+    });
+  }
+
+  removeSelectedDepthPoint() {
+    const selectedId = this.state.route.selectedDepthPointId;
+    const index = this.state.depthPoints.findIndex((point) => point.id === selectedId);
+    if (index < 0 || DEPTH_ENDPOINTS.has(this.state.depthPoints[index]?.endpoint)) return false;
+    const next = clone(this.state);
+    const removed = next.depthPoints[index];
+    next.depthPoints.splice(index, 1);
+    const replacement = next.depthPoints
+      .filter((point) => point.id !== removed.id)
+      .sort((left, right) => Math.abs(left.stationM - removed.stationM) - Math.abs(right.stationM - removed.stationM))[0];
+    next.route.selectedDepthPointId = replacement?.id || null;
+    if (replacement) {
+      next.route.stationM = replacement.stationM;
+      selectSegmentAtStation(next, replacement.stationM);
+    }
+    return this.commit(next, { source: 'depth-point-remove' });
+  }
+
+  resetDepthProfile() {
+    const next = clone(this.state);
+    next.depthPoints = [];
+    next.route.selectedDepthPointId = null;
+    return this.commit(next, { source: 'depth-profile-reset' });
+  }
+
+  createDepthZoneForRouteEvent(eventId, coverM = null) {
+    const next = clone(this.state);
+    const event = next.routeEvents.find((candidate) => candidate.id === eventId);
+    const routeLengthM = routeLengthMeters(next.route.points);
+    const stations = routeEventDepthZoneStations(event, routeLengthM);
+    if (!event || !stations) return false;
+    const targetCoverM = clampPipeCover(
+      coverM,
+      coverAtChainage(next.depthPoints, event.stationM, routeLengthM, next.trench.coverM),
+    );
+    next.depthPoints = next.depthPoints.filter((point) => point.routeEventId !== event.id);
+    const safeEventId = event.id.replace(/[^a-z0-9_-]+/gi, '-');
+    const created = ['entry', 'center', 'exit'].map((zoneRole) => ({
+      id: `depth-zone-${safeEventId}-${zoneRole}`,
+      routeId: MAIN_ROUTE_ID,
+      stationM: stations[zoneRole],
+      coverM: targetCoverM,
+      source: 'manual',
+      inheritsDefault: false,
+      endpoint: null,
+      routeEventId: event.id,
+      zoneRole,
+    }));
+    next.depthPoints.push(...created);
+    next.route.selectedDepthPointId = created[1].id;
+    next.route.stationM = event.stationM;
+    next.route.profileEditMode = true;
+    selectSegmentAtStation(next, event.stationM);
+    return this.commit(next, { source: 'route-event-depth-zone' });
+  }
+
+  recordTransientHistory(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    const normalized = normalizeState(snapshot);
+    if (JSON.stringify(normalized) === JSON.stringify(this.state)) return false;
+    this.history.push(normalized);
+    if (this.history.length > MAX_HISTORY) this.history.shift();
+    return true;
   }
 
   setEditMode(mode) {
@@ -674,7 +917,12 @@ export class GasConfiguratorStore {
     const index = this.state.routeEvents.findIndex((event) => event.id === selectedId);
     if (index < 0) return false;
     const next = clone(this.state);
+    const removedEventId = next.routeEvents[index].id;
     next.routeEvents.splice(index, 1);
+    next.depthPoints = next.depthPoints.filter((point) => point.routeEventId !== removedEventId);
+    if (!next.depthPoints.some((point) => point.id === next.route.selectedDepthPointId)) {
+      next.route.selectedDepthPointId = null;
+    }
     const replacement = next.routeEvents[Math.min(index, next.routeEvents.length - 1)] || null;
     next.route.selectedEventId = replacement?.id || null;
     if (replacement) next.route.stationM = replacement.stationM;
