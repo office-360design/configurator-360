@@ -122,10 +122,10 @@ export function createChairModel(THREE_NS, geometryLibrary, { woodMaterial, fabr
   const rearX = 0.262;
   const frontZ = 0.224;
   const rearZ = -0.218;
-  const frontPostTopY = 0.545;
+  const frontPostTopY = 0.562;
   const rearPostTopY = 0.812;
   const railY = 0.444;
-  const armFrontY = 0.548;
+  const armFrontY = 0.562;
   const armRearY = 0.676;
   const backRailY = 0.738;
   const seatCenterY = 0.494;
@@ -148,15 +148,15 @@ export function createChairModel(THREE_NS, geometryLibrary, { woodMaterial, fabr
       name: 'rear-upright',
     });
 
-    // Arm rails intentionally enter both posts so the connection reads as joined,
-    // not merely touching.
-    woodMember([sx * frontX, armFrontY, frontZ], [sx * rearX, armRearY, rearZ + 0.016], {
+    // Front arm joins are offset slightly inward and use a shallower embed so the
+    // post-to-arm transition reads as a clean joint rather than a visible cut.
+    woodMember([sx * frontX, armFrontY, frontZ - 0.014], [sx * rearX, armRearY, rearZ + 0.010], {
       width: 0.054,
       depth: 0.072,
       radius: 0.011,
       name: 'arm-rail',
-      overlapStart: 0.018,
-      overlapEnd: 0.018,
+      overlapStart: 0.006,
+      overlapEnd: 0.014,
     });
 
     // Side seat rails fully span from the front post into the rear upright.
