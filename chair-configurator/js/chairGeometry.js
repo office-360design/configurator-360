@@ -122,10 +122,10 @@ export function createChairModel(THREE_NS, geometryLibrary, { woodMaterial, fabr
   const rearX = 0.262;
   const frontZ = 0.224;
   const rearZ = -0.218;
-  const frontPostTopY = 0.562;
+  const frontPostTopY = 0.588;
   const rearPostTopY = 0.812;
   const railY = 0.444;
-  const armFrontY = 0.562;
+  const armFrontY = 0.568;
   const armRearY = 0.676;
   const backRailY = 0.738;
   const seatCenterY = 0.494;
@@ -148,15 +148,26 @@ export function createChairModel(THREE_NS, geometryLibrary, { woodMaterial, fabr
       name: 'rear-upright',
     });
 
-    // Front arm joins are offset slightly inward and use a shallower embed so the
-    // post-to-arm transition reads as a clean joint rather than a visible cut.
-    woodMember([sx * frontX, armFrontY, frontZ - 0.014], [sx * rearX, armRearY, rearZ + 0.010], {
+    // Front arm joins now embed more fully into the front post and get a small
+    // matching filler member so the connection closes cleanly with no gap.
+    woodMember([sx * frontX, armFrontY, frontZ - 0.010], [sx * rearX, armRearY, rearZ + 0.010], {
       width: 0.054,
       depth: 0.072,
       radius: 0.011,
       name: 'arm-rail',
-      overlapStart: 0.006,
+      overlapStart: 0.010,
       overlapEnd: 0.014,
+    });
+
+    // Fill the last visible front joint gap so the front arm support reads as a
+    // continuous wood-to-wood join rather than two separated parts.
+    woodMember([sx * frontX, armFrontY - 0.026, frontZ - 0.002], [sx * frontX, armFrontY - 0.002, frontZ - 0.012], {
+      width: 0.036,
+      depth: 0.056,
+      radius: 0.006,
+      name: 'front-arm-joint-filler',
+      overlapStart: 0.006,
+      overlapEnd: 0.006,
     });
 
     // Side seat rails fully span from the front post into the rear upright.
