@@ -1,6 +1,6 @@
-import { FINISHES, PANEL_STYLES, activeRunIds, deriveFenceMetrics, normalizeFenceState } from './state.js?v=4';
-import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js?v=4';
-import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=4';
+import { FINISHES, PANEL_STYLES, activeRunIds, deriveFenceMetrics, normalizeFenceState } from './state.js?v=platform-18';
+import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js?v=platform-18';
+import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=platform-18';
 
 const CONTROL_CONFIG = Object.freeze({
   runA: { kind: 'length', min: 2, max: 30, step: 0.25 },

@@ -11,6 +11,7 @@ assert.equal(getTenantSlugForHostname('360configurator.com'), '');
 assert.equal(TENANT_CONFIGURATORS.roof.path, '/roof-configurator/');
 assert.equal(TENANT_CONFIGURATORS.fence.path, '/fence-configurator/');
 assert.equal(TENANT_CONFIGURATORS.cardbox.path, '/cardbox-configurator/');
+assert.equal(TENANT_CONFIGURATORS.chair.path, '/chair-configurator/');
 
 const nginx = await readFile(new URL('../../cloudrun/nginx.conf', import.meta.url), 'utf8');
 assert.match(nginx, /\$is_tenant_host/);

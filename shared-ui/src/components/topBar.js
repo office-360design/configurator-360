@@ -1,9 +1,9 @@
-import { getLanguageProfile } from '../config.js';
-import { sharedT } from '../i18n.js?v=21';
-import { sharedIcon } from '../icons.js?v=22';
-import { escapeHtml } from '../utils.js';
-import { renderAccountMenu } from './accountMenu.js?v=24';
-import { renderLanguageMenu } from './languageMenu.js';
+import { getLanguageProfile } from '../config.js?v=platform-19';
+import { sharedT } from '../i18n.js?v=platform-19';
+import { sharedIcon } from '../icons.js?v=platform-19';
+import { escapeHtml } from '../utils.js?v=platform-19';
+import { renderAccountMenu } from './accountMenu.js?v=platform-19';
+import { renderLanguageMenu } from './languageMenu.js?v=platform-19';
 
 function iconButton({ action, label, icon, disabled = false, extraClass = '' }) {
   return `
@@ -58,7 +58,9 @@ function cartButton(locale, count = 0, open = false) {
 export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilities = {} }) {
   const locale = state.locale;
   const authenticated = Boolean(state.authUser?.uid);
-  const canViewAR = capabilities.viewAR !== false;
+  // AR is platform-disabled for now. Keep the button visible but grey/inert
+  // across every configurator so users get one consistent availability signal.
+  const canViewAR = false;
   const canSave = capabilities.save !== false && authenticated;
   const canNewConfiguration = capabilities.save !== false && authenticated;
   const canUndo = capabilities.undo !== false;

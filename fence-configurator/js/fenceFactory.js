@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FINISHES, calculateClosedFenceGeometry, calculateClosedFiveFenceGeometry, deriveFenceMetrics } from './state.js?v=5';
+import { FINISHES, calculateClosedFenceGeometry, calculateClosedFiveFenceGeometry, deriveFenceMetrics } from './state.js?v=platform-18';
 
 const TEXTURE_LOADER = new THREE.TextureLoader();
 const TEXTURE_CACHE = new Map();

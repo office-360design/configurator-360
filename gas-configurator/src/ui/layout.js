@@ -2,12 +2,12 @@ import {
   PIPE_DIAMETERS_MM,
   PIPE_MATERIALS,
   PIPE_SDRS,
-} from '../domain/pipeCatalog.js';
+} from '../domain/pipeCatalog.js?v=platform-18';
 import {
   CROSSING_INSTALLATION_METHODS,
   ROUTE_EVENT_SOURCES,
   ROUTE_EVENT_TYPES,
-} from '../domain/routeEvents.js';
+} from '../domain/routeEvents.js?v=platform-18';
 
 const routeIcon = `
   <svg viewBox="0 0 24 24" aria-hidden="true">

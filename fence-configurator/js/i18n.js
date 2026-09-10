@@ -1,5 +1,5 @@
-import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js';
-import { getLocaleForHostname } from '../../shared-ui/src/config.js';
+import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js?v=platform-18';
+import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=platform-18';
 
 const EN = {
   'viewer.aria': 'Fence 3D viewer',

@@ -104,15 +104,15 @@ for (const route of pageRoutes) {
 const sitemapExpectations = {
   en: {
     origin: "https://www.360configurator.com",
-    apps: ["/pergola-configurator/", "/roof-configurator/", "/window-configurator/", "/hall-configurator/", "/solar-configurator/", "/fence-configurator/", "/cardbox-configurator/"],
+    apps: ["/pergola-configurator/", "/roof-configurator/", "/window-configurator/", "/hall-configurator/", "/solar-configurator/", "/fence-configurator/", "/cardbox-configurator/", "/chair-configurator/"],
   },
   ro: {
     origin: "https://www.360configurator.ro",
-    apps: ["/configurator-pergola/", "/configurator-acoperis/", "/configurator-ferestre/", "/configurator-hala/", "/configurator-solar/", "/configurator-garduri/", "/configurator-cutii-carton/"],
+    apps: ["/configurator-pergola/", "/configurator-acoperis/", "/configurator-ferestre/", "/configurator-hala/", "/configurator-solar/", "/configurator-garduri/", "/configurator-cutii-carton/", "/configurator-scaune/"],
   },
   de: {
     origin: "https://www.360konfigurator.de",
-    apps: ["/pergola-konfigurator/", "/dach-konfigurator/", "/fenster-konfigurator/", "/hallen-konfigurator/", "/solar-konfigurator/", "/zaun-konfigurator/", "/karton-konfigurator/"],
+    apps: ["/pergola-konfigurator/", "/dach-konfigurator/", "/fenster-konfigurator/", "/hallen-konfigurator/", "/solar-konfigurator/", "/zaun-konfigurator/", "/karton-konfigurator/", "/stuhl-konfigurator/"],
   },
 };
 const marketingSlugs = ["pergola", "roof", "window", "hall", "solar", "fence"];

@@ -8,8 +8,8 @@
 // Internal builder references therefore point at the reused object immediately;
 // there is no post-build swapping of meshes.
 
-import * as THREE_BASE from '../lib/three.module.js';
-export * from '../lib/three.module.js';
+import * as THREE_BASE from '../lib/three.module.js?v=platform-18';
+export * from '../lib/three.module.js?v=platform-18';
 
 const MAX_POOL_SIZE = 768;
 const meshPool = new Map();

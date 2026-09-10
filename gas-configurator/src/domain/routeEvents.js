@@ -1,4 +1,4 @@
-import { clamp } from './geometry.js';
+import { clamp } from './geometry.js?v=platform-18';
 
 export const MAIN_ROUTE_ID = 'main';
 

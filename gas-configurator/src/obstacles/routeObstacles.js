@@ -4,7 +4,7 @@ import {
   coordinateBounds,
   normalizeCoordinate,
   routeLengthMeters,
-} from '../domain/geometry.js';
+} from '../domain/geometry.js?v=platform-18';
 
 export const OBSTACLE_SOURCE_NAME = 'OpenStreetMap / Overpass API';
 export const OBSTACLE_SOURCE_URL = 'https://www.openstreetmap.org/copyright';

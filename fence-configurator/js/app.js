@@ -1,9 +1,9 @@
-import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
-import { DEFAULT_FENCE_STATE, createFenceState, deriveFenceMetrics, normalizeFenceState } from './state.js?v=4';
-import { FenceScene } from './scene.js?v=20';
-import { FenceUI } from './ui.js?v=4';
-import { resolveFenceLocale } from './i18n.js?v=4';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { DEFAULT_FENCE_STATE, createFenceState, deriveFenceMetrics, normalizeFenceState } from './state.js?v=platform-18';
+import { FenceScene } from './scene.js?v=platform-18';
+import { FenceUI } from './ui.js?v=platform-18';
+import { resolveFenceLocale } from './i18n.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 
 await requireTenantConfiguratorAccess('fence');
 

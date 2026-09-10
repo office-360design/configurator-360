@@ -1,6 +1,6 @@
-import { LANGUAGE_PROFILES } from '../config.js';
-import { sharedT } from '../i18n.js';
-import { escapeHtml } from '../utils.js';
+import { LANGUAGE_PROFILES } from '../config.js?v=platform-18';
+import { sharedT } from '../i18n.js?v=platform-18';
+import { escapeHtml } from '../utils.js?v=platform-18';
 
 export function renderLanguageMenu(currentLocale) {
   const language = LANGUAGE_PROFILES[currentLocale] ?? LANGUAGE_PROFILES['en-US'];

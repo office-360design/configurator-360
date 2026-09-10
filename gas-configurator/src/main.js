@@ -1,14 +1,14 @@
-import '../../shared-ui/styles/index.css';
+import '../../shared-ui/styles/index.css?v=platform-18';
 import 'leaflet/dist/leaflet.css';
-import './styles/gas.css';
-import { RouteElevationController } from './elevation/routeElevation.js';
-import { RouteMap } from './map/RouteMap.js';
-import { RouteObstacleController } from './obstacles/routeObstacles.js';
-import { applyGasTranslations } from './i18n.js';
-import { GasConfiguratorStore } from './state.js';
-import { renderGasLayout } from './ui/layout.js';
-import { profilePointerToDesign, renderGasState } from './ui/renderers.js';
-import { mountGasSharedShell } from './ui/sharedShell.js';
+import './styles/gas.css?v=platform-18';
+import { RouteElevationController } from './elevation/routeElevation.js?v=platform-18';
+import { RouteMap } from './map/RouteMap.js?v=platform-18';
+import { RouteObstacleController } from './obstacles/routeObstacles.js?v=platform-18';
+import { applyGasTranslations } from './i18n.js?v=platform-18';
+import { GasConfiguratorStore } from './state.js?v=platform-18';
+import { renderGasLayout } from './ui/layout.js?v=platform-18';
+import { profilePointerToDesign, renderGasState } from './ui/renderers.js?v=platform-18';
+import { mountGasSharedShell } from './ui/sharedShell.js?v=platform-19';
 
 const root = document.querySelector('#app');
 if (!root) throw new Error('The #app mount element is missing.');

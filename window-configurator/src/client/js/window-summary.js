@@ -1,6 +1,6 @@
-import { getEditableWindowTopologyGeometry } from './window-layout-geometry.js';
-import { getWindowActualSizeInState } from './window-layout-state.js';
-import { getWindowLocale, windowT } from './i18n.js';
+import { getEditableWindowTopologyGeometry } from './window-layout-geometry.js?v=platform-18';
+import { getWindowActualSizeInState } from './window-layout-state.js?v=platform-18';
+import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 
 const M_PER_MM = 0.001;
 const MERGE_TOLERANCE_M = 0.0005;

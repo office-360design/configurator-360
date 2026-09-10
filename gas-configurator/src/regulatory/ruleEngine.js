@@ -1,5 +1,5 @@
-import { depthProfileStatistics } from '../domain/depthProfile.js';
-import { routeLengthMeters } from '../domain/geometry.js';
+import { depthProfileStatistics } from '../domain/depthProfile.js?v=platform-18';
+import { routeLengthMeters } from '../domain/geometry.js?v=platform-18';
 import {
   firstUtilityCrossingEvent,
   getRouteEvents,
@@ -7,8 +7,8 @@ import {
   legacyCrossingToRouteEvent,
   routeEventDisplayIndex,
   routeEventTypeDefinition,
-} from '../domain/routeEvents.js';
-import { minimumTrenchWidthMeters, REGULATORY_RULES } from './ruleRegistry.js';
+} from '../domain/routeEvents.js?v=platform-18';
+import { minimumTrenchWidthMeters, REGULATORY_RULES } from './ruleRegistry.js?v=platform-18';
 
 const COMPARISON_TOLERANCE = 1e-9;
 

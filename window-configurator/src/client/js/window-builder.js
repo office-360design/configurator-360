@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { createWindowGeometry } from './window-geometry.js?v=uv-8';
-import { WINDOW_WIDTH_MAX_M, normalizeHexColour } from './config.js';
+import { createWindowGeometry } from './window-geometry.js?v=platform-18';
+import { WINDOW_WIDTH_MAX_M, normalizeHexColour } from './config.js?v=platform-18';
 import {
     PROFILE_CURVE_SEGMENTS,
     createRoundedRectShape,
-} from './geometry-utils.js?v=uv-8';
-import { getHouseDimensions } from './house-config.js';
-import { getProfileCatalogEntry, isDrainageCapProfile } from './profile-catalog.js';
-import { translateCadTransformSource } from './profile-coordinate-transform.js';
-import { createHouseBuilder } from './house-builder.js?v=uv-8';
+} from './geometry-utils.js?v=platform-18';
+import { getHouseDimensions } from './house-config.js?v=platform-18';
+import { getProfileCatalogEntry, isDrainageCapProfile } from './profile-catalog.js?v=platform-18';
+import { translateCadTransformSource } from './profile-coordinate-transform.js?v=platform-18';
+import { createHouseBuilder } from './house-builder.js?v=platform-18';
 import {
     getDividerSegmentAlongCoordinate,
     getDividerCrossSectionMetrics,
@@ -38,12 +38,12 @@ import {
     INTERSECTION_MULLION_END_NOTCH_DEPTH_M,
     INTERSECTION_MULLION_END_NOTCH_LENGTH_M,
     RECTANGULAR_DIVIDER_SETBACK_M,
-} from './window-layout-geometry.js';
+} from './window-layout-geometry.js?v=platform-18';
 import {
     getDividerConnectionVariantKey,
     getTransOwnerHandleSide,
-} from './window-layout-state.js';
-import { isComponentProfileVisibleOnHost } from './component-group-visibility.js';
+} from './window-layout-state.js?v=platform-18';
+import { isComponentProfileVisibleOnHost } from './component-group-visibility.js?v=platform-18';
 
 const S = 0.001;
 const NOMINAL_OUTER_FRAME_FACE_M = 0.057;

@@ -8,15 +8,15 @@ import {
   GROUND_TYPES,
   SURFACE_TYPES,
   validationSummary,
-} from '../domain/calculations.js';
-import { interpolateRoute } from '../domain/geometry.js';
-import { routeElevationKey } from '../elevation/routeElevation.js';
+} from '../domain/calculations.js?v=platform-18';
+import { interpolateRoute } from '../domain/geometry.js?v=platform-18';
+import { routeElevationKey } from '../elevation/routeElevation.js?v=platform-18';
 import {
   clampPipeCover,
   interpolatePipeProfileAtChainage,
   routeEventDepthZoneStatus,
-} from '../domain/depthProfile.js';
-import { gasT } from '../i18n.js';
+} from '../domain/depthProfile.js?v=platform-18';
+import { gasT } from '../i18n.js?v=platform-18';
 import {
   getRouteEvents,
   isUtilityCrossingEvent,
@@ -25,9 +25,9 @@ import {
   routeEventDisplayIndex,
   routeEventTypeDefinition,
   selectedRouteEvent,
-} from '../domain/routeEvents.js';
-import { assessNetworkConnection } from '../network/networkConnection.js';
-import { routeObstacleRouteKey } from '../obstacles/routeObstacles.js';
+} from '../domain/routeEvents.js?v=platform-18';
+import { assessNetworkConnection } from '../network/networkConnection.js?v=platform-18';
+import { routeObstacleRouteKey } from '../obstacles/routeObstacles.js?v=platform-18';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 

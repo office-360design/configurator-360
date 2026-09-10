@@ -1,6 +1,6 @@
-import { normalizeToolsPlacement, resolveSharedTools } from '../tools/registry.js';
-import { sharedT } from '../i18n.js';
-import { escapeHtml } from '../utils.js';
+import { normalizeToolsPlacement, resolveSharedTools } from '../tools/registry.js?v=platform-18';
+import { sharedT } from '../i18n.js?v=platform-18';
+import { escapeHtml } from '../utils.js?v=platform-18';
 
 const DEFAULT_TOOL_ITEMS = resolveSharedTools([
   'environment',

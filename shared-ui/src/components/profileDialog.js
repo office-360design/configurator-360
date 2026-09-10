@@ -1,6 +1,6 @@
-import { CURRENCY_OPTIONS, UNIT_OPTIONS } from '../config.js';
-import { sharedT } from '../i18n.js?v=26';
-import { escapeHtml } from '../utils.js';
+import { CURRENCY_OPTIONS, UNIT_OPTIONS } from '../config.js?v=platform-18';
+import { sharedT } from '../i18n.js?v=platform-18';
+import { escapeHtml } from '../utils.js?v=platform-18';
 
 const LANGUAGE_OPTIONS = Object.freeze([
   { value: 'en-US', label: 'English (US)' },

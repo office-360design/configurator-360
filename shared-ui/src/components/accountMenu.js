@@ -3,11 +3,11 @@ import {
   CURRENCY_OPTIONS,
   QUALITY_OPTIONS,
   UNIT_OPTIONS,
-} from '../config.js';
-import { sharedT } from '../i18n.js?v=25';
-import { sharedIcon } from '../icons.js?v=22';
-import { escapeHtml } from '../utils.js';
-import { accountOrdersLabel, installAccountOrders } from './accountOrders.js?v=1';
+} from '../config.js?v=platform-19';
+import { sharedT } from '../i18n.js?v=platform-19';
+import { sharedIcon } from '../icons.js?v=platform-19';
+import { escapeHtml } from '../utils.js?v=platform-19';
+import { accountOrdersLabel, installAccountOrders } from './accountOrders.js?v=platform-19';
 
 
 installAccountOrders();
@@ -61,6 +61,25 @@ function renderSettingsSelect(locale, labelKey, path, value, options) {
         ${localized.map((option) => `<option value="${option.value}" ${value === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
       </select>
     </label>
+  `;
+}
+
+function renderAccountSettings(state) {
+  const locale = state.locale;
+  return `
+    <button type="button" data-action="toggle-account-settings" aria-expanded="false"><span>${sharedIcon('settings')}</span><strong>${escapeHtml(sharedT(locale, 'account.settings'))}</strong><span class="account-menu__chevron">›</span></button>
+    <div class="account-settings" data-account-settings>
+      ${renderSettingsSelect(locale, 'account.measuringUnits', 'units', state.units, UNIT_OPTIONS)}
+      ${renderSettingsSelect(locale, 'account.currency', 'currency', state.currency, CURRENCY_OPTIONS)}
+      ${renderSettingsSelect(locale, 'account.quality', 'quality', state.quality, QUALITY_OPTIONS)}
+      <button class="account-settings__toggle" type="button" data-action="toggle-dark-mode" aria-pressed="${state.darkMode}">
+        <span>${escapeHtml(sharedT(locale, 'account.darkMode'))}</span>
+        <span class="settings-toggle-value"><strong data-dark-mode-label>${escapeHtml(sharedT(locale, state.darkMode ? 'account.on' : 'account.off'))}</strong><span class="settings-switch ${state.darkMode ? 'is-on' : ''}" aria-hidden="true"><span></span></span></span>
+      </button>
+      <button class="account-settings__cookies" type="button" data-action="cookies-placeholder">
+        <span>${escapeHtml(sharedT(locale, 'account.cookies'))}</span><strong>${escapeHtml(sharedT(locale, 'account.manage'))}</strong>
+      </button>
+    </div>
   `;
 }
 
@@ -132,6 +151,7 @@ export function renderAccountMenu(state, { profile = true } = {}) {
       <div data-account-guest-domain-content ${authenticated ? 'hidden' : ''}>
         <nav class="account-menu__items account-menu__items--guest">
           ${renderDomainControl(locale, domainOpen, currentDomainLocale)}
+          ${renderAccountSettings(state)}
         </nav>
       </div>
       <div data-account-authenticated-content ${authenticated ? '' : 'hidden'}>
@@ -152,20 +172,7 @@ export function renderAccountMenu(state, { profile = true } = {}) {
               <strong>office@360configurator.com</strong>
             </button>
           </div>
-          <button type="button" data-action="toggle-account-settings" aria-expanded="false"><span>${sharedIcon('settings')}</span><strong>${escapeHtml(sharedT(locale, 'account.settings'))}</strong><span class="account-menu__chevron">›</span></button>
-          <div class="account-settings" data-account-settings>
-            ${renderSettingsSelect(locale, 'account.measuringUnits', 'units', state.units, UNIT_OPTIONS)}
-            ${renderSettingsSelect(locale, 'account.currency', 'currency', state.currency, CURRENCY_OPTIONS)}
-            ${renderSettingsSelect(locale, 'account.quality', 'quality', state.quality, QUALITY_OPTIONS)}
-            ${renderSettingsSelect(locale, 'account.defaultArPlatform', 'defaultArPlatform', state.defaultArPlatform, AR_PLATFORM_OPTIONS)}
-            <button class="account-settings__toggle" type="button" data-action="toggle-dark-mode" aria-pressed="${state.darkMode}">
-              <span>${escapeHtml(sharedT(locale, 'account.darkMode'))}</span>
-              <span class="settings-toggle-value"><strong data-dark-mode-label>${escapeHtml(sharedT(locale, state.darkMode ? 'account.on' : 'account.off'))}</strong><span class="settings-switch ${state.darkMode ? 'is-on' : ''}" aria-hidden="true"><span></span></span></span>
-            </button>
-            <button class="account-settings__cookies" type="button" data-action="cookies-placeholder">
-              <span>${escapeHtml(sharedT(locale, 'account.cookies'))}</span><strong>${escapeHtml(sharedT(locale, 'account.manage'))}</strong>
-            </button>
-          </div>
+          ${renderAccountSettings(state)}
           <button type="button" data-action="account-signout"><span>${sharedIcon('signout')}</span><strong>${escapeHtml(sharedT(locale, 'account.signOut'))}</strong></button>
         </nav>
       </div>

@@ -14,13 +14,13 @@ import {
   SIDE_NAMES,
   SIDE_OPTIONS,
   STEPS,
-} from '../catalog.js';
+} from '../catalog.js?v=platform-18';
 import {
   automationLabel,
   calculatePrice,
   formatMoney,
   sideLabel,
-} from '../pricing.js';
+} from '../pricing.js?v=platform-18';
 import {
   canPlacePoleMount,
   countPoleMounts,
@@ -48,8 +48,8 @@ import {
   poleIsAvailable,
   segmentHasMountedItems,
   segmentIsAvailable,
-} from '../state.js';
-import { escapeHtml } from '../../../shared-ui/src/index.js';
+} from '../state.js?v=platform-18';
+import { escapeHtml } from '../../../shared-ui/src/index.js?v=platform-18';
 import {
   localizeCatalogOptions,
   localizePoleLabel,
@@ -58,8 +58,8 @@ import {
   pergolaPlural,
   pergolaT,
   pergolaValueLabel,
-} from '../i18n.js';
-import { optionCard, segmented, colorSwatches } from './renderHelpers.js';
+} from '../i18n.js?v=platform-18';
+import { optionCard, segmented, colorSwatches } from './renderHelpers.js?v=platform-18';
 
 const POLE_MOUNT_OPTIONS = [
   { value: 'speaker', icon: './assets/icons/accessory-speaker.svg' },

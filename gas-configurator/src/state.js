@@ -7,20 +7,20 @@ import {
   normalizeCoordinate,
   routeLengthMeters,
   routeSegmentId,
-} from './domain/geometry.js';
-import { GROUND_TYPES, SURFACE_TYPES } from './domain/calculations.js';
+} from './domain/geometry.js?v=platform-18';
+import { GROUND_TYPES, SURFACE_TYPES } from './domain/calculations.js?v=platform-18';
 import {
   clampPipeCover,
   coverAtChainage,
   DEPTH_POINT_MATCH_TOLERANCE_M,
   routeEventDepthZoneStations,
-} from './domain/depthProfile.js';
+} from './domain/depthProfile.js?v=platform-18';
 import {
   DEFAULT_PIPE_PRODUCT_ID,
   DEFAULT_PIPE_SELECTION,
   normalizePipeSelection,
   PIPE_CATALOG_VERSION,
-} from './domain/pipeCatalog.js';
+} from './domain/pipeCatalog.js?v=platform-18';
 import {
   createRouteEvent,
   firstUtilityCrossingEvent,
@@ -34,19 +34,19 @@ import {
   ROUTE_EVENT_TYPE_IDS,
   ROUTE_EVENT_TYPES,
   selectedRouteEvent,
-} from './domain/routeEvents.js';
+} from './domain/routeEvents.js?v=platform-18';
 import {
   DEFAULT_OBSTACLE_PROXIMITY_M,
   MAX_OBSTACLE_PROXIMITY_M,
   MIN_OBSTACLE_PROXIMITY_M,
-} from './obstacles/routeObstacles.js';
+} from './obstacles/routeObstacles.js?v=platform-18';
 import {
   DEFAULT_NETWORK_SNAP_TOLERANCE_M,
   findNearestNetworkPoint,
   NETWORK_CONNECTION_EPSILON_M,
   projectCoordinateToNetworkAsset,
   serializeNetworkConnection,
-} from './network/networkConnection.js';
+} from './network/networkConnection.js?v=platform-18';
 
 export const GAS_STATE_SCHEMA_VERSION = 4;
 

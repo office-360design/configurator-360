@@ -1,11 +1,11 @@
-import { GeometryLibrary } from './geometry/GeometryLibrary.js?v=8';
-import { MaterialLibrary } from './materials/MaterialLibrary.js?v=pergola-17';
-import { GlazingEnvironment } from './environment/GlazingEnvironment.js?v=glass-13';
-import { NeutralEnvironment } from './environment/NeutralEnvironment.js?v=1';
-import { getQualityProfile, normalizeQuality } from './quality.js?v=2';
+import { GeometryLibrary } from './geometry/GeometryLibrary.js?v=platform-18';
+import { MaterialLibrary } from './materials/MaterialLibrary.js?v=platform-19';
+import { GlazingEnvironment } from './environment/GlazingEnvironment.js?v=platform-18';
+import { NeutralEnvironment } from './environment/NeutralEnvironment.js?v=platform-18';
+import { getQualityProfile, normalizeQuality } from './quality.js?v=platform-18';
 
-import { ContactShading } from './rendering/ContactShading.js?v=perf-15';
-import { RenderPerformance } from './rendering/RenderPerformance.js?v=perf-15';
+import { ContactShading } from './rendering/ContactShading.js?v=platform-18';
+import { RenderPerformance } from './rendering/RenderPerformance.js?v=platform-18';
 
 export const SURFACE_SYSTEM_VERSION = '20260910-pergola-materials-17';
 

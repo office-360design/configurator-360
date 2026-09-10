@@ -1,5 +1,5 @@
-import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js';
-import { getLocaleForHostname } from '../../shared-ui/src/config.js';
+import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js?v=platform-18';
+import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=platform-18';
 
 const STATIC_TRANSLATIONS = Object.freeze({
   '3D Solar Configurator | 360Configurator': ['Configurator Solar 3D | 360Configurator', '3D Solar-Konfigurator | 360Configurator'],

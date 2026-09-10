@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { getGlazingBeadCode, getGasketCode } from './config.js';
-import { createProfileLoader } from './profile-loader.js?v=uv-8';
+import { getGlazingBeadCode, getGasketCode } from './config.js?v=platform-18';
+import { createProfileLoader } from './profile-loader.js?v=platform-18';
 import {
     createConnectionTemplateLoader,
     getConnectionTemplateIdForLayout,
-} from './connection-template-loader.js';
-import { getProfileShapeBounds } from './svg-profile-shapes.js';
+} from './connection-template-loader.js?v=platform-18';
+import { getProfileShapeBounds } from './svg-profile-shapes.js?v=platform-18';
 import {
     areSelectedComponentProfilesVisible,
     shouldCheckComponentProfile,
-} from './component-group-visibility.js';
+} from './component-group-visibility.js?v=platform-18';
 import {
     applyDividerAccessoryConnectionPlacements,
     applyFrameAccessoryConnectionPlacements,
@@ -19,18 +19,18 @@ import {
     createProfileSelectionSignature,
     getRequiredSupplementalAccessorySourceProfileSetIds,
     resolveLegacyProfileSources,
-} from './profile-composition.js';
+} from './profile-composition.js?v=platform-18';
 import {
     getProfileCatalogEntry,
     isStandaloneProfileGeometryRegistered,
-} from './profile-catalog.js';
-import { transformCadPoint } from './profile-coordinate-transform.js';
+} from './profile-catalog.js?v=platform-18';
+import { transformCadPoint } from './profile-coordinate-transform.js?v=platform-18';
 import {
     FIXED_WINDOW_TYPE,
     SASH_WINDOW_TYPE,
     getDividerConnectionVariantKey,
-} from './window-layout-state.js';
-import { getWindowLocale, windowT } from './i18n.js';
+} from './window-layout-state.js?v=platform-18';
+import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 
 export function createProfileController({
     isARMode,

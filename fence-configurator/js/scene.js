@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=11';
+import { buildFenceAssembly, GRADE_Y } from './fenceFactory.js?v=platform-18';
 
 export class FenceScene {
   constructor(host) {

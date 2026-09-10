@@ -1,4 +1,4 @@
-import { getFirebaseIdToken } from '../firebaseAuth.js?v=13';
+import { getFirebaseIdToken } from '../firebaseAuth.js?v=platform-18';
 
 const FUNCTIONS_REGION = 'europe-west1';
 const PROJECT_ID = 'configurator-360';
@@ -23,7 +23,7 @@ const COPY = Object.freeze({
     close: 'Close orders',
     retry: 'Retry',
     products: Object.freeze({
-      window: 'Window', roof: 'Roof', pergola: 'Pergola', hall: 'Hall', solar: 'Solar', fence: 'Fence', cardbox: 'Cardboard box', bookshelf: 'Bookshelf',
+      window: 'Window', roof: 'Roof', pergola: 'Pergola', hall: 'Hall', solar: 'Solar', fence: 'Fence', cardbox: 'Cardboard box', bookshelf: 'Bookshelf', chair: 'Chair',
     }),
   }),
   'ro-RO': Object.freeze({
@@ -42,7 +42,7 @@ const COPY = Object.freeze({
     close: 'Închide comenzile',
     retry: 'Încearcă din nou',
     products: Object.freeze({
-      window: 'Fereastră', roof: 'Acoperiș', pergola: 'Pergolă', hall: 'Hală', solar: 'Solar', fence: 'Gard', cardbox: 'Cutie din carton', bookshelf: 'Bibliotecă',
+      window: 'Fereastră', roof: 'Acoperiș', pergola: 'Pergolă', hall: 'Hală', solar: 'Solar', fence: 'Gard', cardbox: 'Cutie din carton', bookshelf: 'Bibliotecă', chair: 'Scaun',
     }),
   }),
   'de-DE': Object.freeze({
@@ -61,7 +61,7 @@ const COPY = Object.freeze({
     close: 'Bestellungen schließen',
     retry: 'Erneut versuchen',
     products: Object.freeze({
-      window: 'Fenster', roof: 'Dach', pergola: 'Pergola', hall: 'Halle', solar: 'Solar', fence: 'Zaun', cardbox: 'Kartonbox', bookshelf: 'Bücherregal',
+      window: 'Fenster', roof: 'Dach', pergola: 'Pergola', hall: 'Halle', solar: 'Solar', fence: 'Zaun', cardbox: 'Kartonbox', bookshelf: 'Bücherregal', chair: 'Stuhl',
     }),
   }),
 });

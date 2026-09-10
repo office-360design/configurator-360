@@ -16,7 +16,7 @@ const localizedOrigins = {
 };
 
 const marketingConfiguratorSlugs = ["pergola", "roof", "window", "hall", "solar", "fence"];
-const externalConfiguratorSlugs = [...marketingConfiguratorSlugs, "cardbox"];
+const externalConfiguratorSlugs = [...marketingConfiguratorSlugs, "cardbox", "chair"];
 
 const externalConfiguratorPaths = {
   en: {
@@ -27,6 +27,7 @@ const externalConfiguratorPaths = {
     hall: "/hall-configurator/",
     fence: "/fence-configurator/",
     cardbox: "/cardbox-configurator/",
+    chair: "/chair-configurator/",
   },
   ro: {
     window: "/configurator-ferestre/",
@@ -36,6 +37,7 @@ const externalConfiguratorPaths = {
     hall: "/configurator-hala/",
     fence: "/configurator-garduri/",
     cardbox: "/configurator-cutii-carton/",
+    chair: "/configurator-scaune/",
   },
   de: {
     window: "/fenster-konfigurator/",
@@ -45,6 +47,7 @@ const externalConfiguratorPaths = {
     hall: "/hallen-konfigurator/",
     fence: "/zaun-konfigurator/",
     cardbox: "/karton-konfigurator/",
+    chair: "/stuhl-konfigurator/",
   },
 };
 

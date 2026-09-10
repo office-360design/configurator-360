@@ -1,9 +1,9 @@
-import { getFirebaseIdToken } from './firebaseAuth.js?v=13';
+import { getFirebaseIdToken } from './firebaseAuth.js?v=platform-18';
 
 const FUNCTIONS_REGION = 'europe-west1';
 const PROJECT_ID = 'configurator-360';
 const MAX_NAME_LENGTH = 80;
-const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox', 'bookshelf']);
+const ALLOWED_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox', 'bookshelf', 'chair']);
 
 function normalizeProductType(value) {
   const product = String(value || '').trim().toLowerCase();

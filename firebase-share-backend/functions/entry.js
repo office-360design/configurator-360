@@ -4,9 +4,9 @@
 // it. Feature-specific compatibility layers are spread last so they can safely
 // override one callable without replacing unrelated backend functionality.
 module.exports = {
-  ...require('./index.js'),
-  ...require('./quotation.js'),
-  ...require('./profile.js'),
-  ...require('./sales-dashboard.js'),
-  ...require('./profile-update.js'),
+  ...require('./index.js?v=platform-18'),
+  ...require('./quotation.js?v=platform-18'),
+  ...require('./profile.js?v=platform-18'),
+  ...require('./sales-dashboard.js?v=platform-18'),
+  ...require('./profile-update.js?v=platform-18'),
 };

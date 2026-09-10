@@ -18,6 +18,7 @@ const HOSTS = {
       solar: '/solar-configurator/',
       fence: '/fence-configurator/',
       cardbox: '/cardbox-configurator/',
+      chair: '/chair-configurator/',
     },
   },
   ro: {
@@ -32,6 +33,7 @@ const HOSTS = {
       solar: '/configurator-solar/',
       fence: '/configurator-garduri/',
       cardbox: '/configurator-cutii-carton/',
+      chair: '/configurator-scaune/',
     },
   },
   de: {
@@ -46,6 +48,7 @@ const HOSTS = {
       solar: '/solar-konfigurator/',
       fence: '/zaun-konfigurator/',
       cardbox: '/karton-konfigurator/',
+      chair: '/stuhl-konfigurator/',
     },
   },
 };

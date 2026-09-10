@@ -10,7 +10,7 @@ import {
   originIsPotentiallyAllowed,
   quotaErrorPayload,
   resolveSolarRequestContext,
-} from './tenantUsage.mjs';
+} from './tenantUsage.mjs?v=platform-18';
 
 const SOLAR_BASE = 'https://solar.googleapis.com/v1/';
 const CACHE_PREFIX = 'google-solar-cache-v1';

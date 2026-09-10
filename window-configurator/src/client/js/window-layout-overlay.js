@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import {
     FIXED_WINDOW_TYPE,
     SASH_WINDOW_TYPE,
-} from './window-layout-state.js';
-import { getWindowLocale, windowT } from './i18n.js';
+} from './window-layout-state.js?v=platform-18';
+import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 
 const ADD_WINDOW_OUTER_OFFSET_M = 0.075;
 const ADD_WINDOW_DOWNWARD_OFFSET_PX = 22;

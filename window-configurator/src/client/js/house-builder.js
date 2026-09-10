@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { createWindowGeometry } from './window-geometry.js?v=uv-8';
-import { getHouseDimensions } from './house-config.js';
-import { getWindowLocale } from './i18n.js';
+import { createWindowGeometry } from './window-geometry.js?v=platform-18';
+import { getHouseDimensions } from './house-config.js?v=platform-18';
+import { getWindowLocale } from './i18n.js?v=platform-18';
 
 // Resolve the tree relative to this module instead of the website root.
 // Local dev loads this module from /js/, while production mounts the

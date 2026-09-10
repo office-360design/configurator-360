@@ -8,10 +8,10 @@ import {
     getFinishDefinition,
     createFinishSelection,
     createRalFinishSelectionFromColour,
-} from './config.js';
-import { isDrainageCapProfile } from './profile-catalog.js';
-import { getWindowPolymerSurface } from './window-polymer-materials.js?v=polymers-16';
-import { getWindowLocale, localizeFinishSelection, windowT } from './i18n.js';
+} from './config.js?v=platform-18';
+import { isDrainageCapProfile } from './profile-catalog.js?v=platform-18';
+import { getWindowPolymerSurface } from './window-polymer-materials.js?v=platform-18';
+import { getWindowLocale, localizeFinishSelection, windowT } from './i18n.js?v=platform-18';
 
 export function createMaterialManager({
     surfaceLibrary = null,

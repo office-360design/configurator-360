@@ -4,7 +4,7 @@ import {
   normalizeCoordinate,
   routeLengthMeters,
   routeProfileSamples,
-} from '../domain/geometry.js';
+} from '../domain/geometry.js?v=platform-18';
 
 export const TERRAIN_SOURCE_NAME = 'Mapzen Terrain Tiles / AWS Open Data';
 export const TERRAIN_SOURCE_URL = 'https://registry.opendata.aws/terrain-tiles/';

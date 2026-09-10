@@ -15,3 +15,9 @@
   for = "/ar-viewer.html"
   [headers.values]
     Cache-Control = "no-store, max-age=0"
+
+[[redirects]]
+  from = "/api/region-defaults"
+  to = "/.netlify/functions/region-defaults"
+  status = 200
+  force = true

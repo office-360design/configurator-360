@@ -1,6 +1,6 @@
-import { deriveHallMetrics } from './state.js?v=12';
-import { normalizeOpenings } from './openings.js?v=13';
-import { hallT, hallValueLabel, resolveHallLocale } from './i18n.js?v=1';
+import { deriveHallMetrics } from './state.js?v=platform-18';
+import { normalizeOpenings } from './openings.js?v=platform-18';
+import { hallT, hallValueLabel, resolveHallLocale } from './i18n.js?v=platform-18';
 
 const structureRates = { light: 72, standard: 88, heavy: 108 };
 const claddingRates = { trapezoidal: 34, sandwich: 59, 'standing-seam': 66 };

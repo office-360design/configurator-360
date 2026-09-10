@@ -1,8 +1,8 @@
-import { getLegacyProfileSetIds } from './profile-catalog.js';
+import { getLegacyProfileSetIds } from './profile-catalog.js?v=platform-18';
 import {
     resolveGlazingBeadProfileId,
     resolveMovableGasketProfileId,
-} from './profile-compatibility.js';
+} from './profile-compatibility.js?v=platform-18';
 
 export const allowedProfiles = new Set(getLegacyProfileSetIds());
 

@@ -1,8 +1,8 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=42';
-import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=1';
-import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=3';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=5';
-import { resolveTenantContext } from '../../shared-ui/src/tenantBootstrap.js?v=3';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=platform-19';
+import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
+import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { resolveTenantContext } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 
 const resolvedTenantContext = await resolveTenantContext();
 const tenantContext = resolvedTenantContext?.isTenant && resolvedTenantContext?.exists && resolvedTenantContext?.status === 'active'

@@ -3,7 +3,7 @@
  * No vertex welding, triangulation, normal regeneration, material mutation or
  * runtime/world-space projection. Mapping stays attached during opening/rotation.
  */
-import { applySurfaceUVs } from './surfaceUVs.js?v=1';
+import { applySurfaceUVs } from './surfaceUVs.js?v=platform-18';
 export const UV_MAPPING_VERSION = '20260909-uv-8';
 const AXES = ['x', 'y', 'z'];
 const MODES = ['box', 'extrusion', 'planar', 'cylindrical', 'authored'];

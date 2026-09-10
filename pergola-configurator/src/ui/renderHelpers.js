@@ -1,4 +1,4 @@
-import { escapeHtml } from '../../../shared-ui/src/index.js';
+import { escapeHtml } from '../../../shared-ui/src/index.js?v=platform-18';
 
 export function optionCard({ value, label, description = '', icon = '', badge = '', disabled = false, disabledReason = '' }, selected, path, extraClass = '') {
   return `
