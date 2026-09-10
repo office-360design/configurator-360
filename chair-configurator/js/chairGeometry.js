@@ -148,26 +148,28 @@ export function createChairModel(THREE_NS, geometryLibrary, { woodMaterial, fabr
       name: 'rear-upright',
     });
 
-    // Front arm joins now embed more fully into the front post and get a small
-    // matching filler member so the connection closes cleanly with no gap.
-    woodMember([sx * frontX, armFrontY, frontZ - 0.010], [sx * rearX, armRearY, rearZ + 0.010], {
+    // Front arm joins now stop short of deep interpenetration so the texture does
+    // not z-fight against the post. A dedicated bridge then closes the visible top
+    // corner, creating a continuous smooth join with no floating gap.
+    woodMember([sx * frontX, armFrontY + 0.004, frontZ - 0.004], [sx * rearX, armRearY, rearZ + 0.010], {
       width: 0.054,
       depth: 0.072,
       radius: 0.011,
       name: 'arm-rail',
-      overlapStart: 0.010,
+      overlapStart: 0.002,
       overlapEnd: 0.014,
     });
 
-    // Fill the last visible front joint gap so the front arm support reads as a
-    // continuous wood-to-wood join rather than two separated parts.
-    woodMember([sx * frontX, armFrontY - 0.026, frontZ - 0.002], [sx * frontX, armFrontY - 0.002, frontZ - 0.012], {
-      width: 0.036,
-      depth: 0.056,
+    // Small bridging cap between the front post and the arm rail. This replaces
+    // the previous overlapping filler and removes both the visible texture glitch
+    // and the remaining upper-side gap at the joint.
+    woodMember([sx * frontX, armFrontY - 0.006, frontZ - 0.001], [sx * frontX, armFrontY + 0.010, frontZ - 0.012], {
+      width: 0.032,
+      depth: 0.052,
       radius: 0.006,
-      name: 'front-arm-joint-filler',
-      overlapStart: 0.006,
-      overlapEnd: 0.006,
+      name: 'front-arm-joint-bridge',
+      overlapStart: 0,
+      overlapEnd: 0,
     });
 
     // Side seat rails fully span from the front post into the rear upright.
