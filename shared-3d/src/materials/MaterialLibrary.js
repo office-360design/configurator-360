@@ -1,7 +1,7 @@
-import { MATERIAL_PRESETS } from './presets.js?v=polymers-16';
+import { MATERIAL_PRESETS } from './presets.js?v=pergola-17';
 import { PBRTextureSets } from './PBRTextureSets.js?v=7';
 import { PBR_TEXTURE_SETS, PBR_TEXTURE_VERSION } from './textureSets.js?v=7';
-import { SurfaceTextures } from './SurfaceTextures.js?v=polymers-16';
+import { SurfaceTextures } from './SurfaceTextures.js?v=pergola-17';
 import { getQualityProfile, normalizeQuality } from '../quality.js?v=2';
 
 /** One library per scene. Materials are owned by callers; texture maps by the library. */
@@ -44,6 +44,15 @@ export class MaterialLibrary {
     material.roughness = options.roughness ?? definition.roughness ?? 0.7;
     material.side = options.side ?? THREE.FrontSide;
     material.fog = options.fog ?? definition.fog ?? true;
+    material.flatShading = options.flatShading ?? definition.flatShading ?? false;
+    // Standard-material options used by textiles and light covers. These defaults
+    // are identical to Three's defaults for every pre-existing opaque finish.
+    material.transparent = options.transparent ?? definition.transparent ?? false;
+    material.opacity = options.opacity ?? definition.opacity ?? 1;
+    material.depthWrite = options.depthWrite ?? definition.depthWrite ?? true;
+    material.forceSinglePass = options.forceSinglePass ?? definition.forceSinglePass ?? false;
+    material.emissive.set(options.emissive ?? definition.emissive ?? '#000000');
+    material.emissiveIntensity = options.emissiveIntensity ?? definition.emissiveIntensity ?? 1;
     material.userData.surface = { id, version: 6, uvUnits: 'metres', grainAxis: 'u' };
     this.track(material, id, { ...options });
     try {
@@ -83,7 +92,7 @@ export class MaterialLibrary {
     const { id, options } = entry;
     const definition = this.presets.get(id);
     const profile = getQualityProfile(this.quality);
-    const previousFeatures = `${!!material.normalMap}:${!!material.roughnessMap}:${!!material.map}:${material.transmission > 0}:${material.transparent}`;
+    const previousFeatures = `${!!material.normalMap}:${!!material.roughnessMap}:${!!material.map}:${!!material.alphaMap}:${material.transmission > 0}:${material.transparent}`;
     material.envMapIntensity = (options.envMapIntensity ?? definition.envMapIntensity ?? 1) * this.environmentIntensity;
     if (this.reflectionEnvironments.has(id)) material.envMap = this.reflectionEnvironments.get(id);
     if (definition.type === 'glass') {
@@ -115,13 +124,18 @@ export class MaterialLibrary {
       material.map = maps.color ?? null;
       material.normalMap = profile.surfaceDetail ? (maps.normal ?? null) : null;
       material.roughnessMap = profile.surfaceDetail ? (maps.roughness ?? null) : null;
+      material.alphaMap = profile.surfaceDetail ? (maps.alpha ?? null) : null;
+      if (definition.transparent && definition.lowOpacity !== undefined) {
+        const opacity = options.opacity ?? definition.opacity ?? 1;
+        material.opacity = profile.surfaceDetail ? opacity : opacity * definition.lowOpacity / (definition.opacity ?? 1);
+      }
       const detailScale = profile.quality === 'high' ? 1 : (profile.surfaceDetail ? 0.85 : 0);
       const normalStrength = assetMaps ? (definition.assetNormalStrength ?? definition.normalStrength) : definition.normalStrength;
       material.normalScale.setScalar((normalStrength ?? 0.1) * detailScale);
       this.textures.setAnisotropy(Math.min(this.maxAnisotropy, profile.anisotropy));
       this.assets.setAnisotropy(Math.min(this.maxAnisotropy, profile.anisotropy));
     }
-    const nextFeatures = `${!!material.normalMap}:${!!material.roughnessMap}:${!!material.map}:${material.transmission > 0}:${material.transparent}`;
+    const nextFeatures = `${!!material.normalMap}:${!!material.roughnessMap}:${!!material.map}:${!!material.alphaMap}:${material.transmission > 0}:${material.transparent}`;
     if (previousFeatures !== nextFeatures) material.needsUpdate = true;
   }
   /** Bind a borrowed reflection texture to one semantic material only.
@@ -169,7 +183,7 @@ export class MaterialLibrary {
     const activeMaterials = {}, surfaceDetails = {};
     for (const [material, { id }] of this.materials) {
       activeMaterials[id] = (activeMaterials[id] || 0) + 1;
-      const entry = surfaceDetails[id] ??= { materials: 0, normalMapped: 0, roughnessMapped: 0, colorMapped: 0,
+      const entry = surfaceDetails[id] ??= { materials: 0, normalMapped: 0, roughnessMapped: 0, colorMapped: 0, alphaMapped: 0,
         tileMetres: this.presets.get(id).tile ? [...this.presets.get(id).tile] : null,
         assetTileMetres: this.presets.get(id).assetTile ? [...this.presets.get(id).assetTile] : null, assetBacked: 0 };
       entry.materials++;
@@ -177,6 +191,7 @@ export class MaterialLibrary {
       if (material.normalMap) entry.normalMapped++;
       if (material.roughnessMap) entry.roughnessMapped++;
       if (material.map) entry.colorMapped++;
+      if (material.alphaMap) entry.alphaMapped++;
     }
     return { glazing: this.getGlazingDiagnostics(), textureAssets: { version: PBR_TEXTURE_VERSION, ...this.assets.getDiagnostics() }, quality: this.quality, surfaceDetailEnabled: getQualityProfile(this.quality).surfaceDetail, materialCount: this.materials.size, textureCount: this.textures.size + this.assets.getDiagnostics().textureCount, availableMaterials: [...this.presets.keys()], activeMaterials, surfaceDetails };
   }

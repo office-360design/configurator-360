@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createSurfaceSystem, disposeObjectResources } from '../../../shared-3d/src/index.js?v=perf-15';
+import { createSurfaceSystem, disposeObjectResources } from '../../../shared-3d/src/index.js?v=pergola-17';
 import { createPergolaGeometry } from './pergolaGeometry.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';

@@ -1,3 +1,4 @@
+import { createScreenWeavePixels } from './fabricTextures.js?v=pergola-17';
 import { registerPolymerTextures } from './polymerTextures.js?v=polymers-16';
 
 // Small, deterministic, seamless starter maps. No remote assets, canvas dependencies,
@@ -84,6 +85,7 @@ export class SurfaceTextures {
     this.cache = new Map();
     this.providers = new Map();
     registerPolymerTextures(this);
+    this.register('fabric.woven', () => createScreenWeavePixels());
     for (const kind of ['powder', 'brushed', 'oak']) {
       this.providers.set(kind, () => ({ size: kind === 'oak' ? 512 : 256, ...createSurfacePixels(kind, kind === 'oak' ? 512 : 256) }));
     }
@@ -104,7 +106,7 @@ export class SurfaceTextures {
     const { THREE } = this;
     const data = provider(THREE);
     const maps = {};
-    for (const role of ['color', 'roughness', 'normal']) {
+    for (const role of ['color', 'roughness', 'normal', 'alpha']) {
       if (!data[role]) continue;
       const texture = data[role].isTexture
         ? data[role].clone()

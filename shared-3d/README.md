@@ -1,6 +1,6 @@
 # Shared 3D rendering and geometry
 
-Current release: **`20260909-polymers-16`** (Window plastic/rubber integration). Integrated into Window and Pergola only.
+Current release: **`20260910-pergola-materials-17`** (Pergola textile/accessory integration). Integrated into Window and Pergola only.
 Other configurators and their rendering paths are not migrated by this release.
 
 The shared layer receives each application's Three.js namespace. It does not
@@ -100,3 +100,11 @@ Pergola Three.js package. `CHROMIUM_EXECUTABLE` can select a browser;
 `SOFTWARE_WEBGL=1` selects SwiftShader. On Linux builds whose ANGLE uses XCB,
 run under Xvfb (for example `xvfb-run -a`) even for headless Chromium. This is
 only a test-environment requirement, not an application dependency.
+
+## Pergola textile and accessory materials (17)
+
+See [PERGOLA_MATERIALS.md](PERGOLA_MATERIALS.md) for the new screen, exposed-hardware,
+soft-touch and light-cover finishes, reuse of plastic/coating on accessories,
+quality behavior and exact-asset mapping. Window and the accepted deck/glass
+material definitions remain unchanged. See PERGOLA_MATERIALS_VALIDATION.md for
+release checks and verification limits.

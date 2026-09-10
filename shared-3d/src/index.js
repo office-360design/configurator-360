@@ -1,8 +1,8 @@
-export { MaterialLibrary } from './materials/MaterialLibrary.js?v=polymers-16';
-export { MATERIAL_PRESETS } from './materials/presets.js?v=polymers-16';
+export { MaterialLibrary } from './materials/MaterialLibrary.js?v=pergola-17';
+export { MATERIAL_PRESETS } from './materials/presets.js?v=pergola-17';
 export { applySurfaceUVs } from './geometry/surfaceUVs.js?v=1';
 export { QUALITY_PROFILES, normalizeQuality, getQualityProfile } from './quality.js?v=2';
-export { createSurfaceSystem, SURFACE_SYSTEM_VERSION } from './createSurfaceSystem.js?v=polymers-16';
+export { createSurfaceSystem, SURFACE_SYSTEM_VERSION } from './createSurfaceSystem.js?v=pergola-17';
 export { GeometryLibrary, GEOMETRY_SYSTEM_VERSION } from './geometry/GeometryLibrary.js?v=8';
 export { createRoundedRectangleShape, simplifySectionShape, simplifyClosedContour } from './geometry/sectionShapes.js?v=2';
 export { splitTriangleAtScalarZero, splitPositionGeometryAtScalarZero, clipPositionGeometryToScalarHalfspace } from './geometry/scalarGeometry.js?v=2';

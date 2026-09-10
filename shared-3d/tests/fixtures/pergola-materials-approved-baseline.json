@@ -1,0 +1,1183 @@
+{
+  "source": "main13 + accepted updates through polymers-16",
+  "presets": {
+    "aluminium.powderCoated": {
+      "type": "standard",
+      "color": "#383e42",
+      "metalness": 0,
+      "roughness": 0.58,
+      "envMapIntensity": 0.72,
+      "textureSet": "powder.fine",
+      "texture": "powder",
+      "normalStrength": 0.16,
+      "tile": [
+        0.035,
+        0.035
+      ]
+    },
+    "aluminium.bare": {
+      "type": "standard",
+      "color": "#d6dade",
+      "metalness": 1,
+      "roughness": 0.3,
+      "envMapIntensity": 1.12,
+      "textureSet": "aluminium.brushed",
+      "texture": "brushed",
+      "normalStrength": 0.07,
+      "tile": [
+        0.8,
+        0.025
+      ]
+    },
+    "aluminium.anodized": {
+      "type": "standard",
+      "color": "#bfc5ca",
+      "metalness": 0.85,
+      "roughness": 0.43,
+      "envMapIntensity": 0.96,
+      "textureSet": "aluminium.brushed",
+      "texture": "brushed",
+      "normalStrength": 0.05,
+      "tile": [
+        0.8,
+        0.025
+      ]
+    },
+    "plastic.rigid": {
+      "type": "standard",
+      "color": "#34383d",
+      "metalness": 0,
+      "roughness": 0.46,
+      "envMapIntensity": 0.72,
+      "texture": "polymer.molded",
+      "normalStrength": 0.055,
+      "tile": [
+        0.016,
+        0.016
+      ]
+    },
+    "plastic.thermalBreak": {
+      "type": "standard",
+      "color": "#41474e",
+      "metalness": 0,
+      "roughness": 0.78,
+      "envMapIntensity": 0.55,
+      "texture": "polymer.molded",
+      "normalStrength": 0.09,
+      "tile": [
+        0.024,
+        0.024
+      ]
+    },
+    "plastic.foam": {
+      "type": "standard",
+      "color": "#9aa1a8",
+      "metalness": 0,
+      "roughness": 0.95,
+      "envMapIntensity": 0.35,
+      "texture": "polymer.cellular",
+      "normalStrength": 0.085,
+      "tile": [
+        0.025,
+        0.025
+      ]
+    },
+    "rubber.epdm": {
+      "type": "standard",
+      "color": "#20242a",
+      "metalness": 0,
+      "roughness": 0.83,
+      "envMapIntensity": 0.65,
+      "texture": "rubber.fine",
+      "normalStrength": 0.045,
+      "tile": [
+        0.012,
+        0.012
+      ]
+    },
+    "glass.clear": {
+      "type": "glass",
+      "color": "#ffffff",
+      "metalness": 0,
+      "roughness": 0.045,
+      "envMapIntensity": 1,
+      "ior": 1.5,
+      "transmission": 0.96,
+      "thickness": 0.006
+    },
+    "glass.architectural": {
+      "type": "glass",
+      "color": "#ffffff",
+      "metalness": 0,
+      "roughness": 0.025,
+      "envMapIntensity": 1,
+      "ior": 1.5,
+      "transmission": 1,
+      "thickness": 0.006,
+      "attenuationColor": "#ecf6f2",
+      "attenuationDistance": 2,
+      "lowOpacity": 0.18,
+      "fog": false
+    },
+    "wood.deck": {
+      "type": "standard",
+      "color": "#ffffff",
+      "metalness": 0,
+      "roughness": 0.76,
+      "envMapIntensity": 0.28,
+      "texture": "oak",
+      "textureSet": "wood.deck",
+      "normalStrength": 0.12,
+      "assetNormalStrength": 0.14,
+      "tile": [
+        2.4,
+        0.24
+      ],
+      "assetTile": [
+        1.5,
+        1.5
+      ]
+    },
+    "wood.oak": {
+      "type": "standard",
+      "color": "#ffffff",
+      "metalness": 0,
+      "roughness": 0.76,
+      "envMapIntensity": 0.28,
+      "texture": "oak",
+      "normalStrength": 0.12,
+      "tile": [
+        2.4,
+        0.24
+      ]
+    }
+  },
+  "cases": {
+    "default:fallback": {
+      "protected": {
+        "hash": "92ce60b9a0e25527895e9842b7f07353985f8a11817a5fc9316b236f76abb5eb",
+        "meshCount": 43,
+        "meshMetadataHash": "e1e25b9a3828a50c9e630da2aed395183c48bb39df0b0083e06292104dd7d269"
+      },
+      "lights": []
+    },
+    "default:assets": {
+      "protected": {
+        "hash": "92ce60b9a0e25527895e9842b7f07353985f8a11817a5fc9316b236f76abb5eb",
+        "meshCount": 43,
+        "meshMetadataHash": "e1e25b9a3828a50c9e630da2aed395183c48bb39df0b0083e06292104dd7d269"
+      },
+      "lights": []
+    },
+    "lite-width:fallback": {
+      "protected": {
+        "hash": "2e3c7441958e7abd546755996cc99ea3953897c8bf4c842cbb1b0488107d9175",
+        "meshCount": 37,
+        "meshMetadataHash": "12148c680857bc4e8597a66cd85d1cf35ebf5a4604174a1c3a7cf59d0c366f10"
+      },
+      "lights": []
+    },
+    "lite-width:assets": {
+      "protected": {
+        "hash": "2e3c7441958e7abd546755996cc99ea3953897c8bf4c842cbb1b0488107d9175",
+        "meshCount": 37,
+        "meshMetadataHash": "12148c680857bc4e8597a66cd85d1cf35ebf5a4604174a1c3a7cf59d0c366f10"
+      },
+      "lights": []
+    },
+    "lite-depth:fallback": {
+      "protected": {
+        "hash": "c3f41a40dac9b5c875f162aede66bf5187b7c9ba4d52cdf672b609e050697db9",
+        "meshCount": 48,
+        "meshMetadataHash": "ff8c85d76e04c652400bea36d30a671e97faad36df394bcff56dddeb8ee32cee"
+      },
+      "lights": []
+    },
+    "lite-depth:assets": {
+      "protected": {
+        "hash": "c3f41a40dac9b5c875f162aede66bf5187b7c9ba4d52cdf672b609e050697db9",
+        "meshCount": 48,
+        "meshMetadataHash": "ff8c85d76e04c652400bea36d30a671e97faad36df394bcff56dddeb8ee32cee"
+      },
+      "lights": []
+    },
+    "comfort-width:fallback": {
+      "protected": {
+        "hash": "4d8f84b30f2561c7e2c73a687de9df3ef10ab7f5ea5ff9fc7286e613a09a1160",
+        "meshCount": 35,
+        "meshMetadataHash": "4cb39d1004937d98529736371e3fdc24a14d4776342eaae2849940df7e7d9ae5"
+      },
+      "lights": []
+    },
+    "comfort-width:assets": {
+      "protected": {
+        "hash": "4d8f84b30f2561c7e2c73a687de9df3ef10ab7f5ea5ff9fc7286e613a09a1160",
+        "meshCount": 35,
+        "meshMetadataHash": "4cb39d1004937d98529736371e3fdc24a14d4776342eaae2849940df7e7d9ae5"
+      },
+      "lights": []
+    },
+    "comfort-depth:fallback": {
+      "protected": {
+        "hash": "107bf8c94eeb1786a8131ff4a13c7496644cab08bdd6db62d55a54119c1db5cb",
+        "meshCount": 45,
+        "meshMetadataHash": "461ef8caa3932c6e751133a4681f62634fc16c1321ba39c0c09aa07c9e47bee2"
+      },
+      "lights": []
+    },
+    "comfort-depth:assets": {
+      "protected": {
+        "hash": "107bf8c94eeb1786a8131ff4a13c7496644cab08bdd6db62d55a54119c1db5cb",
+        "meshCount": 45,
+        "meshMetadataHash": "461ef8caa3932c6e751133a4681f62634fc16c1321ba39c0c09aa07c9e47bee2"
+      },
+      "lights": []
+    },
+    "premium-width:fallback": {
+      "protected": {
+        "hash": "92ce60b9a0e25527895e9842b7f07353985f8a11817a5fc9316b236f76abb5eb",
+        "meshCount": 43,
+        "meshMetadataHash": "e1e25b9a3828a50c9e630da2aed395183c48bb39df0b0083e06292104dd7d269"
+      },
+      "lights": []
+    },
+    "premium-width:assets": {
+      "protected": {
+        "hash": "92ce60b9a0e25527895e9842b7f07353985f8a11817a5fc9316b236f76abb5eb",
+        "meshCount": 43,
+        "meshMetadataHash": "e1e25b9a3828a50c9e630da2aed395183c48bb39df0b0083e06292104dd7d269"
+      },
+      "lights": []
+    },
+    "premium-depth:fallback": {
+      "protected": {
+        "hash": "6e3847d13f4c987baa4046bd924513225b3b7cddf6fade5b7824bca56ac097c2",
+        "meshCount": 53,
+        "meshMetadataHash": "393ebcb836e686f3f927feebca4c80c9f536749becba26917f75704f9e3f90bb"
+      },
+      "lights": []
+    },
+    "premium-depth:assets": {
+      "protected": {
+        "hash": "6e3847d13f4c987baa4046bd924513225b3b7cddf6fade5b7824bca56ac097c2",
+        "meshCount": 53,
+        "meshMetadataHash": "393ebcb836e686f3f927feebca4c80c9f536749becba26917f75704f9e3f90bb"
+      },
+      "lights": []
+    },
+    "dimensions-2000-2000-2200:fallback": {
+      "protected": {
+        "hash": "a1a77fd7df8ee03882d17725c262dbf2625ce25df72b28b25755368b2eaa7f2a",
+        "meshCount": 33,
+        "meshMetadataHash": "1ec8929160b27471d88f8fadf78717b070519da8019f6a51897f771170ddbefa"
+      },
+      "lights": []
+    },
+    "dimensions-2000-2000-2200:assets": {
+      "protected": {
+        "hash": "a1a77fd7df8ee03882d17725c262dbf2625ce25df72b28b25755368b2eaa7f2a",
+        "meshCount": 33,
+        "meshMetadataHash": "1ec8929160b27471d88f8fadf78717b070519da8019f6a51897f771170ddbefa"
+      },
+      "lights": []
+    },
+    "dimensions-6000-6000-3000:fallback": {
+      "protected": {
+        "hash": "859b37290f4dc0fe3fd33ace8e4f2d48882fe3de9ead963eb4ccbf103237aa07",
+        "meshCount": 78,
+        "meshMetadataHash": "d7200cae51e124f0b11d86ca717c743cd8499f4235f5aae1388b52be49f710bd"
+      },
+      "lights": []
+    },
+    "dimensions-6000-6000-3000:assets": {
+      "protected": {
+        "hash": "859b37290f4dc0fe3fd33ace8e4f2d48882fe3de9ead963eb4ccbf103237aa07",
+        "meshCount": 78,
+        "meshMetadataHash": "d7200cae51e124f0b11d86ca717c743cd8499f4235f5aae1388b52be49f710bd"
+      },
+      "lights": []
+    },
+    "dimensions-12000-9000-3200:fallback": {
+      "protected": {
+        "hash": "45484f3b690e77ba0c224b45e950974e09f0eb4238cf42bb378b917e8a56daac",
+        "meshCount": 109,
+        "meshMetadataHash": "f7de1243609539df620c4b99e8277d9760e4ba8d16b9fc8998bedcb58d4076d1"
+      },
+      "lights": []
+    },
+    "dimensions-12000-9000-3200:assets": {
+      "protected": {
+        "hash": "45484f3b690e77ba0c224b45e950974e09f0eb4238cf42bb378b917e8a56daac",
+        "meshCount": 109,
+        "meshMetadataHash": "f7de1243609539df620c4b99e8277d9760e4ba8d16b9fc8998bedcb58d4076d1"
+      },
+      "lights": []
+    },
+    "wall-front:fallback": {
+      "protected": {
+        "hash": "cf7927ce98a91308f0a1e1afb7ba3f36bb1e6311551f1a6e9c1ef1e93e649036",
+        "meshCount": 37,
+        "meshMetadataHash": "3ca80463cdf2d2d7601d6e3187bca2658ffb8f0e2bd1a5230113ca701931e6d6"
+      },
+      "lights": []
+    },
+    "wall-front:assets": {
+      "protected": {
+        "hash": "cf7927ce98a91308f0a1e1afb7ba3f36bb1e6311551f1a6e9c1ef1e93e649036",
+        "meshCount": 37,
+        "meshMetadataHash": "3ca80463cdf2d2d7601d6e3187bca2658ffb8f0e2bd1a5230113ca701931e6d6"
+      },
+      "lights": []
+    },
+    "wall-back:fallback": {
+      "protected": {
+        "hash": "a23889e2eb464b91b6869ce1b518560b0ce1920c27c1483a8705a4293c0213d1",
+        "meshCount": 37,
+        "meshMetadataHash": "ad63ae859f4e6ea5a7e4b1919d5da0c0eb59893d4290aa756b3ad1a6d2656c2c"
+      },
+      "lights": []
+    },
+    "wall-back:assets": {
+      "protected": {
+        "hash": "a23889e2eb464b91b6869ce1b518560b0ce1920c27c1483a8705a4293c0213d1",
+        "meshCount": 37,
+        "meshMetadataHash": "ad63ae859f4e6ea5a7e4b1919d5da0c0eb59893d4290aa756b3ad1a6d2656c2c"
+      },
+      "lights": []
+    },
+    "wall-left:fallback": {
+      "protected": {
+        "hash": "90f4515d6788a7ec969b7d7a1c974d3d6c2c7e4baeb13e6af8b6ff7ebcc28a8d",
+        "meshCount": 37,
+        "meshMetadataHash": "87ce227ec7eae5ecf053596c7c08b50a0c3023ec098098f11e711e3026632cb6"
+      },
+      "lights": []
+    },
+    "wall-left:assets": {
+      "protected": {
+        "hash": "90f4515d6788a7ec969b7d7a1c974d3d6c2c7e4baeb13e6af8b6ff7ebcc28a8d",
+        "meshCount": 37,
+        "meshMetadataHash": "87ce227ec7eae5ecf053596c7c08b50a0c3023ec098098f11e711e3026632cb6"
+      },
+      "lights": []
+    },
+    "wall-right:fallback": {
+      "protected": {
+        "hash": "61200f47baae07225fa9bf367cbd01ce1aea620ba3c0444dd01af5a290836487",
+        "meshCount": 37,
+        "meshMetadataHash": "99f3ced79c226b6833089868bbf8ce4646023d8093a90eb51969c1661b9df70f"
+      },
+      "lights": []
+    },
+    "wall-right:assets": {
+      "protected": {
+        "hash": "61200f47baae07225fa9bf367cbd01ce1aea620ba3c0444dd01af5a290836487",
+        "meshCount": 37,
+        "meshMetadataHash": "99f3ced79c226b6833089868bbf8ce4646023d8093a90eb51969c1661b9df70f"
+      },
+      "lights": []
+    },
+    "sides-glass:fallback": {
+      "protected": {
+        "hash": "6de7008280e67a5c3ec5b83a1ac6fb0939a086e7b6951120ce1587307752a243",
+        "meshCount": 79,
+        "meshMetadataHash": "143c80446f024574d642e47c02e4086f123e5d2cc93c674476de90574dec8880"
+      },
+      "lights": []
+    },
+    "sides-glass:assets": {
+      "protected": {
+        "hash": "6de7008280e67a5c3ec5b83a1ac6fb0939a086e7b6951120ce1587307752a243",
+        "meshCount": 79,
+        "meshMetadataHash": "143c80446f024574d642e47c02e4086f123e5d2cc93c674476de90574dec8880"
+      },
+      "lights": []
+    },
+    "sides-privacy-wall:fallback": {
+      "protected": {
+        "hash": "c71d4d0eed7767f9ec2e7cf5a8fa7eda5734f910ae6fc6e0aac88a6c9d01ca15",
+        "meshCount": 107,
+        "meshMetadataHash": "027a10f11651b513917d198074a0c017b636f6df676e1ead148dcda0e3da02b8"
+      },
+      "lights": []
+    },
+    "sides-privacy-wall:assets": {
+      "protected": {
+        "hash": "c71d4d0eed7767f9ec2e7cf5a8fa7eda5734f910ae6fc6e0aac88a6c9d01ca15",
+        "meshCount": 107,
+        "meshMetadataHash": "027a10f11651b513917d198074a0c017b636f6df676e1ead148dcda0e3da02b8"
+      },
+      "lights": []
+    },
+    "sides-screen:fallback": {
+      "protected": {
+        "hash": "fc3207df649a54d19cddd701943e8a4b8b130d4dbbb9127d73185571b878cec3",
+        "meshCount": 55,
+        "meshMetadataHash": "5c66409123f378372c810e0c2cdadc64202a449f67efe5248e0465cc1c51e318"
+      },
+      "lights": []
+    },
+    "sides-screen:assets": {
+      "protected": {
+        "hash": "29943c2bc0130b4b8b86804c2a16683bb9a8da139c48326f826483d1e5613edd",
+        "meshCount": 59,
+        "meshMetadataHash": "78d83267f8330be8d1d132e54bab880456df5c86b4a7625853114dbcfdb141d4"
+      },
+      "lights": []
+    },
+    "sides-motorized-screen:fallback": {
+      "protected": {
+        "hash": "fc3207df649a54d19cddd701943e8a4b8b130d4dbbb9127d73185571b878cec3",
+        "meshCount": 55,
+        "meshMetadataHash": "5c66409123f378372c810e0c2cdadc64202a449f67efe5248e0465cc1c51e318"
+      },
+      "lights": []
+    },
+    "sides-motorized-screen:assets": {
+      "protected": {
+        "hash": "29943c2bc0130b4b8b86804c2a16683bb9a8da139c48326f826483d1e5613edd",
+        "meshCount": 59,
+        "meshMetadataHash": "78d83267f8330be8d1d132e54bab880456df5c86b4a7625853114dbcfdb141d4"
+      },
+      "lights": []
+    },
+    "louvers-0:fallback": {
+      "protected": {
+        "hash": "a9d5e47c4b1f997098d1f902ee9ed6155ecf2f3b55e37d1b1d8daa4446a3b264",
+        "meshCount": 43,
+        "meshMetadataHash": "cd0ab32a4748224ea4b940dba45b953b096ed6f82714e852c29d81ce92f7fd50"
+      },
+      "lights": []
+    },
+    "louvers-0:assets": {
+      "protected": {
+        "hash": "a9d5e47c4b1f997098d1f902ee9ed6155ecf2f3b55e37d1b1d8daa4446a3b264",
+        "meshCount": 43,
+        "meshMetadataHash": "cd0ab32a4748224ea4b940dba45b953b096ed6f82714e852c29d81ce92f7fd50"
+      },
+      "lights": []
+    },
+    "louvers-45:fallback": {
+      "protected": {
+        "hash": "4f247eae1e6829174545226fe8c6d9695d1e42541d2d2f0fb5526cd4e1c1ded2",
+        "meshCount": 43,
+        "meshMetadataHash": "8cce94c679132c6c6a7685a3d47217c70519b1addc949c605b37115534e74622"
+      },
+      "lights": []
+    },
+    "louvers-45:assets": {
+      "protected": {
+        "hash": "4f247eae1e6829174545226fe8c6d9695d1e42541d2d2f0fb5526cd4e1c1ded2",
+        "meshCount": 43,
+        "meshMetadataHash": "8cce94c679132c6c6a7685a3d47217c70519b1addc949c605b37115534e74622"
+      },
+      "lights": []
+    },
+    "louvers-90:fallback": {
+      "protected": {
+        "hash": "7a04ccdfeb5849f18ee22bc57ad5921a61d97f45608b92b718f2c41e8eed1934",
+        "meshCount": 43,
+        "meshMetadataHash": "22c1659ba915f6775e5f0b694bf49d6f5755051e337245fd699860c0ae0f8347"
+      },
+      "lights": []
+    },
+    "louvers-90:assets": {
+      "protected": {
+        "hash": "7a04ccdfeb5849f18ee22bc57ad5921a61d97f45608b92b718f2c41e8eed1934",
+        "meshCount": 43,
+        "meshMetadataHash": "22c1659ba915f6775e5f0b694bf49d6f5755051e337245fd699860c0ae0f8347"
+      },
+      "lights": []
+    },
+    "drainage-none:fallback": {
+      "protected": {
+        "hash": "7d6b7a85ec7c597cd353219fa5d4822d357d7576e893848082a03433ad0924e3",
+        "meshCount": 41,
+        "meshMetadataHash": "fcdb3c60c0d3e1d8c907ebe05b8189d537b2ddc98e4972900b55264fd95e1966"
+      },
+      "lights": []
+    },
+    "drainage-none:assets": {
+      "protected": {
+        "hash": "7d6b7a85ec7c597cd353219fa5d4822d357d7576e893848082a03433ad0924e3",
+        "meshCount": 41,
+        "meshMetadataHash": "fcdb3c60c0d3e1d8c907ebe05b8189d537b2ddc98e4972900b55264fd95e1966"
+      },
+      "lights": []
+    },
+    "manual:fallback": {
+      "protected": {
+        "hash": "8714c76dfe9dfe4ccb639efd11d2b91541ed838d8f490fe8a268e7604174781b",
+        "meshCount": 42,
+        "meshMetadataHash": "45c5a93eda6cad86ffb6c2f64b452407f83aa957c806d34b40e245ca33f0d91c"
+      },
+      "lights": []
+    },
+    "manual:assets": {
+      "protected": {
+        "hash": "8714c76dfe9dfe4ccb639efd11d2b91541ed838d8f490fe8a268e7604174781b",
+        "meshCount": 42,
+        "meshMetadataHash": "45c5a93eda6cad86ffb6c2f64b452407f83aa957c806d34b40e245ca33f0d91c"
+      },
+      "lights": []
+    },
+    "perimeter-led:fallback": {
+      "protected": {
+        "hash": "3aa796a5e62b69f521dae70321b4a869b9cd8bd75477bc969a361f3eeedbc556",
+        "meshCount": 47,
+        "meshMetadataHash": "89ea1c111c6ce556046f59dcd79be21472c4fd27cb04517fbc400f4da4ec71aa"
+      },
+      "lights": [
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 0.12,
+          "distance": 4.6,
+          "position": [
+            0,
+            2.395,
+            1.645
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 0.12,
+          "distance": 4.6,
+          "position": [
+            0,
+            2.395,
+            -1.645
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 0.12,
+          "distance": 4.6,
+          "position": [
+            2.395,
+            2.395,
+            0
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 0.12,
+          "distance": 4.6,
+          "position": [
+            -2.395,
+            2.395,
+            0
+          ]
+        }
+      ]
+    },
+    "perimeter-led:assets": {
+      "protected": {
+        "hash": "29fd7570b4f8452c65406069d7a4c61f12d345c818c7547c67d4d3c32d3f3651",
+        "meshCount": 51,
+        "meshMetadataHash": "43cf73bd752ea4dde6f333b88131ca4b8ddbee4b44732e30faa01808976ae481"
+      },
+      "lights": [
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 0.12,
+          "distance": 4.6,
+          "position": [
+            0,
+            2.395,
+            1.645
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 0.12,
+          "distance": 4.6,
+          "position": [
+            0,
+            2.395,
+            -1.645
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 0.12,
+          "distance": 4.6,
+          "position": [
+            2.395,
+            2.395,
+            0
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 0.12,
+          "distance": 4.6,
+          "position": [
+            -2.395,
+            2.395,
+            0
+          ]
+        }
+      ]
+    },
+    "night-led:fallback": {
+      "protected": {
+        "hash": "3aa796a5e62b69f521dae70321b4a869b9cd8bd75477bc969a361f3eeedbc556",
+        "meshCount": 47,
+        "meshMetadataHash": "89ea1c111c6ce556046f59dcd79be21472c4fd27cb04517fbc400f4da4ec71aa"
+      },
+      "lights": [
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 1.8,
+          "distance": 4.6,
+          "position": [
+            0,
+            2.395,
+            1.645
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 1.8,
+          "distance": 4.6,
+          "position": [
+            0,
+            2.395,
+            -1.645
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 1.8,
+          "distance": 4.6,
+          "position": [
+            2.395,
+            2.395,
+            0
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 1.8,
+          "distance": 4.6,
+          "position": [
+            -2.395,
+            2.395,
+            0
+          ]
+        }
+      ]
+    },
+    "night-led:assets": {
+      "protected": {
+        "hash": "29fd7570b4f8452c65406069d7a4c61f12d345c818c7547c67d4d3c32d3f3651",
+        "meshCount": 51,
+        "meshMetadataHash": "43cf73bd752ea4dde6f333b88131ca4b8ddbee4b44732e30faa01808976ae481"
+      },
+      "lights": [
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 1.8,
+          "distance": 4.6,
+          "position": [
+            0,
+            2.395,
+            1.645
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 1.8,
+          "distance": 4.6,
+          "position": [
+            0,
+            2.395,
+            -1.645
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 1.8,
+          "distance": 4.6,
+          "position": [
+            2.395,
+            2.395,
+            0
+          ]
+        },
+        {
+          "type": "PointLight",
+          "color": 16773556,
+          "intensity": 1.8,
+          "distance": 4.6,
+          "position": [
+            -2.395,
+            2.395,
+            0
+          ]
+        }
+      ]
+    },
+    "spotlights:fallback": {
+      "protected": {
+        "hash": "fc4d03f5724264bb10e1d2c313f1ca8486a4371a82e6ae463a776127cc813585",
+        "meshCount": 51,
+        "meshMetadataHash": "029a8dd631a6a3b027ea8fb3ec0f0cc93afe69a09a3ff647653a24c8664cef51"
+      },
+      "lights": [
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            -2.085,
+            2.4420000000000006,
+            -1.335
+          ],
+          "target": [
+            -2.085,
+            0,
+            -1.335
+          ]
+        },
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            0,
+            2.4420000000000006,
+            -1.335
+          ],
+          "target": [
+            0,
+            0,
+            -1.335
+          ]
+        },
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            2.085,
+            2.4420000000000006,
+            -1.335
+          ],
+          "target": [
+            2.085,
+            0,
+            -1.335
+          ]
+        },
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            -2.085,
+            2.4420000000000006,
+            1.335
+          ],
+          "target": [
+            -2.085,
+            0,
+            1.335
+          ]
+        },
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            0,
+            2.4420000000000006,
+            1.335
+          ],
+          "target": [
+            0,
+            0,
+            1.335
+          ]
+        },
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            2.085,
+            2.4420000000000006,
+            1.335
+          ],
+          "target": [
+            2.085,
+            0,
+            1.335
+          ]
+        }
+      ]
+    },
+    "spotlights:assets": {
+      "protected": {
+        "hash": "951c0288cbf0f4aa538a52fc2af13d757cfb4a07d0359d23d0d4162c79d6d931",
+        "meshCount": 63,
+        "meshMetadataHash": "4275013084812cbcbf61e02b60321aa7465683044429365cd30397c32ada9097"
+      },
+      "lights": [
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            -2.085,
+            2.4420000000000006,
+            -1.335
+          ],
+          "target": [
+            -2.085,
+            0,
+            -1.335
+          ]
+        },
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            0,
+            2.4420000000000006,
+            -1.335
+          ],
+          "target": [
+            0,
+            0,
+            -1.335
+          ]
+        },
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            2.085,
+            2.4420000000000006,
+            -1.335
+          ],
+          "target": [
+            2.085,
+            0,
+            -1.335
+          ]
+        },
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            -2.085,
+            2.4420000000000006,
+            1.335
+          ],
+          "target": [
+            -2.085,
+            0,
+            1.335
+          ]
+        },
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            0,
+            2.4420000000000006,
+            1.335
+          ],
+          "target": [
+            0,
+            0,
+            1.335
+          ]
+        },
+        {
+          "type": "SpotLight",
+          "color": 16773058,
+          "intensity": 0.08,
+          "distance": 3.6,
+          "angle": 0.6283185307179586,
+          "position": [
+            2.085,
+            2.4420000000000006,
+            1.335
+          ],
+          "target": [
+            2.085,
+            0,
+            1.335
+          ]
+        }
+      ]
+    },
+    "outlet-eu:fallback": {
+      "protected": {
+        "hash": "089734f5705080547bbc79ff3999a4712ccd0571516230860d186dc0fecbddba",
+        "meshCount": 50,
+        "meshMetadataHash": "b5971ad3b0fbeec42dababc22df527c14fbb547fc71cd747ffcf8e8e61912061"
+      },
+      "lights": []
+    },
+    "outlet-eu:assets": {
+      "protected": {
+        "hash": "089734f5705080547bbc79ff3999a4712ccd0571516230860d186dc0fecbddba",
+        "meshCount": 50,
+        "meshMetadataHash": "b5971ad3b0fbeec42dababc22df527c14fbb547fc71cd747ffcf8e8e61912061"
+      },
+      "lights": []
+    },
+    "outlet-us:fallback": {
+      "protected": {
+        "hash": "8a12451ed73f6ae2327a40c47c571f6ba492902b87deee669b86446cd086efc0",
+        "meshCount": 53,
+        "meshMetadataHash": "82a8207b6bef866bb64aaf725956ce7f11f715b14f86beda25bac5de518217a9"
+      },
+      "lights": []
+    },
+    "outlet-us:assets": {
+      "protected": {
+        "hash": "8a12451ed73f6ae2327a40c47c571f6ba492902b87deee669b86446cd086efc0",
+        "meshCount": 53,
+        "meshMetadataHash": "82a8207b6bef866bb64aaf725956ce7f11f715b14f86beda25bac5de518217a9"
+      },
+      "lights": []
+    },
+    "screen-open-0:fallback": {
+      "protected": {
+        "hash": "796366a098c8cddc21b160da33297c1fd54f174f9c0d251c7affe58dbacb138e",
+        "meshCount": 46,
+        "meshMetadataHash": "5995d38329781f269c76328eec292b8273be9625e5a66a60b11287283beaa39e"
+      },
+      "lights": []
+    },
+    "screen-open-0:assets": {
+      "protected": {
+        "hash": "1870ac9d1ed34fbb9d4a12fc78da37d9f0c43066315e5482002057ab777c57e4",
+        "meshCount": 47,
+        "meshMetadataHash": "03801073641cfb034b3ed16fb3bd81c65935a0e439b90191cd99337872f6c97d"
+      },
+      "lights": []
+    },
+    "motorized-screen-open-0:fallback": {
+      "protected": {
+        "hash": "796366a098c8cddc21b160da33297c1fd54f174f9c0d251c7affe58dbacb138e",
+        "meshCount": 46,
+        "meshMetadataHash": "5995d38329781f269c76328eec292b8273be9625e5a66a60b11287283beaa39e"
+      },
+      "lights": []
+    },
+    "motorized-screen-open-0:assets": {
+      "protected": {
+        "hash": "1870ac9d1ed34fbb9d4a12fc78da37d9f0c43066315e5482002057ab777c57e4",
+        "meshCount": 47,
+        "meshMetadataHash": "03801073641cfb034b3ed16fb3bd81c65935a0e439b90191cd99337872f6c97d"
+      },
+      "lights": []
+    },
+    "screen-open-50:fallback": {
+      "protected": {
+        "hash": "bf16d85a1829b9d8eeef9505f753e32d082de0c0ba9e3a3cb80e10174418db62",
+        "meshCount": 46,
+        "meshMetadataHash": "831b1927fffd01352d64ad8ec7f9178161667df0cebdfe5bdf4cd68cf837b868"
+      },
+      "lights": []
+    },
+    "screen-open-50:assets": {
+      "protected": {
+        "hash": "f0a3e59e28f9d9600961afeb6b1950f66e64574b986319aa2bffa54e28f9f071",
+        "meshCount": 47,
+        "meshMetadataHash": "cf32847bf414e300e84ac67fdcd48bcb6fcdfe10c12a2ea9de1196a3b2f211fd"
+      },
+      "lights": []
+    },
+    "motorized-screen-open-50:fallback": {
+      "protected": {
+        "hash": "bf16d85a1829b9d8eeef9505f753e32d082de0c0ba9e3a3cb80e10174418db62",
+        "meshCount": 46,
+        "meshMetadataHash": "831b1927fffd01352d64ad8ec7f9178161667df0cebdfe5bdf4cd68cf837b868"
+      },
+      "lights": []
+    },
+    "motorized-screen-open-50:assets": {
+      "protected": {
+        "hash": "f0a3e59e28f9d9600961afeb6b1950f66e64574b986319aa2bffa54e28f9f071",
+        "meshCount": 47,
+        "meshMetadataHash": "cf32847bf414e300e84ac67fdcd48bcb6fcdfe10c12a2ea9de1196a3b2f211fd"
+      },
+      "lights": []
+    },
+    "screen-open-100:fallback": {
+      "protected": {
+        "hash": "1f3181cffaad5db9a36fbe9082528855d85e34e2213e29c59482207087ebef41",
+        "meshCount": 44,
+        "meshMetadataHash": "e07c77bc51abfecca9729cc71ff4dc12cb20f41d68d89af2ba48d981e4033c27"
+      },
+      "lights": []
+    },
+    "screen-open-100:assets": {
+      "protected": {
+        "hash": "21fbbb29dea9f5b27e610a06338dabf43aa3d1aaa4e25f9fd367d7daaf3fbca6",
+        "meshCount": 45,
+        "meshMetadataHash": "3205457c8e6f5602f3e949721b36adaa742ca2290ee2eddd3deec8b69a0813a4"
+      },
+      "lights": []
+    },
+    "motorized-screen-open-100:fallback": {
+      "protected": {
+        "hash": "1f3181cffaad5db9a36fbe9082528855d85e34e2213e29c59482207087ebef41",
+        "meshCount": 44,
+        "meshMetadataHash": "e07c77bc51abfecca9729cc71ff4dc12cb20f41d68d89af2ba48d981e4033c27"
+      },
+      "lights": []
+    },
+    "motorized-screen-open-100:assets": {
+      "protected": {
+        "hash": "21fbbb29dea9f5b27e610a06338dabf43aa3d1aaa4e25f9fd367d7daaf3fbca6",
+        "meshCount": 45,
+        "meshMetadataHash": "3205457c8e6f5602f3e949721b36adaa742ca2290ee2eddd3deec8b69a0813a4"
+      },
+      "lights": []
+    },
+    "mount-speaker:fallback": {
+      "protected": {
+        "hash": "92ce60b9a0e25527895e9842b7f07353985f8a11817a5fc9316b236f76abb5eb",
+        "meshCount": 43,
+        "meshMetadataHash": "e1e25b9a3828a50c9e630da2aed395183c48bb39df0b0083e06292104dd7d269"
+      },
+      "lights": []
+    },
+    "mount-speaker:assets": {
+      "protected": {
+        "hash": "c36760a58c553c81e0971aadcaf8dd677fadcdcc52136121e626e6252fb71035",
+        "meshCount": 48,
+        "meshMetadataHash": "d10d3fc13495c38990a444f21d5cfd3dc8b9040429202524da8c000012eff41a"
+      },
+      "lights": []
+    },
+    "mount-switch:fallback": {
+      "protected": {
+        "hash": "92ce60b9a0e25527895e9842b7f07353985f8a11817a5fc9316b236f76abb5eb",
+        "meshCount": 43,
+        "meshMetadataHash": "e1e25b9a3828a50c9e630da2aed395183c48bb39df0b0083e06292104dd7d269"
+      },
+      "lights": []
+    },
+    "mount-switch:assets": {
+      "protected": {
+        "hash": "73918e36e791d383f3f299d57d6454f7efb1500c6bda40e99048897e74aaf4e8",
+        "meshCount": 47,
+        "meshMetadataHash": "1b016d61c976ba687040e7d0e9a706597aecfccc624721a600a8e85df0010f94"
+      },
+      "lights": []
+    },
+    "mount-hand-crank:fallback": {
+      "protected": {
+        "hash": "8714c76dfe9dfe4ccb639efd11d2b91541ed838d8f490fe8a268e7604174781b",
+        "meshCount": 42,
+        "meshMetadataHash": "45c5a93eda6cad86ffb6c2f64b452407f83aa957c806d34b40e245ca33f0d91c"
+      },
+      "lights": []
+    },
+    "mount-hand-crank:assets": {
+      "protected": {
+        "hash": "e41b7c69aa1b439bc7eb0d6ceb203ad4f0815e94319c7bdf82f920de1e680119",
+        "meshCount": 47,
+        "meshMetadataHash": "354d97d138f2e05bcadc3dbad6df8f01657063fc303cf133e8e924b2f1c7be9f"
+      },
+      "lights": []
+    },
+    "sensor-rain:fallback": {
+      "protected": {
+        "hash": "1563bd7dbefcd48184ecd6b8bda807d67cfafe39b5c254d5be9e0ab40e9bd4d7",
+        "meshCount": 44,
+        "meshMetadataHash": "95309fbae5165c6b069cafda58b46b4ba0255942edaba73655af252a1aae337f"
+      },
+      "lights": []
+    },
+    "sensor-rain:assets": {
+      "protected": {
+        "hash": "01002e960787062c8f2e7d2f6aa38a7cce8a9393b038b64a4d8926f4033b62bf",
+        "meshCount": 51,
+        "meshMetadataHash": "3381f02b4f70c1e72037d3109e474322d041476cf2353f7ef64fe9277a5a6d9f"
+      },
+      "lights": []
+    },
+    "sensor-wind:fallback": {
+      "protected": {
+        "hash": "1563bd7dbefcd48184ecd6b8bda807d67cfafe39b5c254d5be9e0ab40e9bd4d7",
+        "meshCount": 44,
+        "meshMetadataHash": "95309fbae5165c6b069cafda58b46b4ba0255942edaba73655af252a1aae337f"
+      },
+      "lights": []
+    },
+    "sensor-wind:assets": {
+      "protected": {
+        "hash": "95ea797a94fc1b0cd78b05e0ac6d2cd81cf475934465c7e6b7344a401516088d",
+        "meshCount": 53,
+        "meshMetadataHash": "9e6c047f258b207b43b81583dbeae6e32c3e736d0005545ca1d12a0e13782cd9"
+      },
+      "lights": []
+    },
+    "heater-pair:fallback": {
+      "protected": {
+        "hash": "92ce60b9a0e25527895e9842b7f07353985f8a11817a5fc9316b236f76abb5eb",
+        "meshCount": 43,
+        "meshMetadataHash": "e1e25b9a3828a50c9e630da2aed395183c48bb39df0b0083e06292104dd7d269"
+      },
+      "lights": []
+    },
+    "heater-pair:assets": {
+      "protected": {
+        "hash": "2ed6f342a805a82d9a19c4f31da03d01b8c661f1015c1b4ffbacf33973b2e6ab",
+        "meshCount": 59,
+        "meshMetadataHash": "eb7a845a9dfd0b29f4b9da4ff88ef69ff28ac14cd4b93ff9b53314b063eef61c"
+      },
+      "lights": []
+    }
+  }
+}
