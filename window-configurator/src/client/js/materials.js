@@ -18,6 +18,7 @@ export function createMaterialManager({
     pageParams,
     requestedColour,
     getProfilesData,
+    getSectionSampleProfilesData = () => [],
     hasCurrentMetadata,
     invalidateSectionSamples,
     renderGroupFilters,
@@ -349,6 +350,11 @@ export function createMaterialManager({
                 profile.material = getMaterialForProfile(profile);
             }
         });
+        getSectionSampleProfilesData().forEach(profile => {
+            if (usesAluminiumFinish(profile)) {
+                profile.material = getMaterialForProfile(profile);
+            }
+        });
         invalidateSectionSamples();
 
         if (hasCurrentMetadata()) {
@@ -361,6 +367,9 @@ export function createMaterialManager({
     function refreshAllProfileMaterials() {
         clearAllCachedProfileMaterials();
         getProfilesData().forEach(profile => {
+            profile.material = getMaterialForProfile(profile);
+        });
+        getSectionSampleProfilesData().forEach(profile => {
             profile.material = getMaterialForProfile(profile);
         });
         invalidateSectionSamples();
@@ -467,7 +476,10 @@ export function createMaterialManager({
         }
 
         if (typeof configuration.debugColors === 'boolean') {
-            debugColoursEnabled = configuration.debugColors;
+            if (debugColoursEnabled !== configuration.debugColors) {
+                debugColoursEnabled = configuration.debugColors;
+                finishConfigurationChanged = true;
+            }
         } else if (finishConfigurationChanged && (configuration.colour || configuration.insideColour || configuration.inside_colour)) {
             debugColoursEnabled = false;
         }
@@ -479,6 +491,12 @@ export function createMaterialManager({
             } else {
                 clearCachedAluminiumMaterials();
             }
+            getProfilesData().forEach(profile => {
+                profile.material = getMaterialForProfile(profile);
+            });
+            getSectionSampleProfilesData().forEach(profile => {
+                profile.material = getMaterialForProfile(profile);
+            });
             syncFinishControls();
             invalidateSectionSamples();
         }
@@ -501,6 +519,7 @@ export function createMaterialManager({
             aluminiumFinishMode,
             outsideFinishSelection,
             insideFinishSelection,
+            debugColoursEnabled,
         };
     }
 

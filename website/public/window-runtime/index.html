@@ -3727,9 +3727,22 @@
                 finishConfigurationChanged = true;
             }
 
+            if (typeof configuration.debugColors === 'boolean') {
+                if (debugColoursEnabled !== configuration.debugColors) {
+                    debugColoursEnabled = configuration.debugColors;
+                    finishConfigurationChanged = true;
+                }
+            } else if (finishConfigurationChanged && (configuration.colour || configuration.insideColour || configuration.inside_colour)) {
+                debugColoursEnabled = false;
+            }
+
             if (finishConfigurationChanged) {
                 configurationColour = outsideFinishSelection.color;
-                clearCachedAluminiumMaterials();
+                if (!debugColoursEnabled) {
+                    clearAllCachedProfileMaterials();
+                } else {
+                    clearCachedAluminiumMaterials();
+                }
                 syncFinishControls();
                 lastSectionSampleSignature = '';
             }
@@ -3747,6 +3760,7 @@
                 profilesData.forEach((profile) => {
                     profile.material = getMaterialForProfile(profile);
                 });
+                lastSectionSampleSignature = '';
                 renderPartToggles();
                 renderGroupFilters();
                 buildWindow();
@@ -3933,7 +3947,8 @@
             }
             geom.computeVertexNormals();
 
-            const mesh = new THREE.Mesh(geom, profile.material);
+            const material = (typeof getMaterialForProfile === 'function' ? getMaterialForProfile(profile) : null) || profile.material;
+            const mesh = new THREE.Mesh(geom, material);
             mesh.castShadow = !captureMode;
             mesh.receiveShadow = !captureMode;
             return mesh;
@@ -4961,6 +4976,7 @@
                 outsideFinishSelection.color,
                 insideFinishSelection.type,
                 insideFinishSelection.color,
+                debugColoursEnabled ? 'debug' : 'finish',
                 getActiveGlazingBeadCode(),
                 getActiveGasketCode(),
                 activeProfiles.map(profile => profile.index).join(','),

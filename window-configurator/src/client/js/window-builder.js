@@ -79,6 +79,7 @@ export function createWindowBuilder({
     getEffectiveProfileBbox,
     updateComponentPictures,
     getFinishState,
+    getMaterialForProfile = null,
     getSelectedHandleSide,
     onGlassClick = () => { },
     onFabricationSnapshot = () => { },
@@ -825,7 +826,8 @@ export function createWindowBuilder({
         }
         geom.computeVertexNormals();
 
-        const mesh = geometry.profileMesh(geom, profile.material, 'z');
+        const material = (getMaterialForProfile ? getMaterialForProfile(profile) : null) || profile.material;
+        const mesh = geometry.profileMesh(geom, material, 'z');
         mesh.castShadow = !captureMode;
         mesh.receiveShadow = !captureMode;
         return mesh;
@@ -945,7 +947,8 @@ export function createWindowBuilder({
 
         geom.deleteAttribute('normal');
         geom.computeVertexNormals();
-        const mesh = geometry.profileMesh(geom, profile.material, 'z');
+        const material = (getMaterialForProfile ? getMaterialForProfile(profile) : null) || profile.material;
+        const mesh = geometry.profileMesh(geom, material, 'z');
         mesh.castShadow = !captureMode;
         mesh.receiveShadow = !captureMode;
         return mesh;
@@ -2945,11 +2948,18 @@ export function createWindowBuilder({
             aluminiumFinishMode,
             outsideFinishSelection,
             insideFinishSelection,
+            debugColoursEnabled,
         } = getFinishState();
 
         const sectionProfiles = sectionSampleProfilesData.length
             ? sectionSampleProfilesData.filter(profile => isProfileEnabled(profile))
             : activeProfiles;
+
+        if (getMaterialForProfile) {
+            sectionProfiles.forEach(profile => {
+                profile.material = getMaterialForProfile(profile);
+            });
+        }
 
         const mountedTransformSignature = sectionProfiles.map(profile => [
             profile.index,
@@ -2965,6 +2975,7 @@ export function createWindowBuilder({
             outsideFinishSelection.color,
             insideFinishSelection.type,
             insideFinishSelection.color,
+            debugColoursEnabled ? 'debug' : 'finish',
             getActiveGlazingBeadCode(),
             getActiveGasketCode(),
             getWindowLayoutState().layoutSignature || getWindowLayoutState().layoutId || 'single',
@@ -6410,6 +6421,7 @@ export function createWindowBuilder({
         setProfileData,
         setExploded,
         getIsExploded,
+        getSectionSampleProfilesData: () => sectionSampleProfilesData,
         getEditableTopologyGeometry: () => editableTopologyGeometry,
         setSelectedGlassCell,
         getFabricationSnapshot: () => lastFabricationSnapshot,
