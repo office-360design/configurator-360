@@ -88,6 +88,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <script type="text/javascript" src="https://cdn.swiftcallback.com/scb.js?key=RtWCjzUgCRz6v8UBCNKzc1MhWMHqOePBX" charSet="UTF-8" async></script>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
