@@ -36,64 +36,106 @@ export function createChairModel(THREE_NS, geometryLibrary, { woodMaterial, fabr
   const woodMeshes = [];
   const fabricMeshes = [];
 
-  const woodMember = (a, b, width = .048, depth = .052, radius = .007, name = 'wood-member') => {
-    const start = new THREE_NS.Vector3(...a), end = new THREE_NS.Vector3(...b);
-    const center = start.clone().add(end).multiplyScalar(.5);
-    const length = start.distanceTo(end);
+  const addWoodGeometry = (geometry, material, name) => {
+    const mesh = geometryLibrary.mesh(geometry, material, { uv: false, castShadow: true, receiveShadow: true, name });
+    group.add(mesh);
+    woodMeshes.push(mesh);
+    return mesh;
+  };
+
+  const woodMember = (a, b, {
+    width = .048, depth = .052, radius = .007, name = 'wood-member', overlapStart = 0, overlapEnd = 0,
+  } = {}) => {
+    const start = new THREE_NS.Vector3(...a);
+    const end = new THREE_NS.Vector3(...b);
+    const direction = end.clone().sub(start);
+    const nominalLength = direction.length();
+    const unit = direction.clone().normalize();
+    const realStart = start.clone().addScaledVector(unit, -overlapStart);
+    const realEnd = end.clone().addScaledVector(unit, overlapEnd);
+    const center = realStart.clone().add(realEnd).multiplyScalar(.5);
+    const length = nominalLength + overlapStart + overlapEnd;
     const source = geometryLibrary.create('profile.roundedRectangle', {
-      width, height: length, depth, axis: 'y', radius, segments: 5,
+      width, height: length, depth, axis: 'y', radius, segments: 6,
     });
     const mesh = geometryLibrary.mesh(source, woodMaterial, { uv: false, castShadow: true, receiveShadow: true, name });
-    const direction = end.clone().sub(start).normalize();
-    mesh.quaternion.setFromUnitVectors(new THREE_NS.Vector3(0, 1, 0), direction);
+    mesh.quaternion.setFromUnitVectors(new THREE_NS.Vector3(0, 1, 0), unit);
     mesh.position.copy(center);
-    group.add(mesh); woodMeshes.push(mesh); return mesh;
+    group.add(mesh);
+    woodMeshes.push(mesh);
+    return mesh;
   };
 
   const woodBar = (width, height, depth, position, name, axis = 'x', radius = .007) => {
-    const source = geometryLibrary.create('profile.roundedRectangle', { width, height, depth, axis, radius, segments: 5 });
-    const mesh = geometryLibrary.mesh(source, woodMaterial, { uv: false, castShadow: true, receiveShadow: true, name });
-    mesh.position.set(...position); group.add(mesh); woodMeshes.push(mesh); return mesh;
+    const source = geometryLibrary.create('profile.roundedRectangle', { width, height, depth, axis, radius, segments: 6 });
+    const mesh = addWoodGeometry(source, woodMaterial, name);
+    mesh.position.set(...position);
+    return mesh;
   };
 
-  // Side frames: gently splayed legs and sloping arm/back supports, authored from scratch.
+  // Geometry authored from scratch to favour believable joinery over loosely intersecting beams.
+  // Rear uprights are continuous from floor to the backrest top, which removes one of the visible broken joints.
+  const outerX = .284;
+  const innerX = .262;
+  const rearOuterX = .276;
+  const frontZBottom = .252;
+  const frontZTop = .208;
+  const rearZBottom = -.252;
+  const rearZTop = -.223;
+  const armRearZ = -.198;
+
   for (const side of [-1, 1]) {
-    const x = side * .285;
-    woodMember([x, .045, .255], [side * .265, .505, .205], .052, .056, .008, 'front-leg');
-    woodMember([x, .045, -.255], [side * .270, .690, -.205], .052, .058, .008, 'rear-leg');
-    woodMember([side * .268, .515, .205], [side * .270, .665, -.205], .052, .070, .011, 'arm-rail');
-    woodMember([side * .270, .665, -.205], [side * .255, .805, -.225], .052, .062, .009, 'back-upright');
+    const sx = side;
+    // Front leg up to the arm joint.
+    woodMember([sx * outerX, .035, frontZBottom], [sx * innerX, .505, frontZTop], {
+      width: .052, depth: .056, radius: .008, name: 'front-leg', overlapEnd: .004,
+    });
+    // Continuous rear leg + back upright.
+    woodMember([sx * rearOuterX, .035, rearZBottom], [sx * innerX, .812, rearZTop], {
+      width: .054, depth: .058, radius: .008, name: 'rear-upright',
+    });
+    // Armrest rail, intentionally overlapped into the front and rear posts so no daylight seams appear.
+    woodMember([sx * innerX, .505, frontZTop], [sx * innerX, .665, armRearZ], {
+      width: .052, depth: .070, radius: .011, name: 'arm-rail', overlapStart: .010, overlapEnd: .012,
+    });
+    // Side seat rail sitting just below the cushion, inset between the posts.
+    woodMember([sx * .250, .440, .206], [sx * .252, .430, -.184], {
+      width: .042, depth: .048, radius: .007, name: 'side-seat-rail', overlapStart: .008, overlapEnd: .008,
+    });
+    // Small backrest support block to make the rear joint read as an intentional woodworking transition.
+    woodBar(.032, .080, .040, [sx * .222, .708, -.212], 'backrest-support', 'y', .006);
   }
 
-  // Under-seat structure and back rail.
-  woodBar(.535, .055, .055, [0, .438, .235], 'front-seat-rail', 'x');
-  woodBar(.535, .055, .055, [0, .435, -.205], 'rear-seat-rail', 'x');
-  woodBar(.048, .050, .420, [-.260, .442, .015], 'left-seat-side', 'z');
-  woodBar(.048, .050, .420, [.260, .442, .015], 'right-seat-side', 'z');
-  woodBar(.480, .045, .050, [0, .755, -.222], 'back-cross-rail', 'x');
+  // Cross rails are inset between the side frames instead of running through them, which produces cleaner joints.
+  woodBar(.460, .052, .050, [0, .445, .230], 'front-seat-rail', 'x', .007);
+  woodBar(.460, .050, .048, [0, .438, -.198], 'rear-seat-rail', 'x', .007);
+  woodBar(.418, .042, .046, [0, .742, -.221], 'back-cross-rail', 'x', .006);
 
-  // Upholstered seat: 500 x 470 mm per the reference product page.
-  const seatGeometry = roundedBoxGeometry(THREE_NS, .500, .075, .470, .032, 7, { puff: .008 });
+  // Discreet inner cleats keep the cushion visually supported while staying mostly hidden.
+  woodBar(.388, .022, .026, [0, .462, .090], 'seat-cleat-front', 'x', .004);
+  woodBar(.388, .022, .026, [0, .460, -.090], 'seat-cleat-rear', 'x', .004);
+
+  // Upholstered seat: close to the reference proportions while slightly softened for realism.
+  const seatGeometry = roundedBoxGeometry(THREE_NS, .500, .078, .468, .032, 8, { puff: .009 });
   geometryLibrary.adopt(seatGeometry, { kind: 'chair.cushion.seat', units: 'metres' });
   geometryLibrary.prepare(seatGeometry, { uv: { grainAxis: 'x' } });
   const seat = geometryLibrary.mesh(seatGeometry, fabricMaterial, { uv: false, castShadow: true, receiveShadow: true, name: 'upholstered-seat' });
-  seat.position.set(0, .493, .015);
+  seat.position.set(0, .495, .020);
   group.add(seat); fabricMeshes.push(seat);
 
-  const backGeometry = roundedBoxGeometry(THREE_NS, .470, .190, .092, .040, 8, { puff: .004 });
+  const backGeometry = roundedBoxGeometry(THREE_NS, .468, .182, .092, .038, 8, { puff: .004 });
   geometryLibrary.adopt(backGeometry, { kind: 'chair.cushion.back', units: 'metres' });
   geometryLibrary.prepare(backGeometry, { uv: { grainAxis: 'x' } });
   const back = geometryLibrary.mesh(backGeometry, fabricMaterial, { uv: false, castShadow: true, receiveShadow: true, name: 'upholstered-back' });
-  back.position.set(0, .700, -.225);
-  back.rotation.x = THREE_NS.MathUtils.degToRad(-7);
+  back.position.set(0, .704, -.214);
+  back.rotation.x = THREE_NS.MathUtils.degToRad(-5.5);
   group.add(back); fabricMeshes.push(back);
 
-  // Soft underside keeps the seat visually substantial without adding a new configurable material.
-  const underside = roundedBoxGeometry(THREE_NS, .465, .028, .430, .014, 4);
+  const underside = roundedBoxGeometry(THREE_NS, .462, .026, .424, .014, 4);
   geometryLibrary.adopt(underside, { kind: 'chair.cushion.underside', units: 'metres' });
   geometryLibrary.prepare(underside, { uv: { grainAxis: 'x' } });
   const underMesh = geometryLibrary.mesh(underside, fabricMaterial, { uv: false, castShadow: true, receiveShadow: true, name: 'seat-underside' });
-  underMesh.position.set(0, .452, .012);
+  underMesh.position.set(0, .454, .018);
   group.add(underMesh); fabricMeshes.push(underMesh);
 
   return { group, woodMeshes, fabricMeshes, dimensions: { seatWidthMm: 500, seatDepthMm: 470, overallHeightMm: 790 } };
