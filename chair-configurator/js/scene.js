@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createSurfaceSystem } from '../../shared-3d/src/index.js?v=platform-19';
-import { createChairModel } from './chairGeometry.js?v=chair-19';
-import { registerChairMaterials } from './materials.js?v=chair-19';
+import { createChairModel } from './chairGeometry.js?v=chair-20';
+import { registerChairMaterials } from './materials.js?v=chair-20';
 
 export class ChairScene {
   constructor(container, { state, onCameraChange = () => {} } = {}) {
