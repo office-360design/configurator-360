@@ -5,10 +5,10 @@ import {
     WINDOW_HEIGHT_MAX_M,
 } from './config.js';
 import { createComponentSelection } from './component-selection.js';
-import { createSceneContext } from './scene.js?v=perf-15';
+import { createSceneContext } from './scene.js?v=polymers-16';
 import { initializeUIControls } from './ui-controls.js?v=4';
 import { createWindowBuilder } from './window-builder.js?v=perf-15';
-import { createMaterialManager } from './materials.js?v=glass-13';
+import { createMaterialManager } from './materials.js?v=polymers-16';
 import { createARController } from './ar-controller.js';
 import { createCadReferenceController } from './cad-reference.js';
 import { createProfileController } from './profile-controller.js?v=uv-8';

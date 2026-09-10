@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MaterialLibrary } from '../shared-3d/src/index.js?v=glass-13';
+import { MaterialLibrary } from '../shared-3d/src/index.js?v=polymers-16';
 import {
     ALUMINIUM_FINISH_CATALOG,
     FIXED_PROFILE_COLOURS,
@@ -10,6 +10,7 @@ import {
     createRalFinishSelectionFromColour,
 } from './config.js';
 import { isDrainageCapProfile } from './profile-catalog.js';
+import { getWindowPolymerSurface } from './window-polymer-materials.js?v=polymers-16';
 import { getWindowLocale, localizeFinishSelection, windowT } from './i18n.js';
 
 export function createMaterialManager({
@@ -123,6 +124,11 @@ export function createMaterialManager({
             return normalizeHexColour(profile.baseCadColor)
                 || FIXED_PROFILE_COLOURS.default;
         }
+        const polymer = getWindowPolymerSurface(profile);
+        if (polymer) {
+            if (polymer.inheritExteriorColor) return outsideFinishSelection.color;
+            return FIXED_PROFILE_COLOURS[polymer.colorKey] || surfaces.presets.get(polymer.id).color;
+        }
         if (usesAluminiumFinish(profile)) {
             return getEffectiveAluminiumFinish(profile).color;
         }
@@ -181,7 +187,8 @@ export function createMaterialManager({
 
     function getMaterialForProfile(profile) {
         const colour = getResolvedProfileColour(profile).toLowerCase();
-        const usesFinish = !debugColoursEnabled && usesAluminiumFinish(profile);
+        const polymer = !debugColoursEnabled ? getWindowPolymerSurface(profile) : null;
+        const usesFinish = !debugColoursEnabled && !polymer && usesAluminiumFinish(profile);
         const materialKey = usesFinish
             ? 'alu'
             : (materialPropertiesByKey[profile.materialKey] ? profile.materialKey : 'default');
@@ -190,12 +197,18 @@ export function createMaterialManager({
         const materialProperties = finish
             ? getFinishDefinition(finish.type).material
             : materialPropertiesByKey[materialKey];
-        const cacheKey = `${debugColoursEnabled ? 'debug' : 'finish'}:${materialKey}:${finishType}:${colour}`;
+        // Exterior-colour plastic caps share aluminium's invalidation bucket,
+        // but never its shader or finish response. Keep rigid/thermal/foam/seal
+        // variants separate even where CAD assigned them the same material key.
+        const cacheGroup = polymer?.inheritExteriorColor ? 'alu' : (polymer ? 'polymer' : materialKey);
+        const cacheKey = `${debugColoursEnabled ? 'debug' : 'finish'}:${cacheGroup}:${polymer?.id || finishType}:${colour}`;
 
         if (!profileMaterialCache.has(cacheKey)) {
             profileMaterialCache.set(
                 cacheKey,
-                finish
+                polymer
+                    ? surfaces.create(polymer.id, { color: colour, side: THREE.DoubleSide })
+                    : finish
                     ? surfaces.create({
                         mill: 'aluminium.bare',
                         anodized: 'aluminium.anodized',

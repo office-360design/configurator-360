@@ -1,3 +1,5 @@
+import { registerPolymerTextures } from './polymerTextures.js?v=polymers-16';
+
 // Small, deterministic, seamless starter maps. No remote assets, canvas dependencies,
 // licensing downloads, or custom shaders. A future scanned set can replace a provider.
 const TAU = Math.PI * 2;
@@ -81,6 +83,7 @@ export class SurfaceTextures {
     this.THREE = THREE;
     this.cache = new Map();
     this.providers = new Map();
+    registerPolymerTextures(this);
     for (const kind of ['powder', 'brushed', 'oak']) {
       this.providers.set(kind, () => ({ size: kind === 'oak' ? 512 : 256, ...createSurfacePixels(kind, kind === 'oak' ? 512 : 256) }));
     }

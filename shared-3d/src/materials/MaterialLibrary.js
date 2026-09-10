@@ -1,7 +1,7 @@
-import { MATERIAL_PRESETS } from './presets.js?v=glass-13';
+import { MATERIAL_PRESETS } from './presets.js?v=polymers-16';
 import { PBRTextureSets } from './PBRTextureSets.js?v=7';
 import { PBR_TEXTURE_SETS, PBR_TEXTURE_VERSION } from './textureSets.js?v=7';
-import { SurfaceTextures } from './SurfaceTextures.js?v=4';
+import { SurfaceTextures } from './SurfaceTextures.js?v=polymers-16';
 import { getQualityProfile, normalizeQuality } from '../quality.js?v=2';
 
 /** One library per scene. Materials are owned by callers; texture maps by the library. */

@@ -15,6 +15,24 @@ export const MATERIAL_PRESETS = Object.freeze({
     type: 'standard', color: '#bfc5ca', metalness: 0.85, roughness: 0.43, envMapIntensity: 0.96,
     textureSet: 'aluminium.brushed', texture: 'brushed', normalStrength: 0.05, tile: [0.8, 0.025],
   }),
+  // Visual polymer categories, not supplier-certified formulations or finishes.
+  // No clearcoat/transmission layers: these opaque parts use the standard PBR pass.
+  'plastic.rigid': Object.freeze({
+    type: 'standard', color: '#34383d', metalness: 0, roughness: 0.46, envMapIntensity: 0.72,
+    texture: 'polymer.molded', normalStrength: 0.055, tile: Object.freeze([0.016, 0.016]),
+  }),
+  'plastic.thermalBreak': Object.freeze({
+    type: 'standard', color: '#41474e', metalness: 0, roughness: 0.78, envMapIntensity: 0.55,
+    texture: 'polymer.molded', normalStrength: 0.09, tile: Object.freeze([0.024, 0.024]),
+  }),
+  'plastic.foam': Object.freeze({
+    type: 'standard', color: '#9aa1a8', metalness: 0, roughness: 0.95, envMapIntensity: 0.35,
+    texture: 'polymer.cellular', normalStrength: 0.085, tile: Object.freeze([0.025, 0.025]),
+  }),
+  'rubber.epdm': Object.freeze({
+    type: 'standard', color: '#20242a', metalness: 0, roughness: 0.83, envMapIntensity: 0.65,
+    texture: 'rubber.fine', normalStrength: 0.045, tile: Object.freeze([0.012, 0.012]),
+  }),
   'glass.clear': Object.freeze({
     type: 'glass', color: '#ffffff', metalness: 0, roughness: 0.045, envMapIntensity: 1,
     ior: 1.5, transmission: 0.96, thickness: 0.006,
