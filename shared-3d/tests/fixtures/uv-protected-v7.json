@@ -8,57 +8,57 @@
   "window": {
     "exact": {
       "single-default": {
-        "product": "9f3f5d00f1d5d0694bab242ba8f47c862f5224713d6b8a1a078154092b6e86cb",
+        "product": "c0c2a0a3319197e8c6f8828b5c16882e5fdade63320723607e6cc95c06260f46",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "single-small": {
-        "product": "3db53440edcade2514e3c6bac535f784216228554214a30c8acdda795798cd19",
+        "product": "14a0799275eefd04face8423ab3860b8cda6e3d5cdfd10f77ee238dfab8a4417",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "cfbc2c31d6849ea3d70942f56e99d81acdf445b639b612765202232a6599ed14"
       },
       "single-large": {
-        "product": "978a7d7b5d000841472b2f484ea7c267c430a72d64a4670227ed3cc68652ac58",
+        "product": "7129949df0f4a941a4b7419a5f27480784975a3b83b397b26b14fff2a8839890",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "f35184070f7480300180a146e7853deb7dc7992f532c86d5ca4f1e365467c9be"
       },
       "glass-16": {
-        "product": "164d0d5cbf558e8b9501eafb34eb919895b4cbbe0134c883322bb7e9eb41d2c0",
+        "product": "6cd81d13c6e38e5dfd9508b7cb7f665b0d7e03ffe9e51cf120cad79e5778c5cf",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "glass-29": {
-        "product": "141fa899e223ce384477a8d1b13827288004e232b002030a697f02fe03be68d1",
+        "product": "e0deefa3113d903dde511e669f162aa02afef5b4ac71b9a446457ce92489c3b9",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "turn-open": {
-        "product": "e72a85d65d550dc6872241256f71b0adbd2158a668b92436271c2f96c4fc61b1",
+        "product": "42e85aec746c7df95d1e0b6245cf50641314a150db1717a3505ff3719c630772",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "tilt-open": {
-        "product": "220e863bff963fa104bd452b0866a29f6a23720957a1283636f7ebee11453907",
+        "product": "578ef068b0f27192bcc8238c776a3a6c163c4d7d1c199b7769489c6aff59e540",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "left-handle": {
-        "product": "b7bf07a46ff88a24f43af8e95a83f50c8d502855d98c82447b7f3c39837691b9",
+        "product": "aad1fc74c05527987d5c8a7dc30f65a6ffe9efe11dbf08bb078f5aebc3961f82",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "exploded": {
-        "product": "34f22089af8f142993c7dd29792c590841f0e6dd0ba03717f5774d4e4d04b6ee",
+        "product": "6e64639225e9adca04264db06ec110a14e20fe5eb4916c628741ae9e24d903b7",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "vertical-divider": {
-        "product": "d2e0d955886a60f4a681d1ca0d85d4301197f097f9c642410230d42708bd20ea",
+        "product": "60792c339d33ddd394db23f2a3fcdd709712645c6a66c1ce6be987e6529d81e6",
         "sections": "bd13db417aa6a06bb4e62bc043bc4613c9bebed30f939319352ac7006a2977b6",
         "fabrication": "8b9320a845d7a1255dff63e3b1e8f9457ba7866e12118679cf4f684850292db6"
       },
       "horizontal-divider": {
-        "product": "7129a95fcaf44ac097574feb76053927d465b2be16bfd8d0409459d80ffbf38c",
+        "product": "70fc1804b63f27846faea04657e8a7faab94dcdf51261fd30e9beb191f825dca",
         "sections": "bd13db417aa6a06bb4e62bc043bc4613c9bebed30f939319352ac7006a2977b6",
         "fabrication": "67fd98d49e9f937460891d3d19f50fab41b448e1d6a798b69ff1b7241895e02a"
       },
@@ -68,64 +68,64 @@
         "fabrication": "6a04f1bd5a7ef6e5d6e8a02af94bc1a3fd905189d04afc4db6b0dad3270b7d96"
       },
       "two-sashes": {
-        "product": "2e69d102e044e6ce14d4e8dd0d021fc5cd49e204b1251297d4e043037edb0008",
+        "product": "ea02fc6a01e38ee17ad0eead68fb26c5a0c0d62f3b60b4b727a39632a7707aea",
         "sections": "bd13db417aa6a06bb4e62bc043bc4613c9bebed30f939319352ac7006a2977b6",
         "fabrication": "1fda51567e03f371f929ab4abfec022e288f55d808d05c1599dfd542fd55f9cc"
       }
     },
     "detailed": {
       "single-default": {
-        "product": "1de7bd718d0dbdd77f27f43575af4b2c5a43ab598d854fec529e18fba314586d",
+        "product": "6ee6511d966ac3c4b05e3c98b951533cba63d01cc9e573b8886fa41424186455",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "single-small": {
-        "product": "1d6aaea40d002e6bd911100e12ef8dce0cb494780bd835ae94e83080bbe6cfe9",
+        "product": "abe05f6a0bbb1280fd2bbb655f117d0a25cb6fbd5c067afa2a2748a7eaa0c8b7",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "cfbc2c31d6849ea3d70942f56e99d81acdf445b639b612765202232a6599ed14"
       },
       "single-large": {
-        "product": "832fba26f1886a337d38ab1cf33df72892a6213583f32a18c9674ef313e5ebb5",
+        "product": "262e2aeab495b126a48d7873e3ec8df248f045987acb51735c78fd56dffe62c2",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "f35184070f7480300180a146e7853deb7dc7992f532c86d5ca4f1e365467c9be"
       },
       "glass-16": {
-        "product": "1953291aa29de8c09c9dabb44326bfe71ba3d7c00392a96912d5eafc2b93c0e7",
+        "product": "4af66eb84bce07b793beb9dc777039828752c3eb213dbc223f78e74c2d726045",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "glass-29": {
-        "product": "e8c1de2333ee025fd5ddeffa8960a74c80bf939494affee34b253cccc8e86d0e",
+        "product": "68fab426e860bb5bd9fe10afa298912809bc6d940b392197435e51cab00fe0aa",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "turn-open": {
-        "product": "eddd709be5ec4b46dd568e82e81891459f3ba0e886dfe1d297e91d3f1b39374b",
+        "product": "a92fe7588438915f04569c17b05ee26f7c8483355f85619eb18d3d033ba9fe94",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "tilt-open": {
-        "product": "5e8202e51133039cae63c2fac931ab806dc9f62918119e91cda329fcebf86a07",
+        "product": "30da5de95a604b06ea50903874dc04d51933c7a5c18e067e50e2468cac4c80d8",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "left-handle": {
-        "product": "e164310f965117f9fe77e82691f47303c79ca8d54199227bf5f1d7bfb7122e08",
+        "product": "e0b471c90cfa83cd69fffa053c8bd900572cbd7e5bfda19b7dd1b45ca7a4ab55",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "exploded": {
-        "product": "ea01d2b0ecc152e00b5d61b5b410575f2e8cd01ac07dbf9aa08fd8957bdfb2e0",
+        "product": "12e62614b1f7610185d2ef982442d9287915cd15703d9f76aff16f0c2f92dd59",
         "sections": "ccfe100a207a0d214bdd96056e1b225d4f0c49a4fbef1bed856508630314b115",
         "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
       },
       "vertical-divider": {
-        "product": "7cb6c1733aeb61833add747f1c4339ad18a17807a45ac270c743b1f9c14a2421",
+        "product": "a7eeb4f64dd7737b6158101c5bc7643c1f80ed916f8d7fdb803c1ac7e70f3c5c",
         "sections": "bd13db417aa6a06bb4e62bc043bc4613c9bebed30f939319352ac7006a2977b6",
         "fabrication": "8b9320a845d7a1255dff63e3b1e8f9457ba7866e12118679cf4f684850292db6"
       },
       "horizontal-divider": {
-        "product": "4821619ed0a51b0baa5567c232154587afe69947287bd4eeb9e82c042f262a32",
+        "product": "a17be69fa1ad42a5b04816d838937f339661420d20bec036cf384459b799d647",
         "sections": "bd13db417aa6a06bb4e62bc043bc4613c9bebed30f939319352ac7006a2977b6",
         "fabrication": "67fd98d49e9f937460891d3d19f50fab41b448e1d6a798b69ff1b7241895e02a"
       },
@@ -135,7 +135,7 @@
         "fabrication": "6a04f1bd5a7ef6e5d6e8a02af94bc1a3fd905189d04afc4db6b0dad3270b7d96"
       },
       "two-sashes": {
-        "product": "1abe7ebfec2cf57f72e36bc6fe2f2b541c771d8894d08e490d6e67f81bfde92a",
+        "product": "84b2225a584cf47a475e75218eb2787da0171b2a6e4315c6ffcc64a32276ed7e",
         "sections": "bd13db417aa6a06bb4e62bc043bc4613c9bebed30f939319352ac7006a2977b6",
         "fabrication": "1fda51567e03f371f929ab4abfec022e288f55d808d05c1599dfd542fd55f9cc"
       }
@@ -202,5 +202,6 @@
       "outlet-eu": "089734f5705080547bbc79ff3999a4712ccd0571516230860d186dc0fecbddba",
       "outlet-us": "8a12451ed73f6ae2327a40c47c571f6ba492902b87deee669b86446cd086efc0"
     }
-  }
+  },
+  "approvedWindowBaseline": "Approved perf-15 / handle-fix-12; Pergola snapshot unchanged."
 }

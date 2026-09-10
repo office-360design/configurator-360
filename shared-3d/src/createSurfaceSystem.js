@@ -1,5 +1,5 @@
 import { GeometryLibrary } from './geometry/GeometryLibrary.js?v=8';
-import { MaterialLibrary } from './materials/MaterialLibrary.js?v=glass-13';
+import { MaterialLibrary } from './materials/MaterialLibrary.js?v=polymers-16';
 import { GlazingEnvironment } from './environment/GlazingEnvironment.js?v=glass-13';
 import { NeutralEnvironment } from './environment/NeutralEnvironment.js?v=1';
 import { getQualityProfile, normalizeQuality } from './quality.js?v=2';
@@ -7,7 +7,7 @@ import { getQualityProfile, normalizeQuality } from './quality.js?v=2';
 import { ContactShading } from './rendering/ContactShading.js?v=perf-15';
 import { RenderPerformance } from './rendering/RenderPerformance.js?v=perf-15';
 
-export const SURFACE_SYSTEM_VERSION = '20260909-perf-15';
+export const SURFACE_SYSTEM_VERSION = '20260909-polymers-16';
 
 /** No renderer is created here. The host retains its camera, controls, scene and lifetime. */
 export function createSurfaceSystem(THREE, { renderer, scene, shadowLights = [], quality = 'balanced', capture = false, contactShading = {}, glazingReflections = false } = {}) {

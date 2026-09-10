@@ -4,7 +4,7 @@
   "cases": {
     "single-default": {
       "product": {
-        "hash": "4407fb5580866b8c2826774543ddcce0b6c4cb0add73a1dca6d464acd0a50717",
+        "hash": "ed25f5bbe6c01ae9b9da6eac79b616ad2b879d6437ed41030924da8909775605",
         "meshes": [
           {
             "count": 36,
@@ -367,7 +367,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -441,7 +441,7 @@
         ]
       },
       "sections": {
-        "hash": "a291aedbd445dd453939293ffd8a4099eabff279e48f626171386255177a5eef",
+        "hash": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
         "meshes": [
           {
             "count": 36,
@@ -549,7 +549,7 @@
     },
     "single-small": {
       "product": {
-        "hash": "fdd1eea2b1d18b88476a767a3b1a575317e74ead0d3d690ffaa29fa61e038729",
+        "hash": "5cb14738dad1adc5a3d4e98a4001126422a01ad622283c66031343a04dbce1de",
         "meshes": [
           {
             "count": 36,
@@ -912,7 +912,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -986,7 +986,7 @@
         ]
       },
       "sections": {
-        "hash": "a291aedbd445dd453939293ffd8a4099eabff279e48f626171386255177a5eef",
+        "hash": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
         "meshes": [
           {
             "count": 36,
@@ -1094,7 +1094,7 @@
     },
     "single-large": {
       "product": {
-        "hash": "61b6ee08ba81b9f211db2a4dc5853d0d5d292aad9eec89a9ca840130895c2b25",
+        "hash": "fb2a390e42cfede0b5bdf50ac86551551da3c65feacb961ad1542066f454623f",
         "meshes": [
           {
             "count": 36,
@@ -1457,7 +1457,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -1531,7 +1531,7 @@
         ]
       },
       "sections": {
-        "hash": "a291aedbd445dd453939293ffd8a4099eabff279e48f626171386255177a5eef",
+        "hash": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
         "meshes": [
           {
             "count": 36,
@@ -1639,7 +1639,7 @@
     },
     "glass-16": {
       "product": {
-        "hash": "d4fc1c147fa418aa5e3cbb21f3df16d8adc26eee28868891d06c5bdf0a03e759",
+        "hash": "274463c3ca46130126e9621fb087fdfb2c26576a6b1c3dbc0249f6346ea4ef4a",
         "meshes": [
           {
             "count": 36,
@@ -2002,7 +2002,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -2076,7 +2076,7 @@
         ]
       },
       "sections": {
-        "hash": "a291aedbd445dd453939293ffd8a4099eabff279e48f626171386255177a5eef",
+        "hash": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
         "meshes": [
           {
             "count": 36,
@@ -2184,7 +2184,7 @@
     },
     "glass-29": {
       "product": {
-        "hash": "3d9e136c25a09c4f906d2a40372df453303cff66209328bb42923399c3a7e169",
+        "hash": "a35a91ba80590b6edcd4e97c03ee29f5adb3df032d1804520270d435e1a98366",
         "meshes": [
           {
             "count": 36,
@@ -2547,7 +2547,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -2621,7 +2621,7 @@
         ]
       },
       "sections": {
-        "hash": "a291aedbd445dd453939293ffd8a4099eabff279e48f626171386255177a5eef",
+        "hash": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
         "meshes": [
           {
             "count": 36,
@@ -2729,7 +2729,7 @@
     },
     "turn-open": {
       "product": {
-        "hash": "0473d302c96ff95f59728f9f7b306c5981f9e023cf57c7f21693fd69bd346bef",
+        "hash": "33efe27ccd0113e1c6e4cc618dc5e93aae05d2847d31872b8539589e3b6bb57e",
         "meshes": [
           {
             "count": 36,
@@ -3092,7 +3092,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -3166,7 +3166,7 @@
         ]
       },
       "sections": {
-        "hash": "a291aedbd445dd453939293ffd8a4099eabff279e48f626171386255177a5eef",
+        "hash": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
         "meshes": [
           {
             "count": 36,
@@ -3274,7 +3274,7 @@
     },
     "tilt-open": {
       "product": {
-        "hash": "fc37855abc45a64a9ac2c862415525f8f3a8baf6c0dddbfedbcf56885574fa7e",
+        "hash": "02d5ad1d778a5c1af9f299f304293a543a11d17d65cb921c1d2aba4aea30a5ec",
         "meshes": [
           {
             "count": 36,
@@ -3637,7 +3637,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -3711,7 +3711,7 @@
         ]
       },
       "sections": {
-        "hash": "a291aedbd445dd453939293ffd8a4099eabff279e48f626171386255177a5eef",
+        "hash": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
         "meshes": [
           {
             "count": 36,
@@ -3819,7 +3819,7 @@
     },
     "left-handle": {
       "product": {
-        "hash": "cd71cdb0d4a2866da32abb122bd82c839b34ddda30c0e82221201cc673b0accb",
+        "hash": "ca364b789cca5761a1cb077ddfd8bdf0c4b8ce80f99bef5f457a6a72c28e4da5",
         "meshes": [
           {
             "count": 36,
@@ -4182,7 +4182,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -4256,7 +4256,7 @@
         ]
       },
       "sections": {
-        "hash": "a291aedbd445dd453939293ffd8a4099eabff279e48f626171386255177a5eef",
+        "hash": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
         "meshes": [
           {
             "count": 36,
@@ -4364,7 +4364,7 @@
     },
     "exploded": {
       "product": {
-        "hash": "1b65dd35be35e5de363dd1afd5967f7c0442274da171c3261ceabe5740285ab3",
+        "hash": "7886362fc8cab51c2e71946dd35bba1744506de0cae2876d68802b4005e98ae2",
         "meshes": [
           {
             "count": 36,
@@ -4727,7 +4727,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -4801,7 +4801,7 @@
         ]
       },
       "sections": {
-        "hash": "a291aedbd445dd453939293ffd8a4099eabff279e48f626171386255177a5eef",
+        "hash": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
         "meshes": [
           {
             "count": 36,
@@ -4909,7 +4909,7 @@
     },
     "vertical-divider": {
       "product": {
-        "hash": "f2276da9746106fa1046a1370e902b5f63c8c9306fdc38bc171e4d07631fe193",
+        "hash": "e27ee4accdf264070c9b937e2c29e98da7cf4d9b3e41d5fd5d96b6394df5214a",
         "meshes": [
           {
             "count": 84,
@@ -5416,7 +5416,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -5490,7 +5490,7 @@
         ]
       },
       "sections": {
-        "hash": "c40f989c7eb2efafe790be7dab7d8507f8273f47e741d86e6ec51a8b6bd5b97e",
+        "hash": "dc4292cfc2a0c9d0976d54cda19d8f59e260ea598d7e8feb61b478dc47c9d58c",
         "meshes": [
           {
             "count": 36,
@@ -6028,7 +6028,7 @@
     },
     "horizontal-divider": {
       "product": {
-        "hash": "64666d143511732ef33d7edabf67feb78e5af05ad3e24f28fe8edc70fbcc5192",
+        "hash": "ead201d4960fd47b68aee5d17dc30b57916a5a3e3067a4e754ee1b96ccd37518",
         "meshes": [
           {
             "count": 36,
@@ -6535,7 +6535,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -6609,7 +6609,7 @@
         ]
       },
       "sections": {
-        "hash": "c40f989c7eb2efafe790be7dab7d8507f8273f47e741d86e6ec51a8b6bd5b97e",
+        "hash": "dc4292cfc2a0c9d0976d54cda19d8f59e260ea598d7e8feb61b478dc47c9d58c",
         "meshes": [
           {
             "count": 36,
@@ -7147,7 +7147,7 @@
     },
     "three-fixed": {
       "product": {
-        "hash": "b57ee15fc07292c30b97bf799ac4f419a5e2681060142cc3a09f9104a341d8fc",
+        "hash": "a59ad7e340e3f04881a2f4df8f0f6cf041108b9690adf67df278766b2265a337",
         "meshes": [
           {
             "count": 84,
@@ -7620,7 +7620,7 @@
         ]
       },
       "sections": {
-        "hash": "c40f989c7eb2efafe790be7dab7d8507f8273f47e741d86e6ec51a8b6bd5b97e",
+        "hash": "dc4292cfc2a0c9d0976d54cda19d8f59e260ea598d7e8feb61b478dc47c9d58c",
         "meshes": [
           {
             "count": 36,
@@ -8303,7 +8303,7 @@
     },
     "two-sashes": {
       "product": {
-        "hash": "cb5b77b086d6230eead29f453f41c0d845dcb8d2330adaee112eef065c8575ec",
+        "hash": "64b65f0074e5b2a518c34c47273fab630e587d75bf6b302d5a71506b76035411",
         "meshes": [
           {
             "count": 84,
@@ -8774,7 +8774,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -9062,7 +9062,7 @@
             "receiveShadow": true
           },
           {
-            "count": 396,
+            "count": 1548,
             "indices": 0,
             "bounds": [
               [
@@ -9136,7 +9136,7 @@
         ]
       },
       "sections": {
-        "hash": "c40f989c7eb2efafe790be7dab7d8507f8273f47e741d86e6ec51a8b6bd5b97e",
+        "hash": "dc4292cfc2a0c9d0976d54cda19d8f59e260ea598d7e8feb61b478dc47c9d58c",
         "meshes": [
           {
             "count": 36,
@@ -9679,5 +9679,6 @@
         ]
       }
     }
-  }
+  },
+  "approvedBaseline": "Updated from approved perf-15 code: delivered UV mapping and handle-fix-12 neck (32→128 segments); section dimensions and fabrication unchanged."
 }
