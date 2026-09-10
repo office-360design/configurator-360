@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { modulePresets } from './state.js?v=8';
-import { solarT, resolveSolarLocale } from './i18n.js?v=1';
+import { modulePresets } from './state.js?v=platform-18';
+import { solarT, resolveSolarLocale } from './i18n.js?v=platform-18';
 
 const ROOF_OFFSET_Y = 0.05;
 const DEG = Math.PI / 180;

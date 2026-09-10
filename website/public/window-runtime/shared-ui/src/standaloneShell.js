@@ -1,7 +1,7 @@
-import { LANGUAGE_PROFILES, getLanguageProfile } from './config.js';
-import { renderActionFeedback } from './components/feedback.js';
-import { renderTopBar } from './components/topBar.js';
-import { renderToolsMenu } from './components/toolsMenu.js';
+import { LANGUAGE_PROFILES, getLanguageProfile } from './config.js?v=platform-18';
+import { renderActionFeedback } from './components/feedback.js?v=platform-18';
+import { renderTopBar } from './components/topBar.js?v=platform-18';
+import { renderToolsMenu } from './components/toolsMenu.js?v=platform-18';
 
 const MAX_PROJECT_NUMBER = 1000;
 

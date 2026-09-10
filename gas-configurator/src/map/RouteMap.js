@@ -6,23 +6,23 @@ import {
   crossingLineCoordinates,
   interpolateRoute,
   nearestPointOnSegmentRatio,
-} from '../domain/geometry.js';
-import { gasT } from '../i18n.js';
+} from '../domain/geometry.js?v=platform-18';
+import { gasT } from '../i18n.js?v=platform-18';
 import {
   getRouteEvents,
   legacyCrossingToRouteEvent,
   matchingRouteEventForObstacle,
   routeEventDisplayIndex,
   routeEventTypeDefinition,
-} from '../domain/routeEvents.js';
-import { routeObstacleRouteKey } from '../obstacles/routeObstacles.js';
+} from '../domain/routeEvents.js?v=platform-18';
+import { routeObstacleRouteKey } from '../obstacles/routeObstacles.js?v=platform-18';
 import {
   assessNetworkConnection,
   EXISTING_NETWORK_DATA,
   getExistingNetworkAsset,
   projectCoordinateToNetworkAsset,
-} from '../network/networkConnection.js';
-import { toLeafletBounds, toLeafletLatLng } from './leafletCoordinates.js';
+} from '../network/networkConnection.js?v=platform-18';
+import { toLeafletBounds, toLeafletLatLng } from './leafletCoordinates.js?v=platform-18';
 
 const DEFAULT_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const DEFAULT_TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';

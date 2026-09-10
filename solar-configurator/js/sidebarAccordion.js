@@ -15,7 +15,7 @@ function ensureStylesheet() {
   const link = document.createElement('link');
   link.id = ACCORDION_STYLESHEET_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('../sidebar-accordion.css?v=2', import.meta.url).href;
+  link.href = new URL('../sidebar-accordion.css?v=platform-18', import.meta.url).href;
   document.head.append(link);
 }
 

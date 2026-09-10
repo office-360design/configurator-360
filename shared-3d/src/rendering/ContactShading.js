@@ -1,4 +1,4 @@
-import { CONTACT_VERTEX, CONTACT_FRAGMENT, CONTACT_DENOISE_FRAGMENT, CONTACT_PARS, CONTACT_APPLY } from './contactShaders.js?v=perf-15';
+import { CONTACT_VERTEX, CONTACT_FRAGMENT, CONTACT_DENOISE_FRAGMENT, CONTACT_PARS, CONTACT_APPLY } from './contactShaders.js?v=platform-18';
 
 export const CONTACT_SHADING_VERSION = '20260909-perf-15';
 const owners = new WeakMap();

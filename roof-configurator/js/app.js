@@ -1,15 +1,15 @@
-import { state, pitchRules, roofNames } from './state.js?v=16';
-import { RoofScene } from './scene.js?v=56';
-import { RoofUI } from './ui.js?v=17';
+import { state, pitchRules, roofNames } from './state.js?v=platform-18';
+import { RoofScene } from './scene.js?v=platform-18';
+import { RoofUI } from './ui.js?v=platform-18';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
-} from './preferences.js?v=2';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
-import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+} from './preferences.js?v=platform-18';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 
 await requireTenantConfiguratorAccess('roof');
 

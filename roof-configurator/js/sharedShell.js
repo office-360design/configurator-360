@@ -1,8 +1,8 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=42';
-import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=5';
-import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=platform-19';
+import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 
 const tenantContext = await requireTenantConfiguratorAccess('roof');
 

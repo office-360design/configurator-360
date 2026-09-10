@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GeometryLibrary, getEdgeFinish } from '../../../shared-3d/src/index.js?v=8';
+import { GeometryLibrary, getEdgeFinish } from '../../../shared-3d/src/index.js?v=platform-18';
 
 /** Pergola-specific mesh policy; all primitive generation lives in shared-3d. */
 export function createPergolaGeometry(library = null) {

@@ -1,8 +1,8 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=42';
-import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=12';
-import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
-import { pergolaT } from '../i18n.js';
-import { calculatePrice, formatMoney } from '../pricing.js';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=platform-19';
+import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=platform-18';
+import { escapeHtml } from '../../../shared-ui/src/utils.js?v=platform-18';
+import { pergolaT } from '../i18n.js?v=platform-18';
+import { calculatePrice, formatMoney } from '../pricing.js?v=platform-18';
 
 function cloneState(state) {
   if (typeof structuredClone === 'function') return structuredClone(state);
@@ -19,7 +19,7 @@ export function mountPergolaSharedShell({ store, ui, tenantContext = null }) {
     storagePrefix: 'pergola-configurator',
     brandSrc: tenantContext?.logoUrl || './assets/360CONFIGURATOR.png',
     brandAlt: tenantContext?.companyName || '360 Configurator',
-    capabilities: { viewAR: true, save: true, undo: true, reset: true, share: true },
+    capabilities: { viewAR: false, save: true, undo: true, reset: true, share: true },
     tools: {
       items: resolveSharedTools([
         'environment',

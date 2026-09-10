@@ -1,7 +1,7 @@
 // Build-only helper. Writes raw RGBA pixels using the accepted calibration;
 // tools/prepare_pbr_assets.py encodes them losslessly as PNG. No runtime bake.
 import { writeFile, mkdir } from 'node:fs/promises';
-import { createSurfacePixels } from '../src/materials/SurfaceTextures.js';
+import { createSurfacePixels } from '../src/materials/SurfaceTextures.js?v=platform-18';
 const directory = process.argv[2];
 if (!directory) throw new Error('Supply a temporary output directory.');
 await mkdir(directory, { recursive: true });

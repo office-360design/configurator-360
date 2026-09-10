@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { createSurfaceSystem, disposeObjectResources } from '../../../shared-3d/src/index.js?v=pergola-17';
-import { createPergolaGeometry } from './pergolaGeometry.js';
+import { createSurfaceSystem, disposeObjectResources } from '../../../shared-3d/src/index.js?v=platform-18';
+import { createPergolaGeometry } from './pergolaGeometry.js?v=platform-18';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildPergola } from './buildPergola.js';
-import { AssetLibrary, fitAssetToBox } from './AssetLibrary.js';
-import { pergolaT } from '../i18n.js';
+import { buildPergola } from './buildPergola.js?v=platform-18';
+import { AssetLibrary, fitAssetToBox } from './AssetLibrary.js?v=platform-18';
+import { pergolaT } from '../i18n.js?v=platform-18';
 
 function disposeObject(object) {
   // Rebuilds own their materials, but PBR texture maps are library-owned.

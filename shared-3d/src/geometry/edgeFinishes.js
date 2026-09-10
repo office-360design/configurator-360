@@ -1,4 +1,4 @@
-import { applySurfaceUVs } from './surfaceUVs.js?v=1';
+import { applySurfaceUVs } from './surfaceUVs.js?v=platform-18';
 
 /** Visual radii in metres, not manufacturing/tooling instructions. No quality
  * tier is allowed to change this policy, product state or fabrication output. */

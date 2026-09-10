@@ -3,9 +3,9 @@ import {
   CURRENCY_OPTIONS,
   QUALITY_OPTIONS,
   UNIT_OPTIONS,
-} from '../config.js';
-import { sharedIcon } from '../icons.js';
-import { escapeHtml } from '../utils.js';
+} from '../config.js?v=platform-18';
+import { sharedIcon } from '../icons.js?v=platform-18';
+import { escapeHtml } from '../utils.js?v=platform-18';
 
 function renderSettingsSelect(label, path, value, options) {
   return `

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
     resolveConnectionDepthAxisSign,
     resolveConnectionOccurrence,
-} from '../../src/client/js/connection-template-loader.js';
+} from '../../src/client/js/connection-template-loader.js?v=platform-18';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

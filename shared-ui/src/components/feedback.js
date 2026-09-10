@@ -1,5 +1,5 @@
-import { sharedT } from '../i18n.js';
-import { sharedIcon } from '../icons.js';
+import { sharedT } from '../i18n.js?v=platform-18';
+import { sharedIcon } from '../icons.js?v=platform-18';
 
 export function renderActionFeedback(locale = 'en-US') {
   return `

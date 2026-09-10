@@ -1,5 +1,5 @@
-import { getWindowLocale, windowT } from './i18n.js';
-import { WINDOW_WIDTH_MAX_M } from './config.js';
+import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
+import { WINDOW_WIDTH_MAX_M } from './config.js?v=platform-18';
 
 const SIZE_REBUILD_INTERVAL_MS = 80;
 

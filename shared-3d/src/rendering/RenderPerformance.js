@@ -1,4 +1,4 @@
-import { SceneRevision } from './SceneRevision.js?v=perf-15';
+import { SceneRevision } from './SceneRevision.js?v=platform-18';
 export const PERFORMANCE_VERSION = '20260909-perf-15';
 
 /** Reuse unchanged frames and static shadows. Dynamic resolution is temporary:

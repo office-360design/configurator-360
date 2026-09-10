@@ -2,7 +2,7 @@ import {
   clamp,
   routeLengthMeters,
   routeProfileSamples,
-} from './geometry.js';
+} from './geometry.js?v=platform-18';
 
 export const MIN_PIPE_COVER_M = 0.3;
 export const MAX_PIPE_COVER_M = 5;

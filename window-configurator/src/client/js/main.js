@@ -3,23 +3,23 @@ import {
     WINDOW_WIDTH_MAX_M,
     WINDOW_HEIGHT_MIN_M,
     WINDOW_HEIGHT_MAX_M,
-} from './config.js';
-import { createComponentSelection } from './component-selection.js';
-import { createSceneContext } from './scene.js?v=polymers-16';
-import { initializeUIControls } from './ui-controls.js?v=4';
-import { createWindowBuilder } from './window-builder.js?v=perf-15';
-import { createMaterialManager } from './materials.js?v=polymers-16';
-import { createARController } from './ar-controller.js';
-import { createCadReferenceController } from './cad-reference.js';
-import { createProfileController } from './profile-controller.js?v=uv-8';
-import { createAccessoryController } from './accessory-controller.js';
-import { createProfileSelectionController } from './profile-selection-controller.js';
+} from './config.js?v=platform-18';
+import { createComponentSelection } from './component-selection.js?v=platform-18';
+import { createSceneContext } from './scene.js?v=platform-18';
+import { initializeUIControls } from './ui-controls.js?v=platform-18';
+import { createWindowBuilder } from './window-builder.js?v=platform-18';
+import { createMaterialManager } from './materials.js?v=platform-18';
+import { createARController } from './ar-controller.js?v=platform-18';
+import { createCadReferenceController } from './cad-reference.js?v=platform-18';
+import { createProfileController } from './profile-controller.js?v=platform-18';
+import { createAccessoryController } from './accessory-controller.js?v=platform-18';
+import { createProfileSelectionController } from './profile-selection-controller.js?v=platform-18';
 import {
     createWindowLayoutController,
     getWindowLayoutRequest,
-} from './window-layout-controller.js?v=2';
-import { createLayoutSizingManager } from './layout-sizing-manager.js?v=3';
-import { createSegmentedResizeOptimizer } from './segmented-resize-optimizer.js?v=uv-8';
+} from './window-layout-controller.js?v=platform-18';
+import { createLayoutSizingManager } from './layout-sizing-manager.js?v=platform-18';
+import { createSegmentedResizeOptimizer } from './segmented-resize-optimizer.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../shared-ui/src/tenantBootstrap.js?v=1';
 import { readShareState } from '../shared-ui/src/shareState.js?v=4';
 
@@ -29,9 +29,9 @@ await requireTenantConfiguratorAccess('window');
 // the payload only after the default profile assembly is fully stable.
 window.WINDOW_CONFIGURATOR_SELF_RESTORES_SHARE = true;
 window.WINDOW_CONFIGURATOR_INITIAL_SHARE_RESTORED = false;
-import { resolveLegacyProfileSelection } from './profile-compatibility.js';
-import { createProfileSelectionSignature } from './profile-composition.js';
-import { createWindowLayoutOverlay } from './window-layout-overlay.js?v=perf-15';
+import { resolveLegacyProfileSelection } from './profile-compatibility.js?v=platform-18';
+import { createProfileSelectionSignature } from './profile-composition.js?v=platform-18';
+import { createWindowLayoutOverlay } from './window-layout-overlay.js?v=platform-18';
 import {
     DEFAULT_WINDOW_EDGE_EXTENSION_M,
     FIXED_WINDOW_TYPE,
@@ -39,9 +39,9 @@ import {
     canDeleteWindowFromState,
     getWindowActualSizeInState,
     getWindowUnmergeGuide,
-} from './window-layout-state.js';
-import { createWindowSummaryController } from './window-summary.js';
-import { getWindowLocale, windowT } from './i18n.js';
+} from './window-layout-state.js?v=platform-18';
+import { createWindowSummaryController } from './window-summary.js?v=platform-18';
+import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';

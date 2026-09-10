@@ -1,4 +1,4 @@
-import { SIDE_OPTIONS } from '../catalog.js';
+import { SIDE_OPTIONS } from '../catalog.js?v=platform-18';
 import {
   getPoleGrid,
   getRoofRectangles,
@@ -7,8 +7,8 @@ import {
   getSpotlightRectangleCount,
   getTotalSpotlights,
   segmentIsAvailable,
-} from '../state.js';
-import { renderPergolaGrid, renderRoofRectangleGrid } from './pergolaRenderers.js';
+} from '../state.js?v=platform-18';
+import { renderPergolaGrid, renderRoofRectangleGrid } from './pergolaRenderers.js?v=platform-18';
 
 const PREVIEW_MESSAGE_TYPE = '360configurator:preview-adjustment';
 

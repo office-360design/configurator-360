@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=platform-19';
 import brandSrc from '../../../shared-ui/assets/360CONFIGURATOR.png?url';
 
 export function mountGasSharedShell({ store, onSettingsPanelToggle } = {}) {

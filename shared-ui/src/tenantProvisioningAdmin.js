@@ -3,7 +3,7 @@ import {
   observeGoogleAuth,
   signInWithGoogle,
   signOutGoogle,
-} from './firebaseAuth.js?v=28';
+} from './firebaseAuth.js?v=platform-18';
 
 const FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
 const FUNCTION_URLS = Object.freeze({
@@ -28,6 +28,7 @@ const CONFIGURATOR_PATHS = Object.freeze({
   hall: '/hall-configurator/',
   fence: '/fence-configurator/',
   cardbox: '/cardbox-configurator/',
+  chair: '/chair-configurator/',
 });
 const CONFIGURATOR_LABELS = Object.freeze({
   window: 'Window',
@@ -37,6 +38,7 @@ const CONFIGURATOR_LABELS = Object.freeze({
   hall: 'Hall',
   fence: 'Fence',
   cardbox: 'Cardbox',
+  chair: 'Chair',
 });
 const RESERVED_SLUGS = new Set([
   'www', 'aks', 'admin', 'api', 'app', 'assets', 'auth', 'billing', 'cdn', 'demo',

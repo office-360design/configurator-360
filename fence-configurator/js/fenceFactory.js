@@ -1,7 +1,15 @@
 import * as THREE from 'three';
-import { calculateClosedFenceGeometry, calculateClosedFiveFenceGeometry, deriveFenceMetrics } from './state.js?v=5';
 
-import { DEFAULT_FENCE_FINISHES, resolveFenceFinish } from './finish-catalog.js?v=1';
+import {
+    calculateClosedFenceGeometry,
+    calculateClosedFiveFenceGeometry,
+    deriveFenceMetrics
+} from './state.js?v=platform-18';
+
+import {
+    DEFAULT_FENCE_FINISHES,
+    resolveFenceFinish
+} from './finish-catalog.js?v=1';
 
 const TEXTURE_LOADER = new THREE.TextureLoader();
 const TEXTURE_CACHE = new Map();

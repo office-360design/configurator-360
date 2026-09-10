@@ -91,6 +91,7 @@ jobs:
       #   /hall-configurator/
       #   /fence-configurator/
       #   /cardbox-configurator/
+      #   /chair-configurator/
       # Standalone configurators continue to resolve ../shared-ui from /shared-ui/.
       - name: Assemble GitHub Pages output
         shell: bash
@@ -108,6 +109,9 @@ jobs:
           # whose ../shared-ui imports resolve to /shared-ui/.
           mkdir -p dist/site/shared-ui
           cp -R shared-ui/. dist/site/shared-ui/
+
+          mkdir -p dist/site/shared-3d
+          cp -R shared-3d/. dist/site/shared-3d/
 
           mkdir -p dist/site/pergola-configurator
           cp -R pergola-configurator/dist/. dist/site/pergola-configurator/
@@ -137,6 +141,9 @@ jobs:
           mkdir -p dist/site/bookshelf-configurator
           cp -R bookshelf-configurator/. dist/site/bookshelf-configurator/
 
+          mkdir -p dist/site/chair-configurator
+          cp -R chair-configurator/. dist/site/chair-configurator/
+
           touch dist/site/.nojekyll
 
       - name: Verify Pages routes
@@ -151,7 +158,9 @@ jobs:
           test -f dist/site/fence-configurator/index.html
           test -f dist/site/cardbox-configurator/index.html
           test -f dist/site/bookshelf-configurator/index.html
+          test -f dist/site/chair-configurator/index.html
           test -d dist/site/shared-ui
+          test -d dist/site/shared-3d
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

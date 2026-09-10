@@ -41,6 +41,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     fence: '/fence-configurator/',
     cardbox: '/cardbox-configurator/',
     bookshelf: '/bookshelf-configurator/',
+    chair: '/chair-configurator/',
   }),
   'ro-RO': Object.freeze({
     pergola: '/configurator-pergola/',
@@ -51,6 +52,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     fence: '/configurator-garduri/',
     cardbox: '/configurator-cutii-carton/',
     bookshelf: '/bookshelf-configurator/',
+    chair: '/configurator-scaune/',
   }),
   'de-DE': Object.freeze({
     pergola: '/pergola-konfigurator/',
@@ -61,6 +63,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     fence: '/zaun-konfigurator/',
     cardbox: '/karton-konfigurator/',
     bookshelf: '/bookshelf-configurator/',
+    chair: '/stuhl-konfigurator/',
   }),
 });
 
@@ -107,6 +110,7 @@ function normalizeProductType(productType = '') {
   if (value.includes('fence') || value.includes('gard') || value.includes('zaun')) return 'fence';
   if (value.includes('cardbox') || value.includes('cardboard') || value.includes('carton') || value.includes('karton')) return 'cardbox';
   if (value.includes('bookshelf') || value.includes('bibliotec') || value.includes('bücherregal') || value.includes('buecherregal')) return 'bookshelf';
+  if (value.includes('chair') || value.includes('scaun') || value.includes('stuhl')) return 'chair';
   return null;
 }
 

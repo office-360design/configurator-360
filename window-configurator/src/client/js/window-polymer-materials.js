@@ -1,4 +1,4 @@
-import { getProfileCatalogEntry, isDrainageCapProfile } from './profile-catalog.js';
+import { getProfileCatalogEntry, isDrainageCapProfile } from './profile-catalog.js?v=platform-18';
 
 // Render-only mapping: NEVER rewrite materialKey, profileId, dimensions, catalog
 // records, visibility/filter groups or manufacturing metadata. Known accessories

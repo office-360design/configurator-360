@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Configure a wooden upholstered chair in 3D with selectable wood species, fabric weaves and independent colors.">
+  <meta name="robots" content="index, follow">
+  <title>3D Chair Configurator | 360Configurator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared-ui/styles/index.css?v=platform-18">
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=platform-18">
+  <link rel="stylesheet" href="./styles.css?v=chair-19">
+  <script type="importmap">{"imports":{"three":"./lib/three.module.js","three/addons/":"./lib/"}}</script>
+</head>
+<body>
+  <main class="chair-app">
+    <section class="chair-viewer" data-chair-viewer aria-label="Interactive 3D chair preview"></section>
+    <aside class="chair-sidebar"><div class="chair-sidebar__body"></div></aside>
+  </main>
+  <button id="chairSidebarToggle" type="button" aria-label="Toggle chair settings" aria-expanded="true">‹</button>
+  <script type="module" src="./js/app.js?v=chair-19"></script>
+</body>
+</html>

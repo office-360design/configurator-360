@@ -1,8 +1,8 @@
-import { MATERIAL_PRESETS } from './presets.js?v=pergola-17';
-import { PBRTextureSets } from './PBRTextureSets.js?v=7';
-import { PBR_TEXTURE_SETS, PBR_TEXTURE_VERSION } from './textureSets.js?v=7';
-import { SurfaceTextures } from './SurfaceTextures.js?v=pergola-17';
-import { getQualityProfile, normalizeQuality } from '../quality.js?v=2';
+import { MATERIAL_PRESETS } from './presets.js?v=platform-18';
+import { PBRTextureSets } from './PBRTextureSets.js?v=platform-18';
+import { PBR_TEXTURE_SETS, PBR_TEXTURE_VERSION } from './textureSets.js?v=platform-18';
+import { SurfaceTextures } from './SurfaceTextures.js?v=platform-18';
+import { getQualityProfile, normalizeQuality } from '../quality.js?v=platform-18';
 
 /** One library per scene. Materials are owned by callers; texture maps by the library. */
 export class MaterialLibrary {
@@ -22,7 +22,7 @@ export class MaterialLibrary {
   register(id, definition) {
     if (this.disposed) throw new Error('Material library has been disposed.');
     if (!id || this.presets.has(id)) throw new Error(`Material ID already exists or is invalid: ${id}`);
-    if (!['standard', 'glass'].includes(definition?.type)) throw new Error('Material type must be standard or glass.');
+    if (!['standard', 'physical', 'glass'].includes(definition?.type)) throw new Error('Material type must be standard, physical or glass.');
     this.presets.set(id, Object.freeze({
       ...definition,
       ...(definition.tile ? { tile: Object.freeze([...definition.tile]) } : {}),
@@ -35,7 +35,7 @@ export class MaterialLibrary {
     const definition = this.presets.get(id);
     if (!definition) throw new Error(`Unknown surface material: ${id}`);
     const THREE = this.THREE;
-    const material = definition.type === 'glass'
+    const material = ['glass', 'physical'].includes(definition.type)
       ? new THREE.MeshPhysicalMaterial()
       : new THREE.MeshStandardMaterial();
     material.name = `360:${id}`;
@@ -44,16 +44,23 @@ export class MaterialLibrary {
     material.roughness = options.roughness ?? definition.roughness ?? 0.7;
     material.side = options.side ?? THREE.FrontSide;
     material.fog = options.fog ?? definition.fog ?? true;
-    material.flatShading = options.flatShading ?? definition.flatShading ?? false;
-    // Standard-material options used by textiles and light covers. These defaults
-    // are identical to Three's defaults for every pre-existing opaque finish.
-    material.transparent = options.transparent ?? definition.transparent ?? false;
-    material.opacity = options.opacity ?? definition.opacity ?? 1;
-    material.depthWrite = options.depthWrite ?? definition.depthWrite ?? true;
-    material.forceSinglePass = options.forceSinglePass ?? definition.forceSinglePass ?? false;
-    material.emissive.set(options.emissive ?? definition.emissive ?? '#000000');
-    material.emissiveIntensity = options.emissiveIntensity ?? definition.emissiveIntensity ?? 1;
-    material.userData.surface = { id, version: 6, uvUnits: 'metres', grainAxis: 'u' };
+    material.flatShading = options.flatShading ?? definition.flatShading ?? material.flatShading;
+    // Optional standard-surface flags. Existing presets retain Three's defaults;
+    // glass continues to own its separate quality-dependent path in apply().
+    material.transparent = options.transparent ?? definition.transparent ?? material.transparent;
+    material.opacity = options.opacity ?? definition.opacity ?? material.opacity;
+    material.depthWrite = options.depthWrite ?? definition.depthWrite ?? material.depthWrite;
+    material.forceSinglePass = options.forceSinglePass ?? definition.forceSinglePass ?? material.forceSinglePass;
+    if (options.emissive !== undefined || definition.emissive !== undefined) material.emissive.set(options.emissive ?? definition.emissive);
+    material.emissiveIntensity = options.emissiveIntensity ?? definition.emissiveIntensity ?? material.emissiveIntensity;
+    if (material.isMeshPhysicalMaterial && definition.type === 'physical') {
+      material.clearcoat = options.clearcoat ?? definition.clearcoat ?? material.clearcoat;
+      material.clearcoatRoughness = options.clearcoatRoughness ?? definition.clearcoatRoughness ?? material.clearcoatRoughness;
+      material.sheen = options.sheen ?? definition.sheen ?? material.sheen;
+      material.sheenRoughness = options.sheenRoughness ?? definition.sheenRoughness ?? material.sheenRoughness;
+      if (options.sheenColor !== undefined || definition.sheenColor !== undefined) material.sheenColor.set(options.sheenColor ?? definition.sheenColor);
+    }
+    material.userData.surface = { id, version: 7, uvUnits: 'metres', grainAxis: 'u' };
     this.track(material, id, { ...options });
     try {
       this.apply(material);
@@ -107,7 +114,7 @@ export class MaterialLibrary {
       material.depthWrite = false;
     } else if (definition.texture || definition.textureSet) {
       // Wood retains its colour map even on Low; microscopic maps can be switched off.
-      let maps = definition.texture && (profile.surfaceDetail || definition.texture === 'oak')
+      let maps = definition.texture && (profile.surfaceDetail || definition.texture === 'oak' || definition.keepColorOnLow)
         ? this.textures.get(definition.texture, definition.tile) : {};
       const selection = definition.textureSet
         ? this.assets.selection(definition.textureSet, this.quality, definition.assetTile ?? definition.tile) : null;
@@ -125,9 +132,10 @@ export class MaterialLibrary {
       material.normalMap = profile.surfaceDetail ? (maps.normal ?? null) : null;
       material.roughnessMap = profile.surfaceDetail ? (maps.roughness ?? null) : null;
       material.alphaMap = profile.surfaceDetail ? (maps.alpha ?? null) : null;
-      if (definition.transparent && definition.lowOpacity !== undefined) {
-        const opacity = options.opacity ?? definition.opacity ?? 1;
-        material.opacity = profile.surfaceDetail ? opacity : opacity * definition.lowOpacity / (definition.opacity ?? 1);
+      if (definition.alphaMapMean !== undefined) {
+        const average = definition.alphaMapMean;
+        if (!Number.isFinite(average) || average <= 0 || average > 1) throw new RangeError('alphaMapMean must be in (0, 1].');
+        material.opacity = Math.min(1, (options.opacity ?? definition.opacity ?? 1) / (material.alphaMap ? average : 1));
       }
       const detailScale = profile.quality === 'high' ? 1 : (profile.surfaceDetail ? 0.85 : 0);
       const normalStrength = assetMaps ? (definition.assetNormalStrength ?? definition.normalStrength) : definition.normalStrength;

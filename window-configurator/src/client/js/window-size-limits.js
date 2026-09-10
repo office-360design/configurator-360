@@ -1,14 +1,18 @@
 import { WINDOW_SLIDER_LIMITS } from './window-settings.js';
-import { WINDOW_SIZE_CONTROLS, applyWindowSliderBounds } from '../../../../shared-ui/src/windowSizeSettings.js?v=1';
-import { getGlazingBeadCode } from './config.js';
+import {
+    WINDOW_SIZE_CONTROLS,
+    applyWindowSliderBounds
+} from '../../../../shared-ui/src/windowSizeSettings.js?v=1';
+import { getGlazingBeadCode } from './config.js?v=platform-18';
+
 import {
     WINDOW_PROFILE_MANUFACTURING_DATA,
     WINDOW_PROFILE_NON_ALUMINIUM_DATA,
-} from './window-summary.js';
+} from './window-summary.js?v=platform-18';
 import {
     SASH_WINDOW_TYPE,
     getWindowActualSizeInState,
-} from './window-layout-state.js';
+} from './window-layout-state.js?v=platform-18';
 
 export const MAX_INDIVIDUAL_WINDOW_WIDTH_M = 2.5;
 export const MAX_INDIVIDUAL_WINDOW_HEIGHT_M = 2.5;

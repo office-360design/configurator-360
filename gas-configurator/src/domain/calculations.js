@@ -1,32 +1,32 @@
-import { buildRouteSegments, routeLengthMeters } from './geometry.js';
+import { buildRouteSegments, routeLengthMeters } from './geometry.js?v=platform-18';
 import {
   buildDepthIntervals,
   buildDesignedPipeProfile,
   depthProfileStatistics,
   interpolatePipeProfileAtChainage,
   routeEventDepthZoneStatus,
-} from './depthProfile.js';
+} from './depthProfile.js?v=platform-18';
 import {
   PIPE_DIAMETERS_MM,
   PIPE_MATERIALS,
   resolvePipeProduct,
-} from './pipeCatalog.js';
+} from './pipeCatalog.js?v=platform-18';
 import {
   getRouteEvents,
   isUtilityCrossingEvent,
   routeEventDisplayIndex,
   routeEventTypeDefinition,
-} from './routeEvents.js';
+} from './routeEvents.js?v=platform-18';
 import {
   evaluateBeddingLayer,
   evaluateRegulatoryRules,
   evaluateTrenchWidth,
-} from '../regulatory/ruleEngine.js';
-import { minimumTrenchWidthMeters, REGULATORY_RULES } from '../regulatory/ruleRegistry.js';
+} from '../regulatory/ruleEngine.js?v=platform-18';
+import { minimumTrenchWidthMeters, REGULATORY_RULES } from '../regulatory/ruleRegistry.js?v=platform-18';
 import {
   assessNetworkConnection,
   EXISTING_NETWORK_METADATA,
-} from '../network/networkConnection.js';
+} from '../network/networkConnection.js?v=platform-18';
 
 export { PIPE_DIAMETERS_MM, PIPE_MATERIALS };
 

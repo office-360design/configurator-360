@@ -1,25 +1,28 @@
-import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=3';
-import { sharedT } from './i18n.js?v=26';
-import { renderActionFeedback } from './components/feedback.js?v=17';
-import { renderTopBar } from './components/topBar.js?v=25';
-import { syncAccountIdentity } from './components/accountMenu.js?v=24';
-import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=28';
-import { renderToolsMenu } from './components/toolsMenu.js?v=17';
-import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=17';
-import { renderProfileDialog } from './components/profileDialog.js?v=1';
-import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=18';
-import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=2';
-import { renderCartMenu } from './components/cartMenu.js?v=5';
-import { getUserCart, mutateUserCart } from './userCart.js?v=4';
-import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=18';
-import { readShareState } from './shareState.js?v=6';
-import { getTenantSlugForHostname } from './tenantBootstrap.js?v=2';
-import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=3';
-import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=1';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=platform-19';
+import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-19';
+import { sharedT } from './i18n.js?v=platform-19';
+import { renderActionFeedback } from './components/feedback.js?v=platform-19';
+import { renderTopBar } from './components/topBar.js?v=platform-19';
+import { syncAccountIdentity } from './components/accountMenu.js?v=platform-19';
+import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=platform-19';
+import { renderToolsMenu } from './components/toolsMenu.js?v=platform-19';
+import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=platform-19';
+import { renderProfileDialog } from './components/profileDialog.js?v=platform-19';
+import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=platform-19';
+import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=platform-19';
+import { renderCartMenu } from './components/cartMenu.js?v=platform-19';
+import { getUserCart, mutateUserCart } from './userCart.js?v=platform-19';
+import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=platform-19';
+import { readShareState } from './shareState.js?v=platform-19';
+import { getTenantSlugForHostname } from './tenantBootstrap.js?v=platform-19';
+import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=platform-19';
+import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=platform-19';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
 const GLOBAL_LOCALE_STORAGE_KEY = '360-configurator:shared-ui:locale';
+const GUEST_REGION_STORAGE_KEY = '360-configurator:shared-ui:guest-region:v1';
+const GUEST_REGION_CACHE_MS = 24 * 60 * 60 * 1000;
 const CART_STORAGE_BASE_KEY = '360-configurator:cart';
 const MAX_CART_ITEMS = 100;
 const CART_FX_RATES_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
@@ -34,9 +37,9 @@ const SAVED_CONFIGURATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const CART_EDIT_ITEM_PARAM = 'cartItem';
 const CART_EDIT_PRODUCT_PARAM = 'cartProduct';
 const CART_EDIT_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
-const CART_EDIT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox']);
+const CART_EDIT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox', 'chair']);
 const DOMAIN_SAVE_FAILURE_MESSAGE = 'Domain change failed because of a saving failure';
-const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar', 'cardbox', 'bookshelf']);
+const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar', 'cardbox', 'bookshelf', 'chair']);
 const SUPPORT_EMAIL = 'office@360configurator.com';
 const SUPPORT_PRODUCT_NAMES = Object.freeze({
   window: 'Window',
@@ -47,6 +50,7 @@ const SUPPORT_PRODUCT_NAMES = Object.freeze({
   solar: 'Solar',
   cardbox: 'Cardbox',
   bookshelf: 'Bookshelf',
+  chair: 'Chair',
 });
 const CART_SUCCESS_FEEDBACK_MS = 1500;
 const CART_ERROR_FEEDBACK_MS = 2500;
@@ -89,6 +93,7 @@ function normalizeProductId(value = '') {
   if (normalized.includes('solar')) return 'solar';
   if (normalized.includes('cardbox') || normalized.includes('cardboard') || normalized.includes('carton') || normalized.includes('karton')) return 'cardbox';
   if (normalized.includes('bookshelf') || normalized.includes('bibliotec') || normalized.includes('bücherregal') || normalized.includes('buecherregal')) return 'bookshelf';
+  if (normalized.includes('chair') || normalized.includes('scaun') || normalized.includes('stuhl')) return 'chair';
   return normalized || 'configuration';
 }
 
@@ -1472,10 +1477,68 @@ export class StandaloneConfiguratorShell {
     });
   }
 
+  readGuestRegionPreference() {
+    const cached = safeJsonParse(window.localStorage.getItem(GUEST_REGION_STORAGE_KEY), null);
+    if (!cached || typeof cached !== 'object') return null;
+    if (!LANGUAGE_PROFILES[cached.locale] || !['USD', 'RON', 'EUR'].includes(cached.currency) || !['metric', 'imperial'].includes(cached.units)) return null;
+    if (cached.source === 'manual') return cached;
+    const updatedAt = Number(cached.updatedAt) || 0;
+    return Date.now() - updatedAt <= GUEST_REGION_CACHE_MS ? cached : null;
+  }
+
+  persistGuestRegionPreference(profile, source = 'manual') {
+    const next = {
+      countryCode: String(profile?.countryCode || '').toUpperCase(),
+      locale: LANGUAGE_PROFILES[profile?.locale] ? profile.locale : DEFAULT_GUEST_REGION.locale,
+      currency: ['USD', 'RON', 'EUR'].includes(profile?.currency) ? profile.currency : DEFAULT_GUEST_REGION.currency,
+      units: ['metric', 'imperial'].includes(profile?.units) ? profile.units : DEFAULT_GUEST_REGION.units,
+      source: source === 'manual' ? 'manual' : 'ip',
+      updatedAt: Date.now(),
+    };
+    window.localStorage.setItem(GUEST_REGION_STORAGE_KEY, JSON.stringify(next));
+    return next;
+  }
+
+  persistCurrentGuestRegionManualOverride() {
+    if (this.authUser?.uid) return;
+    this.persistGuestRegionPreference({
+      countryCode: this.readGuestRegionPreference()?.countryCode || '',
+      locale: this.state.locale,
+      currency: this.state.currency,
+      units: this.state.units,
+    }, 'manual');
+  }
+
+  async applyGuestRegionDefaults() {
+    let region = this.readGuestRegionPreference();
+    if (!region) {
+      region = await fetchGuestRegion();
+      region = this.persistGuestRegionPreference(region, 'ip');
+    }
+    if (this.authUser?.uid) return;
+    const changes = [];
+    for (const [path, value] of [['locale', region.locale], ['currency', region.currency], ['units', region.units]]) {
+      if (this.state[path] === value) continue;
+      this.state[path] = value;
+      changes.push([path, value]);
+    }
+    for (const [path, value] of changes) {
+      try { await Promise.resolve(this.options.callbacks.onPreferenceChange?.(path, value, this.state)); } catch (error) {
+        console.warn(`Guest region preference ${path} could not be applied immediately.`, error);
+      }
+    }
+    if (changes.length) {
+      this.renderHost();
+      this.sync();
+    }
+  }
+
   async enterGuestSession({ resetModel = false, recordInitialConfiguration = false } = {}) {
     const token = ++this.sessionSwitchToken;
     this.authUser = null;
     this.activeSessionUid = '';
+    await this.applyGuestRegionDefaults();
+    if (token !== this.sessionSwitchToken) return;
     this.cartOpen = false;
     this.cartItems = [];
     this.currentCartEdit = null;
@@ -2205,6 +2268,7 @@ export class StandaloneConfiguratorShell {
         try {
           this.state.locale = nextLocale;
           this.persistPreferences();
+          this.persistCurrentGuestRegionManualOverride();
           await Promise.resolve(this.options.callbacks.onPreferenceChange?.('locale', this.state.locale, this.state));
           this.renderHost();
           this.sync();
@@ -2331,6 +2395,7 @@ export class StandaloneConfiguratorShell {
     if (!field) return;
     this.state[field.dataset.path] = field.value;
     this.persistPreferences();
+    if (['currency', 'units'].includes(field.dataset.path)) this.persistCurrentGuestRegionManualOverride();
     this.options.callbacks.onPreferenceChange?.(field.dataset.path, field.value, this.state);
     if (field.dataset.path === 'currency') {
       // Re-render the current configurator price immediately. Existing cart rows

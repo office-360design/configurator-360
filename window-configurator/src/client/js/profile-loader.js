@@ -1,11 +1,11 @@
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { normalizeHexColour } from './config.js';
-import { simplifyProfileShape } from './geometry-utils.js?v=uv-8';
+import { normalizeHexColour } from './config.js?v=platform-18';
+import { simplifyProfileShape } from './geometry-utils.js?v=platform-18';
 import {
     collapseProfileShapes,
     extractFilledSvgShapes,
     mapProfileShapes,
-} from './svg-profile-shapes.js';
+} from './svg-profile-shapes.js?v=platform-18';
 import {
     DEFAULT_GASKET_PROFILE_ID,
     DEFAULT_GLAZING_BEAD_PROFILE_ID,
@@ -15,7 +15,7 @@ import {
     getProfileCatalogEntry,
     getSelectableGasketProfileIds,
     getStandaloneProfileMetadataUrl,
-} from './profile-catalog.js';
+} from './profile-catalog.js?v=platform-18';
 
 const GLAZING_BEAD_CODES = getGlazingBeadProfileIds().filter(
     code => code !== DEFAULT_GLAZING_BEAD_PROFILE_ID

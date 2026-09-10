@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=12';
-import { deriveHallMetrics } from './state.js?v=12';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=13';
-import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=1';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=platform-18';
+import { deriveHallMetrics } from './state.js?v=platform-18';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=platform-18';
+import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=platform-18';
 
 function disposeObject(object) {
   object.traverse((child) => {

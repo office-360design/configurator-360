@@ -21,7 +21,7 @@ const checks = [
     'allow read, write: if false;',
   ]],
   ['shared-ui/src/standaloneShell.js', [
-    "getTenantSlugForHostname } from './tenantBootstrap.js?v=2'",
+    "getTenantSlugForHostname } from './tenantBootstrap.js?v=platform-19'",
     'savedConfigurationScopeForHostname(hostname',
     ':project-meta:tenant:',
     ':tenant:${encodeURIComponent(tenantSlug)}:user:',

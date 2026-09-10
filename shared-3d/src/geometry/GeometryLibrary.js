@@ -1,9 +1,9 @@
-import { captureSurfaceUVDeformation } from './surfaceDeformation.js?v=8';
-import { applySurfaceUVs } from './surfaceUVs.js?v=1';
-import { declareSurfaceMapping, copySurfaceMapping, applyGeometrySurfaceUVs, UV_MAPPING_VERSION } from './surfaceMapping.js?v=8';
-import { splitPositionGeometryAtScalarZero, clipPositionGeometryToScalarHalfspace } from './scalarGeometry.js?v=2';
+import { captureSurfaceUVDeformation } from './surfaceDeformation.js?v=platform-18';
+import { applySurfaceUVs } from './surfaceUVs.js?v=platform-18';
+import { declareSurfaceMapping, copySurfaceMapping, applyGeometrySurfaceUVs, UV_MAPPING_VERSION } from './surfaceMapping.js?v=platform-18';
+import { splitPositionGeometryAtScalarZero, clipPositionGeometryToScalarHalfspace } from './scalarGeometry.js?v=platform-18';
 
-import { createRoundedPrismGeometry, createBeveledSolidGeometry } from './edgeFinishes.js?v=4';
+import { createRoundedPrismGeometry, createBeveledSolidGeometry } from './edgeFinishes.js?v=platform-18';
 
 export const GEOMETRY_SYSTEM_VERSION = '20260909-uv-8';
 

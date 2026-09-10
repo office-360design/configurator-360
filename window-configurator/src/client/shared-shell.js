@@ -1,8 +1,8 @@
-import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=42';
+import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=44';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=5';
 import { resolveSharedTools } from './shared-ui/src/tools/registry.js?v=13';
-import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=1';
+import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from './shared-ui/src/tenantBootstrap.js?v=1';
 
 const tenantContext = await requireTenantConfiguratorAccess('window');
@@ -91,7 +91,7 @@ shell = mountStandaloneConfiguratorShell({
   brandSrc: tenantContext?.logoUrl || './shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
-    viewAR: true,
+    viewAR: false,
     save: true,
     undo: true,
     reset: true,

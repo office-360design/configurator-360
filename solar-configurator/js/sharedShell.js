@@ -1,9 +1,9 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=42';
-import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
-import { getSeasonForDate } from './solarPosition.js?v=2';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=5';
-import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=2';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=platform-19';
+import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
+import { getSeasonForDate } from './solarPosition.js?v=platform-18';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 
 const tenantContext = await requireTenantConfiguratorAccess('solar');
 

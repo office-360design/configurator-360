@@ -4,7 +4,7 @@ import {
   haversineDistanceMeters,
   nearestPointOnSegmentRatio,
   normalizeCoordinate,
-} from '../domain/geometry.js';
+} from '../domain/geometry.js?v=platform-18';
 
 export const DEFAULT_NETWORK_SNAP_TOLERANCE_M = 8;
 export const NETWORK_CONNECTION_EPSILON_M = 0.5;

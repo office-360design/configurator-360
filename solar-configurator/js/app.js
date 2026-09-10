@@ -1,9 +1,9 @@
-import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=15';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
-import { RoofScene } from './scene.js?v=21';
-import { SolarUI } from './ui.js?v=8';
-import { fetchPvgisSiteEstimate } from './energyModel.js?v=6';
-import { loadGeographicEnvironment } from './environmentLoader.js?v=5';
+import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=platform-18';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { RoofScene } from './scene.js?v=platform-18';
+import { SolarUI } from './ui.js?v=platform-18';
+import { fetchPvgisSiteEstimate } from './energyModel.js?v=platform-18';
+import { loadGeographicEnvironment } from './environmentLoader.js?v=platform-18';
 import {
   analyzeGoogleSolar,
   clearGoogleSolarSession,
@@ -12,22 +12,22 @@ import {
   resolveGoogleSolarEndpoint,
   testGoogleSolarProxy,
   unlockGoogleSolar,
-} from './googleSolar.js?v=8';
+} from './googleSolar.js?v=platform-18';
 import {
   getSeasonPresetDate,
   getSolarContext,
   getSunTimes,
   getTodayInTimeZone,
   nearestRegionKey,
-} from './solarPosition.js?v=2';
+} from './solarPosition.js?v=platform-18';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
-} from './preferences.js?v=2';
-import { solarT, resolveSolarLocale } from './i18n.js?v=2';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+} from './preferences.js?v=platform-18';
+import { solarT, resolveSolarLocale } from './i18n.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 
 await requireTenantConfiguratorAccess('solar');
 

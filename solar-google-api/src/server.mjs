@@ -1,7 +1,7 @@
 import http from 'node:http';
-import { handleGoogleSolarRequest } from './googleSolarHandler.mjs';
-import { handlePvgisRequest } from './pvgisHandler.mjs';
-import { handleOverpassRequest } from './overpassHandler.mjs';
+import { handleGoogleSolarRequest } from './googleSolarHandler.mjs?v=platform-18';
+import { handlePvgisRequest } from './pvgisHandler.mjs?v=platform-18';
+import { handleOverpassRequest } from './overpassHandler.mjs?v=platform-18';
 
 const PORT = Math.max(1, Number(process.env.PORT) || 8080);
 const MAX_BODY_BYTES = Math.max(1024, Number(process.env.MAX_REQUEST_BODY_BYTES) || 1_000_000);

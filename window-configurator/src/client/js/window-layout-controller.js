@@ -1,7 +1,7 @@
 import {
     getBaseAluminiumProfiles,
     isProfileGeometryAvailable,
-} from './profile-catalog.js';
+} from './profile-catalog.js?v=platform-18';
 import {
     DEFAULT_TRANS_PROFILE_ID,
     DEFAULT_NEW_WINDOW_WIDTH_M,
@@ -25,8 +25,8 @@ import {
     setWindowTypeInState,
     setWindowSizeInState,
     setOverallWindowSizeInState,
-} from './window-layout-state.js';
-import { getWindowLocale, localizeLayoutLabel } from './i18n.js';
+} from './window-layout-state.js?v=platform-18';
+import { getWindowLocale, localizeLayoutLabel } from './i18n.js?v=platform-18';
 
 export const DEFAULT_WINDOW_LAYOUT_ID = 'single';
 export const DEFAULT_DIVIDER_PROFILE_ID = '575800';

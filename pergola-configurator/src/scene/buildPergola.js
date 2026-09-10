@@ -1,7 +1,7 @@
-import { createPergolaMaterialPalette } from './pergolaMaterials.js?v=pergola-17';
 import * as THREE from 'three';
-import { createPergolaGeometry } from './pergolaGeometry.js';
-import { fitAssetToBox } from './AssetLibrary.js';
+import { createPergolaGeometry } from './pergolaGeometry.js?v=platform-18';
+import { createPergolaMaterialAdapter, PERGOLA_MATERIALS_VERSION } from './pergolaMaterials.js?v=platform-18';
+import { fitAssetToBox } from './AssetLibrary.js?v=platform-18';
 import {
   getBoundaryHeaterSegments,
   getHeaterConfig,
@@ -12,7 +12,7 @@ import {
   poleFaceIsAvailable,
   poleIsAvailable,
   segmentIsAvailable,
-} from '../state.js';
+} from '../state.js?v=platform-18';
 
 const METERS_PER_MM = 0.001;
 const SCREEN_TYPES = ['screen', 'motorized-screen'];
@@ -36,7 +36,7 @@ function cloneFittedAsset(assets, key, targetSize, alignY = 'center') {
   return fitAssetToBox(model, targetSize, { alignY });
 }
 
-function addPost(geometry, group, x, z, height, size, frameMaterial, premium, palette) {
+function addPost(geometry, group, x, z, height, size, frameMaterial, premium) {
   const post = geometry.box(size, height, size, frameMaterial, { edgeFinish: 'aluminium.frame', axis: 'y', role: 'post' });
   post.position.set(x, height / 2, z);
   group.add(post);
@@ -54,7 +54,7 @@ function addPost(geometry, group, x, z, height, size, frameMaterial, premium, pa
   }
 }
 
-function addBeam(geometry, group, position, dimensions, frameMaterial, premium, palette) {
+function addBeam(geometry, group, position, dimensions, frameMaterial, premium, finish = null) {
   const beam = geometry.box(dimensions.x, dimensions.y, dimensions.z, frameMaterial, {
     edgeFinish: 'aluminium.frame', axis: dimensions.x > dimensions.z ? 'x' : 'z', role: 'beam',
   });
@@ -62,7 +62,7 @@ function addBeam(geometry, group, position, dimensions, frameMaterial, premium, 
   group.add(beam);
 
   if (premium) {
-    const trimMaterial = palette ? palette.get('aluminium.powderCoated', { color: '#111719' }) : material('#111719', { roughness: 0.3, metalness: 0.8 });
+    const trimMaterial = finish ? finish.coated('#111719') : material('#111719', { roughness: 0.3, metalness: 0.8 });
     const trim = geometry.box(
       Math.max(0.015, dimensions.x - 0.018),
       0.025,
@@ -150,9 +150,16 @@ function screenSettings(config) {
   };
 }
 
-function addScreen(geometry, container, transform, config, motorized, assets, palette) {
+function addScreen(geometry, container, transform, config, motorized, assets, finish = null) {
   const settings = screenSettings(config);
-  const cassetteMaterial = palette ? palette.get('aluminium.powderCoated', { color: '#202b30' }) : material('#202b30', { roughness: 0.42, metalness: 0.7 });
+  const screenMaterial = finish ? null : material(settings.color, {
+    roughness: 0.86,
+    metalness: 0.02,
+    transparent: true,
+    opacity: 0.72,
+    side: THREE.DoubleSide,
+  });
+  const cassetteMaterial = finish ? null : material('#202b30', { roughness: 0.42, metalness: 0.7 });
   const openness = THREE.MathUtils.clamp(settings.openness, 0, 100) / 100;
   const deployedHeight = transform.usableHeight * (1 - openness);
 
@@ -163,30 +170,27 @@ function addScreen(geometry, container, transform, config, motorized, assets, pa
   );
   if (cassetteAsset) {
     cassetteAsset.position.set(0, transform.usableHeight / 2 - 0.055, 0);
-    if (palette) palette.styleAsset(cassetteAsset, 'screenCassette');
+    if (finish) finish.style(cassetteAsset, name => /motor/i.test(name) ? finish.rigid('#202b30') : finish.coated('#202b30'));
     cassetteAsset.traverse((child) => {
       if (!child.isMesh) return;
-      if (!palette) child.material = cassetteMaterial.clone();
+      if (!finish) child.material = cassetteMaterial.clone();
       if (!motorized && /motor/i.test(child.name)) child.visible = false;
     });
     container.add(cassetteAsset);
   } else {
-    const cassette = geometry.box(transform.span, 0.11, 0.12, cassetteMaterial, { axis: 'x' });
+    const cassette = geometry.box(transform.span, 0.11, 0.12, finish ? finish.coated('#202b30') : cassetteMaterial, { axis: 'x' });
     cassette.position.set(0, transform.usableHeight / 2 - 0.055, 0);
     container.add(cassette);
   }
 
   if (deployedHeight > 0.04) {
-    const screenMaterial = palette ? palette.get('fabric.screen', { color: settings.color }) : material(settings.color, {
-      roughness: 0.86, metalness: 0.02, transparent: true, opacity: 0.72, side: THREE.DoubleSide,
-    });
-    const fabric = geometry.box(transform.span - 0.08, deployedHeight, 0.018, screenMaterial, {
-      castShadow: false, axis: 'y', role: 'screen-fabric',
+    const fabric = geometry.box(transform.span - 0.08, deployedHeight, 0.018, finish ? finish.get('fabric.screen', { color: settings.color }) : screenMaterial, {
+      castShadow: false, ...(finish ? { axis: 'x', role: 'screen-fabric' } : {}),
     });
     fabric.position.set(0, transform.usableHeight / 2 - 0.11 - deployedHeight / 2, 0);
     container.add(fabric);
 
-    const bottomRail = geometry.box(transform.span - 0.06, 0.045, 0.045, cassetteMaterial, { axis: 'x' });
+    const bottomRail = geometry.box(transform.span - 0.06, 0.045, 0.045, finish ? finish.coated('#202b30') : cassetteMaterial, { axis: 'x' });
     bottomRail.position.set(0, fabric.position.y - deployedHeight / 2, 0);
     container.add(bottomRail);
   }
@@ -241,7 +245,7 @@ function addGlass(geometry, container, transform, frameMaterial, surfaces) {
   container.add(bottomRail);
 }
 
-function addSideClosings(geometry, group, state, width, depth, height, postSize, frameMaterial, assets, surfaces, palette) {
+function addSideClosings(geometry, group, state, width, depth, height, postSize, frameMaterial, assets, surfaces, finish = null) {
   const grid = getPoleGrid(state);
   grid.segments.forEach((segment) => {
     const config = getSideSegmentConfig(state, segment.id);
@@ -254,7 +258,7 @@ function addSideClosings(geometry, group, state, width, depth, height, postSize,
     container.rotation.y = transform.rotationY;
 
     if (SCREEN_TYPES.includes(config.type)) {
-      addScreen(geometry, container, transform, config, config.type === 'motorized-screen', assets, palette);
+      addScreen(geometry, container, transform, config, config.type === 'motorized-screen', assets, finish);
     } else if (config.type === 'privacy-wall') {
       addPrivacyWall(geometry, container, transform, config.privacyColor ?? state.roof.frameColor, surfaces);
     } else if (config.type === 'glass') {
@@ -265,8 +269,11 @@ function addSideClosings(geometry, group, state, width, depth, height, postSize,
   });
 }
 
-function styleLedAsset(object, color, palette) {
-  if (palette) return palette.styleAsset(object, 'ledStrip', { color });
+function styleLedAsset(object, color, finish = null) {
+  if (finish) return finish.style(object, name => /diffuser/i.test(name)
+    ? finish.get('plastic.diffuser', { color, emissive: color, emissiveIntensity: 4.5 })
+    : finish.satin('#b8c0c3'));
+
   const ledColor = new THREE.Color(color);
   object.traverse((child) => {
     if (!child.isMesh) return;
@@ -288,7 +295,7 @@ function styleLedAsset(object, color, palette) {
   });
 }
 
-function addPerimeterLed(geometry, group, width, depth, height, ledConfig, assets, night = false, palette = null) {
+function addPerimeterLed(geometry, group, width, depth, height, ledConfig, assets, night = false, finish = null) {
   const y = height - 0.225;
   const offset = 0.105;
   const specifications = [
@@ -301,12 +308,12 @@ function addPerimeterLed(geometry, group, width, depth, height, ledConfig, asset
   specifications.forEach(([size, position, rotationY]) => {
     const strip = cloneFittedAsset(assets, 'ledStrip', size);
     if (strip) {
-      styleLedAsset(strip, ledConfig.color, palette);
+      styleLedAsset(strip, ledConfig.color, finish);
       strip.position.copy(position);
       strip.rotation.y = rotationY;
       group.add(strip);
     } else {
-      const fallbackMaterial = palette ? palette.get('plastic.diffuser', { color: ledConfig.color, emissive: ledConfig.color, emissiveIntensity: 4, roughness: 0.15 }) : material(ledConfig.color, {
+      const fallbackMaterial = finish ? finish.get('plastic.diffuser', { color: ledConfig.color, emissive: ledConfig.color, emissiveIntensity: 4 }) : material(ledConfig.color, {
         roughness: 0.15,
         metalness: 0,
         emissive: ledConfig.color,
@@ -325,8 +332,11 @@ function addPerimeterLed(geometry, group, width, depth, height, ledConfig, asset
   });
 }
 
-function styleSpotlight(object, palette) {
-  if (palette) return palette.styleAsset(object, 'spotlight');
+function styleSpotlight(object, finish = null) {
+  if (finish) return finish.style(object, name => /lens/i.test(name)
+    ? finish.get('plastic.diffuser', { color: '#fff4c6', roughness: 0.12, emissive: '#ffdf7a', emissiveIntensity: 3 })
+    : finish.coated('#111719'));
+
   object.traverse((child) => {
     if (!child.isMesh) return;
     if (/lens/i.test(child.name)) {
@@ -342,7 +352,7 @@ function styleSpotlight(object, palette) {
   });
 }
 
-function addSpotlights(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, night = false, surfaces = null, palette = null) {
+function addSpotlights(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, night = false, surfaces = null, finish = null) {
   const railY = height - beamHeight - 0.022;
   const lightY = railY - 0.016;
   // Allocate only when a rail is actually added; disabled spotlights must not
@@ -401,11 +411,11 @@ function addSpotlights(geometry, group, state, coordinates, height, beamHeight, 
         const z = rowPositions[row];
         const model = cloneFittedAsset(assets, 'spotlight', new THREE.Vector3(0.14, 0.065, 0.14));
         if (model) {
-          styleSpotlight(model, palette);
+          styleSpotlight(model, finish);
           model.position.set(x, lightY, z);
           group.add(model);
         } else {
-          const body = geometry.cylinder(0.055, 0.035, (palette ? palette.get('aluminium.powderCoated', { color: '#111719' }) : material('#111719')), 20);
+          const body = geometry.cylinder(0.055, 0.035, finish ? finish.coated('#111719') : material('#111719'), 20);
           body.position.set(x, lightY, z);
           group.add(body);
         }
@@ -421,22 +431,23 @@ function addSpotlights(geometry, group, state, coordinates, height, beamHeight, 
 }
 
 
-function styleHeater(object, palette) {
+function styleHeater(object, finish = null) {
+  if (finish) return finish.style(object, name => /element/i.test(name)
+    ? finish.get('emitter.heater') : finish.coated('#171b1d'));
+
   object.traverse((child) => {
     if (!child.isMesh) return;
     if (/element/i.test(child.name)) {
-      if (palette) { for (const m of (Array.isArray(child.material) ? child.material : [child.material])) m?.dispose(); }
       child.material = material('#ef7b21', {
         roughness: 0.32,
         metalness: 0.1,
         emissive: '#e84c16',
         emissiveIntensity: 2.8,
       });
-    } else if (!palette) {
+    } else {
       child.material = material('#171b1d', { roughness: 0.38, metalness: 0.7 });
     }
   });
-  if (palette) palette.styleAsset(object, 'heater');
 }
 
 function addHeaterBrackets(geometry, group, segment, heaterPosition, height, beamHeight, frameMaterial, surfaces) {
@@ -460,7 +471,7 @@ function addHeaterBrackets(geometry, group, segment, heaterPosition, height, bea
   });
 }
 
-function addHeaters(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, surfaces, palette) {
+function addHeaters(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, surfaces, finish = null) {
   const faceOffset = 0.18;
   const heaterY = height - beamHeight - 0.235;
 
@@ -493,7 +504,7 @@ function addHeaters(geometry, group, state, coordinates, height, beamHeight, fra
       const position = center.clone().add(pose.offset);
       const heater = cloneFittedAsset(assets, 'heater', new THREE.Vector3(0.92, 0.18, 0.17));
       if (!heater) return;
-      styleHeater(heater, palette);
+      styleHeater(heater, finish);
       heater.position.copy(position);
       heater.rotation.y = pose.rotationY;
       group.add(heater);
@@ -503,8 +514,12 @@ function addHeaters(geometry, group, state, coordinates, height, beamHeight, fra
 }
 
 
-function styleWeatherSensor(model, type, palette) {
-  if (palette) return palette.styleAsset(model, type === 'rain' ? 'rainSensor' : 'windSensor');
+function styleWeatherSensor(model, type, finish = null) {
+  if (finish) return finish.style(model, name => {
+    if (type === 'rain') return /grid/i.test(name) ? finish.satin('#e8eceb') : finish.rigid(/cap/i.test(name) ? '#e8eceb' : '#263238');
+    return /arm|mast/i.test(name) ? finish.satin(/arm/i.test(name) ? '#98a4a9' : '#222a2e') : finish.rigid('#222a2e');
+  });
+
   model.traverse((child) => {
     if (!child.isMesh) return;
     child.material = type === 'rain'
@@ -513,23 +528,22 @@ function styleWeatherSensor(model, type, palette) {
   });
 }
 
-function addSensors(geometry, group, state, coordinates, height, postSize, assets, palette) {
+function addSensors(geometry, group, state, coordinates, height, postSize, assets, finish = null) {
   const sensors = state.accessories.sensors;
-  let mountMaterial = null;
+  const mountMaterial = finish ? null : material('#2b353a', { roughness: 0.38, metalness: 0.68 });
 
   const addSensor = (type, key, size) => {
     const config = sensors[type];
     if (!config?.enabled || !config.pole || !coordinates[config.pole]) return;
     const pole = coordinates[config.pole];
-    mountMaterial ??= palette ? palette.get('aluminium.powderCoated', { color: '#2b353a' }) : material('#2b353a', { roughness: 0.38, metalness: 0.68 });
     const plateSize = Math.max(0.16, postSize * 1.04);
-    const plate = geometry.box(plateSize, 0.025, plateSize, mountMaterial);
+    const plate = geometry.box(plateSize, 0.025, plateSize, finish ? finish.coated('#2b353a') : mountMaterial);
     plate.position.set(pole.x, height + 0.012, pole.z);
     group.add(plate);
 
     const sensor = cloneFittedAsset(assets, key, size, 'bottom');
     if (!sensor) return;
-    styleWeatherSensor(sensor, type, palette);
+    styleWeatherSensor(sensor, type, finish);
     sensor.position.set(pole.x, height + 0.035, pole.z);
     group.add(sensor);
   };
@@ -579,8 +593,13 @@ function placeOnPole(model, base, face, height, postSize, depthOffset = 0.018) {
   model.rotation.y = faceRotation(face);
 }
 
-function styleSpeakerModel(model, palette) {
-  if (palette) return palette.styleAsset(model, 'speaker');
+function styleSpeakerModel(model, finish = null) {
+  if (finish) return finish.style(model, name => {
+    if (/grille/i.test(name)) return finish.get('metal.coatedGrille');
+    if (/driver/i.test(name)) return finish.rubber('#3b454a');
+    return /bracket/i.test(name) ? finish.coated('#171d20') : finish.rigid('#171d20');
+  });
+
   model.traverse((child) => {
     if (!child.isMesh) return;
     child.material = material(/grille|driver/i.test(child.name) ? '#3b454a' : '#171d20', {
@@ -591,11 +610,11 @@ function styleSpeakerModel(model, palette) {
 }
 
 
-function buildOutletModel(geometry, type, palette) {
+function buildOutletModel(geometry, type, finish = null) {
   const outlet = new THREE.Group();
-  const plateMaterial = palette ? palette.get('plastic.rigid', { color: '#f0f1ed' }) : material('#f0f1ed', { roughness: 0.64, metalness: 0.06 });
-  const insertMaterial = palette ? palette.get('plastic.rigid', { color: '#f7f7f4' }) : material('#f7f7f4', { roughness: 0.58, metalness: 0.04 });
-  const holeMaterial = palette ? palette.get('plastic.rigid', { color: '#1e2529' }) : material('#1e2529', { roughness: 0.88, metalness: 0.02 });
+  const plateMaterial = finish ? finish.rigid('#f0f1ed') : material('#f0f1ed', { roughness: 0.64, metalness: 0.06 });
+  const insertMaterial = finish ? finish.rigid('#f7f7f4') : material('#f7f7f4', { roughness: 0.58, metalness: 0.04 });
+  const holeMaterial = finish ? finish.get('plastic.rigid', { color: '#1e2529', roughness: 0.88 }) : material('#1e2529', { roughness: 0.88, metalness: 0.02 });
 
   const basePlate = geometry.box(0.108, 0.148, 0.012, plateMaterial, { castShadow: false });
   outlet.add(basePlate);
@@ -620,7 +639,7 @@ function buildOutletModel(geometry, type, palette) {
   if (type === 'us') {
     const socketYs = [0.031, -0.031];
     socketYs.forEach((centerY) => {
-      const bezel = geometry.box(0.047, 0.043, 0.0035, (palette ? palette.get('plastic.rigid', { color: '#ebece8' }) : material('#ebece8', { roughness: 0.55, metalness: 0.03 })), { castShadow: false });
+      const bezel = geometry.box(0.047, 0.043, 0.0035, finish ? finish.rigid('#ebece8') : material('#ebece8', { roughness: 0.55, metalness: 0.03 }), { castShadow: false });
       bezel.position.set(0, centerY, 0.0122);
       outlet.add(bezel);
       addHoleSlot(0.007, 0.018, -0.011, centerY + 0.002, 0);
@@ -628,21 +647,26 @@ function buildOutletModel(geometry, type, palette) {
       addHoleCylinder(0.0045, 0, centerY - 0.010);
     });
   } else {
-    const bezel = geometry.box(0.055, 0.055, 0.0035, (palette ? palette.get('plastic.rigid', { color: '#ebece8' }) : material('#ebece8', { roughness: 0.55, metalness: 0.03 })), { castShadow: false });
+    const bezel = geometry.box(0.055, 0.055, 0.0035, finish ? finish.rigid('#ebece8') : material('#ebece8', { roughness: 0.55, metalness: 0.03 }), { castShadow: false });
     bezel.position.set(0, 0.006, 0.0122);
     outlet.add(bezel);
     addHoleCylinder(0.0068, -0.015, 0.006);
     addHoleCylinder(0.0068, 0.015, 0.006);
     addHoleSlot(0.009, 0.018, 0, -0.012, 0);
-    const earthLip = geometry.box(0.038, 0.006, 0.003, (palette ? palette.get('steel.brushed', { color: '#c8cbc7' }) : material('#c8cbc7', { roughness: 0.6 })), { castShadow: false });
+    const earthLip = geometry.box(0.038, 0.006, 0.003, finish ? finish.satin('#c8cbc7') : material('#c8cbc7', { roughness: 0.6 }), { castShadow: false });
     earthLip.position.set(0, 0.032, 0.012);
     outlet.add(earthLip);
   }
   return outlet;
 }
 
-function styleAutomationAsset(model, key, palette) {
-  if (palette) return palette.styleAsset(model, key);
+function styleAutomationAsset(model, finish = null) {
+  if (finish) return finish.style(model, name => {
+    if (/grip/i.test(name)) return finish.rubber('#566168');
+    if (/metal|rod|eye|elbow/i.test(name)) return finish.satin('#566168');
+    return finish.rigid(/button|switch_up|switch_down/i.test(name) ? '#0878c9' : /face/i.test(name) ? '#eceeea' : '#566168');
+  });
+
   model.traverse((child) => {
     if (!child.isMesh) return;
     child.material = material(/button/i.test(child.name) ? '#0878c9' : /face/i.test(child.name) ? '#eceeea' : '#566168', {
@@ -652,15 +676,15 @@ function styleAutomationAsset(model, key, palette) {
   });
 }
 
-function addMotorizedAutomation(geometry, group, state, width, depth, height, palette) {
+function addMotorizedAutomation(geometry, group, state, width, depth, height, finish = null) {
   if (state.automation === 'manual') return;
-  const motorMaterial = palette ? palette.get('aluminium.powderCoated', { color: '#111719' }) : material('#111719', { roughness: 0.35, metalness: 0.75 });
+  const motorMaterial = finish ? finish.coated('#111719') : material('#111719', { roughness: 0.35, metalness: 0.75 });
   const motor = geometry.box(0.34, 0.13, 0.13, motorMaterial);
   motor.position.set(width / 2 - 0.32, height - 0.11, -depth / 2 + 0.13);
   group.add(motor);
 }
 
-function addPoleMounts(geometry, group, state, width, depth, height, postSize, assets, palette) {
+function addPoleMounts(geometry, group, state, width, depth, height, postSize, assets, finish = null) {
   const coordinates = poleCoordinates(state, width, depth, postSize);
 
   Object.entries(state.poleMounts ?? {}).forEach(([pole, faces]) => {
@@ -675,18 +699,18 @@ function addPoleMounts(geometry, group, state, width, depth, height, postSize, a
 
         if (mount.type === 'speaker') {
           model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
-          if (model) styleSpeakerModel(model, palette);
+          if (model) styleSpeakerModel(model, finish);
           depthOffset = 0.045;
         } else if (mount.type === 'outlet') {
-          model = buildOutletModel(geometry, mount.outletType === 'us' ? 'us' : 'eu', palette);
+          model = buildOutletModel(geometry, mount.outletType === 'us' ? 'us' : 'eu', finish);
           depthOffset = 0.006;
         } else if (mount.type === 'hand-crank') {
           model = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
-          if (model) styleAutomationAsset(model, 'handCrank', palette);
+          if (model) styleAutomationAsset(model, finish);
           depthOffset = 0.07;
         } else if (mount.type === 'switch') {
           model = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
-          if (model) styleAutomationAsset(model, 'wallSwitch', palette);
+          if (model) styleAutomationAsset(model, finish);
           depthOffset = 0.025;
         }
 
@@ -701,7 +725,7 @@ function addPoleMounts(geometry, group, state, width, depth, height, postSize, a
 
 export function buildPergola(state, assets = null, surfaces = null, geometryLibrary = null) {
   const geometry = createPergolaGeometry(geometryLibrary);
-  const palette = surfaces ? createPergolaMaterialPalette(surfaces) : null;
+  const finish = createPergolaMaterialAdapter(surfaces);
   const group = new THREE.Group();
   group.name = 'Pergola';
 
@@ -726,37 +750,37 @@ export function buildPergola(state, assets = null, surfaces = null, geometryLibr
   const coordinates = poleCoordinates(state, width, depth, postSize);
   Object.entries(coordinates).forEach(([key, position]) => {
     if (!poleIsAvailable(state, key)) return;
-    addPost(geometry, group, position.x, position.z, height, postSize, frameMaterial, isPremium, palette);
+    addPost(geometry, group, position.x, position.z, height, postSize, frameMaterial, isPremium);
   });
 
   const beamY = height - beamHeight / 2;
   for (let row = 0; row < grid.rows; row += 1) {
     const rowPole = grid.poles.find((item) => item.row === row && item.column === 0);
     const z = coordinates[rowPole?.id]?.z ?? 0;
-    addBeam(geometry, group, new THREE.Vector3(0, beamY, z), new THREE.Vector3(width, beamHeight, beamDepth), frameMaterial, isPremium, palette);
+    addBeam(geometry, group, new THREE.Vector3(0, beamY, z), new THREE.Vector3(width, beamHeight, beamDepth), frameMaterial, isPremium, finish);
   }
   for (let column = 0; column < grid.columns; column += 1) {
     const columnPole = grid.poles.find((item) => item.row === 0 && item.column === column);
     const x = coordinates[columnPole?.id]?.x ?? 0;
-    addBeam(geometry, group, new THREE.Vector3(x, beamY, 0), new THREE.Vector3(beamDepth, beamHeight, depth), frameMaterial, isPremium, palette);
+    addBeam(geometry, group, new THREE.Vector3(x, beamY, 0), new THREE.Vector3(beamDepth, beamHeight, depth), frameMaterial, isPremium, finish);
   }
 
   addLouvers(geometry, group, state, width, depth, height - beamHeight - 0.015, louverMaterial);
   addDrainage(geometry, group, state, width, depth, height, surfaces);
-  addSideClosings(geometry, group, state, width, depth, height, postSize, frameMaterial, assets, surfaces, palette);
-  addMotorizedAutomation(geometry, group, state, width, depth, height, palette);
+  addSideClosings(geometry, group, state, width, depth, height, postSize, frameMaterial, assets, surfaces, finish);
+  addMotorizedAutomation(geometry, group, state, width, depth, height, finish);
 
   const isNight = Boolean(state.environment?.night);
   if (state.accessories.perimeterLed.enabled) {
-    addPerimeterLed(geometry, group, width, depth, height, state.accessories.perimeterLed, assets, isNight, palette);
+    addPerimeterLed(geometry, group, width, depth, height, state.accessories.perimeterLed, assets, isNight, finish);
   }
-  addSpotlights(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, isNight, surfaces, palette);
-  addHeaters(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, surfaces, palette);
-  addSensors(geometry, group, state, coordinates, height, postSize, assets, palette);
-  addPoleMounts(geometry, group, state, width, depth, height, postSize, assets, palette);
+  addSpotlights(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, isNight, surfaces, finish);
+  addHeaters(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, surfaces, finish);
+  addSensors(geometry, group, state, coordinates, height, postSize, assets, finish);
+  addPoleMounts(geometry, group, state, width, depth, height, postSize, assets, finish);
 
-  palette?.releaseUnused(group);
   group.userData.dimensions = { width, depth, height };
   group.userData.postSize = postSize;
+  if (finish) group.userData.pergolaMaterials = PERGOLA_MATERIALS_VERSION;
   return group;
 }
