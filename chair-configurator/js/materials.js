@@ -247,16 +247,16 @@ const wood = (id, labels, color, spec) => Object.freeze({ id, labels, color, spe
 const fabric = (id, labels, color, spec) => Object.freeze({ id, labels, color, spec: Object.freeze(spec) });
 
 export const WOOD_TYPES = Object.freeze([
-  wood('beech', ['Beech', 'Fag', 'Buche'], '#b78352', { seed: 3, style: 'straight', grain: 13, contrast: .05, roughness: .52, open: .06, pores: .02, figure: .02 }),
-  wood('oak', ['Oak', 'Stejar', 'Eiche'], '#9a6a3a', { seed: 5, style: 'cathedral', grain: 8, contrast: .11, roughness: .57, open: .2, pores: .14, figure: .08 }),
-  wood('ash', ['Ash', 'Frasin', 'Esche'], '#baa07c', { seed: 7, style: 'ring-porous', grain: 9, contrast: .1, roughness: .55, open: .2, pores: .12, figure: .07 }),
-  wood('maple', ['Maple', 'Arțar', 'Ahorn'], '#c8a97c', { seed: 11, style: 'straight', grain: 16, contrast: .035, roughness: .49, open: .05, pores: .012, figure: .05 }),
-  wood('birch', ['Birch', 'Mesteacăn', 'Birke'], '#caa77b', { seed: 13, style: 'straight', grain: 18, contrast: .04, roughness: .5, open: .05, pores: .015, figure: .03 }),
+  wood('beech', ['Beech', 'Fag', 'Buche'], '#b78352', { seed: 3, style: 'straight', grain: 10, contrast: .04, roughness: .52, open: .06, pores: .02, figure: .025, tile: [2.4, 0.22] }),
+  wood('oak', ['Oak', 'Stejar', 'Eiche'], '#9a6a3a', { seed: 5, style: 'cathedral', grain: 7.2, contrast: .10, roughness: .57, open: .2, pores: .14, figure: .10, tile: [2.6, 0.22] }),
+  wood('ash', ['Ash', 'Frasin', 'Esche'], '#baa07c', { seed: 7, style: 'ring-porous', grain: 8.2, contrast: .09, roughness: .55, open: .2, pores: .12, figure: .075, tile: [2.35, 0.20] }),
+  wood('maple', ['Maple', 'Arțar', 'Ahorn'], '#c8a97c', { seed: 11, style: 'straight', grain: 12.5, contrast: .03, roughness: .49, open: .05, pores: .012, figure: .05, tile: [2.6, 0.24] }),
+  wood('birch', ['Birch', 'Mesteacăn', 'Birke'], '#caa77b', { seed: 13, style: 'straight', grain: 13.5, contrast: .032, roughness: .5, open: .05, pores: .015, figure: .03, tile: [2.55, 0.22] }),
   wood('walnut', ['Walnut', 'Nuc', 'Walnuss'], '#65412b', { seed: 17, style: 'swirled', grain: 6, contrast: .13, roughness: .49, open: .28, pores: .08, figure: .18, tile: [1.8, 0.12] }),
-  wood('cherry', ['Cherry', 'Cireș', 'Kirschbaum'], '#9a5036', { seed: 19, style: 'straight', grain: 11, contrast: .07, roughness: .47, open: .11, pores: .022, figure: .08 }),
-  wood('mahogany', ['Mahogany', 'Mahon', 'Mahagoni'], '#713829', { seed: 23, style: 'streaked', grain: 13, contrast: .06, roughness: .46, open: .09, pores: .05, figure: .12 }),
-  wood('teak', ['Teak', 'Teak', 'Teak'], '#93643a', { seed: 29, style: 'streaked', grain: 14, contrast: .07, roughness: .51, open: .08, pores: .05, figure: .06 }),
-  wood('wenge', ['Wenge', 'Wenge', 'Wenge'], '#2c211c', { seed: 31, style: 'streaked', grain: 22, contrast: .16, roughness: .58, open: .06, pores: .09, figure: .18 }),
+  wood('cherry', ['Cherry', 'Cireș', 'Kirschbaum'], '#9a5036', { seed: 19, style: 'straight', grain: 9.5, contrast: .06, roughness: .47, open: .11, pores: .022, figure: .08, tile: [2.3, 0.20] }),
+  wood('mahogany', ['Mahogany', 'Mahon', 'Mahagoni'], '#713829', { seed: 23, style: 'streaked', grain: 11.5, contrast: .055, roughness: .46, open: .09, pores: .05, figure: .12, tile: [2.2, 0.18] }),
+  wood('teak', ['Teak', 'Teak', 'Teak'], '#93643a', { seed: 29, style: 'streaked', grain: 11, contrast: .06, roughness: .51, open: .08, pores: .05, figure: .06, tile: [2.3, 0.19] }),
+  wood('wenge', ['Wenge', 'Wenge', 'Wenge'], '#2c211c', { seed: 31, style: 'streaked', grain: 17, contrast: .14, roughness: .58, open: .06, pores: .09, figure: .18, tile: [2.0, 0.17] }),
   wood('ebony', ['Ebony', 'Abanos', 'Ebenholz'], '#272321', { seed: 37, style: 'striped', grain: 24, contrast: .055, roughness: .43, open: .03, pores: .012, figure: .04 }),
   wood('pine', ['Pine', 'Pin', 'Kiefer'], '#c49a62', { seed: 41, style: 'knotty', grain: 6.5, contrast: .12, roughness: .63, open: .28, pores: .025, figure: .11, tile: [1.9, 0.12] }),
   wood('cedar', ['Cedar', 'Cedru', 'Zeder'], '#a65f44', { seed: 43, style: 'knotty', grain: 8.5, contrast: .09, roughness: .61, open: .16, pores: .028, figure: .09 }),
@@ -304,7 +304,7 @@ export function registerChairMaterials(materials) {
       materials.register(materialId, {
         type: 'physical', color: item.color, metalness: 0, roughness: item.spec.roughness,
         envMapIntensity: .78, clearcoat: .18, clearcoatRoughness: .36,
-        texture: textureId, normalStrength: .11, tile: item.spec.tile ?? [1.45, 0.11],
+        texture: textureId, normalStrength: .08, tile: item.spec.tile ?? [2.25, 0.19],
       });
     }
   }
