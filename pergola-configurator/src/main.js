@@ -11,6 +11,7 @@ import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js?v=platform-1
 import { pergolaT } from './i18n.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 import { mountPergolaEmbedPreviewControls } from './ui/embedPreviewControls.js?v=platform-18';
+import { initializePergolaColorCatalog } from './color-catalog.js';
 
 const tenantContext = await requireTenantConfiguratorAccess('pergola');
 
@@ -22,7 +23,10 @@ if (!root) {
   throw new Error('The #app mount element is missing.');
 }
 
-const sharedState = await readShareState({ productType: 'pergola' });
+const [sharedState] = await Promise.all([
+  readShareState({ productType: 'pergola' }),
+  initializePergolaColorCatalog(),
+]);
 const store = new ConfiguratorStore(sharedState);
 const domainLocale = getLocaleForHostname(window.location.hostname);
 const domainProfile = getLanguageProfile(domainLocale);
