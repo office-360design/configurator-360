@@ -33,6 +33,28 @@ export const MATERIAL_PRESETS = Object.freeze({
     type: 'standard', color: '#20242a', metalness: 0, roughness: 0.83, envMapIntensity: 0.65,
     texture: 'rubber.fine', normalStrength: 0.045, tile: Object.freeze([0.012, 0.012]),
   }),
+  // Accessory appearance categories, not claims about a supplier's composition.
+  'rubber.softTouch': Object.freeze({
+    type: 'standard', color: '#242a2e', metalness: 0, roughness: 0.78, envMapIntensity: 0.5,
+    texture: 'rubber.fine', normalStrength: 0.045, tile: Object.freeze([0.012, 0.012]),
+  }),
+  'steel.brushed': Object.freeze({
+    type: 'standard', color: '#98a4a9', metalness: 1, roughness: 0.34, envMapIntensity: 0.85,
+    textureSet: 'aluminium.brushed', texture: 'brushed', normalStrength: 0.045,
+    tile: Object.freeze([0.25, 0.025]),
+  }),
+  'fabric.screen': Object.freeze({
+    type: 'standard', color: '#67757d', metalness: 0, roughness: 0.9, envMapIntensity: 0.45,
+    texture: 'fabric.woven', normalStrength: 0.18, tile: Object.freeze([0.012, 0.012]),
+    transparent: true, opacity: 0.78, depthWrite: false,
+    // Compensation for mean weave coverage keeps Low/detail opacity comparable.
+    lowOpacity: 0.733,
+  }),
+  'plastic.diffuser': Object.freeze({
+    type: 'standard', color: '#f5f4ed', metalness: 0, roughness: 0.38, envMapIntensity: 0.5,
+    // Cheap opaque approximation for small light covers, not refractive glass.
+    emissive: '#000000', emissiveIntensity: 1,
+  }),
   'glass.clear': Object.freeze({
     type: 'glass', color: '#ffffff', metalness: 0, roughness: 0.045, envMapIntensity: 1,
     ior: 1.5, transmission: 0.96, thickness: 0.006,

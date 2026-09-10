@@ -40,7 +40,7 @@ test('Pergola surface mapping does not change any product vertices or placements
   const originalMaterials = buildPergola(state);
   const sharedMaterials = buildPergola(state, null, library);
   assert.deepEqual(geometrySnapshot(sharedMaterials), geometrySnapshot(originalMaterials));
-  assert.equal(library.getDiagnostics().activeMaterials['aluminium.powderCoated'], 3);
+  assert.equal(library.getDiagnostics().activeMaterials['aluminium.powderCoated'], 4);
   dispose(originalMaterials); dispose(sharedMaterials); library.dispose();
 });
 test('Pergola side glazing uses shared glass and remains a non-shadow caster', () => {

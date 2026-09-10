@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {createHash} from 'node:crypto';
+const sha=v=>createHash('sha256').update(v).digest('hex');
+import { readFile } from 'node:fs/promises';
+import * as THREE from 'three';
+import { MaterialLibrary, MATERIAL_PRESETS, GeometryLibrary, disposeObjectResources } from '../src/index.js';
+import { buildPergola } from '../../pergola-configurator/src/scene/buildPergola.js';
+import { loadPergolaMaterialAssets, pergolaMaterialCases } from './helpers/pergolaMaterialFixtures.mjs';
+import { productGeometrySnapshot } from './helpers/geometrySnapshot.mjs';
+const baseline=JSON.parse(await readFile(new URL('./fixtures/pergola-materials-approved-baseline.json',import.meta.url))), assets=await loadPergolaMaterialAssets();
+for(const [id,preset] of Object.entries(baseline.presets))test(`pre-existing material definition preserved: ${id}`,()=>assert.deepEqual(MATERIAL_PRESETS[id],preset));
+for(const item of pergolaMaterialCases())for(const useAssets of [false,true])test(`unchanged product geometry, placement, shadows and lights: ${item.name}:${useAssets?'assets':'fallback'}`,()=>{
+ const lib=new MaterialLibrary(THREE,{textureAssets:false}),geo=new GeometryLibrary(THREE),group=buildPergola(item.state,useAssets?assets:null,lib,geo);
+ const lights=[];group.traverse(o=>{if(o.isLight)lights.push({type:o.type,color:o.color.getHex(),intensity:o.intensity,distance:o.distance,angle:o.angle,position:o.position.toArray(),target:o.target?.position.toArray()});});
+ const snapshot=productGeometrySnapshot(group,{excludeAttributes:['uv']});
+ const actual={protected:{hash:snapshot.hash,meshCount:snapshot.meshes.length,meshMetadataHash:sha(JSON.stringify(snapshot.meshes))},lights};
+ assert.deepEqual(JSON.parse(JSON.stringify(actual)),baseline.cases[`${item.name}:${useAssets?'assets':'fallback'}`]);
+ disposeObjectResources(group,{materialFilter:()=>true});assert.equal(lib.materials.size,0);lib.dispose();geo.dispose();
+});
+test.after(()=>assets.dispose());
