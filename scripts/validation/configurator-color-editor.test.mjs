@@ -563,9 +563,9 @@ async function releaseFixture(run) {
     }
     for (const file of ['404.html', '.nojekyll', 'release-manifest.json', 'robots.txt', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'apple-touch-icon.png']) await put(release + file);
     const apps = {
-      en: ['/pergola-configurator/', '/roof-configurator/', '/window-configurator/', '/hall-configurator/', '/solar-configurator/', '/fence-configurator/', '/cardbox-configurator/'],
-      ro: ['/configurator-pergola/', '/configurator-acoperis/', '/configurator-ferestre/', '/configurator-hala/', '/configurator-solar/', '/configurator-garduri/', '/configurator-cutii-carton/'],
-      de: ['/pergola-konfigurator/', '/dach-konfigurator/', '/fenster-konfigurator/', '/hallen-konfigurator/', '/solar-konfigurator/', '/zaun-konfigurator/', '/karton-konfigurator/'],
+      en: ['/pergola-configurator/', '/roof-configurator/', '/window-configurator/', '/hall-configurator/', '/solar-configurator/', '/fence-configurator/', '/cardbox-configurator/', '/chair-configurator/'],
+      ro: ['/configurator-pergola/', '/configurator-acoperis/', '/configurator-ferestre/', '/configurator-hala/', '/configurator-solar/', '/configurator-garduri/', '/configurator-cutii-carton/', '/configurator-scaune/'],
+      de: ['/pergola-konfigurator/', '/dach-konfigurator/', '/fenster-konfigurator/', '/hallen-konfigurator/', '/solar-konfigurator/', '/zaun-konfigurator/', '/karton-konfigurator/', '/stuhl-konfigurator/'],
     };
     for (const [locale, domain] of Object.entries(domains)) {
       const urls = ['/', '/about', '/contact', '/pricing', '/book-a-demo', ...['pergola', 'roof', 'window', 'hall', 'solar', 'fence'].map(id => `/configurators/${id}`), ...apps[locale]];
