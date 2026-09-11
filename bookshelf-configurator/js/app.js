@@ -28,6 +28,11 @@ const PLINTH_HEIGHT = 78;
 const PLINTH_FRONT_RECESS = 42;
 const BACK_POST_FOOT_DENT = 8;
 const BACK_POST_FOOT_DENT_HEIGHT = 64;
+const CONNECTOR_HEIGHT = 54;
+const CONNECTOR_DEPTH = 16;
+const CONNECTOR_SMALL_LENGTH = 18;
+const CONNECTOR_BRIDGE_LENGTH = POST * 2;
+const CONNECTOR_Y_INSET = 96;
 const GLASS_ALPHA = 0.28;
 const EPS = 0.5;
 
@@ -597,6 +602,51 @@ function addBackPostWithFootDent(group, { x, height, material, moduleId }) {
 
 function frontZ(depth) { return -depth; }
 
+function worldFromAnchor(anchor, heading, localX, localZ) {
+  const d = vec(heading);
+  const n = { x: -d.z, z: d.x };
+  return {
+    x: anchor.x + d.x * localX + n.x * localZ,
+    z: anchor.z + d.z * localX + n.z * localZ,
+  };
+}
+
+function addFrontPoleConnector(anchor, heading, length, y, material) {
+  const center = worldFromAnchor(anchor, heading, 0, frontZ(familySpec().depth) + CONNECTOR_DEPTH / 2);
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, CONNECTOR_HEIGHT, CONNECTOR_DEPTH), material);
+  mesh.position.set(center.x, y, center.z);
+  mesh.rotation.y = -heading;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  connectorGroup.add(mesh);
+  return mesh;
+}
+
+function renderStandalonePoleConnectors(anchor, heading, isStart, spec, material) {
+  const xCenter = (isStart ? 1 : -1) * (CONNECTOR_SMALL_LENGTH / 2);
+  [CONNECTOR_Y_INSET, spec.height - CONNECTOR_Y_INSET].forEach((y) => {
+    const world = worldFromAnchor(anchor, heading, xCenter, frontZ(spec.depth) + CONNECTOR_DEPTH / 2);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(CONNECTOR_SMALL_LENGTH, CONNECTOR_HEIGHT, CONNECTOR_DEPTH), material);
+    mesh.position.set(world.x, y, world.z);
+    mesh.rotation.y = -heading;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    connectorGroup.add(mesh);
+  });
+}
+
+function renderBridgeConnectors(anchor, heading, spec, material) {
+  [CONNECTOR_Y_INSET, spec.height - CONNECTOR_Y_INSET].forEach((y) => {
+    const world = worldFromAnchor(anchor, heading, 0, frontZ(spec.depth) + CONNECTOR_DEPTH / 2);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(CONNECTOR_BRIDGE_LENGTH, CONNECTOR_HEIGHT, CONNECTOR_DEPTH), material);
+    mesh.position.set(world.x, y, world.z);
+    mesh.rotation.y = -heading;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    connectorGroup.add(mesh);
+  });
+}
+
 function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null, omitStartPosts = false, omitEndPosts = false, omitStartFrontPost = false, omitStartBackPost = false, omitEndFrontPost = false, omitEndBackPost = false } = {}) {
   const spec = familySpec();
   const group = new THREE.Group();
@@ -771,34 +821,23 @@ function renderModule(entry) {
 function renderConnectors(layout) {
   clearGroup(connectorGroup);
   const spec = familySpec();
-  const jointPoses = [];
-  for (let i = 0; i < layout.entries.length - 1; i += 1) jointPoses.push(layout.entries[i].end);
-  if (layout.closed && layout.entries.length) jointPoses.push(layout.end);
+  const material = metalMaterial();
 
-  const thickness = 16;
-  const size = { x: 54, y: 38, z: thickness };
-  jointPoses.forEach((pose) => {
-    const d = vec(pose.heading);
-    const n = { x: -d.z, z: d.x };
-    const backPoint = {
-      x: pose.x + n.x * (thickness / 2 + 2),
-      z: pose.z + n.z * (thickness / 2 + 2),
-    };
-    const frontPoint = {
-      x: pose.x - n.x * (spec.depth + thickness / 2 + 2),
-      z: pose.z - n.z * (spec.depth + thickness / 2 + 2),
-    };
-    [backPoint, frontPoint].forEach((point) => {
-      [92, spec.height - 92].forEach((y) => {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), metalMaterial());
-        mesh.position.set(point.x, y, point.z);
-        mesh.rotation.y = -pose.heading;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        connectorGroup.add(mesh);
-      });
-    });
-  });
+  // Every free front upright receives one small aluminium insert near the floor
+  // and one near the top. Whenever two modules meet, those individual inserts
+  // are replaced by one longer bridge connector spanning the two adjacent front
+  // uprights so the result matches the real product hardware.
+  if (layout.entries.length && !layout.closed) {
+    renderStandalonePoleConnectors(layout.start, layout.start.heading, true, spec, material);
+    renderStandalonePoleConnectors(layout.end, layout.end.heading, false, spec, material);
+  }
+
+  for (let i = 0; i < layout.entries.length - 1; i += 1) {
+    renderBridgeConnectors(layout.entries[i].end, layout.entries[i].end.heading, spec, material);
+  }
+  if (layout.closed && layout.entries.length) {
+    renderBridgeConnectors(layout.end, layout.end.heading, spec, material);
+  }
 }
 
 function rebuildScene() {
