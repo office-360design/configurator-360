@@ -564,7 +564,8 @@ function createDoorPivot(parent, { xCenter, yCenter, z, width, hinge = 'left', o
   const pivot = new THREE.Group();
   const hingeX = hinge === 'right' ? xCenter + width / 2 : xCenter - width / 2;
   pivot.position.set(hingeX, yCenter, z);
-  pivot.rotation.y = open ? (hinge === 'right' ? Math.PI / 2 : -Math.PI / 2) : 0;
+  // Swing lower doors outward so an opened leaf sits alongside the adjacent side post instead of cutting through the shelves.
+  pivot.rotation.y = open ? (hinge === 'right' ? -Math.PI / 2 : Math.PI / 2) : 0;
   parent.add(pivot);
 
   const leaf = new THREE.Group();
@@ -586,17 +587,17 @@ function addDoorCornerFillers(group, panelWidth, panelHeight, panelInset, bevel,
 }
 
 function addKeyhole(group, moduleId, x, y, z) {
-  const material = new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.35, metalness: 0.22 });
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.8, 1.2, 18), material);
+  const material = new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.55, metalness: 0.08 });
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(3.1, 3.1, 1.0, 18), material);
   top.rotation.x = Math.PI / 2;
-  top.position.set(x, y + 3.6, z);
+  top.position.set(x, y + 4.0, z);
   top.castShadow = true;
   top.receiveShadow = true;
   tagMesh(top, moduleId);
   group.add(top);
 
-  const stem = new THREE.Mesh(new THREE.BoxGeometry(1.8, 8.4, 1.2), material);
-  stem.position.set(x, y - 1.8, z);
+  const stem = new THREE.Mesh(new THREE.BoxGeometry(1.9, 8.8, 1.0), material);
+  stem.position.set(x, y - 1.9, z);
   stem.castShadow = true;
   stem.receiveShadow = true;
   tagMesh(stem, moduleId);
@@ -1048,7 +1049,8 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
   addDoorCornerFillers(leaf, panelWidth, panelHeight, panelInset, bevel, wood, module.id);
 
   if (keyhole) {
-    addKeyhole(leaf, module.id, -width / 2 + frame * 0.52, -height * 0.02, doorThickness + 0.35);
+    // Place the keyhole on the exterior/front face of the right door so it stays visible in the closed state.
+    addKeyhole(leaf, module.id, -width / 2 + frame * 0.60, -height * 0.02, 0.35);
   }
   tagDoorInteractive(leaf, module.id, doorKey);
   return leaf;
