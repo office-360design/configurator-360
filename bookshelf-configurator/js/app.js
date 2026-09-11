@@ -265,8 +265,26 @@ function shelfCentersForHeight(height) {
   return Array.from({ length: 9 }, (_, index) => compactBottom + step * index);
 }
 function uid() { return `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
+function defaultDoorState() {
+  return {
+    lowerLeft: false,
+    lowerRight: false,
+    lowerSingle: false,
+    glazedLeft: false,
+    glazedRight: false,
+    glazedSingle: false,
+  };
+}
+function cloneDoorState(source) {
+  const base = defaultDoorState();
+  const input = source && typeof source === 'object' ? source : {};
+  Object.keys(base).forEach((key) => {
+    if (typeof input[key] === 'boolean') base[key] = input[key];
+  });
+  return base;
+}
 function newModule(kind = 'straight') {
-  return { id: uid(), kind, door: 'open', colour: DEFAULT_COLOUR };
+  return { id: uid(), kind, door: 'open', colour: DEFAULT_COLOUR, doorState: defaultDoorState() };
 }
 function cloneModule(module) {
   const colour = String(module?.colour || '').toLowerCase();
@@ -275,6 +293,7 @@ function cloneModule(module) {
     kind: module?.kind === 'corner' ? 'corner' : 'straight',
     door: ['open', 'lower', 'glazed'].includes(module?.door) ? module.door : 'open',
     colour: MODULE_COLOURS.includes(colour) ? colour : DEFAULT_COLOUR,
+    doorState: cloneDoorState(module?.doorState),
   };
 }
 function normalizeAngle(angle) {
@@ -530,6 +549,58 @@ function addBox(group, size, position, material, moduleId, { cast = true, receiv
   tagMesh(mesh, moduleId);
   group.add(mesh);
   return mesh;
+}
+
+function tagDoorInteractive(root, moduleId, doorKey) {
+  if (!doorKey) return;
+  root.traverse((child) => {
+    if (!child.isMesh) return;
+    child.userData.bookshelfModuleId = moduleId;
+    child.userData.bookshelfDoorKey = doorKey;
+  });
+}
+
+function createDoorPivot(parent, { xCenter, yCenter, z, width, hinge = 'left', open = false }) {
+  const pivot = new THREE.Group();
+  const hingeX = hinge === 'right' ? xCenter + width / 2 : xCenter - width / 2;
+  pivot.position.set(hingeX, yCenter, z);
+  pivot.rotation.y = open ? (hinge === 'right' ? Math.PI * 0.58 : -Math.PI * 0.58) : 0;
+  parent.add(pivot);
+
+  const leaf = new THREE.Group();
+  leaf.position.set(hinge === 'right' ? -width / 2 : width / 2, 0, 0);
+  pivot.add(leaf);
+  return leaf;
+}
+
+function addDoorCornerFillers(group, panelWidth, panelHeight, panelInset, bevel, material, moduleId) {
+  const size = Math.max(4, bevel - 0.8);
+  const z = panelInset / 2;
+  const positions = [
+    { x: -panelWidth / 2 - bevel / 2, y: panelHeight / 2 + bevel / 2 },
+    { x: panelWidth / 2 + bevel / 2, y: panelHeight / 2 + bevel / 2 },
+    { x: -panelWidth / 2 - bevel / 2, y: -panelHeight / 2 - bevel / 2 },
+    { x: panelWidth / 2 + bevel / 2, y: -panelHeight / 2 - bevel / 2 },
+  ];
+  positions.forEach(({ x, y }) => addBox(group, { x: size, y: size, z: panelInset }, { x, y, z }, material, moduleId));
+}
+
+function addKeyhole(group, moduleId, x, y, z) {
+  const material = new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.52, metalness: 0.38 });
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(2.7, 2.7, 1.5, 18), material);
+  top.rotation.x = Math.PI / 2;
+  top.position.set(x, y + 3.4, z);
+  top.castShadow = true;
+  top.receiveShadow = true;
+  tagMesh(top, moduleId);
+  group.add(top);
+
+  const stem = new THREE.Mesh(new THREE.BoxGeometry(1.7, 7.8, 1.5), material);
+  stem.position.set(x, y - 1.6, z);
+  stem.castShadow = true;
+  stem.receiveShadow = true;
+  tagMesh(stem, moduleId);
+  group.add(stem);
 }
 
 function applyNormalizedBoxUVs(geometry) {
@@ -928,14 +999,12 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   return group;
 }
 
-function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, frontPlaneZ) {
+function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, frontPlaneZ, { hinge = 'left', open = false, doorKey = '', keyhole = false } = {}) {
   const wood = woodMaterial(module.colour);
   const darkWood = darkWoodMaterial(module.colour);
-  const leaf = new THREE.Group();
-  leaf.position.set(xCenter, yCenter, frontPlaneZ);
-  parent.add(leaf);
+  const leaf = createDoorPivot(parent, { xCenter, yCenter, z: frontPlaneZ, width, hinge, open });
 
-  const frame = Math.max(56, Math.min(72, Math.min(width, height) * 0.24));
+  const frame = Math.max(64, Math.min(82, Math.min(width, height) * 0.27));
   const doorThickness = 12;
   const panelInset = 7;
   const panelThickness = 4;
@@ -976,35 +1045,47 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
     [panelWidth / 2 + bevel, panelInset],
     [panelWidth / 2 + bevel, 0],
   ], 0, panelHeight, wood, module.id);
+  addDoorCornerFillers(leaf, panelWidth, panelHeight, panelInset, bevel, wood, module.id);
+
+  if (keyhole) {
+    addKeyhole(leaf, module.id, -width / 2 + frame * 0.52, -height * 0.02, 0.85);
+  }
+  tagDoorInteractive(leaf, module.id, doorKey);
+  return leaf;
 }
 
-function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glazed = false } = {}) {
+function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glazed = false, hinge = 'left', open = false, doorKey = '' } = {}) {
   const wood = woodMaterial(module.colour);
   const frame = 34;
   if (!glazed) {
-    addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, z);
+    addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, z, { hinge, open, doorKey });
     return;
   }
 
-  addBox(parent, { x: frame, y: height, z: 18 }, { x: xCenter - width / 2 + frame / 2, y: yCenter, z }, wood, module.id);
-  addBox(parent, { x: frame, y: height, z: 18 }, { x: xCenter + width / 2 - frame / 2, y: yCenter, z }, wood, module.id);
-  addBox(parent, { x: width - frame * 2, y: frame, z: 18 }, { x: xCenter, y: yCenter - height / 2 + frame / 2, z }, wood, module.id);
-  addBox(parent, { x: width - frame * 2, y: frame, z: 18 }, { x: xCenter, y: yCenter + height / 2 - frame / 2, z }, wood, module.id);
+  const leaf = createDoorPivot(parent, { xCenter, yCenter, z, width, hinge, open });
+  addBox(leaf, { x: frame, y: height, z: 18 }, { x: -width / 2 + frame / 2, y: 0, z: 9 }, wood, module.id);
+  addBox(leaf, { x: frame, y: height, z: 18 }, { x: width / 2 - frame / 2, y: 0, z: 9 }, wood, module.id);
+  addBox(leaf, { x: width - frame * 2, y: frame, z: 18 }, { x: 0, y: -height / 2 + frame / 2, z: 9 }, wood, module.id);
+  addBox(leaf, { x: width - frame * 2, y: frame, z: 18 }, { x: 0, y: height / 2 - frame / 2, z: 9 }, wood, module.id);
   const glass = new THREE.Mesh(new THREE.BoxGeometry(Math.max(20, width - frame * 2), Math.max(20, height - frame * 2), 5), glassMaterial());
-  glass.position.set(xCenter, yCenter, z + 1);
+  glass.position.set(0, 0, 10);
+  glass.castShadow = true;
+  glass.receiveShadow = true;
   tagMesh(glass, module.id);
-  parent.add(glass);
+  leaf.add(glass);
+  tagDoorInteractive(leaf, module.id, doorKey);
 }
 
 function addDoors(parent, module, { width, depth, height, cornerWing = false, sharedSide = null }) {
   if (module.door === 'open') return;
-  const solidDoorFrontZ = frontZ(depth) + 17;
+  const solidDoorFrontZ = frontZ(depth) + 12;
   const glazedDoorCenterZ = frontZ(depth) + 9.2;
   const cornerInset = cornerWing ? Math.max(64, POST * 1.5) : 0;
   const lowerDoorStart = POST + (sharedSide === 'start' ? cornerInset : 0);
   const lowerDoorEnd = width - POST - (sharedSide === 'end' ? cornerInset : 0);
   const lowerDoorWidth = Math.max(120, lowerDoorEnd - lowerDoorStart);
   const shelfCenters = shelfCentersForHeight(height);
+  const doorState = cloneDoorState(module.doorState);
 
   if (cornerWing) {
     const straightLeafWidth = Math.max(90, width - POST * 2 - 18);
@@ -1017,12 +1098,23 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
       const openingTop = shelfCenters[3] - BOARD / 2;
       const doorHeight = Math.max(120, openingTop - openingBottom);
       const y = (openingTop + openingBottom) / 2;
-      addSolidDoorLeaf(parent, module, x, leafWidth, y, doorHeight, solidDoorFrontZ);
+      const hinge = sharedSide === 'start' ? 'right' : 'left';
+      addSolidDoorLeaf(parent, module, x, leafWidth, y, doorHeight, solidDoorFrontZ, {
+        hinge,
+        open: doorState.lowerSingle,
+        doorKey: 'lowerSingle',
+      });
       return;
     }
     const doorHeight = height - 205;
     const y = 105 + doorHeight / 2;
-    addDoorFrame(parent, module, x, leafWidth, y, doorHeight, glazedDoorCenterZ, { glazed: true });
+    const hinge = sharedSide === 'start' ? 'right' : 'left';
+    addDoorFrame(parent, module, x, leafWidth, y, doorHeight, glazedDoorCenterZ, {
+      glazed: true,
+      hinge,
+      open: doorState.glazedSingle,
+      doorKey: 'glazedSingle',
+    });
     return;
   }
 
@@ -1034,8 +1126,17 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
     const leafWidth = Math.max(60, lowerDoorWidth / 2);
     const leftX = lowerDoorStart + leafWidth / 2;
     const rightX = lowerDoorEnd - leafWidth / 2;
-    addSolidDoorLeaf(parent, module, leftX, leafWidth, y, doorHeight, solidDoorFrontZ);
-    addSolidDoorLeaf(parent, module, rightX, leafWidth, y, doorHeight, solidDoorFrontZ);
+    addSolidDoorLeaf(parent, module, leftX, leafWidth, y, doorHeight, solidDoorFrontZ, {
+      hinge: 'left',
+      open: doorState.lowerLeft,
+      doorKey: 'lowerLeft',
+    });
+    addSolidDoorLeaf(parent, module, rightX, leafWidth, y, doorHeight, solidDoorFrontZ, {
+      hinge: 'right',
+      open: doorState.lowerRight,
+      doorKey: 'lowerRight',
+      keyhole: true,
+    });
     return;
   }
 
@@ -1048,8 +1149,18 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
   const rightX = openingStart + leafWidth + leafGap + leafWidth / 2;
   const doorHeight = height - 205;
   const y = 105 + doorHeight / 2;
-  addDoorFrame(parent, module, leftX, leafWidth, y, doorHeight, glazedDoorCenterZ, { glazed: true });
-  addDoorFrame(parent, module, rightX, leafWidth, y, doorHeight, glazedDoorCenterZ, { glazed: true });
+  addDoorFrame(parent, module, leftX, leafWidth, y, doorHeight, glazedDoorCenterZ, {
+    glazed: true,
+    hinge: 'left',
+    open: doorState.glazedLeft,
+    doorKey: 'glazedLeft',
+  });
+  addDoorFrame(parent, module, rightX, leafWidth, y, doorHeight, glazedDoorCenterZ, {
+    glazed: true,
+    hinge: 'right',
+    open: doorState.glazedRight,
+    doorKey: 'glazedRight',
+  });
 }
 
 function renderModule(entry) {
@@ -1441,7 +1552,18 @@ function raycastModule(event) {
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(pointer, camera);
   const hit = raycaster.intersectObjects(moduleMeshes, false)[0];
-  return hit?.object?.userData?.bookshelfModuleId || '';
+  return hit?.object || null;
+}
+
+function toggleDoorLeaf(moduleId, doorKey) {
+  const module = state.modules.find((entry) => entry.id === moduleId);
+  if (!module || !doorKey) return;
+  module.doorState = cloneDoorState(module.doorState);
+  if (!(doorKey in module.doorState)) return;
+  recordUndoCheckpoint();
+  module.doorState[doorKey] = !module.doorState[doorKey];
+  renderAll();
+  markDirty();
 }
 
 function bindControls() {
@@ -1476,7 +1598,9 @@ function bindControls() {
     const moved = Math.hypot(event.clientX - down.x, event.clientY - down.y);
     down = null;
     if (moved > 5) return;
-    const moduleId = raycastModule(event);
+    const hit = raycastModule(event);
+    const moduleId = hit?.userData?.bookshelfModuleId || '';
+    const doorKey = hit?.userData?.bookshelfDoorKey || '';
     if (!moduleId) {
       if (selectedModuleId) {
         selectedModuleId = '';
@@ -1487,6 +1611,10 @@ function bindControls() {
     }
     selectedModuleId = moduleId;
     closeAddPanel();
+    if (doorKey) {
+      toggleDoorLeaf(moduleId, doorKey);
+      return;
+    }
     renderSelectedControls();
     rebuildSelectionHelper();
   });
