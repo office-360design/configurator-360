@@ -586,22 +586,42 @@ function addDoorCornerFillers(group, panelWidth, panelHeight, panelInset, bevel,
   positions.forEach(({ x, y }) => addBox(group, { x: size, y: size, z: panelInset }, { x, y, z }, material, moduleId));
 }
 
-function addKeyhole(group, moduleId, x, y, z) {
-  const material = new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.55, metalness: 0.08 });
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(3.1, 3.1, 1.0, 18), material);
-  top.rotation.x = Math.PI / 2;
-  top.position.set(x, y + 4.0, z);
-  top.castShadow = true;
-  top.receiveShadow = true;
-  tagMesh(top, moduleId);
-  group.add(top);
+function addKeyholeCutoutPanel(group, { panelWidth, panelHeight, panelThickness, panelInset, material, moduleId, keyholeX = 0, keyholeY = 0 }) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-panelWidth / 2, -panelHeight / 2);
+  shape.lineTo(panelWidth / 2, -panelHeight / 2);
+  shape.lineTo(panelWidth / 2, panelHeight / 2);
+  shape.lineTo(-panelWidth / 2, panelHeight / 2);
+  shape.closePath();
 
-  const stem = new THREE.Mesh(new THREE.BoxGeometry(1.9, 8.8, 1.0), material);
-  stem.position.set(x, y - 1.9, z);
-  stem.castShadow = true;
-  stem.receiveShadow = true;
-  tagMesh(stem, moduleId);
-  group.add(stem);
+  // Use a true perforation instead of a painted mark so the user can see through the door.
+  const radius = 7.8;
+  const stemHalf = 2.4;
+  const stemHeight = 22.0;
+  const cx = keyholeX;
+  const cy = keyholeY;
+  const circleCenterY = cy + radius;
+
+  const hole = new THREE.Path();
+  hole.moveTo(cx - stemHalf, cy);
+  hole.lineTo(cx - stemHalf, cy - stemHeight);
+  hole.lineTo(cx + stemHalf, cy - stemHeight);
+  hole.lineTo(cx + stemHalf, cy);
+  hole.lineTo(cx + radius, cy);
+  hole.absarc(cx, circleCenterY, radius, -Math.PI / 2, Math.PI * 1.5, false);
+  hole.closePath();
+  shape.holes.push(hole);
+
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: panelThickness, bevelEnabled: false, curveSegments: 28 });
+  geometry.translate(0, 0, panelInset);
+  applyNormalizedBoxUVs(geometry);
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, moduleId);
+  group.add(mesh);
+  return mesh;
 }
 
 function applyNormalizedBoxUVs(geometry) {
@@ -1020,11 +1040,25 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
   addBox(leaf, { x: innerWidth, y: frame, z: doorThickness }, { x: 0, y: -height / 2 + frame / 2, z: doorThickness / 2 }, wood, module.id);
   addBox(leaf, { x: innerWidth, y: frame, z: doorThickness }, { x: 0, y: height / 2 - frame / 2, z: doorThickness / 2 }, wood, module.id);
 
-  addBox(leaf, { x: panelWidth, y: panelHeight, z: panelThickness }, {
-    x: 0,
-    y: 0,
-    z: panelInset + panelThickness / 2,
-  }, darkWood, module.id);
+  if (keyhole) {
+    addKeyholeCutoutPanel(leaf, {
+      panelWidth,
+      panelHeight,
+      panelThickness,
+      panelInset,
+      material: darkWood,
+      moduleId: module.id,
+      // Keep the keyhole unmistakably on the right-hand door and large enough to read clearly.
+      keyholeX: width * 0.14,
+      keyholeY: -height * 0.03,
+    });
+  } else {
+    addBox(leaf, { x: panelWidth, y: panelHeight, z: panelThickness }, {
+      x: 0,
+      y: 0,
+      z: panelInset + panelThickness / 2,
+    }, darkWood, module.id);
+  }
 
   addExtrudedProfileAlongX(leaf, [
     [panelHeight / 2, panelInset],
@@ -1048,10 +1082,6 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
   ], 0, panelHeight, wood, module.id);
   addDoorCornerFillers(leaf, panelWidth, panelHeight, panelInset, bevel, wood, module.id);
 
-  if (keyhole) {
-    // Place the keyhole on the exterior/front face of the right door so it stays visible in the closed state.
-    addKeyhole(leaf, module.id, -width / 2 + frame * 0.60, -height * 0.02, 0.35);
-  }
   tagDoorInteractive(leaf, module.id, doorKey);
   return leaf;
 }
