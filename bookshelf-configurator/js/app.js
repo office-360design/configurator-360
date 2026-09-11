@@ -20,11 +20,10 @@ const FINISH_TEXTURES = Object.freeze({
 const POST = 42;
 const BOARD = 22;
 const BACK = 16;
-const SIDE = 18;
-const SIDE_RAIL_EXTRA = 12;
+const SIDE = 10;
 const SIDE_RAIL_BODY = 92;
-const SIDE_RAIL_RAMP = 54;
-const SIDE_MID_BODY = 54;
+const SIDE_RAIL_RAMP = 14;
+const SIDE_MID_BODY = 124;
 const PLINTH_HEIGHT = 78;
 const PLINTH_SIDE_RECESS = 18;
 const PLINTH_FRONT_RECESS = 42;
@@ -455,28 +454,47 @@ function addBox(group, size, position, material, moduleId, { cast = true, receiv
   return mesh;
 }
 
-function addTriangularPrism(group, triangleXY, zCenter, zLength, material, moduleId) {
-  const half = zLength / 2;
-  const positions = [];
-  const emit = (a, b, c, z) => {
-    positions.push(a[0], a[1], z, b[0], b[1], z, c[0], c[1], z);
+function applyNormalizedBoxUVs(geometry) {
+  const position = geometry.getAttribute('position');
+  const normal = geometry.getAttribute('normal');
+  if (!position || !normal) return geometry;
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  const size = {
+    x: Math.max(1e-6, bounds.max.x - bounds.min.x),
+    y: Math.max(1e-6, bounds.max.y - bounds.min.y),
+    z: Math.max(1e-6, bounds.max.z - bounds.min.z),
   };
-  // Back/front caps use opposite winding.
-  emit(triangleXY[0], triangleXY[2], triangleXY[1], zCenter - half);
-  emit(triangleXY[0], triangleXY[1], triangleXY[2], zCenter + half);
-  for (let i = 0; i < 3; i += 1) {
-    const a = triangleXY[i];
-    const b = triangleXY[(i + 1) % 3];
-    const z0 = zCenter - half;
-    const z1 = zCenter + half;
-    positions.push(
-      a[0], a[1], z0, b[0], b[1], z0, b[0], b[1], z1,
-      a[0], a[1], z0, b[0], b[1], z1, a[0], a[1], z1,
-    );
+  const uv = new THREE.Float32BufferAttribute(new Float32Array(position.count * 2), 2);
+  for (let i = 0; i < position.count; i += 1) {
+    const ax = Math.abs(normal.getX(i));
+    const ay = Math.abs(normal.getY(i));
+    const az = Math.abs(normal.getZ(i));
+    const x = (position.getX(i) - bounds.min.x) / size.x;
+    const y = (position.getY(i) - bounds.min.y) / size.y;
+    const z = (position.getZ(i) - bounds.min.z) / size.z;
+    if (az >= ax && az >= ay) uv.setXY(i, x, y);
+    else if (ax >= ay) uv.setXY(i, z, y);
+    else uv.setXY(i, x, z);
   }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', uv);
+  return geometry;
+}
+
+function addExtrudedSideProfile(group, points, zCenter, zLength, material, moduleId) {
+  const shape = new THREE.Shape();
+  shape.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i += 1) shape.lineTo(points[i][0], points[i][1]);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: zLength,
+    bevelEnabled: false,
+    steps: 1,
+    curveSegments: 1,
+  });
+  geometry.translate(0, 0, zCenter - zLength / 2);
   geometry.computeVertexNormals();
+  applyNormalizedBoxUVs(geometry);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -491,56 +509,55 @@ function addSideWallAssembly(group, module, { side, width, depth, height, shared
   const zLength = Math.max(80, depth - POST * 2);
   const zCenter = -depth / 2;
   const left = side === 'start';
-  const panelOuter = left ? POST : width - POST;
-  const panelInner = left ? POST + SIDE : width - POST - SIDE;
-  const panelCenterX = (panelOuter + panelInner) / 2;
-  const railOuter = panelOuter + (left ? -SIDE_RAIL_EXTRA : SIDE_RAIL_EXTRA);
-  const extraCenterX = (panelOuter + railOuter) / 2;
 
-  // The real product's side infill runs continuously from floor to top between
-  // the front/back uprights. Raised connector bands sit on its exterior face.
+  // The panel's INNER face aligns exactly with the inner face of the post.
+  // It is intentionally much thinner than the post and extends OUTWARD from
+  // that shared inner plane, leaving space for the raised side connectors.
+  const postInner = left ? POST : width - POST;
+  const panelOuter = postInner + (left ? -SIDE : SIDE);
+  const panelCenterX = (postInner + panelOuter) / 2;
   addBox(group, { x: SIDE, y: height, z: zLength }, {
     x: panelCenterX,
     y: height / 2,
     z: zCenter,
   }, material, module.id);
 
-  const addRaisedBody = (y0, y1) => {
-    if (!(y1 > y0)) return;
-    addBox(group, { x: SIDE_RAIL_EXTRA, y: y1 - y0, z: zLength }, {
-      x: extraCenterX,
-      y: (y0 + y1) / 2,
-      z: zCenter,
-    }, material, module.id);
-  };
-  const addRamp = (y0, y1, thickAtStart) => {
-    const thickPoint = [railOuter, thickAtStart ? y0 : y1];
-    const baseA = [panelOuter, y0];
-    const baseB = [panelOuter, y1];
-    addTriangularPrism(group, [baseA, thickPoint, baseB], zCenter, zLength, material, module.id);
-  };
+  // Raised connectors occupy the remaining thickness between the panel's outer
+  // face and the post's outer face, so their exposed outer face is perfectly
+  // flush with the side face of the posts.
+  const postOuter = left ? 0 : width;
+  const outerX = postOuter;
+  const innerX = panelOuter;
 
-  // Bottom connector: floor-facing rectangular block, then a single ramp into
-  // the thinner side panel above it.
   const bottomBodyEnd = SIDE_RAIL_BODY;
   const bottomRampEnd = bottomBodyEnd + SIDE_RAIL_RAMP;
-  addRaisedBody(0, bottomBodyEnd);
-  addRamp(bottomBodyEnd, bottomRampEnd, true);
+  addExtrudedSideProfile(group, [
+    [innerX, 0],
+    [outerX, 0],
+    [outerX, bottomBodyEnd],
+    [innerX, bottomRampEnd],
+  ], zCenter, zLength, material, module.id);
 
-  // Middle connector: rectangular centre section with a ramp on both sides.
+  // The centre connector is visibly larger than before, with only short ramps
+  // at each end as shown in the technical drawing.
   const mid = height * 0.5;
   const midBody0 = mid - SIDE_MID_BODY / 2;
   const midBody1 = mid + SIDE_MID_BODY / 2;
-  addRamp(midBody0 - SIDE_RAIL_RAMP, midBody0, false);
-  addRaisedBody(midBody0, midBody1);
-  addRamp(midBody1, midBody1 + SIDE_RAIL_RAMP, true);
+  addExtrudedSideProfile(group, [
+    [innerX, midBody0 - SIDE_RAIL_RAMP],
+    [outerX, midBody0],
+    [outerX, midBody1],
+    [innerX, midBody1 + SIDE_RAIL_RAMP],
+  ], zCenter, zLength, material, module.id);
 
-  // Top connector mirrors the bottom: ramp out from the panel, then a full
-  // rectangular block continuing to the module's top edge.
   const topBodyStart = height - SIDE_RAIL_BODY;
   const topRampStart = topBodyStart - SIDE_RAIL_RAMP;
-  addRamp(topRampStart, topBodyStart, false);
-  addRaisedBody(topBodyStart, height);
+  addExtrudedSideProfile(group, [
+    [innerX, topRampStart],
+    [outerX, topBodyStart],
+    [outerX, height],
+    [innerX, height],
+  ], zCenter, zLength, material, module.id);
 }
 function frontZ(depth) { return -depth; }
 
@@ -559,11 +576,11 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   const front = frontZ(depth);
   const innerWidth = Math.max(100, width - POST * 2);
   const shelfDepth = depth - 34;
-  const shelfWidth = Math.max(100, innerWidth - SIDE * 2);
+  const shelfWidth = innerWidth;
 
-  // Back panel and the lower plinth are separate parts. The real product has a
-  // thin bottom shelf that visibly overhangs the smaller recessed base below it.
-  addBox(group, { x: innerWidth, y: height - 160, z: BACK }, { x: width / 2, y: height / 2 + 20, z: -BACK / 2 }, darkWood, module.id);
+  // The back panel now runs the complete predefined module height, matching
+  // the uprights. The lower plinth remains a separate recessed structural part.
+  addBox(group, { x: innerWidth, y: height, z: BACK }, { x: width / 2, y: height / 2, z: -BACK / 2 }, darkWood, module.id);
   const plinthWidth = Math.max(100, innerWidth - PLINTH_SIDE_RECESS * 2);
   const plinthDepth = Math.max(100, shelfDepth - PLINTH_FRONT_RECESS);
   const plinthCenterZ = -depth + POST + plinthDepth / 2;
@@ -579,10 +596,10 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
     z: -depth / 2,
   }, wood, module.id);
 
-  // Full-height side assemblies from floor to top. The real product uses a
-  // continuous inset panel plus thicker top/middle/bottom connector bands with
-  // sloped transitions into the panel. Connected straight modules retain both
-  // side assemblies; only the shared inside of the one L-corner stays open.
+  // Full-height side assemblies from floor to top. Their thin panels share the
+  // same inner plane as the posts, while the three raised exterior connectors
+  // build back out to the posts' outer plane. Connected straight modules retain
+  // both side assemblies; only the shared inside of the one L-corner stays open.
   addSideWallAssembly(group, module, { side: 'start', width, depth, height, sharedSide });
   addSideWallAssembly(group, module, { side: 'end', width, depth, height, sharedSide });
 
