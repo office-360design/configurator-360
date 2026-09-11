@@ -20,6 +20,10 @@ const FINISH_TEXTURES = Object.freeze({
 const POST = 42;
 const BOARD = 22;
 const BACK = 16;
+const SIDE = 18;
+const PLINTH_HEIGHT = 78;
+const PLINTH_SIDE_RECESS = 18;
+const PLINTH_FRONT_RECESS = 42;
 const GLASS_ALPHA = 0.28;
 const EPS = 0.5;
 
@@ -463,10 +467,48 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   const front = frontZ(depth);
   const innerWidth = Math.max(100, width - POST * 2);
   const shelfDepth = depth - 34;
+  const shelfWidth = Math.max(100, innerWidth - SIDE * 2);
 
-  // Back panel and plinth notch approximation based on the supplied product reference.
+  // Back panel and the lower plinth are separate parts. The real product has a
+  // thin bottom shelf that visibly overhangs the smaller recessed base below it.
   addBox(group, { x: innerWidth, y: height - 160, z: BACK }, { x: width / 2, y: height / 2 + 20, z: -BACK / 2 }, darkWood, module.id);
-  addBox(group, { x: innerWidth, y: 105, z: depth - 18 }, { x: width / 2, y: 62, z: -depth / 2 }, darkWood, module.id);
+  const plinthWidth = Math.max(100, innerWidth - PLINTH_SIDE_RECESS * 2);
+  const plinthDepth = Math.max(100, shelfDepth - PLINTH_FRONT_RECESS);
+  const plinthCenterZ = -depth + POST + plinthDepth / 2;
+  addBox(group, { x: plinthWidth, y: PLINTH_HEIGHT, z: plinthDepth }, {
+    x: width / 2,
+    y: PLINTH_HEIGHT / 2,
+    z: plinthCenterZ,
+  }, darkWood, module.id);
+  const bottomShelfY = PLINTH_HEIGHT + BOARD / 2;
+  addBox(group, { x: innerWidth, y: BOARD, z: shelfDepth }, {
+    x: width / 2,
+    y: bottomShelfY,
+    z: -depth / 2,
+  }, wood, module.id);
+
+  // Each independent bookshelf module keeps solid left/right side panels even
+  // when it is connected to another module. The only exception is the shared
+  // inside of the single L-corner, which stays open for continuous corner shelves.
+  const sidePanelBottom = bottomShelfY + BOARD / 2;
+  const sidePanelTop = height - 92;
+  const sidePanelHeight = Math.max(100, sidePanelTop - sidePanelBottom);
+  const sidePanelY = sidePanelBottom + sidePanelHeight / 2;
+  const sidePanelZ = -depth / 2;
+  if (sharedSide !== 'start') {
+    addBox(group, { x: SIDE, y: sidePanelHeight, z: shelfDepth }, {
+      x: POST + SIDE / 2,
+      y: sidePanelY,
+      z: sidePanelZ,
+    }, wood, module.id);
+  }
+  if (sharedSide !== 'end') {
+    addBox(group, { x: SIDE, y: sidePanelHeight, z: shelfDepth }, {
+      x: width - POST - SIDE / 2,
+      y: sidePanelY,
+      z: sidePanelZ,
+    }, wood, module.id);
+  }
 
   // Uprights at the free ends of the wing and, when needed, at the shared corner.
   const postEnds = [
@@ -494,12 +536,12 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   });
 
   const shelfCount = spec.height > 2200 ? 7 : 6;
-  const plinthTopY = 105;
+  const shelfStartY = bottomShelfY + BOARD / 2;
   const topShelfY = height - 130;
-  const shelfGap = (topShelfY - plinthTopY) / (shelfCount + 1);
+  const shelfGap = (topShelfY - shelfStartY) / (shelfCount + 1);
   for (let i = 0; i <= shelfCount; i += 1) {
-    const y = plinthTopY + shelfGap * (i + 1);
-    addBox(group, { x: innerWidth, y: BOARD, z: shelfDepth }, { x: width / 2, y, z: -depth / 2 }, wood, module.id);
+    const y = shelfStartY + shelfGap * (i + 1);
+    addBox(group, { x: shelfWidth, y: BOARD, z: shelfDepth }, { x: width / 2, y, z: -depth / 2 }, wood, module.id);
   }
 
   // Decorative cap rails visible in the source imagery.
