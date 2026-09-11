@@ -21,6 +21,10 @@ const POST = 42;
 const BOARD = 22;
 const BACK = 16;
 const SIDE = 18;
+const SIDE_RAIL_EXTRA = 12;
+const SIDE_RAIL_BODY = 92;
+const SIDE_RAIL_RAMP = 54;
+const SIDE_MID_BODY = 54;
 const PLINTH_HEIGHT = 78;
 const PLINTH_SIDE_RECESS = 18;
 const PLINTH_FRONT_RECESS = 42;
@@ -450,6 +454,94 @@ function addBox(group, size, position, material, moduleId, { cast = true, receiv
   group.add(mesh);
   return mesh;
 }
+
+function addTriangularPrism(group, triangleXY, zCenter, zLength, material, moduleId) {
+  const half = zLength / 2;
+  const positions = [];
+  const emit = (a, b, c, z) => {
+    positions.push(a[0], a[1], z, b[0], b[1], z, c[0], c[1], z);
+  };
+  // Back/front caps use opposite winding.
+  emit(triangleXY[0], triangleXY[2], triangleXY[1], zCenter - half);
+  emit(triangleXY[0], triangleXY[1], triangleXY[2], zCenter + half);
+  for (let i = 0; i < 3; i += 1) {
+    const a = triangleXY[i];
+    const b = triangleXY[(i + 1) % 3];
+    const z0 = zCenter - half;
+    const z1 = zCenter + half;
+    positions.push(
+      a[0], a[1], z0, b[0], b[1], z0, b[0], b[1], z1,
+      a[0], a[1], z0, b[0], b[1], z1, a[0], a[1], z1,
+    );
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, moduleId);
+  group.add(mesh);
+  return mesh;
+}
+
+function addSideWallAssembly(group, module, { side, width, depth, height, sharedSide = null }) {
+  if (sharedSide === side) return;
+  const material = woodMaterial(module.colour);
+  const zLength = Math.max(80, depth - POST * 2);
+  const zCenter = -depth / 2;
+  const left = side === 'start';
+  const panelOuter = left ? POST : width - POST;
+  const panelInner = left ? POST + SIDE : width - POST - SIDE;
+  const panelCenterX = (panelOuter + panelInner) / 2;
+  const railOuter = panelOuter + (left ? -SIDE_RAIL_EXTRA : SIDE_RAIL_EXTRA);
+  const extraCenterX = (panelOuter + railOuter) / 2;
+
+  // The real product's side infill runs continuously from floor to top between
+  // the front/back uprights. Raised connector bands sit on its exterior face.
+  addBox(group, { x: SIDE, y: height, z: zLength }, {
+    x: panelCenterX,
+    y: height / 2,
+    z: zCenter,
+  }, material, module.id);
+
+  const addRaisedBody = (y0, y1) => {
+    if (!(y1 > y0)) return;
+    addBox(group, { x: SIDE_RAIL_EXTRA, y: y1 - y0, z: zLength }, {
+      x: extraCenterX,
+      y: (y0 + y1) / 2,
+      z: zCenter,
+    }, material, module.id);
+  };
+  const addRamp = (y0, y1, thickAtStart) => {
+    const thickPoint = [railOuter, thickAtStart ? y0 : y1];
+    const baseA = [panelOuter, y0];
+    const baseB = [panelOuter, y1];
+    addTriangularPrism(group, [baseA, thickPoint, baseB], zCenter, zLength, material, module.id);
+  };
+
+  // Bottom connector: floor-facing rectangular block, then a single ramp into
+  // the thinner side panel above it.
+  const bottomBodyEnd = SIDE_RAIL_BODY;
+  const bottomRampEnd = bottomBodyEnd + SIDE_RAIL_RAMP;
+  addRaisedBody(0, bottomBodyEnd);
+  addRamp(bottomBodyEnd, bottomRampEnd, true);
+
+  // Middle connector: rectangular centre section with a ramp on both sides.
+  const mid = height * 0.5;
+  const midBody0 = mid - SIDE_MID_BODY / 2;
+  const midBody1 = mid + SIDE_MID_BODY / 2;
+  addRamp(midBody0 - SIDE_RAIL_RAMP, midBody0, false);
+  addRaisedBody(midBody0, midBody1);
+  addRamp(midBody1, midBody1 + SIDE_RAIL_RAMP, true);
+
+  // Top connector mirrors the bottom: ramp out from the panel, then a full
+  // rectangular block continuing to the module's top edge.
+  const topBodyStart = height - SIDE_RAIL_BODY;
+  const topRampStart = topBodyStart - SIDE_RAIL_RAMP;
+  addRamp(topRampStart, topBodyStart, false);
+  addRaisedBody(topBodyStart, height);
+}
 function frontZ(depth) { return -depth; }
 
 function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null, omitStartPosts = false, omitEndPosts = false, omitStartFrontPost = false, omitStartBackPost = false, omitEndFrontPost = false, omitEndBackPost = false } = {}) {
@@ -487,28 +579,12 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
     z: -depth / 2,
   }, wood, module.id);
 
-  // Each independent bookshelf module keeps solid left/right side panels even
-  // when it is connected to another module. The only exception is the shared
-  // inside of the single L-corner, which stays open for continuous corner shelves.
-  const sidePanelBottom = bottomShelfY + BOARD / 2;
-  const sidePanelTop = height - 92;
-  const sidePanelHeight = Math.max(100, sidePanelTop - sidePanelBottom);
-  const sidePanelY = sidePanelBottom + sidePanelHeight / 2;
-  const sidePanelZ = -depth / 2;
-  if (sharedSide !== 'start') {
-    addBox(group, { x: SIDE, y: sidePanelHeight, z: shelfDepth }, {
-      x: POST + SIDE / 2,
-      y: sidePanelY,
-      z: sidePanelZ,
-    }, wood, module.id);
-  }
-  if (sharedSide !== 'end') {
-    addBox(group, { x: SIDE, y: sidePanelHeight, z: shelfDepth }, {
-      x: width - POST - SIDE / 2,
-      y: sidePanelY,
-      z: sidePanelZ,
-    }, wood, module.id);
-  }
+  // Full-height side assemblies from floor to top. The real product uses a
+  // continuous inset panel plus thicker top/middle/bottom connector bands with
+  // sloped transitions into the panel. Connected straight modules retain both
+  // side assemblies; only the shared inside of the one L-corner stays open.
+  addSideWallAssembly(group, module, { side: 'start', width, depth, height, sharedSide });
+  addSideWallAssembly(group, module, { side: 'end', width, depth, height, sharedSide });
 
   // Uprights at the free ends of the wing and, when needed, at the shared corner.
   const postEnds = [
@@ -543,9 +619,6 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
     const y = shelfStartY + shelfGap * (i + 1);
     addBox(group, { x: shelfWidth, y: BOARD, z: shelfDepth }, { x: width / 2, y, z: -depth / 2 }, wood, module.id);
   }
-
-  // Decorative cap rails visible in the source imagery.
-  addBox(group, { x: innerWidth, y: 40, z: 55 }, { x: width / 2, y: height - 38, z: -28 }, wood, module.id);
 
   addDoors(group, module, { width, depth, height, cornerWing, sharedSide });
   return group;
