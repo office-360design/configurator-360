@@ -581,6 +581,52 @@ function addExtrudedSideProfile(group, points, zCenter, zLength, material, modul
   return mesh;
 }
 
+function addExtrudedProfileAlongX(group, pointsYZ, xCenter, xLength, material, moduleId) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-pointsYZ[0][1], pointsYZ[0][0]);
+  for (let i = 1; i < pointsYZ.length; i += 1) shape.lineTo(-pointsYZ[i][1], pointsYZ[i][0]);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: xLength,
+    bevelEnabled: false,
+    steps: 1,
+    curveSegments: 1,
+  });
+  geometry.rotateY(Math.PI / 2);
+  geometry.translate(xCenter - xLength / 2, 0, 0);
+  geometry.computeVertexNormals();
+  applyNormalizedBoxUVs(geometry);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, moduleId);
+  group.add(mesh);
+  return mesh;
+}
+
+function addExtrudedProfileAlongY(group, pointsXZ, yCenter, yLength, material, moduleId) {
+  const shape = new THREE.Shape();
+  shape.moveTo(pointsXZ[0][0], -pointsXZ[0][1]);
+  for (let i = 1; i < pointsXZ.length; i += 1) shape.lineTo(pointsXZ[i][0], -pointsXZ[i][1]);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: yLength,
+    bevelEnabled: false,
+    steps: 1,
+    curveSegments: 1,
+  });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, yCenter - yLength / 2, 0);
+  geometry.computeVertexNormals();
+  applyNormalizedBoxUVs(geometry);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, moduleId);
+  group.add(mesh);
+  return mesh;
+}
+
 function addSideWallAssembly(group, module, { side, width, depth, height, sharedSide = null }) {
   if (sharedSide === side) return;
   const material = woodMaterial(module.colour);
@@ -882,40 +928,61 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   return group;
 }
 
-function addSolidDoorFrame(parent, module, xCenter, width, yCenter, height, z) {
+function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, frontPlaneZ) {
   const wood = woodMaterial(module.colour);
   const darkWood = darkWoodMaterial(module.colour);
-  const border = Math.max(24, Math.min(34, Math.min(width, height) * 0.14));
-  const thickness = 18;
-  const innerWidth = Math.max(36, width - border * 2);
-  const innerHeight = Math.max(36, height - border * 2);
+  const leaf = new THREE.Group();
+  leaf.position.set(xCenter, yCenter, frontPlaneZ);
+  parent.add(leaf);
 
-  addBox(parent, { x: border, y: height, z: thickness }, { x: xCenter - width / 2 + border / 2, y: yCenter, z }, wood, module.id);
-  addBox(parent, { x: border, y: height, z: thickness }, { x: xCenter + width / 2 - border / 2, y: yCenter, z }, wood, module.id);
-  addBox(parent, { x: innerWidth, y: border, z: thickness }, { x: xCenter, y: yCenter - height / 2 + border / 2, z }, wood, module.id);
-  addBox(parent, { x: innerWidth, y: border, z: thickness }, { x: xCenter, y: yCenter + height / 2 - border / 2, z }, wood, module.id);
+  const frame = Math.max(56, Math.min(72, Math.min(width, height) * 0.24));
+  const doorThickness = 12;
+  const panelInset = 7;
+  const panelThickness = 4;
+  const bevel = 12;
+  const innerWidth = Math.max(48, width - frame * 2);
+  const innerHeight = Math.max(48, height - frame * 2);
+  const panelWidth = Math.max(28, innerWidth - bevel * 2);
+  const panelHeight = Math.max(28, innerHeight - bevel * 2);
 
-  const panel = new THREE.Mesh(
-    new THREE.BoxGeometry(innerWidth, innerHeight, 8),
-    darkWood,
-  );
-  panel.position.set(xCenter, yCenter, z);
-  tagMesh(panel, module.id);
-  parent.add(panel);
+  addBox(leaf, { x: frame, y: height, z: doorThickness }, { x: -width / 2 + frame / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
+  addBox(leaf, { x: frame, y: height, z: doorThickness }, { x: width / 2 - frame / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
+  addBox(leaf, { x: innerWidth, y: frame, z: doorThickness }, { x: 0, y: -height / 2 + frame / 2, z: doorThickness / 2 }, wood, module.id);
+  addBox(leaf, { x: innerWidth, y: frame, z: doorThickness }, { x: 0, y: height / 2 - frame / 2, z: doorThickness / 2 }, wood, module.id);
 
-  const bevelDepth = 6;
-  const bevelMaterial = wood;
-  addBox(parent, { x: innerWidth, y: 8, z: bevelDepth }, { x: xCenter, y: yCenter - innerHeight / 2 + 4, z: z - 1 }, bevelMaterial, module.id);
-  addBox(parent, { x: innerWidth, y: 8, z: bevelDepth }, { x: xCenter, y: yCenter + innerHeight / 2 - 4, z: z - 1 }, bevelMaterial, module.id);
-  addBox(parent, { x: 8, y: innerHeight - 16, z: bevelDepth }, { x: xCenter - innerWidth / 2 + 4, y: yCenter, z: z - 1 }, bevelMaterial, module.id);
-  addBox(parent, { x: 8, y: innerHeight - 16, z: bevelDepth }, { x: xCenter + innerWidth / 2 - 4, y: yCenter, z: z - 1 }, bevelMaterial, module.id);
+  addBox(leaf, { x: panelWidth, y: panelHeight, z: panelThickness }, {
+    x: 0,
+    y: 0,
+    z: panelInset + panelThickness / 2,
+  }, darkWood, module.id);
+
+  addExtrudedProfileAlongX(leaf, [
+    [panelHeight / 2, panelInset],
+    [panelHeight / 2 + bevel, panelInset],
+    [panelHeight / 2 + bevel, 0],
+  ], 0, panelWidth, wood, module.id);
+  addExtrudedProfileAlongX(leaf, [
+    [-panelHeight / 2 - bevel, 0],
+    [-panelHeight / 2 - bevel, panelInset],
+    [-panelHeight / 2, panelInset],
+  ], 0, panelWidth, wood, module.id);
+  addExtrudedProfileAlongY(leaf, [
+    [-panelWidth / 2 - bevel, 0],
+    [-panelWidth / 2 - bevel, panelInset],
+    [-panelWidth / 2, panelInset],
+  ], 0, panelHeight, wood, module.id);
+  addExtrudedProfileAlongY(leaf, [
+    [panelWidth / 2, panelInset],
+    [panelWidth / 2 + bevel, panelInset],
+    [panelWidth / 2 + bevel, 0],
+  ], 0, panelHeight, wood, module.id);
 }
 
 function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glazed = false } = {}) {
   const wood = woodMaterial(module.colour);
   const frame = 34;
   if (!glazed) {
-    addSolidDoorFrame(parent, module, xCenter, width, yCenter, height, z);
+    addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, z);
     return;
   }
 
@@ -931,52 +998,58 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
 
 function addDoors(parent, module, { width, depth, height, cornerWing = false, sharedSide = null }) {
   if (module.door === 'open') return;
-  const z = frontZ(depth) + 9.2;
+  const solidDoorFrontZ = frontZ(depth) + 17;
+  const glazedDoorCenterZ = frontZ(depth) + 9.2;
   const cornerInset = cornerWing ? Math.max(64, POST * 1.5) : 0;
-  const openingStart = POST + 9 + (sharedSide === 'start' ? cornerInset : 0);
-  const openingEnd = width - POST - 9 - (sharedSide === 'end' ? cornerInset : 0);
-  const openingWidth = Math.max(120, openingEnd - openingStart);
+  const lowerDoorStart = POST + (sharedSide === 'start' ? cornerInset : 0);
+  const lowerDoorEnd = width - POST - (sharedSide === 'end' ? cornerInset : 0);
+  const lowerDoorWidth = Math.max(120, lowerDoorEnd - lowerDoorStart);
   const shelfCenters = shelfCentersForHeight(height);
 
   if (cornerWing) {
-    const straightLeafWidth = (Math.max(120, width - POST * 2 - 18) - 8) / 2;
-    const leafWidth = Math.max(90, Math.min(openingWidth, straightLeafWidth));
+    const straightLeafWidth = Math.max(90, width - POST * 2 - 18);
+    const leafWidth = Math.max(90, Math.min(lowerDoorWidth, straightLeafWidth));
     const x = sharedSide === 'start'
-      ? openingEnd - leafWidth / 2
-      : openingStart + leafWidth / 2;
+      ? lowerDoorEnd - leafWidth / 2
+      : lowerDoorStart + leafWidth / 2;
     if (module.door === 'lower') {
       const openingBottom = shelfCenters[0] + BOARD / 2;
       const openingTop = shelfCenters[3] - BOARD / 2;
       const doorHeight = Math.max(120, openingTop - openingBottom);
       const y = (openingTop + openingBottom) / 2;
-      addDoorFrame(parent, module, x, leafWidth, y, doorHeight, z, { glazed: false });
+      addSolidDoorLeaf(parent, module, x, leafWidth, y, doorHeight, solidDoorFrontZ);
       return;
     }
     const doorHeight = height - 205;
     const y = 105 + doorHeight / 2;
-    addDoorFrame(parent, module, x, leafWidth, y, doorHeight, z, { glazed: true });
+    addDoorFrame(parent, module, x, leafWidth, y, doorHeight, glazedDoorCenterZ, { glazed: true });
     return;
   }
-
-  const leafGap = 8;
-  const leafWidth = Math.max(46, (openingWidth - leafGap) / 2);
-  const leftX = openingStart + leafWidth / 2;
-  const rightX = openingStart + leafWidth + leafGap + leafWidth / 2;
 
   if (module.door === 'lower') {
     const openingBottom = shelfCenters[0] + BOARD / 2;
     const openingTop = shelfCenters[3] - BOARD / 2;
     const doorHeight = Math.max(120, openingTop - openingBottom);
     const y = (openingTop + openingBottom) / 2;
-    addDoorFrame(parent, module, leftX, leafWidth, y, doorHeight, z, { glazed: false });
-    addDoorFrame(parent, module, rightX, leafWidth, y, doorHeight, z, { glazed: false });
+    const leafWidth = Math.max(60, lowerDoorWidth / 2);
+    const leftX = lowerDoorStart + leafWidth / 2;
+    const rightX = lowerDoorEnd - leafWidth / 2;
+    addSolidDoorLeaf(parent, module, leftX, leafWidth, y, doorHeight, solidDoorFrontZ);
+    addSolidDoorLeaf(parent, module, rightX, leafWidth, y, doorHeight, solidDoorFrontZ);
     return;
   }
 
+  const openingStart = POST + 9 + (sharedSide === 'start' ? cornerInset : 0);
+  const openingEnd = width - POST - 9 - (sharedSide === 'end' ? cornerInset : 0);
+  const openingWidth = Math.max(120, openingEnd - openingStart);
+  const leafGap = 8;
+  const leafWidth = Math.max(46, (openingWidth - leafGap) / 2);
+  const leftX = openingStart + leafWidth / 2;
+  const rightX = openingStart + leafWidth + leafGap + leafWidth / 2;
   const doorHeight = height - 205;
   const y = 105 + doorHeight / 2;
-  addDoorFrame(parent, module, leftX, leafWidth, y, doorHeight, z, { glazed: true });
-  addDoorFrame(parent, module, rightX, leafWidth, y, doorHeight, z, { glazed: true });
+  addDoorFrame(parent, module, leftX, leafWidth, y, doorHeight, glazedDoorCenterZ, { glazed: true });
+  addDoorFrame(parent, module, rightX, leafWidth, y, doorHeight, glazedDoorCenterZ, { glazed: true });
 }
 
 function renderModule(entry) {
