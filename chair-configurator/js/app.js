@@ -1,6 +1,6 @@
 import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js?v=platform-19';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-19';
-import { ChairScene } from './scene.js?v=chair-24';
+import { ChairScene } from './scene.js?v=chair-joint-25';
 import { WOOD_TYPES, FABRIC_TYPES, WOOD_COLOURS, FABRIC_COLOURS, materialLabel } from './materials.js?v=chair-24';
 import { chairT, formatDimension } from './i18n.js?v=chair-24';
 import { mountChairShell } from './sharedShell.js?v=chair-24';

@@ -1,3 +1,5 @@
+import { createFrontArmJoint, FRONT_ARM_JOINT_VERSION } from './frontArmJoint.js?v=chair-joint-25';
+
 function roundedBoxGeometry(THREE, width, height, depth, radius, segments = 6, { puff = 0 } = {}) {
   const geometry = new THREE.BoxGeometry(
     width,
@@ -46,6 +48,7 @@ export function createChairModel(THREE_NS, geometryLibrary, { woodMaterial, fabr
   const group = new THREE_NS.Group();
   group.name = 'Nicolas-inspired procedural chair';
   group.userData.originalGeometry = true;
+  group.userData.frontJointVersion = FRONT_ARM_JOINT_VERSION;
   const woodMeshes = [];
   const fabricMeshes = [];
 
@@ -135,12 +138,14 @@ export function createChairModel(THREE_NS, geometryLibrary, { woodMaterial, fabr
     const sx = side;
 
     // Keep the contact points vertical so all legs sit naturally on the floor.
-    woodMember([sx * frontX, 0.03, frontZ], [sx * frontX, frontPostTopY, frontZ], {
-      width: 0.054,
-      depth: 0.058,
-      radius: 0.008,
-      name: 'front-leg',
+    const joint = createFrontArmJoint(THREE_NS, {
+      x: sx * frontX, frontZ, floorY: 0.03, postTopY: frontPostTopY,
+      armStart: [sx * frontX, armFrontY + 0.004, frontZ - 0.004],
+      armEnd: [sx * rearX, armRearY, rearZ + 0.010],
     });
+    geometryLibrary.adopt(joint.postGeometry, { kind: 'chair.fitted-front-post', units: 'metres' });
+    geometryLibrary.adopt(joint.armGeometry, { kind: 'chair.fitted-arm', units: 'metres' });
+    addWoodGeometry(joint.postGeometry, woodMaterial, 'front-leg');
     woodMember([sx * rearX, 0.03, rearZ], [sx * rearX, rearPostTopY, rearZ], {
       width: 0.056,
       depth: 0.060,
@@ -148,29 +153,8 @@ export function createChairModel(THREE_NS, geometryLibrary, { woodMaterial, fabr
       name: 'rear-upright',
     });
 
-    // Front arm joins now stop short of deep interpenetration so the texture does
-    // not z-fight against the post. A dedicated bridge then closes the visible top
-    // corner, creating a continuous smooth join with no floating gap.
-    woodMember([sx * frontX, armFrontY + 0.004, frontZ - 0.004], [sx * rearX, armRearY, rearZ + 0.010], {
-      width: 0.054,
-      depth: 0.072,
-      radius: 0.011,
-      name: 'arm-rail',
-      overlapStart: 0.002,
-      overlapEnd: 0.014,
-    });
-
-    // Small bridging cap between the front post and the arm rail. This replaces
-    // the previous overlapping filler and removes both the visible texture glitch
-    // and the remaining upper-side gap at the joint.
-    woodMember([sx * frontX, armFrontY - 0.006, frontZ - 0.001], [sx * frontX, armFrontY + 0.010, frontZ - 0.012], {
-      width: 0.032,
-      depth: 0.052,
-      radius: 0.006,
-      name: 'front-arm-joint-bridge',
-      overlapStart: 0,
-      overlapEnd: 0,
-    });
+    // Shared mating boundary, not overlapping prisms or a covering block.
+    addWoodGeometry(joint.armGeometry, woodMaterial, 'arm-rail');
 
     // Side seat rails fully span from the front post into the rear upright.
     woodMember([sx * frontX, railY, frontZ - 0.01], [sx * rearX, railY, rearZ + 0.024], {
