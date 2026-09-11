@@ -1,9 +1,9 @@
-import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=platform-19';
-import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-19';
-import { sharedT } from './i18n.js?v=platform-19';
-import { renderActionFeedback } from './components/feedback.js?v=platform-19';
-import { renderTopBar } from './components/topBar.js?v=platform-19';
-import { syncAccountIdentity } from './components/accountMenu.js?v=platform-19';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=platform-20';
+import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-20';
+import { sharedT } from './i18n.js?v=platform-20';
+import { renderActionFeedback } from './components/feedback.js?v=platform-20';
+import { renderTopBar } from './components/topBar.js?v=platform-20';
+import { syncAccountIdentity } from './components/accountMenu.js?v=platform-20';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=platform-19';
 import { renderToolsMenu } from './components/toolsMenu.js?v=platform-19';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=platform-19';
@@ -2244,9 +2244,10 @@ export class StandaloneConfiguratorShell {
       this.accountSettingsOpen = !this.accountSettingsOpen;
       this.helpOpen = false;
       this.domainOpen = false;
-      this.syncAccountSettings();
-      this.syncHelpMenu();
-      this.syncDomainMenu();
+      // Re-render before syncing so guest/auth transitions can never leave the
+      // Settings button pointing at stale account-menu DOM.
+      this.renderHost();
+      this.sync();
     } else if (action === 'toggle-dark-mode') {
       this.state.darkMode = !this.state.darkMode;
       this.persistPreferences();
@@ -2265,19 +2266,31 @@ export class StandaloneConfiguratorShell {
         await this.waitForLanguageSwitchPaint();
 
         const previousLocale = this.state.locale;
+        const previousCurrency = this.state.currency;
+        const previousUnits = this.state.units;
         try {
           this.state.locale = nextLocale;
+          // Language selection also selects the established regional defaults:
+          // RO -> RON/metric, DE -> EUR/metric, EN -> USD/imperial.
+          this.state.currency = profile.currency;
+          this.state.units = profile.units;
           this.persistPreferences();
           this.persistCurrentGuestRegionManualOverride();
           await Promise.resolve(this.options.callbacks.onPreferenceChange?.('locale', this.state.locale, this.state));
+          await Promise.resolve(this.options.callbacks.onPreferenceChange?.('currency', this.state.currency, this.state));
+          await Promise.resolve(this.options.callbacks.onPreferenceChange?.('units', this.state.units, this.state));
           this.renderHost();
           this.sync();
           await this.waitForLanguageSwitchPaint();
         } catch (error) {
           this.state.locale = previousLocale;
+          this.state.currency = previousCurrency;
+          this.state.units = previousUnits;
           this.persistPreferences();
           try {
             await Promise.resolve(this.options.callbacks.onPreferenceChange?.('locale', previousLocale, this.state));
+            await Promise.resolve(this.options.callbacks.onPreferenceChange?.('currency', previousCurrency, this.state));
+            await Promise.resolve(this.options.callbacks.onPreferenceChange?.('units', previousUnits, this.state));
           } catch {
             // Preserve the original translation error below.
           }
