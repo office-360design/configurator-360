@@ -28,10 +28,11 @@ const PLINTH_HEIGHT = 78;
 const PLINTH_FRONT_RECESS = 42;
 const BACK_POST_FOOT_DENT = 8;
 const BACK_POST_FOOT_DENT_HEIGHT = 64;
-const CONNECTOR_FACE_THICKNESS = 7;
-const CONNECTOR_SIDE_THICKNESS = 7;
+const CONNECTOR_FACE_THICKNESS = 1.6;
+const CONNECTOR_SIDE_THICKNESS = 1.6;
 const CONNECTOR_SIDE_COVERAGE = POST / 2;
-const CONNECTOR_OUTSET = 0.35;
+const CONNECTOR_OUTSET = 0.08;
+const CONNECTOR_CORNER_OVERLAP = 0.45;
 const CONNECTOR_MIN_HEIGHT = 26;
 const GLASS_ALPHA = 0.28;
 const EPS = 0.5;
@@ -414,6 +415,7 @@ function clearGroup(group) {
 }
 const textureLoader = new THREE.TextureLoader();
 const finishTextureCache = new Map();
+let metalTextureCache = null;
 function finishTexture(colour) {
   const key = String(colour || DEFAULT_COLOUR).toLowerCase();
   if (finishTextureCache.has(key)) return finishTextureCache.get(key);
@@ -442,8 +444,49 @@ function darkWoodMaterial(colour) {
 function glassMaterial() {
   return new THREE.MeshPhysicalMaterial({ color: 0xc7e9f5, roughness: 0.12, metalness: 0, transparent: true, opacity: GLASS_ALPHA, transmission: 0.28, side: THREE.DoubleSide });
 }
+function metalTexture() {
+  if (metalTextureCache) return metalTextureCache;
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#c7ccd0';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { data, width, height } = image;
+  for (let y = 0; y < height; y += 1) {
+    const rowBias = Math.sin(y * 0.17) * 4 + Math.cos(y * 0.07) * 2;
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      const brushed = Math.sin(x * 0.42) * 3 + Math.sin(x * 0.11 + y * 0.04) * 2;
+      const speckle = (Math.random() - 0.5) * 10;
+      const shade = Math.max(170, Math.min(225, 201 + rowBias + brushed + speckle));
+      data[index] = shade;
+      data[index + 1] = shade + 2;
+      data[index + 2] = shade + 5;
+      data[index + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy?.() || 1);
+  texture.needsUpdate = true;
+  metalTextureCache = texture;
+  return texture;
+}
 function metalMaterial() {
-  return new THREE.MeshStandardMaterial({ color: 0xc9ced1, roughness: 0.34, metalness: 0.82 });
+  return new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    map: metalTexture(),
+    roughness: 0.22,
+    metalness: 1,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.22,
+  });
 }
 function tagMesh(mesh, moduleId) {
   mesh.userData.bookshelfModuleId = moduleId;
@@ -644,13 +687,15 @@ function renderStandalonePoleConnectors(anchor, heading, isStart, spec, material
   const poleMaxX = isStart ? POST : 0;
   const frontCenterX = (poleMinX + poleMaxX) / 2;
   const frontCenterZ = frontZ(spec.depth) - CONNECTOR_FACE_THICKNESS / 2 - CONNECTOR_OUTSET;
-  const sideCenterZ = frontZ(spec.depth) + CONNECTOR_SIDE_COVERAGE / 2;
+  const sideStartZ = frontZ(spec.depth) - CONNECTOR_FACE_THICKNESS - CONNECTOR_OUTSET;
+  const sideLengthZ = CONNECTOR_SIDE_COVERAGE + CONNECTOR_FACE_THICKNESS + CONNECTOR_CORNER_OVERLAP;
+  const sideCenterZ = sideStartZ + sideLengthZ / 2;
   const outerSideX = isStart ? (-CONNECTOR_SIDE_THICKNESS / 2 - CONNECTOR_OUTSET) : (CONNECTOR_SIDE_THICKNESS / 2 + CONNECTOR_OUTSET);
   const innerSideX = isStart ? (POST + CONNECTOR_SIDE_THICKNESS / 2 + CONNECTOR_OUTSET) : (-POST - CONNECTOR_SIDE_THICKNESS / 2 - CONNECTOR_OUTSET);
 
   connectorPlacements(spec).forEach(({ y, height }) => {
     addConnectorPart(anchor, heading, {
-      x: POST,
+      x: POST + CONNECTOR_SIDE_THICKNESS * 2 + CONNECTOR_CORNER_OVERLAP,
       y: height,
       z: CONNECTOR_FACE_THICKNESS,
     }, {
@@ -662,7 +707,7 @@ function renderStandalonePoleConnectors(anchor, heading, isStart, spec, material
     addConnectorPart(anchor, heading, {
       x: CONNECTOR_SIDE_THICKNESS,
       y: height,
-      z: CONNECTOR_SIDE_COVERAGE,
+      z: sideLengthZ,
     }, {
       x: outerSideX,
       y,
@@ -672,7 +717,7 @@ function renderStandalonePoleConnectors(anchor, heading, isStart, spec, material
     addConnectorPart(anchor, heading, {
       x: CONNECTOR_SIDE_THICKNESS,
       y: height,
-      z: CONNECTOR_SIDE_COVERAGE,
+      z: sideLengthZ,
     }, {
       x: innerSideX,
       y,
@@ -683,11 +728,13 @@ function renderStandalonePoleConnectors(anchor, heading, isStart, spec, material
 
 function renderBridgeConnectors(anchor, heading, spec, material) {
   const frontCenterZ = frontZ(spec.depth) - CONNECTOR_FACE_THICKNESS / 2 - CONNECTOR_OUTSET;
-  const sideCenterZ = frontZ(spec.depth) + CONNECTOR_SIDE_COVERAGE / 2;
+  const sideStartZ = frontZ(spec.depth) - CONNECTOR_FACE_THICKNESS - CONNECTOR_OUTSET;
+  const sideLengthZ = CONNECTOR_SIDE_COVERAGE + CONNECTOR_FACE_THICKNESS + CONNECTOR_CORNER_OVERLAP;
+  const sideCenterZ = sideStartZ + sideLengthZ / 2;
 
   connectorPlacements(spec).forEach(({ y, height }) => {
     addConnectorPart(anchor, heading, {
-      x: POST * 2,
+      x: POST * 2 + CONNECTOR_SIDE_THICKNESS * 2 + CONNECTOR_CORNER_OVERLAP,
       y: height,
       z: CONNECTOR_FACE_THICKNESS,
     }, {
@@ -699,7 +746,7 @@ function renderBridgeConnectors(anchor, heading, spec, material) {
     addConnectorPart(anchor, heading, {
       x: CONNECTOR_SIDE_THICKNESS,
       y: height,
-      z: CONNECTOR_SIDE_COVERAGE,
+      z: sideLengthZ,
     }, {
       x: -POST - CONNECTOR_SIDE_THICKNESS / 2 - CONNECTOR_OUTSET,
       y,
@@ -709,7 +756,7 @@ function renderBridgeConnectors(anchor, heading, spec, material) {
     addConnectorPart(anchor, heading, {
       x: CONNECTOR_SIDE_THICKNESS,
       y: height,
-      z: CONNECTOR_SIDE_COVERAGE,
+      z: sideLengthZ,
     }, {
       x: POST + CONNECTOR_SIDE_THICKNESS / 2 + CONNECTOR_OUTSET,
       y,
