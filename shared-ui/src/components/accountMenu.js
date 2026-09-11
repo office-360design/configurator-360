@@ -3,11 +3,11 @@ import {
   CURRENCY_OPTIONS,
   QUALITY_OPTIONS,
   UNIT_OPTIONS,
-} from '../config.js?v=platform-20';
-import { sharedT } from '../i18n.js?v=platform-20';
-import { sharedIcon } from '../icons.js?v=platform-20';
-import { escapeHtml } from '../utils.js?v=platform-20';
-import { accountOrdersLabel, installAccountOrders } from './accountOrders.js?v=platform-20';
+} from '../config.js?v=platform-21';
+import { sharedT } from '../i18n.js?v=platform-21';
+import { sharedIcon } from '../icons.js?v=platform-21';
+import { escapeHtml } from '../utils.js?v=platform-21';
+import { accountOrdersLabel, installAccountOrders } from './accountOrders.js?v=platform-21';
 
 
 installAccountOrders();
