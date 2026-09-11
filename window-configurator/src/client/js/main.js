@@ -504,6 +504,7 @@ const materialManager = createMaterialManager({
     pageParams,
     requestedColour,
     getProfilesData: () => profileController?.getProfilesData() ?? [],
+    getSectionSampleProfilesData: () => windowBuilder?.getSectionSampleProfilesData?.() ?? [],
     hasCurrentMetadata: () => profileController?.hasCurrentMetadata() ?? false,
     invalidateSectionSamples: () => windowBuilder?.invalidateSectionSamples(),
     renderGroupFilters: () => profileController?.renderGroupFilters(),
@@ -767,6 +768,7 @@ windowBuilder = createWindowBuilder({
         if (!isWindowSizeBuildInProgress) updateComponentPictures();
     },
     getFinishState: materialManager.getFinishState,
+    getMaterialForProfile,
     getSelectedHandleSide: () => selectedHandleSide,
     onGlassClick: ({ cellId }) => {
         selectWindowCell(cellId);

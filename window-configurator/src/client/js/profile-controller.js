@@ -1392,6 +1392,10 @@ export function createProfileController({
         profilesData.forEach(profile => {
             profile.material = getMaterialForProfile(profile);
         });
+        windowBuilder?.getSectionSampleProfilesData?.()?.forEach(profile => {
+            profile.material = getMaterialForProfile(profile);
+        });
+        windowBuilder?.invalidateSectionSamples();
         renderPartToggles();
         buildWindow();
         renderGroupFilters();
