@@ -12,6 +12,11 @@ const MODULE_COLOURS = Object.freeze([
   '#65422d', // MAHON
   '#34312f', // WENGE
 ]);
+const FINISH_TEXTURES = Object.freeze({
+  '#b98555': './assets/textures/wood-natural.png',
+  '#65422d': './assets/textures/wood-mahon.png',
+  '#34312f': './assets/textures/wood-wenge.png',
+});
 const POST = 42;
 const BOARD = 22;
 const BACK = 16;
@@ -182,6 +187,7 @@ const viewerHint = $('#viewerHint');
 
 let locale = localeForHost();
 let units = locale === 'en-US' ? 'imperial' : 'metric';
+let currency = locale === 'ro-RO' ? 'RON' : locale === 'de-DE' ? 'EUR' : 'USD';
 let darkMode = false;
 let dimensionsVisible = true;
 let cameraMode = 0;
@@ -238,7 +244,7 @@ function normalizeAngle(angle) {
   return result;
 }
 function vec(heading) { return { x: Math.cos(heading), z: Math.sin(heading) }; }
-function rotateHeading(heading) { return normalizeAngle(heading + Math.PI / 2); }
+function rotateHeading(heading) { return normalizeAngle(heading - Math.PI / 2); }
 function add2(a, b) { return { x: a.x + b.x, z: a.z + b.z }; }
 function mul2(v, amount) { return { x: v.x * amount, z: v.z * amount }; }
 function dist2(a, b) { return Math.hypot(a.x - b.x, a.z - b.z); }
@@ -393,12 +399,32 @@ function clearGroup(group) {
     disposeObject(child);
   });
 }
+const textureLoader = new THREE.TextureLoader();
+const finishTextureCache = new Map();
+function finishTexture(colour) {
+  const key = String(colour || DEFAULT_COLOUR).toLowerCase();
+  if (finishTextureCache.has(key)) return finishTextureCache.get(key);
+  const url = FINISH_TEXTURES[key] || FINISH_TEXTURES[DEFAULT_COLOUR];
+  const texture = textureLoader.load(url, () => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy?.() || 1);
+    texture.needsUpdate = true;
+  });
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  finishTextureCache.set(key, texture);
+  return texture;
+}
 function woodMaterial(colour) {
-  return new THREE.MeshStandardMaterial({ color: new THREE.Color(colour), roughness: 0.72, metalness: 0.02 });
+  return new THREE.MeshStandardMaterial({ color: 0xffffff, map: finishTexture(colour), roughness: 0.68, metalness: 0 });
 }
 function darkWoodMaterial(colour) {
-  const color = new THREE.Color(colour).multiplyScalar(0.78);
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.78, metalness: 0.01 });
+  return new THREE.MeshStandardMaterial({ color: 0xffffff, map: finishTexture(colour), roughness: 0.76, metalness: 0 });
 }
 function glassMaterial() {
   return new THREE.MeshPhysicalMaterial({ color: 0xc7e9f5, roughness: 0.12, metalness: 0, transparent: true, opacity: GLASS_ALPHA, transmission: 0.28, side: THREE.DoubleSide });
@@ -874,9 +900,9 @@ function prependOriginFor(module) {
     const d = vec(current.heading);
     return { x: current.x - d.x * spec.width, z: current.z - d.z * spec.width, heading: current.heading };
   }
-  // The client has one canonical L-corner. Prepending naturally places the
-  // same corner at the opposite end of the run without exposing a left/right variant.
-  const inputHeading = normalizeAngle(current.heading - Math.PI / 2);
+  // The client has one canonical L-corner. The retained product orientation
+  // turns clockwise when appended; prepending uses the exact inverse transform.
+  const inputHeading = normalizeAngle(current.heading + Math.PI / 2);
   const input = vec(inputHeading);
   const output = vec(current.heading);
   return {
@@ -1080,6 +1106,9 @@ function setUnits(value) {
   units = value === 'imperial' ? 'imperial' : 'metric';
   rebuildDimensions();
 }
+function setCurrency(value) {
+  currency = ['USD', 'RON', 'EUR'].includes(value) ? value : currency;
+}
 function setDarkMode(value) {
   darkMode = Boolean(value);
   document.body.classList.toggle('bookshelf-dark-mode', darkMode);
@@ -1106,7 +1135,7 @@ window.BOOKSHELF_CONFIGURATOR_API = {
   setLocale,
   setUnits,
   setDarkMode,
-  setCurrency() {},
+  setCurrency,
   toggleDimensions,
   cycleCamera,
   syncToolButtons,

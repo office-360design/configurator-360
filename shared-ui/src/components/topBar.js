@@ -1,9 +1,9 @@
-import { getLanguageProfile } from '../config.js?v=platform-19';
-import { sharedT } from '../i18n.js?v=platform-19';
-import { sharedIcon } from '../icons.js?v=platform-19';
-import { escapeHtml } from '../utils.js?v=platform-19';
-import { renderAccountMenu } from './accountMenu.js?v=platform-19';
-import { renderLanguageMenu } from './languageMenu.js?v=platform-19';
+import { getLanguageProfile } from '../config.js?v=platform-20';
+import { sharedT } from '../i18n.js?v=platform-20';
+import { sharedIcon } from '../icons.js?v=platform-20';
+import { escapeHtml } from '../utils.js?v=platform-20';
+import { renderAccountMenu } from './accountMenu.js?v=platform-20';
+import { renderLanguageMenu } from './languageMenu.js?v=platform-20';
 
 function iconButton({ action, label, icon, disabled = false, extraClass = '' }) {
   return `

@@ -113,7 +113,7 @@ button, input, select { font: inherit; }
 .finish-choice { min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: #47555e; cursor: pointer; }
 .finish-choice:hover { transform: translateY(-1px); border-color: #c9a47c; }
 .finish-choice.is-selected { border-color: #168de0; box-shadow: 0 0 0 2px rgba(22,141,224,.14); }
-.finish-choice__chip { display: block; width: 100%; aspect-ratio: 1.45; border-radius: 7px; background: var(--colour); box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.finish-choice__chip { display: block; width: 100%; aspect-ratio: 1.45; border-radius: 7px; background: var(--finish-image, linear-gradient(var(--colour),var(--colour))) center / cover no-repeat; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
 .finish-choice b { display: block; margin-top: 6px; font-size: 9px; letter-spacing: .04em; }
 .danger-button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 12px; border: 1px solid #e4c8c8; border-radius: 10px; background: #fff9f9; color: #9e3f3f; font-size: 11px; font-weight: 800; cursor: pointer; }
 .danger-button:hover:not(:disabled) { background: #fff1f1; border-color: #d89b9b; }
