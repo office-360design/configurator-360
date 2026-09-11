@@ -8,7 +8,9 @@ const FAMILIES = Object.freeze({
 
 const DEFAULT_COLOUR = '#b98555';
 const MODULE_COLOURS = Object.freeze([
-  '#b98555', '#d0a878', '#835735', '#65422d', '#e7e3da', '#34312f',
+  '#b98555', // NATURAL
+  '#65422d', // MAHON
+  '#34312f', // WENGE
 ]);
 const POST = 42;
 const BOARD = 22;
@@ -24,15 +26,15 @@ const COPY = Object.freeze({
     'section.family': 'Dimensional family',
     'section.selected': 'Selected module',
     'section.components': 'Components',
-    'family.compact': 'Compact',
-    'family.compactDims': 'Straight 800 × 350 mm · Corner 800 × 800 mm',
-    'family.tall': 'Tall',
-    'family.tallDims': 'Straight 900 × 350 mm · Corner 900 × 900 mm',
+    'family.compact': '800 × 350 × 2150 mm',
+    'family.compactDims': 'Straight 800 × 350 × 2150 mm · Corner 800 × 800 × 2150 mm',
+    'family.tall': '900 × 350 × 2300 mm',
+    'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 900 × 900 × 2300 mm',
     'family.rule': 'Changing the family updates every module together; heights cannot be mixed.',
-    'selected.empty': 'Select a bookshelf module in the 3D view to choose its doors, colour or delete it.',
+    'selected.empty': 'Select a bookshelf module in the 3D view to choose its doors, wood finish or delete it.',
     'selected.module': 'Module',
     'selected.doors': 'Door configuration',
-    'selected.colour': 'Module colour',
+    'selected.colour': 'Wood finish',
     'selected.delete': 'Delete module',
     'selected.keepOne': 'At least one module must remain in the configuration.',
     'doors.open': 'Open',
@@ -47,9 +49,6 @@ const COPY = Object.freeze({
     'add.straightHint': 'Continue in the same direction',
     'add.corner': 'L-corner module',
     'add.cornerHint': 'Turn the run by 90°',
-    'add.direction': 'Corner direction',
-    'add.turnLeft': 'Turn left',
-    'add.turnRight': 'Turn right',
     'add.confirm': 'Add module',
     'add.intersection': 'That module would intersect the existing bookshelf run.',
     'viewer.hint': 'Click a module to edit it. Use the + buttons to extend the configuration.',
@@ -67,8 +66,6 @@ const COPY = Object.freeze({
     'components.glazedKit': 'Full-height glazed-door set',
     'components.connector': 'Aluminium connection set',
     'components.finish': 'finish',
-    'components.left': 'left turn',
-    'components.right': 'right turn',
   }),
   'ro-RO': Object.freeze({
     'intro.eyebrow': 'Sistem modular dedicat clientului',
@@ -77,15 +74,15 @@ const COPY = Object.freeze({
     'section.family': 'Familie dimensională',
     'section.selected': 'Modul selectat',
     'section.components': 'Listă componente',
-    'family.compact': 'Compact',
-    'family.compactDims': 'Drept 800 × 350 mm · Colț 800 × 800 mm',
-    'family.tall': 'Înalt',
-    'family.tallDims': 'Drept 900 × 350 mm · Colț 900 × 900 mm',
+    'family.compact': '800 × 350 × 2150 mm',
+    'family.compactDims': 'Drept 800 × 350 × 2150 mm · Colț 800 × 800 × 2150 mm',
+    'family.tall': '900 × 350 × 2300 mm',
+    'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 900 × 900 × 2300 mm',
     'family.rule': 'Schimbarea familiei actualizează toate modulele împreună; înălțimile nu pot fi amestecate.',
-    'selected.empty': 'Selectează un modul în vederea 3D pentru a alege ușile, culoarea sau pentru a-l șterge.',
+    'selected.empty': 'Selectează un modul în vederea 3D pentru a alege ușile, finisajul lemnului sau pentru a-l șterge.',
     'selected.module': 'Modul',
     'selected.doors': 'Configurație uși',
-    'selected.colour': 'Culoare modul',
+    'selected.colour': 'Finisaj lemn',
     'selected.delete': 'Șterge modulul',
     'selected.keepOne': 'Configurația trebuie să păstreze cel puțin un modul.',
     'doors.open': 'Deschis',
@@ -100,9 +97,6 @@ const COPY = Object.freeze({
     'add.straightHint': 'Continuă în aceeași direcție',
     'add.corner': 'Modul de colț în L',
     'add.cornerHint': 'Schimbă direcția cu 90°',
-    'add.direction': 'Direcția colțului',
-    'add.turnLeft': 'Întoarcere stânga',
-    'add.turnRight': 'Întoarcere dreapta',
     'add.confirm': 'Adaugă modulul',
     'add.intersection': 'Acest modul s-ar intersecta cu ansamblul existent.',
     'viewer.hint': 'Selectează un modul pentru editare. Folosește butoanele + pentru a extinde configurația.',
@@ -120,8 +114,6 @@ const COPY = Object.freeze({
     'components.glazedKit': 'Set uși vitrate pe toată înălțimea',
     'components.connector': 'Set conexiune din aluminiu',
     'components.finish': 'finisaj',
-    'components.left': 'viraj stânga',
-    'components.right': 'viraj dreapta',
   }),
   'de-DE': Object.freeze({
     'intro.eyebrow': 'Kundenspezifisches Modulsystem',
@@ -130,15 +122,15 @@ const COPY = Object.freeze({
     'section.family': 'Maßfamilie',
     'section.selected': 'Ausgewähltes Modul',
     'section.components': 'Komponenten',
-    'family.compact': 'Kompakt',
-    'family.compactDims': 'Gerade 800 × 350 mm · Ecke 800 × 800 mm',
-    'family.tall': 'Hoch',
-    'family.tallDims': 'Gerade 900 × 350 mm · Ecke 900 × 900 mm',
+    'family.compact': '800 × 350 × 2150 mm',
+    'family.compactDims': 'Gerade 800 × 350 × 2150 mm · Ecke 800 × 800 × 2150 mm',
+    'family.tall': '900 × 350 × 2300 mm',
+    'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 900 × 900 × 2300 mm',
     'family.rule': 'Beim Wechsel der Familie werden alle Module gemeinsam aktualisiert; unterschiedliche Höhen können nicht gemischt werden.',
-    'selected.empty': 'Wählen Sie ein Modul in der 3D-Ansicht, um Türen, Farbe oder Löschen zu konfigurieren.',
+    'selected.empty': 'Wählen Sie ein Modul in der 3D-Ansicht, um Türen, Holzoberfläche oder Löschen zu konfigurieren.',
     'selected.module': 'Modul',
     'selected.doors': 'Türkonfiguration',
-    'selected.colour': 'Modulfarbe',
+    'selected.colour': 'Holzoberfläche',
     'selected.delete': 'Modul löschen',
     'selected.keepOne': 'Mindestens ein Modul muss in der Konfiguration verbleiben.',
     'doors.open': 'Offen',
@@ -153,9 +145,6 @@ const COPY = Object.freeze({
     'add.straightHint': 'In gleicher Richtung fortsetzen',
     'add.corner': 'L-Eckmodul',
     'add.cornerHint': 'Richtung um 90° ändern',
-    'add.direction': 'Eckrichtung',
-    'add.turnLeft': 'Links abbiegen',
-    'add.turnRight': 'Rechts abbiegen',
     'add.confirm': 'Modul hinzufügen',
     'add.intersection': 'Dieses Modul würde die vorhandene Regalreihe schneiden.',
     'viewer.hint': 'Klicken Sie ein Modul zum Bearbeiten an. Mit + erweitern Sie die Konfiguration.',
@@ -173,8 +162,6 @@ const COPY = Object.freeze({
     'components.glazedKit': 'Satz vollhohe Glastüren',
     'components.connector': 'Aluminium-Verbindungssatz',
     'components.finish': 'Oberfläche',
-    'components.left': 'Linkskurve',
-    'components.right': 'Rechtskurve',
   }),
 });
 
@@ -184,7 +171,6 @@ const dimensionLayer = $('#dimensionLayer');
 const addStartButton = $('#addStartButton');
 const addEndButton = $('#addEndButton');
 const addModulePanel = $('#addModulePanel');
-const cornerDirectionGroup = $('#cornerDirectionGroup');
 const addModuleError = $('#addModuleError');
 const selectedEmptyState = $('#selectedEmptyState');
 const selectedModuleControls = $('#selectedModuleControls');
@@ -202,7 +188,6 @@ let cameraMode = 0;
 let selectedModuleId = '';
 let addAt = 'end';
 let pendingKind = 'straight';
-let pendingTurn = 'left';
 let moduleMeshes = [];
 let moduleGroups = new Map();
 let dimensionAnchors = [];
@@ -211,7 +196,7 @@ let selectionHelper = null;
 let resizeObserver;
 
 let state = {
-  version: 1,
+  version: 2,
   family: 'compact',
   origin: { x: -400, z: 0, heading: 0 },
   modules: [newModule('straight')],
@@ -234,16 +219,16 @@ function markDirty() {
 function round(value, digits = 3) { const f = 10 ** digits; return Math.round(Number(value) * f) / f; }
 function familySpec() { return FAMILIES[state.family] || FAMILIES.compact; }
 function uid() { return `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
-function newModule(kind = 'straight', turn = 'left') {
-  return { id: uid(), kind, turn: turn === 'right' ? 'right' : 'left', door: 'open', colour: DEFAULT_COLOUR };
+function newModule(kind = 'straight') {
+  return { id: uid(), kind, door: 'open', colour: DEFAULT_COLOUR };
 }
 function cloneModule(module) {
+  const colour = String(module?.colour || '').toLowerCase();
   return {
     id: String(module?.id || uid()),
     kind: module?.kind === 'corner' ? 'corner' : 'straight',
-    turn: module?.turn === 'right' ? 'right' : 'left',
     door: ['open', 'lower', 'glazed'].includes(module?.door) ? module.door : 'open',
-    colour: /^#[0-9a-f]{6}$/i.test(String(module?.colour || '')) ? String(module.colour).toLowerCase() : DEFAULT_COLOUR,
+    colour: MODULE_COLOURS.includes(colour) ? colour : DEFAULT_COLOUR,
   };
 }
 function normalizeAngle(angle) {
@@ -253,7 +238,7 @@ function normalizeAngle(angle) {
   return result;
 }
 function vec(heading) { return { x: Math.cos(heading), z: Math.sin(heading) }; }
-function rotateHeading(heading, turn) { return normalizeAngle(heading + (turn === 'left' ? Math.PI / 2 : -Math.PI / 2)); }
+function rotateHeading(heading) { return normalizeAngle(heading + Math.PI / 2); }
 function add2(a, b) { return { x: a.x + b.x, z: a.z + b.z }; }
 function mul2(v, amount) { return { x: v.x * amount, z: v.z * amount }; }
 function dist2(a, b) { return Math.hypot(a.x - b.x, a.z - b.z); }
@@ -269,7 +254,7 @@ function advancePose(start, module, spec = familySpec()) {
       corner: null,
     };
   }
-  const nextHeading = rotateHeading(start.heading, module.turn);
+  const nextHeading = rotateHeading(start.heading);
   const nd = vec(nextHeading);
   const corner = { x: start.x + d.x * spec.corner, z: start.z + d.z * spec.corner };
   return {
@@ -783,22 +768,12 @@ function renderSelectedControls() {
 }
 
 function moduleFinishLabel(colour) {
-  const map = new Map([
-    ['#b98555', 'Natural oak'], ['#d0a878', 'Light oak'], ['#835735', 'Dark oak'], ['#65422d', 'Walnut'], ['#e7e3da', 'Warm white'], ['#34312f', 'Black'],
+  const finishes = new Map([
+    ['#b98555', 'NATURAL'],
+    ['#65422d', 'MAHON'],
+    ['#34312f', 'WENGE'],
   ]);
-  if (locale === 'ro-RO') {
-    const ro = new Map([
-      ['#b98555', 'Stejar natur'], ['#d0a878', 'Stejar deschis'], ['#835735', 'Stejar închis'], ['#65422d', 'Nuc'], ['#e7e3da', 'Alb cald'], ['#34312f', 'Negru'],
-    ]);
-    return ro.get(colour) || colour;
-  }
-  if (locale === 'de-DE') {
-    const de = new Map([
-      ['#b98555', 'Eiche natur'], ['#d0a878', 'Eiche hell'], ['#835735', 'Eiche dunkel'], ['#65422d', 'Nussbaum'], ['#e7e3da', 'Warmweiß'], ['#34312f', 'Schwarz'],
-    ]);
-    return de.get(colour) || colour;
-  }
-  return map.get(colour) || colour;
+  return finishes.get(colour) || 'NATURAL';
 }
 
 function renderComponents() {
@@ -823,9 +798,8 @@ function renderComponents() {
       const detail = `${spec.width} × ${spec.depth} × ${spec.height} mm · ${finish}`;
       addRow(`straight|${module.colour}`, t('components.straight'), detail);
     } else {
-      const turn = module.turn === 'left' ? t('components.left') : t('components.right');
-      const detail = `${spec.corner} × ${spec.corner} × ${spec.height} mm · ${finish} · ${turn}`;
-      addRow(`corner|${module.colour}|${module.turn}`, t('components.corner'), detail);
+      const detail = `${spec.corner} × ${spec.corner} × ${spec.height} mm · ${finish}`;
+      addRow(`corner|${module.colour}`, t('components.corner'), detail);
     }
     if (module.door === 'lower') addRow('door-lower', t('components.lowerKit'), `${state.family === 'compact' ? '2150' : '2300'} mm family`);
     if (module.door === 'glazed') addRow('door-glazed', t('components.glazedKit'), `${state.family === 'compact' ? '2150' : '2300'} mm family`);
@@ -882,10 +856,7 @@ function openAddPanel(side) {
   if (layoutCache?.closed) return;
   addAt = side === 'start' ? 'start' : 'end';
   pendingKind = 'straight';
-  pendingTurn = 'left';
   document.querySelectorAll('[data-module-kind]').forEach((button) => button.classList.toggle('is-selected', button.dataset.moduleKind === 'straight'));
-  document.querySelectorAll('[data-corner-turn]').forEach((button) => button.classList.toggle('is-selected', button.dataset.cornerTurn === 'left'));
-  cornerDirectionGroup.hidden = true;
   addModuleError.hidden = true;
   addModulePanel.hidden = false;
   updateEndpointButtons();
@@ -903,8 +874,9 @@ function prependOriginFor(module) {
     const d = vec(current.heading);
     return { x: current.x - d.x * spec.width, z: current.z - d.z * spec.width, heading: current.heading };
   }
-  const turnSign = module.turn === 'left' ? 1 : -1;
-  const inputHeading = normalizeAngle(current.heading - turnSign * Math.PI / 2);
+  // The client has one canonical L-corner. Prepending naturally places the
+  // same corner at the opposite end of the run without exposing a left/right variant.
+  const inputHeading = normalizeAngle(current.heading - Math.PI / 2);
   const input = vec(inputHeading);
   const output = vec(current.heading);
   return {
@@ -915,7 +887,7 @@ function prependOriginFor(module) {
 }
 
 function addPendingModule() {
-  const module = newModule(pendingKind, pendingTurn);
+  const module = newModule(pendingKind);
   let candidateModules;
   let candidateOrigin;
   if (addAt === 'start') {
@@ -1007,12 +979,6 @@ function bindControls() {
   document.querySelectorAll('[data-module-kind]').forEach((button) => button.addEventListener('click', () => {
     pendingKind = button.dataset.moduleKind === 'corner' ? 'corner' : 'straight';
     document.querySelectorAll('[data-module-kind]').forEach((item) => item.classList.toggle('is-selected', item === button));
-    cornerDirectionGroup.hidden = pendingKind !== 'corner';
-    addModuleError.hidden = true;
-  }));
-  document.querySelectorAll('[data-corner-turn]').forEach((button) => button.addEventListener('click', () => {
-    pendingTurn = button.dataset.cornerTurn === 'right' ? 'right' : 'left';
-    document.querySelectorAll('[data-corner-turn]').forEach((item) => item.classList.toggle('is-selected', item === button));
     addModuleError.hidden = true;
   }));
 
@@ -1065,7 +1031,7 @@ function animate() {
 
 function captureState() {
   return {
-    version: 1,
+    version: 2,
     family: state.family,
     origin: { x: round(state.origin.x), z: round(state.origin.z), heading: round(state.origin.heading, 6) },
     modules: state.modules.map(cloneModule),
@@ -1085,7 +1051,7 @@ function restoreState(snapshot) {
   const modules = source.modules.map(cloneModule);
   const candidate = deriveLayout(modules, origin, FAMILIES[family]);
   if (!validLayout(candidate)) return false;
-  state = { version: 1, family, origin, modules };
+  state = { version: 2, family, origin, modules };
   selectedModuleId = '';
   closeAddPanel();
   renderAll({ refit: true });
@@ -1094,7 +1060,7 @@ function restoreState(snapshot) {
 
 function resetConfiguration() {
   state = {
-    version: 1,
+    version: 2,
     family: 'compact',
     origin: { x: -400, z: 0, heading: 0 },
     modules: [newModule('straight')],
