@@ -564,7 +564,7 @@ function createDoorPivot(parent, { xCenter, yCenter, z, width, hinge = 'left', o
   const pivot = new THREE.Group();
   const hingeX = hinge === 'right' ? xCenter + width / 2 : xCenter - width / 2;
   pivot.position.set(hingeX, yCenter, z);
-  pivot.rotation.y = open ? (hinge === 'right' ? Math.PI * 0.58 : -Math.PI * 0.58) : 0;
+  pivot.rotation.y = open ? (hinge === 'right' ? Math.PI / 2 : -Math.PI / 2) : 0;
   parent.add(pivot);
 
   const leaf = new THREE.Group();
@@ -586,17 +586,17 @@ function addDoorCornerFillers(group, panelWidth, panelHeight, panelInset, bevel,
 }
 
 function addKeyhole(group, moduleId, x, y, z) {
-  const material = new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.52, metalness: 0.38 });
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(2.7, 2.7, 1.5, 18), material);
+  const material = new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.35, metalness: 0.22 });
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.8, 1.2, 18), material);
   top.rotation.x = Math.PI / 2;
-  top.position.set(x, y + 3.4, z);
+  top.position.set(x, y + 3.6, z);
   top.castShadow = true;
   top.receiveShadow = true;
   tagMesh(top, moduleId);
   group.add(top);
 
-  const stem = new THREE.Mesh(new THREE.BoxGeometry(1.7, 7.8, 1.5), material);
-  stem.position.set(x, y - 1.6, z);
+  const stem = new THREE.Mesh(new THREE.BoxGeometry(1.8, 8.4, 1.2), material);
+  stem.position.set(x, y - 1.8, z);
   stem.castShadow = true;
   stem.receiveShadow = true;
   tagMesh(stem, moduleId);
@@ -1048,7 +1048,7 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
   addDoorCornerFillers(leaf, panelWidth, panelHeight, panelInset, bevel, wood, module.id);
 
   if (keyhole) {
-    addKeyhole(leaf, module.id, -width / 2 + frame * 0.52, -height * 0.02, 0.85);
+    addKeyhole(leaf, module.id, -width / 2 + frame * 0.52, -height * 0.02, doorThickness + 0.35);
   }
   tagDoorInteractive(leaf, module.id, doorKey);
   return leaf;
