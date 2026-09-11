@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=platform-20';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=platform-21';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -89,8 +89,29 @@ appShell?.addEventListener('pointerdown', (event) => {
   shell.setSettingsPanelCollapsed(true);
 }, true);
 
+let settingsWasOpenBeforePointer = false;
+shell.host?.addEventListener('pointerdown', (event) => {
+  if (!event.target.closest('[data-action="toggle-account-settings"]')) return;
+  settingsWasOpenBeforePointer = Boolean(shell.host.querySelector('[data-account-settings]')?.classList.contains('is-open'));
+}, true);
+
 shell.host?.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
+  if (action === 'toggle-account-settings') {
+    // The shared shell normally handles this itself. If the account menu was
+    // re-rendered during the same click and the visible state did not change,
+    // recover locally instead of leaving the Settings button inert.
+    queueMicrotask(() => {
+      const settings = shell.host.querySelector('[data-account-settings]');
+      const nowOpen = Boolean(settings?.classList.contains('is-open'));
+      if (nowOpen === settingsWasOpenBeforePointer) {
+        shell.accountSettingsOpen = !settingsWasOpenBeforePointer;
+        shell.renderHost?.();
+        shell.sync?.();
+      }
+    });
+    return;
+  }
   if (action === 'toggle-dimensions') {
     const active = window.BOOKSHELF_CONFIGURATOR_API?.toggleDimensions?.();
     shell.setToolActive?.('dimensions', Boolean(active));

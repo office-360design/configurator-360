@@ -450,7 +450,7 @@ function metalTexture() {
   canvas.width = 128;
   canvas.height = 128;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#c7ccd0';
+  ctx.fillStyle = '#eef1f3';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const { data, width, height } = image;
@@ -458,9 +458,9 @@ function metalTexture() {
     const rowBias = Math.sin(y * 0.17) * 4 + Math.cos(y * 0.07) * 2;
     for (let x = 0; x < width; x += 1) {
       const index = (y * width + x) * 4;
-      const brushed = Math.sin(x * 0.42) * 3 + Math.sin(x * 0.11 + y * 0.04) * 2;
-      const speckle = (Math.random() - 0.5) * 10;
-      const shade = Math.max(170, Math.min(225, 201 + rowBias + brushed + speckle));
+      const brushed = Math.sin(x * 0.42) * 1.8 + Math.sin(x * 0.11 + y * 0.04) * 1.1;
+      const speckle = (Math.sin(x * 12.9898 + y * 78.233) * 43758.5453 % 1) * 3.2;
+      const shade = Math.max(218, Math.min(245, 232 + rowBias + brushed + speckle));
       data[index] = shade;
       data[index + 1] = shade + 2;
       data[index + 2] = shade + 5;
@@ -479,13 +479,16 @@ function metalTexture() {
   return texture;
 }
 function metalMaterial() {
+  // Match the accepted light anodized-aluminium response from the Window
+  // configurator, but compensate for Bookshelf not using the shared HDR/IBL
+  // environment by keeping some diffuse response instead of full metalness.
   return new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
+    color: 0xd6dade,
     map: metalTexture(),
-    roughness: 0.22,
-    metalness: 1,
-    clearcoat: 0.3,
-    clearcoatRoughness: 0.22,
+    roughness: 0.36,
+    metalness: 0.52,
+    clearcoat: 0.14,
+    clearcoatRoughness: 0.34,
   });
 }
 function tagMesh(mesh, moduleId) {

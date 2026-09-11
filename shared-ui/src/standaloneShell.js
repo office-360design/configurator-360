@@ -1,9 +1,9 @@
-import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=platform-20';
-import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-20';
-import { sharedT } from './i18n.js?v=platform-20';
-import { renderActionFeedback } from './components/feedback.js?v=platform-20';
-import { renderTopBar } from './components/topBar.js?v=platform-20';
-import { syncAccountIdentity } from './components/accountMenu.js?v=platform-20';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=platform-21';
+import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-21';
+import { sharedT } from './i18n.js?v=platform-21';
+import { renderActionFeedback } from './components/feedback.js?v=platform-21';
+import { renderTopBar } from './components/topBar.js?v=platform-21';
+import { syncAccountIdentity } from './components/accountMenu.js?v=platform-21';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=platform-19';
 import { renderToolsMenu } from './components/toolsMenu.js?v=platform-19';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=platform-19';
