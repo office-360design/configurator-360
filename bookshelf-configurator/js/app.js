@@ -28,11 +28,11 @@ const PLINTH_HEIGHT = 78;
 const PLINTH_FRONT_RECESS = 42;
 const BACK_POST_FOOT_DENT = 8;
 const BACK_POST_FOOT_DENT_HEIGHT = 64;
-const CONNECTOR_HEIGHT = 54;
-const CONNECTOR_DEPTH = 16;
-const CONNECTOR_SMALL_LENGTH = 18;
-const CONNECTOR_BRIDGE_LENGTH = POST * 2;
-const CONNECTOR_Y_INSET = 96;
+const CONNECTOR_FACE_THICKNESS = 7;
+const CONNECTOR_SIDE_THICKNESS = 7;
+const CONNECTOR_SIDE_COVERAGE = POST / 2;
+const CONNECTOR_OUTSET = 0.35;
+const CONNECTOR_MIN_HEIGHT = 26;
 const GLASS_ALPHA = 0.28;
 const EPS = 0.5;
 
@@ -611,10 +611,10 @@ function worldFromAnchor(anchor, heading, localX, localZ) {
   };
 }
 
-function addFrontPoleConnector(anchor, heading, length, y, material) {
-  const center = worldFromAnchor(anchor, heading, 0, frontZ(familySpec().depth) + CONNECTOR_DEPTH / 2);
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, CONNECTOR_HEIGHT, CONNECTOR_DEPTH), material);
-  mesh.position.set(center.x, y, center.z);
+function addConnectorPart(anchor, heading, size, center, material) {
+  const world = worldFromAnchor(anchor, heading, center.x, center.z);
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), material);
+  mesh.position.set(world.x, center.y, world.z);
   mesh.rotation.y = -heading;
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -622,28 +622,99 @@ function addFrontPoleConnector(anchor, heading, length, y, material) {
   return mesh;
 }
 
+function connectorPlacements(spec) {
+  const bottomShelfY = PLINTH_HEIGHT + BOARD / 2;
+  const topShelfY = spec.height - 130;
+  const bottomInterval = bottomShelfY;
+  const topInterval = spec.height - topShelfY;
+  return [
+    {
+      y: bottomInterval / 2,
+      height: Math.max(CONNECTOR_MIN_HEIGHT, bottomInterval / 3),
+    },
+    {
+      y: topShelfY + topInterval / 2,
+      height: Math.max(CONNECTOR_MIN_HEIGHT, topInterval / 3),
+    },
+  ];
+}
+
 function renderStandalonePoleConnectors(anchor, heading, isStart, spec, material) {
-  const xCenter = (isStart ? 1 : -1) * (CONNECTOR_SMALL_LENGTH / 2);
-  [CONNECTOR_Y_INSET, spec.height - CONNECTOR_Y_INSET].forEach((y) => {
-    const world = worldFromAnchor(anchor, heading, xCenter, frontZ(spec.depth) + CONNECTOR_DEPTH / 2);
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(CONNECTOR_SMALL_LENGTH, CONNECTOR_HEIGHT, CONNECTOR_DEPTH), material);
-    mesh.position.set(world.x, y, world.z);
-    mesh.rotation.y = -heading;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    connectorGroup.add(mesh);
+  const poleMinX = isStart ? 0 : -POST;
+  const poleMaxX = isStart ? POST : 0;
+  const frontCenterX = (poleMinX + poleMaxX) / 2;
+  const frontCenterZ = frontZ(spec.depth) - CONNECTOR_FACE_THICKNESS / 2 - CONNECTOR_OUTSET;
+  const sideCenterZ = frontZ(spec.depth) + CONNECTOR_SIDE_COVERAGE / 2;
+  const outerSideX = isStart ? (-CONNECTOR_SIDE_THICKNESS / 2 - CONNECTOR_OUTSET) : (CONNECTOR_SIDE_THICKNESS / 2 + CONNECTOR_OUTSET);
+  const innerSideX = isStart ? (POST + CONNECTOR_SIDE_THICKNESS / 2 + CONNECTOR_OUTSET) : (-POST - CONNECTOR_SIDE_THICKNESS / 2 - CONNECTOR_OUTSET);
+
+  connectorPlacements(spec).forEach(({ y, height }) => {
+    addConnectorPart(anchor, heading, {
+      x: POST,
+      y: height,
+      z: CONNECTOR_FACE_THICKNESS,
+    }, {
+      x: frontCenterX,
+      y,
+      z: frontCenterZ,
+    }, material);
+
+    addConnectorPart(anchor, heading, {
+      x: CONNECTOR_SIDE_THICKNESS,
+      y: height,
+      z: CONNECTOR_SIDE_COVERAGE,
+    }, {
+      x: outerSideX,
+      y,
+      z: sideCenterZ,
+    }, material);
+
+    addConnectorPart(anchor, heading, {
+      x: CONNECTOR_SIDE_THICKNESS,
+      y: height,
+      z: CONNECTOR_SIDE_COVERAGE,
+    }, {
+      x: innerSideX,
+      y,
+      z: sideCenterZ,
+    }, material);
   });
 }
 
 function renderBridgeConnectors(anchor, heading, spec, material) {
-  [CONNECTOR_Y_INSET, spec.height - CONNECTOR_Y_INSET].forEach((y) => {
-    const world = worldFromAnchor(anchor, heading, 0, frontZ(spec.depth) + CONNECTOR_DEPTH / 2);
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(CONNECTOR_BRIDGE_LENGTH, CONNECTOR_HEIGHT, CONNECTOR_DEPTH), material);
-    mesh.position.set(world.x, y, world.z);
-    mesh.rotation.y = -heading;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    connectorGroup.add(mesh);
+  const frontCenterZ = frontZ(spec.depth) - CONNECTOR_FACE_THICKNESS / 2 - CONNECTOR_OUTSET;
+  const sideCenterZ = frontZ(spec.depth) + CONNECTOR_SIDE_COVERAGE / 2;
+
+  connectorPlacements(spec).forEach(({ y, height }) => {
+    addConnectorPart(anchor, heading, {
+      x: POST * 2,
+      y: height,
+      z: CONNECTOR_FACE_THICKNESS,
+    }, {
+      x: 0,
+      y,
+      z: frontCenterZ,
+    }, material);
+
+    addConnectorPart(anchor, heading, {
+      x: CONNECTOR_SIDE_THICKNESS,
+      y: height,
+      z: CONNECTOR_SIDE_COVERAGE,
+    }, {
+      x: -POST - CONNECTOR_SIDE_THICKNESS / 2 - CONNECTOR_OUTSET,
+      y,
+      z: sideCenterZ,
+    }, material);
+
+    addConnectorPart(anchor, heading, {
+      x: CONNECTOR_SIDE_THICKNESS,
+      y: height,
+      z: CONNECTOR_SIDE_COVERAGE,
+    }, {
+      x: POST + CONNECTOR_SIDE_THICKNESS / 2 + CONNECTOR_OUTSET,
+      y,
+      z: sideCenterZ,
+    }, material);
   });
 }
 
