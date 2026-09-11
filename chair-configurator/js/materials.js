@@ -102,33 +102,29 @@ function woodField(spec, u, v) {
       break;
     }
     case 'oak': {
-      const grain = spec.grain ?? 7.1;
-      const sweep = along * grain
-        + broad * 0.55
-        + medium * 0.12
-        + Math.sin(TAU * (across * 0.72 + broad * 0.34 + medium * 0.05)) * 0.18
-        + fbm(across * 1.15 + 0.17, along * 0.72, spec.seed + 151, 3, 1.55, 0.58) * 0.16;
-      const phase = sweep - Math.floor(sweep);
-      const latewood = Math.pow(clamp((phase - 0.78) / 0.22), 1.55);
-      const cathedralMask = ridge(
-        Math.sin(TAU * (along * (grain * 0.42) + across * 0.74 + broad * 0.9 + medium * 0.12)),
-        0.94,
-        1.25,
-      );
-      const openGrowth = ridge(Math.sin(TAU * (along * (grain * 0.21) + broad * 0.52 + medium * 0.09)), 0.98, 1.1);
-      const poreLines = Math.pow(Math.max(0, Math.sin(TAU * (sweep * 6.4 + fine * 0.06 + broad * 0.25))), 20);
-      const poreBreakup = 0.55 + 0.45 * clamp(noise(across, along, 9, 11, spec.seed + 181), 0, 1);
-      const rayAxis = Math.sin(TAU * (across * 7.4 + broad * 0.8 + fine * 0.08));
-      const rayPresence = Math.pow(clamp(fbm(across * 1.55 + 0.23, along * 2.7, spec.seed + 211, 3, 1.7, 0.58) * 0.5 + 0.5, 0, 1), 2.2);
-      const rayFlecks = Math.pow(Math.max(0, rayAxis), 15) * rayPresence * (spec.rays ?? 0.05);
-      signal = 0.10
-        + Math.sin(TAU * (sweep * 0.42 + broad * 0.32)) * 0.16
-        + cathedralMask * 0.26
-        + openGrowth * 0.06
-        - latewood * 1.32;
-      figure = cathedralMask * (spec.figure ?? 0.09) + rayFlecks * 1.45 + openGrowth * 0.018;
-      pore = poreLines * poreBreakup * (spec.pores ?? 0.11) + latewood * 0.03;
-      banding = Math.sin(TAU * (along * (grain * 0.16) + broad * 0.45)) * 0.012;
+      const ringCount = spec.grain ?? 8;
+      const broadWarp = fbm(across, along, spec.seed + 101, 4, 2, 0.55);
+      const mediumWarp = fbm((across + broadWarp * 0.08 + 1) % 1, (along + broadWarp * 0.03 + 1) % 1, spec.seed + 113, 4, 4, 0.55);
+      const fineWarp = fbm((across + mediumWarp * 0.03 + 1) % 1, (along + mediumWarp * 0.025 + 1) % 1, spec.seed + 127, 3, 8, 0.55);
+      const cathedralA = Math.sin(TAU * ((along * 1) + broadWarp * 0.20));
+      const cathedralB = Math.sin(TAU * ((along * 2) + across * 1 + mediumWarp * 0.12));
+      const cathedral = cathedralA * 0.09 + cathedralB * 0.04;
+      const curve = across + cathedral + broadWarp * 0.07 + mediumWarp * 0.028 + fineWarp * 0.008;
+      const phase = ((curve * ringCount) % 1 + 1) % 1;
+      const earlywood = Math.pow(1 - phase, 0.55);
+      const latewood = Math.pow(clamp((phase - 0.72) / 0.28), 1.45);
+      const ringLine = Math.pow(clamp((phase - 0.90) / 0.10), 2.4);
+      const poresMain = Math.pow(Math.max(0, Math.sin(TAU * ((curve * ringCount * 5) + fineWarp * 0.04))), 18);
+      const poresSecondary = Math.pow(Math.max(0, Math.sin(TAU * ((curve * ringCount * 9) + mediumWarp * 0.08))), 24) * 0.35;
+      const poreBreakup = 0.55 + 0.45 * clamp(noise((across + broadWarp * 0.05 + 1) % 1, (along + mediumWarp * 0.05 + 1) % 1, 12, 10, spec.seed + 181), 0, 1);
+      const rayAxis = Math.sin(TAU * (along * 14 + broadWarp * 0.2));
+      const rayPresence = Math.pow(clamp(noise((across + 1) % 1, (along + broadWarp * 0.04 + 1) % 1, 5, 9, spec.seed + 211), 0, 1), 2.6);
+      const rayFlecks = Math.pow(Math.max(0, rayAxis), 20) * rayPresence * (spec.rays ?? 0.035);
+      const mineralStreaks = ridge(Math.sin(TAU * ((along * 1) + fineWarp * 0.2 + broadWarp * 0.1)), 0.10, 2.1) * 0.020;
+      signal = 0.22 + earlywood * 0.20 - latewood * 1.05 - ringLine * 0.32 + broadWarp * 0.05 + mineralStreaks;
+      figure = latewood * 0.05 + rayFlecks * 1.3 + ridge(cathedralA, 0.75, 1.1) * (spec.figure ?? 0.07);
+      pore = (poresMain + poresSecondary) * poreBreakup * (spec.pores ?? 0.105) + latewood * 0.04;
+      banding = Math.sin(TAU * ((curve * ringCount * 2) + mediumWarp * 0.08)) * 0.015;
       break;
     }
     case 'knotty': {
@@ -196,7 +192,9 @@ function woodField(spec, u, v) {
     }
   }
 
-  const mineral = fbm(across * 12.0, along * 12.0, spec.seed + 91, 2, 16, .5) * .02;
+  const mineral = spec.style === 'oak'
+    ? fbm((across + 1) % 1, (along + 1) % 1, spec.seed + 91, 2, 16, .5) * .02
+    : fbm(across * 12.0, along * 12.0, spec.seed + 91, 2, 16, .5) * .02;
   const contrast = spec.contrast ?? .08;
   const grainTone = signal * contrast;
   const figureTone = figure * 1.1 + banding * .8;
@@ -279,7 +277,7 @@ const fabric = (id, labels, color, spec) => Object.freeze({ id, labels, color, s
 export const WOOD_TYPES = Object.freeze([
   wood('beech', ['Beech', 'Fag', 'Buche'], '#b78352', { seed: 3, style: 'straight', grain: 10, contrast: .04, roughness: .52, open: .06, pores: .02, figure: .025, tile: [2.4, 0.22] }),
   wood('ash', ['Ash', 'Frasin', 'Esche'], '#baa07c', { seed: 7, style: 'ring-porous', grain: 8.2, contrast: .09, roughness: .55, open: .2, pores: .12, figure: .075, tile: [2.35, 0.20] }),
-  wood('oak', ['Oak', 'Stejar', 'Eiche'], '#c08a54', { seed: 5, style: 'oak', grain: 7.1, contrast: .048, roughness: .54, open: .14, pores: .115, figure: .092, rays: .038, baseTone: .928, minTone: .34, tile: [4.2, 0.34], size: 1024 }),
+  wood('oak', ['Oak', 'Stejar', 'Eiche'], '#be8851', { seed: 5, style: 'oak', grain: 8, contrast: .12, roughness: .53, open: .12, pores: .105, figure: .072, rays: .035, baseTone: .86, minTone: .24, tile: [3.0, 0.28], size: 1024 }),
 ]);
 
 export const FABRIC_TYPES = Object.freeze([

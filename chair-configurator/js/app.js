@@ -1,7 +1,7 @@
 import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js?v=platform-19';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-19';
 import { ChairScene } from './scene.js?v=chair-joint-25';
-import { WOOD_TYPES, FABRIC_TYPES, WOOD_COLOURS, FABRIC_COLOURS, materialLabel } from './materials.js?v=chair-27';
+import { WOOD_TYPES, FABRIC_TYPES, WOOD_COLOURS, FABRIC_COLOURS, materialLabel } from './materials.js?v=chair-28';
 import { chairT, formatDimension } from './i18n.js?v=chair-26';
 import { mountChairShell } from './sharedShell.js?v=chair-26';
 
@@ -10,7 +10,7 @@ const tenantContext = await requireTenantConfiguratorAccess('chair');
 
 const defaultState = () => ({
   version: 1,
-  woodType: 'oak', woodColor: '#c08a54',
+  woodType: 'oak', woodColor: '#be8851',
   fabricType: 'linen', fabricColor: '#b88162',
   locale: 'en-US', currency: 'EUR', units: 'metric', quality: 'balanced', darkMode: false,
 });
