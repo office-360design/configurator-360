@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createSurfaceSystem } from '../../shared-3d/src/index.js?v=platform-19';
-import { createChairModel } from './chairGeometry.js?v=chair-24';
+import { createChairModel } from './chairGeometry.js?v=chair-joint-25';
 import { registerChairMaterials } from './materials.js?v=chair-24';
 
 export class ChairScene {
@@ -115,7 +115,7 @@ export class ChairScene {
     this.needsFrame = false;
     this.surfaceSystem.render(this.camera, { onDemand: true, now });
   }
-  diagnostics() { return { chair: { originalProceduralGeometry: true, meshSource: 'none', woodType: this.state.woodType, fabricType: this.state.fabricType }, ...this.surfaceSystem.getDiagnostics() }; }
+  diagnostics() { return { chair: { originalProceduralGeometry: true, frontJointVersion: this.model?.group.userData.frontJointVersion, meshSource: 'none', woodType: this.state.woodType, fabricType: this.state.fabricType }, ...this.surfaceSystem.getDiagnostics() }; }
   dispose() {
     cancelAnimationFrame(this.animationFrame); this.resizeObserver.disconnect(); this.controls.dispose();
     this.woodMaterial?.dispose(); this.fabricMaterial?.dispose(); this.surfaceSystem.dispose(); this.floor.geometry.dispose(); this.floor.material.dispose(); this.renderer.dispose();
