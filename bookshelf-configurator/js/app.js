@@ -25,8 +25,9 @@ const SIDE_RAIL_BODY = 92;
 const SIDE_RAIL_RAMP = 14;
 const SIDE_MID_BODY = 124;
 const PLINTH_HEIGHT = 78;
-const PLINTH_SIDE_RECESS = 18;
 const PLINTH_FRONT_RECESS = 42;
+const BACK_POST_FOOT_DENT = 8;
+const BACK_POST_FOOT_DENT_HEIGHT = 64;
 const GLASS_ALPHA = 0.28;
 const EPS = 0.5;
 
@@ -559,6 +560,41 @@ function addSideWallAssembly(group, module, { side, width, depth, height, shared
     [innerX, height],
   ], zCenter, zLength, material, module.id);
 }
+
+// Rear uprights on the real product have a small inward step at floor level.
+// Model it as one continuous extruded post profile so there is no stacked-mesh
+// seam: the front face stays full depth while the rear face is inset only at
+// the foot and blends back to the normal post depth over a short diagonal.
+function addBackPostWithFootDent(group, { x, height, material, moduleId }) {
+  const shape = new THREE.Shape();
+  // Shape X maps to -world Z after the Y rotation below.
+  shape.moveTo(POST, 0);
+  shape.lineTo(BACK_POST_FOOT_DENT, 0);
+  shape.lineTo(0, BACK_POST_FOOT_DENT_HEIGHT);
+  shape.lineTo(0, height);
+  shape.lineTo(POST, height);
+  shape.closePath();
+
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: POST,
+    bevelEnabled: false,
+    steps: 1,
+    curveSegments: 1,
+  });
+  // local extrusion Z -> world X; local shape X -> -world Z.
+  geometry.rotateY(Math.PI / 2);
+  geometry.translate(x - POST / 2, 0, 0);
+  geometry.computeVertexNormals();
+  applyNormalizedBoxUVs(geometry);
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, moduleId);
+  group.add(mesh);
+  return mesh;
+}
+
 function frontZ(depth) { return -depth; }
 
 function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null, omitStartPosts = false, omitEndPosts = false, omitStartFrontPost = false, omitStartBackPost = false, omitEndFrontPost = false, omitEndBackPost = false } = {}) {
@@ -581,7 +617,7 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   // The back panel now runs the complete predefined module height, matching
   // the uprights. The lower plinth remains a separate recessed structural part.
   addBox(group, { x: innerWidth, y: height, z: BACK }, { x: width / 2, y: height / 2, z: -BACK / 2 }, darkWood, module.id);
-  const plinthWidth = Math.max(100, innerWidth - PLINTH_SIDE_RECESS * 2);
+  const plinthWidth = innerWidth;
   const plinthDepth = Math.max(100, shelfDepth - PLINTH_FRONT_RECESS);
   const plinthCenterZ = -depth + POST + plinthDepth / 2;
   addBox(group, { x: plinthWidth, y: PLINTH_HEIGHT, z: plinthDepth }, {
@@ -621,7 +657,7 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   postEnds.forEach(({ x, omitAll, omitBack, omitFront }) => {
     if (omitAll) return;
     if (!omitBack) {
-      addBox(group, { x: POST, y: height, z: POST }, { x, y: height / 2, z: -POST / 2 }, wood, module.id);
+      addBackPostWithFootDent(group, { x, height, material: wood, moduleId: module.id });
     }
     if (!omitFront) {
       addBox(group, { x: POST, y: height, z: POST }, { x, y: height / 2, z: front + POST / 2 }, wood, module.id);
