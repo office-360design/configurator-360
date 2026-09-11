@@ -574,27 +574,66 @@ function createDoorPivot(parent, { xCenter, yCenter, z, width, hinge = 'left', o
   return leaf;
 }
 
-function addDoorCornerFillers(group, panelWidth, panelHeight, panelInset, bevel, material, moduleId) {
-  const size = Math.max(4, bevel - 0.8);
-  const z = panelInset / 2;
-  const positions = [
-    { x: -panelWidth / 2 - bevel / 2, y: panelHeight / 2 + bevel / 2 },
-    { x: panelWidth / 2 + bevel / 2, y: panelHeight / 2 + bevel / 2 },
-    { x: -panelWidth / 2 - bevel / 2, y: -panelHeight / 2 - bevel / 2 },
-    { x: panelWidth / 2 + bevel / 2, y: -panelHeight / 2 - bevel / 2 },
-  ];
-  positions.forEach(({ x, y }) => addBox(group, { x: size, y: size, z: panelInset }, { x, y, z }, material, moduleId));
+function addMiteredDoorCornerRamp(group, corners, material, moduleId) {
+  const geometry = new THREE.BufferGeometry();
+  const vertices = new Float32Array(corners.flat());
+  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  geometry.setIndex([
+    0, 1, 2, 0, 2, 3, // top
+    4, 6, 5, 4, 7, 6, // bottom
+    1, 5, 6, 1, 6, 2, // inner x-facing side
+    3, 2, 6, 3, 6, 7, // inner y-facing side
+  ]);
+  geometry.computeVertexNormals();
+  applyNormalizedBoxUVs(geometry);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, moduleId);
+  group.add(mesh);
+  return mesh;
 }
 
-function addKeyholeCutoutPanel(group, { panelWidth, panelHeight, panelThickness, panelInset, material, moduleId, keyholeX = 0, keyholeY = 0 }) {
+function addDoorCornerFillers(group, panelWidth, panelHeight, panelInset, bevel, material, moduleId) {
+  const xL0 = -panelWidth / 2 - bevel;
+  const xL1 = -panelWidth / 2;
+  const xR0 = panelWidth / 2;
+  const xR1 = panelWidth / 2 + bevel;
+  const yB0 = -panelHeight / 2 - bevel;
+  const yB1 = -panelHeight / 2;
+  const yT0 = panelHeight / 2;
+  const yT1 = panelHeight / 2 + bevel;
+
+  // 4 mitered wedges: three outer rectangle corners stay flush with the frame surface,
+  // while the inner corner rises to the recessed panel depth. This creates a continuous
+  // ramp through each corner instead of a separate little square plug.
+  addMiteredDoorCornerRamp(group, [
+    [xL0, yT1, 0], [xL1, yT1, 0], [xL1, yT0, panelInset], [xL0, yT0, 0],
+    [xL0, yT1, 0], [xL1, yT1, 0], [xL1, yT0, 0], [xL0, yT0, 0],
+  ], material, moduleId);
+  addMiteredDoorCornerRamp(group, [
+    [xR0, yT1, 0], [xR1, yT1, 0], [xR1, yT0, 0], [xR0, yT0, panelInset],
+    [xR0, yT1, 0], [xR1, yT1, 0], [xR1, yT0, 0], [xR0, yT0, 0],
+  ], material, moduleId);
+  addMiteredDoorCornerRamp(group, [
+    [xL0, yB1, 0], [xL1, yB1, panelInset], [xL1, yB0, 0], [xL0, yB0, 0],
+    [xL0, yB1, 0], [xL1, yB1, 0], [xL1, yB0, 0], [xL0, yB0, 0],
+  ], material, moduleId);
+  addMiteredDoorCornerRamp(group, [
+    [xR0, yB1, panelInset], [xR1, yB1, 0], [xR1, yB0, 0], [xR0, yB0, 0],
+    [xR0, yB1, 0], [xR1, yB1, 0], [xR1, yB0, 0], [xR0, yB0, 0],
+  ], material, moduleId);
+}
+
+function addKeyholeCutoutRect(group, { rectWidth, rectHeight, depth, zOffset = 0, material, moduleId, keyholeX = 0, keyholeY = 0 }) {
   const shape = new THREE.Shape();
-  shape.moveTo(-panelWidth / 2, -panelHeight / 2);
-  shape.lineTo(panelWidth / 2, -panelHeight / 2);
-  shape.lineTo(panelWidth / 2, panelHeight / 2);
-  shape.lineTo(-panelWidth / 2, panelHeight / 2);
+  shape.moveTo(-rectWidth / 2, -rectHeight / 2);
+  shape.lineTo(rectWidth / 2, -rectHeight / 2);
+  shape.lineTo(rectWidth / 2, rectHeight / 2);
+  shape.lineTo(-rectWidth / 2, rectHeight / 2);
   shape.closePath();
 
-  // Use a true perforation instead of a painted mark so the user can see through the door.
+  // True keyhole perforation, enlarged for clarity.
   const radius = 7.8;
   const stemHalf = 2.4;
   const stemHeight = 22.0;
@@ -612,10 +651,10 @@ function addKeyholeCutoutPanel(group, { panelWidth, panelHeight, panelThickness,
   hole.closePath();
   shape.holes.push(hole);
 
-  const geometry = new THREE.ExtrudeGeometry(shape, { depth: panelThickness, bevelEnabled: false, curveSegments: 28 });
-  geometry.translate(0, 0, panelInset);
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 28 });
+  geometry.translate(0, 0, zOffset);
+  geometry.computeVertexNormals();
   applyNormalizedBoxUVs(geometry);
-
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -1035,30 +1074,31 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
   const panelWidth = Math.max(28, innerWidth - bevel * 2);
   const panelHeight = Math.max(28, innerHeight - bevel * 2);
 
-  addBox(leaf, { x: frame, y: height, z: doorThickness }, { x: -width / 2 + frame / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
+  if (keyhole) {
+    // The keyhole belongs on the LEFT border of the RIGHT door: centered in the stile's width
+    // and centered vertically at half the door height.
+    addKeyholeCutoutRect(leaf, {
+      rectWidth: frame,
+      rectHeight: height,
+      depth: doorThickness,
+      zOffset: 0,
+      material: wood,
+      moduleId: module.id,
+      keyholeX: 0,
+      keyholeY: 0,
+    }).position.set(-width / 2 + frame / 2, 0, 0);
+  } else {
+    addBox(leaf, { x: frame, y: height, z: doorThickness }, { x: -width / 2 + frame / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
+  }
   addBox(leaf, { x: frame, y: height, z: doorThickness }, { x: width / 2 - frame / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
   addBox(leaf, { x: innerWidth, y: frame, z: doorThickness }, { x: 0, y: -height / 2 + frame / 2, z: doorThickness / 2 }, wood, module.id);
   addBox(leaf, { x: innerWidth, y: frame, z: doorThickness }, { x: 0, y: height / 2 - frame / 2, z: doorThickness / 2 }, wood, module.id);
 
-  if (keyhole) {
-    addKeyholeCutoutPanel(leaf, {
-      panelWidth,
-      panelHeight,
-      panelThickness,
-      panelInset,
-      material: darkWood,
-      moduleId: module.id,
-      // Keep the keyhole unmistakably on the right-hand door and large enough to read clearly.
-      keyholeX: width * 0.14,
-      keyholeY: -height * 0.03,
-    });
-  } else {
-    addBox(leaf, { x: panelWidth, y: panelHeight, z: panelThickness }, {
-      x: 0,
-      y: 0,
-      z: panelInset + panelThickness / 2,
-    }, darkWood, module.id);
-  }
+  addBox(leaf, { x: panelWidth, y: panelHeight, z: panelThickness }, {
+    x: 0,
+    y: 0,
+    z: panelInset + panelThickness / 2,
+  }, darkWood, module.id);
 
   addExtrudedProfileAlongX(leaf, [
     [panelHeight / 2, panelInset],
@@ -1624,11 +1664,42 @@ function bindControls() {
   }));
 
   let down = null;
-  renderer.domElement.addEventListener('pointerdown', (event) => { down = { x: event.clientX, y: event.clientY }; });
+  let suppressOrbitFromDoorClick = false;
+
+  renderer.domElement.addEventListener('pointerdown', (event) => {
+    const hit = raycastModule(event);
+    const doorKey = hit?.userData?.bookshelfDoorKey || '';
+    down = { x: event.clientX, y: event.clientY, doorKey };
+    if (doorKey) {
+      suppressOrbitFromDoorClick = true;
+      controls.enabled = false;
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+
+  const restoreControls = () => {
+    if (suppressOrbitFromDoorClick) {
+      suppressOrbitFromDoorClick = false;
+      controls.enabled = true;
+    }
+  };
+
+  renderer.domElement.addEventListener('pointercancel', restoreControls, true);
+  renderer.domElement.addEventListener('pointerleave', restoreControls, true);
   renderer.domElement.addEventListener('pointerup', (event) => {
-    if (!down) return;
+    if (!down) {
+      restoreControls();
+      return;
+    }
     const moved = Math.hypot(event.clientX - down.x, event.clientY - down.y);
+    const wasDoorPress = Boolean(down.doorKey);
     down = null;
+    if (wasDoorPress) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    restoreControls();
     if (moved > 5) return;
     const hit = raycastModule(event);
     const moduleId = hit?.userData?.bookshelfModuleId || '';
@@ -1649,7 +1720,7 @@ function bindControls() {
     }
     renderSelectedControls();
     rebuildSelectionHelper();
-  });
+  }, true);
 }
 
 function resizeRenderer() {
