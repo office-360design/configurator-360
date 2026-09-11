@@ -1,30 +1,27 @@
-# Bookshelf connector refinement pass
+# Bookshelf connector refinement pass 2
 
-This follow-up refines the aluminium connection hardware so it better matches the reference bookshelf.
+This pass focuses only on the remaining visual issues the client identified in the aluminium connector details.
 
 ## Included updates
 
-1. **No wood/metal face overlap**
-   - every connector piece is offset a very small amount outward from the wooden pole faces
-   - this avoids the z-fighting / texture-merging effect where metal and wood visually overlap
+1. **Much thinner inserts**
+   - connector face thickness reduced from 7 mm to 1.6 mm
+   - side return thickness reduced from 7 mm to 1.6 mm
+   - outward offset reduced to 0.08 mm-equivalent scene units so the parts read as almost flush with the post
 
-2. **Placement based on shelf intervals**
-   - the lower connector is centered halfway between the floor and the first fixed shelf
-   - the upper connector is centered halfway between the top shelf zone and the top of the module
-   - connector height is derived from roughly one third of those intervals, with a minimum size to keep it visible
+2. **Corners closed visually**
+   - the front connector strip now extends slightly past the side returns
+   - the side returns also extend slightly forward
+   - this removes the visibly missing front corners and makes the connector read as one continuous formed piece instead of three detached blocks
 
-3. **Standalone connector shape**
-   - each free front pole now gets a connector that covers:
-     - the full front face of the pole
-     - half of the left side face
-     - half of the right side face
-   - this is implemented as one front plate plus two side return plates
+3. **Photorealistic grey aluminium finish**
+   - replaced the flat grey material with a brushed-metal canvas texture
+   - upgraded the connector material to `MeshPhysicalMaterial`
+   - tuned roughness / metalness / clearcoat for a more realistic aluminium look
 
-4. **Joined connector shape**
-   - each module-to-module joint now gets a single wider connector near the bottom and one near the top
-   - the connector spans the front faces of both adjacent poles
-   - it also wraps onto the outer side face of each of the two joined poles
-   - it does **not** render duplicate small inserts at the shared joint
+4. **Previously approved placement retained**
+   - bottom and top connector placement logic remains based on the floor-to-first-shelf and last-shelf-to-top intervals
+   - standalone and bridge connector coverage rules remain unchanged from the previous pass
 
 ## Files changed
 
@@ -33,4 +30,4 @@ This follow-up refines the aluminium connection hardware so it better matches th
 
 ## Cache version
 
-- bumped to `bookshelf-point1-8`
+- bumped to `bookshelf-point1-9`
