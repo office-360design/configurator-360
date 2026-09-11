@@ -238,6 +238,32 @@ function markDirty() {
 }
 function round(value, digits = 3) { const f = 10 ** digits; return Math.round(Number(value) * f) / f; }
 function familySpec() { return FAMILIES[state.family] || FAMILIES.compact; }
+function shelfTopCenterY(height) {
+  return height - 130;
+}
+
+function shelfCentersForHeight(height) {
+  // Client reference: both predefined size families have 9 shelves total
+  // including the bottom shelf. The compact module defines the baseline
+  // vertical rhythm. The tall module keeps the first 8 shelf centers at the
+  // exact same heights as compact, lifts only the 9th shelf upward by the
+  // family height delta, and preserves the same top gap above the 9th shelf.
+  const compactBottom = PLINTH_HEIGHT + BOARD / 2;
+  const compactTop = shelfTopCenterY(FAMILIES.compact.height);
+  const compactStep = (compactTop - compactBottom) / 8;
+  const compactCenters = Array.from({ length: 9 }, (_, index) => compactBottom + compactStep * index);
+
+  if (Math.abs(height - FAMILIES.compact.height) < EPS) return compactCenters;
+
+  if (Math.abs(height - FAMILIES.tall.height) < EPS) {
+    const delta = FAMILIES.tall.height - FAMILIES.compact.height;
+    return compactCenters.map((y, index) => (index === 8 ? y + delta : y));
+  }
+
+  const top = shelfTopCenterY(height);
+  const step = (top - compactBottom) / 8;
+  return Array.from({ length: 9 }, (_, index) => compactBottom + step * index);
+}
 function uid() { return `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
 function newModule(kind = 'straight') {
   return { id: uid(), kind, door: 'open', colour: DEFAULT_COLOUR };
@@ -835,14 +861,10 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
     }
   });
 
-  const shelfCount = spec.height > 2200 ? 7 : 6;
-  const shelfStartY = bottomShelfY + BOARD / 2;
-  const topShelfY = height - 130;
-  const shelfGap = (topShelfY - shelfStartY) / (shelfCount + 1);
-  for (let i = 0; i <= shelfCount; i += 1) {
-    const y = shelfStartY + shelfGap * (i + 1);
+  const shelfCenters = shelfCentersForHeight(height);
+  shelfCenters.slice(1).forEach((y) => {
     addBox(group, { x: shelfWidth, y: BOARD, z: shelfDepth }, { x: width / 2, y, z: -depth / 2 }, wood, module.id);
-  }
+  });
 
   addDoors(group, module, { width, depth, height, cornerWing, sharedSide });
   return group;
