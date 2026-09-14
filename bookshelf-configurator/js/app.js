@@ -525,16 +525,15 @@ function metalTexture() {
   return texture;
 }
 function metalMaterial() {
-  // Match the accepted light anodized-aluminium response from the Window
-  // configurator, but compensate for Bookshelf not using the shared HDR/IBL
-  // environment by keeping some diffuse response instead of full metalness.
+  // Use a brighter, more obviously anodized aluminium response so the
+  // keyplate reads as a metallic fitting rather than a flat grey shape.
   return new THREE.MeshPhysicalMaterial({
-    color: 0xd6dade,
+    color: 0xd8dde1,
     map: metalTexture(),
-    roughness: 0.36,
-    metalness: 0.52,
-    clearcoat: 0.14,
-    clearcoatRoughness: 0.34,
+    roughness: 0.22,
+    metalness: 0.82,
+    clearcoat: 0.20,
+    clearcoatRoughness: 0.20,
   });
 }
 function tagMesh(mesh, moduleId) {
@@ -1328,14 +1327,15 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
 
   if (keyplate) {
     const keyplateX = keyplateSide === 'right' ? width / 2 - stile / 2 : -width / 2 + stile / 2;
+    const keyplateDepth = 2.7;
     addDiamondKeyplate(leaf, {
-      width: railBody,
+      width: railBody * 0.5,
       height: railBody,
-      depth: 5.4,
+      depth: keyplateDepth,
       zOffset: 0,
       material: metalMaterial(),
       moduleId: module.id,
-    }).position.set(keyplateX, localMidY, doorThickness + 3.0);
+    }).position.set(keyplateX, localMidY, -keyplateDepth + 0.12);
   }
 
   tagDoorInteractive(leaf, module.id, doorKey);
