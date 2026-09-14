@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const FAMILIES = Object.freeze({
-  compact: Object.freeze({ id: 'compact', width: 800, corner: 800, depth: 350, height: 2150 }),
-  tall: Object.freeze({ id: 'tall', width: 900, corner: 900, depth: 350, height: 2300 }),
+  compact: Object.freeze({ id: 'compact', width: 800, corner: 864, depth: 350, height: 2150 }),
+  tall: Object.freeze({ id: 'tall', width: 900, corner: 964, depth: 350, height: 2300 }),
 });
 
 const DEFAULT_COLOUR = '#b98555';
@@ -47,9 +47,9 @@ const COPY = Object.freeze({
     'section.selected': 'Selected module',
     'section.components': 'Components',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Straight 800 × 350 × 2150 mm · Corner 800 × 800 × 2150 mm',
+    'family.compactDims': 'Straight 800 × 350 × 2150 mm · Corner 864 × 864 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 900 × 900 × 2300 mm',
+    'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 964 × 964 × 2300 mm',
     'family.rule': 'Changing the family updates every module together; heights cannot be mixed.',
     'selected.empty': 'Select a bookshelf module in the 3D view to choose its doors, wood finish or delete it.',
     'selected.module': 'Module',
@@ -95,9 +95,9 @@ const COPY = Object.freeze({
     'section.selected': 'Modul selectat',
     'section.components': 'Listă componente',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Drept 800 × 350 × 2150 mm · Colț 800 × 800 × 2150 mm',
+    'family.compactDims': 'Drept 800 × 350 × 2150 mm · Colț 864 × 864 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 900 × 900 × 2300 mm',
+    'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 964 × 964 × 2300 mm',
     'family.rule': 'Schimbarea familiei actualizează toate modulele împreună; înălțimile nu pot fi amestecate.',
     'selected.empty': 'Selectează un modul în vederea 3D pentru a alege ușile, finisajul lemnului sau pentru a-l șterge.',
     'selected.module': 'Modul',
@@ -143,9 +143,9 @@ const COPY = Object.freeze({
     'section.selected': 'Ausgewähltes Modul',
     'section.components': 'Komponenten',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Gerade 800 × 350 × 2150 mm · Ecke 800 × 800 × 2150 mm',
+    'family.compactDims': 'Gerade 800 × 350 × 2150 mm · Ecke 864 × 864 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 900 × 900 × 2300 mm',
+    'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 964 × 964 × 2300 mm',
     'family.rule': 'Beim Wechsel der Familie werden alle Module gemeinsam aktualisiert; unterschiedliche Höhen können nicht gemischt werden.',
     'selected.empty': 'Wählen Sie ein Modul in der 3D-Ansicht, um Türen, Holzoberfläche oder Löschen zu konfigurieren.',
     'selected.module': 'Modul',
@@ -714,37 +714,41 @@ function addDiamondKeyplate(group, { width, height, depth, zOffset = 0, material
 function addMiteredShelfBoard(group, { width, depth, thickness, center, material, moduleId, sharedSide }) {
   const halfW = width / 2;
   const halfD = depth / 2;
-  const shelfZMin = center.z - halfD;
+  const xMin = -halfW;
+  const xMax = halfW;
+  const zMin = -halfD;
+  const zMax = halfD;
 
-  // Exact 45-degree partition of the ORIGINAL two overlapping shelf rectangles.
-  // The incoming and outgoing wings use complementary concave polygons that
-  // reproduce the same L-shaped union as before, but meet only on one diagonal
-  // seam. That means zero overlapping area and zero missing area.
-  const seamInset = halfW + POST + shelfZMin;
-  const seamY = center.z + POST;
+  // Exact complementary 45° miter. Each corner shelf is still made from two
+  // separate boards, but the overlap square is split on one diagonal only:
+  // - incoming wing keeps the upper/right half of that shared square
+  // - outgoing wing keeps the lower/left half
+  // This preserves the original L-shaped footprint while removing BOTH the
+  // overlap and the missing triangular gap.
+  const diagIncomingLeftX = width / 2 - depth + 17;
+  const diagIncomingRightZ = depth / 2 - POST;
+  const diagOutgoingRightX = -width / 2 + depth - 17;
+  const diagOutgoingLeftZ = depth / 2 - POST;
+
   const shape = new THREE.Shape();
 
   if (sharedSide === 'end') {
-    // Incoming/horizontal wing.
-    shape.moveTo(-halfW, -halfD);
-    shape.lineTo(halfW, -halfD);
-    shape.lineTo(halfW, halfD);
-    shape.lineTo(seamInset, seamY);
-    shape.lineTo(seamInset, halfD);
-    shape.lineTo(-halfW, halfD);
+    shape.moveTo(xMin, zMin);
+    shape.lineTo(diagIncomingLeftX, zMin);
+    shape.lineTo(xMax, diagIncomingRightZ);
+    shape.lineTo(xMax, zMax);
+    shape.lineTo(xMin, zMax);
   } else if (sharedSide === 'start') {
-    // Outgoing/vertical wing. This is the exact complementary half.
-    shape.moveTo(-halfW, halfD);
-    shape.lineTo(-seamInset, seamY);
-    shape.lineTo(-halfW, seamY);
-    shape.lineTo(-halfW, -halfD);
-    shape.lineTo(halfW, -halfD);
-    shape.lineTo(halfW, halfD);
+    shape.moveTo(diagOutgoingRightX, zMin);
+    shape.lineTo(xMax, zMin);
+    shape.lineTo(xMax, zMax);
+    shape.lineTo(xMin, zMax);
+    shape.lineTo(xMin, diagOutgoingLeftZ);
   } else {
-    shape.moveTo(-halfW, -halfD);
-    shape.lineTo(halfW, -halfD);
-    shape.lineTo(halfW, halfD);
-    shape.lineTo(-halfW, halfD);
+    shape.moveTo(xMin, zMin);
+    shape.lineTo(xMax, zMin);
+    shape.lineTo(xMax, zMax);
+    shape.lineTo(xMin, zMax);
   }
   shape.closePath();
 
