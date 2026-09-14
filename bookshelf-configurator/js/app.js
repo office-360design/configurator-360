@@ -686,9 +686,11 @@ function addDiamondKeyplate(group, { width, height, depth, zOffset = 0, material
   shape.lineTo(-width / 2, 0);
   shape.closePath();
 
-  const radius = Math.max(3.2, height * 0.13);
-  const stemHalf = Math.max(1.4, height * 0.055);
-  const stemHeight = Math.max(7.5, height * 0.30);
+  // Match the door keyhole geometry exactly so the rhombus perforation and the
+  // door perforation overlap perfectly and look like one continuous hole.
+  const radius = 7.8;
+  const stemHalf = 2.4;
+  const stemHeight = 22.0;
   const circleCenterY = radius;
 
   const hole = new THREE.Path();
@@ -1327,8 +1329,8 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
   if (keyplate) {
     const keyplateX = keyplateSide === 'right' ? width / 2 - stile / 2 : -width / 2 + stile / 2;
     addDiamondKeyplate(leaf, {
-      width: railBody * 0.96,
-      height: railBody * 1.26,
+      width: railBody,
+      height: railBody,
       depth: 5.4,
       zOffset: 0,
       material: metalMaterial(),
@@ -1398,7 +1400,7 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
       open: doorState.lowerLeft,
       doorKey: 'lowerLeft',
       keyhole: true,
-      keyholeSide: 'left',
+      keyholeSide: 'right',
     });
     addSolidDoorLeaf(parent, module, rightX, leafWidth, y, doorHeight, solidDoorFrontZ, {
       hinge: 'right',
@@ -1425,7 +1427,7 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
     open: doorState.glazedLeft,
     doorKey: 'glazedLeft',
     keyplate: true,
-    keyplateSide: 'left',
+    keyplateSide: 'right',
     midRailGlobalY: height * 0.5,
   });
   addDoorFrame(parent, module, rightX, leafWidth, y, doorHeight, glazedDoorCenterZ, {
