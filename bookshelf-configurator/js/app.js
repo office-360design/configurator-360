@@ -894,6 +894,7 @@ function addBackPostWithFootDent(group, { x, height, material, moduleId }) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
+  mesh.renderOrder = 10;
   tagMesh(mesh, moduleId);
   group.add(mesh);
   return mesh;
@@ -1115,7 +1116,7 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   return group;
 }
 
-function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, frontPlaneZ, { hinge = 'left', open = false, doorKey = '', keyhole = false } = {}) {
+function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, frontPlaneZ, { hinge = 'left', open = false, doorKey = '', keyhole = false, keyholeSide = 'left' } = {}) {
   const wood = woodMaterial(module.colour);
   const darkWood = darkWoodMaterial(module.colour);
   const leaf = createDoorPivot(parent, { xCenter, yCenter, z: frontPlaneZ, width, hinge, open });
@@ -1130,9 +1131,10 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
   const panelWidth = Math.max(28, innerWidth - bevel * 2);
   const panelHeight = Math.max(28, innerHeight - bevel * 2);
 
-  if (keyhole) {
-    // The keyhole belongs on the LEFT border of the RIGHT door: centered in the stile's width
-    // and centered vertically at half the door height.
+  const leftStileX = -width / 2 + frame / 2;
+  const rightStileX = width / 2 - frame / 2;
+
+  if (keyhole && keyholeSide === 'left') {
     addKeyholeCutoutRect(leaf, {
       rectWidth: frame,
       rectHeight: height,
@@ -1142,11 +1144,24 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
       moduleId: module.id,
       keyholeX: 0,
       keyholeY: 0,
-    }).position.set(-width / 2 + frame / 2, 0, 0);
+    }).position.set(leftStileX, 0, 0);
   } else {
-    addBox(leaf, { x: frame, y: height, z: doorThickness }, { x: -width / 2 + frame / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
+    addBox(leaf, { x: frame, y: height, z: doorThickness }, { x: leftStileX, y: 0, z: doorThickness / 2 }, wood, module.id);
   }
-  addBox(leaf, { x: frame, y: height, z: doorThickness }, { x: width / 2 - frame / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
+  if (keyhole && keyholeSide === 'right') {
+    addKeyholeCutoutRect(leaf, {
+      rectWidth: frame,
+      rectHeight: height,
+      depth: doorThickness,
+      zOffset: 0,
+      material: wood,
+      moduleId: module.id,
+      keyholeX: 0,
+      keyholeY: 0,
+    }).position.set(rightStileX, 0, 0);
+  } else {
+    addBox(leaf, { x: frame, y: height, z: doorThickness }, { x: rightStileX, y: 0, z: doorThickness / 2 }, wood, module.id);
+  }
   addBox(leaf, { x: innerWidth, y: frame, z: doorThickness }, { x: 0, y: -height / 2 + frame / 2, z: doorThickness / 2 }, wood, module.id);
   addBox(leaf, { x: innerWidth, y: frame, z: doorThickness }, { x: 0, y: height / 2 - frame / 2, z: doorThickness / 2 }, wood, module.id);
 
@@ -1178,18 +1193,6 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
     material: wood,
     moduleId: module.id,
   });
-
-  if (keyplate) {
-    const keyplateX = keyplateSide === 'right' ? width / 2 - stile / 2 : -width / 2 + stile / 2;
-    addDiamondKeyplate(leaf, {
-      width: railBody * 0.82,
-      height: railBody * 1.12,
-      depth: 4.6,
-      zOffset: 0,
-      material: metalMaterial(),
-      moduleId: module.id,
-    }).position.set(keyplateX, localMidY, doorThickness + 2.2);
-  }
 
   tagDoorInteractive(leaf, module.id, doorKey);
   return leaf;
@@ -1321,6 +1324,18 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
     });
   }
 
+  if (keyplate) {
+    const keyplateX = keyplateSide === 'right' ? width / 2 - stile / 2 : -width / 2 + stile / 2;
+    addDiamondKeyplate(leaf, {
+      width: railBody * 0.96,
+      height: railBody * 1.26,
+      depth: 5.4,
+      zOffset: 0,
+      material: metalMaterial(),
+      moduleId: module.id,
+    }).position.set(keyplateX, localMidY, doorThickness + 3.0);
+  }
+
   tagDoorInteractive(leaf, module.id, doorKey);
 }
 
@@ -1382,12 +1397,13 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
       hinge: 'left',
       open: doorState.lowerLeft,
       doorKey: 'lowerLeft',
+      keyhole: true,
+      keyholeSide: 'left',
     });
     addSolidDoorLeaf(parent, module, rightX, leafWidth, y, doorHeight, solidDoorFrontZ, {
       hinge: 'right',
       open: doorState.lowerRight,
       doorKey: 'lowerRight',
-      keyhole: true,
     });
     return;
   }
@@ -1409,7 +1425,7 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
     open: doorState.glazedLeft,
     doorKey: 'glazedLeft',
     keyplate: true,
-    keyplateSide: 'right',
+    keyplateSide: 'left',
     midRailGlobalY: height * 0.5,
   });
   addDoorFrame(parent, module, rightX, leafWidth, y, doorHeight, glazedDoorCenterZ, {
