@@ -1180,14 +1180,15 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
   });
 
   if (keyplate) {
+    const keyplateX = keyplateSide === 'right' ? width / 2 - stile / 2 : -width / 2 + stile / 2;
     addDiamondKeyplate(leaf, {
-      width: railBody * 0.72,
+      width: railBody * 0.64,
       height: railBody,
-      depth: 2.4,
+      depth: 3.2,
       zOffset: 0,
       material: metalMaterial(),
       moduleId: module.id,
-    }).position.set(-width / 2 + stile / 2, localMidY, doorThickness + 0.4);
+    }).position.set(keyplateX, localMidY, doorThickness + 1.2);
   }
 
   tagDoorInteractive(leaf, module.id, doorKey);
@@ -1195,7 +1196,7 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
 }
 
 
-function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glazed = false, hinge = 'left', open = false, doorKey = '', keyplate = false } = {}) {
+function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glazed = false, hinge = 'left', open = false, doorKey = '', keyplate = false, keyplateSide = 'left' } = {}) {
   const wood = woodMaterial(module.colour);
   const darkWood = darkWoodMaterial(module.colour);
   if (!glazed) {
@@ -1214,6 +1215,8 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
   const innerLeft = -width / 2 + stile;
   const innerRight = width / 2 - stile;
   const innerWidth = Math.max(40, innerRight - innerLeft);
+  const keyplateOnLeft = keyplate && keyplateSide === 'left';
+  const keyplateOnRight = keyplate && keyplateSide === 'right';
 
   const bottomRailBottom = -height / 2;
   const bottomRailTop = bottomRailBottom + railBody;
@@ -1222,7 +1225,7 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
   const topRailTop = height / 2;
   const topRailBottom = topRailTop - railBody;
 
-  if (keyplate) {
+  if (keyplateOnLeft) {
     addKeyholeCutoutRect(leaf, {
       rectWidth: stile,
       rectHeight: height,
@@ -1236,7 +1239,20 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
   } else {
     addBox(leaf, { x: stile, y: height, z: doorThickness }, { x: -width / 2 + stile / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
   }
-  addBox(leaf, { x: stile, y: height, z: doorThickness }, { x: width / 2 - stile / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
+  if (keyplateOnRight) {
+    addKeyholeCutoutRect(leaf, {
+      rectWidth: stile,
+      rectHeight: height,
+      depth: doorThickness,
+      zOffset: 0,
+      material: wood,
+      moduleId: module.id,
+      keyholeX: 0,
+      keyholeY: localMidY,
+    }).position.set(width / 2 - stile / 2, 0, 0);
+  } else {
+    addBox(leaf, { x: stile, y: height, z: doorThickness }, { x: width / 2 - stile / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
+  }
   addBox(leaf, { x: innerWidth, y: railBody, z: doorThickness }, { x: 0, y: (bottomRailBottom + bottomRailTop) / 2, z: doorThickness / 2 }, wood, module.id);
   addBox(leaf, { x: innerWidth, y: railBody, z: doorThickness }, { x: 0, y: localMidY, z: doorThickness / 2 }, wood, module.id);
   addBox(leaf, { x: innerWidth, y: railBody, z: doorThickness }, { x: 0, y: (topRailTop + topRailBottom) / 2, z: doorThickness / 2 }, wood, module.id);
@@ -1377,7 +1393,7 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
   const openingStart = POST + (sharedSide === 'start' ? cornerInset : 0);
   const openingEnd = width - POST - (sharedSide === 'end' ? cornerInset : 0);
   const openingWidth = Math.max(120, openingEnd - openingStart);
-  const leafGap = 2;
+  const leafGap = -1;
   const leafWidth = Math.max(46, (openingWidth - leafGap) / 2);
   const leftX = openingStart + leafWidth / 2;
   const rightX = openingStart + leafWidth + leafGap + leafWidth / 2;
@@ -1390,13 +1406,14 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
     hinge: 'left',
     open: doorState.glazedLeft,
     doorKey: 'glazedLeft',
+    keyplate: true,
+    keyplateSide: 'right',
   });
   addDoorFrame(parent, module, rightX, leafWidth, y, doorHeight, glazedDoorCenterZ, {
     glazed: true,
     hinge: 'right',
     open: doorState.glazedRight,
     doorKey: 'glazedRight',
-    keyplate: true,
   });
 }
 
