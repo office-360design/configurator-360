@@ -21,9 +21,9 @@ const POST = 42;
 const BOARD = 22;
 const BACK = 16;
 const SIDE = 10;
-const SIDE_RAIL_BODY = 92;
+const SIDE_RAIL_BODY = 276;
 const SIDE_RAIL_RAMP = 14;
-const SIDE_MID_BODY = 48;
+const SIDE_MID_BODY = 96;
 const PLINTH_HEIGHT = 78;
 const PLINTH_FRONT_RECESS = 42;
 const BACK_POST_FOOT_DENT = 8;
@@ -1645,11 +1645,26 @@ function raycastModule(event) {
 function toggleDoorLeaf(moduleId, doorKey) {
   const module = state.modules.find((entry) => entry.id === moduleId);
   if (!module || !doorKey) return;
+
+  // Opening/closing a door rebuilds the module geometry. Preserve the user's
+  // exact view across that rebuild so a door click never recenters or pans
+  // the camera unexpectedly.
+  const preservedCameraPosition = camera.position.clone();
+  const preservedControlsTarget = controls.target.clone();
+  const preservedCameraQuaternion = camera.quaternion.clone();
+
   module.doorState = cloneDoorState(module.doorState);
   if (!(doorKey in module.doorState)) return;
   recordUndoCheckpoint();
   module.doorState[doorKey] = !module.doorState[doorKey];
   renderAll();
+
+  camera.position.copy(preservedCameraPosition);
+  controls.target.copy(preservedControlsTarget);
+  camera.quaternion.copy(preservedCameraQuaternion);
+  camera.updateMatrixWorld();
+  controls.update();
+
   markDirty();
 }
 
