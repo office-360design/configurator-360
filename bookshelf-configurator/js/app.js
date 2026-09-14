@@ -639,6 +639,33 @@ function addDoorRampRing(group, { outerLeft, outerRight, outerBottom, outerTop, 
   return mesh;
 }
 
+function createUnifiedKeyholePath(cx = 0, cy = 0) {
+  // One continuous outline: the stem flows directly into the circular head.
+  // Using the same path for the wood and metal removes the horizontal separator
+  // that appeared when the circle was previously closed as a separate loop.
+  const radius = 8.4;
+  const stemHalf = 2.8;
+  const stemHeight = 22.6;
+  const centerY = cy + radius;
+  const joinY = centerY - Math.sqrt(Math.max(0, radius * radius - stemHalf * stemHalf));
+  const leftAngle = Math.atan2(joinY - centerY, -stemHalf);
+  const rightAngle = Math.atan2(joinY - centerY, stemHalf);
+  const endAngle = rightAngle - Math.PI * 2;
+  const steps = 40;
+
+  const hole = new THREE.Path();
+  hole.moveTo(cx - stemHalf, cy - stemHeight);
+  hole.lineTo(cx - stemHalf, joinY);
+  for (let i = 1; i <= steps; i += 1) {
+    const t = i / steps;
+    const angle = leftAngle + (endAngle - leftAngle) * t;
+    hole.lineTo(cx + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
+  }
+  hole.lineTo(cx + stemHalf, cy - stemHeight);
+  hole.closePath();
+  return hole;
+}
+
 function addKeyholeCutoutRect(group, { rectWidth, rectHeight, depth, zOffset = 0, material, moduleId, keyholeX = 0, keyholeY = 0 }) {
   const shape = new THREE.Shape();
   shape.moveTo(-rectWidth / 2, -rectHeight / 2);
@@ -647,23 +674,7 @@ function addKeyholeCutoutRect(group, { rectWidth, rectHeight, depth, zOffset = 0
   shape.lineTo(-rectWidth / 2, rectHeight / 2);
   shape.closePath();
 
-  // True keyhole perforation, enlarged for clarity.
-  const radius = 7.8;
-  const stemHalf = 2.4;
-  const stemHeight = 22.0;
-  const cx = keyholeX;
-  const cy = keyholeY;
-  const circleCenterY = cy + radius;
-
-  const hole = new THREE.Path();
-  hole.moveTo(cx - stemHalf, cy);
-  hole.lineTo(cx - stemHalf, cy - stemHeight);
-  hole.lineTo(cx + stemHalf, cy - stemHeight);
-  hole.lineTo(cx + stemHalf, cy);
-  hole.lineTo(cx + radius, cy);
-  hole.absarc(cx, circleCenterY, radius, -Math.PI / 2, Math.PI * 1.5, false);
-  hole.closePath();
-  shape.holes.push(hole);
+  shape.holes.push(createUnifiedKeyholePath(keyholeX, keyholeY));
 
   const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 28 });
   geometry.translate(0, 0, zOffset);
@@ -685,22 +696,7 @@ function addDiamondKeyplate(group, { width, height, depth, zOffset = 0, material
   shape.lineTo(-width / 2, 0);
   shape.closePath();
 
-  // Match the door keyhole geometry exactly so the rhombus perforation and the
-  // door perforation overlap perfectly and look like one continuous hole.
-  const radius = 8.4;
-  const stemHalf = 2.8;
-  const stemHeight = 22.6;
-  const circleCenterY = radius;
-
-  const hole = new THREE.Path();
-  hole.moveTo(-stemHalf, 0);
-  hole.lineTo(-stemHalf, -stemHeight);
-  hole.lineTo(stemHalf, -stemHeight);
-  hole.lineTo(stemHalf, 0);
-  hole.lineTo(radius, 0);
-  hole.absarc(0, circleCenterY, radius, -Math.PI / 2, Math.PI * 1.5, false);
-  hole.closePath();
-  shape.holes.push(hole);
+  shape.holes.push(createUnifiedKeyholePath(0, 0));
 
   const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 28 });
   geometry.translate(0, 0, zOffset);
@@ -716,21 +712,29 @@ function addDiamondKeyplate(group, { width, height, depth, zOffset = 0, material
 
 
 function addMiteredShelfBoard(group, { width, depth, thickness, center, material, moduleId, sharedSide }) {
-  const miter = Math.min(depth, Math.max(24, depth));
   const halfW = width / 2;
   const halfD = depth / 2;
+  // The shared corner lies on local z = -POST. Relative to this shelf center,
+  // this is the exact point where the two 90° shelf rectangles begin to overlap.
+  const cutZ = -POST - center.z;
+  const miter = halfD + cutZ;
   const shape = new THREE.Shape();
 
   if (sharedSide === 'end') {
+    // Incoming wing: keep one half of the overlap square.
     shape.moveTo(-halfW, halfD);
     shape.lineTo(-halfW, -halfD);
     shape.lineTo(halfW - miter, -halfD);
+    shape.lineTo(halfW, cutZ);
     shape.lineTo(halfW, halfD);
   } else if (sharedSide === 'start') {
+    // Outgoing wing: keep the complementary half. The two meshes share exactly
+    // one diagonal edge, so there is neither overlap nor a visible gap.
     shape.moveTo(-halfW, halfD);
-    shape.lineTo(-halfW + miter, -halfD);
-    shape.lineTo(halfW, -halfD);
     shape.lineTo(halfW, halfD);
+    shape.lineTo(halfW, -halfD);
+    shape.lineTo(-halfW + miter, -halfD);
+    shape.lineTo(-halfW, cutZ);
   } else {
     shape.moveTo(-halfW, halfD);
     shape.lineTo(-halfW, -halfD);
@@ -739,7 +743,12 @@ function addMiteredShelfBoard(group, { width, depth, thickness, center, material
   }
   shape.closePath();
 
-  const geometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, steps: 1, curveSegments: 1 });
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: thickness,
+    bevelEnabled: false,
+    steps: 1,
+    curveSegments: 1,
+  });
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(center.x, center.y - thickness / 2, center.z);
   geometry.computeVertexNormals();
