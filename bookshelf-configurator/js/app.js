@@ -24,8 +24,7 @@ const SIDE = 10;
 const SIDE_RAIL_BODY = 276;
 const SIDE_RAIL_RAMP = 14;
 const SIDE_MID_BODY = 96;
-const PLINTH_HEIGHT = 110;
-const TOP_SHELF_CLEARANCE = 96;
+const PLINTH_HEIGHT = 78;
 const PLINTH_FRONT_RECESS = 42;
 const BACK_POST_FOOT_DENT = 8;
 const BACK_POST_FOOT_DENT_HEIGHT = 64;
@@ -240,7 +239,7 @@ function markDirty() {
 function round(value, digits = 3) { const f = 10 ** digits; return Math.round(Number(value) * f) / f; }
 function familySpec() { return FAMILIES[state.family] || FAMILIES.compact; }
 function shelfTopCenterY(height) {
-  return height - TOP_SHELF_CLEARANCE - BOARD / 2;
+  return height - 130;
 }
 
 function shelfCentersForHeight(height) {
@@ -678,41 +677,6 @@ function addKeyholeCutoutRect(group, { rectWidth, rectHeight, depth, zOffset = 0
   return mesh;
 }
 
-function addDiamondKeyplate(group, { width, height, depth, zOffset = 0, material, moduleId }) {
-  const shape = new THREE.Shape();
-  shape.moveTo(0, height / 2);
-  shape.lineTo(width / 2, 0);
-  shape.lineTo(0, -height / 2);
-  shape.lineTo(-width / 2, 0);
-  shape.closePath();
-
-  const radius = Math.max(3.2, height * 0.13);
-  const stemHalf = Math.max(1.4, height * 0.055);
-  const stemHeight = Math.max(7.5, height * 0.30);
-  const circleCenterY = radius;
-
-  const hole = new THREE.Path();
-  hole.moveTo(-stemHalf, 0);
-  hole.lineTo(-stemHalf, -stemHeight);
-  hole.lineTo(stemHalf, -stemHeight);
-  hole.lineTo(stemHalf, 0);
-  hole.lineTo(radius, 0);
-  hole.absarc(0, circleCenterY, radius, -Math.PI / 2, Math.PI * 1.5, false);
-  hole.closePath();
-  shape.holes.push(hole);
-
-  const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 28 });
-  geometry.translate(0, 0, zOffset);
-  geometry.computeVertexNormals();
-  applyNormalizedBoxUVs(geometry);
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  tagMesh(mesh, moduleId);
-  group.add(mesh);
-  return mesh;
-}
-
 function applyNormalizedBoxUVs(geometry) {
   const position = geometry.getAttribute('position');
   const normal = geometry.getAttribute('normal');
@@ -1092,22 +1056,16 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   const lowerDoorShelfDepthReduction = 28;
   const lowerDoorShelfDepth = Math.max(120, shelfDepth - lowerDoorShelfDepthReduction);
   const lowerDoorShelfCenterZ = -depth / 2 + lowerDoorShelfDepthReduction / 2;
-  const glazedDoorShelfDepthReduction = 32;
-  const glazedDoorShelfDepth = Math.max(120, shelfDepth - glazedDoorShelfDepthReduction);
-  const glazedDoorShelfCenterZ = -depth / 2 + glazedDoorShelfDepthReduction / 2;
   shelfCenters.slice(1).forEach((y, index) => {
     const behindLowerDoors = module.door === 'lower' && index < 2;
-    const behindGlazedDoors = module.door === 'glazed' && index < 7;
-    const currentDepth = behindLowerDoors ? lowerDoorShelfDepth : behindGlazedDoors ? glazedDoorShelfDepth : shelfDepth;
-    const currentCenterZ = behindLowerDoors ? lowerDoorShelfCenterZ : behindGlazedDoors ? glazedDoorShelfCenterZ : -depth / 2;
     addBox(group, {
       x: shelfWidth,
       y: BOARD,
-      z: currentDepth,
+      z: behindLowerDoors ? lowerDoorShelfDepth : shelfDepth,
     }, {
       x: width / 2,
       y,
-      z: currentCenterZ,
+      z: behindLowerDoors ? lowerDoorShelfCenterZ : -depth / 2,
     }, wood, module.id);
   });
 
@@ -1179,156 +1137,36 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
     moduleId: module.id,
   });
 
-  if (keyplate) {
-    const keyplateX = keyplateSide === 'right' ? width / 2 - stile / 2 : -width / 2 + stile / 2;
-    addDiamondKeyplate(leaf, {
-      width: railBody * 0.82,
-      height: railBody * 1.12,
-      depth: 4.6,
-      zOffset: 0,
-      material: metalMaterial(),
-      moduleId: module.id,
-    }).position.set(keyplateX, localMidY, doorThickness + 2.2);
-  }
-
   tagDoorInteractive(leaf, module.id, doorKey);
   return leaf;
 }
 
-
-function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glazed = false, hinge = 'left', open = false, doorKey = '', keyplate = false, keyplateSide = 'left', midRailGlobalY = null } = {}) {
+function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glazed = false, hinge = 'left', open = false, doorKey = '' } = {}) {
   const wood = woodMaterial(module.colour);
-  const darkWood = darkWoodMaterial(module.colour);
+  const frame = 34;
   if (!glazed) {
     addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, z, { hinge, open, doorKey });
     return;
   }
 
   const leaf = createDoorPivot(parent, { xCenter, yCenter, z, width, hinge, open });
-  const doorThickness = 18;
-  const stile = Math.max(48, Math.min(64, width * 0.18));
-  const railBody = SIDE_MID_BODY;
-  const panelInset = 7;
-  const panelThickness = 4;
-  const bevel = 12;
-  const railCenterGlobalY = midRailGlobalY == null ? yCenter : midRailGlobalY;
-  const localMidY = railCenterGlobalY - yCenter;
-  const innerLeft = -width / 2 + stile;
-  const innerRight = width / 2 - stile;
-  const innerWidth = Math.max(40, innerRight - innerLeft);
-  const keyplateOnLeft = keyplate && keyplateSide === 'left';
-  const keyplateOnRight = keyplate && keyplateSide === 'right';
-
-  const bottomRailBottom = -height / 2;
-  const bottomRailTop = bottomRailBottom + railBody;
-  const midRailBottom = localMidY - railBody / 2;
-  const midRailTop = localMidY + railBody / 2;
-  const topRailTop = height / 2;
-  const topRailBottom = topRailTop - railBody;
-
-  if (keyplateOnLeft) {
-    addKeyholeCutoutRect(leaf, {
-      rectWidth: stile,
-      rectHeight: height,
-      depth: doorThickness,
-      zOffset: 0,
-      material: wood,
-      moduleId: module.id,
-      keyholeX: 0,
-      keyholeY: localMidY,
-    }).position.set(-width / 2 + stile / 2, 0, 0);
-  } else {
-    addBox(leaf, { x: stile, y: height, z: doorThickness }, { x: -width / 2 + stile / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
-  }
-  if (keyplateOnRight) {
-    addKeyholeCutoutRect(leaf, {
-      rectWidth: stile,
-      rectHeight: height,
-      depth: doorThickness,
-      zOffset: 0,
-      material: wood,
-      moduleId: module.id,
-      keyholeX: 0,
-      keyholeY: localMidY,
-    }).position.set(width / 2 - stile / 2, 0, 0);
-  } else {
-    addBox(leaf, { x: stile, y: height, z: doorThickness }, { x: width / 2 - stile / 2, y: 0, z: doorThickness / 2 }, wood, module.id);
-  }
-  addBox(leaf, { x: innerWidth, y: railBody, z: doorThickness }, { x: 0, y: (bottomRailBottom + bottomRailTop) / 2, z: doorThickness / 2 }, wood, module.id);
-  addBox(leaf, { x: innerWidth, y: railBody, z: doorThickness }, { x: 0, y: localMidY, z: doorThickness / 2 }, wood, module.id);
-  addBox(leaf, { x: innerWidth, y: railBody, z: doorThickness }, { x: 0, y: (topRailTop + topRailBottom) / 2, z: doorThickness / 2 }, wood, module.id);
-
-  const lowerOuterLeft = innerLeft;
-  const lowerOuterRight = innerRight;
-  const lowerOuterBottom = bottomRailTop;
-  const lowerOuterTop = midRailBottom;
-  const lowerInnerLeft = lowerOuterLeft + bevel;
-  const lowerInnerRight = lowerOuterRight - bevel;
-  const lowerInnerBottom = lowerOuterBottom + bevel;
-  const lowerInnerTop = lowerOuterTop - bevel;
-  const lowerPanelWidth = Math.max(24, lowerInnerRight - lowerInnerLeft);
-  const lowerPanelHeight = Math.max(24, lowerInnerTop - lowerInnerBottom);
-  if (lowerPanelWidth > 0 && lowerPanelHeight > 0) {
-    addBox(leaf, { x: lowerPanelWidth, y: lowerPanelHeight, z: panelThickness }, {
-      x: 0,
-      y: (lowerInnerBottom + lowerInnerTop) / 2,
-      z: panelInset + panelThickness / 2,
-    }, darkWood, module.id);
-    addDoorRampRing(leaf, {
-      outerLeft: lowerOuterLeft,
-      outerRight: lowerOuterRight,
-      outerBottom: lowerOuterBottom,
-      outerTop: lowerOuterTop,
-      innerLeft: lowerInnerLeft,
-      innerRight: lowerInnerRight,
-      innerBottom: lowerInnerBottom,
-      innerTop: lowerInnerTop,
-      panelInset,
-      material: wood,
-      moduleId: module.id,
-    });
-  }
-
-  const upperOuterLeft = innerLeft;
-  const upperOuterRight = innerRight;
-  const upperOuterBottom = midRailTop;
-  const upperOuterTop = topRailBottom;
-  const upperInnerLeft = upperOuterLeft + bevel;
-  const upperInnerRight = upperOuterRight - bevel;
-  const upperInnerBottom = upperOuterBottom + bevel;
-  const upperInnerTop = upperOuterTop - bevel;
-  const upperGlassWidth = Math.max(24, upperInnerRight - upperInnerLeft);
-  const upperGlassHeight = Math.max(24, upperInnerTop - upperInnerBottom);
-  if (upperGlassWidth > 0 && upperGlassHeight > 0) {
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(upperGlassWidth, upperGlassHeight, 5), glassMaterial());
-    glass.position.set(0, (upperInnerBottom + upperInnerTop) / 2, panelInset + 3.5);
-    glass.castShadow = true;
-    glass.receiveShadow = true;
-    tagMesh(glass, module.id);
-    leaf.add(glass);
-    addDoorRampRing(leaf, {
-      outerLeft: upperOuterLeft,
-      outerRight: upperOuterRight,
-      outerBottom: upperOuterBottom,
-      outerTop: upperOuterTop,
-      innerLeft: upperInnerLeft,
-      innerRight: upperInnerRight,
-      innerBottom: upperInnerBottom,
-      innerTop: upperInnerTop,
-      panelInset,
-      material: wood,
-      moduleId: module.id,
-    });
-  }
-
+  addBox(leaf, { x: frame, y: height, z: 18 }, { x: -width / 2 + frame / 2, y: 0, z: 9 }, wood, module.id);
+  addBox(leaf, { x: frame, y: height, z: 18 }, { x: width / 2 - frame / 2, y: 0, z: 9 }, wood, module.id);
+  addBox(leaf, { x: width - frame * 2, y: frame, z: 18 }, { x: 0, y: -height / 2 + frame / 2, z: 9 }, wood, module.id);
+  addBox(leaf, { x: width - frame * 2, y: frame, z: 18 }, { x: 0, y: height / 2 - frame / 2, z: 9 }, wood, module.id);
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(Math.max(20, width - frame * 2), Math.max(20, height - frame * 2), 5), glassMaterial());
+  glass.position.set(0, 0, 10);
+  glass.castShadow = true;
+  glass.receiveShadow = true;
+  tagMesh(glass, module.id);
+  leaf.add(glass);
   tagDoorInteractive(leaf, module.id, doorKey);
 }
 
 function addDoors(parent, module, { width, depth, height, cornerWing = false, sharedSide = null }) {
   if (module.door === 'open') return;
-  const shelfFrontZ = frontZ(depth) + (depth - (depth - 34)) / 2;
-  const solidDoorFrontZ = shelfFrontZ;
-  const glazedDoorCenterZ = shelfFrontZ;
+  const solidDoorFrontZ = frontZ(depth) + 12;
+  const glazedDoorCenterZ = frontZ(depth) + 9.2;
   const cornerInset = cornerWing ? Math.max(64, POST * 1.5) : 0;
   const lowerDoorStart = POST + (sharedSide === 'start' ? cornerInset : 0);
   const lowerDoorEnd = width - POST - (sharedSide === 'end' ? cornerInset : 0);
@@ -1355,17 +1193,14 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
       });
       return;
     }
-    const openingBottom = shelfCenters[0] + BOARD / 2;
-    const openingTop = shelfCenters[8] - BOARD / 2;
-    const doorHeight = Math.max(200, openingTop - openingBottom);
-    const y = (openingTop + openingBottom) / 2;
+    const doorHeight = height - 205;
+    const y = 105 + doorHeight / 2;
     const hinge = sharedSide === 'start' ? 'right' : 'left';
     addDoorFrame(parent, module, x, leafWidth, y, doorHeight, glazedDoorCenterZ, {
       glazed: true,
       hinge,
       open: doorState.glazedSingle,
       doorKey: 'glazedSingle',
-      midRailGlobalY: height * 0.5,
     });
     return;
   }
@@ -1392,32 +1227,26 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
     return;
   }
 
-  const openingStart = POST + (sharedSide === 'start' ? cornerInset : 0);
-  const openingEnd = width - POST - (sharedSide === 'end' ? cornerInset : 0);
+  const openingStart = POST + 9 + (sharedSide === 'start' ? cornerInset : 0);
+  const openingEnd = width - POST - 9 - (sharedSide === 'end' ? cornerInset : 0);
   const openingWidth = Math.max(120, openingEnd - openingStart);
-  const leafGap = -1;
+  const leafGap = 8;
   const leafWidth = Math.max(46, (openingWidth - leafGap) / 2);
   const leftX = openingStart + leafWidth / 2;
   const rightX = openingStart + leafWidth + leafGap + leafWidth / 2;
-  const openingBottom = shelfCenters[0] + BOARD / 2;
-  const openingTop = shelfCenters[8] - BOARD / 2;
-  const doorHeight = Math.max(200, openingTop - openingBottom);
-  const y = (openingTop + openingBottom) / 2;
+  const doorHeight = height - 205;
+  const y = 105 + doorHeight / 2;
   addDoorFrame(parent, module, leftX, leafWidth, y, doorHeight, glazedDoorCenterZ, {
     glazed: true,
     hinge: 'left',
     open: doorState.glazedLeft,
     doorKey: 'glazedLeft',
-    keyplate: true,
-    keyplateSide: 'right',
-    midRailGlobalY: height * 0.5,
   });
   addDoorFrame(parent, module, rightX, leafWidth, y, doorHeight, glazedDoorCenterZ, {
     glazed: true,
     hinge: 'right',
     open: doorState.glazedRight,
     doorKey: 'glazedRight',
-    midRailGlobalY: height * 0.5,
   });
 }
 
@@ -1836,14 +1665,6 @@ function toggleDoorLeaf(moduleId, doorKey) {
   camera.updateMatrixWorld();
   controls.update();
 
-  requestAnimationFrame(() => {
-    camera.position.copy(preservedCameraPosition);
-    controls.target.copy(preservedControlsTarget);
-    camera.quaternion.copy(preservedCameraQuaternion);
-    camera.updateMatrixWorld();
-    controls.update();
-  });
-
   markDirty();
 }
 
@@ -1919,8 +1740,7 @@ function bindControls() {
     selectedModuleId = moduleId;
     closeAddPanel();
     if (doorKey) {
-      event.preventDefault();
-      requestAnimationFrame(() => toggleDoorLeaf(moduleId, doorKey));
+      toggleDoorLeaf(moduleId, doorKey);
       return;
     }
     renderSelectedControls();
