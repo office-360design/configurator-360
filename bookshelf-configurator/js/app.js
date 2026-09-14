@@ -687,9 +687,9 @@ function addDiamondKeyplate(group, { width, height, depth, zOffset = 0, material
 
   // Match the door keyhole geometry exactly so the rhombus perforation and the
   // door perforation overlap perfectly and look like one continuous hole.
-  const radius = 7.8;
-  const stemHalf = 2.4;
-  const stemHeight = 22.0;
+  const radius = 8.4;
+  const stemHalf = 2.8;
+  const stemHeight = 22.6;
   const circleCenterY = radius;
 
   const hole = new THREE.Path();
@@ -704,6 +704,44 @@ function addDiamondKeyplate(group, { width, height, depth, zOffset = 0, material
 
   const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 28 });
   geometry.translate(0, 0, zOffset);
+  geometry.computeVertexNormals();
+  applyNormalizedBoxUVs(geometry);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, moduleId);
+  group.add(mesh);
+  return mesh;
+}
+
+
+function addMiteredShelfBoard(group, { width, depth, thickness, center, material, moduleId, sharedSide }) {
+  const miter = Math.min(depth, Math.max(24, depth));
+  const halfW = width / 2;
+  const halfD = depth / 2;
+  const shape = new THREE.Shape();
+
+  if (sharedSide === 'end') {
+    shape.moveTo(-halfW, halfD);
+    shape.lineTo(-halfW, -halfD);
+    shape.lineTo(halfW - miter, -halfD);
+    shape.lineTo(halfW, halfD);
+  } else if (sharedSide === 'start') {
+    shape.moveTo(-halfW, halfD);
+    shape.lineTo(-halfW + miter, -halfD);
+    shape.lineTo(halfW, -halfD);
+    shape.lineTo(halfW, halfD);
+  } else {
+    shape.moveTo(-halfW, halfD);
+    shape.lineTo(-halfW, -halfD);
+    shape.lineTo(halfW, -halfD);
+    shape.lineTo(halfW, halfD);
+  }
+  shape.closePath();
+
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, steps: 1, curveSegments: 1 });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(center.x, center.y - thickness / 2, center.z);
   geometry.computeVertexNormals();
   applyNormalizedBoxUVs(geometry);
   const mesh = new THREE.Mesh(geometry, material);
@@ -1052,11 +1090,23 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
     z: plinthCenterZ,
   }, darkWood, module.id);
   const bottomShelfY = PLINTH_HEIGHT + BOARD / 2;
-  addBox(group, { x: innerWidth, y: BOARD, z: shelfDepth }, {
-    x: width / 2,
-    y: bottomShelfY,
-    z: -depth / 2,
-  }, wood, module.id);
+  if (cornerWing && sharedSide) {
+    addMiteredShelfBoard(group, {
+      width: innerWidth,
+      depth: shelfDepth,
+      thickness: BOARD,
+      center: { x: width / 2, y: bottomShelfY, z: -depth / 2 },
+      material: wood,
+      moduleId: module.id,
+      sharedSide,
+    });
+  } else {
+    addBox(group, { x: innerWidth, y: BOARD, z: shelfDepth }, {
+      x: width / 2,
+      y: bottomShelfY,
+      z: -depth / 2,
+    }, wood, module.id);
+  }
 
   // Full-height side assemblies from floor to top. Their thin panels share the
   // same inner plane as the posts, while the three raised exterior connectors
@@ -1102,15 +1152,27 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
     const behindGlazedDoors = module.door === 'glazed' && index < 7;
     const currentDepth = behindLowerDoors ? lowerDoorShelfDepth : behindGlazedDoors ? glazedDoorShelfDepth : shelfDepth;
     const currentCenterZ = behindLowerDoors ? lowerDoorShelfCenterZ : behindGlazedDoors ? glazedDoorShelfCenterZ : -depth / 2;
-    addBox(group, {
-      x: shelfWidth,
-      y: BOARD,
-      z: currentDepth,
-    }, {
-      x: width / 2,
-      y,
-      z: currentCenterZ,
-    }, wood, module.id);
+    if (cornerWing && sharedSide) {
+      addMiteredShelfBoard(group, {
+        width: shelfWidth,
+        depth: currentDepth,
+        thickness: BOARD,
+        center: { x: width / 2, y, z: currentCenterZ },
+        material: wood,
+        moduleId: module.id,
+        sharedSide,
+      });
+    } else {
+      addBox(group, {
+        x: shelfWidth,
+        y: BOARD,
+        z: currentDepth,
+      }, {
+        x: width / 2,
+        y,
+        z: currentCenterZ,
+      }, wood, module.id);
+    }
   });
 
   addDoors(group, module, { width, depth, height, cornerWing, sharedSide });
