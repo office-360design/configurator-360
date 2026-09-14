@@ -714,32 +714,37 @@ function addDiamondKeyplate(group, { width, height, depth, zOffset = 0, material
 function addMiteredShelfBoard(group, { width, depth, thickness, center, material, moduleId, sharedSide }) {
   const halfW = width / 2;
   const halfD = depth / 2;
-  // The shared corner lies on local z = -POST. Relative to this shelf center,
-  // this is the exact point where the two 90° shelf rectangles begin to overlap.
-  const cutZ = -POST - center.z;
-  const miter = halfD + cutZ;
+  const shelfZMin = center.z - halfD;
+
+  // Exact 45-degree partition of the ORIGINAL two overlapping shelf rectangles.
+  // The incoming and outgoing wings use complementary concave polygons that
+  // reproduce the same L-shaped union as before, but meet only on one diagonal
+  // seam. That means zero overlapping area and zero missing area.
+  const seamInset = halfW + POST + shelfZMin;
+  const seamY = center.z + POST;
   const shape = new THREE.Shape();
 
   if (sharedSide === 'end') {
-    // Incoming wing: keep one half of the overlap square.
-    shape.moveTo(-halfW, halfD);
-    shape.lineTo(-halfW, -halfD);
-    shape.lineTo(halfW - miter, -halfD);
-    shape.lineTo(halfW, cutZ);
+    // Incoming/horizontal wing.
+    shape.moveTo(-halfW, -halfD);
+    shape.lineTo(halfW, -halfD);
     shape.lineTo(halfW, halfD);
+    shape.lineTo(seamInset, seamY);
+    shape.lineTo(seamInset, halfD);
+    shape.lineTo(-halfW, halfD);
   } else if (sharedSide === 'start') {
-    // Outgoing wing: keep the complementary half. The two meshes share exactly
-    // one diagonal edge, so there is neither overlap nor a visible gap.
+    // Outgoing/vertical wing. This is the exact complementary half.
     shape.moveTo(-halfW, halfD);
-    shape.lineTo(halfW, halfD);
-    shape.lineTo(halfW, -halfD);
-    shape.lineTo(-halfW + miter, -halfD);
-    shape.lineTo(-halfW, cutZ);
-  } else {
-    shape.moveTo(-halfW, halfD);
+    shape.lineTo(-seamInset, seamY);
+    shape.lineTo(-halfW, seamY);
     shape.lineTo(-halfW, -halfD);
     shape.lineTo(halfW, -halfD);
     shape.lineTo(halfW, halfD);
+  } else {
+    shape.moveTo(-halfW, -halfD);
+    shape.lineTo(halfW, -halfD);
+    shape.lineTo(halfW, halfD);
+    shape.lineTo(-halfW, halfD);
   }
   shape.closePath();
 
