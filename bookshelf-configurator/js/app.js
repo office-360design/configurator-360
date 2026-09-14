@@ -595,28 +595,39 @@ function addMiteredDoorCornerRamp(group, corners, material, moduleId) {
 }
 
 function addDoorRampRing(group, { outerLeft, outerRight, outerBottom, outerTop, innerLeft, innerRight, innerBottom, innerTop, panelInset, material, moduleId }) {
-  // One continuous mitered ramp ring. This eliminates the extra corner-plug look
-  // and gives a clean uninterrupted transition around the recessed panel.
+  // Closed continuous mitered ramp ring. The sloped frame transition is modeled as
+  // one continuous piece and includes underside closure so no corner gaps show in
+  // oblique views.
   const overlap = 0.2;
-  const outer = [
+  const verts = [
     [outerLeft - overlap, outerTop + overlap, 0],
     [outerRight + overlap, outerTop + overlap, 0],
     [outerRight + overlap, outerBottom - overlap, 0],
     [outerLeft - overlap, outerBottom - overlap, 0],
-  ];
-  const inner = [
     [innerLeft, innerTop, panelInset],
     [innerRight, innerTop, panelInset],
     [innerRight, innerBottom, panelInset],
     [innerLeft, innerBottom, panelInset],
+    [innerLeft, innerTop, 0],
+    [innerRight, innerTop, 0],
+    [innerRight, innerBottom, 0],
+    [innerLeft, innerBottom, 0],
   ];
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([...outer, ...inner].flat()), 3));
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts.flat()), 3));
   geometry.setIndex([
     0, 1, 5, 0, 5, 4,
     1, 2, 6, 1, 6, 5,
     2, 3, 7, 2, 7, 6,
     3, 0, 4, 3, 4, 7,
+    4, 5, 9, 4, 9, 8,
+    5, 6, 10, 5, 10, 9,
+    6, 7, 11, 6, 11, 10,
+    7, 4, 8, 7, 8, 11,
+    0, 8, 9, 0, 9, 1,
+    1, 9, 10, 1, 10, 2,
+    2, 10, 11, 2, 11, 3,
+    3, 11, 8, 3, 8, 0,
   ]);
   geometry.computeVertexNormals();
   applyNormalizedBoxUVs(geometry);
@@ -1667,7 +1678,37 @@ function bindControls() {
     addModuleError.hidden = true;
   }));
 
-  renderer.domElement.addEventListener('click', (event) => {
+  let pointerDown = null;
+  let pointerMoved = false;
+
+  renderer.domElement.addEventListener('pointerdown', (event) => {
+    pointerDown = {
+      x: event.clientX,
+      y: event.clientY,
+      button: event.button,
+      time: performance.now(),
+    };
+    pointerMoved = false;
+  });
+
+  renderer.domElement.addEventListener('pointermove', (event) => {
+    if (!pointerDown) return;
+    if (Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > 5) {
+      pointerMoved = true;
+    }
+  });
+
+  renderer.domElement.addEventListener('pointerup', (event) => {
+    const down = pointerDown;
+    pointerDown = null;
+    if (!down) return;
+    if (down.button !== 0 || pointerMoved) {
+      pointerMoved = false;
+      return;
+    }
+    pointerMoved = false;
+    if (performance.now() - down.time > 300) return;
+
     const hit = raycastModule(event);
     const moduleId = hit?.userData?.bookshelfModuleId || '';
     const doorKey = hit?.userData?.bookshelfDoorKey || '';
@@ -1689,7 +1730,12 @@ function bindControls() {
     }
     renderSelectedControls();
     rebuildSelectionHelper();
-  }, true);
+  });
+
+  renderer.domElement.addEventListener('pointercancel', () => {
+    pointerDown = null;
+    pointerMoved = false;
+  });
 }
 
 function resizeRenderer() {
