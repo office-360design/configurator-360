@@ -23,7 +23,7 @@ const BACK = 16;
 const SIDE = 10;
 const SIDE_RAIL_BODY = 92;
 const SIDE_RAIL_RAMP = 14;
-const SIDE_MID_BODY = 124;
+const SIDE_MID_BODY = 48;
 const PLINTH_HEIGHT = 78;
 const PLINTH_FRONT_RECESS = 42;
 const BACK_POST_FOOT_DENT = 8;
@@ -594,35 +594,45 @@ function addMiteredDoorCornerRamp(group, corners, material, moduleId) {
   return mesh;
 }
 
-function addDoorCornerFillers(group, panelWidth, panelHeight, panelInset, bevel, material, moduleId) {
-  const xL0 = -panelWidth / 2 - bevel;
-  const xL1 = -panelWidth / 2;
-  const xR0 = panelWidth / 2;
-  const xR1 = panelWidth / 2 + bevel;
-  const yB0 = -panelHeight / 2 - bevel;
-  const yB1 = -panelHeight / 2;
-  const yT0 = panelHeight / 2;
-  const yT1 = panelHeight / 2 + bevel;
+function addDoorRampStrip(group, pointsXY, panelInset, material, moduleId) {
+  // points are ordered as: outerStart, outerEnd, innerEnd, innerStart.
+  // This creates one continuous ramp strip with diagonal cuts at both ends,
+  // matching the hand-drawn framed profile more closely than separate corner plugs.
+  const pts = pointsXY.map(([x, y]) => ({ x, y }));
+  const top = [
+    [pts[0].x, pts[0].y, 0],
+    [pts[1].x, pts[1].y, 0],
+    [pts[2].x, pts[2].y, panelInset],
+    [pts[3].x, pts[3].y, panelInset],
+  ];
+  const base = [
+    [pts[0].x, pts[0].y, 0],
+    [pts[1].x, pts[1].y, 0],
+    [pts[2].x, pts[2].y, 0],
+    [pts[3].x, pts[3].y, 0],
+  ];
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([...top, ...base].flat()), 3));
+  geometry.setIndex([
+    0, 1, 2, 0, 2, 3, // sloped front surface
+    4, 7, 6, 4, 6, 5, // back face on the recessed plane
+    1, 5, 6, 1, 6, 2, // end 1
+    2, 6, 7, 2, 7, 3, // inner vertical face
+    3, 7, 4, 3, 4, 0, // end 2
+  ]);
+  geometry.computeVertexNormals();
+  applyNormalizedBoxUVs(geometry);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, moduleId);
+  group.add(mesh);
+  return mesh;
+}
 
-  // 4 mitered wedges: three outer rectangle corners stay flush with the frame surface,
-  // while the inner corner rises to the recessed panel depth. This creates a continuous
-  // ramp through each corner instead of a separate little square plug.
-  addMiteredDoorCornerRamp(group, [
-    [xL0, yT1, 0], [xL1, yT1, 0], [xL1, yT0, panelInset], [xL0, yT0, 0],
-    [xL0, yT1, 0], [xL1, yT1, 0], [xL1, yT0, 0], [xL0, yT0, 0],
-  ], material, moduleId);
-  addMiteredDoorCornerRamp(group, [
-    [xR0, yT1, 0], [xR1, yT1, 0], [xR1, yT0, 0], [xR0, yT0, panelInset],
-    [xR0, yT1, 0], [xR1, yT1, 0], [xR1, yT0, 0], [xR0, yT0, 0],
-  ], material, moduleId);
-  addMiteredDoorCornerRamp(group, [
-    [xL0, yB1, 0], [xL1, yB1, panelInset], [xL1, yB0, 0], [xL0, yB0, 0],
-    [xL0, yB1, 0], [xL1, yB1, 0], [xL1, yB0, 0], [xL0, yB0, 0],
-  ], material, moduleId);
-  addMiteredDoorCornerRamp(group, [
-    [xR0, yB1, panelInset], [xR1, yB1, 0], [xR1, yB0, 0], [xR0, yB0, 0],
-    [xR0, yB1, 0], [xR1, yB1, 0], [xR1, yB0, 0], [xR0, yB0, 0],
-  ], material, moduleId);
+function addDoorCornerFillers(group, panelWidth, panelHeight, panelInset, bevel, material, moduleId) {
+  // Legacy helper kept for compatibility; the refined door frame now uses
+  // four continuous diagonal-ended ramp strips instead.
 }
 
 function addKeyholeCutoutRect(group, { rectWidth, rectHeight, depth, zOffset = 0, material, moduleId, keyholeX = 0, keyholeY = 0 }) {
@@ -1100,27 +1110,27 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
     z: panelInset + panelThickness / 2,
   }, darkWood, module.id);
 
-  addExtrudedProfileAlongX(leaf, [
-    [panelHeight / 2, panelInset],
-    [panelHeight / 2 + bevel, panelInset],
-    [panelHeight / 2 + bevel, 0],
-  ], 0, panelWidth, wood, module.id);
-  addExtrudedProfileAlongX(leaf, [
-    [-panelHeight / 2 - bevel, 0],
-    [-panelHeight / 2 - bevel, panelInset],
-    [-panelHeight / 2, panelInset],
-  ], 0, panelWidth, wood, module.id);
-  addExtrudedProfileAlongY(leaf, [
-    [-panelWidth / 2 - bevel, 0],
-    [-panelWidth / 2 - bevel, panelInset],
-    [-panelWidth / 2, panelInset],
-  ], 0, panelHeight, wood, module.id);
-  addExtrudedProfileAlongY(leaf, [
-    [panelWidth / 2, panelInset],
-    [panelWidth / 2 + bevel, panelInset],
-    [panelWidth / 2 + bevel, 0],
-  ], 0, panelHeight, wood, module.id);
-  addDoorCornerFillers(leaf, panelWidth, panelHeight, panelInset, bevel, wood, module.id);
+  const xL0 = -panelWidth / 2 - bevel;
+  const xL1 = -panelWidth / 2;
+  const xR0 = panelWidth / 2;
+  const xR1 = panelWidth / 2 + bevel;
+  const yB0 = -panelHeight / 2 - bevel;
+  const yB1 = -panelHeight / 2;
+  const yT0 = panelHeight / 2;
+  const yT1 = panelHeight / 2 + bevel;
+
+  addDoorRampStrip(leaf, [
+    [xL0, yT1], [xR1, yT1], [xR0, yT0], [xL1, yT0],
+  ], panelInset, wood, module.id);
+  addDoorRampStrip(leaf, [
+    [xL0, yB0], [xR1, yB0], [xR0, yB1], [xL1, yB1],
+  ], panelInset, wood, module.id);
+  addDoorRampStrip(leaf, [
+    [xL0, yT1], [xL0, yB0], [xL1, yB1], [xL1, yT0],
+  ], panelInset, wood, module.id);
+  addDoorRampStrip(leaf, [
+    [xR1, yT1], [xR1, yB0], [xR0, yB1], [xR0, yT0],
+  ], panelInset, wood, module.id);
 
   tagDoorInteractive(leaf, module.id, doorKey);
   return leaf;
@@ -1664,46 +1674,42 @@ function bindControls() {
   }));
 
   let down = null;
-  let suppressOrbitFromDoorClick = false;
 
   renderer.domElement.addEventListener('pointerdown', (event) => {
     const hit = raycastModule(event);
-    const doorKey = hit?.userData?.bookshelfDoorKey || '';
-    down = { x: event.clientX, y: event.clientY, doorKey };
-    if (doorKey) {
-      suppressOrbitFromDoorClick = true;
-      controls.enabled = false;
-      event.preventDefault();
-      event.stopPropagation();
-    }
+    down = {
+      x: event.clientX,
+      y: event.clientY,
+      button: event.button,
+      moduleId: hit?.userData?.bookshelfModuleId || '',
+      doorKey: hit?.userData?.bookshelfDoorKey || '',
+    };
   }, true);
 
-  const restoreControls = () => {
-    if (suppressOrbitFromDoorClick) {
-      suppressOrbitFromDoorClick = false;
-      controls.enabled = true;
-    }
-  };
-
-  renderer.domElement.addEventListener('pointercancel', restoreControls, true);
-  renderer.domElement.addEventListener('pointerleave', restoreControls, true);
+  const clearPointerState = () => { down = null; };
+  renderer.domElement.addEventListener('pointercancel', clearPointerState, true);
+  renderer.domElement.addEventListener('pointerleave', clearPointerState, true);
   renderer.domElement.addEventListener('pointerup', (event) => {
-    if (!down) {
-      restoreControls();
-      return;
-    }
-    const moved = Math.hypot(event.clientX - down.x, event.clientY - down.y);
-    const wasDoorPress = Boolean(down.doorKey);
+    if (!down) return;
+    const start = down;
     down = null;
-    if (wasDoorPress) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    restoreControls();
-    if (moved > 5) return;
+    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+    if (moved > 5) return; // treat it as camera movement / drag, not a click
+
     const hit = raycastModule(event);
     const moduleId = hit?.userData?.bookshelfModuleId || '';
     const doorKey = hit?.userData?.bookshelfDoorKey || '';
+
+    // Only a short LEFT click on the same door toggles the leaf. Starting a drag
+    // on top of a door should still behave exactly like dragging anywhere else.
+    if (start.button === 0 && start.doorKey && start.doorKey === doorKey && start.moduleId === moduleId) {
+      selectedModuleId = moduleId;
+      closeAddPanel();
+      toggleDoorLeaf(moduleId, doorKey);
+      return;
+    }
+
+    if (start.button !== 0) return;
     if (!moduleId) {
       if (selectedModuleId) {
         selectedModuleId = '';
@@ -1714,10 +1720,6 @@ function bindControls() {
     }
     selectedModuleId = moduleId;
     closeAddPanel();
-    if (doorKey) {
-      toggleDoorLeaf(moduleId, doorKey);
-      return;
-    }
     renderSelectedControls();
     rebuildSelectionHelper();
   }, true);
