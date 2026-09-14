@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const FAMILIES = Object.freeze({
-  compact: Object.freeze({ id: 'compact', width: 800, corner: 864, depth: 350, height: 2150 }),
-  tall: Object.freeze({ id: 'tall', width: 900, corner: 964, depth: 350, height: 2300 }),
+  compact: Object.freeze({ id: 'compact', width: 800, corner: 928, depth: 350, height: 2150 }),
+  tall: Object.freeze({ id: 'tall', width: 900, corner: 1028, depth: 350, height: 2300 }),
 });
 
 const DEFAULT_COLOUR = '#b98555';
@@ -47,9 +47,9 @@ const COPY = Object.freeze({
     'section.selected': 'Selected module',
     'section.components': 'Components',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Straight 800 × 350 × 2150 mm · Corner 864 × 864 × 2150 mm',
+    'family.compactDims': 'Straight 800 × 350 × 2150 mm · Corner 928 × 928 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 964 × 964 × 2300 mm',
+    'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 1028 × 1028 × 2300 mm',
     'family.rule': 'Changing the family updates every module together; heights cannot be mixed.',
     'selected.empty': 'Select a bookshelf module in the 3D view to choose its doors, wood finish or delete it.',
     'selected.module': 'Module',
@@ -95,9 +95,9 @@ const COPY = Object.freeze({
     'section.selected': 'Modul selectat',
     'section.components': 'Listă componente',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Drept 800 × 350 × 2150 mm · Colț 864 × 864 × 2150 mm',
+    'family.compactDims': 'Drept 800 × 350 × 2150 mm · Colț 928 × 928 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 964 × 964 × 2300 mm',
+    'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 1028 × 1028 × 2300 mm',
     'family.rule': 'Schimbarea familiei actualizează toate modulele împreună; înălțimile nu pot fi amestecate.',
     'selected.empty': 'Selectează un modul în vederea 3D pentru a alege ușile, finisajul lemnului sau pentru a-l șterge.',
     'selected.module': 'Modul',
@@ -143,9 +143,9 @@ const COPY = Object.freeze({
     'section.selected': 'Ausgewähltes Modul',
     'section.components': 'Komponenten',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Gerade 800 × 350 × 2150 mm · Ecke 864 × 864 × 2150 mm',
+    'family.compactDims': 'Gerade 800 × 350 × 2150 mm · Ecke 928 × 928 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 964 × 964 × 2300 mm',
+    'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 1028 × 1028 × 2300 mm',
     'family.rule': 'Beim Wechsel der Familie werden alle Module gemeinsam aktualisiert; unterschiedliche Höhen können nicht gemischt werden.',
     'selected.empty': 'Wählen Sie ein Modul in der 3D-Ansicht, um Türen, Holzoberfläche oder Löschen zu konfigurieren.',
     'selected.module': 'Modul',
@@ -719,31 +719,27 @@ function addMiteredShelfBoard(group, { width, depth, thickness, center, material
   const zMin = -halfD;
   const zMax = halfD;
 
-  // Exact complementary 45° miter. Each corner shelf is still made from two
-  // separate boards, but the overlap square is split on one diagonal only:
-  // - incoming wing keeps the upper/right half of that shared square
-  // - outgoing wing keeps the lower/left half
-  // This preserves the original L-shaped footprint while removing BOTH the
-  // overlap and the missing triangular gap.
-  const diagIncomingLeftX = width / 2 - depth + 17;
-  const diagIncomingRightZ = depth / 2 - POST;
-  const diagOutgoingRightX = -width / 2 + depth - 17;
-  const diagOutgoingLeftZ = depth / 2 - POST;
-
+  // True two-board mitered corner:
+  // each wing is a single trapezoid board and the two boards meet on one
+  // clean 45° seam. This matches the user's diagram (the "right side"
+  // orientation) and removes the remaining overlap/hole behavior.
+  const miterRun = Math.max(40, depth - POST);
   const shape = new THREE.Shape();
 
   if (sharedSide === 'end') {
+    // Incoming/top wing: cut the connection end so the diagonal falls from the
+    // outer top-right corner down toward the inner joint.
     shape.moveTo(xMin, zMin);
-    shape.lineTo(diagIncomingLeftX, zMin);
-    shape.lineTo(xMax, diagIncomingRightZ);
-    shape.lineTo(xMax, zMax);
+    shape.lineTo(xMax, zMin);
+    shape.lineTo(xMax - miterRun, zMax);
     shape.lineTo(xMin, zMax);
   } else if (sharedSide === 'start') {
-    shape.moveTo(diagOutgoingRightX, zMin);
+    // Outgoing/right wing: mirrored counterpart, cut at the start side so the
+    // two separate boards close together without overlap.
+    shape.moveTo(xMin + miterRun, zMin);
     shape.lineTo(xMax, zMin);
     shape.lineTo(xMax, zMax);
     shape.lineTo(xMin, zMax);
-    shape.lineTo(xMin, diagOutgoingLeftZ);
   } else {
     shape.moveTo(xMin, zMin);
     shape.lineTo(xMax, zMin);
