@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=platform-21';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=bookshelf-point1-30';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -35,6 +35,10 @@ shell = mountStandaloneConfiguratorShell({
     collapsedClass: 'is-collapsed',
     bodyCollapsedClass: 'bookshelf-sidebar-collapsed',
     initiallyCollapsed: mobileLayoutQuery.matches,
+  },
+  configuratorPanel: {
+    panelSelector: '.sidebar',
+    geometry: 'floating-right',
   },
   callbacks: {
     onUndo() { history.undo(); },
