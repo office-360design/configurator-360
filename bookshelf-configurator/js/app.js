@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const FAMILIES = Object.freeze({
-  compact: Object.freeze({ id: 'compact', width: 800, corner: 928, depth: 350, height: 2150 }),
-  tall: Object.freeze({ id: 'tall', width: 900, corner: 1028, depth: 350, height: 2300 }),
+  compact: Object.freeze({ id: 'compact', width: 800, corner: 1150, depth: 350, height: 2150 }),
+  tall: Object.freeze({ id: 'tall', width: 900, corner: 1250, depth: 350, height: 2300 }),
 });
 
 const DEFAULT_COLOUR = '#b98555';
@@ -47,9 +47,9 @@ const COPY = Object.freeze({
     'section.selected': 'Selected module',
     'section.components': 'Components',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Straight 800 × 350 × 2150 mm · Corner 928 × 928 × 2150 mm',
+    'family.compactDims': 'Straight 800 × 350 × 2150 mm · Corner 1150 × 1150 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 1028 × 1028 × 2300 mm',
+    'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 1250 × 1250 × 2300 mm',
     'family.rule': 'Changing the family updates every module together; heights cannot be mixed.',
     'selected.empty': 'Select a bookshelf module in the 3D view to choose its doors, wood finish or delete it.',
     'selected.module': 'Module',
@@ -95,9 +95,9 @@ const COPY = Object.freeze({
     'section.selected': 'Modul selectat',
     'section.components': 'Listă componente',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Drept 800 × 350 × 2150 mm · Colț 928 × 928 × 2150 mm',
+    'family.compactDims': 'Drept 800 × 350 × 2150 mm · Colț 1150 × 1150 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 1028 × 1028 × 2300 mm',
+    'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 1250 × 1250 × 2300 mm',
     'family.rule': 'Schimbarea familiei actualizează toate modulele împreună; înălțimile nu pot fi amestecate.',
     'selected.empty': 'Selectează un modul în vederea 3D pentru a alege ușile, finisajul lemnului sau pentru a-l șterge.',
     'selected.module': 'Modul',
@@ -143,9 +143,9 @@ const COPY = Object.freeze({
     'section.selected': 'Ausgewähltes Modul',
     'section.components': 'Komponenten',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Gerade 800 × 350 × 2150 mm · Ecke 928 × 928 × 2150 mm',
+    'family.compactDims': 'Gerade 800 × 350 × 2150 mm · Ecke 1150 × 1150 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 1028 × 1028 × 2300 mm',
+    'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 1250 × 1250 × 2300 mm',
     'family.rule': 'Beim Wechsel der Familie werden alle Module gemeinsam aktualisiert; unterschiedliche Höhen können nicht gemischt werden.',
     'selected.empty': 'Wählen Sie ein Modul in der 3D-Ansicht, um Türen, Holzoberfläche oder Löschen zu konfigurieren.',
     'selected.module': 'Modul',
