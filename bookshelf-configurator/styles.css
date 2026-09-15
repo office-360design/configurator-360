@@ -56,9 +56,10 @@ button, input, select { font: inherit; }
   overscroll-behavior: contain;
   border-left: 1px solid #d9e0e4;
   background: rgba(255,255,255,.985);
-  padding: 0 22px 100px;
+  padding: 0 22px 24px;
   z-index: 5;
   scrollbar-width: thin;
+  transition: transform .22s ease;
 }
 .panel-section { padding: 22px 0 18px; border-bottom: 1px solid #e6eaed; }
 .eyebrow { margin: 0 0 5px; color: var(--accent); font-size: 10.5px; font-weight: 850; letter-spacing: .11em; text-transform: uppercase; }
@@ -160,8 +161,8 @@ body.bookshelf-dark-mode .rule-note, body.bookshelf-dark-mode .component-summary
 body.bookshelf-dark-mode .floating-panel { background: rgba(31,38,43,.98); border-color: #465159; color: #edf2f4; }
 body.bookshelf-dark-mode .module-choice { background: #252d32; border-color: #465159; color: #e8eef1; }
 .shared-settings-toggle { z-index: 9; }
-/* This client-specific system has no commercial price/cart workflow. */
-.shared-ui-host .cart-button { display: none !important; }
+#bookshelfSidebarToggle svg { transition: transform .22s ease; }
+body.bookshelf-sidebar-collapsed #bookshelfSidebarToggle svg { transform: rotate(180deg); }
 @media (max-width: 900px) { :root { --bookshelf-panel: 360px; } }
 @media (max-width: 760px) {
   .app-shell { display: block; }
