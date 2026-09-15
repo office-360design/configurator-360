@@ -727,11 +727,13 @@ function addMiteredShelfBoard(group, { width, depth, thickness, center, material
   const shape = new THREE.Shape();
 
   if (sharedSide === 'end') {
-    // Incoming/top wing: cut the connection end so the diagonal falls from the
-    // outer top-right corner down toward the inner joint.
+    // Incoming/horizontal wing: mirror only this board front-to-back. The
+    // outgoing/vertical wing is already oriented correctly, so its geometry
+    // stays untouched. This reverses the incoming diagonal without moving the
+    // wing itself.
     shape.moveTo(xMin, zMin);
-    shape.lineTo(xMax, zMin);
-    shape.lineTo(xMax - miterRun, zMax);
+    shape.lineTo(xMax - miterRun, zMin);
+    shape.lineTo(xMax, zMax);
     shape.lineTo(xMin, zMax);
   } else if (sharedSide === 'start') {
     // Outgoing/right wing: mirrored counterpart, cut at the start side so the
