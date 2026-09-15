@@ -719,27 +719,39 @@ function addMiteredShelfBoard(group, { width, depth, thickness, center, material
   const zMin = -halfD;
   const zMax = halfD;
 
-  // True two-board mitered corner:
-  // each wing is a single trapezoid board and the two boards meet on one
-  // clean 45° seam. This matches the user's diagram (the "right side"
-  // orientation) and removes the remaining overlap/hole behavior.
-  const miterRun = Math.max(40, depth - POST);
+  // Exact two-board mitered corner. The two shelf rectangles are offset by
+  // the front shelf recess, so two plain trapezoids cannot share the same
+  // diagonal: one side overlaps while the other leaves a triangular gap.
+  // Keep each shelf's full front edge, but add a short corner return so both
+  // pieces terminate on the exact same diagonal through the overlap square.
+  const frontEdgeZ = center.z + halfD;
+  const shelfFrontInset = Math.max(0, -frontEdgeZ);
+  const seamInset = Math.max(0, POST - shelfFrontInset);
+  const overlapRun = Math.max(0, depth - seamInset);
+  const seamZ = zMax - seamInset;
   const shape = new THREE.Shape();
 
   if (sharedSide === 'end') {
-    // Incoming/horizontal wing: restore the original cut so its diagonal
-    // stays on the intended side of the joint.
+    // Incoming/horizontal wing. The diagonal runs from the back corner to the
+    // exact inside-corner point; the small return preserves the normal front
+    // edge outside the joint.
     shape.moveTo(xMin, zMin);
     shape.lineTo(xMax, zMin);
-    shape.lineTo(xMax - miterRun, zMax);
+    shape.lineTo(xMax - overlapRun, seamZ);
+    shape.lineTo(xMax, seamZ);
+    shape.lineTo(xMax, zMax);
     shape.lineTo(xMin, zMax);
   } else if (sharedSide === 'start') {
-    // Outgoing/vertical wing: flip this board front-to-back so its diagonal
-    // mirrors the horizontal wing and the two mitered faces meet cleanly.
-    shape.moveTo(xMin, zMin);
+    // Outgoing/vertical wing. This is the complementary half of the same
+    // overlap square, so its diagonal is coincident with the incoming wing.
+    const seamX = xMin + overlapRun;
+    shape.moveTo(xMax, zMax);
     shape.lineTo(xMax, zMin);
-    shape.lineTo(xMax, zMax);
-    shape.lineTo(xMin + miterRun, zMax);
+    shape.lineTo(seamX, zMin);
+    shape.lineTo(seamX, seamZ);
+    shape.lineTo(xMin, zMin);
+    shape.lineTo(xMin, seamZ);
+    shape.lineTo(xMin, zMax);
   } else {
     shape.moveTo(xMin, zMin);
     shape.lineTo(xMax, zMin);
