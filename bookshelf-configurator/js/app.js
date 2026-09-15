@@ -719,39 +719,27 @@ function addMiteredShelfBoard(group, { width, depth, thickness, center, material
   const zMin = -halfD;
   const zMax = halfD;
 
-  // Exact two-board mitered corner. The two shelf rectangles are offset by
-  // the front shelf recess, so two plain trapezoids cannot share the same
-  // diagonal: one side overlaps while the other leaves a triangular gap.
-  // Keep each shelf's full front edge, but add a short corner return so both
-  // pieces terminate on the exact same diagonal through the overlap square.
-  const frontEdgeZ = center.z + halfD;
-  const shelfFrontInset = Math.max(0, -frontEdgeZ);
-  const seamInset = Math.max(0, POST - shelfFrontInset);
-  const overlapRun = Math.max(0, depth - seamInset);
-  const seamZ = zMax - seamInset;
+  // True two-board mitered corner:
+  // each wing is a single trapezoid board and the two boards meet on one
+  // clean 45° seam. This matches the user's diagram (the "right side"
+  // orientation) and removes the remaining overlap/hole behavior.
+  const miterRun = Math.max(40, depth - POST);
   const shape = new THREE.Shape();
 
   if (sharedSide === 'end') {
-    // Incoming/horizontal wing. The diagonal runs from the back corner to the
-    // exact inside-corner point; the small return preserves the normal front
-    // edge outside the joint.
+    // Incoming/horizontal wing: restore the original cut so its diagonal
+    // stays on the intended side of the joint.
     shape.moveTo(xMin, zMin);
     shape.lineTo(xMax, zMin);
-    shape.lineTo(xMax - overlapRun, seamZ);
-    shape.lineTo(xMax, seamZ);
-    shape.lineTo(xMax, zMax);
+    shape.lineTo(xMax - miterRun, zMax);
     shape.lineTo(xMin, zMax);
   } else if (sharedSide === 'start') {
-    // Outgoing/vertical wing. This is the complementary half of the same
-    // overlap square, so its diagonal is coincident with the incoming wing.
-    const seamX = xMin + overlapRun;
-    shape.moveTo(xMax, zMax);
+    // Outgoing/vertical wing: flip this board front-to-back so its diagonal
+    // mirrors the horizontal wing and the two mitered faces meet cleanly.
+    shape.moveTo(xMin, zMin);
     shape.lineTo(xMax, zMin);
-    shape.lineTo(seamX, zMin);
-    shape.lineTo(seamX, seamZ);
-    shape.lineTo(xMin, zMin);
-    shape.lineTo(xMin, seamZ);
-    shape.lineTo(xMin, zMax);
+    shape.lineTo(xMax, zMax);
+    shape.lineTo(xMin + miterRun, zMax);
   } else {
     shape.moveTo(xMin, zMin);
     shape.lineTo(xMax, zMin);
@@ -776,6 +764,107 @@ function addMiteredShelfBoard(group, { width, depth, thickness, center, material
   tagMesh(mesh, moduleId);
   group.add(mesh);
   return mesh;
+}
+
+function addUnifiedCornerShelfBoard(group, module, { width, depth, thickness, y, centerZ }) {
+  // Build one watertight L-shaped shelf surface for the corner. The two normal
+  // shelf rectangles are unioned into one extrusion, so the joint cannot
+  // create z-fighting, overlapping solids or a triangular hole. The subtle
+  // diagonal line marks the intended meeting direction of the two boards.
+  const halfD = depth / 2;
+  const zMin = centerZ - halfD;
+  const zMax = centerZ + halfD;
+  const horizontalXMin = POST;
+  const horizontalXMax = width - POST;
+  const verticalXMin = width + zMin;
+  const verticalXMax = width + zMax;
+  const verticalZMin = -(width - POST);
+  const verticalZMax = -POST;
+
+  const shape = new THREE.Shape();
+  shape.moveTo(horizontalXMin, zMin);
+  shape.lineTo(horizontalXMin, zMax);
+  shape.lineTo(horizontalXMax, zMax);
+  shape.lineTo(horizontalXMax, verticalZMax);
+  shape.lineTo(verticalXMax, verticalZMax);
+  shape.lineTo(verticalXMax, verticalZMin);
+  shape.lineTo(verticalXMin, verticalZMin);
+  shape.lineTo(verticalXMin, zMin);
+  shape.closePath();
+
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: thickness,
+    bevelEnabled: false,
+    steps: 1,
+    curveSegments: 1,
+  });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, y - thickness / 2, 0);
+  geometry.computeVertexNormals();
+  applyNormalizedBoxUVs(geometry);
+
+  const mesh = new THREE.Mesh(geometry, woodMaterial(module.colour));
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, module.id);
+  group.add(mesh);
+
+  // Preserve the diagonal direction that was approved in the previous
+  // version, but render it only as the clean meeting seam on the continuous
+  // shelf instead of two intersecting cut solids.
+  const seamGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(verticalXMin, y + thickness / 2 + 0.18, verticalZMax),
+    new THREE.Vector3(horizontalXMax, y + thickness / 2 + 0.18, zMin),
+  ]);
+  const seamColour = new THREE.Color(module.colour).multiplyScalar(0.52);
+  const seamMaterial = new THREE.LineBasicMaterial({
+    color: seamColour,
+    transparent: true,
+    opacity: 0.45,
+  });
+  const seam = new THREE.Line(seamGeometry, seamMaterial);
+  tagMesh(seam, module.id);
+  group.add(seam);
+}
+
+function addUnifiedCornerShelves(parent, module, pose, width) {
+  const spec = familySpec();
+  const group = new THREE.Group();
+  group.position.set(pose.x, 0, pose.z);
+  group.rotation.y = -pose.heading;
+  parent.add(group);
+
+  const shelfDepth = spec.depth - 34;
+  const bottomShelfY = PLINTH_HEIGHT + BOARD / 2;
+  addUnifiedCornerShelfBoard(group, module, {
+    width,
+    depth: shelfDepth,
+    thickness: BOARD,
+    y: bottomShelfY,
+    centerZ: -spec.depth / 2,
+  });
+
+  const shelfCenters = shelfCentersForHeight(spec.height);
+  const lowerDoorShelfDepthReduction = 28;
+  const lowerDoorShelfDepth = Math.max(120, shelfDepth - lowerDoorShelfDepthReduction);
+  const lowerDoorShelfCenterZ = -spec.depth / 2 + lowerDoorShelfDepthReduction / 2;
+  const glazedDoorShelfDepthReduction = 32;
+  const glazedDoorShelfDepth = Math.max(120, shelfDepth - glazedDoorShelfDepthReduction);
+  const glazedDoorShelfCenterZ = -spec.depth / 2 + glazedDoorShelfDepthReduction / 2;
+
+  shelfCenters.slice(1).forEach((y, index) => {
+    const behindLowerDoors = module.door === 'lower' && index < 2;
+    const behindGlazedDoors = module.door === 'glazed' && index < 7;
+    const currentDepth = behindLowerDoors ? lowerDoorShelfDepth : behindGlazedDoors ? glazedDoorShelfDepth : shelfDepth;
+    const currentCenterZ = behindLowerDoors ? lowerDoorShelfCenterZ : behindGlazedDoors ? glazedDoorShelfCenterZ : -spec.depth / 2;
+    addUnifiedCornerShelfBoard(group, module, {
+      width,
+      depth: currentDepth,
+      thickness: BOARD,
+      y,
+      centerZ: currentCenterZ,
+    });
+  });
 }
 
 function applyNormalizedBoxUVs(geometry) {
@@ -1087,7 +1176,7 @@ function renderBridgeConnectors(anchor, heading, spec, material) {
   });
 }
 
-function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null, omitStartPosts = false, omitEndPosts = false, omitStartFrontPost = false, omitStartBackPost = false, omitEndFrontPost = false, omitEndBackPost = false } = {}) {
+function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null, omitShelves = false, omitStartPosts = false, omitEndPosts = false, omitStartFrontPost = false, omitStartBackPost = false, omitEndFrontPost = false, omitEndBackPost = false } = {}) {
   const spec = familySpec();
   const group = new THREE.Group();
   group.position.set(pose.x, 0, pose.z);
@@ -1116,22 +1205,24 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
     z: plinthCenterZ,
   }, darkWood, module.id);
   const bottomShelfY = PLINTH_HEIGHT + BOARD / 2;
-  if (cornerWing && sharedSide) {
-    addMiteredShelfBoard(group, {
-      width: innerWidth,
-      depth: shelfDepth,
-      thickness: BOARD,
-      center: { x: width / 2, y: bottomShelfY, z: -depth / 2 },
-      material: wood,
-      moduleId: module.id,
-      sharedSide,
-    });
-  } else {
-    addBox(group, { x: innerWidth, y: BOARD, z: shelfDepth }, {
-      x: width / 2,
-      y: bottomShelfY,
-      z: -depth / 2,
-    }, wood, module.id);
+  if (!omitShelves) {
+    if (cornerWing && sharedSide) {
+      addMiteredShelfBoard(group, {
+        width: innerWidth,
+        depth: shelfDepth,
+        thickness: BOARD,
+        center: { x: width / 2, y: bottomShelfY, z: -depth / 2 },
+        material: wood,
+        moduleId: module.id,
+        sharedSide,
+      });
+    } else {
+      addBox(group, { x: innerWidth, y: BOARD, z: shelfDepth }, {
+        x: width / 2,
+        y: bottomShelfY,
+        z: -depth / 2,
+      }, wood, module.id);
+    }
   }
 
   // Full-height side assemblies from floor to top. Their thin panels share the
@@ -1173,33 +1264,35 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   const glazedDoorShelfDepthReduction = 32;
   const glazedDoorShelfDepth = Math.max(120, shelfDepth - glazedDoorShelfDepthReduction);
   const glazedDoorShelfCenterZ = -depth / 2 + glazedDoorShelfDepthReduction / 2;
-  shelfCenters.slice(1).forEach((y, index) => {
-    const behindLowerDoors = module.door === 'lower' && index < 2;
-    const behindGlazedDoors = module.door === 'glazed' && index < 7;
-    const currentDepth = behindLowerDoors ? lowerDoorShelfDepth : behindGlazedDoors ? glazedDoorShelfDepth : shelfDepth;
-    const currentCenterZ = behindLowerDoors ? lowerDoorShelfCenterZ : behindGlazedDoors ? glazedDoorShelfCenterZ : -depth / 2;
-    if (cornerWing && sharedSide) {
-      addMiteredShelfBoard(group, {
-        width: shelfWidth,
-        depth: currentDepth,
-        thickness: BOARD,
-        center: { x: width / 2, y, z: currentCenterZ },
-        material: wood,
-        moduleId: module.id,
-        sharedSide,
-      });
-    } else {
-      addBox(group, {
-        x: shelfWidth,
-        y: BOARD,
-        z: currentDepth,
-      }, {
-        x: width / 2,
-        y,
-        z: currentCenterZ,
-      }, wood, module.id);
-    }
-  });
+  if (!omitShelves) {
+    shelfCenters.slice(1).forEach((y, index) => {
+      const behindLowerDoors = module.door === 'lower' && index < 2;
+      const behindGlazedDoors = module.door === 'glazed' && index < 7;
+      const currentDepth = behindLowerDoors ? lowerDoorShelfDepth : behindGlazedDoors ? glazedDoorShelfDepth : shelfDepth;
+      const currentCenterZ = behindLowerDoors ? lowerDoorShelfCenterZ : behindGlazedDoors ? glazedDoorShelfCenterZ : -depth / 2;
+      if (cornerWing && sharedSide) {
+        addMiteredShelfBoard(group, {
+          width: shelfWidth,
+          depth: currentDepth,
+          thickness: BOARD,
+          center: { x: width / 2, y, z: currentCenterZ },
+          material: wood,
+          moduleId: module.id,
+          sharedSide,
+        });
+      } else {
+        addBox(group, {
+          x: shelfWidth,
+          y: BOARD,
+          z: currentDepth,
+        }, {
+          x: width / 2,
+          y,
+          z: currentCenterZ,
+        }, wood, module.id);
+      }
+    });
+  }
 
   addDoors(group, module, { width, depth, height, cornerWing, sharedSide });
   return group;
@@ -1537,10 +1630,11 @@ function renderModule(entry) {
   if (module.kind === 'straight') {
     addShelfWing(root, module, entry.start, familySpec().width);
   } else {
-    const first = addShelfWing(root, module, entry.start, familySpec().corner, { cornerWing: true, sharedSide: 'end', omitEndFrontPost: true });
+    const first = addShelfWing(root, module, entry.start, familySpec().corner, { cornerWing: true, sharedSide: 'end', omitShelves: true, omitEndFrontPost: true });
     // The second wing starts at the shared corner, so its door leaves are inset away from that joint.
     const secondPose = { x: entry.corner.x, z: entry.corner.z, heading: entry.end.heading };
-    const second = addShelfWing(root, module, secondPose, familySpec().corner, { cornerWing: true, sharedSide: 'start', omitStartPosts: true });
+    const second = addShelfWing(root, module, secondPose, familySpec().corner, { cornerWing: true, sharedSide: 'start', omitShelves: true, omitStartPosts: true });
+    addUnifiedCornerShelves(root, module, entry.start, familySpec().corner);
     first.userData.cornerWing = 'incoming';
     second.userData.cornerWing = 'outgoing';
   }
