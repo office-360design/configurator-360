@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const FAMILIES = Object.freeze({
-  compact: Object.freeze({ id: 'compact', width: 800, corner: 1150, depth: 350, height: 2150 }),
-  tall: Object.freeze({ id: 'tall', width: 900, corner: 1250, depth: 350, height: 2300 }),
+  compact: Object.freeze({ id: 'compact', width: 800, corner: 750, depth: 350, height: 2150 }),
+  tall: Object.freeze({ id: 'tall', width: 900, corner: 850, depth: 350, height: 2300 }),
 });
 
 const DEFAULT_COLOUR = '#b98555';
@@ -47,9 +47,9 @@ const COPY = Object.freeze({
     'section.selected': 'Selected module',
     'section.components': 'Components',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Straight 800 × 350 × 2150 mm · Corner 1150 × 1150 × 2150 mm',
+    'family.compactDims': 'Straight 800 × 350 × 2150 mm · Corner 750 × 750 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 1250 × 1250 × 2300 mm',
+    'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 850 × 850 × 2300 mm',
     'family.rule': 'Changing the family updates every module together; heights cannot be mixed.',
     'selected.empty': 'Select a bookshelf module in the 3D view to choose its doors, wood finish or delete it.',
     'selected.module': 'Module',
@@ -95,9 +95,9 @@ const COPY = Object.freeze({
     'section.selected': 'Modul selectat',
     'section.components': 'Listă componente',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Drept 800 × 350 × 2150 mm · Colț 1150 × 1150 × 2150 mm',
+    'family.compactDims': 'Drept 800 × 350 × 2150 mm · Colț 750 × 750 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 1250 × 1250 × 2300 mm',
+    'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 850 × 850 × 2300 mm',
     'family.rule': 'Schimbarea familiei actualizează toate modulele împreună; înălțimile nu pot fi amestecate.',
     'selected.empty': 'Selectează un modul în vederea 3D pentru a alege ușile, finisajul lemnului sau pentru a-l șterge.',
     'selected.module': 'Modul',
@@ -143,9 +143,9 @@ const COPY = Object.freeze({
     'section.selected': 'Ausgewähltes Modul',
     'section.components': 'Komponenten',
     'family.compact': '800 × 350 × 2150 mm',
-    'family.compactDims': 'Gerade 800 × 350 × 2150 mm · Ecke 1150 × 1150 × 2150 mm',
+    'family.compactDims': 'Gerade 800 × 350 × 2150 mm · Ecke 750 × 750 × 2150 mm',
     'family.tall': '900 × 350 × 2300 mm',
-    'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 1250 × 1250 × 2300 mm',
+    'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 850 × 850 × 2300 mm',
     'family.rule': 'Beim Wechsel der Familie werden alle Module gemeinsam aktualisiert; unterschiedliche Höhen können nicht gemischt werden.',
     'selected.empty': 'Wählen Sie ein Modul in der 3D-Ansicht, um Türen, Holzoberfläche oder Löschen zu konfigurieren.',
     'selected.module': 'Modul',
@@ -1533,46 +1533,61 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
   const shelfFrontZ = frontZ(depth) + (depth - (depth - 34)) / 2;
   const solidDoorFrontZ = shelfFrontZ;
   const glazedDoorCenterZ = shelfFrontZ;
-  const cornerInset = cornerWing ? Math.max(64, POST * 1.5) : 0;
-  const lowerDoorStart = POST + (sharedSide === 'start' ? cornerInset : 0);
-  const lowerDoorEnd = width - POST - (sharedSide === 'end' ? cornerInset : 0);
-  const lowerDoorWidth = Math.max(120, lowerDoorEnd - lowerDoorStart);
   const shelfCenters = shelfCentersForHeight(height);
   const doorState = cloneDoorState(module.doorState);
 
+  // A corner wing carries exactly one normal straight-module door leaf. This
+  // keeps the corner doors identical in width, frame proportions and hardware
+  // to the two leaves used on a straight module. The remaining corner-wing
+  // length is structural depth, not extra door width.
   if (cornerWing) {
-    const straightLeafWidth = Math.max(90, width - POST * 2 - 18);
-    const leafWidth = Math.max(90, Math.min(lowerDoorWidth, straightLeafWidth));
-    const x = sharedSide === 'start'
-      ? lowerDoorEnd - leafWidth / 2
-      : lowerDoorStart + leafWidth / 2;
+    const straightOpeningWidth = Math.max(120, familySpec().width - POST * 2);
+    const incomingWing = sharedSide === 'end';
+    const hinge = incomingWing ? 'left' : 'right';
+
     if (module.door === 'lower') {
+      const leafWidth = Math.max(60, straightOpeningWidth / 2);
+      const x = incomingWing
+        ? POST + leafWidth / 2
+        : width - POST - leafWidth / 2;
       const openingBottom = shelfCenters[0] + BOARD / 2;
       const openingTop = shelfCenters[3] - BOARD / 2;
       const doorHeight = Math.max(120, openingTop - openingBottom);
       const y = (openingTop + openingBottom) / 2;
-      const hinge = sharedSide === 'start' ? 'right' : 'left';
       addSolidDoorLeaf(parent, module, x, leafWidth, y, doorHeight, solidDoorFrontZ, {
         hinge,
-        open: doorState.lowerSingle,
-        doorKey: 'lowerSingle',
+        open: incomingWing ? doorState.lowerLeft : doorState.lowerRight,
+        doorKey: incomingWing ? 'lowerLeft' : 'lowerRight',
+        keyhole: incomingWing,
+        keyholeSide: 'right',
       });
       return;
     }
+
+    const leafGap = -1;
+    const leafWidth = Math.max(46, (straightOpeningWidth - leafGap) / 2);
+    const x = incomingWing
+      ? POST + leafWidth / 2
+      : width - POST - leafWidth / 2;
     const openingBottom = shelfCenters[0] + BOARD / 2;
     const openingTop = shelfCenters[8] - BOARD / 2;
     const doorHeight = Math.max(200, openingTop - openingBottom);
     const y = (openingTop + openingBottom) / 2;
-    const hinge = sharedSide === 'start' ? 'right' : 'left';
     addDoorFrame(parent, module, x, leafWidth, y, doorHeight, glazedDoorCenterZ, {
       glazed: true,
       hinge,
-      open: doorState.glazedSingle,
-      doorKey: 'glazedSingle',
+      open: incomingWing ? doorState.glazedLeft : doorState.glazedRight,
+      doorKey: incomingWing ? 'glazedLeft' : 'glazedRight',
+      keyplate: incomingWing,
+      keyplateSide: 'right',
       midRailGlobalY: height * 0.5,
     });
     return;
   }
+
+  const lowerDoorStart = POST;
+  const lowerDoorEnd = width - POST;
+  const lowerDoorWidth = Math.max(120, lowerDoorEnd - lowerDoorStart);
 
   if (module.door === 'lower') {
     const openingBottom = shelfCenters[0] + BOARD / 2;
@@ -1597,8 +1612,8 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
     return;
   }
 
-  const openingStart = POST + (sharedSide === 'start' ? cornerInset : 0);
-  const openingEnd = width - POST - (sharedSide === 'end' ? cornerInset : 0);
+  const openingStart = POST;
+  const openingEnd = width - POST;
   const openingWidth = Math.max(120, openingEnd - openingStart);
   const leafGap = -1;
   const leafWidth = Math.max(46, (openingWidth - leafGap) / 2);
