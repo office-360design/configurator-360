@@ -799,6 +799,12 @@ function addUnifiedCornerShelfBoard(group, module, { width, depth, thickness, y,
     curveSegments: 1,
   });
   geometry.rotateX(-Math.PI / 2);
+  // THREE.Shape's Y axis becomes -Z after the extrusion is rotated flat.
+  // The unified corner polygon above is expressed directly in the shelf
+  // wing's local X/Z coordinates, so mirror the resulting Z once to keep the
+  // L-shaped shelf inside the same negative-Z cabinet volume as the original
+  // two shelf-wing meshes.
+  geometry.scale(1, 1, -1);
   geometry.translate(0, y - thickness / 2, 0);
   geometry.computeVertexNormals();
   applyNormalizedBoxUVs(geometry);
