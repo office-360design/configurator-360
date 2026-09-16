@@ -110,6 +110,11 @@ button, input, select { font: inherit; }
 .door-card b, .door-card small { display: block; }
 .door-card b { margin-top: 3px; font-size: 9.5px; }
 .door-card small { margin-top: 2px; color: #869199; font-size: 7.7px; line-height: 1.25; }
+.door-card:disabled { opacity: .48; cursor: not-allowed; border-color: #e0e5e8; background: #f2f4f5; color: #98a2a8; box-shadow: none; }
+.door-card:disabled:hover { transform: none; border-color: #e0e5e8; background: #f2f4f5; }
+.door-card:disabled small { color: #a7afb4; }
+.corner-door-disclaimer { display: block; margin: 7px 2px 0; color: #c43e3e; font-size: 9px; font-weight: 750; line-height: 1.35; }
+.corner-door-disclaimer[hidden] { display: none; }
 .colour-palette { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .finish-choice { min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: #47555e; cursor: pointer; }
 .finish-choice:hover { transform: translateY(-1px); border-color: #c9a47c; }
@@ -157,6 +162,8 @@ body.bookshelf-dark-mode .sidebar { background: rgba(26,31,35,.98); color: #eef2
 body.bookshelf-dark-mode .accordion-section, body.bookshelf-dark-mode .panel-section { border-color: #3a444b; }
 body.bookshelf-dark-mode .accordion-toggle { color: #eef2f4; }
 body.bookshelf-dark-mode .family-card, body.bookshelf-dark-mode .door-card, body.bookshelf-dark-mode .empty-state, body.bookshelf-dark-mode .selected-module-header { background: #20272c; border-color: #414b52; color: #e8eef1; }
+body.bookshelf-dark-mode .door-card:disabled { background: #1a2024; border-color: #343d43; color: #738089; }
+body.bookshelf-dark-mode .corner-door-disclaimer { color: #ff8585; }
 body.bookshelf-dark-mode .rule-note, body.bookshelf-dark-mode .component-summary > div, body.bookshelf-dark-mode .component-row { background: #20272c; border-color: #414b52; }
 body.bookshelf-dark-mode .floating-panel { background: rgba(31,38,43,.98); border-color: #465159; color: #edf2f4; }
 body.bookshelf-dark-mode .module-choice { background: #252d32; border-color: #465159; color: #e8eef1; }

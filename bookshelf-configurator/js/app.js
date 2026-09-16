@@ -64,6 +64,7 @@ const COPY = Object.freeze({
     'doors.lowerHint': 'Closed storage at the base',
     'doors.glazed': 'Glazed doors',
     'doors.glazedHint': 'Full-height glass closure',
+    'doors.cornerUnsupported': 'L-corner modules do not support doors.',
     'add.kicker': 'Extend configuration',
     'add.title': 'Add module',
     'add.straight': 'Straight module',
@@ -112,6 +113,7 @@ const COPY = Object.freeze({
     'doors.lowerHint': 'Depozitare închisă la bază',
     'doors.glazed': 'Uși vitrate',
     'doors.glazedHint': 'Închidere cu geam pe toată înălțimea',
+    'doors.cornerUnsupported': 'Modulele de colț în L nu acceptă uși.',
     'add.kicker': 'Extinde configurația',
     'add.title': 'Adaugă modul',
     'add.straight': 'Modul drept',
@@ -160,6 +162,7 @@ const COPY = Object.freeze({
     'doors.lowerHint': 'Geschlossener Stauraum unten',
     'doors.glazed': 'Glastüren',
     'doors.glazedHint': 'Vollhohe Glasfront',
+    'doors.cornerUnsupported': 'L-Eckmodule unterstützen keine Türen.',
     'add.kicker': 'Konfiguration erweitern',
     'add.title': 'Modul hinzufügen',
     'add.straight': 'Gerades Modul',
@@ -199,6 +202,7 @@ const selectedModuleLabel = $('#selectedModuleLabel');
 const selectedModuleTypeBadge = $('#selectedModuleTypeBadge');
 const deleteModuleButton = $('#deleteModuleButton');
 const deleteModuleHint = $('#deleteModuleHint');
+const cornerDoorDisclaimer = $('#cornerDoorDisclaimer');
 const viewerHint = $('#viewerHint');
 
 let locale = localeForHost();
@@ -290,10 +294,12 @@ function newModule(kind = 'straight') {
 }
 function cloneModule(module) {
   const colour = String(module?.colour || '').toLowerCase();
+  const kind = module?.kind === 'corner' ? 'corner' : 'straight';
+  const requestedDoor = ['open', 'lower', 'glazed'].includes(module?.door) ? module.door : 'open';
   return {
     id: String(module?.id || uid()),
-    kind: module?.kind === 'corner' ? 'corner' : 'straight',
-    door: ['open', 'lower', 'glazed'].includes(module?.door) ? module.door : 'open',
+    kind,
+    door: kind === 'corner' ? 'open' : requestedDoor,
     colour: MODULE_COLOURS.includes(colour) ? colour : DEFAULT_COLOUR,
     doorState: cloneDoorState(module?.doorState),
   };
@@ -1546,7 +1552,7 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
 }
 
 function addDoors(parent, module, { width, depth, height, cornerWing = false, sharedSide = null }) {
-  if (module.door === 'open') return;
+  if (module.kind === 'corner' || module.door === 'open') return;
   const shelfFrontZ = frontZ(depth) + (depth - (depth - 34)) / 2;
   const solidDoorFrontZ = shelfFrontZ;
   const glazedDoorCenterZ = shelfFrontZ;
@@ -1852,8 +1858,14 @@ function renderSelectedControls() {
   if (!module) return;
   const index = state.modules.findIndex((item) => item.id === module.id);
   selectedModuleLabel.textContent = String(index + 1);
-  selectedModuleTypeBadge.textContent = module.kind === 'corner' ? t('type.corner') : t('type.straight');
-  document.querySelectorAll('[data-door]').forEach((button) => button.classList.toggle('is-selected', button.dataset.door === module.door));
+  const isCorner = module.kind === 'corner';
+  selectedModuleTypeBadge.textContent = isCorner ? t('type.corner') : t('type.straight');
+  document.querySelectorAll('[data-door]').forEach((button) => {
+    const isDoorOption = button.dataset.door !== 'open';
+    button.disabled = isCorner && isDoorOption;
+    button.classList.toggle('is-selected', button.dataset.door === module.door);
+  });
+  if (cornerDoorDisclaimer) cornerDoorDisclaimer.hidden = !isCorner;
   document.querySelectorAll('[data-colour]').forEach((button) => button.classList.toggle('is-selected', button.dataset.colour.toLowerCase() === module.colour.toLowerCase()));
   deleteModuleButton.disabled = state.modules.length <= 1;
   deleteModuleHint.hidden = state.modules.length > 1;
@@ -1893,8 +1905,8 @@ function renderComponents() {
       const detail = `${spec.corner} × ${spec.corner} × ${spec.height} mm · ${finish}`;
       addRow(`corner|${module.colour}`, t('components.corner'), detail);
     }
-    if (module.door === 'lower') addRow('door-lower', t('components.lowerKit'), `${state.family === 'compact' ? '2150' : '2300'} mm family`);
-    if (module.door === 'glazed') addRow('door-glazed', t('components.glazedKit'), `${state.family === 'compact' ? '2150' : '2300'} mm family`);
+    if (module.kind === 'straight' && module.door === 'lower') addRow('door-lower', t('components.lowerKit'), `${state.family === 'compact' ? '2150' : '2300'} mm family`);
+    if (module.kind === 'straight' && module.door === 'glazed') addRow('door-glazed', t('components.glazedKit'), `${state.family === 'compact' ? '2150' : '2300'} mm family`);
   });
   if (jointCount > 0) addRow('connectors', t('components.connector'), locale === 'ro-RO' ? 'Set automat pentru îmbinarea dintre montanți' : locale === 'de-DE' ? 'Automatischer Satz je Modulverbindung' : 'Automatic set for each joint between uprights', jointCount);
 
@@ -2023,6 +2035,7 @@ function deleteSelectedModule() {
 function updateSelectedModule(patch) {
   const module = selectedModule();
   if (!module) return;
+  if (module.kind === 'corner' && patch?.door && patch.door !== 'open') return;
   recordUndoCheckpoint();
   Object.assign(module, patch);
   renderAll();
