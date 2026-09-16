@@ -20,7 +20,9 @@ const FINISH_TEXTURES = Object.freeze({
 const POST = 42;
 const BOARD = 22;
 const DOOR_PAIR_GAP = 2;
-const SHELF_SLOT_STEP = 20;
+const SHELF_CLEAR_GAP = 20;
+const SHELF_SLOT_STEP = BOARD + SHELF_CLEAR_GAP;
+const LEGACY_SHELF_SLOT_STEP = 20;
 const SHELF_COUNT = 9;
 const BACK = 16;
 const SIDE = 10;
@@ -241,7 +243,7 @@ let selectionHelper = null;
 let resizeObserver;
 
 let state = {
-  version: 5,
+  version: 6,
   family: 'compact',
   origin: { x: -400, z: 0, heading: 0 },
   modules: [newModule('straight')],
@@ -269,7 +271,9 @@ function shelfTopCenterY(height) {
 
 function legacyShelfCentersForHeight(height) {
   // Preserve the original shelf rhythm only as the source for the initial
-  // slot choices. Actual shelf positions are resolved onto 20 mm slots.
+  // slot choices. Actual shelf positions are resolved onto positions that leave
+  // 20 mm of clear air between adjacent shelves; with the current 22 mm board
+  // this is a 42 mm center-to-center step.
   const compactBottom = PLINTH_HEIGHT + BOARD / 2;
   const compactTop = shelfTopCenterY(FAMILIES.compact.height);
   const compactStep = (compactTop - compactBottom) / 8;
@@ -311,6 +315,18 @@ function cloneShelfSlots(source) {
   return defaults.map((fallback, index) => {
     const value = Number(input[index]);
     return Number.isFinite(value) ? Math.round(value) : fallback;
+  });
+}
+
+function migrateLegacy20mmShelfSlots(source, height) {
+  if (!Array.isArray(source)) return defaultShelfSlots();
+  const { bottom } = shelfSlotLayout(height);
+  const defaults = defaultShelfSlots();
+  return defaults.map((fallback, index) => {
+    const legacySlot = Number(source[index]);
+    if (!Number.isFinite(legacySlot)) return fallback;
+    const legacyCenterY = bottom + Math.round(legacySlot) * LEGACY_SHELF_SLOT_STEP;
+    return Math.round((legacyCenterY - bottom) / SHELF_SLOT_STEP);
   });
 }
 
@@ -2390,6 +2406,19 @@ function bindControls() {
   shelfMoveUpButton?.addEventListener('click', () => moveSelectedShelf(1));
   shelfMoveDownButton?.addEventListener('click', () => moveSelectedShelf(-1));
 
+  window.addEventListener('keydown', (event) => {
+    if (!selectedShelf || event.altKey || event.ctrlKey || event.metaKey) return;
+    const target = event.target;
+    if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+
+    const up = event.code === 'ArrowUp' || event.code === 'KeyW';
+    const down = event.code === 'ArrowDown' || event.code === 'KeyS';
+    if (!up && !down) return;
+
+    event.preventDefault();
+    moveSelectedShelf(up ? 1 : -1);
+  });
+
   renderer.domElement.addEventListener('dblclick', (event) => {
     const shelf = raycastShelf(event);
     if (!shelf) return;
@@ -2497,7 +2526,7 @@ function animate() {
 
 function captureState() {
   return {
-    version: 5,
+    version: 6,
     family: state.family,
     origin: { x: round(state.origin.x), z: round(state.origin.z), heading: round(state.origin.heading, 6) },
     modules: state.modules.map(cloneModule),
@@ -2514,10 +2543,17 @@ function restoreState(snapshot) {
     heading: Number(source.origin?.heading),
   };
   if (![origin.x, origin.z, origin.heading].every(Number.isFinite)) return false;
-  const modules = source.modules.map(cloneModule);
+  const sourceVersion = Number(source.version) || 0;
+  const modules = source.modules.map((module) => {
+    const cloned = cloneModule(module);
+    if (sourceVersion === 5 && Array.isArray(module?.shelfSlots)) {
+      cloned.shelfSlots = migrateLegacy20mmShelfSlots(module.shelfSlots, FAMILIES[family].height);
+    }
+    return cloned;
+  });
   const candidate = deriveLayout(modules, origin, FAMILIES[family]);
   if (!validLayout(candidate)) return false;
-  state = { version: 5, family, origin, modules };
+  state = { version: 6, family, origin, modules };
   selectedModuleId = '';
   selectedShelf = null;
   closeAddPanel();
@@ -2527,7 +2563,7 @@ function restoreState(snapshot) {
 
 function resetConfiguration() {
   state = {
-    version: 5,
+    version: 6,
     family: 'compact',
     origin: { x: -400, z: 0, heading: 0 },
     modules: [newModule('straight')],
