@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=bookshelf-point1-44';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=bookshelf-point1-45';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -100,7 +100,6 @@ syncBookshelfLocalShell();
 const BOOKSHELF_QUOTATION_FUNCTION = 'requestBookshelfQuotation';
 const BOOKSHELF_FUNCTIONS_REGION = 'europe-west1';
 const BOOKSHELF_PROJECT_ID = 'configurator-360';
-const QUOTATION_FEEDBACK_TIMER = '__bookshelfQuotationFeedbackTimer';
 const QUOTATION_DRAFT_STORAGE_KEY = '360-configurator:bookshelf:quotation-draft-v1';
 const QUOTATION_FEEDBACK_DURATION_MS = 5000;
 const QUOTATION_SUCCESS_COOLDOWN_MS = 30 * 1000;
@@ -340,17 +339,14 @@ function closeQuotationDialog() {
 }
 
 function showBookshelfFeedback(message, type = 'success', durationMs = QUOTATION_FEEDBACK_DURATION_MS) {
-  const feedback = document.querySelector('[data-save-feedback]');
-  const feedbackText = feedback?.querySelector('[data-save-feedback-text]');
-  if (!(feedback instanceof HTMLElement) || !(feedbackText instanceof HTMLElement)) return;
-  window.clearTimeout(globalThis[QUOTATION_FEEDBACK_TIMER]);
-  feedback.classList.remove('is-success', 'is-error', 'is-animating');
-  void feedback.offsetWidth;
   const duration = Math.max(500, Number(durationMs) || QUOTATION_FEEDBACK_DURATION_MS);
-  feedback.style.animationDuration = `${duration}ms`;
-  feedback.classList.add(type === 'error' ? 'is-error' : 'is-success', 'is-animating');
-  feedbackText.textContent = String(message || '');
-  globalThis[QUOTATION_FEEDBACK_TIMER] = window.setTimeout(() => feedback.classList.remove('is-animating'), duration);
+  // Use the exact shared notification implementation used by Save, cart and
+  // the rest of the common shell. Do not recreate the toast DOM/classes here:
+  // that caused the bookshelf quotation popup to differ visually from the
+  // project's normal success/error popup.
+  if (typeof shell?.showFeedback === 'function') {
+    shell.showFeedback(String(message || ''), type === 'error' ? 'error' : 'success', duration);
+  }
 }
 
 function validEmail(value) {
