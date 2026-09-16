@@ -8,7 +8,7 @@ const { getFirestore } = require('firebase-admin/firestore');
 
 const FUNCTION_REGION = 'europe-west1';
 const RUNTIME_SERVICE_ACCOUNT = 'configurator-runtime@configurator-360.iam.gserviceaccount.com';
-const FACTORY_RECIPIENT = 'matei.belciug.work@gmail.com';
+const FACTORY_RECIPIENT = 'info@mobila-lemn.ro';
 const RATE_LIMIT_COLLECTION = 'bookshelfQuotationRateLimits';
 const MIN_INTERVAL_MS = 30 * 1000;
 const MAX_MODULES = 100;
