@@ -20,6 +20,8 @@ const FINISH_TEXTURES = Object.freeze({
 const POST = 42;
 const BOARD = 22;
 const DOOR_PAIR_GAP = 2;
+const SHELF_SLOT_STEP = 20;
+const SHELF_COUNT = 9;
 const BACK = 16;
 const SIDE = 10;
 const SIDE_RAIL_BODY = 276;
@@ -217,6 +219,9 @@ const deleteModuleHint = $('#deleteModuleHint');
 const cornerDoorDisclaimer = $('#cornerDoorDisclaimer');
 const doorHardwareControls = $('#doorHardwareControls');
 const viewerHint = $('#viewerHint');
+const shelfMoveControls = $('#shelfMoveControls');
+const shelfMoveUpButton = $('#shelfMoveUpButton');
+const shelfMoveDownButton = $('#shelfMoveDownButton');
 
 let locale = localeForHost();
 let units = locale === 'en-US' ? 'imperial' : 'metric';
@@ -225,6 +230,7 @@ let darkMode = false;
 let dimensionsVisible = true;
 let cameraMode = 0;
 let selectedModuleId = '';
+let selectedShelf = null;
 let addAt = 'end';
 let pendingKind = 'straight';
 let moduleMeshes = [];
@@ -261,28 +267,79 @@ function shelfTopCenterY(height) {
   return height - TOP_SHELF_CLEARANCE - BOARD / 2;
 }
 
-function shelfCentersForHeight(height) {
-  // Client reference: both predefined size families have 9 shelves total
-  // including the bottom shelf. The compact module defines the baseline
-  // vertical rhythm. The tall module keeps the first 8 shelf centers at the
-  // exact same heights as compact, lifts only the 9th shelf upward by the
-  // family height delta, and preserves the same top gap above the 9th shelf.
+function legacyShelfCentersForHeight(height) {
+  // Preserve the original shelf rhythm only as the source for the initial
+  // slot choices. Actual shelf positions are resolved onto 20 mm slots.
   const compactBottom = PLINTH_HEIGHT + BOARD / 2;
   const compactTop = shelfTopCenterY(FAMILIES.compact.height);
   const compactStep = (compactTop - compactBottom) / 8;
-  const compactCenters = Array.from({ length: 9 }, (_, index) => compactBottom + compactStep * index);
+  const compactCenters = Array.from({ length: SHELF_COUNT }, (_, index) => compactBottom + compactStep * index);
 
   if (Math.abs(height - FAMILIES.compact.height) < EPS) return compactCenters;
-
   if (Math.abs(height - FAMILIES.tall.height) < EPS) {
     const delta = FAMILIES.tall.height - FAMILIES.compact.height;
-    return compactCenters.map((y, index) => (index === 8 ? y + delta : y));
+    return compactCenters.map((y, index) => (index === SHELF_COUNT - 1 ? y + delta : y));
   }
 
   const top = shelfTopCenterY(height);
-  const step = (top - compactBottom) / 8;
-  return Array.from({ length: 9 }, (_, index) => compactBottom + step * index);
+  const step = (top - compactBottom) / (SHELF_COUNT - 1);
+  return Array.from({ length: SHELF_COUNT }, (_, index) => compactBottom + step * index);
 }
+
+function shelfSlotLayout(height) {
+  const bottom = PLINTH_HEIGHT + BOARD / 2;
+  const nominalTop = shelfTopCenterY(height);
+  const topSlot = Math.max(SHELF_COUNT - 1, Math.round((nominalTop - bottom) / SHELF_SLOT_STEP));
+  return {
+    bottom,
+    topSlot,
+    top: bottom + topSlot * SHELF_SLOT_STEP,
+  };
+}
+
+function defaultShelfSlots() {
+  const height = FAMILIES.compact.height;
+  const { bottom } = shelfSlotLayout(height);
+  return legacyShelfCentersForHeight(height)
+    .slice(0, SHELF_COUNT - 1)
+    .map((y, index) => index === 0 ? 0 : Math.round((y - bottom) / SHELF_SLOT_STEP));
+}
+
+function cloneShelfSlots(source) {
+  const defaults = defaultShelfSlots();
+  const input = Array.isArray(source) ? source : [];
+  return defaults.map((fallback, index) => {
+    const value = Number(input[index]);
+    return Number.isFinite(value) ? Math.round(value) : fallback;
+  });
+}
+
+function resolvedShelfSlots(module, height) {
+  const { topSlot } = shelfSlotLayout(height);
+  const source = cloneShelfSlots(module?.shelfSlots);
+  const slots = Array(SHELF_COUNT).fill(0);
+  slots[0] = 0;
+  for (let index = 1; index < SHELF_COUNT - 1; index += 1) {
+    const min = slots[index - 1] + 1;
+    const remainingMovable = (SHELF_COUNT - 2) - index;
+    const max = Math.max(min, topSlot - 1 - remainingMovable);
+    slots[index] = Math.max(min, Math.min(max, source[index]));
+  }
+  slots[SHELF_COUNT - 1] = topSlot;
+  return slots;
+}
+
+function shelfCentersForModule(module, height) {
+  const { bottom } = shelfSlotLayout(height);
+  return resolvedShelfSlots(module, height).map((slot) => bottom + slot * SHELF_SLOT_STEP);
+}
+
+function isShelfFixed(module, shelfIndex) {
+  return shelfIndex === 0
+    || shelfIndex === SHELF_COUNT - 1
+    || (module?.door === 'lower' && shelfIndex === 3);
+}
+
 function uid() { return `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
 function defaultDoorState() {
   return {
@@ -303,7 +360,7 @@ function cloneDoorState(source) {
   return base;
 }
 function newModule(kind = 'straight') {
-  return { id: uid(), kind, door: 'open', colour: DEFAULT_COLOUR, keyplate: 'diamond', doorState: defaultDoorState() };
+  return { id: uid(), kind, door: 'open', colour: DEFAULT_COLOUR, keyplate: 'diamond', shelfSlots: defaultShelfSlots(), doorState: defaultDoorState() };
 }
 function cloneModule(module) {
   const colour = String(module?.colour || '').toLowerCase();
@@ -315,6 +372,7 @@ function cloneModule(module) {
     door: kind === 'corner' ? 'open' : requestedDoor,
     colour: MODULE_COLOURS.includes(colour) ? colour : DEFAULT_COLOUR,
     keyplate: ['diamond', 'rectangle', 'knob'].includes(module?.keyplate) ? module.keyplate : 'diamond',
+    shelfSlots: cloneShelfSlots(module?.shelfSlots),
     doorState: cloneDoorState(module?.doorState),
   };
 }
@@ -560,6 +618,11 @@ function metalMaterial() {
 function tagMesh(mesh, moduleId) {
   mesh.userData.bookshelfModuleId = moduleId;
   moduleMeshes.push(mesh);
+  return mesh;
+}
+function tagShelfInteractive(mesh, moduleId, shelfIndex) {
+  mesh.userData.bookshelfModuleId = moduleId;
+  mesh.userData.bookshelfShelfIndex = shelfIndex;
   return mesh;
 }
 function addBox(group, size, position, material, moduleId, { cast = true, receive = true } = {}) {
@@ -866,7 +929,7 @@ function addMiteredShelfBoard(group, { width, depth, thickness, center, material
   return mesh;
 }
 
-function addUnifiedCornerShelfBoard(group, module, { width, depth, thickness, y, centerZ }) {
+function addUnifiedCornerShelfBoard(group, module, { width, depth, thickness, y, centerZ, shelfIndex }) {
   // Build one watertight L-shaped shelf surface for the corner. The two normal
   // shelf rectangles are unioned into one extrusion, so the joint cannot
   // create z-fighting, overlapping solids or a triangular hole. The subtle
@@ -913,6 +976,7 @@ function addUnifiedCornerShelfBoard(group, module, { width, depth, thickness, y,
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   tagMesh(mesh, module.id);
+  tagShelfInteractive(mesh, module.id, shelfIndex);
   group.add(mesh);
 
   // Preserve the diagonal direction that was approved in the previous
@@ -930,6 +994,7 @@ function addUnifiedCornerShelfBoard(group, module, { width, depth, thickness, y,
   });
   const seam = new THREE.Line(seamGeometry, seamMaterial);
   tagMesh(seam, module.id);
+  tagShelfInteractive(seam, module.id, shelfIndex);
   group.add(seam);
 }
 
@@ -941,16 +1006,15 @@ function addUnifiedCornerShelves(parent, module, pose, width) {
   parent.add(group);
 
   const shelfDepth = spec.depth - 34;
-  const bottomShelfY = PLINTH_HEIGHT + BOARD / 2;
+  const shelfCenters = shelfCentersForModule(module, spec.height);
   addUnifiedCornerShelfBoard(group, module, {
     width,
     depth: shelfDepth,
     thickness: BOARD,
-    y: bottomShelfY,
+    y: shelfCenters[0],
     centerZ: -spec.depth / 2,
+    shelfIndex: 0,
   });
-
-  const shelfCenters = shelfCentersForHeight(spec.height);
   const lowerDoorShelfDepthReduction = 28;
   const lowerDoorShelfDepth = Math.max(120, shelfDepth - lowerDoorShelfDepthReduction);
   const lowerDoorShelfCenterZ = -spec.depth / 2 + lowerDoorShelfDepthReduction / 2;
@@ -959,6 +1023,7 @@ function addUnifiedCornerShelves(parent, module, pose, width) {
   const glazedDoorShelfCenterZ = -spec.depth / 2 + glazedDoorShelfDepthReduction / 2;
 
   shelfCenters.slice(1).forEach((y, index) => {
+    const shelfIndex = index + 1;
     const behindLowerDoors = module.door === 'lower' && index < 2;
     const behindGlazedDoors = module.door === 'glazed' && index < 7;
     const currentDepth = behindLowerDoors ? lowerDoorShelfDepth : behindGlazedDoors ? glazedDoorShelfDepth : shelfDepth;
@@ -969,6 +1034,7 @@ function addUnifiedCornerShelves(parent, module, pose, width) {
       thickness: BOARD,
       y,
       centerZ: currentCenterZ,
+      shelfIndex,
     });
   });
 }
@@ -1313,7 +1379,7 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   const bottomShelfY = PLINTH_HEIGHT + BOARD / 2;
   if (!omitShelves) {
     if (cornerWing && sharedSide) {
-      addMiteredShelfBoard(group, {
+      const bottomShelf = addMiteredShelfBoard(group, {
         width: innerWidth,
         depth: shelfDepth,
         thickness: BOARD,
@@ -1322,12 +1388,14 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
         moduleId: module.id,
         sharedSide,
       });
+      tagShelfInteractive(bottomShelf, module.id, 0);
     } else {
-      addBox(group, { x: innerWidth, y: BOARD, z: shelfDepth }, {
+      const bottomShelf = addBox(group, { x: innerWidth, y: BOARD, z: shelfDepth }, {
         x: width / 2,
         y: bottomShelfY,
         z: -depth / 2,
       }, wood, module.id);
+      tagShelfInteractive(bottomShelf, module.id, 0);
     }
   }
 
@@ -1363,7 +1431,7 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
     }
   });
 
-  const shelfCenters = shelfCentersForHeight(height);
+  const shelfCenters = shelfCentersForModule(module, height);
   const lowerDoorShelfDepthReduction = 28;
   const lowerDoorShelfDepth = Math.max(120, shelfDepth - lowerDoorShelfDepthReduction);
   const lowerDoorShelfCenterZ = -depth / 2 + lowerDoorShelfDepthReduction / 2;
@@ -1377,7 +1445,7 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
       const currentDepth = behindLowerDoors ? lowerDoorShelfDepth : behindGlazedDoors ? glazedDoorShelfDepth : shelfDepth;
       const currentCenterZ = behindLowerDoors ? lowerDoorShelfCenterZ : behindGlazedDoors ? glazedDoorShelfCenterZ : -depth / 2;
       if (cornerWing && sharedSide) {
-        addMiteredShelfBoard(group, {
+        const shelf = addMiteredShelfBoard(group, {
           width: shelfWidth,
           depth: currentDepth,
           thickness: BOARD,
@@ -1386,8 +1454,9 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
           moduleId: module.id,
           sharedSide,
         });
+        tagShelfInteractive(shelf, module.id, index + 1);
       } else {
-        addBox(group, {
+        const shelf = addBox(group, {
           x: shelfWidth,
           y: BOARD,
           z: currentDepth,
@@ -1396,6 +1465,7 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
           y,
           z: currentCenterZ,
         }, wood, module.id);
+        tagShelfInteractive(shelf, module.id, index + 1);
       }
     });
   }
@@ -1649,7 +1719,7 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
   const shelfFrontZ = frontZ(depth) + (depth - (depth - 34)) / 2;
   const solidDoorFrontZ = shelfFrontZ;
   const glazedDoorCenterZ = shelfFrontZ;
-  const shelfCenters = shelfCentersForHeight(height);
+  const shelfCenters = shelfCentersForModule(module, height);
   const doorState = cloneDoorState(module.doorState);
 
   // A corner wing carries exactly one normal straight-module door leaf. This
@@ -2110,6 +2180,7 @@ function addPendingModule() {
   state.modules = candidateModules;
   state.origin = candidateOrigin;
   selectedModuleId = module.id;
+  selectedShelf = null;
   closeAddPanel();
   renderAll({ refit: false });
   markDirty();
@@ -2127,6 +2198,7 @@ function deleteSelectedModule() {
   }
   state.modules.splice(index, 1);
   selectedModuleId = state.modules[Math.min(index, state.modules.length - 1)]?.id || '';
+  selectedShelf = null;
   renderAll();
   markDirty();
 }
@@ -2159,6 +2231,100 @@ function raycastModule(event) {
   raycaster.setFromCamera(pointer, camera);
   const hit = raycaster.intersectObjects(moduleMeshes, false)[0];
   return hit?.object || null;
+}
+
+function raycastShelf(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const pointer = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(moduleMeshes, false);
+  const first = hits[0]?.object || null;
+  return Number.isInteger(first?.userData?.bookshelfShelfIndex) ? first : null;
+}
+
+function selectedShelfModule() {
+  return selectedShelf ? state.modules.find((module) => module.id === selectedShelf.moduleId) || null : null;
+}
+
+function shelfMoveBounds(module, shelfIndex) {
+  const slots = resolvedShelfSlots(module, familySpec().height);
+  if (isShelfFixed(module, shelfIndex)) return { canDown: false, canUp: false };
+  const current = slots[shelfIndex];
+  const min = slots[shelfIndex - 1] + 1;
+  const max = slots[shelfIndex + 1] - 1;
+  return {
+    canDown: current > min,
+    canUp: current < max,
+  };
+}
+
+function updateShelfMoveControls() {
+  if (!shelfMoveControls || !selectedShelf) {
+    if (shelfMoveControls) shelfMoveControls.hidden = true;
+    return;
+  }
+  const module = selectedShelfModule();
+  if (!module) {
+    selectedShelf = null;
+    shelfMoveControls.hidden = true;
+    return;
+  }
+  const shelfIndex = selectedShelf.shelfIndex;
+  const shelfMesh = moduleMeshes.find((mesh) => mesh.isMesh
+    && mesh.userData.bookshelfModuleId === module.id
+    && mesh.userData.bookshelfShelfIndex === shelfIndex);
+  if (!shelfMesh) {
+    shelfMoveControls.hidden = true;
+    return;
+  }
+
+  shelfMesh.updateWorldMatrix(true, false);
+  const center = new THREE.Box3().setFromObject(shelfMesh).getCenter(new THREE.Vector3());
+  const projected = center.clone().project(camera);
+  if (projected.z <= -1 || projected.z >= 1) {
+    shelfMoveControls.hidden = true;
+    return;
+  }
+  const rect = canvasHost.getBoundingClientRect();
+  const x = (projected.x * 0.5 + 0.5) * rect.width;
+  const y = (-projected.y * 0.5 + 0.5) * rect.height;
+  shelfMoveControls.style.left = `${Math.max(32, Math.min(rect.width - 32, x + 52))}px`;
+  shelfMoveControls.style.top = `${Math.max(52, Math.min(rect.height - 52, y))}px`;
+  shelfMoveControls.hidden = false;
+
+  const bounds = shelfMoveBounds(module, shelfIndex);
+  shelfMoveUpButton.disabled = !bounds.canUp;
+  shelfMoveDownButton.disabled = !bounds.canDown;
+}
+
+function moveSelectedShelf(direction) {
+  const module = selectedShelfModule();
+  if (!module || !selectedShelf) return;
+  const shelfIndex = selectedShelf.shelfIndex;
+  const bounds = shelfMoveBounds(module, shelfIndex);
+  if ((direction > 0 && !bounds.canUp) || (direction < 0 && !bounds.canDown)) return;
+
+  const preservedCameraPosition = camera.position.clone();
+  const preservedControlsTarget = controls.target.clone();
+  const preservedCameraQuaternion = camera.quaternion.clone();
+  const slots = resolvedShelfSlots(module, familySpec().height);
+
+  recordUndoCheckpoint();
+  module.shelfSlots = slots.slice(0, SHELF_COUNT - 1);
+  module.shelfSlots[shelfIndex] += direction > 0 ? 1 : -1;
+  renderAll();
+
+  camera.position.copy(preservedCameraPosition);
+  controls.target.copy(preservedControlsTarget);
+  camera.quaternion.copy(preservedCameraQuaternion);
+  camera.updateMatrixWorld();
+  controls.update();
+  updateShelfMoveControls();
+  markDirty();
 }
 
 function toggleDoorLeaf(moduleId, doorKey) {
@@ -2221,6 +2387,24 @@ function bindControls() {
     addModuleError.hidden = true;
   }));
 
+  shelfMoveUpButton?.addEventListener('click', () => moveSelectedShelf(1));
+  shelfMoveDownButton?.addEventListener('click', () => moveSelectedShelf(-1));
+
+  renderer.domElement.addEventListener('dblclick', (event) => {
+    const shelf = raycastShelf(event);
+    if (!shelf) return;
+    selectedShelf = {
+      moduleId: shelf.userData.bookshelfModuleId,
+      shelfIndex: shelf.userData.bookshelfShelfIndex,
+    };
+    selectedModuleId = selectedShelf.moduleId;
+    closeAddPanel();
+    renderSelectedControls();
+    rebuildSelectionHelper();
+    updateShelfMoveControls();
+    event.preventDefault();
+  });
+
   let pointerDown = null;
   let pointerMoved = false;
 
@@ -2257,6 +2441,8 @@ function bindControls() {
     const doorKey = hit?.userData?.bookshelfDoorKey || '';
 
     if (!moduleId) {
+      selectedShelf = null;
+      updateShelfMoveControls();
       if (selectedModuleId) {
         selectedModuleId = '';
         renderSelectedControls();
@@ -2266,6 +2452,8 @@ function bindControls() {
     }
 
     selectedModuleId = moduleId;
+    const shelfIndex = hit?.userData?.bookshelfShelfIndex;
+    if (!Number.isInteger(shelfIndex)) selectedShelf = null;
     closeAddPanel();
     if (doorKey) {
       event.preventDefault();
@@ -2292,6 +2480,7 @@ function resizeRenderer() {
 
 function updateOverlays() {
   updateDimensionPositions();
+  updateShelfMoveControls();
   if (addModulePanel.hidden) updateEndpointButtons();
   else {
     addStartButton.hidden = true;
@@ -2330,6 +2519,7 @@ function restoreState(snapshot) {
   if (!validLayout(candidate)) return false;
   state = { version: 5, family, origin, modules };
   selectedModuleId = '';
+  selectedShelf = null;
   closeAddPanel();
   renderAll({ refit: true });
   return true;
@@ -2343,6 +2533,7 @@ function resetConfiguration() {
     modules: [newModule('straight')],
   };
   selectedModuleId = '';
+  selectedShelf = null;
   closeAddPanel();
   renderAll({ refit: true });
   return true;
