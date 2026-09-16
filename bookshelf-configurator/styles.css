@@ -198,3 +198,50 @@ body.bookshelf-sidebar-collapsed #bookshelfSidebarToggle svg { transform: rotate
 body.bookshelf-dark-mode .finish-choice { background: #252d32; border-color: #465159; color: #e8eef1; }
 body.bookshelf-dark-mode .keyplate-card { background: #252d32; border-color: #465159; color: #e8eef1; }
 body.bookshelf-dark-mode .keyplate-card__preview { background: linear-gradient(180deg, #283238, #20282d); box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
+
+.shelf-move-controls {
+  position: absolute;
+  z-index: 10;
+  transform: translate(-50%, -50%);
+  display: grid;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid rgba(65, 83, 94, .16);
+  border-radius: 999px;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 8px 24px rgba(25,48,61,.16);
+  backdrop-filter: blur(8px);
+}
+.shelf-move-controls[hidden] { display: none; }
+.shelf-move-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #168de0;
+  border-radius: 50%;
+  background: #fff;
+  color: #168de0;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.shelf-move-button:hover:not(:disabled) { background: #eef8ff; }
+.shelf-move-button:disabled {
+  border-color: #c8d0d5;
+  background: #eef1f3;
+  color: #9aa5ab;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+body.bookshelf-dark-mode .shelf-move-controls {
+  background: rgba(31,38,43,.94);
+  border-color: #465159;
+}
+body.bookshelf-dark-mode .shelf-move-button { background: #252d32; }
+body.bookshelf-dark-mode .shelf-move-button:disabled {
+  background: #1a2024;
+  border-color: #465159;
+  color: #657179;
+}
