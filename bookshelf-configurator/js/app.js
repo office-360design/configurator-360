@@ -1382,6 +1382,22 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
     moduleId: module.id,
   });
 
+  // Use the exact same metal diamond/keyhole fitting as the glazed doors.
+  // The diamond is centered on the solid-door keyhole so the cutout in the
+  // wood and the cutout in the metal overlap perfectly.
+  if (keyhole) {
+    const keyplateX = keyholeSide === 'right' ? rightStileX : leftStileX;
+    const keyplateDepth = 2.7;
+    addDiamondKeyplate(leaf, {
+      width: SIDE_MID_BODY * 0.5,
+      height: SIDE_MID_BODY,
+      depth: keyplateDepth,
+      zOffset: 0,
+      material: metalMaterial(),
+      moduleId: module.id,
+    }).position.set(keyplateX, 0, -keyplateDepth + 0.12);
+  }
+
   tagDoorInteractive(leaf, module.id, doorKey);
   return leaf;
 }
