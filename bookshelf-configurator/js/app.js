@@ -19,6 +19,7 @@ const FINISH_TEXTURES = Object.freeze({
 });
 const POST = 42;
 const BOARD = 22;
+const DOOR_PAIR_GAP = 2;
 const BACK = 16;
 const SIDE = 10;
 const SIDE_RAIL_BODY = 276;
@@ -1562,7 +1563,7 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
     const hinge = incomingWing ? 'left' : 'right';
 
     if (module.door === 'lower') {
-      const leafWidth = Math.max(60, straightOpeningWidth / 2);
+      const leafWidth = Math.max(60, (straightOpeningWidth - DOOR_PAIR_GAP) / 2);
       const x = incomingWing
         ? POST + leafWidth / 2
         : width - POST - leafWidth / 2;
@@ -1580,8 +1581,7 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
       return;
     }
 
-    const leafGap = -1;
-    const leafWidth = Math.max(46, (straightOpeningWidth - leafGap) / 2);
+    const leafWidth = Math.max(46, (straightOpeningWidth - DOOR_PAIR_GAP) / 2);
     const x = incomingWing
       ? POST + leafWidth / 2
       : width - POST - leafWidth / 2;
@@ -1610,7 +1610,7 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
     const openingTop = shelfCenters[3] - BOARD / 2;
     const doorHeight = Math.max(120, openingTop - openingBottom);
     const y = (openingTop + openingBottom) / 2;
-    const leafWidth = Math.max(60, lowerDoorWidth / 2);
+    const leafWidth = Math.max(60, (lowerDoorWidth - DOOR_PAIR_GAP) / 2);
     const leftX = lowerDoorStart + leafWidth / 2;
     const rightX = lowerDoorEnd - leafWidth / 2;
     addSolidDoorLeaf(parent, module, leftX, leafWidth, y, doorHeight, solidDoorFrontZ, {
@@ -1631,10 +1631,9 @@ function addDoors(parent, module, { width, depth, height, cornerWing = false, sh
   const openingStart = POST;
   const openingEnd = width - POST;
   const openingWidth = Math.max(120, openingEnd - openingStart);
-  const leafGap = -1;
-  const leafWidth = Math.max(46, (openingWidth - leafGap) / 2);
+  const leafWidth = Math.max(46, (openingWidth - DOOR_PAIR_GAP) / 2);
   const leftX = openingStart + leafWidth / 2;
-  const rightX = openingStart + leafWidth + leafGap + leafWidth / 2;
+  const rightX = openingEnd - leafWidth / 2;
   const openingBottom = shelfCenters[0] + BOARD / 2;
   const openingTop = shelfCenters[8] - BOARD / 2;
   const doorHeight = Math.max(200, openingTop - openingBottom);
