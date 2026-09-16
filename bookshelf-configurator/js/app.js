@@ -24,6 +24,7 @@ const SHELF_CLEAR_GAP = 20;
 const SHELF_SLOT_STEP = BOARD + SHELF_CLEAR_GAP;
 const LEGACY_SHELF_SLOT_STEP = 20;
 const SHELF_COUNT = 9;
+const MOVABLE_SHELF_DEPTH_REDUCTION = 32;
 const BACK = 16;
 const SIDE = 10;
 const SIDE_RAIL_BODY = 276;
@@ -243,7 +244,7 @@ let selectionHelper = null;
 let resizeObserver;
 
 let state = {
-  version: 6,
+  version: 7,
   family: 'compact',
   origin: { x: -400, z: 0, heading: 0 },
   modules: [newModule('straight')],
@@ -334,14 +335,35 @@ function resolvedShelfSlots(module, height) {
   const { topSlot } = shelfSlotLayout(height);
   const source = cloneShelfSlots(module?.shelfSlots);
   const slots = Array(SHELF_COUNT).fill(0);
+  const occupied = new Set([0, topSlot]);
   slots[0] = 0;
-  for (let index = 1; index < SHELF_COUNT - 1; index += 1) {
-    const min = slots[index - 1] + 1;
-    const remainingMovable = (SHELF_COUNT - 2) - index;
-    const max = Math.max(min, topSlot - 1 - remainingMovable);
-    slots[index] = Math.max(min, Math.min(max, source[index]));
-  }
   slots[SHELF_COUNT - 1] = topSlot;
+
+  // Shelf identities are intentionally independent of their vertical order.
+  // This lets a selected movable shelf jump past an occupied neighbouring slot
+  // to the next free slot above/below instead of being blocked by that shelf.
+  for (let index = 1; index < SHELF_COUNT - 1; index += 1) {
+    const desired = Math.max(1, Math.min(topSlot - 1, Math.round(source[index])));
+    let resolved = desired;
+    if (occupied.has(resolved)) {
+      let offset = 1;
+      while (offset < topSlot) {
+        const below = desired - offset;
+        const above = desired + offset;
+        if (below >= 1 && !occupied.has(below)) {
+          resolved = below;
+          break;
+        }
+        if (above <= topSlot - 1 && !occupied.has(above)) {
+          resolved = above;
+          break;
+        }
+        offset += 1;
+      }
+    }
+    slots[index] = resolved;
+    occupied.add(resolved);
+  }
   return slots;
 }
 
@@ -1023,33 +1045,17 @@ function addUnifiedCornerShelves(parent, module, pose, width) {
 
   const shelfDepth = spec.depth - 34;
   const shelfCenters = shelfCentersForModule(module, spec.height);
-  addUnifiedCornerShelfBoard(group, module, {
-    width,
-    depth: shelfDepth,
-    thickness: BOARD,
-    y: shelfCenters[0],
-    centerZ: -spec.depth / 2,
-    shelfIndex: 0,
-  });
-  const lowerDoorShelfDepthReduction = 28;
-  const lowerDoorShelfDepth = Math.max(120, shelfDepth - lowerDoorShelfDepthReduction);
-  const lowerDoorShelfCenterZ = -spec.depth / 2 + lowerDoorShelfDepthReduction / 2;
-  const glazedDoorShelfDepthReduction = 32;
-  const glazedDoorShelfDepth = Math.max(120, shelfDepth - glazedDoorShelfDepthReduction);
-  const glazedDoorShelfCenterZ = -spec.depth / 2 + glazedDoorShelfDepthReduction / 2;
+  const movableShelfDepth = Math.max(120, shelfDepth - MOVABLE_SHELF_DEPTH_REDUCTION);
+  const movableShelfCenterZ = -spec.depth / 2 + MOVABLE_SHELF_DEPTH_REDUCTION / 2;
 
-  shelfCenters.slice(1).forEach((y, index) => {
-    const shelfIndex = index + 1;
-    const behindLowerDoors = module.door === 'lower' && index < 2;
-    const behindGlazedDoors = module.door === 'glazed' && index < 7;
-    const currentDepth = behindLowerDoors ? lowerDoorShelfDepth : behindGlazedDoors ? glazedDoorShelfDepth : shelfDepth;
-    const currentCenterZ = behindLowerDoors ? lowerDoorShelfCenterZ : behindGlazedDoors ? glazedDoorShelfCenterZ : -spec.depth / 2;
+  shelfCenters.forEach((y, shelfIndex) => {
+    const fixed = isShelfFixed(module, shelfIndex);
     addUnifiedCornerShelfBoard(group, module, {
       width,
-      depth: currentDepth,
+      depth: fixed ? shelfDepth : movableShelfDepth,
       thickness: BOARD,
       y,
-      centerZ: currentCenterZ,
+      centerZ: fixed ? -spec.depth / 2 : movableShelfCenterZ,
       shelfIndex,
     });
   });
@@ -1448,18 +1454,14 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   });
 
   const shelfCenters = shelfCentersForModule(module, height);
-  const lowerDoorShelfDepthReduction = 28;
-  const lowerDoorShelfDepth = Math.max(120, shelfDepth - lowerDoorShelfDepthReduction);
-  const lowerDoorShelfCenterZ = -depth / 2 + lowerDoorShelfDepthReduction / 2;
-  const glazedDoorShelfDepthReduction = 32;
-  const glazedDoorShelfDepth = Math.max(120, shelfDepth - glazedDoorShelfDepthReduction);
-  const glazedDoorShelfCenterZ = -depth / 2 + glazedDoorShelfDepthReduction / 2;
+  const movableShelfDepth = Math.max(120, shelfDepth - MOVABLE_SHELF_DEPTH_REDUCTION);
+  const movableShelfCenterZ = -depth / 2 + MOVABLE_SHELF_DEPTH_REDUCTION / 2;
   if (!omitShelves) {
     shelfCenters.slice(1).forEach((y, index) => {
-      const behindLowerDoors = module.door === 'lower' && index < 2;
-      const behindGlazedDoors = module.door === 'glazed' && index < 7;
-      const currentDepth = behindLowerDoors ? lowerDoorShelfDepth : behindGlazedDoors ? glazedDoorShelfDepth : shelfDepth;
-      const currentCenterZ = behindLowerDoors ? lowerDoorShelfCenterZ : behindGlazedDoors ? glazedDoorShelfCenterZ : -depth / 2;
+      const shelfIndex = index + 1;
+      const fixed = isShelfFixed(module, shelfIndex);
+      const currentDepth = fixed ? shelfDepth : movableShelfDepth;
+      const currentCenterZ = fixed ? -depth / 2 : movableShelfCenterZ;
       if (cornerWing && sharedSide) {
         const shelf = addMiteredShelfBoard(group, {
           width: shelfWidth,
@@ -1470,7 +1472,7 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
           moduleId: module.id,
           sharedSide,
         });
-        tagShelfInteractive(shelf, module.id, index + 1);
+        tagShelfInteractive(shelf, module.id, shelfIndex);
       } else {
         const shelf = addBox(group, {
           x: shelfWidth,
@@ -1481,7 +1483,7 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
           y,
           z: currentCenterZ,
         }, wood, module.id);
-        tagShelfInteractive(shelf, module.id, index + 1);
+        tagShelfInteractive(shelf, module.id, shelfIndex);
       }
     });
   }
@@ -1909,6 +1911,20 @@ function rebuildSelectionHelper() {
     selectionHelper.material?.dispose?.();
     selectionHelper = null;
   }
+
+  if (selectedShelf) {
+    const shelfMesh = moduleMeshes.find((mesh) => mesh.isMesh
+      && mesh.userData.bookshelfModuleId === selectedShelf.moduleId
+      && mesh.userData.bookshelfShelfIndex === selectedShelf.shelfIndex);
+    if (shelfMesh) {
+      selectionHelper = new THREE.BoxHelper(shelfMesh, 0x24a148);
+      selectionHelper.material.transparent = true;
+      selectionHelper.material.opacity = 0.95;
+      scene.add(selectionHelper);
+      return;
+    }
+  }
+
   if (!selectedModuleId) return;
   const group = moduleGroups.get(selectedModuleId);
   if (!group) return;
@@ -2266,15 +2282,24 @@ function selectedShelfModule() {
   return selectedShelf ? state.modules.find((module) => module.id === selectedShelf.moduleId) || null : null;
 }
 
-function shelfMoveBounds(module, shelfIndex) {
+function nextAvailableShelfSlot(module, shelfIndex, direction) {
+  if (isShelfFixed(module, shelfIndex)) return null;
+  const { topSlot } = shelfSlotLayout(familySpec().height);
   const slots = resolvedShelfSlots(module, familySpec().height);
-  if (isShelfFixed(module, shelfIndex)) return { canDown: false, canUp: false };
+  const occupied = new Set(slots.filter((_, index) => index !== shelfIndex));
   const current = slots[shelfIndex];
-  const min = slots[shelfIndex - 1] + 1;
-  const max = slots[shelfIndex + 1] - 1;
+  const step = direction > 0 ? 1 : -1;
+
+  for (let slot = current + step; slot > 0 && slot < topSlot; slot += step) {
+    if (!occupied.has(slot)) return slot;
+  }
+  return null;
+}
+
+function shelfMoveBounds(module, shelfIndex) {
   return {
-    canDown: current > min,
-    canUp: current < max,
+    downSlot: nextAvailableShelfSlot(module, shelfIndex, -1),
+    upSlot: nextAvailableShelfSlot(module, shelfIndex, 1),
   };
 }
 
@@ -2313,8 +2338,8 @@ function updateShelfMoveControls() {
   shelfMoveControls.hidden = false;
 
   const bounds = shelfMoveBounds(module, shelfIndex);
-  shelfMoveUpButton.disabled = !bounds.canUp;
-  shelfMoveDownButton.disabled = !bounds.canDown;
+  shelfMoveUpButton.disabled = bounds.upSlot == null;
+  shelfMoveDownButton.disabled = bounds.downSlot == null;
 }
 
 function moveSelectedShelf(direction) {
@@ -2322,7 +2347,8 @@ function moveSelectedShelf(direction) {
   if (!module || !selectedShelf) return;
   const shelfIndex = selectedShelf.shelfIndex;
   const bounds = shelfMoveBounds(module, shelfIndex);
-  if ((direction > 0 && !bounds.canUp) || (direction < 0 && !bounds.canDown)) return;
+  const targetSlot = direction > 0 ? bounds.upSlot : bounds.downSlot;
+  if (targetSlot == null) return;
 
   const preservedCameraPosition = camera.position.clone();
   const preservedControlsTarget = controls.target.clone();
@@ -2331,7 +2357,7 @@ function moveSelectedShelf(direction) {
 
   recordUndoCheckpoint();
   module.shelfSlots = slots.slice(0, SHELF_COUNT - 1);
-  module.shelfSlots[shelfIndex] += direction > 0 ? 1 : -1;
+  module.shelfSlots[shelfIndex] = targetSlot;
   renderAll();
 
   camera.position.copy(preservedCameraPosition);
@@ -2526,7 +2552,7 @@ function animate() {
 
 function captureState() {
   return {
-    version: 6,
+    version: 7,
     family: state.family,
     origin: { x: round(state.origin.x), z: round(state.origin.z), heading: round(state.origin.heading, 6) },
     modules: state.modules.map(cloneModule),
@@ -2553,7 +2579,7 @@ function restoreState(snapshot) {
   });
   const candidate = deriveLayout(modules, origin, FAMILIES[family]);
   if (!validLayout(candidate)) return false;
-  state = { version: 6, family, origin, modules };
+  state = { version: 7, family, origin, modules };
   selectedModuleId = '';
   selectedShelf = null;
   closeAddPanel();
@@ -2563,7 +2589,7 @@ function restoreState(snapshot) {
 
 function resetConfiguration() {
   state = {
-    version: 6,
+    version: 7,
     family: 'compact',
     origin: { x: -400, z: 0, heading: 0 },
     modules: [newModule('straight')],
