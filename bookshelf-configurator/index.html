@@ -8,7 +8,7 @@
   <title>Modular Bookshelf Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=26" />
-  <link rel="stylesheet" href="./styles.css?v=bookshelf-point1-35" />
+  <link rel="stylesheet" href="./styles.css?v=bookshelf-point1-36" />
   <script type="importmap">
     {
       "imports": {
@@ -124,6 +124,32 @@
             </div>
             <small id="cornerDoorDisclaimer" class="corner-door-disclaimer" hidden data-i18n="doors.cornerUnsupported">L-corner modules do not support doors.</small>
 
+            <span class="control-label top-gap" data-i18n="selected.keyplate">Key protection</span>
+            <div class="keyplate-grid">
+              <button class="keyplate-card is-selected" type="button" data-keyplate="diamond">
+                <span class="keyplate-card__preview" aria-hidden="true">
+                  <svg viewBox="0 0 88 64">
+                    <rect x="29" y="8" width="30" height="48" rx="3" fill="#8d5e3b" opacity="0.14"/>
+                    <path d="M44 12l12 12-12 12-12-12 12-12Z" fill="#b9c0c5" stroke="#76818a" stroke-width="1.8"/>
+                    <path d="M44 23.6a4.6 4.6 0 1 0 0-9.2a4.6 4.6 0 0 0 0 9.2Zm-1.6 0.6h3.2v10.2h-3.2Z" fill="#5f6c74"/>
+                  </svg>
+                </span>
+                <b data-i18n="keyplate.diamond">Rhombus</b>
+                <small data-i18n="keyplate.diamondHint">Diamond metal keyplate</small>
+              </button>
+              <button class="keyplate-card" type="button" data-keyplate="rectangle">
+                <span class="keyplate-card__preview" aria-hidden="true">
+                  <svg viewBox="0 0 88 64">
+                    <rect x="29" y="8" width="30" height="48" rx="3" fill="#8d5e3b" opacity="0.14"/>
+                    <rect x="33" y="10" width="22" height="28" rx="2.5" fill="#b9c0c5" stroke="#76818a" stroke-width="1.8"/>
+                    <path d="M44 21.4a4.3 4.3 0 1 0 0-8.6a4.3 4.3 0 0 0 0 8.6Zm-1.6 0.7h3.2v10.1h-3.2Z" fill="#5f6c74"/>
+                  </svg>
+                </span>
+                <b data-i18n="keyplate.rectangle">Rectangle</b>
+                <small data-i18n="keyplate.rectangleHint">Rectangular metal keyplate</small>
+              </button>
+            </div>
+
             <span class="control-label top-gap" data-i18n="selected.colour">Wood finish</span>
             <div id="moduleColourPalette" class="colour-palette finish-palette">
               <button class="finish-choice is-selected" type="button" data-colour="#b98555" aria-label="NATURAL" title="NATURAL"><span class="finish-choice__chip" style="--colour:#b98555;--finish-image:url('./assets/textures/wood-natural.png')"></span><b>NATURAL</b></button>
@@ -160,7 +186,7 @@
     <button id="bookshelfSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide bookshelf settings" aria-expanded="true" title="Hide bookshelf settings"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
   </main>
 
-  <script type="module" src="./js/app.js?v=bookshelf-point1-35"></script>
-  <script type="module" src="./js/sharedShell.js?v=bookshelf-point1-35"></script>
+  <script type="module" src="./js/app.js?v=bookshelf-point1-36"></script>
+  <script type="module" src="./js/sharedShell.js?v=bookshelf-point1-36"></script>
 </body>
 </html>
