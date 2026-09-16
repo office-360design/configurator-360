@@ -53,11 +53,13 @@ const COPY = Object.freeze({
     'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 850 × 850 × 2300 mm',
     'family.rule': 'Changing the family updates every module together; heights cannot be mixed.',
     'selected.empty': 'Select a bookshelf module in the 3D view to choose its doors, key protection, wood finish or delete it.',
-    'selected.keyplate': 'Key protection',
+    'selected.keyplate': 'Door hardware',
     'keyplate.diamond': 'Rhombus',
-    'keyplate.diamondHint': 'Diamond metal keyplate',
+    'keyplate.diamondHint': 'Rhombus keyplate + keyhole',
     'keyplate.rectangle': 'Rectangle',
-    'keyplate.rectangleHint': 'Rectangular metal keyplate',
+    'keyplate.rectangleHint': 'Rectangular keyplate + keyhole',
+    'keyplate.knob': 'Wooden knob',
+    'keyplate.knobHint': 'Wooden knob, no keyhole',
     'selected.module': 'Module',
     'selected.doors': 'Door configuration',
     'selected.colour': 'Wood finish',
@@ -107,11 +109,13 @@ const COPY = Object.freeze({
     'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 850 × 850 × 2300 mm',
     'family.rule': 'Schimbarea familiei actualizează toate modulele împreună; înălțimile nu pot fi amestecate.',
     'selected.empty': 'Selectează un modul în vederea 3D pentru a alege ușile, protecția cheii, finisajul lemnului sau pentru a-l șterge.',
-    'selected.keyplate': 'Protecție cheie',
+    'selected.keyplate': 'Feronerie ușă',
     'keyplate.diamond': 'Romb',
-    'keyplate.diamondHint': 'Plăcuță metalică în formă de romb',
+    'keyplate.diamondHint': 'Plăcuță romb + gaură pentru cheie',
     'keyplate.rectangle': 'Dreptunghi',
-    'keyplate.rectangleHint': 'Plăcuță metalică dreptunghiulară',
+    'keyplate.rectangleHint': 'Plăcuță dreptunghiulară + gaură pentru cheie',
+    'keyplate.knob': 'Buton din lemn',
+    'keyplate.knobHint': 'Buton din lemn, fără gaură pentru cheie',
     'selected.module': 'Modul',
     'selected.doors': 'Configurație uși',
     'selected.colour': 'Finisaj lemn',
@@ -161,11 +165,13 @@ const COPY = Object.freeze({
     'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 850 × 850 × 2300 mm',
     'family.rule': 'Beim Wechsel der Familie werden alle Module gemeinsam aktualisiert; unterschiedliche Höhen können nicht gemischt werden.',
     'selected.empty': 'Wählen Sie ein Modul in der 3D-Ansicht, um Türen, Schlüsselschutz, Holzoberfläche oder Löschen zu konfigurieren.',
-    'selected.keyplate': 'Schlüsselschutz',
+    'selected.keyplate': 'Türbeschlag',
     'keyplate.diamond': 'Raute',
-    'keyplate.diamondHint': 'Rautenförmige Metall-Schlüsselblende',
+    'keyplate.diamondHint': 'Rautenblende + Schlüsselloch',
     'keyplate.rectangle': 'Rechteck',
-    'keyplate.rectangleHint': 'Rechteckige Metall-Schlüsselblende',
+    'keyplate.rectangleHint': 'Rechteckblende + Schlüsselloch',
+    'keyplate.knob': 'Holzknopf',
+    'keyplate.knobHint': 'Holzknopf, ohne Schlüsselloch',
     'selected.module': 'Modul',
     'selected.doors': 'Türkonfiguration',
     'selected.colour': 'Holzoberfläche',
@@ -237,7 +243,7 @@ let selectionHelper = null;
 let resizeObserver;
 
 let state = {
-  version: 3,
+  version: 4,
   family: 'compact',
   origin: { x: -400, z: 0, heading: 0 },
   modules: [newModule('straight')],
@@ -316,7 +322,7 @@ function cloneModule(module) {
     kind,
     door: kind === 'corner' ? 'open' : requestedDoor,
     colour: MODULE_COLOURS.includes(colour) ? colour : DEFAULT_COLOUR,
-    keyplate: ['diamond', 'rectangle'].includes(module?.keyplate) ? module.keyplate : 'diamond',
+    keyplate: ['diamond', 'rectangle', 'knob'].includes(module?.keyplate) ? module.keyplate : 'diamond',
     doorState: cloneDoorState(module?.doorState),
   };
 }
@@ -768,6 +774,47 @@ function addDoorKeyplate(group, { style = 'diamond', width, height, depth, zOffs
     return addRectangularKeyplate(group, { width, height, depth, zOffset, material, moduleId });
   }
   return addDiamondKeyplate(group, { width, height, depth, zOffset, material, moduleId });
+}
+
+function addWoodenDoorKnob(group, { material, moduleId }) {
+  // Revolved profile based on the client's reference knob: a small circular
+  // mounting foot, narrow waist and a broad rounded mushroom cap. The local
+  // Y axis is rotated toward -Z so the knob projects out from the door face.
+  const profile = [
+    [0, 0], [21, 0], [22, 2.5], [22, 4.5], [18, 6],
+    [14, 8.5], [12, 13], [11.5, 17], [12.5, 21], [15.5, 25],
+    [21, 29], [27, 31.5], [31, 34.5], [33, 38], [32.5, 41.5],
+    [30, 45], [26, 48], [20, 50.5], [13, 52], [6, 52.8], [0, 53],
+  ].map(([radius, depth]) => new THREE.Vector2(radius, depth));
+  const geometry = new THREE.LatheGeometry(profile, 48);
+  geometry.rotateX(-Math.PI / 2);
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, moduleId);
+  group.add(mesh);
+  return mesh;
+}
+
+function addConfiguredDoorHardware(group, module, { x, y, plateWidth, plateHeight }) {
+  if (module.keyplate === 'knob') {
+    return addWoodenDoorKnob(group, {
+      material: woodMaterial(module.colour),
+      moduleId: module.id,
+    }).position.set(x, y, 0.25);
+  }
+
+  const keyplateDepth = 2.7;
+  return addDoorKeyplate(group, {
+    style: module.keyplate,
+    width: plateWidth,
+    height: plateHeight,
+    depth: keyplateDepth,
+    zOffset: 0,
+    material: metalMaterial(),
+    moduleId: module.id,
+  }).position.set(x, y, -keyplateDepth + 0.12);
 }
 
 
@@ -1381,8 +1428,9 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
 
   const leftStileX = -width / 2 + frame / 2;
   const rightStileX = width / 2 - frame / 2;
+  const usesKeyhole = keyhole && module.keyplate !== 'knob';
 
-  if (keyhole && keyholeSide === 'left') {
+  if (usesKeyhole && keyholeSide === 'left') {
     addKeyholeCutoutRect(leaf, {
       rectWidth: frame,
       rectHeight: height,
@@ -1396,7 +1444,7 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
   } else {
     addBox(leaf, { x: frame, y: height, z: doorThickness }, { x: leftStileX, y: 0, z: doorThickness / 2 }, wood, module.id);
   }
-  if (keyhole && keyholeSide === 'right') {
+  if (usesKeyhole && keyholeSide === 'right') {
     addKeyholeCutoutRect(leaf, {
       rectWidth: frame,
       rectHeight: height,
@@ -1442,21 +1490,16 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
     moduleId: module.id,
   });
 
-  // Use the exact same metal diamond/keyhole fitting as the glazed doors.
-  // The diamond is centered on the solid-door keyhole so the cutout in the
-  // wood and the cutout in the metal overlap perfectly.
+  // Metal choices keep the existing keyhole and matching keyplate. The wooden
+  // knob is mounted at the same center but replaces the keyhole/keyplate pair.
   if (keyhole) {
-    const keyplateX = keyholeSide === 'right' ? rightStileX : leftStileX;
-    const keyplateDepth = 2.7;
-    addDoorKeyplate(leaf, {
-      style: module.keyplate,
-      width: SIDE_MID_BODY * 0.5,
-      height: SIDE_MID_BODY,
-      depth: keyplateDepth,
-      zOffset: 0,
-      material: metalMaterial(),
-      moduleId: module.id,
-    }).position.set(keyplateX, 0, -keyplateDepth + 0.12);
+    const hardwareX = keyholeSide === 'right' ? rightStileX : leftStileX;
+    addConfiguredDoorHardware(leaf, module, {
+      x: hardwareX,
+      y: 0,
+      plateWidth: SIDE_MID_BODY * 0.5,
+      plateHeight: SIDE_MID_BODY,
+    });
   }
 
   tagDoorInteractive(leaf, module.id, doorKey);
@@ -1484,8 +1527,9 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
   const innerLeft = -width / 2 + stile;
   const innerRight = width / 2 - stile;
   const innerWidth = Math.max(40, innerRight - innerLeft);
-  const keyplateOnLeft = keyplate && keyplateSide === 'left';
-  const keyplateOnRight = keyplate && keyplateSide === 'right';
+  const usesKeyhole = keyplate && module.keyplate !== 'knob';
+  const keyplateOnLeft = usesKeyhole && keyplateSide === 'left';
+  const keyplateOnRight = usesKeyhole && keyplateSide === 'right';
 
   const bottomRailBottom = -height / 2;
   const bottomRailTop = bottomRailBottom + railBody;
@@ -1590,16 +1634,13 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
   }
 
   if (keyplate) {
-    const keyplateX = keyplateSide === 'right' ? width / 2 - stile / 2 : -width / 2 + stile / 2;
-    const keyplateDepth = 2.7;
-    addDoorKeyplate(leaf, {
-      width: railBody * 0.5,
-      height: railBody,
-      depth: keyplateDepth,
-      zOffset: 0,
-      material: metalMaterial(),
-      moduleId: module.id,
-    }).position.set(keyplateX, localMidY, -keyplateDepth + 0.12);
+    const hardwareX = keyplateSide === 'right' ? width / 2 - stile / 2 : -width / 2 + stile / 2;
+    addConfiguredDoorHardware(leaf, module, {
+      x: hardwareX,
+      y: localMidY,
+      plateWidth: railBody * 0.5,
+      plateHeight: railBody,
+    });
   }
 
   tagDoorInteractive(leaf, module.id, doorKey);
@@ -2264,7 +2305,7 @@ function animate() {
 
 function captureState() {
   return {
-    version: 3,
+    version: 4,
     family: state.family,
     origin: { x: round(state.origin.x), z: round(state.origin.z), heading: round(state.origin.heading, 6) },
     modules: state.modules.map(cloneModule),
@@ -2284,7 +2325,7 @@ function restoreState(snapshot) {
   const modules = source.modules.map(cloneModule);
   const candidate = deriveLayout(modules, origin, FAMILIES[family]);
   if (!validLayout(candidate)) return false;
-  state = { version: 3, family, origin, modules };
+  state = { version: 4, family, origin, modules };
   selectedModuleId = '';
   closeAddPanel();
   renderAll({ refit: true });
@@ -2293,7 +2334,7 @@ function restoreState(snapshot) {
 
 function resetConfiguration() {
   state = {
-    version: 3,
+    version: 4,
     family: 'compact',
     origin: { x: -400, z: 0, heading: 0 },
     modules: [newModule('straight')],

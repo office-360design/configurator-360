@@ -115,14 +115,14 @@ button, input, select { font: inherit; }
 .door-card:disabled small { color: #a7afb4; }
 .corner-door-disclaimer { display: block; margin: 7px 2px 0; color: #c43e3e; font-size: 9px; font-weight: 750; line-height: 1.35; }
 .corner-door-disclaimer[hidden] { display: none; }
-.keyplate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.keyplate-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .keyplate-card { min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: #47555e; cursor: pointer; }
 .keyplate-card:hover { transform: translateY(-1px); border-color: #c9a47c; }
 .keyplate-card.is-selected { border-color: #168de0; box-shadow: 0 0 0 2px rgba(22,141,224,.14); }
 .keyplate-card__preview { display: block; width: 100%; aspect-ratio: 1.45; border-radius: 7px; background: linear-gradient(180deg, #fafcfd, #edf2f4); box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
 .keyplate-card__preview svg { display: block; width: 100%; height: 100%; }
-.keyplate-card b { display: block; margin-top: 6px; font-size: 9px; letter-spacing: .04em; }
-.keyplate-card small { display: block; margin-top: 2px; color: #869199; font-size: 7.7px; line-height: 1.25; }
+.keyplate-card b { display: block; margin-top: 6px; font-size: 8.7px; letter-spacing: .02em; }
+.keyplate-card small { display: block; margin-top: 2px; color: #869199; font-size: 7.2px; line-height: 1.25; }
 .colour-palette { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .finish-choice { min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: #47555e; cursor: pointer; }
 .finish-choice:hover { transform: translateY(-1px); border-color: #c9a47c; }
