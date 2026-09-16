@@ -57,11 +57,12 @@ button, input, select { font: inherit; }
   border-left: 1px solid #d9e0e4;
   background: rgba(255,255,255,.985);
   padding: 0 22px 24px;
-  z-index: 5;
+  z-index: 30 !important;
   scrollbar-width: thin;
   transition: transform .22s ease;
 }
 .panel-section { padding: 22px 0 18px; border-bottom: 1px solid #e6eaed; }
+.intro-section { padding-top: 18px; padding-bottom: 18px; }
 .eyebrow { margin: 0 0 5px; color: var(--accent); font-size: 10.5px; font-weight: 850; letter-spacing: .11em; text-transform: uppercase; }
 .intro-section h1 { margin: 0; font-size: 23px; line-height: 1.2; }
 .section-copy { margin: 8px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.48; }
@@ -176,7 +177,7 @@ body.bookshelf-dark-mode .corner-door-disclaimer { color: #ff8585; }
 body.bookshelf-dark-mode .rule-note, body.bookshelf-dark-mode .component-summary > div, body.bookshelf-dark-mode .component-row { background: #20272c; border-color: #414b52; }
 body.bookshelf-dark-mode .floating-panel { background: rgba(31,38,43,.98); border-color: #465159; color: #edf2f4; }
 body.bookshelf-dark-mode .module-choice { background: #252d32; border-color: #465159; color: #e8eef1; }
-.shared-settings-toggle { z-index: 9; }
+.shared-settings-toggle { z-index: 31; }
 #bookshelfSidebarToggle svg { transition: transform .22s ease; }
 body.bookshelf-sidebar-collapsed #bookshelfSidebarToggle svg { transform: rotate(180deg); }
 @media (max-width: 900px) { :root { --bookshelf-panel: 360px; } }
@@ -203,8 +204,9 @@ body.bookshelf-dark-mode .keyplate-card__preview { background: linear-gradient(1
   position: absolute;
   z-index: 10;
   transform: translate(-50%, -50%);
-  display: grid;
-  gap: 6px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -213,6 +215,7 @@ body.bookshelf-dark-mode .keyplate-card__preview { background: linear-gradient(1
   -webkit-user-select: none;
 }
 .shelf-move-controls[hidden] { display: none; }
+.shelf-move-stack { display: grid; gap: 6px; }
 .shelf-move-button {
   width: 58px;
   height: 34px;
@@ -238,9 +241,65 @@ body.bookshelf-dark-mode .keyplate-card__preview { background: linear-gradient(1
   cursor: not-allowed;
   box-shadow: none;
 }
-body.bookshelf-dark-mode .shelf-move-button { background: #252d32; }
-body.bookshelf-dark-mode .shelf-move-button:disabled {
+.shelf-delete-button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #d66565;
+  border-radius: 50%;
+  background: #fff;
+  color: #b74343;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.shelf-delete-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.shelf-delete-button:hover:not(:disabled) { background: #fff2f2; }
+.shelf-delete-button:disabled { border-color: #c8d0d5; background: #eef1f3; color: #9aa5ab; cursor: not-allowed; }
+body.bookshelf-dark-mode .shelf-move-button, body.bookshelf-dark-mode .shelf-delete-button { background: #252d32; }
+body.bookshelf-dark-mode .shelf-move-button:disabled, body.bookshelf-dark-mode .shelf-delete-button:disabled {
   background: #1a2024;
   border-color: #465159;
   color: #657179;
 }
+
+
+/* Bookshelf-only common UI overrides. Keep these out of shared-ui so other configurators are unchanged. */
+.shared-ui-host [data-action="view-ar"],
+.shared-ui-host [data-action="cart"],
+.shared-ui-host [data-cart-menu] {
+  display: none !important;
+}
+
+.shelf-instructions {
+  margin: 0 0 10px;
+  color: #687781;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.shelf-add-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid #168de0;
+  border-radius: 10px;
+  background: #f5fbff;
+  color: #137fc7;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.shelf-add-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.shelf-add-button:hover:not(:disabled) { background: #eaf7ff; }
+.shelf-add-button:disabled { border-color: #d5dde2; background: #f1f4f5; color: #9ba5ab; cursor: not-allowed; }
+.shelf-no-slots { margin: 7px 1px 0; color: #a04b4b; font-size: 9.5px; line-height: 1.4; }
+.shelf-no-slots[hidden] { display: none; }
+body.bookshelf-dark-mode .shelf-instructions { color: #aeb8be; }
+body.bookshelf-dark-mode .shelf-add-button { background: #252d32; border-color: #3c8dbd; color: #7bc9f5; }
+body.bookshelf-dark-mode .shelf-add-button:disabled { background: #1a2024; border-color: #465159; color: #657179; }
+body.bookshelf-dark-mode .shelf-no-slots { color: #ff9393; }

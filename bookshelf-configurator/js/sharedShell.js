@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=bookshelf-point1-30';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=bookshelf-point1-42';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -51,7 +51,10 @@ shell = mountStandaloneConfiguratorShell({
     },
     onPreferenceChange(path, value, preferences) {
       if (path === 'darkMode') window.BOOKSHELF_CONFIGURATOR_API?.setDarkMode?.(Boolean(value));
-      if (path === 'locale') window.BOOKSHELF_CONFIGURATOR_API?.setLocale?.(preferences.locale);
+      if (path === 'locale') {
+        window.BOOKSHELF_CONFIGURATOR_API?.setLocale?.(preferences.locale);
+        queueMicrotask(syncBookshelfLocalShell);
+      }
       if (path === 'units') window.BOOKSHELF_CONFIGURATOR_API?.setUnits?.(preferences.units);
       if (path === 'currency') window.BOOKSHELF_CONFIGURATOR_API?.setCurrency?.(preferences.currency);
     },
@@ -67,6 +70,46 @@ shell = mountStandaloneConfiguratorShell({
     },
   },
 });
+
+const BOOKSHELF_QUOTE_LABELS = Object.freeze({
+  'en-US': 'Ask for quotation',
+  'ro-RO': 'Cere ofertă',
+  'de-DE': 'Angebot anfragen',
+});
+
+function syncBookshelfLocalShell() {
+  const quoteButton = document.querySelector('[data-shared-panel-add-to-cart]');
+  if (!quoteButton) return;
+  quoteButton.textContent = BOOKSHELF_QUOTE_LABELS[shell.state.locale] || BOOKSHELF_QUOTE_LABELS['en-US'];
+  quoteButton.disabled = false;
+  quoteButton.setAttribute('aria-disabled', 'false');
+  quoteButton.setAttribute('aria-label', quoteButton.textContent);
+  quoteButton.title = quoteButton.textContent;
+}
+
+const sharedFooterRefresh = shell.refreshConfiguratorPanelFooter?.bind(shell);
+if (sharedFooterRefresh) {
+  shell.refreshConfiguratorPanelFooter = (...args) => {
+    const result = sharedFooterRefresh(...args);
+    syncBookshelfLocalShell();
+    return result;
+  };
+}
+syncBookshelfLocalShell();
+
+// The bookshelf uses a direct quotation request instead of the shared cart.
+// Capture the footer click before the shared add-to-cart handler sees it so
+// this configurator never creates a hidden cart item.
+document.addEventListener('click', (event) => {
+  const quoteButton = event.target.closest?.('[data-shared-panel-add-to-cart]');
+  if (!quoteButton) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const shareUrl = shell.options?.callbacks?.getShareUrl?.() || window.location.href;
+  const subject = 'Bookshelf quotation request';
+  const body = `Hello,\n\nI would like to request a quotation for this bookshelf configuration:\n${shareUrl}`;
+  window.location.href = `mailto:office@360configurator.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}, true);
 
 const sidebar = document.querySelector('.sidebar');
 const appShell = document.querySelector('.app-shell');
