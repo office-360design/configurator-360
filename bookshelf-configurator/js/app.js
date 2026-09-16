@@ -1933,9 +1933,22 @@ function rebuildSelectionHelper() {
       && mesh.userData.bookshelfModuleId === selectedShelf.moduleId
       && mesh.userData.bookshelfShelfIndex === selectedShelf.shelfIndex);
     if (shelfMesh) {
-      selectionHelper = new THREE.BoxHelper(shelfMesh, 0x24a148);
-      selectionHelper.material.transparent = true;
-      selectionHelper.material.opacity = 0.95;
+      const shelfModule = state.modules.find((module) => module.id === selectedShelf.moduleId);
+      if (shelfModule?.kind === 'corner') {
+        // A BoxHelper reduces an L-shaped shelf to its rectangular bounding box.
+        // Trace the actual extruded shelf edges instead so the green selection
+        // outline follows the L perimeter exactly.
+        shelfMesh.updateWorldMatrix(true, false);
+        const edgeGeometry = new THREE.EdgesGeometry(shelfMesh.geometry, 1);
+        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x24a148, transparent: true, opacity: 0.95 });
+        selectionHelper = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+        selectionHelper.matrixAutoUpdate = false;
+        selectionHelper.matrix.copy(shelfMesh.matrixWorld);
+      } else {
+        selectionHelper = new THREE.BoxHelper(shelfMesh, 0x24a148);
+        selectionHelper.material.transparent = true;
+        selectionHelper.material.opacity = 0.95;
+      }
       scene.add(selectionHelper);
       return;
     }
@@ -2646,7 +2659,7 @@ function updateOverlays() {
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
-  if (selectionHelper) selectionHelper.update();
+  selectionHelper?.update?.();
   updateOverlays();
   renderer.render(scene, camera);
 }
