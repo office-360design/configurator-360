@@ -156,7 +156,6 @@ function validateCustomer(data) {
   if (customer.name.length < 2) throw new HttpsError('invalid-argument', 'Please enter a valid name.');
   if (!validEmail(customer.email)) throw new HttpsError('invalid-argument', 'Please enter a valid email address.');
   if (!validPhone(customer.phone)) throw new HttpsError('invalid-argument', 'Please enter a valid phone number.');
-  if (customer.shippingAddress.length < 5) throw new HttpsError('invalid-argument', 'Please enter a valid shipping address.');
   if (!Number.isInteger(customer.quantity) || customer.quantity < 1 || customer.quantity > MAX_QUANTITY) {
     throw new HttpsError('invalid-argument', 'Please enter a valid number of bookcases.');
   }
@@ -376,23 +375,29 @@ function rateLimitKey(rawRequest) {
   return createHash('sha256').update(`bookshelf-quotation:v1:${clientIp(rawRequest)}`).digest('hex');
 }
 
-async function enforceRateLimit(rawRequest) {
+async function checkRateLimit(rawRequest) {
+  const db = getFirestore();
+  const ref = db.collection(RATE_LIMIT_COLLECTION).doc(rateLimitKey(rawRequest));
+  const snapshot = await ref.get();
+  const data = snapshot.data() || {};
+  // Read the legacy field as a fallback so an in-flight deployment does not
+  // accidentally bypass an already-active cooldown.
+  const last = Number(data.lastSuccessAtMs || data.lastRequestAtMs || 0);
+  const remainingMs = MIN_INTERVAL_MS - (Date.now() - last);
+  if (remainingMs > 0) {
+    throw new HttpsError(
+      'resource-exhausted',
+      `Please wait ${Math.ceil(remainingMs / 1000)} seconds before sending another request.`,
+      { retryAfterSeconds: Math.ceil(remainingMs / 1000) },
+    );
+  }
+}
+
+async function recordSuccessfulRequest(rawRequest) {
   const db = getFirestore();
   const ref = db.collection(RATE_LIMIT_COLLECTION).doc(rateLimitKey(rawRequest));
   const now = Date.now();
-  await db.runTransaction(async (tx) => {
-    const snapshot = await tx.get(ref);
-    const last = Number(snapshot.data()?.lastRequestAtMs || 0);
-    const remainingMs = MIN_INTERVAL_MS - (now - last);
-    if (remainingMs > 0) {
-      throw new HttpsError(
-        'resource-exhausted',
-        `Please wait ${Math.ceil(remainingMs / 1000)} seconds before sending another request.`,
-        { retryAfterSeconds: Math.ceil(remainingMs / 1000) },
-      );
-    }
-    tx.set(ref, { lastRequestAtMs: now }, { merge: true });
-  });
+  await ref.set({ lastSuccessAtMs: now, lastRequestAtMs: now }, { merge: true });
 }
 
 exports.requestBookshelfQuotation = onCall(
@@ -412,9 +417,10 @@ exports.requestBookshelfQuotation = onCall(
     const shareUrl = validateShareUrl(request.data?.shareUrl, origin);
     const items = configurationItems(request.data?.configuration);
 
-    // Apply the public-form cooldown only after validation so a typo does not
-    // consume the user's request window.
-    await enforceRateLimit(request.rawRequest);
+    // Only successful deliveries consume the 30-second server cooldown.
+    // Validation and delivery failures can therefore be retried after the
+    // short client-side failure cooldown.
+    await checkRateLimit(request.rawRequest);
 
     const factorySubject = `[Bookshelf quotation] ${customer.name} — ${customer.quantity} ${customer.quantity === 1 ? 'bookcase' : 'bookcases'}`;
     const factoryText = factoryEmailText({ customer, items, shareUrl, locale, origin });
@@ -435,6 +441,8 @@ exports.requestBookshelfQuotation = onCall(
       text: confirmationText,
       eventName: 'bookshelf-quotation-customer-email-error',
     });
+
+    await recordSuccessfulRequest(request.rawRequest);
 
     logger.info('Bookshelf quotation request emails accepted by Gmail.', {
       event: 'bookshelf-quotation-email-accepted',

@@ -368,3 +368,7 @@ body.bookshelf-dark-mode .bookshelf-quote-field textarea { border-color: #465159
   .bookshelf-quote-field:nth-of-type(5), .bookshelf-quotation-submit { grid-column: 1; }
   .bookshelf-field-tooltip { right: -6px; width: min(230px, calc(100vw - 54px)); }
 }
+
+/* Bookshelf-only top-bar simplification. Keep the shared UI unchanged for all
+   other configurators and hide the demo CTA only on this page. */
+.shared-ui-host .book-demo-button { display: none !important; }

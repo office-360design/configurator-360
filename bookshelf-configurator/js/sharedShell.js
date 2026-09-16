@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=bookshelf-point1-43';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=bookshelf-point1-44';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -101,6 +101,12 @@ const BOOKSHELF_QUOTATION_FUNCTION = 'requestBookshelfQuotation';
 const BOOKSHELF_FUNCTIONS_REGION = 'europe-west1';
 const BOOKSHELF_PROJECT_ID = 'configurator-360';
 const QUOTATION_FEEDBACK_TIMER = '__bookshelfQuotationFeedbackTimer';
+const QUOTATION_DRAFT_STORAGE_KEY = '360-configurator:bookshelf:quotation-draft-v1';
+const QUOTATION_FEEDBACK_DURATION_MS = 5000;
+const QUOTATION_SUCCESS_COOLDOWN_MS = 30 * 1000;
+const QUOTATION_FAILURE_COOLDOWN_MS = 2 * 1000;
+let quotationCooldownUntilMs = 0;
+let quotationCooldownTimer = 0;
 
 const BOOKSHELF_QUOTATION_COPY = Object.freeze({
   'en-US': Object.freeze({
@@ -213,6 +219,85 @@ function quotationField({ id, label, tip, type = 'text', optional = false, texta
     </label>`;
 }
 
+function quotationDraft(form) {
+  const data = new FormData(form);
+  return {
+    name: String(data.get('bookshelfQuoteName') || ''),
+    company: String(data.get('bookshelfQuoteCompany') || ''),
+    phone: String(data.get('bookshelfQuotePhone') || ''),
+    email: String(data.get('bookshelfQuoteEmail') || ''),
+    shippingAddress: String(data.get('bookshelfQuoteAddress') || ''),
+    quantity: String(data.get('bookshelfQuoteQuantity') || '1'),
+  };
+}
+
+function saveQuotationDraft(form) {
+  try {
+    window.localStorage.setItem(QUOTATION_DRAFT_STORAGE_KEY, JSON.stringify(quotationDraft(form)));
+  } catch {
+    // Storage can be unavailable in privacy-restricted browser contexts.
+  }
+}
+
+function loadQuotationDraft() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(QUOTATION_DRAFT_STORAGE_KEY) || 'null');
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function applyQuotationDraft(form) {
+  const draft = loadQuotationDraft();
+  if (!draft || !(form instanceof HTMLFormElement)) return;
+  const values = {
+    bookshelfQuoteName: draft.name,
+    bookshelfQuoteCompany: draft.company,
+    bookshelfQuotePhone: draft.phone,
+    bookshelfQuoteEmail: draft.email,
+    bookshelfQuoteAddress: draft.shippingAddress,
+    bookshelfQuoteQuantity: draft.quantity,
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const field = form.elements.namedItem(id);
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) return;
+    if (value == null || value === '') {
+      if (id !== 'bookshelfQuoteQuantity') field.value = '';
+      return;
+    }
+    field.value = String(value);
+  });
+}
+
+function quotationCooldownRemainingMs() {
+  return Math.max(0, quotationCooldownUntilMs - Date.now());
+}
+
+function setQuotationCooldown(durationMs) {
+  quotationCooldownUntilMs = Date.now() + Math.max(0, Number(durationMs) || 0);
+  syncQuotationSubmitCooldown();
+}
+
+function syncQuotationSubmitCooldown(root = document) {
+  window.clearTimeout(quotationCooldownTimer);
+  const button = root.querySelector?.('[data-bookshelf-quotation-submit]');
+  if (!(button instanceof HTMLButtonElement)) return;
+  const remainingMs = quotationCooldownRemainingMs();
+  const text = quotationText();
+  if (remainingMs <= 0) {
+    button.disabled = false;
+    button.removeAttribute('aria-disabled');
+    button.textContent = text.send;
+    return;
+  }
+  const seconds = Math.max(1, Math.ceil(remainingMs / 1000));
+  button.disabled = true;
+  button.setAttribute('aria-disabled', 'true');
+  button.textContent = `${text.send} (${seconds}s)`;
+  quotationCooldownTimer = window.setTimeout(() => syncQuotationSubmitCooldown(root), Math.min(1000, remainingMs + 20));
+}
+
 function renderQuotationDialog() {
   document.querySelector('[data-bookshelf-quotation-overlay]')?.remove();
   const text = quotationText();
@@ -239,6 +324,9 @@ function renderQuotationDialog() {
       </form>
     </section>`;
   document.body.append(overlay);
+  const form = overlay.querySelector('[data-bookshelf-quotation-form]');
+  applyQuotationDraft(form);
+  syncQuotationSubmitCooldown(overlay);
   requestAnimationFrame(() => overlay.classList.add('is-open'));
   overlay.querySelector('#bookshelfQuoteName')?.focus();
   return overlay;
@@ -251,14 +339,14 @@ function closeQuotationDialog() {
   window.setTimeout(() => overlay.remove(), 180);
 }
 
-function showBookshelfFeedback(message, type = 'success', durationMs = 1800) {
+function showBookshelfFeedback(message, type = 'success', durationMs = QUOTATION_FEEDBACK_DURATION_MS) {
   const feedback = document.querySelector('[data-save-feedback]');
   const feedbackText = feedback?.querySelector('[data-save-feedback-text]');
   if (!(feedback instanceof HTMLElement) || !(feedbackText instanceof HTMLElement)) return;
   window.clearTimeout(globalThis[QUOTATION_FEEDBACK_TIMER]);
   feedback.classList.remove('is-success', 'is-error', 'is-animating');
   void feedback.offsetWidth;
-  const duration = Math.max(500, Number(durationMs) || 1800);
+  const duration = Math.max(500, Number(durationMs) || QUOTATION_FEEDBACK_DURATION_MS);
   feedback.style.animationDuration = `${duration}ms`;
   feedback.classList.add(type === 'error' ? 'is-error' : 'is-success', 'is-animating');
   feedbackText.textContent = String(message || '');
@@ -293,7 +381,6 @@ function validateQuotationPayload(payload) {
   if (!payload.name || !payload.phone || !payload.email || !payload.shippingAddress || !Number.isFinite(payload.quantity)) return text.required;
   if (!validEmail(payload.email)) return text.invalidEmail;
   if (!validPhone(payload.phone)) return text.invalidPhone;
-  if (payload.shippingAddress.length < 5) return text.invalidAddress;
   if (!Number.isInteger(payload.quantity) || payload.quantity < 1 || payload.quantity > 100000) return text.invalidQuantity;
   return '';
 }
@@ -331,17 +418,18 @@ function retryAfterSeconds(error) {
 async function submitBookshelfQuotation(form) {
   const text = quotationText();
   const payload = quotationPayload(form);
+  saveQuotationDraft(form);
+
+  // The requested form behavior is modal-dismiss-on-submit: once the user
+  // presses Send request, close the dialog regardless of the eventual result.
+  closeQuotationDialog();
+
   const validationError = validateQuotationPayload(payload);
   if (validationError) {
-    showBookshelfFeedback(validationError, 'error', 2500);
+    setQuotationCooldown(QUOTATION_FAILURE_COOLDOWN_MS);
+    showBookshelfFeedback(validationError, 'error');
     return;
   }
-
-  const submitButton = form.querySelector('[data-bookshelf-quotation-submit]');
-  if (!(submitButton instanceof HTMLButtonElement) || submitButton.disabled) return;
-  submitButton.disabled = true;
-  submitButton.setAttribute('aria-busy', 'true');
-  submitButton.textContent = text.sending;
 
   let shareUrl = '';
   try {
@@ -349,39 +437,37 @@ async function submitBookshelfQuotation(form) {
     if (!shareUrl) throw new Error('Share URL unavailable.');
   } catch (error) {
     console.error('Bookshelf share link creation failed.', error);
-    showBookshelfFeedback(text.shareFailure, 'error', 2500);
-    submitButton.disabled = false;
-    submitButton.removeAttribute('aria-busy');
-    submitButton.textContent = text.send;
+    setQuotationCooldown(QUOTATION_FAILURE_COOLDOWN_MS);
+    showBookshelfFeedback(text.shareFailure, 'error');
     return;
   }
 
   const configuration = window.BOOKSHELF_CONFIGURATOR_API?.captureState?.();
   if (!configuration) {
-    showBookshelfFeedback(text.failure, 'error', 2500);
-    submitButton.disabled = false;
-    submitButton.removeAttribute('aria-busy');
-    submitButton.textContent = text.send;
+    setQuotationCooldown(QUOTATION_FAILURE_COOLDOWN_MS);
+    showBookshelfFeedback(text.failure, 'error');
     return;
   }
 
   try {
     await callBookshelfQuotation({ ...payload, locale: shell.state.locale, shareUrl, configuration });
-    closeQuotationDialog();
-    showBookshelfFeedback(text.success, 'success', 1500);
+    setQuotationCooldown(QUOTATION_SUCCESS_COOLDOWN_MS);
+    showBookshelfFeedback(text.success, 'success');
   } catch (error) {
     console.error('Bookshelf quotation request failed.', error);
     const remaining = retryAfterSeconds(error);
     if (String(error?.code || '').includes('resource-exhausted') && remaining > 0) {
-      showBookshelfFeedback(text.cooldown(remaining), 'error', 2500);
+      // A server-side cooldown can survive a page refresh, so preserve that
+      // remaining successful-send cooldown instead of allowing futile retries.
+      setQuotationCooldown(Math.max(QUOTATION_FAILURE_COOLDOWN_MS, remaining * 1000));
+      showBookshelfFeedback(text.cooldown(remaining), 'error');
     } else if (String(error?.code || '').includes('invalid-argument') && error?.message) {
-      showBookshelfFeedback(error.message, 'error', 2500);
+      setQuotationCooldown(QUOTATION_FAILURE_COOLDOWN_MS);
+      showBookshelfFeedback(error.message, 'error');
     } else {
-      showBookshelfFeedback(text.failure, 'error', 2500);
+      setQuotationCooldown(QUOTATION_FAILURE_COOLDOWN_MS);
+      showBookshelfFeedback(text.failure, 'error');
     }
-    submitButton.disabled = false;
-    submitButton.removeAttribute('aria-busy');
-    submitButton.textContent = text.send;
   }
 }
 
@@ -402,6 +488,11 @@ document.addEventListener('click', (event) => {
   }
   const overlay = event.target.closest?.('[data-bookshelf-quotation-overlay]');
   if (overlay && event.target === overlay) closeQuotationDialog();
+}, true);
+
+document.addEventListener('input', (event) => {
+  const form = event.target.closest?.('[data-bookshelf-quotation-form]');
+  if (form instanceof HTMLFormElement) saveQuotationDraft(form);
 }, true);
 
 document.addEventListener('submit', (event) => {
