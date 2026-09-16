@@ -205,12 +205,10 @@ body.bookshelf-dark-mode .keyplate-card__preview { background: linear-gradient(1
   transform: translate(-50%, -50%);
   display: grid;
   gap: 6px;
-  padding: 5px;
-  border: 1px solid rgba(65, 83, 94, .16);
-  border-radius: 999px;
-  background: rgba(255,255,255,.94);
-  box-shadow: 0 8px 24px rgba(25,48,61,.16);
-  backdrop-filter: blur(8px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -239,10 +237,6 @@ body.bookshelf-dark-mode .keyplate-card__preview { background: linear-gradient(1
   color: #9aa5ab;
   cursor: not-allowed;
   box-shadow: none;
-}
-body.bookshelf-dark-mode .shelf-move-controls {
-  background: rgba(31,38,43,.94);
-  border-color: #465159;
 }
 body.bookshelf-dark-mode .shelf-move-button { background: #252d32; }
 body.bookshelf-dark-mode .shelf-move-button:disabled {
