@@ -52,7 +52,12 @@ const COPY = Object.freeze({
     'family.tall': '900 × 350 × 2300 mm',
     'family.tallDims': 'Straight 900 × 350 × 2300 mm · Corner 850 × 850 × 2300 mm',
     'family.rule': 'Changing the family updates every module together; heights cannot be mixed.',
-    'selected.empty': 'Select a bookshelf module in the 3D view to choose its doors, wood finish or delete it.',
+    'selected.empty': 'Select a bookshelf module in the 3D view to choose its doors, key protection, wood finish or delete it.',
+    'selected.keyplate': 'Key protection',
+    'keyplate.diamond': 'Rhombus',
+    'keyplate.diamondHint': 'Diamond metal keyplate',
+    'keyplate.rectangle': 'Rectangle',
+    'keyplate.rectangleHint': 'Rectangular metal keyplate',
     'selected.module': 'Module',
     'selected.doors': 'Door configuration',
     'selected.colour': 'Wood finish',
@@ -101,7 +106,12 @@ const COPY = Object.freeze({
     'family.tall': '900 × 350 × 2300 mm',
     'family.tallDims': 'Drept 900 × 350 × 2300 mm · Colț 850 × 850 × 2300 mm',
     'family.rule': 'Schimbarea familiei actualizează toate modulele împreună; înălțimile nu pot fi amestecate.',
-    'selected.empty': 'Selectează un modul în vederea 3D pentru a alege ușile, finisajul lemnului sau pentru a-l șterge.',
+    'selected.empty': 'Selectează un modul în vederea 3D pentru a alege ușile, protecția cheii, finisajul lemnului sau pentru a-l șterge.',
+    'selected.keyplate': 'Protecție cheie',
+    'keyplate.diamond': 'Romb',
+    'keyplate.diamondHint': 'Plăcuță metalică în formă de romb',
+    'keyplate.rectangle': 'Dreptunghi',
+    'keyplate.rectangleHint': 'Plăcuță metalică dreptunghiulară',
     'selected.module': 'Modul',
     'selected.doors': 'Configurație uși',
     'selected.colour': 'Finisaj lemn',
@@ -150,7 +160,12 @@ const COPY = Object.freeze({
     'family.tall': '900 × 350 × 2300 mm',
     'family.tallDims': 'Gerade 900 × 350 × 2300 mm · Ecke 850 × 850 × 2300 mm',
     'family.rule': 'Beim Wechsel der Familie werden alle Module gemeinsam aktualisiert; unterschiedliche Höhen können nicht gemischt werden.',
-    'selected.empty': 'Wählen Sie ein Modul in der 3D-Ansicht, um Türen, Holzoberfläche oder Löschen zu konfigurieren.',
+    'selected.empty': 'Wählen Sie ein Modul in der 3D-Ansicht, um Türen, Schlüsselschutz, Holzoberfläche oder Löschen zu konfigurieren.',
+    'selected.keyplate': 'Schlüsselschutz',
+    'keyplate.diamond': 'Raute',
+    'keyplate.diamondHint': 'Rautenförmige Metall-Schlüsselblende',
+    'keyplate.rectangle': 'Rechteck',
+    'keyplate.rectangleHint': 'Rechteckige Metall-Schlüsselblende',
     'selected.module': 'Modul',
     'selected.doors': 'Türkonfiguration',
     'selected.colour': 'Holzoberfläche',
@@ -222,7 +237,7 @@ let selectionHelper = null;
 let resizeObserver;
 
 let state = {
-  version: 2,
+  version: 3,
   family: 'compact',
   origin: { x: -400, z: 0, heading: 0 },
   modules: [newModule('straight')],
@@ -290,7 +305,7 @@ function cloneDoorState(source) {
   return base;
 }
 function newModule(kind = 'straight') {
-  return { id: uid(), kind, door: 'open', colour: DEFAULT_COLOUR, doorState: defaultDoorState() };
+  return { id: uid(), kind, door: 'open', colour: DEFAULT_COLOUR, keyplate: 'diamond', doorState: defaultDoorState() };
 }
 function cloneModule(module) {
   const colour = String(module?.colour || '').toLowerCase();
@@ -301,6 +316,7 @@ function cloneModule(module) {
     kind,
     door: kind === 'corner' ? 'open' : requestedDoor,
     colour: MODULE_COLOURS.includes(colour) ? colour : DEFAULT_COLOUR,
+    keyplate: ['diamond', 'rectangle'].includes(module?.keyplate) ? module.keyplate : 'diamond',
     doorState: cloneDoorState(module?.doorState),
   };
 }
@@ -715,6 +731,43 @@ function addDiamondKeyplate(group, { width, height, depth, zOffset = 0, material
   tagMesh(mesh, moduleId);
   group.add(mesh);
   return mesh;
+}
+
+function addRectangularKeyplate(group, { width, height, depth, zOffset = 0, material, moduleId }) {
+  const corner = Math.min(width, height) * 0.12;
+  const halfW = width / 2;
+  const halfH = height / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(-halfW + corner, -halfH);
+  shape.lineTo(halfW - corner, -halfH);
+  shape.quadraticCurveTo(halfW, -halfH, halfW, -halfH + corner);
+  shape.lineTo(halfW, halfH - corner);
+  shape.quadraticCurveTo(halfW, halfH, halfW - corner, halfH);
+  shape.lineTo(-halfW + corner, halfH);
+  shape.quadraticCurveTo(-halfW, halfH, -halfW, halfH - corner);
+  shape.lineTo(-halfW, -halfH + corner);
+  shape.quadraticCurveTo(-halfW, -halfH, -halfW + corner, -halfH);
+  shape.closePath();
+
+  shape.holes.push(createUnifiedKeyholePath(0, 0));
+
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 28 });
+  geometry.translate(0, 0, zOffset);
+  geometry.computeVertexNormals();
+  applyNormalizedBoxUVs(geometry);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  tagMesh(mesh, moduleId);
+  group.add(mesh);
+  return mesh;
+}
+
+function addDoorKeyplate(group, { style = 'diamond', width, height, depth, zOffset = 0, material, moduleId }) {
+  if (style === 'rectangle') {
+    return addRectangularKeyplate(group, { width, height, depth, zOffset, material, moduleId });
+  }
+  return addDiamondKeyplate(group, { width, height, depth, zOffset, material, moduleId });
 }
 
 
@@ -1395,7 +1448,8 @@ function addSolidDoorLeaf(parent, module, xCenter, width, yCenter, height, front
   if (keyhole) {
     const keyplateX = keyholeSide === 'right' ? rightStileX : leftStileX;
     const keyplateDepth = 2.7;
-    addDiamondKeyplate(leaf, {
+    addDoorKeyplate(leaf, {
+      style: module.keyplate,
       width: SIDE_MID_BODY * 0.5,
       height: SIDE_MID_BODY,
       depth: keyplateDepth,
@@ -1538,7 +1592,7 @@ function addDoorFrame(parent, module, xCenter, width, yCenter, height, z, { glaz
   if (keyplate) {
     const keyplateX = keyplateSide === 'right' ? width / 2 - stile / 2 : -width / 2 + stile / 2;
     const keyplateDepth = 2.7;
-    addDiamondKeyplate(leaf, {
+    addDoorKeyplate(leaf, {
       width: railBody * 0.5,
       height: railBody,
       depth: keyplateDepth,
@@ -1866,6 +1920,7 @@ function renderSelectedControls() {
     button.classList.toggle('is-selected', button.dataset.door === module.door);
   });
   if (cornerDoorDisclaimer) cornerDoorDisclaimer.hidden = !isCorner;
+  document.querySelectorAll('[data-keyplate]').forEach((button) => button.classList.toggle('is-selected', button.dataset.keyplate === module.keyplate));
   document.querySelectorAll('[data-colour]').forEach((button) => button.classList.toggle('is-selected', button.dataset.colour.toLowerCase() === module.colour.toLowerCase()));
   deleteModuleButton.disabled = state.modules.length <= 1;
   deleteModuleHint.hidden = state.modules.length > 1;
@@ -2108,6 +2163,7 @@ function bindControls() {
 
   document.querySelectorAll('[data-family]').forEach((button) => button.addEventListener('click', () => setFamily(button.dataset.family)));
   document.querySelectorAll('[data-door]').forEach((button) => button.addEventListener('click', () => updateSelectedModule({ door: button.dataset.door })));
+  document.querySelectorAll('[data-keyplate]').forEach((button) => button.addEventListener('click', () => updateSelectedModule({ keyplate: button.dataset.keyplate })));
   document.querySelectorAll('[data-colour]').forEach((button) => button.addEventListener('click', () => updateSelectedModule({ colour: button.dataset.colour.toLowerCase() })));
   deleteModuleButton.addEventListener('click', deleteSelectedModule);
 
@@ -2208,7 +2264,7 @@ function animate() {
 
 function captureState() {
   return {
-    version: 2,
+    version: 3,
     family: state.family,
     origin: { x: round(state.origin.x), z: round(state.origin.z), heading: round(state.origin.heading, 6) },
     modules: state.modules.map(cloneModule),
@@ -2228,7 +2284,7 @@ function restoreState(snapshot) {
   const modules = source.modules.map(cloneModule);
   const candidate = deriveLayout(modules, origin, FAMILIES[family]);
   if (!validLayout(candidate)) return false;
-  state = { version: 2, family, origin, modules };
+  state = { version: 3, family, origin, modules };
   selectedModuleId = '';
   closeAddPanel();
   renderAll({ refit: true });
@@ -2237,7 +2293,7 @@ function restoreState(snapshot) {
 
 function resetConfiguration() {
   state = {
-    version: 2,
+    version: 3,
     family: 'compact',
     origin: { x: -400, z: 0, heading: 0 },
     modules: [newModule('straight')],
