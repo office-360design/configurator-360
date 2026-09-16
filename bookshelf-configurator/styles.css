@@ -303,3 +303,68 @@ body.bookshelf-dark-mode .shelf-instructions { color: #aeb8be; }
 body.bookshelf-dark-mode .shelf-add-button { background: #252d32; border-color: #3c8dbd; color: #7bc9f5; }
 body.bookshelf-dark-mode .shelf-add-button:disabled { background: #1a2024; border-color: #465159; color: #657179; }
 body.bookshelf-dark-mode .shelf-no-slots { color: #ff9393; }
+
+
+/* Bookshelf-only quotation form. The shared shell/cart remains unchanged for other configurators. */
+.bookshelf-quotation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(18, 29, 36, .42);
+  backdrop-filter: blur(5px);
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+.bookshelf-quotation-overlay.is-open { opacity: 1; }
+.bookshelf-quotation-dialog {
+  width: min(560px, 100%);
+  max-height: min(860px, calc(100vh - 48px));
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid #d9e1e5;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 28px 70px rgba(17, 32, 42, .24);
+  transform: translateY(12px) scale(.985);
+  transition: transform .18s ease;
+}
+.bookshelf-quotation-overlay.is-open .bookshelf-quotation-dialog { transform: translateY(0) scale(1); }
+.bookshelf-quotation-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+.bookshelf-quotation-heading h2 { margin: 0; color: #17232b; font-size: 23px; line-height: 1.2; }
+.bookshelf-quotation-heading p { margin: 7px 0 0; color: #687781; font-size: 12.5px; line-height: 1.5; }
+.bookshelf-quotation-close { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid #dbe2e6; border-radius: 10px; background: #fff; color: #4d5d67; font-size: 24px; line-height: 1; cursor: pointer; }
+.bookshelf-quotation-close:hover { background: #f5f8f9; }
+.bookshelf-quotation-form { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.bookshelf-quote-field { display: grid; gap: 6px; min-width: 0; }
+.bookshelf-quote-field:nth-of-type(5) { grid-column: 1 / -1; }
+.bookshelf-quote-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #34434c; font-size: 11px; font-weight: 800; }
+.bookshelf-quote-label small { color: #8a969d; font-size: 9px; font-weight: 650; }
+.bookshelf-field-help { position: relative; flex: 0 0 auto; display: inline-grid; place-items: center; width: 18px; height: 18px; border: 1px solid #cfd9de; border-radius: 50%; color: #63747e; font-size: 10px; font-weight: 850; cursor: help; user-select: none; }
+.bookshelf-field-tooltip { position: absolute; right: -4px; bottom: calc(100% + 8px); z-index: 4; width: 230px; padding: 8px 9px; border: 1px solid #d8e0e4; border-radius: 9px; background: #17232b; color: #fff; box-shadow: 0 10px 28px rgba(15, 29, 37, .2); font-size: 9px; font-weight: 600; line-height: 1.4; opacity: 0; visibility: hidden; transform: translateY(4px); transition: opacity .14s ease, transform .14s ease, visibility .14s ease; pointer-events: none; }
+.bookshelf-field-help:hover .bookshelf-field-tooltip,
+.bookshelf-field-help:focus .bookshelf-field-tooltip { opacity: 1; visibility: visible; transform: translateY(0); }
+.bookshelf-quote-field input,
+.bookshelf-quote-field textarea { width: 100%; border: 1px solid #d9e1e5; border-radius: 10px; background: #fbfcfd; color: #1d2a32; padding: 10px 11px; outline: none; font-size: 12px; line-height: 1.35; transition: border-color .14s ease, box-shadow .14s ease, background .14s ease; }
+.bookshelf-quote-field textarea { resize: vertical; min-height: 76px; }
+.bookshelf-quote-field input:focus,
+.bookshelf-quote-field textarea:focus { border-color: #168de0; background: #fff; box-shadow: 0 0 0 3px rgba(22,141,224,.12); }
+.bookshelf-quotation-submit { grid-column: 1 / -1; margin-top: 3px; padding: 12px 16px; border: 1px solid #168de0; border-radius: 11px; background: #168de0; color: #fff; font-size: 12px; font-weight: 850; cursor: pointer; }
+.bookshelf-quotation-submit:hover:not(:disabled) { background: #117cc7; border-color: #117cc7; }
+.bookshelf-quotation-submit:disabled { opacity: .58; cursor: wait; }
+body.bookshelf-dark-mode .bookshelf-quotation-dialog { border-color: #465159; background: #1f262b; }
+body.bookshelf-dark-mode .bookshelf-quotation-heading h2 { color: #eef3f5; }
+body.bookshelf-dark-mode .bookshelf-quotation-heading p { color: #aab6bd; }
+body.bookshelf-dark-mode .bookshelf-quotation-close { border-color: #465159; background: #252d32; color: #e6edf0; }
+body.bookshelf-dark-mode .bookshelf-quote-label { color: #e0e8ec; }
+body.bookshelf-dark-mode .bookshelf-quote-field input,
+body.bookshelf-dark-mode .bookshelf-quote-field textarea { border-color: #465159; background: #20272c; color: #eef3f5; }
+@media (max-width: 620px) {
+  .bookshelf-quotation-overlay { padding: 12px; align-items: end; }
+  .bookshelf-quotation-dialog { max-height: calc(100vh - 24px); padding: 18px 16px; border-radius: 20px; }
+  .bookshelf-quotation-form { grid-template-columns: 1fr; }
+  .bookshelf-quote-field:nth-of-type(5), .bookshelf-quotation-submit { grid-column: 1; }
+  .bookshelf-field-tooltip { right: -6px; width: min(230px, calc(100vw - 54px)); }
+}
