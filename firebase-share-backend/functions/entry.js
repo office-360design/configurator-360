@@ -6,6 +6,7 @@
 module.exports = {
   ...require('./index.js'),
   ...require('./quotation.js'),
+  ...require('./bookshelf-quotation.js'),
   ...require('./profile.js'),
   ...require('./sales-dashboard.js'),
   ...require('./profile-update.js'),
