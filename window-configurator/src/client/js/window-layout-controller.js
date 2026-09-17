@@ -447,7 +447,11 @@ export function createWindowLayoutController({
         return next;
     }
 
-    async function setLayout(nextLayoutId, { notify = true } = {}) {
+    async function setLayout(nextLayoutId, {
+        notify = true,
+        widthM = null,
+        heightM = null,
+    } = {}) {
         const previous = getConfigurationSnapshot();
         const extension = Number.isFinite(Number(edgeExtensionM))
             ? Math.max(0, Number(edgeExtensionM))
@@ -460,6 +464,16 @@ export function createWindowLayoutController({
             (sum, track) => sum + Math.max(0, Number(track.sizeM) || 0),
             0
         ) + extension * 2;
+        const hasTargetWidth = widthM !== null
+            && widthM !== undefined
+            && widthM !== ''
+            && Number.isFinite(Number(widthM));
+        const hasTargetHeight = heightM !== null
+            && heightM !== undefined
+            && heightM !== ''
+            && Number.isFinite(Number(heightM));
+        const targetWidthM = hasTargetWidth ? Number(widthM) : currentWidthM;
+        const targetHeightM = hasTargetHeight ? Number(heightM) : currentHeightM;
 
         layoutId = normalizeWindowLayoutId(nextLayoutId);
         windowState = createWindowStateFromLayoutDefinition(
@@ -469,10 +483,21 @@ export function createWindowLayoutController({
             { defaultWidthM: initialWidthM, defaultHeightM: initialHeightM, edgeExtensionM }
         );
         windowState = setOverallWindowSizeInState(windowState, {
-            widthM: currentWidthM,
-            heightM: currentHeightM,
+            widthM: targetWidthM,
+            heightM: targetHeightM,
             edgeExtensionM,
         });
+
+        // Template selection supplies the final physical size together with the
+        // topology. Treat that already-sized state as editable immediately.
+        // Previously the old follow-up overall-slider change was what converted
+        // preset layouts to `dynamic`; after making template selection atomic,
+        // skipping that second change left the renderer on the legacy preset path,
+        // which reads the 600 x 900 individual-window inputs instead of gridTracks.
+        if (hasTargetWidth || hasTargetHeight) {
+            layoutId = 'dynamic';
+        }
+
         if (notify) return notifyChange(previous, { topologyOnly: false });
         syncControls();
         return getConfigurationSnapshot();
@@ -637,7 +662,16 @@ export function createWindowLayoutController({
         if (controlsInitialized) return;
         controlsInitialized = true;
         syncControls();
-        layoutInput?.addEventListener('change', () => setLayout(layoutInput.value));
+        layoutInput?.addEventListener('change', () => {
+            const widthM = Number(layoutInput.dataset.layoutTargetWidthM);
+            const heightM = Number(layoutInput.dataset.layoutTargetHeightM);
+            delete layoutInput.dataset.layoutTargetWidthM;
+            delete layoutInput.dataset.layoutTargetHeightM;
+            setLayout(layoutInput.value, {
+                widthM: Number.isFinite(widthM) ? widthM : null,
+                heightM: Number.isFinite(heightM) ? heightM : null,
+            });
+        });
         dividerProfileInput?.addEventListener('change', () => setDividerProfile(dividerProfileInput.value));
         transProfileInput?.addEventListener('change', () => setTransProfile(transProfileInput.value));
         globalThis.window?.addEventListener('window-locale-applied', syncControls);

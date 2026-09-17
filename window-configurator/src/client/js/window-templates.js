@@ -67,42 +67,6 @@ function closeToolsMenu() {
 const TEMPLATE_CELL_WIDTH_M = 0.6;
 const TEMPLATE_HEIGHT_M = 0.9;
 
-function waitForConfiguratorReady(timeoutMs = 12000) {
-    if (window.CONFIGURATOR_READY === true) return Promise.resolve(true);
-    return new Promise(resolve => {
-        const startedAt = performance.now();
-        const check = () => {
-            if (window.CONFIGURATOR_READY === true) {
-                resolve(true);
-                return;
-            }
-            if (performance.now() - startedAt >= timeoutMs) {
-                resolve(false);
-                return;
-            }
-            window.setTimeout(check, 25);
-        };
-        check();
-    });
-}
-
-function commitOverallSize(template) {
-    const widthRange = document.getElementById('overallWidthA');
-    const heightRange = document.getElementById('overallHeightB');
-    const widthM = TEMPLATE_CELL_WIDTH_M * Math.max(1, Number(template.columnCount) || 1);
-
-    if (widthRange) widthRange.value = String(widthM);
-    if (heightRange) heightRange.value = String(TEMPLATE_HEIGHT_M);
-
-    // Run the same sizing path as a real slider interaction. This is deliberately
-    // done after the layout controller has finished rebuilding the preset so the
-    // visible slider value and the physical grid tracks cannot get out of sync.
-    widthRange?.dispatchEvent(new Event('input', { bubbles: true }));
-    heightRange?.dispatchEvent(new Event('input', { bubbles: true }));
-    widthRange?.dispatchEvent(new Event('change', { bubbles: true }));
-    heightRange?.dispatchEvent(new Event('change', { bubbles: true }));
-}
-
 async function applyTemplate(template) {
     const layoutInput = document.getElementById('windowLayout');
     if (!layoutInput) return false;
@@ -111,20 +75,15 @@ async function applyTemplate(template) {
     // the loading overlay is never covered by the template selection popover.
     closePopover();
 
-    // Do not restore a captured configuration here. That route can reuse the
-    // current profile selection and used to enter refreshProfileMaterials(),
-    // which is unrelated to choosing a layout and can leave only the sidebar
-    // values changed if material refresh fails. The hidden layout select is the
-    // existing source of truth for preset layout changes, so use its normal
-    // change handler and let the window layout controller rebuild the geometry.
+    // Pass the target physical size into the same layout mutation that creates
+    // the new topology. The controller consumes these one-shot values before it
+    // notifies the renderer, so there is no intermediate 600 x 900 build followed
+    // by a second resize build.
+    const widthM = TEMPLATE_CELL_WIDTH_M * Math.max(1, Number(template.columnCount) || 1);
+    layoutInput.dataset.layoutTargetWidthM = String(widthM);
+    layoutInput.dataset.layoutTargetHeightM = String(TEMPLATE_HEIGHT_M);
     layoutInput.value = template.id;
     layoutInput.dispatchEvent(new Event('change', { bubbles: true }));
-
-    // setLayout() marks the configurator busy synchronously before its first
-    // awaited CAD/profile load. Wait for that rebuild to finish, then commit the
-    // template's exact overall dimensions through the real overall-size controls.
-    await waitForConfiguratorReady();
-    commitOverallSize(template);
 
     window.WINDOW_CONFIGURATOR_SHARED_SHELL?.markDirty?.();
     return true;
