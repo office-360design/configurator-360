@@ -336,7 +336,7 @@ function compatibilitySnapshot(windowState, layoutId, dividerProfileId, transPro
         cells,
         cellHandleSides: handles,
         dividerCount: classification.kind === 't-grid' ? 2 : topology.dividers.length,
-        layoutSignature: `state:${serializeWindowState(windowState)}|${dividerProfileId}|${transProfileId}`,
+        layoutSignature: `state:${layoutId}|${serializeWindowState(windowState)}|${dividerProfileId}|${transProfileId}`,
         windowState,
         topology,
         windowStateVersion: windowState.version,
@@ -449,6 +449,18 @@ export function createWindowLayoutController({
 
     async function setLayout(nextLayoutId, { notify = true } = {}) {
         const previous = getConfigurationSnapshot();
+        const extension = Number.isFinite(Number(edgeExtensionM))
+            ? Math.max(0, Number(edgeExtensionM))
+            : DEFAULT_WINDOW_EDGE_EXTENSION_M;
+        const currentWidthM = (windowState.gridTracks?.x || []).reduce(
+            (sum, track) => sum + Math.max(0, Number(track.sizeM) || 0),
+            0
+        ) + extension * 2;
+        const currentHeightM = (windowState.gridTracks?.y || []).reduce(
+            (sum, track) => sum + Math.max(0, Number(track.sizeM) || 0),
+            0
+        ) + extension * 2;
+
         layoutId = normalizeWindowLayoutId(nextLayoutId);
         windowState = createWindowStateFromLayoutDefinition(
             getWindowLayoutDefinition(layoutId),
@@ -456,6 +468,11 @@ export function createWindowLayoutController({
             transProfileId,
             { defaultWidthM: initialWidthM, defaultHeightM: initialHeightM, edgeExtensionM }
         );
+        windowState = setOverallWindowSizeInState(windowState, {
+            widthM: currentWidthM,
+            heightM: currentHeightM,
+            edgeExtensionM,
+        });
         if (notify) return notifyChange(previous, { topologyOnly: false });
         syncControls();
         return getConfigurationSnapshot();

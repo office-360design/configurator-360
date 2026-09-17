@@ -107,6 +107,10 @@ async function applyTemplate(template) {
     const layoutInput = document.getElementById('windowLayout');
     if (!layoutInput) return false;
 
+    // Close the chooser before the layout change starts its loading state, so
+    // the loading overlay is never covered by the template selection popover.
+    closePopover();
+
     // Do not restore a captured configuration here. That route can reuse the
     // current profile selection and used to enter refreshProfileMaterials(),
     // which is unrelated to choosing a layout and can leave only the sidebar
