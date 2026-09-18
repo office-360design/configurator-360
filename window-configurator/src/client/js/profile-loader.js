@@ -169,11 +169,22 @@ export function createProfileLoader() {
     const svgLoader = new SVGLoader();
     const profileCache = new Map();
     const standaloneProfileCache = new Map();
+    const svgLoadCache = new Map();
+    const accessoryShapeCache = new Map();
 
     function loadSvg(url) {
-        return new Promise((resolve, reject) => {
-            svgLoader.load(url, resolve, null, reject);
-        });
+        if (!svgLoadCache.has(url)) {
+            const request = new Promise((resolve, reject) => {
+                svgLoader.load(url, resolve, null, reject);
+            });
+            svgLoadCache.set(url, request);
+            request.catch(() => {
+                if (svgLoadCache.get(url) === request) {
+                    svgLoadCache.delete(url);
+                }
+            });
+        }
+        return svgLoadCache.get(url);
     }
 
     async function loadFirstAvailableSvg(urls) {
@@ -193,20 +204,33 @@ export function createProfileLoader() {
     }
 
     async function loadCatalogAccessoryShapes(profileFolder, code, section) {
-        const candidates = getLegacySvgCandidates(code, profileFolder, section);
-        if (!candidates.length) {
-            throw new Error(`No legacy SVG candidates are cataloged for profile ${code}.`);
+        const cacheKey = `${profileFolder}|${code}|${section}`;
+        if (!accessoryShapeCache.has(cacheKey)) {
+            const request = (async () => {
+                const candidates = getLegacySvgCandidates(code, profileFolder, section);
+                if (!candidates.length) {
+                    throw new Error(`No legacy SVG candidates are cataloged for profile ${code}.`);
+                }
+
+                const data = await loadFirstAvailableSvg(candidates);
+                const shapes = extractFilledSvgShapes(data);
+                const filename = candidates[0].split('/').pop();
+
+                if (!shapes.length) {
+                    throw new Error(`No filled profile shape was found in ${filename}.`);
+                }
+
+                return collapseProfileShapes(shapes);
+            })();
+            accessoryShapeCache.set(cacheKey, request);
+            request.catch(() => {
+                if (accessoryShapeCache.get(cacheKey) === request) {
+                    accessoryShapeCache.delete(cacheKey);
+                }
+            });
         }
 
-        const data = await loadFirstAvailableSvg(candidates);
-        const shapes = extractFilledSvgShapes(data);
-        const filename = candidates[0].split('/').pop();
-
-        if (!shapes.length) {
-            throw new Error(`No filled profile shape was found in ${filename}.`);
-        }
-
-        return collapseProfileShapes(shapes);
+        return accessoryShapeCache.get(cacheKey);
     }
 
     async function loadGasketShapes(profileFolder, code, section) {
