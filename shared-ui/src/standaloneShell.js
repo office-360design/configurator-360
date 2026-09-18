@@ -2244,9 +2244,9 @@ export class StandaloneConfiguratorShell {
       this.accountSettingsOpen = !this.accountSettingsOpen;
       this.helpOpen = false;
       this.domainOpen = false;
-      // Re-render before syncing so guest/auth transitions can never leave the
-      // Settings button pointing at stale account-menu DOM.
-      this.renderHost();
+      // Keep the existing account menu mounted while toggling Settings.
+      // Re-rendering the host here restarts the account-menu open transition,
+      // which makes the whole menu visibly close and reopen on every click.
       this.sync();
     } else if (action === 'toggle-dark-mode') {
       this.state.darkMode = !this.state.darkMode;
