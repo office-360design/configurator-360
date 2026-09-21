@@ -35,5 +35,5 @@ test('subtraction can keep four pieces of one tile around an internal cutout',()
 });
 test('house dimensions and wing constraints sanitize untrusted saved state',()=>{
  const s=normalize({houseEnabled:'false',houseLength:1,houseWidth:1,houseWingWidth:99,houseWingDepth:-2,houseX:Infinity,houseZ:-100,houseHeight:50,houseRotation:45});
- assert.equal(s.houseEnabled,false);assert.equal(s.houseWingWidth,.75);assert.equal(s.houseWingDepth,.25);assert.equal(s.houseX,1.5);assert.equal(s.houseZ,-20);assert.equal(s.houseHeight,8);assert.equal(s.houseRotation,0);
+ assert.equal(s.houseEnabled,false);assert.equal(s.houseWingWidth,.75);assert.equal(s.houseWingDepth,.25);assert.equal(s.houseX,1.5);assert.equal(s.houseZ,-20);assert.equal(s.houseHeight,8);assert.equal(s.houseRotation,45);
 });

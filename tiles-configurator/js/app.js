@@ -23,7 +23,7 @@ function render(){
   $('houseEnabled').checked=state.houseEnabled;$('houseFields').hidden=!state.houseEnabled;
   $('houseWingWidthField').hidden=$('houseWingDepthField').hidden=state.houseShape!=='l';
   for(const [key,max] of [['houseWingWidth',state.houseLength-.25],['houseWingDepth',state.houseWidth-.25]]){$(key).max=max;$(key+'Range').max=max;}
-  document.querySelectorAll('[data-range-field]').forEach(el=>{const key=el.dataset.rangeField;el.value=state[key];el.setAttribute('aria-label',document.querySelector(`label[for="${key}"]`)?.textContent.trim()||t(key));$(key+'Value').textContent=`${f(state[key])} ${key==='angleB'?'°':'m'}`;});
+  document.querySelectorAll('[data-range-field]').forEach(el=>{const key=el.dataset.rangeField;el.value=state[key];el.setAttribute('aria-label',document.querySelector(`label[for="${key}"]`)?.textContent.trim()||t(key));$(key+'Value').textContent=`${f(state[key])} ${['angleB','houseRotation'].includes(key)?'°':'m'}`;});
   const geometry=areaGeometry(state),custom=state.shape!=='rectangle';
   $('rectangleFields').hidden=custom;$('polygonFields').hidden=!custom;$('runDField').hidden=state.shape!=='closed5';
   $('closingLabel').textContent=`${state.shape==='closed5'?'EA':'DA'} · ${t('calculated')}`;
@@ -57,7 +57,7 @@ function flushSlider(){if(sliderFrame)cancelAnimationFrame(sliderFrame);sliderFr
 const sidebar=document.querySelector('.sidebar');
 sidebar.addEventListener('pointerdown',e=>{if(e.target.dataset.rangeField)history.record();},true);
 sidebar.addEventListener('keydown',e=>{if(e.target.dataset.rangeField&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(e.key))history.record();},true);
-sidebar.addEventListener('input',e=>{const key=e.target.dataset.rangeField;if(!key)return;sliderPatch={...(sliderPatch||{}),[key]:Number(e.target.value)};$(key).value=e.target.value;$(key+'Value').textContent=`${f(Number(e.target.value))} ${key==='angleB'?'°':'m'}`;if(!sliderFrame)sliderFrame=requestAnimationFrame(flushSlider);});
+sidebar.addEventListener('input',e=>{const key=e.target.dataset.rangeField;if(!key)return;sliderPatch={...(sliderPatch||{}),[key]:Number(e.target.value)};$(key).value=e.target.value;$(key+'Value').textContent=`${f(Number(e.target.value))} ${['angleB','houseRotation'].includes(key)?'°':'m'}`;if(!sliderFrame)sliderFrame=requestAnimationFrame(flushSlider);});
 $('centerHouse').addEventListener('click',()=>{const g=areaGeometry(state);change({houseX:(g.width-state.houseLength)/2,houseZ:(g.depth-state.houseWidth)/2});});
 document.querySelector('.sidebar').addEventListener('change',e=>{const el=e.target;if(el.dataset.rangeField){flushSlider();return;}if(el.dataset.edge!==undefined){const edges=[...state.edges];edges[Number(el.dataset.edge)]=el.checked;change({edges});}else if(Object.hasOwn(DEFAULTS,el.id)){if(el.type==='number'&&!el.checkValidity()){el.reportValidity();el.value=state[el.id];return;}const patch={[el.id]:el.type==='checkbox'?el.checked:el.value};if(el.id==='curb')patch.curbRate=CURBS[el.value].price;change(patch);}});
 document.querySelector('.sidebar').addEventListener('click',e=>{const button=e.target.closest('button');if(button?.dataset.tile){const tile=button.dataset.tile;change({tile,tileRate:TILES[tile].price});}if(button?.dataset.pattern){const pattern=button.dataset.pattern;change({pattern});document.querySelector(`[data-pattern="${pattern}"]`)?.focus({preventScroll:true});}if(button?.dataset.color)change({[button.dataset.key]:button.dataset.color});});
