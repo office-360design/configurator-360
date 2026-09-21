@@ -19,7 +19,7 @@ Run `npm run check:tiles` from the repository root for the model regression test
   custom sides (5 cm steps), angle B and house controls. Pointer drags are grouped
   as one undo operation; keyboard and numeric edits are also supported.
 - Optional rectangular or L-shaped house, with footprint dimensions, L-wing widths,
-  height, quarter-turn orientation, X/Z positioning, centre button and direct 3D dragging.
+  height, 0–360° rotation slider (1° steps) and numeric input, X/Z positioning, centre button and direct 3D dragging.
   X/Z locate the unrotated footprint's lower corner relative to the paving area's
   bounding-box origin; rotation is around the footprint centre. Moving outside the
   area is allowed; only the intersection is subtracted. The centre button positions
@@ -119,6 +119,6 @@ The new 90/95/115 RON/m² starting rates are editable demo rates, not WISE quota
 
 The House section offers address search (Nominatim, explicit submit) and a Leaflet / OpenStreetMap map, following the solar configurator's providers. Click near a house to load nearby building ways through the existing same-origin `/api/solar/overpass-primary` and `overpass-secondary` proxies. Select a blue outline and confirm import. Network failures leave the existing design intact; requests are cancelled when closing the dialog or choosing another point.
 
-Import preserves the actual simple footprint in metres (east = X, south = Z), including non-rectangular outlines. It replaces the current house and sets a rectangular paving area with a nominal one-metre margin, capped at the existing 20 m area limit. The house remains movable, quarter-turn rotatable and height-adjustable; imported length/depth are read-only. Manual rectangle/L options remain available. Tile and curb subtraction use the imported polygon. Save/share/cart/undo include footprint and location; CSV includes local footprint vertices and source.
+Import preserves the actual simple footprint in metres (east = X, south = Z), including non-rectangular outlines. It replaces the current house and sets a rectangular paving area with a nominal one-metre margin, capped at the existing 20 m area limit. The house remains movable, freely rotatable and height-adjustable; imported length/depth are read-only. Manual rectangle/L options remain available. Tile and curb subtraction use the imported polygon. Save/share/cart/undo include footprint and location; CSV includes local footprint vertices and source.
 
 Limits: mapped single closed building ways only, 3–64 vertices, 1–20 m bounding dimensions. Multipolygon relations/courtyards and larger buildings are unsupported; use a manual footprint when no supported outline is available. Map geometry is approximate, not surveyed. No new API key or backend deployment is required on the existing Cloud Run setup. Production uses the solar proxy paths; local localhost development also allows direct Overpass fallback.

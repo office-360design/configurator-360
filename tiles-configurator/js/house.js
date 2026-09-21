@@ -11,7 +11,8 @@ export function houseGeometry(s){
   const transform=p=>({x:s.houseX+l/2+(p.x-l/2)*c-(p.z-w/2)*sin,z:s.houseZ+w/2+(p.x-l/2)*sin+(p.z-w/2)*c});
   const rectangles=raw.map(r=>{const p=rectanglePoints(r).map(transform),x=Math.min(...p.map(v=>v.x)),z=Math.min(...p.map(v=>v.z));return {x,z,l:Math.max(...p.map(v=>v.x))-x,w:Math.max(...p.map(v=>v.z))-z};});
   const transformed=outline.map(transform);
-  return {rectangles:s.houseShape==='imported'?[]:rectangles,outline:transformed,triangles:s.houseShape==='imported'?triangulate(transformed):null};
+  const polygonClip=s.houseShape==='imported'||s.houseRotation%90!==0;
+  return {rectangles:polygonClip?[]:rectangles,outline:transformed,triangles:polygonClip?triangulate(transformed):null};
 }
 export function subtractHouse(polygons,rectangles){
   let result=polygons;

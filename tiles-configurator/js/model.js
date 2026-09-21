@@ -43,7 +43,7 @@ export function normalize(input={}) {
   s.houseWingDepth=number(s.houseWingDepth,1,.25,s.houseWidth-.25);
   s.houseHeight=number(s.houseHeight,2.6,.5,8);
   for(const key of ['houseX','houseZ'])s[key]=number(s[key],DEFAULTS[key],-20,60);
-  s.houseRotation=[0,90,180,270].includes(Number(s.houseRotation))?Number(s.houseRotation):0;
+  s.houseRotation=number(s.houseRotation,0,0,360);
   s.rotation=Number(s.rotation)===90?90:0;
   s.edges=Array.from({length:s.shape==='closed5'?5:4},(_,i)=>Array.isArray(s.edges)&&typeof s.edges[i]==='boolean'?s.edges[i]:true);
   return Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,k==='version'?1:s[k]]));
