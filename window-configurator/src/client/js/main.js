@@ -22,8 +22,17 @@ import { createLayoutSizingManager } from './layout-sizing-manager.js?v=platform
 import { createSegmentedResizeOptimizer } from './segmented-resize-optimizer.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../shared-ui/src/tenantBootstrap.js?v=1';
 import { readShareState } from '../shared-ui/src/shareState.js?v=4';
+import {
+    markCadLoading,
+    measureCadLoading,
+    measureCadLoadingSync,
+} from './loading-trace.js?v=loading-timing-1';
 
-await requireTenantConfiguratorAccess('window');
+markCadLoading('main.js evaluation started after dependency modules resolved');
+await measureCadLoading(
+    'Tenant configurator access bootstrap',
+    () => requireTenantConfiguratorAccess('window')
+);
 // Window CAD initialization is asynchronous and used to race the common shell's
 // generic share restore. This runtime owns the initial restore so it can apply
 // the payload only after the default profile assembly is fully stable.
@@ -376,7 +385,12 @@ function syncModeButtons() {
     }
 }
 syncModeButtons();
-
+markCadLoading('Initial URL parameters and DOM control state prepared', {
+    isARMode,
+    captureMode,
+    requestedProfile: requestedProfile || null,
+    requestedCadAssemblyId: requestedCadAssemblyId || null,
+});
 
 
 
@@ -389,11 +403,14 @@ const {
     ground,
     gridHelper,
     surfaceSystem,
-} = createSceneContext({
-    container: document.getElementById('canvas-container'),
-    isARMode,
-    captureMode,
-});
+} = measureCadLoadingSync(
+    'Create Three.js scene/renderer/surface system',
+    () => createSceneContext({
+        container: document.getElementById('canvas-container'),
+        isARMode,
+        captureMode,
+    })
+);
 
 const initialExplodedState =
     (isARMode && pageParams.get('explode') === '1')
@@ -489,27 +506,33 @@ function queueWindowSummaryUpdate(snapshot) {
     );
 }
 
-const componentSelection = createComponentSelection({
-    renderer,
-    camera,
-    enabled: !isARMode && !captureMode,
-    isSelectionEnabled: () =>
-        windowBuilder?.getIsExploded() ?? initialExplodedState,
-});
+const componentSelection = measureCadLoadingSync(
+    'Create exploded-view component selection controller',
+    () => createComponentSelection({
+        renderer,
+        camera,
+        enabled: !isARMode && !captureMode,
+        isSelectionEnabled: () =>
+            windowBuilder?.getIsExploded() ?? initialExplodedState,
+    })
+);
 
 // MATERIALS AND ALUMINUM FINISH STATE
-const materialManager = createMaterialManager({
-    surfaceLibrary: surfaceSystem.materials,
-    captureMode,
-    pageParams,
-    requestedColour,
-    getProfilesData: () => profileController?.getProfilesData() ?? [],
-    getSectionSampleProfilesData: () => windowBuilder?.getSectionSampleProfilesData?.() ?? [],
-    hasCurrentMetadata: () => profileController?.hasCurrentMetadata() ?? false,
-    invalidateSectionSamples: () => windowBuilder?.invalidateSectionSamples(),
-    renderGroupFilters: () => profileController?.renderGroupFilters(),
-    buildWindow: () => windowBuilder?.buildWindow(),
-});
+const materialManager = measureCadLoadingSync(
+    'Create material/finish manager',
+    () => createMaterialManager({
+        surfaceLibrary: surfaceSystem.materials,
+        captureMode,
+        pageParams,
+        requestedColour,
+        getProfilesData: () => profileController?.getProfilesData() ?? [],
+        getSectionSampleProfilesData: () => windowBuilder?.getSectionSampleProfilesData?.() ?? [],
+        hasCurrentMetadata: () => profileController?.hasCurrentMetadata() ?? false,
+        invalidateSectionSamples: () => windowBuilder?.invalidateSectionSamples(),
+        renderGroupFilters: () => profileController?.renderGroupFilters(),
+        buildWindow: () => windowBuilder?.buildWindow(),
+    })
+);
 
 const {
     glassMat,
@@ -521,7 +544,9 @@ const {
     isDrainageCoverCap,
 } = materialManager;
 
-const accessoryController = createAccessoryController({
+const accessoryController = measureCadLoadingSync(
+    'Create accessory controller',
+    () => createAccessoryController({
     pageParams,
     isARMode,
     requestedActiveParts,
@@ -546,9 +571,12 @@ const accessoryController = createAccessoryController({
             profileSelectionController?.markCustomCadAssembly();
         }
     },
-});
+    })
+);
 
-const cadReferenceController = createCadReferenceController({
+const cadReferenceController = measureCadLoadingSync(
+    'Create CAD reference controller',
+    () => createCadReferenceController({
     captureMode,
     isARMode,
     profileInput,
@@ -561,9 +589,12 @@ const cadReferenceController = createCadReferenceController({
     mainImage: document.getElementById('cad-reference-main-image'),
     thumbnails: document.getElementById('cad-reference-thumbnails'),
     subtitle: document.getElementById('cad-reference-subtitle'),
-});
+    })
+);
 
-profileController = createProfileController({
+profileController = measureCadLoadingSync(
+    'Create profile controller',
+    () => createProfileController({
     isARMode,
     requestedActiveParts,
     glassThicknessInput,
@@ -584,9 +615,12 @@ profileController = createProfileController({
     isAccessoryProfileEnabled: accessoryController.isProfileEnabled,
     setAccessoryProfileEnabled: accessoryController.setAccessoryProfileEnabled,
     setAccessoryProfilesEnabled: accessoryController.setAccessoryProfilesEnabled,
-});
+    })
+);
 
-profileSelectionController = createProfileSelectionController({
+profileSelectionController = measureCadLoadingSync(
+    'Create profile selection controller',
+    () => createProfileSelectionController({
     profileSetInput: profileInput,
     outerFrameInput,
     sashInput,
@@ -604,9 +638,12 @@ profileSelectionController = createProfileSelectionController({
             source: 'cad-assembly',
         });
     },
-});
+    })
+);
 
-windowLayoutController = createWindowLayoutController({
+windowLayoutController = measureCadLoadingSync(
+    'Create window layout controller',
+    () => createWindowLayoutController({
     layoutInput: windowLayoutInput,
     dividerProfileInput,
     transProfileInput,
@@ -650,9 +687,12 @@ windowLayoutController = createWindowLayoutController({
         else syncSelectedWindowSelectionUI();
         layoutSizingManager?.syncOverallControls();
     },
-});
+    })
+);
 
-layoutSizingManager = createLayoutSizingManager({
+layoutSizingManager = measureCadLoadingSync(
+    'Create layout sizing manager',
+    () => createLayoutSizingManager({
     controller: windowLayoutController,
     edgeExtensionM: DEFAULT_WINDOW_EDGE_EXTENSION_M,
     widthMaxM: WINDOW_WIDTH_MAX_M,
@@ -667,7 +707,8 @@ layoutSizingManager = createLayoutSizingManager({
     onPreviewStateChange: state => {
         segmentedResizeOptimizer?.previewState(state);
     },
-});
+    })
+);
 
 function initializeSelectedWindowPanel() {
     selectedWindowClose?.addEventListener('click', () => selectWindowCell(null));
@@ -718,7 +759,7 @@ function initializeSelectedWindowPanel() {
     syncSelectedWindowPanel();
 }
 
-initializeSelectedWindowPanel();
+measureCadLoadingSync('Initialize selected-window UI panel', initializeSelectedWindowPanel);
 
 const {
     isGlazingBeadProfile,
@@ -738,7 +779,9 @@ const {
     updateComponentPictures,
 } = profileController;
 
-windowBuilder = createWindowBuilder({
+windowBuilder = measureCadLoadingSync(
+    'Create window geometry builder',
+    () => createWindowBuilder({
     geometryLibrary: surfaceSystem.geometry,
     scene,
     camera,
@@ -778,7 +821,8 @@ windowBuilder = createWindowBuilder({
     isProfileGroupVisible,
     canPlaceProfileOnSide: accessoryController.canPlaceProfileOnSide,
     getWindowLayoutState: getTopologyStableLayoutState,
-});
+    })
+);
 
 const {
     placementRoot,
@@ -788,23 +832,31 @@ const {
     applyCurrentPoseInstantly,
 } = windowBuilder;
 
-segmentedResizeOptimizer = createSegmentedResizeOptimizer({
-    mainGroup,
-    getWindowState: () => windowLayoutController?.getWindowState?.(),
-    getIsExploded: () => windowBuilder?.getIsExploded?.() || false,
-    edgeExtensionM: DEFAULT_WINDOW_EDGE_EXTENSION_M,
-    captureSurfaceUVDeformation: (geometry, basePositions) => surfaceSystem.geometry.captureSurfaceUVDeformation(geometry, basePositions),
-});
+segmentedResizeOptimizer = measureCadLoadingSync(
+    'Create segmented resize optimizer',
+    () => createSegmentedResizeOptimizer({
+        mainGroup,
+        getWindowState: () => windowLayoutController?.getWindowState?.(),
+        getIsExploded: () => windowBuilder?.getIsExploded?.() || false,
+        edgeExtensionM: DEFAULT_WINDOW_EDGE_EXTENSION_M,
+        captureSurfaceUVDeformation: (geometry, basePositions) => surfaceSystem.geometry.captureSurfaceUVDeformation(geometry, basePositions),
+    })
+);
 
-windowSummaryController = createWindowSummaryController({
-    getProfileSelection: () => profileSelectionController?.getConfigurationSnapshot() || {},
-    getLayoutSelection: () => windowLayoutController?.getConfigurationSnapshot() || {},
-    getActiveGlazingBeadCode,
-    getAccessorySelection: () => accessoryController?.getConfigurationSnapshot() || {},
-});
-flushDeferredWindowSummary();
+windowSummaryController = measureCadLoadingSync(
+    'Create window BOM/summary controller',
+    () => createWindowSummaryController({
+        getProfileSelection: () => profileSelectionController?.getConfigurationSnapshot() || {},
+        getLayoutSelection: () => windowLayoutController?.getConfigurationSnapshot() || {},
+        getActiveGlazingBeadCode,
+        getAccessorySelection: () => accessoryController?.getConfigurationSnapshot() || {},
+    })
+);
+measureCadLoadingSync('Flush deferred window summary', flushDeferredWindowSummary);
 
-windowLayoutOverlay = createWindowLayoutOverlay({
+windowLayoutOverlay = measureCadLoadingSync(
+    'Create window layout overlay controls',
+    () => createWindowLayoutOverlay({
     container: document.getElementById('canvas-container'),
     camera,
     mainGroup,
@@ -830,9 +882,12 @@ windowLayoutOverlay = createWindowLayoutOverlay({
         windowLayoutController.setTransBetweenWindows(cellAId, cellBId, { enabled, ownerCellId }),
     enabled: !isARMode && !captureMode,
     getEditableTopologyGeometry: () => windowBuilder?.getEditableTopologyGeometry?.(),
-});
+    })
+);
 
-arController = createARController({
+arController = measureCadLoadingSync(
+    'Create AR controller',
+    () => createARController({
     appBuild: APP_BUILD,
     isARMode,
     renderer,
@@ -847,7 +902,8 @@ arController = createARController({
     appendAccessoryUrlParams: accessoryController.appendUrlParams,
     appendProfileSelectionUrlParams: profileSelectionController.appendUrlParams,
     appendWindowLayoutUrlParams: windowLayoutController.appendUrlParams,
-});
+    })
+);
 
 window.applyConfiguration = async function applyConfiguration(configuration) {
     selectWindowCell(null);
@@ -1053,7 +1109,9 @@ function renderFrame(_time, xrFrame) {
 }
 
 
-initializeUIControls({
+measureCadLoadingSync(
+    'Initialize main configurator UI controls',
+    () => initializeUIControls({
     widthInput,
     heightInput,
     glassThicknessInput,
@@ -1117,26 +1175,33 @@ initializeUIControls({
     downloadLatestARAsset: arController.downloadLatestARAsset,
     checkLatestStaticModel: arController.checkLatestStaticModel,
     startAR: arController.startAR,
-});
+    })
+);
 
-profileSelectionController.initializeControls();
-windowLayoutController.initializeControls();
-materialManager.initializeControls();
-accessoryController.initializeControls({
-    presetInput: document.getElementById('accessoryPreset'),
-    presetDescription: document.getElementById('accessoryPresetDescription'),
-    container: document.getElementById('accessoryOptions'),
+measureCadLoadingSync('Initialize profile/layout/material/accessory controls', () => {
+    profileSelectionController.initializeControls();
+    windowLayoutController.initializeControls();
+    materialManager.initializeControls();
+    accessoryController.initializeControls({
+        presetInput: document.getElementById('accessoryPreset'),
+        presetDescription: document.getElementById('accessoryPresetDescription'),
+        container: document.getElementById('accessoryOptions'),
+    });
 });
 
 // Keep the model-specific default snapshot next to the configurator API. The
 // common shell can now use one global New Configuration lifecycle for every
 // configurator and only ask this module to restore its own default state.
-initialWindowConfiguration = cloneWindowConfiguration(captureWindowConfiguration());
+initialWindowConfiguration = measureCadLoadingSync(
+    'Capture initial default window configuration snapshot',
+    () => cloneWindowConfiguration(captureWindowConfiguration())
+);
 glassThicknessInput?.addEventListener('input', () => {
     accessoryController.syncControls('inner-glazing-gasket');
 });
 
 // Load the selected profile. In QR AR mode the selection comes from URL parameters.
+markCadLoading('Main startup complete; entering CAD/profile loader');
 await profileController.loadProfileSelection({
     ...profileSelectionController.getConfigurationSnapshot(),
     ...windowLayoutController.getConfigurationSnapshot(),

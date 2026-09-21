@@ -2,11 +2,22 @@
 // static releases (combined site or standalone window build). Node validators
 // can load the same pure schema without preparing browser assets first.
 import { DEFAULT_WINDOW_SIZE_LIMITS, validateWindowSizeLimits, applyWindowSliderBounds } from '../../../../shared-ui/src/windowSizeSettings.js?v=1';
+import {
+    markCadLoading,
+    measureCadLoading,
+    measureCadLoadingSync,
+    startCadLoadingTrace,
+} from './loading-trace.js?v=loading-timing-1';
 
 const URL = 'https://europe-west1-configurator-360.cloudfunctions.net/getConfiguratorColors?configuratorId=window';
 const CACHE_KEY = '360-configurator:window:published-settings-v1';
 const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const STARTUP_TIMEOUT_MS = 1200;
+const TRACE_ENABLED = typeof window !== 'undefined';
+
+if (TRACE_ENABLED) {
+    startCadLoadingTrace('Loading popup active; window settings module started');
+}
 
 function normalizePublishedWindowSettings(payload) {
     if (payload?.schemaVersion !== 1 || payload.configuratorId !== 'window'
@@ -80,7 +91,9 @@ export async function loadPublishedWindowSettings(options = {}) {
     }
 }
 
-const cachedWindowSettings = readCachedWindowSettings();
+const cachedWindowSettings = TRACE_ENABLED
+    ? measureCadLoadingSync('Read cached published window settings', readCachedWindowSettings)
+    : readCachedWindowSettings();
 const cachedWindowSettingsAreFresh = Boolean(
     cachedWindowSettings
     && Date.now() - cachedWindowSettings.savedAt <= CACHE_MAX_AGE_MS
@@ -89,9 +102,13 @@ const cachedWindowSettingsAreFresh = Boolean(
 let publishedWindowSettings = cachedWindowSettings?.payload || null;
 
 if (!cachedWindowSettingsAreFresh) {
-    const refreshedSettings = await loadPublishedWindowSettings({
-        timeoutMs: STARTUP_TIMEOUT_MS,
-    });
+    const refreshedSettings = TRACE_ENABLED
+        ? await measureCadLoading(
+            'Fetch published window settings (startup path)',
+            () => loadPublishedWindowSettings({ timeoutMs: STARTUP_TIMEOUT_MS }),
+            { timeoutMs: STARTUP_TIMEOUT_MS }
+        )
+        : await loadPublishedWindowSettings({ timeoutMs: STARTUP_TIMEOUT_MS });
     if (refreshedSettings) {
         publishedWindowSettings = refreshedSettings;
         cachePublishedWindowSettings(refreshedSettings);
@@ -107,7 +124,19 @@ export function getWindowSliderRange(scope, axis) {
 }
 
 // This runs before main.js reads the initial DOM bounds. Node tooling stays offline.
-applyWindowSliderBounds(WINDOW_SLIDER_LIMITS);
+if (TRACE_ENABLED) {
+    measureCadLoadingSync(
+        'Apply published/default slider bounds to DOM',
+        () => applyWindowSliderBounds(WINDOW_SLIDER_LIMITS)
+    );
+    markCadLoading('Window settings/config module ready', {
+        source: cachedWindowSettingsAreFresh
+            ? 'fresh-cache'
+            : (PUBLISHED_WINDOW_SETTINGS ? 'network-or-stale-cache' : 'built-in-defaults'),
+    });
+} else {
+    applyWindowSliderBounds(WINDOW_SLIDER_LIMITS);
+}
 
 if (cachedWindowSettingsAreFresh && typeof window !== 'undefined') {
     void loadPublishedWindowSettings({

@@ -31,6 +31,13 @@ import {
     getDividerConnectionVariantKey,
 } from './window-layout-state.js?v=platform-18';
 import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
+import {
+    finishCadLoadingTrace,
+    markCadLoading,
+    measureCadLoading,
+    measureCadLoadingSync,
+    startCadLoadingTrace,
+} from './loading-trace.js?v=loading-timing-1';
 
 export function createProfileController({
     isARMode,
@@ -774,23 +781,45 @@ export function createProfileController({
         });
     }
 
-    async function forceSceneRender() {
-        renderer.compile(scene, camera);
-        renderer.render(scene, camera);
+    async function forceSceneRender({ waitForStabilization = true } = {}) {
+        measureCadLoadingSync(
+            'GPU/WebGL renderer.compile(scene, camera)',
+            () => renderer.compile(scene, camera)
+        );
+        measureCadLoadingSync(
+            'GPU/WebGL first renderer.render()',
+            () => renderer.render(scene, camera)
+        );
 
         const gl = renderer.getContext();
         if (gl && typeof gl.finish === 'function') {
-            gl.finish();
+            measureCadLoadingSync('GPU/WebGL gl.finish() after first render', () => gl.finish());
         }
 
-        await new Promise(resolve => {
-            requestAnimationFrame(() => requestAnimationFrame(resolve));
-        });
+        if (!waitForStabilization) return;
 
-        renderer.render(scene, camera);
+        await measureCadLoading(
+            'Wait two animation frames before final startup render',
+            () => new Promise(resolve => {
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+            })
+        );
+
+        measureCadLoadingSync(
+            'GPU/WebGL final renderer.render()',
+            () => renderer.render(scene, camera)
+        );
         if (gl && typeof gl.finish === 'function') {
-            gl.finish();
+            measureCadLoadingSync('GPU/WebGL gl.finish() after final render', () => gl.finish());
         }
+    }
+
+    function scheduleSceneRenderStabilization() {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            renderer.render(scene, camera);
+            const gl = renderer.getContext();
+            if (gl && typeof gl.finish === 'function') gl.finish();
+        }));
     }
 
     function getDividerVariantProfileKey(profile = {}) {
@@ -846,6 +875,7 @@ export function createProfileController({
         const dividerProfileId = normalizedSelection.dividerProfileId;
         if (!dividerProfileId) return definition;
 
+        markCadLoading('Build editable divider connection catalog: start', { dividerProfileId });
         const fixedFixedTemplate = await loadConnectionTemplate('mullion-fixed-fixed');
         const mixedTemplate = await loadConnectionTemplate('mullion-fixed-sash');
         const sashSashTemplate = await loadConnectionTemplate('mullion-sash-sash');
@@ -929,29 +959,41 @@ export function createProfileController({
                 ? fixedFixedTemplate
                 : connectionTemplate;
 
-            let variantDefinition = composeRegisteredProfileDefinitions({
-                selection: variantSelection,
-                definitionsByProfileSetId,
-                standaloneDefinitionsByProfileId,
-                connectionTemplate,
-                placementConnectionTemplate,
-                fixedGlazingFrameTemplate,
-                fixedGlazingDividerTemplate: fixedGlazingPlacementTemplate,
-                fixedGlazingDividerGasketTemplate: connectionTemplate,
-                standaloneBeadDefinition,
-            });
-            variantDefinition = composeSupplementalAccessoryProfiles({
-                definition: variantDefinition,
-                definitionsByProfileSetId,
-            });
-            variantDefinition = applyFrameAccessoryConnectionPlacements({
-                definition: variantDefinition,
-                frameConnectionTemplate: openingSashFrameTemplate,
-            });
-            variantDefinition = applyDividerAccessoryConnectionPlacements({
-                definition: variantDefinition,
-                dividerConnectionTemplate: connectionTemplate,
-            });
+            const variantDefinition = measureCadLoadingSync(
+                `Compose divider catalog variant: ${spec.orientation} ${spec.leftCell} / ${spec.rightCell}`,
+                () => {
+                    let nextDefinition = composeRegisteredProfileDefinitions({
+                        selection: variantSelection,
+                        definitionsByProfileSetId,
+                        standaloneDefinitionsByProfileId,
+                        connectionTemplate,
+                        placementConnectionTemplate,
+                        fixedGlazingFrameTemplate,
+                        fixedGlazingDividerTemplate: fixedGlazingPlacementTemplate,
+                        fixedGlazingDividerGasketTemplate: connectionTemplate,
+                        standaloneBeadDefinition,
+                    });
+                    nextDefinition = composeSupplementalAccessoryProfiles({
+                        definition: nextDefinition,
+                        definitionsByProfileSetId,
+                    });
+                    nextDefinition = applyFrameAccessoryConnectionPlacements({
+                        definition: nextDefinition,
+                        frameConnectionTemplate: openingSashFrameTemplate,
+                    });
+                    nextDefinition = applyDividerAccessoryConnectionPlacements({
+                        definition: nextDefinition,
+                        dividerConnectionTemplate: connectionTemplate,
+                    });
+                    return nextDefinition;
+                },
+                {
+                    orientation: spec.orientation,
+                    leftCell: spec.leftCell,
+                    rightCell: spec.rightCell,
+                    templateId: spec.templateId,
+                }
+            );
 
             const variantKey = getDividerConnectionVariantKey(spec);
             metadataVariants[variantKey] = Object.freeze({
@@ -1008,6 +1050,10 @@ export function createProfileController({
             dividerConnectionVariants: Object.freeze(metadataVariants),
             dividerConnectionCatalogReady: true,
         };
+        markCadLoading('Build editable divider connection catalog: complete', {
+            dividerProfileId,
+            variantCount: variantSpecs.length,
+        });
         return output;
     }
 
@@ -1016,54 +1062,88 @@ export function createProfileController({
         if (loadingElement) {
             loadingElement.style.display = 'block';
         }
+        startCadLoadingTrace('Loading CAD profiles popup active; profile selection load started');
 
-        const normalizedSelection = typeof selection === 'string'
-            ? { profileSetId: selection, profile: selection }
-            : { ...selection };
+        const normalizedSelection = measureCadLoadingSync(
+            'Normalize requested CAD/profile/layout selection',
+            () => (typeof selection === 'string'
+                ? { profileSetId: selection, profile: selection }
+                : { ...selection })
+        );
         const selectionSignature = createProfileSelectionSignature(normalizedSelection);
         const windowBuilder = getWindowBuilder();
-        windowBuilder?.clearTemplateGeometryCache();
-        windowBuilder?.invalidateSectionSamples();
-        profilesData = [];
-        profilesReady = false;
-        glazingBeadArmShiftCache.clear();
+        measureCadLoadingSync('Reset window-builder/profile loading caches', () => {
+            windowBuilder?.clearTemplateGeometryCache();
+            windowBuilder?.invalidateSectionSamples();
+            profilesData = [];
+            profilesReady = false;
+            glazingBeadArmShiftCache.clear();
+        });
+        markCadLoading('Profile selection signature ready', {
+            selectionSignature,
+            profileSetId: normalizedSelection.profileSetId || normalizedSelection.profile || null,
+            outerFrameProfileId: normalizedSelection.outerFrameProfileId || null,
+            sashProfileId: normalizedSelection.sashProfileId || null,
+            dividerProfileId: normalizedSelection.dividerProfileId || null,
+            transProfileId: normalizedSelection.transProfileId || null,
+            layoutId: normalizedSelection.layoutId || normalizedSelection.windowLayout || null,
+        });
         let loadSucceeded = false;
 
         try {
-            const sources = resolveLegacyProfileSources(normalizedSelection);
-            const sourceIds = new Set([
-                sources.profileSetId,
-                sources.frameSourceProfileSetId,
-                sources.sashSourceProfileSetId,
-                ...getRequiredSupplementalAccessorySourceProfileSetIds(),
-            ].filter(Boolean));
+            const { sources, sourceIds } = measureCadLoadingSync(
+                'Resolve legacy CAD source assemblies',
+                () => {
+                    const resolvedSources = resolveLegacyProfileSources(normalizedSelection);
+                    return {
+                        sources: resolvedSources,
+                        sourceIds: new Set([
+                            resolvedSources.profileSetId,
+                            resolvedSources.frameSourceProfileSetId,
+                            resolvedSources.sashSourceProfileSetId,
+                            ...getRequiredSupplementalAccessorySourceProfileSetIds(),
+                        ].filter(Boolean)),
+                    };
+                }
+            );
             const definitionsByProfileSetId = new Map();
             const standaloneDefinitionsByProfileId = new Map();
 
-            await Promise.all([...sourceIds].map(async profileSetId => {
-                definitionsByProfileSetId.set(
-                    profileSetId,
-                    await getProfileDefinition(profileSetId)
-                );
-            }));
+            await measureCadLoading(
+                'Load required legacy CAD profile definitions (aggregate)',
+                () => Promise.all([...sourceIds].map(async profileSetId => {
+                    definitionsByProfileSetId.set(
+                        profileSetId,
+                        await getProfileDefinition(profileSetId)
+                    );
+                })),
+                { sourceIds: [...sourceIds] }
+            );
 
             const hasTransSegment = Boolean(normalizedSelection.topology?.transSegments?.length);
-            const selectedBaseProfileIds = [
-                sources.outerFrameProfileId,
-                sources.sashProfileId,
-                normalizedSelection.dividerProfileId || null,
-                normalizedSelection.transProfileId || null,
-            ].filter(profileId =>
-                isStandaloneProfileGeometryRegistered(
-                    getProfileCatalogEntry(profileId)
+            const selectedBaseProfileIds = measureCadLoadingSync(
+                'Resolve standalone structural profile IDs',
+                () => [
+                    sources.outerFrameProfileId,
+                    sources.sashProfileId,
+                    normalizedSelection.dividerProfileId || null,
+                    normalizedSelection.transProfileId || null,
+                ].filter(profileId =>
+                    isStandaloneProfileGeometryRegistered(
+                        getProfileCatalogEntry(profileId)
+                    )
                 )
             );
-            await Promise.all(selectedBaseProfileIds.map(async profileId => {
-                standaloneDefinitionsByProfileId.set(
-                    profileId,
-                    await getStandaloneProfileDefinition(profileId)
-                );
-            }));
+            await measureCadLoading(
+                'Load required standalone profile definitions (aggregate)',
+                () => Promise.all(selectedBaseProfileIds.map(async profileId => {
+                    standaloneDefinitionsByProfileId.set(
+                        profileId,
+                        await getStandaloneProfileDefinition(profileId)
+                    );
+                })),
+                { profileIds: selectedBaseProfileIds }
+            );
 
             const connectionTemplateId = getConnectionTemplateIdForLayout({
                 layoutId: normalizedSelection.layoutId || normalizedSelection.windowLayout || null,
@@ -1116,6 +1196,15 @@ export function createProfileController({
                         : Promise.resolve(null),
                 ])
                 : [null, null, null];
+            markCadLoading('Required connection templates / fixed-glazing helpers ready', {
+                connectionTemplateId,
+                hasTransSegment,
+                hasFixedGlazingCell,
+                hasOpeningSashCell,
+                needsEditableDividerCatalog,
+                sectionDividerTemplate: Boolean(sectionDividerConnectionTemplate),
+                sectionTransTemplate: Boolean(sectionTransConnectionTemplate),
+            });
             // The fixed/fixed join has no opening-sash occurrence, so it cannot
             // by itself bridge join coordinates into the already-working B2
             // runtime assembly. Reuse the visually accepted mixed-join sash
@@ -1134,18 +1223,21 @@ export function createProfileController({
                 : null;
 
             let tLayoutVerticalConnectionTemplate = null;
-            let registeredDefinition = composeRegisteredProfileDefinitions({
-                selection: normalizedSelection,
-                definitionsByProfileSetId,
-                standaloneDefinitionsByProfileId,
-                connectionTemplate,
-                placementConnectionTemplate,
-                fixedGlazingFrameTemplate,
-                fixedGlazingDividerTemplate,
-                fixedGlazingDividerGasketTemplate,
-                standaloneBeadDefinition,
-                transConnectionTemplate,
-            });
+            let registeredDefinition = measureCadLoadingSync(
+                'Compose main registered profile definition',
+                () => composeRegisteredProfileDefinitions({
+                    selection: normalizedSelection,
+                    definitionsByProfileSetId,
+                    standaloneDefinitionsByProfileId,
+                    connectionTemplate,
+                    placementConnectionTemplate,
+                    fixedGlazingFrameTemplate,
+                    fixedGlazingDividerTemplate,
+                    fixedGlazingDividerGasketTemplate,
+                    standaloneBeadDefinition,
+                    transConnectionTemplate,
+                })
+            );
 
             const isTLayout = (normalizedSelection.layoutId || normalizedSelection.windowLayout) === 'top-fixed-bottom-sash-sash'
                 || normalizedSelection.layoutKind === 't-grid'
@@ -1160,19 +1252,22 @@ export function createProfileController({
                 // guessing a second 245472 placement.
                 const sashSashTemplate = await loadConnectionTemplate('mullion-sash-sash');
                 tLayoutVerticalConnectionTemplate = sashSashTemplate;
-                const sashSashDefinition = composeRegisteredProfileDefinitions({
-                    selection: {
-                        ...normalizedSelection,
-                        dividerOrientation: 'vertical',
-                        primaryDividerOrientation: 'vertical',
-                        leftCell: 'opening-sash',
-                        rightCell: 'opening-sash',
-                    },
-                    definitionsByProfileSetId,
-                    standaloneDefinitionsByProfileId,
-                    connectionTemplate: sashSashTemplate,
-                    placementConnectionTemplate: sashSashTemplate,
-                });
+                const sashSashDefinition = measureCadLoadingSync(
+                    'T-layout: compose vertical sash/sash connection definition',
+                    () => composeRegisteredProfileDefinitions({
+                        selection: {
+                            ...normalizedSelection,
+                            dividerOrientation: 'vertical',
+                            primaryDividerOrientation: 'vertical',
+                            leftCell: 'opening-sash',
+                            rightCell: 'opening-sash',
+                        },
+                        definitionsByProfileSetId,
+                        standaloneDefinitionsByProfileId,
+                        connectionTemplate: sashSashTemplate,
+                        placementConnectionTemplate: sashSashTemplate,
+                    })
+                );
 
                 // Recalculate the sash/sash gasket INSERT transforms against the
                 // exact gasket geometry that will actually be rendered by the T
@@ -1182,8 +1277,9 @@ export function createProfileController({
                 // profile ID 245472.  A transform composed for one source instance
                 // can therefore make the other instance fly away, and a missing
                 // legacy-key match can silently drop the opposite-side gasket.
-                const tVerticalPlacementDefinition =
-                    applyOpeningSashDividerConnectionPlacements({
+                const tVerticalPlacementDefinition = measureCadLoadingSync(
+                    'T-layout: calculate vertical sash/divider CAD placements',
+                    () => applyOpeningSashDividerConnectionPlacements({
                         definition: {
                             ...registeredDefinition,
                             metadata: {
@@ -1192,7 +1288,8 @@ export function createProfileController({
                             },
                         },
                         dividerConnectionTemplate: sashSashTemplate,
-                    });
+                    })
+                );
 
                 registeredDefinition = {
                     ...registeredDefinition,
@@ -1227,35 +1324,46 @@ export function createProfileController({
                 };
             }
 
-            let definition = composeSupplementalAccessoryProfiles({
-                definition: registeredDefinition,
-                definitionsByProfileSetId,
-            });
+            let definition = measureCadLoadingSync(
+                'Compose supplemental accessory profiles',
+                () => composeSupplementalAccessoryProfiles({
+                    definition: registeredDefinition,
+                    definitionsByProfileSetId,
+                })
+            );
 
             // Outer-frame accessories use the same CAD-driven placement model
             // as mullion accessories. 200988 geometry still comes from its
             // reusable accessory source, while its exact frame-side seat comes
             // from frame-sash-window.dwg.
-            definition = applyFrameAccessoryConnectionPlacements({
-                definition,
-                frameConnectionTemplate: openingSashFrameTemplate,
-            });
+            definition = measureCadLoadingSync(
+                'Apply outer-frame accessory CAD placements',
+                () => applyFrameAccessoryConnectionPlacements({
+                    definition,
+                    frameConnectionTemplate: openingSashFrameTemplate,
+                })
+            );
 
             // Optional mullion/transom accessories are sourced from the exact
             // INSERTs in the active join CAD. This happens after supplemental
             // legacy geometry is loaded so a join can provide placement while
             // the existing B2 source still provides the reusable 2D section.
-            definition = applyDividerAccessoryConnectionPlacements({
-                definition,
-                dividerConnectionTemplate: connectionTemplate,
-            });
+            definition = measureCadLoadingSync(
+                'Apply active divider accessory CAD placements',
+                () => applyDividerAccessoryConnectionPlacements({
+                    definition,
+                    dividerConnectionTemplate: connectionTemplate,
+                })
+            );
 
             if (tLayoutVerticalConnectionTemplate) {
-                const verticalAccessoryDefinition =
-                    applyDividerAccessoryConnectionPlacements({
+                const verticalAccessoryDefinition = measureCadLoadingSync(
+                    'T-layout: apply vertical divider accessory CAD placements',
+                    () => applyDividerAccessoryConnectionPlacements({
                         definition,
                         dividerConnectionTemplate: tLayoutVerticalConnectionTemplate,
-                    });
+                    })
+                );
                 const verticalAccessoryMetadata =
                     verticalAccessoryDefinition.metadata?.dividerMountedAccessories || null;
 
@@ -1287,15 +1395,19 @@ export function createProfileController({
                 };
             }
 
-            definition = await buildDividerConnectionCatalog({
-                definition,
-                normalizedSelection,
-                definitionsByProfileSetId,
-                standaloneDefinitionsByProfileId,
-                fixedGlazingFrameTemplate,
-                standaloneBeadDefinition,
-                openingSashFrameTemplate,
-            });
+            definition = await measureCadLoading(
+                'Build full editable divider connection catalog (aggregate)',
+                () => buildDividerConnectionCatalog({
+                    definition,
+                    normalizedSelection,
+                    definitionsByProfileSetId,
+                    standaloneDefinitionsByProfileId,
+                    fixedGlazingFrameTemplate,
+                    standaloneBeadDefinition,
+                    openingSashFrameTemplate,
+                }),
+                { dividerProfileId: normalizedSelection.dividerProfileId || null }
+            );
 
             const sectionSelection = {
                 ...normalizedSelection,
@@ -1311,60 +1423,92 @@ export function createProfileController({
                         : [],
                 },
             };
-            let sectionDefinition = composeRegisteredProfileDefinitions({
-                selection: sectionSelection,
-                definitionsByProfileSetId,
-                standaloneDefinitionsByProfileId,
-                connectionTemplate: sectionDividerConnectionTemplate,
-                placementConnectionTemplate: sectionDividerConnectionTemplate,
-                transConnectionTemplate: sectionTransConnectionTemplate,
-            });
-            sectionDefinition = composeSupplementalAccessoryProfiles({
-                definition: sectionDefinition,
-                definitionsByProfileSetId,
-            });
-            sectionDefinition = applyFrameAccessoryConnectionPlacements({
-                definition: sectionDefinition,
-                frameConnectionTemplate: sectionFrameConnectionTemplate,
-            });
-            sectionDefinition = applyDividerAccessoryConnectionPlacements({
-                definition: sectionDefinition,
-                dividerConnectionTemplate: sectionDividerConnectionTemplate,
-            });
-
-            currentMetadata = definition.metadata;
-            profilesData = definition.profiles.map((profile, index) => ({
-                ...profile,
-                index,
-                legacyIndex: profile.legacyIndex ?? profile.index,
-                material: getMaterialForProfile(profile),
-            }));
-            const sectionSampleProfilesData = sectionDefinition.profiles.map((profile, index) => ({
-                ...profile,
-                index,
-                legacyIndex: profile.legacyIndex ?? profile.index,
-                material: getMaterialForProfile(profile),
-            }));
-            currentSelectionSignature = selectionSignature;
-            initializeAccessoryProfiles(profilesData);
-            windowBuilder?.setProfileData(
-                currentMetadata,
-                profilesData,
-                sectionDefinition.metadata,
-                sectionSampleProfilesData
+            const sectionDefinition = measureCadLoadingSync(
+                'Compose detached 10 cm section-view definition',
+                () => {
+                    let nextSectionDefinition = composeRegisteredProfileDefinitions({
+                        selection: sectionSelection,
+                        definitionsByProfileSetId,
+                        standaloneDefinitionsByProfileId,
+                        connectionTemplate: sectionDividerConnectionTemplate,
+                        placementConnectionTemplate: sectionDividerConnectionTemplate,
+                        transConnectionTemplate: sectionTransConnectionTemplate,
+                    });
+                    nextSectionDefinition = composeSupplementalAccessoryProfiles({
+                        definition: nextSectionDefinition,
+                        definitionsByProfileSetId,
+                    });
+                    nextSectionDefinition = applyFrameAccessoryConnectionPlacements({
+                        definition: nextSectionDefinition,
+                        frameConnectionTemplate: sectionFrameConnectionTemplate,
+                    });
+                    nextSectionDefinition = applyDividerAccessoryConnectionPlacements({
+                        definition: nextSectionDefinition,
+                        dividerConnectionTemplate: sectionDividerConnectionTemplate,
+                    });
+                    return nextSectionDefinition;
+                }
             );
-            renderPartToggles();
-            buildWindow();
-            renderGroupFilters();
-            await forceSceneRender();
+
+            const preparedProfileData = measureCadLoadingSync(
+                'Create runtime profile arrays + materials',
+                () => ({
+                    current: definition.profiles.map((profile, index) => ({
+                        ...profile,
+                        index,
+                        legacyIndex: profile.legacyIndex ?? profile.index,
+                        material: getMaterialForProfile(profile),
+                    })),
+                    section: sectionDefinition.profiles.map((profile, index) => ({
+                        ...profile,
+                        index,
+                        legacyIndex: profile.legacyIndex ?? profile.index,
+                        material: getMaterialForProfile(profile),
+                    })),
+                }),
+                {
+                    currentProfileCount: definition.profiles.length,
+                    sectionProfileCount: sectionDefinition.profiles.length,
+                }
+            );
+            currentMetadata = definition.metadata;
+            profilesData = preparedProfileData.current;
+            const sectionSampleProfilesData = preparedProfileData.section;
+            currentSelectionSignature = selectionSignature;
+            measureCadLoadingSync(
+                'Initialize accessory profile state',
+                () => initializeAccessoryProfiles(profilesData),
+                { profileCount: profilesData.length }
+            );
+            measureCadLoadingSync(
+                'Transfer profile data into window builder',
+                () => windowBuilder?.setProfileData(
+                    currentMetadata,
+                    profilesData,
+                    sectionDefinition.metadata,
+                    sectionSampleProfilesData
+                )
+            );
+            measureCadLoadingSync('Render individual component toggles', renderPartToggles);
+            measureCadLoadingSync('Build initial 3D window geometry', buildWindow);
+            measureCadLoadingSync('Render component-type filter controls', renderGroupFilters);
+            await measureCadLoading(
+                'Force initial GPU compile + first render',
+                () => forceSceneRender({ waitForStabilization: false })
+            );
             loadSucceeded = true;
             window.CONFIGURATOR_READY = true;
-            await refreshCadReferenceAvailability?.();
+            await measureCadLoading(
+                'Refresh CAD reference-image availability',
+                async () => refreshCadReferenceAvailability?.()
+            );
+            markCadLoading('Profile load marked CONFIGURATOR_READY=true');
         } catch (error) {
             window.CONFIGURATOR_READY = false;
             currentMetadata = null;
             currentSelectionSignature = null;
             windowBuilder?.setProfileData(null, []);
+            markCadLoading('Profile loading failed', { error: error?.message || String(error) });
             console.error('Error loading the selected frame and sash profiles:', error);
             if (isARMode) {
                 getARController()?.setARStatus(
@@ -1373,14 +1517,24 @@ export function createProfileController({
                 );
             }
         } finally {
+            profilesReady = loadSucceeded;
+            measureCadLoadingSync(
+                'Update AR availability after CAD/profile load',
+                () => getARController()?.updateARAvailability()
+            );
+            finishCadLoadingTrace('Loading CAD profiles popup hidden', {
+                loadSucceeded,
+                profileCount: profilesData.length,
+                selectionSignature,
+            });
             if (loadingElement) {
                 loadingElement.style.display = 'none';
             }
             if (loadSucceeded) {
-                buildWindow();
+                // Shader/GPU stabilization is intentionally outside the blocking loading popup.
+                // The real window geometry is already complete and visible at this point.
+                scheduleSceneRenderStabilization();
             }
-            profilesReady = loadSucceeded;
-            getARController()?.updateARAvailability();
         }
     }
 

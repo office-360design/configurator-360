@@ -1,3 +1,5 @@
+import { markCadLoading, measureCadLoading } from './loading-trace.js?v=loading-timing-1';
+
 const CONNECTION_TEMPLATE_URLS = Object.freeze({
     'frame-fixed': 'cad-connections/frame-fixed/connection.meta.json',
     'frame-sash': 'cad-connections/frame-sash/connection.meta.json',
@@ -194,19 +196,27 @@ export function createConnectionTemplateLoader() {
 
     async function loadConnectionTemplate(id) {
         if (!id) return null;
-        if (cache.has(id)) return cache.get(id);
+        if (cache.has(id)) {
+            markCadLoading(`Connection template cache hit: ${id}`);
+            return cache.get(id);
+        }
         const url = CONNECTION_TEMPLATE_URLS[id];
         if (!url) throw new Error(`No runtime connection template is registered for ${id}.`);
 
-        const promise = fetch(url).then(async response => {
-            if (!response.ok) {
-                throw new Error(
-                    `Generated CAD connection ${id} is missing (HTTP ${response.status}). `
-                    + `Run npm run cad:connections:convert -- --only ${id} --force.`
-                );
-            }
-            return validateConnectionTemplate(await response.json(), id);
-        });
+        const promise = measureCadLoading(
+            `Connection template fetch+JSON+validate: ${id}`,
+            async () => {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(
+                        `Generated CAD connection ${id} is missing (HTTP ${response.status}). `
+                        + `Run npm run cad:connections:convert -- --only ${id} --force.`
+                    );
+                }
+                return validateConnectionTemplate(await response.json(), id);
+            },
+            { id, url }
+        );
         cache.set(id, promise);
         try {
             return await promise;
