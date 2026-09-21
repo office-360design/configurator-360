@@ -51,16 +51,17 @@ export function layout(input) {
   const triangles=s.shape==='rectangle'?null:triangulate(area.points).map(tri=>tri.map(p=>rot?{x:p.z,z:p.x}:p));
 
   const add=(x,z,l,w,accent=false)=>{
+    const shadePosition={shadeX:rot?z+w/2:x+l/2,shadeZ:rot?x+l/2:z+w/2};
     if(triangles){
       const fragments=triangles.map(tri=>clipRect(tri,x,z,l,w)).filter(p=>p.length>=3&&polygonArea(p)>1e-8);
       const netArea=fragments.reduce((n,p)=>n+polygonArea(p),0);
       if(netArea<1e-8)return;
       const cut=netArea<l*w-1e-8;
-      result.push({x:rot?z+w/2:x+l/2,z:rot?x+l/2:z+w/2,l:rot?w:l,w:rot?l:w,accent,cut,area:netArea,fragments:cut?fragments.map(poly=>poly.map(p=>rot?{x:p.z,z:p.x}:p)):undefined});return;
+      result.push({...shadePosition,x:rot?z+w/2:x+l/2,z:rot?x+l/2:z+w/2,l:rot?w:l,w:rot?l:w,accent,cut,area:netArea,fragments:cut?fragments.map(poly=>poly.map(p=>rot?{x:p.z,z:p.x}:p)):undefined});return;
     }
     const x0=Math.max(0,x),z0=Math.max(0,z),x1=Math.min(L,x+l),z1=Math.min(W,z+w);
     if(x1-x0<1e-8||z1-z0<1e-8)return;
-    const a={x:(x0+x1)/2,z:(z0+z1)/2,l:x1-x0,w:z1-z0,accent,cut:x0>x+1e-8||z0>z+1e-8||x1<x+l-1e-8||z1<z+w-1e-8};
+    const a={...shadePosition,x:(x0+x1)/2,z:(z0+z1)/2,l:x1-x0,w:z1-z0,accent,cut:x0>x+1e-8||z0>z+1e-8||x1<x+l-1e-8||z1<z+w-1e-8};
     result.push(rot?{...a,x:a.z,z:a.x,l:a.w,w:a.l}:a);
   };
   if(s.pattern==='herringbone') {

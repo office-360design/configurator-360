@@ -1,3 +1,4 @@
+import {stoneAppearance} from './stoneAppearance.js';
 import {houseGeometry} from './house.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -25,7 +26,7 @@ export function createViewer(host,callbacks={}){
   function drawPieces(parts,height,colorFor,baseY){
     if(!parts.length)return;
     const mesh=new THREE.InstancedMesh(box,material,parts.length);
-    parts.forEach((p,i)=>{dummy.position.set(p.x-bounds.width/2,baseY+height/2,p.z-bounds.depth/2);dummy.scale.set(Math.max(.001,p.l-.003),height,Math.max(.001,p.w-.003));dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);const c=colorFor(p,i),palette=COLORS[c],base=Array.isArray(palette)?palette[(i*7)%palette.length]:palette;const color=new THREE.Color(base);color.multiplyScalar(.94+((i*31)%13)/100);mesh.setColorAt(i,color);});mesh.castShadow=true;mesh.receiveShadow=true;mesh.instanceMatrix.needsUpdate=true;group.add(mesh);
+    parts.forEach((p,i)=>{dummy.position.set(p.x-bounds.width/2,baseY+height/2,p.z-bounds.depth/2);dummy.scale.set(Math.max(.001,p.l-.003),height,Math.max(.001,p.w-.003));dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);const appearance=stoneAppearance(p,COLORS[colorFor(p,i)]);const color=new THREE.Color(appearance.base);color.multiplyScalar(appearance.brightness);mesh.setColorAt(i,color);});mesh.castShadow=true;mesh.receiveShadow=true;mesh.instanceMatrix.needsUpdate=true;group.add(mesh);
   }
   function label(text,x,z){const c=document.createElement('canvas');c.width=512;c.height=100;const context=c.getContext('2d');context.fillStyle='rgba(255,255,255,.92)';context.fillRect(0,0,512,100);context.fillStyle='#294536';context.font='600 40px sans-serif';context.textAlign='center';context.fillText(text,256,64);const tex=new THREE.CanvasTexture(c);const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false}));sprite.position.set(x,.15,z);sprite.scale.set(1.4,.28,1);dimensions.add(sprite);}
   function fit(){if(!state)return;const size=Math.max(bounds.width,bounds.depth,state.houseEnabled?state.houseHeight*2:0),distance=size*1.55/Math.min(1,camera.aspect);controls.target.set(0,0,0);camera.position.set(top?0:distance*.8,top?distance*1.5:distance,top?.001:distance);controls.update();}
@@ -38,11 +39,11 @@ export function createViewer(host,callbacks={}){
   function drawPolygons(items,height,baseY){
     if(!items.length)return;
     const geometries=[];
-    for(const {polygon,color,index} of items){
+    for(const {polygon,color,stone} of items){
       if(polygon.length<3||polygonArea(polygon)<1e-9)continue;
-      const geometry=prism(polygon,height,baseY),palette=COLORS[color];
-      const shade=new THREE.Color(Array.isArray(palette)?palette[(index*7)%palette.length]:palette);
-      shade.multiplyScalar(.94+((index*31)%13)/100);
+      const geometry=prism(polygon,height,baseY),appearance=stoneAppearance(stone,COLORS[color]);
+      const shade=new THREE.Color(appearance.base);
+      shade.multiplyScalar(appearance.brightness);
       const colors=new Float32Array(geometry.attributes.position.count*3);
       for(let i=0;i<colors.length;i+=3)colors.set([shade.r,shade.g,shade.b],i);
       geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));geometries.push(geometry);
@@ -59,16 +60,16 @@ export function createViewer(host,callbacks={}){
     base.receiveShadow=true;group.add(base);
     drawPieces(parts.filter(p=>!p.fragments),t.thickness,p=>p.accent?s.accent:s.color,0);
     const cuts=[];
-    parts.forEach((p,index)=>{for(const fragment of p.fragments||[]){
+    parts.forEach(p=>{for(const fragment of p.fragments||[]){
       const polygon=p.profile?fragment.map(v=>({x:p.x+(v.x-p.x)*.985,z:p.z+(v.z-p.z)*.985})):clipRect(fragment,p.x-p.l/2+.0015,p.z-p.w/2+.0015,Math.max(.001,p.l-.003),Math.max(.001,p.w-.003));
-      cuts.push({polygon,color:p.accent?s.accent:s.color,index});
+      cuts.push({polygon,color:p.accent?s.accent:s.color,stone:p});
     }});
     drawPolygons(cuts,t.thickness,0);
     const curb=CURBS[s.curb],curbs=curbLayout(s);
     drawPieces(curbs.filter(p=>!p.polygon&&!p.fragments),curb.height,()=>s.curbColor,t.thickness+.035-curb.height);
-    drawPolygons(curbs.flatMap(p=>p.fragments?p.fragments.map(polygon=>({polygon})):p.polygon?[p]:[]).map((p,index)=>{
+    drawPolygons(curbs.flatMap(p=>(p.fragments|| (p.polygon?[p.polygon]:[])).map(polygon=>({polygon,stone:p}))).map(p=>{
       const cx=p.polygon.reduce((a,v)=>a+v.x,0)/p.polygon.length,cz=p.polygon.reduce((a,v)=>a+v.z,0)/p.polygon.length;
-      return {polygon:p.polygon.map(v=>({x:cx+(v.x-cx)*.996,z:cz+(v.z-cz)*.996})),color:s.curbColor,index};
+      return {polygon:p.polygon.map(v=>({x:cx+(v.x-cx)*.996,z:cz+(v.z-cz)*.996})),color:s.curbColor,stone:p.stone};
     }),curb.height,t.thickness+.035-curb.height);
     if(s.houseEnabled){
       const house=houseGeometry(s);
