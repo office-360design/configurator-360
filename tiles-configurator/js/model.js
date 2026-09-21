@@ -50,8 +50,8 @@ export function layout(input) {
   if(t.profile==='h')return excludeHouse(interlockingLayout(s,t,area),s);
   const triangles=s.shape==='rectangle'?null:triangulate(area.points).map(tri=>tri.map(p=>rot?{x:p.z,z:p.x}:p));
 
-  const add=(x,z,l,w,accent=false)=>{
-    const shadePosition={shadeX:rot?z+w/2:x+l/2,shadeZ:rot?x+l/2:z+w/2};
+  const add=(x,z,l,w,accent=false,shadeRole)=>{
+    const shadePosition={...(shadeRole===undefined?{}:{shadeRole}),shadeX:rot?z+w/2:x+l/2,shadeZ:rot?x+l/2:z+w/2};
     if(triangles){
       const fragments=triangles.map(tri=>clipRect(tri,x,z,l,w)).filter(p=>p.length>=3&&polygonArea(p)>1e-8);
       const netArea=fragments.reduce((n,p)=>n+polygonArea(p),0);
@@ -68,14 +68,14 @@ export function layout(input) {
     const u=t.width;
     for(let j=-2;j<Math.ceil(W/u)+2;j++)for(let i=-2;i<Math.ceil(L/u)+2;i++){
       const k=((i-j)%4+4)%4;
-      if(k===0)add(i*u,j*u,2*u,u);
-      if(k===3)add(i*u,j*u,u,2*u);
+      if(k===0)add(i*u,j*u,2*u,u,false,0);
+      if(k===3)add(i*u,j*u,u,2*u,false,1);
     }
   } else if(s.pattern==='basket') {
     const u=t.width;
     for(let j=0;j<Math.ceil(W/(2*u));j++)for(let i=0;i<Math.ceil(L/(2*u));i++)for(let k=0;k<2;k++){
-      if((i+j)%2)add(i*2*u+k*u,j*2*u,u,2*u);
-      else add(i*2*u,j*2*u+k*u,2*u,u);
+      if((i+j)%2)add(i*2*u+k*u,j*2*u,u,2*u,false,1);
+      else add(i*2*u,j*2*u+k*u,2*u,u,false,0);
     }
   } else {
     for(let j=0;j<Math.ceil(W/t.width);j++){
