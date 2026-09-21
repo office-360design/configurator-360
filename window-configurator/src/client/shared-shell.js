@@ -3,7 +3,7 @@ import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=5';
 import { resolveSharedTools } from './shared-ui/src/tools/registry.js?v=13';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=platform-18';
-import { mountWindowTemplates } from './js/window-templates.js?v=4';
+import { mountWindowTemplates } from './js/window-templates.js?v=5';
 import { requireTenantConfiguratorAccess } from './shared-ui/src/tenantBootstrap.js?v=1';
 
 const tenantContext = await requireTenantConfiguratorAccess('window');

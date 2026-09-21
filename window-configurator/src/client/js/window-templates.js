@@ -47,7 +47,7 @@ function ensureStylesheet() {
     const link = document.createElement('link');
     link.id = STYLE_ID;
     link.rel = 'stylesheet';
-    link.href = './css/window-templates.css?v=2';
+    link.href = './css/window-templates.css?v=3';
     document.head.appendChild(link);
 }
 
@@ -57,6 +57,10 @@ function getToolsLauncher() {
 
 function getSharedUiHost() {
     return document.querySelector('.shared-ui-host') || document.body;
+}
+
+function isPhoneUi() {
+    return window.matchMedia('(max-width: 760px)').matches;
 }
 
 function closeToolsMenu() {
@@ -148,8 +152,13 @@ function positionElements() {
 
     const toolsRect = toolsLauncher.getBoundingClientRect();
     const gap = 10;
-    launcher.style.top = `${Math.round(toolsRect.top)}px`;
-    launcher.style.left = `${Math.round(toolsRect.right + gap)}px`;
+    if (isPhoneUi()) {
+        launcher.style.removeProperty('top');
+        launcher.style.removeProperty('left');
+    } else {
+        launcher.style.top = `${Math.round(toolsRect.top)}px`;
+        launcher.style.left = `${Math.round(toolsRect.right + gap)}px`;
+    }
 
     if (popover && !popover.hidden) {
         const margin = 12;
@@ -205,7 +214,8 @@ function createLauncher(toolsLauncher) {
     launcher.setAttribute('aria-expanded', 'false');
     launcher.removeAttribute('title');
     launcher.addEventListener('click', togglePopover);
-    getSharedUiHost().appendChild(launcher);
+    const toolsToolbar = toolsLauncher.closest('[data-shared-tools]');
+    (toolsToolbar || getSharedUiHost()).appendChild(launcher);
     return launcher;
 }
 
@@ -237,6 +247,20 @@ export function mountWindowTemplates() {
 
     window.addEventListener('resize', positionElements, { passive: true });
     window.addEventListener('scroll', positionElements, { passive: true });
+
+    const sidebarObserver = new MutationObserver(() => {
+        if (!isPhoneUi()) return;
+        if (document.body.classList.contains('sidebar-is-collapsed')) return;
+        closePopover();
+        closeToolsMenu();
+    });
+    sidebarObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.shared-ui-host [data-shared-tools] > .tool-launcher[data-action="toggle-tools"]')) return;
+        closePopover();
+    }, true);
+
     document.addEventListener('pointerdown', event => {
         const launcher = document.getElementById(LAUNCHER_ID);
         const popover = document.getElementById(POPOVER_ID);

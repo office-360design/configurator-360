@@ -174,8 +174,34 @@
 }
 
 @media (max-width: 760px) {
-    .shared-ui-host .window-templates-launcher {
+    .shared-ui-host [data-shared-tools] {
+        align-items: flex-start;
+        gap: 0;
+        transition: transform .28s cubic-bezier(.22, 1, .36, 1), opacity .18s ease;
+        will-change: transform, opacity;
+    }
+
+    .shared-ui-host [data-shared-tools] > .tools-toolbar__panel {
+        margin-top: 0;
+        transition: max-width .18s ease, max-height .18s ease, opacity .15s ease, transform .18s ease, margin-top .18s ease;
+    }
+
+    .shared-ui-host [data-shared-tools] > .tools-toolbar__panel.is-open {
+        margin-top: 10px;
+    }
+
+    body.shared-ui-mounted:not(.sidebar-is-collapsed) .shared-ui-host [data-shared-tools] {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(calc(-100% - 24px));
+    }
+
+    .shared-ui-host [data-shared-tools] > .window-templates-launcher {
+        position: static;
         min-width: 84px;
+        flex: 0 0 auto;
+        align-self: flex-start;
+        margin: 10px 0 0;
         padding-inline: 13px;
     }
 
