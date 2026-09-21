@@ -13,3 +13,12 @@ html,body{height:100%;overflow:hidden}body.tiles-sidebar-collapsed .shared-setti
 .tile-card[data-tile=tetraNova] .tile-icon{background:repeating-linear-gradient(90deg,transparent 0 22px,#fff 22px 24px),linear-gradient(90deg,#9c9d96 0 50%,#555957 50%)}
 
 #houseMapDialog{width:min(800px,94vw);max-height:92dvh;overflow:auto;border:0;border-radius:12px;padding:20px;color:#25333c;background:#fff}#houseMapDialog::backdrop{background:#0008}.map-header,.map-search{display:flex;align-items:center;gap:12px}.map-header{justify-content:space-between}.map-header h2{font-size:19px}.map-search input{flex:1;min-width:0;padding:10px}.map-header button,.map-search button{padding:10px;border:1px solid #bccbd5;border-radius:7px}#houseMap{height: min(48dvh,400px);margin:12px 0}#houseMapResults{max-height:150px;overflow:auto}#houseMapResults button{display:block;text-align:left;width:100%;padding:10px;background:#f0f6fa;border:1px solid #d5dfe3}.export:disabled{opacity:.5;cursor:default}body.dark #houseMapDialog{background:#253139;color:#e4ebef}
+
+/* Keep phone controls clear of the shared Tools launcher and demo CTA. */
+@media (max-width:760px){
+  #tilesSidebarToggle{top:calc(var(--shared-topbar-height,47px) + 90px) !important}
+  body.tiles-sidebar-collapsed #tilesSidebarToggle{right:0 !important}
+  .view-actions{bottom:calc(76px + env(safe-area-inset-bottom,0px));left:calc(16px + env(safe-area-inset-left,0px))}
+  .view-actions button{min-height:44px;flex-shrink:0}
+  .scene-caption{bottom:calc(136px + env(safe-area-inset-bottom,0px));left:calc(16px + env(safe-area-inset-left,0px))}
+}
