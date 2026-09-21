@@ -47,7 +47,7 @@ function ensureStylesheet() {
     const link = document.createElement('link');
     link.id = STYLE_ID;
     link.rel = 'stylesheet';
-    link.href = './css/window-templates.css?v=5';
+    link.href = './css/window-templates.css?v=6';
     document.head.appendChild(link);
 }
 

@@ -3,7 +3,7 @@ import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=5';
 import { resolveSharedTools } from './shared-ui/src/tools/registry.js?v=13';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=platform-18';
-import { mountWindowTemplates } from './js/window-templates.js?v=7';
+import { mountWindowTemplates } from './js/window-templates.js?v=8';
 import { requireTenantConfiguratorAccess } from './shared-ui/src/tenantBootstrap.js?v=1';
 
 const tenantContext = await requireTenantConfiguratorAccess('window');
@@ -51,7 +51,23 @@ function bindPhonePanelExclusivity() {
   const selectedWindowPanel = document.getElementById('selected-window-panel');
   const componentSelectionPopup = document.getElementById('component-selection-popup');
 
+  const syncSelectedWindowLauncherVisibility = () => {
+    const selectedWindowOpen = Boolean(selectedWindowPanel && !selectedWindowPanel.hidden);
+    document.body.classList.toggle('phone-window-editor-open', selectedWindowOpen);
+
+    if (!isPhoneUi() || !selectedWindowOpen) return;
+
+    const toolsLauncher = document.querySelector(
+      '.shared-ui-host [data-shared-tools] > .tool-launcher[data-action="toggle-tools"]'
+    );
+    if (toolsLauncher?.getAttribute('aria-expanded') === 'true') toolsLauncher.click();
+
+    const templatesLauncher = document.getElementById('window-templates-launcher');
+    if (templatesLauncher?.getAttribute('aria-expanded') === 'true') templatesLauncher.click();
+  };
+
   const editorPanelObserver = new MutationObserver((mutations) => {
+    syncSelectedWindowLauncherVisibility();
     if (!isPhoneUi()) return;
     if (!mutations.some(({ target }) => target instanceof HTMLElement && !target.hidden)) return;
     closePhoneSettingsPanel();
@@ -60,6 +76,7 @@ function bindPhonePanelExclusivity() {
   [selectedWindowPanel, componentSelectionPopup].forEach((panel) => {
     if (panel) editorPanelObserver.observe(panel, { attributes: true, attributeFilter: ['hidden'] });
   });
+  syncSelectedWindowLauncherVisibility();
 
   const settingsPanelObserver = new MutationObserver(() => {
     if (!isPhoneUi()) return;
