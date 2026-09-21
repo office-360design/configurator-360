@@ -27,3 +27,19 @@ test('intentional checker assignment and solid colours are preserved',()=>{
   const pieces=layout(normalize({tile:'square',pattern:'checker'}));
   for(const p of pieces){const palette=p.accent?COLORS.red:COLORS.grey;const appearance=stoneAppearance(p,palette);assert.equal(appearance.base,palette);assert.ok(appearance.brightness>=.96&&appearance.brightness<=1.04);}
 });
+test('woven mixed finishes retain directional contrast through rotations and cuts',()=>{
+  for(const pattern of ['herringbone','basket'])for(const rotation of [0,90]){
+    const s=normalize({pattern,rotation,color:'noir',length:6,width:4});
+    const original=new Map(layout(s).map(p=>[key(p),stoneAppearance(p,COLORS.noir).base]));
+    for(const patch of [{},{shape:'closed4',runA:6,runB:4,runC:4,angleB:90},{shape:'closed5'},{houseEnabled:true,houseShape:'l',houseX:.13,houseZ:.27}]){
+      const roles=[new Set(),new Set()];
+      for(const p of layout({...s,...patch})){
+        const base=stoneAppearance(p,COLORS.noir).base;roles[p.shadeRole].add(base);
+        if(original.has(key(p)))assert.equal(base,original.get(key(p)));
+        if(!p.cut)assert.equal(p.shadeRole,(rotation===90?p.w>p.l:p.l>p.w)?0:1);
+      }
+      assert.equal(roles[0].size,1);assert.equal(roles[1].size,1);
+      assert.notEqual([...roles[0]][0],[...roles[1]][0]);
+    }
+  }
+});
