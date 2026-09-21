@@ -48,6 +48,9 @@ Run `npm run check:tiles` from the repository root for the model regression test
 - EN/RO/DE product UI; numeric input uses metres and estimates explicitly use RON.
   Shared unit/currency preferences do not convert the supplier rate editor in this prototype.
 - Live BOM, editable rates, spare allowance, purchase quantities and CSV export.
+- Shared sticky Add to cart footer with the live RON estimate. Signed-in users use
+  the standard save-before-add flow; cart entries preserve the full paving/house/curb
+  snapshot and support the shared cart edit flow. Demo-price exclusions still apply.
 - Versioned, validated state adapters for shared save/share/drafts/reset/undo.
 
 ## Quantity and pricing conventions
