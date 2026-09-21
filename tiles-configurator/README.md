@@ -15,6 +15,15 @@ Run `npm run check:tiles` from the repository root for the model regression test
 
 ## Features
 
+- Synchronized sliders, value readouts and numeric fields for rectangle dimensions,
+  custom sides (5 cm steps), angle B and house controls. Pointer drags are grouped
+  as one undo operation; keyboard and numeric edits are also supported.
+- Optional rectangular or L-shaped house, with footprint dimensions, L-wing widths,
+  height, quarter-turn orientation, X/Z positioning, centre button and direct 3D dragging.
+  X/Z locate the unrotated footprint's lower corner relative to the paving area's
+  bounding-box origin; rotation is around the footprint centre. Moving outside the
+  area is allowed; only the intersection is subtracted. The centre button positions
+  the footprint centre in the area's bounding box, not necessarily inside concave areas.
 - Rectangle plus separate custom four- and five-sided areas, following fence controls.
   Four sides: AB, BC, CD and angle B; CD is parallel to AB, DA closes automatically.
   Five sides: AB, BC, CD, DE and angle B; C/D use 72° exterior turns, EA closes automatically.
@@ -37,7 +46,7 @@ Run `npm run check:tiles` from the repository root for the model regression test
 
 ## Quantity and pricing conventions
 
-The nominal module covers the selected area exactly. Polygon edges clip paving stones to the outline; triangulation seams do not count as additional pieces. The 3 mm visible recess between
+The nominal module covers the selected area exactly before exclusions. The house footprint is subtracted from tiles and intersecting perimeter curbs; no automatic curb is added around the house. The two wings of an L footprint are disjoint, avoiding double-counting. Partial cuts from the same stock tile/curb remain one purchased piece; fully covered pieces disappear. Gross area, house overlap and remaining paved area are calculated separately. House geometry is illustrative and excluded from pricing. Polygon edges clip paving stones to the outline; triangulation seams do not count as additional pieces. The 3 mm visible recess between
 stones is a visual joint within that module, not an additional dimension. Curbs sit
 outside the configured rectangle. Front/back curbs extend over enabled side curbs,
 forming butt corners without overlapping geometry. Custom outlines use outward miter joints; a side without an enabled neighbour has a square end. Each custom curb strip is divided by its longest projected extent into whole stock lengths. Curb quantities are rounded up
@@ -82,7 +91,7 @@ against an older backend. No production deployment is performed by this feature 
 Model tests verify exact coverage, no overlapping tiles, boundary clipping, both
 rotations, all compatible patterns, all curb-edge combinations, exact reference BOMs,
 checkerboard split, zero pricing, spare allowance, input limits and maximum size.
-The polygon tests compare perimeter construction directly with the fence implementation and check all patterns/rotations, concave areas, all edge masks, exact reference areas and legacy snapshots. All 100 pavement tests and all 165 colour-editor tests pass.
+The polygon tests compare perimeter construction directly with the fence implementation and check all patterns/rotations, concave areas, all edge masks, exact reference areas and legacy snapshots. All 151 pavement tests pass, including house clipping across all supported paving patterns, every quarter-turn, partial/external/full coverage, curb exclusions, disabling and saved-state compatibility. The previous 165 colour-editor tests also pass.
 
 Browser visual verification could not run in the implementation environment: no browser
 was preinstalled and Chromium downloads timed out or returned HTTP 502. Authenticated
