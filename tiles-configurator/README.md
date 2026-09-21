@@ -15,7 +15,14 @@ Run `npm run check:tiles` from the repository root for the model regression test
 
 ## Features
 
-- Configurable 1–20 m rectangular paving area; dimensions are inside the curbs.
+- Rectangle plus separate custom four- and five-sided areas, following fence controls.
+  Four sides: AB, BC, CD and angle B; CD is parallel to AB, DA closes automatically.
+  Five sides: AB, BC, CD, DE and angle B; C/D use 72° exterior turns, EA closes automatically.
+  Editable lengths are 1–20 m and angle B is 30–150°. Dimensions are inside the curbs.
+- Labelled A–E outline preview and 3D dimensions, calculated closing length, true area
+  and perimeter. Convex and simple concave outlines are supported. Crossing/collapsed
+  outlines, edges shorter than 10 cm and nearly collinear corners are rejected while
+  retaining the previous configuration. Existing saved rectangles remain compatible.
 - Parket 20 × 10 × 6 cm, Pătrat 20 × 20 × 6 cm and Dală 60 × 30 × 5 cm.
 - Straight/running bond, herringbone and basket weave for rectangular formats;
   straight/running bond and two-colour checkerboard for square paving.
@@ -30,10 +37,10 @@ Run `npm run check:tiles` from the repository root for the model regression test
 
 ## Quantity and pricing conventions
 
-The nominal module covers the rectangle exactly. The 3 mm visible recess between
+The nominal module covers the selected area exactly. Polygon edges clip paving stones to the outline; triangulation seams do not count as additional pieces. The 3 mm visible recess between
 stones is a visual joint within that module, not an additional dimension. Curbs sit
 outside the configured rectangle. Front/back curbs extend over enabled side curbs,
-forming butt corners without overlapping geometry. Curb quantities are rounded up
+forming butt corners without overlapping geometry. Custom outlines use outward miter joints; a side without an enabled neighbour has a square end. Each custom curb strip is divided by its longest projected extent into whole stock lengths. Curb quantities are rounded up
 per run; no cut-off reuse is assumed.
 
 For each paving colour, order quantity is the greater of the number of installed
@@ -75,7 +82,7 @@ against an older backend. No production deployment is performed by this feature 
 Model tests verify exact coverage, no overlapping tiles, boundary clipping, both
 rotations, all compatible patterns, all curb-edge combinations, exact reference BOMs,
 checkerboard split, zero pricing, spare allowance, input limits and maximum size.
-Existing tenant bootstrap, tenant save isolation and analytics integration checks also pass.
+The polygon tests compare perimeter construction directly with the fence implementation and check all patterns/rotations, concave areas, all edge masks, exact reference areas and legacy snapshots. All 100 pavement tests and all 165 colour-editor tests pass.
 
 Browser visual verification could not run in the implementation environment: no browser
 was preinstalled and Chromium downloads timed out or returned HTTP 502. Authenticated

@@ -1,3 +1,5 @@
+import {areaGeometry,triangulate,clipRect,polygonArea,polygonCurbs} from './area.js';
+export {areaGeometry} from './area.js';
 // Nominal WISE formats. Rates are editable demo values in RON, not supplier prices.
 export const COLORS = { grey:'#969a98', charcoal:'#414748', red:'#a65343', brown:'#806453', sand:'#c9b796', white:'#d8d5ca', noir:['#555957','#9c9d96','#72746d'] };
 export const TILES = {
@@ -9,7 +11,7 @@ export const CURBS = {
   garden:{name:'G600',length:.6,width:.05,height:.21,price:18,colors:['grey','charcoal','red','brown'],source:'https://wise.ro/produs/bordura-g600/'},
   sidewalk:{name:'T500',length:.5,width:.1,height:.15,price:24,colors:['grey','charcoal','red','brown','noir'],source:'https://wise.ro/produs/bordura-t500/'}
 };
-export const DEFAULTS = Object.freeze({version:1,length:6,width:4,tile:'parket',color:'grey',accent:'charcoal',pattern:'running',rotation:0,curb:'garden',curbColor:'charcoal',edges:[true,true,true,true],waste:7,tileRate:85,curbRate:18});
+export const DEFAULTS = Object.freeze({version:1,shape:'rectangle',runA:6,runB:4,runC:4,runD:4,angleB:90,length:6,width:4,tile:'parket',color:'grey',accent:'charcoal',pattern:'running',rotation:0,curb:'garden',curbColor:'charcoal',edges:[true,true,true,true],waste:7,tileRate:85,curbRate:18});
 const number = (v,d,min,max) => Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.min(max,Math.max(min,Number(v))) : d;
 export function normalize(input={}) {
   const s={...DEFAULTS,...input};
@@ -22,14 +24,26 @@ export function normalize(input={}) {
   s.pattern=tile.patterns.includes(s.pattern)?s.pattern:tile.patterns[0];
   s.length=number(s.length,6,1,20); s.width=number(s.width,4,1,20);
   s.waste=number(s.waste,7,0,30);s.tileRate=number(s.tileRate,tile.price,0,10000);s.curbRate=number(s.curbRate,CURBS[s.curb].price,0,10000);
+  s.shape=['rectangle','closed4','closed5'].includes(s.shape)?s.shape:'rectangle';
+  for(const key of ['runA','runB','runC','runD'])s[key]=number(s[key],DEFAULTS[key],1,20);
+  s.angleB=number(s.angleB,90,30,150);
   s.rotation=Number(s.rotation)===90?90:0;
-  s.edges=Array.from({length:4},(_,i)=>Array.isArray(s.edges)&&typeof s.edges[i]==='boolean'?s.edges[i]:true);
+  s.edges=Array.from({length:s.shape==='closed5'?5:4},(_,i)=>Array.isArray(s.edges)&&typeof s.edges[i]==='boolean'?s.edges[i]:true);
   return Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,k==='version'?1:s[k]]));
 }
 export function layout(input) {
   const s=normalize(input),t=TILES[s.tile],rot=s.rotation===90;
-  const L=rot?s.width:s.length,W=rot?s.length:s.width, result=[];
+  const area=areaGeometry(s),L=rot?area.depth:area.width,W=rot?area.width:area.depth,result=[];
+  const triangles=s.shape==='rectangle'?null:triangulate(area.points).map(tri=>tri.map(p=>rot?{x:p.z,z:p.x}:p));
+
   const add=(x,z,l,w,accent=false)=>{
+    if(triangles){
+      const fragments=triangles.map(tri=>clipRect(tri,x,z,l,w)).filter(p=>p.length>=3&&polygonArea(p)>1e-8);
+      const netArea=fragments.reduce((n,p)=>n+polygonArea(p),0);
+      if(netArea<1e-8)return;
+      const cut=netArea<l*w-1e-8;
+      result.push({x:rot?z+w/2:x+l/2,z:rot?x+l/2:z+w/2,l:rot?w:l,w:rot?l:w,accent,cut,area:netArea,fragments:cut?fragments.map(poly=>poly.map(p=>rot?{x:p.z,z:p.x}:p)):undefined});return;
+    }
     const x0=Math.max(0,x),z0=Math.max(0,z),x1=Math.min(L,x+l),z1=Math.min(W,z+w);
     if(x1-x0<1e-8||z1-z0<1e-8)return;
     const a={x:(x0+x1)/2,z:(z0+z1)/2,l:x1-x0,w:z1-z0,accent,cut:x0>x+1e-8||z0>z+1e-8||x1<x+l-1e-8||z1<z+w-1e-8};
@@ -58,6 +72,7 @@ export function layout(input) {
 }
 export function curbLayout(input) {
   const s=normalize(input),c=CURBS[s.curb],out=[];
+  if(s.shape!=='rectangle')return polygonCurbs(s,c,areaGeometry(s));
   // Front/back extend over enabled side curbs: butt joints, no corner overlap.
   const extLeft=s.edges[3]?c.width:0,extRight=s.edges[1]?c.width:0;
   const lengths=[s.length+extLeft+extRight,s.width,s.length+extLeft+extRight,s.width];
@@ -71,14 +86,14 @@ export function curbLayout(input) {
   return out;
 }
 export function estimate(input,pieces=layout(input)) {
-  const s=normalize(input),t=TILES[s.tile],curbs=curbLayout(s),area=s.length*s.width,unitArea=t.length*t.width;
+  const s=normalize(input),t=TILES[s.tile],curbs=curbLayout(s),geometry=areaGeometry(s),area=geometry.area,unitArea=t.length*t.width;
   const rows=[];
   for(const accent of [false,true]){
     const parts=pieces.filter(p=>p.accent===accent); if(!parts.length)continue;
-    const net=parts.reduce((a,p)=>a+p.l*p.w,0);
+    const net=parts.reduce((a,p)=>a+(p.area??p.l*p.w),0);
     const quantity=Math.max(parts.length,Math.ceil(net*(1+s.waste/100)/unitArea-1e-8));
     rows.push({kind:'tile',name:t.name,color:accent?s.accent:s.color,quantity,unit:'pcs',area:quantity*unitArea,rate:s.tileRate*unitArea,total:quantity*unitArea*s.tileRate});
   }
   if(curbs.length)rows.push({kind:'curb',name:CURBS[s.curb].name,color:s.curbColor,quantity:curbs.length,unit:'pcs',rate:s.curbRate,total:curbs.length*s.curbRate});
-  return {area,perimeter:2*(s.length+s.width),cutPieces:pieces.filter(p=>p.cut).length,installedPieces:pieces.length,curbLength:curbs.reduce((a,p)=>a+(p.side%2?p.w:p.l),0),rows,total:rows.reduce((a,r)=>a+r.total,0)};
+  return {area,perimeter:geometry.perimeter,cutPieces:pieces.filter(p=>p.cut).length,installedPieces:pieces.length,curbLength:curbs.reduce((a,p)=>a+(p.runLength??(p.side%2?p.w:p.l)),0),rows,total:rows.reduce((a,r)=>a+r.total,0)};
 }
