@@ -41,6 +41,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     fence: '/fence-configurator/',
     cardbox: '/cardbox-configurator/',
     bookshelf: '/bookshelf-configurator/',
+    tiles: '/tiles-configurator/',
     chair: '/chair-configurator/',
   }),
   'ro-RO': Object.freeze({
@@ -52,6 +53,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     fence: '/configurator-garduri/',
     cardbox: '/configurator-cutii-carton/',
     bookshelf: '/bookshelf-configurator/',
+    tiles: '/tiles-configurator/',
     chair: '/configurator-scaune/',
   }),
   'de-DE': Object.freeze({
@@ -63,6 +65,7 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     fence: '/zaun-konfigurator/',
     cardbox: '/karton-konfigurator/',
     bookshelf: '/bookshelf-configurator/',
+    tiles: '/tiles-configurator/',
     chair: '/stuhl-konfigurator/',
   }),
 });
@@ -102,6 +105,7 @@ export function getLocaleForHostname(hostname = '') {
 
 function normalizeProductType(productType = '') {
   const value = String(productType).toLowerCase();
+  if (value === 'tiles') return 'tiles';
   if (value.includes('pergola')) return 'pergola';
   if (value.includes('roof')) return 'roof';
   if (value.includes('window')) return 'window';
