@@ -8,7 +8,9 @@
 .shared-ui-host .window-templates-popover {
     position: fixed;
     z-index: 930;
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     padding: 14px;
     border: 1px solid rgba(17, 29, 35, .10);
     border-radius: 16px;
@@ -74,6 +76,10 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .shared-ui-host .window-template-card {
@@ -174,8 +180,69 @@
 }
 
 @media (max-width: 760px) {
-    .shared-ui-host .window-templates-launcher {
+    /* Keep the mobile layout viewport physically pinned to the device width.
+       #controls is normally absolute, and translating that absolute box beyond
+       the right edge expands the document's scrollable/layout width on mobile.
+       Making the panel fixed removes it from document overflow calculations, so
+       the top bar and the reopen toggle stay anchored to the visible viewport. */
+    html,
+    body.shared-ui-mounted {
+        width: 100vw;
+        min-width: 0;
+        max-width: 100vw;
+        overflow-x: hidden;
+    }
+
+    body.shared-ui-mounted #controls {
+        position: fixed !important;
+    }
+
+    body.shared-ui-mounted .shared-ui-host {
+        width: 100vw;
+        min-width: 0;
+        max-width: 100vw;
+    }
+
+    body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle {
+        right: 0 !important;
+        left: auto !important;
+    }
+
+    @supports (overflow: clip) {
+        html,
+        body.shared-ui-mounted {
+            overflow-x: clip;
+        }
+    }
+
+    .shared-ui-host [data-shared-tools] {
+        align-items: flex-start;
+        gap: 0;
+        transition: transform .28s cubic-bezier(.22, 1, .36, 1), opacity .18s ease;
+        will-change: transform, opacity;
+    }
+
+    .shared-ui-host [data-shared-tools] > .tools-toolbar__panel {
+        margin-top: 0;
+        transition: max-width .18s ease, max-height .18s ease, opacity .15s ease, transform .18s ease, margin-top .18s ease;
+    }
+
+    .shared-ui-host [data-shared-tools] > .tools-toolbar__panel.is-open {
+        margin-top: 10px;
+    }
+
+    body.shared-ui-mounted:not(.sidebar-is-collapsed) .shared-ui-host [data-shared-tools] {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(calc(-100% - 24px));
+    }
+
+    .shared-ui-host [data-shared-tools] > .window-templates-launcher {
+        position: static;
         min-width: 84px;
+        flex: 0 0 auto;
+        align-self: flex-start;
+        margin: 10px 0 0;
         padding-inline: 13px;
     }
 

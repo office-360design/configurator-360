@@ -47,7 +47,7 @@ function ensureStylesheet() {
     const link = document.createElement('link');
     link.id = STYLE_ID;
     link.rel = 'stylesheet';
-    link.href = './css/window-templates.css?v=2';
+    link.href = './css/window-templates.css?v=5';
     document.head.appendChild(link);
 }
 
@@ -57,6 +57,10 @@ function getToolsLauncher() {
 
 function getSharedUiHost() {
     return document.querySelector('.shared-ui-host') || document.body;
+}
+
+function isPhoneUi() {
+    return window.matchMedia('(max-width: 760px)').matches;
 }
 
 function closeToolsMenu() {
@@ -148,21 +152,32 @@ function positionElements() {
 
     const toolsRect = toolsLauncher.getBoundingClientRect();
     const gap = 10;
-    launcher.style.top = `${Math.round(toolsRect.top)}px`;
-    launcher.style.left = `${Math.round(toolsRect.right + gap)}px`;
+    if (isPhoneUi()) {
+        launcher.style.removeProperty('top');
+        launcher.style.removeProperty('left');
+    } else {
+        launcher.style.top = `${Math.round(toolsRect.top)}px`;
+        launcher.style.left = `${Math.round(toolsRect.right + gap)}px`;
+    }
 
     if (popover && !popover.hidden) {
         const margin = 12;
         const launcherRect = launcher.getBoundingClientRect();
-        const width = Math.min(720, Math.max(300, window.innerWidth - margin * 2));
+        const availableWidth = Math.max(0, window.innerWidth - margin * 2);
+        const width = isPhoneUi()
+            ? Math.min(720, availableWidth)
+            : Math.min(720, Math.max(300, availableWidth));
         const left = Math.min(
             Math.max(margin, launcherRect.left),
             Math.max(margin, window.innerWidth - width - margin),
         );
+        const top = Math.max(margin, Math.round(launcherRect.bottom + 10));
+        const availableHeight = Math.max(0, window.innerHeight - top - margin);
         popover.style.width = `${width}px`;
         popover.style.left = `${Math.round(left)}px`;
-        popover.style.top = `${Math.round(launcherRect.bottom + 10)}px`;
-        popover.style.maxHeight = `${Math.max(220, window.innerHeight - launcherRect.bottom - 22)}px`;
+        popover.style.top = `${top}px`;
+        popover.style.removeProperty('height');
+        popover.style.maxHeight = `${availableHeight}px`;
     }
 }
 
@@ -205,7 +220,8 @@ function createLauncher(toolsLauncher) {
     launcher.setAttribute('aria-expanded', 'false');
     launcher.removeAttribute('title');
     launcher.addEventListener('click', togglePopover);
-    getSharedUiHost().appendChild(launcher);
+    const toolsToolbar = toolsLauncher.closest('[data-shared-tools]');
+    (toolsToolbar || getSharedUiHost()).appendChild(launcher);
     return launcher;
 }
 
@@ -237,6 +253,32 @@ export function mountWindowTemplates() {
 
     window.addEventListener('resize', positionElements, { passive: true });
     window.addEventListener('scroll', positionElements, { passive: true });
+
+    const sidebarObserver = new MutationObserver(() => {
+        if (!isPhoneUi()) return;
+
+        // A translated sidebar used to leave the document horizontally scrolled
+        // after collapsing on mobile. Keep the visual viewport pinned to x=0 so
+        // the shared top-bar actions and the sidebar reopen button cannot drift
+        // outside the screen even while the close animation is running.
+        document.documentElement.scrollLeft = 0;
+        document.body.scrollLeft = 0;
+        requestAnimationFrame(() => {
+            document.documentElement.scrollLeft = 0;
+            document.body.scrollLeft = 0;
+        });
+
+        if (document.body.classList.contains('sidebar-is-collapsed')) return;
+        closePopover();
+        closeToolsMenu();
+    });
+    sidebarObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.shared-ui-host [data-shared-tools] > .tool-launcher[data-action="toggle-tools"]')) return;
+        closePopover();
+    }, true);
+
     document.addEventListener('pointerdown', event => {
         const launcher = document.getElementById(LAUNCHER_ID);
         const popover = document.getElementById(POPOVER_ID);
