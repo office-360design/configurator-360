@@ -138,6 +138,9 @@ jobs:
           mkdir -p dist/site/cardbox-configurator
           cp -R cardbox-configurator/. dist/site/cardbox-configurator/
 
+          mkdir -p dist/site/tiles-configurator
+          cp -R tiles-configurator/. dist/site/tiles-configurator/
+
           mkdir -p dist/site/bookshelf-configurator
           cp -R bookshelf-configurator/. dist/site/bookshelf-configurator/
 
@@ -157,6 +160,7 @@ jobs:
           test -f dist/site/hall-configurator/index.html
           test -f dist/site/fence-configurator/index.html
           test -f dist/site/cardbox-configurator/index.html
+          test -f dist/site/tiles-configurator/index.html
           test -f dist/site/bookshelf-configurator/index.html
           test -f dist/site/chair-configurator/index.html
           test -d dist/site/shared-ui

@@ -1,0 +1,48 @@
+import {TILES,CURBS,COLORS,DEFAULTS,normalize,layout,estimate} from './model.js';
+import {translator} from './i18n.js';
+import {mountStandaloneConfiguratorShell} from '../../shared-ui/src/standaloneShell.js';
+import {SharedUndoManager} from '../../shared-ui/src/history/undoManager.js';
+import {resolveSharedTools} from '../../shared-ui/src/tools/registry.js';
+import {createShareUrl} from '../../shared-ui/src/shareState.js';
+import {requireTenantConfiguratorAccess} from '../../shared-ui/src/tenantBootstrap.js';
+const $=id=>document.getElementById(id);
+let state=normalize(),locale='en-US',t=translator(locale),viewer,shell,top=false;
+const money=n=>new Intl.NumberFormat(locale,{style:'currency',currency:'RON'}).format(n);
+const f=n=>new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(n);
+const history=new SharedUndoManager({capture:()=>structuredClone(state),restore:s=>restore(s)});
+function swatches(id,key,colors){$(id).innerHTML=colors.map(c=>`<button type="button" class="swatch" data-key="${key}" data-color="${c}" title="${t(c)}" aria-label="${t(c)}" aria-pressed="${state[key]===c}" style="--swatch:${Array.isArray(COLORS[c])?`linear-gradient(120deg,${COLORS[c].join(',')})`:COLORS[c]}"></button>`).join('');}
+function render(){
+  document.documentElement.lang=locale.split('-')[0];document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));
+  for(const key of ['length','width','waste','tileRate','curbRate','rotation'])$(key).value=state[key];
+  $('tileChoices').innerHTML=Object.entries(TILES).map(([key,tile])=>`<button type="button" class="tile-card" data-tile="${key}" aria-pressed="${state.tile===key}"><i class="tile-icon" aria-hidden="true"></i>${tile.name}<small>${tile.length*100} × ${tile.width*100} × ${tile.thickness*100} cm</small></button>`).join('');
+  const tile=TILES[state.tile];$('sourceLink').href=tile.source;
+  $('pattern').innerHTML=tile.patterns.map(p=>`<option value="${p}">${t(p)}</option>`).join('');$('pattern').value=state.pattern;
+  $('curb').innerHTML=Object.entries(CURBS).map(([key,c])=>`<option value="${key}">${t(key)} · ${c.name} · ${c.length*100} × ${c.width*100} × ${c.height*100} cm</option>`).join('');$('curb').value=state.curb;
+  document.querySelectorAll('[data-edge]').forEach(el=>el.checked=state.edges[Number(el.dataset.edge)]);
+  swatches('colors','color',tile.colors);swatches('accents','accent',tile.colors);swatches('curbColors','curbColor',CURBS[state.curb].colors);$('accentSection').hidden=state.pattern!=='checker';
+  const parts=layout(state),bom=estimate(state,parts);viewer?.rebuild(state,parts);
+  $('areaBadge').textContent=`${f(bom.area)} m² · ${f(state.length)} × ${f(state.width)} m`;
+  $('metrics').innerHTML=[['pieces',bom.installedPieces],['cuts',bom.cutPieces],['purchase',`${f(bom.rows.filter(r=>r.kind==='tile').reduce((a,r)=>a+r.area,0))} m²`],['curbLength',`${f(bom.curbLength)} m`]].map(([key,value])=>`<div><span>${t(key)}</span><strong>${value}</strong></div>`).join('');
+  $('bom').innerHTML=bom.rows.map(r=>`<div class="bom-row"><div><b>${r.name} · ${t(r.color)}</b><small>${r.quantity} × ${money(r.rate)}${r.area?` · ${f(r.area)} m²`:''}</small></div><strong>${money(r.total)}</strong></div>`).join('');
+  $('summaryTotal').textContent=money(bom.total);$('cameraButton').textContent=t(top?'perspective':'top');$('viewerError').textContent=t('error');
+}
+function restore(snapshot){if(!snapshot||typeof snapshot!=='object'||Array.isArray(snapshot)||snapshot.version!==1)return false;state=normalize(snapshot);render();return true;}
+function change(patch){history.record();state=normalize({...state,...patch});render();shell?.markDirty();}
+function setLocale(value){locale=value||'en-US';t=translator(locale);render();}
+function setDarkMode(value){document.body.classList.toggle('dark',value);viewer?.setDarkMode(value);}
+function cycleCamera(){top=viewer?.cycleCamera()||false;$('cameraButton').textContent=t(top?'perspective':'top');}
+const api={captureState:()=>structuredClone(state),restoreState:restore,resetConfiguration(){history.record();state=normalize(DEFAULTS);render();shell?.markDirty();return true;},setLocale,setDarkMode,cycleCamera,getEstimate:()=>estimate(state)};
+window.TILES_CONFIGURATOR_API=api;
+document.querySelector('.sidebar').addEventListener('change',e=>{const el=e.target;if(el.dataset.edge!==undefined){const edges=[...state.edges];edges[Number(el.dataset.edge)]=el.checked;change({edges});}else if(Object.hasOwn(DEFAULTS,el.id)){if(el.type==='number'&&!el.checkValidity()){el.reportValidity();el.value=state[el.id];return;}const patch={[el.id]:el.value};if(el.id==='curb')patch.curbRate=CURBS[el.value].price;change(patch);}});
+document.querySelector('.sidebar').addEventListener('click',e=>{const button=e.target.closest('button');if(button?.dataset.tile){const tile=button.dataset.tile;change({tile,tileRate:TILES[tile].price});}if(button?.dataset.color)change({[button.dataset.key]:button.dataset.color});});
+$('cameraButton').addEventListener('click',cycleCamera);
+$('export').addEventListener('click',()=>{const bom=estimate(state);const rows=[[t('item'),t('color'),t('quantity'),t('unitRate')+' (RON)',t('total')+' (RON)'],...bom.rows.map(r=>[r.name,t(r.color),r.quantity,r.rate.toFixed(2),r.total.toFixed(2)]),[t('total'),'','','',bom.total.toFixed(2)],[],[t('note')],[t('length'),state.length,'m'],[t('width'),state.width,'m'],[t('pattern'),t(state.pattern)],[t('rotation'),state.rotation],[t('waste'),state.waste,'%']];const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='pavement-bom.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+render();
+const tenant=await requireTenantConfiguratorAccess('tiles');
+const mobile=matchMedia('(max-width:760px)');
+shell=mountStandaloneConfiguratorShell({productType:'Tiles',productId:'tiles',storagePrefix:'360-configurator:tiles',brandSrc:tenant?.logoUrl||'../shared-ui/assets/360CONFIGURATOR.png',brandAlt:tenant?.companyName||'360 Configurator',capabilities:{viewAR:false,save:true,undo:true,reset:true,share:true},tools:{items:resolveSharedTools([{id:'dimensions',active:true},'camera'])},settingsPanel:{panelSelector:'.sidebar',toggleSelector:'#tilesSidebarToggle',collapsedClass:'is-collapsed',bodyCollapsedClass:'tiles-sidebar-collapsed',initiallyCollapsed:mobile.matches},callbacks:{onUndo(){history.undo();},resetConfiguration:api.resetConfiguration,captureState:api.captureState,restoreState:restore,getShareUrl(){return createShareUrl({productType:'tiles',state:api.captureState()});},onPreferenceChange(path,value){if(path==='locale')setLocale(value);if(path==='darkMode')setDarkMode(Boolean(value));},onSettingsPanelToggle(collapsed){const panel=document.querySelector('.sidebar');panel.inert=collapsed;panel.setAttribute('aria-hidden',String(collapsed));}}});
+shell.setSettingsPanelCollapsed(mobile.matches);
+mobile.addEventListener('change',event=>shell.setSettingsPanelCollapsed(event.matches));
+window.TILES_CONFIGURATOR_SHARED_SHELL=shell;setLocale(shell.state.locale);setDarkMode(Boolean(shell.state.darkMode));
+shell.host.addEventListener('click',e=>{const action=e.target.closest('[data-action]')?.dataset.action;if(action==='cycle-camera')cycleCamera();if(action==='toggle-dimensions')shell.setToolActive('dimensions',viewer?.toggleDimensions());});
+try{const {createViewer}=await import('./viewer.js');viewer=createViewer($('canvasHost'));viewer.setDarkMode(Boolean(shell.state.darkMode));render();}catch(error){console.error('Pavement preview failed',error);$('viewerError').hidden=false;}

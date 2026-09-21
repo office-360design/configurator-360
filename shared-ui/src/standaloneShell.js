@@ -37,9 +37,9 @@ const SAVED_CONFIGURATION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const CART_EDIT_ITEM_PARAM = 'cartItem';
 const CART_EDIT_PRODUCT_PARAM = 'cartProduct';
 const CART_EDIT_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,180}$/;
-const CART_EDIT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox', 'bookshelf', 'chair']);
+const CART_EDIT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox', 'bookshelf', 'chair', 'tiles']);
 const DOMAIN_SAVE_FAILURE_MESSAGE = 'Domain change failed because of a saving failure';
-const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar', 'cardbox', 'bookshelf', 'chair']);
+const DRAFT_PRODUCTS = new Set(['window', 'roof', 'pergola', 'hall', 'fence', 'solar', 'cardbox', 'bookshelf', 'chair', 'tiles']);
 const SUPPORT_EMAIL = 'office@360configurator.com';
 const SUPPORT_PRODUCT_NAMES = Object.freeze({
   window: 'Window',
@@ -50,6 +50,7 @@ const SUPPORT_PRODUCT_NAMES = Object.freeze({
   solar: 'Solar',
   cardbox: 'Cardbox',
   bookshelf: 'Bookshelf',
+  tiles: 'Pavement',
   chair: 'Chair',
 });
 const CART_SUCCESS_FEEDBACK_MS = 1500;
