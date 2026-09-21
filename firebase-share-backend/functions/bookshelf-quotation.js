@@ -1,6 +1,6 @@
 'use strict';
 
-const { createHash } = require('node:crypto');
+const { createHash, randomBytes } = require('node:crypto');
 const { GoogleAuth } = require('google-auth-library');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
@@ -127,8 +127,9 @@ function validateOrigin(origin) {
   throw new HttpsError('permission-denied', 'This quotation form origin is not allowed.');
 }
 
-function validateShareUrl(rawUrl, requestOriginValue) {
-  const value = cleanSingleLine(rawUrl, 1200);
+function validateShareUrl(rawUrl, requestOriginValue, maxLength = 1200) {
+  if(String(rawUrl||'').length>maxLength)throw new HttpsError('invalid-argument', 'Configuration link is too long.');
+  const value = cleanSingleLine(rawUrl, maxLength);
   let url;
   try { url = new URL(value); } catch { throw new HttpsError('invalid-argument', 'Invalid configuration share link.'); }
   const origin = url.origin.replace(/\/$/, '');
@@ -272,7 +273,12 @@ function encodeMimeSubject(subject) {
   return `=?UTF-8?B?${Buffer.from(clean, 'utf8').toString('base64')}?=`;
 }
 
-function encodeMimeMessage({ from, to, replyTo, subject, text }) {
+function encodeMimeMessage({ from, to, replyTo, subject, text, attachment }) {
+  if(attachment){
+    const boundary='config-'+randomBytes(16).toString('hex');
+    const encoded=Buffer.from(attachment,'utf8').toString('base64').match(/.{1,76}/g).join('\r\n');
+    return Buffer.from([`From: ${from}`,`To: ${to}`,`Reply-To: ${replyTo}`,`Subject: ${encodeMimeSubject(subject)}`,'MIME-Version: 1.0',`Content-Type: multipart/mixed; boundary="${boundary}"`,'',`--${boundary}`,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',Buffer.from(text,'utf8').toString('base64').match(/.{1,76}/g).join('\r\n'),`--${boundary}`,'Content-Type: application/json; name="configuration.json"','Content-Disposition: attachment; filename="configuration.json"','Content-Transfer-Encoding: base64','',encoded,`--${boundary}--`].join('\r\n')).toString('base64url');
+  }
   const normalizedText = String(text || '').replace(/\r?\n/g, '\r\n');
   const headers = [
     `From: ${from}`,
@@ -348,13 +354,13 @@ async function gmailSendRaw(accessToken, raw) {
   });
 }
 
-async function sendEmail({ to, replyTo, subject, text, eventName }) {
+async function sendEmail({ to, replyTo, subject, text, eventName, attachment }) {
   const accessToken = await delegatedGmailAccessToken();
   let sender = FROM;
-  let response = await gmailSendRaw(accessToken, encodeMimeMessage({ from: sender, to, replyTo, subject, text }));
+  let response = await gmailSendRaw(accessToken, encodeMimeMessage({ from: sender, to, replyTo, subject, text, attachment }));
   if (response.status === 400) {
     sender = FALLBACK_FROM;
-    response = await gmailSendRaw(accessToken, encodeMimeMessage({ from: sender, to, replyTo, subject, text }));
+    response = await gmailSendRaw(accessToken, encodeMimeMessage({ from: sender, to, replyTo, subject, text, attachment }));
   }
   if (!response.ok) {
     logger.error('Gmail API rejected a bookshelf quotation email.', {
@@ -457,3 +463,45 @@ exports.requestBookshelfQuotation = onCall(
     return { success: true, delivered: true, moduleCount: items.length, quantity: customer.quantity };
   },
 );
+
+
+// Direct, cart-independent requests for all non-bookshelf products. Bookshelf
+// retains its existing factory routing and dedicated callable above.
+const DIRECT_QUOTATION_PRODUCTS = new Set(['window','roof','pergola','hall','solar','fence','cardbox','chair','tiles','gas']);
+exports.requestConfigurationQuotation = onCall({
+  region: FUNCTION_REGION, serviceAccount: RUNTIME_SERVICE_ACCOUNT,
+  cors: [...PUBLIC_ORIGINS, DEVELOPMENT_ORIGIN, TENANT_ORIGIN],
+  enforceAppCheck: false, timeoutSeconds: 120, memory: '256MiB',
+}, async request => {
+  const origin=requestOrigin(request);validateOrigin(origin);
+  const data=request.data||{},productId=String(data.productId||'');
+  if(!DIRECT_QUOTATION_PRODUCTS.has(productId))throw new HttpsError('invalid-argument','Unsupported configurator.');
+  const customer=validateCustomer(data),locale=normalizeLocale(data.locale);
+  if(!data.configuration||typeof data.configuration!=='object'||Array.isArray(data.configuration))throw new HttpsError('invalid-argument','A configuration is required.');
+  const stateJson=JSON.stringify(data.configuration);
+  if(Buffer.byteLength(stateJson,'utf8')>800000)throw new HttpsError('invalid-argument','Configuration is too large.');
+  const shareUrl=data.shareUrl?validateShareUrl(data.shareUrl,origin,20000):'';
+  const db=getFirestore(),key=createHash('sha256').update('direct-quotation:'+clientIp(request.rawRequest)).digest('hex');
+  const limit=db.collection('configurationQuotationRateLimits').doc(key);
+  const lease=randomBytes(16).toString('hex');
+  await db.runTransaction(async tx=>{
+    const previous=(await tx.get(limit)).data()||{},remaining=Number(previous.until||0)-Date.now();
+    if(remaining>0)throw new HttpsError('resource-exhausted','Please wait before sending another request.',{retryAfterSeconds:Math.ceil(remaining/1000)});
+    tx.set(limit,{lease,until:Date.now()+120000});
+  });
+  const record=db.collection('configurationQuotationRequests').doc();
+  try{
+    await record.set({productId,customer,locale,origin,shareUrl,stateJson,status:'pending',createdAtMs:Date.now()});
+    const details=[`Configuration quotation: ${productId}`,`Request: ${record.id}`,`Name: ${customer.name}`,`Company: ${customer.company||'-'}`,`Phone: ${customer.phone}`,`Email: ${customer.email}`,`Delivery / project address: ${customer.shippingAddress}`,`Quantity: ${customer.quantity}`,`Origin: ${origin}`,shareUrl?`Configuration: ${shareUrl}`:'Configuration snapshot attached.'].join('\n');
+    const attachment=JSON.stringify({productId,configuration:data.configuration},null,2);
+    await sendEmail({to:'office@360configurator.com',replyTo:customer.email,subject:`[${productId} quotation] ${customer.name}`,text:details,attachment,eventName:'configuration-quotation-team-email-error'});
+    await record.update({status:'sent',sentAtMs:Date.now()});
+    const confirmation=locale==='ro-RO'?'Am primit solicitarea de ofertă.':locale==='de-DE'?'Wir haben Ihre Angebotsanfrage erhalten.':'We received your quotation request.';
+    // A confirmation failure must not cause a duplicate request to the team.
+    try{await sendEmail({to:customer.email,replyTo:'office@360configurator.com',subject:confirmation,text:confirmation+'\n\n'+details,attachment,eventName:'configuration-quotation-confirmation-error'});}catch{logger.warn('Configuration quotation confirmation failed.',{requestId:record.id});}
+    return {success:true,requestId:record.id};
+  }catch(error){await record.set({status:'failed'},{merge:true}).catch(()=>{});throw error;}
+  finally{
+    await db.runTransaction(async tx=>{const current=(await tx.get(limit)).data();if(current?.lease===lease)tx.set(limit,{lease,until:Date.now()+30000});}).catch(()=>logger.warn('Could not shorten quotation rate limit.',{requestId:record.id}));
+  }
+});
