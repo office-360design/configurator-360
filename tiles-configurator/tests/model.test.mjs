@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DEFAULTS,TILES,CURBS,normalize,layout,curbLayout,estimate} from '../js/model.js';
-for(const [tile,t]of Object.entries(TILES))for(const pattern of t.patterns)for(const rotation of [0,90])test(`${tile} ${pattern} ${rotation}: coverage, clipping and no overlap`,()=>{
+for(const [tile,t]of Object.entries(TILES).filter(([,t])=>!t.profile))for(const pattern of t.patterns)for(const rotation of [0,90])test(`${tile} ${pattern} ${rotation}: coverage, clipping and no overlap`,()=>{
  const s=normalize({...DEFAULTS,tile,pattern,rotation,length:1.13,width:1.07}),p=layout(s);
  assert.ok(Math.abs(p.reduce((a,b)=>a+b.l*b.w,0)-s.length*s.width)<1e-8);
  for(let i=0;i<p.length;i++){

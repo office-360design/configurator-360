@@ -1,9 +1,13 @@
+import {interlockingLayout} from './interlocking.js';
 import {excludeHouse} from './house.js';
 import {areaGeometry,triangulate,clipRect,polygonArea,polygonCurbs} from './area.js';
 export {areaGeometry} from './area.js';
 // Nominal WISE formats. Rates are editable demo values in RON, not supplier prices.
-export const COLORS = { grey:'#969a98', charcoal:'#414748', red:'#a65343', brown:'#806453', sand:'#c9b796', white:'#d8d5ca', noir:['#555957','#9c9d96','#72746d'] };
+export const COLORS = { grey:'#969a98', charcoal:'#414748', red:'#a65343', brown:'#806453', sand:'#c9b796', white:'#d8d5ca', noir:['#555957','#9c9d96','#72746d'], orange:'#c67c43', sahara:['#c9b796','#ac885d','#ded0ad'], whiteMix:['#d8d5ca','#969a98','#414748'], shellBrown:['#806453','#aa927b','#c6b5a0'] };
 export const TILES = {
+  hbeton:{name:'H-Beton',length:.2,width:.165,thickness:.06,price:90,profile:'h',piecesPerM2:35,colors:['grey','red','charcoal'],patterns:['interlocking'],source:'https://wise.ro/produs/h-beton/'},
+  granit:{name:'Granit',length:.1,width:.1,thickness:.06,price:95,colors:['grey','white','charcoal','brown','orange','red'],patterns:['stack','running','checker'],source:'https://wise.ro/produs/879/'},
+  tetraNova:{name:'Tetra Nova',length:.3,width:.2,thickness:.06,price:115,colors:['noir','sahara','whiteMix','shellBrown'],patterns:['running','stack','checker'],source:'https://wise.ro/produs/pavaj-premium-rezidential/'},
   parket:{name:'Parket', length:.2,width:.1,thickness:.06,price:85,colors:['grey','charcoal','red','brown','white','noir'],patterns:['running','stack','herringbone','basket'],source:'https://wise.ro/produs/parket/'},
   square:{name:'Pătrat',length:.2,width:.2,thickness:.06,price:80,colors:['grey','charcoal','red','brown'],patterns:['stack','running','checker'],source:'https://wise.ro/produs/patrat/'},
   slab:{name:'Dală 60 × 30 × 5',length:.6,width:.3,thickness:.05,price:110,colors:['grey','charcoal','brown','noir'],patterns:['stack','running','herringbone','basket'],source:'https://wise.ro/produse/'}
@@ -43,6 +47,7 @@ export function normalize(input={}) {
 export function layout(input) {
   const s=normalize(input),t=TILES[s.tile],rot=s.rotation===90;
   const area=areaGeometry(s),L=rot?area.depth:area.width,W=rot?area.width:area.depth,result=[];
+  if(t.profile==='h')return excludeHouse(interlockingLayout(s,t,area),s);
   const triangles=s.shape==='rectangle'?null:triangulate(area.points).map(tri=>tri.map(p=>rot?{x:p.z,z:p.x}:p));
 
   const add=(x,z,l,w,accent=false)=>{
@@ -95,7 +100,7 @@ export function curbLayout(input) {
   return excludeHouse(out,s,{curbWidth:c.width});
 }
 export function estimate(input,pieces=layout(input)) {
-  const s=normalize(input),t=TILES[s.tile],curbs=curbLayout(s),geometry=areaGeometry(s),area=s.houseEnabled?pieces.reduce((a,p)=>a+(p.area??p.l*p.w),0):geometry.area,unitArea=t.length*t.width;
+  const s=normalize(input),t=TILES[s.tile],curbs=curbLayout(s),geometry=areaGeometry(s),area=s.houseEnabled?pieces.reduce((a,p)=>a+(p.area??p.l*p.w),0):geometry.area,unitArea=t.piecesPerM2?1/t.piecesPerM2:t.length*t.width;
   const rows=[];
   for(const accent of [false,true]){
     const parts=pieces.filter(p=>p.accent===accent); if(!parts.length)continue;

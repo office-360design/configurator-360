@@ -60,7 +60,7 @@ export function createViewer(host,callbacks={}){
     drawPieces(parts.filter(p=>!p.fragments),t.thickness,p=>p.accent?s.accent:s.color,0);
     const cuts=[];
     parts.forEach((p,index)=>{for(const fragment of p.fragments||[]){
-      const polygon=clipRect(fragment,p.x-p.l/2+.0015,p.z-p.w/2+.0015,Math.max(.001,p.l-.003),Math.max(.001,p.w-.003));
+      const polygon=p.profile?fragment.map(v=>({x:p.x+(v.x-p.x)*.985,z:p.z+(v.z-p.z)*.985})):clipRect(fragment,p.x-p.l/2+.0015,p.z-p.w/2+.0015,Math.max(.001,p.l-.003),Math.max(.001,p.w-.003));
       cuts.push({polygon,color:p.accent?s.accent:s.color,index});
     }});
     drawPolygons(cuts,t.thickness,0);

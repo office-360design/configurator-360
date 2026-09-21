@@ -10,6 +10,7 @@ export function patternPreview(state,pattern){
   const stones=layout(sample).map((piece,index)=>{
     const palette=COLORS[piece.accent?sample.accent:sample.color];
     const color=Array.isArray(palette)?palette[(index*7)%palette.length]:palette;
+    if(piece.outline)return `<polygon points="${piece.outline.map(p=>`${(p.x*scale).toFixed(3)},${(p.z*scale).toFixed(3)}`).join(' ')}" fill="${color}" stroke="#e8e3d9" stroke-width="1"/>`;
     const x=(piece.x-piece.l/2)*scale,y=(piece.z-piece.w/2)*scale;
     return `<rect x="${x.toFixed(3)}" y="${y.toFixed(3)}" width="${(piece.l*scale).toFixed(3)}" height="${(piece.w*scale).toFixed(3)}" fill="${color}" stroke="#e8e3d9" stroke-width="1"/>`;
   }).join('');
