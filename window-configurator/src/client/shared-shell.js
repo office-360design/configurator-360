@@ -21,6 +21,59 @@ const CAMERA_VIEW_TEXT = Object.freeze({
 let shell = null;
 let windowLayoutControlsVisible = true;
 
+const PHONE_UI_MEDIA_QUERY = '(max-width: 760px)';
+
+function isPhoneUi() {
+  return window.matchMedia?.(PHONE_UI_MEDIA_QUERY)?.matches === true;
+}
+
+function closePhoneEditorPanels() {
+  if (!isPhoneUi()) return;
+
+  const selectedWindowPanel = document.getElementById('selected-window-panel');
+  if (selectedWindowPanel && !selectedWindowPanel.hidden) {
+    document.getElementById('selectedWindowClose')?.click();
+  }
+
+  const componentSelectionPopup = document.getElementById('component-selection-popup');
+  if (componentSelectionPopup && !componentSelectionPopup.hidden) {
+    document.getElementById('component-selection-close')?.click();
+  }
+}
+
+function closePhoneSettingsPanel() {
+  if (!isPhoneUi()) return;
+  if (document.body.classList.contains('sidebar-is-collapsed')) return;
+  shell?.setSettingsPanelCollapsed?.(true);
+}
+
+function bindPhonePanelExclusivity() {
+  const selectedWindowPanel = document.getElementById('selected-window-panel');
+  const componentSelectionPopup = document.getElementById('component-selection-popup');
+
+  const editorPanelObserver = new MutationObserver((mutations) => {
+    if (!isPhoneUi()) return;
+    if (!mutations.some(({ target }) => target instanceof HTMLElement && !target.hidden)) return;
+    closePhoneSettingsPanel();
+  });
+
+  [selectedWindowPanel, componentSelectionPopup].forEach((panel) => {
+    if (panel) editorPanelObserver.observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+  });
+
+  const settingsPanelObserver = new MutationObserver(() => {
+    if (!isPhoneUi()) return;
+    if (document.body.classList.contains('sidebar-is-collapsed')) return;
+    closePhoneEditorPanels();
+  });
+  settingsPanelObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+  // Keep the invariant true if the page starts with the settings panel open.
+  if (!document.body.classList.contains('sidebar-is-collapsed')) {
+    closePhoneEditorPanels();
+  }
+}
+
 function getCameraViewText() {
   return CAMERA_VIEW_TEXT[shell?.state?.locale] || CAMERA_VIEW_TEXT['en-US'];
 }
@@ -180,6 +233,7 @@ shell = mountStandaloneConfiguratorShell({
   },
 });
 
+bindPhonePanelExclusivity();
 mountWindowTemplates();
 
 // The shared tools are rendered before the Three.js scene APIs exist. Disable
