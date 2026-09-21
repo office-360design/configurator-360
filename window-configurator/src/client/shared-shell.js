@@ -3,7 +3,7 @@ import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=5';
 import { resolveSharedTools } from './shared-ui/src/tools/registry.js?v=13';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=platform-18';
-import { mountWindowTemplates } from './js/window-templates.js?v=7';
+import { mountWindowTemplates } from './js/window-templates.js?v=8';
 import { requireTenantConfiguratorAccess } from './shared-ui/src/tenantBootstrap.js?v=1';
 
 const tenantContext = await requireTenantConfiguratorAccess('window');
@@ -20,6 +20,76 @@ const CAMERA_VIEW_TEXT = Object.freeze({
 
 let shell = null;
 let windowLayoutControlsVisible = true;
+
+const PHONE_UI_MEDIA_QUERY = '(max-width: 760px)';
+
+function isPhoneUi() {
+  return window.matchMedia?.(PHONE_UI_MEDIA_QUERY)?.matches === true;
+}
+
+function closePhoneEditorPanels() {
+  if (!isPhoneUi()) return;
+
+  const selectedWindowPanel = document.getElementById('selected-window-panel');
+  if (selectedWindowPanel && !selectedWindowPanel.hidden) {
+    document.getElementById('selectedWindowClose')?.click();
+  }
+
+  const componentSelectionPopup = document.getElementById('component-selection-popup');
+  if (componentSelectionPopup && !componentSelectionPopup.hidden) {
+    document.getElementById('component-selection-close')?.click();
+  }
+}
+
+function closePhoneSettingsPanel() {
+  if (!isPhoneUi()) return;
+  if (document.body.classList.contains('sidebar-is-collapsed')) return;
+  shell?.setSettingsPanelCollapsed?.(true);
+}
+
+function bindPhonePanelExclusivity() {
+  const selectedWindowPanel = document.getElementById('selected-window-panel');
+  const componentSelectionPopup = document.getElementById('component-selection-popup');
+
+  const syncSelectedWindowLauncherVisibility = () => {
+    const selectedWindowOpen = Boolean(selectedWindowPanel && !selectedWindowPanel.hidden);
+    document.body.classList.toggle('phone-window-editor-open', selectedWindowOpen);
+
+    if (!isPhoneUi() || !selectedWindowOpen) return;
+
+    const toolsLauncher = document.querySelector(
+      '.shared-ui-host [data-shared-tools] > .tool-launcher[data-action="toggle-tools"]'
+    );
+    if (toolsLauncher?.getAttribute('aria-expanded') === 'true') toolsLauncher.click();
+
+    const templatesLauncher = document.getElementById('window-templates-launcher');
+    if (templatesLauncher?.getAttribute('aria-expanded') === 'true') templatesLauncher.click();
+  };
+
+  const editorPanelObserver = new MutationObserver((mutations) => {
+    syncSelectedWindowLauncherVisibility();
+    if (!isPhoneUi()) return;
+    if (!mutations.some(({ target }) => target instanceof HTMLElement && !target.hidden)) return;
+    closePhoneSettingsPanel();
+  });
+
+  [selectedWindowPanel, componentSelectionPopup].forEach((panel) => {
+    if (panel) editorPanelObserver.observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+  });
+  syncSelectedWindowLauncherVisibility();
+
+  const settingsPanelObserver = new MutationObserver(() => {
+    if (!isPhoneUi()) return;
+    if (document.body.classList.contains('sidebar-is-collapsed')) return;
+    closePhoneEditorPanels();
+  });
+  settingsPanelObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+  // Keep the invariant true if the page starts with the settings panel open.
+  if (!document.body.classList.contains('sidebar-is-collapsed')) {
+    closePhoneEditorPanels();
+  }
+}
 
 function getCameraViewText() {
   return CAMERA_VIEW_TEXT[shell?.state?.locale] || CAMERA_VIEW_TEXT['en-US'];
@@ -180,6 +250,7 @@ shell = mountStandaloneConfiguratorShell({
   },
 });
 
+bindPhonePanelExclusivity();
 mountWindowTemplates();
 
 // The shared tools are rendered before the Three.js scene APIs exist. Disable

@@ -208,6 +208,23 @@
         left: auto !important;
     }
 
+    /* Match the rounded mobile interaction treatment used by Tools/Templates.
+       In particular, suppress the browser's square tap flash on the sidebar
+       toggle and replace it with a ring/shadow that follows its attached tab. */
+    body.shared-ui-mounted #sidebar-toggle {
+        -webkit-tap-highlight-color: transparent;
+        outline: none;
+        border-radius: 10px 0 0 10px;
+    }
+
+    body.shared-ui-mounted #sidebar-toggle:focus-visible {
+        box-shadow: 0 0 0 3px rgba(8, 120, 201, .22), -8px 0 22px rgba(24, 39, 47, .14);
+    }
+
+    body.shared-ui-mounted #sidebar-toggle:active {
+        box-shadow: 0 0 0 3px rgba(8, 120, 201, .14), -8px 0 22px rgba(24, 39, 47, .14);
+    }
+
     @supports (overflow: clip) {
         html,
         body.shared-ui-mounted {
@@ -222,6 +239,24 @@
         will-change: transform, opacity;
     }
 
+    /* Mobile browsers can paint their native tap/focus highlight as a square
+       around these rounded launchers. Remove that native rectangle and draw a
+       rounded interaction ring that follows the button shape instead. */
+    .shared-ui-host [data-shared-tools] > .tool-launcher {
+        -webkit-tap-highlight-color: transparent;
+        border-radius: 14px;
+        outline: none;
+    }
+
+    .shared-ui-host [data-shared-tools] > .tool-launcher:focus-visible {
+        outline: 3px solid rgba(8, 120, 201, .22);
+        outline-offset: 2px;
+    }
+
+    .shared-ui-host [data-shared-tools] > .tool-launcher:active {
+        box-shadow: 0 0 0 3px rgba(8, 120, 201, .14), 0 8px 22px rgba(20, 32, 39, .12);
+    }
+
     .shared-ui-host [data-shared-tools] > .tools-toolbar__panel {
         margin-top: 0;
         transition: max-width .18s ease, max-height .18s ease, opacity .15s ease, transform .18s ease, margin-top .18s ease;
@@ -231,10 +266,18 @@
         margin-top: 10px;
     }
 
-    body.shared-ui-mounted:not(.sidebar-is-collapsed) .shared-ui-host [data-shared-tools] {
+    body.shared-ui-mounted:not(.sidebar-is-collapsed) .shared-ui-host [data-shared-tools],
+    body.shared-ui-mounted.phone-window-editor-open .shared-ui-host [data-shared-tools] {
         opacity: 0;
         pointer-events: none;
         transform: translateX(calc(-100% - 24px));
+    }
+
+    /* Piece-info stays compatible with the launcher stack. Only the selected-
+       window editor (plus the main settings panel) moves Tools/Templates away. */
+    body.shared-ui-mounted #component-selection-popup,
+    body.shared-ui-mounted.sidebar-is-collapsed #component-selection-popup {
+        bottom: 56px;
     }
 
     .shared-ui-host [data-shared-tools] > .window-templates-launcher {
