@@ -22,3 +22,10 @@ html,body{height:100%;overflow:hidden}body.tiles-sidebar-collapsed .shared-setti
   .view-actions button{min-height:44px;flex-shrink:0}
   .scene-caption{bottom:calc(136px + env(safe-area-inset-bottom,0px));left:calc(16px + env(safe-area-inset-left,0px))}
 }
+
+/* The mobile demo CTA lives in the shared header stacking context. Hide it
+   while settings are open so the price/cart footer remains unobstructed,
+   without placing the panel above shared account, cart and save dialogs. */
+@media (max-width:760px){
+  body:not(.tiles-sidebar-collapsed) .shared-ui-host .book-demo-button{display:none}
+}
