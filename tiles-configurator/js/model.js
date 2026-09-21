@@ -1,3 +1,4 @@
+import {normalizeFootprint} from './footprint.js';
 import {interlockingLayout} from './interlocking.js';
 import {excludeHouse} from './house.js';
 import {areaGeometry,triangulate,clipRect,polygonArea,polygonCurbs} from './area.js';
@@ -16,7 +17,7 @@ export const CURBS = {
   garden:{name:'G600',length:.6,width:.05,height:.21,price:18,colors:['grey','charcoal','red','brown'],source:'https://wise.ro/produs/bordura-g600/'},
   sidewalk:{name:'T500',length:.5,width:.1,height:.15,price:24,colors:['grey','charcoal','red','brown','noir'],source:'https://wise.ro/produs/bordura-t500/'}
 };
-export const DEFAULTS = Object.freeze({version:1,houseEnabled:false,houseShape:'rectangle',houseLength:3,houseWidth:2,houseWingWidth:1,houseWingDepth:1,houseHeight:2.6,houseX:1.5,houseZ:1,houseRotation:0,shape:'rectangle',runA:6,runB:4,runC:4,runD:4,angleB:90,length:6,width:4,tile:'parket',color:'grey',accent:'charcoal',pattern:'running',rotation:0,curb:'garden',curbColor:'charcoal',edges:[true,true,true,true],waste:7,tileRate:85,curbRate:18});
+export const DEFAULTS = Object.freeze({version:1,houseFootprint:null,houseLocation:null,houseEnabled:false,houseShape:'rectangle',houseLength:3,houseWidth:2,houseWingWidth:1,houseWingDepth:1,houseHeight:2.6,houseX:1.5,houseZ:1,houseRotation:0,shape:'rectangle',runA:6,runB:4,runC:4,runD:4,angleB:90,length:6,width:4,tile:'parket',color:'grey',accent:'charcoal',pattern:'running',rotation:0,curb:'garden',curbColor:'charcoal',edges:[true,true,true,true],waste:7,tileRate:85,curbRate:18});
 const number = (v,d,min,max) => Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.min(max,Math.max(min,Number(v))) : d;
 export function normalize(input={}) {
   const s={...DEFAULTS,...input};
@@ -33,8 +34,11 @@ export function normalize(input={}) {
   for(const key of ['runA','runB','runC','runD'])s[key]=number(s[key],DEFAULTS[key],1,20);
   s.angleB=number(s.angleB,90,30,150);
   s.houseEnabled=s.houseEnabled===true;
-  s.houseShape=s.houseShape==='l'?'l':'rectangle';
+  s.houseFootprint=normalizeFootprint(s.houseFootprint);
+  s.houseLocation=s.houseLocation&&Number.isFinite(s.houseLocation.lat)&&Number.isFinite(s.houseLocation.lon)&&Math.abs(s.houseLocation.lat)<=85&&Math.abs(s.houseLocation.lon)<=180?{lat:s.houseLocation.lat,lon:s.houseLocation.lon,label:String(s.houseLocation.label||'').slice(0,300)}:null;
+  s.houseShape=s.houseShape==='imported'&&s.houseFootprint?'imported':s.houseShape==='l'?'l':'rectangle';
   for(const key of ['houseLength','houseWidth'])s[key]=number(s[key],DEFAULTS[key],1,20);
+  if(s.houseShape==='imported'){s.houseLength=Math.max(...s.houseFootprint.map(p=>p.x));s.houseWidth=Math.max(...s.houseFootprint.map(p=>p.z));}
   s.houseWingWidth=number(s.houseWingWidth,1,.25,s.houseLength-.25);
   s.houseWingDepth=number(s.houseWingDepth,1,.25,s.houseWidth-.25);
   s.houseHeight=number(s.houseHeight,2.6,.5,8);

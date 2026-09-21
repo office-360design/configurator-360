@@ -114,3 +114,11 @@ Sources checked on 2026-09-21:
 - [Tetra Nova](https://wise.ro/produs/pavaj-premium-rezidential/): 300 × 200 × 60 mm. The nominal 0.06 m² module drives layout and quantities (the catalogue rounds consumption to 17 pieces/m²). Mixed finishes use illustrative colour palettes.
 
 The new 90/95/115 RON/m² starting rates are editable demo rates, not WISE quotations.
+
+## Map house import
+
+The House section offers address search (Nominatim, explicit submit) and a Leaflet / OpenStreetMap map, following the solar configurator's providers. Click near a house to load nearby building ways through the existing same-origin `/api/solar/overpass-primary` and `overpass-secondary` proxies. Select a blue outline and confirm import. Network failures leave the existing design intact; requests are cancelled when closing the dialog or choosing another point.
+
+Import preserves the actual simple footprint in metres (east = X, south = Z), including non-rectangular outlines. It replaces the current house and sets a rectangular paving area with a nominal one-metre margin, capped at the existing 20 m area limit. The house remains movable, quarter-turn rotatable and height-adjustable; imported length/depth are read-only. Manual rectangle/L options remain available. Tile and curb subtraction use the imported polygon. Save/share/cart/undo include footprint and location; CSV includes local footprint vertices and source.
+
+Limits: mapped single closed building ways only, 3–64 vertices, 1–20 m bounding dimensions. Multipolygon relations/courtyards and larger buildings are unsupported; use a manual footprint when no supported outline is available. Map geometry is approximate, not surveyed. No new API key or backend deployment is required on the existing Cloud Run setup. Production uses the solar proxy paths; local localhost development also allows direct Overpass fallback.
