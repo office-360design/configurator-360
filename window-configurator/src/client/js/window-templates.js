@@ -47,7 +47,7 @@ function ensureStylesheet() {
     const link = document.createElement('link');
     link.id = STYLE_ID;
     link.rel = 'stylesheet';
-    link.href = './css/window-templates.css?v=3';
+    link.href = './css/window-templates.css?v=5';
     document.head.appendChild(link);
 }
 
@@ -163,15 +163,21 @@ function positionElements() {
     if (popover && !popover.hidden) {
         const margin = 12;
         const launcherRect = launcher.getBoundingClientRect();
-        const width = Math.min(720, Math.max(300, window.innerWidth - margin * 2));
+        const availableWidth = Math.max(0, window.innerWidth - margin * 2);
+        const width = isPhoneUi()
+            ? Math.min(720, availableWidth)
+            : Math.min(720, Math.max(300, availableWidth));
         const left = Math.min(
             Math.max(margin, launcherRect.left),
             Math.max(margin, window.innerWidth - width - margin),
         );
+        const top = Math.max(margin, Math.round(launcherRect.bottom + 10));
+        const availableHeight = Math.max(0, window.innerHeight - top - margin);
         popover.style.width = `${width}px`;
         popover.style.left = `${Math.round(left)}px`;
-        popover.style.top = `${Math.round(launcherRect.bottom + 10)}px`;
-        popover.style.maxHeight = `${Math.max(220, window.innerHeight - launcherRect.bottom - 22)}px`;
+        popover.style.top = `${top}px`;
+        popover.style.removeProperty('height');
+        popover.style.maxHeight = `${availableHeight}px`;
     }
 }
 
@@ -250,6 +256,18 @@ export function mountWindowTemplates() {
 
     const sidebarObserver = new MutationObserver(() => {
         if (!isPhoneUi()) return;
+
+        // A translated sidebar used to leave the document horizontally scrolled
+        // after collapsing on mobile. Keep the visual viewport pinned to x=0 so
+        // the shared top-bar actions and the sidebar reopen button cannot drift
+        // outside the screen even while the close animation is running.
+        document.documentElement.scrollLeft = 0;
+        document.body.scrollLeft = 0;
+        requestAnimationFrame(() => {
+            document.documentElement.scrollLeft = 0;
+            document.body.scrollLeft = 0;
+        });
+
         if (document.body.classList.contains('sidebar-is-collapsed')) return;
         closePopover();
         closeToolsMenu();
