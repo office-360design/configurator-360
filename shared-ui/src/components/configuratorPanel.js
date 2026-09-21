@@ -3,6 +3,8 @@ export function renderConfiguratorPanelFooter(root, {
   priceText = '—',
   addToCartLabel = 'Add to cart',
   addToCartDisabled = false,
+  showAddToCart = true,
+  quotationLabel = '',
 } = {}) {
   if (!root) return;
 
@@ -31,6 +33,19 @@ export function renderConfiguratorPanelFooter(root, {
 
     root.append(priceWrap, button);
   }
+
+  button.hidden = !showAddToCart;
+  let quote = root.querySelector('[data-shared-panel-quotation]');
+  if (quotationLabel && !quote) {
+    quote = document.createElement('button');
+    quote.type = 'button';
+    quote.className = 'shared-configurator-panel__add-button shared-configurator-panel__quote-button';
+    quote.dataset.sharedPanelQuotation = '';
+    root.append(quote);
+  }
+  if (quote) { quote.textContent = quotationLabel; quote.hidden = !quotationLabel; }
+  root.classList.toggle('shared-configurator-panel__footer--quotation', Boolean(quotationLabel));
+  root.classList.toggle('shared-configurator-panel__footer--quote-only', !showAddToCart);
 
   label.textContent = String(estimatedTotalLabel || 'Estimated total');
   price.textContent = String(priceText || '—');

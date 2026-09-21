@@ -1,3 +1,4 @@
+import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js';
 import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=platform-21';
 import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-21';
 import { sharedT } from './i18n.js?v=platform-21';
@@ -9,7 +10,7 @@ import { renderToolsMenu } from './components/toolsMenu.js?v=platform-19';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=platform-19';
 import { renderProfileDialog } from './components/profileDialog.js?v=platform-19';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=platform-19';
-import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=platform-19';
+import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=quotation-1';
 import { renderCartMenu } from './components/cartMenu.js?v=platform-19';
 import { getUserCart, mutateUserCart } from './userCart.js?v=platform-19';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=platform-19';
@@ -1142,6 +1143,7 @@ export class StandaloneConfiguratorShell {
     this.configuratorPanelFooter = footer;
 
     this.onConfiguratorPanelFooterClick = (event) => {
+      if (event.target.closest('[data-shared-panel-quotation]')) { void openConfigurationQuotation(this); return; }
       const button = event.target.closest('[data-shared-panel-add-to-cart]');
       if (!button || button.disabled) return;
       void this.addCurrentConfigurationToCart(button);
@@ -1252,6 +1254,8 @@ export class StandaloneConfiguratorShell {
       priceText: this.resolveConfiguratorPanelPriceText(),
       addToCartLabel: sharedT(this.state.locale, 'panel.addToCart'),
       addToCartDisabled: !this.canAddToCart(),
+      showAddToCart: this.options.capabilities.save !== false,
+      quotationLabel: this.productId === 'bookshelf' ? '' : quotationLabel(this.state.locale),
     });
   }
 

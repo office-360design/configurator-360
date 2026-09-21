@@ -89,3 +89,23 @@ default language. The selected locale is stored by Common UI for the current ori
 language is reused by the other configurators on that site. Language changes never create a Share
 record and never navigate to another country-domain configurator. Units and currency remain
 independent user preferences and are not changed by the language selector.
+
+### Direct configuration quotations
+
+The shared configurator footer offers **Ask for quotation** beside **Add to cart**.
+The form works for guests and signed-in users and collects contact details, a
+project/delivery address and quantity. It sends the current configuration snapshot
+as a JSON attachment, plus a share link when the configurator supports sharing.
+Gas offers quotation only because its save/cart capability is disabled. Bookshelf
+keeps its existing quotation-only UI and `requestBookshelfQuotation` factory flow.
+
+The new callable `requestConfigurationQuotation` sends other product requests to
+`office@360configurator.com` and a confirmation to the customer. It validates
+origins, customer fields, product IDs and snapshot size, and applies a per-IP
+cooldown. Requests are archived in the server-only
+`configurationQuotationRequests` collection. Deploy the Firebase share workflow
+with the frontend change; its function list includes the new callable.
+
+Run `node --test scripts/validation/configuration-quotation.test.cjs` from the
+repository root for mocked delivery, validation and footer checks. These tests
+never send email.

@@ -1944,3 +1944,24 @@ body.configurator-embed-preview #canvas-container {
     box-shadow: 0 8px 22px rgba(8,120,201,.26);
   }
 }
+
+/* Two independent product actions; keep both reachable on narrow panels. */
+.shared-configurator-panel > .shared-configurator-panel__footer--quotation{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.shared-configurator-panel__footer--quotation .shared-configurator-panel__price{grid-column:1/-1}
+.shared-configurator-panel__footer--quotation .shared-configurator-panel__add-button{min-width:0;padding:10px 8px;white-space:normal}
+.shared-configurator-panel__quote-button{background:#fff;color:#0878c9}
+.shared-configurator-panel__quote-button:hover:not(:disabled){color:#fff}
+.shared-configurator-panel__footer--quote-only .shared-configurator-panel__quote-button{grid-column:1/-1}
+.configuration-quotation{width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;border:1px solid #d9e1e5;border-radius:18px;padding:22px;background:#fff;color:#17232b;font:14px 'Segoe UI',sans-serif}
+.configuration-quotation::backdrop{background:#12202b88}
+.configuration-quotation header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.configuration-quotation h2{font-size:22px;margin:0}
+.configuration-quotation form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.configuration-quotation label{display:grid;gap:6px;font-size:12px}
+.configuration-quotation input,.configuration-quotation textarea{box-sizing:border-box;width:100%;padding:10px;border:1px solid #bccbd5;border-radius:8px;color:inherit;background:transparent;font:inherit}
+.configuration-quotation label:has(textarea),.configuration-quotation form>p,.configuration-quotation__send{grid-column:1/-1}
+.configuration-quotation button{min-height:44px;padding:10px 16px;border:1px solid #0878c9;border-radius:9px;cursor:pointer}
+.configuration-quotation__send{background:#0878c9;color:white}
+.configuration-quotation button:disabled{opacity:.5;cursor:wait}
+body.shared-ui-dark-mode .configuration-quotation{background:#253139;color:#edf4f7}
+@media(max-width:480px){.configuration-quotation form{grid-template-columns:1fr}}

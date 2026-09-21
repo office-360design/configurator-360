@@ -27,6 +27,7 @@ export function mountGasSharedShell({ store, onSettingsPanelToggle } = {}) {
       bodyCollapsedClass: 'gas-sidebar-collapsed',
       initiallyCollapsed: compactViewport.matches,
     },
+    configuratorPanel: { panelSelector: '#gasSidebar' },
     callbacks: {
       onUndo() {
         store.undo();
