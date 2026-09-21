@@ -953,8 +953,13 @@ test('malformed persisted dimensions do not leak invalid public settings', async
 });
 
 const settingsSource = await read('window-configurator/src/client/js/window-settings.js');
+// A data URL has no directory for relative imports. Embed the real tracing
+// dependency as well as the size schema so the production module can link.
+const loadingTraceUrl = dataUrl(await read('window-configurator/src/client/js/loading-trace.js'));
 const { loadPublishedWindowSettings } = await import(dataUrl(settingsSource.replace(
   "'../../../../shared-ui/src/windowSizeSettings.js?v=1'", JSON.stringify(sizeModelUrl),
+).replace(
+  /(['"])\.\/loading-trace\.js(?:\?[^'"]*)?\1/g, JSON.stringify(loadingTraceUrl),
 )));
 test('public settings load one unauthenticated no-store response containing both colors and sizes', async () => {
   let calls = 0;
