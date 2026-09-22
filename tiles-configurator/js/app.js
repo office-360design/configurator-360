@@ -130,7 +130,7 @@ function render() {
   $('tileChoices').innerHTML = Object.entries(TILES)
     .map(
       ([key, tile]) =>
-        `<button type="button" class="tile-card" data-tile="${key}" aria-pressed="${state.tile === key}"><i class="tile-icon" aria-hidden="true"></i>${tile.name}<small>${tile.length * 100} × ${tile.width * 100} × ${tile.thickness * 100} cm</small></button>`,
+        `<button type="button" class="tile-card choice-card" data-tile="${key}" aria-pressed="${state.tile === key}"><i class="tile-icon" aria-hidden="true"></i>${tile.name}<small>${tile.length * 100} × ${tile.width * 100} × ${tile.thickness * 100} cm</small></button>`,
     )
     .join('');
   const tile = TILES[state.tile];
@@ -230,6 +230,7 @@ function setLocale(value) {
 
 function setDarkMode(value) {
   document.body.classList.toggle('dark', value);
+  document.body.classList.toggle('shared-ui-dark-mode', value);
   viewer?.setDarkMode(value);
 }
 

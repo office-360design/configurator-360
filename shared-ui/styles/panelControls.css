@@ -286,12 +286,12 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .toggle-row {
   transition: transform .18s ease;
 }
 
-:where(.shared-panel-controls) .accordion-section.is-open .accordion-toggle {
+:where(.shared-panel-controls) .accordion-section:is(.is-open, [open]) .accordion-toggle {
   color: #0b5f91;
   background: #eef8fd;
 }
 
-:where(.shared-panel-controls) .accordion-section.is-open .accordion-toggle svg {
+:where(.shared-panel-controls) .accordion-section:is(.is-open, [open]) .accordion-toggle svg {
   transform: rotate(180deg);
 }
 
@@ -323,7 +323,7 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-toggle:hover 
   background: #1c2a3e;
 }
 
-body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-section.is-open .accordion-toggle {
+body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-section:is(.is-open, [open]) .accordion-toggle {
   color: #89d1ff;
   background: #20354a;
 }
@@ -632,4 +632,34 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-summary { col
 @media (prefers-reduced-motion: reduce) {
   :where(.shared-panel-controls) .accordion-reveal,
   :where(.shared-panel-controls) .accordion-reveal-inner { transition: none; }
+}
+
+/* Native details retain independent expansion and browser keyboard handling. */
+:where(.shared-panel-controls) details.accordion-section {
+  padding: 0;
+  border-top: 0;
+}
+:where(.shared-panel-controls) summary.accordion-toggle {
+  margin: 0;
+  list-style: none;
+  cursor: pointer;
+}
+:where(.shared-panel-controls) summary.accordion-toggle::-webkit-details-marker {
+  display: none;
+}
+:where(.shared-panel-controls) summary.accordion-toggle::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform .18s ease;
+}
+:where(.shared-panel-controls) details[open] > summary.accordion-toggle::after {
+  transform: rotate(225deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.shared-panel-controls) summary.accordion-toggle::after { transition: none; }
 }
