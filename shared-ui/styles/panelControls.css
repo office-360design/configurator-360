@@ -569,3 +569,67 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .finish-swatch.selected 
   }
 
 }
+
+/* Animated exclusive sections can expose a live summary while collapsed. */
+:where(.shared-panel-controls) .accordion-section--animated {
+  padding: 0;
+}
+:where(.shared-panel-controls) .accordion-section--animated .accordion-toggle {
+  margin: 0;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+:where(.shared-panel-controls) .accordion-toggle > div {
+  min-width: 0;
+}
+:where(.shared-panel-controls) .accordion-toggle:focus-visible {
+  outline: 2px solid var(--shared-panel-accent);
+  outline-offset: -2px;
+}
+:where(.shared-panel-controls) .accordion-summary {
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--shared-panel-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where(.shared-panel-controls) .is-open > .accordion-toggle .accordion-summary {
+  display: none;
+}
+:where(.shared-panel-controls) .accordion-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  opacity: 0;
+  transition: grid-template-rows .28s cubic-bezier(.22, 1, .36, 1), opacity .16s ease, visibility 0s linear .28s;
+}
+:where(.shared-panel-controls) .is-open > .accordion-reveal {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  opacity: 1;
+  transition: grid-template-rows .3s cubic-bezier(.22, 1, .36, 1), opacity .2s ease .04s, visibility 0s;
+}
+:where(.shared-panel-controls) .accordion-reveal-inner {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 26px;
+  transition: padding .24s cubic-bezier(.22, 1, .36, 1);
+}
+:where(.shared-panel-controls) .is-open > .accordion-reveal > .accordion-reveal-inner {
+  padding-top: 16px;
+  padding-bottom: 25px;
+}
+:where(.shared-panel-controls) .toggle-row input:disabled + i { opacity: .45; }
+body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-summary { color: #aebdca; }
+@media (max-width: 760px) {
+  :where(.shared-panel-controls) .accordion-reveal-inner { padding-left: 16px; padding-right: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.shared-panel-controls) .accordion-reveal,
+  :where(.shared-panel-controls) .accordion-reveal-inner { transition: none; }
+}

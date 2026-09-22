@@ -2,6 +2,9 @@ import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js?v=platf
 import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=platform-18';
 
 const STATIC_TRANSLATIONS = Object.freeze({
+  'Solar configurator': ['Configurator solar', 'Solar-Konfigurator'],
+  'Your solar system': ['Sistemul tău solar', 'Ihre Solaranlage'],
+  'Configure your roof, solar panels, energy use and battery storage.': ['Configurează acoperișul, panourile solare, consumul de energie și stocarea în baterii.', 'Konfigurieren Sie Dach, Solarmodule, Energieverbrauch und Batteriespeicher.'],
   '3D Solar Configurator | 360Configurator': ['Configurator Solar 3D | 360Configurator', '3D Solar-Konfigurator | 360Configurator'],
   'Residential PV studio': ['Studio fotovoltaic rezidențial', 'PV-Studio für Wohngebäude'],
   'Live': ['Live', 'Live'],
@@ -907,3 +910,4 @@ export function applySolarTranslations(locale = null) {
   window.dispatchEvent(new CustomEvent('solar-locale-applied', { detail: { locale: resolved } }));
   return resolved;
 }
+

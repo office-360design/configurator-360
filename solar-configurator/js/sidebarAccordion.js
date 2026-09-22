@@ -1,3 +1,5 @@
+import { bindExclusivePanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=solar-panel-1';
+
 const ACCORDION_STORAGE_KEY = '360-configurator:solar:sidebar-step';
 const ACCORDION_STYLESHEET_ID = 'solar-sidebar-accordion-styles';
 const STEP_DEFINITIONS = [
@@ -15,7 +17,7 @@ function ensureStylesheet() {
   const link = document.createElement('link');
   link.id = ACCORDION_STYLESHEET_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('../sidebar-accordion.css?v=platform-18', import.meta.url).href;
+  link.href = new URL('../sidebar-accordion.css?v=solar-panel-1', import.meta.url).href;
   document.head.append(link);
 }
 
@@ -98,56 +100,24 @@ function readStoredStep() {
   try { return window.sessionStorage?.getItem(ACCORDION_STORAGE_KEY) || ''; } catch { return ''; }
 }
 
-function setExpanded(entry, expanded, { focus = false, scroll = false } = {}) {
-  if (expanded) {
-    stepEntries.forEach((other) => {
-      if (other !== entry) setExpanded(other, false);
-    });
-  }
-
-  entry.section.classList.toggle('is-active', expanded);
-  entry.heading.setAttribute('aria-expanded', String(expanded));
-  entry.body.setAttribute('aria-hidden', String(!expanded));
-  entry.body.inert = !expanded;
-
-  if (focus) entry.heading.focus({ preventScroll: true });
-  if (scroll && expanded) {
-    window.setTimeout(() => entry.heading.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 40);
-  }
-}
-
-function openStep(entry) {
-  const alreadyExpanded = entry.heading.getAttribute('aria-expanded') === 'true';
-  if (alreadyExpanded) return;
-  setExpanded(entry, true, { scroll: true });
-  writeStoredStep(entry.definition.id);
-}
-
-function focusSiblingStep(entry, offset) {
-  const index = stepEntries.indexOf(entry);
-  if (index < 0) return;
-  const next = stepEntries[(index + offset + stepEntries.length) % stepEntries.length];
-  next?.heading.focus();
-}
-
 function enhanceStep(section, definition, index) {
   const heading = section.querySelector(':scope > .section-heading');
   if (!heading) return null;
 
   const headingId = `solarStep${index + 1}Toggle`;
   const bodyId = `solarStep${index + 1}Body`;
-  section.classList.add('solar-config-step');
+  section.classList.add('solar-config-step', 'accordion-section', 'accordion-section--animated');
   section.dataset.solarStep = definition.id;
 
   heading.id = headingId;
-  heading.classList.add('solar-step-toggle');
+  heading.classList.add('solar-step-toggle', 'accordion-toggle');
   heading.setAttribute('role', 'button');
   heading.setAttribute('tabindex', '0');
   heading.setAttribute('aria-controls', bodyId);
 
   const headingCopy = heading.querySelector(':scope > div');
   const summary = document.createElement('p');
-  summary.className = 'solar-step-summary';
+  summary.className = 'solar-step-summary accordion-summary';
   summary.id = `solarStep${index + 1}Summary`;
   headingCopy?.append(summary);
 
@@ -160,38 +130,17 @@ function enhanceStep(section, definition, index) {
 
   const body = document.createElement('div');
   body.id = bodyId;
-  body.className = 'solar-step-body';
+  body.className = 'solar-step-body accordion-reveal';
   body.setAttribute('role', 'region');
   body.setAttribute('aria-labelledby', headingId);
 
   const inner = document.createElement('div');
-  inner.className = 'solar-step-body-inner';
+  inner.className = 'solar-step-body-inner accordion-reveal-inner';
   while (heading.nextSibling) inner.append(heading.nextSibling);
   body.append(inner);
   section.append(body);
 
   const entry = { section, heading, body, summary, definition };
-  heading.addEventListener('click', () => openStep(entry));
-  heading.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      openStep(entry);
-      return;
-    }
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      focusSiblingStep(entry, 1);
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      focusSiblingStep(entry, -1);
-    } else if (event.key === 'Home') {
-      event.preventDefault();
-      stepEntries[0]?.heading.focus();
-    } else if (event.key === 'End') {
-      event.preventDefault();
-      stepEntries.at(-1)?.heading.focus();
-    }
-  });
 
   return entry;
 }
@@ -218,7 +167,7 @@ function getStepSections(sidebar) {
   // accordion also works before Common UI finishes mounting and in isolation.
   const stepContainer = sidebar.querySelector(':scope > .shared-configurator-panel__body') || sidebar;
   return [...stepContainer.children]
-    .filter((child) => child.classList?.contains('panel-section'))
+    .filter((child) => child.matches('section.panel-section'))
     .slice(0, STEP_DEFINITIONS.length);
 }
 
@@ -237,7 +186,7 @@ function initializeSidebarAccordion() {
 
   const storedStep = readStoredStep();
   const initialEntry = stepEntries.find((entry) => entry.definition.id === storedStep) || stepEntries[0];
-  stepEntries.forEach((entry) => setExpanded(entry, entry === initialEntry));
+  bindExclusivePanelAccordions(stepEntries, { initialEntry, onOpen: (entry) => writeStoredStep(entry.definition.id) });
 
   sidebar.addEventListener('input', scheduleSummaryUpdate);
   sidebar.addEventListener('change', scheduleSummaryUpdate);
@@ -267,3 +216,4 @@ if (document.readyState === 'loading') {
 } else {
   startSidebarAccordion();
 }
+

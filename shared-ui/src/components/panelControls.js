@@ -75,3 +75,54 @@ export function bindPanelRange(control, {
 
   return () => cleanups.forEach((cleanup) => cleanup());
 }
+
+/** Exclusive, animated accordions. Keep persistence and summaries in the product. */
+export function bindExclusivePanelAccordions(entries, { initialEntry = entries[0], onOpen = () => {} } = {}) {
+  const cleanups = [];
+  const timers = new Set();
+  const setExpanded = (entry, expanded) => {
+    entry.section.classList.toggle('is-active', expanded);
+    entry.section.classList.toggle('is-open', expanded);
+    entry.heading.setAttribute('aria-expanded', String(expanded));
+    entry.body.setAttribute('aria-hidden', String(!expanded));
+    entry.body.inert = !expanded;
+  };
+  const open = (entry) => {
+    if (entry.heading.getAttribute('aria-expanded') === 'true') return;
+    entries.forEach((other) => setExpanded(other, other === entry));
+    const timer = window.setTimeout(() => {
+      timers.delete(timer);
+      entry.heading.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 40);
+    timers.add(timer);
+    onOpen(entry);
+  };
+  entries.forEach((entry, index) => {
+    setExpanded(entry, entry === initialEntry);
+    const click = () => open(entry);
+    const keydown = (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        open(entry);
+        return;
+      }
+      const target = event.key === 'ArrowDown' ? (index + 1) % entries.length
+        : event.key === 'ArrowUp' ? (index - 1 + entries.length) % entries.length
+        : event.key === 'Home' ? 0 : event.key === 'End' ? entries.length - 1 : null;
+      if (target !== null) {
+        event.preventDefault();
+        entries[target].heading.focus();
+      }
+    };
+    entry.heading.addEventListener('click', click);
+    entry.heading.addEventListener('keydown', keydown);
+    cleanups.push(() => {
+      entry.heading.removeEventListener('click', click);
+      entry.heading.removeEventListener('keydown', keydown);
+    });
+  });
+  return () => {
+    cleanups.forEach((cleanup) => cleanup());
+    timers.forEach((timer) => window.clearTimeout(timer));
+  };
+}

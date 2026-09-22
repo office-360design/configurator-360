@@ -22,11 +22,11 @@ Product settings panels use the shared `shared-settings-panel` and
 `shared-settings-toggle` classes so all configurators place their controls at the same
 right-side coordinates and use the same collapse geometry.
 
-## Settings control foundation (Hall, Fence and Roof)
+## Settings control foundation (Hall, Fence, Roof and Solar)
 
 `styles/panelControls.css` is an opt-in stylesheet based on Hall's existing panel.
-Load it after `styles/standalone.css` and before product-specific styles, and add
-`shared-panel-controls` to the settings container. Hall, Fence and Roof now opt in;
+Load it after `styles/standalone.css`, scope out superseded product control rules, and add
+`shared-panel-controls` to the settings container. Hall, Fence, Roof and Solar now opt in;
 other configurators do not load or opt into it yet. It does not change the shell's panel position, width, collapse
 button, footer, or stacking order.
 
@@ -60,6 +60,19 @@ The helper updates `is-open`, `aria-expanded` and native `hidden` together. Keep
 those three initial values consistent in the markup. Native buttons retain
 keyboard activation. Both binders return listener cleanup functions; call the
 cleanup before rebinding a mounted control.
+
+Solar uses `bindExclusivePanelAccordions(entries, { initialEntry, onOpen })` for
+its one-open-section behavior. Entries provide `section`, `heading` and `body`;
+the helper synchronizes `is-open`/`is-active`, ARIA and `inert`, supports
+Enter/Space and Arrow/Home/End navigation, and returns a cleanup function.
+Use `accordion-section--animated`, `accordion-reveal`, `accordion-reveal-inner`
+and optional `accordion-summary` for animated bodies and collapsed summaries.
+Solar owns session persistence, translated summary content, segmented options,
+regional cards, exact-location launch, battery sizing and advanced pricing.
+Its native numeric handlers, simulation and estimate calculations remain local.
+Run `node shared-ui/tests/solar-panel-preservation.mjs` for a Chromium comparison
+against the pre-adoption commit (or set `SOLAR_PANEL_BASELINE_DIR` to that checkout).
+This records scene callbacks without starting WebGL or external services.
 
 Range controls keep their native inputs, dynamically read min/max bounds, and
 preserve input/change/blur notifications. They do not define units, round values

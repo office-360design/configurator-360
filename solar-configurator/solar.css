@@ -9,7 +9,6 @@
 .solar-brand-mark span:nth-child(2) { background: #0b8f6a; }
 
 .solar-roof-type-grid { margin-bottom: 18px; }
-.solar-compact-controls { gap: 13px; }
 
 .module-reference {
   margin: 8px 0 16px;
@@ -24,11 +23,6 @@
 .module-reference span { color: var(--muted); font-size: 9px; line-height: 1.45; }
 
 .solar-two-column-controls { display: grid; gap: 13px; }
-.solar-number-control { display: grid; gap: 7px; }
-.solar-number-control > span { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.solar-number-control b { font-size: 11px; }
-.solar-number-control small { color: var(--muted); font-size: 9px; }
-.solar-number-control > div { display: grid; grid-template-columns: 1fr 72px; gap: 10px; align-items: center; }
 
 .solar-option-heading {
   margin: 16px 0 7px;
@@ -88,7 +82,7 @@
 .solar-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .solar-input-grid label { display: grid; gap: 6px; }
 .solar-input-grid label > span { color: var(--muted); font-size: 9px; }
-.solar-input-grid input {
+.solar-input-grid input:where(:not(.shared-panel-controls *)) {
   width: 100%;
   height: 38px;
   border: 1px solid var(--line);
@@ -98,7 +92,7 @@
   color: var(--ink);
   outline: none;
 }
-.solar-input-grid input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(8,120,201,.1); }
+.solar-input-grid input:focus:where(:not(.shared-panel-controls *)) { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(8,120,201,.1); }
 
 .region-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .region-grid button,
@@ -130,50 +124,6 @@
 .region-status-row strong[data-status="fallback"] { background: #fff5e8; color: #8b5a18; }
 
 .consumption-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-
-.solar-switch-row {
-  min-height: 60px;
-  margin-bottom: 9px;
-  border: 1px solid var(--line);
-  background: var(--accent-soft);
-  border-radius: 12px;
-  padding: 11px 12px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: center;
-  cursor: pointer;
-  position: relative;
-}
-.solar-switch-row.secondary { background: var(--panel-soft); }
-.solar-switch-row > span { display: grid; gap: 3px; padding-right: 44px; }
-.solar-switch-row b { font-size: 11px; }
-.solar-switch-row small { color: var(--muted); font-size: 8px; line-height: 1.35; }
-.solar-switch-row input { position: absolute; opacity: 0; pointer-events: none; }
-.solar-switch-row i {
-  position: absolute;
-  right: 12px;
-  width: 38px;
-  height: 22px;
-  border-radius: 999px;
-  background: #bec6cc;
-  transition: .18s ease;
-}
-.solar-switch-row i::after {
-  content: "";
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  left: 3px;
-  top: 3px;
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 1px 4px rgba(0,0,0,.2);
-  transition: .18s ease;
-}
-.solar-switch-row input:checked + i { background: var(--accent); }
-.solar-switch-row input:checked + i::after { transform: translateX(16px); }
-.solar-switch-row input:disabled + i { opacity: .45; }
 
 .advanced-pricing {
   margin-top: 14px;
@@ -295,8 +245,7 @@ body.configurator-embed-preview .solar-embed-alignment {
 .solar-metrics-bar strong { font-size: 15px; }
 
 body.shared-ui-dark-mode .module-reference,
-body.shared-ui-dark-mode .solar-input-grid input,
-body.shared-ui-dark-mode .solar-switch-row.secondary,
+body.shared-ui-dark-mode .solar-input-grid input:where(:not(.shared-panel-controls *)),
 body.shared-ui-dark-mode .simulation-summary-grid article {
   background: #202a34;
   border-color: #394653;
@@ -382,7 +331,7 @@ body.shared-ui-dark-mode .chart-current { stroke: #dbe4ea; }
 }
 .solar-phase1-environment .roof-environment-header { margin-bottom: 16px; }
 .solar-phase1-environment .roof-environment-header > div { display: grid; gap: 2px; }
-.solar-phase1-environment .roof-environment-header .eyebrow { margin: 0; }
+.solar-phase1-environment .roof-environment-header .eyebrow:where(:not(.shared-panel-controls *)) { margin: 0; }
 .solar-phase1-environment .roof-environment-control { margin-bottom: 16px; }
 .solar-phase1-environment .roof-night-preview { min-height: 62px; margin-top: 9px; padding: 11px 13px; }
 .solar-phase1-environment .roof-night-preview__icon { min-width: 24px; text-align: center; }
@@ -512,7 +461,7 @@ body.shared-ui-dark-mode .chart-current { stroke: #dbe4ea; }
   border-bottom: 1px solid var(--line);
 }
 .solar-location-dialog__header h2 { margin: 0; font-size: 18px; letter-spacing: -.035em; }
-.solar-location-dialog__header .eyebrow { margin: 0 0 2px; }
+.solar-location-dialog__header .eyebrow:where(:not(.shared-panel-controls *)) { margin: 0 0 2px; }
 .solar-location-dialog__header > button {
   display: grid;
   width: 34px;
@@ -1347,7 +1296,7 @@ body.configurator-embed-preview .solar-simulation-panel > header {
   margin: 0;
   cursor: pointer;
 }
-body.configurator-embed-preview .solar-simulation-panel > header .eyebrow { display: none; }
+body.configurator-embed-preview .solar-simulation-panel > header .eyebrow:where(:not(.shared-panel-controls *)) { display: none; }
 body.configurator-embed-preview .solar-simulation-panel__body {
   max-height: min(330px, calc(100dvh - 88px));
   padding-top: 7px;
@@ -1438,7 +1387,7 @@ body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
     text-align: right;
     white-space: normal;
   }
-  .viewer-title-block .eyebrow { display: none; }
+  .viewer-title-block .eyebrow:where(:not(.shared-panel-controls *)) { display: none; }
   .viewer-title-block h2 {
     max-width: 44vw;
     overflow: hidden;
@@ -1494,7 +1443,7 @@ body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
     margin: 0;
   }
   .solar-simulation-panel > header > div:first-child { min-width: 0; }
-  .solar-simulation-panel > header .eyebrow { display: none; }
+  .solar-simulation-panel > header .eyebrow:where(:not(.shared-panel-controls *)) { display: none; }
   .solar-simulation-panel h3 {
     overflow: hidden;
     font-size: 12px;
@@ -1547,22 +1496,21 @@ body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
   .solar-metrics-bar strong { font-size: 13px; }
 
   /* Touch-sized settings controls. */
-  .panel-section { padding: 18px; }
-  .section-heading { margin-bottom: 13px; }
+  .panel-section:where(:not(.shared-panel-controls *)) { padding: 18px; }
+  .section-heading:where(:not(.shared-panel-controls *)) { margin-bottom: 13px; }
   .section-number { font-size: 22px; }
   h1 { font-size: 21px; }
   h2 { font-size: 18px; }
   .solar-roof-type-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
-  .roof-card { min-height: 78px; padding: 7px 4px; touch-action: manipulation; }
-  .roof-card svg { width: 48px; height: 32px; }
-  .roof-card span { font-size: 9px; }
-  .control-list { gap: 16px; }
-  .range-row,
-  .solar-number-control > div { grid-template-columns: minmax(0, 1fr) 82px; gap: 10px; }
-  input[type="range"] { min-height: 30px; }
-  .number-input,
-  select,
-  .solar-input-grid input,
+  .roof-card:where(:not(.shared-panel-controls *)) { min-height: 78px; padding: 7px 4px; touch-action: manipulation; }
+  .roof-card svg:where(:not(.shared-panel-controls *)) { width: 48px; height: 32px; }
+  .roof-card span:where(:not(.shared-panel-controls *)) { font-size: 9px; }
+  .control-list:where(:not(.shared-panel-controls *)) { gap: 16px; }
+  .range-row:where(:not(.shared-panel-controls *)) { grid-template-columns: minmax(0, 1fr) 82px; gap: 10px; }
+  input[type="range"]:where(:not(.shared-panel-controls *)) { min-height: 30px; }
+  .number-input:where(:not(.shared-panel-controls *)),
+  select:where(:not(.shared-panel-controls *)),
+  .solar-input-grid input:where(:not(.shared-panel-controls *)),
   .solar-google-access input,
   .solar-google-layout select,
   .solar-google-flux select,
@@ -1581,7 +1529,6 @@ body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
   .region-grid button,
   .consumption-grid button { padding: 11px; }
 
-  .solar-switch-row,
   .solar-context-master,
   .solar-google-layout__toggle { min-height: 54px; }
 
@@ -1717,11 +1664,11 @@ body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
 
 @media (max-width: 390px) {
   .solar-roof-type-grid { gap: 5px; }
-  .roof-card { min-height: 72px; }
+  .roof-card:where(:not(.shared-panel-controls *)) { min-height: 72px; }
   .viewer-title-block h2 { max-width: 40vw; font-size: 14px; }
   .solar-live-card { width: min(202px, calc(100% - 16px)); }
   .solar-live-card__grid span { font-size: 5.5px; }
-  .panel-section { padding-left: 15px; padding-right: 15px; }
+  .panel-section:where(:not(.shared-panel-controls *)) { padding-left: 15px; padding-right: 15px; }
 }
 
 @media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
@@ -1732,5 +1679,6 @@ body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
   }
   .solar-live-card { width: 200px; }
   .roof-environment-panel.solar-phase1-environment { max-height: calc(100dvh - 16px); }
-  .solar-location-dialog__header .eyebrow { display: none; }
+  .solar-location-dialog__header .eyebrow:where(:not(.shared-panel-controls *)) { display: none; }
 }
+

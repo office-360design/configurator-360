@@ -8,15 +8,16 @@
   <title>3D Solar Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=platform-18" />
-  <link rel="stylesheet" href="./styles.css?v=platform-18" />
-  <link rel="stylesheet" href="./shared-shell.css?v=platform-18" />
-  <link rel="stylesheet" href="./solar.css?v=platform-18" />
+  <link rel="stylesheet" href="./styles.css?v=solar-panel-1" />
+  <link rel="stylesheet" href="./shared-shell.css?v=solar-panel-1" />
+  <link rel="stylesheet" href="./solar.css?v=solar-panel-1" />
   <link rel="stylesheet" href="./energy-drawer.css?v=platform-18" />
   <link rel="stylesheet" href="./viewer-header.css?v=platform-18" />
   <link rel="stylesheet" href="./stage-overlays.css?v=platform-18" />
-  <link id="solar-sidebar-accordion-styles" rel="stylesheet" href="./sidebar-accordion.css?v=platform-18" />
-  <link rel="stylesheet" href="./sidebar-density.css?v=platform-18" />
+  <link id="solar-sidebar-accordion-styles" rel="stylesheet" href="./sidebar-accordion.css?v=solar-panel-1" />
+  <link rel="stylesheet" href="./sidebar-density.css?v=solar-panel-1" />
   <link rel="stylesheet" href="./sidebar-clearance.css?v=platform-18" />
+  <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=solar-panel-1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script>
     window.SOLAR_PVGIS_PROXY_ENDPOINT =
@@ -37,7 +38,7 @@
 </head>
 <body>
   <main class="app-shell">
-    <aside class="sidebar shared-settings-panel shared-settings-panel--light" aria-label="Solar configuration controls">
+    <aside class="sidebar shared-panel-controls shared-settings-panel shared-settings-panel--light" aria-label="Solar configuration controls">
       <header class="brand-row">
         <div class="brand-mark solar-brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
         <div>
@@ -47,21 +48,27 @@
         <div class="live-pill"><i></i> Live</div>
       </header>
 
+      <header class="panel-section intro-section">
+        <p class="eyebrow">Solar configurator</p>
+        <h1>Your solar system</h1>
+        <p class="section-copy">Configure your roof, solar panels, energy use and battery storage.</p>
+      </header>
+
       <section class="panel-section">
         <div class="section-heading">
-          <div><p class="eyebrow">Step 1</p><h1>Roof</h1></div>
+          <div><p class="eyebrow">Step 1</p><h2>Roof</h2></div>
           <span class="section-number">01</span>
         </div>
-        <div class="roof-type-grid solar-roof-type-grid" id="roofTypeGrid">
-          <button class="roof-card" type="button" data-roof-type="gable" aria-pressed="true">
+        <div class="roof-type-grid solar-roof-type-grid choice-grid" id="roofTypeGrid">
+          <button class="roof-card choice-card" type="button" data-roof-type="gable" aria-pressed="true">
             <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M8 38 40 12l32 26"/><path d="M15 36v10h50V36"/><path class="accent" d="M8 38 40 12l32 26"/></svg>
             <span>2 slopes</span>
           </button>
-          <button class="roof-card" type="button" data-roof-type="hip" aria-pressed="false">
+          <button class="roof-card choice-card" type="button" data-roof-type="hip" aria-pressed="false">
             <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M8 37 26 14h28l18 23"/><path d="m8 37 32-9 32 9"/><path d="M18 36v10h44V36"/><path class="accent" d="M8 37 26 14h28l18 23"/></svg>
             <span>4 slopes</span>
           </button>
-          <button class="roof-card" type="button" data-roof-type="shed" aria-pressed="false">
+          <button class="roof-card choice-card" type="button" data-roof-type="shed" aria-pressed="false">
             <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M10 33 68 14"/><path d="M16 31v15h48V16"/><path class="accent" d="M10 33 68 14"/></svg>
             <span>1 slope</span>
           </button>
@@ -70,11 +77,11 @@
         <div class="control-list solar-compact-controls">
           <label class="range-control" data-control="length">
             <span class="control-label"><b>Roof length</b><output>10.0 m</output></span>
-            <span class="range-row"><input type="range" min="5" max="20" step="0.1" value="10" /><input class="number-input" type="number" min="5" max="20" step="0.1" value="10" /></span>
+            <span class="range-row range-row--wide"><input type="range" min="5" max="20" step="0.1" value="10" /><input class="number-input" type="number" min="5" max="20" step="0.1" value="10" /></span>
           </label>
           <label class="range-control" data-control="depth">
             <span class="control-label"><b>Roof depth</b><output>7.0 m</output></span>
-            <span class="range-row"><input type="range" min="4" max="14" step="0.1" value="7" /><input class="number-input" type="number" min="4" max="14" step="0.1" value="7" /></span>
+            <span class="range-row range-row--wide"><input type="range" min="4" max="14" step="0.1" value="7" /><input class="number-input" type="number" min="4" max="14" step="0.1" value="7" /></span>
           </label>
           <label class="range-control" data-control="pitch">
             <span class="control-label"><b>Roof pitch</b><output>30°</output></span>
@@ -98,13 +105,13 @@
         <div class="module-reference" id="moduleReference"></div>
 
         <div class="solar-two-column-controls">
-          <label class="solar-number-control">
-            <span><b>Total requested panels</b><small>1–80</small></span>
-            <div><input id="panelCountRange" type="range" min="1" max="80" step="1" value="12" /><input id="panelCountInput" class="number-input" type="number" min="1" max="80" step="1" value="12" /></div>
+          <label class="solar-number-control range-control">
+            <span class="control-label"><b>Total requested panels</b><small>1–80</small></span>
+            <div class="range-row"><input id="panelCountRange" type="range" min="1" max="80" step="1" value="12" /><input id="panelCountInput" class="number-input" type="number" min="1" max="80" step="1" value="12" /></div>
           </label>
-          <label class="solar-number-control">
-            <span><b>Columns</b><small id="layoutReadout">4 × 3 target grid</small></span>
-            <div><input id="panelColumnsRange" type="range" min="1" max="10" step="1" value="4" /><input id="panelColumnsInput" class="number-input" type="number" min="1" max="10" step="1" value="4" /></div>
+          <label class="solar-number-control range-control">
+            <span class="control-label"><b>Columns</b><small id="layoutReadout">4 × 3 target grid</small></span>
+            <div class="range-row"><input id="panelColumnsRange" type="range" min="1" max="10" step="1" value="4" /><input id="panelColumnsInput" class="number-input" type="number" min="1" max="10" step="1" value="4" /></div>
           </label>
         </div>
 
@@ -145,8 +152,8 @@
         </div>
 
         <div class="solar-input-grid">
-          <label><span>Monthly bill (RON)</span><input id="monthlyBillInput" type="number" min="0" step="10" value="400" /></label>
-          <label><span>Energy tariff (RON/kWh)</span><input id="energyTariffInput" type="number" min="0.05" step="0.01" value="1.3" /></label>
+          <label><span>Monthly bill (RON)</span><input id="monthlyBillInput" class="number-input panel-number-field" type="number" min="0" step="10" value="400" /></label>
+          <label><span>Energy tariff (RON/kWh)</span><input id="energyTariffInput" class="number-input panel-number-field" type="number" min="0.05" step="0.01" value="1.3" /></label>
         </div>
 
         <div class="solar-option-heading">Regional production fallback</div>
@@ -174,31 +181,31 @@
           <div><p class="eyebrow">Step 4</p><h2>Storage</h2></div>
           <span class="section-number">04</span>
         </div>
-        <label class="solar-switch-row">
+        <label class="toggle-row solar-switch-row">
           <span><b>Add LiFePO₄ battery</b><small>Store surplus for evening and night usage</small></span>
           <input id="batteryEnabledToggle" type="checkbox" checked />
           <i aria-hidden="true"></i>
         </label>
-        <label class="solar-switch-row secondary">
+        <label class="toggle-row solar-switch-row secondary">
           <span><b>Auto-size battery</b><small>Uses PV power and estimated daily consumption</small></span>
           <input id="batteryAutoToggle" type="checkbox" checked />
           <i aria-hidden="true"></i>
         </label>
         <div id="batteryManualControls" hidden>
-          <label class="solar-number-control">
-            <span><b>Battery capacity</b><small>kWh</small></span>
-            <div><input id="batteryCapacityRange" type="range" min="2" max="20" step="1" value="5" /><input id="batteryCapacityInput" class="number-input" type="number" min="2" max="20" step="1" value="5" /></div>
+          <label class="solar-number-control range-control">
+            <span class="control-label"><b>Battery capacity</b><small>kWh</small></span>
+            <div class="range-row"><input id="batteryCapacityRange" type="range" min="2" max="20" step="1" value="5" /><input id="batteryCapacityInput" class="number-input" type="number" min="2" max="20" step="1" value="5" /></div>
           </label>
         </div>
 
         <details class="advanced-pricing">
           <summary>Advanced estimate assumptions</summary>
           <div class="solar-input-grid">
-            <label><span>Mounting / panel</span><input id="mountingPriceInput" type="number" min="0" step="10" /></label>
-            <label><span>Install / kWp</span><input id="installationPriceInput" type="number" min="0" step="50" /></label>
-            <label><span>Design & paperwork</span><input id="paperworkPriceInput" type="number" min="0" step="100" /></label>
-            <label><span>Battery / kWh</span><input id="batteryPriceInput" type="number" min="0" step="50" /></label>
-            <label><span>VAT rate (%)</span><input id="vatRateInput" type="number" min="0" max="50" step="1" value="21" /></label>
+            <label><span>Mounting / panel</span><input id="mountingPriceInput" class="number-input panel-number-field" type="number" min="0" step="10" /></label>
+            <label><span>Install / kWp</span><input id="installationPriceInput" class="number-input panel-number-field" type="number" min="0" step="50" /></label>
+            <label><span>Design & paperwork</span><input id="paperworkPriceInput" class="number-input panel-number-field" type="number" min="0" step="100" /></label>
+            <label><span>Battery / kWh</span><input id="batteryPriceInput" class="number-input panel-number-field" type="number" min="0" step="50" /></label>
+            <label><span>VAT rate (%)</span><input id="vatRateInput" class="number-input panel-number-field" type="number" min="0" max="50" step="1" value="21" /></label>
           </div>
         </details>
       </section>
@@ -721,10 +728,11 @@
     window.SOLAR_GOOGLE_SOLAR_ENDPOINT = window.SOLAR_GOOGLE_SOLAR_ENDPOINT || new URL('/api/solar/google-solar', window.location.href).toString();
   </script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="./js/sharedShell.js?v=platform-19"></script>
-  <script type="module" src="./js/app.js?v=32"></script>
-  <script type="module" src="./js/sidebarAccordion.js?v=platform-18"></script>
+  <script type="module" src="./js/sharedShell.js?v=solar-panel-1"></script>
+  <script type="module" src="./js/app.js?v=solar-panel-1"></script>
+  <script type="module" src="./js/sidebarAccordion.js?v=solar-panel-1"></script>
   <script type="module" src="./js/viewerHeader.js?v=platform-18"></script>
   <script type="module" src="./js/stageOverlays.js?v=platform-18"></script>
 </body>
 </html>
+

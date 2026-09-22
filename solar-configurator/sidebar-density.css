@@ -1,140 +1,10 @@
 /* Compact hierarchy and control density for the solar configurator sidebar. */
 
-.sidebar {
-  --solar-sidebar-inline: 18px;
-  --solar-sidebar-control-height: 36px;
-  --solar-sidebar-control-radius: 9px;
-}
-
-/* Accordion hierarchy */
-.sidebar .solar-step-toggle.section-heading {
-  min-height: 64px;
-  padding: 12px var(--solar-sidebar-inline);
-  gap: 8px;
-  border-left: 3px solid transparent;
-}
-
-.sidebar .solar-config-step.is-active > .solar-step-toggle.section-heading {
-  border-left-color: var(--accent);
-  background: linear-gradient(90deg, rgba(8, 120, 201, .055), rgba(8, 120, 201, 0) 72%);
-}
-
-.sidebar .solar-step-toggle h1,
-.sidebar .solar-step-toggle h2 {
-  font-size: 16px;
-  line-height: 1.12;
-}
-
-.sidebar .solar-step-toggle .eyebrow {
-  margin-bottom: 2px;
-  font-size: 8px;
-  letter-spacing: .12em;
-}
-
-.sidebar .solar-step-summary {
-  margin-top: 3px;
-  font-size: 8.5px;
-  line-height: 1.25;
-}
-
-.sidebar .solar-step-toggle .section-number {
-  font-size: 20px;
-}
-
-.sidebar .solar-step-chevron {
-  width: 16px;
-  height: 16px;
-}
-
-.sidebar .solar-step-body-inner {
-  padding-right: var(--solar-sidebar-inline);
-  padding-left: var(--solar-sidebar-inline);
-}
-
-.sidebar .solar-config-step.is-active .solar-step-body-inner {
-  padding-bottom: 17px;
-}
-
-/* Roof type cards */
-.sidebar .solar-roof-type-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.sidebar .roof-card {
-  min-height: 74px;
-  padding: 7px 5px 6px;
-  gap: 4px;
-  border-radius: 10px;
-  box-shadow: none;
-}
-
-.sidebar .roof-card:hover {
-  transform: translateY(-1px);
-}
-
-.sidebar .roof-card[aria-pressed="true"] {
-  border-color: rgba(8, 120, 201, .7);
-  background: rgba(8, 120, 201, .055);
-  box-shadow: none;
-}
-
-.sidebar .roof-card svg {
-  width: 47px;
-  height: 31px;
-}
-
-.sidebar .roof-card span {
-  font-size: 9.5px;
-}
 
 /* Numeric controls */
-.sidebar .solar-compact-controls,
-.sidebar .solar-two-column-controls {
-  gap: 10px;
-}
-
-.sidebar .range-control,
-.sidebar .solar-number-control {
-  gap: 5px;
-}
-
-.sidebar .control-label,
-.sidebar .solar-number-control > span {
-  font-size: 10.5px;
-}
-
-.sidebar .control-label output,
-.sidebar .solar-number-control small {
-  font-size: 8.5px;
-}
-
-.sidebar .range-row,
-.sidebar .solar-number-control > div {
-  grid-template-columns: minmax(0, 1fr) 76px;
-  gap: 8px;
-}
-
-.sidebar .number-input,
-.sidebar select,
-.sidebar .solar-input-grid input {
-  height: var(--solar-sidebar-control-height);
-  border-radius: var(--solar-sidebar-control-radius);
-  font-size: 10.5px;
-}
 
 .sidebar input[type="range"] {
   min-width: 0;
-}
-
-.sidebar .select-label {
-  margin-bottom: 5px;
-  color: var(--muted);
-  font-size: 8.5px;
-  font-weight: 750;
-  letter-spacing: .055em;
-  text-transform: uppercase;
 }
 
 /* Module information is supporting copy, not another card. */
@@ -212,7 +82,6 @@
 }
 
 .sidebar .segmented-options button:focus-visible,
-.sidebar .roof-card:focus-visible,
 .sidebar .region-grid button:focus-visible,
 .sidebar .consumption-grid button:focus-visible,
 .sidebar .solar-location-launch:focus-visible,
@@ -309,63 +178,7 @@
   text-overflow: ellipsis;
 }
 
-.sidebar .solar-input-grid input {
-  padding: 0 8px;
-}
-
 /* Storage rows behave like settings, not promotional cards. */
-.sidebar .solar-switch-row,
-.sidebar .solar-switch-row.secondary {
-  min-height: 50px;
-  margin-bottom: 6px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  background: #fff;
-  transition: border-color .16s ease, background-color .16s ease;
-}
-
-.sidebar .solar-switch-row:has(input:checked) {
-  border-color: rgba(8, 120, 201, .34);
-  background: rgba(8, 120, 201, .035);
-}
-
-.sidebar .solar-switch-row:hover {
-  border-color: #bdc6cd;
-}
-
-.sidebar .solar-switch-row:focus-within {
-  outline: 2px solid rgba(8, 120, 201, .48);
-  outline-offset: 1px;
-}
-
-.sidebar .solar-switch-row > span {
-  gap: 1px;
-  padding-right: 39px;
-}
-
-.sidebar .solar-switch-row b {
-  font-size: 10px;
-}
-
-.sidebar .solar-switch-row small {
-  font-size: 7.5px;
-  line-height: 1.25;
-}
-
-.sidebar .solar-switch-row i {
-  right: 10px;
-  width: 34px;
-  height: 20px;
-}
-
-.sidebar .solar-switch-row i::after {
-  width: 14px;
-  height: 14px;
-}
-
-.sidebar .solar-switch-row input:checked + i::after {
-  transform: translateX(14px);
-}
 
 .sidebar #batteryManualControls {
   margin: 6px 0 8px;
@@ -428,9 +241,6 @@
 }
 
 /* Dark mode */
-body.shared-ui-dark-mode .sidebar .solar-config-step.is-active > .solar-step-toggle.section-heading {
-  background: linear-gradient(90deg, rgba(101, 191, 248, .09), rgba(101, 191, 248, 0) 72%);
-}
 
 body.shared-ui-dark-mode .sidebar .module-reference {
   border-left-color: #4a5966;
@@ -465,51 +275,19 @@ body.shared-ui-dark-mode .sidebar .consumption-grid button[aria-pressed="true"] 
   background: rgba(101, 191, 248, .08);
 }
 
-body.shared-ui-dark-mode .sidebar .solar-switch-row,
-body.shared-ui-dark-mode .sidebar .solar-switch-row.secondary {
-  border-color: #394653;
-  color: #eef3f6;
-  background: #17212b;
-}
-
-body.shared-ui-dark-mode .sidebar .solar-switch-row:has(input:checked) {
-  border-color: rgba(101, 191, 248, .38);
-  background: rgba(101, 191, 248, .07);
-}
-
 body.shared-ui-dark-mode .sidebar .advanced-pricing .solar-input-grid {
   background: #17212b;
 }
 
 /* Mobile keeps comfortable touch targets while avoiding single-column sprawl. */
 @media (max-width: 760px) {
-  .sidebar {
-    --solar-sidebar-inline: 16px;
-    --solar-sidebar-control-height: 40px;
-  }
-
-  .sidebar .solar-step-toggle.section-heading {
-    min-height: 64px;
-    padding-top: 12px;
-    padding-bottom: 12px;
-  }
-
-  .sidebar .solar-config-step.is-active .solar-step-body-inner {
-    padding-bottom: 18px;
-  }
-
-  .sidebar .roof-card {
-    min-height: 76px;
-  }
 
   .sidebar .segmented-options button {
     min-height: 40px;
   }
 
   .sidebar .region-grid button,
-  .sidebar .consumption-grid button,
-  .sidebar .solar-switch-row,
-  .sidebar .solar-switch-row.secondary {
+  .sidebar .consumption-grid button {
     min-height: 52px;
   }
 
@@ -534,9 +312,8 @@ body.shared-ui-dark-mode .sidebar .advanced-pricing .solar-input-grid {
 
 @media (prefers-reduced-motion: reduce) {
   .sidebar .advanced-pricing summary::after,
-  .sidebar .solar-switch-row,
-  .sidebar .roof-card,
   .sidebar .segmented-options button {
     transition: none;
   }
 }
+
