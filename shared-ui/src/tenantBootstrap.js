@@ -38,6 +38,7 @@ export const TENANT_CONFIGURATORS = Object.freeze({
   cardbox: Object.freeze({ id: 'cardbox', label: 'Cardbox Configurator', path: '/cardbox-configurator/' }),
   tiles: Object.freeze({ id: 'tiles', label: 'Pavement Configurator', path: '/tiles-configurator/' }),
   chair: Object.freeze({ id: 'chair', label: 'Chair Configurator', path: '/chair-configurator/' }),
+  bookshelf: Object.freeze({ id: 'bookshelf', label: 'Bookshelf Configurator', path: '/bookshelf-configurator/' }),
 });
 
 function normalizeHostname(hostname = '') {

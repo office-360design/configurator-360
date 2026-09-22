@@ -213,7 +213,7 @@ Before Stripe is connected, Tier-1 tenants use a centrally defined plan/subscrip
 
 - `go_live_now_1` — maximum 1 configurator
 - `go_live_now_3` — maximum 3 configurators
-- `go_live_now_all` — maximum 6 configurators
+- `go_live_now_all` — the full standard catalogue (currently 10 configurators)
 
 Existing tenants created before `planId` are interpreted by their current enabled-configurator count and are backfilled the next time an administrator saves them. Prices and Stripe price IDs are intentionally left unset until commercial pricing is finalized. Each plan already carries billing interval/currency placeholders and default Solar quota fields so Stripe price mapping can be added later without changing tenant entitlement logic. The plan catalog also contains display order, short name, description, recommended-plan flag and a feature list so the future subscription page can render its cards from one backend source instead of hard-coding marketing metadata in the frontend.
 
@@ -271,7 +271,7 @@ Google Solar Building Insights and Data Layers counters are reserved only when t
 
 ### Configurator product analytics
 
-`recordConfiguratorAnalyticsEvent` records non-billable product analytics for the six configurators. The browser can submit only the fixed events `access`, `login`, and `configuration_created`; the backend derives the analytics scope from the request origin. Public `.com/.ro/.de` configurators are grouped under the `platform` scope, while a Tier-1 hostname is accepted only when its private tenant is active and the requested configurator entitlement is enabled. Development/AKS traffic is ignored.
+`recordConfiguratorAnalyticsEvent` records non-billable product analytics for the standard configurator catalogue. The browser can submit only the fixed events `access`, `login`, and `configuration_created`; the backend derives the analytics scope from the request origin. Public `.com/.ro/.de` configurators are grouped under the `platform` scope, while a Tier-1 hostname is accepted only when its private tenant is active and the requested configurator entitlement is enabled. Development/AKS traffic is ignored.
 
 Aggregates are stored only server-side under `configuratorAnalytics/{scopeId}` in three granularities: `summary/all`, `months/{YYYY-MM}`, and `days/{YYYY-MM-DD}`. No raw visitor event stream or user identity is retained. Firestore browser rules deny direct access to the aggregate collection.
 
@@ -311,3 +311,24 @@ administration metadata.
 Dashboard reads and writes are performed through `getTenantDashboard`, `updateTenantDashboard`,
 and `cancelTenantPlanChange`. All derive the tenant from the HTTPS `Origin` and never accept a tenant
 slug from the browser.
+
+
+### Expanded Tier-1 catalogue
+
+The standard tenant catalogue includes Window, Pergola, Roof, Solar, Hall, Fence,
+Cardbox, Pavement (Tiles), Chair and Bookshelf. The all-configurators plan derives
+its capacity from the backend product registry rather than a fixed number.
+Existing tenant selections are preserved; new products remain disabled unless
+explicitly selected by an administrator or through the existing dashboard plan
+change workflow. No tenant migration or new Firebase apps are required.
+
+Provisioning, management, the customer dashboard and analytics expose all ten
+products. Bookshelf keeps its quotation-only experience and non-indexed public
+route. Cardbox and Bookshelf gate both their app and their separate shared-shell
+entry points before initializing. Chair is included in both share-document rules.
+
+Deploy frontend assets, Firebase functions and Firestore rules together through
+the existing release workflows. A push to the tenants branch alone does not
+automatically publish production. Run `npm run check:tenant-catalogue` for offline
+behavioural checks and `npm run check:tenant-catalogue:browser` for UI smoke tests
+(requires the existing root Playwright dependency and its Chromium browser).

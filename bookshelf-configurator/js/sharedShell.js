@@ -2,12 +2,9 @@ import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standalone
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { resolveTenantContext } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-catalogue-1';
 
-const resolvedTenantContext = await resolveTenantContext();
-const tenantContext = resolvedTenantContext?.isTenant && resolvedTenantContext?.exists && resolvedTenantContext?.status === 'active'
-  ? resolvedTenantContext
-  : null;
+const tenantContext = await requireTenantConfiguratorAccess('bookshelf');
 const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
 
 const history = new SharedUndoManager({

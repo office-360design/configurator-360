@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-catalogue-1';
+
+await requireTenantConfiguratorAccess('cardbox');
 
 const DEFAULT_COLOR = '#c78f5a';
 const BOARD_EUR_M2 = 1.55;

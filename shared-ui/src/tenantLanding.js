@@ -1,4 +1,4 @@
-import { TENANT_CONFIGURATORS, resolveTenantContext } from './tenantBootstrap.js?v=platform-18';
+import { TENANT_CONFIGURATORS, resolveTenantContext } from './tenantBootstrap.js?v=tenant-catalogue-1';
 
 const page = document.querySelector('#tenantPage');
 

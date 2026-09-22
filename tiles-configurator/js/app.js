@@ -16,7 +16,9 @@ import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standalone
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js';
 import { createShareUrl } from '../../shared-ui/src/shareState.js';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-catalogue-1';
+
+const tenant = await requireTenantConfiguratorAccess('tiles');
 const $ = (id) => document.getElementById(id);
 let state = normalize(),
   locale = 'en-US',
@@ -424,7 +426,6 @@ mountLocationPicker({
   },
 });
 render();
-const tenant = await requireTenantConfiguratorAccess('tiles');
 const mobile = matchMedia('(max-width:760px)');
 shell = mountStandaloneConfiguratorShell({
   productType: 'Tiles',

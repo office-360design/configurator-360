@@ -1,3 +1,4 @@
+import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=tenant-catalogue-1';
 import {
   getFirebaseIdToken,
   observeGoogleAuth,
@@ -13,9 +14,11 @@ const FUNCTION_URLS = Object.freeze({
 });
 const LOGO_TARGET_BYTES = 190_000;
 const LOGO_MAX_DIMENSION = 512;
-const CONFIGURATOR_LABELS = Object.freeze({
-  window: 'Window', pergola: 'Pergola', roof: 'Roof', solar: 'Solar', hall: 'Hall', fence: 'Fence', cardbox: 'Cardbox', chair: 'Chair',
-});
+const CONFIGURATOR_LABELS = Object.freeze(Object.fromEntries(
+  Object.values(TENANT_CONFIGURATORS).map(({ id, label }) => [
+    id, label.replace(/ Configurator$/, ''),
+  ]),
+));
 
 const authState = document.querySelector('#authState');
 const authButton = document.querySelector('#authButton');

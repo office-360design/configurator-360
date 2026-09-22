@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-catalogue-1';
+
+await requireTenantConfiguratorAccess('bookshelf');
 
 const FAMILIES = Object.freeze({
   compact: Object.freeze({ id: 'compact', width: 800, corner: 750, depth: 350, height: 2150 }),
