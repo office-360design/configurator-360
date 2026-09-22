@@ -3,8 +3,9 @@
 Reusable interface primitives for all product configurators in this repository.
 
 The package contains the common top bar, account menu, language menu, viewport tools,
-feedback toast, icons, locale defaults, and shared UI styling. Product-specific panels
-remain inside their own configurator folders.
+feedback toast, icons, locale defaults, and shared UI styling. Product-specific panel
+markup and state remain inside each configurator; common control styling and
+presentation helpers can be adopted independently.
 
 A configurator can import the JavaScript API from `shared-ui/src/index.js` and the shared
 CSS from `shared-ui/styles/index.css`. Its Vite development server must allow imports
@@ -20,6 +21,61 @@ configurator folder.
 Product settings panels use the shared `shared-settings-panel` and
 `shared-settings-toggle` classes so all configurators place their controls at the same
 right-side coordinates and use the same collapse geometry.
+
+## Settings control foundation (Hall first)
+
+`styles/panelControls.css` is an opt-in stylesheet based on Hall's existing panel.
+Load it after `styles/standalone.css` and before product-specific styles, and add
+`shared-panel-controls` to the settings container. Other configurators do not load
+or opt into it yet. It does not change the shell's panel position, width, collapse
+button, footer, or stacking order.
+
+The shared styles cover the introduction (`panel-section`, `intro-section`,
+`eyebrow`, `section-copy`), accordions (`accordion-section`, `accordion-toggle`,
+`accordion-panel`), range/number pairs (`range-control`, `control-label`,
+`range-row`, `number-input`), native selects (`select-label`) and checkbox switches
+(`toggle-stack`, `toggle-row`). Existing responsive rules, dark themes and switch/
+chevron transitions are preserved. `--shared-panel-accent`, `--shared-panel-accent-dark`,
+`--shared-panel-ink`, `--shared-panel-muted` and `--shared-panel-border` expose the
+base palette. The zero-specificity `:where(.shared-panel-controls)` scope keeps
+the original selector priorities and prevents changes outside the adopted panel.
+
+Import presentation helpers directly from `src/components/panelControls.js`:
+
+```js
+import { bindPanelAccordions, bindPanelRange } from './components/panelControls.js';
+
+const unbindAccordions = bindPanelAccordions(panel);
+const unbindRange = bindPanelRange(control, {
+  format: (value) => `${value.toFixed(1)} m`,
+  immediateOnInput: false,
+  onChange(value, { immediate }) {
+    // The product adapter owns state, validation and rebuild scheduling.
+  },
+});
+```
+
+Accordion sections remain independent: clicking one never closes its siblings.
+The helper updates `is-open`, `aria-expanded` and native `hidden` together. Keep
+those three initial values consistent in the markup. Native buttons retain
+keyboard activation. Both binders return listener cleanup functions; call the
+cleanup before rebinding a mounted control.
+
+Range controls keep their native inputs, dynamically read min/max bounds, and
+preserve input/change/blur notifications. They do not define units, round values
+to steps, infer product state, or schedule model rebuilds. Hall still owns its
+opening constraints, presets, translations, BOM, pricing and all scene callbacks.
+Color swatches, icon/image choices and product-specific cards remain local until
+their requirements are reviewed during the next adoption (Fence).
+
+Run `node shared-ui/tests/hall-panel-preservation.mjs` after installing the root
+dependencies and Chromium (`npx playwright install chromium`). The test compares
+Hall with pre-extraction commit `c520a637` using native Chromium controls: state,
+callback order/arguments, metrics, price estimates, bounds, keyboard activation,
+EN/RO/DE text and computed styles at four viewport sizes in three theme states.
+It exercises HallUI with recorded scene callbacks; it does not render WebGL or
+contact authentication/backends. `HALL_PANEL_BASELINE_DIR` can point to an unpacked
+baseline for shallow checkouts; `CHROMIUM_PATH` can select an installed browser.
 
 ## Shared tools
 
