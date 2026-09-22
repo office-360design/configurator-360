@@ -1,0 +1,185 @@
+{
+  "baseline": "main(13) + accepted updates through perf-15 (including handle-fix-12)",
+  "cases": {
+    "single-default": {
+      "product": "63281d1dc1846129ee84edc50569ce38b5c99356e9d08b6f8a1505c6df1ab4c5",
+      "sections": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
+      "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
+    },
+    "single-small": {
+      "product": "d986953bfeb630f448b3964ea31793830f5848ba9f2c8b47aca77a3d86ef2ec9",
+      "sections": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
+      "fabrication": "cfbc2c31d6849ea3d70942f56e99d81acdf445b639b612765202232a6599ed14"
+    },
+    "single-large": {
+      "product": "5c56b484b2f955d2855e56b77c687b782d9fd96937c585f23fb4c6c061838176",
+      "sections": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
+      "fabrication": "f35184070f7480300180a146e7853deb7dc7992f532c86d5ca4f1e365467c9be"
+    },
+    "glass-16": {
+      "product": "1cea367c84d9b8dca8983df37698ca43e8bb648a930ef0a785dd6235d7d6160c",
+      "sections": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
+      "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
+    },
+    "glass-29": {
+      "product": "fa133422af70678655abe9ca265d8b3c35cea1f5a2429d4bd042a2c16b061442",
+      "sections": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
+      "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
+    },
+    "turn-open": {
+      "product": "48c197d7f12932f292ed23bd6af1d62ce13e3dd759ed0441ce4da9a7d2ee2c97",
+      "sections": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
+      "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
+    },
+    "tilt-open": {
+      "product": "ae504d011d35116f57c532218d1a7b3d9f9bbb248ece2f588ee9c8a344d6e507",
+      "sections": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
+      "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
+    },
+    "left-handle": {
+      "product": "f564f00333cce199b1a273c564c2a1ac937674873c0143442234ae000ac76fa1",
+      "sections": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
+      "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
+    },
+    "exploded": {
+      "product": "8b73df6890829ef103b1b6b8ded14c5d915fba19a5b24fa686b61082b5777150",
+      "sections": "7f61fe6ff3de80c848184dd0a96340e504057c21c1f3ffaccbc69b16b4c10bba",
+      "fabrication": "9852598d35aaa2a201b586d0e6cc03fc8ca2be5a410e636a650982aeb8e39d0f"
+    },
+    "vertical-divider": {
+      "product": "14661a1d74927f27f65d2aa7a11e76d14cd5d883ce92606fcc7c04c63779abe4",
+      "sections": "dc4292cfc2a0c9d0976d54cda19d8f59e260ea598d7e8feb61b478dc47c9d58c",
+      "fabrication": "8b9320a845d7a1255dff63e3b1e8f9457ba7866e12118679cf4f684850292db6"
+    },
+    "horizontal-divider": {
+      "product": "80d40eb9649e10748babc1542807f06b53611111555b36c624c1023d84beea44",
+      "sections": "dc4292cfc2a0c9d0976d54cda19d8f59e260ea598d7e8feb61b478dc47c9d58c",
+      "fabrication": "67fd98d49e9f937460891d3d19f50fab41b448e1d6a798b69ff1b7241895e02a"
+    },
+    "three-fixed": {
+      "product": "a59ad7e340e3f04881a2f4df8f0f6cf041108b9690adf67df278766b2265a337",
+      "sections": "dc4292cfc2a0c9d0976d54cda19d8f59e260ea598d7e8feb61b478dc47c9d58c",
+      "fabrication": "6a04f1bd5a7ef6e5d6e8a02af94bc1a3fd905189d04afc4db6b0dad3270b7d96"
+    },
+    "two-sashes": {
+      "product": "583f3f1e6c18f57b48c7b5ab6a80f0d7bbf91d150c75637585e9b9b3ea089f8d",
+      "sections": "dc4292cfc2a0c9d0976d54cda19d8f59e260ea598d7e8feb61b478dc47c9d58c",
+      "fabrication": "1fda51567e03f371f929ab4abfec022e288f55d808d05c1599dfd542fd55f9cc"
+    }
+  },
+  "presets": {
+    "aluminium.powderCoated": {
+      "type": "standard",
+      "color": "#383e42",
+      "metalness": 0,
+      "roughness": 0.58,
+      "envMapIntensity": 0.72,
+      "textureSet": "powder.fine",
+      "texture": "powder",
+      "normalStrength": 0.16,
+      "tile": [
+        0.035,
+        0.035
+      ]
+    },
+    "aluminium.bare": {
+      "type": "standard",
+      "color": "#d6dade",
+      "metalness": 1,
+      "roughness": 0.3,
+      "envMapIntensity": 1.12,
+      "textureSet": "aluminium.brushed",
+      "texture": "brushed",
+      "normalStrength": 0.07,
+      "tile": [
+        0.8,
+        0.025
+      ]
+    },
+    "aluminium.anodized": {
+      "type": "standard",
+      "color": "#bfc5ca",
+      "metalness": 0.85,
+      "roughness": 0.43,
+      "envMapIntensity": 0.96,
+      "textureSet": "aluminium.brushed",
+      "texture": "brushed",
+      "normalStrength": 0.05,
+      "tile": [
+        0.8,
+        0.025
+      ]
+    },
+    "glass.clear": {
+      "type": "glass",
+      "color": "#ffffff",
+      "metalness": 0,
+      "roughness": 0.045,
+      "envMapIntensity": 1,
+      "ior": 1.5,
+      "transmission": 0.96,
+      "thickness": 0.006
+    },
+    "glass.architectural": {
+      "type": "glass",
+      "color": "#ffffff",
+      "metalness": 0,
+      "roughness": 0.025,
+      "envMapIntensity": 1,
+      "ior": 1.5,
+      "transmission": 1,
+      "thickness": 0.006,
+      "attenuationColor": "#ecf6f2",
+      "attenuationDistance": 2,
+      "lowOpacity": 0.18,
+      "fog": false
+    },
+    "wood.deck": {
+      "type": "standard",
+      "color": "#ffffff",
+      "metalness": 0,
+      "roughness": 0.76,
+      "envMapIntensity": 0.28,
+      "texture": "oak",
+      "textureSet": "wood.deck",
+      "normalStrength": 0.12,
+      "assetNormalStrength": 0.14,
+      "tile": [
+        2.4,
+        0.24
+      ],
+      "assetTile": [
+        1.5,
+        1.5
+      ]
+    },
+    "wood.oak": {
+      "type": "standard",
+      "color": "#ffffff",
+      "metalness": 0,
+      "roughness": 0.76,
+      "envMapIntensity": 0.28,
+      "texture": "oak",
+      "normalStrength": 0.12,
+      "tile": [
+        2.4,
+        0.24
+      ]
+    }
+  },
+  "textures": {
+    "powder": {
+      "roughness": "3ecf8e3dab858f833648f3fb617d4e5ce851df83f60f79cec9a048ff5f438980",
+      "normal": "a68a95e183c2f981c380f8970fc9b1d16f090d5a6ae1d588300f6072d22dede5"
+    },
+    "brushed": {
+      "roughness": "16eb883691a7b5a5accd203826f347b5fdd60cd7c99f7b41f11c539625164026",
+      "normal": "ac75918808ec502406409b2dd8c6487247690911ca072358eaeabbce4d2793e8"
+    },
+    "oak": {
+      "color": "9fdd2600b9d932235332590b8410f39c5ff74e1dbb82757eab66f36def9d1158",
+      "roughness": "d192cd97fefe9e003f3622ee52ab03bb938a39d624eb0a4f7393c0f5e3faab1b",
+      "normal": "77fdcbab9e208749f8e2e692385c00497e567bbddb197f331fe71b295fe67876"
+    }
+  }
+}

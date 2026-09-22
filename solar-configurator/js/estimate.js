@@ -1,6 +1,6 @@
-import { modulePresets } from './state.js?v=8';
-import { normalizeCurrency } from './preferences.js?v=2';
-import { solarModuleLabel, solarT, resolveSolarLocale } from './i18n.js?v=1';
+import { modulePresets } from './state.js?v=platform-18';
+import { normalizeCurrency } from './preferences.js?v=platform-18';
+import { solarModuleLabel, solarT, resolveSolarLocale } from './i18n.js?v=platform-18';
 
 export const VAT_RATE = 0.21;
 

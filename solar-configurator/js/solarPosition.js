@@ -1,4 +1,4 @@
-import { regionPresets } from './state.js?v=2';
+import { regionPresets } from './state.js?v=platform-18';
 
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;

@@ -1,8 +1,8 @@
-import { getLanguageProfile } from '../config.js';
-import { sharedIcon } from '../icons.js';
-import { escapeHtml } from '../utils.js';
-import { renderAccountMenu } from './accountMenu.js';
-import { renderLanguageMenu } from './languageMenu.js';
+import { getLanguageProfile } from '../config.js?v=platform-18';
+import { sharedIcon } from '../icons.js?v=platform-18';
+import { escapeHtml } from '../utils.js?v=platform-18';
+import { renderAccountMenu } from './accountMenu.js?v=platform-18';
+import { renderLanguageMenu } from './languageMenu.js?v=platform-18';
 
 function saveButton(disabled = false) {
   return `
@@ -23,7 +23,7 @@ function shareButton(disabled = false) {
 }
 
 export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilities = {} }) {
-  const canViewAR = capabilities.viewAR !== false;
+  const canViewAR = false;
   const canSave = capabilities.save !== false;
   const canUndo = capabilities.undo !== false;
   const canReset = capabilities.reset !== false;

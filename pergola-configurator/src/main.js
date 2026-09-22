@@ -1,15 +1,17 @@
-import './styles/pergola.css';
-import '../../shared-ui/styles/index.css';
-import './styles/pergola-theme-overrides.css';
-import { ConfiguratorStore } from './state.js';
-import { readShareState } from '../../shared-ui/src/shareState.js';
-import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js';
-import { getLanguageProfile, getLocaleForHostname } from '../../shared-ui/src/config.js';
-import { PergolaScene } from './scene/PergolaScene.js';
-import { ConfiguratorUI } from './ui/ConfiguratorUI.js';
-import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js';
-import { pergolaT } from './i18n.js';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js';
+import './styles/pergola.css?v=platform-18';
+import '../../shared-ui/styles/index.css?v=platform-18';
+import './styles/pergola-theme-overrides.css?v=platform-18';
+import { ConfiguratorStore } from './state.js?v=platform-18';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js?v=platform-18';
+import { getLanguageProfile, getLocaleForHostname } from '../../shared-ui/src/config.js?v=platform-18';
+import { PergolaScene } from './scene/PergolaScene.js?v=platform-18';
+import { ConfiguratorUI } from './ui/ConfiguratorUI.js?v=platform-18';
+import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js?v=platform-19';
+import { pergolaT } from './i18n.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
+import { mountPergolaEmbedPreviewControls } from './ui/embedPreviewControls.js?v=platform-18';
+import { initializePergolaColorCatalog } from './color-catalog.js';
 
 const tenantContext = await requireTenantConfiguratorAccess('pergola');
 
@@ -21,7 +23,10 @@ if (!root) {
   throw new Error('The #app mount element is missing.');
 }
 
-const sharedState = await readShareState({ productType: 'pergola' });
+const [sharedState] = await Promise.all([
+  readShareState({ productType: 'pergola' }),
+  initializePergolaColorCatalog(),
+]);
 const store = new ConfiguratorStore(sharedState);
 const domainLocale = getLocaleForHostname(window.location.hostname);
 const domainProfile = getLanguageProfile(domainLocale);
@@ -41,6 +46,7 @@ if (!viewport) {
 }
 
 let scene;
+const embedPreviewControls = mountPergolaEmbedPreviewControls({ store, viewport });
 
 try {
   scene = new PergolaScene(viewport, store);
@@ -57,6 +63,7 @@ try {
 
 window.addEventListener('beforeunload', () => {
   scene?.destroy();
+  embedPreviewControls?.destroy();
   sharedShell?.destroy();
   ui.destroy();
 });

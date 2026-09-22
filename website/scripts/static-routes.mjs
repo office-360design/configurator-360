@@ -8,6 +8,7 @@ export const pageRoutes = locales.flatMap((locale) => {
     `${prefix}/about`,
     `${prefix}/contact`,
     `${prefix}/pricing`,
+    `${prefix}/book-a-demo`,
     ...configurators.map((slug) => `${prefix}/configurators/${slug}`),
   ];
 });

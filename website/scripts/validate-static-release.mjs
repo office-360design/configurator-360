@@ -5,8 +5,32 @@ import { metadataRoutes, pageRoutes, routeOutputPath } from "./static-routes.mjs
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const websiteRoot = path.resolve(scriptDirectory, "..");
+const workspaceRoot = path.resolve(websiteRoot, "..");
 const releaseRoot = path.join(websiteRoot, "outputs", "release-site");
 const failures = [];
+
+// The website-only release is composed with these sibling applications/assets
+// later in the Pages/Cloud Run workflows. Validate references against the exact
+// sources that will be mounted into the final site instead of treating them as
+// broken website-release links.
+const composedSiteMounts = Object.freeze([
+  Object.freeze({
+    prefix: "/shared-ui/",
+    root: path.join(workspaceRoot, "shared-ui"),
+  }),
+  Object.freeze({
+    prefix: "/window-configurator/",
+    root: path.join(workspaceRoot, "dist", "window-configurator-build"),
+  }),
+  Object.freeze({
+    prefix: "/fence-configurator/",
+    root: path.join(workspaceRoot, "fence-configurator"),
+  }),
+  Object.freeze({
+    prefix: "/pergola-configurator/",
+    root: path.join(workspaceRoot, "pergola-configurator", "dist"),
+  }),
+]);
 
 async function isFile(file) {
   return (await stat(file).catch(() => null))?.isFile() || false;
@@ -39,8 +63,12 @@ async function collectHtml(directory) {
 }
 await collectHtml(releaseRoot);
 
+function cleanReference(value) {
+  return value.split("#", 1)[0].split("?", 1)[0];
+}
+
 function localTarget(value, htmlFile) {
-  const clean = value.split("#", 1)[0].split("?", 1)[0];
+  const clean = cleanReference(value);
   if (!clean || /^(?:[a-z]+:|\/\/|#)/i.test(clean)) return null;
   const absolute = clean.startsWith("/")
     ? path.join(releaseRoot, clean.replace(/^\/+/, ""))
@@ -49,16 +77,41 @@ function localTarget(value, htmlFile) {
   return absolute;
 }
 
+function composedSiteTarget(value) {
+  const clean = cleanReference(value);
+  if (!clean.startsWith("/")) return null;
+
+  for (const mount of composedSiteMounts) {
+    if (!clean.startsWith(mount.prefix)) continue;
+    const relative = clean.slice(mount.prefix.length);
+    const target = path.resolve(mount.root, relative || ".");
+    if (target !== mount.root && !target.startsWith(`${mount.root}${path.sep}`)) return null;
+    return target;
+  }
+
+  return null;
+}
+
+async function resolvesToStaticTarget(target) {
+  if (!target) return false;
+  const info = await stat(target).catch(() => null);
+  if (info?.isFile()) return true;
+  if (info?.isDirectory() && (await isFile(path.join(target, "index.html")))) return true;
+  if (!path.extname(target) && (await isFile(path.join(target, "index.html")))) return true;
+  return false;
+}
+
 for (const htmlFile of htmlFiles) {
   const html = await readFile(htmlFile, "utf8");
   const references = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/gi)].map((match) => match[1]);
   for (const reference of references) {
     const target = localTarget(reference, htmlFile);
     if (!target) continue;
-    const info = await stat(target).catch(() => null);
-    if (info?.isFile()) continue;
-    if (info?.isDirectory() && (await isFile(path.join(target, "index.html")))) continue;
-    if (!path.extname(target) && (await isFile(path.join(target, "index.html")))) continue;
+    if (await resolvesToStaticTarget(target)) continue;
+
+    const composedTarget = composedSiteTarget(reference);
+    if (await resolvesToStaticTarget(composedTarget)) continue;
+
     failures.push(`${path.relative(releaseRoot, htmlFile)} -> ${reference}`);
   }
 }
@@ -104,15 +157,15 @@ for (const route of pageRoutes) {
 const sitemapExpectations = {
   en: {
     origin: "https://www.360configurator.com",
-    apps: ["/pergola-configurator/", "/roof-configurator/", "/window-configurator/", "/hall-configurator/", "/solar-configurator/", "/fence-configurator/"],
+    apps: ["/pergola-configurator/", "/roof-configurator/", "/window-configurator/", "/hall-configurator/", "/solar-configurator/", "/fence-configurator/", "/cardbox-configurator/", "/chair-configurator/"],
   },
   ro: {
     origin: "https://www.360configurator.ro",
-    apps: ["/configurator-pergola/", "/configurator-acoperis/", "/configurator-ferestre/", "/configurator-hala/", "/configurator-solar/", "/configurator-garduri/"],
+    apps: ["/configurator-pergola/", "/configurator-acoperis/", "/configurator-ferestre/", "/configurator-hala/", "/configurator-solar/", "/configurator-garduri/", "/configurator-cutii-carton/", "/configurator-scaune/"],
   },
   de: {
     origin: "https://www.360konfigurator.de",
-    apps: ["/pergola-konfigurator/", "/dach-konfigurator/", "/fenster-konfigurator/", "/hallen-konfigurator/", "/solar-konfigurator/", "/zaun-konfigurator/"],
+    apps: ["/pergola-konfigurator/", "/dach-konfigurator/", "/fenster-konfigurator/", "/hallen-konfigurator/", "/solar-konfigurator/", "/zaun-konfigurator/", "/karton-konfigurator/", "/stuhl-konfigurator/"],
   },
 };
 const marketingSlugs = ["pergola", "roof", "window", "hall", "solar", "fence"];
@@ -126,6 +179,7 @@ for (const [locale, { origin, apps }] of Object.entries(sitemapExpectations)) {
     `${origin}/about`,
     `${origin}/contact`,
     `${origin}/pricing`,
+    `${origin}/book-a-demo`,
     ...marketingSlugs.map((slug) => `${origin}/configurators/${slug}`),
     ...apps.map((appPath) => `${origin}${appPath}`),
   ];
@@ -149,5 +203,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log(`Validated ${pageRoutes.length} website pages, ${metadataRoutes.length} metadata routes, ${htmlFiles.length} HTML files, canonical metadata, and internal links.`);
+  console.log(`Validated ${pageRoutes.length} website pages, ${metadataRoutes.length} metadata routes, ${htmlFiles.length} HTML files, canonical metadata, and internal/composed-site links.`);
 }

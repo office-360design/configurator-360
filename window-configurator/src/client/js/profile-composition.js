@@ -5,7 +5,7 @@ import {
     getSupplementalAccessoryCatalogEntries,
     getSupplementalAccessorySourceProfileSetIds,
     isStandaloneProfileGeometryRegistered,
-} from './profile-catalog.js';
+} from './profile-catalog.js?v=platform-18';
 import {
     composeCadTransforms,
     fitStandaloneProfileTransform,
@@ -13,13 +13,13 @@ import {
     invertCadTransform,
     transformCadBbox,
     transformCadPoint,
-} from './profile-coordinate-transform.js';
+} from './profile-coordinate-transform.js?v=platform-18';
 import {
     projectConnectionDelta,
     resolveConnectionOccurrence,
     resolveConnectionOccurrences,
     resolveConnectionRuntimeBasis,
-} from './connection-template-loader.js';
+} from './connection-template-loader.js?v=platform-18';
 
 function finiteNumber(value, fallback = 0) {
     const parsed = Number(value);

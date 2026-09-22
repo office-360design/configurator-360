@@ -39,6 +39,10 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     hall: '/hall-configurator/',
     solar: '/solar-configurator/',
     fence: '/fence-configurator/',
+    cardbox: '/cardbox-configurator/',
+    bookshelf: '/bookshelf-configurator/',
+    tiles: '/tiles-configurator/',
+    chair: '/chair-configurator/',
   }),
   'ro-RO': Object.freeze({
     pergola: '/configurator-pergola/',
@@ -47,6 +51,10 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     hall: '/configurator-hala/',
     solar: '/configurator-solar/',
     fence: '/configurator-garduri/',
+    cardbox: '/configurator-cutii-carton/',
+    bookshelf: '/bookshelf-configurator/',
+    tiles: '/tiles-configurator/',
+    chair: '/configurator-scaune/',
   }),
   'de-DE': Object.freeze({
     pergola: '/pergola-konfigurator/',
@@ -55,6 +63,10 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     hall: '/hallen-konfigurator/',
     solar: '/solar-konfigurator/',
     fence: '/zaun-konfigurator/',
+    cardbox: '/karton-konfigurator/',
+    bookshelf: '/bookshelf-configurator/',
+    tiles: '/tiles-configurator/',
+    chair: '/stuhl-konfigurator/',
   }),
 });
 
@@ -93,12 +105,16 @@ export function getLocaleForHostname(hostname = '') {
 
 function normalizeProductType(productType = '') {
   const value = String(productType).toLowerCase();
+  if (value === 'tiles') return 'tiles';
   if (value.includes('pergola')) return 'pergola';
   if (value.includes('roof')) return 'roof';
   if (value.includes('window')) return 'window';
   if (value.includes('hall')) return 'hall';
   if (value.includes('solar')) return 'solar';
   if (value.includes('fence') || value.includes('gard') || value.includes('zaun')) return 'fence';
+  if (value.includes('cardbox') || value.includes('cardboard') || value.includes('carton') || value.includes('karton')) return 'cardbox';
+  if (value.includes('bookshelf') || value.includes('bibliotec') || value.includes('bücherregal') || value.includes('buecherregal')) return 'bookshelf';
+  if (value.includes('chair') || value.includes('scaun') || value.includes('stuhl')) return 'chair';
   return null;
 }
 

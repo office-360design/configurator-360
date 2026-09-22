@@ -9,9 +9,17 @@ function languagePath(locale: Locale, currentPath: string) {
   return localizedUrl(locale, currentPath || "/");
 }
 
+function bookDemoLabel(locale: Locale) {
+  if (locale === "ro") return "Rezervă un demo";
+  if (locale === "de") return "Demo buchen";
+  return "Book a demo";
+}
+
 export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Locale; currentPath?: string }) {
   const copy = uiCopy[locale];
   const configurators = getLocalizedConfigurators(locale);
+  const configuratorNavLabel = (slug: string, fallback: string) =>
+    locale === "ro" && slug === "solar" ? "Configurație panouri fotovoltaice" : fallback;
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
@@ -58,9 +66,9 @@ export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Loca
                 <div className="configurator-menu-row" key={item.slug}>
                   <a className="configurator-menu-case" href={localizedPath(locale, `/configurators/${item.slug}`)}>
                     <span>{item.index} / {item.category}</span>
-                    <strong>{item.title}</strong>
+                    <strong>{configuratorNavLabel(item.slug, item.title)}</strong>
                   </a>
-                  <a className="configurator-menu-launch" href={item.launchUrl} target="_blank" rel="noreferrer" aria-label={`${copy.launch}: ${item.title}`}>{copy.live} ↗</a>
+                  <a className="configurator-menu-launch" href={item.launchUrl} target="_blank" rel="noreferrer" aria-label={`${copy.launch}: ${configuratorNavLabel(item.slug, item.title)}`}>{copy.live} ↗</a>
                 </div>
               ))}
               <p>{copy.more}</p>
@@ -74,8 +82,8 @@ export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Loca
             {(["en", "ro", "de"] as Locale[]).map((language) => <a key={language} className={language === locale ? "active" : ""} href={languagePath(language, currentPath)} lang={language}>{language.toUpperCase()}</a>)}
           </div>
           <ThemeToggle />
-          <a className="header-contact" href={localizedPath(locale, "/contact")}>
-            {copy.start} <span>↗</span>
+          <a className="header-contact" href={localizedPath(locale, "/book-a-demo")}>
+            {bookDemoLabel(locale)} <span>↗</span>
           </a>
           <details className="mobile-navigation">
             <summary>Menu</summary>
@@ -86,9 +94,10 @@ export function SiteHeader({ locale = "en", currentPath = "/" }: { locale?: Loca
               {/* Native anchors intentionally bypass vinext's broken cross-route hash navigation. */}
               <a href={localizedPath(locale)}>{copy.home}</a>
               <a href={`${localizedPath(locale)}#configurators`}>{copy.configurators}</a>
-              {configurators.map((item) => <a key={item.slug} href={localizedPath(locale, `/configurators/${item.slug}`)}>{item.shortTitle}<span>→</span></a>)}
+              {configurators.map((item) => <a key={item.slug} href={localizedPath(locale, `/configurators/${item.slug}`)}>{configuratorNavLabel(item.slug, item.shortTitle)}<span>→</span></a>)}
               <a href={localizedPath(locale, "/pricing")}>{copy.pricing}<span>→</span></a>
               <a href={localizedPath(locale, "/about")}>{copy.about}</a>
+              <a href={localizedPath(locale, "/book-a-demo")}>{bookDemoLabel(locale)}<span>→</span></a>
               <a href={localizedPath(locale, "/contact")}>{copy.contact}</a>
             </div>
           </details>

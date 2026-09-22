@@ -1,4 +1,4 @@
-import { sharedIcon } from '../icons.js';
+import { sharedIcon } from '../icons.js?v=platform-18';
 
 export function renderActionFeedback() {
   return `

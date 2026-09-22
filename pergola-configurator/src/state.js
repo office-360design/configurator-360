@@ -1,4 +1,4 @@
-import { createShareUrl } from '../../shared-ui/src/shareState.js';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
 import {
   DIMENSION_LIMITS,
   POLE_FACES as LAYOUT_POLE_FACES,
@@ -14,7 +14,7 @@ import {
   normalizeDimensions,
   poleUnavailableOnMountedSide,
   segmentUnavailableOnMountedSide,
-} from './layout.js';
+} from './layout.js?v=platform-18';
 
 const STORAGE_KEY = 'pergola-configurator:v9';
 const LEGACY_STORAGE_KEYS = [

@@ -1,0 +1,323 @@
+.shared-ui-host .window-templates-launcher {
+    position: fixed;
+    z-index: 901;
+    min-width: 92px;
+    white-space: nowrap;
+}
+
+.shared-ui-host .window-templates-popover {
+    position: fixed;
+    z-index: 930;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 14px;
+    border: 1px solid rgba(17, 29, 35, .10);
+    border-radius: 16px;
+    color: #172027;
+    background: rgba(255, 255, 255, .985);
+    box-shadow: 0 20px 54px rgba(18, 28, 34, .22);
+}
+
+.shared-ui-host .window-templates-popover[hidden] {
+    display: none !important;
+}
+
+.shared-ui-host .window-templates-popover__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.shared-ui-host .window-templates-popover__header > div {
+    display: grid;
+    gap: 2px;
+}
+
+.shared-ui-host .window-templates-popover__header strong {
+    color: #111820;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.shared-ui-host .window-templates-popover__header span {
+    color: #68757d;
+    font-size: 11px;
+    font-weight: 550;
+}
+
+.shared-ui-host .window-templates-popover__close {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    color: #52616a;
+    background: transparent;
+    cursor: pointer;
+    font-size: 23px;
+    font-weight: 400;
+    line-height: 1;
+}
+
+.shared-ui-host .window-templates-popover__close:hover,
+.shared-ui-host .window-templates-popover__close:focus-visible {
+    color: #172027;
+    background: #eef1f3;
+    outline: none;
+}
+
+.shared-ui-host .window-templates-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.shared-ui-host .window-template-card {
+    display: grid;
+    grid-template-rows: minmax(112px, auto) auto;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0;
+    border: 1px solid #e3e7e9;
+    border-radius: 13px;
+    color: #172027;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.shared-ui-host .window-template-card:hover,
+.shared-ui-host .window-template-card:focus-visible {
+    border-color: #8ec8ec;
+    box-shadow: 0 8px 20px rgba(8, 120, 201, .13);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.shared-ui-host .window-template-card__image-wrap {
+    display: grid;
+    min-height: 112px;
+    place-items: center;
+    overflow: hidden;
+    padding: 7px;
+    background: #f7f8f8;
+}
+
+.shared-ui-host .window-template-card__image {
+    display: block;
+    width: 100%;
+    height: 118px;
+    object-fit: contain;
+    mix-blend-mode: multiply;
+}
+
+.shared-ui-host .window-template-card__copy {
+    display: grid;
+    min-height: 48px;
+    align-content: center;
+    padding: 9px 10px;
+}
+
+.shared-ui-host .window-template-card__copy strong {
+    color: #172027;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.shared-ui-host .window-template-card__copy span {
+    color: #6b777f;
+    font-size: 9.5px;
+    font-weight: 550;
+    line-height: 1.3;
+}
+
+.shared-ui-host.is-dark-mode .window-templates-popover {
+    color: #e7eef3;
+    background: rgba(20, 31, 45, .985);
+    border-color: rgba(255, 255, 255, .11);
+}
+
+.shared-ui-host.is-dark-mode .window-templates-popover__header strong,
+.shared-ui-host.is-dark-mode .window-template-card,
+.shared-ui-host.is-dark-mode .window-template-card__copy strong {
+    color: #e7eef3;
+}
+
+.shared-ui-host.is-dark-mode .window-templates-popover__header span,
+.shared-ui-host.is-dark-mode .window-template-card__copy span {
+    color: #aeb9c2;
+}
+
+.shared-ui-host.is-dark-mode .window-templates-popover__close {
+    color: #c3cdd4;
+}
+
+.shared-ui-host.is-dark-mode .window-templates-popover__close:hover,
+.shared-ui-host.is-dark-mode .window-templates-popover__close:focus-visible {
+    color: #fff;
+    background: rgba(255, 255, 255, .08);
+}
+
+.shared-ui-host.is-dark-mode .window-template-card {
+    background: #162231;
+    border-color: rgba(255, 255, 255, .10);
+}
+
+.shared-ui-host.is-dark-mode .window-template-card__image-wrap {
+    background: #f4f5f5;
+}
+
+@media (max-width: 760px) {
+    /* Keep the mobile layout viewport physically pinned to the device width.
+       #controls is normally absolute, and translating that absolute box beyond
+       the right edge expands the document's scrollable/layout width on mobile.
+       Making the panel fixed removes it from document overflow calculations, so
+       the top bar and the reopen toggle stay anchored to the visible viewport. */
+    html,
+    body.shared-ui-mounted {
+        width: 100vw;
+        min-width: 0;
+        max-width: 100vw;
+        overflow-x: hidden;
+    }
+
+    body.shared-ui-mounted #controls {
+        position: fixed !important;
+    }
+
+    body.shared-ui-mounted .shared-ui-host {
+        width: 100vw;
+        min-width: 0;
+        max-width: 100vw;
+    }
+
+    body.shared-ui-mounted.sidebar-is-collapsed #sidebar-toggle {
+        right: 0 !important;
+        left: auto !important;
+    }
+
+    /* Match the rounded mobile interaction treatment used by Tools/Templates.
+       In particular, suppress the browser's square tap flash on the sidebar
+       toggle and replace it with a ring/shadow that follows its attached tab. */
+    body.shared-ui-mounted #sidebar-toggle {
+        -webkit-tap-highlight-color: transparent;
+        outline: none;
+        border-radius: 10px 0 0 10px;
+    }
+
+    body.shared-ui-mounted #sidebar-toggle:focus-visible {
+        box-shadow: 0 0 0 3px rgba(8, 120, 201, .22), -8px 0 22px rgba(24, 39, 47, .14);
+    }
+
+    body.shared-ui-mounted #sidebar-toggle:active {
+        box-shadow: 0 0 0 3px rgba(8, 120, 201, .14), -8px 0 22px rgba(24, 39, 47, .14);
+    }
+
+    @supports (overflow: clip) {
+        html,
+        body.shared-ui-mounted {
+            overflow-x: clip;
+        }
+    }
+
+    .shared-ui-host [data-shared-tools] {
+        align-items: flex-start;
+        gap: 0;
+        transition: transform .28s cubic-bezier(.22, 1, .36, 1), opacity .18s ease;
+        will-change: transform, opacity;
+    }
+
+    /* Mobile browsers can paint their native tap/focus highlight as a square
+       around these rounded launchers. Remove that native rectangle and draw a
+       rounded interaction ring that follows the button shape instead. */
+    .shared-ui-host [data-shared-tools] > .tool-launcher {
+        -webkit-tap-highlight-color: transparent;
+        border-radius: 14px;
+        outline: none;
+    }
+
+    .shared-ui-host [data-shared-tools] > .tool-launcher:focus-visible {
+        outline: 3px solid rgba(8, 120, 201, .22);
+        outline-offset: 2px;
+    }
+
+    .shared-ui-host [data-shared-tools] > .tool-launcher:active {
+        box-shadow: 0 0 0 3px rgba(8, 120, 201, .14), 0 8px 22px rgba(20, 32, 39, .12);
+    }
+
+    .shared-ui-host [data-shared-tools] > .tools-toolbar__panel {
+        margin-top: 0;
+        transition: max-width .18s ease, max-height .18s ease, opacity .15s ease, transform .18s ease, margin-top .18s ease;
+    }
+
+    .shared-ui-host [data-shared-tools] > .tools-toolbar__panel.is-open {
+        margin-top: 10px;
+    }
+
+    body.shared-ui-mounted:not(.sidebar-is-collapsed) .shared-ui-host [data-shared-tools],
+    body.shared-ui-mounted.phone-window-editor-open .shared-ui-host [data-shared-tools] {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(calc(-100% - 24px));
+    }
+
+    /* Piece-info stays compatible with the launcher stack. Only the selected-
+       window editor (plus the main settings panel) moves Tools/Templates away. */
+    body.shared-ui-mounted #component-selection-popup,
+    body.shared-ui-mounted.sidebar-is-collapsed #component-selection-popup {
+        bottom: 56px;
+    }
+
+    .shared-ui-host [data-shared-tools] > .window-templates-launcher {
+        position: static;
+        min-width: 84px;
+        flex: 0 0 auto;
+        align-self: flex-start;
+        margin: 10px 0 0;
+        padding-inline: 13px;
+    }
+
+    .shared-ui-host .window-templates-popover {
+        padding: 11px;
+    }
+
+    .shared-ui-host .window-templates-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 430px) {
+    .shared-ui-host .window-templates-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .shared-ui-host .window-template-card {
+        grid-template-columns: 122px minmax(0, 1fr);
+        grid-template-rows: auto;
+    }
+
+    .shared-ui-host .window-template-card__image-wrap,
+    .shared-ui-host .window-template-card__copy {
+        min-height: 94px;
+    }
+
+    .shared-ui-host .window-template-card__image {
+        height: 88px;
+    }
+
+    .shared-ui-host .window-template-card__copy {
+        align-content: center;
+    }
+}

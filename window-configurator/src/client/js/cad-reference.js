@@ -1,4 +1,4 @@
-import { getWindowLocale, windowT } from './i18n.js';
+import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 
 export function createCadReferenceController({
     captureMode,

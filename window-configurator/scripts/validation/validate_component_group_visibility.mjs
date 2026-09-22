@@ -2,6 +2,7 @@ import {
     areSelectedComponentProfilesVisible,
     isSelectedComponentProfile,
     shouldCheckComponentProfile,
+    isComponentProfileVisibleOnHost,
 } from '../../src/client/js/component-group-visibility.js';
 
 const errors = [];
@@ -70,6 +71,48 @@ assert(
         isAccessoryProfileEnabled,
     }),
     'Turning a piece off must hide its selected accessory without changing selection state.'
+);
+
+
+assert(
+    isComponentProfileVisibleOnHost({
+        sourceGroup: 'frame',
+        hostGroup: 'divider',
+        sourceGroupVisible: false,
+        hostGroupVisible: true,
+        profileChecked: false,
+    }),
+    'A profile unchecked by hiding Frame must remain visible on a still-visible mullion host.'
+);
+assert(
+    !isComponentProfileVisibleOnHost({
+        sourceGroup: 'frame',
+        hostGroup: 'frame',
+        sourceGroupVisible: false,
+        hostGroupVisible: false,
+        profileChecked: false,
+    }),
+    'A frame-mounted occurrence must disappear with the Frame host.'
+);
+assert(
+    !isComponentProfileVisibleOnHost({
+        sourceGroup: 'frame',
+        hostGroup: 'divider',
+        sourceGroupVisible: true,
+        hostGroupVisible: true,
+        profileChecked: false,
+    }),
+    'A manually unchecked profile must remain hidden on every host while its source group is visible.'
+);
+assert(
+    !isComponentProfileVisibleOnHost({
+        sourceGroup: 'frame',
+        hostGroup: 'divider',
+        sourceGroupVisible: false,
+        hostGroupVisible: false,
+        profileChecked: false,
+    }),
+    'A mullion-mounted occurrence must disappear completely when the Mullion / transom host is hidden.'
 );
 
 if (errors.length) {

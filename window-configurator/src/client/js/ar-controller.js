@@ -5,8 +5,8 @@ import {
     uploadARAsset,
     uploadARAssetToSupabase,
     sha256Hex,
-} from '../ar-export.js';
-import { getWindowLocale, windowT } from './i18n.js';
+} from '../ar-export.js?v=platform-18';
+import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 
 
 function formatLocalizedExportStats(stats) {

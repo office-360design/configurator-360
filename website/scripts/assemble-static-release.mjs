@@ -16,7 +16,7 @@ const localizedOrigins = {
 };
 
 const marketingConfiguratorSlugs = ["pergola", "roof", "window", "hall", "solar", "fence"];
-const externalConfiguratorSlugs = [...marketingConfiguratorSlugs];
+const externalConfiguratorSlugs = [...marketingConfiguratorSlugs, "cardbox", "chair"];
 
 const externalConfiguratorPaths = {
   en: {
@@ -26,6 +26,8 @@ const externalConfiguratorPaths = {
     solar: "/solar-configurator/",
     hall: "/hall-configurator/",
     fence: "/fence-configurator/",
+    cardbox: "/cardbox-configurator/",
+    chair: "/chair-configurator/",
   },
   ro: {
     window: "/configurator-ferestre/",
@@ -34,6 +36,8 @@ const externalConfiguratorPaths = {
     solar: "/configurator-solar/",
     hall: "/configurator-hala/",
     fence: "/configurator-garduri/",
+    cardbox: "/configurator-cutii-carton/",
+    chair: "/configurator-scaune/",
   },
   de: {
     window: "/fenster-konfigurator/",
@@ -42,6 +46,8 @@ const externalConfiguratorPaths = {
     solar: "/solar-konfigurator/",
     hall: "/hallen-konfigurator/",
     fence: "/zaun-konfigurator/",
+    cardbox: "/karton-konfigurator/",
+    chair: "/stuhl-konfigurator/",
   },
 };
 
@@ -61,6 +67,7 @@ function sitemapUrls(locale) {
     `${origin}/about`,
     `${origin}/contact`,
     `${origin}/pricing`,
+    `${origin}/book-a-demo`,
     ...marketingConfiguratorSlugs.map((slug) => `${origin}/configurators/${slug}`),
     ...externalConfiguratorSlugs.map((slug) => `${origin}${externalConfiguratorPaths[locale][slug]}`),
   ];

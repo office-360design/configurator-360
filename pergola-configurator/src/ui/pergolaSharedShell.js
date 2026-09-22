@@ -1,8 +1,8 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=33';
-import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=12';
-import { escapeHtml } from '../../../shared-ui/src/utils.js?v=12';
-import { pergolaT } from '../i18n.js';
-import { calculatePrice, formatMoney } from '../pricing.js';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=platform-19';
+import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=platform-18';
+import { escapeHtml } from '../../../shared-ui/src/utils.js?v=platform-18';
+import { pergolaT } from '../i18n.js?v=platform-18';
+import { calculatePrice, formatMoney } from '../pricing.js?v=platform-18';
 
 function cloneState(state) {
   if (typeof structuredClone === 'function') return structuredClone(state);
@@ -19,7 +19,7 @@ export function mountPergolaSharedShell({ store, ui, tenantContext = null }) {
     storagePrefix: 'pergola-configurator',
     brandSrc: tenantContext?.logoUrl || './assets/360CONFIGURATOR.png',
     brandAlt: tenantContext?.companyName || '360 Configurator',
-    capabilities: { viewAR: true, save: true, undo: true, reset: true, share: true },
+    capabilities: { viewAR: false, save: true, undo: true, reset: true, share: true },
     tools: {
       items: resolveSharedTools([
         'environment',
@@ -77,8 +77,9 @@ export function mountPergolaSharedShell({ store, ui, tenantContext = null }) {
         ui.setSidebarHidden(collapsed, { fromSharedShell: true });
       },
       onAccountAction(action) {
-        if (action === 'profile') ui.showModal(t('modal.profileTitle'), `<p>${escapeHtml(t('modal.profileBody'))}</p>`);
-        else if (action === 'help') ui.showModal(t('modal.helpTitle'), `<p>${escapeHtml(t('modal.helpBody'))}</p>`);
+        // Profile is now fully owned by the Common UI. Do not open the legacy
+        // Pergola placeholder modal behind it.
+        if (action === 'help') ui.showModal(t('modal.helpTitle'), `<p>${escapeHtml(t('modal.helpBody'))}</p>`);
         else if (action === 'cookies') ui.showToast(t('feedback.cookiesUnavailable'));
       },
       onToolAction({ toolId }) {

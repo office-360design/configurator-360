@@ -29,6 +29,18 @@ const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    if (url.pathname === "/api/region-defaults") {
+      const countryCode = String((request as Request & { cf?: { country?: string | null } }).cf?.country || request.headers.get("CF-IPCountry") || "").trim().toUpperCase();
+      return new Response(JSON.stringify({ countryCode }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "private, no-store, max-age=0",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {

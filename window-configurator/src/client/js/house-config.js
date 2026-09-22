@@ -1,4 +1,4 @@
-import { HOUSE_HEIGHT_SWITCH_M, HOUSE_WIDTH_SWITCH_M } from './config.js';
+import { HOUSE_HEIGHT_SWITCH_M, HOUSE_WIDTH_SWITCH_M } from './config.js?v=platform-18';
 
 const SMALL_HOUSE_DIMENSIONS = Object.freeze({
     width: 2.0,

@@ -1,0 +1,133 @@
+{
+  "version": "20260910-pergola-materials-17",
+  "requires": "accepted Window polymers-16 update and preceding releases on main(13)",
+  "baseline": {
+    "mainArchive": "configurator-360-main(13).zip",
+    "mainSha256": "88b1e29bb00ea69fbdac34a6095656d66964d97e703988a30a7d6154abeddf19",
+    "lastPatch": "configurator_window_plastic_rubber_materials_20260909.zip",
+    "lastPatchSha256": "f88ee759af1bf8cc1c04c6eec49e353d5b46d58298885684dd96cf7e29270a25"
+  },
+  "scope": "Shared material additions and Pergola rendering integration; no Window source files or product geometry changes.",
+  "changedFiles": [
+    {
+      "path": "commit_message.md",
+      "bytes": 562,
+      "sha256": "5fefe5269dcb6e58b26f6717826ccfcaa3e9e933e9bac0cdd12b28a7abb5dfdc"
+    },
+    {
+      "path": "package.json",
+      "bytes": 4766,
+      "sha256": "ceafcaf83d6eda4747f99bd7c7c763eccc2ac40a41cf0a9f9314a6f0f6411569"
+    },
+    {
+      "path": "pergola-configurator/package.json",
+      "bytes": 942,
+      "sha256": "2a25653d7a04137b0a68484ee43aa72e69c3c41898a17af49155952c35701952"
+    },
+    {
+      "path": "pergola-configurator/src/main.js",
+      "bytes": 2354,
+      "sha256": "f2ee7e38e7413afdd97c2d0b8860267bf686071f09c83febbfdd30046e1faf5e"
+    },
+    {
+      "path": "pergola-configurator/src/scene/PergolaScene.js",
+      "bytes": 28487,
+      "sha256": "36618b97b4aec73016e749b70537717d4fe17d60dc3fb66c5eedd0c048a0317d"
+    },
+    {
+      "path": "pergola-configurator/src/scene/buildPergola.js",
+      "bytes": 31890,
+      "sha256": "4e6c24bdd331d2d0b70cdb53ad25fa6b84238bc378f21a772191e5944959f7bd"
+    },
+    {
+      "path": "pergola-configurator/src/scene/pergolaMaterials.js",
+      "bytes": 6992,
+      "sha256": "f81e8decd3ffa736d53462710d3d1458450d6e5db15961ad5dd6d1ba9d471591"
+    },
+    {
+      "path": "shared-3d/PERGOLA_MATERIALS.md",
+      "bytes": 7524,
+      "sha256": "5fb63cb2b247ea1ad70e9fdd2b82cbd5e261883fc4842c05a7bf9396de82c957"
+    },
+    {
+      "path": "shared-3d/PERGOLA_MATERIALS_RESULTS.json",
+      "bytes": 7511,
+      "sha256": "a5a6d8d07c325e9cda960f5478007ffb95e05988eaa3041cde8a826c2496a007"
+    },
+    {
+      "path": "shared-3d/PERGOLA_MATERIALS_VALIDATION.md",
+      "bytes": 4809,
+      "sha256": "c50456c5a24ca4099a1ca176927735fb3bab645c0db7324350b9de9fe17d7c76"
+    },
+    {
+      "path": "shared-3d/README.md",
+      "bytes": 6034,
+      "sha256": "72e3279953a23cad8be0aa6858c4f836b00cb4ea810b5ebafb7bf1c1dfe37d8c"
+    },
+    {
+      "path": "shared-3d/src/createSurfaceSystem.js",
+      "bytes": 8247,
+      "sha256": "0c4501cfff86edc92728a6e94b1f0eec5c90624eb9893248fd91cfbd17154776"
+    },
+    {
+      "path": "shared-3d/src/index.js",
+      "bytes": 1645,
+      "sha256": "f166ca35c9410864817d5fea6d9446dff4321e37f85e5ff05c4a21400b467642"
+    },
+    {
+      "path": "shared-3d/src/materials/MaterialLibrary.js",
+      "bytes": 11777,
+      "sha256": "d4f042e626ee8219fdc9feb5966b64b9d956c6389ddcc97937dde4540b395211"
+    },
+    {
+      "path": "shared-3d/src/materials/SurfaceTextures.js",
+      "bytes": 6452,
+      "sha256": "23dcd65d4dea6db336364800501ac43f96f27240ef1c20a59ad4f4a5100a3ac1"
+    },
+    {
+      "path": "shared-3d/src/materials/fabricTextures.js",
+      "bytes": 2399,
+      "sha256": "cf941cb0d79e7d633ee45c63b9bbd56356d9c07fd5762726a6819e1906af4a96"
+    },
+    {
+      "path": "shared-3d/src/materials/presets.js",
+      "bytes": 4449,
+      "sha256": "9746696fd1f46b054c634ee6c71453a819bb6b957adaee1f84e639774247fb1c"
+    },
+    {
+      "path": "shared-3d/tests/fixtures/pergola-materials-approved-baseline.json",
+      "bytes": 34754,
+      "sha256": "62a318f39f4269ee60bb961e63dba29de510055c3ea0f96ac67b45310c9de870"
+    },
+    {
+      "path": "shared-3d/tests/helpers/pergolaMaterialFixtures.mjs",
+      "bytes": 2573,
+      "sha256": "b6f6fb9b032cc606f32a5668473af0f4938222cb58e27b024bdb1f77c1b52d80"
+    },
+    {
+      "path": "shared-3d/tests/pergola-integration.mjs",
+      "bytes": 3219,
+      "sha256": "7a95ee40b0518fc9043f5aad1d8e64d7f61c503cc5cf15f21fe60fe47cdb71dd"
+    },
+    {
+      "path": "shared-3d/tests/pergola-materials-browser.mjs",
+      "bytes": 10606,
+      "sha256": "63e5221b589d5162d796b3cc595600e591a33672d5388972d2ba554f2d739562"
+    },
+    {
+      "path": "shared-3d/tests/pergola-materials-preservation.mjs",
+      "bytes": 2021,
+      "sha256": "205963f2b46fea284eaae260f67647e5845ccb63783bf7a8390ce1274af6b249"
+    },
+    {
+      "path": "shared-3d/tests/pergola-materials.mjs",
+      "bytes": 9008,
+      "sha256": "7a9f3a99dd0daedfa47366db224d0b096b80e6d508e6e770d2c1e2654b8e8280"
+    },
+    {
+      "path": "shared-3d/tools/check_pergola_materials_release.mjs",
+      "bytes": 1094,
+      "sha256": "3016deec6671fbd5ab7b7cddff34e8cadae820e2a515490f2d43a08feb46ae2b"
+    }
+  ]
+}

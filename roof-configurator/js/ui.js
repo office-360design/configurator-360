@@ -1,5 +1,5 @@
-import { pitchRules } from './state.js?v=16';
-import { bomToCsv, calculateBom } from './bom.js?v=15';
+import { pitchRules } from './state.js?v=platform-18';
+import { bomToCsv, calculateBom } from './bom.js?v=platform-18';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -8,9 +8,9 @@ import {
   fromDisplayLength,
   normalizeUnits,
   toDisplayLength,
-} from './preferences.js?v=2';
+} from './preferences.js?v=platform-18';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=1';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=platform-18';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 

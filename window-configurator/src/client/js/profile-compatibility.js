@@ -5,7 +5,7 @@ import {
     getLegacyProfileSet,
     getLegacyProfileSets,
     getProfileCatalogEntry,
-} from './profile-catalog.js';
+} from './profile-catalog.js?v=platform-18';
 
 function normalizeThicknessMm(value, fallback = 24) {
     const parsed = Number(value);

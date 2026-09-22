@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { fitAssetToBox } from './AssetLibrary.js';
+import { createPergolaGeometry } from './pergolaGeometry.js?v=platform-18';
+import { createPergolaMaterialAdapter, PERGOLA_MATERIALS_VERSION } from './pergolaMaterials.js?v=platform-18';
+import { fitAssetToBox } from './AssetLibrary.js?v=platform-18';
 import {
   getBoundaryHeaterSegments,
   getHeaterConfig,
@@ -10,28 +12,10 @@ import {
   poleFaceIsAvailable,
   poleIsAvailable,
   segmentIsAvailable,
-} from '../state.js';
+} from '../state.js?v=platform-18';
 
 const METERS_PER_MM = 0.001;
 const SCREEN_TYPES = ['screen', 'motorized-screen'];
-
-function box(width, height, depth, material, options = {}) {
-  const geometry = new THREE.BoxGeometry(width, height, depth);
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.castShadow = options.castShadow ?? true;
-  mesh.receiveShadow = options.receiveShadow ?? true;
-  return mesh;
-}
-
-function cylinder(radius, height, material, radialSegments = 20) {
-  const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(radius, radius, height, radialSegments),
-    material,
-  );
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
-}
 
 function material(color, options = {}) {
   return new THREE.MeshStandardMaterial({
@@ -52,32 +36,34 @@ function cloneFittedAsset(assets, key, targetSize, alignY = 'center') {
   return fitAssetToBox(model, targetSize, { alignY });
 }
 
-function addPost(group, x, z, height, size, frameMaterial, premium) {
-  const post = box(size, height, size, frameMaterial);
+function addPost(geometry, group, x, z, height, size, frameMaterial, premium) {
+  const post = geometry.box(size, height, size, frameMaterial, { edgeFinish: 'aluminium.frame', axis: 'y', role: 'post' });
   post.position.set(x, height / 2, z);
   group.add(post);
 
-  const foot = box(size * 1.35, 0.025, size * 1.35, frameMaterial, {
-    castShadow: false,
+  const foot = geometry.box(size * 1.35, 0.025, size * 1.35, frameMaterial, {
+    castShadow: false, edgeFinish: 'aluminium.trim', axis: 'y', role: 'foot',
   });
   foot.position.set(x, 0.0125, z);
   group.add(foot);
 
   if (premium) {
-    const cap = box(size * 1.06, 0.045, size * 1.06, frameMaterial);
+    const cap = geometry.box(size * 1.06, 0.045, size * 1.06, frameMaterial, { edgeFinish: 'aluminium.trim', axis: 'y', role: 'post-cap' });
     cap.position.set(x, height - 0.0225, z);
     group.add(cap);
   }
 }
 
-function addBeam(group, position, dimensions, frameMaterial, premium) {
-  const beam = box(dimensions.x, dimensions.y, dimensions.z, frameMaterial);
+function addBeam(geometry, group, position, dimensions, frameMaterial, premium, finish = null) {
+  const beam = geometry.box(dimensions.x, dimensions.y, dimensions.z, frameMaterial, {
+    edgeFinish: 'aluminium.frame', axis: dimensions.x > dimensions.z ? 'x' : 'z', role: 'beam',
+  });
   beam.position.copy(position);
   group.add(beam);
 
   if (premium) {
-    const trimMaterial = material('#111719', { roughness: 0.3, metalness: 0.8 });
-    const trim = box(
+    const trimMaterial = finish ? finish.coated('#111719') : material('#111719', { roughness: 0.3, metalness: 0.8 });
+    const trim = geometry.box(
       Math.max(0.015, dimensions.x - 0.018),
       0.025,
       Math.max(0.015, dimensions.z - 0.018),
@@ -88,7 +74,7 @@ function addBeam(group, position, dimensions, frameMaterial, premium) {
   }
 }
 
-function addLouvers(group, state, width, depth, topY, louverMaterial) {
+function addLouvers(geometry, group, state, width, depth, topY, louverMaterial) {
   const orientation = state.roof.orientation;
   const tilt = THREE.MathUtils.degToRad(state.roof.louverTilt);
   const bladeWidth = state.model === 'lite' ? 0.115 : 0.135;
@@ -104,7 +90,7 @@ function addLouvers(group, state, width, depth, topY, louverMaterial) {
       const z = -usable / 2 + (index + 0.5) * (usable / count);
       pivot.position.set(0, topY, z);
       pivot.rotation.x = tilt;
-      const louver = box(width - margin * 2, thickness, bladeWidth, louverMaterial);
+      const louver = geometry.box(width - margin * 2, thickness, bladeWidth, louverMaterial, { edgeFinish: 'aluminium.louver', axis: 'x', role: 'louver' });
       pivot.add(louver);
       group.add(pivot);
     }
@@ -116,23 +102,23 @@ function addLouvers(group, state, width, depth, topY, louverMaterial) {
       const x = -usable / 2 + (index + 0.5) * (usable / count);
       pivot.position.set(x, topY, 0);
       pivot.rotation.z = -tilt;
-      const louver = box(bladeWidth, thickness, depth - margin * 2, louverMaterial);
+      const louver = geometry.box(bladeWidth, thickness, depth - margin * 2, louverMaterial, { edgeFinish: 'aluminium.louver', axis: 'z', role: 'louver' });
       pivot.add(louver);
       group.add(pivot);
     }
   }
 }
 
-function addDrainage(group, state, width, depth, height) {
+function addDrainage(geometry, group, state, width, depth, height, surfaces) {
   if (state.roof.drainage !== 'integrated') return;
 
-  const gutterMaterial = material('#151d20', { roughness: 0.4, metalness: 0.75 });
-  const gutter = box(width - 0.24, 0.06, 0.08, gutterMaterial);
+  const gutterMaterial = surfaces ? surfaces.create('aluminium.powderCoated', { color: '#151d20' }) : material('#151d20', { roughness: 0.4, metalness: 0.75 });
+  const gutter = geometry.box(width - 0.24, 0.06, 0.08, gutterMaterial, { edgeFinish: 'aluminium.trim', axis: 'x', role: 'gutter' });
   gutter.position.set(0, height - 0.19, depth / 2 - 0.13);
   group.add(gutter);
 
   if (state.model !== 'lite') {
-    const pipe = cylinder(0.024, height - 0.22, gutterMaterial, 12);
+    const pipe = geometry.cylinder(0.024, height - 0.22, gutterMaterial, 12);
     pipe.position.set(width / 2 - 0.085, (height - 0.22) / 2, depth / 2 - 0.085);
     group.add(pipe);
   }
@@ -164,16 +150,16 @@ function screenSettings(config) {
   };
 }
 
-function addScreen(container, transform, config, motorized, assets) {
+function addScreen(geometry, container, transform, config, motorized, assets, finish = null) {
   const settings = screenSettings(config);
-  const screenMaterial = material(settings.color, {
+  const screenMaterial = finish ? null : material(settings.color, {
     roughness: 0.86,
     metalness: 0.02,
     transparent: true,
     opacity: 0.72,
     side: THREE.DoubleSide,
   });
-  const cassetteMaterial = material('#202b30', { roughness: 0.42, metalness: 0.7 });
+  const cassetteMaterial = finish ? null : material('#202b30', { roughness: 0.42, metalness: 0.7 });
   const openness = THREE.MathUtils.clamp(settings.openness, 0, 100) / 100;
   const deployedHeight = transform.usableHeight * (1 - openness);
 
@@ -184,37 +170,38 @@ function addScreen(container, transform, config, motorized, assets) {
   );
   if (cassetteAsset) {
     cassetteAsset.position.set(0, transform.usableHeight / 2 - 0.055, 0);
+    if (finish) finish.style(cassetteAsset, name => /motor/i.test(name) ? finish.rigid('#202b30') : finish.coated('#202b30'));
     cassetteAsset.traverse((child) => {
       if (!child.isMesh) return;
-      child.material = cassetteMaterial.clone();
+      if (!finish) child.material = cassetteMaterial.clone();
       if (!motorized && /motor/i.test(child.name)) child.visible = false;
     });
     container.add(cassetteAsset);
   } else {
-    const cassette = box(transform.span, 0.11, 0.12, cassetteMaterial);
+    const cassette = geometry.box(transform.span, 0.11, 0.12, finish ? finish.coated('#202b30') : cassetteMaterial, { axis: 'x' });
     cassette.position.set(0, transform.usableHeight / 2 - 0.055, 0);
     container.add(cassette);
   }
 
   if (deployedHeight > 0.04) {
-    const fabric = box(transform.span - 0.08, deployedHeight, 0.018, screenMaterial, {
-      castShadow: false,
+    const fabric = geometry.box(transform.span - 0.08, deployedHeight, 0.018, finish ? finish.get('fabric.screen', { color: settings.color }) : screenMaterial, {
+      castShadow: false, ...(finish ? { axis: 'x', role: 'screen-fabric' } : {}),
     });
     fabric.position.set(0, transform.usableHeight / 2 - 0.11 - deployedHeight / 2, 0);
     container.add(fabric);
 
-    const bottomRail = box(transform.span - 0.06, 0.045, 0.045, cassetteMaterial);
+    const bottomRail = geometry.box(transform.span - 0.06, 0.045, 0.045, finish ? finish.coated('#202b30') : cassetteMaterial, { axis: 'x' });
     bottomRail.position.set(0, fabric.position.y - deployedHeight / 2, 0);
     container.add(bottomRail);
   }
 }
 
-function addPrivacyWall(container, transform, color) {
-  const slatMaterial = material(color, { roughness: 0.42, metalness: 0.72 });
+function addPrivacyWall(geometry, container, transform, color, surfaces) {
+  const slatMaterial = surfaces ? surfaces.create('aluminium.powderCoated', { color }) : material(color, { roughness: 0.42, metalness: 0.72 });
   const count = Math.max(8, Math.floor(transform.usableHeight / 0.14));
   const spacing = transform.usableHeight / count;
   for (let index = 0; index < count; index += 1) {
-    const slat = box(transform.span - 0.06, 0.075, 0.055, slatMaterial);
+    const slat = geometry.box(transform.span - 0.06, 0.075, 0.055, slatMaterial, { edgeFinish: 'aluminium.louver', axis: 'x', role: 'privacy-slat' });
     slat.position.set(0, -transform.usableHeight / 2 + spacing * (index + 0.5), 0);
     slat.rotation.x = THREE.MathUtils.degToRad(-18);
     container.add(slat);
@@ -222,11 +209,11 @@ function addPrivacyWall(container, transform, color) {
 }
 
 
-function addGlass(container, transform, frameMaterial) {
+function addGlass(geometry, container, transform, frameMaterial, surfaces) {
   const panelCount = Math.max(2, Math.round(transform.span / 1.25));
   const gap = 0.025;
   const panelWidth = (transform.span - gap * (panelCount - 1)) / panelCount;
-  const glassMaterial = material('#b9d9e4', {
+  const glassMaterial = surfaces ? surfaces.create('glass.clear', { thickness: 0.008 }) : material('#b9d9e4', {
     roughness: 0.06,
     metalness: 0.02,
     transparent: true,
@@ -235,7 +222,7 @@ function addGlass(container, transform, frameMaterial) {
   });
 
   for (let index = 0; index < panelCount; index += 1) {
-    const panel = box(panelWidth - 0.018, transform.usableHeight - 0.1, 0.018, glassMaterial, {
+    const panel = geometry.panel(panelWidth - 0.018, transform.usableHeight - 0.1, 0.018, glassMaterial, {
       castShadow: false,
     });
     panel.position.set(
@@ -245,12 +232,12 @@ function addGlass(container, transform, frameMaterial) {
     );
     container.add(panel);
 
-    const rail = box(0.025, transform.usableHeight - 0.06, 0.05, frameMaterial);
+    const rail = geometry.box(0.025, transform.usableHeight - 0.06, 0.05, frameMaterial, { edgeFinish: 'aluminium.trim', axis: 'y', role: 'glazing-rail' });
     rail.position.set(-transform.span / 2 + index * (panelWidth + gap), 0, 0);
     container.add(rail);
   }
 
-  const topRail = box(transform.span, 0.045, 0.07, frameMaterial);
+  const topRail = geometry.box(transform.span, 0.045, 0.07, frameMaterial, { edgeFinish: 'aluminium.trim', axis: 'x', role: 'glazing-rail' });
   topRail.position.y = transform.usableHeight / 2 - 0.0225;
   container.add(topRail);
   const bottomRail = topRail.clone();
@@ -258,7 +245,7 @@ function addGlass(container, transform, frameMaterial) {
   container.add(bottomRail);
 }
 
-function addSideClosings(group, state, width, depth, height, postSize, frameMaterial, assets) {
+function addSideClosings(geometry, group, state, width, depth, height, postSize, frameMaterial, assets, surfaces, finish = null) {
   const grid = getPoleGrid(state);
   grid.segments.forEach((segment) => {
     const config = getSideSegmentConfig(state, segment.id);
@@ -271,18 +258,22 @@ function addSideClosings(group, state, width, depth, height, postSize, frameMate
     container.rotation.y = transform.rotationY;
 
     if (SCREEN_TYPES.includes(config.type)) {
-      addScreen(container, transform, config, config.type === 'motorized-screen', assets);
+      addScreen(geometry, container, transform, config, config.type === 'motorized-screen', assets, finish);
     } else if (config.type === 'privacy-wall') {
-      addPrivacyWall(container, transform, config.privacyColor ?? state.roof.frameColor);
+      addPrivacyWall(geometry, container, transform, config.privacyColor ?? state.roof.frameColor, surfaces);
     } else if (config.type === 'glass') {
-      addGlass(container, transform, frameMaterial);
+      addGlass(geometry, container, transform, frameMaterial, surfaces);
     }
 
     group.add(container);
   });
 }
 
-function styleLedAsset(object, color) {
+function styleLedAsset(object, color, finish = null) {
+  if (finish) return finish.style(object, name => /diffuser/i.test(name)
+    ? finish.get('plastic.diffuser', { color, emissive: color, emissiveIntensity: 4.5 })
+    : finish.satin('#b8c0c3'));
+
   const ledColor = new THREE.Color(color);
   object.traverse((child) => {
     if (!child.isMesh) return;
@@ -304,7 +295,7 @@ function styleLedAsset(object, color) {
   });
 }
 
-function addPerimeterLed(group, width, depth, height, ledConfig, assets, night = false) {
+function addPerimeterLed(geometry, group, width, depth, height, ledConfig, assets, night = false, finish = null) {
   const y = height - 0.225;
   const offset = 0.105;
   const specifications = [
@@ -317,18 +308,18 @@ function addPerimeterLed(group, width, depth, height, ledConfig, assets, night =
   specifications.forEach(([size, position, rotationY]) => {
     const strip = cloneFittedAsset(assets, 'ledStrip', size);
     if (strip) {
-      styleLedAsset(strip, ledConfig.color);
+      styleLedAsset(strip, ledConfig.color, finish);
       strip.position.copy(position);
       strip.rotation.y = rotationY;
       group.add(strip);
     } else {
-      const fallbackMaterial = material(ledConfig.color, {
+      const fallbackMaterial = finish ? finish.get('plastic.diffuser', { color: ledConfig.color, emissive: ledConfig.color, emissiveIntensity: 4 }) : material(ledConfig.color, {
         roughness: 0.15,
         metalness: 0,
         emissive: ledConfig.color,
         emissiveIntensity: 4,
       });
-      const fallback = box(size.x, size.y, size.z, fallbackMaterial, { castShadow: false });
+      const fallback = geometry.box(size.x, size.y, size.z, fallbackMaterial, { castShadow: false });
       fallback.position.copy(position);
       fallback.rotation.y = rotationY;
       group.add(fallback);
@@ -341,7 +332,11 @@ function addPerimeterLed(group, width, depth, height, ledConfig, assets, night =
   });
 }
 
-function styleSpotlight(object) {
+function styleSpotlight(object, finish = null) {
+  if (finish) return finish.style(object, name => /lens/i.test(name)
+    ? finish.get('plastic.diffuser', { color: '#fff4c6', roughness: 0.12, emissive: '#ffdf7a', emissiveIntensity: 3 })
+    : finish.coated('#111719'));
+
   object.traverse((child) => {
     if (!child.isMesh) return;
     if (/lens/i.test(child.name)) {
@@ -357,11 +352,12 @@ function styleSpotlight(object) {
   });
 }
 
-function addSpotlights(group, state, coordinates, height, beamHeight, frameMaterial, assets, night = false) {
+function addSpotlights(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, night = false, surfaces = null, finish = null) {
   const railY = height - beamHeight - 0.022;
   const lightY = railY - 0.016;
-  const railMaterial = frameMaterial.clone();
-  railMaterial.color.offsetHSL(0, -0.02, 0.04);
+  // Allocate only when a rail is actually added; disabled spotlights must not
+  // leave an unattached managed material behind on every rebuild.
+  let railMaterial = null;
 
   getRoofRectangles(state).forEach((rectangle) => {
     const layout = getSpotlightRectangleLayout(state, rectangle.id);
@@ -381,6 +377,10 @@ function addSpotlights(group, state, coordinates, height, beamHeight, frameMater
     const safeMinZ = minZ < maxZ ? minZ : (frontLeft.z + backLeft.z) / 2;
     const safeMaxZ = minZ < maxZ ? maxZ : safeMinZ;
 
+    if (!railMaterial) {
+      railMaterial = surfaces ? surfaces.clone(frameMaterial) : frameMaterial.clone();
+      railMaterial.color.offsetHSL(0, -0.02, 0.04);
+    }
     const rowPositions = layout.usedRows <= 1
       ? [(safeMinZ + safeMaxZ) / 2]
       : Array.from({ length: layout.usedRows }, (_, index) => THREE.MathUtils.lerp(
@@ -390,7 +390,7 @@ function addSpotlights(group, state, coordinates, height, beamHeight, frameMater
       ));
 
     rowPositions.forEach((z) => {
-      const rail = box(Math.max(0.18, safeMaxX - safeMinX + 0.18), 0.035, 0.045, railMaterial);
+      const rail = geometry.box(Math.max(0.18, safeMaxX - safeMinX + 0.18), 0.035, 0.045, railMaterial, { axis: 'x' });
       rail.position.set((safeMinX + safeMaxX) / 2, railY, z);
       group.add(rail);
     });
@@ -411,11 +411,11 @@ function addSpotlights(group, state, coordinates, height, beamHeight, frameMater
         const z = rowPositions[row];
         const model = cloneFittedAsset(assets, 'spotlight', new THREE.Vector3(0.14, 0.065, 0.14));
         if (model) {
-          styleSpotlight(model);
+          styleSpotlight(model, finish);
           model.position.set(x, lightY, z);
           group.add(model);
         } else {
-          const body = cylinder(0.055, 0.035, material('#111719'), 20);
+          const body = geometry.cylinder(0.055, 0.035, finish ? finish.coated('#111719') : material('#111719'), 20);
           body.position.set(x, lightY, z);
           group.add(body);
         }
@@ -431,7 +431,10 @@ function addSpotlights(group, state, coordinates, height, beamHeight, frameMater
 }
 
 
-function styleHeater(object) {
+function styleHeater(object, finish = null) {
+  if (finish) return finish.style(object, name => /element/i.test(name)
+    ? finish.get('emitter.heater') : finish.coated('#171b1d'));
+
   object.traverse((child) => {
     if (!child.isMesh) return;
     if (/element/i.test(child.name)) {
@@ -447,28 +450,28 @@ function styleHeater(object) {
   });
 }
 
-function addHeaterBrackets(group, segment, heaterPosition, height, beamHeight, frameMaterial) {
+function addHeaterBrackets(geometry, group, segment, heaterPosition, height, beamHeight, frameMaterial, surfaces) {
   const beamBottom = height - beamHeight + 0.012;
   const heaterTop = heaterPosition.y + 0.095;
   const rodThickness = 0.022;
-  const hangerMaterial = frameMaterial.clone();
+  const hangerMaterial = surfaces ? surfaces.clone(frameMaterial) : frameMaterial.clone();
   hangerMaterial.color.offsetHSL(0, -0.03, 0.03);
 
   const alongX = segment.axis === 'horizontal';
-  const rail = box(alongX ? 0.76 : 0.045, rodThickness, alongX ? 0.045 : 0.76, hangerMaterial);
+  const rail = geometry.box(alongX ? 0.76 : 0.045, rodThickness, alongX ? 0.045 : 0.76, hangerMaterial, { axis: alongX ? 'x' : 'z' });
   rail.position.set(heaterPosition.x, heaterTop + 0.004, heaterPosition.z);
   group.add(rail);
 
   [-0.29, 0.29].forEach((offset) => {
     const x = heaterPosition.x + (alongX ? offset : 0);
     const z = heaterPosition.z + (alongX ? 0 : offset);
-    const rod = box(rodThickness, Math.max(0.03, beamBottom - heaterTop), rodThickness, hangerMaterial);
+    const rod = geometry.box(rodThickness, Math.max(0.03, beamBottom - heaterTop), rodThickness, hangerMaterial, { axis: 'y' });
     rod.position.set(x, (heaterTop + beamBottom) / 2, z);
     group.add(rod);
   });
 }
 
-function addHeaters(group, state, coordinates, height, beamHeight, frameMaterial, assets) {
+function addHeaters(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, surfaces, finish = null) {
   const faceOffset = 0.18;
   const heaterY = height - beamHeight - 0.235;
 
@@ -501,17 +504,22 @@ function addHeaters(group, state, coordinates, height, beamHeight, frameMaterial
       const position = center.clone().add(pose.offset);
       const heater = cloneFittedAsset(assets, 'heater', new THREE.Vector3(0.92, 0.18, 0.17));
       if (!heater) return;
-      styleHeater(heater);
+      styleHeater(heater, finish);
       heater.position.copy(position);
       heater.rotation.y = pose.rotationY;
       group.add(heater);
-      addHeaterBrackets(group, segment, position, height, beamHeight, frameMaterial);
+      addHeaterBrackets(geometry, group, segment, position, height, beamHeight, frameMaterial, surfaces);
     });
   });
 }
 
 
-function styleWeatherSensor(model, type) {
+function styleWeatherSensor(model, type, finish = null) {
+  if (finish) return finish.style(model, name => {
+    if (type === 'rain') return /grid/i.test(name) ? finish.satin('#e8eceb') : finish.rigid(/cap/i.test(name) ? '#e8eceb' : '#263238');
+    return /arm|mast/i.test(name) ? finish.satin(/arm/i.test(name) ? '#98a4a9' : '#222a2e') : finish.rigid('#222a2e');
+  });
+
   model.traverse((child) => {
     if (!child.isMesh) return;
     child.material = type === 'rain'
@@ -520,22 +528,22 @@ function styleWeatherSensor(model, type) {
   });
 }
 
-function addSensors(group, state, coordinates, height, postSize, assets) {
+function addSensors(geometry, group, state, coordinates, height, postSize, assets, finish = null) {
   const sensors = state.accessories.sensors;
-  const mountMaterial = material('#2b353a', { roughness: 0.38, metalness: 0.68 });
+  const mountMaterial = finish ? null : material('#2b353a', { roughness: 0.38, metalness: 0.68 });
 
   const addSensor = (type, key, size) => {
     const config = sensors[type];
     if (!config?.enabled || !config.pole || !coordinates[config.pole]) return;
     const pole = coordinates[config.pole];
     const plateSize = Math.max(0.16, postSize * 1.04);
-    const plate = box(plateSize, 0.025, plateSize, mountMaterial);
+    const plate = geometry.box(plateSize, 0.025, plateSize, finish ? finish.coated('#2b353a') : mountMaterial);
     plate.position.set(pole.x, height + 0.012, pole.z);
     group.add(plate);
 
     const sensor = cloneFittedAsset(assets, key, size, 'bottom');
     if (!sensor) return;
-    styleWeatherSensor(sensor, type);
+    styleWeatherSensor(sensor, type, finish);
     sensor.position.set(pole.x, height + 0.035, pole.z);
     group.add(sensor);
   };
@@ -585,7 +593,13 @@ function placeOnPole(model, base, face, height, postSize, depthOffset = 0.018) {
   model.rotation.y = faceRotation(face);
 }
 
-function styleSpeakerModel(model) {
+function styleSpeakerModel(model, finish = null) {
+  if (finish) return finish.style(model, name => {
+    if (/grille/i.test(name)) return finish.get('metal.coatedGrille');
+    if (/driver/i.test(name)) return finish.rubber('#3b454a');
+    return /bracket/i.test(name) ? finish.coated('#171d20') : finish.rigid('#171d20');
+  });
+
   model.traverse((child) => {
     if (!child.isMesh) return;
     child.material = material(/grille|driver/i.test(child.name) ? '#3b454a' : '#171d20', {
@@ -596,27 +610,27 @@ function styleSpeakerModel(model) {
 }
 
 
-function buildOutletModel(type) {
+function buildOutletModel(geometry, type, finish = null) {
   const outlet = new THREE.Group();
-  const plateMaterial = material('#f0f1ed', { roughness: 0.64, metalness: 0.06 });
-  const insertMaterial = material('#f7f7f4', { roughness: 0.58, metalness: 0.04 });
-  const holeMaterial = material('#1e2529', { roughness: 0.88, metalness: 0.02 });
+  const plateMaterial = finish ? finish.rigid('#f0f1ed') : material('#f0f1ed', { roughness: 0.64, metalness: 0.06 });
+  const insertMaterial = finish ? finish.rigid('#f7f7f4') : material('#f7f7f4', { roughness: 0.58, metalness: 0.04 });
+  const holeMaterial = finish ? finish.get('plastic.rigid', { color: '#1e2529', roughness: 0.88 }) : material('#1e2529', { roughness: 0.88, metalness: 0.02 });
 
-  const basePlate = box(0.108, 0.148, 0.012, plateMaterial, { castShadow: false });
+  const basePlate = geometry.box(0.108, 0.148, 0.012, plateMaterial, { castShadow: false });
   outlet.add(basePlate);
-  const innerPlate = box(0.082, 0.122, 0.006, insertMaterial, { castShadow: false });
+  const innerPlate = geometry.box(0.082, 0.122, 0.006, insertMaterial, { castShadow: false });
   innerPlate.position.z = 0.009;
   outlet.add(innerPlate);
 
   const addHoleCylinder = (radius, x, y) => {
-    const hole = cylinder(radius, 0.004, holeMaterial, 20);
+    const hole = geometry.cylinder(radius, 0.004, holeMaterial, 20);
     hole.rotation.z = Math.PI / 2;
     hole.position.set(x, y, 0.0135);
     outlet.add(hole);
   };
 
   const addHoleSlot = (w, h, x, y, rotation = 0) => {
-    const slot = box(w, h, 0.004, holeMaterial, { castShadow: false });
+    const slot = geometry.box(w, h, 0.004, holeMaterial, { castShadow: false });
     slot.position.set(x, y, 0.0135);
     slot.rotation.z = rotation;
     outlet.add(slot);
@@ -625,7 +639,7 @@ function buildOutletModel(type) {
   if (type === 'us') {
     const socketYs = [0.031, -0.031];
     socketYs.forEach((centerY) => {
-      const bezel = box(0.047, 0.043, 0.0035, material('#ebece8', { roughness: 0.55, metalness: 0.03 }), { castShadow: false });
+      const bezel = geometry.box(0.047, 0.043, 0.0035, finish ? finish.rigid('#ebece8') : material('#ebece8', { roughness: 0.55, metalness: 0.03 }), { castShadow: false });
       bezel.position.set(0, centerY, 0.0122);
       outlet.add(bezel);
       addHoleSlot(0.007, 0.018, -0.011, centerY + 0.002, 0);
@@ -633,20 +647,26 @@ function buildOutletModel(type) {
       addHoleCylinder(0.0045, 0, centerY - 0.010);
     });
   } else {
-    const bezel = box(0.055, 0.055, 0.0035, material('#ebece8', { roughness: 0.55, metalness: 0.03 }), { castShadow: false });
+    const bezel = geometry.box(0.055, 0.055, 0.0035, finish ? finish.rigid('#ebece8') : material('#ebece8', { roughness: 0.55, metalness: 0.03 }), { castShadow: false });
     bezel.position.set(0, 0.006, 0.0122);
     outlet.add(bezel);
     addHoleCylinder(0.0068, -0.015, 0.006);
     addHoleCylinder(0.0068, 0.015, 0.006);
     addHoleSlot(0.009, 0.018, 0, -0.012, 0);
-    const earthLip = box(0.038, 0.006, 0.003, material('#c8cbc7', { roughness: 0.6 }), { castShadow: false });
+    const earthLip = geometry.box(0.038, 0.006, 0.003, finish ? finish.satin('#c8cbc7') : material('#c8cbc7', { roughness: 0.6 }), { castShadow: false });
     earthLip.position.set(0, 0.032, 0.012);
     outlet.add(earthLip);
   }
   return outlet;
 }
 
-function styleAutomationAsset(model) {
+function styleAutomationAsset(model, finish = null) {
+  if (finish) return finish.style(model, name => {
+    if (/grip/i.test(name)) return finish.rubber('#566168');
+    if (/metal|rod|eye|elbow/i.test(name)) return finish.satin('#566168');
+    return finish.rigid(/button|switch_up|switch_down/i.test(name) ? '#0878c9' : /face/i.test(name) ? '#eceeea' : '#566168');
+  });
+
   model.traverse((child) => {
     if (!child.isMesh) return;
     child.material = material(/button/i.test(child.name) ? '#0878c9' : /face/i.test(child.name) ? '#eceeea' : '#566168', {
@@ -656,15 +676,15 @@ function styleAutomationAsset(model) {
   });
 }
 
-function addMotorizedAutomation(group, state, width, depth, height) {
+function addMotorizedAutomation(geometry, group, state, width, depth, height, finish = null) {
   if (state.automation === 'manual') return;
-  const motorMaterial = material('#111719', { roughness: 0.35, metalness: 0.75 });
-  const motor = box(0.34, 0.13, 0.13, motorMaterial);
+  const motorMaterial = finish ? finish.coated('#111719') : material('#111719', { roughness: 0.35, metalness: 0.75 });
+  const motor = geometry.box(0.34, 0.13, 0.13, motorMaterial);
   motor.position.set(width / 2 - 0.32, height - 0.11, -depth / 2 + 0.13);
   group.add(motor);
 }
 
-function addPoleMounts(group, state, width, depth, height, postSize, assets) {
+function addPoleMounts(geometry, group, state, width, depth, height, postSize, assets, finish = null) {
   const coordinates = poleCoordinates(state, width, depth, postSize);
 
   Object.entries(state.poleMounts ?? {}).forEach(([pole, faces]) => {
@@ -679,18 +699,18 @@ function addPoleMounts(group, state, width, depth, height, postSize, assets) {
 
         if (mount.type === 'speaker') {
           model = cloneFittedAsset(assets, 'speaker', new THREE.Vector3(0.17, 0.24, 0.16));
-          if (model) styleSpeakerModel(model);
+          if (model) styleSpeakerModel(model, finish);
           depthOffset = 0.045;
         } else if (mount.type === 'outlet') {
-          model = buildOutletModel(mount.outletType === 'us' ? 'us' : 'eu');
+          model = buildOutletModel(geometry, mount.outletType === 'us' ? 'us' : 'eu', finish);
           depthOffset = 0.006;
         } else if (mount.type === 'hand-crank') {
           model = cloneFittedAsset(assets, 'handCrank', new THREE.Vector3(0.23, 0.78, 0.12));
-          if (model) styleAutomationAsset(model);
+          if (model) styleAutomationAsset(model, finish);
           depthOffset = 0.07;
         } else if (mount.type === 'switch') {
           model = cloneFittedAsset(assets, 'wallSwitch', new THREE.Vector3(0.085, 0.14, 0.045));
-          if (model) styleAutomationAsset(model);
+          if (model) styleAutomationAsset(model, finish);
           depthOffset = 0.025;
         }
 
@@ -703,7 +723,9 @@ function addPoleMounts(group, state, width, depth, height, postSize, assets) {
 }
 
 
-export function buildPergola(state, assets = null) {
+export function buildPergola(state, assets = null, surfaces = null, geometryLibrary = null) {
+  const geometry = createPergolaGeometry(geometryLibrary);
+  const finish = createPergolaMaterialAdapter(surfaces);
   const group = new THREE.Group();
   group.name = 'Pergola';
 
@@ -715,11 +737,11 @@ export function buildPergola(state, assets = null) {
   const postSize = state.model === 'lite' ? 0.115 : state.model === 'comfort' ? 0.135 : 0.15;
   const beamHeight = state.model === 'lite' ? 0.16 : state.model === 'comfort' ? 0.19 : 0.215;
   const beamDepth = state.model === 'lite' ? 0.13 : 0.155;
-  const frameMaterial = material(state.roof.frameColor, {
+  const frameMaterial = surfaces ? surfaces.create('aluminium.powderCoated', { color: state.roof.frameColor }) : material(state.roof.frameColor, {
     roughness: 0.36,
     metalness: 0.78,
   });
-  const louverMaterial = material(state.roof.louverColor, {
+  const louverMaterial = surfaces ? surfaces.create('aluminium.powderCoated', { color: state.roof.louverColor }) : material(state.roof.louverColor, {
     roughness: 0.38,
     metalness: 0.72,
   });
@@ -728,36 +750,37 @@ export function buildPergola(state, assets = null) {
   const coordinates = poleCoordinates(state, width, depth, postSize);
   Object.entries(coordinates).forEach(([key, position]) => {
     if (!poleIsAvailable(state, key)) return;
-    addPost(group, position.x, position.z, height, postSize, frameMaterial, isPremium);
+    addPost(geometry, group, position.x, position.z, height, postSize, frameMaterial, isPremium);
   });
 
   const beamY = height - beamHeight / 2;
   for (let row = 0; row < grid.rows; row += 1) {
     const rowPole = grid.poles.find((item) => item.row === row && item.column === 0);
     const z = coordinates[rowPole?.id]?.z ?? 0;
-    addBeam(group, new THREE.Vector3(0, beamY, z), new THREE.Vector3(width, beamHeight, beamDepth), frameMaterial, isPremium);
+    addBeam(geometry, group, new THREE.Vector3(0, beamY, z), new THREE.Vector3(width, beamHeight, beamDepth), frameMaterial, isPremium, finish);
   }
   for (let column = 0; column < grid.columns; column += 1) {
     const columnPole = grid.poles.find((item) => item.row === 0 && item.column === column);
     const x = coordinates[columnPole?.id]?.x ?? 0;
-    addBeam(group, new THREE.Vector3(x, beamY, 0), new THREE.Vector3(beamDepth, beamHeight, depth), frameMaterial, isPremium);
+    addBeam(geometry, group, new THREE.Vector3(x, beamY, 0), new THREE.Vector3(beamDepth, beamHeight, depth), frameMaterial, isPremium, finish);
   }
 
-  addLouvers(group, state, width, depth, height - beamHeight - 0.015, louverMaterial);
-  addDrainage(group, state, width, depth, height);
-  addSideClosings(group, state, width, depth, height, postSize, frameMaterial, assets);
-  addMotorizedAutomation(group, state, width, depth, height);
+  addLouvers(geometry, group, state, width, depth, height - beamHeight - 0.015, louverMaterial);
+  addDrainage(geometry, group, state, width, depth, height, surfaces);
+  addSideClosings(geometry, group, state, width, depth, height, postSize, frameMaterial, assets, surfaces, finish);
+  addMotorizedAutomation(geometry, group, state, width, depth, height, finish);
 
   const isNight = Boolean(state.environment?.night);
   if (state.accessories.perimeterLed.enabled) {
-    addPerimeterLed(group, width, depth, height, state.accessories.perimeterLed, assets, isNight);
+    addPerimeterLed(geometry, group, width, depth, height, state.accessories.perimeterLed, assets, isNight, finish);
   }
-  addSpotlights(group, state, coordinates, height, beamHeight, frameMaterial, assets, isNight);
-  addHeaters(group, state, coordinates, height, beamHeight, frameMaterial, assets);
-  addSensors(group, state, coordinates, height, postSize, assets);
-  addPoleMounts(group, state, width, depth, height, postSize, assets);
+  addSpotlights(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, isNight, surfaces, finish);
+  addHeaters(geometry, group, state, coordinates, height, beamHeight, frameMaterial, assets, surfaces, finish);
+  addSensors(geometry, group, state, coordinates, height, postSize, assets, finish);
+  addPoleMounts(geometry, group, state, width, depth, height, postSize, assets, finish);
 
   group.userData.dimensions = { width, depth, height };
   group.userData.postSize = postSize;
+  if (finish) group.userData.pergolaMaterials = PERGOLA_MATERIALS_VERSION;
   return group;
 }

@@ -6,7 +6,7 @@ import {
   originIsPotentiallyAllowed,
   quotaErrorPayload,
   resolveSolarRequestContext,
-} from './tenantUsage.mjs';
+} from './tenantUsage.mjs?v=platform-18';
 
 const PVGIS_BASE = 'https://re.jrc.ec.europa.eu/api/v5_3/';
 const CACHE_PREFIX = 'pvgis-cache-v1';

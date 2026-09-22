@@ -1,11 +1,11 @@
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { normalizeHexColour } from './config.js';
-import { simplifyProfileShape } from './geometry-utils.js';
+import { normalizeHexColour } from './config.js?v=platform-18';
+import { simplifyProfileShape } from './geometry-utils.js?v=platform-18';
 import {
     collapseProfileShapes,
     extractFilledSvgShapes,
     mapProfileShapes,
-} from './svg-profile-shapes.js';
+} from './svg-profile-shapes.js?v=platform-18';
 import {
     DEFAULT_GASKET_PROFILE_ID,
     DEFAULT_GLAZING_BEAD_PROFILE_ID,
@@ -15,7 +15,12 @@ import {
     getProfileCatalogEntry,
     getSelectableGasketProfileIds,
     getStandaloneProfileMetadataUrl,
-} from './profile-catalog.js';
+} from './profile-catalog.js?v=platform-18';
+import {
+    markCadLoading,
+    measureCadLoading,
+    measureCadLoadingSync,
+} from './loading-trace.js?v=loading-timing-1';
 
 const GLAZING_BEAD_CODES = getGlazingBeadProfileIds().filter(
     code => code !== DEFAULT_GLAZING_BEAD_PROFILE_ID
@@ -23,6 +28,14 @@ const GLAZING_BEAD_CODES = getGlazingBeadProfileIds().filter(
 const GASKET_CODES = getSelectableGasketProfileIds().filter(
     code => code !== DEFAULT_GASKET_PROFILE_ID
 );
+
+const CANONICAL_ACCESSORY_PROFILE_FOLDER = '2_6_Oeffnungselemnt_Vertikal';
+const CANONICAL_SHARED_ACCESSORY_CODES = new Set([
+    '224350',
+    '224379',
+    '573920',
+    '573930',
+]);
 
 function getProfileRole(profileClass) {
     if (profileClass === 'outer-frame') return 'frame';
@@ -169,11 +182,27 @@ export function createProfileLoader() {
     const svgLoader = new SVGLoader();
     const profileCache = new Map();
     const standaloneProfileCache = new Map();
+    const svgLoadCache = new Map();
+    const profileMetadataCache = new Map();
+    const accessoryShapeCache = new Map();
 
     function loadSvg(url) {
-        return new Promise((resolve, reject) => {
-            svgLoader.load(url, resolve, null, reject);
-        });
+        if (!svgLoadCache.has(url)) {
+            const request = measureCadLoading(
+                `SVG fetch + SVGLoader parse: ${url}`,
+                () => new Promise((resolve, reject) => {
+                    svgLoader.load(url, resolve, null, reject);
+                }),
+                { url }
+            );
+            svgLoadCache.set(url, request);
+            request.catch(() => {
+                if (svgLoadCache.get(url) === request) {
+                    svgLoadCache.delete(url);
+                }
+            });
+        }
+        return svgLoadCache.get(url);
     }
 
     async function loadFirstAvailableSvg(urls) {
@@ -192,40 +221,124 @@ export function createProfileLoader() {
         );
     }
 
-    async function loadCatalogAccessoryShapes(profileFolder, code, section) {
-        const candidates = getLegacySvgCandidates(code, profileFolder, section);
-        if (!candidates.length) {
-            throw new Error(`No legacy SVG candidates are cataloged for profile ${code}.`);
-        }
-
-        const data = await loadFirstAvailableSvg(candidates);
-        const shapes = extractFilledSvgShapes(data);
-        const filename = candidates[0].split('/').pop();
-
-        if (!shapes.length) {
-            throw new Error(`No filled profile shape was found in ${filename}.`);
-        }
-
-        return collapseProfileShapes(shapes);
+    function translateShapeInPlace(shape, dx, dy) {
+        const translateVector = vector => {
+            if (vector?.isVector2) {
+                vector.x += dx;
+                vector.y += dy;
+            }
+        };
+        const translateCurve = curve => {
+            ['v0', 'v1', 'v2', 'v3'].forEach(key => translateVector(curve?.[key]));
+            if (Array.isArray(curve?.points)) curve.points.forEach(translateVector);
+            if (Number.isFinite(curve?.aX)) curve.aX += dx;
+            if (Number.isFinite(curve?.aY)) curve.aY += dy;
+        };
+        const translatePath = path => {
+            path?.curves?.forEach(translateCurve);
+            translateVector(path?.currentPoint);
+            path?.holes?.forEach(translatePath);
+        };
+        translatePath(shape);
+        return shape;
     }
 
-    async function loadGasketShapes(profileFolder, code, section) {
-        return loadCatalogAccessoryShapes(profileFolder, code, section);
+    function translateProfileShapes(shapeOrShapes, dx, dy) {
+        if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return shapeOrShapes;
+        if (Array.isArray(shapeOrShapes)) {
+            return shapeOrShapes.map(shape => translateShapeInPlace(shape.clone(), dx, dy));
+        }
+        return shapeOrShapes ? translateShapeInPlace(shapeOrShapes.clone(), dx, dy) : shapeOrShapes;
     }
 
-    async function loadGlazingBeadShapes(profileFolder, code, section) {
-        return loadCatalogAccessoryShapes(profileFolder, code, section);
+    async function loadProfileMetadata(profileFolder) {
+        if (!profileMetadataCache.has(profileFolder)) {
+            const request = measureCadLoading(
+                `Legacy profile metadata fetch+JSON: ${profileFolder}`,
+                async () => {
+                    const response = await fetch(`svg/${profileFolder}/metadata.json`);
+                    if (!response.ok) {
+                        throw new Error(`Metadata request failed with HTTP ${response.status}`);
+                    }
+                    return response.json();
+                },
+                { profileFolder }
+            );
+            profileMetadataCache.set(profileFolder, request);
+            request.catch(() => {
+                if (profileMetadataCache.get(profileFolder) === request) {
+                    profileMetadataCache.delete(profileFolder);
+                }
+            });
+        }
+        return profileMetadataCache.get(profileFolder);
+    }
+
+    async function loadCatalogAccessoryShapes(profileFolder, code, section, targetMetadata) {
+        const useCanonicalGeometry = profileFolder !== CANONICAL_ACCESSORY_PROFILE_FOLDER
+            && CANONICAL_SHARED_ACCESSORY_CODES.has(String(code));
+        const geometryFolder = useCanonicalGeometry
+            ? CANONICAL_ACCESSORY_PROFILE_FOLDER
+            : profileFolder;
+        const geometryCacheKey = `${geometryFolder}|${code}|${section}`;
+
+        if (!accessoryShapeCache.has(geometryCacheKey)) {
+            const request = measureCadLoading(
+                `Accessory shape extraction: ${geometryFolder} / ${code} / ${section}`,
+                async () => {
+                    const candidates = getLegacySvgCandidates(code, geometryFolder, section);
+                    if (!candidates.length) {
+                        throw new Error(`No legacy SVG candidates are cataloged for profile ${code}.`);
+                    }
+
+                    const data = await loadFirstAvailableSvg(candidates);
+                    const shapes = extractFilledSvgShapes(data);
+                    const filename = candidates[0].split('/').pop();
+
+                    if (!shapes.length) {
+                        throw new Error(`No filled profile shape was found in ${filename}.`);
+                    }
+
+                    return collapseProfileShapes(shapes);
+                },
+                { profileFolder: geometryFolder, code, section }
+            );
+            accessoryShapeCache.set(geometryCacheKey, request);
+            request.catch(() => {
+                if (accessoryShapeCache.get(geometryCacheKey) === request) {
+                    accessoryShapeCache.delete(geometryCacheKey);
+                }
+            });
+        }
+
+        const canonicalShapes = await accessoryShapeCache.get(geometryCacheKey);
+        if (!useCanonicalGeometry) return canonicalShapes;
+
+        const sourceMetadata = await loadProfileMetadata(CANONICAL_ACCESSORY_PROFILE_FOLDER);
+        const target = targetMetadata || await loadProfileMetadata(profileFolder);
+        const dx = Number(target?.globalCenterX || 0) - Number(sourceMetadata?.globalCenterX || 0);
+        const sourceY = section === 'bottom'
+            ? Number(sourceMetadata?.globalMinY || 0)
+            : Number(sourceMetadata?.globalMaxY || 0);
+        const targetY = section === 'bottom'
+            ? Number(target?.globalMinY || 0)
+            : Number(target?.globalMaxY || 0);
+        // SVG Y is inverted relative to the source CAD Y axis.
+        const dy = -(targetY - sourceY);
+        return translateProfileShapes(canonicalShapes, dx, dy);
+    }
+
+    async function loadGasketShapes(profileFolder, code, section, metadata) {
+        return loadCatalogAccessoryShapes(profileFolder, code, section, metadata);
+    }
+
+    async function loadGlazingBeadShapes(profileFolder, code, section, metadata) {
+        return loadCatalogAccessoryShapes(profileFolder, code, section, metadata);
     }
 
     async function loadProfilePart(profileFolder, metadata, part) {
         const url = `svg/${profileFolder}/${part.relativeUrl || part.filename}`;
         const data = await loadSvg(url);
-        const shapes = extractFilledSvgShapes(data);
-
-        if (!shapes.length) {
-            throw new Error(`No filled profile shape could be created from ${url}.`);
-        }
-
         const materialInfo = getPartMaterialInfo(part);
         const legacyComponentMetadata = createLegacyComponentMetadata({
             profileFolder,
@@ -236,7 +349,18 @@ export function createProfileLoader() {
             optimizedShape,
             sourceContourPoints,
             optimizedContourPoints,
-        } = optimizeLoadedShapes(shapes, materialInfo.materialKey);
+        } = measureCadLoadingSync(
+            `Legacy SVG shape processing: ${profileFolder} / ${part.blockName || part.filename || part.index}`,
+            () => {
+                const loadedShapes = extractFilledSvgShapes(data);
+                if (!loadedShapes.length) {
+                    throw new Error(`No filled profile shape could be created from ${url}.`);
+                }
+                const optimized = optimizeLoadedShapes(loadedShapes, materialInfo.materialKey);
+                return { shapes: loadedShapes, ...optimized };
+            },
+            { url, materialKey: materialInfo.materialKey }
+        );
 
         let baseExplode = 0.12;
         if (part.role === 'sash') {
@@ -260,7 +384,8 @@ export function createProfileLoader() {
                     beadShapes[beadCode] = await loadGlazingBeadShapes(
                         profileFolder,
                         beadCode,
-                        section
+                        section,
+                        metadata
                     );
                 } catch (error) {
                     console.warn(
@@ -286,7 +411,8 @@ export function createProfileLoader() {
                     gasketShapes[gasketCode] = await loadGasketShapes(
                         profileFolder,
                         gasketCode,
-                        section
+                        section,
+                        metadata
                     );
                 } catch (error) {
                     console.warn(
@@ -339,18 +465,22 @@ export function createProfileLoader() {
     }) {
         const url = `${baseUrl}/${component.svg}`;
         const data = await loadSvg(url);
-        const shapes = extractFilledSvgShapes(data);
-
-        if (!shapes.length) {
-            throw new Error(`No filled standalone profile shape could be created from ${url}.`);
-        }
-
         const materialInfo = getPartMaterialInfo(component);
         const {
             optimizedShape,
             sourceContourPoints,
             optimizedContourPoints,
-        } = optimizeLoadedShapes(shapes, materialInfo.materialKey);
+        } = measureCadLoadingSync(
+            `Standalone SVG shape processing: ${entry.id} / ${component.id || componentIndex}`,
+            () => {
+                const shapes = extractFilledSvgShapes(data);
+                if (!shapes.length) {
+                    throw new Error(`No filled standalone profile shape could be created from ${url}.`);
+                }
+                return optimizeLoadedShapes(shapes, materialInfo.materialKey);
+            },
+            { url, profileId: entry.id, materialKey: materialInfo.materialKey }
+        );
         const role = getProfileRole(entry.profileClass);
 
         let explodeOffset = role === 'sash' ? 0.26 : 0.12;
@@ -394,23 +524,27 @@ export function createProfileLoader() {
 
     async function getProfileDefinition(profileFolder) {
         if (profileCache.has(profileFolder)) {
+            markCadLoading(`Legacy profile definition cache hit: ${profileFolder}`);
             return profileCache.get(profileFolder);
         }
 
-        const response = await fetch(`svg/${profileFolder}/metadata.json`);
-        if (!response.ok) {
-            throw new Error(`Metadata request failed with HTTP ${response.status}`);
-        }
-
-        const metadata = await response.json();
-        const profiles = await Promise.all(
-            metadata.parts.map(part => loadProfilePart(profileFolder, metadata, part))
+        const metadata = await loadProfileMetadata(profileFolder);
+        const profiles = await measureCadLoading(
+            `Load all legacy profile parts: ${profileFolder}`,
+            () => Promise.all(
+                metadata.parts.map(part => loadProfilePart(profileFolder, metadata, part))
+            ),
+            { profileFolder, partCount: metadata.parts.length }
         );
 
         logContourOptimization(profileFolder, profiles);
 
         const definition = { metadata, profiles };
         profileCache.set(profileFolder, definition);
+        markCadLoading(`Legacy profile definition ready: ${profileFolder}`, {
+            profileFolder,
+            profileCount: profiles.length,
+        });
         return definition;
     }
 
@@ -422,32 +556,42 @@ export function createProfileLoader() {
         }
 
         if (standaloneProfileCache.has(entry.id)) {
+            markCadLoading(`Standalone profile definition cache hit: ${entry.id}`);
             return standaloneProfileCache.get(entry.id);
         }
 
-        const response = await fetch(metadataUrl);
-        if (!response.ok) {
-            throw new Error(
-                `Standalone metadata request for ${entry.id} failed with HTTP ${response.status}`
-            );
-        }
-
-        const rawMetadata = await response.json();
+        const rawMetadata = await measureCadLoading(
+            `Standalone profile metadata fetch+JSON: ${entry.id}`,
+            async () => {
+                const response = await fetch(metadataUrl);
+                if (!response.ok) {
+                    throw new Error(
+                        `Standalone metadata request for ${entry.id} failed with HTTP ${response.status}`
+                    );
+                }
+                return response.json();
+            },
+            { profileId: entry.id, metadataUrl }
+        );
         const components = rawMetadata.geometry?.components || [];
         if (!components.length) {
             throw new Error(`Standalone profile ${entry.id} contains no selectable components.`);
         }
 
         const baseUrl = metadataUrl.slice(0, metadataUrl.lastIndexOf('/'));
-        const profiles = await Promise.all(components.map((component, componentIndex) =>
-            loadStandaloneProfilePart({
-                entry,
-                metadata: rawMetadata,
-                component,
-                componentIndex,
-                baseUrl,
-            })
-        ));
+        const profiles = await measureCadLoading(
+            `Load all standalone profile parts: ${entry.id}`,
+            () => Promise.all(components.map((component, componentIndex) =>
+                loadStandaloneProfilePart({
+                    entry,
+                    metadata: rawMetadata,
+                    component,
+                    componentIndex,
+                    baseUrl,
+                })
+            )),
+            { profileId: entry.id, componentCount: components.length }
+        );
         const componentBounds = getComponentBounds(components);
         const metadata = {
             ...rawMetadata,
@@ -468,6 +612,10 @@ export function createProfileLoader() {
             catalogEntry: entry,
         };
         standaloneProfileCache.set(entry.id, definition);
+        markCadLoading(`Standalone profile definition ready: ${entry.id}`, {
+            profileId: entry.id,
+            profileCount: profiles.length,
+        });
         return definition;
     }
 

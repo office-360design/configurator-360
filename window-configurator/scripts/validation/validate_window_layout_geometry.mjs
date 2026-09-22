@@ -19,6 +19,14 @@ import {
     getEditableReentrantFramePlacement,
     getEditableFixedGlazingDividerCadTransform,
     getReentrantFillerTriangle,
+    getInsideHalfFrameTriangle,
+    getFrameInsideHalfFrameInset,
+    getRectangularDividerSetback,
+    getRectangularDividerEndNotchInset,
+    INTERSECTION_HOST_INNER_FACE_M,
+    INTERSECTION_MULLION_END_NOTCH_DEPTH_M,
+    INTERSECTION_MULLION_END_NOTCH_LENGTH_M,
+    RECTANGULAR_DIVIDER_SETBACK_M,
 } from '../../src/client/js/window-layout-geometry.js';
 
 import {
@@ -52,6 +60,40 @@ const metrics = getDividerCrossSectionMetrics({
 });
 assert(metrics.faceSpanMm === 88, 'Divider CAD X must become the visible face span.');
 assert(metrics.depthSpanMm === 65, 'Divider CAD Y must become the profile depth.');
+
+assert(
+    Math.abs(INTERSECTION_HOST_INNER_FACE_M - 0.025) < 1e-12,
+    'The real intersection host band must use the documented 25 mm inside half-frame / half-mullion face.'
+);
+assert(
+    Math.abs(INTERSECTION_MULLION_END_NOTCH_DEPTH_M - 0.005) < 1e-12,
+    'The real mullion end cut must use the documented 5 mm notch depth.'
+);
+assert(
+    Math.abs(getRectangularDividerSetback({
+        dividerFaceSpan: 0.088,
+        hostInnerFaceSpan: INTERSECTION_HOST_INNER_FACE_M,
+    }) - 0.019) < 1e-12
+        && Math.abs(RECTANGULAR_DIVIDER_SETBACK_M - 0.019) < 1e-12,
+    'The branch setback must be 88 / 2 - 25 = 19 mm.'
+);
+assert(
+    Math.abs(INTERSECTION_MULLION_END_NOTCH_LENGTH_M - 0.025) < 1e-12
+        && Math.abs(getRectangularDividerEndNotchInset({
+            sectionDepthFromOuterFace: 0,
+        }) - 0.025) < 1e-12
+        && Math.abs(getRectangularDividerEndNotchInset({
+            sectionDepthFromOuterFace: 0.0049,
+        }) - 0.025) < 1e-12
+        && getRectangularDividerEndNotchInset({
+            sectionDepthFromOuterFace: 0.0051,
+        }) === 0
+        && getRectangularDividerEndNotchInset({
+            sectionDepthFromOuterFace: 0.02,
+        }) === 0,
+    'The mullion end notch must remove 25 mm of length only from the outermost 5 mm section-depth flange.'
+);
+
 
 const mixedPlusContactStart = getFrameDividerMiterContactStart({
     dividerFaceSpan: 0.088,
@@ -736,12 +778,15 @@ assert(editableGeometry.junctions.length === 1 && editableGeometry.junctions[0].
         dividerFaceSpan: 0.088,
         frameJointInwardSpan: 0.065,
     });
+    const middleHostFillers = geometry.reentrantFillers.filter(filler =>
+        filler?.fillerKind === 'rectangular-host'
+        && filler?.sourceDividerId === middleHost?.id
+    );
     assert(
-        middlePlacement?.joint?.negativeEndMode === 'socket'
-            && middlePlacement?.joint?.positiveEndMode === 'socket'
-            && middlePlacement?.joint?.negativeSocketInwardSign === 1
-            && middlePlacement?.joint?.positiveSocketInwardSign === -1,
-        'The central mullion in a b / c b / c d must cut its lower T socket toward the east branch and its upper T socket toward the west branch independently.'
+        middlePlacement?.joint?.negativeEndMode === 'square'
+            && middlePlacement?.joint?.positiveEndMode === 'square'
+,
+        'The central host mullion in a b / c b / c d must stay square/continuous and own one local half-mullion filler at each branch T.'
     );
 
     // The same topology transposed by 90 degrees must mirror the rule for a
@@ -772,12 +817,15 @@ assert(editableGeometry.junctions.length === 1 && editableGeometry.junctions[0].
         dividerFaceSpan: 0.088,
         frameJointInwardSpan: 0.065,
     });
+    const rotatedHostFillers = rotatedGeometry.reentrantFillers.filter(filler =>
+        filler?.fillerKind === 'rectangular-host'
+        && filler?.sourceDividerId === rotatedMiddleHost?.id
+    );
     assert(
-        rotatedPlacement?.joint?.negativeEndMode === 'socket'
-            && rotatedPlacement?.joint?.positiveEndMode === 'socket'
-            && rotatedPlacement?.joint?.negativeSocketInwardSign === -1
-            && rotatedPlacement?.joint?.positiveSocketInwardSign === 1,
-        'Rotated merged T layouts must independently mirror the socket half at both ends of a horizontal host mullion.'
+        rotatedPlacement?.joint?.negativeEndMode === 'square'
+            && rotatedPlacement?.joint?.positiveEndMode === 'square'
+,
+        'Rotated merged T layouts must keep the horizontal host mullion square and create one mirrored half-mullion filler at each branch.'
     );
 }
 
@@ -1561,8 +1609,8 @@ function assertPartialMergedPerimeter({ windows, mergeA, mergeB, side, start, en
     );
     const addCandidate = topology.addCandidates.find(candidate => candidate.frameEdgeId === edge?.id);
     assert(
-        Boolean(addCandidate),
-        `${label} must keep the reconstructed frame line usable as an add-window edge.`
+        !addCandidate,
+        `${label} must not expose an add button on a partial L-shaped perimeter edge.`
     );
 
     const frameSpan = 0.075;
@@ -2881,6 +2929,48 @@ const fixedCell = (id, x0, y0, x1, y1) => ({
             && Math.abs(adjacentGeometry.overallWidth - 1.2) < 1e-9
             && Math.abs(adjacentGeometry.overallHeight - 0.9) < 1e-9,
         'Two default side-by-side windows must each remain 600 x 900 and make a 1200 x 900 outside layout.'
+    );
+
+    const adjacentDivider = adjacentGeometry.dividerSegments[0];
+    const adjacentDividerPlacement = getEditableDividerSegmentPlacement({
+        segment: adjacentDivider,
+        junctions: adjacentGeometry.physicalIntersections,
+        dividerFaceSpan,
+        frameJointInwardSpan: frameDepth,
+    });
+    assert(
+        Math.abs(adjacentDividerPlacement.length - (
+            adjacentDivider.length - RECTANGULAR_DIVIDER_SETBACK_M * 2
+        )) < 1e-9
+            && adjacentDividerPlacement.joint.negativeEndMode === 'square'
+            && adjacentDividerPlacement.joint.positiveEndMode === 'square'
+            && adjacentDividerPlacement.joint.negativeRectangularEndNotch === true
+            && adjacentDividerPlacement.joint.positiveRectangularEndNotch === true,
+        'A mullion between two side-by-side windows must stop 19 mm from both frame grid vertices and carry the 25 x 5 mm rectangular end cuts.'
+    );
+    assert(
+        adjacentGeometry.halfFrameFillers.length === 2
+            && adjacentGeometry.halfFrameFillers.every(filler => (
+                filler.pieceType === 'inside-half-frame'
+                && Math.abs(filler.innerFaceSpan - 0.025) < 1e-12
+                && Math.abs(filler.gridSetback - 0.019) < 1e-12
+                && filler.renderAsSeparateMesh === false
+            )),
+        'Perimeter T intersections must describe the 25 mm inside half-frame band without creating a triangular filler mesh.'
+    );
+    const adjacentTopFrame = adjacentGeometry.framePlacements.find(
+        placement => placement.side === 'top' && placement.windowCell === 'left-module'
+    );
+    const resolvedAdjacentTopFrame = getEditableReentrantFramePlacement({
+        placement: adjacentTopFrame,
+        perimeterJunctions: adjacentGeometry.perimeterJunctions,
+        frameInwardSpan: frameDepth,
+        dividerFaceSpan,
+    });
+    assert(
+        !Object.values(resolvedAdjacentTopFrame.frameJointModes || {}).includes('inside-half-frame')
+            && Object.values(resolvedAdjacentTopFrame.frameJointModes || {}).includes('square'),
+        'The real outer frame must remain flat/continuous at the mullion T instead of opening the old triangular inside-half-frame socket.'
     );
 
     const resizedAdjacentState = setWindowSizeInState(adjacentState, 'left-module', {

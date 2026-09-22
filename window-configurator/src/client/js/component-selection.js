@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getWindowLocale, windowT } from './i18n.js';
+import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 
 const POINTER_DRAG_THRESHOLD_PX = 5;
 const HIGHLIGHT_COLOUR = new THREE.Color(0x3b82f6);

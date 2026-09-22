@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MaterialLibrary } from '../shared-3d/src/index.js?v=polymers-16';
 import {
     ALUMINIUM_FINISH_CATALOG,
     FIXED_PROFILE_COLOURS,
@@ -7,20 +8,25 @@ import {
     getFinishDefinition,
     createFinishSelection,
     createRalFinishSelectionFromColour,
-} from './config.js';
-import { isDrainageCapProfile } from './profile-catalog.js';
-import { getWindowLocale, localizeFinishSelection, windowT } from './i18n.js';
+} from './config.js?v=platform-18';
+import { isDrainageCapProfile } from './profile-catalog.js?v=platform-18';
+import { getWindowPolymerSurface } from './window-polymer-materials.js?v=platform-18';
+import { getWindowLocale, localizeFinishSelection, windowT } from './i18n.js?v=platform-18';
 
 export function createMaterialManager({
+    surfaceLibrary = null,
     captureMode,
     pageParams,
     requestedColour,
     getProfilesData,
+    getSectionSampleProfilesData = () => [],
     hasCurrentMetadata,
     invalidateSectionSamples,
     renderGroupFilters,
     buildWindow,
 }) {
+    const surfaces = surfaceLibrary || new MaterialLibrary(THREE, { quality: captureMode ? 'low' : 'balanced' });
+
     function createFinishSelectionFromParams(side, fallbackSelection) {
         const type = pageParams.get(`${side}_finish_type`);
         const preset = pageParams.get(`${side}_finish_preset`);
@@ -28,6 +34,12 @@ export function createMaterialManager({
 
         if (!ALUMINIUM_FINISH_CATALOG[type]) {
             return fallbackSelection;
+        }
+
+        // A saved preset ID takes precedence over a nearest-color approximation.
+        // This also distinguishes named presets which happen to share a color.
+        if (preset && getFinishDefinition(type).presets.some(entry => entry.id === preset)) {
+            return createFinishSelection(type, preset);
         }
 
         if (type === 'coated' && colour) {
@@ -72,21 +84,9 @@ export function createMaterialManager({
         });
     }
 
-    const glassMat = createSurfaceMaterial({
-        color: 0x60a5fa,
-        transparent: true,
-        opacity: 0.25,
-        metalness: 0.9,
-        roughness: 0.1,
-        shininess: 90,
-    });
-
-    const handleMat = createSurfaceMaterial({
-        color: 0x1f2937,
-        metalness: 0.7,
-        roughness: 0.25,
-        shininess: 100,
-        side: THREE.FrontSide,
+    const glassMat = surfaces.create('glass.architectural', { thickness: 0.006 });
+    const handleMat = surfaces.create('aluminium.powderCoated', {
+        color: '#1f2937', roughness: 0.48, envMapIntensity: 0.82,
     });
 
     const profileMaterialCache = new Map();
@@ -130,6 +130,11 @@ export function createMaterialManager({
         if (debugColoursEnabled) {
             return normalizeHexColour(profile.baseCadColor)
                 || FIXED_PROFILE_COLOURS.default;
+        }
+        const polymer = getWindowPolymerSurface(profile);
+        if (polymer) {
+            if (polymer.inheritExteriorColor) return outsideFinishSelection.color;
+            return FIXED_PROFILE_COLOURS[polymer.colorKey] || surfaces.presets.get(polymer.id).color;
         }
         if (usesAluminiumFinish(profile)) {
             return getEffectiveAluminiumFinish(profile).color;
@@ -189,7 +194,8 @@ export function createMaterialManager({
 
     function getMaterialForProfile(profile) {
         const colour = getResolvedProfileColour(profile).toLowerCase();
-        const usesFinish = !debugColoursEnabled && usesAluminiumFinish(profile);
+        const polymer = !debugColoursEnabled ? getWindowPolymerSurface(profile) : null;
+        const usesFinish = !debugColoursEnabled && !polymer && usesAluminiumFinish(profile);
         const materialKey = usesFinish
             ? 'alu'
             : (materialPropertiesByKey[profile.materialKey] ? profile.materialKey : 'default');
@@ -198,15 +204,28 @@ export function createMaterialManager({
         const materialProperties = finish
             ? getFinishDefinition(finish.type).material
             : materialPropertiesByKey[materialKey];
-        const cacheKey = `${debugColoursEnabled ? 'debug' : 'finish'}:${materialKey}:${finishType}:${colour}`;
+        // Exterior-colour plastic caps share aluminium's invalidation bucket,
+        // but never its shader or finish response. Keep rigid/thermal/foam/seal
+        // variants separate even where CAD assigned them the same material key.
+        const cacheGroup = polymer?.inheritExteriorColor ? 'alu' : (polymer ? 'polymer' : materialKey);
+        const cacheKey = `${debugColoursEnabled ? 'debug' : 'finish'}:${cacheGroup}:${polymer?.id || finishType}:${colour}`;
 
         if (!profileMaterialCache.has(cacheKey)) {
             profileMaterialCache.set(
                 cacheKey,
-                createSurfaceMaterial({
-                    color: colour,
-                    ...materialProperties,
-                })
+                polymer
+                    ? surfaces.create(polymer.id, { color: colour, side: THREE.DoubleSide })
+                    : finish
+                    ? surfaces.create({
+                        mill: 'aluminium.bare',
+                        anodized: 'aluminium.anodized',
+                        coated: 'aluminium.powderCoated',
+                    }[finish.type] || 'aluminium.powderCoated', {
+                        color: colour, side: THREE.DoubleSide,
+                    })
+                    : (!debugColoursEnabled && materialKey === 'glass'
+                        ? surfaces.create('glass.architectural')
+                        : createSurfaceMaterial({ color: colour, ...materialProperties }))
             );
         }
 
@@ -273,7 +292,7 @@ export function createMaterialManager({
             button.type = 'button';
             button.className = `finish-swatch${selection.presetId === preset.id ? ' active' : ''}`;
             button.style.setProperty('--swatch-color', preset.color);
-            const presetLabel = windowT(
+            const presetLabel = preset.nameOverridden ? preset.name : windowT(
                 getWindowLocale(),
                 `finish.preset.${selection.type}.${preset.id}`
             );
@@ -281,15 +300,26 @@ export function createMaterialManager({
             button.setAttribute('aria-label', presetLabel);
             button.setAttribute('aria-pressed', selection.presetId === preset.id ? 'true' : 'false');
             button.addEventListener('click', () => {
+                const hadDebug = debugColoursEnabled;
+                debugColoursEnabled = false;
                 setFinishSelection(side, createFinishSelection(selection.type, preset.id));
                 syncFinishControls();
-                refreshAluminiumFinishMaterials();
+                if (hadDebug) {
+                    refreshAllProfileMaterials();
+                } else {
+                    refreshAluminiumFinishMaterials();
+                }
             });
             ui.swatches.appendChild(button);
         });
 
         if (ui.selectedName) {
-            ui.selectedName.textContent = localizeFinishSelection(getWindowLocale(), selection);
+            const selectedPreset = definition.presets.find(preset => preset.id === selection.presetId);
+            // Keep translations for untouched factory names, but never translate
+            // an admin's custom name back into an old hard-coded RAL label.
+            ui.selectedName.textContent = selectedPreset?.nameOverridden
+                ? selectedPreset.name
+                : localizeFinishSelection(getWindowLocale(), selection);
         }
     }
 
@@ -299,9 +329,13 @@ export function createMaterialManager({
         const insideCard = document.getElementById('insideFinishCard');
         const outsideTitle = document.getElementById('outsideFinishTitle');
         const debugButton = document.getElementById('debugColorsButton');
+        const debugToggle = document.getElementById('debugColorsToggle');
 
         sameButton?.classList.toggle('active', aluminiumFinishMode === 'same');
         differentButton?.classList.toggle('active', aluminiumFinishMode === 'different');
+        if (debugToggle) {
+            debugToggle.checked = debugColoursEnabled;
+        }
         if (debugButton) {
             debugButton.classList.toggle('active', debugColoursEnabled);
             debugButton.setAttribute('aria-pressed', debugColoursEnabled ? 'true' : 'false');
@@ -329,6 +363,11 @@ export function createMaterialManager({
                 profile.material = getMaterialForProfile(profile);
             }
         });
+        getSectionSampleProfilesData().forEach(profile => {
+            if (usesAluminiumFinish(profile)) {
+                profile.material = getMaterialForProfile(profile);
+            }
+        });
         invalidateSectionSamples();
 
         if (hasCurrentMetadata()) {
@@ -341,6 +380,9 @@ export function createMaterialManager({
     function refreshAllProfileMaterials() {
         clearAllCachedProfileMaterials();
         getProfilesData().forEach(profile => {
+            profile.material = getMaterialForProfile(profile);
+        });
+        getSectionSampleProfilesData().forEach(profile => {
             profile.material = getMaterialForProfile(profile);
         });
         invalidateSectionSamples();
@@ -374,18 +416,33 @@ export function createMaterialManager({
                     const nextType = button.dataset.finishType;
                     if (!ALUMINIUM_FINISH_CATALOG[nextType]) return;
                     const currentSelection = getFinishSelection(side);
-                    if (currentSelection.type === nextType) return;
+                    if (currentSelection.type === nextType && !debugColoursEnabled) return;
+                    const hadDebug = debugColoursEnabled;
+                    debugColoursEnabled = false;
                     setFinishSelection(side, createFinishSelection(nextType));
                     syncFinishControls();
-                    refreshAluminiumFinishMaterials();
+                    if (hadDebug) {
+                        refreshAllProfileMaterials();
+                    } else {
+                        refreshAluminiumFinishMaterials();
+                    }
                 });
             });
         }
 
-        document.getElementById('debugColorsButton')?.addEventListener('click', () => {
-            debugColoursEnabled = !debugColoursEnabled;
+        const handleDebugChange = (enabled) => {
+            if (debugColoursEnabled === enabled) return;
+            debugColoursEnabled = enabled;
             syncFinishControls();
             refreshAllProfileMaterials();
+        };
+
+        document.getElementById('debugColorsToggle')?.addEventListener('change', (e) => {
+            handleDebugChange(Boolean(e.target.checked));
+        });
+
+        document.getElementById('debugColorsButton')?.addEventListener('click', () => {
+            handleDebugChange(!debugColoursEnabled);
         });
 
         syncFinishControls();
@@ -431,9 +488,28 @@ export function createMaterialManager({
             finishConfigurationChanged = true;
         }
 
+        if (typeof configuration.debugColors === 'boolean') {
+            if (debugColoursEnabled !== configuration.debugColors) {
+                debugColoursEnabled = configuration.debugColors;
+                finishConfigurationChanged = true;
+            }
+        } else if (finishConfigurationChanged && (configuration.colour || configuration.insideColour || configuration.inside_colour)) {
+            debugColoursEnabled = false;
+        }
+
         if (finishConfigurationChanged) {
             configurationColour = outsideFinishSelection.color;
-            clearCachedAluminiumMaterials();
+            if (!debugColoursEnabled) {
+                clearAllCachedProfileMaterials();
+            } else {
+                clearCachedAluminiumMaterials();
+            }
+            getProfilesData().forEach(profile => {
+                profile.material = getMaterialForProfile(profile);
+            });
+            getSectionSampleProfilesData().forEach(profile => {
+                profile.material = getMaterialForProfile(profile);
+            });
             syncFinishControls();
             invalidateSectionSamples();
         }
@@ -456,6 +532,7 @@ export function createMaterialManager({
             aluminiumFinishMode,
             outsideFinishSelection,
             insideFinishSelection,
+            debugColoursEnabled,
         };
     }
 

@@ -1,9 +1,9 @@
-import { getLanguageProfile } from '../config.js';
-import { sharedT } from '../i18n.js?v=21';
-import { sharedIcon } from '../icons.js?v=19';
-import { escapeHtml } from '../utils.js';
-import { renderAccountMenu } from './accountMenu.js?v=18';
-import { renderLanguageMenu } from './languageMenu.js';
+import { getLanguageProfile } from '../config.js?v=platform-21';
+import { sharedT } from '../i18n.js?v=platform-21';
+import { sharedIcon } from '../icons.js?v=platform-21';
+import { escapeHtml } from '../utils.js?v=platform-21';
+import { renderAccountMenu } from './accountMenu.js?v=platform-21';
+import { renderLanguageMenu } from './languageMenu.js?v=platform-21';
 
 function iconButton({ action, label, icon, disabled = false, extraClass = '' }) {
   return `
@@ -58,7 +58,9 @@ function cartButton(locale, count = 0, open = false) {
 export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilities = {} }) {
   const locale = state.locale;
   const authenticated = Boolean(state.authUser?.uid);
-  const canViewAR = capabilities.viewAR !== false;
+  // AR is platform-disabled for now. Keep the button visible but grey/inert
+  // across every configurator so users get one consistent availability signal.
+  const canViewAR = false;
   const canSave = capabilities.save !== false && authenticated;
   const canNewConfiguration = capabilities.save !== false && authenticated;
   const canUndo = capabilities.undo !== false;
@@ -77,9 +79,14 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
 
   return `
     <header class="site-header">
-      <a class="brand" href="#" aria-label="${escapeHtml(labels.home)}">
-        <img src="${escapeHtml(brandSrc)}" alt="${escapeHtml(brandAlt)}" />
-      </a>
+      <div class="site-header__brand-cluster">
+        <a class="brand" href="#" aria-label="${escapeHtml(labels.home)}">
+          <img src="${escapeHtml(brandSrc)}" alt="${escapeHtml(brandAlt)}" />
+        </a>
+        <button class="book-demo-button" type="button" data-action="book-demo" aria-label="Book a demo">
+          <span class="book-demo-button__label">Book a demo</span>
+        </button>
+      </div>
 
       <div class="project-name-shell ${authenticated ? '' : 'is-guest'}">
         <span class="project-name-measure" data-project-name-measure aria-hidden="true">${escapeHtml(projectName)}</span>
@@ -101,7 +108,7 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
         </button>
       </div>
 
-      ${renderAccountMenu(state)}
+      ${renderAccountMenu(state, { profile: capabilities.profile !== false })}
       ${renderLanguageMenu(locale)}
     </header>
   `;

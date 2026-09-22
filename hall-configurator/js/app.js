@@ -1,10 +1,10 @@
-import { state, deriveHallMetrics } from './state.js?v=12';
-import { HallScene } from './scene.js?v=14';
-import { HallUI } from './ui.js?v=14';
-import { normalizeOpenings } from './openings.js?v=13';
-import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=1';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+import { state, deriveHallMetrics } from './state.js?v=platform-18';
+import { HallScene } from './scene.js?v=platform-18';
+import { HallUI } from './ui.js?v=platform-18';
+import { normalizeOpenings } from './openings.js?v=platform-18';
+import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=platform-18';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 
 await requireTenantConfiguratorAccess('hall');
 
@@ -51,6 +51,10 @@ function syncToolButtons() {
   setActive('compass', state.compassVisible);
   setActive('technical-edges', state.technicalEdges);
   setActive('explode', state.explode > 0);
+  const previewCladding = document.querySelector('#hallPreviewCladdingButton');
+  const previewExplode = document.querySelector('#hallPreviewExplodeButton');
+  previewCladding?.setAttribute('aria-pressed', String(Boolean(state.showCladding)));
+  previewExplode?.setAttribute('aria-pressed', String(state.explode > 0));
 }
 
 function rebuildNow({ fitCamera = false } = {}) {
@@ -195,6 +199,14 @@ function toggleTechnicalEdges() {
 function toggleExplode() {
   ui.setExplodeValue(state.explode > 0 ? 0 : 100);
 }
+
+document.querySelector('#hallPreviewCladdingButton')?.addEventListener('click', () => {
+  state.showCladding = !state.showCladding;
+  ui.applyStateToControls();
+  scene.applyDisplayState(state);
+  syncToolButtons();
+});
+document.querySelector('#hallPreviewExplodeButton')?.addEventListener('click', toggleExplode);
 
 function resetConfiguration() {
   environmentPanelOpen = false;

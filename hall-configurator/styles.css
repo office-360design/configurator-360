@@ -39,6 +39,50 @@ button { cursor: pointer; }
 }
 #canvasHost canvas { display: block; width: 100%; height: 100%; }
 
+.hall-embed-inspection-controls { display: none; }
+body.configurator-embed-preview .hall-embed-inspection-controls {
+  position: absolute;
+  z-index: 24;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+.hall-embed-inspection-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid rgba(102, 128, 141, .28);
+  border-radius: 999px;
+  color: #29404d;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 5px 18px rgba(34, 57, 68, .14);
+  font-size: 12px;
+  font-weight: 800;
+  backdrop-filter: blur(10px);
+}
+.hall-embed-inspection-controls button[aria-pressed="true"] {
+  color: #075f96;
+  border-color: rgba(17, 136, 209, .42);
+  background: rgba(235, 247, 253, .97);
+}
+.hall-embed-control-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #80929c;
+}
+#hallPreviewCladdingButton[aria-pressed="true"] .hall-embed-control-dot { background: #1188d1; }
+.hall-embed-control-icon { font-size: 15px; line-height: 1; }
+
+@media (max-width: 520px) {
+  body.configurator-embed-preview .hall-embed-inspection-controls { top: 9px; left: 9px; gap: 6px; }
+  .hall-embed-inspection-controls button { min-height: 32px; padding: 0 10px; font-size: 11px; }
+}
+
 .sidebar {
   position: absolute !important;
   z-index: 40;

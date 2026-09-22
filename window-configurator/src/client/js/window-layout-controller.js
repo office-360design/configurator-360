@@ -1,7 +1,7 @@
 import {
     getBaseAluminiumProfiles,
     isProfileGeometryAvailable,
-} from './profile-catalog.js';
+} from './profile-catalog.js?v=platform-18';
 import {
     DEFAULT_TRANS_PROFILE_ID,
     DEFAULT_NEW_WINDOW_WIDTH_M,
@@ -9,7 +9,7 @@ import {
     DEFAULT_WINDOW_EDGE_EXTENSION_M,
     FIXED_WINDOW_TYPE,
     SASH_WINDOW_TYPE,
-    addWindowToState,
+    addWindowSideToState,
     classifyWindowState,
     createWindowStateFromLayoutDefinition,
     deriveWindowTopology,
@@ -24,8 +24,9 @@ import {
     setWindowStateTransProfile,
     setWindowTypeInState,
     setWindowSizeInState,
-} from './window-layout-state.js';
-import { getWindowLocale, localizeLayoutLabel } from './i18n.js';
+    setOverallWindowSizeInState,
+} from './window-layout-state.js?v=platform-18';
+import { getWindowLocale, localizeLayoutLabel } from './i18n.js?v=platform-18';
 
 export const DEFAULT_WINDOW_LAYOUT_ID = 'single';
 export const DEFAULT_DIVIDER_PROFILE_ID = '575800';
@@ -266,13 +267,24 @@ export function createWindowLayoutSignature(configuration = {}) {
 
 function replaceSelectOptions(select, options, selectedValue) {
     if (!select || typeof document === 'undefined') return;
-    select.innerHTML = '';
-    options.forEach(optionDefinition => {
-        const option = document.createElement('option');
-        option.value = optionDefinition.value;
-        option.textContent = optionDefinition.label;
-        select.appendChild(option);
-    });
+
+    const optionsUnchanged = select.options.length === options.length
+        && options.every((optionDefinition, index) => {
+            const existing = select.options[index];
+            return existing?.value === String(optionDefinition.value)
+                && existing?.textContent === String(optionDefinition.label);
+        });
+
+    if (!optionsUnchanged) {
+        select.innerHTML = '';
+        options.forEach(optionDefinition => {
+            const option = document.createElement('option');
+            option.value = optionDefinition.value;
+            option.textContent = optionDefinition.label;
+            select.appendChild(option);
+        });
+    }
+
     select.value = options.some(option => option.value === selectedValue)
         ? selectedValue
         : (options[0]?.value || '');
@@ -324,7 +336,7 @@ function compatibilitySnapshot(windowState, layoutId, dividerProfileId, transPro
         cells,
         cellHandleSides: handles,
         dividerCount: classification.kind === 't-grid' ? 2 : topology.dividers.length,
-        layoutSignature: `state:${serializeWindowState(windowState)}|${dividerProfileId}|${transProfileId}`,
+        layoutSignature: `state:${layoutId}|${serializeWindowState(windowState)}|${dividerProfileId}|${transProfileId}`,
         windowState,
         topology,
         windowStateVersion: windowState.version,
@@ -376,42 +388,93 @@ export function createWindowLayoutController({
         return compatibilitySnapshot(windowState, layoutId, dividerProfileId, transProfileId);
     }
 
-    function syncControls() {
+    function syncControls({ refreshOptions = true, topology = null } = {}) {
         if (layoutInput) {
-            replaceSelectOptions(
-                layoutInput,
-                Object.values(WINDOW_LAYOUTS).map(layout => ({
-                    value: layout.id,
-                    label: localizeLayoutLabel(getWindowLocale(), layout.id, layout.label),
-                })),
-                layoutId === 'dynamic' ? DEFAULT_WINDOW_LAYOUT_ID : layoutId
-            );
+            const selectedLayoutId = layoutId === 'dynamic' ? DEFAULT_WINDOW_LAYOUT_ID : layoutId;
+            if (refreshOptions) {
+                replaceSelectOptions(
+                    layoutInput,
+                    Object.values(WINDOW_LAYOUTS).map(layout => ({
+                        value: layout.id,
+                        label: localizeLayoutLabel(getWindowLocale(), layout.id, layout.label),
+                    })),
+                    selectedLayoutId
+                );
+            } else {
+                layoutInput.value = selectedLayoutId;
+            }
         }
         if (dividerProfileInput) {
-            replaceSelectOptions(dividerProfileInput, getDividerOptions(), dividerProfileId);
+            if (refreshOptions) {
+                replaceSelectOptions(dividerProfileInput, getDividerOptions(), dividerProfileId);
+            } else {
+                dividerProfileInput.value = dividerProfileId;
+            }
             const hasDivider = windowState.windows.length > 1;
             dividerProfileInput.disabled = !hasDivider;
             dividerProfileInput.closest?.('.divider-profile-field')?.classList.toggle('is-disabled', !hasDivider);
         }
         if (transProfileInput) {
-            replaceSelectOptions(transProfileInput, getTransOptions(), transProfileId);
-            const hasTransCandidate = deriveWindowTopology(windowState).transCandidates.length > 0;
+            if (refreshOptions) {
+                replaceSelectOptions(transProfileInput, getTransOptions(), transProfileId);
+            } else {
+                transProfileInput.value = transProfileId;
+            }
+            const resolvedTopology = topology || deriveWindowTopology(windowState);
+            const hasTransCandidate = resolvedTopology.transCandidates.length > 0;
             transProfileInput.disabled = !hasTransCandidate;
             transProfileInput.closest?.('.trans-profile-field')?.classList.toggle('is-disabled', !hasTransCandidate);
         }
     }
 
-    async function notifyChange(previous, { reloadDivider = false, reloadTrans = false, topologyOnly = false } = {}) {
+    async function notifyChange(previous, {
+        reloadDivider = false,
+        reloadTrans = false,
+        topologyOnly = false,
+        sizeOnly = false,
+        refreshOptions = true,
+    } = {}) {
         const next = getConfigurationSnapshot();
-        syncControls();
+        syncControls({ refreshOptions, topology: next.topology });
         if (next.layoutSignature !== previous.layoutSignature || reloadDivider || reloadTrans) {
-            await onLayoutChange(next, { reloadDivider, reloadTrans, topologyOnly });
+            await onLayoutChange(next, {
+                reloadDivider,
+                reloadTrans,
+                topologyOnly,
+                sizeOnly,
+            });
         }
         return next;
     }
 
-    async function setLayout(nextLayoutId, { notify = true } = {}) {
+    async function setLayout(nextLayoutId, {
+        notify = true,
+        widthM = null,
+        heightM = null,
+    } = {}) {
         const previous = getConfigurationSnapshot();
+        const extension = Number.isFinite(Number(edgeExtensionM))
+            ? Math.max(0, Number(edgeExtensionM))
+            : DEFAULT_WINDOW_EDGE_EXTENSION_M;
+        const currentWidthM = (windowState.gridTracks?.x || []).reduce(
+            (sum, track) => sum + Math.max(0, Number(track.sizeM) || 0),
+            0
+        ) + extension * 2;
+        const currentHeightM = (windowState.gridTracks?.y || []).reduce(
+            (sum, track) => sum + Math.max(0, Number(track.sizeM) || 0),
+            0
+        ) + extension * 2;
+        const hasTargetWidth = widthM !== null
+            && widthM !== undefined
+            && widthM !== ''
+            && Number.isFinite(Number(widthM));
+        const hasTargetHeight = heightM !== null
+            && heightM !== undefined
+            && heightM !== ''
+            && Number.isFinite(Number(heightM));
+        const targetWidthM = hasTargetWidth ? Number(widthM) : currentWidthM;
+        const targetHeightM = hasTargetHeight ? Number(heightM) : currentHeightM;
+
         layoutId = normalizeWindowLayoutId(nextLayoutId);
         windowState = createWindowStateFromLayoutDefinition(
             getWindowLayoutDefinition(layoutId),
@@ -419,8 +482,24 @@ export function createWindowLayoutController({
             transProfileId,
             { defaultWidthM: initialWidthM, defaultHeightM: initialHeightM, edgeExtensionM }
         );
-        syncControls();
+        windowState = setOverallWindowSizeInState(windowState, {
+            widthM: targetWidthM,
+            heightM: targetHeightM,
+            edgeExtensionM,
+        });
+
+        // Template selection supplies the final physical size together with the
+        // topology. Treat that already-sized state as editable immediately.
+        // Previously the old follow-up overall-slider change was what converted
+        // preset layouts to `dynamic`; after making template selection atomic,
+        // skipping that second change left the renderer on the legacy preset path,
+        // which reads the 600 x 900 individual-window inputs instead of gridTracks.
+        if (hasTargetWidth || hasTargetHeight) {
+            layoutId = 'dynamic';
+        }
+
         if (notify) return notifyChange(previous, { topologyOnly: false });
+        syncControls();
         return getConfigurationSnapshot();
     }
 
@@ -431,8 +510,8 @@ export function createWindowLayoutController({
             ? String(nextProfileId)
             : (availableIds[0] || DEFAULT_DIVIDER_PROFILE_ID);
         windowState = setWindowStateDividerProfile(windowState, dividerProfileId);
-        syncControls();
         if (notify) return notifyChange(previous, { reloadDivider: true });
+        syncControls();
         return getConfigurationSnapshot();
     }
 
@@ -444,20 +523,17 @@ export function createWindowLayoutController({
             ? String(nextProfileId)
             : (availableIds[0] || DEFAULT_TRANS_PROFILE_ID);
         windowState = setWindowStateTransProfile(windowState, transProfileId);
-        syncControls();
         if (notify) return notifyChange(previous, { reloadTrans: true });
+        syncControls();
         return getConfigurationSnapshot();
     }
 
     async function addWindow(cellId, direction, type, { handleSide = null, start = null, end = null, notify = true } = {}) {
         const previous = getConfigurationSnapshot();
-        windowState = addWindowToState(windowState, {
-            cellId,
+        windowState = addWindowSideToState(windowState, {
             direction,
             type,
             handleSide,
-            start,
-            end,
             defaultWidthM: DEFAULT_NEW_WINDOW_WIDTH_M,
             defaultHeightM: DEFAULT_NEW_WINDOW_HEIGHT_M,
             edgeExtensionM,
@@ -518,8 +594,14 @@ export function createWindowLayoutController({
         const previous = getConfigurationSnapshot();
         windowState = setWindowSizeInState(windowState, cellId, { widthM, heightM, edgeExtensionM });
         layoutId = 'dynamic';
-        if (notify) return notifyChange(previous, { topologyOnly: true });
-        syncControls();
+        if (notify) {
+            return notifyChange(previous, {
+                topologyOnly: true,
+                sizeOnly: true,
+                refreshOptions: false,
+            });
+        }
+        syncControls({ refreshOptions: false });
         return getConfigurationSnapshot();
     }
 
@@ -532,7 +614,11 @@ export function createWindowLayoutController({
         return getConfigurationSnapshot();
     }
 
-    async function applyConfiguration(configuration = {}, { notify = false } = {}) {
+    async function applyConfiguration(configuration = {}, {
+        notify = false,
+        sizeOnly = false,
+        refreshOptions = true,
+    } = {}) {
         const previous = getConfigurationSnapshot();
         const request = getWindowLayoutRequest(configuration);
         dividerProfileId = request.dividerProfileId;
@@ -555,13 +641,20 @@ export function createWindowLayoutController({
                     edgeExtensionM,
                 }
             );
+            windowState = setOverallWindowSizeInState(windowState, {
+                widthM: Number.isFinite(Number(configuration.widthM)) ? Number(configuration.widthM) : null,
+                heightM: Number.isFinite(Number(configuration.heightM)) ? Number(configuration.heightM) : null,
+                edgeExtensionM,
+            });
         }
-        syncControls();
         if (notify) return notifyChange(previous, {
             reloadDivider: dividerProfileId !== previous.dividerProfileId,
             reloadTrans: transProfileId !== previous.transProfileId,
             topologyOnly: dividerProfileId === previous.dividerProfileId && transProfileId === previous.transProfileId,
+            sizeOnly,
+            refreshOptions: sizeOnly ? false : refreshOptions,
         });
+        syncControls({ refreshOptions });
         return getConfigurationSnapshot();
     }
 
@@ -569,7 +662,16 @@ export function createWindowLayoutController({
         if (controlsInitialized) return;
         controlsInitialized = true;
         syncControls();
-        layoutInput?.addEventListener('change', () => setLayout(layoutInput.value));
+        layoutInput?.addEventListener('change', () => {
+            const widthM = Number(layoutInput.dataset.layoutTargetWidthM);
+            const heightM = Number(layoutInput.dataset.layoutTargetHeightM);
+            delete layoutInput.dataset.layoutTargetWidthM;
+            delete layoutInput.dataset.layoutTargetHeightM;
+            setLayout(layoutInput.value, {
+                widthM: Number.isFinite(widthM) ? widthM : null,
+                heightM: Number.isFinite(heightM) ? heightM : null,
+            });
+        });
         dividerProfileInput?.addEventListener('change', () => setDividerProfile(dividerProfileInput.value));
         transProfileInput?.addEventListener('change', () => setTransProfile(transProfileInput.value));
         globalThis.window?.addEventListener('window-locale-applied', syncControls);

@@ -15,19 +15,19 @@ import {
   SERVICE_OPTIONS,
   SIDE_OPTIONS,
   STEPS,
-} from '../src/catalog.js';
+} from '../src/catalog.js?v=platform-18';
 import {
   PERGOLA_MESSAGES,
   localizeCatalogOptions,
   localizeStep,
   pergolaT,
-} from '../src/i18n.js';
-import { getSharedMessages } from '../../shared-ui/src/i18n.js';
+} from '../src/i18n.js?v=platform-18';
+import { getSharedMessages } from '../../shared-ui/src/i18n.js?v=platform-18';
 import {
   getLanguageProfile,
   getLocaleForHostname,
   getLocalizedConfiguratorUrl,
-} from '../../shared-ui/src/config.js';
+} from '../../shared-ui/src/config.js?v=platform-18';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(here, '..');

@@ -1,0 +1,318 @@
+/* Compact, progressive stage overlays for the solar configurator. */
+.solar-stage-hint {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(7px);
+  transition:
+    opacity .22s ease,
+    transform .22s ease,
+    visibility 0s linear .22s;
+}
+
+.solar-stage-hint.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition-delay: 0s;
+}
+
+.solar-stage-hint.is-dismissed {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(7px);
+}
+
+.solar-live-card.solar-live-status {
+  top: 14px;
+  right: 14px;
+  bottom: auto;
+  width: 238px;
+  height: auto;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border-color: rgba(20, 27, 35, .13);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 10px 28px rgba(20, 27, 35, .11);
+  pointer-events: auto;
+  transition:
+    right .32s cubic-bezier(.22, 1, .36, 1),
+    width .22s cubic-bezier(.22, 1, .36, 1),
+    opacity .18s ease,
+    transform .18s ease,
+    visibility 0s linear 0s;
+}
+
+body.shared-ui-mounted:not(.roof-sidebar-collapsed) .solar-live-status {
+  right: calc(var(--shared-settings-width) + var(--shared-settings-gap) + 14px);
+}
+
+.solar-live-status:not(.is-collapsed) {
+  width: 286px;
+}
+
+.solar-live-status__summary {
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 8px minmax(54px, auto) minmax(80px, 1fr) 17px;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.solar-live-status__summary:hover,
+.solar-live-status__summary:focus-visible {
+  background: rgba(8, 120, 201, .055);
+}
+
+.solar-live-status__summary:focus-visible {
+  outline: 2px solid rgba(8, 120, 201, .52);
+  outline-offset: -2px;
+}
+
+.solar-live-status__pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8f9aa3;
+  box-shadow: 0 0 0 3px rgba(143, 154, 163, .13);
+  transition: background .18s ease, box-shadow .18s ease;
+}
+
+.solar-live-status.is-playing .solar-live-status__pulse {
+  background: #0b8f6a;
+  box-shadow: 0 0 0 4px rgba(11, 143, 106, .16);
+  animation: solar-live-pulse 1.4s ease-in-out infinite;
+}
+
+.solar-live-status__time,
+.solar-live-status__primary {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.solar-live-status__time small,
+.solar-live-status__primary small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .055em;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.solar-live-status__time strong,
+.solar-live-status__primary strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solar-live-status__primary {
+  padding-left: 9px;
+  border-left: 1px solid rgba(20, 27, 35, .1);
+}
+
+.solar-live-status__primary strong {
+  color: var(--accent);
+}
+
+.solar-live-status__chevron {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--muted);
+  transition: transform .2s ease;
+}
+
+.solar-live-status:not(.is-collapsed) .solar-live-status__chevron {
+  transform: rotate(180deg);
+}
+
+.solar-live-status__details {
+  max-height: 112px;
+  padding: 0 10px 10px;
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    max-height .22s cubic-bezier(.22, 1, .36, 1),
+    padding .22s cubic-bezier(.22, 1, .36, 1),
+    opacity .14s ease;
+}
+
+.solar-live-status.is-collapsed .solar-live-status__details {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
+
+.solar-live-status .solar-live-card__sun {
+  margin: 0 0 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(20, 27, 35, .09);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.solar-live-status .solar-live-card__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.solar-live-status .solar-live-card__grid div {
+  min-width: 0;
+  padding: 7px 8px;
+}
+
+.solar-live-status .solar-live-card__grid span,
+.solar-live-status .solar-live-card__grid strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.shared-ui-dark-mode .solar-live-card.solar-live-status {
+  color: #eef3f6;
+  border-color: rgba(255, 255, 255, .11);
+  background: rgba(20, 31, 45, .91);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .25);
+}
+
+body.shared-ui-dark-mode .solar-live-status__summary:hover,
+body.shared-ui-dark-mode .solar-live-status__summary:focus-visible {
+  background: rgba(79, 179, 238, .09);
+}
+
+body.shared-ui-dark-mode .solar-live-status__time strong,
+body.shared-ui-dark-mode .solar-live-status__primary strong {
+  color: #eef3f6;
+}
+
+body.shared-ui-dark-mode .solar-live-status__primary {
+  border-left-color: rgba(255, 255, 255, .1);
+}
+
+body.shared-ui-dark-mode .solar-live-status__primary strong {
+  color: #65bff8;
+}
+
+body.shared-ui-dark-mode .solar-live-status .solar-live-card__sun {
+  border-top-color: rgba(255, 255, 255, .09);
+}
+
+@keyframes solar-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(11, 143, 106, .14); }
+  50% { box-shadow: 0 0 0 6px rgba(11, 143, 106, .06); }
+}
+
+@media (max-width: 1080px) and (min-width: 761px) {
+  .solar-live-card.solar-live-status {
+    width: 216px;
+  }
+
+  .solar-live-status:not(.is-collapsed) {
+    width: 254px;
+  }
+
+  .solar-live-status__summary {
+    grid-template-columns: 8px minmax(48px, auto) minmax(68px, 1fr) 15px;
+    gap: 7px;
+  }
+}
+
+@media (max-width: 760px) {
+  .solar-stage-hint {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: max-content;
+    max-width: calc(100% - 20px);
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .solar-live-card.solar-live-status,
+  body.shared-ui-mounted:not(.roof-sidebar-collapsed) .solar-live-status {
+    top: 9px;
+    right: 9px;
+    bottom: auto;
+    width: min(206px, calc(100% - 18px));
+    height: auto;
+    max-height: none;
+  }
+
+  .solar-live-status:not(.is-collapsed) {
+    width: min(258px, calc(100% - 18px));
+  }
+
+  .solar-live-status__summary {
+    min-height: 44px;
+    grid-template-columns: 7px auto 1fr 15px;
+    gap: 7px;
+    padding: 6px 9px;
+  }
+
+  .solar-live-status__time small,
+  .solar-live-status__primary small {
+    display: none;
+  }
+
+  .solar-live-status__time strong,
+  .solar-live-status__primary strong {
+    font-size: 11px;
+  }
+
+  .solar-live-status__details {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  body.solar-mobile-layout:not(.roof-sidebar-collapsed) .solar-live-status {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    pointer-events: none;
+    transition-delay: 0s, 0s, 0s, 0s, .18s;
+  }
+}
+
+body.configurator-embed-preview .solar-live-card.solar-live-status {
+  top: auto;
+  right: 10px;
+  bottom: 10px;
+}
+
+body.configurator-embed-preview:not(.roof-sidebar-collapsed) .solar-live-status {
+  right: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solar-stage-hint,
+  .solar-live-card.solar-live-status,
+  .solar-live-status__chevron,
+  .solar-live-status__details,
+  .solar-live-status__pulse {
+    animation: none !important;
+    transition: none !important;
+  }
+}

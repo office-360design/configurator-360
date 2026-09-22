@@ -1,6 +1,6 @@
-import { sharedT } from '../i18n.js';
-import { sharedIcon } from '../icons.js';
-import { escapeHtml } from '../utils.js';
+import { sharedT } from '../i18n.js?v=platform-18';
+import { sharedIcon } from '../icons.js?v=platform-18';
+import { escapeHtml } from '../utils.js?v=platform-18';
 
 function formatSavedDate(locale, value) {
   const date = value ? new Date(value) : null;

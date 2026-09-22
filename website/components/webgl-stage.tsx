@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import { buildPergola } from "../lib/scenes/pergola-builder.js";
 import { DEFAULT_STATE } from "../lib/scenes/pergola-state.js";
@@ -206,7 +207,7 @@ function createRoofState() {
   return {
     roofType: "lshape", length: 10, depth: 7, wallHeight: 3, pitch: 30, overhang: 0.4,
     covering: "generic", roofColor: "#7f1d2d", showDimensions: false,
-    technicalEdges: true, showCompass: false, sunPosition: 42,
+    technicalEdges: false, showCompass: false, sunPosition: 42,
     northDirection: 108, nightPreview: false, customPlan: null,
     locale, currency, currencyRate: getFallbackCurrencyRate(currency), currencyRateDate: null,
     currencyRateSource: currency === "RON" ? "reference" : "temporary-fallback", currencyRateIsFallback: currency !== "RON",
@@ -268,6 +269,7 @@ export function WebGLStage() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.18;
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     // A small procedural studio produces long reflections on coated aluminium
@@ -299,6 +301,12 @@ export function WebGLStage() {
     addEnvironmentPanel([-2.2, 4.2, 10], [1.35, 4.2, 0.08], 0xffe7c7, 19);
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     const environmentTarget = pmremGenerator.fromScene(environmentScene, 0.035);
+    // Roof finishes use the same neutral reflection environment as the
+    // standalone configurator. The brighter fence softboxes above are useful
+    // for coated perimeter panels, but wash out roof colours and trims.
+    const roofEnvironment = new RoomEnvironment();
+    const roofEnvironmentTarget = pmremGenerator.fromScene(roofEnvironment, 0.045);
+    roofEnvironment.dispose();
     scene.environment = environmentTarget.texture;
     pmremGenerator.dispose();
     environmentScene.traverse((object) => {
@@ -351,9 +359,14 @@ export function WebGLStage() {
     scene.add(ambient);
     const key = new THREE.DirectionalLight(0xfff1dc, 3.15);
     key.position.set(4.5, 6.5, 7); key.castShadow = true;
+    key.target.position.set(0, 1.8, 0);
     const shadowMapSize = lowCoreDevice ? 1024 : 1536;
     key.shadow.mapSize.set(shadowMapSize, shadowMapSize);
-    key.shadow.bias = -0.00025; key.shadow.normalBias = 0.022; key.shadow.radius = 2; scene.add(key);
+    key.shadow.camera.left = -25; key.shadow.camera.right = 25;
+    key.shadow.camera.top = 25; key.shadow.camera.bottom = -25;
+    key.shadow.camera.near = 0.5; key.shadow.camera.far = 60;
+    key.shadow.camera.updateProjectionMatrix();
+    key.shadow.bias = -0.0001; key.shadow.normalBias = 0.018; key.shadow.radius = 2; scene.add(key, key.target);
     const rim = new THREE.DirectionalLight(0x6fc4ff, 1.85); rim.position.set(4, 4.5, -6); scene.add(rim);
     const cool = new THREE.DirectionalLight(0xb7d9ff, 1.25); cool.position.set(-5.5, 2.5, 4); scene.add(cool);
     const warm = new THREE.PointLight(0xffffff, 0.55, 12, 1.5); warm.position.set(0, 5, 1.2); scene.add(warm);
@@ -374,6 +387,10 @@ export function WebGLStage() {
     const fenceWorldUp = new THREE.Vector3(0, 1, 0);
     const fenceKeyColor = new THREE.Color(0xf6fbff);
     const warmKeyColor = new THREE.Color(0xfff1dc);
+    const roofKeyColor = new THREE.Color(0xffffff);
+    const roofSkyGroundColor = new THREE.Color(0x858e96);
+    const lightSkyGroundColor = new THREE.Color(0xa5afb0);
+    const darkSkyGroundColor = new THREE.Color(0x17202a);
 
     let active: SceneKey = "engine";
     let desiredActive: SceneKey = "engine";
@@ -862,19 +879,51 @@ export function WebGLStage() {
       const solarDay = active === "solar" && !darkSolar;
       const fenceScene = active === "fence";
       const roofScene = active === "roof";
-      // Roof materials use one neutral product-lighting balance for every
-      // topology. Shape-dependent intensities made the same finish look pale
-      // on one roof and almost black on another.
-      hemisphere.intensity += ((nightScene ? 0.27 : solarDay ? 0.62 : fenceScene ? 0.56 : roofScene ? 1.45 : 0.92) - hemisphere.intensity) * 0.08;
-      ambient.intensity += ((roofScene ? 0.45 : 0) - ambient.intensity) * 0.08;
-      key.intensity += ((nightScene ? 1.08 : fenceScene ? 1.35 : roofScene ? 0.95 : 3.15) - key.intensity) * 0.08;
-      key.color.lerp(fenceScene ? fenceKeyColor : warmKeyColor, 0.08);
-      rim.intensity += ((nightScene ? 0.68 : solarDay ? 1.05 : fenceScene ? 0.38 : roofScene ? 0.18 : 1.85) - rim.intensity) * 0.08;
-      cool.intensity += ((nightScene ? 0.24 : solarDay ? 0.58 : fenceScene ? 0.3 : roofScene ? 0.18 : 1.25) - cool.intensity) * 0.08;
+      const targetEnvironment = roofScene ? roofEnvironmentTarget.texture : environmentTarget.texture;
+      if (scene.environment !== targetEnvironment) scene.environment = targetEnvironment;
+      // Fog is useful for the larger spatial scenes, but on the compact roof
+      // it behaves like a white, non-shadowed radiance term. Removing it here
+      // preserves the actual material values and makes occluded planes read as
+      // occluded instead of being composited toward the light page colour.
+      (scene.fog as THREE.FogExp2).density += ((roofScene ? 0 : 0.025) - (scene.fog as THREE.FogExp2).density) * 0.08;
+      // Roof uses the standalone configurator's settled daylight values
+      // immediately. Easing from the shared studio rig produced a visible
+      // washed-out reload frame and made screenshots timing-dependent.
+      hemisphere.intensity = roofScene
+        ? 0.5
+        : hemisphere.intensity + ((nightScene ? 0.27 : solarDay ? 0.62 : fenceScene ? 0.56 : 0.92) - hemisphere.intensity) * 0.08;
+      hemisphere.groundColor.lerp(
+        roofScene
+          ? roofSkyGroundColor
+          : document.documentElement.dataset.theme === "light"
+            ? lightSkyGroundColor
+            : darkSkyGroundColor,
+        0.08,
+      );
+      ambient.intensity = roofScene ? 0.02 : ambient.intensity + (0 - ambient.intensity) * 0.08;
+      key.intensity = roofScene
+        ? 2.7
+        : key.intensity + ((nightScene ? 1.08 : fenceScene ? 1.35 : 3.15) - key.intensity) * 0.08;
+      if (roofScene) key.color.copy(roofKeyColor);
+      else key.color.lerp(fenceScene ? fenceKeyColor : warmKeyColor, 0.08);
+      rim.intensity += ((nightScene ? 0.68 : solarDay ? 1.05 : fenceScene ? 0.38 : roofScene ? 0 : 1.85) - rim.intensity) * 0.08;
+      cool.intensity += ((nightScene ? 0.24 : solarDay ? 0.58 : fenceScene ? 0.3 : roofScene ? 0 : 1.25) - cool.intensity) * 0.08;
       // The configurable perimeter and integrated fixtures live in the pergola model.
       // Keep the global studio fill neutral so "lights off" still reads as night.
-      warm.intensity += ((nightScene ? 0.12 : solarDay ? 0.24 : fenceScene ? 0.04 : roofScene ? 0.03 : 0.55) - warm.intensity) * 0.08;
-      scene.environmentIntensity += ((roofScene ? 0.28 : 1) - scene.environmentIntensity) * 0.08;
+      warm.intensity += ((nightScene ? 0.12 : solarDay ? 0.24 : fenceScene ? 0.04 : roofScene ? 0 : 0.55) - warm.intensity) * 0.08;
+      scene.environmentIntensity = roofScene ? 0.2 : scene.environmentIntensity + (1 - scene.environmentIntensity) * 0.08;
+      const lightTheme = document.documentElement.dataset.theme === "light";
+      const targetExposure = roofScene ? 0.98 : (lightTheme ? 1.02 : 1.18);
+      renderer.toneMappingExposure = roofScene
+        ? targetExposure
+        : renderer.toneMappingExposure + (targetExposure - renderer.toneMappingExposure) * 0.08;
+      if (!roofScene) {
+        // Roof uses a wider neutral rig. Restore the shared studio positions
+        // during handoff so its fill directions cannot leak into solar, fence,
+        // or any other configurator section.
+        rim.position.lerp(new THREE.Vector3(4, 4.5, -6), .08);
+        cool.position.lerp(new THREE.Vector3(-5.5, 2.5, 4), .08);
+      }
       if (active === "solar") {
         const sun = solarDirection(
           solarState.simulationDate,
@@ -889,11 +938,21 @@ export function WebGLStage() {
         // A broad, camera-side key lets powder-coated metal read from the
         // default elevated view instead of revealing its highlight only below.
         key.position.lerp(new THREE.Vector3(9.5, 10.5, 13.5), .1);
-      } else key.position.lerp(new THREE.Vector3(4.5, 6.5, 7), .08);
+      } else if (roofScene) {
+        // Match the standalone configurator: one high, asymmetric sun aimed
+        // at the roof centre. Opposing roof planes now fall into coherent,
+        // softly sky-filled shadow instead of receiving a second key light.
+        key.position.set(-12, 20, -10);
+        key.target.position.set(0, 1.8, 0);
+      } else {
+        key.position.lerp(new THREE.Vector3(4.5, 6.5, 7), .08);
+      }
 
       if (active === "roof") {
-        groups.roof.rotation.y += ((-0.28 + pointerX * 0.035) - groups.roof.rotation.y) * 0.045;
-        groups.roof.rotation.x += ((0.04 - pointerY * 0.02) - groups.roof.rotation.x) * 0.045;
+        // Keep the roof fixed in world space, as in the standalone viewer.
+        // Rotating the mesh beneath a fixed sun changed which slopes received
+        // direct light and made the two integrations render differently.
+        groups.roof.rotation.set(0, 0, 0);
       }
       if (active === "hall") groups.hall.rotation.y += ((Math.PI - 0.38 + pointerX * .035) - groups.hall.rotation.y) * .045;
       if (active === "solar") groups.solar.rotation.y += ((-0.32 + pointerX * .035) - groups.solar.rotation.y) * .045;
@@ -902,7 +961,7 @@ export function WebGLStage() {
       const desiredCamera = active === "pergola"
         ? new THREE.Vector3(9.8, 7.4, 14.8)
         : active === "roof"
-          ? new THREE.Vector3(10.8, 7.9, 14.6)
+          ? new THREE.Vector3(-10.8, 8.3, -14.6)
           : active === "hall"
             ? new THREE.Vector3(11.8, 7.2, 15.8)
           : active === "solar"
@@ -994,6 +1053,7 @@ export function WebGLStage() {
       window.clearTimeout(fenceRebuildTimer);
       solarEnvironmentRequest?.abort();
       environmentTarget.dispose();
+      roofEnvironmentTarget.dispose();
       renderer.dispose(); renderer.domElement.remove(); disposeScene(scene);
     };
   }, []);

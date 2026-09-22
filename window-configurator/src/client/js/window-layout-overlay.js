@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import {
     FIXED_WINDOW_TYPE,
     SASH_WINDOW_TYPE,
-} from './window-layout-state.js';
-import { getWindowLocale, windowT } from './i18n.js';
+} from './window-layout-state.js?v=platform-18';
+import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 
-const OUTER_OFFSET_M = 0.075;
+const ADD_WINDOW_OUTER_OFFSET_M = 0.075;
+const ADD_WINDOW_DOWNWARD_OFFSET_PX = 22;
 const FRONT_OFFSET_M = 0.16;
 
 function stopPointerPropagation(element) {
@@ -14,24 +15,20 @@ function stopPointerPropagation(element) {
     });
 }
 
-function projectLocalPoint({ point, camera, mainGroup, container }) {
+function projectLocalPoint({ point, camera, mainGroup, container, rect = null, transformsReady = false }) {
     if (!camera || !mainGroup || !container) return null;
-    camera.updateMatrixWorld();
-    mainGroup.updateWorldMatrix(true, false);
+    if (!transformsReady) { camera.updateMatrixWorld(); mainGroup.updateWorldMatrix(true, false); }
     const world = point.clone();
     mainGroup.localToWorld(world);
     const projected = world.project(camera);
     if (projected.z < -1 || projected.z > 1) return null;
-    const rect = container.getBoundingClientRect();
+    rect ||= container.getBoundingClientRect();
     return {
         x: (projected.x * 0.5 + 0.5) * rect.width,
         y: (-projected.y * 0.5 + 0.5) * rect.height,
     };
 }
 
-function normalizedCoordinateToLocal(value, span) {
-    return -span / 2 + Number(value) * span;
-}
 
 export function createWindowLayoutOverlay({
     container,
@@ -60,6 +57,7 @@ export function createWindowLayoutOverlay({
     let controls = [];
     let wheel = null;
     let wheelAnchorDefinition = null;
+    let projectionBatch = null;
 
     function closeWheel() {
         wheel?.remove();
@@ -116,8 +114,9 @@ export function createWindowLayoutOverlay({
                 ? windowT(locale, definition.active ? 'layout.transRemove' : 'layout.transAdd')
                 : windowT(locale, 'layout.merge');
         button.setAttribute('aria-label', button.title);
-        button.textContent = definition.kind === 'add' ? '+' : (definition.kind === 'trans' ? 'DV' : '↔');
-        button.classList.toggle('is-active', definition.kind === 'trans' && definition.active);
+        button.textContent = definition.kind === 'add'
+            ? '+'
+            : (definition.kind === 'trans' ? (definition.active ? 'M' : 'DV') : '↔');
         stopPointerPropagation(button);
         button.addEventListener('click', async () => {
             const state = getWindowLayoutState?.();
@@ -185,74 +184,118 @@ export function createWindowLayoutOverlay({
         }));
     }
 
+    function getOuterEdgeBounds() {
+        if (projectionBatch?.bounds) return projectionBatch.bounds;
+        const bounds = computeOuterEdgeBounds();
+        if (projectionBatch) projectionBatch.bounds = bounds;
+        return bounds;
+    }
+
+    function computeOuterEdgeBounds() {
+        if (mainGroup) {
+            mainGroup.updateWorldMatrix(true, true);
+            const inverseRootMatrix = new THREE.Matrix4().copy(mainGroup.matrixWorld).invert();
+            const bounds = new THREE.Box3();
+            let foundFrame = false;
+
+            mainGroup.traverse(child => {
+                if (!child?.isMesh || !child.geometry) return;
+                const selection = child.userData?.componentSelection || {};
+                if (String(selection.source || '').toLowerCase() !== 'frame') return;
+                if (!child.userData?.frameSegment) return;
+
+                if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+                if (!child.geometry.boundingBox || child.geometry.boundingBox.isEmpty()) return;
+
+                const localBox = child.geometry.boundingBox.clone();
+                const toRootLocal = new THREE.Matrix4().multiplyMatrices(
+                    inverseRootMatrix,
+                    child.matrixWorld
+                );
+                localBox.applyMatrix4(toRootLocal);
+                if (!foundFrame) {
+                    bounds.copy(localBox);
+                    foundFrame = true;
+                } else {
+                    bounds.union(localBox);
+                }
+            });
+
+            if (foundFrame && !bounds.isEmpty()) {
+                return {
+                    minX: bounds.min.x,
+                    maxX: bounds.max.x,
+                    minY: bounds.min.y,
+                    maxY: bounds.max.y,
+                };
+            }
+        }
+
+        const geometry = getEditableTopologyGeometry();
+        const geometryBounds = {
+            minX: Number(geometry?.overallMinX),
+            maxX: Number(geometry?.overallMaxX),
+            minY: Number(geometry?.overallMinY),
+            maxY: Number(geometry?.overallMaxY),
+        };
+        if (Object.values(geometryBounds).every(Number.isFinite)) {
+            return geometryBounds;
+        }
+
+        const width = Math.max(0, Number(getWidth?.()) || 0);
+        const height = Math.max(0, Number(getHeight?.()) || 0);
+        return {
+            minX: -width / 2,
+            maxX: width / 2,
+            minY: -height / 2,
+            maxY: height / 2,
+        };
+    }
+
+    function localOuterEdgeMidpoint(direction, outwardDistance = ADD_WINDOW_OUTER_OFFSET_M) {
+        const bounds = getOuterEdgeBounds();
+        const centerX = (bounds.minX + bounds.maxX) / 2;
+        const centerY = (bounds.minY + bounds.maxY) / 2;
+        const width = Math.max(0, bounds.maxX - bounds.minX);
+        const height = Math.max(0, bounds.maxY - bounds.minY);
+
+        if (direction === 'left') {
+            return new THREE.Vector3(
+                centerX - (width / 2 + outwardDistance),
+                centerY,
+                FRONT_OFFSET_M
+            );
+        }
+        if (direction === 'right') {
+            return new THREE.Vector3(
+                centerX + (width / 2 + outwardDistance),
+                centerY,
+                FRONT_OFFSET_M
+            );
+        }
+        if (direction === 'top') {
+            return new THREE.Vector3(
+                centerX,
+                centerY + (height / 2 + outwardDistance),
+                FRONT_OFFSET_M
+            );
+        }
+        return new THREE.Vector3(
+            centerX,
+            centerY - (height / 2 + outwardDistance),
+            FRONT_OFFSET_M
+        );
+    }
+
     function localPointForControl(definition) {
         if (definition.kind === 'add') {
-            const geometry = getEditableTopologyGeometry();
-            const placement = geometry?.framePlacements?.find(p =>
-                definition.frameEdgeId
-                    ? p.id === definition.frameEdgeId
-                    : (p.windowCell === definition.cellId && p.side === definition.direction)
-            );
-            if (placement) {
-                const edgeStart = Number(placement.start);
-                const edgeEnd = Number(placement.end);
-                const candidateMid = (Number(definition.start) + Number(definition.end)) / 2;
-                const ratio = Number.isFinite(edgeStart)
-                    && Number.isFinite(edgeEnd)
-                    && edgeEnd > edgeStart
-                    && Number.isFinite(candidateMid)
-                    ? Math.max(0, Math.min(1, (candidateMid - edgeStart) / (edgeEnd - edgeStart)))
-                    : 0.5;
-                const worldStart = Number.isFinite(Number(placement.structuralWorldStart))
-                    ? Number(placement.structuralWorldStart)
-                    : Number(placement.worldStart);
-                const worldEnd = Number.isFinite(Number(placement.structuralWorldEnd))
-                    ? Number(placement.structuralWorldEnd)
-                    : Number(placement.worldEnd);
-                const along = Number.isFinite(worldStart) && Number.isFinite(worldEnd)
-                    ? worldStart + (worldEnd - worldStart) * ratio
-                    : (placement.orientation === 'horizontal' ? placement.originX : placement.originY);
-                const perpendicular = Number.isFinite(Number(placement.perpendicularOffset))
-                    ? Number(placement.perpendicularOffset)
-                    : (placement.orientation === 'horizontal' ? placement.originY : placement.originX);
+            // Always anchor add controls to the midpoint of the complete outer
+            // edge. Apply one small fixed offset in the window plane; there is
+            // intentionally no button-to-button avoidance/repulsion.
+            return localOuterEdgeMidpoint(definition.direction, ADD_WINDOW_OUTER_OFFSET_M);
+        }
 
-                if (placement.orientation === 'horizontal') {
-                    const y = perpendicular + (definition.direction === 'bottom' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
-                    return new THREE.Vector3(along, y, FRONT_OFFSET_M);
-                }
-                const x = perpendicular + (definition.direction === 'left' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
-                return new THREE.Vector3(x, along, FRONT_OFFSET_M);
-            }
-
-            // The initial single-window preset is not yet marked as dynamic, so
-            // the builder intentionally has no editable topology geometry for it.
-            // Position those controls directly from the logical window grid
-            // instead of allowing all four add buttons to stack at the origin.
-            const state = getWindowLayoutState?.();
-            const windows = state?.topology?.windows || [];
-            if (windows.length) {
-                const minX = Math.min(...windows.map(cell => Number(cell.rect.x0)));
-                const maxX = Math.max(...windows.map(cell => Number(cell.rect.x1)));
-                const minY = Math.min(...windows.map(cell => Number(cell.rect.y0)));
-                const maxY = Math.max(...windows.map(cell => Number(cell.rect.y1)));
-                const spanX = Math.max(1e-9, maxX - minX);
-                const spanY = Math.max(1e-9, maxY - minY);
-                const width = Math.max(0, Number(getWidth?.()) || 0);
-                const height = Math.max(0, Number(getHeight?.()) || 0);
-                const candidateMid = (Number(definition.start) + Number(definition.end)) / 2;
-
-                if (definition.direction === 'top' || definition.direction === 'bottom') {
-                    const x = ((candidateMid - minX) / spanX - 0.5) * width;
-                    const boundaryY = ((Number(definition.coordinate) - minY) / spanY - 0.5) * height;
-                    const y = boundaryY + (definition.direction === 'bottom' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
-                    return new THREE.Vector3(x, y, FRONT_OFFSET_M);
-                }
-                const boundaryX = ((Number(definition.coordinate) - minX) / spanX - 0.5) * width;
-                const y = ((candidateMid - minY) / spanY - 0.5) * height;
-                const x = boundaryX + (definition.direction === 'left' ? -OUTER_OFFSET_M : OUTER_OFFSET_M);
-                return new THREE.Vector3(x, y, FRONT_OFFSET_M);
-            }
-        } else if (definition.kind === 'merge' || definition.kind === 'trans') {
+        if (definition.kind === 'merge' || definition.kind === 'trans') {
             const geometry = getEditableTopologyGeometry();
             const segments = [
                 ...(geometry?.dividerSegments || []),
@@ -277,12 +320,26 @@ export function createWindowLayoutOverlay({
     function screenPointForControl(definition) {
         if (!definition) return null;
         const point = localPointForControl(definition);
-        const screen = projectLocalPoint({ point, camera, mainGroup, container });
+        const screen = projectLocalPoint({ point, camera, mainGroup, container, rect: projectionBatch?.rect, transformsReady: !!projectionBatch });
         if (!screen) return null;
-        const pairOffset = definition.kind === 'merge' ? -18 : (definition.kind === 'trans' ? 18 : 0);
+
+        // A lone merge control stays exactly on the projected divider centre.
+        // When the same divider also has a DV/trans control, centre the pair as
+        // a group: merge sits 21 px left and DV 21 px right, so the midpoint
+        // between their button centres is exactly the mullion/divider centre.
+        const hasPairedTrans = controls.some(({ definition: other }) =>
+            other?.kind === 'trans'
+            && other.coordinate === definition.coordinate
+            && other.start === definition.start
+            && other.end === definition.end
+            && other.orientation === definition.orientation
+        );
+        const pairOffset = definition.kind === 'trans'
+            ? 21
+            : (definition.kind === 'merge' && hasPairedTrans ? -21 : 0);
         return {
             x: screen.x + pairOffset,
-            y: screen.y,
+            y: screen.y + ADD_WINDOW_DOWNWARD_OFFSET_PX,
         };
     }
 
@@ -314,6 +371,12 @@ export function createWindowLayoutOverlay({
             rebuildControls(state);
         }
 
+        // One layout read and one bounds calculation per overlay refresh, not
+        // a read/layout flush plus a full CAD traversal for every add button.
+        camera.updateMatrixWorld();
+        mainGroup.updateWorldMatrix(true, true);
+        projectionBatch = { rect: container.getBoundingClientRect(), bounds: null };
+        try {
         controls.forEach(({ definition, button }) => {
             const screen = screenPointForControl(definition);
             if (!screen) {
@@ -325,13 +388,14 @@ export function createWindowLayoutOverlay({
             button.style.top = `${screen.y}px`;
         });
         updateWheelPosition();
+        } finally { projectionBatch = null; }
     }
 
     function handleLocaleChange() {
         root.setAttribute('aria-label', windowT(getWindowLocale(), 'layout.overlayAria'));
         closeWheel();
         const state = getWindowLayoutState?.();
-        if (state?.topology) rebuildControls(state);
+        if (state?.topology) { rebuildControls(state); update(); }
     }
 
     globalThis.window?.addEventListener('window-locale-applied', handleLocaleChange);

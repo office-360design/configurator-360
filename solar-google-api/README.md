@@ -14,6 +14,11 @@ PVGIS (`/api/solar/pvgis`):
 - `GET ?tool=PVcalc&...`
 - `GET ?tool=printhorizon&...`
 
+Nearby mapped context (`/api/solar/overpass-primary` and `/api/solar/overpass-secondary`):
+
+- `POST` the configurator's bounded nearby building, road and tree query
+- validates one shared coordinate/radius, caches successful responses for 15 minutes, and retries approved Overpass instances server-side
+
 Building Insights, Data Layers, hourly shade, DSM, mask, annual/monthly flux and the signed demo session keep the same response shape. PVGIS keeps its existing parameter allow-list and response shape.
 
 ## Storage model

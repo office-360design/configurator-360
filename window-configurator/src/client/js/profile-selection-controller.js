@@ -4,10 +4,10 @@ import {
     getLegacyProfileSet,
     getLegacyProfileSets,
     isProfileGeometryAvailable,
-} from './profile-catalog.js';
-import { resolveLegacyProfileSelection } from './profile-compatibility.js';
-import { createProfileSelectionSignature } from './profile-composition.js';
-import { getWindowLocale, windowT } from './i18n.js';
+} from './profile-catalog.js?v=platform-18';
+import { resolveLegacyProfileSelection } from './profile-compatibility.js?v=platform-18';
+import { createProfileSelectionSignature } from './profile-composition.js?v=platform-18';
+import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 
 export const CUSTOM_CAD_ASSEMBLY_ID = 'custom';
 

@@ -17,6 +17,8 @@ const HOSTS = {
       hall: '/hall-configurator/',
       solar: '/solar-configurator/',
       fence: '/fence-configurator/',
+      cardbox: '/cardbox-configurator/',
+      chair: '/chair-configurator/',
     },
   },
   ro: {
@@ -30,6 +32,8 @@ const HOSTS = {
       hall: '/configurator-hala/',
       solar: '/configurator-solar/',
       fence: '/configurator-garduri/',
+      cardbox: '/configurator-cutii-carton/',
+      chair: '/configurator-scaune/',
     },
   },
   de: {
@@ -43,12 +47,14 @@ const HOSTS = {
       hall: '/hallen-konfigurator/',
       solar: '/solar-konfigurator/',
       fence: '/zaun-konfigurator/',
+      cardbox: '/karton-konfigurator/',
+      chair: '/stuhl-konfigurator/',
     },
   },
 };
 
 const MARKETING_PRODUCTS = ['window', 'pergola', 'roof', 'hall', 'solar'];
-const APP_PRODUCTS = [...MARKETING_PRODUCTS, 'fence'];
+const APP_PRODUCTS = [...MARKETING_PRODUCTS, 'fence', 'cardbox'];
 const MARKETING_PATHS = ['/', '/about', '/contact', ...MARKETING_PRODUCTS.map((product) => `/configurators/${product}`)];
 
 const args = new Set(process.argv.slice(2));

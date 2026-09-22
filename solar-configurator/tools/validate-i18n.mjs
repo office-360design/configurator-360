@@ -10,10 +10,10 @@ import {
   solarRegionCity,
   solarRoofName,
   solarT,
-} from '../js/i18n.js';
-import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
-import { calculateSolarEstimate, estimateToCsv } from '../js/estimate.js';
-import { state as baseState } from '../js/state.js';
+} from '../js/i18n.js?v=platform-18';
+import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js?v=platform-18';
+import { calculateSolarEstimate, estimateToCsv } from '../js/estimate.js?v=platform-18';
+import { state as baseState } from '../js/state.js?v=platform-18';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');

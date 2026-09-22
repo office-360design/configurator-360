@@ -8,8 +8,8 @@ import {
     getProfileAlignmentShift,
     getRequiredSupplementalAccessorySourceProfileSetIds,
     resolveLegacyProfileSources,
-} from '../../src/client/js/profile-composition.js';
-import { transformCadBbox } from '../../src/client/js/profile-coordinate-transform.js';
+} from '../../src/client/js/profile-composition.js?v=platform-18';
+import { transformCadBbox } from '../../src/client/js/profile-coordinate-transform.js?v=platform-18';
 
 const errors = [];
 function assert(condition, message) {

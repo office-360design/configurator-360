@@ -2,7 +2,7 @@ import {
   CONFIGURATOR_PUBLIC_PATHS,
   LOCALE_HOSTS,
   getLocaleForHostname,
-} from './config.js';
+} from './config.js?v=platform-18';
 
 const SEO_LOCALES = Object.freeze({
   'en-US': Object.freeze({ lang: 'en', hreflang: 'en', ogLocale: 'en_US' }),
@@ -95,6 +95,34 @@ const CONFIGURATOR_SEO_COPY = Object.freeze({
       description: 'Konfigurieren Sie einen modularen Zaun online in 3D. Passen Sie Verlauf, Maße, Felder, Oberflächen, Tore und Montageoptionen in Echtzeit an.',
     }),
   }),
+  chair: Object.freeze({
+    'en-US': Object.freeze({
+      title: '3D Chair Material Configurator | 360Configurator',
+      description: 'Explore a wooden upholstered chair in 3D with selectable wood species, fabric weaves and independent colors.',
+    }),
+    'ro-RO': Object.freeze({
+      title: 'Configurator Scaun 3D | 360Configurator',
+      description: 'Explorează un scaun tapițat din lemn în 3D cu esențe de lemn, tipuri de țesături și culori configurabile independent.',
+    }),
+    'de-DE': Object.freeze({
+      title: '3D Stuhl-Materialkonfigurator | 360Configurator',
+      description: 'Entdecken Sie einen gepolsterten Holzstuhl in 3D mit wählbaren Holzarten, Stoffgeweben und unabhängig konfigurierbaren Farben.',
+    }),
+  }),
+  cardbox: Object.freeze({
+    'en-US': Object.freeze({
+      title: '3D Cardboard Box Configurator | 360Configurator',
+      description: 'Configure a cardboard box online in 3D with rectangular, L-shaped, U-shaped and stepped 90-degree footprints, wall-by-wall board grades, colours and printing.',
+    }),
+    'ro-RO': Object.freeze({
+      title: 'Configurator Cutii din Carton 3D | 360Configurator',
+      description: 'Configurează online în 3D o cutie din carton cu forme dreptunghiulare, L, U și contururi în trepte la 90°, plus carton, culori și imprimare pentru fiecare latură.',
+    }),
+    'de-DE': Object.freeze({
+      title: '3D Kartonbox-Konfigurator | 360Configurator',
+      description: 'Konfigurieren Sie eine Kartonbox online in 3D mit rechteckigen, L-förmigen, U-förmigen und gestuften 90°-Grundrissen sowie Material, Farbe und Druck je Seite.',
+    }),
+  }),
 });
 
 const PRODUCT_ALIASES = Object.freeze({
@@ -111,6 +139,13 @@ const PRODUCT_ALIASES = Object.freeze({
   fencing: 'fence',
   gard: 'fence',
   zaun: 'fence',
+  cardbox: 'cardbox',
+  cardboard: 'cardbox',
+  carton: 'cardbox',
+  karton: 'cardbox',
+  chair: 'chair',
+  scaun: 'chair',
+  stuhl: 'chair',
 });
 
 function normalizeProduct(product) {

@@ -11,10 +11,10 @@ export function SceneInteractor({ scene, locale = "en" }: { scene: ConfiguratorS
   const surface = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; pointer: number; pan: boolean } | null>(null);
   const text = locale === "ro"
-    ? { surface: "Suprafață interactivă 3D" }
+    ? { surface: "Suprafață interactivă 3D", hint: "Trage pentru rotire · Shift pentru deplasare · Rotița pentru zoom" }
     : locale === "de"
-      ? { surface: "Interaktive 3D-Ansicht" }
-      : { surface: "Interactive 3D surface" };
+      ? { surface: "Interaktive 3D-Ansicht", hint: "Ziehen zum Drehen · Shift zum Verschieben · Mausrad zum Zoomen" }
+      : { surface: "Interactive 3D surface", hint: "Drag to orbit · Shift to pan · Wheel to zoom" };
 
   useEffect(() => {
     const syncInputMode = () => {
@@ -57,6 +57,9 @@ export function SceneInteractor({ scene, locale = "en" }: { scene: ConfiguratorS
         onContextMenu={(event) => event.preventDefault()}
         onPointerDown={(event) => {
           if (!enabled) return;
+          // Orbiting is a direct-manipulation gesture. Prevent the browser from
+          // starting a text selection on the hint or neighbouring showcase copy.
+          event.preventDefault();
           event.currentTarget.setPointerCapture(event.pointerId);
           drag.current = { x: event.clientX, y: event.clientY, pointer: event.pointerId, pan: event.shiftKey || event.button === 2 };
         }}
@@ -68,9 +71,11 @@ export function SceneInteractor({ scene, locale = "en" }: { scene: ConfiguratorS
           orbit(dx, dy, drag.current.pan || event.shiftKey);
         }}
         onPointerUp={() => { drag.current = null; }}
+        onPointerCancel={() => { drag.current = null; }}
+        onLostPointerCapture={() => { drag.current = null; }}
         aria-label={`${scene}: ${text.surface}`}
       >
-        <span className="interaction-hint">Drag / orbit · Shift / pan · Wheel / zoom</span>
+        <span className="interaction-hint">{text.hint}</span>
       </div>
       {mobileActions && <MobileSceneActions active={enabled} onToggle={() => setEnabled((value) => !value)} locale={locale} />}
     </Fragment>

@@ -1,9 +1,9 @@
-import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=15';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=4';
-import { RoofScene } from './scene.js?v=21';
-import { SolarUI } from './ui.js?v=8';
-import { fetchPvgisSiteEstimate } from './energyModel.js?v=6';
-import { loadGeographicEnvironment } from './environmentLoader.js?v=5';
+import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=platform-18';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { RoofScene } from './scene.js?v=platform-18';
+import { SolarUI } from './ui.js?v=platform-18';
+import { fetchPvgisSiteEstimate } from './energyModel.js?v=platform-18';
+import { loadGeographicEnvironment } from './environmentLoader.js?v=platform-18';
 import {
   analyzeGoogleSolar,
   clearGoogleSolarSession,
@@ -19,15 +19,15 @@ import {
   getSunTimes,
   getTodayInTimeZone,
   nearestRegionKey,
-} from './solarPosition.js?v=2';
+} from './solarPosition.js?v=platform-18';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
-} from './preferences.js?v=2';
-import { solarT, resolveSolarLocale } from './i18n.js?v=2';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=1';
+} from './preferences.js?v=platform-18';
+import { solarT, resolveSolarLocale } from './i18n.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 
 await requireTenantConfiguratorAccess('solar');
 
@@ -1463,5 +1463,72 @@ window.addEventListener('solar-preference-change', (event) => {
 });
 
 window.SOLAR_CONFIGURATOR_API = configuratorApi;
+
+function formatEmbedPosition(eastM, northM) {
+  const parts = [];
+  if (Math.abs(Number(eastM) || 0) >= 0.05) parts.push(`${Math.abs(Number(eastM)).toFixed(1)} m ${Number(eastM) > 0 ? 'E' : 'W'}`);
+  if (Math.abs(Number(northM) || 0) >= 0.05) parts.push(`${Math.abs(Number(northM)).toFixed(1)} m ${Number(northM) > 0 ? 'N' : 'S'}`);
+  return parts.join(' · ') || 'Centered';
+}
+
+function syncEmbedAlignmentControls() {
+  const bearing = Math.round(((Number(state.northDirection) % 360) + 360) % 360);
+  const bearingControl = document.querySelector('#embedBearingControl');
+  const bearingReadout = document.querySelector('#embedBearingReadout');
+  const positionReadout = document.querySelector('#embedPositionReadout');
+  if (bearingControl) bearingControl.value = String(bearing);
+  if (bearingReadout) bearingReadout.textContent = `${bearing}° front bearing`;
+  if (positionReadout) positionReadout.textContent = formatEmbedPosition(state.environmentLocalEastM, state.environmentLocalNorthM);
+}
+
+function postEmbedAlignmentAdjustment() {
+  if (new URLSearchParams(window.location.search).get('embed') !== 'preview' || window.parent === window) return;
+  const bearing = Math.round(((Number(state.northDirection) % 360) + 360) % 360);
+  const eastM = Math.round((Number(state.environmentLocalEastM) || 0) * 10) / 10;
+  const northM = Math.round((Number(state.environmentLocalNorthM) || 0) * 10) / 10;
+  window.parent.postMessage({
+    type: '360configurator:preview-adjustment',
+    product: 'solar',
+    adjustments: { roofBearingDeg: bearing, environmentLocalEastM: eastM, environmentLocalNorthM: northM },
+    label: `house ${formatEmbedPosition(eastM, northM).toLowerCase()}, roof front bearing ${bearing}°`,
+  }, '*');
+}
+
+if (new URLSearchParams(window.location.search).get('embed') === 'preview') {
+  window.addEventListener('solar-tools-state-change', syncEmbedAlignmentControls);
+  document.querySelector('#embedAlignmentToggle')?.addEventListener('click', (event) => {
+    const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+    event.currentTarget.setAttribute('aria-expanded', String(!expanded));
+    const body = document.querySelector('#embedAlignmentBody');
+    if (body) body.hidden = expanded;
+  });
+  document.querySelector('#embedBearingControl')?.addEventListener('input', (event) => {
+    configuratorApi.setNorthDirection(event.currentTarget.value);
+    syncEmbedAlignmentControls();
+    postEmbedAlignmentAdjustment();
+  });
+  document.querySelectorAll('[data-embed-bearing-delta]').forEach((button) => {
+    button.addEventListener('click', () => {
+      configuratorApi.setNorthDirection(Number(state.northDirection) + Number(button.dataset.embedBearingDelta || 0));
+      syncEmbedAlignmentControls();
+      postEmbedAlignmentAdjustment();
+    });
+  });
+  document.querySelectorAll('[data-embed-east][data-embed-north]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const step = Number(document.querySelector('#embedPositionStep')?.value || 1);
+      configuratorApi.adjustLocalPosition(Number(button.dataset.embedEast || 0) * step, Number(button.dataset.embedNorth || 0) * step);
+      syncEmbedAlignmentControls();
+      postEmbedAlignmentAdjustment();
+    });
+  });
+  document.querySelector('#embedPositionReset')?.addEventListener('click', () => {
+    configuratorApi.resetLocalPosition();
+    syncEmbedAlignmentControls();
+    postEmbedAlignmentAdjustment();
+  });
+  syncEmbedAlignmentControls();
+}
+
 window.dispatchEvent(new CustomEvent('solar-configurator-ready', { detail: configuratorApi.getState() }));
 emitToolsState();

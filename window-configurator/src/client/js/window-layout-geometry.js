@@ -1,9 +1,40 @@
 const MM_TO_M = 0.001;
+export const INTERSECTION_HOST_INNER_FACE_M = 0.025;
+export const INTERSECTION_MULLION_END_NOTCH_DEPTH_M = 0.005;
+export const INTERSECTION_MULLION_END_NOTCH_LENGTH_M = 0.025;
+// 88 / 2 - 25 = 19 mm for the active 575800 mullion + 575760 frame join.
+export const RECTANGULAR_DIVIDER_SETBACK_M = 0.044 - INTERSECTION_HOST_INNER_FACE_M;
 
 function finiteNumber(value, fallback = 0) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
 }
+
+export function getRectangularDividerSetback({
+    dividerFaceSpan = 0,
+    hostInnerFaceSpan = INTERSECTION_HOST_INNER_FACE_M,
+} = {}) {
+    const halfDividerFace = Math.max(0, finiteNumber(dividerFaceSpan)) / 2;
+    const normalizedHostInnerFaceSpan = Math.max(0, finiteNumber(hostInnerFaceSpan));
+    return Math.max(0, halfDividerFace - normalizedHostInnerFaceSpan);
+}
+
+export function getRectangularDividerEndNotchInset({
+    sectionDepthFromOuterFace = 0,
+    notchDepth = INTERSECTION_MULLION_END_NOTCH_DEPTH_M,
+    notchLength = INTERSECTION_MULLION_END_NOTCH_LENGTH_M,
+} = {}) {
+    const normalizedNotchDepth = Math.max(0, finiteNumber(notchDepth));
+    const normalizedNotchLength = Math.max(0, finiteNumber(notchLength));
+    // The end machining is an L-shaped notch seen from the side of the
+    // mullion: remove 25 mm of longitudinal stock only from the outermost
+    // 5 mm flange. The rest of the mullion cross-section keeps the normal
+    // square endpoint 19 mm away from the structural grid vertex.
+    return finiteNumber(sectionDepthFromOuterFace) <= normalizedNotchDepth + 1e-9
+        ? normalizedNotchLength
+        : 0;
+}
+
 
 const PHYSICAL_ARM_DIRECTIONS = Object.freeze(['north', 'east', 'south', 'west']);
 const OPPOSITE_ARM_DIRECTION = Object.freeze({
@@ -144,6 +175,115 @@ export function getHalfFrameTriangle({
     });
 
     return Object.freeze([apex, firstShoulder, secondShoulder]);
+}
+
+
+export function getInsideHalfFrameTriangle({
+    filler,
+    frameReferenceSpan = 0,
+} = {}) {
+    if (!filler) return Object.freeze([]);
+    const span = Math.max(0, finiteNumber(frameReferenceSpan));
+    if (span <= 0) return Object.freeze([]);
+
+    const outward = armDirectionVector(filler.direction);
+    const tangent = filler.orientation === 'horizontal'
+        ? Object.freeze({ x: 1, y: 0 })
+        : (filler.orientation === 'vertical'
+            ? Object.freeze({ x: 0, y: 1 })
+            : Object.freeze({ x: 0, y: 0 }));
+    if ((!outward.x && !outward.y) || (!tangent.x && !tangent.y)) {
+        return Object.freeze([]);
+    }
+
+    // The inner half-frame is the mirror of the older outer half-frame: its
+    // apex remains on the structural grid vertex, but its base lies INSIDE the
+    // assembly instead of outside the perimeter. This is the small triangular
+    // transition between the straight host frame and the rectangular mullion
+    // branch that starts slightly away from the grid.
+    const apex = Object.freeze({
+        x: finiteNumber(filler.apexX),
+        y: finiteNumber(filler.apexY),
+    });
+    const baseCenter = Object.freeze({
+        x: apex.x - outward.x * span,
+        y: apex.y - outward.y * span,
+    });
+    const firstShoulder = Object.freeze({
+        x: baseCenter.x + tangent.x * span,
+        y: baseCenter.y + tangent.y * span,
+    });
+    const secondShoulder = Object.freeze({
+        x: baseCenter.x - tangent.x * span,
+        y: baseCenter.y - tangent.y * span,
+    });
+
+    return Object.freeze([apex, firstShoulder, secondShoulder]);
+}
+
+export function getHalfMullionTriangle({
+    filler,
+    triangleSpan = 0,
+} = {}) {
+    if (!filler) return Object.freeze([]);
+    const span = Math.max(0, finiteNumber(triangleSpan));
+    if (span <= 0) return Object.freeze([]);
+
+    const outward = armDirectionVector(filler.direction);
+    const tangent = filler.orientation === 'horizontal'
+        ? Object.freeze({ x: 1, y: 0 })
+        : (filler.orientation === 'vertical'
+            ? Object.freeze({ x: 0, y: 1 })
+            : Object.freeze({ x: 0, y: 0 }));
+    if ((!outward.x && !outward.y) || (!tangent.x && !tangent.y)) {
+        return Object.freeze([]);
+    }
+
+    // This is the same triangular ownership pattern as a half-frame, but on a
+    // centred mullion/transom host. It occupies only the branch-facing half of
+    // the host line while the added rectangular mullion branch begins further
+    // away from the grid vertex.
+    const apex = Object.freeze({
+        x: finiteNumber(filler.apexX),
+        y: finiteNumber(filler.apexY),
+    });
+    const baseCenter = Object.freeze({
+        x: apex.x + outward.x * span,
+        y: apex.y + outward.y * span,
+    });
+    const firstShoulder = Object.freeze({
+        x: baseCenter.x + tangent.x * span,
+        y: baseCenter.y + tangent.y * span,
+    });
+    const secondShoulder = Object.freeze({
+        x: baseCenter.x - tangent.x * span,
+        y: baseCenter.y - tangent.y * span,
+    });
+
+    return Object.freeze([apex, firstShoulder, secondShoulder]);
+}
+
+export function getFrameInsideHalfFrameInset({
+    inwardDistance,
+    frameInwardSpan = 0,
+    halfFrameSpan = RECTANGULAR_DIVIDER_SETBACK_M,
+} = {}) {
+    const normalizedInwardDistance = Math.max(0, finiteNumber(inwardDistance));
+    const normalizedFrameInwardSpan = Math.max(0, finiteNumber(frameInwardSpan));
+    const normalizedHalfFrameSpan = Math.min(
+        normalizedFrameInwardSpan,
+        Math.max(0, finiteNumber(halfFrameSpan, RECTANGULAR_DIVIDER_SETBACK_M))
+    );
+
+    // The outer part of the host frame stays continuous. Only the INNER band,
+    // nearest the glazing, opens linearly toward the structural grid vertex to
+    // create the separate inside half-frame triangle.
+    const straightSpan = Math.max(0, normalizedFrameInwardSpan - normalizedHalfFrameSpan);
+    if (normalizedInwardDistance <= straightSpan) return 0;
+    return Math.min(
+        normalizedHalfFrameSpan,
+        normalizedInwardDistance - straightSpan
+    );
 }
 
 function hasWindowAcrossMissingReentrantDirection({ junction, cells, direction }) {
@@ -1274,6 +1414,21 @@ export function getEditableDividerSegmentPlacement({
             length += contactStart;
             longitudinalOffset += atStart ? -contactStart / 2 : contactStart / 2;
         };
+        const applyRectangularSetback = () => {
+            const setback = Math.min(
+                getRectangularDividerSetback({
+                    dividerFaceSpan: normalizedDividerFaceSpan,
+                    hostInnerFaceSpan: INTERSECTION_HOST_INNER_FACE_M,
+                }),
+                Math.max(0, length)
+            );
+            joint[endModeKey] = 'square';
+            joint[frameSpanKey] = 0;
+            joint[atStart ? 'negativeRectangularEndNotch' : 'positiveRectangularEndNotch'] = true;
+            if (setback <= 1e-9) return;
+            length = Math.max(0, length - setback);
+            longitudinalOffset += atStart ? setback / 2 : -setback / 2;
+        };
 
         // Compatibility for divider-only L topology. A real derived L now has
         // four physical arms and is handled as one mixed + below.
@@ -1314,90 +1469,54 @@ export function getEditableDividerSegmentPlacement({
             return;
         }
 
-        // Perimeter T: a divider branch terminates in two collinear frame
-        // pieces. The frames form the socket while the branch V tip ends on the
-        // graph vertex.
+        // Perimeter T: the added mullion branch ends 19 mm before the grid
+        // vertex (44 mm half mullion face - 25 mm inner frame band). The host
+        // frame itself stays flat and continuous; its inner 25 mm band is the
+        // physical inside half-frame contact surface.
         if (
             !oppositeArm
             && perpendicularArms.some(arm => arm.kind === 'frame')
         ) {
-            joint[endModeKey] = 'arrow';
-            joint[frameSpanKey] = normalizedFrameJointInwardSpan;
-            extendArrowTipToFrameGrid();
+            applyRectangularSetback();
             return;
         }
 
-        // Interior T/cross hosts are two collinear divider pieces. They keep
-        // the verified socket treatment while the perpendicular branch uses a
-        // V. At a four-divider cross the vertical axis is chosen deterministically
-        // by classifyPhysicalJunction().
+        // Interior T/cross hosts stay flat. The branch meets the existing
+        // 25 mm host-side half-mullion band; no triangular socket/filler is cut
+        // out of the continuous host member.
         if (
             oppositeArm?.kind === 'divider'
             && junction.hostOrientation
             && segment?.orientation === junction.hostOrientation
             && perpendicularArms.some(arm => arm.kind === 'divider')
         ) {
-            joint[endModeKey] = 'socket';
-            joint[frameSpanKey] = normalizedDividerFaceSpan;
-            // At a three-divider T the socket must be cut on the SAME visible
-            // half of the host mullion as the perpendicular branch. The old
-            // hard-coded +1 always cut the same CAD half, so a mirrored T
-            // (for example a branch arriving from the west) carved the host on
-            // the opposite side and left a large triangular hole.
-            //
-            // createDividerSegment() maps vertical host face directly to world
-            // X, while horizontal host face maps to -world Y. Convert the
-            // branch direction to that rendered face sign so every rotated T
-            // uses the same physical socket geometry.
-            if (junction.type === 'T') {
-                const branchArm = perpendicularArms.find(arm => arm.kind === 'divider');
-                const socketSignKey = atStart
-                    ? 'negativeSocketInwardSign'
-                    : 'positiveSocketInwardSign';
-                if (segment?.orientation === 'vertical') {
-                    joint[socketSignKey] = branchArm?.direction === 'west' ? -1 : 1;
-                } else {
-                    joint[socketSignKey] = branchArm?.direction === 'north' ? -1 : 1;
-                }
-            } else {
-                // Preserve the established full-cross treatment. A cross has
-                // perpendicular branches on both sides and is not the mirrored
-                // three-arm case handled above.
-                joint.socketInwardSign = 1;
-            }
-            joint.socketInwardOffset = halfFace;
+            joint[endModeKey] = 'square';
+            joint[frameSpanKey] = 0;
             return;
         }
 
-        // A branch with no collinear continuation must reach the host centre.
-        // This is the existing verified T-joint deformation; it changes only
-        // the joint stock at the endpoint and never a cell/frame envelope.
+        // A mullion added onto another mullion/transom is a rectangular
+        // branch that stops 19 mm from the grid. The existing host profile
+        // supplies the 25 mm half-mullion contact band.
         if (
             !oppositeArm
             && perpendicularArms.some(arm => arm.kind === 'divider')
             && junction.hostOrientation
             && segment?.orientation !== junction.hostOrientation
         ) {
-            joint[endModeKey] = 'arrow';
-            joint[frameSpanKey] = normalizedDividerFaceSpan;
-            length += halfFace;
-            longitudinalOffset += atStart ? -halfFace / 2 : halfFace / 2;
+            applyRectangularSetback();
             return;
         }
 
-        // A branch axis of a full divider cross has a collinear branch on the
-        // opposite side as well. Treat both halves as branches against the
-        // deterministic host axis.
+        // The same rectangular-branch rule applies to the non-host axis of a
+        // full mullion cross.
         if (
             oppositeArm?.kind === 'divider'
             && junction.type === 'cross'
             && junction.hostOrientation
             && segment?.orientation !== junction.hostOrientation
         ) {
-            joint[endModeKey] = 'arrow';
-            joint[frameSpanKey] = normalizedDividerFaceSpan;
-            length += halfFace;
-            longitudinalOffset += atStart ? -halfFace / 2 : halfFace / 2;
+            applyRectangularSetback();
         }
     });
 
@@ -2215,11 +2334,13 @@ export function getEditableWindowTopologyGeometry({
                 && hasPerpendicularDivider
                 && getNormalPerimeterTHalfFrameInfo(junction)
             ) {
-                // A normal perimeter T owns the asymmetric outer triangle as a
-                // separate half-frame piece. The two host frames therefore open
-                // toward that triangle before the grid vertex, then continue
-                // with the ordinary mullion V socket after the vertex.
-                mode = 'half-frame-socket';
+                // A real perimeter frame remains one continuous extrusion at a
+                // mullion T. The "inside half-frame" is the inner 25 mm band of
+                // that continuous profile, not a triangular front-view filler.
+                // Keep the two renderer segments square so they butt together
+                // without carving the V-shaped hole that the old implementation
+                // produced.
+                mode = 'square';
             } else if (
                 oppositeArm?.kind === 'divider'
                 || hasPerpendicularDivider
@@ -2330,15 +2451,11 @@ export function getEditableWindowTopologyGeometry({
         })
         .filter(Boolean);
 
-    // Normal perimeter T: two collinear outer-frame pieces meet one
-    // terminating mullion. Because the frame reference is offset from the grid
-    // vertex, the outer 45-degree triangle belongs to neither complete host
-    // frame. Model it explicitly as one `half-frame` instead of letting both
-    // neighbouring frames carry the same material.
-    const halfFrameSpan = getFrameDividerMiterContactStart({
-        dividerFaceSpan: normalizedDividerFaceSpan,
-        frameInwardSpan: requestedFrameInwardSpan,
-    });
+    // Normal perimeter T: the physical frame remains continuous. Keep a
+    // lightweight descriptor for the inner 25 mm frame band so intersection
+    // ownership/BOM logic can distinguish it from the 32 mm outer frame band,
+    // but do not render it as a separate triangular mesh.
+    const halfFrameSpan = INTERSECTION_HOST_INNER_FACE_M;
     const halfFrameFillers = physicalIntersections
         .map(junction => {
             const info = getNormalPerimeterTHalfFrameInfo(junction);
@@ -2350,7 +2467,7 @@ export function getEditableWindowTopologyGeometry({
 
             return Object.freeze({
                 id: `half-frame-${junction.key}`,
-                pieceType: 'half-frame',
+                pieceType: 'inside-half-frame',
                 sourceFrameId: sourceFrameArm.segmentId,
                 hostFrameIds: Object.freeze(info.frameArms.map(arm => arm.segmentId)),
                 side: info.side,
@@ -2359,6 +2476,13 @@ export function getEditableWindowTopologyGeometry({
                 apexX: finiteNumber(junction.x),
                 apexY: finiteNumber(junction.y),
                 frameReferenceSpan: halfFrameSpan,
+                innerFaceSpan: INTERSECTION_HOST_INNER_FACE_M,
+                gridSetback: getRectangularDividerSetback({
+                    dividerFaceSpan: normalizedDividerFaceSpan,
+                    hostInnerFaceSpan: INTERSECTION_HOST_INNER_FACE_M,
+                }),
+                positionMode: 'inside',
+                renderAsSeparateMesh: false,
             });
         })
         .filter(Boolean);
@@ -2471,6 +2595,74 @@ export function getEditableWindowTopologyGeometry({
         })
         .filter(Boolean);
 
+    const rectangularDividerHostFillers = physicalIntersections
+        .flatMap(junction => {
+            if ((junction?.type !== 'T' && junction?.type !== 'cross') || !junction?.hostOrientation) {
+                return [];
+            }
+
+            const hostArms = junction.activeDirections
+                .map(direction => junction.arms?.[direction])
+                .filter(arm => arm?.kind === 'divider' && arm.orientation === junction.hostOrientation);
+            const branchArms = junction.activeDirections
+                .map(direction => junction.arms?.[direction])
+                .filter(arm => arm?.kind === 'divider' && arm.orientation !== junction.hostOrientation);
+            if (!hostArms.length || !branchArms.length) return [];
+
+            const sourceHostArm = [...hostArms]
+                .sort((a, b) => String(a.segmentId).localeCompare(String(b.segmentId)))[0];
+            const sourceDivider = dividerSegments.find(segment => segment.id === sourceHostArm?.segmentId);
+            if (!sourceDivider) return [];
+
+            return branchArms
+                .map(branchArm => {
+                    let faceHalfSign = 0;
+                    if (junction.hostOrientation === 'horizontal') {
+                        if (branchArm.direction === 'north') faceHalfSign = -1;
+                        else if (branchArm.direction === 'south') faceHalfSign = 1;
+                    } else {
+                        if (branchArm.direction === 'east') faceHalfSign = 1;
+                        else if (branchArm.direction === 'west') faceHalfSign = -1;
+                    }
+                    if (!faceHalfSign) return null;
+
+                    return Object.freeze({
+                        id: `rectangular-host-filler-${junction.key}-${branchArm.direction}`,
+                        pieceType: 'half-mullion',
+                        fillerKind: 'rectangular-host',
+                        clipShape: 'host-inner-band',
+                        triangleSpan: INTERSECTION_HOST_INNER_FACE_M,
+                        innerFaceSpan: INTERSECTION_HOST_INNER_FACE_M,
+                        gridSetback: getRectangularDividerSetback({
+                            dividerFaceSpan: normalizedDividerFaceSpan,
+                            hostInnerFaceSpan: INTERSECTION_HOST_INNER_FACE_M,
+                        }),
+                        renderAsSeparateMesh: false,
+                        sourceDividerId: sourceDivider.id,
+                        sourceTemplateId: sourceDivider.templateId || null,
+                        sourceReversed: Boolean(sourceDivider.reversed),
+                        direction: branchArm.direction,
+                        orientation: junction.hostOrientation,
+                        faceHalfSign,
+                        length: RECTANGULAR_DIVIDER_SETBACK_M * 2,
+                        perpendicularOffset: junction.hostOrientation === 'vertical'
+                            ? finiteNumber(junction.x)
+                            : finiteNumber(junction.y),
+                        longitudinalOffset: junction.hostOrientation === 'vertical'
+                            ? finiteNumber(junction.y)
+                            : finiteNumber(junction.x),
+                        apexX: finiteNumber(junction.x),
+                        apexY: finiteNumber(junction.y),
+                    });
+                })
+                .filter(Boolean);
+        });
+
+    const dividerFillers = Object.freeze([
+        ...reentrantFillers,
+        ...rectangularDividerHostFillers,
+    ]);
+
     // junctions remains the divider-facing renderer API. It now contains every
     // physical point that has at least one divider, with its frame arms attached.
     const junctions = physicalIntersections.filter(junction => junction.dividerCount >= 2);
@@ -2505,7 +2697,8 @@ export function getEditableWindowTopologyGeometry({
         physicalIntersections: Object.freeze(physicalIntersections),
         perimeterJunctions: Object.freeze(perimeterJunctions),
         halfFrameFillers: Object.freeze(halfFrameFillers),
-        reentrantFillers: Object.freeze(reentrantFillers),
+        dividerRectangularSetback: RECTANGULAR_DIVIDER_SETBACK_M,
+        reentrantFillers: dividerFillers,
         gridLinePieces: Object.freeze([
             ...framePlacements.map(piece => Object.freeze({
                 id: piece.id,
@@ -2551,7 +2744,7 @@ export function getEditableWindowTopologyGeometry({
                     : piece.apexX,
                 source: piece,
             })),
-            ...reentrantFillers.map(piece => Object.freeze({
+            ...dividerFillers.map(piece => Object.freeze({
                 id: piece.id,
                 pieceType: 'half-mullion',
                 orientation: piece.orientation,

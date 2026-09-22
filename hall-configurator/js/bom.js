@@ -1,5 +1,5 @@
-import { normalizeOpenings } from './openings.js?v=13';
-import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=1';
+import { normalizeOpenings } from './openings.js?v=platform-18';
+import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=platform-18';
 
 const unit = (value, locale) => value === 'pcs' ? hallT(locale, 'bom.unit.pcs') : value;
 

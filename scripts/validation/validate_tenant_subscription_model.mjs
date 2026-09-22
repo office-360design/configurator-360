@@ -15,7 +15,7 @@ const checks = [
     'TENANT_PLAN_CATALOG',
     'maxConfigurators: 1',
     'maxConfigurators: 3',
-    'maxConfigurators: 6',
+    'maxConfigurators: 7',
     "TENANT_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due', 'suspended', 'cancelled'])",
     'defaultTenantSubscription(now)',
     'validateConfiguratorsForPlan',
@@ -35,7 +35,7 @@ const checks = [
     'id="manageSubscriptionStatus"',
     'id="manageCancelAtPeriodEnd"',
     'id="saveSubscriptionButton"',
-    'tenantProvisioningAdmin.js?v=8',
+    'tenantProvisioningAdmin.js?v=',
   ]],
   ['shared-ui/src/tenantProvisioningAdmin.js', [
     'getTenantPlans',
