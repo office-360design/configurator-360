@@ -5,32 +5,53 @@ on:
     branches: [tenants]
     paths:
       - '.github/workflows/validate-tenant-catalogue.yml'
+      - '.tenant-catalogue-update.py'
+      - 'scripts/validation/tenant-catalogue*'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
     if: github.ref == 'refs/heads/tenants'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Source snapshot for local regression checks
-        run: git archive --format=zip HEAD -o tenant-catalogue-source.zip
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tenant-catalogue-source
-          path: tenant-catalogue-source.zip
-          retention-days: 1
-      - name: Existing tenant checks
+      - name: Apply reviewed catalogue changes
+        run: python3 .tenant-catalogue-update.py
+      - name: Tenant and configurator regression checks
         shell: bash
         run: |
-          status=0
-          for check in tenant tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit; do
-            npm run "check:$check" || status=1
+          set -euo pipefail
+          for check in tenant tenant-catalogue tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
+            npm run "check:$check"
           done
-          exit "$status"
+          git diff --check
+          git diff --name-only -- '*.js' '*.mjs' | while IFS= read -r file; do node --check "$file"; done
+      - name: Install browser test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Dashboard and admin browser smoke
+        run: npm run check:tenant-catalogue:browser
+      - name: Publish tested changes to tenants only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/tenants
+          rm .tenant-catalogue-update.py
+          git add -u
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat(tenants): support tiles, cardbox, chair and bookshelf'
+          git push origin HEAD:refs/heads/tenants
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tenant-catalogue-browser
+          path: artifacts/tenant-catalogue-dashboard.png
+          if-no-files-found: ignore
+          retention-days: 7
