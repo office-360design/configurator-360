@@ -19,17 +19,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Inspect tenant catalogue integration
-        shell: bash
-        run: |
-          echo '=== Repository instructions ==='
-          find . -name AGENTS.md -not -path './node_modules/*' -print
-          echo '=== Tenant catalogue consumers ==='
-          git grep -n -E 'TENANT_CONFIGURATORS|ALLOWED_PRODUCTS|maxConfigurators:|All [0-9]+ standard|PRODUCT_LABELS|PRODUCT_TYPES|CONFIGURATOR_LABELS' -- shared-ui firebase-share-backend scripts/validation || true
-          echo '=== New configurator entry points ==='
-          git grep -n -E 'requireTenantConfiguratorAccess|standaloneShell|mountStandalone|productType:|productId:|onAddToCart|onRequestQuote|tenantBootstrap' -- tiles-configurator cardbox-configurator chair-configurator bookshelf-configurator || true
-          echo '=== Routes and UI product lists ==='
-          git grep -n -E 'cardbox|tiles|chair|bookshelf' -- shared-ui/admin shared-ui/tenant shared-ui/tenant-dashboard cloudrun firebase-share-backend/firestore.rules || true
+      - name: Source snapshot for local regression checks
+        run: git archive --format=zip HEAD -o tenant-catalogue-source.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tenant-catalogue-source
+          path: tenant-catalogue-source.zip
+          retention-days: 1
       - name: Existing tenant checks
         shell: bash
         run: |
