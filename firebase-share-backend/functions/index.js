@@ -120,11 +120,11 @@ const TENANT_PLAN_CATALOG = Object.freeze({
     name: 'Go Live Now — all configurators',
     shortName: 'All configurators',
     description: 'The complete Go Live Now package with access to the full standard configurator catalogue.',
-    maxConfigurators: 7,
+    maxConfigurators: ALLOWED_PRODUCTS.size,
     displayOrder: 30,
     recommended: false,
     features: Object.freeze([
-      'All 7 standard configurators',
+      `All ${ALLOWED_PRODUCTS.size} standard configurators`,
       'Company name and logo',
       'Customer dashboard',
       'Saved configurations',
