@@ -22,11 +22,11 @@ Product settings panels use the shared `shared-settings-panel` and
 `shared-settings-toggle` classes so all configurators place their controls at the same
 right-side coordinates and use the same collapse geometry.
 
-## Settings control foundation (Hall, Fence, Roof, Solar and Tiles)
+## Settings control foundation (Hall, Fence, Roof, Solar, Tiles and Pergola)
 
 `styles/panelControls.css` is an opt-in stylesheet based on Hall's existing panel.
 Load it after `styles/standalone.css`, scope out superseded product control rules, and add
-`shared-panel-controls` to the settings container. Hall, Fence, Roof, Solar and Tiles now opt in;
+`shared-panel-controls` to the settings container. Hall, Fence, Roof, Solar, Tiles and Pergola now opt in;
 other configurators do not load or opt into it yet. It does not change the shell's panel position, width, collapse
 button, footer, or stacking order.
 
@@ -231,3 +231,20 @@ Run `node shared-ui/tests/tiles-panel-preservation.mjs` with Playwright installe
 (and optionally `CHROMIUM_PATH`). The comparison runs real Tiles handlers and
 model calculations against the pre-adoption commit, with the shell and WebGL
 viewer stubbed. Live map/network services are not exercised.
+
+### Pergola panel
+
+Pergola opts into the shared introduction, accordion headers, native ranges,
+numeric fields and choice-card surfaces. The product adapter retains image/icon
+card layouts and millimeter/inch unit suffixes. The shared theme also supports
+`.app-shell.is-dark-mode` with the opt-in `shared-panel-shell-theme` class for
+products that own their theme locally.
+
+Keep Pergola's accordion controller local: it renders only the expanded section
+and allows all sections to close. Its store owns placement constraints, disabled
+options, mounting conflicts, dimension-reset confirmations, continuous-input
+history, side infills, pole accessories, lighting, heaters and pricing.
+
+`node shared-ui/tests/pergola-panel-preservation.mjs` compares the real UI, store
+and pricing against the pre-adoption commit. It uses managed-panel geometry but
+does not start the shared shell, WebGL, quoting or external services.

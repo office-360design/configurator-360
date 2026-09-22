@@ -18,8 +18,8 @@ import {
   segmentIsAvailable,
 } from '../state.js?v=platform-18';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=platform-18';
-import { pergolaRenderers } from './pergolaRenderers.js?v=platform-18';
-import { pergolaT, translatePergolaRuntimeMessage } from '../i18n.js?v=platform-18';
+import { pergolaRenderers } from './pergolaRenderers.js?v=pergola-panel-1';
+import { pergolaT, translatePergolaRuntimeMessage } from '../i18n.js?v=pergola-panel-1';
 
 const CAMERA_PRESETS = ['perspective', 'front', 'left', 'right', 'top'];
 
@@ -98,7 +98,7 @@ export class ConfiguratorUI {
             <div class="toast" data-toast role="status"></div>
           </section>
 
-          <aside class="configurator-sidebar${this.sidebarHidden ? ' is-collapsed' : ''}" aria-label="${escapeHtml(this.t('app.sidebarAria'))}">
+          <aside class="configurator-sidebar shared-panel-controls shared-panel-shell-theme${this.sidebarHidden ? ' is-collapsed' : ''}" aria-label="${escapeHtml(this.t('app.sidebarAria'))}">
             <div class="sidebar-scroll shared-configurator-panel__body" data-step-content></div>
             <footer class="sidebar-footer" data-sidebar-footer></footer>
           </aside>
@@ -150,7 +150,13 @@ export class ConfiguratorUI {
   render() {
     this.root.querySelector('.app-shell')?.classList.toggle('is-dark-mode', Boolean(this.state.darkMode));
 
-    this.stepContent.innerHTML = this.renderAccordionSections();
+    this.stepContent.innerHTML = `
+      <header class="panel-section intro-section">
+        <p class="eyebrow">${escapeHtml(this.t('panel.eyebrow'))}</p>
+        <h1>${escapeHtml(this.t('panel.title'))}</h1>
+        <p class="section-copy">${escapeHtml(this.t('panel.description'))}</p>
+      </header>
+    ` + this.renderAccordionSections();
     if (this.sharedShell?.refreshConfiguratorPanelFooter) this.sharedShell.refreshConfiguratorPanelFooter();
     else this.sidebarFooter.replaceChildren();
     this.environmentPanel.innerHTML = this.renderEnvironmentPanel();

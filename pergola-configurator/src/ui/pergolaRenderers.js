@@ -58,8 +58,8 @@ import {
   pergolaPlural,
   pergolaT,
   pergolaValueLabel,
-} from '../i18n.js?v=platform-18';
-import { optionCard, segmented, colorSwatches } from './renderHelpers.js?v=platform-18';
+} from '../i18n.js?v=pergola-panel-1';
+import { optionCard, segmented, colorSwatches } from './renderHelpers.js?v=pergola-panel-1';
 
 const POLE_MOUNT_OPTIONS = [
   { value: 'speaker', icon: './assets/icons/accessory-speaker.svg' },
@@ -447,7 +447,7 @@ export const pergolaRenderers = {
             const selected = this.state.services[option.value];
             return `
               <button
-                class="option-card option-card--large-icon ${selected ? 'is-selected' : ''}"
+                class="option-card choice-card option-card--large-icon ${selected ? 'is-selected' : ''}"
                 type="button"
                 data-action="toggle-service"
                 data-service="${option.value}"
@@ -1003,8 +1003,8 @@ export const pergolaRenderers = {
     return `
       <label class="form-field">
         <span>${escapeHtml(label)}</span>
-        <div class="number-input">
-          <input type="number" value="${displayValue}" min="${displayMin}" max="${displayMax}" step="${displayStep}" data-path="${path}" data-value-type="number" ${imperial ? 'data-dimension-unit="inches"' : ''} />
+        <div class="dimension-input">
+          <input class="number-input" type="number" value="${displayValue}" min="${displayMin}" max="${displayMax}" step="${displayStep}" data-path="${path}" data-value-type="number" ${imperial ? 'data-dimension-unit="inches"' : ''} />
           <small>${imperial ? 'in' : 'mm'}</small>
         </div>
       </label>

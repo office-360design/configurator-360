@@ -916,7 +916,7 @@
   }
 
   /* Comfortable touch targets and iOS-safe form font sizes. */
-  .configurator-sidebar .accordion-toggle {
+  .configurator-sidebar .accordion-toggle:where(:not(.shared-panel-controls *)) {
     min-height: 52px;
     padding: 13px 14px;
     touch-action: manipulation;
@@ -948,11 +948,11 @@
   .configurator-sidebar .form-field input,
   .configurator-sidebar .form-field textarea,
   .configurator-sidebar select,
-  .configurator-sidebar .number-input input {
+  .configurator-sidebar .dimension-input input {
     font-size: 16px;
   }
 
-  .configurator-sidebar .number-input {
+  .configurator-sidebar .dimension-input {
     min-height: 44px;
   }
 
