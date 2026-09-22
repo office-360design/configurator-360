@@ -111,3 +111,13 @@ For a Netlify project that already builds the root application, either:
 - AR is represented by a working UI placeholder only. The existing GLB/USDZ publication flow can be connected later.
 - The pergola geometry is concept/demo geometry, not production CAD or engineering geometry.
 - Pricing is illustrative and defined in `src/pricing.js`.
+
+
+### Browser regression checks
+
+After installing the root Playwright dependencies and this package's Vite dependencies,
+run `node tools/validate-browser-options.mjs` from `pergola-configurator`.
+Set `CHROMIUM_PATH` if using a separately installed browser. This boots the actual
+shared shell and WebGL renderer, waits for imported assets, exercises option/theme
+changes, and checks that a failed rebuild keeps the previous model visible.
+External services are blocked; no configuration is submitted or shared.
