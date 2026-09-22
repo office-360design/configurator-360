@@ -424,3 +424,137 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-section.is-op
 
 }
 
+/* Visual choices: native buttons with product-owned selection and previews. */
+:where(.shared-panel-controls) .choice-grid {
+  display: grid;
+  gap: 8px;
+}
+
+:where(.shared-panel-controls) .choice-card {
+  min-height: 82px;
+  padding: 10px 8px;
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  border: 1px solid #dbe3e7;
+  border-radius: 11px;
+  color: #566772;
+  background: #fbfcfc;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+  transition: .15s ease;
+}
+
+:where(.shared-panel-controls) .choice-card:hover {
+  border-color: #a8cfe3;
+  background: #f3f9fc;
+}
+
+:where(.shared-panel-controls) .choice-card.selected {
+  border-color: #63b7e5;
+  color: #096fa9;
+  background: #eef8fd;
+  box-shadow: inset 0 0 0 1px rgba(22,142,212,.12);
+}
+
+:where(.shared-panel-controls) .choice-card svg {
+  width: 58px;
+  height: 35px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.shared-panel-controls) .finish-row {
+  display: grid;
+  gap: 7px;
+}
+
+:where(.shared-panel-controls) .finish-swatch {
+  min-height: 42px;
+  padding: 6px 9px;
+  display: grid;
+  grid-template-columns: 27px minmax(0,1fr);
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #dce3e6;
+  border-radius: 9px;
+  color: #455862;
+  background: #fff;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+:where(.shared-panel-controls) .finish-swatch i {
+  width: 27px;
+  height: 27px;
+  border: 3px solid #fff;
+  border-radius: 7px;
+  background: var(--swatch);
+  box-shadow: 0 0 0 1px #d0d9dd;
+}
+
+:where(.shared-panel-controls) .finish-swatch.selected {
+  color: #076fa8;
+  border-color: #71bde5;
+  background: #eff8fd;
+}
+
+:where(.shared-panel-controls) .finish-swatch.selected i {
+  box-shadow: 0 0 0 2px var(--shared-panel-accent);
+}
+
+body.shared-ui-dark-mode :where(.shared-panel-controls) .choice-card,
+body.shared-ui-dark-mode :where(.shared-panel-controls) .finish-swatch {
+  color: #dbe6ed;
+  background: #1d2b41;
+  border-color: #34455c;
+}
+
+body.shared-ui-dark-mode :where(.shared-panel-controls) .choice-card.selected,
+body.shared-ui-dark-mode :where(.shared-panel-controls) .finish-swatch.selected {
+  color: #7ccdf7;
+  background: #1b3449;
+  border-color: #3f7795;
+}
+
+@media (max-width: 760px) {
+  :where(.shared-panel-controls) .choice-card {
+    min-width: 0;
+    min-height: 86px;
+    padding: 9px 5px;
+    touch-action: manipulation;
+  }
+
+  :where(.shared-panel-controls) .choice-card svg {
+    width: min(54px, 70%);
+  }
+
+  :where(.shared-panel-controls) .finish-row {
+    gap: 8px;
+  }
+
+  :where(.shared-panel-controls) .finish-swatch {
+    min-height: 48px;
+    font-size: 11px;
+    touch-action: manipulation;
+  }
+
+}
+
+@media (max-width: 380px) {
+  :where(.shared-panel-controls) .choice-grid {
+    gap: 6px;
+  }
+
+  :where(.shared-panel-controls) .choice-card {
+    min-height: 82px;
+    font-size: 8.5px;
+  }
+
+}
+

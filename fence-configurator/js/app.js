@@ -1,7 +1,7 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { createFenceState, deriveFenceMetrics, normalizeFenceState } from './state.js?v=platform-18';
 import { FenceScene } from './scene.js?v=platform-18';
-import { FenceUI } from './ui.js?v=platform-18';
+import { FenceUI } from './ui.js?v=panel-controls-2';
 import { resolveFenceLocale } from './i18n.js?v=platform-18';
 import { initializeFenceFinishCatalog } from './finish-catalog.js?v=1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
@@ -212,3 +212,4 @@ window.FENCE_CONFIGURATOR_API = {
 
 setDarkMode(Boolean(window.FENCE_CONFIGURATOR_SHARED_SHELL?.state?.darkMode));
 syncToolButtons();
+
