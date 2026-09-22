@@ -22,11 +22,11 @@ Product settings panels use the shared `shared-settings-panel` and
 `shared-settings-toggle` classes so all configurators place their controls at the same
 right-side coordinates and use the same collapse geometry.
 
-## Settings control foundation (Hall, Fence, Roof and Solar)
+## Settings control foundation (Hall, Fence, Roof, Solar and Tiles)
 
 `styles/panelControls.css` is an opt-in stylesheet based on Hall's existing panel.
 Load it after `styles/standalone.css`, scope out superseded product control rules, and add
-`shared-panel-controls` to the settings container. Hall, Fence, Roof and Solar now opt in;
+`shared-panel-controls` to the settings container. Hall, Fence, Roof, Solar and Tiles now opt in;
 other configurators do not load or opt into it yet. It does not change the shell's panel position, width, collapse
 button, footer, or stacking order.
 
@@ -216,3 +216,18 @@ with the frontend change; its function list includes the new callable.
 Run `node --test scripts/validation/configuration-quotation.test.cjs` from the
 repository root for mocked delivery, validation and footer checks. These tests
 never send email.
+
+### Tiles panel
+
+Tiles uses native `details.accordion-section` / `summary.accordion-toggle` with an
+`accordion-panel` body. All five sections keep their existing independent, initially
+open behavior; no JavaScript accordion binder is needed. Shared native-details
+styles provide the Hall header treatment, chevron and reduced-motion support.
+Tiles reuses range/number fields, native selects, the house switch and product
+choice cards. Pattern SVGs, mixed-color swatches, the perimeter drawing, curb-edge
+checkboxes, house map, estimate and CSV remain product-owned.
+
+Run `node shared-ui/tests/tiles-panel-preservation.mjs` with Playwright installed
+(and optionally `CHROMIUM_PATH`). The comparison runs real Tiles handlers and
+model calculations against the pre-adoption commit, with the shell and WebGL
+viewer stubbed. Live map/network services are not exercised.
