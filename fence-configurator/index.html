@@ -8,7 +8,8 @@
   <title>3D Fence Configurator | 360Configurator</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=platform-18" />
-  <link rel="stylesheet" href="./styles.css?v=platform-18" />
+  <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-2" />
+  <link rel="stylesheet" href="./styles.css?v=panel-controls-2" />
   <script type="importmap">
     {
       "imports": {
@@ -30,7 +31,7 @@
       </div>
     </section>
 
-    <aside class="sidebar shared-settings-panel shared-settings-panel--light" aria-label="Fence settings" data-fence-i18n-aria-label="sidebar.aria">
+    <aside class="sidebar shared-panel-controls shared-settings-panel shared-settings-panel--light" aria-label="Fence settings" data-fence-i18n-aria-label="sidebar.aria">
       <section class="panel-section intro-section">
         <p class="eyebrow" data-fence-i18n="sidebar.eyebrow">Outdoor boundaries</p>
         <h1 data-fence-i18n="sidebar.title">Fence settings</h1>
@@ -43,7 +44,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <div class="accordion-panel">
-          <span class="field-label" data-fence-i18n="layout.type">Fence layout</span>
+          <span class="select-label" data-fence-i18n="layout.type">Fence layout</span>
           <div class="choice-grid layout-grid">
             <button type="button" class="choice-card selected" data-layout="straight" aria-pressed="true">
               <svg viewBox="0 0 76 42" aria-hidden="true"><path d="M8 29h60M10 13v22M66 13v22M38 13v22"/></svg>
@@ -112,7 +113,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <div class="accordion-panel" hidden>
-          <span class="field-label" data-fence-i18n="panel.style">Panel system</span>
+          <span class="select-label" data-fence-i18n="panel.style">Panel system</span>
           <div class="choice-grid panel-grid">
             <button type="button" class="choice-card selected" data-panel-style="vertical" aria-pressed="true"><span class="panel-preview preview-vertical"></span><span data-fence-i18n="panel.vertical">Vertical slats</span></button>
             <button type="button" class="choice-card" data-panel-style="horizontal" aria-pressed="false"><span class="panel-preview preview-horizontal"></span><span data-fence-i18n="panel.horizontal">Horizontal slats</span></button>
@@ -125,7 +126,7 @@
             <span class="range-row"><input type="range" /><input class="number-input" type="number" /></span>
           </label>
 
-          <span class="field-label top-gap" data-fence-i18n="finish.label">Finish</span>
+          <span class="select-label top-gap" data-fence-i18n="finish.label">Finish</span>
           <div class="finish-row">
             <button class="finish-swatch selected" type="button" data-finish="anthracite" style="--swatch:#343a40"><i></i><span data-fence-i18n="finish.anthracite">Anthracite</span></button>
             <button class="finish-swatch" type="button" data-finish="black" style="--swatch:#181b1e"><i></i><span data-fence-i18n="finish.black">Black</span></button>
@@ -144,7 +145,7 @@
         <div class="accordion-panel" hidden>
           <div class="gate-manager-head">
             <div>
-              <span class="field-label" data-fence-i18n="gate.title">Gates</span>
+              <span class="select-label" data-fence-i18n="gate.title">Gates</span>
               <small data-fence-i18n="gate.help">Add pedestrian or driveway gates to any available fence bay.</small>
             </div>
             <button id="addGateButton" class="secondary-action gate-add-button" type="button" data-fence-i18n="gate.add">Add gate</button>
@@ -153,7 +154,7 @@
           <p id="gateEmptyState" class="gate-empty" data-fence-i18n="gate.empty">No gates added.</p>
           <p id="gateCapacityMessage" class="gate-capacity" hidden data-fence-i18n="gate.capacity">All available bays are occupied by gates.</p>
 
-          <label class="field-label top-gap" for="foundationType" data-fence-i18n="foundation.label">Post foundation</label>
+          <label class="select-label top-gap" for="foundationType" data-fence-i18n="foundation.label">Post foundation</label>
           <select id="foundationType"><option value="concrete" selected data-fence-i18n="foundation.concrete">Concrete footings</option><option value="baseplate" data-fence-i18n="foundation.baseplate">Base plates & anchors</option></select>
         </div>
       </section>
@@ -209,6 +210,7 @@
   </dialog>
 
   <script type="module" src="./js/sharedShell.js?v=platform-19"></script>
-  <script type="module" src="./js/app.js?v=platform-18"></script>
+  <script type="module" src="./js/app.js?v=panel-controls-2"></script>
 </body>
 </html>
+

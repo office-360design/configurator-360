@@ -22,12 +22,12 @@ Product settings panels use the shared `shared-settings-panel` and
 `shared-settings-toggle` classes so all configurators place their controls at the same
 right-side coordinates and use the same collapse geometry.
 
-## Settings control foundation (Hall first)
+## Settings control foundation (Hall and Fence)
 
 `styles/panelControls.css` is an opt-in stylesheet based on Hall's existing panel.
 Load it after `styles/standalone.css` and before product-specific styles, and add
-`shared-panel-controls` to the settings container. Other configurators do not load
-or opt into it yet. It does not change the shell's panel position, width, collapse
+`shared-panel-controls` to the settings container. Hall and Fence now opt in;
+other configurators do not load or opt into it yet. It does not change the shell's panel position, width, collapse
 button, footer, or stacking order.
 
 The shared styles cover the introduction (`panel-section`, `intro-section`,
@@ -65,8 +65,20 @@ Range controls keep their native inputs, dynamically read min/max bounds, and
 preserve input/change/blur notifications. They do not define units, round values
 to steps, infer product state, or schedule model rebuilds. Hall still owns its
 opening constraints, presets, translations, BOM, pricing and all scene callbacks.
-Color swatches, icon/image choices and product-specific cards remain local until
-their requirements are reviewed during the next adoption (Fence).
+Fence also adopts shared `choice-grid` / `choice-card` icon buttons and
+`finish-row` / `finish-swatch` labelled color choices, including responsive and
+dark-mode styles. Layout-specific grid columns and panel preview drawings stay
+in Fence. Choice selection, published finish data and archived finish handling
+remain product-owned; the shared stylesheet never changes a selected value.
+
+Fence uses `bindPanelAccordions` but deliberately retains its numeric adapter:
+sliders commit on input, number fields commit on change (Enter blurs the field),
+and values convert between metric and imperial units before normalization. The
+Hall range binder has different notification timing and is not substituted.
+Dynamic gate controls use the same shared range/select styling while retaining
+their delegated handlers, capacity checks, run selection and placement rules.
+Gate-card spacing and full-width position sliders remain Fence layout rules.
+Generic image choices and other configurators can be added in later passes.
 
 Run `node shared-ui/tests/hall-panel-preservation.mjs` after installing the root
 dependencies and Chromium (`npx playwright install chromium`). The test compares
@@ -76,6 +88,14 @@ EN/RO/DE text and computed styles at four viewport sizes in three theme states.
 It exercises HallUI with recorded scene callbacks; it does not render WebGL or
 contact authentication/backends. `HALL_PANEL_BASELINE_DIR` can point to an unpacked
 baseline for shallow checkouts; `CHROMIUM_PATH` can select an installed browser.
+
+Run `node shared-ui/tests/fence-panel-preservation.mjs` for Fence's before/after
+comparison against `5f8e75e`. It checks state, callback timing, derived metrics,
+pricing/BOM and CSV output across layouts, panel styles, metric/imperial controls,
+numeric bounds, finishes, foundations, dynamic gates, capacity, EN/RO/DE and
+currencies. It also checks panel overflow at five viewport sizes in both themes.
+`FENCE_PANEL_BASELINE_DIR` supplies an unpacked baseline when needed. This test
+also records scene callbacks without starting WebGL, authentication or backends.
 
 ## Shared tools
 
