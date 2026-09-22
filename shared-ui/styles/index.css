@@ -507,19 +507,19 @@
   background: #f4f7f8;
 }
 
-.configurator-sidebar .accordion-toggle {
+.configurator-sidebar .accordion-toggle:where(:not(.shared-panel-controls *)) {
   color: #24313a;
   background: #f7f9fa;
   border-color: #dfe4e6;
 }
 
-.configurator-sidebar .accordion-section.is-open .accordion-toggle {
+.configurator-sidebar .accordion-section.is-open .accordion-toggle:where(:not(.shared-panel-controls *)) {
   color: #153b59;
   background: #eaf4fb;
   border-color: #8fc2e6;
 }
 
-.accordion-toggle__arrow {
+.accordion-toggle__arrow:where(:not(.shared-panel-controls *)) {
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
@@ -531,7 +531,7 @@
   transition: transform 160ms ease;
 }
 
-.accordion-section.is-open .accordion-toggle__arrow {
+.accordion-section.is-open .accordion-toggle__arrow:where(:not(.shared-panel-controls *)) {
   transform: rotate(180deg);
 }
 
@@ -1537,13 +1537,13 @@ body,
   border-color: rgba(255, 255, 255, 0.12);
 }
 
-.app-shell.is-dark-mode .configurator-sidebar .accordion-toggle {
+.app-shell.is-dark-mode .configurator-sidebar .accordion-toggle:where(:not(.shared-panel-controls *)) {
   color: #e2e8f0;
   background: rgba(30, 41, 59, 0.86);
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-.app-shell.is-dark-mode .configurator-sidebar .accordion-section.is-open .accordion-toggle {
+.app-shell.is-dark-mode .configurator-sidebar .accordion-section.is-open .accordion-toggle:where(:not(.shared-panel-controls *)) {
   color: #fff;
   background: rgba(37, 55, 84, 0.96);
   border-color: rgba(96, 165, 250, 0.48);
