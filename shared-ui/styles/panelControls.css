@@ -311,18 +311,22 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .toggle-row {
   display: none !important;
 }
 
+.app-shell.is-dark-mode :where(.shared-panel-controls.shared-panel-shell-theme) .accordion-section,
 body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-section {
   border-color: #293a50;
 }
 
+.app-shell.is-dark-mode :where(.shared-panel-controls.shared-panel-shell-theme) .accordion-toggle,
 body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-toggle {
   color: #eef5f8;
 }
 
+.app-shell.is-dark-mode :where(.shared-panel-controls.shared-panel-shell-theme) .accordion-toggle:hover,
 body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-toggle:hover {
   background: #1c2a3e;
 }
 
+.app-shell.is-dark-mode :where(.shared-panel-controls.shared-panel-shell-theme) .accordion-section:is(.is-open, [open]) .accordion-toggle,
 body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-section:is(.is-open, [open]) .accordion-toggle {
   color: #89d1ff;
   background: #20354a;
@@ -519,6 +523,8 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-section:is(.i
   box-shadow: 0 0 0 2px var(--shared-panel-accent);
 }
 
+.app-shell.is-dark-mode :where(.shared-panel-controls.shared-panel-shell-theme) .choice-card,
+.app-shell.is-dark-mode :where(.shared-panel-controls.shared-panel-shell-theme) .finish-swatch,
 body.shared-ui-dark-mode :where(.shared-panel-controls) .choice-card,
 body.shared-ui-dark-mode :where(.shared-panel-controls) .finish-swatch {
   color: #dbe6ed;
@@ -526,6 +532,9 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .finish-swatch {
   border-color: #34455c;
 }
 
+.app-shell.is-dark-mode :where(.shared-panel-controls.shared-panel-shell-theme) .choice-card.selected,
+.app-shell.is-dark-mode :where(.shared-panel-controls.shared-panel-shell-theme) .choice-card[aria-pressed="true"],
+.app-shell.is-dark-mode :where(.shared-panel-controls.shared-panel-shell-theme) .finish-swatch.selected,
 body.shared-ui-dark-mode :where(.shared-panel-controls) .choice-card.selected,
 body.shared-ui-dark-mode :where(.shared-panel-controls) .choice-card[aria-pressed="true"],
 body.shared-ui-dark-mode :where(.shared-panel-controls) .finish-swatch.selected {
@@ -625,6 +634,7 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .finish-swatch.selected 
   padding-bottom: 25px;
 }
 :where(.shared-panel-controls) .toggle-row input:disabled + i { opacity: .45; }
+.app-shell.is-dark-mode :where(.shared-panel-controls.shared-panel-shell-theme) .accordion-summary,
 body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-summary { color: #aebdca; }
 @media (max-width: 760px) {
   :where(.shared-panel-controls) .accordion-reveal-inner { padding-left: 16px; padding-right: 16px; }
