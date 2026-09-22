@@ -424,6 +424,16 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-section.is-op
 
 }
 
+/* Opt in when display units require longer numeric values, such as millimeters. */
+:where(.shared-panel-controls) .range-row.range-row--wide {
+  grid-template-columns: minmax(0, 1fr) 100px;
+}
+
+:where(.shared-panel-controls) .range-row--wide .number-input {
+  min-width: 0;
+  width: 100%;
+}
+
 /* Visual choices: native buttons with product-owned selection and previews. */
 :where(.shared-panel-controls) .choice-grid {
   display: grid;
@@ -451,7 +461,8 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .accordion-section.is-op
   background: #f3f9fc;
 }
 
-:where(.shared-panel-controls) .choice-card.selected {
+:where(.shared-panel-controls) .choice-card.selected,
+:where(.shared-panel-controls) .choice-card[aria-pressed="true"] {
   border-color: #63b7e5;
   color: #096fa9;
   background: #eef8fd;
@@ -516,6 +527,7 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .finish-swatch {
 }
 
 body.shared-ui-dark-mode :where(.shared-panel-controls) .choice-card.selected,
+body.shared-ui-dark-mode :where(.shared-panel-controls) .choice-card[aria-pressed="true"],
 body.shared-ui-dark-mode :where(.shared-panel-controls) .finish-swatch.selected {
   color: #7ccdf7;
   background: #1b3449;
@@ -557,4 +569,3 @@ body.shared-ui-dark-mode :where(.shared-panel-controls) .finish-swatch.selected 
   }
 
 }
-

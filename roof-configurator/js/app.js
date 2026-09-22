@@ -1,6 +1,6 @@
 import { state, pitchRules, roofNames } from './state.js?v=platform-18';
 import { RoofScene } from './scene.js?v=platform-18';
-import { RoofUI } from './ui.js?v=platform-18';
+import { RoofUI } from './ui.js?v=panel-controls-3';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
@@ -8,7 +8,7 @@ import {
   resolveCurrencyRate,
 } from './preferences.js?v=platform-18';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=platform-18';
+import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=panel-controls-3';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 
 await requireTenantConfiguratorAccess('roof');
@@ -336,3 +336,4 @@ window.addEventListener('roof-preference-change', (event) => {
 window.ROOF_CONFIGURATOR_API = configuratorApi;
 window.dispatchEvent(new CustomEvent('roof-configurator-ready', { detail: configuratorApi.getState() }));
 emitToolsState();
+

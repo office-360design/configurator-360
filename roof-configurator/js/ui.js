@@ -1,3 +1,4 @@
+import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { pitchRules } from './state.js?v=platform-18';
 import { bomToCsv, calculateBom } from './bom.js?v=platform-18';
 import {
@@ -10,7 +11,7 @@ import {
   toDisplayLength,
 } from './preferences.js?v=platform-18';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=platform-18';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=panel-controls-3';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
@@ -24,6 +25,7 @@ export class RoofUI {
     this.currentBom = null;
     this.lastMetrics = null;
     this.dimensionBindings = [];
+    bindPanelAccordions(document.querySelector('.shared-panel-controls'));
     this.bindRoofTypes();
     this.bindRanges();
     this.bindCovering();
@@ -450,3 +452,4 @@ export class RoofUI {
     this.updateBom(metrics);
   }
 }
+
