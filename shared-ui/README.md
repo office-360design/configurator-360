@@ -22,11 +22,11 @@ Product settings panels use the shared `shared-settings-panel` and
 `shared-settings-toggle` classes so all configurators place their controls at the same
 right-side coordinates and use the same collapse geometry.
 
-## Settings control foundation (Hall and Fence)
+## Settings control foundation (Hall, Fence and Roof)
 
 `styles/panelControls.css` is an opt-in stylesheet based on Hall's existing panel.
 Load it after `styles/standalone.css` and before product-specific styles, and add
-`shared-panel-controls` to the settings container. Hall and Fence now opt in;
+`shared-panel-controls` to the settings container. Hall, Fence and Roof now opt in;
 other configurators do not load or opt into it yet. It does not change the shell's panel position, width, collapse
 button, footer, or stacking order.
 
@@ -80,6 +80,16 @@ their delegated handlers, capacity checks, run selection and placement rules.
 Gate-card spacing and full-width position sliders remain Fence layout rules.
 Generic image choices and other configurators can be added in later passes.
 
+Roof groups its existing settings into Roof type, Dimensions and Covering
+accordions, with Roof type initially open. Its custom-plan upload stays in Roof
+type. It reuses choice-card styling through `aria-pressed="true"`; callers may
+use either that native button state or the existing `selected` class. Roof's
+translation bindings use stable IDs instead of positional section selectors.
+Its native numeric adapter still owns millimeter/decimal-foot display, slider
+values in meters, change/blur timing and material-specific pitch minimums.
+`range-row--wide` gives longer display values a 100px number field without
+changing the default Hall/Fence range layout.
+
 Run `node shared-ui/tests/hall-panel-preservation.mjs` after installing the root
 dependencies and Chromium (`npx playwright install chromium`). The test compares
 Hall with pre-extraction commit `c520a637` using native Chromium controls: state,
@@ -96,6 +106,14 @@ numeric bounds, finishes, foundations, dynamic gates, capacity, EN/RO/DE and
 currencies. It also checks panel overflow at five viewport sizes in both themes.
 `FENCE_PANEL_BASELINE_DIR` supplies an unpacked baseline when needed. This test
 also records scene callbacks without starting WebGL, authentication or backends.
+
+Run `node shared-ui/tests/roof-panel-preservation.mjs` for Roof's comparison
+against `4e1a470` (or supply `ROOF_PANEL_BASELINE_DIR`). It checks the existing
+control state and callback behavior, units, covering pitch rules, custom-file
+selection/drop/removal, translations and BOM inclusion/CSV. Fixed model metrics
+isolate the UI/BOM contract from geometry. New accordion keyboard behavior and
+layout checks cover five viewports in light/dark mode and EN/RO/DE. Like the
+other UI checks, it does not start the WebGL scene or backend services.
 
 ## Shared tools
 
