@@ -1,1 +1,8 @@
-{"name":"tiles-configurator","private":true,"type":"module","scripts":{"check":"node --test tests/*.test.mjs"}}
+{
+  "name": "tiles-configurator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --test tests/*.test.mjs"
+  }
+}
