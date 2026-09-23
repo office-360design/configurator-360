@@ -3,6 +3,7 @@ import { readFile, mkdir, copyFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { CONFIGURATOR_PUBLIC_PATHS, getLocaleForHostname } from '../../shared-ui/src/config.js';
 
 // Exercise the actual pages with synthetic Firebase responses. Nothing is sent
 // to production, and no real account or tenant is created by this smoke test.
@@ -79,7 +80,18 @@ try {
   await page.goto(`${tenantOrigin}/`);
   await page.waitForSelector('.tenant-configurator');
   const links = await page.locator('.tenant-configurator').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')));
-  assert.deepEqual(links.sort(), additions.map((id) => `/${id}-configurator/`).sort());
+  const paths = CONFIGURATOR_PUBLIC_PATHS[getLocaleForHostname(new URL(tenantOrigin).hostname)];
+  assert.deepEqual(links.sort(), additions.map((id) => paths[id]).sort());
+  // Exercise every launcher URL, not just the four recently added products.
+  products.forEach((id) => { configurators[id] = true; });
+  await page.reload();
+  await page.waitForSelector('.tenant-configurator');
+  const allLinks = await page.locator('.tenant-configurator').evaluateAll(
+    (nodes) => nodes.map((node) => node.getAttribute('href')),
+  );
+  assert.deepEqual(allLinks.sort(), products.map((id) => paths[id]).sort());
+  products.forEach((id) => { configurators[id] = additions.includes(id); });
+
 
   await page.goto(`${tenantOrigin}/dashboard/`);
   await page.waitForSelector('#dashboardWorkspace:not([hidden])');

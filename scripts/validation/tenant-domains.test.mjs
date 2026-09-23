@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import * as policy from '../../shared-ui/src/tenantDomains.js';
 import { getTenantSlugForHostname, TENANT_CONFIGURATORS } from '../../shared-ui/src/tenantBootstrap.js';
-import { getLocaleForHostname, getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js';
+import { getLocaleForHostname, getLocalizedConfiguratorUrl, CONFIGURATOR_PUBLIC_PATHS } from '../../shared-ui/src/config.js';
 import { migrateTenantDomains } from '../../firebase-share-backend/iam/authorize-existing-tenant-auth-domains.mjs';
 
 const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -104,7 +104,7 @@ for (const [locale, root] of Object.entries(policy.TENANT_DOMAIN_ROOTS)) {
         const target = new URL(getLocalizedConfiguratorUrl(targetLocale, product,
           new URL(`https://${hostname}/${product}-configurator/?x=1#savedConfig=my-save`)));
         assert.equal(target.hostname, `acme.${targetRoot}`);
-        assert.equal(target.pathname, `/${product}-configurator/`);
+        assert.equal(target.pathname, CONFIGURATOR_PUBLIC_PATHS[targetLocale][product]);
         assert.equal(target.search, '?x=1');
         assert.equal(target.hash, '#savedConfig=my-save');
       }
@@ -301,10 +301,24 @@ test('cart editing and share transport preserve the customer when changing domai
   vm.runInContext(source, context);
   const proto = vm.runInContext('StandaloneConfiguratorShell.prototype', context);
   const target = new URL(proto.buildCartEditTarget.call({}, 'roof', 'item-1', `${origins[2]}/roof-configurator/`));
-  assert.equal(target.hostname, hosts[2]); assert.equal(target.hash, '#cartProduct=roof&cartItem=item-1');
+  assert.equal(target.hostname, hosts[2]);
+  assert.equal(target.pathname, '/dach-konfigurator/');
+  assert.equal(target.hash, '#cartProduct=roof&cartItem=item-1');
+  for (const [locale, root] of Object.entries(policy.TENANT_DOMAIN_ROOTS)) {
+    for (const product of Object.keys(TENANT_CONFIGURATORS)) {
+      const edit = new URL(proto.buildCartEditTarget.call({}, product, 'item-1',
+        `https://acme.${root}/solar-configurator/?old=1#s=old-share`));
+      assert.equal(edit.hostname, `acme.${root}`);
+      assert.equal(edit.pathname, CONFIGURATOR_PUBLIC_PATHS[locale][product]);
+      assert.equal(edit.search, '');
+      assert.equal(edit.hash, `#cartProduct=${product}&cartItem=item-1`);
+    }
+  }
   assert.equal(proto.buildCartEditTarget.call({}, 'roof', 'item-1', 'https://other.360configurator.ro/'), null);
   const share = new URL(await proto.buildSharedDomainTarget.call({ productId: 'roof', options: { callbacks: {
     getShareUrl: () => 'https://www.360configurator.com/roof-configurator/#s=test-snapshot',
   } } }, 'ro-RO'));
-  assert.equal(share.hostname, hosts[1]); assert.equal(share.hash, '#s=test-snapshot');
+  assert.equal(share.hostname, hosts[1]);
+  assert.equal(share.pathname, '/configurator-acoperis/');
+  assert.equal(share.hash, '#s=test-snapshot');
 });

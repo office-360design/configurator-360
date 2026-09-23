@@ -1,5 +1,5 @@
 import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js';
-import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=tenant-domains-1';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=tenant-routes-1';
 import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-21';
 import { sharedT } from './i18n.js?v=platform-21';
 import { renderActionFeedback } from './components/feedback.js?v=platform-21';
@@ -600,16 +600,13 @@ export class StandaloneConfiguratorShell {
 
     const destination = new URL(baseUrl, window.location.href);
     const tenantSlug = getTenantSlugForHostname(window.location.hostname);
-    let target;
-    if (tenantSlug) {
-      if (getTenantSlugForHostname(destination.hostname) !== tenantSlug) return null;
-      target = new URL(`/${product}-configurator/`, destination.origin);
-    } else {
-      const domainLocale = getLocaleForHostname(window.location.hostname);
-      const localized = getLocalizedConfiguratorUrl(domainLocale, product, baseUrl);
-      if (!localized) return null;
-      target = new URL(localized, window.location.href);
-    }
+    if (tenantSlug && getTenantSlugForHostname(destination.hostname) !== tenantSlug) return null;
+    const domainLocale = getLocaleForHostname(
+      tenantSlug ? destination.hostname : window.location.hostname,
+    );
+    const localized = getLocalizedConfiguratorUrl(domainLocale, product, destination);
+    if (!localized) return null;
+    const target = new URL(localized, window.location.href);
     target.search = '';
     target.hash = '';
     const hash = readHashParams(target);

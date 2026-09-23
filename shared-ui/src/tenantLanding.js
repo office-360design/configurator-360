@@ -1,6 +1,8 @@
 import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=tenant-domains-1';
 import { TENANT_CONFIGURATORS, resolveTenantContext } from './tenantBootstrap.js?v=tenant-domains-1';
 
+import { CONFIGURATOR_PUBLIC_PATHS, getLocaleForHostname } from './config.js?v=tenant-routes-1';
+
 const page = document.querySelector('#tenantPage');
 
 function escapeHtml(value) {
@@ -33,9 +35,10 @@ function renderTenant(context) {
     ? `<img class="tenant-logo" src="${escapeHtml(context.logoUrl)}" alt="${escapeHtml(context.companyName)}" />`
     : `<div class="tenant-brand-mark">${escapeHtml(context.companyName.slice(0, 2).toUpperCase())}</div>`;
 
+  const paths = CONFIGURATOR_PUBLIC_PATHS[getLocaleForHostname(window.location.hostname)];
   const cards = enabled.length
     ? enabled.map((item) => `
-        <a class="tenant-configurator" href="${item.path}">
+        <a class="tenant-configurator" href="${paths[item.id] || item.path}">
           <span class="tenant-configurator__name">${escapeHtml(item.label)}</span>
           <span class="tenant-configurator__action">Open <span aria-hidden="true">→</span></span>
         </a>
