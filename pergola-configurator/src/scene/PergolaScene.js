@@ -397,6 +397,9 @@ export class PergolaScene {
   }
 
   rebuildPergola() {
+    // Build successfully before replacing the visible model. An invalid asset or
+    // material must not leave the viewport empty.
+    const nextPergola = buildPergola(this.state, this.assets, this.surfaceSystem.materials, this.surfaceSystem.geometry);
     if (this.pergola) {
       this.pergolaGroup.remove(this.pergola);
       disposeObject(this.pergola);
@@ -404,7 +407,7 @@ export class PergolaScene {
     disposeObject(this.dimensionGroup);
     this.dimensionGroup.clear();
 
-    this.pergola = buildPergola(this.state, this.assets, this.surfaceSystem.materials, this.surfaceSystem.geometry);
+    this.pergola = nextPergola;
     this.pergolaGroup.add(this.pergola);
     this.buildDimensions(this.pergola.userData.dimensions);
 

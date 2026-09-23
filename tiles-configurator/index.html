@@ -8,7 +8,7 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="../shared-ui/styles/index.css" />
     <link rel="stylesheet" href="../shared-ui/styles/standalone.css" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=mobile-panel-1" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script type="importmap">
       {
@@ -18,6 +18,7 @@
         }
       }
     </script>
+    <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=tiles-panel-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -32,349 +33,360 @@
         </div>
       </section>
       <aside
-        class="sidebar shared-settings-panel shared-settings-panel--light"
+        class="sidebar shared-panel-controls shared-settings-panel shared-settings-panel--light"
         aria-label="Pavement settings"
       >
-        <header>
+        <header class="panel-section intro-section">
           <p class="eyebrow">360 CONFIGURATOR</p>
           <h1 data-i18n="title"></h1>
-          <p data-i18n="intro"></p>
+          <p class="section-copy" data-i18n="intro"></p>
         </header>
-        <details open>
-          <summary data-i18n="area"></summary>
-          <label
-            ><span data-i18n="shape"></span
-            ><select id="shape">
-              <option value="rectangle" data-i18n="rectangle"></option>
-              <option value="closed4" data-i18n="closed4"></option>
-              <option value="closed5" data-i18n="closed5"></option></select
-          ></label>
-          <div id="areaError" role="alert" hidden></div>
-          <svg id="areaPlan" viewBox="0 0 300 170" role="img" aria-label="Area outline"></svg>
-          <div id="rectangleFields" class="fields">
-            <div class="dimension-control">
-              <div class="dimension-heading">
-                <label for="length"><span data-i18n="length"></span> (m)</label
-                ><output id="lengthValue"></output>
-              </div>
-              <div class="slider-row">
-                <input
-                  id="lengthRange"
-                  data-range-field="length"
-                  type="range"
-                  min="1"
-                  max="20"
-                  step="0.05"
-                /><input id="length" type="number" min="1" max="20" step="0.05" />
-              </div>
-            </div>
-            <div class="dimension-control">
-              <div class="dimension-heading">
-                <label for="width"><span data-i18n="width"></span> (m)</label
-                ><output id="widthValue"></output>
-              </div>
-              <div class="slider-row">
-                <input
-                  id="widthRange"
-                  data-range-field="width"
-                  type="range"
-                  min="1"
-                  max="20"
-                  step="0.05"
-                /><input id="width" type="number" min="1" max="20" step="0.05" />
-              </div>
-            </div>
-          </div>
-          <div id="polygonFields" hidden>
-            <div class="fields">
-              <div class="dimension-control">
-                <div class="dimension-heading">
-                  <label for="runA">AB (m)</label><output id="runAValue"></output>
-                </div>
-                <div class="slider-row">
-                  <input
-                    id="runARange"
-                    data-range-field="runA"
-                    type="range"
-                    min="1"
-                    max="20"
-                    step="0.05"
-                  /><input id="runA" type="number" min="1" max="20" step="0.05" />
-                </div>
-              </div>
-              <div class="dimension-control">
-                <div class="dimension-heading">
-                  <label for="runB">BC (m)</label><output id="runBValue"></output>
-                </div>
-                <div class="slider-row">
-                  <input
-                    id="runBRange"
-                    data-range-field="runB"
-                    type="range"
-                    min="1"
-                    max="20"
-                    step="0.05"
-                  /><input id="runB" type="number" min="1" max="20" step="0.05" />
-                </div>
-              </div>
-              <div class="dimension-control">
-                <div class="dimension-heading">
-                  <label for="runC">CD (m)</label><output id="runCValue"></output>
-                </div>
-                <div class="slider-row">
-                  <input
-                    id="runCRange"
-                    data-range-field="runC"
-                    type="range"
-                    min="1"
-                    max="20"
-                    step="0.05"
-                  /><input id="runC" type="number" min="1" max="20" step="0.05" />
-                </div>
-              </div>
-              <div class="dimension-control" id="runDField">
-                <div class="dimension-heading">
-                  <label for="runD">DE (m)</label><output id="runDValue"></output>
-                </div>
-                <div class="slider-row">
-                  <input
-                    id="runDRange"
-                    data-range-field="runD"
-                    type="range"
-                    min="1"
-                    max="20"
-                    step="0.05"
-                  /><input id="runD" type="number" min="1" max="20" step="0.05" />
-                </div>
-              </div>
-              <div class="dimension-control">
-                <div class="dimension-heading">
-                  <label for="angleB"><span data-i18n="angleB"></span> (°)</label
-                  ><output id="angleBValue"></output>
-                </div>
-                <div class="slider-row">
-                  <input
-                    id="angleBRange"
-                    data-range-field="angleB"
-                    type="range"
-                    min="30"
-                    max="150"
-                    step="1"
-                  /><input id="angleB" type="number" min="30" max="150" step="1" />
-                </div>
-              </div>
-              <label><span id="closingLabel"></span><output id="closingLength"></output></label>
-            </div>
-            <p class="note" id="shapeHelp"></p>
-          </div>
-        </details>
-        <details open>
-          <summary data-i18n="house"></summary>
-          <label class="house-toggle"
-            ><input id="houseEnabled" type="checkbox" /><span data-i18n="houseEnabled"></span
-          ></label>
-          <button type="button" id="houseMapOpen" class="export" data-i18n="mapOpen"></button>
-          <p id="houseMapSource" class="note"></p>
-          <div id="houseFields" hidden>
+        <details class="accordion-section" open>
+          <summary class="accordion-toggle" data-i18n="area"></summary>
+          <div class="accordion-panel">
             <label
-              ><span data-i18n="houseShape"></span
-              ><select id="houseShape">
-                <option
-                  value="imported"
-                  id="importedHouseOption"
-                  data-i18n="imported"
-                  hidden
-                ></option>
+              ><span data-i18n="shape"></span
+              ><select id="shape">
                 <option value="rectangle" data-i18n="rectangle"></option>
-                <option value="l" data-i18n="lShape"></option></select
+                <option value="closed4" data-i18n="closed4"></option>
+                <option value="closed5" data-i18n="closed5"></option></select
             ></label>
-            <div class="dimension-control" id="houseLengthField">
-              <div class="dimension-heading">
-                <label for="houseLength"><span data-i18n="houseLength"></span> (m)</label
-                ><output id="houseLengthValue"></output>
+            <div id="areaError" role="alert" hidden></div>
+            <svg id="areaPlan" viewBox="0 0 300 170" role="img" aria-label="Area outline"></svg>
+            <div id="rectangleFields" class="fields">
+              <div class="dimension-control range-control">
+                <div class="dimension-heading control-label">
+                  <label for="length"><span data-i18n="length"></span> (m)</label
+                  ><output id="lengthValue"></output>
+                </div>
+                <div class="slider-row range-row">
+                  <input
+                    id="lengthRange"
+                    data-range-field="length"
+                    type="range"
+                    min="1"
+                    max="20"
+                    step="0.05"
+                  /><input id="length" class="number-input" type="number" min="1" max="20" step="0.05" />
+                </div>
               </div>
-              <div class="slider-row">
-                <input
-                  id="houseLengthRange"
-                  data-range-field="houseLength"
-                  type="range"
-                  min="1"
-                  max="20"
-                  step="0.1"
-                /><input id="houseLength" type="number" min="1" max="20" step="0.1" />
-              </div>
-            </div>
-            <div class="dimension-control" id="houseWidthField">
-              <div class="dimension-heading">
-                <label for="houseWidth"><span data-i18n="houseWidth"></span> (m)</label
-                ><output id="houseWidthValue"></output>
-              </div>
-              <div class="slider-row">
-                <input
-                  id="houseWidthRange"
-                  data-range-field="houseWidth"
-                  type="range"
-                  min="1"
-                  max="20"
-                  step="0.1"
-                /><input id="houseWidth" type="number" min="1" max="20" step="0.1" />
-              </div>
-            </div>
-            <div class="dimension-control" id="houseWingWidthField">
-              <div class="dimension-heading">
-                <label for="houseWingWidth"><span data-i18n="houseWingWidth"></span> (m)</label
-                ><output id="houseWingWidthValue"></output>
-              </div>
-              <div class="slider-row">
-                <input
-                  id="houseWingWidthRange"
-                  data-range-field="houseWingWidth"
-                  type="range"
-                  min="0.25"
-                  max="19.75"
-                  step="0.05"
-                /><input id="houseWingWidth" type="number" min="0.25" max="19.75" step="0.05" />
+              <div class="dimension-control range-control">
+                <div class="dimension-heading control-label">
+                  <label for="width"><span data-i18n="width"></span> (m)</label
+                  ><output id="widthValue"></output>
+                </div>
+                <div class="slider-row range-row">
+                  <input
+                    id="widthRange"
+                    data-range-field="width"
+                    type="range"
+                    min="1"
+                    max="20"
+                    step="0.05"
+                  /><input id="width" class="number-input" type="number" min="1" max="20" step="0.05" />
+                </div>
               </div>
             </div>
-            <div class="dimension-control" id="houseWingDepthField">
-              <div class="dimension-heading">
-                <label for="houseWingDepth"><span data-i18n="houseWingDepth"></span> (m)</label
-                ><output id="houseWingDepthValue"></output>
+            <div id="polygonFields" hidden>
+              <div class="fields">
+                <div class="dimension-control range-control">
+                  <div class="dimension-heading control-label">
+                    <label for="runA">AB (m)</label><output id="runAValue"></output>
+                  </div>
+                  <div class="slider-row range-row">
+                    <input
+                      id="runARange"
+                      data-range-field="runA"
+                      type="range"
+                      min="1"
+                      max="20"
+                      step="0.05"
+                    /><input id="runA" class="number-input" type="number" min="1" max="20" step="0.05" />
+                  </div>
+                </div>
+                <div class="dimension-control range-control">
+                  <div class="dimension-heading control-label">
+                    <label for="runB">BC (m)</label><output id="runBValue"></output>
+                  </div>
+                  <div class="slider-row range-row">
+                    <input
+                      id="runBRange"
+                      data-range-field="runB"
+                      type="range"
+                      min="1"
+                      max="20"
+                      step="0.05"
+                    /><input id="runB" class="number-input" type="number" min="1" max="20" step="0.05" />
+                  </div>
+                </div>
+                <div class="dimension-control range-control">
+                  <div class="dimension-heading control-label">
+                    <label for="runC">CD (m)</label><output id="runCValue"></output>
+                  </div>
+                  <div class="slider-row range-row">
+                    <input
+                      id="runCRange"
+                      data-range-field="runC"
+                      type="range"
+                      min="1"
+                      max="20"
+                      step="0.05"
+                    /><input id="runC" class="number-input" type="number" min="1" max="20" step="0.05" />
+                  </div>
+                </div>
+                <div class="dimension-control range-control" id="runDField">
+                  <div class="dimension-heading control-label">
+                    <label for="runD">DE (m)</label><output id="runDValue"></output>
+                  </div>
+                  <div class="slider-row range-row">
+                    <input
+                      id="runDRange"
+                      data-range-field="runD"
+                      type="range"
+                      min="1"
+                      max="20"
+                      step="0.05"
+                    /><input id="runD" class="number-input" type="number" min="1" max="20" step="0.05" />
+                  </div>
+                </div>
+                <div class="dimension-control range-control">
+                  <div class="dimension-heading control-label">
+                    <label for="angleB"><span data-i18n="angleB"></span> (°)</label
+                    ><output id="angleBValue"></output>
+                  </div>
+                  <div class="slider-row range-row">
+                    <input
+                      id="angleBRange"
+                      data-range-field="angleB"
+                      type="range"
+                      min="30"
+                      max="150"
+                      step="1"
+                    /><input id="angleB" class="number-input" type="number" min="30" max="150" step="1" />
+                  </div>
+                </div>
+                <label><span id="closingLabel"></span><output id="closingLength"></output></label>
               </div>
-              <div class="slider-row">
-                <input
-                  id="houseWingDepthRange"
-                  data-range-field="houseWingDepth"
-                  type="range"
-                  min="0.25"
-                  max="19.75"
-                  step="0.05"
-                /><input id="houseWingDepth" type="number" min="0.25" max="19.75" step="0.05" />
-              </div>
+              <p class="note" id="shapeHelp"></p>
             </div>
-            <div class="dimension-control" id="houseHeightField">
-              <div class="dimension-heading">
-                <label for="houseHeight"><span data-i18n="houseHeight"></span> (m)</label
-                ><output id="houseHeightValue"></output>
-              </div>
-              <div class="slider-row">
-                <input
-                  id="houseHeightRange"
-                  data-range-field="houseHeight"
-                  type="range"
-                  min="0.5"
-                  max="8"
-                  step="0.1"
-                /><input id="houseHeight" type="number" min="0.5" max="8" step="0.1" />
-              </div>
-            </div>
-            <div class="dimension-control" id="houseXField">
-              <div class="dimension-heading">
-                <label for="houseX"><span data-i18n="houseX"></span> (m)</label
-                ><output id="houseXValue"></output>
-              </div>
-              <div class="slider-row">
-                <input
-                  id="houseXRange"
-                  data-range-field="houseX"
-                  type="range"
-                  min="-20"
-                  max="60"
-                  step="0.05"
-                /><input id="houseX" type="number" min="-20" max="60" step="0.05" />
-              </div>
-            </div>
-            <div class="dimension-control" id="houseZField">
-              <div class="dimension-heading">
-                <label for="houseZ"><span data-i18n="houseZ"></span> (m)</label
-                ><output id="houseZValue"></output>
-              </div>
-              <div class="slider-row">
-                <input
-                  id="houseZRange"
-                  data-range-field="houseZ"
-                  type="range"
-                  min="-20"
-                  max="60"
-                  step="0.05"
-                /><input id="houseZ" type="number" min="-20" max="60" step="0.05" />
-              </div>
-            </div>
-            <div class="dimension-control">
-              <div class="dimension-heading">
-                <label for="houseRotation"><span data-i18n="rotation"></span> (°)</label
-                ><output id="houseRotationValue"></output>
-              </div>
-              <div class="slider-row">
-                <input
-                  id="houseRotationRange"
-                  data-range-field="houseRotation"
-                  type="range"
-                  min="0"
-                  max="360"
-                  step="1"
-                /><input id="houseRotation" type="number" min="0" max="360" step="1" />
-              </div>
-            </div>
-            <button id="centerHouse" type="button" data-i18n="centerHouse"></button>
-            <p class="note" data-i18n="houseHelp"></p>
           </div>
         </details>
-        <details open>
-          <summary data-i18n="paving"></summary>
-          <div id="tileChoices" class="tile-choices"></div>
-          <a id="sourceLink" target="_blank" rel="noopener noreferrer" data-i18n="source"></a>
-          <p id="patternLabel" class="field-label" data-i18n="pattern"></p>
-          <div
-            id="patternChoices"
-            class="pattern-choices"
-            role="group"
-            aria-labelledby="patternLabel"
-          ></div>
-          <label
-            ><span data-i18n="rotation"></span
-            ><select id="rotation">
-              <option value="0">0°</option>
-              <option value="90">90°</option>
-            </select></label
-          >
-          <p class="field-label" data-i18n="color"></p>
-          <div id="colors" class="swatches"></div>
-          <div id="accentSection">
-            <p class="field-label" data-i18n="accent"></p>
-            <div id="accents" class="swatches"></div>
+        <details class="accordion-section" open>
+          <summary class="accordion-toggle" data-i18n="house"></summary>
+          <div class="accordion-panel">
+            <label class="house-toggle toggle-row">
+              <span><b data-i18n="houseEnabled"></b></span>
+              <input id="houseEnabled" type="checkbox" /><i aria-hidden="true"></i>
+            </label>
+            <button type="button" id="houseMapOpen" class="export" data-i18n="mapOpen"></button>
+            <p id="houseMapSource" class="note"></p>
+            <div id="houseFields" hidden>
+              <label
+                ><span data-i18n="houseShape"></span
+                ><select id="houseShape">
+                  <option
+                    value="imported"
+                    id="importedHouseOption"
+                    data-i18n="imported"
+                    hidden
+                  ></option>
+                  <option value="rectangle" data-i18n="rectangle"></option>
+                  <option value="l" data-i18n="lShape"></option></select
+              ></label>
+              <div class="dimension-control range-control" id="houseLengthField">
+                <div class="dimension-heading control-label">
+                  <label for="houseLength"><span data-i18n="houseLength"></span> (m)</label
+                  ><output id="houseLengthValue"></output>
+                </div>
+                <div class="slider-row range-row">
+                  <input
+                    id="houseLengthRange"
+                    data-range-field="houseLength"
+                    type="range"
+                    min="1"
+                    max="20"
+                    step="0.1"
+                  /><input id="houseLength" class="number-input" type="number" min="1" max="20" step="0.1" />
+                </div>
+              </div>
+              <div class="dimension-control range-control" id="houseWidthField">
+                <div class="dimension-heading control-label">
+                  <label for="houseWidth"><span data-i18n="houseWidth"></span> (m)</label
+                  ><output id="houseWidthValue"></output>
+                </div>
+                <div class="slider-row range-row">
+                  <input
+                    id="houseWidthRange"
+                    data-range-field="houseWidth"
+                    type="range"
+                    min="1"
+                    max="20"
+                    step="0.1"
+                  /><input id="houseWidth" class="number-input" type="number" min="1" max="20" step="0.1" />
+                </div>
+              </div>
+              <div class="dimension-control range-control" id="houseWingWidthField">
+                <div class="dimension-heading control-label">
+                  <label for="houseWingWidth"><span data-i18n="houseWingWidth"></span> (m)</label
+                  ><output id="houseWingWidthValue"></output>
+                </div>
+                <div class="slider-row range-row">
+                  <input
+                    id="houseWingWidthRange"
+                    data-range-field="houseWingWidth"
+                    type="range"
+                    min="0.25"
+                    max="19.75"
+                    step="0.05"
+                  /><input id="houseWingWidth" class="number-input" type="number" min="0.25" max="19.75" step="0.05" />
+                </div>
+              </div>
+              <div class="dimension-control range-control" id="houseWingDepthField">
+                <div class="dimension-heading control-label">
+                  <label for="houseWingDepth"><span data-i18n="houseWingDepth"></span> (m)</label
+                  ><output id="houseWingDepthValue"></output>
+                </div>
+                <div class="slider-row range-row">
+                  <input
+                    id="houseWingDepthRange"
+                    data-range-field="houseWingDepth"
+                    type="range"
+                    min="0.25"
+                    max="19.75"
+                    step="0.05"
+                  /><input id="houseWingDepth" class="number-input" type="number" min="0.25" max="19.75" step="0.05" />
+                </div>
+              </div>
+              <div class="dimension-control range-control" id="houseHeightField">
+                <div class="dimension-heading control-label">
+                  <label for="houseHeight"><span data-i18n="houseHeight"></span> (m)</label
+                  ><output id="houseHeightValue"></output>
+                </div>
+                <div class="slider-row range-row">
+                  <input
+                    id="houseHeightRange"
+                    data-range-field="houseHeight"
+                    type="range"
+                    min="0.5"
+                    max="8"
+                    step="0.1"
+                  /><input id="houseHeight" class="number-input" type="number" min="0.5" max="8" step="0.1" />
+                </div>
+              </div>
+              <div class="dimension-control range-control" id="houseXField">
+                <div class="dimension-heading control-label">
+                  <label for="houseX"><span data-i18n="houseX"></span> (m)</label
+                  ><output id="houseXValue"></output>
+                </div>
+                <div class="slider-row range-row">
+                  <input
+                    id="houseXRange"
+                    data-range-field="houseX"
+                    type="range"
+                    min="-20"
+                    max="60"
+                    step="0.05"
+                  /><input id="houseX" class="number-input" type="number" min="-20" max="60" step="0.05" />
+                </div>
+              </div>
+              <div class="dimension-control range-control" id="houseZField">
+                <div class="dimension-heading control-label">
+                  <label for="houseZ"><span data-i18n="houseZ"></span> (m)</label
+                  ><output id="houseZValue"></output>
+                </div>
+                <div class="slider-row range-row">
+                  <input
+                    id="houseZRange"
+                    data-range-field="houseZ"
+                    type="range"
+                    min="-20"
+                    max="60"
+                    step="0.05"
+                  /><input id="houseZ" class="number-input" type="number" min="-20" max="60" step="0.05" />
+                </div>
+              </div>
+              <div class="dimension-control range-control">
+                <div class="dimension-heading control-label">
+                  <label for="houseRotation"><span data-i18n="rotation"></span> (°)</label
+                  ><output id="houseRotationValue"></output>
+                </div>
+                <div class="slider-row range-row">
+                  <input
+                    id="houseRotationRange"
+                    data-range-field="houseRotation"
+                    type="range"
+                    min="0"
+                    max="360"
+                    step="1"
+                  /><input id="houseRotation" class="number-input" type="number" min="0" max="360" step="1" />
+                </div>
+              </div>
+              <button id="centerHouse" type="button" data-i18n="centerHouse"></button>
+              <p class="note" data-i18n="houseHelp"></p>
+            </div>
           </div>
         </details>
-        <details open>
-          <summary data-i18n="curbs"></summary>
-          <label
-            ><span data-i18n="curbs"></span
-            ><select id="curb"></select
-          ></label>
-          <div id="edgeChoices" class="edges"></div>
-          <div id="curbColors" class="swatches"></div>
-        </details>
-        <details open>
-          <summary data-i18n="estimate"></summary>
-          <div class="fields">
+        <details class="accordion-section" open>
+          <summary class="accordion-toggle" data-i18n="paving"></summary>
+          <div class="accordion-panel">
+            <div id="tileChoices" class="tile-choices choice-grid"></div>
+            <a id="sourceLink" target="_blank" rel="noopener noreferrer" data-i18n="source"></a>
+            <p id="patternLabel" class="field-label" data-i18n="pattern"></p>
+            <div
+              id="patternChoices"
+              class="pattern-choices"
+              role="group"
+              aria-labelledby="patternLabel"
+            ></div>
             <label
-              ><span data-i18n="waste"></span
-              ><input id="waste" type="number" min="0" max="30" step="1" /></label
-            ><label
-              ><span data-i18n="tileRate"></span
-              ><input id="tileRate" type="number" min="0" max="10000" step="0.5" /></label
-            ><label
-              ><span data-i18n="curbRate"></span
-              ><input id="curbRate" type="number" min="0" max="10000" step="0.5"
-            /></label>
+              ><span data-i18n="rotation"></span
+              ><select id="rotation">
+                <option value="0">0°</option>
+                <option value="90">90°</option>
+              </select></label
+            >
+            <p class="field-label" data-i18n="color"></p>
+            <div id="colors" class="swatches"></div>
+            <div id="accentSection">
+              <p class="field-label" data-i18n="accent"></p>
+              <div id="accents" class="swatches"></div>
+            </div>
           </div>
-          <div id="metrics" class="metrics"></div>
-          <div id="bom"></div>
-          <div class="total">
-            <span data-i18n="total"></span><strong id="summaryTotal"></strong>
+        </details>
+        <details class="accordion-section" open>
+          <summary class="accordion-toggle" data-i18n="curbs"></summary>
+          <div class="accordion-panel">
+            <label
+              ><span data-i18n="curbs"></span
+              ><select id="curb"></select
+            ></label>
+            <div id="edgeChoices" class="edges"></div>
+            <div id="curbColors" class="swatches"></div>
           </div>
-          <p class="note" data-i18n="note"></p>
-          <button id="export" class="export" data-i18n="export"></button>
+        </details>
+        <details class="accordion-section" open>
+          <summary class="accordion-toggle" data-i18n="estimate"></summary>
+          <div class="accordion-panel">
+            <div class="fields">
+              <label
+                ><span data-i18n="waste"></span
+                ><input id="waste" class="number-input" type="number" min="0" max="30" step="1" /></label
+              ><label
+                ><span data-i18n="tileRate"></span
+                ><input id="tileRate" class="number-input" type="number" min="0" max="10000" step="0.5" /></label
+              ><label
+                ><span data-i18n="curbRate"></span
+                ><input id="curbRate" class="number-input" type="number" min="0" max="10000" step="0.5"
+              /></label>
+            </div>
+            <div id="metrics" class="metrics"></div>
+            <div id="bom"></div>
+            <div class="total">
+              <span data-i18n="total"></span><strong id="summaryTotal"></strong>
+            </div>
+            <p class="note" data-i18n="note"></p>
+            <button id="export" class="export" data-i18n="export"></button>
+          </div>
         </details>
       </aside>
       <button
@@ -387,7 +399,7 @@
         ❯
       </button>
     </main>
-    <script type="module" src="./js/app.js?v=tenant-catalogue-1"></script>
+    <script type="module" src="./js/app.js?v=tiles-panel-1"></script>
     <dialog id="houseMapDialog" aria-labelledby="houseMapTitle">
       <div class="map-header">
         <h2 id="houseMapTitle" data-i18n="mapOpen"></h2>

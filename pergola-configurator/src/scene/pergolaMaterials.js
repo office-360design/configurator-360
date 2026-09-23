@@ -17,7 +17,7 @@ export function createPergolaMaterialAdapter(surfaces) {
   };
   const coated = color => get('aluminium.powderCoated', { color });
   const rigid = color => get('plastic.rigid', { color });
-  const satin = color => get('metal.satin', { color });
+  const satin = color => get('aluminium.anodized', { color });
   const rubber = color => get('rubber.epdm', { color });
 
   /** Only independent accessory clones from AssetLibrary enter here. Replace

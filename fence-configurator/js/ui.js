@@ -1,3 +1,4 @@
+import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { PANEL_STYLES, activeRunIds, deriveFenceMetrics, normalizeFenceState } from './state.js?v=platform-18';
 import { getAvailableFenceFinishes, resolveFenceFinish, selectFenceFinish } from './finish-catalog.js?v=1';
 import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js?v=platform-18';
@@ -26,16 +27,7 @@ export class FenceUI {
   }
 
   bind() {
-    document.querySelectorAll('[data-accordion]').forEach((section) => {
-      const button = section.querySelector('.accordion-toggle');
-      const panel = section.querySelector('.accordion-panel');
-      button?.addEventListener('click', () => {
-        const open = !section.classList.contains('is-open');
-        section.classList.toggle('is-open', open);
-        button.setAttribute('aria-expanded', String(open));
-        if (panel) panel.hidden = !open;
-      });
-    });
+    bindPanelAccordions(document.querySelector('.shared-panel-controls'));
 
     document.querySelectorAll('[data-layout]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -273,12 +265,12 @@ export class FenceUI {
             <strong>${escapeHtml(fenceT(this.locale, 'gate.itemTitle', { number: index + 1 }))}</strong>
             <button class="gate-remove" type="button" data-gate-remove="${escapeHtml(gate.id)}" aria-label="${escapeHtml(fenceT(this.locale, 'gate.remove'))}" title="${escapeHtml(fenceT(this.locale, 'gate.remove'))}">×</button>
           </div>
-          <label class="field-label">${escapeHtml(fenceT(this.locale, 'gate.type'))}</label>
+          <label class="select-label">${escapeHtml(fenceT(this.locale, 'gate.type'))}</label>
           <select data-gate-id="${escapeHtml(gate.id)}" data-gate-field="type">
             <option value="pedestrian"${gate.type === 'pedestrian' ? ' selected' : ''}>${escapeHtml(fenceT(this.locale, 'gate.pedestrian'))}</option>
             <option value="driveway"${gate.type === 'driveway' ? ' selected' : ''}>${escapeHtml(fenceT(this.locale, 'gate.driveway'))}</option>
           </select>
-          <label class="field-label">${escapeHtml(fenceT(this.locale, 'gate.run'))}</label>
+          <label class="select-label">${escapeHtml(fenceT(this.locale, 'gate.run'))}</label>
           <select data-gate-id="${escapeHtml(gate.id)}" data-gate-field="runId">${runOptions}</select>
           <label class="range-control compact-control">
             <span class="control-label"><b>${escapeHtml(fenceT(this.locale, 'gate.position'))}</b><output>${escapeHtml(fenceT(this.locale, 'gate.positionHint', { from, to }))}</output></span>
@@ -286,7 +278,7 @@ export class FenceUI {
           </label>
           ${gate.type === 'pedestrian' ? `
           <div>
-            <label class="field-label">${escapeHtml(fenceT(this.locale, 'gate.handing'))}</label>
+            <label class="select-label">${escapeHtml(fenceT(this.locale, 'gate.handing'))}</label>
             <select data-gate-id="${escapeHtml(gate.id)}" data-gate-field="handing">
               <option value="left"${gate.handing === 'left' ? ' selected' : ''}>${escapeHtml(fenceT(this.locale, 'gate.left'))}</option>
               <option value="right"${gate.handing === 'right' ? ' selected' : ''}>${escapeHtml(fenceT(this.locale, 'gate.right'))}</option>
@@ -459,3 +451,4 @@ function summaryRow(label, value) { return `<div><span>${escapeHtml(label)}</spa
 function metricCard(label, value) { return `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`; }
 function round(value, digits = 2) { const factor = 10 ** digits; return Math.round(value * factor) / factor; }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
+

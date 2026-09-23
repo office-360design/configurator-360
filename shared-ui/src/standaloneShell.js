@@ -213,7 +213,7 @@ function resizeProfileAvatar(file) {
   });
 }
 
-const SHARED_STANDALONE_STYLE_VERSION = '26';
+const SHARED_STANDALONE_STYLE_VERSION = '27';
 
 function refreshSharedStandaloneStylesheet() {
   document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
@@ -1105,6 +1105,9 @@ export class StandaloneConfiguratorShell {
       const toggleSelector = this.options.settingsPanel?.toggleSelector;
       this.configuratorPanelToggle = toggleSelector ? document.querySelector(toggleSelector) : null;
       this.configuratorPanelToggle?.classList.add('shared-configurator-panel__toggle--floating-right');
+      this.panelLayoutQuery = window.matchMedia('(max-width: 760px)');
+      this.onPanelLayoutChange = () => this.syncFloatingConfiguratorPanelToggle();
+      this.panelLayoutQuery.addEventListener('change', this.onPanelLayoutChange);
       this.syncFloatingConfiguratorPanelToggle();
     }
 
@@ -1163,8 +1166,9 @@ export class StandaloneConfiguratorShell {
 
     toggle.style.setProperty('position', 'fixed', 'important');
     toggle.style.setProperty('top', compact
-      ? 'calc(var(--shared-topbar-height, 47px) + 26px)'
+      ? 'auto'
       : 'calc(var(--shared-topbar-height, 47px) + 34px)', 'important');
+    toggle.style.setProperty('bottom', compact ? 'var(--shared-mobile-panel-toggle-bottom)' : 'auto', 'important');
     toggle.style.setProperty('right', right, 'important');
     toggle.style.setProperty('left', 'auto', 'important');
     toggle.style.setProperty('width', '34px', 'important');
@@ -2962,10 +2966,11 @@ export class StandaloneConfiguratorShell {
     if (this.configuratorPanelFooter && this.onConfiguratorPanelFooterClick) {
       this.configuratorPanelFooter.removeEventListener('click', this.onConfiguratorPanelFooterClick);
     }
+    this.panelLayoutQuery?.removeEventListener('change', this.onPanelLayoutChange);
     this.configuratorPanelHost?.classList.remove('shared-configurator-panel-host--floating-right');
     if (this.configuratorPanelToggle) {
       this.configuratorPanelToggle.classList.remove('shared-configurator-panel__toggle--floating-right');
-      ['position', 'top', 'right', 'left', 'width', 'height', 'margin', 'border-radius'].forEach((property) => {
+      ['position', 'top', 'bottom', 'right', 'left', 'width', 'height', 'margin', 'border-radius'].forEach((property) => {
         this.configuratorPanelToggle.style.removeProperty(property);
       });
     }

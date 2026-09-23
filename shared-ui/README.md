@@ -3,8 +3,9 @@
 Reusable interface primitives for all product configurators in this repository.
 
 The package contains the common top bar, account menu, language menu, viewport tools,
-feedback toast, icons, locale defaults, and shared UI styling. Product-specific panels
-remain inside their own configurator folders.
+feedback toast, icons, locale defaults, and shared UI styling. Product-specific panel
+markup and state remain inside each configurator; common control styling and
+presentation helpers can be adopted independently.
 
 A configurator can import the JavaScript API from `shared-ui/src/index.js` and the shared
 CSS from `shared-ui/styles/index.css`. Its Vite development server must allow imports
@@ -20,6 +21,112 @@ configurator folder.
 Product settings panels use the shared `shared-settings-panel` and
 `shared-settings-toggle` classes so all configurators place their controls at the same
 right-side coordinates and use the same collapse geometry.
+
+## Settings control foundation (Hall, Fence, Roof, Solar, Tiles and Pergola)
+
+`styles/panelControls.css` is an opt-in stylesheet based on Hall's existing panel.
+Load it after `styles/standalone.css`, scope out superseded product control rules, and add
+`shared-panel-controls` to the settings container. Hall, Fence, Roof, Solar, Tiles and Pergola now opt in;
+other configurators do not load or opt into it yet. It does not change the shell's panel position, width, collapse
+button, footer, or stacking order.
+
+The shared styles cover the introduction (`panel-section`, `intro-section`,
+`eyebrow`, `section-copy`), accordions (`accordion-section`, `accordion-toggle`,
+`accordion-panel`), range/number pairs (`range-control`, `control-label`,
+`range-row`, `number-input`), native selects (`select-label`) and checkbox switches
+(`toggle-stack`, `toggle-row`). Existing responsive rules, dark themes and switch/
+chevron transitions are preserved. `--shared-panel-accent`, `--shared-panel-accent-dark`,
+`--shared-panel-ink`, `--shared-panel-muted` and `--shared-panel-border` expose the
+base palette. The zero-specificity `:where(.shared-panel-controls)` scope keeps
+the original selector priorities and prevents changes outside the adopted panel.
+
+Import presentation helpers directly from `src/components/panelControls.js`:
+
+```js
+import { bindPanelAccordions, bindPanelRange } from './components/panelControls.js';
+
+const unbindAccordions = bindPanelAccordions(panel);
+const unbindRange = bindPanelRange(control, {
+  format: (value) => `${value.toFixed(1)} m`,
+  immediateOnInput: false,
+  onChange(value, { immediate }) {
+    // The product adapter owns state, validation and rebuild scheduling.
+  },
+});
+```
+
+Accordion sections remain independent: clicking one never closes its siblings.
+The helper updates `is-open`, `aria-expanded` and native `hidden` together. Keep
+those three initial values consistent in the markup. Native buttons retain
+keyboard activation. Both binders return listener cleanup functions; call the
+cleanup before rebinding a mounted control.
+
+Solar uses `bindExclusivePanelAccordions(entries, { initialEntry, onOpen })` for
+its one-open-section behavior. Entries provide `section`, `heading` and `body`;
+the helper synchronizes `is-open`/`is-active`, ARIA and `inert`, supports
+Enter/Space and Arrow/Home/End navigation, and returns a cleanup function.
+Use `accordion-section--animated`, `accordion-reveal`, `accordion-reveal-inner`
+and optional `accordion-summary` for animated bodies and collapsed summaries.
+Solar owns session persistence, translated summary content, segmented options,
+regional cards, exact-location launch, battery sizing and advanced pricing.
+Its native numeric handlers, simulation and estimate calculations remain local.
+Run `node shared-ui/tests/solar-panel-preservation.mjs` for a Chromium comparison
+against the pre-adoption commit (or set `SOLAR_PANEL_BASELINE_DIR` to that checkout).
+This records scene callbacks without starting WebGL or external services.
+
+Range controls keep their native inputs, dynamically read min/max bounds, and
+preserve input/change/blur notifications. They do not define units, round values
+to steps, infer product state, or schedule model rebuilds. Hall still owns its
+opening constraints, presets, translations, BOM, pricing and all scene callbacks.
+Fence also adopts shared `choice-grid` / `choice-card` icon buttons and
+`finish-row` / `finish-swatch` labelled color choices, including responsive and
+dark-mode styles. Layout-specific grid columns and panel preview drawings stay
+in Fence. Choice selection, published finish data and archived finish handling
+remain product-owned; the shared stylesheet never changes a selected value.
+
+Fence uses `bindPanelAccordions` but deliberately retains its numeric adapter:
+sliders commit on input, number fields commit on change (Enter blurs the field),
+and values convert between metric and imperial units before normalization. The
+Hall range binder has different notification timing and is not substituted.
+Dynamic gate controls use the same shared range/select styling while retaining
+their delegated handlers, capacity checks, run selection and placement rules.
+Gate-card spacing and full-width position sliders remain Fence layout rules.
+Generic image choices and other configurators can be added in later passes.
+
+Roof groups its existing settings into Roof type, Dimensions and Covering
+accordions, with Roof type initially open. Its custom-plan upload stays in Roof
+type. It reuses choice-card styling through `aria-pressed="true"`; callers may
+use either that native button state or the existing `selected` class. Roof's
+translation bindings use stable IDs instead of positional section selectors.
+Its native numeric adapter still owns millimeter/decimal-foot display, slider
+values in meters, change/blur timing and material-specific pitch minimums.
+`range-row--wide` gives longer display values a 100px number field without
+changing the default Hall/Fence range layout.
+
+Run `node shared-ui/tests/hall-panel-preservation.mjs` after installing the root
+dependencies and Chromium (`npx playwright install chromium`). The test compares
+Hall with pre-extraction commit `c520a637` using native Chromium controls: state,
+callback order/arguments, metrics, price estimates, bounds, keyboard activation,
+EN/RO/DE text and computed styles at four viewport sizes in three theme states.
+It exercises HallUI with recorded scene callbacks; it does not render WebGL or
+contact authentication/backends. `HALL_PANEL_BASELINE_DIR` can point to an unpacked
+baseline for shallow checkouts; `CHROMIUM_PATH` can select an installed browser.
+
+Run `node shared-ui/tests/fence-panel-preservation.mjs` for Fence's before/after
+comparison against `5f8e75e`. It checks state, callback timing, derived metrics,
+pricing/BOM and CSV output across layouts, panel styles, metric/imperial controls,
+numeric bounds, finishes, foundations, dynamic gates, capacity, EN/RO/DE and
+currencies. It also checks panel overflow at five viewport sizes in both themes.
+`FENCE_PANEL_BASELINE_DIR` supplies an unpacked baseline when needed. This test
+also records scene callbacks without starting WebGL, authentication or backends.
+
+Run `node shared-ui/tests/roof-panel-preservation.mjs` for Roof's comparison
+against `4e1a470` (or supply `ROOF_PANEL_BASELINE_DIR`). It checks the existing
+control state and callback behavior, units, covering pitch rules, custom-file
+selection/drop/removal, translations and BOM inclusion/CSV. Fixed model metrics
+isolate the UI/BOM contract from geometry. New accordion keyboard behavior and
+layout checks cover five viewports in light/dark mode and EN/RO/DE. Like the
+other UI checks, it does not start the WebGL scene or backend services.
 
 ## Shared tools
 
@@ -109,3 +216,49 @@ with the frontend change; its function list includes the new callable.
 Run `node --test scripts/validation/configuration-quotation.test.cjs` from the
 repository root for mocked delivery, validation and footer checks. These tests
 never send email.
+
+### Tiles panel
+
+Tiles uses native `details.accordion-section` / `summary.accordion-toggle` with an
+`accordion-panel` body. All five sections keep their existing independent, initially
+open behavior; no JavaScript accordion binder is needed. Shared native-details
+styles provide the Hall header treatment, chevron and reduced-motion support.
+Tiles reuses range/number fields, native selects, the house switch and product
+choice cards. Pattern SVGs, mixed-color swatches, the perimeter drawing, curb-edge
+checkboxes, house map, estimate and CSV remain product-owned.
+
+Run `node shared-ui/tests/tiles-panel-preservation.mjs` with Playwright installed
+(and optionally `CHROMIUM_PATH`). The comparison runs real Tiles handlers and
+model calculations against the pre-adoption commit, with the shell and WebGL
+viewer stubbed. Live map/network services are not exercised.
+
+### Pergola panel
+
+Pergola opts into the shared introduction, accordion headers, native ranges,
+numeric fields and choice-card surfaces. The product adapter retains image/icon
+card layouts and millimeter/inch unit suffixes. The shared theme also supports
+`.app-shell.is-dark-mode` with the opt-in `shared-panel-shell-theme` class for
+products that own their theme locally.
+
+Keep Pergola's accordion controller local: it renders only the expanded section
+and allows all sections to close. Its store owns placement constraints, disabled
+options, mounting conflicts, dimension-reset confirmations, continuous-input
+history, side infills, pole accessories, lighting, heaters and pricing.
+
+`node shared-ui/tests/pergola-panel-preservation.mjs` compares the real UI, store
+and pricing against the pre-adoption commit. It uses managed-panel geometry but
+does not start the shared shell, WebGL, quoting or external services.
+
+### Mobile panel shell regression
+
+`CHROMIUM_PATH=/path/to/chromium node shared-ui/tests/mobile-panel-shell.mjs`
+checks repeated touch opening/closing, visible drawer geometry, tool clearance,
+mobile demo-button visibility, and desktop resizing for Hall, Fence, Roof,
+Solar, Tiles and Pergola. It covers 320–760 px widths and phone landscape.
+Install Playwright at the repository root and Pergola's Vite dependencies first.
+External services are blocked; Pergola and Tiles run their renderers, while the
+other products mount their real shell without starting the renderer.
+
+Mobile collapse handles use `--shared-mobile-panel-toggle-bottom` from the shared
+styles. Keep the corresponding rules in `index.css` and `standalone.css` aligned.
+The demo CTA follows the handle's `aria-expanded` state on mobile only.

@@ -1,3 +1,4 @@
+import { bindPanelAccordions, bindPanelRange } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { buildBom, bomToCsv } from './bom.js?v=platform-18';
 import { estimateHallPrice, formatPrice } from './pricing.js?v=platform-18';
 import { normalizeOpening, normalizeOpenings, openingType, validateOpenings } from './openings.js?v=platform-18';
@@ -50,50 +51,26 @@ export class HallUI {
   }
 
   bindAccordions() {
-    document.querySelectorAll('.accordion-section').forEach((section) => {
-      const button = section.querySelector('.accordion-toggle');
-      const panel = section.querySelector('.accordion-panel');
-      button?.addEventListener('click', () => {
-        const open = !section.classList.contains('is-open');
-        section.classList.toggle('is-open', open);
-        button.setAttribute('aria-expanded', String(open));
-        if (panel) panel.hidden = !open;
-      });
-    });
+    bindPanelAccordions(document.querySelector('.shared-panel-controls'));
   }
 
   bindRanges() {
     document.querySelectorAll('[data-control]').forEach((control) => {
       const key = control.dataset.control;
-      const range = control.querySelector('input[type="range"]');
-      const number = control.querySelector('input[type="number"]');
-      const output = control.querySelector('output');
-      if (!range && !number) return;
+      bindPanelRange(control, {
+        format: formatters[key],
+        immediateOnInput: key === 'sectionCutPosition',
+        onChange: (value, { immediate }) => {
+          this.state[key] = value;
+          this.ensureOpeningLimits();
 
-      const update = (raw, source, { immediate = false } = {}) => {
-        const parsed = Number(raw);
-        if (!Number.isFinite(parsed)) return;
-        const min = Number(source?.min ?? range?.min ?? number?.min ?? -Infinity);
-        let max = Number(source?.max ?? range?.max ?? number?.max ?? Infinity);
-        const value = Math.min(max, Math.max(min, parsed));
-        this.state[key] = value;
-        if (range) { range.max = String(max); range.value = String(value); }
-        if (number) { number.max = String(max); number.value = String(value); }
-        if (output) output.value = formatters[key]?.(value) ?? String(value);
-        this.ensureOpeningLimits();
-
-        if (key === 'sectionCutPosition') this.callbacks.onDisplayChange?.();
-        else this.callbacks.onModelChange?.({ fitCamera: false, immediate });
-      };
-
-      range?.addEventListener('input', () => update(range.value, range, { immediate: key === 'sectionCutPosition' }));
-      range?.addEventListener('change', () => update(range.value, range, { immediate: true }));
-      number?.addEventListener('input', () => {
-        const parsed = Number(number.value);
-        if (Number.isFinite(parsed)) update(parsed, number, { immediate: false });
+          if (key === 'sectionCutPosition') {
+            this.callbacks.onDisplayChange?.();
+          } else {
+            this.callbacks.onModelChange?.({ fitCamera: false, immediate });
+          }
+        },
       });
-      number?.addEventListener('change', () => update(number.value, number, { immediate: true }));
-      number?.addEventListener('blur', () => update(number.value, number, { immediate: true }));
     });
   }
 
@@ -585,3 +562,4 @@ export class HallUI {
     this.callbacks.onModelChange?.({ fitCamera: true, immediate: true });
   }
 }
+

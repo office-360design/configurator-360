@@ -2,7 +2,7 @@ import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standalone
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { getSeasonForDate } from './solarPosition.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=platform-18';
+import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=solar-panel-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
 
 const tenantContext = await requireTenantConfiguratorAccess('solar');
@@ -1321,3 +1321,4 @@ requestAnimationFrame(() => {
 });
 
 window.SOLAR_CONFIGURATOR_SHARED_SHELL = shell;
+

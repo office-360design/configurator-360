@@ -3,6 +3,9 @@ import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=platform-1
 
 const MESSAGES = Object.freeze({
   'en-US': Object.freeze({
+    'panel.eyebrow': 'Roof design',
+    'panel.title': 'Roof settings',
+    'panel.description': 'Configure the roof shape, dimensions, covering and colour from one panel.',
     'brand.subtitle': 'Parametric roof studio',
     'common.live': 'Live',
     'step.1': 'Step 1',
@@ -200,6 +203,9 @@ const MESSAGES = Object.freeze({
     'compass.west': 'W',
   }),
   'ro-RO': Object.freeze({
+    'panel.eyebrow': 'Proiectare acoperiș',
+    'panel.title': 'Setări acoperiș',
+    'panel.description': 'Configurează forma, dimensiunile, învelitoarea și culoarea acoperișului dintr-un singur panou.',
     'brand.subtitle': 'Studio parametric pentru acoperișuri',
     'common.live': 'Live',
     'step.1': 'Pasul 1',
@@ -397,6 +403,9 @@ const MESSAGES = Object.freeze({
     'compass.west': 'V',
   }),
   'de-DE': Object.freeze({
+    'panel.eyebrow': 'Dachplanung',
+    'panel.title': 'Dacheinstellungen',
+    'panel.description': 'Dachform, Abmessungen, Eindeckung und Farbe in einem Bereich konfigurieren.',
     'brand.subtitle': 'Parametrisches Dachstudio',
     'common.live': 'Live',
     'step.1': 'Schritt 1',
@@ -771,8 +780,10 @@ export function applyRoofTranslations(locale) {
 
   setText('.brand-subtitle', resolved, 'brand.subtitle');
   setLivePill(resolved);
-  setText('.sidebar .panel-section:nth-of-type(1) .eyebrow', resolved, 'step.1');
-  setText('.sidebar .panel-section:nth-of-type(1) h1', resolved, 'roof.type');
+  setText('#roofPanelEyebrow', resolved, 'panel.eyebrow');
+  setText('#roofPanelTitle', resolved, 'panel.title');
+  setText('#roofPanelDescription', resolved, 'panel.description');
+  setText('#roofSectionType', resolved, 'roof.type');
   ['gable', 'hip', 'shed', 'lshape', 'dormer', 'custom'].forEach((type) => setRoofCard(type, resolved));
   setText('.custom-plan-copy strong', resolved, 'custom.uploadTitle');
   setText('.custom-plan-copy span', resolved, 'custom.uploadBody');
@@ -780,16 +791,14 @@ export function applyRoofTranslations(locale) {
   setText('.custom-plan-types', resolved, 'custom.fileTypes');
   setAttribute('#customPlanRemove', 'aria-label', resolved, 'custom.removeAria');
 
-  setText('.sidebar .panel-section:nth-of-type(2) .eyebrow', resolved, 'step.2');
-  setText('.sidebar .panel-section:nth-of-type(2) h2', resolved, 'dimensions.title');
+  setText('#roofSectionDimensions', resolved, 'dimensions.title');
   setControlLabel('length', resolved, 'dimensions.length');
   setControlLabel('depth', resolved, 'dimensions.depth');
   setControlLabel('wallHeight', resolved, 'dimensions.wallHeight');
   setControlLabel('pitch', resolved, 'dimensions.pitch');
   setControlLabel('overhang', resolved, 'dimensions.overhang');
 
-  setText('.sidebar .panel-section:nth-of-type(3) .eyebrow', resolved, 'step.3');
-  setText('.sidebar .panel-section:nth-of-type(3) h2', resolved, 'covering.title');
+  setText('#roofSectionCovering', resolved, 'covering.title');
   setText('.select-label[for="coveringSelect"]', resolved, 'covering.preset');
   ['generic', 'roca', 'teclado'].forEach((value) => setCoveringOption(value, resolved));
   setText('.color-heading', resolved, 'covering.colour');
@@ -881,3 +890,4 @@ export function getRoofMessages(locale) {
 export function getRainwaterComponents(locale) {
   return RAINWATER[resolveRoofLocale(locale)] ?? RAINWATER['en-US'];
 }
+

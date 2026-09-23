@@ -10,12 +10,14 @@ body.shared-ui-mounted .sidebar {
   top: calc(var(--solar-viewer-header-height) + var(--solar-sidebar-header-gap)) !important;
 }
 
+@media (min-width: 761px) {
 body.shared-ui-mounted #solarSidebarToggle {
   top: calc(
     var(--solar-viewer-header-height)
     + var(--solar-sidebar-header-gap)
     + 14px
   ) !important;
+}
 }
 
 /* Preserve the same clearance if Common UI later switches this configurator
@@ -28,6 +30,7 @@ body.shared-ui-mounted .sidebar[data-shared-panel-geometry="floating-right"] {
   ) !important;
 }
 
+@media (min-width: 761px) {
 body.shared-ui-mounted .shared-configurator-panel__toggle--floating-right {
   top: calc(
     var(--shared-topbar-height, 47px)
@@ -35,6 +38,7 @@ body.shared-ui-mounted .shared-configurator-panel__toggle--floating-right {
     + var(--solar-sidebar-header-gap)
     + 14px
   ) !important;
+}
 }
 
 @media (max-width: 760px) {

@@ -2,6 +2,9 @@ import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js?v=platf
 
 const EN = {
   'app.previewAria': '3D pergola preview',
+  'panel.eyebrow': 'Pergola configurator',
+  'panel.title': 'Your pergola',
+  'panel.description': 'Configure the structure, finishes, side panels and accessories.',
   'app.environmentAria': 'Lighting and orientation controls',
   'app.sidebarAria': 'Pergola options',
   'app.sidebarToggleAria': 'Hide or show menu',
@@ -389,6 +392,9 @@ const EN = {
 const RO = {
   ...EN,
   'app.previewAria': 'Previzualizare 3D pergolă',
+  'panel.eyebrow': 'Configurator pergolă',
+  'panel.title': 'Pergola ta',
+  'panel.description': 'Configurează structura, finisajele, panourile laterale și accesoriile.',
   'app.environmentAria': 'Comenzi pentru lumină și orientare',
   'app.sidebarAria': 'Opțiuni pergolă',
   'app.sidebarToggleAria': 'Ascunde sau arată meniul',
@@ -770,6 +776,9 @@ const RO = {
 const DE = {
   ...EN,
   'app.previewAria': '3D-Pergola-Vorschau',
+  'panel.eyebrow': 'Pergola-Konfigurator',
+  'panel.title': 'Ihre Pergola',
+  'panel.description': 'Konfigurieren Sie Konstruktion, Oberflächen, Seitenwände und Zubehör.',
   'app.environmentAria': 'Steuerung für Licht und Ausrichtung',
   'app.sidebarAria': 'Pergola-Optionen',
   'app.sidebarToggleAria': 'Menü ein- oder ausblenden',

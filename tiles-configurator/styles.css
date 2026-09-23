@@ -12,7 +12,7 @@ body {
 }
 button,
 input,
-select {
+select:where(:not(.shared-panel-controls *)) {
   font: inherit;
 }
 button {
@@ -20,7 +20,7 @@ button {
 }
 button:focus-visible,
 a:focus-visible,
-summary:focus-visible {
+summary:focus-visible:where(:not(.shared-panel-controls *)) {
   outline: 3px solid #1494de;
   outline-offset: 3px;
 }
@@ -40,32 +40,32 @@ summary:focus-visible {
 }
 .sidebar {
   width: 350px;
-  padding: 20px;
+  padding: 0;
   overflow-y: auto;
 }
-.sidebar header {
+.sidebar header:where(:not(.shared-panel-controls *)) {
   padding-bottom: 16px;
 }
-.eyebrow {
+.eyebrow:where(:not(.shared-panel-controls *)) {
   letter-spacing: 2px;
   font-size: 10px;
   color: #0878c9;
   font-weight: 800;
 }
-h1 {
+h1:where(:not(.shared-panel-controls *)) {
   font-size: 23px;
   letter-spacing: -0.7px;
   margin: 8px 0;
 }
-header p {
+header p:where(:not(.shared-panel-controls *)) {
   color: #66767f;
   line-height: 1.6;
 }
-details {
+details:where(:not(.shared-panel-controls *)) {
   border-top: 1px solid #e0e5e8;
   padding: 14px 0;
 }
-summary {
+summary:where(:not(.shared-panel-controls *)) {
   font-size: 14px;
   font-weight: 750;
   cursor: pointer;
@@ -82,8 +82,8 @@ label {
   line-height: 1.6;
   margin: 8px 0;
 }
-input[type='number'],
-select {
+input[type='number']:where(:not(.shared-panel-controls *)),
+select:where(:not(.shared-panel-controls *)) {
   display: block;
   width: 100%;
   padding: 9px;
@@ -101,7 +101,7 @@ input[type='checkbox'] {
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
 }
-.tile-card {
+.tile-card:where(:not(.shared-panel-controls *)) {
   padding: 8px 4px;
   border: 1px solid #dce3e6;
   border-radius: 8px;
@@ -109,7 +109,7 @@ input[type='checkbox'] {
   font-size: 11px;
   color: inherit;
 }
-.tile-card[aria-pressed='true'] {
+.tile-card[aria-pressed='true']:where(:not(.shared-panel-controls *)) {
   border-color: #0878c9;
   background: #eaf5fc;
   box-shadow: 0 0 0 1px #0878c9;
@@ -283,9 +283,9 @@ body.dark .sidebar {
   background: #253139;
   color: #e4ebef;
 }
-body.dark input,
-body.dark select,
-body.dark .tile-card {
+body.dark input:where(:not(.shared-panel-controls *)),
+body.dark select:where(:not(.shared-panel-controls *)),
+body.dark .tile-card:where(:not(.shared-panel-controls *)) {
   background: #35424a;
   color: #fff;
 }
@@ -366,37 +366,37 @@ body.dark .sidebar {
 .fields:has(.dimension-control) {
   grid-template-columns: 1fr;
 }
-.dimension-heading {
+.dimension-heading:where(:not(.shared-panel-controls *)) {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
-.dimension-heading label {
+.dimension-heading label:where(:not(.shared-panel-controls *)) {
   margin: 0;
   font-weight: 650;
 }
-.dimension-heading output {
+.dimension-heading output:where(:not(.shared-panel-controls *)) {
   color: #0878c9;
   font-size: 12px;
   font-weight: 750;
 }
-.slider-row {
+.slider-row:where(:not(.shared-panel-controls *)) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 86px;
   gap: 14px;
   align-items: center;
 }
-.slider-row input[type='range'] {
+.slider-row input[type='range']:where(:not(.shared-panel-controls *)) {
   width: 100%;
   accent-color: #1494de;
   cursor: pointer;
   min-height: 34px;
 }
-.slider-row input[type='number'] {
+.slider-row input[type='number']:where(:not(.shared-panel-controls *)) {
   margin: 0;
 }
-.house-toggle {
+.house-toggle:where(:not(.shared-panel-controls *)) {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -579,9 +579,6 @@ body.dark #houseMapDialog {
 
 /* Keep phone controls clear of the shared Tools launcher and demo CTA. */
 @media (max-width: 760px) {
-  #tilesSidebarToggle {
-    top: calc(var(--shared-topbar-height, 47px) + 90px) !important;
-  }
   body.tiles-sidebar-collapsed #tilesSidebarToggle {
     right: 0 !important;
   }
@@ -607,3 +604,14 @@ body.dark #houseMapDialog {
     display: none;
   }
 }
+
+/* Tiles-specific composition and previews remain local. */
+:where(.shared-panel-controls) .dimension-heading label { margin: 0; font-weight: 700; }
+:where(.shared-panel-controls) .range-row input { min-width: 0; margin: 0; }
+:where(.shared-panel-controls) .fields > label > .number-input { width: 100%; }
+:where(.shared-panel-controls) .house-toggle { margin: 8px 0 14px; }
+:where(.shared-panel-controls) .tile-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+:where(.shared-panel-controls) .tile-card { min-width: 0; overflow-wrap: anywhere; }
+:where(.shared-panel-controls) .tile-icon { margin: 5px auto; }
+:where(.shared-panel-controls) .tile-card small { font-size: 9px; }
+:where(.shared-panel-controls) .accordion-panel > label > span { display: block; margin-bottom: 8px; font-weight: 800; }
