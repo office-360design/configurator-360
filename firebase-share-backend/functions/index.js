@@ -1,5 +1,7 @@
 'use strict';
 
+const { tenantDomainContext, tenantOriginContext, tenantDomainsForSlug, tenantRecordMatchesHost } = require('./tenantDomains.cjs');
+
 const { onInit } = require('firebase-functions/v2/core');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
@@ -1319,7 +1321,9 @@ exports.createSharedConfiguration = onCall(
 // ---------------------------------------------------------------------------
 function normalizeConfiguratorOrigin(value) {
   try {
-    return new URL(String(value || '')).origin;
+    const url = new URL(String(value || ''));
+    if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) return '';
+    return url.origin;
   } catch {
     return '';
   }
@@ -1330,26 +1334,7 @@ function requestOrigin(request) {
 }
 
 function tenantSlugFromConfiguratorOrigin(origin) {
-  const normalized = normalizeConfiguratorOrigin(origin);
-  if (!normalized) return '';
-
-  let parsed;
-  try {
-    parsed = new URL(normalized);
-  } catch {
-    return '';
-  }
-  if (parsed.protocol !== 'https:' || parsed.port) return '';
-
-  const suffix = '.360configurator.com';
-  const hostname = parsed.hostname.toLowerCase();
-  if (!hostname.endsWith(suffix)) return '';
-
-  const slug = hostname.slice(0, -suffix.length);
-  if (!slug || slug.includes('.') || !TENANT_SLUG_PATTERN.test(slug) || RESERVED_TENANT_SLUGS.has(slug)) {
-    return '';
-  }
-  return slug;
+  return tenantOriginContext(origin)?.slug || '';
 }
 
 async function requireAllowedConfiguratorOrigin(origin, label = 'origin') {
@@ -1360,8 +1345,8 @@ async function requireAllowedConfiguratorOrigin(origin, label = 'origin') {
   if (tenantSlug) {
     const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
     const tenant = snapshot.data() || {};
-    const expectedDomain = `${tenantSlug}.360configurator.com`;
-    if (snapshot.exists && tenant.status === 'active' && String(tenant.domain || '') === expectedDomain) {
+    if (snapshot.exists && tenant.status === 'active'
+      && tenantRecordMatchesHost(tenant, new URL(normalized).hostname)) {
       return normalized;
     }
   }
@@ -1408,6 +1393,7 @@ async function identityToolkitConfigRequest({ method = 'GET', updateMask = '', b
 
   const response = await fetch(url, {
     method,
+    signal: AbortSignal.timeout(15_000),
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',
@@ -1427,36 +1413,56 @@ async function identityToolkitConfigRequest({ method = 'GET', updateMask = '', b
   return payload || {};
 }
 
-async function ensureFirebaseAuthorizedDomain(domain) {
-  const hostname = String(domain || '').trim().toLowerCase();
-  const tenantSlug = tenantSlugFromConfiguratorOrigin(`https://${hostname}`);
-  if (!tenantSlug || hostname !== `${tenantSlug}.360configurator.com`) {
-    throw new Error('Refusing to authorize an invalid tenant authentication domain.');
-  }
-
-  const config = await identityToolkitConfigRequest();
-  const currentDomains = Array.isArray(config.authorizedDomains)
-    ? config.authorizedDomains.map((value) => String(value || '').trim().toLowerCase()).filter(Boolean)
-    : [];
-  if (currentDomains.includes(hostname)) return false;
-
-  const authorizedDomains = [...new Set([...currentDomains, hostname])].sort();
-  const updated = await identityToolkitConfigRequest({
-    method: 'PATCH',
-    updateMask: 'authorizedDomains',
-    body: {
-      name: `projects/${PROJECT_ID}/config`,
-      authorizedDomains,
-    },
+// Used by provisioning and the operator migration helper. The lease prevents
+// project-wide authorizedDomains read/modify/write races across either path.
+async function withTenantAuthDomainLock(operation) {
+  const ref = db.collection('tenantProvisioningSystem').doc('authDomainLock');
+  const owner = randomBytes(16).toString('hex');
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    if (timestampMillis(snapshot.data()?.expiresAt) > Date.now()) {
+      throw new HttpsError('aborted', 'Another tenant Auth update is running. Please retry shortly.');
+    }
+    transaction.set(ref, { owner, expiresAt: Timestamp.fromMillis(Date.now() + 120_000) });
   });
-
-  const savedDomains = Array.isArray(updated.authorizedDomains)
-    ? updated.authorizedDomains.map((value) => String(value || '').trim().toLowerCase())
-    : [];
-  if (!savedDomains.includes(hostname)) {
-    throw new Error('Firebase Authentication did not retain the tenant authorized domain.');
+  try {
+    return await operation();
+  } finally {
+    await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (snapshot.data()?.owner === owner) transaction.delete(ref);
+    }).catch((error) => logger.warn('Tenant Auth lock cleanup failed; lease will expire.', {
+      error: String(error?.message || error),
+    }));
   }
-  return true;
+}
+
+async function ensureFirebaseAuthorizedDomain(domain) {
+  const context = tenantDomainContext(domain);
+  if (!context || context.hostname !== context.canonicalDomain) {
+    throw new Error('Refusing to authorize an invalid canonical tenant authentication domain.');
+  }
+  const domains = tenantDomainsForSlug(context.slug);
+  return withTenantAuthDomainLock(async () => {
+    const config = await identityToolkitConfigRequest();
+    if (!Array.isArray(config.authorizedDomains)) {
+      throw new Error('Firebase Authentication returned no authorized domain list.');
+    }
+    const currentDomains = config.authorizedDomains;
+    if (domains.every((hostname) => currentDomains.includes(hostname))) return false;
+
+    const authorizedDomains = [...new Set([...currentDomains, ...domains])].sort();
+    await identityToolkitConfigRequest({
+      method: 'PATCH',
+      updateMask: 'authorizedDomains',
+      body: { name: `projects/${PROJECT_ID}/config`, authorizedDomains },
+    });
+    const verified = await identityToolkitConfigRequest();
+    if (!authorizedDomains.every((hostname) => verified.authorizedDomains?.includes(hostname))) {
+      throw new Error('Firebase Authentication did not retain every authorized domain.');
+    }
+    return true;
+  });
 }
 
 function tenantProvisioningAdminsCollection() {
@@ -1853,12 +1859,11 @@ async function configuratorAnalyticsScopeForRequest(request, product) {
 
   const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
   const tenant = snapshot.data() || {};
-  const expectedDomain = `${tenantSlug}.360configurator.com`;
   const configurators = tenant.configurators && typeof tenant.configurators === 'object' ? tenant.configurators : {};
   if (
     !snapshot.exists
     || tenant.status !== 'active'
-    || String(tenant.domain || '') !== expectedDomain
+    || !tenantRecordMatchesHost(tenant, new URL(origin).hostname)
     || configurators[product] !== true
   ) {
     throw new HttpsError('permission-denied', 'This configurator is not enabled for the customer tenant.');
@@ -2075,6 +2080,7 @@ function tenantAdminSummaryFromSnapshot(snapshot) {
   return {
     slug,
     domain: String(data.domain || `${slug}.360configurator.com`),
+    domains: tenantDomainsForSlug(slug),
     companyName: String(data.companyName || slug),
     status: String(data.status || tenantRuntimeStatusForSubscription(subscription.status)).trim().toLowerCase(),
     planId,
@@ -2131,7 +2137,7 @@ async function requireTenantDashboardOwner(request) {
 
   const origin = requestOrigin(request);
   const slug = tenantSlugFromConfiguratorOrigin(origin);
-  if (!slug || origin !== `https://${slug}.360configurator.com`) {
+  if (!slug) {
     throw new HttpsError('permission-denied', 'Tenant dashboard requests must come from the customer domain.');
   }
 
@@ -2140,6 +2146,10 @@ async function requireTenantDashboardOwner(request) {
   let tenant = snapshot.data() || {};
   if (!snapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
     throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+  }
+
+  if (!tenantRecordMatchesHost(tenant, new URL(origin).hostname)) {
+    throw new HttpsError('permission-denied', 'This domain does not belong to the customer tenant.');
   }
 
   const ownerEmail = String(tenant.ownerEmail || '').trim().toLowerCase();
@@ -2199,6 +2209,7 @@ function tenantDashboardViewFromSnapshot(snapshot, analytics = null, usage = nul
   return {
     slug,
     domain: String(data.domain || `${slug}.360configurator.com`),
+    domains: tenantDomainsForSlug(slug),
     companyName: String(data.companyName || slug),
     logoUrl: String(data.logoUrl || ''),
     status: String(data.status || tenantRuntimeStatusForSubscription(subscription.status)),
@@ -2319,7 +2330,6 @@ async function requireSavedConfigurationScope(request, product) {
 
   const snapshot = await db.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
   const tenant = snapshot.data() || {};
-  const expectedDomain = `${tenantSlug}.360configurator.com`;
   const configurators = tenant.configurators && typeof tenant.configurators === 'object'
     ? tenant.configurators
     : {};
@@ -2327,7 +2337,7 @@ async function requireSavedConfigurationScope(request, product) {
   if (
     !snapshot.exists
     || tenant.status !== 'active'
-    || String(tenant.domain || '') !== expectedDomain
+    || !tenantRecordMatchesHost(tenant, new URL(origin).hostname)
     || configurators[product] !== true
   ) {
     throw new HttpsError('permission-denied', 'This configurator is not enabled for the customer tenant.');
@@ -2402,7 +2412,7 @@ async function requireUserCartScope(request) {
   if (
     !snapshot.exists
     || tenant.status !== 'active'
-    || String(tenant.domain || '') !== `${tenantSlug}.360configurator.com`
+    || !tenantRecordMatchesHost(tenant, new URL(origin).hostname)
   ) {
     throw new HttpsError('permission-denied', 'This customer tenant is not active.');
   }
@@ -2649,6 +2659,7 @@ const PUBLIC_PLAN_CATALOG_CALLABLE_OPTIONS = Object.freeze({
 
 const TENANT_PROVISIONING_CALLABLE_OPTIONS = Object.freeze({
   ...TENANT_ADMIN_CALLABLE_OPTIONS,
+  timeoutSeconds: 90,
   // Identity Platform authorizedDomains is a project-level read/modify/write
   // list. Provision customers serially so two simultaneous admin requests can
   // never overwrite each other's domain registration.
@@ -2927,6 +2938,7 @@ exports.provisionTenant = onCall(
     const now = Timestamp.now();
     const subscription = defaultTenantSubscription(now);
     const domain = `${slug}.360configurator.com`;
+    const domains = tenantDomainsForSlug(slug);
     const privateRef = db.collection(TENANTS_COLLECTION).doc(slug);
     const publicRef = db.collection(TENANT_PUBLIC_COLLECTION).doc(slug);
     const auditRef = tenantAuditEventRef(slug);
@@ -2944,6 +2956,7 @@ exports.provisionTenant = onCall(
       logger.error('Tier-1 Firebase Authentication domain authorization failed.', {
         slug,
         domain,
+        domains,
         error: String(error?.message || error),
       });
       throw new HttpsError(
@@ -2963,6 +2976,7 @@ exports.provisionTenant = onCall(
         schemaVersion: TENANT_SCHEMA_VERSION,
         slug,
         domain,
+        domains,
         companyName,
         plan: TENANT_PLAN_GO_LIVE_NOW,
         planId,
@@ -2974,6 +2988,7 @@ exports.provisionTenant = onCall(
         solarUsageLimits: { ...plan.solarUsageLimits },
         logoUrl,
         firebaseAuthDomain: domain,
+        firebaseAuthDomains: domains,
         firebaseAuthDomainAuthorized: true,
         createdByUid: admin.uid,
         createdByEmail: admin.email,
@@ -3024,6 +3039,7 @@ exports.provisionTenant = onCall(
       slug,
       companyName,
       domain,
+      domains,
       ownerEmail,
       url: `https://${domain}/`,
       planId,
@@ -3161,6 +3177,7 @@ exports.updateTenant = onCall(
         subscription,
         solarUsageLimits,
         domain: expectedDomain,
+        domains: tenantDomainsForSlug(slug),
         ownerEmail,
         ownerUid,
         lastUpdatedByUid: admin.uid,
@@ -3232,6 +3249,7 @@ exports.updateTenant = onCall(
       return {
         slug,
         domain: expectedDomain,
+        domains: tenantDomainsForSlug(slug),
         companyName,
         status,
         planId,

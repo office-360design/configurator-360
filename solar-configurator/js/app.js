@@ -27,7 +27,7 @@ import {
   resolveCurrencyRate,
 } from './preferences.js?v=platform-18';
 import { solarT, resolveSolarLocale } from './i18n.js?v=solar-panel-1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 await requireTenantConfiguratorAccess('solar');
 

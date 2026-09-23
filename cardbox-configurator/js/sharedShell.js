@@ -1,8 +1,8 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=platform-19';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-domains-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-catalogue-1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 const tenantContext = await requireTenantConfiguratorAccess('cardbox');
 const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');

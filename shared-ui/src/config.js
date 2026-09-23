@@ -1,3 +1,5 @@
+import { TENANT_DOMAIN_ROOTS, tenantDomainContext } from './tenantDomains.js?v=tenant-domains-1';
+
 export const LANGUAGE_PROFILES = Object.freeze({
   'en-US': {
     label: 'English (US)',
@@ -97,6 +99,8 @@ export function getLanguageProfile(locale) {
 }
 
 export function getLocaleForHostname(hostname = '') {
+  const tenant = tenantDomainContext(hostname);
+  if (tenant) return tenant.locale;
   const normalized = String(hostname).toLowerCase().replace(/\.$/, '');
   if (normalized === '360configurator.ro' || normalized === 'www.360configurator.ro') return 'ro-RO';
   if (normalized === '360konfigurator.de' || normalized === 'www.360konfigurator.de') return 'de-DE';
@@ -120,11 +124,20 @@ function normalizeProductType(productType = '') {
 
 export function getLocalizedConfiguratorUrl(locale, productType, location = window.location) {
   const resolvedLocale = LANGUAGE_PROFILES[locale] ? locale : 'en-US';
+  const current = typeof location === 'string' ? new URL(location, globalThis.location?.href) : location;
+  const tenant = tenantDomainContext(current.hostname);
   const product = normalizeProductType(productType);
-  const path = product ? CONFIGURATOR_PUBLIC_PATHS[resolvedLocale]?.[product] : location.pathname;
+  // Tenant aliases keep the standard paths; public marketing sites retain their
+  // localized canonical URLs. Neither domain switching nor cart editing may
+  // drop a customer's slug and send them into the public platform scope.
+  const paths = CONFIGURATOR_PUBLIC_PATHS[tenant ? 'en-US' : resolvedLocale];
+  const path = product ? paths?.[product] : current.pathname;
   if (!path) return null;
-  const url = new URL(`https://${LOCALE_HOSTS[resolvedLocale]}${path}`);
-  url.search = location.search || '';
-  url.hash = location.hash || '';
+  const hostname = tenant
+    ? `${tenant.slug}.${TENANT_DOMAIN_ROOTS[resolvedLocale]}`
+    : LOCALE_HOSTS[resolvedLocale];
+  const url = new URL(`https://${hostname}${path}`);
+  url.search = current.search || '';
+  url.hash = current.hash || '';
   return url.href;
 }

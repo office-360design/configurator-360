@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=mobile-panel-1';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=tenant-domains-1';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=platform-18';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=platform-18';
 import { pergolaT } from '../i18n.js?v=platform-18';

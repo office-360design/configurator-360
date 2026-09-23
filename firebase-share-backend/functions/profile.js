@@ -1,5 +1,7 @@
 'use strict';
 
+const { TENANT_ORIGIN_PATTERN } = require('./tenantDomains.cjs');
+
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
 const { getAuth } = require('firebase-admin/auth');
@@ -22,7 +24,7 @@ const PROFILE_ALLOWED_ORIGINS = Object.freeze([
   'https://360konfigurator.de',
   'https://www.360konfigurator.de',
   'https://aks.360configurator.com',
-  /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?\.360configurator\.com$/,
+  TENANT_ORIGIN_PATTERN,
   /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/,
 ]);
 

@@ -1,4 +1,5 @@
-import { TENANT_CONFIGURATORS, resolveTenantContext } from './tenantBootstrap.js?v=tenant-catalogue-1';
+import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=tenant-domains-1';
+import { TENANT_CONFIGURATORS, resolveTenantContext } from './tenantBootstrap.js?v=tenant-domains-1';
 
 const page = document.querySelector('#tenantPage');
 
@@ -50,6 +51,7 @@ function renderTenant(context) {
             <p class="tenant-eyebrow">Powered by 360Configurator</p>
             <h1>${escapeHtml(context.companyName)}</h1>
             <p class="tenant-subtitle">Select a configurator to begin.</p>
+            <nav id="tenantDomainLinks" aria-label="Customer site domains"></nav>
           </div>
         </div>
         <a class="tenant-dashboard-link" href="/dashboard/">Dashboard</a>
@@ -57,6 +59,7 @@ function renderTenant(context) {
       <div class="tenant-grid">${cards}</div>
     </section>
   `;
+  renderTenantDomainLinks(document.querySelector('#tenantDomainLinks'), context.slug);
 }
 
 const context = await resolveTenantContext();

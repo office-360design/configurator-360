@@ -1,5 +1,7 @@
 'use strict';
 
+const { TENANT_ORIGIN_PATTERN, tenantOriginContext, tenantRecordMatchesHost } = require('./tenantDomains.cjs');
+
 const { createHash, randomBytes } = require('node:crypto');
 const { GoogleAuth } = require('google-auth-library');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
@@ -24,7 +26,7 @@ const PUBLIC_ORIGINS = new Set([
   'https://aks.360configurator.com',
 ]);
 const DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
-const TENANT_ORIGIN = /^https:\/\/([a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?)\.360configurator\.com$/;
+const TENANT_ORIGIN = TENANT_ORIGIN_PATTERN;
 
 const FROM = '360Configurator Quotations <office@360configurator.com>';
 const FALLBACK_FROM = '360Configurator Quotations <office@360design.ro>';
@@ -122,8 +124,16 @@ function requestOrigin(request) {
   return String(request.rawRequest?.get?.('origin') || '').trim().replace(/\/$/, '');
 }
 
-function validateOrigin(origin) {
-  if (PUBLIC_ORIGINS.has(origin) || DEVELOPMENT_ORIGIN.test(origin) || TENANT_ORIGIN.test(origin)) return;
+async function validateOrigin(origin, product) {
+  if (PUBLIC_ORIGINS.has(origin) || DEVELOPMENT_ORIGIN.test(origin)) return;
+  const context = tenantOriginContext(origin);
+  if (context) {
+    const snapshot = await getFirestore().collection('tenants').doc(context.slug).get();
+    const tenant = snapshot.data() || {};
+    if (snapshot.exists && tenant.status === 'active'
+      && tenantRecordMatchesHost(tenant, context.hostname)
+      && tenant.configurators?.[product] === true) return;
+  }
   throw new HttpsError('permission-denied', 'This quotation form origin is not allowed.');
 }
 
@@ -417,7 +427,7 @@ exports.requestBookshelfQuotation = onCall(
   },
   async (request) => {
     const origin = requestOrigin(request);
-    validateOrigin(origin);
+    await validateOrigin(origin, 'bookshelf');
     const customer = validateCustomer(request.data || {});
     const locale = normalizeLocale(request.data?.locale);
     const shareUrl = validateShareUrl(request.data?.shareUrl, origin);
@@ -473,9 +483,10 @@ exports.requestConfigurationQuotation = onCall({
   cors: [...PUBLIC_ORIGINS, DEVELOPMENT_ORIGIN, TENANT_ORIGIN],
   enforceAppCheck: false, timeoutSeconds: 120, memory: '256MiB',
 }, async request => {
-  const origin=requestOrigin(request);validateOrigin(origin);
+  const origin=requestOrigin(request);
   const data=request.data||{},productId=String(data.productId||'');
   if(!DIRECT_QUOTATION_PRODUCTS.has(productId))throw new HttpsError('invalid-argument','Unsupported configurator.');
+  await validateOrigin(origin, productId);
   const customer=validateCustomer(data),locale=normalizeLocale(data.locale);
   if(!data.configuration||typeof data.configuration!=='object'||Array.isArray(data.configuration))throw new HttpsError('invalid-argument','A configuration is required.');
   const stateJson=JSON.stringify(data.configuration);

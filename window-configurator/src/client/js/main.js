@@ -20,7 +20,7 @@ import {
 } from './window-layout-controller.js?v=platform-18';
 import { createLayoutSizingManager } from './layout-sizing-manager.js?v=platform-18';
 import { createSegmentedResizeOptimizer } from './segmented-resize-optimizer.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../shared-ui/src/tenantBootstrap.js?v=1';
+import { requireTenantConfiguratorAccess } from '../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 import { readShareState } from '../shared-ui/src/shareState.js?v=4';
 import {
     markCadLoading,

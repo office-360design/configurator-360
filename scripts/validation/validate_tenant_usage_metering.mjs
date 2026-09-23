@@ -11,10 +11,9 @@ const checks = [
   ['solar-google-api/src/tenantUsage.mjs', [
     "const TENANT_USAGE_COLLECTION = 'tenantUsage'",
     'export async function resolveSolarRequestContext(request)',
-    'const RESERVED_PLATFORM_SUBDOMAINS = new Set([',
-    "'www'",
-    "'aks'",
-    'RESERVED_PLATFORM_SUBDOMAINS.has(slug)',
+    "from './tenantDomains.mjs'",
+    'tenantDomainContext(hostname)',
+    'tenantRecordMatchesHost(tenant, requestHostname(request))',
     'configurators.solar !== true',
     'export async function consumeTenantSolarMetric',
     'class TenantUsageQuotaError',

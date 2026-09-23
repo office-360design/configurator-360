@@ -25,9 +25,9 @@ const checks = [
     'identitytoolkit.googleapis.com',
     'tenantAuthDomainManager',
   ]],
-  ['firebase-share-backend/iam/authorize-existing-tenant-auth-domain.sh', [
+  ['firebase-share-backend/iam/authorize-existing-tenant-auth-domains.mjs', [
     'authorizedDomains',
-    'tenants/${SLUG}',
+    'tenantProvisioningSystem/authDomainLock',
     'X-Goog-User-Project',
   ]],
   ['firebase-share-backend/iam/authorize-tenant-provisioning-admin.sh', [
@@ -57,7 +57,7 @@ const functions = read('firebase-share-backend/functions/index.js');
 if (functions.includes("ALLOWED_CONFIGURATOR_ORIGINS.add('*.360configurator.com')")) {
   failures.push('Tenant origins must be validated against Firestore, not trusted as a blanket wildcard origin.');
 }
-if (!functions.includes("String(tenant.domain || '') === expectedDomain")) {
+if (!functions.includes("tenantRecordMatchesHost(tenant, new URL(normalized).hostname)")) {
   failures.push('Tenant origin validation must verify the private tenant domain matches the requested hostname.');
 }
 

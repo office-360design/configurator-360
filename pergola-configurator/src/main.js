@@ -6,12 +6,12 @@ import './styles/panel-adapter.css?v=pergola-panel-1';
 import { ConfiguratorStore } from './state.js?v=platform-18';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js?v=platform-18';
-import { getLanguageProfile, getLocaleForHostname } from '../../shared-ui/src/config.js?v=platform-18';
+import { getLanguageProfile, getLocaleForHostname } from '../../shared-ui/src/config.js?v=tenant-domains-1';
 import { PergolaScene } from './scene/PergolaScene.js?v=platform-18';
 import { ConfiguratorUI } from './ui/ConfiguratorUI.js?v=mobile-panel-1';
 import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js?v=mobile-panel-1';
 import { pergolaT } from './i18n.js?v=pergola-panel-1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 import { mountPergolaEmbedPreviewControls } from './ui/embedPreviewControls.js?v=platform-18';
 import { initializePergolaColorCatalog } from './color-catalog.js';
 

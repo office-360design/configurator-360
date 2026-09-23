@@ -1,4 +1,4 @@
-import { CURRENCY_OPTIONS, UNIT_OPTIONS } from '../config.js?v=platform-18';
+import { CURRENCY_OPTIONS, UNIT_OPTIONS } from '../config.js?v=tenant-domains-1';
 import { sharedT } from '../i18n.js?v=platform-18';
 import { escapeHtml } from '../utils.js?v=platform-18';
 

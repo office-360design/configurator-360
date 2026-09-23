@@ -30,7 +30,7 @@ assert.match(functions, /exports\.getTenantDashboard = onCall/);
 assert.match(functions, /exports\.updateTenantDashboard = onCall/);
 assert.match(functions, /lastSelfServiceUpdateByUid/);
 assert.match(functions, /tenantSlugFromConfiguratorOrigin\(origin\)/);
-assert.match(functions, /origin !== `https:\/\/\$\{slug\}\.360configurator\.com`/);
+assert.match(functions, /tenantRecordMatchesHost\(tenant, new URL\(origin\)\.hostname\)/);
 assert.doesNotMatch(dashboardJs, /tenantSlug\s*:/);
 assert.doesNotMatch(dashboardJs, /slug\s*:/);
 

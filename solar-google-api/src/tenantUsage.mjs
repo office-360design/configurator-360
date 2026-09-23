@@ -1,30 +1,9 @@
 import { Firestore } from '@google-cloud/firestore';
+import { tenantDomainContext, tenantOriginContext, tenantRecordMatchesHost } from './tenantDomains.mjs';
 
 const firestore = new Firestore();
 const TENANTS_COLLECTION = 'tenants';
 const TENANT_USAGE_COLLECTION = 'tenantUsage';
-const TENANT_SUFFIX = '.360configurator.com';
-const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
-const RESERVED_PLATFORM_SUBDOMAINS = new Set([
-  'www',
-  'aks',
-  'admin',
-  'api',
-  'app',
-  'assets',
-  'auth',
-  'billing',
-  'cdn',
-  'demo',
-  'dev',
-  'ftp',
-  'mail',
-  'staging',
-  'static',
-  'status',
-  'support',
-  'test',
-]);
 const DEFAULT_PLATFORM_ORIGINS = Object.freeze([
   'https://360configurator.com',
   'https://www.360configurator.com',
@@ -86,12 +65,7 @@ function originIsLocalDevelopment(origin) {
 }
 
 function tenantSlugFromHostname(hostname) {
-  const normalized = String(hostname || '').trim().toLowerCase().replace(/\.$/, '');
-  if (!normalized.endsWith(TENANT_SUFFIX)) return '';
-  const slug = normalized.slice(0, -TENANT_SUFFIX.length);
-  if (!slug || slug.includes('.') || !TENANT_SLUG_PATTERN.test(slug)) return '';
-  if (RESERVED_PLATFORM_SUBDOMAINS.has(slug)) return '';
-  return slug;
+  return tenantDomainContext(hostname)?.slug || '';
 }
 
 function requestHostname(request) {
@@ -103,14 +77,7 @@ function requestHostname(request) {
 }
 
 export function tenantSlugFromOrigin(origin) {
-  if (!origin) return '';
-  try {
-    const url = new URL(origin);
-    if (url.protocol !== 'https:') return '';
-    return tenantSlugFromHostname(url.hostname);
-  } catch {
-    return '';
-  }
+  return tenantOriginContext(origin)?.slug || '';
 }
 
 export function originIsPotentiallyAllowed(request) {
@@ -163,7 +130,6 @@ export async function resolveSolarRequestContext(request) {
     const tenantSlug = hostTenantSlug;
     const snapshot = await firestore.collection(TENANTS_COLLECTION).doc(tenantSlug).get();
     const tenant = snapshot.data() || {};
-    const expectedDomain = `${tenantSlug}${TENANT_SUFFIX}`;
     const configurators = tenant.configurators && typeof tenant.configurators === 'object'
       ? tenant.configurators
       : {};
@@ -172,7 +138,7 @@ export async function resolveSolarRequestContext(request) {
       !snapshot.exists
       || tenant.plan !== 'go_live_now'
       || tenant.status !== 'active'
-      || String(tenant.domain || expectedDomain).trim().toLowerCase() !== expectedDomain
+      || !tenantRecordMatchesHost(tenant, requestHostname(request))
       || configurators.solar !== true
     ) {
       return null;
