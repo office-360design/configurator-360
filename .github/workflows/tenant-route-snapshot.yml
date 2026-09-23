@@ -1,4 +1,4 @@
-name: Tenant route validation snapshot
+name: Validate localized tenant routes
 
 on:
   push:
@@ -6,18 +6,66 @@ on:
     paths: ['.github/workflows/tenant-route-snapshot.yml']
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  snapshot:
+  validate:
     if: github.ref == 'refs/heads/tenants'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Archive source for isolated route validation
-        run: git archive --format=zip HEAD -o tenant-route-source.zip
-      - uses: actions/upload-artifact@v4
         with:
-          name: tenant-route-source
-          path: tenant-route-source.zip
-          retention-days: 1
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply pinned localized route changes
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 7ddb6fd04ed8589a777e570eb6295d625ba1ddfc
+          python3 .tenant-route-update.py
+      - name: Tenant and configurator regression checks
+        run: |
+          set -euo pipefail
+          for check in tenant tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
+            npm run "check:$check"
+          done
+          node --test scripts/validation/configuration-quotation.test.cjs scripts/validation/configurator-color-editor.test.mjs
+          node scripts/validation/validate_sales_dashboard.mjs
+          git diff --check
+          git diff --name-only -- '*.js' '*.mjs' | while IFS= read -r file; do node --check "$file"; done
+      - name: Install browser and nginx test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y nginx
+      - name: Check localized routes and all tenant launchers
+        run: |
+          npm run check:tenant-domains:nginx
+          npm run check:tenant-domains:browser
+          npm run prepare:static --prefix window-configurator
+      - name: Publish tested application changes to tenants only
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/tenants
+          git fetch origin tenants
+          test "$(git rev-parse origin/tenants)" = "$GITHUB_SHA"
+          git rm .tenant-route-update.py
+          git add -u
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix(tenants): use public localized configurator paths'
+          git push origin HEAD:refs/heads/tenants
+      - name: Record tested source manifest
+        if: always()
+        run: |
+          mkdir -p artifacts
+          git ls-files -z | xargs -0 sha256sum > artifacts/tenant-routes-source.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tenant-route-validation
+          path: |
+            artifacts/tenant-catalogue-dashboard*.png
+            artifacts/tenant-routes-source.sha256
+          retention-days: 7
