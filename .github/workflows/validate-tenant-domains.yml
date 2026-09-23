@@ -5,35 +5,43 @@ on:
     branches: [tenants]
     paths:
       - '.github/workflows/validate-tenant-domains.yml'
+      - 'shared-ui/**'
+      - 'firebase-share-backend/**'
+      - 'solar-google-api/**'
+      - 'cloudrun/**'
+      - 'scripts/**'
+      - '*-configurator/**'
+      - 'package*.json'
+  pull_request:
+    branches: [main, tenants]
+    paths:
+      - '.github/workflows/validate-tenant-domains.yml'
+      - 'shared-ui/**'
+      - 'firebase-share-backend/**'
+      - 'solar-google-api/**'
+      - 'cloudrun/**'
+      - 'scripts/**'
+      - '*-configurator/**'
+      - 'package*.json'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: tenant-domains-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
-    if: github.ref == 'refs/heads/tenants'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Apply pinned multi-domain changes
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 7dc917a7c18e11be60b38d0f03890b87d809f789
-          cat .tenant-domains-data/part-{1..5}.txt | base64 --decode > /tmp/tenant-domains.patch.gz
-          echo '3df487e7d6057f944d29e617656d83d20b32dbed637fc1f22c3116900ae55813  /tmp/tenant-domains.patch.gz' | sha256sum -c -
-          gzip -dc /tmp/tenant-domains.patch.gz > /tmp/tenant-domains.patch
-          git apply --check --unidiff-zero /tmp/tenant-domains.patch
-          git apply --index --unidiff-zero /tmp/tenant-domains.patch
       - name: Tenant and configurator regression tests
-        shell: bash
         run: |
           set -euo pipefail
           for check in tenant tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
@@ -43,8 +51,7 @@ jobs:
           node scripts/validation/validate_sales_dashboard.mjs
           node --check firebase-share-backend/functions/index.js
           bash -n firebase-share-backend/iam/authorize-existing-tenant-auth-domain.sh
-          git diff --cached --check
-          git diff --cached --name-only -- '*.js' '*.mjs' '*.cjs' | while IFS= read -r file; do node --check "$file"; done
+          git diff --check
       - name: Browser and nginx test dependencies
         run: |
           npm ci --ignore-scripts
@@ -59,19 +66,6 @@ jobs:
         run: |
           npm run prepare:static --prefix window-configurator
           test -f window-configurator/dist/site/shared-ui/src/tenantDomains.js
-      - name: Publish validated application code to tenants only
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/tenants
-          git fetch origin tenants
-          test "$(git rev-parse origin/tenants)" = "$GITHUB_SHA"
-          # Workflow updates are published separately through the authorized
-          # GitHub connector, not by the restricted Actions token.
-          git restore --source=HEAD --staged --worktree .github/workflows/deploy-firebase-share.yml .github/workflows/deploy-solar-google-api.yml
-          git rm -r .tenant-domains-data
-          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat(tenants): share customer identity across .com .ro and .de'
-          git push origin HEAD:refs/heads/tenants
       - name: Record validated source manifest
         if: always()
         run: |
