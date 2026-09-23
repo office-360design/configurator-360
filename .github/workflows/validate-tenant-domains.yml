@@ -58,9 +58,9 @@ jobs:
           npx playwright install --with-deps chromium
           sudo apt-get update
           sudo apt-get install -y nginx
-      - name: Test nginx public and tenant routing
+      - name: Test localized public and tenant routing
         run: npm run check:tenant-domains:nginx
-      - name: Test launcher, dashboard and admin on all three aliases
+      - name: Test localized launcher links, dashboard and admin on all three aliases
         run: npm run check:tenant-domains:browser
       - name: Validate static Window bundle contains tenant policy
         run: |
