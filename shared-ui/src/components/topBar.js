@@ -1,4 +1,5 @@
 import { getLanguageProfile } from '../config.js?v=tenant-domains-1';
+import { renderPlatformAttribution } from '../tenantBranding.js?v=tenant-branding-1';
 import { sharedT } from '../i18n.js?v=platform-21';
 import { sharedIcon } from '../icons.js?v=platform-21';
 import { escapeHtml } from '../utils.js?v=platform-21';
@@ -55,8 +56,14 @@ function cartButton(locale, count = 0, open = false) {
   `;
 }
 
-export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilities = {} }) {
+export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilities = {}, tenant = null }) {
   const locale = state.locale;
+  const tenantBranded = tenant?.isTenant === true && tenant.exists === true;
+  const brand = tenantBranded
+    ? (tenant.logoUrl
+      ? `<img src="${escapeHtml(tenant.logoUrl)}" alt="${escapeHtml(tenant.companyName)}" />`
+      : `<span class="tenant-brand-name" title="${escapeHtml(tenant.companyName)}">${escapeHtml(tenant.companyName)}</span>`)
+    : `<img src="${escapeHtml(brandSrc)}" alt="${escapeHtml(brandAlt)}" />`;
   const authenticated = Boolean(state.authUser?.uid);
   // AR is platform-disabled for now. Keep the button visible but grey/inert
   // across every configurator so users get one consistent availability signal.
@@ -78,11 +85,14 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
   };
 
   return `
-    <header class="site-header">
+    <header class="site-header${tenantBranded ? ' site-header--tenant' : ''}">
       <div class="site-header__brand-cluster">
-        <a class="brand" href="#" aria-label="${escapeHtml(labels.home)}">
-          <img src="${escapeHtml(brandSrc)}" alt="${escapeHtml(brandAlt)}" />
-        </a>
+        <div class="tenant-brand-lockup">
+          <a class="brand" href="#" aria-label="${escapeHtml(labels.home)}">
+            ${brand}
+          </a>
+          ${tenantBranded ? renderPlatformAttribution(state.currentDomainLocale || locale) : ''}
+        </div>
         <button class="book-demo-button" type="button" data-action="book-demo" aria-label="Book a demo">
           <span class="book-demo-button__label">Book a demo</span>
         </button>

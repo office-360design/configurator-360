@@ -3,7 +3,7 @@ import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBoots
 import { ChairScene } from './scene.js?v=chair-joint-25';
 import { WOOD_TYPES, FABRIC_TYPES, WOOD_COLOURS, FABRIC_COLOURS, materialLabel } from './materials.js?v=chair-28';
 import { chairT, formatDimension } from './i18n.js?v=chair-26';
-import { mountChairShell } from './sharedShell.js?v=tenant-routes-1';
+import { mountChairShell } from './sharedShell.js?v=tenant-branding-1';
 
 applyConfiguratorSeo('chair');
 const tenantContext = await requireTenantConfiguratorAccess('chair');

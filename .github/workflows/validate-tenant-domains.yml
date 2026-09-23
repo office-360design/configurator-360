@@ -44,7 +44,7 @@ jobs:
       - name: Tenant and configurator regression tests
         run: |
           set -euo pipefail
-          for check in tenant tenant-homepage tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
+          for check in tenant tenant-branding tenant-homepage tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
             npm run "check:$check"
           done
           node --test scripts/validation/configuration-quotation.test.cjs scripts/validation/configurator-color-editor.test.mjs
@@ -64,11 +64,16 @@ jobs:
         run: npm run check:tenant-domains:browser
       - name: Test single-configurator homepage and settings
         run: npm run check:tenant-homepage:browser
+      - name: Test secondary tenant branding and mobile headers
+        run: npm run check:tenant-branding:browser
       - name: Validate static Window bundle contains tenant policy
         run: |
           npm run prepare:static --prefix window-configurator
           test -f window-configurator/dist/site/shared-ui/src/tenantDomains.js
           test -f window-configurator/dist/site/shared-ui/src/tenantHomepage.js
+          test -f window-configurator/dist/site/shared-ui/src/tenantBranding.js
+          test -f window-configurator/dist/site/shared-ui/styles/tenantBranding.css
+          test -f window-configurator/dist/site/shared-ui/assets/360CONFIGURATOR.png
       - name: Record validated source manifest
         if: always()
         run: |
@@ -80,6 +85,7 @@ jobs:
           name: tenant-domains-validation
           path: |
             artifacts/tenant-catalogue-dashboard*.png
+            artifacts/tenant-branding*.png
             artifacts/tenant-homepage*.png
             artifacts/tenant-domains-source.sha256
           retention-days: 7

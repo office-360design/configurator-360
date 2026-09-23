@@ -6,19 +6,22 @@
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#f4f5f7" />
   <title>Customer Dashboard | 360Configurator</title>
-  <link rel="stylesheet" href="/shared-ui/styles/tenantDashboard.css?v=tenant-homepage-1" />
+  <link rel="stylesheet" href="/shared-ui/styles/tenantDashboard.css?v=tenant-branding-1" />
 </head>
 <body>
   <main class="dashboard-page">
     <header class="dashboard-header">
-      <a class="dashboard-home" href="/" aria-label="Back to configurators">
-        <span class="brand-mark" id="headerBrandMark">360</span>
-        <img class="brand-logo" id="headerLogo" alt="" hidden />
-        <span>
-          <small>Customer dashboard</small>
-          <strong id="headerCompany">360Configurator</strong>
-        </span>
-      </a>
+      <div class="dashboard-branding">
+        <a class="dashboard-home" href="/" aria-label="Back to configurators">
+          <span class="brand-mark" id="headerBrandMark">360</span>
+          <img class="brand-logo" id="headerLogo" alt="" hidden />
+          <span>
+            <small>Customer dashboard</small>
+            <strong id="headerCompany">360Configurator</strong>
+          </span>
+        </a>
+        <span id="dashboardPlatformBrand"></span>
+      </div>
       <div class="auth-panel" aria-live="polite">
         <span id="authState">Checking sign-in…</span>
         <button type="button" class="button button--secondary" id="authButton" hidden>Sign in with Google</button>
@@ -201,6 +204,6 @@
     </div>
   </main>
 
-  <script type="module" src="/shared-ui/src/tenantDashboard.js?v=tenant-homepage-1"></script>
+  <script type="module" src="/shared-ui/src/tenantDashboard.js?v=tenant-branding-1"></script>
 </body>
 </html>
