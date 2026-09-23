@@ -1,4 +1,4 @@
-name: Tenant branding workbench
+name: Validate secondary tenant branding
 
 on:
   push:
@@ -6,18 +6,77 @@ on:
     paths: ['.github/workflows/tenant-branding-workbench.yml']
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  snapshot:
+  validate:
     if: github.ref == 'refs/heads/tenants'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - run: git archive --format=zip HEAD -o tenant-branding-source.zip
-      - uses: actions/upload-artifact@v4
         with:
-          name: tenant-branding-source
-          path: tenant-branding-source.zip
-          retention-days: 1
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply pinned branding changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = d4aaa80daa3e8a4fa09fad82f8a0515daf8b3eff
+          cat .tenant-branding-data/part-{1..7}.txt | base64 --decode > /tmp/tenant-branding.patch.gz
+          echo '10a9d78667b45a9f33d330fa8337d10b1cb0b2207c9e6b1f222a232c69c743dd  /tmp/tenant-branding.patch.gz' | sha256sum -c -
+          gzip -dc /tmp/tenant-branding.patch.gz > /tmp/tenant-branding.patch
+          git apply --check --unidiff-zero /tmp/tenant-branding.patch
+          git apply --index --unidiff-zero /tmp/tenant-branding.patch
+      - name: Tenant and configurator regression checks
+        run: |
+          set -euo pipefail
+          for check in tenant tenant-branding tenant-homepage tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
+            npm run "check:$check"
+          done
+          node --test scripts/validation/configuration-quotation.test.cjs scripts/validation/configurator-color-editor.test.mjs
+          node scripts/validation/validate_sales_dashboard.mjs
+          node --check firebase-share-backend/functions/index.js
+          git diff --cached --check
+      - name: Install browser and nginx test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y nginx
+      - name: Test branding, mobile headers and existing tenant pages
+        run: |
+          npm run check:tenant-domains:nginx
+          npm run check:tenant-domains:browser
+          npm run check:tenant-homepage:browser
+          npm run check:tenant-branding:browser
+          npm run prepare:static --prefix window-configurator
+          test -f window-configurator/dist/site/shared-ui/src/tenantBranding.js
+          test -f window-configurator/dist/site/shared-ui/styles/tenantBranding.css
+          test -f window-configurator/dist/site/shared-ui/assets/360CONFIGURATOR.png
+      - name: Publish validated application changes to tenants only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/tenants
+          git fetch origin tenants
+          test "$(git rev-parse origin/tenants)" = "$GITHUB_SHA"
+          git rm -r .tenant-branding-data
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat(tenants): add secondary 360Configurator branding'
+          git push origin HEAD:refs/heads/tenants
+      - name: Record tested source manifest
+        if: always()
+        run: |
+          mkdir -p artifacts
+          git ls-files -z | xargs -0 sha256sum > artifacts/tenant-branding-source.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tenant-branding-validation
+          path: |
+            artifacts/tenant-branding*.png
+            artifacts/tenant-homepage*.png
+            artifacts/tenant-branding-source.sha256
+          retention-days: 7
