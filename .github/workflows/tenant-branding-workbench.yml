@@ -24,12 +24,40 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = d4aaa80daa3e8a4fa09fad82f8a0515daf8b3eff
+          test "$(git rev-parse HEAD^)" = 37ded8f1da70e5d75a36f9143c3da74873d5a078
           cat .tenant-branding-data/part-{1..7}.txt | base64 --decode > /tmp/tenant-branding.patch.gz
           echo '10a9d78667b45a9f33d330fa8337d10b1cb0b2207c9e6b1f222a232c69c743dd  /tmp/tenant-branding.patch.gz' | sha256sum -c -
           gzip -dc /tmp/tenant-branding.patch.gz > /tmp/tenant-branding.patch
           git apply --check --unidiff-zero /tmp/tenant-branding.patch
           git apply --index --unidiff-zero /tmp/tenant-branding.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('shared-ui/styles/tenantBranding.css')
+          s = p.read_text()
+          changes = [
+              ('.shared-ui-host .site-header--tenant .brand { min-width: 0; }', '''.shared-ui-host .site-header--tenant .brand {
+            min-width: 0;
+            max-width: 154px;
+            overflow: hidden;
+          }
+          .shared-ui-host .site-header--tenant .tenant-brand-name {
+            display: block;
+            min-width: 0;
+            max-width: 100%;
+            line-height: 18px;
+          }'''),
+              ('.shared-ui-host .site-header--tenant .brand { height: 22px; }', '.shared-ui-host .site-header--tenant .brand { height: 22px; max-width: 83px; }'),
+              ('  .shared-ui-host .site-header--tenant .brand img,\n  .shared-ui-host .tenant-brand-name { max-width: 78px; }', '  .shared-ui-host .site-header--tenant .brand,\n  .shared-ui-host .site-header--tenant .brand img,\n  .shared-ui-host .tenant-brand-name { max-width: 78px; }'),
+              ('  .shared-ui-host .site-header--tenant .brand img,\n  .shared-ui-host .tenant-brand-name { max-width: 60px; }', '  .shared-ui-host .site-header--tenant .brand,\n  .shared-ui-host .site-header--tenant .brand img,\n  .shared-ui-host .tenant-brand-name { max-width: 60px; }'),
+          ]
+          for old, new in changes:
+              assert s.count(old) == 1, old
+              s = s.replace(old, new)
+          p.write_text(s)
+          PY
+          git add shared-ui/styles/tenantBranding.css
+          mkdir -p artifacts
+          git archive --format=zip "$(git write-tree)" -o artifacts/tenant-branding-tested-source.zip
       - name: Tenant and configurator regression checks
         run: |
           set -euo pipefail
@@ -79,4 +107,5 @@ jobs:
             artifacts/tenant-branding*.png
             artifacts/tenant-homepage*.png
             artifacts/tenant-branding-source.sha256
+            artifacts/tenant-branding-tested-source.zip
           retention-days: 7
