@@ -332,3 +332,9 @@ the existing release workflows. A push to the tenants branch alone does not
 automatically publish production. Run `npm run check:tenant-catalogue` for offline
 behavioural checks and `npm run check:tenant-catalogue:browser` for UI smoke tests
 (requires the existing root Playwright dependency and its Chromium browser).
+
+
+### Country-domain tenant aliases
+
+See [Tenant aliases on .com, .ro and .de](../docs/tenant-country-domains.md) for
+deployment order, existing-tenant Auth migration and browser verification.

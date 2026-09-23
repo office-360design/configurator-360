@@ -1,4 +1,7 @@
-import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=tenant-catalogue-1';
+import { renderPlatformAttribution } from './tenantBranding.js?v=tenant-branding-1';
+import { getLocaleForHostname } from './config.js?v=tenant-routes-1';
+import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=tenant-domains-1';
+import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=tenant-domains-1';
 import {
   getFirebaseIdToken,
   observeGoogleAuth,
@@ -41,6 +44,7 @@ const metricAccesses = document.querySelector('#metricAccesses');
 const metricConfigurations = document.querySelector('#metricConfigurations');
 const settingsForm = document.querySelector('#settingsForm');
 const companyName = document.querySelector('#companyName');
+const autoOpenSingleConfigurator = document.querySelector('#autoOpenSingleConfigurator');
 const planSelect = document.querySelector('#planSelect');
 const planHint = document.querySelector('#planHint');
 const currentLogo = document.querySelector('#currentLogo');
@@ -252,9 +256,14 @@ function populateDashboard(data) {
   dashboard = data;
   document.title = `${data.companyName} Dashboard`;
   headerCompany.textContent = data.companyName;
+  document.querySelector('#dashboardPlatformBrand').innerHTML = renderPlatformAttribution(
+    getLocaleForHostname(window.location.hostname),
+  );
   overviewCompany.textContent = data.companyName;
-  overviewDomain.textContent = data.domain;
+  overviewDomain.textContent = window.location.hostname;
+  renderTenantDomainLinks(document.querySelector('#dashboardDomainLinks'), data.slug, '/dashboard/');
   companyName.value = data.companyName;
+  autoOpenSingleConfigurator.checked = data.autoOpenSingleConfigurator === true;
 
   if (data.logoUrl) {
     headerLogo.src = data.logoUrl; headerLogo.alt = data.companyName; headerLogo.hidden = false; headerBrandMark.hidden = true;
@@ -356,10 +365,11 @@ settingsForm.addEventListener('submit', async (event) => {
     const requestedPlanChange = planSelect.value !== dashboard.planId;
     const result = await callDashboardFunction('updateTenantDashboard', {
       companyName: name, planId: planSelect.value, configurators, logoMode, logoDataUrl,
+      autoOpenSingleConfigurator: autoOpenSingleConfigurator.checked,
     });
     populateDashboard(result);
     setStatus(
-      requestedPlanChange ? 'Branding changes saved. Your plan change request is pending confirmation.' : 'Changes saved.',
+      requestedPlanChange ? 'Site settings saved. Your plan change request is pending confirmation.' : 'Changes saved.',
       'success',
     );
   } catch (error) { console.error('Tenant dashboard update failed.', error); setStatus(error?.message || 'Could not save changes.', 'error'); }

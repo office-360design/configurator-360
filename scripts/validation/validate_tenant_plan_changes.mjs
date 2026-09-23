@@ -33,7 +33,7 @@ const checks = [
     'id="pendingPlanCard"',
     'id="cancelPlanChangeButton"',
     'tenantDashboard.js?v=',
-    'tenantDashboard.css?v=4',
+    'tenantDashboard.css?v=tenant-branding-1',
   ]],
   ['shared-ui/src/tenantDashboard.js', [
     'cancelTenantPlanChange',
@@ -46,7 +46,7 @@ const checks = [
     'id="approvePlanChangeButton"',
     'id="rejectPlanChangeButton"',
     'tenantProvisioningAdmin.js?v=',
-    'tenantProvisioningAdmin.css?v=8',
+    'tenantProvisioningAdmin.css?v=tenant-homepage-1',
   ]],
   ['shared-ui/src/tenantProvisioningAdmin.js', [
     'resolveTenantPlanChange',

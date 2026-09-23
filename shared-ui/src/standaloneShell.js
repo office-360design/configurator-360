@@ -1,9 +1,9 @@
 import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js';
-import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=platform-21';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=tenant-routes-1';
 import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-21';
 import { sharedT } from './i18n.js?v=platform-21';
 import { renderActionFeedback } from './components/feedback.js?v=platform-21';
-import { renderTopBar } from './components/topBar.js?v=platform-21';
+import { renderTopBar } from './components/topBar.js?v=tenant-branding-1';
 import { syncAccountIdentity } from './components/accountMenu.js?v=platform-21';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=platform-19';
 import { renderToolsMenu } from './components/toolsMenu.js?v=platform-19';
@@ -15,7 +15,7 @@ import { renderCartMenu } from './components/cartMenu.js?v=platform-19';
 import { getUserCart, mutateUserCart } from './userCart.js?v=platform-19';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=platform-19';
 import { readShareState } from './shareState.js?v=platform-19';
-import { getTenantSlugForHostname } from './tenantBootstrap.js?v=platform-19';
+import { currentTenantContext, getTenantSlugForHostname } from './tenantBootstrap.js?v=tenant-domains-1';
 import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=platform-19';
 import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=platform-19';
 
@@ -213,7 +213,7 @@ function resizeProfileAvatar(file) {
   });
 }
 
-const SHARED_STANDALONE_STYLE_VERSION = '27';
+const SHARED_STANDALONE_STYLE_VERSION = 'tenant-branding-1';
 
 function refreshSharedStandaloneStylesheet() {
   document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
@@ -598,16 +598,15 @@ export class StandaloneConfiguratorShell {
     const product = normalizeProductId(productId);
     if (!CART_EDIT_PRODUCTS.has(product) || !CART_EDIT_ITEM_ID_PATTERN.test(String(itemKey || ''))) return null;
 
+    const destination = new URL(baseUrl, window.location.href);
     const tenantSlug = getTenantSlugForHostname(window.location.hostname);
-    let target;
-    if (tenantSlug) {
-      target = new URL(`/${product}-configurator/`, window.location.origin);
-    } else {
-      const domainLocale = getLocaleForHostname(window.location.hostname);
-      const localized = getLocalizedConfiguratorUrl(domainLocale, product, baseUrl);
-      if (!localized) return null;
-      target = new URL(localized, window.location.href);
-    }
+    if (tenantSlug && getTenantSlugForHostname(destination.hostname) !== tenantSlug) return null;
+    const domainLocale = getLocaleForHostname(
+      tenantSlug ? destination.hostname : window.location.hostname,
+    );
+    const localized = getLocalizedConfiguratorUrl(domainLocale, product, destination);
+    if (!localized) return null;
+    const target = new URL(localized, window.location.href);
     target.search = '';
     target.hash = '';
     const hash = readHashParams(target);
@@ -985,6 +984,7 @@ export class StandaloneConfiguratorShell {
       ${renderTopBar({
         brandSrc: this.options.brandSrc,
         brandAlt: this.options.brandAlt,
+        tenant: currentTenantContext(),
         projectName: this.projectName,
         state: {
           ...this.state,
@@ -1521,8 +1521,15 @@ export class StandaloneConfiguratorShell {
   async applyGuestRegionDefaults() {
     let region = this.readGuestRegionPreference();
     if (!region) {
-      region = await fetchGuestRegion();
-      region = this.persistGuestRegionPreference(region, 'ip');
+      const tenantSlug = getTenantSlugForHostname(window.location.hostname);
+      if (tenantSlug) {
+        const locale = getLocaleForHostname(window.location.hostname);
+        const { currency, units } = getLanguageProfile(locale);
+        region = { countryCode: '', locale, currency, units };
+      } else {
+        region = await fetchGuestRegion();
+      }
+      region = this.persistGuestRegionPreference(region, tenantSlug ? 'domain' : 'ip');
     }
     if (this.authUser?.uid) return;
     const changes = [];
@@ -1864,7 +1871,11 @@ export class StandaloneConfiguratorShell {
   async buildSharedDomainTarget(nextLocale) {
     const shareUrl = await Promise.resolve(this.options.callbacks.getShareUrl?.() || '');
     if (!shareUrl) throw new Error('A share URL could not be generated for the domain change.');
-    const target = getLocalizedConfiguratorUrl(nextLocale, this.productId, new URL(shareUrl, window.location.href));
+    const transport = new URL(shareUrl, window.location.href);
+    // Some product share builders canonicalize their host. A domain switch
+    // must keep the actual tenant while copying only configuration transport.
+    if (getTenantSlugForHostname(window.location.hostname)) transport.hostname = window.location.hostname;
+    const target = getLocalizedConfiguratorUrl(nextLocale, this.productId, transport);
     if (!target) throw new Error('The destination domain URL could not be generated.');
     return target;
   }

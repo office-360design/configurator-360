@@ -50,6 +50,9 @@ jobs:
         working-directory: firebase-share-backend/functions
         run: node --check index.js && node --check quotation.js && node --check bookshelf-quotation.js && node --check profile.js && node --check sales-dashboard.js && node --check configurator-colors.js && node --check entry.js
 
+      - name: Validate shared tenant-domain policy
+        run: npm run check:tenant-domains
+
       - name: Validate Tier-1 tenant authentication integration
         run: node scripts/validation/validate_tenant_auth_domains.mjs
 

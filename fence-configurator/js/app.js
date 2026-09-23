@@ -4,7 +4,7 @@ import { FenceScene } from './scene.js?v=platform-18';
 import { FenceUI } from './ui.js?v=panel-controls-2';
 import { resolveFenceLocale } from './i18n.js?v=platform-18';
 import { initializeFenceFinishCatalog } from './finish-catalog.js?v=1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 await requireTenantConfiguratorAccess('fence');
 await initializeFenceFinishCatalog();

@@ -12,11 +12,11 @@ import {
   areaGeometry,
 } from './model.js';
 import { translator } from './i18n.js';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js';
 import { createShareUrl } from '../../shared-ui/src/shareState.js';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-catalogue-1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 const tenant = await requireTenantConfiguratorAccess('tiles');
 const $ = (id) => document.getElementById(id);

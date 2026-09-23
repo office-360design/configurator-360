@@ -1,5 +1,7 @@
 'use strict';
 
+const { TENANT_ORIGIN_PATTERN, TENANT_DOMAIN_ROOTS, tenantOriginContext, tenantRecordMatchesHost } = require('./tenantDomains.cjs');
+
 const { randomBytes } = require('node:crypto');
 const { GoogleAuth } = require('google-auth-library');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
@@ -37,7 +39,7 @@ const PUBLIC_ORIGINS = new Set([
   'https://aks.360configurator.com',
 ]);
 const DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
-const TENANT_ORIGIN = /^https:\/\/([a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?)\.360configurator\.com$/;
+const TENANT_ORIGIN = TENANT_ORIGIN_PATTERN;
 
 const LOCALE_HOSTS = Object.freeze({
   'en-US': 'www.360configurator.com',
@@ -158,15 +160,14 @@ async function quotationScope(request) {
     return { origin, tenantSlug: '' };
   }
 
-  const match = origin.match(TENANT_ORIGIN);
-  const tenantSlug = String(match?.[1] || '').trim();
+  const tenantSlug = tenantOriginContext(origin)?.slug || '';
   if (!TENANT_SLUG_PATTERN.test(tenantSlug)) {
     throw new HttpsError('permission-denied', 'Unsupported quotation origin.');
   }
 
   const snapshot = await getFirestore().collection('tenants').doc(tenantSlug).get();
   const tenant = snapshot.data() || {};
-  if (!snapshot.exists || tenant.status !== 'active' || String(tenant.domain || '') !== `${tenantSlug}.360configurator.com`) {
+  if (!snapshot.exists || tenant.status !== 'active' || !tenantRecordMatchesHost(tenant, new URL(origin).hostname)) {
     throw new HttpsError('permission-denied', 'This customer tenant is not active.');
   }
   return { origin, tenantSlug };
@@ -214,7 +215,7 @@ async function readCart(uid, tenantSlug) {
 }
 
 function quotationGuestUrl(locale, tenantSlug, productId, shareId) {
-  const host = tenantSlug ? `${tenantSlug}.360configurator.com` : LOCALE_HOSTS[locale];
+  const host = tenantSlug ? `${tenantSlug}.${TENANT_DOMAIN_ROOTS[locale] || TENANT_DOMAIN_ROOTS['en-US']}` : LOCALE_HOSTS[locale];
   const path = tenantSlug
     ? CONFIGURATOR_PATHS['en-US']?.[productId]
     : CONFIGURATOR_PATHS[locale]?.[productId];
@@ -316,7 +317,7 @@ function formatMoney(amount, currency, locale) {
 }
 
 function expectedLinkHost(locale, tenantSlug) {
-  return tenantSlug ? `${tenantSlug}.360configurator.com` : LOCALE_HOSTS[locale];
+  return tenantSlug ? `${tenantSlug}.${TENANT_DOMAIN_ROOTS[locale] || TENANT_DOMAIN_ROOTS['en-US']}` : LOCALE_HOSTS[locale];
 }
 
 function parseAndValidateLink(rawLink, locale, tenantSlug, expectedProduct) {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
+import * as tenantDomainPolicy from '../../shared-ui/src/tenantDomains.js';
 import { test } from 'node:test';
 import { TENANT_CONFIGURATORS } from '../../shared-ui/src/tenantBootstrap.js';
 
@@ -46,6 +47,7 @@ function backendHarness() {
   const context = vm.createContext({
     Buffer, URL, console, process: { env: {} }, exports: {}, mockDb,
     require(name) {
+      if (name === './tenantDomains.cjs') return tenantDomainPolicy;
       if (name === 'node:crypto') return require(name);
       assert.ok(adapters[name], `Unexpected backend dependency: ${name}`);
       return adapters[name];
@@ -70,13 +72,13 @@ function bootstrapHarness({ hostname = 'acme.360configurator.com', fields = {}, 
   const node = () => ({ dataset: {}, classList: { add() {} }, append(value) { elements.push(value); } });
   const document = { documentElement: node(), head: node(), body: node(), createElement: node };
   const context = vm.createContext({
-    document, location: { hostname }, URL,
+    document, location: { hostname }, URL, ...tenantDomainPolicy,
     fetch: async () => {
       requests += 1;
       return { ok: status === 200, status, json: async () => ({ fields }) };
     },
   });
-  const source = read('shared-ui/src/tenantBootstrap.js').replace(/^export /gm, '');
+  const source = read('shared-ui/src/tenantBootstrap.js').replace(/^import .*tenantDomains.*;\n/gm, '').replace(/^export /gm, '');
   vm.runInContext(source, context);
   const api = vm.runInContext('({ requireTenantConfiguratorAccess, resolveTenantContext })', context);
   return { api, document, elements, requests: () => requests };

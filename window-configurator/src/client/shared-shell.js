@@ -1,10 +1,10 @@
-import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=44';
+import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=tenant-branding-1';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=5';
 import { resolveSharedTools } from './shared-ui/src/tools/registry.js?v=13';
 import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=platform-18';
 import { mountWindowTemplates } from './js/window-templates.js?v=8';
-import { requireTenantConfiguratorAccess } from './shared-ui/src/tenantBootstrap.js?v=1';
+import { requireTenantConfiguratorAccess } from './shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 const tenantContext = await requireTenantConfiguratorAccess('window');
 
