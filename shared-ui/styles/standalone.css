@@ -1965,3 +1965,19 @@ body.configurator-embed-preview #canvas-container {
 .configuration-quotation button:disabled{opacity:.5;cursor:wait}
 body.shared-ui-dark-mode .configuration-quotation{background:#253139;color:#edf4f7}
 @media(max-width:480px){.configuration-quotation form{grid-template-columns:1fr}}
+
+/* One mobile handle lane below the viewer tools, for both legacy and managed
+   panels. The shell mirrors these offsets for floating inline geometry. */
+@media (max-width: 760px) {
+  :root { --shared-mobile-panel-toggle-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+  body.shared-ui-mounted :is(.shared-settings-toggle, .shared-configurator-panel__toggle--floating-right) {
+    top: auto !important;
+    bottom: var(--shared-mobile-panel-toggle-bottom) !important;
+    touch-action: manipulation;
+  }
+
+  body:has(:is(.shared-settings-toggle, .shared-configurator-panel__toggle--floating-right)[aria-expanded="true"])
+    .shared-ui-host .book-demo-button {
+    display: none;
+  }
+}

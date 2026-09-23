@@ -248,3 +248,17 @@ history, side infills, pole accessories, lighting, heaters and pricing.
 `node shared-ui/tests/pergola-panel-preservation.mjs` compares the real UI, store
 and pricing against the pre-adoption commit. It uses managed-panel geometry but
 does not start the shared shell, WebGL, quoting or external services.
+
+### Mobile panel shell regression
+
+`CHROMIUM_PATH=/path/to/chromium node shared-ui/tests/mobile-panel-shell.mjs`
+checks repeated touch opening/closing, visible drawer geometry, tool clearance,
+mobile demo-button visibility, and desktop resizing for Hall, Fence, Roof,
+Solar, Tiles and Pergola. It covers 320–760 px widths and phone landscape.
+Install Playwright at the repository root and Pergola's Vite dependencies first.
+External services are blocked; Pergola and Tiles run their renderers, while the
+other products mount their real shell without starting the renderer.
+
+Mobile collapse handles use `--shared-mobile-panel-toggle-bottom` from the shared
+styles. Keep the corresponding rules in `index.css` and `standalone.css` aligned.
+The demo CTA follows the handle's `aria-expanded` state on mobile only.

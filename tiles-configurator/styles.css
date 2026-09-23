@@ -579,9 +579,6 @@ body.dark #houseMapDialog {
 
 /* Keep phone controls clear of the shared Tools launcher and demo CTA. */
 @media (max-width: 760px) {
-  #tilesSidebarToggle {
-    top: calc(var(--shared-topbar-height, 47px) + 90px) !important;
-  }
   body.tiles-sidebar-collapsed #tilesSidebarToggle {
     right: 0 !important;
   }

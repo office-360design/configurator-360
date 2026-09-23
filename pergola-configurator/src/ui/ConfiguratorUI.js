@@ -170,7 +170,7 @@ export class ConfiguratorUI {
     if (
       this.mobileLayoutQuery.matches
       && !this.sidebarHidden
-      && !event.target.closest('.configurator-sidebar')
+      && !event.target.closest('.configurator-sidebar, #pergolaSidebarToggle')
     ) {
       this.setSidebarHidden(true, { userOverride: false });
       return;
