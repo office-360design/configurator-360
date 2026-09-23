@@ -3,10 +3,10 @@ name: Validate secondary tenant branding
 on:
   push:
     branches: [tenants]
-    paths: ['.github/workflows/tenant-branding-workbench.yml']
+    paths: ['.github/workflows/tenant-branding-workbench.yml', '.tenant-branding-data/layout.py']
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -15,109 +15,23 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Apply pinned branding changes
+      - name: Prepare branding test tree
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 483509ddaa13bb525efbe0aa53f42d57378a0641
           cat .tenant-branding-data/part-{1..7}.txt | base64 --decode > /tmp/tenant-branding.patch.gz
           echo '10a9d78667b45a9f33d330fa8337d10b1cb0b2207c9e6b1f222a232c69c743dd  /tmp/tenant-branding.patch.gz' | sha256sum -c -
           gzip -dc /tmp/tenant-branding.patch.gz > /tmp/tenant-branding.patch
           git apply --check --unidiff-zero /tmp/tenant-branding.patch
           git apply --index --unidiff-zero /tmp/tenant-branding.patch
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('shared-ui/styles/tenantBranding.css')
-          s = p.read_text()
-          changes = [
-              ('.shared-ui-host .site-header--tenant .brand { min-width: 0; }', '''.shared-ui-host .site-header--tenant .brand {
-            min-width: 0;
-            max-width: 154px;
-            overflow: hidden;
-          }
-          .shared-ui-host .site-header--tenant .tenant-brand-name {
-            display: block;
-            min-width: 0;
-            max-width: 100%;
-            line-height: 18px;
-          }'''),
-              ('.shared-ui-host .site-header--tenant .brand { height: 22px; }', '.shared-ui-host .site-header--tenant .brand { height: 22px; max-width: 83px; }'),
-              ('  .shared-ui-host .site-header--tenant .brand img,\n  .shared-ui-host .tenant-brand-name { max-width: 78px; }', '  .shared-ui-host .site-header--tenant .brand,\n  .shared-ui-host .site-header--tenant .brand img,\n  .shared-ui-host .tenant-brand-name { max-width: 78px; }'),
-              ('  .shared-ui-host .site-header--tenant .brand img,\n  .shared-ui-host .tenant-brand-name { max-width: 60px; }', '  .shared-ui-host .site-header--tenant .brand,\n  .shared-ui-host .site-header--tenant .brand img,\n  .shared-ui-host .tenant-brand-name { max-width: 60px; }'),
-          ]
-          for old, new in changes:
-              assert s.count(old) == 1, old
-              s = s.replace(old, new)
-          s += '''
-
-          /* Bound the editable name to its grid track. On small phones retain
-             the existing shared-header policy of hiding the project name. */
-          .shared-ui-host .site-header--tenant .project-name-shell,
-          .shared-ui-host .site-header--tenant .project-name-input {
-            min-width: 0;
-            max-width: 100%;
-          }
-          @media (max-width: 480px) {
-            .shared-ui-host .site-header--tenant .project-name-shell { display: none; }
-          }
-          '''
-          p.write_text(s)
-          p = Path('scripts/validation/tenant-branding.browser.mjs')
-          s = p.read_text()
-          start = s.index('  async function checkHeader(width) {')
-          end = s.index('  for (const [locale, base]', start)
-          s = s[:start] + '''  async function checkHeader(width) {
-            await page.setViewportSize({ width, height: 900 });
-            await page.evaluate(() => new Promise(requestAnimationFrame));
-            const selectors = {
-              header: '.site-header', primary: '.brand',
-              badge: '.tenant-platform-brand', actions: '.site-header__actions',
-              name: '.project-name-shell', nameInput: '.project-name-input',
-            };
-            const boxes = {};
-            for (const [key, selector] of Object.entries(selectors)) {
-              // A display:none project name has no rendered box on phones.
-              boxes[key] = await page.locator(selector).boundingBox();
-            }
-            try {
-              const { header, primary, badge, actions, name, nameInput } = boxes;
-              assert.ok(header && primary && badge && actions, 'Required branding and controls must stay rendered');
-              assert.ok(Math.abs(header.height - 47) < 1, `Header height changed at ${width}px`);
-              for (const [key, box] of Object.entries({ primary, badge, actions, name, nameInput })) {
-                if (!box) continue;
-                assert.ok(box.x >= -1 && box.x + box.width <= width + 1, `${key} offscreen at ${width}px: ${JSON.stringify(box)}`);
-                assert.ok(box.y >= -1 && box.y + box.height <= header.height + 1, `${key} outside bar at ${width}px`);
-              }
-              assert.ok(primary.x + primary.width <= badge.x + 1 || primary.y + primary.height <= badge.y + 1, 'Brand marks must not overlap');
-              assert.ok(primary.x + primary.width <= actions.x + 1, `Tenant logo overlaps actions at ${width}px`);
-              assert.ok(badge.x + badge.width <= actions.x + 1, `Attribution overlaps actions at ${width}px`);
-              if (name) {
-                assert.ok(name.x >= Math.max(primary.x + primary.width, badge.x + badge.width) - 1, `Name overlaps branding at ${width}px`);
-                assert.ok(name.x + name.width <= actions.x + 1, `Name overlaps actions at ${width}px`);
-              }
-              const badgeImage = await page.locator('.tenant-platform-brand img').boundingBox();
-              const tenantImage = page.locator('.brand img');
-              if (await tenantImage.count()) {
-                const primaryImage = await tenantImage.boundingBox();
-                assert.ok(badgeImage.height < primaryImage.height, 'Platform mark should be smaller');
-              }
-            } catch (error) {
-              console.error('BRANDING_LAYOUT', page.url(), JSON.stringify(boxes));
-              await page.screenshot({ path: resolve(artifacts, 'tenant-branding-failure.png') });
-              throw error;
-            }
-          }
-          ''' + s[end:]
-          p.write_text(s)
-          PY
+          python3 .tenant-branding-data/layout.py
           git add shared-ui/styles/tenantBranding.css scripts/validation/tenant-branding.browser.mjs
           mkdir -p artifacts
           git archive --format=zip "$(git write-tree)" -o artifacts/tenant-branding-tested-source.zip
+          git diff --cached --binary > artifacts/tenant-branding.patch
       - name: Tenant and configurator regression checks
         run: |
           set -euo pipefail
@@ -134,7 +48,7 @@ jobs:
           npx playwright install --with-deps chromium
           sudo apt-get update
           sudo apt-get install -y nginx
-      - name: Test branding, mobile headers and existing tenant pages
+      - name: Test branding and tenant pages
         run: |
           set -euo pipefail
           npm run check:tenant-domains:nginx
@@ -145,21 +59,6 @@ jobs:
           test -f window-configurator/dist/site/shared-ui/src/tenantBranding.js
           test -f window-configurator/dist/site/shared-ui/styles/tenantBranding.css
           test -f window-configurator/dist/site/shared-ui/assets/360CONFIGURATOR.png
-      - name: Publish validated application changes to tenants only
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/tenants
-          git fetch origin tenants
-          test "$(git rev-parse origin/tenants)" = "$GITHUB_SHA"
-          git rm -r .tenant-branding-data
-          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat(tenants): add secondary 360Configurator branding'
-          git push origin HEAD:refs/heads/tenants
-      - name: Record tested source manifest
-        if: always()
-        run: |
-          mkdir -p artifacts
-          git ls-files -z | xargs -0 sha256sum > artifacts/tenant-branding-source.sha256
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -167,7 +66,7 @@ jobs:
           path: |
             artifacts/tenant-branding*.png
             artifacts/tenant-homepage*.png
-            artifacts/tenant-branding-source.sha256
             artifacts/tenant-branding-tested-source.zip
             artifacts/tenant-branding-browser.log
+            artifacts/tenant-branding.patch
           retention-days: 7
