@@ -127,10 +127,9 @@ export function getLocalizedConfiguratorUrl(locale, productType, location = wind
   const current = typeof location === 'string' ? new URL(location, globalThis.location?.href) : location;
   const tenant = tenantDomainContext(current.hostname);
   const product = normalizeProductType(productType);
-  // Tenant aliases keep the standard paths; public marketing sites retain their
-  // localized canonical URLs. Neither domain switching nor cart editing may
-  // drop a customer's slug and send them into the public platform scope.
-  const paths = CONFIGURATOR_PUBLIC_PATHS[tenant ? 'en-US' : resolvedLocale];
+  // Public sites and tenant aliases share the same localized route catalogue.
+  // Keep the customer slug when changing locale or editing a cart item.
+  const paths = CONFIGURATOR_PUBLIC_PATHS[resolvedLocale];
   const path = product ? paths?.[product] : current.pathname;
   if (!path) return null;
   const hostname = tenant

@@ -20,9 +20,18 @@ analytics scope and Solar monthly budget. Disabled configurators and suspended
 tenants stay blocked everywhere. A suspended tenant owner may still manage the
 account in the dashboard, as before. Unknown aliases are not public demo traffic.
 
-Tenant configurators use the standard paths (for example `/roof-configurator/`)
-on all three roots. Existing Romanian/German route aliases also remain inside
-the tenant. The public root/www redirects and localized paths are unchanged.
+Tenant configurators use the same localized paths as the corresponding public
+site. For example, Solar uses `/solar-configurator/` on `.com`,
+`/configurator-solar/` on `.ro`, and `/solar-konfigurator/` on `.de`.
+Launcher links, Change Site Domain and cart-edit links use the shared public
+route catalogue. Tiles and Bookshelf keep their unchanged public paths.
+
+Old English or other-language entry URLs (with/without a trailing slash, or
+ending in `/index.html`) redirect to the current tenant domain's localized path.
+Query parameters are retained; browsers also retain fragment-based save/share,
+cart and authentication transport. JS/CSS/models are not redirected, and localized
+asset requests still resolve to the same physical configurator directories.
+The public root/www redirects and localized paths are unchanged.
 The domain supplies the initial configurator language, currency and units for
 new tenant visitors; explicit user preferences are preserved. This change does
 not translate the English dashboard/administration interface.
