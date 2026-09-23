@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 0137dea4664ec1378f2bae171f80d1d1c84fa3b7
+          test "$(git rev-parse HEAD^)" = 7dc917a7c18e11be60b38d0f03890b87d809f789
           cat .tenant-domains-data/part-{1..5}.txt | base64 --decode > /tmp/tenant-domains.patch.gz
           echo '3df487e7d6057f944d29e617656d83d20b32dbed637fc1f22c3116900ae55813  /tmp/tenant-domains.patch.gz' | sha256sum -c -
           gzip -dc /tmp/tenant-domains.patch.gz > /tmp/tenant-domains.patch
@@ -59,13 +59,16 @@ jobs:
         run: |
           npm run prepare:static --prefix window-configurator
           test -f window-configurator/dist/site/shared-ui/src/tenantDomains.js
-      - name: Publish validated code to tenants only
+      - name: Publish validated application code to tenants only
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/tenants
           git fetch origin tenants
           test "$(git rev-parse origin/tenants)" = "$GITHUB_SHA"
+          # Workflow updates are published separately through the authorized
+          # GitHub connector, not by the restricted Actions token.
+          git restore --source=HEAD --staged --worktree .github/workflows/deploy-firebase-share.yml .github/workflows/deploy-solar-google-api.yml
           git rm -r .tenant-domains-data
           git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat(tenants): share customer identity across .com .ro and .de'
           git push origin HEAD:refs/heads/tenants
