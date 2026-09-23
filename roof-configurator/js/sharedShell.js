@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=platform-19';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=mobile-panel-1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=panel-controls-3';
@@ -121,7 +121,8 @@ function setSidebarCollapsed(collapsed) {
 sidebarToggle?.addEventListener('click', () => {
   setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed'));
 });
-setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
+setSidebarCollapsed(window.matchMedia('(max-width: 760px)').matches || Boolean(sidebar?.classList.contains('is-collapsed')));
+document.body.classList.add('roof-sidebar-ready');
 window.addEventListener('roof-locale-applied', () => {
   setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
   syncToolsState();

@@ -1329,7 +1329,7 @@ body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
 @media (max-width: 760px) {
   :root {
     --shared-settings-gap: 8px;
-    --shared-settings-width: min(360px, calc(100vw - 18px));
+    --shared-settings-width: min(340px, calc(100vw - 56px));
   }
 
   body { overflow: hidden; }
@@ -1351,7 +1351,7 @@ body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
     top: 8px;
     right: 8px;
     bottom: 8px;
-    width: min(360px, calc(100vw - 18px));
+    width: min(340px, calc(100vw - 56px));
     max-height: calc(100% - 16px);
     border-radius: 16px;
     overscroll-behavior: contain;
@@ -1365,8 +1365,7 @@ body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
   /* Keep the settings reveal arrow below the expanded unified Tools rail. */
   #solarSidebarToggle {
     top: auto !important;
-    right: min(368px, calc(100vw - 10px)) !important;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 118px) !important;
+    right: min(348px, calc(100vw - 48px)) !important;
     width: 40px !important;
     height: 52px !important;
     transform: none !important;
@@ -1674,7 +1673,7 @@ body.configurator-embed-preview.shared-ui-dark-mode .solar-simulation-panel {
 @media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
   #solarSidebarToggle {
     top: auto !important;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 74px) !important;
+    bottom: var(--shared-mobile-panel-toggle-bottom, calc(env(safe-area-inset-bottom, 0px) + 74px)) !important;
     transform: none !important;
   }
   .solar-live-card { width: 200px; }
