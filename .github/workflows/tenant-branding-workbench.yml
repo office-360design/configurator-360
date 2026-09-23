@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 73d47ed8bc23a27f65438e650d2065165d326612
+          test "$(git rev-parse HEAD^)" = 483509ddaa13bb525efbe0aa53f42d57378a0641
           cat .tenant-branding-data/part-{1..7}.txt | base64 --decode > /tmp/tenant-branding.patch.gz
           echo '10a9d78667b45a9f33d330fa8337d10b1cb0b2207c9e6b1f222a232c69c743dd  /tmp/tenant-branding.patch.gz' | sha256sum -c -
           gzip -dc /tmp/tenant-branding.patch.gz > /tmp/tenant-branding.patch
@@ -55,27 +55,67 @@ jobs:
               s = s.replace(old, new)
           s += '''
 
-          /* Constrain the editable name to the space left between the two brand marks
-             and the account controls. Match the existing small-phone name visibility. */
-          .shared-ui-host .site-header--tenant .header-center,
-          .shared-ui-host .site-header--tenant .project-name-shell {
-            min-width: 0;
-            max-width: 100%;
-          }
+          /* Bound the editable name to its grid track. On small phones retain
+             the existing shared-header policy of hiding the project name. */
+          .shared-ui-host .site-header--tenant .project-name-shell,
           .shared-ui-host .site-header--tenant .project-name-input {
             min-width: 0;
             max-width: 100%;
           }
           @media (max-width: 480px) {
-            .shared-ui-host .site-header--tenant .header-center,
-            .shared-ui-host .site-header--tenant .project-name-shell {
-              display: none;
-            }
+            .shared-ui-host .site-header--tenant .project-name-shell { display: none; }
           }
           '''
           p.write_text(s)
+          p = Path('scripts/validation/tenant-branding.browser.mjs')
+          s = p.read_text()
+          start = s.index('  async function checkHeader(width) {')
+          end = s.index('  for (const [locale, base]', start)
+          s = s[:start] + '''  async function checkHeader(width) {
+            await page.setViewportSize({ width, height: 900 });
+            await page.evaluate(() => new Promise(requestAnimationFrame));
+            const selectors = {
+              header: '.site-header', primary: '.brand',
+              badge: '.tenant-platform-brand', actions: '.site-header__actions',
+              name: '.project-name-shell', nameInput: '.project-name-input',
+            };
+            const boxes = {};
+            for (const [key, selector] of Object.entries(selectors)) {
+              // A display:none project name has no rendered box on phones.
+              boxes[key] = await page.locator(selector).boundingBox();
+            }
+            try {
+              const { header, primary, badge, actions, name, nameInput } = boxes;
+              assert.ok(header && primary && badge && actions, 'Required branding and controls must stay rendered');
+              assert.ok(Math.abs(header.height - 47) < 1, `Header height changed at ${width}px`);
+              for (const [key, box] of Object.entries({ primary, badge, actions, name, nameInput })) {
+                if (!box) continue;
+                assert.ok(box.x >= -1 && box.x + box.width <= width + 1, `${key} offscreen at ${width}px: ${JSON.stringify(box)}`);
+                assert.ok(box.y >= -1 && box.y + box.height <= header.height + 1, `${key} outside bar at ${width}px`);
+              }
+              assert.ok(primary.x + primary.width <= badge.x + 1 || primary.y + primary.height <= badge.y + 1, 'Brand marks must not overlap');
+              assert.ok(primary.x + primary.width <= actions.x + 1, `Tenant logo overlaps actions at ${width}px`);
+              assert.ok(badge.x + badge.width <= actions.x + 1, `Attribution overlaps actions at ${width}px`);
+              if (name) {
+                assert.ok(name.x >= Math.max(primary.x + primary.width, badge.x + badge.width) - 1, `Name overlaps branding at ${width}px`);
+                assert.ok(name.x + name.width <= actions.x + 1, `Name overlaps actions at ${width}px`);
+              }
+              const badgeImage = await page.locator('.tenant-platform-brand img').boundingBox();
+              const tenantImage = page.locator('.brand img');
+              if (await tenantImage.count()) {
+                const primaryImage = await tenantImage.boundingBox();
+                assert.ok(badgeImage.height < primaryImage.height, 'Platform mark should be smaller');
+              }
+            } catch (error) {
+              console.error('BRANDING_LAYOUT', page.url(), JSON.stringify(boxes));
+              await page.screenshot({ path: resolve(artifacts, 'tenant-branding-failure.png') });
+              throw error;
+            }
+          }
+          ''' + s[end:]
+          p.write_text(s)
           PY
-          git add shared-ui/styles/tenantBranding.css
+          git add shared-ui/styles/tenantBranding.css scripts/validation/tenant-branding.browser.mjs
           mkdir -p artifacts
           git archive --format=zip "$(git write-tree)" -o artifacts/tenant-branding-tested-source.zip
       - name: Tenant and configurator regression checks
@@ -96,10 +136,11 @@ jobs:
           sudo apt-get install -y nginx
       - name: Test branding, mobile headers and existing tenant pages
         run: |
+          set -euo pipefail
           npm run check:tenant-domains:nginx
           npm run check:tenant-domains:browser
           npm run check:tenant-homepage:browser
-          npm run check:tenant-branding:browser
+          npm run check:tenant-branding:browser 2>&1 | tee artifacts/tenant-branding-browser.log
           npm run prepare:static --prefix window-configurator
           test -f window-configurator/dist/site/shared-ui/src/tenantBranding.js
           test -f window-configurator/dist/site/shared-ui/styles/tenantBranding.css
@@ -128,4 +169,5 @@ jobs:
             artifacts/tenant-homepage*.png
             artifacts/tenant-branding-source.sha256
             artifacts/tenant-branding-tested-source.zip
+            artifacts/tenant-branding-browser.log
           retention-days: 7
