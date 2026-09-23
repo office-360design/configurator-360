@@ -1,0 +1,23 @@
+name: Tenant route validation snapshot
+
+on:
+  push:
+    branches: [tenants]
+    paths: ['.github/workflows/tenant-route-snapshot.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    if: github.ref == 'refs/heads/tenants'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive source for isolated route validation
+        run: git archive --format=zip HEAD -o tenant-route-source.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tenant-route-source
+          path: tenant-route-source.zip
+          retention-days: 1
