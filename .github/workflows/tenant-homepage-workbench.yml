@@ -23,8 +23,20 @@ jobs:
       - name: Apply reviewed homepage setting changes
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 7dd955dcb49fe5dda8682c2223cb08b7534aab44
+          test "$(git rev-parse HEAD^)" = bb4362ceffab258931a263d962850a6fd10b283b
           python3 .tenant-homepage-update.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('shared-ui/styles/tenantDashboard.css')
+          source = path.read_text()
+          for old, new in [
+              ('.dashboard-workspace { display: grid; gap: 20px; }', '.dashboard-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }'),
+              ('.dashboard-card { padding: 28px; border-radius: 18px; }', '.dashboard-card { min-width: 0; padding: 28px; border-radius: 18px; }'),
+          ]:
+              assert source.count(old) == 1
+              source = source.replace(old, new)
+          path.write_text(source)
+          PY
           sha256sum -c .tenant-homepage-expected.sha256
       - name: Tenant and configurator regression checks
         run: |
