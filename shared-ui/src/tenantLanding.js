@@ -1,3 +1,4 @@
+import { renderPlatformAttribution } from './tenantBranding.js?v=tenant-branding-1';
 import { singleConfiguratorHomepageUrl } from './tenantHomepage.js?v=tenant-homepage-1';
 import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=tenant-domains-1';
 import { TENANT_CONFIGURATORS, resolveTenantContext } from './tenantBootstrap.js?v=tenant-homepage-1';
@@ -51,8 +52,8 @@ function renderTenant(context) {
       <header class="tenant-header">
         <div class="tenant-header__brand">
           ${brand}
-          <div>
-            <p class="tenant-eyebrow">Powered by 360Configurator</p>
+          <div class="tenant-header__copy">
+            ${renderPlatformAttribution(getLocaleForHostname(window.location.hostname))}
             <h1>${escapeHtml(context.companyName)}</h1>
             <p class="tenant-subtitle">Select a configurator to begin.</p>
             <nav id="tenantDomainLinks" aria-label="Customer site domains"></nav>

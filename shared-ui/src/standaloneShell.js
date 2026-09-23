@@ -3,7 +3,7 @@ import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostna
 import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-21';
 import { sharedT } from './i18n.js?v=platform-21';
 import { renderActionFeedback } from './components/feedback.js?v=platform-21';
-import { renderTopBar } from './components/topBar.js?v=platform-21';
+import { renderTopBar } from './components/topBar.js?v=tenant-branding-1';
 import { syncAccountIdentity } from './components/accountMenu.js?v=platform-21';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=platform-19';
 import { renderToolsMenu } from './components/toolsMenu.js?v=platform-19';
@@ -15,7 +15,7 @@ import { renderCartMenu } from './components/cartMenu.js?v=platform-19';
 import { getUserCart, mutateUserCart } from './userCart.js?v=platform-19';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=platform-19';
 import { readShareState } from './shareState.js?v=platform-19';
-import { getTenantSlugForHostname } from './tenantBootstrap.js?v=tenant-domains-1';
+import { currentTenantContext, getTenantSlugForHostname } from './tenantBootstrap.js?v=tenant-domains-1';
 import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=platform-19';
 import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=platform-19';
 
@@ -213,7 +213,7 @@ function resizeProfileAvatar(file) {
   });
 }
 
-const SHARED_STANDALONE_STYLE_VERSION = '27';
+const SHARED_STANDALONE_STYLE_VERSION = 'tenant-branding-1';
 
 function refreshSharedStandaloneStylesheet() {
   document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
@@ -984,6 +984,7 @@ export class StandaloneConfiguratorShell {
       ${renderTopBar({
         brandSrc: this.options.brandSrc,
         brandAlt: this.options.brandAlt,
+        tenant: currentTenantContext(),
         projectName: this.projectName,
         state: {
           ...this.state,

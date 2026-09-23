@@ -8,7 +8,7 @@ export * from './components/topBar.js?v=platform-19';
 export * from './components/toolsMenu.js?v=platform-19';
 export * from './components/feedback.js?v=platform-19';
 
-export * from './standaloneShell.js?v=tenant-routes-1';
+export * from './standaloneShell.js?v=tenant-branding-1';
 
 export * from './tools/registry.js?v=platform-19';
 export * from './history/undoManager.js?v=platform-19';

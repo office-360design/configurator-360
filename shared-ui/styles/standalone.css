@@ -1,3 +1,5 @@
+@import url('./tenantBranding.css?v=tenant-branding-1');
+
 :root {
   font-family: "Axiforma", "Avenir Next", "Segoe UI", Arial, sans-serif;
   --success: #25a244;

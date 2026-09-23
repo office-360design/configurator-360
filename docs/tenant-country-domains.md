@@ -71,6 +71,23 @@ can change it; browsers still cannot write the tenant documents directly.
 Deploy the Firebase Functions and frontend from this update. No additional DNS,
 IAM, Auth-domain or Firestore rules change is needed for the homepage preference.
 
+## Secondary platform branding
+
+Tenant configurators keep the customer logo as the primary brand, with a smaller
+**Powered by 360Configurator** logo beside it. The selection page and signed-in
+customer dashboard use the same official asset and attribution component.
+On phone-sized configurator headers, the attribution sits below the tenant logo
+inside the existing header height, keeping the action buttons and panel controls
+in their existing positions. The mark stays readable in dark mode.
+
+The attribution opens the corresponding public .com, .ro or .de home page in a
+new tab; it does not replace the current configuration or its browser tab.
+A tenant without an uploaded logo shows the company name in the configurator
+header instead of repeating the 360Configurator logo. Public configurators keep
+their existing single platform logo. Customer logo upload/removal and saved logo
+data are unchanged. No extra tenant setting, migration, Firebase, IAM or DNS
+change is needed: deploy the frontend for this branding update.
+
 ## Deployment and existing tenants
 
 The wildcard DNS, certificate-map entries and URL-map API routing must already

@@ -28,7 +28,7 @@ const checks = [
     'id="activityList"',
     'id="activityEmpty"',
     'tenantDashboard.js?v=',
-    'tenantDashboard.css?v=tenant-homepage-1',
+    'tenantDashboard.css?v=tenant-branding-1',
   ]],
   ['shared-ui/src/tenantDashboard.js', [
     'function renderActivityLog',

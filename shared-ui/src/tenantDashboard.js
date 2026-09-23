@@ -1,3 +1,5 @@
+import { renderPlatformAttribution } from './tenantBranding.js?v=tenant-branding-1';
+import { getLocaleForHostname } from './config.js?v=tenant-routes-1';
 import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=tenant-domains-1';
 import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=tenant-domains-1';
 import {
@@ -254,6 +256,9 @@ function populateDashboard(data) {
   dashboard = data;
   document.title = `${data.companyName} Dashboard`;
   headerCompany.textContent = data.companyName;
+  document.querySelector('#dashboardPlatformBrand').innerHTML = renderPlatformAttribution(
+    getLocaleForHostname(window.location.hostname),
+  );
   overviewCompany.textContent = data.companyName;
   overviewDomain.textContent = window.location.hostname;
   renderTenantDomainLinks(document.querySelector('#dashboardDomainLinks'), data.slug, '/dashboard/');
