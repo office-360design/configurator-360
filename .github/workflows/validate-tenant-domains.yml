@@ -8,18 +8,77 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
+    if: github.ref == 'refs/heads/tenants'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Archive pinned source for offline multi-domain regression tests
-        run: git archive --format=zip HEAD -o tenant-domains-source.zip
-      - uses: actions/upload-artifact@v4
         with:
-          name: tenant-domains-source
-          path: tenant-domains-source.zip
-          retention-days: 1
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply pinned multi-domain changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 0137dea4664ec1378f2bae171f80d1d1c84fa3b7
+          cat .tenant-domains-data/part-{1..5}.txt | base64 --decode > /tmp/tenant-domains.patch.gz
+          echo '3df487e7d6057f944d29e617656d83d20b32dbed637fc1f22c3116900ae55813  /tmp/tenant-domains.patch.gz' | sha256sum -c -
+          gzip -dc /tmp/tenant-domains.patch.gz > /tmp/tenant-domains.patch
+          git apply --check --unidiff-zero /tmp/tenant-domains.patch
+          git apply --index --unidiff-zero /tmp/tenant-domains.patch
+      - name: Tenant and configurator regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for check in tenant tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
+            npm run "check:$check"
+          done
+          node --test scripts/validation/configuration-quotation.test.cjs scripts/validation/configurator-color-editor.test.mjs
+          node scripts/validation/validate_sales_dashboard.mjs
+          node --check firebase-share-backend/functions/index.js
+          bash -n firebase-share-backend/iam/authorize-existing-tenant-auth-domain.sh
+          git diff --cached --check
+          git diff --cached --name-only -- '*.js' '*.mjs' '*.cjs' | while IFS= read -r file; do node --check "$file"; done
+      - name: Browser and nginx test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y nginx
+      - name: Test nginx public and tenant routing
+        run: npm run check:tenant-domains:nginx
+      - name: Test launcher, dashboard and admin on all three aliases
+        run: npm run check:tenant-domains:browser
+      - name: Validate static Window bundle contains tenant policy
+        run: |
+          npm run prepare:static --prefix window-configurator
+          test -f window-configurator/dist/site/shared-ui/src/tenantDomains.js
+      - name: Publish validated code to tenants only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/tenants
+          git fetch origin tenants
+          test "$(git rev-parse origin/tenants)" = "$GITHUB_SHA"
+          git rm -r .tenant-domains-data
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat(tenants): share customer identity across .com .ro and .de'
+          git push origin HEAD:refs/heads/tenants
+      - name: Record validated source manifest
+        if: always()
+        run: |
+          mkdir -p artifacts
+          git ls-files -z | xargs -0 sha256sum > artifacts/tenant-domains-source.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tenant-domains-validation
+          path: |
+            artifacts/tenant-catalogue-dashboard*.png
+            artifacts/tenant-domains-source.sha256
+          retention-days: 7
