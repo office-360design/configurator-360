@@ -42,6 +42,35 @@ The address links on the launcher/dashboard/admin are ordinary navigation links;
 a first direct visit on another origin may require sign-in there. Local browser
 drafts are origin-local, not continuously synchronized across tabs/domains.
 
+## Optional single-configurator homepage
+
+In Tenant Administration (create/edit), or in the customer's dashboard under
+**Company & plan → Homepage behavior**, enable **Open the configurator directly
+when only one is enabled** and save. `autoOpenSingleConfigurator` is a boolean
+stored in the private and public tenant documents by the same transaction. It is
+off by default, including for existing tenants with no field; no migration is required.
+
+When the preference is on and the tenant is active with exactly one enabled
+configurator, the homepage at `/` uses `location.replace()` to open that
+configurator on the same hostname with the same localized path as the public
+site. For example, a Solar-only Romanian tenant opens `/configurator-solar/`;
+the German alias opens `/solar-konfigurator/`. Query strings and fragments are
+preserved. There is no permanent/cached redirect and no plan restriction beyond
+checking the currently enabled configurators.
+
+Two or more enabled configurators show the selection page. A pending upgrade or
+downgrade does not change the redirect until its configurator selection is
+approved. The preference is retained if entitlements change, so it becomes
+effective again if only one configurator remains. Suspended, missing and failed
+tenant lookups do not redirect. `/dashboard/` and direct configurator URLs are
+unaffected. Owners can always return to `/dashboard/` to disable the setting.
+Changes are recorded in the existing audit log. Older API clients that omit the
+field preserve its value. Only the existing authenticated owner/admin operations
+can change it; browsers still cannot write the tenant documents directly.
+
+Deploy the Firebase Functions and frontend from this update. No additional DNS,
+IAM, Auth-domain or Firestore rules change is needed for the homepage preference.
+
 ## Deployment and existing tenants
 
 The wildcard DNS, certificate-map entries and URL-map API routing must already

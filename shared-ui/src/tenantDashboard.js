@@ -42,6 +42,7 @@ const metricAccesses = document.querySelector('#metricAccesses');
 const metricConfigurations = document.querySelector('#metricConfigurations');
 const settingsForm = document.querySelector('#settingsForm');
 const companyName = document.querySelector('#companyName');
+const autoOpenSingleConfigurator = document.querySelector('#autoOpenSingleConfigurator');
 const planSelect = document.querySelector('#planSelect');
 const planHint = document.querySelector('#planHint');
 const currentLogo = document.querySelector('#currentLogo');
@@ -257,6 +258,7 @@ function populateDashboard(data) {
   overviewDomain.textContent = window.location.hostname;
   renderTenantDomainLinks(document.querySelector('#dashboardDomainLinks'), data.slug, '/dashboard/');
   companyName.value = data.companyName;
+  autoOpenSingleConfigurator.checked = data.autoOpenSingleConfigurator === true;
 
   if (data.logoUrl) {
     headerLogo.src = data.logoUrl; headerLogo.alt = data.companyName; headerLogo.hidden = false; headerBrandMark.hidden = true;
@@ -358,10 +360,11 @@ settingsForm.addEventListener('submit', async (event) => {
     const requestedPlanChange = planSelect.value !== dashboard.planId;
     const result = await callDashboardFunction('updateTenantDashboard', {
       companyName: name, planId: planSelect.value, configurators, logoMode, logoDataUrl,
+      autoOpenSingleConfigurator: autoOpenSingleConfigurator.checked,
     });
     populateDashboard(result);
     setStatus(
-      requestedPlanChange ? 'Branding changes saved. Your plan change request is pending confirmation.' : 'Changes saved.',
+      requestedPlanChange ? 'Site settings saved. Your plan change request is pending confirmation.' : 'Changes saved.',
       'success',
     );
   } catch (error) { console.error('Tenant dashboard update failed.', error); setStatus(error?.message || 'Could not save changes.', 'error'); }
