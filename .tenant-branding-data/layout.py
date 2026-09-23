@@ -22,6 +22,10 @@ s += '''
 }
 .dashboard-branding .dashboard-home strong { max-width: 100%; }
 .dashboard-branding .brand-logo { min-width: 0; }
+/* Native file inputs must not impose their intrinsic width on the form grid. */
+.dashboard-workspace .field,
+.dashboard-workspace .field input,
+.dashboard-workspace .field select { min-width: 0; }
 @media (max-width: 760px) {
   .shared-ui-host .site-header--tenant .brand { max-width: 83px; }
 }
@@ -29,6 +33,7 @@ s += '''
   .dashboard-branding, .dashboard-branding .dashboard-home { width: 100%; }
   .dashboard-header .auth-panel { flex-wrap: wrap; }
   .dashboard-header #authState { min-width: 0; overflow-wrap: anywhere; }
+  .dashboard-workspace .form-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 480px) {
   .shared-ui-host .site-header--tenant .brand { max-width: 78px; }
