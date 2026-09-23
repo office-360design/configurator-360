@@ -1,0 +1,23 @@
+name: Tenant homepage workbench
+
+on:
+  push:
+    branches: [tenants]
+    paths: ['.github/workflows/tenant-homepage-workbench.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    if: github.ref == 'refs/heads/tenants'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: git archive --format=zip HEAD -o tenant-homepage-source.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tenant-homepage-source
+          path: tenant-homepage-source.zip
+          retention-days: 1
