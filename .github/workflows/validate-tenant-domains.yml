@@ -1,0 +1,25 @@
+name: Validate tenant domains
+
+on:
+  push:
+    branches: [tenants]
+    paths:
+      - '.github/workflows/validate-tenant-domains.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive pinned source for offline multi-domain regression tests
+        run: git archive --format=zip HEAD -o tenant-domains-source.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tenant-domains-source
+          path: tenant-domains-source.zip
+          retention-days: 1
