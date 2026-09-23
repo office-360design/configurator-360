@@ -1,7 +1,7 @@
 import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=platform-18';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { RoofScene } from './scene.js?v=platform-18';
-import { SolarUI } from './ui.js?v=solar-panel-1';
+import { SolarUI } from './ui.js?v=solar-mobile-2';
 import { fetchPvgisSiteEstimate } from './energyModel.js?v=platform-18';
 import { loadGeographicEnvironment } from './environmentLoader.js?v=platform-18';
 import {
