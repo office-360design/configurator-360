@@ -1498,6 +1498,13 @@ function validateTenantCompanyName(value) {
   return companyName;
 }
 
+function validateTenantAutoOpenSingleConfigurator(value = false) {
+  if (typeof value !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'The single-configurator homepage setting must be true or false.');
+  }
+  return value;
+}
+
 function validateTenantOwnerEmail(value, { optional = true } = {}) {
   const email = String(value || '').trim().toLowerCase();
   if (!email && optional) return '';
@@ -2082,6 +2089,7 @@ function tenantAdminSummaryFromSnapshot(snapshot) {
     domain: String(data.domain || `${slug}.360configurator.com`),
     domains: tenantDomainsForSlug(slug),
     companyName: String(data.companyName || slug),
+    autoOpenSingleConfigurator: data.autoOpenSingleConfigurator === true,
     status: String(data.status || tenantRuntimeStatusForSubscription(subscription.status)).trim().toLowerCase(),
     planId,
     planName: plan.name,
@@ -2211,6 +2219,7 @@ function tenantDashboardViewFromSnapshot(snapshot, analytics = null, usage = nul
     domain: String(data.domain || `${slug}.360configurator.com`),
     domains: tenantDomainsForSlug(slug),
     companyName: String(data.companyName || slug),
+    autoOpenSingleConfigurator: data.autoOpenSingleConfigurator === true,
     logoUrl: String(data.logoUrl || ''),
     status: String(data.status || tenantRuntimeStatusForSubscription(subscription.status)),
     planId,
@@ -2721,6 +2730,9 @@ exports.updateTenantDashboard = onCall(
       const companyName = hasOwn('companyName')
         ? validateTenantCompanyName(input.companyName)
         : validateTenantCompanyName(tenant.companyName);
+      const autoOpenSingleConfigurator = hasOwn('autoOpenSingleConfigurator')
+        ? validateTenantAutoOpenSingleConfigurator(input.autoOpenSingleConfigurator)
+        : tenant.autoOpenSingleConfigurator === true;
       const existingConfigurators = validateTenantConfigurators(tenant.configurators);
       const currentPlanId = validateTenantPlanId(tenant.planId, existingConfigurators);
       const requestedPlanId = hasOwn('planId')
@@ -2747,6 +2759,7 @@ exports.updateTenantDashboard = onCall(
 
       const privateUpdate = {
         companyName,
+        autoOpenSingleConfigurator,
         configurators,
         logoUrl,
         planId: currentPlanId,
@@ -2772,13 +2785,23 @@ exports.updateTenantDashboard = onCall(
         }
       }
 
-      const synchronizedFields = { companyName, configurators, logoUrl, updatedAt: now };
+      const synchronizedFields = {
+        companyName,
+        autoOpenSingleConfigurator,
+        configurators,
+        logoUrl,
+        updatedAt: now,
+      };
       transaction.update(access.ref, privateUpdate);
       transaction.update(publicRef, synchronizedFields);
 
       const configuratorChanges = tenantAuditChangedConfigurators(existingConfigurators, configurators);
       const changedFields = [];
       const changes = [];
+      if ((tenant.autoOpenSingleConfigurator === true) !== autoOpenSingleConfigurator) {
+        changedFields.push('homepage behavior');
+        changes.push(`Open single configurator automatically: ${autoOpenSingleConfigurator ? 'enabled' : 'disabled'}`);
+      }
       if (String(tenant.companyName || '') !== companyName) {
         changedFields.push('company name');
         changes.push(`Company name: ${String(tenant.companyName || '')} → ${companyName}`);
@@ -2929,6 +2952,7 @@ exports.provisionTenant = onCall(
     const admin = await requireTenantProvisioningAdmin(request);
     const slug = validateTenantSlug(request.data?.slug);
     const companyName = validateTenantCompanyName(request.data?.companyName);
+    const autoOpenSingleConfigurator = validateTenantAutoOpenSingleConfigurator(request.data?.autoOpenSingleConfigurator);
     const ownerEmail = validateTenantOwnerEmail(request.data?.ownerEmail);
     const requestedConfigurators = validateTenantConfigurators(request.data?.configurators);
     const planId = validateTenantPlanId(request.data?.planId, requestedConfigurators);
@@ -2978,6 +3002,7 @@ exports.provisionTenant = onCall(
         domain,
         domains,
         companyName,
+        autoOpenSingleConfigurator,
         plan: TENANT_PLAN_GO_LIVE_NOW,
         planId,
         status: tenantRuntimeStatusForSubscription(subscription.status),
@@ -3000,6 +3025,7 @@ exports.provisionTenant = onCall(
         schemaVersion: TENANT_SCHEMA_VERSION,
         slug,
         companyName,
+        autoOpenSingleConfigurator,
         status: tenantRuntimeStatusForSubscription(subscription.status),
         logoUrl,
         configurators,
@@ -3015,6 +3041,7 @@ exports.provisionTenant = onCall(
           changes: [
             `Company: ${companyName}`,
             `Plan: ${planId}`,
+            `Open single configurator automatically: ${autoOpenSingleConfigurator ? 'enabled' : 'disabled'}`,
             `Enabled configurators: ${tenantAuditEnabledProducts(configurators).join(', ')}`,
             ...(ownerEmail ? [`Dashboard owner assigned: ${ownerEmail}`] : []),
           ],
@@ -3038,6 +3065,7 @@ exports.provisionTenant = onCall(
     return {
       slug,
       companyName,
+      autoOpenSingleConfigurator,
       domain,
       domains,
       ownerEmail,
@@ -3120,6 +3148,9 @@ exports.updateTenant = onCall(
       const companyName = hasOwn('companyName')
         ? validateTenantCompanyName(input.companyName)
         : validateTenantCompanyName(tenant.companyName);
+      const autoOpenSingleConfigurator = hasOwn('autoOpenSingleConfigurator')
+        ? validateTenantAutoOpenSingleConfigurator(input.autoOpenSingleConfigurator)
+        : tenant.autoOpenSingleConfigurator === true;
       const previousOwnerEmail = validateTenantOwnerEmail(tenant.ownerEmail);
       const ownerEmail = hasOwn('ownerEmail')
         ? validateTenantOwnerEmail(input.ownerEmail)
@@ -3161,6 +3192,7 @@ exports.updateTenant = onCall(
 
       const synchronizedFields = {
         companyName,
+        autoOpenSingleConfigurator,
         status,
         configurators,
         logoUrl,
@@ -3191,6 +3223,10 @@ exports.updateTenant = onCall(
       const previousLimits = normalizedSolarUsageLimits(tenant.solarUsageLimits);
       const changedFields = [];
       const changes = [];
+      if ((tenant.autoOpenSingleConfigurator === true) !== autoOpenSingleConfigurator) {
+        changedFields.push('homepage behavior');
+        changes.push(`Open single configurator automatically: ${autoOpenSingleConfigurator ? 'enabled' : 'disabled'}`);
+      }
       if (String(tenant.companyName || '') !== companyName) {
         changedFields.push('company name');
         changes.push(`Company name: ${String(tenant.companyName || '')} → ${companyName}`);
@@ -3251,6 +3287,7 @@ exports.updateTenant = onCall(
         domain: expectedDomain,
         domains: tenantDomainsForSlug(slug),
         companyName,
+        autoOpenSingleConfigurator,
         status,
         planId,
         planName: tenantPlan(planId).name,

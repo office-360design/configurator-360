@@ -94,6 +94,7 @@ function normalizeTenantRecord(slug, data = {}) {
     companyName: String(data.companyName || slug).trim() || slug,
     status: String(data.status || '').trim().toLowerCase(),
     logoUrl: safeLogoUrl(data.logoUrl),
+    autoOpenSingleConfigurator: data.autoOpenSingleConfigurator === true,
     configurators: Object.freeze(normalizeConfigurators(data.configurators)),
   });
 }

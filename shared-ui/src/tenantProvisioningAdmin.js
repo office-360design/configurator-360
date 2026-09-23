@@ -55,6 +55,7 @@ const tenantEditorTitle = document.querySelector('#tenantEditorTitle');
 const tenantEditorMeta = document.querySelector('#tenantEditorMeta');
 const tenantEditorForm = document.querySelector('#tenantEditorForm');
 const manageCompanyName = document.querySelector('#manageCompanyName');
+const manageAutoOpenSingleConfigurator = document.querySelector('#manageAutoOpenSingleConfigurator');
 const manageDomain = document.querySelector('#manageDomain');
 const manageOwnerEmail = document.querySelector('#manageOwnerEmail');
 const managePlan = document.querySelector('#managePlan');
@@ -98,6 +99,7 @@ const closeTenantEditorButton = document.querySelector('#closeTenantEditorButton
 
 const tenantForm = document.querySelector('#tenantForm');
 const companyNameInput = document.querySelector('#companyName');
+const createAutoOpenSingleConfigurator = document.querySelector('#createAutoOpenSingleConfigurator');
 const slugInput = document.querySelector('#slug');
 const slugHint = document.querySelector('#slugHint');
 const ownerEmailInput = document.querySelector('#ownerEmail');
@@ -634,6 +636,7 @@ function populateTenantEditor(tenant) {
   tenantEditorTitle.textContent = tenant.companyName || tenant.slug;
   tenantEditorMeta.textContent = `${tenant.slug} · ${tenant.planName || tenant.planId || 'Go Live Now'} · ${subscriptionStatusLabel(tenant.subscription?.status)}`;
   manageCompanyName.value = tenant.companyName || '';
+  manageAutoOpenSingleConfigurator.checked = tenant.autoOpenSingleConfigurator === true;
   manageDomain.textContent = tenant.domain || `${tenant.slug}${TENANT_SUFFIX}`;
   renderTenantDomainLinks(document.querySelector('#manageDomainLinks'), tenant.slug);
   manageOwnerEmail.value = tenant.ownerEmail || '';
@@ -808,7 +811,10 @@ tenantForm.addEventListener('submit', async (event) => {
     const [logoFile] = logoInput.files || [];
     const logoDataUrl = logoFile ? await optimizeLogo(logoFile) : '';
     setStatus(formStatus, 'Creating tenant…');
-    const result = await callAdminFunction('provisionTenant', { companyName, slug, ownerEmail, planId, configurators, logoDataUrl });
+    const result = await callAdminFunction('provisionTenant', {
+      companyName, slug, ownerEmail, planId, configurators, logoDataUrl,
+      autoOpenSingleConfigurator: createAutoOpenSingleConfigurator.checked,
+    });
     setStatus(formStatus, 'Tenant created successfully.', 'success');
     renderProvisioned(result);
     await refreshTenantList({ quiet: true });
@@ -866,6 +872,7 @@ tenantEditorForm.addEventListener('submit', async (event) => {
 
     await updateManagedTenant({
       companyName,
+      autoOpenSingleConfigurator: manageAutoOpenSingleConfigurator.checked,
       ownerEmail,
       planId,
       configurators,

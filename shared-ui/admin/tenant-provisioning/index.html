@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#f4f5f7" />
   <title>Tenant Administration | 360Configurator</title>
-  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=8" />
+  <link rel="stylesheet" href="/shared-ui/styles/tenantProvisioningAdmin.css?v=tenant-homepage-1" />
 </head>
 <body>
   <main class="admin-page">
@@ -139,6 +139,17 @@
               <label><input type="checkbox" name="manageConfigurator" value="chair" /> <span>Chair</span></label>
               <label><input type="checkbox" name="manageConfigurator" value="bookshelf" /> <span>Bookshelf</span></label>
             </div>
+          </fieldset>
+
+          <fieldset class="homepage-fieldset">
+            <legend>Homepage behavior</legend>
+            <label class="inline-option">
+              <input id="manageAutoOpenSingleConfigurator" type="checkbox" aria-describedby="manageAutoOpenSingleConfiguratorHelp" />
+              <span>Open the configurator directly when only one is enabled</span>
+            </label>
+            <p id="manageAutoOpenSingleConfiguratorHelp" class="homepage-help">Skip the selection page at your site address when exactly one configurator is enabled.
+              With multiple configurators, the selection page is shown. Pending plan requests do not change this behavior until approved.
+              The dashboard stays available at /dashboard/.</p>
           </fieldset>
 
           <fieldset class="pending-plan-fieldset" id="managePendingPlanFieldset" hidden>
@@ -311,6 +322,17 @@
             </div>
           </fieldset>
 
+          <fieldset class="homepage-fieldset">
+            <legend>Homepage behavior</legend>
+            <label class="inline-option">
+              <input id="createAutoOpenSingleConfigurator" type="checkbox" aria-describedby="createAutoOpenSingleConfiguratorHelp" />
+              <span>Open the configurator directly when only one is enabled</span>
+            </label>
+            <p id="createAutoOpenSingleConfiguratorHelp" class="homepage-help">Skip the selection page at your site address when exactly one configurator is enabled.
+              With multiple configurators, the selection page is shown. Pending plan requests do not change this behavior until approved.
+              The dashboard stays available at /dashboard/.</p>
+          </fieldset>
+
           <div class="preview-row">
             <div>
               <span class="preview-label">Customer URL</span>
@@ -340,6 +362,6 @@
     </div>
   </main>
 
-  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=tenant-domains-1"></script>
+  <script type="module" src="/shared-ui/src/tenantProvisioningAdmin.js?v=tenant-homepage-1"></script>
 </body>
 </html>

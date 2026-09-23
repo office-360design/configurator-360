@@ -1,5 +1,6 @@
+import { singleConfiguratorHomepageUrl } from './tenantHomepage.js?v=tenant-homepage-1';
 import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=tenant-domains-1';
-import { TENANT_CONFIGURATORS, resolveTenantContext } from './tenantBootstrap.js?v=tenant-domains-1';
+import { TENANT_CONFIGURATORS, resolveTenantContext } from './tenantBootstrap.js?v=tenant-homepage-1';
 
 import { CONFIGURATOR_PUBLIC_PATHS, getLocaleForHostname } from './config.js?v=tenant-routes-1';
 
@@ -78,5 +79,20 @@ if (!context.isTenant) {
 } else if (context.status !== 'active') {
   renderUnavailable('Configurator site unavailable', `${context.companyName} is not currently active on 360Configurator.`);
 } else {
-  renderTenant(context);
+  const target = singleConfiguratorHomepageUrl(context, window.location);
+  if (target) {
+    document.title = `${context.companyName} Configurator`;
+    page.innerHTML = `
+      <section class="tenant-card tenant-card--loading">
+        <div class="tenant-loading" aria-hidden="true"></div>
+        <p>Opening your configurator…</p>
+        <a href="${escapeHtml(target)}">Continue to configurator</a>
+        <a href="/dashboard/">Dashboard</a>
+      </section>
+    `;
+    // Replace avoids a back-button loop through the redirecting homepage.
+    window.location.replace(target);
+  } else {
+    renderTenant(context);
+  }
 }
