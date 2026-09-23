@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Shared lease for operator/provisioner Firebase Auth alias updates.
+    match /tenantProvisioningSystem/{document} {
+      allow read, write: if false;
+    }
+
     // Public tenant metadata used to bootstrap tenant subdomains.
     // Documents may be read individually by browsers but never listed or modified.
     match /tenantPublic/{tenantSlug} {

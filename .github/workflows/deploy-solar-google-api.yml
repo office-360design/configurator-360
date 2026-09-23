@@ -33,6 +33,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate shared tenant-domain policy
+        run: npm run check:tenant-domains
+
       - name: Validate Solar API service source
         run: npm run check --prefix solar-google-api
 

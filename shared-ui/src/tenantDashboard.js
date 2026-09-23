@@ -1,4 +1,5 @@
-import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=tenant-catalogue-1';
+import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=tenant-domains-1';
+import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=tenant-domains-1';
 import {
   getFirebaseIdToken,
   observeGoogleAuth,
@@ -253,7 +254,8 @@ function populateDashboard(data) {
   document.title = `${data.companyName} Dashboard`;
   headerCompany.textContent = data.companyName;
   overviewCompany.textContent = data.companyName;
-  overviewDomain.textContent = data.domain;
+  overviewDomain.textContent = window.location.hostname;
+  renderTenantDomainLinks(document.querySelector('#dashboardDomainLinks'), data.slug, '/dashboard/');
   companyName.value = data.companyName;
 
   if (data.logoUrl) {

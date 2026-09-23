@@ -1,32 +1,11 @@
+import { tenantDomainContext } from './tenantDomains.js?v=tenant-domains-1';
+
 const FIREBASE_PROJECT_ID = 'configurator-360';
 const FIREBASE_DATABASE_ID = '(default)';
 const FIREBASE_API_KEY = 'AIzaSyBgS4VLxQYZnqW-YZJPKvuuocf5w_0kRwY';
 const TENANT_COLLECTION = 'tenantPublic';
-const TENANT_SUFFIX = '.360configurator.com';
-const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const GLOBAL_CONTEXT_PROMISE_KEY = '__CFG360_TENANT_CONTEXT_PROMISE__';
 const GLOBAL_CONTEXT_KEY = '__CFG360_TENANT_CONTEXT__';
-
-const RESERVED_TENANT_SLUGS = new Set([
-  'www',
-  'aks',
-  'admin',
-  'api',
-  'app',
-  'assets',
-  'auth',
-  'billing',
-  'cdn',
-  'demo',
-  'dev',
-  'ftp',
-  'mail',
-  'staging',
-  'static',
-  'status',
-  'support',
-  'test',
-]);
 
 export const TENANT_CONFIGURATORS = Object.freeze({
   window: Object.freeze({ id: 'window', label: 'Window Configurator', path: '/window-configurator/' }),
@@ -41,18 +20,8 @@ export const TENANT_CONFIGURATORS = Object.freeze({
   bookshelf: Object.freeze({ id: 'bookshelf', label: 'Bookshelf Configurator', path: '/bookshelf-configurator/' }),
 });
 
-function normalizeHostname(hostname = '') {
-  return String(hostname).trim().toLowerCase().replace(/\.$/, '');
-}
-
 export function getTenantSlugForHostname(hostname = '') {
-  const normalized = normalizeHostname(hostname);
-  if (!normalized.endsWith(TENANT_SUFFIX)) return '';
-
-  const slug = normalized.slice(0, -TENANT_SUFFIX.length);
-  if (!slug || slug.includes('.') || !TENANT_SLUG_PATTERN.test(slug)) return '';
-  if (RESERVED_TENANT_SLUGS.has(slug)) return '';
-  return slug;
+  return tenantDomainContext(hostname)?.slug || '';
 }
 
 export function isTenantHostname(hostname = '') {

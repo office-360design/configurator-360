@@ -1,0 +1,81 @@
+name: Validate tenant domains
+
+on:
+  push:
+    branches: [tenants]
+    paths:
+      - '.github/workflows/validate-tenant-domains.yml'
+      - 'shared-ui/**'
+      - 'firebase-share-backend/**'
+      - 'solar-google-api/**'
+      - 'cloudrun/**'
+      - 'scripts/**'
+      - '*-configurator/**'
+      - 'package*.json'
+  pull_request:
+    branches: [main, tenants]
+    paths:
+      - '.github/workflows/validate-tenant-domains.yml'
+      - 'shared-ui/**'
+      - 'firebase-share-backend/**'
+      - 'solar-google-api/**'
+      - 'cloudrun/**'
+      - 'scripts/**'
+      - '*-configurator/**'
+      - 'package*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tenant-domains-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tenant and configurator regression tests
+        run: |
+          set -euo pipefail
+          for check in tenant tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
+            npm run "check:$check"
+          done
+          node --test scripts/validation/configuration-quotation.test.cjs scripts/validation/configurator-color-editor.test.mjs
+          node scripts/validation/validate_sales_dashboard.mjs
+          node --check firebase-share-backend/functions/index.js
+          bash -n firebase-share-backend/iam/authorize-existing-tenant-auth-domain.sh
+          git diff --check
+      - name: Browser and nginx test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y nginx
+      - name: Test nginx public and tenant routing
+        run: npm run check:tenant-domains:nginx
+      - name: Test launcher, dashboard and admin on all three aliases
+        run: npm run check:tenant-domains:browser
+      - name: Validate static Window bundle contains tenant policy
+        run: |
+          npm run prepare:static --prefix window-configurator
+          test -f window-configurator/dist/site/shared-ui/src/tenantDomains.js
+      - name: Record validated source manifest
+        if: always()
+        run: |
+          mkdir -p artifacts
+          git ls-files -z | xargs -0 sha256sum > artifacts/tenant-domains-source.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tenant-domains-validation
+          path: |
+            artifacts/tenant-catalogue-dashboard*.png
+            artifacts/tenant-domains-source.sha256
+          retention-days: 7

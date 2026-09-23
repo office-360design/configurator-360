@@ -1,4 +1,5 @@
-import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=tenant-catalogue-1';
+import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=tenant-domains-1';
+import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=tenant-domains-1';
 import {
   getFirebaseIdToken,
   observeGoogleAuth,
@@ -634,6 +635,7 @@ function populateTenantEditor(tenant) {
   tenantEditorMeta.textContent = `${tenant.slug} · ${tenant.planName || tenant.planId || 'Go Live Now'} · ${subscriptionStatusLabel(tenant.subscription?.status)}`;
   manageCompanyName.value = tenant.companyName || '';
   manageDomain.textContent = tenant.domain || `${tenant.slug}${TENANT_SUFFIX}`;
+  renderTenantDomainLinks(document.querySelector('#manageDomainLinks'), tenant.slug);
   manageOwnerEmail.value = tenant.ownerEmail || '';
   populatePlanSelect(managePlan, tenant.planId || '');
   managePlanHint.textContent = planHint(managePlan.value);

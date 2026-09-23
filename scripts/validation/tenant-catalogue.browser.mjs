@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdir, copyFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 // Exercise the actual pages with synthetic Firebase responses. Nothing is sent
 // to production, and no real account or tenant is created by this smoke test.
+const tenantRoot = process.env.TENANT_TEST_DOMAIN_ROOT || '360configurator.com';
+const tenantOrigin = `https://acme.${tenantRoot}`;
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const products = ['window', 'pergola', 'roof', 'solar', 'hall', 'fence', 'cardbox', 'tiles', 'chair', 'bookshelf'];
 const additions = ['tiles', 'cardbox', 'chair', 'bookshelf'];
@@ -74,13 +76,15 @@ try {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('https://acme.360configurator.com/');
+  await page.goto(`${tenantOrigin}/`);
   await page.waitForSelector('.tenant-configurator');
   const links = await page.locator('.tenant-configurator').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')));
   assert.deepEqual(links.sort(), additions.map((id) => `/${id}-configurator/`).sort());
 
-  await page.goto('https://acme.360configurator.com/dashboard/');
+  await page.goto(`${tenantOrigin}/dashboard/`);
   await page.waitForSelector('#dashboardWorkspace:not([hidden])');
+  assert.equal(await page.locator('#dashboardDomainLinks a').count(), 3);
+  assert.equal(await page.locator('#dashboardDomainLinks [aria-current="page"]').getAttribute('href'), `${tenantOrigin}/dashboard/`);
   assert.equal(await page.locator('input[name="configurator"]').count(), 10);
   assert.equal(await page.locator('input[name="configurator"]:checked').count(), 4);
   for (const body of ['monthAnalyticsBody', 'lifetimeAnalyticsBody']) {
@@ -94,7 +98,9 @@ try {
   assert.equal(await page.locator('#monthAnalyticsBody tr').count(), 10);
   assert.equal(await page.locator('#lifetimeAnalyticsBody tr').count(), 10);
   await mkdir(resolve(root, 'artifacts'), { recursive: true });
-  await page.screenshot({ path: resolve(root, 'artifacts/tenant-catalogue-dashboard.png'), fullPage: true });
+  await page.screenshot({ path: resolve(root, `artifacts/tenant-catalogue-dashboard-${tenantRoot}.png`), fullPage: true });
+
+  if (tenantRoot === '360configurator.com') await copyFile(resolve(root, `artifacts/tenant-catalogue-dashboard-${tenantRoot}.png`), resolve(root, 'artifacts/tenant-catalogue-dashboard.png'));
 
   await page.goto('https://www.360configurator.com/internal/tenant-provisioning/');
   await page.waitForSelector('#adminWorkspace:not([hidden])');

@@ -8,6 +8,7 @@ function harness(){
  class HttpsError extends Error{constructor(code,message,details){super(message);this.code=code;this.details=details;}}
  const context=vm.createContext({exports:{},Buffer,URL,Date,console,require:name=>{
   if(name==='node:crypto')return require(name);
+  if(name==='./tenantDomains.cjs')return require('../../firebase-share-backend/functions/tenantDomains.cjs');
   if(name==='google-auth-library')return {GoogleAuth:class{}};
   if(name==='firebase-functions/v2/https')return {HttpsError,onCall:(options,fn)=>fn};
   if(name==='firebase-functions/logger')return {warn(){},info(){},error(){}};
