@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  layoutWallFootprint, layoutWallSegments, signedArea, validatePolygon,
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
   insertPoint, cloneLayout, pitchedFootprint, lShapedLayout, roofSurfaceGroups,
 } from '../js/roofLayout.js';
@@ -149,4 +150,35 @@ test('rendering groups remove triangulation diagonals but preserve real slope bo
   assert.equal(roofSurfaceGroups(flat)[0].boundary.length, 4);
   flat.vertices[0].h = 1;
   assert.equal(roofSurfaceGroups(flat).length, 2, 'A real fold must remain distinct');
+});
+
+test('overhang insets walls without changing roof geometry, including collinear gable points', () => {
+  const source = defaultLayout();
+  const snapshot = JSON.stringify(source);
+  const walls = layoutWallFootprint(source, 0.5);
+  assert.equal(walls.overhang, 0.5);
+  assert.equal(Math.abs(signedArea(walls.points)), 54);
+  assert.equal(JSON.stringify(source), snapshot);
+  assert.equal(Math.abs(signedArea(layoutWallFootprint(source, 0).points)), 70);
+  const segments = layoutWallSegments(source, walls.points);
+  assert.ok(segments.flat().some(p => Math.abs(p.h - 2) < 1e-7));
+  assert.ok(segments.flat().some(p => Math.abs(p.h - 2 / 7) < 1e-7));
+});
+
+test('overhang handles concave L corners and either boundary winding', () => {
+  const layout = lShapedLayout();
+  for (const source of [layout, { ...layout, boundary: [...layout.boundary].reverse() }]) {
+    const walls = layoutWallFootprint(source, 0.45);
+    assert.equal(walls.overhang, 0.45);
+    assert.ok(Math.abs(signedArea(walls.points)) < layoutMetrics(source).footprint);
+    assert.ok(layoutWallSegments(source, walls.points).flat().every(p => Number.isFinite(p.h)));
+  }
+});
+
+test('narrow footprints limit overhang before edges collapse', () => {
+  const layout = footprintLayout([{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 1, z: 4 }, { x: 0, z: 4 }]);
+  const walls = layoutWallFootprint(layout, 1.2);
+  assert.ok(walls.overhang > 0 && walls.overhang < 0.5);
+  validatePolygon(walls.points);
+  assert.ok(layoutWallSegments(layout, walls.points).flat().every(p => p.h === 0));
 });

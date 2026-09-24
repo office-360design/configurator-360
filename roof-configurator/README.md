@@ -128,7 +128,7 @@ and surfaces remain editable.
 
 The editor uses explicit metre labels independently of the shell display units.
 The 3D metric readouts still respect the shell units. Wall height, material and
-colour remain editable in the sidebar. Preset length/depth/pitch/overhang controls
+colour and eaves overhang remain editable in the sidebar. Preset length/depth/pitch controls
 are hidden because the custom geometry determines those values.
 
 Coplanar custom surfaces share a continuous covering grid and shading. Internal
@@ -174,3 +174,5 @@ cancellation, undo/redo, 3D application, state restoration, invalid snapshots,
 reset and a 390 px mobile viewport. `ROOF_TEST_BROWSER` can select an existing
 Chromium executable; `ROOF_TEST_THREE` can point to a local Three.js 0.169.0 package
 when the CDN is unavailable in the test environment.
+
+Custom layouts support the Eaves overhang control (0–1.2 m). The drawing remains the outer roof edge; walls are inset horizontally, with tops following the roof slopes. Zero aligns walls with the edge. Narrow footprints automatically limit the effective setback, shown beside the control. Roof area stays unchanged; building footprint reflects the inset walls. The existing saved/shared overhang value is used.

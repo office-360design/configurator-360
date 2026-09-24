@@ -1,4 +1,7 @@
-import { defaultLayout, layoutBounds, layoutMetrics, roofSurfaceGroups } from './roofLayout.js?v=layout-4';
+import {
+  defaultLayout, layoutBounds, layoutMetrics, roofSurfaceGroups,
+  layoutWallFootprint, layoutWallSegments, signedArea,
+} from './roofLayout.js?v=layout-5';
 import * as THREE from 'three';
 
 console.info('[RoofLab] roofFactory build 14 loaded');
@@ -1736,14 +1739,16 @@ function buildDrawnRoof(group, state, materials) {
       group.add(makeFace(vertices, materials, name, options));
     });
   });
-  // The drawn perimeter is the roof edge. Walls follow it in this first version;
-  // automatic wall offsets and gutters are intentionally not inferred.
-  layout.boundary.forEach((id, index) => {
-    const a = points[id];
-    const b = points[layout.boundary[(index + 1) % layout.boundary.length]];
-    group.add(makeWallFace([
+  const walls = layoutWallFootprint(layout, state.overhang);
+  layoutWallSegments(layout, walls.points).forEach(segment => {
+    const [a, b] = segment.map(p => new THREE.Vector3(
+      p.x - centerX, state.wallHeight + ROOF_OFFSET_Y + p.h, p.z - centerZ,
+    ));
+    const wall = makeWallFace([
       new THREE.Vector3(a.x, 0, a.z), new THREE.Vector3(b.x, 0, b.z), b, a,
-    ], materials.wall));
+    ], materials.wall);
+    wall.name = 'drawn-wall';
+    group.add(wall);
   });
   const uniqueEdges = new Map();
   surfaces.forEach(surface => surface.boundary.forEach(([a, b]) => {
@@ -1751,7 +1756,7 @@ function buildDrawnRoof(group, state, materials) {
   }));
   addPerimeterTrim(group, [...uniqueEdges.values()], materials, 0.065);
   return {
-    footprint: metrics.footprint,
+    footprint: Math.abs(signedArea(walls.points)),
     roofArea: metrics.roofArea,
     ridgeElevation: Math.max(...points.map(point => point.y)),
     approximate: false,

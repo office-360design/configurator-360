@@ -18,12 +18,15 @@ const assert = require('node:assert/strict');
   await page.waitForFunction(() => window.ROOF_CONFIGURATOR_API);
   for (const covering of ['generic', 'roca', 'teclado']) {
     const result = await page.evaluate(async covering => {
-      const { lShapedLayout, footprintLayout } = await import('../roof-configurator/js/roofLayout.js?v=layout-4');
-      const { buildRoofModel } = await import('../roof-configurator/js/roofFactory.js?v=layout-4');
+      const { lShapedLayout, footprintLayout } = await import('../roof-configurator/js/roofLayout.js?v=layout-5');
+      const { buildRoofModel } = await import('../roof-configurator/js/roofFactory.js?v=layout-5');
       const api = window.ROOF_CONFIGURATOR_API;
       const state = { ...api.captureState(), roofType: 'layout', roofLayout: lShapedLayout(), covering, roofColor: '#374151' };
       api.restoreState(state);
-      const { group: roofGroup } = buildRoofModel(state);
+      const { group: roofGroup, metrics } = buildRoofModel(state);
+      if (!(metrics.footprint < 70)) throw new Error('Overhang must inset the building footprint');
+      const walls = roofGroup.children.filter(mesh => mesh.name === 'drawn-wall');
+      if (!walls.length) throw new Error('Custom supporting walls are missing');
       const patchCount = roofGroup.children.filter(mesh => /^drawn-slope-\d+-\d+$/.test(mesh.name)).length;
       // A concave plane still needs multiple convex rendering patches. Check
       // their actual shared vertices, not just the whole-plane L-roof case.
@@ -62,6 +65,14 @@ const assert = require('node:assert/strict');
     assert.ok(result.joins > 10, `${covering}: check shared vertices of a concave plane`);
     assert.ok(result.maxPositionError < 0.0001, `${covering}: covering must meet continuously: ${JSON.stringify(result)}`);
     assert.ok(result.maxNormalError < 0.002, `${covering}: shading must meet continuously: ${JSON.stringify(result)}`);
+    const dimensions = page.locator('[aria-controls="roofPanelDimensions"]');
+    if (await dimensions.getAttribute('aria-expanded') !== 'true') await dimensions.click();
+    assert.ok(await page.locator('[data-control="overhang"]').isVisible());
+    const control = page.locator('[data-control="overhang"] input[type="range"]');
+    await control.evaluate(input => { input.value = '0'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+    assert.equal(await page.evaluate(() => window.ROOF_CONFIGURATOR_API.captureState().overhang), 0);
+    await control.evaluate(input => { input.value = '0.6'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+    assert.equal(await page.evaluate(() => window.ROOF_CONFIGURATOR_API.captureState().overhang), 0.6);
     await page.mouse.move(630, 490);
     await page.mouse.wheel(0, -220);
     await page.waitForTimeout(400);

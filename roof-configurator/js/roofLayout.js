@@ -340,3 +340,87 @@ function mergeConvexPatches(triangles, vertices) {
   }
   return patches;
 }
+
+// The editable perimeter remains the roof edge. Offset the supporting walls
+// inward in plan, retaining collinear points where a gable meets its ridge.
+export function layoutWallFootprint(layout, requested = 0) {
+  const ring = layout.boundary.map(id => layout.vertices[id]);
+  const winding = Math.sign(signedArea(ring));
+  const segmentDistance = (p, a, b) => {
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (dx * dx + dz * dz)));
+    return Math.hypot(p.x - a.x - t * dx, p.z - a.z - t * dz);
+  };
+  function offset(amount) {
+    const result = ring.map((p, i) => {
+      const previous = ring[(i + ring.length - 1) % ring.length];
+      const next = ring[(i + 1) % ring.length];
+      const a = distance(previous, p), b = distance(p, next);
+      const n1 = { x: winding * (previous.z - p.z) / a, z: winding * (p.x - previous.x) / a };
+      const n2 = { x: winding * (p.z - next.z) / b, z: winding * (next.x - p.x) / b };
+      const denominator = 1 + n1.x * n2.x + n1.z * n2.z;
+      if (denominator < EPS) throw new Error('Overhang corner is too sharp.');
+      return { x: p.x + amount * (n1.x + n2.x) / denominator,
+        z: p.z + amount * (n1.z + n2.z) / denominator };
+    });
+    validatePolygon(result);
+    if (Math.sign(signedArea(result)) !== winding) throw new Error('Collapsed wall footprint.');
+    result.forEach((p, i) => {
+      const q = result[(i + 1) % result.length];
+      const a = ring[i], b = ring[(i + 1) % ring.length];
+      if ((q.x - p.x) * (b.x - a.x) + (q.z - p.z) * (b.z - a.z) <= EPS) {
+        throw new Error('Collapsed wall edge.');
+      }
+      for (const sample of [p, { x: (p.x + q.x) / 2, z: (p.z + q.z) / 2 }]) {
+        if (!inside(sample, ring) || ring.some((v, j) =>
+          segmentDistance(sample, v, ring[(j + 1) % ring.length]) < amount - EPS)) {
+          throw new Error('Overhang exceeds the footprint.');
+        }
+      }
+    });
+    return result;
+  }
+  const target = Math.max(0, Math.min(1.2, Number(requested) || 0));
+  try { return { points: offset(target), overhang: target }; } catch { /* Limit narrow layouts. */ }
+  let low = 0, high = target;
+  for (let i = 0; i < 30; i++) {
+    const mid = (low + high) / 2;
+    try { offset(mid); low = mid; } catch { high = mid; }
+  }
+  const overhang = Math.floor(low * 1000) / 1000;
+  return { points: offset(overhang), overhang };
+}
+
+// Split each wall at every roof plane transition so its top follows gables,
+// hips and valleys without cutting across a change of slope.
+export function layoutWallSegments(layout, footprint) {
+  const triangles = layout.faces.flatMap(face => triangulate(face, layout.vertices))
+    .map(ids => ids.map(id => layout.vertices[id]));
+  const height = p => {
+    const triangle = triangles.find(t => inside(p, t));
+    if (!triangle) throw new Error('Wall lies outside the roof.');
+    const [a, b, c] = triangle;
+    const area = cross(a, b, c);
+    return (cross(p, b, c) * a.h + cross(a, p, c) * b.h + cross(a, b, p) * c.h) / area;
+  };
+  return footprint.flatMap((a, i) => {
+    const b = footprint[(i + 1) % footprint.length];
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const cuts = [0, 1];
+    triangles.forEach(triangle => triangle.forEach((c, j) => {
+      const d = triangle[(j + 1) % 3];
+      const ex = d.x - c.x, ez = d.z - c.z;
+      const det = dx * ez - dz * ex;
+      if (Math.abs(det) < EPS) return;
+      const t = ((c.x - a.x) * ez - (c.z - a.z) * ex) / det;
+      const u = ((c.x - a.x) * dz - (c.z - a.z) * dx) / det;
+      if (t > EPS && t < 1 - EPS && u >= -EPS && u <= 1 + EPS) cuts.push(t);
+    }));
+    cuts.sort((x, y) => x - y);
+    const points = cuts.filter((t, j) => !j || t - cuts[j - 1] > EPS).map(t => {
+      const p = { x: a.x + dx * t, z: a.z + dz * t };
+      return { ...p, h: height(p) };
+    });
+    return points.slice(1).map((p, j) => [points[j], p]);
+  });
+}

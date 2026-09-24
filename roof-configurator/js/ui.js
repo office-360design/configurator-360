@@ -1,8 +1,8 @@
-import { RoofLayoutEditor } from './layoutEditor.js?v=layout-4';
-import { defaultLayout } from './roofLayout.js?v=layout-4';
+import { RoofLayoutEditor } from './layoutEditor.js?v=layout-5';
+import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-5';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { pitchRules } from './state.js?v=layout-4';
-import { bomToCsv, calculateBom } from './bom.js?v=layout-4';
+import { pitchRules } from './state.js?v=layout-5';
+import { bomToCsv, calculateBom } from './bom.js?v=layout-5';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -13,7 +13,7 @@ import {
   toDisplayLength,
 } from './preferences.js?v=platform-18';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=layout-4';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=layout-5';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
@@ -99,7 +99,19 @@ export class RoofUI {
     this.syncDimensionControls();
   }
 
+  updateOverhangNote() {
+    const note = document.querySelector('#layoutOverhangNote');
+    if (!note) return;
+    note.hidden = this.state.roofType !== 'layout';
+    if (note.hidden) return;
+    const walls = layoutWallFootprint(this.state.roofLayout || defaultLayout(), this.state.overhang);
+    const applied = formatLength(walls.overhang, this.state.units);
+    note.textContent = roofT(this.state.locale, 'dimensions.layoutOverhang', { distance: applied })
+      + (walls.overhang < this.state.overhang - 0.001 ? ` ${roofT(this.state.locale, 'dimensions.layoutOverhangLimit')}` : '');
+  }
+
   syncDimensionControls() {
+    this.updateOverhangNote();
     const units = normalizeUnits(this.state.units);
     this.dimensionBindings.forEach((binding) => {
       const { key, range, number, output, isLength, baseMin, baseMax, baseStep } = binding;
@@ -206,10 +218,11 @@ export class RoofUI {
   updateCustomMode() {
     const isLayout = this.state.roofType === 'layout';
     document.querySelector('#layoutLaunch').hidden = !isLayout;
-    ['length', 'depth', 'pitch', 'overhang'].forEach(key => {
+    ['length', 'depth', 'pitch'].forEach(key => {
       document.querySelector(`[data-control="${key}"]`).hidden = isLayout;
     });
     this.pitchRuleNote.hidden = isLayout;
+    this.updateOverhangNote();
     const isCustom = this.state.roofType === 'custom';
     const panel = document.querySelector('#customPlanPanel');
     const notice = document.querySelector('#customViewerNotice');
