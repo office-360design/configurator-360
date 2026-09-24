@@ -18,6 +18,8 @@ const MESSAGES = Object.freeze({
     'roof.type.lshape': 'L-shaped',
     'roof.type.dormer': 'Dormer',
     'roof.type.custom': 'Custom',
+    'roof.type.layout': 'Draw layout',
+    'roof.name.layout': 'Drawn roof layout',
     'roof.name.gable': 'Two-slope roof',
     'roof.name.hip': 'Four-slope roof',
     'roof.name.shed': 'Single-slope roof',
@@ -784,7 +786,7 @@ export function applyRoofTranslations(locale) {
   setText('#roofPanelTitle', resolved, 'panel.title');
   setText('#roofPanelDescription', resolved, 'panel.description');
   setText('#roofSectionType', resolved, 'roof.type');
-  ['gable', 'hip', 'shed', 'lshape', 'dormer', 'custom'].forEach((type) => setRoofCard(type, resolved));
+  ['gable', 'hip', 'shed', 'lshape', 'dormer', 'custom', 'layout'].forEach((type) => setRoofCard(type, resolved));
   setText('.custom-plan-copy strong', resolved, 'custom.uploadTitle');
   setText('.custom-plan-copy span', resolved, 'custom.uploadBody');
   setText('.custom-plan-main', resolved, 'custom.choose');

@@ -1,0 +1,77 @@
+.roof-layout-dialog {
+  width: min(1200px, 96vw);
+  max-width: 96vw;
+  max-height: 94dvh;
+  padding: 0;
+  border: 1px solid #d5dee8;
+  border-radius: 18px;
+  color: #172b43;
+  background: #f8fafc;
+  font: 14px/1.5 system-ui, sans-serif;
+  box-shadow: 0 30px 100px #0b223b55;
+}
+.roof-layout-dialog::backdrop { background: #0c1d34a6; }
+.roof-layout-dialog header, .roof-layout-dialog footer, .layout-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #dce4ed;
+}
+.roof-layout-dialog header { justify-content: space-between; background: white; }
+.roof-layout-dialog h2 { margin: 0; font-size: 23px; }
+.roof-layout-dialog small { color: #64748b; letter-spacing: .12em; }
+.roof-layout-dialog button, .roof-layout-dialog input, .roof-layout-dialog select {
+  font: inherit;
+  color: inherit;
+  background: white;
+  border: 1px solid #bac9da;
+  border-radius: 7px;
+  min-height: 40px;
+  padding: 7px 11px;
+}
+.roof-layout-dialog button { cursor: pointer; }
+.roof-layout-dialog button:disabled { opacity: .45; cursor: default; }
+.roof-layout-dialog button[aria-pressed="true"], .roof-layout-dialog .layout-primary {
+  background: #1260aa;
+  border-color: #1260aa;
+  color: white;
+}
+.layout-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 270px; }
+.layout-drawing { background: #f1f5f9; min-width: 0; }
+.layout-drawing svg { width: 100%; height: 100%; min-height: 420px; max-height: 65dvh; touch-action: none; }
+.layout-workspace aside { padding: 16px; background: white; max-height: 65dvh; overflow: auto; }
+.layout-workspace label { display: grid; gap: 4px; margin: 8px 0; }
+.layout-workspace input, .layout-workspace select { width: 100%; box-sizing: border-box; }
+.layout-workspace fieldset { border: 1px solid #dce4ed; border-radius: 10px; margin: 14px 0; padding: 10px; }
+.layout-workspace p { color: #52657a; font-size: 12px; }
+.layout-workspace .layout-help { font-size: 14px; color: #172b43; }
+.layout-summary { display: block; margin-top: 16px; font-weight: 600; }
+.layout-status { flex: 1; min-width: 180px; }
+.layout-grid { stroke: #dfe7ef; stroke-width: 1; }
+.layout-face { stroke: #47759c; stroke-width: 2; }
+.layout-triangle { stroke: #7494af; stroke-width: 1; stroke-dasharray: 5 5; fill: none; pointer-events: none; }
+.layout-node { fill: #1764ad; stroke: white; stroke-width: 2; }
+.layout-node.selected { fill: #ea580c; r: 9; }
+.layout-drawing text { font: 12px system-ui; fill: #183b59; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.layout-path { fill: none; stroke: #ea580c; stroke-width: 3; }
+.layout-launch { margin-top: 12px; }
+.layout-launch button { width: 100%; padding: 12px; border: 0; border-radius: 8px; background: #1260aa; color: white; cursor: pointer; }
+.layout-launch p { font-size: 12px; color: #64748b; }
+@media (max-width: 680px) {
+  .roof-layout-dialog { max-height: 96dvh; width: 98vw; max-width: 98vw; border-radius: 10px; }
+  .layout-workspace { grid-template-columns: 1fr; }
+  .layout-drawing svg { height: 45dvh; min-height: 260px; }
+  .layout-workspace aside { max-height: none; }
+  .roof-layout-dialog header, .roof-layout-dialog footer, .layout-toolbar { padding: 10px; }
+}
+/* Existing panel controls use display:grid, so explicitly preserve hidden state. */
+.range-control[hidden], .layout-launch[hidden] { display: none; }
+@media (max-width: 680px) {
+  .layout-drawing text { font-size: 20px; }
+  .layout-node { r: 10; }
+  .layout-node.selected { r: 12; }
+  .layout-toolbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .layout-toolbar button { padding: 6px; font-size: 12px; }
+}

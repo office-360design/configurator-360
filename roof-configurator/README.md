@@ -97,3 +97,60 @@ The configurator reads the unified shell preferences from the sibling `shared-ui
 ## BOM inclusion checklist
 
 Each generated BOM row includes an inclusion checkbox. Excluding a row immediately removes its value from the subtotal, VAT, estimated total, header estimate, and CSV export. Include all / Exclude all controls are available above the BOM table, and exclusions remain selected while the current browser session is open.
+
+## Drawn roof layouts
+
+Choose **Draw layout → Edit roof layout** to open the drawing editor. The existing
+five presets and the separate file-upload placeholder remain available.
+
+1. Start from an example or choose **New perimeter** and click around the outer
+   roof edge. Close it by clicking the first point, pressing Enter, or selecting
+   **Close perimeter**. Concave and angled outlines are supported.
+2. Choose **Divide surface**. Start on an existing edge or point, add optional
+   interior points, and finish on another edge of that same surface. Repeat for
+   additional slopes, ridges, hips and valleys. Crossings and gaps are rejected.
+3. Select a point on the plan or from the point dropdown. Edit X, Z and its height
+   above the wall top, then choose **Update point**. Shared points affect every
+   adjoining surface. **Insert edge point** adds a point to all incident faces.
+4. Use grid snapping, edge-length labels, zoom, Fit and Undo/Redo to refine the
+   plan. Backspace removes the last drawing point. Ctrl/Cmd+Z undoes an edit.
+5. **Apply roof** builds the textured 3D roof. **Cancel** discards the draft.
+
+The editor uses explicit metre labels independently of the shell display units.
+The 3D metric readouts still respect the shell units. Wall height, material and
+colour remain editable in the sidebar. Preset length/depth/pitch/overhang controls
+are hidden because the custom geometry determines those values.
+
+Layouts are versioned JSON with shared `vertices` (`x`, `z`, `h`), a `boundary`
+ring and indexed `faces`. The complete layout is included in capture/restore,
+share links, saved configurations and quotation snapshots through the existing
+configuration API. Invalid layouts are rejected before state is changed.
+
+Current boundaries:
+
+- Up to 160 points/surfaces and a 40 × 40 m footprint, with heights from 0–30 m
+  above the wall. One continuous perimeter; holes and vertical roof steps are
+  not supported yet.
+- Slopes are controlled by point heights, not by an automatic roof solver.
+  Non-planar faces are triangulated; dashed plan lines show the triangulation.
+- The drawn perimeter is the roof edge. Walls currently follow that same outline;
+  independent wall footprints and automatic eaves offsets are not implemented.
+- Surface area comes from the actual 3D triangles. BOM, price and CSV export are
+  unavailable for drawn layouts until custom edge classifications and product
+  quantity rules are implemented. Preset BOM calculations are unchanged.
+- The editor's new instructional copy is currently English.
+- Pipes, penetrations and automatic file-to-geometry conversion remain future work.
+
+Validation:
+
+```bash
+npm run check:roof
+# With the repository served at http://127.0.0.1:8080 and Playwright Chromium installed:
+npm run check:roof:browser
+```
+
+The browser check covers drawing, division, point heights, examples, draft
+cancellation, undo/redo, 3D application, state restoration, invalid snapshots,
+reset and a 390 px mobile viewport. `ROOF_TEST_BROWSER` can select an existing
+Chromium executable; `ROOF_TEST_THREE` can point to a local Three.js 0.169.0 package
+when the CDN is unavailable in the test environment.

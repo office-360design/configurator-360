@@ -1,6 +1,8 @@
+import { RoofLayoutEditor } from './layoutEditor.js';
+import { defaultLayout } from './roofLayout.js';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { pitchRules } from './state.js?v=platform-18';
-import { bomToCsv, calculateBom } from './bom.js?v=platform-18';
+import { pitchRules } from './state.js?v=layout-1';
+import { bomToCsv, calculateBom } from './bom.js?v=layout-1';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -11,7 +13,7 @@ import {
   toDisplayLength,
 } from './preferences.js?v=platform-18';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=panel-controls-3';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=layout-1';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
@@ -26,6 +28,11 @@ export class RoofUI {
     this.lastMetrics = null;
     this.dimensionBindings = [];
     bindPanelAccordions(document.querySelector('.shared-panel-controls'));
+    this.layoutEditor = new RoofLayoutEditor(state, () => {
+      this.onChange({ fitCamera: true });
+      this.applyStateToControls();
+    });
+    document.querySelector('#editRoofLayout').addEventListener('click', () => this.layoutEditor.open());
     this.bindRoofTypes();
     this.bindRanges();
     this.bindCovering();
@@ -40,6 +47,7 @@ export class RoofUI {
     document.querySelectorAll('[data-roof-type]').forEach((button) => {
       button.addEventListener('click', () => {
         this.state.roofType = button.dataset.roofType;
+        if (this.state.roofType === 'layout') this.state.roofLayout ||= defaultLayout();
         document.querySelectorAll('[data-roof-type]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
         this.viewerTitle.textContent = roofName(this.state.locale, this.state.roofType);
         this.updateCustomMode();
@@ -196,6 +204,12 @@ export class RoofUI {
 
 
   updateCustomMode() {
+    const isLayout = this.state.roofType === 'layout';
+    document.querySelector('#layoutLaunch').hidden = !isLayout;
+    ['length', 'depth', 'pitch', 'overhang'].forEach(key => {
+      document.querySelector(`[data-control="${key}"]`).hidden = isLayout;
+    });
+    this.pitchRuleNote.hidden = isLayout;
     const isCustom = this.state.roofType === 'custom';
     const panel = document.querySelector('#customPlanPanel');
     const notice = document.querySelector('#customViewerNotice');
@@ -305,7 +319,7 @@ export class RoofUI {
   }
 
   setAllBomLinesIncluded(included) {
-    if (!this.currentBom) return;
+    if (!this.currentBom || ['custom', 'layout'].includes(this.state.roofType)) return;
     const excluded = this.getExcludedBomItems();
     this.currentBom.lines.forEach((line) => {
       if (included) excluded.delete(line.key);
@@ -316,7 +330,7 @@ export class RoofUI {
   }
 
   exportBom() {
-    if (!this.currentBom) return;
+    if (!this.currentBom || ['custom', 'layout'].includes(this.state.roofType)) return;
     const csv = `﻿${bomToCsv(this.currentBom, this.state.locale)}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -336,7 +350,7 @@ export class RoofUI {
     const bom = calculateBom(this.state, metrics);
     this.currentBom = bom;
 
-    if (this.state.roofType === 'custom') {
+    if (['custom', 'layout'].includes(this.state.roofType)) {
       document.querySelector('#headerEstimateTotal').textContent = roofT(this.state.locale, 'bom.awaitingPlan');
       document.querySelector('#bomSubtotal').textContent = '—';
       document.querySelector('#bomVat').textContent = '—';
@@ -355,6 +369,16 @@ export class RoofUI {
       assumptionGrid.replaceChildren(status);
       const currencyNote = document.querySelector('#bomCurrencyNote');
       if (currencyNote) currencyNote.textContent = roofT(this.state.locale, 'bom.customCurrencyNote');
+      if (this.state.roofType === 'layout') {
+        document.querySelector('#headerEstimateTotal').textContent = 'Not estimated';
+        row.replaceChildren();
+        const cell = document.createElement('td');
+        cell.colSpan = 7;
+        cell.textContent = 'Custom layout quantities and prices are not yet available. Roof area is calculated from the drawn surfaces.';
+        row.appendChild(cell);
+        status.textContent = `${metrics.roofArea.toFixed(2)} m² roof area`;
+        if (currencyNote) currencyNote.textContent = 'Flashings, gutters and material quantities require a separate estimate.';
+      }
       document.querySelector('#bomExportButton').disabled = true;
       return;
     }
