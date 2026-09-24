@@ -1,8 +1,10 @@
 import { stoneAppearance } from './stoneAppearance.js';
 import { COLORS, TILES, layout, normalize } from './model.js';
 
-// Use the real layout engine so thumbnails show the actual supported bonds,
-// proportions and orientation, including the chosen checkerboard colours.
+// Use the real layout engine so thumbnails show the actual supported bonds and
+// proportions, but keep them at a fixed reference orientation. The direction
+// slider controls the configured paving in the 3D scene and should not rotate
+// the pattern choice thumbnails.
 export function patternPreview(state, pattern) {
   const tile = TILES[state.tile] || TILES.parket;
   const size = Math.max(1, tile.length * 4);
@@ -12,6 +14,7 @@ export function patternPreview(state, pattern) {
     length: size,
     width: size,
     pattern,
+    rotation: 0,
     houseEnabled: false,
   });
   const scale = 120 / size;
