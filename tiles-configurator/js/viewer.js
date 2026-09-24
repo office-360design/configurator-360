@@ -293,9 +293,15 @@ export function createViewer(host, callbacks = {}) {
     };
   }
   function restoreFreeCamera() {
+    // Photo calibration writes directly to the camera while OrbitControls is disabled.
+    // Always re-enable and update OrbitControls after restoring a free-camera pose so
+    // its internal spherical state is synchronized with the camera again.
+    controls.enabled = true;
     if (!freeCameraPose) {
       top = false;
       fit();
+      controls.enabled = true;
+      controls.update();
       return;
     }
     camera.position.copy(freeCameraPose.position);
@@ -307,6 +313,7 @@ export function createViewer(host, callbacks = {}) {
     controls.target.copy(freeCameraPose.target);
     top = freeCameraPose.top;
     controls.update();
+    controls.enabled = true;
   }
   function applyPhotoCalibrationPose() {
     if (!photoCalibrationCorners || !photoNaturalWidth || !photoNaturalHeight) return false;
@@ -371,6 +378,11 @@ export function createViewer(host, callbacks = {}) {
       photoMode = false;
       updatePhotoPresentation();
       restoreFreeCamera();
+      // updatePhotoPresentation() is also used during drawing/setup and can change
+      // the enabled state. At this point setup is complete, so free-camera mode must
+      // always be interactive.
+      controls.enabled = true;
+      renderer.domElement.style.cursor = '';
     }
     return true;
   }
@@ -949,7 +961,7 @@ export function createViewer(host, callbacks = {}) {
     if (drawingArea) event.preventDefault();
   });
   renderer.setAnimationLoop(() => {
-    if (!photoMode) controls.update();
+    if (controls.enabled) controls.update();
     renderer.render(scene, camera);
   });
   return {
