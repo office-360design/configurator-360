@@ -120,6 +120,7 @@ export function createViewer(host, callbacks = {}) {
     const mesh = new THREE.InstancedMesh(box, material, parts.length);
     parts.forEach((p, i) => {
       dummy.position.set(p.x - bounds.width / 2, baseY + height / 2, p.z - bounds.depth / 2);
+      dummy.rotation.set(0, -THREE.MathUtils.degToRad(Number(p.rotation) || 0), 0);
       dummy.scale.set(Math.max(0.001, p.l - 0.003), height, Math.max(0.001, p.w - 0.003));
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
@@ -365,15 +366,31 @@ export function createViewer(host, callbacks = {}) {
     const cuts = [];
     parts.forEach((p) => {
       for (const fragment of p.fragments || []) {
-        const polygon = p.profile
-          ? fragment.map((v) => ({ x: p.x + (v.x - p.x) * 0.985, z: p.z + (v.z - p.z) * 0.985 }))
-          : clipRect(
-              fragment,
-              p.x - p.l / 2 + 0.0015,
-              p.z - p.w / 2 + 0.0015,
-              Math.max(0.001, p.l - 0.003),
-              Math.max(0.001, p.w - 0.003),
-            );
+        const rotated = Math.abs((Number(p.rotation) || 0) % 180) > 1e-6;
+        let polygon;
+        if (p.profile) {
+          polygon = fragment.map((v) => ({
+            x: p.x + (v.x - p.x) * 0.985,
+            z: p.z + (v.z - p.z) * 0.985,
+          }));
+        } else if (rotated) {
+          const cx = fragment.reduce((sum, v) => sum + v.x, 0) / fragment.length,
+            cz = fragment.reduce((sum, v) => sum + v.z, 0) / fragment.length,
+            inset = Math.min(0.02, 0.0015 / Math.max(0.001, Math.min(p.l, p.w))),
+            factor = Math.max(0.9, 1 - inset);
+          polygon = fragment.map((v) => ({
+            x: cx + (v.x - cx) * factor,
+            z: cz + (v.z - cz) * factor,
+          }));
+        } else {
+          polygon = clipRect(
+            fragment,
+            p.x - p.l / 2 + 0.0015,
+            p.z - p.w / 2 + 0.0015,
+            Math.max(0.001, p.l - 0.003),
+            Math.max(0.001, p.w - 0.003),
+          );
+        }
         cuts.push({ polygon, color: p.accent ? s.accent : s.color, stone: p });
       }
     });

@@ -193,7 +193,7 @@ export function normalize(input = {}) {
   s.houseHeight = number(s.houseHeight, 2.6, 0.5, 8);
   for (const key of ['houseX', 'houseZ']) s[key] = number(s[key], DEFAULTS[key], -20, 60);
   s.houseRotation = number(s.houseRotation, 0, 0, 360);
-  s.rotation = Number(s.rotation) === 90 ? 90 : 0;
+  s.rotation = number(s.rotation, 0, 0, 360);
   const edgeCount =
     s.shape === 'custom' ? s.areaPoints.length : s.shape === 'closed5' ? 5 : 4;
   s.edges = Array.from({ length: edgeCount }, (_, i) =>
@@ -205,87 +205,94 @@ export function normalize(input = {}) {
 export function layout(input) {
   const s = normalize(input),
     t = TILES[s.tile],
-    rot = s.rotation === 90;
-  const area = areaGeometry(s),
-    L = rot ? area.depth : area.width,
-    W = rot ? area.width : area.depth,
+    area = areaGeometry(s),
+    angle = (s.rotation * Math.PI) / 180,
+    cos = Math.cos(angle),
+    sin = Math.sin(angle),
+    toGrid = (p) => ({ x: p.x * cos + p.z * sin, z: -p.x * sin + p.z * cos }),
+    toWorld = (p) => ({ x: p.x * cos - p.z * sin, z: p.x * sin + p.z * cos }),
+    site = triangulate(area.points).map((tri) => tri.map(toGrid)),
+    sitePoints = area.points.map(toGrid),
+    minX = Math.min(...sitePoints.map((p) => p.x)),
+    maxX = Math.max(...sitePoints.map((p) => p.x)),
+    minZ = Math.min(...sitePoints.map((p) => p.z)),
+    maxZ = Math.max(...sitePoints.map((p) => p.z)),
     result = [];
+
   if (t.profile === 'h') return excludeHouse(interlockingLayout(s, t, area), s);
-  const triangles =
-    s.shape === 'rectangle'
-      ? null
-      : triangulate(area.points).map((tri) => tri.map((p) => (rot ? { x: p.z, z: p.x } : p)));
 
   const add = (x, z, l, w, accent = false, shadeRole) => {
-    const shadePosition = {
+    const fragments = site
+      .map((tri) => clipRect(tri, x, z, l, w))
+      .filter((poly) => poly.length >= 3 && polygonArea(poly) > 1e-8);
+    const netArea = fragments.reduce((sum, poly) => sum + polygonArea(poly), 0);
+    if (netArea < 1e-8) return;
+
+    const center = toWorld({ x: x + l / 2, z: z + w / 2 }),
+      cut = netArea < l * w - 1e-8,
+      whole = [
+        { x, z },
+        { x: x + l, z },
+        { x: x + l, z: z + w },
+        { x, z: z + w },
+      ].map(toWorld);
+
+    result.push({
       ...(shadeRole === undefined ? {} : { shadeRole }),
-      shadeX: rot ? z + w / 2 : x + l / 2,
-      shadeZ: rot ? x + l / 2 : z + w / 2,
-    };
-    if (triangles) {
-      const fragments = triangles
-        .map((tri) => clipRect(tri, x, z, l, w))
-        .filter((p) => p.length >= 3 && polygonArea(p) > 1e-8);
-      const netArea = fragments.reduce((n, p) => n + polygonArea(p), 0);
-      if (netArea < 1e-8) return;
-      const cut = netArea < l * w - 1e-8;
-      result.push({
-        ...shadePosition,
-        x: rot ? z + w / 2 : x + l / 2,
-        z: rot ? x + l / 2 : z + w / 2,
-        l: rot ? w : l,
-        w: rot ? l : w,
-        accent,
-        cut,
-        area: netArea,
-        fragments: cut
-          ? fragments.map((poly) => poly.map((p) => (rot ? { x: p.z, z: p.x } : p)))
-          : undefined,
-      });
-      return;
-    }
-    const x0 = Math.max(0, x),
-      z0 = Math.max(0, z),
-      x1 = Math.min(L, x + l),
-      z1 = Math.min(W, z + w);
-    if (x1 - x0 < 1e-8 || z1 - z0 < 1e-8) return;
-    const a = {
-      ...shadePosition,
-      x: (x0 + x1) / 2,
-      z: (z0 + z1) / 2,
-      l: x1 - x0,
-      w: z1 - z0,
+      shadeX: center.x,
+      shadeZ: center.z,
+      x: center.x,
+      z: center.z,
+      l,
+      w,
+      rotation: s.rotation,
       accent,
-      cut: x0 > x + 1e-8 || z0 > z + 1e-8 || x1 < x + l - 1e-8 || z1 < z + w - 1e-8,
-    };
-    result.push(rot ? { ...a, x: a.z, z: a.x, l: a.w, w: a.l } : a);
+      cut,
+      area: netArea,
+      polygon: cut ? undefined : whole,
+      fragments: cut ? fragments.map((poly) => poly.map(toWorld)) : undefined,
+    });
   };
+
   if (s.pattern === 'herringbone') {
-    const u = t.width;
-    for (let j = -2; j < Math.ceil(W / u) + 2; j++)
-      for (let i = -2; i < Math.ceil(L / u) + 2; i++) {
+    const u = t.width,
+      i0 = Math.floor(minX / u) - 3,
+      i1 = Math.ceil(maxX / u) + 3,
+      j0 = Math.floor(minZ / u) - 3,
+      j1 = Math.ceil(maxZ / u) + 3;
+    for (let j = j0; j < j1; j++)
+      for (let i = i0; i < i1; i++) {
         const k = (((i - j) % 4) + 4) % 4;
         if (k === 0) add(i * u, j * u, 2 * u, u, false, 0);
         if (k === 3) add(i * u, j * u, u, 2 * u, false, 1);
       }
   } else if (s.pattern === 'basket') {
-    const u = t.width;
-    for (let j = 0; j < Math.ceil(W / (2 * u)); j++)
-      for (let i = 0; i < Math.ceil(L / (2 * u)); i++)
+    const u = t.width,
+      cell = 2 * u,
+      i0 = Math.floor(minX / cell) - 2,
+      i1 = Math.ceil(maxX / cell) + 2,
+      j0 = Math.floor(minZ / cell) - 2,
+      j1 = Math.ceil(maxZ / cell) + 2;
+    for (let j = j0; j < j1; j++)
+      for (let i = i0; i < i1; i++)
         for (let k = 0; k < 2; k++) {
-          if ((i + j) % 2) add(i * 2 * u + k * u, j * 2 * u, u, 2 * u, false, 1);
-          else add(i * 2 * u, j * 2 * u + k * u, 2 * u, u, false, 0);
+          if ((i + j) % 2) add(i * cell + k * u, j * cell, u, 2 * u, false, 1);
+          else add(i * cell, j * cell + k * u, 2 * u, u, false, 0);
         }
   } else {
-    for (let j = 0; j < Math.ceil(W / t.width); j++) {
-      const shift = s.pattern === 'running' && j % 2 ? -t.length / 2 : 0;
-      for (let i = 0; i < Math.ceil(L / t.length) + 1; i++)
+    const row0 = Math.floor(minZ / t.width) - 2,
+      row1 = Math.ceil(maxZ / t.width) + 2,
+      col0 = Math.floor(minX / t.length) - 2,
+      col1 = Math.ceil(maxX / t.length) + 2;
+    for (let j = row0; j < row1; j++) {
+      const shift = s.pattern === 'running' && Math.abs(j) % 2 ? -t.length / 2 : 0;
+      for (let i = col0; i < col1; i++)
         add(
           i * t.length + shift,
           j * t.width,
           t.length,
           t.width,
-          s.pattern === 'checker' && (i + j) % 2 === 1,
+          s.pattern === 'checker' && ((i + j) % 2 + 2) % 2 === 1,
         );
     }
   }

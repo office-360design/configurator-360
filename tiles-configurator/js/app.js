@@ -37,6 +37,26 @@ const history = new SharedUndoManager({
   capture: () => structuredClone(state),
   restore: (s) => restore(s),
 });
+
+function installDirectionSlider() {
+  const current = $('rotation');
+  if (!current || current.matches('input[type=\"number\"]')) return;
+  const wrapper = current.closest('label');
+  if (!wrapper) return;
+  const control = document.createElement('div');
+  control.className = 'dimension-control range-control';
+  control.innerHTML = `
+    <div class="dimension-heading control-label">
+      <label for="rotation"><span data-i18n="rotation"></span> (°)</label>
+      <output id="rotationValue"></output>
+    </div>
+    <div class="slider-row range-row">
+      <input id="rotationRange" data-range-field="rotation" type="range" min="0" max="360" step="1">
+      <input id="rotation" class="number-input" type="number" min="0" max="360" step="1">
+    </div>`;
+  wrapper.replaceWith(control);
+}
+installDirectionSlider();
 const AREA_EDITOR_COPY = {
   en: {
     draw: 'Draw area in 3D',
@@ -319,7 +339,7 @@ function render() {
       document.querySelector(`label[for="${key}"]`)?.textContent.trim() || t(key),
     );
     $(key + 'Value').textContent =
-      `${f(state[key])} ${['angleB', 'houseRotation'].includes(key) ? '°' : 'm'}`;
+      `${f(state[key])} ${['angleB', 'houseRotation', 'rotation'].includes(key) ? '°' : 'm'}`;
   });
   const geometry = areaGeometry(state),
     custom = state.shape !== 'rectangle';
@@ -523,7 +543,7 @@ sidebar.addEventListener('input', (e) => {
   sliderPatch = { ...(sliderPatch || {}), [key]: Number(e.target.value) };
   $(key).value = e.target.value;
   $(key + 'Value').textContent =
-    `${f(Number(e.target.value))} ${['angleB', 'houseRotation'].includes(key) ? '°' : 'm'}`;
+    `${f(Number(e.target.value))} ${['angleB', 'houseRotation', 'rotation'].includes(key) ? '°' : 'm'}`;
   if (!sliderFrame) sliderFrame = requestAnimationFrame(flushSlider);
 });
 $('centerHouse').addEventListener('click', () => {

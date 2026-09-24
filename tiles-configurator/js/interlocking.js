@@ -1,4 +1,4 @@
-import { cross, polygonArea, triangulate, clipRect } from './area.js';
+import { cross, polygonArea, triangulate } from './area.js';
 
 // Clip a polygon against a CCW convex polygon (the site's triangles).
 export function clipConvex(points, boundary) {
@@ -26,10 +26,12 @@ export function clipConvex(points, boundary) {
 // Simplified nominal H profile. Half-staggered rows tessellate exactly;
 // the row pitch includes nominal joints and matches WISE's 35 pcs/m².
 export function interlockingLayout(s, t, area) {
-  const rot = s.rotation === 90,
-    L = rot ? area.depth : area.width,
-    W = rot ? area.width : area.depth;
-  const pitch = 1 / (t.piecesPerM2 * t.length),
+  const angle = (s.rotation * Math.PI) / 180,
+    cos = Math.cos(angle),
+    sin = Math.sin(angle),
+    toGrid = (p) => ({ x: p.x * cos + p.z * sin, z: -p.x * sin + p.z * cos }),
+    toWorld = (p) => ({ x: p.x * cos - p.z * sin, z: p.x * sin + p.z * cos }),
+    pitch = 1 / (t.piecesPerM2 * t.length),
     d = t.width - pitch,
     l = t.length,
     w = t.width;
@@ -48,42 +50,48 @@ export function interlockingLayout(s, t, area) {
     [0, w],
   ].map(([x, z]) => ({ x, z }));
   const base = triangulate(outline),
-    site =
-      s.shape === 'rectangle'
-        ? null
-        : triangulate(area.points).map((tri) =>
-            rot ? tri.map((p) => ({ x: p.z, z: p.x })).reverse() : tri,
-          );
-  const transform = (p) => (rot ? { x: p.z, z: p.x } : p),
-    result = [];
-  for (let j = -1; j < Math.ceil(W / pitch); j++)
-    for (let i = -1; i < Math.ceil(L / l) + 1; i++) {
+    site = triangulate(area.points).map((tri) => tri.map(toGrid)),
+    sitePoints = area.points.map(toGrid),
+    minX = Math.min(...sitePoints.map((p) => p.x)),
+    maxX = Math.max(...sitePoints.map((p) => p.x)),
+    minZ = Math.min(...sitePoints.map((p) => p.z)),
+    maxZ = Math.max(...sitePoints.map((p) => p.z)),
+    result = [],
+    j0 = Math.floor((minZ - w) / pitch) - 1,
+    j1 = Math.ceil(maxZ / pitch) + 1,
+    i0 = Math.floor((minX - l) / l) - 1,
+    i1 = Math.ceil(maxX / l) + 1;
+
+  for (let j = j0; j < j1; j++)
+    for (let i = i0; i < i1; i++) {
       const x = i * l + ((Math.abs(j) % 2) * l) / 2,
         z = j * pitch;
-      if (x + l <= 0 || x >= L || z + w <= 0 || z >= W) continue;
+      if (x + l <= minX || x >= maxX || z + w <= minZ || z >= maxZ) continue;
       const whole = outline.map((p) => ({ x: p.x + x, z: p.z + z }));
       const fragments = base
         .flatMap((tri) => {
           const polygon = tri.map((p) => ({ x: p.x + x, z: p.z + z }));
-          return site
-            ? site.map((boundary) => clipConvex(polygon, boundary))
-            : [clipRect(polygon, 0, 0, L, W)];
+          return site.map((boundary) => clipConvex(polygon, boundary));
         })
         .filter((p) => p.length >= 3 && polygonArea(p) > 1e-10);
       const net = fragments.reduce((sum, p) => sum + polygonArea(p), 0);
       if (net < 1e-8) continue;
-      const cut = net < 1 / t.piecesPerM2 - 1e-8;
+      const cut = net < 1 / t.piecesPerM2 - 1e-8,
+        center = toWorld({ x: x + l / 2, z: z + w / 2 });
       result.push({
-        x: rot ? z + w / 2 : x + l / 2,
-        z: rot ? x + l / 2 : z + w / 2,
-        l: rot ? w : l,
-        w: rot ? l : w,
+        x: center.x,
+        z: center.z,
+        shadeX: center.x,
+        shadeZ: center.z,
+        l,
+        w,
+        rotation: s.rotation,
         accent: false,
         cut,
         area: net,
         profile: true,
-        outline: clipRect(whole, 0, 0, L, W).map(transform),
-        fragments: (cut ? fragments : [whole]).map((poly) => poly.map(transform)),
+        outline: whole.map(toWorld),
+        fragments: (cut ? fragments : [whole]).map((poly) => poly.map(toWorld)),
       });
     }
   return result;
