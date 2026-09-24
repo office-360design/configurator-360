@@ -15,6 +15,31 @@ const assert = require('node:assert/strict');
   await page.waitForFunction(() => window.ROOF_CONFIGURATOR_API, { timeout: 30000 });
   await page.locator('[data-roof-type="layout"]').click();
   await page.locator('#editRoofLayout').click();
+  const editor = page.locator('.roof-layout-dialog');
+  const deleteButton = editor.locator('[data-action="delete"]');
+  assert.ok(await deleteButton.isDisabled());
+  // Select the middle of the default roof ridge in actual screen coordinates.
+  const ridge = await editor.locator('svg').evaluate(svg => {
+    const nodes = svg.querySelectorAll('.layout-node');
+    const a = nodes[2], b = nodes[5];
+    const p = new DOMPoint((Number(a.getAttribute('cx')) + Number(b.getAttribute('cx'))) / 2,
+      (Number(a.getAttribute('cy')) + Number(b.getAttribute('cy'))) / 2).matrixTransform(svg.getScreenCTM());
+    return { x: p.x, y: p.y };
+  });
+  await page.mouse.click(ridge.x, ridge.y);
+  assert.ok(await deleteButton.isEnabled());
+  await page.keyboard.press('Delete');
+  assert.match(await page.locator('.layout-summary').textContent(), /1 surfaces/);
+  await editor.locator('[data-action="undo"]').click();
+  assert.match(await page.locator('.layout-summary').textContent(), /2 surfaces/);
+  await editor.locator('[data-action="redo"]').click();
+  assert.match(await page.locator('.layout-summary').textContent(), /1 surfaces/);
+  await editor.locator('[data-action="undo"]').click();
+  await page.locator('#layoutPointSelect').selectOption('0');
+  await deleteButton.click();
+  assert.equal(await page.locator('#layoutPointSelect option').count(), 6);
+  await editor.locator('[data-action="undo"]').click();
+  assert.equal(await page.locator('#layoutPointSelect option').count(), 7);
   await page.locator('#layoutExample').selectOption('lshape');
   await page.locator('.roof-layout-dialog [data-action="example"]').click();
   assert.match(await page.locator('.layout-summary').textContent(), /6 surfaces/);

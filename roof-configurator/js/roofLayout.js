@@ -424,3 +424,70 @@ export function layoutWallSegments(layout, footprint) {
     return points.slice(1).map((p, j) => [points[j], p]);
   });
 }
+
+function compactLayout(layout) {
+  const used = new Set([...layout.boundary, ...layout.faces.flat()]);
+  const ids = [...used].sort((a, b) => a - b);
+  const remap = ring => ring.map(id => ids.indexOf(id));
+  return validateLayout({ ...layout, vertices: ids.map(id => layout.vertices[id]),
+    boundary: remap(layout.boundary), faces: layout.faces.map(remap) });
+}
+
+// Trace the outside of adjoining faces after dissolving their shared edges.
+function mergeLayoutFaces(layout, indices) {
+  const edges = new Map();
+  indices.forEach(index => {
+    const face = layout.faces[index];
+    face.forEach((a, i) => {
+      const b = face[(i + 1) % face.length];
+      const key = [a, b].sort((x, y) => x - y).join(':');
+      if (edges.has(key)) edges.delete(key);
+      else edges.set(key, [a, b]);
+    });
+  });
+  const remaining = [...edges.values()];
+  const ring = [remaining[0][0]];
+  while (remaining.length) {
+    const index = remaining.findIndex(edge => edge.includes(ring.at(-1)));
+    if (index < 0) throw new Error('These surfaces cannot be merged into one closed surface.');
+    const [a, b] = remaining.splice(index, 1)[0];
+    const next = a === ring.at(-1) ? b : a;
+    if (next === ring[0]) {
+      if (remaining.length) throw new Error('Deleting this would leave a hole in the roof.');
+      break;
+    }
+    ring.push(next);
+  }
+  layout.faces = layout.faces.filter((_, i) => !indices.includes(i));
+  layout.faces.push(ring);
+}
+
+export function deleteLayoutEdge(source, a, b) {
+  const next = cloneLayout(source);
+  const incident = next.faces.flatMap((face, index) => face.some((id, i) =>
+    (id === a && face[(i + 1) % face.length] === b) ||
+    (id === b && face[(i + 1) % face.length] === a)) ? [index] : []);
+  if (incident.length !== 2) {
+    throw new Error('The outer perimeter must stay closed. Delete a point to reshape it; only dividing edges can be removed.');
+  }
+  mergeLayoutFaces(next, incident);
+  return compactLayout(next);
+}
+
+export function deleteLayoutPoint(source, id) {
+  if (!Number.isInteger(id) || !source.vertices[id]) throw new Error('Select a point first.');
+  if (source.boundary.includes(id) && source.boundary.length <= 3) {
+    throw new Error('The roof perimeter needs at least three points.');
+  }
+  const next = cloneLayout(source);
+  next.boundary = next.boundary.filter(vertex => vertex !== id);
+  next.faces = next.faces.map(face => face.filter(vertex => vertex !== id));
+  // Removing an edge subdivision preserves the adjoining surfaces when possible.
+  try { return compactLayout(next); } catch { /* A junction needs its faces merged. */ }
+  const merged = cloneLayout(source);
+  const incident = merged.faces.flatMap((face, index) => face.includes(id) ? [index] : []);
+  mergeLayoutFaces(merged, incident);
+  merged.boundary = merged.boundary.filter(vertex => vertex !== id);
+  merged.faces = merged.faces.map(face => face.filter(vertex => vertex !== id));
+  return compactLayout(merged);
+}

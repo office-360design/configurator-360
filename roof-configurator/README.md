@@ -176,3 +176,5 @@ Chromium executable; `ROOF_TEST_THREE` can point to a local Three.js 0.169.0 pac
 when the CDN is unavailable in the test environment.
 
 Custom layouts support the Eaves overhang control (0–1.2 m). The drawing remains the outer roof edge; walls are inset horizontally, with tops following the roof slopes. Zero aligns walls with the edge. Narrow footprints automatically limit the effective setback, shown beside the control. Roof area stays unchanged; building footprint reflects the inset walls. The existing saved/shared overhang value is used.
+
+Select a point or dividing edge in the layout editor and use **Delete selected**, Delete or Backspace. Removing a dividing edge merges its adjoining surfaces (including their shared polyline); removing a junction may merge incident surfaces. Boundary points reshape the closed perimeter. Outer edges cannot be removed alone. Invalid deletions leave the draft unchanged, and successful deletions support Undo/Redo.

@@ -1,7 +1,7 @@
 import {
-  cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
+  deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
   layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-5';
+} from './roofLayout.js?v=layout-6';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {
@@ -21,10 +21,11 @@ export class RoofLayoutEditor {
       <header><div><small>ROOF DESIGN STUDIO</small><h2 id="layoutTitle">Draw your roof</h2></div>
         <button type="button" data-action="cancel" aria-label="Close layout editor">×</button></header>
       <div class="layout-toolbar" aria-label="Drawing tools">
-        <button type="button" data-action="select">Move points</button>
+        <button type="button" data-action="select">Select / move</button>
         <button type="button" data-action="draw">New perimeter</button>
         <button type="button" data-action="split">Divide surface</button>
         <button type="button" data-action="insert">Insert edge point</button>
+        <button type="button" data-action="delete">Delete selected</button>
         <button type="button" data-action="finish">Close perimeter</button>
         <button type="button" data-action="undo">Undo</button>
         <button type="button" data-action="redo">Redo</button>
@@ -76,6 +77,7 @@ export class RoofLayoutEditor {
     this.svg.addEventListener('lostpointercapture', event => this.endDrag(event, true));
     this.dialog.addEventListener('cancel', () => this.endDrag(null, true));
     this.dialog.querySelector('#layoutPointSelect').addEventListener('change', event => {
+      this.selectedEdge = null;
       this.selected = event.target.value === '' ? null : Number(event.target.value);
       this.mode = 'select';
       this.path = [];
@@ -89,6 +91,9 @@ export class RoofLayoutEditor {
       } else if (event.key === 'Enter' && this.mode === 'draw') {
         event.preventDefault();
         this.action('finish');
+      } else if (['Delete', 'Backspace'].includes(event.key) && !this.path.length && this.mode === 'select') {
+        event.preventDefault();
+        this.action('delete');
       } else if (event.key === 'Backspace' && this.path.length) {
         event.preventDefault();
         this.path.pop();
@@ -104,6 +109,7 @@ export class RoofLayoutEditor {
     this.path = [];
     this.mode = 'select';
     this.selected = null;
+    this.selectedEdge = null;
     this.drag = null;
     this.dialog.querySelector('#layoutPitch').value = Math.max(5, Math.min(60, this.state.pitch || 30));
     this.fit();
@@ -124,6 +130,8 @@ export class RoofLayoutEditor {
     if (this.history.length > 60) this.history.shift();
     this.future = [];
     this.layout = next;
+    this.selectedEdge = null;
+    if (!this.layout.vertices[this.selected]) this.selected = null;
     this.status('Draft updated.');
     this.render();
   }
@@ -141,6 +149,7 @@ export class RoofLayoutEditor {
         this.mode = action;
         this.path = [];
         this.selected = null;
+        this.selectedEdge = null;
       } else if (action === 'cancel') {
         this.dialog.close();
         return;
@@ -153,11 +162,13 @@ export class RoofLayoutEditor {
         this.path = [];
         this.mode = 'select';
         this.selected = null;
+        this.selectedEdge = null;
       } else if (action === 'pitch') {
         if (this.path.length) throw new Error('Finish or cancel the drawing first.');
         const perimeter = this.layout.boundary.map(id => this.layout.vertices[id]);
         this.commit(pitchedFootprint(perimeter, this.starterPitch()));
         this.selected = null;
+        this.selectedEdge = null;
         this.mode = 'select';
       } else if (action === 'undo' || action === 'redo') {
         if (this.path.length) this.path.pop();
@@ -168,8 +179,19 @@ export class RoofLayoutEditor {
             to.push(cloneLayout(this.layout));
             this.layout = from.pop();
             this.selected = null;
+            this.selectedEdge = null;
           }
         }
+      } else if (action === 'delete') {
+        if (this.mode !== 'select' || this.path.length) return;
+        let next;
+        if (this.selected !== null) next = deleteLayoutPoint(this.layout, this.selected);
+        else if (this.selectedEdge) next = deleteLayoutEdge(this.layout, ...this.selectedEdge);
+        else return;
+        this.selected = null;
+        this.selectedEdge = null;
+        this.commit(next);
+        this.status('Selection deleted. Adjoining surfaces may merge; Undo restores the previous roof.');
       } else if (action === 'point') {
         if (this.selected === null) return;
         const fields = ['X', 'Z', 'H'].map(axis => this.dialog.querySelector(`#layout${axis}`));
@@ -209,6 +231,7 @@ export class RoofLayoutEditor {
         this.path = [];
         this.mode = 'select';
         this.selected = null;
+        this.selectedEdge = null;
         this.fit();
       } else if (action === 'apply') {
         if (this.path.length) throw new Error('Finish or cancel the current drawing before applying.');
@@ -294,7 +317,7 @@ export class RoofLayoutEditor {
         const a = this.layout.vertices[id], b = this.layout.vertices[face[(i + 1) % face.length]];
         const length2 = distance(a, b) ** 2;
         const t = Math.max(0, Math.min(1, ((raw.x - a.x) * (b.x - a.x) + (raw.z - a.z) * (b.z - a.z)) / length2));
-        const p = { x: a.x + t * (b.x - a.x), z: a.z + t * (b.z - a.z), edge: true };
+        const p = { x: a.x + t * (b.x - a.x), z: a.z + t * (b.z - a.z), edge: true, edgeIds: [id, face[(i + 1) % face.length]] };
         if (distance(p, raw) < tolerance && (!closest || distance(p, raw) < distance(closest, raw))) closest = p;
       }));
       if (closest) return closest;
@@ -310,6 +333,8 @@ export class RoofLayoutEditor {
     try {
       if (this.mode === 'select') {
         this.selected = point.id ?? null;
+        this.selectedEdge = this.selected === null ? point.edgeIds ?? null : null;
+        this.svg.focus();
         if (this.selected !== null) {
           this.drag = {
             pointerId: event.pointerId, id: this.selected,
@@ -377,6 +402,13 @@ export class RoofLayoutEditor {
         label.textContent = `${distance(a, b).toFixed(2)} m`;
         this.svg.append(label);
       });
+      if (this.selectedEdge) {
+        const [a, b] = this.selectedEdge.map(id => project(this.layout.vertices[id]));
+        this.svg.append(svgElement('line', {
+          x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+          stroke: '#dc2626', 'stroke-width': 5, 'pointer-events': 'none',
+        }));
+      }
       this.layout.vertices.forEach((p, id) => {
         const v = project(p);
         this.svg.append(svgElement('circle', { cx: v.x, cy: v.y, r: 7, class: id === this.selected ? 'layout-node selected' : 'layout-node' }));
@@ -395,7 +427,7 @@ export class RoofLayoutEditor {
       });
     }
     const hints = {
-      select: 'Drag a point to move it on the plan. Shift-drag up/down changes its height. You can also enter exact coordinates below. Shared points update adjoining surfaces.',
+      select: 'Select a point or edge, then Delete selected (or Delete/Backspace). Removing a dividing edge merges its adjoining surfaces. Outer edges must stay closed. Drag a point to move it on the plan. Shift-drag up/down changes its height. You can also enter exact coordinates below. Shared points update adjoining surfaces.',
       draw: 'Click around the outer roof edge. Click the first point or Close perimeter to finish. This creates a pitched roof at the starter pitch and replaces the current draft.',
       split: 'Start on a surface edge, add optional interior points, then finish on another edge of the same surface. Raise the new points to form ridges, or lower them for valleys.',
       insert: 'Click an existing edge to add a shared point. Then set its height or coordinates.',
@@ -414,6 +446,7 @@ export class RoofLayoutEditor {
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       const action = button.dataset.action;
       if (['select', 'draw', 'split', 'insert'].includes(action)) button.setAttribute('aria-pressed', String(action === this.mode));
+      if (action === 'delete') button.disabled = this.mode !== 'select' || (this.selected === null && !this.selectedEdge);
       if (action === 'finish') button.disabled = this.mode !== 'draw' || this.path.length < 3;
       if (action === 'undo') button.disabled = !this.history.length && !this.path.length;
       if (action === 'redo') button.disabled = !this.future.length || !!this.path.length;
