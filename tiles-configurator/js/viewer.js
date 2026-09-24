@@ -95,6 +95,11 @@ export function createViewer(host, callbacks = {}) {
     g.traverse((o) => {
       if (o.isInstancedMesh) o.dispose();
       if (o.isMesh && !o.isInstancedMesh && o.geometry !== box) o.geometry.dispose();
+      if (o.isLine) {
+        o.geometry?.dispose?.();
+        if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose?.());
+        else o.material?.dispose?.();
+      }
       if (o.isSprite) {
         o.material.map.dispose();
         o.material.dispose();
@@ -128,22 +133,109 @@ export function createViewer(host, callbacks = {}) {
     mesh.instanceMatrix.needsUpdate = true;
     group.add(mesh);
   }
-  function label(text, x, z) {
+  function textSprite(text, { background = true, scale = 1 } = {}) {
     const c = document.createElement('canvas');
     c.width = 512;
-    c.height = 100;
+    c.height = 128;
     const context = c.getContext('2d');
-    context.fillStyle = 'rgba(255,255,255,.92)';
-    context.fillRect(0, 0, 512, 100);
-    context.fillStyle = '#294536';
-    context.font = '600 40px sans-serif';
+    if (background) {
+      // Match the pergola configurator's dimension-label treatment: compact,
+      // rounded white surface, subtle border and a soft shadow.
+      const x = 72,
+        y = 24,
+        width = 368,
+        height = 80,
+        radius = 16;
+      context.save();
+      context.shadowColor = 'rgba(13,21,26,.12)';
+      context.shadowBlur = 16;
+      context.shadowOffsetY = 4;
+      context.beginPath();
+      context.moveTo(x + radius, y);
+      context.lineTo(x + width - radius, y);
+      context.quadraticCurveTo(x + width, y, x + width, y + radius);
+      context.lineTo(x + width, y + height - radius);
+      context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      context.lineTo(x + radius, y + height);
+      context.quadraticCurveTo(x, y + height, x, y + height - radius);
+      context.lineTo(x, y + radius);
+      context.quadraticCurveTo(x, y, x + radius, y);
+      context.closePath();
+      context.fillStyle = 'rgba(255,255,255,.94)';
+      context.fill();
+      context.restore();
+
+      context.beginPath();
+      context.moveTo(x + radius, y);
+      context.lineTo(x + width - radius, y);
+      context.quadraticCurveTo(x + width, y, x + width, y + radius);
+      context.lineTo(x + width, y + height - radius);
+      context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      context.lineTo(x + radius, y + height);
+      context.quadraticCurveTo(x, y + height, x, y + height - radius);
+      context.lineTo(x, y + radius);
+      context.quadraticCurveTo(x, y, x + radius, y);
+      context.closePath();
+      context.strokeStyle = 'rgba(21,31,37,.10)';
+      context.lineWidth = 2;
+      context.stroke();
+    }
+    context.fillStyle = background ? '#1b2328' : '#294536';
+    context.font = `${background ? 800 : 800} ${background ? 34 : 48}px sans-serif`;
     context.textAlign = 'center';
+    context.textBaseline = 'middle';
     context.fillText(text, 256, 64);
     const tex = new THREE.CanvasTexture(c);
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
-    sprite.position.set(x, 0.15, z);
-    sprite.scale.set(1.4, 0.28, 1);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }),
+    );
+    sprite.renderOrder = 21;
+    sprite.scale.set((background ? 1.06 : 1.35) * scale, (background ? 0.265 : 0.34) * scale, 1);
+    return sprite;
+  }
+  function cornerLabel(text, x, z) {
+    const sprite = textSprite(text, { background: false, scale: 0.62 });
+    sprite.position.set(x, 0.19, z);
     dimensions.add(sprite);
+  }
+  function dimensionSegment(a, b) {
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([a, b]),
+      new THREE.LineBasicMaterial({ color: '#1e2529', depthTest: true, depthWrite: false }),
+    );
+    line.renderOrder = 18;
+    dimensions.add(line);
+  }
+  function dimensionLine(start, end, label, outward, distance = 0.42) {
+    // Keep the ground dimensions visually flush with the scene while leaving
+    // enough depth separation from the ground plane to avoid z-fighting at
+    // shallow camera angles. Depth testing remains enabled, so geometry can
+    // still occlude the lines normally.
+    const y = -0.11,
+      sx = start.x + outward.x * distance,
+      sz = start.z + outward.z * distance,
+      ex = end.x + outward.x * distance,
+      ez = end.z + outward.z * distance,
+      a = new THREE.Vector3(sx, y, sz),
+      b = new THREE.Vector3(ex, y, ez),
+      tick = 0.17;
+    dimensionSegment(a, b);
+    for (const point of [a, b])
+      dimensionSegment(
+        new THREE.Vector3(point.x - outward.x * tick / 2, y, point.z - outward.z * tick / 2),
+        new THREE.Vector3(point.x + outward.x * tick / 2, y, point.z + outward.z * tick / 2),
+      );
+    const sprite = textSprite(label);
+    sprite.position.set((sx + ex) / 2, y + 0.025, (sz + ez) / 2);
+    dimensions.add(sprite);
+  }
+  function edgeDimension(points, lengths, index, label) {
+    const p = points[index],
+      q = points[(index + 1) % points.length],
+      length = lengths[index],
+      outward = { x: (q.z - p.z) / length, z: -(q.x - p.x) / length };
+    dimensionLine(p, q, label, outward);
   }
   function fit() {
     if (!state || !bounds) return;
@@ -333,22 +425,23 @@ export function createViewer(host, callbacks = {}) {
       roof.receiveShadow = true;
       group.add(roof);
     }
+    const centredPoints = bounds.points.map((p) => ({
+      x: p.x - bounds.width / 2,
+      z: p.z - bounds.depth / 2,
+    }));
     if (s.shape === 'rectangle') {
-      label(`${s.length.toFixed(2)} m`, 0, -s.width / 2 - 0.45);
-      label(`${s.width.toFixed(2)} m`, s.length / 2 + 0.8, 0);
+      edgeDimension(centredPoints, bounds.lengths, 0, `${s.length.toFixed(2)} m`);
+      edgeDimension(centredPoints, bounds.lengths, 1, `${s.width.toFixed(2)} m`);
     } else
-      bounds.points.forEach((p, i) => {
-        const q = bounds.points[(i + 1) % bounds.points.length],
-          length = bounds.lengths[i];
-        const nx = (q.z - p.z) / length,
-          nz = -(q.x - p.x) / length,
-          a = vertexLabel(i),
-          b = vertexLabel((i + 1) % bounds.points.length);
-        label(a, p.x - bounds.width / 2, p.z - bounds.depth / 2);
-        label(
-          `${a}${b} · ${length.toFixed(2)} m`,
-          (p.x + q.x) / 2 - bounds.width / 2 + nx * 0.65,
-          (p.z + q.z) / 2 - bounds.depth / 2 + nz * 0.65,
+      centredPoints.forEach((p, i) => {
+        const a = vertexLabel(i),
+          b = vertexLabel((i + 1) % centredPoints.length);
+        cornerLabel(a, p.x, p.z);
+        edgeDimension(
+          centredPoints,
+          bounds.lengths,
+          i,
+          `${a}${b} · ${bounds.lengths[i].toFixed(2)} m`,
         );
       });
     if (drawingArea) setPreviousAreaVisible(false);
