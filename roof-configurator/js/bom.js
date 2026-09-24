@@ -139,7 +139,7 @@ function addLine(lines, state, key, nameKey, unitKey, quantity, unitPrice, noteK
 
 export function calculateBom(state, metrics) {
   const locale = state.locale || 'en-US';
-  if (state.roofType === 'custom') {
+  if (['custom', 'layout'].includes(state.roofType)) {
     return {
       lines: [],
       subtotal: 0,

@@ -1,3 +1,4 @@
+import { defaultLayout, layoutBounds, layoutMetrics } from './roofLayout.js';
 import * as THREE from 'three';
 
 console.info('[RoofLab] roofFactory build 14 loaded');
@@ -1677,6 +1678,43 @@ function buildDormer(group, state, materials) {
 }
 
 
+function buildDrawnRoof(group, state, materials) {
+  const layout = state.roofLayout || defaultLayout();
+  const metrics = layoutMetrics(layout);
+  const bounds = layoutBounds(layout);
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+  const points = layout.vertices.map(point => new THREE.Vector3(
+    point.x - centerX,
+    state.wallHeight + ROOF_OFFSET_Y + point.h,
+    point.z - centerZ,
+  ));
+  metrics.triangles.forEach((triangle, index) => {
+    addRoofFace(group, triangle.map(id => points[id]), materials, `drawn-slope-${index}`);
+  });
+  // The drawn perimeter is the roof edge. Walls follow it in this first version;
+  // automatic wall offsets and gutters are intentionally not inferred.
+  layout.boundary.forEach((id, index) => {
+    const a = points[id];
+    const b = points[layout.boundary[(index + 1) % layout.boundary.length]];
+    group.add(makeWallFace([
+      new THREE.Vector3(a.x, 0, a.z), new THREE.Vector3(b.x, 0, b.z), b, a,
+    ], materials.wall));
+  });
+  const uniqueEdges = new Map();
+  layout.faces.forEach(face => face.forEach((a, index) => {
+    const b = face[(index + 1) % face.length];
+    uniqueEdges.set([a, b].sort((x, y) => x - y).join(':'), [points[a], points[b]]);
+  }));
+  addPerimeterTrim(group, [...uniqueEdges.values()], materials, 0.065);
+  return {
+    footprint: metrics.footprint,
+    roofArea: metrics.roofArea,
+    ridgeElevation: Math.max(...points.map(point => point.y)),
+    approximate: false,
+  };
+}
+
 function buildCustomPlaceholder(group, state, materials) {
   addBase(group, state, materials);
 
@@ -1769,7 +1807,9 @@ export function buildRoofModel(state) {
   group.name = 'roof-model';
 
   let metrics;
-  if (state.roofType === 'custom') {
+  if (state.roofType === 'layout') {
+    metrics = buildDrawnRoof(group, state, materials);
+  } else if (state.roofType === 'custom') {
     metrics = buildCustomPlaceholder(group, state, materials);
   } else if (state.roofType === 'lshape') {
     metrics = buildLShape(group, state, materials);

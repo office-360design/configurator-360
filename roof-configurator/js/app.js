@@ -1,6 +1,7 @@
-import { state, pitchRules, roofNames } from './state.js?v=platform-18';
-import { RoofScene } from './scene.js?v=platform-18';
-import { RoofUI } from './ui.js?v=panel-controls-3';
+import { defaultLayout, validateLayout, layoutBounds } from './roofLayout.js';
+import { state, pitchRules, roofNames } from './state.js?v=layout-1';
+import { RoofScene } from './scene.js?v=layout-1';
+import { RoofUI } from './ui.js?v=layout-1';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
@@ -8,7 +9,7 @@ import {
   resolveCurrencyRate,
 } from './preferences.js?v=platform-18';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=panel-controls-3';
+import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=layout-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 await requireTenantConfiguratorAccess('roof');
@@ -21,6 +22,10 @@ const ROOF_SHARE_BOOLEANS = ['showDimensions', 'technicalEdges', 'showCompass', 
 function applySharedRoofState(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return;
 
+  if (snapshot.roofLayout != null) {
+    try { validateLayout(snapshot.roofLayout); } catch { return false; }
+  }
+  if (snapshot.roofType === 'layout' && !snapshot.roofLayout) return false;
   if (Object.prototype.hasOwnProperty.call(roofNames, snapshot.roofType)) state.roofType = snapshot.roofType;
   if (Object.prototype.hasOwnProperty.call(pitchRules, snapshot.covering)) state.covering = snapshot.covering;
   if (typeof snapshot.roofColor === 'string' && /^#[0-9a-f]{6}$/i.test(snapshot.roofColor)) state.roofColor = snapshot.roofColor;
@@ -36,12 +41,14 @@ function applySharedRoofState(snapshot) {
   if (snapshot.customPlan === null || (snapshot.customPlan && typeof snapshot.customPlan === 'object')) {
     state.customPlan = snapshot.customPlan ? structuredClone(snapshot.customPlan) : null;
   }
+  if (snapshot.roofLayout !== undefined) state.roofLayout = structuredClone(snapshot.roofLayout);
   if (Array.isArray(snapshot.excludedBomItems)) {
     state.excludedBomItems = snapshot.excludedBomItems.filter((item) => typeof item === 'string');
   }
 
   const rule = pitchRules[state.covering] ?? pitchRules.generic;
   state.pitch = Math.max(rule.minimum, state.pitch);
+  return true;
 }
 
 const sharedRoofState = await readShareState({ productType: 'roof' });
@@ -84,7 +91,7 @@ function emitToolsState() {
   window.dispatchEvent(new CustomEvent('roof-tools-state-change', {
     detail: {
       roofType: state.roofType,
-      dimensionsAvailable: state.roofType !== 'custom',
+      dimensionsAvailable: !['custom', 'layout'].includes(state.roofType),
       showDimensions: state.showDimensions,
       showCompass: state.showCompass,
       sunPosition: state.sunPosition,
@@ -143,7 +150,17 @@ function applyShellPreferences(preferences = {}) {
   if (currencyChanged) refreshCurrencyRate(nextCurrency);
 }
 
+function syncLayoutDimensions() {
+  if (state.roofType === 'layout') {
+    state.roofLayout ||= defaultLayout();
+    const bounds = layoutBounds(state.roofLayout);
+    state.length = bounds.maxX - bounds.minX;
+    state.depth = bounds.maxZ - bounds.minZ;
+  }
+}
+
 function rebuild({ fitCamera = false } = {}) {
+  syncLayoutDimensions();
   lastMetrics = scene.rebuild(state, fitCamera);
   scene.setEnvironment(state);
   scene.setCompassVisible(state.showCompass);
@@ -165,6 +182,7 @@ function applyView(view) {
   return currentView;
 }
 
+syncLayoutDimensions();
 ui = new RoofUI(state, rebuild);
 ui.applyStateToControls();
 lastMetrics = scene.rebuild(state, true);
@@ -214,7 +232,7 @@ const configuratorApi = {
   getState() {
     return {
       roofType: state.roofType,
-      dimensionsAvailable: state.roofType !== 'custom',
+      dimensionsAvailable: !['custom', 'layout'].includes(state.roofType),
       showDimensions: state.showDimensions,
       showCompass: state.showCompass,
       sunPosition: state.sunPosition,
@@ -244,6 +262,7 @@ const configuratorApi = {
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
+      roofLayout: state.roofLayout ? structuredClone(state.roofLayout) : null,
       customPlan: state.customPlan ? structuredClone(state.customPlan) : null,
       excludedBomItems: [...state.excludedBomItems],
       currentView,
@@ -252,8 +271,9 @@ const configuratorApi = {
 
   restoreState(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return false;
-    applySharedRoofState(snapshot);
+    if (applySharedRoofState(snapshot) === false) return false;
     const restoredView = VIEW_ORDER.includes(snapshot.currentView) ? snapshot.currentView : 'perspective';
+    syncLayoutDimensions();
     ui?.applyStateToControls();
     rebuild({ fitCamera: true });
     if (restoredView !== 'perspective') applyView(restoredView);
@@ -264,7 +284,7 @@ const configuratorApi = {
   resetConfiguration,
 
   setDimensionsVisible(visible) {
-    if (state.roofType === 'custom') return state.showDimensions;
+    if (['custom', 'layout'].includes(state.roofType)) return state.showDimensions;
     state.showDimensions = Boolean(visible);
     rebuild({ fitCamera: false });
     return state.showDimensions;

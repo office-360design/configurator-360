@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { buildRoofModel } from './roofFactory.js?v=platform-18';
+import { buildRoofModel } from './roofFactory.js?v=layout-1';
 import { createDimensions } from './dimensions.js?v=platform-18';
-import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=platform-18';
+import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=layout-1';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
@@ -315,7 +315,7 @@ export class RoofScene {
     const { group, metrics } = buildRoofModel(state);
     this.modelRoot.add(group);
 
-    if (state.showDimensions && state.roofType !== 'custom') {
+    if (state.showDimensions && !['custom', 'layout'].includes(state.roofType)) {
       this.dimensionsRoot.add(createDimensions(state, metrics.ridgeElevation));
     }
 

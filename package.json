@@ -46,7 +46,9 @@
     "check:shared-3d:pergola-materials-browser": "node shared-3d/tests/pergola-materials-browser.mjs",
     "check:tenant-domains": "node scripts/build/sync-tenant-domains.mjs --check && node --test scripts/validation/tenant-domains.test.mjs",
     "check:tenant-domains:browser": "node scripts/validation/tenant-domains.browser.mjs",
-    "check:tenant-domains:nginx": "python3 scripts/validation/tenant-domains.nginx.py"
+    "check:tenant-domains:nginx": "python3 scripts/validation/tenant-domains.nginx.py",
+    "check:roof": "node --test roof-configurator/tests/roof-layout.test.mjs && node --check roof-configurator/js/layoutEditor.js && node --check roof-configurator/js/roofFactory.js && node --check roof-configurator/js/app.js && node --check roof-configurator/js/ui.js",
+    "check:roof:browser": "node roof-configurator/tests/layout-browser.cjs"
   },
   "dependencies": {
     "playwright": "^1.54.1"

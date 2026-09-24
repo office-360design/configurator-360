@@ -23,6 +23,7 @@
     import { applyConfiguratorSeo } from '../shared-ui/src/configuratorSeo.js?v=platform-18';
     applyConfiguratorSeo('roof');
   </script>
+  <link rel="stylesheet" href="./layout-editor.css?v=layout-1" />
 </head>
 <body>
   <main class="app-shell">
@@ -61,6 +62,10 @@
               <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M7 38 40 12l33 26"/><path d="m31 31 10-10 10 10"/><path d="M15 37v9h50v-9"/><path class="accent" d="M7 38 40 12l33 26M31 31l10-10 10 10"/></svg>
               <span>Dormer</span>
             </button>
+            <button class="roof-card choice-card" type="button" data-roof-type="layout" aria-pressed="false">
+              <svg viewBox="0 0 80 52" aria-hidden="true"><path class="accent" d="M12 42V10h30v14h26v18zM12 42l15-15V10m0 17h15l26 15"/></svg>
+              <span>Draw layout</span>
+            </button>
             <button class="roof-card choice-card" type="button" data-roof-type="custom" aria-pressed="false">
               <svg viewBox="0 0 80 52" aria-hidden="true">
                 <path d="M17 7h31l15 15v23H17z"/>
@@ -71,6 +76,10 @@
             </button>
           </div>
 
+          <div class="layout-launch" id="layoutLaunch" hidden>
+            <button type="button" id="editRoofLayout">Edit roof layout</button>
+            <p>Draw the outer roof edge and divide it into slopes. Set point heights in the editor; wall height and covering remain available here.</p>
+          </div>
           <div class="custom-plan-panel" id="customPlanPanel" hidden>
             <div class="custom-plan-copy">
               <strong>Upload custom roof planning</strong>
@@ -575,7 +584,7 @@
     })();
   </script>
   <script type="module" src="./js/sharedShell.js?v=tenant-branding-1"></script>
-  <script type="module" src="./js/app.js?v=tenant-domains-1"></script>
+  <script type="module" src="./js/app.js?v=layout-1"></script>
 </body>
 </html>
 
