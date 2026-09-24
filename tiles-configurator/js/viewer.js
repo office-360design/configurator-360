@@ -68,7 +68,8 @@ export function createViewer(host, callbacks = {}) {
     top = false,
     showDimensions = true,
     drawingArea = false,
-    draftPoints = [];
+    draftPoints = [],
+    preserveCameraOnNextRebuild = false;
   scene.add(group, dimensions, areaHandles, areaDraft);
   const box = new THREE.BoxGeometry(1, 1, 1),
     dummy = new THREE.Object3D();
@@ -464,7 +465,12 @@ export function createViewer(host, callbacks = {}) {
     if (drawingArea) setPreviousAreaVisible(false);
     else dimensions.visible = showDimensions;
     drawAreaHandles();
-    if (changed && !drawingArea) fit();
+    if (changed && !drawingArea) {
+      if (preserveCameraOnNextRebuild) preserveCameraOnNextRebuild = false;
+      else fit();
+    } else if (preserveCameraOnNextRebuild && !drawingArea) {
+      preserveCameraOnNextRebuild = false;
+    }
   }
   // Dispose the unique bedding material before replacing the group.
   function releaseBase() {
@@ -689,6 +695,7 @@ export function createViewer(host, callbacks = {}) {
       areaDrag = null;
       clearOverlay(areaDraft);
       areaHandles.visible = true;
+      preserveCameraOnNextRebuild = true;
       callbacks.onAreaPointMove?.(points);
       restorePointerInteraction();
       if (renderer.domElement.hasPointerCapture(event.pointerId))
@@ -740,7 +747,8 @@ export function createViewer(host, callbacks = {}) {
       updateDraftCallback();
       return true;
     },
-    stopAreaDrawing() {
+    stopAreaDrawing({ preserveCamera = false } = {}) {
+      preserveCameraOnNextRebuild = Boolean(preserveCamera);
       drawingArea = false;
       draftPoints = [];
       drawPointer = null;

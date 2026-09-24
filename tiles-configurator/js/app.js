@@ -272,7 +272,7 @@ function finishAreaDrawing() {
   state = next;
   drawingArea = false;
   draftAreaPoints = [];
-  viewer?.stopAreaDrawing();
+  viewer?.stopAreaDrawing({ preserveCamera: true });
   $('areaError').hidden = true;
   render();
   shell?.markDirty();
