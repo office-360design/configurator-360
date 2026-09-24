@@ -1,7 +1,7 @@
 import {
   cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
-  layoutBounds, layoutMetrics, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-2';
+  layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
+} from './roofLayout.js?v=layout-3';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {
@@ -52,7 +52,7 @@ export class RoofLayoutEditor {
           <button type="button" data-action="pitch">Generate pitched roof</button>
           <p>New perimeters start with two slopes. Generate pitched roof replaces the current divisions and heights; Undo restores them.</p>
           <label>Example<select id="layoutExample"><option value="gable">Two slopes</option>
-            <option value="hip">Hip roof</option><option value="lshape">L-shaped footprint</option>
+            <option value="hip">Hip roof</option><option value="lshape">L-shaped roof</option>
             <option value="saw">Consecutive slopes</option></select></label>
           <button type="button" data-action="example">Load example</button>
           <output class="layout-summary"></output>
@@ -188,10 +188,7 @@ export class RoofLayoutEditor {
         const type = this.dialog.querySelector('#layoutExample').value;
         let next = defaultLayout();
         if (type === 'lshape') {
-          next = pitchedFootprint([
-            { x: -5, z: -4 }, { x: 5, z: -4 }, { x: 5, z: 0 },
-            { x: 0, z: 0 }, { x: 0, z: 4 }, { x: -5, z: 4 },
-          ]);
+          next = lShapedLayout();
         } else if (type === 'hip') {
           next = {
             version: 1,

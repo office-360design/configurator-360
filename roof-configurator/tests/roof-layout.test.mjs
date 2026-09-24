@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
-  insertPoint, cloneLayout, pitchedFootprint,
+  insertPoint, cloneLayout, pitchedFootprint, lShapedLayout,
 } from '../js/roofLayout.js';
 const rectangle = () => footprintLayout([
   { x: -5, z: -3 }, { x: 5, z: -3 }, { x: 5, z: 3 }, { x: -5, z: 3 },
@@ -100,6 +100,31 @@ test('pitched concave outlines handle boundary-aligned and disconnected ridge in
       assert.equal(roof.faces.length >= 2, true);
       const regenerated = pitchedFootprint(roof.boundary.map(i => roof.vertices[i]), 35);
       assert.ok(Math.abs(layoutMetrics(regenerated).roofArea - metrics.roofArea) < 1e-7);
+    }
+  }
+});
+
+
+test('L-shaped example has planar intersecting wings, level eaves and an inside valley', () => {
+  const roof = lShapedLayout();
+  const metrics = layoutMetrics(roof);
+  assert.equal(metrics.footprint, 60);
+  assert.equal(roof.faces.length, 6);
+  assert.ok(metrics.roofArea > 60);
+  assert.ok(roof.boundary.every(id => roof.vertices[id].h === 0));
+  const ridge = roof.vertices.slice(6);
+  assert.ok(ridge.every(p => p.h > 0 && p.h === ridge[0].h));
+  assert.equal(ridge[0].z, ridge[1].z);
+  assert.equal(ridge[0].x, ridge[2].x);
+  assert.equal(roof.faces.filter(face => face.includes(3) && face.includes(6)).length, 2);
+  for (const face of roof.faces) {
+    const [a, b, c, ...rest] = face.map(id => roof.vertices[id]);
+    const u = [b.x - a.x, b.h - a.h, b.z - a.z];
+    const v = [c.x - a.x, c.h - a.h, c.z - a.z];
+    const normal = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]];
+    for (const p of rest) {
+      const deviation = normal[0]*(p.x-a.x) + normal[1]*(p.h-a.h) + normal[2]*(p.z-a.z);
+      assert.ok(Math.abs(deviation) < 1e-8, 'Every roof face must be planar');
     }
   }
 });

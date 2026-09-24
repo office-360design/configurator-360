@@ -1,4 +1,4 @@
-import { defaultLayout, layoutBounds, layoutMetrics } from './roofLayout.js?v=layout-2';
+import { defaultLayout, layoutBounds, layoutMetrics } from './roofLayout.js?v=layout-3';
 import * as THREE from 'three';
 
 console.info('[RoofLab] roofFactory build 14 loaded');

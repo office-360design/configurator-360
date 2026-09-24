@@ -103,6 +103,10 @@ Each generated BOM row includes an inclusion checkbox. Excluding a row immediate
 Choose **Draw layout → Edit roof layout** to open the drawing editor. The existing
 five presets and the separate file-upload placeholder remain available.
 
+The **L-shaped roof** example has two perpendicular hipped wings, a ridge along
+each wing, an inside valley and a continuous level eaves line. All its points
+and surfaces remain editable.
+
 1. Start from an example or choose **New perimeter** and click around the outer
    roof edge. Close it by clicking the first point, pressing Enter, or selecting
    **Close perimeter**. Concave and angled outlines are supported. Closing the

@@ -235,3 +235,32 @@ export function pitchedFootprint(points, pitch = 30) {
   });
   return validateLayout(layout);
 }
+
+// Two perpendicular hipped wings share a level ridge and drain toward a
+// continuous eaves line. The re-entrant corner joins the ridge bend by a valley.
+export function lShapedLayout() {
+  const ridgeHeight = 2 * Math.tan(Math.PI / 6);
+  return validateLayout({
+    version: 1,
+    vertices: [
+      { x: -5, z: -4, h: 0 },
+      { x: 5, z: -4, h: 0 },
+      { x: 5, z: 0, h: 0 },
+      { x: 0, z: 0, h: 0 },
+      { x: 0, z: 4, h: 0 },
+      { x: -5, z: 4, h: 0 },
+      { x: -2.5, z: -2, h: ridgeHeight },
+      { x: 3, z: -2, h: ridgeHeight },
+      { x: -2.5, z: 1.5, h: ridgeHeight },
+    ],
+    boundary: [0, 1, 2, 3, 4, 5],
+    faces: [
+      [0, 1, 7, 6], // Main wing, outside slope.
+      [1, 2, 7], // Main wing hip.
+      [2, 3, 6, 7], // Main wing, valley side.
+      [3, 4, 8, 6], // Return wing, valley side.
+      [4, 5, 8], // Return wing hip.
+      [5, 0, 6, 8], // Return wing, outside slope.
+    ],
+  });
+}
