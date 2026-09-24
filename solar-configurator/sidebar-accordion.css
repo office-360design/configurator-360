@@ -1,0 +1,28 @@
+/* Solar composition; accordion appearance and motion live in shared-ui. */
+:where(.shared-panel-controls) .solar-step-toggle .section-number {
+  display: none;
+}
+:where(.shared-panel-controls) .solar-step-toggle h2 {
+  margin: 0;
+  font: inherit;
+  letter-spacing: normal;
+}
+:where(.shared-panel-controls) .solar-roof-type-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+:where(.shared-panel-controls) .solar-two-column-controls {
+  gap: 18px;
+}
+:where(.shared-panel-controls) .solar-number-control small {
+  color: var(--shared-panel-muted);
+  font-size: 10px;
+  text-align: right;
+}
+:where(.shared-panel-controls) .solar-switch-row {
+  margin-bottom: 10px;
+}
+:where(.shared-panel-controls) .solar-input-grid .panel-number-field {
+  width: 100%;
+  min-width: 0;
+}

@@ -1,13 +1,17 @@
-export * from './config.js';
-export * from './icons.js';
-export * from './utils.js';
-export * from './components/accountMenu.js';
-export * from './components/languageMenu.js';
-export * from './components/topBar.js';
-export * from './components/toolsMenu.js';
-export * from './components/feedback.js';
+export * from './config.js?v=tenant-routes-1';
+export * from './i18n.js?v=platform-19';
+export * from './icons.js?v=platform-19';
+export * from './utils.js?v=platform-19';
+export * from './components/accountMenu.js?v=platform-19';
+export * from './components/languageMenu.js?v=platform-19';
+export * from './components/topBar.js?v=platform-19';
+export * from './components/toolsMenu.js?v=platform-19';
+export * from './components/feedback.js?v=platform-19';
 
-export * from './standaloneShell.js';
+export * from './standaloneShell.js?v=tenant-branding-1';
 
-export * from './tools/registry.js';
-export * from './history/undoManager.js';
+export * from './tools/registry.js?v=platform-19';
+export * from './history/undoManager.js?v=platform-19';
+export * from './shareState.js?v=platform-19';
+
+export * from './firebaseAuth.js?v=platform-19';

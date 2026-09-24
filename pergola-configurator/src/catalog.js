@@ -160,42 +160,42 @@ export const ACCESSORY_OPTIONS = [
   {
     key: 'spotlights',
     label: 'Integrated spotlights',
-    description: 'Dimmable lights attached to fixed support rails.',
+    description: 'Dimmable lights assigned per roof rectangle.',
     model: './assets/models/accessories/spotlight.glb',
     icon: './assets/icons/accessory-spotlights.svg',
   },
   {
     key: 'heaters',
     label: 'Infrared heaters',
-    description: 'Suspended frame-mounted radiant heating.',
+    description: 'Suspended radiant heater assigned to any pole-to-pole beam span.',
     model: './assets/models/accessories/heater.glb',
     icon: './assets/icons/accessory-heater.svg',
   },
   {
     key: 'rainSensor',
     label: 'Rain sensor',
-    description: 'Roof-mounted precipitation sensor.',
+    description: 'Precipitation sensor mounted on top of a support pole.',
     model: './assets/models/accessories/rain-sensor.glb',
     icon: './assets/icons/accessory-rain.svg',
   },
   {
     key: 'windSensor',
     label: 'Wind sensor',
-    description: 'Roof-mounted wind sensor.',
+    description: 'Wind sensor mounted on top of a support pole.',
     model: './assets/models/accessories/wind-sensor.glb',
     icon: './assets/icons/accessory-wind.svg',
   },
   {
     key: 'speakers',
     label: 'Outdoor speakers',
-    description: 'One speaker can be mounted to each support pole.',
+    description: 'Speakers can be assigned to any free support-pole face.',
     model: './assets/models/accessories/speaker.glb',
     icon: './assets/icons/accessory-speaker.svg',
   },
   {
     key: 'outlets',
     label: 'Electrical outlets',
-    description: 'European or American outlets with continuous height positioning.',
+    description: 'EU or US outlets for any free support-pole face.',
     model: './assets/models/accessories/outlet-eu.glb',
     icon: './assets/icons/accessory-outlet.svg',
   },
@@ -217,13 +217,6 @@ export const HEATER_SIDES = [
   { value: 'back', label: 'Back' },
   { value: 'left', label: 'Left' },
   { value: 'right', label: 'Right' },
-];
-
-export const SUPPORT_POLES = [
-  { value: 'frontLeft', label: 'Front left' },
-  { value: 'frontRight', label: 'Front right' },
-  { value: 'backLeft', label: 'Back left' },
-  { value: 'backRight', label: 'Back right' },
 ];
 
 export const POLE_FACES = [

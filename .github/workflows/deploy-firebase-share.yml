@@ -1,0 +1,141 @@
+name: Deploy Firebase share backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'firebase-share-backend/**'
+      - '.github/workflows/deploy-firebase-share.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: firebase-share-backend-production
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: configurator-360
+  FUNCTIONS_DISCOVERY_TIMEOUT: '30'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Configure Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Firebase function dependencies
+        working-directory: firebase-share-backend/functions
+        run: npm ci --ignore-scripts
+
+      - name: Validate Firebase function source
+        working-directory: firebase-share-backend/functions
+        run: node --check index.js && node --check quotation.js && node --check bookshelf-quotation.js && node --check profile.js && node --check sales-dashboard.js && node --check configurator-colors.js && node --check entry.js
+
+      - name: Validate shared tenant-domain policy
+        run: npm run check:tenant-domains
+
+      - name: Validate Tier-1 tenant authentication integration
+        run: node scripts/validation/validate_tenant_auth_domains.mjs
+
+      - name: Validate Tier-1 saved-configuration isolation
+        run: node scripts/validation/validate_tenant_saved_configurations.mjs
+
+      - name: Validate Tier-1 tenant lifecycle administration
+        run: node scripts/validation/validate_tenant_lifecycle.mjs
+
+      - name: Validate Tier-1 plan and subscription model
+        run: node scripts/validation/validate_tenant_subscription_model.mjs
+
+      - name: Validate Tier-1 plan-change workflow
+        run: node scripts/validation/validate_tenant_plan_changes.mjs
+
+      - name: Validate Tier-1 tenant usage metering
+        run: node scripts/validation/validate_tenant_usage_metering.mjs
+
+      - name: Validate configurator product analytics
+        run: node scripts/validation/validate_configurator_analytics.mjs
+
+      - name: Validate Tier-1 customer dashboard
+        run: node scripts/validation/validate_tenant_dashboard.mjs
+
+      - name: Validate Tier-1 tenant audit log
+        run: node scripts/validation/validate_tenant_audit_log.mjs
+
+      - name: Validate internal sales dashboard
+        run: node scripts/validation/validate_sales_dashboard.mjs
+
+      - name: Validate configurator color editor
+        run: node --test scripts/validation/configurator-color-editor.test.mjs
+
+      - name: Validate direct configuration quotations
+        run: node --test scripts/validation/configuration-quotation.test.cjs
+
+      - name: Validate expected Firebase exports
+        working-directory: firebase-share-backend/functions
+        run: >-
+          node -e "const f=require('./entry.js'); const expected=['enforceSharedConfigurationQuota','createSharedConfiguration','getShareProtectionStatus','saveUserConfiguration','listUserConfigurations','getUserConfiguration','deleteUserConfiguration','getUserCart','mutateUserCart','submitContact','createDomainAuthHandoff','redeemDomainAuthHandoff','provisionTenant','listTenants','getTenant','updateTenant','getTenantPlans','getPublicTenantPlans','resolveTenantPlanChange','setTenantSubscriptionState','recordConfiguratorAnalyticsEvent','getPlatformAnalytics','getTenantDashboard','updateTenantDashboard','cancelTenantPlanChange','requestCartQuotation','requestBookshelfQuotation','requestConfigurationQuotation','getUserProfile','updateUserProfile','exportUserProfileData','deleteUserAccount','getSalesDashboardUsers','getSalesDashboardUserDetails','getSalesDashboardDemoRequests','createSalesDashboardConfigurationLink','attachDemoRequestUser','getConfiguratorColorEditor','saveConfiguratorColors','getConfiguratorColors']; const missing=expected.filter((name)=>typeof f[name]!=='function'); if(missing.length){console.error('Missing Firebase exports:', missing.join(', ')); process.exit(1);} console.log('Firebase exports OK:', expected.join(', '));"
+
+      - name: Deploy share functions
+        working-directory: firebase-share-backend
+        run: >-
+          npx --yes firebase-tools@latest deploy
+          --project "${GCP_PROJECT_ID}"
+          --only functions:enforceSharedConfigurationQuota,functions:createSharedConfiguration,functions:getShareProtectionStatus,functions:saveUserConfiguration,functions:listUserConfigurations,functions:getUserConfiguration,functions:deleteUserConfiguration,functions:getUserCart,functions:mutateUserCart,functions:submitContact,functions:createDomainAuthHandoff,functions:redeemDomainAuthHandoff,functions:provisionTenant,functions:listTenants,functions:getTenant,functions:updateTenant,functions:getTenantPlans,functions:getPublicTenantPlans,functions:resolveTenantPlanChange,functions:setTenantSubscriptionState,functions:recordConfiguratorAnalyticsEvent,functions:getPlatformAnalytics,functions:getTenantDashboard,functions:updateTenantDashboard,functions:cancelTenantPlanChange,functions:requestCartQuotation,functions:requestBookshelfQuotation,functions:requestConfigurationQuotation,functions:getUserProfile,functions:updateUserProfile,functions:exportUserProfileData,functions:deleteUserAccount,functions:getSalesDashboardUsers,functions:getSalesDashboardUserDetails,functions:getSalesDashboardDemoRequests,functions:createSalesDashboardConfigurationLink,functions:attachDemoRequestUser,functions:getConfiguratorColorEditor,functions:saveConfiguratorColors,functions:getConfiguratorColors
+          --non-interactive
+
+      - name: Deploy Firestore rules, TTL and index exemptions
+        working-directory: firebase-share-backend
+        run: >-
+          npx --yes firebase-tools@latest deploy
+          --project "${GCP_PROJECT_ID}"
+          --only firestore:rules,firestore:indexes
+          --non-interactive
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "## Firebase share backend deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Functions: share quota/App Check + authenticated per-user saved configurations" >> "$GITHUB_STEP_SUMMARY"
+          echo "- App Check: lazy, Share-action only; background token refresh disabled" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Saved configurations: private Firebase-authenticated storage with Tier-1 tenant isolation; no App Check assessment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Cart: Firebase-authenticated account cart synchronized across public country domains with tenant isolation" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Quotation: authenticated cart quotation email with guest-safe configuration links and selected locale/currency" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Profile: authenticated profile read/update/export/delete functions deployed with production, tenant and local-development CORS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Internal sales dashboard: allowlisted user, quotation, demo and shopping-cart review with server-generated configuration links" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Contact form: App Check-protected server-side email delivery through Google Workspace Gmail API" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Contact spam protection: honeypot + hashed-IP Firestore rate limit" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Domain switching: short-lived one-time authentication handoff functions deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tier-1 provisioning: authenticated allowlisted tenant creation + automatic Firebase Auth domain authorization deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tier-1 lifecycle: list/edit configurators, branding, suspend and reactivate tenants without deleting data" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tier-1 subscription foundation: plan limits + Stripe-ready subscription state machine" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tier-1 customer dashboard: owner-bound self-service branding, plan/configurator management and analytics" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tier-1 audit log: append-only tenant lifecycle/settings history for customers and internal admins" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tier-1 usage: monthly Solar metering and enforceable per-tenant quotas" >> "$GITHUB_STEP_SUMMARY"
+          echo "- reCAPTCHA monthly safety threshold: 9,500 assessments" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Automatic fallback: reCAPTCHA-free direct Firestore Share until next UTC month" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Internal warnings: 8,000 / 9,000 / 9,400 assessments" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Share payload quota: 200 MiB" >> "$GITHUB_STEP_SUMMARY"
+          echo "- FIFO cleanup chunk: 1 MiB minimum" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Share lifetime: 90 days" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Firestore TTL: sharedConfigurations.expiresAt" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Unindexed fields: sharedConfigurations.s, sharedConfigurations.expiresAt" >> "$GITHUB_STEP_SUMMARY"

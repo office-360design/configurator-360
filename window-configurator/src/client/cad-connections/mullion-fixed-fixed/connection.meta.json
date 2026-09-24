@@ -1,0 +1,634 @@
+{
+  "schemaVersion": 2,
+  "id": "mullion-fixed-fixed",
+  "kind": "cad-connection-template",
+  "boundary": "mullion-transom",
+  "leftCell": "fixed-glazing",
+  "rightCell": "fixed-glazing",
+  "mirrorAllowed": false,
+  "orientation": "left-right-section",
+  "source": {
+    "path": "cad/source/join/window-mullion-window.dwg",
+    "sha256": "e92296c4a519c568a90810e0a657937561061a462c003a5e3c2c1448d0f20ff4"
+  },
+  "extraction": {
+    "method": "exact-insert-transform-matching",
+    "converter": "cad/tools/test_convert.js",
+    "modelSpacePolicy": "prefer-inserts",
+    "geometrySource": {
+      "modelSpacePolicy": "prefer-inserts",
+      "topLevelInsertCount": 7,
+      "directModelSpaceEntityCount": 67,
+      "directModelSpacePathCount": 45,
+      "filteredPathCount": 0,
+      "usedInsertGeometry": true,
+      "usedDirectModelSpaceGeometry": false,
+      "ignoredDirectModelSpaceGeometry": true,
+      "componentCount": 12
+    },
+    "note": "Rotation/mirroring is derived from CAD INSERT transforms. Bounding boxes are used only to validate a transform match, never to choose the rotation."
+  },
+  "bounds": {
+    "minX": 20.03774862765974,
+    "minY": 113.4648721051971,
+    "maxX": 116.47178026929055,
+    "maxY": 178.46487210519712
+  },
+  "profileOccurrences": {
+    "224063": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "224063",
+        "role": "gasket",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 26.55476444847989,
+          "ty": 117.4647178150266
+        },
+        "bbox": {
+          "minX": 20.03774862765974,
+          "minY": 115.46458681502843,
+          "maxX": 33.50221344847557,
+          "maxY": 122.26454460488958
+        },
+        "center": {
+          "x": 26.769981038067655,
+          "y": 118.86456570995901
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224063_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": true
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "224063",
+        "role": "gasket",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 109.9547644484704,
+          "ty": 117.4647178150266
+        },
+        "bbox": {
+          "minX": 103.00731544847471,
+          "minY": 115.46458681502843,
+          "maxX": 116.47178026929055,
+          "maxY": 122.26454460488958
+        },
+        "center": {
+          "x": 109.73954785888263,
+          "y": 118.86456570995901
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224063_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      }
+    ],
+    "224378": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "224378",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 207.79722598794112,
+          "ty": 39.068978647885984
+        },
+        "determinant": -1,
+        "mirrored": true,
+        "bbox": {
+          "minX": 97.8190704417585,
+          "minY": 148.75846222609815,
+          "maxX": 111.80081147233678,
+          "maxY": 158.11882663336223
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 0,
+        "matches": [
+          {
+            "sourceComponentId": "224378_s_8-0",
+            "targetComponentId": "224378_s_8-inst1-8",
+            "bboxErrorMm": 0
+          }
+        ]
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "224378",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -71.28769709099086,
+          "ty": 39.068978647885984
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 24.708717424613482,
+          "minY": 148.75846222609815,
+          "maxX": 38.690458455191774,
+          "maxY": 158.11882663336223
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 7.105427357601002e-15,
+        "matches": [
+          {
+            "sourceComponentId": "224378_s_8-0",
+            "targetComponentId": "224378_s_8-1",
+            "bboxErrorMm": 7.105427357601002e-15
+          }
+        ]
+      }
+    ],
+    "573940": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "573940",
+        "transform": {
+          "a": 0,
+          "b": 1,
+          "c": 1,
+          "d": 0,
+          "tx": -15.443278466865763,
+          "ty": 43.238863417227705
+        },
+        "determinant": -1,
+        "mirrored": true,
+        "bbox": {
+          "minX": 84.90476840316958,
+          "minY": 165.9648721051971,
+          "maxX": 87.4047604937807,
+          "maxY": 168.0148721051971
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.5888218580782548e-14,
+        "matches": [
+          {
+            "sourceComponentId": "244511_s_2-1",
+            "targetComponentId": "244511_s_2-inst1-10",
+            "bboxErrorMm": 1.5888218580782548e-14
+          }
+        ]
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "573940",
+        "transform": {
+          "a": 0,
+          "b": -1,
+          "c": 1,
+          "d": 0,
+          "tx": 151.95280736381608,
+          "ty": 43.238863417227705
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 49.104768403169594,
+          "minY": 165.9648721051971,
+          "maxX": 51.6047604937807,
+          "maxY": 168.0148721051971
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.9131948672901813e-14,
+        "matches": [
+          {
+            "sourceComponentId": "244511_s_2-1",
+            "targetComponentId": "244511_s_2-7",
+            "bboxErrorMm": 1.9131948672901813e-14
+          }
+        ]
+      }
+    ],
+    "575800": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "575800",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -32.122859570107664,
+          "ty": -21.013551459817492
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 24.25476444847516,
+          "minY": 113.4648721051971,
+          "maxX": 112.25476444847516,
+          "maxY": 178.46487210519712
+        },
+        "matchedComponentCount": 4,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.464821375527116e-14,
+        "matches": [
+          {
+            "sourceComponentId": "581950_s-0",
+            "targetComponentId": "581950_s-2",
+            "bboxErrorMm": 1.7763568394002505e-15
+          },
+          {
+            "sourceComponentId": "587300_s-1",
+            "targetComponentId": "587300_s-3",
+            "bboxErrorMm": 1.4210854715202004e-14
+          },
+          {
+            "sourceComponentId": "30065126_s-2",
+            "targetComponentId": "30065126_s-4",
+            "bboxErrorMm": 1.4210854715202004e-14
+          },
+          {
+            "sourceComponentId": "30065126_s-inst1-3",
+            "targetComponentId": "30065126_s-inst1-5",
+            "bboxErrorMm": 1.464821375527116e-14
+          }
+        ]
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "575800",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 168.63238846705795,
+          "ty": -21.013551459817478
+        },
+        "determinant": -1,
+        "mirrored": true,
+        "bbox": {
+          "minX": 49.45476444847515,
+          "minY": 125.97487210519711,
+          "maxX": 87.05476444847511,
+          "maxY": 160.4548721051971
+        },
+        "matchedComponentCount": 2,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 3.4809342861069267e-14,
+        "matches": [
+          {
+            "sourceComponentId": "30065126_s-2",
+            "targetComponentId": "30065126_s-inst1-5",
+            "bboxErrorMm": 3.351623381340333e-14
+          },
+          {
+            "sourceComponentId": "30065126_s-inst1-3",
+            "targetComponentId": "30065126_s-4",
+            "bboxErrorMm": 3.4809342861069267e-14
+          }
+        ]
+      }
+    ],
+    "575810": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "575810",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -0.40367874173108476,
+          "ty": -44.15923027441339
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 24.25476444847516,
+          "minY": 113.4648721051971,
+          "maxX": 112.25476444847516,
+          "maxY": 178.46487210519712
+        },
+        "matchedComponentCount": 3,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.464821375527116e-14,
+        "matches": [
+          {
+            "sourceComponentId": "581950_s-0",
+            "targetComponentId": "581950_s-2",
+            "bboxErrorMm": 3.552713678800501e-15
+          },
+          {
+            "sourceComponentId": "587300_s-1",
+            "targetComponentId": "587300_s-3",
+            "bboxErrorMm": 1.4210854715202004e-14
+          },
+          {
+            "sourceComponentId": "30065126_s-2",
+            "targetComponentId": "30065126_s-inst1-5",
+            "bboxErrorMm": 1.464821375527116e-14
+          }
+        ]
+      }
+    ]
+  },
+  "roleOccurrences": {
+    "gasket": [
+      {
+        "profileId": "224063",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 26.55476444847989,
+          "ty": 117.4647178150266
+        },
+        "bbox": {
+          "minX": 20.03774862765974,
+          "minY": 115.46458681502843,
+          "maxX": 33.50221344847557,
+          "maxY": 122.26454460488958
+        },
+        "center": {
+          "x": 26.769981038067655,
+          "y": 118.86456570995901
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224063_s"
+        ]
+      },
+      {
+        "profileId": "224063",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 109.9547644484704,
+          "ty": 117.4647178150266
+        },
+        "bbox": {
+          "minX": 103.00731544847471,
+          "minY": 115.46458681502843,
+          "maxX": 116.47178026929055,
+          "maxY": 122.26454460488958
+        },
+        "center": {
+          "x": 109.73954785888263,
+          "y": 118.86456570995901
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224063_s"
+        ]
+      },
+      {
+        "profileId": "224378",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 207.79722598794112,
+          "ty": 39.068978647885984
+        },
+        "bbox": {
+          "minX": 97.8190704417585,
+          "minY": 148.75846222609815,
+          "maxX": 111.80081147233678,
+          "maxY": 158.11882663336223
+        },
+        "center": {
+          "x": 104.80994095704764,
+          "y": 153.43864442973018
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "224378",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -71.28769709099086,
+          "ty": 39.068978647885984
+        },
+        "bbox": {
+          "minX": 24.708717424613482,
+          "minY": 148.75846222609815,
+          "maxX": 38.690458455191774,
+          "maxY": 158.11882663336223
+        },
+        "center": {
+          "x": 31.699587939902628,
+          "y": 153.43864442973018
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 7.105427357601002e-15,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      }
+    ],
+    "glazing-bead": [
+      {
+        "profileId": "573940",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 0,
+          "b": 1,
+          "c": 1,
+          "d": 0,
+          "tx": -15.443278466865763,
+          "ty": 43.238863417227705
+        },
+        "bbox": {
+          "minX": 84.90476840316958,
+          "minY": 165.9648721051971,
+          "maxX": 87.4047604937807,
+          "maxY": 168.0148721051971
+        },
+        "center": {
+          "x": 86.15476444847513,
+          "y": 166.9898721051971
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.5888218580782548e-14,
+        "mirrored": true,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "573940",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": 0,
+          "b": -1,
+          "c": 1,
+          "d": 0,
+          "tx": 151.95280736381608,
+          "ty": 43.238863417227705
+        },
+        "bbox": {
+          "minX": 49.104768403169594,
+          "minY": 165.9648721051971,
+          "maxX": 51.6047604937807,
+          "maxY": 168.0148721051971
+        },
+        "center": {
+          "x": 50.35476444847515,
+          "y": 166.9898721051971
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.9131948672901813e-14,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      }
+    ],
+    "mullion-transom": [
+      {
+        "profileId": "575800",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -32.122859570107664,
+          "ty": -21.013551459817492
+        },
+        "bbox": {
+          "minX": 24.25476444847516,
+          "minY": 113.4648721051971,
+          "maxX": 112.25476444847516,
+          "maxY": 178.46487210519712
+        },
+        "center": {
+          "x": 68.25476444847516,
+          "y": 145.96487210519712
+        },
+        "matchedComponentCount": 4,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.464821375527116e-14,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "575800",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 168.63238846705795,
+          "ty": -21.013551459817478
+        },
+        "bbox": {
+          "minX": 49.45476444847515,
+          "minY": 125.97487210519711,
+          "maxX": 87.05476444847511,
+          "maxY": 160.4548721051971
+        },
+        "center": {
+          "x": 68.25476444847513,
+          "y": 143.21487210519712
+        },
+        "matchedComponentCount": 2,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 3.4809342861069267e-14,
+        "mirrored": true,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "575810",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -0.40367874173108476,
+          "ty": -44.15923027441339
+        },
+        "bbox": {
+          "minX": 24.25476444847516,
+          "minY": 113.4648721051971,
+          "maxX": 112.25476444847516,
+          "maxY": 178.46487210519712
+        },
+        "center": {
+          "x": 68.25476444847516,
+          "y": 145.96487210519712
+        },
+        "matchedComponentCount": 3,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.464821375527116e-14,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      }
+    ]
+  },
+  "generatedAt": "2026-08-07T12:40:50.820Z"
+}

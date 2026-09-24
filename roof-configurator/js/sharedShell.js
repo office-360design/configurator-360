@@ -1,5 +1,15 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=3';
-import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=2';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=panel-controls-3';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+
+const tenantContext = await requireTenantConfiguratorAccess('roof');
+
+
+const initialLocale = resolveRoofLocale();
+applyRoofTranslations(initialLocale);
+const t = (key, variables = {}, locale = null) => roofT(locale ?? window.ROOF_CONFIGURATOR_SHARED_SHELL?.state?.locale ?? initialLocale, key, variables);
 
 const icon = (body) => `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -30,16 +40,17 @@ const tools = [
   {
     id: 'components',
     action: 'toggle-components',
-    label: 'Rainwater components',
+    label: roofT(initialLocale, 'tools.components'),
     icon: icon('<path d="M4 7h11v4H7.5a3.5 3.5 0 0 0 0 7H11"></path><path d="M15 7v4M11 15v6M8.5 21h5"></path>'),
   },
 ];
 
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Roof',
+  productId: 'roof',
   storagePrefix: '360-configurator:roof',
-  brandSrc: '../shared-ui/assets/360CONFIGURATOR.png',
-  brandAlt: '360 Configurator',
+  brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
+  brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
     viewAR: false,
     save: true,
@@ -56,16 +67,32 @@ const shell = mountStandaloneConfiguratorShell({
       offsetY: 0,
     },
   },
+  configuratorPanel: {
+    panelSelector: '.sidebar',
+    priceSelector: '#headerEstimateTotal',
+  },
   callbacks: {
-    onReset() {
-      document.querySelector('[data-view="reset"]')?.click();
+    async resetConfiguration() {
+      const api = window.ROOF_CONFIGURATOR_API;
+      if (!api?.resetConfiguration) return false;
+      return (await api.resetConfiguration()) !== false;
+    },
+    captureState() {
+      return window.ROOF_CONFIGURATOR_API?.captureState?.();
+    },
+    restoreState(snapshot) {
+      return window.ROOF_CONFIGURATOR_API?.restoreState?.(snapshot);
     },
     getShareUrl() {
-      return window.location.href;
+      const snapshot = window.ROOF_CONFIGURATOR_API?.captureState?.();
+      return snapshot
+        ? createShareUrl({ productType: 'roof', state: snapshot })
+        : window.location.href;
     },
     onPreferenceChange(name, value, preferences) {
       const snapshot = { ...preferences };
       window.ROOF_SHELL_PREFERENCES = snapshot;
+      if (name === 'locale') applyRoofTranslations(snapshot.locale);
       window.dispatchEvent(new CustomEvent('roof-preference-change', {
         detail: { name, value, preferences: snapshot },
       }));
@@ -78,6 +105,7 @@ window.dispatchEvent(new CustomEvent('roof-preference-change', {
   detail: { name: 'initial', value: null, preferences: { ...shell.state } },
 }));
 
+
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#roofSidebarToggle');
 
@@ -85,16 +113,24 @@ function setSidebarCollapsed(collapsed) {
   sidebar?.classList.toggle('is-collapsed', collapsed);
   document.body.classList.toggle('roof-sidebar-collapsed', collapsed);
   sidebarToggle?.setAttribute('aria-expanded', String(!collapsed));
-  sidebarToggle?.setAttribute('aria-label', collapsed ? 'Show roof settings' : 'Hide roof settings');
-  sidebarToggle?.setAttribute('title', collapsed ? 'Show roof settings' : 'Hide roof settings');
+  const label = t(collapsed ? 'sidebar.show' : 'sidebar.hide');
+  sidebarToggle?.setAttribute('aria-label', label);
+  sidebarToggle?.setAttribute('title', label);
 }
 
 sidebarToggle?.addEventListener('click', () => {
   setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed'));
 });
+setSidebarCollapsed(window.matchMedia('(max-width: 760px)').matches || Boolean(sidebar?.classList.contains('is-collapsed')));
+document.body.classList.add('roof-sidebar-ready');
+window.addEventListener('roof-locale-applied', () => {
+  setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));
+  syncToolsState();
+});
 
 if (sidebar) {
   const markDirty = (event) => {
+    if (event.target.closest('[data-shared-configurator-panel-footer]')) return;
     if (event.target.closest('button, input, select, textarea, label')) shell.markDirty();
   };
   sidebar.addEventListener('click', markDirty, true);
@@ -103,6 +139,7 @@ if (sidebar) {
 }
 
 const toolsAnchor = document.querySelector('#roofToolsAnchor');
+const viewerStage = document.querySelector('#viewerStage');
 const environmentPanel = document.querySelector('#roofEnvironmentPanel');
 const environmentClose = document.querySelector('#roofEnvironmentClose');
 const sunPositionControl = document.querySelector('#sunPositionControl');
@@ -116,6 +153,7 @@ const componentsClose = document.querySelector('#roofComponentsClose');
 const componentsSearch = document.querySelector('#roofComponentsSearch');
 const componentsEmpty = document.querySelector('#roofComponentsEmpty');
 const componentCards = [...document.querySelectorAll('[data-component-card]')];
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
 let relocatedToolsToolbar = null;
 let toolsPositionFrame = 0;
 
@@ -137,13 +175,26 @@ function setToolState(toolId, { active = false, disabled = false, title = null }
 
 function positionToolsUi() {
   toolsPositionFrame = 0;
-  if (!toolsAnchor || !relocatedToolsToolbar?.isConnected) return;
+  if (!relocatedToolsToolbar?.isConnected) return;
 
-  const anchorRect = toolsAnchor.getBoundingClientRect();
-  const toolbarLeft = Math.round(anchorRect.left);
-  const toolbarTop = Math.round(anchorRect.top);
+  // Pin the Roof tools to the 3D stage itself, not to the generic shared
+  // top-bar offset. The stage starts below the Roof viewer header/BOM row,
+  // so this remains correct on both desktop and mobile.
+  const stageRect = viewerStage?.getBoundingClientRect();
+  const anchorRect = toolsAnchor?.getBoundingClientRect();
+  const compact = mobileLayoutQuery.matches;
+  const toolbarLeft = Math.round((stageRect?.left ?? anchorRect?.left ?? 0) + (compact ? 10 : 18));
+  const toolbarTop = Math.round((stageRect?.top ?? anchorRect?.top ?? 0) + (compact ? 10 : 16));
+
   relocatedToolsToolbar.style.setProperty('--roof-tools-left', `${toolbarLeft}px`);
   relocatedToolsToolbar.style.setProperty('--roof-tools-top', `${toolbarTop}px`);
+  // Use inline !important values as the final authority. The shared toolbar
+  // has its own fixed positioning rule and can be re-rendered after mount.
+  relocatedToolsToolbar.style.setProperty('position', 'fixed', 'important');
+  relocatedToolsToolbar.style.setProperty('top', `${toolbarTop}px`, 'important');
+  relocatedToolsToolbar.style.setProperty('left', `${toolbarLeft}px`, 'important');
+  relocatedToolsToolbar.style.setProperty('right', 'auto', 'important');
+  relocatedToolsToolbar.style.setProperty('bottom', 'auto', 'important');
 
   if (!environmentPanel) return;
   const panelWidth = Math.min(390, Math.max(296, window.innerWidth - 24));
@@ -169,9 +220,11 @@ function scheduleToolsPosition() {
 }
 
 function relocateToolsToolbar() {
-  if (!toolsAnchor) return true;
   const toolbar = shell.host.querySelector('[data-shared-tools]');
   if (!toolbar) return false;
+
+  // Shared UI may replace this node when it re-renders. Always reacquire the
+  // current toolbar and reapply the Roof-specific class/positioning.
   relocatedToolsToolbar = toolbar;
   toolbar.classList.add('roof-relocated-tools-toolbar');
   scheduleToolsPosition();
@@ -184,7 +237,7 @@ function setEnvironmentPanelOpen(open) {
   if (isOpen) setComponentsPanelOpen(false);
   environmentPanel.hidden = !isOpen;
   environmentPanel.classList.toggle('is-open', isOpen);
-  setToolState('environment', { active: isOpen, title: 'Sun and orientation' });
+  setToolState('environment', { active: isOpen, title: t('tools.environmentTitle') });
   scheduleToolsPosition();
 }
 
@@ -199,13 +252,13 @@ function setComponentsPanelOpen(open) {
   document.body.classList.toggle('roof-components-open', isOpen);
   setToolState('components', {
     active: isOpen,
-    title: isOpen ? 'Close rainwater components' : 'Open rainwater components',
+    title: t(isOpen ? 'tools.closeComponents' : 'tools.openComponents'),
   });
   if (isOpen) window.setTimeout(() => componentsSearch?.focus(), 180);
 }
 
 function filterComponents(query = '') {
-  const normalized = String(query).trim().toLocaleLowerCase('ro');
+  const normalized = String(query).trim().toLocaleLowerCase(resolveRoofLocale(shell.state.locale));
   let visibleCount = 0;
   componentCards.forEach((card) => {
     const visible = !normalized || card.dataset.search.includes(normalized);
@@ -221,26 +274,26 @@ function syncToolsState(detail = getApi()?.getState?.()) {
   setToolState('dimensions', {
     active: Boolean(detail.showDimensions) && Boolean(detail.dimensionsAvailable),
     disabled: !detail.dimensionsAvailable,
-    title: detail.dimensionsAvailable ? 'Toggle dimensions' : 'Dimensions unavailable for custom plans',
+    title: t(detail.dimensionsAvailable ? 'tools.dimensions' : 'tools.dimensionsUnavailable'),
   });
   setToolState('compass', {
     active: Boolean(detail.showCompass),
-    title: detail.showCompass ? 'Hide compass' : 'Show compass',
+    title: t(detail.showCompass ? 'tools.hideCompass' : 'tools.showCompass'),
   });
   setToolState('components', {
     active: Boolean(componentsDrawer?.classList.contains('is-open')),
     title: componentsDrawer?.classList.contains('is-open')
-      ? 'Close rainwater components'
-      : 'Open rainwater components',
+      ? t('tools.closeComponents')
+      : t('tools.openComponents'),
   });
 
-  const viewNames = { perspective: '3D', front: 'Front', top: 'Top' };
+  const viewNames = { perspective: '3D', front: t('viewer.front'), top: t('viewer.top') };
   const order = ['perspective', 'front', 'top'];
   const index = Math.max(0, order.indexOf(detail.currentView));
   const nextView = order[(index + 1) % order.length];
   setToolState('camera', {
     active: false,
-    title: `Change orientation: ${viewNames[nextView]}`,
+    title: t('tools.changeOrientation', { view: viewNames[nextView] }),
   });
 
   if (sunPositionControl) sunPositionControl.value = String(detail.sunPosition ?? 42);
@@ -319,17 +372,25 @@ window.addEventListener('roof-configurator-ready', (event) => syncToolsState(eve
 window.addEventListener('roof-tools-state-change', (event) => syncToolsState(event.detail));
 window.addEventListener('resize', scheduleToolsPosition);
 
-if (!relocateToolsToolbar()) {
-  const toolsObserver = new MutationObserver(() => {
-    if (relocateToolsToolbar()) toolsObserver.disconnect();
-  });
-  toolsObserver.observe(document.body, { childList: true, subtree: true });
-}
+relocateToolsToolbar();
+
+// Keep watching the shared host: some shell updates replace the toolbar DOM
+// node. Disconnecting after the first match is what allowed the Tools button
+// to snap back to the generic shared position.
+const toolsObserver = new MutationObserver(() => {
+  const currentToolbar = shell.host.querySelector('[data-shared-tools]');
+  if (currentToolbar && currentToolbar !== relocatedToolsToolbar) {
+    relocateToolsToolbar();
+  }
+});
+toolsObserver.observe(shell.host, { childList: true, subtree: true });
 
 if (toolsAnchor) new ResizeObserver(scheduleToolsPosition).observe(toolsAnchor);
+if (viewerStage) new ResizeObserver(scheduleToolsPosition).observe(viewerStage);
 requestAnimationFrame(() => {
   scheduleToolsPosition();
   syncToolsState();
 });
 
 window.ROOF_CONFIGURATOR_SHARED_SHELL = shell;
+

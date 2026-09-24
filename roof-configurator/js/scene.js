@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildRoofModel } from './roofFactory.js?v=13';
-import { createDimensions } from './dimensions.js?v=13';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { buildRoofModel } from './roofFactory.js?v=platform-18';
+import { createDimensions } from './dimensions.js?v=platform-18';
+import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=platform-18';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
@@ -23,18 +25,41 @@ export class RoofScene {
       northDirection: 108,
       nightPreview: false,
     };
+    this.currentRoofType = 'gable';
+    const profileMode = new URLSearchParams(window.location.search).get('profile');
+    this.profiling = profileMode !== null;
+    this.forceCompactProfile = profileMode === 'mobile';
+    this.profileFrameTimes = [];
+    this.profileLastFrame = 0;
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 300);
     this.camera.position.set(-13, 10, -15);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.compactViewport = this.forceCompactProfile || window.innerWidth <= 760 || (window.innerWidth <= 900 && window.innerHeight <= 520);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.compactViewport ? 1.25 : 2));
+    this.renderer.domElement.style.touchAction = 'none';
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    // Start at the settled daylight value so reloads do not briefly show a
+    // brighter, flatter roof before updateLighting() runs.
+    this.renderer.toneMappingExposure = 0.98;
     this.host.appendChild(this.renderer.domElement);
+
+    // Metals need a broad environment to remain readable between direct-light
+    // highlights. Directional lights alone made simple roof families nearly
+    // black while the many orientations of the L-shaped roof happened to catch
+    // a highlight. This neutral studio PMREM supplies reflection information
+    // without adding another visible hotspot.
+    const roomEnvironment = new RoomEnvironment();
+    const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+    this.environmentTarget = pmremGenerator.fromScene(roomEnvironment, 0.045);
+    this.scene.environment = this.environmentTarget.texture;
+    this.scene.environmentIntensity = 0.2;
+    roomEnvironment.dispose();
+    pmremGenerator.dispose();
 
     this.labelRenderer = new CSS2DRenderer();
     this.labelRenderer.domElement.style.position = 'absolute';
@@ -49,6 +74,8 @@ export class RoofScene {
     this.controls.maxDistance = 55;
     this.controls.maxPolarAngle = Math.PI * 0.48;
     this.controls.target.set(0, 2, 0);
+    this.controls.autoRotate = this.profiling;
+    this.controls.autoRotateSpeed = 0.85;
 
     this.addLights();
     this.addEnvironment();
@@ -57,6 +84,8 @@ export class RoofScene {
     this.scene.add(this.modelRoot);
     this.dimensionsRoot = new THREE.Group();
     this.scene.add(this.dimensionsRoot);
+    this.locale = 'en-US';
+    this.compassLabelObjects = {};
     this.compassRoot = this.createCompass();
     this.compassRoot.visible = false;
     this.scene.add(this.compassRoot);
@@ -72,23 +101,37 @@ export class RoofScene {
   }
 
   addLights() {
-    this.hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x72777d, 1.6);
+    this.hemisphereLight = new THREE.HemisphereLight(0xf7fbff, 0x69737d, 0.5);
     this.scene.add(this.hemisphereLight);
 
-    this.keyLight = new THREE.DirectionalLight(0xffffff, 4.2);
-    this.keyLight.position.set(-9, 14, 8);
+    // A small orientation-independent base prevents the same finish from
+    // changing value when a roof family rotates or reverses a plane.
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.02);
+    this.scene.add(this.ambientLight);
+
+    this.keyLight = new THREE.DirectionalLight(0xffffff, 2.7);
+    this.keyLight.position.set(-12, 20, -10);
+    this.keyLight.target.position.set(0, 2, 0);
     this.keyLight.castShadow = true;
-    this.keyLight.shadow.mapSize.set(2048, 2048);
+    const shadowMapSize = this.compactViewport ? 1024 : 2048;
+    this.keyLight.shadow.mapSize.set(shadowMapSize, shadowMapSize);
     this.keyLight.shadow.camera.left = -25;
     this.keyLight.shadow.camera.right = 25;
     this.keyLight.shadow.camera.top = 25;
     this.keyLight.shadow.camera.bottom = -25;
-    this.keyLight.shadow.bias = -0.0004;
-    this.scene.add(this.keyLight);
+    // Detailed tile relief needs a small receiver offset. The former negative
+    // bias caused isolated self-shadow specks on faces aimed away from the key.
+    this.keyLight.shadow.bias = -0.0001;
+    this.keyLight.shadow.normalBias = 0.018;
+    this.scene.add(this.keyLight, this.keyLight.target);
 
-    this.fillLight = new THREE.DirectionalLight(0xcbdcff, 1.35);
+    this.fillLight = new THREE.DirectionalLight(0xcbdcff, 0);
     this.fillLight.position.set(10, 7, -10);
     this.scene.add(this.fillLight);
+
+    this.presentationLight = new THREE.DirectionalLight(0xffffff, 0);
+    this.presentationLight.position.set(-11, 13, -14);
+    this.scene.add(this.presentationLight);
   }
 
   addEnvironment() {
@@ -165,20 +208,32 @@ export class RoofScene {
     center.renderOrder = 15;
     group.add(center);
 
-    const north = createCompassLabel('N', 'compass-label--north');
+    const labels = getRoofCompassLabels(this.locale);
+    const north = createCompassLabel(labels.north, 'compass-label--north');
     north.position.set(0, 0.13, -1.08);
     group.add(north);
-    const east = createCompassLabel('E');
+    const east = createCompassLabel(labels.east);
     east.position.set(1.08, 0.13, 0);
     group.add(east);
-    const south = createCompassLabel('S');
+    const south = createCompassLabel(labels.south);
     south.position.set(0, 0.13, 1.08);
     group.add(south);
-    const west = createCompassLabel('W');
+    const west = createCompassLabel(labels.west);
     west.position.set(-1.08, 0.13, 0);
     group.add(west);
+    this.compassLabelObjects = { north, east, south, west };
 
     return group;
+  }
+
+
+  setLocale(locale) {
+    this.locale = resolveRoofLocale(locale);
+    const labels = getRoofCompassLabels(this.locale);
+    Object.entries(labels).forEach(([direction, text]) => {
+      const object = this.compassLabelObjects?.[direction];
+      if (object?.element) object.element.textContent = text;
+    });
   }
 
   updateCompassPlacement(state) {
@@ -213,39 +268,37 @@ export class RoofScene {
   updateLighting() {
     const progress = clamp(this.environmentState.sunPosition / 100, 0, 1);
     const sunArc = Math.sin(progress * Math.PI);
-    const elevation = THREE.MathUtils.degToRad(8 + sunArc * 57);
-    // The compass treats -Z as north at 0°. The sun travels from east
-    // through south to west as the slider moves from morning to evening.
-    const relativeAzimuth = 70 - progress * 140;
-    const azimuth = THREE.MathUtils.degToRad(-this.environmentState.northDirection + relativeAzimuth);
-    const radius = 20;
-    const horizontalRadius = Math.cos(elevation) * radius;
-
-    this.keyLight.position.set(
-      Math.sin(azimuth) * horizontalRadius,
-      Math.sin(elevation) * radius,
-      Math.cos(azimuth) * horizontalRadius,
-    );
 
     const isNight = this.environmentState.nightPreview;
     if (isNight) {
       this.keyLight.color.setHex(0x9db9ff);
       this.keyLight.intensity = 0.55;
       this.hemisphereLight.intensity = 0.34;
+      this.ambientLight.intensity = 0.08;
       this.hemisphereLight.color.setHex(0x8da9dd);
       this.hemisphereLight.groundColor.setHex(0x111827);
       this.fillLight.intensity = 0.16;
+      this.presentationLight.intensity = 0.08;
       this.renderer.toneMappingExposure = 0.62;
       this.groundMaterial.color.setHex(0x26313f);
       this.grid.material.opacity = 0.11;
     } else {
       this.keyLight.color.setHex(0xffffff);
-      this.keyLight.intensity = 2.8 + sunArc * 1.8;
-      this.hemisphereLight.intensity = 1.45;
-      this.hemisphereLight.color.setHex(0xffffff);
-      this.hemisphereLight.groundColor.setHex(0x72777d);
-      this.fillLight.intensity = 1.15;
-      this.renderer.toneMappingExposure = 1.08;
+      // One elevated, asymmetric sun establishes a physically legible light
+      // direction across every roof topology. Hemisphere light supplies only
+      // soft sky bounce; the former opposing directional fills made shaded
+      // slopes appear self-lit and caused trims to flare independently.
+      this.keyLight.position.set(-12, 20, -10);
+      this.keyLight.target.position.set(0, 2, 0);
+      this.keyLight.intensity = 2.95 + sunArc * 0.15;
+      this.hemisphereLight.intensity = 0.5;
+      this.ambientLight.intensity = 0.02;
+      this.hemisphereLight.color.setHex(0xf7fbff);
+      this.hemisphereLight.groundColor.setHex(0x69737d);
+      this.fillLight.intensity = 0;
+      this.presentationLight.intensity = 0;
+      this.scene.environmentIntensity = 0.2;
+      this.renderer.toneMappingExposure = 0.98;
       this.groundMaterial.color.setHex(0xd9dddf);
       this.grid.material.opacity = 0.25;
     }
@@ -254,6 +307,8 @@ export class RoofScene {
   }
 
   rebuild(state, fitCamera = false) {
+    this.currentRoofType = state.roofType;
+    this.updateLighting();
     this.disposeGroup(this.modelRoot);
     this.disposeGroup(this.dimensionsRoot);
 
@@ -310,13 +365,68 @@ export class RoofScene {
   resize() {
     const width = Math.max(1, this.host.clientWidth);
     const height = Math.max(1, this.host.clientHeight);
+    const compactViewport = this.forceCompactProfile || window.innerWidth <= 760 || (window.innerWidth <= 900 && window.innerHeight <= 520);
+    const targetPixelRatio = Math.min(window.devicePixelRatio, compactViewport ? 1.25 : 2);
+    if (Math.abs(this.renderer.getPixelRatio() - targetPixelRatio) > 0.01) {
+      this.renderer.setPixelRatio(targetPixelRatio);
+    }
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
     this.labelRenderer.setSize(width, height);
   }
 
+  getProfileSnapshot() {
+    const materials = new Set();
+    const textures = new Set();
+    let meshes = 0;
+    let instancedMeshes = 0;
+    this.modelRoot.traverse((object) => {
+      if (object.isMesh) meshes += 1;
+      if (object.isInstancedMesh) instancedMeshes += 1;
+      const entries = Array.isArray(object.material) ? object.material : object.material ? [object.material] : [];
+      entries.forEach((material) => {
+        materials.add(material.uuid);
+        ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap'].forEach((slot) => {
+          if (material[slot]?.isTexture) textures.add(material[slot]);
+        });
+      });
+    });
+    const roofTextureGpuBytes = [...textures].reduce((total, texture) => {
+      const width = texture.image?.naturalWidth ?? texture.image?.width ?? 0;
+      const height = texture.image?.naturalHeight ?? texture.image?.height ?? 0;
+      // WebGL uploads the source maps as RGBA8; include the full mip chain.
+      return total + width * height * 4 * 4 / 3;
+    }, 0);
+    const samples = [...this.profileFrameTimes].sort((a, b) => a - b);
+    const averageFrameMs = samples.length ? samples.reduce((sum, value) => sum + value, 0) / samples.length : 0;
+    const p95FrameMs = samples.length ? samples[Math.min(samples.length - 1, Math.floor(samples.length * 0.95))] : 0;
+    return {
+      calls: this.renderer.info.render.calls,
+      triangles: this.renderer.info.render.triangles,
+      geometries: this.renderer.info.memory.geometries,
+      textures: this.renderer.info.memory.textures,
+      programs: this.renderer.info.programs?.length ?? 0,
+      materials: materials.size,
+      meshes,
+      instancedMeshes,
+      pixelRatio: this.renderer.getPixelRatio(),
+      averageFrameMs: Number(averageFrameMs.toFixed(2)),
+      p95FrameMs: Number(p95FrameMs.toFixed(2)),
+      sampledFrames: samples.length,
+      roofTextureGpuBytes: Math.round(roofTextureGpuBytes),
+    };
+  }
+
   animate() {
+    if (this.profiling) {
+      const now = performance.now();
+      if (this.profileLastFrame) {
+        this.profileFrameTimes.push(now - this.profileLastFrame);
+        if (this.profileFrameTimes.length > 240) this.profileFrameTimes.shift();
+      }
+      this.profileLastFrame = now;
+    }
     this.controls.update(this.clock.getDelta());
     this.renderer.render(this.scene, this.camera);
     this.labelRenderer.render(this.scene, this.camera);

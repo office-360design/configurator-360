@@ -1,0 +1,78 @@
+name: Validate tenant catalogue
+
+on:
+  push:
+    branches: [tenants]
+    paths:
+      - '.github/workflows/validate-tenant-catalogue.yml'
+      - 'shared-ui/**'
+      - 'firebase-share-backend/**'
+      - 'scripts/validation/**'
+      - 'tiles-configurator/**'
+      - 'cardbox-configurator/**'
+      - 'chair-configurator/**'
+      - 'bookshelf-configurator/**'
+      - 'cloudrun/**'
+      - 'package*.json'
+  pull_request:
+    branches: [main, tenants]
+    paths:
+      - '.github/workflows/validate-tenant-catalogue.yml'
+      - 'shared-ui/**'
+      - 'firebase-share-backend/**'
+      - 'scripts/validation/**'
+      - 'tiles-configurator/**'
+      - 'cardbox-configurator/**'
+      - 'chair-configurator/**'
+      - 'bookshelf-configurator/**'
+      - 'cloudrun/**'
+      - 'package*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tenant-catalogue-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Tenant and configurator regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for check in tenant tenant-catalogue tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
+            npm run "check:$check"
+          done
+          node --check firebase-share-backend/functions/index.js
+          for file in shared-ui/src/tenant*.js {tiles,cardbox,chair,bookshelf}-configurator/js/app.js {cardbox,bookshelf}-configurator/js/sharedShell.js; do
+            node --check "$file"
+          done
+      - name: Install browser test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Dashboard and admin browser smoke
+        run: npm run check:tenant-catalogue:browser
+      - name: Record validated source manifest
+        if: always()
+        run: |
+          mkdir -p artifacts
+          git ls-files -z | xargs -0 sha256sum > artifacts/tenant-catalogue-source.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tenant-catalogue-validation
+          path: |
+            artifacts/tenant-catalogue-dashboard.png
+            artifacts/tenant-catalogue-source.sha256
+          retention-days: 7

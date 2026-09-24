@@ -1,24 +1,74 @@
-import { state } from './state.js?v=15';
-import { RoofScene } from './scene.js?v=16';
-import { RoofUI } from './ui.js?v=15';
+import { state, pitchRules, roofNames } from './state.js?v=platform-18';
+import { RoofScene } from './scene.js?v=platform-18';
+import { RoofUI } from './ui.js?v=panel-controls-3';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
-} from './preferences.js?v=1';
+} from './preferences.js?v=platform-18';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=panel-controls-3';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+
+await requireTenantConfiguratorAccess('roof');
+
+const VIEW_ORDER = ['perspective', 'front', 'top'];
+const DEFAULT_ROOF_STATE = structuredClone(state);
+const ROOF_SHARE_NUMBERS = ['length', 'depth', 'wallHeight', 'pitch', 'overhang', 'sunPosition', 'northDirection'];
+const ROOF_SHARE_BOOLEANS = ['showDimensions', 'technicalEdges', 'showCompass', 'nightPreview'];
+
+function applySharedRoofState(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return;
+
+  if (Object.prototype.hasOwnProperty.call(roofNames, snapshot.roofType)) state.roofType = snapshot.roofType;
+  if (Object.prototype.hasOwnProperty.call(pitchRules, snapshot.covering)) state.covering = snapshot.covering;
+  if (typeof snapshot.roofColor === 'string' && /^#[0-9a-f]{6}$/i.test(snapshot.roofColor)) state.roofColor = snapshot.roofColor;
+
+  ROOF_SHARE_NUMBERS.forEach((key) => {
+    const value = Number(snapshot[key]);
+    if (Number.isFinite(value)) state[key] = value;
+  });
+  ROOF_SHARE_BOOLEANS.forEach((key) => {
+    if (typeof snapshot[key] === 'boolean') state[key] = snapshot[key];
+  });
+
+  if (snapshot.customPlan === null || (snapshot.customPlan && typeof snapshot.customPlan === 'object')) {
+    state.customPlan = snapshot.customPlan ? structuredClone(snapshot.customPlan) : null;
+  }
+  if (Array.isArray(snapshot.excludedBomItems)) {
+    state.excludedBomItems = snapshot.excludedBomItems.filter((item) => typeof item === 'string');
+  }
+
+  const rule = pitchRules[state.covering] ?? pitchRules.generic;
+  state.pitch = Math.max(rule.minimum, state.pitch);
+}
+
+const sharedRoofState = await readShareState({ productType: 'roof' });
+applySharedRoofState(sharedRoofState);
 
 const initialPreferences = window.ROOF_SHELL_PREFERENCES || {};
 state.units = normalizeUnits(initialPreferences.units ?? state.units);
 state.currency = normalizeCurrency(initialPreferences.currency ?? state.currency);
+state.locale = resolveRoofLocale(initialPreferences.locale ?? state.locale);
+applyRoofTranslations(state.locale);
 state.currencyRate = getFallbackCurrencyRate(state.currency);
-state.currencyRateSource = state.currency === 'RON' ? 'reference currency' : 'temporary fallback estimate';
+state.currencyRateSource = state.currency === 'RON' ? 'reference' : 'temporary-fallback';
 state.currencyRateIsFallback = state.currency !== 'RON';
 
 const host = document.querySelector('#canvasHost');
 const scene = new RoofScene(host);
-const VIEW_ORDER = ['perspective', 'front', 'top'];
-let currentView = 'perspective';
+if (new URLSearchParams(window.location.search).has('profile')) {
+  const profileOutput = document.createElement('output');
+  profileOutput.id = 'roofProfileMetrics';
+  profileOutput.hidden = true;
+  document.body.appendChild(profileOutput);
+  const publishProfile = () => { profileOutput.textContent = JSON.stringify(scene.getProfileSnapshot()); };
+  publishProfile();
+  window.setInterval(publishProfile, 250);
+}
+scene.setLocale(state.locale);
+let currentView = VIEW_ORDER.includes(sharedRoofState?.currentView) ? sharedRoofState.currentView : 'perspective';
 let lastMetrics = null;
 let ui = null;
 let preferenceRequest = 0;
@@ -40,6 +90,7 @@ function emitToolsState() {
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
+      technicalEdges: state.technicalEdges,
       currentView,
     },
   }));
@@ -60,16 +111,24 @@ async function refreshCurrencyRate(currency) {
 function applyShellPreferences(preferences = {}) {
   const nextUnits = normalizeUnits(preferences.units ?? state.units);
   const nextCurrency = normalizeCurrency(preferences.currency ?? state.currency);
+  const nextLocale = resolveRoofLocale(preferences.locale ?? state.locale);
   const unitsChanged = nextUnits !== state.units;
   const currencyChanged = nextCurrency !== state.currency;
+  const localeChanged = nextLocale !== state.locale;
 
   state.units = nextUnits;
   state.currency = nextCurrency;
+  state.locale = nextLocale;
+
+  if (localeChanged) {
+    applyRoofTranslations(state.locale);
+    scene.setLocale(state.locale);
+  }
 
   if (currencyChanged) {
     state.currencyRate = getFallbackCurrencyRate(nextCurrency);
     state.currencyRateDate = null;
-    state.currencyRateSource = nextCurrency === 'RON' ? 'reference currency' : 'temporary fallback estimate';
+    state.currencyRateSource = nextCurrency === 'RON' ? 'reference' : 'temporary-fallback';
     state.currencyRateIsFallback = nextCurrency !== 'RON';
   }
 
@@ -80,6 +139,7 @@ function applyShellPreferences(preferences = {}) {
     ui?.setPreferences();
   }
 
+  if (localeChanged) emitToolsState();
   if (currencyChanged) refreshCurrencyRate(nextCurrency);
 }
 
@@ -106,11 +166,13 @@ function applyView(view) {
 }
 
 ui = new RoofUI(state, rebuild);
+ui.applyStateToControls();
 lastMetrics = scene.rebuild(state, true);
 scene.setEnvironment(state);
 scene.setCompassVisible(state.showCompass);
 ui.updateMetrics(lastMetrics);
 ui.setPreferences();
+if (currentView !== 'perspective') scene.setView(currentView, state, lastMetrics.ridgeElevation);
 syncViewButtons();
 refreshCurrencyRate(state.currency);
 
@@ -128,6 +190,26 @@ document.querySelectorAll('[data-view]').forEach((button) => {
   });
 });
 
+function resetConfiguration() {
+  const shellPreferences = {
+    units: state.units,
+    currency: state.currency,
+    locale: state.locale,
+    currencyRate: state.currencyRate,
+    currencyRateDate: state.currencyRateDate,
+    currencyRateSource: state.currencyRateSource,
+    currencyRateIsFallback: state.currencyRateIsFallback,
+  };
+  Object.assign(state, structuredClone(DEFAULT_ROOF_STATE), shellPreferences);
+  currentView = 'perspective';
+  ui?.applyStateToControls();
+  rebuild({ fitCamera: true });
+  ui?.setPreferences();
+  window.history.replaceState({}, '', window.location.pathname);
+  emitToolsState();
+  return true;
+}
+
 const configuratorApi = {
   getState() {
     return {
@@ -138,11 +220,48 @@ const configuratorApi = {
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
+      technicalEdges: state.technicalEdges,
       currentView,
       units: state.units,
       currency: state.currency,
+      locale: state.locale,
     };
   },
+
+  captureState() {
+    return {
+      roofType: state.roofType,
+      length: state.length,
+      depth: state.depth,
+      wallHeight: state.wallHeight,
+      pitch: state.pitch,
+      overhang: state.overhang,
+      covering: state.covering,
+      roofColor: state.roofColor,
+      showDimensions: state.showDimensions,
+      technicalEdges: state.technicalEdges,
+      showCompass: state.showCompass,
+      sunPosition: state.sunPosition,
+      northDirection: state.northDirection,
+      nightPreview: state.nightPreview,
+      customPlan: state.customPlan ? structuredClone(state.customPlan) : null,
+      excludedBomItems: [...state.excludedBomItems],
+      currentView,
+    };
+  },
+
+  restoreState(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    applySharedRoofState(snapshot);
+    const restoredView = VIEW_ORDER.includes(snapshot.currentView) ? snapshot.currentView : 'perspective';
+    ui?.applyStateToControls();
+    rebuild({ fitCamera: true });
+    if (restoredView !== 'perspective') applyView(restoredView);
+    emitToolsState();
+    return true;
+  },
+
+  resetConfiguration,
 
   setDimensionsVisible(visible) {
     if (state.roofType === 'custom') return state.showDimensions;
@@ -153,6 +272,18 @@ const configuratorApi = {
 
   toggleDimensions() {
     return this.setDimensionsVisible(!state.showDimensions);
+  },
+
+  setTechnicalEdges(visible) {
+    state.technicalEdges = Boolean(visible);
+    const wireframeToggle = document.querySelector('#wireframeToggle');
+    if (wireframeToggle) wireframeToggle.checked = state.technicalEdges;
+    rebuild({ fitCamera: false });
+    return state.technicalEdges;
+  },
+
+  toggleTechnicalEdges() {
+    return this.setTechnicalEdges(!state.technicalEdges);
   },
 
   setCompassVisible(visible) {
@@ -205,3 +336,4 @@ window.addEventListener('roof-preference-change', (event) => {
 window.ROOF_CONFIGURATOR_API = configuratorApi;
 window.dispatchEvent(new CustomEvent('roof-configurator-ready', { detail: configuratorApi.getState() }));
 emitToolsState();
+
