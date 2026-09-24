@@ -1,3 +1,5 @@
+import { LitePreview } from "./lite-preview";
+import { isLiteSlug } from "../lib/lite-products";
 import { SiteHeader } from "./site-header";
 import { SiteFooter } from "./site-footer";
 import { SmoothScroll } from "./smooth-scroll";
@@ -67,13 +69,13 @@ export function LocalizedHome({ locale }: { locale: Locale }) {
 
       <section className="configurator-sequence" id="configurators">
         <div className="sequence-intro page-frame" data-reveal><span className="mono-label">{copy.systems}</span><h2>{copy.systemsA}<br/>{copy.systemsB}</h2><p className="sequence-intro-copy">{copy.systemsCopy}</p></div>
-        {configurators.map((item) => <article className={`spatial-showcase showcase-${item.slug}`} data-scene={item.slug} key={item.slug}>
+        {configurators.map((item) => <article className={`spatial-showcase showcase-${item.slug}${isLiteSlug(item.slug) ? " showcase-lite" : ""}`} data-scene={isLiteSlug(item.slug) ? undefined : item.slug} key={item.slug}>
           <div className="showcase-sticky page-frame">
             <div className="showcase-features"><ProductFeatureCube features={item.features} label={item.title} locale={locale} /></div>
             <div className="showcase-viewport" aria-label={`${item.title} ${ui.preview}`}>
-              {item.slug === "window" ? <WindowConfiguratorPreview locale={locale} /> : <SceneInteractor scene={item.slug} locale={locale} />}
+              {isLiteSlug(item.slug) ? <LitePreview slug={item.slug} locale={locale} /> : item.slug === "window" ? <WindowConfiguratorPreview locale={locale} /> : <SceneInteractor scene={item.slug} locale={locale} />}
               <div className="viewport-brackets" aria-hidden="true"><i/><i/><i/><i/></div><span className="viewport-status mono-label"><i/> {ui.preview}</span>
-              {item.slug !== "window" && <ShowcaseControls scene={item.slug} controls={item.controls} locale={locale} />}
+              {!isLiteSlug(item.slug) && item.slug !== "window" && <ShowcaseControls scene={item.slug} controls={item.controls} locale={locale} />}
             </div>
             <div className="showcase-story"><span className="mono-label">{copy.interactive} / {item.index}</span><h3>{item.shortTitle}</h3><p className="showcase-statement">{item.statement}</p><p>{item.description}</p>
               <div className="showcase-links"><a className="text-link" href={localizedPath(locale, `/configurators/${item.slug}`)}>{copy.viewCase} <span>→</span></a><a className="launch-link" href={item.launchUrl} target="_blank" rel="noreferrer">{copy.launch} <span>↗</span></a></div>
@@ -85,7 +87,7 @@ export function LocalizedHome({ locale }: { locale: Locale }) {
       <section className="custom-showcase" id="custom-system"><div className="page-frame custom-showcase-grid">
         <div className="custom-feature-column"><ProductFeatureCube label={copy.customViewport} locale={locale} features={copy.customFeatures.map(([title, short, body]) => ({ title, short, body }))}/></div>
         <div className="custom-blueprint" aria-label={copy.customViewport}><div className="viewport-brackets" aria-hidden="true"><i/><i/><i/><i/></div><span className="viewport-status mono-label"><i/> {copy.customViewport}</span><div className="blueprint-flow"><article><span>01 / INPUT</span><strong>CAD</strong><small>{copy.customStatus}</small></article><i>→</i><article><span>02 / LOGIC</span><strong>RULES</strong><small>{copy.customSignal}</small></article><i>→</i><article><span>03 / SYSTEM</span><strong>360°</strong><small>CONFIGURE / PRICE / OUTPUT</small></article></div><div className="blueprint-product"><i/><i/><i/><i/><div><span>PRODUCT</span><b>STATE</b></div></div></div>
-        <div className="custom-showcase-story"><span className="mono-label">{copy.customLabel.replace("06 /", "07 /")}</span><h2>{copy.customA}<br/><em>{copy.customB}</em></h2><p className="custom-statement">{copy.customStatement}</p><p>{copy.customCopy}</p><div className="custom-showcase-actions"><a className="launch-link" href={`${localizedPath(locale, "/contact")}?project=custom-system`}>{copy.customCta}<span>↗</span></a><a className="text-link" href={`${localizedPath(locale, "/pricing")}#deployment-paths`}>{copy.customPricing}<span>→</span></a></div></div>
+        <div className="custom-showcase-story"><span className="mono-label">{copy.customLabel.replace(/\d+ \//, `${String(configurators.length + 1).padStart(2, "0")} /`)}</span><h2>{copy.customA}<br/><em>{copy.customB}</em></h2><p className="custom-statement">{copy.customStatement}</p><p>{copy.customCopy}</p><div className="custom-showcase-actions"><a className="launch-link" href={`${localizedPath(locale, "/contact")}?project=custom-system`}>{copy.customCta}<span>↗</span></a><a className="text-link" href={`${localizedPath(locale, "/pricing")}#deployment-paths`}>{copy.customPricing}<span>→</span></a></div></div>
       </div></section>
 
       <section className="capability-field"><div className="page-frame"><div className="capability-heading" data-reveal><span className="mono-label">{copy.pipeline}</span><h2>{copy.pipelineA}<br/><em>{copy.pipelineB}</em></h2></div>

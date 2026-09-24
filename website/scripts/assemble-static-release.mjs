@@ -1,7 +1,7 @@
 import { cp, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { pageRoutes } from "./static-routes.mjs";
+import { pageRoutes, configurators as marketingConfiguratorSlugs } from "./static-routes.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const websiteRoot = path.resolve(scriptDirectory, "..");
@@ -15,8 +15,9 @@ const localizedOrigins = {
   de: "https://www.360konfigurator.de",
 };
 
-const marketingConfiguratorSlugs = ["pergola", "roof", "window", "hall", "solar", "fence"];
-const externalConfiguratorSlugs = [...marketingConfiguratorSlugs, "cardbox", "chair"];
+// Full bookshelf/tiles apps remain noindex; their new marketing pages are indexed.
+const externalConfiguratorSlugs = marketingConfiguratorSlugs;
+const indexedExternalSlugs = externalConfiguratorSlugs.filter(slug => !["bookshelf", "tiles"].includes(slug));
 
 const externalConfiguratorPaths = {
   en: {
@@ -28,6 +29,7 @@ const externalConfiguratorPaths = {
     fence: "/fence-configurator/",
     cardbox: "/cardbox-configurator/",
     chair: "/chair-configurator/",
+    bookshelf: "/bookshelf-configurator/", tiles: "/tiles-configurator/",
   },
   ro: {
     window: "/configurator-ferestre/",
@@ -38,6 +40,7 @@ const externalConfiguratorPaths = {
     fence: "/configurator-garduri/",
     cardbox: "/configurator-cutii-carton/",
     chair: "/configurator-scaune/",
+    bookshelf: "/bookshelf-configurator/", tiles: "/tiles-configurator/",
   },
   de: {
     window: "/fenster-konfigurator/",
@@ -48,6 +51,7 @@ const externalConfiguratorPaths = {
     fence: "/zaun-konfigurator/",
     cardbox: "/karton-konfigurator/",
     chair: "/stuhl-konfigurator/",
+    bookshelf: "/bookshelf-configurator/", tiles: "/tiles-configurator/",
   },
 };
 
@@ -69,7 +73,7 @@ function sitemapUrls(locale) {
     `${origin}/pricing`,
     `${origin}/book-a-demo`,
     ...marketingConfiguratorSlugs.map((slug) => `${origin}/configurators/${slug}`),
-    ...externalConfiguratorSlugs.map((slug) => `${origin}${externalConfiguratorPaths[locale][slug]}`),
+    ...indexedExternalSlugs.map((slug) => `${origin}${externalConfiguratorPaths[locale][slug]}`),
   ];
 }
 

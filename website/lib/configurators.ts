@@ -1,4 +1,7 @@
-export type ConfiguratorSlug = "pergola" | "roof" | "window" | "hall" | "solar" | "fence";
+import { newConfigurator } from "./new-configurators";
+import { liteSlugs, type LiteSlug } from "./lite-products";
+export type LegacyConfiguratorSlug = "pergola" | "roof" | "window" | "hall" | "solar" | "fence";
+export type ConfiguratorSlug = LegacyConfiguratorSlug | LiteSlug;
 
 export type Configurator = {
   slug: ConfiguratorSlug;
@@ -166,6 +169,7 @@ export const configurators: Configurator[] = [
     seoTitle: "3D Fence Configurator | Panels, Gates & Perimeter Layout",
     seoDescription: "Configure a fence online in 3D. Set perimeter layout, dimensions, bay width, panel style, finishes, gates and foundations with live BOM and pricing logic.",
   },
+  ...liteSlugs.map(slug => newConfigurator(slug)),
 ];
 
 export function getConfigurator(slug: string) {

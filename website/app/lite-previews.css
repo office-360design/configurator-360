@@ -1,0 +1,80 @@
+/* Layout only. Controls reuse the established instrument design system. */
+.lite-preview .lite-instrument .cardbox-style-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.lite-preview .lite-instrument .cardbox-style-grid button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:60px;padding:5px 3px;text-transform:none}
+.cardbox-style-grid svg{display:block;width:32px;height:25px;fill:none;stroke:currentColor;stroke-width:1.5}
+.cardbox-style-grid strong{font-size:9px;line-height:1.2;font-weight:600;max-width:100%}
+.cardbox-style-grid small{font:8px var(--font-geist-mono);opacity:.75}
+.cardbox-closure{display:block;margin-bottom:12px}
+.cardbox-closure select{display:block;width:100%;padding:10px;border:1px solid var(--line-strong);color:var(--ink);background:var(--canvas);font:11px var(--font-geist-mono)}
+.lite-preview .lite-instrument .cardbox-paper .scene-preset-row{grid-template-columns:1fr!important}
+.site-header .configurator-menu{max-height:calc(100dvh - 140px);overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin}
+.lite-notice{position:absolute;top:100%;left:0;width:100%;min-height:26px;padding:5px 20px;display:flex;justify-content:center;align-items:center;gap:10px;border-bottom:1px solid var(--line);background:rgba(var(--canvas-rgb),.96);color:var(--ink-soft);font:10px/1.4 var(--font-geist-sans)}
+.lite-notice>span{font:600 8px var(--font-geist-mono);letter-spacing:.12em;color:var(--brand)}
+.lite-notice a:hover{color:var(--brand)}
+@media(max-width:720px){.lite-notice{padding:4px 14px;align-items:flex-start;font-size:9px}.lite-notice>span{padding-top:2px}.site-header .configurator-menu{max-height:calc(100dvh - 150px)}}
+.lite-preview{position:absolute;inset:0;display:grid;grid-template-rows:minmax(200px,1fr) auto;isolation:isolate;color:var(--ink);pointer-events:auto}
+.lite-canvas{position:relative;min-height:0;grid-row:1;cursor:grab;touch-action:pan-y;overflow:hidden}
+.lite-canvas:active{cursor:grabbing}
+.lite-canvas canvas{position:absolute;inset:0;width:100%;height:100%}
+.lite-poster{position:absolute;width:100%;height:100%;color:var(--brand);opacity:.5}
+.lite-preview.is-ready .lite-poster{visibility:hidden}
+.lite-preview-badge{position:absolute;left:24px;top:22px;font-size:9px;color:var(--ink-faint);pointer-events:none;z-index:1}
+.lite-preview-badge i{display:inline-block;width:5px;height:5px;margin-right:8px;border-radius:50%;background:var(--brand)}
+.lite-view-tools{position:absolute;right:24px;top:44px;display:flex;align-items:center;gap:10px;z-index:2;font:9px var(--font-geist-mono);color:var(--ink-faint)}
+.lite-view-tools button{width:32px;height:32px;border:1px solid var(--line-strong);background:rgba(var(--canvas-rgb),.7);color:var(--brand);font-size:21px;cursor:pointer}
+.lite-activation{position:absolute;left:50%;top:26%;transform:translate(-50%,-50%);z-index:2;text-align:center;min-width:180px;max-width:80%}
+.lite-activation button{background:rgba(var(--canvas-rgb),.92);cursor:pointer;color:var(--ink)}
+.lite-activation p{font-size:12px;line-height:1.5;color:var(--ink-soft);background:var(--canvas);padding:10px}
+.lite-preview .lite-instrument.scene-controls.scene-controls-panel{position:relative;grid-row:2;inset:auto;transform:none;width:calc(100% - 28px);margin:0 14px 14px;max-height:390px;min-height:0;padding:12px 14px;z-index:4;display:block;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.lite-preview .lite-instrument .console-header{grid-template-columns:1fr auto;gap:8px;min-height:28px;align-items:center}
+.lite-preview .lite-instrument .console-header>span{display:block;font-size:10px;letter-spacing:.1em;color:var(--brand)}
+.lite-preview .lite-instrument .console-header>b{display:none}
+.lite-preview .lite-instrument .console-collapse{font-size:10px!important;min-height:30px}
+.lite-preview .lite-instrument .console-body{position:relative;min-height:0;padding-top:8px}
+.lite-preview .lite-instrument .console-body[hidden]{display:none}
+.lite-preview .lite-instrument .console-tabs{margin:0 0 10px;display:grid;grid-template-columns:1fr 1fr}
+.lite-preview .lite-instrument .console-tabs button{min-width:0;min-height:34px;font-size:10px!important;letter-spacing:.06em}
+.lite-preview .lite-instrument .control-section-label{font-size:9px!important;margin:9px 0 6px;letter-spacing:.08em;color:var(--ink-faint)}
+.lite-preview .lite-instrument .scene-preset-row{display:grid;margin:0 0 10px;overflow:visible}
+.lite-preview .lite-instrument .scene-preset-row button{min-width:0;min-height:32px;padding:6px;font-size:9px!important;white-space:normal;line-height:1.3;letter-spacing:.03em}
+.lite-preview .lite-instrument .scene-control-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0}
+.lite-preview[data-lite-product=tiles] .lite-instrument .scene-control-grid{grid-template-columns:1fr 1fr}
+.lite-preview .lite-instrument .scene-range{grid-template-rows:auto 22px;min-height:40px}
+.lite-preview .lite-instrument .scene-range>span,.lite-preview .lite-instrument .scene-range b{font-size:10px!important;letter-spacing:.02em;gap:5px}
+.lite-preview .lite-instrument .scene-colour-row{grid-template-columns:repeat(var(--swatch-count),minmax(0,1fr))!important;gap:6px}
+.lite-preview .lite-instrument .scene-colour-row button{min-height:43px;padding:5px 2px}
+.lite-preview .lite-instrument .scene-colour-row i{width:22px;height:22px}
+.lite-preview .lite-instrument .scene-colour-row span{font-size:9px;margin:3px 0 0;line-height:1.2;letter-spacing:.02em}
+.lite-configuration-row{display:grid;grid-template-columns:1.4fr 1fr;gap:15px;align-items:end}
+.lite-metrics{display:block;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);font:9px var(--font-geist-mono);color:var(--ink-faint);line-height:1.5}
+.lite-preview :focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+.lite-preview>.mobile-scene-actions{display:none}
+.showcase-lite .viewport-status,.detail-lite .viewport-status{display:none}
+.showcase-lite .showcase-viewport,.detail-lite .detail-viewport{position:relative;min-height:620px}
+.configurator-menu{max-height:calc(100dvh - 100px);overflow-y:auto;overscroll-behavior:contain}
+.mobile-navigation>div{max-height:calc(100dvh - 80px);overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:1050px){
+ .lite-preview>.mobile-scene-actions{display:flex;position:absolute;top:50px;right:18px;bottom:auto;left:auto;z-index:3}
+ .lite-preview .lite-view-tools{top:50px;left:18px;right:auto}
+ .lite-preview .mobile-scene-actions button{font:600 10px var(--font-geist-mono);min-height:38px;letter-spacing:.04em}
+ .lite-view-tools>span{display:none}
+ .lite-preview:not(.is-interacting) .lite-canvas canvas{pointer-events:none}
+}
+@media(max-width:720px){
+ .showcase-lite{height:auto!important;min-height:0!important;padding:50px 0}
+ .showcase-lite .showcase-sticky{position:relative;height:auto;min-height:0;padding-top:0;gap:24px}
+ .showcase-lite .showcase-viewport{height:650px!important;min-height:650px;flex:none;margin-bottom:0!important}
+ .showcase-lite .showcase-story{padding-bottom:18px}
+ .showcase-lite .showcase-story h3{font-size:clamp(30px,10vw,48px)}
+ .detail-lite .detail-hero{height:auto;min-height:0;padding-bottom:40px}
+ .detail-lite .detail-hero-inner{height:auto;position:relative;padding-top:105px}
+ .detail-lite .detail-viewport{height:650px!important;min-height:650px;flex:none;margin-bottom:0!important}
+ .detail-lite .detail-title h1{font-size:clamp(32px,10vw,52px)}
+ .lite-preview .lite-instrument.scene-controls.scene-controls-panel{padding:10px;margin:0 8px 8px;width:calc(100% - 16px);max-height:420px;clip-path:none}
+ .lite-preview .lite-instrument .console-header{position:relative;inset:auto;margin:0;padding:0 0 5px;background:none}
+ .lite-preview .lite-instrument .scene-preset-row button,.lite-preview .lite-instrument .console-tabs button{min-height:42px}
+ .lite-preview .lite-instrument .scene-colour-row button{min-height:48px}
+ .lite-preview .lite-instrument .console-collapse{min-height:40px!important}
+ .lite-preview-badge{left:18px;font-size:8px}
+ .lite-preview .lite-instrument::before{display:none}
+}

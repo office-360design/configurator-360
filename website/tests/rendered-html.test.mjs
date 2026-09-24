@@ -20,7 +20,7 @@ test("renders the public phone number on Contact and the shared footer", async (
 
   assert.match(contactHtml, /href="tel:\+40744142357"[^>]*>0744 142 357<\/a>/);
   assert.match(contactHtml, /"telephone":"\+40744142357"/);
-  assert.match(homepageHtml, /href="tel:\+40744142357"[^>]*>0744 142 357<\/a>/);
+  assert.match(homepageHtml, /href="tel:\+40744142357"[^>]*>\+40 744 142 357<\/a>/);
 });
 
 test("server-renders the 360Configurator homepage and native previews", async () => {

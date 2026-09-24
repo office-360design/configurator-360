@@ -77,10 +77,23 @@ function InstrumentRange({ label, value, min, max, step, unit, onChange }: {
 
 export function WindowHeroRuntime() {
   const frame = useRef<HTMLIFrameElement>(null);
+  const poster = useRef<HTMLDivElement>(null);
   const ready = useRef(false);
   const lastSignature = useRef("");
   const [mounted, setMounted] = useState(false);
   const [visualReady, setVisualReady] = useState(false);
+
+  useEffect(() => {
+    const hero = document.querySelector(".spatial-hero");
+    if (!hero) return;
+    // The fallback is fixed, just like the iframe. Keep it inside the hero's
+    // lifetime even if the native runtime is slow or cannot finish loading.
+    const observer = new IntersectionObserver(([entry]) => {
+      if (poster.current) poster.current.style.visibility = entry.isIntersecting ? "visible" : "hidden";
+    });
+    observer.observe(hero);
+    return () => observer.disconnect();
+  }, []);
 
   const update = useCallback(() => {
     const hero = document.querySelector<HTMLElement>(".spatial-hero");
@@ -222,7 +235,7 @@ export function WindowHeroRuntime() {
 
   return (
     <>
-      <div className={`window-hero-poster${visualReady ? " is-hidden" : ""}`} aria-hidden="true">
+      <div ref={poster} className={`window-hero-poster${visualReady ? " is-hidden" : ""}`} aria-hidden="true">
         <div className="window-hero-poster-object">
           <div className="window-hero-poster-glass" />
           <i className="window-hero-poster-handle" />

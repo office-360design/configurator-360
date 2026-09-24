@@ -15,49 +15,81 @@
 
 360Configurator uses three commercial paths. Existing System is a subscription for a proven system whose established geometry and rules fit the product. Adapted System combines one-time product-specific adaptation with an ongoing platform subscription. Custom System combines implementation of a new configuration engine with an ongoing subscription. Public euro prices are not presented because geometry, data readiness, rules, BOM and pricing complexity, workflows, integrations, markets and launch requirements determine implementation scope. A technical review establishes product fit, the boundary between standard setup and engineering, and the recommended commercial path.
 
-Canonical page: https://360configurator.com/pricing
+Canonical page: https://www.360configurator.com/pricing
 
 ## Pergola and outdoor architecture configurator
 
 The pergola system supports parametric dimensions, louver-angle control, four independently configurable sides, screens, privacy walls, sliding glass, daylight and night environments, perimeter LEDs, selectable light color, integrated spotlights, automation, sensors, accessories and live project pricing.
 
-Canonical page: https://360configurator.com/configurators/pergola
+Canonical page: https://www.360configurator.com/configurators/pergola
 Live system: https://www.360configurator.com/pergola-configurator/
 
 ## Architectural roof and structure configurator
 
 The roof system supports two-slope, four-slope, single-slope, L-shaped and dormer forms. Length, depth, wall height, roof pitch and eaves overhang are parametric. Material selection remains connected to geometry and measured output, including roof areas, ridges, valleys, gutters, component-level pricing, BOM and CSV export.
 
-Canonical page: https://360configurator.com/configurators/roof
+Canonical page: https://www.360configurator.com/configurators/roof
 Live system: https://www.360configurator.com/roof-configurator/
 
 ## Window and architectural profile configurator
 
 The profile system presents the Schüco Window System AW CT 65 B2-6 using its component relationships. It supports width and height changes, glazing thickness, compatible gasket and glazing-bead selection, side-hung and tilt opening behavior, opening angle, uniform or bicolor finishes, exploded assembly mode, technical debug colors and isolated profile-section inspection.
 
-Canonical page: https://360configurator.com/configurators/window
+Canonical page: https://www.360configurator.com/configurators/window
 Live system: https://www.360configurator.com/window-configurator/
 
 ## Industrial hall and warehouse configurator
 
 The hall system supports parametric building length, span, eaves height and roof pitch; target portal-frame spacing; light, standard and heavy structural presets; industrial door dimensions; independent cladding and secondary-steel visibility; and exploded assembly inspection.
 
-Canonical page: https://360configurator.com/configurators/hall
+Canonical page: https://www.360configurator.com/configurators/hall
 Live system: https://www.360configurator.com/hall-configurator/
 
 ## Solar roof and photovoltaic energy configurator
 
 The solar system connects Romanian address context, date, season, real time of day and roof-front bearing with roof typology, dimensions, physical panel fit, household consumption profiles, LiFePO4 storage and production-versus-consumption analytics.
 
-Canonical page: https://360configurator.com/configurators/solar
+Canonical page: https://www.360configurator.com/configurators/solar
 Live system: https://www.360configurator.com/solar-configurator/
 
 ## Fence and perimeter system configurator
 
 The fence configurator resolves straight, L-shaped, U-shaped and closed perimeter layouts into measurable runs, equal bays, coordinated posts and configurable panels. It supports vertical and horizontal slats, privacy panels, welded mesh, multiple finishes, pedestrian and driveway gates, concrete or base-plate foundations, and geometry-driven BOM and pricing outputs.
 
-Canonical page: https://360configurator.com/configurators/fence
+Canonical page: https://www.360configurator.com/configurators/fence
 Live system: https://www.360configurator.com/fence-configurator/
+
+## Chair configurator
+
+The chair preview uses the full application's original procedural geometry with website-specific materials. Compare frame colours, upholstery colours and woven or velvet-inspired treatments. The fixed product envelope is 500 × 470 × 790 mm. The full application offers additional wood species and fabric categories. Materials are illustrative, not certified supplier scans.
+
+Canonical page: https://www.360configurator.com/configurators/chair
+Live system: https://www.360configurator.com/chair-configurator/
+
+## Cardboard box configurator
+
+The website preview includes all nine original packaging styles and FEFCO references, with their native dimensions, compatible top/bottom closures, default cut-outs, TFT/AFT/AFA paper presets and an internal-volume estimate. It uses the original material and lighting settings. It is not a manufacturing dieline. The full application adds board layers and flute profiles, feature editing, individual surface colours, text and images.
+
+Canonical page: https://www.360configurator.com/configurators/cardbox
+Live system: https://www.360configurator.com/cardbox-configurator/
+
+## Modular bookshelf configurator
+
+The website preview adapts geometry from a client-specific bookshelf system. Two to four connected modules form straight or L-shaped arrangements. Compact straight modules measure 800 × 350 × 2150 mm, with 750 × 750 mm corners. Tall straight modules measure 900 × 350 × 2300 mm, with 850 × 850 mm corners. Straight modules can have lower solid doors or full-height glazed doors; corners remain open. All modules use one dimensional family. The preview shows module and connection counts, not prices or a manufacturing BOM. Wood colours are illustrative.
+
+Canonical page: https://www.360configurator.com/configurators/bookshelf
+Live system: https://www.360configurator.com/bookshelf-configurator/
+
+## Pavement configurator
+
+The website preview uses the full prototype's paving-layout calculation on a bounded rectangle with a 20 × 10 cm format. It supports running bond, herringbone and basket weave, area measurement, colour comparison and installed-piece counts including edge cuts. These counts exclude spare allowance and are not purchasing advice or a quote. The full prototype adds formats, custom outlines, curbs, house exclusions, editable demo rates and CSV output. Material appearance is illustrative.
+
+Canonical page: https://www.360configurator.com/configurators/tiles
+Live system: https://www.360configurator.com/tiles-configurator/
+
+## Website previews and full applications
+
+The public marketing catalogue contains ten products. Each product has an English, Romanian and German detail page. Website previews offer selected interactions and load product rendering on demand. The four newer previews do not transfer their settings into the full applications. Account, save/share and commercial workflows belong to the full applications where supported; capability varies by product. The bookshelf and pavement full applications currently retain their noindex policy independently of the indexable marketing pages.
 
 ## Intended audiences
 
@@ -65,7 +97,7 @@ Live system: https://www.360configurator.com/fence-configurator/
 
 ## Languages and canonical structure
 
-English is served at https://360configurator.com/. Romanian is served under /ro and German under /de. Every translated page has a self-referencing canonical URL and reciprocal language alternates. The Romanian country domain redirects to https://360configurator.com/ro.
+English is served at https://www.360configurator.com/, Romanian at https://www.360configurator.ro/ and German at https://www.360konfigurator.de/. Product-page paths are /configurators/{slug} on each domain. Every translated page has a self-referencing canonical URL and reciprocal language alternates. /ro and /de are internal export paths, not public canonical URLs.
 
 ## Contact
 
