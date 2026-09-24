@@ -44,8 +44,8 @@ const AREA_EDITOR_COPY = {
     undo: 'Undo point',
     finish: 'Finish area',
     cancel: 'Cancel',
-    help: 'Create any outline directly in the 3D scene. After finishing, drag the blue corner handles to fine-tune it.',
-    drawing: 'Click or tap the ground to add corners. Click the green first corner to close the outline, or use Finish. Right-click removes the last corner.',
+    help: 'Create any outline directly in the 3D scene. Camera orbit/zoom stays available, and every placed corner can be dragged at any time.',
+    drawing: 'Click or tap the ground to add corners. Drag empty space to orbit the camera, use the normal zoom/pan controls, and drag any corner to reposition it. Click the green first corner to close the outline, or use Finish. Use Undo point to remove the last corner.',
     freeform: 'Freeform outline',
     status: (count) => `${count} ${count === 1 ? 'corner' : 'corners'} placed · maximum 64`,
     saved: (count) => `${count} ${count === 1 ? 'corner' : 'corners'} · drag blue handles in the 3D view to edit`,
@@ -58,8 +58,8 @@ const AREA_EDITOR_COPY = {
     undo: 'Anulează punctul',
     finish: 'Finalizează suprafața',
     cancel: 'Anulează',
-    help: 'Creează orice contur direct în scena 3D. După finalizare, trage punctele albastre pentru reglaje fine.',
-    drawing: 'Apasă pe sol pentru a adăuga colțuri. Apasă pe primul colț verde pentru închidere sau folosește Finalizează. Click dreapta șterge ultimul colț.',
+    help: 'Creează orice contur direct în scena 3D. Rotirea și zoom-ul camerei rămân disponibile, iar fiecare colț poate fi mutat prin tragere în orice moment.',
+    drawing: 'Apasă pe sol pentru a adăuga colțuri. Trage pe spațiul liber pentru a roti camera, folosește comenzile normale de zoom/deplasare și trage orice colț pentru a-l muta. Apasă pe primul colț verde pentru închidere sau folosește Finalizează. Folosește Anulează punctul pentru a șterge ultimul colț.',
     freeform: 'Contur liber',
     status: (count) => `${count} ${count === 1 ? 'colț' : 'colțuri'} adăugate · maximum 64`,
     saved: (count) => `${count} ${count === 1 ? 'colț' : 'colțuri'} · trage punctele albastre din scena 3D pentru editare`,
@@ -72,8 +72,8 @@ const AREA_EDITOR_COPY = {
     undo: 'Punkt zurück',
     finish: 'Fläche fertigstellen',
     cancel: 'Abbrechen',
-    help: 'Beliebige Kontur direkt in der 3D-Szene erstellen. Danach können die blauen Eckpunkte zur Feinabstimmung gezogen werden.',
-    drawing: 'Auf den Boden klicken oder tippen, um Ecken hinzuzufügen. Den ersten grünen Punkt anklicken oder Fertigstellen wählen. Rechtsklick entfernt den letzten Punkt.',
+    help: 'Beliebige Kontur direkt in der 3D-Szene erstellen. Kamera drehen/zoomen bleibt verfügbar und jeder gesetzte Eckpunkt kann jederzeit gezogen werden.',
+    drawing: 'Auf den Boden klicken oder tippen, um Ecken hinzuzufügen. Freien Raum ziehen, um die Kamera zu drehen, die normalen Zoom-/Pan-Steuerungen verwenden und jeden Eckpunkt ziehen, um ihn zu verschieben. Den ersten grünen Punkt anklicken oder Fertigstellen wählen. Mit Punkt zurück wird der letzte Eckpunkt entfernt.',
     freeform: 'Freie Kontur',
     status: (count) => `${count} ${count === 1 ? 'Ecke' : 'Ecken'} gesetzt · maximal 64`,
     saved: (count) => `${count} ${count === 1 ? 'Ecke' : 'Ecken'} · blaue Punkte in 3D ziehen, um die Kontur zu bearbeiten`,
@@ -138,7 +138,12 @@ function planGeometry(points) {
 }
 
 function renderAreaPlan(geometry) {
-  const draft = drawingArea && draftAreaPoints.length ? planGeometry(draftAreaPoints) : null,
+  if (drawingArea && !draftAreaPoints.length) {
+    $('areaPlan').setAttribute('aria-label', areaText().freeform);
+    $('areaPlan').innerHTML = '';
+    return;
+  }
+  const draft = drawingArea ? planGeometry(draftAreaPoints) : null,
     plan = draft || geometry,
     width = Math.max(plan.width, 1),
     depth = Math.max(plan.depth, 1),

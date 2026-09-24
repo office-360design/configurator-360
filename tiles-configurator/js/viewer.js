@@ -244,6 +244,12 @@ export function createViewer(host, callbacks = {}) {
   function updateDraftCallback() {
     callbacks.onAreaDraftChange?.(draftPoints.map((p) => ({ ...p })));
   }
+  function setPreviousAreaVisible(visible) {
+    group.children.forEach((child) => {
+      child.visible = visible || child.userData.house === true;
+    });
+    dimensions.visible = visible && showDimensions;
+  }
   function rebuild(s, parts) {
     const nextBounds = areaGeometry(s),
       changed = !bounds || JSON.stringify(bounds.points) !== JSON.stringify(nextBounds.points);
@@ -345,7 +351,8 @@ export function createViewer(host, callbacks = {}) {
           (p.z + q.z) / 2 - bounds.depth / 2 + nz * 0.65,
         );
       });
-    dimensions.visible = showDimensions;
+    if (drawingArea) setPreviousAreaVisible(false);
+    else dimensions.visible = showDimensions;
     drawAreaHandles();
     if (changed && !drawingArea) fit();
   }
@@ -372,7 +379,9 @@ export function createViewer(host, callbacks = {}) {
   let houseDrag = null,
     pendingHouse = null,
     houseDragFrame = 0,
-    areaDrag = null;
+    areaDrag = null,
+    draftPointDrag = null,
+    drawPointer = null;
   function ray(event) {
     const rect = renderer.domElement.getBoundingClientRect();
     pointer.set(
@@ -394,45 +403,46 @@ export function createViewer(host, callbacks = {}) {
     }
   }
   function restorePointerInteraction() {
-    if (drawingArea) {
-      controls.enabled = false;
-      renderer.domElement.style.cursor = 'crosshair';
-    } else {
-      controls.enabled = true;
-      renderer.domElement.style.cursor = '';
-    }
+    controls.enabled = true;
+    renderer.domElement.style.cursor = drawingArea ? 'crosshair' : '';
   }
   renderer.domElement.addEventListener(
     'pointerdown',
     (event) => {
       if (event.button !== 0) return;
-      const hit = planeHit(event);
-      if (!hit) return;
-
       if (drawingArea) {
-        if (
-          draftPoints.length >= 3 &&
-          Math.hypot(hit.x - draftPoints[0].x, hit.z - draftPoints[0].z) <= handleSize() * 1.8
-        ) {
-          callbacks.onAreaFinishRequested?.();
+        ray(event);
+        const handleHit = raycaster.intersectObjects(
+          areaDraft.children.filter((child) => child.userData.areaPoint !== undefined),
+          false,
+        )[0];
+        if (handleHit) {
+          draftPointDrag = {
+            id: event.pointerId,
+            index: handleHit.object.userData.areaPoint,
+            x: event.clientX,
+            y: event.clientY,
+            moved: false,
+          };
+          drawPointer = null;
+          controls.enabled = false;
+          renderer.domElement.setPointerCapture(event.pointerId);
+          renderer.domElement.style.cursor = 'grabbing';
           event.stopImmediatePropagation();
           event.preventDefault();
           return;
         }
-        if (draftPoints.length >= 64) return;
-        const point = { x: snap(hit.x), z: snap(hit.z) };
-        if (
-          draftPoints.length &&
-          Math.hypot(point.x - draftPoints.at(-1).x, point.z - draftPoints.at(-1).z) < 0.1
-        )
-          return;
-        draftPoints.push(point);
-        renderDraft(draftPoints);
-        updateDraftCallback();
-        event.stopImmediatePropagation();
-        event.preventDefault();
+        drawPointer = {
+          id: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+          moved: false,
+        };
         return;
       }
+
+      const hit = planeHit(event);
+      if (!hit) return;
 
       if (state?.shape === 'custom' && areaHandles.children.length) {
         ray(event);
@@ -482,6 +492,24 @@ export function createViewer(host, callbacks = {}) {
   renderer.domElement.addEventListener(
     'pointermove',
     (event) => {
+      if (draftPointDrag && event.pointerId === draftPointDrag.id) {
+        const hit = planeHit(event);
+        if (!hit) return;
+        if (Math.hypot(event.clientX - draftPointDrag.x, event.clientY - draftPointDrag.y) > 3)
+          draftPointDrag.moved = true;
+        if (draftPointDrag.moved) {
+          draftPoints[draftPointDrag.index] = { x: snap(hit.x), z: snap(hit.z) };
+          renderDraft(draftPoints);
+          updateDraftCallback();
+        }
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        return;
+      }
+      if (drawingArea && drawPointer && event.pointerId === drawPointer.id) {
+        if (Math.hypot(event.clientX - drawPointer.x, event.clientY - drawPointer.y) > 5)
+          drawPointer.moved = true;
+      }
       if (areaDrag && event.pointerId === areaDrag.id) {
         const hit = planeHit(event);
         if (!hit) return;
@@ -507,6 +535,45 @@ export function createViewer(host, callbacks = {}) {
     true,
   );
   function endDrag(event) {
+    if (draftPointDrag && event.pointerId === draftPointDrag.id) {
+      const finishedByFirstPoint =
+        draftPointDrag.index === 0 && !draftPointDrag.moved && draftPoints.length >= 3;
+      draftPointDrag = null;
+      restorePointerInteraction();
+      if (renderer.domElement.hasPointerCapture(event.pointerId))
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      if (finishedByFirstPoint) callbacks.onAreaFinishRequested?.();
+      event.stopImmediatePropagation();
+      event.preventDefault();
+      return;
+    }
+    if (drawingArea && drawPointer && event.pointerId === drawPointer.id) {
+      const candidate = drawPointer;
+      drawPointer = null;
+      if (!candidate.moved) {
+        const hit = planeHit(event);
+        if (hit) {
+          if (
+            draftPoints.length >= 3 &&
+            Math.hypot(hit.x - draftPoints[0].x, hit.z - draftPoints[0].z) <=
+              handleSize() * 1.8
+          ) {
+            callbacks.onAreaFinishRequested?.();
+          } else if (draftPoints.length < 64) {
+            const point = { x: snap(hit.x), z: snap(hit.z) };
+            if (
+              !draftPoints.length ||
+              Math.hypot(point.x - draftPoints.at(-1).x, point.z - draftPoints.at(-1).z) >= 0.1
+            ) {
+              draftPoints.push(point);
+              renderDraft(draftPoints);
+              updateDraftCallback();
+            }
+          }
+        }
+      }
+      return;
+    }
     if (areaDrag && event.pointerId === areaDrag.id) {
       const points = areaDrag.points.map((p) => ({ ...p }));
       areaDrag = null;
@@ -532,12 +599,7 @@ export function createViewer(host, callbacks = {}) {
   renderer.domElement.addEventListener('pointercancel', endDrag, true);
   renderer.domElement.addEventListener('lostpointercapture', endDrag, true);
   renderer.domElement.addEventListener('contextmenu', (event) => {
-    if (!drawingArea) return;
-    event.preventDefault();
-    if (!draftPoints.length) return;
-    draftPoints.pop();
-    renderDraft(draftPoints);
-    updateDraftCallback();
+    if (drawingArea) event.preventDefault();
   });
   renderer.setAnimationLoop(() => {
     controls.update();
@@ -551,10 +613,13 @@ export function createViewer(host, callbacks = {}) {
     startAreaDrawing() {
       drawingArea = true;
       draftPoints = [];
+      drawPointer = null;
+      draftPointDrag = null;
       grid.visible = true;
       areaHandles.visible = false;
       clearOverlay(areaDraft);
-      controls.enabled = false;
+      setPreviousAreaVisible(false);
+      controls.enabled = true;
       renderer.domElement.style.cursor = 'crosshair';
       updateDraftCallback();
     },
@@ -568,8 +633,11 @@ export function createViewer(host, callbacks = {}) {
     stopAreaDrawing() {
       drawingArea = false;
       draftPoints = [];
+      drawPointer = null;
+      draftPointDrag = null;
       grid.visible = false;
       clearOverlay(areaDraft);
+      setPreviousAreaVisible(true);
       areaHandles.visible = true;
       drawAreaHandles();
       restorePointerInteraction();
@@ -582,7 +650,7 @@ export function createViewer(host, callbacks = {}) {
     },
     toggleDimensions() {
       showDimensions = !showDimensions;
-      dimensions.visible = showDimensions;
+      dimensions.visible = showDimensions && !drawingArea;
       return showDimensions;
     },
     setDarkMode(dark) {
