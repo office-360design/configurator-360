@@ -651,3 +651,95 @@ export function joinLayoutInPlace(source, ids) {
   if (!next.planLinks.length) delete next.planLinks;
   return compactLayout(next);
 }
+
+// Adjacent edge directions are explicit choices: a fixed height alone defines
+// a contour line on a slope, not a unique plan position.
+export function alignmentDirections(layout, id) {
+  const neighbors = new Set();
+  layout.faces.filter(face => face.includes(id)).forEach(face => {
+    const index = face.indexOf(id);
+    neighbors.add(face[(index + face.length - 1) % face.length]);
+    neighbors.add(face[(index + 1) % face.length]);
+  });
+  return [...neighbors];
+}
+
+export function meetRoofSlope(source, { pointId, faceIndex, mode, height, directionId }) {
+  validateLayout(source);
+  const selected = source.vertices[pointId];
+  const face = source.faces[faceIndex];
+  if (!selected || !face || !Number.isInteger(pointId) || !Number.isInteger(faceIndex)) {
+    throw new Error('Select a point and a target roof slope.');
+  }
+  const linked = linkedPlanPoints(source, pointId);
+  const anchors = face.filter(id => !linked.includes(id)).map(id => source.vertices[id]);
+  if (anchors.length < 3) {
+    throw new Error('The target needs at least three fixed points besides the moving point and its copies.');
+  }
+  let basis, area = 0;
+  // A widely spaced basis is more stable than the first three polygon points.
+  for (let i = 0; i < anchors.length - 2; i++) {
+    for (let j = i + 1; j < anchors.length - 1; j++) {
+      for (let k = j + 1; k < anchors.length; k++) {
+        const candidate = Math.abs(cross(anchors[i], anchors[j], anchors[k]));
+        if (candidate > area) { area = candidate; basis = [anchors[i], anchors[j], anchors[k]]; }
+      }
+    }
+  }
+  if (area < EPS) throw new Error('The fixed target points lie on one line. Choose another slope.');
+  const [a, b, c] = basis;
+  const determinant = cross(a, b, c);
+  const sx = ((b.h - a.h) * (c.z - a.z) - (c.h - a.h) * (b.z - a.z)) / determinant;
+  const sz = ((b.x - a.x) * (c.h - a.h) - (c.x - a.x) * (b.h - a.h)) / determinant;
+  const planeHeight = p => a.h + sx * (p.x - a.x) + sz * (p.z - a.z);
+  if (anchors.some(p => Math.abs(planeHeight(p) - p.h) > 1e-6)) {
+    throw new Error('The fixed target points are not on one plane. Divide that surface or align its fixed points first.');
+  }
+  const position = { ...selected };
+  if (mode === 'position') {
+    position.h = planeHeight(position);
+  } else if (mode === 'height') {
+    if (!Number.isFinite(height) || height < 0 || height > 30) {
+      throw new Error('Enter a height between 0 and 30 m.');
+    }
+    if (!alignmentDirections(source, pointId).includes(directionId)) {
+      throw new Error('Choose a connected edge to follow.');
+    }
+    const neighbor = source.vertices[directionId];
+    const dx = selected.x - neighbor.x, dz = selected.z - neighbor.z;
+    const rate = sx * dx + sz * dz;
+    if (Math.abs(rate) < EPS) {
+      if (Math.abs(height - planeHeight(selected)) > 1e-6) {
+        throw new Error('This edge direction never reaches the requested height on the target slope.');
+      }
+    } else {
+      const t = (height - planeHeight(selected)) / rate;
+      position.x += t * dx;
+      position.z += t * dz;
+    }
+    position.h = height;
+  } else throw new Error('Choose Keep position or Keep height.');
+  const next = cloneLayout(source);
+  moveLayoutPoint(next, pointId, position);
+  // Target corners at the same plan position must also meet the fixed plane.
+  const reconnect = [...new Set([pointId, ...face.filter(id => linked.includes(id))])];
+  reconnect.forEach(id => { next.vertices[id].h = position.h; });
+  try { validateLayout(next); } catch (error) {
+    throw new Error(`This alignment would make an invalid roof: ${error.message}`);
+  }
+  // A foreign target must actually contain the aligned point, not merely its
+  // infinite plane. An incident target is reshaped by the moved corner itself.
+  if (!face.some(id => linked.includes(id)) && !inside(position, face.map(id => next.vertices[id]))) {
+    throw new Error('The intersection is outside the selected slope. Choose another slope or edge direction.');
+  }
+  if (reconnect.length > 1) {
+    const keep = reconnect[0];
+    const replace = ring => ring.map(id => reconnect.includes(id) ? keep : id);
+    next.faces = next.faces.map(replace);
+    next.boundary = replace(next.boundary);
+    next.planLinks = next.planLinks.map(group => [...new Set(replace(group))]).filter(group => group.length > 1);
+    if (!next.planLinks.length) delete next.planLinks;
+  }
+  return { layout: compactLayout(next), position, distance: distance(selected, position),
+    heightChange: position.h - selected.h, reconnected: reconnect.length > 1 };
+}

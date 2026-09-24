@@ -1,8 +1,11 @@
 import {
+  meetRoofSlope, alignmentDirections, inside,
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
   layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-8';
+} from './roofLayout.js?v=layout-9';
+
+import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-9';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {
@@ -26,6 +29,7 @@ export class RoofLayoutEditor {
         <button type="button" data-action="draw">New perimeter</button>
         <button type="button" data-action="split">Divide surface</button>
         <button type="button" data-action="insert">Insert edge point</button>
+        <button type="button" data-action="meet">Meet roof slope</button>
         <button type="button" data-action="splitPlace">Split in place</button>
         <button type="button" data-action="joinPlace">Join in place</button>
         <button type="button" data-action="cycleCopy">Next copy</button>
@@ -41,6 +45,23 @@ export class RoofLayoutEditor {
         <div class="layout-drawing"><svg tabindex="0" aria-label="Roof plan drawing canvas" role="application"></svg></div>
         <aside>
           <p class="layout-help"></p>
+          <fieldset class="layout-meet" hidden><legend>Meet roof slope</legend>
+            <label>Target slope<select id="meetTarget"></select></label>
+            <button type="button" data-action="pickTarget">Pick slope on plan</button>
+            <label>Alignment<select id="meetMode"><option value="position">Keep position</option>
+              <option value="height">Keep height</option></select></label>
+            <p>Keep position adjusts height. Keep height moves the point along a connected edge.</p>
+            <div id="meetHeightControls" hidden>
+              <label>Height above wall (m)<input id="meetHeight" type="number" min="0" max="30" step="any"></label>
+              <label>Edge direction<select id="meetDirection"></select></label>
+              <button type="button" data-action="pickDirection">Pick connected edge</button>
+            </div>
+            <p>The target's other points stay fixed. Moving split copies share X/Z; the selected copy and target copy reconnect at the meeting height.</p>
+            <output id="meetResult" aria-live="polite"></output>
+            <svg id="meetPreview" role="img" aria-label="3D alignment preview" hidden></svg>
+            <button type="button" data-action="applyMeet" disabled>Apply alignment</button>
+            <button type="button" data-action="cancelMeet">Cancel alignment</button>
+          </fieldset>
           <label>Grid snap (metres)<select id="layoutSnap">
             <option value="0.1">0.10 m</option><option value="0.25" selected>0.25 m</option>
             <option value="0.5">0.50 m</option><option value="1">1.00 m</option>
@@ -84,7 +105,10 @@ export class RoofLayoutEditor {
     this.svg.addEventListener('pointerup', event => this.endDrag(event));
     this.svg.addEventListener('pointercancel', event => this.endDrag(event, true));
     this.svg.addEventListener('lostpointercapture', event => this.endDrag(event, true));
-    this.dialog.addEventListener('cancel', () => this.endDrag(null, true));
+    this.dialog.addEventListener('cancel', () => { this.endDrag(null, true); this.stopMeet(); });
+    ['meetTarget', 'meetMode', 'meetDirection', 'meetHeight'].forEach(id => {
+      this.dialog.querySelector(`#${id}`).addEventListener('input', () => this.previewMeet());
+    });
     this.dialog.querySelector('#layoutPointSelect').addEventListener('change', event => {
       this.selectedEdge = null;
       this.selected = event.target.value === '' ? null : Number(event.target.value);
@@ -112,6 +136,7 @@ export class RoofLayoutEditor {
   }
 
   open() {
+    this.stopMeet();
     this.layout = cloneLayout(this.state.roofLayout || defaultLayout());
     this.history = [];
     this.future = [];
@@ -154,7 +179,27 @@ export class RoofLayoutEditor {
   action(action) {
     this.endDrag(null, true);
     try {
-      if (['select', 'draw', 'split', 'insert'].includes(action)) {
+      const meetActions = ['meet', 'pickTarget', 'pickDirection', 'applyMeet', 'cancelMeet', 'fit', 'zoomIn', 'zoomOut'];
+      if (this.meet && !meetActions.includes(action)) {
+        if (action === 'apply') throw new Error('Apply or cancel the alignment preview first.');
+        this.stopMeet();
+      }
+      if (action === 'meet') {
+        this.startMeet();
+      } else if (action === 'pickTarget' || action === 'pickDirection') {
+        if (!this.meet) return;
+        this.mode = action === 'pickTarget' ? 'meetTarget' : 'meetDirection';
+      } else if (action === 'cancelMeet') {
+        this.stopMeet();
+        this.status('Alignment cancelled. The draft is unchanged.');
+      } else if (action === 'applyMeet') {
+        if (!this.meet?.result) return;
+        const next = this.meet.result.layout;
+        this.stopMeet();
+        this.selected = null;
+        this.commit(next);
+        this.status('Roof aligned. Undo restores the previous junction.');
+      } else if (['select', 'draw', 'split', 'insert'].includes(action)) {
         this.mode = action;
         this.path = [];
         this.selected = null;
@@ -276,6 +321,59 @@ export class RoofLayoutEditor {
     }
   }
 
+  stopMeet() {
+    this.meet = null;
+    if (this.mode?.startsWith('meet')) this.mode = 'select';
+    this.dialog.querySelector('.layout-meet').hidden = true;
+  }
+
+  startMeet() {
+    if (this.selected === null) throw new Error('Select the point to align first.');
+    this.meet = { pointId: this.selected, result: null };
+    this.mode = 'meetTarget';
+    this.path = [];
+    this.dialog.querySelector('.layout-meet').hidden = false;
+    const targets = this.dialog.querySelector('#meetTarget');
+    targets.replaceChildren(new Option('Choose a slope or click it on the plan', ''));
+    this.layout.faces.forEach((face, index) => targets.add(new Option(
+      `Surface ${index + 1} · points ${face.map(id => id + 1).join(', ')}`, index)));
+    const directions = this.dialog.querySelector('#meetDirection');
+    directions.replaceChildren(new Option('Choose a connected edge', ''));
+    alignmentDirections(this.layout, this.selected).forEach(id => directions.add(new Option(
+      `Point ${this.selected + 1} — point ${id + 1}`, id)));
+    this.dialog.querySelector('#meetHeight').value = this.layout.vertices[this.selected].h;
+    this.dialog.querySelector('#meetMode').value = 'position';
+    this.previewMeet();
+    this.dialog.querySelector('.layout-meet').scrollIntoView({ block: 'nearest' });
+  }
+
+  previewMeet() {
+    if (!this.meet) return;
+    const get = id => this.dialog.querySelector(`#${id}`);
+    this.meet.result = null;
+    get('meetPreview').toggleAttribute('hidden', true);
+    this.dialog.querySelector('[data-action="applyMeet"]').disabled = true;
+    get('meetHeightControls').hidden = get('meetMode').value !== 'height';
+    try {
+      if (get('meetTarget').value === '') throw new Error('Choose the target roof slope.');
+      const result = meetRoofSlope(this.layout, {
+        pointId: this.meet.pointId, faceIndex: Number(get('meetTarget').value),
+        mode: get('meetMode').value,
+        height: get('meetHeight').value === '' ? NaN : Number(get('meetHeight').value),
+        directionId: get('meetDirection').value === '' ? null : Number(get('meetDirection').value),
+      });
+      this.meet.result = result;
+      get('meetResult').textContent = `Preview: X ${result.position.x.toFixed(3)} m, Z ${result.position.z.toFixed(3)} m, height ${result.position.h.toFixed(3)} m. Plan move ${result.distance.toFixed(3)} m.`
+        + (result.reconnected ? ' Selected and target copies will reconnect.' : '');
+      get('meetPreview').toggleAttribute('hidden', false);
+      drawAlignmentPreview(get('meetPreview'), result.layout, Number(get('meetTarget').value), result.position);
+      this.dialog.querySelector('[data-action="applyMeet"]').disabled = false;
+    } catch (error) {
+      get('meetResult').textContent = error.message;
+    }
+    this.render();
+  }
+
   selectionIds() {
     return this.selected !== null ? [this.selected] : this.selectedEdge || [];
   }
@@ -392,7 +490,26 @@ export class RoofLayoutEditor {
     event.preventDefault();
     const point = this.pointer(event);
     try {
-      if (this.mode === 'select') {
+      if (this.meet) {
+        if (this.mode === 'meetDirection') {
+          const linked = linkedPlanPoints(this.layout, this.meet.pointId);
+          const ids = point.edgeIds;
+          const neighbor = ids?.find(id => !linked.includes(id));
+          if (!ids?.some(id => linked.includes(id)) ||
+            !alignmentDirections(this.layout, this.meet.pointId).includes(neighbor)) {
+            throw new Error('Click a connected edge away from its endpoints, or choose it in the direction list.');
+          }
+          this.dialog.querySelector('#meetDirection').value = neighbor;
+        } else {
+          const raw = this.rawPointer(event);
+          const element = event.target.closest('.layout-face');
+          const index = element ? Number(element.dataset.face) : this.layout.faces.findIndex(face =>
+            inside(raw, face.map(id => this.layout.vertices[id])));
+          if (index < 0) throw new Error('Click inside the target roof slope.');
+          this.dialog.querySelector('#meetTarget').value = index;
+        }
+        this.previewMeet();
+      } else if (this.mode === 'select') {
         const copies = point.id === undefined ? [] : linkedPlanPoints(this.layout, point.id);
         this.selected = copies.includes(this.selected) ? this.selected : point.id ?? null;
         this.selectedEdge = this.selected === null ? point.edgeIds ?? null : null;
@@ -447,8 +564,10 @@ export class RoofLayoutEditor {
       this.layout.faces.forEach((face, i) => {
         this.svg.append(svgElement('polygon', {
           points: coords(face.map(id => this.layout.vertices[id])),
+          'data-face': i,
           fill: ['#dbeafe', '#d1fae5', '#fef3c7', '#ede9fe'][i % 4],
-          class: selectionSurfaces(this.layout, this.selectionIds()).includes(i) ? 'layout-face attached' : 'layout-face',
+          class: this.meet && this.dialog.querySelector('#meetTarget').value === String(i) ? 'layout-face meet-target'
+            : selectionSurfaces(this.layout, this.selectionIds()).includes(i) ? 'layout-face attached' : 'layout-face',
         }));
       });
       const metrics = layoutMetrics(this.layout);
@@ -496,7 +615,18 @@ export class RoofLayoutEditor {
         this.svg.append(svgElement('circle', { cx: v.x, cy: v.y, r: 6, class: 'layout-node' }));
       });
     }
+    if (this.meet?.result) {
+      const original = project(this.layout.vertices[this.meet.pointId]);
+      const ghost = project(this.meet.result.position);
+      this.svg.append(svgElement('line', {
+        x1: original.x, y1: original.y, x2: ghost.x, y2: ghost.y, class: 'layout-meet-guide',
+      }));
+      this.svg.append(svgElement('circle', { cx: ghost.x, cy: ghost.y, r: 11, class: 'layout-meet-ghost' }));
+    }
     const hints = {
+      meetTarget: 'Click the target slope, then choose Keep position or Keep height. Review the ghost point and 3D preview before applying.',
+      meetDirection: 'Click the connected ridge or edge to follow. The point can move along its line in either direction.',
+
       select: 'Split in place detaches chosen adjoining surfaces for independent height control. Next copy cycles stacked points or edges; attached surfaces are highlighted. Select a point or edge, then Delete selected (or Delete/Backspace). Removing a dividing edge merges its adjoining surfaces. Outer edges must stay closed. Drag a point to move it on the plan. Shift-drag up/down changes its height. You can also enter exact coordinates below. Shared points update adjoining surfaces.',
       draw: 'Click around the outer roof edge. Click the first point or Close perimeter to finish. This creates a pitched roof at the starter pitch and replaces the current draft.',
       split: 'Start on a surface edge, add optional interior points, then finish on another edge of the same surface. Raise the new points to form ridges, or lower them for valleys.',
@@ -520,11 +650,12 @@ export class RoofLayoutEditor {
     this.dialog.querySelector('#layoutCopyInfo').textContent = copies.length > 1
       ? `${copies.length} copies here. Selected ${this.selected !== null ? 'point' : 'edge'}: ${this.selectionIds().map(id => id + 1).join('–')}. Attached surfaces: ${incident.map(i => i + 1).join(', ')}.`
       : 'Select a shared point or dividing edge to split it.';
-    this.dialog.querySelector('.layout-point').disabled = this.selected === null;
+    this.dialog.querySelector('.layout-point').disabled = this.selected === null || Boolean(this.meet);
     this.dialog.querySelector('#layoutPointName').textContent = this.selected === null ? '—' : this.selected + 1;
     const pointSelect = this.dialog.querySelector('#layoutPointSelect');
     pointSelect.replaceChildren(new Option('Select a point', ''));
     this.layout.vertices.forEach((_, id) => pointSelect.add(new Option(`Point ${id + 1}`, String(id))));
+    pointSelect.disabled = Boolean(this.meet);
     pointSelect.value = this.selected === null ? '' : String(this.selected);
     const point = this.layout.vertices[this.selected];
     for (const axis of ['x', 'z', 'h']) {
@@ -533,6 +664,7 @@ export class RoofLayoutEditor {
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       const action = button.dataset.action;
       if (['select', 'draw', 'split', 'insert'].includes(action)) button.setAttribute('aria-pressed', String(action === this.mode));
+      if (action === 'meet') button.disabled = this.mode !== 'select' || this.selected === null;
       if (action === 'splitPlace') button.disabled = this.mode !== 'select' || incident.length < 2;
       if (action === 'joinPlace') button.disabled = this.mode !== 'select' ||
         !this.selectionIds().some(id => linkedPlanPoints(this.layout, id).length > 1);

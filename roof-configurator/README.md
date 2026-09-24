@@ -208,3 +208,25 @@ which heights to keep. Surface divisions remain. Height differences and their
 step walls disappear where joined. Undo restores all prior copies and heights.
 
 Join regression check: `node roof-configurator/tests/join-browser.cjs`.
+
+### Meet roof slope
+
+Select a point and press **Meet roof slope**. Click a target surface on the plan
+(or choose it in the target list). **Keep position** adjusts height only;
+**Keep height** uses the entered height and a connected edge direction chosen
+from the list or with **Pick connected edge**. The point moves along that edge's
+line, including its extension, without rounding the solution to the drawing grid.
+
+The target plane comes from its fixed points, excluding the moving point and all
+its coincident copies. It needs at least three noncollinear fixed points, and all
+remaining fixed points must lie on one plane. Ambiguous planes, unreachable
+heights, intersections outside a foreign target and moves that invalidate the
+layout produce an explanation and cannot be applied.
+
+The plan highlights the target and shows a ghost junction; a live isometric roof
+preview shows the proposed geometry. **Apply alignment** commits one undoable
+edit. Cancel leaves the draft untouched. The selected and target copies reconnect
+at the meeting height; other split copies keep their heights and follow the shared
+plan position. Applying the roof and saving/sharing works as for other edits.
+
+Alignment regression check: `node roof-configurator/tests/alignment-browser.cjs`.
