@@ -1,6 +1,7 @@
 import { mountLocationPicker } from './locationPicker.js';
 import { patternPreview } from './patternPreview.js';
 import { houseGeometry } from './house.js';
+import { normalizeFootprint } from './footprint.js';
 import {
   TILES,
   CURBS,
@@ -18,14 +19,17 @@ import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js';
 import { createShareUrl } from '../../shared-ui/src/shareState.js';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
-const tenant = await requireTenantConfiguratorAccess('tiles');
 const $ = (id) => document.getElementById(id);
+installAreaEditor();
+const tenant = await requireTenantConfiguratorAccess('tiles');
 let state = normalize(),
   locale = 'en-US',
   t = translator(locale),
   viewer,
   shell,
-  top = false;
+  top = false,
+  drawingArea = false,
+  draftAreaPoints = [];
 const money = (n) =>
   new Intl.NumberFormat(locale, { style: 'currency', currency: 'RON' }).format(n);
 const f = (n) => new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(n);
@@ -33,6 +37,88 @@ const history = new SharedUndoManager({
   capture: () => structuredClone(state),
   restore: (s) => restore(s),
 });
+const AREA_EDITOR_COPY = {
+  en: {
+    draw: 'Draw area in 3D',
+    redraw: 'Redraw area in 3D',
+    undo: 'Undo point',
+    finish: 'Finish area',
+    cancel: 'Cancel',
+    help: 'Create any outline directly in the 3D scene. After finishing, drag the blue corner handles to fine-tune it.',
+    drawing: 'Click or tap the ground to add corners. Click the green first corner to close the outline, or use Finish. Right-click removes the last corner.',
+    freeform: 'Freeform outline',
+    status: (count) => `${count} ${count === 1 ? 'corner' : 'corners'} placed · maximum 64`,
+    saved: (count) => `${count} ${count === 1 ? 'corner' : 'corners'} · drag blue handles in the 3D view to edit`,
+    current: (count) => `${count} corners in the current area · use Draw area in 3D to replace it`,
+    invalid: 'The outline must have at least 3 corners, be at least 1 m², stay within 20 × 20 m, and must not cross itself or contain collapsed/sharp corners.',
+  },
+  ro: {
+    draw: 'Desenează suprafața în 3D',
+    redraw: 'Redesenează suprafața în 3D',
+    undo: 'Anulează punctul',
+    finish: 'Finalizează suprafața',
+    cancel: 'Anulează',
+    help: 'Creează orice contur direct în scena 3D. După finalizare, trage punctele albastre pentru reglaje fine.',
+    drawing: 'Apasă pe sol pentru a adăuga colțuri. Apasă pe primul colț verde pentru închidere sau folosește Finalizează. Click dreapta șterge ultimul colț.',
+    freeform: 'Contur liber',
+    status: (count) => `${count} ${count === 1 ? 'colț' : 'colțuri'} adăugate · maximum 64`,
+    saved: (count) => `${count} ${count === 1 ? 'colț' : 'colțuri'} · trage punctele albastre din scena 3D pentru editare`,
+    current: (count) => `${count} colțuri în suprafața actuală · folosește Desenează suprafața în 3D pentru a o înlocui`,
+    invalid: 'Conturul trebuie să aibă cel puțin 3 colțuri, minimum 1 m², să încapă în 20 × 20 m și să nu se intersecteze sau să aibă colțuri colapsate/prea ascuțite.',
+  },
+  de: {
+    draw: 'Fläche in 3D zeichnen',
+    redraw: 'Fläche in 3D neu zeichnen',
+    undo: 'Punkt zurück',
+    finish: 'Fläche fertigstellen',
+    cancel: 'Abbrechen',
+    help: 'Beliebige Kontur direkt in der 3D-Szene erstellen. Danach können die blauen Eckpunkte zur Feinabstimmung gezogen werden.',
+    drawing: 'Auf den Boden klicken oder tippen, um Ecken hinzuzufügen. Den ersten grünen Punkt anklicken oder Fertigstellen wählen. Rechtsklick entfernt den letzten Punkt.',
+    freeform: 'Freie Kontur',
+    status: (count) => `${count} ${count === 1 ? 'Ecke' : 'Ecken'} gesetzt · maximal 64`,
+    saved: (count) => `${count} ${count === 1 ? 'Ecke' : 'Ecken'} · blaue Punkte in 3D ziehen, um die Kontur zu bearbeiten`,
+    current: (count) => `${count} Ecken in der aktuellen Fläche · mit Fläche in 3D zeichnen ersetzen`,
+    invalid: 'Die Kontur braucht mindestens 3 Ecken und 1 m², muss innerhalb 20 × 20 m bleiben und darf sich nicht kreuzen oder eingeklappte/sehr spitze Ecken enthalten.',
+  },
+};
+const vertexLabel = (index) => {
+  let value = index + 1,
+    label = '';
+  while (value > 0) {
+    value--;
+    label = String.fromCharCode(65 + (value % 26)) + label;
+    value = Math.floor(value / 26);
+  }
+  return label;
+};
+const areaText = () => AREA_EDITOR_COPY[locale.split('-')[0]] || AREA_EDITOR_COPY.en;
+
+function installAreaEditor() {
+  const panel = $('areaPlan')?.closest('.accordion-panel');
+  if (!panel) return;
+  panel.innerHTML = `
+    <div id="areaError" role="alert" hidden></div>
+    <p id="areaDrawHelp" class="note"></p>
+    <div class="area-draw-actions">
+      <button id="drawArea" class="export" type="button"></button>
+      <button id="undoAreaPoint" class="area-secondary" type="button" hidden></button>
+      <button id="finishArea" class="export" type="button" hidden></button>
+      <button id="cancelArea" class="area-secondary" type="button" hidden></button>
+    </div>
+    <p id="areaDrawStatus" class="note" role="status" aria-live="polite"></p>
+    <svg id="areaPlan" viewBox="0 0 300 170" role="img" aria-label="Area outline"></svg>`;
+  const style = document.createElement('style');
+  style.textContent = `
+    .area-draw-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+    .area-draw-actions #drawArea{grid-column:1/-1}
+    .area-draw-actions .export,.area-draw-actions .area-secondary{width:100%;min-height:40px}
+    .area-secondary{padding:10px;border:1px solid #bccbd5;border-radius:8px;background:#fff;color:inherit;font-weight:650}
+    body.dark .area-secondary{background:#35424a;border-color:#52626c;color:#e4ebef}
+    #areaDrawStatus{min-height:1.6em;margin:7px 0}
+    body.tiles-area-drawing #canvasHost canvas{cursor:crosshair}
+  `;
+  document.head.append(style);
+}
 function swatches(id, key, colors) {
   $(id).innerHTML = colors
     .map(
@@ -42,22 +128,155 @@ function swatches(id, key, colors) {
     .join('');
 }
 
+function planGeometry(points) {
+  const minX = Math.min(...points.map((p) => p.x)),
+    minZ = Math.min(...points.map((p) => p.z)),
+    shifted = points.map((p) => ({ x: p.x - minX, z: p.z - minZ })),
+    width = Math.max(...shifted.map((p) => p.x), 0),
+    depth = Math.max(...shifted.map((p) => p.z), 0);
+  return { points: shifted, width, depth };
+}
+
+function renderAreaPlan(geometry) {
+  const draft = drawingArea && draftAreaPoints.length ? planGeometry(draftAreaPoints) : null,
+    plan = draft || geometry,
+    width = Math.max(plan.width, 1),
+    depth = Math.max(plan.depth, 1),
+    scale = Math.min(230 / width, 110 / depth),
+    ox = (300 - plan.width * scale) / 2,
+    oz = (170 - plan.depth * scale) / 2,
+    points = plan.points,
+    pointString = points.map((p) => `${ox + p.x * scale},${oz + p.z * scale}`).join(' ');
+  $('areaPlan').setAttribute('aria-label', areaText().freeform);
+  if (points.length === 1)
+    $('areaPlan').innerHTML = `<circle cx="${ox}" cy="${oz}" r="5" fill="#0878c9"/>`;
+  else if (points.length > 1)
+    $('areaPlan').innerHTML =
+      `<${points.length >= 3 ? 'polygon' : 'polyline'} points="${pointString}" fill="${points.length >= 3 ? '#e9f5fd' : 'none'}" stroke="#0878c9" stroke-width="2"/>`;
+  else $('areaPlan').innerHTML = '';
+  $('areaPlan').innerHTML += points
+    .map(
+      (p, i) =>
+        `<text x="${ox + p.x * scale}" y="${oz + p.z * scale - 9}" text-anchor="middle">${vertexLabel(i)}</text>`,
+    )
+    .join('');
+  if (!draft && state.houseEnabled)
+    $('areaPlan').innerHTML += `<polygon points="${houseGeometry(state)
+      .outline.map((p) => `${ox + p.x * scale},${oz + p.z * scale}`)
+      .join(' ')}" fill="#69747b" fill-opacity=".8" stroke="#3f4b53" stroke-width="1.5"/>`;
+}
+
+function renderAreaEditor(geometry = areaGeometry(state)) {
+  const copy = areaText(),
+    count = drawingArea ? draftAreaPoints.length : geometry.points.length;
+  $('drawArea').hidden = drawingArea;
+  $('drawArea').disabled = !viewer;
+  $('drawArea').textContent = state.shape === 'custom' ? copy.redraw : copy.draw;
+  for (const id of ['undoAreaPoint', 'finishArea', 'cancelArea']) $(id).hidden = !drawingArea;
+  $('undoAreaPoint').textContent = copy.undo;
+  $('finishArea').textContent = copy.finish;
+  $('cancelArea').textContent = copy.cancel;
+  $('undoAreaPoint').disabled = !draftAreaPoints.length;
+  $('finishArea').disabled = draftAreaPoints.length < 3;
+  $('areaDrawHelp').textContent = drawingArea ? copy.drawing : copy.help;
+  $('areaDrawStatus').textContent = drawingArea
+    ? copy.status(count)
+    : state.shape === 'custom'
+      ? copy.saved(count)
+      : copy.current(count);
+  document.querySelectorAll('[data-edge]').forEach((el) => (el.disabled = drawingArea));
+  document.body.classList.toggle('tiles-area-drawing', drawingArea);
+  renderAreaPlan(geometry);
+}
+
+function showAreaError(message = areaText().invalid) {
+  $('areaError').textContent = message;
+  $('areaError').hidden = false;
+}
+
+function prepareCustomArea(rawPoints, { sceneCoordinates = false, resetEdges = false } = {}) {
+  if (!Array.isArray(rawPoints) || rawPoints.length < 3) return null;
+  const minX = Math.min(...rawPoints.map((p) => Number(p.x))),
+    minZ = Math.min(...rawPoints.map((p) => Number(p.z))),
+    points = normalizeFootprint(rawPoints);
+  if (!points || !Number.isFinite(minX) || !Number.isFinite(minZ)) return null;
+  const current = areaGeometry(state),
+    patch = {
+      shape: 'custom',
+      areaPoints: points,
+      edges: resetEdges
+        ? Array(points.length).fill(true)
+        : Array.from({ length: points.length }, (_, i) => state.edges[i] ?? true),
+      houseX: sceneCoordinates ? state.houseX - current.width / 2 - minX : state.houseX - minX,
+      houseZ: sceneCoordinates ? state.houseZ - current.depth / 2 - minZ : state.houseZ - minZ,
+    },
+    next = normalize({ ...state, ...patch });
+  try {
+    areaGeometry(next);
+    return next;
+  } catch {
+    return null;
+  }
+}
+
+function startAreaDrawing() {
+  if (!viewer) return;
+  drawingArea = true;
+  draftAreaPoints = [];
+  $('areaError').hidden = true;
+  viewer.startAreaDrawing();
+  renderAreaEditor();
+}
+
+function stopAreaDrawing() {
+  drawingArea = false;
+  draftAreaPoints = [];
+  viewer?.stopAreaDrawing();
+  renderAreaEditor();
+}
+
+function finishAreaDrawing() {
+  if (!drawingArea || draftAreaPoints.length < 3) return false;
+  const next = prepareCustomArea(draftAreaPoints, { sceneCoordinates: true, resetEdges: true });
+  if (!next) {
+    showAreaError();
+    renderAreaEditor();
+    return false;
+  }
+  history.record();
+  state = next;
+  drawingArea = false;
+  draftAreaPoints = [];
+  viewer?.stopAreaDrawing();
+  $('areaError').hidden = true;
+  render();
+  shell?.markDirty();
+  return true;
+}
+
+function commitAreaPointMove(points) {
+  const next = prepareCustomArea(points);
+  if (!next) {
+    render();
+    showAreaError();
+    return false;
+  }
+  history.record();
+  state = next;
+  $('areaError').hidden = true;
+  render();
+  shell?.markDirty();
+  return true;
+}
+
 function render() {
   document.documentElement.lang = locale.split('-')[0];
   document.querySelectorAll('[data-i18n]').forEach((el) => (el.textContent = t(el.dataset.i18n)));
   for (const key of [
-    'length',
-    'width',
     'waste',
     'tileRate',
     'curbRate',
     'rotation',
-    'shape',
-    'runA',
-    'runB',
-    'runC',
-    'runD',
-    'angleB',
     'houseShape',
     'houseLength',
     'houseWidth',
@@ -99,32 +318,11 @@ function render() {
   });
   const geometry = areaGeometry(state),
     custom = state.shape !== 'rectangle';
-  $('rectangleFields').hidden = custom;
-  $('polygonFields').hidden = !custom;
-  $('runDField').hidden = state.shape !== 'closed5';
-  $('closingLabel').textContent = `${state.shape === 'closed5' ? 'EA' : 'DA'} · ${t('calculated')}`;
-  $('closingLength').textContent = `${f(geometry.lengths.at(-1))} m`;
-  $('shapeHelp').textContent = t(state.shape === 'closed5' ? 'help5' : 'help4');
-  const scale = Math.min(230 / geometry.width, 110 / geometry.depth),
-    ox = (300 - geometry.width * scale) / 2,
-    oz = (170 - geometry.depth * scale) / 2;
-  $('areaPlan').setAttribute('aria-label', t(state.shape));
-  $('areaPlan').innerHTML =
-    `<polygon points="${geometry.points.map((p) => `${ox + p.x * scale},${oz + p.z * scale}`).join(' ')}" fill="#e9f5fd" stroke="#0878c9" stroke-width="2"/>` +
-    geometry.points
-      .map(
-        (p, i) =>
-          `<text x="${ox + p.x * scale}" y="${oz + p.z * scale - 9}" text-anchor="middle">${String.fromCharCode(65 + i)}</text>`,
-      )
-      .join('');
-  if (state.houseEnabled)
-    $('areaPlan').innerHTML += `<polygon points="${houseGeometry(state)
-      .outline.map((p) => `${ox + p.x * scale},${oz + p.z * scale}`)
-      .join(' ')}" fill="#69747b" fill-opacity=".8" stroke="#3f4b53" stroke-width="1.5"/>`;
+  renderAreaEditor(geometry);
   $('edgeChoices').innerHTML = geometry.points
     .map(
       (_, i) =>
-        `<label><input type="checkbox" data-edge="${i}" ${state.edges[i] ? 'checked' : ''}><span>${custom ? String.fromCharCode(65 + i) + String.fromCharCode(65 + ((i + 1) % geometry.points.length)) : t(['front', 'right', 'back', 'left'][i])}</span></label>`,
+        `<label><input type="checkbox" data-edge="${i}" ${state.edges[i] ? 'checked' : ''}><span>${custom ? vertexLabel(i) + vertexLabel((i + 1) % geometry.points.length) : t(['front', 'right', 'back', 'left'][i])}</span></label>`,
     )
     .join('');
   $('tileChoices').innerHTML = Object.entries(TILES)
@@ -148,9 +346,10 @@ function render() {
     )
     .join('');
   $('curb').value = state.curb;
-  document
-    .querySelectorAll('[data-edge]')
-    .forEach((el) => (el.checked = state.edges[Number(el.dataset.edge)]));
+  document.querySelectorAll('[data-edge]').forEach((el) => {
+    el.checked = state.edges[Number(el.dataset.edge)];
+    el.disabled = drawingArea;
+  });
   swatches('colors', 'color', tile.colors);
   swatches('accents', 'accent', tile.colors);
   swatches('curbColors', 'curbColor', CURBS[state.curb].colors);
@@ -196,6 +395,11 @@ function restore(snapshot) {
   try {
     const next = normalize(snapshot);
     areaGeometry(next);
+    if (drawingArea) {
+      drawingArea = false;
+      draftAreaPoints = [];
+      viewer?.stopAreaDrawing();
+    }
     state = next;
     render();
     $('areaError').hidden = true;
@@ -206,20 +410,30 @@ function restore(snapshot) {
 }
 
 function change(patch, record = true) {
-  const next = normalize({ ...state, ...patch });
+  let prepared = patch;
+  if (Object.hasOwn(patch, 'areaPoints') && (patch.shape === 'custom' || state.shape === 'custom')) {
+    const points = normalizeFootprint(patch.areaPoints);
+    if (!points) {
+      render();
+      showAreaError();
+      return false;
+    }
+    prepared = { ...patch, shape: 'custom', areaPoints: points };
+  }
+  const next = normalize({ ...state, ...prepared });
   try {
     areaGeometry(next);
   } catch {
     render();
-    $('areaError').textContent = t('invalidArea');
-    $('areaError').hidden = false;
-    return;
+    showAreaError(next.shape === 'custom' ? areaText().invalid : t('invalidArea'));
+    return false;
   }
   if (record) history.record();
   state = next;
   $('areaError').hidden = true;
   render();
   shell?.markDirty();
+  return true;
 }
 
 function setLocale(value) {
@@ -243,6 +457,11 @@ const api = {
   restoreState: restore,
   resetConfiguration() {
     history.record();
+    if (drawingArea) {
+      drawingArea = false;
+      draftAreaPoints = [];
+      viewer?.stopAreaDrawing();
+    }
     state = normalize(DEFAULTS);
     render();
     shell?.markDirty();
@@ -306,6 +525,10 @@ $('centerHouse').addEventListener('click', () => {
   const g = areaGeometry(state);
   change({ houseX: (g.width - state.houseLength) / 2, houseZ: (g.depth - state.houseWidth) / 2 });
 });
+$('drawArea').addEventListener('click', startAreaDrawing);
+$('undoAreaPoint').addEventListener('click', () => viewer?.undoAreaPoint());
+$('finishArea').addEventListener('click', finishAreaDrawing);
+$('cancelArea').addEventListener('click', stopAreaDrawing);
 document.querySelector('.sidebar').addEventListener('change', (e) => {
   const el = e.target;
   if (el.dataset.rangeField) {
@@ -349,7 +572,7 @@ $('export').addEventListener('click', () => {
     [t('total'), '', '', '', bom.total.toFixed(2)],
     [],
     [t('note')],
-    [t('shape'), t(state.shape)],
+    [t('shape'), state.shape === 'custom' ? areaText().freeform : t(state.shape)],
     [t('netArea'), bom.area, 'm²'],
     [t('grossArea'), bom.grossArea, 'm²'],
     [t('houseArea'), bom.houseArea, 'm²'],
@@ -376,12 +599,15 @@ $('export').addEventListener('click', () => {
       : []),
     [t('perimeter'), bom.perimeter, 'm'],
     ...areaGeometry(state).lengths.map((length, i) => [
-      String.fromCharCode(65 + i) + String.fromCharCode(65 + ((i + 1) % state.edges.length)),
+      vertexLabel(i) + vertexLabel((i + 1) % state.edges.length),
       length,
       'm',
       state.edges[i] ? 'curb' : '',
     ]),
-    ...(state.shape === 'rectangle' ? [] : [[t('angleB'), state.angleB, '°']]),
+    ...(['closed4', 'closed5'].includes(state.shape) ? [[t('angleB'), state.angleB, '°']] : []),
+    ...(state.shape === 'custom' && state.areaPoints
+      ? state.areaPoints.map((p, i) => [`Area vertex ${vertexLabel(i)}`, p.x, p.z, 'm'])
+      : []),
     ...(state.houseShape === 'imported' && state.houseFootprint
       ? [
           [t('imported'), 'OpenStreetMap', state.houseLocation?.label || ''],
@@ -421,6 +647,7 @@ mountLocationPicker({
       houseX: (length - l) / 2,
       houseZ: (width - w) / 2,
       shape: 'rectangle',
+      areaPoints: null,
       length,
       width,
     });
@@ -449,6 +676,10 @@ shell = mountStandaloneConfiguratorShell({
   },
   callbacks: {
     onUndo() {
+      if (drawingArea) {
+        viewer?.undoAreaPoint();
+        return;
+      }
       history.undo();
     },
     resetConfiguration: api.resetConfiguration,
@@ -483,6 +714,12 @@ try {
   viewer = createViewer($('canvasHost'), {
     onHouseDragStart: () => history.record(),
     onHouseMove: (patch) => change(patch, false),
+    onAreaDraftChange(points) {
+      draftAreaPoints = points;
+      if (drawingArea) renderAreaEditor();
+    },
+    onAreaFinishRequested: finishAreaDrawing,
+    onAreaPointMove: commitAreaPointMove,
   });
   viewer.setDarkMode(Boolean(shell.state.darkMode));
   render();

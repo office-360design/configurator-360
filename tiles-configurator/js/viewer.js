@@ -5,6 +5,19 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clipRect, polygonArea } from './area.js';
 import { COLORS, TILES, CURBS, curbLayout, areaGeometry } from './model.js';
+
+const vertexLabel = (index) => {
+  let value = index + 1,
+    label = '';
+  while (value > 0) {
+    value--;
+    label = String.fromCharCode(65 + (value % 26)) + label;
+    value = Math.floor(value / 26);
+  }
+  return label;
+};
+const snap = (value) => Math.round(value * 20) / 20;
+
 export function createViewer(host, callbacks = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -40,13 +53,23 @@ export function createViewer(host, callbacks = {}) {
   ground.position.y = -0.16;
   ground.receiveShadow = true;
   scene.add(ground);
+  const grid = new THREE.GridHelper(40, 80, 0x0878c9, 0x93a5af);
+  grid.position.y = 0.09;
+  grid.material.transparent = true;
+  grid.material.opacity = 0.34;
+  grid.visible = false;
+  scene.add(grid);
   let group = new THREE.Group(),
     dimensions = new THREE.Group(),
+    areaHandles = new THREE.Group(),
+    areaDraft = new THREE.Group(),
     state,
     bounds,
     top = false,
-    showDimensions = true;
-  scene.add(group, dimensions);
+    showDimensions = true,
+    drawingArea = false,
+    draftPoints = [];
+  scene.add(group, dimensions, areaHandles, areaDraft);
   const box = new THREE.BoxGeometry(1, 1, 1),
     dummy = new THREE.Object3D();
   // Seeded noise keeps concrete stable between rebuilds and avoids texture downloads.
@@ -76,6 +99,14 @@ export function createViewer(host, callbacks = {}) {
         o.material.map.dispose();
         o.material.dispose();
       }
+    });
+    g.clear();
+  }
+  function clearOverlay(g) {
+    g.traverse((o) => {
+      o.geometry?.dispose?.();
+      if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose?.());
+      else o.material?.dispose?.();
     });
     g.clear();
   }
@@ -115,7 +146,7 @@ export function createViewer(host, callbacks = {}) {
     dimensions.add(sprite);
   }
   function fit() {
-    if (!state) return;
+    if (!state || !bounds) return;
     const size = Math.max(
         bounds.width,
         bounds.depth,
@@ -164,6 +195,54 @@ export function createViewer(host, callbacks = {}) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     group.add(mesh);
+  }
+  function handleSize() {
+    return Math.max(0.075, Math.min(0.18, Math.max(bounds?.width || 6, bounds?.depth || 4) * 0.014));
+  }
+  function makeHandle(x, z, index, first = false) {
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(handleSize(), 18, 12),
+      new THREE.MeshStandardMaterial({
+        color: first ? '#22a06b' : '#0878c9',
+        roughness: 0.45,
+        metalness: 0.05,
+        depthTest: false,
+      }),
+    );
+    mesh.position.set(x, 0.16, z);
+    mesh.renderOrder = 20;
+    mesh.userData.areaPoint = index;
+    return mesh;
+  }
+  function drawAreaHandles() {
+    clearOverlay(areaHandles);
+    if (drawingArea || !state || state.shape !== 'custom' || !bounds) return;
+    bounds.points.forEach((p, i) => {
+      areaHandles.add(makeHandle(p.x - bounds.width / 2, p.z - bounds.depth / 2, i, false));
+    });
+  }
+  function renderDraft(points, { local = false } = {}) {
+    clearOverlay(areaDraft);
+    if (!points.length) return;
+    const world = local
+      ? points.map((p) => ({ x: p.x - bounds.width / 2, z: p.z - bounds.depth / 2 }))
+      : points;
+    if (world.length > 1) {
+      const linePoints = world.length >= 3 ? [...world, world[0]] : world;
+      const geometry = new THREE.BufferGeometry().setFromPoints(
+        linePoints.map((p) => new THREE.Vector3(p.x, 0.145, p.z)),
+      );
+      const line = new THREE.Line(
+        geometry,
+        new THREE.LineBasicMaterial({ color: '#0878c9', depthTest: false }),
+      );
+      line.renderOrder = 19;
+      areaDraft.add(line);
+    }
+    world.forEach((p, i) => areaDraft.add(makeHandle(p.x, p.z, i, i === 0)));
+  }
+  function updateDraftCallback() {
+    callbacks.onAreaDraftChange?.(draftPoints.map((p) => ({ ...p })));
   }
   function rebuild(s, parts) {
     const nextBounds = areaGeometry(s),
@@ -256,16 +335,19 @@ export function createViewer(host, callbacks = {}) {
         const q = bounds.points[(i + 1) % bounds.points.length],
           length = bounds.lengths[i];
         const nx = (q.z - p.z) / length,
-          nz = -(q.x - p.x) / length;
-        label(String.fromCharCode(65 + i), p.x - bounds.width / 2, p.z - bounds.depth / 2);
+          nz = -(q.x - p.x) / length,
+          a = vertexLabel(i),
+          b = vertexLabel((i + 1) % bounds.points.length);
+        label(a, p.x - bounds.width / 2, p.z - bounds.depth / 2);
         label(
-          `${String.fromCharCode(65 + i)}${String.fromCharCode(65 + ((i + 1) % bounds.points.length))} · ${length.toFixed(2)} m`,
+          `${a}${b} · ${length.toFixed(2)} m`,
           (p.x + q.x) / 2 - bounds.width / 2 + nx * 0.65,
           (p.z + q.z) / 2 - bounds.depth / 2 + nz * 0.65,
         );
       });
     dimensions.visible = showDimensions;
-    if (changed) fit();
+    drawAreaHandles();
+    if (changed && !drawingArea) fit();
   }
   // Dispose the unique bedding material before replacing the group.
   function releaseBase() {
@@ -287,9 +369,10 @@ export function createViewer(host, callbacks = {}) {
   const raycaster = new THREE.Raycaster(),
     pointer = new THREE.Vector2(),
     plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  let drag = null,
-    pending = null,
-    dragFrame = 0;
+  let houseDrag = null,
+    pendingHouse = null,
+    houseDragFrame = 0,
+    areaDrag = null;
   function ray(event) {
     const rect = renderer.domElement.getBoundingClientRect();
     pointer.set(
@@ -298,18 +381,80 @@ export function createViewer(host, callbacks = {}) {
     );
     raycaster.setFromCamera(pointer, camera);
   }
-  function flushDrag() {
-    dragFrame = 0;
-    if (pending) {
-      const value = pending;
-      pending = null;
+  function planeHit(event) {
+    ray(event);
+    return raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+  }
+  function flushHouseDrag() {
+    houseDragFrame = 0;
+    if (pendingHouse) {
+      const value = pendingHouse;
+      pendingHouse = null;
       callbacks.onHouseMove?.(value);
+    }
+  }
+  function restorePointerInteraction() {
+    if (drawingArea) {
+      controls.enabled = false;
+      renderer.domElement.style.cursor = 'crosshair';
+    } else {
+      controls.enabled = true;
+      renderer.domElement.style.cursor = '';
     }
   }
   renderer.domElement.addEventListener(
     'pointerdown',
     (event) => {
-      if (event.button !== 0 || !state?.houseEnabled) return;
+      if (event.button !== 0) return;
+      const hit = planeHit(event);
+      if (!hit) return;
+
+      if (drawingArea) {
+        if (
+          draftPoints.length >= 3 &&
+          Math.hypot(hit.x - draftPoints[0].x, hit.z - draftPoints[0].z) <= handleSize() * 1.8
+        ) {
+          callbacks.onAreaFinishRequested?.();
+          event.stopImmediatePropagation();
+          event.preventDefault();
+          return;
+        }
+        if (draftPoints.length >= 64) return;
+        const point = { x: snap(hit.x), z: snap(hit.z) };
+        if (
+          draftPoints.length &&
+          Math.hypot(point.x - draftPoints.at(-1).x, point.z - draftPoints.at(-1).z) < 0.1
+        )
+          return;
+        draftPoints.push(point);
+        renderDraft(draftPoints);
+        updateDraftCallback();
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        return;
+      }
+
+      if (state?.shape === 'custom' && areaHandles.children.length) {
+        ray(event);
+        const handleHit = raycaster.intersectObjects(areaHandles.children, false)[0];
+        if (handleHit) {
+          areaDrag = {
+            id: event.pointerId,
+            index: handleHit.object.userData.areaPoint,
+            points: bounds.points.map((p) => ({ ...p })),
+          };
+          controls.enabled = false;
+          areaHandles.visible = false;
+          renderDraft(areaDrag.points, { local: true });
+          renderer.domElement.setPointerCapture(event.pointerId);
+          renderer.domElement.style.cursor = 'grabbing';
+          event.stopImmediatePropagation();
+          event.preventDefault();
+          return;
+        }
+      }
+
+      if (!state?.houseEnabled) return;
       ray(event);
       if (
         !raycaster.intersectObjects(
@@ -318,9 +463,7 @@ export function createViewer(host, callbacks = {}) {
         ).length
       )
         return;
-      const hit = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
-      if (!hit) return;
-      drag = {
+      houseDrag = {
         id: event.pointerId,
         x: hit.x,
         z: hit.z,
@@ -339,26 +482,48 @@ export function createViewer(host, callbacks = {}) {
   renderer.domElement.addEventListener(
     'pointermove',
     (event) => {
-      if (!drag || event.pointerId !== drag.id) return;
-      ray(event);
-      const hit = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+      if (areaDrag && event.pointerId === areaDrag.id) {
+        const hit = planeHit(event);
+        if (!hit) return;
+        areaDrag.points[areaDrag.index] = {
+          x: snap(hit.x + bounds.width / 2),
+          z: snap(hit.z + bounds.depth / 2),
+        };
+        renderDraft(areaDrag.points, { local: true });
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        return;
+      }
+      if (!houseDrag || event.pointerId !== houseDrag.id) return;
+      const hit = planeHit(event);
       if (!hit) return;
-      pending = {
-        houseX: Math.round((drag.houseX + hit.x - drag.x) * 100) / 100,
-        houseZ: Math.round((drag.houseZ + hit.z - drag.z) * 100) / 100,
+      pendingHouse = {
+        houseX: Math.round((houseDrag.houseX + hit.x - houseDrag.x) * 100) / 100,
+        houseZ: Math.round((houseDrag.houseZ + hit.z - houseDrag.z) * 100) / 100,
       };
-      if (!dragFrame) dragFrame = requestAnimationFrame(flushDrag);
+      if (!houseDragFrame) houseDragFrame = requestAnimationFrame(flushHouseDrag);
       event.stopImmediatePropagation();
     },
     true,
   );
   function endDrag(event) {
-    if (!drag || event.pointerId !== drag.id) return;
-    if (dragFrame) cancelAnimationFrame(dragFrame);
-    flushDrag();
-    drag = null;
-    controls.enabled = true;
-    renderer.domElement.style.cursor = '';
+    if (areaDrag && event.pointerId === areaDrag.id) {
+      const points = areaDrag.points.map((p) => ({ ...p }));
+      areaDrag = null;
+      clearOverlay(areaDraft);
+      areaHandles.visible = true;
+      callbacks.onAreaPointMove?.(points);
+      restorePointerInteraction();
+      if (renderer.domElement.hasPointerCapture(event.pointerId))
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      event.stopImmediatePropagation();
+      return;
+    }
+    if (!houseDrag || event.pointerId !== houseDrag.id) return;
+    if (houseDragFrame) cancelAnimationFrame(houseDragFrame);
+    flushHouseDrag();
+    houseDrag = null;
+    restorePointerInteraction();
     if (renderer.domElement.hasPointerCapture(event.pointerId))
       renderer.domElement.releasePointerCapture(event.pointerId);
     event.stopImmediatePropagation();
@@ -366,6 +531,14 @@ export function createViewer(host, callbacks = {}) {
   renderer.domElement.addEventListener('pointerup', endDrag, true);
   renderer.domElement.addEventListener('pointercancel', endDrag, true);
   renderer.domElement.addEventListener('lostpointercapture', endDrag, true);
+  renderer.domElement.addEventListener('contextmenu', (event) => {
+    if (!drawingArea) return;
+    event.preventDefault();
+    if (!draftPoints.length) return;
+    draftPoints.pop();
+    renderDraft(draftPoints);
+    updateDraftCallback();
+  });
   renderer.setAnimationLoop(() => {
     controls.update();
     renderer.render(scene, camera);
@@ -374,6 +547,33 @@ export function createViewer(host, callbacks = {}) {
     rebuild(s, p) {
       releaseBase();
       rebuild(s, p);
+    },
+    startAreaDrawing() {
+      drawingArea = true;
+      draftPoints = [];
+      grid.visible = true;
+      areaHandles.visible = false;
+      clearOverlay(areaDraft);
+      controls.enabled = false;
+      renderer.domElement.style.cursor = 'crosshair';
+      updateDraftCallback();
+    },
+    undoAreaPoint() {
+      if (!drawingArea || !draftPoints.length) return false;
+      draftPoints.pop();
+      renderDraft(draftPoints);
+      updateDraftCallback();
+      return true;
+    },
+    stopAreaDrawing() {
+      drawingArea = false;
+      draftPoints = [];
+      grid.visible = false;
+      clearOverlay(areaDraft);
+      areaHandles.visible = true;
+      drawAreaHandles();
+      restorePointerInteraction();
+      updateDraftCallback();
     },
     cycleCamera() {
       top = !top;
@@ -388,6 +588,7 @@ export function createViewer(host, callbacks = {}) {
     setDarkMode(dark) {
       scene.background.set(dark ? '#242c30' : '#e6e9e5');
       ground.material.color.set(dark ? '#3a453d' : '#cbd0c4');
+      grid.material.color?.set?.(dark ? '#7e919b' : '#93a5af');
     },
   };
 }

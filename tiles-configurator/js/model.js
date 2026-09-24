@@ -116,6 +116,7 @@ export const DEFAULTS = Object.freeze({
   houseZ: 1,
   houseRotation: 0,
   shape: 'rectangle',
+  areaPoints: null,
   runA: 6,
   runB: 4,
   runC: 4,
@@ -153,7 +154,13 @@ export function normalize(input = {}) {
   s.waste = number(s.waste, 7, 0, 30);
   s.tileRate = number(s.tileRate, tile.price, 0, 10000);
   s.curbRate = number(s.curbRate, CURBS[s.curb].price, 0, 10000);
-  s.shape = ['rectangle', 'closed4', 'closed5'].includes(s.shape) ? s.shape : 'rectangle';
+  s.areaPoints = normalizeFootprint(s.areaPoints);
+  s.shape =
+    s.shape === 'custom' && s.areaPoints
+      ? 'custom'
+      : ['rectangle', 'closed4', 'closed5'].includes(s.shape)
+        ? s.shape
+        : 'rectangle';
   for (const key of ['runA', 'runB', 'runC', 'runD']) s[key] = number(s[key], DEFAULTS[key], 1, 20);
   s.angleB = number(s.angleB, 90, 30, 150);
   s.houseEnabled = s.houseEnabled === true;
@@ -187,7 +194,9 @@ export function normalize(input = {}) {
   for (const key of ['houseX', 'houseZ']) s[key] = number(s[key], DEFAULTS[key], -20, 60);
   s.houseRotation = number(s.houseRotation, 0, 0, 360);
   s.rotation = Number(s.rotation) === 90 ? 90 : 0;
-  s.edges = Array.from({ length: s.shape === 'closed5' ? 5 : 4 }, (_, i) =>
+  const edgeCount =
+    s.shape === 'custom' ? s.areaPoints.length : s.shape === 'closed5' ? 5 : 4;
+  s.edges = Array.from({ length: edgeCount }, (_, i) =>
     Array.isArray(s.edges) && typeof s.edges[i] === 'boolean' ? s.edges[i] : true,
   );
   return Object.fromEntries(Object.keys(DEFAULTS).map((k) => [k, k === 'version' ? 1 : s[k]]));
