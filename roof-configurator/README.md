@@ -131,6 +131,11 @@ The 3D metric readouts still respect the shell units. Wall height, material and
 colour remain editable in the sidebar. Preset length/depth/pitch/overhang controls
 are hidden because the custom geometry determines those values.
 
+Coplanar custom surfaces share a continuous covering grid and shading. Internal
+triangulation does not create a ridge, flashing or relief taper; these follow
+actual slope changes and the roof perimeter. The two metal coverings use a finer
+profile mesh on custom roofs to retain their tile shape at close viewing distances.
+
 Layouts are versioned JSON with shared `vertices` (`x`, `z`, `h`), a `boundary`
 ring and indexed `faces`. The complete layout is included in capture/restore,
 share links, saved configurations and quotation snapshots through the existing
@@ -160,6 +165,8 @@ Validation:
 npm run check:roof
 # With the repository served at http://127.0.0.1:8080 and Playwright Chromium installed:
 npm run check:roof:browser
+# Rendering regression: shared seam positions/normals for all three coverings.
+node roof-configurator/tests/covering-browser.cjs
 ```
 
 The browser check covers drawing, division, point heights, examples, draft
