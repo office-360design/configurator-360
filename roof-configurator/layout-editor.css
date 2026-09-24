@@ -77,3 +77,8 @@
 }
 .layout-node { cursor: grab; }
 .layout-drawing svg:active .layout-node.selected { cursor: grabbing; }
+
+.layout-face.attached { stroke: #ea580c; stroke-width: 3; }
+#layoutSplitFaces label { display: flex; align-items: center; font-size: 12px; }
+#layoutSplitFaces input { width: auto; min-height: 0; }
+#layoutCopyInfo { display: block; font-size: 12px; color: #52657a; }

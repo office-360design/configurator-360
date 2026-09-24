@@ -1,7 +1,8 @@
 import {
+  splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
   layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-6';
+} from './roofLayout.js?v=layout-7';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {
@@ -25,6 +26,8 @@ export class RoofLayoutEditor {
         <button type="button" data-action="draw">New perimeter</button>
         <button type="button" data-action="split">Divide surface</button>
         <button type="button" data-action="insert">Insert edge point</button>
+        <button type="button" data-action="splitPlace">Split in place</button>
+        <button type="button" data-action="cycleCopy">Next copy</button>
         <button type="button" data-action="delete">Delete selected</button>
         <button type="button" data-action="finish">Close perimeter</button>
         <button type="button" data-action="undo">Undo</button>
@@ -48,6 +51,11 @@ export class RoofLayoutEditor {
             <label>Z (m)<input id="layoutZ" type="number" min="-100" max="100" step="any"></label>
             <label>Height above wall (m)<input id="layoutH" type="number" min="0" max="30" step="any"></label>
             <button type="button" data-action="point">Update point</button>
+          </fieldset>
+          <fieldset class="layout-detach"><legend>Split in place</legend>
+            <p>Choose the adjoining surfaces to detach. Copies share their plan position but have independent heights. A wall closes any height difference.</p>
+            <div id="layoutSplitFaces"></div>
+            <output id="layoutCopyInfo"></output>
           </fieldset>
           <label>Starter pitch (degrees)<input id="layoutPitch" type="number" min="5" max="60" step="any" value="30"></label>
           <button type="button" data-action="pitch">Generate pitched roof</button>
@@ -182,6 +190,18 @@ export class RoofLayoutEditor {
             this.selectedEdge = null;
           }
         }
+      } else if (action === 'cycleCopy') {
+        this.cycleCopy();
+      } else if (action === 'splitPlace') {
+        const ids = this.selectionIds();
+        if (!ids.length || this.mode !== 'select') return;
+        const faces = [...this.dialog.querySelectorAll('#layoutSplitFaces input:checked')]
+          .map(input => Number(input.value));
+        const result = splitLayoutInPlace(this.layout, ids, faces);
+        this.commit(result.layout);
+        this.selected = ids.length === 1 ? result.copies[0] : null;
+        this.selectedEdge = ids.length === 2 ? result.copies : null;
+        this.status('Split created. Use Next copy to select either side and change its height independently.');
       } else if (action === 'delete') {
         if (this.mode !== 'select' || this.path.length) return;
         let next;
@@ -200,7 +220,7 @@ export class RoofLayoutEditor {
         }
         const next = cloneLayout(this.layout);
         const [x, z, h] = fields.map(input => Number(input.value));
-        next.vertices[this.selected] = { x, z, h };
+        moveLayoutPoint(next, this.selected, { x, z, h });
         this.commit(next);
       } else if (action === 'fit') {
         this.fit();
@@ -248,6 +268,33 @@ export class RoofLayoutEditor {
     }
   }
 
+  selectionIds() {
+    return this.selected !== null ? [this.selected] : this.selectedEdge || [];
+  }
+
+  selectionCopies() {
+    if (this.selected !== null) return linkedPlanPoints(this.layout, this.selected).map(id => [id]);
+    if (!this.selectedEdge) return [];
+    const key = ids => ids.map(id => linkedPlanPoints(this.layout, id)[0]).sort((a, b) => a - b).join(':');
+    const target = key(this.selectedEdge);
+    const edges = new Map();
+    this.layout.faces.forEach(face => face.forEach((a, i) => {
+      const edge = [a, face[(i + 1) % face.length]].sort((a, b) => a - b);
+      if (key(edge) === target) edges.set(edge.join(':'), edge);
+    }));
+    return [...edges.values()];
+  }
+
+  cycleCopy() {
+    const copies = this.selectionCopies();
+    if (copies.length < 2) return;
+    const ids = this.selectionIds();
+    const index = copies.findIndex(copy => copy.every(id => ids.includes(id)));
+    const next = copies[(index + 1) % copies.length];
+    this.selected = next.length === 1 ? next[0] : null;
+    this.selectedEdge = next.length === 2 ? next : null;
+  }
+
   starterPitch() {
     const input = this.dialog.querySelector('#layoutPitch');
     if (!input.value || !input.checkValidity()) throw new Error('Enter a starter pitch between 5° and 60°.');
@@ -279,6 +326,7 @@ export class RoofLayoutEditor {
       point.x = Math.round((point.x + raw.x - drag.start.x) / snap) * snap;
       point.z = Math.round((point.z + raw.z - drag.start.z) / snap) * snap;
     }
+    moveLayoutPoint(next, drag.id, { ...point });
     try {
       validateLayout(next);
       this.layout = next;
@@ -310,8 +358,13 @@ export class RoofLayoutEditor {
     const raw = this.rawPointer(event);
     const tolerance = (this.svg.clientWidth < 500 ? 28 : 14) / this.scale;
     if (this.mode !== 'draw') {
-      const id = this.layout.vertices.findIndex(p => distance(p, raw) < tolerance);
-      if (id >= 0) return { ...this.layout.vertices[id], id, edge: true };
+      const id = this.layout.vertices.reduce((best, p, i) => distance(p, raw) < tolerance &&
+        (best < 0 || distance(p, raw) < distance(this.layout.vertices[best], raw)) ? i : best, -1);
+      if (id >= 0) {
+        const chosen = this.mode !== 'select' && linkedPlanPoints(this.layout, id).includes(this.selected)
+          ? this.selected : id;
+        return { ...this.layout.vertices[chosen], id: chosen, edge: true };
+      }
       let closest = null;
       this.layout.faces.forEach(face => face.forEach((id, i) => {
         const a = this.layout.vertices[id], b = this.layout.vertices[face[(i + 1) % face.length]];
@@ -332,7 +385,8 @@ export class RoofLayoutEditor {
     const point = this.pointer(event);
     try {
       if (this.mode === 'select') {
-        this.selected = point.id ?? null;
+        const copies = point.id === undefined ? [] : linkedPlanPoints(this.layout, point.id);
+        this.selected = copies.includes(this.selected) ? this.selected : point.id ?? null;
         this.selectedEdge = this.selected === null ? point.edgeIds ?? null : null;
         this.svg.focus();
         if (this.selected !== null) {
@@ -385,7 +439,8 @@ export class RoofLayoutEditor {
       this.layout.faces.forEach((face, i) => {
         this.svg.append(svgElement('polygon', {
           points: coords(face.map(id => this.layout.vertices[id])),
-          fill: ['#dbeafe', '#d1fae5', '#fef3c7', '#ede9fe'][i % 4], class: 'layout-face',
+          fill: ['#dbeafe', '#d1fae5', '#fef3c7', '#ede9fe'][i % 4],
+          class: selectionSurfaces(this.layout, this.selectionIds()).includes(i) ? 'layout-face attached' : 'layout-face',
         }));
       });
       const metrics = layoutMetrics(this.layout);
@@ -410,10 +465,17 @@ export class RoofLayoutEditor {
         }));
       }
       this.layout.vertices.forEach((p, id) => {
+        const copies = linkedPlanPoints(this.layout, id);
+        const visible = copies.includes(this.selected) ? this.selected : copies[0];
+        if (id !== visible) return;
         const v = project(p);
         this.svg.append(svgElement('circle', { cx: v.x, cy: v.y, r: 7, class: id === this.selected ? 'layout-node selected' : 'layout-node' }));
-        const label = svgElement('text', { x: v.x + 11, y: v.y - 10 });
-        label.textContent = `${id + 1} · ${p.h.toFixed(2)} m`;
+        const rightSide = v.x > 600;
+        const label = svgElement('text', {
+          x: v.x + (rightSide ? -11 : 11), y: v.y - 10,
+          'text-anchor': rightSide ? 'end' : 'start',
+        });
+        label.textContent = `${id + 1} · ${p.h.toFixed(2)} m${copies.length > 1 ? ` · copy ${copies.indexOf(id) + 1}/${copies.length}` : ''}`;
         this.svg.append(label);
       });
       this.dialog.querySelector('.layout-summary').textContent =
@@ -427,12 +489,29 @@ export class RoofLayoutEditor {
       });
     }
     const hints = {
-      select: 'Select a point or edge, then Delete selected (or Delete/Backspace). Removing a dividing edge merges its adjoining surfaces. Outer edges must stay closed. Drag a point to move it on the plan. Shift-drag up/down changes its height. You can also enter exact coordinates below. Shared points update adjoining surfaces.',
+      select: 'Split in place detaches chosen adjoining surfaces for independent height control. Next copy cycles stacked points or edges; attached surfaces are highlighted. Select a point or edge, then Delete selected (or Delete/Backspace). Removing a dividing edge merges its adjoining surfaces. Outer edges must stay closed. Drag a point to move it on the plan. Shift-drag up/down changes its height. You can also enter exact coordinates below. Shared points update adjoining surfaces.',
       draw: 'Click around the outer roof edge. Click the first point or Close perimeter to finish. This creates a pitched roof at the starter pitch and replaces the current draft.',
       split: 'Start on a surface edge, add optional interior points, then finish on another edge of the same surface. Raise the new points to form ridges, or lower them for valleys.',
       insert: 'Click an existing edge to add a shared point. Then set its height or coordinates.',
     };
     this.dialog.querySelector('.layout-help').textContent = hints[this.mode];
+    const incident = selectionSurfaces(this.layout, this.selectionIds());
+    const splitFaces = this.dialog.querySelector('#layoutSplitFaces');
+    splitFaces.replaceChildren();
+    incident.forEach((index, i) => {
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = index;
+      input.checked = i === 0;
+      input.disabled = incident.length < 2;
+      label.append(input, `Surface ${index + 1} (points ${this.layout.faces[index].map(id => id + 1).join(', ')})`);
+      splitFaces.append(label);
+    });
+    const copies = this.selectionCopies();
+    this.dialog.querySelector('#layoutCopyInfo').textContent = copies.length > 1
+      ? `${copies.length} copies here. Selected ${this.selected !== null ? 'point' : 'edge'}: ${this.selectionIds().map(id => id + 1).join('–')}. Attached surfaces: ${incident.map(i => i + 1).join(', ')}.`
+      : 'Select a shared point or dividing edge to split it.';
     this.dialog.querySelector('.layout-point').disabled = this.selected === null;
     this.dialog.querySelector('#layoutPointName').textContent = this.selected === null ? '—' : this.selected + 1;
     const pointSelect = this.dialog.querySelector('#layoutPointSelect');
@@ -446,6 +525,8 @@ export class RoofLayoutEditor {
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       const action = button.dataset.action;
       if (['select', 'draw', 'split', 'insert'].includes(action)) button.setAttribute('aria-pressed', String(action === this.mode));
+      if (action === 'splitPlace') button.disabled = this.mode !== 'select' || incident.length < 2;
+      if (action === 'cycleCopy') button.disabled = this.mode !== 'select' || copies.length < 2;
       if (action === 'delete') button.disabled = this.mode !== 'select' || (this.selected === null && !this.selectedEdge);
       if (action === 'finish') button.disabled = this.mode !== 'draw' || this.path.length < 3;
       if (action === 'undo') button.disabled = !this.history.length && !this.path.length;

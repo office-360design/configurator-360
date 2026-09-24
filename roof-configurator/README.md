@@ -178,3 +178,24 @@ when the CDN is unavailable in the test environment.
 Custom layouts support the Eaves overhang control (0–1.2 m). The drawing remains the outer roof edge; walls are inset horizontally, with tops following the roof slopes. Zero aligns walls with the edge. Narrow footprints automatically limit the effective setback, shown beside the control. Roof area stays unchanged; building footprint reflects the inset walls. The existing saved/shared overhang value is used.
 
 Select a point or dividing edge in the layout editor and use **Delete selected**, Delete or Backspace. Removing a dividing edge merges its adjoining surfaces (including their shared polyline); removing a junction may merge incident surfaces. Boundary points reshape the closed perimeter. Outer edges cannot be removed alone. Invalid deletions leave the draft unchanged, and successful deletions support Undo/Redo.
+
+### Split points and edges in place
+
+Select a shared point or dividing edge, choose the adjoining surfaces under
+**Split in place**, then press **Split in place** in the toolbar. At least one
+surface must remain attached to the original. A point split duplicates that
+corner for the chosen surfaces; an edge split duplicates both endpoints on one
+side. **Next copy** cycles the coincident points or edges. The selected copy's
+attached surfaces are highlighted, and the point selector gives access to every
+copy for exact height entry or Shift-dragging.
+
+Heights are independent. X/Z edits move the coincident copies together to keep
+the plan closed; this is not an overlapping-roof or free-floating-surface tool.
+Vertical wall faces automatically close differences along detached boundaries,
+including tapered steps and height profiles that cross. Inserting a point on a
+split edge retains the height profile on each side. Splits and height edits
+support Undo/Redo and are preserved in saved/shared layouts. To remove a split
+point, undo its split first; deleting unrelated points remains available.
+
+Regression check (with the same browser environment as the other browser tests):
+`node roof-configurator/tests/split-browser.cjs`.
