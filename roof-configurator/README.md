@@ -195,7 +195,16 @@ Vertical wall faces automatically close differences along detached boundaries,
 including tapered steps and height profiles that cross. Inserting a point on a
 split edge retains the height profile on each side. Splits and height edits
 support Undo/Redo and are preserved in saved/shared layouts. To remove a split
-point, undo its split first; deleting unrelated points remains available.
+point, join it first; deleting unrelated points remains available.
 
 Regression check (with the same browser environment as the other browser tests):
 `node roof-configurator/tests/split-browser.cjs`.
+
+**Join in place** reverses a split even after saving and reopening the layout.
+For a point, it reconnects every copy at that position. For an edge, it reconnects
+all copies of both endpoints, including adjoining surfaces. The selected copy's
+height (or both selected endpoint heights) wins; use Next copy first to choose
+which heights to keep. Surface divisions remain. Height differences and their
+step walls disappear where joined. Undo restores all prior copies and heights.
+
+Join regression check: `node roof-configurator/tests/join-browser.cjs`.

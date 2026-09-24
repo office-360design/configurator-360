@@ -1,8 +1,8 @@
 import {
-  splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
+  joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
   layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-7';
+} from './roofLayout.js?v=layout-8';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {
@@ -27,6 +27,7 @@ export class RoofLayoutEditor {
         <button type="button" data-action="split">Divide surface</button>
         <button type="button" data-action="insert">Insert edge point</button>
         <button type="button" data-action="splitPlace">Split in place</button>
+        <button type="button" data-action="joinPlace">Join in place</button>
         <button type="button" data-action="cycleCopy">Next copy</button>
         <button type="button" data-action="delete">Delete selected</button>
         <button type="button" data-action="finish">Close perimeter</button>
@@ -53,7 +54,7 @@ export class RoofLayoutEditor {
             <button type="button" data-action="point">Update point</button>
           </fieldset>
           <fieldset class="layout-detach"><legend>Split in place</legend>
-            <p>Choose the adjoining surfaces to detach. Copies share their plan position but have independent heights. A wall closes any height difference.</p>
+            <p>Choose the adjoining surfaces to detach. Copies share their plan position but have independent heights. A wall closes any height difference. Join in place reconnects all copies of the selected point or edge endpoints, keeping the selected heights.</p>
             <div id="layoutSplitFaces"></div>
             <output id="layoutCopyInfo"></output>
           </fieldset>
@@ -192,6 +193,13 @@ export class RoofLayoutEditor {
         }
       } else if (action === 'cycleCopy') {
         this.cycleCopy();
+      } else if (action === 'joinPlace') {
+        if (this.mode !== 'select') return;
+        const next = joinLayoutInPlace(this.layout, this.selectionIds());
+        this.selected = null;
+        this.selectedEdge = null;
+        this.commit(next);
+        this.status('Copies joined using the selected heights. Undo restores the split and original heights.');
       } else if (action === 'splitPlace') {
         const ids = this.selectionIds();
         if (!ids.length || this.mode !== 'select') return;
@@ -526,6 +534,8 @@ export class RoofLayoutEditor {
       const action = button.dataset.action;
       if (['select', 'draw', 'split', 'insert'].includes(action)) button.setAttribute('aria-pressed', String(action === this.mode));
       if (action === 'splitPlace') button.disabled = this.mode !== 'select' || incident.length < 2;
+      if (action === 'joinPlace') button.disabled = this.mode !== 'select' ||
+        !this.selectionIds().some(id => linkedPlanPoints(this.layout, id).length > 1);
       if (action === 'cycleCopy') button.disabled = this.mode !== 'select' || copies.length < 2;
       if (action === 'delete') button.disabled = this.mode !== 'select' || (this.selected === null && !this.selectedEdge);
       if (action === 'finish') button.disabled = this.mode !== 'draw' || this.path.length < 3;

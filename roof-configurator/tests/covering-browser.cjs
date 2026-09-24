@@ -18,8 +18,8 @@ const assert = require('node:assert/strict');
   await page.waitForFunction(() => window.ROOF_CONFIGURATOR_API);
   for (const covering of ['generic', 'roca', 'teclado']) {
     const result = await page.evaluate(async covering => {
-      const { lShapedLayout, footprintLayout } = await import('../roof-configurator/js/roofLayout.js?v=layout-7');
-      const { buildRoofModel } = await import('../roof-configurator/js/roofFactory.js?v=layout-7');
+      const { lShapedLayout, footprintLayout } = await import('../roof-configurator/js/roofLayout.js?v=layout-8');
+      const { buildRoofModel } = await import('../roof-configurator/js/roofFactory.js?v=layout-8');
       const api = window.ROOF_CONFIGURATOR_API;
       const state = { ...api.captureState(), roofType: 'layout', roofLayout: lShapedLayout(), covering, roofColor: '#374151' };
       api.restoreState(state);
