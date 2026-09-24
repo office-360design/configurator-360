@@ -21,6 +21,7 @@ import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBoots
 
 const $ = (id) => document.getElementById(id);
 installAreaEditor();
+installPhotoFlowShell();
 const tenant = await requireTenantConfiguratorAccess('tiles');
 let state = normalize(),
   locale = 'en-US',
@@ -29,7 +30,16 @@ let state = normalize(),
   shell,
   top = false,
   drawingArea = false,
-  draftAreaPoints = [];
+  draftAreaPoints = [],
+  photoFlowStep = 'upload',
+  photoObjectUrl = null,
+  photoRectCache = null,
+  calibrationCorners = [
+    { x: 0.36, y: 0.38 },
+    { x: 0.64, y: 0.4 },
+    { x: 0.66, y: 0.66 },
+    { x: 0.34, y: 0.64 },
+  ];
 const money = (n) =>
   new Intl.NumberFormat(locale, { style: 'currency', currency: 'RON' }).format(n);
 const f = (n) => new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(n);
@@ -37,6 +47,156 @@ const history = new SharedUndoManager({
   capture: () => structuredClone(state),
   restore: (s) => restore(s),
 });
+
+const PHOTO_FLOW_COPY = {
+  en: {
+    stepUpload: '1 · Add a site photo',
+    uploadTitle: 'Start with a photo of the yard',
+    uploadHelp: 'Use a clear photo that shows the ground where the pavement will go. The photo stays local to this browser session.',
+    upload: 'Choose yard photo',
+    stepCalibrate: '2 · Set the scale and perspective',
+    calibrateTitle: 'Match the 1 m reference square',
+    calibrateHelp: 'Drag all four blue corners so the 1 m × 1 m square follows the perspective of a one-metre square on the ground. This sets scale and camera angle.',
+    calibrate: 'Use this 1 m square',
+    changePhoto: 'Choose another photo',
+    stepDraw: '3 · Draw the paving area',
+    drawTitle: 'Place the paving corners on the photo',
+    drawHelp: 'Click or tap the photo to add corners. Drag a placed corner to move it. Click the first green corner or use Finish when the outline is complete.',
+    undo: 'Undo point',
+    finish: 'Finish area',
+    calibrationInvalid: 'The reference square is too small or crossed. Keep the four corners in order around a visible 1 m square.',
+    photoFailed: 'That image could not be opened. Try another JPG, PNG or WebP image.',
+    photoOnly: 'Choose an image file (JPG, PNG or WebP).',
+    freeCamera: 'Free camera',
+    photoView: 'Photo view',
+  },
+  ro: {
+    stepUpload: '1 · Adaugă fotografia',
+    uploadTitle: 'Începe cu o fotografie a curții',
+    uploadHelp: 'Folosește o fotografie clară în care se vede zona ce va fi pavată. Fotografia rămâne doar în această sesiune din browser.',
+    upload: 'Alege fotografia curții',
+    stepCalibrate: '2 · Setează scara și perspectiva',
+    calibrateTitle: 'Potrivește pătratul de referință de 1 m',
+    calibrateHelp: 'Trage toate cele patru colțuri albastre astfel încât pătratul de 1 m × 1 m să urmărească perspectiva unui pătrat de un metru de pe sol. Astfel se stabilesc scara și unghiul camerei.',
+    calibrate: 'Folosește acest pătrat de 1 m',
+    changePhoto: 'Alege altă fotografie',
+    stepDraw: '3 · Desenează zona de pavat',
+    drawTitle: 'Pune colțurile pavajului pe fotografie',
+    drawHelp: 'Apasă pe fotografie pentru a adăuga colțuri. Trage un colț deja pus pentru a-l muta. Apasă primul colț verde sau Finalizează când conturul este gata.',
+    undo: 'Anulează punctul',
+    finish: 'Finalizează suprafața',
+    calibrationInvalid: 'Pătratul de referință este prea mic sau se intersectează. Păstrează cele patru colțuri în ordine în jurul unui pătrat vizibil de 1 m.',
+    photoFailed: 'Imaginea nu a putut fi deschisă. Încearcă alt fișier JPG, PNG sau WebP.',
+    photoOnly: 'Alege un fișier imagine (JPG, PNG sau WebP).',
+    freeCamera: 'Cameră liberă',
+    photoView: 'Vedere foto',
+  },
+  de: {
+    stepUpload: '1 · Standortfoto hinzufügen',
+    uploadTitle: 'Mit einem Foto des Hofs beginnen',
+    uploadHelp: 'Ein klares Foto verwenden, auf dem die zu pflasternde Bodenfläche sichtbar ist. Das Foto bleibt nur in dieser Browser-Sitzung.',
+    upload: 'Hoffoto auswählen',
+    stepCalibrate: '2 · Maßstab und Perspektive',
+    calibrateTitle: '1-m-Referenzquadrat ausrichten',
+    calibrateHelp: 'Alle vier blauen Ecken so ziehen, dass das 1 m × 1 m Quadrat der Perspektive eines ein Meter großen Quadrats auf dem Boden folgt. Dadurch werden Maßstab und Kamerawinkel gesetzt.',
+    calibrate: 'Dieses 1-m-Quadrat verwenden',
+    changePhoto: 'Anderes Foto auswählen',
+    stepDraw: '3 · Pflasterfläche zeichnen',
+    drawTitle: 'Pflasterecken im Foto setzen',
+    drawHelp: 'Auf das Foto klicken oder tippen, um Ecken zu setzen. Gesetzte Ecken können gezogen werden. Zum Abschluss den ersten grünen Punkt oder Fertig verwenden.',
+    undo: 'Punkt zurück',
+    finish: 'Fläche fertigstellen',
+    calibrationInvalid: 'Das Referenzquadrat ist zu klein oder gekreuzt. Die vier Ecken in Reihenfolge um ein sichtbares 1-m-Quadrat legen.',
+    photoFailed: 'Das Bild konnte nicht geöffnet werden. Ein anderes JPG-, PNG- oder WebP-Bild versuchen.',
+    photoOnly: 'Eine Bilddatei auswählen (JPG, PNG oder WebP).',
+    freeCamera: 'Freie Kamera',
+    photoView: 'Fotoansicht',
+  },
+};
+const photoText = () => PHOTO_FLOW_COPY[locale.split('-')[0]] || PHOTO_FLOW_COPY.en;
+
+function installPhotoFlowShell() {
+  const viewerElement = $('viewer'),
+    canvasHost = $('canvasHost');
+  if (!viewerElement || !canvasHost || $('photoFlow')) return;
+  document.body.classList.add('tiles-photo-setup');
+  const flow = document.createElement('div');
+  flow.id = 'photoFlow';
+  flow.className = 'photo-flow is-upload';
+  flow.innerHTML = `
+    <div class="photo-flow-card">
+      <p id="photoFlowStep" class="photo-flow-step">1 · Add a site photo</p>
+      <h2 id="photoFlowTitle">Start with a photo of the yard</h2>
+      <p id="photoFlowHelp">Use a clear photo that shows the ground where the pavement will go.</p>
+      <label id="photoUploadAction" class="photo-primary photo-upload-action">
+        <span id="photoUploadText">Choose yard photo</span>
+        <input id="sitePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+      </label>
+      <div id="photoCalibrationActions" class="photo-flow-actions" hidden>
+        <button id="photoCalibrationConfirm" type="button" class="photo-primary"></button>
+        <button id="photoChangeCalibration" type="button" class="photo-secondary"></button>
+      </div>
+      <div id="photoDrawingActions" class="photo-flow-actions" hidden>
+        <button id="photoUndoPoint" type="button" class="photo-secondary"></button>
+        <button id="photoFinishArea" type="button" class="photo-primary"></button>
+        <button id="photoChangeDrawing" type="button" class="photo-secondary photo-full"></button>
+      </div>
+      <p id="photoFlowError" class="photo-flow-error" role="alert" hidden></p>
+    </div>`;
+  viewerElement.append(flow);
+  $('sitePhotoInput')?.addEventListener('change', (event) => {
+    window.__TILES_PENDING_PHOTO_FILE = event.target.files?.[0] || null;
+  });
+
+  const calibration = document.createElement('div');
+  calibration.id = 'photoCalibrationLayer';
+  calibration.hidden = true;
+  calibration.innerHTML = `
+    <svg id="photoCalibrationSvg" aria-hidden="true"></svg>
+    ${[0, 1, 2, 3].map((i) => `<button type="button" class="photo-calibration-handle" data-calibration-corner="${i}" aria-label="Reference square corner ${i + 1}"></button>`).join('')}`;
+  canvasHost.append(calibration);
+
+  const viewActions = document.querySelector('.view-actions');
+  if (viewActions && !$('photoModeButton')) {
+    const button = document.createElement('button');
+    button.id = 'photoModeButton';
+    button.type = 'button';
+    button.hidden = true;
+    viewActions.insertBefore(button, viewActions.firstChild);
+  }
+
+  const style = document.createElement('style');
+  style.textContent = `
+    body.tiles-photo-setup #viewer{right:0!important}
+    body.tiles-photo-setup .sidebar,body.tiles-photo-setup #tilesSidebarToggle{display:none!important}
+    body.tiles-photo-setup .scene-caption,body.tiles-photo-setup .view-actions{display:none!important}
+    .photo-flow{position:absolute;inset:0;z-index:30;display:flex;align-items:flex-start;justify-content:flex-start;padding:24px;pointer-events:none;transition:background .18s}
+    .photo-flow.is-upload{align-items:center;justify-content:center;background:rgba(232,235,231,.96);pointer-events:auto}
+    body.dark .photo-flow.is-upload{background:rgba(36,44,48,.96)}
+    .photo-flow[hidden]{display:none!important}
+    .photo-flow-card{width:min(440px,calc(100% - 16px));padding:20px;border:1px solid rgba(37,51,60,.14);border-radius:14px;background:rgba(255,255,255,.94);box-shadow:0 10px 30px rgba(20,28,32,.16);pointer-events:auto;backdrop-filter:blur(8px)}
+    body.dark .photo-flow-card{background:rgba(37,49,57,.95);border-color:rgba(255,255,255,.14)}
+    .photo-flow-card h2{font-size:20px;line-height:1.25;margin:5px 0 8px}
+    .photo-flow-card>p:not(.photo-flow-step):not(.photo-flow-error){line-height:1.55;color:#5d6b73;margin:0 0 14px}
+    body.dark .photo-flow-card>p:not(.photo-flow-step):not(.photo-flow-error){color:#c2ccd2}
+    .photo-flow-step{margin:0;color:#0878c9;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+    .photo-primary,.photo-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 14px;border-radius:9px;font:inherit;font-weight:750;cursor:pointer;text-align:center}
+    .photo-primary{border:1px solid #0878c9;background:#0878c9;color:#fff}
+    .photo-secondary{border:1px solid #bdcbd3;background:#fff;color:#25333c}
+    body.dark .photo-secondary{background:#35424a;color:#e4ebef;border-color:#52626c}
+    .photo-upload-action{width:100%}
+    .photo-flow-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .photo-flow-actions .photo-full{grid-column:1/-1}
+    .photo-flow-error{margin:12px 0 0;color:#a13f20;font-size:12px;line-height:1.45}
+    #photoCalibrationLayer{position:absolute;inset:0;z-index:5;pointer-events:none}
+    #photoCalibrationLayer[hidden]{display:none!important}
+    #photoCalibrationSvg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+    .photo-calibration-handle{position:absolute;width:34px;height:34px;margin:0;padding:0;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:50%;background:#0878c9;box-shadow:0 2px 10px rgba(0,0,0,.26);pointer-events:auto;touch-action:none;cursor:grab}
+    .photo-calibration-handle:active{cursor:grabbing}
+    @media(max-width:760px){.photo-flow{padding:12px}.photo-flow:not(.is-upload){align-items:flex-end}.photo-flow-card{padding:15px}.photo-flow-card h2{font-size:18px}.photo-calibration-handle{width:38px;height:38px}}
+  `;
+  document.head.append(style);
+}
 
 function installDirectionSlider() {
   const current = $('rotation');
@@ -260,14 +420,29 @@ function stopAreaDrawing() {
   renderAreaEditor();
 }
 
+function pointsCenter(points) {
+  if (!Array.isArray(points) || !points.length) return { x: 0, z: 0 };
+  const xs = points.map((point) => Number(point.x)),
+    zs = points.map((point) => Number(point.z));
+  return {
+    x: (Math.min(...xs) + Math.max(...xs)) / 2,
+    z: (Math.min(...zs) + Math.max(...zs)) / 2,
+  };
+}
+
 function finishAreaDrawing() {
   if (!drawingArea || draftAreaPoints.length < 3) return false;
-  const next = prepareCustomArea(draftAreaPoints, { sceneCoordinates: true, resetEdges: true });
+  const rawPoints = draftAreaPoints.map((point) => ({ ...point })),
+    next = prepareCustomArea(rawPoints, { sceneCoordinates: true, resetEdges: true });
   if (!next) {
     showAreaError();
     renderAreaEditor();
+    if (photoFlowStep === 'draw') showPhotoFlowError(areaText().invalid);
     return false;
   }
+  const center = pointsCenter(rawPoints),
+    completingInitialPhotoFlow = photoFlowStep === 'draw';
+  if (viewer?.hasPhotoCalibration?.()) viewer.shiftPhotoWorld(-center.x, -center.z);
   history.record();
   state = next;
   drawingArea = false;
@@ -275,23 +450,227 @@ function finishAreaDrawing() {
   viewer?.stopAreaDrawing({ preserveCamera: true });
   $('areaError').hidden = true;
   render();
+  if (completingInitialPhotoFlow) completePhotoFlow();
   shell?.markDirty();
   return true;
 }
 
 function commitAreaPointMove(points) {
-  const next = prepareCustomArea(points);
+  const current = areaGeometry(state),
+    rawCenter = pointsCenter(points),
+    next = prepareCustomArea(points);
   if (!next) {
     render();
     showAreaError();
     return false;
   }
+  if (viewer?.hasPhotoCalibration?.())
+    viewer.shiftPhotoWorld(current.width / 2 - rawCenter.x, current.depth / 2 - rawCenter.z);
   history.record();
   state = next;
   $('areaError').hidden = true;
   render();
   shell?.markDirty();
   return true;
+}
+
+function showPhotoFlowError(message) {
+  const error = $('photoFlowError');
+  if (!error) return;
+  error.textContent = message || '';
+  error.hidden = !message;
+}
+
+function updateCalibrationOverlay() {
+  const layer = $('photoCalibrationLayer'),
+    svg = $('photoCalibrationSvg');
+  if (!layer || !svg) return;
+  const visible = photoFlowStep === 'calibrate' && photoRectCache?.width > 0 && photoRectCache?.height > 0;
+  layer.hidden = !visible;
+  if (!visible) return;
+  const host = $('canvasHost'),
+    width = host.clientWidth,
+    height = host.clientHeight,
+    points = calibrationCorners.map((point) => ({
+      x: photoRectCache.left + point.x * photoRectCache.width,
+      y: photoRectCache.top + point.y * photoRectCache.height,
+    }));
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  const pointString = points.map((point) => `${point.x},${point.y}`).join(' '),
+    topMid = { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 },
+    leftMid = { x: (points[0].x + points[3].x) / 2, y: (points[0].y + points[3].y) / 2 };
+  svg.innerHTML = `
+    <polygon points="${pointString}" fill="rgba(8,120,201,.10)" stroke="#0878c9" stroke-width="3" stroke-linejoin="round"/>
+    <line x1="${points[0].x}" y1="${points[0].y}" x2="${points[2].x}" y2="${points[2].y}" stroke="rgba(8,120,201,.35)" stroke-width="1.5" stroke-dasharray="7 6"/>
+    <line x1="${points[1].x}" y1="${points[1].y}" x2="${points[3].x}" y2="${points[3].y}" stroke="rgba(8,120,201,.35)" stroke-width="1.5" stroke-dasharray="7 6"/>
+    <g transform="translate(${topMid.x} ${topMid.y - 17})"><rect x="-27" y="-12" width="54" height="24" rx="6" fill="rgba(255,255,255,.94)"/><text text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="12" font-weight="800" fill="#1b2328">1 m</text></g>
+    <g transform="translate(${leftMid.x - 22} ${leftMid.y})"><rect x="-27" y="-12" width="54" height="24" rx="6" fill="rgba(255,255,255,.94)"/><text text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="12" font-weight="800" fill="#1b2328">1 m</text></g>`;
+  document.querySelectorAll('[data-calibration-corner]').forEach((button) => {
+    const point = points[Number(button.dataset.calibrationCorner)];
+    button.style.left = `${point.x}px`;
+    button.style.top = `${point.y}px`;
+  });
+}
+
+function renderPhotoViewControls() {
+  const button = $('photoModeButton'),
+    camera = $('cameraButton');
+  if (!button || !camera) return;
+  const ready = photoFlowStep === 'done' && viewer?.hasPhotoCalibration?.();
+  button.hidden = !ready;
+  if (!ready) return;
+  const inPhoto = viewer.isPhotoMode();
+  button.textContent = photoText()[inPhoto ? 'freeCamera' : 'photoView'];
+  camera.hidden = inPhoto;
+}
+
+function renderPhotoFlow() {
+  const flow = $('photoFlow');
+  if (!flow) return;
+  const copy = photoText();
+  flow.hidden = photoFlowStep === 'done';
+  flow.classList.toggle('is-upload', photoFlowStep === 'upload');
+  $('photoUploadAction').hidden = photoFlowStep !== 'upload';
+  $('photoCalibrationActions').hidden = photoFlowStep !== 'calibrate';
+  $('photoDrawingActions').hidden = photoFlowStep !== 'draw';
+  if (photoFlowStep === 'upload') {
+    $('photoFlowStep').textContent = copy.stepUpload;
+    $('photoFlowTitle').textContent = copy.uploadTitle;
+    $('photoFlowHelp').textContent = copy.uploadHelp;
+  } else if (photoFlowStep === 'calibrate') {
+    $('photoFlowStep').textContent = copy.stepCalibrate;
+    $('photoFlowTitle').textContent = copy.calibrateTitle;
+    $('photoFlowHelp').textContent = copy.calibrateHelp;
+  } else if (photoFlowStep === 'draw') {
+    $('photoFlowStep').textContent = copy.stepDraw;
+    $('photoFlowTitle').textContent = copy.drawTitle;
+    $('photoFlowHelp').textContent = `${copy.drawHelp} ${areaText().status(draftAreaPoints.length)}`;
+  }
+  $('photoUploadText').textContent = copy.upload;
+  $('photoCalibrationConfirm').textContent = copy.calibrate;
+  $('photoChangeCalibration').textContent = copy.changePhoto;
+  $('photoUndoPoint').textContent = copy.undo;
+  $('photoFinishArea').textContent = copy.finish;
+  $('photoChangeDrawing').textContent = copy.changePhoto;
+  $('photoUndoPoint').disabled = !draftAreaPoints.length;
+  $('photoFinishArea').disabled = draftAreaPoints.length < 3;
+  updateCalibrationOverlay();
+  renderPhotoViewControls();
+}
+
+function resetCalibrationCorners() {
+  calibrationCorners = [
+    { x: 0.36, y: 0.38 },
+    { x: 0.64, y: 0.4 },
+    { x: 0.66, y: 0.66 },
+    { x: 0.34, y: 0.64 },
+  ];
+}
+
+async function loadPhotoFile(file) {
+  if (!file || !/^image\/(jpeg|png|webp)$/i.test(file.type || '')) {
+    showPhotoFlowError(photoText().photoOnly);
+    return false;
+  }
+  if (!viewer) return false;
+  if (drawingArea) {
+    drawingArea = false;
+    draftAreaPoints = [];
+    viewer.stopAreaDrawing();
+  }
+  if (photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
+  photoObjectUrl = URL.createObjectURL(file);
+  showPhotoFlowError('');
+  try {
+    await viewer.loadSitePhoto(photoObjectUrl);
+    resetCalibrationCorners();
+    photoRectCache = viewer.getPhotoRect();
+    photoFlowStep = 'calibrate';
+    document.body.classList.add('tiles-photo-setup');
+    renderPhotoFlow();
+    return true;
+  } catch {
+    showPhotoFlowError(photoText().photoFailed);
+    return false;
+  }
+}
+
+function beginPhotoAreaDrawing() {
+  if (!viewer?.applyPhotoCalibration(calibrationCorners)) {
+    showPhotoFlowError(photoText().calibrationInvalid);
+    return false;
+  }
+  showPhotoFlowError('');
+  photoFlowStep = 'draw';
+  renderPhotoFlow();
+  startAreaDrawing();
+  return true;
+}
+
+function completePhotoFlow() {
+  photoFlowStep = 'done';
+  document.body.classList.remove('tiles-photo-setup');
+  viewer?.completePhotoSetup();
+  renderPhotoFlow();
+  renderPhotoViewControls();
+}
+
+function wirePhotoFlow() {
+  const input = $('sitePhotoInput'),
+    layer = $('photoCalibrationLayer');
+  if (!input || !layer) return;
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    window.__TILES_PENDING_PHOTO_FILE = null;
+    if (file) loadPhotoFile(file);
+    input.value = '';
+  });
+  $('photoCalibrationConfirm').addEventListener('click', beginPhotoAreaDrawing);
+  for (const id of ['photoChangeCalibration', 'photoChangeDrawing'])
+    $(id).addEventListener('click', () => input.click());
+  $('photoUndoPoint').addEventListener('click', () => viewer?.undoAreaPoint());
+  $('photoFinishArea').addEventListener('click', finishAreaDrawing);
+  $('photoModeButton')?.addEventListener('click', () => {
+    if (!viewer?.hasPhotoCalibration()) return;
+    viewer.setPhotoView(!viewer.isPhotoMode());
+    renderPhotoViewControls();
+  });
+
+  let dragIndex = null,
+    pointerId = null;
+  layer.addEventListener('pointerdown', (event) => {
+    const handle = event.target.closest('[data-calibration-corner]');
+    if (!handle || photoFlowStep !== 'calibrate') return;
+    dragIndex = Number(handle.dataset.calibrationCorner);
+    pointerId = event.pointerId;
+    handle.setPointerCapture?.(pointerId);
+    event.preventDefault();
+  });
+  layer.addEventListener('pointermove', (event) => {
+    if (dragIndex === null || event.pointerId !== pointerId || !photoRectCache) return;
+    const rect = $('canvasHost').getBoundingClientRect(),
+      x = (event.clientX - rect.left - photoRectCache.left) / photoRectCache.width,
+      y = (event.clientY - rect.top - photoRectCache.top) / photoRectCache.height;
+    calibrationCorners[dragIndex] = {
+      x: Math.min(0.99, Math.max(0.01, x)),
+      y: Math.min(0.99, Math.max(0.01, y)),
+    };
+    updateCalibrationOverlay();
+    event.preventDefault();
+  });
+  const endCalibrationDrag = (event) => {
+    if (event.pointerId !== pointerId) return;
+    dragIndex = null;
+    pointerId = null;
+  };
+  layer.addEventListener('pointerup', endCalibrationDrag);
+  layer.addEventListener('pointercancel', endCalibrationDrag);
+  renderPhotoFlow();
+  const pending = window.__TILES_PENDING_PHOTO_FILE;
+  if (pending) {
+    window.__TILES_PENDING_PHOTO_FILE = null;
+    loadPhotoFile(pending);
+  }
 }
 
 function render() {
@@ -407,6 +786,8 @@ function render() {
   shell?.refreshConfiguratorPanelFooter();
   $('cameraButton').textContent = t(top ? 'perspective' : 'top');
   $('viewerError').textContent = t('error');
+  renderPhotoFlow();
+  renderPhotoViewControls();
 }
 
 function restore(snapshot) {
@@ -465,6 +846,7 @@ function setLocale(value) {
   locale = value || 'en-US';
   t = translator(locale);
   render();
+  renderPhotoFlow();
 }
 
 function setDarkMode(value) {
@@ -476,6 +858,7 @@ function setDarkMode(value) {
 function cycleCamera() {
   top = viewer?.cycleCamera() || false;
   $('cameraButton').textContent = t(top ? 'perspective' : 'top');
+  renderPhotoViewControls();
 }
 const api = {
   captureState: () => structuredClone(state),
@@ -742,11 +1125,18 @@ try {
     onAreaDraftChange(points) {
       draftAreaPoints = points;
       if (drawingArea) renderAreaEditor();
+      if (photoFlowStep === 'draw') renderPhotoFlow();
     },
     onAreaFinishRequested: finishAreaDrawing,
     onAreaPointMove: commitAreaPointMove,
+    onPhotoRectChange(rect) {
+      photoRectCache = rect;
+      updateCalibrationOverlay();
+    },
   });
   viewer.setDarkMode(Boolean(shell.state.darkMode));
+  photoRectCache = viewer.getPhotoRect();
+  wirePhotoFlow();
   render();
 } catch (error) {
   console.error('Pavement preview failed', error);

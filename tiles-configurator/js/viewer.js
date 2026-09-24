@@ -5,6 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clipRect, polygonArea } from './area.js';
 import { COLORS, TILES, CURBS, curbLayout, areaGeometry } from './model.js';
+import { calibratePhotoCamera } from './photoCalibration.js';
 
 const vertexLabel = (index) => {
   let value = index + 1,
@@ -19,15 +20,34 @@ const vertexLabel = (index) => {
 const snap = (value) => Math.round(value * 20) / 20;
 
 export function createViewer(host, callbacks = {}) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  host.append(renderer.domElement);
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#e6e9e5');
+  host.style.position = host.style.position || 'relative';
+  host.style.overflow = 'hidden';
+  const photoBackdrop = document.createElement('img');
+  photoBackdrop.className = 'tiles-photo-backdrop';
+  photoBackdrop.alt = '';
+  Object.assign(photoBackdrop.style, {
+    position: 'absolute',
+    inset: '0',
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+    objectPosition: 'center',
+    pointerEvents: 'none',
+    userSelect: 'none',
+    zIndex: '0',
+    display: 'none',
+  });
+  Object.assign(renderer.domElement.style, { position: 'relative', zIndex: '1' });
+  host.append(photoBackdrop, renderer.domElement);
+  const scene = new THREE.Scene(),
+    standardBackground = new THREE.Color('#e6e9e5');
+  scene.background = standardBackground.clone();
   const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 1000),
     controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -69,7 +89,16 @@ export function createViewer(host, callbacks = {}) {
     showDimensions = true,
     drawingArea = false,
     draftPoints = [],
-    preserveCameraOnNextRebuild = false;
+    preserveCameraOnNextRebuild = false,
+    photoMode = false,
+    photoSetup = false,
+    photoNaturalWidth = 0,
+    photoNaturalHeight = 0,
+    photoCalibrationCorners = null,
+    photoCalibration = null,
+    photoWorldShift = { x: 0, z: 0 },
+    freeCameraPose = null,
+    darkMode = false;
   scene.add(group, dimensions, areaHandles, areaDraft);
   const box = new THREE.BoxGeometry(1, 1, 1),
     dummy = new THREE.Object3D();
@@ -239,6 +268,189 @@ export function createViewer(host, callbacks = {}) {
       outward = { x: (q.z - p.z) / length, z: -(q.x - p.x) / length };
     dimensionLine(p, q, label, outward);
   }
+  function photoRect() {
+    const width = host.clientWidth,
+      height = host.clientHeight;
+    if (!width || !height || !photoNaturalWidth || !photoNaturalHeight)
+      return { left: 0, top: 0, width, height };
+    const scale = Math.min(width / photoNaturalWidth, height / photoNaturalHeight),
+      photoWidth = photoNaturalWidth * scale,
+      photoHeight = photoNaturalHeight * scale;
+    return {
+      left: (width - photoWidth) / 2,
+      top: (height - photoHeight) / 2,
+      width: photoWidth,
+      height: photoHeight,
+    };
+  }
+  function snapshotFreeCamera() {
+    freeCameraPose = {
+      position: camera.position.clone(),
+      quaternion: camera.quaternion.clone(),
+      target: controls.target.clone(),
+      fov: camera.fov,
+      top,
+    };
+  }
+  function restoreFreeCamera() {
+    if (!freeCameraPose) {
+      top = false;
+      fit();
+      return;
+    }
+    camera.position.copy(freeCameraPose.position);
+    camera.quaternion.copy(freeCameraPose.quaternion);
+    camera.fov = freeCameraPose.fov;
+    camera.aspect = Math.max(1e-6, host.clientWidth / Math.max(1, host.clientHeight));
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+    controls.target.copy(freeCameraPose.target);
+    top = freeCameraPose.top;
+    controls.update();
+  }
+  function applyPhotoCalibrationPose() {
+    if (!photoCalibrationCorners || !photoNaturalWidth || !photoNaturalHeight) return false;
+    const width = host.clientWidth,
+      height = host.clientHeight,
+      rect = photoRect();
+    if (!width || !height || !rect.width || !rect.height) return false;
+    const corners = photoCalibrationCorners.map((point) => ({
+        x: rect.left + point.x * rect.width,
+        y: rect.top + point.y * rect.height,
+      })),
+      calibration = calibratePhotoCamera(corners, width, height);
+    if (!calibration) return false;
+    photoCalibration = calibration;
+    const m = calibration.viewMatrix,
+      view = new THREE.Matrix4().set(
+        m[0], m[1], m[2], m[3],
+        m[4], m[5], m[6], m[7],
+        m[8], m[9], m[10], m[11],
+        m[12], m[13], m[14], m[15],
+      ),
+      world = view.clone().invert();
+    world.decompose(camera.position, camera.quaternion, camera.scale);
+    camera.position.x += photoWorldShift.x;
+    camera.position.z += photoWorldShift.z;
+    camera.fov = calibration.fov;
+    camera.aspect = width / height;
+    camera.near = 0.01;
+    camera.far = 1000;
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+    controls.target.set(photoWorldShift.x, 0, photoWorldShift.z);
+    return true;
+  }
+  function updatePhotoPresentation() {
+    photoBackdrop.style.display = photoMode ? 'block' : 'none';
+    if (photoMode) {
+      scene.background = null;
+      renderer.setClearAlpha(0);
+      ground.visible = false;
+      grid.visible = false;
+      controls.enabled = false;
+      applyPhotoCalibrationPose();
+    } else {
+      scene.background = new THREE.Color(darkMode ? '#242c30' : '#e6e9e5');
+      renderer.setClearAlpha(1);
+      ground.visible = true;
+      controls.enabled = !drawingArea;
+    }
+  }
+  function setPhotoView(enabled) {
+    enabled = Boolean(enabled);
+    if (enabled) {
+      if (!photoCalibrationCorners) return false;
+      if (!photoMode && !photoSetup) snapshotFreeCamera();
+      photoMode = true;
+      updatePhotoPresentation();
+      return Boolean(photoCalibration);
+    }
+    if (photoSetup) return false;
+    if (photoMode) {
+      photoMode = false;
+      updatePhotoPresentation();
+      restoreFreeCamera();
+    }
+    return true;
+  }
+  function setPhotoSetup(active) {
+    photoSetup = Boolean(active);
+    group.visible = !photoSetup;
+    dimensions.visible = !photoSetup && showDimensions && !drawingArea;
+    areaHandles.visible = !photoSetup && !drawingArea;
+    if (photoSetup) controls.enabled = false;
+    else if (photoMode) controls.enabled = false;
+  }
+  function loadSitePhoto(url) {
+    return new Promise((resolve, reject) => {
+      photoCalibrationCorners = null;
+      photoCalibration = null;
+      photoWorldShift = { x: 0, z: 0 };
+      freeCameraPose = null;
+      photoNaturalWidth = 0;
+      photoNaturalHeight = 0;
+      photoMode = true;
+      setPhotoSetup(true);
+      photoBackdrop.style.display = 'block';
+      scene.background = null;
+      renderer.setClearAlpha(0);
+      ground.visible = false;
+      grid.visible = false;
+      const cleanup = () => {
+        photoBackdrop.onload = null;
+        photoBackdrop.onerror = null;
+      };
+      photoBackdrop.onload = () => {
+        photoNaturalWidth = photoBackdrop.naturalWidth || 1;
+        photoNaturalHeight = photoBackdrop.naturalHeight || 1;
+        cleanup();
+        callbacks.onPhotoRectChange?.(photoRect());
+        resolve({ width: photoNaturalWidth, height: photoNaturalHeight, rect: photoRect() });
+      };
+      photoBackdrop.onerror = () => {
+        cleanup();
+        reject(new Error('photoLoadFailed'));
+      };
+      photoBackdrop.src = url;
+    });
+  }
+  function applyPhotoCalibration(corners) {
+    if (!Array.isArray(corners) || corners.length !== 4) return false;
+    const normalized = corners.map((point) => ({ x: Number(point?.x), y: Number(point?.y) }));
+    if (
+      normalized.some(
+        (point) =>
+          !Number.isFinite(point.x) ||
+          !Number.isFinite(point.y) ||
+          point.x < 0 ||
+          point.x > 1 ||
+          point.y < 0 ||
+          point.y > 1,
+      )
+    )
+      return false;
+    photoCalibrationCorners = normalized;
+    photoMode = true;
+    updatePhotoPresentation();
+    return Boolean(photoCalibration);
+  }
+  function shiftPhotoWorld(dx, dz) {
+    dx = Number(dx);
+    dz = Number(dz);
+    if (!Number.isFinite(dx) || !Number.isFinite(dz)) return false;
+    photoWorldShift.x += dx;
+    photoWorldShift.z += dz;
+    if (photoMode && photoCalibrationCorners) applyPhotoCalibrationPose();
+    return true;
+  }
+  function completePhotoSetup() {
+    setPhotoSetup(false);
+    group.visible = true;
+    drawAreaHandles();
+    dimensions.visible = showDimensions && !drawingArea;
+    setPhotoView(true);
+  }
   function fit() {
     if (!state || !bounds) return;
     const size = Math.max(
@@ -310,7 +522,7 @@ export function createViewer(host, callbacks = {}) {
   }
   function drawAreaHandles() {
     clearOverlay(areaHandles);
-    if (drawingArea || !state || state.shape !== 'custom' || !bounds) return;
+    if (photoSetup || drawingArea || !state || state.shape !== 'custom' || !bounds) return;
     bounds.points.forEach((p, i) => {
       areaHandles.add(makeHandle(p.x - bounds.width / 2, p.z - bounds.depth / 2, i, false));
     });
@@ -340,9 +552,9 @@ export function createViewer(host, callbacks = {}) {
   }
   function setPreviousAreaVisible(visible) {
     group.children.forEach((child) => {
-      child.visible = visible || child.userData.house === true;
+      child.visible = !photoSetup && (visible || child.userData.house === true);
     });
-    dimensions.visible = visible && showDimensions;
+    dimensions.visible = !photoSetup && visible && showDimensions;
   }
   function rebuild(s, parts) {
     const nextBounds = areaGeometry(s),
@@ -463,9 +675,12 @@ export function createViewer(host, callbacks = {}) {
         );
       });
     if (drawingArea) setPreviousAreaVisible(false);
-    else dimensions.visible = showDimensions;
+    else dimensions.visible = !photoSetup && showDimensions;
     drawAreaHandles();
-    if (changed && !drawingArea) {
+    if (photoMode) {
+      preserveCameraOnNextRebuild = false;
+      applyPhotoCalibrationPose();
+    } else if (changed && !drawingArea) {
       if (preserveCameraOnNextRebuild) preserveCameraOnNextRebuild = false;
       else fit();
     } else if (preserveCameraOnNextRebuild && !drawingArea) {
@@ -485,7 +700,9 @@ export function createViewer(host, callbacks = {}) {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    fit();
+    if (photoMode && photoCalibrationCorners) applyPhotoCalibrationPose();
+    else if (!photoSetup) fit();
+    callbacks.onPhotoRectChange?.(photoRect());
   };
   new ResizeObserver(resize).observe(host);
   resize();
@@ -519,7 +736,7 @@ export function createViewer(host, callbacks = {}) {
     }
   }
   function restorePointerInteraction() {
-    controls.enabled = true;
+    controls.enabled = !photoMode && !photoSetup;
     renderer.domElement.style.cursor = drawingArea ? 'crosshair' : '';
   }
   renderer.domElement.addEventListener(
@@ -527,6 +744,19 @@ export function createViewer(host, callbacks = {}) {
     (event) => {
       if (event.button !== 0) return;
       if (drawingArea) {
+        if (photoMode) {
+          const canvasRect = renderer.domElement.getBoundingClientRect(),
+            imageRect = photoRect(),
+            px = event.clientX - canvasRect.left,
+            py = event.clientY - canvasRect.top;
+          if (
+            px < imageRect.left ||
+            px > imageRect.left + imageRect.width ||
+            py < imageRect.top ||
+            py > imageRect.top + imageRect.height
+          )
+            return;
+        }
         ray(event);
         const handleHit = raycaster.intersectObjects(
           areaDraft.children.filter((child) => child.userData.areaPoint !== undefined),
@@ -719,7 +949,7 @@ export function createViewer(host, callbacks = {}) {
     if (drawingArea) event.preventDefault();
   });
   renderer.setAnimationLoop(() => {
-    controls.update();
+    if (!photoMode) controls.update();
     renderer.render(scene, camera);
   });
   return {
@@ -732,11 +962,11 @@ export function createViewer(host, callbacks = {}) {
       draftPoints = [];
       drawPointer = null;
       draftPointDrag = null;
-      grid.visible = true;
+      grid.visible = !photoMode;
       areaHandles.visible = false;
       clearOverlay(areaDraft);
       setPreviousAreaVisible(false);
-      controls.enabled = true;
+      controls.enabled = !photoMode && !photoSetup;
       renderer.domElement.style.cursor = 'crosshair';
       updateDraftCallback();
     },
@@ -761,7 +991,20 @@ export function createViewer(host, callbacks = {}) {
       restorePointerInteraction();
       updateDraftCallback();
     },
+    loadSitePhoto,
+    getPhotoRect: photoRect,
+    applyPhotoCalibration,
+    shiftPhotoWorld,
+    completePhotoSetup,
+    setPhotoView,
+    isPhotoMode() {
+      return photoMode;
+    },
+    hasPhotoCalibration() {
+      return Boolean(photoCalibrationCorners && photoCalibration);
+    },
     cycleCamera() {
+      if (photoMode) setPhotoView(false);
       top = !top;
       fit();
       return top;
@@ -772,9 +1015,10 @@ export function createViewer(host, callbacks = {}) {
       return showDimensions;
     },
     setDarkMode(dark) {
-      scene.background.set(dark ? '#242c30' : '#e6e9e5');
-      ground.material.color.set(dark ? '#3a453d' : '#cbd0c4');
-      grid.material.color?.set?.(dark ? '#7e919b' : '#93a5af');
+      darkMode = Boolean(dark);
+      if (!photoMode) scene.background = new THREE.Color(darkMode ? '#242c30' : '#e6e9e5');
+      ground.material.color.set(darkMode ? '#3a453d' : '#cbd0c4');
+      grid.material.color?.set?.(darkMode ? '#7e919b' : '#93a5af');
     },
   };
 }
