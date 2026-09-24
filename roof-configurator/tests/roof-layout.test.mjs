@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  splitLayoutInPlace, selectionSurfaces, layoutStepWalls, moveLayoutPoint, linkedPlanPoints,
+  joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, layoutStepWalls, moveLayoutPoint, linkedPlanPoints,
   deleteLayoutPoint, deleteLayoutEdge,
   layoutWallFootprint, layoutWallSegments, signedArea, validatePolygon,
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
@@ -306,4 +306,46 @@ test('equal-height split copies do not introduce covering seams', () => {
     patches: group.patches, boundary: group.boundary,
   }));
   assert.deepEqual(shape(layout), shape(source));
+});
+
+
+test('joining an edge keeps selected endpoint heights and removes the step wall', () => {
+  const { layout, copies } = splitLayoutInPlace(defaultLayout(), [2, 5], [0]);
+  layout.vertices[copies[0]].h = 3;
+  layout.vertices[copies[1]].h = 4;
+  const before = JSON.stringify(layout);
+  const joined = joinLayoutInPlace(layout, copies);
+  assert.equal(joined.vertices.length, 6);
+  assert.equal(joined.vertices[2].h, 3);
+  assert.equal(joined.vertices[5].h, 4);
+  assert.equal(joined.faces.length, 2);
+  assert.equal(joined.planLinks, undefined);
+  assert.equal(layoutStepWalls(joined).length, 0);
+  assert.equal(JSON.stringify(layout), before);
+  assert.deepEqual(validateLayout(JSON.parse(JSON.stringify(joined))), joined);
+});
+
+test('joining one point preserves other splits and can complete a partial edge join', () => {
+  const { layout, copies } = splitLayoutInPlace(defaultLayout(), [2, 5], [0]);
+  layout.vertices[copies[0]].h = 3;
+  layout.vertices[copies[1]].h = 4;
+  const pointJoined = joinLayoutInPlace(layout, [2]);
+  assert.equal(pointJoined.vertices[2].h, 2);
+  assert.equal(pointJoined.vertices.length, 7);
+  assert.equal(pointJoined.planLinks.length, 1);
+  assert.equal(layoutStepWalls(pointJoined).length, 1);
+  const finished = joinLayoutInPlace(pointJoined, [2, 5]);
+  assert.deepEqual(finished, defaultLayout());
+});
+
+test('joining a point reconnects multiple copies and rejects invalid selections', () => {
+  const first = splitLayoutInPlace(lShapedLayout(), [6], [0]);
+  const second = splitLayoutInPlace(first.layout, [6], [2]);
+  second.layout.vertices[second.copies[0]].h = 3;
+  const joined = joinLayoutInPlace(second.layout, second.copies);
+  assert.equal(joined.vertices.length, 9);
+  assert.equal(joined.vertices[6].h, 3);
+  assert.equal(joined.planLinks, undefined);
+  assert.throws(() => joinLayoutInPlace(defaultLayout(), [2]));
+  assert.throws(() => joinLayoutInPlace(first.layout, [0, 2]));
 });

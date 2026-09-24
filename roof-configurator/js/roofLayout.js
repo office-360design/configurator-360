@@ -519,7 +519,7 @@ export function deleteLayoutEdge(source, a, b) {
 
 export function deleteLayoutPoint(source, id) {
   if (linkedPlanPoints(source, id).length > 1) {
-    throw new Error('This point belongs to a split connection. Undo the split before deleting it.');
+    throw new Error('This point belongs to a split connection. Use Join in place before deleting it.');
   }
   if (!Number.isInteger(id) || !source.vertices[id]) throw new Error('Select a point first.');
   if (source.boundary.includes(id) && source.boundary.length <= 3) {
@@ -623,4 +623,31 @@ export function layoutStepWalls(layout) {
     });
   }
   return walls;
+}
+
+// Reconnect all coincident copies of the selected point or edge endpoints.
+// The selected copy supplies the height; face divisions remain intact.
+export function joinLayoutInPlace(source, ids) {
+  validateLayout(source);
+  if (![1, 2].includes(ids.length) || new Set(ids).size !== ids.length ||
+    !selectionSurfaces(source, ids).length) {
+    throw new Error('Select a split point or edge to join.');
+  }
+  if (!ids.some(id => linkedPlanPoints(source, id).length > 1)) {
+    throw new Error('This selection is already joined.');
+  }
+  const next = cloneLayout(source);
+  const replacements = new Map();
+  ids.forEach(id => {
+    const copies = linkedPlanPoints(source, id);
+    const keep = copies[0];
+    next.vertices[keep].h = source.vertices[id].h;
+    copies.forEach(copy => replacements.set(copy, keep));
+  });
+  const replace = ring => ring.map(id => replacements.get(id) ?? id);
+  next.faces = next.faces.map(replace);
+  next.boundary = replace(next.boundary);
+  next.planLinks = next.planLinks.filter(group => !group.some(id => replacements.has(id)));
+  if (!next.planLinks.length) delete next.planLinks;
+  return compactLayout(next);
 }
