@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  splitLayoutInPlace, selectionSurfaces, layoutStepWalls, moveLayoutPoint, linkedPlanPoints,
   deleteLayoutPoint, deleteLayoutEdge,
   layoutWallFootprint, layoutWallSegments, signedArea, validatePolygon,
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
@@ -223,4 +224,86 @@ test('deleting a polyline dividing edge removes orphaned interior points', () =>
   assert.equal(next.faces.length, 1);
   assert.ok(!next.vertices.some(p => p.x === 0 && p.z === 1));
   validateLayout(next);
+});
+
+test('point split detaches chosen L-roof surfaces and permits independent height', () => {
+  const source = lShapedLayout();
+  const before = JSON.stringify(source);
+  const { layout, copies } = splitLayoutInPlace(source, [6], [0, 2]);
+  assert.equal(copies.length, 1);
+  assert.equal(selectionSurfaces(layout, copies).length, 2);
+  assert.ok(selectionSurfaces(layout, [6]).length > 0);
+  layout.vertices[copies[0]].h += 1;
+  validateLayout(layout);
+  assert.equal(JSON.stringify(source), before);
+  assert.equal(layout.vertices[6].h, source.vertices[6].h);
+  assert.ok(layoutStepWalls(layout).length > 0);
+  assert.deepEqual(validateLayout(JSON.parse(JSON.stringify(layout))), layout);
+});
+
+test('edge split duplicates both endpoints and builds a vertical step wall', () => {
+  const { layout, copies } = splitLayoutInPlace(defaultLayout(), [2, 5], [0]);
+  assert.equal(layoutStepWalls(layout).length, 0);
+  assert.equal(layoutMetrics(layout).roofArea, layoutMetrics(defaultLayout()).roofArea);
+  copies.forEach(id => { layout.vertices[id].h = 3; });
+  validateLayout(layout);
+  const walls = layoutStepWalls(layout);
+  assert.equal(walls.length, 1);
+  assert.deepEqual(walls[0].map(p => p.h).sort(), [2, 2, 3, 3]);
+  // At a gable, opposite wall intervals must retain their own roof heights.
+  const wallSegments = layoutWallSegments(layout, layoutWallFootprint(layout, 0).points);
+  const ridgeHeights = wallSegments.flat().filter(p => p.z === 0).map(p => p.h);
+  assert.ok(ridgeHeights.includes(2) && ridgeHeights.includes(3));
+});
+
+test('step walls split safely where independently edited height profiles cross', () => {
+  const { layout, copies } = splitLayoutInPlace(defaultLayout(), [2, 5], [0]);
+  layout.vertices[copies[0]].h = 3;
+  layout.vertices[copies[1]].h = 1;
+  const walls = layoutStepWalls(layout);
+  assert.equal(walls.length, 2);
+  assert.ok(walls.every(polygon => polygon.length === 3));
+});
+
+test('split copies move together in plan but never copy heights', () => {
+  const { layout, copies } = splitLayoutInPlace(lShapedLayout(), [6], [0]);
+  const h = layout.vertices[6].h;
+  moveLayoutPoint(layout, copies[0], { x: -2.4, z: -2, h: 3 });
+  assert.equal(layout.vertices[6].x, -2.4);
+  assert.equal(layout.vertices[6].h, h);
+  validateLayout(layout);
+});
+
+test('inserting into a split edge preserves both independent height profiles', () => {
+  const { layout, copies } = splitLayoutInPlace(defaultLayout(), [2, 5], [0]);
+  copies.forEach(id => { layout.vertices[id].h = 3; });
+  const inserted = insertPoint(layout, { x: 0, z: 0, edgeIds: copies });
+  validateLayout(layout);
+  const linked = linkedPlanPoints(layout, inserted);
+  assert.equal(linked.length, 2);
+  assert.deepEqual(linked.map(id => layout.vertices[id].h).sort(), [2, 3]);
+});
+
+test('split validation rejects malformed links, gaps and invalid detach selections', () => {
+  assert.throws(() => splitLayoutInPlace(defaultLayout(), [2, 5], [0, 1]));
+  assert.throws(() => splitLayoutInPlace(defaultLayout(), [0, 1], [0]));
+  const { layout, copies } = splitLayoutInPlace(defaultLayout(), [2, 5], [0]);
+  const moved = cloneLayout(layout);
+  moved.vertices[copies[0]].x += 0.1;
+  assert.throws(() => validateLayout(moved), /aligned/);
+  const duplicate = cloneLayout(layout);
+  duplicate.planLinks[0].push(duplicate.planLinks[0][0]);
+  assert.throws(() => validateLayout(duplicate));
+  const gap = cloneLayout(layout);
+  gap.faces.pop();
+  assert.throws(() => validateLayout(gap));
+});
+
+test('equal-height split copies do not introduce covering seams', () => {
+  const source = lShapedLayout();
+  const { layout } = splitLayoutInPlace(source, [6], [0, 2]);
+  const shape = value => roofSurfaceGroups(value).map(group => ({
+    patches: group.patches, boundary: group.boundary,
+  }));
+  assert.deepEqual(shape(layout), shape(source));
 });

@@ -1,7 +1,7 @@
 import {
   defaultLayout, layoutBounds, layoutMetrics, roofSurfaceGroups,
-  layoutWallFootprint, layoutWallSegments, signedArea,
-} from './roofLayout.js?v=layout-6';
+  layoutWallFootprint, layoutWallSegments, layoutStepWalls, signedArea,
+} from './roofLayout.js?v=layout-7';
 import * as THREE from 'three';
 
 console.info('[RoofLab] roofFactory build 14 loaded');
@@ -1748,6 +1748,13 @@ function buildDrawnRoof(group, state, materials) {
       new THREE.Vector3(a.x, 0, a.z), new THREE.Vector3(b.x, 0, b.z), b, a,
     ], materials.wall);
     wall.name = 'drawn-wall';
+    group.add(wall);
+  });
+  layoutStepWalls(layout).forEach(polygon => {
+    const wall = makeWallFace(polygon.map(p => new THREE.Vector3(
+      p.x - centerX, state.wallHeight + ROOF_OFFSET_Y + p.h, p.z - centerZ,
+    )), materials.wall);
+    wall.name = 'drawn-step-wall';
     group.add(wall);
   });
   const uniqueEdges = new Map();

@@ -86,6 +86,32 @@ export function validateLayout(layout) {
     validatePolygon(ids.map(i => layout.vertices[i]));
     triangulate(ids, layout.vertices);
   });
+  if (layout.planLinks !== undefined) {
+    if (!Array.isArray(layout.planLinks) || layout.planLinks.length > 160) {
+      throw new Error('Invalid split-point links.');
+    }
+    const used = new Set();
+    const canonical = layout.vertices.map((_, id) => id);
+    layout.planLinks.forEach(ids => {
+      if (!Array.isArray(ids) || ids.length < 2 || ids.length > 160 || ids.some(id =>
+        !Number.isInteger(id) || !layout.vertices[id] || used.has(id))) {
+        throw new Error('Invalid or overlapping split-point links.');
+      }
+      ids.forEach(id => {
+        if (used.has(id) || distance(layout.vertices[id], layout.vertices[ids[0]]) > EPS) {
+          throw new Error('Split points must remain aligned in plan.');
+        }
+        used.add(id);
+        canonical[id] = ids[0];
+      });
+    });
+    const plain = { ...layout };
+    delete plain.planLinks;
+    plain.faces = layout.faces.map(face => face.map(id => canonical[id]));
+    plain.boundary = layout.boundary.map(id => canonical[id]);
+    validateLayout(plain);
+    return layout;
+  }
   const boundary = layout.boundary.map(i => layout.vertices[i]);
   if (layout.vertices.some(p => !inside(p, boundary))) throw new Error('Points must stay inside the perimeter.');
   const bounds = layoutBounds(layout);
@@ -139,23 +165,32 @@ export function defaultLayout() {
 // Insert an edge point into every incident face, preserving shared topology.
 export function insertPoint(layout, point) {
   const existing = layout.vertices.findIndex(p => distance(p, point) < EPS);
-  if (existing >= 0) return existing;
-  let height;
+  if (existing >= 0) {
+    return linkedPlanPoints(layout, existing).includes(point.id) ? point.id : existing;
+  }
   const rings = [layout.boundary, ...layout.faces];
-  const id = layout.vertices.length;
+  const copies = new Map();
+  const key = (a, b) => [a, b].sort((x, y) => x - y).join(':');
   rings.forEach(ring => {
     for (let i = 0; i < ring.length; i++) {
-      const a = layout.vertices[ring[i]], b = layout.vertices[ring[(i + 1) % ring.length]];
+      const aId = ring[i], bId = ring[(i + 1) % ring.length];
+      const a = layout.vertices[aId], b = layout.vertices[bId];
       if (!onSegment(point, a, b)) continue;
-      height = a.h + (b.h - a.h) * distance(a, point) / distance(a, b);
-      ring.splice(i + 1, 0, id);
+      const edgeKey = key(aId, bId);
+      if (!copies.has(edgeKey)) {
+        copies.set(edgeKey, layout.vertices.length);
+        layout.vertices.push({ x: point.x, z: point.z,
+          h: a.h + (b.h - a.h) * distance(a, point) / distance(a, b) });
+      }
+      ring.splice(i + 1, 0, copies.get(edgeKey));
       break;
     }
   });
-  if (height === undefined) throw new Error('Start and finish the dividing line on a surface edge.');
-  layout.vertices.push({ x: point.x, z: point.z, h: height });
-  return id;
+  if (!copies.size) throw new Error('Start and finish the dividing line on a surface edge.');
+  if (copies.size > 1) linkPlanPoints(layout, [...copies.values()]);
+  return (point.edgeIds && copies.get(key(...point.edgeIds))) ?? [...copies.values()][0];
 }
+
 export function splitSurface(source, path) {
   if (path.length < 2) throw new Error('Choose the start and end of a dividing line.');
   const layout = cloneLayout(source);
@@ -268,7 +303,10 @@ export function lShapedLayout() {
 // Rendering patches share one plane even when editing/topology splits that
 // plane into several faces. Only the patch perimeter is a physical roof edge.
 export function roofSurfaceGroups(layout) {
-  const triangles = layout.faces.flatMap(face => triangulate(face, layout.vertices));
+  const renderId = id => linkedPlanPoints(layout, id).find(other =>
+    Math.abs(layout.vertices[other].h - layout.vertices[id].h) < EPS);
+  const triangles = layout.faces.flatMap(face => triangulate(face, layout.vertices))
+    .map(triangle => triangle.map(renderId));
   const groups = [];
   for (const triangle of triangles) {
     const [a, b, c] = triangle.map(id => layout.vertices[id]);
@@ -396,8 +434,7 @@ export function layoutWallFootprint(layout, requested = 0) {
 export function layoutWallSegments(layout, footprint) {
   const triangles = layout.faces.flatMap(face => triangulate(face, layout.vertices))
     .map(ids => ids.map(id => layout.vertices[id]));
-  const height = p => {
-    const triangle = triangles.find(t => inside(p, t));
+  const height = (p, triangle) => {
     if (!triangle) throw new Error('Wall lies outside the roof.');
     const [a, b, c] = triangle;
     const area = cross(a, b, c);
@@ -417,11 +454,14 @@ export function layoutWallSegments(layout, footprint) {
       if (t > EPS && t < 1 - EPS && u >= -EPS && u <= 1 + EPS) cuts.push(t);
     }));
     cuts.sort((x, y) => x - y);
-    const points = cuts.filter((t, j) => !j || t - cuts[j - 1] > EPS).map(t => {
-      const p = { x: a.x + dx * t, z: a.z + dz * t };
-      return { ...p, h: height(p) };
+    const positions = cuts.filter((t, j) => !j || t - cuts[j - 1] > EPS)
+      .map(t => ({ x: a.x + dx * t, z: a.z + dz * t }));
+    return positions.slice(1).map((p, j) => {
+      const q = positions[j];
+      const mid = { x: (p.x + q.x) / 2, z: (p.z + q.z) / 2 };
+      const triangle = triangles.find(t => inside(mid, t));
+      return [q, p].map(point => ({ ...point, h: height(point, triangle) }));
     });
-    return points.slice(1).map((p, j) => [points[j], p]);
   });
 }
 
@@ -429,8 +469,11 @@ function compactLayout(layout) {
   const used = new Set([...layout.boundary, ...layout.faces.flat()]);
   const ids = [...used].sort((a, b) => a - b);
   const remap = ring => ring.map(id => ids.indexOf(id));
-  return validateLayout({ ...layout, vertices: ids.map(id => layout.vertices[id]),
-    boundary: remap(layout.boundary), faces: layout.faces.map(remap) });
+  const next = { ...layout, vertices: ids.map(id => layout.vertices[id]),
+    boundary: remap(layout.boundary), faces: layout.faces.map(remap) };
+  if (layout.planLinks) next.planLinks = layout.planLinks
+    .map(group => group.filter(id => used.has(id))).filter(group => group.length > 1).map(remap);
+  return validateLayout(next);
 }
 
 // Trace the outside of adjoining faces after dissolving their shared edges.
@@ -475,6 +518,9 @@ export function deleteLayoutEdge(source, a, b) {
 }
 
 export function deleteLayoutPoint(source, id) {
+  if (linkedPlanPoints(source, id).length > 1) {
+    throw new Error('This point belongs to a split connection. Undo the split before deleting it.');
+  }
   if (!Number.isInteger(id) || !source.vertices[id]) throw new Error('Select a point first.');
   if (source.boundary.includes(id) && source.boundary.length <= 3) {
     throw new Error('The roof perimeter needs at least three points.');
@@ -490,4 +536,91 @@ export function deleteLayoutPoint(source, id) {
   merged.boundary = merged.boundary.filter(vertex => vertex !== id);
   merged.faces = merged.faces.map(face => face.filter(vertex => vertex !== id));
   return compactLayout(merged);
+}
+
+// Explicit plan links permit coincident points with independent heights.
+// They never weld heights; they only preserve the closed plan topology.
+export function linkedPlanPoints(layout, id) {
+  return layout.planLinks?.find(ids => ids.includes(id)) || [id];
+}
+
+export function moveLayoutPoint(layout, id, point) {
+  linkedPlanPoints(layout, id).forEach(linked => {
+    layout.vertices[linked].x = point.x;
+    layout.vertices[linked].z = point.z;
+  });
+  layout.vertices[id].h = point.h;
+}
+
+function linkPlanPoints(layout, ids) {
+  const existing = layout.planLinks || [];
+  const joined = new Set(ids);
+  existing.filter(group => group.some(id => joined.has(id)))
+    .forEach(group => group.forEach(id => joined.add(id)));
+  layout.planLinks = [...existing.filter(group => !group.some(id => joined.has(id))), [...joined]];
+}
+
+export function selectionSurfaces(layout, ids) {
+  return layout.faces.flatMap((face, index) => {
+    const matches = ids.length === 1 ? face.includes(ids[0]) : face.some((a, i) => {
+      const b = face[(i + 1) % face.length];
+      return (a === ids[0] && b === ids[1]) || (a === ids[1] && b === ids[0]);
+    });
+    return matches ? [index] : [];
+  });
+}
+
+export function splitLayoutInPlace(source, ids, detachedFaces) {
+  validateLayout(source);
+  if (![1, 2].includes(ids.length) || new Set(ids).size !== ids.length) {
+    throw new Error('Select a shared point or edge.');
+  }
+  const incident = selectionSurfaces(source, ids);
+  if (incident.length < 2) throw new Error('This selection is already independent or lies on the outer perimeter.');
+  if (!detachedFaces.length || detachedFaces.length >= incident.length ||
+    new Set(detachedFaces).size !== detachedFaces.length || detachedFaces.some(i => !incident.includes(i))) {
+    throw new Error('Choose at least one adjoining surface and leave at least one on the original side.');
+  }
+  const next = cloneLayout(source);
+  const copies = ids.map(id => {
+    const copy = next.vertices.length;
+    next.vertices.push({ ...next.vertices[id] });
+    linkPlanPoints(next, [id, copy]);
+    return copy;
+  });
+  detachedFaces.forEach(index => {
+    next.faces[index] = next.faces[index].map(id => ids.includes(id) ? copies[ids.indexOf(id)] : id);
+  });
+  return { layout: validateLayout(next), copies };
+}
+
+// Each discontinuous shared plan edge creates a vertical closure. If the two
+// height profiles cross, split at the crossing instead of making a bow-tie quad.
+export function layoutStepWalls(layout) {
+  const canonical = id => linkedPlanPoints(layout, id)[0];
+  const edges = new Map();
+  layout.faces.forEach(face => face.forEach((a, i) => {
+    const b = face[(i + 1) % face.length];
+    const pair = canonical(a) < canonical(b) ? [a, b] : [b, a];
+    const key = pair.map(canonical).join(':');
+    if (!edges.has(key)) edges.set(key, []);
+    edges.get(key).push(pair.map(id => layout.vertices[id]));
+  }));
+  const walls = [];
+  for (const sides of edges.values()) {
+    if (sides.length !== 2) continue;
+    const [[a, b], [c, d]] = sides;
+    const da = a.h - c.h, db = b.h - d.h;
+    if (Math.abs(da) < EPS && Math.abs(db) < EPS) continue;
+    const cuts = da * db < 0 ? [0, da / (da - db), 1] : [0, 1];
+    const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t,
+      z: a.z + (b.z - a.z) * t, h: a.h + (b.h - a.h) * t });
+    cuts.slice(1).forEach((t, i) => {
+      const polygon = [lerp(a, b, cuts[i]), lerp(a, b, t), lerp(c, d, t), lerp(c, d, cuts[i])];
+      const unique = polygon.filter((p, j) => !polygon.slice(0, j).some(q =>
+        distance(p, q) < EPS && Math.abs(p.h - q.h) < EPS));
+      if (unique.length >= 3) walls.push(unique);
+    });
+  }
+  return walls;
 }
